@@ -3,7 +3,7 @@
     "allowed_actions": [],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-26.3-names-migration-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89",
+  "campaign_id": "hyperfide-task-26.3-names-migration-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a923d185cd03",
   "case_ids": [
     "V-026",
     "V-055"
@@ -77,8 +77,8 @@
     },
     {
       "path": "services/hyperfide/src/components/service.ts",
-      "sha256": "529bdc90d091c4a05e9d1c16431c41b2d617e029f4d5f3d43354e19afffbacf7",
-      "size": 10886
+      "sha256": "e479e24cf755dfc44ac1186e2b668020434658001fed0a7605a3229222499df9",
+      "size": 11346
     },
     {
       "path": "services/hyperfide/src/policy/programme.ts",
@@ -97,8 +97,8 @@
     },
     {
       "path": "services/hyperfide/dist/components/service.js",
-      "sha256": "4e1b95193fb0d67bc3720d8ef2c520392e5b6136ac1764815da218ff5ef88dd0",
-      "size": 11138
+      "sha256": "88e7cd525b35083b4b08359beccbdbffbfee7cb225519e52bfe84321f53f675d",
+      "size": 11544
     },
     {
       "path": "services/hyperfide/dist/policy/programme.js",
