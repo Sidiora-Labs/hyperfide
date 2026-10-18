@@ -471,15 +471,54 @@ class Validator:
             self.notes.append('Task catalog, traceability baseline and dated authoring reports are historical plans. Native KVX owns bootstrap live task state. Structural validation never certifies task or runtime qualification.')
         clauses = {f'{name[4:]}.{key[3:]}' for name, values in sections.items() if name.startswith('req.')
                    for key in values if re.fullmatch(r'ac_\d+', key)}
-        expected_clauses = {f'{req}.{ac}' for req in range(1, 29) for ac in range(1, 5)} | {'11.5'}
+        expected_clauses = {
+            '1.1', '1.2', '1.3', '1.4',
+            '2.1', '2.2', '2.3', '2.4',
+            '3.1', '3.2', '3.3', '3.4',
+            '4.1', '4.2', '4.3', '4.4',
+            '5.1', '5.2', '5.3', '5.4',
+            '6.1', '6.2', '6.3', '6.4',
+            '7.1', '7.2', '7.3', '7.4',
+            '8.1', '8.2', '8.3', '8.4',
+            '9.1', '9.2', '9.3', '9.4',
+            '10.1', '10.2', '10.3', '10.4',
+            '11.1', '11.2', '11.3', '11.4', '11.5',
+            '12.1', '12.2', '12.3', '12.4',
+            '13.1', '13.2', '13.3', '13.4',
+            '14.1', '14.2', '14.3', '14.4',
+            '15.1', '15.2', '15.3', '15.4',
+            '16.1', '16.2', '16.3', '16.4',
+            '17.1', '17.2', '17.3', '17.4',
+            '18.1', '18.2', '18.3', '18.4',
+            '19.1', '19.2', '19.3', '19.4',
+            '20.1', '20.2', '20.3', '20.4',
+            '21.1', '21.2', '21.3', '21.4',
+            '22.1', '22.2', '22.3', '22.4',
+            '23.1', '23.2', '23.3', '23.4',
+            '24.1', '24.2', '24.3', '24.4',
+            '25.1', '25.2', '25.3', '25.4',
+            '26.1', '26.2', '26.3', '26.4',
+            '27.1', '27.2', '27.3', '27.4',
+            '28.1', '28.2', '28.3', '28.4',
+            '29.1', '29.2', '29.3', '29.4',
+            '30.1', '30.2', '30.3', '30.4',
+            '31.1', '31.2', '31.3', '31.4',
+            '32.1', '32.2', '32.3', '32.4',
+            '33.1', '33.2', '33.3', '33.4',
+            '34.1', '34.2', '34.3', '34.4',
+            '35.1', '35.2', '35.3', '35.4',
+            '36.1', '36.2', '36.3', '36.4',
+            '37.1', '37.2', '37.3', '37.4',
+            '38.1', '38.2', '38.3', '38.4',
+        }
         if clauses != expected_clauses:
-            self.errors.append(f'spec.kvx: expected 113 clauses; missing={sorted(expected_clauses-clauses)}, extra={sorted(clauses-expected_clauses)}')
+            self.errors.append(f'spec.kvx: expected 153 clauses; missing={sorted(expected_clauses-clauses)}, extra={sorted(clauses-expected_clauses)}')
         tasks = {name[5:]: values for name, values in sections.items() if name.startswith('task.')}
         verification = self.root / 'verification.md'
         case_rows = re.findall(r'^\|\s*(V-\d{3})\s*\|', verification.read_text(), re.M) if verification.exists() else []
         cases = set(case_rows)
-        if cases != {f'V-{number:03}' for number in range(1, 58)}:
-            self.errors.append('verification must define exactly V-001 through V-057 in case tables')
+        if cases != {f'V-{number:03}' for number in range(1, 68)}:
+            self.errors.append('verification must define exactly V-001 through V-067 in case tables')
         if len(case_rows) != len(cases):
             self.errors.append('verification contains duplicate acceptance case table rows')
         acceptance = {name[len('acceptance.'):]: values for name, values in sections.items() if name.startswith('acceptance.')}
@@ -487,8 +526,8 @@ class Validator:
             self.incomplete.append('native task sections not yet assembled')
         else:
             self.errors.extend(task_errors(tasks, clauses, cases, self.mode))
-            if len(tasks) != 113:
-                self.errors.append(f'expected 113 native implementation tasks, found {len(tasks)}')
+            if len(tasks) != 123:
+                self.errors.append(f'expected 123 native implementation tasks, found {len(tasks)}')
         if not acceptance:
             self.incomplete.append('native acceptance sections not yet assembled')
         else:
