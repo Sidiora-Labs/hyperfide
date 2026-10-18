@@ -9,6 +9,7 @@ import {StorageError,assertPrimaryTransaction,bounded,deadlineFrom} from './tran
 import {FileExternalAuthorityJournal} from './authority_journal.js';
 import type {ExternalAuthorityJournal,ExternalAuthorityAttestation} from './authority_journal.js';
 import type {PrimaryTransaction,QuerySession,TransactionOptions} from './transactions.js';
+import {createExternalWriterFence} from '../recovery/fencing.js';
 
 export interface MigrationDefinition {version:number;name:string;checksum:string;sql:string}
 const DIRECTORY=fileURLToPath(new URL('../../migrations/',import.meta.url));
@@ -213,6 +214,10 @@ export class AuthorityStore {
    const previous=await lookupAuthorityActivation(this.resources,{...lookup,timeoutMs:remaining()});
    await publish(previous.epoch);return {epoch:previous.epoch,replayed:true};
   }catch(error){if(!(error instanceof FoundationError)||error.code!=='AUTHORITY_OPERATION_UNCONFIRMED')throw error;}
+  if(!restore&&externalPrevious===null){
+   const exists=(await this.resources.observe({preferReplica:false,timeoutMs:remaining()},session=>session.query('SELECT 1 FROM hyperfide.authority_epochs WHERE deployment_id=$1 LIMIT 1',[this.deploymentId]))).value.rows.length>0;
+   if(exists)throw new FoundationError('AUTHORITY_BOOTSTRAP_EXISTS','Bootstrap requires a deployment with no authority history');
+  }
   const active=(await this.resources.observe({preferReplica:false,timeoutMs:remaining(),...(options.signal?{signal:options.signal}:{})},session=>session.query<{epoch:string;recovery:boolean}>("SELECT epoch::text,pg_is_in_recovery() AS recovery FROM hyperfide.authority_epochs WHERE deployment_id=$1 AND state='ACTIVE'",[this.deploymentId]))).value.rows[0];
   if(active?.recovery||(active?.epoch??null)!==databasePrevious)throw new FoundationError('STALE_AUTHORITY','Exact database predecessor changed before physical fencing');
   const returned=await wait(fencer.isolate({deployment_id:this.deploymentId,operation_id:operationId,source_epoch:externalPrevious,...(options.signal?{signal:options.signal}:{})}));
@@ -231,6 +236,8 @@ export class AuthorityStore {
    digest(JSON.stringify({deployment_id:this.deploymentId,operation_id:operationId,expected_previous_epoch:externalPrevious}));
   await this.resources.gateway.withPrimaryTransaction({...options,timeoutMs:remaining()},async tx=>{
    await tx.query('SELECT pg_advisory_xact_lock(1945824101,2)');
+   if(!restore&&externalPrevious===null&&(await tx.query('SELECT 1 FROM hyperfide.authority_epochs WHERE deployment_id=$1 LIMIT 1',[this.deploymentId])).rows.length)
+    throw new FoundationError('AUTHORITY_BOOTSTRAP_EXISTS','Bootstrap requires a deployment with no authority history');
    const now=(await tx.query<{now:string}>('SELECT clock_timestamp()::text AS now')).rows[0]!.now;
    if(Date.parse(proof.expires_at)<=Date.parse(now)||Date.parse(proof.observed_at)>Date.parse(now)+1000)throw new FoundationError('EXTERNAL_FENCE_EXPIRED','Physical fence was not fresh at primary admission');
    const current=(await tx.query<{epoch:string}>("SELECT epoch::text FROM hyperfide.authority_epochs WHERE deployment_id=$1 AND state='ACTIVE' FOR UPDATE",[this.deploymentId])).rows[0];
@@ -242,6 +249,19 @@ export class AuthorityStore {
   await publish(epoch);
   return {epoch,replayed:false};
  }
+}
+/** Trusted operator code supplies backends and authority; wire requests cannot select these. */
+export async function activateBootstrapAuthority(resources:ServiceResources,deploymentId:string,journal:ExternalAuthorityJournal,operationId:string,fence:Parameters<typeof createExternalWriterFence>,options:TransactionOptions={}):Promise<{epoch:string;replayed:boolean}>{
+ const fencer=createExternalWriterFence(...fence);
+ return new AuthorityStore(resources,deploymentId,journal).activate({operation_id:operationId,expected_previous_epoch:null},fencer,options);
+}
+export async function readAuthorityActivated(resources:ServiceResources,deploymentId:string):Promise<boolean>{
+ if(!uuid.test(deploymentId))throw new FoundationError('AUTHORITY_CONFIG_INVALID','Trusted deployment identity is required');
+ return (await resources.observe({preferReplica:false},async session=>{
+  const result=await session.query<{active:boolean;recovery:boolean}>("SELECT EXISTS(SELECT 1 FROM hyperfide.authority_epochs WHERE deployment_id=$1 AND state='ACTIVE') AS active,pg_is_in_recovery() AS recovery",[deploymentId]);
+  if(result.rows[0]?.recovery!==false)throw new FoundationError('PRIMARY_REQUIRED','Authority state requires the primary');
+  return result.rows[0]!.active;
+ })).value;
 }
 export async function inspectDurability(resources:ServiceResources):Promise<unknown>{
  return (await resources.observe({preferReplica:false},async session=>{
