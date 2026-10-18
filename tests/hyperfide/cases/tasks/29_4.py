@@ -5,6 +5,7 @@ import importlib.util,json,os,subprocess,sys,uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
 IDS=["runner.exports.registered","runner.exports.supervisor-guard","runner.exports.receipt-functions","runner.exports.reproduction-guard","runner.exports.receipt-valid","runner.exports.receipt-wrong-operation","runner.exports.receipt-wrong-uid","runner.exports.receipt-absent","runner.exports.stop-empty","runner.exports.stop-debt-not-complete","runner.exports.stop-inventory-refused","runner.exports.stop-stale-epoch","runner.exports.stop-unknown","runner.exports.stop-retained-report","runner.exports.stop-credential-residue","runner.exports.stop-output-debt","runner.exports.stop-later-command","runner.exports.control-resolves","runner.exports.finalize-resolves"]
+IDS.insert(-2,'runner.exports.stop-stale-report')
 FAILED=[]
 def check(name,value,detail="unexpected observation"):
  actual="observed" if value else str(detail)
@@ -91,6 +92,10 @@ try{
  await sql("UPDATE hyperfide.recovery_resource_debts SET status='RESOLVED',resolved_at=clock_timestamp(),observed_at=clock_timestamp(),evidence_digest=$12 WHERE organisation_id=$1 AND run_id=$2 AND command_id=$3");
  const reported=await supervisors.verifyStop({...input,commands:[command]});
  out['stop-retained-report']=reported.cleanup_complete===true&&(await supervisors.stop({scope:data.scope,...command})).status==='CONFIRMED_STOPPED';
+ await sql("UPDATE hyperfide.runner_control_commands SET reported_at=clock_timestamp()-interval '1 hour' WHERE organisation_id=$1 AND run_id=$2 AND command_id=$3");
+ out['stop-stale-report']=(await supervisors.verifyStop({...input,commands:[command]})).cleanup_complete===false;
+ await sql("UPDATE hyperfide.runner_control_commands SET reported_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND command_id=$3");
+ await sql("UPDATE hyperfide.runner_workspaces SET updated_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND slot_id=$5");
  await sql("UPDATE hyperfide.runner_workspaces SET credential_residue='PRESENT' WHERE organisation_id=$1 AND run_id=$2 AND slot_id=$5");
  const residue=await supervisors.verifyStop({...input,commands:[command]});
  out['stop-credential-residue']=residue.credentials_cleared===false&&residue.cleanup_complete===false&&residue.processes_stopped===true;

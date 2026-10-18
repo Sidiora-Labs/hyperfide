@@ -25,6 +25,7 @@
     "runner.exports.stop-credential-residue",
     "runner.exports.stop-output-debt",
     "runner.exports.stop-later-command",
+    "runner.exports.stop-stale-report",
     "runner.exports.control-resolves",
     "runner.exports.finalize-resolves"
   ],
@@ -2011,13 +2012,13 @@
     },
     {
       "path": "services/hyperfide/dist/runner/bridge.js",
-      "sha256": "d00ee5a97760efae2e70a0630ae4335d8eb03f301fa05923b70443a211110b2d",
-      "size": 82224
+      "sha256": "7c147efccfe6f12c87735d2f517a47cf086ce940aa47fcad462480dd4b64ba0a",
+      "size": 82286
     },
     {
       "path": "services/hyperfide/dist/runner/bridge.js.map",
-      "sha256": "7374d1ba0005fef00af255fdab1a410408bed203861dceee74749bd3f3d5b426",
-      "size": 68358
+      "sha256": "e59aba08d500b63f98970dda1ac1e57248b89fc8a146023093905521de9c01e6",
+      "size": 68388
     },
     {
       "path": "services/hyperfide/dist/runner/capture.d.ts",
@@ -3261,8 +3262,8 @@
     },
     {
       "path": "services/hyperfide/src/runner/bridge.ts",
-      "sha256": "349f23498e28d732c1217c526ece4898ba48616c80864cf3402587a4b30e2976",
-      "size": 82499
+      "sha256": "2edde7760bedbaff06508eb485166a11b8ac3d5dbbc19913ca015c102dbef207",
+      "size": 82559
     },
     {
       "path": "services/hyperfide/src/runner/capture.ts",
@@ -3411,8 +3412,8 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/29_4.py",
-      "sha256": "55481e7e869edafa34f1e9aeb4f244efc68f9ee65644fbd23de6a5d3075128af",
-      "size": 14414
+      "sha256": "858f79b91131be1b8d21e98a82c09f9daf0b444dd74c8d4b638135dc1371cf8a",
+      "size": 15027
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
@@ -3431,8 +3432,8 @@
     },
     {
       "path": "tests/hyperfide/registrations/29.4.json",
-      "sha256": "9338e3081faa327afd4359fe6df0cf387cdd661daebd16f9919bcb93f2311e7f",
-      "size": 38563
+      "sha256": "709a6c8f00ff8289d77edabd90d0db73f3bb6d2dfdb3f41c8bb639935c9b27d4",
+      "size": 38603
     },
     {
       "path": "tests/hyperfide/registry.json",

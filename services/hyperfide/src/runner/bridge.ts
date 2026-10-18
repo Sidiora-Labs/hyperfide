@@ -406,8 +406,8 @@ export function createRunnerSupervisors(ctx:ComponentContext) {
    await lockRun(tx,scope,false);
    const op=(await tx.query("SELECT kind,authority_epoch,result FROM hyperfide.recovery_operations WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3",[scope.organisation_id,scope.run_id,input.operation_id])).rows[0];
    if(!op||op.kind!=='STOP'||op.authority_epoch!==scope.authority_epoch||!object(op.result)||op.result.scope_kind!==input.scope_kind||op.result.scope_id!==input.scope_id)fail('RECOVERY_OPERATION_INVALID','Exact current stop intent required');
-   const debts=(await tx.query("SELECT resource_id AS session_id,command_id,command_generation::text AS generation,status FROM hyperfide.recovery_resource_debts WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND resource_kind='SUPERVISOR' ORDER BY resource_id LIMIT 1001",[scope.organisation_id,scope.run_id,input.operation_id])).rows;
-   if(debts.length>1000||runnerCanonical(debts.map(({status,...v})=>v))!==runnerCanonical(input.commands))fail('RECOVERY_INPUT_INVALID','Complete exact persisted supervisor inventory required');
+   const debts=(await tx.query("SELECT resource_id AS session_id,command_id,command_generation::text AS generation,status,created_at FROM hyperfide.recovery_resource_debts WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND resource_kind='SUPERVISOR' ORDER BY resource_id LIMIT 1001",[scope.organisation_id,scope.run_id,input.operation_id])).rows;
+   if(debts.length>1000||runnerCanonical(debts.map(({status,created_at,...v})=>v))!==runnerCanonical(input.commands))fail('RECOVERY_INPUT_INVALID','Complete exact persisted supervisor inventory required');
    const reports=[];
    for(const debt of debts){
     const row=(await tx.query(`SELECT c.*,w.process_residue,w.credential_residue,w.outputs_durable,
@@ -415,8 +415,8 @@ export function createRunnerSupervisors(ctx:ComponentContext) {
       WHERE NOT EXISTS(SELECT 1 FROM hyperfide.runner_output_captures o WHERE o.organisation_id=c.organisation_id AND o.run_id=c.run_id AND o.command_id=c.command_id AND o.name=n.name AND o.state='COMPLETE')) AS artifacts_preserved
      FROM hyperfide.runner_control_commands c JOIN hyperfide.runner_registry r ON r.organisation_id=c.organisation_id AND r.run_id=c.run_id AND r.launch_id=c.launch_id AND r.sandbox_id=c.sandbox_id AND r.boot_id=c.boot_id AND r.boot_generation=c.boot_generation
      LEFT JOIN hyperfide.runner_workspaces w ON w.organisation_id=c.organisation_id AND w.run_id=c.run_id AND w.sandbox_id=c.sandbox_id AND w.boot_generation=c.boot_generation AND w.slot_id=c.slot_id AND w.slot_generation=r.slot_generation AND w.state<>'LEASED' AND w.updated_at>=c.reported_at
-     WHERE c.organisation_id=$1 AND c.run_id=$2 AND c.command_id=$3 AND c.fence_sequence=$4 AND c.authority_epoch=$5 AND r.session_id=$6
-      AND NOT EXISTS(SELECT 1 FROM hyperfide.runner_control_commands newer WHERE newer.organisation_id=c.organisation_id AND newer.run_id=c.run_id AND newer.launch_id=c.launch_id AND newer.fence_sequence>c.fence_sequence)`,[scope.organisation_id,scope.run_id,debt.command_id,debt.generation,scope.authority_epoch,debt.session_id])).rows[0];
+     WHERE c.organisation_id=$1 AND c.run_id=$2 AND c.command_id=$3 AND c.fence_sequence=$4 AND c.authority_epoch=$5 AND r.session_id=$6 AND c.reported_at>=$7
+      AND NOT EXISTS(SELECT 1 FROM hyperfide.runner_control_commands newer WHERE newer.organisation_id=c.organisation_id AND newer.run_id=c.run_id AND newer.launch_id=c.launch_id AND newer.fence_sequence>c.fence_sequence)`,[scope.organisation_id,scope.run_id,debt.command_id,debt.generation,scope.authority_epoch,debt.session_id,debt.created_at])).rows[0];
     reports.push(row??null);
    }
    const processes_stopped=reports.every(r=>r?.state==='REPORTED'&&r.termination==='CONFIRMED'&&object(r.report)&&r.report.remaining_descendants===0&&r.process_residue==='ABSENT');
