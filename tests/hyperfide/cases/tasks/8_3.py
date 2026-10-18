@@ -39,8 +39,9 @@ def seed_provider_capacity(f):
  cfg=f.sql("SELECT configuration_digest FROM hyperfide.provider_pool_configurations WHERE organisation_id=$1 AND pool_id=$2 AND active",[org,f.pool])[0]["configuration_digest"]
  resources={"SANDBOX":"1","CPU_MILLIS":"2000","MEMORY_BYTES":"4294967296","DISK_BYTES":"32212254720"}
  for name,quantity in resources.items():
-  aid=str(uuid.uuid4());rid=str(uuid.uuid4())
-  f.sql("INSERT INTO hyperfide.capacity_accounts(organisation_id,id,pool_id,dimension,capacity_class,configured_limit,reserved,provenance_digest,qualification_state) VALUES($1,$2,$3,$4,'PHYSICAL',$5,$6,$7,'QUALIFIED')",[org,aid,f.pool,name,str(int(quantity)*100),quantity,sha(b"owned-capacity-fixture")])
+  rid=str(uuid.uuid4())
+  rows=f.sql("UPDATE hyperfide.capacity_accounts SET configured_limit=$4,reserved=$5,provenance_digest=$6,qualification_state='QUALIFIED',state_version=state_version+1 WHERE organisation_id=$1 AND pool_id=$2 AND dimension=$3 AND capacity_class='PHYSICAL' AND resource_key='' RETURNING id",[org,f.pool,name,str(int(quantity)*100),quantity,sha(b"owned-capacity-fixture")])
+  expect(len(rows)==1,"configuration must seed exactly one physical capacity account");aid=rows[0]["id"]
   f.sql("INSERT INTO hyperfide.reservations(organisation_id,run_id,id,request_id,capacity_account_id,quantity,expires_at) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '1 hour')",[org,run,rid,str(uuid.uuid4()),aid,quantity]);f.reservations.append(rid)
  for name,quantity in {**resources,"PROVISIONING":"1"}.items():
   for kind,key in [("ACCOUNT","fixture-account"),("ENVIRONMENT","fixture-env")]:
