@@ -1,13 +1,13 @@
 {
   "task": "11.3",
-  "commit": "ff4632c9bc896057147975b600323af8f8b21f89",
-  "requalified_on": "ff4632c9bc896057147975b600323af8f8b21f89",
+  "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+  "requalified_on": "a923d185cd035c9620195fcf2d0e12c512e73d37",
   "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-036 --manifest tests/hyperfide/manifests/tasks/11.3.json && python3 tests/hyperfide/qualify.py --case V-038 --manifest tests/hyperfide/manifests/tasks/11.3.json && python3 tests/hyperfide/qualify.py --case V-039 --manifest tests/hyperfide/manifests/tasks/11.3.json",
   "exit_code": 0,
-  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"b8bbd9e3-23f9-4870-82d7-220081943d03\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/11.3/campaigns/236e942b33012b3ef2fd86eb3b0a07f7e563848b4c4c441753b39514169d6454\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n{\"status\": \"PASS\", \"receipt_id\": \"33d7a68d-282c-4d88-a64e-93b9bad8f5d3\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/11.3/campaigns/236e942b33012b3ef2fd86eb3b0a07f7e563848b4c4c441753b39514169d6454\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n{\"status\": \"PASS\", \"receipt_id\": \"00735b14-bee6-4dea-b39f-d96c7387c3f1\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/11.3/campaigns/236e942b33012b3ef2fd86eb3b0a07f7e563848b4c4c441753b39514169d6454\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n",
-  "ran_at": "2026-10-17T18:59:41.889544+00:00",
+  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"da9b012e-c1e4-4570-8bbc-254bad306357\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/11.3/campaigns/a76ee4032e0a95a66a150ba2cc9db71beca1f3670fbcd58087f3420828fda5ee\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n{\"status\": \"PASS\", \"receipt_id\": \"74f0a608-10de-4996-bede-7df07234f9b1\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/11.3/campaigns/a76ee4032e0a95a66a150ba2cc9db71beca1f3670fbcd58087f3420828fda5ee\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n{\"status\": \"PASS\", \"receipt_id\": \"79b8cb22-389b-42f4-bbed-d56321d409eb\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/11.3/campaigns/a76ee4032e0a95a66a150ba2cc9db71beca1f3670fbcd58087f3420828fda5ee\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n",
+  "ran_at": "2026-10-18T04:51:34.604535+00:00",
   "environment": {
-    "HF_TEST_NPM": "/tmp/hf-requal-11-3-bin/npm"
+    "HF_TEST_NPM": "temporary npm symlink to /root/.local/share/mise/installs/node/lts/lib/node_modules/npm/bin/npm-cli.js"
   },
-  "environment_note": "HF_TEST_NPM is a temporary symlink to /root/.local/share/mise/installs/node/24.22.0/lib/node_modules/npm/bin/npm-cli.js; bypasses mise Bash wrapper. Two prior V-036 attempts failed npm fixture setup; final exact three-case chain passed."
+  "prior_attempts": "Two V-036 attempts failed npm launcher setup; all three cases passed after selecting the actual npm CLI through HF_TEST_NPM."
 }
