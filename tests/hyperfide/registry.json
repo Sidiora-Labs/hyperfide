@@ -287,6 +287,46 @@
     "V-057": {
       "title": "Hyperfide acceptance case V-057",
       "full_assertion_ids": []
+    },
+    "V-058": {
+      "title": "Hyperfide acceptance case V-058",
+      "full_assertion_ids": []
+    },
+    "V-059": {
+      "title": "Hyperfide acceptance case V-059",
+      "full_assertion_ids": []
+    },
+    "V-060": {
+      "title": "Hyperfide acceptance case V-060",
+      "full_assertion_ids": []
+    },
+    "V-061": {
+      "title": "Hyperfide acceptance case V-061",
+      "full_assertion_ids": []
+    },
+    "V-062": {
+      "title": "Hyperfide acceptance case V-062",
+      "full_assertion_ids": []
+    },
+    "V-063": {
+      "title": "Hyperfide acceptance case V-063",
+      "full_assertion_ids": []
+    },
+    "V-064": {
+      "title": "Hyperfide acceptance case V-064",
+      "full_assertion_ids": []
+    },
+    "V-065": {
+      "title": "Hyperfide acceptance case V-065",
+      "full_assertion_ids": []
+    },
+    "V-066": {
+      "title": "Hyperfide acceptance case V-066",
+      "full_assertion_ids": []
+    },
+    "V-067": {
+      "title": "Hyperfide acceptance case V-067",
+      "full_assertion_ids": []
     }
   },
   "suites": {
@@ -451,7 +491,17 @@
       "V-054",
       "V-055",
       "V-056",
-      "V-057"
+      "V-057",
+      "V-058",
+      "V-059",
+      "V-060",
+      "V-061",
+      "V-062",
+      "V-063",
+      "V-064",
+      "V-065",
+      "V-066",
+      "V-067"
     ]
   },
   "registration_glob": "registrations/**/*.json"
