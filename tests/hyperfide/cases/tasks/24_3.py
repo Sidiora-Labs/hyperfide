@@ -133,7 +133,7 @@ def drain_tests(f):
  m.check("recovery.drain.inflight-allowed-to-finish",lambda:m.expect(drained["compute_revoked"] is False and attempt_state(u(0x19))=="CURRENT:RUNNING" and lease_state(u(0x1c))=="ACTIVE" and q(f"SELECT state FROM hyperfide.agent_sessions WHERE id='{u(0x1d)}';")=="RUNNING"))
  m.check("recovery.drain.observes-finish-debt",lambda:m.expect(q(f"SELECT resource_kind||':'||desired_state FROM hyperfide.recovery_resource_debts WHERE operation_id='{u(0x40)}';")=="SUPERVISOR:FINISHED"))
  early=f.ok("recovery.stop.reconcile",{"scope":m.SCOPE,"operation_id":u(0x40)})
- m.check("recovery.drain.no-fallback-before-deadline",lambda:m.expect("fallback_operation_id" not in early and early["supervisor_available"] is False and early["stop_complete"] is False and control("ATTEMPT",u(0x19)).startswith("DRAIN:ACTIVE:") and attempt_state(u(0x19))=="CURRENT:RUNNING",str(early)))
+ m.check("recovery.drain.no-fallback-before-deadline",lambda:m.expect("fallback_operation_id" not in early and early["supervisor_available"] is True and len(early["observations"])==len(early["unreachable_resource_debt"])==1 and all(o["status"]=="UNKNOWN" for o in early["observations"]) and early["stop_complete"] is False and control("ATTEMPT",u(0x19)).startswith("DRAIN:ACTIVE:") and attempt_state(u(0x19))=="CURRENT:RUNNING",str(early)))
  restart(f)
  m.check("recovery.drain.control-survives-restart",lambda:m.expect(control("ATTEMPT",u(0x19)).startswith("DRAIN:ACTIVE:") and f.ok("recovery.stop.request",drain)==drained))
  deadline=float(q(f"SELECT extract(epoch FROM deadline_at-clock_timestamp()) FROM hyperfide.recovery_controls WHERE scope_id='{u(0x19)}';"))
@@ -177,11 +177,18 @@ def stop_tests(f):
  m.check("recovery.stop.intent-replayed-after-restart",lambda:m.expect(f.ok("recovery.stop.request",request)==result))
  report=f.ok("recovery.stop.reconcile",{"scope":m.SCOPE,"operation_id":m.uid(50)})
  record_inventory("run_stop_reconcile_after_restart",report)
- m.check("recovery.stop.unreachable-debt-reported",lambda:m.expect(report["supervisor_available"] is False and sorted(d["id"] for d in report["unreachable_resource_debt"])==before and all(o["status"]=="SUPERVISOR_UNAVAILABLE" for o in report["observations"]) and report["reason"]=="UNREACHABLE_OR_UNCONFIRMED_RESOURCES",str(report)))
+ m.check("recovery.stop.unreachable-debt-reported",lambda:m.expect(report["supervisor_available"] is True and sorted(d["id"] for d in report["unreachable_resource_debt"])==before and sorted(o["debt_id"] for o in report["observations"])==before and all(o["status"]=="UNKNOWN" for o in report["observations"]) and report["reason"]=="UNREACHABLE_OR_UNCONFIRMED_RESOURCES",str(report)))
  m.check("recovery.stop.publication-fenced",lambda:m.expect(report["publication_reconciled"] is False))
  m.check("recovery.stop.reconcile-never-complete",lambda:m.expect(report["stop_complete"] is False and report["cleanup_complete"] is False and report["process_stop_complete"] is False and run_state()=="STOPPING"))
  m.check("recovery.stop.reconcile-idempotent",lambda:m.expect(f.ok("recovery.stop.reconcile",{"scope":m.SCOPE,"operation_id":m.uid(50)})==report and open_debts(m.uid(50))==before))
- m.check("recovery.stop.finalize-unproven-cleanup",lambda:f.rejected("recovery.stop.finalize",{"scope":m.SCOPE,"operation_id":m.uid(50)},"RECOVERY_DEPENDENCY_UNAVAILABLE"))
+ def finalize_unproven():
+  debts_before=open_debts(m.uid(50))
+  # A resolved provider returns an incomplete receipt; terminal completion remains refused.
+  row=f.request("recovery.stop.finalize",{"scope":m.SCOPE,"operation_id":m.uid(50)})
+  m.expect(row.get("error",{}).get("code")!="RECOVERY_DEPENDENCY_UNAVAILABLE" and row.get("ok") is True,str(row))
+  result=row["result"]
+  m.expect(result["process_stop_complete"] is False and result["cleanup_complete"] is False and result["stop_complete"] is False and result["operation_id"]==m.uid(50) and run_state()=="STOPPING" and open_debts(m.uid(50))==debts_before and len(debts_before)>0 and result["evidence_digest"].startswith("sha256:") and bool(result["observed_at"]),str(result))
+ m.check("recovery.stop.finalize-unproven-cleanup",finalize_unproven)
  m.check("recovery.stop.finalize-leaves-run-stopping",lambda:m.expect(run_state()=="STOPPING" and open_debts(m.uid(50))==before))
  m.check("recovery.stop.resume-with-open-debt-refused",lambda:f.rejected("recovery.control.resume",{"scope":m.SCOPE,"operation_id":u(0x42)},"RECOVERY_RUN_STATE_INVALID",component="24.1"))
  m.check("recovery.stop.reject-caller-confirmation",lambda:f.rejected("recovery.stop.reconcile",{"scope":m.SCOPE,"operation_id":m.uid(50),"stopped":True},"RECOVERY_INPUT_INVALID"))
@@ -218,7 +225,14 @@ def cancel_tests(f,request):
  report=f.ok("recovery.stop.reconcile",{"scope":m.SCOPE,"operation_id":u(0x50)})
  record_inventory("cancel_reconcile_after_restart",report)
  m.check("recovery.cancel.unreachable-debt-after-restart",lambda:m.expect(report["stop_complete"] is False and len(report["unreachable_resource_debt"])==len(open_debts(u(0x50)))>0 and run_state()=="CANCELLING",str(report)))
- m.check("recovery.cancel.finalize-unproven-refused",lambda:f.rejected("recovery.stop.finalize",{"scope":m.SCOPE,"operation_id":u(0x50)},"RECOVERY_DEPENDENCY_UNAVAILABLE"))
+ def finalize_unproven():
+  debts_before=open_debts(u(0x50))
+  # A resolved provider returns an incomplete receipt; terminal completion remains refused.
+  row=f.request("recovery.stop.finalize",{"scope":m.SCOPE,"operation_id":u(0x50)})
+  m.expect(row.get("error",{}).get("code")!="RECOVERY_DEPENDENCY_UNAVAILABLE" and row.get("ok") is True,str(row))
+  result=row["result"]
+  m.expect(result["process_stop_complete"] is False and result["cleanup_complete"] is False and result["stop_complete"] is False and result["operation_id"]==u(0x50) and run_state()=="CANCELLING" and open_debts(u(0x50))==debts_before and len(debts_before)>0 and result["evidence_digest"].startswith("sha256:") and bool(result["observed_at"]),str(result))
+ m.check("recovery.cancel.finalize-unproven-completion-refused",finalize_unproven)
  m.check("recovery.cancel.resume-refused-after-restart",lambda:f.rejected("recovery.control.resume",{"scope":m.SCOPE,"operation_id":u(0x53)},"RECOVERY_TERMINAL_CONTROL",component="24.1"))
  total=q("SELECT count(*) FROM hyperfide.recovery_resource_debts WHERE status<>'RESOLVED';")
  record_inventory("open_debt_total",int(total))
