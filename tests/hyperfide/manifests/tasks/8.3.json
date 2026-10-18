@@ -3,13 +3,12 @@
     "allowed_actions": [],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-8.3-primary-binding-component-v2-requal-12aa390190b3-requal-6a91b0130b1d-requal-a80cd7edbb1c-requal-a923d185cd03",
+  "campaign_id": "hyperfide-task-8.3-primary-binding-component-v2-requal-12aa390190b3-requal-6a91b0130b1d-requal-a80cd7edbb1c-requal-a923d185cd03-requal-6544166d354d",
   "case_ids": [
     "V-037",
     "V-054"
   ],
   "expected_assertion_ids": [
-    "provider.worker.running-from-boot",
     "provider.intent.configure",
     "provider.intent.seed-admission",
     "provider.intent.persist-before-effects",
@@ -73,6 +72,7 @@
     "provider.worker.control-role-refused",
     "provider.worker.operator-cannot-start",
     "provider.worker.incompatible-adapter-not-ready",
+    "provider.worker.running-from-boot",
     "provider.worker.ready-with-adapter",
     "provider.worker.control-commits-intent",
     "provider.worker.consumes-committed-intent",
@@ -1218,7 +1218,7 @@
     },
     {
       "path": "tests/hyperfide/registrations/8.3.json",
-      "sha256": "ebec08e3dfe3885cba2bde59e9af33e6b39e63583f8d6c392a64365c01c40014",
+      "sha256": "1a76e0be50e5614fe036724e36013ff981d2cb45fce1eed1bc4d158cd01ee8a6",
       "size": 15732
     },
     {
