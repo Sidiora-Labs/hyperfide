@@ -1,0 +1,34 @@
+{
+  "task": "29.8",
+  "commit": "5bd08ae270f2d234dd33c0a1317977dfe0d474be",
+  "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-065 --manifest tests/hyperfide/manifests/tasks/29.8.json",
+  "exit_code": 0,
+  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"4ea02f80-2791-48c6-bc49-3375f246a57d\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/29.8/campaigns/84c3e624fb1e798073d2782137d98fdeceb25c77d86bcbcdf5e008eb56baf9fa\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n",
+  "ran_at": "2026-10-18T03:06:40.237720+00:00",
+  "regression_probes": {
+    "8_3": {
+      "argv": [
+        "python3",
+        "tests/hyperfide/cases/tasks/8_3.py"
+      ],
+      "exit_code": 1,
+      "output": "{\"type\": \"cleanup\", \"resources\": [], \"complete\": false}\nTraceback (most recent call last):\n  File \"/work/hyperfide/tests/hyperfide/cases/tasks/8_3.py\", line 502, in <module>\n    if __name__==\"__main__\":sys.exit(main())\n                                     ~~~~^^\n  File \"/work/hyperfide/tests/hyperfide/cases/tasks/8_3.py\", line 283, in main\n    f=pools.ProvisionerFixture(extra_components=[\"8.2\",\"8.3\"],extra_setup=prepare_provider_intent_fixture)\n  File \"/work/hyperfide/tests/hyperfide/cases/tasks/8_2.py\", line 21, in __init__\n    def __init__(self,*args,**kwargs):super().__init__(*args,service_role=\"provisioner\",**kwargs)\n                                      ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/work/hyperfide/tests/hyperfide/support/identity_fixture.py\", line 112, in __init__\n    self.start()\n    ~~~~~~~~~~^^\n  File \"/work/hyperfide/tests/hyperfide/support/identity_fixture.py\", line 133, in start\n    raise AssertionError(\"Actual HTTPS service did not become ready: \"+\"\".join(lines)[:1500])\nAssertionError: Actual HTTPS service did not become ready: {\"ok\":false,\"error\":{\"code\":\"PROVISIONER_EXECUTOR_CONFIG_INVALID\",\"message\":\"Valid private provisioner executor configuration required\"}}\n\nFixture cleanup also failed: Service termination failed: \n"
+    },
+    "9_3": {
+      "argv": [
+        "python3",
+        "tests/hyperfide/cases/tasks/9_3.py"
+      ],
+      "exit_code": 1,
+      "output": "Traceback (most recent call last):\n  File \"/work/hyperfide/tests/hyperfide/cases/tasks/9_3.py\", line 330, in <module>\n    if __name__==\"__main__\":sys.exit(main())\n                                     ~~~~^^\n  File \"/work/hyperfide/tests/hyperfide/cases/tasks/9_3.py\", line 54, in main\n    fixture=c.Fixture(folder);ws=c.WebSocketFixture(folder,fixture);service=c.Service(folder,fixture)\n                                                                            ~~~~~~~~~^^^^^^^^^^^^^^^^\n  File \"/work/hyperfide/tests/hyperfide/cases/tasks/9_1.py\", line 191, in __init__\n    self.actual=identity.IdentityFixture(components=tuple(sorted(names)),extra_env=environment,service_role=\"provisioner\")\n                ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/work/hyperfide/tests/hyperfide/support/identity_fixture.py\", line 112, in __init__\n    self.start()\n    ~~~~~~~~~~^^\n  File \"/work/hyperfide/tests/hyperfide/support/identity_fixture.py\", line 133, in start\n    raise AssertionError(\"Actual HTTPS service did not become ready: \"+\"\".join(lines)[:1500])\nAssertionError: Actual HTTPS service did not become ready: {\"ok\":false,\"error\":{\"code\":\"COMPONENT_LOAD_FAILED\",\"message\":\"Linked component import or factory failed: Trusted credential-store configuration required\"}}\n\nFixture cleanup also failed: Service termination failed: \n"
+    },
+    "9_4": {
+      "argv": [
+        "python3",
+        "tests/hyperfide/cases/tasks/9_4.py"
+      ],
+      "exit_code": 1,
+      "output": "Traceback (most recent call last):\n  File \"/work/hyperfide/tests/hyperfide/cases/tasks/9_4.py\", line 324, in <module>\n    if __name__==\"__main__\":sys.exit(main())\n                                     ~~~~^^\n  File \"/work/hyperfide/tests/hyperfide/cases/tasks/9_4.py\", line 141, in main\n    fixture=c.Fixture(folder);simulate_quota(fixture);service=c.Service(folder,fixture)\n                                                              ~~~~~~~~~^^^^^^^^^^^^^^^^\n  File \"/work/hyperfide/tests/hyperfide/cases/tasks/9_1.py\", line 191, in __init__\n    self.actual=identity.IdentityFixture(components=tuple(sorted(names)),extra_env=environment,service_role=\"provisioner\")\n                ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/work/hyperfide/tests/hyperfide/support/identity_fixture.py\", line 112, in __init__\n    self.start()\n    ~~~~~~~~~~^^\n  File \"/work/hyperfide/tests/hyperfide/support/identity_fixture.py\", line 133, in start\n    raise AssertionError(\"Actual HTTPS service did not become ready: \"+\"\".join(lines)[:1500])\nAssertionError: Actual HTTPS service did not become ready: {\"ok\":false,\"error\":{\"code\":\"COMPONENT_LOAD_FAILED\",\"message\":\"Linked component import or factory failed: Trusted credential-store configuration required\"}}\n\nFixture cleanup also failed: Service termination failed: \n"
+    }
+  }
+}
