@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "campaign_id": "hyperfide-task-24.3-scoped-stop-controls-v1-requal-12aa390190b3-requal-6a91b0130b1d",
+  "campaign_id": "hyperfide-task-24.3-scoped-stop-controls-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-a923d185cd03",
   "registered_variant": "task:24.3",
   "scope": "task-component",
   "case_ids": [
@@ -124,8 +124,8 @@
   "inputs": [
     {
       "path": "services/hyperfide/components/24.3.json",
-      "sha256": "e705fbcbcd17be8b4f84f550d994478ee73196f536f468c8db0eac04b7e5d0e2",
-      "size": 379
+      "sha256": "0725c7b5912276fe8e392be8ec33a5cf222c86b0bbe03e6b9b03d77b1f963a48",
+      "size": 391
     },
     {
       "path": "services/hyperfide/components/external-fencing.json",
@@ -149,8 +149,8 @@
     },
     {
       "path": "services/hyperfide/dist/providers/placement.js",
-      "sha256": "791ea7718649ecffb4691fdf7e0994d5b45f18d15c79316df9e947db942a6b95",
-      "size": 55918
+      "sha256": "323b6f28b1b2158edeef5f0b5e2f045f5c0c02b313aebb74dee3c224493eea6e",
+      "size": 58143
     },
     {
       "path": "services/hyperfide/dist/provisioner.js",
@@ -164,8 +164,8 @@
     },
     {
       "path": "services/hyperfide/dist/recovery/fencing.js",
-      "sha256": "f7df4b32ba6a08f741124a684faa48bb6c14cc3af6419317ad54f24d6083647c",
-      "size": 43090
+      "sha256": "674d1d4256121cbd2ed29a31ccb51e6f195b450c6e1f2c9632043b43514e99fa",
+      "size": 43410
     },
     {
       "path": "services/hyperfide/dist/recovery/fencing_service.js",
@@ -204,8 +204,8 @@
     },
     {
       "path": "services/hyperfide/src/recovery/fencing.ts",
-      "sha256": "a79f289e150a9bafbb1b8861b48d6d6214b3809e1b89c0e90dbba2bc81833fe0",
-      "size": 41778
+      "sha256": "dd92fc6daa1c7322487243d757ecea7e7d605efbbf1a0b879a59f7a6a95f3638",
+      "size": 42077
     },
     {
       "path": "services/hyperfide/src/recovery/fencing_service.ts",
@@ -229,8 +229,8 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/24_3.py",
-      "sha256": "30231b4ae88c4d6e94f42ddbfcc295de37229cd211f2f3ccd2153e880cb55056",
-      "size": 45193
+      "sha256": "960439a3d459cf84dd2e00c7f093c6636e70e015d48bab2ac29e74c1379b08c5",
+      "size": 46090
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
@@ -254,8 +254,8 @@
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "2b992fd5eab4d903909a4dd621b2ce3c7278fa932e163cbad8f33cf2b65efe0a",
-      "size": 29318
+      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
+      "size": 30314
     }
   ],
   "resources": [
