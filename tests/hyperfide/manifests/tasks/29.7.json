@@ -3,7 +3,7 @@
     "allowed_actions": [],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-29.7-railway-declared-capacity-v1",
+  "campaign_id": "hyperfide-task-29.7-railway-declared-capacity-v1-requal-bc2a88a86e01",
   "case_ids": [
     "V-064"
   ],
@@ -556,18 +556,18 @@
     },
     {
       "path": "services/hyperfide/dist/providers/pools.d.ts",
-      "sha256": "b3c863dd6400f8e87859b3280c622bac77f2b683c81601b8df4c0e132bf307c1",
-      "size": 16425
+      "sha256": "b6ee449c1e7f6949a5ef1c29813eb9ec707043a6aa89cace94e5f81ffbb11490",
+      "size": 16586
     },
     {
       "path": "services/hyperfide/dist/providers/pools.js",
-      "sha256": "f9ca7d9859a054a74528f06b9216c686f42c8c292fdf236bd3e169e2a9852780",
-      "size": 67651
+      "sha256": "69dfd672ef640a02f1fe3c4b042c6e4adfb4db5e226255157fcec230d14bf8de",
+      "size": 72493
     },
     {
       "path": "services/hyperfide/dist/providers/pools.js.map",
-      "sha256": "b22fc016efc6827ed411bc2ec7c7ebc4b5b5b4a2e92aa0c8f8948d8ad58ea6a6",
-      "size": 58927
+      "sha256": "716ae2f7c65dabe185f3bcf9e6fec63e14cfbfee585d3457368b2b7f90b5a494",
+      "size": 62098
     },
     {
       "path": "services/hyperfide/dist/providers/railway/preparation.d.ts",
@@ -621,13 +621,13 @@
     },
     {
       "path": "services/hyperfide/dist/providers/railway/reconciliation.js",
-      "sha256": "76a6d9b5c37eb080e1ef846ad7a9bad7c59cc23f934041fbd37921167dc70f0d",
-      "size": 51761
+      "sha256": "f7953ec611f891f42dc0f7e8a942e8fe5e41180f12fce25a2ff7c73b4a3bde11",
+      "size": 54011
     },
     {
       "path": "services/hyperfide/dist/providers/railway/reconciliation.js.map",
-      "sha256": "f3ac6f631535831a71a14ded5359c7a329281f982a559c17158be69490b8f624",
-      "size": 44314
+      "sha256": "2221d063ee0d422c304584ecc1c01b2d05682162112ef434680d10992685284e",
+      "size": 45906
     },
     {
       "path": "services/hyperfide/dist/providers/reconcile.d.ts",
@@ -636,13 +636,13 @@
     },
     {
       "path": "services/hyperfide/dist/providers/reconcile.js",
-      "sha256": "80fafdf5e046c5752b0822011621f6d88bf63c9229f693a00037a6460464587b",
-      "size": 81348
+      "sha256": "be0ef52d4a68c3dbf39cd2017ba6c229d429ce00e5d2262e9c33b9cbfce9d671",
+      "size": 82182
     },
     {
       "path": "services/hyperfide/dist/providers/reconcile.js.map",
-      "sha256": "5129297e6ce1db4f5eb8b0752e7b886db81dec8a95bf6988e35f360e82f8179c",
-      "size": 65944
+      "sha256": "678983f6c8981b9b0a36ccf09b9d9a3d2a94d7ee632d531b76616d230f79abc9",
+      "size": 66216
     },
     {
       "path": "services/hyperfide/dist/providers/worker.d.ts",
@@ -1081,8 +1081,8 @@
     },
     {
       "path": "services/hyperfide/src/providers/pools.ts",
-      "sha256": "8b60147c224c29bc7b59e8d92e6a1eec7893fde7e9ef69ffe93f74cf868ece98",
-      "size": 74209
+      "sha256": "64381ad5297fb7724fcc528ad2008f8268c6c29e83ae123ca4571565008ee143",
+      "size": 78918
     },
     {
       "path": "services/hyperfide/src/providers/railway/preparation.ts",
@@ -1101,13 +1101,13 @@
     },
     {
       "path": "services/hyperfide/src/providers/railway/reconciliation.ts",
-      "sha256": "8ec94ec01ccf81068c968e63cba34d61c36899b96fe6a88d197bd32be5c53a05",
-      "size": 49459
+      "sha256": "0f11f489231b7463b0a3d7e23108175f3de879836af57343f293eb6333cb242b",
+      "size": 51064
     },
     {
       "path": "services/hyperfide/src/providers/reconcile.ts",
-      "sha256": "cb06854f173b1d14eeb2fb51f317086e22e293331f2aa0096520dca496a1b94f",
-      "size": 78287
+      "sha256": "d9edd47ef433dbb9d0bf942c3331858dea12bd814ca3662c046ab5f976bcf420",
+      "size": 79061
     },
     {
       "path": "services/hyperfide/src/providers/worker.ts",
