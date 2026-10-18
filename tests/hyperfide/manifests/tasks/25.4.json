@@ -8,7 +8,7 @@
     ],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-25.4-actual-authority-v2-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a80cd7edbb1c",
+  "campaign_id": "hyperfide-task-25.4-actual-authority-v2-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a80cd7edbb1c-requal-a923d185cd03",
   "case_ids": [
     "V-028",
     "V-052",
@@ -82,8 +82,8 @@
     },
     {
       "path": "deploy/hyperfide/install-service.mjs",
-      "sha256": "6d354faf569fe30974ead66e9d523baa036133b2cb611a6f90fcb72e0703210a",
-      "size": 10784
+      "sha256": "59afb4c56e4c3ee95903334531a37cec062fb6fe97956aab24dd3f37201358dc",
+      "size": 11299
     },
     {
       "path": "deploy/hyperfide/issue-watcher.service",
@@ -92,13 +92,13 @@
     },
     {
       "path": "deploy/hyperfide/migrate.mjs",
-      "sha256": "8cf5cd94a87e13e68cff413dc5c33ae0f04862a634c9e176eacd2b987c9d4f53",
-      "size": 5760
+      "sha256": "2b31840a8b7e71ee5a694ccec66bdd03ed58457af3f3e796d3f0e6da9d343380",
+      "size": 8748
     },
     {
       "path": "deploy/hyperfide/provisioner.service",
-      "sha256": "54f77d0cca29955d05b7daf7cf735552ad30b1dc8afd8d834324b55f768da4ad",
-      "size": 833
+      "sha256": "c0c217fe531a77a1db115a58982b5cea931fbaa1a0635980bb1368428d695df2",
+      "size": 1167
     },
     {
       "path": "deploy/hyperfide/supervisory-host.service",
@@ -232,13 +232,13 @@
     },
     {
       "path": "services/hyperfide/dist/components/service.js",
-      "sha256": "4e1b95193fb0d67bc3720d8ef2c520392e5b6136ac1764815da218ff5ef88dd0",
-      "size": 11138
+      "sha256": "88e7cd525b35083b4b08359beccbdbffbfee7cb225519e52bfe84321f53f675d",
+      "size": 11544
     },
     {
       "path": "services/hyperfide/dist/components/service.js.map",
-      "sha256": "d9a44ba8663ae2b465e57bf19338e34260ee25812a884beb2dbd43fb55f10afa",
-      "size": 11065
+      "sha256": "eae5880e4285f6c5fd98d05ef6da11dde9de4ba6a1c77f98e38694b2a79e1ac4",
+      "size": 11423
     },
     {
       "path": "services/hyperfide/dist/contracts/records.d.ts",
@@ -482,18 +482,18 @@
     },
     {
       "path": "services/hyperfide/dist/storage/durability.d.ts",
-      "sha256": "b0b694aad99c6fe78547147d0aaffcb799ba092869515a3afb9571dbc38030e3",
-      "size": 4023
+      "sha256": "7c5f101358ef3b74245d88cfd4f08e2adce9e28bd6d0b8ceac965d9e438422f2",
+      "size": 4603
     },
     {
       "path": "services/hyperfide/dist/storage/durability.js",
-      "sha256": "4df6cec256cba5f6804c19cf089d7e21d171c137e1288dd861d6766cc74b709c",
-      "size": 31282
+      "sha256": "46bd8005f5acbf2705727db00edb76276f6efda0176e2b933203bae1ddb0ce2c",
+      "size": 33268
     },
     {
       "path": "services/hyperfide/dist/storage/durability.js.map",
-      "sha256": "5f7a77af3b512f678839fd52af0bade1ca7adb90391206aa008df7f7430023f8",
-      "size": 26614
+      "sha256": "41311236928f9d9ae29c1588b5c9c851295610e93e406f636cbdefe827f4e588",
+      "size": 28131
     },
     {
       "path": "services/hyperfide/dist/storage/runtime.d.ts",
@@ -617,8 +617,8 @@
     },
     {
       "path": "services/hyperfide/src/components/service.ts",
-      "sha256": "529bdc90d091c4a05e9d1c16431c41b2d617e029f4d5f3d43354e19afffbacf7",
-      "size": 10886
+      "sha256": "e479e24cf755dfc44ac1186e2b668020434658001fed0a7605a3229222499df9",
+      "size": 11346
     },
     {
       "path": "services/hyperfide/src/contracts/records.ts",
@@ -702,8 +702,8 @@
     },
     {
       "path": "services/hyperfide/src/storage/durability.ts",
-      "sha256": "dd4ef3a972cb74c6755e8c901667ee269da8cc2710285d43d6157f9b80430898",
-      "size": 29639
+      "sha256": "6f32286b62300bfc27bac52bd8aa696183582ac859c82366fa8ab73cad2cfc79",
+      "size": 31670
     },
     {
       "path": "services/hyperfide/src/storage/runtime.ts",
@@ -787,8 +787,8 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/25_4.py",
-      "sha256": "53473a2251d16d08d932d58746f7cfa61634d28d64dfe37a10cb714bdf548144",
-      "size": 24910
+      "sha256": "cb84f0dd68f28bdec42d39864c6d2167fa5eedbca6f5aaa6ab87b150c98302c0",
+      "size": 25315
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
@@ -812,13 +812,13 @@
     },
     {
       "path": "tests/hyperfide/registry.json",
-      "sha256": "59c858064cf8f112221068f9b2c6b7c9a3d5480aaad0792baa0845e1e601b52e",
-      "size": 11102
+      "sha256": "99162684c725a9341d42be6c66443ec9d17e2bf98ea10ce2e2a947c02eca5574",
+      "size": 12282
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "2b992fd5eab4d903909a4dd621b2ce3c7278fa932e163cbad8f33cf2b65efe0a",
-      "size": 29318
+      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
+      "size": 30314
     },
     {
       "path": "tests/hyperfide/support/sqlite_schema_fixture.py",
