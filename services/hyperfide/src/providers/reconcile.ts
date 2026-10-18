@@ -271,6 +271,12 @@ export function persistenceHooks(pool:ProviderDatabase,organisation:string,id:st
             state='REJECTED';await c.query("UPDATE hyperfide.sandboxes SET observed_state='DESTROYED',desired_state='DESTROYED',state_version=state_version+1 WHERE organisation_id=$1 AND id=$2",[organisation,row.sandbox_id]);
           }
         }else if(op.kind==='destroy'&&outcome.status==='SUCCEEDED')state='ACKNOWLEDGED';
+        // Seed only the current admitting boot, in the observation transaction.
+        // Replayed observations must never revive an allocated or retired slot.
+        await c.query(`INSERT INTO hyperfide.worker_slots(organisation_id,sandbox_id,slot_key,boot_generation,capacity_kind)
+          SELECT organisation_id,id,'agent',boot_generation,'AGENT' FROM hyperfide.sandboxes
+          WHERE organisation_id=$1 AND id=$2 AND boot_generation=$3 AND observed_state='RUNNING' AND desired_state='RUNNING'
+          ON CONFLICT(organisation_id,sandbox_id,slot_key,boot_generation) DO NOTHING`,[organisation,row.sandbox_id,row.boot_generation]);
         await c.query('UPDATE hyperfide.provisioning_intents SET state=$3,last_outcome=$4,provider_request_id=$5,updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND id=$2',
           [organisation,id,state,outcome,outcome.provider_request_id]);
       });
