@@ -1,23 +1,9 @@
 {
   "task": "29.10",
-  "commit": "0480079b46f70f1c0dd128daab16bfba7b5dde6f",
+  "commit": "736f0d1705f2db918a2bc53437132dac2dffc299",
+  "requalified_on": "736f0d1705f2db918a2bc53437132dac2dffc299",
   "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-067 --manifest tests/hyperfide/manifests/tasks/29.10.json",
   "exit_code": 0,
-  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"603c3888-d956-4bc2-99cc-7a210a70ce7f\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/29.10/campaigns/f5bdb1a293385910c803b82137ca220cfd795f2981a8f267387de09b9c5145a8\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n",
-  "ran_at": "2026-10-18T03:23:56.328095+00:00",
-  "receipt_id": "603c3888-d956-4bc2-99cc-7a210a70ce7f",
-  "scope": "task-component",
-  "full_case_status": "INCOMPLETE",
-  "checks": {
-    "typescript_build": 0,
-    "typescript_noEmit": 0,
-    "25.4_verify_cmd": 1,
-    "25.4_direct_probe": 1,
-    "26.4_launcher_probe": 0
-  },
-  "limitations": [
-    "25.4 qualification blocked by pre-existing stale pins outside the authorized refresh set (first: deploy/hyperfide/install-service.mjs).",
-    "Direct 25.4 probe preserves four failures: migration apply/replay require authority_activated false; staging/promotion encounter AUTHORITY_CONFIG_INVALID. All other 39 assertions pass.",
-    "Coordinator-owned spec projection still marks parent tasks pending; cg spec start refuses unmet dependencies despite the supplied merged parent receipt. No spec files changed."
-  ]
+  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"4a66a20c-6eda-41f4-bbe1-8430f32ac869\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/29.10/campaigns/c8578c31f3db837c5c29155a21b72c668d198af080f6ce9d7e57d33e5de7d590\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n",
+  "ran_at": "2026-10-18T03:28:36.253516+00:00"
 }
