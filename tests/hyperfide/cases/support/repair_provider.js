@@ -1,9 +1,11 @@
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {createComponent as createProviderComponent} from '../../../../services/hyperfide/dist/providers/reconcile.js';
 const digest=b=>'sha256:'+createHash('sha256').update(b).digest('hex');
 // Controlled provider transport only. Commands and receipts are the real native
 // product; the executor authenticates, claims, verifies and signs every result.
 export function createComponent(ctx){
+ const provider=createProviderComponent(ctx);
  let verifyBinding;
  const execution={registerRunnerBindingVerifier(reader){verifyBinding=reader;return ()=>{verifyBinding=undefined;};},
   async executeBound(request,signal,invocation){
@@ -19,5 +21,6 @@ export function createComponent(ctx){
    return {outcome:exit.code===0?'SUCCEEDED':'FAILED',process_ref:'pid:'+child.pid,evidence_digest:spool,
     provider_process_termination_confirmed:true,captured:{complete:true,exit_code:exit.code,stdout:out,stderr:err,spool_digest:spool}};
   }};
- return {apiVersion:1,capabilities:{'provider.execution.v1':execution},actions:{'provider.remote.execute-bound':()=>{throw Error('Factory capability required');}}};
+ // The executor binds execution to 8.3; boot must still authenticate and run its real worker.
+ return {apiVersion:1,capabilities:{'provider.execution.v1':execution,'provider.worker.boot':provider.capabilities['provider.worker.boot']},actions:{'provider.remote.execute-bound':()=>{throw Error('Factory capability required');}},close:provider.close};
 }
