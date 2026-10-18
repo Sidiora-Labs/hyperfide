@@ -17,8 +17,8 @@
     "manifest_missing": "Nonzero BLOCKED; never fallback to a default variant",
     "component_registration": "Task-owned typed service/native registration fragments connect modules to real internal entrypoints; public facade integration has explicit later owner."
   },
-  "task_count": 113,
-  "wave_count": 34,
+  "task_count": 123,
+  "wave_count": 37,
   "shared_path_policy": "Each task owns its declared exact paths while active; same-wave overlap is forbidden. Serialized shared paths: services/hyperfide/src/components/registry.ts owned by 1.4 -> 4.2 -> 14.1; services/hyperfide/src/components/service.ts owned by 1.4 -> 14.1; Makefile owned by 1.4 -> 12.1 -> 25.3 -> 26.2; src/hyperfide/components/schema.kvx owned by 1.4 -> 12.1; scripts/hyperfide-native-components.py owned by 1.4 -> 12.1; src/hyperfide/component_main.c owned by 1.4 -> 25.3; src/hyperfide/components.h owned by 1.4 -> 25.3; scripts/install.sh owned by 26.1 -> 26.2; scripts/release.sh owned by 26.1 -> 26.2; src/spec.c owned by 25.3 -> 26.4. Other shared-source edits require explicit serialized ownership and dependencies before work starts.",
   "tasks": [
     {
@@ -2927,7 +2927,7 @@
         "services/hyperfide/migrations/0017-review.sql"
       ],
       "do_steps": [
-        "Discover attributable commits durably and create obligations for every one of the configured10\u201315 watchers per commit by default.",
+        "Discover attributable commits durably and create obligations for every one of the configured10–15 watchers per commit by default.",
         "Omit/duplicate reviews, rewrite history and replace a watcher; missing no-finding receipts stay visible, and specialist sharding requires an approved policy change.",
         "Register this module through its task-owned component fragment in the established service entrypoint and verify its externally observable internal API behavior; an unreferenced source file or direct function-only test cannot satisfy the component gate.",
         "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
@@ -3473,7 +3473,7 @@
         "services/hyperfide/components/18.3.json"
       ],
       "do_steps": [
-        "Resolve finding\u2192reviewed revision\u2192commit/attempt\u2192feature\u2192current manager with explicit collaborators and durable routing acknowledgement.",
+        "Resolve finding→reviewed revision→commit/attempt→feature→current manager with explicit collaborators and durable routing acknowledgement.",
         "Reorder/duplicate events and transfer managers; no finding silently drops, routes only to a dead owner or starts duplicate repair authority.",
         "Register this module through its task-owned component fragment in the established service entrypoint and verify its externally observable internal API behavior; an unreferenced source file or direct function-only test cannot satisfy the component gate.",
         "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
@@ -4482,7 +4482,7 @@
         "tests/hyperfide/registrations/27.3.json"
       ],
       "do_steps": [
-        "Resolve actual account/auth/region/profile/SLO and sustained-concurrency window, qualify each provider separately in small canaries, then ramp the approved combined allocation through 2 slots \u2192 10 sandboxes/20 sessions \u2192 25/50 \u2192 50/100 \u2192 100 sandboxes/200 remote frontier sessions. The 100-sandbox target is the combined fleet; separate full-size provider soaks require an explicit additional campaign decision.",
+        "Resolve actual account/auth/region/profile/SLO and sustained-concurrency window, qualify each provider separately in small canaries, then ramp the approved combined allocation through 2 slots → 10 sandboxes/20 sessions → 25/50 → 50/100 → 100 sandboxes/200 remote frontier sessions. The 100-sandbox target is the combined fleet; separate full-size provider soaks require an explicit additional campaign decision.",
         "Run approved48-hour then72-hour/1500-session campaigns with real native workloads, graph/build/review/integration and credential renewal; record actual concurrency, per-provider evidence, main-host exclusion and full resource inventory.",
         "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
       ],
@@ -4724,6 +4724,395 @@
       ],
       "owner": "release",
       "verification_scope": "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+    },
+    {
+      "id": "29.1",
+      "title": "Activate the first authority epoch and let every role adopt it",
+      "status": "pending",
+      "wave": 35,
+      "requires": [],
+      "touches": [
+        "services/hyperfide/src/storage/durability.ts",
+        "services/hyperfide/src/storage/authority_journal.ts",
+        "services/hyperfide/src/recovery/fencing.ts",
+        "deploy/hyperfide/migrate.mjs",
+        "deploy/hyperfide/install-service.mjs",
+        "tests/hyperfide/cases/tasks/29_1.py",
+        "tests/hyperfide/registrations/29.1.json",
+        "tests/hyperfide/manifests/tasks/29.1.json"
+      ],
+      "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-058 --manifest tests/hyperfide/manifests/tasks/29.1.json",
+      "reqs": [
+        "29.1",
+        "29.2",
+        "29.3",
+        "29.4"
+      ],
+      "acceptance_ids": [
+        "V-058"
+      ],
+      "owner": "storage",
+      "artifacts": [
+        "artifacts/hyperfide/tasks/29.1/manifest.json",
+        "artifacts/hyperfide/tasks/29.1/evidence-index.json"
+      ],
+      "verification_scope": "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.",
+      "do_steps": [
+        "Nothing in src calls AuthorityStore.activate; it is only reachable through storage.authority.v1 (durability.ts:283-285, :302) and every ordinary service refuses until an epoch exists (durability.ts:276-279). Add a trusted operator activation entry that drives activateInternal (durability.ts:200-239) once, BOOTSTRAP when there is no predecessor (:236).",
+        "FileExternalAuthorityJournal requires uid ownership of its dir and file (authority_journal.ts:86, :96), mints a fresh randomUUID epoch per journal (:159) and publishCommitted needs a matching PENDING entry (:174); with three unit uids only one journal can hold the committed epoch, so the other roles fail assertExternalAuthorityCurrent (durability.ts:172-182). Add a follower path that adopts a committed epoch and proof_digest from the activating journal, verified, without minting.",
+        "Keep the LIVE_PROVIDER-only fence (fencing.ts:210) and the receipt checks with the 30 s expiry bound (durability.ts:226-229); do not accept the component-fixture fencer used by tests/hyperfide/support/identity_fixture.py:53-58 outside tests.",
+        "Replace the hardcoded authority_activated:false in deploy/hyperfide/migrate.mjs:54, :57, :66 and install-service.mjs:110, :116 with a store read.",
+        "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+      ]
+    },
+    {
+      "id": "29.2",
+      "title": "Give the provisioner a transport and self-start its worker",
+      "status": "pending",
+      "wave": 35,
+      "requires": [],
+      "touches": [
+        "services/hyperfide/src/components/service.ts",
+        "services/hyperfide/src/providers/reconcile.ts",
+        "services/hyperfide/src/providers/worker.ts",
+        "deploy/hyperfide/provisioner.service",
+        "tests/hyperfide/cases/tasks/29_2.py",
+        "tests/hyperfide/registrations/29.2.json",
+        "tests/hyperfide/manifests/tasks/29.2.json"
+      ],
+      "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-059 --manifest tests/hyperfide/manifests/tasks/29.2.json",
+      "reqs": [
+        "30.1",
+        "30.2",
+        "30.3",
+        "30.4"
+      ],
+      "acceptance_ids": [
+        "V-059"
+      ],
+      "owner": "provisioning",
+      "artifacts": [
+        "artifacts/hyperfide/tasks/29.2/manifest.json",
+        "artifacts/hyperfide/tasks/29.2/evidence-index.json"
+      ],
+      "verification_scope": "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.",
+      "do_steps": [
+        "Daemon mode starts no transport, only emits ready and waits (service.ts:134-138), while provisioner.service:11 runs --mode daemon; every provisioner()-gated action (pools.ts:588) is therefore unreachable, including provider.pools.configure (pools.ts:604), attest-capacity (:605), observe (:608) and provider.intents.execute/reconcile. Run the provisioner with the authenticated https transport the control and dispatch units use.",
+        "The ProvisionerWorker is created at reconcile.ts:619 but only starts via provider.worker.start (reconcile.ts:644), which needs a PROVISIONER invocation, and worker.ts:75-89 keeps no durable started flag. Start it at boot under a self-signed invocation loaded like runner/executor.ts:50-75 (0600, nlink 1, principals with credential_id/key_path) and authenticated as at executor.ts:79-87.",
+        "Make start idempotent across restarts and refuse unsafe credential files; keep the run-scoped CLAIM query in worker.ts.",
+        "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+      ]
+    },
+    {
+      "id": "29.3",
+      "title": "Make the writer-isolation digest binding satisfiable and register destruction preflight",
+      "status": "pending",
+      "wave": 35,
+      "requires": [],
+      "touches": [
+        "services/hyperfide/src/recovery/fencing.ts",
+        "services/hyperfide/src/providers/placement.ts",
+        "services/hyperfide/src/identity/credentials.ts",
+        "services/hyperfide/src/recovery/fencing_service.ts",
+        "tests/hyperfide/cases/tasks/29_3.py",
+        "tests/hyperfide/registrations/29.3.json",
+        "tests/hyperfide/manifests/tasks/29.3.json"
+      ],
+      "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-060 --manifest tests/hyperfide/manifests/tasks/29.3.json",
+      "reqs": [
+        "37.1",
+        "37.2",
+        "37.3",
+        "37.4"
+      ],
+      "acceptance_ids": [
+        "V-060"
+      ],
+      "owner": "fencing",
+      "artifacts": [
+        "artifacts/hyperfide/tasks/29.3/manifest.json",
+        "artifacts/hyperfide/tasks/29.3/evidence-index.json"
+      ],
+      "verification_scope": "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.",
+      "do_steps": [
+        "On the permit path fencing_service.ts:59-60 uses, permit.topology_digest must equal the hash of the fence topology including resources[].topology_digest (fencing.ts:209, :214) and equal config.topology_digest (placement.ts:324); the binding takes config.topology_digest (placement.ts:352) and must equal each fence resource r.topology_digest (fencing.ts:246), with permit and fence resources exactly equal (fencing.ts:216-218, credentials.ts:168). That needs a SHA-256 fixed point.",
+        "Bind fence resources against their per-resource resource_topology_digest, or exclude resource digests from externalFenceTopologyDigest, keeping every equality check and refusing tampered digests.",
+        "placement.ts:476 builds createProviderIsolation without destructionPreflight, so first isolation fails DESTRUCTION_PREFLIGHT_UNAVAILABLE (placement.ts:348); wire the preflight 8.3 already registers (reconcile.ts:629, :632).",
+        "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+      ]
+    },
+    {
+      "id": "29.4",
+      "title": "Export runner supervisor and preparation-receipt capabilities from 12.4",
+      "status": "pending",
+      "wave": 35,
+      "requires": [],
+      "touches": [
+        "services/hyperfide/src/runner/executor.ts",
+        "services/hyperfide/src/runner/bridge.ts",
+        "services/hyperfide/src/runner/preparation_receipts.ts",
+        "tests/hyperfide/cases/tasks/29_4.py",
+        "tests/hyperfide/registrations/29.4.json",
+        "tests/hyperfide/manifests/tasks/29.4.json"
+      ],
+      "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-061 --manifest tests/hyperfide/manifests/tasks/29.4.json",
+      "reqs": [
+        "36.1",
+        "36.2",
+        "36.3",
+        "36.4"
+      ],
+      "acceptance_ids": [
+        "V-061"
+      ],
+      "owner": "runner",
+      "artifacts": [
+        "artifacts/hyperfide/tasks/29.4/manifest.json",
+        "artifacts/hyperfide/tasks/29.4/evidence-index.json"
+      ],
+      "verification_scope": "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.",
+      "do_steps": [
+        "12.4 exports only runner.native.v1 (executor.ts:331), while recovery requires runner.supervisors.v1 (recovery/control.ts:234, recovery/stop.ts:97, :140) and reproduction requires runner.preparation-receipts.v1 (runner/reproduction_jobs.ts:92).",
+        "Export runner.supervisors.v1 with the verifyStop result shape stop.ts:97 checks, and runner.preparation-receipts.v1 over verifyPreparationReceipt/recordPreparationReceipt/readPreparationReceipt (preparation_receipts.ts:23, :40, :57).",
+        "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+      ]
+    },
+    {
+      "id": "29.5",
+      "title": "Ship per-role run policies and the operator grant script",
+      "status": "pending",
+      "wave": 35,
+      "requires": [],
+      "touches": [
+        "deploy/hyperfide/policies/control.example.json",
+        "deploy/hyperfide/policies/provisioner.example.json",
+        "deploy/hyperfide/policies/dispatch.example.json",
+        "deploy/hyperfide/grants.sql",
+        "tests/hyperfide/cases/tasks/29_5.py",
+        "tests/hyperfide/registrations/29.5.json",
+        "tests/hyperfide/manifests/tasks/29.5.json"
+      ],
+      "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-062 --manifest tests/hyperfide/manifests/tasks/29.5.json",
+      "reqs": [
+        "34.1",
+        "34.2",
+        "34.3",
+        "34.4"
+      ],
+      "acceptance_ids": [
+        "V-062"
+      ],
+      "owner": "foundation",
+      "artifacts": [
+        "artifacts/hyperfide/tasks/29.5/manifest.json",
+        "artifacts/hyperfide/tasks/29.5/evidence-index.json"
+      ],
+      "verification_scope": "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.",
+      "do_steps": [
+        "No per-role allowed_actions list ships, yet every invocation is admitted against it (components/registry.ts:181, policy/programme.ts:49-50) and the dispatcher refuses unless its worker actions are listed (events/dispatcher.ts:61-62). Ship one example per role in the schema validatePolicy enforces (programme.ts:26-48).",
+        "Derive each list from the role's registered component actions and dispatcher routes, and have the case fail naming any missing action.",
+        "Ship grants.sql for the runtime privileges assertRuntimePrivileges checks (storage/durability.ts:255-263) and the pg_control_system/pg_control_checkpoint EXECUTE grants storage/replicas.ts:30-36 documents as trusted operator setup; no migration privilege for runtime roles.",
+        "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+      ]
+    },
+    {
+      "id": "29.6",
+      "title": "Seed worker slots, capacity accounts and scheduling policy",
+      "status": "pending",
+      "wave": 36,
+      "requires": [
+        "29.2"
+      ],
+      "touches": [
+        "services/hyperfide/src/providers/reconcile.ts",
+        "services/hyperfide/src/providers/pools.ts",
+        "services/hyperfide/migrations/0706-capacity-seeding.sql",
+        "tests/hyperfide/cases/tasks/29_6.py",
+        "tests/hyperfide/registrations/29.6.json",
+        "tests/hyperfide/manifests/tasks/29.6.json"
+      ],
+      "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-063 --manifest tests/hyperfide/manifests/tasks/29.6.json",
+      "reqs": [
+        "31.1",
+        "31.2",
+        "31.3",
+        "31.4"
+      ],
+      "acceptance_ids": [
+        "V-063"
+      ],
+      "owner": "scheduling",
+      "artifacts": [
+        "artifacts/hyperfide/tasks/29.6/manifest.json",
+        "artifacts/hyperfide/tasks/29.6/evidence-index.json"
+      ],
+      "verification_scope": "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.",
+      "do_steps": [
+        "Nothing outside tests inserts worker_slots (0001-authority.sql:302), capacity_accounts (0001-authority.sql:234) or scheduling_policies (0005-scheduling.sql:12), so claimTask always refuses SCHEDULING_POLICY_MISSING, CAPACITY_ACCOUNT_MISSING or SLOT_UNAVAILABLE (scheduler/claim.ts:679, :686, :696-697).",
+        "Insert the READY slot for the boot_generation in the transaction that moves the sandbox to RUNNING (providers/reconcile.ts:231, :244); retire slots when the boot stops or is replaced.",
+        "Seed capacity_accounts per dimension and the scheduling policy from provider.pools.configure, idempotently, with provenance_digest and qualification_state, never above qualified capacity.",
+        "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+      ]
+    },
+    {
+      "id": "29.7",
+      "title": "Qualify Railway capacity through operator declarations",
+      "status": "pending",
+      "wave": 36,
+      "requires": [
+        "29.2"
+      ],
+      "touches": [
+        "services/hyperfide/src/providers/pools.ts",
+        "deploy/hyperfide/capacity/railway.example.json",
+        "tests/hyperfide/cases/tasks/29_7.py",
+        "tests/hyperfide/registrations/29.7.json",
+        "tests/hyperfide/manifests/tasks/29.7.json"
+      ],
+      "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-064 --manifest tests/hyperfide/manifests/tasks/29.7.json",
+      "reqs": [
+        "32.1",
+        "32.2",
+        "32.3",
+        "32.4"
+      ],
+      "acceptance_ids": [
+        "V-064"
+      ],
+      "owner": "provisioning",
+      "artifacts": [
+        "artifacts/hyperfide/tasks/29.7/manifest.json",
+        "artifacts/hyperfide/tasks/29.7/evidence-index.json"
+      ],
+      "verification_scope": "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.",
+      "do_steps": [
+        "The live observer throws QUOTA_UNQUALIFIED (providers/railway/reconciliation.ts:81-88) but only observe calls it (pools.ts:608-611); CREATE admission reads stored observations (assertPoolCapacity, pools.ts:312-323) and needs ACCOUNT plus ENVIRONMENT or POOL per dimension (pools.ts:296).",
+        "Reuse provider.pools.attest-capacity (attestCapacity, pools.ts:373-406; counted at pools.ts:269; exercised by tests/hyperfide/cases/tasks/8_2.py) for SANDBOX, PROVISIONING, CPU_MILLIS, MEMORY_BYTES and DISK_BYTES, now reachable through 29.2; ship a validated example declaration.",
+        "Keep the observer refusal, OPERATOR role, COMPLETE provenance and 30-day expiry; expired declarations stop CREATE admission.",
+        "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+      ]
+    },
+    {
+      "id": "29.8",
+      "title": "Run Railway executeBound durably and complete the adapter surface",
+      "status": "pending",
+      "wave": 36,
+      "requires": [
+        "29.2"
+      ],
+      "touches": [
+        "services/hyperfide/src/providers/reconcile.ts",
+        "services/hyperfide/src/providers/railway/reconciliation.ts",
+        "services/hyperfide/src/providers/railway/processes.ts",
+        "tests/hyperfide/cases/tasks/29_8.py",
+        "tests/hyperfide/registrations/29.8.json",
+        "tests/hyperfide/manifests/tasks/29.8.json"
+      ],
+      "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-065 --manifest tests/hyperfide/manifests/tasks/29.8.json",
+      "reqs": [
+        "33.1",
+        "33.2",
+        "33.3",
+        "33.4"
+      ],
+      "acceptance_ids": [
+        "V-065"
+      ],
+      "owner": "provisioning",
+      "artifacts": [
+        "artifacts/hyperfide/tasks/29.8/manifest.json",
+        "artifacts/hyperfide/tasks/29.8/evidence-index.json"
+      ],
+      "verification_scope": "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.",
+      "do_steps": [
+        "The 9.4 adapter already executes live through Sandbox.connect/exec (railway/processes.ts:532, :540, :656; execute case railway/reconciliation.ts:257-271), but executeBound sends durable:false (providers/reconcile.ts:500, within :482-508) and RailwaySessionSpool.start throws 'Railway durable supervisor required' without durable (processes.ts:511), which the adapter catch turns into UNKNOWN (reconciliation.ts:345).",
+        "Pass the durable intent/session binding from executeBound; keep the public 9.3 live refusal (processes.ts:771-778).",
+        "capabilities, prepare and transfer return UNSUPPORTED because installRailwayRuntime supplies no dependencies (reconciliation.ts:193-317, installed at :575-657); supply them or return a typed reason admission honours, and carry the error code through the catch.",
+        "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+      ]
+    },
+    {
+      "id": "29.9",
+      "title": "Ship the host bootstrap and per-role environment preflight",
+      "status": "pending",
+      "wave": 37,
+      "requires": [
+        "29.1",
+        "29.2",
+        "29.5"
+      ],
+      "touches": [
+        "deploy/hyperfide/bootstrap-host.mjs",
+        "deploy/hyperfide/env/control.env.example",
+        "deploy/hyperfide/env/provisioner.env.example",
+        "deploy/hyperfide/env/dispatch.env.example",
+        "tests/hyperfide/cases/tasks/29_9.py",
+        "tests/hyperfide/registrations/29.9.json",
+        "tests/hyperfide/manifests/tasks/29.9.json"
+      ],
+      "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-066 --manifest tests/hyperfide/manifests/tasks/29.9.json",
+      "reqs": [
+        "35.1",
+        "35.2",
+        "35.3",
+        "35.4"
+      ],
+      "acceptance_ids": [
+        "V-066"
+      ],
+      "owner": "deployment",
+      "artifacts": [
+        "artifacts/hyperfide/tasks/29.9/manifest.json",
+        "artifacts/hyperfide/tasks/29.9/evidence-index.json"
+      ],
+      "verification_scope": "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.",
+      "do_steps": [
+        "Nothing creates the hyperfide, hyperfide-provisioner and hyperfide-dispatch users the units name, the configuration and state trees, or installs the units; add an idempotent bootstrap that never overwrites secrets. Identity bootstrap stays with bootstrap_identity.ts (parent task 26.4).",
+        "Ship per-role env examples: dispatch needs HYPERFIDE_DISPATCH_LISTEN_HOST/PORT, HYPERFIDE_SPEC_REVISION, HYPERFIDE_DISPATCH_PRIMARY_DATABASE_URL, HYPERFIDE_REQUIRE_SYNC_REPLICA, HYPERFIDE_DEPLOYMENT_ID, HYPERFIDE_AUTHORITY_JOURNAL_DIR; provisioner adds the external fence, Railway and pool variables; control adds HYPERFIDE_CAUSAL_BARRIER_KEY (storage/replicas.ts:56-57); HYPERFIDE_MIGRATION_* absent everywhere.",
+        "Preflight maps each gap to DURABILITY_POLICY_REQUIRED, MIGRATION_CREDENTIAL_EXPOSED, EXTERNAL_JOURNAL_REQUIRED, EXTERNAL_FENCE_CONFIG_REQUIRED/_UNSAFE/_INVALID/_INCOMPLETE, POOL_CONFIG_REQUIRED or 'Railway trusted configuration missing', and installs the 29.5 policies and grants.",
+        "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+      ]
+    },
+    {
+      "id": "29.10",
+      "title": "Qualify the supervisory-host and issue-watcher units after 26.4",
+      "status": "pending",
+      "wave": 37,
+      "requires": [
+        "26.4",
+        "29.9"
+      ],
+      "touches": [
+        "services/hyperfide/src/deployment/releases.ts",
+        "tests/hyperfide/cases/tasks/25_4.py",
+        "deploy/hyperfide/supervisory-host.service",
+        "deploy/hyperfide/issue-watcher.service",
+        "tests/hyperfide/cases/tasks/29_10.py",
+        "tests/hyperfide/registrations/29.10.json",
+        "tests/hyperfide/manifests/tasks/29.10.json"
+      ],
+      "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-067 --manifest tests/hyperfide/manifests/tasks/29.10.json",
+      "reqs": [
+        "38.1",
+        "38.2",
+        "38.3",
+        "38.4"
+      ],
+      "acceptance_ids": [
+        "V-067"
+      ],
+      "owner": "release",
+      "artifacts": [
+        "artifacts/hyperfide/tasks/29.10/manifest.json",
+        "artifacts/hyperfide/tasks/29.10/evidence-index.json"
+      ],
+      "verification_scope": "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.",
+      "do_steps": [
+        "releases.ts:14-16 marks issue-watcher.service and supervisory-host.service UNQUALIFIED with owner_task 26.4, asserted by tests/hyperfide/cases/tasks/25_4.py:91 and :209; 26.4 owns supervisory-host.ts and issue-watcher.ts, so do not duplicate it (26.4 is a parent-spec dependency).",
+        "After 26.4 is done with its gates passing, change the status and the 25_4 expectations in one change that cites the 26.4 receipt; this is a qualified status transition, not a weakened check.",
+        "Confirm the units start the 26.4 entrypoints with the shipped configuration paths (supervisory-host.service:20, issue-watcher.service:18).",
+        "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+      ]
     }
   ]
 }
