@@ -54,7 +54,7 @@ const v=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(await c
 
     def setup(self,f):
         c,i=self.c,f.ids
-        f.actions.extend(['provider.remote.execute-bound','runner.executor.describe'])
+        f.actions.extend(['provider.remote.execute-bound','provider.worker.start','runner.executor.describe'])
         policy=json.loads(f.policy.read_text());policy['allowed_actions']=f.actions;f.policy.write_text(json.dumps(policy))
         config=json.loads(f.identity_config.read_text())
         for principal in config['principals']:
@@ -140,9 +140,9 @@ const v=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(await c
     def start_executor(self,f):
         c=self.c;root=self.root
         components=root/'components';components.mkdir()
-        for name in ('1.4','4.2','4.4','14.1','15.2','12.4-executor'):
+        for name in ('1.4','4.2','4.4','8.2','14.1','15.2','12.4-executor'):
             shutil.copyfile(c.ROOT/'services/hyperfide/components'/ (name+'.json'),components/(name+'.json'))
-        provider=dict(schema_version=1,id='8.3',task='8.3',roles=['provisioner'],module='tests/hyperfide/cases/support/repair_provider.js',entry='createComponent',api_version=1,actions=['provider.remote.execute-bound'],requires=['4.2','14.1'])
+        provider=dict(schema_version=1,id='8.3',task='8.3',roles=['provisioner'],module='tests/hyperfide/cases/support/repair_provider.js',entry='createComponent',api_version=1,actions=['provider.remote.execute-bound'],requires=['8.2','4.2','14.1'])
         # All production fragments use their built modules under the repository root.
         for fragment in components.glob('*.json'):
             body=json.loads(fragment.read_text());body['module']='services/hyperfide/dist/'+body['module'];fragment.write_text(json.dumps(body))
@@ -152,7 +152,14 @@ const v=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(await c
         secrets.mkdir(mode=0o700);attachments.mkdir(mode=0o700)
         credentials=root/'credential-store.json'
         credentials.write_text(json.dumps(dict(schema_version=1,secret_root=str(secrets),attachment_root=str(attachments),sources=[],targets=[])));credentials.chmod(0o600)
-        env=dict(f.env,HF_RUNNER_EXECUTOR_CONFIG_FILE=str(config),HF_PROVISIONER_EXECUTOR_CONFIG_FILE=str(config),HF_CREDENTIAL_CONFIG_FILE=str(credentials));port=socket.socket();port.bind(('127.0.0.1',0));self.port=port.getsockname()[1];port.close()
+        # The real worker needs a declared deployment even though this fixture installs no cloud adapters.
+        limits=dict(SANDBOX='1',PROVISIONING='1')
+        pools=root/'pools.json'
+        pools.write_text(json.dumps(dict(schema_version=1,organisation_id=f.ids['organisation'],revision='repair-qualification',maximum_operation_ms=60000,
+            accounts=[dict(provider='railway',account_key='repair-qualification',approved_limits=limits,planning_limits=limits)],
+            pools=[dict(id=c.uid(),provider='railway',account_key='repair-qualification',environment_key='repair-qualification',region='fixture',profile_id=None,
+                preparation_digest=f.preparation,approved_limits=limits,planning_limits=limits,create_policy=dict(seed_reference='repair-qualification',network='ISOLATED',stdin_required=False))])));pools.chmod(0o600)
+        env=dict(f.env,HF_RUNNER_EXECUTOR_CONFIG_FILE=str(config),HF_PROVISIONER_EXECUTOR_CONFIG_FILE=str(config),HF_CREDENTIAL_CONFIG_FILE=str(credentials),HYPERFIDE_POOL_CONFIG=str(pools));port=socket.socket();port.bind(('127.0.0.1',0));self.port=port.getsockname()[1];port.close()
         self.log=root/'executor.log';log=open(self.log,'w')
         try:self.child=subprocess.Popen(['node',str(c.ROOT/'services/hyperfide/dist/provisioner.js'),'--policy',str(f.policy),'--spec-revision','fixture-identity-v1','--components',str(components),'--module-root',str(c.ROOT),
             '--mode','https','--host','127.0.0.1','--port',str(self.port),'--tls-cert',str(f.ca),'--tls-key',str(f.tlskey)],cwd=c.ROOT,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=log)
