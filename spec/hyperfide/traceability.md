@@ -1,10 +1,25 @@
 # Implementation traceability
 
-Status: approved for implementation on 2026-10-16. This crosswalk is the historical planning baseline; native KVX tracks live task progress, and product cases require independent full-case evidence. This public crosswalk maps the 112 normative clauses in the [native specification](spec.kvx) to 112 implementation task identities, 56 canonical verification cases and their design contracts. It contains implementation coverage, not execution evidence.
+Status: approved for implementation on 2026-10-16. This crosswalk is the historical planning baseline; native KVX tracks live task progress, and product cases require independent full-case evidence. This public crosswalk maps the 153 normative clauses in the [native specification](spec.kvx) to 123 implementation task identities, 67 canonical verification cases and their design contracts. It contains implementation coverage, not execution evidence.
 
 A clause identifier `N.M` means `[req.N] ac_M`. Task identifiers resolve in the [implementation plan](implementation-plan.md) and [task catalogue](evidence/task-catalog.json). Verification identifiers resolve in [verification.md](verification.md). The machine-readable source for this table is [traceability.json](evidence/traceability.json).
 
 The listed cases are the exact union assigned to the covering tasks. A task may execute a registered component variant of a case; complete case acceptance still requires all mandatory assertions and every applicable provider, connector and campaign variant. Linking a clause, declaring a task complete or passing structural pack validation does not establish product qualification.
+
+Feature 29 source anchors in [spec.kvx](spec.kvx) are listed below. Each task's `reqs` and `acceptance_ids` assign all four clauses of the corresponding requirement. The design chapters in the crosswalk describe these contracts; native requirements retain the detailed implementation obligations.
+
+| Requirement section line | Owning task section line | Design contract basis |
+|---|---|---|
+| 29: 240 | 29.1: 2332 | Storage authority/fencing protocols; migration authority cutover. |
+| 30: 248 | 29.2: 2350 | Execution roles and sessions; authenticated identity; separate provisioner deployment. |
+| 31: 256 | 29.6: 2417 | Storage capacity accounts and worker slots; atomic execution admission. |
+| 32: 264 | 29.7: 2434 | Railway capacity qualification; execution capacity and API budgets. |
+| 33: 272 | 29.8: 2451 | Railway adapter capabilities, preparation, execution and durable logs. |
+| 34: 280 | 29.5: 2400 | Identity run-policy enforcement; storage privilege separation. |
+| 35: 288 | 29.9: 2468 | Deployment units and credentials; identity credential profiles. |
+| 36: 296 | 29.4: 2384 | Execution preparation manifests and supervisors; assurance recovery and reproduction. |
+| 37: 304 | 29.3: 2367 | Storage fencing protocols; identity authority and destructive-operation controls. |
+| 38: 312 | 29.10: 2485 | Deployment units and release mechanics; verification closure evidence. |
 
 | Native clause | Implementation task | Canonical verification cases | Design contracts |
 |---|---|---|---|
@@ -121,3 +136,43 @@ The listed cases are the exact union assigned to the covering tasks. A task may 
 | 28.2 | 28.2 | V-035 | [assurance.md](assurance.md); [verification.md](verification.md) |
 | 28.3 | 28.3 | V-034, V-053, V-054, V-055, V-056 | [assurance.md](assurance.md); [verification.md](verification.md) |
 | 28.4 | 28.4 | V-024, V-034, V-056 | [assurance.md](assurance.md); [verification.md](verification.md) |
+| 29.1 | 29.1 | V-058 | [storage.md](storage.md); [migration.md](migration.md) |
+| 29.2 | 29.1 | V-058 | [storage.md](storage.md); [migration.md](migration.md) |
+| 29.3 | 29.1 | V-058 | [storage.md](storage.md); [migration.md](migration.md) |
+| 29.4 | 29.1 | V-058 | [storage.md](storage.md); [migration.md](migration.md) |
+| 30.1 | 29.2 | V-059 | [execution-contract.md](execution-contract.md); [identity-security.md](identity-security.md); [migration.md](migration.md) |
+| 30.2 | 29.2 | V-059 | [execution-contract.md](execution-contract.md); [identity-security.md](identity-security.md); [migration.md](migration.md) |
+| 30.3 | 29.2 | V-059 | [execution-contract.md](execution-contract.md); [identity-security.md](identity-security.md); [migration.md](migration.md) |
+| 30.4 | 29.2 | V-059 | [execution-contract.md](execution-contract.md); [identity-security.md](identity-security.md); [migration.md](migration.md) |
+| 31.1 | 29.6 | V-063 | [storage.md](storage.md); [execution-contract.md](execution-contract.md) |
+| 31.2 | 29.6 | V-063 | [storage.md](storage.md); [execution-contract.md](execution-contract.md) |
+| 31.3 | 29.6 | V-063 | [storage.md](storage.md); [execution-contract.md](execution-contract.md) |
+| 31.4 | 29.6 | V-063 | [storage.md](storage.md); [execution-contract.md](execution-contract.md) |
+| 32.1 | 29.7 | V-064 | [providers/railway.md](providers/railway.md); [execution-contract.md](execution-contract.md) |
+| 32.2 | 29.7 | V-064 | [providers/railway.md](providers/railway.md); [execution-contract.md](execution-contract.md) |
+| 32.3 | 29.7 | V-064 | [providers/railway.md](providers/railway.md); [execution-contract.md](execution-contract.md) |
+| 32.4 | 29.7 | V-064 | [providers/railway.md](providers/railway.md); [execution-contract.md](execution-contract.md) |
+| 33.1 | 29.8 | V-065 | [providers/railway.md](providers/railway.md) |
+| 33.2 | 29.8 | V-065 | [providers/railway.md](providers/railway.md) |
+| 33.3 | 29.8 | V-065 | [providers/railway.md](providers/railway.md) |
+| 33.4 | 29.8 | V-065 | [providers/railway.md](providers/railway.md) |
+| 34.1 | 29.5 | V-062 | [identity-security.md](identity-security.md); [storage.md](storage.md) |
+| 34.2 | 29.5 | V-062 | [identity-security.md](identity-security.md); [storage.md](storage.md) |
+| 34.3 | 29.5 | V-062 | [identity-security.md](identity-security.md); [storage.md](storage.md) |
+| 34.4 | 29.5 | V-062 | [identity-security.md](identity-security.md); [storage.md](storage.md) |
+| 35.1 | 29.9 | V-066 | [migration.md](migration.md); [identity-security.md](identity-security.md) |
+| 35.2 | 29.9 | V-066 | [migration.md](migration.md); [identity-security.md](identity-security.md) |
+| 35.3 | 29.9 | V-066 | [migration.md](migration.md); [identity-security.md](identity-security.md) |
+| 35.4 | 29.9 | V-066 | [migration.md](migration.md); [identity-security.md](identity-security.md) |
+| 36.1 | 29.4 | V-061 | [execution-contract.md](execution-contract.md); [assurance.md](assurance.md) |
+| 36.2 | 29.4 | V-061 | [execution-contract.md](execution-contract.md); [assurance.md](assurance.md) |
+| 36.3 | 29.4 | V-061 | [execution-contract.md](execution-contract.md); [assurance.md](assurance.md) |
+| 36.4 | 29.4 | V-061 | [execution-contract.md](execution-contract.md); [assurance.md](assurance.md) |
+| 37.1 | 29.3 | V-060 | [storage.md](storage.md); [identity-security.md](identity-security.md) |
+| 37.2 | 29.3 | V-060 | [storage.md](storage.md); [identity-security.md](identity-security.md) |
+| 37.3 | 29.3 | V-060 | [storage.md](storage.md); [identity-security.md](identity-security.md) |
+| 37.4 | 29.3 | V-060 | [storage.md](storage.md); [identity-security.md](identity-security.md) |
+| 38.1 | 29.10 | V-067 | [migration.md](migration.md); [verification.md](verification.md) |
+| 38.2 | 29.10 | V-067 | [migration.md](migration.md); [verification.md](verification.md) |
+| 38.3 | 29.10 | V-067 | [migration.md](migration.md); [verification.md](verification.md) |
+| 38.4 | 29.10 | V-067 | [migration.md](migration.md); [verification.md](verification.md) |
