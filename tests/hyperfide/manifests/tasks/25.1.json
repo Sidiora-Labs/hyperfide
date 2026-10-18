@@ -8,7 +8,7 @@
     ],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-25.1-actual-authority-v2-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a80cd7edbb1c-requal-a923d185cd03",
+  "campaign_id": "hyperfide-task-25.1-actual-authority-v2-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a80cd7edbb1c-requal-a923d185cd03-requal-993c90fcfec0",
   "case_ids": [
     "V-018",
     "V-019",
@@ -267,7 +267,7 @@
     },
     {
       "path": "services/hyperfide/dist/deployment/releases.js",
-      "sha256": "76098b8f78f72f66ed2f1b2356b95117cac8caa3dcb9fc634215d6f5074f2c16",
+      "sha256": "ef1f75d4aa41eb4eedfea9322d26d85f8f75befaf91045c8324cfc2f613f685a",
       "size": 16695
     },
     {
@@ -627,7 +627,7 @@
     },
     {
       "path": "services/hyperfide/src/deployment/releases.ts",
-      "sha256": "b2fa26904bea2460a079f4062fcdf0790292e7207d47f77825f84fee5a535555",
+      "sha256": "dc02b1098b408cb70a49938ea8119659d2a51211b08f98baed7a8edbfeec9ffa",
       "size": 15189
     },
     {
