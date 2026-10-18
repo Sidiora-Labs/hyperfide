@@ -8,7 +8,7 @@
     ],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-28.2-bounded-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-a80cd7edbb1c-requal-a923d185cd03",
+  "campaign_id": "hyperfide-task-28.2-bounded-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-a80cd7edbb1c-requal-a923d185cd03-requal-6544166d354d",
   "case_ids": [
     "V-035"
   ],
@@ -608,13 +608,13 @@
     },
     {
       "path": "spec/hyperfide/evidence/task-catalog.json",
-      "sha256": "f4e16543c73913e3dd768be0a7230505b7f0fe1f3ee50f896dc02586a2cc42e8",
-      "size": 275422
+      "sha256": "669ffca50da50b0da18bcd02bdfb97c1f09e80b3620d59c19050d6f39fd56d07",
+      "size": 298332
     },
     {
       "path": "spec/hyperfide/evidence/traceability.json",
-      "sha256": "bc53592e261272de082b4f26326d14ef4be625952741776b9264b60a2fbb2c00",
-      "size": 26207
+      "sha256": "26dbb62a516ccbc76fd520d93e95097c48e77b064e33b5c450649fac559ec0a5",
+      "size": 34647
     },
     {
       "path": "spec/hyperfide/execution-contract.md",
@@ -678,13 +678,13 @@
     },
     {
       "path": "spec/hyperfide/traceability.md",
-      "sha256": "7356aeec47b3dd7584d1999652f13e8df4c1d72d15799a385433a13541dcf381",
-      "size": 12453
+      "sha256": "b0e2a054fccc02112fb26cabb6204989b083c61357fa776b0d5e5f1fa9a1cea4",
+      "size": 17883
     },
     {
       "path": "spec/hyperfide/verification.md",
-      "sha256": "f5c6a646417257e8dd5c5c4cd9c355219859e26bdfc8bccec2b2788c4acab8a9",
-      "size": 45946
+      "sha256": "470c7e9de8f73f20fcde286ad15ecd53ce41c7cc4c1133c0782be6aac98e64b3",
+      "size": 48615
     },
     {
       "path": "tests/hyperfide/cases/tasks/28_2.py",
