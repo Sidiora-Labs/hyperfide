@@ -8,6 +8,7 @@
     "V-054"
   ],
   "assertion_ids": [
+    "provider.worker.running-from-boot",
     "provider.intent.configure",
     "provider.intent.seed-admission",
     "provider.intent.persist-before-effects",
