@@ -3,7 +3,7 @@
     "allowed_actions": [],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-9.4-railway-component-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-a80cd7edbb1c-requal-a923d185cd03",
+  "campaign_id": "hyperfide-task-9.4-railway-component-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-a80cd7edbb1c-requal-a923d185cd03-requal-6544166d354d",
   "case_ids": [
     "V-036",
     "V-037",
@@ -1180,8 +1180,8 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/9_4.py",
-      "sha256": "3d5e3abc6d799741ece58953ee6dae44d41c27e861874f173143c6aefe4f51d6",
-      "size": 25969
+      "sha256": "f7c5dfee249ab82f3cba0c6d0c7a66b363428e5dbf3dd686985becbe63bf5286",
+      "size": 26246
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
