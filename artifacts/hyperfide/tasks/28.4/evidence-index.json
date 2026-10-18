@@ -1,9 +1,9 @@
 {
   "task": "28.4",
-  "commit": "a80cd7edbb1c3021b76c18c53fdc95d634a77a09",
-  "requalified_on": "a80cd7edbb1c3021b76c18c53fdc95d634a77a09",
+  "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+  "requalified_on": "a923d185cd035c9620195fcf2d0e12c512e73d37",
   "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-024 --manifest tests/hyperfide/manifests/tasks/28.4.json && python3 tests/hyperfide/qualify.py --case V-034 --manifest tests/hyperfide/manifests/tasks/28.4.json && python3 tests/hyperfide/qualify.py --case V-056 --manifest tests/hyperfide/manifests/tasks/28.4.json",
-  "exit_code": 0,
-  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"1a552e97-d768-4c06-8494-bcdee194e587\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/28.4/campaigns/cc3600b717216f5b8acfae62e68c38f437a7690c6aa3e6ef8f40976bfb2d2fb5\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n{\"status\": \"PASS\", \"receipt_id\": \"88067447-ce14-4ebb-a3be-1672efa35ca8\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/28.4/campaigns/cc3600b717216f5b8acfae62e68c38f437a7690c6aa3e6ef8f40976bfb2d2fb5\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n{\"status\": \"PASS\", \"receipt_id\": \"c40c4cda-1cc0-4a5b-a8fc-d623d2728480\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/28.4/campaigns/cc3600b717216f5b8acfae62e68c38f437a7690c6aa3e6ef8f40976bfb2d2fb5\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n",
-  "ran_at": "2026-10-17T19:25:07.852Z"
+  "exit_code": 1,
+  "stdout_tail": "{\"status\": \"FAIL\", \"receipt_id\": \"4ad23550-43a2-404d-93a1-ea462c0a75e4\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/28.4/campaigns/ef6488494a738918496e1984cc8a83f4efa56d3a7185ef0c6742322f32da3ce3\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": [\"executed assertion inventory differs from exact registration\", \"one or more behavioural assertions failed\", \"probe failed, was unavailable, or timed out\"]}\n",
+  "ran_at": "2026-10-18T05:14:19.957717+00:00"
 }
