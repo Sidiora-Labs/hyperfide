@@ -32,9 +32,9 @@ try{
  await fs.mkdir(path.dirname(filename),{recursive:true});
  const bytes=await fs.readFile('artifacts/hyperfide/tasks/26.4/evidence-index.json');
  const receipt=JSON.parse(bytes);assert.equal(receipt.task,'26.4');assert.equal(receipt.exit_code,0);
- assert.equal(receipt.commit,'ff4632c9bc896057147975b600323af8f8b21f89');
+ assert.equal(receipt.commit,'a923d185cd035c9620195fcf2d0e12c512e73d37');
  const gates=receipt.stdout_tail.trim().split('\n').map(x=>JSON.parse(x));
- assert.deepEqual(gates.map(x=>x.receipt_id),['cf29a831-73ed-42c3-928b-7c3a41563a36','2ed47892-7b68-4178-9580-444790e1eb6b']);
+ assert.deepEqual(gates.map(x=>x.receipt_id),['1f08f3dd-3c2d-4c51-9258-fc13625b8bc2','b6dfd5e2-d6c7-418d-bd94-64d92106573f']);
  assert(gates.every(x=>x.status==='PASS'&&x.diagnostics.length===0));
  await fs.writeFile(filename,bytes);await statuses('INSTALLABLE');results['units.receipt.qualified']=true;
  await fs.writeFile(filename,Buffer.concat([bytes,Buffer.from(' ')]));
