@@ -24,6 +24,7 @@
     "runner.exports.stop-credential-residue",
     "runner.exports.stop-output-debt",
     "runner.exports.stop-later-command",
+    "runner.exports.stop-stale-report",
     "runner.exports.control-resolves",
     "runner.exports.finalize-resolves"
   ],
