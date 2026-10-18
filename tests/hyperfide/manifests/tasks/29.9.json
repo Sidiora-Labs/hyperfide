@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "campaign_id": "hyperfide-task-29.9-host-bootstrap-component-v1-requal-af8bdc09bce6",
+  "campaign_id": "hyperfide-task-29.9-host-bootstrap-component-v1-requal-af8bdc09bce6-requal-a923d185cd03",
   "registered_variant": "task:29.9",
   "scope": "task-component",
   "case_ids": [
@@ -83,8 +83,8 @@
     },
     {
       "path": "deploy/hyperfide/issue-watcher.service",
-      "sha256": "439abdb0eef66817616784808961ba76736ecd44806973a811a815037d105476",
-      "size": 981
+      "sha256": "39c8798912d35c90945432c8e228f7b9fdac46bbda06863bfff4e4cac1e42a4d",
+      "size": 907
     },
     {
       "path": "deploy/hyperfide/policies/control.example.json",
@@ -108,8 +108,8 @@
     },
     {
       "path": "deploy/hyperfide/supervisory-host.service",
-      "sha256": "39bff48559ace2074f983364db9fce763f1ef056f0cc56a465f482bdd7e72090",
-      "size": 1166
+      "sha256": "5d87f2a65b8c18540d863138546a0f2e63616a291f562f606c502f0a591aa2b8",
+      "size": 1089
     },
     {
       "path": "services/hyperfide/components/1.1.json",
@@ -438,8 +438,8 @@
     },
     {
       "path": "services/hyperfide/components/24.1.json",
-      "sha256": "d80fd4bc8186b9c46750c6350b91d3a9697b905d75c882b539cf6867f04a0ec8",
-      "size": 446
+      "sha256": "5d3342ff4107706e291951026efb92b43cb4822e14aad002c31173538872ca1b",
+      "size": 458
     },
     {
       "path": "services/hyperfide/components/24.2.json",
@@ -448,8 +448,8 @@
     },
     {
       "path": "services/hyperfide/components/24.3.json",
-      "sha256": "e705fbcbcd17be8b4f84f550d994478ee73196f536f468c8db0eac04b7e5d0e2",
-      "size": 379
+      "sha256": "0725c7b5912276fe8e392be8ec33a5cf222c86b0bbe03e6b9b03d77b1f963a48",
+      "size": 391
     },
     {
       "path": "services/hyperfide/components/24.4.json",
@@ -758,13 +758,13 @@
     },
     {
       "path": "services/hyperfide/dist/providers/pools.js",
-      "sha256": "69dfd672ef640a02f1fe3c4b042c6e4adfb4db5e226255157fcec230d14bf8de",
-      "size": 72493
+      "sha256": "3b1bd304d143eb63e4a4135ef2d68bac6814087e648a06b480d02a253fcfab58",
+      "size": 72996
     },
     {
       "path": "services/hyperfide/dist/providers/pools.js.map",
-      "sha256": "716ae2f7c65dabe185f3bcf9e6fec63e14cfbfee585d3457368b2b7f90b5a494",
-      "size": 62098
+      "sha256": "f33a319a6b675e8f4f65e2c09cdc82cce8823282ad6988af24fad31f03fa7ee5",
+      "size": 62140
     },
     {
       "path": "services/hyperfide/dist/providers/railway/preparation.d.ts",
@@ -868,8 +868,8 @@
     },
     {
       "path": "services/hyperfide/src/providers/pools.ts",
-      "sha256": "64381ad5297fb7724fcc528ad2008f8268c6c29e83ae123ca4571565008ee143",
-      "size": 78918
+      "sha256": "2a6b67367ee8f3b8190ddb23716a1a2f51cb38efadc2c174136ca87f2fa9abc7",
+      "size": 79385
     },
     {
       "path": "services/hyperfide/src/providers/railway/preparation.ts",
