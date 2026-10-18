@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "campaign_id": "hyperfide-task-1.4-foundation-v4-requal-ff4632c9bc89",
+  "campaign_id": "hyperfide-task-1.4-foundation-v4-requal-ff4632c9bc89-requal-a923d185cd03",
   "scope": "task-component",
   "registered_variant": "task:1.4",
   "case_ids": [
@@ -119,13 +119,13 @@
     },
     {
       "path": "services/hyperfide/dist/components/service.js",
-      "sha256": "4e1b95193fb0d67bc3720d8ef2c520392e5b6136ac1764815da218ff5ef88dd0",
-      "size": 11138
+      "sha256": "88e7cd525b35083b4b08359beccbdbffbfee7cb225519e52bfe84321f53f675d",
+      "size": 11544
     },
     {
       "path": "services/hyperfide/dist/components/service.js.map",
-      "sha256": "d9a44ba8663ae2b465e57bf19338e34260ee25812a884beb2dbd43fb55f10afa",
-      "size": 11065
+      "sha256": "eae5880e4285f6c5fd98d05ef6da11dde9de4ba6a1c77f98e38694b2a79e1ac4",
+      "size": 11423
     },
     {
       "path": "services/hyperfide/dist/control.d.ts",
@@ -204,8 +204,8 @@
     },
     {
       "path": "services/hyperfide/src/components/service.ts",
-      "sha256": "529bdc90d091c4a05e9d1c16431c41b2d617e029f4d5f3d43354e19afffbacf7",
-      "size": 10886
+      "sha256": "e479e24cf755dfc44ac1186e2b668020434658001fed0a7605a3229222499df9",
+      "size": 11346
     },
     {
       "path": "services/hyperfide/src/control.ts",
@@ -409,8 +409,8 @@
     },
     {
       "path": "spec/hyperfide/spec.kvx",
-      "sha256": "7249bcb41b92ba584b927ec207a217ef2b5da629df6e553880fbcf12c904c2ee",
-      "size": 319108
+      "sha256": "3c36b503784edb8847699876a379b1d1aa0f487673eaff9c1961ea62ab7613d5",
+      "size": 351915
     },
     {
       "path": "spec/hyperfide/storage.md",
