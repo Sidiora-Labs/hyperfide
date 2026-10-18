@@ -1,9 +1,9 @@
 {
   "task": "1.4",
-  "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
-  "requalified_on": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+  "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+  "requalified_on": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
   "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-001 --manifest tests/hyperfide/manifests/tasks/1.4.json && python3 tests/hyperfide/qualify.py --case V-028 --manifest tests/hyperfide/manifests/tasks/1.4.json",
   "exit_code": 1,
-  "stdout_tail": "{\"status\": \"FAIL\", \"receipt_id\": \"400bf45b-c9fc-4131-a74f-b9f866240ef3\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/1.4/campaigns/d0ecc4ff5e703a957837f2ca5420dfb51cc19b20d20e31634f7192f1cb0c0689\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": [\"one or more behavioural assertions failed\", \"probe failed, was unavailable, or timed out\"]}",
-  "ran_at": "2026-10-18T04:29:45.262233+00:00"
+  "stdout_tail": "{\"schema_version\": 1, \"checked\": false, \"error\": \"selected observations are FAIL\"}\n",
+  "ran_at": "2026-10-18T06:34:11.647782+00:00"
 }
