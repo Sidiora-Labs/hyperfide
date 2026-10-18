@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "campaign_id": "hyperfide-task-24.3-scoped-stop-controls-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-a923d185cd03",
+  "campaign_id": "hyperfide-task-24.3-scoped-stop-controls-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-a923d185cd03-requal-6544166d354d",
   "registered_variant": "task:24.3",
   "scope": "task-component",
   "case_ids": [
@@ -109,7 +109,7 @@
     "recovery.cancel.resume-refused",
     "recovery.cancel.cannot-weaken-to-stop",
     "recovery.cancel.unreachable-debt-after-restart",
-    "recovery.cancel.finalize-unproven-refused",
+    "recovery.cancel.finalize-unproven-completion-refused",
     "recovery.cancel.resume-refused-after-restart",
     "recovery.cleanup.debt-inventory-explicit"
   ],
@@ -224,13 +224,13 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/24_1.py",
-      "sha256": "f17e11e00c4b6d1b33e2bf488b3e09fc86d5874cfb755c18a5db3c6ba3b4a97f",
-      "size": 29503
+      "sha256": "0306f9958bda3ee4bf3a301479cc883fab7b284151536b4f8f0e3431a06bdef1",
+      "size": 30573
     },
     {
       "path": "tests/hyperfide/cases/tasks/24_3.py",
-      "sha256": "960439a3d459cf84dd2e00c7f093c6636e70e015d48bab2ac29e74c1379b08c5",
-      "size": 46090
+      "sha256": "791f878c9141904f099af1beb66cb5968fc3717449e1c1b903e5c9406c4a810c",
+      "size": 47543
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
@@ -249,8 +249,8 @@
     },
     {
       "path": "tests/hyperfide/registrations/24.3.json",
-      "sha256": "772efd42ca5a5c1756f3a169260f03c6d42ad6c46ee9d36949584e2e496b477c",
-      "size": 7802
+      "sha256": "4bc4c401882473c1e861cbd0f6baed6370bc3e20a43495f2de294766032a2bf1",
+      "size": 7813
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
