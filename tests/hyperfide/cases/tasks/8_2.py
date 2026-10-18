@@ -18,7 +18,20 @@ def check(name,fn):
  print(json.dumps({"type":"assertion","id":name,"expected":"observed","actual":actual}),flush=True)
 def sha(data):return "sha256:"+hashlib.sha256(data).hexdigest()
 class ProvisionerFixture(identity.IdentityFixture):
- def __init__(self,*args,**kwargs):super().__init__(*args,service_role="provisioner",**kwargs)
+ def __init__(self,*args,**kwargs):
+  extra_setup=kwargs.pop("extra_setup",None)
+  def setup(f):
+   executor=f.path/"provisioner-executor.json"
+   executor.write_text(json.dumps({"schema_version":1,"principals":[{"credential_id":f.ids["provisioner"],"key_path":str(f.keys["provisioner"]["path"])}],"concurrency":2}));executor.chmod(0o600)
+   f.env.update(HF_PROVISIONER_EXECUTOR_CONFIG_FILE=str(executor),HYPERFIDE_PROVISIONER_POLL_MS="200",HYPERFIDE_PROVISIONER_RETRY_MS="500",HYPERFIDE_PROVISIONER_LEASE_MS="3000")
+   secrets=f.path/"credential-secrets";attachments=f.path/"credential-attachments"
+   secrets.mkdir(mode=0o700);attachments.mkdir(mode=0o700)
+   credentials=f.path/"credential-store.json"
+   credentials.write_text(json.dumps({"schema_version":1,"secret_root":str(secrets),"attachment_root":str(attachments),"sources":[],"targets":[]}));credentials.chmod(0o600)
+   f.env["HF_CREDENTIAL_CONFIG_FILE"]=str(credentials)
+   # Task-specific setup retains authority over executor and credential configuration.
+   if extra_setup:extra_setup(f)
+  super().__init__(*args,service_role="provisioner",extra_setup=setup,**kwargs)
 def main():
  if sys.argv[1:]==["--inventory"]:print(json.dumps(IDS));return 0
  expect(not sys.argv[1:],"unknown argument")
@@ -116,8 +129,9 @@ let results={};try{
   ids={}
   # Separate parameterised statements: pg deliberately forbids a multi-command bind.
   def account(kind,quantity):
-   aid=str(uuid.uuid4());rid=str(uuid.uuid4())
-   f.sql("INSERT INTO hyperfide.capacity_accounts(organisation_id,id,pool_id,dimension,capacity_class,configured_limit,reserved,provenance_digest,qualification_state) VALUES($1,$2,$3,'CPU_MILLIS',$4,1000000,$5,$6,'QUALIFIED')",[org,aid,f.provider_pool,kind,quantity,sha(b"component-capacity")])
+   rid=str(uuid.uuid4())
+   rows=f.sql("UPDATE hyperfide.capacity_accounts SET configured_limit=1000000,reserved=$4,provenance_digest=$5,qualification_state='QUALIFIED',state_version=state_version+1 WHERE organisation_id=$1 AND pool_id=$2 AND dimension='CPU_MILLIS' AND capacity_class=$3 AND resource_key='' RETURNING id",[org,f.provider_pool,kind,quantity,sha(b"component-capacity")])
+   expect(len(rows)==1,"configuration must seed exactly one capacity account");aid=rows[0]["id"]
    f.sql("INSERT INTO hyperfide.reservations(organisation_id,run_id,id,request_id,capacity_account_id,quantity,expires_at) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '1 hour')",[org,run,rid,str(uuid.uuid4()),aid,quantity])
    ids[kind]=rid
   def separate():
