@@ -157,7 +157,8 @@ function unknown(operation:ProviderOperation,resource:ResourceRef|null):Provider
 }
 function unsupported(operation:ProviderOperation):ProviderOutcome {
   return {...envelope(operation,operation.resource),status:'UNSUPPORTED',acceptance:'CONFIRMED_REJECTED',result:null,
-    error:{code:'UNSUPPORTED',provider_code:null,message:'Railway capability not configured or qualified',retry_after_ms:null},
+    error:{code:'UNSUPPORTED',provider_code:'RAILWAY_'+operation.kind.toUpperCase()+'_UNQUALIFIED',
+      message:'Railway '+operation.kind+' dependency is not configured or qualified',retry_after_ms:null},
     reconcile_required:false,retry:'NEVER'} as ProviderOutcome;
 }
 function refused(operation:ProviderOperation):ProviderOutcome {
@@ -181,6 +182,7 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
     const remaining=Date.parse(operation.deadline_at)-Date.now();
     signal=AbortSignal.any([signal,AbortSignal.timeout(Math.max(1,Math.min(remaining,2147483647)))]);
     let resource=operation.resource;
+    let mutationDispatched=false;
     let outcome:ProviderOutcome;
     if(signal.aborted||Date.now()>=Date.parse(operation.deadline_at))outcome=refused(operation);
     else try{
@@ -197,6 +199,7 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
         }
         case 'prepare':{
           if(!dependencies.prepare){outcome=unsupported(operation);break;}
+          mutationDispatched=true;
           const result=await dependencies.prepare(operation,signal);
           if(result.preparation_digest!==operation.preparation_digest)throw new Error('Railway prepared content mismatch');
           outcome=success(operation,null,result);break;
@@ -230,6 +233,7 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
           const options=await runtimeOptions(profile,client,dependencies.credentials,signal);
           // This marker is correlation only; authenticated enrollment proves adoption authority.
           options.env={...options.env,HF_PROVISION_OPERATION_ID:operation.identity.operation_id};
+          mutationDispatched=true;
           const data=await client.request<{sandboxCreate:unknown}>(
             'mutation RailwayCreate($input:SandboxCreateInput!){sandboxCreate(input:$input){'+fields+'}}',
             {input:runtimeGraphQLInput(profile,options)},signal);
@@ -266,6 +270,7 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
             if(claim.record.process_ref!==logical||claim.record.payload_digest!==operation.identity.payload_digest||
               hash(claim.record.resource)!==hash(resource))throw new Error('Railway durable process claim mismatch');
           }
+          mutationDispatched=true;
           const result=await dependencies.sessions.start(client,operation,dependencies.credentials,signal,dependencies.artifactSink,
             trusted?native=>dependencies.persistence.persistEarlyProcess(operation,native):undefined);
           outcome=success(operation,resource,{...result.result,process_ref:logical??result.result.process_ref});break;
@@ -309,12 +314,14 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
             if(!bound?.native_process_ref){outcome=unknown(operation,resource);break;}
             native=bound.native_process_ref;
           }
+          mutationDispatched=true;
           const result=await dependencies.sessions.stop(client,resource!,native,operation.parameters.signal);
           if(!result.termination_confirmed||result.exit_code===null)throw new Error('Railway termination unknown');
           outcome=success(operation,resource,{process_ref:operation.parameters.process_ref,termination:'CONFIRMED',exit_code:result.exit_code});break;
         }
         case 'transfer':{
           if(!dependencies.transfer){outcome=unsupported(operation);break;}
+          mutationDispatched=true;
           outcome=success(operation,resource,await dependencies.transfer(operation,client,signal));break;
         }
         case 'lifetime':{
@@ -328,6 +335,7 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
           outcome=matches?success(operation,resource,operation.parameters):unsupported(operation);break;
         }
         case 'destroy':{
+          mutationDispatched=true;
           const response=await client.request<{sandboxDestroy:boolean}>(
             'mutation RailwayDestroy($environmentId:String!,$id:String!){sandboxDestroy(environmentId:$environmentId,id:$id)}',
             {environmentId:operation.scope.environment_id,id:resource!.native_sandbox_id},signal);
@@ -342,7 +350,25 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
           break;
         }
       }
-    }catch(error){outcome=error instanceof ExecControlUnsupportedError?unsupported(operation):unknown(operation,resource);}
+    }catch(error){
+      outcome=error instanceof ExecControlUnsupportedError?unsupported(operation):unknown(operation,resource);
+      if(error instanceof RailwayRequestError){
+        // A lost reply remains ambiguous; retain the typed transport diagnosis either way.
+        if(error.code==='REJECTED'&&!mutationDispatched)outcome={...envelope(operation,resource),status:'FAILED',acceptance:'CONFIRMED_REJECTED',
+          result:null,error:{code:'INVALID_REQUEST',provider_code:error.providerCode??error.code,
+            message:'Railway request rejected',retry_after_ms:null},reconcile_required:false,retry:'NEVER'} as ProviderOutcome;
+        else if(outcome.status==='UNKNOWN')outcome.error={...outcome.error,
+          code:error.code==='PROTOCOL'?'PROTOCOL':error.code==='REJECTED'?'INVALID_REQUEST':'UNAVAILABLE',provider_code:error.providerCode??error.code};
+      }else if(outcome.status==='UNKNOWN'&&error instanceof Error&&'code' in error&&
+        typeof error.code==='string'&&/^[A-Z][A-Z0-9_]{0,127}$/.test(error.code)){
+        outcome.error={...outcome.error,provider_code:error.code};
+        switch(error.code){
+          case 'AUTHENTICATION':case 'AUTHORIZATION':case 'RATE_LIMIT':case 'NOT_FOUND':case 'CONFLICT':
+          case 'INVALID_REQUEST':case 'UNAVAILABLE':case 'TIMEOUT':case 'PROTOCOL':case 'INTERNAL':
+            outcome.error.code=error.code;
+        }
+      }
+    }
     // Normalize against the same public contract before durable observation publication.
     validateProviderOutcome({operation,outcome});
     try{await dependencies.persistence.recordObservation(operation,outcome);}catch{
