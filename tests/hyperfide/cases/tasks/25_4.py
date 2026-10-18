@@ -40,6 +40,7 @@ def main():
   migration=payload/"deploy/hyperfide/migrate.mjs";migration.parent.mkdir(parents=True);shutil.copytree(ROOT/"deploy/hyperfide",payload/"deploy/hyperfide",dirs_exist_ok=True,symlinks=False)
   for item in payload.rglob("*"):
    if item.is_file():item.chmod(0o755 if item.relative_to(payload).as_posix().startswith(("bin/","runtime/node","runtime/python/bin/")) else 0o644)
+  receipt=payload/"share/hyperfide/qualified/26.4.json";receipt.parent.mkdir(parents=True);shutil.copyfile(ROOT/"artifacts/hyperfide/tasks/26.4/evidence-index.json",receipt);receipt.chmod(0o644)
   files=[{"path":p.relative_to(payload).as_posix(),"digest":"sha256:"+hashlib.sha256(p.read_bytes()).hexdigest(),"size_bytes":str(p.stat().st_size),"mode":format(p.stat().st_mode&0o777,"04o")} for p in sorted(payload.rglob("*")) if p.is_file()]
   manifest={"schema_version":1,"release_version":"2.0.0-dev","source_commit":subprocess.check_output(["git","rev-parse","HEAD"],cwd=ROOT,text=True).strip(),"source_date_epoch":"1","protocol_version":1,"schema_min":1,"schema_max":1,"runtime":{"node":"24.22.0","npm":"11.19.1","python":"3.14.8","platform":"linux","architecture":"x64"},"files":files}
   mf=payload/"manifest.json";mf.write_text(json.dumps(manifest))
@@ -88,7 +89,7 @@ def main():
   def units_reported():
    units={u["unit"]:u for u in ok("inspect",{"manifest":"manifest.json"})["service_units"]}
    expect(all(units[u]["status"]=="INSTALLABLE" for u in ["control.service","provisioner.service","dispatch.service"]),"prebuilt control-service units not installable")
-   expect(all(units[u]["status"]=="UNQUALIFIED" and units[u]["owner_task"]=="26.4" for u in ["issue-watcher.service","supervisory-host.service"]),"unimplemented 26.4 units reported installable")
+   expect(all(units[u]["status"]=="INSTALLABLE" and units[u]["owner_task"]=="26.4" for u in ["issue-watcher.service","supervisory-host.service"]),"receipt-qualified 26.4 status or owner differs")
   check("release.units.unqualified-reported",units_reported)
   def installable_unqualified():
    unit=payload/"deploy/hyperfide/issue-watcher.service";original=unit.read_bytes();unit.write_bytes(original+b"[Install]\nWantedBy=multi-user.target\n")
@@ -206,7 +207,7 @@ def main():
    return p,json.loads(p.stdout)
   def stage_service():
    p,r=run_install();expect(p.returncode==0 and r["outcome"]=="SUCCEEDED" and not r["promoted"] and not r["services_started"] and not r["authority_activated"],"signed service staging failed: "+str(r))
-   expect(r["installable_units"]==["control.service","dispatch.service","provisioner.service"] and r["unqualified_units"]==["issue-watcher.service","supervisory-host.service"],"installer receipt misreports installable service units")
+   expect(r["installable_units"]==["control.service","dispatch.service","issue-watcher.service","provisioner.service","supervisory-host.service"] and r["unqualified_units"]==[],"installer receipt misreports installable service units")
    expect(not (service_root/"current").exists(),"staging changed active service pointer")
    target=Path(r["release_directory"]);expect(target.is_dir() and target.stat().st_uid==0 and target.stat().st_mode&0o777==0o755,"service tree is not root-owned and publicly traversable")
   check("release.service.actual-signed-stage",stage_service)
