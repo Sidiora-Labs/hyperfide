@@ -327,7 +327,16 @@ def main():
   destroy={}
   def prior_boot():
    # A later empty boot cannot hide work done on an earlier boot of the same sandbox.
-   service.stop();service.service_role='provisioner';service.start()
+   service.stop()
+   executor=service.path/'retention-executor.json'
+   executor.write_text(json.dumps({'schema_version':1,'principals':[{'credential_id':service.ids['provisioner'],'key_path':str(service.keys['provisioner']['path'])}],'concurrency':2}));executor.chmod(0o600)
+   secrets=service.path/'retention-secrets';attachments=service.path/'retention-attachments'
+   secrets.mkdir(mode=0o700);attachments.mkdir(mode=0o700)
+   credentials=service.path/'retention-credentials.json'
+   credentials.write_text(json.dumps({'schema_version':1,'secret_root':str(secrets),'attachment_root':str(attachments),'sources':[],'targets':[]}));credentials.chmod(0o600)
+   service.env['HF_PROVISIONER_EXECUTOR_CONFIG_FILE']=str(executor)
+   service.env['HF_CREDENTIAL_CONFIG_FILE']=str(credentials)
+   service.service_role='provisioner';service.start()
    expect(ok('provider.pools.configure',{},component='8.2')['configured']==1,'fixture pool not configured')
    o=scope['organisation_id'];target=identity.uid()
    service.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,native_sandbox_id,observed_state,preparation_digest) VALUES($1,$2,$3,$4,'RUNNING',$5)",[o,target,service.provider_pool,'retention-prior-'+target,service.preparation])
