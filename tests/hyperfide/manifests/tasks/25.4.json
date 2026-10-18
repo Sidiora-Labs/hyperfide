@@ -8,7 +8,7 @@
     ],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-25.4-actual-authority-v2-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a80cd7edbb1c-requal-a923d185cd03",
+  "campaign_id": "hyperfide-task-25.4-actual-authority-v2-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a80cd7edbb1c-requal-a923d185cd03-requal-993c90fcfec0",
   "case_ids": [
     "V-028",
     "V-052",
@@ -38,7 +38,6 @@
     "release.migrations.actual-shipped-runner",
     "release.migrations.actual-ledger-replay",
     "release.migrations.actual-inspection",
-    "release.migrations.actual-database-cleanup",
     "release.signature.actual-ed25519-manifest",
     "release.signature.changed-raw-signature-refused",
     "release.signature.wrong-trust-key-refused",
@@ -56,6 +55,7 @@
     "release.service.actual-post-verification-source-growth",
     "release.service.child-owned-destination-refused",
     "release.service.actual-release-tree-cleanup",
+    "release.migrations.actual-database-cleanup",
     "release.cleanup.actual-absence",
     "release.cleanup.source-tree-absence"
   ],
@@ -277,7 +277,7 @@
     },
     {
       "path": "services/hyperfide/dist/deployment/releases.js",
-      "sha256": "76098b8f78f72f66ed2f1b2356b95117cac8caa3dcb9fc634215d6f5074f2c16",
+      "sha256": "ef1f75d4aa41eb4eedfea9322d26d85f8f75befaf91045c8324cfc2f613f685a",
       "size": 16695
     },
     {
@@ -632,7 +632,7 @@
     },
     {
       "path": "services/hyperfide/src/deployment/releases.ts",
-      "sha256": "b2fa26904bea2460a079f4062fcdf0790292e7207d47f77825f84fee5a535555",
+      "sha256": "dc02b1098b408cb70a49938ea8119659d2a51211b08f98baed7a8edbfeec9ffa",
       "size": 15189
     },
     {
@@ -807,7 +807,7 @@
     },
     {
       "path": "tests/hyperfide/registrations/25.4.json",
-      "sha256": "aa84d805cb2e2982ce2c675f2636ea452a01159ec60f9918e58b46011b2b75bb",
+      "sha256": "bdd5709ed4973ebe9708f1fd2b360892ea323f22b50573974648df2b017524cb",
       "size": 4114
     },
     {
