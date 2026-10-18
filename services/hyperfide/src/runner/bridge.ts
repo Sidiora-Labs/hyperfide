@@ -15,6 +15,9 @@ import type {ArtifactStoreCapability} from '../artifacts/objects.js';
 import {assertSandboxReservation} from '../scheduler/claim.js';
 import {readPreparationReceipt,recordPreparationReceipt,verifyPreparationReceipt} from './preparation_receipts.js';
 import type {PreparationReceiptPlan,VerifiedPreparationReceipt} from './preparation_receipts.js';
+import {lockRun,scopeOf} from '../recovery/control.js';
+import {readReproductionJobInputs} from '../review/reproductions.js';
+import {reproductionJobRequest,bindReproductionInputs} from './reproduction_jobs.js';
 
 export interface RunnerRemotePlan {
  session_id:string;operation_id:string;repository_id:string;reservation_id:string;
@@ -369,6 +372,83 @@ async function decodeResult(row:Record<string,any>,store:ArtifactStoreCapability
  if(wire.outcome==='SUCCEEDED'&&(wire.cleanup_status!=='CONFIRMED'||wire.cleanup.complete!==true||wire.cleanup.observed_process_absent!==true||native.observed_process_absent!==true||native.artifacts_complete!==true||wire.output_complete!==true||wire.truncated!==false||copy.stdout.complete!==true||copy.stderr.complete!==true||copy.artifacts.length!==plan.artifact_paths.length))fail('REMOTE_RESULT_INVALID','Successful execution requires full output and confirmed cleanup');
  return copy as RunnerRemoteResult;
 }
+/** Recovery reads the authenticated reports retained by the native control path.
+ * Missing commands or reports remain unknown; database session state is not a
+ * physical process observation. Issuance/delivery remains owned by runner control. */
+export function createRunnerSupervisors(ctx:ComponentContext) {
+ const read=async(input:unknown,command:boolean)=>{
+  if(!object(input))fail('INVALID_REQUEST','Supervisor request required');
+  const scope=scopeOf(input.scope);
+  if(!uuid(input.session_id)||command&&(!uuid(input.command_id)||!decimal(input.generation,true)))fail('INVALID_REQUEST','Exact supervisor command identity required');
+  return gatewayOf(ctx).withPrimaryTransaction({timeoutMs:5000},async tx=>{
+   assertPrimaryTransaction(tx);
+   await lockRun(tx,scope,false);
+   const row=(await tx.query(`SELECT c.*,r.session_id FROM hyperfide.runner_registry r
+    JOIN hyperfide.runner_control_commands c ON c.organisation_id=r.organisation_id AND c.run_id=r.run_id
+     AND c.launch_id=r.launch_id AND c.sandbox_id=r.sandbox_id AND c.boot_id=r.boot_id AND c.boot_generation=r.boot_generation
+    WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.session_id=$3 AND c.authority_epoch=$4
+     AND NOT EXISTS(SELECT 1 FROM hyperfide.runner_control_commands newer WHERE newer.organisation_id=c.organisation_id AND newer.run_id=c.run_id AND newer.launch_id=c.launch_id AND newer.fence_sequence>c.fence_sequence)
+     ${command?'AND c.command_id=$5 AND c.fence_sequence=$6':''}
+    ORDER BY c.fence_sequence DESC LIMIT 1`,[scope.organisation_id,scope.run_id,input.session_id,scope.authority_epoch,...(command?[input.command_id,input.generation]:[])])).rows[0];
+   const report=row?.report;
+   const matched=!!row&&(!input.attempt_id||input.attempt_id===row.attempt_id)&&(!input.sandbox_id||input.sandbox_id===row.sandbox_id)&&(!input.boot_generation||String(input.boot_generation)===String(row.boot_generation));
+   const stopped=matched&&row.state==='REPORTED'&&row.termination==='CONFIRMED'&&object(report)&&report.remaining_descendants===0&&['STOPPED','CANCELLED','DRAINED'].includes(String(row.outcome));
+   return {status:row&&!matched?'IDENTITY_MISMATCH' as const:stopped?'CONFIRMED_STOPPED' as const:'UNKNOWN' as const,
+    evidence_digest:hash(runnerCanonical({scope,session_id:input.session_id,command_id:row?.command_id??null,report_digest:row?.report_digest??null})),
+    observed_at:row?.reported_at?new Date(row.reported_at).toISOString():new Date().toISOString()};
+  });
+ };
+ return Object.freeze({observe:(input:unknown)=>read(input,false),stop:(input:unknown)=>read(input,true),verifyStop:async(input:unknown)=>{
+  if(!object(input)||!uuid(input.operation_id)||!Array.isArray(input.commands)||input.commands.length>1000)fail('INVALID_REQUEST','Bounded stop inventory required');
+  const scope=scopeOf(input.scope);
+  return gatewayOf(ctx).withPrimaryTransaction({timeoutMs:5000},async tx=>{
+   assertPrimaryTransaction(tx);
+   await lockRun(tx,scope,false);
+   const op=(await tx.query("SELECT kind,authority_epoch,result FROM hyperfide.recovery_operations WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3",[scope.organisation_id,scope.run_id,input.operation_id])).rows[0];
+   if(!op||op.kind!=='STOP'||op.authority_epoch!==scope.authority_epoch||!object(op.result)||op.result.scope_kind!==input.scope_kind||op.result.scope_id!==input.scope_id)fail('RECOVERY_OPERATION_INVALID','Exact current stop intent required');
+   const debts=(await tx.query("SELECT resource_id AS session_id,command_id,command_generation::text AS generation,status,created_at FROM hyperfide.recovery_resource_debts WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND resource_kind='SUPERVISOR' ORDER BY resource_id LIMIT 1001",[scope.organisation_id,scope.run_id,input.operation_id])).rows;
+   if(debts.length>1000||runnerCanonical(debts.map(({status,created_at,...v})=>v))!==runnerCanonical(input.commands))fail('RECOVERY_INPUT_INVALID','Complete exact persisted supervisor inventory required');
+   const reports=[];
+   for(const debt of debts){
+    const row=(await tx.query(`SELECT c.*,w.process_residue,w.credential_residue,w.outputs_durable,
+     NOT EXISTS(SELECT 1 FROM jsonb_array_elements_text(c.required_outputs) n(name)
+      WHERE NOT EXISTS(SELECT 1 FROM hyperfide.runner_output_captures o WHERE o.organisation_id=c.organisation_id AND o.run_id=c.run_id AND o.command_id=c.command_id AND o.name=n.name AND o.state='COMPLETE')) AS artifacts_preserved
+     FROM hyperfide.runner_control_commands c JOIN hyperfide.runner_registry r ON r.organisation_id=c.organisation_id AND r.run_id=c.run_id AND r.launch_id=c.launch_id AND r.sandbox_id=c.sandbox_id AND r.boot_id=c.boot_id AND r.boot_generation=c.boot_generation
+     LEFT JOIN hyperfide.runner_workspaces w ON w.organisation_id=c.organisation_id AND w.run_id=c.run_id AND w.sandbox_id=c.sandbox_id AND w.boot_generation=c.boot_generation AND w.slot_id=c.slot_id AND w.slot_generation=r.slot_generation AND w.state<>'LEASED' AND w.updated_at>=c.reported_at
+     WHERE c.organisation_id=$1 AND c.run_id=$2 AND c.command_id=$3 AND c.fence_sequence=$4 AND c.authority_epoch=$5 AND r.session_id=$6 AND c.reported_at>=$7
+      AND NOT EXISTS(SELECT 1 FROM hyperfide.runner_control_commands newer WHERE newer.organisation_id=c.organisation_id AND newer.run_id=c.run_id AND newer.launch_id=c.launch_id AND newer.fence_sequence>c.fence_sequence)`,[scope.organisation_id,scope.run_id,debt.command_id,debt.generation,scope.authority_epoch,debt.session_id,debt.created_at])).rows[0];
+    reports.push(row??null);
+   }
+   const processes_stopped=reports.every(r=>r?.state==='REPORTED'&&r.termination==='CONFIRMED'&&object(r.report)&&r.report.remaining_descendants===0&&r.process_residue==='ABSENT');
+   const artifacts_preserved=reports.every(r=>r?.artifacts_preserved===true&&r.outputs_durable===true);
+   const credentials_cleared=reports.every(r=>r?.credential_residue==='ABSENT'&&object(r.report)&&Array.isArray(r.report.credential_revocation)&&r.report.credential_revocation.every((c:unknown)=>object(c)&&['REVOKED','ABSENT'].includes(String(c.state))));
+   const open=(await tx.query("SELECT count(*)::text AS count FROM hyperfide.recovery_resource_debts WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND status<>'RESOLVED'",[scope.organisation_id,scope.run_id,input.operation_id])).rows[0];
+   const resources_reconciled=open?.count==='0';
+   const cleanup_complete=processes_stopped&&artifacts_preserved&&credentials_cleared&&resources_reconciled&&reports.every(r=>r?.cleanup_complete===true);
+   const observed_at=new Date().toISOString();
+   return {cleanup_complete,processes_stopped,artifacts_preserved,credentials_cleared,resources_reconciled,observed_at,evidence_digest:hash(runnerCanonical({scope,operation_id:input.operation_id,debts,reports,observed_at}))};
+  });
+ }});
+}
+
+export async function readReproductionPreparationReceipt(tx:PrimaryTransaction,i:InvocationContext,request:RunnerEnvironmentRequest) {
+ assertPrimaryTransaction(tx);assertInvocation(i);
+ const selected=reproductionJobRequest(request),authority=await readReproductionJobInputs(tx,i,selected);
+ const rows=(await tx.query(`SELECT operation_id,session_id,plan,plan_digest FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND job_class='PREPARATION' AND state='COMPLETED'
+  AND plan->'preparation_request'->'job_binding'->>'namespace'='REPRODUCTION'
+  AND plan->'preparation_request'->'job_binding'->>'job_id'=$3
+  AND plan->'preparation_request'->'job_binding'->>'lease_generation'=$4
+  AND reservation_id=$5 AND plan->'preparation_request'->>'input_manifest_digest'=$6 LIMIT 2`,[i.principal.organisation_id,i.principal.run_id,selected.job_id,selected.lease_generation,selected.reservation_id,selected.input_manifest_digest])).rows;
+ if(!rows.length)return null;
+ if(rows.length!==1)fail('PREPARATION_RECEIPT_CONFLICT','One exact retained preparation operation required');
+ const job=rows[0]!,receipt=await readPreparationReceipt(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,operation_id:job.operation_id});
+ if(!receipt)return null;
+ if(receipt.plan_digest!==job.plan_digest||job.plan.preparation_request.job_binding.input_packet_digest!==authority.input_packet_digest)fail('PREPARATION_RECEIPT_MISMATCH','Retained receipt must bind the exact committed plan and job packet');
+ const r=await readRunnerBinding(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,session_id:job.session_id}),ready=await readRunnerReadiness(tx,r);
+ if(!object(job.plan)||!object(job.plan.binding)||job.plan.binding.sandbox_id!==r.sandbox_id||String(job.plan.binding.boot_generation)!==r.boot_generation||job.plan.binding.boot_id!==r.boot_id||job.plan.binding.slot_id!==r.slot_id||String(job.plan.binding.slot_generation)!==r.slot_generation||receipt.workspace_path!==r.workspace_path||r.repository_id!==authority.repository_id||r.source_digest!==authority.source_manifest_digest||r.source_object_id!==authority.source_object_id||r.source_tree_id!==authority.source_tree_id||ready.profile_id!==authority.profile_id||ready.profile_digest!==authority.profile_digest)fail('PREPARATION_RECEIPT_MISMATCH','Retained preparation and actual source/profile/slot differ');
+ return bindReproductionInputs(authority,{...authority,runner_session_id:r.session_id,sandbox_id:r.sandbox_id,boot_id:r.boot_id,boot_generation:r.boot_generation,slot_id:r.slot_id,slot_generation:r.slot_generation,preparation_digest:r.preparation_digest,source_state_digest:ready.source_state_digest,workspace_digest:ready.workspace_digest,receipt_digest:String(receipt.receipt_digest)},request,i.principal);
+}
+
 export async function createRemoteComponent(ctx:ComponentContext):Promise<Component> {
  await schema(ctx);const resources=ctx.dependencies.require('5.1','scheduler.allocations.v1',isResources),g=gatewayOf(ctx),store=ctx.dependencies.require('15.2','artifact.store.v1',isArtifactStoreCapability),authority=ctx.dependencies.require('14.1','identity.authority',isIdentityAuthority);
  const remote:RunnerRemote=Object.freeze({
@@ -480,7 +560,8 @@ export async function createRemoteComponent(ctx:ComponentContext):Promise<Compon
   },execute:remote.execute,
   verifyReceipt:verifyPreparationReceipt,recordReceipt:recordPreparationReceipt,readReceipt:readPreparationReceipt
  });
- return {apiVersion:1,capabilities:{'runner.remote.v1':remote,'runner.preparation.v1':preparation},actions:{
+ const supervisors=createRunnerSupervisors(ctx),receipts=Object.freeze({verify:verifyPreparationReceipt,record:recordPreparationReceipt,read:readReproductionPreparationReceipt,verifyReceipt:verifyPreparationReceipt,recordReceipt:recordPreparationReceipt,readReceipt:readPreparationReceipt});
+ return {apiVersion:1,capabilities:{'runner.remote.v1':remote,'runner.preparation.v1':preparation,'runner.supervisors.v1':supervisors,'runner.preparation-receipts.v1':receipts},actions:{
   'runner.job.claim':(v,context)=>identityTransaction(context,async(tx,i)=>{
    exact(v,['operation_id']);if(!uuid(v.operation_id)||i.principal.role!=='RUNNER')fail('ROLE_DENIED','Bound runner operation required');const p=i.principal;
    const row=(await tx.query('SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR SHARE',[p.organisation_id,p.run_id,v.operation_id])).rows[0];

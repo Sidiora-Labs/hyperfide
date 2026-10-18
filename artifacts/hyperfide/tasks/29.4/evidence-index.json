@@ -1,0 +1,199 @@
+{
+  "task": "29.4",
+  "commit": "71629f6a73559ace57352a0a7b78b697a1d6fb0d",
+  "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-061 --manifest tests/hyperfide/manifests/tasks/29.4.json",
+  "exit_code": 1,
+  "stdout_tail": "{\"status\": \"FAIL\", \"receipt_id\": \"ea6b856e-810a-4c57-88cf-9d8d72b5cae9\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/29.4/campaigns/3c4316f8b7e854243f865c3d8963b6f7c68cb83505592654a17af89baeababb5\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": [\"one or more behavioural assertions failed\", \"probe failed, was unavailable, or timed out\"]}\n",
+  "stderr_tail": "",
+  "ran_at": "2026-10-18T02:52:13.129247+00:00",
+  "outcome": "FAIL",
+  "assertions": [
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.registered",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.supervisor-guard",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.receipt-functions",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.reproduction-guard",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.receipt-valid",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.receipt-wrong-operation",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.receipt-wrong-uid",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.receipt-absent",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.stop-empty",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.stop-debt-not-complete",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.stop-inventory-refused",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.stop-stale-epoch",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.stop-unknown",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.stop-retained-report",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.stop-credential-residue",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.stop-output-debt",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.stop-later-command",
+      "status": "PASS"
+    },
+    {
+      "actual": "observed",
+      "expected": "observed",
+      "id": "runner.exports.stop-stale-report",
+      "status": "PASS"
+    },
+    {
+      "actual": "{'protocol_version': 1, 'operation_id': 'db40a121-b622-4e8e-ad2d-a2afc8382124', 'id': 'db40a121-b622-4e8e-ad2d-a2afc8382124', 'ok': True, 'result': {'api_version': 1, 'supervision_failure_domains': 1, 'uninterrupted_failover': 'UNQUALIFIED', 'standby_qualification': 'ABSENT', 'uninterrupted_failover_requires': 'SEPARATELY_QUALIFIED_STANDBY', 'supervisor_capability': 'ABSENT', 'compute_authority': 'PRIMARY_GUARDED', 'offline_external_mutations': False, 'offline_policy': 'PAUSE'}}",
+      "expected": "observed",
+      "id": "runner.exports.control-resolves",
+      "status": "FAIL"
+    },
+    {
+      "actual": "{'protocol_version': 1, 'operation_id': 'd728fb74-e020-4833-a122-5939fca33d94', 'id': 'd728fb74-e020-4833-a122-5939fca33d94', 'ok': False, 'error': {'code': 'RECOVERY_DEPENDENCY_UNAVAILABLE', 'message': 'Required trusted recovery dependency is unavailable'}}",
+      "expected": "observed",
+      "id": "runner.exports.finalize-resolves",
+      "status": "FAIL"
+    }
+  ],
+  "cleanup": {
+    "command": null,
+    "complete": true,
+    "resources": []
+  },
+  "diagnostics": [
+    "one or more behavioural assertions failed",
+    "probe failed, was unavailable, or timed out"
+  ],
+  "receipt": {
+    "path": "artifacts/hyperfide/tasks/29.4/campaigns/3c4316f8b7e854243f865c3d8963b6f7c68cb83505592654a17af89baeababb5/receipts/ea6b856e-810a-4c57-88cf-9d8d72b5cae9.json",
+    "sha256": "31497966ef8f16b0365bd03e00c33a4cc8bc616184c5f306e08225bc91e06072"
+  },
+  "blockers": [
+    {
+      "requirement": "36.3",
+      "reason": "ComponentRegistry rejects undeclared dependencies. Both services/hyperfide/components/24.1.json and 24.3.json omit 12.4 from requires. The task scope explicitly forbids editing these fragments. Actual registered recovery.control.describe reports ABSENT and recovery.stop.finalize returns RECOVERY_DEPENDENCY_UNAVAILABLE. Assertions and consumer guards are unchanged."
+    }
+  ],
+  "regressions": [
+    {
+      "task": "12.4",
+      "argv": [
+        "python3",
+        "tests/hyperfide/cases/tasks/12_4.py"
+      ],
+      "exit_code": 0,
+      "assertions": 111,
+      "failed_assertions": []
+    },
+    {
+      "task": "12.4-executor",
+      "argv": [
+        "python3",
+        "tests/hyperfide/cases/tasks/12_4_executor.py"
+      ],
+      "exit_code": 0,
+      "assertions": 69,
+      "failed_assertions": []
+    },
+    {
+      "task": "24.1",
+      "argv": [
+        "python3",
+        "tests/hyperfide/cases/tasks/24_1.py"
+      ],
+      "exit_code": 0,
+      "assertions": 45,
+      "failed_assertions": []
+    },
+    {
+      "task": "24.3",
+      "argv": [
+        "python3",
+        "tests/hyperfide/cases/tasks/24_3.py"
+      ],
+      "exit_code": 0,
+      "assertions": 104,
+      "failed_assertions": []
+    }
+  ],
+  "checks": {
+    "build": "PASS",
+    "typescript_no_emit": "PASS",
+    "native_build": "PASS",
+    "input_pins": "PASS"
+  }
+}
