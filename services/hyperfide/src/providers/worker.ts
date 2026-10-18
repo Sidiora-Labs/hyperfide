@@ -1,3 +1,9 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {constants} from 'node:fs';
+import {createPrivateKey,createPublicKey,randomUUID,sign} from 'node:crypto';
+import type {IdentityAuthority} from '../identity/enrollment.js';
+import {exact,hash,signingBytes,strictJSON,uuid} from '../transport/protocol.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import {assertInvocation} from '../transport/protocol.js';
 import {FoundationError} from '../policy/programme.js';
@@ -66,13 +72,67 @@ const CLAIM=`SELECT id,state FROM hyperfide.provisioning_intents
   OR (state='ACKNOWLEDGED' AND kind='DESTROY' AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
   OR (state='RECONCILING' AND updated_at<=clock_timestamp()-make_interval(secs=>$6::double precision/1000)))
  ORDER BY updated_at,id LIMIT $7 FOR UPDATE SKIP LOCKED`;
+interface Signer {credential_id:string;key:import('node:crypto').KeyObject;public_key_b64:string}
+type KeyObject=import('node:crypto').KeyObject;
+async function privateBytes(filename:unknown,limit:number):Promise<Buffer>{
+ try{return await checkedPrivateBytes(filename,limit);}catch{fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Private owned bounded single-link non-symlink credential required');}
+}
+async function checkedPrivateBytes(filename:unknown,limit:number):Promise<Buffer>{
+ if(typeof filename!=='string'||!path.isAbsolute(filename)||path.normalize(filename)!==filename||await fs.realpath(filename)!==filename)fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Absolute non-symlink trusted file required');
+ const fd=await fs.open(filename,constants.O_RDONLY|constants.O_NOFOLLOW);
+ try{const before=await fd.stat();if(!before.isFile()||before.nlink!==1||before.uid!==process.getuid?.()||(before.mode&0o777)!==0o600||before.size>limit)fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Private owned bounded regular file required');
+ const bytes=await fd.readFile();const after=await fd.stat();
+ if(before.dev!==after.dev||before.ino!==after.ino||before.size!==after.size||before.mtimeMs!==after.mtimeMs||bytes.length!==before.size)fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Trusted file changed during read');
+ return bytes;}finally{await fd.close();}
+}
+async function configuration(env:Readonly<NodeJS.ProcessEnv>):Promise<{signers:Signer[];concurrency:number}>{
+ const value=strictJSON(await privateBytes(env.HF_PROVISIONER_EXECUTOR_CONFIG_FILE,65536));
+ exact(value,['schema_version','principals','concurrency']);
+ if(value.schema_version!==1||!Array.isArray(value.principals)||value.principals.length<1||value.principals.length>64||!Number.isSafeInteger(value.concurrency)||Number(value.concurrency)<1||Number(value.concurrency)>16)fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Bounded executor identity list and concurrency required');
+ const signers:Signer[]=[];
+ for(const item of value.principals){exact(item,['credential_id','key_path']);if(!uuid(item.credential_id)||signers.some(s=>s.credential_id===item.credential_id))fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Unique credential identity required');
+ const raw=await privateBytes(item.key_path,16384);let key:KeyObject;
+ try{key=raw[0]===45?createPrivateKey(raw):createPrivateKey({key:raw,format:'der',type:'pkcs8'});}finally{raw.fill(0);}
+ if(key.asymmetricKeyType!=='ed25519')fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Ed25519 service key required');
+ const der=createPublicKey(key).export({format:'der',type:'spki'}) as Buffer;
+ if(der.length!==44||!der.subarray(0,12).equals(Buffer.from('302a300506032b6570032100','hex')))fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Canonical Ed25519 public key required');
+ signers.push({credential_id:item.credential_id,key,public_key_b64:der.subarray(12).toString('base64url')});}
+ return {signers,concurrency:Number(value.concurrency)};
+}
 export class ProvisionerWorker {
+ private booting:Promise<unknown>|null=null;
+ private starting:Promise<unknown>|null=null;
+ boot(authority:IdentityAuthority):Promise<unknown>{
+  return this.booting??=(async()=>{
+   let config:Awaited<ReturnType<typeof configuration>>;
+   try{config=await configuration(this.env);}catch{fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Valid private provisioner executor configuration required');}
+   if(config.signers.length!==1)fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Exactly one worker owner required');
+   const signer=config.signers[0]!;
+   const row=(await this.database.query('SELECT p.*,r.authority_epoch FROM hyperfide.identity_principals p JOIN hyperfide.runs r ON r.organisation_id=p.organisation_id AND r.id=p.run_id WHERE p.credential_id=$1',[signer.credential_id])).rows[0];
+   if(!row||row.role!=='PROVISIONER'||row.public_key_b64!==signer.public_key_b64||row.deployment_epoch!==row.authority_epoch)fail('PROVISIONER_EXECUTOR_IDENTITY_MISMATCH','Current matching provisioner identity required');
+   const payload=Buffer.from(JSON.stringify({run_id:row.run_id,component:'8.3',action:'provider.worker.start',input:{},expected_version:null,authority:null}));
+   const operation=randomUUID(),body=Buffer.from(JSON.stringify({protocol_version:1,operation_id:operation,idempotency_key:operation,payload_digest:hash(payload),correlation_id:operation,causation_id:null,payload_b64:payload.toString('base64url')}));
+   const proof={id:signer.credential_id,time:String(Math.floor(Date.now()/1000)),nonce:randomUUID()};
+   const signature=sign(null,signingBytes(authority.origin,'/v1/invoke',proof,body),signer.key).toString('base64url');
+   const invocation=await authority.authenticate(body,['hf-credential-id',proof.id,'hf-request-time',proof.time,'hf-request-nonce',proof.nonce,'hf-request-signature',signature],this.signal);
+   await authority.authorize(invocation);assertInvocation(invocation);
+   if(invocation.principal.role!=='PROVISIONER'||invocation.principal.credential_id!==signer.credential_id||invocation.principal.run_id!==row.run_id||invocation.principal.deployment_epoch!==row.authority_epoch)fail('PROVISIONER_EXECUTOR_IDENTITY_MISMATCH','Authenticated worker owner differs');
+   return this.start(invocation);
+  })();
+ }
+
  private invocation:InvocationContext|null=null;private controller:AbortController|null=null;private loop:Promise<void>|null=null;
  private readonly active=new Map<string,Promise<void>>();private readonly errors=new Map<string,string>();private readonly backoff=new Map<string,number>();
  private counters={claimed:0,executed:0,reconciled:0,failed:0};private stoppedReason:string|null=null;private lastTick:string|null=null;
  constructor(private readonly database:ProviderDatabase,private readonly env:Readonly<NodeJS.ProcessEnv>,private readonly signal:AbortSignal,private readonly driver:ProvisionerWorkerDriver){}
  get running():boolean{return !!this.loop&&!!this.controller&&!this.controller.signal.aborted;}
  async start(invocation:InvocationContext):Promise<unknown>{
+  // Serialize starts before any asynchronous configuration read can create a second loop.
+  while(this.starting)await this.starting;
+  const pending=this.startOnce(invocation);this.starting=pending;
+  try{return await pending;}finally{if(this.starting===pending)this.starting=null;}
+ }
+ private async startOnce(invocation:InvocationContext):Promise<unknown>{
   assertInvocation(invocation);if(invocation.principal.role!=='PROVISIONER')fail('AUTH_SCOPE_DENIED','Only the provisioner principal can own provider effects');
   if(this.signal.aborted)fail('PROVIDER_CLOSED','Provisioner is shutting down');
   const settings=workerSettings(this.env),config=await readDeployment(this.env);
