@@ -17,6 +17,7 @@ IDS+=["provider.accounting.installs-actual-reader","provider.accounting.unproven
 IDS+=["provider.worker.missing-adapter-not-ready","provider.worker.missing-adapter-no-submission"]
 WORKER_IDS=["provider.worker.control-role-refused","provider.worker.operator-cannot-start","provider.worker.incompatible-adapter-not-ready","provider.worker.ready-with-adapter","provider.worker.control-commits-intent","provider.worker.consumes-committed-intent","provider.worker.records-observed-state","provider.worker.crash-leaves-submitting","provider.worker.resumes-after-restart","provider.worker.paginated-inventory","provider.worker.ambiguous-quarantined","provider.worker.ambiguous-not-replayed","provider.worker.destroy-confirmed-absent","provider.worker.admin-credentials-provisioner-only"]
 IDS+=WORKER_IDS
+IDS+=["provider.worker.running-from-boot"]
 FAILED=[]
 def check(name,fn):
  try:fn();actual="observed"
@@ -192,7 +193,13 @@ def worker_composition(check):
     expect(s["operational_ready"] is False and s["pools"][0]["adapter_registered"] is True and s["pools"][0]["adapter_compatible"] is False and s["pools"][0]["reason"]=="PROVIDER_ADAPTER_INCOMPATIBLE",s)
    finally:configure({"incompatible":False})
   check(WORKER_IDS[2],incompatible)
+  def boot_running():
+   s=ok(f,"provider.worker.status",{})
+   expect(s["running"] is True and s["owner_credential_id"]==f.ids["provisioner"],s)
+  check("provider.worker.running-from-boot",boot_running)
   def ready():
+   s=ok(f,"provider.worker.stop",{},"provisioner")
+   expect(s["running"] is False,s)
    s=ok(f,"provider.worker.start",{},"provisioner")
    expect(s["started"] is True and s["running"] is True and s["settings"]["concurrency"]==2,s)
    s=ok(f,"provider.worker.status",{})
