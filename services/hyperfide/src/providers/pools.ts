@@ -264,10 +264,13 @@ async function applyConfig(pool:ProviderDatabase,config:DeploymentConfig):Promis
         const capacityClass=['SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].includes(d.name)?'PHYSICAL':'EXECUTION';
         const provenance=digestDocument({configuration_digest:scope.configuration_digest,dimension:d.name,budgets:d.budgets,evidence:evidence.rows});
         for(const kind of ['CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].includes(d.name)?[capacityClass,'EXECUTION']:[capacityClass]){
+        // Held usage survives loss of qualification; the floor preserves accounting,
+        // while UNQUALIFIED still denies admission. The existing CHECK bounds this
+        // floor by the previously configured limit.
         await c.query(`INSERT INTO hyperfide.capacity_accounts(organisation_id,pool_id,dimension,capacity_class,configured_limit,provenance_digest,qualification_state)
           VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(organisation_id,pool_id,capacity_class,dimension,resource_key) DO UPDATE
-          SET configured_limit=EXCLUDED.configured_limit,provenance_digest=EXCLUDED.provenance_digest,qualification_state=EXCLUDED.qualification_state,state_version=capacity_accounts.state_version+1
-          WHERE (capacity_accounts.configured_limit,capacity_accounts.provenance_digest,capacity_accounts.qualification_state) IS DISTINCT FROM (EXCLUDED.configured_limit,EXCLUDED.provenance_digest,EXCLUDED.qualification_state)`,
+          SET configured_limit=CASE WHEN EXCLUDED.qualification_state='UNQUALIFIED' THEN capacity_accounts.reserved+capacity_accounts.allocated ELSE EXCLUDED.configured_limit END,provenance_digest=EXCLUDED.provenance_digest,qualification_state=EXCLUDED.qualification_state,state_version=capacity_accounts.state_version+1
+          WHERE (capacity_accounts.configured_limit,capacity_accounts.provenance_digest,capacity_accounts.qualification_state) IS DISTINCT FROM (CASE WHEN EXCLUDED.qualification_state='UNQUALIFIED' THEN capacity_accounts.reserved+capacity_accounts.allocated ELSE EXCLUDED.configured_limit END,EXCLUDED.provenance_digest,EXCLUDED.qualification_state)`,
           [config.organisation_id,p.id,d.name,kind,limit,provenance,qualification]);
         }
       }
