@@ -32,7 +32,6 @@
     "release.migrations.actual-shipped-runner",
     "release.migrations.actual-ledger-replay",
     "release.migrations.actual-inspection",
-    "release.migrations.actual-database-cleanup",
     "release.signature.actual-ed25519-manifest",
     "release.signature.changed-raw-signature-refused",
     "release.signature.wrong-trust-key-refused",
@@ -50,6 +49,7 @@
     "release.service.actual-post-verification-source-growth",
     "release.service.child-owned-destination-refused",
     "release.service.actual-release-tree-cleanup",
+    "release.migrations.actual-database-cleanup",
     "release.cleanup.actual-absence",
     "release.cleanup.source-tree-absence"
   ],
