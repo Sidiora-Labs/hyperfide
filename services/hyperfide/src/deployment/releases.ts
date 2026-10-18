@@ -9,11 +9,11 @@ const actions=['release.inspect','release.compatibility','release.plan'] as cons
 /** A real release pins every production dependency file, so the manifest bound
  * follows the 100000-entry inventory bound rather than a small-document bound. */
 const MANIFEST_LIMIT=32*1024*1024;
-/** Task 26.4 receipt: ff4632c9bc896057147975b600323af8f8b21f89,
- * V-026 cf29a831-73ed-42c3-928b-7c3a41563a36 and
- * V-027 2ed47892-7b68-4178-9580-444790e1eb6b. */
+/** Task 26.4 receipt: a923d185cd035c9620195fcf2d0e12c512e73d37,
+ * V-026 1f08f3dd-3c2d-4c51-9258-fc13625b8bc2 and
+ * V-027 b6dfd5e2-d6c7-418d-bd94-64d92106573f. */
 const UNIT_RECEIPT='share/hyperfide/qualified/26.4.json';
-const UNIT_RECEIPT_DIGEST='sha256:8cb10ad5d7e4d8f4e57a3a7efaee07eb23af751c1e72ab81bcb87d7198db8c9f';
+const UNIT_RECEIPT_DIGEST='sha256:c6acb6ed761cd7cbb0663969ac302859875426e83e7068bff63f9571effb3869';
 const SERVICE_UNITS:Readonly<Record<string,{status:'INSTALLABLE';owner_task?:string}>>={
  'control.service':{status:'INSTALLABLE'},'provisioner.service':{status:'INSTALLABLE'},'dispatch.service':{status:'INSTALLABLE'},
  'issue-watcher.service':{status:'INSTALLABLE',owner_task:'26.4'},'supervisory-host.service':{status:'INSTALLABLE',owner_task:'26.4'}};
