@@ -1,32 +1,9 @@
 {
   "task": "29.6",
-  "commit": "6eac26f10b332b85cab75ac7e15af86a8bf06eb3",
+  "commit": "bc2a88a86e0134315ad788a1fdc7b79d57558763",
+  "requalified_on": "bc2a88a86e0134315ad788a1fdc7b79d57558763",
   "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-063 --manifest tests/hyperfide/manifests/tasks/29.6.json",
   "exit_code": 0,
-  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"eed34e07-acf9-44b8-b10d-ef59ed1d1c3a\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/29.6/campaigns/5688bd9bff1c7a8a159dee2c2450bffb2e93e050bc9160c87c016c220489b83f\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}",
-  "ran_at": "2026-10-18T03:05:06.703665+00:00",
-  "receipt_id": "eed34e07-acf9-44b8-b10d-ef59ed1d1c3a",
-  "campaign_dir": "artifacts/hyperfide/tasks/29.6/campaigns/5688bd9bff1c7a8a159dee2c2450bffb2e93e050bc9160c87c016c220489b83f",
-  "scope": "task-component",
-  "full_case_status": "INCOMPLETE",
-  "regressions": {
-    "8.2": {
-      "exit_code": 1,
-      "failures": [
-        "provider.pools.physical-execution-separated: fixture insert duplicates newly seeded account",
-        "provider.pools.release-pending-held: follow-on missing PHYSICAL fixture key"
-      ]
-    },
-    "8.3": {
-      "exit_code": 1,
-      "failure": "PROVISIONER_EXECUTOR_CONFIG_INVALID at fixture startup; fixture provides no executor configuration"
-    },
-    "5.4": {
-      "exit_code": 0
-    }
-  },
-  "typecheck": {
-    "command": "cd services/hyperfide && npx tsc -p tsconfig.json --noEmit",
-    "exit_code": 0
-  }
+  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"d9e4410c-8ba5-4df2-83b6-64da2309aaa5\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/29.6/campaigns/d37419b3d22ef0001dd557eb3cdcbf2a873c036bd5d6ce4663d802a53d1543d0\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n",
+  "ran_at": "2026-10-18T03:10:01.513814+00:00"
 }

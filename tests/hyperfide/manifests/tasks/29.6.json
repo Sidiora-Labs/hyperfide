@@ -3,7 +3,7 @@
     "allowed_actions": [],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-29.6-capacity-seeding-v1",
+  "campaign_id": "hyperfide-task-29.6-capacity-seeding-v1-requal-bc2a88a86e01",
   "case_ids": [
     "V-063"
   ],
@@ -745,13 +745,13 @@
     },
     {
       "path": "services/hyperfide/dist/providers/reconcile.js",
-      "sha256": "7210c003037865e11427408ca38598f4bd399bce4d669efc92edc999316891b8",
-      "size": 82019
+      "sha256": "be0ef52d4a68c3dbf39cd2017ba6c229d429ce00e5d2262e9c33b9cbfce9d671",
+      "size": 82182
     },
     {
       "path": "services/hyperfide/dist/providers/reconcile.js.map",
-      "sha256": "6e67c3c7fcf94deea358c52408d09873a9a0c583c0b41526ce85353bd759916b",
-      "size": 66083
+      "sha256": "678983f6c8981b9b0a36ccf09b9d9a3d2a94d7ee632d531b76616d230f79abc9",
+      "size": 66216
     },
     {
       "path": "services/hyperfide/dist/providers/worker.d.ts",
@@ -1405,8 +1405,8 @@
     },
     {
       "path": "services/hyperfide/src/providers/reconcile.ts",
-      "sha256": "0cde917388e9fced2ac8110a47b265412892fd2d1704fa827fe6ed0ce97f58fe",
-      "size": 78931
+      "sha256": "d9edd47ef433dbb9d0bf942c3331858dea12bd814ca3662c046ab5f976bcf420",
+      "size": 79061
     },
     {
       "path": "services/hyperfide/src/providers/worker.ts",
