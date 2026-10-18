@@ -7,6 +7,8 @@
     "V-063"
   ],
   "assertion_ids": [
+    "capacity.seed.reconfigure-held",
+    "capacity.seed.unqualified-admission-refused",
     "capacity.seed.unqualified-zero",
     "capacity.seed.policy-provenance",
     "capacity.seed.qualified-dimensions",

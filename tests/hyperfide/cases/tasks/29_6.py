@@ -14,6 +14,7 @@ s=load('capacity_scheduler_fixture','tests/hyperfide/cases/tasks/5_1.py')
 expect=p.expect
 IDS=['capacity.seed.unqualified-zero','capacity.seed.policy-provenance','capacity.seed.qualified-dimensions','capacity.seed.idempotent','capacity.seed.over-limit-refused','capacity.seed.atomic-running','capacity.seed.ready-current-boot','capacity.seed.observation-idempotent','capacity.seed.claim-admits','capacity.seed.allocated-not-revived','capacity.seed.stopped-retired','capacity.seed.replaced-retired','capacity.seed.old-observation-no-ready']
 FAILED=[]
+IDS+=['capacity.seed.reconfigure-held','capacity.seed.unqualified-admission-refused']
 def check(name,fn):
  try:fn();actual='observed'
  except Exception as e:FAILED.append(name);actual=type(e).__name__+': '+str(e)
@@ -106,6 +107,30 @@ def main():
   check(IDS[11],lambda:expect(f.sql('SELECT state FROM hyperfide.worker_slots WHERE id=$1',[slot])[0]['state']=='RETIRED','replaced READY boot survived'))
   f.sql("UPDATE hyperfide.sandboxes SET boot_generation=2,observed_state='CREATING',state_version=state_version+1 WHERE id=$1",[sandbox])
   observe();check(IDS[12],lambda:expect(all(w['state']=='RETIRED' for w in slots()),'old observation created ready slot'))
+  held_request={'request_id':str(uuid.uuid4()),'dimensions':[{'capacity_account_id':f.accounts['AGENT'],'quantity':'1'}],'expires_at':p.utc()}
+  held=f.primary('return claims.reserveCapacity(tx,{...data.scope,...data.request});',{'request':held_request})
+  expect('result' in held,held)
+  def reservations():return f.sql('SELECT r.* FROM hyperfide.reservations r JOIN hyperfide.capacity_accounts a ON a.organisation_id=r.organisation_id AND a.id=r.capacity_account_id WHERE a.organisation_id=$1 AND a.pool_id=$2 ORDER BY r.id',[org,f.pool])
+  held_rows=reservations();held_accounts=accounts()
+  expect(any(a['reserved']!='0' for a in held_accounts) and any(a['allocated']!='0' for a in held_accounts),'fixture needs reserved and allocated capacity')
+  def reconfigure_held():
+   f.config['revision']='COMPONENT_ONLY_CAPACITY_RECONFIGURED';f.configfile.write_text(json.dumps(f.config))
+   invoke('provider.pools.configure')
+   current=accounts()
+   expect(reservations()==held_rows,'reconfigure mutated held reservation rows')
+   for old,new in zip(held_accounts,current):
+    expect(new['id']==old['id'] and new['reserved']==old['reserved'] and new['allocated']==old['allocated'],(old,new))
+    expect(new['qualification_state']=='UNQUALIFIED' and new['provenance_digest']!=old['provenance_digest'],new)
+    expect(int(new['configured_limit'])==int(old['reserved'])+int(old['allocated'])<=int(old['configured_limit']),new)
+   invoke('provider.pools.configure');expect(accounts()==current and reservations()==held_rows,'unqualified reseed is not idempotent')
+  check(IDS[13],reconfigure_held)
+  def admission_refused():
+   before=accounts()
+   request={**held_request,'request_id':str(uuid.uuid4())}
+   answer=f.primary('return claims.reserveCapacity(tx,{...data.scope,...data.request});',{'request':request})
+   expect(answer.get('error',{}).get('code')=='CAPACITY_UNQUALIFIED',answer)
+   expect(accounts()==before and reservations()==held_rows,'refused admission mutated held capacity')
+  check(IDS[14],admission_refused)
   complete=True
  finally:
   if prov:
