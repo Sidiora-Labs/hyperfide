@@ -89,7 +89,7 @@ class PrewarmFixture(scheduler.SchedulerFixture):
   return super().sql(sql,values,admin,serial)
  def setup(f):
   f.preparation=f.accepted["digest"]
-  i=f.ids;limits={"SANDBOX":"100","PROVISIONING":"10","CPU_MILLIS":"400000","MEMORY_BYTES":"858993459200","DISK_BYTES":"2147483648000"}
+  i=f.ids;limits={"SANDBOX":"100","PROVISIONING":"10","CPU_MILLIS":"400000","MEMORY_BYTES":"858993459200","DISK_BYTES":"2147483648000","INDEX":"2"}
   f.deployment={"schema_version":1,"organisation_id":i["organisation"],"revision":"COMPONENT_FIXTURE_NOT_LIVE-1","accounts":[{"provider":"railway","account_key":"fixture-account","approved_limits":limits,"planning_limits":limits}],
    "pools":[{"id":i["pool"],"provider":"railway","account_key":"fixture-account","environment_key":"fixture-env","region":"fixture-region","profile_id":i["profile"],"preparation_digest":f.preparation,
    "approved_limits":limits,"planning_limits":limits,"create_policy":{"seed_reference":"fixture-approved-seed","network":"ISOLATED","stdin_required":False}}],"maximum_operation_ms":600000}
@@ -105,10 +105,12 @@ class PrewarmFixture(scheduler.SchedulerFixture):
  def seed_quota(f):
   i=f.ids
   cfg=f.sql("SELECT configuration_digest FROM hyperfide.provider_pool_configurations WHERE organisation_id=$1 AND pool_id=$2 AND active",[i["organisation"],i["pool"]])[0]["configuration_digest"]
-  for name in ("SANDBOX","PROVISIONING","CPU_MILLIS","MEMORY_BYTES","DISK_BYTES"):
+  for name in f.deployment["pools"][0]["approved_limits"]:
    for kind,key in (("ACCOUNT","fixture-account"),("ENVIRONMENT","fixture-env")):
     f.sql("INSERT INTO hyperfide.provider_quota_observations(organisation_id,id,pool_id,configuration_digest,provider,account_key,scope_kind,scope_key,dimension,quota_limit,observed_at,expires_at,evidence_digest,basis,evidence_reference) VALUES($1,$2,$3,$4,'railway','fixture-account',$5,$6,$7,$8,clock_timestamp(),clock_timestamp()+interval '30 minutes',$9,'VERIFIED_OPERATOR_ATTESTATION','COMPONENT_FIXTURE_NOT_LIVE')",
      [i["organisation"],str(uuid.uuid4()),i["pool"],cfg,kind,key,name,f.deployment["pools"][0]["approved_limits"][name],sha(b"operator-attestation-fixture")])
+  status,response=f.remote.invoke("provider.pools.configure",{},key="operator",component="8.2")
+  expect(status==200 and response.get("ok") is True,"Pool qualification from fixture quota evidence failed: "+json.dumps(response))
   return cfg
  def start_provisioner(f):
   with socket.socket() as sock:sock.bind(("127.0.0.1",0));port=sock.getsockname()[1]
@@ -117,6 +119,13 @@ class PrewarmFixture(scheduler.SchedulerFixture):
   origin="https://localhost:"+str(port);identity=json.loads(f.identity_config.read_text());identity["origin"]=origin
   config=f.work/"provisioner-identity.json";config.write_text(json.dumps(identity));config.chmod(0o600)
   env=dict(f.env,HF_IDENTITY_CONFIG_FILE=str(config))
+  executor=f.work/"provisioner-executor.json"
+  executor.write_text(json.dumps({"schema_version":1,"principals":[{"credential_id":f.ids["provisioner"],"key_path":str(f.keys["provisioner"]["path"])}],"concurrency":2}));executor.chmod(0o600)
+  secrets=f.work/"credential-secrets";attachments=f.work/"credential-attachments"
+  secrets.mkdir(mode=0o700);attachments.mkdir(mode=0o700)
+  credentials=f.work/"credential-store.json"
+  credentials.write_text(json.dumps({"schema_version":1,"secret_root":str(secrets),"attachment_root":str(attachments),"sources":[],"targets":[]}));credentials.chmod(0o600)
+  env.update(HF_PROVISIONER_EXECUTOR_CONFIG_FILE=str(executor),HF_CREDENTIAL_CONFIG_FILE=str(credentials))
   argv=["node",str(ROOT/"services/hyperfide/dist/provisioner.js"),"--policy",str(f.policy),"--spec-revision","fixture-identity-v1","--components",str(components),"--module-root",str(ROOT/"services/hyperfide/dist"),"--mode","https","--host","127.0.0.1","--port",str(port),"--tls-cert",str(f.ca),"--tls-key",str(f.tlskey)]
   f.provisioner=subprocess.Popen(argv,cwd=ROOT,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
   deadline=time.monotonic()+20;lines=[]
