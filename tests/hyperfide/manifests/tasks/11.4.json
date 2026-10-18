@@ -3,7 +3,7 @@
     "allowed_actions": [],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-11.4-remote-prewarm-component-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a80cd7edbb1c-requal-a923d185cd03",
+  "campaign_id": "hyperfide-task-11.4-remote-prewarm-component-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a80cd7edbb1c-requal-a923d185cd03-requal-6544166d354d",
   "case_ids": [
     "V-007",
     "V-038"
@@ -453,8 +453,8 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/11_4.py",
-      "sha256": "1afaabafd9e95d33f5683d45ab34583fd3054de5c0aa58b859ceb1e5ab9b0be5",
-      "size": 35607
+      "sha256": "121dc8024670b8d3cbcf956b21cfa5fd8bcc096a06e62e71820b42c9a96443d3",
+      "size": 36527
     },
     {
       "path": "tests/hyperfide/cases/tasks/3_1.py",
