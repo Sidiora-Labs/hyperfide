@@ -204,9 +204,14 @@ function topology(value:ExternalFenceTopology):ExternalFenceTopology{
  return structuredClone(value);
 }
 /** Construct only in trusted deployment code. Request JSON cannot choose topology, backends, or journal paths. */
-export function externalFenceTopologyDigest(config:ExternalFenceTopology):string{return hash(topology(config))}
+export function externalFenceTopologyDigest(config:ExternalFenceTopology):string{
+ const trusted=topology(config);
+ // Resource digests are checked against permits and durable bindings separately.
+ // Hashing them here would require each resource digest to hash over itself.
+ return hash({...trusted,resources:trusted.resources.map(({topology_digest:_digest,...resource})=>resource)});
+}
 export function createExternalWriterFence(config:ExternalFenceTopology,providers:ProviderIsolationBackend,legacy:LegacyWriterBackend,journal:FileExternalFenceJournal,authority:ExternalFenceAuthority,ownedHost?:ProviderIsolationBackend):ExternalWriterFence{
- const trusted=topology(config),configDigest=hash(trusted);
+ const trusted=topology(config),configDigest=externalFenceTopologyDigest(trusted);
  if(trusted.evidence_scope!=='LIVE_PROVIDER')fail('EXTERNAL_FENCE_EVIDENCE_SCOPE_MISMATCH','Production authority activation requires live provider isolation evidence');
  if(!authority||!['INVOCATION','ISOLATION_PERMIT'].includes(authority.kind))fail('EXTERNAL_FENCE_AUTHORITY_REQUIRED','Actual invocation or verified isolation-only permit is required');
  const authorize=async(input:{deployment_id:string;operation_id:string;source_epoch:string|null;signal?:AbortSignal})=>{
