@@ -237,6 +237,86 @@ ac_2 = "Documentation closure SHALL produce successful deterministic checks and 
 ac_3 = "Release readiness SHALL require criterion-level traceability, passing required task/candidate/programme gates, resolved policy-blocking findings and complete operating procedures. Unqualified features SHALL not be described as supported in release material."
 ac_4 = "The public review pack SHALL retain requirement and source evidence, proposed decisions and unresolved qualification items, schematics, a dependency-checked task plan and sanitised independent review dispositions. Raw discussions, private provenance, account details and local operational inventory SHALL remain outside tracked publication artifacts. Review completion SHALL not be confused with implementation approval or production qualification."
 
+[req.29]
+title = "First authority epoch and shared epoch adoption"
+story = "As an operator, I need a fresh install to obtain its first authority epoch once and have every service role accept it."
+ac_1 = "A trusted operator activation path SHALL call AuthorityStore.activate exactly once for a deployment with no predecessor, producing activation_kind BOOTSTRAP, and SHALL refuse a second BOOTSTRAP while any epoch exists."
+ac_2 = "The control, provisioner and dispatch roles SHALL each pass assertExternalAuthorityCurrent against the single committed epoch without minting their own epoch, although they run as different uids."
+ac_3 = "The activation SHALL require a LIVE_PROVIDER fence receipt with the existing expiry bound and SHALL NOT accept component-fixture fence evidence."
+ac_4 = "Install and migrate tooling SHALL report authority_activated from the store, never as a hardcoded constant."
+
+[req.30]
+title = "Reachable provisioner and self-started worker"
+story = "As the control role, I need the provisioner's actions to be invocable and its worker to run without a manual start."
+ac_1 = "The provisioner SHALL expose an authenticated transport so that provider.pools.configure, provider.pools.attest-capacity, provider.pools.observe and provider.intents.execute/reconcile are invocable by authorised principals."
+ac_2 = "The provisioner worker SHALL start at service boot under a self-signed PROVISIONER invocation loaded from a 0600, single-link executor config, mirroring the runner executor model."
+ac_3 = "Worker start SHALL be idempotent across restarts and SHALL refuse to start with missing, group/world-readable or multiply-linked credentials."
+ac_4 = "Daemon mode without a transport SHALL NOT remain the shipped unit configuration."
+
+[req.31]
+title = "Capacity accounts, worker slots and scheduling policy seeding"
+story = "As the scheduler, I need claimable slots and accounts so claimTask can admit work."
+ac_1 = "When a sandbox boot reaches RUNNING, the system SHALL create its worker_slots row in state READY for that boot_generation in the same transaction."
+ac_2 = "A configured pool SHALL seed capacity_accounts per required dimension and a scheduling_policies row from its approved pool configuration, with provenance_digest and qualification_state recorded."
+ac_3 = "Seeding SHALL be idempotent and SHALL NOT raise configured limits above the pool's qualified capacity."
+ac_4 = "A stopped or replaced boot SHALL retire its slots so no READY slot outlives its boot."
+
+[req.32]
+title = "Qualified Railway quota through operator-declared capacity"
+story = "As an operator on a provider without a quota API, I need a declared-capacity path that admission accepts."
+ac_1 = "Railway pools SHALL become admissible through the existing provider.pools.attest-capacity OPERATOR_DECLARED_CAPACITY path for SANDBOX, PROVISIONING, CPU_MILLIS, MEMORY_BYTES and DISK_BYTES."
+ac_2 = "The live Railway observer SHALL keep refusing with QUOTA_UNQUALIFIED; declared capacity SHALL NOT be presented as observed quota."
+ac_3 = "Declarations SHALL keep the existing OPERATOR role, COMPLETE retained provenance artifact and 30-day expiry bounds; expired declarations SHALL stop admitting CREATE."
+ac_4 = "A shipped example declaration and validation SHALL exist for the Railway dimensions."
+
+[req.33]
+title = "Durable Railway execution and complete adapter surface"
+story = "As the provisioner, I need live executeBound on Railway to produce a definite outcome."
+ac_1 = "executeBound SHALL pass the durable session binding the Railway spool requires, so a live execute reaches a real Railway session instead of an UNKNOWN outcome."
+ac_2 = "The Railway adapter SHALL answer capabilities, prepare and transfer from real dependencies or a typed UNSUPPORTED with a stated reason that admission honours."
+ac_3 = "The public 9.3 live-mode refusal SHALL remain; only the bound 8.3/9.4 path SHALL execute live."
+ac_4 = "An exception inside the adapter SHALL keep its error code in the recorded outcome rather than collapsing to an untyped UNKNOWN."
+
+[req.34]
+title = "Per-role run policy and database grants"
+story = "As an operator, I need a shipped, reviewable action list per role and the grants the runtime checks."
+ac_1 = "The release SHALL ship one example run policy per role whose allowed_actions cover every action the role's registered components and dispatcher routes require."
+ac_2 = "Each example SHALL pass validatePolicy for its role, and a missing action SHALL be reported by name."
+ac_3 = "A trusted operator grant script SHALL provide the runtime role privileges assertRuntimePrivileges checks and the pg_control_system/pg_control_checkpoint EXECUTE grants, never as runtime DDL."
+ac_4 = "Runtime roles SHALL NOT receive migration privileges."
+
+[req.35]
+title = "Host bootstrap and per-role environment"
+story = "As an operator, I need one idempotent bootstrap to prepare users, directories, environment and units."
+ac_1 = "A bootstrap SHALL create the hyperfide, hyperfide-provisioner and hyperfide-dispatch users, the configuration and state trees with least-privilege ownership and modes, and install the units."
+ac_2 = "The release SHALL ship per-role example environment files listing every variable each role requires, with HYPERFIDE_MIGRATION_* absent."
+ac_3 = "A preflight SHALL map each missing or unsafe variable to the existing refusal code before any service starts."
+ac_4 = "The bootstrap SHALL be re-runnable without overwriting existing secrets or configuration."
+
+[req.36]
+title = "Runner supervisor and preparation-receipt capabilities"
+story = "As recovery and reproduction, I need the 12.4 capabilities I require to exist."
+ac_1 = "Task 12.4 SHALL export runner.supervisors.v1 with the verifyStop contract recovery/stop.ts consumes."
+ac_2 = "Task 12.4 SHALL export runner.preparation-receipts.v1 backed by the existing preparation_receipts.ts functions."
+ac_3 = "Recovery and reproduction SHALL resolve these capabilities without RECOVERY_DEPENDENCY_UNAVAILABLE in a registered runtime."
+ac_4 = "Type guards at the consumers SHALL accept the exported objects unchanged."
+
+[req.37]
+title = "Satisfiable writer-isolation digest binding"
+story = "As the fencing service, I need a fence configuration that can be valid."
+ac_1 = "The permit, fence topology and binding digest checks SHALL be satisfiable by a non-circular configuration; no check SHALL require a resource digest to equal a hash over itself."
+ac_2 = "Every existing binding check SHALL keep its strength: permit-to-fence resource equality and binding-to-resource agreement SHALL still be enforced."
+ac_3 = "Writer isolation SHALL be built with a destruction preflight so the first isolation does not fail DESTRUCTION_PREFLIGHT_UNAVAILABLE."
+ac_4 = "A tampered resource or topology digest SHALL still be refused."
+
+[req.38]
+title = "Qualified supervisory-host and issue-watcher units"
+story = "As release management, I need the two remaining units qualified once their owning implementation is done."
+ac_1 = "issue-watcher.service and supervisory-host.service SHALL move from UNQUALIFIED only after parent task 26.4 is done with its gates passing."
+ac_2 = "The release status change and the 25.4 expectations SHALL change together as a qualified status transition, citing the 26.4 receipt."
+ac_3 = "The units SHALL start their 26.4 entrypoints with the shipped configuration paths."
+ac_4 = "No unit SHALL be marked qualified without its receipt."
+
 [design]
 include = "design.body.md"
 
@@ -2249,6 +2329,176 @@ do_3 = "First qualify the independent closure checker against complete controlle
 do_4 = "Register this module through its task-owned component fragment in the established service entrypoint and verify its externally observable internal API behavior; an unreferenced source file or direct function-only test cannot satisfy the component gate."
 do_5 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
 
+[task.29.1]
+title = "Activate the first authority epoch and let every role adopt it"
+status = "pending"
+wave = 35
+requires = []
+touches = ["services/hyperfide/src/storage/durability.ts", "services/hyperfide/src/storage/authority_journal.ts", "services/hyperfide/src/recovery/fencing.ts", "deploy/hyperfide/migrate.mjs", "deploy/hyperfide/install-service.mjs", "tests/hyperfide/cases/tasks/29_1.py", "tests/hyperfide/registrations/29.1.json", "tests/hyperfide/manifests/tasks/29.1.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-058 --manifest tests/hyperfide/manifests/tasks/29.1.json"
+reqs = ["29.1", "29.2", "29.3", "29.4"]
+acceptance_ids = ["V-058"]
+owner = "storage"
+artifacts = ["artifacts/hyperfide/tasks/29.1/manifest.json", "artifacts/hyperfide/tasks/29.1/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "Nothing in src calls AuthorityStore.activate; it is only reachable through storage.authority.v1 (durability.ts:283-285, :302) and every ordinary service refuses until an epoch exists (durability.ts:276-279). Add a trusted operator activation entry that drives activateInternal (durability.ts:200-239) once, BOOTSTRAP when there is no predecessor (:236)."
+do_2 = "FileExternalAuthorityJournal requires uid ownership of its dir and file (authority_journal.ts:86, :96), mints a fresh randomUUID epoch per journal (:159) and publishCommitted needs a matching PENDING entry (:174); with three unit uids only one journal can hold the committed epoch, so the other roles fail assertExternalAuthorityCurrent (durability.ts:172-182). Add a follower path that adopts a committed epoch and proof_digest from the activating journal, verified, without minting."
+do_3 = "Keep the LIVE_PROVIDER-only fence (fencing.ts:210) and the receipt checks with the 30 s expiry bound (durability.ts:226-229); do not accept the component-fixture fencer used by tests/hyperfide/support/identity_fixture.py:53-58 outside tests."
+do_4 = "Replace the hardcoded authority_activated:false in deploy/hyperfide/migrate.mjs:54, :57, :66 and install-service.mjs:110, :116 with a store read."
+do_5 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
+[task.29.2]
+title = "Give the provisioner a transport and self-start its worker"
+status = "pending"
+wave = 35
+requires = []
+touches = ["services/hyperfide/src/components/service.ts", "services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/providers/worker.ts", "deploy/hyperfide/provisioner.service", "tests/hyperfide/cases/tasks/29_2.py", "tests/hyperfide/registrations/29.2.json", "tests/hyperfide/manifests/tasks/29.2.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-059 --manifest tests/hyperfide/manifests/tasks/29.2.json"
+reqs = ["30.1", "30.2", "30.3", "30.4"]
+acceptance_ids = ["V-059"]
+owner = "provisioning"
+artifacts = ["artifacts/hyperfide/tasks/29.2/manifest.json", "artifacts/hyperfide/tasks/29.2/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "Daemon mode starts no transport, only emits ready and waits (service.ts:134-138), while provisioner.service:11 runs --mode daemon; every provisioner()-gated action (pools.ts:588) is therefore unreachable, including provider.pools.configure (pools.ts:604), attest-capacity (:605), observe (:608) and provider.intents.execute/reconcile. Run the provisioner with the authenticated https transport the control and dispatch units use."
+do_2 = "The ProvisionerWorker is created at reconcile.ts:619 but only starts via provider.worker.start (reconcile.ts:644), which needs a PROVISIONER invocation, and worker.ts:75-89 keeps no durable started flag. Start it at boot under a self-signed invocation loaded like runner/executor.ts:50-75 (0600, nlink 1, principals with credential_id/key_path) and authenticated as at executor.ts:79-87."
+do_3 = "Make start idempotent across restarts and refuse unsafe credential files; keep the run-scoped CLAIM query in worker.ts."
+do_4 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
+[task.29.3]
+title = "Make the writer-isolation digest binding satisfiable and register destruction preflight"
+status = "pending"
+wave = 35
+requires = []
+touches = ["services/hyperfide/src/recovery/fencing.ts", "services/hyperfide/src/providers/placement.ts", "services/hyperfide/src/identity/credentials.ts", "services/hyperfide/src/recovery/fencing_service.ts", "tests/hyperfide/cases/tasks/29_3.py", "tests/hyperfide/registrations/29.3.json", "tests/hyperfide/manifests/tasks/29.3.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-060 --manifest tests/hyperfide/manifests/tasks/29.3.json"
+reqs = ["37.1", "37.2", "37.3", "37.4"]
+acceptance_ids = ["V-060"]
+owner = "fencing"
+artifacts = ["artifacts/hyperfide/tasks/29.3/manifest.json", "artifacts/hyperfide/tasks/29.3/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "On the permit path fencing_service.ts:59-60 uses, permit.topology_digest must equal the hash of the fence topology including resources[].topology_digest (fencing.ts:209, :214) and equal config.topology_digest (placement.ts:324); the binding takes config.topology_digest (placement.ts:352) and must equal each fence resource r.topology_digest (fencing.ts:246), with permit and fence resources exactly equal (fencing.ts:216-218, credentials.ts:168). That needs a SHA-256 fixed point."
+do_2 = "Bind fence resources against their per-resource resource_topology_digest, or exclude resource digests from externalFenceTopologyDigest, keeping every equality check and refusing tampered digests."
+do_3 = "placement.ts:476 builds createProviderIsolation without destructionPreflight, so first isolation fails DESTRUCTION_PREFLIGHT_UNAVAILABLE (placement.ts:348); wire the preflight 8.3 already registers (reconcile.ts:629, :632)."
+do_4 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
+[task.29.4]
+title = "Export runner supervisor and preparation-receipt capabilities from 12.4"
+status = "pending"
+wave = 35
+requires = []
+touches = ["services/hyperfide/src/runner/executor.ts", "services/hyperfide/src/runner/preparation_receipts.ts", "tests/hyperfide/cases/tasks/29_4.py", "tests/hyperfide/registrations/29.4.json", "tests/hyperfide/manifests/tasks/29.4.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-061 --manifest tests/hyperfide/manifests/tasks/29.4.json"
+reqs = ["36.1", "36.2", "36.3", "36.4"]
+acceptance_ids = ["V-061"]
+owner = "runner"
+artifacts = ["artifacts/hyperfide/tasks/29.4/manifest.json", "artifacts/hyperfide/tasks/29.4/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "12.4 exports only runner.native.v1 (executor.ts:331), while recovery requires runner.supervisors.v1 (recovery/control.ts:234, recovery/stop.ts:97, :140) and reproduction requires runner.preparation-receipts.v1 (runner/reproduction_jobs.ts:92)."
+do_2 = "Export runner.supervisors.v1 with the verifyStop result shape stop.ts:97 checks, and runner.preparation-receipts.v1 over verifyPreparationReceipt/recordPreparationReceipt/readPreparationReceipt (preparation_receipts.ts:23, :40, :57)."
+do_3 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
+[task.29.5]
+title = "Ship per-role run policies and the operator grant script"
+status = "pending"
+wave = 35
+requires = []
+touches = ["deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/provisioner.example.json", "deploy/hyperfide/policies/dispatch.example.json", "deploy/hyperfide/grants.sql", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/registrations/29.5.json", "tests/hyperfide/manifests/tasks/29.5.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-062 --manifest tests/hyperfide/manifests/tasks/29.5.json"
+reqs = ["34.1", "34.2", "34.3", "34.4"]
+acceptance_ids = ["V-062"]
+owner = "foundation"
+artifacts = ["artifacts/hyperfide/tasks/29.5/manifest.json", "artifacts/hyperfide/tasks/29.5/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "No per-role allowed_actions list ships, yet every invocation is admitted against it (components/registry.ts:181, policy/programme.ts:49-50) and the dispatcher refuses unless its worker actions are listed (events/dispatcher.ts:61-62). Ship one example per role in the schema validatePolicy enforces (programme.ts:26-48)."
+do_2 = "Derive each list from the role's registered component actions and dispatcher routes, and have the case fail naming any missing action."
+do_3 = "Ship grants.sql for the runtime privileges assertRuntimePrivileges checks (storage/durability.ts:255-263) and the pg_control_system/pg_control_checkpoint EXECUTE grants storage/replicas.ts:30-36 documents as trusted operator setup; no migration privilege for runtime roles."
+do_4 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
+[task.29.6]
+title = "Seed worker slots, capacity accounts and scheduling policy"
+status = "pending"
+wave = 36
+requires = ["29.2"]
+touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/providers/pools.ts", "services/hyperfide/migrations/0706-capacity-seeding.sql", "tests/hyperfide/cases/tasks/29_6.py", "tests/hyperfide/registrations/29.6.json", "tests/hyperfide/manifests/tasks/29.6.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-063 --manifest tests/hyperfide/manifests/tasks/29.6.json"
+reqs = ["31.1", "31.2", "31.3", "31.4"]
+acceptance_ids = ["V-063"]
+owner = "scheduling"
+artifacts = ["artifacts/hyperfide/tasks/29.6/manifest.json", "artifacts/hyperfide/tasks/29.6/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "Nothing outside tests inserts worker_slots (0001-authority.sql:302), capacity_accounts (0001-authority.sql:234) or scheduling_policies (0005-scheduling.sql:12), so claimTask always refuses SCHEDULING_POLICY_MISSING, CAPACITY_ACCOUNT_MISSING or SLOT_UNAVAILABLE (scheduler/claim.ts:679, :686, :696-697)."
+do_2 = "Insert the READY slot for the boot_generation in the transaction that moves the sandbox to RUNNING (providers/reconcile.ts:231, :244); retire slots when the boot stops or is replaced."
+do_3 = "Seed capacity_accounts per dimension and the scheduling policy from provider.pools.configure, idempotently, with provenance_digest and qualification_state, never above qualified capacity."
+do_4 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
+[task.29.7]
+title = "Qualify Railway capacity through operator declarations"
+status = "pending"
+wave = 36
+requires = ["29.2"]
+touches = ["services/hyperfide/src/providers/pools.ts", "deploy/hyperfide/capacity/railway.example.json", "tests/hyperfide/cases/tasks/29_7.py", "tests/hyperfide/registrations/29.7.json", "tests/hyperfide/manifests/tasks/29.7.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-064 --manifest tests/hyperfide/manifests/tasks/29.7.json"
+reqs = ["32.1", "32.2", "32.3", "32.4"]
+acceptance_ids = ["V-064"]
+owner = "provisioning"
+artifacts = ["artifacts/hyperfide/tasks/29.7/manifest.json", "artifacts/hyperfide/tasks/29.7/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "The live observer throws QUOTA_UNQUALIFIED (providers/railway/reconciliation.ts:81-88) but only observe calls it (pools.ts:608-611); CREATE admission reads stored observations (assertPoolCapacity, pools.ts:312-323) and needs ACCOUNT plus ENVIRONMENT or POOL per dimension (pools.ts:296)."
+do_2 = "Reuse provider.pools.attest-capacity (attestCapacity, pools.ts:373-406; counted at pools.ts:269; exercised by tests/hyperfide/cases/tasks/8_2.py) for SANDBOX, PROVISIONING, CPU_MILLIS, MEMORY_BYTES and DISK_BYTES, now reachable through 29.2; ship a validated example declaration."
+do_3 = "Keep the observer refusal, OPERATOR role, COMPLETE provenance and 30-day expiry; expired declarations stop CREATE admission."
+do_4 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
+[task.29.8]
+title = "Run Railway executeBound durably and complete the adapter surface"
+status = "pending"
+wave = 36
+requires = ["29.2"]
+touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/providers/railway/reconciliation.ts", "services/hyperfide/src/providers/railway/processes.ts", "tests/hyperfide/cases/tasks/29_8.py", "tests/hyperfide/registrations/29.8.json", "tests/hyperfide/manifests/tasks/29.8.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-065 --manifest tests/hyperfide/manifests/tasks/29.8.json"
+reqs = ["33.1", "33.2", "33.3", "33.4"]
+acceptance_ids = ["V-065"]
+owner = "provisioning"
+artifacts = ["artifacts/hyperfide/tasks/29.8/manifest.json", "artifacts/hyperfide/tasks/29.8/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "The 9.4 adapter already executes live through Sandbox.connect/exec (railway/processes.ts:532, :540, :656; execute case railway/reconciliation.ts:257-271), but executeBound sends durable:false (providers/reconcile.ts:500, within :482-508) and RailwaySessionSpool.start throws 'Railway durable supervisor required' without durable (processes.ts:511), which the adapter catch turns into UNKNOWN (reconciliation.ts:345)."
+do_2 = "Pass the durable intent/session binding from executeBound; keep the public 9.3 live refusal (processes.ts:771-778)."
+do_3 = "capabilities, prepare and transfer return UNSUPPORTED because installRailwayRuntime supplies no dependencies (reconciliation.ts:193-317, installed at :575-657); supply them or return a typed reason admission honours, and carry the error code through the catch."
+do_4 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
+[task.29.9]
+title = "Ship the host bootstrap and per-role environment preflight"
+status = "pending"
+wave = 37
+requires = ["29.1", "29.2", "29.5"]
+touches = ["deploy/hyperfide/bootstrap-host.mjs", "deploy/hyperfide/env/control.env.example", "deploy/hyperfide/env/provisioner.env.example", "deploy/hyperfide/env/dispatch.env.example", "tests/hyperfide/cases/tasks/29_9.py", "tests/hyperfide/registrations/29.9.json", "tests/hyperfide/manifests/tasks/29.9.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-066 --manifest tests/hyperfide/manifests/tasks/29.9.json"
+reqs = ["35.1", "35.2", "35.3", "35.4"]
+acceptance_ids = ["V-066"]
+owner = "deployment"
+artifacts = ["artifacts/hyperfide/tasks/29.9/manifest.json", "artifacts/hyperfide/tasks/29.9/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "Nothing creates the hyperfide, hyperfide-provisioner and hyperfide-dispatch users the units name, the configuration and state trees, or installs the units; add an idempotent bootstrap that never overwrites secrets. Identity bootstrap stays with bootstrap_identity.ts (parent task 26.4)."
+do_2 = "Ship per-role env examples: dispatch needs HYPERFIDE_DISPATCH_LISTEN_HOST/PORT, HYPERFIDE_SPEC_REVISION, HYPERFIDE_DISPATCH_PRIMARY_DATABASE_URL, HYPERFIDE_REQUIRE_SYNC_REPLICA, HYPERFIDE_DEPLOYMENT_ID, HYPERFIDE_AUTHORITY_JOURNAL_DIR; provisioner adds the external fence, Railway and pool variables; control adds HYPERFIDE_CAUSAL_BARRIER_KEY (storage/replicas.ts:56-57); HYPERFIDE_MIGRATION_* absent everywhere."
+do_3 = "Preflight maps each gap to DURABILITY_POLICY_REQUIRED, MIGRATION_CREDENTIAL_EXPOSED, EXTERNAL_JOURNAL_REQUIRED, EXTERNAL_FENCE_CONFIG_REQUIRED/_UNSAFE/_INVALID/_INCOMPLETE, POOL_CONFIG_REQUIRED or 'Railway trusted configuration missing', and installs the 29.5 policies and grants."
+do_4 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
+[task.29.10]
+title = "Qualify the supervisory-host and issue-watcher units after 26.4"
+status = "pending"
+wave = 37
+requires = ["26.4", "29.9"]
+touches = ["services/hyperfide/src/deployment/releases.ts", "tests/hyperfide/cases/tasks/25_4.py", "deploy/hyperfide/supervisory-host.service", "deploy/hyperfide/issue-watcher.service", "tests/hyperfide/cases/tasks/29_10.py", "tests/hyperfide/registrations/29.10.json", "tests/hyperfide/manifests/tasks/29.10.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-067 --manifest tests/hyperfide/manifests/tasks/29.10.json"
+reqs = ["38.1", "38.2", "38.3", "38.4"]
+acceptance_ids = ["V-067"]
+owner = "release"
+artifacts = ["artifacts/hyperfide/tasks/29.10/manifest.json", "artifacts/hyperfide/tasks/29.10/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "releases.ts:14-16 marks issue-watcher.service and supervisory-host.service UNQUALIFIED with owner_task 26.4, asserted by tests/hyperfide/cases/tasks/25_4.py:91 and :209; 26.4 owns supervisory-host.ts and issue-watcher.ts, so do not duplicate it (26.4 is a parent-spec dependency)."
+do_2 = "After 26.4 is done with its gates passing, change the status and the 25_4 expectations in one change that cites the 26.4 receipt; this is a qualified status transition, not a weakened check."
+do_3 = "Confirm the units start the 26.4 entrypoints with the shipped configuration paths (supervisory-host.service:20, issue-watcher.service:18)."
+do_4 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
 [acceptance.V-001]
 feature = "hyperfide"
 reqs = ["1.2", "1.4", "2.1", "2.2", "2.3", "3.1", "3.2"]
@@ -2760,4 +3010,94 @@ scenario = "Materialise packet-scoped slices from a repository exceeding 20,000 
 expected = "Each slice manifest is immutable and bound to the exact commit; every included path is byte-identical to the full tree; omitted inputs, excluded build roots and out-of-slice access are detected and recorded as a refusal or an explicit widening, never a silent pass; full-tree fallback carries a recorded reason; results carry slice identity so later full-tree qualification can detect omitted inputs; materialisation cost is reported against the full-tree baseline."
 contract = "verification.md"
 test = "python3 tests/hyperfide/qualify.py --case V-057 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-058]
+feature = "hyperfide"
+reqs = ["29.1", "29.2", "29.3", "29.4"]
+scenario = "First BOOTSTRAP epoch then a second activation attempt; all three role uids check current authority."
+expected = "Exactly one BOOTSTRAP epoch exists, all roles accept it without minting, second BOOTSTRAP and fixture fence evidence are refused, tooling reports the stored activation state."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-058 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-059]
+feature = "hyperfide"
+reqs = ["30.1", "30.2", "30.3", "30.4"]
+scenario = "Boot the provisioner unit and invoke pools.configure/attest-capacity/observe and intents.execute as authorised and unauthorised principals; restart it."
+expected = "Actions are reachable only when authorised, the worker runs after boot without provider.worker.start, restart does not double-start, unsafe executor credentials refuse start."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-059 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-060]
+feature = "hyperfide"
+reqs = ["37.1", "37.2", "37.3", "37.4"]
+scenario = "Build a valid external fence config and permit for writer isolation, then tamper each digest; perform first isolation."
+expected = "The valid config is accepted, every tampered digest is refused, and first isolation passes destruction preflight."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-060 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-061]
+feature = "hyperfide"
+reqs = ["36.1", "36.2", "36.3", "36.4"]
+scenario = "Resolve runner.supervisors.v1 and runner.preparation-receipts.v1 from registered 12.4 in recovery stop and reproduction jobs."
+expected = "Both resolve, pass the consumer type guards, and recovery no longer reports RECOVERY_DEPENDENCY_UNAVAILABLE."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-061 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-062]
+feature = "hyperfide"
+reqs = ["34.1", "34.2", "34.3", "34.4"]
+scenario = "Validate each shipped role policy and run every registered component and dispatcher action against it; apply the grant script to a scratch database."
+expected = "Every policy validates, no required action is missing, runtime privileges and pg_control grants pass assertRuntimePrivileges and 4.3, runtime roles lack migration privileges."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-062 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-063]
+feature = "hyperfide"
+reqs = ["31.1", "31.2", "31.3", "31.4"]
+scenario = "Configure a pool, bring a sandbox boot to RUNNING, claim a task, then stop the boot."
+expected = "Accounts, policy and READY slot exist, claimTask admits, seeding is idempotent and bounded, and the stopped boot leaves no READY slot."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-063 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-064]
+feature = "hyperfide"
+reqs = ["32.1", "32.2", "32.3", "32.4"]
+scenario = "Attest Railway capacity for the five dimensions, create, then let the declaration expire."
+expected = "CREATE is admitted while declarations are current and refused after expiry; the live observer still refuses QUOTA_UNQUALIFIED."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-064 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-065]
+feature = "hyperfide"
+reqs = ["33.1", "33.2", "33.3", "33.4"]
+scenario = "executeBound on a live Railway pool, and capabilities/prepare/transfer calls; adapter error injection."
+expected = "Execute reaches a durable Railway session with a definite outcome, public 9.3 live mode still refuses, other operations answer or return typed reasons, error codes survive the catch."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-065 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-066]
+feature = "hyperfide"
+reqs = ["35.1", "35.2", "35.3", "35.4"]
+scenario = "Run bootstrap twice on a clean host, then remove or expose variables one at a time."
+expected = "Users, trees, modes and units exist, rerun preserves secrets, each defect maps to its refusal code before any service starts."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-066 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-067]
+feature = "hyperfide"
+reqs = ["38.1", "38.2", "38.3", "38.4"]
+scenario = "Read release status for both units before and after the 26.4 receipt exists."
+expected = "Units stay UNQUALIFIED without the receipt and become qualified with it, with 25.4 expectations updated in the same change."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-067 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
 qualification = "UNRUN"
