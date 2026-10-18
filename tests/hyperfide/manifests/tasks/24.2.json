@@ -7,7 +7,7 @@
     ],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-24.2-worker-restoration-component-v1-requal-12aa390190b3-requal-6a91b0130b1d",
+  "campaign_id": "hyperfide-task-24.2-worker-restoration-component-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-a923d185cd03",
   "case_ids": [
     "V-004",
     "V-041",
@@ -88,8 +88,8 @@
     },
     {
       "path": "services/hyperfide/components/24.1.json",
-      "sha256": "d80fd4bc8186b9c46750c6350b91d3a9697b905d75c882b539cf6867f04a0ec8",
-      "size": 446
+      "sha256": "5d3342ff4107706e291951026efb92b43cb4822e14aad002c31173538872ca1b",
+      "size": 458
     },
     {
       "path": "services/hyperfide/components/24.2.json",
@@ -233,8 +233,8 @@
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "2b992fd5eab4d903909a4dd621b2ce3c7278fa932e163cbad8f33cf2b65efe0a",
-      "size": 29318
+      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
+      "size": 30314
     }
   ],
   "policy": {
