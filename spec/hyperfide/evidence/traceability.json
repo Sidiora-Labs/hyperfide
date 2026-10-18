@@ -1590,6 +1590,526 @@
         "assurance.md",
         "verification.md"
       ]
+    },
+    {
+      "id": "29.1",
+      "task_ids": [
+        "29.1"
+      ],
+      "acceptance_ids": [
+        "V-058"
+      ],
+      "chapters": [
+        "storage.md",
+        "migration.md"
+      ]
+    },
+    {
+      "id": "29.2",
+      "task_ids": [
+        "29.1"
+      ],
+      "acceptance_ids": [
+        "V-058"
+      ],
+      "chapters": [
+        "storage.md",
+        "migration.md"
+      ]
+    },
+    {
+      "id": "29.3",
+      "task_ids": [
+        "29.1"
+      ],
+      "acceptance_ids": [
+        "V-058"
+      ],
+      "chapters": [
+        "storage.md",
+        "migration.md"
+      ]
+    },
+    {
+      "id": "29.4",
+      "task_ids": [
+        "29.1"
+      ],
+      "acceptance_ids": [
+        "V-058"
+      ],
+      "chapters": [
+        "storage.md",
+        "migration.md"
+      ]
+    },
+    {
+      "id": "30.1",
+      "task_ids": [
+        "29.2"
+      ],
+      "acceptance_ids": [
+        "V-059"
+      ],
+      "chapters": [
+        "execution-contract.md",
+        "identity-security.md",
+        "migration.md"
+      ]
+    },
+    {
+      "id": "30.2",
+      "task_ids": [
+        "29.2"
+      ],
+      "acceptance_ids": [
+        "V-059"
+      ],
+      "chapters": [
+        "execution-contract.md",
+        "identity-security.md",
+        "migration.md"
+      ]
+    },
+    {
+      "id": "30.3",
+      "task_ids": [
+        "29.2"
+      ],
+      "acceptance_ids": [
+        "V-059"
+      ],
+      "chapters": [
+        "execution-contract.md",
+        "identity-security.md",
+        "migration.md"
+      ]
+    },
+    {
+      "id": "30.4",
+      "task_ids": [
+        "29.2"
+      ],
+      "acceptance_ids": [
+        "V-059"
+      ],
+      "chapters": [
+        "execution-contract.md",
+        "identity-security.md",
+        "migration.md"
+      ]
+    },
+    {
+      "id": "31.1",
+      "task_ids": [
+        "29.6"
+      ],
+      "acceptance_ids": [
+        "V-063"
+      ],
+      "chapters": [
+        "storage.md",
+        "execution-contract.md"
+      ]
+    },
+    {
+      "id": "31.2",
+      "task_ids": [
+        "29.6"
+      ],
+      "acceptance_ids": [
+        "V-063"
+      ],
+      "chapters": [
+        "storage.md",
+        "execution-contract.md"
+      ]
+    },
+    {
+      "id": "31.3",
+      "task_ids": [
+        "29.6"
+      ],
+      "acceptance_ids": [
+        "V-063"
+      ],
+      "chapters": [
+        "storage.md",
+        "execution-contract.md"
+      ]
+    },
+    {
+      "id": "31.4",
+      "task_ids": [
+        "29.6"
+      ],
+      "acceptance_ids": [
+        "V-063"
+      ],
+      "chapters": [
+        "storage.md",
+        "execution-contract.md"
+      ]
+    },
+    {
+      "id": "32.1",
+      "task_ids": [
+        "29.7"
+      ],
+      "acceptance_ids": [
+        "V-064"
+      ],
+      "chapters": [
+        "providers/railway.md",
+        "execution-contract.md"
+      ]
+    },
+    {
+      "id": "32.2",
+      "task_ids": [
+        "29.7"
+      ],
+      "acceptance_ids": [
+        "V-064"
+      ],
+      "chapters": [
+        "providers/railway.md",
+        "execution-contract.md"
+      ]
+    },
+    {
+      "id": "32.3",
+      "task_ids": [
+        "29.7"
+      ],
+      "acceptance_ids": [
+        "V-064"
+      ],
+      "chapters": [
+        "providers/railway.md",
+        "execution-contract.md"
+      ]
+    },
+    {
+      "id": "32.4",
+      "task_ids": [
+        "29.7"
+      ],
+      "acceptance_ids": [
+        "V-064"
+      ],
+      "chapters": [
+        "providers/railway.md",
+        "execution-contract.md"
+      ]
+    },
+    {
+      "id": "33.1",
+      "task_ids": [
+        "29.8"
+      ],
+      "acceptance_ids": [
+        "V-065"
+      ],
+      "chapters": [
+        "providers/railway.md"
+      ]
+    },
+    {
+      "id": "33.2",
+      "task_ids": [
+        "29.8"
+      ],
+      "acceptance_ids": [
+        "V-065"
+      ],
+      "chapters": [
+        "providers/railway.md"
+      ]
+    },
+    {
+      "id": "33.3",
+      "task_ids": [
+        "29.8"
+      ],
+      "acceptance_ids": [
+        "V-065"
+      ],
+      "chapters": [
+        "providers/railway.md"
+      ]
+    },
+    {
+      "id": "33.4",
+      "task_ids": [
+        "29.8"
+      ],
+      "acceptance_ids": [
+        "V-065"
+      ],
+      "chapters": [
+        "providers/railway.md"
+      ]
+    },
+    {
+      "id": "34.1",
+      "task_ids": [
+        "29.5"
+      ],
+      "acceptance_ids": [
+        "V-062"
+      ],
+      "chapters": [
+        "identity-security.md",
+        "storage.md"
+      ]
+    },
+    {
+      "id": "34.2",
+      "task_ids": [
+        "29.5"
+      ],
+      "acceptance_ids": [
+        "V-062"
+      ],
+      "chapters": [
+        "identity-security.md",
+        "storage.md"
+      ]
+    },
+    {
+      "id": "34.3",
+      "task_ids": [
+        "29.5"
+      ],
+      "acceptance_ids": [
+        "V-062"
+      ],
+      "chapters": [
+        "identity-security.md",
+        "storage.md"
+      ]
+    },
+    {
+      "id": "34.4",
+      "task_ids": [
+        "29.5"
+      ],
+      "acceptance_ids": [
+        "V-062"
+      ],
+      "chapters": [
+        "identity-security.md",
+        "storage.md"
+      ]
+    },
+    {
+      "id": "35.1",
+      "task_ids": [
+        "29.9"
+      ],
+      "acceptance_ids": [
+        "V-066"
+      ],
+      "chapters": [
+        "migration.md",
+        "identity-security.md"
+      ]
+    },
+    {
+      "id": "35.2",
+      "task_ids": [
+        "29.9"
+      ],
+      "acceptance_ids": [
+        "V-066"
+      ],
+      "chapters": [
+        "migration.md",
+        "identity-security.md"
+      ]
+    },
+    {
+      "id": "35.3",
+      "task_ids": [
+        "29.9"
+      ],
+      "acceptance_ids": [
+        "V-066"
+      ],
+      "chapters": [
+        "migration.md",
+        "identity-security.md"
+      ]
+    },
+    {
+      "id": "35.4",
+      "task_ids": [
+        "29.9"
+      ],
+      "acceptance_ids": [
+        "V-066"
+      ],
+      "chapters": [
+        "migration.md",
+        "identity-security.md"
+      ]
+    },
+    {
+      "id": "36.1",
+      "task_ids": [
+        "29.4"
+      ],
+      "acceptance_ids": [
+        "V-061"
+      ],
+      "chapters": [
+        "execution-contract.md",
+        "assurance.md"
+      ]
+    },
+    {
+      "id": "36.2",
+      "task_ids": [
+        "29.4"
+      ],
+      "acceptance_ids": [
+        "V-061"
+      ],
+      "chapters": [
+        "execution-contract.md",
+        "assurance.md"
+      ]
+    },
+    {
+      "id": "36.3",
+      "task_ids": [
+        "29.4"
+      ],
+      "acceptance_ids": [
+        "V-061"
+      ],
+      "chapters": [
+        "execution-contract.md",
+        "assurance.md"
+      ]
+    },
+    {
+      "id": "36.4",
+      "task_ids": [
+        "29.4"
+      ],
+      "acceptance_ids": [
+        "V-061"
+      ],
+      "chapters": [
+        "execution-contract.md",
+        "assurance.md"
+      ]
+    },
+    {
+      "id": "37.1",
+      "task_ids": [
+        "29.3"
+      ],
+      "acceptance_ids": [
+        "V-060"
+      ],
+      "chapters": [
+        "storage.md",
+        "identity-security.md"
+      ]
+    },
+    {
+      "id": "37.2",
+      "task_ids": [
+        "29.3"
+      ],
+      "acceptance_ids": [
+        "V-060"
+      ],
+      "chapters": [
+        "storage.md",
+        "identity-security.md"
+      ]
+    },
+    {
+      "id": "37.3",
+      "task_ids": [
+        "29.3"
+      ],
+      "acceptance_ids": [
+        "V-060"
+      ],
+      "chapters": [
+        "storage.md",
+        "identity-security.md"
+      ]
+    },
+    {
+      "id": "37.4",
+      "task_ids": [
+        "29.3"
+      ],
+      "acceptance_ids": [
+        "V-060"
+      ],
+      "chapters": [
+        "storage.md",
+        "identity-security.md"
+      ]
+    },
+    {
+      "id": "38.1",
+      "task_ids": [
+        "29.10"
+      ],
+      "acceptance_ids": [
+        "V-067"
+      ],
+      "chapters": [
+        "migration.md",
+        "verification.md"
+      ]
+    },
+    {
+      "id": "38.2",
+      "task_ids": [
+        "29.10"
+      ],
+      "acceptance_ids": [
+        "V-067"
+      ],
+      "chapters": [
+        "migration.md",
+        "verification.md"
+      ]
+    },
+    {
+      "id": "38.3",
+      "task_ids": [
+        "29.10"
+      ],
+      "acceptance_ids": [
+        "V-067"
+      ],
+      "chapters": [
+        "migration.md",
+        "verification.md"
+      ]
+    },
+    {
+      "id": "38.4",
+      "task_ids": [
+        "29.10"
+      ],
+      "acceptance_ids": [
+        "V-067"
+      ],
+      "chapters": [
+        "migration.md",
+        "verification.md"
+      ]
     }
   ],
   "baseline_semantics": "Historical approved-design mapping; authorization and live task state are read from native spec.kvx. Baseline false/pending/UNRUN fields describe authoring time only."
