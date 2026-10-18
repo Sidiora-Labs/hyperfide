@@ -7,7 +7,7 @@
     ],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-26.4-guidance-parity-launchers-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89",
+  "campaign_id": "hyperfide-task-26.4-guidance-parity-launchers-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a923d185cd03",
   "case_ids": [
     "V-026",
     "V-027"
@@ -127,8 +127,8 @@
     },
     {
       "path": "CODEMAP.md",
-      "sha256": "f4c793f3e037d5dbf823c9f92b89fc29775215a910ef0205d242e3fa903bd539",
-      "size": 30772
+      "sha256": "cce4c54dc3339c849f72d4c7af771a5f46a4b2e238e43e11ad1c908ceca0764c",
+      "size": 31911
     },
     {
       "path": "build/hyperfide-native",
@@ -142,13 +142,13 @@
     },
     {
       "path": "deploy/hyperfide/issue-watcher.service",
-      "sha256": "439abdb0eef66817616784808961ba76736ecd44806973a811a815037d105476",
-      "size": 981
+      "sha256": "39c8798912d35c90945432c8e228f7b9fdac46bbda06863bfff4e4cac1e42a4d",
+      "size": 907
     },
     {
       "path": "deploy/hyperfide/supervisory-host.service",
-      "sha256": "39bff48559ace2074f983364db9fce763f1ef056f0cc56a465f482bdd7e72090",
-      "size": 1166
+      "sha256": "5d87f2a65b8c18540d863138546a0f2e63616a291f562f606c502f0a591aa2b8",
+      "size": 1089
     },
     {
       "path": "editors/vscode/extension.js",
@@ -327,8 +327,8 @@
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "2b992fd5eab4d903909a4dd621b2ce3c7278fa932e163cbad8f33cf2b65efe0a",
-      "size": 29318
+      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
+      "size": 30314
     }
   ],
   "policy": {
