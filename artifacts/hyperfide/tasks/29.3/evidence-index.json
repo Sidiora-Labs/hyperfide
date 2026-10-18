@@ -1,0 +1,34 @@
+{
+  "task": "29.3",
+  "commit": "b4a8d5f7d99adb3cc9ab9a6bd04c7a8bb7e1ed38",
+  "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-060 --manifest tests/hyperfide/manifests/tasks/29.3.json",
+  "exit_code": 0,
+  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"9dcf4638-4e94-46f4-ac65-484b558f7f27\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/29.3/campaigns/7e7ecc3febf717c39d20cbfb74f2a928a528cbda59fd40eda22c20d95b4f8e97\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}",
+  "ran_at": "2026-10-18T02:49:18.260678+00:00",
+  "receipt_id": "9dcf4638-4e94-46f4-ac65-484b558f7f27",
+  "qualification_artifacts": {
+    "path": "artifacts/hyperfide/tasks/29.3/qualification-artifacts.tar.gz",
+    "sha256": "196e119584f63115c32d3bfca5a085189e80e356430b1edf84e643d565f2245b",
+    "size": 6146938
+  },
+  "regressions": {
+    "24.3": {
+      "exit_code": 0,
+      "assertions_passed": 104,
+      "artifact": "artifacts/hyperfide/tasks/29.3/regressions/24.3.log"
+    },
+    "8.4": {
+      "exit_code": 0,
+      "assertions_passed": 45,
+      "artifact": "artifacts/hyperfide/tasks/29.3/regressions/8.4.log"
+    },
+    "14.2": {
+      "exit_code": 0,
+      "assertions_passed": 143,
+      "artifact": "artifacts/hyperfide/tasks/29.3/regressions/14.2.log"
+    }
+  },
+  "runtime_build": "npm --prefix services/hyperfide run build: exit 0",
+  "typecheck": "npx tsc -p tsconfig.json --noEmit: exit 0",
+  "qualification_scope": "task-component; full-case/provider/connector/campaign qualification remains UNRUN"
+}
