@@ -148,7 +148,11 @@ const v=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(await c
             body=json.loads(fragment.read_text());body['module']='services/hyperfide/dist/'+body['module'];fragment.write_text(json.dumps(body))
         (components/'8.3.json').write_text(json.dumps(provider))
         config=root/'executor.json';config.write_text(json.dumps(dict(schema_version=1,principals=[dict(credential_id=f.ids['provisioner'],key_path=str(f.keys['provisioner']['path']))],concurrency=1)));config.chmod(0o600)
-        env=dict(f.env,HF_RUNNER_EXECUTOR_CONFIG_FILE=str(config));port=socket.socket();port.bind(('127.0.0.1',0));self.port=port.getsockname()[1];port.close()
+        secrets=root/'credential-secrets';attachments=root/'credential-attachments'
+        secrets.mkdir(mode=0o700);attachments.mkdir(mode=0o700)
+        credentials=root/'credential-store.json'
+        credentials.write_text(json.dumps(dict(schema_version=1,secret_root=str(secrets),attachment_root=str(attachments),sources=[],targets=[])));credentials.chmod(0o600)
+        env=dict(f.env,HF_RUNNER_EXECUTOR_CONFIG_FILE=str(config),HF_PROVISIONER_EXECUTOR_CONFIG_FILE=str(config),HF_CREDENTIAL_CONFIG_FILE=str(credentials));port=socket.socket();port.bind(('127.0.0.1',0));self.port=port.getsockname()[1];port.close()
         self.log=root/'executor.log';log=open(self.log,'w')
         try:self.child=subprocess.Popen(['node',str(c.ROOT/'services/hyperfide/dist/provisioner.js'),'--policy',str(f.policy),'--spec-revision','fixture-identity-v1','--components',str(components),'--module-root',str(c.ROOT),
             '--mode','https','--host','127.0.0.1','--port',str(self.port),'--tls-cert',str(f.ca),'--tls-key',str(f.tlskey)],cwd=c.ROOT,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=log)
