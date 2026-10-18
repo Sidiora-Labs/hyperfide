@@ -1,8 +1,9 @@
 {
   "task": "29.7",
-  "commit": "caf2443c7e5af72b4c67b9587d6f9fe98255e08f",
+  "commit": "bc2a88a86e0134315ad788a1fdc7b79d57558763",
+  "requalified_on": "bc2a88a86e0134315ad788a1fdc7b79d57558763",
   "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-064 --manifest tests/hyperfide/manifests/tasks/29.7.json",
-  "exit_code": 0,
-  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"806512ee-5eb8-47d7-9c10-c7186da1daeb\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/29.7/campaigns/34175cd51798927917f8385a174b2bd46e1482bb9e80ece966e5e891908db638\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}",
-  "ran_at": "2026-10-18T03:00:22.861614+00:00"
+  "exit_code": 1,
+  "stdout_tail": "{\"status\": \"FAIL\", \"receipt_id\": \"a6390298-7005-40b3-b000-3c5b5cbca259\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/29.7/campaigns/5025d6cd487aac92fa93e326e3718a3a7c5e08fcaae30278cd8d0296c0ba3a97\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": [\"executed assertion inventory differs from exact registration\", \"probe failed, was unavailable, or timed out\", \"cleanup is incomplete\"]}\n",
+  "ran_at": "2026-10-18T03:12:56.850497+00:00"
 }
