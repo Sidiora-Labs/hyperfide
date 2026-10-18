@@ -9,11 +9,26 @@ const actions=['release.inspect','release.compatibility','release.plan'] as cons
 /** A real release pins every production dependency file, so the manifest bound
  * follows the 100000-entry inventory bound rather than a small-document bound. */
 const MANIFEST_LIMIT=32*1024*1024;
-/** Service units shipped in deploy/hyperfide. Unqualified units are carried for
- * their owning task but must not be installable until that task delivers them. */
-const SERVICE_UNITS:Readonly<Record<string,{status:'INSTALLABLE'}|{status:'UNQUALIFIED';owner_task:string}>>={
+/** Task 26.4 receipt: ff4632c9bc896057147975b600323af8f8b21f89,
+ * V-026 cf29a831-73ed-42c3-928b-7c3a41563a36 and
+ * V-027 2ed47892-7b68-4178-9580-444790e1eb6b. */
+const UNIT_RECEIPT='share/hyperfide/qualified/26.4.json';
+const UNIT_RECEIPT_DIGEST='sha256:8cb10ad5d7e4d8f4e57a3a7efaee07eb23af751c1e72ab81bcb87d7198db8c9f';
+const SERVICE_UNITS:Readonly<Record<string,{status:'INSTALLABLE';owner_task?:string}>>={
  'control.service':{status:'INSTALLABLE'},'provisioner.service':{status:'INSTALLABLE'},'dispatch.service':{status:'INSTALLABLE'},
- 'issue-watcher.service':{status:'UNQUALIFIED',owner_task:'26.4'},'supervisory-host.service':{status:'UNQUALIFIED',owner_task:'26.4'}};
+ 'issue-watcher.service':{status:'INSTALLABLE',owner_task:'26.4'},'supervisory-host.service':{status:'INSTALLABLE',owner_task:'26.4'}};
+/** Missing or different parent evidence cannot qualify an owning unit. The
+ * inspector also requires every receipt byte to belong to the pinned inventory. */
+export async function serviceUnitStatus(root:string,unit:string):Promise<{status:'INSTALLABLE'|'UNQUALIFIED';owner_task?:string}>{
+ const known=Object.hasOwn(SERVICE_UNITS,unit)?SERVICE_UNITS[unit]:undefined;
+ if(!known)fail('Release ships an unclassified service unit');
+ if(!known.owner_task)return {...known};
+ try{
+ const receipt=await file(root,UNIT_RECEIPT);
+ if(await checksum(receipt)===UNIT_RECEIPT_DIGEST)return {...known};
+ }catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
+ return {status:'UNQUALIFIED',owner_task:known.owner_task};
+}
 function fail(message:string):never{throw new FoundationError('RELEASE_INVALID',message);}
 function exact(v:unknown,keys:string[]):Record<string,unknown>{if(!object(v)||Object.keys(v).some(k=>!keys.includes(k))||keys.some(k=>!(k in v)))fail('Unexpected release fields');return v;}
 function version(v:unknown):number{if(!Number.isSafeInteger(v)||Number(v)<1)fail('Positive protocol version required');return Number(v);}
@@ -115,11 +130,11 @@ export async function inspectPrebuiltRelease(env:Readonly<NodeJS.ProcessEnv>,rel
  for(const f of entries){
  const unit=/^deploy\/hyperfide\/([^/]+\.service)$/.exec(String(f.path))?.[1];if(!unit)continue;
  const known=Object.hasOwn(SERVICE_UNITS,unit)?SERVICE_UNITS[unit]:undefined;if(!known)fail('Release ships an unclassified service unit');
- if(known.status==='UNQUALIFIED'){
+ if(known.owner_task==='26.4'){
  const text=await fs.readFile(await file(root,f.path),'utf8');
  if(/^\s*\[Install\]/m.test(text)||!/^ConditionPathExists=\/opt\/hyperfide\/current\/share\/hyperfide\/qualified\//m.test(text))fail('Unqualified service unit is installable');
  }
- serviceUnits.push({unit,...known});
+ serviceUnits.push({unit,...await serviceUnitStatus(root,unit)});
  }
  for(const unit of ['control.service','provisioner.service','dispatch.service'])if(!serviceUnits.some(u=>u.unit===unit))fail('Release lacks a required service definition');
  serviceUnits.sort((a,b)=>a.unit<b.unit?-1:a.unit>b.unit?1:0);

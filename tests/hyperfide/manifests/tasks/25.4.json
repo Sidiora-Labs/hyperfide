@@ -87,8 +87,8 @@
     },
     {
       "path": "deploy/hyperfide/issue-watcher.service",
-      "sha256": "439abdb0eef66817616784808961ba76736ecd44806973a811a815037d105476",
-      "size": 981
+      "sha256": "39c8798912d35c90945432c8e228f7b9fdac46bbda06863bfff4e4cac1e42a4d",
+      "size": 907
     },
     {
       "path": "deploy/hyperfide/migrate.mjs",
@@ -102,8 +102,8 @@
     },
     {
       "path": "deploy/hyperfide/supervisory-host.service",
-      "sha256": "39bff48559ace2074f983364db9fce763f1ef056f0cc56a465f482bdd7e72090",
-      "size": 1166
+      "sha256": "5d87f2a65b8c18540d863138546a0f2e63616a291f562f606c502f0a591aa2b8",
+      "size": 1089
     },
     {
       "path": "scripts/build-hyperfide-release.sh",
@@ -272,18 +272,18 @@
     },
     {
       "path": "services/hyperfide/dist/deployment/releases.d.ts",
-      "sha256": "177d80aa1bbd6278e7532a027f754b23903fd03ce55d9d2dfe3bbf5a80e7347b",
-      "size": 521
+      "sha256": "7fe98ea5fb85cba4a55613ffe366857c3e68eebf45ac50d91a95448a2be930af",
+      "size": 834
     },
     {
       "path": "services/hyperfide/dist/deployment/releases.js",
-      "sha256": "677fd972f2692bffefdd10e0475fbe5072f96a5c5e34cf9d45686e98c67c07d8",
-      "size": 15746
+      "sha256": "76098b8f78f72f66ed2f1b2356b95117cac8caa3dcb9fc634215d6f5074f2c16",
+      "size": 16695
     },
     {
       "path": "services/hyperfide/dist/deployment/releases.js.map",
-      "sha256": "d71596e3b6c9ad7487bc5083285407ec0fb65b8feba9fac4cf06c5ae80274dc0",
-      "size": 15946
+      "sha256": "9d4dd8af05d0ecea3fcda84bbb9993037441bb2981900ae26ef4417e118ba085",
+      "size": 16695
     },
     {
       "path": "services/hyperfide/dist/dispatch.d.ts",
@@ -632,8 +632,8 @@
     },
     {
       "path": "services/hyperfide/src/deployment/releases.ts",
-      "sha256": "c2a9f66cd33b52ee431e4489c47604b65ab6ec1d32600fb24cdc99834651d764",
-      "size": 14288
+      "sha256": "b2fa26904bea2460a079f4062fcdf0790292e7207d47f77825f84fee5a535555",
+      "size": 15189
     },
     {
       "path": "services/hyperfide/src/dispatch.ts",
@@ -787,8 +787,8 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/25_4.py",
-      "sha256": "e550bff624994004fe996f42f55e4bb3caafb736de8dfc25520e0b518cbb719d",
-      "size": 24713
+      "sha256": "53473a2251d16d08d932d58746f7cfa61634d28d64dfe37a10cb714bdf548144",
+      "size": 24910
     },
     {
       "path": "tests/hyperfide/check-evidence.py",

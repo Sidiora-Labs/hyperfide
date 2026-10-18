@@ -1,6 +1,5 @@
-# UNQUALIFIED: `hyperfide issue-watcher` is a task 26.4 deliverable that is not yet
-# implemented. Shipped for reference only: no install section, and it never
-# starts until 26.4 ships the qualification marker named below.
+# Qualified by task 26.4 receipt (ff4632c9bc89), checked by release.inspect.
+# Explicit start still requires the operator qualification marker below.
 [Unit]
 Description=Hyperfide issue watcher
 After=network-online.target
