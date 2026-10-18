@@ -13,7 +13,7 @@ function parseArguments(){for(let i=0;i<args.length;i++){
  const names={'--release-root':'source','--destination-root':'destination','--trusted-key':'key','--signature-file':'signature','--manifest-digest':'digest','--service-uid':'uid','--service-gid':'gid'};
  const key=names[args[i]];if(!key||options[key]!==undefined||!args[i+1])refuse('INSTALL_ARGUMENTS');options[key]=args[++i];
 }}
-let temporary=null,lock=null,pointerChanged=false;
+let temporary=null,lock=null,pointerChanged=false,authorityState=null;
 async function protectedPath(filename,directory){
  if(!path.isAbsolute(filename)||path.normalize(filename)!==filename||await fs.realpath(filename)!==filename)refuse('INSTALL_UNPROTECTED_PATH');
  let current='/';
@@ -107,13 +107,17 @@ async function run(){
   const pending=path.join(options.destination,'.current-'+randomUUID());await fs.symlink(path.relative(options.destination,target),pending);
   try{await fs.rename(pending,current);pointerChanged=true;await syncDirectory(options.destination);}finally{await fs.unlink(pending).catch(()=>{});}
  }
- const receipt={schema_version:1,owner:'hyperfide-service-installer',manifest_digest:options.digest,release_directory:target,service_identity:{uid:options.uid,gid:options.gid},authentication:installed.authentication,installable_units:installed.service_units.filter(u=>u.status==='INSTALLABLE').map(u=>u.unit),unqualified_units:installed.service_units.filter(u=>u.status!=='INSTALLABLE').map(u=>u.unit),promoted:promote,replayed,services_started:false,authority_activated:false,build_on_supervision_host:false};
+ const {createResourceContainer}=await import(pathToFileURL(path.join(target,'services/dist/storage/runtime.js')));
+ const {readAuthorityActivated}=await import(pathToFileURL(path.join(target,'services/dist/storage/durability.js')));
+ const resources=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});
+ try{authorityState=await readAuthorityActivated(resources,process.env.HYPERFIDE_DEPLOYMENT_ID);}finally{await resources.close();}
+ const receipt={schema_version:1,owner:'hyperfide-service-installer',manifest_digest:options.digest,release_directory:target,service_identity:{uid:options.uid,gid:options.gid},authentication:installed.authentication,installable_units:installed.service_units.filter(u=>u.status==='INSTALLABLE').map(u=>u.unit),unqualified_units:installed.service_units.filter(u=>u.status!=='INSTALLABLE').map(u=>u.unit),promoted:promote,replayed,services_started:false,authority_activated:authorityState,build_on_supervision_host:false};
  const receiptFile=path.join(options.destination,'.receipt-'+randomUUID());const h=await fs.open(receiptFile,'wx',0o600);try{await h.writeFile(JSON.stringify(receipt)+'\n');await h.sync();}finally{await h.close();}
  await fs.rename(receiptFile,path.join(options.destination,'service-installation.json'));await syncDirectory(options.destination);
  process.stdout.write(JSON.stringify({outcome:'SUCCEEDED',...receipt})+'\n');
 }
 try{await run();}catch(error){
- process.stdout.write(JSON.stringify({outcome:pointerChanged?'UNKNOWN':'REFUSED',error:{code:typeof error?.code==='string'?error.code:'INSTALL_FAILED'},services_started:false,authority_activated:false,automatic_replay:false})+'\n');process.exitCode=pointerChanged?75:78;
+ process.stdout.write(JSON.stringify({outcome:pointerChanged?'UNKNOWN':'REFUSED',error:{code:typeof error?.code==='string'?error.code:'INSTALL_FAILED'},services_started:false,authority_activated:authorityState,automatic_replay:false})+'\n');process.exitCode=pointerChanged?75:78;
 }finally{
  if(temporary)await fs.rm(temporary,{recursive:true,force:true}).catch(()=>{});
  if(lock)await fs.rmdir(lock).catch(()=>{});

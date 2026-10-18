@@ -4,6 +4,14 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {spawn} from 'node:child_process';
+import {pathToFileURL} from 'node:url';
+let authorityState=null;
+async function authorityResources(root,operation){
+ const {createResourceContainer}=await import(pathToFileURL(path.join(root,'services/dist/storage/runtime.js')));
+ const durability=await import(pathToFileURL(path.join(root,'services/dist/storage/durability.js')));
+ const resources=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});
+ try{return await operation(resources,durability);}finally{await resources.close();}
+}
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 function fail(code){throw Object.assign(new Error(code),{code});}
 async function regular(filename,privateFile=false){
@@ -15,13 +23,39 @@ async function main(){
  const options={};let action;
  for(let i=2;i<process.argv.length;i++){
  const arg=process.argv[i];
- if(arg==='--apply'||arg==='--inspect'){if(action)fail('MIGRATION_JOB_INPUT_INVALID');action=arg==='--apply'?'storage.migrations.apply':'storage.migrations.inspect';continue;}
- if(!['--release-root','--policy-file','--spec-revision','--operation-id'].includes(arg)||options[arg]!==undefined||!process.argv[i+1])fail('MIGRATION_JOB_INPUT_INVALID');
+ if(['--apply','--inspect','--activate-authority','--adopt-authority'].includes(arg)){if(action)fail('MIGRATION_JOB_INPUT_INVALID');action=arg==='--apply'?'storage.migrations.apply':arg==='--inspect'?'storage.migrations.inspect':arg;continue;}
+ if(!['--release-root','--policy-file','--spec-revision','--operation-id','--fence-driver','--journal-document'].includes(arg)||options[arg]!==undefined||!process.argv[i+1])fail('MIGRATION_JOB_INPUT_INVALID');
  options[arg]=process.argv[++i];
  }
- if(!action||Object.keys(options).length!==4||!uuid.test(options['--operation-id'])||!path.isAbsolute(options['--release-root'])||!path.isAbsolute(options['--policy-file'])||!options['--spec-revision']||options['--spec-revision'].length>256||/[\x00-\x1f]/.test(options['--spec-revision']))fail('MIGRATION_JOB_INPUT_INVALID');
+ if(!action||Object.keys(options).length!==(action==='--activate-authority'||action==='--adopt-authority'?5:4)||!uuid.test(options['--operation-id'])||!path.isAbsolute(options['--release-root'])||!path.isAbsolute(options['--policy-file'])||!options['--spec-revision']||options['--spec-revision'].length>256||/[\x00-\x1f]/.test(options['--spec-revision']))fail('MIGRATION_JOB_INPUT_INVALID');
  const root=await fs.realpath(options['--release-root']),node=await regular(path.join(root,'runtime/node')),entry=await regular(path.join(root,'services/dist/control.js')),policy=await regular(options['--policy-file'],true);
  if(!process.env.DATABASE_URL||!process.env.HYPERFIDE_MIGRATION_DATABASE_URL)fail('MIGRATION_JOB_CREDENTIAL_REQUIRED');
+ if(action==='--activate-authority'||action==='--adopt-authority'){
+  const {validatePolicy,assertAdmission}=await import(pathToFileURL(path.join(root,'services/dist/policy/programme.js')));
+  const policyInfo=await fs.stat(policy);if(policyInfo.size>65536)fail('MIGRATION_JOB_INPUT_INVALID');
+  const approved=validatePolicy(JSON.parse(await fs.readFile(policy,'utf8')),options['--spec-revision'],'control');
+  assertAdmission(approved,'control',action==='--activate-authority'?'storage.authority.activate':'storage.authority.adopt');
+  const receipt=await authorityResources(root,async(resources,d)=>{
+   const {FileExternalAuthorityJournal}=await import(pathToFileURL(path.join(root,'services/dist/storage/authority_journal.js')));
+   const deployment=process.env.HYPERFIDE_DEPLOYMENT_ID;
+   const journal=new FileExternalAuthorityJournal(process.env.HYPERFIDE_AUTHORITY_JOURNAL_DIR,i=>d.lookupAuthorityActivation(resources,i));
+   let result;
+   if(action==='--activate-authority'){
+    // Private operator code supplies production factory arguments, including a verified permit.
+    const driver=options['--fence-driver'];if(!driver||!path.isAbsolute(driver))fail('MIGRATION_JOB_INPUT_INVALID');
+    await regular(driver,true);
+    const {createBootstrapFenceArguments}=await import(pathToFileURL(driver));
+    result=await d.activateBootstrapAuthority(resources,deployment,journal,options['--operation-id'],await createBootstrapFenceArguments(resources),{timeoutMs:30000});
+   }else{
+    const source=options['--journal-document'];if(!source||!path.isAbsolute(source))fail('MIGRATION_JOB_INPUT_INVALID');
+    await regular(source,true);const info=await fs.stat(source);if(info.size>4*1024*1024)fail('MIGRATION_JOB_INPUT_INVALID');
+    result=await journal.adoptCommitted({deployment_id:deployment,document:await fs.readFile(source,'utf8')});
+   }
+   authorityState=await d.readAuthorityActivated(resources,deployment);return result;
+  });
+  process.stdout.write(JSON.stringify({ok:true,outcome:'SUCCEEDED',operation_id:options['--operation-id'],action,receipt,authority_activated:authorityState})+'\n');return 0;
+ }
+
  const area=await fs.mkdtemp(path.join(os.tmpdir(),'hyperfide-migration-job-'));await fs.chmod(area,0o700);
  let child;
  try{
@@ -48,13 +82,14 @@ async function main(){
  if(lines.length!==1)fail('MIGRATION_JOB_OUTCOME_UNKNOWN');
  let response;try{response=JSON.parse(lines[0]);}catch{fail('MIGRATION_JOB_OUTCOME_UNKNOWN');}
  if(response.id!==options['--operation-id']||typeof response.ok!=='boolean')fail('MIGRATION_JOB_OUTCOME_UNKNOWN');
+ authorityState=await authorityResources(root,(resources,d)=>d.readAuthorityActivated(resources,process.env.HYPERFIDE_DEPLOYMENT_ID));
  if(response.ok!==true){
  const code=typeof response.error?.code==='string'&&/^[A-Z0-9_]{1,128}$/.test(response.error.code)?response.error.code:'MIGRATION_JOB_OUTCOME_UNKNOWN';
  const unknown=code.includes('AMBIGUOUS')||code.includes('UNKNOWN');
- process.stdout.write(JSON.stringify({ok:false,outcome:unknown?'UNKNOWN':'FAILED',operation_id:options['--operation-id'],error:{code},automatic_replay:false,reconcile:'INSPECT_EXACT_MIGRATION_LEDGER',authority_activated:false})+'\n');return unknown?75:1;
+ process.stdout.write(JSON.stringify({ok:false,outcome:unknown?'UNKNOWN':'FAILED',operation_id:options['--operation-id'],error:{code},automatic_replay:false,reconcile:'INSPECT_EXACT_MIGRATION_LEDGER',authority_activated:authorityState})+'\n');return unknown?75:1;
  }
  if(exit.code!==0||response.result?.outcome==='UNKNOWN')fail('MIGRATION_JOB_OUTCOME_UNKNOWN');
- process.stdout.write(JSON.stringify({ok:true,outcome:'SUCCEEDED',operation_id:options['--operation-id'],action,receipt:response.result,authority_activated:false,build_on_supervision_host:false})+'\n');return 0;
+ process.stdout.write(JSON.stringify({ok:true,outcome:'SUCCEEDED',operation_id:options['--operation-id'],action,receipt:response.result,authority_activated:authorityState,build_on_supervision_host:false})+'\n');return 0;
  }finally{
  if(child&&child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');
  await fs.rm(area,{recursive:true,force:true});
@@ -63,5 +98,5 @@ async function main(){
 try{process.exitCode=await main();}
 catch(error){
  const code=typeof error?.code==='string'&&/^[A-Z0-9_]{1,128}$/.test(error.code)?error.code:'MIGRATION_JOB_OUTCOME_UNKNOWN',unknown=code.includes('UNKNOWN')||code.includes('AMBIGUOUS');
- process.stdout.write(JSON.stringify({ok:false,outcome:unknown?'UNKNOWN':'FAILED',error:{code},automatic_replay:false,reconcile:'INSPECT_EXACT_MIGRATION_LEDGER',authority_activated:false})+'\n');process.exitCode=unknown?75:1;
+ process.stdout.write(JSON.stringify({ok:false,outcome:unknown?'UNKNOWN':'FAILED',error:{code},automatic_replay:false,reconcile:'INSPECT_EXACT_MIGRATION_LEDGER',authority_activated:authorityState})+'\n');process.exitCode=unknown?75:1;
 }

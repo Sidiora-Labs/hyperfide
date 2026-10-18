@@ -136,6 +136,23 @@ export class FileExternalAuthorityJournal implements ExternalAuthorityJournal {
   identity(input);const root=await this.root();
   try{const document=await this.read(root,input.deployment_id);input.signal?.throwIfAborted();if(!document)fail('EXTERNAL_AUTHORITY_UNAVAILABLE','No independent accepted authority exists');return this.attestation(document)}finally{await root.close()}
  }
+ /** Operator-delivered copy of the activating journal; never reconstruct from database rows. */
+ async adoptCommitted(input:{deployment_id:string;document:string;signal?:AbortSignal}):Promise<ExternalAuthorityAttestation>{
+  identity(input);
+  if(typeof input.document!=='string'||Buffer.byteLength(input.document)>MAX_BYTES)fail('EXTERNAL_AUTHORITY_LIMIT','Bounded external journal document required');
+  const document=JSON.parse(input.document) as Document;validate(document,input.deployment_id);
+  const attestation=this.attestation(document),last=document.history.at(-1)!;
+  const committed=await this.verifyCommitted({deployment_id:input.deployment_id,operation_id:last.operation_id,expected_previous_epoch:last.previous_epoch,database_predecessor_epoch:last.database_predecessor_epoch,epoch:last.epoch,...(input.signal?{signal:input.signal}:{})});
+  if(!object(committed)||committed.deployment_id!==input.deployment_id||committed.operation_id!==last.operation_id||committed.previous_epoch!==last.previous_epoch||committed.database_predecessor_epoch!==last.database_predecessor_epoch||committed.epoch!==last.epoch||committed.evidence_digest!==last.commit_evidence_digest||last.commit_evidence_digest!==last.fence_evidence_digest)
+   fail('EXTERNAL_AUTHORITY_CONFLICT','Imported journal differs from the positive committed operation proof');
+  const root=await this.root();
+  try{return await this.lock(root,input.deployment_id,async()=>{
+   input.signal?.throwIfAborted();const previous=await this.read(root,input.deployment_id);
+   if(previous?.state==='PENDING')fail('EXTERNAL_AUTHORITY_PENDING','Follower import cannot abandon pending custody');
+   if(previous&&(previous.history.length>document.history.length||previous.history.some((row,index)=>canonical(row)!==canonical(document.history[index]))))fail('EXTERNAL_AUTHORITY_CONFLICT','Follower import cannot roll back or fork accepted history');
+   await this.write(root,document);return attestation;
+  })}finally{await root.close()}
+ }
  async prepareActivation(input:AuthorityJournalPreparation):Promise<PreparedAuthorityActivation>{
   identity(input);const databasePrevious=input.expected_database_epoch===undefined?input.expected_previous_epoch:input.expected_database_epoch;if(databasePrevious!==null&&!uuid(databasePrevious))fail('EXTERNAL_AUTHORITY_INVALID','Canonical database predecessor epoch required');if(!digest(input.fence_evidence_digest))fail('EXTERNAL_AUTHORITY_INVALID','Actual external fence evidence digest required');
   const root=await this.root();
