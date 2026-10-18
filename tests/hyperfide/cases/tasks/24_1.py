@@ -166,7 +166,24 @@ def tests(f):
  describe=f.ok("recovery.control.describe",{})
  check("recovery.control.real-registered-process",lambda:expect(describe["supervision_failure_domains"]==1))
  check("recovery.control.failover-requires-qualified-standby",lambda:expect(describe["uninterrupted_failover"]=="UNQUALIFIED" and describe["standby_qualification"]=="ABSENT" and describe["uninterrupted_failover_requires"]=="SEPARATELY_QUALIFIED_STANDBY"))
- check("recovery.control.supervisor-capability-absent-reported",lambda:expect(describe["supervisor_capability"]=="ABSENT" and describe["offline_policy"]=="BOUNDED_LOCAL"))
+ def present_supervisor():
+  expect(describe["supervisor_capability"]=="PRESENT" and describe["offline_policy"]=="BOUNDED_LOCAL",str(describe))
+  probe=r'''
+import {ComponentRegistry} from './services/hyperfide/dist/components/registry.js';
+import fs from 'node:fs/promises';
+const registry=new ComponentRegistry({role:'control',policy:JSON.parse(await fs.readFile(process.argv[1],'utf8')),signal:new AbortController().signal,env:process.env});
+try{
+ await registry.load(process.argv[2],'./services/hyperfide/dist');
+ const providers=registry.describe().components.filter(({id})=>{
+  try{return !!registry.resolveCapability(id,'runner.supervisors.v1',v=>['observe','stop','verifyStop'].every(k=>typeof v?.[k]==='function'));}catch{return false;}
+ }).map(({id})=>id);
+ console.log(JSON.stringify(providers));
+}finally{await registry.close();}
+'''
+  result=subprocess.run(["node","--input-type=module","-e",probe,str(f.identity.policy),str(f.identity.components)],cwd=ROOT,env=f.identity.env,capture_output=True,text=True,timeout=40)
+  expect(result.returncode==0,"Real registry resolution failed: "+result.stderr)
+  expect(json.loads(result.stdout)==["12.4"],result.stdout)
+ check("recovery.control.supervisor-capability-present-reported",present_supervisor)
  probe_env=f.identity.env.copy();probe_env["HF_RECOVERY_ORG"]=ORG;probe_env["HF_RECOVERY_RUN"]=RUN;probe_env["HF_RECOVERY_SPEC"]=uid(4)
  actual=subprocess.run(["node","--input-type=module","-e",ACCEPTED_REBIND_PROBE],cwd=ROOT,env=probe_env,capture_output=True,text=True,timeout=40)
  expect(actual.returncode==0,"Accepted recovery proof probe failed: "+actual.stderr[:1000])
@@ -194,11 +211,10 @@ def tests(f):
  check("recovery.offline.malformed-time",lambda:f.rejected("recovery.offline.evaluate",{**base,"disconnected_at":"2026-02-30T12:00:00.000Z"},"RECOVERY_INPUT_INVALID"))
  check("recovery.offline.unknown-field",lambda:f.rejected("recovery.offline.evaluate",{**base,"authority":True},"RECOVERY_INPUT_INVALID"))
  control_loss(f,snapshot,base)
- def absent_supervisor():
+ def unproven_supervisor():
   row=f.request("recovery.control.adopt",{"scope":SCOPE,"operation_id":uid(51),"session_id":uid(22)})
-  expect(row.get("ok") is False and row["error"]["code"]=="RECOVERY_DEPENDENCY_UNAVAILABLE" and "supervisor capability absent" in row["error"]["message"],str(row))
- # Coordinator has not named a runner.supervisors.v1 provider: valid adoption must refuse, not infer.
- check("recovery.control.adopt-unproven-supervisor",absent_supervisor)
+  expect(row.get("ok") is False and row["error"]["code"]!="RECOVERY_DEPENDENCY_UNAVAILABLE" and row["error"]["code"]=="RECOVERY_ADOPTION_REFUSED" and row["error"]["message"]=="Exact current supervisor identity was not freshly observed",str(row))
+ check("recovery.control.adopt-unproven-supervisor",unproven_supervisor)
  session_liveness(f)
  check("recovery.control.active-run-cannot-resume",lambda:f.rejected("recovery.control.resume",{"scope":SCOPE,"operation_id":uid(50)},"RECOVERY_RUN_STATE_INVALID"))
  sql("UPDATE hyperfide.tasks SET current_attempt_id=NULL,generation=generation+1,state_version=state_version+1 WHERE id='"+uid(7)+"';")

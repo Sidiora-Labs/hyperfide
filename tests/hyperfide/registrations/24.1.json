@@ -10,7 +10,7 @@
   "assertion_ids": [
     "recovery.control.real-registered-process",
     "recovery.control.failover-requires-qualified-standby",
-    "recovery.control.supervisor-capability-absent-reported",
+    "recovery.control.supervisor-capability-present-reported",
     "recovery.control.rebind-equal-epoch-refused",
     "recovery.control.rebind-outside-trusted-topology-refused",
     "recovery.control.committed-global-epoch-without-physical-completion-refused",

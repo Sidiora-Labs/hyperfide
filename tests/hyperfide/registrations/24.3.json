@@ -109,7 +109,7 @@
     "recovery.cancel.resume-refused",
     "recovery.cancel.cannot-weaken-to-stop",
     "recovery.cancel.unreachable-debt-after-restart",
-    "recovery.cancel.finalize-unproven-refused",
+    "recovery.cancel.finalize-unproven-completion-refused",
     "recovery.cancel.resume-refused-after-restart",
     "recovery.cleanup.debt-inventory-explicit"
   ],
