@@ -74,6 +74,9 @@ try{
 function ROOT_DIST(){return new URL('./services/hyperfide/dist/',import.meta.url).pathname}
 """
 def setup(f):
+ executor=f.path/'worker.json'
+ executor.write_text(json.dumps({'schema_version':1,'principals':[{'credential_id':f.ids['provisioner'],'key_path':str(f.keys['provisioner']['path'])}],'concurrency':1}));executor.chmod(0o600)
+ f.env['HF_PROVISIONER_EXECUTOR_CONFIG_FILE']=str(executor)
  limits={'SANDBOX':'100','PROVISIONING':'10','CPU_MILLIS':'1000000','MEMORY_BYTES':'107374182400','DISK_BYTES':'1073741824000'}
  f.pool=str(uuid.uuid4())
  config={'schema_version':1,'organisation_id':f.ids['organisation'],'revision':'29.3-component-fixture','accounts':[{'provider':'railway','account_key':'fixture-account','approved_limits':limits,'planning_limits':limits}],'pools':[{'id':f.pool,'provider':'railway','account_key':'fixture-account','environment_key':'fixture-env','region':'fixture-region','profile_id':None,'preparation_digest':f.preparation,'approved_limits':limits,'planning_limits':limits,'create_policy':{'seed_reference':'fixture-seed','network':'ISOLATED','stdin_required':False}}],'maximum_operation_ms':10000}
