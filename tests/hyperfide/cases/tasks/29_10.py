@@ -3,6 +3,10 @@
 import importlib.util
 import json
 import subprocess
+import hashlib
+import os
+import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -53,7 +57,82 @@ console.log(JSON.stringify(results));
             for suffix in ['src/' + name + '.ts', 'dist/' + name + '.js']:
                 release.expect((ROOT / 'services/hyperfide' / suffix).is_file(), '26.4 entrypoint absent')
     release.check('units.shipped-entrypoints', entrypoints)
-    return release.main()
+    # Exercise the registered service API with a byte-inventory fixture. These
+    # placeholders test release inspection only, not deployment or runtime gates.
+    from shutil import copyfile
+    sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
+    from identity_fixture import IdentityFixture
+    with tempfile.TemporaryDirectory(prefix='hf-unit-service-') as temporary:
+        payload = Path(temporary) / 'payload'
+        required = ['bin/hyperfide', 'bin/cg', 'bin/hyperfide-native', 'runtime/node',
+                    'runtime/python/bin/python3', 'runtime/python/bin/python3.bin',
+                    'runtime/python/lib/python3.14/ctypes/__init__.py', 'services/package.json',
+                    'services/package-lock.json', 'services/dist/control.js',
+                    'services/dist/provisioner.js', 'services/dist/dispatch.js',
+                    'lib/hyperfide/fixture.so', 'services/node_modules/fixture/package.json']
+        for name in required:
+            target = payload / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b'unit-inspection fixture\n')
+            target.chmod(0o644)
+        for name in ['control', 'dispatch', 'provisioner', 'issue-watcher', 'supervisory-host']:
+            target = payload / f'deploy/hyperfide/{name}.service'
+            target.parent.mkdir(parents=True, exist_ok=True)
+            copyfile(ROOT / f'deploy/hyperfide/{name}.service', target)
+            target.chmod(0o644)
+        receipt = payload / 'share/hyperfide/qualified/26.4.json'
+        manifest = payload / 'manifest.json'
+
+        def pin(exclude_receipt=False):
+            files = []
+            for target in sorted(payload.rglob('*')):
+                if not target.is_file() or target == manifest or exclude_receipt and target == receipt:
+                    continue
+                data = target.read_bytes()
+                files.append({'path': target.relative_to(payload).as_posix(), 'digest': 'sha256:' + hashlib.sha256(data).hexdigest(), 'size_bytes': str(len(data)), 'mode': '0644'})
+            manifest.write_text(json.dumps({'schema_version': 1, 'release_version': '1.0.0',
+                'source_commit': 'a' * 40, 'source_date_epoch': '1', 'protocol_version': 1,
+                'schema_min': 1, 'schema_max': 1, 'runtime': {'node': '24.22.0', 'npm': '11.19.1',
+                'python': '3.14.8', 'platform': 'linux', 'architecture': 'x64'}, 'files': files}))
+
+        fixture = IdentityFixture(extra_components=['25.4'], extra_env={'HYPERFIDE_RELEASE_ROOT': str(payload)})
+        try:
+            def inspect():
+                status, response = fixture.invoke('release.inspect', {'manifest': 'manifest.json'}, component='25.4')
+                return response
+
+            def statuses(expected):
+                response = inspect()
+                release.expect(response.get('ok') is True, str(response))
+                units = {u['unit']: u for u in response['result']['service_units']}
+                for name in ['issue-watcher', 'supervisory-host']:
+                    release.expect(units[name + '.service'] == {'unit': name + '.service', 'status': expected, 'owner_task': '26.4'}, str(units))
+
+            pin()
+            release.check('units.service.receipt-absent', lambda: statuses('UNQUALIFIED'))
+            receipt.parent.mkdir(parents=True)
+            copyfile(ROOT / 'artifacts/hyperfide/tasks/26.4/evidence-index.json', receipt)
+            receipt.chmod(0o644)
+            pin()
+            release.check('units.service.receipt-qualified', lambda: statuses('INSTALLABLE'))
+            receipt.write_bytes(receipt.read_bytes() + b' ')
+            pin()
+            release.check('units.service.receipt-tampered', lambda: statuses('UNQUALIFIED'))
+            copyfile(ROOT / 'artifacts/hyperfide/tasks/26.4/evidence-index.json', receipt)
+            pin(exclude_receipt=True)
+            def unpinned():
+                response = inspect()
+                release.expect(response.get('ok') is False and response['error']['code'] == 'RELEASE_INVALID', str(response))
+            release.check('units.service.unpinned-receipt-refused', unpinned)
+        finally:
+            database, role, private = fixture.database, fixture.runtime_role, fixture.path
+            fixture.close()
+        absent = not fixture.sql('SELECT datname FROM pg_database WHERE datname=$1', [database], admin=True) and not fixture.sql('SELECT rolname FROM pg_roles WHERE rolname=$1', [role], admin=True) and not private.exists()
+    absent = absent and not Path(temporary).exists()
+    release.check('units.cleanup.observed-absence', lambda: release.expect(absent, 'unit fixtures remain'))
+    (release.artifacts() / 'cleanup.json').write_text(json.dumps({'observed_absent': absent}))
+    (release.artifacts() / 'observations.json').write_text(json.dumps({'scope': 'task-component', 'assertion_ids': release.IDS, 'failed_ids': release.FAILED, 'fixture': 'release.inspect byte inventory; not a deployable runtime'}))
+    return 1 if release.FAILED else 0
 
 
 if __name__ == '__main__':
