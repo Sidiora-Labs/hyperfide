@@ -497,7 +497,7 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
    fail('RUNNER_BINDING_STALE','Remote execution requires the exact registered runner/resource boot');
   const operationValue=operation('execute',scope,id,new Date(Date.now()+(i.timeout_ms as number)).toISOString(),
    {native_sandbox_id:current.native_sandbox_id,sandbox_boot_generation:String(current.boot_generation)},current.preparation_digest,
-   {argv:i.argv,cwd:i.cwd,env_refs:i.env_refs,stdin:false,durable:false,process_timeout_ms:i.timeout_ms,wait_timeout_ms:i.timeout_ms});
+   {argv:i.argv,cwd:i.cwd,env_refs:i.env_refs,stdin:false,durable:true,process_timeout_ms:i.timeout_ms,wait_timeout_ms:i.timeout_ms});
   if(!hasProviderAdapter(scope.provider,pool.runtime))fail('PROVIDER_UNAVAILABLE','No actual trusted adapter is registered');
   const prior=await c.query('SELECT request_digest,state FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND id=$2',[config.organisation_id,id]);
   if(prior.rows.length){if(prior.rows[0]!.request_digest!==digestDocument(i))fail('IDEMPOTENCY_CONFLICT','Remote operation identity was reused');fail('REMOTE_OPERATION_RECONCILIATION_REQUIRED','A submitted remote command cannot be blindly replayed');}
@@ -508,6 +508,7 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
  });
  const unavailable=async()=>fail('PROVIDER_HOOK_UNAVAILABLE','Remote command cannot create provider resources');
  let logicalProcessRef:string|null=null;
+ let recordedRejection=false;
  const assertOperation=(observed:ProviderOperation)=>{
   validateProviderOperation(observed);
   if(digestDocument(observed)===digestDocument(op))return;
@@ -532,6 +533,7 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
     [config.organisation_id,id,outcome.status==='UNKNOWN'?'UNKNOWN':'OBSERVED',outcome,phase]);
    return false;
   });if(conflict)fail('PROCESS_TERMINAL_CONFLICT','Contradictory terminal observation retained without replacing immutable process completion');
+  recordedRejection=outcome.status==='FAILED'||outcome.status==='UNSUPPORTED';
  };
  const adapter=providerAdapter(op.scope,{...remoteProcessHooks(pool,config.organisation_id,run,id),invocation:providerInvocation(pool),resolveResourceBinding:observed=>resolveSandboxBinding(pool,config,run,sandbox,observed),resolvePreparation:unavailable,assertResourceBinding:async observed=>{
   assertOperation(observed);
@@ -562,7 +564,7 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
   const captured=verifyCapturedProviderOutput(outcome.result,await boundedProvider(adapter.readCapturedOutput(op.scope,op.resource!,outcome.result.process_ref,16*1024*1024),combined,op.deadline_at));
   return{operation:op,outcome,completion_observation:{operation:observedOperation,outcome:observed},process_ref:outcome.result.process_ref,scope:op.scope,resource:op.resource,captured,
    evidence_digest:digestDocument({operation:op,outcome,spool_digest:captured.spool_digest}),provider_process_termination_confirmed:outcome.result.termination_confirmed,cleanup_confirmed:false,cleanup_evidence_scope:'PROVIDER_PROCESS_ONLY'};
- }catch(error){await record(op,unknownOutcome(op,op.resource));throw error;}
+ }catch(error){if(!recordedRejection)await record(op,unknownOutcome(op,op.resource));throw error;}
 }
 export async function observeKnownSandbox(pool:ProviderDatabase,config:DeploymentConfig,value:unknown,signal:AbortSignal):Promise<unknown>{
  const i=obj(value,['sandbox_id','boot_generation']),sandbox=uuid(i.sandbox_id),generation=str(i.boot_generation,19);
