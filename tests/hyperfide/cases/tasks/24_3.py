@@ -49,7 +49,13 @@ def managed_fencing_tests():
  fixture=None
  try:
   config,cert,port,journal=fencing_configuration(root)
-  fixture=module.IdentityFixture(service_role="provisioner",database=database,extra_components=m.component_dependencies(["external-fencing"]),extra_env={"HYPERFIDE_EXTERNAL_FENCE_CONFIG_FILE":str(config)})
+  def setup(f):
+   # Boot requires a declared pool even though this fencing fixture installs no provider adapter.
+   limits={"SANDBOX":"1","PROVISIONING":"1"}
+   pools=f.path/"pools.json"
+   pools.write_text(json.dumps({"schema_version":1,"organisation_id":f.ids["organisation"],"revision":"fencing-component-fixture","accounts":[{"provider":"railway","account_key":"fencing-fixture","approved_limits":limits,"planning_limits":limits}],"pools":[{"id":f.ids["pool"],"provider":"railway","account_key":"fencing-fixture","environment_key":"fencing-fixture","region":"fencing-fixture","profile_id":None,"preparation_digest":f.preparation,"approved_limits":limits,"planning_limits":limits,"create_policy":{"seed_reference":"fencing-fixture","network":"ISOLATED","stdin_required":False}}],"maximum_operation_ms":10000}));pools.chmod(0o600)
+   f.env["HYPERFIDE_POOL_CONFIG"]=str(pools)
+  fixture=module.IdentityFixture(service_role="provisioner",database=database,extra_components=m.component_dependencies(["external-fencing"]),extra_env={"HYPERFIDE_EXTERNAL_FENCE_CONFIG_FILE":str(config)},extra_setup=setup)
   def ask(payload):
    status,response=fixture.request(fixture.operation("external-fencing","recovery.fencing.describe",payload));return response
   described=ask({})

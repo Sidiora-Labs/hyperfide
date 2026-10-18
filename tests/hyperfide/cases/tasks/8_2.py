@@ -21,14 +21,7 @@ class ProvisionerFixture(identity.IdentityFixture):
  def __init__(self,*args,**kwargs):
   extra_setup=kwargs.pop("extra_setup",None)
   def setup(f):
-   executor=f.path/"provisioner-executor.json"
-   executor.write_text(json.dumps({"schema_version":1,"principals":[{"credential_id":f.ids["provisioner"],"key_path":str(f.keys["provisioner"]["path"])}],"concurrency":2}));executor.chmod(0o600)
-   f.env.update(HF_PROVISIONER_EXECUTOR_CONFIG_FILE=str(executor),HYPERFIDE_PROVISIONER_POLL_MS="200",HYPERFIDE_PROVISIONER_RETRY_MS="500",HYPERFIDE_PROVISIONER_LEASE_MS="3000")
-   secrets=f.path/"credential-secrets";attachments=f.path/"credential-attachments"
-   secrets.mkdir(mode=0o700);attachments.mkdir(mode=0o700)
-   credentials=f.path/"credential-store.json"
-   credentials.write_text(json.dumps({"schema_version":1,"secret_root":str(secrets),"attachment_root":str(attachments),"sources":[],"targets":[]}));credentials.chmod(0o600)
-   f.env["HF_CREDENTIAL_CONFIG_FILE"]=str(credentials)
+   f.env.update(HYPERFIDE_PROVISIONER_POLL_MS="200",HYPERFIDE_PROVISIONER_RETRY_MS="500",HYPERFIDE_PROVISIONER_LEASE_MS="3000")
    # Task-specific setup retains authority over executor and credential configuration.
    if extra_setup:extra_setup(f)
   super().__init__(*args,service_role="provisioner",extra_setup=setup,**kwargs)
