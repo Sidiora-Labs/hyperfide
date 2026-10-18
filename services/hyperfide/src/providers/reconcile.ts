@@ -620,7 +620,7 @@ export function createComponent(context:ComponentContext):Component {
   const workerAction=(fn:(worker:ProvisionerWorker,invocation:InvocationContext)=>Promise<unknown>)=>async(input:unknown,requestContext:ComponentContext)=>{
     provisioner();obj(input,[]);if(context.signal.aborted)fail('PROVIDER_CLOSED','Provider coordinator is shutting down');return fn(worker!,invocationOf(requestContext));
   };
-  return{apiVersion:1,capabilities:{'provider.intents.v1':{
+  return{apiVersion:1,capabilities:{...(worker?{'provider.worker.boot':{start:(authority:import('../identity/enrollment.js').IdentityAuthority)=>worker.boot(authority)}}:{}),'provider.intents.v1':{
  registerDestructionPreflight:(reader:ProviderDestructionPreflight)=>{if(typeof reader!=='function'||database.runtime.destructionPreflight)fail('PROVIDER_REGISTRATION_CONFLICT','Destruction custody reader must be installed once');database.runtime.destructionPreflight=reader;return()=>{if(database.runtime.destructionPreflight===reader)delete database.runtime.destructionPreflight;};},
  preparationParameters:async(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext)=>preparationParameters(tx,await readDeployment(context.env),input,invocation),
  prepareCreateTx:async(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext)=>prepareCreateTx(tx,await readDeployment(context.env),input,invocation),
