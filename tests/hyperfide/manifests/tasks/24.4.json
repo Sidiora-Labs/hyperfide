@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "campaign_id": "hyperfide-task-24.4-recovery-drills-component-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-a923d185cd03",
+  "campaign_id": "hyperfide-task-24.4-recovery-drills-component-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-a923d185cd03-requal-6544166d354d",
   "registered_variant": "task:24.4",
   "scope": "task-component",
   "case_ids": [
@@ -133,8 +133,8 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/24_1.py",
-      "sha256": "f17e11e00c4b6d1b33e2bf488b3e09fc86d5874cfb755c18a5db3c6ba3b4a97f",
-      "size": 29503
+      "sha256": "0306f9958bda3ee4bf3a301479cc883fab7b284151536b4f8f0e3431a06bdef1",
+      "size": 30573
     },
     {
       "path": "tests/hyperfide/cases/tasks/24_4.py",
