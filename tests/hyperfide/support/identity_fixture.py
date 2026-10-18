@@ -92,6 +92,16 @@ class IdentityFixture:
             policy={"schema_version":1,"programme_id":i["run"],"repository":"fixture/repository","spec_revision":"fixture-identity-v1","policy_revision":1,"status":"ACTIVE","approval":{"decision":"APPROVED","record_id":"fixture-approved","spec_revision":"fixture-identity-v1","policy_revision":1},"allowed_roles":["control","provisioner","dispatch"],"allowed_actions":self.actions}
             self.policy=self.path/"policy.json";self.policy.write_text(json.dumps(policy))
             self.env["HF_IDENTITY_CONFIG_FILE"]=str(self.identity_config)
+            if service_role=="provisioner":
+                executor=self.path/"provisioner-executor.json"
+                executor.write_text(json.dumps({"schema_version":1,"principals":[{"credential_id":i["provisioner"],"key_path":str(self.keys["provisioner"]["path"])}],"concurrency":2}));executor.chmod(0o600)
+                secrets=self.path/"credential-secrets";attachments=self.path/"credential-attachments"
+                secrets.mkdir(mode=0o700);attachments.mkdir(mode=0o700)
+                credentials=self.path/"credential-store.json"
+                credentials.write_text(json.dumps({"schema_version":1,"secret_root":str(secrets),"attachment_root":str(attachments),"sources":[],"targets":[]}));credentials.chmod(0o600)
+                # Explicit caller configuration retains authority over boot credentials.
+                self.env.setdefault("HF_PROVISIONER_EXECUTOR_CONFIG_FILE",str(executor))
+                self.env.setdefault("HF_CREDENTIAL_CONFIG_FILE",str(credentials))
             if extra_env:self.env.update(extra_env)
             if extra_setup:extra_setup(self)
             # The HTTPS runtime uses an actual least-privilege DB role; migration credentials never enter it.
