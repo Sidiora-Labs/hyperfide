@@ -779,11 +779,6 @@
       "size": 126
     },
     {
-      "path": "services/hyperfide/dist/provisioner.js",
-      "sha256": "0747f45b91ff8319ea22f6ced47d0af9c812f502d8240b543d06c7f1ba0d030a",
-      "size": 126
-    },
-    {
       "path": "services/hyperfide/dist/provisioner.js.map",
       "sha256": "ce33225f34728722e868c0c125f9c8ccac69df9b08573c2388fa580707d4bc0e",
       "size": 191
@@ -1642,11 +1637,6 @@
       "path": "tests/hyperfide/registry.json",
       "sha256": "99162684c725a9341d42be6c66443ec9d17e2bf98ea10ce2e2a947c02eca5574",
       "size": 12282
-    },
-    {
-      "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "2b992fd5eab4d903909a4dd621b2ce3c7278fa932e163cbad8f33cf2b65efe0a",
-      "size": 29318
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
