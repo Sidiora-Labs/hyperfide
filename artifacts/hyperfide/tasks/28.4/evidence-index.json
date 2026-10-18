@@ -1,9 +1,9 @@
 {
   "task": "28.4",
-  "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
-  "requalified_on": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+  "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+  "requalified_on": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
   "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-024 --manifest tests/hyperfide/manifests/tasks/28.4.json && python3 tests/hyperfide/qualify.py --case V-034 --manifest tests/hyperfide/manifests/tasks/28.4.json && python3 tests/hyperfide/qualify.py --case V-056 --manifest tests/hyperfide/manifests/tasks/28.4.json",
   "exit_code": 1,
-  "stdout_tail": "{\"status\": \"FAIL\", \"receipt_id\": \"4ad23550-43a2-404d-93a1-ea462c0a75e4\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/28.4/campaigns/ef6488494a738918496e1984cc8a83f4efa56d3a7185ef0c6742322f32da3ce3\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": [\"executed assertion inventory differs from exact registration\", \"one or more behavioural assertions failed\", \"probe failed, was unavailable, or timed out\"]}\n",
-  "ran_at": "2026-10-18T05:14:19.957717+00:00"
+  "stdout_tail": "{\"status\": \"FAIL\", \"receipt_id\": \"543ce396-07d2-4bb8-ab3c-631948bff187\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/28.4/campaigns/6e475b770737a387dd9b492ae445e64259e462a819a0d525309e0f58e52a72cf\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": [\"executed assertion inventory differs from exact registration\", \"one or more behavioural assertions failed\", \"probe failed, was unavailable, or timed out\"]}\n",
+  "ran_at": "2026-10-18T06:37:29.617984+00:00"
 }
