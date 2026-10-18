@@ -1,0 +1,8 @@
+{
+  "task": "29.2",
+  "commit": "d9adbb551e69fd33bc750d4f8b61839745f8f675",
+  "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-059 --manifest tests/hyperfide/manifests/tasks/29.2.json",
+  "exit_code": 0,
+  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"e5a10942-c4d8-4a60-8550-b7a11e3c8c47\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/29.2/campaigns/9a762402492d70c1abae67d400421c3796aca3cbb56bbf721130d0fab03549fc\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n",
+  "ran_at": "2026-10-18T02:49:43.392650+00:00"
+}

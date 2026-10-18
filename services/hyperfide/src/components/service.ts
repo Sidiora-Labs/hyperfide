@@ -124,6 +124,12 @@ export async function runService(role: ServiceRole, args = process.argv.slice(2)
       }
       registry.installInvocationAuthorizer(async invocation=>{await identity!.authorize(invocation);if(extra)await extra(invocation);});
     }
+    if(role==='provisioner'&&registry.hasComponent('8.3')) {
+      if(!identity)throw new FoundationError('AUTH_REQUIRED','Provisioner boot requires initialized identity authority');
+      const worker=registry.resolveCapability('8.3','provider.worker.boot',
+        (v:unknown):v is {start:(authority:import('../identity/enrollment.js').IdentityAuthority)=>Promise<unknown>}=>object(v)&&typeof v.start==='function');
+      await worker.start(identity);
+    }
     if(mode==='https') {
       if(!identity)throw new FoundationError('AUTH_REQUIRED','HTTPS mode requires initialized identity authority');
       const port=Number(config['--port']);

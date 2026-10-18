@@ -1,0 +1,21 @@
+{
+  "commit": "d9adbb551e69fd33bc750d4f8b61839745f8f675",
+  "tsc_no_emit": {
+    "exit_code": 0
+  },
+  "8.3": {
+    "argv": [
+      "python3",
+      "tests/hyperfide/cases/tasks/8_3.py"
+    ],
+    "exit_code": 1,
+    "reason": "Existing fixture lacks HF_PROVISIONER_EXECUTOR_CONFIG_FILE; production refuses startup with PROVISIONER_EXECUTOR_CONFIG_INVALID. Assertions and fixture preserved unchanged."
+  },
+  "4.4": {
+    "argv": [
+      "python3",
+      "tests/hyperfide/cases/tasks/4_4.py"
+    ],
+    "exit_code": 0
+  }
+}
