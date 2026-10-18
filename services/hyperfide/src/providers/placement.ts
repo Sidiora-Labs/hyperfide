@@ -469,11 +469,26 @@ export function createProviderIsolationObserver(runtime:ProviderIsolationObserve
 
 export function createComponent(context:ComponentContext):Component{
   const database=providerDatabase(context);
+  const destructionPreflight:ProviderIsolationCustodyPreflight=async(target,operationId,_authority,signal)=>{
+   const reader=database.runtime.destructionPreflight;
+   if(!reader)fail('DESTRUCTION_PREFLIGHT_UNAVAILABLE','Actual retained-custody proof required before destructive isolation');
+   const isolation=await isolationConfiguration(context.env),deployment=await readDeployment(context.env);
+   return database.gateway.withPrimaryTransaction({timeoutMs:5000,maxRetries:0,signal},async tx=>{
+    assertPrimaryTransaction(tx);
+    const rows=await tx.query('SELECT s.*,b.boot_id FROM hyperfide.sandboxes s JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation WHERE s.organisation_id=$1 AND s.pool_id=$2 AND s.native_sandbox_id=$3 AND s.boot_generation=$4 FOR SHARE OF s,b',[isolation.organisation_id,target.scope.pool_id,target.resource.native_sandbox_id,target.resource.sandbox_boot_generation]);
+    const row=rows.rows[0];
+    if(rows.rows.length!==1||!row||row.boot_id!==target.boot_id||row.preparation_digest!==target.preparation_digest)fail('DESTRUCTION_CUSTODY_UNPROVEN','Exact current sandbox and boot required for retained custody');
+    const {scope}=await currentPool(tx,deployment,row.pool_id);
+    if(digestDocument(scope)!==digestDocument(target.scope))fail('DESTRUCTION_CUSTODY_UNPROVEN','Retained custody resource scope changed');
+    const proof=await reader(tx,{organisation_id:isolation.organisation_id,run_id:isolation.run_id,sandbox_id:row.id,boot_generation:String(row.boot_generation),operation_id:operationId});
+    return proof?{operation_id:operationId,resource_identity_digest:digestDocument({scope:target.scope,resource:target.resource,boot_id:target.boot_id,preparation_digest:target.preparation_digest}),evidence_digest:proof.evidence_digest,observed_at:proof.observed_at,expires_at:new Date(Date.parse(proof.observed_at)+isolation.proof_max_age_ms).toISOString()}:null;
+   });
+  };
   const guarded=(fn:(i:unknown,c:DeploymentConfig,p:ConnectivityConfig,database:ProviderDatabase)=>Promise<unknown>)=>async(input:unknown,requestContext:ComponentContext)=>{
     if(context.signal.aborted)fail('PROVIDER_CLOSED','Provider placement is shutting down');
     const config=await readDeployment(context.env);return fn(input,config,await connectivity(context.env),bindProviderInvocation(database,config,invocationOf(requestContext),['PROVISIONER','COORDINATOR','OPERATOR']));
   };
-  return{apiVersion:1,capabilities:{'provider.observation.v1':{observeConfiguredResource:createProviderIsolationObserver({env:context.env,signal:context.signal,registry:database.runtime.isolation})},'provider.isolation.v1':{isolateConfiguredResource:createProviderIsolation({env:context.env,signal:context.signal,registry:database.runtime.isolation,gateway:database.gateway})}},actions:{
+  return{apiVersion:1,capabilities:{'provider.observation.v1':{observeConfiguredResource:createProviderIsolationObserver({env:context.env,signal:context.signal,registry:database.runtime.isolation})},'provider.isolation.v1':{isolateConfiguredResource:createProviderIsolation({env:context.env,signal:context.signal,registry:database.runtime.isolation,gateway:database.gateway,destructionPreflight})}},actions:{
     'provider.placement.record-failure':guarded((i,c,p,database)=>recordPoolFailure(database,c,p,i)),
     'provider.relocation.plan':guarded((i,c,p,database)=>planRelocation(database,c,p,i,preparationCompatibilityVerifier)),
     'provider.relocation.confirm-enrollment':guarded(async(input,c,p,database)=>{
