@@ -107,36 +107,38 @@ def main():
   approved={"schema_version":1,"programme_id":"owned-release-migration-fixture","repository":"fixture","spec_revision":"release-migration-v1","policy_revision":1,"status":"ACTIVE","approval":{"decision":"APPROVED","record_id":"owned-fixture","spec_revision":"release-migration-v1","policy_revision":1},"allowed_roles":["control"],"allowed_actions":["programme.activate","storage.migrations.apply","storage.migrations.inspect","storage.durability.inspect"]}
   policy.write_text(json.dumps(approved));policy.chmod(0o600)
   env=fixture.env.copy();env["DATABASE_URL"]=url;env["HYPERFIDE_MIGRATION_DATABASE_URL"]=url
+  # IdentityFixture routes control reads to its activated deployment; these jobs own a fresh one.
+  env["HYPERFIDE_CONTROL_PRIMARY_DATABASE_URL"]=url
+  env["HYPERFIDE_DEPLOYMENT_ID"]=str(uuid.uuid4())
   operation=str(uuid.uuid4());arguments=[str(payload/"runtime/node"),str(migration),"--release-root",str(payload),"--policy-file",str(policy),"--spec-revision","release-migration-v1","--operation-id",operation]
   def run_job(apply=True,environment=None):
    p=subprocess.run(arguments+(["--apply"] if apply else ["--inspect"]),capture_output=True,text=True,env=environment or env,timeout=70)
    expect(len(p.stdout.splitlines())==1,"migration wrapper emitted unbounded or missing output")
    return p,json.loads(p.stdout)
-  try:
-   def absent_credential():
-    e=env.copy();e.pop("HYPERFIDE_MIGRATION_DATABASE_URL",None)
-    process,result=run_job(environment=e)
-    expect(process.returncode==1 and result["error"]["code"]=="MIGRATION_JOB_CREDENTIAL_REQUIRED","operator migration credential inherited implicitly")
-   check("release.migrations.explicit-operator-credential",absent_credential)
-   def actual_apply():
-    process,result=run_job()
-    expect(process.returncode==0 and result["outcome"]=="SUCCEEDED" and result["authority_activated"] is False,"actual shipped4.4 migrator failed: "+str(result))
-    # Query the independently named database directly, never trust wrapper flags.
-    saved=fixture.url;fixture.url=url
-    try:rows=fixture.sql("SELECT version,name,checksum FROM hyperfide.schema_migrations ORDER BY version")
-    finally:fixture.url=saved
-    expected=[{"version":int(p.name.split("-")[0]),"name":p.stem,"checksum":"sha256:"+hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted((payload/"services/migrations").glob("*.sql"))]
-    expect(rows==expected,"actual PostgreSQL migration ledger differs from shipped exact-byte SQL")
-   check("release.migrations.actual-shipped-runner",actual_apply)
-   check("release.migrations.actual-ledger-replay",actual_apply)
-   def actual_inspect():
-    process,result=run_job(False)
-    expect(process.returncode==0 and result["outcome"]=="SUCCEEDED" and result["receipt"]["ready"] is True,"actual4.4 inspection did not confirm complete migration set")
-   check("release.migrations.actual-inspection",actual_inspect)
-  finally:
+  def drop_migration_database():
    fixture.sql('DROP DATABASE IF EXISTS "'+database+'" WITH (FORCE)',admin=True)
-   absent=not fixture.sql("SELECT datname FROM pg_database WHERE datname=$1",[database],admin=True)
-   check("release.migrations.actual-database-cleanup",lambda:expect(absent,"owned migration database retained"))
+  # The installer must observe the same unactivated database after the migration checks.
+  atexit.register(drop_migration_database)
+  def absent_credential():
+   e=env.copy();e.pop("HYPERFIDE_MIGRATION_DATABASE_URL",None)
+   process,result=run_job(environment=e)
+   expect(process.returncode==1 and result["error"]["code"]=="MIGRATION_JOB_CREDENTIAL_REQUIRED","operator migration credential inherited implicitly")
+  check("release.migrations.explicit-operator-credential",absent_credential)
+  def actual_apply():
+   process,result=run_job()
+   expect(process.returncode==0 and result["outcome"]=="SUCCEEDED" and result["authority_activated"] is False,"actual shipped4.4 migrator failed: "+str(result))
+   # Query the independently named database directly, never trust wrapper flags.
+   saved=fixture.url;fixture.url=url
+   try:rows=fixture.sql("SELECT version,name,checksum FROM hyperfide.schema_migrations ORDER BY version")
+   finally:fixture.url=saved
+   expected=[{"version":int(p.name.split("-")[0]),"name":p.stem,"checksum":"sha256:"+hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted((payload/"services/migrations").glob("*.sql"))]
+   expect(rows==expected,"actual PostgreSQL migration ledger differs from shipped exact-byte SQL")
+  check("release.migrations.actual-shipped-runner",actual_apply)
+  check("release.migrations.actual-ledger-replay",actual_apply)
+  def actual_inspect():
+   process,result=run_job(False)
+   expect(process.returncode==0 and result["outcome"]=="SUCCEEDED" and result["receipt"]["ready"] is True,"actual4.4 inspection did not confirm complete migration set")
+  check("release.migrations.actual-inspection",actual_inspect)
   auth=base/"auth";auth.mkdir(mode=0o755)
   public=auth/"trusted-release-public.pem";signature=auth/"manifest.sig"
   subprocess.run(["openssl","pkey","-in",str(fixture.keys["operator"]["path"]),"-pubout","-out",str(public)],check=True,capture_output=True)
@@ -202,7 +204,7 @@ def main():
   # The installer and its verifier run from the root-owned prebuilt release, never from a source checkout.
   installer=[str(Path(subprocess.check_output(["node","-p","process.execPath"],text=True).strip()).resolve()),str(payload/"deploy/hyperfide/install-service.mjs"),"--release-root",str(payload),"--destination-root",str(service_root),"--trusted-key",str(public),"--signature-file",str(signature),"--manifest-digest","sha256:"+hashlib.sha256(mf.read_bytes()).hexdigest(),"--service-uid","33025","--service-gid","33025"]
   def run_install(arguments=None):
-   p=subprocess.run(arguments or installer,capture_output=True,text=True,timeout=300)
+   p=subprocess.run(arguments or installer,capture_output=True,text=True,env=env,timeout=300)
    expect(len(p.stdout.splitlines())==1,"operator promotion did not emit one bounded receipt")
    return p,json.loads(p.stdout)
   def stage_service():
@@ -266,6 +268,9 @@ def main():
   check("release.service.child-owned-destination-refused",child_owned_destination)
   shutil.rmtree(service_root)
   check("release.service.actual-release-tree-cleanup",lambda:expect(not service_root.exists(),"owned promoted service tree remained"))
+  drop_migration_database();atexit.unregister(drop_migration_database)
+  absent=not fixture.sql("SELECT datname FROM pg_database WHERE datname=$1",[database],admin=True)
+  check("release.migrations.actual-database-cleanup",lambda:expect(absent,"owned migration database retained"))
   import socket
   database=fixture.database;runtime_role=fixture.runtime_role;port=fixture.port;private_root=fixture.path
   fixture.close()
