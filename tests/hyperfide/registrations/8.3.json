@@ -8,7 +8,6 @@
     "V-054"
   ],
   "assertion_ids": [
-    "provider.worker.running-from-boot",
     "provider.intent.configure",
     "provider.intent.seed-admission",
     "provider.intent.persist-before-effects",
@@ -72,6 +71,7 @@
     "provider.worker.control-role-refused",
     "provider.worker.operator-cannot-start",
     "provider.worker.incompatible-adapter-not-ready",
+    "provider.worker.running-from-boot",
     "provider.worker.ready-with-adapter",
     "provider.worker.control-commits-intent",
     "provider.worker.consumes-committed-intent",
