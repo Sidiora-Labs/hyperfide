@@ -4,7 +4,7 @@
     "allowed_actions": [],
     "approved": true
   },
-  "campaign_id": "hyperfide-task-29.1-authority-component-v1",
+  "campaign_id": "hyperfide-task-29.1-authority-component-v1-requal-a44301e96065",
   "case_ids": [
     "V-058"
   ],
@@ -101,13 +101,13 @@
     },
     {
       "path": "services/hyperfide/dist/components/service.js",
-      "sha256": "4e1b95193fb0d67bc3720d8ef2c520392e5b6136ac1764815da218ff5ef88dd0",
-      "size": 11138
+      "sha256": "88e7cd525b35083b4b08359beccbdbffbfee7cb225519e52bfe84321f53f675d",
+      "size": 11544
     },
     {
       "path": "services/hyperfide/dist/components/service.js.map",
-      "sha256": "d9a44ba8663ae2b465e57bf19338e34260ee25812a884beb2dbd43fb55f10afa",
-      "size": 11065
+      "sha256": "eae5880e4285f6c5fd98d05ef6da11dde9de4ba6a1c77f98e38694b2a79e1ac4",
+      "size": 11423
     },
     {
       "path": "services/hyperfide/dist/contracts/records.d.ts",
@@ -221,13 +221,13 @@
     },
     {
       "path": "services/hyperfide/dist/recovery/fencing.js",
-      "sha256": "f7df4b32ba6a08f741124a684faa48bb6c14cc3af6419317ad54f24d6083647c",
-      "size": 43090
+      "sha256": "674d1d4256121cbd2ed29a31ccb51e6f195b450c6e1f2c9632043b43514e99fa",
+      "size": 43410
     },
     {
       "path": "services/hyperfide/dist/recovery/fencing.js.map",
-      "sha256": "6e65bd18601d7bf0cc10eea943df126a1d004c43fd59f59355fb38f5a1ba0902",
-      "size": 38543
+      "sha256": "5eb5829b4042547a6e482e54632ad86f47be0bf96a79aa996d239134ef80a2c1",
+      "size": 38733
     },
     {
       "path": "services/hyperfide/dist/storage/authority_journal.d.ts",
@@ -531,8 +531,8 @@
     },
     {
       "path": "services/hyperfide/src/components/service.ts",
-      "sha256": "529bdc90d091c4a05e9d1c16431c41b2d617e029f4d5f3d43354e19afffbacf7",
-      "size": 10886
+      "sha256": "e479e24cf755dfc44ac1186e2b668020434658001fed0a7605a3229222499df9",
+      "size": 11346
     },
     {
       "path": "services/hyperfide/src/contracts/records.ts",
@@ -571,8 +571,8 @@
     },
     {
       "path": "services/hyperfide/src/recovery/fencing.ts",
-      "sha256": "a79f289e150a9bafbb1b8861b48d6d6214b3809e1b89c0e90dbba2bc81833fe0",
-      "size": 41778
+      "sha256": "dd92fc6daa1c7322487243d757ecea7e7d605efbbf1a0b879a59f7a6a95f3638",
+      "size": 42077
     },
     {
       "path": "services/hyperfide/src/storage/authority_journal.ts",
