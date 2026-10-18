@@ -163,6 +163,7 @@ type Limits=Partial<Record<QuotaDimension,string>>;
 export interface PoolConfig {
   id:string;provider:'railway'|'blaxel';account_key:string;environment_key:string;region:string;
   profile_id:string|null;preparation_digest:string;approved_limits:Limits;planning_limits:Limits;
+  scheduling_policy?:{aging_seconds:number;max_bypass_seconds:number;rate_window_ms:number;max_waiters:number};
   create_policy:{seed_reference:string;network:'ISOLATED'|'PRIVATE';stdin_required:boolean;adapter_policy_digest?:string};
 }
 export interface DeploymentConfig {
@@ -190,7 +191,13 @@ export function validateDeployment(value:unknown):DeploymentConfig {
     const key=provider(a.provider)+':'+str(a.account_key,256);if(accounts.has(key))fail('POOL_CONFIG_INVALID','Duplicate account');
     accounts.add(key);limits(a.approved_limits);limits(a.planning_limits);
   }
-  for(const raw of o.pools){const p=obj(raw,['id','provider','account_key','environment_key','region','profile_id','preparation_digest','approved_limits','planning_limits','create_policy']);
+  for(const raw of o.pools){const p=obj(raw);const fields=['id','provider','account_key','environment_key','region','profile_id','preparation_digest','approved_limits','planning_limits','create_policy'];
+    if(fields.some(k=>!Object.hasOwn(p,k))||Object.keys(p).some(k=>!fields.includes(k)&&k!=='scheduling_policy'))fail('POOL_CONFIG_INVALID','Invalid pool configuration fields');
+    if(p.scheduling_policy!==undefined){
+      const policy=obj(p.scheduling_policy,['aging_seconds','max_bypass_seconds','rate_window_ms','max_waiters']);
+      for(const [key,min,max] of [['aging_seconds',1,3600],['max_bypass_seconds',1,3600],['rate_window_ms',100,3600000],['max_waiters',1,1000000]] as const)
+        if(!Number.isSafeInteger(policy[key])||Number(policy[key])<min||Number(policy[key])>max)fail('POOL_CONFIG_INVALID','Scheduling policy exceeds supported bounds');
+    }
     const id=uuid(p.id);if(ids.has(id))fail('POOL_CONFIG_INVALID','Duplicate pool');ids.add(id);
     const key=provider(p.provider)+':'+str(p.account_key,256);if(!accounts.has(key))fail('POOL_CONFIG_INVALID','Pool account is not configured');
     str(p.environment_key,256);str(p.region,256);if(p.profile_id!==null)uuid(p.profile_id);dg(p.preparation_digest);
@@ -232,6 +239,8 @@ async function applyConfig(pool:ProviderDatabase,config:DeploymentConfig):Promis
     await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[config.organisation_id]);
     for(const p of config.pools){
       const scope=configuredScope(config,p);
+      await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[config.organisation_id+':'+p.provider+':'+p.account_key]);
+      await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[config.organisation_id+':'+p.id+':resource-admission']);
       const existing=await c.query('SELECT * FROM hyperfide.provider_pools WHERE organisation_id=$1 AND id=$2 FOR UPDATE',[config.organisation_id,p.id]);
       if(existing.rows.length&&['provider','account_key','environment_key','region'].some(k=>existing.rows[0]![k]!==p[k as keyof PoolConfig]))
         fail('POOL_IDENTITY_CONFLICT','A pool identity cannot be reassigned');
@@ -242,6 +251,33 @@ async function applyConfig(pool:ProviderDatabase,config:DeploymentConfig):Promis
       const account=config.accounts.find(a=>a.provider===p.provider&&a.account_key===p.account_key)!;
       await c.query('INSERT INTO hyperfide.provider_pool_configurations(organisation_id,pool_id,configuration_digest,document,active) VALUES($1,$2,$3,$4,true) ON CONFLICT(organisation_id,pool_id,configuration_digest) DO UPDATE SET active=true',
         [config.organisation_id,p.id,scope.configuration_digest,{scope,pool:p,account}]);
+      const report=await poolCapacity(c,config,p.id) as {dimensions:Array<{name:QuotaDimension;qualified:boolean;budgets:Array<{approved_limit:string;capacity_limit:string|null}>}>};
+      const evidence=await c.query(`SELECT q.id,q.evidence_digest,q.configuration_digest FROM hyperfide.provider_quota_observations q
+        JOIN hyperfide.provider_pool_configurations pc USING(organisation_id,pool_id,configuration_digest)
+        WHERE q.organisation_id=$1 AND q.provider=$2 AND q.account_key=$3 AND pc.active
+        AND q.observed_at<=clock_timestamp() AND q.expires_at>clock_timestamp() ORDER BY q.id`,[config.organisation_id,p.provider,p.account_key]);
+      for(const d of report.dimensions.filter(d=>d.name!=='PROVISIONING')){
+        const approved=BigInt(p.approved_limits[d.name]??'0');
+        const bounds=d.budgets.flatMap(b=>[BigInt(b.approved_limit),...(b.capacity_limit===null?[]:[BigInt(b.capacity_limit)])]);
+        if(d.qualified&&bounds.some(n=>approved>n))fail('CAPACITY_SEED_LIMIT_EXCEEDED','Approved scheduler limit exceeds qualified pool capacity');
+        const limit=d.qualified?approved.toString():'0',qualification=d.qualified?'QUALIFIED':'UNQUALIFIED';
+        const capacityClass=['SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].includes(d.name)?'PHYSICAL':'EXECUTION';
+        const provenance=digestDocument({configuration_digest:scope.configuration_digest,dimension:d.name,budgets:d.budgets,evidence:evidence.rows});
+        for(const kind of ['CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].includes(d.name)?[capacityClass,'EXECUTION']:[capacityClass]){
+        await c.query(`INSERT INTO hyperfide.capacity_accounts(organisation_id,pool_id,dimension,capacity_class,configured_limit,provenance_digest,qualification_state)
+          VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(organisation_id,pool_id,capacity_class,dimension,resource_key) DO UPDATE
+          SET configured_limit=EXCLUDED.configured_limit,provenance_digest=EXCLUDED.provenance_digest,qualification_state=EXCLUDED.qualification_state,state_version=capacity_accounts.state_version+1
+          WHERE (capacity_accounts.configured_limit,capacity_accounts.provenance_digest,capacity_accounts.qualification_state) IS DISTINCT FROM (EXCLUDED.configured_limit,EXCLUDED.provenance_digest,EXCLUDED.qualification_state)`,
+          [config.organisation_id,p.id,d.name,kind,limit,provenance,qualification]);
+        }
+      }
+      // Omitted policy selects the established scheduling profile; an explicit
+      // approved policy is validated above and is part of the configuration digest.
+      const policy=p.scheduling_policy??{aging_seconds:5,max_bypass_seconds:30,rate_window_ms:1000,max_waiters:10000};
+      await c.query(`INSERT INTO hyperfide.scheduling_policies(organisation_id,pool_id,provenance_digest,qualification_state,aging_seconds,max_bypass_seconds,rate_window_ms,max_waiters) VALUES($1,$2,$3,'QUALIFIED',$4,$5,$6,$7)
+        ON CONFLICT(organisation_id,pool_id) DO UPDATE SET provenance_digest=EXCLUDED.provenance_digest,qualification_state=EXCLUDED.qualification_state,aging_seconds=EXCLUDED.aging_seconds,max_bypass_seconds=EXCLUDED.max_bypass_seconds,rate_window_ms=EXCLUDED.rate_window_ms,max_waiters=EXCLUDED.max_waiters,revision=scheduling_policies.revision+1,state_version=scheduling_policies.state_version+1
+        WHERE (scheduling_policies.provenance_digest,scheduling_policies.qualification_state) IS DISTINCT FROM (EXCLUDED.provenance_digest,EXCLUDED.qualification_state)`,
+        [config.organisation_id,p.id,scope.configuration_digest,policy.aging_seconds,policy.max_bypass_seconds,policy.rate_window_ms,policy.max_waiters]);
     }
     return{configured:config.pools.length,qualification:'UNQUALIFIED_UNTIL_OBSERVED',planning_grants_capacity:false};
   });
