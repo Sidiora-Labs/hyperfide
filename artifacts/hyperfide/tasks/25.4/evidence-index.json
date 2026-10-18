@@ -1,9 +1,9 @@
 {
   "task": "25.4",
-  "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
-  "requalified_on": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+  "commit": "993c90fcfec01f12a7d5fb90dab4aa883d603b21",
+  "requalified_on": "993c90fcfec01f12a7d5fb90dab4aa883d603b21",
   "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-028 --manifest tests/hyperfide/manifests/tasks/25.4.json && python3 tests/hyperfide/qualify.py --case V-052 --manifest tests/hyperfide/manifests/tasks/25.4.json && python3 tests/hyperfide/qualify.py --case V-055 --manifest tests/hyperfide/manifests/tasks/25.4.json",
-  "exit_code": 1,
-  "stdout_tail": "{\"status\": \"FAIL\", \"receipt_id\": \"effa0a0b-73d4-4501-84f2-3079c486514d\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/25.4/campaigns/f73f5057cd5725c7662b48e6e73de95bb7d3e0830bd106d7a06b8f51af891534\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": [\"independent checker rejected candidate; inspect checks artifacts\"]}\n",
-  "ran_at": "2026-10-18T05:11:48.097377+00:00"
+  "exit_code": 0,
+  "stdout_tail": "{\"status\": \"PASS\", \"receipt_id\": \"6486bb2d-d5bb-42f6-871d-ddbfa3fbf9e0\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/25.4/campaigns/f6b2b591ad8619dda9152228eda959b9f5ad87949259974f314effd24fb84df0\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n{\"status\": \"PASS\", \"receipt_id\": \"20c47015-0830-4268-a616-4cefad8bef52\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/25.4/campaigns/f6b2b591ad8619dda9152228eda959b9f5ad87949259974f314effd24fb84df0\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n{\"status\": \"PASS\", \"receipt_id\": \"28547144-a231-4f45-b433-f198fb0d20cd\", \"campaign_dir\": \"/work/hyperfide/artifacts/hyperfide/tasks/25.4/campaigns/f6b2b591ad8619dda9152228eda959b9f5ad87949259974f314effd24fb84df0\", \"scope\": \"task-component\", \"full_case_status\": \"INCOMPLETE\", \"diagnostics\": []}\n",
+  "ran_at": "2026-10-18T06:09:55.562Z"
 }
