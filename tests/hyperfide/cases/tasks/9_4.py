@@ -72,6 +72,9 @@ def actual_factory_checks(fixture,folder):
       [f.ids["organisation"],f.pool])[0]["configuration_digest"]}
   runtime=f.path/"railway-runtime.json";runtime.write_text(json.dumps({"schema_version":1,"pools":[{**policy,"scope":scope}]}));runtime.chmod(0o600)
   f.stop();f.env["HF_RAILWAY_RUNTIME_POLICY"]=str(runtime);f.env["HF_RAILWAY_RUNTIME_POLICY_DIGEST"]=c.sha(runtime.read_bytes());f.start()
+  # Manual transition assertions need exclusive ownership of intents after the boot worker starts.
+  stopped=invoke("provider.worker.stop",{},key="provisioner")
+  c.expect(stopped["running"] is False and stopped["operational_ready"] is False and stopped["active"]==[],stopped)
   request={"run_id":f.ids["run"],"pool_id":f.pool,"sandbox_id":str(uuid.uuid4()),"request_key":str(uuid.uuid4()),
    "deadline_at":shared.utc(),"reservation_ids":f.reservations,"profile_id":f.profile,"preparation_digest":f.preparation,"purpose":"PREPARATION"}
   before=len(fixture.requests);created=invoke("provider.intents.prepare-create",request);intent=created["intent"]
