@@ -2441,7 +2441,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.7]
 title = "Qualify Railway capacity through operator declarations"
-status = "pending"
+status = "done"
 wave = 36
 requires = ["29.2", "29.6"]
 touches = ["services/hyperfide/src/providers/pools.ts", "deploy/hyperfide/capacity/railway.example.json", "tests/hyperfide/cases/tasks/29_7.py", "tests/hyperfide/registrations/29.7.json", "tests/hyperfide/manifests/tasks/29.7.json"]
