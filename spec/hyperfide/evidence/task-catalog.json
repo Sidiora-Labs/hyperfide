@@ -4451,7 +4451,7 @@
     },
     {
       "id": "27.3",
-      "title": "Qualify both live providers and native agents through staged48/72-hour fleet campaigns",
+      "title": "Qualify both live providers and native agents from the Paxeer X v6.12.0 production release run",
       "status": "pending",
       "wave": 30,
       "requires": [
@@ -4482,8 +4482,8 @@
         "tests/hyperfide/registrations/27.3.json"
       ],
       "do_steps": [
-        "Resolve actual account/auth/region/profile/SLO and sustained-concurrency window, qualify each provider separately in small canaries, then ramp the approved combined allocation through 2 slots → 10 sandboxes/20 sessions → 25/50 → 50/100 → 100 sandboxes/200 remote frontier sessions. The 100-sandbox target is the combined fleet; separate full-size provider soaks require an explicit additional campaign decision.",
-        "Run approved48-hour then72-hour/1500-session campaigns with real native workloads, graph/build/review/integration and credential renewal; record actual concurrency, per-provider evidence, main-host exclusion and full resource inventory.",
+        "The workload is the real production campaign, not a synthetic one: Hyperfide runs the Paxeer X v6.12.0 release fleet on its own tasks at full scale, and that run is the qualification campaign. No separate canary ladder, staged synthetic ramp or synthetic soak budget is run. Take the account, authentication mode, regions, profiles, SLOs and sustained-concurrency window from that run's pinned configuration (decisions O-01, O-02), and attribute evidence to each provider separately; the 100-sandbox target remains the combined fleet.",
+        "Qualify the live provider paths, credential renewal and full resource inventory from that production run's evidence, with its real native, graph/build/review/integration workloads; record actual concurrency, per-provider evidence, observed account limits, main-host exclusion and full resource inventory. Every registered case keeps its measurable acceptance unchanged, including the V-050 and V-051 durations, concurrency and session-lifetime figures; a figure the production run does not reach leaves that case unqualified rather than satisfied.",
         "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
       ],
       "acceptance_ids": [

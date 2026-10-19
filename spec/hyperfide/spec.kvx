@@ -2229,7 +2229,7 @@ do_2 = "Exercise stale generations, reversed commits, unknown creates, replica l
 do_3 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
 
 [task.27.3]
-title = "Qualify both live providers and native agents through staged48/72-hour fleet campaigns"
+title = "Qualify both live providers and native agents from the Paxeer X v6.12.0 production release run"
 status = "pending"
 wave = 30
 requires = ["27.2", "9.4", "10.4", "13.4", "11.4", "19.4", "23.3", "24.4", "22.4", "26.4", "1.2", "1.3", "14.4", "17.3", "18.2", "25.2"]
@@ -2240,8 +2240,8 @@ acceptance_ids = ["V-036", "V-037", "V-038", "V-039", "V-040", "V-041", "V-042",
 owner = "qualification"
 artifacts = ["artifacts/hyperfide/tasks/27.3/manifest.json", "artifacts/hyperfide/tasks/27.3/evidence-index.json"]
 verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
-do_1 = "Resolve actual account/auth/region/profile/SLO and sustained-concurrency window, qualify each provider separately in small canaries, then ramp the approved combined allocation through 2 slots → 10 sandboxes/20 sessions → 25/50 → 50/100 → 100 sandboxes/200 remote frontier sessions. The 100-sandbox target is the combined fleet; separate full-size provider soaks require an explicit additional campaign decision."
-do_2 = "Run approved48-hour then72-hour/1500-session campaigns with real native workloads, graph/build/review/integration and credential renewal; record actual concurrency, per-provider evidence, main-host exclusion and full resource inventory."
+do_1 = "The workload is the real production campaign, not a synthetic one: Hyperfide runs the Paxeer X v6.12.0 release fleet on its own tasks at full scale, and that run is the qualification campaign. No separate canary ladder, staged synthetic ramp or synthetic soak budget is run. Take the account, authentication mode, regions, profiles, SLOs and sustained-concurrency window from that run's pinned configuration (decisions O-01, O-02), and attribute evidence to each provider separately; the 100-sandbox target remains the combined fleet."
+do_2 = "Qualify the live provider paths, credential renewal and full resource inventory from that production run's evidence, with its real native, graph/build/review/integration workloads; record actual concurrency, per-provider evidence, observed account limits, main-host exclusion and full resource inventory. Every registered case keeps its measurable acceptance unchanged, including the V-050 and V-051 durations, concurrency and session-lifetime figures; a figure the production run does not reach leaves that case unqualified rather than satisfied."
 do_3 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
 
 [task.27.4]

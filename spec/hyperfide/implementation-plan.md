@@ -39,7 +39,7 @@ The JSON catalog contains complete approved task paths, steps, commands, owners 
 | Semantic/integration |Every-watcher/every-commit coverage, producer-consumer contracts, findings/GitHub, sole Git publication gateway and multi-repository release barrier.|
 | Migration and product |Actual SQLite-shape import, single-authority cutover/rollback, old/new CLI/MCP/editor/offline parity and Hyperfide identity.|
 | Advisory decisions |Three typed candidate adapters, migrated existing Jev/recap purposes, async fallback, temporally valid evaluation and controlled promotion.|
-| Release qualification |27.2 deterministic replay→27.3 real-provider staged48/72-hour campaigns→27.4 combinedfaults→28.3 fullcurrent-evidence closure.|
+| Release qualification |27.2 deterministic replay→27.3 real-provider qualification from the Paxeer X v6.12.0 production release run→27.4 combinedfaults→28.3 fullcurrent-evidence closure.|
 
 These stages are workstream explanations; the exact predecessor list below determines scheduling. Campaign numbering S0–S7 in verification.md is independent from implementation wave numbers.
 
@@ -311,7 +311,7 @@ These are approved implementation assignments for existing requirements, not cla
 
 | Task | Deliverable | Owner | Requires | Cases |
 |---|---|---|---|---|
-| 27.3 | Qualify both live providers and native agents through staged48/72-hour fleet campaigns | qualification | 27.2, 9.4, 10.4, 13.4, 11.4, 19.4, 23.3, 24.4, 22.4, 26.4, 1.2, 1.3, 14.4, 17.3, 18.2, 25.2 | V-036, V-037, V-038, V-039, V-040, V-041, V-042, V-043, V-044, V-045, V-046, V-050, V-051, V-052 |
+| 27.3 | Qualify both live providers and native agents from the Paxeer X v6.12.0 production release run | qualification | 27.2, 9.4, 10.4, 13.4, 11.4, 19.4, 23.3, 24.4, 22.4, 26.4, 1.2, 1.3, 14.4, 17.3, 18.2, 25.2 | V-036, V-037, V-038, V-039, V-040, V-041, V-042, V-043, V-044, V-045, V-046, V-050, V-051, V-052 |
 
 ### Wave 31 — 2 packages
 
@@ -2870,14 +2870,14 @@ Outputs: `artifacts/hyperfide/tasks/27.2/manifest.json`, `artifacts/hyperfide/ta
 
 Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.
 
-### Task 27.3 — Qualify both live providers and native agents through staged48/72-hour fleet campaigns
+### Task 27.3 — Qualify both live providers and native agents from the Paxeer X v6.12.0 production release run
 
 Planning baseline pending · wave 30 · owner `qualification` · clause `27.3`
 
 Requires: 27.2, 9.4, 10.4, 13.4, 11.4, 19.4, 23.3, 24.4, 22.4, 26.4, 1.2, 1.3, 14.4, 17.3, 18.2, 25.2.
 
-1. Resolve actual account/auth/region/profile/SLO and sustained-concurrency window, qualify each provider separately in small canaries, then ramp the approved combined allocation through 2 slots → 10 sandboxes/20 sessions → 25/50 → 50/100 → 100 sandboxes/200 remote frontier sessions. The 100-sandbox target is the combined fleet; separate full-size provider soaks require an explicit additional campaign decision.
-2. Run approved48-hour then72-hour/1500-session campaigns with real native workloads, graph/build/review/integration and credential renewal; record actual concurrency, per-provider evidence, main-host exclusion and full resource inventory.
+1. The workload is the real production campaign, not a synthetic one: Hyperfide runs the Paxeer X v6.12.0 release fleet on its own tasks at full scale, and that run is the qualification campaign. No separate canary ladder, staged synthetic ramp or synthetic soak budget is run. Take the account, authentication mode, regions, profiles, SLOs and sustained-concurrency window from that run's pinned configuration (decisions O-01, O-02), and attribute evidence to each provider separately; the 100-sandbox target remains the combined fleet.
+2. Qualify the live provider paths, credential renewal and full resource inventory from that production run's evidence, with its real native, graph/build/review/integration workloads; record actual concurrency, per-provider evidence, observed account limits, main-host exclusion and full resource inventory. Every registered case keeps its measurable acceptance unchanged, including the V-050 and V-051 durations, concurrency and session-lifetime figures; a figure the production run does not reach leaves that case unqualified rather than satisfied.
 3. Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes.
 
 Owns: `tests/hyperfide/campaigns/live.py`, `tests/hyperfide/manifests/tasks/27.3.json`, `tests/hyperfide/cases/tasks/27_3.py`, `tests/hyperfide/registrations/27.3.json`.
