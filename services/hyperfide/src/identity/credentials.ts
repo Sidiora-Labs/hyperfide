@@ -132,11 +132,13 @@ export interface IsolationPermitClaims {
  readonly source_epoch:string|null;readonly topology_digest:string;
  readonly resources:readonly {readonly reference_key:string;readonly topology_digest:string}[];
  readonly issued_at:string;readonly expires_at:string;readonly nonce:string;
+ /** Present only on a greenfield first-epoch permit, whose resource allowlist is explicitly empty. */
+ readonly scope?:'GREENFIELD';
 }
 export interface IsolationPermitExpectation {
  readonly deployment_id:string;readonly operation_id:string;readonly organisation_id:string;readonly run_id:string;
  readonly source_epoch:string|null;readonly topology_digest:string;
- readonly resource_reference?:string;readonly resource_topology_digest?:string;
+ readonly resource_reference?:string;readonly resource_topology_digest?:string;readonly scope?:'GREENFIELD';
 }
 export interface VerifiedIsolationPermit extends IsolationPermitClaims {readonly permit_digest:string;readonly issuer_key_id:string}
 export interface IsolationPermitVerifier {verifySigned(serialized:Buffer|string):VerifiedIsolationPermit;verify(serialized:Buffer|string,expected:IsolationPermitExpectation):VerifiedIsolationPermit}
@@ -148,8 +150,11 @@ function canonicalPermitJSON(value:unknown):string {
 function digestText(v:unknown):v is string{return typeof v==='string'&&/^sha256:[0-9a-f]{64}$/.test(v);}
 function referenceKey(v:unknown):v is string{return typeof v==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(v);}
 function validateIsolationClaims(v:unknown,nowMs:number):asserts v is IsolationPermitClaims {
- exact(v,['schema_version','purpose','deployment_id','operation_id','organisation_id','run_id','source_epoch','topology_digest','resources','issued_at','expires_at','nonce']);
- if(v.schema_version!==1||v.purpose!=='EXTERNAL_WRITER_ISOLATION_ONLY'||!uuid(v.deployment_id)||!uuid(v.operation_id)||!uuid(v.organisation_id)||!uuid(v.run_id)||v.source_epoch!==null&&!uuid(v.source_epoch)||!digestText(v.topology_digest)||!uuid(v.nonce)||!Array.isArray(v.resources)||v.resources.length<1||v.resources.length>256)fail('ISOLATION_PERMIT_INVALID','Isolation-only permit bindings are invalid');
+ const greenfield=object(v)&&Object.hasOwn(v,'scope');
+ exact(v,['schema_version','purpose','deployment_id','operation_id','organisation_id','run_id','source_epoch','topology_digest','resources','issued_at','expires_at','nonce',...(greenfield?['scope']:[])]);
+ // A greenfield first-epoch permit names no writer: its allowlist is explicitly empty and it has no source epoch.
+ const resources=v.resources,allowlist=Array.isArray(resources)&&resources.length<=256&&(greenfield?v.scope==='GREENFIELD'&&v.source_epoch===null&&resources.length===0:resources.length>=1);
+ if(v.schema_version!==1||v.purpose!=='EXTERNAL_WRITER_ISOLATION_ONLY'||!uuid(v.deployment_id)||!uuid(v.operation_id)||!uuid(v.organisation_id)||!uuid(v.run_id)||v.source_epoch!==null&&!uuid(v.source_epoch)||!digestText(v.topology_digest)||!uuid(v.nonce)||!Array.isArray(v.resources)||!allowlist)fail('ISOLATION_PERMIT_INVALID','Isolation-only permit bindings are invalid');
  if(typeof v.issued_at!=='string'||typeof v.expires_at!=='string'||!Number.isFinite(Date.parse(v.issued_at))||!Number.isFinite(Date.parse(v.expires_at))||new Date(v.issued_at).toISOString()!==v.issued_at||new Date(v.expires_at).toISOString()!==v.expires_at)fail('ISOLATION_PERMIT_INVALID','Canonical UTC permit times required');
  const issued=Date.parse(v.issued_at),expires=Date.parse(v.expires_at);
  if(!Number.isFinite(nowMs)||issued>nowMs+30000||expires<=nowMs||expires<=issued||expires-issued>3600000)fail('ISOLATION_PERMIT_EXPIRED','Isolation permit time window is not current');
@@ -162,8 +167,10 @@ export function assertVerifiedIsolationPermit(value:unknown):asserts value is Ve
 }
 export function assertIsolationPermit(value:unknown,expected:IsolationPermitExpectation):asserts value is VerifiedIsolationPermit {
  assertVerifiedIsolationPermit(value);
- exact(expected,['deployment_id','operation_id','organisation_id','run_id','source_epoch','topology_digest',...(Object.hasOwn(expected,'resource_reference')?['resource_reference']:[]),...(Object.hasOwn(expected,'resource_topology_digest')?['resource_topology_digest']:[])]);
+ exact(expected,['deployment_id','operation_id','organisation_id','run_id','source_epoch','topology_digest',...(Object.hasOwn(expected,'resource_reference')?['resource_reference']:[]),...(Object.hasOwn(expected,'resource_topology_digest')?['resource_topology_digest']:[]),...(Object.hasOwn(expected,'scope')?['scope']:[])]);
+ if(Object.hasOwn(expected,'scope')&&expected.scope!=='GREENFIELD')fail('ISOLATION_PERMIT_SCOPE','Unknown isolation permit scope');
  for(const key of ['deployment_id','operation_id','organisation_id','run_id','source_epoch','topology_digest'] as const)if(value[key]!==expected[key])fail('ISOLATION_PERMIT_SCOPE','Isolation permit binding differs from the durable operation');
+ if((value.scope??null)!==(expected.scope??null))fail('ISOLATION_PERMIT_SCOPE','Greenfield and writer isolation permits are not interchangeable');
  if((expected.resource_reference===undefined)!==(expected.resource_topology_digest===undefined))fail('ISOLATION_PERMIT_SCOPE','Complete resource identity is required');
  if(expected.resource_reference!==undefined&&!value.resources.some(r=>r.reference_key===expected.resource_reference&&r.topology_digest===expected.resource_topology_digest))fail('ISOLATION_PERMIT_SCOPE','Resource is outside the exact isolation allowlist');
 }
@@ -201,7 +208,7 @@ export interface WriterObservationPermitVerifier {
 }
 const verifiedWriterObservationPermits=new WeakSet<object>();
 function validateWriterObservationClaims(value:unknown,nowMs:number):asserts value is WriterObservationPermitClaims {
- if(!object(value)||value.purpose!=='EXTERNAL_WRITER_OBSERVATION_ONLY')fail('OBSERVATION_PERMIT_INVALID','A distinct observation-only permit is required');
+ if(!object(value)||value.purpose!=='EXTERNAL_WRITER_OBSERVATION_ONLY'||Object.hasOwn(value,'scope'))fail('OBSERVATION_PERMIT_INVALID','A distinct observation-only permit is required');
  // Share only inert binding validation. This never registers an isolation brand or authorises an effect.
  validateIsolationClaims({...value,purpose:'EXTERNAL_WRITER_ISOLATION_ONLY'},nowMs);
 }

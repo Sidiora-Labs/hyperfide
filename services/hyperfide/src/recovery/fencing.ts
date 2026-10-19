@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import {constants} from 'node:fs';
 import path from 'node:path';
 import {FoundationError,object} from '../policy/programme.js';
+import type {ProviderScope} from '../providers/contract.js';
 import type {ProviderIsolationBinding,ProviderIsolationReceipt,ProviderIsolationObservationJournal,ProviderWriterObservation} from '../providers/placement.js';
 import {assertInvocation,type InvocationContext} from '../transport/protocol.js';
 import {assertIsolationPermit,assertWriterObservationPermit,type VerifiedWriterObservationPermit,type VerifiedIsolationPermit} from '../identity/credentials.js';
@@ -52,7 +53,7 @@ export function bindProviderIsolation(capability:ProviderIsolationCapability,aut
  if(!capability||typeof capability.isolateConfiguredResource!=='function')fail('EXTERNAL_FENCE_BACKEND_UNAVAILABLE','Actual provisioner isolation capability is required');
  return Object.freeze({isolateConfiguredResource:(key:string,id:string,signal:AbortSignal,journal:IsolationJournal)=>capability.isolateConfiguredResource(key,id,authority,signal,journal)});
 }
-type JournalDocument={schema_version:1;binding:Binding;authorizations:{authority_digest:string;authority_nonce:string|null}[];resources:Record<string,IsolationJournalRecord>;completion_receipt?:ExternalFenceReceipt;completion_receipt_json?:string;completion_receipts?:{json:string;digest:string}[]};
+type JournalDocument={schema_version:1;binding:Binding;authorizations:{authority_digest:string;authority_nonce:string|null}[];resources:Record<string,IsolationJournalRecord>;completion_receipt?:ExternalFenceReceipt;completion_receipt_json?:string;completion_receipts?:{json:string;digest:string;evidence_json?:string}[]};
 function coreBinding(v:Binding){return {deployment_id:v.deployment_id,operation_id:v.operation_id,source_epoch:v.source_epoch,topology_digest:v.topology_digest}}
 function fail(code:string,message:string):never{throw new FoundationError(code,message)}
 function canonical(v:unknown):string{if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v))return '['+v.map(canonical).join(',')+']';return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical((v as Record<string,unknown>)[k])).join(',')+'}'}
@@ -104,13 +105,13 @@ export class FileExternalFenceJournal {
   }finally{await root.close()}
  }
 
- async withOperation<T>(binding:Binding,body:(resource:(key:string)=>IsolationJournal,recordCompletion:(receipt:ExternalFenceReceipt)=>Promise<void>)=>Promise<T>):Promise<T>{
+ async withOperation<T>(binding:Binding,body:(resource:(key:string)=>IsolationJournal,recordCompletion:(receipt:ExternalFenceReceipt,evidence?:unknown)=>Promise<void>)=>Promise<T>):Promise<T>{
   return this.operate(binding,body,false);
  }
  async withObservation<T>(binding:Binding,body:(resource:(key:string)=>WriterObservationJournal)=>Promise<T>):Promise<T>{
   return this.operate(binding,(_resource,_completion,observations)=>body(observations),true);
  }
- private async operate<T>(binding:Binding,body:(resource:(key:string)=>IsolationJournal,recordCompletion:(receipt:ExternalFenceReceipt)=>Promise<void>,observations:(key:string)=>WriterObservationJournal)=>Promise<T>,existingOnly:boolean):Promise<T>{
+ private async operate<T>(binding:Binding,body:(resource:(key:string)=>IsolationJournal,recordCompletion:(receipt:ExternalFenceReceipt,evidence?:unknown)=>Promise<void>,observations:(key:string)=>WriterObservationJournal)=>Promise<T>,existingOnly:boolean):Promise<T>{
   checkBinding(binding);
   if(!path.isAbsolute(this.directory)||path.resolve(this.directory)!==this.directory)fail('EXTERNAL_FENCE_JOURNAL_UNSAFE','Canonical absolute private journal directory required');
   const info=await fs.lstat(this.directory);
@@ -179,12 +180,14 @@ export class FileExternalFenceJournal {
     })});
    };
    await save();
-   return await body(resource,receipt=>serialize(async()=>{
+   return await body(resource,(receipt,evidence?:unknown)=>serialize(async()=>{
     if(receipt.deployment_id!==binding.deployment_id||receipt.operation_id!==binding.operation_id||receipt.source_epoch!==binding.source_epoch||receipt.fence_id!==binding.operation_id||!digest(receipt.evidence_digest)||receipt.isolated_writer!=='topology:'+binding.topology_digest.slice(7))fail('EXTERNAL_FENCE_JOURNAL_CONFLICT','Completed fence receipt differs from its immutable topology');
     checkFresh(receipt.observed_at,receipt.expires_at,Date.now());
+    // Retained evidence must be the exact document the receipt's evidence digest names.
+    if(evidence!==undefined&&hash(evidence)!==receipt.evidence_digest)fail('EXTERNAL_FENCE_JOURNAL_CONFLICT','Retained fence evidence differs from the receipt evidence digest');
     const json=JSON.stringify(receipt),proofDigest='sha256:'+createHash('sha256').update(json).digest('hex');
     const history=document.completion_receipts??(document.completion_receipt_json?[{json:document.completion_receipt_json,digest:'sha256:'+createHash('sha256').update(document.completion_receipt_json).digest('hex')}]:[]);
-    if(!history.some(v=>v.digest===proofDigest)){if(history.length>=16)fail('EXTERNAL_FENCE_JOURNAL_LIMIT','Completed proof history exhausted its bounded retention');history.push({json,digest:proofDigest})}
+    if(!history.some(v=>v.digest===proofDigest)){if(history.length>=16)fail('EXTERNAL_FENCE_JOURNAL_LIMIT','Completed proof history exhausted its bounded retention');history.push({json,digest:proofDigest,...(evidence===undefined?{}:{evidence_json:canonical(evidence)})})}
     document.completion_receipts=history;document.completion_receipt_json=history.at(-1)!.json;document.completion_receipt=JSON.parse(document.completion_receipt_json) as ExternalFenceReceipt;await save();
    }),observations);
   }finally{
@@ -272,6 +275,89 @@ export function createExternalWriterFence(config:ExternalFenceTopology,providers
 }
 /** True only for a fence built here from LIVE_PROVIDER topology; plain objects and fixture fencers never qualify. */
 export function isLiveProviderWriterFence(value:unknown):value is ExternalWriterFence{return object(value)&&liveProviderFences.has(value)}
+
+/** A fresh deployment's first epoch: no writer exists, so there is nothing to isolate and emptiness itself is the proof. */
+export interface GreenfieldTopology {
+ schema_version:1;scope:'GREENFIELD';deployment_id:string;organisation_id:string;project_id:string;run_id:string;source_epoch:null;
+ evidence_scope:'LIVE_PROVIDER';legacy_status:'NONE';required_writer_ids:[];resources:[];intent_digest:string;provider_scopes:ProviderScope[];
+}
+export interface GreenfieldInventory {
+ scope:ProviderScope;transport:'AVAILABLE'|'UNAVAILABLE';enumeration_complete:boolean;
+ items:{native_sandbox_id:string;provider_state:string}[];observed_at:string;
+}
+export interface GreenfieldDatabaseObservation {
+ authority_history:number;counts:{sandboxes:number;sandbox_boots:number;provider_pools:number;runs:number};observed_at:string;
+}
+/** Read-only observers supplied by trusted deployment code; neither can mutate a provider or the primary. */
+export interface GreenfieldEmptinessProbe {
+ database(signal:AbortSignal):Promise<GreenfieldDatabaseObservation>;
+ inventory(scope:ProviderScope,signal:AbortSignal):Promise<GreenfieldInventory>;
+}
+const PROVIDER_SCOPE_KEYS=['organisation_id','pool_id','provider','provider_account_id','environment_id','region','configuration_digest'];
+function greenfieldTopology(value:GreenfieldTopology):GreenfieldTopology{
+ if(!object(value)||Object.keys(value).sort().join()!==['schema_version','scope','deployment_id','organisation_id','project_id','run_id','source_epoch','evidence_scope','legacy_status','required_writer_ids','resources','intent_digest','provider_scopes'].sort().join()||
+  value.schema_version!==1||value.scope!=='GREENFIELD'||!uuid(value.deployment_id)||!uuid(value.organisation_id)||!uuid(value.project_id)||!uuid(value.run_id)||value.source_epoch!==null||value.evidence_scope!=='LIVE_PROVIDER'||value.legacy_status!=='NONE'||
+  !Array.isArray(value.required_writer_ids)||value.required_writer_ids.length!==0||!Array.isArray(value.resources)||value.resources.length!==0||!digest(value.intent_digest)||!Array.isArray(value.provider_scopes)||value.provider_scopes.length<1||value.provider_scopes.length>3000)
+  fail('EXTERNAL_FENCE_CONFIG_INVALID','A greenfield topology names no writer or resource and binds the accepted intent and every configured pool');
+ const pools=new Set<string>();
+ for(const s of value.provider_scopes){
+  if(!object(s)||Object.keys(s).sort().join()!==[...PROVIDER_SCOPE_KEYS].sort().join()||s.organisation_id!==value.organisation_id||!uuid(s.pool_id)||pools.has(s.pool_id)||!['railway','blaxel'].includes(s.provider)||[s.provider_account_id,s.environment_id,s.region].some(v=>typeof v!=='string'||!v||v.length>256)||!digest(s.configuration_digest))
+   fail('EXTERNAL_FENCE_CONFIG_INVALID','Every greenfield pool scope must be an exact configured provider scope of the organisation');
+  pools.add(s.pool_id);
+ }
+ return structuredClone(value);
+}
+export function greenfieldTopologyDigest(config:GreenfieldTopology):string{
+ return hash({domain:'HYPERFIDE-GREENFIELD-TOPOLOGY-V1',topology:greenfieldTopology(config)});
+}
+const greenfieldFences=new WeakSet<object>();
+function count(v:unknown):v is number{return Number.isSafeInteger(v)&&(v as number)>=0}
+/** Builds the greenfield first-epoch fence. It is never a live provider fence, so service-reachable activation refuses it. */
+export function createGreenfieldWriterFence(config:GreenfieldTopology,probe:GreenfieldEmptinessProbe,journal:FileExternalFenceJournal,authority:{kind:'ISOLATION_PERMIT';permit:VerifiedIsolationPermit}):ExternalWriterFence{
+ const trusted=greenfieldTopology(config),topologyDigest=greenfieldTopologyDigest(trusted);
+ if(!authority||authority.kind!=='ISOLATION_PERMIT')fail('EXTERNAL_FENCE_AUTHORITY_REQUIRED','A verified greenfield isolation permit is required');
+ if(!probe||typeof probe.database!=='function'||typeof probe.inventory!=='function'||!(journal instanceof FileExternalFenceJournal))fail('EXTERNAL_FENCE_BACKEND_UNAVAILABLE','Actual provider inventory, primary observer and durable journal are required');
+ const authorize=(input:{deployment_id:string;operation_id:string})=>{
+  assertIsolationPermit(authority.permit,{deployment_id:input.deployment_id,operation_id:input.operation_id,organisation_id:trusted.organisation_id,run_id:trusted.run_id,source_epoch:null,topology_digest:topologyDigest,scope:'GREENFIELD'});
+  if(authority.permit.resources.length!==0)fail('ISOLATION_PERMIT_SCOPE','A greenfield permit carries an explicit empty resource allowlist');
+  return {authority_digest:authority.permit.permit_digest,authority_nonce:authority.permit.nonce};
+ };
+ const fence:ExternalWriterFence=Object.freeze({isolate:async(input:{deployment_id:string;operation_id:string;source_epoch:string|null;signal?:AbortSignal})=>{
+  if(input.deployment_id!==trusted.deployment_id||input.source_epoch!==null||!uuid(input.operation_id))fail('EXTERNAL_FENCE_SCOPE_MISMATCH','Greenfield activation binds this deployment with no source epoch');
+  input.signal?.throwIfAborted();
+  const authorization=authorize(input),signal=input.signal??new AbortController().signal;
+  return journal.withOperation({deployment_id:input.deployment_id,operation_id:input.operation_id,source_epoch:null,topology_digest:topologyDigest,...authorization},async(_resource,recordCompletion)=>{
+   authorize(input);
+   const database=await probe.database(signal);
+   if(!object(database)||!count(database.authority_history)||!object(database.counts)||Object.keys(database.counts).sort().join()!=='provider_pools,runs,sandbox_boots,sandboxes'||!Object.values(database.counts).every(count))fail('GREENFIELD_EMPTINESS_UNPROVEN','The primary did not return complete greenfield counts');
+   time(database.observed_at);
+   if(database.authority_history!==0)fail('ISOLATION_PERMIT_SCOPE','A greenfield permit cannot act on a deployment with authority history');
+   if(Object.values(database.counts).some(n=>n!==0))fail('GREENFIELD_NOT_EMPTY','The primary already holds sandbox, boot, pool or run rows for the organisation');
+   const inventories:GreenfieldInventory[]=[];
+   for(const s of trusted.provider_scopes){
+    input.signal?.throwIfAborted();
+    const observed=await probe.inventory(structuredClone(s),signal);
+    if(!object(observed)||canonical(observed.scope)!==canonical(s)||!['AVAILABLE','UNAVAILABLE'].includes(observed.transport)||typeof observed.enumeration_complete!=='boolean'||!Array.isArray(observed.items)||observed.items.some(i=>!object(i)||typeof i.native_sandbox_id!=='string'||typeof i.provider_state!=='string'))
+     fail('GREENFIELD_EMPTINESS_UNPROVEN','Provider inventory is not bound to the configured pool');
+    time(observed.observed_at);inventories.push(structuredClone(observed));
+   }
+   if(inventories.some(v=>v.items.some(i=>i.provider_state!=='DESTROYED')))fail('GREENFIELD_NOT_EMPTY','A configured provider pool still holds a sandbox');
+   if(inventories.some(v=>v.transport!=='AVAILABLE'||!v.enumeration_complete))fail('GREENFIELD_EMPTINESS_UNPROVEN','Every configured pool needs a complete provider inventory');
+   authorize(input);
+   const times=[time(database.observed_at),...inventories.map(v=>time(v.observed_at))],now=Date.now();
+   const observedAt=Math.max(...times),expiresAt=Math.min(...times)+30000;
+   if(observedAt>now+1000||expiresAt<=now||expiresAt<=observedAt)fail('EXTERNAL_FENCE_STALE','Emptiness was not observed within one proof interval');
+   const evidence={schema_version:1,scope:'GREENFIELD',deployment_id:input.deployment_id,operation_id:input.operation_id,topology_digest:topologyDigest,authorization_digest:authority.permit.permit_digest,
+    intent_digest:trusted.intent_digest,resource_count:0,legacy_status:'NONE',required_writer_ids:[],provider_inventories:inventories,database};
+   const completed:ExternalFenceReceipt={deployment_id:input.deployment_id,operation_id:input.operation_id,source_epoch:null,fence_id:input.operation_id,isolated_writer:'topology:'+topologyDigest.slice(7),
+    observed_at:new Date(observedAt).toISOString(),expires_at:new Date(expiresAt).toISOString(),evidence_digest:hash(evidence)};
+   await recordCompletion(completed,evidence);return completed;
+  });
+ }});
+ greenfieldFences.add(fence);return fence;
+}
+/** True only for a fence built by createGreenfieldWriterFence. */
+export function isGreenfieldWriterFence(value:unknown):value is ExternalWriterFence{return object(value)&&greenfieldFences.has(value)}
 
 export interface ExternalFenceObservation {
  schema_version:1;deployment_id:string;operation_id:string;source_epoch:string|null;topology_digest:string;

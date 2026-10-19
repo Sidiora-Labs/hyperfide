@@ -3,16 +3,21 @@ import path from 'node:path';
 import {constants} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {FoundationError,object} from '../policy/programme.js';
-import {hash,NAME} from '../transport/protocol.js';
+import {exact,hash,NAME,strictJSON} from '../transport/protocol.js';
 import {loadIsolationPermitVerifier,type IsolationPermitClaims,type IsolationPermitExpectation,type VerifiedIsolationPermit} from '../identity/credentials.js';
 import {createProviderIsolation,createDestructionPreflight,isolationConfiguration,type IsolationConfiguration} from '../providers/placement.js';
-import {createProviderRuntimeRegistry,registerIsolationTransport} from '../providers/pools.js';
-import {configuredRailwayIsolationTransport} from '../providers/railway/reconciliation.js';
+import {configuredScope,createProviderRuntimeRegistry,readDeployment,registerIsolationTransport} from '../providers/pools.js';
+import {completeInventory,configuredRailwayIsolationTransport} from '../providers/railway/reconciliation.js';
+import {configuredClient} from '../providers/railway/preparation.js';
+import type {ProviderScope} from '../providers/contract.js';
+import {importVerifiedIntentInTransaction,verifyGreenfieldMetadata,type BootstrapMetadata} from '../spec/bootstrap.js';
+import type {SpecScope} from '../spec/import.js';
+import type {GreenfieldBootstrapArguments} from '../storage/durability.js';
 import {createBlaxelIsolationTransport} from '../providers/blaxel/processes.js';
 import {readArtifactDestructionPreflight} from '../artifacts/destruction.js';
 import {createLegacyWriterAdmission,legacyWriterTopology} from '../migration/legacy.js';
-import {bindProviderIsolation,createExternalWriterFence,externalFenceTopologyDigest,FileExternalFenceJournal,type ExternalFenceTopology} from './fencing.js';
-import type {TransactionGateway} from '../storage/transactions.js';
+import {bindProviderIsolation,createExternalWriterFence,createGreenfieldWriterFence,externalFenceTopologyDigest,greenfieldTopologyDigest,FileExternalFenceJournal,type ExternalFenceTopology,type GreenfieldDatabaseObservation,type GreenfieldInventory,type GreenfieldTopology} from './fencing.js';
+import type {QuerySession,TransactionGateway} from '../storage/transactions.js';
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MAX_PERMIT_BYTES=131072;
@@ -32,12 +37,40 @@ async function privateTarget(name:string|undefined,code:string,directory:boolean
  return name;
 }
 
-export interface BootstrapTopology {topology:ExternalFenceTopology;topology_digest:string;isolation:IsolationConfiguration;consistent:boolean}
-/** Derives the LIVE_PROVIDER writer topology from the protected isolation and legacy writer configuration. */
+export interface WriterBootstrapTopology {scope?:undefined;topology:ExternalFenceTopology;topology_digest:string;isolation:IsolationConfiguration;consistent:boolean}
+export interface GreenfieldIntent {scope:{organisation_id:string;project_id:string;run_id:string;allowed_actions:string[]};metadata:unknown;accepted_intent:unknown}
+export interface GreenfieldBootstrapTopology {scope:'GREENFIELD';topology:GreenfieldTopology;topology_digest:string;isolation:IsolationConfiguration;consistent:boolean;intent:GreenfieldIntent}
+export type BootstrapTopology=WriterBootstrapTopology|GreenfieldBootstrapTopology;
+async function greenfieldIntent(env:Readonly<NodeJS.ProcessEnv>):Promise<GreenfieldIntent>{
+ const name=await privateTarget(env.HYPERFIDE_GREENFIELD_INTENT_FILE,'GREENFIELD_INTENT_REQUIRED',false);
+ const file=await fs.open(name,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes:Buffer;
+ try{const info=await file.stat();if(!info.isFile()||info.nlink!==1||info.size<1||info.size>2097152)fail('GREENFIELD_INTENT_INVALID','A bounded private accepted-intent file is required');bytes=await file.readFile();}
+ finally{await file.close();}
+ const value=strictJSON(bytes,2097152);
+ try{
+  exact(value,['schema_version','scope','metadata','accepted_intent']);exact(value.scope,['organisation_id','project_id','run_id','allowed_actions']);
+  const s=value.scope;
+  if(value.schema_version!==1||![s.organisation_id,s.project_id,s.run_id].every(v=>typeof v==='string'&&UUID.test(v))||!Array.isArray(s.allowed_actions)||s.allowed_actions.some(a=>typeof a!=='string'))throw new Error();
+ }catch(error){if(error instanceof FoundationError&&error.code!=='INVALID_REQUEST')throw error;fail('GREENFIELD_INTENT_INVALID','The greenfield accepted intent must match its versioned shape');}
+ return value as unknown as GreenfieldIntent;
+}
+/** The greenfield topology: no writer and no resource, bound to the accepted intent and every configured pool scope. */
+async function greenfieldFenceTopology(env:Readonly<NodeJS.ProcessEnv>,deployment:string,isolation:IsolationConfiguration):Promise<GreenfieldBootstrapTopology>{
+ if(env.HF_LEGACY_WRITER_CONFIG_FILE)fail('ISOLATION_PERMIT_SCOPE','A greenfield deployment cannot have a configured legacy writer');
+ const intent=await greenfieldIntent(env),pools=await readDeployment(env);
+ if(intent.scope.organisation_id!==isolation.organisation_id||intent.scope.run_id!==isolation.run_id||pools.organisation_id!==isolation.organisation_id)fail('BOOTSTRAP_FENCE_SCOPE','Accepted intent, pools and isolation configuration must name one organisation and run');
+ const topology:GreenfieldTopology={schema_version:1,scope:'GREENFIELD',deployment_id:deployment,organisation_id:isolation.organisation_id,project_id:intent.scope.project_id,run_id:isolation.run_id,source_epoch:null,
+  evidence_scope:'LIVE_PROVIDER',legacy_status:'NONE',required_writer_ids:[],resources:[],intent_digest:hash(canonical(intent)),
+  provider_scopes:pools.pools.map(p=>configuredScope(pools,p)).sort((a,b)=>a.pool_id.localeCompare(b.pool_id))};
+ const digest=greenfieldTopologyDigest(topology);
+ return {scope:'GREENFIELD',topology,topology_digest:digest,isolation,consistent:isolation.topology_digest===digest,intent};
+}
+/** Derives the LIVE_PROVIDER writer topology from the protected isolation and legacy writer configuration, or the greenfield topology when the configuration has scope GREENFIELD. */
 export async function bootstrapFenceTopology(env:Readonly<NodeJS.ProcessEnv>):Promise<BootstrapTopology>{
  const deployment=deploymentOf(env),isolation=await isolationConfiguration(env);
  if(isolation.deployment_id!==deployment||isolation.source_epoch!==null)fail('BOOTSTRAP_FENCE_SCOPE','Isolation configuration must name this deployment with no source epoch');
  if(isolation.evidence_scope!=='LIVE_PROVIDER')fail('EXTERNAL_FENCE_EVIDENCE_SCOPE_MISMATCH','Bootstrap activation requires live provider isolation');
+ if(isolation.scope==='GREENFIELD')return greenfieldFenceTopology(env,deployment,isolation);
  const legacy=await legacyWriterTopology(env,{deployment_id:deployment,source_epoch:null});
  const writers=isolation.resources.map(r=>r.reference_key).sort();
  if(!writers.includes(legacy.legacy_writer_id))fail('EXTERNAL_FENCE_CONFIG_INCOMPLETE','The legacy writer must be one of the configured provider resources');
@@ -62,8 +95,8 @@ export async function isolationPermitPayload(env:Readonly<NodeJS.ProcessEnv>,req
  const derived=await bootstrapFenceTopology(env);assertConsistent(derived);
  const now=Date.now(),t=derived.topology;
  const claims:IsolationPermitClaims={schema_version:1,purpose:'EXTERNAL_WRITER_ISOLATION_ONLY',deployment_id:t.deployment_id,operation_id:request.operation_id,organisation_id:t.organisation_id,run_id:t.run_id,source_epoch:null,
-  topology_digest:derived.topology_digest,resources:t.resources.map(r=>({reference_key:r.reference_key,topology_digest:r.topology_digest})),
-  issued_at:new Date(now).toISOString(),expires_at:new Date(now+request.ttl_seconds*1000).toISOString(),nonce:randomUUID()};
+  topology_digest:derived.topology_digest,resources:derived.scope==='GREENFIELD'?[]:derived.topology.resources.map(r=>({reference_key:r.reference_key,topology_digest:r.topology_digest})),
+  issued_at:new Date(now).toISOString(),expires_at:new Date(now+request.ttl_seconds*1000).toISOString(),nonce:randomUUID(),...(derived.scope==='GREENFIELD'?{scope:'GREENFIELD' as const}:{})};
  const payload=Buffer.from(canonical(claims),'utf8');
  return {claims,payload,signing_input:isolationPermitSigningInput(request.key_id,payload),topology_digest:derived.topology_digest};
 }
@@ -91,7 +124,7 @@ export async function verifyBootstrapPermit(env:Readonly<NodeJS.ProcessEnv>,expe
  }
 }
 export function bootstrapPermitExpectation(derived:BootstrapTopology,operationId:string):IsolationPermitExpectation{
- const t=derived.topology;return {deployment_id:t.deployment_id,operation_id:operationId,organisation_id:t.organisation_id,run_id:t.run_id,source_epoch:null,topology_digest:derived.topology_digest};
+ const t=derived.topology;return {deployment_id:t.deployment_id,operation_id:operationId,organisation_id:t.organisation_id,run_id:t.run_id,source_epoch:null,topology_digest:derived.topology_digest,...(derived.scope==='GREENFIELD'?{scope:'GREENFIELD' as const}:{})};
 }
 export interface BootstrapFenceDependencies {
  resources:{readonly gateway:Pick<TransactionGateway,'withPrimaryTransaction'>};
@@ -99,11 +132,12 @@ export interface BootstrapFenceDependencies {
  signal?:AbortSignal;
 }
 /** Production arguments for activateBootstrapAuthority. The permit is verified before any epoch can be minted. */
-export async function createBootstrapFenceArguments(env:Readonly<NodeJS.ProcessEnv>,deps:BootstrapFenceDependencies):Promise<Parameters<typeof createExternalWriterFence>>{
+export async function createBootstrapFenceArguments(env:Readonly<NodeJS.ProcessEnv>,deps:BootstrapFenceDependencies):Promise<Parameters<typeof createExternalWriterFence>|GreenfieldBootstrapArguments>{
  if(!object(deps)||!deps.resources?.gateway||!object(deps.request)||typeof deps.request.operation_id!=='string'||!UUID.test(deps.request.operation_id))fail('BOOTSTRAP_FENCE_CONFIG','Primary gateway and operation identity are required');
  const derived=await bootstrapFenceTopology(env);
  if(deps.request.deployment_id!==derived.topology.deployment_id)fail('BOOTSTRAP_FENCE_SCOPE','Activation names another deployment');
  assertConsistent(derived);
+ if(derived.scope==='GREENFIELD')return greenfieldArguments(env,deps,derived);
  const permit=await verifyBootstrapPermit(env,bootstrapPermitExpectation(derived,deps.request.operation_id));
  const journal=new FileExternalFenceJournal(await privateTarget(env.HYPERFIDE_EXTERNAL_FENCE_JOURNAL_DIR,'EXTERNAL_FENCE_JOURNAL_UNSAFE',true));
  const signal=deps.signal??new AbortController().signal,registry=createProviderRuntimeRegistry();
@@ -113,4 +147,50 @@ export async function createBootstrapFenceArguments(env:Readonly<NodeJS.ProcessE
  const gateway=deps.resources.gateway;
  const isolate=createProviderIsolation({env,signal,registry:registry.isolation,gateway,destructionPreflight:createDestructionPreflight({env,gateway,registry})});
  return [derived.topology,bindProviderIsolation({isolateConfiguredResource:isolate},permit),createLegacyWriterAdmission(env),journal,{kind:'ISOLATION_PERMIT',permit}];
+}
+
+type GreenfieldCounts=Omit<GreenfieldDatabaseObservation,'observed_at'>;
+async function greenfieldCounts(session:QuerySession,deployment:string,organisation:string):Promise<GreenfieldCounts>{
+ const row=(await session.query<Record<string,string>>(
+  'SELECT (SELECT count(*) FROM hyperfide.authority_epochs WHERE deployment_id=$1)::text AS authority_history,(SELECT count(*) FROM hyperfide.sandboxes WHERE organisation_id=$2)::text AS sandboxes,'+
+  '(SELECT count(*) FROM hyperfide.sandbox_boots WHERE organisation_id=$2)::text AS sandbox_boots,(SELECT count(*) FROM hyperfide.provider_pools WHERE organisation_id=$2)::text AS provider_pools,'+
+  '(SELECT count(*) FROM hyperfide.runs WHERE organisation_id=$2)::text AS runs',[deployment,organisation])).rows[0];
+ if(!row)fail('GREENFIELD_EMPTINESS_UNPROVEN','The primary returned no greenfield counts');
+ return {authority_history:Number(row.authority_history),counts:{sandboxes:Number(row.sandboxes),sandbox_boots:Number(row.sandbox_boots),provider_pools:Number(row.provider_pools),runs:Number(row.runs)}};
+}
+/** Read-only Railway admin inventory; any provider without one, or any failed page, leaves emptiness unproven. */
+async function greenfieldInventory(env:Readonly<NodeJS.ProcessEnv>,scope:ProviderScope,signal:AbortSignal):Promise<GreenfieldInventory>{
+ const unavailable={scope,transport:'UNAVAILABLE' as const,enumeration_complete:false,items:[],observed_at:new Date().toISOString()};
+ if(scope.provider!=='railway')return unavailable;
+ let client;
+ try{client=configuredClient({env});}catch{return unavailable;}
+ if(client.config.mode!=='live')return unavailable;
+ try{
+  const result=await completeInventory(client,scope,signal);
+  return {scope,transport:'AVAILABLE',enumeration_complete:result.enumeration_complete,items:result.pages.flatMap(p=>p.items.map(i=>({native_sandbox_id:i.native_sandbox_id,provider_state:i.provider_state}))),observed_at:new Date().toISOString()};
+ }catch{fail('GREENFIELD_EMPTINESS_UNPROVEN','The provider admin inventory of a configured pool could not be completed');}
+}
+async function greenfieldArguments(env:Readonly<NodeJS.ProcessEnv>,deps:BootstrapFenceDependencies,derived:GreenfieldBootstrapTopology):Promise<GreenfieldBootstrapArguments>{
+ const t=derived.topology,gateway=deps.resources.gateway,operation=deps.request.operation_id;
+ const read=<T>(body:(tx:QuerySession)=>Promise<T>)=>gateway.withPrimaryTransaction({timeoutMs:10000,maxRetries:0,...(deps.signal?{signal:deps.signal}:{})},body);
+ // Only the exact committed greenfield operation may proceed on a deployment with authority history; the activation replays it.
+ const replay=await read(async tx=>(await tx.query('SELECT 1 FROM hyperfide.authority_activations WHERE deployment_id=$1 AND operation_id=$2',[t.deployment_id,operation])).rows.length>0);
+ if(!replay&&(await read(tx=>greenfieldCounts(tx,t.deployment_id,t.organisation_id))).authority_history!==0)fail('ISOLATION_PERMIT_SCOPE','A greenfield permit cannot act on a deployment with authority history');
+ const permit=await verifyBootstrapPermit(env,bootstrapPermitExpectation(derived,operation));
+ const root=env.HYPERFIDE_BOOTSTRAP_SOURCE_ROOT;
+ if(!root||!path.isAbsolute(root))fail('BOOTSTRAP_POLICY_REQUIRED','A trusted accepted-intent source root is required');
+ const scope:Omit<SpecScope,'authority_epoch'>={organisation_id:t.organisation_id,project_id:t.project_id,run_id:t.run_id,root,allowed_actions:[...derived.intent.scope.allowed_actions]};
+ const metadata:BootstrapMetadata=await verifyGreenfieldMetadata(derived.intent.metadata,scope);
+ const journal=new FileExternalFenceJournal(await privateTarget(env.HYPERFIDE_EXTERNAL_FENCE_JOURNAL_DIR,'EXTERNAL_FENCE_JOURNAL_UNSAFE',true));
+ const probe={
+  database:async()=>({...await read(tx=>greenfieldCounts(tx,t.deployment_id,t.organisation_id)),observed_at:new Date().toISOString()}),
+  inventory:(s:ProviderScope,signal:AbortSignal)=>greenfieldInventory(env,s,signal)
+ };
+ const fence=createGreenfieldWriterFence(t,probe,journal,{kind:'ISOLATION_PERMIT',permit});
+ const mint=async(tx:Parameters<GreenfieldBootstrapArguments['mint']>[0],epoch:string)=>{
+  const now=await greenfieldCounts(tx,t.deployment_id,t.organisation_id);
+  if(Object.values(now.counts).some(n=>n!==0))fail('GREENFIELD_NOT_EMPTY','Rows appeared for the organisation before the epoch transaction');
+  await importVerifiedIntentInTransaction(tx,{...scope,authority_epoch:epoch},metadata,derived.intent.accepted_intent,t.deployment_id);
+ };
+ return {scope:'GREENFIELD',fence,mint};
 }

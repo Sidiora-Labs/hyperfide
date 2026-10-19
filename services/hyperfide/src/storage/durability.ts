@@ -9,7 +9,7 @@ import {StorageError,assertPrimaryTransaction,bounded,deadlineFrom} from './tran
 import {FileExternalAuthorityJournal} from './authority_journal.js';
 import type {ExternalAuthorityJournal,ExternalAuthorityAttestation} from './authority_journal.js';
 import type {PrimaryTransaction,QuerySession,TransactionOptions} from './transactions.js';
-import {createExternalWriterFence,isLiveProviderWriterFence} from '../recovery/fencing.js';
+import {createExternalWriterFence,isLiveProviderWriterFence,isGreenfieldWriterFence} from '../recovery/fencing.js';
 
 export interface MigrationDefinition {version:number;name:string;checksum:string;sql:string}
 const DIRECTORY=fileURLToPath(new URL('../../migrations/',import.meta.url));
@@ -198,10 +198,18 @@ export class AuthorityStore {
    throw new FoundationError('INVALID_REQUEST','Explicit external and restored database predecessor identities are required');
   return this.activateInternal(input.operation_id,input.expected_external_epoch,input.expected_database_epoch,true,fencer,options,journal);
  }
- private async activateInternal(operationId:string,externalPrevious:string|null,databasePrevious:string|null,restore:boolean,fencer:ExternalWriterFence,options:TransactionOptions,journal?:ExternalAuthorityJournal):Promise<{epoch:string;replayed:boolean}>{
+ /** First epoch of a proven-empty deployment: mint receives the open epoch transaction after the epoch and activation rows exist. */
+ async activateGreenfield(input:{operation_id:string},fencer:ExternalWriterFence,mint:(tx:PrimaryTransaction,epoch:string)=>Promise<void>,options:TransactionOptions={},journal=this.journal):Promise<{epoch:string;replayed:boolean}>{
+  if(!object(input)||Object.keys(input).some(key=>key!=='operation_id')||!uuid.test(input.operation_id))throw new FoundationError('INVALID_REQUEST','Exact greenfield activation operation is required');
+  if(!isGreenfieldWriterFence(fencer)||typeof mint!=='function')throw new FoundationError('EXTERNAL_FENCE_EVIDENCE_SCOPE_MISMATCH','Greenfield activation requires the greenfield emptiness fence and its accepted-intent mint');
+  return this.activateInternal(input.operation_id,null,null,false,fencer,options,journal,mint);
+ }
+ private async activateInternal(operationId:string,externalPrevious:string|null,databasePrevious:string|null,restore:boolean,fencer:ExternalWriterFence,options:TransactionOptions,journal?:ExternalAuthorityJournal,mint?:(tx:PrimaryTransaction,epoch:string)=>Promise<void>):Promise<{epoch:string;replayed:boolean}>{
   if(!journal||typeof journal.prepareActivation!=='function'||typeof journal.publishCommitted!=='function')
    throw new FoundationError('EXTERNAL_JOURNAL_REQUIRED','Authority activation requires the actual independent durable journal');
   if(!fencer||typeof fencer.isolate!=='function')throw new FoundationError('EXTERNAL_FENCE_REQUIRED','A qualified physical writer isolation adapter is required');
+  // A greenfield fence proves only emptiness, so it may mint nothing but a first epoch with its accepted intent.
+  if(isGreenfieldWriterFence(fencer)!==(mint!==undefined))throw new FoundationError('EXTERNAL_FENCE_EVIDENCE_SCOPE_MISMATCH','A greenfield fence only activates a first epoch through its accepted-intent mint');
   const deadline=deadlineFrom(options.timeoutMs);
   const remaining=()=>{const ms=Math.floor(deadline-performance.now());if(ms<1)throw new StorageError('TX_TIMEOUT','Authority activation deadline expired');return ms;};
   const wait=<T>(promise:Promise<T>)=>bounded(promise,deadline,options.signal);
@@ -245,13 +253,19 @@ export class AuthorityStore {
    if(current)await tx.query("UPDATE hyperfide.authority_epochs SET state='REVOKED' WHERE deployment_id=$1 AND epoch=$2",[this.deploymentId,current.epoch]);
    await tx.query("INSERT INTO hyperfide.authority_epochs(deployment_id,epoch,previous_epoch,database_predecessor_epoch,activation_kind,state,fence_id,proof_digest) VALUES($1,$2,$3,$4,$5,'ACTIVE',$6,$7)",[this.deploymentId,epoch,externalPrevious,databasePrevious,restore?'RESTORE':externalPrevious===null?'BOOTSTRAP':'ROTATE',proof.fence_id,proofDigest]);
    await tx.query('INSERT INTO hyperfide.authority_activations(operation_id,deployment_id,epoch,request_digest) VALUES($1,$2,$3,$4)',[operationId,this.deploymentId,epoch,requestDigest]);
+   if(mint)await mint(tx,epoch);
   });
   await publish(epoch);
   return {epoch,replayed:false};
  }
 }
 /** Trusted operator code supplies backends and authority; wire requests cannot select these. */
-export async function activateBootstrapAuthority(resources:ServiceResources,deploymentId:string,journal:ExternalAuthorityJournal,operationId:string,fence:Parameters<typeof createExternalWriterFence>,options:TransactionOptions={}):Promise<{epoch:string;replayed:boolean}>{
+export interface GreenfieldBootstrapArguments {scope:'GREENFIELD';fence:ExternalWriterFence;mint:(tx:PrimaryTransaction,epoch:string)=>Promise<void>}
+export async function activateBootstrapAuthority(resources:ServiceResources,deploymentId:string,journal:ExternalAuthorityJournal,operationId:string,fence:Parameters<typeof createExternalWriterFence>|GreenfieldBootstrapArguments,options:TransactionOptions={}):Promise<{epoch:string;replayed:boolean}>{
+ if(!Array.isArray(fence)){
+  if(!object(fence)||fence.scope!=='GREENFIELD')throw new FoundationError('EXTERNAL_FENCE_REQUIRED','Legacy fence arguments or greenfield arguments are required');
+  return new AuthorityStore(resources,deploymentId,journal).activateGreenfield({operation_id:operationId},fence.fence,fence.mint,options);
+ }
  const fencer=createExternalWriterFence(...fence);
  return new AuthorityStore(resources,deploymentId,journal).activate({operation_id:operationId,expected_previous_epoch:null},fencer,options);
 }

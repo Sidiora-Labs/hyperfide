@@ -250,6 +250,25 @@ The activation is BOOTSTRAP only when the deployment has no authority history. R
    The policy must admit storage.authority.adopt. Adoption validates the document's hash chain, requires the ACTIVE state and a positive primary receipt whose proof digest matches the last record, and never mints an epoch. A PENDING, tampered, forked or rolled-back document is refused.
 8. Service start. Start the control, provisioner and dispatch units. Each one checks that the epoch in its own journal is the primary's ACTIVE epoch. Every outcome line, and install-service.mjs's receipt, reports authority_activated read from the primary (null when the read itself failed). Remove the permit and the payload directory after activation; the permit is valid only for this operation id.
 
+### Greenfield first epoch
+
+A fresh deployment has no writer to isolate, and its runs, pools, sandboxes and boots can only be created behind an ACTIVE epoch. Its first epoch therefore uses a greenfield configuration: the operator proves that nothing exists, and the activation creates the accepted-intent rows in the same primary transaction as the epoch. The commands are the same as above and follow the scope of the isolation configuration. The driver never reads a signing key.
+
+1. Environment for the control uid, as in step 1 above, with these differences:
+   - HYPERFIDE_WRITER_ISOLATION_CONFIG names this deployment, the organisation and run of the accepted intent, `source_epoch: null`, `evidence_scope: "LIVE_PROVIDER"`, `"scope": "GREENFIELD"` and `"resources": []`. A greenfield configuration that names a resource is refused with ISOLATION_PERMIT_SCOPE.
+   - HF_LEGACY_WRITER_CONFIG_FILE is unset. A configured legacy writer is refused with ISOLATION_PERMIT_SCOPE.
+   - HYPERFIDE_GREENFIELD_INTENT_FILE: `{"schema_version":1,"scope":{"organisation_id","project_id","run_id","allowed_actions"},"metadata":...,"accepted_intent":...}`, with the metadata and accepted intent of the first `hyperfide bootstrap` input. HYPERFIDE_BOOTSTRAP_SOURCE_ROOT is the directory that holds the accepted spec source.
+   - HYPERFIDE_POOL_CONFIG names the same organisation. Every pool in it is inventoried through its provider admin transport. Only Railway has one, so HF_RAILWAY_CONFIG must be in live mode with its token set.
+2. Topology digest. `--topology` prints the greenfield topology: zero required writers, zero resources, legacy status NONE, the accepted-intent digest and every configured pool scope. Write its `topology_digest` into the isolation configuration and rerun it until it reports `"consistent":true`.
+3. to 5. Permit. `--permit-payload` writes claims with `"scope":"GREENFIELD"` and an empty resource allowlist. Signing, sealing and `--verify-permit` work as above. A greenfield permit is refused against a writer configuration, and a writer permit against a greenfield one, with ISOLATION_PERMIT_SCOPE.
+6. Activation. Use the same `migrate.mjs --activate-authority ... --fence-driver deploy/hyperfide/bootstrap-fence.mjs` command. Before any epoch is minted, the driver refuses a deployment with any authority history with ISOLATION_PERMIT_SCOPE. It then proves emptiness:
+   - the primary holds no sandboxes, sandbox_boots, provider_pools or runs rows for the organisation;
+   - a complete inventory of every configured pool shows no sandbox other than a DESTROYED one.
+
+   Anything present is refused with GREENFIELD_NOT_EMPTY. An incomplete or failed inventory, or a pool whose provider has no inventory transport, is refused with GREENFIELD_EMPTINESS_UNPROVEN. The fence journal keeps the evidence document (scope GREENFIELD, resource_count 0, legacy_status NONE, the empty writer list, each inventory and the database counts) next to a receipt of at most 30 seconds. The primary transaction inserts the BOOTSTRAP epoch, rechecks emptiness, and imports the organisation, project, repositories, source objects, spec revision and run through the accepted-intent importer, with the run pinned to the new epoch. Re-running the same operation id replays the committed epoch. Service-reachable storage.authority.v1 refuses a greenfield fence.
+7. Follower adoption and service start: steps 7 and 8 above.
+8. First operator. Run `hyperfide bootstrap --input FILE` with the same scope, metadata and accepted intent, the new epoch as `authority_epoch` and the operator credential. The import replays, and the first OPERATOR is issued.
+
 ## Preparation, secrets and execution
 
 A preparation receipt binds an exact repository commit/tree, prerequisites, manifest and execution profile. It must be complete before admitting a worker. Inject scoped environment and credential references through the approved provider/identity path. Do not log secret values, embed them in public manifests or share leader credentials with workers.

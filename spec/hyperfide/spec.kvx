@@ -2537,7 +2537,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.12]
 title = "Activate a greenfield first epoch under a proven-empty operator permit"
-status = "pending"
+status = "done"
 wave = 37
 requires = ["29.9", "29.11"]
 touches = ["deploy/hyperfide/bootstrap-fence.mjs", "services/hyperfide/src/recovery/bootstrap_fence.ts", "services/hyperfide/src/recovery/fencing.ts", "services/hyperfide/src/providers/placement.ts", "services/hyperfide/src/identity/credentials.ts", "services/hyperfide/src/storage/durability.ts", "services/hyperfide/src/spec/bootstrap.ts", "docs/hyperfide/operations.md", "tests/hyperfide/cases/tasks/29_12.py", "tests/hyperfide/registrations/29.12.json", "tests/hyperfide/manifests/tasks/29.12.json", "tests/hyperfide/registry.json"]

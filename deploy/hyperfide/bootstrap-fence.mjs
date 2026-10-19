@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /* Release fence driver for the first authority epoch. It builds the live
- * provider topology from protected configuration, verifies an operator-signed
- * isolation permit, and never reads a signing key. */
+ * provider topology from protected configuration (or, when the isolation
+ * configuration has scope GREENFIELD, the greenfield topology of an empty
+ * deployment), verifies an operator-signed isolation permit, and never reads a
+ * signing key. Every mode follows the configured scope. */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {constants} from 'node:fs';

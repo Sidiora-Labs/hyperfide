@@ -275,14 +275,22 @@ export interface IsolationTarget {
 export interface IsolationConfiguration {
  schema_version:1;deployment_id:string;organisation_id:string;run_id:string;source_epoch:string|null;topology_digest:string;
  evidence_scope:'LIVE_PROVIDER'|'COMPONENT_FIXTURE';maximum_operation_ms:number;proof_max_age_ms:number;resources:IsolationTarget[];
+ /** A greenfield first-epoch configuration names no writer resource. */
+ scope?:'GREENFIELD';
 }
 export async function isolationConfiguration(env:Readonly<NodeJS.ProcessEnv>):Promise<IsolationConfiguration>{
  const file=env.HYPERFIDE_WRITER_ISOLATION_CONFIG;if(!file?.startsWith('/'))fail('ISOLATION_CONFIG_REQUIRED','Protected writer topology configuration required');
  const stat=await fs.lstat(file);if(!stat.isFile()||stat.isSymbolicLink()||stat.size>1048576||(stat.mode&0o077)||(process.getuid&&stat.uid!==process.getuid()))fail('ISOLATION_CONFIG_INVALID','Writer topology must be bounded and owner-only');
- const c=obj(JSON.parse(await fs.readFile(file,'utf8')),['schema_version','deployment_id','organisation_id','run_id','source_epoch','topology_digest','evidence_scope','maximum_operation_ms','proof_max_age_ms','resources']);
+ const raw=JSON.parse(await fs.readFile(file,'utf8')),greenfield=raw!==null&&typeof raw==='object'&&Object.hasOwn(raw,'scope');
+ const c=obj(raw,['schema_version','deployment_id','organisation_id','run_id','source_epoch','topology_digest','evidence_scope','maximum_operation_ms','proof_max_age_ms','resources',...(greenfield?['scope']:[])]);
  if(c.schema_version!==1||!['LIVE_PROVIDER','COMPONENT_FIXTURE'].includes(String(c.evidence_scope)))fail('ISOLATION_CONFIG_INVALID','Invalid isolation schema/evidence scope');
  uuid(c.deployment_id);uuid(c.organisation_id);uuid(c.run_id);if(c.source_epoch!==null)uuid(c.source_epoch);dg(c.topology_digest);
  for(const k of ['maximum_operation_ms','proof_max_age_ms'])if(!Number.isSafeInteger(c[k])||(c[k] as number)<100||(c[k] as number)>30000)fail('ISOLATION_CONFIG_INVALID','Isolation deadline/evidence lifetime must be bounded to30seconds');
+ if(greenfield){
+  if(c.scope!=='GREENFIELD'||c.evidence_scope!=='LIVE_PROVIDER'||c.source_epoch!==null||!Array.isArray(c.resources))fail('ISOLATION_CONFIG_INVALID','A greenfield configuration has live provider evidence, no source epoch and an explicit resource list');
+  if(c.resources.length!==0)fail('ISOLATION_PERMIT_SCOPE','A greenfield configuration cannot name a writer resource');
+  return c as unknown as IsolationConfiguration;
+ }
  if(!Array.isArray(c.resources)||!c.resources.length||c.resources.length>10000)fail('ISOLATION_CONFIG_INVALID','Explicit writer resources required');
  const names=new Set<string>();
  for(const raw of c.resources){
