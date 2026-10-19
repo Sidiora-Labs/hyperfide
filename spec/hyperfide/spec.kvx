@@ -2424,7 +2424,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.6]
 title = "Seed worker slots, capacity accounts and scheduling policy"
-status = "pending"
+status = "done"
 wave = 36
 requires = ["29.2"]
 touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/providers/pools.ts", "services/hyperfide/migrations/0706-capacity-seeding.sql", "tests/hyperfide/cases/tasks/29_6.py", "tests/hyperfide/registrations/29.6.json", "tests/hyperfide/manifests/tasks/29.6.json"]
