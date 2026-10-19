@@ -2509,7 +2509,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.11]
 title = "Ship the bootstrap fence driver and the permit signing command"
-status = "pending"
+status = "done"
 wave = 36
 requires = ["29.1", "29.3"]
 touches = ["deploy/hyperfide/bootstrap-fence.mjs", "deploy/hyperfide/migrate.mjs", "services/hyperfide/src/providers/placement.ts", "services/hyperfide/src/recovery/fencing.ts", "services/hyperfide/src/recovery/bootstrap_fence.ts", "docs/hyperfide/operations.md", "tests/hyperfide/cases/tasks/29_11.py", "tests/hyperfide/registrations/29.11.json", "tests/hyperfide/manifests/tasks/29.11.json"]

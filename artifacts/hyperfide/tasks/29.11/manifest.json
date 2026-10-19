@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "campaign_id": "hyperfide-task-29.11-bootstrap-fence-component-v1",
+  "registered_variant": "task:29.11",
+  "scope": "task-component",
+  "case_ids": [
+    "V-068"
+  ],
+  "expected_assertion_ids": [
+    "bootstrap.topology-consistent",
+    "bootstrap.payload-canonical",
+    "bootstrap.seal-verified",
+    "bootstrap.unsigned-refused",
+    "bootstrap.forged-seal-refused",
+    "bootstrap.other-deployment-refused",
+    "bootstrap.other-topology-refused",
+    "bootstrap.other-operation-refused",
+    "bootstrap.expired-refused",
+    "bootstrap.tampered-digest-refused",
+    "bootstrap.no-epoch-before-activation",
+    "bootstrap.no-provider-effect-before-activation",
+    "bootstrap.activated",
+    "bootstrap.single-bootstrap-epoch",
+    "bootstrap.provider-destroyed",
+    "bootstrap.legacy-admission-disabled",
+    "bootstrap.control-adopts",
+    "bootstrap.provisioner-adopts",
+    "bootstrap.dispatch-adopts",
+    "bootstrap.followers-no-mint",
+    "bootstrap.no-signing-key-read"
+  ],
+  "approval": {
+    "approved": true,
+    "allowed_actions": []
+  },
+  "inputs": [
+    {
+      "path": "deploy/hyperfide/bootstrap-fence.mjs",
+      "sha256": "7f13f2c19b0ffde6160e648bc598b7b929f81ae21dc2d5dc7a350aafd4eb023b",
+      "size": 5367
+    },
+    {
+      "path": "deploy/hyperfide/migrate.mjs",
+      "sha256": "0147668cfa97c757c974b34c3d48341dc6ac4b16e0b95a6c8ae3893b9a365c9a",
+      "size": 9589
+    },
+    {
+      "path": "docs/hyperfide/operations.md",
+      "sha256": "05968868ae8157f83fc325b639bb2d423c9a81d08ea754fb9c040548670f4543",
+      "size": 39513
+    },
+    {
+      "path": "services/hyperfide/src/recovery/bootstrap_fence.ts",
+      "sha256": "1d2dc4d93c9266e33bf655f448cc2b708b969584eeef1861741fcdb3547a566f",
+      "size": 10148
+    },
+    {
+      "path": "services/hyperfide/src/recovery/fencing.ts",
+      "sha256": "a28f292cb5f418051c25e83035f9d72df64e22a6125882a79acaee27d2321eae",
+      "size": 42475
+    },
+    {
+      "path": "services/hyperfide/src/providers/placement.ts",
+      "sha256": "3490618b58090919e324135aedf9ca1fba063242dfcd1966235e33da7402b7e2",
+      "size": 59749
+    },
+    {
+      "path": "services/hyperfide/src/providers/pools.ts",
+      "sha256": "2a6b67367ee8f3b8190ddb23716a1a2f51cb38efadc2c174136ca87f2fa9abc7",
+      "size": 79385
+    },
+    {
+      "path": "services/hyperfide/src/providers/railway/reconciliation.ts",
+      "sha256": "0f11f489231b7463b0a3d7e23108175f3de879836af57343f293eb6333cb242b",
+      "size": 51064
+    },
+    {
+      "path": "services/hyperfide/src/providers/railway/preparation.ts",
+      "sha256": "d728a55f17e14a34d0ea6ce5e966acbfbf6750fbbb65dd88ce224f9cb65bb6c5",
+      "size": 27104
+    },
+    {
+      "path": "services/hyperfide/src/artifacts/destruction.ts",
+      "sha256": "049c65c369cf8e766937969a8a65ea397e422fa0398cbe0a2f554cffeae19e0b",
+      "size": 3887
+    },
+    {
+      "path": "services/hyperfide/src/migration/legacy.ts",
+      "sha256": "0f98b10cdde4a08caf8aab193f9fbb82a6283f75b9c190437827f073d7372e1c",
+      "size": 20560
+    },
+    {
+      "path": "services/hyperfide/src/identity/credentials.ts",
+      "sha256": "526da25c7cdf76508c1df6b4adf0bd1baf426a5f1f17a8db42f64a69465280bf",
+      "size": 41747
+    },
+    {
+      "path": "services/hyperfide/src/storage/durability.ts",
+      "sha256": "20c2a1a6eeec321923a015d6687946a3d2da3a7f25d0251e9617902a922d4f18",
+      "size": 32393
+    },
+    {
+      "path": "services/hyperfide/src/storage/authority_journal.ts",
+      "sha256": "ac37b3aafc16586d32e876a85fd5dca3d0183fc72ba162d68e7776856dbb371a",
+      "size": 24379
+    },
+    {
+      "path": "services/hyperfide/dist/recovery/bootstrap_fence.js",
+      "sha256": "3b1c43cb103efc231cc1cf1745c7d618ecb7dff458ebf34651b8b29ad2f9d0dc",
+      "size": 9682
+    },
+    {
+      "path": "services/hyperfide/dist/recovery/fencing.js",
+      "sha256": "130a4877a0d6eb43b398c6e69e28a57cf517586ed0dfe9a22cd62fbcef3d23b7",
+      "size": 43761
+    },
+    {
+      "path": "services/hyperfide/dist/providers/placement.js",
+      "sha256": "0f1fea04e681b85cdc87bab83e3ce9a79ac77fa2da381b893101077a4273ef12",
+      "size": 58430
+    },
+    {
+      "path": "services/hyperfide/dist/migration/legacy.js",
+      "sha256": "ba6fa6e5ab61631ccabbe0e2634abc233e5cc039c90fb2b2a489b94ab884a741",
+      "size": 21852
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/29_11.py",
+      "sha256": "e23bfe89a212283dcc4406595e90219648221d5c956eb11733869bac2ccd544a",
+      "size": 20832
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/29_3.py",
+      "sha256": "2c5aae74b8de31f2e61ca85ee7cfd38f05fb142a3ad2d1aae63f478885005360",
+      "size": 18365
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/8_2.py",
+      "sha256": "0f9529bef8215d87221e6125bc41e1eda454fd96255503b198f616c60db859c1",
+      "size": 17364
+    },
+    {
+      "path": "tests/hyperfide/support/identity_fixture.py",
+      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
+      "size": 30314
+    }
+  ],
+  "resources": [],
+  "seed": 1,
+  "policy": {
+    "cloud_provisioning": false,
+    "component_only": true,
+    "execution": "remote-only",
+    "frontier_calls": false
+  }
+}

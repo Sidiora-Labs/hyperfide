@@ -19,6 +19,18 @@ async function regular(filename,privateFile=false){
  if(!st.isFile()||st.isSymbolicLink()||privateFile&&(st.uid!==process.getuid?.()||(st.mode&0o077)!==0))fail('MIGRATION_JOB_INPUT_INVALID');
  return filename;
 }
+/** A relative driver must be a root-owned release file without group or world write inside the release root; otherwise a private 0600 module owned by the invoking user. */
+async function fenceDriver(root,value){
+ if(!value||/[\x00-\x1f]/.test(value))fail('MIGRATION_JOB_INPUT_INVALID');
+ if(path.isAbsolute(value))return regular(value,true);
+ const filename=path.resolve(root,value);
+ if(!filename.startsWith(root+path.sep))fail('MIGRATION_JOB_INPUT_INVALID');
+ const st=await fs.lstat(filename);
+ if(!st.isFile()||st.isSymbolicLink()||await fs.realpath(filename)!==filename)fail('MIGRATION_JOB_INPUT_INVALID');
+ const release=st.uid===0&&(st.mode&0o022)===0,operator=st.uid===process.getuid?.()&&(st.mode&0o077)===0;
+ if(!release&&!operator)fail('MIGRATION_JOB_INPUT_INVALID');
+ return filename;
+}
 async function main(){
  const options={};let action;
  for(let i=2;i<process.argv.length;i++){
@@ -41,11 +53,10 @@ async function main(){
    const journal=new FileExternalAuthorityJournal(process.env.HYPERFIDE_AUTHORITY_JOURNAL_DIR,i=>d.lookupAuthorityActivation(resources,i));
    let result;
    if(action==='--activate-authority'){
-    // Private operator code supplies production factory arguments, including a verified permit.
-    const driver=options['--fence-driver'];if(!driver||!path.isAbsolute(driver))fail('MIGRATION_JOB_INPUT_INVALID');
-    await regular(driver,true);
+    // The shipped release driver (relative to the release root) or a private operator module supplies the fence arguments, including a verified permit.
+    const driver=await fenceDriver(root,options['--fence-driver']);
     const {createBootstrapFenceArguments}=await import(pathToFileURL(driver));
-    result=await d.activateBootstrapAuthority(resources,deployment,journal,options['--operation-id'],await createBootstrapFenceArguments(resources),{timeoutMs:30000});
+    result=await d.activateBootstrapAuthority(resources,deployment,journal,options['--operation-id'],await createBootstrapFenceArguments(resources,{deployment_id:deployment,operation_id:options['--operation-id']}),{timeoutMs:30000});
    }else{
     const source=options['--journal-document'];if(!source||!path.isAbsolute(source))fail('MIGRATION_JOB_INPUT_INVALID');
     await regular(source,true);const info=await fs.stat(source);if(info.size>4*1024*1024)fail('MIGRATION_JOB_INPUT_INVALID');

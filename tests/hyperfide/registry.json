@@ -327,6 +327,10 @@
     "V-067": {
       "title": "Hyperfide acceptance case V-067",
       "full_assertion_ids": []
+    },
+    "V-068": {
+      "title": "Hyperfide acceptance case V-068",
+      "full_assertion_ids": []
     }
   },
   "suites": {
@@ -501,7 +505,8 @@
       "V-064",
       "V-065",
       "V-066",
-      "V-067"
+      "V-067",
+      "V-068"
     ]
   },
   "registration_glob": "registrations/**/*.json"
