@@ -30,6 +30,7 @@
     "entrypoint.bundled-native-helper-actually-executes",
     "entrypoint.native-actually-loads-bundled-curl-and-crypto",
     "entrypoint.native-transitive-dependencies-use-bundled-bytes",
+    "entrypoint.release-bundles-no-glibc-member",
     "entrypoint.signed-proof-inspector-and-fixed-host-git-inventory",
     "entrypoint.refuses-unowned-executable",
     "entrypoint.explicit-legacy-adoption-byte-backup",
