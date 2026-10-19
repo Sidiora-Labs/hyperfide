@@ -7,6 +7,7 @@
     "V-062"
   ],
   "assertion_ids": [
+    "policy.derivation",
     "policy.control.validate",
     "policy.control.coverage",
     "policy.control.admission",
@@ -40,18 +41,19 @@
     "grants.dispatch.dml",
     "grants.dispatch.no-migration",
     "grants.dispatch.unsafe-refused",
-    "grants.membership-refused",
+    "grants.privileged-runtime-refused",
     "grants.elevated-role-refused",
-    "grants.owner-refused"
+    "grants.membership-refused",
+    "grants.owner-refused",
+    "grants.pg-control-operator-refused",
+    "grants.pg-control-superuser-granted"
   ],
   "argv": [
     "python3",
     "tests/hyperfide/cases/tasks/29_5.py"
   ],
-  "timeout_seconds": 180,
-  "required_env": [
-    "DATABASE_URL"
-  ],
+  "timeout_seconds": 300,
+  "required_env": [],
   "fixtures": [],
   "resources": [],
   "source_files": [
@@ -671,6 +673,7 @@
     "services/hyperfide/migrations/0252-migration-proof.sql",
     "services/hyperfide/migrations/0704-graph-query-parity.sql",
     "services/hyperfide/migrations/0705-repair-counterfactual.sql",
+    "services/hyperfide/migrations/0706-capacity-seeding.sql",
     "services/hyperfide/package-lock.json",
     "services/hyperfide/package.json",
     "services/hyperfide/src/agents/admission.ts",

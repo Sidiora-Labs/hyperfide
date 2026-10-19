@@ -2399,7 +2399,7 @@ do_3 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.5]
 title = "Ship per-role run policies and the operator grant script"
-status = "pending"
+status = "done"
 wave = 35
 requires = []
 touches = ["deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/provisioner.example.json", "deploy/hyperfide/policies/dispatch.example.json", "deploy/hyperfide/grants.sql", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/registrations/29.5.json", "tests/hyperfide/manifests/tasks/29.5.json"]

@@ -1,12 +1,13 @@
 {
   "schema_version": 1,
-  "campaign_id": "hyperfide-task-29.5-role-policies-grants-v1-requal-a44301e96065-requal-a923d185cd03-requal-993c90fcfec0",
+  "campaign_id": "hyperfide-task-29.5-role-policies-grants-v2",
   "registered_variant": "task:29.5",
   "scope": "task-component",
   "case_ids": [
     "V-062"
   ],
   "expected_assertion_ids": [
+    "policy.derivation",
     "policy.control.validate",
     "policy.control.coverage",
     "policy.control.admission",
@@ -40,9 +41,12 @@
     "grants.dispatch.dml",
     "grants.dispatch.no-migration",
     "grants.dispatch.unsafe-refused",
-    "grants.membership-refused",
+    "grants.privileged-runtime-refused",
     "grants.elevated-role-refused",
-    "grants.owner-refused"
+    "grants.membership-refused",
+    "grants.owner-refused",
+    "grants.pg-control-operator-refused",
+    "grants.pg-control-superuser-granted"
   ],
   "approval": {
     "approved": true,
@@ -51,8 +55,8 @@
   "inputs": [
     {
       "path": "deploy/hyperfide/grants.sql",
-      "sha256": "6d715703102d1ba1281b09de5a38c1087cf9fa0d928ad93ccfe1ca87ca6aab8d",
-      "size": 2479
+      "sha256": "b0b576763a5edd5eff3238551d30209471d4db3b2bc4343333508c00ebd4117c",
+      "size": 3668
     },
     {
       "path": "deploy/hyperfide/policies/control.example.json",
@@ -61,8 +65,8 @@
     },
     {
       "path": "deploy/hyperfide/policies/dispatch.example.json",
-      "sha256": "14d0964a13cf48d073367645477e64cc77df68123327cc1148cd0537f7c2773f",
-      "size": 16713
+      "sha256": "f7b90f89dc2706567f1cd4a9b12f27f988870f286223582bdce4262542001955",
+      "size": 14910
     },
     {
       "path": "deploy/hyperfide/policies/provisioner.example.json",
@@ -2786,13 +2790,13 @@
     },
     {
       "path": "services/hyperfide/dist/storage/durability.js",
-      "sha256": "46bd8005f5acbf2705727db00edb76276f6efda0176e2b933203bae1ddb0ce2c",
-      "size": 33268
+      "sha256": "4123ef3eddb5427d039771c38fcfa45c7f5ee029451d5835adb654fa541aa56d",
+      "size": 33622
     },
     {
       "path": "services/hyperfide/dist/storage/durability.js.map",
-      "sha256": "41311236928f9d9ae29c1588b5c9c851295610e93e406f636cbdefe827f4e588",
-      "size": 28131
+      "sha256": "b90242eb924937d5594daef3abbe51cfccfb99e24d19c213118a8b361a0a87a2",
+      "size": 28371
     },
     {
       "path": "services/hyperfide/dist/storage/recovery_probes.d.ts",
@@ -3128,6 +3132,11 @@
       "path": "services/hyperfide/migrations/0705-repair-counterfactual.sql",
       "sha256": "db8666f358216d33436dcb9c10fc1b47145c574157794e21d639d8185808997f",
       "size": 1376
+    },
+    {
+      "path": "services/hyperfide/migrations/0706-capacity-seeding.sql",
+      "sha256": "3d1143c001709d474c90072ebf41e9382fca837c32684a6465b71d2c40c208c8",
+      "size": 1588
     },
     {
       "path": "services/hyperfide/package-lock.json",
@@ -3856,8 +3865,8 @@
     },
     {
       "path": "services/hyperfide/src/storage/durability.ts",
-      "sha256": "6f32286b62300bfc27bac52bd8aa696183582ac859c82366fa8ab73cad2cfc79",
-      "size": 31670
+      "sha256": "e22c8110758fc97d77547045ceba192c97b07dfed5669aa1c6fc25e759e9a36b",
+      "size": 32010
     },
     {
       "path": "services/hyperfide/src/storage/recovery_probes.ts",
@@ -3916,8 +3925,8 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/29_5.py",
-      "sha256": "07cfd56ff12c47ce45092cd6f286e77ff92fb47590e07aabf8797f3decbbb109",
-      "size": 11901
+      "sha256": "7c01d207e2530aba70a744c3534d36e06ad7c65ebe46a8529ab21c52ce1f51e1",
+      "size": 18879
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
