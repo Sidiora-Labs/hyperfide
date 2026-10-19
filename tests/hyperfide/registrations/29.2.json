@@ -8,6 +8,9 @@
   ],
   "assertion_ids": [
     "provisioner.unit.https",
+    "provisioner.unit.identity-origin",
+    "provisioner.boot.durable-start",
+    "provisioner.https.unauthenticated",
     "provisioner.boot.running",
     "provisioner.https.configure",
     "provisioner.https.attest-capacity",
@@ -17,6 +20,8 @@
     "provisioner.boot.consumes-intent",
     "provisioner.start.concurrent-idempotent",
     "provisioner.restart.no-duplicate-effects",
+    "provisioner.restart.durable-resume",
+    "provisioner.stop.durable-new-start",
     "provisioner.scope.provider.pools.configure",
     "provisioner.scope.provider.pools.attest-capacity",
     "provisioner.scope.provider.pools.observe",
@@ -33,7 +38,11 @@
     "provisioner.credentials.key.symlink",
     "provisioner.credentials.key.hardlink",
     "provisioner.credentials.wrong-role",
-    "provisioner.credentials.wrong-key"
+    "provisioner.credentials.wrong-key",
+    "provisioner.mode.daemon-refused",
+    "provisioner.identity.placeholder-origin-refused",
+    "provisioner.boot.foreign-owner-refused",
+    "provisioner.boot.stale-owner-takeover"
   ],
   "argv": [
     "python3",
@@ -49,6 +58,8 @@
   ],
   "resources": [],
   "source_files": [
+    "deploy/hyperfide/identity/provisioner-identity.example.json",
+    "deploy/hyperfide/identity/provisioner-worker.example.json",
     "deploy/hyperfide/provisioner.service",
     "services/hyperfide/components/1.4.json",
     "services/hyperfide/components/11.1.json",
@@ -223,6 +234,7 @@
     "services/hyperfide/migrations/0014-enrollment.sql",
     "services/hyperfide/migrations/0032-execution-packets.sql",
     "services/hyperfide/migrations/0034-child-sessions.sql",
+    "services/hyperfide/migrations/0707-provisioner-worker-starts.sql",
     "services/hyperfide/package-lock.json",
     "services/hyperfide/package.json",
     "services/hyperfide/src/artifacts/objects.ts",

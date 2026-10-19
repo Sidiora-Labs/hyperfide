@@ -107,11 +107,17 @@ Every entrypoint (control.js, provisioner.js, dispatch.js) accepts exactly these
 | --spec-revision REV | Required. Must equal the revision approved in the policy. |
 | --components DIR | Component fragment directory (default services/hyperfide/components). |
 | --module-root DIR | Built module root (default services/hyperfide/dist). |
-| --mode stdio\|https\|daemon | Default stdio (bounded JSONL on stdin/stdout). https and daemon print a ready event on stderr and run until SIGTERM/SIGINT. |
+| --mode stdio\|https\|daemon | Default stdio (bounded JSONL on stdin/stdout). https and daemon print a ready event on stderr and run until SIGTERM/SIGINT. The provisioner refuses daemon with TRANSPORT_CONFIG. |
 | --host, --port | HTTPS listener address (host default 127.0.0.1). |
 | --tls-cert, --tls-key | HTTPS certificate and private key. |
 
 HTTPS mode refuses with AUTH_REQUIRED unless the 14.1 identity component is registered, and refuses with TRANSPORT_CONFIG when HYPERFIDE_MIGRATION_JOB=1. HF_SERVICE_MAX_REQUEST_BYTES and HF_SERVICE_MAX_RESPONSE_BYTES set protocol byte limits (default 1 MiB, range 256 bytes to 64 MiB; HTTPS is further capped at 1 MiB). These are configured bounds, not measured capacity.
+
+The provisioner unit (deploy/hyperfide/provisioner.service) runs the same authenticated HTTPS transport as the control and dispatch units. Its listener comes from HYPERFIDE_PROVISIONER_LISTEN_HOST and HYPERFIDE_PROVISIONER_LISTEN_PORT in /etc/hyperfide/provisioner.env (template deploy/hyperfide/env/provisioner.env.example), with /etc/hyperfide/provisioner.crt and /etc/hyperfide/provisioner.key. Its identity configuration, HF_IDENTITY_CONFIG_FILE=/etc/hyperfide/provisioner-identity.json (template deploy/hyperfide/identity/provisioner-identity.example.json), must carry the canonical https origin that callers sign for, naming the certificate's host and the listener port; the placeholder origin refuses startup with COMPONENT_LOAD_FAILED (Invalid HTTPS origin) until it is replaced. Every provisioner-gated action, including provider.pools.configure, provider.pools.attest-capacity, provider.pools.observe, provider.intents.execute and provider.intents.reconcile, is reachable only through this listener and only for principals whose granted actions include it.
+
+The provisioner worker starts at service boot without a provider.worker.start call. The service signs a provider.worker.start invocation for itself with the key named in HF_PROVISIONER_EXECUTOR_CONFIG_FILE=/etc/hyperfide/provisioner-worker.json (template deploy/hyperfide/identity/provisioner-worker.example.json: schema_version 1, exactly one principal with credential_id and key_path, concurrency) and authenticates it through the 14.1 identity authority, as the runner executor does. The configuration file and the key it names must be absolute, owned by the service user, mode 0600, single-link regular files and not symlinks; anything else, a principal that is not the current ACTIVE PROVISIONER for the run's authority epoch, or a key that does not match it refuses startup with PROVISIONER_EXECUTOR_CONFIG_INVALID or PROVISIONER_EXECUTOR_IDENTITY_MISMATCH before the listener opens. Migration 0707-provisioner-worker-starts must be applied first (PROVISIONER_WORKER_SCHEMA_REQUIRED otherwise).
+
+Worker starts are durable per run in hyperfide.provisioner_worker_starts. A restart resumes the recorded start (resume_count increases, start_count and started_at do not); repeated provider.worker.start calls against a running worker change nothing. provider.worker.stop records STOPPED, so the next boot is a new start. A STARTED record owned by another current PROVISIONER credential refuses startup with WORKER_ALREADY_RUNNING; revoke or expire that credential before rotating the worker key. provider.worker.status reports the durable record beside the live loop state.
 
 Observed refusals from the built entrypoint in a task sandbox (exit code 1):
 
@@ -252,6 +258,7 @@ Rollback restores the documented previous usable state only for reversible steps
 | Service refuses startup | Approval/revision/role, linked fragment, actual dependency capability and required schema. |
 | INVALID_ARGS or POLICY_INVALID at startup | Only the flags in the entrypoint table are accepted; --policy must name a readable regular JSON file of at most 1 MiB. |
 | AUTH_REQUIRED or TRANSPORT_CONFIG with --mode https | 14.1 identity component registered; HYPERFIDE_MIGRATION_JOB unset; TLS certificate/key readable. |
+| Provisioner refuses startup with PROVISIONER_EXECUTOR_CONFIG_INVALID, PROVISIONER_EXECUTOR_IDENTITY_MISMATCH or WORKER_ALREADY_RUNNING | Worker configuration and key are 0600, single-link, service-owned regular files; the credential is the current ACTIVE PROVISIONER with the matching key; no other current credential owns the run's durable worker start. |
 | DATABASE_CONFIG_INVALID or DATABASE_CONFIG_CONFLICT | Role-specific primary URL or DATABASE_URL present; HYPERFIDE_MIGRATION_DATABASE_URL for migrations; bounded PG settings in range; one configuration per process. |
 | ALIAS_CONFLICT during rename migration | Legacy CG_*/CODIFY_* and HYPERFIDE_* variables set to different values. |
 | Provider returns UNSUPPORTED | Requested capability against the Railway/Blaxel table above; no fallback emulation exists. |

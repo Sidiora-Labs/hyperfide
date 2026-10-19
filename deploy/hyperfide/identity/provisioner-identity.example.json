@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "origin": "https://REPLACE_WITH_PROVISIONER_TLS_NAME:REPLACE_WITH_PORT",
+  "clock_skew_seconds": 30,
+  "grant_ttl_seconds": 300,
+  "credential_ttl_seconds": 3600,
+  "principals": []
+}

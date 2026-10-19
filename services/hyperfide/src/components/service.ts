@@ -113,6 +113,8 @@ export async function runService(role: ServiceRole, args = process.argv.slice(2)
     await registry.load(config['--components'] ?? path.join(packageRoot, 'components'), config['--module-root'] ?? path.join(packageRoot, 'dist'));
     const mode=config['--mode']??'stdio';
     if(!['stdio','https','daemon'].includes(mode))throw new FoundationError('INVALID_ARGS','Mode must be stdio, https or daemon');
+    // Provider actions are reachable only through an authenticated listener; a transportless provisioner is refused.
+    if(role==='provisioner'&&mode==='daemon')throw new FoundationError('TRANSPORT_CONFIG','The provisioner requires the authenticated HTTPS transport');
     let identity;
     if(registry.hasComponent('14.1')) {
       identity=registry.resolveCapability('14.1','identity.transport',isIdentityAuthority);

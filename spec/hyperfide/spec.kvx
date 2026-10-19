@@ -2357,7 +2357,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.2]
 title = "Give the provisioner a transport and self-start its worker"
-status = "pending"
+status = "done"
 wave = 35
 requires = []
 touches = ["services/hyperfide/src/components/service.ts", "services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/providers/worker.ts", "deploy/hyperfide/provisioner.service", "tests/hyperfide/cases/tasks/29_2.py", "tests/hyperfide/registrations/29.2.json", "tests/hyperfide/manifests/tasks/29.2.json"]

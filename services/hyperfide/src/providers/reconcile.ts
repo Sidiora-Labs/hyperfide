@@ -651,7 +651,7 @@ export function createComponent(context:ComponentContext):Component {
     'provider.orphans.list':guarded(async(input,c,database)=>{const i=obj(input,['pool_id']);await currentPool(database,c,uuid(i.pool_id));return(await database.query('SELECT native_sandbox_id,state,ownership_evidence_digest,first_observed_at,last_observed_at FROM hyperfide.provider_orphans WHERE organisation_id=$1 AND pool_id=$2',[c.organisation_id,i.pool_id])).rows;}),
     'provider.worker.start':workerAction((w,invocation)=>{if(invocation.principal.role!=='PROVISIONER')fail('AUTH_SCOPE_DENIED','Provider effects require the provisioner principal');return w.start(invocation);}),
     'provider.worker.status':workerAction((w,invocation)=>{if(!['OPERATOR','COORDINATOR','PROVISIONER'].includes(invocation.principal.role))fail('AUTH_SCOPE_DENIED','Provisioner readiness requires coordinator authority');return w.status(invocation);}),
-    'provider.worker.stop':workerAction(async(w,invocation)=>{if(!['OPERATOR','PROVISIONER'].includes(invocation.principal.role))fail('AUTH_SCOPE_DENIED','Stopping provider effects requires operator or provisioner authority');await w.stop();return w.status(invocation);}),
+    'provider.worker.stop':workerAction(async(w,invocation)=>{if(!['OPERATOR','PROVISIONER'].includes(invocation.principal.role))fail('AUTH_SCOPE_DENIED','Stopping provider effects requires operator or provisioner authority');return w.halt(invocation);}),
   },close:async()=>{await worker?.stop();}};
 }
 
