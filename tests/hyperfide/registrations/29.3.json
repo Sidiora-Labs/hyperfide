@@ -19,6 +19,8 @@
     "fence.binding.target-digest-tamper",
     "fence.binding.binding-tamper",
     "fence.binding.no-repeat-destruction",
+    "fence.binding.observation-agrees",
+    "fence.binding.observation-tamper",
     "fence.binding.preflight-unregistered"
   ],
   "argv": [

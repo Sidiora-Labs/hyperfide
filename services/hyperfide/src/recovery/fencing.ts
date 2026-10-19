@@ -284,7 +284,7 @@ export interface ProviderWriterObservationCapability {
 }
 /** Observation has separate identity and capability. It cannot prepare or repeat isolation. */
 export function createExternalWriterObserver(config:ExternalFenceTopology,providers:ProviderWriterObservationCapability,legacy:Pick<LegacyWriterBackend,'observeIsolation'>,journal:FileExternalFenceJournal,ownedHost?:ProviderWriterObservationCapability){
- const trusted=topology(config),topologyDigest=hash(trusted);
+ const trusted=topology(config),topologyDigest=externalFenceTopologyDigest(trusted);
  if(trusted.evidence_scope!=='LIVE_PROVIDER')fail('EXTERNAL_FENCE_EVIDENCE_SCOPE_MISMATCH','Production observation requires live configured resources');
  if(!providers||typeof providers.observeConfiguredResource!=='function'||!legacy||typeof legacy.observeIsolation!=='function'||!(journal instanceof FileExternalFenceJournal))fail('EXTERNAL_FENCE_BACKEND_UNAVAILABLE','Actual read-only provider observer and existing journal are required');
  return Object.freeze({observe:async(permit:VerifiedWriterObservationPermit,signal:AbortSignal):Promise<ExternalFenceObservation>=>{
