@@ -258,6 +258,9 @@ export async function activateBootstrapAuthority(resources:ServiceResources,depl
 export async function readAuthorityActivated(resources:ServiceResources,deploymentId:string):Promise<boolean>{
  if(!uuid.test(deploymentId))throw new FoundationError('AUTHORITY_CONFIG_INVALID','Trusted deployment identity is required');
  return (await resources.observe({preferReplica:false},async session=>{
+  const probe=(await session.query<{recovery:boolean;migrated:boolean}>("SELECT pg_is_in_recovery() AS recovery,to_regclass('hyperfide.authority_epochs') IS NOT NULL AS migrated")).rows[0];
+  if(probe?.recovery!==false)throw new FoundationError('PRIMARY_REQUIRED','Authority state requires the primary');
+  if(!probe.migrated)return false;
   const result=await session.query<{active:boolean;recovery:boolean}>("SELECT EXISTS(SELECT 1 FROM hyperfide.authority_epochs WHERE deployment_id=$1 AND state='ACTIVE') AS active,pg_is_in_recovery() AS recovery",[deploymentId]);
   if(result.rows[0]?.recovery!==false)throw new FoundationError('PRIMARY_REQUIRED','Authority state requires the primary');
   return result.rows[0]!.active;
