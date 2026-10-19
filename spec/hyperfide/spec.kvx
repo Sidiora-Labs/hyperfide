@@ -2331,7 +2331,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.1]
 title = "Activate the first authority epoch and let every role adopt it"
-status = "pending"
+status = "done"
 wave = 35
 requires = []
 touches = ["services/hyperfide/src/storage/durability.ts", "services/hyperfide/src/storage/authority_journal.ts", "services/hyperfide/src/recovery/fencing.ts", "deploy/hyperfide/migrate.mjs", "deploy/hyperfide/install-service.mjs", "tests/hyperfide/cases/tasks/29_1.py", "tests/hyperfide/registrations/29.1.json", "tests/hyperfide/manifests/tasks/29.1.json"]

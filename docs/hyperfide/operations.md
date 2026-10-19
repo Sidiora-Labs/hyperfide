@@ -149,6 +149,22 @@ Migration credentials are dedicated to the migration operator. Task 4.4 owns asc
 
 Primary transactions use the shared 4.2 gateway. Identity guards run inside each actual transaction attempt and are repeated after retry. A lost COMMIT acknowledgement is an unknown outcome: reconcile the durable operation identity before another external side effect. Do not infer safe failover from an epoch row or a caller boolean; production promotion requires actual old-primary/control-writer fencing.
 
+## First authority epoch
+
+Every ordinary control, provisioner and dispatch service refuses to start until an ACTIVE epoch exists for HYPERFIDE_DEPLOYMENT_ID in the primary and the same epoch is current in that unit's own authority journal (HYPERFIDE_AUTHORITY_JOURNAL_DIR, a private directory owned by the unit's uid). A fresh install obtains its first epoch once, through the migration operator job, after `--apply` has run:
+
+    node deploy/hyperfide/migrate.mjs --activate-authority --release-root RELEASE --policy-file POLICY --spec-revision REV --operation-id UUID --fence-driver DRIVER
+
+DATABASE_URL, HYPERFIDE_MIGRATION_DATABASE_URL, HYPERFIDE_DEPLOYMENT_ID and HYPERFIDE_AUTHORITY_JOURNAL_DIR (the control journal) must be set, and the policy must admit storage.authority.activate for the control role. DRIVER is a private operator module (absolute path, owned, mode 0600) exporting createBootstrapFenceArguments(), which returns the createExternalWriterFence arguments: the trusted LIVE_PROVIDER writer topology, the provider isolation backend, the legacy writer observer, the fence journal and a verified isolation permit. The job builds the fence itself, so a component-fixture topology (EXTERNAL_FENCE_EVIDENCE_SCOPE_MISMATCH), an unverified permit (ISOLATION_PERMIT_REQUIRED) and a receipt whose validity exceeds 30 seconds or has expired at primary admission (EXTERNAL_FENCE_INVALID, EXTERNAL_FENCE_EXPIRED) are refused. Service code that reaches activation through storage.authority.v1 accepts only a fence built by createExternalWriterFence.
+
+The activation is BOOTSTRAP only when the deployment has no authority history. Re-running the same operation id replays the committed epoch without minting; any other bootstrap while an epoch exists, including a revoked one, is refused with AUTHORITY_BOOTSTRAP_EXISTS. A lost publication is AUTHORITY_ACTIVATION_UNKNOWN (exit 75): rerun the same operation id to reconcile, never a new one.
+
+The provisioner and dispatch units run as different uids and cannot share the control journal. Copy the committed document `<HYPERFIDE_AUTHORITY_JOURNAL_DIR>/<HYPERFIDE_DEPLOYMENT_ID>.authority.json` to a file owned by the follower's uid with mode 0600, then, as that uid with its own journal directory:
+
+    node deploy/hyperfide/migrate.mjs --adopt-authority --release-root RELEASE --policy-file POLICY --spec-revision REV --operation-id UUID --journal-document FILE
+
+The policy must admit storage.authority.adopt. Adoption validates the document's hash chain, requires the ACTIVE state and a positive primary receipt whose proof digest matches the last record, and never mints an epoch. A PENDING, tampered, forked or rolled-back document is refused. Every outcome line, and install-service.mjs's receipt, reports authority_activated read from the primary (null when the read itself failed).
+
 ## Preparation, secrets and execution
 
 A preparation receipt binds an exact repository commit/tree, prerequisites, manifest and execution profile. It must be complete before admitting a worker. Inject scoped environment and credential references through the approved provider/identity path. Do not log secret values, embed them in public manifests or share leader credentials with workers.

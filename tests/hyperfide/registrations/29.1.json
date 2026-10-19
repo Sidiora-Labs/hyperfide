@@ -34,7 +34,14 @@
     "authority.cli-active",
     "authority.cli-inactive",
     "authority.cli-read-error",
-    "authority.followers-no-mint"
+    "authority.followers-no-mint",
+    "authority.fixture-fencer-refused",
+    "authority.control-refuses-before-adoption",
+    "authority.provisioner-refuses-before-adoption",
+    "authority.dispatch-refuses-before-adoption",
+    "authority.control-starts",
+    "authority.provisioner-starts",
+    "authority.dispatch-starts"
   ],
   "argv": [
     "python3",

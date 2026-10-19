@@ -9,7 +9,7 @@ import {StorageError,assertPrimaryTransaction,bounded,deadlineFrom} from './tran
 import {FileExternalAuthorityJournal} from './authority_journal.js';
 import type {ExternalAuthorityJournal,ExternalAuthorityAttestation} from './authority_journal.js';
 import type {PrimaryTransaction,QuerySession,TransactionOptions} from './transactions.js';
-import {createExternalWriterFence} from '../recovery/fencing.js';
+import {createExternalWriterFence,isLiveProviderWriterFence} from '../recovery/fencing.js';
 
 export interface MigrationDefinition {version:number;name:string;checksum:string;sql:string}
 const DIRECTORY=fileURLToPath(new URL('../../migrations/',import.meta.url));
@@ -303,9 +303,11 @@ export async function createComponent(context:ComponentContext):Promise<Componen
   await assertExternalAuthorityCurrent(context.resources,journal,{deployment_id:deployment,signal:context.signal});
  }
  const store=()=>{if(!deployment)throw new FoundationError('AUTHORITY_CONFIG_INVALID','Deployment identity is not configured');return new AuthorityStore(context.resources,deployment,journal);};
+ // Service-reachable activation never accepts component-fixture or hand-built fencers.
+ const live=(fencer:ExternalWriterFence):ExternalWriterFence=>{if(!isLiveProviderWriterFence(fencer))throw new FoundationError('EXTERNAL_FENCE_EVIDENCE_SCOPE_MISMATCH','Authority activation requires a live provider writer fence');return fencer;};
  const authority=Object.freeze({
-  activate:(input:{operation_id:string;expected_previous_epoch:string|null},fencer:ExternalWriterFence,options:TransactionOptions={})=>store().activate(input,fencer,options),
-  activateRestored:(input:{operation_id:string;expected_external_epoch:string;expected_database_epoch:string|null},fencer:ExternalWriterFence,options:TransactionOptions={})=>store().activateRestored(input,fencer,options),
+  activate:async(input:{operation_id:string;expected_previous_epoch:string|null},fencer:ExternalWriterFence,options:TransactionOptions={})=>store().activate(input,live(fencer),options),
+  activateRestored:async(input:{operation_id:string;expected_external_epoch:string;expected_database_epoch:string|null},fencer:ExternalWriterFence,options:TransactionOptions={})=>store().activateRestored(input,live(fencer),options),
   assertCurrent:(tx:PrimaryTransaction,scope:AuthorityScope)=>store().assertCurrent(tx,scope),
   assertExternalCurrent:(options:{timeoutMs?:number;signal?:AbortSignal}={})=>{
    if(!deployment||!journal)throw new FoundationError('EXTERNAL_JOURNAL_REQUIRED','Non-restored current authority is required');

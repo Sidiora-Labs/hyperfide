@@ -203,6 +203,7 @@ function topology(value:ExternalFenceTopology):ExternalFenceTopology{
  if(covered.size!==value.required_writer_ids.length)fail('EXTERNAL_FENCE_CONFIG_INCOMPLETE','Every configured writer route must have an actual isolation backend');
  return structuredClone(value);
 }
+const liveProviderFences=new WeakSet<object>();
 /** Construct only in trusted deployment code. Request JSON cannot choose topology, backends, or journal paths. */
 export function externalFenceTopologyDigest(config:ExternalFenceTopology):string{
  const trusted=topology(config);
@@ -235,7 +236,7 @@ export function createExternalWriterFence(config:ExternalFenceTopology,providers
   time(v.observed_at);
   if(isolated){if(v.admission_disabled!==true||v.writable_fds!==0||v.writable_shared_mappings!==0||!Number.isSafeInteger(v.read_only_aliases)||v.read_only_aliases!<1||!name(v.isolated_writer)||!v.expires_at)fail('EXTERNAL_FENCE_LEGACY_UNVERIFIED','Read-only storage and writer quiescence were not actually observed');checkFresh(v.observed_at,v.expires_at,Date.now());if(!trusted.required_writer_ids.includes(v.isolated_writer!)||!trusted.resources.some(r=>r.writer_ids.includes(v.isolated_writer!)))fail('EXTERNAL_FENCE_CONFIG_INCOMPLETE','Legacy namespace observations require an actual declared physical isolation boundary for that writer')}
  };
- return Object.freeze({isolate:async(input:{deployment_id:string;operation_id:string;source_epoch:string|null;signal?:AbortSignal})=>{
+ const fence:ExternalWriterFence=Object.freeze({isolate:async(input:{deployment_id:string;operation_id:string;source_epoch:string|null;signal?:AbortSignal})=>{
   if(input.deployment_id!==trusted.deployment_id||input.source_epoch!==trusted.source_epoch||!uuid(input.operation_id))fail('EXTERNAL_FENCE_SCOPE_MISMATCH','Activation does not match the trusted deployment source epoch');
   input.signal?.throwIfAborted();
   const authorization=await authorize(input);
@@ -267,7 +268,10 @@ export function createExternalWriterFence(config:ExternalFenceTopology,providers
    await recordCompletion(completed);return completed;
   });
  }});
+ liveProviderFences.add(fence);return fence;
 }
+/** True only for a fence built here from LIVE_PROVIDER topology; plain objects and fixture fencers never qualify. */
+export function isLiveProviderWriterFence(value:unknown):value is ExternalWriterFence{return object(value)&&liveProviderFences.has(value)}
 
 export interface ExternalFenceObservation {
  schema_version:1;deployment_id:string;operation_id:string;source_epoch:string|null;topology_digest:string;

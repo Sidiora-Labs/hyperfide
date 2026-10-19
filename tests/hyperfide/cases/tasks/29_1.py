@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Component-only authority activation; simulated backends do not qualify providers."""
-import importlib.util,json,os,shutil,subprocess,tempfile,uuid
+import importlib.util,json,os,select,shutil,signal,subprocess,tempfile,time,uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
 spec=importlib.util.spec_from_file_location('identity29',ROOT/'tests/hyperfide/support/identity_fixture.py')
 identity=importlib.util.module_from_spec(spec);spec.loader.exec_module(identity)
-IDS=['component-wired','bootstrap','replay','single-epoch','second-bootstrap','revoked-bootstrap','fixture-refused','unbranded-refused','expiry-bound','expired-refused','control-adopts','provisioner-adopts','dispatch-adopts','pending-refused','tamper-refused','proof-refused','owner-private','hardlink-refused','stored-active','stored-inactive','read-error','tooling-store-read','cli-activation','cli-adoption','cli-active','cli-inactive','cli-read-error','followers-no-mint']
+IDS=['component-wired','bootstrap','replay','single-epoch','second-bootstrap','revoked-bootstrap','fixture-refused','unbranded-refused','expiry-bound','expired-refused','control-adopts','provisioner-adopts','dispatch-adopts','pending-refused','tamper-refused','proof-refused','owner-private','hardlink-refused','stored-active','stored-inactive','read-error','tooling-store-read','cli-activation','cli-adoption','cli-active','cli-inactive','cli-read-error','followers-no-mint','fixture-fencer-refused','control-refuses-before-adoption','provisioner-refuses-before-adoption','dispatch-refuses-before-adoption','control-starts','provisioner-starts','dispatch-starts']
 DRIVER=r"""
 import fs from 'node:fs/promises';
 import {randomUUID,generateKeyPairSync} from 'node:crypto';
@@ -33,7 +33,7 @@ export async function createBootstrapFenceArguments(){
 PROBE=r"""
 import fs from 'node:fs/promises';import {randomUUID} from 'node:crypto';
 import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {AuthorityStore,activateBootstrapAuthority,lookupAuthorityActivation,assertExternalAuthorityCurrent,readAuthorityActivated} from './services/hyperfide/dist/storage/durability.js';
+import {AuthorityStore,activateBootstrapAuthority,lookupAuthorityActivation,assertExternalAuthorityCurrent,readAuthorityActivated,createComponent} from './services/hyperfide/dist/storage/durability.js';
 import {FileExternalAuthorityJournal} from './services/hyperfide/dist/storage/authority_journal.js';
 import {createExternalWriterFence} from './services/hyperfide/dist/recovery/fencing.js';
 const r=createResourceContainer({role:process.env.HF29_ROLE??'control',env:process.env,signal:new AbortController().signal}),deployment=process.env.HYPERFIDE_DEPLOYMENT_ID,root=process.env.HF29_ROOT;
@@ -50,6 +50,10 @@ try{
  out['second-bootstrap']=await refused(()=>activateBootstrapAuthority(r,deployment,journal,randomUUID(),args),'AUTHORITY_BOOTSTRAP_EXISTS');
  const epochs=(await r.observe({preferReplica:false},s=>s.query('SELECT activation_kind FROM hyperfide.authority_epochs WHERE deployment_id=$1',[deployment]))).value.rows;
  out['single-epoch']=epochs.length===1&&epochs[0].activation_kind==='BOOTSTRAP';
+ // The identity fixture's precondition fencer must not activate through the service capability.
+ const capability=(await createComponent({resources:r,env:process.env,signal:new AbortController().signal})).capabilities['storage.authority.v1'];
+ const fixtureFencer={isolate:async i=>{const t=Date.now();return {deployment_id:deployment,operation_id:i.operation_id,source_epoch:i.source_epoch,fence_id:randomUUID(),isolated_writer:'owned-database:fixture',observed_at:new Date(t).toISOString(),expires_at:new Date(t+25000).toISOString(),evidence_digest:'sha256:'+'f'.repeat(64)}}};
+ out['fixture-fencer-refused']=await refused(()=>capability.activate({operation_id:randomUUID(),expected_previous_epoch:activated.epoch},fixtureFencer),'EXTERNAL_FENCE_EVIDENCE_SCOPE_MISMATCH')&&await refused(()=>capability.activateRestored({operation_id:randomUUID(),expected_external_epoch:activated.epoch,expected_database_epoch:activated.epoch},fixtureFencer),'EXTERNAL_FENCE_EVIDENCE_SCOPE_MISMATCH');
  out['stored-active']=await readAuthorityActivated(r,deployment);out['stored-inactive']=!(await readAuthorityActivated(r,randomUUID()));
  out['read-error']=await refused(()=>readAuthorityActivated(r,'invalid'),'AUTHORITY_CONFIG_INVALID');
  const store=new AuthorityStore(r,randomUUID(),journal),fresh=()=>({operation_id:randomUUID(),expected_previous_epoch:null});
@@ -94,11 +98,39 @@ def main():
    if p.returncode:raise RuntimeError(p.stderr[-2000:])
    return json.loads(p.stdout)
   result=run(PROBE,env);observed.update(result['out'])
+  # Role uids get a byte-identical copy of the runtime they can traverse; the checkout may sit under a private home.
+  stage=folder/'stage';hf=stage/'services/hyperfide'
+  for name in ['dist','components','migrations','node_modules']:shutil.copytree(ROOT/'services/hyperfide'/name,hf/name,symlinks=True)
+  shutil.copyfile(ROOT/'services/hyperfide/package.json',hf/'package.json')
+  units=folder/'units';units.mkdir()
+  for name in ['4.2','4.4']:shutil.copyfile(ROOT/('services/hyperfide/components/'+name+'.json'),units/(name+'.json'))
+  def service(role,n,environment):
+   policy=folder/(role+'-policy.json');shutil.copyfile(f.policy,policy);os.chown(policy,n,n);policy.chmod(0o600)
+   argv=[str(folder/'node'),str(hf/'dist'/(role+'.js')),'--policy',str(policy),'--spec-revision','fixture-identity-v1','--components',str(units),'--module-root',str(hf/'dist'),'--mode','daemon']
+   child=subprocess.Popen(argv,cwd=stage,env=environment,user=n,group=n,extra_groups=[],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+   lines=[];ready=False;deadline=time.monotonic()+30
+   while time.monotonic()<deadline:
+    if select.select([child.stderr],[],[],0.1)[0]:
+     line=child.stderr.readline();lines.append(line)
+     if '"event":"ready"' in line:ready=child.poll() is None;break
+     if not line and child.poll() is not None:break
+    elif child.poll() is not None:break
+   if child.poll() is None:child.send_signal(signal.SIGTERM)
+   try:rest=child.communicate(timeout=10)[1]
+   except subprocess.TimeoutExpired:child.kill();rest=child.communicate()[1]
+   stderr=''.join(lines)+rest;processes.append({'argv':argv,'exit_code':child.returncode,'stdout':'','stderr':stderr});(base/'authority-processes.json').write_text(json.dumps(processes,indent=2)+'\n')
+   return ready,child.returncode,stderr
   for n,role in enumerate(['control','provisioner','dispatch'],start=61001):
    directory=folder/role;directory.mkdir(mode=0o700);os.chown(directory,n,n)
    follower={**env,'HF29_ROLE':role,'HF29_FOLLOW':'1','HYPERFIDE_AUTHORITY_JOURNAL_DIR':str(directory)}
-   value=run(PROBE,follower,user=n,group=n,extra_groups=[])
+   ready,code,stderr=service(role,n,follower)
+   observed[role+'-refuses-before-adoption']=not ready and code==1 and '"code":"COMPONENT_LOAD_FAILED"' in stderr and 'No independent accepted authority exists' in stderr
+   p=subprocess.run([str(folder/'node'),'--input-type=module'],input=PROBE,text=True,capture_output=True,cwd=stage,env=follower,timeout=60,user=n,group=n,extra_groups=[]);record(p)
+   if p.returncode:raise RuntimeError(p.stderr[-2000:])
+   value=json.loads(p.stdout)
    observed[role+'-adopts']=value['epoch']==result['epoch'] and value['uid']==n
+   ready,code,stderr=service(role,n,follower)
+   observed[role+'-starts']=ready
   observed['followers-no-mint']=f.sql('SELECT count(*)::int AS count FROM hyperfide.authority_epochs WHERE deployment_id=$1',[env['HYPERFIDE_DEPLOYMENT_ID']])[0]['count']==1
   # Exercise the real operator wrapper against a release-layout fixture.
   release=folder/'release';(release/'runtime').mkdir(parents=True);(release/'services').mkdir();shutil.copyfile(shutil.which('node'),release/'runtime/node');(release/'runtime/node').chmod(0o755)
