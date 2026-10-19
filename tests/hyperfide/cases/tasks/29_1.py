@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Component-only authority activation; simulated backends do not qualify providers."""
-import importlib.util,json,os,select,shutil,signal,subprocess,tempfile,time,uuid
+import importlib.util,json,os,select,shutil,signal,socket,subprocess,tempfile,time,uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
 spec=importlib.util.spec_from_file_location('identity29',ROOT/'tests/hyperfide/support/identity_fixture.py')
@@ -104,9 +104,31 @@ def main():
   shutil.copyfile(ROOT/'services/hyperfide/package.json',hf/'package.json')
   units=folder/'units';units.mkdir()
   for name in ['4.2','4.4']:shutil.copyfile(ROOT/('services/hyperfide/components/'+name+'.json'),units/(name+'.json'))
+  # The provisioner is served only over the authenticated HTTPS transport, so it also loads the identity authority.
+  https_units=folder/'https-units';https_units.mkdir()
+  for name in ['4.2','4.4','14.1']:shutil.copyfile(ROOT/('services/hyperfide/components/'+name+'.json'),https_units/(name+'.json'))
+  transport={}
+  def provisioner_transport(n):
+   directory=folder/'provisioner-transport';directory.mkdir(mode=0o700)
+   with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
+   cert,key=directory/'provisioner.crt',directory/'provisioner.key'
+   subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-sha256','-nodes','-keyout',str(key),'-out',str(cert),'-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost,IP:127.0.0.1','-days','1'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+   principal=directory/'provisioner-principal.pem';shutil.copyfile(f.keys['provisioner']['path'],principal)
+   worker=directory/'provisioner-worker.json';worker.write_text(json.dumps({'schema_version':1,'principals':[{'credential_id':f.ids['provisioner'],'key_path':str(principal)}],'concurrency':1}))
+   # Bootstrap principals are bound to the fixture's own deployment epoch, not the epoch this case activates, so the
+   # provisioner's identity file carries none; the PROVISIONER principal stays seeded in the database and in worker.json.
+   document=json.loads(f.identity_config.read_text());document['origin']='https://localhost:'+str(port);document['principals']=[]
+   identity_file=directory/'provisioner-identity.json';identity_file.write_text(json.dumps(document))
+   for file in [cert,key,principal,worker,identity_file]:os.chown(file,n,n);file.chmod(0o600)
+   os.chown(directory,n,n)
+   transport.update(cert=cert,key=key,env={'HYPERFIDE_PROVISIONER_LISTEN_HOST':'127.0.0.1','HYPERFIDE_PROVISIONER_LISTEN_PORT':str(port),'HF_PROVISIONER_EXECUTOR_CONFIG_FILE':str(worker),'HF_IDENTITY_CONFIG_FILE':str(identity_file)})
   def service(role,n,environment):
    policy=folder/(role+'-policy.json');shutil.copyfile(f.policy,policy);os.chown(policy,n,n);policy.chmod(0o600)
    argv=[str(folder/'node'),str(hf/'dist'/(role+'.js')),'--policy',str(policy),'--spec-revision','fixture-identity-v1','--components',str(units),'--module-root',str(hf/'dist'),'--mode','daemon']
+   if role=='provisioner':
+    if not transport:provisioner_transport(n)
+    environment={**environment,**transport['env']}
+    argv=[str(folder/'node'),str(hf/'dist'/(role+'.js')),'--policy',str(policy),'--spec-revision','fixture-identity-v1','--components',str(https_units),'--module-root',str(hf/'dist'),'--mode','https','--host',environment['HYPERFIDE_PROVISIONER_LISTEN_HOST'],'--port',environment['HYPERFIDE_PROVISIONER_LISTEN_PORT'],'--tls-cert',str(transport['cert']),'--tls-key',str(transport['key'])]
    child=subprocess.Popen(argv,cwd=stage,env=environment,user=n,group=n,extra_groups=[],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
    lines=[];ready=False;deadline=time.monotonic()+30
    while time.monotonic()<deadline:
