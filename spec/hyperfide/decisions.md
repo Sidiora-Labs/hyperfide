@@ -71,6 +71,14 @@ An OPEN item is not assumed resolved by this pack. Each has an owner/workstream 
 
 These gates do not request new permissions during specification authoring. Provider/model campaigns and production changes must use the scope authorised when that work is reached. Routine actions already within the approved run policy must not introduce repeated human confirmation.
 
+## Approved run-policy exceptions
+
+A recorded exception narrows where one named verification leg executes; it does not waive the leg, relax its assertions or change any other remote-execution obligation.
+
+| ID | Exception | Scope and conditions | Native task owners |
+|---|---|---|---|
+| E-01 | The task 2.1 private-corpus qualification leg (`--qualify-private-corpus`) runs on the supervisory host where the private corpus lives. | Only that leg; the public V-001 and V-024 component legs run on the fleet. The corpus, descriptor and private receipts stay in ignored storage on the supervisory host and are never transferred to fleet workers or copied into public metadata. | 2.1 |
+
 ## 4. Explicit dispositions
 
 - **ObjectBox:** assessed rather than ignored. Its strongly consistent server cluster is acknowledged; eventual local-client claim synchronization is not the selected authority design. PostgreSQL matches the selected architecture. No comparative benchmark supports a blanket performance rejection.
