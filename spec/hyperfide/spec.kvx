@@ -2383,7 +2383,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.4]
 title = "Export runner supervisor and preparation-receipt capabilities from 12.4"
-status = "pending"
+status = "done"
 wave = 35
 requires = []
 touches = ["services/hyperfide/src/runner/executor.ts", "services/hyperfide/src/runner/bridge.ts", "services/hyperfide/src/runner/preparation_receipts.ts", "tests/hyperfide/cases/tasks/29_4.py", "tests/hyperfide/registrations/29.4.json", "tests/hyperfide/manifests/tasks/29.4.json"]

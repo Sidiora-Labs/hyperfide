@@ -25,6 +25,7 @@
     "runner.exports.stop-output-debt",
     "runner.exports.stop-later-command",
     "runner.exports.stop-stale-report",
+    "runner.exports.missing-export-refused",
     "runner.exports.control-resolves",
     "runner.exports.finalize-resolves"
   ],
