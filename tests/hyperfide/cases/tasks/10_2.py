@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Lifetime contracts and real pinned sandbox-api timeout behavior, without cloud acceptance."""
-import urllib.error
 import ctypes
 import copy,hashlib,importlib.util,json,os,pathlib,shutil,signal,socket,subprocess,sys,tempfile,time,urllib.request
 ROOT=pathlib.Path(__file__).resolve().parents[4]
@@ -124,12 +123,28 @@ def main():
     name="hyperfide-lifetime-unlimited";names.append(name);request("POST","/process",{"name":name,"command":"sleep 10","keepAlive":True,"timeout":0,"waitForCompletion":False});time.sleep(1.1);expect(request("GET","/process/"+name)["status"]=="running")
    check("api.actual-explicit-zero-keeps-running",infinite_timeout)
    def api_wait():
-    name="hyperfide-lifetime-api-wait";names.append(name);begin=time.monotonic()
-    try:request("POST","/process",{"name":name,"command":"sleep 10","keepAlive":False,"timeout":1,"waitForCompletion":True})
-    except urllib.error.HTTPError as error:
-     detail=error.read().decode()
-     expect(error.code in[408,422,504]and time.monotonic()-begin>=.5,detail)
-    expect(request("GET","/process/"+name)["status"]=="running")
+    name="hyperfide-lifetime-api-wait";names.append(name)
+    started=request("POST","/process",{"name":name,"command":"sleep 10","keepAlive":True,"timeout":0,"waitForCompletion":False})
+    expect(started["status"]=="running",json.dumps(started))
+    # POST timeout also arms execution termination; SDK maxWait only bounds observation.
+    script="import{SandboxProcess}from"+json.dumps(str(ROOT/"services/hyperfide/node_modules/@blaxel/core/dist/esm/sandbox/process/process.js"))+";"+"""
+import assert from 'node:assert/strict';
+const [url,pid]=process.argv.slice(1);
+const api=new SandboxProcess({metadata:{name:'lifetime-fixture'},spec:{},forceUrl:url,headers:{}});
+assert.equal((await api.get(pid)).status,'running');
+const begin=performance.now();
+await assert.rejects(api.wait(pid,{maxWait:1000,interval:20}),error=>{
+ assert.equal(error.message,`Process did not finish in time (${pid}); it may still be running`);
+ assert.ok(performance.now()-begin>=500);
+ return true;
+});
+const after=await api.get(pid);
+assert.equal(after.pid,pid);
+assert.equal(after.status,'running');
+"""
+    r=subprocess.run(["node","--input-type=module","-e",script,f"http://127.0.0.1:{port}",started["pid"]],cwd=ROOT,text=True,capture_output=True,timeout=5)
+    expect(r.returncode==0,r.stderr)
+    row=request("GET","/process/"+name);expect(row["pid"]==started["pid"]and row["status"]=="running",json.dumps(row))
    check("api.actual-wait-timeout-does-not-kill",api_wait)
   finally:
    for name in names:
