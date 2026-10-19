@@ -325,6 +325,17 @@ ac_2 = "The driver SHALL bind the provider isolation backend through createProvi
 ac_3 = "The isolation permit SHALL be produced by an operator: the release SHALL ship a command that emits the canonical permit payload for signing and verifies a signed permit with loadIsolationPermitVerifier before activation; an unsigned, mis-scoped or expired permit SHALL be refused and the signing key SHALL never be read by the driver."
 ac_4 = "migrate.mjs --activate-authority SHALL accept the shipped driver by its release-relative path, and activation through it SHALL satisfy every check task 29.1 enforces: LIVE_PROVIDER-only fence, receipt bound of 30 seconds, BOOTSTRAP exactly once."
 
+[req.40]
+title = "Greenfield first epoch"
+story = "As the migration operator of a fresh deployment, I need the first authority epoch without writers, resources or rows that only an active epoch can create."
+ac_1 = "A writer isolation configuration with scope GREENFIELD SHALL carry an explicit empty resources list, LIVE_PROVIDER evidence and no source epoch; the driver SHALL derive from it, the bootstrap accepted intent and the configured provider pools a greenfield topology with zero required writers, zero resources and legacy status NONE, whose digest binds the deployment, organisation, project, run, the accepted-intent digest and every pool scope. A configuration without that scope SHALL still require explicit writer resources."
+ac_2 = "A greenfield isolation permit SHALL carry scope GREENFIELD and an explicit empty resource allowlist bound to the greenfield topology digest. Permit verification SHALL refuse a greenfield permit against a non-greenfield expectation and a non-greenfield permit against a greenfield expectation with ISOLATION_PERMIT_SCOPE; an observation-only permit SHALL never carry a scope."
+ac_3 = "Before activation the driver SHALL prove that no writer exists: a complete inventory of every configured pool through the live provider admin transport SHALL show no sandbox other than a DESTROYED one, and the primary SHALL hold no sandboxes, sandbox_boots, provider_pools or runs rows for the organisation. Anything present SHALL be refused with GREENFIELD_NOT_EMPTY; an incomplete enumeration, or a pool whose provider has no inventory transport, SHALL be refused with GREENFIELD_EMPTINESS_UNPROVEN."
+ac_4 = "A greenfield permit or configuration on a deployment with any authority history, a configured legacy writer or any configured writer resource SHALL be refused with ISOLATION_PERMIT_SCOPE before any epoch is minted; replay of the exact committed greenfield operation SHALL return its epoch."
+ac_5 = "Activation SHALL mint the organisation, project, repository, source object, spec revision and run rows of the bound accepted intent through the accepted-intent importer, with the run pinned to the new epoch, in the same primary transaction that inserts the BOOTSTRAP epoch, after rechecking emptiness inside that transaction. A later hyperfide bootstrap of the same accepted intent at that epoch SHALL replay the import and issue the first OPERATOR."
+ac_6 = "The greenfield fence receipt SHALL keep the storage.authority.v1 FenceReceipt shape: fence_id is the operation id, isolated_writer is topology: followed by the greenfield topology digest, the receipt window is at most 30 seconds, and evidence_digest is the digest of an evidence document retained in the fence journal that records scope GREENFIELD, resource_count 0, legacy_status NONE, the empty writer list, each provider inventory and the database counts. The epoch row SHALL be activation_kind BOOTSTRAP with fence_id and proof_digest derived as for every other activation."
+ac_7 = "The service-reachable storage.authority.v1 activate and activateRestored SHALL refuse a greenfield fence. createExternalWriterFence, its topology checks and every check of tasks 29.1 and 29.11 SHALL remain unchanged, and the driver SHALL never read a signing key."
+
 [design]
 include = "design.body.md"
 
@@ -2524,6 +2535,24 @@ do_2 = "Add the permit path: a release command that prints the canonical isolati
 do_3 = "Let migrate.mjs resolve --fence-driver relative to --release-root when the path is not absolute, keeping the ownership and mode checks for private modules; document the full first-activation sequence in operations.md with the shipped driver."
 do_4 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
 
+[task.29.12]
+title = "Activate a greenfield first epoch under a proven-empty operator permit"
+status = "pending"
+wave = 37
+requires = ["29.9", "29.11"]
+touches = ["deploy/hyperfide/bootstrap-fence.mjs", "services/hyperfide/src/recovery/bootstrap_fence.ts", "services/hyperfide/src/recovery/fencing.ts", "services/hyperfide/src/providers/placement.ts", "services/hyperfide/src/identity/credentials.ts", "services/hyperfide/src/storage/durability.ts", "services/hyperfide/src/spec/bootstrap.ts", "docs/hyperfide/operations.md", "tests/hyperfide/cases/tasks/29_12.py", "tests/hyperfide/registrations/29.12.json", "tests/hyperfide/manifests/tasks/29.12.json", "tests/hyperfide/registry.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-069 --manifest tests/hyperfide/manifests/tasks/29.12.json"
+reqs = ["40.1", "40.2", "40.3", "40.4", "40.5", "40.6", "40.7"]
+acceptance_ids = ["V-069"]
+owner = "storage"
+artifacts = ["artifacts/hyperfide/tasks/29.12/manifest.json", "artifacts/hyperfide/tasks/29.12/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "The 29.11 activation path needs a writer topology with non-empty required_writer_ids and resources (fencing.ts topology), explicit writer resources (placement.ts isolationConfiguration), and runs, ACTIVE provider_pools, sandboxes and sandbox_boots rows that only flows behind an ACTIVE epoch can create, so a fresh deployment cannot reach its first epoch. Add an optional scope GREENFIELD to the writer isolation configuration and to isolation permit claims and expectations per req.40 ac_1 and ac_2, leaving every non-greenfield check as it is."
+do_2 = "Add createGreenfieldWriterFence in fencing.ts, branded separately from live provider fences: it verifies the greenfield permit, takes the private fence journal operation, proves emptiness through the registered provider inventory transport and the primary per req.40 ac_3 and ac_4, retains the evidence document with the completion receipt and returns the FenceReceipt of req.40 ac_6."
+do_3 = "Let activateBootstrapAuthority accept the greenfield arguments the driver returns and mint the accepted-intent rows inside the epoch transaction through an in-transaction export of the 26.4 importer, keeping the legacy argument tuple and the service-reachable activation unchanged."
+do_4 = "Extend bootstrap-fence.mjs and bootstrap_fence.ts so --topology, --permit-payload, --seal-permit and --verify-permit and createBootstrapFenceArguments() follow the configured scope, read the accepted intent from HYPERFIDE_GREENFIELD_INTENT_FILE, and never read a signing key; document the greenfield sequence under First authority epoch in operations.md."
+do_5 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
 [acceptance.V-001]
 feature = "hyperfide"
 reqs = ["1.2", "1.4", "2.1", "2.2", "2.3", "3.1", "3.2"]
@@ -3134,4 +3163,13 @@ scenario = "Activate the first authority epoch with the shipped bootstrap fence 
 expected = "The signed activation produces one BOOTSTRAP epoch and every role adopts it; each defective input is refused before any epoch is minted."
 contract = "verification.md"
 test = "python3 tests/hyperfide/qualify.py --case V-068 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-069]
+feature = "hyperfide"
+reqs = ["40.1", "40.2", "40.3", "40.4", "40.5", "40.6", "40.7"]
+scenario = "On a disposable primary with a recorded provider admin transport, activate the first epoch of a fresh deployment under a greenfield permit, adopt it on every role, start control and issue the first operator; repeat with a sandbox present at the provider, a run present for the organisation, a greenfield permit on a deployment with history, a legacy permit on a greenfield configuration, and run the legacy activation unchanged."
+expected = "The proven-empty activation mints one BOOTSTRAP epoch with the accepted-intent rows in the same transaction, followers adopt it and control starts; each non-empty or mis-scoped input is refused with GREENFIELD_NOT_EMPTY or ISOLATION_PERMIT_SCOPE before any epoch or row is minted, and the legacy activation still passes every check."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-069 --manifest tests/hyperfide/manifests/tasks/29.12.json"
 qualification = "UNRUN"
