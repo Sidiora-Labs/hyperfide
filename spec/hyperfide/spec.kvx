@@ -2475,7 +2475,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.9]
 title = "Ship the host bootstrap and per-role environment preflight"
-status = "pending"
+status = "done"
 wave = 37
 requires = ["29.1", "29.2", "29.5"]
 touches = ["deploy/hyperfide/bootstrap-host.mjs", "deploy/hyperfide/env/control.env.example", "deploy/hyperfide/env/provisioner.env.example", "deploy/hyperfide/env/dispatch.env.example", "tests/hyperfide/cases/tasks/29_9.py", "tests/hyperfide/registrations/29.9.json", "tests/hyperfide/manifests/tasks/29.9.json"]

@@ -132,6 +132,59 @@ Authenticated startup, refusal of a request that claims its own approval, refusa
 
 An installed release launches its own runtimes directly: runtime/node, bin/hyperfide, bin/hyperfide-native and runtime/python/bin/python3 (a wrapper over python3.bin) run under the host dynamic loader /lib64/ld-linux-x86-64.so.2 with the host glibc, and take every other native library from the release (bin/hyperfide and bin/hyperfide-native through RUNPATH $ORIGIN/../lib/hyperfide, the service units and the migration job through LD_LIBRARY_PATH=<release>/lib/hyperfide, Python through runtime/python/lib). glibc itself is never bundled, so a host needs a glibc no older than the one on the release build host; scripts/release.sh refuses to construct a release that stages a glibc member or whose node does not run both plainly and under the bundled library path.
 
+## Host bootstrap
+
+deploy/hyperfide/bootstrap-host.mjs prepares a host for the three service units. Run it as root from the installed release; it is idempotent, so rerun it after every release to pick up new templates:
+
+    /opt/hyperfide/current/runtime/node /opt/hyperfide/current/deploy/hyperfide/bootstrap-host.mjs
+
+It creates the hyperfide group (gid 1900) and the system users hyperfide (uid 1900, control), hyperfide-provisioner (1901) and hyperfide-dispatch (1902), all with primary group hyperfide, home /nonexistent and shell /usr/sbin/nologin, through groupadd and useradd. An existing account with another id, group, home or shell refuses with BOOTSTRAP_IDENTITY_CONFLICT before any tree is created. It then creates /etc/hyperfide and /var/lib/hyperfide (root:hyperfide 0750), one state directory per role with its authority-journal (and, for the provisioner, preparation) directory (role user, 0700), and installs:
+
+| Installed file | Source | Owner and mode |
+| --- | --- | --- |
+| /etc/hyperfide/ROLE.env | deploy/hyperfide/env/ROLE.env.example | root:root 0600 |
+| /etc/hyperfide/ROLE-policy.json | deploy/hyperfide/policies/ROLE.example.json (task 29.5) | role user 0600 |
+| /etc/hyperfide/ROLE-identity.json, provisioner-worker.json | deploy/hyperfide/identity/*.example.json | role user 0600 |
+| /etc/systemd/system/hyperfide-ROLE.service | deploy/hyperfide/ROLE.service | root:root 0644 |
+| hyperfide-ROLE.service.d/db-env.conf | EnvironmentFile=/etc/hyperfide/ROLE.db.env | root:root 0644 |
+| hyperfide-ROLE.service.d/preflight.conf | ExecStartPre running bootstrap-host.mjs --preflight ROLE | root:root 0644 |
+| /etc/hyperfide/grants.sql | deploy/hyperfide/grants.sql | root:root 0644 |
+
+Every file is created atomically and only when absent. An existing file is never rewritten or read, unless it is a release-owned unit, drop-in or grants.sql, which is compared and listed under differs when the release changed it; review and replace those by hand. An existing file that is a symlink, has more than one link or the wrong owner or mode refuses with BOOTSTRAP_CONFIG_UNSAFE. The script never creates a database URL, certificate, key or provider configuration; the outcome line lists each one still absent under operator_pending. HYPERFIDE_BOOTSTRAP_ROOT or --root DIR points the same steps at a prefix tree (useradd and groupadd run with --root), which is how acceptance case V-066 exercises it; only the real root runs systemctl daemon-reload.
+
+The preflight runs as each unit's ExecStartPre, as the unit's user and with its environment, before the entrypoint starts, and exits 78 with the refusal code the service itself would raise:
+
+| Gap | Refusal |
+| --- | --- |
+| Any HYPERFIDE_MIGRATION_* variable present | MIGRATION_CREDENTIAL_EXPOSED |
+| HYPERFIDE_REQUIRE_SYNC_REPLICA not 0 or 1 | DURABILITY_POLICY_REQUIRED |
+| HYPERFIDE_DEPLOYMENT_ID not a UUID, or HYPERFIDE_AUTHORITY_JOURNAL_DIR missing, not canonical, not owned by the unit's uid or group/world accessible | EXTERNAL_JOURNAL_REQUIRED |
+| Control without a 64-hex-character HYPERFIDE_CAUSAL_BARRIER_KEY | BARRIER_CONFIG_INVALID |
+| Listener host or port, or HYPERFIDE_SPEC_REVISION, missing | TRANSPORT_CONFIG |
+| HYPERFIDE_ROLE_PRIMARY_DATABASE_URL missing or not postgres | DATABASE_CONFIG_INVALID |
+| HF_IDENTITY_CONFIG_FILE missing | IDENTITY_CONFIG_REQUIRED |
+| Dispatch without HF_EVENT_DISPATCH_CONFIG | DISPATCH_CONFIG_REQUIRED |
+| Provisioner without an absolute HF_PROVISIONER_EXECUTOR_CONFIG_FILE | PROVISIONER_EXECUTOR_CONFIG_INVALID |
+| HYPERFIDE_EXTERNAL_FENCE_CONFIG_FILE missing or not canonical | EXTERNAL_FENCE_CONFIG_REQUIRED |
+| Fence configuration not a single-link 0600 file owned by the unit's uid | EXTERNAL_FENCE_CONFIG_UNSAFE |
+| Fence configuration fields, scope or topology invalid | EXTERNAL_FENCE_CONFIG_INVALID |
+| A required writer without an isolation boundary | EXTERNAL_FENCE_CONFIG_INCOMPLETE |
+| HYPERFIDE_POOL_CONFIG missing | POOL_CONFIG_REQUIRED |
+| HF_RAILWAY_CONFIG missing | Railway trusted configuration missing |
+
+The preflight prints only the outcome and code, never a value. A passing preflight does not prove that migrations, grants or an authority epoch exist; the service checks those at startup.
+
+A new host follows this sequence:
+
+1. Install the release with install-service.mjs (--service-uid 1900 --service-gid 1900), then run the bootstrap above.
+2. Edit /etc/hyperfide/ROLE.env for each role. Write /etc/hyperfide/ROLE.db.env by hand (root:root 0600) with the role's HYPERFIDE_ROLE_PRIMARY_DATABASE_URL, the scoped runtime login only; never pass a database URL through a script or put a migration credential in either file. Place each role's ROLE.crt and ROLE.key, the provisioner's external-fence.json, pools.json, railway.json and worker key, and the dispatch worker configuration with its key, with the owner and mode the table above names. Replace the policy and identity placeholders.
+3. Apply migrations with the migration credential in the operator's own environment (migrate.mjs --apply, see PostgreSQL and migrations).
+4. Apply grants.sql once per runtime login as the database owner. Grants need the migrated tables, so this follows step 3; rerun it after every migration.
+5. Activate the first epoch for control and adopt it for the provisioner and dispatch, as described in First authority epoch.
+6. Start the units: systemctl enable --now hyperfide-control hyperfide-provisioner hyperfide-dispatch. A unit whose preflight refuses does not start; journalctl -u hyperfide-ROLE shows the code.
+
+Identity enrolment of the service principals stays with bootstrap_identity.ts (task 26.4).
+
 ## Local CLI
 
 The local-first CLI is the hyperfide executable. cg is a deprecated compatibility alias from the same executable, with identical arguments, JSON and exit codes; it is byte-identical at this revision, and version prints 2.0.0-dev for both. It stays for the compatibility window of the approved release (see hyperfide help, "command names"). The CLI is not a control-service client and grants no distributed authority. Commands relevant to operations, all listed by hyperfide help --all:
