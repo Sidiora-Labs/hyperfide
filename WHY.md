@@ -1,6 +1,6 @@
 # Why Hyperfide exists
 
-
+ 
 **Hyperfide, released as Codify through 1.x, is the infrastructure that made our approach to building software possible.**
 
 
