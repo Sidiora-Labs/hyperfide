@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Fleet-wide stop drives itself: 1,500 synthetic supervisor debts across two pools reach RESOLVED
 with no recovery.stop.reconcile call, and ORGANISATION and DEPLOYMENT scopes stop whole runs.
+A DEPLOYMENT stop is accepted only from an operator credential on HYPERFIDE_DEPLOYMENT_OPERATORS (D14);
+unset, empty and unlisted cases are recorded as REFUSED and never driven.
 
 Runs against an owned ephemeral PostgreSQL cluster with the real migrations, the real 24.3 component
 and its real 5.1 execution-control and 4.2 transaction dependencies. Component scope only: the
@@ -201,13 +203,17 @@ const dependencies={require:(id,name,guard)=>{
  // The supervisor is withheld until phase two: an unreachable supervisor must never resolve a debt.
  if(id==='12.4'&&!supervisorReachable)throw Error('supervisor absent');
  const value=providers[id]?.[name];if(!guard(value))throw Error('missing '+id+'/'+name);return value;}};
-const env={...process.env,HYPERFIDE_STOP_DRIVER_INTERVAL_MS:'200',HYPERFIDE_DEPLOYMENT_ID:ids.deployment};
+// D14: only an allow-listed operator credential may stop the whole deployment.
+const listed=randomUUID();
+const env={...process.env,HYPERFIDE_STOP_DRIVER_INTERVAL_MS:'200',HYPERFIDE_DEPLOYMENT_ID:ids.deployment,HYPERFIDE_DEPLOYMENT_OPERATORS:randomUUID()+', '+listed};
 const startup={role:'control',signal:controller.signal,env,resources:r,dependencies};
-const operator=(org,run,role='OPERATOR')=>authenticatedInvocation({principal:{credential_id:randomUUID(),organisation_id:org,run_id:run,actor_id:randomUUID(),role,deployment_epoch:ids.epoch,allowed_actions:['recovery.stop.request'],expires_at:new Date(Date.now()+3600000).toISOString()},operation:{},payload:{},signal:controller.signal,guard:async()=>{},identityGuard:async()=>{},continuationGuard:async()=>{}});
+const operator=(org,run,role='OPERATOR',credential=randomUUID())=>authenticatedInvocation({principal:{credential_id:credential,organisation_id:org,run_id:run,actor_id:randomUUID(),role,deployment_epoch:ids.epoch,allowed_actions:['recovery.stop.request'],expires_at:new Date(Date.now()+3600000).toISOString()},operation:{},payload:{},signal:controller.signal,guard:async()=>{},identityGuard:async()=>{},continuationGuard:async()=>{}});
 const stop=createComponent(startup);
 const reconcile=stop.actions['recovery.stop.reconcile'];
 let reconcileCalls=0;stop.actions['recovery.stop.reconcile']=(...a)=>{reconcileCalls++;return reconcile(...a);};
-const request=(org,run,input,role)=>stop.actions['recovery.stop.request']({scope:{organisation_id:org,run_id:run,authority_epoch:ids.epoch},operation_id:randomUUID(),mode:'STOP',reason:'fleet stop case 2.4',...input},{...startup,invocation:operator(org,run,role)});
+const request=(org,run,input,role,credential,envPatch)=>stop.actions['recovery.stop.request']({scope:{organisation_id:org,run_id:run,authority_epoch:ids.epoch},operation_id:randomUUID(),mode:'STOP',reason:'fleet stop case 2.4',...input},{...startup,env:envPatch?envPatch(env):env,invocation:operator(org,run,role,credential)});
+const withoutList=e=>{const copy={...e};delete copy.HYPERFIDE_DEPLOYMENT_OPERATORS;return copy;};
+const deploymentDenied=r=>r.refused===true&&r.error?.code==='RECOVERY_DEPLOYMENT_OPERATOR_DENIED'&&r.fleet===true;
 const refused=async(promise,code)=>{try{await promise;return false;}catch(e){return e.code===code;}};
 const until=async(label,predicate,ms=180000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await predicate())return true;await new Promise(f=>setTimeout(f,250));}throw Error('deadline: '+label);};
 const count=async(sql,values=[])=>Number((await q(sql,values))[0].n);
@@ -219,6 +225,24 @@ try{
  out['foreign-deployment-refused']=await refused(request(ids.org1,ids.r1,{scope_kind:'DEPLOYMENT',scope_id:randomUUID()}),'RECOVERY_SCOPE_INVALID');
  out['unknown-scope-refused']=await refused(request(ids.org1,ids.r1,{scope_kind:'REGION',scope_id:ids.poolA}),'RECOVERY_INPUT_INVALID');
  out['refusals-wrote-nothing']=await count('SELECT count(*) AS n FROM hyperfide.recovery_operations')===0;
+
+ const deployment={scope_kind:'DEPLOYMENT',scope_id:ids.deployment};
+ out['deployment-allow-list-malformed-rejected']=await refused(request(ids.org1,ids.r1,deployment,'OPERATOR',listed,e=>({...e,HYPERFIDE_DEPLOYMENT_OPERATORS:listed+',not-a-uuid'})),'RECOVERY_CONFIG_INVALID')
+  &&await count('SELECT count(*) AS n FROM hyperfide.recovery_operations')===0;
+ const unset=await request(ids.org1,ids.r1,deployment,'OPERATOR',listed,withoutList);
+ out['deployment-allow-list-unset-refused']=deploymentDenied(unset)&&unset.allow_list_configured===false;
+ const empty=await request(ids.org1,ids.r1,deployment,'OPERATOR',listed,e=>({...e,HYPERFIDE_DEPLOYMENT_OPERATORS:' '}));
+ out['deployment-allow-list-empty-refused']=deploymentDenied(empty)&&empty.allow_list_configured===false;
+ const unlisted=await request(ids.org1,ids.r1,deployment);
+ out['deployment-operator-not-listed-refused']=deploymentDenied(unlisted)&&unlisted.allow_list_configured===true;
+ const denied=[unset.operation_id,empty.operation_id,unlisted.operation_id];
+ const deniedPasses=stop.actions['recovery.stop.describe']({}).driver.passes;
+ await until('driver passes over refusals',async()=>stop.actions['recovery.stop.describe']({}).driver.passes>=deniedPasses+3);
+ out['deployment-refusals-recorded-not-driven']=await count("SELECT count(*) AS n FROM hyperfide.recovery_operations WHERE operation_id=ANY($1::uuid[]) AND kind='STOP' AND state='REFUSED'",[denied])===3
+  &&await count("SELECT count(*) AS n FROM hyperfide.recovery_operations WHERE result->>'fleet_operation_id'=ANY($1::text[])",[denied])===0
+  &&await count("SELECT count(*) AS n FROM hyperfide.runs WHERE state<>'RUNNING'")===0&&await count('SELECT count(*) AS n FROM hyperfide.recovery_resource_debts')===0;
+ const deniedReplay=await stop.actions['recovery.stop.request']({scope:{organisation_id:ids.org1,run_id:ids.r1,authority_epoch:ids.epoch},operation_id:unlisted.operation_id,mode:'STOP',reason:'fleet stop case 2.4',...deployment},{...startup,invocation:operator(ids.org1,ids.r1,'OPERATOR',listed)});
+ out['deployment-refusal-replay-stable']=deploymentDenied(deniedReplay)&&deniedReplay.credential_id===unlisted.credential_id;
 
  const a=await request(ids.org1,ids.r1,{scope_kind:'POOL',scope_id:ids.poolA});
  const b=await request(ids.org1,ids.r1,{scope_kind:'POOL',scope_id:ids.poolB});
@@ -249,7 +273,8 @@ try{
  out['organisation-stop-completes']=await count("SELECT count(*) AS n FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND state='STOPPED'",[ids.org2])===5&&await count("SELECT count(*) AS n FROM hyperfide.runs WHERE organisation_id=$1 AND state='RUNNING'",[ids.org1])===4;
  await until('organisation fleet settles',async()=>(await q('SELECT state FROM hyperfide.recovery_operations WHERE operation_id=$1',[o.operation_id]))[0].state==='RECONCILED');
 
- const d=await request(ids.org1,ids.r1,{scope_kind:'DEPLOYMENT',scope_id:ids.deployment});
+ const d=await request(ids.org1,ids.r1,deployment,'OPERATOR',listed);
+ out['deployment-listed-operator-accepted']=d.refused===undefined&&d.fleet===true&&d.driver==='RECOVERY_STOP_DRIVER';
  await until('deployment stop',async()=>await count("SELECT count(*) AS n FROM hyperfide.runs WHERE state<>'STOPPED'")===0);
  await until('deployment fleet settles',async()=>(await q('SELECT state FROM hyperfide.recovery_operations WHERE operation_id=$1',[d.operation_id]))[0].state==='RECONCILED');
  out['deployment-stop-completes']=await count("SELECT count(*) AS n FROM hyperfide.agent_sessions WHERE state<>'STOPPED'")===0&&await count("SELECT count(*) AS n FROM hyperfide.recovery_resource_debts WHERE status<>'RESOLVED'")===0;
@@ -303,11 +328,14 @@ def main():
         outcomes = json.loads(output.strip().splitlines()[-1])
         print(json.dumps({'type': 'measurement', 'id': 'stop.fleet.elapsed_seconds', 'value': round(time.monotonic() - started, 1)}), flush=True)
         expected = ['scopes-described', 'non-operator-refused', 'foreign-pool-refused', 'foreign-organisation-refused',
-                    'foreign-deployment-refused', 'unknown-scope-refused', 'refusals-wrote-nothing', 'pool-requests-recorded-for-driver',
+                    'foreign-deployment-refused', 'unknown-scope-refused', 'refusals-wrote-nothing',
+                    'deployment-allow-list-malformed-rejected', 'deployment-allow-list-unset-refused',
+                    'deployment-allow-list-empty-refused', 'deployment-operator-not-listed-refused',
+                    'deployment-refusals-recorded-not-driven', 'deployment-refusal-replay-stable', 'pool-requests-recorded-for-driver',
                     'driver-fanned-out-1500-debts', 'fan-out-per-sandbox-children', 'unreachable-supervisor-resolves-nothing',
                     'compute-revoked-on-fan-out', 'all-1500-debts-resolved', 'pool-sessions-stopped', 'fleet-stop-reconciled',
                     'inventory-paginated-past-1000', 'other-pools-untouched', 'organisation-stop-completes',
-                    'deployment-stop-completes', 'no-external-reconcile', 'fleet-request-idempotent',
+                    'deployment-listed-operator-accepted', 'deployment-stop-completes', 'no-external-reconcile', 'fleet-request-idempotent',
                     'driver-reports-clean-passes', 'driver-stops-on-close']
         for name in expected:
             check(name, lambda name=name: expect(outcomes.get(name) is True, name + ' -> ' + str(outcomes.get(name))))

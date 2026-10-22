@@ -138,15 +138,34 @@ async function applyScopedControl(deps:StopDependencies,input:unknown,fleetOpera
     await finishOperation(tx,scope,id,result);return result;
    });
 }
-/** Records a fleet stop on the requesting run. It changes nothing else here: the driver fans it out per run. */
+const CANONICAL_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** D14: a DEPLOYMENT stop reaches every organisation, so it needs an allow-listed operator credential.
+ * Unset or empty means nobody; a malformed entry is a configuration error, never a silent widening. */
+function deploymentOperators(env:Readonly<Record<string,string|undefined>>):string[]{
+ const raw=(env.HYPERFIDE_DEPLOYMENT_OPERATORS??'').trim();
+ if(!raw)return [];
+ const ids=raw.split(',').map(item=>item.trim());
+ if(ids.some(item=>!CANONICAL_UUID.test(item)))throw new FoundationError('RECOVERY_CONFIG_INVALID','HYPERFIDE_DEPLOYMENT_OPERATORS must be comma-separated canonical credential UUIDs');
+ return ids;
+}
+/** Records a fleet stop on the requesting run. It changes nothing else here: the driver fans it out per run.
+ * A DEPLOYMENT stop from an operator outside the allow-list is persisted as REFUSED, which the driver never fans out. */
 async function requestFleetControl(input:unknown,context:ComponentContext):Promise<unknown>{
  const {value,scope,id,target,kind,mode}=controlInput(input,FLEET_SCOPES);
- if(invocationOf(context).principal.role!=='OPERATOR')throw new FoundationError('ROLE_DENIED','Fleet stop scopes require an operator principal');
+ const principal=invocationOf(context).principal;
+ if(principal.role!=='OPERATOR')throw new FoundationError('ROLE_DENIED','Fleet stop scopes require an operator principal');
+ const allowed=kind==='DEPLOYMENT'?deploymentOperators(context.env):[];
  if(kind==='ORGANISATION'&&target!==scope.organisation_id)throw new FoundationError('RECOVERY_SCOPE_INVALID','Organisation control must target the principal organisation');
  if(kind==='DEPLOYMENT'&&(!context.env.HYPERFIDE_DEPLOYMENT_ID||target!==context.env.HYPERFIDE_DEPLOYMENT_ID))throw new FoundationError('RECOVERY_SCOPE_INVALID','Deployment control must name this deployment (HYPERFIDE_DEPLOYMENT_ID)');
  drainPolicy(context.env);
  return recoveryTransaction(context,scope,async tx=>{
   const replay=await operationReplay(tx,scope,id,'STOP',value);if(replay)return replay;
+  if(kind==='DEPLOYMENT'&&!allowed.includes(principal.credential_id)){
+   const refused={scope,operation_id:id,scope_kind:kind,scope_id:target,mode,fleet:true,refused:true,credential_id:principal.credential_id,
+    allow_list_configured:allowed.length>0,refused_at:(await tx.query('SELECT clock_timestamp() AS at')).rows[0]!.at,
+    error:{code:'RECOVERY_DEPLOYMENT_OPERATOR_DENIED',message:'Deployment stop requires an operator credential on HYPERFIDE_DEPLOYMENT_OPERATORS'}};
+   await finishOperation(tx,scope,id,refused,'REFUSED');return refused;
+  }
   if(kind==='POOL'&&!(await tx.query('SELECT 1 FROM hyperfide.provider_pools WHERE organisation_id=$1 AND id=$2',[scope.organisation_id,target])).rows.length)
    throw new FoundationError('RECOVERY_SCOPE_INVALID','Pool is outside the principal organisation');
   const accepted=(await tx.query('SELECT clock_timestamp() AS at')).rows[0]!.at;
@@ -161,17 +180,15 @@ async function reconcileStop(deps:StopDependencies,scope:RecoveryScope,id:string
     const operation=await tx.query("SELECT kind,result FROM hyperfide.recovery_operations WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3",[scope.organisation_id,scope.run_id,id]);
     if(operation.rows[0]?.kind!=='STOP'&&operation.rows[0]?.kind!=='WORKER_LOSS')throw new FoundationError('RECOVERY_OPERATION_INVALID','No matching stop/loss intent');
     const intent=operation.rows[0]!.result as Record<string,unknown>;
-    if(intent.mode!=='DRAIN')return {intent,drain:undefined,prior:undefined};
-    const fallbackId=derivedOperationId(id,'drain-deadline:'+positive(String(intent.generation)));
+    if(intent.mode!=='DRAIN')return {intent,drain:undefined};
     const drain=(await tx.query("SELECT generation,fallback_mode,deadline_at<=clock_timestamp() AS expired FROM hyperfide.recovery_controls WHERE organisation_id=$1 AND run_id=$2 AND scope_kind=$3 AND scope_id=$4 AND mode='DRAIN' AND status='ACTIVE' AND generation=$5 FOR UPDATE",[scope.organisation_id,scope.run_id,intent.scope_kind,intent.scope_id,intent.generation])).rows[0];
-    // The driver may already have applied the fallback; a later reconcile reports that same fallback.
-    const prior=(await tx.query("SELECT result FROM hyperfide.recovery_operations WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state<>'PENDING'",[scope.organisation_id,scope.run_id,fallbackId])).rows[0];
-    return {intent,drain,prior:prior?{id:fallbackId,result:prior.result}:undefined};
+    // Only the call that applies the fallback reports it; once applied the drain is no longer ACTIVE, whoever applied it.
+    return {intent,drain};
    });
    if(plan.intent.fleet===true)return {scope,operation_id:id,fleet:true,driver:'RECOVERY_STOP_DRIVER',fanout_complete:plan.intent.fanout_complete===true,fanout:plan.intent.fanout,cleanup_complete:false,stop_complete:false};
-   if(plan.prior||plan.drain?.expired===true){
-    const fallbackId=plan.prior?.id??derivedOperationId(id,'drain-deadline:'+positive(String(plan.drain!.generation)));
-    const fallback=plan.prior?.result??await applyScopedControl(deps,{scope,operation_id:fallbackId,scope_kind:plan.intent.scope_kind,scope_id:plan.intent.scope_id,mode:plan.drain!.fallback_mode,reason:'Persisted drain deadline elapsed'});
+   if(plan.drain?.expired===true){
+    const fallbackId=derivedOperationId(id,'drain-deadline:'+positive(String(plan.drain.generation)));
+    const fallback=await applyScopedControl(deps,{scope,operation_id:fallbackId,scope_kind:plan.intent.scope_kind,scope_id:plan.intent.scope_id,mode:plan.drain.fallback_mode,reason:'Persisted drain deadline elapsed'});
     return {scope,operation_id:id,fallback_operation_id:fallbackId,fallback,drain_complete:false,cleanup_complete:false,reconcile_required:true};
    }
    // An absent trusted supervisor leaves every process debt explicitly unreachable; it never confirms or completes a stop.
