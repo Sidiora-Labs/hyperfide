@@ -81,8 +81,12 @@ recall   = "hyperfide recall at session start; hyperfide brief includes it."
 remember = "hyperfide remember decisions and constraints as they occur, not afterwards."
 
 [status_values]
-# blocked: the attempt has an open blocking Ask; the task is not eligible
-# for dependants, stop preserves it, and stall detection exempts it.
+# blocked: the attempt has an open blocking Ask, named in the task's
+# blocked_ask; raising it from an in_progress task blocks the task and
+# answering it returns the task to in_progress. A blocked task is not next
+# and not eligible for dependants, stop preserves it, and stall detection
+# exempts it. (The documentation stage's "blocked" is a failed docs closure,
+# not this.)
 # superseded: terminal; closed without qualifying, its work owned by the
 # task or feature named in superseded_by, the reason in superseded_reason.
 task = ["pending", "in_progress", "blocked", "implemented", "done", "superseded"]

@@ -17,7 +17,7 @@ export interface AcceptedDependency {
  predecessor_spec_generation:string;predecessor_spec_revision_id:string;
  predecessor_repository_id:string|null;integration_ref:string|null;milestone:'QUALIFIED'|'INTEGRATED';
 }
-export interface ProposedDependencyTask {package_key:string;package_wave:number;id:string;task_key:string;definition:Record<string,any>;wave:number;state:string;state_version:string;spec_generation:string;spec_revision_id:string;criteria_digest:string;run_id:string}
+export interface ProposedDependencyTask {package_key:string;package_wave:number;id:string;task_key:string;definition:Record<string,any>;wave:number;state:string;blocked_ask?:string|null;state_version:string;spec_generation:string;spec_revision_id:string;criteria_digest:string;run_id:string}
 type Task=ProposedDependencyTask;
 interface Snapshot {run:Record<string,any>;tasks:Task[]}
 export interface DependencyReport {
@@ -71,7 +71,7 @@ async function snapshot(tx:Tx,scope:DependencyScope,run_id:string,lock=false):Pr
  const result=await tx.query('SELECT r.*,r.spec_generation::text,r.state_version::text,pg_is_in_recovery() AS replica FROM hyperfide.runs r WHERE r.organisation_id=$1 AND r.id=$2'+(lock?' FOR UPDATE':' FOR SHARE'),[scope.organisation_id,run_id]);
  const run=result.rows[0];if(!run)fail('SPEC_RUN_NOT_FOUND','Accepted run does not exist in this organisation');
  if(run.replica)fail('PRIMARY_REQUIRED','Accepted plan authority requires primary state');
- const tasks=await tx.query('SELECT t.id,t.task_key,t.definition,t.wave,t.state,t.state_version::text,t.spec_generation::text,t.spec_revision_id,t.criteria_digest,t.run_id,p.package_key,p.wave AS package_wave FROM hyperfide.tasks t JOIN hyperfide.feature_packages p ON p.organisation_id=t.organisation_id AND p.run_id=t.run_id AND p.id=t.feature_package_id WHERE t.organisation_id=$1 AND t.run_id=$2 ORDER BY t.task_key LIMIT 50001',[scope.organisation_id,run_id]);
+ const tasks=await tx.query('SELECT t.id,t.task_key,t.definition,t.wave,t.state,t.blocked_ask,t.state_version::text,t.spec_generation::text,t.spec_revision_id,t.criteria_digest,t.run_id,p.package_key,p.wave AS package_wave FROM hyperfide.tasks t JOIN hyperfide.feature_packages p ON p.organisation_id=t.organisation_id AND p.run_id=t.run_id AND p.id=t.feature_package_id WHERE t.organisation_id=$1 AND t.run_id=$2 ORDER BY t.task_key LIMIT 50001',[scope.organisation_id,run_id]);
  if(tasks.rows.length>MAX_TASKS)fail('SPEC_GRAPH_LIMIT','Accepted task graph exceeds the bounded validation limit');
  return {run,tasks:tasks.rows as Task[]};
 }
@@ -345,7 +345,7 @@ export async function resolveTask(tx:Tx,scope:DependencyScope,input:unknown):Pro
  if(matches.length!==1)fail('SPEC_TASK_NOT_FOUND','Exact task key is absent from the authenticated run');
  const task=matches[0]!;
  return {authority:'ACCEPTED_TASK_IDENTITY',task_id:task.id,task_key:task.task_key,feature_key:feature(task),wave:task.wave,
-  task_state:task.state,task_state_version:task.state_version,spec_revision_id:task.spec_revision_id,spec_generation:task.spec_generation,run_spec_revision_id:snap.run.spec_revision_id,run_spec_generation:snap.run.spec_generation,run_state:snap.run.state,run_state_version:snap.run.state_version};
+  task_state:task.state,blocked_ask:task.blocked_ask??null,task_state_version:task.state_version,spec_revision_id:task.spec_revision_id,spec_generation:task.spec_generation,run_spec_revision_id:snap.run.spec_revision_id,run_spec_generation:snap.run.spec_generation,run_state:snap.run.state,run_state_version:snap.run.state_version};
 }
 export async function structuralFrontier(tx:Tx,scope:DependencyScope,input:unknown):Promise<unknown>{
  const request=scopeInput(scope,input,[],['limit']);
@@ -353,7 +353,8 @@ export async function structuralFrontier(tx:Tx,scope:DependencyScope,input:unkno
  const snap=await snapshot(tx,scope,scope.run_id);
  const report=await validateDependencies(tx,scope,{run_id:scope.run_id,spec_revision_id:snap.run.spec_revision_id,spec_generation:snap.run.spec_generation,state_version:snap.run.state_version});
  const limit=request.limit as number|undefined??25;
- const candidates=report.status==='STRUCTURALLY_VALID'?snap.tasks.filter(task=>['PENDING','READY','BLOCKED','STALE'].includes(task.state)&&
+ // A task waiting on an Ask (D4) is not a candidate: only the answer releases it.
+ const candidates=report.status==='STRUCTURALLY_VALID'?snap.tasks.filter(task=>['PENDING','READY','BLOCKED','STALE'].includes(task.state)&&!task.blocked_ask&&
   !report.edges.some(edge=>edge.task_id===task.id)).sort((a,b)=>a.wave-b.wave||a.task_key.localeCompare(b.task_key)).slice(0,limit):[];
  return {authority:'CANDIDATE_DISCOVERY',kind:'STRUCTURAL_FRONTIER',operational_eligibility:'UNASSESSED',validation_status:report.status,
   spec_revision_id:report.spec_revision_id,spec_generation:report.spec_generation,state_version:report.state_version,
