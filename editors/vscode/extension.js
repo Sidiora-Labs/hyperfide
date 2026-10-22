@@ -792,6 +792,7 @@ async function activate(ctx) {
                      * status bar follow with the catch-up */
                 }
                 if (applied.view === 'fleet' || applied.fleet) fleetApi.touch();
+                if ((applied.view === 'drift' || ev.kind === 'task.status') && fleetApi.drift) fleetApi.drift(ev);
                 if (applied.view === 'memories') memoryApi.touch();
                 scheduleRefresh(EVENT_REFRESH_MS);
             });

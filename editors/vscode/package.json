@@ -83,6 +83,12 @@
           "name": "Fleet",
           "contextualTitle": "Hyperfide Fleet",
           "visibility": "collapsed"
+        },
+        {
+          "id": "codifyIssues",
+          "name": "Issues",
+          "contextualTitle": "Hyperfide Issues",
+          "visibility": "collapsed"
         }
       ]
     },
@@ -98,6 +104,10 @@
       {
         "view": "codifyFleet",
         "contents": "No fleet here yet.\nA fleet is Main Gideon, one manager per feature, and one worker per wave \u2014 each on its own branch and worktree. It appears once spec/workflow.kvx has a [hierarchy] section.\n[Start the fleet](command:codify.fleet.start)\n[Begin a task in the fleet](command:codify.fleet.begin)\n[Refresh](command:codify.fleet.refresh)"
+      },
+      {
+        "view": "codifyIssues",
+        "contents": "No issues.\nThe leader queue, external intake, escalated repairs and drift appear here from the Hyperfide console and the local drift log.\n[Refresh](command:codify.issues.refresh)"
       }
     ],
     "commands": [
@@ -388,6 +398,16 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "codify.issues.refresh",
+        "title": "Hyperfide: Refresh Issues",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "codify.issues.open",
+        "title": "Hyperfide: Open Issue Location",
+        "icon": "$(go-to-file)"
+      },
+      {
         "command": "codify.fleet.openWorktree",
         "title": "Hyperfide: Open Agent Worktree",
         "icon": "$(folder-opened)"
@@ -599,6 +619,11 @@
           "command": "codify.fleet.checkpoint",
           "when": "view == codifyFleet",
           "group": "1_fleet@3"
+        },
+        {
+          "command": "codify.issues.refresh",
+          "when": "view == codifyIssues",
+          "group": "navigation@0"
         }
       ],
       "view/item/context": [
@@ -761,6 +786,11 @@
           "command": "codify.fleet.openSessionWorktree",
           "when": "view == codifyFleet && viewItem =~ /^fleet-native.*-nwt/",
           "group": "inline@1"
+        },
+        {
+          "command": "codify.issues.open",
+          "when": "view == codifyIssues && viewItem =~ /^issues-row/",
+          "group": "inline"
         }
       ],
       "editor/context": [
@@ -794,6 +824,10 @@
         },
         {
           "command": "codify.forget",
+          "when": "false"
+        },
+        {
+          "command": "codify.issues.open",
           "when": "false"
         }
       ]
