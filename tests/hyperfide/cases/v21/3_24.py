@@ -199,6 +199,7 @@ def command_checks():
                    'migrate.mjs': 'deploy/hyperfide/migrate.mjs',
                    'install-service.mjs': 'deploy/hyperfide/install-service.mjs',
                    'qualify.py': 'tests/hyperfide/qualify.py',
+                   'publish-evidence.py': 'tests/hyperfide/publish-evidence.py',
                    'check-evidence.py': 'tests/hyperfide/check-evidence.py',
                    '29_5.py': 'tests/hyperfide/cases/tasks/29_5.py'}
         seen = 0
