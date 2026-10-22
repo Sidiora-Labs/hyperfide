@@ -43,7 +43,7 @@ This tree is Hyperfide 2.0 in development: `hyperfide version` prints `2.0.0-dev
 
 The layers reinforce each other: commits are auto-tagged with the task they implement, memories surface on the task they belong to, `hyperfide why` walks a symbol back to the decisions behind it, and `hyperfide spec trace` walks any task to its symbols, commits, and memories.
 
-**And it is present between the steps, not only at them.** `hyperfide work open` starts with a compact task packet, `hyperfide work update` returns only new state/evidence/workspace deltas, `hyperfide event progress` classifies loops without mistaking activity for progress, and `hyperfide guard` notices when an edit drifts outside declared scope. A built-in MCP server exposes 67 tools, resources, and prompts to every MCP-capable agent, while `hyperfide integrate` plans, applies, and diagnoses each host's native configuration.
+**And it is present between the steps, not only at them.** `hyperfide work open` starts with a compact task packet, `hyperfide work update` returns only new state/evidence/workspace deltas, `hyperfide event progress` classifies loops without mistaking activity for progress, and `hyperfide guard` notices when an edit drifts outside declared scope. A built-in MCP server exposes 71 tools, resources, and prompts to every MCP-capable agent, while `hyperfide integrate` plans, applies, and diagnoses each host's native configuration.
 
 **And it drives agents, not just serves them.** `hyperfide handoff` and `hyperfide resume` move a task between sessions without losing state, `hyperfide spec claim-next` hands an idle agent the next conflict-free task atomically, and `hyperfide spec run` fans a whole wave out to Codex CLI or Claude Code sessions — one sandboxed child process per claimed task, logs and prompts on disk, leases released on failure.
 
@@ -312,7 +312,7 @@ A classified memory carries its class everywhere it appears — `class skill 0.8
 
 | Command | Description |
 | --- | --- |
-| `hyperfide mcp` | Run as an MCP stdio server (it reports itself as `hyperfide`): 67 tools, `hyperfide://` resources for the workflow, each feature spec and the agent context (legacy `codify://` URIs are still read), and the prompts `orient`, `start-work`, `review-change` and `close-task` |
+| `hyperfide mcp` | Run as an MCP stdio server (it reports itself as `hyperfide`): 71 tools, `hyperfide://` resources for the workflow, each feature spec and the agent context (legacy `codify://` URIs are still read), and the prompts `orient`, `start-work`, `review-change` and `close-task` |
 | `hyperfide lsp` | Run as a Language Server (stdio) — every editor, not just VS Code |
 | `hyperfide serve` | One JSON-RPC connection (stdio) for an editor: every MCP tool, any `hyperfide` command (`exec`), `cancel`, and pushed event subscriptions from a sequence number. Idle, it holds no lock and runs no index pass. See [docs/events.md](docs/events.md#hyperfide-serve) |
 | `hyperfide tool list \| call <name> [json]` | Run one MCP tool from a shell, without an MCP client |
