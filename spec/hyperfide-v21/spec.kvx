@@ -569,7 +569,7 @@ owner = "ask"
 
 [task.3.7]
 title = "Ask routes in the client"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["3.2", "1.9"]
 touches = ["src/hyperfide/client.c", "services/hyperfide/components", "tests/integration/83_route_contract.sh", "tests/fixtures/route_contract/server_only.txt", "src/help.c", "README.md", "tests/hyperfide/cases/v21/3_7.py"]
