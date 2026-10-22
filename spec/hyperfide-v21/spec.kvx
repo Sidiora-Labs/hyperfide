@@ -788,7 +788,7 @@ owner = "console"
 
 [task.5.2]
 title = "Sandbox inventory"
-status = "implemented"
+status = "done"
 wave = 5
 requires = []
 touches = ["services/hyperfide/src/observability/console.ts", "services/hyperfide/src/providers/placement.ts", "tests/hyperfide/cases/v21/5_2.py"]
