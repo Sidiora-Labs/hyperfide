@@ -1101,7 +1101,7 @@ owner = "editor"
 
 [task.6.6]
 title = "Reconnect snapshot, unique agent names, wave transcripts"
-status = "implemented"
+status = "done"
 wave = 6
 requires = []
 touches = ["editors/vscode/serve.js", "editors/vscode/extension.js", "editors/vscode/acp.js", "editors/vscode/agents.js", "editors/vscode/fleet.js", "tests/integration/14_vscode.sh"]
@@ -1156,7 +1156,7 @@ title = "Console base per the evaluation"
 status = "implemented"
 wave = 6
 requires = ["1.10", "5.3"]
-touches = ["docs/hyperfide/console-evaluation.md", "console"]
+touches = ["docs/hyperfide/console-evaluation.md"]
 verify_cmd = "test -s docs/hyperfide/console-evaluation.md && grep -q '^## Decision' docs/hyperfide/console-evaluation.md"
 do_1 = "Consume the 1.10 answer: either bring up an OpenHands fork under console/ wired to console.needs, console.issues, console.sandboxes and console.leaders with the first panel usable, or record that the expanded extension is the console; write the Decision section with the answer and who gave it."
 do_2 = "No second console surface is started without the recorded answer."
