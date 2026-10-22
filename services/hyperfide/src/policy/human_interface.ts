@@ -6,6 +6,7 @@ import {invocationOf,recorded} from '../identity/enrollment.js';
 import {ASK_POLICY,ASK_POLICY_REVISION,askAnswererRoles,resolveAskPolicy} from '../agents/admission.js';
 import {recordDefaultDecision} from '../decisions/jobs.js';
 import type {ExpiredAskForDecision} from '../decisions/jobs.js';
+import {askSeeds,observeFencePermit} from './ask_seed.js';
 
 interface Tx { query<R extends QueryResultRow=QueryResultRow>(text:string,values?:unknown[]):Promise<QueryResult<R>> }
 interface Principal {
@@ -371,9 +372,10 @@ function checkRaise(input:unknown):CheckedRaise{
 type AskActor=Principal&{credential_id:string;attempt_id:string|null;sandbox_id:string|null};
 /** References a trusted in-process caller derived under its own lock (4.1: the observed native session's rows). */
 export interface AskSubject {session:string;attempt:string|null;sandbox:string|null}
-async function raiseIn(tx:Tx,actor:AskActor,outbox:AskOutbox,c:CheckedRaise,subject:AskSubject|null):Promise<Record<string,unknown>>{
+// owner, when given, replaces the caller's idempotency scope and request digest (human.ask.seed: one run-wide scope).
+async function raiseIn(tx:Tx,actor:AskActor,outbox:AskOutbox,c:CheckedRaise,subject:AskSubject|null,owner?:{scope:string;digest:string}):Promise<Record<string,unknown>>{
  const {v,kind,policy,title,body,options,chain,recommended,deadline}=c;
- const scope='actor:'+actor.actor_id,requestDigest=digest(subject?{input:v,actor_id:actor.actor_id,subject}:{input:v,actor_id:actor.actor_id});
+ const scope=owner?owner.scope:'actor:'+actor.actor_id,requestDigest=owner?owner.digest:digest(subject?{input:v,actor_id:actor.actor_id,subject}:{input:v,actor_id:actor.actor_id});
  await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[canonical({organisation_id:actor.organisation_id,run_id:actor.run_id,scope,action:'human.ask.raise',idempotency_key:v.idempotency_key})]);
  const prior=await tx.query<{request_digest:string;result:Record<string,unknown>|null;state:string}>(
   'SELECT request_digest,result,state FROM hyperfide.command_inbox WHERE organisation_id=$1 AND run_id=$2 AND principal_scope=$3 AND operation=$4 AND idempotency_key=$5 FOR UPDATE',
@@ -406,6 +408,29 @@ async function raiseIn(tx:Tx,actor:AskActor,outbox:AskOutbox,c:CheckedRaise,subj
 function askRaise(context:RuntimeContext,input:unknown):Promise<unknown>{
  const checked=checkRaise(input);
  return askTransaction(context,'human.ask.raise',null,(tx,actor,outbox)=>raiseIn(tx,actor,outbox,checked,null),true);
+}
+// Seeding (hyperfide-v21 4.7, req 4 ac_4): open programme decisions and expiring attestations, fence permits and
+// drain deadlines become Asks when an operator asks for it, never at import. Deadlines come from the 3.6 policy
+// (an observed expiry only tightens them). Each seed has a stable key under one run-wide scope and a digest without
+// the deadline, which only counts down, so re-seeding by any operator replays the Ask already raised.
+const askSeeders=['OPERATOR','COORDINATOR'];
+async function askSeed(context:RuntimeContext,input:unknown):Promise<unknown>{
+ exact(input,[]);
+ // The permit is a file on this host; read it before the transaction so no file I/O holds the primary.
+ const permit=await observeFencePermit(context.env);
+ return askTransaction(context,'human.ask.seed',askSeeders,async(tx,actor,outbox)=>{
+  await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[canonical({organisation_id:actor.organisation_id,run_id:actor.run_id,action:'human.ask.seed'})]);
+  const seeds=await askSeeds(tx,{organisation_id:actor.organisation_id,run_id:actor.run_id,deadline_cap:kind=>ASK_POLICY[kind].deadline_seconds,permit});
+  const outcomes:Record<string,unknown>[]=[];
+  for(const seed of seeds){
+   if(!seed.request){outcomes.push({source:seed.source,key:seed.key,status:'SKIPPED',reason:seed.reason});continue;}
+   const {deadline_seconds:_countdown,...stable}=seed.request;
+   const raised=await raiseIn(tx,actor,outbox,checkRaise({...seed.request,task_id:null}),null,{scope:'seed:asks',digest:digest({seed:seed.source,request:stable})});
+   outcomes.push({source:seed.source,key:seed.key,status:raised.replayed?'REPLAYED':'RAISED',ask_id:(raised.ask as Record<string,unknown>).ask_id});
+  }
+  const count=(status:string)=>outcomes.filter(o=>o.status===status).length;
+  return {seeds:outcomes,raised:count('RAISED'),replayed:count('REPLAYED'),skipped:count('SKIPPED'),authority:'NONE'};
+ },true);
 }
 function askAnswer(context:RuntimeContext,input:unknown):Promise<unknown>{
  const v=exact(input,['ask_id','expected_state_version','answer']),answer=text(v.answer,1,65536,'Answer');
@@ -505,6 +530,7 @@ export function createAskComponent(context:ComponentContext):Component{
     'human.ask.answer':(input,context)=>askAnswer(context as RuntimeContext,input),
     'human.ask.list':(input,context)=>askList(context as RuntimeContext,input),
     'human.ask.expire':(input,context)=>askExpire(context as RuntimeContext,input),
+    'human.ask.seed':(input,context)=>askSeed(context as RuntimeContext,input),
     'human.ask.sweep':(input,context)=>askSweep(context as RuntimeContext,input),
     'human.ask.policy':(input,context)=>askPolicyView(context as RuntimeContext,input)
   }};

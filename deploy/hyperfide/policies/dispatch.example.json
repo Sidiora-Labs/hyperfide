@@ -236,6 +236,7 @@
     "human.ask.list",
     "human.ask.policy",
     "human.ask.raise",
+    "human.ask.seed",
     "human.ask.sweep",
     "human.autonomous",
     "human.bootstrap",

@@ -15,6 +15,7 @@
     "human.ask.answer",
     "human.ask.list",
     "human.ask.expire",
+    "human.ask.seed",
     "human.ask.sweep",
     "human.ask.policy"
   ],
