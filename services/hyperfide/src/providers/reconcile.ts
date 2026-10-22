@@ -11,7 +11,7 @@ import type {PrimaryTransaction} from '../storage/transactions.js';
 import {FoundationError} from '../policy/programme.js';
 import {operationPayloadDigest,validateProviderOperation,validateProviderOutcome,validateInventory} from './contract.js';
 import type {ProviderMethod,ProviderOperation,ProviderOutcome,ResourceRef} from './contract.js';
-import {providerDatabase,readSelectedEnvironmentProfile,resolveSandboxBinding,providerDeployment,providerInvocation,bindProviderInvocation,assertInvocationRun,obj,str,uuid,dec,dg,utc,fail,readDeployment,currentPool,transaction,assertPoolCapacity,digestDocument,providerAdapter,hasProviderAdapter,providerOwnershipProbe} from './pools.js';
+import {providerDatabase,readSelectedEnvironmentProfile,resolveSandboxBinding,providerDeployment,providerInvocation,bindProviderInvocation,assertInvocationRun,obj,str,uuid,dec,dg,utc,fail,readDeployment,currentPool,transaction,assertPoolCapacity,poolCapacity,digestDocument,providerAdapter,hasProviderAdapter,providerOwnershipProbe} from './pools.js';
 import {createProvisionerWorker} from './worker.js';
 import type {ProvisionerWorker} from './worker.js';
 import type {ProviderDatabase,DeploymentConfig,ProviderPersistenceHooks,ProviderRunnerBindingVerifier,ProviderRunnerBinding,ProviderProcessRecord,ProviderDestructionRequest,ProviderDestructionProof,ProviderDestructionPreflight,ProviderOutputArchive,ProviderArtifactReference} from './pools.js';
@@ -593,6 +593,110 @@ export async function readConfirmedAbsence(tx:PrimaryTransaction,input:{organisa
   [input.organisation_id,input.run_id,input.reservation_id]);
  const row=rows.rows[0];return row?{id:row.id,digest:row.digest,observed_at:new Date(row.observed_at).toISOString()}:null;
 }
+// Operator exits from provider uncertainty (hyperfide-v21 2.1). Orphans and
+// QUARANTINED intents otherwise hold capacity as unknown forever (pools.ts
+// counts both). Every resolution names the deciding principal in
+// provider_resolutions; items left past the policy window become decision Asks.
+interface Decider {credential_id:string;actor_id:string;role:string;run_id:string}
+function operatorDecider(database:ProviderDatabase):Decider{
+ const p=providerInvocation(database).principal;
+ if(p.role!=='OPERATOR')fail('AUTH_SCOPE_DENIED','Resolving provider uncertainty is an operator decision');
+ return{credential_id:p.credential_id,actor_id:p.actor_id,role:p.role,run_id:p.run_id};
+}
+const optionalDigest=(value:unknown)=>value===null?null:dg(value);
+const orphanSubject=(pool:string,native:string)=>'orphan:'+pool+':'+native,intentSubject=(id:string)=>'intent:'+id;
+async function recordResolution(c:PrimaryTransaction,organisation:string,d:Decider,subject:string,row:{subject_kind:'ORPHAN'|'INTENT';pool_id:string;native_sandbox_id:string|null;intent_id:string|null;
+ resolution:string;prior_state:string;resulting_state:string;reason:string;evidence_digest:string|null;released_reservations:number}):Promise<string>{
+ const id=randomUUID();
+ await c.query('INSERT INTO hyperfide.provider_resolutions(organisation_id,id,run_id,subject_kind,pool_id,native_sandbox_id,intent_id,resolution,prior_state,resulting_state,reason,evidence_digest,released_reservations,decided_by_credential_id,decided_by_actor_id,decided_by_role) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',
+  [organisation,id,d.run_id,row.subject_kind,row.pool_id,row.native_sandbox_id,row.intent_id,row.resolution,row.prior_state,row.resulting_state,row.reason,row.evidence_digest,row.released_reservations,d.credential_id,d.actor_id,d.role]);
+ await c.query("UPDATE hyperfide.provider_resolution_asks SET state='ANSWERED',resolution_id=$3,answered_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND subject_key=$2 AND state='OPEN'",[organisation,subject,id]);
+ return id;
+}
+export async function resolveOrphan(database:ProviderDatabase,config:DeploymentConfig,value:unknown):Promise<unknown>{
+ const d=operatorDecider(database),i=obj(value,['pool_id','native_sandbox_id','resolution','reason','evidence_digest']);
+ const poolId=uuid(i.pool_id),native=str(i.native_sandbox_id,512),reason=str(i.reason,1024),evidence=optionalDigest(i.evidence_digest),organisation=config.organisation_id;
+ if(i.resolution!=='RETAIN'&&i.resolution!=='DELETE')fail('INVALID_REQUEST','Orphan resolution is RETAIN or DELETE');
+ // Deletion is recorded, not performed: the operator attests the resource is gone.
+ if(i.resolution==='DELETE'&&!evidence)fail('DELETION_EVIDENCE_REQUIRED','Deleting an orphan requires evidence that the provider resource is gone');
+ const target=i.resolution==='RETAIN'?'RETAINED':'DELETED';
+ return transaction(database,async c=>{
+  await currentPool(c,config,poolId);
+  const o=(await c.query('SELECT state FROM hyperfide.provider_orphans WHERE organisation_id=$1 AND pool_id=$2 AND native_sandbox_id=$3 FOR UPDATE',[organisation,poolId,native])).rows[0];
+  if(!o)fail('ORPHAN_UNKNOWN','No orphan is recorded for this pool and provider resource');
+  if(o.state===target)return{resolved:false,state:o.state,capacity:await poolCapacity(c,config,poolId)};
+  if(o.state==='DELETED')fail('RESOLUTION_CONFLICT','A deleted orphan cannot be resolved again');
+  const bound=await c.query('SELECT id FROM hyperfide.sandboxes WHERE organisation_id=$1 AND pool_id=$2 AND native_sandbox_id=$3',[organisation,poolId,native]);
+  if(bound.rows.length)fail('ORPHAN_BOUND','This provider resource belongs to a known sandbox; tear it down through a destroy intent');
+  await c.query('UPDATE hyperfide.provider_orphans SET state=$4,ownership_evidence_digest=COALESCE(ownership_evidence_digest,$5) WHERE organisation_id=$1 AND pool_id=$2 AND native_sandbox_id=$3',[organisation,poolId,native,target,evidence]);
+  const resolution_id=await recordResolution(c,organisation,d,orphanSubject(poolId,native),{subject_kind:'ORPHAN',pool_id:poolId,native_sandbox_id:native,intent_id:null,
+   resolution:String(i.resolution),prior_state:o.state,resulting_state:target,reason,evidence_digest:evidence,released_reservations:0});
+  return{resolved:true,resolution_id,state:target,decided_by:d,capacity:await poolCapacity(c,config,poolId)};
+ });
+}
+export async function resolveQuarantinedIntent(database:ProviderDatabase,config:DeploymentConfig,value:unknown):Promise<unknown>{
+ const d=operatorDecider(database),i=obj(value,['intent_id','resolution','reason','evidence_digest']);
+ const id=uuid(i.intent_id),reason=str(i.reason,1024),evidence=optionalDigest(i.evidence_digest),organisation=config.organisation_id;
+ if(i.resolution!=='RELEASE'&&i.resolution!=='RETRY')fail('INVALID_REQUEST','Quarantine resolution is RELEASE or RETRY');
+ return transaction(database,async c=>{
+  const row=await intent(c,organisation,id,true);assertInvocationRun(database,row.run_id);
+  if(i.resolution==='RELEASE'&&row.state==='REJECTED'&&(row as Intent&{failure_code?:string|null}).failure_code==='OPERATOR_RELEASED')return{resolved:false,intent:row};
+  if(row.state!=='QUARANTINED')fail('INTENT_NOT_QUARANTINED','Only a QUARANTINED provisioning intent takes an operator resolution');
+  let released=0,next:string;
+  if(i.resolution==='RELEASE'){
+   // A bound resource may still exist; without evidence of absence it must be
+   // settled as an orphan instead, or its capacity would vanish from accounting.
+   if(row.native_sandbox_id&&!evidence)fail('RELEASE_EVIDENCE_REQUIRED','A quarantined intent bound to a provider resource needs evidence that the resource is gone');
+   next='REJECTED';
+   await c.query("UPDATE hyperfide.provisioning_intents SET state='REJECTED',failure_code='OPERATOR_RELEASED',updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND id=$2",[organisation,id]);
+   await c.query("UPDATE hyperfide.sandboxes SET observed_state='DESTROYED',desired_state='DESTROYED',state_version=state_version+1 WHERE organisation_id=$1 AND id=$2 AND boot_generation=$3",[organisation,row.sandbox_id,row.boot_generation]);
+   // Admission owns final reservation release; the resolution only permits RELEASE_PENDING.
+   released=(await c.query("UPDATE hyperfide.reservations r SET state='RELEASE_PENDING',state_version=r.state_version+1 FROM hyperfide.provisioning_intent_reservations l WHERE l.organisation_id=$1 AND l.run_id=$2 AND l.intent_id=$3 AND r.organisation_id=l.organisation_id AND r.run_id=l.run_id AND r.id=l.reservation_id AND r.state IN ('PROVISIONING','ALLOCATED') RETURNING r.id",[organisation,row.run_id,id])).rowCount??0;
+  }else{
+   // Back to UNKNOWN: the provisioner worker reconciles it again after its retry interval.
+   next='UNKNOWN';
+   await c.query("UPDATE hyperfide.provisioning_intents SET state='UNKNOWN',failure_code=NULL,updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND id=$2",[organisation,id]);
+  }
+  const resolution_id=await recordResolution(c,organisation,d,intentSubject(id),{subject_kind:'INTENT',pool_id:row.pool_id,native_sandbox_id:null,intent_id:id,
+   resolution:String(i.resolution),prior_state:row.state,resulting_state:next,reason,evidence_digest:evidence,released_reservations:released});
+  return{resolved:true,resolution_id,decided_by:d,released_reservations:released,intent:await intent(c,organisation,id)};
+ });
+}
+export function resolutionWindowSeconds(env:Readonly<NodeJS.ProcessEnv>):number{
+ const raw=env.HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS;
+ if(raw===undefined||raw==='')fail('RESOLUTION_WINDOW_REQUIRED','HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS must name the policy window before unresolved items escalate');
+ if(!/^[1-9][0-9]{0,8}$/.test(raw))fail('RESOLUTION_WINDOW_INVALID','HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS must be a positive whole number of seconds');
+ return Number(raw);
+}
+export async function escalateUnresolved(database:ProviderDatabase,config:DeploymentConfig,value:unknown,env:Readonly<NodeJS.ProcessEnv>):Promise<unknown>{
+ obj(value,[]);const invocation=providerInvocation(database),organisation=config.organisation_id;
+ if(!['OPERATOR','COORDINATOR','PROVISIONER'].includes(invocation.principal.role))fail('AUTH_SCOPE_DENIED','Escalating provider uncertainty requires coordinator authority');
+ const window=resolutionWindowSeconds(env),pools=config.pools.map(p=>p.id);
+ return transaction(database,async c=>{
+  const orphans=await c.query("SELECT o.pool_id,o.native_sandbox_id,o.first_observed_at FROM hyperfide.provider_orphans o WHERE o.organisation_id=$1 AND o.pool_id=ANY($2::uuid[]) AND o.state IN ('QUARANTINED','OWNERSHIP_VERIFIED') AND o.first_observed_at<=clock_timestamp()-make_interval(secs=>$3) AND NOT EXISTS(SELECT 1 FROM hyperfide.sandboxes s WHERE s.organisation_id=o.organisation_id AND s.pool_id=o.pool_id AND s.native_sandbox_id=o.native_sandbox_id) ORDER BY o.first_observed_at",[organisation,pools,window]);
+  const intents=await c.query("SELECT id,pool_id,native_sandbox_id,failure_code,updated_at FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND run_id=$2 AND state='QUARANTINED' AND updated_at<=clock_timestamp()-make_interval(secs=>$3) ORDER BY updated_at",[organisation,invocation.principal.run_id,window]);
+  const subjects=[...orphans.rows.map(o=>({key:orphanSubject(o.pool_id,o.native_sandbox_id),kind:'ORPHAN',pool:o.pool_id,native:o.native_sandbox_id,intent:null,since:o.first_observed_at,
+    title:'Retain or delete unattributed provider resource '+o.native_sandbox_id,recommended:'RETAIN',
+    options:[{id:'RETAIN',effect:'Keep the resource; it stays an occupied sandbox but no longer blocks admission'},{id:'DELETE',effect:'Record evidence the resource is gone; its capacity is freed'}]})),
+   ...intents.rows.map(r=>({key:intentSubject(r.id),kind:'INTENT',pool:r.pool_id,native:null,intent:r.id,since:r.updated_at,
+    title:'Release or retry quarantined provisioning intent '+r.id+' ('+(r.failure_code??'QUARANTINED')+')',recommended:r.native_sandbox_id?'RETRY':'RELEASE',
+    options:[{id:'RELEASE',effect:'Abandon the intent and free its provisioning capacity'},{id:'RETRY',effect:'Return the intent to reconciliation'}]}))];
+  const raised:string[]=[];
+  for(const s of subjects){
+   const row=await c.query("INSERT INTO hyperfide.provider_resolution_asks(organisation_id,id,subject_key,subject_kind,pool_id,native_sandbox_id,intent_id,title,options,recommended,window_seconds,subject_since,raised_by_credential_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(organisation_id,subject_key) WHERE state='OPEN' DO NOTHING RETURNING id",
+    [organisation,randomUUID(),s.key,s.kind,s.pool,s.native,s.intent,s.title,JSON.stringify(s.options),s.recommended,window,s.since,invocation.principal.credential_id]);
+   if(row.rows.length)raised.push(s.key);
+  }
+  const open=await c.query("SELECT id,subject_key,subject_kind,pool_id,native_sandbox_id,intent_id,kind,title,options,recommended,window_seconds,subject_since,raised_at FROM hyperfide.provider_resolution_asks WHERE organisation_id=$1 AND state='OPEN' ORDER BY raised_at,subject_key",[organisation]);
+  return{window_seconds:window,raised,open:open.rows};
+ });
+}
+async function listResolutions(database:ProviderDatabase,config:DeploymentConfig,value:unknown):Promise<unknown>{
+ const poolId=uuid(obj(value,['pool_id']).pool_id);await currentPool(database,config,poolId);
+ const resolutions=await database.query('SELECT * FROM hyperfide.provider_resolutions WHERE organisation_id=$1 AND pool_id=$2 ORDER BY decided_at,id',[config.organisation_id,poolId]);
+ const asks=await database.query('SELECT * FROM hyperfide.provider_resolution_asks WHERE organisation_id=$1 AND pool_id=$2 ORDER BY raised_at,id',[config.organisation_id,poolId]);
+ return{resolutions:resolutions.rows,asks:asks.rows};
+}
 export interface ProviderIntentCapability {
  registerDestructionPreflight(reader:ProviderDestructionPreflight):()=>void;
  preparationParameters(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext):Promise<ProviderOperation<'create'>['parameters']>;
@@ -649,6 +753,10 @@ export function createComponent(context:ComponentContext):Component {
     'provider.remote.execute-bound':()=>fail('TRUSTED_CAPABILITY_ONLY','Remote commands are admitted only by the trusted runner executor'),
     'provider.inventory.observe-known':guarded(async(input,c,database)=>{provisioner();if(providerInvocation(database).principal.role!=='PROVISIONER')fail('AUTH_SCOPE_DENIED','Inventory requires the provisioner principal');return observeKnownSandbox(database,c,input,context.signal);}),
     'provider.orphans.list':guarded(async(input,c,database)=>{const i=obj(input,['pool_id']);await currentPool(database,c,uuid(i.pool_id));return(await database.query('SELECT native_sandbox_id,state,ownership_evidence_digest,first_observed_at,last_observed_at FROM hyperfide.provider_orphans WHERE organisation_id=$1 AND pool_id=$2',[c.organisation_id,i.pool_id])).rows;}),
+    'provider.orphans.resolve':guarded((input,c,database)=>resolveOrphan(database,c,input)),
+    'provider.intents.resolve-quarantine':guarded((input,c,database)=>resolveQuarantinedIntent(database,c,input)),
+    'provider.resolutions.escalate':guarded((input,c,database)=>escalateUnresolved(database,c,input,context.env)),
+    'provider.resolutions.list':guarded((input,c,database)=>listResolutions(database,c,input)),
     'provider.worker.start':workerAction((w,invocation)=>{if(invocation.principal.role!=='PROVISIONER')fail('AUTH_SCOPE_DENIED','Provider effects require the provisioner principal');return w.start(invocation);}),
     'provider.worker.status':workerAction((w,invocation)=>{if(!['OPERATOR','COORDINATOR','PROVISIONER'].includes(invocation.principal.role))fail('AUTH_SCOPE_DENIED','Provisioner readiness requires coordinator authority');return w.status(invocation);}),
     'provider.worker.stop':workerAction(async(w,invocation)=>{if(!['OPERATOR','PROVISIONER'].includes(invocation.principal.role))fail('AUTH_SCOPE_DENIED','Stopping provider effects requires operator or provisioner authority');return w.halt(invocation);}),
