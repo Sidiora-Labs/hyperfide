@@ -86,12 +86,23 @@ jobs:
       - name: build service
         working-directory: services/hyperfide
         run: npm ci && npm run build
+      # Registrations 9.1 to 9.4 require HF_CREDENTIAL_CONFIG_FILE. A fixture store
+      # (no sources, no targets) satisfies them; it holds no repository secret.
+      - name: materialise fixture credential store
+        run: |
+          config=$(bash tests/hyperfide/ci/credential-store.sh "$RUNNER_TEMP/hf-credentials")
+          echo "HF_CREDENTIAL_CONFIG_FILE=$config" >> "$GITHUB_ENV"
       - name: qualify registered cases
         env:
           HF_QUALIFY_OUT: ${{ runner.temp }}/qualify
+          # D13: the only secret in this workflow, mapped into this step alone. It is
+          # empty on forks and when the operator has not set it, and the driver then
+          # SKIPs every registration that requires it. Never echo it.
+          HF_RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         # One qualify.py run per tracked registration, against its pinned manifest.
         # A registration whose required_env is unset in CI (provider tokens, native
         # agent binaries) prints SKIP with the variable name and never counts as PASS.
+        # Provider secrets reach only the registrations that declare them.
         # tests/integration/82_ci_matrix.sh extracts and exercises this driver.
         run: |
           python3 - <<'QUALIFY'
@@ -106,15 +117,19 @@ jobs:
           for path in sorted(glob.glob(os.path.join(root, "tests/hyperfide/manifests/**/*.json"), recursive=True)):
               with open(path) as fh:
                   manifests[json.load(fh).get("registered_variant")] = path
+          secrets = {"HF_RAILWAY_TOKEN": "RAILWAY_TOKEN"}
+          print("live provider secret RAILWAY_TOKEN: %s" % ("present" if os.environ.get("HF_RAILWAY_TOKEN") else "absent"))
           counts = {"PASS": 0, "FAIL": 0, "SKIP": 0}
           for path in regs:
               with open(path) as fh:
                   reg = json.load(fh)
               variant, task = reg.get("variant"), reg.get("task")
-              missing = [name for name in reg.get("required_env", []) if not os.environ.get(name)]
+              required = reg.get("required_env", [])
+              missing = [name for name in required if not os.environ.get(name)]
               manifest = manifests.get(variant)
               if missing:
-                  print("SKIP %s: required environment absent: %s" % (variant, ", ".join(missing)))
+                  why = ["%s (repository secret %s not set)" % (n, secrets[n]) if n in secrets else n for n in missing]
+                  print("SKIP %s: required environment absent: %s" % (variant, ", ".join(why)))
                   counts["SKIP"] += 1
                   continue
               if manifest is None:
@@ -124,7 +139,8 @@ jobs:
               argv = [sys.executable, "tests/hyperfide/qualify.py", "--manifest", os.path.abspath(manifest),
                       "--output-dir", os.path.join(os.path.abspath(out), variant.replace(":", "_"))]
               argv += ["--task", task] if task else ["--case"] + list(reg.get("cases", []))
-              proc = subprocess.run(argv, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+              env = {k: v for k, v in os.environ.items() if k not in secrets or k in required}
+              proc = subprocess.run(argv, cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
               status = "FAIL"
               for line in reversed(proc.stdout.splitlines()):
                   try:

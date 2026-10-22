@@ -109,4 +109,81 @@ set +e; out=$(HF_QUALIFY_ROOT="$r" python3 "$TMP/driver.py" 2>&1); rc=$?; set -e
 [ "$rc" -eq 1 ] || fail "driver must fail with no registrations, rc=$rc"
 has "$out" "no tracked registrations"
 
+# ---- task 2.14: fixture credential store, secret gating (D13), real SKIP reasons
+q=$(job hyperfide-qualify)
+has "$q" "name: materialise fixture credential store"
+has "$q" 'bash tests/hyperfide/ci/credential-store.sh "$RUNNER_TEMP/hf-credentials"'
+has "$q" 'echo "HF_CREDENTIAL_CONFIG_FILE=$config" >> "$GITHUB_ENV"'
+[ "$(grep -c 'secrets\.' "$ci")" -eq 1 ] || fail "ci.yml must reference exactly one secret"
+qstep=$(awk '/- name: qualify registered cases/ {on=1; print; next} on && /^      - / {exit} on {print}' "$ci")
+has "$qstep" 'HF_RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}'
+bad=$(grep -nE '(echo|printf|cat).*(secrets\.|RAILWAY_TOKEN)' "$ci" || true)
+[ -z "$bad" ] || fail "ci.yml prints a secret:
+$bad"
+
+# the materialised store satisfies credentials.ts: private roots, 0600 file, five keys
+store="$repo/tests/hyperfide/ci/credential-store.sh"
+cfg=$(bash "$store" "$TMP/creds")
+python3 - "$cfg" <<'PY' || fail "materialised credential store violates credentials.ts rules"
+import json, os, stat, sys
+f = sys.argv[1]
+st = os.lstat(f)
+assert os.path.isabs(f) and stat.S_ISREG(st.st_mode) and st.st_uid == os.getuid() and st.st_mode & 0o077 == 0, "config file"
+v = json.load(open(f))
+assert sorted(v) == ["attachment_root", "schema_version", "secret_root", "sources", "targets"], sorted(v)
+assert v["schema_version"] == 1 and v["sources"] == [] and v["targets"] == []
+for r in (v["secret_root"], v["attachment_root"]):
+    s = os.lstat(r)
+    assert os.path.isabs(r) and os.path.realpath(r) == r and stat.S_ISDIR(s.st_mode), r
+    assert s.st_uid == os.getuid() and s.st_mode & 0o022 == 0, r
+PY
+set +e; bash "$store" "$TMP/creds" >/dev/null 2>&1; rc=$?; set -e
+[ "$rc" -ne 0 ] || fail "credential-store.sh reused an existing store"
+
+# the real registrations: 9.1-9.4 run with the store, native and parity ones SKIP
+# naming their variable, and the provider secret reaches only cases that declare it
+r2="$TMP/real"
+mkdir -p "$r2/tests/hyperfide"
+cp -r "$repo/tests/hyperfide/registrations" "$repo/tests/hyperfide/manifests" "$r2/tests/hyperfide/"
+mkdir -p "$r2/tests/hyperfide/registrations/live"
+printf '{"schema_version":1,"variant":"live:railway","task":"live.1","cases":["V-001"],"required_env":["HF_RAILWAY_TOKEN"]}\n' \
+    > "$r2/tests/hyperfide/registrations/live/railway.json"
+printf '{"registered_variant":"live:railway"}\n' > "$r2/tests/hyperfide/manifests/live-railway.json"
+cat > "$r2/tests/hyperfide/qualify.py" <<'PY'
+import json, os, sys
+task = sys.argv[sys.argv.index("--task") + 1] if "--task" in sys.argv else None
+leaked = task != "live.1" and "HF_RAILWAY_TOKEN" in os.environ
+print(json.dumps({"status": "FAIL" if leaked else "PASS", "diagnostics": ["provider secret leaked"] if leaked else []}))
+sys.exit(1 if leaked else 0)
+PY
+drive() {
+    env -u HF_RAILWAY_TOKEN -u HF_CREDENTIAL_CONFIG_FILE -u HF_TEST_NATIVE_CLAUDE_BINARY -u HF_TEST_NATIVE_CODEX_BINARY \
+        -u HYPERFIDE_PARITY_V020_MANIFEST -u HYPERFIDE_PARITY_V025_MANIFEST \
+        DATABASE_URL=postgres://ci@localhost/ci PGHOST=localhost PGPORT=5432 PGUSER=ci \
+        HF_QUALIFY_ROOT="$r2" HF_QUALIFY_OUT="$TMP/qout2" "$@" python3 "$TMP/driver.py" 2>&1
+}
+set +e; out=$(drive); rc=$?; set -e
+[ "$rc" -eq 0 ] || fail "driver failed on real registrations without the store: $out"
+for t in 9.1 9.2 9.3 9.4; do
+    has "$out" "SKIP task:$t: required environment absent: HF_CREDENTIAL_CONFIG_FILE"
+done
+has "$out" "live provider secret RAILWAY_TOKEN: absent"
+has "$out" "SKIP live:railway: required environment absent: HF_RAILWAY_TOKEN (repository secret RAILWAY_TOKEN not set)"
+set +e; out=$(drive HF_CREDENTIAL_CONFIG_FILE="$cfg"); rc=$?; set -e
+[ "$rc" -eq 0 ] || fail "driver failed on real registrations with the store: $out"
+for t in 9.1 9.2 9.3 9.4; do
+    has "$out" "PASS task:$t"; hasnt "$out" "SKIP task:$t:"
+done
+has "$out" "SKIP task:14.3: required environment absent: HF_TEST_NATIVE_CLAUDE_BINARY, HF_TEST_NATIVE_CODEX_BINARY"
+has "$out" "SKIP full:V-020: required environment absent: HYPERFIDE_PARITY_V020_MANIFEST"
+has "$out" "SKIP full:V-025: required environment absent: HYPERFIDE_PARITY_V025_MANIFEST"
+has "$out" "SKIP live:railway: required environment absent: HF_RAILWAY_TOKEN (repository secret RAILWAY_TOKEN not set)"
+hasnt "$out" "PASS live:railway"
+token="ci-matrix-sentinel-$$"
+set +e; out=$(drive HF_CREDENTIAL_CONFIG_FILE="$cfg" HF_RAILWAY_TOKEN="$token"); rc=$?; set -e
+[ "$rc" -eq 0 ] || fail "provider secret leaked to a case that does not declare it: $out"
+has "$out" "live provider secret RAILWAY_TOKEN: present"
+has "$out" "PASS live:railway"
+hasnt "$out" "$token"
+
 echo "82_ci_matrix OK"
