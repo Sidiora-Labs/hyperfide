@@ -292,7 +292,7 @@ owner = "providers"
 
 [task.2.3]
 title = "Attestation expiry warnings and live quota observers"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/providers/pools.ts", "services/hyperfide/src/providers/railway/reconciliation.ts", "services/hyperfide/src/providers/blaxel/processes.ts", "tests/hyperfide/cases/v21/2_3.py"]

@@ -7,7 +7,9 @@ import type {Component,ComponentContext} from '../../components/registry.js';
 import {FoundationError} from '../../policy/programme.js';
 import {validateProviderOperation,validateProviderOutcome,PROVIDER_METHODS} from '../contract.js';
 import type {ProviderAdapter,ProviderOperation,ProviderOutcome,ProviderScope,ResourceRef,ProviderMethod,ProviderResults,ProcessResult,ProviderState} from '../contract.js';
-import {configuredBlaxelSDK,BLAXEL_PINS} from './images.js';
+import {configuredBlaxelSDK,blaxelCredentials,BLAXEL_PINS} from './images.js';
+import {quotaObservationsFromResponse,liveQuotaObserverFlag} from '../pools.js';
+import type {QuotaObservation,QuotaDimension,QuotaObserverMode} from '../pools.js';
 import {blaxelSandboxLifetimeOptions,validateBlaxelLifetimePolicy} from './lifetime.js';
 import type {BlaxelLifetimePolicy} from './lifetime.js';
 
@@ -411,7 +413,7 @@ export async function writeBlaxelStdin(process:Pick<BlaxelProcess,'writeStdin'|'
  try{await boundedBlaxelOperation(()=>process.writeStdin(processRef,bytes),signal,deadline);await ledger.finishWrite(resource,processRef,instructionId,'CONFIRMED');return{state:'CONFIRMED',replay_allowed:false};}
  catch{await ledger.finishWrite(resource,processRef,instructionId,'UNKNOWN');return{state:'UNKNOWN',replay_allowed:false};}
 }
-type RegistryCapability={registerProviderAdapter(provider:'blaxel',factory:(scope:ProviderScope,hooks:BlaxelPersistenceHooks)=>ProviderAdapter):()=>void;registerProviderOwnershipProbe?:(provider:'blaxel',probe:(scope:ProviderScope,operationId:string,nativeId:string,signal:AbortSignal)=>Promise<{matches:boolean;operation_id:string;native_sandbox_id:string;evidence_digest:string}>)=>()=>void;registerIsolationTransport?:(provider:'blaxel',factory:(scope:ProviderScope)=>ReturnType<typeof createBlaxelIsolationTransport>)=>()=>void};
+type RegistryCapability={registerProviderAdapter(provider:'blaxel',factory:(scope:ProviderScope,hooks:BlaxelPersistenceHooks)=>ProviderAdapter):()=>void;registerProviderOwnershipProbe?:(provider:'blaxel',probe:(scope:ProviderScope,operationId:string,nativeId:string,signal:AbortSignal)=>Promise<{matches:boolean;operation_id:string;native_sandbox_id:string;evidence_digest:string}>)=>()=>void;registerIsolationTransport?:(provider:'blaxel',factory:(scope:ProviderScope)=>ReturnType<typeof createBlaxelIsolationTransport>)=>()=>void;registerProviderQuotaObserver?:(provider:'blaxel',observer:(scope:ProviderScope,signal:AbortSignal)=>Promise<QuotaObservation[]>)=>()=>void};
 type DependencyContext=ComponentContext&{dependencies?:{require<T>(id:string,name:string,guard:(v:unknown)=>v is T):T}};
 
 interface BlaxelCredentialAuthority{
@@ -499,6 +501,48 @@ async function probeBlaxelOwnership(ctx:ComponentContext,scope:ProviderScope,ope
  const matches=actual.metadata.name===nativeId&&actual.metadata.workspace===scope.environment_id&&actual.spec.region===scope.region&&labels['hyperfide-operation']===operationId&&labels['hyperfide-scope']===scopeDigest(scope)&&typeof labels['hyperfide-boot']==='string'&&/^[1-9][0-9]{0,18}$/.test(labels['hyperfide-boot'] as string);
  return{matches,operation_id:operationId,native_sandbox_id:nativeId,evidence_digest:digest({scope,operationId,nativeId,observed_at,labels:{operation:labels['hyperfide-operation']??null,scope:labels['hyperfide-scope']??null,boot:labels['hyperfide-boot']??null,preparation:labels['hyperfide-preparation']??null},matches})};
 }
+/** Blaxel quota observer under the shared contract in pools.ts (hyperfide-v21 2.3). The pinned SDK
+ * has no quota call, so the trusted owner-only HF_BLAXEL_QUOTA_CONFIG names the endpoint: a loopback
+ * http endpoint is the RECORDED fixture; an https api.blaxel.ai endpoint is LIVE and runs only with
+ * live_quota_observer:true there plus the operator's live Blaxel enablement. Nothing defaults it on. */
+const BLAXEL_QUOTA_DIMENSIONS:readonly QuotaDimension[]=['SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'];
+const BLAXEL_QUOTA_ATTEMPTS=3;
+async function readBlaxelQuotaConfig(env:Readonly<NodeJS.ProcessEnv>):Promise<{endpoint:URL;mode:QuotaObserverMode;live:boolean}>{
+ const filename=env.HF_BLAXEL_QUOTA_CONFIG;
+ if(!filename||!path.isAbsolute(filename))fail('QUOTA_UNQUALIFIED','Blaxel quota observation needs the trusted HF_BLAXEL_QUOTA_CONFIG file');
+ const stat=await fs.lstat(filename);
+ if(!stat.isFile()||stat.isSymbolicLink()||stat.size>65536||(stat.mode&0o077)!==0||typeof process.getuid==='function'&&stat.uid!==process.getuid())fail('QUOTA_POLICY_INVALID','Blaxel quota config must be a bounded owner-only file');
+ const raw=object(JSON.parse(await fs.readFile(filename,'utf8'))),{live_quota_observer,...rest}=raw,c=shape(rest,['schema_version','endpoint']);
+ if(c.schema_version!==1)fail('QUOTA_POLICY_INVALID','Blaxel quota config version');
+ const endpoint=new URL(text(c.endpoint,2048));
+ if(endpoint.username||endpoint.password||endpoint.hash)fail('QUOTA_POLICY_INVALID','Blaxel quota endpoint fields');
+ const loopback=endpoint.protocol==='http:'&&['127.0.0.1','localhost','[::1]'].includes(endpoint.hostname);
+ if(!loopback&&!(endpoint.protocol==='https:'&&endpoint.hostname==='api.blaxel.ai'&&!endpoint.port))fail('QUOTA_POLICY_INVALID','Blaxel quota endpoint is neither a loopback fixture nor the production API');
+ return{endpoint,mode:loopback?'RECORDED':'LIVE',live:liveQuotaObserverFlag(live_quota_observer)};
+}
+export async function observeBlaxelQuota(ctx:Pick<ComponentContext,'env'>,scope:ProviderScope,signal:AbortSignal,transport:typeof fetch=fetch):Promise<QuotaObservation[]>{
+ assertBlaxelAdministrativeScope(scope,ctx);
+ const config=await readBlaxelQuotaConfig(ctx.env);
+ if(config.mode==='LIVE'&&!config.live)fail('QUOTA_UNQUALIFIED','Blaxel live quota observation is off; the trusted quota config must set live_quota_observer:true');
+ const headers:Record<string,string>={accept:'application/json'};
+ if(config.mode==='LIVE'){const auth=blaxelCredentials(ctx);headers.Authorization='Bearer '+auth.apiKey;headers['X-Blaxel-Workspace']=auth.workspace;}
+ const url=new URL(config.endpoint.href);url.searchParams.set('workspace',scope.environment_id);
+ const query='GET '+url.origin+url.pathname+url.search;
+ for(let attempt=1;;attempt++){
+  signal.throwIfAborted();
+  let response:Response;
+  try{response=await transport(url,{method:'GET',redirect:'error',headers,signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});}
+  catch{fail('QUOTA_UNQUALIFIED','Blaxel quota endpoint unreachable');}
+  if(response.ok){
+   const body=await response.text();if(body.length>1048576)fail('QUOTA_OBSERVATION_INVALID','Blaxel quota response is unbounded');
+   let value:unknown;try{value=JSON.parse(body);}catch{fail('QUOTA_OBSERVATION_INVALID','Blaxel quota response is not JSON');}
+   return quotaObservationsFromResponse('blaxel',config.mode,scope,query,value,BLAXEL_QUOTA_DIMENSIONS);
+  }
+  // Same read discipline as Railway: throttling and provider faults retry with bounded backoff, then stay unqualified.
+  if(!(response.status===429||response.status>=500)||attempt>=BLAXEL_QUOTA_ATTEMPTS)fail('QUOTA_UNQUALIFIED','Blaxel quota endpoint answered HTTP '+response.status);
+  await new Promise(resolve=>setTimeout(resolve,Math.min(5000,200*2**attempt)));
+ }
+}
 export function createBlaxelIsolationTransport(scope:ProviderScope,ctx:Pick<ComponentContext,'env'|'signal'>){
  assertBlaxelAdministrativeScope(scope,ctx);
  const check=(raw:unknown,kind:'destroy'|'observe')=>requireOperation(raw,kind,scope);
@@ -543,6 +587,7 @@ export function createComponent(ctx:ComponentContext):Component{
   disposers.push(registry.registerProviderAdapter('blaxel',(scope,hooks)=>createBlaxelAdapter(scope,hooks,trustedBlaxelDependencies(ctx,hooks,credentials),ctx)));
   if(typeof registry.registerProviderOwnershipProbe==='function')disposers.push(registry.registerProviderOwnershipProbe('blaxel',(scope,operationId,nativeId,signal)=>probeBlaxelOwnership(ctx,scope,operationId,nativeId,signal)));
   if(typeof registry.registerIsolationTransport==='function')disposers.push(registry.registerIsolationTransport('blaxel',scope=>createBlaxelIsolationTransport(scope,ctx)));
+  if(typeof registry.registerProviderQuotaObserver==='function')disposers.push(registry.registerProviderQuotaObserver('blaxel',(scope,signal)=>observeBlaxelQuota(ctx,scope,signal)));
  }
  return{apiVersion:1,close:()=>{for(const dispose of disposers.reverse())dispose();},actions:{
   'blaxel.process.describe':input=>{shape(input,[]);return{schema_version:1,sdk:BLAXEL_PINS.sdk,adapter_registered:disposers.length>0,

@@ -3,7 +3,8 @@ import {createHash} from 'node:crypto';
 import {assertInvocation} from '../../transport/protocol.js';
 import {isCredentialAuthority,composeEnvironment,type CredentialAuthority} from '../../identity/credentials.js';
 import {isArtifactStoreCapability,assertCompleteArtifactReferences} from '../../artifacts/objects.js';
-import type {ProviderPersistenceHooks as RuntimeProviderPersistenceHooks,ProviderPreparationBinding,ProviderQuotaObserver,ProviderOwnershipProbe,QuotaObservation} from '../pools.js';
+import type {ProviderPersistenceHooks as RuntimeProviderPersistenceHooks,ProviderPreparationBinding,ProviderQuotaObserver,ProviderOwnershipProbe,QuotaObservation,QuotaDimension} from '../pools.js';
+import {QUOTA_OBSERVATION_TTL_MS,quotaObservationsFromResponse,liveQuotaObserverFlag} from '../pools.js';
 import { Sandbox, ExecControlUnsupportedError } from 'railway';
 import type { Component, ComponentContext } from '../../components/registry.js';
 import {
@@ -77,32 +78,23 @@ export async function completeSessions(client:RailwayClient,sandboxId:string,sig
   }
   return {sessions,enumeration_complete:false,available:true};
 }
-/** Pinned SDK 3.16.0 exposes no sandbox quota query. This shape is answered only by the
- * simulated component fixture; live use stays QUOTA_UNQUALIFIED until an approved campaign pins it. */
+/** Pinned SDK 3.16.0 exposes no sandbox quota query. The simulated component fixture answers this
+ * shape (RECORDED). LIVE use stays QUOTA_UNQUALIFIED unless the trusted pool policy sets
+ * live_quota_observer:true (v21 2.3); the field is absent, so off, unless an operator writes it. */
 const quotaQuery='query RailwayQuota($environmentId:String!){sandboxQuota(environmentId:$environmentId){accountId environmentId limits{scope dimension limit}}}';
-const RAILWAY_QUOTA_DIMENSIONS=['SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'];
-export const RAILWAY_QUOTA_TTL_MS=300000;
-export async function observeRailwayQuota(client:RailwayClient,s:ProviderScope,signal?:AbortSignal):Promise<QuotaObservation[]> {
+const RAILWAY_QUOTA_DIMENSIONS:readonly QuotaDimension[]=['SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'];
+export const RAILWAY_QUOTA_TTL_MS=QUOTA_OBSERVATION_TTL_MS;
+export async function observeRailwayQuota(client:RailwayClient,s:ProviderScope,signal?:AbortSignal,
+  policy:{live_quota_observer?:boolean}={}):Promise<QuotaObservation[]> {
   client.assertScope(s);
-  if(client.config.mode!=='component-fixture')
-    throw new Error('QUOTA_UNQUALIFIED: Railway quota API is unpinned in SDK 3.16.0; an approved live campaign must qualify it');
-  const data=await client.request<{sandboxQuota:unknown}>(quotaQuery,{environmentId:s.environment_id},signal);
-  const v=object(data.sandboxQuota,['accountId','environmentId','limits']);
-  if(v.accountId!==s.provider_account_id||v.environmentId!==s.environment_id||!Array.isArray(v.limits)||
-    !v.limits.length||v.limits.length>RAILWAY_QUOTA_DIMENSIONS.length*2)throw new RailwayRequestError('PROTOCOL');
-  const evidence=hash({query:quotaQuery,scope:s,response:v}),observed=new Date();
-  const observed_at=observed.toISOString(),expires_at=new Date(observed.getTime()+RAILWAY_QUOTA_TTL_MS).toISOString();
-  const seen=new Set<string>();
-  return v.limits.map(raw=>{
-    const l=object(raw,['scope','dimension','limit']);
-    if(!['ACCOUNT','ENVIRONMENT'].includes(String(l.scope))||!RAILWAY_QUOTA_DIMENSIONS.includes(String(l.dimension))||
-      typeof l.limit!=='string'||!/^(0|[1-9][0-9]{0,17})$/.test(l.limit)||seen.has(l.scope+':'+l.dimension))
-      throw new RailwayRequestError('PROTOCOL');
-    seen.add(l.scope+':'+l.dimension);
-    return {scope_kind:l.scope as 'ACCOUNT'|'ENVIRONMENT',scope_key:l.scope==='ACCOUNT'?s.provider_account_id:s.environment_id,
-      dimension:l.dimension as QuotaObservation['dimension'],limit:l.limit,observed_at,expires_at,evidence_digest:evidence,
-      basis:'PROVIDER_API',evidence_reference:'simulated:railway-component-fixture:'+evidence};
-  });
+  const recorded=client.config.mode==='component-fixture';
+  if(!recorded&&policy.live_quota_observer!==true)
+    throw new Error('QUOTA_UNQUALIFIED: Railway live quota observation is off; the trusted pool policy must set live_quota_observer:true');
+  const {data}=await client.readWithBackoff<{sandboxQuota:unknown}>(quotaQuery,{environmentId:s.environment_id},signal);
+  try{
+    return quotaObservationsFromResponse('railway',recorded?'RECORDED':'LIVE',s,quotaQuery,data.sandboxQuota,RAILWAY_QUOTA_DIMENSIONS,
+      recorded?evidence=>'simulated:railway-component-fixture:'+evidence:undefined);
+  }catch{throw new RailwayRequestError('PROTOCOL');}
 }
 /** Approved-probe input validation for networking, quota, idle policy and the 72-hour profile.
  * Inputs are untrusted and can never carry qualification; every dimension stays UNQUALIFIED
@@ -571,8 +563,9 @@ interface RailwayPoolPolicy {
   idle_timeout_minutes:number;domains:RailwayRuntimeProfile['domains'];
   runtime_variables:RailwayRuntimeProfile['runtime_variables'];build_variables:Record<string,string>;
   retention:{retention_class:'EPHEMERAL'|'RUN'|'RELEASE'|'LEGAL_HOLD';retention_until:string|null;retention_hold:boolean};
+  live_quota_observer:boolean;
 }
-function railwayRuntimePolicies(context:ComponentContext):RailwayPoolPolicy[] {
+export function railwayRuntimePolicies(context:Pick<ComponentContext,'env'>):RailwayPoolPolicy[] {
   const filename=context.env.HF_RAILWAY_RUNTIME_POLICY,expected=context.env.HF_RAILWAY_RUNTIME_POLICY_DIGEST;
   if(!filename||!expected)throw new Error('Railway trusted runtime policy unavailable');
   digest(expected);
@@ -589,7 +582,9 @@ function railwayRuntimePolicies(context:ComponentContext):RailwayPoolPolicy[] {
     throw new Error('Railway runtime policy schema');
   const seen=new Set<string>();
   return envelope.pools.map(value=>{
-    const v=object(value,['scope','seed_reference','seed_source','idle_timeout_minutes','domains','runtime_variables','build_variables','retention']);
+    // live_quota_observer is optional and the only optional key: absent means the live observer is off.
+    const raw=object(value),{live_quota_observer:live,...rest}=raw;
+    const v=object(rest,['scope','seed_reference','seed_source','idle_timeout_minutes','domains','runtime_variables','build_variables','retention']);
     const s=scope(v.scope),key=hash(s);if(seen.has(key))throw new Error('Railway duplicate runtime pool');seen.add(key);
     text(v.seed_reference);
     const seed=object(v.seed_source,['kind','reference']);
@@ -600,7 +595,7 @@ function railwayRuntimePolicies(context:ComponentContext):RailwayPoolPolicy[] {
       typeof retention.retention_hold!=='boolean')throw new Error('Railway output retention');
     if(retention.retention_until!==null)instant(retention.retention_until);
     integer(v.idle_timeout_minutes,0,10080);
-    return {...v,scope:s} as unknown as RailwayPoolPolicy;
+    return {...v,scope:s,live_quota_observer:liveQuotaObserverFlag(live)} as unknown as RailwayPoolPolicy;
   });
 }
 export function railwayRuntimePolicyDigest(policy:Omit<RailwayPoolPolicy,'scope'>|RailwayPoolPolicy):string {
@@ -659,8 +654,8 @@ function installRailwayRuntime(context:ComponentContext):{close:()=>Promise<void
   });}catch(error){unregisterReader();void sessions.detachAll();throw error;}
   let unregisterQuota:()=>void;
   try{unregisterQuota=registrar.registerProviderQuotaObserver('railway',async(s,signal)=>{
-    if(!policies.some(v=>sameScope(v.scope,s)))throw new Error('Railway quota pool policy unavailable');
-    return observeRailwayQuota(client,s,signal);
+    const policy=policies.find(v=>sameScope(v.scope,s));if(!policy)throw new Error('Railway quota pool policy unavailable');
+    return observeRailwayQuota(client,s,signal,policy);
   });}catch(error){unregisterIsolation();unregisterReader();void sessions.detachAll();throw error;}
   let unregisterProbe:()=>void=()=>{};
   try{if(typeof registrar.registerProviderOwnershipProbe==='function')
