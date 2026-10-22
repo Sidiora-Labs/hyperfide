@@ -803,7 +803,7 @@ reqs = ["1.1"]
 owner = "qualification"
 [task.4.1]
 title = "Classifier writes Asks"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["3.2"]
 touches = ["services/hyperfide/src/agents/admission.ts", "services/hyperfide/src/agents/native_asks.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/components/13.4.json", "tests/hyperfide/cases/tasks/13_2.py", "tests/hyperfide/cases/tasks/13_4.py", "tests/hyperfide/cases/v21/4_1.py"]
