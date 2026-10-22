@@ -392,3 +392,37 @@ export function createComponent(context:ComponentContext):Component{
  const store=createArtifactStore(context),actions=Object.fromEntries(ARTIFACT_ACTIONS.map(action=>[action,(input:unknown,invocationContext:ComponentContext)=>store.invoke(action,input,invocationContext)]));
  return {apiVersion:1,actions,capabilities:{'artifact.backend.v1':Object.freeze({destroyTombstoned:(input:unknown,ctx:ComponentContext)=>store.destroyTombstoned(input,ctx)}),'artifact.store.v1':Object.freeze({invoke:(action:string,input:unknown,ctx:ComponentContext|InvocationContext)=>store.invoke(action,input,ctx)})},close:()=>store.close()};
 }
+/**
+ * Evidence bundles are release evidence: collection follows the retention policy's
+ * minimum_age_ms.RELEASE (null keeps them indefinitely). operations.md documents this; change both together.
+ */
+export const EVIDENCE_RETENTION=Object.freeze({retention_class:'RELEASE',retention_until:null,retention_hold:false} as const);
+/** Tracked at tests/hyperfide/evidence-receipts/<task>.json; tests/hyperfide/evidence_store.py resolves it. */
+export interface EvidenceReceiptRecord{schema_version:1;kind:'hyperfide-evidence-receipt';task:string;bundle_format:'tar';content_digest:string;total_size_bytes:string;chunk_count:number;retention_class:string;receipt:ArtifactReceipt}
+function succeeded(value:unknown,step:string):Record<string,unknown>{
+ const result=value as Record<string,unknown>|null;
+ if(!result||typeof result!=='object'||result.outcome!=='SUCCEEDED'||result.availability!=='VERIFIED')fail('ARTIFACT_NOT_COMPLETE','Evidence publication did not verify '+step+'; reconcile before retry');
+ return result;
+}
+/**
+ * Publishes a task evidence bundle (qualify.py --bundle-evidence) as verified chunks plus a
+ * committed chunk manifest, and returns the receipt record a clone needs to resolve it.
+ */
+export async function publishEvidenceBundle(store:ArtifactStoreCapability,context:ComponentContext|InvocationContext,scope:ArtifactScope,task:string,bundle:Buffer):Promise<EvidenceReceiptRecord>{
+ if(!/^[0-9]+\.[0-9]+$/.test(task))fail('ARTIFACT_INPUT_INVALID','Invalid task identity');
+ if(bundle.length>MAX_CHUNKS*MAX_OBJECT)fail('ARTIFACT_INPUT_INVALID','Evidence bundle exceeds manifest bounds');
+ const chunks:Chunk[]=[];
+ for(let offset=0;offset<bundle.length;offset+=MAX_OBJECT){
+ const bytes=bundle.subarray(offset,offset+MAX_OBJECT);
+ const put=succeeded(await store.invoke('artifact.object.put',{...scope,digest:hash(bytes),size_bytes:String(bytes.length),data_base64:bytes.toString('base64'),...EVIDENCE_RETENTION},context),'chunk '+chunks.length);
+ const artifact=put.artifact as {artifact_id:string};
+ chunks.push({sequence:chunks.length,artifact_id:artifact.artifact_id,digest:hash(bytes),size_bytes:String(bytes.length),offset_bytes:String(offset)});
+ }
+ const committed=succeeded(await store.invoke('artifact.manifest.commit',{...scope,expected_chunks:chunks.length,total_size_bytes:String(bundle.length),content_digest:hash(bundle),complete:true,truncated:false,missing_ranges:[],chunks,...EVIDENCE_RETENTION},context),'manifest commit');
+ const manifestId=(committed.artifact as {artifact_id:string}).artifact_id;
+ // Read back through the store so the record carries a receipt for bytes the backend actually returned.
+ const read=succeeded(await store.invoke('artifact.manifest.read',{...scope,artifact_id:manifestId},context),'manifest read');
+ const receipt=read.receipt as ArtifactReceipt|null;
+ if(!receipt||read.content_digest!==hash(bundle)||receipt.storage_backend!==BACKEND)fail('ARTIFACT_BINDING_CONFLICT','Evidence manifest receipt differs from the published bundle');
+ return {schema_version:1,kind:'hyperfide-evidence-receipt',task,bundle_format:'tar',content_digest:hash(bundle),total_size_bytes:String(bundle.length),chunk_count:chunks.length,retention_class:EVIDENCE_RETENTION.retention_class,receipt};
+}

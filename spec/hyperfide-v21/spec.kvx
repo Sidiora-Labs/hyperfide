@@ -112,10 +112,10 @@ owner = "qualification"
 
 [task.1.2]
 title = "Evidence and artifacts through the S3 artifact store"
-status = "pending"
+status = "implemented"
 wave = 1
 requires = ["1.1"]
-touches = ["tests/hyperfide/qualify.py", "tests/hyperfide/check-evidence.py", "services/hyperfide/src/artifacts/objects.ts", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/1_2.py"]
+touches = ["tests/hyperfide/qualify.py", "tests/hyperfide/check-evidence.py", "services/hyperfide/src/artifacts/objects.ts", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/1_2.py", "tests/hyperfide/evidence_store.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/1_2.py"
 do_1 = "When artifacts/hyperfide/tasks/<id> is absent, qualify.py resolves the task's evidence by receipt from the artifact store (artifact.object.read, artifact.manifest.read) into the local cache before checking; the local directory is a cache, never the authority."
 do_2 = "Publishing an evidence index commits it with artifact.manifest.commit under a retention class the operations manual documents; document bucket versioning and the credential variables the store reads."

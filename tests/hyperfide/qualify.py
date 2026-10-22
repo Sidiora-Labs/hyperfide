@@ -16,6 +16,10 @@ import sys
 import time
 import uuid
 
+# Run as a script, possibly under -I: the evidence store client is a sibling module.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import evidence_store  # noqa: E402
+
 class GateError(Exception):
     pass
 
@@ -334,6 +338,15 @@ def execute(args, root, registry_path, registry, registration, registration_path
     preliminary_git = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'], capture_output=True, timeout=10)
     preliminary_commit = preliminary_git.stdout.decode().strip() if preliminary_git.returncode == 0 else None
     base_dir = root / 'artifacts/hyperfide/tasks' / registration.get('task', manifest['campaign_id'])
+    evidence_source = None
+    if not args.output_dir:
+        # The task directory is a cache of the artifact store (D1): restore prior receipts before chaining onto them.
+        try:
+            evidence_source = evidence_store.resolve(root, base_dir.name, args.require_evidence)
+        except (evidence_store.EvidenceIntegrityError, evidence_store.EvidenceUnavailable) as exc:
+            raise GateError('evidence resolution refused: ' + str(exc)) from exc
+        if evidence_source.get('warning'):
+            print('warning: ' + evidence_source['warning'], file=sys.stderr)
     exclude_dir = Path(args.output_dir).resolve() if args.output_dir else base_dir
     if root == exclude_dir or root.is_relative_to(exclude_dir):
         raise GateError('evidence output cannot contain the workspace')
@@ -369,7 +382,7 @@ def execute(args, root, registry_path, registry, registration, registration_path
             raise GateError("invalid existing receipt sequence")
         source_files, inputs, diagnostics = [], [], []
         checker = trusted_checker
-        source_paths = {Path(__file__).resolve(), checker, registration_path.resolve(), registry_path.resolve()}
+        source_paths = {Path(__file__).resolve(), Path(evidence_store.__file__).resolve(), checker, registration_path.resolve(), registry_path.resolve()}
         for argv in (registration["argv"], registration.get("cleanup_argv", [])):
             for arg in argv:
                 path = Path(arg) if Path(arg).is_absolute() else root / arg
@@ -539,7 +552,7 @@ def execute(args, root, registry_path, registry, registration, registration_path
         temporary.write_bytes(canonical(index) + b"\n")
         os.replace(temporary, output_dir / "evidence-index.json")
         print(json.dumps({"status": status, "receipt_id": receipt_id, "campaign_dir": str(output_dir), "scope": manifest["scope"],
-                          "full_case_status": receipt["full_case_status"], "diagnostics": diagnostics}))
+                          "full_case_status": receipt["full_case_status"], "diagnostics": diagnostics, "evidence_source": evidence_source}))
         return 0 if status == "PASS" else 1
 
 def main():
@@ -549,6 +562,9 @@ def main():
     selector.add_argument("--task")
     selector.add_argument("--suite")
     selector.add_argument("--list-cases", action="store_true")
+    selector.add_argument("--bundle-evidence", metavar="TASK", help="write the deterministic evidence bundle of artifacts/hyperfide/tasks/TASK for publishEvidenceBundle")
+    parser.add_argument("--bundle-output")
+    parser.add_argument("--require-evidence", action="store_true", help="block when prior evidence cannot be resolved from the artifact store (default: warn)")
     parser.add_argument("--format", choices=("json", "text"), default="json")
     parser.add_argument("--manifest")
     parser.add_argument("--registry", default="tests/hyperfide/registry.json")
@@ -558,6 +574,14 @@ def main():
     args = parser.parse_args()
     try:
         root = Path(args.root).resolve()
+        if args.bundle_evidence:
+            task_dir = root / evidence_store.TASKS_DIR / args.bundle_evidence
+            if not evidence_store.TASK.fullmatch(args.bundle_evidence) or not task_dir.is_dir() or not args.bundle_output:
+                raise GateError("bundling requires a task evidence directory and --bundle-output")
+            data = evidence_store.bundle(task_dir)
+            Path(args.bundle_output).write_bytes(data)
+            print(json.dumps({"status": "BUNDLED", "task": args.bundle_evidence, "content_digest": "sha256:" + digest(data), "size_bytes": len(data)}))
+            return 0
         registry_path = Path(args.registry) if Path(args.registry).is_absolute() else root / args.registry
         registry, variants = load_registry(registry_path)
         if args.list_cases:
