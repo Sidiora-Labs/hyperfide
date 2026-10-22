@@ -37,6 +37,17 @@ async function fenceConfiguration(filename){
   return value;
  }finally{await file.close();}
 }
+// Internal object store (v21 2.11): the provisioner's HF_SLICE_SOURCE_CONFIG names the store and its per-region mirrors.
+// Preflight refuses a malformed file or a GitHub source; --object-store-freshness reports each mirror against the store.
+async function objectStore(env){
+ if(!env.HF_SLICE_SOURCE_CONFIG)return null;
+ return (await runtime('preparation/object_store')).readObjectStore(env);
+}
+export async function objectStoreFreshness(repository,env=process.env){
+ const store=await runtime('preparation/object_store'),config=store.readObjectStore(env);
+ const report=await store.mirrorFreshness(config,repository);
+ return {outcome:report.mirrors.every(m=>m.state==='FRESH')?'FRESH':'STALE',...report,services_started:false};
+}
 // Every absent variable or file a role needs to start, so one refusal names all of them.
 async function absent(role,env){
  const prefix=role==='control'?'':role.toUpperCase()+'_';
@@ -80,6 +91,7 @@ async function checks(role,env){
   (await runtime('recovery/fencing')).externalFenceTopologyDigest(fence.topology);
   await (await runtime('providers/pools')).readDeployment(env);
   (await runtime('providers/railway/preparation')).configuredClient({env});
+  await objectStore(env);
  }
 }
 const rows=text=>text.split('\n').filter(Boolean).map(line=>line.split(':'));
@@ -174,6 +186,7 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
  try{
   const args=process.argv.slice(2);let result;
   if(args.length===2&&args[0]==='--preflight')result=await preflight(args[1]);
+  else if(args.length===2&&args[0]==='--object-store-freshness'){result=await objectStoreFreshness(args[1]);if(result.outcome!=='FRESH')process.exitCode=1;}
   else if(args.length===0)result=await bootstrap(process.env.HYPERFIDE_BOOTSTRAP_ROOT||'/');
   else if(args.length===2&&args[0]==='--root')result=await bootstrap(args[1]);
   else fail('BOOTSTRAP_ARGUMENTS');

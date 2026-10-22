@@ -6,6 +6,7 @@ import { Sandbox, type ConnectOptions, type SandboxTemplate } from 'railway';
 import type { Component, ComponentContext } from '../../components/registry.js';
 import { canonicalJSON, verifyManifest, type PreparationManifest } from '../../preparation/manifests.js';
 import type { ProviderScope } from '../contract.js';
+import { readObjectStore, resolveSource } from '../../preparation/object_store.js';
 
 /** Public SDK/API revision pin. Credentials belong only to the provisioner. */
 export const RAILWAY_PIN = Object.freeze({ sdk_name:'railway',sdk_version:'3.16.0',
@@ -388,9 +389,17 @@ function preparationInput(value:unknown,keys:string[]):JsonObject {
   const v=object(value,keys);
   return {...v,manifest:object(v.manifest),scope:scope(v.scope),candidate_path:text(v.candidate_path,4096)};
 }
+/** Clone and fetch source for a sandbox in this client's region: the internal object store's Railway mirror for that region
+ * (hyperfide-v21 2.11), never GitHub. A live Railway mirror must sit on the private network (*.railway.internal). */
+export function railwayMaterialisationSource(client:RailwayClient,env:Readonly<NodeJS.ProcessEnv>,repository:string):ReturnType<typeof resolveSource> {
+  const source=resolveSource(readObjectStore(env),text(repository),'railway',client.config.region);
+  if(client.config.mode==='live'&&source.resolution==='MIRROR'&&!new URL(source.url).hostname.endsWith('.railway.internal'))
+    throw new Error('Railway object store mirror is not on the private network');
+  return source;
+}
 /** Exported for the Railway adapter (9.4) to bind with coordinator lock, authenticated runner quiescence and durable persistence. */
 export const RAILWAY_PREPARATION_CAPABILITY=Object.freeze({capturePreparedBase,buildRailwayTemplate,checkpointByKey,
-  validatePreparedBase,freshRestoreObservation,verifySentinelRestore});
+  validatePreparedBase,freshRestoreObservation,verifySentinelRestore,railwayMaterialisationSource});
 export function createComponent(_context:ComponentContext):Component {
   return {apiVersion:1,capabilities:Object.freeze({'railway.preparation.v1':RAILWAY_PREPARATION_CAPABILITY}),actions:{
     'railway.preparation.capture':async(input,context)=>{
@@ -420,7 +429,7 @@ export function createComponent(_context:ComponentContext):Component {
         sentinel_file_digest:view.fileDigest(child,sentinel.path),
         sentinel_process_alive:view.processAlive(child,sentinel.process_marker)}),...client.provenance(),simulated:true};
     },
-    'railway.preparation.describe':input=>{object(input,[]);return {sdk:RAILWAY_PIN,clone:'DISK_ONLY',
+    'railway.preparation.describe':input=>{object(input,[]);return {sdk:RAILWAY_PIN,clone:'DISK_ONLY',source:'OBJECT_STORE_REGION_MIRROR',
       enrollment:'FRESH_REQUIRED',checkpoint_mutation_identity:'ID',checkpoint_restore_identity:'KEY',authority:'NONE'};},
     'railway.preparation.reference.verify':input=>{
       const v=object(input,['base','scope','preparation_digest']);

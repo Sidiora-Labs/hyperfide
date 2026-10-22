@@ -9,6 +9,7 @@ import type {PrimaryTransaction,QuerySession} from '../storage/transactions.js';
 import {readSemanticDisposition} from '../storage/dispositions.js';
 import {FoundationError,object} from '../policy/programme.js';
 import {canonicalJSON} from './manifests.js';
+import {readObjectStore,resolveSource} from './object_store.js';
 
 /**
  * Packet-scoped workspace slices (task 11.5).
@@ -366,29 +367,6 @@ async function inspect(input:unknown,ctx:Context):Promise<unknown>{
 }
 
 /* ------------------------------------------------------------------------------------------- remote materialisation */
-interface SourceConfig {url:string;submodules:Record<string,string>}
-async function sourceConfig(ctx:Context,repository:string):Promise<SourceConfig>{
- const filename=ctx.env.HF_SLICE_SOURCE_CONFIG;
- if(!filename||!path.isAbsolute(filename))return fail('SLICE_SOURCE_UNAVAILABLE','Trusted remote source configuration is required');
- let raw:unknown;
- try{const st=await fs.lstat(filename);if(!st.isFile()||st.size>262144)throw new Error();raw=JSON.parse(await fs.readFile(filename,'utf8'));}
- catch{return fail('SLICE_SOURCE_UNAVAILABLE','Trusted remote source configuration is unreadable');}
- const v=record(raw,['schema_version','repositories']);
- if(v.schema_version!==1||!object(v.repositories))fail('SLICE_SOURCE_UNAVAILABLE','Unsupported source configuration');
- const entry=v.repositories[repository];if(!object(entry))return fail('SLICE_SOURCE_UNAVAILABLE','Repository has no trusted remote source');
- const e=record(entry,['url','submodules']);
- const subs:Record<string,string>={};if(!object(e.submodules))fail('SLICE_SOURCE_UNAVAILABLE','Submodule source map required');
- for(const [p,u] of Object.entries(e.submodules))subs[slicePath(p)]=sourceURL(u);
- return {url:sourceURL(e.url),submodules:subs};
-}
-// A plain local path silently ignores --filter, so only URL transports are accepted.
-function sourceURL(value:unknown):string{
- if(typeof value!=='string'||value.length>2048||/[\x00-\x1f\s]/.test(value))return fail('SLICE_SOURCE_UNAVAILABLE','Invalid source URL');
- let url:URL;try{url=new URL(value);}catch{return fail('SLICE_SOURCE_UNAVAILABLE','Source must be a URL, not a local path');}
- if(!['https:','ssh:','file:'].includes(url.protocol)||url.username||url.password||url.search||url.hash||(url.protocol==='file:'&&(url.hostname||!url.pathname.startsWith('/'))))
-  fail('SLICE_SOURCE_UNAVAILABLE','Credential-free https, ssh or absolute file URL required');
- return value;
-}
 interface Run {code:number|null;signal:string|null;stdout:Buffer;stderr:string;stdoutDigest:string;stderrDigest:string;stdoutBytes:number;stderrBytes:number;durationNs:string}
 function execute(argv:string[],options:{cwd:string;env:Record<string,string>;signal:AbortSignal;timeoutMs:number;input?:string;maxStdout?:number}):Promise<Run>{
  return new Promise((resolve,reject)=>{
@@ -509,10 +487,11 @@ async function materialize(input:unknown,ctx:Context):Promise<unknown>{
   const value=await loadManifest(tx,s,identity);
   // Materialisation binds the packet's own slot; the slot must be unoccupied by any unreleased workspace.
   if(canonicalJSON(value.slot)!==canonicalJSON(requested))fail('SLICE_SLOT_MISMATCH','Requested slot differs from the packet binding');
-  const slot=(await tx.query("SELECT 1 FROM hyperfide.worker_slots w JOIN hyperfide.sandboxes x ON x.organisation_id=w.organisation_id AND x.id=w.sandbox_id AND x.boot_generation=w.boot_generation WHERE w.organisation_id=$1 AND w.sandbox_id=$2 AND w.id=$3 AND w.boot_generation=$4 AND x.observed_state='RUNNING'",[s.organisation_id,requested.sandbox_id,requested.slot_id,requested.sandbox_boot_generation])).rowCount;
+  // The sandbox's pool fixes its provider region, which selects the nearest object store mirror.
+  const slot=(await tx.query<{provider:string;region:string}>("SELECT p.provider,p.region FROM hyperfide.worker_slots w JOIN hyperfide.sandboxes x ON x.organisation_id=w.organisation_id AND x.id=w.sandbox_id AND x.boot_generation=w.boot_generation JOIN hyperfide.provider_pools p ON p.organisation_id=x.organisation_id AND p.id=x.pool_id WHERE w.organisation_id=$1 AND w.sandbox_id=$2 AND w.id=$3 AND w.boot_generation=$4 AND x.observed_state='RUNNING'",[s.organisation_id,requested.sandbox_id,requested.slot_id,requested.sandbox_boot_generation])).rows[0];
   if(!slot)fail('SLICE_SLOT_UNAVAILABLE','Slot boot generation is not current');
   if(await currentMaterialisation(tx,s,requested))fail('SLICE_SLOT_OCCUPIED','The slot already holds an unreleased workspace');
-  return value;
+  return {...value,placement:slot};
  });
  const id=randomUUID(),slotDir=slotDirectory(root,requested),workspace=path.join(slotDir,'workspace');
  await fs.mkdir(slotDir,{recursive:true,mode:0o700});
@@ -521,11 +500,23 @@ async function materialize(input:unknown,ctx:Context):Promise<unknown>{
  const signal=AbortSignal.any([ctx.signal,s.invocation.signal]),started=process.hrtime.bigint();
  const evidence:Record<string,unknown>={schema_version:1,mode:manifest.mode,commit:manifest.commit,slice_digest:identity,fallback_reason:manifest.fallback_reason};
  try{
-  const source=await sourceConfig(ctx,manifest.repository_id);
+  const source=resolveSource(readObjectStore(ctx.env),manifest.repository_id,manifest.placement.provider,manifest.placement.region);
+  const submoduleSources=Object.fromEntries(Object.entries(source.submodules).map(([p,v])=>[slicePath(p),v.url]));
   const slice=manifest.mode==='SLICE';
-  await git(['clone','--no-checkout','--no-tags',...(slice?['--filter=blob:none','--sparse']:[]),'--',source.url,work],tmp,home,signal);
-  if((await git(['cat-file','-e',manifest.commit+'^{commit}'],work,home,signal,{allowFailure:true})).code!==0)
-   await git(['fetch','--no-tags',...(slice?['--filter=blob:none']:[]),'origin',manifest.commit],work,home,signal);
+  // A mirror that has not yet received the pinned commit is stale: that clone is discarded and redone from the store, so the
+  // workspace's promisor remote always holds the commit's blobs.
+  for(const url of source.resolution==='MIRROR'?[source.url,source.store]:[source.url]){
+   await fs.rm(work,{recursive:true,force:true});
+   await git(['clone','--no-checkout','--no-tags',...(slice?['--filter=blob:none','--sparse']:[]),'--',url,work],tmp,home,signal);
+   if((await git(['cat-file','-e',manifest.commit+'^{commit}'],work,home,signal,{allowFailure:true})).code!==0)
+    await git(['fetch','--no-tags',...(slice?['--filter=blob:none']:[]),'origin',manifest.commit],work,home,signal,{allowFailure:true});
+   const present=(await git(['cat-file','-e',manifest.commit+'^{commit}'],work,home,signal,{allowFailure:true})).code===0;
+   const prior=evidence.source as {mirror_holds_commit:boolean|null}|undefined;
+   evidence.source={provider:source.provider,region:source.region,resolution:source.resolution,url,
+    mirror_holds_commit:source.resolution!=='MIRROR'?null:prior?prior.mirror_holds_commit:present};
+   if(present)break;
+   if(url===source.store)fail('SLICE_GIT_FAILED','The object store does not hold the pinned commit');
+  }
   const tree=await treeEntries(work,home,manifest.commit,signal);
   const expected=tree.filter(e=>sliceIncludes(manifest,e.path));
   if(slice){
@@ -562,7 +553,7 @@ async function materialize(input:unknown,ctx:Context):Promise<unknown>{
   for(const link of links){
    const declared=manifest.submodules.find(sub=>sub.path===link.path);
    if(!declared||declared.commit!==link.oid)fail('SLICE_SUBMODULE_UNDECLARED','A gitlink inside the slice is not declared at its pinned commit');
-   const url=source.submodules[link.path];if(!url)fail('SLICE_SUBMODULE_SOURCE_UNAVAILABLE','No trusted source for a gitlink inside the slice');
+   const url=submoduleSources[link.path];if(!url)fail('SLICE_SUBMODULE_SOURCE_UNAVAILABLE','No trusted source for a gitlink inside the slice');
    const target=path.join(work,link.path);await fs.rm(target,{recursive:true,force:true});
    await git(['clone','--no-checkout','--no-tags','--',url,target],tmp,home,signal);
    await git(['-c','advice.detachedHead=false','checkout','--detach',link.oid],target,home,signal);
