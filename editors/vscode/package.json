@@ -869,6 +869,33 @@
           "default": "unified",
           "description": "How a file edit opens in the agent chat: one unified column, or old and new side by side. Each diff can still be flipped in place."
         },
+        "codify.acp.envRefs": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^secret-ref:[A-Za-z0-9._/-]+$"
+          },
+          "description": "Variables the ACP adapter starts with, as NAME: \"secret-ref:ID\". Only references live here; each value is kept in VS Code secret storage under its ID and asked for once."
+        },
+        "codify.acp.mcpEnv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Variable names passed to the injected Hyperfide MCP server, each from codify.acp.envRefs when referenced there, otherwise from the editor's environment. Nothing else is passed."
+        },
+        "codify.acp.authMethod": {
+          "type": "string",
+          "default": "",
+          "description": "ACP auth method id used when an agent asks for sign-in. Empty: use the only method offered, or ask."
+        },
+        "codify.acp.selectionContext": {
+          "type": "boolean",
+          "default": true,
+          "description": "Attach the current editor selection to the next chat message (embedded when the agent accepts it, otherwise as a link)."
+        },
         "codify.agent.codexPath": {
           "type": "string",
           "default": "codex",
