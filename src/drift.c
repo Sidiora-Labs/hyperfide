@@ -358,7 +358,9 @@ static int drift_open_tasks(Cg *cg, const char *feature, char ***out) {
         char sec[300];
         snprintf(sec, sizeof sec, "task.%s", ids[i]);
         char *st = kvx_str(k, sec, "status");
-        bool open = kvx_long(k, sec, "wave", -1) >= 0 && !(st && !strcmp(st, "done"));
+        /* superseded (2.15) is closed, like done */
+        bool open = kvx_long(k, sec, "wave", -1) >= 0 &&
+                    !(st && (!strcmp(st, "done") || !strcmp(st, "superseded")));
         free(st);
         if (open) ids[m++] = ids[i]; else free(ids[i]);
     }
@@ -761,8 +763,10 @@ int coverage_check(Cg *cg, const char *feature, StrBuf *out) {
                 free(cl);
                 if (!names) continue;
                 char *st = kvx_str(k, tsec, "status");
+                /* a superseded task neither covers nor owes the clause:
+                 * its superseded_by carries the work */
                 if (st && !strcmp(st, "done")) covering = tasks[t];
-                else pending = tasks[t];
+                else if (!st || strcmp(st, "superseded") != 0) pending = tasks[t];
                 free(st);
             }
             if (covering) continue;

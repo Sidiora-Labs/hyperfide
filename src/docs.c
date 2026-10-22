@@ -71,7 +71,9 @@ static bool docs_tasks_qualified(const Kvx *spec) {
         if (wave && wave[0]) {
             saw = true;
             char *status = docs_str(spec, sec, "status", "pending");
-            if (strcmp(status, "done") != 0) all = false;
+            /* superseded (2.15) is closed: its work is qualified elsewhere */
+            if (strcmp(status, "done") != 0 &&
+                strcmp(status, "superseded") != 0) all = false;
             free(status);
         }
         free(ids[i]);
