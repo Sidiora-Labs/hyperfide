@@ -555,10 +555,10 @@ owner = "ask"
 
 [task.3.6]
 title = "Per-kind Ask policy and decided-by-default records"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.2"]
-touches = ["services/hyperfide/src/agents/admission.ts", "services/hyperfide/src/decisions/jobs.ts", "deploy/hyperfide/policies/control.example.json", "tests/hyperfide/cases/v21/3_6.py"]
+touches = ["services/hyperfide/src/agents/admission.ts", "services/hyperfide/src/decisions/jobs.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/migrations/0712-ask-default-decisions.sql", "services/hyperfide/components/1.2-asks.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "deploy/hyperfide/policies/provisioner.example.json", "tests/hyperfide/cases/v21/3_2.py", "tests/hyperfide/cases/v21/3_6.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_6.py"
 do_1 = "A policy table per kind: block or proceed-and-flag, deadline, escalation chain; on expiry under proceed-and-flag write a decision record naming the Ask, the default taken and who would have answered."
 do_2 = "3_6.py expires one Ask per kind and asserts the policy outcome and the decision record."
