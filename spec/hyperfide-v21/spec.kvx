@@ -726,7 +726,7 @@ owner = "qualification"
 
 [task.3.19]
 title = "Evidence receipts publish from the host and the release marker reads from the store"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["3.13", "1.2"]
 touches = ["tests/hyperfide/evidence_store.py", "tests/hyperfide/publish-evidence.py", "tests/hyperfide/qualify.py", "services/hyperfide/src/artifacts/objects.ts", "scripts/release.sh", "services/hyperfide/src/deployment/releases.ts", "tests/integration/80_qualification_inputs.sh", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/3_19.py"]
