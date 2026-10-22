@@ -542,10 +542,10 @@ owner = "ask"
 
 [task.3.5]
 title = "Ask tools over MCP and the instruction rule"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.4"]
-touches = ["src/mcp.c", "spec/workflow.kvx", "tests/integration/88_mcp_ask.sh"]
+touches = ["src/mcp.c", "src/ask.c", "src/cg.h", "spec/workflow.kvx", "README.md", "tests/integration/88_mcp_ask.sh"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/88_mcp_ask.sh"
 do_1 = "MCP tools ask_raise, ask_status, ask_list and approvals_list; the workflow kvx carries the instruction rule for when an agent raises each kind instead of defaulting, rendered into the pointer file's loop."
 do_2 = "88_mcp_ask.sh calls each tool through the MCP transport and asserts the rows."
