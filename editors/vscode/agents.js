@@ -224,7 +224,7 @@ async function startAgentSession(id, headless) {
             `Hyperfide: a tracked agent session already exists for ${id}.`);
         return;
     }
-    const agent = `vscode-${++seq}`;
+    const agent = agentName('vscode', ++seq);
     sessions.set(id, { starting: true, agent });
     let claimed = false;
     if (await specMode() === 'parallel') {
@@ -321,7 +321,7 @@ async function cmdResume(arg) {
             `Hyperfide: a tracked agent session already exists for ${id}.`);
         return;
     }
-    const agent = `vscode-${++seq}`;
+    const agent = agentName('vscode', ++seq);
     sessions.set(id, { starting: true, agent });   /* reserve before awaiting */
     const promptfile = await promptFileFor(id);
     if (!promptfile) {
@@ -813,5 +813,38 @@ class Window {
     get size() { return this.shown.length + this.hidden.length; }
 }
 
+/* ---------------- agent names (hyperfide-v21 6.6) ----------------
+ *
+ * A claim is a lease keyed by the agent's name, so two windows on one
+ * repository (or two machines on one shared spec) must never both claim as
+ * `vscode-1`. The name carries the host and this window's session; the
+ * per-window counter only tells this window's own sessions apart. Pure when
+ * the identity is passed in, so the test proves uniqueness headless. */
+function nameToken(s, max) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '').slice(0, max).replace(/-+$/, '');
+}
+
+/* env: vscode.env ({sessionId}) or a test's {sessionId, host, pid} */
+function windowIdentity(env) {
+    const e = env || {};
+    let host = '';
+    try { host = require('os').hostname(); } catch (_) { /* unnamed host */ }
+    const sid = nameToken(String(e.sessionId || '').replace(/-/g, ''), 8);
+    return {
+        host: nameToken(e.host || host, 24) || 'host',
+        window: sid || `p${(e.pid || process.pid).toString(36)}` +
+            Math.floor(Math.random() * 36 ** 4).toString(36),
+    };
+}
+
+let identity = null;
+function agentName(prefix, n, ident) {
+    const id = ident || identity ||
+        (identity = windowIdentity(vscode && vscode.env ? vscode.env : null));
+    return `${prefix}-${id.host}-${id.window}-${n}`;
+}
+
 module.exports = { register, AgentPanel, diffRows, stripAnsi,
-                   ChatCapabilities, approvalCard, Window };
+                   ChatCapabilities, approvalCard, Window,
+                   agentName, windowIdentity };

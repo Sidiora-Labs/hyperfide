@@ -879,10 +879,10 @@ owner = "editor"
 
 [task.6.6]
 title = "Reconnect snapshot, unique agent names, wave transcripts"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = []
-touches = ["editors/vscode/serve.js", "editors/vscode/extension.js", "editors/vscode/acp.js", "editors/vscode/agents.js", "editors/vscode/fleet.js"]
+touches = ["editors/vscode/serve.js", "editors/vscode/extension.js", "editors/vscode/acp.js", "editors/vscode/agents.js", "editors/vscode/fleet.js", "tests/integration/14_vscode.sh"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
 do_1 = "Apply the serve snapshot after reconnect; agent names unique per window and machine; per-wave manager transcript found by the manager log name and root orchestrate.c uses."
 do_2 = "Headless assertion through 14_vscode.sh."
