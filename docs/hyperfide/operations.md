@@ -30,7 +30,7 @@ A source branch, successful compiler run, authoring check or task-component rece
 
 The canonical case registry (tests/hyperfide/registry.json) currently holds 57 acceptance cases, V-001 to V-057, and every one has an empty full-case assertion inventory. Those cases are unregistered for full qualification and block release readiness. Do not fill missing evidence with component results, vendor benchmarks or unexecuted plan text. Provider, connector, restore, sustained-fleet and live-model measurements remain pending until their own exact-current receipts exist.
 
-Support state at the documented source revision. Task status comes from spec/hyperfide/spec.kvx; component evidence comes from artifacts/hyperfide/tasks/<id>/evidence-index.json. Labels:
+Support state at the documented source revision. Task status comes from spec/hyperfide/spec.kvx; component evidence comes from artifacts/hyperfide/tasks/<id>/evidence-index.json, a local cache of the S3 artifact store (see Evidence in the artifact store). Labels:
 
 - **done**: the specification marks the task done.
 - **implemented (component evidence)**: the source exists and the task's registered task-component variant passed. The task is still pending in the specification, and its full cases remain UNRUN.
@@ -325,6 +325,25 @@ python3 tests/hyperfide/check-evidence.py --campaign /tmp/hyperfide/docs-compone
 ```
 
 This selects the registered task-component inventory. It does not replace a full-case campaign. A completed receipt chain whose authentication is described as unanchored-consistency-only proves internal consistency; authoritative admission still requires trusted execution custody and the exact current gate.
+
+### Evidence in the artifact store
+
+The S3 artifact store (services/hyperfide/src/artifacts/objects.ts, backend s3-v1) is the authority for task evidence. artifacts/hyperfide/tasks/<id> is a local cache and is gitignored.
+
+Publishing. Bundle the task directory with `python3 tests/hyperfide/qualify.py --bundle-evidence <id> --bundle-output <file>`. This writes a deterministic tar with sorted members and zeroed times and owners. A control-side caller passes the bytes to `publishEvidenceBundle`. It stores 256 KiB chunks with artifact.object.put and commits them with artifact.manifest.commit. It then reads the manifest back with artifact.manifest.read and returns a receipt record. Commit that record as tests/hyperfide/evidence-receipts/<id>.json. The record holds the manifest receipt (receipt_id binds organisation, run, artifact, digest, size, backend, key and completion time) and the bundle content digest. Every chunk and the manifest use retention class RELEASE (`EVIDENCE_RETENTION`: no deadline, no hold). artifact.retention.collect treats them by the active retention policy's minimum_age_ms.RELEASE. A null value means indefinite retention (INDEFINITE_RETENTION blocker), which evidence needs while a tracked receipt record names the manifest. Chunks also stay while their parent manifest is retained.
+
+Resolving. When artifacts/hyperfide/tasks/<id> is absent, qualify.py (default output directory) and check-evidence.py (a --campaign path under that directory) read the receipt record and verify its binding. They fetch the manifest and every chunk with signed GETs and check each digest and size, the canonical chunk sequence and the concatenated content digest. Only then do they extract the bundle into the cache. An integrity failure always refuses and leaves no partial cache: a digest or length mismatch, a receipt that differs from its binding, an object the receipt names that is absent, or a rejected signature. A missing receipt record or missing store configuration is a warning by default. qualify.py reports it in `evidence_source` and on stderr and continues. `--require-evidence` or HYPERFIDE_EVIDENCE_REQUIRED=1 makes it blocking. check-evidence.py always refuses, because it has nothing to check. HYPERFIDE_EVIDENCE_RECEIPTS_DIR overrides the receipt directory.
+
+Bucket. Enable S3 bucket versioning on the evidence bucket. Keys are content-addressed (hyperfide/v1/<organisation>/<run>/sha256/<hex> for chunks, .../manifests/sha256/<hex> for manifests), and writes use If-None-Match: *, so a version can never be replaced in place. Versioning keeps an overwrite or deletion outside the store recoverable. Physical erasure of noncurrent versions is not qualified (destroyTombstoned reports physical_version_erasure NOT_QUALIFIED).
+
+Variables the store reads (the control service and both qualification scripts):
+
+- HF_ARTIFACT_S3_ENDPOINT: the https origin (loopback http only with HF_ARTIFACT_ALLOW_LOOPBACK_HTTP=1).
+- HF_ARTIFACT_S3_REGION and HF_ARTIFACT_S3_BUCKET.
+- HF_ARTIFACT_S3_ACCESS_KEY_ID and HF_ARTIFACT_S3_SECRET_ACCESS_KEY (secrets), and optionally HF_ARTIFACT_S3_SESSION_TOKEN.
+- HF_ARTIFACT_ORGANISATION_ID and HF_ARTIFACT_ALLOWED_RUN_IDS (a JSON array of run UUIDs). The control service requires both. The scripts check the organisation against the receipt when it is set.
+
+Reading needs only s3:GetObject on the evidence prefix. Publishing runs in the control service with its own write credentials.
 
 ## Documentation packet, check and close
 

@@ -18,6 +18,7 @@ import uuid
 
 # Isolated Python imports only this qualified verifier directory and stdlib.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import evidence_store  # noqa: E402
 
 
 class InvalidEvidence(Exception):
@@ -445,6 +446,14 @@ def check(args):
     global RELOCATION
     RELOCATION = None
     root = Path(args.campaign).resolve()
+    if not root.exists():
+        # Local task evidence is a cache of the artifact store (D1); restore it by receipt before checking.
+        located = evidence_store.task_of_campaign(root)
+        if located:
+            try:
+                evidence_store.resolve(located[0], located[1], required=True)
+            except (evidence_store.EvidenceIntegrityError, evidence_store.EvidenceUnavailable) as error:
+                raise InvalidEvidence("evidence resolution refused: " + str(error)) from error
     require(root.is_dir(), "campaign directory does not exist")
     if args.relocation:
         from proof_relocation import Relocation
