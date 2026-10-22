@@ -43,6 +43,8 @@ mcp '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$TMP/list.out"
 python3 - "$TMP/list.out" <<'PY' || fail "tools/list"
 import json, sys
 msgs = {m["id"]: m for m in map(json.loads, open(sys.argv[1])) if "id" in m}
+names = [t["name"] for t in msgs[1]["result"]["tools"]]
+assert len(names) == len(set(names)), "a tool name listed twice"   # 3.14
 tools = {t["name"]: t for t in msgs[1]["result"]["tools"]}
 for name in ("ask_raise", "ask_status", "ask_list", "approvals_list"):
     assert name in tools, f"missing {name}"

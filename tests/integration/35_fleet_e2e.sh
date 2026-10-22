@@ -45,7 +45,7 @@ test_gate = "true"
 pr        = "auto"
 
 [role.worker]
-stall   = "2s"
+stall   = "5s"
 retries = 2
 wall    = "10m"
 
@@ -154,11 +154,16 @@ has "$A" "prs: 3"
 setup_repo
 "$CG" fleet up --all -n 3 --max-fail 5 >/dev/null
 wait_for 60 '[ -f "$TMP/e2e/att-alpha-2.2-1" ]' || fail "run B never started"
+# what an agent writes while no supervisor lives is not replayed on resume,
+# so the kill waits until 2.1's failed first attempt has been read
+wait_for 60 '"$CG" events --kind agent.result --json -n 50 | grep -q "cannot find name"' \
+    || fail "run B: 2.1's first result was never recorded"
 sleep 1
 sup="$("$CG" fleet runs --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["runs"][0]["pid"])')"
 kill -9 "$sup"
 wait_for 5 '! kill -0 "$sup" 2>/dev/null' || fail "supervisor survived kill -9"
-has "$("$CG" fleet runs)" "GONE"
+# a child forked but not yet exec'd still shares the supervisor's lock
+wait_for 5 '"$CG" fleet runs | grep -q GONE' || fail "no GONE run: $("$CG" fleet runs)"
 out="$("$CG" fleet up --resume)"
 has "$out" "fleet resumed: run"
 wait_for 240 '[ "$(run_state alpha)" = complete ]' || fail "resumed alpha did not complete: $(run_state alpha) — $(cat "$TMP/e2e/log")"

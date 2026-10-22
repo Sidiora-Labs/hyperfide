@@ -17,6 +17,7 @@
     "agent.admission.escalations"
   ],
   "requires": [
+    "1.2-asks",
     "13.2",
     "14.3"
   ]

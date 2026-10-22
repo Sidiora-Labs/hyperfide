@@ -86,6 +86,14 @@ for b in $(python3 -c 'import json,sys; w = int(sys.argv[2]); [print(x["branch"]
 done
 before="$(python3 -c 'import json,sys; w = int(sys.argv[2]); print(sum(1 for m in json.load(open(sys.argv[1]))["managers"] if m["wave"] < w and not m["complete"]))' "$D/tree-$CG_FEATURE-$CG_WAVE.json" "$CG_WAVE")"
 [ "$before" -eq 0 ] || { mark "waiting on $before earlier wave(s)"; exit 0; }
+# 3.2 merges up into wave 2 before wave 1 lands, so its docs/d.md meets
+# wave 1's on main when wave 2 lands; landed first, the forward merge and
+# 3.2's merge-up race for the wave 2 branch and the conflict moves
+if [ "$CG_FEATURE/$CG_WAVE" = alpha/1 ]; then
+    i=0; until grep -q '^merged ' "$D/mergeup-alpha-3.2.err" 2>/dev/null; do
+        i=$((i+1)); [ $i -gt 600 ] && break; sleep 0.2
+    done
+fi
 mark "landing wave $CG_WAVE"
 "$CG" fleet land "$CG_WAVE" -f "$CG_FEATURE" >"$D/land-$CG_FEATURE-$CG_WAVE.out" 2>"$D/land-$CG_FEATURE-$CG_WAVE.err"; rc=$?
 if [ "$rc" -ne 0 ] && grep -q "does not merge" "$D/land-$CG_FEATURE-$CG_WAVE.out"; then

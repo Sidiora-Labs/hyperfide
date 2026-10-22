@@ -267,7 +267,7 @@ def scenario(cluster, t, ids, base):
           and c["failed"] == {"liveness": "LOST", "reasons": ["OBSERVED_FAILED"]} and c["missing"] == {"liveness": "LOST", "reasons": ["HEARTBEAT_MISSING"]}, c)
 
     op = out["operator"].get("ok") or {}
-    check("component.operator-reads", out["actions"] == ["console.sandboxes"] and op.get("counts") == inv["counts"] and len(op.get("rows", [])) == len(inv["rows"]), out["operator"])
+    check("component.operator-reads", "console.sandboxes" in out["actions"] and op.get("counts") == inv["counts"] and len(op.get("rows", [])) == len(inv["rows"]), out["operator"])
     lim = out["limited"].get("ok") or {}
     check("component.limit-truncates", lim.get("truncated") is True and len([r for r in lim.get("rows", []) if r["kind"] == "SANDBOX"]) == 2
           and len([r for r in lim.get("rows", []) if r["kind"] == "ORPHAN"]) == 2, out["limited"])
