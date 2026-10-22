@@ -503,7 +503,7 @@ owner = "ask"
 
 [task.3.2]
 title = "Raise and answer Asks for operators"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.1"]
 touches = ["services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/src/events/outbox.ts", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "deploy/hyperfide/policies/provisioner.example.json", "tests/hyperfide/cases/v21/3_2.py"]
