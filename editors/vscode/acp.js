@@ -15,7 +15,8 @@ const fs = require('fs');
 const path = require('path');
 /* --- agent chat (5.3) --- the surface's bookkeeping and the two renderers
  * the transcript cannot fake; headless-safe, so the tests reach them. */
-const { AgentPanel, diffRows, stripAnsi, ChatCapabilities, approvalCard } = require('./agents');
+const { AgentPanel, diffRows, stripAnsi, ChatCapabilities, approvalCard,
+        agentName } = require('./agents');
 /* --- ask registry (v21 6.1) --- */
 const needs = require('./needs');
 
@@ -1426,7 +1427,7 @@ async function startPanelSession(id) {
             `Hyperfide: a panel session is already starting for ${id}.`);
         return;
     }
-    const agent = `vscode-acp-${++permitSeq}`;
+    const agent = agentName('vscode-acp', ++permitSeq);
     panels.set(id, { starting: true, taskId: id, agent });
     let claimed = false;
     const mode = await deps.cgJson(['spec', 'status']);
@@ -1493,7 +1494,7 @@ async function listPastSessions(quiet) {
     try {
         if (!sess) {
             probe = newSession(agentView.webview, {
-                agent: `vscode-history-${++permitSeq}`, probe: true,
+                agent: agentName('vscode-history', ++permitSeq), probe: true,
             });
             sess = probe;
             await connectAgent(sess, viewDriver);
@@ -1551,7 +1552,7 @@ async function restorePastSession(sessionId, driver) {
     postView({ type: 'reset', driver: viewDriver });
 
     const sess = newSession(agentView.webview, {
-        agent: `vscode-restore-${++permitSeq}`, sessionId: known.sessionId,
+        agent: agentName('vscode-restore', ++permitSeq), sessionId: known.sessionId,
         sessionInfo: { title: known.title, updatedAt: known.updatedAt }, restoring: true,
     });
     viewSession = sess;
@@ -1592,7 +1593,7 @@ async function restorePastSession(sessionId, driver) {
  * can re-send what an adapter that never started took with it. */
 async function startChatSession(firstText, taskOpts, echo) {
     const sess = newSession(agentView.webview,
-        Object.assign({ agent: `vscode-chat-${++permitSeq}` }, taskOpts || {}));
+        Object.assign({ agent: agentName('vscode-chat', ++permitSeq) }, taskOpts || {}));
     viewSession = sess;
     lastIdlePrompt = { text: firstText, echo: echo || '' };
     const driver = currentDriver();
@@ -1628,7 +1629,7 @@ async function startChatSession(firstText, taskOpts, echo) {
 /* Start-on-task, sidebar edition: the agents.js discipline, then the
  * session runs in the view with the resume packet as its first message. */
 async function startTaskInView(id) {
-    const agent = `vscode-acp-${++permitSeq}`;
+    const agent = agentName('vscode-acp', ++permitSeq);
     /* reserve before the first await so a double invocation offers
      * replace/beside instead of racing this claim */
     viewSession = newSession(agentView.webview, { taskId: id, agent, starting: true });

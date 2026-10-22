@@ -2284,6 +2284,185 @@ JS
     [ $? -eq 0 ] || fail "fleet projection"
 fi
 
+# ---- reconnect (hyperfide-v21 6.6): after a serve reconnect the snapshot
+#      replaces the native rows and the fleet view drops ghosts; agent names
+#      are unique per window and machine and a second window cannot take
+#      the first one's claim; a per-wave manager's transcript is found under
+#      cg's shared root by the names src/orchestrate.c writes
+if want reconnect; then
+    rm -rf "$TMP/rc" "$TMP/rchome"; mkdir -p "$TMP/rc/src" "$TMP/rchome"; cd "$TMP/rc"
+    git init -q -b main . 2>/dev/null || git init -q .
+    git config user.email t@t; git config user.name t
+    echo 'export function alpha(){}' > src/a.ts
+    "$CG" spec new rc >/dev/null
+    "$CG" spec mode parallel >/dev/null
+    "$CG" spec add 2.1 --title "Alpha" --wave 1 --touches 'src/a.ts' >/dev/null
+    "$CG" init >/dev/null
+    printf '.codegraph/\n*.lock\n' > .gitignore
+    git add -A >/dev/null; git commit -qm base >/dev/null
+    RC="$(pwd -P)"
+    RWT="$RC/.claude/worktrees/agent-rc000001"
+    git worktree add -q -b worktree-agent-rc000001 "$RWT" main >/dev/null 2>&1 \
+        || fail "reconnect worktree"
+    RSID="7c0ffee0-1111-2222-3333-444455556666"
+    RTP="$TMP/rchome/.claude/projects/x/$RSID.jsonl"
+    rhook() { HOME="$TMP/rchome" "$CG" hook event --host claude >/dev/null; }
+    printf '{"hook_event_name":"SessionStart","session_id":"%s","transcript_path":"%s","cwd":"%s","model":"claude-opus-4-1"}' \
+        "$RSID" "$RTP" "$RC" | rhook
+    printf '{"hook_event_name":"SubagentStart","session_id":"%s","transcript_path":"%s","cwd":"%s","agent_id":"rc000001","agent_type":"general-purpose"}' \
+        "$RSID" "$RTP" "$RWT" | rhook
+    # the supervisor's logs live under the shared root, per wave
+    mkdir -p "$RC/.codegraph/agents"
+    echo 'wave 2 manager said this' > "$RC/.codegraph/agents/rc-manager-2.log"
+    echo 'feature manager said this' > "$RC/.codegraph/agents/rc-manager.log"
+    cat > "$TMP/rchook.sh" <<EOF
+#!/bin/sh
+printf '{"hook_event_name":"PostToolUse","session_id":"%s","transcript_path":"%s","cwd":"%s","agent_id":"rc000001","agent_type":"general-purpose","tool_name":"Bash","tool_use_id":"toolu_rc","tool_input":{"command":"make"}}' \
+    "$RSID" "$RTP" "$RWT" | HOME="$TMP/rchome" "$CG" hook event --host claude >/dev/null
+EOF
+    chmod +x "$TMP/rchook.sh"
+    node - "$EXT" "$CG" "$RC" "$RWT" "$TMP/rchook.sh" "$(cd "$EXT/../.." && pwd)" <<'JS'
+const path = require('path'), fs = require('fs'), cp = require('child_process');
+const Module = require('module');
+const [, , dir, CG, repo, wt, hook, src] = process.argv;
+const eq = (got, want, what) => {
+    if (got !== want) throw new Error(`${what}: ${JSON.stringify(got)} != ${JSON.stringify(want)}`);
+};
+const stub = {
+    EventEmitter: class { constructor() { this.fired = 0; this.event = () => ({ dispose() {} }); }
+        fire() { this.fired += 1; } },
+    TreeItem: class { constructor(label, state) { this.label = label; this.collapsibleState = state; } },
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    ThemeIcon: class { constructor(id) { this.id = id; } },
+    ThemeColor: class { constructor(id) { this.id = id; } },
+    MarkdownString: class { constructor() { this.value = ''; } appendMarkdown(s) { this.value += s; return this; } },
+    Uri: { file: (p) => ({ scheme: 'file', fsPath: p }) },
+    commands: { executeCommand: () => {}, registerCommand: () => ({ dispose() {} }) },
+    window: {}, env: {},
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+const { ServeClient, liveModel, applyEvent } = require(path.join(dir, 'serve.js'));
+const { FleetView, nativeNodes, patchSessions, pruneSessions, sharedRootOf,
+        transcriptCandidates } = require(path.join(dir, 'fleet.js'));
+const { agentName, windowIdentity } = require(path.join(dir, 'agents.js'));
+const run = (cwd, ...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8' });
+const real = (p) => fs.realpathSync(p);
+
+(async () => {
+    // ---- reconnect: a row the events built that the server no longer
+    //      has is a ghost; a change made while the pipe was down arrives
+    //      only through the snapshot
+    const live = liveModel();
+    const c = new ServeClient(CG, repo, () => {});
+    eq(await c.start(), true, 'serve starts');
+    eq(c.info.capabilities.snapshot, true, 'serve offers snapshot');
+    const tree = JSON.parse(run(repo, 'fleet', 'tree', '--json').stdout);
+    const view = new FleetView({ live: () => live });
+    view.sessions = nativeNodes(tree.native, { now: Math.floor(Date.now() / 1000) });
+    const sub = 'claude:rc000001', sess = 'claude:7c0ffee0';
+    eq(view.sessions.nodes.length, 1, 'one session before');
+    eq(view.sessions.nodes[0].children[0].agent, sub, 'its subagent before');
+    // an agent the events announced that the server never kept
+    applyEvent(live, { seq: 1e9, at: Math.floor(Date.now() / 1000), kind: 'agent.native.start',
+        node: 'claude:9h05t000', subject: null, payload: { agent: 'claude:9h05t000',
+        host: 'claude', session: '9h05t000-x', state: 'live', depth: 0 } });
+    patchSessions(view.sessions, live.native);
+    eq(view.sessions.nodes.length, 2, 'the ghost is drawn');
+    let reconnected = false;
+    c.on('reconnect', () => { reconnected = true; });
+    c.proc.kill('SIGKILL');
+    // while the pipe is down the subagent runs a tool
+    eq(cp.spawnSync(hook, [], { encoding: 'utf8' }).status, 0, 'hook while down');
+    for (let i = 0; i < 100 && !reconnected; i++) await new Promise((r) => setTimeout(r, 50));
+    eq(reconnected && c.ready, true, 'reconnected');
+    // the extension's reconnect path: resync, then the fleet view's resync
+    const rows = await c.resync(live);
+    eq(rows, 2, 'snapshot rows after reconnect');
+    eq(live.native['claude:9h05t000'], undefined, 'the snapshot replaced the ghost');
+    eq(live.native[sub].last_tool, 'Bash', 'the change made while down arrives');
+    const fired = view._em.fired;
+    const changed = view.resyncLive();
+    if (changed < 2) throw new Error('resyncLive changed ' + changed);
+    eq(view._em.fired, fired + 1, 'the view redraws once');
+    eq(view.sessions.nodes.length, 1, 'the ghost row is gone');
+    eq(view.sessions.nodes[0].agent, sess, 'the real session stays');
+    eq(view.sessions.nodes[0].children[0].lastTool, 'Bash', 'its subagent is current');
+    eq(view.sessions.counts.subagents, 1, 'counts follow');
+    // a client whose server cannot answer reports -1 and leaves the model
+    const before = JSON.stringify(live.native);
+    c.dispose();
+    eq(await c.resync(live), -1, 'no server, no resync');
+    eq(JSON.stringify(live.native), before, 'the model is left alone');
+    eq(pruneSessions(null, {}), 0, 'prune without a model');
+    // the extension wires it: reconnect resyncs before the catch-up refresh
+    const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+    if (!/on\('reconnect'[\s\S]{0,200}resyncAfterReconnect\(\)/.test(ext))
+        throw new Error('the reconnect handler does not resync');
+    if (!/serveClient\.resync\(live\)/.test(ext) || !/fleetApi\.resync\(\)/.test(ext))
+        throw new Error('resyncAfterReconnect does not apply the snapshot');
+
+    // ---- unique agent names per window and machine
+    const a = windowIdentity({ sessionId: '0f1e2d3c-aaaa-bbbb-cccc-1234567890ab', host: 'Build Host.local' });
+    const b = windowIdentity({ sessionId: '9a8b7c6d-aaaa-bbbb-cccc-1234567890ab', host: 'Build Host.local' });
+    const m = windowIdentity({ sessionId: '0f1e2d3c-aaaa-bbbb-cccc-1234567890ab', host: 'other' });
+    eq(agentName('vscode-acp', 1, a), 'vscode-acp-build-host-local-0f1e2d3c-1', 'name shape');
+    const names = [agentName('vscode-acp', 1, a), agentName('vscode-acp', 1, b),
+                   agentName('vscode-acp', 1, m), agentName('vscode-acp', 2, a),
+                   agentName('vscode', 1, a)];
+    eq(new Set(names).size, names.length, 'distinct across windows, machines, sessions');
+    for (const n of names) if (!/^[a-z0-9-]+$/.test(n)) throw new Error('unsafe name ' + n);
+    // no session id (an older host): still distinct per window
+    const p1 = windowIdentity({ pid: 4242, host: 'h' }), p2 = windowIdentity({ pid: 4243, host: 'h' });
+    if (agentName('vscode', 1, p1) === agentName('vscode', 1, p2)) throw new Error('pid fallback collides');
+    // the default identity comes from vscode.env and is stable in a window
+    eq(agentName('vscode', 3), agentName('vscode', 3), 'stable within a window');
+    // every name the extension claims with goes through agentName
+    for (const f of ['acp.js', 'agents.js']) {
+        const s = fs.readFileSync(path.join(dir, f), 'utf8');
+        if (/`vscode(-[a-z]+)?-\$\{\+\+/.test(s)) throw new Error(`${f} still counts names per window`);
+    }
+    const acp = fs.readFileSync(path.join(dir, 'acp.js'), 'utf8');
+    eq((acp.match(/agentName\('vscode-(acp|history|restore|chat)', \+\+permitSeq\)/g) || []).length, 5,
+       'acp.js names every session through agentName');
+    // the real cg: a second window cannot take the first window's claim
+    const w1 = agentName('vscode-acp', 1, a), w2 = agentName('vscode-acp', 1, b);
+    eq(run(repo, 'spec', 'claim', '2.1', '--agent', w1).status, 0, 'window one claims');
+    const r2 = run(repo, 'spec', 'claim', '2.1', '--agent', w2);
+    if (r2.status === 0) throw new Error('window two took window one\'s claim');
+    eq(run(repo, 'spec', 'release', '2.1', '--agent', w1).status, 0, 'window one releases');
+
+    // ---- per-wave manager transcripts under the shared root
+    eq(real(sharedRootOf(wt, null)), real(repo), 'a linked worktree finds the shared root');
+    eq(sharedRootOf(repo, null), repo, 'the main worktree is its own shared root');
+    eq(sharedRootOf(wt, '/srv/x'), '/srv/x', 'serve\'s word wins');
+    const ws = new ServeClient(CG, wt, () => {});
+    eq(await ws.start(), true, 'serve starts in a linked worktree');
+    eq(real(ws.info.shared), real(repo), 'serve names the shared root from a worktree');
+    ws.dispose();
+    const roots = [sharedRootOf(wt, null), wt];
+    const first = (n) => transcriptCandidates(n, roots).find((p) => fs.existsSync(p));
+    eq(path.basename(first({ kind: 'manager', feature: 'rc', wave: 2 })), 'rc-manager-2.log', 'wave 2 manager');
+    eq(path.basename(first({ kind: 'manager', feature: 'rc', wave: null })), 'rc-manager.log', 'feature manager');
+    eq(path.basename(first({ kind: 'manager', feature: 'rc', wave: 3 })), 'rc-manager.log', 'falls back to the feature log');
+    eq(first({ kind: 'main' }), undefined, 'no main log yet');
+    eq(transcriptCandidates({ kind: 'worker', feature: 'rc', tasks: [{ id: '2.1' }, { id: '2.2' }] }, [repo])
+       .map((p) => path.basename(p)).join(), 'rc-2.2.log,rc-2.1.log', 'a worker\'s latest task first');
+    eq(transcriptCandidates(null, roots).length, 0, 'no node');
+    // the names are the ones the supervisor writes
+    const orch = fs.readFileSync(path.join(src, 'src', 'orchestrate.c'), 'utf8');
+    for (const f of ['%s/.codegraph/agents/%s-manager-%ld.log', '%s/.codegraph/agents/%s-manager.log',
+                     '%s/.codegraph/agents/%s-%s.log', '%s/main.log']) {
+        if (!orch.includes(f)) throw new Error('orchestrate.c no longer writes ' + f);
+    }
+    const fl = fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8');
+    if (!/transcriptCandidates\(n, \[shared, root\]\)/.test(fl)) throw new Error('openTranscript ignores the shared root');
+    console.log('reconnect ok');
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "reconnect snapshot, agent names, transcripts"
+fi
+
 # ---- ask registry (hyperfide-v21 6.1): ACP permission asks, fleet approvals
 #      and durable Asks in one registry; a fleet gate and its permission Ask
 #      are one item; the count reaches the status bar and the view badge;

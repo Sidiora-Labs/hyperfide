@@ -122,8 +122,7 @@ static void ask_row_json(sqlite3_stmt *st, long now, StrBuf *b) {
 #undef I
 }
 
-/* the row as JSON into b; false when there is no such Ask */
-static bool ask_json(Cg *cg, long id, StrBuf *b) {
+bool ask_json(Cg *cg, long id, StrBuf *b) {
     sqlite3_stmt *st = cg_prep(cg, "SELECT " ASK_COLS " FROM asks WHERE id=?");
     if (!st) return false;
     sqlite3_bind_int64(st, 1, id);

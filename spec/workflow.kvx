@@ -60,7 +60,7 @@ base   = "wave/{feature}/{wave}"
 [principle]
 task_driven     = "Work is driven by the active feature's task list, in wave order, one claimed task per worker."
 verified_done   = "A task is done only when hyperfide spec done reruns its verify_cmd and graph checks and they pass. A wave closes only after its regression checks and an independent correctness review; a component passing never certifies a full acceptance case."
-dependencies    = "The hyperfide binary links sqlite, libc, curl and crypto and nothing else (the Makefile LDLIBS line is authoritative). The TypeScript services may use declared, pinned dependencies listed in their package.json. Anything else needs a permission Ask first."
+dependencies    = "The hyperfide binary links sqlite, curl and crypto plus the C library and its pthread and math objects, and nothing else (the Makefile LDLIBS line is authoritative). The TypeScript services may use declared, pinned dependencies listed in their package.json. Anything else needs a permission Ask first."
 non_invasive    = "Hyperfide observes and advises by default; it blocks only where the user asked it to."
 local_first     = "The local graph, memory and workflow work offline with no telemetry. Local caches state their freshness and never grant remote fleet ownership. Decision-model output narrows and ranks; verify_cmd and graph checks decide."
 distributed_authority = "Remote fleet ownership requires the authenticated coordinator and PostgreSQL; a disconnected client cannot obtain or renew it from cached state."
@@ -71,7 +71,7 @@ step_1 = "hyperfide brief — load repo state, the active task and prior decisio
 step_2 = "hyperfide spec next — take the lowest-wave eligible task."
 step_3 = "hyperfide spec start <id> — claim it in an isolated task worktree or sandbox."
 step_4 = "hyperfide survey <area> for the wide picture, then hyperfide context <area> for the code you need."
-step_5 = "Implement only the claimed task. When you need a secret, variable, permission, decision or answer, raise an Ask ([asks]) instead of defaulting."
+step_5 = "Implement only the claimed task. Never default what you were not given: raise an Ask (MCP ask_raise, or hyperfide ask raise), keep working on what does not depend on it, and read the answer with ask_status. Raise a secret when a credential or token is missing (it is answered with a secret-ref, never a value); a variable when a configuration value, path or endpoint is unknown; a permission before anything destructive, outside the task's touches, or a new dependency; a decision when more than one design fits, naming the option you recommend; a question when the spec or a criterion is ambiguous, with your reading as the recommendation. secret, variable and permission block; decision and question proceed on the recommendation and are flagged ([asks])."
 step_6 = "hyperfide review against the task's criteria; hyperfide guard for grounding, contract and hygiene; hyperfide anchors --stale for docs your edits outdated."
 step_7 = "Update the task status in the feature spec.kvx, then commit explicit paths with a message tagged [spec:<feature>/<id>]. Publication beyond the task branch follows [publication]."
 step_8 = "hyperfide spec done <id> — qualification reruns verify_cmd; done means proven."
@@ -101,7 +101,8 @@ no_direct_commits = "Humans do not commit to the monorepo directly; their change
 [asks]
 # The one channel from an agent to a human. Per-kind deadlines and
 # escalation chains are the policy table of hyperfide-v21 task 3.6; these
-# are the defaults it starts from.
+# are the defaults it starts from. When an agent raises each kind is the
+# instruction rule in [loop] step_5.
 kinds = ["secret", "variable", "permission", "decision", "question"]
 secret     = "block"
 variable   = "block"
@@ -121,7 +122,7 @@ task_file  = "The feature spec.kvx task statuses are current before every commit
 no_fakes        = "Never fake or weaken a test to make it pass."
 no_false_done   = "Never mark a task done that did not qualify."
 no_silent_default = "Never default a secret, variable, permission or decision you were not given; raise an Ask."
-warn_dont_block = "New governance defaults to a warning. Blocking is opt-in."
+warn_dont_block = "New governance defaults to a warning. Blocking is opt-in, except the [asks] policy, where secret, variable and permission Asks block by design."
 
 [render]
 markdown_mirror = false
