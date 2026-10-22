@@ -489,7 +489,7 @@ owner = "runner"
 
 [task.3.1]
 title = "The asks table"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = []
 touches = ["services/hyperfide/migrations", "services/hyperfide/src/contracts/records.ts", "tests/hyperfide/cases/v21/3_1.py"]
