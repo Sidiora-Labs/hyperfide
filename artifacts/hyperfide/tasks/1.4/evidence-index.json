@@ -1,9 +1,0 @@
-{
-  "task": "1.4",
-  "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
-  "requalified_on": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
-  "verify_cmd": "python3 tests/hyperfide/qualify.py --case V-001 --manifest tests/hyperfide/manifests/tasks/1.4.json && python3 tests/hyperfide/qualify.py --case V-028 --manifest tests/hyperfide/manifests/tasks/1.4.json",
-  "exit_code": 1,
-  "stdout_tail": "{\"schema_version\": 1, \"checked\": false, \"error\": \"selected observations are FAIL\"}\n",
-  "ran_at": "2026-10-18T06:34:11.647782+00:00"
-}
