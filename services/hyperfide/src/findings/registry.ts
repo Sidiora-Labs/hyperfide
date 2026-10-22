@@ -55,7 +55,7 @@ export async function semanticDisposition(tx:FindingDatabase,scope:FindingScope,
 export async function withFindingTransaction<T>(context:ComponentContext,action:string,fn:(value:FindingTransaction)=>Promise<T>):Promise<T>{
  const call=await invocation(context,action),principal=call.principal;
  let gatewayOf:unknown;try{gatewayOf=(await import(new URL('../identity/enrollment.js',import.meta.url).href)).gatewayOf;}catch{fail('DEPENDENCY_NOT_READY','Actual identity and primary transaction gateway are required');}if(typeof gatewayOf!=='function')fail('DEPENDENCY_NOT_READY','Actual primary transaction gateway is absent');
- const gateway=gatewayOf(context),scope={organisation_id:principal.organisation_id,run_id:principal.run_id};const readOnly=['finding.inspect','finding.list','finding.context.read','finding.blockers.inspect','finding.github.status','finding.github.due'].includes(action);
+ const gateway=gatewayOf(context),scope={organisation_id:principal.organisation_id,run_id:principal.run_id};const readOnly=['finding.inspect','finding.list','finding.context.read','finding.blockers.inspect','finding.github.status','finding.github.due','finding.leader-queue.list','finding.intake.list','finding.repair.escalation.list'].includes(action);
  const guarded=async(tx:AuthorityTransaction)=>{await semanticDisposition(tx,scope,!readOnly);await tx.query(readOnly?'SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))':'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[scope.organisation_id+':'+scope.run_id+':finding-disposition']);await call.guard(tx);};
  try{return await gateway.withPrimaryTransaction({timeoutMs:10000,signal:context.signal,guard:guarded},async(tx:AuthorityTransaction)=>{
   await readiness(tx);

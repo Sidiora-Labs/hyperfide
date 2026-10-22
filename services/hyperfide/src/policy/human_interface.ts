@@ -291,7 +291,7 @@ async function routineReceive(context:RuntimeContext,input:unknown):Promise<unkn
 // The database owns the lifecycle and the no-silent-default rule; these actions add caller attribution, the
 // references a caller cannot forge, and delivery of every change to the run's operator consumer (6.1), which is
 // separate from the leader's session consumer. The leader sees Asks through human.ask.list, not by delivery.
-interface AskOutbox {
+export interface AskOutbox {
  enqueue(tx:Tx,event:EventInput,options:{consumer_ids:string[]}):Promise<{event:unknown;replayed:boolean;obligations:number}>;
  resolveOperatorConsumer(tx:Tx,input:{organisation_id:string;run_id:string;namespace:'asks'}):Promise<string|null>;
 }
@@ -306,7 +306,7 @@ const askAnswerers:Readonly<Record<AskKind,readonly string[]>>=Object.freeze(Obj
 const askExpirers=['OPERATOR','COORDINATOR','LEADER'];
 const askReaders=['OPERATOR','COORDINATOR','LEADER','FEATURE_MANAGER'];
 const askStates=['OPEN','ANSWERED','EXPIRED'];
-interface AskRow extends QueryResultRow {[key:string]:unknown}
+export interface AskRow extends QueryResultRow {[key:string]:unknown}
 function text(value:unknown,min:number,max:number,label:string):string{
  if(typeof value!=='string'||value.length<min||value.length>max||/[\u0000]/.test(value))refuse(label+' is invalid');
  return value;
@@ -315,7 +315,7 @@ function strings(value:unknown,label:string):string[]{
  if(!Array.isArray(value)||value.length>64||value.some(item=>typeof item!=='string'||!item.length||item.length>512)||new Set(value).size!==value.length)refuse(label+' must be distinct bounded strings');
  return value as string[];
 }
-function askView(row:AskRow):Record<string,unknown>{
+export function askView(row:AskRow):Record<string,unknown>{
  const iso=(value:unknown)=>value instanceof Date?value.toISOString():value??null;
  return {ask_id:row.id,organisation_id:row.organisation_id,run_id:row.run_id,kind:row.kind,title:row.title,body:row.body,options:row.options,
   recommended:row.recommended,deadline:iso(row.deadline),default_policy:row.default_policy,chain:row.chain,task:row.task,attempt:row.attempt,
@@ -334,7 +334,7 @@ async function askTransaction<T>(context:RuntimeContext,action:string,roles:read
   return record?recorded(tx,actor.actor_id,'envelope.'+action,invocation.operation,()=>operation(tx,actor,outbox)):operation(tx,actor,outbox);
  });
 }
-async function deliverAsk(tx:Tx,outbox:AskOutbox,actor:Principal,row:AskRow,eventType:string,extra:Record<string,unknown>={}):Promise<{event_id:string;operator_consumer_id:string;delivery_obligations:number}>{
+export async function deliverAsk(tx:Tx,outbox:AskOutbox,actor:Principal,row:AskRow,eventType:string,extra:Record<string,unknown>={}):Promise<{event_id:string;operator_consumer_id:string;delivery_obligations:number}>{
  const consumer=await outbox.resolveOperatorConsumer(tx,{organisation_id:actor.organisation_id,run_id:actor.run_id,namespace:'asks'});
  // Delivery to operators is the point of an Ask; without their channel the change is refused, never parked unseen.
  if(!consumer)throw new FoundationError('ASK_OPERATOR_CONSUMER_REQUIRED','No operator Ask consumer (operator:asks) is registered for this run');

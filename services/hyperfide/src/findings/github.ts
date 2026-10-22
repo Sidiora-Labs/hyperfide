@@ -1,7 +1,7 @@
 import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {admin,canonical,decimal,digest,emit,fail,fields,finding,manager,record,text,uuid,withFindingTransaction} from './registry.js';
-import {readerLimit} from './routing.js';
+import {READER_ACTIONS,readerActions,readerLimit} from './routing.js';
 import type {FindingReader} from './routing.js';
 import type {FindingScope,FindingTransaction} from './registry.js';
 
@@ -183,35 +183,41 @@ async function intakeRow(value:FindingTransaction,p:Record<string,unknown>):Prom
 async function intakeList(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{
  const p=record(input??{});fields(p,[],['limit','state']);await admin(value);const limit=readerLimit(p.limit),state=p.state===undefined?'NEEDS_TRIAGE':String(p.state);
  if(!INTAKE_STATES.includes(state))fail('INVALID_REQUEST','Unknown intake state');
- const rows=await value.tx.query("SELECT repository_id,issue_number::text,external_updated_at,state,finding_id,payload->>'title' AS title,payload->>'state' AS external_state FROM hyperfide.finding_external_intake WHERE organisation_id=$1 AND run_id=$2 AND state=$3 ORDER BY external_updated_at,repository_id,issue_number LIMIT $4",[value.scope.organisation_id,value.scope.run_id,state,limit+1]);
+ const rows=await value.tx.query("SELECT repository_id,issue_number::text,external_updated_at,state,finding_id,payload->>'title' AS title,payload->>'state' AS external_state,triaged_by,triage_reason,triaged_at FROM hyperfide.finding_external_intake WHERE organisation_id=$1 AND run_id=$2 AND state=$3 ORDER BY external_updated_at,repository_id,issue_number LIMIT $4",[value.scope.organisation_id,value.scope.run_id,state,limit+1]);
  return {state,items:rows.rows.slice(0,limit),truncated:rows.rows.length>limit};
 }
-/** Acknowledging an external issue that needs no finding dismisses it from triage; linking it to a finding is the route verb. */
+function triage(row:Record<string,any>):Record<string,unknown>{
+ return {triaged_by:row.triaged_by??null,triage_reason:row.triage_reason??null,triaged_at:row.triaged_at instanceof Date?row.triaged_at.toISOString():row.triaged_at??null};
+}
+// Both ways out of triage record who decided, why and when (migration 0714); the database refuses an unattributed transition.
+const TRIAGED="UPDATE hyperfide.finding_external_intake SET state=$5,finding_id=$6,triaged_by=$7,triage_reason=$8,triaged_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND repository_id=$3 AND issue_number=$4 RETURNING triaged_by,triage_reason,triaged_at";
+/** Acknowledging an external issue that needs no finding dismisses it from triage, with the reason; linking it to a finding is the route verb. */
 async function intakeAcknowledge(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{
- const p=record(input);fields(p,['repository_id','issue_number','external_updated_at']);await admin(value);const row=await intakeRow(value,p);
- if(row.state==='DISMISSED')return {repository_id:row.repository_id,issue_number:String(row.issue_number),state:'DISMISSED',replayed:true};
+ const p=record(input);fields(p,['repository_id','issue_number','external_updated_at','reason']);const reason=text(p.reason,'dismissal reason');await admin(value);const row=await intakeRow(value,p);
+ if(row.state==='DISMISSED')return {repository_id:row.repository_id,issue_number:String(row.issue_number),state:'DISMISSED',...triage(row),replayed:true};
  if(row.state!=='NEEDS_TRIAGE')fail('INTAKE_ALREADY_ROUTED','A linked external issue cannot be dismissed');
- await value.tx.query("UPDATE hyperfide.finding_external_intake SET state='DISMISSED' WHERE organisation_id=$1 AND run_id=$2 AND repository_id=$3 AND issue_number=$4",[value.scope.organisation_id,value.scope.run_id,row.repository_id,row.issue_number]);
- return {repository_id:row.repository_id,issue_number:String(row.issue_number),state:'DISMISSED',replayed:false};
+ const done=await value.tx.query(TRIAGED,[value.scope.organisation_id,value.scope.run_id,row.repository_id,row.issue_number,'DISMISSED',null,value.principal.actor_id,reason]);
+ return {repository_id:row.repository_id,issue_number:String(row.issue_number),state:'DISMISSED',...triage(done.rows[0]!),replayed:false};
 }
 /** Routes an external issue to the canonical finding it reports; the finding's consumers hear it as a finding event. */
 async function intakeRoute(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{
- const p=record(input);fields(p,['repository_id','issue_number','external_updated_at','finding_id','expected_state_version']);await admin(value);const row=await intakeRow(value,p);
+ const p=record(input);fields(p,['repository_id','issue_number','external_updated_at','finding_id','expected_state_version','reason']);const reason=text(p.reason,'link reason');await admin(value);const row=await intakeRow(value,p);
  const findingId=uuid(p.finding_id),version=decimal(p.expected_state_version),{tx,scope}=value;
- if(row.state==='LINKED'){if(row.finding_id!==findingId)fail('INTAKE_ALREADY_ROUTED','External issue is linked to another finding');return {repository_id:row.repository_id,issue_number:String(row.issue_number),state:'LINKED',finding_id:findingId,replayed:true};}
+ if(row.state==='LINKED'){if(row.finding_id!==findingId)fail('INTAKE_ALREADY_ROUTED','External issue is linked to another finding');return {repository_id:row.repository_id,issue_number:String(row.issue_number),state:'LINKED',finding_id:findingId,...triage(row),replayed:true};}
  if(row.state!=='NEEDS_TRIAGE')fail('INTAKE_DISMISSED','A dismissed external issue cannot be routed');
  const f=await finding(tx,scope,findingId,true);
  if(f.phase==='DUPLICATE')fail('CANONICAL_TARGET_REQUIRED','Route external intake to the canonical finding, not a duplicate alias');
  if(f.repository_id!==row.repository_id)fail('SCOPE_MISMATCH','External issue belongs to another repository');
  if(String(f.registry_version)!==version)fail('STALE_FINDING','Finding changed since routing context was read');
- await tx.query("UPDATE hyperfide.finding_external_intake SET state='LINKED',finding_id=$5 WHERE organisation_id=$1 AND run_id=$2 AND repository_id=$3 AND issue_number=$4",[scope.organisation_id,scope.run_id,row.repository_id,row.issue_number,findingId]);
+ const done=await tx.query(TRIAGED,[scope.organisation_id,scope.run_id,row.repository_id,row.issue_number,'LINKED',findingId,value.principal.actor_id,reason]);
  await tx.query('UPDATE hyperfide.finding_registry_records SET state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND finding_id=$3',[scope.organisation_id,scope.run_id,findingId]);
- await emit(tx,scope,findingId,(BigInt(version)+1n).toString(),INTAKE_LINKED,{finding_id:findingId,repository_id:row.repository_id,issue_number:String(row.issue_number),actor_id:value.principal.actor_id,actor_role:value.principal.role});
- return {repository_id:row.repository_id,issue_number:String(row.issue_number),state:'LINKED',finding_id:findingId,replayed:false};
+ await emit(tx,scope,findingId,(BigInt(version)+1n).toString(),INTAKE_LINKED,{finding_id:findingId,repository_id:row.repository_id,issue_number:String(row.issue_number),actor_id:value.principal.actor_id,actor_role:value.principal.role,reason});
+ return {repository_id:row.repository_id,issue_number:String(row.issue_number),state:'LINKED',finding_id:findingId,...triage(done.rows[0]!),replayed:false};
 }
 export const externalIntakeReader:FindingReader=Object.freeze({list:intakeList,acknowledge:intakeAcknowledge,route:intakeRoute});
 export function createComponent(_context:ComponentContext):Component{return {apiVersion:1,actions:{
  'finding.github.enqueue':(input,context)=>withFindingTransaction(context,'finding.github.enqueue',value=>enqueue(value,input)),
+ ...readerActions(READER_ACTIONS.intake,externalIntakeReader),
  'finding.github.dispatch':(input,context)=>dispatch(context,input),
  'finding.github.webhook':(input,context)=>withFindingTransaction(context,'finding.github.webhook',value=>webhook(value,input)),
  'finding.github.process-delivery':(input,context)=>withFindingTransaction(context,'finding.github.process-delivery',value=>processDelivery(value,input)),

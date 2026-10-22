@@ -698,10 +698,10 @@ owner = "recovery"
 
 [task.3.17]
 title = "Finding readers registered and intake triage attributable"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["4.6", "3.12"]
-touches = ["services/hyperfide/src/findings/routing.ts", "services/hyperfide/src/findings/github.ts", "services/hyperfide/src/findings/remediation.ts", "services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/migrations/0714-intake-triage.sql", "deploy/hyperfide/policies/control.example.json", "tests/hyperfide/cases/v21/3_17.py"]
+touches = ["services/hyperfide/src/findings/routing.ts", "services/hyperfide/src/findings/github.ts", "services/hyperfide/src/findings/remediation.ts", "services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/migrations/0714-intake-triage.sql", "deploy/hyperfide/policies/control.example.json", "tests/hyperfide/cases/v21/3_17.py", "services/hyperfide/components/18.2.json", "services/hyperfide/components/18.3.json", "services/hyperfide/components/18.4.json", "deploy/hyperfide/policies/dispatch.example.json", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/4_6.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_17.py"
 do_1 = "The three 4.6 readers (leader queue, external intake, escalated repair) are registered component actions under the four-place rule (manifest, policy example, registry read-only list, docs) with the authority 4.6 names; finding_external_intake records who triaged an issue, why and when (triaged_by, triage_reason, triaged_at in migration 0714) and the dismiss and link paths fill them; policy/human_interface.ts exports deliverAsk and askView and remediation.ts uses them instead of its copy."
 do_2 = "3_17.py proves each reader is reachable as a registered action with the right authority and refused without it, that a dismissal records actor and reason, and that a repair escalation Ask delivered through the shared helper has the same shape as a 3.2 Ask."
