@@ -17,11 +17,6 @@ def uid(n):return "00000000-0000-4000-8000-"+format(n,"012x")
 ORG=uid(1);RUN=uid(5);EPOCH=uid(99);ATTEMPT=uid(20)
 SCOPE={"organisation_id":ORG,"run_id":RUN,"authority_epoch":EPOCH}
 D="sha256:"+"a"*64
-ACTIONS={
-"24.1":["recovery.control.describe","recovery.control.reconstruct","recovery.offline.evaluate","recovery.control.resume","recovery.control.adopt"],
-"24.2":["recovery.worker.describe","recovery.worker.loss","recovery.worker.inventory"],
-"24.3":["recovery.stop.describe","recovery.stop.request","recovery.stop.reconcile","recovery.stop.finalize"],
-"24.4":["recovery.drill.describe","recovery.drill.plan","recovery.drill.execute","recovery.drill.inspect"]}
 def expect(condition,message="unexpected result"):
  if not condition:raise AssertionError(message)
 def check(identity,fn):
@@ -36,8 +31,10 @@ def env_for(db):
  env["DATABASE_URL"]=urlunsplit((p.scheme,p.netloc,"/"+db,p.query,p.fragment))
  return env
 def sql(text,db=None):
- p=subprocess.run(["psql","-X","-q","-A","-t","-v","ON_ERROR_STOP=1","-d",db or DB],
- input=text,text=True,capture_output=True,env=env_for(db or DB),timeout=30)
+ # psql reads no DATABASE_URL: the URL itself is the conninfo, so its host (a socket directory under withpg.py) is honoured.
+ env=env_for(db or DB)
+ p=subprocess.run(["psql","-X","-q","-A","-t","-v","ON_ERROR_STOP=1","-d",env["DATABASE_URL"]],
+ input=text,text=True,capture_output=True,env=env,timeout=30)
  expect(p.returncode==0,"Disposable PostgreSQL fixture failed: "+" | ".join(x for x in p.stderr.splitlines() if x.startswith(("ERROR:","DETAIL:")))[:500])
  return p.stdout.strip()
 def seed():
@@ -122,6 +119,10 @@ def cleanup(emit=True):
  global DB,RESOURCE
  complete=True
  try:
+  if not os.environ.get("DATABASE_URL") and DB is None and not observation_dir().joinpath("fixture.json").exists():
+   # No reachable database and no recorded fixture: nothing was created, so nothing is owned.
+   if emit:print(json.dumps({"type":"cleanup","complete":True,"resources":[]}),flush=True)
+   return True
   if DB is None and observation_dir().joinpath("fixture.json").exists():
    item=json.loads(observation_dir().joinpath("fixture.json").read_text());DB=item["database"];RESOURCE=item["resource"]
   if DB:
@@ -297,6 +298,12 @@ def run(task,callback):
  if sys.argv[1:] and sys.argv[1:]!=["--cleanup"]:raise SystemExit("unsupported argument")
  if "--cleanup" in sys.argv:
   return 0 if cleanup() else 1
+ # tests/run.sh skip contract: the case needs a disposable PostgreSQL (tests/hyperfide/support/withpg.py).
+ if not os.environ.get("DATABASE_URL"):
+  print("SKIP: DATABASE_URL unset; run under tests/hyperfide/support/withpg.py",flush=True);return 77
+ import shutil
+ if not shutil.which("psql"):
+  print("SKIP: psql not on PATH",flush=True);return 77
  fixture=None
  try:fixture=setup(task);callback(fixture)
  finally:

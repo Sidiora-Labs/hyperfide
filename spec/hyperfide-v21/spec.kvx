@@ -791,10 +791,10 @@ owner = "ask"
 
 [task.3.24]
 title = "Harness and docs hygiene"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.9", "5.2"]
-touches = ["docs/hyperfide/operations.md", "deploy/hyperfide/control.env.example", "tests/hyperfide/cases/tasks/24_1.py", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/cases/tasks/15_1.py", "services/hyperfide/src/runner/bridge.ts", "src/runtime.c", "editors/vscode/serve.js", "tests/hyperfide/cases/v21/3_24.py"]
+touches = ["docs/hyperfide/operations.md", "deploy/hyperfide/env/control.env.example", "tests/hyperfide/cases/tasks/24_1.py", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/cases/tasks/15_1.py", "services/hyperfide/src/runner/bridge.ts", "src/runtime.c", "editors/vscode/serve.js", "tests/hyperfide/cases/v21/3_24.py", "tests/hyperfide/cases/tasks/13_4.py", "src/vcs.c", "src/cg.h"]
 verify_cmd = "npm --prefix services/hyperfide run check && make -j2 cg && python3 tests/hyperfide/cases/v21/3_24.py"
 do_1 = "operations.md and control.env.example document HYPERFIDE_DRAIN_TIMEOUT_MS, HYPERFIDE_DRAIN_FALLBACK_MODE, HYPERFIDE_OFFLINE_POLICY and HYPERFIDE_MAX_OFFLINE_MS; 24_1.py's sql() connects through DATABASE_URL; 29_5.py's postgres_bin picks a version that ships initdb; 15_1.py's cleanup survives an unset DATABASE_URL; runner/bridge.ts imports RUNNER_HEARTBEAT_MAX_AGE_SECONDS instead of repeating 90; src/runtime.c's runtime_workspace_revision uses the vcs stat cache instead of its own; editors/vscode/serve.js's unused tool() and cancel() are removed or wired."
 do_2 = "3_24.py proves the documented names match the names the code reads, that the three cases SKIP or run cleanly under the stated preconditions, and that the bridge bound equals the placement constant."
