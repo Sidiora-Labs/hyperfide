@@ -866,7 +866,7 @@ owner = "workflow"
 
 [task.6.1]
 title = "Global Ask registry in the editor"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["1.12", "3.4"]
 touches = ["editors/vscode/agents.js", "editors/vscode/acp.js", "editors/vscode/needs.js", "tests/integration/14_vscode.sh"]
