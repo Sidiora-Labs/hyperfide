@@ -65,18 +65,18 @@
     },
     {
       "path": "deploy/hyperfide/policies/control.example.json",
-      "sha256": "5e06a0dd61fc153dff825d34dafe307facf4d855c6ede42f232c83261e70612a",
-      "size": 14974
+      "sha256": "39afcf4eb04d230aa2c00d3062a94818b2fbf189dd1df68fb4dfe76374044216",
+      "size": 15119
     },
     {
       "path": "deploy/hyperfide/policies/dispatch.example.json",
-      "sha256": "f7b90f89dc2706567f1cd4a9b12f27f988870f286223582bdce4262542001955",
-      "size": 14910
+      "sha256": "46030d1ae970068868bc4e6d5880259061ff112537565e228352135b54f39b8e",
+      "size": 15055
     },
     {
       "path": "deploy/hyperfide/policies/provisioner.example.json",
-      "sha256": "16b7c6a12acc4a402f6b673fdbce7ed73537bec400bec89a9f322b69fe3efa90",
-      "size": 4758
+      "sha256": "e8ba50843c8568c5b4a418ad88260824471d8be665bb66920acbbee8105742f5",
+      "size": 4903
     },
     {
       "path": "services/hyperfide/components/1.1.json",

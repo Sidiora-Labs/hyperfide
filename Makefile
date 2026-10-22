@@ -34,7 +34,9 @@ $(BIN): $(OBJS) Makefile
 	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,--disable-new-dtags,-rpath,'$$ORIGIN/../lib/hyperfide' -o $@ $(OBJS) $(LDLIBS) $(NATIVE_LIBRARIES)
 
 $(COMPAT_BIN): $(BIN)
-	cp $(BIN) $(COMPAT_BIN)
+	# Rename into place: a running cg keeps its inode, so a rebuild during
+	# `cg spec done` (whose verify_cmd may run make) cannot hit ETXTBSY.
+	cp $(BIN) $(COMPAT_BIN).tmp && mv -f $(COMPAT_BIN).tmp $(COMPAT_BIN)
 
 $(BUILD)/%.o: src/%.c $(SRC_HEADERS) | $(BUILD)
 	@mkdir -p $(dir $@)
