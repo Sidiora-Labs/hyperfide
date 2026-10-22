@@ -11,8 +11,8 @@ const RELEASE='/opt/hyperfide/current';
 const GROUP={name:'hyperfide',gid:1900};
 const ROLES={control:{user:'hyperfide',uid:1900},provisioner:{user:'hyperfide-provisioner',uid:1901},dispatch:{user:'hyperfide-dispatch',uid:1902}};
 const IDENTITY={control:{'control-identity.json':'control-identity.example.json'},provisioner:{'provisioner-identity.json':'provisioner-identity.example.json','provisioner-worker.json':'provisioner-worker.example.json'},dispatch:{'dispatch-identity.json':'dispatch-identity.example.json'}};
-const OPERATOR={control:[],provisioner:['external-fence.json','pools.json','railway.json','provisioner-worker.key'],dispatch:['dispatch-worker.json']};
-const fail=code=>{throw Object.assign(new Error(code),{code});};
+const OPERATOR={control:[],provisioner:['external-fence.json','pools.json','railway.json','provisioner-worker.key'],dispatch:['dispatch-worker.json','dispatch-worker.key']};
+const fail=(code,missing)=>{throw Object.assign(new Error(code),{code},missing?{missing}:{});};
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const record=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 async function runtime(name){
@@ -37,8 +37,30 @@ async function fenceConfiguration(filename){
   return value;
  }finally{await file.close();}
 }
+// Every absent variable or file a role needs to start, so one refusal names all of them.
+async function absent(role,env){
+ const prefix=role==='control'?'':role.toUpperCase()+'_';
+ const names=['HYPERFIDE_REQUIRE_SYNC_REPLICA','HYPERFIDE_DEPLOYMENT_ID','HYPERFIDE_AUTHORITY_JOURNAL_DIR','HYPERFIDE_SPEC_REVISION',
+  'HYPERFIDE_'+prefix+'LISTEN_HOST','HYPERFIDE_'+prefix+'LISTEN_PORT','HYPERFIDE_'+role.toUpperCase()+'_PRIMARY_DATABASE_URL','HF_IDENTITY_CONFIG_FILE',
+  ...{control:['HYPERFIDE_CAUSAL_BARRIER_KEY'],dispatch:['HF_EVENT_DISPATCH_CONFIG'],provisioner:['HF_PROVISIONER_EXECUTOR_CONFIG_FILE','HYPERFIDE_EXTERNAL_FENCE_CONFIG_FILE','HYPERFIDE_POOL_CONFIG','HF_RAILWAY_CONFIG']}[role]];
+ if(role==='provisioner'){
+  // Live Railway installs the runtime (providers/railway/reconciliation.ts installRailwayRuntime), which needs these at start, not at preflight.
+  let mode=null;try{mode=JSON.parse(await fs.readFile(env.HF_RAILWAY_CONFIG,'utf8')).mode;}catch{}
+  if(mode==='live'||env.HF_RAILWAY_RUNTIME_POLICY)names.push('HF_RAILWAY_RUNTIME_POLICY','HF_RAILWAY_RUNTIME_POLICY_DIGEST','HF_RAILWAY_PROCESS_ROOT','HF_CREDENTIAL_CONFIG_FILE');
+ }
+ const missing=names.filter(name=>!env[name]);
+ if(env.HF_IDENTITY_CONFIG_FILE&&!(await fs.stat(env.HF_IDENTITY_CONFIG_FILE).catch(()=>null))?.isFile())missing.push(env.HF_IDENTITY_CONFIG_FILE);
+ return missing;
+}
+// The first failing check keeps its specific code; the refusal also carries every absent name at once.
 export async function preflight(role,env=process.env){
  if(!Object.hasOwn(ROLES,role))fail('BOOTSTRAP_ARGUMENTS');
+ const missing=await absent(role,env);
+ try{await checks(role,env);}catch(error){if(missing.length)error.missing=missing;throw error;}
+ if(missing.length)fail('PREFLIGHT_INPUT_MISSING',missing);
+ return {outcome:'SUCCEEDED',role,services_started:false};
+}
+async function checks(role,env){
  if(Object.keys(env).some(k=>k.startsWith('HYPERFIDE_MIGRATION_')))fail('MIGRATION_CREDENTIAL_EXPOSED');
  if(!['0','1'].includes(env.HYPERFIDE_REQUIRE_SYNC_REPLICA))fail('DURABILITY_POLICY_REQUIRED');
  const journal=env.HYPERFIDE_AUTHORITY_JOURNAL_DIR??'';
@@ -50,7 +72,7 @@ export async function preflight(role,env=process.env){
  if(!env['HYPERFIDE_'+prefix+'LISTEN_HOST']||!/^[1-9][0-9]{0,4}$/.test(port)||Number(port)>65535||!env.HYPERFIDE_SPEC_REVISION)fail('TRANSPORT_CONFIG');
  let protocol=null;try{protocol=new URL(env['HYPERFIDE_'+role.toUpperCase()+'_PRIMARY_DATABASE_URL']).protocol;}catch{}
  if(!['postgres:','postgresql:'].includes(protocol))fail('DATABASE_CONFIG_INVALID');
- if(!env.HF_IDENTITY_CONFIG_FILE)fail('IDENTITY_CONFIG_REQUIRED');
+ if(!env.HF_IDENTITY_CONFIG_FILE||!(await fs.stat(env.HF_IDENTITY_CONFIG_FILE).catch(()=>null))?.isFile())fail('IDENTITY_CONFIG_REQUIRED');
  if(role==='dispatch'&&!env.HF_EVENT_DISPATCH_CONFIG)fail('DISPATCH_CONFIG_REQUIRED');
  if(role==='provisioner'){
   if(!path.isAbsolute(env.HF_PROVISIONER_EXECUTOR_CONFIG_FILE??''))fail('PROVISIONER_EXECUTOR_CONFIG_INVALID');
@@ -59,12 +81,21 @@ export async function preflight(role,env=process.env){
   await (await runtime('providers/pools')).readDeployment(env);
   (await runtime('providers/railway/preparation')).configuredClient({env});
  }
- return {outcome:'SUCCEEDED',role,services_started:false};
 }
 const rows=text=>text.split('\n').filter(Boolean).map(line=>line.split(':'));
+// Every release template is read before the first write, so a missing one refuses with nothing applied and names them all.
+async function releaseInputs(){
+ const names=['grants.sql'];
+ for(const role of Object.keys(ROLES))names.push('env/'+role+'.env.example','policies/'+role+'.example.json',...Object.values(IDENTITY[role]).map(t=>'identity/'+t),role+'.service');
+ const inputs=new Map(),missing=[];
+ for(const name of names){try{inputs.set(name,await fs.readFile(path.join(directory,name)));}catch(error){if(error.code!=='ENOENT')throw error;missing.push('deploy/hyperfide/'+name);}}
+ if(missing.length)fail('BOOTSTRAP_INPUT_MISSING',missing);
+ return inputs;
+}
 export async function bootstrap(root){
  if(process.geteuid()!==0)fail('BOOTSTRAP_ROOT_REQUIRED');
  if(!path.isAbsolute(root)||path.resolve(root)!==root)fail('BOOTSTRAP_ARGUMENTS');
+ const inputs=await releaseInputs(),read=name=>inputs.get(name);
  const at=p=>path.join(root,p),created=[],kept=[],differs=[];
  async function syncDirectory(p){const h=await fs.open(p,'r');try{await h.sync();}finally{await h.close();}}
  // Walk every component without following links; only Hyperfide's own directories get ownership and mode enforced.
@@ -94,7 +125,6 @@ export async function bootstrap(root){
   try{await fs.link(temporary,target);}finally{await fs.unlink(temporary);}
   await syncDirectory(path.dirname(target));created.push(p);
  }
- const read=name=>fs.readFile(path.join(directory,name));
  const tool=(name,args)=>{try{execFileSync(name,[...(root==='/'?[]:['--root',root]),...args],{stdio:'pipe'});}catch{fail('BOOTSTRAP_ACCOUNT_FAILED');}};
  await fs.mkdir(root,{recursive:true,mode:0o755});
  if(await fs.realpath(root)!==root)fail('BOOTSTRAP_UNSAFE_PATH');
@@ -148,5 +178,5 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   else if(args.length===2&&args[0]==='--root')result=await bootstrap(args[1]);
   else fail('BOOTSTRAP_ARGUMENTS');
   console.log(JSON.stringify(result));
- }catch(error){console.log(JSON.stringify({outcome:'REFUSED',error:{code:error.code??error.message},services_started:false}));process.exitCode=78;}
+ }catch(error){console.log(JSON.stringify({outcome:'REFUSED',error:{code:error.code??error.message,...(error.missing?{missing:error.missing}:{})},services_started:false}));process.exitCode=78;}
 }

@@ -127,6 +127,8 @@ def main():
         check('host.bootstrap.identity-conflict', conflict)
         journal = scratch/'journal'
         journal.mkdir(mode=0o700)
+        # Preflight requires the identity configuration file itself, not only its variable (hyperfide-v21 1.6).
+        (scratch/'identity.json').write_text('{}')
         loose = scratch/'loose-journal'
         loose.mkdir()
         loose.chmod(0o755)
