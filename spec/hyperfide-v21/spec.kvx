@@ -984,7 +984,7 @@ owner = "client"
 
 [task.5.4]
 title = "The three numbers"
-status = "implemented"
+status = "done"
 wave = 5
 requires = ["3.6", "2.12"]
 touches = ["services/hyperfide/src/observability/metrics.ts", "tests/hyperfide/cases/v21/5_4.py", "services/hyperfide/components/23.3.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json"]
