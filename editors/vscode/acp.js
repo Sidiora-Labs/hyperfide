@@ -1857,6 +1857,180 @@ function registerAgentView(ctx) {
         { webviewOptions: { retainContextWhenHidden: true } }));
 }
 
+/* ---------------- the Leaders view (hyperfide-v21 6.5) ----------------
+ *
+ * Attach-only: the view runs no agent session. Every leader the fleet knows
+ * (role main, or feature manager) gets a tab whose transcript is the attach
+ * code above, run on a session whose webview is a stand-in that stamps the
+ * leader on each message; a message typed in a tab steers that leader
+ * through steerAgent. Each tab shows the leader's open Asks above its
+ * transcript: Asks it raised, Asks escalated to it, Asks its own workers
+ * raised, and Asks on a task it holds. Source of truth is the local cg
+ * (`fleet status`, `ask list`), refreshed on ask and agent events and on a
+ * slow poll for a window without cg serve. */
+const LEADER_ROLES = ['main', 'feature', 'manager'];
+const LEADERS_POLL_MS = 15000;
+let leadersView = null;          /* vscode.WebviewView */
+const leaderSessions = new Map();/* agent -> attach-only session */
+let leadersOff = null;
+let leadersTimer = null;
+let leadersDebounce = null;
+let leadersBusy = null;
+
+function sameTask(a, b) {
+    if (!a || !b) return false;
+    return a === b || a.endsWith('/' + b) || b.endsWith('/' + a);
+}
+
+/* Pure: the leader rows the view draws, from `cg fleet status --json` and
+ * `cg ask list --json` (open and expired Asks). */
+function leaderRows(status, asks) {
+    const agents = ((status && status.agents) || []).filter((a) => a && a.agent);
+    const open = ((asks && asks.asks) || []).filter((k) => k && (k.state === 'open' || k.state === 'expired'));
+    return agents.filter((a) => LEADER_ROLES.includes(a.role)).map((a) => {
+        /* a child leader has its own tab, so only workers fold into their parent */
+        const kids = new Set(agents.filter((w) => w.parent === a.agent && !LEADER_ROLES.includes(w.role)).map((w) => w.agent));
+        const tasks = Array.isArray(a.tasks) ? a.tasks : [];
+        const mine = open.filter((k) => k.raised_by === a.agent || kids.has(k.raised_by) ||
+            (Array.isArray(k.chain) && k.chain.includes(a.agent)) ||
+            tasks.some((t) => sameTask(t, k.task)));
+        return { agent: a.agent, role: a.role, parent: a.parent || null, feature: a.feature || null,
+                 wave: a.wave == null ? null : a.wave, seen: a.seen || 0, tasks, live: true, asks: mine };
+    });
+}
+
+function leadersPost(msg) {
+    if (!leadersView) return Promise.resolve(false);
+    try { return leadersView.webview.postMessage(msg); } catch (_) { return Promise.resolve(false); }
+}
+
+/* A session for one leader's tab: the attach and steer code draws through
+ * sess.webview, which here lands in the shared view with the tab named. */
+function leaderSession(agent) {
+    let sess = leaderSessions.get(agent);
+    if (sess) return sess;
+    sess = newSession({ postMessage: (msg) => leadersPost(Object.assign({}, msg, { leader: agent })) },
+        { leader: agent, agent });
+    leaderSessions.set(agent, sess);
+    return sess;
+}
+
+async function refreshLeaders() {
+    if (leadersBusy) return leadersBusy;
+    leadersBusy = (async () => {
+        if (!leadersView) return;
+        const [status, asks] = await Promise.all([
+            deps.cgJson(['fleet', 'status']), deps.cgJson(['ask', 'list'])]);
+        const rows = leaderRows(status, asks);
+        const alive = new Set(rows.map((r) => r.agent));
+        /* a leader that left keeps its tab, marked, so its transcript stays */
+        const gone = [...leaderSessions.keys()].filter((a) => !alive.has(a))
+            .map((a) => ({ agent: a, role: leaderSessions.get(a).leaderRole || 'feature', live: false, tasks: [], asks: [] }));
+        for (const g of gone) {
+            const sess = leaderSessions.get(g.agent);
+            if (sess.attached) detachAgent(sess, true);
+        }
+        await leadersPost({ type: 'leaders', leaders: rows.concat(gone) });
+        for (const r of rows) {
+            const sess = leaderSession(r.agent);
+            sess.leaderRole = r.role;
+            if (!sess.attached && !sess.attaching) {
+                sess.attaching = true;
+                try { await attachAgent(sess, r.agent); } finally { sess.attaching = false; }
+            }
+        }
+    })();
+    try { await leadersBusy; } finally { leadersBusy = null; }
+}
+
+function scheduleLeaders() {
+    if (leadersDebounce) return;
+    leadersDebounce = setTimeout(() => { leadersDebounce = null; refreshLeaders(); }, 150);
+}
+
+async function answerLeaderAsk(msg) {
+    const id = Number(msg.id);
+    if (!(id > 0)) return;
+    let answer = msg.answer == null ? '' : String(msg.answer);
+    const row = ((await deps.cgJson(['ask', 'list'])) || {}).asks || [];
+    const ask = row.find((k) => k.id === id);
+    if (!answer) {
+        const secret = ask && ask.kind === 'secret';
+        const v = await vscode.window.showInputBox({
+            title: `Hyperfide: answer Ask #${id}`,
+            prompt: secret ? 'A secret reference (secret-ref:…), never the value'
+                : (ask && ask.title) || `Ask #${id}`,
+            value: secret ? 'secret-ref:' : (ask && ask.recommended) || '',
+            password: secret, ignoreFocusOut: true,
+        });
+        if (!v || !v.trim()) { refreshLeaders(); return; }
+        answer = v.trim();
+    } else if (ask && ask.kind === 'secret') {
+        return;  /* a secret is never answered from a webview button */
+    }
+    const r = await deps.cg(['ask', 'answer', String(id), answer]);
+    const sess = msg.leader && leaderSessions.get(String(msg.leader));
+    const text = r.code === 0 ? `Ask #${id} answered` : `answer to Ask #${id} failed: ${firstLine(r.stderr || r.stdout)}`;
+    if (sess) surfacePost(sess, { type: 'notice', text });
+    else leadersPost({ type: 'status', text });
+    await refreshLeaders();
+    deps.refresh();
+}
+
+function stopLeaders() {
+    if (leadersOff) { try { leadersOff(); } catch (_) { /* gone */ } leadersOff = null; }
+    if (leadersTimer) { clearInterval(leadersTimer); leadersTimer = null; }
+    if (leadersDebounce) { clearTimeout(leadersDebounce); leadersDebounce = null; }
+    for (const sess of leaderSessions.values()) { sess.disposed = true; detachAgent(sess, true); }
+    leaderSessions.clear();
+}
+
+function registerLeadersView(ctx) {
+    const provider = {
+        resolveWebviewView(view) {
+            stopLeaders();
+            leadersView = view;
+            view.webview.options = { enableScripts: true };
+            view.webview.html = panelHtml(view.webview);
+            view.webview.onDidReceiveMessage(async (msg) => {
+                if (!msg) return;
+                if (msg.type === 'ready') {
+                    const board = await boardInfo();
+                    await leadersPost({ type: 'init', mode: 'leaders', version: extensionVersion(), feature: board.feature });
+                    await refreshLeaders();
+                    return;
+                }
+                if (msg.type === 'ask_answer') { await answerLeaderAsk(msg); return; }
+                if (msg.type === 'open') { openLocation(msg.path, msg.line); return; }
+                if (msg.type === 'external') { openExternal(msg.href); return; }
+                if (msg.type === 'copy') { vscode.env.clipboard.writeText(String(msg.text || '')); return; }
+                const agent = String(msg.leader || msg.agent || '');
+                if (msg.type === 'send' && msg.text && agent) {
+                    await steerAgent(leaderSession(agent), agent, String(msg.text));
+                    return;
+                }
+                if (msg.type === 'steer' && msg.text && agent) {
+                    await steerAgent(leaderSession(agent), agent, String(msg.text));
+                }
+            });
+            view.onDidDispose(() => {
+                if (leadersView === view) { leadersView = null; stopLeaders(); }
+            });
+            if (deps.events) {
+                leadersOff = deps.events.on((e) => {
+                    if (!e || !e.kind) return;
+                    if (e.kind.startsWith('ask.') || e.kind === 'agent.join' || e.kind === 'agent.leave') scheduleLeaders();
+                }) || null;
+            }
+            leadersTimer = setInterval(() => { if (leadersView) refreshLeaders(); }, LEADERS_POLL_MS);
+        },
+    };
+    ctx.subscriptions.push(vscode.window.registerWebviewViewProvider(
+        'codifyLeaders', provider,
+        { webviewOptions: { retainContextWhenHidden: true } }));
+    ctx.subscriptions.push({ dispose: stopLeaders });
+}
+
 /* ---------------- commands ---------------- */
 
 async function cmdOpenPanel(arg) {
@@ -1923,6 +2097,7 @@ function register(ctx, d) {
     viewDriver = pickedDriver ? driverId(pickedDriver) : '';
     registerAcpCommands(ctx);
     registerAgentView(ctx);
+    registerLeadersView(ctx);
     watchFleetEvents();
     return {
         hasPanel: (id) => panels.has(id) ||
@@ -1938,4 +2113,6 @@ module.exports = {
     classifyUserText, sessionTitle,
     /* --- agent chat (5.3) --- */
     renderableToolCall,
+    /* --- Leaders (hyperfide-v21 6.5) --- */
+    leaderRows,
 };

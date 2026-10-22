@@ -20,6 +20,8 @@
 #              patch against the real cg, reconnect, fallback on an old cg
 #   pushed   — (v21 1.12) an approval the real cg raises reaches the chat
 #              as a card through cg serve, once, and again after a reconnect
+#   leaders  — (v21 6.5) the Leaders webview: a tab per leader, attach and
+#              steer through the real cg, its open Asks inline and answered
 # Run one section: 14_vscode.sh tasks
 . "$(dirname "$0")/../lib.sh"
 section="${1:-all}"
@@ -2497,6 +2499,188 @@ const real = (p) => fs.realpathSync(p);
 })().catch((e) => { console.error(e.stack || e); process.exit(1); });
 JS
     [ $? -eq 0 ] || fail "reconnect snapshot, agent names, transcripts"
+fi
+
+# ---- leaders (hyperfide-v21 6.5): the Leaders webview, attach-only. The
+#      real extension.js activate() runs against a stubbed vscode module and
+#      the real cg and cg serve. Every leader the fleet knows (main, feature
+#      manager) gets its own tab and no worker does; each tab is fed by the
+#      attach code with every message stamped with its leader; a message
+#      typed in a tab steers that leader through the real `cg fleet steer`;
+#      the leader's open Asks (its own, its workers', escalated to it) ride
+#      inline and are answered through the real `cg ask answer`, a secret
+#      only through a password box. A mutant acp.js that drops the leader
+#      stamp must fail the same run.
+if want leaders; then
+    ldsetup() {
+        rm -rf "$1"; mkdir -p "$1/src"; cd "$1" || return 1
+        git init -q -b main . 2>/dev/null || git init -q .
+        git config user.email t@t; git config user.name t
+        echo 'export function alpha(){}' > src/a.ts
+        "$CG" spec new ld >/dev/null
+        "$CG" init >/dev/null
+        printf '.codegraph/\n*.lock\n' > .gitignore
+        git add -A >/dev/null; git commit -qm base >/dev/null
+        CG_AGENT=gideon CG_ROLE=main "$CG" fleet status >/dev/null
+        CG_AGENT=fm-ld CG_ROLE=feature CG_PARENT=gideon "$CG" fleet status >/dev/null
+        CG_AGENT=w-ld-1 CG_ROLE=worker CG_PARENT=fm-ld "$CG" fleet status >/dev/null
+        CG_AGENT=w-ld-1 "$CG" ask raise decision "Merge order for wave 1" \
+            --option alpha-first --option beta-first --recommend alpha-first >/dev/null || return 1
+        CG_AGENT=fm-ld "$CG" ask raise secret "Railway token" >/dev/null || return 1
+        CG_AGENT=gideon "$CG" ask raise question "Ship on Friday?" \
+            --option yes --option no --recommend no >/dev/null || return 1
+    }
+    cat > "$TMP/leaders.js" <<'JS'
+'use strict';
+const path = require('path'), cp = require('child_process'), Module = require('module');
+const [dir, CG, cwd, mode] = process.argv.slice(2);
+const check = (c, w) => { if (!c) throw new Error(w); };
+const run = (env, ...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8', env: { ...process.env, ...env } });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (pred, ms) => { const end = Date.now() + ms; while (!pred() && Date.now() < end) await sleep(25); return pred(); };
+function auto() {
+    const kids = new Map();
+    return new Proxy(function () {}, {
+        get(t, k) {
+            if (Object.prototype.hasOwnProperty.call(t, k)) return t[k];
+            if (k === 'then') return undefined;
+            if (k === Symbol.toPrimitive) return () => '';
+            if (k === Symbol.iterator) return function* () {};
+            if (typeof k === 'symbol') return undefined;
+            if (!kids.has(k)) kids.set(k, auto());
+            return kids.get(k);
+        },
+        apply: () => auto(), construct: () => auto(),
+    });
+}
+function stubbed(over) {
+    return new Proxy(over, { get(t, k) { if (k in t) return t[k]; if (k === 'then' || typeof k === 'symbol') return undefined; return (t[k] = auto()); } });
+}
+class EventEmitter {
+    constructor() { this.fns = []; this.event = (fn) => { this.fns.push(fn); return { dispose() {} }; }; }
+    fire(v) { for (const fn of this.fns) fn(v); }
+    dispose() {}
+}
+const posted = [];
+let inbox = null, leadersProvider = null;
+const view = {
+    webview: { cspSource: 'x', options: {}, html: '', postMessage: (m) => { posted.push(m); return Promise.resolve(true); },
+               onDidReceiveMessage: (fn) => { inbox = fn; return { dispose() {} }; }, asWebviewUri: (u) => u },
+    onDidDispose: () => ({ dispose() {} }), onDidChangeVisibility: () => ({ dispose() {} }), visible: true,
+};
+const boxes = [];
+let boxAnswer = '';
+const settings = { languageServer: false, serve: true };
+const configuration = () => ({ get: (k, d) => (k in settings ? settings[k] : d), inspect: (k) => (k === 'binaryPath' ? { globalValue: CG } : undefined), update: async () => {} });
+const vscode = stubbed({
+    EventEmitter,
+    window: stubbed({
+        registerWebviewViewProvider: (id, p) => { if (id === 'codifyLeaders') leadersProvider = p; return { dispose() {} }; },
+        showInputBox: async (o) => { boxes.push(o); return boxAnswer; },
+        state: { focused: false },
+    }),
+    workspace: stubbed({ workspaceFolders: [{ uri: { fsPath: cwd } }], getConfiguration: configuration }),
+    commands: stubbed({ registerCommand: () => ({ dispose() {} }), executeCommand: async () => {} }),
+});
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? vscode : load.apply(this, arguments); };
+process.on('unhandledRejection', (e) => console.error('unhandled (stubbed UI): ' + (e && e.message)));
+const asks = () => JSON.parse(run({}, 'ask', 'list', '--all', '--json').stdout).asks;
+const askId = (title) => asks().find((a) => a.title === title).id;
+const lastLeaders = () => { const l = posted.filter((m) => m.type === 'leaders'); return l.length ? l[l.length - 1].leaders : null; };
+const tab = (agent) => (lastLeaders() || []).find((r) => r.agent === agent);
+
+(async () => {
+    const ext = require(path.join(dir, 'extension.js'));
+    const ctx = { subscriptions: [], workspaceState: { get: (k, d) => d, update: async () => {} }, globalState: { get: (k, d) => d, update: async () => {} },
+                  extensionPath: dir, extensionUri: { fsPath: dir } };
+    await ext.activate(ctx);
+    check(leadersProvider, 'no codifyLeaders view provider registered');
+    leadersProvider.resolveWebviewView(view);
+    check(view.webview.html.includes('id="leadertabs"'), 'the Leaders view is not the agent panel page');
+    await inbox({ type: 'ready' });
+    const init = posted.find((m) => m.type === 'init');
+    check(init && init.mode === 'leaders', `the view did not start in attach-only mode: ${JSON.stringify(init)}`);
+
+    // one tab per leader, no worker, each with its own open Asks
+    check(await until(() => lastLeaders() && lastLeaders().length >= 2, 8000), 'no leaders posted');
+    const names = lastLeaders().map((r) => r.agent).sort().join(',');
+    check(names === 'fm-ld,gideon', `leaders: ${names}`);
+    const fm = tab('fm-ld'), gid = tab('gideon');
+    check(fm.asks.map((a) => a.title).sort().join('|') === 'Merge order for wave 1|Railway token', `fm-ld asks: ${JSON.stringify(fm.asks)}`);
+    check(gid.asks.map((a) => a.title).join('|') === 'Ship on Friday?', `gideon asks: ${JSON.stringify(gid.asks)}`);
+    check(fm.asks.find((a) => a.kind === 'decision').recommended === 'alpha-first', 'recommended option carried');
+
+    // the attach code ran once per leader, each tab's messages stamped with it
+    const attached = (a) => posted.filter((m) => m.type === 'attached' && m.agent === a);
+    check(await until(() => attached('fm-ld').length && attached('gideon').length, 8000), 'attach did not run for every leader');
+    check(attached('fm-ld').every((m) => m.leader === 'fm-ld') && attached('gideon').every((m) => m.leader === 'gideon'),
+          `attach messages not stamped with their leader: ${JSON.stringify(posted.filter((m) => m.type === 'attached'))}`);
+    check(!posted.some((m) => m.type === 'attached' && m.agent === 'w-ld-1'), 'a worker was attached');
+
+    // a message typed in fm-ld's tab steers fm-ld through the real cg
+    await inbox({ type: 'send', text: 'hold the merge', leader: 'fm-ld' });
+    const steers = () => run({}, 'events', '--kind', 'agent.steer', '--json').stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    check(await until(() => steers().some((e) => e.payload.agent === 'fm-ld' && e.payload.message === 'hold the merge'), 5000), 'steer not recorded by cg');
+    check(await until(() => posted.some((m) => m.type === 'chunk' && m.leader === 'fm-ld' && /→ fm-ld: hold the merge/.test(m.text)), 5000), 'the steer echo is not in fm-ld\'s tab');
+    check(await until(() => posted.some((m) => m.type === 'agent_event' && m.kind === 'agent.steer' && m.leader === 'fm-ld'), 6000), 'the attached transcript did not show the steer');
+    check(!posted.some((m) => m.type === 'agent_event' && m.kind === 'agent.steer' && m.leader === 'gideon'), 'fm-ld\'s steer leaked into gideon\'s tab');
+
+    // an option answer from the tab settles the Ask; it leaves the tab
+    const merge = askId('Merge order for wave 1');
+    await inbox({ type: 'ask_answer', id: merge, answer: 'beta-first', leader: 'fm-ld' });
+    const m1 = asks().find((a) => a.id === merge);
+    check(m1.state === 'answered' && m1.answer === 'beta-first', `answer not recorded: ${JSON.stringify(m1)}`);
+    check(!tab('fm-ld').asks.some((a) => a.id === merge), 'an answered Ask is still inline');
+
+    // a secret is never answered from a webview button, only a password box
+    const tok = askId('Railway token');
+    await inbox({ type: 'ask_answer', id: tok, answer: 'hunter2', leader: 'fm-ld' });
+    check(asks().find((a) => a.id === tok).state === 'open', 'a secret was answered from a webview button');
+    boxAnswer = 'secret-ref:vault/railway';
+    await inbox({ type: 'ask_answer', id: tok, leader: 'fm-ld' });
+    check(boxes.length === 1 && boxes[0].password === true, `secret prompt is not a password box: ${JSON.stringify(boxes)}`);
+    const t1 = asks().find((a) => a.id === tok);
+    check(t1.state === 'answered' && t1.answer === 'secret-ref:vault/railway', `secret answer: ${JSON.stringify(t1)}`);
+
+    // an Ask raised later reaches its leader's tab without a click
+    const before = posted.filter((m) => m.type === 'leaders').length;
+    check(run({ CG_AGENT: 'gideon' }, 'ask', 'raise', 'variable', 'Deploy region').status === 0, 'raise');
+    check(await until(() => posted.filter((m) => m.type === 'leaders').length > before &&
+                      tab('gideon').asks.some((a) => a.title === 'Deploy region'), 20000), 'a new Ask did not reach gideon\'s tab');
+    check(!tab('fm-ld').asks.some((a) => a.title === 'Deploy region'), 'gideon\'s Ask shows in fm-ld\'s tab');
+    console.log('leaders ok' + (mode ? ' (' + mode + ')' : ''));
+    process.exit(0);
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    ldsetup "$TMP/ld" || fail "leaders: project setup"
+    node "$TMP/leaders.js" "$EXT" "$CG" "$(pwd -P)" || fail "leaders webview"
+
+    # the mutation: the same extension with the leader stamp dropped
+    rm -rf "$TMP/extld"; cp -R "$EXT" "$TMP/extld"
+    sed -i 's/Object\.assign({}, msg, { leader: agent })/msg/' "$TMP/extld/acp.js"
+    ! grep -q '{ leader: agent }' "$TMP/extld/acp.js" || fail "leaders: mutant still stamps"
+    ldsetup "$TMP/ldm" || fail "leaders: mutant project setup"
+    if node "$TMP/leaders.js" "$TMP/extld" "$CG" "$(pwd -P)" mutant >/dev/null 2>&1; then
+        fail "leaders: the check passes without the leader stamp"
+    fi
+
+    # the page: tabs route stamped messages, the composer steers the
+    # selected leader, a secret Ask never gets option buttons
+    node - "$EXT" <<'JS'
+const fs = require('fs'), path = require('path');
+const html = fs.readFileSync(path.join(process.argv[2], 'agentpanel.html'), 'utf8');
+const pkg = JSON.parse(fs.readFileSync(path.join(process.argv[2], 'package.json'), 'utf8'));
+const check = (c, w) => { if (!c) throw new Error(w); };
+check(Object.values(pkg.contributes.views).flat().some((v) => v.id === 'codifyLeaders' && v.type === 'webview'), 'codifyLeaders view not contributed');
+check(/id="leadertabs" role="tablist"/.test(html), 'no tab strip');
+check(/if \(!leaderMode \|\| !m\.leader\) \{ handle\(m\); return; \}/.test(html) && /inLeaderTab\(m\.leader, function \(\) \{ handle\(m\); \}\)/.test(html), 'stamped messages are not routed to their tab');
+check(/type: 'send', text: raw, leader: activeLeader/.test(html), 'the composer does not steer the selected leader');
+check(/a\.kind === 'secret' \? \[\] :/.test(html), 'a secret Ask could get option buttons');
+check(/if \(m\.mode === 'leaders'\) \{ enterLeaders\(m\); return; \}/.test(html), 'no attach-only mode');
+console.log('leaders page ok');
+JS
+    [ $? -eq 0 ] || fail "leaders page"
 fi
 
 echo "14_vscode ok ($section)"
