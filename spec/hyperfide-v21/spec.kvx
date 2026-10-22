@@ -258,7 +258,7 @@ owner = "editor"
 
 [task.2.1]
 title = "Orphan and quarantine resolution releases capacity"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/providers/pools.ts", "tests/hyperfide/cases/v21/2_1.py"]
