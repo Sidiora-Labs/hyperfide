@@ -56,23 +56,43 @@ def release_checks(tmp):
    expect(r.returncode==2 and not Path(str(target)+".sig").exists(),label+" key was accepted: "+r.stderr)
  check("release.sign-refuses-unprotected-or-foreign-keys",bad_keys)
  def requires_key():
-  for value in [None,"","relative/key.pem"]:
-   env=clean_env()
-   if value is not None:env["HYPERFIDE_RELEASE_SIGNING_KEY_FILE"]=value
-   out=tmp/("release-out-"+str(len(value or "x")));env["HYPERFIDE_BUILD_PLACEMENT"]="remote"
-   r=subprocess.run(["bash",str(ROOT/"scripts/release.sh"),"--output",str(out),"--skip-tests"],cwd=ROOT,env=env,capture_output=True,text=True,timeout=60)
-   expect(r.returncode==2 and "HYPERFIDE_RELEASE_SIGNING_KEY_FILE" in r.stderr,"release ran without a signing key: "+str((value,r.returncode,r.stderr[-400:])))
-   expect(not out.exists() and "make" not in r.stdout,"release did work before refusing")
- check("release.refuses-without-key",requires_key)
- def release_wiring():
-  # The full build needs the pinned remote toolchain; the wiring is asserted on the script itself.
-  text=(ROOT/"scripts/release.sh").read_text()
-  gate=text.index("HYPERFIDE_RELEASE_SIGNING_KEY_FILE (absolute");build=text.index("make -j")
-  expect(gate<build,"key gate does not precede the build")
-  expect("if not signing_key:raise SystemExit('hyperfide release: signing key is required')" in text,"manifest signing is still optional")
-  heredoc=text.rindex("\nPY\n");call=text.index('scripts/release-sign.sh "$HYPERFIDE_RELEASE_SIGNING_KEY_FILE" "$output/release.json"')
-  expect(call>heredoc,"release.json is not signed after it is written")
- check("release.signs-index-after-build",release_wiring)
+  for label,value in [("unset",None),("empty",""),("relative","relative/key.pem"),("absent",str(tmp/"absent.pem"))]:
+   p,calls,out=shim_release(tmp,label,value)
+   expect(p.returncode==2 and ("HYPERFIDE_RELEASE_SIGNING_KEY_FILE" in p.stderr or "does not exist" in p.stderr),"release ran without a signing key: "+str((value,p.returncode,p.stderr[-400:])))
+   expect(calls==[] and not out.exists(),"release did work before refusing: "+str((label,calls)))
+ check("release.refuses-without-key-before-make",requires_key)
+ def release_signs_index():
+  p,calls,out=shim_release(tmp,"signed",str(key))
+  expect(p.returncode==0,"shimmed release failed: "+p.stderr[-800:])
+  expect([c.split()[0] for c in calls]==["make","stage"],"release did not build before staging: "+str(calls))
+  expect(verifies(public,out/"release.json",out/"release.json.sig"),"release.sh did not sign the release.json its stage wrote")
+ check("release.signs-index-after-build",release_signs_index)
+
+def shim_release(tmp,label,key):
+ """Runs scripts/release.sh itself in a clean scratch checkout. The full build needs the pinned remote
+ toolchain, so make and the Python stage are shims that log each call; the stage shim writes release.json
+ as the real stage does. Returns the process, the logged calls and the output directory."""
+ repo=tmp/("repo-"+label);(repo/"scripts").mkdir(parents=True)
+ for name in ["release.sh","release-sign.sh"]:shutil.copy2(ROOT/"scripts"/name,repo/"scripts"/name)
+ vcs=["git","-c","user.name=fixture","-c","user.email=fixture@example.invalid","-C",str(repo)]
+ for argv in [["init","-q"],["add","-A"],["commit","-qm","fixture"]]:subprocess.run(vcs+argv,check=True,capture_output=True)
+ shims=tmp/("shims-"+label);shims.mkdir();log=tmp/("calls-"+label)
+ (shims/"make").write_text('#!/bin/sh\necho "make $*" >> "$RELEASE_SHIM_LOG"\nprintf \'#!/bin/sh\\necho 2.0.0-dev\\n\' > hyperfide\nchmod 755 hyperfide\n')
+ (shims/"python3").write_text('#!/bin/sh\ncat >/dev/null\necho "stage $2" >> "$RELEASE_SHIM_LOG"\nmkdir -p "$2"\nprintf \'%s\\n\' "$RELEASE_SHIM_INDEX" > "$2/release.json"\n')
+ for shim in shims.iterdir():shim.chmod(0o755)
+ out=tmp/("release-out-"+label);env=clean_env()
+ env.update(PATH=str(shims)+os.pathsep+env.get("PATH",""),RELEASE_SHIM_LOG=str(log),HYPERFIDE_BUILD_PLACEMENT="remote",RELEASE_SHIM_INDEX=json.dumps({"schema_version":1,"manifest_digest":"sha256:"+"b"*64}))
+ if key is not None:env["HYPERFIDE_RELEASE_SIGNING_KEY_FILE"]=key
+ p=subprocess.run(["bash",str(repo/"scripts/release.sh"),"--output",str(out),"--skip-tests"],cwd=tmp,env=env,capture_output=True,text=True,timeout=120)
+ return p,(log.read_text().splitlines() if log.exists() else []),out
+
+def sign_index(auth,key,manifest_digest,release_version="2.0.0-dev"):
+ """release.json beside manifest.sig, shaped as scripts/release.sh writes it and signed by scripts/release-sign.sh."""
+ fingerprint=subprocess.run([str(ROOT/"scripts/release-sign.sh"),"--check-key",str(key)],capture_output=True,text=True,check=True).stdout.strip()
+ index={"schema_version":1,"release_version":release_version,"manifest_digest":manifest_digest,"archive":"hyperfide-"+release_version+"-linux-x64-"+manifest_digest[7:23]+".tar.gz","archive_digest":"sha256:"+"0"*64,"signature":{"algorithm":"ED25519","file":"manifest.sig","key_fingerprint":fingerprint}}
+ target=auth/"release.json";target.write_text(json.dumps(index,sort_keys=True)+"\n");target.chmod(0o644)
+ subprocess.run([str(ROOT/"scripts/release-sign.sh"),str(key),str(target)],capture_output=True,text=True,check=True)
+ return target
 
 # ---- install-service -------------------------------------------------------------
 def build_release(base):
@@ -109,6 +129,7 @@ def build_release(base):
  mf=payload/"manifest.json";mf.write_text(json.dumps(manifest));mf.chmod(0o644)
  auth=base/"auth";auth.mkdir(mode=0o755);key=base/"signing.pem";ed25519_key(key);public=auth/"trusted.pem";public_pem(key,public)
  signature=auth/"manifest.sig";signature.write_bytes(subprocess.check_output(["openssl","pkeyutl","-sign","-rawin","-inkey",str(key),"-in",str(mf)]));signature.chmod(0o644)
+ sign_index(auth,key,sha_bytes(mf.read_bytes()))
  return payload,public,signature,sha_bytes(mf.read_bytes())
 
 def install_checks(base,cluster,database_url):

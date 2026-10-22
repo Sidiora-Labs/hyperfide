@@ -8,6 +8,7 @@ import type {InvocationContext,AuthorityTransaction} from '../transport/protocol
 import {object} from '../policy/programme.js';
 import {nativeAskRequests,raiseNativeAsks} from './native_asks.js';
 import {admissionEnvReferences} from './env_refs.js';
+import {assertScopeNotHeld} from '../recovery/scope_hold.js';
 
 type Policy={organisation_id:string;run_id:string;run_policy_digest:string;quota_key:string;connector:string;connector_version:string;provider:string;model:string;auth_profile:string;permission_profile:string;qualification_digest:string;max_concurrent:number;max_attempts:number;retry_base_ms:number;retry_max_ms:number;unattended:true;native_delegation:false};
 async function policies(ctx:ComponentContext):Promise<Policy[]>{
@@ -178,6 +179,7 @@ export function createComponent(ctx:ComponentContext):Component{
  const p=selected.find(p=>p.organisation_id===s.organisation_id&&p.run_id===s.run_id&&p.quota_key===v.quota_key);
  if(!p)agentError('ADMISSION_PROFILE_UNAVAILABLE');
  await assertRunPolicy(client,s,p);
+ await assertScopeNotHeld(client,{organisation_id:s.organisation_id,run_id:s.run_id,sandbox_id:admitted.rows[0]!.sandbox_id as string|null});
  const session=admitted.rows[0] as Record<string,unknown>;
  if(session.connector!==p.connector||session.auth_profile!==p.auth_profile||session.connector_version!==p.connector_version||!['REGISTERED','RUNNING','DISCONNECTED'].includes(String(session.state)))agentError('ADMISSION_PROFILE_MISMATCH');
  const native=await getNativeSessionProfile(ctx,p.auth_profile),q=native.qualification as Record<string,unknown>;

@@ -12,13 +12,15 @@
     "recovery.stop.describe",
     "recovery.stop.request",
     "recovery.stop.reconcile",
-    "recovery.stop.finalize"
+    "recovery.stop.finalize",
+    "recovery.stop.release"
   ],
   "requires": [
     "4.2",
     "24.1",
     "14.1",
     "5.1",
-    "12.4"
+    "12.4",
+    "6.1"
   ]
 }

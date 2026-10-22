@@ -688,6 +688,14 @@ int vcs_commits_for_path(Cg *cg, const char *path, int limit, char ***ids,
 typedef struct { long files, hashed, cached; } VcsSnapshotStats;
 void vcs_snapshot_stats(VcsSnapshotStats *out);
 const char *vcs_store_mode(const Cg *cg, bool *authoritative);
+/* the working tree's files and content hashes through the store's stat
+ * cache, sorted by path (task hyperfide-v21/3.24: the runtime workspace
+ * revision reads this instead of keeping a second cache); returns the count,
+ * *out freed with vcs_worktree_files_free. Leaves vcs_snapshot_stats as the
+ * last snapshot set them. */
+typedef struct { char *path; long size; char hash[65]; } VcsFile;
+int vcs_worktree_files(const Cg *cg, VcsFile **out);
+void vcs_worktree_files_free(VcsFile *files, int n);
 
 /* ---------------- agent memory (memories table in graph.db) ---------- */
 typedef struct {
@@ -833,6 +841,9 @@ int spec_claim(Cg *g, const char *root, const char *feature, const char *id,
 char *spec_active_tag(void);
 /* requested in_progress task as "feature/id"; NULL when invalid/not active */
 char *spec_task_tag(const char *requested);
+/* before a snapshot: bring the claimed task's kvx status and evidence pointer
+ * in line with its claim receipt; 1 (reason printed) when they disagree */
+int   spec_commit_sync(const char *requested);
 /* touches globs of the in-progress task; 0 when none (everything in scope) */
 int   spec_active_touches(char ***out);
 /* can these two touch patterns cover a common path? glob-vs-glob aware */

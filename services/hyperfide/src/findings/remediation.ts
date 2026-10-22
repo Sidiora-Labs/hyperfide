@@ -2,10 +2,12 @@ import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError} from '../policy/programme.js';
 import {acceptedResolution,admin,admittedEvidence,canonical,decimal,digest,digestValue,emit,fail,fields,finding,manager,oid,record,revalidateResolution,semanticDisposition,text,uuid,withFindingTransaction} from './registry.js';
 import type {FindingScope,FindingTransaction} from './registry.js';
-import {createHash,randomUUID} from 'node:crypto';
+import {createHash} from 'node:crypto';
+import {deliverAsk} from '../policy/human_interface.js';
+import type {AskOutbox} from '../policy/human_interface.js';
 import {enqueue,resolveOperatorConsumer} from '../events/outbox.js';
 import type {PrimaryTransaction} from '../storage/transactions.js';
-import {assignFinding,readerLimit} from './routing.js';
+import {READER_ACTIONS,assignFinding,readerActions,readerLimit} from './routing.js';
 import type {FindingReader} from './routing.js';
 async function repair(value:FindingTransaction,id:string):Promise<Record<string,any>>{
  const result=await value.tx.query('SELECT * FROM hyperfide.finding_repairs WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[value.scope.organisation_id,value.scope.run_id,id]);
@@ -139,12 +141,9 @@ async function raiseEscalationAsk(value:FindingTransaction,r:Record<string,any>,
  const inserted=await tx.query("INSERT INTO hyperfide.asks(organisation_id,id,run_id,kind,title,body,options,recommended,deadline,default_policy,chain,task,attempt,raised_by) VALUES($1,$2,$3,'decision',$4,$5,$6::jsonb,'HOLD',clock_timestamp()+make_interval(secs=>$7),'proceed-and-flag','[\"leader\",\"operator\"]'::jsonb,$8,$9,$10) ON CONFLICT(organisation_id,id) DO NOTHING RETURNING *",
   [scope.organisation_id,askId,scope.run_id,title.slice(0,512),body.slice(0,65536),JSON.stringify(ESCALATION_OPTIONS),seconds,r.repair_task_id,r.attempt_id??null,value.principal.credential_id]);
  if(inserted.rows.length===1){
-  // Same channel and event shape as human.ask.raise (3.2): without the operator Ask channel the escalation is refused, never parked unseen.
-  const ptx=tx as unknown as PrimaryTransaction,consumer=await resolveOperatorConsumer(ptx,{organisation_id:scope.organisation_id,run_id:scope.run_id,namespace:'asks'});
-  if(!consumer)fail('ASK_OPERATOR_CONSUMER_REQUIRED','No operator Ask consumer (operator:asks) is registered for this run');
-  const row=inserted.rows[0]!,iso=(v:unknown)=>v instanceof Date?v.toISOString():v??null;
-  const view={ask_id:row.id,organisation_id:row.organisation_id,run_id:row.run_id,kind:row.kind,title:row.title,body:row.body,options:row.options,recommended:row.recommended,deadline:iso(row.deadline),default_policy:row.default_policy,chain:row.chain,task:row.task,attempt:row.attempt,session:row.session,sandbox:row.sandbox,raised_by:row.raised_by,raised_at:iso(row.raised_at),state:row.state,answered_by:row.answered_by,answer:row.answer,decided_by_default:row.decided_by_default,answered_at:iso(row.answered_at),expired_at:iso(row.expired_at),state_version:String(row.state_version)};
-  await enqueue(ptx,{organisation_id:scope.organisation_id,run_id:scope.run_id,id:randomUUID(),aggregate_type:'ask',aggregate_id:askId,aggregate_version:String(row.state_version),event_type:'ask.raised',payload:{schema_version:1,ask:view,actor_id:value.principal.actor_id,actor_role:value.principal.role,target:'OPERATOR',source:{repair_id:String(r.id),finding_id:String(r.finding_id)}}},{consumer_ids:[consumer]});
+  // The shared Ask channel (3.2): without the operator Ask consumer the escalation is refused, never parked unseen.
+  const outbox:AskOutbox={enqueue:(t,event,options)=>enqueue(t as unknown as PrimaryTransaction,event,options),resolveOperatorConsumer:(t,input)=>resolveOperatorConsumer(t as unknown as PrimaryTransaction,input)};
+  await deliverAsk(tx as unknown as Parameters<typeof deliverAsk>[0],outbox,value.principal,inserted.rows[0]!,'ask.raised',{source:{repair_id:String(r.id),finding_id:String(r.finding_id)}});
  }
  return {ask_id:askId,raised:inserted.rows.length===1};
 }
@@ -237,5 +236,6 @@ export function createComponent(_context:ComponentContext):Component{return {api
  'finding.repair.resolve':(input,context)=>withFindingTransaction(context,'finding.repair.resolve',value=>resolve(value,input)),
  'finding.repair.fail':(input,context)=>withFindingTransaction(context,'finding.repair.fail',value=>failure(value,input)),
  'finding.repair.inspect':(input,context)=>withFindingTransaction(context,'finding.repair.inspect',value=>inspect(value,input)),
- 'finding.repair.recheck':(input,context)=>withFindingTransaction(context,'finding.repair.recheck',value=>recheck(value,input))
+ 'finding.repair.recheck':(input,context)=>withFindingTransaction(context,'finding.repair.recheck',value=>recheck(value,input)),
+ ...readerActions(READER_ACTIONS.escalation,escalatedRepairReader)
 }};}

@@ -498,6 +498,13 @@ static pid_t orch_spawn(char **av, const char *root, const char *promptfile,
                         const char *logpath, const char *agent,
                         const char *feature, const char *task,
                         const char *attempt, long fence, bool append) {
+    /* emptied before the fork, as orch_fleet_exec does: a tap started at
+     * offset 0 must not replay a previous attempt's log. A parked re-wake
+     * (append) continues the same attempt's log, so it is kept. */
+    if (!append) {
+        int tr = open(logpath, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+        if (tr >= 0) close(tr);
+    }
     pid_t pid = fork();
     if (pid != 0) {
         /* both sides setpgid to close the fork/exec race; after the exec
@@ -1401,6 +1408,10 @@ static void orch_agent_record(Cg *g, const FleetNode *n) {
  * rather than inherited from the orchestrator. */
 static pid_t orch_fleet_exec(char **av, const FleetNode *n,
                              const char *promptfile, const char *logpath) {
+    /* emptied before the fork: the tap the caller starts at offset 0 must
+     * not read a previous attempt's log the child has yet to truncate */
+    int tr = open(logpath, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (tr >= 0) close(tr);
     pid_t pid = fork();
     if (pid != 0) {
         if (pid > 0) setpgid(pid, pid);
@@ -1455,6 +1466,7 @@ typedef struct {
     bool claimed;         /* a live lease is out on it */
     bool landed;          /* done on main */
     bool merged;          /* done where its wave's tasks are cut from */
+    bool superseded;      /* closed, but never satisfies a requirement */
     char **req; int nreq;
 } OrchTask;
 
@@ -1493,6 +1505,8 @@ static void orch_tasks_wave_trees(Cg *cg, const char *feature, OrchTask *v,
                 if (fs && (strcmp(fs, "done") == 0 ||
                            strcmp(fs, "implemented") == 0))
                     v[t].finished = v[t].merged = true;
+                if (fs && strcmp(fs, "superseded") == 0)
+                    v[t].finished = v[t].merged = v[t].superseded = true;
                 free(fs);
             }
             kvx_free(wk);
@@ -1544,12 +1558,16 @@ static int orch_tasks_load(Cg *cg, const char *feature, const char *fwt,
             t->finished = strcmp(t->status, "done") == 0 ||
                           strcmp(t->status, "implemented") == 0 ||
                           strcmp(t->status, "superseded") == 0;
+            t->superseded = strcmp(t->status, "superseded") == 0;
             t->landed = t->merged = t->finished;
             if (!t->finished && fk) {
                 char *fs = kvx_str(fk, sec, "status");
                 if (fs && (strcmp(fs, "done") == 0 ||
                            strcmp(fs, "implemented") == 0))
                     t->finished = t->merged = true;
+                /* superseded on the feature branch is closed there too */
+                if (fs && strcmp(fs, "superseded") == 0)
+                    t->finished = t->merged = t->superseded = true;
                 free(fs);
             }
         }
@@ -2258,6 +2276,16 @@ static bool orch_finished_id(const OrchTask *v, int n, const char *id) {
     return true;                       /* not ours to wait for */
 }
 
+/* as a requirement: a superseded task is closed but never qualifies */
+static bool orch_req_met_id(const OrchTask *v, int n, const char *id) {
+    const char *slash = strrchr(id, '/');
+    if (slash) id = slash + 1;
+    for (int i = 0; i < n; i++)
+        if (strcmp(v[i].id, id) == 0)
+            return v[i].finished && !v[i].superseded;
+    return true;
+}
+
 /* The next task a worker may take: its requirements qualified, nobody
  * holding it, not already tried in this run, and no live worker on its
  * wave — a wave's branch and worktree are shared, so its tasks run one at
@@ -2342,6 +2370,9 @@ static bool orch_req_ready(const OrchTask *v, int n, const OrchTask *t,
     for (int i = 0; i < n && !r; i++)
         if (strcmp(v[i].id, rid) == 0) r = &v[i];
     if (!r) return true;                 /* not ours to wait for */
+    /* a superseded requirement never qualifies (spec start refuses the
+     * dependant): it waits until its requires name the successor (3.21) */
+    if (r->superseded) return false;
     if (g_waves_parallel) {
         if (r->finished) return true;
         for (int s = 0; s < nslots; s++)
@@ -3073,6 +3104,43 @@ static int fleet_run_resume(Sup *s) {
                alive ? "adopted" : "found ended", n.agent, n.task, n.pid);
     }
     sqlite3_finalize(st);
+    /* a supervisor killed between a worker's begin and its node being
+     * recorded leaves a running attempt and a claim no node owns: nothing
+     * would ever reap it, and the task would never be handed out again.
+     * Give back what this run started and no adopted slot holds. */
+    st = cg_prep(s->g,
+        "SELECT attempt_id,task,agent,fence FROM attempts WHERE "
+        "state='running' AND task LIKE ?1||'/%' AND started >= "
+        "(SELECT started FROM fleet_runs WHERE run=?2)");
+    sqlite3_bind_text(st, 1, s->feature, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 2, s->run, -1, SQLITE_TRANSIENT);
+    struct { char att[80], id[64], agent[128]; long fence; } orphan[16];
+    int norphan = 0;
+    while (sqlite3_step(st) == SQLITE_ROW && norphan < 16) {
+        const char *tag = (const char *)sqlite3_column_text(st, 1);
+        const char *id = strrchr(tag, '/');
+        id = id ? id + 1 : tag;
+        bool held = false;
+        for (int i = 0; i < s->nslots; i++)
+            if (s->slots[i].live && strcmp(s->slots[i].n.task, id) == 0)
+                held = true;
+        if (held) continue;
+        snprintf(orphan[norphan].att, sizeof orphan[norphan].att, "%s",
+                 (const char *)sqlite3_column_text(st, 0));
+        snprintf(orphan[norphan].id, sizeof orphan[norphan].id, "%s", id);
+        snprintf(orphan[norphan].agent, sizeof orphan[norphan].agent, "%s",
+                 (const char *)sqlite3_column_text(st, 2));
+        orphan[norphan].fence = sqlite3_column_int64(st, 3);
+        norphan++;
+    }
+    sqlite3_finalize(st);
+    if (norphan) setenv("CG_FEATURE", s->feature, 1);  /* release's feature */
+    for (int i = 0; i < norphan; i++) {
+        orch_abandon(s->g->shared, s->feature, orphan[i].id, orphan[i].agent,
+                     orphan[i].att, orphan[i].fence);
+        printf("[fleet] released %s's orphaned claim on %s\n",
+               orphan[i].agent, orphan[i].id);
+    }
     fflush(stdout);
     return 0;
 }
@@ -3227,6 +3295,15 @@ static void supervisor_stall_check(Sup *s, OrchFleetSlot *sl, long now) {
         if (sup_progressed(s, sl)) sl->progress = now;
     }
     if (stall <= 0 || now - sl->progress < stall * 1000) return;
+    /* a worker whose task already qualified is finishing — its merge-up
+     * may wait out a land that holds the merge lock. Ending it gains
+     * nothing and strands the qualified work on its own branch. */
+    char *ts = orch_task_status(sl->n.worktree, s->feature, sl->n.task,
+                                sl->n.attempt, sl->n.fence);
+    bool qualified = ts && (strcmp(ts, "done") == 0 ||
+                            strcmp(ts, "implemented") == 0);
+    free(ts);
+    if (qualified) { sl->progress = now; return; }
     long idle = (now - sl->progress) / 1000;
     if (sl->nudges == 0) {
         char msg[400];
@@ -3251,22 +3328,27 @@ static void supervisor_stall_check(Sup *s, OrchFleetSlot *sl, long now) {
 
 /* An attempt that waits on a person is not stalled and is not spending
  * its wall budget (hyperfide-v21 req 2.4): a pending fleet approval on its
- * task, or one the agent itself requested, holds it. */
+ * task or requested by its agent, or an open blocking Ask on its task,
+ * attempt or agent, holds it. Only rows of this run count (3.21): a row
+ * left open by an earlier run for the same subject exempts nothing. */
 static bool sup_waiting(Sup *s, const OrchFleetSlot *sl) {
     char subj[300];
     snprintf(subj, sizeof subj, "%s/%s", s->feature, sl->n.task);
     sqlite3_stmt *st = cg_prep(s->g,
-        "SELECT 1 FROM fleet_approvals WHERE state='pending' AND "
+        "SELECT 1 FROM fleet_approvals WHERE state='pending' AND run=?3 AND "
         "(subject=?1 OR (requested_by IS NOT NULL AND requested_by=?2)) "
-        "LIMIT 1");
+        "UNION ALL SELECT 1 FROM asks WHERE state='open' AND "
+        "default_policy='block' AND run=?3 AND (task=?1 OR "
+        "(attempt IS NOT NULL AND attempt=?4) OR "
+        "(raised_by IS NOT NULL AND raised_by=?2)) LIMIT 1");
     if (!st) return false;
     sqlite3_bind_text(st, 1, subj, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(st, 2, sl->n.agent, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 3, s->run, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 4, sl->n.attempt[0] ? sl->n.attempt : "\x01", -1,
+                      SQLITE_TRANSIENT);
     bool open = sqlite3_step(st) == SQLITE_ROW;
     sqlite3_finalize(st);
-    /* TODO(hyperfide-v21 3.4): an open blocking Ask on this task, attempt
-     * or agent holds the attempt too; check the asks table here once 3.4
-     * generalises fleet_approvals into it. */
     return open;
 }
 
@@ -3280,7 +3362,7 @@ static void sup_supervise(Sup *s) {
             if (!sl->waiting) {
                 sl->waiting = now;
                 sup_note(s, "supervisor.wait", sl, "wait",
-                         "an approval is open", 0);
+                         "an approval or a blocking Ask is open", 0);
             }
             continue;
         }
@@ -3452,13 +3534,15 @@ static void orch_prompt_retry(const char *path, const char *feature,
 }
 
 /* 1: an approval for this feature is pending (the manager has nothing to
- * do but wait); 2: one was rejected (the run stops); 0: neither */
+ * do but wait); 2: one was rejected (the run stops); 0: neither. Only this
+ * run's rows count: one an earlier run left open parks nothing (3.21). */
 static int sup_approval(Sup *s, long *id) {
     sqlite3_stmt *st = cg_prep(s->g,
         "SELECT id,state FROM fleet_approvals WHERE (subject=?1 OR subject "
-        "LIKE ?1||'/%') AND state IN ('pending','rejected') ORDER BY id DESC "
-        "LIMIT 1");
+        "LIKE ?1||'/%') AND run=?2 AND state IN ('pending','rejected') "
+        "ORDER BY id DESC LIMIT 1");
     sqlite3_bind_text(st, 1, s->feature, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 2, s->run, -1, SQLITE_TRANSIENT);
     int r = 0;
     if (sqlite3_step(st) == SQLITE_ROW) {
         *id = sqlite3_column_int64(st, 0);
@@ -3481,10 +3565,15 @@ static void sup_subtree(Sup *s, OrchSubtree *sub) {
     Hierarchy h;
     Kvx *wf = orch_hier(s->g->shared, &h);
     long ahead = 0;
+    int unlanded = 0;
     for (int i = 0; i < n; i++) {
         sub->total++;
         if (v[i].finished) sub->done++;
         else if (v[i].claimed) sub->claimed++;
+        /* qualified on its own branch is not on main: a merge-up that
+         * conflicted, or was cut short, leaves the wave branch with
+         * nothing ahead of main and the task's work still off it */
+        if (!v[i].landed) unlanded++;
         if (i && v[i - 1].wave == v[i].wave) continue;
         char br[256];
         hier_expand(&h, h.roles[FLEET_FEATURE].branch, s->feature, v[i].wave,
@@ -3499,7 +3588,7 @@ static void sup_subtree(Sup *s, OrchSubtree *sub) {
     orch_tasks_free(v, n);
     sub->all_done = sub->total > 0 && sub->done == sub->total;
     sub->ahead = ahead;
-    sub->merged = ahead == 0;
+    sub->merged = ahead == 0 && unlanded == 0;
     sub->complete = sub->all_done && sub->merged;
 }
 
@@ -3511,6 +3600,23 @@ static void sup_subtree(Sup *s, OrchSubtree *sub) {
  * conflict asks for it. A wave waiting only on another wave's requires is
  * left alone: its manager could not move it. Every turn is spent from the
  * run's budget, so a fleet that cannot finish stops instead of spinning. */
+/* A pending approval of this run that a wave waits on: one on its branch or
+ * requested by its manager. Checked per wave, so the wave stays asleep while
+ * other waves' workers run (3.21); the id is returned, 0 when none. */
+static long sup_wave_approval(Sup *s, const char *branch, const SupMgr *m) {
+    sqlite3_stmt *st = cg_prep(s->g,
+        "SELECT id FROM fleet_approvals WHERE state='pending' AND run=?1 AND "
+        "(subject=?2 OR (?3<>'' AND requested_by=?3)) ORDER BY id LIMIT 1");
+    if (!st) return 0;
+    sqlite3_bind_text(st, 1, s->run, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 2, branch, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 3, m->turns > 0 ? m->n.agent : "", -1,
+                      SQLITE_TRANSIENT);
+    long id = sqlite3_step(st) == SQLITE_ROW ? sqlite3_column_int64(st, 0) : 0;
+    sqlite3_finalize(st);
+    return id;
+}
+
 static int sup_wake_managers(Sup *s, const OrchSubtree *sub, long now) {
     Cg *g = s->g;
     const OrchCfg *cfg = s->cfg;
@@ -3526,14 +3632,15 @@ static int sup_wake_managers(Sup *s, const OrchSubtree *sub, long now) {
         if (s->per_wave && i && v[i - 1].wave == wave) continue;
         SupMgr *m = sup_mgr(s, wave);
         if (m->live) continue;
-        int unfinished = 0, movable = 0, live = 0;
+        int unfinished = 0, movable = 0, live = 0, unlanded = 0;
         for (int t = 0; t < n; t++) {
             if (wave >= 0 && v[t].wave != wave) continue;
+            if (!v[t].landed) unlanded++;
             if (v[t].finished) continue;
             unfinished++;
             bool waits = false;
             for (int r = 0; r < v[t].nreq && !waits; r++)
-                if (!orch_finished_id(v, n, v[t].req[r])) waits = true;
+                if (!orch_req_met_id(v, n, v[t].req[r])) waits = true;
             if (!waits) movable++;
         }
         for (int k = 0; k < s->nslots; k++)
@@ -3544,8 +3651,21 @@ static int sup_wake_managers(Sup *s, const OrchSubtree *sub, long now) {
                     sizeof br);
         long ahead = s->per_wave ? orch_ahead(g->shared, s->mainbr, br)
                                  : sub->ahead;
-        bool owes = unfinished > 0 || ahead > 0;
+        /* a task qualified on its own branch that never reached the wave
+         * branch is still owed: the manager merges it up or resolves it */
+        bool owes = unfinished > 0 || ahead > 0 ||
+                    (s->per_wave && unlanded > 0);
         if (!owes) continue;
+        long appr = sup_wave_approval(s, br, m);
+        if (appr) {
+            if (s->waiting_on != appr) {
+                printf("[fleet] waiting for approval #%ld — hyperfide fleet "
+                       "approve %ld\n", appr, appr);
+                fflush(stdout);
+                s->waiting_on = appr;
+            }
+            continue;           /* only a decision moves this wave */
+        }
         char probe[64];
         bool frontier = s->per_wave
             ? orch_next_task_in(v, n, s->tried, s->ntried, s->slots,
@@ -3661,12 +3781,16 @@ static int supervisor_tick(Sup *s) {
                sl->n.task, ex, ok ? ts : "INCOMPLETE");
         fflush(stdout);
         const char *outcome = ok ? ts : sl->why[0] ? sl->why : "incomplete";
+        /* the claim goes back before the node is marked ended: a
+         * supervisor killed between the two leaves a live node, which the
+         * resumed one reaps again, never a held claim nobody releases */
+        if (!ok)
+            orch_abandon(g->shared, feature, sl->n.task, sl->n.agent,
+                         sl->n.attempt, sl->n.fence);
         orch_event("orch.exit", "worker", sl->n.agent, feature, sl->n.task,
                    sl->n.pid, crc > -900 ? crc : -1, outcome, sl->n.branch, NULL);
         sup_node_end(s, sl->node, "exited", crc, outcome);
         if (!ok) {
-            orch_abandon(g->shared, feature, sl->n.task, sl->n.agent,
-                         sl->n.attempt, sl->n.fence);
             orch_note_failure(feature, sl->n.task, crc > -900 ? crc : -1);
             s->failures++;
             sup_save(s);
