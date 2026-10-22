@@ -331,7 +331,7 @@ owner = "supervisor"
 
 [task.2.6]
 title = "Finding events reach consumers"
-status = "implemented"
+status = "done"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/events/dispatcher.ts", "tests/hyperfide/cases/v21/2_6.py"]
@@ -383,7 +383,7 @@ owner = "deployment"
 
 [task.2.10]
 title = "Persist provisioner errors and harden install and release"
-status = "implemented"
+status = "done"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/providers/worker.ts", "deploy/hyperfide/install-service.mjs", "scripts/release.sh", "scripts/release-sign.sh", "tests/hyperfide/cases/v21/2_10.py"]
