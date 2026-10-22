@@ -31,6 +31,9 @@ const fleet = require('./fleet');
  * refresh chain below and only while the view is visible. */
 let fleetApi = { refresh: async () => {}, touch: () => {} };
 // --- end fleet (5.3) ---
+// --- sandboxes (hyperfide-v21 6.4): console.sandboxes, refreshed only while visible ---
+const sandboxes = require('./sandboxes');
+let sandboxesApi = { refresh: async () => {} };
 
 let provider;
 let memories;
@@ -300,6 +303,7 @@ async function runRefresh() {
     /* the board's spec status is handed over rather than asked for twice */
     await fleetApi.refresh(provider.model && provider.model.status);
     // --- end fleet (5.3) ---
+    await sandboxesApi.refresh();
     await updateScope();
     /* what counts as "in scope" depends on which task is in progress, so
      * open documents are re-checked only when that changes */
@@ -751,6 +755,7 @@ async function activate(ctx) {
         sharedRoot: serveSharedRoot,
     });
     // --- end fleet (5.3) ---
+    sandboxesApi = sandboxes.register(ctx, { cg });
 
     /* Language features are best-effort: a workspace with no .codegraph, or
      * no cg on PATH, still gets the spec tooling above. */

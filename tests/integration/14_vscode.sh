@@ -20,6 +20,7 @@
 #              patch against the real cg, reconnect, fallback on an old cg
 #   pushed   — (v21 1.12) an approval the real cg raises reaches the chat
 #              as a card through cg serve, once, and again after a reconnect
+#   sandboxes — (v21 6.4) the console.sandboxes view and its attach
 # Run one section: 14_vscode.sh tasks
 . "$(dirname "$0")/../lib.sh"
 section="${1:-all}"
@@ -634,12 +635,13 @@ const fs = require('fs'), path = require('path');
 const dir = process.argv[2];
 const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
 // commands are registered from extension.js, agents.js, acp.js, tasks.js,
-// and fleet.js
+// fleet.js and sandboxes.js
 const src = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'agents.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'acp.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'tasks.js'), 'utf8') +
-    fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8');
+    fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8') +
+    fs.readFileSync(path.join(dir, 'sandboxes.js'), 'utf8');
 
 if (pkg.publisher !== 'SidioraLabs' || pkg.name !== 'codify-workflow') {
     throw new Error(`unexpected Marketplace identity: ${pkg.publisher}.${pkg.name}`);
@@ -2461,6 +2463,173 @@ const real = (p) => fs.realpathSync(p);
 })().catch((e) => { console.error(e.stack || e); process.exit(1); });
 JS
     [ $? -eq 0 ] || fail "reconnect snapshot, agent names, transcripts"
+fi
+
+if want sandboxes; then
+# ---- sandboxes (hyperfide-v21 6.4): the codifySandboxes view over the
+#      console.sandboxes read model: provider, pool, task, heartbeat, slice
+#      size, snapshot state and queue position per row, attach opening the
+#      worker's session, and a refusal shown as a refusal, never as rows
+    rm -rf "$TMP/sbx"; mkdir -p "$TMP/sbx"; cd "$TMP/sbx"
+    "$CG" init >/dev/null 2>&1
+    node - "$EXT" "$CG" "$(cd "$EXT/../.." && pwd)" <<'JS'
+const fs = require('fs'), path = require('path'), cp = require('child_process'), Module = require('module');
+const [dir, CG, src] = process.argv.slice(2);
+const eq = (a, b, m) => { if (a !== b) throw new Error(`${m}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`); };
+const ok = (c, m) => { if (!c) throw new Error(m); };
+
+// manifest: the view and its commands are declared, registered and wired
+const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+const sbxSrc = fs.readFileSync(path.join(dir, 'sandboxes.js'), 'utf8');
+const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+ok(pkg.contributes.views.codify.some((v) => v.id === 'codifySandboxes'), 'codifySandboxes view not declared');
+ok(/createTreeView\('codifySandboxes'/.test(sbxSrc), 'codifySandboxes declared but never populated');
+const declared = pkg.contributes.commands.map((c) => c.command);
+for (const c of ['codify.sandboxes.refresh', 'codify.sandboxes.attach']) {
+    ok(declared.includes(c), `${c} not declared`);
+    ok(sbxSrc.includes(`'${c}':`), `${c} not registered`);
+}
+ok(pkg.contributes.menus['view/item/context'].some((m) => m.command === 'codify.sandboxes.attach' &&
+    /viewItem == sandbox-worker-session/.test(m.when)), 'attach is not offered on a worker with a session');
+ok(/sandboxes\.register\(ctx,/.test(ext) && /await sandboxesApi\.refresh\(\)/.test(ext), 'extension.js does not wire the view into the one scheduler');
+ok(!/setInterval|createFileSystemWatcher/.test(sbxSrc), 'sandboxes.js runs a clock of its own');
+
+// every field the view reads is one console.ts declares (the read model of 5.2)
+const consoleTs = fs.readFileSync(path.join(src, 'services/hyperfide/src/observability/console.ts'), 'utf8');
+for (const f of ['view:\'console.sandboxes\'', 'heartbeat_max_age_seconds', 'liveness', 'pool_id', 'provider', 'heartbeat_age_seconds',
+                 'native_sandbox_id', 'workers', 'slot_key', 'task_id', 'session_id', 'included_paths', 'closure_files',
+                 'snapshot:{state:\'NO_ATTEMPT\'|\'NONE\'|\'CAPTURED\'', 'as_of', 'counts', 'truncated'])
+    ok(consoleTs.includes(f), `console.ts no longer declares ${f}`);
+
+const { sandboxNodes, parseAnswer, summary, queuePositions, COMMAND } = require(path.join(dir, 'sandboxes.js'));
+eq(COMMAND.join(' '), 'console sandboxes --json', 'the view reads the console verb');
+const worker = (slot, task, session, paths, closure, snap) => ({
+    slot_id: `slot-${slot}`, slot_key: slot, capacity_kind: 'TASK', state: task ? 'BUSY' : 'IDLE', boot_generation: '1',
+    attempt: task ? { run_id: 'run-1', id: `att-${task}`, task_id: task, generation: '1', kind: 'TASK', execution_state: 'RUNNING', compute_authority: 'CURRENT', lease_expires_at: null } : null,
+    runner: session ? { run_id: 'run-1', session_id: session, credential_id: 'c', state: 'CURRENT', observed_at: '2026-10-22T10:00:00.000Z', heartbeat_at: '2026-10-22T10:00:00.000Z' } : null,
+    slice: paths === null ? null : { state: 'MATERIALISED', run_id: 'run-1', digest: 'd', materialisation_id: 'm', mode: 'SPARSE', fallback_reason: null, included_paths: paths, closure_files: closure, verified_head: null, at: '2026-10-22T10:00:00.000Z' },
+    snapshot: task ? (snap ? { state: 'CAPTURED', id: 'snap-1', result_tree: 't', files_changed: '3', checkpoint_digest: null, at: 'x' } : { state: 'NONE', id: null, result_tree: null, files_changed: null, checkpoint_digest: null, at: null })
+        : { state: 'NO_ATTEMPT', id: null, result_tree: null, files_changed: null, checkpoint_digest: null, at: null },
+});
+const row = (o) => Object.assign({ kind: 'SANDBOX', reasons: [], region: 'us-west', native_sandbox_id: null, desired_state: 'RUNNING', observed_state: 'RUNNING',
+    boot_generation: '1', work_admitted: true, heartbeat_at: null, heartbeat_age_seconds: null, intent: null, quarantined_intents: [], orphan: null, attempts: 0, workers: [] }, o);
+const inv = { view: 'console.sandboxes', scope: { organisation_id: 'org' }, as_of: '2026-10-22T10:00:05.000Z', heartbeat_max_age_seconds: 90,
+    counts: { LIVE: 1, LOST: 1, QUARANTINED: 0, ORPHANED: 1, PENDING: 2, RETIRED: 0 }, truncated: false, authority: 'PRIMARY_OBSERVATION', activity_is_qualified_progress: false,
+    rows: [
+        row({ liveness: 'LIVE', sandbox_id: 'sb-live', pool_id: 'pool-a', provider: 'railway', native_sandbox_id: 'rw-1', heartbeat_age_seconds: 5,
+              workers: [worker('w0', '6.4', 'sess-1', 12, 40, true), worker('w1', null, null, null, null, false)] }),
+        row({ liveness: 'PENDING', sandbox_id: 'sb-p1', pool_id: 'pool-a', provider: 'railway', observed_state: null }),
+        row({ liveness: 'LOST', sandbox_id: 'sb-lost', pool_id: 'pool-b', provider: 'local', heartbeat_age_seconds: 600, reasons: ['HEARTBEAT_STALE'],
+              workers: [worker('w0', '6.9', 'sess-2', 1, null, false)] }),
+        row({ liveness: 'PENDING', sandbox_id: 'sb-p2', pool_id: 'pool-b', provider: 'local', observed_state: null }),
+        row({ kind: 'ORPHAN', liveness: 'ORPHANED', sandbox_id: null, pool_id: 'pool-a', provider: 'railway', native_sandbox_id: 'rw-9',
+              orphan: { state: 'UNVERIFIED', suspected_intent_id: null, first_observed_at: 'x', last_observed_at: 'x' } }),
+    ] };
+const m = sandboxNodes(inv);
+eq(m.ok, true, 'a console.sandboxes inventory is accepted');
+eq(m.nodes.length, 5, 'one row per sandbox and orphan');
+const [live, p1, lost, p2, orphan] = m.nodes;
+eq(live.provider, 'railway', 'provider'); eq(live.pool, 'pool-a', 'pool');
+eq(live.heartbeat, 'just now', 'heartbeat of a live sandbox'); eq(live.stale, false, 'a fresh heartbeat is not stale');
+eq(lost.heartbeat, '10m ago', 'heartbeat of a lost sandbox'); eq(lost.stale, true, 'past heartbeat_max_age_seconds is stale');
+eq(p1.heartbeat, 'no heartbeat', 'a pending sandbox has none');
+eq(p1.queue, 1, 'first pending sandbox is queue #1'); eq(p2.queue, 2, 'second pending sandbox is queue #2');
+eq(live.queue, null, 'a live sandbox is not queued'); eq(orphan.kind, 'orphan', 'orphan row kept');
+ok(/PENDING · railway\/pool-a · no heartbeat · queue #1/.test(p1.description), `pending row description: ${p1.description}`);
+eq(queuePositions([{ liveness: 'PENDING', queue_position: 7 }, { liveness: 'PENDING' }]).get(0), 7, 'the read model\'s own queue position wins');
+const [w0, w1] = live.workers;
+eq(w0.task, '6.4', 'worker task'); eq(w0.session, 'sess-1', 'worker session');
+eq(w0.slice.paths, 12, 'slice size in paths'); eq(w0.slice.text, '12 paths · closure 40 files', 'slice text');
+eq(w0.snapshot, 'CAPTURED', 'snapshot state'); eq(lost.workers[0].snapshot, 'NONE', 'no snapshot yet');
+eq(w1.task, null, 'idle worker'); eq(w1.snapshot, 'NO_ATTEMPT', 'idle worker snapshot'); eq(w1.slice.text, 'no slice', 'no slice is not zero');
+eq(lost.workers[0].slice.text, '1 path', 'singular slice');
+eq(live.tasks.join(), '6.4', 'tasks of a sandbox');
+ok(summary(m).startsWith('as of 2026-10-22T10:00:05.000Z · 1 live · 2 pending · 1 lost · 1 orphaned'), `summary: ${summary(m)}`);
+
+// negatives: a refusal, a foreign answer, a timeout and garbage are errors, never rows
+const refused = sandboxNodes(parseAnswer({ code: 1, stdout: '', stderr: '{"ok":false,"error":{"code":"CONSOLE_FORBIDDEN","message":"The console is for operators"}}' }));
+eq(refused.ok, false, 'a refusal is not an inventory'); ok(/CONSOLE_FORBIDDEN/.test(refused.error), 'the refusal code is shown');
+eq(refused.nodes.length, 0, 'a refusal draws no rows');
+eq(sandboxNodes({ view: 'console.needs', rows: [] }).ok, false, 'another console view is refused');
+eq(sandboxNodes(parseAnswer(null)).error, 'TIMEOUT: no answer in 20s', 'a wedged call is a timeout');
+ok(/EXIT_2: boom/.test(sandboxNodes(parseAnswer({ code: 2, stdout: 'boom\n', stderr: '' })).error), 'non-JSON output is an exit error');
+
+// the real cg: whatever it answers in this throwaway project (no distributed
+// authority) is either a real inventory or an error the view states
+const real = cp.spawnSync(CG, COMMAND, { encoding: 'utf8' });
+const rm = sandboxNodes(parseAnswer({ code: real.status, stdout: real.stdout, stderr: real.stderr }));
+ok(rm.ok ? Array.isArray(rm.nodes) : (typeof rm.error === 'string' && rm.error.length > 0 && rm.nodes.length === 0),
+   `real cg answer not handled: ${JSON.stringify(rm)}`);
+
+// the view against a stub vscode: hidden it asks nothing, visible it draws
+// the rows, and attach opens the worker's session document
+class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
+class EventEmitter { constructor() { this.fns = []; this.event = (f) => { this.fns.push(f); return { dispose() {} }; }; } fire(x) { this.fns.forEach((f) => f(x)); } }
+const commands = {}, opened = [];
+let providerOf = null, tv = null;
+const stub = {
+    TreeItem, EventEmitter, ThemeIcon: class { constructor(id, c) { this.id = id; this.color = c; } }, ThemeColor: class { constructor(id) { this.id = id; } },
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    window: {
+        createTreeView: (id, o) => { eq(id, 'codifySandboxes', 'tree view id'); tv = { visible: false, message: '', provider: o.treeDataProvider,
+            onDidChangeVisibility: (f) => { tv.fire = f; return { dispose() {} }; }, dispose() {} }; return tv; },
+        showInformationMessage: () => {}, showQuickPick: async (items) => items[0], showTextDocument: async (d) => { opened.push(d); },
+    },
+    workspace: { registerTextDocumentContentProvider: (s, p) => { eq(s, 'hyperfide-session', 'session scheme'); providerOf = p; return { dispose() {} }; },
+                 openTextDocument: async (uri) => ({ uri, text: providerOf.provideTextDocumentContent(uri) }) },
+    commands: { registerCommand: (n, f) => { commands[n] = f; return { dispose() {} }; } },
+    Uri: { parse: (u) => ({ toString: () => u }) },
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+delete require.cache[require.resolve(path.join(dir, 'sandboxes.js'))];
+const sbx = require(path.join(dir, 'sandboxes.js'));
+const calls = [];
+const events = [
+    { seq: 1, kind: 'agent.text', session: 'sess-1', payload: { text: 'working on 6.4' } },
+    { seq: 2, kind: 'agent.text', session: 'sess-2', payload: { text: 'not mine' } },
+    { seq: 3, kind: 'agent.tool', payload: { session_id: 'sess-1', tool: 'Edit' } },
+];
+const api = sbx.register({ subscriptions: [] }, { cg: async (args) => { calls.push(args.join(' '));
+    if (args[0] === 'console') return { code: 0, stdout: JSON.stringify(inv), stderr: '' };
+    if (args[0] === 'events') return { code: 0, stdout: events.map((e) => JSON.stringify(e)).join('\n') + '\n', stderr: '' };
+    return { code: 1, stdout: '', stderr: '' }; } });
+(async () => {
+    await api.refresh();               // the first pass always loads
+    eq(calls.length, 1, 'first refresh loads once');
+    await api.refresh();
+    eq(calls.length, 1, 'a hidden view asks nothing');
+    tv.fire({ visible: true }); await new Promise((r) => setImmediate(r));
+    eq(calls.length, 2, 'becoming visible loads');
+    const roots = tv.provider.getChildren();
+    eq(roots.length, 5, 'five roots');
+    const item = tv.provider.getTreeItem(roots[0]);
+    ok(/LIVE · railway\/pool-a · just now/.test(item.description), `sandbox item: ${item.description}`);
+    const kids = tv.provider.getChildren(roots[0]);
+    const wi = tv.provider.getTreeItem(kids[0]);
+    eq(wi.description, 'task 6.4 · slice 12 paths · closure 40 files · snapshot CAPTURED', 'worker item');
+    eq(wi.contextValue, 'sandbox-worker-session', 'a worker with a session offers attach');
+    eq(wi.command.command, 'codify.sandboxes.attach', 'clicking a worker attaches');
+    eq(tv.provider.getTreeItem(kids[1]).contextValue, 'sandbox-worker', 'an idle worker offers no attach');
+    ok(tv.message.startsWith('as of '), 'the view states its freshness');
+    await commands['codify.sandboxes.attach'](wi.command.arguments[0]);
+    eq(opened.length, 1, 'attach opens one document');
+    const text = opened[0].text;
+    ok(text.startsWith('# session sess-1'), 'the document is the worker\'s session');
+    ok(/task      6\.4/.test(text) && /working on 6\.4/.test(text) && /agent\.tool  Edit/.test(text), 'the session\'s events are in it');
+    ok(!/not mine/.test(text), 'another session\'s events are not');
+    await commands['codify.sandboxes.attach']();   // from the palette: a pick
+    eq(opened.length, 2, 'attach from the palette picks a worker');
+    // a refusal empties the view and says why
+    const api2 = sbx.register({ subscriptions: [] }, { cg: async () => ({ code: 1, stdout: '', stderr: '{"ok":false,"error":{"code":"OFFLINE_AUTHORITY_UNAVAILABLE","message":"offline"}}' }) });
+    await api2.refresh();
+    eq(tv.provider.getChildren().length, 0, 'a refusal draws no rows');
+    ok(/OFFLINE_AUTHORITY_UNAVAILABLE/.test(tv.message), 'the refusal is stated');
+    console.log('sandboxes ok');
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "sandboxes view"
+    cd "$TMP"
 fi
 
 echo "14_vscode ok ($section)"
