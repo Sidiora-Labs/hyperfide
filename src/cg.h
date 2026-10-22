@@ -1225,6 +1225,7 @@ int  fleet_land(Cg *cg, const char *what, const char *feature, bool no_pr,
 int  fleet_pr_open(Cg *cg, const char *feature, bool dry_run, bool json);
 int  fleet_checkpoint(Cg *cg, bool dry_run, bool json);
 int  cmd_fleet(Cg *cg, int argc, char **argv, bool json);
+int  cmd_slice(Cg *cg, int argc, char **argv, bool json);   /* fleet.c */
 
 /* The two-level fleet run (orchestrate.c). One node is one process
  * `cg spec run --fleet` spawned: the identity it carries in its

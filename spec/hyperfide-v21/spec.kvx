@@ -423,7 +423,7 @@ owner = "source"
 
 [task.2.13]
 title = "Sparse worktrees for the local fleet"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["2.12"]
 touches = ["src/fleet.c", "src/hyperfide/client.c", "tests/integration/85_sparse_worktree.sh"]
