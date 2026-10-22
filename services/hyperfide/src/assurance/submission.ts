@@ -235,10 +235,97 @@ export async function submittedGitFacts(ctx:ComponentContext,v:Data,policy:Data,
    source_parent_ids:parents?parents.split(' '):[],owned_scope_digest:hash(ownedScope),changed_paths_digest:hash(paths),changed_path_count:paths.length};
  }catch(error){if(error instanceof FoundationError)throw error;fail('QUALIFICATION_SOURCE_MISMATCH','Result commit does not have the accepted Git baseline ancestry');}
 }
+/* Snapshots as the unit of record (hyperfide-v21 6.2). The worker never commits: native
+ * checkpoint.snapshot writes the slice workspace as a tree object plus an HFSN0001 checkpoint,
+ * and the row below is what a worker result names. The base is the slice manifest's commit,
+ * never a caller claim. */
+export interface SnapshotNative {binary:string;allowed_root:string;spool_root:string;timeout_ms?:number}
+const OID=/^([0-9a-f]{40}|[0-9a-f]{64})$/;
+function snapshotCount(value:unknown):number{
+ if(!Number.isSafeInteger(value)||(value as number)<0)fail('SOURCE_SNAPSHOT_INVALID','Native snapshot statistics are malformed');
+ return value as number;
+}
+export async function snapshotBinding(db:PrimaryClient,v:Data):Promise<Data>{
+ const s=[v.organisation_id,v.run_id];
+ const attempt=await db.query('SELECT a.id FROM hyperfide.attempts a WHERE a.organisation_id=$1 AND a.run_id=$2 AND a.task_id=$3 AND a.id=$4 AND a.generation=$5',[...s,v.task_id,v.attempt_id,v.attempt_generation]);
+ if(!attempt.rows[0])fail('SOURCE_SNAPSHOT_ATTEMPT_UNKNOWN','Snapshot attempt is not the named task attempt generation');
+ const slice=await db.query('SELECT repository_id,commit FROM hyperfide.workspace_slice_manifests WHERE organisation_id=$1 AND run_id=$2 AND digest=$3',[...s,v.slice_digest]);
+ if(!slice.rows[0])fail('SOURCE_SNAPSHOT_SLICE_UNKNOWN','Snapshot slice manifest is not recorded for this run');
+ if(slice.rows[0].repository_id!==v.repository_id)fail('SOURCE_SNAPSHOT_SLICE_MISMATCH','Snapshot slice belongs to another repository');
+ return {base_commit:slice.rows[0].commit};
+}
+export async function nativeSnapshot(native:SnapshotNative,request:Data):Promise<Data>{
+ const run=promisify(execFile),encoded=Buffer.from(JSON.stringify(request)).toString('base64url');
+ let stdout:string;
+ try{({stdout}=await run(native.binary,['--component','15.1','--action','checkpoint.snapshot','--request-base64',encoded],
+  {env:{PATH:'/usr/bin:/bin',LANG:'C',HF_CHECKPOINT_ALLOWED_ROOT:native.allowed_root,HF_CHECKPOINT_SPOOL_ROOT:native.spool_root},
+   timeout:native.timeout_ms??120000,maxBuffer:1024*1024}));}
+ catch{fail('SOURCE_SNAPSHOT_UNAVAILABLE','Native snapshot capture did not complete');}
+ let envelope:Data;
+ try{envelope=JSON.parse(stdout!) as Data;}catch{fail('SOURCE_SNAPSHOT_INVALID','Native snapshot result is not JSON');}
+ const r=envelope!.ok===true&&object(envelope!.result)?envelope!.result as Data:fail('SOURCE_SNAPSHOT_UNAVAILABLE','Native snapshot dispatch failed');
+ if(r.capture_state==='REFUSED')fail('SOURCE_SNAPSHOT_REFUSED','Native snapshot refused: '+String(r.code));
+ const c=r.checkpoint,d=r.diff;
+ if(r.capture_state!=='SNAPSHOT_COMPLETE'||r.authority!=='NONE'||r.base_commit!==request.base_commit||r.slice_digest!==request.slice_digest||
+  !OID.test(String(r.base_tree_id))||!OID.test(String(r.result_tree_id))||!object(c)||!object(d)||c.format!=='HFSN0001')
+  fail('SOURCE_SNAPSHOT_INVALID','Native snapshot result does not bind the requested base and slice');
+ digest(c.checkpoint_digest);digest(c.metadata_digest);
+ if(typeof c.size_bytes!=='string'||!/^[1-9][0-9]{0,15}$/.test(c.size_bytes))fail('SOURCE_SNAPSHOT_INVALID','Checkpoint size is malformed');
+ const diff={files_changed:snapshotCount(d.files_changed),insertions:snapshotCount(d.insertions),deletions:snapshotCount(d.deletions),binary_files:snapshotCount(d.binary_files)};
+ if((r.base_tree_id===r.result_tree_id)!==(diff.files_changed===0)||diff.binary_files>diff.files_changed)fail('SOURCE_SNAPSHOT_INVALID','Snapshot statistics contradict its trees');
+ return {base_tree_id:r.base_tree_id,result_tree_id:r.result_tree_id,diff,
+  receipt:{format:'HFSN0001',checkpoint_digest:c.checkpoint_digest,metadata_digest:c.metadata_digest,size_bytes:c.size_bytes,object_count:snapshotCount(c.object_count),durability:r.durability,authority:'NONE'}};
+}
+export async function recordSourceSnapshot(db:PrimaryClient,v:Data,base:Data,captured:Data):Promise<Data>{
+ const id=randomUUID(),d=captured.diff;
+ await db.query('INSERT INTO hyperfide.source_snapshots(organisation_id,run_id,id,task_id,attempt_id,attempt_generation,repository_id,base_commit,base_tree,result_tree,slice_digest,checkpoint_digest,checkpoint_receipt,files_changed,insertions,deletions,binary_files,created_by_credential_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) ON CONFLICT(organisation_id,run_id,attempt_id,checkpoint_digest) DO NOTHING',
+  [v.organisation_id,v.run_id,id,v.task_id,v.attempt_id,v.attempt_generation,v.repository_id,base.base_commit,captured.base_tree_id,captured.result_tree_id,v.slice_digest,captured.receipt.checkpoint_digest,captured.receipt,d.files_changed,d.insertions,d.deletions,d.binary_files,v.credential_id]);
+ const row=await db.query('SELECT id,task_id,attempt_id,attempt_generation::text,repository_id,base_commit,base_tree,result_tree,slice_digest,checkpoint_digest,checkpoint_receipt,files_changed::int,insertions::int,deletions::int,binary_files::int FROM hyperfide.source_snapshots WHERE organisation_id=$1 AND run_id=$2 AND attempt_id=$3 AND checkpoint_digest=$4',
+  [v.organisation_id,v.run_id,v.attempt_id,captured.receipt.checkpoint_digest]);
+ const r=row.rows[0];
+ if(!r||r.task_id!==v.task_id||r.result_tree!==captured.result_tree_id||r.slice_digest!==v.slice_digest)fail('SOURCE_SNAPSHOT_CONFLICT','Recorded snapshot identity differs from this capture');
+ return {snapshot_id:r.id,replayed:r.id!==id,...r};
+}
+function snapshotRequest(raw:unknown):Data{
+ const v=fields(raw,['organisation_id','run_id','task_id','attempt_id','attempt_generation','repository_id','slice_digest','candidate_path','credential_id']);
+ ['organisation_id','run_id','task_id','attempt_id','repository_id','credential_id'].forEach(k=>uuid(v[k]));decimal(v.attempt_generation);digest(v.slice_digest);
+ if(typeof v.candidate_path!=='string'||!v.candidate_path||v.candidate_path.startsWith('/')||v.candidate_path.split('/').some((p:string)=>!p||p==='.'||p==='..'))
+  fail('QUALIFICATION_INPUT_INVALID','Candidate path must be relative to the trusted snapshot root');
+ return v;
+}
+/** Capture outside any transaction: native work holds no database lock. */
+export async function captureSourceSnapshot(db:PrimaryClient,native:SnapshotNative,raw:unknown):Promise<Data>{
+ const v=snapshotRequest(raw),base=await snapshotBinding(db,v);
+ const captured=await nativeSnapshot(native,{candidate_path:v.candidate_path,organisation_id:v.organisation_id,run_id:v.run_id,repository_id:v.repository_id,
+  task_id:v.task_id,attempt_id:v.attempt_id,base_commit:base.base_commit,slice_digest:v.slice_digest});
+ return recordSourceSnapshot(db,v,base,captured);
+}
+/** A worker result naming a snapshot must name one of its own attempt whose tree is the submitted tree. */
+export async function bindSubmittedSnapshot(db:PrimaryClient,s:[string,string],v:Data,sourceTreeId:string):Promise<Data>{
+ const row=await db.query('SELECT id,task_id,attempt_id,attempt_generation::text,repository_id,result_tree,slice_digest,checkpoint_digest FROM hyperfide.source_snapshots WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[...s,uuid(v.snapshot_id)]);
+ const r=row.rows[0];
+ if(!r||r.task_id!==v.task_id||r.attempt_id!==v.attempt_id||r.attempt_generation!==String(v.attempt_generation)||r.repository_id!==v.repository_id)
+  fail('QUALIFICATION_SNAPSHOT_MISMATCH','Result snapshot is not a capture of the submitting attempt');
+ if(r.result_tree!==sourceTreeId)fail('QUALIFICATION_SNAPSHOT_MISMATCH','Result snapshot tree differs from the submitted source tree');
+ return {snapshot_id:r.id,snapshot_tree_id:r.result_tree,snapshot_slice_digest:r.slice_digest,snapshot_checkpoint_digest:r.checkpoint_digest};
+}
+async function snapshotAction(ctx:ComponentContext,raw:unknown):Promise<Data>{
+ const inv=roles(ctx,['WORKER']);
+ const v=snapshotRequest({...fields(raw,['organisation_id','run_id','task_id','attempt_id','attempt_generation','repository_id','slice_digest','candidate_path']),credential_id:inv.principal.credential_id}),s=scope(ctx,v);
+ if(inv.principal.attempt_id!==v.attempt_id||String(inv.principal.attempt_generation)!==String(v.attempt_generation))
+  fail('QUALIFICATION_STALE_COMPUTE','Snapshot request differs from its authenticated worker identity');
+ const env=ctx.env as Data,native={binary:env.HF_SNAPSHOT_NATIVE_BINARY,allowed_root:env.HF_CHECKPOINT_ALLOWED_ROOT,spool_root:env.HF_CHECKPOINT_SPOOL_ROOT};
+ if(![native.binary,native.allowed_root,native.spool_root].every(p=>typeof p==='string'&&path.isAbsolute(p)))
+  fail('SOURCE_SNAPSHOT_UNAVAILABLE','Trusted native snapshot binary and roots are required');
+ const base=await transaction(ctx,db=>snapshotBinding(db,{...v,organisation_id:s[0],run_id:s[1]}),false,'READ');
+ const captured=await nativeSnapshot(native,{candidate_path:v.candidate_path,organisation_id:s[0],run_id:s[1],repository_id:v.repository_id,
+  task_id:v.task_id,attempt_id:v.attempt_id,base_commit:base.base_commit,slice_digest:v.slice_digest});
+ return transaction(ctx,db=>recordSourceSnapshot(db,v,base,captured));
+}
 const STALE_COMPUTE_CODES=new Set(['STALE_COMPUTE','COMPUTE_LEASE_EXPIRED','STALE_SANDBOX_BOOT','STALE_AUTHORITY_EPOCH','COMPUTE_ALLOCATION_INVALID','ACTIVE_SUBMISSION_CUSTODY']);
 async function submit(ctx:ComponentContext,raw:unknown):Promise<Data>{
  const v=fields(raw,['organisation_id','run_id','task_id','request_id','attempt_id','attempt_generation','authority_epoch',
- 'sandbox_id','slot_id','sandbox_boot_generation','repository_id','source_object_id','source_manifest_artifact_id','evidence_manifest_artifact_id','criteria_digest','contract_digests']);
+ 'sandbox_id','slot_id','sandbox_boot_generation','repository_id','source_object_id','source_manifest_artifact_id','evidence_manifest_artifact_id','criteria_digest','contract_digests'],['snapshot_id']);
  const inv=roles(ctx,['WORKER']),s=scope(ctx,v);
  if(v.request_id!==inv.operation.idempotency_key)fail('QUALIFICATION_IDEMPOTENCY_CONFLICT','Submission request must match authenticated idempotency identity');
  if(inv.principal.attempt_id!==v.attempt_id||inv.principal.attempt_generation!==v.attempt_generation||
@@ -246,6 +333,7 @@ async function submit(ctx:ComponentContext,raw:unknown):Promise<Data>{
  fail('QUALIFICATION_STALE_COMPUTE','Submission token differs from its authenticated worker identity');
  ['task_id','request_id','attempt_id','authority_epoch','sandbox_id','slot_id','repository_id','source_manifest_artifact_id','evidence_manifest_artifact_id'].forEach(k=>uuid(v[k]));
  decimal(v.attempt_generation);decimal(v.sandbox_boot_generation);digest(v.criteria_digest);
+ if(v.snapshot_id!==undefined)uuid(v.snapshot_id);
  if(typeof v.source_object_id!=='string'||!/^([0-9a-f]{40}|[0-9a-f]{64})$/.test(v.source_object_id)||
  !Array.isArray(v.contract_digests)||v.contract_digests.some((d:unknown)=>typeof d!=='string'||!/^sha256:[0-9a-f]{64}$/.test(d))||
  new Set(v.contract_digests).size!==v.contract_digests.length)fail('QUALIFICATION_INPUT_INVALID','Immutable source and contract identities required');
@@ -329,6 +417,7 @@ async function submit(ctx:ComponentContext,raw:unknown):Promise<Data>{
   if(!workspace.rows[0]||workspace.rows[0].branch_ref!==preflight.workspace.branch_ref||
    workspace.rows[0].base_commit!==preflight.workspace.base_commit||workspace.rows[0].state_version!==preflight.workspace.state_version)
    fail('QUALIFICATION_SOURCE_MISMATCH','Attributable workspace changed before admission');
+  const snapshot=v.snapshot_id===undefined?{}:await bindSubmittedSnapshot(client,s,v,gitFacts.source_tree_id);
   // Register only the actual independently read Git result; the accepted repository baseline remains unchanged.
   for(const [objectId,objectType] of [[v.source_object_id,'commit'],[gitFacts.source_tree_id,'tree']]){
    await client.query('INSERT INTO hyperfide.source_objects(organisation_id,repository_id,object_id,object_type) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[s[0],v.repository_id,objectId,objectType]);
@@ -341,7 +430,7 @@ async function submit(ctx:ComponentContext,raw:unknown):Promise<Data>{
   await client.query("INSERT INTO hyperfide.submission_custodies(organisation_id,run_id,id,task_id,source_attempt_id,source_generation,custody_generation,authority_epoch,repository_id,source_object_id,source_manifest_digest,evidence_manifest_digest,criteria_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
    [...s,custody,v.task_id,v.attempt_id,v.attempt_generation,gen.rows[0].generation,v.authority_epoch,v.repository_id,v.source_object_id,source.artifact.digest,evidence.artifact.digest,v.criteria_digest]);
   await client.query("INSERT INTO hyperfide.assurance_submissions(organisation_id,run_id,custody_id,request_id,request_digest,manifest,policy,source_artifact_id,evidence_artifact_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-   [...s,custody,v.request_id,requestDigest,{...v,...gitFacts,workspace_id:sourceManifest.workspace_id,source_manifest_digest:source.artifact.digest,registry_digest:hash(policy),input_packet_digest:computeIdentity.input_packet_digest,mandatory_digest:packet.mandatory_digest,input_manifest:runtimeInputs,graph_manifest_digest:packet.derived.graph_manifest_digest,graph_status:packet.derived.graph_status},policy,v.source_manifest_artifact_id,v.evidence_manifest_artifact_id]);
+   [...s,custody,v.request_id,requestDigest,{...v,...gitFacts,...snapshot,workspace_id:sourceManifest.workspace_id,source_manifest_digest:source.artifact.digest,registry_digest:hash(policy),input_packet_digest:computeIdentity.input_packet_digest,mandatory_digest:packet.mandatory_digest,input_manifest:runtimeInputs,graph_manifest_digest:packet.derived.graph_manifest_digest,graph_status:packet.derived.graph_status},policy,v.source_manifest_artifact_id,v.evidence_manifest_artifact_id]);
   await client.query("INSERT INTO hyperfide.qualification_jobs(organisation_id,run_id,id,custody_id,custody_generation,rubric_digest) VALUES($1,$2,$3,$4,$5,$6)",[...s,job,custody,gen.rows[0].generation,policy.rubric_digest]);
   await client.query("INSERT INTO hyperfide.assurance_applicability(organisation_id,run_id,custody_id,input_manifest) VALUES($1,$2,$3,$4)",[...s,custody,runtimeInputs]);
   await client.query("UPDATE hyperfide.tasks SET current_custody_id=$4,state='SUBMITTED',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3",[...s,v.task_id,custody]);
@@ -428,7 +517,8 @@ export async function inspectSubmittedResult(db:PrimaryClient,scopeValue:{organi
   authority_epoch:row.authority_epoch,repository_id:row.repository_id,source_object_id:row.source_object_id,source_tree_id:m.source_tree_id,
   baseline_source_object_id:m.baseline_source_object_id,source_parent_ids:m.source_parent_ids,workspace_id:m.workspace_id,
   source_manifest_digest:row.source_manifest_digest,source_manifest_artifact_id:row.source_artifact_id,source_manifest_size_bytes:String(row.size_bytes),
-  input_packet_digest:m.input_packet_digest,input_manifest:m.input_manifest,registry_digest:m.registry_digest};
+  input_packet_digest:m.input_packet_digest,input_manifest:m.input_manifest,registry_digest:m.registry_digest,
+  ...(m.snapshot_id===undefined?{}:{snapshot_id:m.snapshot_id,snapshot_tree_id:m.snapshot_tree_id})};
  return {...binding,binding_digest:hash(binding),authority:row.authority,object_bytes_reverified:false};
 }
 export function rawDigest(bytes:Uint8Array):string{return 'sha256:'+createHash('sha256').update(bytes).digest('hex');}
@@ -452,6 +542,7 @@ export function createComponent(ctx:ComponentContext):Component & {capabilities:
  return {apiVersion:1,capabilities:{'assurance.custody.v1':Object.freeze({fenceQualificationJobs,revokeCustodies,inspectSubmittedResult})},actions:{
   'submission.submit':(input,requestContext)=>submit(requestContext,input),
   'submission.revoke':(input,requestContext)=>revoke(requestContext,input),
+  'submission.snapshot':(input,requestContext)=>snapshotAction(requestContext,input),
   'submission.inspect':async(raw,requestContext)=>{
    const ctx=requestContext;
    const v=fields(raw,['organisation_id','run_id','submission_id']),s=scope(ctx,v),id=uuid(v.submission_id);

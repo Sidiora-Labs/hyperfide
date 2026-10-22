@@ -393,6 +393,9 @@ static int field(Buf *b, const char *k, const char *v, int *first) {
     *first = 0;
     return quoted(b, k) || append(b, ":", 1) || quoted(b, v);
 }
+/* Snapshot capture alone sets these: a private index, sealed lazy fetch and a stdin object list. */
+static const char *child_index;
+static int child_input = -1;
 static int command(int dir, const char *const *args, Buf *out, int outputfd) {
     pid_t p;
     int pipes[2];
@@ -409,7 +412,7 @@ static int command(int dir, const char *const *args, Buf *out, int outputfd) {
             _exit(126);
         dup2(outputfd >= 0 ? outputfd : pipes[1], STDOUT_FILENO);
         int null = open("/dev/null", O_RDWR);
-        dup2(null, STDIN_FILENO);
+        dup2(child_input >= 0 ? child_input : null, STDIN_FILENO);
         dup2(null, STDERR_FILENO);
         if (null > 2)
             close(null);
@@ -420,6 +423,10 @@ static int command(int dir, const char *const *args, Buf *out, int outputfd) {
         setenv("GIT_CONFIG_NOSYSTEM", "1", 1);
         setenv("GIT_CONFIG_GLOBAL", "/dev/null", 1);
         setenv("GIT_TERMINAL_PROMPT", "0", 1);
+        if (child_index) {
+            setenv("GIT_INDEX_FILE", child_index, 1);
+            setenv("GIT_NO_LAZY_FETCH", "1", 1);
+        }
         const char *av[56];
         int n = 0;
         av[n++] = "/usr/bin/git";
@@ -1296,6 +1303,246 @@ done:
     freeobj(&meta);
     return r;
 }
+/* @anchor contract: a source snapshot is the worker's unit of record (hyperfide-v21 6.2).
+ * The worker tree becomes a Git tree object written through a private index copy, so the
+ * workspace index, HEAD and refs never move: agents never commit and neither does capture.
+ * Skip-worktree entries of a slice keep their base blobs; an untracked write outside the
+ * sparse patterns is refused rather than silently dropped. The HFSN0001 checkpoint packs
+ * only the objects the base tree lacks, which restores the result over the internal store. */
+static int snapshot(Obj *o, int root, int spool, FILE *out) {
+    const char *keys[] = {"candidate_path", "organisation_id", "run_id",       "repository_id",
+                          "task_id",        "attempt_id",      "base_commit", "slice_digest",
+                          NULL};
+    if (allowed(o, keys))
+        return -1;
+    const char *ids[] = {"organisation_id", "run_id", "repository_id", "task_id", "attempt_id",
+                         NULL};
+    for (int i = 0; ids[i]; i++)
+        if (!uuid(get(o, ids[i])))
+            return bad("INVALID_IDENTITY");
+    const char *base = get(o, "base_commit"), *slice = get(o, "slice_digest");
+    if (!base || !(hex(base, 40) || hex(base, 64)))
+        return bad("INVALID_SOURCE_IDENTITY");
+    if (!digest_ok(slice))
+        return bad("INVALID_DIGEST");
+    int repo = relative_dir(root, get(o, "candidate_path"));
+    if (repo < 0)
+        return bad("UNSAFE_CANDIDATE");
+    if (beneath(spool, repo) != 0) {
+        close(repo);
+        return bad("SPOOL_INSIDE_CANDIDATE");
+    }
+    int gitdir = openat(repo, ".git", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (gitdir < 0) {
+        close(repo);
+        return bad("ORDINARY_REPOSITORY_REQUIRED");
+    }
+    int lf = openat(gitdir, "hyperfide-checkpoint.lock",
+                    O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (lf < 0 || flock(lf, LOCK_EX | LOCK_NB)) {
+        if (lf >= 0)
+            close(lf);
+        close(gitdir);
+        close(repo);
+        return bad("CAPTURE_BUSY");
+    }
+    Buf head = {0}, check = {0}, basetree = {0}, result = {0}, index = {0}, raw = {0}, num = {0},
+        list = {0}, pack = {0}, meta = {0}, full = {0};
+    int r = -1, td = -1, input = -1;
+    char tmp[64] = "", indexpath[96], spec[80];
+    unsigned long long files = 0, insertions = 0, deletions = 0, binary = 0, objects = 0;
+    if (gittext(repo, &head, "rev-parse", "HEAD"))
+        goto done;
+    if (strcmp((char *)head.p, base)) {
+        bad("WORKER_COMMITTED");
+        goto done;
+    }
+    if (GIT(repo, &check, "ls-files", "--unmerged", "-z") || check.n) {
+        bad("UNMERGED_INDEX");
+        goto done;
+    }
+    drop(&check);
+    snprintf(spec, sizeof spec, "%s^{tree}", base);
+    if (gittext(repo, &basetree, "rev-parse", spec))
+        goto done;
+    if (filebuf(gitdir, "index", &index)) {
+        bad("INDEX_REQUIRED");
+        goto done;
+    }
+    snprintf(tmp, sizeof tmp, ".snapshot-%ld-%u", (long)getpid(), (unsigned)rand());
+    if (mkdirat(spool, tmp, 0700)) {
+        bad("IO_ERROR");
+        goto done;
+    }
+    td = openat(spool, tmp, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+    if (td < 0) {
+        bad("IO_ERROR");
+        goto done;
+    }
+    struct stat ist;
+    if (putfile(td, "index", index.p, index.n, 0600))
+        goto done;
+    /* The copy keeps the index timestamp so Git's racy-entry check still rehashes
+     * files edited within the same timestamp granule as the last index write. */
+    if (fstatat(gitdir, "index", &ist, AT_SYMLINK_NOFOLLOW) ||
+        utimensat(td, "index", (const struct timespec[]){ist.st_atim, ist.st_mtim}, 0)) {
+        bad("IO_ERROR");
+        goto done;
+    }
+    snprintf(indexpath, sizeof indexpath, "/proc/self/fd/%d/index", td);
+    child_index = indexpath;
+    int added = GIT(repo, NULL, "-c", "advice.updateSparsePath=false", "add", "-A");
+    if (added) {
+        /* git add exits 1 when an untracked path lies outside the sparse patterns. */
+        bad(added == 1 ? "OUT_OF_SLICE_WRITE" : "GIT_FAILED");
+        goto done;
+    }
+    if (gittext(repo, &result, "write-tree", NULL))
+        goto done;
+    if (GIT(repo, &raw, "diff-tree", "-r", "-t", "-z", "--no-renames", (char *)basetree.p,
+            (char *)result.p) ||
+        GIT(repo, &num, "diff-tree", "-r", "-z", "--numstat", "--no-renames", (char *)basetree.p,
+            (char *)result.p)) {
+        bad("GIT_FAILED");
+        goto done;
+    }
+    if (append(&list, result.p, strlen((char *)result.p)) || append(&list, "\n", 1))
+        goto done;
+    objects = 1;
+    for (size_t i = 0; i < raw.n;) {
+        char *rec = (char *)raw.p + i;
+        size_t m = strlen(rec);
+        if (i + m + 1 >= raw.n || rec[0] != ':') {
+            bad("GIT_FAILED");
+            goto done;
+        }
+        char *path = rec + m + 1;
+        size_t pn = strlen(path);
+        i += m + 1 + pn + 1;
+        if (!safe_path(path) || sensitive(path)) {
+            bad(sensitive(path) ? "SENSITIVE_PATH" : "UNSAFE_PATH");
+            goto done;
+        }
+        char omode[8], nmode[8], osha[72], nsha[72], status;
+        if (sscanf(rec, ":%7s %7s %71s %71s %c", omode, nmode, osha, nsha, &status) != 5) {
+            bad("GIT_FAILED");
+            goto done;
+        }
+        if (strcmp(nmode, "040000") && strcmp(omode, "040000"))
+            files++;
+        if (status != 'D' && strspn(nsha, "0") != strlen(nsha)) {
+            if (!strcmp(nmode, "160000")) {
+                bad("SUBMODULE_UNSUPPORTED");
+                goto done;
+            }
+            if (append(&list, nsha, strlen(nsha)) || append(&list, "\n", 1))
+                goto done;
+            objects++;
+        }
+    }
+    for (size_t i = 0; i < num.n;) {
+        char *rec = (char *)num.p + i;
+        i += strlen(rec) + 1;
+        unsigned long long a, d;
+        if (rec[0] == '-')
+            binary++;
+        else if (sscanf(rec, "%llu\t%llu\t", &a, &d) == 2) {
+            insertions += a;
+            deletions += d;
+        } else {
+            bad("GIT_FAILED");
+            goto done;
+        }
+    }
+    if (putfile(td, "objects", list.p, list.n, 0600))
+        goto done;
+    input = openat(td, "objects", O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    if (input < 0) {
+        bad("IO_ERROR");
+        goto done;
+    }
+    child_index = NULL;
+    child_input = input;
+    int packed = GIT(repo, &pack, "pack-objects", "--stdout", "-q");
+    child_input = -1;
+    if (packed || pack.n < 32 || memcmp(pack.p, "PACK", 4)) {
+        bad("PACK_FAILED");
+        goto done;
+    }
+    drop(&check);
+    if (gittext(repo, &check, "rev-parse", "HEAD") || strcmp((char *)check.p, base)) {
+        bad("UNSTABLE_SOURCE");
+        goto done;
+    }
+    char stats[160];
+    int first = 1;
+    if (append(&meta, "{", 1) || field(&meta, "schema_version", "1", &first) ||
+        field(&meta, "kind", "hyperfide.source-snapshot", &first))
+        goto done;
+    for (int i = 0; ids[i]; i++)
+        if (field(&meta, ids[i], get(o, ids[i]), &first))
+            goto done;
+    if (field(&meta, "base_commit", base, &first) ||
+        field(&meta, "base_tree_id", (char *)basetree.p, &first) ||
+        field(&meta, "result_tree_id", (char *)result.p, &first) ||
+        field(&meta, "slice_digest", slice, &first))
+        goto done;
+    snprintf(stats, sizeof stats,
+             ",\"diff\":{\"files_changed\":%llu,\"insertions\":%llu,\"deletions\":%llu,"
+             "\"binary_files\":%llu},\"object_count\":%llu,\"authority\":\"NONE\"}",
+             files, insertions, deletions, binary, objects);
+    if (append(&meta, stats, strlen(stats)))
+        goto done;
+    if (append(&full, "HFSN0001", 8) || u64(&full, meta.n) || u64(&full, pack.n) ||
+        append(&full, meta.p, meta.n) || append(&full, pack.p, pack.n))
+        goto done;
+    char digest[72], md[72], name[80];
+    hashbuf(&full, digest);
+    hashbuf(&meta, md);
+    snprintf(name, sizeof name, "%s.hfs", digest + 7);
+    if (putfile(td, "capsule", full.p, full.n, 0600))
+        goto done;
+    if (linkat(td, "capsule", spool, name, 0)) {
+        Buf old = {0};
+        if (errno != EEXIST || filebuf(spool, name, &old) || old.n != full.n ||
+            memcmp(old.p, full.p, full.n)) {
+            drop(&old);
+            bad("OBJECT_CONFLICT");
+            goto done;
+        }
+        drop(&old);
+    }
+    if (fsync(spool)) {
+        bad("IO_ERROR");
+        goto done;
+    }
+    fprintf(out,
+            "{\"capture_state\":\"SNAPSHOT_COMPLETE\",\"durability\":\"UNCONFIRMED\","
+            "\"authority\":\"NONE\",\"base_commit\":\"%s\",\"base_tree_id\":\"%s\","
+            "\"result_tree_id\":\"%s\",\"slice_digest\":\"%s\",\"diff\":{\"files_changed\":%llu,"
+            "\"insertions\":%llu,\"deletions\":%llu,\"binary_files\":%llu},\"checkpoint\":{"
+            "\"format\":\"HFSN0001\",\"checkpoint_digest\":\"%s\",\"metadata_digest\":\"%s\","
+            "\"size_bytes\":\"%zu\",\"object_count\":%llu}}",
+            base, (char *)basetree.p, (char *)result.p, slice, files, insertions, deletions,
+            binary, digest, md, full.n, objects);
+    r = 0;
+done:
+    child_index = NULL;
+    child_input = -1;
+    if (input >= 0)
+        close(input);
+    if (td >= 0)
+        close(td);
+    if (*tmp)
+        cleanup(spool, tmp);
+    Buf *all[] = {&head, &check, &basetree, &result, &index, &raw, &num, &list, &pack, &meta, &full};
+    for (size_t i = 0; i < sizeof all / sizeof *all; i++)
+        drop(all[i]);
+    close(lf);
+    close(gitdir);
+    close(repo);
+    return r;
+}
 int hf_component_15_1(const char *action, const char *request, FILE *out) {
     failure = NULL;
     Obj o = {0};
@@ -1320,6 +1567,8 @@ int hf_component_15_1(const char *action, const char *request, FILE *out) {
             result = inspect_export(&o, spool, out, 0);
         else if (!strcmp(action, "checkpoint.export"))
             result = inspect_export(&o, spool, out, 1);
+        else if (!strcmp(action, "checkpoint.snapshot"))
+            result = snapshot(&o, root, spool, out);
         else if (!strcmp(action, "checkpoint.restore"))
             result = restore(&o, root, spool, out);
         else
