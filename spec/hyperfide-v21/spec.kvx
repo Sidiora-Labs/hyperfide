@@ -462,10 +462,10 @@ owner = "ci"
 
 [task.2.16]
 title = "Provider resolutions escalate on the provisioner worker loop"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["2.1"]
-touches = ["services/hyperfide/src/providers/worker.ts", "deploy/hyperfide/env/control.env.example", "deploy/hyperfide/env/provisioner.env.example", "tests/hyperfide/cases/v21/2_16.py"]
+touches = ["services/hyperfide/src/providers/worker.ts", "services/hyperfide/src/providers/reconcile.ts", "deploy/hyperfide/env/control.env.example", "deploy/hyperfide/env/provisioner.env.example", "tests/hyperfide/cases/v21/2_16.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_16.py"
 do_1 = "Call provider.resolutions.escalate from the provisioner worker loop on a cadence (HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS, 0 disables); document HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS in the env examples as a commented operator value (3600 recommended, no default in code, D15)."
 do_2 = "2_16.py asserts that an overdue orphan raises exactly one decision Ask from the loop, that a second pass raises none, that a resolved subject marks it ANSWERED, and that escalate refuses with RESOLUTION_WINDOW_REQUIRED when the window is unset."

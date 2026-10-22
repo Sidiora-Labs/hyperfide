@@ -15,10 +15,13 @@ import type {DeploymentConfig,ProviderDatabase,ProviderPersistenceHooks} from '.
  * provisioning intents are the only work queue, claims are short SKIP LOCKED
  * transactions, and every effect goes through the 8.3 execute/reconcile paths
  * under the authenticated provisioner credential that started it. */
-export interface ProvisionerWorkerSettings {concurrency:number;poll_ms:number;retry_ms:number;lease_ms:number}
+export interface ProvisionerWorkerSettings {concurrency:number;poll_ms:number;retry_ms:number;lease_ms:number;escalate_ms:number}
 export interface ProvisionerWorkerDriver {
  execute(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>;
  reconcile(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>;
+ /** provider.resolutions.escalate (D15): one decision Ask per overdue orphan or quarantined
+  * intent, idempotent per open subject; refuses RESOLUTION_WINDOW_REQUIRED without the window. */
+ escalate?(database:ProviderDatabase,config:DeploymentConfig,env:Readonly<NodeJS.ProcessEnv>):Promise<{raised:string[]}>;
 }
 export interface PoolAdapterReadiness {
  pool_id:string;provider:string;configuration_current:boolean;adapter_registered:boolean;adapter_compatible:boolean;
@@ -31,8 +34,11 @@ function bounded(env:Readonly<NodeJS.ProcessEnv>,name:string,fallback:number,min
 }
 export function workerSettings(env:Readonly<NodeJS.ProcessEnv>):ProvisionerWorkerSettings{
  const settings={concurrency:bounded(env,'HYPERFIDE_PROVISIONER_CONCURRENCY',4,1,64),poll_ms:bounded(env,'HYPERFIDE_PROVISIONER_POLL_MS',1000,50,60000),
-  retry_ms:bounded(env,'HYPERFIDE_PROVISIONER_RETRY_MS',5000,100,3600000),lease_ms:bounded(env,'HYPERFIDE_PROVISIONER_LEASE_MS',60000,1000,3600000)};
+  retry_ms:bounded(env,'HYPERFIDE_PROVISIONER_RETRY_MS',5000,100,3600000),lease_ms:bounded(env,'HYPERFIDE_PROVISIONER_LEASE_MS',60000,1000,3600000),
+  // 0 disables escalation; the 60 s default is the Ask 2.16 recommendation, not an operator-approved value.
+  escalate_ms:bounded(env,'HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS',60000,0,86400000)};
  if(settings.lease_ms<settings.poll_ms)fail('WORKER_CONFIG_INVALID','Reconciliation lease must exceed the poll interval');
+ if(settings.escalate_ms>0&&settings.escalate_ms<100)fail('WORKER_CONFIG_INVALID','HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS is outside its approved bound');
  return settings;
 }
 /** Adapter compatibility is measured by instantiating the registered factory
@@ -168,6 +174,7 @@ export class ProvisionerWorker {
  private invocation:InvocationContext|null=null;private controller:AbortController|null=null;private loop:Promise<void>|null=null;
  private readonly active=new Map<string,Promise<void>>();private readonly errors=new Map<string,string>();private readonly backoff=new Map<string,number>();
  private counters={claimed:0,executed:0,reconciled:0,failed:0};private stoppedReason:string|null=null;private lastTick:string|null=null;
+ private escalation={passes:0,raised:0,last_at:null as string|null,last_raised:[] as string[]};private nextEscalation=0;
  constructor(private readonly database:ProviderDatabase,private readonly env:Readonly<NodeJS.ProcessEnv>,private readonly signal:AbortSignal,private readonly driver:ProvisionerWorkerDriver){}
  get running():boolean{return !!this.loop&&!!this.controller&&!this.controller.signal.aborted;}
  async start(invocation:InvocationContext):Promise<unknown>{
@@ -189,7 +196,7 @@ export class ProvisionerWorker {
   // The durable record decides whether this is a new start or a restart resuming one.
   const claim=await claimDurableStart(db,config.organisation_id,invocation,false);
   await this.stop();
-  this.invocation=invocation;this.controller=new AbortController();this.stoppedReason=null;this.errors.clear();
+  this.invocation=invocation;this.controller=new AbortController();this.stoppedReason=null;this.errors.clear();this.nextEscalation=0;
   const signal=AbortSignal.any([this.signal,this.controller.signal]);
   this.loop=this.run(settings,signal);
   return{started:claim.started,resumed:!claim.started,...await this.status(invocation)};
@@ -205,14 +212,30 @@ export class ProvisionerWorker {
  }
  private async run(settings:ProvisionerWorkerSettings,signal:AbortSignal):Promise<void>{
   while(!signal.aborted){
-   try{await this.tick(settings,signal);}
-   catch(error){
-    const code=error instanceof FoundationError?error.code:'WORKER_TICK_FAILED';this.errors.set('tick',code);
-    // A revoked or expired credential ends provider authority; never continue under it.
-    if(code.startsWith('AUTH_')){this.stoppedReason=code;this.controller?.abort();break;}
-   }
+   if(!await this.step('tick','WORKER_TICK_FAILED',()=>this.tick(settings,signal)))break;
+   if(signal.aborted||!await this.step('escalate','WORKER_ESCALATE_FAILED',()=>this.escalate(settings)))break;
    await new Promise<void>(resolve=>{const timer=setTimeout(done,settings.poll_ms);function done(){clearTimeout(timer);signal.removeEventListener('abort',done);resolve();}signal.addEventListener('abort',done,{once:true});});
   }
+ }
+ /** Records a failed loop step under its name; false once the credential lost authority. */
+ private async step(name:string,fallback:string,body:()=>Promise<void>):Promise<boolean>{
+  try{await body();return true;}
+  catch(error){
+   const code=error instanceof FoundationError?error.code:fallback;this.errors.set(name,code);
+   // A revoked or expired credential ends provider authority; never continue under it.
+   if(code.startsWith('AUTH_')){this.stoppedReason=code;this.controller?.abort();return false;}
+   return true;
+  }
+ }
+ /** Unresolved provider uncertainty becomes a decision Ask on its own cadence, independent of
+  * registered adapters. A refusal (an unset window) waits a full interval and stays in errors. */
+ private async escalate(settings:ProvisionerWorkerSettings):Promise<void>{
+  if(!settings.escalate_ms||!this.driver.escalate||Date.now()<this.nextEscalation)return;
+  this.nextEscalation=Date.now()+settings.escalate_ms;
+  const config=await readDeployment(this.env),db=bindProviderInvocation(this.database,config,this.invocation!,['PROVISIONER']);
+  const result=await this.driver.escalate(db,config,this.env);
+  this.escalation={passes:this.escalation.passes+1,raised:this.escalation.raised+result.raised.length,last_at:new Date().toISOString(),last_raised:[...result.raised]};
+  this.errors.delete('escalate');
  }
  private async tick(settings:ProvisionerWorkerSettings,signal:AbortSignal):Promise<void>{
   this.lastTick=new Date().toISOString();
@@ -272,7 +295,7 @@ export class ProvisionerWorker {
   const durable=await readDurableStart(db,config.organisation_id,invocation.principal.run_id);
   const persisted=(await db.query<{id:string;failure_code:string}>("SELECT id,failure_code FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND run_id=$2 AND failure_code IS NOT NULL AND state NOT IN ('TERMINAL','REJECTED') ORDER BY updated_at DESC,id LIMIT 256",[config.organisation_id,invocation.principal.run_id])).rows;
   return{running,role:'provisioner',owner_credential_id:running?this.invocation!.principal.credential_id:null,durable,settings,active:[...this.active.keys()].sort(),
-   counters:{...this.counters},errors:{...Object.fromEntries(persisted.map(r=>[r.id,r.failure_code])),...Object.fromEntries(this.errors)},stopped_reason:this.stoppedReason,last_tick_at:this.lastTick,
+   counters:{...this.counters},escalation:{...this.escalation,last_raised:[...this.escalation.last_raised]},errors:{...Object.fromEntries(persisted.map(r=>[r.id,r.failure_code])),...Object.fromEntries(this.errors)},stopped_reason:this.stoppedReason,last_tick_at:this.lastTick,
    intents:Object.fromEntries(counts.map(r=>[r.state,r.n])),pools,operational_ready:running&&pools.length>0&&pools.every(p=>p.operational_ready)};
  }
  async stop(timeoutMs=5000):Promise<void>{

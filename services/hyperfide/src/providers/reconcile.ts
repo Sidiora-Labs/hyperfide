@@ -728,7 +728,7 @@ export function createComponent(context:ComponentContext):Component {
     const config=await readDeployment(context.env);return fn(input,config,bindProviderInvocation(database,config,invocationOf(requestContext)));
   };
   // Only the provisioner process holds adapters and runs the durable-intent worker.
-  const worker=context.role==='provisioner'?createProvisionerWorker(database,context.env,context.signal,{execute:executeIntent,reconcile:reconcileIntent}):null;
+  const worker=context.role==='provisioner'?createProvisionerWorker(database,context.env,context.signal,{execute:executeIntent,reconcile:reconcileIntent,escalate:async(db,c,env)=>escalateUnresolved(db,c,{},env) as Promise<{raised:string[]}>}):null;
   const workerAction=(fn:(worker:ProvisionerWorker,invocation:InvocationContext)=>Promise<unknown>)=>async(input:unknown,requestContext:ComponentContext)=>{
     provisioner();obj(input,[]);if(context.signal.aborted)fail('PROVIDER_CLOSED','Provider coordinator is shutting down');return fn(worker!,invocationOf(requestContext));
   };
