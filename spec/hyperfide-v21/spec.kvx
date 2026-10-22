@@ -141,8 +141,8 @@ status = "done"
 wave = 1
 requires = []
 touches = ["spec/workflow.kvx", "src/spec.c", "src/agent.c", "tests/fixtures/specrepo/CLAUDE.md", "tests/fixtures/specrepo/.cursor/rules/spec-workflow.mdc", "tests/integration/81_workflow_pointer.sh"]
-# CLAUDE.md and AGENTS.md are gitignored render outputs: no commit can evidence them, so `spec render --check` in verify_cmd proves them instead.
-verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/81_workflow_pointer.sh && ./cg spec render --check"
+# CLAUDE.md and AGENTS.md are gitignored render outputs: no commit can evidence them, so `spec render --check` in verify_cmd proves them instead. Present outputs must already be current; only a fresh clone, which has neither, renders them first (task 3.13).
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/81_workflow_pointer.sh && { ./cg spec render --check || { test ! -e CLAUDE.md && test ! -e AGENTS.md && ./cg spec render && ./cg spec render --check; }; }"
 do_1 = "Rewrite spec/workflow.kvx so no two statements contradict: the dependency rule names sqlite, libc, curl and crypto for the binary and declared pinned TypeScript dependencies for the services; status_values gain blocked; add [human] (three jobs: spec with the agent, inputs and judgement, final system test as the release gate), [asks] (five kinds, default policies), [publication] (per wave, final wave docs/release/changelog, task file current before every commit)."
 do_2 = "build_brief emits only: the pointer sentence, the active feature path, the loop, and where to find the rules; no principle or rule text is duplicated into generated files. Regenerate CLAUDE.md and AGENTS.md; make cg agentmd's context file point at the kvx the same way."
 do_3 = "81_workflow_pointer.sh asserts the generated files contain the pointer and nothing else, that the kvx parses, and that no statement in [principle] or [hard_rules] names a dependency the Makefile does not link."
@@ -569,7 +569,7 @@ owner = "ask"
 
 [task.3.7]
 title = "Ask routes in the client"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["3.2", "1.9"]
 touches = ["src/hyperfide/client.c", "services/hyperfide/components", "tests/integration/83_route_contract.sh", "tests/fixtures/route_contract/server_only.txt", "src/help.c", "README.md", "tests/hyperfide/cases/v21/3_7.py"]
@@ -608,7 +608,7 @@ owner = "source"
 
 [task.3.10]
 title = "Secret references reach the launched agent"
-status = "pending"
+status = "done"
 wave = 3
 requires = ["2.8", "2.17"]
 touches = ["services/hyperfide/src/events/instructions.ts", "services/hyperfide/src/runner/dispatch.ts", "src/hyperfide/launch.c", "src/hyperfide/job.c", "tests/hyperfide/cases/v21/3_10.py"]
@@ -647,10 +647,10 @@ owner = "findings"
 
 [task.3.13]
 title = "Evidence cache, dist stamp, preflight and the 1.3 check"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["1.2", "1.3", "1.4", "1.6", "1.12"]
-touches = ["tests/hyperfide/evidence_store.py", "deploy/hyperfide/dist-stamp.mjs", "deploy/hyperfide/bootstrap-host.mjs", "spec/hyperfide-v21/spec.kvx", "tests/integration/14_vscode.sh", "tests/hyperfide/cases/v21/3_13.py"]
+touches = ["tests/hyperfide/evidence_store.py", "deploy/hyperfide/dist-stamp.mjs", "deploy/hyperfide/bootstrap-host.mjs", "spec/hyperfide-v21/spec.kvx", "tests/integration/14_vscode.sh", "tests/hyperfide/cases/v21/3_13.py", "docs/hyperfide/operations.md"]
 verify_cmd = "python3 tests/hyperfide/cases/v21/3_13.py && make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
 do_1 = "evidence_store.resolve() compares a local artifacts cache with the tracked receipt's content digest before treating it as resolved; dist-stamp hashes the emitted dist tree so a missing or hand-edited dist file reads stale; bootstrap-host preflight stats HF_CREDENTIAL_CONFIG_FILE, lists every missing name at once and warns when HF_SLICE_SOURCE_CONFIG is absent; task 1.3's verify_cmd renders before --check so it passes on a fresh clone; 14_vscode.sh's pushed section drives activate() rather than a copy of the wiring and its delayed-old-cg check no longer depends on wall-clock timing."
 do_2 = "3_13.py proves a tampered cache is refused, a removed dist file makes the stamp stale, preflight reports two missing names in one refusal and warns on the absent slice source, and the 1.3 verify_cmd passes in a fresh worktree."
