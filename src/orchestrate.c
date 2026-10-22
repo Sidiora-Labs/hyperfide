@@ -1351,8 +1351,10 @@ static int orch_tasks_load(Cg *cg, const char *feature, const char *fwt,
             free(s);
             t->wave = kvx_long(k, sec, "wave", 0);
             t->nreq = kvx_list(k, sec, "requires", &t->req);
+            /* superseded (2.15) is closed: never begun, spawned or waited on */
             t->finished = strcmp(t->status, "done") == 0 ||
-                          strcmp(t->status, "implemented") == 0;
+                          strcmp(t->status, "implemented") == 0 ||
+                          strcmp(t->status, "superseded") == 0;
             t->landed = t->merged = t->finished;
             if (!t->finished && fk) {
                 char *fs = kvx_str(fk, sec, "status");
@@ -3771,7 +3773,7 @@ static bool sup_feature_paths(Cg *g, const char *feature, char *fbranch,
     return per_wave;
 }
 
-/* every leaf task of the feature done on the main tree */
+/* every leaf task of the feature done (or superseded) on the main tree */
 static bool feature_done(Cg *g, const char *feature) {
     char path[4700];
     config_feature_path(g->shared, feature, path, sizeof path);
@@ -3785,7 +3787,8 @@ static bool feature_done(Cg *g, const char *feature) {
         if (kvx_long(k, sec, "wave", -1) >= 0) {
             leaves++;
             char *st = kvx_str(k, sec, "status");
-            if (st && !strcmp(st, "done")) done++;
+            if (st && (!strcmp(st, "done") || !strcmp(st, "superseded")))
+                done++;
             free(st);
         }
         free(ids[i]);

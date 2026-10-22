@@ -213,8 +213,14 @@ const reconcile=stop.actions['recovery.stop.reconcile'];
 let reconcileCalls=0;stop.actions['recovery.stop.reconcile']=(...a)=>{reconcileCalls++;return reconcile(...a);};
 const request=(org,run,input,role,credential,envPatch)=>stop.actions['recovery.stop.request']({scope:{organisation_id:org,run_id:run,authority_epoch:ids.epoch},operation_id:randomUUID(),mode:'STOP',reason:'fleet stop case 2.4',...input},{...startup,env:envPatch?envPatch(env):env,invocation:operator(org,run,role,credential)});
 const withoutList=e=>{const copy={...e};delete copy.HYPERFIDE_DEPLOYMENT_OPERATORS;return copy;};
-const deploymentDenied=r=>r.refused===true&&r.error?.code==='RECOVERY_DEPLOYMENT_OPERATOR_DENIED'&&r.fleet===true;
 const refused=async(promise,code)=>{try{await promise;return false;}catch(e){return e.code===code;}};
+// A refused DEPLOYMENT stop fails the request and leaves a REFUSED record behind; r is that stored record.
+const deploymentDenied=r=>r.failed===true&&r.state==='REFUSED'&&r.refused===true&&r.error?.code==='RECOVERY_DEPLOYMENT_OPERATOR_DENIED'&&r.fleet===true;
+const denyDeployment=async(org,run,role,credential,envPatch,operation_id=randomUUID())=>{
+ const failed=await refused(request(org,run,{scope_kind:'DEPLOYMENT',scope_id:ids.deployment,operation_id},role,credential,envPatch),'RECOVERY_DEPLOYMENT_OPERATOR_DENIED');
+ const row=(await q('SELECT state,result FROM hyperfide.recovery_operations WHERE operation_id=$1',[operation_id]))[0];
+ return {...(row?.result??{}),state:row?.state,failed};
+};
 const until=async(label,predicate,ms=180000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await predicate())return true;await new Promise(f=>setTimeout(f,250));}throw Error('deadline: '+label);};
 const count=async(sql,values=[])=>Number((await q(sql,values))[0].n);
 try{
@@ -229,11 +235,11 @@ try{
  const deployment={scope_kind:'DEPLOYMENT',scope_id:ids.deployment};
  out['deployment-allow-list-malformed-rejected']=await refused(request(ids.org1,ids.r1,deployment,'OPERATOR',listed,e=>({...e,HYPERFIDE_DEPLOYMENT_OPERATORS:listed+',not-a-uuid'})),'RECOVERY_CONFIG_INVALID')
   &&await count('SELECT count(*) AS n FROM hyperfide.recovery_operations')===0;
- const unset=await request(ids.org1,ids.r1,deployment,'OPERATOR',listed,withoutList);
+ const unset=await denyDeployment(ids.org1,ids.r1,'OPERATOR',listed,withoutList);
  out['deployment-allow-list-unset-refused']=deploymentDenied(unset)&&unset.allow_list_configured===false;
- const empty=await request(ids.org1,ids.r1,deployment,'OPERATOR',listed,e=>({...e,HYPERFIDE_DEPLOYMENT_OPERATORS:' '}));
+ const empty=await denyDeployment(ids.org1,ids.r1,'OPERATOR',listed,e=>({...e,HYPERFIDE_DEPLOYMENT_OPERATORS:' '}));
  out['deployment-allow-list-empty-refused']=deploymentDenied(empty)&&empty.allow_list_configured===false;
- const unlisted=await request(ids.org1,ids.r1,deployment);
+ const unlisted=await denyDeployment(ids.org1,ids.r1);
  out['deployment-operator-not-listed-refused']=deploymentDenied(unlisted)&&unlisted.allow_list_configured===true;
  const denied=[unset.operation_id,empty.operation_id,unlisted.operation_id];
  const deniedPasses=stop.actions['recovery.stop.describe']({}).driver.passes;
@@ -241,7 +247,7 @@ try{
  out['deployment-refusals-recorded-not-driven']=await count("SELECT count(*) AS n FROM hyperfide.recovery_operations WHERE operation_id=ANY($1::uuid[]) AND kind='STOP' AND state='REFUSED'",[denied])===3
   &&await count("SELECT count(*) AS n FROM hyperfide.recovery_operations WHERE result->>'fleet_operation_id'=ANY($1::text[])",[denied])===0
   &&await count("SELECT count(*) AS n FROM hyperfide.runs WHERE state<>'RUNNING'")===0&&await count('SELECT count(*) AS n FROM hyperfide.recovery_resource_debts')===0;
- const deniedReplay=await stop.actions['recovery.stop.request']({scope:{organisation_id:ids.org1,run_id:ids.r1,authority_epoch:ids.epoch},operation_id:unlisted.operation_id,mode:'STOP',reason:'fleet stop case 2.4',...deployment},{...startup,invocation:operator(ids.org1,ids.r1,'OPERATOR',listed)});
+ const deniedReplay=await denyDeployment(ids.org1,ids.r1,'OPERATOR',listed,undefined,unlisted.operation_id);
  out['deployment-refusal-replay-stable']=deploymentDenied(deniedReplay)&&deniedReplay.credential_id===unlisted.credential_id;
 
  const a=await request(ids.org1,ids.r1,{scope_kind:'POOL',scope_id:ids.poolA});
