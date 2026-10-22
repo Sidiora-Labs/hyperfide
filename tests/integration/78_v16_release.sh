@@ -7,6 +7,9 @@ cd "$repo"
 
 mkdir -p build
 scratch=$(mktemp -d build/release-check.XXXXXX)
+# mktemp makes the scratch 0700; 56_index_health.sh runs the release cg as
+# an unprivileged user, which must be able to reach it.
+chmod 755 "$scratch"
 trap 'rm -rf "$scratch"' EXIT
 release_cg="$repo/$scratch/cg"
 build_args=(BUILD="$scratch/build" BIN="$repo/$scratch/hyperfide" COMPAT_BIN="$release_cg")
