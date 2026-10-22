@@ -156,6 +156,7 @@
     "finding.route.collaborator.acknowledge",
     "fleet.metrics.compare",
     "fleet.metrics.describe",
+    "fleet.metrics.numbers",
     "fleet.metrics.record",
     "fleet.metrics.snapshot",
     "fleet.notifications.bind-recipient",
