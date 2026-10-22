@@ -8,7 +8,18 @@ import {canonicalOrigin,strictJSON,signingBytes,hash,MAX_BODY_BYTES} from '../tr
 import {isIdentityAuthority} from '../identity/enrollment.js';
 import {fields,scope,uuid,name,bounded,integer,event,fail} from './outbox.js';
 
-interface Route {aggregate_type:string;event_type:string;component:string;action:string;input_mode:'DELIVERY'|'CLAIM'}
+export interface Route {aggregate_type:string;event_type:string;component:string;action:string;input_mode:'DELIVERY'|'CLAIM'}
+/** Every finding.* event reaches the finding manager and operator consumers through the 6.2 inbox receipt. */
+export const FINDING_ROUTE:Readonly<Route>=Object.freeze({aggregate_type:'finding',event_type:'finding.*',component:'6.2',action:'inbox.receive',input_mode:'DELIVERY'});
+// A trailing '.*' is a family route; an exact event route always wins over its family.
+function routeType(value:unknown):string {
+ if(typeof value==='string'&&value.endsWith('.*'))return name(value.slice(0,-2))+'.*';
+ return name(value);
+}
+export function routeFor(routes:readonly Route[],aggregateType:string,eventType:string):Route|undefined {
+ const candidates=routes.filter(r=>r.aggregate_type===aggregateType);
+ return candidates.find(r=>r.event_type===eventType)??candidates.find(r=>r.event_type.endsWith('.*')&&eventType.startsWith(r.event_type.slice(0,-1)));
+}
 interface WorkerConfig {organisation_id:string;run_id:string;credential_id:string;key_file:string;ca_file:string;
  control_origin:string;consumer_ids:string[];routes:Route[];poll_ms:number;retry_ms:number;lease_ms:number;batch_size:number;request_timeout_ms:number;credential_ttl_seconds:number;credential_renewal_ms:number}
 export interface ContinuousDispatch {describe():Readonly<Record<string,unknown>>;close():Promise<void>}
@@ -37,9 +48,10 @@ function configuration(value:unknown):WorkerConfig {
  const routes=v.routes.map(raw=>{
   const r=fields(raw,['aggregate_type','event_type','component','action','input_mode']);
   if(!['DELIVERY','CLAIM'].includes(String(r.input_mode)))fail('DISPATCH_CONFIG_INVALID','Explicit handler input contract required');
-  return {aggregate_type:name(r.aggregate_type),event_type:name(r.event_type),component:name(r.component),action:name(r.action),
+  return {aggregate_type:name(r.aggregate_type),event_type:routeType(r.event_type),component:name(r.component),action:name(r.action),
    input_mode:r.input_mode as 'DELIVERY'|'CLAIM'};
  });
+ if(!routes.some(r=>r.aggregate_type===FINDING_ROUTE.aggregate_type&&r.event_type===FINDING_ROUTE.event_type))routes.push({...FINDING_ROUTE});
  if(new Set(routes.map(r=>r.aggregate_type+'\n'+r.event_type)).size!==routes.length)fail('DISPATCH_CONFIG_INVALID','Duplicate fixed delivery route');
  return {...s,credential_id:uuid(v.credential_id),key_file:v.key_file,ca_file:v.ca_file,
   control_origin:canonicalOrigin(v.control_origin),consumer_ids:consumers,routes,poll_ms:bounded(v.poll_ms,10,60000),
@@ -47,7 +59,7 @@ function configuration(value:unknown):WorkerConfig {
   request_timeout_ms:bounded(v.request_timeout_ms,100,120000),credential_ttl_seconds:bounded(v.credential_ttl_seconds,60,86400),
   credential_renewal_ms:bounded(v.credential_renewal_ms,100,Math.min(3600000,bounded(v.credential_ttl_seconds,60,86400)*500))};
 }
-/** A standing service signs new requests; only the receiving14 server creates an invocation or grants authority. */
+/** A standing service signs new requests; only the receiving server creates an invocation or grants authority. */
 export async function startContinuousDispatch(context:ComponentContext):Promise<ContinuousDispatch|undefined> {
  if(context.role!=='dispatch')return undefined;
  const filename=context.env.HF_EVENT_DISPATCH_CONFIG;
@@ -130,7 +142,7 @@ export async function startContinuousDispatch(context:ComponentContext):Promise<
     const claim={...s,event_id:e.id,consumer_id:consumer,attempt_count:integer(c.attempt_count)};
     status.claimed++;
     try {
-     const route=config.routes.find(r=>r.aggregate_type===e.aggregate_type&&r.event_type===e.event_type);
+     const route=routeFor(config.routes,e.aggregate_type,e.event_type);
      if(!route)throw Error('DISPATCH_HANDLER_UNREGISTERED');
      const remaining=Date.parse(c.lease_expires_at)-Date.now();
      if(remaining<=0)throw Error('DISPATCH_CLAIM_EXPIRED');

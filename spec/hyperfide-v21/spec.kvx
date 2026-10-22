@@ -323,7 +323,7 @@ owner = "supervisor"
 
 [task.2.6]
 title = "Finding events reach consumers"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/events/dispatcher.ts", "tests/hyperfide/cases/v21/2_6.py"]
