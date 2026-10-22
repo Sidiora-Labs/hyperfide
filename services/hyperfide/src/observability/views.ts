@@ -5,7 +5,7 @@ import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError} from '../policy/programme.js';
 
 export interface Session {query<R extends pg.QueryResultRow=pg.QueryResultRow>(text:string,values?:readonly unknown[]):Promise<pg.QueryResult<R>>}
-export interface Principal {organisation_id:string;run_id:string;actor_id:string;credential_id:string;role:string;attempt_id?:string;attempt_generation?:string;sandbox_id?:string;boot_generation?:string}
+export interface Principal {organisation_id:string;run_id:string;actor_id:string;credential_id:string;role:string;deployment_epoch?:string;attempt_id?:string;attempt_generation?:string;sandbox_id?:string;boot_generation?:string}
 interface Invocation {principal:Principal;payload:{action:string;run_id:string};signal:AbortSignal;guard(tx:unknown):Promise<void>}
 interface Runtime {
  gateway:{withPrimaryTransaction<T>(options:{timeoutMs:number;maxRetries:number;signal:AbortSignal;guard:(tx:Session)=>Promise<void>},operation:(tx:Session)=>Promise<T>):Promise<T>};
