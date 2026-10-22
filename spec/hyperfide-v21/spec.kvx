@@ -828,7 +828,7 @@ owner = "ask"
 
 [task.4.2]
 title = "Native events leave the sandbox"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["4.1"]
 touches = ["services/hyperfide/src/agents/supervision.ts", "services/hyperfide/src/events/api.ts", "services/hyperfide/components/12.2.json", "src/hyperfide/launch.c", "tests/hyperfide/cases/v21/4_2.py", "tests/integration/101_launch_events.sh", "services/hyperfide/src/runner/dispatch.ts", "services/hyperfide/components/13.4-supervision.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "tests/hyperfide/cases/tasks/12_2.py", "tests/hyperfide/cases/tasks/13_4.py", "tests/hyperfide/cases/tasks/18_4.py"]
