@@ -997,7 +997,7 @@ owner = "observability"
 
 [task.5.5]
 title = "Publication per wave"
-status = "implemented"
+status = "done"
 wave = 5
 requires = ["4.8"]
 touches = ["services/hyperfide/src/integration/publication.ts", "services/hyperfide/src/integration/release_barrier.ts", "services/hyperfide/src/artifacts/retention.ts", "tests/hyperfide/cases/v21/5_5.py", "services/hyperfide/src/policy/programme.ts", "deploy/hyperfide/policies/control.example.json"]
