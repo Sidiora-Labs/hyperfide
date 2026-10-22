@@ -1011,10 +1011,10 @@ owner = "source"
 
 [task.5.7]
 title = "The task file is current before every commit"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["3.9"]
-touches = ["src/vcs.c", "src/spec.c", "services/hyperfide/src/integration/candidates.ts", "tests/integration/94_commit_spec_sync.sh"]
+touches = ["src/vcs.c", "src/spec.c", "src/cg.h", "services/hyperfide/src/integration/candidates.ts", "tests/integration/94_commit_spec_sync.sh"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/94_commit_spec_sync.sh"
 do_1 = "cg commit refreshes the claimed task's status and evidence pointer in its spec.kvx before snapshotting and refuses when the kvx disagrees with the receipt; the integrator refuses a candidate whose spec status does not match its qualification."
 do_2 = "94_commit_spec_sync.sh asserts the refresh, the refusal and the integrator check."
