@@ -282,6 +282,7 @@
     "integration.publication.inspect",
     "integration.publication.protection",
     "integration.publication.reconcile",
+    "integration.queue.fold",
     "integration.release.create",
     "integration.release.evaluate",
     "integration.release.inspect",

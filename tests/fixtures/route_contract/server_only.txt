@@ -101,6 +101,8 @@ spec-import spec.projection.check
 17.3 *
 17.4 *
 19.1 *
+# Integrator merge queue (hyperfide-v21 4.8): run by the integrator, not the CLI.
+19.1-queue *
 19.2 *
 19.3 *
 19.4 *
