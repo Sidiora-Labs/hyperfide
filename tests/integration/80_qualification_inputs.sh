@@ -96,8 +96,9 @@ PY
 grep -v '^REF ' "${TMPDIR:-/tmp}/evref.$$" || true
 present=$(git for-each-ref --format=x refs/evidence | wc -l)
 if [ "$present" -eq 0 ]; then
-    # A clone has no refs/evidence until they are fetched; say so, never pass silently.
-    echo "SKIP evidence refs: none in this checkout (git fetch <remote> 'refs/evidence/*:refs/evidence/*')"
+    # D12: the refs are published on origin and CI fetches them, so a checkout
+    # without them is a broken checkout, not a legitimate skip.
+    bad "no refs/evidence in this checkout (git fetch origin 'refs/evidence/*:refs/evidence/*')"
 else
     total=0
     while read -r tag ref commit; do

@@ -11,6 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # D12: evidence commits live under refs/evidence/*; 80_qualification_inputs.sh
+      # fails without them, so a shallow or ref-less checkout is a red build on purpose.
+      - name: fetch evidence refs
+        run: git fetch --no-tags origin 'refs/evidence/*:refs/evidence/*'
       - name: install dependencies
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libcurl4-openssl-dev libssl-dev
       - name: build

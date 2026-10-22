@@ -15,12 +15,15 @@ d_2 = "D2 Workflow source: CLAUDE.md, AGENTS.md and every other agent file point
 d_3 = "D3 Raising an Ask: an MCP ask tool with an instruction rule is the primary path; a QUESTION classifier signal with forwarded native events is the safety net; prompts stay disabled in sandboxes."
 d_4 = "D4 Waiting state: blocked, in both the service and the C spec engine."
 d_5 = "D5 Spec placement: this feature (hyperfide-v21) holds the run; hyperfide's own tasks close through -f hyperfide."
-d_6 = "D6 Console: evaluate an OpenHands fork first (task 1.10); the fallback is enormously expanding the VS Code extension. Both paths get the four panels."
+d_6 = "D6 Console: the expanded VS Code extension is the console base, decided 2026-10-22 on the task 1.10 evaluation (OpenHands Agent Canvas has one shared API key in open source and duplicates the runner). Both panels and the Leaders webview live in editors/vscode; 6.10 records this and no second console surface is started."
 d_7 = "D7 Storage engine: the best one by measurement; Git's object model as the store is the default, with a bake-off (5.6) before any change."
 d_8 = "D8 Publication: per wave; the last wave of every feature is docs, release and changelog; the spec task file is current before every commit."
 d_9 = "D9 Humans have three jobs: create the idea and the spec with the agent; provide variables and judge output; test the finished running system as the final release gate. Humans do not commit to the monorepo directly."
 d_10 = "D10 Evidence pointers: keep pre-rewrite commits alive under refs/evidence/* now; re-point during requalification."
 
+d_11 = "D11 Ask default policies, confirmed 2026-10-22: secret, variable and permission block; decision and question proceed on the recommended option and flag; deadlines and chains are set by task 3.6."
+d_12 = "D12 Evidence refs: refs/evidence/* are published to origin and fetched by CI; 80_qualification_inputs.sh fails, never skips, when they are absent."
+d_13 = "D13 CI secrets: the operator supplies Railway and database credentials to CI for the provider-backed registrations; CI materialises HF_CREDENTIAL_CONFIG_FILE from secrets and never prints values."
 [req.1]
 title = "Reproducible qualification and one truthful workflow source"
 story = "As an engineer on the team of four, I need a fresh clone, CI and a remote worker to qualify the same way the main host does, and one workflow source that agents can read without contradiction."
