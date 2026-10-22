@@ -205,10 +205,10 @@ owner = "ci"
 
 [task.1.9]
 title = "Client route contract test"
-status = "pending"
+status = "done"
 wave = 1
 requires = []
-touches = ["src/hyperfide/client.c", "services/hyperfide/components", "tests/integration/83_route_contract.sh"]
+touches = ["src/hyperfide/client.c", "services/hyperfide/components", "tests/integration/83_route_contract.sh", "tests/fixtures/route_contract/server_only.txt"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/83_route_contract.sh"
 do_1 = "83_route_contract.sh extracts every route the C client declares and every action the component manifests export and fails on any route without an action or action without a route, naming them."
 do_2 = "Keep the test data-driven so 3.7 extends it with the Ask routes."
