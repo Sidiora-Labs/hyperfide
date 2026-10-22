@@ -1,8 +1,10 @@
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import type pg from 'pg';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError,object} from '../policy/programme.js';
 import {databaseError} from '../storage/schema.js';
+import {enqueue} from '../events/outbox.js';
+import type {PrimaryTransaction} from '../storage/transactions.js';
 import type {AuthorityTransaction} from '../transport/protocol.js';
 
 export interface FindingScope {organisation_id:string;run_id:string;repository_id?:string;source_object_id?:string}
@@ -72,8 +74,24 @@ export async function manager(value:FindingTransaction,packageId:string):Promise
  const result=await value.tx.query('SELECT manager_session_id FROM hyperfide.feature_packages WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[value.scope.organisation_id,value.scope.run_id,packageId]);
  if(result.rows[0]?.manager_session_id!==value.principal.actor_id)fail('AUTH_DENIED','Only the current accountable manager may mutate this finding');
 }
+export const FINDING_CONSUMER_KEYS=Object.freeze({manager:'finding:manager',operator:'finding:operator'});
+/** Standing run-scoped finding consumers; created on first emit so a finding never fails for want of a subscriber. */
+export async function findingConsumers(tx:FindingDatabase,scope:FindingScope):Promise<string[]>{
+ const keys=[FINDING_CONSUMER_KEYS.manager,FINDING_CONSUMER_KEYS.operator];
+ await tx.query("INSERT INTO hyperfide.event_consumers(organisation_id,run_id,consumer_key,critical,state) SELECT $1,$2,unnest($3::text[]),true,'ACTIVE' ON CONFLICT(organisation_id,run_id,consumer_key) DO NOTHING",[scope.organisation_id,scope.run_id,keys]);
+ const found=await tx.query('SELECT id::text,consumer_key,state FROM hyperfide.event_consumers WHERE organisation_id=$1 AND run_id=$2 AND consumer_key=ANY($3::text[])',[scope.organisation_id,scope.run_id,keys]);
+ if(found.rows.length!==keys.length||found.rows.some(row=>!['ACTIVE','BUFFERING'].includes(row.state)))fail('EVENT_CONSUMER_REQUIRED','Finding manager and operator consumers must be standing');
+ return keys.map(key=>String(found.rows.find(row=>row.consumer_key===key)!.id));
+}
+/**
+ * Contract: aggregate_version is a gapless per-finding event sequence, because the 6.2 inbox only applies version n+1
+ * after n; registry_version travels in the payload. A repeat of the same event at the same registry version is a no-op.
+ */
 export async function emit(tx:FindingDatabase,scope:FindingScope,findingId:string,version:string,event:string,payload:Record<string,unknown>):Promise<void>{
- await tx.query('INSERT INTO hyperfide.outbox_events(organisation_id,run_id,aggregate_type,aggregate_id,aggregate_version,event_type,payload) VALUES($1,$2,\'finding\',$3,$4,$5,$6::jsonb) ON CONFLICT DO NOTHING',[scope.organisation_id,scope.run_id,findingId,version,event,JSON.stringify(payload)]);
+ const prior=await tx.query("SELECT 1 FROM hyperfide.outbox_events WHERE organisation_id=$1 AND run_id=$2 AND aggregate_type='finding' AND aggregate_id=$3 AND event_type=$4 AND payload->>'registry_version'=$5",[scope.organisation_id,scope.run_id,findingId,event,version]);
+ if(prior.rows.length)return;
+ const next=await tx.query("SELECT (COALESCE(max(aggregate_version),0)+1)::text AS version FROM hyperfide.outbox_events WHERE organisation_id=$1 AND run_id=$2 AND aggregate_type='finding' AND aggregate_id=$3",[scope.organisation_id,scope.run_id,findingId]);
+ await enqueue(tx as unknown as PrimaryTransaction,{organisation_id:scope.organisation_id,run_id:scope.run_id,id:randomUUID(),aggregate_type:'finding',aggregate_id:findingId,aggregate_version:String(next.rows[0]!.version),event_type:event,payload:{...payload,registry_version:version}},{consumer_ids:await findingConsumers(tx,scope)});
 }
 export async function finding(tx:FindingDatabase,scope:FindingScope,id:string,lock=false):Promise<Record<string,any>>{
  const result=await tx.query('SELECT f.*,r.phase,r.origin_task_id,r.origin_attempt_id,r.resolution_condition,r.resolution_digest,r.collaborator_package_ids,r.state_version AS registry_version,r.first_observed_at,r.last_observed_at FROM hyperfide.findings f JOIN hyperfide.finding_registry_records r ON r.organisation_id=f.organisation_id AND r.run_id=f.run_id AND r.finding_id=f.id WHERE f.organisation_id=$1 AND f.run_id=$2 AND f.id=$3'+(lock?' FOR UPDATE OF f,r':''),[scope.organisation_id,scope.run_id,id]);
