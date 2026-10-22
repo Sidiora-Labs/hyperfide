@@ -57,6 +57,20 @@ function serveConnected() { return !!(serveClient && serveClient.ready); }
 const EVENT_REFRESH_MS = 250;
 const eventFans = [];   /* the chat's listeners on the serve events */
 
+/* --- reconnect snapshot (hyperfide-v21 6.6): events pushed while the pipe
+ * was down are gone, so the server's snapshot replaces the native rows and
+ * the fleet view drops the ghosts before the catch-up refresh lands. --- */
+async function resyncAfterReconnect() {
+    if (!serveClient) return;
+    const rows = await serveClient.resync(live);
+    try { if (rows >= 0 && fleetApi.resync) fleetApi.resync(); }
+    catch (e) { out.appendLine(`fleet resync: ${e.message}`); }
+}
+/* cg's shared root (the supervisor's log directory), from serve's handshake */
+function serveSharedRoot() {
+    return (serveClient && serveClient.info && serveClient.info.shared) || null;
+}
+
 /* A burst of triggers becomes one refresh; two refreshes are never closer
  * than the floor unless a command asked for one; a whole-tree pass is only
  * taken when none ran in the window. The idle poll exists for claims and
@@ -734,6 +748,7 @@ async function activate(ctx) {
         cg, cgJson, workspaceRoot, show, refresh: () => afterMutation(),
         /* the live model the serve events fold into: last step, cost */
         live: () => live,
+        sharedRoot: serveSharedRoot,
     });
     // --- end fleet (5.3) ---
 
@@ -781,7 +796,8 @@ async function activate(ctx) {
                 scheduleRefresh(EVENT_REFRESH_MS);
             });
             serveClient.on('gap', () => scheduleRefresh(0));
-            serveClient.on('reconnect', () => { acpApi.watchEvents(); scheduleRefresh(0); });
+            serveClient.on('reconnect', () => { acpApi.watchEvents();
+                resyncAfterReconnect().finally(() => scheduleRefresh(0)); });
             serveClient.on('down', () => scheduleRefresh());
             try { await serveClient.subscribe(); } catch (e) { out.appendLine(`subscribe: ${e.message}`); }
         } else if (serveClient.unsupported) {
