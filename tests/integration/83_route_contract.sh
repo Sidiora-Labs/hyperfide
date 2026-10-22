@@ -111,7 +111,12 @@ PY
 summary="$(contract "$CLIENT" "$COMPONENTS" "$SERVER_ONLY" "$TMP/routes")" || fail "route contract broken (see FAIL lines above)"
 has "$summary" "routes="
 routes=$(wc -l < "$TMP/routes")
-[ "$routes" -ge 58 ] || fail "only $routes client routes extracted"
+[ "$routes" -ge 62 ] || fail "only $routes client routes extracted"
+# The Ask verbs (hyperfide-v21 3.7) reach the 1.2-asks component, all four.
+for verb in raise answer list expire; do
+    grep -qx "ask $verb" "$TMP/routes" || fail "no client route for ask $verb"
+    grep -q "{\"ask\",\"$verb\",\"1.2-asks\",\"human.ask.$verb\"}" "$CLIENT" || fail "ask $verb is not routed to 1.2-asks human.ask.$verb"
+done
 
 # ---- the binary dispatches on exactly the extracted table: in distributed
 # mode a routed command passes route lookup and stops at the missing operation
@@ -182,6 +187,21 @@ cp "$SERVER_ONLY" "$neg/server_only.txt"
 printf '1.2 *\n' >> "$neg/server_only.txt"
 out="$(contract "$neg/client.c" "$neg/components" "$neg/server_only.txt" 2>&1)" && fail "wholesale server-only routed component passed"
 has "$out" "component 1.2 is client-routed"
+
+# an Ask route whose action the manifest dropped, and the routed Ask
+# component declared server-only again
+python3 -I - "$neg/components/1.2-asks.json" <<'PY2'
+import json, sys
+m = json.load(open(sys.argv[1])); m['actions'].remove('human.ask.answer')
+json.dump(m, open(sys.argv[1], 'w'), indent=2)
+PY2
+out="$(contract "$neg/client.c" "$neg/components" "$neg/server_only.txt" 2>&1)" && fail "ask route without an action passed"
+has "$out" "route ask answer -> 1.2-asks human.ask.answer: component 1.2-asks exports no such action"
+cp "$COMPONENTS/1.2-asks.json" "$neg/components/1.2-asks.json"
+printf '1.2-asks *\n' >> "$neg/server_only.txt"
+out="$(contract "$neg/client.c" "$neg/components" "$neg/server_only.txt" 2>&1)" && fail "wholesale server-only Ask component passed"
+has "$out" "component 1.2-asks is client-routed"
+cp "$SERVER_ONLY" "$neg/server_only.txt"
 
 # a removed server-only line resurfaces the action it covered
 grep -v '^1.2 human.routine.receive$' "$SERVER_ONLY" > "$neg/server_only.txt"
