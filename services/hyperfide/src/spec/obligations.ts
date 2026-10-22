@@ -228,7 +228,7 @@ export async function registerProofPolicy(client:PrimaryClient,scope:{organisati
  if(!current||current.replica||current.state_version!==request.state_version||!['PENDING_VALIDATION','READY','RUNNING','PAUSED'].includes(current.state))
   fail('PROOF_REGISTRY_MISMATCH','Accepted run or state version changed before proof registration');
  const task=await client.query(
-  'SELECT t.criteria_digest,t.definition,t.state,s.document AS accepted_document FROM hyperfide.tasks t JOIN hyperfide.spec_revisions s ON s.organisation_id=t.organisation_id AND s.id=t.spec_revision_id WHERE t.organisation_id=$1 AND t.run_id=$2 AND t.id=$3 AND t.spec_generation=$4 AND t.spec_revision_id=$5 FOR UPDATE OF t',
+  'SELECT t.criteria_digest,t.definition,t.state,t.blocked_ask,s.document AS accepted_document FROM hyperfide.tasks t JOIN hyperfide.spec_revisions s ON s.organisation_id=t.organisation_id AND s.id=t.spec_revision_id WHERE t.organisation_id=$1 AND t.run_id=$2 AND t.id=$3 AND t.spec_generation=$4 AND t.spec_revision_id=$5 FOR UPDATE OF t',
   [pin.organisation_id,pin.run_id,pin.task_id,pin.spec_generation,pin.spec_revision_id]);
  const row=task.rows[0];
  if(!row||row.criteria_digest!==policy.criteria_digest)fail('PROOF_REGISTRY_MISMATCH','Proof criteria do not match current task');
@@ -242,7 +242,8 @@ export async function registerProofPolicy(client:PrimaryClient,scope:{organisati
   [pin.organisation_id,pin.run_id,pin.task_id,pin.spec_generation]);
  if(prior.rows.length&&prior.rows[0]!.registry_digest!==registry_digest)fail('PROOF_REGISTRY_CONFLICT','Changing accepted proof policy requires a new specification generation');
  if(!prior.rows.length){
-  if(!['PENDING','READY','BLOCKED','STALE'].includes(row.state))fail('PROOF_REGISTRY_CONFLICT','Proof mapping cannot first appear during active or completed execution');
+  // A task waiting on an Ask (D4) is mid-attempt, not a stop hold.
+  if(!['PENDING','READY','BLOCKED','STALE'].includes(row.state)||row.blocked_ask)fail('PROOF_REGISTRY_CONFLICT','Proof mapping cannot first appear during active or completed execution');
   await client.query('INSERT INTO hyperfide.proof_registries(organisation_id,run_id,task_id,spec_generation,spec_revision_id,criteria_digest,registry_digest,policy) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
    [pin.organisation_id,pin.run_id,pin.task_id,pin.spec_generation,pin.spec_revision_id,policy.criteria_digest,registry_digest,JSON.stringify(policy)]);
  }

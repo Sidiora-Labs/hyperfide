@@ -63,6 +63,8 @@ spec-import spec.projection.check
 
 # Components no client command reaches.
 1.1 *
+# Ask actions (hyperfide-v21 3.2); task 3.7 routes them in client.c and removes this line.
+1.2-asks *
 1.3 *
 1.4 *
 10.1 *
