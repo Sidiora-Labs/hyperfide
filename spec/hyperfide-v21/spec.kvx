@@ -932,10 +932,10 @@ owner = "runner"
 
 [task.5.1]
 title = "Needs, Issues and Leaders read model"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["3.2", "4.6"]
-touches = ["services/hyperfide/src/observability/console.ts", "services/hyperfide/src/observability/views.ts", "tests/hyperfide/cases/v21/5_1.py"]
+touches = ["services/hyperfide/src/observability/console.ts", "services/hyperfide/src/observability/views.ts", "tests/hyperfide/cases/v21/5_1.py", "services/hyperfide/components/23.1-console.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "tests/fixtures/route_contract/server_only.txt", "tests/hyperfide/cases/v21/5_2.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/5_1.py"
 do_1 = "One component exposing console.needs (open Asks, pending human intents, admission escalations), console.issues (leader queue, external intake, escalated repairs, drift) and console.leaders (from agent_sessions), each row with freshness and references."
 do_2 = "5_1.py asserts each view against seeded rows."
