@@ -240,7 +240,7 @@ owner = "console"
 
 [task.1.11]
 title = "Measure one day of source traffic on the monorepo"
-status = "in_progress"
+status = "done"
 wave = 1
 requires = []
 touches = ["scripts/hyperfide/measure-source-day.sh", "docs/hyperfide/source-measurement.md", "docs/hyperfide/source-measurement/source-7d.json", "docs/hyperfide/source-measurement/source-day.json"]
@@ -266,7 +266,7 @@ owner = "editor"
 
 [task.2.1]
 title = "Orphan and quarantine resolution releases capacity"
-status = "implemented"
+status = "done"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/providers/pools.ts", "tests/hyperfide/cases/v21/2_1.py"]
