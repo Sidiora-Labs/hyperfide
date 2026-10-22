@@ -48,24 +48,6 @@ static bool raw_is_list(const Kvx *k, const char *sec, const char *key) {
     return n >= 2 && r[0] == '[' && r[n - 1] == ']';
 }
 
-/* snake_case -> Title Case, Go humanize() semantics (empty parts kept) */
-static void sb_humanize(StrBuf *b, const char *k) {
-    const char *p = k;
-    bool first = true;
-    for (;;) {
-        size_t n = strcspn(p, "_");
-        if (!first) sb_putc(b, ' ');
-        if (n) {
-            sb_putc(b, (char)toupper((unsigned char)p[0]));
-            for (size_t i = 1; i < n; i++) sb_putc(b, p[i]);
-        }
-        first = false;
-        p += n;
-        if (!*p) break;
-        p++;
-    }
-}
-
 static int count_dots(const char *s) {
     int n = 0;
     for (; *s; s++) if (*s == '.') n++;
@@ -155,47 +137,23 @@ static int writer_write(Writer *w,const char *path,const char *content) {
 /* ---------------- brief + adapters (adapters.go) ---------------- */
 
 /* specrel: the spec directory as codify.kvx places it, so the pointer
- * files send a reader to where the specs really are */
+ * files send a reader to where the specs really are.
+ * Contract (hyperfide-v21 1.3): a generated file is a pointer only — the
+ * pointer sentence, the owners line, the active feature, the loop, and the
+ * names of the sections that hold the rules. Rule and principle text stays
+ * in workflow.kvx alone, so the two can never disagree;
+ * tests/integration/81_workflow_pointer.sh enforces it. */
 static char *build_brief(const Kvx *wf, const char *specrel) {
     StrBuf b; sb_init(&b);
     char *name = S(wf, "meta", "name");
     sb_printf(&b, "# %s\n\n", name);
     free(name);
-    sb_printf(&b, "The single source of truth for how to work in this repo is "
-                  "**`%s/`** (kvx).\n", specrel);
-    sb_printf(&b, "This file is a GENERATED pointer to it. Do not hand-edit it; "
-                  "edit `%s/workflow.kvx` and run `hyperfide spec render`.\n\n",
-              specrel);
-
-    char *sot = S(wf, "meta", "source_of_truth");
-    if (sot[0]) sb_printf(&b, "> %s\n\n", sot);
-    free(sot);
-
-    sb_puts(&b, "## Principles\n\n");
-    FOR_KV(wf, "principle", "", i) {
-        char *v = entry_val(wf, i);
-        sb_puts(&b, "- **");
-        sb_humanize(&b, wf->v[i].key);
-        sb_printf(&b, "**: %s\n", v);
-        free(v);
-    }
-
-    sb_puts(&b, "\n## The loop (every session)\n\n");
-    int n = 0;
-    FOR_KV(wf, "loop", "", i) {
-        char *v = entry_val(wf, i);
-        sb_printf(&b, "%d. %s\n", ++n, v);
-        free(v);
-    }
-
-    sb_puts(&b, "\n## Persistent project memory (when configured)\n\n");
-    FOR_KV(wf, "memory", "", i) {
-        char *v = entry_val(wf, i);
-        sb_puts(&b, "- **");
-        sb_humanize(&b, wf->v[i].key);
-        sb_printf(&b, "**: %s\n", v);
-        free(v);
-    }
+    sb_printf(&b, "This file is a generated pointer. The single workflow source "
+                  "is `%s/workflow.kvx`; edit it and run `hyperfide spec render`, "
+                  "never this file.\n", specrel);
+    char *owners = S(wf, "render", "generated_owners");
+    if (owners[0]) sb_printf(&b, "%s\n", owners);
+    free(owners);
 
     char *active = S(wf, "meta", "active_feature");
     if (active[0]) {
@@ -207,14 +165,30 @@ static char *build_brief(const Kvx *wf, const char *specrel) {
     }
     free(active);
 
-    sb_puts(&b, "\n## Hard rules\n\n");
-    FOR_KV(wf, "hard_rules", "", i) {
+    sb_puts(&b, "\n## The loop (every session)\n\n");
+    int n = 0;
+    FOR_KV(wf, "loop", "", i) {
         char *v = entry_val(wf, i);
-        sb_puts(&b, "- **");
-        sb_humanize(&b, wf->v[i].key);
-        sb_printf(&b, "**: %s\n", v);
+        sb_printf(&b, "%d. %s\n", ++n, v);
         free(v);
     }
+
+    /* only sections the workflow declares, so the list cannot point at
+     * something that is not there */
+    static const char *const RULES[] = {
+        "principle", "hard_rules", "status_values", "human", "asks",
+        "publication", "memory", NULL };
+    StrBuf secs; sb_init(&secs);
+    for (int i = 0; RULES[i]; i++)
+        if (kvx_has(wf, RULES[i]))
+            sb_printf(&secs, "%s`[%s]`", secs.len ? ", " : "", RULES[i]);
+    if (secs.len) {
+        sb_puts(&b, "\n## Where the rules are\n\n");
+        sb_printf(&b, "Principles, hard rules and policies live only in "
+                      "`%s/workflow.kvx`: %s. Read them there.\n",
+                  specrel, secs.p);
+    }
+    sb_free(&secs);
     return b.p;
 }
 

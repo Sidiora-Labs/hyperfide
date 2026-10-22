@@ -157,8 +157,25 @@ int cmd_agentmd(Cg *cg, bool write_files) {
     sb_printf(&md, "# %s — Agent Context\n\n", base);
     sb_puts(&md, "<!-- hyperfide-owned: graph-agent-context v1 -->\n\n"
                  "_Generated graph context owned by `hyperfide agentmd`. Regenerate "
-                 "with `hyperfide agentmd --write` after significant changes. "
-                 "Workflow instructions remain owned by `hyperfide spec render`._\n\n");
+                 "with `hyperfide agentmd --write` after significant changes._\n\n");
+    /* the same pointer CLAUDE.md and AGENTS.md carry: workflow rules live
+     * only in workflow.kvx, never restated here */
+    {
+        const char *srel = config_spec_rel(cg->root);
+        char wfp[4700];
+        Kvx *wf = config_workflow_path(cg->root, wfp, sizeof wfp)
+                ? kvx_parse(wfp) : NULL;
+        if (wf) {
+            sb_printf(&md, "Workflow: the single source is `%s/workflow.kvx` "
+                           "(rules, loop and policies); read it there.", srel);
+            char *feat = kvx_str(wf, "meta", "active_feature");
+            if (feat && feat[0])
+                sb_printf(&md, " Active feature: `%s/%s/spec.kvx`.", srel, feat);
+            free(feat);
+            sb_puts(&md, "\n\n");
+            kvx_free(wf);
+        }
+    }
 
     /* ---- language table ---- */
     sb_puts(&md, "## Languages\n\n| Language | Files | Lines |\n|---|---:|---:|\n");

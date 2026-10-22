@@ -126,10 +126,11 @@ owner = "qualification"
 
 [task.1.3]
 title = "One legible workflow source and pointer-only agent files"
-status = "pending"
+status = "done"
 wave = 1
 requires = []
-touches = ["spec/workflow.kvx", "src/spec.c", "CLAUDE.md", "AGENTS.md", "tests/integration/81_workflow_pointer.sh"]
+touches = ["spec/workflow.kvx", "src/spec.c", "src/agent.c", "tests/fixtures/specrepo/CLAUDE.md", "tests/fixtures/specrepo/.cursor/rules/spec-workflow.mdc", "tests/integration/81_workflow_pointer.sh"]
+# CLAUDE.md and AGENTS.md are gitignored render outputs: no commit can evidence them, so `spec render --check` in verify_cmd proves them instead.
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/81_workflow_pointer.sh && ./cg spec render --check"
 do_1 = "Rewrite spec/workflow.kvx so no two statements contradict: the dependency rule names sqlite, libc, curl and crypto for the binary and declared pinned TypeScript dependencies for the services; status_values gain blocked; add [human] (three jobs: spec with the agent, inputs and judgement, final system test as the release gate), [asks] (five kinds, default policies), [publication] (per wave, final wave docs/release/changelog, task file current before every commit)."
 do_2 = "build_brief emits only: the pointer sentence, the active feature path, the loop, and where to find the rules; no principle or rule text is duplicated into generated files. Regenerate CLAUDE.md and AGENTS.md; make cg agentmd's context file point at the kvx the same way."

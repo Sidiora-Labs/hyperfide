@@ -8,15 +8,11 @@ alwaysApply: true
 
 # Demo Spec Workflow
 
-The single source of truth for how to work in this repo is **`spec/`** (kvx).
-This file is a GENERATED pointer to it. Do not hand-edit it; edit `spec/workflow.kvx` and run `spec/specgen`.
+This file is a generated pointer. The single workflow source is `spec/workflow.kvx`; edit it and run `hyperfide spec render`, never this file.
 
-> spec/ (kvx). Generated files are pointers — regenerate, never hand-edit.
+## Active feature
 
-## Principles
-
-- **Task Driven**: Work is driven by the active feature's task list.
-- **One In Progress**: At most one task is in_progress at a time.
+`spec/demo/spec.kvx` — read its `[meta]` status, `[req.*]` acceptance criteria, and the `[task.*]` list (status + wave + requires). Work one task at a time in wave order; update `status` in the kvx as you go.
 
 ## The loop (every session)
 
@@ -24,16 +20,6 @@ This file is a GENERATED pointer to it. Do not hand-edit it; edit `spec/workflow
 2. Pick the next eligible task by wave.
 3. Implement, verify, mark done.
 
-## Persistent project memory (when configured)
+## Where the rules are
 
-- **Recall**: Load relevant context at session start.
-- **Remember**: Persist durable decisions as they occur.
-
-## Active feature
-
-`spec/demo/spec.kvx` — read its `[meta]` status, `[req.*]` acceptance criteria, and the `[task.*]` list (status + wave + requires). Work one task at a time in wave order; update `status` in the kvx as you go.
-
-## Hard rules
-
-- **No Fakes**: Never fake a test to make it pass.
-- **No Git**: The user drives commits.
+Principles, hard rules and policies live only in `spec/workflow.kvx`: `[principle]`, `[hard_rules]`, `[status_values]`, `[memory]`. Read them there.
