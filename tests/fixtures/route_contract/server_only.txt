@@ -135,6 +135,8 @@ spec-import spec.projection.check
 4.2 *
 4.3 *
 4.4 *
+# Operator notification target (hyperfide-v21 4.5); no client command routes it yet.
+4.5-operator *
 6.1 *
 6.2 *
 6.3 *

@@ -854,10 +854,10 @@ owner = "ask"
 
 [task.4.5]
 title = "Notification producers and the operator target"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["3.2"]
-touches = ["services/hyperfide/src/observability/notifications.ts", "tests/hyperfide/cases/v21/4_5.py"]
+touches = ["services/hyperfide/src/observability/notifications.ts", "services/hyperfide/components/4.5-operator.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "tests/fixtures/route_contract/server_only.txt", "tests/hyperfide/cases/v21/4_5.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_5.py"
 do_1 = "Produce notifications on Ask raised, Ask expired and repair escalated; add an operator target with a webhook channel configured by variable."
 do_2 = "4_5.py asserts each producer and the target delivery with a stub webhook."
