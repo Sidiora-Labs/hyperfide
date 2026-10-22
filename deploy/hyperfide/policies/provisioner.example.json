@@ -56,6 +56,7 @@
     "human.ask.expire",
     "human.ask.list",
     "human.ask.raise",
+    "human.ask.seed",
     "identity.binding.observe",
     "identity.describe",
     "identity.grant.issue",

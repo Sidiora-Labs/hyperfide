@@ -14,7 +14,8 @@
     "human.ask.raise",
     "human.ask.answer",
     "human.ask.list",
-    "human.ask.expire"
+    "human.ask.expire",
+    "human.ask.seed"
   ],
   "requires": [
     "4.2",

@@ -231,6 +231,7 @@
     "human.ask.expire",
     "human.ask.list",
     "human.ask.raise",
+    "human.ask.seed",
     "human.autonomous",
     "human.bootstrap",
     "human.describe",

@@ -79,6 +79,26 @@ A recorded exception narrows where one named verification leg executes; it does 
 |---|---|---|---|
 | E-01 | The task 2.1 private-corpus qualification leg (`--qualify-private-corpus`) runs on the supervisory host where the private corpus lives. | Only that leg; the public V-001 and V-024 component legs run on the fleet. The corpus, descriptor and private receipts stay in ignored storage on the supervisory host and are never transferred to fleet workers or copied into public metadata. | 2.1 |
 
+## Seeded Ask options
+
+`human.ask.seed` (hyperfide-v21 task 4.7) raises one decision Ask per item above, idempotently, with these options. The first option is the recommended one and keeps the current gate or recorded decision; under D11 a decision Ask that reaches its operator-chosen deadline unanswered proceeds on it and is flagged. The catalogue in `services/hyperfide/src/policy/ask_seed.ts` mirrors this table and `tests/hyperfide/cases/v21/4_7.py` fails when they differ. The same action raises renewal Asks for expiring capacity attestations and fence permits, and drain-deadline decisions, from their observers.
+
+| ID | Options (recommended first) |
+|---|---|
+| O-01 | recorded-27.3-run; api-credential; account-session; mixed |
+| O-02 | recorded-27.3-run; operator-attested-limits |
+| O-03 | hold-authority-deployment; managed-sync-standby; self-hosted-sync-standby |
+| O-04 | hold-publication; target-ref-acl; server-hook; gateway-enforcement |
+| O-05 | hold-durable-evidence; select-and-test-services |
+| O-06 | measure-from-27.3-run; freeze-load-manifests-now |
+| O-07 | hold-speedup-claims; pin-real-corpus-now |
+| O-08 | advice-stays-advisory; promote-recommendation-policy |
+| O-09 | measure-from-27.3-run; freeze-proposed-targets-now |
+| O-10 | hold-distribution; release-2.0.0 |
+| O-11 | every-watcher-every-commit; specialist-sharded-review |
+| O-12 | exclude-from-production-baseline; qualify-self-host-span; qualify-preview-capabilities |
+| E-01 | keep-exception; revoke-exception |
+
 ## 4. Explicit dispositions
 
 - **ObjectBox:** assessed rather than ignored. Its strongly consistent server cluster is acknowledged; eventual local-client claim synchronization is not the selected authority design. PostgreSQL matches the selected architecture. No comparative benchmark supports a blanket performance rejection.
