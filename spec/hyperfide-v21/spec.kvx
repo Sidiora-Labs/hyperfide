@@ -388,7 +388,7 @@ owner = "deployment"
 
 [task.2.11]
 title = "Internal object store with per-region mirrors"
-status = "in_progress"
+status = "implemented"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/providers/railway/preparation.ts", "services/hyperfide/src/preparation/slices.ts", "services/hyperfide/src/preparation/object_store.ts", "deploy/hyperfide/bootstrap-host.mjs", "deploy/hyperfide/env/provisioner.env.example", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/2_11.py"]
