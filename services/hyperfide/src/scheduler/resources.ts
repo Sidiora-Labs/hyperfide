@@ -23,6 +23,16 @@ export interface EligibleResult {
  availability:'AVAILABLE'|'UNAVAILABLE';reason?:string;authority:'CANDIDATE_DISCOVERY';observed_at:string;
  spec_revision_id:string;spec_generation:string;eligible:EligibleTask[];excluded:{task_id:string;reason:string}[];
 }
+/** D4: a predecessor waiting on a blocking Ask holds its dependants, whatever milestone the edge names. */
+export async function requireNoAskWait(tx:PrimaryTransaction,scope:SchedulerScope,task_id:string,wave:number):Promise<void>{
+ const waits=await tx.query<{task_key:string;blocked_ask:string}>(
+ "SELECT p.task_key,p.blocked_ask FROM hyperfide.tasks p WHERE p.organisation_id=$1 AND p.blocked_ask IS NOT NULL AND ("+
+ "(p.run_id,p.id) IN (SELECT d.predecessor_run_id,d.predecessor_task_id FROM hyperfide.task_dependencies d JOIN hyperfide.tasks t ON t.organisation_id=d.organisation_id AND t.run_id=d.run_id AND t.id=d.task_id AND t.spec_generation=d.revision WHERE d.organisation_id=$1 AND d.run_id=$2 AND d.task_id=$3) "+
+ "OR (p.run_id=$2 AND p.wave<$4 AND NOT(p.definition ? 'retirement'))) ORDER BY p.task_key LIMIT 1",
+ [scope.organisation_id,scope.run_id,task_id,wave]);
+ const wait=waits.rows[0];
+ if(wait)fail('PREDECESSOR_WAITING_ON_ASK','Predecessor '+wait.task_key+' is blocked on Ask '+wait.blocked_ask);
+}
 export async function eligibleTasks(tx:PrimaryTransaction,input:SchedulerScope&{pool_id:string;profile_id?:string;limit?:number;preparation?:boolean},invocation?:InvocationContext):Promise<EligibleResult>{
  assertPrimaryTransaction(tx);await lockRun(tx,input);
  const limit=boundedInteger(input.limit??100,'limit',1,500);
@@ -52,6 +62,7 @@ export async function eligibleTasks(tx:PrimaryTransaction,input:SchedulerScope&{
  for(const task of tasks.rows){
   try{
    await assertNoExecutionHold(tx,input,{package_id:task.feature_package_id,...(task.current_attempt_id?{attempt_id:task.current_attempt_id}:{}),operation:'ADMISSION'});
+   await requireNoAskWait(tx,input,task.id,task.wave);
    await requireTaskBarriers(tx,input,task.id,task.wave);
    const registry=await requireProofRegistry(tx,input,task);
    const packets=await tx.query<{digest:string}>(
@@ -135,6 +146,7 @@ export async function eligibleDemand(tx:PrimaryTransaction,input:SchedulerScope&
  for(const task of tasks.rows.slice(0,500)){
   try{
    await assertNoExecutionHold(tx,input,{package_id:task.feature_package_id,...(task.current_attempt_id?{attempt_id:task.current_attempt_id}:{}),operation:'ADMISSION'});
+   await requireNoAskWait(tx,input,task.id,task.wave);
    await requireTaskBarriers(tx,input,task.id,task.wave);
    const accepted=await loadPreparationIntent(tx,{organisation_id:input.organisation_id,run_id:input.run_id,task_id:task.id,profile_id:input.profile_id});
    const requirements=packetResources(accepted.resource_requirements);

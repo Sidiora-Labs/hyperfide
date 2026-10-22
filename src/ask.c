@@ -239,6 +239,7 @@ long ask_raise(Cg *cg, const AskSpec *a) {
         return -1;
     }
     ask_event(cg, "ask.raised", id);
+    spec_ask_transition(cg, id);
     return id;
 }
 
@@ -265,6 +266,7 @@ int ask_record_answer(Cg *cg, long id, const char *answer, const char *by,
         return have ? 0 : -1;
     }
     ask_event(cg, "ask.answered", id);
+    spec_ask_transition(cg, id);
     return 1;
 }
 
