@@ -18,6 +18,8 @@ const url = require('url');
  * the transcript cannot fake; headless-safe, so the tests reach them. */
 const { AgentPanel, diffRows, stripAnsi, ChatCapabilities, approvalCard,
         agentName } = require('./agents');
+/* --- ask registry (v21 6.1) --- */
+const needs = require('./needs');
 
 const PROTOCOL_VERSION = 1;
 const STDERR_TAIL_MAX = 8192;
@@ -1405,8 +1407,11 @@ async function decideApproval(sess, id, reject, note) {
  * listener would draw every card twice. */
 let fleetEventsOff = null;
 function watchFleetEvents() {
+    /* connected or reconnected: events in between are gone, read the truth */
+    if (askApi && deps.events && deps.events.available()) askApi.reload();
     if (fleetEventsOff || !deps.events || !deps.events.available()) return !!fleetEventsOff;
     fleetEventsOff = deps.events.on((e) => {
+        if (askApi) askApi.registry.applyEvent(e);
         const p = e.payload || {};
         if (e.kind === 'approval.request') postView(approvalCard(e));
         else if (e.kind === 'approval.decided') postView({ type: 'approval_done', id: p.id, answer: p.state });
@@ -1719,7 +1724,7 @@ function newSession(webview, extra) {
     }, extra || {});
     /* --- agent chat (5.3) --- one bookkeeper per surface: retry target,
      * outstanding permission asks, and the cost ledger */
-    sess.chat = new AgentPanel((msg) => panelPost(sess, msg));
+    sess.chat = new AgentPanel((msg) => { askRegistryPost(sess, msg); panelPost(sess, msg); });
     return sess;
 }
 
@@ -2181,6 +2186,7 @@ function registerAgentView(ctx) {
             agentView = view;
             view.webview.options = { enableScripts: true };
             view.webview.html = panelHtml(view.webview);
+            applyAskBadge();
             view.webview.onDidReceiveMessage((msg) => {
                 if (!msg) return;
                 if (msg.type === 'ready') { postViewInit(); return; }
@@ -2293,13 +2299,62 @@ function register(ctx, d) {
     viewDriver = pickedDriver ? driverId(pickedDriver) : '';
     registerAcpCommands(ctx);
     registerAgentView(ctx);
+    registerAsks(ctx);
     watchSelection(ctx);
     watchFleetEvents();
     return {
         hasPanel: (id) => panels.has(id) ||
             !!(viewSession && viewSession.taskId === id),
         watchEvents: watchFleetEvents,
+        asks: askApi,
+        askPost: askRegistryPost,
     };
+}
+
+/* --- ask registry (v21 6.1) --- every permission card a chat draws, every
+ * fleet approval and every durable Ask, in one registry (needs.js) with a
+ * status-bar count, this view's badge, and a notification when the card is
+ * somewhere the person is not looking. */
+let askApi = null;
+let askBadge = null;
+let askSessionSeq = 0;
+
+function applyAskBadge() {
+    if (!agentView) return;
+    try { agentView.badge = askBadge ? { value: askBadge.value, tooltip: askBadge.tooltip } : undefined; }
+    catch (_) { /* a VS Code without view badges */ }
+}
+
+function surfaceVisible(sess) {
+    if (sess.panel) return !!sess.panel.visible;
+    return !!(agentView && agentView.visible && viewSession === sess);
+}
+
+/* AgentPanel's posts, mirrored into the registry: a card drawn is an item,
+ * a card settled (answered, cancelled with the turn, adapter gone) is not */
+function askRegistryPost(sess, msg) {
+    if (!askApi || !msg) return;
+    if (!sess.askKey) sess.askKey = `s${++askSessionSeq}`;
+    if (msg.type === 'permission') {
+        askApi.registry.addPermission(sess.askKey, msg, {
+            label: sess.taskId || '', task: sess.taskId || '',
+            answer: (optionId) => sess.chat.answer(msg.pid, optionId),
+            inView: () => surfaceVisible(sess),
+        });
+    } else if (msg.type === 'permission_done') {
+        askApi.registry.settlePermission(sess.askKey, msg.pid);
+    }
+}
+
+function registerAsks(ctx) {
+    askApi = needs.registerAskRegistry(ctx, {
+        cg: deps.cg, cgJson: deps.cgJson, events: deps.events,
+        refresh: () => deps.refresh(),
+        setBadge: (b) => { askBadge = b; applyAskBadge(); },
+        /* fleet approvals are drawn as cards in this view */
+        inView: (item) => item.source === 'approval' && !!(agentView && agentView.visible),
+    });
+    askApi.reload();
 }
 
 module.exports = {

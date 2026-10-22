@@ -2671,4 +2671,280 @@ JS
     [ $? -eq 0 ] || fail "reconnect snapshot, agent names, transcripts"
 fi
 
+# ---- ask registry (hyperfide-v21 6.1): ACP permission asks, fleet approvals
+#      and durable Asks in one registry; a fleet gate and its permission Ask
+#      are one item; the count reaches the status bar and the view badge;
+#      anything out of view is announced and answerable from the
+#      notification, the quick pick or the input box, through the real cg
+if want asks; then
+    node --check "$EXT/needs.js" || fail "syntax error in needs.js"
+    rm -rf "$TMP/ak"; cp -r "$FIXTURES/sample" "$TMP/ak"; cd "$TMP/ak"
+    git init -q -b main . 2>/dev/null || git init -q .
+    git config user.email t@t; git config user.name t
+    "$CG" init >/dev/null 2>&1
+    "$CG" spec new demo >/dev/null
+    "$CG" spec add 2.1 --title "Alpha" --wave 1 --reqs 1.1 >/dev/null
+    cat >> spec/workflow.kvx <<'EOF'
+
+[hierarchy]
+enabled = true
+
+[role.main]
+approve = ["pr"]
+EOF
+    git add -A >/dev/null; git commit -qm init >/dev/null
+    git branch wave/demo/1
+    akproj="$(pwd -P)"
+    HYPERFIDE_GH="$TMP/no-gh" node - "$EXT" "$CG" "$akproj" <<'JS'
+const path = require('path'), cp = require('child_process');
+const Module = require('module');
+const [dir, CG, cwd] = process.argv.slice(2);
+const check = (c, w) => { if (!c) throw new Error(w); };
+const run = (env, ...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8', env: { ...process.env, ...env } });
+const json = (...a) => JSON.parse(run({}, ...a, '--json').stdout);
+const main = { CG_ROLE: 'main', CG_AGENT: 'm' };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (f, w) => { for (let i = 0; i < 500 && !f(); i++) await sleep(20); check(f(), typeof w === 'function' ? w() : w); };
+
+/* ---- the pure registry, fed what the real cg prints */
+const { AskRegistry, badgeOf, describe } = require(path.join(dir, 'needs.js'));
+const { AgentPanel } = require(path.join(dir, 'agents.js'));
+const raise = (...a) => json('ask', 'raise', ...a).id;
+const vAsk = raise('variable', 'HF_SLICE_SOURCE_CONFIG path', '--task', 'demo/2.1');
+const dAsk = raise('decision', 'Which object store?', '--option', 's3', '--option', 'r2', '--recommend', 'r2');
+const pr = run(main, 'fleet', 'pr', '1', '-f', 'demo');
+check(pr.status === 4, `the pr gate should wait (4), got ${pr.status}: ${pr.stderr}`);
+const ap = json('fleet', 'approvals').approvals[0];
+check(ap && ap.ask > 0, `the gate carries its permission Ask: ${JSON.stringify(ap)}`);
+check(json('ask', 'list').asks.length === 3, 'cg lists three open Asks');
+
+const reg = new AskRegistry();
+const changes = [];
+reg.onChange((fresh) => changes.push(...fresh.map((i) => i.key)));
+check(reg.loadApprovals(json('fleet', 'approvals').approvals), 'approvals load');
+check(reg.loadAsks(json('ask', 'list').asks), 'asks load');
+let items = reg.items();
+check(items.length === 3, `the gate and its Ask are one item: ${items.map((i) => i.key)}`);
+const gate = items.find((i) => i.source === 'approval');
+check(gate && gate.id === ap.id && gate.askId === ap.ask && gate.blocking, `gate item: ${JSON.stringify(gate)}`);
+check(!items.some((i) => i.key === `ask:${ap.ask}`), 'the gate Ask is not listed twice');
+// the third source: a permission card an agent chat drew
+const chat = new AgentPanel((m) => {
+    if (m.type === 'permission') reg.addPermission('s1', m, { label: '2.1', answer: (o) => chat.answer(m.pid, o) });
+    if (m.type === 'permission_done') reg.settlePermission('s1', m.pid);
+});
+const granted = chat.ask({ toolCall: { title: 'Run make', kind: 'execute' },
+    options: [{ optionId: 'allow', name: 'Allow', kind: 'allow_once' }, { optionId: 'no', name: 'Reject', kind: 'reject_once' }] });
+// a card with nothing to click is answered by the panel, never registered
+chat.ask({ toolCall: { title: 'Nothing to pick' }, options: [] });
+items = reg.items();
+check(items.length === 4, `three sources merged: ${items.map((i) => i.key)}`);
+check(new Set(items.map((i) => i.source)).size === 3, 'acp, approval and ask all present');
+const c = reg.counts();
+check(c.open === 4 && c.blocking === 3, `counts: ${JSON.stringify(c)}`);
+check(items[items.length - 1].key === `ask:${dAsk}`, 'the proceed-and-flag Ask sorts after the blocking ones');
+const b = badgeOf(c);
+check(b.value === 4 && b.text === '$(bell-dot) 3 blocking · 4' &&
+      /3 blocking Asks waiting on you, 1 more open/.test(b.tooltip), JSON.stringify(b));
+check(badgeOf({ open: 2, blocking: 0 }).text === '$(bell) 2', 'nothing blocking: a plain count');
+check(badgeOf({ open: 0, blocking: 0 }) === null, 'no badge at zero');
+check(/^Ask #\d+ \(variable\) \[demo\/2\.1\]: HF_SLICE/.test(describe(reg.find(`ask:${vAsk}`))), 'describe');
+check(changes.length === 4 && new Set(changes).size === 4, `each item announced once: ${changes}`);
+// answering the card in the registry settles the agent's request
+check(reg.find(items.find((i) => i.source === 'acp').key).answer('allow'), 'answer the card');
+granted.then((r) => check(r.outcome.optionId === 'allow', 'the agent got its option'));
+check(reg.counts().open === 3, 'a settled card leaves the registry');
+// negative: a failed read empties nothing; unrelated or unknown events change nothing
+check(!reg.loadAsks(null) && !reg.loadApprovals(undefined) && reg.counts().open === 3, 'a failed read empties nothing');
+check(!reg.applyEvent({ kind: 'claim', payload: { id: vAsk } }), 'an unrelated event changes nothing');
+check(!reg.applyEvent({ kind: 'approval.decided', payload: { id: 9999 } }), 'an unknown approval changes nothing');
+// a read that started before an event must not erase it when it lands
+const mk = reg.mark();
+const stale = json('ask', 'list').asks;
+check(reg.applyEvent({ kind: 'ask.raised', payload: { id: 777, kind: 'variable', title: 'late', blocking: true, state: 'open' } }), 'a pushed raise');
+check(reg.loadAsks(stale, mk) && reg.find('ask:777'), 'an event during a read survives the read');
+check(reg.loadAsks(stale) && !reg.find('ask:777'), 'without the mark the read is the whole truth');
+
+// the pushed events alone build the same registry, the gate linked by title and task
+const evs = run({}, 'events', '--kind', 'ask.,approval.', '-n', '200', '--json').stdout
+    .split('\n').filter(Boolean).map((l) => JSON.parse(l));
+const fromEvents = new AskRegistry();
+for (const e of evs) fromEvents.applyEvent(e);
+const ek = fromEvents.items().map((i) => i.key).sort();
+check(JSON.stringify(ek) === JSON.stringify([`approval:${ap.id}`, `ask:${dAsk}`, `ask:${vAsk}`].sort()), `from events: ${ek}`);
+check(fromEvents.items().find((i) => i.source === 'approval').askId === ap.ask, 'events fold the gate Ask');
+
+/* ---- the editor surface, against a stub vscode and the real cg serve */
+const shown = [], picks = [];
+let bar = null, answerCmd = null, provider = null;
+let decide = () => undefined, quick = () => undefined, typed = () => undefined;
+const stub = {
+    window: {
+        registerWebviewViewProvider: (id, p) => { if (id === 'codifyAgentView') provider = p; return { dispose() {} }; },
+        createStatusBarItem: () => (bar = { text: '', visible: false, show() { this.visible = true; }, hide() { this.visible = false; }, dispose() {} }),
+        showWarningMessage: async (m, ...btn) => { shown.push({ level: 'warn', m, btn }); return decide(m, btn); },
+        showInformationMessage: async (m, ...btn) => { shown.push({ level: 'info', m, btn }); return decide(m, btn); },
+        showErrorMessage: async (m) => { shown.push({ level: 'error', m }); },
+        showQuickPick: async (list, o) => { picks.push({ list, o }); return quick(list, o); },
+        showInputBox: async (o) => typed(o),
+    },
+    commands: { registerCommand: (id, fn) => { if (id === 'codify.asks.answer') answerCmd = fn; return { dispose() {} }; },
+                executeCommand: async () => {} },
+    workspace: { getConfiguration: () => ({ get: (k, d) => d, update: async () => {} }) },
+    env: { clipboard: { writeText() {} } },
+    Uri: { file: (p) => ({ fsPath: p }), parse: (u) => ({ url: u }) },
+    ConfigurationTarget: { Global: 1 }, StatusBarAlignment: { Left: 1 },
+    ThemeColor: function (id) { this.id = id; },
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+const acp = require(path.join(dir, 'acp.js'));
+const { ServeClient } = require(path.join(dir, 'serve.js'));
+const cgp = (args) => new Promise((res) => cp.execFile(CG, args, { cwd },
+    (err, stdout, stderr) => res({ code: err ? (typeof err.code === 'number' ? err.code : 1) : 0, stdout, stderr })));
+let serveClient = null;
+const eventFans = [];
+const ctx = { subscriptions: [], workspaceState: { get: (k, d) => d, update: async () => {} } };
+const api = acp.register(ctx, {
+    cg: cgp, cgJson: async (a) => { const r = await cgp([...a, '--json']); try { return JSON.parse(r.stdout); } catch { return null; } },
+    binary: () => CG, refresh: () => {}, workspaceRoot: () => cwd, startTerminal: () => {},
+    events: {
+        available: () => !!(serveClient && serveClient.ready),
+        on: (fn) => { eventFans.push(fn); return () => { const i = eventFans.indexOf(fn); if (i >= 0) eventFans.splice(i, 1); }; },
+    },
+});
+check(provider && api.asks && answerCmd, 'the registry, its command and the view are registered');
+const view = {
+    visible: true, badge: undefined,
+    webview: { cspSource: 'x', options: {}, html: '', postMessage: () => Promise.resolve(true), onDidReceiveMessage: () => ({ dispose() {} }) },
+    onDidDispose: () => ({ dispose() {} }),
+};
+provider.resolveWebviewView(view);
+const R = api.asks.registry;
+
+(async () => {
+    // the first read (serve not up yet) finds the backlog: one batched notice
+    await until(() => R.counts().open === 3, `first read: ${JSON.stringify(R.counts())}`);
+    await until(() => shown.length === 1, `one notice for the backlog: ${JSON.stringify(shown)}`);
+    check(shown[0].level === 'warn' && /2 Asks waiting \(1 blocking\)/.test(shown[0].m) && shown[0].btn[0] === 'Answer…',
+          `the in-view gate is not announced, the two Asks are: ${JSON.stringify(shown[0])}`);
+    check(bar.visible && bar.text === '$(bell-dot) 2 blocking · 3' && bar.command === 'codify.asks.answer', `status bar: ${bar.text}`);
+    check(bar.backgroundColor && bar.backgroundColor.id === 'statusBarItem.warningBackground', 'blocking colours the status bar');
+    check(view.badge && view.badge.value === 3 && /2 blocking/.test(view.badge.tooltip), `view badge: ${JSON.stringify(view.badge)}`);
+
+    serveClient = new ServeClient(CG, cwd, () => {});
+    check(await serveClient.start() === true, 'serve against the real cg');
+    serveClient.on('event', (ev) => { for (const fn of eventFans) fn(ev); });
+    serveClient.on('reconnect', () => { api.watchEvents(); });
+    check(api.watchEvents() === true && eventFans.length === 1, 'one listener carries chat cards and the registry');
+    await serveClient.subscribe();
+    // the serve snapshot's asks array is a source the registry reads as is
+    const snap = await serveClient.snapshot();
+    check(Array.isArray(snap.asks) && snap.asks.length === 3, `snapshot asks: ${JSON.stringify(snap.asks)}`);
+    const viaSnap = new AskRegistry();
+    viaSnap.loadApprovals(json('fleet', 'approvals').approvals); viaSnap.loadAsks(snap.asks);
+    check(viaSnap.counts().open === 3 && viaSnap.counts().blocking === 2, 'the snapshot merges the same way');
+
+    // a pushed proceed-and-flag Ask: announced, answered from the notification
+    decide = (m, btn) => /Keep the old route/.test(m) ? btn.find((x) => /recommended/.test(x)) : undefined;
+    const n0 = shown.length;
+    const qAsk = raise('question', 'Keep the old route?', '--option', 'yes', '--option', 'no', '--recommend', 'no');
+    await until(() => shown.length > n0, () => 'the pushed Ask is announced' + JSON.stringify([qAsk, R.items().map((i) => i.key), shown, serveClient.ready, eventFans.length]));
+    check(shown[n0].level === 'info' && JSON.stringify(shown[n0].btn) === JSON.stringify(['yes', 'no (recommended)']), `buttons: ${JSON.stringify(shown[n0])}`);
+    await until(() => !R.find(`ask:${qAsk}`), 'answered from the notification');
+    const qRow = json('ask', 'list', '--all').asks.find((a) => a.id === qAsk);
+    check(qRow.state === 'answered' && qRow.answer === 'no', `cg recorded the answer: ${JSON.stringify(qRow)}`);
+
+    // the gate from the quick pick: blocking first, decided through cg fleet approve
+    quick = (list, o) => o.placeHolder === 'Answer which Ask?'
+        ? list.find((i) => /approval #/.test(i.description)) : list.find((i) => i.value === 'approve');
+    await answerCmd();
+    check(/^\$\(error\) /.test(picks[0].list[0].label) && picks[0].list.length === 3, `the pick list: ${JSON.stringify(picks[0].list)}`);
+    await until(() => !R.find(`approval:${ap.id}`), 'the gate was approved');
+    check(json('fleet', 'approvals', '--all').approvals.find((a) => a.id === ap.id).state === 'approved', 'cg approved the gate');
+    check(json('ask', 'list', '--all').asks.find((a) => a.id === ap.ask).answer === 'approve', 'and answered its Ask');
+    check(!R.find(`ask:${ap.ask}`), 'the gate Ask did not resurface on its own');
+
+    // the approved pr uses it up; the next asks again while the view is visible:
+    // the card is drawn there, so nothing is announced, and it is still one item
+    run(main, 'fleet', 'pr', '1', '-f', 'demo');
+    const n1 = shown.length;
+    check(run(main, 'fleet', 'pr', '1', '-f', 'demo').status === 4, 'the next pr waits again');
+    const ap2 = json('fleet', 'approvals').approvals[0];
+    await until(() => R.find(`approval:${ap2.id}`) && R.find(`approval:${ap2.id}`).askId === ap2.ask, 'the new gate is registered');
+    await sleep(300);
+    check(!R.find(`ask:${ap2.ask}`), 'the new gate is one item');
+    check(shown.length === n1, `no notice for an in-view gate: ${JSON.stringify(shown.slice(n1))}`);
+
+    // an ACP permission in a hidden editor panel: announced, answered from the notice
+    const sess = { taskId: '2.1', panel: { visible: false } };
+    sess.chat = new AgentPanel((m) => api.askPost(sess, m));
+    decide = (m) => /Run the migration/.test(m) ? 'Allow' : undefined;
+    const n2 = shown.length;
+    const got = sess.chat.ask({ toolCall: { title: 'Run the migration' },
+        options: [{ optionId: 'allow', name: 'Allow' }, { optionId: 'deny', name: 'Reject' }] });
+    await until(() => shown.length > n2, 'the hidden card is announced');
+    check(shown[n2].level === 'warn' && /Agent asks \[2\.1\]: Run the migration/.test(shown[n2].m), JSON.stringify(shown[n2]));
+    check((await got).outcome.optionId === 'allow', 'the agent was answered from the notification');
+    check(!R.items().some((i) => i.source === 'acp'), 'and the card left the registry');
+    // a visible surface's card is registered, not announced; a cancelled turn settles it
+    sess.panel.visible = true;
+    const n3 = shown.length;
+    sess.chat.ask({ toolCall: { title: 'Visible card' }, options: [{ optionId: 'ok', name: 'OK' }] });
+    await sleep(300);
+    check(shown.length === n3 && R.items().some((i) => i.source === 'acp'), 'an in-view card is registered, not announced');
+    check(sess.chat.settle('cancelled with the turn') === 1 && !R.items().some((i) => i.source === 'acp'), 'settled cards leave');
+
+    // the blocking variable, answered in the input box
+    quick = (list, o) => o.placeHolder === 'Answer which Ask?' ? list.find((i) => /HF_SLICE/.test(i.label)) : undefined;
+    typed = () => '/etc/hf/slices.json';
+    await answerCmd();
+    await until(() => !R.find(`ask:${vAsk}`), 'the variable was answered');
+    check(json('ask', 'list', '--all').asks.find((a) => a.id === vAsk).answer === '/etc/hf/slices.json', 'cg recorded the variable');
+
+    // a secret: the input refuses a raw value, cg refuses it too, and the Ask stays
+    const sAsk = raise('secret', 'Railway token', '--task', 'demo/2.1');
+    await until(() => R.find(`ask:${sAsk}`), 'the secret is registered');
+    let secretOpts = null;
+    typed = (o) => { secretOpts = o; return undefined; };
+    await answerCmd(`ask:${sAsk}`);
+    check(secretOpts && secretOpts.validateInput('hunter2') && !secretOpts.validateInput('secret-ref:railway-1'), 'secrets only by reference');
+    check(!(await api.asks.settle(R.find(`ask:${sAsk}`), 'hunter2')), 'cg refuses a raw secret');
+    check(shown.some((s) => s.level === 'error' && /secret-ref/.test(s.m)) && R.find(`ask:${sAsk}`), 'the refusal is shown and the Ask stays');
+
+    // reconnect: an Ask raised while serve is down is there after it comes back
+    serveClient.proc.kill('SIGKILL');
+    const xAsk = raise('permission', 'Delete the orphan sandbox');
+    await until(() => serveClient.ready && R.find(`ask:${xAsk}`), 'after a reconnect the registry is current');
+    check(eventFans.length === 1, `listeners after a reconnect: ${eventFans.length}`);
+
+    // the decision is open but not blocking; settle everything and the count clears
+    check(R.find(`ask:${dAsk}`) && !R.find(`ask:${dAsk}`).blocking, 'proceed-and-flag stays open, not blocking');
+    for (const [key, a] of [[`ask:${dAsk}`, 's3'], [`ask:${sAsk}`, 'secret-ref:railway-1'], [`ask:${xAsk}`, 'reject'], [`approval:${ap2.id}`, 'reject']]) {
+        check(await api.asks.settle(R.find(key), a), `settle ${key}`);
+    }
+    await until(() => R.counts().open === 0, `all answered: ${R.items().map((i) => i.key)}`);
+    check(json('ask', 'list').asks.length === 0 && json('fleet', 'approvals').approvals.length === 0, 'cg agrees nothing is open');
+    check(!bar.visible && view.badge === undefined, 'the status bar and the badge clear at zero');
+    serveClient.dispose();
+    console.log('ask registry ok');
+    process.exit(0);
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "ask registry"
+
+    # every chat surface feeds the registry, and the one event listener
+    # carries both the cards and the registry
+    node - "$EXT" <<'JS'
+const fs = require('fs'), path = require('path');
+const acp = fs.readFileSync(path.join(process.argv[2], 'acp.js'), 'utf8');
+const check = (c, w) => { if (!c) throw new Error(w); };
+check(/new AgentPanel\(\(msg\) => \{ askRegistryPost\(sess, msg\); panelPost\(sess, msg\); \}\)/.test(acp), 'every session feeds the registry');
+check(/fleetEventsOff = deps\.events\.on\(\(e\) => \{\s*if \(askApi\) askApi\.registry\.applyEvent\(e\);/.test(acp), 'events reach the registry');
+check(/function watchFleetEvents\(\) \{[^}]*askApi\.reload\(\)/.test(acp), 'a (re)connect re-reads the registry');
+console.log('ask registry wiring ok');
+JS
+    [ $? -eq 0 ] || fail "ask registry wiring"
+fi
+
 echo "14_vscode ok ($section)"
