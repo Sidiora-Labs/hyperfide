@@ -218,7 +218,7 @@ owner = "client"
 
 [task.1.10]
 title = "Evaluate OpenHands as the console base"
-status = "pending"
+status = "done"
 wave = 1
 requires = []
 touches = ["docs/hyperfide/console-evaluation.md"]
