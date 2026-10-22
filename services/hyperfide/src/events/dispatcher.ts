@@ -6,7 +6,8 @@ import {createPrivateKey,randomUUID,sign} from 'node:crypto';
 import type {ComponentContext} from '../components/registry.js';
 import {canonicalOrigin,strictJSON,signingBytes,hash,MAX_BODY_BYTES} from '../transport/protocol.js';
 import {isIdentityAuthority} from '../identity/enrollment.js';
-import {fields,scope,uuid,name,bounded,integer,event,fail} from './outbox.js';
+import {fields,scope,uuid,name,bounded,integer,event,fail,addressedConsumerId} from './outbox.js';
+import {FINDING_CONSUMER_KEYS} from '../findings/registry.js';
 
 export interface Route {aggregate_type:string;event_type:string;component:string;action:string;input_mode:'DELIVERY'|'CLAIM'}
 /** Every finding.* event reaches the finding manager and operator consumers through the 6.2 inbox receipt. */
@@ -20,7 +21,7 @@ export function routeFor(routes:readonly Route[],aggregateType:string,eventType:
  const candidates=routes.filter(r=>r.aggregate_type===aggregateType);
  return candidates.find(r=>r.event_type===eventType)??candidates.find(r=>r.event_type.endsWith('.*')&&eventType.startsWith(r.event_type.slice(0,-1)));
 }
-interface WorkerConfig {organisation_id:string;run_id:string;credential_id:string;key_file:string;ca_file:string;
+export interface WorkerConfig {organisation_id:string;run_id:string;credential_id:string;key_file:string;ca_file:string;
  control_origin:string;consumer_ids:string[];routes:Route[];poll_ms:number;retry_ms:number;lease_ms:number;batch_size:number;request_timeout_ms:number;credential_ttl_seconds:number;credential_renewal_ms:number}
 export interface ContinuousDispatch {describe():Readonly<Record<string,unknown>>;close():Promise<void>}
 async function readOwned(file:string,secret:boolean,max:number):Promise<Buffer> {
@@ -36,6 +37,14 @@ async function readOwned(file:string,secret:boolean,max:number):Promise<Buffer> 
   return await handle.readFile();
  }finally {await handle?.close();}
 }
+const NAMED_CONSUMERS:readonly string[]=Object.values(FINDING_CONSUMER_KEYS);
+/** A consumer_ids entry is a UUID or the key of an addressed-only server consumer (finding:manager, finding:operator),
+ * resolved to its derived id for this run so a shipped template can name it before the run exists. */
+function consumerId(raw:unknown,s:{organisation_id:string;run_id:string}):string {
+ return typeof raw==='string'&&NAMED_CONSUMERS.includes(raw)?addressedConsumerId(s,raw):uuid(raw);
+}
+/** The standing worker's configuration check, exported so a shipped template can be validated without starting the worker. */
+export function dispatchConfiguration(value:unknown):WorkerConfig {return configuration(value);}
 function configuration(value:unknown):WorkerConfig {
  const v=fields(value,['organisation_id','run_id','credential_id','key_file','ca_file','control_origin','consumer_ids','routes',
   'poll_ms','retry_ms','lease_ms','batch_size','request_timeout_ms','credential_ttl_seconds','credential_renewal_ms']);
@@ -43,7 +52,7 @@ function configuration(value:unknown):WorkerConfig {
  if(typeof v.key_file!=='string'||typeof v.ca_file!=='string'||typeof v.control_origin!=='string'||
   !Array.isArray(v.consumer_ids)||!v.consumer_ids.length||v.consumer_ids.length>256||
   !Array.isArray(v.routes)||!v.routes.length||v.routes.length>64)fail('DISPATCH_CONFIG_INVALID','Bounded explicit subscriptions and handlers required');
- const consumers=v.consumer_ids.map(uuid);
+ const consumers=v.consumer_ids.map(raw=>consumerId(raw,s));
  if(new Set(consumers).size!==consumers.length)fail('DISPATCH_CONFIG_INVALID','Duplicate standing consumer');
  const routes=v.routes.map(raw=>{
   const r=fields(raw,['aggregate_type','event_type','component','action','input_mode']);
