@@ -275,7 +275,7 @@ owner = "providers"
 
 [task.2.2]
 title = "Railway ownership probe and 429 backoff"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/providers/railway/reconciliation.ts", "services/hyperfide/src/providers/railway/preparation.ts", "tests/hyperfide/cases/v21/2_2.py"]

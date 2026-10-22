@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 import {assertInvocation} from '../../transport/protocol.js';
 import {isCredentialAuthority,composeEnvironment,type CredentialAuthority} from '../../identity/credentials.js';
 import {isArtifactStoreCapability,assertCompleteArtifactReferences} from '../../artifacts/objects.js';
-import type {ProviderPersistenceHooks as RuntimeProviderPersistenceHooks,ProviderPreparationBinding,ProviderQuotaObserver,QuotaObservation} from '../pools.js';
+import type {ProviderPersistenceHooks as RuntimeProviderPersistenceHooks,ProviderPreparationBinding,ProviderQuotaObserver,ProviderOwnershipProbe,QuotaObservation} from '../pools.js';
 import { Sandbox, ExecControlUnsupportedError } from 'railway';
 import type { Component, ComponentContext } from '../../components/registry.js';
 import {
@@ -30,7 +30,7 @@ function info(value:unknown,client:RailwayClient):ProviderInfo {
 export async function inventoryPage(client:RailwayClient,s:ProviderScope,cursor:string|null,pageSize:number,
   signal?:AbortSignal):Promise<InventoryPage> {
   client.assertScope(s);if(cursor!==null)text(cursor);integer(pageSize,1,1000);
-  const data=await client.request<{sandboxes:{edges:Array<{node:unknown}>;pageInfo:{hasNextPage:boolean;endCursor:string|null}}}>(
+  const {data}=await client.readWithBackoff<{sandboxes:{edges:Array<{node:unknown}>;pageInfo:{hasNextPage:boolean;endCursor:string|null}}}>(
     inventoryQuery,{environmentId:s.environment_id,first:pageSize,after:cursor},signal);
   const connection=object(data.sandboxes),page=object(connection.pageInfo);
   if(!Array.isArray(connection.edges)||typeof page.hasNextPage!=='boolean')throw new RailwayRequestError('PROTOCOL');
@@ -250,7 +250,7 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
         case 'list':outcome=success(operation,null,{page:await inventoryPage(client,operation.scope,
           operation.parameters.cursor,operation.parameters.page_size,signal)});break;
         case 'observe':{
-          const data=await client.request<{sandbox:unknown}>(sandboxQuery,
+          const {data}=await client.readWithBackoff<{sandbox:unknown}>(sandboxQuery,
             {environmentId:operation.scope.environment_id,id:resource!.native_sandbox_id},signal);
           if(data.sandbox===null){outcome=success(operation,resource,{provider_state:'DESTROYED',health:'ABSENT'});break;}
           const row=info(data.sandbox,client);
@@ -325,7 +325,7 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
           outcome=success(operation,resource,await dependencies.transfer(operation,client,signal));break;
         }
         case 'lifetime':{
-          const data=await client.request<{sandbox:unknown}>(sandboxQuery,
+          const {data}=await client.readWithBackoff<{sandbox:unknown}>(sandboxQuery,
             {environmentId:operation.scope.environment_id,id:resource!.native_sandbox_id},signal);
           const row=info(data.sandbox,client);
           if(row.id!==resource!.native_sandbox_id)throw new Error('Railway lifetime resource mismatch');
@@ -357,8 +357,14 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
         if(error.code==='REJECTED'&&!mutationDispatched)outcome={...envelope(operation,resource),status:'FAILED',acceptance:'CONFIRMED_REJECTED',
           result:null,error:{code:'INVALID_REQUEST',provider_code:error.providerCode??error.code,
             message:'Railway request rejected',retry_after_ms:null},reconcile_required:false,retry:'NEVER'} as ProviderOutcome;
-        else if(outcome.status==='UNKNOWN')outcome.error={...outcome.error,
-          code:error.code==='PROTOCOL'?'PROTOCOL':error.code==='REJECTED'?'INVALID_REQUEST':'UNAVAILABLE',provider_code:error.providerCode??error.code};
+        else if(outcome.status==='UNKNOWN'){
+          const throttled=error.providerCode==='HTTP_429';
+          outcome.error={...outcome.error,
+            code:throttled?'RATE_LIMIT':error.code==='PROTOCOL'?'PROTOCOL':error.code==='REJECTED'?'INVALID_REQUEST':'UNAVAILABLE',
+            provider_code:error.providerCode??error.code,
+            message:'Railway outcome requires reconciliation after '+error.attempts+' attempt'+(error.attempts===1?'':'s'),
+            retry_after_ms:throttled?error.retryAfterMs:null};
+        }
       }else if(outcome.status==='UNKNOWN'&&error instanceof Error&&'code' in error&&
         typeof error.code==='string'&&/^[A-Z][A-Z0-9_]{0,127}$/.test(error.code)){
         outcome.error={...outcome.error,provider_code:error.code};
@@ -450,6 +456,37 @@ export function reconcileCreate(input:unknown):{decision:'ADOPT_CANDIDATE'|'QUAR
     return {decision:'QUARANTINE',candidate_id:null,retry_create:false,authority:'NONE'};
   if(verified.length===1)return {decision:'ADOPT_CANDIDATE',candidate_id:verified[0]!,retry_create:false,authority:'NONE'};
   return {decision:'NO_MATCH',candidate_id:null,retry_create:false,authority:'NONE'};
+}
+/** Ownership proof for a native id whose create reply was lost. SandboxInfo carries no labels, so the
+ * only provider-side marker is the HF_PROVISION_OPERATION_ID variable set at create; it is read with a
+ * fixed read-only command. Absence, a non-running sandbox or a different marker never match, and a
+ * match is adoption evidence only: authenticated enrollment still gates readiness (see create). */
+export const RAILWAY_OWNERSHIP_COMMAND='printenv HF_PROVISION_OPERATION_ID';
+const ownershipExec='mutation RailwayOwnershipProbe($environmentId:String!,$id:String!,$command:String!,$timeoutSec:Int){sandboxExec(environmentId:$environmentId,id:$id,command:$command,timeoutSec:$timeoutSec){exitCode stdout stderr truncated timedOut}}';
+export async function probeRailwayOwnership(client:RailwayClient,s:ProviderScope,operationId:string,nativeId:string,
+  signal?:AbortSignal):Promise<{matches:boolean;operation_id:string;native_sandbox_id:string;evidence_digest:string;
+    found:boolean;provider_state:ProviderState|null;attempts:number}> {
+  client.assertScope(s);text(operationId);text(nativeId);
+  const lookup=await client.readWithBackoff<{sandbox:unknown}>(sandboxQuery,{environmentId:s.environment_id,id:nativeId},signal);
+  let attempts=lookup.attempts,state:ProviderState|null=null,marker:'MATCH'|'MISMATCH'|'UNREADABLE'|'NOT_PROBED'='NOT_PROBED';
+  if(lookup.data.sandbox!==null){
+    const row=info(lookup.data.sandbox,client);
+    if(row.id!==nativeId)throw new Error('Railway ownership probe observed a different resource');
+    state=row.status;
+    if(row.status==='RUNNING'){
+      // printenv has no side effect, so this exec is as safe to repeat under backoff as a query.
+      const run=await client.readWithBackoff<{sandboxExec:unknown}>(ownershipExec,
+        {environmentId:s.environment_id,id:nativeId,command:RAILWAY_OWNERSHIP_COMMAND,timeoutSec:30},signal);
+      attempts+=run.attempts;
+      const r=object(run.data.sandboxExec);
+      marker=r.exitCode!==0||r.timedOut!==false||r.truncated!==false||typeof r.stdout!=='string'?'UNREADABLE':
+        r.stdout.replace(/\n$/,'')===operationId?'MATCH':'MISMATCH';
+    }
+  }
+  const observed_at=new Date().toISOString(),matches=marker==='MATCH';
+  return {matches,operation_id:operationId,native_sandbox_id:nativeId,found:state!==null,provider_state:state,attempts,
+    evidence_digest:hash({provider:'railway',scope:s,operation_id:operationId,native_sandbox_id:nativeId,observed_at,
+      provider_state:state,marker,attempts,matches})};
 }
 export function createComponent(context:ComponentContext):Component {
   const configured=context.env.HF_RAILWAY_CONFIG?configuredClient(context):undefined;
@@ -604,7 +641,8 @@ function installRailwayRuntime(context:ComponentContext):{close:()=>Promise<void
     registerProviderAdapter:RailwayRegistrar;
     registerArtifactReferenceReader:(reader:typeof assertCompleteArtifactReferences)=>()=>void;
     registerIsolationTransport:(provider:'railway',factory:(scope:ProviderScope)=>RailwayIsolationTransport)=>()=>void;
-    registerProviderQuotaObserver:(provider:'railway',observer:ProviderQuotaObserver)=>()=>void
+    registerProviderQuotaObserver:(provider:'railway',observer:ProviderQuotaObserver)=>()=>void;
+    registerProviderOwnershipProbe?:(provider:'railway',probe:ProviderOwnershipProbe)=>()=>void
   }=>!!v&&typeof v==='object'&&typeof (v as {registerProviderAdapter?:unknown}).registerProviderAdapter==='function'&&
     typeof (v as {registerIsolationTransport?:unknown}).registerIsolationTransport==='function'&&
     typeof (v as {registerArtifactReferenceReader?:unknown}).registerArtifactReferenceReader==='function'&&
@@ -624,6 +662,13 @@ function installRailwayRuntime(context:ComponentContext):{close:()=>Promise<void
     if(!policies.some(v=>sameScope(v.scope,s)))throw new Error('Railway quota pool policy unavailable');
     return observeRailwayQuota(client,s,signal);
   });}catch(error){unregisterIsolation();unregisterReader();void sessions.detachAll();throw error;}
+  let unregisterProbe:()=>void=()=>{};
+  try{if(typeof registrar.registerProviderOwnershipProbe==='function')
+    unregisterProbe=registrar.registerProviderOwnershipProbe('railway',(s,operationId,nativeId,signal)=>{
+      if(!policies.some(v=>sameScope(v.scope,s)))throw new Error('Railway ownership pool policy unavailable');
+      return probeRailwayOwnership(client,s,operationId,nativeId,signal);
+    });
+  }catch(error){unregisterQuota();unregisterIsolation();unregisterReader();void sessions.detachAll();throw error;}
   let unregister:()=>void;
   try{unregister=registerRailwayProvider(registrar.registerProviderAdapter,client,(s,hooks)=>{
     assertInvocation(hooks.invocation);
@@ -678,6 +723,6 @@ function installRailwayRuntime(context:ComponentContext):{close:()=>Promise<void
       }
     };
   });
-  }catch(error){unregisterQuota();unregisterIsolation();unregisterReader();void sessions.detachAll();throw error;}
-  return {policies,close:async()=>{unregister();unregisterQuota();unregisterIsolation();unregisterReader();await sessions.detachAll();}};
+  }catch(error){unregisterProbe();unregisterQuota();unregisterIsolation();unregisterReader();void sessions.detachAll();throw error;}
+  return {policies,close:async()=>{unregister();unregisterProbe();unregisterQuota();unregisterIsolation();unregisterReader();await sessions.detachAll();}};
 }
