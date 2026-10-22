@@ -828,10 +828,10 @@ owner = "runner"
 
 [task.4.3]
 title = "Launch prompt policy"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["3.5"]
-touches = ["src/hyperfide/connectors.c", "tests/integration/91_connector_flags.sh"]
+touches = ["README.md", "src/hyperfide/connectors.c", "tests/integration/91_connector_flags.sh"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/91_connector_flags.sh"
 do_1 = "Keep prompts disabled (dontAsk, permission-prompts none, approvalPolicy never) and inject the codify MCP server with the ask tools and the instruction rule into every launch; document why a blocked prompt in a sandbox is invisible."
 do_2 = "91_connector_flags.sh asserts the flags and the MCP injection for both connectors."
