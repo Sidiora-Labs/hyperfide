@@ -894,10 +894,10 @@ owner = "ask"
 
 [task.4.8]
 title = "The integrator merge queue"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["3.8"]
-touches = ["services/hyperfide/src/integration/candidates.ts", "services/hyperfide/src/integration/closure.ts", "services/hyperfide/src/integration/queue.ts", "tests/hyperfide/cases/v21/4_8.py"]
+touches = ["services/hyperfide/src/integration/candidates.ts", "services/hyperfide/src/integration/closure.ts", "services/hyperfide/src/integration/queue.ts", "services/hyperfide/components/19.1-queue.json", "deploy/hyperfide/policies/control.example.json", "tests/fixtures/route_contract/server_only.txt", "tests/hyperfide/cases/v21/4_8.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_8.py"
 do_1 = "Fold qualified result trees onto the internal trunk in touch-disjoint batches using tree-level three-way merge; requalify the batch once; bisect on failure; a merge conflict raises a decision Ask with both sides."
 do_2 = "4_8.py queues eight snapshots with two overlapping, asserts the batches, a bisected failure and the conflict Ask."
