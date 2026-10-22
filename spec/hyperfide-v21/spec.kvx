@@ -580,7 +580,7 @@ owner = "client"
 
 [task.3.8]
 title = "Snapshots as the unit of record"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["2.12"]
 touches = ["services/hyperfide/migrations", "services/hyperfide/src/assurance/submission.ts", "src/hyperfide/checkpoint.c", "tests/hyperfide/cases/v21/3_8.py"]
