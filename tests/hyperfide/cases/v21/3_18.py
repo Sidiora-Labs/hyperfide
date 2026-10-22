@@ -47,7 +47,9 @@ class Load:
         self.n, self.procs = n, []
 
     def __enter__(self):
-        self.procs = [subprocess.Popen([sys.executable, '-c', 'while True: pass']) for _ in range(self.n)]
+        # PR_SET_PDEATHSIG: a worker dies with this case, even when it is killed
+        spin = 'import ctypes\nctypes.CDLL(None).prctl(1, 9)\nwhile True: pass'
+        self.procs = [subprocess.Popen([sys.executable, '-c', spin]) for _ in range(self.n)]
         return self
 
     def __exit__(self, *exc):
@@ -139,6 +141,17 @@ def broken_inputs():
         mutate(ext / 'fleet.js', '    if (!model) return model;\n    const i = input || {};',
                '    if (!model) return model;\n    for (const end = Date.now() + 500; Date.now() < end;) { /* work */ }\n    const i = input || {};')
         broken('broken.decoration', top, '14_vscode.sh', 'start', 'decoration is instant')
+        (ext / 'fleet.js').write_text(pristine['fleet.js'])
+
+        # patches that make a round trip, or answer later, before the row is right
+        tasks_js = (ext / 'tasks.js').read_text()
+        mutate(ext / 'tasks.js', 'function patchRows(rows, feature, applied) {\n',
+               "function patchRows(rows, feature, applied) {\n    require('child_process').spawnSync('true');\n")
+        broken('broken.row-patch-round-trip', top, '14_vscode.sh', 'serve', 'the patch made a round trip')
+        (ext / 'tasks.js').write_text(tasks_js)
+        mutate(ext / 'fleet.js', 'function patchSessions(sessions, liveNative, now) {\n',
+               'function patchSessions(sessions, liveNative, now) {\n    return Promise.resolve(0);\n')
+        broken('broken.session-patch-async', top, '14_vscode.sh', 'fleet', 'the patch returned a promise')
         (ext / 'fleet.js').write_text(pristine['fleet.js'])
 
         # events that arrive with the server's next poll, not on the write
