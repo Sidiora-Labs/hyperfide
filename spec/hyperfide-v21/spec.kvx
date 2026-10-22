@@ -310,7 +310,7 @@ owner = "recovery"
 
 [task.2.5]
 title = "Local supervisor waits for Asks and escalates to the configured main"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = []
 touches = ["src/orchestrate.c", "src/fleet.c", "tests/integration/84_supervisor_wait.sh"]

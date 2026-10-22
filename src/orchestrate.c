@@ -2049,6 +2049,7 @@ typedef struct {
     long started, progress, checked, seen_seq, log_size;
     char tree_fp[65];
     int nudges;
+    long waiting;         /* since when it waits on a person; 0: it does not */
     char why[160];        /* why the supervisor ended it, when it did */
 } OrchFleetSlot;
 
@@ -2292,9 +2293,8 @@ typedef struct {
     /* escalations (4.2): a task out of retries goes to its manager (level
      * 1), then — after a manager wake that did not rescue it — to main and
      * is blocked (level 2) */
-    char esc_task[32][64];
-    int esc_level[32], nesc, n_unfinished, n_blocked;
-    int esc_wakes[32];
+    struct SupEsc { char task[64]; int level, wakes; } *esc;
+    int nesc, cap_esc, n_unfinished, n_blocked;
     long conflict_seq;    /* merge conflicts seen up to this event */
 } Sup;
 
@@ -2902,6 +2902,7 @@ static void sup_slot_begin(Cg *g, OrchFleetSlot *sl) {
     sl->log_size = 0;
     sl->tree_fp[0] = 0;
     sl->nudges = 0;
+    sl->waiting = 0;
     sl->why[0] = 0;
 }
 
@@ -3057,12 +3058,51 @@ static void supervisor_stall_check(Sup *s, OrchFleetSlot *sl, long now) {
     }
 }
 
+/* An attempt that waits on a person is not stalled and is not spending
+ * its wall budget (hyperfide-v21 req 2.4): a pending fleet approval on its
+ * task, or one the agent itself requested, holds it. */
+static bool sup_waiting(Sup *s, const OrchFleetSlot *sl) {
+    char subj[300];
+    snprintf(subj, sizeof subj, "%s/%s", s->feature, sl->n.task);
+    sqlite3_stmt *st = cg_prep(s->g,
+        "SELECT 1 FROM fleet_approvals WHERE state='pending' AND "
+        "(subject=?1 OR (requested_by IS NOT NULL AND requested_by=?2)) "
+        "LIMIT 1");
+    if (!st) return false;
+    sqlite3_bind_text(st, 1, subj, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 2, sl->n.agent, -1, SQLITE_TRANSIENT);
+    bool open = sqlite3_step(st) == SQLITE_ROW;
+    sqlite3_finalize(st);
+    /* TODO(hyperfide-v21 3.4): an open blocking Ask on this task, attempt
+     * or agent holds the attempt too; check the asks table here once 3.4
+     * generalises fleet_approvals into it. */
+    return open;
+}
+
 static void sup_supervise(Sup *s) {
     long now = wall_ms_now();
     for (int i = 0; i < s->nslots; i++) {
         OrchFleetSlot *sl = &s->slots[i];
         if (!sl->live || sl->why[0]) continue;
         if (!sl->started) sup_slot_begin(s->g, sl);   /* adopted */
+        if (sup_waiting(s, sl)) {
+            if (!sl->waiting) {
+                sl->waiting = now;
+                sup_note(s, "supervisor.wait", sl, "wait",
+                         "an approval is open", 0);
+            }
+            continue;
+        }
+        if (sl->waiting) {
+            /* the wait is given back: the wall budget resumes where it
+             * stopped and the stall window starts afresh */
+            sl->started += now - sl->waiting;
+            sl->progress = sl->checked = now;
+            sl->nudges = 0;
+            sup_note(s, "supervisor.wait", sl, "resume", "answered",
+                     (now - sl->waiting) / 1000);
+            sl->waiting = 0;
+        }
         if (supervisor_budget_check(s, sl, now)) continue;
         supervisor_stall_check(s, sl, now);
     }
@@ -3070,26 +3110,38 @@ static void sup_supervise(Sup *s) {
 
 static int sup_esc_find(Sup *s, const char *task) {
     for (int i = 0; i < s->nesc; i++)
-        if (strcmp(s->esc_task[i], task) == 0) return i;
+        if (strcmp(s->esc[i].task, task) == 0) return i;
     return -1;
+}
+
+/* the configured main agent: [role.main] agent of the workflow */
+static void sup_main_agent(Sup *s, char *out, size_t cap) {
+    Hierarchy h;
+    Kvx *wf = orch_hier(s->g->shared, &h);
+    hier_expand(&h, h.roles[FLEET_MAIN].agent, s->feature, -1, out, cap);
+    hier_free(&h);
+    kvx_free(wf);
 }
 
 static void supervisor_escalate(Sup *s, const char *task, int level,
                          const char *reason) {
     int k = sup_esc_find(s, task);
     if (k < 0) {
-        if (s->nesc >= 32) return;
+        if (s->nesc == s->cap_esc) {
+            s->cap_esc = s->cap_esc ? s->cap_esc * 2 : 32;
+            s->esc = xrealloc(s->esc, sizeof *s->esc * (size_t)s->cap_esc);
+        }
         k = s->nesc++;
-        snprintf(s->esc_task[k], sizeof s->esc_task[k], "%s", task);
+        snprintf(s->esc[k].task, sizeof s->esc[k].task, "%s", task);
     }
-    s->esc_level[k] = level;
-    s->esc_wakes[k] = s->wakes;
+    s->esc[k].level = level;
+    s->esc[k].wakes = s->wakes;
     /* the task goes to the manager of its own wave */
     long wave = orch_task_wave(s->g, s->feature, task);
     if (level == 1) sup_mgr(s, wave)->needed = true;
     char to[128];
     if (level == 1) sup_mgr_agent(s, wave, to, sizeof to);
-    else snprintf(to, sizeof to, "%s", "main");
+    else sup_main_agent(s, to, sizeof to);
     char subj[300];
     snprintf(subj, sizeof subj, "%s/%s", s->feature, task);
     StrBuf p; sb_init(&p);
@@ -3115,13 +3167,12 @@ static void supervisor_escalate(Sup *s, const char *task, int level,
         snprintf(msg, sizeof msg, "Task %s of %s is blocked: every attempt "
                  "failed and the feature manager did not rescue it (%s).",
                  task, s->feature, reason);
-        const char *main_agent = "gideon";
-        driver_steer(s->g, main_agent, msg);
+        driver_steer(s->g, to, msg);
         char body[700];
         snprintf(body, sizeof body, "blocked: %s — out of retries, escalated "
                  "to the feature manager and main (%s)", task, reason);
         memory_add(s->g, "outcome", subj, body, NULL, NULL, "auto");
-        printf("[fleet] %s blocked — escalated to main\n", task);
+        printf("[fleet] %s blocked — escalated to main (%s)\n", task, to);
     }
     fflush(stdout);
 }
@@ -3137,21 +3188,21 @@ static void supervisor_retry(Sup *s, const char *task, const char *why) {
 /* a manager wake came and went and the task is still not qualified */
 static void sup_escalations_check(Sup *s, const OrchTask *v, int n) {
     for (int k = 0; k < s->nesc; k++) {
-        if (s->esc_level[k] != 1) continue;
+        if (s->esc[k].level != 1) continue;
         long wave = -1;
         for (int i = 0; i < n; i++)
-            if (strcmp(v[i].id, s->esc_task[k]) == 0) wave = v[i].wave;
+            if (strcmp(v[i].id, s->esc[k].task) == 0) wave = v[i].wave;
         if (sup_mgr(s, wave)->live) continue;
-        if (s->wakes >= s->esc_wakes[k]) continue;     /* no wake since */
-        if (orch_finished_id(v, n, s->esc_task[k])) continue;
-        supervisor_escalate(s, s->esc_task[k], 2, "the manager did not rescue it");
+        if (s->wakes >= s->esc[k].wakes) continue;     /* no wake since */
+        if (orch_finished_id(v, n, s->esc[k].task)) continue;
+        supervisor_escalate(s, s->esc[k].task, 2, "the manager did not rescue it");
     }
     s->n_unfinished = s->n_blocked = 0;
     for (int i = 0; i < n; i++) {
         if (v[i].finished) continue;
         s->n_unfinished++;
         int k = sup_esc_find(s, v[i].id);
-        if (k >= 0 && s->esc_level[k] == 2) s->n_blocked++;
+        if (k >= 0 && s->esc[k].level == 2) s->n_blocked++;
     }
 }
 
@@ -3537,7 +3588,7 @@ static int supervisor_tick(Sup *s) {
         StrBuf r; sb_init(&r);
         sb_puts(&r, "blocked:");
         for (int k = 0; k < s->nesc; k++)
-            if (s->esc_level[k] == 2) sb_printf(&r, " %s", s->esc_task[k]);
+            if (s->esc[k].level == 2) sb_printf(&r, " %s", s->esc[k].task);
         printf("[fleet] %s cannot finish — %s\n", feature, r.p);
         fflush(stdout);
         s->rc = 1;
@@ -3890,6 +3941,9 @@ static void sup_close(Sup *s) {
     for (int i = 0; i < s->nmgrs; i++) driver_tap_free(&s->mgrs[i].tap);
     free(s->slots);
     s->slots = NULL;
+    free(s->esc);
+    s->esc = NULL;
+    s->nesc = s->cap_esc = 0;
 }
 
 /* ---------------- the main agent ---------------- */
@@ -3925,8 +3979,8 @@ static int orch_main_prompt(Cg *g, const FleetNode *n, Sup *sups, int nsup,
                   sups[i].mainbr, sups[i].run, sups[i].state[0] ?
                   sups[i].state : "running", sups[i].failures);
         for (int k = 0; k < sups[i].nesc; k++)
-            if (sups[i].esc_level[k] == 2)
-                sb_printf(&b, "  - blocked: %s\n", sups[i].esc_task[k]);
+            if (sups[i].esc[k].level == 2)
+                sb_printf(&b, "  - blocked: %s\n", sups[i].esc[k].task);
     }
     sqlite3_stmt *st = cg_prep(g, "SELECT id,gate,subject FROM fleet_approvals "
                                   "WHERE state='pending' ORDER BY id");
