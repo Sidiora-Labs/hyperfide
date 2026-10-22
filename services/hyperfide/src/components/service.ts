@@ -110,9 +110,18 @@ export async function runService(role: ServiceRole, args = process.argv.slice(2)
     const policy = validatePolicy(raw, config['--spec-revision']!, role);
     const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
     registry = new ComponentRegistry(Object.freeze({ role, policy, signal: controller.signal, env: Object.freeze({ ...process.env }) }));
-    await registry.load(config['--components'] ?? path.join(packageRoot, 'components'), config['--module-root'] ?? path.join(packageRoot, 'dist'));
     const mode=config['--mode']??'stdio';
     if(!['stdio','https','daemon'].includes(mode))throw new FoundationError('INVALID_ARGS','Mode must be stdio, https or daemon');
+    const componentDirectory=config['--components'] ?? path.join(packageRoot, 'components');
+    // stdio carries no credential, so it can never satisfy the 14.1 authorizer. Refusing here is deliberate:
+    // synthesising a loopback operator would hand full authority to anything that can write to stdin
+    // (tests/hyperfide/cases/tasks/15_2.py artifacts.auth.stdio-required holds that property).
+    await registry.load(componentDirectory, config['--module-root'] ?? path.join(packageRoot, 'dist'), loading => {
+      if(mode==='stdio'&&loading.has('14.1'))throw new FoundationError('TRANSPORT_CONFIG',
+        'stdio mode cannot serve the '+role+' role because its component registrations in '+componentDirectory+
+        ' load the identity component 14.1, which authenticates only signed HTTPS invocations; start with --mode https'+
+        ' (HF_IDENTITY_CONFIG_FILE, --tls-cert, --tls-key) or pass --components with a directory that does not register 14.1');
+    });
     // Provider actions are reachable only through an authenticated listener; a transportless provisioner is refused.
     if(role==='provisioner'&&mode==='daemon')throw new FoundationError('TRANSPORT_CONFIG','The provisioner requires the authenticated HTTPS transport');
     let identity;

@@ -340,10 +340,10 @@ owner = "findings"
 
 [task.2.7]
 title = "stdio mode with the identity component loaded"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = []
-touches = ["services/hyperfide/src/components/service.ts", "services/hyperfide/src/components/registry.ts", "tests/hyperfide/cases/v21/2_7.py"]
+touches = ["services/hyperfide/src/components/service.ts", "services/hyperfide/src/components/registry.ts", "tests/hyperfide/cases/v21/2_7.py", "tests/hyperfide/cases/tasks/15_2.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_7.py"
 do_1 = "In stdio mode synthesise a local operator invocation for the loopback principal, or refuse at start with a message that names the configuration; AUTH_REQUIRED on the default path is a bug."
 do_2 = "2_7.py starts the service in stdio mode with identity loaded and asserts a read action succeeds or the start refuses clearly."
