@@ -755,7 +755,8 @@ async function activate(ctx) {
         sharedRoot: serveSharedRoot,
     });
     // --- end fleet (5.3) ---
-    needsApi = needs.register(ctx, { cg, cgJson, workspaceRoot });
+    needsApi = needs.register(ctx, { cg, cgJson, workspaceRoot,
+        registry: acpApi.asks && acpApi.asks.registry });
 
     /* Language features are best-effort: a workspace with no .codegraph, or
      * no cg on PATH, still gets the spec tooling above. */
