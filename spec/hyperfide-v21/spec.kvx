@@ -854,7 +854,7 @@ owner = "runner"
 
 [task.4.4]
 title = "Answers reach the agent"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["3.4", "4.2"]
 touches = ["services/hyperfide/src/agents/supervision.ts", "services/hyperfide/src/events/instructions.ts", "src/drivers.c", "src/orchestrate.c", "tests/hyperfide/cases/v21/4_4.py", "tests/integration/92_answer_rewake.sh"]

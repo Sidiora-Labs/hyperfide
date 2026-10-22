@@ -1053,6 +1053,15 @@ long driver_steer(Cg *cg, const char *agent, const char *message);
 /* the messages not yet delivered to agent, as "- msg" lines, marked
  * delivered via `via`; NULL when there are none */
 char *driver_steer_take(Cg *cg, const char *agent, const char *via);
+/* file edits among the agent's agent.tool events after seq since, counted
+ * from its last visible Ask raise (*raised says whether one was seen);
+ * -1 when the event log cannot be read */
+long driver_block_edits(Cg *cg, const char *subject, const char *agent,
+                        long since, bool *raised);
+/* answered Asks of attempt not yet delivered, as "- Ask N" lines, marked
+ * delivered via `via` (an agent.answer.delivered event); NULL when none */
+char *driver_answers_take(Cg *cg, const char *attempt, const char *agent,
+                          const char *via);
 
 /* ---------------- event log (events.c) ---------------- */
 typedef struct {

@@ -11,6 +11,7 @@
   "actions": [
     "instructions.describe",
     "instructions.issue",
+    "instructions.answer.deliver",
     "instructions.accept",
     "instructions.handoff",
     "instructions.replay",
