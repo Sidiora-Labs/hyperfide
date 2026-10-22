@@ -16,19 +16,42 @@ printf 'verify_cmd = "true"\n' >> spec/jr/spec.kvx
 DB="$TMP/proj/.codegraph/graph.db"
 JDIR="$TMP/proj/.codegraph/journal"
 
-# hold_lock <seconds> — another process holds the WAL write lock, the way a
-# long index transaction in an editor's cg lsp would (same as 23_dblock.sh).
+# hold_lock - another process holds the WAL write lock, the way a long index
+# transaction in an editor's cg lsp would (same as 23_dblock.sh), until
+# release_lock. The window is the work done inside it, not a wall-clock guess:
+# a loaded host that takes 10 s over a dozen cg calls still runs all of them
+# under the lock. The holder gives up only after HOLD_CAP_S, and release_lock
+# then fails the suite, so a window that closed early never passes silently.
+HOLD_CAP_S=600
+HOLD_N=0
 hold_lock() {
-    python3 - "$DB" "$1" <<'PY' &
-import sqlite3, sys, time
-c = sqlite3.connect(sys.argv[1], isolation_level=None, timeout=30)
+    HOLD_N=$((HOLD_N + 1))
+    HOLD_GO="$TMP/hold.$HOLD_N.release"; HOLD_READY="$TMP/hold.$HOLD_N.held"
+    python3 - "$DB" "$HOLD_GO" "$HOLD_READY" "$HOLD_CAP_S" <<'PY' &
+import os, sqlite3, sys, time
+db, go, ready, cap = sys.argv[1], sys.argv[2], sys.argv[3], float(sys.argv[4])
+c = sqlite3.connect(db, isolation_level=None, timeout=30)
 c.execute("BEGIN IMMEDIATE")
 c.execute("UPDATE meta SET value=value WHERE key='schema_version'")
-print("held", flush=True)
-time.sleep(float(sys.argv[2]))
+open(ready, "w").close()
+end = time.monotonic() + cap
+while not os.path.exists(go) and time.monotonic() < end:
+    time.sleep(0.02)
+released = os.path.exists(go)
 c.execute("COMMIT")
+sys.exit(0 if released else 3)
 PY
-    sleep 0.5
+    HOLD_PID=$!
+    while [ ! -e "$HOLD_READY" ]; do
+        kill -0 "$HOLD_PID" 2>/dev/null || fail "the lock holder exited before it held the lock"
+        sleep 0.02
+    done
+}
+release_lock() {
+    : > "$HOLD_GO"
+    local rc=0
+    wait "$HOLD_PID" || rc=$?
+    [ "$rc" -eq 0 ] || fail "the lock window closed before the writes under it finished (holder exit $rc)"
 }
 
 sql() { python3 -c "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); print('\n'.join('|'.join('' if v is None else str(v) for v in r) for r in c.execute(sys.argv[2])))" "$DB" "$1"; }
@@ -38,7 +61,7 @@ export CG_BUSY_TIMEOUT_MS=200
 # 1. Under a four-second hold: remember exits 0 and says queued; --json says
 #    so too; recall lists the note marked queued; brief, state and check count
 #    it (check as a warning, exit 0); a claim still exits 75, not journaled.
-hold_lock 4
+hold_lock
 out="$("$CG" remember "journal keeps decisions" --type decision --task jr/1.1 \
        --symbols formatName --files src/a.c 2>&1)"
 has "$out" "queued"
@@ -71,7 +94,7 @@ has "$out" "not journaled"
 rc=0; out="$("$CG" journal apply --json 2>/dev/null)" || rc=$?
 [ "$rc" -eq 75 ] || fail "journal apply under a held lock should exit 75, got $rc"
 has "$out" '"busy":true'
-wait
+release_lock
 
 # 2. The first command after the hold applies the queue, in order, with the
 #    original fields; the journal directory is left empty.
@@ -132,14 +155,14 @@ has "$("$CG" journal drop --failed --json)" '"dropped":2'
 [ -z "$(ls "$JDIR/failed" 2>/dev/null)" ] || fail "drop --failed left files"
 
 # 5. drop <id> removes one pending record; drop --all clears the queue.
-hold_lock 4
+hold_lock
 "$CG" remember "dropped before it lands" >/dev/null 2>&1
 "$CG" remember "also dropped" >/dev/null 2>&1
 id="$("$CG" journal list --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["pending"][0]["id"])')"
 has "$("$CG" journal drop "$id" --json)" '"dropped":1'
 [ "$(pending)" = 1 ] || fail "drop <id> removed the wrong count"
 has "$("$CG" journal drop --all)" "dropped 1"
-wait
+release_lock
 "$CG" brief >/dev/null 2>&1
 [ "$(sql "SELECT COUNT(*) FROM memories WHERE body IN ('dropped before it lands','also dropped')")" = 0 ] \
     || fail "a dropped record was applied"
@@ -150,12 +173,12 @@ wait
 "$CG" spec mode parallel >/dev/null
 "$CG" spec claim 1.1 --agent alpha >/dev/null
 CG_AGENT=alpha "$CG" spec start 1.1 >/dev/null
-hold_lock 4
+hold_lock
 rc=0; out="$(CG_AGENT=alpha "$CG" spec done 1.1 --json 2>/dev/null)" || rc=$?
 [ "$rc" -eq 0 ] || fail "spec done exited $rc under a held lock after passing"
 has "$out" '"queued":true'
 has "$(cat spec/jr/spec.kvx)" 'status     = "done"'
-wait
+release_lock
 "$CG" journal apply >/dev/null
 [ "$(sql "SELECT COUNT(*) FROM leases")" = 0 ] || fail "lease not released by replay"
 [ "$(sql "SELECT state FROM attempts WHERE task='jr/1.1'")" = completed ] \
@@ -164,9 +187,9 @@ wait
     || fail "outcome memory not applied"
 
 # 7. Two processes replaying at once never apply a record twice.
-hold_lock 4
+hold_lock
 for i in 1 2 3 4 5 6; do "$CG" remember "race note $i" >/dev/null 2>&1; done
-wait
+release_lock
 "$CG" journal apply >/dev/null 2>&1 & "$CG" journal apply >/dev/null 2>&1 &
 "$CG" brief >/dev/null 2>&1
 wait
