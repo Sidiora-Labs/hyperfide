@@ -1153,7 +1153,7 @@ owner = "editor"
 
 [task.6.10]
 title = "Console base per the evaluation"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["1.10", "5.3"]
 touches = ["docs/hyperfide/console-evaluation.md", "console"]
