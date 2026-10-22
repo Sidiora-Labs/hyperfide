@@ -700,7 +700,7 @@ owner = "recovery"
 
 [task.3.17]
 title = "Finding readers registered and intake triage attributable"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["4.6", "3.12"]
 touches = ["services/hyperfide/src/findings/routing.ts", "services/hyperfide/src/findings/github.ts", "services/hyperfide/src/findings/remediation.ts", "services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/migrations/0714-intake-triage.sql", "deploy/hyperfide/policies/control.example.json", "tests/hyperfide/cases/v21/3_17.py", "services/hyperfide/components/18.2.json", "services/hyperfide/components/18.3.json", "services/hyperfide/components/18.4.json", "deploy/hyperfide/policies/dispatch.example.json", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/4_6.py"]
