@@ -604,6 +604,19 @@ do_3 = "Implement only this task in an isolated task worktree. Run real positive
 reqs = ["6.5"]
 owner = "source"
 
+[task.3.10]
+title = "Secret references reach the launched agent"
+status = "implemented"
+wave = 3
+requires = ["2.8", "2.17"]
+touches = ["services/hyperfide/src/events/instructions.ts", "services/hyperfide/src/runner/dispatch.ts", "src/hyperfide/launch.c", "src/hyperfide/job.c", "tests/hyperfide/cases/v21/3_10.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && make -j2 cg && python3 tests/hyperfide/cases/v21/3_10.py"
+do_1 = "The START instruction schema and runner/dispatch.ts carry the launch's declared env_refs (names and secret references, never values) so launch.c receives them from a coordinator-issued START, and job.c passes the resolved references into the job child's environment after clearenv() instead of stopping at the runner process."
+do_2 = "3_10.py proves a START with env_refs is admitted and reaches the launch, a START without them still works, values are never logged, a job child observes the resolved variable, and an undeclared reference is refused."
+do_3 = "80_qualification_inputs.sh asserts both directories are tracked with the expected counts, that no verify_cmd in spec/hyperfide/spec.kvx names an untracked file, and that each evidence ref resolves."
+reqs = ["2.5"]
+owner = "runner"
+
 [task.4.1]
 title = "Classifier writes Asks"
 status = "pending"

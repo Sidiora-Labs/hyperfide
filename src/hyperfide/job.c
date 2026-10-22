@@ -159,7 +159,59 @@ static int preparation_placement(const char *config){
   string_at(j,result,"tool",text,sizeof text)&&!strcmp(text,"native.spawn")&&string_at(j,result,"location",text,sizeof text)&&!strcmp(text,"REMOTE_EXECUTION");
  free(j);hf_http_response_free(&response);return ok;
 }
-int hf_runner_job_execute(const char *request,FILE *out){
+/* Task 3.10 (D17): plan.env_refs names the job's secret variables as NAME ->
+ * secret-ref:ID. The executor binds them to the provider exec, which resolves
+ * the values into this invocation's environment. They are captured before
+ * readiness clears this process's environment and set in the job child after
+ * its clearenv(); only names are ever checked or reported, never values. The
+ * name rules mirror env_name_ok and env_ref_ok in launch.c. */
+#define JOB_SECRETS 128
+#define JOB_SECRET_VALUE 65536
+typedef struct {int n;char name[JOB_SECRETS][129];char *value[JOB_SECRETS];} JobSecrets;
+static JobSecrets job_secrets;
+static void job_secrets_clear(JobSecrets *s){for(int k=0;k<s->n;++k)if(s->value[k]){explicit_bzero(s->value[k],strlen(s->value[k]));free(s->value[k]);s->value[k]=NULL;}s->n=0;}
+static int job_env_word(char ch,int first){return (ch>='A'&&ch<='Z')||(ch>='a'&&ch<='z')||ch=='_'||(!first&&ch>='0'&&ch<='9');}
+static int job_secret_name_ok(const char *s){
+ size_t n=strlen(s);if(!n||n>128)return 0;for(size_t k=0;k<n;++k)if(!job_env_word(s[k],k==0))return 0;
+ static const char *const reserved[]={"PATH","HOME","TMPDIR","CODEX_HOME","CLAUDE_CONFIG_DIR","SSL_CERT_FILE","NODE_EXTRA_CA_CERTS"};
+ for(unsigned k=0;k<sizeof reserved/sizeof *reserved;++k)if(!strcmp(s,reserved[k]))return 0;
+ return strncmp(s,"HF_",3)&&strncmp(s,"LD_",3)&&strncmp(s,"DYLD_",5);
+}
+static int job_secret_ref_ok(const char *s){
+ if(strncmp(s,"secret-ref:",11))return 0;
+ s+=11;size_t n=strlen(s);
+ if(!n||n>240||!((*s>='A'&&*s<='Z')||(*s>='a'&&*s<='z')||(*s>='0'&&*s<='9')))return 0;
+ for(size_t k=1;k<n;++k)if(!job_env_word(s[k],0)&&!strchr(".:/-",s[k]))return 0;
+ return 1;
+}
+typedef enum {JOB_SECRETS_OK=0,JOB_SECRETS_INVALID,JOB_SECRETS_UNAVAILABLE} JobSecretsStatus;
+/* An absent plan.env_refs means no secret variables. A name that is also an
+ * explicit plan.environment variable is invalid, as validatePlan refuses it. */
+static JobSecretsStatus job_secrets_capture(const HfJson *j,int plan,JobSecrets *s){
+ job_secrets_clear(s);int object=hf_json_field(j,plan,"env_refs");if(object<0)return JOB_SECRETS_OK;
+ if(j->tokens[object].type!='{'||j->tokens[object].count>2*JOB_SECRETS)return JOB_SECRETS_INVALID;
+ int explicit=hf_json_field(j,plan,"environment");
+ for(int key=object+1;key<j->tokens[object].next;key=j->tokens[key+1].next){char name[129],ref[512];
+  if(s->n>=JOB_SECRETS||!hf_json_string(j,key,name,sizeof name)||!job_secret_name_ok(name)||!hf_json_string(j,key+1,ref,sizeof ref)||!job_secret_ref_ok(ref))return JOB_SECRETS_INVALID;
+  for(int k=0;k<s->n;++k)if(!strcmp(s->name[k],name))return JOB_SECRETS_INVALID;
+  if(explicit>=0&&hf_json_field(j,explicit,name)>=0)return JOB_SECRETS_INVALID;
+  snprintf(s->name[s->n],sizeof s->name[0],"%s",name);s->value[s->n]=NULL;
+  const char *v=getenv(name);++s->n;
+  if(!v||!*v||strlen(v)>JOB_SECRET_VALUE||!(s->value[s->n-1]=strdup(v)))return JOB_SECRETS_UNAVAILABLE;
+ }
+ return JOB_SECRETS_OK;
+}
+/* The job child's whole environment: base variables, the plan's explicit
+ * environment, then the resolved secret variables. Runs in the child only. */
+static int job_child_environment(const char *home,const char *tmp,const EnvEntry *env,int env_count,const JobSecrets *secrets){
+ if(clearenv()||setenv("PATH","/usr/local/bin:/usr/bin:/bin",1)||setenv("HOME",home,1)||setenv("TMPDIR",tmp,1))return 0;
+ for(int k=0;k<env_count;++k)if(setenv(env[k].key,env[k].value,1))return 0;
+ for(int k=0;k<secrets->n;++k)if(!secrets->value[k]||setenv(secrets->name[k],secrets->value[k],1))return 0;
+ return 1;
+}
+static int job_execute(const char *request,FILE *out);
+int hf_runner_job_execute(const char *request,FILE *out){int rc=job_execute(request,out);job_secrets_clear(&job_secrets);return rc;}
+static int job_execute(const char *request,FILE *out){
  HfJson *input=malloc(sizeof *input),*job=malloc(sizeof *job);char config[4096],operation[37];const char *keys[]={"config_path","operation_id"};HfHttpResponse response={0};
  int ok=input&&job&&hf_json_parse(input,request)&&hf_json_only(input,0,keys,2)&&hf_json_get(input,"config_path",config,sizeof config)&&hf_json_get(input,"operation_id",operation,sizeof operation)&&hf_uuid_valid(operation)&&geteuid()==0;
  if(!ok){free(input);free(job);return hf_native_error(out,"UNTRUSTED_JOB_TOKEN");}free(input);long long request_started=mono();
@@ -173,6 +225,8 @@ int hf_runner_job_execute(const char *request,FILE *out){
  string_at(job,plan,"cwd",relative_cwd,sizeof relative_cwd)&&(!strcmp(relative_cwd,".")||relative(relative_cwd))&&string_at(job,plan,"executable_digest",expected_executable,sizeof expected_executable)&&strlen(expected_executable)==71&&string_at(job,plan,"environment_digest",expected_environment,sizeof expected_environment)&&strlen(expected_environment)==71;
  const char *tool=preparing?"runner.preparation.execute":!strcmp(kind,"TEST")?"runner.test.execute":!strcmp(kind,"REVIEW")?"runner.review.execute":!strcmp(kind,"INTEGRATION")?"runner.integration.execute":!strcmp(kind,"INDEX")?"runner.index.execute":!strcmp(kind,"BUILD")?"runner.build.execute":NULL;
  if(!ok||!tool||!(preparing?preparation_placement(config):hf_runner_job_placement(config,tool))){hf_http_response_free(&response);free(job);return hf_native_error(out,"JOB_SCOPE_OR_PLACEMENT_DENIED");}
+ {JobSecretsStatus secrets=job_secrets_capture(job,plan,&job_secrets);
+  if(secrets!=JOB_SECRETS_OK){hf_http_response_free(&response);free(job);return hf_native_error(out,secrets==JOB_SECRETS_INVALID?"SECRET_REFERENCES_INVALID":"SECRET_REFERENCE_UNAVAILABLE");}}
  /* Pause/drain/cancel/stop close admission durably before any new job may start on the slot UID. */
  if(hf_runner_admission_closed(state_dir,(uid_t)uid)){hf_http_response_free(&response);free(job);return hf_native_error(out,"JOB_ADMISSION_FENCED");}
  HfProcessIdentity owned[1024];size_t owned_count=0;MeasuredSource measured={0};
@@ -210,8 +264,7 @@ int hf_runner_job_execute(const char *request,FILE *out){
   if(read(gate[0],&release,1)!=1||release!='G')_exit(125);
   if(dup2(pipes_in[0],0)<0||dup2(pipes_out[1],1)<0||dup2(pipes_err[1],2)<0||fchdir(cwd))_exit(125);
   char home[4096],tmp[4096];if(!string_at(job,binding,"home_path",home,sizeof home)||!string_at(job,binding,"tmp_path",tmp,sizeof tmp))_exit(125);
-  if(clearenv()||setenv("PATH","/usr/local/bin:/usr/bin:/bin",1)||setenv("HOME",home,1)||setenv("TMPDIR",tmp,1))_exit(125);
-  for(int k=0;k<env_count;++k)if(setenv(env[k].key,env[k].value,1))_exit(125);
+  if(!job_child_environment(home,tmp,env,env_count,&job_secrets))_exit(125);
   if(setgroups(0,NULL)||setgid((gid_t)gid)||setuid((uid_t)uid)||prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0))_exit(125);
   struct rlimit process_limit={512,512},file_limit={512,512};if(setrlimit(RLIMIT_NPROC,&process_limit)||setrlimit(RLIMIT_NOFILE,&file_limit))_exit(125);
   umask(077);if(prctl(PR_SET_PDEATHSIG,SIGKILL)||getppid()!=parent)_exit(125);

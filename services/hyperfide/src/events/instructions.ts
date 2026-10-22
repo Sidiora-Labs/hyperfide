@@ -13,6 +13,21 @@ import type { Scope,OutboxEvent } from './outbox.js';
 import { receive } from './inbox.js';
 export { lookupNativeLaunch } from './outbox.js';
 
+/* Task 3.10 (D17): a START may name the launch's secret variables as NAME ->
+ * 'secret-ref:ID'. Only references travel; the provider resolves values into
+ * the native invocation and src/hyperfide/launch.c hands them to the agent.
+ * The rules mirror envReferenceShape in runner/bridge.ts and env_name_ok and
+ * env_ref_ok in launch.c, which must reject the same names. An empty map is
+ * refused so a START without references has exactly one encoding. */
+const START_ENV_NAME=/^[A-Za-z_][A-Za-z0-9_]{0,127}$/,START_SECRET_REF=/^secret-ref:[A-Za-z0-9][A-Za-z0-9._:/-]{0,239}$/;
+const START_RESERVED_ENV=new Set(['PATH','HOME','TMPDIR','CODEX_HOME','CLAUDE_CONFIG_DIR','SSL_CERT_FILE','NODE_EXTRA_CA_CERTS']);
+function startEnvReferences(value:unknown):void {
+  if(typeof value!=='object'||value===null||Array.isArray(value)||Object.keys(value).length<1||Object.keys(value).length>128)
+    fail('INSTRUCTION_INPUT_INVALID','START env_refs must be a non-empty bounded NAME to secret reference map');
+  for(const [name,ref] of Object.entries(value as Record<string,unknown>))
+    if(!START_ENV_NAME.test(name)||START_RESERVED_ENV.has(name)||/^(HF_|LD_|DYLD_)/.test(name)||typeof ref!=='string'||!START_SECRET_REF.test(ref))
+      fail('INSTRUCTION_INPUT_INVALID','START env_refs carry a valid variable name and a secret reference, never a value');
+}
 export interface Instruction extends Scope { id:string; attempt_id:string; attempt_generation:string;
   authority_epoch:string; sandbox_boot_generation:string; kind:'START'|'STEER'|'CANCEL'; body:Record<string,unknown> }
 export function instruction(value:unknown):Instruction {
@@ -20,12 +35,13 @@ export function instruction(value:unknown):Instruction {
   if(!['START','STEER','CANCEL'].includes(String(v.kind))||typeof v.body!=='object'||v.body===null||Array.isArray(v.body))
     fail('INSTRUCTION_INPUT_INVALID','Instruction needs a supported kind and JSON object body');
   const body=fields(v.body,v.kind==='START'?['launch_id','slot_id','agent_session_id','connector_plan_digest']:
-    v.kind==='STEER'?['launch_id','request_id','frame_b64']:['launch_id']);
+    v.kind==='STEER'?['launch_id','request_id','frame_b64']:['launch_id'],v.kind==='START'?['env_refs']:[]);
   uuid(body.launch_id);
   if(v.kind==='START') {
     uuid(body.slot_id);uuid(body.agent_session_id);
     if(typeof body.connector_plan_digest!=='string'||!/^sha256:[0-9a-f]{64}$/.test(body.connector_plan_digest))
       fail('INSTRUCTION_INPUT_INVALID','START requires an immutable connector plan digest');
+    if(body.env_refs!==undefined)startEnvReferences(body.env_refs);
   }
   if(v.kind==='STEER') {
     uuid(body.request_id);
