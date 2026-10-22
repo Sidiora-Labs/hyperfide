@@ -72,7 +72,13 @@ spec-import spec.projection.check
 11.1 *
 11.4 *
 11.4-provisioner *
-11.5 *
+# 11.5 preparation.slice.inspect is routed (`slice inspect`, task 2.13)
+11.5 preparation.slice.describe
+11.5 preparation.slice.derive
+11.5 preparation.slice.widen
+11.5 preparation.slice.materialize
+11.5 preparation.slice.run
+11.5 preparation.slice.release
 12.1 *
 12.2 *
 12.4 *

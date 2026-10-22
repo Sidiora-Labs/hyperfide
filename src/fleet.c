@@ -1586,6 +1586,477 @@ static void ev_long(StrBuf *b, const char *key, long v) {
     sb_printf(b, "%s\"%s\":%ld", b->len ? "," : "", key, v);
 }
 
+/* ---------------- slices: sparse worktrees (hyperfide-v21 2.13) ----------------
+ *
+ * The local fleet's half of req 6.1: a worker tree holds only its task's
+ * slice. The manifest has the shape preparation.slice.* (services/hyperfide,
+ * src/preparation/slices.ts) persists — mode, fallback_reason,
+ * included_paths, build_roots, metadata_roots — and comes either from the
+ * service (`hyperfide slice <id> --manifest FILE`, the output of the routed
+ * `slice inspect`) or, in local mode, from the task packet: its touches,
+ * the build files on their ancestor directories, and the feature's spec.
+ * A slice that cannot be stated is FULL_TREE with a recorded reason; it is
+ * never silently widened. */
+typedef struct {
+    char mode[16];        /* SLICE | FULL_TREE */
+    char reason[64];      /* FULL_TREE's recorded reason code */
+    char source[16];      /* PACKET | SERVICE */
+    char digest[80];
+    char **inc, **build, **meta;
+    int ninc, nbuild, nmeta;
+} SliceManifest;
+
+/* the build-root names slices.ts keeps beside a slice (BUILD_ROOT_NAMES) */
+static const char *const slice_build_names[] = {
+    "package.json", "package-lock.json", "npm-shrinkwrap.json",
+    "pnpm-lock.yaml", "pnpm-workspace.yaml", "yarn.lock", "tsconfig.json",
+    "go.mod", "go.sum", "go.work", "go.work.sum", "Cargo.toml", "Cargo.lock",
+    "CMakeLists.txt", "Makefile", "GNUmakefile", "makefile", "meson.build",
+    "configure.ac", "pyproject.toml", "setup.py", "setup.cfg",
+    "requirements.txt", "poetry.lock", "uv.lock", "Pipfile", "Pipfile.lock",
+    "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle",
+    "settings.gradle.kts", "gradle.properties", "Gemfile", "Gemfile.lock",
+    "BUILD", "BUILD.bazel", "WORKSPACE", "WORKSPACE.bazel", "MODULE.bazel",
+    ".bazelrc", ".bazelversion", NULL };
+
+static void slice_free(SliceManifest *m) {
+    free_list(m->inc, m->ninc);
+    free_list(m->build, m->nbuild);
+    free_list(m->meta, m->nmeta);
+    memset(m, 0, sizeof *m);
+}
+
+/* slicePath's rule: relative, normalised, no glob, control or .git segment;
+ * a trailing / names a directory */
+static bool slice_path_ok(const char *p) {
+    size_t n = strlen(p);
+    if (!n || n > 4096 || p[0] == '/') return false;
+    for (const char *q = p; *q; q++)
+        if ((unsigned char)*q < 32 || *q == 127 || *q == '\\' || *q == '*' ||
+            *q == '?' || *q == '[' || *q == ']')
+            return false;
+    const char *seg = p;
+    for (;;) {
+        const char *e = strchr(seg, '/');
+        size_t len = e ? (size_t)(e - seg) : strlen(seg);
+        if (!len) return e && !e[1] && seg != p;    /* only the trailing / */
+        if ((len == 1 && seg[0] == '.') || (len == 2 && !strncmp(seg, "..", 2)) ||
+            (len == 4 && !strncmp(seg, ".git", 4)))
+            return false;
+        if (!e || !e[1]) return true;
+        seg = e + 1;
+    }
+}
+
+static void slice_add(char ***v, int *n, const char *s) {
+    for (int i = 0; i < *n; i++) if (!strcmp((*v)[i], s)) return;
+    *v = xrealloc(*v, (size_t)(*n + 1) * sizeof **v);
+    (*v)[(*n)++] = xstrdup(s);
+}
+
+static int slice_cmp(const void *a, const void *b) {
+    return strcmp(*(char *const *)a, *(char *const *)b);
+}
+
+static void slice_list_json(StrBuf *b, const char *key, char **v, int n) {
+    sb_printf(b, ",\"%s\":[", key);
+    for (int i = 0; i < n; i++) {
+        if (i) sb_putc(b, ',');
+        sb_json_str(b, v[i]);
+    }
+    sb_putc(b, ']');
+}
+
+/* the manifest body; its sha256 is the digest of a packet-derived slice */
+static void slice_body(const SliceManifest *m, const char *feature,
+                       const char *id, const char *commit, StrBuf *b) {
+    sb_puts(b, "{\"schema_version\":1,\"kind\":\"hyperfide.workspace-slice\"");
+    sb_puts(b, ",\"task\":"); sb_json_str(b, id);
+    sb_puts(b, ",\"feature\":"); sb_json_str(b, feature);
+    sb_puts(b, ",\"commit\":"); json_str_or_null(b, commit);
+    sb_puts(b, ",\"source\":"); sb_json_str(b, m->source);
+    sb_puts(b, ",\"mode\":"); sb_json_str(b, m->mode);
+    sb_puts(b, ",\"fallback_reason\":"); json_str_or_null(b, m->reason);
+    slice_list_json(b, "included_paths", m->inc, m->ninc);
+    slice_list_json(b, "build_roots", m->build, m->nbuild);
+    slice_list_json(b, "metadata_roots", m->meta, m->nmeta);
+    sb_putc(b, '}');
+}
+
+static void slice_json(const SliceManifest *m, const char *feature,
+                       const char *id, const char *commit, StrBuf *b) {
+    StrBuf body; sb_init(&body);
+    slice_body(m, feature, id, commit, &body);
+    sb_printf(b, "%.*s,\"digest\":", (int)body.len - 1, body.p);
+    sb_json_str(b, m->digest);
+    sb_putc(b, '}');
+    sb_free(&body);
+}
+
+static void slice_fullfall(SliceManifest *m, const char *reason) {
+    snprintf(m->mode, sizeof m->mode, "FULL_TREE");
+    snprintf(m->reason, sizeof m->reason, "%s", reason);
+}
+
+/* is <rev>:<path> a directory in the base the worktree is cut from */
+static bool slice_is_tree(const char *tree, const char *rev, const char *path) {
+    StrBuf a; sb_init(&a);
+    StrBuf spec; sb_init(&spec);
+    sb_printf(&spec, "%s:%s", rev, path);
+    sb_puts(&a, "cat-file -t ");
+    sb_shquote(&a, spec.p);
+    sb_free(&spec);
+    StrBuf o; sb_init(&o);
+    bool dir = git_run(tree, a.p, &o) == 0 && o.p && !strncmp(o.p, "tree", 4);
+    sb_free(&a); sb_free(&o);
+    return dir;
+}
+
+/* build files tracked directly in <dir> ("" is the root) at <rev> */
+static void slice_build_roots(const char *tree, const char *rev,
+                              const char *dir, SliceManifest *m) {
+    StrBuf a; sb_init(&a);
+    StrBuf spec; sb_init(&spec);
+    sb_printf(&spec, "%s:%s", rev, dir);
+    sb_puts(&a, "ls-tree --name-only ");
+    sb_shquote(&a, spec.p);
+    sb_free(&spec);
+    StrBuf o; sb_init(&o);
+    if (git_run(tree, a.p, &o) == 0 && o.p) {
+        for (char *line = o.p; *line; ) {
+            char *e = strchr(line, '\n');
+            if (e) *e = 0;
+            for (int i = 0; slice_build_names[i]; i++)
+                if (!strcmp(line, slice_build_names[i])) {
+                    char path[4600];
+                    snprintf(path, sizeof path, "%s%s", dir, line);
+                    if (!slice_is_tree(tree, rev, path))
+                        slice_add(&m->build, &m->nbuild, path);
+                    break;
+                }
+            if (!e) break;
+            line = e + 1;
+        }
+    }
+    sb_free(&a); sb_free(&o);
+}
+
+/* the slice of [task.<id>] from the packet the spec holds: touches, the
+ * build roots on their ancestor directories, the feature's spec and the
+ * workflow; -1 with a message when a touch is not a slice path */
+static int slice_derive(const Lifecycle *c, const char *id, const char *rev,
+                        SliceManifest *m) {
+    memset(m, 0, sizeof *m);
+    snprintf(m->mode, sizeof m->mode, "SLICE");
+    snprintf(m->source, sizeof m->source, "PACKET");
+    Kvx *f = kvx_parse(c->specpath);
+    if (!f) {
+        fprintf(stderr, "hyperfide slice: cannot read %s\n", c->specpath);
+        return -1;
+    }
+    char sec[300];
+    snprintf(sec, sizeof sec, "task.%s", id);
+    char **touches = NULL;
+    int nt = kvx_raw(f, sec, "wave") ? kvx_list(f, sec, "touches", &touches) : -1;
+    kvx_free(f);
+    if (nt < 0) {
+        fprintf(stderr, "hyperfide slice: no [task.%s] in %s\n", id, c->specpath);
+        return -1;
+    }
+    if (nt == 0) slice_fullfall(m, "TASK_HAS_NO_TOUCHES");
+    for (int i = 0; i < nt && !m->reason[0]; i++) {
+        const char *t = touches[i];
+        if (strpbrk(t, "*?[]")) { slice_fullfall(m, "OWNED_SCOPE_PATTERN_UNSUPPORTED"); break; }
+        if (!slice_path_ok(t)) {
+            fprintf(stderr, "hyperfide slice: [task.%s] touches %s, which is not "
+                            "a repository-relative path\n", id, t);
+            free_list(touches, nt);
+            slice_free(m);
+            return -1;
+        }
+        char plain[4600];
+        snprintf(plain, sizeof plain, "%s", t);
+        size_t len = strlen(plain);
+        if (len && plain[len - 1] == '/') plain[--len] = 0;
+        char entry[4700];
+        snprintf(entry, sizeof entry, "%s%s", plain,
+                 t[strlen(t) - 1] == '/' || slice_is_tree(c->tree, rev, plain) ? "/" : "");
+        slice_add(&m->inc, &m->ninc, entry);
+        /* every ancestor directory, the root first, may hold a build root */
+        slice_build_roots(c->tree, rev, "", m);
+        for (char *s = strchr(plain, '/'); s; s = strchr(s + 1, '/')) {
+            char dir[4700];
+            snprintf(dir, sizeof dir, "%.*s/", (int)(s - plain), plain);
+            slice_build_roots(c->tree, rev, dir, m);
+        }
+    }
+    free_list(touches, nt);
+    if (m->reason[0]) {                /* a fallback states no paths at all */
+        free_list(m->inc, m->ninc); m->inc = NULL; m->ninc = 0;
+        free_list(m->build, m->nbuild); m->build = NULL; m->nbuild = 0;
+    } else {
+        char meta[4700];
+        snprintf(meta, sizeof meta, "%s/%s/", config_spec_rel(c->tree), c->feature);
+        slice_add(&m->meta, &m->nmeta, meta);
+        size_t tl = strlen(c->tree);
+        if (!strncmp(c->wfpath, c->tree, tl) && c->wfpath[tl] == '/')
+            slice_add(&m->meta, &m->nmeta, c->wfpath + tl + 1);
+    }
+    if (m->ninc) qsort(m->inc, (size_t)m->ninc, sizeof *m->inc, slice_cmp);
+    if (m->nbuild) qsort(m->build, (size_t)m->nbuild, sizeof *m->build, slice_cmp);
+    if (m->nmeta) qsort(m->meta, (size_t)m->nmeta, sizeof *m->meta, slice_cmp);
+    StrBuf body; sb_init(&body);
+    slice_body(m, c->feature, id, rev, &body);
+    char hex[65];
+    sha256_hex(body.p, body.len, hex);
+    snprintf(m->digest, sizeof m->digest, "sha256:%s", hex);
+    sb_free(&body);
+    return 0;
+}
+
+static bool slice_code_ok(const char *s) {
+    size_t n = strlen(s);
+    if (n < 3 || n > 64 || s[0] < 'A' || s[0] > 'Z') return false;
+    for (const char *p = s; *p; p++)
+        if (!((*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '_'))
+            return false;
+    return true;
+}
+
+static int slice_read_list(const char *obj, const char *key, char ***v, int *n) {
+    char *raw = json_get_raw(obj, key);
+    if (!raw) return -1;
+    char **items = NULL;
+    int k = json_array_items(raw, &items);
+    int bad = raw[0] != '[';
+    free(raw);
+    for (int i = 0; i < k; i++) {
+        char *s = json_string_value(items[i]);
+        if (!s || !slice_path_ok(s)) bad = 1;
+        else slice_add(v, n, s);
+        free(s);
+    }
+    free_list(items, k);
+    return bad ? -1 : 0;
+}
+
+/* a service manifest: bare, {"manifest":...}, or an inspect response
+ * {"result":{"manifest":...}}; its own digest is kept, not recomputed */
+static int slice_load(const char *file, SliceManifest *m) {
+    memset(m, 0, sizeof *m);
+    size_t len = 0;
+    char *text = read_entire_file(file, &len);
+    if (!text) {
+        fprintf(stderr, "hyperfide slice: cannot read %s\n", file);
+        return -1;
+    }
+    char *obj = text, *result = json_get_object(text, "result");
+    if (result) obj = result;
+    char *inner = json_get_object(obj, "manifest");
+    if (inner) obj = inner;
+    char *kind = json_get_string(obj, "kind"), *mode = json_get_string(obj, "mode");
+    char *reason = json_get_string(obj, "fallback_reason");
+    char *digest = json_get_string(obj, "digest");
+    const char *why = NULL;
+    if (!kind || strcmp(kind, "hyperfide.workspace-slice"))
+        why = "is not a hyperfide.workspace-slice manifest";
+    else if (!mode || (strcmp(mode, "SLICE") && strcmp(mode, "FULL_TREE")))
+        why = "has no SLICE or FULL_TREE mode";
+    else if (!strcmp(mode, "FULL_TREE") != (reason && reason[0]))
+        why = "pairs its mode and fallback_reason wrongly (FULL_TREE needs one, SLICE none)";
+    else if (reason && !slice_code_ok(reason))
+        why = "records a fallback_reason that is not an upper-case code";
+    else if (!digest || strncmp(digest, "sha256:", 7) || strlen(digest) != 71)
+        why = "carries no sha256 digest";
+    else if (slice_read_list(obj, "included_paths", &m->inc, &m->ninc) ||
+             slice_read_list(obj, "build_roots", &m->build, &m->nbuild) ||
+             slice_read_list(obj, "metadata_roots", &m->meta, &m->nmeta))
+        why = "lists a path that is not repository-relative";
+    else if (!strcmp(mode, "SLICE") && !m->ninc)
+        why = "is a SLICE with no included paths";
+    if (!why) {
+        snprintf(m->mode, sizeof m->mode, "%s", mode);
+        snprintf(m->reason, sizeof m->reason, "%s", reason ? reason : "");
+        snprintf(m->source, sizeof m->source, "SERVICE");
+        snprintf(m->digest, sizeof m->digest, "%s", digest);
+    } else {
+        fprintf(stderr, "hyperfide slice: %s %s\n", file, why);
+        slice_free(m);
+    }
+    free(kind); free(mode); free(reason); free(digest);
+    free(inner); free(result); free(text);
+    return why ? -1 : 0;
+}
+
+/* where a task's manifest is kept on the shared tree */
+static void slice_store_path(const Lifecycle *c, const char *id, char *out,
+                             size_t cap) {
+    snprintf(out, cap, "%s/%s/slices/%s/%s.json", c->tree, CG_DIR, c->feature, id);
+}
+
+static int slice_store(const Lifecycle *c, const char *id, const char *rev,
+                       const SliceManifest *m) {
+    char path[4800], dir[4800];
+    slice_store_path(c, id, path, sizeof path);
+    snprintf(dir, sizeof dir, "%s", path);
+    char *sl = strrchr(dir, '/');
+    if (sl) { *sl = 0; mkdirs(dir); }
+    StrBuf b; sb_init(&b);
+    slice_json(m, c->feature, id, rev, &b);
+    sb_putc(&b, '\n');
+    int rc = write_entire_file(path, b.p, b.len);
+    sb_free(&b);
+    return rc;
+}
+
+/* the manifest a worker tree is cut from: the stored one when `slice` ran
+ * (a service manifest there wins), else derived from the packet now */
+static int slice_for_task(const Lifecycle *c, const char *id, const char *rev,
+                          SliceManifest *m) {
+    char path[4800];
+    slice_store_path(c, id, path, sizeof path);
+    if (access(path, F_OK) == 0) {
+        char *src = NULL;
+        size_t len = 0;
+        char *text = read_entire_file(path, &len);
+        if (text) src = json_get_string(text, "source");
+        free(text);
+        bool service = src && !strcmp(src, "SERVICE");
+        free(src);
+        if (service) return slice_load(path, m);
+    }
+    if (slice_derive(c, id, rev, m) != 0) return -1;
+    slice_store(c, id, rev, m);
+    return 0;
+}
+
+/* `git worktree add --no-checkout`, then the no-cone sparse patterns of the
+ * manifest, then the index and files for exactly those paths. The pattern
+ * set lives in the worktree's own config, so the main tree stays full. A
+ * failure removes the half-made worktree so a retry starts clean. */
+static int slice_worktree_add(const char *tree, const char *path,
+                              const char *branch, const char *base,
+                              const SliceManifest *m, bool *created,
+                              bool *branch_created, StrBuf *err) {
+    *created = false;
+    *branch_created = false;
+    char probe[4900];
+    struct stat st;
+    snprintf(probe, sizeof probe, "%s/.git", path);
+    if (stat(probe, &st) == 0) return 0;             /* reused as it is */
+    git_run(tree, "worktree prune", NULL);
+    bool have = git_branch_exists(tree, branch);
+    StrBuf a; sb_init(&a);
+    sb_puts(&a, "worktree add --no-checkout ");
+    if (!have) { sb_puts(&a, "-b "); sb_shquote(&a, branch); sb_putc(&a, ' '); }
+    sb_shquote(&a, path);
+    sb_putc(&a, ' ');
+    sb_shquote(&a, have ? branch : base);
+    int rc = git_run(tree, a.p, err);
+    sb_free(&a);
+    if (rc != 0) return -1;
+    *branch_created = !have;
+    sb_init(&a);
+    sb_puts(&a, "sparse-checkout set --no-cone");
+    char **lists[3] = { m->inc, m->build, m->meta };
+    int counts[3] = { m->ninc, m->nbuild, m->nmeta };
+    for (int l = 0; l < 3; l++)
+        for (int i = 0; i < counts[l]; i++) {
+            char pat[4700];
+            snprintf(pat, sizeof pat, "/%s", lists[l][i]);
+            sb_putc(&a, ' ');
+            sb_shquote(&a, pat);
+        }
+    rc = git_run(path, a.p, err);
+    sb_free(&a);
+    if (rc == 0) rc = git_run(path, "read-tree -mu HEAD", err);
+    if (rc != 0) {
+        StrBuf r; sb_init(&r);
+        sb_puts(&r, "worktree remove --force ");
+        sb_shquote(&r, path);
+        git_run(tree, r.p, NULL);
+        sb_free(&r);
+        return -1;
+    }
+    *created = true;
+    return 0;
+}
+
+/* `begin`'s workspace choice: --sparse / --full-tree <REASON> on the
+ * command line, else [hierarchy] sparse = "slice" | "off" (off by default
+ * until the fleet's out-of-slice write path exists locally) */
+static int g_begin_sparse = -1;                  /* -1: the workflow decides */
+static char g_begin_full_reason[64];
+
+static void fleet_begin_workspace(int sparse, const char *full_tree_reason) {
+    g_begin_sparse = sparse;
+    snprintf(g_begin_full_reason, sizeof g_begin_full_reason, "%s",
+             full_tree_reason ? full_tree_reason : "");
+}
+
+/* cg slice <task> [-f F] [--manifest FILE]: the slice manifest a worker of
+ * the task gets, stored where `fleet begin` cuts the sparse worktree from */
+int cmd_slice(Cg *cg, int argc, char **argv, bool json) {
+    const char *feature = NULL, *manifest = NULL, *id = NULL;
+    for (int i = 2; i < argc; i++) {
+        if (!strcmp(argv[i], "-f") && i + 1 < argc) feature = argv[++i];
+        else if (!strcmp(argv[i], "--manifest") && i + 1 < argc) manifest = argv[++i];
+        else if (argv[i][0] != '-' && !id) id = argv[i];
+        else { id = NULL; break; }
+    }
+    if (!id) {
+        help_usage("slice");
+        return 1;
+    }
+    Lifecycle c;
+    if (lifecycle_open(cg, feature, &c) != 0) return 1;
+    long wave = 0;
+    char status[64];
+    if (!task_wave_status(c.specpath, id, &wave, status, sizeof status)) {
+        fprintf(stderr, "hyperfide slice: no [task.%s] with a wave in %s\n", id,
+                c.specpath);
+        lifecycle_close(&c);
+        return 1;
+    }
+    char rev[65] = "";                /* worker trees are cut from main */
+    StrBuf a; sb_init(&a);
+    StrBuf o; sb_init(&o);
+    sb_puts(&a, "rev-parse --verify --quiet ");
+    sb_shquote(&a, c.h.main_branch);
+    if (git_run(c.tree, a.p, &o) == 0 && o.p && strlen(o.p) >= 40)
+        snprintf(rev, sizeof rev, "%.*s", (int)strcspn(o.p, "\n"), o.p);
+    sb_free(&a); sb_free(&o);
+    SliceManifest m;
+    int rc = manifest ? slice_load(manifest, &m) : slice_derive(&c, id, rev, &m);
+    if (rc != 0) { lifecycle_close(&c); return 1; }
+    if (slice_store(&c, id, rev, &m) != 0) {
+        fprintf(stderr, "hyperfide slice: cannot store the manifest for %s\n", id);
+        slice_free(&m); lifecycle_close(&c);
+        return 1;
+    }
+    StrBuf b; sb_init(&b);
+    if (json) {
+        slice_json(&m, c.feature, id, rev, &b);
+        sb_putc(&b, '\n');
+    } else {
+        char path[4800];
+        slice_store_path(&c, id, path, sizeof path);
+        sb_printf(&b, "slice %s/%s — %s from the %s, %s\n", c.feature, id, m.mode,
+                  !strcmp(m.source, "SERVICE") ? "service" : "task packet",
+                  m.digest);
+        if (m.reason[0]) sb_printf(&b, "  full tree: %s\n", m.reason);
+        for (int i = 0; i < m.ninc; i++) sb_printf(&b, "  path   %s\n", m.inc[i]);
+        for (int i = 0; i < m.nbuild; i++) sb_printf(&b, "  build  %s\n", m.build[i]);
+        for (int i = 0; i < m.nmeta; i++) sb_printf(&b, "  spec   %s\n", m.meta[i]);
+        sb_printf(&b, "stored: %s\n", path);
+    }
+    fputs(b.p, stdout);
+    sb_free(&b);
+    slice_free(&m);
+    lifecycle_close(&c);
+    return 0;
+}
+
 /* cg fleet begin <id>: the worker's branch and worktree, then its claim.
  * Idempotent — a second begin reuses both and renews the claim, so a
  * manager can hand the same task to a replacement worker. */
@@ -1637,16 +2108,59 @@ int fleet_worker_begin_ex(Cg *cg, const char *id, const char *feature_ov,
     char *slash = strrchr(wtroot, '/');
     if (slash) { *slash = 0; mkdirs(wtroot); }
     bool wt_created = false, br_created = false;
-    if (git_worktree_add(c.tree, path, branch, base, &wt_created, &br_created,
-                         &err) != 0) {
+    /* the workspace: a sparse slice, or the full tree with its reason */
+    char *conf = kvx_str(c.wf, "hierarchy", "sparse");
+    bool sparse = g_begin_sparse >= 0 ? g_begin_sparse == 1
+                                      : conf && !strcmp(conf, "slice");
+    free(conf);
+    char ws_reason[64];
+    snprintf(ws_reason, sizeof ws_reason, "%s",
+             g_begin_full_reason[0] ? g_begin_full_reason
+                                    : sparse ? "" : "SPARSE_NOT_REQUESTED");
+    SliceManifest sm;
+    memset(&sm, 0, sizeof sm);
+    struct stat wst;
+    char wprobe[4900];
+    snprintf(wprobe, sizeof wprobe, "%s/.git", path);
+    bool reuse = stat(wprobe, &wst) == 0;
+    if (sparse && !reuse) {
+        char rev[65] = "";
+        StrBuf ra; sb_init(&ra);
+        StrBuf ro; sb_init(&ro);
+        sb_puts(&ra, "rev-parse --verify --quiet ");
+        sb_shquote(&ra, git_branch_exists(c.tree, branch) ? branch : base);
+        if (git_run(c.tree, ra.p, &ro) == 0 && ro.p && strlen(ro.p) >= 40)
+            snprintf(rev, sizeof rev, "%.*s", (int)strcspn(ro.p, "\n"), ro.p);
+        sb_free(&ra); sb_free(&ro);
+        if (slice_for_task(&c, id, rev, &sm) != 0) {
+            fprintf(stderr, "hyperfide fleet: no slice manifest for %s — fix it, or "
+                            "begin with --full-tree <REASON>\n", id);
+            sb_free(&err); lifecycle_close(&c);
+            return 1;
+        }
+        if (!strcmp(sm.mode, "FULL_TREE")) {
+            snprintf(ws_reason, sizeof ws_reason, "%s", sm.reason);
+            sparse = false;
+        }
+    } else if (reuse) sparse = false;
+    int wrc = sparse
+        ? slice_worktree_add(c.tree, path, branch, base, &sm, &wt_created,
+                             &br_created, &err)
+        : git_worktree_add(c.tree, path, branch, base, &wt_created, &br_created,
+                           &err);
+    if (wrc != 0) {
         char ex[300];
         excerpt(&err, ex, sizeof ex);
-        fprintf(stderr, "hyperfide fleet: cannot add worktree %s for %s: %s\n", path,
-                branch, ex);
-        sb_free(&err); lifecycle_close(&c);
+        fprintf(stderr, "hyperfide fleet: cannot add %sworktree %s for %s: %s\n",
+                sparse ? "the sparse " : "", path, branch, ex);
+        sb_free(&err); slice_free(&sm); lifecycle_close(&c);
         return 1;
     }
     sb_free(&err);
+    char ws_mode[16];
+    snprintf(ws_mode, sizeof ws_mode, "%s",
+             reuse ? "REUSED" : sparse ? "SLICE" : "FULL_TREE");
+    if (reuse) ws_reason[0] = 0;
     char head_branch[256], head[65];
     if (!git_head(path, head_branch, sizeof head_branch, head, sizeof head))
         head[0] = 0;
@@ -1666,7 +2180,7 @@ int fleet_worker_begin_ex(Cg *cg, const char *id, const char *feature_ov,
     if (spec_claim_ex(cg, c.tree, c.feature, id, agent, ttl, ahead, &at) != 0) {
         fprintf(stderr, "hyperfide fleet: %s was not claimed — %s and %s stay for "
                         "a retry\n", id, branch, path);
-        lifecycle_close(&c);
+        slice_free(&sm); lifecycle_close(&c);
         return 1;
     }
     char tag[300];
@@ -1690,6 +2204,12 @@ int fleet_worker_begin_ex(Cg *cg, const char *id, const char *feature_ov,
         sb_printf(&b, ",\"worktree_created\":%s,\"head\":",
                   wt_created ? "true" : "false");
         json_str_or_null(&b, head);
+        sb_puts(&b, ",\"workspace\":{\"mode\":"); sb_json_str(&b, ws_mode);
+        sb_puts(&b, ",\"fallback_reason\":"); json_str_or_null(&b, ws_reason);
+        sb_puts(&b, ",\"slice_digest\":");
+        json_str_or_null(&b, !strcmp(ws_mode, "SLICE") ? sm.digest : NULL);
+        sb_printf(&b, ",\"paths\":%d}", !strcmp(ws_mode, "SLICE")
+                  ? sm.ninc + sm.nbuild + sm.nmeta : 0);
         sb_puts(&b, ",\"attempt\":{\"attempt_id\":");
         sb_json_str(&b, at.attempt_id);
         sb_printf(&b, ",\"fence\":%ld,\"expires_in_min\":%ld}", at.fence, ttl);
@@ -1707,6 +2227,11 @@ int fleet_worker_begin_ex(Cg *cg, const char *id, const char *feature_ov,
         sb_putc(&b, '\n');
         sb_printf(&b, "  worktree: %s (%s)\n", path,
                   wt_created ? "created" : "reused");
+        if (!strcmp(ws_mode, "SLICE"))
+            sb_printf(&b, "  slice:    %d path(s), sparse, %.19s\n",
+                      sm.ninc + sm.nbuild + sm.nmeta, sm.digest);
+        else if (!strcmp(ws_mode, "FULL_TREE"))
+            sb_printf(&b, "  slice:    full tree (%s)\n", ws_reason);
         sb_printf(&b, "  claim:    attempt %.12s, fence %ld, %ld min\n",
                   at.attempt_id, at.fence, ttl);
         sb_printf(&b, "next: cd %s && HYPERFIDE_AGENT=%s HYPERFIDE_ROLE=worker HYPERFIDE_PARENT=%s "
@@ -1724,8 +2249,12 @@ int fleet_worker_begin_ex(Cg *cg, const char *id, const char *feature_ov,
         ev_str(&e, "parent", parent); ev_str(&e, "branch", branch);
         ev_str(&e, "base", base); ev_str(&e, "worktree", path);
         ev_str(&e, "attempt", at.attempt_id); ev_long(&e, "fence", at.fence);
+        ev_str(&e, "workspace", ws_mode);
+        ev_str(&e, "fallback_reason", ws_reason[0] ? ws_reason : NULL);
+        ev_str(&e, "slice_digest", !strcmp(ws_mode, "SLICE") ? sm.digest : NULL);
         fleet_event(cg, "fleet.begin", subj, &e);
     }
+    slice_free(&sm);
     lifecycle_close(&c);
     return 0;
 }
@@ -3189,9 +3718,14 @@ int cmd_fleet(Cg *cg, int argc, char **argv, bool json) {
     const char *sub = argc >= 3 ? argv[2] : "status";
     const char *feature = NULL, *agent = NULL, *pos = NULL;
     bool force = false, keep = false, no_pr = false, dry = false;
+    bool sparse_flag = false;
+    const char *full_reason = NULL;
     for (int i = 3; i < argc; i++) {
         if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) feature = argv[++i];
         else if (strcmp(argv[i], "--agent") == 0 && i + 1 < argc) agent = argv[++i];
+        else if (strcmp(argv[i], "--full-tree") == 0 && i + 1 < argc)
+            full_reason = argv[++i];               /* begin: recorded reason */
+        else if (strcmp(argv[i], "--sparse") == 0) sparse_flag = true;
         else if (strcmp(argv[i], "--force") == 0) force = true;
         else if (strcmp(argv[i], "--keep") == 0) keep = true;
         else if (strcmp(argv[i], "--no-pr") == 0) no_pr = true;
@@ -3215,12 +3749,20 @@ int cmd_fleet(Cg *cg, int argc, char **argv, bool json) {
     if (strcmp(sub, "begin") == 0 || strcmp(sub, "merge-up") == 0) {
         if (!pos) {
             fprintf(stderr, "usage: hyperfide fleet %s <task-id> [-f <feature>]%s\n",
-                    sub, strcmp(sub, "begin") == 0 ? " [--agent A]"
-                                                   : " [--force] [--keep]");
+                    sub, strcmp(sub, "begin") == 0
+                         ? " [--agent A] [--sparse | --full-tree REASON]"
+                         : " [--force] [--keep]");
             return 1;
         }
         bool ahead = false;              /* begin --ahead: open requires */
         for (int i = 3; i < argc; i++) ahead |= !strcmp(argv[i], "--ahead");
+        if (full_reason && !slice_code_ok(full_reason)) {
+            fprintf(stderr, "hyperfide fleet: --full-tree needs the recorded reason "
+                            "as an upper-case code, e.g. WHOLE_REPO_REFACTOR\n");
+            return 1;
+        }
+        if (full_reason || sparse_flag)
+            fleet_begin_workspace(full_reason ? 0 : 1, full_reason);
         return strcmp(sub, "begin") == 0
              ? fleet_worker_begin_ex(cg, pos, feature, agent, json, ahead)
              : fleet_merge_up(cg, pos, feature, force, keep, json);

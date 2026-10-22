@@ -215,6 +215,7 @@ static const HfRoute25 hf_routes25[]={
  {"fleet","status","23.1","fleet.views.snapshot"},
  {"fleet","entities","23.1","fleet.views.entities"},
  {"fleet","resources","23.2","fleet.resources.snapshot"},
+ {"slice","inspect","11.5","preparation.slice.inspect"},
  {"docs","packet","28.2","docs.packet"},
  {"docs","inspect","28.2","docs.inspect"},
  {"docs","check","28.2","docs.check"},

@@ -994,8 +994,24 @@ static const HelpCmd HELP[] = {
     "task on task/{feature}/{task}. Templates without {wave} and {task} give "
     "the older shape: one feature manager, a worker per wave." },
 { .group = "fleet", .name = "fleet begin", .args = "<id> [--agent A]",
-  .usage = "fleet begin <task-id> [-f <feature>] [--agent A]",
-  .summary = "the task worktree and branch, cut from its wave branch, claimed" },
+  .usage = "fleet begin <task-id> [-f <feature>] [--agent A] [--sparse | "
+    "--full-tree REASON]",
+  .summary = "the task worktree and branch, cut from its wave branch, claimed",
+  .detail = "With --sparse, or [hierarchy] sparse = \"slice\", a new worktree "
+    "holds only the task's slice (see slice); --full-tree records why a "
+    "worker gets the whole tree.",
+  .flags = "--sparse\tcheck out only the slice manifest's paths\n"
+    "--full-tree REASON\tthe whole tree, with an upper-case reason code\n" },
+{ .group = "fleet", .name = "slice", .args = "<task-id> [-f F] [--manifest FILE]",
+  .usage = "slice <task-id> [-f <feature>] [--manifest FILE]",
+  .summary = "the slice manifest a task's worker tree is cut from",
+  .detail = "Derived from the task packet (touches, the build files on their "
+    "directories, the feature's spec) or taken from the service's manifest "
+    "(--manifest, e.g. the output of slice inspect in distributed mode), and "
+    "stored for fleet begin --sparse. A task with no touches or a glob is "
+    "FULL_TREE with the reason recorded.",
+  .examples = "hyperfide slice 2.13\nhyperfide slice 2.13 --json",
+  .related = "fleet begin" },
 { .group = "fleet", .name = "fleet merge-up", .args = "<id> [--keep]",
   .usage = "fleet merge-up <task-id> [-f <feature>] [--force] [--keep]",
   .summary = "merge a qualified task branch into its wave branch",

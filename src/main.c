@@ -551,6 +551,8 @@ int main(int argc, char **argv) {
         rc = cmd_brief(&cg, json);
     } else if (strcmp(cmd, "fleet") == 0) {
         rc = cmd_fleet(&cg, argc, argv, json);
+    } else if (strcmp(cmd, "slice") == 0) {
+        rc = cmd_slice(&cg, argc, argv, json);
     } else if (strcmp(cmd, "branches") == 0) {
         rc = cmd_branches(&cg, argc, argv, json);
     } else if (strcmp(cmd, "review") == 0) {
