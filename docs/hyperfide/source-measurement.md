@@ -169,3 +169,58 @@ files on disk; the disk bytes show what the sparse checkout materialised.
 4. **GitHub limits are not near.** 32 of 5,000 core calls were used by this run's
    own sampling; refusals and rate-limit hits inside sandboxes stay unmeasured
    until the events export exists.
+
+## Slices by default (task 2.12)
+
+From task 2.12 on, a worker job does not start in a full checkout. The provisioner's
+executor checks every admitted job of kind `AGENT`, `CHILD` or an unknown kind before it
+claims it. The slot must hold a READY, unreleased slice materialisation for that run. If
+the slot holds a `FULL_TREE` manifest, the derivation's `fallback_reason` is the recorded
+reason. If no slice exists, the admitted request must declare
+`workspace: {mode: "FULL_TREE", fallback_reason: "<CODE>"}`. Anything else is refused
+with `WORKER_SLICE_REQUIRED`, `WORKER_SLICE_MISMATCH`, `WORKER_SLICE_AMBIGUOUS` or
+`WORKER_WORKSPACE_INVALID`, and the admission settles as UNKNOWN.
+
+Preparation and verification kinds (`BUILD`, `TEST`, `REVIEW`, `INDEX`, `INTEGRATION`,
+`EXCLUSIVE_SERVICE`) are exempt. They are the full-tree comparison that a slice result
+never claims to be. `runner.executor.describe` reports `workspaces.slice`,
+`.full_tree` and `.refused`.
+
+### Against the baseline
+
+The baseline above is the cost of a full clone: 263 s and 820 MB of objects per
+sandbox. A sparse partial clone is the floor: 14 s and 12 MB. A worker on a slice pays
+that floor plus the blobs of its slice's paths. The cost no longer scales with the
+monorepo's 56,663 files. A worker on a recorded full-tree reason still pays the full
+baseline, so the share of jobs counted in `workspaces.full_tree` is the number to watch.
+
+Per worker, the numbers come from `preparation.slice.inspect`, under `summary`:
+
+| field | meaning |
+|---|---|
+| `worktree_bytes`, `disk_bytes` | the latest READY materialisation's evidence metrics |
+| `derivation_misses` | out-of-slice reads refused while the job ran: inputs the derivation missed |
+| `out_of_slice_writes` | refused writes outside the slice; these are never widened |
+| `widen_events`, `widened_children` | explicit widenings and the child manifests they produced |
+
+### Widen rules
+
+`planWidening` turns refused findings into widen requests, grouped by reason:
+
+- a read under a `fixtures/`, `testdata/`, `__fixtures__/` or `__snapshots__/`
+  directory widens the whole directory (`FIXTURE_DIRECTORY_READ`);
+- a build root, or a path the command declared as required, widens alone
+  (`BUILD_ROOT_EXCLUDED`);
+- any other read widens the file (`OUT_OF_SLICE_READ`);
+- a read the access monitor could only name as a Git object cannot be widened. It
+  forces the full tree with `UNMAPPED_OBJECT_READ`;
+- more than 256 paths in one plan means the closure was wrong. It falls back with
+  `WIDEN_LIMIT_EXCEEDED` instead of widening;
+- writes are never widened.
+
+These rules come from the miss classes that the 11.5 fixture produces. The task also
+calls for running 11.5's derivation against the real monorepo graph, recording the
+worktree bytes, misses and widen events of that run, and tuning the rules from what it
+shows. That run needs a control service that has published the monorepo graph, and
+access to it is an open variable Ask. Until it is answered, no monorepo slice numbers
+exist and this section claims none.

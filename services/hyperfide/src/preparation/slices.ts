@@ -316,7 +316,7 @@ async function derive(input:unknown,ctx:Context):Promise<unknown>{
   return store(tx,s,sliceBody,key);
  });
 }
-async function loadManifest(tx:QuerySession,s:Pick<Scope,'organisation_id'|'run_id'>,identity:string):Promise<SliceManifest>{
+async function loadManifest(tx:Pick<QuerySession,'query'>,s:Pick<Scope,'organisation_id'|'run_id'>,identity:string):Promise<SliceManifest>{
  const row=(await tx.query<{manifest:unknown;manifest_text:string;digest:string}>('SELECT manifest,manifest_text,digest FROM hyperfide.workspace_slice_manifests WHERE organisation_id=$1 AND run_id=$2 AND digest=$3',[s.organisation_id,s.run_id,identity])).rows[0];
  if(!row)return fail('SLICE_UNAVAILABLE','No immutable slice manifest matches the authenticated scope/digest');
  const manifest=verifySliceManifest(row.manifest);
@@ -361,7 +361,7 @@ async function inspect(input:unknown,ctx:Context):Promise<unknown>{
   const access=(await tx.query('SELECT id,materialisation_id,receipt_id,path,access,source,decision,reason,widened_slice_digest FROM hyperfide.workspace_slice_access_events WHERE organisation_id=$1 AND run_id=$2 AND slice_digest=$3 ORDER BY created_at,id',p)).rows;
   const children=(await tx.query<{digest:string}>('SELECT digest FROM hyperfide.workspace_slice_manifests WHERE organisation_id=$1 AND run_id=$2 AND parent_slice_digest=$3 ORDER BY digest',p)).rows.map(v=>v.digest);
   for(const row of receipts)assertNotFullTreeQualification(row.receipt);
-  return {digest:identity,manifest,materialisations,receipts,access_events:access,widened_children:children,
+  return {digest:identity,manifest,materialisations,receipts,access_events:access,widened_children:children,summary:sliceSummary(materialisations,access,children),
    qualification:manifest.mode==='SLICE'?'SLICE_ONLY_NOT_FULL_TREE':'FULL_TREE_FALLBACK',...(fullTree?{omitted_inputs:omittedInputs(manifest,fullTree)}:{})};
  });
 }
@@ -728,15 +728,96 @@ async function run(input:unknown,ctx:Context):Promise<unknown>{
  return {...receipt,receipt_id:receiptId,receipt_digest:hash(receipt),replayed:false};
 }
 
+/* ------------------------------------------------------------------------- slices by default for every worker (v21 2.12) */
+/**
+ * A worker job runs in the slice materialised for its slot. Full-tree execution needs a recorded reason: either the slot's
+ * READY materialisation is a FULL_TREE manifest (its derivation recorded fallback_reason), or the admitted request declares
+ * {mode:'FULL_TREE',fallback_reason} and no slice was materialised. Anything else is refused before launch.
+ */
+export type WorkspaceDeclaration={mode:'SLICE';slice_digest:string}|{mode:'FULL_TREE';fallback_reason:string};
+export interface CurrentWorkspace {materialisation_id:string;slice_digest:string;mode:'SLICE'|'FULL_TREE';fallback_reason:string|null}
+export interface WorkerWorkspace {
+ mode:'SLICE'|'FULL_TREE';source:'MATERIALISED_SLICE'|'MATERIALISED_FULL_TREE'|'DECLARED_FULL_TREE';
+ slice_digest:string|null;materialisation_id:string|null;fallback_reason:string|null;
+}
+export function workspaceDeclaration(value:unknown):WorkspaceDeclaration|null{
+ if(value===undefined||value===null)return null;
+ if(!object(value))return fail('WORKER_WORKSPACE_INVALID','Workspace declaration must be an object');
+ const keys=Object.keys(value).sort().join(',');
+ if(value.mode==='SLICE'&&keys==='mode,slice_digest'&&typeof value.slice_digest==='string'&&DIGEST.test(value.slice_digest))return {mode:'SLICE',slice_digest:value.slice_digest};
+ if(value.mode==='FULL_TREE'&&keys==='fallback_reason,mode'&&typeof value.fallback_reason==='string'&&CODE.test(value.fallback_reason))return {mode:'FULL_TREE',fallback_reason:value.fallback_reason};
+ return fail('WORKER_WORKSPACE_INVALID','Workspace declaration is {mode:SLICE,slice_digest} or {mode:FULL_TREE,fallback_reason:CODE}');
+}
+export function decideWorkerWorkspace(declared:WorkspaceDeclaration|null,current:CurrentWorkspace|null):WorkerWorkspace{
+ if(!current){
+  if(declared?.mode==='FULL_TREE')return {mode:'FULL_TREE',source:'DECLARED_FULL_TREE',slice_digest:null,materialisation_id:null,fallback_reason:declared.fallback_reason};
+  return fail('WORKER_SLICE_REQUIRED',declared?'The declared slice is not materialised on this slot':'No slice is materialised for this slot and no full-tree reason is recorded');
+ }
+ if(declared?.mode==='SLICE'&&declared.slice_digest!==current.slice_digest)fail('WORKER_SLICE_MISMATCH','The slot holds a different slice than the job declares');
+ if(declared?.mode==='FULL_TREE'&&current.mode==='SLICE')fail('WORKER_SLICE_MISMATCH','A materialised slice cannot be bypassed by a declared full tree');
+ if(current.mode==='FULL_TREE'){
+  if(typeof current.fallback_reason!=='string'||!CODE.test(current.fallback_reason))fail('WORKER_SLICE_CORRUPT','Full-tree materialisation lacks its recorded reason');
+  return {mode:'FULL_TREE',source:'MATERIALISED_FULL_TREE',slice_digest:current.slice_digest,materialisation_id:current.materialisation_id,fallback_reason:current.fallback_reason};
+ }
+ return {mode:'SLICE',source:'MATERIALISED_SLICE',slice_digest:current.slice_digest,materialisation_id:current.materialisation_id,fallback_reason:null};
+}
+/** The slot's current READY, unreleased materialisation in this run, with its verified manifest mode and reason. */
+export async function resolveWorkerWorkspace(tx:Pick<QuerySession,'query'>,scope:{organisation_id:string;run_id:string},slot:SliceManifestBody['slot'],declared:WorkspaceDeclaration|null):Promise<WorkerWorkspace>{
+ // Without the slice schema no slice can exist, which is the same as an empty slot.
+ const present=(await tx.query<{present:boolean}>("SELECT to_regclass('hyperfide.workspace_slice_materialisations') IS NOT NULL AS present")).rows[0]?.present===true;
+ const rows=present?(await tx.query<{id:string;slice_digest:string}>("SELECT m.id::text AS id,m.slice_digest FROM hyperfide.workspace_slice_materialisations m WHERE m.organisation_id=$1 AND m.run_id=$2 AND m.sandbox_id=$3 AND m.slot_id=$4 AND m.sandbox_boot_generation=$5 AND m.outcome='READY' AND NOT EXISTS(SELECT 1 FROM hyperfide.workspace_slice_materialisations r WHERE r.organisation_id=m.organisation_id AND r.run_id=m.run_id AND r.released_materialisation_id=m.id) ORDER BY m.created_at DESC,m.id LIMIT 2",
+  [scope.organisation_id,scope.run_id,slot.sandbox_id,slot.slot_id,slot.sandbox_boot_generation])).rows:[];
+ if(rows.length>1)fail('WORKER_SLICE_AMBIGUOUS','The slot holds more than one unreleased workspace');
+ let current:CurrentWorkspace|null=null;
+ if(rows[0]){const manifest=await loadManifest(tx,scope,rows[0].slice_digest);current={materialisation_id:rows[0].id,slice_digest:manifest.digest,mode:manifest.mode,fallback_reason:manifest.fallback_reason};}
+ return decideWorkerWorkspace(declared,current);
+}
+
+export interface WidenFinding {access:'READ'|'WRITE';path:string|null;source:string;reason:string}
+export interface WidenPlan {requests:{reason:string;paths:string[]}[];refused:{path:string|null;reason:string}[];fallback_reason:string|null}
+// Widen rules, tuned from the miss classes 11.5 records: a read inside a fixture directory widens the whole directory
+// (sibling fixtures are read next), a build root widens alone, an unmapped object read cannot be widened and forces the
+// full tree, and a write outside the slice is never widened. More than WIDEN_LIMIT paths means the closure was wrong.
+export const WIDEN_LIMIT=256;
+export function planWidening(manifest:Pick<SliceManifestBody,'mode'|'included_paths'>,findings:readonly WidenFinding[],limit=WIDEN_LIMIT):WidenPlan{
+ if(manifest.mode==='FULL_TREE')return {requests:[],refused:[],fallback_reason:null};
+ const refused:WidenPlan['refused']=[],groups=new Map<string,Set<string>>();let fallback:string|null=null;
+ const covered=(entry:string)=>entry.endsWith('/')?manifest.included_paths.some(e=>e.endsWith('/')&&entry.startsWith(e)):sliceIncludes(manifest,entry);
+ const add=(reason:string,entry:string)=>{if(covered(entry))return;let set=groups.get(reason);if(!set){set=new Set();groups.set(reason,set);}set.add(entry);};
+ for(const f of findings){
+  if(f.path===null)continue;
+  if(f.access==='WRITE'){refused.push({path:f.path,reason:'OUT_OF_SLICE_WRITE'});continue;}
+  if(f.path.startsWith('git-object:')){fallback??='UNMAPPED_OBJECT_READ';refused.push({path:f.path,reason:'UNMAPPED_OBJECT_READ'});continue;}
+  let file:string;try{file=slicePath(f.path);}catch{refused.push({path:f.path,reason:'SLICE_PATH_INVALID'});continue;}
+  const parts=file.split('/'),fixture=parts.slice(0,-1).findIndex(part=>FIXTURE_DIRECTORIES.includes(part));
+  if(fixture>=0)add('FIXTURE_DIRECTORY_READ',parts.slice(0,fixture+1).join('/')+'/');
+  else if(f.source==='DECLARED_REQUIREMENT'||BUILD_ROOT_NAMES.has(parts[parts.length-1]!))add('BUILD_ROOT_EXCLUDED',file);
+  else add('OUT_OF_SLICE_READ',file);
+ }
+ if([...groups.values()].reduce((n,set)=>n+set.size,0)>limit){fallback??='WIDEN_LIMIT_EXCEEDED';groups.clear();}
+ const requests=[...groups].map(([reason,set])=>({reason,paths:[...set].sort(compare)})).sort((a,b)=>compare(a.reason,b.reason));
+ return {requests,refused,fallback_reason:fallback};
+}
+/** Worktree bytes, derivation misses and widen events of one slice: the numbers recorded per worker. */
+export function sliceSummary(materialisations:readonly Record<string,unknown>[],access:readonly Record<string,unknown>[],children:readonly string[]){
+ const ready=[...materialisations].reverse().find(m=>m.outcome==='READY'&&object(m.evidence)&&object(m.evidence.metrics));
+ const metrics=ready&&object(ready.evidence)&&object(ready.evidence.metrics)?ready.evidence.metrics:null;
+ const num=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)?v:null;
+ return {worktree_bytes:metrics?num(metrics.worktree_bytes):null,disk_bytes:metrics?num(metrics.disk_bytes):null,
+  derivation_misses:access.filter(a=>a.decision==='REFUSED'&&a.access==='READ'&&a.path!==null).length,
+  out_of_slice_writes:access.filter(a=>a.decision==='REFUSED'&&a.access==='WRITE').length,
+  widen_events:access.filter(a=>a.decision==='WIDENED').length,widened_children:children.length};
+}
+
 export function createComponent(_context:ComponentContext):Component{
  const guard=(fn:(input:unknown,ctx:Context)=>Promise<unknown>)=>async(input:unknown,ctx:ComponentContext)=>{
   try{return await fn(input,ctx as Context);}
   catch(error){if(error instanceof FoundationError)throw error;throw new FoundationError('SLICE_OPERATION_FAILED','Slice operation failed; reconcile durable slice history before retry');}
  };
- return {apiVersion:1,capabilities:{'preparation.slices.v1':Object.freeze({assertNotFullTreeQualification,omittedInputs,sliceIncludes,verifySliceManifest})},actions:{
+ return {apiVersion:1,capabilities:{'preparation.slices.v1':Object.freeze({assertNotFullTreeQualification,omittedInputs,sliceIncludes,verifySliceManifest,decideWorkerWorkspace,planWidening,resolveWorkerWorkspace,sliceSummary,workspaceDeclaration})},actions:{
   'preparation.slice.describe':async(input,ctx)=>{record(input,[]);return {schema_version:1,role:ctx.role,control_actions:['preparation.slice.derive','preparation.slice.widen','preparation.slice.inspect'],
    remote_actions:['preparation.slice.materialize','preparation.slice.run','preparation.slice.release'],materialisation:'PARTIAL_CLONE_BLOB_NONE_NO_CONE_SPARSE',
-   fallback:'FULL_TREE_WITH_RECORDED_REASON',qualification_scope:'SLICE_NEVER_FULL_TREE',out_of_slice_access:'REFUSED_OR_EXPLICITLY_WIDENED',budget:DEFAULT_BUDGET};},
+   fallback:'FULL_TREE_WITH_RECORDED_REASON',worker_default:'SLICE_UNLESS_FULL_TREE_REASON_RECORDED',qualification_scope:'SLICE_NEVER_FULL_TREE',out_of_slice_access:'REFUSED_OR_EXPLICITLY_WIDENED',budget:DEFAULT_BUDGET};},
   'preparation.slice.derive':guard(derive),'preparation.slice.widen':guard(widen),'preparation.slice.inspect':guard(inspect),
   'preparation.slice.materialize':guard(materialize),'preparation.slice.run':guard(run),'preparation.slice.release':guard(release)
  }};

@@ -409,7 +409,7 @@ owner = "source"
 
 [task.2.12]
 title = "Slices by default for every worker"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["2.11"]
 touches = ["services/hyperfide/src/preparation/slices.ts", "services/hyperfide/src/runner/executor.ts", "tests/hyperfide/cases/v21/2_12.py", "docs/hyperfide/source-measurement.md"]
