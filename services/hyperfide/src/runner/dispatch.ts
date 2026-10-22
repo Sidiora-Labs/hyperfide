@@ -10,8 +10,9 @@ import type {ComputeToken} from '../scheduler/claim.js';
 import {requestDigest} from '../scheduler/claim.js';
 import {receive} from '../events/inbox.js';
 import {issue} from '../events/instructions.js';
-import {currentClaim,acknowledge} from '../events/outbox.js';
+import {currentClaim,acknowledge,gateway} from '../events/outbox.js';
 import {taskEnvReferences} from './bridge.js';
+import {recordLaunchEvent} from '../events/api.js';
 
 export interface RunnerSpawnInput {
  organisation_id:string;run_id:string;command_id:string;token:ComputeToken;
@@ -100,6 +101,8 @@ export function createComponent(ctx:ComponentContext):Component {
   'runner.dispatch.consume':(v,context)=>identityTransaction(context,(tx,i)=>{
    if(!object(v))fail('RUNNER_DISPATCH_INPUT_INVALID','Object delivery claim required');
    return cap.consume(tx as PrimaryTransaction,i,v as unknown as {event_id:string;attempt_count:string});
-  })
+  }),
+  // 4.2: the launch broker's structured events, native prompts among them, are recorded here.
+  'runner.launch.event.record':(v,context)=>recordLaunchEvent(gateway(ctx),ctx,context,v)
  }};
 }

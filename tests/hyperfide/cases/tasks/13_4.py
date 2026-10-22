@@ -11,7 +11,7 @@ ROOT=module.ROOT
 # Installed native ELF payload (the npm codex.js shim is refused by 14.3 binary pinning).
 CODEX_ELF=Path(os.environ.get("HF_TEST_NATIVE_CODEX_BINARY","/root/.local/share/mise/installs/node/lts/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex"))
 RUN_POLICY=sha(b"policy")  # IdentityFixture's approved run policy digest
-DISPATCH_COMPONENTS=["3.1","4.1","2.1","2.4","7.2","7.3","3.2","6.1","5.1","5.2","6.2","6.3","12.2","13.4-dispatch"]
+DISPATCH_COMPONENTS=["3.1","4.1","2.1","2.4","7.2","7.3","3.2","6.1","5.1","5.2","6.2","6.3","1.2-asks","12.2","13.4-dispatch"]
 os.umask(0o077)  # trusted configuration files must be owner-only
 def canonical(value):return json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()
 _raw_sql=module.SessionIdentityFixture.sql
