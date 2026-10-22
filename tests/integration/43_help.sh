@@ -96,20 +96,11 @@ for host in Codex "Claude Code" "Copilot/VS Code" Cursor "Gemini CLI" \
     has "$(COLUMNS=200 "$CG" help mcp-install)" "$host"
 done
 has "$("$CG" help authority)" "mode"
-has "$("$CG" authority mode)" '"mode":"local"'
 all="$("$CG" help --all)"
 if printf '%s\n' "$all" | grep -E '\bcg\b' | grep -v 'canonical command.*deprecated'; then
     fail "legacy command name in help examples or related lines"
 fi
 hasnt "$("$CG" help git-sync)" "which then rank"
-"$CG" tool list --json > "$TMP/tools.json"
-python3 - "$TMP/tools.json" <<'PY'
-import json, sys
-tools = json.load(open(sys.argv[1]))["tools"]
-description = next(t["description"] for t in tools if t["name"] == "git_sync")
-assert "which then rank" not in description, description
-assert "provenance" in description, description
-PY
 
 # ---- an unknown name suggests the closest and exits 1
 rc=0; err="$("$CG" help sepc 2>&1 >/dev/null)" || rc=$?
@@ -258,6 +249,17 @@ mkdir -p "$TMP/proj/src"
 printf 'int main(void) { return 0; }\n' > "$TMP/proj/src/a.c"
 cd "$TMP/proj"
 "$CG" init >/dev/null
+# authority mode and tool list read the project they run in; a plain checkout
+# (CI) is not one, so both run in the suite's own project
+has "$("$CG" authority mode)" '"mode":"local"'
+"$CG" tool list --json > "$TMP/tools.json"
+python3 - "$TMP/tools.json" <<'PY'
+import json, sys
+tools = json.load(open(sys.argv[1]))["tools"]
+description = next(t["description"] for t in tools if t["name"] == "git_sync")
+assert "which then rank" not in description, description
+assert "provenance" in description, description
+PY
 agree "search" search
 agree "symbol" symbol
 agree "impact" impact
