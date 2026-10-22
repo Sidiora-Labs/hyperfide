@@ -260,6 +260,123 @@ static const HfRoute25 hf_routes25[]={
  {"recap","classify-result","21.4","decision.legacy.recap.result"},
  {NULL,NULL,NULL,NULL}
 };
+/* hyperfide console <view>: the operator's read of the 23.1-console read model
+ * (hyperfide-v21 5.3, req 5). A read owns nothing, so unlike a routed command
+ * it mints fresh operation identities per request. Each payload names its
+ * component and action literally so 83_route_contract.sh counts these four
+ * as client sends. --json prints the action's result object alone, one line
+ * per snapshot; editors/vscode/sandboxes.js parses exactly that. */
+int hf_client_json_output;
+typedef struct {const char *view,*target;int include_ended;} HfConsole25;
+static const HfConsole25 hf_console25[]={
+ {"needs","\"component\":\"23.1-console\",\"action\":\"console.needs\"",0},
+ {"issues","\"component\":\"23.1-console\",\"action\":\"console.issues\"",0},
+ {"sandboxes","\"component\":\"23.1-console\",\"action\":\"console.sandboxes\"",0},
+ {"leaders","\"component\":\"23.1-console\",\"action\":\"console.leaders\"",1},
+ {NULL,NULL,0}
+};
+static int hf_console_number25(const char *text,long low,long high,long *value){
+ if(!text||!*text||strlen(text)>9)return 0;
+ for(const char *p=text;*p;p++)if(!isdigit((unsigned char)*p))return 0;
+ if(text[0]=='0'&&text[1])return 0;
+ *value=strtol(text,NULL,10);return *value>=low&&*value<=high;
+}
+static void hf_console_scalar25(const HfJson *j,int token,FILE *out){
+ char text[512];
+ if(token<0){fputc('-',out);return;}
+ if(hf_json_string(j,token,text,sizeof text)){fputs(text[0]?text:"-",out);return;}
+ char type=j->tokens[token].type;
+ if(type=='{'||type=='['){fputc('-',out);return;}
+ char *raw=hf_json_raw(j,token);fputs(raw?raw:"-",out);free(raw);
+}
+static int hf_console_first25(const HfJson *j,int row,const char *const *names){
+ for(;*names;names++){int t=hf_json_field(j,row,*names);if(t>=0)return t;}return -1;
+}
+static void hf_console_rows25(const HfJson *j,int rows,FILE *out){
+ static const char *const kind[]={"kind",NULL},*id[]={"id","sandbox_id","native_sandbox_id",NULL},
+  *state[]={"state","liveness",NULL},*title[]={"title","native_sandbox_id",NULL};
+ int any=0;
+ if(rows>=0&&j->tokens[rows].type=='[')
+  for(int r=rows+1;r<j->tokens[rows].next;r=j->tokens[r].next){
+   if(j->tokens[r].type!='{')continue;
+   any=1;fputs("  ",out);
+   hf_console_scalar25(j,hf_console_first25(j,r,kind),out);fputc(' ',out);
+   hf_console_scalar25(j,hf_console_first25(j,r,id),out);fputc(' ',out);
+   hf_console_scalar25(j,hf_console_first25(j,r,state),out);fputs("  ",out);
+   hf_console_scalar25(j,hf_console_first25(j,r,title),out);fputc('\n',out);
+  }
+ if(!any)fputs("  (no rows)\n",out);
+}
+/* Text view: view and freshness, the counts, then one line per row (per
+ * section for needs and issues). The JSON is the contract; this is a glance. */
+static void hf_console_text25(const HfJson *j,int result,FILE *out){
+ hf_console_scalar25(j,hf_json_field(j,result,"view"),out);fputs(" as of ",out);
+ hf_console_scalar25(j,hf_json_field(j,result,"as_of"),out);fputc('\n',out);
+ int counts=hf_json_field(j,result,"counts");
+ if(counts>=0&&j->tokens[counts].type=='{'){
+  fputs("counts:",out);
+  for(int k=counts+1;k<j->tokens[counts].next;k=j->tokens[k+1].next){fputc(' ',out);hf_console_scalar25(j,k,out);fputc('=',out);hf_console_scalar25(j,k+1,out);}
+  fputc('\n',out);
+ }
+ int sections=hf_json_field(j,result,"sections");
+ if(sections>=0&&j->tokens[sections].type=='{'){
+  for(int k=sections+1;k<j->tokens[sections].next;k=j->tokens[k+1].next){
+   hf_console_scalar25(j,k,out);fputs(":\n",out);hf_console_rows25(j,hf_json_field(j,k+1,"rows"),out);
+  }
+ }else hf_console_rows25(j,hf_json_field(j,result,"rows"),out);
+ int truncated=0;
+ if(hf_json_bool(j,hf_json_field(j,result,"truncated"),&truncated)&&truncated)fputs("(truncated; raise --limit)\n",out);
+}
+static int hf_console_read25(const HfTransportConfig *config,const char *payload,FILE *out,FILE *err){
+ char operation[37],key[37],trace[37];
+ if(!hf_uuid_generate(operation)||!hf_uuid_generate(key)||!hf_uuid_generate(trace))return hf_client_error25(err,"RESOURCE_LIMIT","Cannot allocate operation identities");
+ char *body=NULL;size_t size=0;FILE *capture=open_memstream(&body,&size);
+ if(!capture)return hf_client_error25(err,"RESOURCE_LIMIT","Cannot capture the console response");
+ int rc=hf_invoke_config25(config,payload,operation,key,trace,NULL,capture,err);fclose(capture);
+ if(rc){if(size)fwrite(body,1,size,err);free(body);return rc;}
+ HfJson *j=malloc(sizeof *j);int result=j&&hf_json_parse(j,body)?hf_json_field(j,0,"result"):-1;
+ if(result<0||j->tokens[result].type!='{'){free(j);free(body);return hf_client_error25(err,"AUTHORITY_PROTOCOL_INVALID","Console response carries no result object");}
+ if(hf_client_json_output){char *raw=hf_json_raw(j,result);if(raw){fputs(raw,out);fputc('\n',out);}free(raw);}
+ else hf_console_text25(j,result,out);
+ fflush(out);free(j);free(body);return 0;
+}
+static int hf_client_console25(int argc,char **argv,int mode,FILE *out,FILE *err){
+ const HfConsole25 *view=NULL;
+ if(argc>2)for(const HfConsole25 *v=hf_console25;v->view;v++)if(!strcmp(argv[2],v->view)){view=v;break;}
+ if(!view)return hf_client_error25(err,"INVALID_ARGS","usage: hyperfide console needs|issues|sandboxes|leaders [--json] [--watch] [--interval SECONDS] [--limit N] [--run-id ID] [--include-ended]");
+ int watch=0,ended=0;long interval=5,limit=0;const char *run=NULL;
+ for(int i=3;i<argc;i++){
+  const char *a=argv[i];
+  if(!strcmp(a,"--json"))hf_client_json_output=1;
+  else if(!strcmp(a,"--watch"))watch=1;
+  else if(!strcmp(a,"--include-ended")){if(!view->include_ended)return hf_client_error25(err,"INVALID_ARGS","--include-ended applies to console leaders only");ended=1;}
+  else if(!strcmp(a,"--interval")||!strcmp(a,"--limit")||!strcmp(a,"--run-id")){
+   if(i+1>=argc)return hf_client_error25(err,"INVALID_ARGS","Options require values");
+   const char *v=argv[++i];
+   if(!strcmp(a,"--interval")){if(!hf_console_number25(v,1,3600,&interval))return hf_client_error25(err,"INVALID_ARGS","--interval takes whole seconds from 1 to 3600");}
+   else if(!strcmp(a,"--limit")){if(!hf_console_number25(v,1,500,&limit))return hf_client_error25(err,"INVALID_ARGS","--limit takes a whole number from 1 to 500");}
+   else{if(!hf_uuid25(v))return hf_client_error25(err,"INVALID_ARGS","--run-id takes a canonical UUID");run=v;}
+  }
+  else return hf_client_error25(err,"INVALID_ARGS","Unsupported console option");
+ }
+ if(mode==HF_LOCAL||mode==HF_OFFLINE_LOCAL)return hf_client_error25(err,"CONSOLE_DISTRIBUTED_ONLY","The console reads the control service; this checkout is in local authority mode");
+ if(mode==HF_OFFLINE)return hf_client_error25(err,"OFFLINE_AUTHORITY_UNAVAILABLE","Remote authority is unavailable while offline");
+ HfTransportConfig config;int rc=hf_load_transport25(&config,err);if(rc)return rc;
+ if(!run&&hf_uuid25(config.run_id))run=config.run_id;
+ if(!run)return hf_client_error25(err,"RUN_ID_REQUIRED","The transport configuration names no run; pass --run-id");
+ char input[96]="{}";
+ if(limit&&ended)snprintf(input,sizeof input,"{\"limit\":%ld,\"include_ended\":true}",limit);
+ else if(limit)snprintf(input,sizeof input,"{\"limit\":%ld}",limit);
+ else if(ended)snprintf(input,sizeof input,"{\"include_ended\":true}");
+ char payload[512];
+ snprintf(payload,sizeof payload,"{\"run_id\":\"%s\",%s,\"input\":%s,\"expected_version\":null,\"authority\":null}",run,view->target,input);
+ for(;;){
+  rc=hf_console_read25(&config,payload,out,err);
+  if(rc||!watch)return rc;
+  if(!hf_client_json_output){fputs("--\n",out);fflush(out);}
+  struct timespec pause={interval,0};while(nanosleep(&pause,&pause)&&errno==EINTR){}
+ }
+}
 static int hf_client_mcp25(FILE *out,FILE *err);
 int hf_client_dispatch(int argc,char **argv,FILE *out,FILE *err){
  if(argc<2)return -1;
@@ -269,6 +386,8 @@ int hf_client_dispatch(int argc,char **argv,FILE *out,FILE *err){
  fprintf(out,"{\"ok\":true,\"mode\":\"%s\",\"remote_ownership\":false,\"local_fallback\":false",mode==HF_LOCAL?"local":mode==HF_DISTRIBUTED?"distributed":"offline");hf_cache25(out,mode);fputs("}\n",out);return 0;
  }
  int mode=hf_client_authority_mode();if(mode<0)return hf_client_error25(err,"AUTHORITY_MODE_INVALID","Authority configuration is invalid");
+ /* the console answers in every mode: local and offline refuse it by name */
+ if(!authority&&!strcmp(argv[1],"console"))return hf_client_console25(argc,argv,mode,out,err);
  if(!authority&&(mode==HF_LOCAL||mode==HF_OFFLINE_LOCAL)){int guard=hf_client_authority_guard_args("cli",argc,argv,err);return guard?guard:-1;}
  /* status and state stay local in every mode: they report the built-in
   * store as non-authoritative there (hyperfide-v21 3.9) and own nothing */
