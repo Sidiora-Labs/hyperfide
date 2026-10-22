@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """hyperfide-v21 4.2: native events leave the sandbox and become Ask rows.
 
-The launch broker (src/hyperfide/launch.c, proven by tests/integration/90_launch_events.sh) forwards each native
+The launch broker (src/hyperfide/launch.c, proven by tests/integration/101_launch_events.sh) forwards each native
 question or approval prompt line out of the sandbox as a native.question / native.approval launch event and posts it
 to 12.2 runner.launch.event.record. This case drives that handler through the real HTTPS control service, as the
 enrolled RUNNER of the sandbox boot, with payloads in exactly the broker's shape, on an owned throwaway PostgreSQL
