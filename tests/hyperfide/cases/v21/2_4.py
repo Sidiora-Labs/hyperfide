@@ -303,6 +303,9 @@ def main():
     if binaries is None:
         print('SKIP: no PostgreSQL server binaries; set HYPERFIDE_PG_BIN', flush=True)
         return 77
+    if os.geteuid() != 0:
+        print('SKIP: the owned cluster runs PostgreSQL through runuser postgres, which needs root', flush=True)
+        return 77
     base = os.environ.copy()
     for key in list(base):
         if key == 'DATABASE_URL' or key.startswith('HYPERFIDE_') and key.endswith('_DATABASE_URL'):

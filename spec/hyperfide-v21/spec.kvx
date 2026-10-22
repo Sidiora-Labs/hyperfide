@@ -687,10 +687,10 @@ owner = "runner"
 
 [task.3.16]
 title = "Fleet stops release and admission honours a held scope"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.11"]
-touches = ["services/hyperfide/src/recovery/stop.ts", "services/hyperfide/src/recovery/scope_hold.ts", "services/hyperfide/src/agents/admission.ts", "services/hyperfide/components/21.2.json", "deploy/hyperfide/policies/control.example.json", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/2_4.py", "tests/hyperfide/cases/v21/3_16.py"]
+touches = ["services/hyperfide/src/recovery/stop.ts", "services/hyperfide/src/recovery/scope_hold.ts", "services/hyperfide/src/agents/admission.ts", "services/hyperfide/components/24.3.json", "services/hyperfide/src/identity/enrollment.ts", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/2_4.py", "tests/hyperfide/cases/v21/3_16.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_16.py"
 do_1 = "A held POOL, ORGANISATION or DEPLOYMENT stop can be released: a recovery.stop.release action with operator authority (a leader may release a POOL stop) marks the stop RELEASED, records who released it and why, emits an event, and the driver stops scanning it; admission refuses a run or sandbox whose scope is under a held stop with a named error instead of admitting it for the driver to stop later; the release and the admission check live in recovery/scope_hold.ts with a one-call insertion into admission.ts; 2_4.py prints SKIP and exits 77 when not root."
 do_2 = "3_16.py holds an ORGANISATION stop, proves a run admission in that organisation is refused, releases the stop, proves the same admission is then admitted and a replayed release is idempotent, and proves a non-operator release of a DEPLOYMENT stop is refused and recorded."

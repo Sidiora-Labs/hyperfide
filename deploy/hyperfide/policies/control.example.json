@@ -403,6 +403,7 @@
     "recovery.stop.describe",
     "recovery.stop.finalize",
     "recovery.stop.reconcile",
+    "recovery.stop.release",
     "recovery.stop.request",
     "recovery.worker.describe",
     "recovery.worker.enroll",
