@@ -1,0 +1,1113 @@
+{
+  "schema_version": 1,
+  "purpose": "Keeps every commit named by artifacts/hyperfide/tasks/<task>/evidence-index.json reachable under refs/evidence/<task>/<n> so git gc cannot prune pre-rewrite evidence commits (decision D10). Re-point during requalification.",
+  "source": "artifacts/hyperfide/tasks/*/evidence-index.json (fields commit, requalified_on)",
+  "restore": "git update-ref <ref> <commit> for each entry; a clone needs: git fetch <remote> 'refs/evidence/*:refs/evidence/*'",
+  "refs": [
+    {
+      "ref": "refs/evidence/1.1/1",
+      "task": "1.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/1.2/1",
+      "task": "1.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/1.3/1",
+      "task": "1.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/1.4/1",
+      "task": "1.4",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/2.2/1",
+      "task": "2.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/2.3/1",
+      "task": "2.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/2.4/1",
+      "task": "2.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/3.1/1",
+      "task": "3.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/3.2/1",
+      "task": "3.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/3.3/1",
+      "task": "3.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/3.4/1",
+      "task": "3.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/4.1/1",
+      "task": "4.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/4.2/1",
+      "task": "4.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/4.3/1",
+      "task": "4.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/4.4/1",
+      "task": "4.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/5.1/1",
+      "task": "5.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/5.2/1",
+      "task": "5.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/5.3/1",
+      "task": "5.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/5.4/1",
+      "task": "5.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/6.1/1",
+      "task": "6.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/6.2/1",
+      "task": "6.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/6.3/1",
+      "task": "6.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/6.4/1",
+      "task": "6.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/7.1/1",
+      "task": "7.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/7.2/1",
+      "task": "7.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/7.3/1",
+      "task": "7.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/7.4/1",
+      "task": "7.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/8.1/1",
+      "task": "8.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/8.2/1",
+      "task": "8.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/8.3/1",
+      "task": "8.3",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/8.4/1",
+      "task": "8.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/9.1/1",
+      "task": "9.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/9.2/1",
+      "task": "9.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/9.3/1",
+      "task": "9.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/9.4/1",
+      "task": "9.4",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/10.1/1",
+      "task": "10.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/10.2/1",
+      "task": "10.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/10.3/1",
+      "task": "10.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/10.4/1",
+      "task": "10.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/11.1/1",
+      "task": "11.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/11.2/1",
+      "task": "11.2",
+      "commit": "ff4632c9bc896057147975b600323af8f8b21f89",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/11.3/1",
+      "task": "11.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/11.4/1",
+      "task": "11.4",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/11.5/1",
+      "task": "11.5",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/12.1/1",
+      "task": "12.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/12.2/1",
+      "task": "12.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/12.3/1",
+      "task": "12.3",
+      "commit": "ff4632c9bc896057147975b600323af8f8b21f89",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/12.4/1",
+      "task": "12.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/13.1/1",
+      "task": "13.1",
+      "commit": "ff4632c9bc896057147975b600323af8f8b21f89",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/13.2/1",
+      "task": "13.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/13.3/1",
+      "task": "13.3",
+      "commit": "ff4632c9bc896057147975b600323af8f8b21f89",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/13.4/1",
+      "task": "13.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/14.1/1",
+      "task": "14.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/14.2/1",
+      "task": "14.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/14.3/1",
+      "task": "14.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/14.4/1",
+      "task": "14.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/15.1/1",
+      "task": "15.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/15.2/1",
+      "task": "15.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/15.3/1",
+      "task": "15.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/15.4/1",
+      "task": "15.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/16.1/1",
+      "task": "16.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/16.2/1",
+      "task": "16.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/16.3/1",
+      "task": "16.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/16.4/1",
+      "task": "16.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/17.1/1",
+      "task": "17.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/17.2/1",
+      "task": "17.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/17.3/1",
+      "task": "17.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/17.4/1",
+      "task": "17.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/18.1/1",
+      "task": "18.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/18.2/1",
+      "task": "18.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/18.3/1",
+      "task": "18.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/18.4/1",
+      "task": "18.4",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/19.1/1",
+      "task": "19.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/19.2/1",
+      "task": "19.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/19.3/1",
+      "task": "19.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/19.4/1",
+      "task": "19.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/20.1/1",
+      "task": "20.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/20.2/1",
+      "task": "20.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/20.3/1",
+      "task": "20.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/20.4/1",
+      "task": "20.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/21.1/1",
+      "task": "21.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/21.2/1",
+      "task": "21.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/21.3/1",
+      "task": "21.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/21.4/1",
+      "task": "21.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/22.1/1",
+      "task": "22.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/22.2/1",
+      "task": "22.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/22.3/1",
+      "task": "22.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/22.4/1",
+      "task": "22.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/23.1/1",
+      "task": "23.1",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/23.2/1",
+      "task": "23.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/23.3/1",
+      "task": "23.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/23.4/1",
+      "task": "23.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/24.1/1",
+      "task": "24.1",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/24.2/1",
+      "task": "24.2",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/24.3/1",
+      "task": "24.3",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/24.4/1",
+      "task": "24.4",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/25.1/1",
+      "task": "25.1",
+      "commit": "993c90fcfec01f12a7d5fb90dab4aa883d603b21",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/25.2/1",
+      "task": "25.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/25.3/1",
+      "task": "25.3",
+      "commit": "993c90fcfec01f12a7d5fb90dab4aa883d603b21",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/25.4/1",
+      "task": "25.4",
+      "commit": "993c90fcfec01f12a7d5fb90dab4aa883d603b21",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/26.1/1",
+      "task": "26.1",
+      "commit": "ff4632c9bc896057147975b600323af8f8b21f89",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/26.2/1",
+      "task": "26.2",
+      "commit": "7339940c0d98b959fae2a7e565847aaebca6f5f0",
+      "fields": [
+        "commit"
+      ]
+    },
+    {
+      "ref": "refs/evidence/26.2/2",
+      "task": "26.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/26.3/1",
+      "task": "26.3",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/26.4/1",
+      "task": "26.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/27.2/1",
+      "task": "27.2",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/27.4/1",
+      "task": "27.4",
+      "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/28.1/1",
+      "task": "28.1",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/28.2/1",
+      "task": "28.2",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/28.3/1",
+      "task": "28.3",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/28.4/1",
+      "task": "28.4",
+      "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.1/1",
+      "task": "29.1",
+      "commit": "a7e54f1b009b7c83eec250bda6472b2914757a1d",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.2/1",
+      "task": "29.2",
+      "commit": "a7e54f1b009b7c83eec250bda6472b2914757a1d",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.3/1",
+      "task": "29.3",
+      "commit": "a7e54f1b009b7c83eec250bda6472b2914757a1d",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.4/1",
+      "task": "29.4",
+      "commit": "a7e54f1b009b7c83eec250bda6472b2914757a1d",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.5/1",
+      "task": "29.5",
+      "commit": "a7e54f1b009b7c83eec250bda6472b2914757a1d",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.6/1",
+      "task": "29.6",
+      "commit": "a7e54f1b009b7c83eec250bda6472b2914757a1d",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.7/1",
+      "task": "29.7",
+      "commit": "a7e54f1b009b7c83eec250bda6472b2914757a1d",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.8/1",
+      "task": "29.8",
+      "commit": "a7e54f1b009b7c83eec250bda6472b2914757a1d",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.9/1",
+      "task": "29.9",
+      "commit": "a7e54f1b009b7c83eec250bda6472b2914757a1d",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.10/1",
+      "task": "29.10",
+      "commit": "993c90fcfec01f12a7d5fb90dab4aa883d603b21",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.11/1",
+      "task": "29.11",
+      "commit": "a7e54f1b009b7c83eec250bda6472b2914757a1d",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/29.12/1",
+      "task": "29.12",
+      "commit": "42c06db7a9957ac33aaa64b6184bd8a04d14995f",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    }
+  ]
+}

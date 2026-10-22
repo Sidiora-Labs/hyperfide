@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "variant": "task:16.2",
+  "task": "16.2",
+  "scope": "task-component",
+  "cases": [
+    "V-013",
+    "V-056"
+  ],
+  "assertion_ids": [
+    "assurance.16.2.auth.absent.qualification.job.assign",
+    "assurance.16.2.auth.forged.qualification.job.assign",
+    "assurance.16.2.auth.absent.qualification.job.claim",
+    "assurance.16.2.auth.forged.qualification.job.claim",
+    "assurance.16.2.auth.absent.qualification.execute",
+    "assurance.16.2.auth.forged.qualification.execute",
+    "assurance.16.2.auth.absent.qualification.history.import",
+    "assurance.16.2.auth.forged.qualification.history.import",
+    "assurance.16.2.auth.absent.qualification.preparation.plan",
+    "assurance.16.2.auth.forged.qualification.preparation.plan",
+    "assurance.16.2.auth.absent.qualification.preparation.inspect",
+    "assurance.16.2.auth.forged.qualification.preparation.inspect",
+    "assurance.16.2.auth.absent.qualification.execution.inspect",
+    "assurance.16.2.auth.forged.qualification.execution.inspect",
+    "assurance.16.2.auth.absent.qualification.history.inspect",
+    "assurance.16.2.auth.forged.qualification.history.inspect",
+    "assurance.16.2.preparation.exact-retained-bytes",
+    "assurance.16.2.preparation.missing-newline",
+    "assurance.16.2.preparation.field-relabel",
+    "assurance.16.2.preparation.malformed-utf8",
+    "assurance.16.2.primary.unbranded-denied",
+    "assurance.16.2.primary.preparation-context",
+    "assurance.16.2.primary.preparation-effective-inputs",
+    "assurance.16.2.primary.preparation-intent",
+    "assurance.16.2.gate.zero-checks",
+    "assurance.16.2.gate.interrupted",
+    "assurance.16.2.gate.missing-artifact",
+    "assurance.16.2.gate.artifact-absent-from-inventory",
+    "assurance.16.2.gate.unknown-status",
+    "assurance.16.2.gate.skipped",
+    "assurance.16.2.gate.empty-output",
+    "assurance.16.2.gate.failed-child",
+    "assurance.16.2.gate.signal-interrupted",
+    "assurance.16.2.gate.partial-cleanup",
+    "assurance.16.2.gate.missing-check",
+    "assurance.16.2.gate.unknown-check",
+    "assurance.16.2.gate.duplicate-result",
+    "assurance.16.2.gate.stale-revision",
+    "assurance.16.2.gate.no-required-checks",
+    "assurance.16.2.gate.policy-stale",
+    "assurance.16.2.gate.input-stale",
+    "assurance.16.2.gate.unrelated-command",
+    "assurance.16.2.gate.positive-receipt",
+    "assurance.16.2.harness.false-success-traps",
+    "assurance.16.2.https.signed-missing",
+    "assurance.16.2.https.cross-scope",
+    "assurance.16.2.https.wrong-role",
+    "assurance.16.2.https.no-authority",
+    "assurance.16.2.history.kvx-forced-done-unqualified",
+    "assurance.16.2.history.kvx-dependent-ineligible",
+    "assurance.16.2.history.proof-text-history-only",
+    "assurance.16.2.history.forced-claim-history-only",
+    "assurance.16.2.history.no-qualification-rows",
+    "assurance.16.2.history.inspect-distinguishes"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/16_2.py"
+  ],
+  "timeout_seconds": 300,
+  "required_env": [
+    "DATABASE_URL",
+    "PGHOST",
+    "PGPORT",
+    "PGUSER"
+  ],
+  "fixtures": [
+    "services/hyperfide/dist/assurance/submission.js",
+    "services/hyperfide/dist/assurance/executor.js",
+    "services/hyperfide/dist/assurance/coverage.js",
+    "services/hyperfide/dist/assurance/validity.js",
+    "services/hyperfide/dist/storage/transactions.js",
+    "services/hyperfide/dist/transport/protocol.js",
+    "services/hyperfide/dist/storage/dispositions.js",
+    "services/hyperfide/dist/assurance/preparation.js",
+    "services/hyperfide/dist/spec/import.js",
+    "services/hyperfide/dist/storage/runtime.js"
+  ],
+  "resources": [
+    {
+      "id": "hf-task-16.2-signed-database",
+      "kind": "postgresql-database",
+      "scope": "task16.2-signed-disposable"
+    },
+    {
+      "id": "hf-task-16.2-signed-service",
+      "kind": "https-service",
+      "scope": "task16.2-signed-disposable"
+    },
+    {
+      "id": "hf-task-16.2-signed-role",
+      "kind": "postgresql-role",
+      "scope": "task16.2-signed-disposable"
+    },
+    {
+      "id": "hf-task-16.2-signed-files",
+      "kind": "local-directory",
+      "scope": "task16.2-signed-disposable"
+    },
+    {
+      "id": "hf-task-16.2-preparation",
+      "kind": "local-directory",
+      "scope": "task16.2-pure-derivation-disposable"
+    }
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/16_2.py",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 60,
+  "required_artifacts": [
+    "assurance/observations-16.2.json",
+    "assurance/signed-absence-16.2.json",
+    "assurance/preparation-absence-16.2.json"
+  ],
+  "source_files": [
+    "services/hyperfide/src/assurance/submission.ts",
+    "services/hyperfide/src/assurance/executor.ts",
+    "services/hyperfide/src/assurance/coverage.ts",
+    "services/hyperfide/src/assurance/validity.ts",
+    "services/hyperfide/components/16.1.json",
+    "services/hyperfide/components/16.2.json",
+    "services/hyperfide/components/16.3.json",
+    "services/hyperfide/components/16.4.json",
+    "services/hyperfide/migrations/0001-authority.sql",
+    "services/hyperfide/migrations/0016-qualification.sql",
+    "services/hyperfide/package.json",
+    "services/hyperfide/package-lock.json",
+    "services/hyperfide/tsconfig.json",
+    "tests/hyperfide/cases/tasks/16_1.py",
+    "tests/hyperfide/cases/tasks/16_2.py",
+    "tests/hyperfide/cases/tasks/16_3.py",
+    "tests/hyperfide/cases/tasks/16_4.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/support/identity_fixture.py",
+    "services/hyperfide/src/assurance/preparation.ts",
+    "tests/hyperfide/cases/tasks/11_1.py",
+    "tests/hyperfide/selftest_harness.py",
+    "services/hyperfide/src/spec/import.ts",
+    "services/hyperfide/components/2.1.json"
+  ],
+  "source_roots": [
+    "services/hyperfide/src",
+    "services/hyperfide/dist",
+    "services/hyperfide/components",
+    "services/hyperfide/migrations"
+  ],
+  "actions": [
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop",
+    "https.fixture.start",
+    "https.fixture.stop",
+    "postgresql.role.create",
+    "postgresql.role.drop",
+    "filesystem.fixture.create",
+    "filesystem.fixture.remove"
+  ]
+}

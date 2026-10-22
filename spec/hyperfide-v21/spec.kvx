@@ -98,7 +98,7 @@ heading = "Hyperfide 2.1 — eight waves; waves 2 to 5 carry the source-tracking
 
 [task.1.1]
 title = "Re-track qualification inputs and keep evidence commits reachable"
-status = "pending"
+status = "done"
 wave = 1
 requires = []
 touches = [".gitignore", "tests/hyperfide/manifests/tasks", "tests/hyperfide/registrations", "tests/integration/80_qualification_inputs.sh"]

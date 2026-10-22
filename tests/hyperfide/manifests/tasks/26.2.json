@@ -1,0 +1,146 @@
+{
+  "approval": {
+    "allowed_actions": [
+      "release.fixture.construct-nonpublishing",
+      "install.fixture.disposable-prefix",
+      "uninstall.fixture.disposable-prefix"
+    ],
+    "approved": true
+  },
+  "campaign_id": "hyperfide-task-26.2-canonical-entrypoint-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a923d185cd03-requal-e1c83fff366f",
+  "case_ids": [
+    "V-026",
+    "V-028"
+  ],
+  "expected_assertion_ids": [
+    "entrypoint.actual-nonpublishing-construction",
+    "entrypoint.same-linked-command-digests",
+    "entrypoint.actual-native-and-service-runtime-inventory",
+    "entrypoint.actual-source-commit-pin",
+    "entrypoint.actual-install-custom-prefix",
+    "entrypoint.actual-ed25519-manifest-proof",
+    "entrypoint.tampered-signature-denied-before-install",
+    "entrypoint.different-trusted-signer-denied",
+    "entrypoint.missing-trust-anchor-denied",
+    "entrypoint.foreign-owned-trust-key-ancestor-denied",
+    "entrypoint.symlink-trust-key-ancestor-denied",
+    "entrypoint.installed-canonical-version",
+    "entrypoint.installed-legacy-version-parity",
+    "entrypoint.installed-help-argument-parity",
+    "entrypoint.installed-error-exit-json-parity",
+    "entrypoint.idempotent-install",
+    "entrypoint.bundled-runtime-actually-executes",
+    "entrypoint.bundled-python-actual-subreaper-procfs-waitpid",
+    "entrypoint.bundled-python-leaves-immutable-runtime",
+    "entrypoint.bundled-native-helper-actually-executes",
+    "entrypoint.native-actually-loads-bundled-curl-and-crypto",
+    "entrypoint.native-transitive-dependencies-use-bundled-bytes",
+    "entrypoint.release-bundles-no-glibc-member",
+    "entrypoint.signed-proof-inspector-and-fixed-host-git-inventory",
+    "entrypoint.refuses-unowned-executable",
+    "entrypoint.explicit-legacy-adoption-byte-backup",
+    "entrypoint.legacy-backup-survives-owned-uninstall",
+    "entrypoint.refuses-conflicting-prefix-alias",
+    "entrypoint.refuses-wrong-manifest-pin",
+    "entrypoint.refuses-state-directory-symlink",
+    "entrypoint.compat-shim-actual-sibling-only",
+    "entrypoint.compat-shim-refuses-path-fallback",
+    "entrypoint.compat-shim-rejects-self-recursion",
+    "entrypoint.uninstall-refuses-owner-edited-command",
+    "entrypoint.actual-owned-uninstall-both-names",
+    "entrypoint.uninstall-native-auth-preserved"
+  ],
+  "inputs": [
+    {
+      "path": "Makefile",
+      "sha256": "40cee85c4626ae57fe8bd7332788456812e54f3f8c96fc628f814dfc8ad1e54c",
+      "size": 5022
+    },
+    {
+      "path": "build/hyperfide-native",
+      "sha256": "a0622fbf25aab336908d8ec0ca6a33c6420cfdfe6da88522639b9fd70d23cc76",
+      "size": 566488
+    },
+    {
+      "path": "cg",
+      "sha256": "2600aa183231e684cf78edb643542fc058369a5d304de15341c50b448ab46f3c",
+      "size": 68899240
+    },
+    {
+      "path": "hyperfide",
+      "sha256": "2600aa183231e684cf78edb643542fc058369a5d304de15341c50b448ab46f3c",
+      "size": 68899240
+    },
+    {
+      "path": "scripts/hyperfide-entrypoint.sh",
+      "sha256": "1f9b13ad2f1cee41e83010f84c6c385d0175989cc0c2a906d4d97771f6cecc50",
+      "size": 412
+    },
+    {
+      "path": "scripts/hyperfide-python.sh",
+      "sha256": "2d731a023d017134308ad762a3b32420c928c83f46b50a0ec36cfe90545ad315",
+      "size": 531
+    },
+    {
+      "path": "scripts/install.sh",
+      "sha256": "4cb14bf566c2f10e287a899a65f662aea7fcdb642f570c65c651ec073f7eb13e",
+      "size": 14276
+    },
+    {
+      "path": "scripts/release.sh",
+      "sha256": "9562a4f386a9e82575842f28855f124f10d1ae80e290f1cd96ccef072341e12b",
+      "size": 12452
+    },
+    {
+      "path": "scripts/uninstall.sh",
+      "sha256": "34467dc4cddbeb527709e181bfcaf020c757c23860d5f8d1f54668024cf42863",
+      "size": 2273
+    },
+    {
+      "path": "src/help.c",
+      "sha256": "4acb21666529a5a5cde4d544982e631ad74bb726d864c541df4a45c2d05fd61e",
+      "size": 81794
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/26_2.py",
+      "sha256": "361ff89a08234ca752f76c0265d6dc72235c6ebed890a0e55775eb704e17f3a5",
+      "size": 12691
+    },
+    {
+      "path": "tests/hyperfide/check-evidence.py",
+      "sha256": "cc8de56fb25bea153490b4143a231f1ff6f4dac758baaea4bf90fb7d9ba236a0",
+      "size": 30633
+    },
+    {
+      "path": "tests/hyperfide/qualify.py",
+      "sha256": "8aa17f5e2572c8557f15353f7267e98600547fb0f2693486c0e0f2fc1abce8c2",
+      "size": 37538
+    },
+    {
+      "path": "tests/hyperfide/registrations/26.2.json",
+      "sha256": "63f86e4c9130669b9544ca63c123e7a8cffa87a55c353b055620aedcbc742b04",
+      "size": 2650
+    },
+    {
+      "path": "tests/hyperfide/registry.json",
+      "sha256": "99162684c725a9341d42be6c66443ec9d17e2bf98ea10ce2e2a947c02eca5574",
+      "size": 12282
+    }
+  ],
+  "policy": {
+    "cloud_provisioning": false,
+    "component_only": true,
+    "execution": "remote-only",
+    "frontier_calls": false,
+    "full_case_status": "INCOMPLETE",
+    "namespace_ownership_assumed": false,
+    "private_records_used": false,
+    "production_deployment_qualified": false,
+    "publication_authorized": false
+  },
+  "registered_variant": "task:26.2",
+  "resources": [],
+  "schema_version": 1,
+  "scope": "task-component",
+  "seed": 1
+}

@@ -54,5 +54,3 @@ artifacts/
 deploy/hyperfide/identity/*
 !deploy/hyperfide/identity/*.example.json
 spec/hyperfide/evidence/
-tests/hyperfide/registrations/
-tests/hyperfide/manifests/tasks/

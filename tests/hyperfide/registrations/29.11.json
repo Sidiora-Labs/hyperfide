@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "variant": "task:29.11",
+  "task": "29.11",
+  "scope": "task-component",
+  "cases": [
+    "V-068"
+  ],
+  "assertion_ids": [
+    "bootstrap.topology-consistent",
+    "bootstrap.payload-canonical",
+    "bootstrap.seal-verified",
+    "bootstrap.unsigned-refused",
+    "bootstrap.forged-seal-refused",
+    "bootstrap.other-deployment-refused",
+    "bootstrap.other-topology-refused",
+    "bootstrap.other-operation-refused",
+    "bootstrap.expired-refused",
+    "bootstrap.tampered-digest-refused",
+    "bootstrap.no-epoch-before-activation",
+    "bootstrap.no-provider-effect-before-activation",
+    "bootstrap.activated",
+    "bootstrap.single-bootstrap-epoch",
+    "bootstrap.provider-destroyed",
+    "bootstrap.legacy-admission-disabled",
+    "bootstrap.control-adopts",
+    "bootstrap.provisioner-adopts",
+    "bootstrap.dispatch-adopts",
+    "bootstrap.followers-no-mint",
+    "bootstrap.no-signing-key-read"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/29_11.py"
+  ],
+  "timeout_seconds": 600,
+  "required_env": [
+    "DATABASE_URL"
+  ],
+  "fixtures": [],
+  "resources": [],
+  "source_roots": [
+    "services/hyperfide/components",
+    "services/hyperfide/dist",
+    "services/hyperfide/src",
+    "services/hyperfide/migrations",
+    "deploy/hyperfide"
+  ],
+  "source_files": [
+    "deploy/hyperfide/bootstrap-fence.mjs",
+    "deploy/hyperfide/migrate.mjs",
+    "docs/hyperfide/operations.md",
+    "services/hyperfide/src/recovery/bootstrap_fence.ts",
+    "services/hyperfide/src/recovery/fencing.ts",
+    "services/hyperfide/src/providers/placement.ts",
+    "services/hyperfide/src/providers/pools.ts",
+    "services/hyperfide/src/providers/railway/reconciliation.ts",
+    "services/hyperfide/src/providers/railway/preparation.ts",
+    "services/hyperfide/src/artifacts/destruction.ts",
+    "services/hyperfide/src/migration/legacy.ts",
+    "services/hyperfide/src/identity/credentials.ts",
+    "services/hyperfide/src/storage/durability.ts",
+    "services/hyperfide/src/storage/authority_journal.ts",
+    "services/hyperfide/dist/recovery/bootstrap_fence.js",
+    "services/hyperfide/dist/recovery/fencing.js",
+    "services/hyperfide/dist/providers/placement.js",
+    "services/hyperfide/dist/migration/legacy.js",
+    "tests/hyperfide/cases/tasks/29_11.py",
+    "tests/hyperfide/cases/tasks/29_3.py",
+    "tests/hyperfide/cases/tasks/8_2.py",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "required_artifacts": [
+    "bootstrap-observations.json",
+    "bootstrap-processes.json"
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "variant": "task:21.2",
+  "task": "21.2",
+  "scope": "task-component",
+  "cases": [
+    "V-045",
+    "V-044"
+  ],
+  "assertion_ids": [
+    "recovery.service-linked",
+    "recovery.valid-bounded",
+    "recovery.no-changed-condition",
+    "recovery.exhausted-budget",
+    "recovery.capacity-is-wait",
+    "recovery.frontier-only",
+    "recovery.forbidden-action",
+    "recovery.no-authority-fields",
+    "recovery.outage-fallback",
+    "recovery.fallback-advisory",
+    "recovery.repeat-preserves-receipt",
+    "recovery.triage-distributed-explicit",
+    "recovery.triage-legacy-local-refused",
+    "native21.same-primary-context",
+    "native21.policy-domains-distinct",
+    "native21.no-unproved-retry-or-profile",
+    "native21.unchanged-context-fresh",
+    "native21.changed-native-context-stale",
+    "native21.capacity-classified-not-stall",
+    "native21.repeat-preserves-prior-evidence",
+    "native21.repeat-identifies-change",
+    "native21.new-checkpoint-stale",
+    "native21.repeat-new-checkpoint-identified",
+    "native21.foreign-reservation-refused",
+    "native21.compute-authority-unchanged",
+    "native21.setup"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/21_2.py"
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/21_2.py",
+    "--cleanup"
+  ],
+  "timeout_seconds": 240,
+  "required_env": [
+    "DATABASE_URL",
+    "PGHOST",
+    "PGPORT",
+    "PGUSER"
+  ],
+  "fixtures": [
+    "services/hyperfide/dist/decisions/audit.js",
+    "services/hyperfide/dist/decisions/recovery.js",
+    "services/hyperfide/dist/control.js",
+    "tests/hyperfide/cases/tasks/13_2.py",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "resources": [
+    {
+      "id": "domain21-native-admission-database",
+      "kind": "postgresql-database",
+      "scope": "task21.2-disposable"
+    }
+  ],
+  "required_artifacts": [],
+  "source_files": [
+    "services/hyperfide/package.json",
+    "services/hyperfide/package-lock.json",
+    "services/hyperfide/tsconfig.json",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "tests/hyperfide/cases/tasks/4_1.py",
+    "tests/hyperfide/cases/tasks/21_4.py",
+    "tests/hyperfide/cases/tasks/21_2.py",
+    "tests/hyperfide/registrations/21.2.json",
+    "src/spec.c",
+    "src/hyperfide/client.c",
+    "src/hyperfide/client.h"
+  ],
+  "source_roots": [
+    "services/hyperfide/src",
+    "services/hyperfide/dist",
+    "services/hyperfide/components",
+    "services/hyperfide/migrations"
+  ],
+  "actions": []
+}

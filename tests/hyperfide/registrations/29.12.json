@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "variant": "task:29.12",
+  "task": "29.12",
+  "scope": "task-component",
+  "cases": [
+    "V-069"
+  ],
+  "assertion_ids": [
+    "greenfield.topology-consistent",
+    "greenfield.payload-scoped",
+    "greenfield.seal-verified",
+    "greenfield.legacy-writer-refused",
+    "greenfield.resources-refused",
+    "greenfield.legacy-permit-refused",
+    "greenfield.history-refused",
+    "greenfield.run-present-refused",
+    "greenfield.database-sandbox-present-refused",
+    "greenfield.provider-sandbox-present-refused",
+    "greenfield.no-epoch-before-activation",
+    "greenfield.control-refused-before-activation",
+    "greenfield.activated",
+    "greenfield.single-bootstrap-epoch",
+    "greenfield.rows-minted-in-epoch",
+    "greenfield.evidence-retained",
+    "greenfield.inventory-read-only",
+    "greenfield.control-adopts",
+    "greenfield.provisioner-adopts",
+    "greenfield.dispatch-adopts",
+    "greenfield.followers-no-mint",
+    "greenfield.control-starts",
+    "greenfield.first-operator-issued",
+    "greenfield.no-signing-key-read",
+    "greenfield.legacy-unchanged"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/29_12.py"
+  ],
+  "timeout_seconds": 1200,
+  "required_env": [
+    "DATABASE_URL"
+  ],
+  "fixtures": [],
+  "resources": [],
+  "source_roots": [
+    "services/hyperfide/components",
+    "services/hyperfide/dist",
+    "services/hyperfide/src",
+    "services/hyperfide/migrations",
+    "deploy/hyperfide"
+  ],
+  "source_files": [
+    "deploy/hyperfide/bootstrap-fence.mjs",
+    "deploy/hyperfide/migrate.mjs",
+    "docs/hyperfide/operations.md",
+    "services/hyperfide/src/recovery/bootstrap_fence.ts",
+    "services/hyperfide/src/recovery/fencing.ts",
+    "services/hyperfide/src/providers/placement.ts",
+    "services/hyperfide/src/providers/pools.ts",
+    "services/hyperfide/src/providers/railway/reconciliation.ts",
+    "services/hyperfide/src/providers/railway/preparation.ts",
+    "services/hyperfide/src/identity/credentials.ts",
+    "services/hyperfide/src/spec/bootstrap.ts",
+    "services/hyperfide/src/storage/durability.ts",
+    "services/hyperfide/src/storage/authority_journal.ts",
+    "services/hyperfide/src/bootstrap.ts",
+    "services/hyperfide/dist/recovery/bootstrap_fence.js",
+    "services/hyperfide/dist/recovery/fencing.js",
+    "services/hyperfide/dist/providers/placement.js",
+    "services/hyperfide/dist/identity/credentials.js",
+    "services/hyperfide/dist/spec/bootstrap.js",
+    "services/hyperfide/dist/storage/durability.js",
+    "tests/hyperfide/cases/tasks/29_12.py",
+    "tests/hyperfide/cases/tasks/29_11.py",
+    "tests/hyperfide/cases/tasks/29_3.py",
+    "tests/hyperfide/cases/tasks/8_2.py",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "required_artifacts": [
+    "greenfield-observations.json",
+    "greenfield-processes.json"
+  ]
+}

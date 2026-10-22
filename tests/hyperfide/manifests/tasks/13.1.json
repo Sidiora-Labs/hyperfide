@@ -1,0 +1,288 @@
+{
+  "approval": {
+    "allowed_actions": [],
+    "approved": true
+  },
+  "campaign_id": "hyperfide-task-13.1-native-component-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89",
+  "case_ids": [
+    "V-042"
+  ],
+  "expected_assertion_ids": [
+    "connectors.registered-describe",
+    "connectors.unknown-field",
+    "connectors.duplicate-field",
+    "connectors.missing-trusted-profile",
+    "connectors.actual-version.codex",
+    "connectors.actual-option-refusal.codex",
+    "connectors.launch-boundary.codex",
+    "connectors.actual-version.claude",
+    "connectors.actual-option-refusal.claude",
+    "connectors.launch-boundary.claude",
+    "connectors.actual-version-mismatch",
+    "connectors.encode-unique-request",
+    "connectors.encode-unicode",
+    "connectors.steer-requires-turn",
+    "connectors.cancel-exact-turn",
+    "connectors.resume-unqualified-refusal",
+    "connectors.initialize-sequencing",
+    "connectors.actual-codex-initialize",
+    "connectors.claude-user-frame",
+    "connectors.claude-steer-unsupported",
+    "connectors.alias-resolution.codex",
+    "connectors.alias-unresolved-refusal",
+    "connectors.alias-drift-refusal",
+    "connectors.actual-codex-alias-observed",
+    "connectors.child-registration-refused.codex",
+    "connectors.actual-claude-alias-observed",
+    "connectors.qualification-registry-derivation",
+    "connectors.qualification-receipt-dispatch",
+    "connectors.qualification-receipt-resume",
+    "supervisory.host.kernel.actual-required-capabilities",
+    "supervisory.host.kernel.refuse-nonisolated-python",
+    "supervisory.host.socket.private-owner-mode",
+    "supervisory.host.startup.policy-byte-pin",
+    "supervisory.host.start.actual-kernel-identity",
+    "supervisory.host.start.fixed-empty-argv-preserved",
+    "supervisory.host.start.actual-private-native-uid",
+    "supervisory.host.start.no-inherited-host-environment",
+    "supervisory.host.start.exact-plan-replay",
+    "supervisory.host.start.conflicting-launch-refused",
+    "supervisory.host.inspect.cross-scope-collision-preserves-original-plan-provenance",
+    "supervisory.host.input.pipe-ack-is-unacknowledged-native",
+    "supervisory.host.input.durable-idempotent-receipt",
+    "supervisory.host.input.replay-never-writes-twice",
+    "supervisory.host.input.conflicting-operation-refused",
+    "supervisory.host.input.stdin-survives-client-disconnect",
+    "supervisory.host.input.digest-refused",
+    "supervisory.host.inspect.actual-output-sequence-and-byte-digests",
+    "supervisory.host.inspect.bounded-pagination",
+    "supervisory.host.inspect.invalid-limit-refused",
+    "supervisory.host.inspect.numeric-cursor-refused",
+    "supervisory.host.socket.arbitrary-exec-refused",
+    "supervisory.host.socket.duplicate-json-keys-refused",
+    "supervisory.host.socket.oversize-refused",
+    "supervisory.host.identity.forged-start_time-refused",
+    "supervisory.host.identity.forged-kernel_boot_id-refused",
+    "supervisory.host.identity.actual-unrelated-process-protected",
+    "supervisory.host.socket.actual-peer-credentials-refused",
+    "supervisory.host.plan.unlisted-argv-refused",
+    "supervisory.host.plan.worker-purpose-refused",
+    "supervisory.host.plan.expired-refused",
+    "supervisory.host.plan.runtime-bound-refused",
+    "supervisory.host.plan.attempt-authority-refused",
+    "supervisory.host.plan.permissions-refused",
+    "supervisory.host.plan.symlink-refused",
+    "supervisory.host.plan.hardlink-refused",
+    "supervisory.host.plan.outside-root-refused",
+    "supervisory.host.stop.actual-kernel-cleanup",
+    "supervisory.host.stop.durable-replay",
+    "supervisory.host.start.completed-intent-never-reexecutes",
+    "supervisory.host.stop.historical-cleanup-cannot-adopt-reused-uid",
+    "supervisory.host.broker.actual-authorised-nonroot-fixed-profile-lifecycle",
+    "supervisory.host.broker.policy-drift-refused",
+    "supervisory.host.broker.execution-drift-refused",
+    "supervisory.host.broker.argv-refused",
+    "supervisory.host.broker.uid-refused",
+    "supervisory.host.broker.resource-vector-refused",
+    "supervisory.host.broker.runtime-refused",
+    "supervisory.host.broker.expiry-window-refused",
+    "supervisory.host.broker.unregistered-profile-refused",
+    "supervisory.host.start.actual-concurrent-uid-exclusion",
+    "supervisory.host.stop.actual-tracked-descendant-changes-session",
+    "supervisory.host.stop.actual-escaped-descendants-reaped",
+    "supervisory.host.inspect.bounded-real-output-spool",
+    "supervisory.host.input.actual-kernel-partial-write",
+    "supervisory.host.input.partial-closes-unsafe-stdin",
+    "supervisory.host.input.real-host-death-yields-unknown",
+    "supervisory.host.input.unknown-is-never-replayed",
+    "supervisory.host.identity.actual-private-namespace-pid-reuse",
+    "supervisory.host.recovery.original-policy-provenance-never-relabeled",
+    "supervisory.host.recovery.bounded-large-historical-journal-shape-no-reexec",
+    "supervisory.host.start.actual-binary-drift-refused",
+    "supervisory.host.start.real-emfile-pipe-failure-no-fd-leak",
+    "supervisory.host.start.failed-fork-intent-never-reexecutes",
+    "supervisory.host.shutdown.actual-children-reaped-and-socket-removed",
+    "connectors.supervisory-host-probe-complete"
+  ],
+  "inputs": [
+    {
+      "path": "Makefile",
+      "sha256": "40cee85c4626ae57fe8bd7332788456812e54f3f8c96fc628f814dfc8ad1e54c",
+      "size": 5022
+    },
+    {
+      "path": "build/hyperfide-native",
+      "sha256": "34e60efc575c70a9b25886842312809dc093580da2f7b1bd45ce750c789b05ea",
+      "size": 578648
+    },
+    {
+      "path": "runtime/supervisory_host.py",
+      "sha256": "6e2cd65f60f781497538b95e72c11445d0b9db919b4728fc91377d36611cf728",
+      "size": 38981
+    },
+    {
+      "path": "scripts/hyperfide-native-components.py",
+      "sha256": "e9d35c48c7fa582299809f03e485451ba86eb4585f9262150e38b49979ae1ef3",
+      "size": 14830
+    },
+    {
+      "path": "services/hyperfide/components/13.1-qualification.json",
+      "sha256": "7235ac0faa6600a6726a2574027bde639bae52e230cb79b6a3de53ad79d69d2f",
+      "size": 323
+    },
+    {
+      "path": "services/hyperfide/dist/agents/qualification.js",
+      "sha256": "f017ed602e2036cb4582cc166b6eb51cb15b5ce1c4af0a553468c2303fcb442d",
+      "size": 13017
+    },
+    {
+      "path": "services/hyperfide/dist/policy/programme.js",
+      "sha256": "2f9b0745664f79b55492989112528b423decdf553fb303778425c4f9685fa6a5",
+      "size": 4611
+    },
+    {
+      "path": "services/hyperfide/dist/transport/protocol.js",
+      "sha256": "fe965513abe410e78b8941de532bd2e4b7df12056a7fb35cd8645dc429e1e88d",
+      "size": 12240
+    },
+    {
+      "path": "services/hyperfide/src/agents/qualification.ts",
+      "sha256": "971ac9c08adbf794a9b549010fd08c17244a0e8ffe68b6a3bdea7eff9cea7fd4",
+      "size": 15263
+    },
+    {
+      "path": "src/hyperfide/bootstrap.c",
+      "sha256": "4796e62417f6cd27a18eb9ed21f414513568034f7f9572b64871c3f718a827ef",
+      "size": 41421
+    },
+    {
+      "path": "src/hyperfide/component_main.c",
+      "sha256": "cb3b9f726346ac2724ca0d61f44845180074f2347f33a7c22d53b723e476223b",
+      "size": 7574
+    },
+    {
+      "path": "src/hyperfide/components.h",
+      "sha256": "0c89648b865492dca5a15f7b17c5cd6609ce37efffcab780cad870e77dd3eac3",
+      "size": 538
+    },
+    {
+      "path": "src/hyperfide/components/11.2.kvx",
+      "sha256": "4ceaea25f04e64302c2e3ac34f10bfbf25a824f9f851e8f8eea8018137c220c1",
+      "size": 232
+    },
+    {
+      "path": "src/hyperfide/components/11.3.kvx",
+      "sha256": "d5673d26953323a3ef6f6151a056735ecd73ffdf46b3b57ebf64217777bfee45",
+      "size": 267
+    },
+    {
+      "path": "src/hyperfide/components/12.1.kvx",
+      "sha256": "48272ce1744a8883bb95b89c8d559fa9d6be497e0899e65daddcb30b11ae8618",
+      "size": 1067
+    },
+    {
+      "path": "src/hyperfide/components/13.1.kvx",
+      "sha256": "209ad59a62816b385b548ea630842e3659844b8cd7718386926130554fbd9fcd",
+      "size": 289
+    },
+    {
+      "path": "src/hyperfide/components/13.3.kvx",
+      "sha256": "b583d33715988f3d82098a0c89b074e4509ba2a1f9a882302b96bfc827edc2eb",
+      "size": 177
+    },
+    {
+      "path": "src/hyperfide/components/schema.kvx",
+      "sha256": "e543d2bbbaf1cc956101b84c55b95483f4e26c7e6a11c1ff11935621190036a0",
+      "size": 351
+    },
+    {
+      "path": "src/hyperfide/connector_recovery.c",
+      "sha256": "3c93e70d08b3594c7fbb91a3696c1249a6e435b718ee5d8ce8794d88d8e428f5",
+      "size": 13386
+    },
+    {
+      "path": "src/hyperfide/connectors.c",
+      "sha256": "8e7025d9e890ef4283b66145f5b8b7d729848fb772d36db4bc977493df453c09",
+      "size": 37809
+    },
+    {
+      "path": "src/hyperfide/preparation_support.h",
+      "sha256": "2cefe682d6873e19a5502b861cb77a5fb06590e8b74a6a6019bacc0504f02706",
+      "size": 17402
+    },
+    {
+      "path": "src/hyperfide/readiness.c",
+      "sha256": "3a89b563e4acb123ad0a9c34a10ddd26293bc8b914d4e3e6c33091c9fbe54191",
+      "size": 56362
+    },
+    {
+      "path": "src/hyperfide/supervisor.c",
+      "sha256": "9b9f0af624ae07def106eb6aeb742d2ff391db909dc9ae9a45e1dfd078238675",
+      "size": 54074
+    },
+    {
+      "path": "src/hyperfide/supervisor.h",
+      "sha256": "bf02c2c2209295d26ed5fce9914bcdb9772d1e945ef8ec5d656ae841c527a0c7",
+      "size": 5171
+    },
+    {
+      "path": "src/hyperfide/transport.c",
+      "sha256": "ec63d4d5188cb8eccaec0a0c5b12f03b07599c7288ab30fc21775d114020492a",
+      "size": 30602
+    },
+    {
+      "path": "src/hyperfide/transport.h",
+      "sha256": "ee4197064459155a8a12a693c79bff7b54042a3c66c18aeaffa6132348a20aa0",
+      "size": 2733
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/13_1.py",
+      "sha256": "9a4f9b70b8e2e997d62f77e3d84822cd1c9beeb36ed0ba9c95c74f98da54eb17",
+      "size": 38753
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/13_1_host.py",
+      "sha256": "6a681628a2284b4877e686337da3bf6e2904fa3a14c978afbb970767740f31df",
+      "size": 35048
+    },
+    {
+      "path": "tests/hyperfide/check-evidence.py",
+      "sha256": "cc8de56fb25bea153490b4143a231f1ff6f4dac758baaea4bf90fb7d9ba236a0",
+      "size": 30633
+    },
+    {
+      "path": "tests/hyperfide/manifest.schema.json",
+      "sha256": "3407092d7e6e452bb288e996f840bd5bab22d6c0f494a49bf944cd73c18078b8",
+      "size": 3216
+    },
+    {
+      "path": "tests/hyperfide/qualify.py",
+      "sha256": "8aa17f5e2572c8557f15353f7267e98600547fb0f2693486c0e0f2fc1abce8c2",
+      "size": 37538
+    },
+    {
+      "path": "tests/hyperfide/registrations/13.1.json",
+      "sha256": "4e41ec7790fdbc0f133212fc2dccbf56ddde4fb035abffbde43af7b70eb0c7ca",
+      "size": 6691
+    }
+  ],
+  "policy": {
+    "cloud_provisioning": false,
+    "component_only": true,
+    "execution": "remote-only",
+    "frontier_calls": false,
+    "qualification_limitations": [
+      "No live frontier inference, preserved native context, unattended permissions, credential refresh or MAIN restriction qualification.",
+      "MAIN supervisor module is source-only: these variants do not activate it or qualify actual MAIN launch, restricted tool escape resistance or cleanup release.",
+      "Actual installed native transport, signed HTTPS and PostgreSQL probes are bounded component evidence only.",
+      "Historical admission fixture rows exercise accounting, never genuine live profile admission.",
+      "Final merged-source manifests require refreshed complete inventory pins.",
+      "Connector capability receipts in this variant are signed by an ephemeral test key over fixture turn-level evidence (input/output/steer/cancel/resume); only launch, alias resolution, native identity/model observation and child-registration refusal are observed from the installed pinned CLIs."
+    ]
+  },
+  "registered_variant": "task:13.1",
+  "resources": [],
+  "schema_version": 1,
+  "scope": "task-component",
+  "seed": 1
+}

@@ -1,0 +1,172 @@
+{
+  "approval": {
+    "allowed_actions": [],
+    "approved": true
+  },
+  "campaign_id": "hyperfide-task-12.3-native-component-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-6a91b0130b1d-requal-ff4632c9bc89",
+  "case_ids": [
+    "V-007",
+    "V-044"
+  ],
+  "expected_assertion_ids": [
+    "process_tree.root-fixture",
+    "process_tree.unknown-field-refused",
+    "process_tree.identity-mismatch-refused",
+    "process_tree.stale-slot-owner-refused",
+    "process_tree.idle-alive-not-progress",
+    "process_tree.ipc-absent-distinct-from-liveness",
+    "process_tree.reachability-assurance-unobserved",
+    "process_tree.ipc-health-observed",
+    "process_tree.noop-output-not-progress",
+    "process_tree.useful-progress-advanced",
+    "process_tree.repeated-progress-not-advanced",
+    "process_tree.waiting-and-errors-distinct",
+    "process_tree.invalid-progress-not-counted",
+    "process_tree.stalled-distinct-from-idle",
+    "process_tree.descendants-tracked",
+    "process_tree.setsid-orphan-accounted",
+    "process_tree.foreign-spawn-accounted",
+    "process_tree.native-child-flagged",
+    "process_tree.child-usage-accounted",
+    "process_tree.foreign-outside-job-limits-flagged",
+    "process_tree.cgroup-limits-reported",
+    "process_tree.memory-saturation-reported",
+    "process_tree.killed-pid-reuse-detected",
+    "process_tree.stale-identity-exited",
+    "process_tree.nproc-saturation-reported",
+    "process_tree.agent-pid-reuse-not-adopted",
+    "process_tree.tree-cancellation-complete",
+    "process_tree.exited-tree-quiescent",
+    "process_tree.inventory-overflow-refused"
+  ],
+  "inputs": [
+    {
+      "path": "Makefile",
+      "sha256": "40cee85c4626ae57fe8bd7332788456812e54f3f8c96fc628f814dfc8ad1e54c",
+      "size": 5022
+    },
+    {
+      "path": "build/hyperfide-native",
+      "sha256": "34e60efc575c70a9b25886842312809dc093580da2f7b1bd45ce750c789b05ea",
+      "size": 578648
+    },
+    {
+      "path": "scripts/hyperfide-native-components.py",
+      "sha256": "e9d35c48c7fa582299809f03e485451ba86eb4585f9262150e38b49979ae1ef3",
+      "size": 14830
+    },
+    {
+      "path": "src/hyperfide/component_main.c",
+      "sha256": "cb3b9f726346ac2724ca0d61f44845180074f2347f33a7c22d53b723e476223b",
+      "size": 7574
+    },
+    {
+      "path": "src/hyperfide/components.h",
+      "sha256": "0c89648b865492dca5a15f7b17c5cd6609ce37efffcab780cad870e77dd3eac3",
+      "size": 538
+    },
+    {
+      "path": "src/hyperfide/components/12.1.kvx",
+      "sha256": "48272ce1744a8883bb95b89c8d559fa9d6be497e0899e65daddcb30b11ae8618",
+      "size": 1067
+    },
+    {
+      "path": "src/hyperfide/components/12.2.kvx",
+      "sha256": "f23474fcbd5b5cfde33456b3737a268926b67678fb75a4e130084a7d174fcd4a",
+      "size": 274
+    },
+    {
+      "path": "src/hyperfide/components/12.3.kvx",
+      "sha256": "c896ff5802ca8938522bd9bea5f2b03548ffffef10f8e94bceddcd6a00b621e1",
+      "size": 207
+    },
+    {
+      "path": "src/hyperfide/components/schema.kvx",
+      "sha256": "e543d2bbbaf1cc956101b84c55b95483f4e26c7e6a11c1ff11935621190036a0",
+      "size": 351
+    },
+    {
+      "path": "src/hyperfide/job.c",
+      "sha256": "d286d453c68e67d2bac7fb45da8613c5f8ea6ec71b91eb221d45650febdecce3",
+      "size": 35907
+    },
+    {
+      "path": "src/hyperfide/launch.c",
+      "sha256": "0b8cfc4eb3a79e6affaea313572bc93e5ac84e6438e18db2e5ad2124e66a770d",
+      "size": 73247
+    },
+    {
+      "path": "src/hyperfide/process_tree.c",
+      "sha256": "c5f09f6bceaeb3da535827a87844b53d53a655c53e9b919dbb3f62b1bd1ddb06",
+      "size": 29119
+    },
+    {
+      "path": "src/hyperfide/supervisor.c",
+      "sha256": "9b9f0af624ae07def106eb6aeb742d2ff391db909dc9ae9a45e1dfd078238675",
+      "size": 54074
+    },
+    {
+      "path": "src/hyperfide/supervisor.h",
+      "sha256": "bf02c2c2209295d26ed5fce9914bcdb9772d1e945ef8ec5d656ae841c527a0c7",
+      "size": 5171
+    },
+    {
+      "path": "src/hyperfide/supervisor_daemon.c",
+      "sha256": "f743f0f7266358b96e880d1b89802c8095ecfc24acb1d7a5f1d984cd9afe6838",
+      "size": 24277
+    },
+    {
+      "path": "src/hyperfide/transport.c",
+      "sha256": "ec63d4d5188cb8eccaec0a0c5b12f03b07599c7288ab30fc21775d114020492a",
+      "size": 30602
+    },
+    {
+      "path": "src/hyperfide/transport.h",
+      "sha256": "ee4197064459155a8a12a693c79bff7b54042a3c66c18aeaffa6132348a20aa0",
+      "size": 2733
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/12_3.py",
+      "sha256": "177310e4ae9c2dd8ecd00cf7676bcda845436697a115d550e560bc25ee481ede",
+      "size": 27838
+    },
+    {
+      "path": "tests/hyperfide/check-evidence.py",
+      "sha256": "cc8de56fb25bea153490b4143a231f1ff6f4dac758baaea4bf90fb7d9ba236a0",
+      "size": 30633
+    },
+    {
+      "path": "tests/hyperfide/manifest.schema.json",
+      "sha256": "3407092d7e6e452bb288e996f840bd5bab22d6c0f494a49bf944cd73c18078b8",
+      "size": 3216
+    },
+    {
+      "path": "tests/hyperfide/qualify.py",
+      "sha256": "8aa17f5e2572c8557f15353f7267e98600547fb0f2693486c0e0f2fc1abce8c2",
+      "size": 37538
+    },
+    {
+      "path": "tests/hyperfide/registrations/12.3.json",
+      "sha256": "cae40f5140df324008b640aa6bd0da415a2a9577854e9e767958775956eeb331",
+      "size": 2504
+    }
+  ],
+  "policy": {
+    "cloud_provisioning": false,
+    "component_only": true,
+    "execution": "remote-only",
+    "frontier_calls": false,
+    "qualification_limitations": [
+      "No live frontier inference, preserved native context, unattended permissions, credential refresh or MAIN restriction qualification.",
+      "MAIN supervisor module is source-only: these variants do not activate it or qualify actual MAIN launch, restricted tool escape resistance or cleanup release.",
+      "Actual installed native transport, signed HTTPS and PostgreSQL probes are bounded component evidence only.",
+      "Historical admission fixture rows exercise accounting, never genuine live profile admission.",
+      "Final merged-source manifests require refreshed complete inventory pins."
+    ]
+  },
+  "registered_variant": "task:12.3",
+  "resources": [],
+  "schema_version": 1,
+  "scope": "task-component",
+  "seed": 1
+}
