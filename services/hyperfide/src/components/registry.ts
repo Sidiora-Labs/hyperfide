@@ -81,7 +81,8 @@ export class ComponentRegistry {
       invalid('Required initialized dependency capability is unavailable');
     return instance.capabilities[capability] as T;
   }
-  async load(directory: string, moduleRoot: string): Promise<void> {
+  // preflight sees the component IDs this role would load, before any module executes, so startup can refuse a configuration without side effects.
+  async load(directory: string, moduleRoot: string, preflight?: (loading: ReadonlySet<string>) => void): Promise<void> {
     const root = await fs.realpath(moduleRoot);
     const registrationRoot = await fs.realpath(directory);
     const entries = await fs.readdir(registrationRoot, { withFileTypes: true });
@@ -124,6 +125,10 @@ export class ComponentRegistry {
       visiting.delete(id); visited.add(id); this.order.push(id);
     };
     for (const id of this.declarations.keys()) visit(id);
+    if (preflight) {
+      const loading = new Set(this.order.filter(id => this.declarations.get(id)!.roles.includes(this.context.role)));
+      try { preflight(loading); } catch (error) { await this.close(); throw error; }
+    }
     // All schemas, paths, and dependency checks finish before any module can execute.
     try {
       for (const id of this.order) {

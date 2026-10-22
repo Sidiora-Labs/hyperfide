@@ -805,9 +805,10 @@ def main():
                 child = subprocess.run(service.argv, input=json.dumps(frame) + "\n", text=True,
                                        cwd=ROOT, env=service.env, capture_output=True, timeout=15)
                 rows = [json.loads(line) for line in child.stdout.splitlines() if line.startswith("{")]
-                response = next((row for row in rows if row.get("id") == frame["id"]), None)
-                expect(child.returncode == 1 and response is not None and response.get("ok") is False
-                       and response.get("error", {}).get("code") == "AUTH_REQUIRED",
+                errors = [json.loads(line) for line in child.stderr.splitlines() if line.startswith("{")]
+                # hyperfide-v21 2.7: stdio with 14.1 loaded refuses at start; no request is ever answered without credentials.
+                expect(child.returncode == 1 and not any(row.get("id") == frame["id"] for row in rows)
+                       and any(row.get("error", {}).get("code") == "TRANSPORT_CONFIG" for row in errors),
                        "unauthenticated stdio result differs: " + json.dumps({"exit": child.returncode, "responses": rows, "stderr": child.stderr[:400]}))
             check("artifacts.auth.stdio-required", raw_stdio_denied)
 
