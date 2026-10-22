@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import stat
 import subprocess
@@ -232,12 +233,29 @@ def main():
         check('marker.tampered-or-linked-refused', marker_tampered)
 
         def release_sh_stages():
+            # The full release needs the pinned remote toolchain, so the staging program release.sh carries is
+            # lifted out and executed exactly as release.sh invokes it (node -e, the built releases.js bound
+            # through HYPERFIDE_RELEASES_MODULE); the assertions read its printed result and the staged tree.
             text = (ROOT / 'scripts/release.sh').read_text()
-            expect('stageUnitReceipt' in text and "build/'dist/deployment/releases.js'" in text, 'release.sh does not stage the marker through releases.ts')
-            expect(text.index('stageUnitReceipt') < text.index("files.append("), 'marker staged after the manifest inventory')
-            expect("stamp_tool),'check'" in text, 'task 1.4 dist freshness check lost')
             expect(subprocess.run(['bash', '-n', str(ROOT / 'scripts/release.sh')]).returncode == 0, 'release.sh syntax')
-        check('release-sh.stages-marker-before-inventory', release_sh_stages)
+            program = re.search(r'^ stage_code="(.+)"$', text, re.M)
+            expect(program, 'release.sh carries no marker staging program')
+
+            def stage_as_release(stage, unit_receipt):
+                stage.mkdir()
+                p = subprocess.run(['node', '--input-type=module', '-e', program.group(1), str(stage), str(unit_receipt)], cwd=SERVICE, capture_output=True, text=True, timeout=120,
+                                   env=dict(os.environ, HYPERFIDE_RELEASES_MODULE=(SERVICE / 'dist/deployment/releases.js').as_uri()))
+                return p.returncode, (json.loads(p.stdout.strip().splitlines()[-1]) if p.returncode == 0 else p.stderr)
+            rc, out = stage_as_release(scratch / 'release-stage', receipt)
+            expect(rc == 0 and out['staged'] and out['marker'] == MARKER, out)
+            expect((scratch / 'release-stage' / MARKER).read_bytes() == receipt.read_bytes(), 'release staging did not ship the receipt as the marker')
+            rc, out = stage_as_release(scratch / 'release-stage-absent', scratch / 'absent-receipt.json')
+            expect(rc == 0 and out['staged'] is False and not (scratch / 'release-stage-absent/share').exists(), out)
+            forged = scratch / 'release-forged.json'
+            forged.write_bytes(receipt.read_bytes() + b'\n')
+            rc, out = stage_as_release(scratch / 'release-stage-forged', forged)
+            expect(rc != 0 and 'RELEASE_INVALID' in out, ('release staging accepted a forged receipt', out))
+        check('release-sh.stages-marker', release_sh_stages)
 
         def inspector_from_marker():
             payload = scratch / 'payload'

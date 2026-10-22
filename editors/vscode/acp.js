@@ -13,10 +13,13 @@ try { vscode = require('vscode'); } catch (_) { /* headless: protocol-only */ }
 const cp = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const url = require('url');
 /* --- agent chat (5.3) --- the surface's bookkeeping and the two renderers
  * the transcript cannot fake; headless-safe, so the tests reach them. */
 const { AgentPanel, diffRows, stripAnsi, ChatCapabilities, approvalCard,
         agentName } = require('./agents');
+/* --- ask registry (v21 6.1) --- */
+const needs = require('./needs');
 
 const PROTOCOL_VERSION = 1;
 const STDERR_TAIL_MAX = 8192;
@@ -199,7 +202,8 @@ AcpClient.prototype.initialize = function (clientInfo) {
             protocolVersion: PROTOCOL_VERSION,
             clientCapabilities: {
                 fs: { readTextFile: true, writeTextFile: true },
-                terminal: false,
+                /* true once a TerminalBridge answers terminal/* (6.9) */
+                terminal: !!this.opts.terminal,
                 /* The panel renders both select and boolean session options.
                  * Advertising boolean support is what permits an ACP agent to
                  * include those controls in session/new and later updates. */
@@ -250,6 +254,264 @@ function normalizeCodexAdapterCommand(value) {
         command: legacyCommand ? DEFAULT_CODEX_ACP_COMMAND : command,
         legacyCommand,
     };
+}
+
+/* --- terminal bridge, authenticate and MCP environment (v21 6.9) ---
+ * Headless-safe like the rest of the core, so 14_vscode.sh drives exactly
+ * what a session runs. Secrets follow D17: settings and the wire carry only
+ * secret-ref:ID references; a value is resolved at spawn into a child's
+ * environment and is never logged, posted to a webview, or put in an error. */
+
+const TERMINAL_OUTPUT_LIMIT = 1024 * 1024;   /* bytes kept when the agent sets none */
+const SELECTION_MAX = 20000;                 /* characters of a selection embedded */
+const AUTH_REQUIRED = -32000;                /* ACP's auth_required error code */
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const SECRET_REF = /^secret-ref:([A-Za-z0-9._/-]+)$/;
+
+function rpcError(code, message) {
+    const e = new Error(message);
+    e.code = code;
+    return e;
+}
+
+/* terminal/* for one session. Commands run in the workspace only; a command
+ * with no args is a shell line (adapters send both shapes). Output is kept
+ * up to the agent's byte limit, cut from the front on a character boundary. */
+function TerminalBridge(root, opts) {
+    this.root = root;
+    this.spawn = (opts && opts.spawn) || cp.spawn;
+    this.terms = new Map();
+    this.seq = 0;
+}
+
+TerminalBridge.prototype.handles = function (method) {
+    return method === 'terminal/create' || method === 'terminal/output' ||
+        method === 'terminal/wait_for_exit' || method === 'terminal/kill' ||
+        method === 'terminal/release';
+};
+
+TerminalBridge.prototype.request = function (method, params) {
+    params = params || {};
+    switch (method) {
+    case 'terminal/create': return this.create(params);
+    case 'terminal/output': return this.output(params);
+    case 'terminal/wait_for_exit': return this.waitForExit(params);
+    case 'terminal/kill': this.kill(params); return null;
+    case 'terminal/release': this.release(params); return null;
+    default: throw rpcError(-32601, `unsupported method: ${method}`);
+    }
+};
+
+TerminalBridge.prototype.create = function (params) {
+    if (!params.command || typeof params.command !== 'string') {
+        throw rpcError(-32602, 'terminal/create needs a command');
+    }
+    const cwd = params.cwd ? workspacePath(this.root, params.cwd) : path.resolve(this.root);
+    const env = Object.assign({}, process.env);
+    for (const v of Array.isArray(params.env) ? params.env : []) {
+        if (v && ENV_NAME.test(String(v.name))) env[v.name] = String(v.value);
+    }
+    const limit = Number.isInteger(params.outputByteLimit) && params.outputByteLimit > 0
+        ? params.outputByteLimit : TERMINAL_OUTPUT_LIMIT;
+    const args = Array.isArray(params.args) ? params.args.map(String) : [];
+    const group = process.platform !== 'win32';
+    const term = { output: '', truncated: false, limit, exit: null, waiters: [],
+        child: undefined, group };
+    const id = `term-${++this.seq}`;
+    this.terms.set(id, term);
+    const finish = (status) => {
+        if (term.exit) return;
+        term.exit = status;
+        for (const w of term.waiters.splice(0)) w(status);
+    };
+    try {
+        term.child = this.spawn(params.command, args, {
+            cwd, env, shell: args.length === 0, detached: group,
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+    } catch (e) {
+        appendTerminal(term, `cannot start ${params.command}: ${e.message}\n`);
+        finish({ exitCode: 127, signal: null });
+        return { terminalId: id };
+    }
+    for (const s of [term.child.stdout, term.child.stderr]) {
+        if (!s) continue;
+        s.setEncoding('utf8');
+        s.on('data', (d) => appendTerminal(term, d));
+    }
+    term.child.on('error', (e) => {
+        appendTerminal(term, `cannot start ${params.command}: ${e.message}\n`);
+        finish({ exitCode: 127, signal: null });
+    });
+    term.child.on('close', (code, signal) =>
+        finish({ exitCode: code === null ? null : code, signal: signal || null }));
+    return { terminalId: id };
+};
+
+function appendTerminal(term, s) {
+    term.output += s;
+    const b = Buffer.from(term.output, 'utf8');
+    if (b.length <= term.limit) return;
+    let start = b.length - term.limit;
+    while (start < b.length && (b[start] & 0xC0) === 0x80) start++;
+    term.output = b.subarray(start).toString('utf8');
+    term.truncated = true;
+}
+
+TerminalBridge.prototype._term = function (params) {
+    const t = this.terms.get(params && params.terminalId);
+    if (!t) throw rpcError(-32602, `unknown terminal: ${params && params.terminalId}`);
+    return t;
+};
+
+TerminalBridge.prototype.output = function (params) {
+    const t = this._term(params);
+    const res = { output: t.output, truncated: t.truncated };
+    if (t.exit) res.exitStatus = t.exit;
+    return res;
+};
+
+TerminalBridge.prototype.waitForExit = function (params) {
+    const t = this._term(params);
+    if (t.exit) return t.exit;
+    return new Promise((resolve) => t.waiters.push(resolve));
+};
+
+/* The whole process group goes, so a shell line cannot leave its children
+ * running after the agent asked for a kill. The terminal stays readable. */
+function killTerminal(t) {
+    if (t.exit || !t.child || !t.child.pid) return;
+    try {
+        if (t.group) process.kill(-t.child.pid, 'SIGTERM');
+        else t.child.kill('SIGTERM');
+    } catch (_) {
+        try { t.child.kill('SIGTERM'); } catch (__) { /* already gone */ }
+    }
+}
+
+TerminalBridge.prototype.kill = function (params) {
+    killTerminal(this._term(params));
+};
+
+TerminalBridge.prototype.release = function (params) {
+    const t = this._term(params);
+    killTerminal(t);
+    this.terms.delete(params.terminalId);
+};
+
+/* A session that ends takes its terminals with it. */
+TerminalBridge.prototype.releaseAll = function () {
+    for (const t of this.terms.values()) killTerminal(t);
+    this.terms.clear();
+};
+
+/* NAME -> secret-ref:ID becomes NAME -> value through lookup(id, name). A
+ * setting that holds anything but a reference is refused without echoing
+ * it. Unresolved references are reported by name and reference only. */
+async function resolveEnvRefs(refs, lookup) {
+    const env = {};
+    const missing = [];
+    for (const [name, ref] of Object.entries(refs || {})) {
+        if (!ENV_NAME.test(name)) {
+            throw new Error(`codify.acp.envRefs: invalid variable name ${JSON.stringify(name)}`);
+        }
+        const m = SECRET_REF.exec(String(ref));
+        if (!m) {
+            throw new Error(`codify.acp.envRefs.${name} must be a secret-ref:ID reference, never a value`);
+        }
+        const v = await lookup(m[1], name);
+        if (v === undefined || v === null || v === '') missing.push(`${name} (secret-ref:${m[1]})`);
+        else env[name] = String(v);
+    }
+    return { env, missing };
+}
+
+/* The injected MCP server's environment, in ACP's [{name, value}] shape:
+ * exactly the names configured, each from its resolved reference first,
+ * then the editor's own environment. Nothing is passed implicitly. */
+function mcpEnvironment(names, refEnv, hostEnv) {
+    const env = [];
+    const omitted = [];
+    const seen = new Set();
+    for (const raw of Array.isArray(names) ? names : []) {
+        const name = String(raw);
+        if (!ENV_NAME.test(name) || seen.has(name)) continue;
+        seen.add(name);
+        const value = refEnv && refEnv[name] !== undefined ? refEnv[name]
+            : hostEnv && hostEnv[name] !== undefined ? hostEnv[name] : undefined;
+        if (value === undefined) omitted.push(name);
+        else env.push({ name, value: String(value) });
+    }
+    return { env, omitted };
+}
+
+/* Which advertised auth method to use without asking: the configured one if
+ * the agent offers it, else the only one offered. Null means ask the user. */
+function chooseAuthMethod(methods, preferred) {
+    const list = Array.isArray(methods) ? methods.filter((m) => m && m.id) : [];
+    if (preferred) {
+        const hit = list.find((m) => m.id === preferred);
+        if (hit) return hit;
+    }
+    return list.length === 1 ? list[0] : null;
+}
+
+function isAuthRequired(e) {
+    return !!e && (e.code === AUTH_REQUIRED ||
+        /auth(entication)?[ _]required/i.test(String(e.message || '')));
+}
+
+/* session/new, load or resume; on auth_required, authenticate once with the
+ * method choose(methods) returns and retry. The request carries only the
+ * method id: credentials reach the adapter through its environment. */
+async function requestWithAuth(client, method, params, choose, timeoutMs) {
+    try {
+        return await client.request(method, params, timeoutMs);
+    } catch (e) {
+        const methods = (client.agent && client.agent.authMethods) || [];
+        if (!isAuthRequired(e) || !methods.length) throw e;
+        const pick = await choose(methods);
+        if (!pick) {
+            throw new Error(`${e.message} (sign-in not chosen; methods: ` +
+                `${methods.map((m) => m.name || m.id).join(', ')})`);
+        }
+        const vars = Array.isArray(pick.vars) ? pick.vars.map((v) => v && v.name)
+            : pick.varName ? [pick.varName] : [];
+        const childEnv = client.opts.env || {};
+        const unset = vars.filter((n) => n && !childEnv[n] && !process.env[n]);
+        if (unset.length) {
+            throw new Error(`${pick.name || pick.id} needs ${unset.join(', ')}: map ` +
+                'it in codify.acp.envRefs to a secret-ref:ID and start again');
+        }
+        await client.request('authenticate', { methodId: pick.id }, 120000);
+        return client.request(method, params, timeoutMs);
+    }
+}
+
+/* A non-empty editor selection as one prompt block: embedded text when the
+ * agent accepts embedded context, otherwise a link. Workspace files only. */
+function selectionBlock(sel, root, promptCaps) {
+    if (!sel || !sel.path || !root) return null;
+    let abs;
+    try { abs = workspacePath(root, sel.path); } catch (_) { return null; }
+    const rel = path.relative(path.resolve(root), abs) || path.basename(abs);
+    const start = sel.startLine || 1;
+    const end = sel.endLine || start;
+    const span = `${start}${end !== start ? '-' + end : ''}`;
+    const uri = url.pathToFileURL(abs).href;
+    const text = String(sel.text || '');
+    if (promptCaps && promptCaps.embeddedContext && text) {
+        return { type: 'resource', resource: {
+            uri: `${uri}#L${start}${end !== start ? '-L' + end : ''}`,
+            mimeType: 'text/plain',
+            text: text.length > SELECTION_MAX ? text.slice(0, SELECTION_MAX) : text,
+        } };
+    }
+    return { type: 'resource_link', uri, name: `${rel}:${span}` };
+}
+
+function promptBlocks(text, context) {
+    return [{ type: 'text', text }].concat(context ? [context] : []);
 }
 
 /* ---------------- PANEL: everything below needs VS Code ---------------- */
@@ -426,8 +688,10 @@ function rememberSession(sess, extra) {
     postView({ type: 'sessions', sessions: sessionHistory });
 }
 
-function mcpServers() {
-    return [{ name: 'codify', command: deps.binary(), args: ['mcp'], env: [] }];
+/* Self-contained: 14_vscode.sh runs this function's source in a sandbox. */
+function mcpServers(sess) {
+    return [{ name: 'codify', command: deps.binary(), args: ['mcp'],
+        env: (sess && sess.mcpEnv) || [] }];
 }
 
 /* The session's fs bridge: serve workspace files, refuse everything else.
@@ -520,9 +784,9 @@ function panelHtml(webview) {
  * shows in the panel's activity strip. localEcho absorbs the
  * user_message_chunk the adapter mirrors back, and a finished turn re-reads
  * the task's status and re-records the session so history can restore it. */
-function sendPrompt(sess, text, echo) {
+function sendPrompt(sess, text, echo, context) {
     if (sess.running) {
-        sess.queue.push({ text, echo });
+        sess.queue.push({ text, echo, context });
         panelPost(sess, { type: 'queue', count: sess.queue.length });
         return;
     }
@@ -536,7 +800,7 @@ function sendPrompt(sess, text, echo) {
     panelPost(sess, { type: 'turn', running: true });
     sess.client.request('session/prompt', {
         sessionId: sess.sessionId,
-        prompt: [{ type: 'text', text }],
+        prompt: promptBlocks(text, context),
     }).then(
         async (res) => {
             sess.running = false;
@@ -551,7 +815,7 @@ function sendPrompt(sess, text, echo) {
             if (sess.queue.length) {
                 const q = sess.queue.shift();
                 panelPost(sess, { type: 'queue', count: sess.queue.length });
-                sendPrompt(sess, q.text, q.echo);
+                sendPrompt(sess, q.text, q.echo, q.context);
             }
         },
         (e) => {
@@ -581,6 +845,9 @@ function sessionRequest(sess, method, params) {
     }
     if (method === 'fs/write_text_file') {
         return writeTextFile(deps.workspaceRoot(), params);
+    }
+    if (sess.terminals && sess.terminals.handles(method)) {
+        return sess.terminals.request(method, params);
     }
     if (method === 'session/request_permission') {
         return sess.chat.ask(params);
@@ -721,6 +988,103 @@ async function endOfSession(sess, why) {
     deps.refresh();
 }
 
+/* --- terminal bridge, authenticate and MCP environment (v21 6.9), panel side ---
+ * Secret values come from VS Code SecretStorage under the reference ID and
+ * go only into the adapter's environment or the MCP server's env; the
+ * transcript only ever names the variable and its reference. */
+const SECRET_KEY_PREFIX = 'codify.acp.secret.';
+let lastSelection = null;    /* {path, text, startLine, endLine} or null */
+
+async function secretValue(id, name, ask) {
+    const store = extensionCtx && extensionCtx.secrets;
+    if (!store) return undefined;
+    let v = await store.get(SECRET_KEY_PREFIX + id);
+    if (!v && ask) {
+        v = await vscode.window.showInputBox({
+            password: true, ignoreFocusOut: true,
+            title: `Hyperfide: secret-ref:${id}`,
+            prompt: `Value for ${name}. Kept in VS Code secret storage under this ` +
+                'reference; never written to settings or the transcript.',
+        });
+        if (v) await store.store(SECRET_KEY_PREFIX + id, v);
+    }
+    return v || undefined;
+}
+
+/* The adapter's extra environment and the injected MCP server's env. A probe
+ * never prompts: it only learns whether the adapter runs. */
+async function prepareSessionEnv(sess) {
+    const quiet = !!sess.probe;
+    const { env, missing } = await resolveEnvRefs(config().get('acp.envRefs') || {},
+        (id, name) => secretValue(id, name, !quiet));
+    const mcp = mcpEnvironment(config().get('acp.mcpEnv') || [], env, process.env);
+    sess.mcpEnv = mcp.env;
+    if (!quiet && missing.length) {
+        panelPost(sess, { type: 'notice', text:
+            `No value stored for ${missing.join(', ')}; the agent starts without it.` });
+    }
+    if (!quiet && mcp.omitted.length) {
+        panelPost(sess, { type: 'notice', text:
+            `codify.acp.mcpEnv names ${mcp.omitted.join(', ')}, but neither a ` +
+            'reference nor the editor environment sets it.' });
+    }
+    return env;
+}
+
+async function pickAuthMethod(sess, methods) {
+    let pick = chooseAuthMethod(methods, config().get('acp.authMethod'));
+    if (!pick && !sess.probe) {
+        const item = await vscode.window.showQuickPick(
+            methods.filter((m) => m && m.id).map((m) => ({
+                label: m.name || m.id, description: m.description || '', method: m })),
+            { placeHolder: `${sess.driver || 'agent'} needs sign-in: choose a method`,
+                ignoreFocusOut: true });
+        pick = item ? item.method : null;
+    }
+    if (pick && !sess.probe) {
+        panelPost(sess, { type: 'notice', text: `Signing in with ${pick.name || pick.id}.` });
+    }
+    return pick;
+}
+
+function selectionSnapshot(ed) {
+    if (!ed || !ed.document || ed.document.uri.scheme !== 'file') return null;
+    const s = ed.selection;
+    if (!s || s.isEmpty) return null;
+    /* a selection ending at column 0 does not include that line */
+    const endLine = s.end.character === 0 && s.end.line > s.start.line
+        ? s.end.line : s.end.line + 1;
+    return { path: ed.document.uri.fsPath, text: ed.document.getText(s),
+        startLine: s.start.line + 1, endLine };
+}
+
+/* The chat view takes focus when the user types, so the selection is the
+ * last one a file editor reported, not the active editor at send time. */
+function watchSelection(ctx) {
+    lastSelection = selectionSnapshot(vscode.window.activeTextEditor);
+    /* the suites' vscode shims carry no selection events */
+    if (typeof vscode.window.onDidChangeTextEditorSelection !== 'function') return;
+    ctx.subscriptions.push(vscode.window.onDidChangeTextEditorSelection((e) => {
+        lastSelection = selectionSnapshot(e.textEditor);
+    }));
+}
+
+/* The current selection as a prompt block, once per distinct selection. */
+function takeSelection(sess, sel) {
+    if (config().get('acp.selectionContext') === false) return null;
+    if (sel === undefined) sel = lastSelection;
+    if (!sel) return null;
+    const key = `${sel.path}:${sel.startLine}-${sel.endLine}:${sel.text.length}`;
+    if (sess.contextKey === key) return null;
+    const block = selectionBlock(sel, deps.workspaceRoot(),
+        agentCapabilities(sess).promptCapabilities);
+    if (!block) return null;
+    sess.contextKey = key;
+    panelPost(sess, { type: 'notice', text: 'Selection attached: ' +
+        `${path.relative(deps.workspaceRoot(), sel.path)}:${sel.startLine}-${sel.endLine}` });
+    return block;
+}
+
 /* Start and initialize one adapter process without assuming whether the next
  * operation creates, lists, loads, or resumes a session. The driver recorded
  * on the session is whichever adapter actually launched — codex, claude, or
@@ -735,13 +1099,18 @@ async function connectAgent(sess, driverOverride) {
             '@zed-industries/codex-acp launcher lacks current Codex model metadata. ' +
             'Update codify.acp.codexCommand to remove this compatibility redirect.' });
     }
+    const env = await prepareSessionEnv(sess);
+    sess.terminals = new TerminalBridge(deps.workspaceRoot());
     sess.client = new AcpClient({
         command: argv[0],
         args: argv.slice(1),
         cwd: deps.workspaceRoot(),
+        env,
+        terminal: true,
         onNotify: (m, p) => { if (m === 'session/update') sessionUpdate(sess, p); },
         onRequest: (m, p) => sessionRequest(sess, m, p),
         onClose: (reason) => {
+            if (sess.terminals) sess.terminals.releaseAll();
             /* a dead adapter cannot answer anything: settle first, so no
              * permission card is left waiting on a process that is gone */
             if (sess.chat) sess.chat.settle('the agent closed');
@@ -785,10 +1154,10 @@ function publishConnectedSession(sess, res) {
  * server. Initial updates may legally arrive before session/new returns. */
 async function connectSession(sess, driverOverride) {
     await connectAgent(sess, driverOverride);
-    const res = await sess.client.request('session/new', {
+    const res = await requestWithAuth(sess.client, 'session/new', {
         cwd: deps.workspaceRoot(),
-        mcpServers: mcpServers(),
-    }, 120000);
+        mcpServers: mcpServers(sess),
+    }, (methods) => pickAuthMethod(sess, methods), 120000);
     sess.sessionId = res && res.sessionId;
     if (!sess.sessionId) throw new Error('agent returned no sessionId');
     publishConnectedSession(sess, res);
@@ -1038,8 +1407,11 @@ async function decideApproval(sess, id, reject, note) {
  * listener would draw every card twice. */
 let fleetEventsOff = null;
 function watchFleetEvents() {
+    /* connected or reconnected: events in between are gone, read the truth */
+    if (askApi && deps.events && deps.events.available()) askApi.reload();
     if (fleetEventsOff || !deps.events || !deps.events.available()) return !!fleetEventsOff;
     fleetEventsOff = deps.events.on((e) => {
+        if (askApi) askApi.registry.applyEvent(e);
         const p = e.payload || {};
         if (e.kind === 'approval.request') postView(approvalCard(e));
         else if (e.kind === 'approval.decided') postView({ type: 'approval_done', id: p.id, answer: p.state });
@@ -1133,7 +1505,7 @@ function handleSessionMessage(sess, msg) {
     if (msg.type === 'send' && msg.text) {
         /* attached to a fleet agent, a plain message steers it */
         if (sess.attached) { steerAgent(sess, sess.attached, String(msg.text)); return true; }
-        sendPrompt(sess, String(msg.text));
+        sendPrompt(sess, String(msg.text), undefined, takeSelection(sess));
         return true;
     }
     if (msg.type === 'approve' && msg.id) {
@@ -1352,7 +1724,7 @@ function newSession(webview, extra) {
     }, extra || {});
     /* --- agent chat (5.3) --- one bookkeeper per surface: retry target,
      * outstanding permission asks, and the cost ledger */
-    sess.chat = new AgentPanel((msg) => panelPost(sess, msg));
+    sess.chat = new AgentPanel((msg) => { askRegistryPost(sess, msg); panelPost(sess, msg); });
     return sess;
 }
 
@@ -1560,12 +1932,13 @@ async function restorePastSession(sessionId, driver) {
         let res;
         let replayed = false;
         const params = { sessionId: known.sessionId, cwd: deps.workspaceRoot(),
-            mcpServers: mcpServers() };
+            mcpServers: mcpServers(sess) };
+        const choose = (methods) => pickAuthMethod(sess, methods);
         if (caps.loadSession) {
-            res = await sess.client.request('session/load', params, 120000);
+            res = await requestWithAuth(sess.client, 'session/load', params, choose, 120000);
             replayed = true;
         } else if (lifecycle.resume) {
-            res = await sess.client.request('session/resume', params, 120000);
+            res = await requestWithAuth(sess.client, 'session/resume', params, choose, 120000);
         } else {
             throw new Error('adapter can list sessions but cannot load or resume them');
         }
@@ -1586,7 +1959,9 @@ async function restorePastSession(sessionId, driver) {
  * a workspace session with Codify's MCP tools, no task and no claim unless
  * taskOpts says so. The opening prompt is kept before the spawn, so /retry
  * can re-send what an adapter that never started took with it. */
-async function startChatSession(firstText, taskOpts, echo) {
+async function startChatSession(firstText, taskOpts, echo, typed) {
+    /* the selection as it was when the user sent, before the spawn awaits */
+    const sel = typed ? lastSelection : null;
     const sess = newSession(agentView.webview,
         Object.assign({ agent: agentName('vscode-chat', ++permitSeq) }, taskOpts || {}));
     viewSession = sess;
@@ -1617,7 +1992,7 @@ async function startChatSession(firstText, taskOpts, echo) {
         return;
     }
     postView({ type: 'status', text: '' });
-    sendPrompt(sess, firstText, echo);
+    sendPrompt(sess, firstText, echo, sel ? takeSelection(sess, sel) : null);
     deps.refresh();
 }
 
@@ -1811,6 +2186,7 @@ function registerAgentView(ctx) {
             agentView = view;
             view.webview.options = { enableScripts: true };
             view.webview.html = panelHtml(view.webview);
+            applyAskBadge();
             view.webview.onDidReceiveMessage((msg) => {
                 if (!msg) return;
                 if (msg.type === 'ready') { postViewInit(); return; }
@@ -1834,7 +2210,7 @@ function registerAgentView(ctx) {
                     return;
                 }
                 if (msg.type === 'send' && msg.text && viewIdle()) {
-                    startChatSession(String(msg.text));
+                    startChatSession(String(msg.text), undefined, undefined, true);
                 }
             });
             view.onDidDispose(() => {
@@ -1923,12 +2299,62 @@ function register(ctx, d) {
     viewDriver = pickedDriver ? driverId(pickedDriver) : '';
     registerAcpCommands(ctx);
     registerAgentView(ctx);
+    registerAsks(ctx);
+    watchSelection(ctx);
     watchFleetEvents();
     return {
         hasPanel: (id) => panels.has(id) ||
             !!(viewSession && viewSession.taskId === id),
         watchEvents: watchFleetEvents,
+        asks: askApi,
+        askPost: askRegistryPost,
     };
+}
+
+/* --- ask registry (v21 6.1) --- every permission card a chat draws, every
+ * fleet approval and every durable Ask, in one registry (needs.js) with a
+ * status-bar count, this view's badge, and a notification when the card is
+ * somewhere the person is not looking. */
+let askApi = null;
+let askBadge = null;
+let askSessionSeq = 0;
+
+function applyAskBadge() {
+    if (!agentView) return;
+    try { agentView.badge = askBadge ? { value: askBadge.value, tooltip: askBadge.tooltip } : undefined; }
+    catch (_) { /* a VS Code without view badges */ }
+}
+
+function surfaceVisible(sess) {
+    if (sess.panel) return !!sess.panel.visible;
+    return !!(agentView && agentView.visible && viewSession === sess);
+}
+
+/* AgentPanel's posts, mirrored into the registry: a card drawn is an item,
+ * a card settled (answered, cancelled with the turn, adapter gone) is not */
+function askRegistryPost(sess, msg) {
+    if (!askApi || !msg) return;
+    if (!sess.askKey) sess.askKey = `s${++askSessionSeq}`;
+    if (msg.type === 'permission') {
+        askApi.registry.addPermission(sess.askKey, msg, {
+            label: sess.taskId || '', task: sess.taskId || '',
+            answer: (optionId) => sess.chat.answer(msg.pid, optionId),
+            inView: () => surfaceVisible(sess),
+        });
+    } else if (msg.type === 'permission_done') {
+        askApi.registry.settlePermission(sess.askKey, msg.pid);
+    }
+}
+
+function registerAsks(ctx) {
+    askApi = needs.registerAskRegistry(ctx, {
+        cg: deps.cg, cgJson: deps.cgJson, events: deps.events,
+        refresh: () => deps.refresh(),
+        setBadge: (b) => { askBadge = b; applyAskBadge(); },
+        /* fleet approvals are drawn as cards in this view */
+        inView: (item) => item.source === 'approval' && !!(agentView && agentView.visible),
+    });
+    askApi.reload();
 }
 
 module.exports = {
@@ -1938,4 +2364,7 @@ module.exports = {
     classifyUserText, sessionTitle,
     /* --- agent chat (5.3) --- */
     renderableToolCall,
+    /* --- terminal bridge, authenticate and MCP environment (v21 6.9) --- */
+    TerminalBridge, resolveEnvRefs, mcpEnvironment,
+    chooseAuthMethod, requestWithAuth, selectionBlock, promptBlocks,
 };

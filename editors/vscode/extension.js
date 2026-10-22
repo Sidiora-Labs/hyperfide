@@ -797,7 +797,9 @@ async function activate(ctx) {
                 scheduleRefresh(EVENT_REFRESH_MS);
             });
             serveClient.on('gap', () => scheduleRefresh(0));
-            serveClient.on('reconnect', () => { acpApi.watchEvents();
+            /* the chat's watcher sits in eventFans, which the 'event'
+             * listener above reads on every connection: a reconnect keeps it */
+            serveClient.on('reconnect', () => {
                 resyncAfterReconnect().finally(() => scheduleRefresh(0)); });
             serveClient.on('down', () => scheduleRefresh());
             try { await serveClient.subscribe(); } catch (e) { out.appendLine(`subscribe: ${e.message}`); }

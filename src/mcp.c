@@ -1028,8 +1028,9 @@ static int t_approvals_list(void *v) {
     "\"session\":{\"type\":\"string\"},\"sandbox\":{\"type\":\"string\"}}," \
     "\"required\":[\"kind\",\"title\"]}"
 #define S_ASK_STATUS "{\"type\":\"object\",\"properties\":{" \
-    "\"id\":{\"type\":\"integer\",\"description\":\"the Ask ask_raise " \
-    "returned\"},\"task\":{\"type\":\"string\",\"description\":\"without " \
+    "\"id\":{\"type\":[\"integer\",\"string\"],\"description\":\"the " \
+    "Ask ask_raise returned (its ask_id in distributed mode)\"}," \
+    "\"task\":{\"type\":\"string\",\"description\":\"without " \
     "id: this task's open Asks (defaults to CG_TASK)\"}}}"
 #define S_ASK_LIST "{\"type\":\"object\",\"properties\":{" \
     "\"all\":{\"type\":\"boolean\",\"description\":\"every Ask, newest " \
@@ -1417,6 +1418,27 @@ static const struct {
       S_CODEMAP, A_READ, "Repository map", t_codemap, true },
 };
 #define NTOOLS ((int)(sizeof TOOLS / sizeof TOOLS[0]))
+
+/* hyperfide-v21 3.14: the Ask tools are one surface in both modes. The
+ * distributed MCP server (hyperfide/client.c) lists these same entries and
+ * routes their calls to the control service; route-derived tools never
+ * take these names. */
+static const char *const ASK_TOOL_NAMES[] = { "ask_raise", "ask_status",
+                                              "ask_list", "approvals_list" };
+int mcp_ask_tool(int i, const char **name, const char **desc,
+                 const char **schema, const char **annotations,
+                 const char **title) {
+    if (i < 0 || i >= (int)(sizeof ASK_TOOL_NAMES / sizeof *ASK_TOOL_NAMES))
+        return 0;
+    for (int t = 0; t < NTOOLS; t++)
+        if (strcmp(TOOLS[t].name, ASK_TOOL_NAMES[i]) == 0) {
+            *name = TOOLS[t].name; *desc = TOOLS[t].desc;
+            *schema = TOOLS[t].schema; *annotations = TOOLS[t].annotations;
+            *title = TOOLS[t].title;
+            return 1;
+        }
+    return 0;
+}
 
 /* ---------------- resources and prompts ---------------- */
 

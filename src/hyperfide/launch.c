@@ -388,12 +388,90 @@ static char *terminal_data(const RunnerConfig *c,const Instruction *i,const char
  fputs(",\"native_acknowledged\":false}",out);if(fclose(out)){free(data);return NULL;}return data;
 }
 static int append_log(int fd,const void *data,size_t n){const char *p=data;while(n){ssize_t w=write(fd,p,n);if(w<0&&errno==EINTR)continue;if(w<=0)return 0;p+=w;n-=(size_t)w;}return 1;}
+/* hyperfide-v21 4.2 (req 4 ac_1, D21): a sandboxed agent has nobody at its
+ * terminal, so a question or approval prompt it prints would hang unseen. The
+ * broker forwards each such stdout line verbatim as a native.question or
+ * native.approval launch event; the coordinator's 4.1 classifier and Ask path
+ * (runner.launch.event.record) turn it into an Ask row. The selection below
+ * mirrors classifyNativeEvent's QUESTION and APPROVAL_PROMPT cases and only
+ * decides what leaves the sandbox; it never answers the prompt. A prompt too
+ * large for one event is reported as native.oversize by size and digest. */
+#define HF_NATIVE_LINE_LIMIT 65536
+#define HF_NATIVE_RAW_LIMIT (HF_EVENT_DATA_LIMIT-512)
+typedef struct {char *line;size_t n;int overflow;char connector[8];} NativeScan;
+static const char *const native_markers[]={"AskUserQuestion","requestUserInput","requestApproval","execCommandApproval","applyPatchApproval","elicitation/request","can_use_tool"};
+static const char *const codex_approvals[]={"item/commandExecution/requestApproval","item/fileChange/requestApproval","item/permissions/requestApproval","execCommandApproval","applyPatchApproval","mcpServer/elicitation/request"};
+static int json_is(const HfJson *j,int token,const char *value){char s[128];return hf_json_string(j,token,s,sizeof s)&&!strcmp(s,value);}
+/* "QUESTION", "APPROVAL_PROMPT" or NULL. Without a planned connector the line
+ * shape decides: Codex app-server speaks JSON-RPC (method), Claude stream-json
+ * typed messages (type). */
+static const char *native_signal(const HfJson *j,const char *configured,const char **connector){
+ int method=hf_json_field(j,0,"method"),type=hf_json_field(j,0,"type");
+ int codex=configured[0]?!strcmp(configured,"codex"):method>=0&&type<0;
+ *connector=codex?"codex":"claude";
+ if(codex){
+  if(hf_json_field(j,0,"id")<0)return NULL;
+  if(json_is(j,method,"item/tool/requestUserInput"))return "QUESTION";
+  for(size_t k=0;k<sizeof codex_approvals/sizeof *codex_approvals;++k)if(json_is(j,method,codex_approvals[k]))return "APPROVAL_PROMPT";
+  return NULL;
+ }
+ if(json_is(j,type,"control_request")){
+  int request=hf_json_field(j,0,"request");
+  if(!json_is(j,hf_json_field(j,request,"subtype"),"can_use_tool"))return NULL;
+  return json_is(j,hf_json_field(j,request,"tool_name"),"AskUserQuestion")?"QUESTION":"APPROVAL_PROMPT";
+ }
+ if(json_is(j,type,"assistant")&&hf_json_field(j,0,"error")<0){
+  int content=hf_json_field(j,hf_json_field(j,0,"message"),"content");
+  if(content<0||j->tokens[content].type!='[')return NULL;
+  for(int part=content+1;part<j->tokens[content].next;part=j->tokens[part].next)
+   if(json_is(j,hf_json_field(j,part,"type"),"tool_use")&&json_is(j,hf_json_field(j,part,"name"),"AskUserQuestion"))return "QUESTION";
+ }
+ return NULL;
+}
+/* Returns 1 when an event was queued. */
+static int native_line(sqlite3 *db,const RunnerConfig *c,const Instruction *i,NativeScan *scan,HfJson *j){
+ char *line=scan->line;size_t n=scan->n;
+ while(n&&(line[n-1]=='\r'||line[n-1]==' '||line[n-1]=='\t'))--n;
+ int marked=0;for(size_t k=0;!marked&&k<sizeof native_markers/sizeof *native_markers;++k)marked=memmem(line,n,native_markers[k],strlen(native_markers[k]))!=NULL;
+ if(!marked||!n||line[0]!='{')return 0;
+ const char *connector=scan->connector[0]?scan->connector:"claude",*signal=NULL;
+ if(!scan->overflow){line[n]=0;if(!hf_json_parse(j,line)||!(signal=native_signal(j,scan->connector,&connector)))return 0;}
+ int whole=signal&&n<=HF_NATIVE_RAW_LIMIT;
+ char *data=NULL;size_t data_n=0;FILE *out=open_memstream(&data,&data_n);if(!out)return 0;
+ fprintf(out,"{\"connector\":\"%s\",\"agent_session_id\":\"%s\",\"signal\":",connector,i->session);
+ if(signal)fprintf(out,"\"%s\"",signal);else fputs("null",out);
+ if(whole)fprintf(out,",\"event\":%.*s}",(int)n,line);
+ else{char hash[65]="";int hashed=!scan->overflow&&hf_sha256_bytes(line,n,hash);fprintf(out,",\"bytes\":\"%zu\",\"complete\":%s,\"digest\":",n,scan->overflow?"false":"true");if(hashed)fprintf(out,"\"sha256:%s\"}",hash);else fputs("null}",out);}
+ int queued=!fclose(out)&&queue_event(db,c,i->launch,i->command,!whole?"native.oversize":!strcmp(signal,"QUESTION")?"native.question":"native.approval",data);
+ free(data);return queued;
+}
+/* Splits the agent's stdout into lines. A line beyond the bound cannot be
+ * parsed; if its retained prefix carries a prompt marker it is still reported,
+ * as oversize. Returns 1 when any event was queued. */
+static int native_scan(sqlite3 *db,const RunnerConfig *c,const Instruction *i,NativeScan *scan,const char *bytes,size_t n,HfJson *j){
+ int queued=0;if(!scan->line||!j)return 0;
+ for(size_t at=0;at<n;){
+  const char *end=memchr(bytes+at,'\n',n-at);size_t take=end?(size_t)(end-(bytes+at)):n-at;
+  size_t room=HF_NATIVE_LINE_LIMIT-scan->n,copy=take<room?take:room;
+  memcpy(scan->line+scan->n,bytes+at,copy);scan->n+=copy;if(copy<take)scan->overflow=1;
+  at+=take;
+  if(end){++at;queued|=native_line(db,c,i,scan,j);scan->n=0;scan->overflow=0;}
+ }
+ return queued;
+}
+/* A trailing line without a newline is judged when the stream ends. */
+static int native_scan_end(sqlite3 *db,const RunnerConfig *c,const Instruction *i,NativeScan *scan,HfJson *j){
+ int queued=scan->line&&j&&scan->n?native_line(db,c,i,scan,j):0;scan->n=0;scan->overflow=0;return queued;
+}
 static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char **argv,int binary,int ready,EnvRefs *refs) {
  signal(SIGPIPE,SIG_IGN);signal(SIGTERM,SIG_DFL);prctl(PR_SET_CHILD_SUBREAPER,1);setsid();
  int nullfd=open("/dev/null",O_RDWR|O_CLOEXEC);if(nullfd<0)_exit(125);
  for(int descriptor=0;descriptor<3;++descriptor)if(dup2(nullfd,descriptor)<0)_exit(125);
  if(nullfd>2)close(nullfd);
  sqlite3 *db=ledger(c);char path[4200],socketname[108];int server=-1,log_out=-1,log_err=-1,watch_write=-1,input[2],output[2],error[2],gate[2];
+ NativeScan scan={0};HfJson *scan_json=malloc(sizeof *scan_json);scan.line=malloc(HF_NATIVE_LINE_LIMIT+1);
+ if(!scan_json||!scan.line)goto failed;
+ if(!hf_json_get(plan,"connector",scan.connector,sizeof scan.connector)||(strcmp(scan.connector,"codex")&&strcmp(scan.connector,"claude")))scan.connector[0]=0;
  if(!db||!socket_path(c->state,i->launch,socketname))goto failed;
  server=socket(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK,0);struct sockaddr_un address={.sun_family=AF_UNIX};snprintf(address.sun_path,sizeof address.sun_path,"%s",socketname);
  if(server<0||bind(server,(struct sockaddr*)&address,sizeof address)||chmod(socketname,0600)||listen(server,16))goto failed;
@@ -426,9 +504,10 @@ static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char 
   if(terminal_at&&((now-terminal_at>1000000000LL&&undelivered(db,i->command,i->launch)==0)||now-terminal_at>600000000000LL))goto retire;
   int status=0;pid_t reaped;while((reaped=waitpid(-1,&status,WNOHANG))>0)if(reaped==agent){exit_code=WIFEXITED(status)?WEXITSTATUS(status):128+WTERMSIG(status);if(stdin_open){close(input[1]);stdin_open=0;}int absent=stop_uid(i->uid);hf_slot_watchdog_finish(watchdog,&watch_write);state=absent?"EXITED":"UNCERTAIN";state_update(db,i->launch,state,exit_code);if(!queue_ack(db,c,i,3,"TERMINAL",&ap)){stop_uid(i->uid);state="UNCERTAIN";state_update(db,i->launch,state,exit_code);}}
   struct pollfd fds[]={{server,POLLIN,0},{output[0],POLLIN,0},{error[0],POLLIN,0}};int polled=poll(fds,3,200);if(polled<0&&errno!=EINTR){state="UNCERTAIN";break;}
-  for(int k=1;k<3;++k)if(fds[k].revents&(POLLIN|POLLHUP)){char buffer[65536];ssize_t n;while((n=read(fds[k].fd,buffer,sizeof buffer))>0){unsigned long long *total=k==1?&bytes_out:&bytes_err;if(*total+(unsigned long long)n>64ULL*1024*1024||!append_log(k==1?log_out:log_err,buffer,(size_t)n)){state="SPOOL_EXHAUSTED";stop_uid(i->uid);break;}*total+=(unsigned long long)n;}}
+  for(int k=1;k<3;++k)if(fds[k].revents&(POLLIN|POLLHUP)){char buffer[65536];ssize_t n;while((n=read(fds[k].fd,buffer,sizeof buffer))>0){unsigned long long *total=k==1?&bytes_out:&bytes_err;if(*total+(unsigned long long)n>64ULL*1024*1024||!append_log(k==1?log_out:log_err,buffer,(size_t)n)){state="SPOOL_EXHAUSTED";stop_uid(i->uid);break;}*total+=(unsigned long long)n;if(k==1&&native_scan(db,c,i,&scan,buffer,(size_t)n,scan_json))next_refresh=0;}}
   if(strcmp(state,"RUNNING")&&!terminal_at){
    if(stdin_open){close(input[1]);stdin_open=0;}
+   native_scan_end(db,c,i,&scan,scan_json);
    fsync(log_out);fsync(log_err);state_update(db,i->launch,state,exit_code);
    queue_ack(db,c,i,3,!strcmp(state,"EXITED")||!strcmp(state,"STOPPED")||!strcmp(state,"LEASE_EXPIRED")?"TERMINAL":"UNCERTAIN",&ap);
    char *data=terminal_data(c,i,state,exit_code,bytes_out,bytes_err,stopped_by);if(data)queue_event(db,c,i->launch,i->command,"launch.terminal",data);free(data);
@@ -470,7 +549,8 @@ static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char 
    if(!ok){env_refs_clear(&next);hf_native_error(out,"INVALID_RELAUNCH");}
    else{
     HfProcessIdentity previous=live,fresh_identity;close(input[1]);stdin_open=0;int stopped=stop_uid(i->uid);waitpid(agent,NULL,0);
-    for(int k=0;k<2;++k){int fd=k?error[0]:output[0];char buffer[65536];ssize_t n;while((n=read(fd,buffer,sizeof buffer))>0){unsigned long long *total=k?&bytes_err:&bytes_out;if(*total+(unsigned long long)n<=64ULL*1024*1024&&append_log(k?log_err:log_out,buffer,(size_t)n))*total+=(unsigned long long)n;}close(fd);}
+    for(int k=0;k<2;++k){int fd=k?error[0]:output[0];char buffer[65536];ssize_t n;while((n=read(fd,buffer,sizeof buffer))>0){unsigned long long *total=k?&bytes_err:&bytes_out;if(*total+(unsigned long long)n<=64ULL*1024*1024&&append_log(k?log_err:log_out,buffer,(size_t)n)){*total+=(unsigned long long)n;if(!k)native_scan(db,c,i,&scan,buffer,(size_t)n,scan_json);}}close(fd);}
+    native_scan_end(db,c,i,&scan,scan_json);next_refresh=0;
     AgentPipes fresh;pid_t next_agent=stopped?spawn_agent(i,plan,argv,binary,&next,&fresh):-1;sqlite3_stmt *u=NULL;
     int ok2=next_agent>0&&hf_process_identity(next_agent,&fresh_identity)&&sqlite3_prepare_v2(db,"UPDATE launches SET agent_pid=?,agent_start=?,os_boot=?,updated=unixepoch() WHERE id=? AND state='RUNNING'",-1,&u,NULL)==SQLITE_OK;
     if(ok2){char as[32];snprintf(as,sizeof as,"%llu",fresh_identity.start_time);sqlite3_bind_int(u,1,next_agent);sqlite3_bind_text(u,2,as,-1,SQLITE_TRANSIENT);sqlite3_bind_text(u,3,fresh_identity.os_boot_id,-1,SQLITE_STATIC);sqlite3_bind_text(u,4,i->launch,-1,SQLITE_STATIC);ok2=sqlite3_step(u)==SQLITE_DONE&&sqlite3_changes(db)==1;}sqlite3_finalize(u);
@@ -494,6 +574,7 @@ static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char 
  if(server>=0){close(server);server=-1;unlink(socketname);}
  failed:
  if(watch_write>=0)close(watch_write);
+ free(scan.line);free(scan_json);
  if(ready>=0){ssize_t notice=write(ready,"F",1);(void)notice;close(ready);}if(db)sqlite3_close(db);if(server>=0)close(server);if(log_out>=0)close(log_out);if(log_err>=0)close(log_err);_exit(0);
 }
 static const char *last_refusal="";
