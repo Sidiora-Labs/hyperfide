@@ -126,6 +126,38 @@ async function authenticateManifest(env:Readonly<NodeJS.ProcessEnv>,root:string,
  return {mode:'ED25519',key_fingerprint:'sha256:'+createHash('sha256').update(der).digest('hex'),signature_digest:'sha256:'+createHash('sha256').update(signature).digest('hex')};
  }catch{fail('Prebuilt manifest signature is invalid');}
 }
+/** The signed release index: scripts/release.sh writes release.json beside manifest.sig in the
+ * release output and scripts/release-sign.sh signs it as release.json.sig with the manifest key.
+ * It pins the manifest digest and the manifest signer, so a manifest is used only after both
+ * detached signatures verify against the one configured key (hyperfide-v21 3.22). */
+export const RELEASE_INDEX='release.json';
+type ReleaseIndex={index_digest:string;signature_digest:string;key_fingerprint:string;release_version:string};
+function refuse(code:string,message:string):never{throw new FoundationError(code,message);}
+export async function verifyReleaseIndex(env:Readonly<NodeJS.ProcessEnv>,manifestDigest:string):Promise<ReleaseIndex>{
+ const keyPath=env.HYPERFIDE_TRUSTED_RELEASE_KEY_FILE,signaturePath=env.HYPERFIDE_RELEASE_SIGNATURE_FILE;
+ if(!keyPath||!signaturePath||!path.isAbsolute(signaturePath))fail('Both the trusted release key and detached signature must be configured');
+ if(!/^sha256:[0-9a-f]{64}$/.test(manifestDigest))fail('Pinned manifest digest required');
+ const indexPath=path.join(path.dirname(signaturePath),RELEASE_INDEX),indexSignature=indexPath+'.sig';
+ for(const name of [indexPath,indexSignature]){
+  try{await fs.lstat(name);}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')refuse('RELEASE_SIGNATURE_MISSING','Signed release index '+path.basename(name)+' is missing beside the manifest signature');throw error;}
+ }
+ const keyBytes=await trustedDetached(keyPath,16384),indexBytes=await trustedDetached(indexPath,1048576),signature=await trustedDetached(indexSignature,64);
+ let der:Buffer,valid=false;
+ try{
+  const key=createPublicKey(keyBytes);der=key.export({format:'der',type:'spki'});
+  if(key.asymmetricKeyType!=='ed25519'||der.length!==44||der.subarray(0,12).toString('hex')!=='302a300506032b6570032100')fail('Configured release key must be Ed25519');
+  valid=signature.length===64&&verify(null,indexBytes,key,signature);
+ }catch{return fail('Configured release key must be Ed25519');}
+ if(!valid)refuse('RELEASE_SIGNATURE_FORGED','release.json signature does not verify against the configured release key');
+ const keyFingerprint='sha256:'+createHash('sha256').update(der).digest('hex');
+ let raw:unknown;try{raw=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(indexBytes));}catch{return fail('Signed release index is not JSON');}
+ const index=exact(raw,['schema_version','release_version','manifest_digest','archive','archive_digest','signature']);
+ const signed=exact(index.signature,['algorithm','file','key_fingerprint']);
+ if(index.schema_version!==1||typeof index.release_version!=='string'||signed.algorithm!=='ED25519')fail('Unsupported signed release index');
+ if(index.manifest_digest!==manifestDigest)refuse('RELEASE_SIGNATURE_STALE','Signed release.json pins a different manifest');
+ if(signed.file!==path.basename(signaturePath)||signed.key_fingerprint!==keyFingerprint)refuse('RELEASE_SIGNATURE_STALE','Signed release.json names a different manifest signature or signer');
+ return {index_digest:'sha256:'+createHash('sha256').update(indexBytes).digest('hex'),signature_digest:'sha256:'+createHash('sha256').update(signature).digest('hex'),key_fingerprint:keyFingerprint,release_version:index.release_version};
+}
 /** Byte verification is separately reusable by a trusted operator installer.
  * Only configured detached Ed25519 trust material authenticates provenance;
  * request hashes or an installation receipt cannot establish authentication. */
@@ -134,9 +166,11 @@ export async function inspectPrebuiltRelease(env:Readonly<NodeJS.ProcessEnv>,rel
  const rootInfo=await fs.lstat(root);if(!rootInfo.isDirectory()||rootInfo.isSymbolicLink()||await fs.realpath(root)!==root)fail('Release root must be a real directory');
  const filename=await file(root,relativeManifest);const info=await fs.stat(filename);if(info.size>MANIFEST_LIMIT)fail('Oversized release manifest');
  const manifestBytes=await fs.readFile(filename),manifestDigest='sha256:'+createHash('sha256').update(manifestBytes).digest('hex');
+ const index=env.HYPERFIDE_TRUSTED_RELEASE_KEY_FILE||env.HYPERFIDE_RELEASE_SIGNATURE_FILE?await verifyReleaseIndex(env,manifestDigest):null;
  const authentication=await authenticateManifest(env,root,manifestBytes);
  const manifest=exact(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(manifestBytes)),['schema_version','release_version','source_commit','source_date_epoch','protocol_version','schema_min','schema_max','runtime','files']);
  if(manifest.schema_version!==1||typeof manifest.release_version!=='string'||!/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(manifest.release_version)||typeof manifest.source_commit!=='string'||!/^([0-9a-f]{40}|[0-9a-f]{64})$/.test(manifest.source_commit)||typeof manifest.source_date_epoch!=='string'||!/^(0|[1-9][0-9]*)$/.test(manifest.source_date_epoch))fail('Invalid immutable release provenance');
+ if(index&&index.release_version!==manifest.release_version)refuse('RELEASE_SIGNATURE_STALE','Signed release.json names a different release version');
  version(manifest.protocol_version);const min=version(manifest.schema_min),max=version(manifest.schema_max);if(min>max)fail('Inverted schema range');
  const runtime=exact(manifest.runtime,['node','npm','python','platform','architecture']);if(runtime.node!=='24.22.0'||runtime.npm!=='11.19.1'||runtime.python!=='3.14.8'||runtime.platform!=='linux'||runtime.architecture!=='x64')fail('Unqualified release runtime');
  if(!Array.isArray(manifest.files)||!manifest.files.length||manifest.files.length>100000)fail('Invalid release file inventory');
@@ -177,7 +211,8 @@ export async function inspectPrebuiltRelease(env:Readonly<NodeJS.ProcessEnv>,rel
  if(await checksum(filename)!==manifestDigest)fail('Release manifest changed during inspection');
  const finalAuthentication=await authenticateManifest(env,root,manifestBytes);
  if(JSON.stringify(finalAuthentication)!==JSON.stringify(authentication))fail('Release trust anchor changed during inspection');
- return {verified:true,manifest_digest:manifestDigest,release_version:manifest.release_version,source_commit:manifest.source_commit,files:names.size,service_units:serviceUnits,build_on_supervision_host:false,signature_status:authentication.mode==='ED25519'?'VERIFIED':'UNVERIFIED',authentication,deployment_authorized:false};
+ if(index&&JSON.stringify(await verifyReleaseIndex(env,manifestDigest))!==JSON.stringify(index))fail('Signed release index changed during inspection');
+ return {verified:true,manifest_digest:manifestDigest,release_version:manifest.release_version,source_commit:manifest.source_commit,files:names.size,service_units:serviceUnits,build_on_supervision_host:false,signature_status:authentication.mode==='ED25519'&&index?'VERIFIED':'UNVERIFIED',authentication,release_index:index?{digest:index.index_digest,signature_digest:index.signature_digest}:null,deployment_authorized:false};
  }
 export function createComponent(_startup:ComponentContext):Component{return {apiVersion:1,actions:Object.fromEntries(actions.map(action=>[action,async(raw:unknown,ctx:ComponentContext)=>{
  const i=invocationOf(ctx);

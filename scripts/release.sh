@@ -16,6 +16,8 @@ done
 [ -n "$output" ] || { echo "hyperfide release: --output is required" >&2; exit 2; }
 # Unsigned releases are refused before any build: manifest.sig and release.json.sig both come from this key.
 case "${HYPERFIDE_RELEASE_SIGNING_KEY_FILE:-}" in /*) ;; *) echo "hyperfide release: HYPERFIDE_RELEASE_SIGNING_KEY_FILE (absolute Ed25519 private key) is required" >&2; exit 2 ;; esac
+# The key gate stats the key file itself (exists, regular, owner-only, Ed25519) before git, make or npm run.
+scripts/release-sign.sh --check-key "$HYPERFIDE_RELEASE_SIGNING_KEY_FILE" >/dev/null
 [ -z "$(git status --porcelain --untracked-files=normal)" ] || { echo "hyperfide release: source checkout must be committed and clean" >&2; exit 2; }
 case "${HYPERFIDE_BUILD_PLACEMENT:-}" in
  remote) ;;
