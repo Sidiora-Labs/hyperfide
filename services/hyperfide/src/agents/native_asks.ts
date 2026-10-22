@@ -1,8 +1,8 @@
 import type {ComponentContext} from '../components/registry.js';
 import type {InvocationContext,AuthorityTransaction} from '../transport/protocol.js';
 import {object} from '../policy/programme.js';
-import {isAskRaiseCapability} from '../policy/human_interface.js';
-import type {AskSubject} from '../policy/human_interface.js';
+// Type-only: human_interface imports the 3.6 policy table from admission.ts, which imports this module.
+import type {AskSubject,AskRaiseCapability} from '../policy/human_interface.js';
 
 // hyperfide-v21 4.1 (req 4 ac_1): a question or approval prompt a native agent emits becomes an Ask. Unlike the
 // admission classification, which keeps only normalized codes, an Ask must carry the agent's own words: the human
@@ -11,14 +11,7 @@ export type NativeAskKind='question'|'permission'|'variable'|'secret';
 export interface NativeAskRequest {
  native_id:string|null;kind:NativeAskKind;title:string;body:string;options:string[];recommended:string|null;
 }
-// Interim terms until the per-kind policy table (task 3.6) supplies deadlines and chains. A question proceeds on its
-// recommended option after the deadline (D11), so it needs one; blocking kinds wait without a deadline.
-const NATIVE_ASK_TERMS:Readonly<Record<NativeAskKind,{deadline_seconds:number|null;chain:string[]}>>=Object.freeze({
- question:{deadline_seconds:3600,chain:['leader','operator']},
- permission:{deadline_seconds:null,chain:['operator']},
- variable:{deadline_seconds:null,chain:['operator']},
- secret:{deadline_seconds:null,chain:['operator']}
-});
+const isAskRaiser=(value:unknown):value is AskRaiseCapability=>object(value)&&value.schema_version===1&&typeof value.raiseInTransaction==='function';
 const CODEX_APPROVALS:Readonly<Record<string,string>>=Object.freeze({
  'item/commandExecution/requestApproval':'run a command','execCommandApproval':'run a command',
  'item/fileChange/requestApproval':'change files','applyPatchApproval':'apply a patch',
@@ -94,17 +87,17 @@ export function nativeAskRequests(connector:'codex'|'claude',event:unknown):Nati
  return [];
 }
 export interface RaisedNativeAsk {ask_id:unknown;kind:unknown;default_policy:unknown;state:unknown;replayed:boolean}
-/** Raises each Ask through the 1.2-asks path inside the caller's guarded transaction. The idempotency key is the
+/** Raises each Ask through the 1.2-asks path inside the caller's guarded transaction; deadline and chain come from
+ * the kind's 3.6 policy (ASK_POLICY). The idempotency key is the
  * native prompt's own id within the observed session, so the same prompt forwarded twice is one Ask. The returned
  * summary carries no native text: callers persist it as admission evidence. */
 export async function raiseNativeAsks(ctx:ComponentContext,client:AuthorityTransaction,invocation:InvocationContext,subject:AskSubject,operationId:string,requests:readonly NativeAskRequest[]):Promise<RaisedNativeAsk[]>{
  if(!requests.length)return [];
- const asks=ctx.dependencies.require('1.2-asks','human.asks.v1',isAskRaiseCapability);
+ const asks=ctx.dependencies.require('1.2-asks','human.asks.v1',isAskRaiser);
  const raised:RaisedNativeAsk[]=[];
  for(const [n,r] of requests.entries()){
-  const terms=NATIVE_ASK_TERMS[r.kind];
   const result=await asks.raiseInTransaction(client,invocation,{idempotency_key:'native:'+subject.session+':'+(r.native_id??operationId+'.'+n),kind:r.kind,title:r.title,body:r.body,
-   options:r.options,recommended:r.recommended,deadline_seconds:terms.deadline_seconds,chain:terms.chain,task_id:null},subject);
+   options:r.options,recommended:r.recommended,deadline_seconds:null,chain:[],task_id:null},subject);
   const ask=result.ask as Record<string,unknown>;
   raised.push({ask_id:ask.ask_id,kind:ask.kind,default_policy:ask.default_policy,state:ask.state,replayed:result.replayed===true});
  }

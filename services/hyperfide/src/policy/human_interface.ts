@@ -3,6 +3,9 @@ import type { QueryResult, QueryResultRow } from 'pg';
 import type { Component, ComponentContext } from '../components/registry.js';
 import { FoundationError, object } from './programme.js';
 import {invocationOf,recorded} from '../identity/enrollment.js';
+import {ASK_POLICY,ASK_POLICY_REVISION,askAnswererRoles,resolveAskPolicy} from '../agents/admission.js';
+import {recordDefaultDecision} from '../decisions/jobs.js';
+import type {ExpiredAskForDecision} from '../decisions/jobs.js';
 
 interface Tx { query<R extends QueryResultRow=QueryResultRow>(text:string,values?:unknown[]):Promise<QueryResult<R>> }
 interface Principal {
@@ -294,12 +297,12 @@ interface AskOutbox {
 }
 const askKinds=['secret','variable','permission','decision','question'] as const;
 type AskKind=typeof askKinds[number];
-// D11: the kind decides block versus proceed-and-flag; a caller cannot choose a silent default.
-const askPolicy:Readonly<Record<AskKind,'block'|'proceed-and-flag'>>=Object.freeze({secret:'block',variable:'block',permission:'block',decision:'proceed-and-flag',question:'proceed-and-flag'});
+// D11 and 3.6: the per-kind table (agents/admission.ts, ASK_POLICY) decides block versus proceed-and-flag, the
+// deadline and the escalation chain; a caller cannot choose a silent default.
 // Choice kinds are answered with one of the offered options; variables and questions take free text.
 const choiceKinds:readonly AskKind[]=['permission','decision'];
 // Humans provide secrets, variables and permissions (D9); the leader may settle a decision or question.
-const askAnswerers:Readonly<Record<AskKind,readonly string[]>>=Object.freeze({secret:['OPERATOR'],variable:['OPERATOR'],permission:['OPERATOR'],decision:['OPERATOR','LEADER'],question:['OPERATOR','LEADER']});
+const askAnswerers:Readonly<Record<AskKind,readonly string[]>>=Object.freeze(Object.fromEntries(askKinds.map(kind=>[kind,askAnswererRoles(kind)])) as unknown as Record<AskKind,readonly string[]>);
 const askExpirers=['OPERATOR','COORDINATOR','LEADER'];
 const askReaders=['OPERATOR','COORDINATOR','LEADER','FEATURE_MANAGER'];
 const askStates=['OPEN','ANSWERED','EXPIRED'];
@@ -331,13 +334,13 @@ async function askTransaction<T>(context:RuntimeContext,action:string,roles:read
   return record?recorded(tx,actor.actor_id,'envelope.'+action,invocation.operation,()=>operation(tx,actor,outbox)):operation(tx,actor,outbox);
  });
 }
-async function deliverAsk(tx:Tx,outbox:AskOutbox,actor:Principal,row:AskRow,eventType:string):Promise<{event_id:string;operator_consumer_id:string;delivery_obligations:number}>{
+async function deliverAsk(tx:Tx,outbox:AskOutbox,actor:Principal,row:AskRow,eventType:string,extra:Record<string,unknown>={}):Promise<{event_id:string;operator_consumer_id:string;delivery_obligations:number}>{
  const consumer=await outbox.resolveOperatorConsumer(tx,{organisation_id:actor.organisation_id,run_id:actor.run_id,namespace:'asks'});
  // Delivery to operators is the point of an Ask; without their channel the change is refused, never parked unseen.
  if(!consumer)throw new FoundationError('ASK_OPERATOR_CONSUMER_REQUIRED','No operator Ask consumer (operator:asks) is registered for this run');
  const id=randomUUID(),view=askView(row);
  const queued=await outbox.enqueue(tx,{organisation_id:actor.organisation_id,run_id:actor.run_id,id,aggregate_type:'ask',aggregate_id:String(row.id),
-  aggregate_version:String(row.state_version),event_type:eventType,payload:{schema_version:1,ask:view,actor_id:actor.actor_id,actor_role:actor.role,target:'OPERATOR'}},{consumer_ids:[consumer]});
+  aggregate_version:String(row.state_version),event_type:eventType,payload:{schema_version:1,ask:view,actor_id:actor.actor_id,actor_role:actor.role,target:'OPERATOR',...extra}},{consumer_ids:[consumer]});
  return {event_id:id,operator_consumer_id:consumer,delivery_obligations:queued.obligations};
 }
 async function lockedAsk(tx:Tx,actor:Principal,input:Record<string,unknown>):Promise<AskRow>{
@@ -352,13 +355,17 @@ function checkRaise(input:unknown):CheckedRaise{
  const v=exact(input,['idempotency_key','kind','title','body','options','recommended','deadline_seconds','chain','task_id']);
  if(typeof v.idempotency_key!=='string'||!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(v.idempotency_key))refuse('Ask idempotency key is invalid');
  if(!askKinds.includes(v.kind as AskKind))refuse('Ask kind is unknown');
- const kind=v.kind as AskKind,policy=askPolicy[kind],title=text(v.title,1,512,'Ask title'),body=text(v.body,0,65536,'Ask body');
- const options=strings(v.options,'Ask options'),chain=strings(v.chain,'Ask escalation chain');
+ const kind=v.kind as AskKind,title=text(v.title,1,512,'Ask title'),body=text(v.body,0,65536,'Ask body');
+ const options=strings(v.options,'Ask options'),requestedChain=v.chain===null?[]:strings(v.chain,'Ask escalation chain');
  const recommended=v.recommended===null?null:text(v.recommended,1,512,'Recommended option');
  if((recommended===null)!==(options.length===0)||(recommended!==null&&!options.includes(recommended)))refuse('Options need exactly one recommended choice among them');
- const deadline=v.deadline_seconds;
- if(deadline!==null&&(!Number.isSafeInteger(deadline)||Number(deadline)<1||Number(deadline)>30*86400))refuse('Ask deadline must be 1 s to 30 days away');
- if(policy==='proceed-and-flag'&&(recommended===null||deadline===null))refuse('A proceed-and-flag Ask needs a recommended option and a deadline');
+ const requestedDeadline=v.deadline_seconds;
+ if(requestedDeadline!==null&&(!Number.isSafeInteger(requestedDeadline)||Number(requestedDeadline)<1))refuse('Ask deadline must be at least 1 s away');
+ // 3.6: every Ask carries the deadline and chain of its kind's policy; a caller may only tighten the deadline.
+ const resolved=resolveAskPolicy(kind,requestedDeadline as number|null,requestedChain);
+ if(!resolved.ok)return refuse(resolved.reason);
+ const policy=resolved.default_policy,deadline=resolved.deadline_seconds,chain=resolved.chain;
+ if(policy==='proceed-and-flag'&&recommended===null)refuse('A proceed-and-flag Ask needs a recommended option to take at its deadline');
  return {v,kind,policy,title,body,options,chain,recommended,deadline,requestedTask:v.task_id===null?null:uuid(v.task_id)};
 }
 type AskActor=Principal&{credential_id:string;attempt_id:string|null;sandbox_id:string|null};
@@ -421,14 +428,40 @@ function askExpire(context:RuntimeContext,input:unknown):Promise<unknown>{
   const row=await lockedAsk(tx,actor,v);
   if(row.state!=='OPEN')refuse('Only an open Ask expires');
   if(row.due!==true)refuse('Ask deadline has not passed');
-  // D11: proceed-and-flag takes the recommended option and records it as a decision naming this Ask; block keeps waiting.
-  const updated=await tx.query<AskRow>(row.default_policy==='proceed-and-flag'
-   ?"UPDATE hyperfide.asks SET state='EXPIRED',answer=recommended,decided_by_default=true,expired_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 RETURNING *"
-   :"UPDATE hyperfide.asks SET state='EXPIRED',expired_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 RETURNING *",
-   [actor.organisation_id,actor.run_id,row.id]);
-  const next=updated.rows[0]!;
-  return {status:'EXPIRED',decided_by_default:next.decided_by_default,ask:askView(next),...await deliverAsk(tx,outbox,actor,next,'ask.expired')};
+  return expireAsk(tx,actor,outbox,row);
  },true);
+}
+// D11 and 3.6: proceed-and-flag takes the recommended option and writes the decided-by-default record naming this
+// Ask, the default and who would have answered (decisions/jobs.ts); block keeps waiting and escalates to the end
+// of its chain, the operator, who can still answer late.
+async function expireAsk(tx:Tx,actor:Principal&{credential_id:string},outbox:AskOutbox,row:AskRow):Promise<Record<string,unknown>>{
+ const byDefault=row.default_policy==='proceed-and-flag';
+ const updated=await tx.query<AskRow>(byDefault
+  ?"UPDATE hyperfide.asks SET state='EXPIRED',answer=recommended,decided_by_default=true,expired_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 RETURNING *"
+  :"UPDATE hyperfide.asks SET state='EXPIRED',expired_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 RETURNING *",
+  [actor.organisation_id,actor.run_id,row.id]);
+ const next=updated.rows[0]!,chain=next.chain as string[];
+ const decision=byDefault?await recordDefaultDecision(tx,next as unknown as ExpiredAskForDecision,actor.credential_id,ASK_POLICY_REVISION):null;
+ const outcome=decision?{decision}:{escalated_to:chain[chain.length-1]??'operator'};
+ return {status:'EXPIRED',decided_by_default:next.decided_by_default,ask:askView(next),...outcome,...await deliverAsk(tx,outbox,actor,next,'ask.expired',outcome)};
+}
+// The timer's single call: expires every open Ask of the run whose deadline has passed, oldest deadline first.
+// Rows another sweeper holds are skipped, so concurrent sweeps never expire one Ask twice.
+function askSweep(context:RuntimeContext,input:unknown):Promise<unknown>{
+ const v=exact(input,['limit']);
+ if(!Number.isSafeInteger(v.limit)||Number(v.limit)<1||Number(v.limit)>100)refuse('Ask sweep bound is invalid');
+ return askTransaction(context,'human.ask.sweep',askExpirers,async(tx,actor,outbox)=>{
+  const due=await tx.query<AskRow>(`SELECT * FROM hyperfide.asks WHERE organisation_id=$1 AND run_id=$2 AND state='OPEN' AND deadline IS NOT NULL
+   AND clock_timestamp()>=deadline ORDER BY deadline,id LIMIT $3 FOR UPDATE SKIP LOCKED`,[actor.organisation_id,actor.run_id,Number(v.limit)+1]);
+  const expired=[];
+  for(const row of due.rows.slice(0,Number(v.limit)))expired.push(await expireAsk(tx,actor,outbox,row));
+  return {expired,decided_by_default:expired.filter(item=>item.decided_by_default===true).length,truncated:due.rows.length>Number(v.limit)};
+ },true);
+}
+function askPolicyView(context:RuntimeContext,input:unknown):Promise<unknown>{
+ exact(input,[]);
+ return askTransaction(context,'human.ask.policy',null,async()=>({policy_revision:ASK_POLICY_REVISION,
+  kinds:Object.fromEntries(askKinds.map(kind=>[kind,{...ASK_POLICY[kind],chain:[...ASK_POLICY[kind].chain],answerers:[...askAnswerers[kind]],choice:choiceKinds.includes(kind)}])),authority:'NONE'}),false);
 }
 function askList(context:RuntimeContext,input:unknown):Promise<unknown>{
  const v=exact(input,['state','limit']);
@@ -471,7 +504,9 @@ export function createAskComponent(context:ComponentContext):Component{
     'human.ask.raise':(input,context)=>askRaise(context as RuntimeContext,input),
     'human.ask.answer':(input,context)=>askAnswer(context as RuntimeContext,input),
     'human.ask.list':(input,context)=>askList(context as RuntimeContext,input),
-    'human.ask.expire':(input,context)=>askExpire(context as RuntimeContext,input)
+    'human.ask.expire':(input,context)=>askExpire(context as RuntimeContext,input),
+    'human.ask.sweep':(input,context)=>askSweep(context as RuntimeContext,input),
+    'human.ask.policy':(input,context)=>askPolicyView(context as RuntimeContext,input)
   }};
 }
 export function createComponent(_context:ComponentContext):Component{

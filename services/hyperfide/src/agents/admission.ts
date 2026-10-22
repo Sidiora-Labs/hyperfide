@@ -346,3 +346,37 @@ export function createComponent(ctx:ComponentContext):Component{
  }});
  return Object.assign(component,{capabilities:Object.freeze({'agent.admission.v1':capability})});
 }
+
+// ---- Ask policy per kind (hyperfide-v21 3.6, req 3 ac_4) -----------------------------------------------------
+// Kept apart from native admission above: task 4.1 classifies native QUESTION signals in this file, and both
+// sections must merge mechanically. This table is the one source for how an Ask waits and who settles it.
+// D11 fixes the default policy (secret, variable and permission block; decision and question proceed on the
+// recommended option and flag) and leaves the deadlines and chains to this table. The deadline is the longest a
+// raiser may set; a caller may only shorten it. The chain is the ordered escalation of who is asked, lowest
+// first, and always ends at the operator. Who may answer is the policy chain, never a caller's widening of it.
+export type AskPolicyKind='secret'|'variable'|'permission'|'decision'|'question';
+export type AskChainMember='leader'|'operator';
+export interface AskKindPolicy{default_policy:'block'|'proceed-and-flag';deadline_seconds:number;chain:readonly AskChainMember[]}
+export const ASK_POLICY_REVISION='v21-3.6.1';
+export const ASK_CHAIN_MEMBERS:readonly AskChainMember[]=Object.freeze(['leader','operator'] as const);
+const askKindPolicy=(default_policy:AskKindPolicy['default_policy'],deadline_seconds:number,chain:AskChainMember[]):Readonly<AskKindPolicy>=>
+ Object.freeze({default_policy,deadline_seconds,chain:Object.freeze(chain)});
+export const ASK_POLICY:Readonly<Record<AskPolicyKind,Readonly<AskKindPolicy>>>=Object.freeze({
+ secret:askKindPolicy('block',86400,['operator']),
+ variable:askKindPolicy('block',86400,['operator']),
+ permission:askKindPolicy('block',14400,['operator']),
+ decision:askKindPolicy('proceed-and-flag',14400,['leader','operator']),
+ question:askKindPolicy('proceed-and-flag',3600,['leader','operator'])
+});
+export function askAnswererRoles(kind:AskPolicyKind):string[]{return ASK_POLICY[kind].chain.map(member=>member.toUpperCase());}
+// Resolves a raise against the table: a null deadline takes the policy deadline, an empty chain the policy chain.
+// Returns the refusal reason instead of throwing so the caller keeps its own error vocabulary.
+export function resolveAskPolicy(kind:AskPolicyKind,deadlineSeconds:number|null,chain:readonly string[]):
+ {ok:true;default_policy:AskKindPolicy['default_policy'];deadline_seconds:number;chain:AskChainMember[]}|{ok:false;reason:string}{
+ const p=ASK_POLICY[kind];
+ if(deadlineSeconds!==null&&deadlineSeconds>p.deadline_seconds)return {ok:false,reason:'Ask deadline exceeds the '+kind+' policy deadline of '+p.deadline_seconds+' s'};
+ if(chain.some(member=>!ASK_CHAIN_MEMBERS.includes(member as AskChainMember)))return {ok:false,reason:'Ask escalation chain names an unknown member'};
+ if(chain.length&&chain[chain.length-1]!=='operator')return {ok:false,reason:'Ask escalation chain must end at the operator'};
+ return {ok:true,default_policy:p.default_policy,deadline_seconds:deadlineSeconds??p.deadline_seconds,chain:chain.length?[...chain] as AskChainMember[]:[...p.chain]};
+}
+// ---- end Ask policy -------------------------------------------------------------------------------------------
