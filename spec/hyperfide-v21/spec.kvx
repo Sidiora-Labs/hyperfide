@@ -687,7 +687,7 @@ owner = "runner"
 
 [task.3.16]
 title = "Fleet stops release and admission honours a held scope"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["3.11"]
 touches = ["services/hyperfide/src/recovery/stop.ts", "services/hyperfide/src/recovery/scope_hold.ts", "services/hyperfide/src/agents/admission.ts", "services/hyperfide/components/24.3.json", "services/hyperfide/src/identity/enrollment.ts", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/2_4.py", "tests/hyperfide/cases/v21/3_16.py"]
