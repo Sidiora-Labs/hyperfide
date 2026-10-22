@@ -1030,10 +1030,15 @@ async function decideApproval(sess, id, reject, note) {
 }
 
 /* Approval requests and escalations reach the sidebar chat as they happen,
- * whichever agent raised them: the chat is where a person is looking. */
+ * whichever agent raised them: the chat is where a person is looking.
+ * register() runs before the serve connection exists, so the extension calls
+ * this again once serve connects and on every reconnect; it installs one
+ * listener at most, because the fan list outlives reconnects and a second
+ * listener would draw every card twice. */
+let fleetEventsOff = null;
 function watchFleetEvents() {
-    if (!deps.events || !deps.events.available()) return;
-    deps.events.on((e) => {
+    if (fleetEventsOff || !deps.events || !deps.events.available()) return !!fleetEventsOff;
+    fleetEventsOff = deps.events.on((e) => {
         const p = e.payload || {};
         if (e.kind === 'approval.request') postView(approvalCard(e));
         else if (e.kind === 'approval.decided') postView({ type: 'approval_done', id: p.id, answer: p.state });
@@ -1043,7 +1048,8 @@ function watchFleetEvents() {
         } else if (e.kind === 'drift.interface') {
             postView({ type: 'notice', text: `interface drift: ${p.symbol} ${p.change} on ${p.base} — ${(p.agents || []).map((a) => a.agent).join(', ') || 'no live branch'} told` });
         }
-    });
+    }) || (() => {});
+    return true;
 }
 
 /* Attach a spec task to a live session: claim, start, and brief the agent
@@ -1920,6 +1926,7 @@ function register(ctx, d) {
     return {
         hasPanel: (id) => panels.has(id) ||
             !!(viewSession && viewSession.taskId === id),
+        watchEvents: watchFleetEvents,
     };
 }
 

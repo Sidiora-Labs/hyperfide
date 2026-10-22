@@ -245,7 +245,7 @@ owner = "source"
 
 [task.1.12]
 title = "Pushed fleet cards reach the editor"
-status = "pending"
+status = "done"
 wave = 1
 requires = []
 touches = ["editors/vscode/acp.js", "editors/vscode/extension.js", "tests/integration/14_vscode.sh"]
