@@ -260,6 +260,21 @@ static const HfRoute25 hf_routes25[]={
  {"recap","classify-result","21.4","decision.legacy.recap.result"},
  {NULL,NULL,NULL,NULL}
 };
+/* hyperfide-v21 3.14: one Ask surface in both modes. The four native Ask
+ * tools of src/mcp.c are listed here under their own names and schemas and
+ * call the 1.2-asks routes; route-derived tools skip that component and never
+ * take a native name. No tool answers an Ask: only a person does. */
+/* weak: the hyperfide-native component binary links this file without mcp.c */
+extern int mcp_ask_tool(int i,const char **name,const char **desc,const char **schema,const char **annotations,const char **title) __attribute__((weak));
+static const char *const hf_ask_tools25[]={"ask_raise","ask_status","ask_list","approvals_list"};
+static int hf_mcp_native25(const char *name){
+ for(size_t i=0;i<sizeof hf_ask_tools25/sizeof *hf_ask_tools25;i++)if(!strcmp(hf_ask_tools25[i],name))return 1;
+ return 0;
+}
+static int hf_mcp_routed25(const HfRoute25 *r,char *name,size_t cap){
+ snprintf(name,cap,"%s_%s",r->command,r->subcommand);
+ return strcmp(r->component,"1.2-asks")&&!hf_mcp_native25(name);
+}
 /* hyperfide console <view>: the operator's read of the 23.1-console read model
  * (hyperfide-v21 5.3, req 5). A read owns nothing, so unlike a routed command
  * it mints fresh operation identities per request. Each payload names its
@@ -439,8 +454,8 @@ static int hf_mcp_allowed25(const HfMcpPolicy25 *policy,const char *name){
  return 0;
 }
 static int hf_mcp_known25(const char *name){
- if(!strcmp(name,"authority_invoke"))return 1;
- for(const HfRoute25 *r=hf_routes25;r->command;r++){char candidate[128];snprintf(candidate,sizeof candidate,"%s_%s",r->command,r->subcommand);if(!strcmp(candidate,name))return 1;}
+ if(!strcmp(name,"authority_invoke")||hf_mcp_native25(name))return 1;
+ for(const HfRoute25 *r=hf_routes25;r->command;r++){char candidate[128];if(hf_mcp_routed25(r,candidate,sizeof candidate)&&!strcmp(candidate,name))return 1;}
  return 0;
 }
 static int hf_mcp_policy25(HfMcpPolicy25 *policy){
@@ -499,8 +514,15 @@ static void hf_rpc_tools25(FILE *out,const char *id,const HfMcpPolicy25 *policy)
  int emitted=0;
  fprintf(out,"{\"jsonrpc\":\"2.0\",\"id\":%s,\"result\":{\"tools\":[",id);
  if(hf_mcp_allowed25(policy,"authority_invoke")){emitted=1;fputs("{\"name\":\"authority_invoke\",\"description\":\"Invoke a scoped protocol1 operation through verified TLS and Ed25519. Explicit stable operation identities are mandatory.\",\"inputSchema\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"payload\":{\"type\":\"object\"},\"operation_id\":{\"type\":\"string\",\"format\":\"uuid\"},\"idempotency_key\":{\"type\":\"string\",\"format\":\"uuid\"},\"correlation_id\":{\"type\":\"string\",\"format\":\"uuid\"},\"causation_id\":{\"type\":[\"string\",\"null\"]}},\"required\":[\"payload\",\"operation_id\",\"idempotency_key\",\"correlation_id\"]}}",out);}
+ const char *native,*description,*schema,*annotations,*title;
+ for(int i=0;mcp_ask_tool&&mcp_ask_tool(i,&native,&description,&schema,&annotations,&title);i++){
+ if(!hf_mcp_allowed25(policy,native))continue;
+ if(emitted++)fputc(',',out);
+ fputs("{\"name\":",out);hf_json_write_string(out,native);fputs(",\"title\":",out);hf_json_write_string(out,title);
+ fputs(",\"description\":",out);hf_json_write_string(out,description);fprintf(out,",\"inputSchema\":%s,\"annotations\":%s}",schema,annotations);
+ }
  for(const HfRoute25 *r=hf_routes25;r->command;r++){
- char candidate[128];snprintf(candidate,sizeof candidate,"%s_%s",r->command,r->subcommand);if(!hf_mcp_allowed25(policy,candidate))continue;
+ char candidate[128];if(!hf_mcp_routed25(r,candidate,sizeof candidate)||!hf_mcp_allowed25(policy,candidate))continue;
  if(emitted++)fputc(',',out);
  fprintf(out,"{\"name\":\"%s_%s\",\"description\":\"Scoped %s. The server enforces current role, scope and authority; this mapping grants none.\",\"inputSchema\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"run_id\":{\"type\":\"string\",\"format\":\"uuid\"},\"input\":{\"type\":\"object\"},\"operation_id\":{\"type\":\"string\",\"format\":\"uuid\"},\"idempotency_key\":{\"type\":\"string\",\"format\":\"uuid\"},\"correlation_id\":{\"type\":\"string\",\"format\":\"uuid\"},\"causation_id\":{\"type\":[\"string\",\"null\"]},\"expected_version\":{\"type\":[\"string\",\"null\"]},\"authority\":{\"type\":[\"object\",\"null\"]}},\"required\":[\"run_id\",\"input\",\"operation_id\",\"idempotency_key\",\"correlation_id\"]}}",r->command,r->subcommand,r->action);
  }
@@ -509,11 +531,146 @@ static void hf_rpc_tools25(FILE *out,const char *id,const HfMcpPolicy25 *policy)
 static int hf_arg_string25(const HfJson *j,int args,const char *name,char *out,size_t capacity){
  return hf_json_string(j,hf_json_field(j,args,name),out,capacity);
 }
+/* An optional caller identity (a retry passes the same ones back); absent, a
+ * fresh one. A present but non-canonical identity is refused. */
+static int hf_ask_identity25(const HfJson *j,int args,const char *name,char out[37]){
+ int token=hf_json_field(j,args,name);
+ if(token<0)return hf_uuid_generate(out);
+ return hf_json_string(j,token,out,37)&&hf_uuid25(out);
+}
+static int hf_ask_run25(const HfJson *j,int args,const HfMcpPolicy25 *policy,char run[37]){
+ int token=hf_json_field(j,args,"run_id");
+ if(token>=0)return hf_json_string(j,token,run,37)&&hf_uuid25(run);
+ if(policy->bound){memcpy(run,policy->run,37);return 1;}
+ const char *configuration=getenv("HYPERFIDE_TRANSPORT_CONFIG");HfTransportConfig config;
+ if(configuration&&hf_transport_config(configuration,&config)&&hf_uuid25(config.run_id)){memcpy(run,config.run_id,37);return 1;}
+ return 0;
+}
+/* 90s 5m 2h 1d, @EPOCH or bare seconds, as the local ask raise reads them */
+static int hf_ask_deadline25(const HfJson *j,int token,long long *seconds){
+ char text[32];
+ if(j->tokens[token].type=='v'){int64_t n;if(!hf_json_i64(j,token,&n)||n<1)return 0;*seconds=n;return 1;}
+ if(!hf_json_string(j,token,text,sizeof text)||!text[0])return 0;
+ char *end=NULL;errno=0;
+ if(text[0]=='@'){long long at=strtoll(text+1,&end,10);if(errno||!end||*end||end==text+1)return 0;*seconds=at-(long long)time(NULL);return *seconds>=1;}
+ long long n=strtoll(text,&end,10);if(errno||end==text||n<1)return 0;
+ long long unit=!*end||!strcmp(end,"s")?1:!strcmp(end,"m")?60:!strcmp(end,"h")?3600:!strcmp(end,"d")?86400:0;
+ if(!unit||n>LLONG_MAX/unit)return 0;
+ *seconds=n*unit;return 1;
+}
+/* a string or array argument as a JSON array */
+static int hf_ask_list25(const HfJson *j,int args,const char *name,FILE *out){
+ int token=hf_json_field(j,args,name);
+ if(token<0){fputs("[]",out);return 1;}
+ if(j->tokens[token].type=='['){char *raw=hf_json_raw(j,token);if(!raw)return 0;fputs(raw,out);free(raw);return 1;}
+ if(j->tokens[token].type!='s')return 0;
+ char *raw=hf_json_raw(j,token);if(!raw)return 0;fprintf(out,"[%s]",raw);free(raw);return 1;
+}
+static void hf_ask_string25(const HfJson *j,int args,const char *name,const char *absent,FILE *out){
+ int token=hf_json_field(j,args,name);char *raw=token>=0&&j->tokens[token].type=='s'?hf_json_raw(j,token):NULL;
+ fputs(raw?raw:absent,out);free(raw);
+}
+static void hf_ask_result25(FILE *out,const char *id,int error,const char *text){
+ fprintf(out,"{\"jsonrpc\":\"2.0\",\"id\":%s,\"result\":{\"content\":[{\"type\":\"text\",\"text\":",id);
+ hf_json_write_string(out,text);fprintf(out,"}],\"isError\":%s}}\n",error?"true":"false");
+}
+/* invoke one 1.2-asks action; *text is the response body or the failure */
+static int hf_ask_invoke25(const HfMcpPolicy25 *policy,const char *run,const char *action,const char *input,
+ const char *operation,const char *idempotency,const char *correlation,char **text){
+ size_t size=strlen(input)+512;char *payload=malloc(size);*text=NULL;
+ if(!payload)return -1;
+ snprintf(payload,size,"{\"run_id\":\"%s\",\"component\":\"1.2-asks\",\"action\":\"%s\",\"input\":%s,\"expected_version\":null,\"authority\":null}",run,action,input);
+ char *body=NULL,*failure=NULL;size_t body_size=0,failure_size=0;
+ FILE *success=open_memstream(&body,&body_size),*errors=open_memstream(&failure,&failure_size);
+ if(!success||!errors){if(success)fclose(success);if(errors)fclose(errors);free(body);free(failure);free(payload);return -1;}
+ HfTransportConfig subject_config;int result=hf_mcp_subject25(policy,&subject_config,errors);
+ if(!result)result=hf_invoke_config25(policy->bound?&subject_config:NULL,payload,operation,idempotency,correlation,NULL,success,errors);
+ fclose(success);fclose(errors);free(payload);
+ if(!result){*text=body;free(failure);}
+ else{*text=failure_size?failure:body_size?body:strdup("Authority returned no result");if(*text!=failure)free(failure);if(*text!=body)free(body);}
+ return result;
+}
+static int hf_ask_field_is25(const HfJson *j,int object,const char *name,const char *value){
+ char actual[512];return hf_json_string(j,hf_json_field(j,object,name),actual,sizeof actual)&&!strcmp(actual,value);
+}
+static void hf_rpc_ask25(HfJson *j,int args,FILE *out,const char *id,const HfMcpPolicy25 *policy,const char *name){
+ char operation[37],idempotency[37],correlation[37],run[37],task[512]="",ask[64]="";
+ if(!hf_ask_identity25(j,args,"operation_id",operation)||!hf_ask_identity25(j,args,"idempotency_key",idempotency)||!hf_ask_identity25(j,args,"correlation_id",correlation)){
+  hf_ask_result25(out,id,1,"{\"error\":\"operation_id, idempotency_key and correlation_id must be canonical UUIDs when given\"}");return;}
+ if(!hf_ask_run25(j,args,policy,run)){hf_ask_result25(out,id,1,"{\"error\":\"run_id is required: pass it, or enrol the transport configuration with a run\"}");return;}
+ char *input=NULL;size_t size=0;FILE *encoded=open_memstream(&input,&size);
+ if(!encoded){hf_rpc_error25(out,id,-32603,"Request allocation failed");return;}
+ const char *action="human.ask.list";int raise=!strcmp(name,"ask_raise"),status=!strcmp(name,"ask_status"),approvals=!strcmp(name,"approvals_list"),all=0;
+ int all_token=hf_json_field(j,args,"all");if(all_token>=0)hf_json_bool(j,all_token,&all);
+ int task_token=hf_json_field(j,args,"task");if(task_token>=0)hf_json_string(j,task_token,task,sizeof task);
+ const char *refusal=NULL;
+ if(raise){
+  action="human.ask.raise";
+  int kind=hf_json_field(j,args,"kind"),title=hf_json_field(j,args,"title");
+  if(kind<0||title<0||j->tokens[kind].type!='s'||j->tokens[title].type!='s')refusal="{\"error\":\"kind and title are required\"}";
+  else if(task[0]&&!hf_uuid25(task))refusal="{\"error\":\"in distributed mode task is the control-service task UUID; omit it to use the attempt's task\"}";
+  long long deadline=0;int deadline_token=hf_json_field(j,args,"deadline");
+  if(!refusal&&deadline_token>=0&&!(j->tokens[deadline_token].type=='v'&&!strncmp(j->text+j->tokens[deadline_token].start,"null",4))&&!hf_ask_deadline25(j,deadline_token,&deadline))
+   refusal="{\"error\":\"--deadline must be 90s, 5m, 2h, 1d, a future @EPOCH or seconds from now\"}";
+  if(!refusal){
+   fprintf(encoded,"{\"idempotency_key\":\"%s\",\"kind\":",idempotency);hf_ask_string25(j,args,"kind","null",encoded);
+   fputs(",\"title\":",encoded);hf_ask_string25(j,args,"title","null",encoded);
+   fputs(",\"body\":",encoded);hf_ask_string25(j,args,"body","\"\"",encoded);
+   fputs(",\"options\":",encoded);if(!hf_ask_list25(j,args,"options",encoded))refusal="{\"error\":\"options must be a list of strings\"}";
+   fputs(",\"recommended\":",encoded);hf_ask_string25(j,args,"recommend","null",encoded);
+   if(deadline)fprintf(encoded,",\"deadline_seconds\":%lld",deadline);else fputs(",\"deadline_seconds\":null",encoded);
+   fputs(",\"chain\":",encoded);if(!hf_ask_list25(j,args,"chain",encoded))refusal="{\"error\":\"chain must be a list of strings\"}";
+   fputs(",\"task_id\":",encoded);if(task[0])fprintf(encoded,"\"%s\"",task);else fputs("null",encoded);
+   fputc('}',encoded);
+  }
+ }else{
+  if(status){
+   int ask_token=hf_json_field(j,args,"id");
+   if(ask_token>=0&&(!hf_json_string(j,ask_token,ask,sizeof ask)||!hf_uuid25(ask)))refusal="{\"error\":\"in distributed mode id is the Ask's ask_id UUID\"}";
+   if(!ask[0]&&!task[0]){const char *env=getenv("CG_TASK");if(env&&env[0]&&strlen(env)<sizeof task)snprintf(task,sizeof task,"%s",env);}
+   if(!refusal&&!ask[0]&&!task[0])refusal="{\"error\":\"pass id, or task (CG_TASK is not set)\"}";
+  }
+  /* an Ask by id may be in any state; a task's status reads its open Asks */
+  fprintf(encoded,"{\"state\":%s,\"limit\":500}",(status&&ask[0])||(!status&&all)?"null":"\"OPEN\"");
+ }
+ fclose(encoded);
+ if(refusal){hf_ask_result25(out,id,1,refusal);free(input);return;}
+ char *text=NULL;int result=hf_ask_invoke25(policy,run,action,input,operation,idempotency,correlation,&text);free(input);
+ if(result<0){hf_rpc_error25(out,id,-32603,"Response allocation failed");return;}
+ if(result){hf_ask_result25(out,id,1,text);free(text);return;}
+ HfJson *response=malloc(sizeof *response);
+ if(!response||!hf_json_parse(response,text)){free(response);hf_ask_result25(out,id,1,text);free(text);return;}
+ int body=hf_json_field(response,0,"result");
+ char *view=NULL;size_t view_size=0;FILE *shaped=open_memstream(&view,&view_size);int missing=0;
+ if(!shaped){free(response);free(text);hf_rpc_error25(out,id,-32603,"Response allocation failed");return;}
+ if(raise){char *raw=hf_json_raw(response,hf_json_field(response,body,"ask"));if(raw)fputs(raw,shaped);else missing=1;free(raw);}
+ else{
+  /* the local tools' shapes: {ask}, {asks,task,blocked}, {asks}, {approvals} */
+  int rows=hf_json_field(response,body,"asks"),emitted=0,blocked=0;char *found=NULL;
+  if(rows<0||response->tokens[rows].type!='['){missing=1;rows=-1;}
+  if(!status||!ask[0])fprintf(shaped,"{\"%s\":[",approvals?"approvals":"asks");
+  for(int row=rows+1;rows>=0&&row<response->tokens[rows].next;row=response->tokens[row].next){
+   if(status&&ask[0]){if(!found&&hf_ask_field_is25(response,row,"ask_id",ask))found=hf_json_raw(response,row);continue;}
+   if(task[0]&&!hf_ask_field_is25(response,row,"task",task))continue;
+   if(approvals&&!hf_ask_field_is25(response,row,"kind","permission"))continue;
+   if(status&&hf_ask_field_is25(response,row,"default_policy","block"))blocked=1;
+   char *raw=hf_json_raw(response,row);if(raw){if(emitted++)fputc(',',shaped);fputs(raw,shaped);free(raw);}
+  }
+  if(status&&ask[0]){if(found)fprintf(shaped,"{\"ask\":%s}",found);else if(!missing)missing=2;free(found);}
+  else if(status){fputs("],\"task\":",shaped);hf_json_write_string(shaped,task);fprintf(shaped,",\"blocked\":%s}",blocked?"true":"false");}
+  else fputs("]}",shaped);
+ }
+ fclose(shaped);
+ if(missing==2){char message[128];snprintf(message,sizeof message,"{\"error\":\"no Ask %s\"}",ask);hf_ask_result25(out,id,1,message);}
+ else hf_ask_result25(out,id,missing,missing?text:view);
+ free(view);free(response);free(text);
+}
 static void hf_rpc_call25(HfJson *j,FILE *out,const char *id,const HfMcpPolicy25 *policy){
  int params=hf_json_field(j,0,"params"),args=hf_json_field(j,params,"arguments");
  char name[128],operation[37],idempotency[37],correlation[37],causation[37],run[37],expected[32];
  if(!hf_json_string(j,hf_json_field(j,params,"name"),name,sizeof name)){hf_rpc_error25(out,id,-32602,"A finite tool name is required");return;}
  if(!hf_mcp_allowed25(policy,name)){hf_rpc_error25(out,id,-32601,"Tool is not permitted by trusted supervisor policy");return;}
+ if(hf_mcp_native25(name)){hf_rpc_ask25(j,args,out,id,policy,name);return;}
  if(!hf_arg_string25(j,args,"operation_id",operation,sizeof operation)||!hf_uuid25(operation)||
  !hf_arg_string25(j,args,"idempotency_key",idempotency,sizeof idempotency)||!hf_uuid25(idempotency)||
  !hf_arg_string25(j,args,"correlation_id",correlation,sizeof correlation)||!hf_uuid25(correlation)){
@@ -528,7 +685,7 @@ static void hf_rpc_call25(HfJson *j,FILE *out,const char *id,const HfMcpPolicy25
  payload=hf_json_raw(j,hf_json_field(j,args,"payload"));
  }else{
  const HfRoute25 *route=NULL;
- for(const HfRoute25 *r=hf_routes25;r->command;r++){char route_name[128];snprintf(route_name,sizeof route_name,"%s_%s",r->command,r->subcommand);if(!strcmp(route_name,name)){route=r;break;}}
+ for(const HfRoute25 *r=hf_routes25;r->command;r++){char route_name[128];if(hf_mcp_routed25(r,route_name,sizeof route_name)&&!strcmp(route_name,name)){route=r;break;}}
  if(!route){hf_rpc_error25(out,id,-32602,"Unsupported distributed tool mapping");return;}
  const char *const allowed[]={"run_id","input","operation_id","idempotency_key","correlation_id","causation_id","expected_version","authority"};
  if(!hf_json_only(j,args,allowed,8)||!hf_arg_string25(j,args,"run_id",run,sizeof run)||!hf_uuid25(run)){hf_rpc_error25(out,id,-32602,"Scoped run and finite tool fields are required");return;}

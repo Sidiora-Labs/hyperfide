@@ -15,7 +15,10 @@
     "finding.repair.resolve",
     "finding.repair.fail",
     "finding.repair.inspect",
-    "finding.repair.recheck"
+    "finding.repair.recheck",
+    "finding.repair.escalation.list",
+    "finding.repair.escalation.acknowledge",
+    "finding.repair.escalation.route"
   ],
   "requires": [
     "5.2",

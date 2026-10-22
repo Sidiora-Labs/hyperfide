@@ -167,3 +167,4 @@ spec-obligations *
 spec-revisions *
 1.2-asks human.ask.sweep
 1.2-asks human.ask.policy
+1.2-asks human.ask.seed

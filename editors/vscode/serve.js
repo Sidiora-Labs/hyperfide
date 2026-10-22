@@ -153,6 +153,9 @@ class ServeClient {
         }
     }
 
+    /* The protocol's tools/call, kept with tools(): the extension reaches a
+     * tool through exec(['tool', 'call', ...]), and 14_vscode.sh proves the
+     * served method through this client. */
     async tool(name, args) {
         return this.request('tools/call', { name, arguments: args || {} });
     }
@@ -187,10 +190,6 @@ class ServeClient {
             this.log(`serve snapshot after reconnect: ${e.message}`);
             return -1;
         }
-    }
-
-    async cancel(reqId) {
-        return this.request('cancel', { id: reqId }, 20000);
     }
 
     _consume(chunk) {

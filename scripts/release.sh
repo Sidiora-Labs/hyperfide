@@ -16,6 +16,8 @@ done
 [ -n "$output" ] || { echo "hyperfide release: --output is required" >&2; exit 2; }
 # Unsigned releases are refused before any build: manifest.sig and release.json.sig both come from this key.
 case "${HYPERFIDE_RELEASE_SIGNING_KEY_FILE:-}" in /*) ;; *) echo "hyperfide release: HYPERFIDE_RELEASE_SIGNING_KEY_FILE (absolute Ed25519 private key) is required" >&2; exit 2 ;; esac
+# The key gate stats the key file itself (exists, regular, owner-only, Ed25519) before git, make or npm run.
+scripts/release-sign.sh --check-key "$HYPERFIDE_RELEASE_SIGNING_KEY_FILE" >/dev/null
 [ -z "$(git status --porcelain --untracked-files=normal)" ] || { echo "hyperfide release: source checkout must be committed and clean" >&2; exit 2; }
 case "${HYPERFIDE_BUILD_PLACEMENT:-}" in
  remote) ;;
@@ -83,11 +85,18 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-release-build-') as temporary
  # ---- hyperfide-v21 2.9: supervision unit qualification marker ----
  # The built deployment/releases.ts stageUnitReceipt ships share/hyperfide/qualified/26.4.json only when the release
  # inspector accepts its pinned digest. Without the receipt the supervisory-host and issue-watcher units ship unstartable.
- # The default is the local artifacts cache; a remote executor passes the receipt fetched from the artifact store.
- unit_receipt=Path(os.environ.get('HYPERFIDE_RELEASE_UNIT_RECEIPT') or root/'artifacts/hyperfide/tasks/26.4/evidence-index.json')
- if not unit_receipt.is_absolute():raise SystemExit('hyperfide release: HYPERFIDE_RELEASE_UNIT_RECEIPT must be an absolute path')
- stage_code="const [stage,receipt]=process.argv.slice(1);const {stageUnitReceipt}=await import(process.env.HYPERFIDE_RELEASES_MODULE);console.log(JSON.stringify(await stageUnitReceipt(stage,receipt)));"
- staged=subprocess.run([str(node),'--input-type=module','-e',stage_code,str(stage),str(unit_receipt)],env=dict(os.environ,HYPERFIDE_RELEASES_MODULE=(build/'dist/deployment/releases.js').as_uri()),cwd=build,text=True,capture_output=True,timeout=120)
+ # Source order (hyperfide-v21 3.19): HYPERFIDE_RELEASE_UNIT_RECEIPT, the verified local artifacts cache, then the
+ # artifact store by tests/hyperfide/evidence-receipts/26.4.json, so a clean host without artifacts/ releases.
+ # A tracked receipt the store cannot serve refuses; with no receipt and no cache the units ship unstartable.
+ sys.path.insert(0,str(root/'tests/hyperfide'))
+ import evidence_store
+ override=os.environ.get('HYPERFIDE_RELEASE_UNIT_RECEIPT')
+ if override and not Path(override).is_absolute():raise SystemExit('hyperfide release: HYPERFIDE_RELEASE_UNIT_RECEIPT must be an absolute path')
+ try:unit_receipt,unit_source=evidence_store.unit_receipt_input(root,temp,override)
+ except (evidence_store.EvidenceIntegrityError,evidence_store.EvidenceUnavailable) as exc:raise SystemExit('hyperfide release: 26.4 unit receipt unavailable: '+str(exc))
+ if unit_receipt is None:unit_receipt=root/'artifacts/hyperfide/tasks/26.4/evidence-index.json'
+ stage_code="const [stage,receipt,source]=process.argv.slice(1);const {stageUnitReceipt}=await import(process.env.HYPERFIDE_RELEASES_MODULE);console.log(JSON.stringify(await stageUnitReceipt(stage,receipt,source)));"
+ staged=subprocess.run([str(node),'--input-type=module','-e',stage_code,str(stage),str(unit_receipt),unit_source],env=dict(os.environ,HYPERFIDE_RELEASES_MODULE=(build/'dist/deployment/releases.js').as_uri()),cwd=build,text=True,capture_output=True,timeout=120)
  if staged.returncode:raise SystemExit('hyperfide release: unit qualification receipt refused: '+staged.stderr.strip()[-2000:])
  if not json.loads(staged.stdout.strip().splitlines()[-1])['staged']:print('hyperfide release: warning: no 26.4 unit receipt at '+str(unit_receipt)+'; supervisory-host and issue-watcher ship unstartable',file=sys.stderr)
  # ---- end supervision unit qualification marker ----

@@ -193,3 +193,66 @@ export class ArtifactRetention{
  }
 }
 export function createComponent(_context:ComponentContext):Component{registerArtifactDestructionPreflight(_context);return {apiVersion:1,actions:Object.fromEntries(ACTIONS.map(action=>[action,(input:unknown,context:ComponentContext)=>new ArtifactRetention(context as Context).invoke(action,input)]))};}
+
+// ---- Agent snapshot retention after publication (hyperfide-v21 5.5, req 6.4) -----------------------
+// An agent snapshot (3.8 checkpoint capsule, <digest hex>.hfs) is pruned N days after the protected
+// target first carries it (its Hyperfide-Snapshot trailer, integration/publication.ts). Unpublished
+// snapshots and adoptable checkpoints (a resumable attempt may still adopt them) are never pruned.
+// N is an operator variable with no code default: the control policy names it under
+// publication.snapshot_retention_days (deploy/hyperfide/policies/control.example.json ships 30).
+export const SNAPSHOT_RETENTION_VARIABLE='publication.snapshot_retention_days';
+const DAY_MS=86400000;
+export function snapshotRetentionDays(policy:unknown):number{
+ const publication=record(policy).publication;
+ const days=publication===undefined?undefined:record(publication).snapshot_retention_days;
+ if(days===undefined)fail('RETENTION_SNAPSHOT_DAYS_UNSET','Set '+SNAPSHOT_RETENTION_VARIABLE+' in the control policy; it has no default');
+ if(!Number.isSafeInteger(days)||(days as number)<1||(days as number)>3650)fail('RETENTION_INPUT_INVALID',SNAPSHOT_RETENTION_VARIABLE+' must be a whole number of days from 1 to 3650');
+ return days as number;
+}
+export interface AgentSnapshot {snapshot_id:string;checkpoint_digest:string;adoptable:boolean}
+export interface SnapshotRetentionEntry {
+ snapshot_id:string;checkpoint_digest:string;published_at:string|null;prune_after:string|null;
+ action:'PRUNE'|'KEEP';reason:'PUBLISHED_RETENTION_ELAPSED'|'WITHIN_RETENTION'|'UNPUBLISHED'|'ADOPTABLE_CHECKPOINT';
+}
+export function snapshotRetentionSchedule(snapshots:readonly AgentSnapshot[],published:ReadonlyMap<string,{published_at:string}>,days:number,now:number=Date.now()):SnapshotRetentionEntry[]{
+ if(!Number.isSafeInteger(days)||days<1)fail('RETENTION_INPUT_INVALID','Retention days must be positive');
+ return snapshots.map(s=>{
+  uuid(s.snapshot_id);digest(s.checkpoint_digest);
+  const at=published.get(s.snapshot_id)?.published_at??null,after=at===null?null:new Date(Date.parse(at)+days*DAY_MS).toISOString();
+  const base={snapshot_id:s.snapshot_id,checkpoint_digest:s.checkpoint_digest,published_at:at,prune_after:after};
+  if(s.adoptable)return {...base,action:'KEEP',reason:'ADOPTABLE_CHECKPOINT'};
+  if(after===null)return {...base,action:'KEEP',reason:'UNPUBLISHED'};
+  return Date.parse(after)<=now?{...base,action:'PRUNE',reason:'PUBLISHED_RETENTION_ELAPSED'}:{...base,action:'KEEP',reason:'WITHIN_RETENTION'};
+ });
+}
+/** Deletes the capsule of every PRUNE entry after checking its bytes still match the recorded digest. */
+export async function pruneAgentSnapshots(checkpointDirectory:string,schedule:readonly SnapshotRetentionEntry[]):Promise<{pruned:string[];absent:string[];kept:string[]}>{
+ const path=await import('node:path');if(!path.isAbsolute(checkpointDirectory))fail('RETENTION_INPUT_INVALID','Absolute checkpoint directory required');
+ const out={pruned:[] as string[],absent:[] as string[],kept:[] as string[]};
+ for(const entry of schedule){
+  if(entry.action!=='PRUNE'){out.kept.push(entry.snapshot_id);continue;}
+  const file=path.join(checkpointDirectory,digest(entry.checkpoint_digest).slice(7)+'.hfs');
+  let info;try{info=await fs.lstat(file);}catch{out.absent.push(entry.snapshot_id);continue;}
+  if(!info.isFile()||info.isSymbolicLink())fail('RETENTION_SNAPSHOT_MISMATCH','Snapshot capsule is not a regular file');
+  if(hash(await fs.readFile(file))!==entry.checkpoint_digest)fail('RETENTION_SNAPSHOT_MISMATCH','Snapshot capsule bytes differ from the recorded checkpoint digest');
+  await fs.unlink(file);out.pruned.push(entry.snapshot_id);
+ }
+ return out;
+}
+// Operator entry: node dist/artifacts/retention.js --prune-snapshots <request.json>
+// request: {policy_file,origin_path,target_ref,run_base,checkpoint_directory,snapshots:[{snapshot_id,checkpoint_digest,adoptable}],dry_run}
+if(process.argv[2]==='--prune-snapshots'){
+ try{
+  const file=process.argv[3];if(!file)fail('RETENTION_INPUT_INVALID','Request file required');
+  const v=fields(JSON.parse(await fs.readFile(file,'utf8')),['policy_file','origin_path','target_ref','run_base','checkpoint_directory','snapshots','dry_run']);
+  const days=snapshotRetentionDays(JSON.parse(await fs.readFile(String(v.policy_file),'utf8')));
+  if(!Array.isArray(v.snapshots)||v.snapshots.length>100000||typeof v.dry_run!=='boolean')fail('RETENTION_INPUT_INVALID','Snapshot list and dry_run flag required');
+  const snapshots=v.snapshots.map(raw=>{const s=fields(raw,['snapshot_id','checkpoint_digest','adoptable']);if(typeof s.adoptable!=='boolean')fail('RETENTION_INPUT_INVALID','adoptable must be boolean');return s as AgentSnapshot;});
+  const publication='../integration/publication.js';
+  const published=await (await import(publication)).publishedSnapshots(v.origin_path,v.target_ref,v.run_base);
+  const schedule=snapshotRetentionSchedule(snapshots,published,days);
+  const result=v.dry_run?null:await pruneAgentSnapshots(String(v.checkpoint_directory),schedule);
+  process.stdout.write(JSON.stringify({ok:true,result:{retention_days:days,variable:SNAPSHOT_RETENTION_VARIABLE,schedule,pruned:result}})+'\n');process.exit(0);
+ }catch(error){const code=error instanceof FoundationError?error.code:'RETENTION_ERROR';process.stdout.write(JSON.stringify({ok:false,code,message:error instanceof Error?error.message:String(error)})+'\n');process.exit(1);}
+}
+

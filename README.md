@@ -726,7 +726,7 @@ $ node services/hyperfide/dist/control.js --policy /nonexistent --spec-revision 
 
 What this changes for a reader of the rest of this page:
 
-- The local `hyperfide` CLI is not a control-service client and grants no distributed authority. `hyperfide fleet down --drain` stops a CLI-supervised run; it does not stop remote sandboxes.
+- In local mode the `hyperfide` CLI works on the local store and grants no distributed authority. In distributed mode it is a control-service client: about 63 commands (spec, task, submission, graph, fleet, docs, supervisor, work, hierarchy, human, ask and the decision verbs) route to component actions with explicit run and operation identities, and `hyperfide mcp` serves those routes plus the same four Ask tools (`ask_raise`, `ask_status`, `ask_list`, `approvals_list`) as local mode, so a sandboxed worker's Ask lands in the control service. The service, not the CLI, decides authority. `hyperfide fleet down --drain` stops a CLI-supervised run; it does not stop remote sandboxes.
 - Database settings for the services are `HYPERFIDE_<ROLE>_PRIMARY_DATABASE_URL` (falling back to `DATABASE_URL`), an optional `HYPERFIDE_<ROLE>_REPLICA_DATABASE_URL`, and `HYPERFIDE_MIGRATION_DATABASE_URL` for the migration operator; the bounded pool settings are in the operations guide.
 - Migration components import historical SQLite state with its provenance, plan the rename of `codify.kvx` to `hyperfide.kvx` and of `.codify/agent-context.md` to `.hyperfide/context/agent-context.md` with backups, and treat legacy `CG_*`/`CODIFY_*` variables as aliases. An old `done` flag is imported as history, not as current qualification.
 
