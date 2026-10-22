@@ -966,6 +966,32 @@ bool fleet_supervisor_alive(const char *shared);
 #define CG_EXIT_APPROVAL 4
 int  fleet_gate(Cg *cg, const char *gate, const char *subject);
 int  cmd_fleet_approvals(Cg *cg, int argc, char **argv, bool json);
+/* Decide fleet approval #id and emit approval.decided; sync_ask also
+ * answers its linked permission Ask (fleet_approvals.ask_id). 1: no such
+ * approval or it was used. */
+int  fleet_approval_decide(Cg *cg, long id, bool reject, const char *by,
+                           const char *note, bool sync_ask);
+
+/* ---------------- asks (ask.c, hyperfide-v21 3.4) ---------------- */
+/* An Ask to raise. NULL task/attempt/session/sandbox fall back to CG_TASK,
+ * CG_ATTEMPT, CG_SESSION and HYPERFIDE_SANDBOX; raised_by to the agent or
+ * user; deadline 0 means none. */
+typedef struct {
+    const char *kind, *title, *body, *recommended;
+    char **options; int noptions;
+    char **chain; int nchain;
+    long deadline;
+    const char *task, *attempt, *session, *sandbox, *raised_by;
+} AskSpec;
+long ask_raise(Cg *cg, const AskSpec *a);      /* id, -1 refused (printed) */
+/* 1 recorded (emits ask.answered), 0 already answered, -1 no such Ask */
+int  ask_record_answer(Cg *cg, long id, const char *answer, const char *by,
+                       const char *note);
+int  ask_expire_due(Cg *cg, long now);         /* number that expired */
+/* open Asks (all: every Ask, newest first), optionally one task's, as a
+ * JSON array */
+void ask_list_json(Cg *cg, bool all, const char *task, StrBuf *b);
+int  cmd_ask(Cg *cg, int argc, char **argv, bool json);
 
 /* ---------------- agent drivers (drivers.c) ---------------- */
 typedef struct {
