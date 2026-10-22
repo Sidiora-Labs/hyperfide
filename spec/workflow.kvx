@@ -83,7 +83,9 @@ remember = "hyperfide remember decisions and constraints as they occur, not afte
 [status_values]
 # blocked: the attempt has an open blocking Ask; the task is not eligible
 # for dependants, stop preserves it, and stall detection exempts it.
-task = ["pending", "in_progress", "blocked", "implemented", "done"]
+# superseded: terminal; closed without qualifying, its work owned by the
+# task or feature named in superseded_by, the reason in superseded_reason.
+task = ["pending", "in_progress", "blocked", "implemented", "done", "superseded"]
 
 [human]
 # What the humans do; every other job belongs to agents.

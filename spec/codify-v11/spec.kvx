@@ -292,9 +292,9 @@ reqs       = ["7.1", "7.2"]
 
 [task.7.2]
 title      = "Qualify v11 end to end"
-status     = "in_progress"
+status     = "superseded"
 superseded_by = "codify-v16"
-superseded_reason = "Superseded 2026-10-22 (hyperfide-v21/1.8), not qualified. This umbrella never had a tagged commit; its make test leg is covered by codify-v16's release gate (tests/integration/78_v16_release.sh, which reruns every integration fixture plus spec lint), and its spec render --check leg tracks the generated CLAUDE.md/AGENTS.md that hyperfide-v21 rewrites. Not done: no verify_cmd run qualified it. Status stays in_progress until the spec engine accepts a terminal superseded status (lint rejects it and status degrades it to pending)."
+superseded_reason = "Superseded 2026-10-22 (hyperfide-v21/1.8), not qualified. This umbrella never had a tagged commit; its make test leg is covered by codify-v16's release gate (tests/integration/78_v16_release.sh, which reruns every integration fixture plus spec lint), and its spec render --check leg tracks the generated CLAUDE.md/AGENTS.md that hyperfide-v21 rewrites. Not done: no verify_cmd run qualified it; the terminal superseded status (hyperfide-v21/2.15) closes it without qualifying."
 wave       = 8
 requires   = ["7.1", "6.1", "6.2"]
 symbols    = ["cmd_serve", "cmd_fleet_up", "task_packet_build", "drift_spec_check", "events_emit"]

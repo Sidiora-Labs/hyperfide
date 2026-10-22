@@ -6,6 +6,11 @@
 # must keep answering from the last index instead of dying or blocking.
 . "$(dirname "$0")/../lib.sh"
 
+# The waits below are this test's own: a supervising host exports a long
+# CG_BUSY_TIMEOUT_MS (or its HYPERFIDE_ alias) for qualification, and the alias
+# would conflict with the per-command CG_BUSY_TIMEOUT_MS=200 (exit 78).
+unset CG_BUSY_TIMEOUT_MS HYPERFIDE_BUSY_TIMEOUT_MS
+
 cp -r "$FIXTURES/sample" "$TMP/proj"
 cd "$TMP/proj"
 "$CG" init >/dev/null

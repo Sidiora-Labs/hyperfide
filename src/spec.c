@@ -54,9 +54,16 @@ static int count_dots(const char *s) {
     return n;
 }
 
+/* superseded is terminal: the task is closed without qualifying, its work
+ * owned by superseded_by. Closed for every count, never done, never next. */
+static bool status_superseded(const char *status) {
+    return strcmp(status, "superseded") == 0;
+}
+
 static const char *checkbox(const char *status) {
     if (strcmp(status, "done") == 0) return "[x]";
     if (strcmp(status, "in_progress") == 0) return "[-]";
+    if (status_superseded(status)) return "[~]";
     return "[ ]";
 }
 
@@ -399,6 +406,13 @@ static char *render_tasks(const Kvx *f, const char *fdir, const char *banner,
                   title);
         if (strcmp(status, "implemented") == 0)
             sb_puts(&b, " — **Implemented - qualification pending**");
+        if (status_superseded(status)) {
+            char *by = S(f, sec, "superseded_by");
+            if (by[0]) sb_printf(&b, " — **Superseded by %s, not qualified**",
+                                 by);
+            else sb_puts(&b, " — **Superseded, not qualified**");
+            free(by);
+        }
         sb_putc(&b, '\n');
         free(status); free(title);
         FOR_KV(f, sec, "do_", j) {
@@ -732,11 +746,12 @@ static bool spec_all_tasks_qualified(const Spec *s) {
     bool saw_leaf = false;
     for (int i = 0; i < s->nids; i++) {
         if (!task_is_leaf(s, s->ids[i])) continue;
-        saw_leaf = true;
         char *st = task_status(s, s->ids[i]);
         bool done = strcmp(st, "done") == 0;
+        bool closed = done || status_superseded(st);
         free(st);
-        if (!done) return false;
+        if (!closed) return false;
+        if (done) saw_leaf = true;
     }
     return saw_leaf;
 }
@@ -1538,7 +1553,8 @@ static void spec_print_memories(Spec *s, const char *id) {
 static int spec_live_leases(const Spec *s, StrBuf *b, bool json);
 
 static int spec_status_cmd(Spec *s, bool json) {
-    int done = 0, implemented = 0, inprog = 0, pending = 0, leaves = 0;
+    int done = 0, implemented = 0, inprog = 0, pending = 0, leaves = 0,
+        superseded = 0;
     for (int i = 0; i < s->nids; i++) {
         if (!task_is_leaf(s, s->ids[i])) continue;
         leaves++;
@@ -1546,9 +1562,12 @@ static int spec_status_cmd(Spec *s, bool json) {
         if (strcmp(st, "done") == 0) done++;
         else if (strcmp(st, "implemented") == 0) implemented++;
         else if (strcmp(st, "in_progress") == 0) inprog++;
+        else if (status_superseded(st)) superseded++;
         else pending++;
         free(st);
     }
+    /* progress is measured over the work still owned by this feature */
+    int owned = leaves - superseded;
     const char *cur = spec_current_for_agent(s, cg_agent_name(NULL));
     const char *next = spec_next_id(s);
     bool docs_next = !next && spec_docs_ready(s);
@@ -1570,8 +1589,8 @@ static int spec_status_cmd(Spec *s, bool json) {
         sb_json_str(&b, spec_parallel_mode(s) ? "parallel" :
                         spec_prod_mode(s) ? "prod" : "standard");
         sb_printf(&b, ",\"tasks\":%d,\"done\":%d,\"implemented\":%d,"
-                  "\"in_progress\":%d,\"pending\":%d", leaves, done,
-                  implemented, inprog, pending);
+                  "\"in_progress\":%d,\"pending\":%d,\"superseded\":%d",
+                  leaves, done, implemented, inprog, pending, superseded);
         if (cur) { sb_puts(&b, ",\"current\":"); json_task(s, cur, &b); }
         if (next) { sb_puts(&b, ",\"next\":"); json_task(s, next, &b); }
         else if (docs_next) {
@@ -1609,19 +1628,21 @@ static int spec_status_cmd(Spec *s, bool json) {
     printf("mode: %s\n", spec_parallel_mode(s) ? "parallel" :
                          spec_prod_mode(s) ? "prod" : "standard");
     printf("tasks: %d — %d done, %d implemented, %d in progress, "
-           "%d pending\n", leaves, done, implemented, inprog, pending);
+           "%d pending", leaves, done, implemented, inprog, pending);
+    if (superseded) printf(", %d superseded", superseded);
+    putchar('\n');
     printf("documentation: %s (%s)\n", docs_stage, docs_mode);
-    if (leaves > 0) {
+    if (owned > 0) {
         int width = 30;
-        int fill = leaves ? done * width / leaves : 0;
+        int fill = done * width / owned;
         printf(spec_prod_mode(s) ? "qualified progress: [" : "progress: [");
         for (int i = 0; i < width; i++) putchar(i < fill ? '#' : '-');
-        printf("] %d%%\n", leaves ? done * 100 / leaves : 0);
+        printf("] %d%%\n", done * 100 / owned);
         if (spec_prod_mode(s)) {
-            fill = (done + implemented) * width / leaves;
+            fill = (done + implemented) * width / owned;
             printf("coding progress: [");
             for (int i = 0; i < width; i++) putchar(i < fill ? '#' : '-');
-            printf("] %d%%\n", (done + implemented) * 100 / leaves);
+            printf("] %d%%\n", (done + implemented) * 100 / owned);
         }
     }
     if (cur) {
@@ -1649,7 +1670,7 @@ static int spec_status_cmd(Spec *s, bool json) {
                CG_DOC_TASK);
     } else if (strcmp(docs_stage, "blocked") == 0) {
         printf("documentation blocked — run `hyperfide spec docs reset` to retry\n");
-    } else if (!cur && done == leaves && leaves > 0 &&
+    } else if (!cur && done == owned && owned > 0 &&
                (strcmp(docs_stage, "done") == 0 ||
                 strcmp(docs_stage, "off") == 0 ||
                 strcmp(docs_stage, "legacy") == 0)) {
@@ -2891,6 +2912,12 @@ static int spec_start_cmd(Spec *s, const char *id, bool force, bool ahead,
         return 1;
     }
     char *st = task_status(s, id);
+    if (status_superseded(st)) {
+        fprintf(stderr, "hyperfide spec: task %s is superseded, a terminal "
+                "status; its work belongs to its superseded_by\n", id);
+        free(st);
+        return 1;
+    }
     bool already_in_progress = strcmp(st, "in_progress") == 0;
     if (strcmp(st, "done") == 0 && !force) {
         fprintf(stderr, "hyperfide spec: task %s is already done (--force to "
@@ -3337,7 +3364,7 @@ static int spec_done_cmd(Spec *s, const char *id, const char *agent,
             for (int i = 0; i < s->nids; i++) {
                 if (!task_is_leaf(s, s->ids[i])) continue;
                 char *ts = task_status(s, s->ids[i]);
-                if (strcmp(ts, "done") != 0) pend++;
+                if (strcmp(ts, "done") != 0 && !status_superseded(ts)) pend++;
                 free(ts);
             }
             if (pend) printf("next: none eligible yet\n");
@@ -3856,7 +3883,7 @@ static const char *WORKFLOW_TEMPLATE =
 "remember = \"Persist decisions and constraints as they occur.\"\n"
 "\n"
 "[status_values]\n"
-"task = [\"pending\", \"in_progress\", \"implemented\", \"done\"]\n"
+"task = [\"pending\", \"in_progress\", \"implemented\", \"done\", \"superseded\"]\n"
 "\n"
 "[hard_rules]\n"
 "no_fakes      = \"Never fake a test to make it pass.\"\n"
@@ -4172,8 +4199,16 @@ static int spec_lint_cmd(Spec *s, bool json) {
         char *status = task_status(s, id);
         if (status[0] && strcmp(status, "pending") != 0 &&
             strcmp(status, "in_progress") != 0 &&
-            strcmp(status, "implemented") != 0 && strcmp(status, "done") != 0)
+            strcmp(status, "implemented") != 0 &&
+            strcmp(status, "done") != 0 && !status_superseded(status))
             lint_say(&l, true, id, "unknown status \"%s\"", status);
+        if (status_superseded(status)) {
+            char *why = S(s->f, sec, "superseded_reason");
+            if (!why[0])
+                lint_say(&l, true, id, "superseded without a "
+                         "superseded_reason");
+            free(why);
+        }
         free(status);
 
         char **rq; int nr = kvx_list(s->f, sec, "requires", &rq);
@@ -4182,6 +4217,15 @@ static int spec_lint_cmd(Spec *s, bool json) {
                 lint_say(&l, true, id, "requires unknown task %s", rq[j]);
             else if (strcmp(rq[j], id) == 0)
                 lint_say(&l, true, id, "requires itself");
+            else {
+                /* a superseded task never qualifies: the dependant would
+                 * wait forever */
+                char *rs = task_status(s, rq[j]);
+                if (status_superseded(rs))
+                    lint_say(&l, true, id, "requires superseded task %s; "
+                             "require what superseded it", rq[j]);
+                free(rs);
+            }
             free(rq[j]);
         }
         free(rq);
