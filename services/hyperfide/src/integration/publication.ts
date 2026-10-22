@@ -256,11 +256,23 @@ export function createComponent(ctx:ComponentContext):Component{
  'integration.publication.inspect':async input=>{const v=obj(input);keys(v,['organisation_id','run_id','operation_id']);return operation(primaryClient(),scope(v),uuid(v.operation_id));}
  }});
 }
+// ---- 4.9 (req 6.3): the internal trunk is the only advancing ref -------------------------------------------------
+// The integrator advances refs/hyperfide/trunk/<run> (integration/queue.ts) and watchers and findings read it; the protected
+// remote advances only through a permitted publication. No refs/hyperfide/* update is ever admitted here, permit or not,
+// so an internal ref cannot reach the protected remote by a direct push.
+export const INTERNAL_REF_PREFIX='refs/hyperfide/';
+export function refuseInternalRefs(receiveLines:string):void{
+ for(const update of receiveLines.split('\n').filter(Boolean))if((update.split(' ')[2]??'').startsWith(INTERNAL_REF_PREFIX))
+  fail('PUBLICATION_INTERNAL_REF','Internal Hyperfide refs never reach the protected remote');
+}
+// ---- end 4.9 -----------------------------------------------------------------------------------------------------------
 if(process.argv[2]==='--receive-hook'){
  try{
  const filename=process.argv[3];if(!filename)fail('PUBLICATION_GATEWAY_UNCONFIGURED','Server configuration required');const st=await fs.lstat(filename);if(!st.isFile()||st.isSymbolicLink()||(st.mode&0o077)!==0||st.size>65536)fail('PUBLICATION_GATEWAY_UNCONFIGURED','Private server configuration required');
- const env=obj(JSON.parse(await fs.readFile(filename,'utf8'))) as NodeJS.ProcessEnv;const cfg=await config(env);const key=await secret(env);const count=Number(process.env.GIT_PUSH_OPTION_COUNT);if(count!==1||!process.env.GIT_PUSH_OPTION_0?.startsWith('hf-permit='))fail('PUBLICATION_PERMIT_REQUIRED','Protected pushes require a gateway permit');
+ const env=obj(JSON.parse(await fs.readFile(filename,'utf8'))) as NodeJS.ProcessEnv;const cfg=await config(env);const key=await secret(env);
  let lines='';for await(const chunk of process.stdin){lines+=chunk.toString();if(lines.length>1024)fail('PUBLICATION_PERMIT_INVALID','One protected update only');}
+ refuseInternalRefs(lines);
+ const count=Number(process.env.GIT_PUSH_OPTION_COUNT);if(count!==1||!process.env.GIT_PUSH_OPTION_0?.startsWith('hf-permit='))fail('PUBLICATION_PERMIT_REQUIRED','Protected pushes require a gateway permit');
  const runtime='../storage/runtime.js';const ResourceContainer=(await import(runtime)).ResourceContainer;const resources=new ResourceContainer('control',env,new AbortController().signal);try{await receivePermit(null,key,process.env.GIT_PUSH_OPTION_0.slice(10),lines,await fs.realpath(process.cwd()),cfg,resources.gateway);}finally{await resources.close();}
  process.exit(0);
  }catch(error){const code=error instanceof FoundationError?error.code:'PUBLICATION_GATEWAY_ERROR';process.stderr.write('Hyperfide publication gateway rejected protected update: '+code+'\n');process.exit(1);}
