@@ -112,7 +112,7 @@ async function applyScopedControl(deps:StopDependencies,input:unknown,fleetOpera
       if(mode==='PAUSE')await tx.query("INSERT INTO hyperfide.recovery_resource_debts(organisation_id,run_id,operation_id,resource_kind,resource_id,sandbox_boot_generation,command_generation,desired_state,detail) VALUES($1,$2,$3,'CHECKPOINT',$4,$5,$6,'DURABLE','Pause requires actual native export, immutable upload and verified checkpoint registration') ON CONFLICT DO NOTHING",[scope.organisation_id,scope.run_id,id,session.id,attempt.sandbox_boot_generation,generation]);
      }
     }
-    const custodyDispositions:Record<string,unknown>[]=[];
+    const custodyDispositions:Record<string,unknown>[]=[],askWaits:Record<string,unknown>[]=[];
     if(destructive){
      const custodies=await tx.query("SELECT id,task_id FROM hyperfide.submission_custodies WHERE organisation_id=$1 AND run_id=$2 AND task_id=ANY($3::uuid[]) AND authority='ACTIVE' ORDER BY id FOR UPDATE",[scope.organisation_id,scope.run_id,taskIds]);
      for(const custody of custodies.rows){
@@ -127,13 +127,15 @@ async function applyScopedControl(deps:StopDependencies,input:unknown,fleetOpera
        custodyDispositions.push({custody_id:custody.id,authority:'REVOKED',history_preserved:true});
       }
      }
-     await tx.query("UPDATE hyperfide.tasks SET state=$4,state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=ANY($3::uuid[]) AND state NOT IN ('INTEGRATED','CANCELLED')",[scope.organisation_id,scope.run_id,taskIds,mode==='CANCEL'?'CANCELLED':'BLOCKED']);
+     // D4: a task waiting on a blocking Ask is already BLOCKED; STOP leaves it and its Ask reference untouched. CANCEL releases it.
+     if(mode==='STOP')askWaits.push(...(await tx.query("SELECT id AS task_id,blocked_ask AS ask_id FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=ANY($3::uuid[]) AND blocked_ask IS NOT NULL ORDER BY id",[scope.organisation_id,scope.run_id,taskIds])).rows);
+     await tx.query("UPDATE hyperfide.tasks SET state=$4::text,blocked_ask=NULL,state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=ANY($3::uuid[]) AND state NOT IN ('INTEGRATED','CANCELLED') AND ($4::text='CANCELLED' OR blocked_ask IS NULL)",[scope.organisation_id,scope.run_id,taskIds,mode==='CANCEL'?'CANCELLED':'BLOCKED']);
     }
     if(destructive&&kind==='RUN'){
      await tx.query("INSERT INTO hyperfide.recovery_resource_debts(organisation_id,run_id,operation_id,resource_kind,resource_id,sandbox_boot_generation,command_generation,desired_state,detail) SELECT organisation_id,run_id,$3,'SUPERVISOR',id,sandbox_boot_generation,$4,'STOPPED','Stop includes leader and manager supervision sessions' FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND state NOT IN ('STOPPED','FAILED') ON CONFLICT DO NOTHING",[scope.organisation_id,scope.run_id,id,generation]);
     }
     const result={scope,operation_id:id,scope_kind:kind,scope_id:target,mode,generation,accepted_at:accepted,drain_deadline:deadline,fallback_mode:mode==='DRAIN'?fallback:null,admission_blocked:true,compute_revoked:destructive,affected_task_ids:taskIds,
-     process_stop_complete:false,cleanup_complete:false,submission_custody_preserved:!destructive,custody_dispositions:custodyDispositions,custody_history_preserved:true,unknown_external_effects:'RECONCILE',
+     process_stop_complete:false,cleanup_complete:false,submission_custody_preserved:!destructive,custody_dispositions:custodyDispositions,custody_history_preserved:true,ask_waits_preserved:askWaits,unknown_external_effects:'RECONCILE',
      ...(fleetOperationId?{fleet_operation_id:fleetOperationId}:{})};
     await finishOperation(tx,scope,id,result);return result;
    });
