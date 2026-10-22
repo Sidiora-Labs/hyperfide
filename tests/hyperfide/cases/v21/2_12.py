@@ -251,12 +251,11 @@ def main():
             check('default.preparation-exempt', lambda: expect(gate('C', job_class='PREPARATION') == {'ok': None}, 'preparation job was gated'))
 
             def worker_kinds():
-                for kind in ['BUILD', 'TEST', 'REVIEW', 'INDEX', 'INTEGRATION']:
-                    expect(gate('C', kind=kind) == {'ok': None}, ('verification kind gated', kind))
-                for kind in ['AGENT', 'CHILD', 'SOMETHING_NEW']:
+                # v21 3.20: verification kinds are gated too; they declare a full-tree reason when they need one.
+                for kind in ['BUILD', 'TEST', 'REVIEW', 'INDEX', 'INTEGRATION', 'AGENT', 'CHILD', 'SOMETHING_NEW']:
                     refused(gate('C', kind=kind), 'WORKER_SLICE_REQUIRED')
                 refused(gate('C', allocation={k: v for k, v in slot['C'].items()}), 'WORKER_SLICE_REQUIRED')
-            check('default.every-worker-kind-gated-verification-exempt', worker_kinds)
+            check('default.every-job-kind-gated', worker_kinds)
             check('default.declared-unmaterialised-slice-refused',
                   lambda: refused(gate('C', workspace={'mode': 'SLICE', 'slice_digest': digests['slice-a']}), 'WORKER_SLICE_REQUIRED'))
 

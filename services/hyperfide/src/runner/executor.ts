@@ -19,7 +19,7 @@ import type {RunnerRemotePlan} from './bridge.js';
 import {readJobAllocation} from '../scheduler/claim.js';
 import {lookupNativeLaunch} from '../events/outbox.js';
 import {currentPool,digestDocument,readDeployment} from '../providers/pools.js';
-import {resolveWorkerWorkspace,workspaceDeclaration} from '../preparation/slices.js';
+import {resolveWorkerWorkspace,sliceWorkspacePath,sliceWorkspaceRoot,workspaceDeclaration} from '../preparation/slices.js';
 import type {WorkerWorkspace} from '../preparation/slices.js';
 import type {QuerySession} from '../storage/transactions.js';
 
@@ -96,24 +96,31 @@ function boundRequest(binding:Record<string,any>,operation_id:string,argv:string
 }
 /**
  * Task v21 2.12: every worker job runs in the slice materialised for its allocated slot unless a full-tree reason is
- * recorded (a FULL_TREE slice manifest on the slot, or request.workspace {mode:'FULL_TREE',fallback_reason}). Preparation
- * jobs build the boot seed and are exempt, as are verification kinds: they are the full-tree comparison a slice result
- * never claims to be. AGENT, CHILD and any unrecognised kind are workers. A refusal carries a WORKER_SLICE_* code and
- * settles the admission as UNKNOWN.
+ * recorded (a FULL_TREE slice manifest on the slot, or request.workspace {mode:'FULL_TREE',fallback_reason}). Since
+ * v21 3.20 the gate runs for every job kind: a verification job (BUILD, TEST, REVIEW, ...) that wants the full tree
+ * declares it with a reason like any other. Only preparation jobs, which build the boot seed, are exempt. A refusal
+ * carries a WORKER_SLICE_* code and settles the admission as UNKNOWN.
  */
-const VERIFICATION_JOB_KINDS=new Set(['BUILD','TEST','REVIEW','INDEX','INTEGRATION','PREPARATION','EXCLUSIVE_SERVICE']);
 export async function workerWorkspaceGate(tx:Pick<QuerySession,'query'>,row:{organisation_id:string;run_id:string;job_class?:string;plan:{request?:unknown;allocation?:unknown}}):Promise<WorkerWorkspace|null>{
  const a=object(row.plan.allocation)?row.plan.allocation:{},request=object(row.plan.request)?row.plan.request:{};
- if(row.job_class==='PREPARATION'||VERIFICATION_JOB_KINDS.has(String(a.job_kind)))return null;
+ if(row.job_class==='PREPARATION')return null;
  const slot={sandbox_id:String(a.sandbox_id),slot_id:String(a.slot_id),sandbox_boot_generation:String(a.sandbox_boot_generation)};
  if(!uuid(slot.sandbox_id)||!uuid(slot.slot_id)||!decimal(slot.sandbox_boot_generation,true))fail('WORKER_SLICE_SLOT_UNBOUND','A worker job needs its allocated slot to resolve its slice');
  return resolveWorkerWorkspace(tx,{organisation_id:row.organisation_id,run_id:row.run_id},slot,workspaceDeclaration(request.workspace));
 }
-function jobRequest(row:Job,env_refs:Readonly<Record<string,string>>):BoundProviderRequest{
+/** v21 3.20: a job on a materialised slot launches in the slot's slice workspace; a declared full tree in the runner workspace. */
+export function launchWorkspacePath(env:Readonly<Record<string,string|undefined>>,row:{plan:{binding:Record<string,any>;allocation?:unknown}},workspace:WorkerWorkspace|null):string{
+ if(!workspace?.materialisation_id)return row.plan.binding.workspace_path;
+ const root=sliceWorkspaceRoot(env);if(!root)fail('WORKER_WORKSPACE_ROOT_UNSET','A materialised slice needs HF_PREPARATION_WORKSPACE_ROOT to locate its workspace');
+ const a=object(row.plan.allocation)?row.plan.allocation:{};
+ return sliceWorkspacePath(root,{sandbox_id:String(a.sandbox_id),slot_id:String(a.slot_id),sandbox_boot_generation:String(a.sandbox_boot_generation)});
+}
+function jobRequest(row:Job,env_refs:Readonly<Record<string,string>>,cwd:string):BoundProviderRequest{
  const b=row.plan.binding;
  const encoded=Buffer.from(JSON.stringify({config_path:b.state_dir+'/runner.json',operation_id:row.operation_id})).toString('base64url');
  const request=boundRequest(b,row.operation_id,[b.runner_binary,'--component','12.4','--action','runner.job.execute','--request-base64',encoded],Math.min(3600000,row.plan.request.timeout_ms+60000),env_refs);
  if(row.job_class==='PREPARATION')request.cwd=path.dirname(b.workspace_path);
+ else request.cwd=cwd;
  return request;
 }
 function decodeNative(captured:CapturedProviderOutput):{raw:Buffer;digest:string;receipt:Record<string,any>}{
@@ -251,7 +258,11 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  if(!currentSigner(p,s))fail('RUNNER_EXECUTOR_IDENTITY_MISMATCH','Configured credential must be a live current provisioner with the matching public key');
  const row=(await tx.query("SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND state='ADMITTED' AND authority_epoch=$3 AND expires_at>clock_timestamp() ORDER BY created_at,operation_id LIMIT 1",[p.organisation_id,p.run_id,p.deployment_epoch])).rows[0];return row?row as Job:null;
  });}
- async function claim(row:Job,s:Signer,i:InvocationContext):Promise<string|null>{
+ async function settle(row:Job,code:string):Promise<void>{
+ await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN' WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id]);});
+ unknown++;last_error=code;
+ }
+ async function claim(row:Job,s:Signer,i:InvocationContext,launch:WorkerWorkspace|null):Promise<string|null>{
  return g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal,guard:tx=>i.guard(tx)},async tx=>{
  const current=(await tx.query('SELECT *,clock_timestamp() AS db_now FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR UPDATE',[row.organisation_id,row.run_id,row.operation_id])).rows[0] as Job|undefined;
  if(!current||current.state!=='ADMITTED')return null;
@@ -266,6 +277,8 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  const reservation=(await tx.query("SELECT *,clock_timestamp() AS db_now FROM hyperfide.reservations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='ALLOCATED' FOR SHARE",[row.organisation_id,row.run_id,row.reservation_id])).rows[0];
  if(!reservation||new Date(reservation.expires_at).getTime()<=new Date(reservation.db_now).getTime())fail('RUNNER_RESERVATION_EXPIRED','Current allocated reservation required');
  const workspace=await workerWorkspaceGate(tx as PrimaryTransaction,current);
+ // The launch request was built for the workspace seen before claim; the slot must still hold exactly that one.
+ if((workspace?.materialisation_id??null)!==(launch?.materialisation_id??null)||(workspace?.mode??null)!==(launch?.mode??null))fail('WORKER_SLICE_MISMATCH','The slot workspace changed between launch planning and claim');
  if(workspace)workspaces[workspace.mode==='SLICE'?'slice':'full_tree']++;
  } catch(error) {
  const code=object(error)&&typeof error.code==='string'?error.code:'';
@@ -283,8 +296,13 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
   // An undeclared or malformed reference never launches; the admission is settled.
   await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN' WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id]);});
   unknown++;last_error=code;return;}
- const request=jobRequest(row,refs),i=await authenticate(authority,s,row.run_id,row.authority_epoch,request,signal);
- const claim_id=await claim(row,s,i);if(!claim_id)return;
+ // v21 3.20: resolve the slot's workspace first so the process starts in the slice; claim re-checks it under lock.
+ let launch:WorkerWorkspace|null,cwd:string;
+ try{launch=await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal},tx=>workerWorkspaceGate(tx as PrimaryTransaction,row));cwd=launchWorkspacePath(ctx.env,row,launch);}
+ catch(error){const code=object(error)&&typeof error.code==='string'?error.code:'';if(!/^(WORKER_|SLICE_)/.test(code))throw error;
+  workspaces.refused++;await settle(row,code);return;}
+ const request=jobRequest(row,refs,cwd),i=await authenticate(authority,s,row.run_id,row.authority_epoch,request,signal);
+ const claim_id=await claim(row,s,i,launch);if(!claim_id)return;
  active++;
  try{const observed=await provider.executeBound(request,signal,i);
  if(!observed.captured||typeof observed.process_ref!=='string'||!observed.process_ref||!digest(observed.evidence_digest))fail('RUNNER_PROVIDER_CAPTURE_MISSING','Actual provider process and captured native receipt required');

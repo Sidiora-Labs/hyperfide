@@ -11,6 +11,7 @@ import {requestDigest} from '../scheduler/claim.js';
 import {receive} from '../events/inbox.js';
 import {issue} from '../events/instructions.js';
 import {currentClaim,acknowledge} from '../events/outbox.js';
+import {resolveLaunchWorkspace} from '../preparation/slices.js';
 
 export interface RunnerSpawnInput {
  organisation_id:string;run_id:string;command_id:string;token:ComputeToken;
@@ -65,6 +66,8 @@ export function createComponent(ctx:ComponentContext):Component {
     for(const key of tokenKeys)if(String(row[key])!==String(token[key]))fail('RUNNER_DISPATCH_SCOPE_DENIED','Dispatch token differs from its primary journal');
     const current=await assertCurrentCompute(t,token,{operation:'ADVANCE'});
     if(current.input_packet_digest!==v.packet_digest)fail('RUNNER_DISPATCH_PACKET_STALE','Current authority requires a different immutable execution packet');
+    // v21 3.20: an agent launches only into its slot's slice, or with a full-tree reason its packet records.
+    await resolveLaunchWorkspace(t,scope,{sandbox_id:String(token.sandbox_id),slot_id:String(token.slot_id),sandbox_boot_generation:String(token.sandbox_boot_generation)},v.packet_digest);
     const selected=await reader!(t,{...scope,command_id:v.command_id,token,packet_digest:v.packet_digest,payload_digest:v.payload_digest},i);
     if(!selected)fail('RUNNER_PLAN_NOT_READY','Actual connector/model/workspace qualification is unavailable; delivery stays pending');
     if(!uuid(selected.launch_id)||!uuid(selected.agent_session_id)||selected.slot_id!==token.slot_id||typeof selected.connector_plan_digest!=='string'||!DIGEST.test(selected.connector_plan_digest))fail('RUNNER_PLAN_INVALID','Trusted plan must preserve exact slot and immutable launch identity');
