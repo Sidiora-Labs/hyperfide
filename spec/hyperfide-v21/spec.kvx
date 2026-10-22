@@ -802,10 +802,10 @@ reqs = ["1.1"]
 owner = "qualification"
 [task.4.1]
 title = "Classifier writes Asks"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["3.2"]
-touches = ["services/hyperfide/src/agents/admission.ts", "tests/hyperfide/cases/v21/4_1.py"]
+touches = ["services/hyperfide/src/agents/admission.ts", "services/hyperfide/src/agents/native_asks.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/components/13.4.json", "tests/hyperfide/cases/tasks/13_2.py", "tests/hyperfide/cases/tasks/13_4.py", "tests/hyperfide/cases/v21/4_1.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_1.py"
 do_1 = "Add the QUESTION signal for Claude AskUserQuestion and Codex requestUserInput, keep the text, and on QUESTION or APPROVAL raise an Ask with the options parsed from the event."
 do_2 = "4_1.py feeds both native shapes and asserts the Ask rows and the preserved text."
