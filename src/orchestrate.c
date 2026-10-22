@@ -1212,6 +1212,10 @@ static void orch_agent_record(Cg *g, const FleetNode *n) {
  * rather than inherited from the orchestrator. */
 static pid_t orch_fleet_exec(char **av, const FleetNode *n,
                              const char *promptfile, const char *logpath) {
+    /* emptied before the fork: the tap the caller starts at offset 0 must
+     * not read a previous attempt's log the child has yet to truncate */
+    int tr = open(logpath, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (tr >= 0) close(tr);
     pid_t pid = fork();
     if (pid != 0) {
         if (pid > 0) setpgid(pid, pid);
@@ -2882,6 +2886,43 @@ static int fleet_run_resume(Sup *s) {
                alive ? "adopted" : "found ended", n.agent, n.task, n.pid);
     }
     sqlite3_finalize(st);
+    /* a supervisor killed between a worker's begin and its node being
+     * recorded leaves a running attempt and a claim no node owns: nothing
+     * would ever reap it, and the task would never be handed out again.
+     * Give back what this run started and no adopted slot holds. */
+    st = cg_prep(s->g,
+        "SELECT attempt_id,task,agent,fence FROM attempts WHERE "
+        "state='running' AND task LIKE ?1||'/%' AND started >= "
+        "(SELECT started FROM fleet_runs WHERE run=?2)");
+    sqlite3_bind_text(st, 1, s->feature, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 2, s->run, -1, SQLITE_TRANSIENT);
+    struct { char att[80], id[64], agent[128]; long fence; } orphan[16];
+    int norphan = 0;
+    while (sqlite3_step(st) == SQLITE_ROW && norphan < 16) {
+        const char *tag = (const char *)sqlite3_column_text(st, 1);
+        const char *id = strrchr(tag, '/');
+        id = id ? id + 1 : tag;
+        bool held = false;
+        for (int i = 0; i < s->nslots; i++)
+            if (s->slots[i].live && strcmp(s->slots[i].n.task, id) == 0)
+                held = true;
+        if (held) continue;
+        snprintf(orphan[norphan].att, sizeof orphan[norphan].att, "%s",
+                 (const char *)sqlite3_column_text(st, 0));
+        snprintf(orphan[norphan].id, sizeof orphan[norphan].id, "%s", id);
+        snprintf(orphan[norphan].agent, sizeof orphan[norphan].agent, "%s",
+                 (const char *)sqlite3_column_text(st, 2));
+        orphan[norphan].fence = sqlite3_column_int64(st, 3);
+        norphan++;
+    }
+    sqlite3_finalize(st);
+    if (norphan) setenv("CG_FEATURE", s->feature, 1);  /* release's feature */
+    for (int i = 0; i < norphan; i++) {
+        orch_abandon(s->g->shared, s->feature, orphan[i].id, orphan[i].agent,
+                     orphan[i].att, orphan[i].fence);
+        printf("[fleet] released %s's orphaned claim on %s\n",
+               orphan[i].agent, orphan[i].id);
+    }
     fflush(stdout);
     return 0;
 }
@@ -3036,6 +3077,15 @@ static void supervisor_stall_check(Sup *s, OrchFleetSlot *sl, long now) {
         if (sup_progressed(s, sl)) sl->progress = now;
     }
     if (stall <= 0 || now - sl->progress < stall * 1000) return;
+    /* a worker whose task already qualified is finishing — its merge-up
+     * may wait out a land that holds the merge lock. Ending it gains
+     * nothing and strands the qualified work on its own branch. */
+    char *ts = orch_task_status(sl->n.worktree, s->feature, sl->n.task,
+                                sl->n.attempt, sl->n.fence);
+    bool qualified = ts && (strcmp(ts, "done") == 0 ||
+                            strcmp(ts, "implemented") == 0);
+    free(ts);
+    if (qualified) { sl->progress = now; return; }
     long idle = (now - sl->progress) / 1000;
     if (sl->nudges == 0) {
         char msg[400];
@@ -3290,10 +3340,15 @@ static void sup_subtree(Sup *s, OrchSubtree *sub) {
     Hierarchy h;
     Kvx *wf = orch_hier(s->g->shared, &h);
     long ahead = 0;
+    int unlanded = 0;
     for (int i = 0; i < n; i++) {
         sub->total++;
         if (v[i].finished) sub->done++;
         else if (v[i].claimed) sub->claimed++;
+        /* qualified on its own branch is not on main: a merge-up that
+         * conflicted, or was cut short, leaves the wave branch with
+         * nothing ahead of main and the task's work still off it */
+        if (!v[i].landed) unlanded++;
         if (i && v[i - 1].wave == v[i].wave) continue;
         char br[256];
         hier_expand(&h, h.roles[FLEET_FEATURE].branch, s->feature, v[i].wave,
@@ -3308,7 +3363,7 @@ static void sup_subtree(Sup *s, OrchSubtree *sub) {
     orch_tasks_free(v, n);
     sub->all_done = sub->total > 0 && sub->done == sub->total;
     sub->ahead = ahead;
-    sub->merged = ahead == 0;
+    sub->merged = ahead == 0 && unlanded == 0;
     sub->complete = sub->all_done && sub->merged;
 }
 
@@ -3335,9 +3390,10 @@ static int sup_wake_managers(Sup *s, const OrchSubtree *sub, long now) {
         if (s->per_wave && i && v[i - 1].wave == wave) continue;
         SupMgr *m = sup_mgr(s, wave);
         if (m->live) continue;
-        int unfinished = 0, movable = 0, live = 0;
+        int unfinished = 0, movable = 0, live = 0, unlanded = 0;
         for (int t = 0; t < n; t++) {
             if (wave >= 0 && v[t].wave != wave) continue;
+            if (!v[t].landed) unlanded++;
             if (v[t].finished) continue;
             unfinished++;
             bool waits = false;
@@ -3353,7 +3409,10 @@ static int sup_wake_managers(Sup *s, const OrchSubtree *sub, long now) {
                     sizeof br);
         long ahead = s->per_wave ? orch_ahead(g->shared, s->mainbr, br)
                                  : sub->ahead;
-        bool owes = unfinished > 0 || ahead > 0;
+        /* a task qualified on its own branch that never reached the wave
+         * branch is still owed: the manager merges it up or resolves it */
+        bool owes = unfinished > 0 || ahead > 0 ||
+                    (s->per_wave && unlanded > 0);
         if (!owes) continue;
         char probe[64];
         bool frontier = s->per_wave
@@ -3470,12 +3529,16 @@ static int supervisor_tick(Sup *s) {
                sl->n.task, ex, ok ? ts : "INCOMPLETE");
         fflush(stdout);
         const char *outcome = ok ? ts : sl->why[0] ? sl->why : "incomplete";
+        /* the claim goes back before the node is marked ended: a
+         * supervisor killed between the two leaves a live node, which the
+         * resumed one reaps again, never a held claim nobody releases */
+        if (!ok)
+            orch_abandon(g->shared, feature, sl->n.task, sl->n.agent,
+                         sl->n.attempt, sl->n.fence);
         orch_event("orch.exit", "worker", sl->n.agent, feature, sl->n.task,
                    sl->n.pid, crc > -900 ? crc : -1, outcome, sl->n.branch, NULL);
         sup_node_end(s, sl->node, "exited", crc, outcome);
         if (!ok) {
-            orch_abandon(g->shared, feature, sl->n.task, sl->n.agent,
-                         sl->n.attempt, sl->n.fence);
             orch_note_failure(feature, sl->n.task, crc > -900 ? crc : -1);
             s->failures++;
             sup_save(s);
