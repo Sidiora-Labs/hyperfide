@@ -349,7 +349,7 @@ owner = "core"
 
 [task.2.8]
 title = "Secret references reach running sandboxes"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/runner/executor.ts", "src/hyperfide/launch.c", "tests/hyperfide/cases/v21/2_8.py"]

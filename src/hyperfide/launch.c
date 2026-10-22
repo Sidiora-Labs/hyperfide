@@ -238,6 +238,68 @@ static int read_plan(const RunnerConfig *c,const Instruction *i,HfJson *j,char *
  return *binary>=0&&!fstat(*binary,&st)&&S_ISREG(st.st_mode)&&st.st_uid==0&&!(st.st_mode&022)&&hash_fd(*binary,hash)&&!strcmp(hash,expected+7);
 }
 static void free_argv(char **argv){if(argv){for(int k=0;argv[k];++k)free(argv[k]);free(argv);}}
+/* Secret references (task 2.8). A START body or relaunch declares NAME ->
+ * secret-ref:<id>. The provider resolves those references into the environment
+ * of the native invocation (bound request env_refs); only names are ever written
+ * to the ledger, events or replies. A relaunch hands the resolved values to the
+ * live broker over its owner-only socket and keeps launch and attempt identity. */
+#define HF_ENV_REFS 128
+#define HF_ENV_VALUE 65536
+typedef struct {int n;char name[HF_ENV_REFS][129];char *value[HF_ENV_REFS];} EnvRefs;
+static void env_refs_clear(EnvRefs *r){for(int k=0;k<r->n;++k)if(r->value[k]){explicit_bzero(r->value[k],strlen(r->value[k]));free(r->value[k]);r->value[k]=NULL;}r->n=0;}
+static int env_word(char ch,int first){return (ch>='A'&&ch<='Z')||(ch>='a'&&ch<='z')||ch=='_'||(!first&&ch>='0'&&ch<='9');}
+static int env_name_ok(const char *s){
+ size_t n=strlen(s);if(!n||n>128)return 0;for(size_t k=0;k<n;++k)if(!env_word(s[k],k==0))return 0;
+ static const char *const reserved[]={"PATH","HOME","TMPDIR","CODEX_HOME","CLAUDE_CONFIG_DIR","SSL_CERT_FILE","NODE_EXTRA_CA_CERTS"};
+ for(unsigned k=0;k<sizeof reserved/sizeof *reserved;++k)if(!strcmp(s,reserved[k]))return 0;
+ return strncmp(s,"HF_",3)&&strncmp(s,"LD_",3)&&strncmp(s,"DYLD_",5);
+}
+static int env_ref_ok(const char *s){
+ if(strncmp(s,"secret-ref:",11))return 0;
+ s+=11;size_t n=strlen(s);
+ if(!n||n>240||!((*s>='A'&&*s<='Z')||(*s>='a'&&*s<='z')||(*s>='0'&&*s<='9')))return 0;
+ for(size_t k=1;k<n;++k)if(!env_word(s[k],0)&&!strchr(".:/-",s[k]))return 0;
+ return 1;
+}
+static int env_index(const EnvRefs *r,const char *name){for(int k=0;k<r->n;++k)if(!strcmp(r->name[k],name))return k;return -1;}
+static int env_refs_declared(const HfJson *j,int object,EnvRefs *r){
+ r->n=0;if(object<0)return 1;if(j->tokens[object].type!='{')return 0;
+ for(int key=object+1;key<j->tokens[object].next;key=j->tokens[key+1].next){char name[129],ref[512];
+  if(r->n>=HF_ENV_REFS||!hf_json_string(j,key,name,sizeof name)||!env_name_ok(name)||env_index(r,name)>=0||!hf_json_string(j,key+1,ref,sizeof ref)||!env_ref_ok(ref))return 0;
+  snprintf(r->name[r->n],sizeof r->name[0],"%s",name);r->value[r->n++]=NULL;}
+ return 1;
+}
+/* Values come only from this invocation's environment; returns the missing count. */
+static int env_refs_resolve(EnvRefs *r){
+ int missing=0;for(int k=0;k<r->n;++k){const char *v=getenv(r->name[k]);if(v&&*v&&strlen(v)<=HF_ENV_VALUE&&(r->value[k]=strdup(v)))continue;++missing;}return missing;
+}
+static void env_refs_names(FILE *out,const EnvRefs *r,int present){int first=1;fputc('[',out);for(int k=0;k<r->n;++k)if(!!r->value[k]==present){if(!first)fputc(',',out);hf_json_write_string(out,r->name[k]);first=0;}fputc(']',out);}
+static int start_env_refs(const Instruction *i,EnvRefs *r){HfJson *b=malloc(sizeof *b);int ok=b&&hf_json_parse(b,i->body)&&env_refs_declared(b,hf_json_field(b,0,"env_refs"),r);free(b);if(ok)env_refs_resolve(r);return ok;}
+typedef struct {int in,out,err,gate;} AgentPipes;
+/* Forks one agent held behind its gate; the caller releases it with 'G'. */
+static pid_t spawn_agent(const Instruction *i,HfJson *plan,char **argv,int binary,const EnvRefs *refs,AgentPipes *p){
+ int input[2]={-1,-1},output[2]={-1,-1},error[2]={-1,-1},gate[2]={-1,-1};
+ int *all[]={input,output,error,gate};
+ if(pipe2(input,O_CLOEXEC)||pipe2(output,O_CLOEXEC)||pipe2(error,O_CLOEXEC)||pipe2(gate,O_CLOEXEC)){for(unsigned k=0;k<4;++k)for(unsigned e=0;e<2;++e)if(all[k][e]>=0)close(all[k][e]);return -1;}
+ pid_t parent=getpid();pid_t agent=fork();
+ if(agent<0){for(unsigned k=0;k<4;++k)for(unsigned e=0;e<2;++e)close(all[k][e]);return -1;}
+ if(agent==0){close(gate[1]);close(input[1]);close(output[0]);close(error[0]);prctl(PR_SET_PDEATHSIG,SIGKILL);if(getppid()==1)_exit(125);setpgid(0,0);char release;
+  if(read(gate[0],&release,1)!=1||release!='G')_exit(125);
+  close(gate[0]);
+  if(dup2(input[0],0)<0||dup2(output[1],1)<0||dup2(error[1],2)<0)_exit(125);
+  char cwd[4096],home[4096],tmp[4096];if(!hf_json_get(plan,"cwd",cwd,sizeof cwd)||!hf_json_get(plan,"home",home,sizeof home)||!hf_json_get(plan,"temp",tmp,sizeof tmp))_exit(125);
+  if(clearenv()||setenv("PATH","/usr/local/bin:/usr/bin:/bin",1)||setenv("HOME",home,1)||setenv("TMPDIR",tmp,1)||setenv("HF_JOB_HOME",home,1)||setenv("HF_JOB_TMPDIR",tmp,1))_exit(125);
+  int env=hf_json_field(plan,0,"environment");const char *allowed[]={"CODEX_HOME","CLAUDE_CONFIG_DIR","SSL_CERT_FILE","NODE_EXTRA_CA_CERTS"};
+  if(env>=0){if(!hf_json_only(plan,env,allowed,4))_exit(125);for(unsigned k=0;k<4;++k){char value[4096];int t=hf_json_field(plan,env,allowed[k]);if(t>=0&&(!hf_json_string(plan,t,value,sizeof value)||setenv(allowed[k],value,1)))_exit(125);}}
+  for(int k=0;refs&&k<refs->n;++k)if(refs->value[k]&&setenv(refs->name[k],refs->value[k],1))_exit(125);
+  if(setgroups(0,NULL)||setgid(i->gid)||setuid(i->uid)||chdir(cwd)||prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0))_exit(125);
+  umask(0077);if(prctl(PR_SET_PDEATHSIG,SIGKILL)||getppid()!=parent)_exit(125);if(binary!=3&&dup3(binary,3,O_CLOEXEC)<0)_exit(125);
+  if(close_range(4,~0U,0))_exit(125);
+  fexecve(3,argv,environ);_exit(127);
+ }
+ close(gate[0]);close(input[0]);close(output[1]);close(error[1]);
+ p->in=input[1];p->out=output[0];p->err=error[0];p->gate=gate[1];return agent;
+}
 static int transfer(int fd,void *data,size_t n,int writing){unsigned char *p=data;while(n){ssize_t k=writing?send(fd,p,n,MSG_NOSIGNAL):read(fd,p,n);if(k<0&&errno==EINTR)continue;if(k<=0)return 0;p+=k;n-=(size_t)k;}return 1;}
 static int send_packet(int fd,const char *data){size_t n=strlen(data);if(n>HF_BODY_LIMIT)return 0;uint32_t len=htonl((uint32_t)n);return transfer(fd,&len,4,1)&&transfer(fd,(void*)data,n,1);}
 static char *receive_packet(int fd){uint32_t wire;if(!transfer(fd,&wire,4,0))return NULL;size_t n=ntohl(wire);if(!n||n>HF_BODY_LIMIT)return NULL;char *data=malloc(n+1);if(!data)return NULL;if(!transfer(fd,data,n,0)||memchr(data,0,n)){free(data);return NULL;}data[n]=0;return data;}
@@ -326,7 +388,7 @@ static char *terminal_data(const RunnerConfig *c,const Instruction *i,const char
  fputs(",\"native_acknowledged\":false}",out);if(fclose(out)){free(data);return NULL;}return data;
 }
 static int append_log(int fd,const void *data,size_t n){const char *p=data;while(n){ssize_t w=write(fd,p,n);if(w<0&&errno==EINTR)continue;if(w<=0)return 0;p+=w;n-=(size_t)w;}return 1;}
-static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char **argv,int binary,int ready) {
+static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char **argv,int binary,int ready,EnvRefs *refs) {
  signal(SIGPIPE,SIG_IGN);signal(SIGTERM,SIG_DFL);prctl(PR_SET_CHILD_SUBREAPER,1);setsid();
  int nullfd=open("/dev/null",O_RDWR|O_CLOEXEC);if(nullfd<0)_exit(125);
  for(int descriptor=0;descriptor<3;++descriptor)if(dup2(nullfd,descriptor)<0)_exit(125);
@@ -336,30 +398,19 @@ static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char 
  server=socket(AF_UNIX,SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK,0);struct sockaddr_un address={.sun_family=AF_UNIX};snprintf(address.sun_path,sizeof address.sun_path,"%s",socketname);
  if(server<0||bind(server,(struct sockaddr*)&address,sizeof address)||chmod(socketname,0600)||listen(server,16))goto failed;
  snprintf(path,sizeof path,"%s/%s.stdout",c->state,i->launch);log_out=open(path,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);snprintf(path,sizeof path,"%s/%s.stderr",c->state,i->launch);log_err=open(path,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
- if(log_out<0||log_err<0||pipe2(input,O_CLOEXEC)||pipe2(output,O_CLOEXEC)||pipe2(error,O_CLOEXEC)||pipe2(gate,O_CLOEXEC))goto failed;
+ if(log_out<0||log_err<0)goto failed;
  pid_t watchdog=hf_slot_watchdog(i->uid,i->deadline_ns,&watch_write,i->launch);if(watchdog<0)goto failed;
- pid_t parent=getpid();pid_t agent=fork();if(agent<0)goto failed;
- if(agent==0){close(gate[1]);close(input[1]);close(output[0]);close(error[0]);prctl(PR_SET_PDEATHSIG,SIGKILL);if(getppid()==1)_exit(125);setpgid(0,0);char release;
-  if(read(gate[0],&release,1)!=1||release!='G')_exit(125);
-  close(gate[0]);
-  if(dup2(input[0],0)<0||dup2(output[1],1)<0||dup2(error[1],2)<0)_exit(125);
-  char cwd[4096],home[4096],tmp[4096];if(!hf_json_get(plan,"cwd",cwd,sizeof cwd)||!hf_json_get(plan,"home",home,sizeof home)||!hf_json_get(plan,"temp",tmp,sizeof tmp))_exit(125);
-  if(clearenv()||setenv("PATH","/usr/local/bin:/usr/bin:/bin",1)||setenv("HOME",home,1)||setenv("TMPDIR",tmp,1)||setenv("HF_JOB_HOME",home,1)||setenv("HF_JOB_TMPDIR",tmp,1))_exit(125);
-  int env=hf_json_field(plan,0,"environment");const char *allowed[]={"CODEX_HOME","CLAUDE_CONFIG_DIR","SSL_CERT_FILE","NODE_EXTRA_CA_CERTS"};
-  if(env>=0){if(!hf_json_only(plan,env,allowed,4))_exit(125);for(unsigned k=0;k<4;++k){char value[4096];int t=hf_json_field(plan,env,allowed[k]);if(t>=0&&(!hf_json_string(plan,t,value,sizeof value)||setenv(allowed[k],value,1)))_exit(125);}}
-  if(setgroups(0,NULL)||setgid(i->gid)||setuid(i->uid)||chdir(cwd)||prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0))_exit(125);
-  umask(0077);if(prctl(PR_SET_PDEATHSIG,SIGKILL)||getppid()!=parent)_exit(125);if(binary!=3&&dup3(binary,3,O_CLOEXEC)<0)_exit(125);
-  if(close_range(4,~0U,0))_exit(125);
-  fexecve(3,argv,environ);_exit(127);
- }
- close(gate[0]);close(input[0]);close(output[1]);close(error[1]);close(binary);
+ AgentPipes pipes;pid_t agent=spawn_agent(i,plan,argv,binary,refs,&pipes);if(agent<0)goto failed;
+ input[1]=pipes.in;output[0]=pipes.out;error[0]=pipes.err;gate[1]=pipes.gate;
  HfProcessIdentity bp,ap;int identity=hf_process_identity(getpid(),&bp)&&hf_process_identity(agent,&ap);sqlite3_stmt *q=NULL;
  if(identity&&sqlite3_prepare_v2(db,"UPDATE launches SET state='RUNNING',broker_pid=?,broker_start=?,agent_pid=?,agent_start=?,os_boot=?,updated=unixepoch() WHERE id=? AND state='ACCEPTED'",-1,&q,NULL)==SQLITE_OK){char bs[32],as[32];snprintf(bs,sizeof bs,"%llu",bp.start_time);snprintf(as,sizeof as,"%llu",ap.start_time);sqlite3_bind_int(q,1,getpid());sqlite3_bind_text(q,2,bs,-1,SQLITE_TRANSIENT);sqlite3_bind_int(q,3,agent);sqlite3_bind_text(q,4,as,-1,SQLITE_TRANSIENT);sqlite3_bind_text(q,5,ap.os_boot_id,-1,SQLITE_STATIC);sqlite3_bind_text(q,6,i->launch,-1,SQLITE_STATIC);identity=sqlite3_step(q)==SQLITE_DONE&&sqlite3_changes(db)==1;}else identity=0;sqlite3_finalize(q);
  char *running=NULL;size_t running_n=0;FILE *running_out=identity?open_memstream(&running,&running_n):NULL;
- if(running_out){fprintf(running_out,"{\"state\":\"RUNNING\",\"agent_session_id\":\"%s\",\"slot_id\":\"%s\",\"stdin_owner\":\"broker\",\"broker\":",i->session,i->slot);hf_process_json(running_out,&bp);fputs(",\"agent\":",running_out);hf_process_json(running_out,&ap);fputc('}',running_out);if(fclose(running_out)){free(running);running=NULL;}}
+ if(running_out){fprintf(running_out,"{\"state\":\"RUNNING\",\"agent_session_id\":\"%s\",\"slot_id\":\"%s\",\"stdin_owner\":\"broker\",\"broker\":",i->session,i->slot);hf_process_json(running_out,&bp);fputs(",\"agent\":",running_out);hf_process_json(running_out,&ap);fputs(",\"env_refs\":{\"present\":",running_out);env_refs_names(running_out,refs,1);fputs(",\"missing\":",running_out);env_refs_names(running_out,refs,0);fputs("}}",running_out);if(fclose(running_out)){free(running);running=NULL;}}
  identity=identity&&running&&queue_event(db,c,i->launch,i->command,"launch.running",running);free(running);
  if(!identity||!queue_ack(db,c,i,2,"EXECUTING",&ap)||monotonic_ns()>=i->deadline_ns||write(gate[1],"G",1)!=1){kill(agent,SIGKILL);close(gate[1]);waitpid(agent,NULL,0);goto failed;}close(gate[1]);
  fcntl(input[1],F_SETFL,O_NONBLOCK);fcntl(output[0],F_SETFL,O_NONBLOCK);fcntl(error[0],F_SETFL,O_NONBLOCK);
+ /* ACKs keep the EXECUTING identity the coordinator pinned; observations follow the live agent. */
+ HfProcessIdentity live=ap;
  if(write(ready,"R",1)!=1){/* Controller loss is not cancellation. */}close(ready);ready=-1;
  long long deadline=i->deadline_ns,next_refresh=0,terminal_at=0;
  const char *state="RUNNING";int exit_code=-1,stdin_open=1;unsigned long long bytes_out=0,bytes_err=0;char stopped_by[37]="";
@@ -391,10 +442,10 @@ static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char 
   const char *ids[]={"attempt_id","attempt_generation","sandbox_id","boot_id","boot_generation"};const char *values[]={i->attempt,i->attempt_generation,c->sandbox,c->boot,c->generation};
   for(unsigned k=0;valid&&k<5;++k){char value[128];valid=atstring(j,payload,ids[k],value,sizeof value)&&!strcmp(value,values[k]);}
   if(!valid||watch_write<0||!hf_slot_owner(i->uid,i->launch)){if(out)hf_native_error(out,"IDENTITY_MISMATCH");}
-  else if(!strcmp(action,"runner.observe")||!strcmp(action,"launch.status")){char *obs=broker_observation(c,i,&bp,&ap,state,exit_code,stopped_by,!stdin_open);if(obs){fputs(obs,out);free(obs);}else hf_native_error(out,"OBSERVATION_FAILED");}
+  else if(!strcmp(action,"runner.observe")||!strcmp(action,"launch.status")){char *obs=broker_observation(c,i,&bp,&live,state,exit_code,stopped_by,!stdin_open);if(obs){fputs(obs,out);free(obs);}else hf_native_error(out,"OBSERVATION_FAILED");}
   else if(!strcmp(action,"runner.stop")||!strcmp(action,"launch.cancel")){
    char command[37];if(!atstring(j,payload,"command_id",command,sizeof command)||!hf_uuid_valid(command))hf_native_error(out,"INVALID_COMMAND");
-   else{snprintf(stopped_by,sizeof stopped_by,"%s",command);state_update(db,i->launch,"STOPPING",exit_code);if(stdin_open){close(input[1]);stdin_open=0;}int stopped=stop_uid(i->uid);hf_slot_watchdog_finish(watchdog,&watch_write);state=stopped?"STOPPED":"UNCERTAIN";state_update(db,i->launch,state,exit_code);fsync(log_out);fsync(log_err);char *obs=broker_observation(c,i,&bp,&ap,state,exit_code,command,1);if(obs){fputs(obs,out);free(obs);}else hf_native_error(out,"OBSERVATION_FAILED");}
+   else{snprintf(stopped_by,sizeof stopped_by,"%s",command);state_update(db,i->launch,"STOPPING",exit_code);if(stdin_open){close(input[1]);stdin_open=0;}int stopped=stop_uid(i->uid);hf_slot_watchdog_finish(watchdog,&watch_write);state=stopped?"STOPPED":"UNCERTAIN";state_update(db,i->launch,state,exit_code);fsync(log_out);fsync(log_err);char *obs=broker_observation(c,i,&bp,&live,state,exit_code,command,1);if(obs){fputs(obs,out);free(obs);}else hf_native_error(out,"OBSERVATION_FAILED");}
   }else if(!strcmp(action,"launch.send")){
    char request_id[37],digest[72],encoded[8192];int accepted=atstring(j,payload,"request_id",request_id,sizeof request_id)&&hf_uuid_valid(request_id)&&atstring(j,payload,"frame_b64",encoded,sizeof encoded)&&stdin_open&&!strcmp(state,"RUNNING")&&input_permitted(db,i->launch);size_t length=0;unsigned char *frame=accepted?hf_base64url_decode(encoded,&length):NULL;char hash[65];accepted=accepted&&frame&&length>0&&length<=4096&&hf_sha256_bytes(frame,length,hash);snprintf(digest,sizeof digest,"sha256:%s",accepted?hash:"");
    sqlite3_stmt *s=NULL;const char *delivery="REJECTED";
@@ -404,6 +455,37 @@ static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char 
     else delivery=reservation==0?"DUPLICATE_NOT_REPLAYED":reservation==-1?"FRAME_IDENTITY_CONFLICT":"LEDGER_UNAVAILABLE";
    }
    free(frame);fprintf(out,"{\"delivery\":\"%s\",\"replay_safe\":false,\"native_acknowledged\":false}",delivery);
+  }else if(!strcmp(action,"launch.relaunch")){
+   /* Same launch, attempt and slot: stop the agent, then start it again with the
+    * supplied references merged over the current ones. */
+   char command[37];EnvRefs next={0};char *value=malloc(HF_ENV_VALUE+1);
+   int ok=value&&atstring(j,payload,"command_id",command,sizeof command)&&hf_uuid_valid(command)&&!strcmp(state,"RUNNING")&&stdin_open;
+   for(int k=0;ok&&k<refs->n;++k){snprintf(next.name[k],sizeof next.name[0],"%s",refs->name[k]);next.value[k]=refs->value[k]?strdup(refs->value[k]):NULL;next.n=k+1;ok=!refs->value[k]||next.value[k];}
+   int list=ok?hf_json_field(j,payload,"env"):-1;ok=ok&&list>=0&&j->tokens[list].type=='['&&j->tokens[list].count>=1&&j->tokens[list].count<=HF_ENV_REFS;
+   for(int t=ok?list+1:0;ok&&t<j->tokens[list].next;t=j->tokens[t].next){char name[129];const char *keys[]={"name","value"};
+    ok=hf_json_only(j,t,keys,2)&&atstring(j,t,"name",name,sizeof name)&&env_name_ok(name)&&hf_json_string(j,hf_json_field(j,t,"value"),value,HF_ENV_VALUE+1)&&*value;
+    int at=ok?env_index(&next,name):-1;if(ok&&at<0){ok=next.n<HF_ENV_REFS;if(ok){at=next.n++;snprintf(next.name[at],sizeof next.name[0],"%s",name);next.value[at]=NULL;}}
+    if(ok){if(next.value[at]){explicit_bzero(next.value[at],strlen(next.value[at]));free(next.value[at]);}ok=(next.value[at]=strdup(value))!=NULL;}}
+   if(value){explicit_bzero(value,HF_ENV_VALUE+1);free(value);}
+   if(!ok){env_refs_clear(&next);hf_native_error(out,"INVALID_RELAUNCH");}
+   else{
+    HfProcessIdentity previous=live,fresh_identity;close(input[1]);stdin_open=0;int stopped=stop_uid(i->uid);waitpid(agent,NULL,0);
+    for(int k=0;k<2;++k){int fd=k?error[0]:output[0];char buffer[65536];ssize_t n;while((n=read(fd,buffer,sizeof buffer))>0){unsigned long long *total=k?&bytes_err:&bytes_out;if(*total+(unsigned long long)n<=64ULL*1024*1024&&append_log(k?log_err:log_out,buffer,(size_t)n))*total+=(unsigned long long)n;}close(fd);}
+    AgentPipes fresh;pid_t next_agent=stopped?spawn_agent(i,plan,argv,binary,&next,&fresh):-1;sqlite3_stmt *u=NULL;
+    int ok2=next_agent>0&&hf_process_identity(next_agent,&fresh_identity)&&sqlite3_prepare_v2(db,"UPDATE launches SET agent_pid=?,agent_start=?,os_boot=?,updated=unixepoch() WHERE id=? AND state='RUNNING'",-1,&u,NULL)==SQLITE_OK;
+    if(ok2){char as[32];snprintf(as,sizeof as,"%llu",fresh_identity.start_time);sqlite3_bind_int(u,1,next_agent);sqlite3_bind_text(u,2,as,-1,SQLITE_TRANSIENT);sqlite3_bind_text(u,3,fresh_identity.os_boot_id,-1,SQLITE_STATIC);sqlite3_bind_text(u,4,i->launch,-1,SQLITE_STATIC);ok2=sqlite3_step(u)==SQLITE_DONE&&sqlite3_changes(db)==1;}sqlite3_finalize(u);
+    char *data=NULL;size_t data_n=0;FILE *w=ok2?open_memstream(&data,&data_n):NULL;
+    if(w){fprintf(w,"{\"command_id\":\"%s\",\"attempt_id\":\"%s\",\"attempt_generation\":\"%s\",\"previous_agent\":",command,i->attempt,i->attempt_generation);hf_process_json(w,&previous);fputs(",\"agent\":",w);hf_process_json(w,&fresh_identity);fputs(",\"env_refs\":{\"present\":",w);env_refs_names(w,&next,1);fputs(",\"missing\":",w);env_refs_names(w,&next,0);fputs("}}",w);if(fclose(w)){free(data);data=NULL;}}
+    ok2=ok2&&data&&queue_event(db,c,i->launch,i->command,"launch.relaunched",data)&&write(fresh.gate,"G",1)==1;
+    if(next_agent>0){close(fresh.gate);if(!ok2){kill(next_agent,SIGKILL);waitpid(next_agent,NULL,0);close(fresh.in);close(fresh.out);close(fresh.err);}}
+    if(!ok2){env_refs_clear(&next);output[0]=error[0]=-1;stop_uid(i->uid);state="UNCERTAIN";state_update(db,i->launch,state,exit_code);hf_native_error(out,stopped?"RELAUNCH_FAILED":"STOP_UNCERTAIN");}
+    else{
+     env_refs_clear(refs);*refs=next;agent=next_agent;live=fresh_identity;input[1]=fresh.in;output[0]=fresh.out;error[0]=fresh.err;stdin_open=1;
+     fcntl(input[1],F_SETFL,O_NONBLOCK);fcntl(output[0],F_SETFL,O_NONBLOCK);fcntl(error[0],F_SETFL,O_NONBLOCK);
+     fprintf(out,"{\"relaunched\":true,\"launch_id\":\"%s\",\"attempt_id\":\"%s\",\"attempt_generation\":\"%s\",\"command_id\":\"%s\",\"previous_agent\":",i->launch,i->attempt,i->attempt_generation,command);hf_process_json(out,&previous);fputs(",\"agent\":",out);hf_process_json(out,&live);fputs(",\"env_ref_names\":",out);env_refs_names(out,refs,1);fputc('}',out);
+    }
+    free(data);
+   }
   }else hf_native_error(out,"UNKNOWN_BROKER_ACTION");
   if(out){fclose(out);if(reply)send_packet(client,reply);}free(reply);free(request);free(j);close(client);
  }
@@ -435,9 +517,10 @@ static int launch_start(const RunnerConfig *c,Instruction *i,FILE *out) {
  if(fenced(db,i->launch)){sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);return refuse(out,"CANCELLED_BEFORE_START");}
  int lock=launch_lock(c->state,i->launch,1,NULL);
  if(lock<0){sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);return refuse(out,"LAUNCH_OWNER_ACTIVE");}
- HfJson *plan=NULL;char *plan_source=NULL,**argv=NULL,*identity=NULL,*accepted_data=NULL;int binary=-1,accepted=0;const char *code="DURABLE_ACCEPTANCE_FAILED";size_t n=0;
+ HfJson *plan=NULL;char *plan_source=NULL,**argv=NULL,*identity=NULL,*accepted_data=NULL;int binary=-1,accepted=0;EnvRefs refs={0};const char *code="DURABLE_ACCEPTANCE_FAILED";size_t n=0;
  if(!slot_identity(c,i)||!placement(c,"runner.agent.launch","implementation","native.spawn"))code="SLOT_OR_PLACEMENT_NOT_CURRENT";
  else if(!(plan=malloc(sizeof *plan))||!read_plan(c,i,plan,&plan_source,&argv,&binary))code="CONNECTOR_PLAN_NOT_QUALIFIED";
+ else if(!start_env_refs(i,&refs))code="SECRET_REFERENCES_INVALID";
  else {
   FILE *writer=open_memstream(&identity,&n);
   if(writer){fprintf(writer,"{\"organisation_id\":\"%s\",\"run_id\":\"%s\",\"sandbox_id\":\"%s\",\"boot_id\":\"%s\",\"boot_generation\":\"%s\",\"attempt_id\":\"%s\",\"attempt_generation\":\"%s\",\"authority_epoch\":\"%s\",\"agent_session_id\":\"%s\"}",c->organisation,c->run,c->sandbox,c->boot,c->generation,i->attempt,i->attempt_generation,i->epoch,i->session);if(fclose(writer)){free(identity);identity=NULL;}}
@@ -450,9 +533,9 @@ static int launch_start(const RunnerConfig *c,Instruction *i,FILE *out) {
  free(identity);free(accepted_data);
  if(!accepted)sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);
  sqlite3_close(db);int ready[2];
- if(!accepted||pipe2(ready,O_CLOEXEC)){close(lock);if(binary>=0)close(binary);free_argv(argv);free(plan_source);free(plan);return refuse(out,code);}
+ if(!accepted||pipe2(ready,O_CLOEXEC)){env_refs_clear(&refs);close(lock);if(binary>=0)close(binary);free_argv(argv);free(plan_source);free(plan);return refuse(out,code);}
  /* The broker inherits the launch lock; this process drops its reference. */
- pid_t child=fork();if(child==0){close(ready[0]);broker(c,i,plan,argv,binary,ready[1]);}close(ready[1]);close(lock);close(binary);free_argv(argv);free(plan_source);free(plan);
+ pid_t child=fork();if(child==0){close(ready[0]);broker(c,i,plan,argv,binary,ready[1],&refs);}env_refs_clear(&refs);close(ready[1]);close(lock);close(binary);free_argv(argv);free(plan_source);free(plan);
  struct pollfd pollfd={ready[0],POLLIN,0};char status='F';if(child>0&&poll(&pollfd,1,10000)>0&&read(ready[0],&status,1)!=1)status='F';close(ready[0]);
  fprintf(out,"{\"launch_id\":\"%s\",\"command_id\":\"%s\",\"state\":\"%s\",\"durably_accepted\":true,\"replayed\":false,\"native_session_observed\":false}",i->launch,i->command,status=='R'?"EXECUTING":"UNCERTAIN");return 0;
 }
@@ -641,6 +724,22 @@ static int serve(const RunnerConfig *c,long long run_seconds,long long interval_
 static int bounded_i64(const HfJson *j,const char *key,long long min,long long max,long long *value){int64_t v=0;if(!hf_json_i64(j,hf_json_field(j,0,key),&v)||v<min||v>max)return 0;*value=v;return 1;}
 int hf_component_12_2(const char *action,const char *request,FILE *out) {
  HfJson *j=malloc(sizeof *j);char config_path[4096],event[37];RunnerConfig c;Instruction instruction;
+ if(!strcmp(action,"launch.relaunch")){
+  /* Invoked through the provider with env_refs resolved into this process. */
+  const char *keys[]={"state_dir","launch_id","attempt_id","attempt_generation","sandbox_id","boot_id","boot_generation","command_id","env_refs"};
+  const char *ids[]={"launch_id","attempt_id","attempt_generation","sandbox_id","boot_id","boot_generation","command_id"};
+  char state[4096],values[7][64];EnvRefs refs={0};
+  int ok=j&&hf_json_parse(j,request)&&hf_json_only(j,0,keys,9)&&hf_json_get(j,"state_dir",state,sizeof state)&&env_refs_declared(j,hf_json_field(j,0,"env_refs"),&refs)&&refs.n>0;
+  for(unsigned k=0;ok&&k<7;++k)ok=hf_json_get(j,ids[k],values[k],sizeof values[k])&&(k==2||k==5?decimal(values[k]):hf_uuid_valid(values[k]));
+  free(j);if(!ok)return hf_native_error(out,"INVALID_RELAUNCH");
+  if(env_refs_resolve(&refs)){env_refs_clear(&refs);return hf_native_error(out,"SECRET_REFERENCE_UNAVAILABLE");}
+  char *payload=NULL;size_t n=0;FILE *w=open_memstream(&payload,&n);if(!w){env_refs_clear(&refs);return hf_native_error(out,"RESOURCE_LIMIT");}
+  fputc('{',w);for(unsigned k=0;k<7;++k){fprintf(w,"%s\"%s\":",k?",":"",ids[k]);hf_json_write_string(w,values[k]);}
+  fputs(",\"env\":[",w);for(int k=0;k<refs.n;++k){fputs(k?",{\"name\":":"{\"name\":",w);hf_json_write_string(w,refs.name[k]);fputs(",\"value\":",w);hf_json_write_string(w,refs.value[k]);fputc('}',w);}fputs("]}",w);
+  int closed=fclose(w);env_refs_clear(&refs);
+  int rc=closed?hf_native_error(out,"RESOURCE_LIMIT"):hf_launch_rpc(state,"launch.relaunch",payload,out);
+  if(payload){explicit_bzero(payload,strlen(payload));free(payload);}return rc;
+ }
  if(!strcmp(action,"launch.reconcile")||!strcmp(action,"launch.serve")){
   const char *keys[]={"config_path","run_seconds","poll_interval_ms"};int serving=!strcmp(action,"launch.serve");long long seconds=0,interval=0;
   int ok=j&&hf_json_parse(j,request)&&hf_json_only(j,0,keys,serving?3:1)&&hf_json_get(j,"config_path",config_path,sizeof config_path)&&
