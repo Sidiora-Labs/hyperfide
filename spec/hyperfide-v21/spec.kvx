@@ -881,7 +881,7 @@ owner = "findings"
 
 [task.4.7]
 title = "Seed Asks from open decisions"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["3.2"]
 touches = ["spec/hyperfide/decisions.md", "tests/hyperfide/cases/v21/4_7.py", "services/hyperfide/src/policy/ask_seed.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/components/1.2-asks.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "deploy/hyperfide/policies/provisioner.example.json"]
