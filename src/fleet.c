@@ -2025,8 +2025,10 @@ static int slice_worktree_add(const char *tree, const char *path,
 }
 
 /* `begin`'s workspace choice: --sparse / --full-tree <REASON> on the
- * command line, else [hierarchy] sparse = "slice" | "off" (off by default
- * until the fleet's out-of-slice write path exists locally) */
+ * command line, else the workflow. Sparse is the default (v21 3.20, req 6.1:
+ * full-tree materialisation needs a recorded reason); [hierarchy] sparse =
+ * "full" opts the whole fleet out and is itself the recorded reason. A worker
+ * that needs a path outside its slice widens with `slice <id> --widen`. */
 static int g_begin_sparse = -1;                  /* -1: the workflow decides */
 static char g_begin_full_reason[64];
 
@@ -2036,17 +2038,212 @@ static void fleet_begin_workspace(int sparse, const char *full_tree_reason) {
              full_tree_reason ? full_tree_reason : "");
 }
 
+static void json_list(StrBuf *b, char **v, int n) {
+    sb_putc(b, '[');
+    for (int i = 0; i < n; i++) {
+        if (i) sb_puts(b, ", ");
+        sb_json_str(b, v[i]);
+    }
+    sb_putc(b, ']');
+}
+
+/* cg slice <task> --widen PATH... --reason CODE: the local widen step. A
+ * worker that needs a file outside its sparse slice adds it here, never by
+ * hand: the path joins [task.<id>] touches and a `widened` entry
+ * ("REASON:path") in the worker's own copy of the feature spec, so the
+ * record travels with the work through merge-up; the worktree's sparse
+ * patterns gain the path and the slice is derived again from that packet. */
+static int slice_widen(Cg *cg, Lifecycle *c, const char *id, long wave,
+                       char **paths, int npaths, const char *reason,
+                       bool json) {
+    if (!reason || !slice_code_ok(reason)) {
+        fprintf(stderr, "hyperfide slice: --widen needs --reason with an upper-case "
+                        "code, e.g. OUT_OF_SLICE_WRITE\n");
+        return 1;
+    }
+    for (int i = 0; i < npaths; i++)
+        if (strpbrk(paths[i], "*?[]") || !slice_path_ok(paths[i])) {
+            fprintf(stderr, "hyperfide slice: %s is not a repository-relative path\n",
+                    paths[i]);
+            return 1;
+        }
+    char branch[512], wt[4800], probe[4900];
+    hier_expand_task(&c->h, c->h.roles[FLEET_WORKER].branch, c->feature, wave, id,
+                     branch, sizeof branch);
+    worktree_path(c, branch, wt, sizeof wt);
+    snprintf(probe, sizeof probe, "%s/.git", wt);
+    if (access(probe, F_OK) != 0) {
+        fprintf(stderr, "hyperfide slice: no worker worktree %s for %s — fleet begin "
+                        "it first\n", wt, id);
+        return 1;
+    }
+    StrBuf o; sb_init(&o);
+    bool sparse = git_run(wt, "config --get core.sparseCheckout", &o) == 0 && o.p &&
+                  !strncmp(o.p, "true", 4);
+    sb_free(&o);
+    if (!sparse) {
+        fprintf(stderr, "hyperfide slice: %s holds the full tree — nothing to widen\n",
+                wt);
+        return 1;
+    }
+    size_t tl = strlen(c->tree);
+    if (strncmp(c->specpath, c->tree, tl) || c->specpath[tl] != '/') {
+        fprintf(stderr, "hyperfide slice: the feature spec %s is outside %s\n",
+                c->specpath, c->tree);
+        return 1;
+    }
+    char wspec[4700], sec[300];
+    if (snprintf(wspec, sizeof wspec, "%s/%s", wt, c->specpath + tl + 1) >= (int)sizeof wspec) {
+        fprintf(stderr, "hyperfide slice: the worker spec path is too long\n");
+        return 1;
+    }
+    snprintf(sec, sizeof sec, "task.%s", id);
+    Kvx *f = kvx_parse(wspec);
+    if (!f || !kvx_raw(f, sec, "wave")) {
+        fprintf(stderr, "hyperfide slice: no [task.%s] in the worker's %s\n", id, wspec);
+        kvx_free(f);
+        return 1;
+    }
+    char **touches = NULL, **widened = NULL;
+    int nt = kvx_list(f, sec, "touches", &touches);
+    int nw = kvx_list(f, sec, "widened", &widened);
+    kvx_free(f);
+    if (nt < 0) nt = 0;
+    if (nw < 0) nw = 0;
+    char head[65] = "", hb[256];
+    if (!git_head(wt, hb, sizeof hb, head, sizeof head)) head[0] = 0;
+    char prev_digest[80] = "", store[4800];
+    slice_store_path(c, id, store, sizeof store);
+    SliceManifest prev;
+    if (access(store, F_OK) == 0 && slice_load(store, &prev) == 0) {
+        bool service = !strcmp(prev.source, "SERVICE");
+        snprintf(prev_digest, sizeof prev_digest, "%s", prev.digest);
+        slice_free(&prev);
+        if (service) {
+            fprintf(stderr, "hyperfide slice: %s was cut from a service manifest — widen "
+                            "it through the service (preparation.slice.widen)\n", id);
+            free_list(touches, nt); free_list(widened, nw);
+            return 1;
+        }
+    }
+    char **added = NULL;
+    int nadded = 0;
+    StrBuf pat; sb_init(&pat);
+    sb_puts(&pat, "sparse-checkout add");
+    for (int i = 0; i < npaths; i++) {
+        char plain[4600];
+        snprintf(plain, sizeof plain, "%s", paths[i]);
+        size_t len = strlen(plain);
+        bool dir = plain[len - 1] == '/';
+        if (dir) plain[--len] = 0;
+        if (!dir && slice_is_tree(wt, "HEAD", plain)) dir = true;
+        bool have = false;
+        for (int t = 0; t < nt && !have; t++) {
+            size_t n = strlen(touches[t]);
+            have = !strcmp(touches[t], plain) ||
+                   (n && touches[t][n - 1] == '/' && !strncmp(plain, touches[t], n)) ||
+                   (!strncmp(plain, touches[t], n) && plain[n] == '/');
+        }
+        if (have) continue;
+        char entry[4700], w[4800];
+        snprintf(entry, sizeof entry, "%s%s", plain, dir ? "/" : "");
+        snprintf(w, sizeof w, "%s:%s", reason, entry);
+        slice_add(&added, &nadded, entry);
+        slice_add(&touches, &nt, entry);
+        slice_add(&widened, &nw, w);
+        char p2[4800];
+        snprintf(p2, sizeof p2, "/%s", entry);
+        sb_putc(&pat, ' ');
+        sb_shquote(&pat, p2);
+    }
+    if (!nadded) {
+        fprintf(stderr, "hyperfide slice: every path is already inside the slice of %s\n",
+                id);
+        sb_free(&pat); free_list(touches, nt); free_list(widened, nw);
+        return 1;
+    }
+    StrBuf err; sb_init(&err);
+    int rc = git_run(wt, pat.p, &err);
+    sb_free(&pat);
+    if (rc != 0) {
+        fprintf(stderr, "hyperfide slice: git sparse-checkout add failed in %s: %s\n",
+                wt, err.p ? err.p : "");
+        sb_free(&err); free_list(touches, nt); free_list(widened, nw);
+        free_list(added, nadded);
+        return 1;
+    }
+    sb_free(&err);
+    StrBuf raw; sb_init(&raw);
+    json_list(&raw, touches, nt);
+    rc = kvx_set_raw(wspec, sec, "touches", raw.p);
+    sb_free(&raw); sb_init(&raw);
+    json_list(&raw, widened, nw);
+    if (rc == 0) rc = kvx_set_raw(wspec, sec, "widened", raw.p);
+    sb_free(&raw);
+    free_list(touches, nt); free_list(widened, nw);
+    if (rc != 0) {
+        fprintf(stderr, "hyperfide slice: could not record the widen in %s\n", wspec);
+        free_list(added, nadded);
+        return 1;
+    }
+    /* the slice again, from the packet as the worker now holds it */
+    Lifecycle wc = *c;
+    snprintf(wc.specpath, sizeof wc.specpath, "%s", wspec);
+    SliceManifest m;
+    if (slice_derive(&wc, id, head, &m) != 0) { free_list(added, nadded); return 1; }
+    slice_store(c, id, head, &m);
+    StrBuf e; sb_init(&e);
+    char subj[600];
+    snprintf(subj, sizeof subj, "%s/%s", c->feature, id);
+    ev_str(&e, "task", id); ev_str(&e, "feature", c->feature);
+    ev_str(&e, "worktree", wt); ev_str(&e, "reason", reason);
+    sb_puts(&e, ",\"added_paths\":"); json_list(&e, added, nadded);
+    ev_str(&e, "parent_slice_digest", prev_digest[0] ? prev_digest : NULL);
+    ev_str(&e, "slice_digest", m.digest);
+    ev_str(&e, "recorded_in", wspec);
+    fleet_event(cg, "fleet.widen", subj, &e);
+    StrBuf b; sb_init(&b);
+    if (json) {
+        sb_puts(&b, "{\"task\":"); sb_json_str(&b, id);
+        sb_puts(&b, ",\"feature\":"); sb_json_str(&b, c->feature);
+        sb_puts(&b, ",\"worktree\":"); sb_json_str(&b, wt);
+        sb_puts(&b, ",\"reason\":"); sb_json_str(&b, reason);
+        sb_puts(&b, ",\"added_paths\":"); json_list(&b, added, nadded);
+        sb_puts(&b, ",\"recorded_in\":"); sb_json_str(&b, wspec);
+        sb_puts(&b, ",\"parent_slice_digest\":");
+        if (prev_digest[0]) sb_json_str(&b, prev_digest); else sb_puts(&b, "null");
+        sb_puts(&b, ",\"slice_digest\":"); sb_json_str(&b, m.digest);
+        sb_puts(&b, "}\n");
+    } else {
+        sb_printf(&b, "widen %s/%s — %s\n", c->feature, id, reason);
+        for (int i = 0; i < nadded; i++) sb_printf(&b, "  added  %s\n", added[i]);
+        sb_printf(&b, "recorded: [task.%s] touches and widened in %s\n", id, wspec);
+        sb_printf(&b, "slice:    %s\n", m.digest);
+    }
+    fputs(b.p, stdout);
+    sb_free(&b);
+    slice_free(&m);
+    free_list(added, nadded);
+    return 0;
+}
+
 /* cg slice <task> [-f F] [--manifest FILE]: the slice manifest a worker of
  * the task gets, stored where `fleet begin` cuts the sparse worktree from */
 int cmd_slice(Cg *cg, int argc, char **argv, bool json) {
-    const char *feature = NULL, *manifest = NULL, *id = NULL;
+    const char *feature = NULL, *manifest = NULL, *id = NULL, *reason = NULL;
+    char *widen[64];
+    int nwiden = 0;
+    bool bad = false;
     for (int i = 2; i < argc; i++) {
         if (!strcmp(argv[i], "-f") && i + 1 < argc) feature = argv[++i];
         else if (!strcmp(argv[i], "--manifest") && i + 1 < argc) manifest = argv[++i];
+        else if (!strcmp(argv[i], "--widen") && i + 1 < argc && nwiden < 64)
+            widen[nwiden++] = argv[++i];
+        else if (!strcmp(argv[i], "--reason") && i + 1 < argc) reason = argv[++i];
         else if (argv[i][0] != '-' && !id) id = argv[i];
-        else { id = NULL; break; }
+        else { bad = true; break; }
     }
-    if (!id) {
+    if (!id || bad || (nwiden && manifest) || (reason && !nwiden)) {
         help_usage("slice");
         return 1;
     }
@@ -2059,6 +2256,11 @@ int cmd_slice(Cg *cg, int argc, char **argv, bool json) {
                 c.specpath);
         lifecycle_close(&c);
         return 1;
+    }
+    if (nwiden) {
+        int wrc = slice_widen(cg, &c, id, wave, widen, nwiden, reason, json);
+        lifecycle_close(&c);
+        return wrc;
     }
     char rev[65] = "";                /* worker trees are cut from main */
     StrBuf a; sb_init(&a);
@@ -2152,13 +2354,13 @@ int fleet_worker_begin_ex(Cg *cg, const char *id, const char *feature_ov,
     bool wt_created = false, br_created = false;
     /* the workspace: a sparse slice, or the full tree with its reason */
     char *conf = kvx_str(c.wf, "hierarchy", "sparse");
-    bool sparse = g_begin_sparse >= 0 ? g_begin_sparse == 1
-                                      : conf && !strcmp(conf, "slice");
+    bool opted_out = conf && (!strcmp(conf, "full") || !strcmp(conf, "off"));
+    bool sparse = g_begin_sparse >= 0 ? g_begin_sparse == 1 : !opted_out;
     free(conf);
     char ws_reason[64];
     snprintf(ws_reason, sizeof ws_reason, "%s",
              g_begin_full_reason[0] ? g_begin_full_reason
-                                    : sparse ? "" : "SPARSE_NOT_REQUESTED");
+                                    : sparse ? "" : "HIERARCHY_SPARSE_FULL");
     SliceManifest sm;
     memset(&sm, 0, sizeof sm);
     struct stat wst;
