@@ -5,8 +5,9 @@
  * `events` notification — so nothing here polls. The client speaks the
  * protocol itself (newline-delimited JSON-RPC 2.0, see src/serve.c), keeps
  * Codify's zero-dependency promise, and reconnects with a backoff when the
- * server goes away; a reconnect tells the extension to take one full
- * refresh, because events pushed while the pipe was down are gone.
+ * server goes away; a reconnect tells the extension to resync from the
+ * server's snapshot and take one full refresh, because events pushed while
+ * the pipe was down are gone.
  *
  * `applyEvent` is the pure half: it folds one event into a small live model
  * the views patch themselves from, and names which view the event touched.
@@ -173,6 +174,19 @@ class ServeClient {
      * after its discovery pass, and the event head they are current to. */
     async snapshot(all) {
         return this.request('snapshot', all ? { all: true } : {}, 20000);
+    }
+
+    /* After a reconnect (hyperfide-v21 6.6): the events pushed while the
+     * pipe was down are gone, so the server's snapshot replaces the native
+     * rows they built. Resolves the number of rows, or -1 when the server
+     * could not answer (the full refresh that follows still corrects it). */
+    async resync(model) {
+        try {
+            return applySnapshot(model, await this.snapshot());
+        } catch (e) {
+            this.log(`serve snapshot after reconnect: ${e.message}`);
+            return -1;
+        }
     }
 
     async cancel(reqId) {
