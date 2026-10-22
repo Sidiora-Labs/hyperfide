@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "1.2-asks",
+  "task": "1.2",
+  "roles": [
+    "control",
+    "provisioner",
+    "dispatch"
+  ],
+  "module": "policy/human_interface.js",
+  "entry": "createAskComponent",
+  "api_version": 1,
+  "actions": [
+    "human.ask.raise",
+    "human.ask.answer",
+    "human.ask.list",
+    "human.ask.expire"
+  ],
+  "requires": [
+    "4.2",
+    "6.1"
+  ]
+}
