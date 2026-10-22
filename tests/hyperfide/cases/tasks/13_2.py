@@ -180,7 +180,7 @@ COMMIT;"""
                 if admission:
                     self.admission_policy={"schema_version":1,"policies":[{"organisation_id":org,"run_id":run,"run_policy_digest":sha(b"policy"),"quota_key":"fixture-quota","connector":"codex","connector_version":"0.162.1","provider":self.configured_provider,"model":self.requested_model,"auth_profile":"fixture-native","permission_profile":"fixture-permissions","qualification_digest":sha(b"controlled-qualification"),"max_concurrent":1,"max_attempts":2,"retry_base_ms":100,"retry_max_ms":200,"unattended":True,"native_delegation":False}]}
                     self.policy_path=f.path/"admission.json";self.policy_path.write_text(json.dumps(self.admission_policy));f.env["HF_AGENT_ADMISSION_POLICY_FILE"]=str(self.policy_path)
-            self.inner=SessionIdentityFixture(extra_components=["14.2","14.3","13.2"]+(["13.4"]if admission else[]),extra_setup=setup)
+            self.inner=SessionIdentityFixture(extra_components=["14.2","14.3","13.2"]+(["6.1","1.2-asks","13.4"]if admission else[]),extra_setup=setup)
         except BaseException:
             self.terminate();raise
     def foreign_runner(self):
