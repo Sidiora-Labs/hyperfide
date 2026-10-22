@@ -169,17 +169,38 @@ try{
 SUPERUSER, OPERATOR, DATABASE = 'hf_superuser', 'hf_operator', 'hyperfide'
 
 
+def server_bins(installs=Path('/usr/lib/postgresql')):
+    """Installed server bin/ directories, oldest major first."""
+    # A client-only package installs bin/ without the server; only a directory with initdb can own a cluster.
+    return sorted((path for path in installs.glob('*/bin')
+                   if path.parent.name.isdigit() and (path / 'initdb').is_file()),
+                  key=lambda path: int(path.parent.name))
+
+
 def postgres_bin():
     configured = os.environ.get('HYPERFIDE_PG_BIN')
     if configured:
         return Path(configured)
-    # A client-only package installs bin/ without the server; only a directory with initdb can own a cluster.
-    installed = sorted((path for path in Path('/usr/lib/postgresql').glob('*/bin')
-                        if path.parent.name.isdigit() and (path / 'initdb').is_file()),
-                       key=lambda path: int(path.parent.name))
+    installed = server_bins()
     if not installed:
         raise AssertionError('no PostgreSQL server binaries; set HYPERFIDE_PG_BIN')
     return installed[-1]
+
+
+def cluster_precondition():
+    """Why an owned cluster cannot run on this host, or None."""
+    configured = os.environ.get('HYPERFIDE_PG_BIN')
+    if configured and not (Path(configured) / 'initdb').is_file():
+        return 'HYPERFIDE_PG_BIN has no initdb: ' + configured
+    if not configured and not server_bins():
+        return 'no PostgreSQL server binaries (initdb) under /usr/lib/postgresql; set HYPERFIDE_PG_BIN'
+    if not shutil.which('runuser'):
+        return 'runuser not on PATH'
+    try:
+        pwd.getpwnam('postgres')
+    except KeyError:
+        return 'no postgres OS user to own the cluster'
+    return None
 
 
 class Cluster:
@@ -254,6 +275,11 @@ def refused(p, *expected):
 
 
 def main():
+    # tests/run.sh skip contract: the grant checks need an owned cluster, so a host without one skips the whole case.
+    absent = cluster_precondition()
+    if absent:
+        print('SKIP: ' + absent, flush=True)
+        return 77
     base = os.environ.copy()
     # Only the owned cluster is reachable: never let an inherited database URL redirect a probe.
     for key in list(base):

@@ -483,8 +483,12 @@ static const HelpCmd HELP[] = {
     "Asks. Events: ask.raised, ask.answered, ask.expired. In distributed "
     "mode the four verbs go to the control service (component 1.2-asks) "
     "and take --input-file with --run-id, --operation-id, "
-    "--idempotency-key and --correlation-id, like every routed command.",
-  .related = "fleet approvals,events,authority" },
+    "--idempotency-key and --correlation-id, like every routed command. "
+    "Agents use the MCP tools ask_raise, ask_status, ask_list and "
+    "approvals_list: the same four in both modes, against the local store "
+    "or, in distributed mode, through these routes. No tool answers an "
+    "Ask; a person does.",
+  .related = "fleet approvals,events,authority,mcp" },
 { .group = "agentic", .name = "ask raise", .args = "<kind> <title>",
   .usage = "ask raise <kind> <title> [--body T] [--option O]... "
     "[--recommend O] [--deadline 90s|5m|2h|1d|@EPOCH] [--chain a,b] "
