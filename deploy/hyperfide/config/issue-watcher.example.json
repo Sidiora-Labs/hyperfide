@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "organisation_id": "REPLACE_WITH_ORGANISATION_UUID",
+  "run_id": "REPLACE_WITH_RUN_UUID",
+  "credential_id": "REPLACE_WITH_COORDINATOR_CREDENTIAL_UUID",
+  "key_file": "/etc/hyperfide/issue-watcher.key",
+  "ca_file": "/etc/hyperfide/issue-watcher-ca.crt",
+  "control_origin": "REPLACE_WITH_CONTROL_HTTPS_ORIGIN",
+  "repositories": [
+    {
+      "repository_id": "REPLACE_WITH_REPOSITORY_UUID",
+      "owner": "REPLACE_WITH_GITHUB_OWNER",
+      "repository": "REPLACE_WITH_GITHUB_REPOSITORY"
+    }
+  ],
+  "interval_seconds": 600,
+  "cadence_amendment": null,
+  "due_limit": "REPLACE_WITH_INTEGER_1_TO_100",
+  "request_timeout_ms": "REPLACE_WITH_INTEGER_100_TO_120000"
+}

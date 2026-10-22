@@ -9,9 +9,43 @@ import {execFileSync} from 'node:child_process';
 const directory=path.dirname(fileURLToPath(import.meta.url));
 const RELEASE='/opt/hyperfide/current';
 const GROUP={name:'hyperfide',gid:1900};
-const ROLES={control:{user:'hyperfide',uid:1900},provisioner:{user:'hyperfide-provisioner',uid:1901},dispatch:{user:'hyperfide-dispatch',uid:1902}};
+const ROLES={control:{user:'hyperfide',uid:1900},provisioner:{user:'hyperfide-provisioner',uid:1901},dispatch:{user:'hyperfide-dispatch',uid:1902},
+ 'supervisory-host':{user:'root',uid:0},'issue-watcher':{user:'hyperfide',uid:1900}};
 const IDENTITY={control:{'control-identity.json':'control-identity.example.json'},provisioner:{'provisioner-identity.json':'provisioner-identity.example.json','provisioner-worker.json':'provisioner-worker.example.json'},dispatch:{'dispatch-identity.json':'dispatch-identity.example.json'}};
 const OPERATOR={control:[],provisioner:['external-fence.json','pools.json','railway.json','provisioner-worker.key'],dispatch:['dispatch-worker.json','dispatch-worker.key']};
+// ---- Supervision roles (hyperfide-v21 2.9) ----
+// The MAIN supervisory host runs as root and must never hold a database URL, an authority journal or a provider
+// credential (supervisory-host.ts FORBIDDEN_ENV); the issue watcher is a signed control client with no local state.
+// Neither gets an authority journal, identity template or db-env drop-in. Both units start only from the 26.4 unit
+// receipt (deployment/releases.ts), which their preflight re-checks byte for byte before the service runs.
+const SUPERVISION={
+ 'supervisory-host':{templates:{'supervisory-host.json':'config/supervisory-host.example.json','supervisory-host-policy.json':'policies/supervisory-host.example.json','main-budget.json':'config/main-budget.example.json'},
+  owner:{uid:0,gid:0},config:'supervisory-host.json',operator:[],validate:['supervisory-host','validateSupervisoryHostConfig'],
+  // Socket parent is root:control-group 0750 so control can connect; state and plans are root 0700 (runtime/supervisory_host.py).
+  directories:[['/var/lib/hyperfide/supervisory-host',{uid:0,gid:1900,mode:0o750}],['/var/lib/hyperfide/supervisory-host/state',{uid:0,gid:0,mode:0o700}],
+   ['/var/lib/hyperfide/supervisory-host/plans',{uid:0,gid:0,mode:0o700}],['/var/lib/hyperfide/supervisory-host/socket',{uid:0,gid:1900,mode:0o750}]]},
+ 'issue-watcher':{templates:{'issue-watcher.json':'config/issue-watcher.example.json'},
+  owner:{uid:1900,gid:1900},config:'issue-watcher.json',operator:['issue-watcher.key','issue-watcher-ca.crt'],validate:['issue-watcher','validateWatcherConfig'],directories:[]}};
+const AUTHORITY=Object.keys(ROLES).filter(role=>!Object.hasOwn(SUPERVISION,role));
+const ACCOUNTS=[...new Map(Object.values(ROLES).filter(r=>r.uid!==0).map(r=>[r.user,{user:r.user,uid:r.uid}])).values()];
+function supervisionInputs(){
+ const names=[];
+ for(const [role,s] of Object.entries(SUPERVISION))names.push('env/'+role+'.env.example',...Object.values(s.templates),role+'.service');
+ return names;
+}
+// HYPERFIDE_BOOTSTRAP_ROOT names the prefix tree a bootstrap was applied to; on a real host it is unset and files live under /.
+async function supervisionPreflight(role,env){
+ const s=SUPERVISION[role],root=env.HYPERFIDE_BOOTSTRAP_ROOT||'/',etc=name=>path.join(root,'etc/hyperfide',name);
+ const missing=[];
+ for(const name of [s.config,...Object.keys(s.templates).filter(n=>n!==s.config),...s.operator])if(!(await fs.stat(etc(name)).catch(()=>null))?.isFile())missing.push('/etc/hyperfide/'+name);
+ const unit=await (await runtime('deployment/releases')).serviceUnitStatus(path.resolve(directory,'../..'),role+'.service');
+ if(unit.status!=='INSTALLABLE')fail('UNIT_UNQUALIFIED',missing.length?missing:undefined);
+ if(missing.length)fail('PREFLIGHT_INPUT_MISSING',missing);
+ let value;try{value=JSON.parse(await fs.readFile(etc(s.config),'utf8'));}catch{value=null;}
+ (await runtime(s.validate[0]))[s.validate[1]](value);
+ return {outcome:'SUCCEEDED',role,qualified_by:unit.owner_task,services_started:false};
+}
+// ---- end supervision roles ----
 const fail=(code,missing)=>{throw Object.assign(new Error(code),{code},missing?{missing}:{});};
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const record=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
@@ -55,6 +89,7 @@ async function absent(role,env){
 // The first failing check keeps its specific code; the refusal also carries every absent name at once.
 export async function preflight(role,env=process.env){
  if(!Object.hasOwn(ROLES,role))fail('BOOTSTRAP_ARGUMENTS');
+ if(Object.hasOwn(SUPERVISION,role))return supervisionPreflight(role,env);
  const missing=await absent(role,env);
  try{await checks(role,env);}catch(error){if(missing.length)error.missing=missing;throw error;}
  if(missing.length)fail('PREFLIGHT_INPUT_MISSING',missing);
@@ -86,7 +121,8 @@ const rows=text=>text.split('\n').filter(Boolean).map(line=>line.split(':'));
 // Every release template is read before the first write, so a missing one refuses with nothing applied and names them all.
 async function releaseInputs(){
  const names=['grants.sql'];
- for(const role of Object.keys(ROLES))names.push('env/'+role+'.env.example','policies/'+role+'.example.json',...Object.values(IDENTITY[role]).map(t=>'identity/'+t),role+'.service');
+ for(const role of AUTHORITY)names.push('env/'+role+'.env.example','policies/'+role+'.example.json',...Object.values(IDENTITY[role]).map(t=>'identity/'+t),role+'.service');
+ names.push(...supervisionInputs());
  const inputs=new Map(),missing=[];
  for(const name of names){try{inputs.set(name,await fs.readFile(path.join(directory,name)));}catch(error){if(error.code!=='ENOENT')throw error;missing.push('deploy/hyperfide/'+name);}}
  if(missing.length)fail('BOOTSTRAP_INPUT_MISSING',missing);
@@ -138,7 +174,7 @@ export async function bootstrap(root){
  const group=groups.find(r=>r[0]===GROUP.name);
  if(group){if(Number(group[2])!==GROUP.gid)fail('BOOTSTRAP_IDENTITY_CONFLICT');}
  else{if(groups.some(r=>Number(r[2])===GROUP.gid))fail('BOOTSTRAP_IDENTITY_CONFLICT');tool('groupadd',['--system','--gid',String(GROUP.gid),GROUP.name]);}
- for(const {user,uid} of Object.values(ROLES)){
+ for(const {user,uid} of ACCOUNTS){
   const passwd=rows(await fs.readFile(at('/etc/passwd'),'utf8'));
   if(!passwd.some(r=>r[0]===user)){
    if(passwd.some(r=>Number(r[2])===uid))fail('BOOTSTRAP_IDENTITY_CONFLICT');
@@ -149,8 +185,8 @@ export async function bootstrap(root){
  }
  const shared={uid:0,gid:GROUP.gid,mode:0o750};
  await mkdir('/etc/hyperfide',shared);await mkdir('/var/lib/hyperfide',shared);await mkdir('/etc/systemd/system');
- for(const [role,{uid}] of Object.entries(ROLES)){
-  const own={uid,gid:GROUP.gid,mode:0o700},unit='/etc/systemd/system/hyperfide-'+role+'.service';
+ for(const role of AUTHORITY){
+  const {uid}=ROLES[role],own={uid,gid:GROUP.gid,mode:0o700},unit='/etc/systemd/system/hyperfide-'+role+'.service';
   await mkdir('/var/lib/hyperfide/'+role,own);
   await mkdir('/var/lib/hyperfide/'+role+'/authority-journal',own);
   if(role==='provisioner')await mkdir('/var/lib/hyperfide/provisioner/preparation',own);
@@ -162,13 +198,25 @@ export async function bootstrap(root){
   await place('[Service]\nEnvironmentFile=/etc/hyperfide/'+role+'.db.env\n',unit+'.d/db-env.conf',0o644,0,0,{release:true});
   await place('[Service]\nExecStartPre='+RELEASE+'/runtime/node '+RELEASE+'/deploy/hyperfide/bootstrap-host.mjs --preflight '+role+'\n',unit+'.d/preflight.conf',0o644,0,0,{release:true});
  }
+ // ---- Supervision roles (hyperfide-v21 2.9): templates, unit with [Install], preflight drop-in only ----
+ for(const [role,s] of Object.entries(SUPERVISION)){
+  const unit='/etc/systemd/system/hyperfide-'+role+'.service';
+  for(const [p,owned] of s.directories)await mkdir(p,owned);
+  await place(await read('env/'+role+'.env.example'),'/etc/hyperfide/'+role+'.env',0o600,0,0);
+  for(const [name,template] of Object.entries(s.templates))await place(await read(template),'/etc/hyperfide/'+name,0o600,s.owner.uid,s.owner.gid);
+  await place(await read(role+'.service'),unit,0o644,0,0,{release:true});
+  await mkdir(unit+'.d',{uid:0,gid:0,mode:0o755});
+  await place('[Service]\nExecStartPre='+RELEASE+'/runtime/node '+RELEASE+'/deploy/hyperfide/bootstrap-host.mjs --preflight '+role+'\n',unit+'.d/preflight.conf',0o644,0,0,{release:true});
+ }
+ // ---- end supervision roles ----
  await place(await read('grants.sql'),'/etc/hyperfide/grants.sql',0o644,0,0,{release:true});
  const pending=[];
  for(const [role,files] of Object.entries(OPERATOR))for(const name of [role+'.db.env',role+'.crt',role+'.key',...files]){
   const p='/etc/hyperfide/'+name;if(!await fs.lstat(at(p)).catch(()=>null))pending.push(p);
  }
+ for(const s of Object.values(SUPERVISION))for(const name of s.operator){const p='/etc/hyperfide/'+name;if(!await fs.lstat(at(p)).catch(()=>null))pending.push(p);}
  if(root==='/')execFileSync('systemctl',['daemon-reload'],{stdio:'pipe'});
- return {outcome:'SUCCEEDED',root,group:GROUP,users:Object.values(ROLES),created,kept,differs,operator_pending:pending,services_started:false};
+ return {outcome:'SUCCEEDED',root,group:GROUP,users:ACCOUNTS,created,kept,differs,operator_pending:pending,services_started:false};
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  try{

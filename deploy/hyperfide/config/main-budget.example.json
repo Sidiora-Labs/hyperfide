@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "host_id": "REPLACE_WITH_MAIN_HOST_UUID",
+  "pool_id": "REPLACE_WITH_MAIN_POOL_UUID",
+  "allowance": {
+    "cpu_millis": "REPLACE_WITH_DECIMAL_STRING",
+    "memory_bytes": "REPLACE_WITH_DECIMAL_STRING",
+    "agent_slots": "REPLACE_WITH_DECIMAL_STRING"
+  },
+  "headroom": {
+    "cpu_millis": "REPLACE_WITH_DECIMAL_STRING",
+    "memory_bytes": "REPLACE_WITH_DECIMAL_STRING"
+  }
+}

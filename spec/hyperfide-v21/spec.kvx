@@ -362,10 +362,10 @@ owner = "runner"
 
 [task.2.9]
 title = "Deploy the supervisory host and the issue watcher"
-status = "pending"
+status = "in_progress"
 wave = 2
 requires = []
-touches = ["deploy/hyperfide/supervisory-host.service", "deploy/hyperfide/issue-watcher.service", "deploy/hyperfide/bootstrap-host.mjs", "scripts/release.sh", "services/hyperfide/src/deployment/releases.ts", "tests/hyperfide/cases/v21/2_9.py"]
+touches = ["deploy/hyperfide/supervisory-host.service", "deploy/hyperfide/issue-watcher.service", "deploy/hyperfide/bootstrap-host.mjs", "scripts/release.sh", "services/hyperfide/src/deployment/releases.ts", "tests/hyperfide/cases/v21/2_9.py", "deploy/hyperfide/env/supervisory-host.env.example", "deploy/hyperfide/env/issue-watcher.env.example", "deploy/hyperfide/config/supervisory-host.example.json", "deploy/hyperfide/config/main-budget.example.json", "deploy/hyperfide/config/issue-watcher.example.json", "deploy/hyperfide/policies/supervisory-host.example.json", "tests/hyperfide/cases/v21/1_6.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_9.py"
 do_1 = "Add both roles to ROLES with env and policy templates and an Install section; release.sh produces the qualification marker; releases.ts marks the units qualified only from that marker."
 do_2 = "2_9.py bootstraps both roles in a temp root and asserts the unit files, templates and marker; hyperfide 29.10 closes in 7.7 on this evidence."

@@ -29,6 +29,31 @@ export async function serviceUnitStatus(root:string,unit:string):Promise<{status
  }catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
  return {status:'UNQUALIFIED',owner_task:known.owner_task};
 }
+/** The one marker an owning unit's ConditionPathExists may name: systemd's start gate,
+ * the bootstrap preflight and this inspector then all decide from the same file. */
+export const UNIT_MARKER='/opt/hyperfide/current/'+UNIT_RECEIPT;
+/** Release construction (scripts/release.sh, hyperfide-v21 2.9) ships the receipt
+ * only through this check, so a release never carries a marker the inspector rejects.
+ * An absent receipt ships no marker and leaves the owning units unstartable. */
+export async function stageUnitReceipt(stage:string,receipt:string):Promise<{staged:boolean;marker:string;units:{unit:string;status:string;owner_task?:string}[]}>{
+ if(!path.isAbsolute(stage)||!path.isAbsolute(receipt))fail('Absolute release stage and receipt paths required');
+ const owned=Object.keys(SERVICE_UNITS).filter(unit=>SERVICE_UNITS[unit]!.owner_task).sort();
+ let bytes:Buffer;
+ try{
+  const info=await fs.lstat(receipt);if(!info.isFile())fail('Unit qualification receipt must be a regular file');
+  bytes=await fs.readFile(receipt);
+ }catch(error){
+  if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;
+  return {staged:false,marker:UNIT_RECEIPT,units:await Promise.all(owned.map(async unit=>({unit,...await serviceUnitStatus(stage,unit)})))};
+ }
+ if('sha256:'+createHash('sha256').update(bytes).digest('hex')!==UNIT_RECEIPT_DIGEST)fail('Unit qualification receipt differs from the pinned 26.4 receipt');
+ const target=path.join(stage,UNIT_RECEIPT);
+ await fs.mkdir(path.dirname(target),{recursive:true,mode:0o755});
+ await fs.writeFile(target,bytes,{flag:'wx',mode:0o644});await fs.chmod(target,0o644);
+ const units=await Promise.all(owned.map(async unit=>({unit,...await serviceUnitStatus(stage,unit)})));
+ if(units.some(u=>u.status!=='INSTALLABLE')){await fs.unlink(target);fail('Staged unit receipt is not accepted');}
+ return {staged:true,marker:UNIT_RECEIPT,units};
+}
 function fail(message:string):never{throw new FoundationError('RELEASE_INVALID',message);}
 function exact(v:unknown,keys:string[]):Record<string,unknown>{if(!object(v)||Object.keys(v).some(k=>!keys.includes(k))||keys.some(k=>!(k in v)))fail('Unexpected release fields');return v;}
 function version(v:unknown):number{if(!Number.isSafeInteger(v)||Number(v)<1)fail('Positive protocol version required');return Number(v);}
@@ -131,8 +156,10 @@ export async function inspectPrebuiltRelease(env:Readonly<NodeJS.ProcessEnv>,rel
  const unit=/^deploy\/hyperfide\/([^/]+\.service)$/.exec(String(f.path))?.[1];if(!unit)continue;
  const known=Object.hasOwn(SERVICE_UNITS,unit)?SERVICE_UNITS[unit]:undefined;if(!known)fail('Release ships an unclassified service unit');
  if(known.owner_task==='26.4'){
+ // An owning unit may carry [Install] only because its start condition is exactly the receipt marker.
  const text=await fs.readFile(await file(root,f.path),'utf8');
- if(/^\s*\[Install\]/m.test(text)||!/^ConditionPathExists=\/opt\/hyperfide\/current\/share\/hyperfide\/qualified\//m.test(text))fail('Unqualified service unit is installable');
+ const conditions=text.split('\n').filter(line=>/^\s*ConditionPathExists\s*=/.test(line)).map(line=>line.slice(line.indexOf('=')+1).trim());
+ if(conditions.length!==1||conditions[0]!==UNIT_MARKER)fail('Unqualified service unit is installable');
  }
  serviceUnits.push({unit,...await serviceUnitStatus(root,unit)});
  }

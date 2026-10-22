@@ -1,12 +1,13 @@
-# Qualified by task 26.4 receipt (ff4632c9bc89), checked by release.inspect.
-# Explicit start still requires the operator qualification marker below.
+# Qualified by the task 26.4 receipt, which scripts/release.sh ships as share/hyperfide/qualified/26.4.json only when
+# deployment/releases.ts serviceUnitStatus accepts its pinned digest. The condition below gates start on that file
+# and the preflight drop-in placed by bootstrap-host.mjs refuses (exit 78) unless the same check passes.
 [Unit]
 Description=Hyperfide restricted MAIN supervisory host
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=300
 StartLimitBurst=5
-ConditionPathExists=/opt/hyperfide/current/share/hyperfide/qualified/supervisory-host
+ConditionPathExists=/opt/hyperfide/current/share/hyperfide/qualified/26.4.json
 [Service]
 Type=exec
 User=root
@@ -28,3 +29,5 @@ ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/hyperfide
 UMask=0077
+[Install]
+WantedBy=multi-user.target
