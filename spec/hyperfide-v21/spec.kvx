@@ -671,7 +671,7 @@ owner = "observability"
 
 [task.4.6]
 title = "Readers for the leader queue, external intake and escalated repairs"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["2.6"]
 touches = ["services/hyperfide/src/findings/routing.ts", "services/hyperfide/src/findings/github.ts", "services/hyperfide/src/findings/remediation.ts", "tests/hyperfide/cases/v21/4_6.py"]
