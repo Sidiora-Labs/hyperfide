@@ -243,13 +243,25 @@ export class ProvisionerWorker {
     await this.driver.reconcile(db,config,row.id,signal);this.counters.reconciled++;
    }
    this.errors.delete(row.id);this.backoff.delete(row.id);
+   await this.persistError(db,config,row.id,null);
   }catch(error){
    // The intent keeps its durable uncertain state; the error is surfaced, never retried blindly.
-   this.counters.failed++;this.errors.set(row.id,error instanceof FoundationError?error.code:'WORKER_INTENT_FAILED');
+   const code=error instanceof FoundationError?error.code:'WORKER_INTENT_FAILED';
+   this.counters.failed++;this.errors.set(row.id,code);
    if(this.errors.size>256)this.errors.delete(this.errors.keys().next().value!);
+   await this.persistError(db,config,row.id,code);
    // A refused submission stays RECORDED; back off instead of re-claiming it every poll.
    this.backoff.set(row.id,Date.now()+settings.retry_ms);if(this.backoff.size>4096)this.backoff.delete(this.backoff.keys().next().value!);
   }finally{if(heartbeat)clearInterval(heartbeat);}
+ }
+ /** The intent row carries the worker's last failure so a restart or another reader still
+  * sees it. A quarantined or settled intent keeps the reconciler's own failure_code; a
+  * persistence failure stays in memory only and never masks the intent outcome. */
+ private async persistError(db:ProviderDatabase,config:DeploymentConfig,id:string,code:string|null):Promise<void>{
+  try{
+   await db.query(`UPDATE hyperfide.provisioning_intents SET failure_code=$3,state_version=state_version+1 WHERE organisation_id=$1 AND id=$2
+    AND state NOT IN ('QUARANTINED','TERMINAL','REJECTED') AND failure_code IS DISTINCT FROM $3`,[config.organisation_id,id,code===null?null:code.slice(0,128)]);
+  }catch(error){this.errors.set('persist',error instanceof FoundationError?error.code:'WORKER_ERROR_PERSIST_FAILED');}
  }
  async status(invocation:InvocationContext):Promise<Record<string,unknown>>{
   assertInvocation(invocation);
@@ -258,8 +270,9 @@ export class ProvisionerWorker {
   const pools=await poolAdapterReadiness(db,config,invocation,running);
   const counts=(await db.query<{state:string;n:number}>('SELECT state,count(*)::int AS n FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND run_id=$2 GROUP BY state ORDER BY state',[config.organisation_id,invocation.principal.run_id])).rows;
   const durable=await readDurableStart(db,config.organisation_id,invocation.principal.run_id);
+  const persisted=(await db.query<{id:string;failure_code:string}>("SELECT id,failure_code FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND run_id=$2 AND failure_code IS NOT NULL AND state NOT IN ('TERMINAL','REJECTED') ORDER BY updated_at DESC,id LIMIT 256",[config.organisation_id,invocation.principal.run_id])).rows;
   return{running,role:'provisioner',owner_credential_id:running?this.invocation!.principal.credential_id:null,durable,settings,active:[...this.active.keys()].sort(),
-   counters:{...this.counters},errors:Object.fromEntries(this.errors),stopped_reason:this.stoppedReason,last_tick_at:this.lastTick,
+   counters:{...this.counters},errors:{...Object.fromEntries(persisted.map(r=>[r.id,r.failure_code])),...Object.fromEntries(this.errors)},stopped_reason:this.stoppedReason,last_tick_at:this.lastTick,
    intents:Object.fromEntries(counts.map(r=>[r.state,r.n])),pools,operational_ready:running&&pools.length>0&&pools.every(p=>p.operational_ready)};
  }
  async stop(timeoutMs=5000):Promise<void>{
