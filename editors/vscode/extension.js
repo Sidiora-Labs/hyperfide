@@ -41,7 +41,7 @@ let client;
 let diagnostics;
 let revalidate = () => {};
 let agentApi = { hasTerminal: () => false };
-let acpApi = { hasPanel: () => false };
+let acpApi = { hasPanel: () => false, watchEvents: () => false };
 /* --- memories (5.2): the browser panel, dormant until it is opened --- */
 let memoryApi = {
     open: () => {}, refresh: () => Promise.resolve(), touch: () => {},
@@ -766,6 +766,8 @@ async function activate(ctx) {
         ctx.subscriptions.push({ dispose: () => serveClient.dispose() });
         if (await serveClient.start()) {
             out.appendLine(`hyperfide serve connected (events from #${serveClient.cursor})`);
+            /* the chat registered before this connection existed */
+            acpApi.watchEvents();
             serveClient.on('event', (ev) => {
                 for (const fn of eventFans) { try { fn(ev); } catch (e) { out.appendLine(`event fan: ${e.message}`); } }
                 const applied = applyEvent(live, ev);
@@ -779,7 +781,7 @@ async function activate(ctx) {
                 scheduleRefresh(EVENT_REFRESH_MS);
             });
             serveClient.on('gap', () => scheduleRefresh(0));
-            serveClient.on('reconnect', () => scheduleRefresh(0));
+            serveClient.on('reconnect', () => { acpApi.watchEvents(); scheduleRefresh(0); });
             serveClient.on('down', () => scheduleRefresh());
             try { await serveClient.subscribe(); } catch (e) { out.appendLine(`subscribe: ${e.message}`); }
         } else if (serveClient.unsupported) {

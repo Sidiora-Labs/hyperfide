@@ -18,6 +18,8 @@
 #              live fleet view decorated from events, manifest and lens
 #   serve    — (v11 5.2) the cg serve client, the event reducer and row
 #              patch against the real cg, reconnect, fallback on an old cg
+#   pushed   — (v21 1.12) an approval the real cg raises reaches the chat
+#              as a card through cg serve, once, and again after a reconnect
 # Run one section: 14_vscode.sh tasks
 . "$(dirname "$0")/../lib.sh"
 section="${1:-all}"
@@ -414,6 +416,154 @@ check(/events: \{\s*available:/.test(ext) && /eventFans/.test(ext), 'the extensi
 console.log('chat wiring ok');
 JS
     [ $? -eq 0 ] || fail "chat wiring"
+fi
+
+# ---- pushed cards (hyperfide-v21 1.12): the chat registers before the serve
+#      connection exists; an approval.request the real cg raises, pushed by
+#      the real cg serve, still becomes a card in the sidebar chat, once,
+#      and keeps doing so after a reconnect
+if want pushed; then
+    rm -rf "$TMP/pc"; mkdir -p "$TMP/pc/src" "$TMP/pc/lib"; cd "$TMP/pc"
+    git init -q -b main . 2>/dev/null || git init -q .
+    git config user.email t@t; git config user.name t
+    printf 'export function alpha(): number {\n  return 1;\n}\n' > src/a.ts
+    printf 'export function beta(): number {\n  return 3;\n}\n' > lib/b.ts
+    "$CG" spec new pc >/dev/null
+    "$CG" spec docs off >/dev/null
+    "$CG" spec start 1.1 >/dev/null; "$CG" spec done 1.1 >/dev/null
+    "$CG" spec mode parallel >/dev/null
+    "$CG" spec add 2.1 --title "Alpha" --wave 1 --reqs 1.1 --symbols alpha --touches 'src/a.ts' >/dev/null
+    "$CG" init >/dev/null
+    printf '.codegraph/\n*.lock\n' > .gitignore
+    cat >> spec/workflow.kvx <<'EOF'
+
+[hierarchy]
+test_gate = "true"
+pr        = "manual"
+
+[role.worker]
+branch  = "wave/{feature}/{wave}"
+approve = ["drift"]
+EOF
+    git add -A >/dev/null; git commit -qm base >/dev/null
+    pcproj="$(pwd -P)"
+    "$CG" fleet begin 2.1 >/dev/null || fail "pushed: fleet begin"
+    (
+        cd "$pcproj/.codegraph/worktrees/wave-pc-1" || exit 1
+        CG_AGENT=w-pc-1 CG_ROLE=worker CG_PARENT=fm-pc CG_BASE=feature/pc "$CG" spec start 2.1 >/dev/null
+        printf 'export function alpha(): number {\n  return 7;\n}\n' > src/a.ts
+        printf 'export function beta(): number {\n  return 8;\n}\n' > lib/b.ts
+        CG_AGENT=w-pc-1 CG_BASE=feature/pc "$CG" spec done 2.1 >/dev/null 2>&1
+        git add -A >/dev/null; git commit -qm "alpha [spec:pc/2.1]" >/dev/null
+        "$CG" sync >/dev/null
+    ) || fail "pushed: the drifting wave"
+    cd "$pcproj"
+    node - "$EXT" "$CG" "$pcproj" <<'JS'
+const path = require('path'), cp = require('child_process');
+const Module = require('module');
+const [dir, CG, cwd] = process.argv.slice(2);
+const check = (c, w) => { if (!c) throw new Error(w); };
+const run = (env, ...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8', env: { ...process.env, ...env } });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+let provider = null;
+const stub = {
+    window: {
+        registerWebviewViewProvider: (id, p) => { if (id === 'codifyAgentView') provider = p; return { dispose() {} }; },
+        showInformationMessage: () => {}, showWarningMessage: () => {}, showErrorMessage: () => {},
+    },
+    commands: { registerCommand: () => ({ dispose() {} }), executeCommand: async () => {} },
+    workspace: { getConfiguration: () => ({ get: (k, d) => d, update: async () => {} }) },
+    env: { clipboard: { writeText() {} } },
+    Uri: { file: (p) => ({ fsPath: p }), parse: (u) => ({ url: u }) },
+    ConfigurationTarget: { Global: 1 },
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+const acp = require(path.join(dir, 'acp.js'));
+const { ServeClient } = require(path.join(dir, 'serve.js'));
+
+/* extension.js's own wiring, in shape: a fan list the serve client feeds,
+ * and an availability that is false until it connects */
+let serveClient = null;
+const eventFans = [];
+const ctx = { subscriptions: [], workspaceState: { get: (k, d) => d, update: async () => {} } };
+const api = acp.register(ctx, {
+    cg: async () => ({ code: 1, stdout: '', stderr: '' }), cgJson: async () => null,
+    binary: () => CG, refresh: () => {}, workspaceRoot: () => cwd, startTerminal: () => {},
+    events: {
+        available: () => !!(serveClient && serveClient.ready),
+        on: (fn) => { eventFans.push(fn); return () => { const i = eventFans.indexOf(fn); if (i >= 0) eventFans.splice(i, 1); }; },
+    },
+});
+check(provider, 'the agent view is registered');
+const posted = [];
+const view = {
+    webview: { cspSource: 'x', options: {}, html: '', postMessage: (m) => { posted.push(m); return Promise.resolve(true); },
+               onDidReceiveMessage: () => ({ dispose() {} }) },
+    onDidDispose: () => ({ dispose() {} }),
+};
+provider.resolveWebviewView(view);
+// the bug's precondition: register ran with no connection, so nothing listens
+check(eventFans.length === 0, `a listener before serve is up: ${eventFans.length}`);
+check(typeof api.watchEvents === 'function' && api.watchEvents() === false, 'no connection, no watcher');
+check(eventFans.length === 0, 'still nothing without a connection');
+
+(async () => {
+    serveClient = new ServeClient(CG, cwd, () => {});
+    check(await serveClient.start() === true, 'serve against the real cg');
+    serveClient.on('event', (ev) => { for (const fn of eventFans) fn(ev); });
+    check(api.watchEvents() === true && eventFans.length === 1, 'the watcher is installed once serve is up');
+    check(api.watchEvents() === true && eventFans.length === 1, 'a second call does not install twice');
+    let reconnected = 0;
+    serveClient.on('reconnect', () => { reconnected++; api.watchEvents(); });
+    await serveClient.subscribe();
+
+    const cards = () => posted.filter((m) => m.type === 'approval');
+    // negative: an unrelated pushed event draws no card
+    run({}, 'spec', 'claim', '1.1', '--agent', 'w-x');
+    await sleep(300);
+    check(cards().length === 0, 'a claim drew a card');
+
+    // the real gate: an agent's drifting merge-up asks a person
+    const m = run({ CG_ROLE: 'worker', CG_AGENT: 'w-pc-1' }, 'fleet', 'merge-up', '2.1');
+    check(m.status === 4, `merge-up should wait for approval (4), got ${m.status}: ${m.stderr}`);
+    const id = JSON.parse(run({}, 'fleet', 'approvals', '--json').stdout).approvals[0].id;
+    for (let i = 0; i < 150 && !cards().length; i++) await sleep(20);
+    const c = cards();
+    check(c.length === 1, `cards after the request: ${c.length}`);
+    check(c[0].id === id && /drift/.test(c[0].title) && c[0].options.length === 2, JSON.stringify(c[0]));
+
+    // the server dies; after the reconnect the decision still arrives, once
+    serveClient.proc.kill('SIGKILL');
+    for (let i = 0; i < 100 && !reconnected; i++) await sleep(50);
+    check(reconnected && serveClient.ready, 'reconnected');
+    check(eventFans.length === 1, `listeners after a reconnect: ${eventFans.length}`);
+    check(run({}, 'fleet', 'approve', String(id)).status === 0, 'approve');
+    const done = () => posted.filter((x) => x.type === 'approval_done' && x.id === id);
+    for (let i = 0; i < 150 && !done().length; i++) await sleep(20);
+    await sleep(200);
+    check(done().length === 1 && done()[0].answer === 'approved', `decided after reconnect: ${JSON.stringify(done())}`);
+    check(cards().length === 1, 'no duplicate card');
+    serveClient.dispose();
+    console.log('pushed cards ok');
+    process.exit(0);
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "pushed cards"
+
+    # the extension installs the watcher once connected and again on reconnect
+    node - "$EXT" <<'JS'
+const fs = require('fs'), path = require('path');
+const ext = fs.readFileSync(path.join(process.argv[2], 'extension.js'), 'utf8');
+const check = (c, w) => { if (!c) throw new Error(w); };
+const up = ext.indexOf('if (await serveClient.start())');
+const watch = ext.indexOf('acpApi.watchEvents()', up);
+check(up > 0 && watch > up && watch < ext.indexOf('serveClient.subscribe()', up), 'watchEvents after connect, before subscribe');
+check(/serveClient\.on\('reconnect', \(\) => \{ acpApi\.watchEvents\(\);/.test(ext), 'watchEvents on reconnect');
+console.log('pushed wiring ok');
+JS
+    [ $? -eq 0 ] || fail "pushed wiring"
 fi
 
 # ---- agent chat (5.3): the pure chat core, provable without VS Code
