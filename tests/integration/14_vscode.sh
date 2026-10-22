@@ -24,6 +24,9 @@
 #   needs    — (v21 6.2) the Needs view: Asks from the real cg and
 #              console.needs rows, the answer inputs, answers settled through
 #              the real cg, the ask policy at the deadline, the offline notice
+#   issues   — (v21 6.3) the Issues view: console.issues rows, drift.*
+#              from the real cg log and routed live, diagnostics, blocked
+#              cleared on resolution
 # Run one section: 14_vscode.sh tasks
 . "$(dirname "$0")/../lib.sh"
 section="${1:-all}"
@@ -681,7 +684,8 @@ const src = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'tasks.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'sandboxes.js'), 'utf8') +
-    fs.readFileSync(path.join(dir, 'needs.js'), 'utf8');
+    fs.readFileSync(path.join(dir, 'needs.js'), 'utf8') +
+    fs.readFileSync(path.join(dir, 'issues.js'), 'utf8');
 
 if (pkg.publisher !== 'SidioraLabs' || pkg.name !== 'codify-workflow') {
     throw new Error(`unexpected Marketplace identity: ${pkg.publisher}.${pkg.name}`);
@@ -3325,6 +3329,233 @@ const api = sbx.register({ subscriptions: [] }, { cg: async (args) => { calls.pu
 JS
     [ $? -eq 0 ] || fail "sandboxes view"
     cd "$TMP"
+fi
+
+# ---- issues (hyperfide-v21 6.3): the Issues view. console.issues rows in
+#      the exact console.ts row shape (a fixture: the service is not on this
+#      host), drift.* events from the real cg log and routed live through
+#      route(), file diagnostics, the badge, blocked cleared on resolution,
+#      and the real cg's answer to the console verb in a local project
+if want issues; then
+    rm -rf "$TMP/iss"; mkdir -p "$TMP/iss/src"; cd "$TMP/iss"
+    git init -q -b main . 2>/dev/null || git init -q .
+    git config user.email t@t; git config user.name t
+    echo 'export function alpha(){}' > src/a.ts
+    "$CG" spec new iv >/dev/null
+    "$CG" spec add 2.1 --title "Alpha" --wave 1 --touches 'src/a.ts' >/dev/null
+    "$CG" init >/dev/null
+    printf '.codegraph/\n*.lock\n' > .gitignore
+    git add -A >/dev/null; git commit -qm base >/dev/null
+    git checkout -qb task/iv/2.1
+    echo 'export function beta(){}' > src/b.ts
+    echo 'export function alpha(x){}' > src/a.ts
+    git add -A >/dev/null; git commit -qm work >/dev/null
+    "$CG" index >/dev/null 2>&1
+    "$CG" drift check 2.1 --base main --json > "$TMP/iss-spec.json"
+    "$CG" drift coverage -f iv --json >/dev/null
+    node - "$EXT" "$CG" "$TMP/iss" "$TMP/iss-spec.json" "$(cd "$EXT/../.." && pwd)" <<'JS'
+const path = require('path'), fs = require('fs'), cp = require('child_process');
+const Module = require('module');
+const [, , dir, CG, repo, specReport, src] = process.argv;
+const eq = (got, want, what) => {
+    if (got !== want) throw new Error(`${what}: ${JSON.stringify(got)} != ${JSON.stringify(want)}`);
+};
+const diag = { sets: new Map(), clears: 0 };
+class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
+const stub = {
+    EventEmitter: class { constructor() { this.n = 0; this.event = () => ({ dispose() {} }); } fire() { this.n++; } },
+    TreeItem,
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    ThemeIcon: class { constructor(id, color) { this.id = id; this.color = color; } },
+    ThemeColor: class { constructor(id) { this.id = id; } },
+    Uri: { file: (p) => ({ scheme: 'file', fsPath: p }) },
+    Range: class { constructor(a, b, c, d) { this.start = { line: a, character: b }; this.end = { line: c, character: d }; } },
+    Diagnostic: class { constructor(range, message, severity) { this.range = range; this.message = message; this.severity = severity; } },
+    DiagnosticSeverity: { Error: 0, Warning: 1, Information: 2, Hint: 3 },
+    commands: { executeCommand: () => {}, registerCommand: () => ({ dispose() {} }) },
+    window: {},
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+const { IssuesView, issuesModel, consolePanel, driftRows, CONSOLE_ARGS } = require(path.join(dir, 'issues.js'));
+const run = (args) => cp.spawnSync(CG, args, { cwd: repo, encoding: 'utf8' });
+
+// ---- a console.issues panel, row for row in the shape console.ts builds
+const asOf = new Date().toISOString();
+const fr = (s) => ({ observed_at: asOf, age_seconds: 0, source: s });
+const ASK = '7d1e0c3a-0000-4000-8000-000000000001';
+const panel = (askState, withRepair) => ({
+    view: 'console.issues', scope: { organisation_id: 'o', run_id: 'r' }, as_of: asOf,
+    counts: {}, authority: 'PRIMARY_OBSERVATION', activity_is_qualified_progress: false,
+    sections: {
+        leader_queue: { truncated: false, rows: [{ kind: 'LEADER_QUEUE', id: 'route-1', state: 'WAITING',
+            title: 'Null deref in parser', since: asOf, freshness: fr('hyperfide.finding_routes'),
+            references: { route_id: 'route-1', finding_id: 'f-1' },
+            detail: { severity: 'ERROR', path: 'src/a.ts', line: 1 } }] },
+        external_intake: { truncated: true, rows: [{ kind: 'EXTERNAL_INTAKE', id: 'repo#7', state: 'OPEN',
+            title: 'Crash on start', since: asOf, freshness: fr('github'),
+            references: { repository: 'acme/app', issue_number: '7' }, detail: { state: 'OPEN' } }] },
+        escalated_repairs: { truncated: false, rows: withRepair ? [{ kind: 'ESCALATED_REPAIR', id: 'rep-1',
+            state: 'ESCALATED', title: 'Repair of finding f-2', since: asOf, freshness: fr('hyperfide.finding_repairs'),
+            references: { repair_id: 'rep-1', finding_id: 'f-2', task_id: 't-9', ask_id: ASK },
+            detail: { severity: 'WARNING', ask: { state: askState, answer: null, decided_by_default: false, deadline: asOf },
+                      locations: [{ path: 'src/b.ts', line: 1 }] } }] : [] },
+        drift: { truncated: false, rows: [{ kind: 'DRIFT', id: 'SANDBOX:s-1', state: 'OBSERVATION_STALE',
+            title: 'SANDBOX desired RUNNING, observed RUNNING', since: asOf,
+            freshness: { ...fr('hyperfide.observability_observations'), stale: true },
+            references: { entity_type: 'SANDBOX', sandbox_id: 's-1' }, detail: {} }] },
+    },
+});
+// the shape is the service's: every row field console.ts declares
+const cts = fs.readFileSync(path.join(src, 'services/hyperfide/src/observability/console.ts'), 'utf8');
+for (const k of ["'leader_queue'", "'external_intake'", "'escalated_repairs'", "'drift'", "view:'console.issues'",
+                 'id:string;state:string;title:string;since:string;freshness:ConsoleFreshness']) {
+    if (!cts.includes(k)) throw new Error('console.ts no longer has ' + k);
+}
+
+// ---- consolePanel: bare, enveloped, and the negatives
+eq(consolePanel(panel('OPEN', true)).view, 'console.issues', 'bare panel');
+eq(consolePanel({ ok: true, result: panel('OPEN', true) }).as_of, asOf, 'enveloped panel');
+eq(consolePanel({ view: 'console.needs', sections: {} }), null, 'needs is not issues');
+eq(consolePanel(null), null, 'nothing');
+eq(consolePanel({ ok: false, error: { code: 'X' } }), null, 'an error');
+
+// ---- the drift log the real cg wrote, plus drift.spec with the real report
+const logged = run(['events', '--kind', 'drift.,task.status', '-n', '500', '--json']).stdout
+    .split('\n').filter(Boolean).map((l) => JSON.parse(l));
+const cov = logged.find((e) => e.kind === 'drift.coverage');
+if (!cov) throw new Error('the real cg logged no drift.coverage: ' + JSON.stringify(logged));
+const report = JSON.parse(fs.readFileSync(specReport, 'utf8'));
+eq(report.files_outside.join(), 'src/b.ts', 'real drift check: b.ts outside touches');
+// drift.c emits these keys; the reducer reads them
+const dc = fs.readFileSync(path.join(src, 'src/drift.c'), 'utf8');
+for (const k of ['"drift.spec"', '"drift.interface"', '"drift.coverage"', ',\\"files_outside\\":[%s],\\"symbols_undeclared\\":[%s]',
+                 '",\\"sites\\":[%s]', ',\\"line\\":%d}']) {
+    if (!dc.includes(k)) throw new Error('drift.c no longer emits ' + k);
+}
+const oc = fs.readFileSync(path.join(src, 'src/orchestrate.c'), 'utf8');
+if (!oc.includes('"drift.collision"') || !oc.includes(',\\"with\\":')) throw new Error('orchestrate.c collision payload moved');
+const specEv = { seq: 9001, at: Date.now(), kind: 'drift.spec', subject: report.task, branch: 'task/iv/2.1',
+                 payload: { task: report.task, base: 'main', head: 'task/iv/2.1',
+                            files_outside: report.files_outside, symbols_undeclared: report.symbols_undeclared } };
+
+// ---- the pure model
+const m = issuesModel(panel('OPEN', true), [cov, specEv]);
+eq(m.available, true, 'console available');
+eq(String(m.sections.map((s) => s.key)), 'leader_queue,external_intake,escalated_repairs,drift', 'four sections');
+eq(m.counts.drift, 3, 'console drift + coverage + spec');
+eq(m.sections[1].truncated, true, 'intake truncation kept');
+eq(m.blocked, 1, 'the repair with an open Ask holds work');
+const rep = m.sections[2].rows[0];
+eq(rep.blocked, true, 'repair blocked'); eq(rep.blockedBy, ASK, 'by its Ask');
+eq(m.diagnostics['src/a.ts'].some((d) => d.severity === 'error' && /Null deref/.test(d.message)), true, 'leader queue finding on a.ts');
+eq(m.diagnostics['src/b.ts'].some((d) => /outside its touches/.test(d.message)), true, 'drift.spec on b.ts');
+eq(m.diagnostics['src/a.ts'].some((d) => /alpha, which it does not declare/.test(d.message)), true, 'undeclared alpha at a.ts');
+eq(m.diagnostics['src/b.ts'].some((d) => d.source === 'hyperfide escalated_repair'), true, 'repair location');
+// a newer coverage event with nothing uncovered resolves the old one
+eq(driftRows([cov, { seq: cov.seq + 1, kind: 'drift.coverage', subject: 'iv', payload: { feature: 'iv', uncovered: 0, total: 1 } }]).length, 0,
+   'coverage resolved');
+// answered Ask: still listed, no longer blocked, and the transition reported
+const m2 = issuesModel(panel('ANSWERED', true), [cov, specEv], { previous: m });
+eq(m2.blocked, 0, 'answered Ask unblocks');
+eq(m2.cleared.map((r) => r.key).join(), 'console:escalated_repairs:rep-1', 'cleared on resolution');
+// a collision blocks until the awaited task is done
+const coll = { seq: 9002, kind: 'drift.collision', subject: 'iv/2.2', payload: { task: '2.2', with: '2.1', why: 'both touch src/a.ts', action: 'serialized' } };
+eq(driftRows([coll])[0].blocked, true, 'collision blocks');
+eq(driftRows([coll, { seq: 9003, kind: 'task.status', subject: 'iv/2.1', payload: { status: 'in_progress', feature: 'iv' } }]).length, 1,
+   'in progress does not resolve');
+eq(driftRows([coll, { seq: 9004, kind: 'task.status', subject: 'iv/2.1', payload: { status: 'done', feature: 'iv' } }]).length, 0,
+   'done resolves the collision');
+eq(driftRows([coll, { seq: 9004, kind: 'task.status', subject: 'other/2.1', payload: { status: 'done', feature: 'other' } }]).length, 1,
+   'another feature\'s 2.1 does not');
+
+// ---- the view against the real cg: console from a scripted source, drift from the real log
+let source = panel('OPEN', true);
+const calls = [];
+const cleared = [];
+const dcol = { set: (uri, list) => diag.sets.set(uri.fsPath, list), clear: () => { diag.sets.clear(); diag.clears++; } };
+const view = new IssuesView({
+    cgJson: async (args) => { calls.push(args.join(' ')); return args.join(' ') === CONSOLE_ARGS.join(' ') ? source : null; },
+    cg: async (args) => { const r = run(args); return { code: r.status, stdout: r.stdout, stderr: r.stderr }; },
+    workspaceRoot: () => repo, diagnostics: dcol, onCleared: (rows) => cleared.push(...rows),
+});
+view.view = {};
+(async () => {
+    await view.refresh();
+    eq(calls[0], 'console issues', 'reads console.issues');
+    eq(view.state, 'ready', 'ready');
+    let top = view.getChildren();
+    eq(top.map((t) => t.label).join(), 'Leader queue,External intake,Escalated repairs,Drift', 'tree roots');
+    eq(top[1].description, '1+', 'truncated count');
+    eq(top[2].description, '1 · 1 blocked', 'blocked count on the section');
+    eq(view.view.badge.value, 1, 'view badge counts blocked issues');
+    const repRow = view.getChildren(top[2])[0];
+    eq(repRow.contextValue, 'issues-row-blocked', 'blocked row');
+    eq(repRow.iconPath.id, 'circle-slash', 'blocked icon');
+    eq(repRow.command.command, 'codify.issues.open', 'a located row opens');
+    const lq = view.getChildren(top[0])[0];
+    eq(lq.iconPath.id, 'error', 'ERROR severity');
+    eq(view.getChildren(top[3]).length, 2, 'console drift + the real coverage event');
+    const aPath = path.join(repo, 'src/a.ts');
+    eq(diag.sets.has(aPath), true, 'diagnostics on a.ts');
+    eq(diag.sets.get(aPath)[0].severity, 0, 'error severity diagnostic');
+    eq(diag.sets.get(aPath)[0].range.start.line, 0, 'line 1 is range line 0');
+    // drift routed live: folded on at once, no cg call, not twice on replay
+    const before = calls.length;
+    eq(view.route(specEv), true, 'drift.spec routed');
+    eq(view.route(specEv), false, 'the same event is not counted twice');
+    eq(view.route({ seq: 1, kind: 'agent.text', subject: 'x', payload: {} }), false, 'other kinds are not issues');
+    eq(calls.length, before, 'routing makes no cg call');
+    eq(view.getChildren(view.getChildren()[3]).length, 3, 'routed drift.spec row');
+    eq(diag.sets.get(path.join(repo, 'src/b.ts')).some((d) => /outside its touches/.test(d.message)), true, 'routed diagnostic on b.ts');
+    view.route(coll);
+    eq(view.model.blocked, 2, 'collision adds a blocked row');
+    view.route({ seq: 9004, kind: 'task.status', subject: 'iv/2.1', payload: { status: 'done', feature: 'iv' } });
+    eq(view.model.blocked, 1, 'the awaited task done clears the collision');
+    eq(cleared.some((r) => r.drift === 'collision'), true, 'collision reported cleared');
+    // resolution in the read model: the repair leaves, its block and diagnostic go
+    source = panel('OPEN', false);
+    await view.refresh();
+    eq(view.model.blocked, 0, 'repair resolved');
+    eq(view.view.badge, undefined, 'badge cleared');
+    eq(cleared.some((r) => r.key === 'console:escalated_repairs:rep-1'), true, 'repair reported cleared');
+    eq((diag.sets.get(path.join(repo, 'src/b.ts')) || []).some((d) => d.source === 'hyperfide escalated_repair'), false,
+       'the resolved repair\'s diagnostic is gone');
+    // negative: the real cg in a local project has no console — notice, drift still shown
+    const real = new IssuesView({
+        cgJson: async (args) => { const r = run([...args, '--json']); try { return JSON.parse(r.stdout); } catch { return null; } },
+        cg: async (args) => { const r = run(args); return { code: r.status, stdout: r.stdout, stderr: r.stderr }; },
+        workspaceRoot: () => repo, diagnostics: null,
+    });
+    await real.refresh();
+    eq(real.model.available, false, 'no console in a local project');
+    top = real.getChildren();
+    eq(top.map((t) => t.label).join(), 'Hyperfide console not reachable,Drift', 'notice, then drift');
+    eq(top[0].command.command, 'codify.issues.refresh', 'notice retries');
+    eq(real.getChildren(top[1]).some((r) => /acceptance criteria uncovered/.test(r.label)), true, 'real coverage drift shown');
+    console.log('issues ok');
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "issues view"
+    node - "$EXT" <<'JS'
+const fs = require('fs'), path = require('path');
+const dir = process.argv[2];
+const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+const views = Object.values(pkg.contributes.views).flat().map((v) => v.id);
+if (!views.includes('codifyIssues')) throw new Error('codifyIssues not declared');
+const is = fs.readFileSync(path.join(dir, 'issues.js'), 'utf8');
+if (!/createTreeView\('codifyIssues'/.test(is)) throw new Error('codifyIssues never populated');
+if (!/createDiagnosticCollection\(/.test(is)) throw new Error('no DiagnosticCollection for findings');
+const fl = fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8');
+if (!/issues\.register\(ctx, d\)/.test(fl) || !/await issuesApi\.refresh\(\)/.test(fl)) throw new Error('issues not in the refresh chain');
+const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+if (!/applied\.view === 'drift'[^\n]*fleetApi\.drift\(ev\)/.test(ext)) throw new Error('drift.* events are not routed to the Issues view');
+const sv = fs.readFileSync(path.join(dir, 'serve.js'), 'utf8');
+if (!/k\.startsWith\('drift\.'\)[\s\S]{0,80}view: 'drift'/.test(sv)) throw new Error('serve no longer classifies drift.*');
+console.log('issues manifest ok');
+JS
+    [ $? -eq 0 ] || fail "issues manifest"
+    cd "$EXT"
 fi
 
 echo "14_vscode ok ($section)"

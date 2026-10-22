@@ -95,6 +95,12 @@
           "name": "Needs",
           "contextualTitle": "Hyperfide Needs",
           "visibility": "collapsed"
+        },
+        {
+          "id": "codifyIssues",
+          "name": "Issues",
+          "contextualTitle": "Hyperfide Issues",
+          "visibility": "collapsed"
         }
       ]
     },
@@ -118,6 +124,10 @@
       {
         "view": "codifyNeeds",
         "contents": "Nothing needs you.\nAsks (secrets, variables, permissions, decisions, questions), human intents and admission escalations appear here from the Hyperfide console, or this project's local Asks.\n[Refresh](command:codify.needs.refresh)"
+      },
+      {
+        "view": "codifyIssues",
+        "contents": "No issues.\nThe leader queue, external intake, escalated repairs and drift appear here from the Hyperfide console and the local drift log.\n[Refresh](command:codify.issues.refresh)"
       }
     ],
     "commands": [
@@ -408,6 +418,16 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "codify.issues.refresh",
+        "title": "Hyperfide: Refresh Issues",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "codify.issues.open",
+        "title": "Hyperfide: Open Issue Location",
+        "icon": "$(go-to-file)"
+      },
+      {
         "command": "codify.fleet.openWorktree",
         "title": "Hyperfide: Open Agent Worktree",
         "icon": "$(folder-opened)"
@@ -649,6 +669,11 @@
           "command": "codify.needs.refresh",
           "when": "view == codifyNeeds",
           "group": "navigation@0"
+        },
+        {
+          "command": "codify.issues.refresh",
+          "when": "view == codifyIssues",
+          "group": "navigation@0"
         }
       ],
       "view/item/context": [
@@ -821,6 +846,11 @@
           "command": "codify.needs.answer",
           "when": "view == codifyNeeds && viewItem == needs-row-answerable",
           "group": "inline"
+        },
+        {
+          "command": "codify.issues.open",
+          "when": "view == codifyIssues && viewItem =~ /^issues-row/",
+          "group": "inline"
         }
       ],
       "editor/context": [
@@ -858,6 +888,10 @@
         },
         {
           "command": "codify.needs.answer",
+          "when": "false"
+        },
+        {
+          "command": "codify.issues.open",
           "when": "false"
         }
       ]

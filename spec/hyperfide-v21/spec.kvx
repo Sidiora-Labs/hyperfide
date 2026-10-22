@@ -1050,10 +1050,10 @@ owner = "editor"
 
 [task.6.3]
 title = "Issues view"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["5.1"]
-touches = ["editors/vscode/issues.js", "editors/vscode/fleet.js", "editors/vscode/package.json"]
+touches = ["editors/vscode/issues.js", "editors/vscode/fleet.js", "editors/vscode/package.json", "editors/vscode/extension.js", "tests/integration/14_vscode.sh"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
 do_1 = "codifyIssues tree view fed by console.issues plus a DiagnosticCollection for findings with file locations; drift.* routed; blocked cleared on resolution."
 do_2 = "Headless assertion through 14_vscode.sh."
