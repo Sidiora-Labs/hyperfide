@@ -83,6 +83,12 @@
           "name": "Fleet",
           "contextualTitle": "Hyperfide Fleet",
           "visibility": "collapsed"
+        },
+        {
+          "id": "codifyNeeds",
+          "name": "Needs",
+          "contextualTitle": "Hyperfide Needs",
+          "visibility": "collapsed"
         }
       ]
     },
@@ -98,6 +104,10 @@
       {
         "view": "codifyFleet",
         "contents": "No fleet here yet.\nA fleet is Main Gideon, one manager per feature, and one worker per wave \u2014 each on its own branch and worktree. It appears once spec/workflow.kvx has a [hierarchy] section.\n[Start the fleet](command:codify.fleet.start)\n[Begin a task in the fleet](command:codify.fleet.begin)\n[Refresh](command:codify.fleet.refresh)"
+      },
+      {
+        "view": "codifyNeeds",
+        "contents": "Nothing needs you.\nAsks (secrets, variables, permissions, decisions, questions), human intents and admission escalations appear here from the Hyperfide console, or this project's local Asks.\n[Refresh](command:codify.needs.refresh)"
       }
     ],
     "commands": [
@@ -426,6 +436,16 @@
         "command": "codify.fleet.openSessionTranscript",
         "title": "Hyperfide: Open Native Agent Transcript",
         "icon": "$(output)"
+      },
+      {
+        "command": "codify.needs.refresh",
+        "title": "Hyperfide: Refresh Needs",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "codify.needs.answer",
+        "title": "Hyperfide: Answer",
+        "icon": "$(reply)"
       }
     ],
     "menus": {
@@ -599,6 +619,11 @@
           "command": "codify.fleet.checkpoint",
           "when": "view == codifyFleet",
           "group": "1_fleet@3"
+        },
+        {
+          "command": "codify.needs.refresh",
+          "when": "view == codifyNeeds",
+          "group": "navigation@0"
         }
       ],
       "view/item/context": [
@@ -761,6 +786,11 @@
           "command": "codify.fleet.openSessionWorktree",
           "when": "view == codifyFleet && viewItem =~ /^fleet-native.*-nwt/",
           "group": "inline@1"
+        },
+        {
+          "command": "codify.needs.answer",
+          "when": "view == codifyNeeds && viewItem == needs-row-answerable",
+          "group": "inline"
         }
       ],
       "editor/context": [
@@ -794,6 +824,10 @@
         },
         {
           "command": "codify.forget",
+          "when": "false"
+        },
+        {
+          "command": "codify.needs.answer",
           "when": "false"
         }
       ]

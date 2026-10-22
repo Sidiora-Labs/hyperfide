@@ -1022,7 +1022,7 @@ owner = "editor"
 
 [task.6.2]
 title = "Needs view"
-status = "pending"
+status = "in_progress"
 wave = 6
 requires = ["6.1", "5.3"]
 touches = ["editors/vscode/package.json", "editors/vscode/extension.js", "editors/vscode/serve.js", "editors/vscode/needs.js"]

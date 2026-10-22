@@ -20,6 +20,9 @@
 #              patch against the real cg, reconnect, fallback on an old cg
 #   pushed   — (v21 1.12) an approval the real cg raises reaches the chat
 #              as a card through cg serve, once, and again after a reconnect
+#   needs    — (v21 6.2) the Needs view: Asks from the real cg and
+#              console.needs rows, the answer inputs, answers settled through
+#              the real cg, the ask policy at the deadline, the offline notice
 # Run one section: 14_vscode.sh tasks
 . "$(dirname "$0")/../lib.sh"
 section="${1:-all}"
@@ -639,7 +642,8 @@ const src = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'agents.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'acp.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'tasks.js'), 'utf8') +
-    fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8');
+    fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8') +
+    fs.readFileSync(path.join(dir, 'needs.js'), 'utf8');
 
 if (pkg.publisher !== 'SidioraLabs' || pkg.name !== 'codify-workflow') {
     throw new Error(`unexpected Marketplace identity: ${pkg.publisher}.${pkg.name}`);
@@ -2461,6 +2465,213 @@ const real = (p) => fs.realpathSync(p);
 })().catch((e) => { console.error(e.stack || e); process.exit(1); });
 JS
     [ $? -eq 0 ] || fail "reconnect snapshot, agent names, transcripts"
+fi
+
+# ---- needs (hyperfide-v21 6.2): the Needs view. Asks the real cg raised in
+#      a project of its own, read back through `cg ask list`; console.needs
+#      rows in the exact console.ts shape (a fixture: the service is not on
+#      this host); the input each kind gets; answers settled through the real
+#      cg, a raw secret refused by both; the 3.6 policy at the deadline; the
+#      real cg's answer to the console verb in a local project
+if want needs; then
+    rm -rf "$TMP/nd"; mkdir -p "$TMP/nd"; cd "$TMP/nd"
+    "$CG" init >/dev/null 2>&1 || fail "needs: cg init"
+    node - "$EXT" "$CG" "$TMP/nd" "$(cd "$EXT/../.." && pwd)" <<'JS'
+const path = require('path'), fs = require('fs'), cp = require('child_process');
+const Module = require('module');
+const [, , dir, CG, repo, src] = process.argv;
+const eq = (got, want, what) => {
+    if (got !== want) throw new Error(`${what}: ${JSON.stringify(got)} != ${JSON.stringify(want)}`);
+};
+class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
+const stub = {
+    EventEmitter: class { constructor() { this.n = 0; this.event = () => ({ dispose() {} }); } fire() { this.n++; } },
+    TreeItem,
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    ThemeIcon: class { constructor(id, color) { this.id = id; this.color = color; } },
+    ThemeColor: class { constructor(id) { this.id = id; } },
+    commands: { executeCommand: () => {}, registerCommand: () => ({ dispose() {} }) },
+    window: {},
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+const { NeedsView, needsModel, answerPlan, answerCommand, consolePanel, CONSOLE_ARGS, LOCAL_ARGS } =
+    require(path.join(dir, 'needs.js'));
+const run = (args) => cp.spawnSync(CG, args, { cwd: repo, encoding: 'utf8' });
+const ok = (args, what) => { const r = run(args); if (r.status !== 0) throw new Error(`${what}: ${r.stderr}`); return r; };
+const json = (args) => JSON.parse(ok([...args, '--json'], args.join(' ')).stdout);
+const raised = (args) => json(['ask', 'raise', ...args]).id;
+
+// ---- the real cg raises one Ask of every kind
+const dec = raised(['decision', 'Pick the store', '--option', 'sqlite', '--option', 'pg',
+                    '--recommend', 'pg', '--deadline', '2h', '--task', '2.1', '--body', 'Both fit']);
+const vari = raised(['variable', 'Deploy region', '--deadline', '@1000', '--task', '2.2']);
+const que = raised(['question', 'Keep the cache?', '--recommend', 'yes', '--deadline', '1d']);
+const sec = raised(['secret', 'Registry token', '--task', '2.1']);
+const per = raised(['permission', 'Drop the old table']);
+const late = raised(['decision', 'Retry policy', '--option', 'once', '--option', 'never',
+                     '--recommend', 'once', '--deadline', '@1000']);
+
+// ---- the local model from the real `cg ask list --json`
+eq(LOCAL_ARGS.join(' '), 'ask list', 'local verb');
+eq(CONSOLE_ARGS.join(' '), 'console needs', 'console verb (5.3)');
+let m = needsModel(null, json(LOCAL_ARGS));
+eq(m.available, false, 'no console in a local project');
+eq(m.counts.asks, 6, 'six open Asks');
+const row = (id) => m.sections[0].rows.find((r) => r.id === String(id));
+const d = row(dec);
+eq(d.kind, 'decision', 'row kind'); eq(d.task, '2.1', 'row task'); eq(d.recommended, 'pg', 'row recommended');
+eq(typeof d.deadline === 'string' && Date.parse(d.deadline) > Date.now(), true, 'row deadline in the future');
+eq(d.policy, 'proceed-and-flag', 'decision policy'); eq(d.overdue, false, 'not overdue');
+eq(row(vari).overdue, true, 'past-deadline variable overdue');
+eq(row(vari).policy, 'block', 'variable blocks');
+eq(m.sections[0].rows[0].deadline <= m.sections[0].rows[1].deadline, true, 'nearest deadline first');
+eq(m.sections[0].rows.slice(-1)[0].deadline, null, 'no deadline last');
+eq(m.overdue, 2, 'two overdue');
+
+// ---- the input each kind gets
+let plan = answerPlan(d);
+eq(plan.input, 'quickpick', 'decision: QuickPick');
+eq(plan.items[0].value, 'pg', 'recommended option first');
+eq(plan.items[0].description, 'recommended', 'and labelled');
+eq(answerPlan(row(que)).input, 'quickpick', 'question with options: QuickPick');
+eq(answerPlan(row(per)).items.map((i) => i.value).join(), 'approve,reject', 'permission options');
+plan = answerPlan(row(sec));
+eq(plan.input, 'password', 'secret: password input');
+eq(plan.validate('hunter2') !== null, true, 'a raw secret value is refused by the input');
+eq(plan.validate('secret-ref:registry-token'), null, 'a secret-ref is accepted');
+plan = answerPlan(row(vari));
+eq(plan.input, 'text', 'variable: free text');
+eq(plan.validate('') !== null, true, 'an empty answer is refused');
+// a free-text question: the console row of a question offered without options
+eq(answerPlan({ answerable: true, kind: 'question', options: [], recommended: null }).input, 'text', 'question: free text');
+
+// ---- negatives: refused before cg sees them, and refused by cg too
+eq(answerCommand(row(sec), 'hunter2'), null, 'raw secret never becomes a command');
+eq(answerCommand(d, 'mysql'), null, 'an answer outside the options');
+eq(run(['ask', 'answer', String(sec), 'hunter2']).status !== 0, true, 'the real cg refuses a raw secret');
+eq(run(['ask', 'answer', String(dec), 'mysql']).status !== 0, true, 'the real cg refuses a non-option');
+
+// ---- positives: answers settle through the real cg
+const settle = (r, answer) => {
+    const c = answerCommand(r, answer);
+    eq(c.file, null, 'a local answer needs no input file');
+    eq(c.args.slice(0, 3).join(' '), `ask answer ${r.id}`, 'local answer verb');
+    ok(c.args, `answer ${r.id}`);
+};
+settle(d, 'pg');
+settle(row(sec), 'secret-ref:registry-token');
+settle(row(vari), 'eu-west-1');   // expired but blocking: still answerable
+const after = json(['ask', 'list', '--all']).asks;
+const st = (id) => after.find((a) => a.id === id);
+eq(st(dec).state, 'answered', 'decision answered'); eq(st(dec).answer, 'pg', 'with pg');
+eq(st(sec).answer, 'secret-ref:registry-token', 'secret answered with its reference');
+eq(st(vari).state, 'answered', 'blocking variable answered past its deadline');
+m = needsModel(null, json(LOCAL_ARGS));
+eq(m.counts.asks, 3, 'answered rows leave the view');
+eq(row(dec), undefined, 'decision gone');
+
+// ---- the 3.6 policy at the deadline: proceed-and-flag takes the default and leaves;
+//      block stays waiting, overdue and answerable
+const blk = raised(['variable', 'Bucket name', '--deadline', '@1000']);
+ok(['ask', 'expire'], 'ask expire');
+m = needsModel(null, json(LOCAL_ARGS));
+eq(row(late), undefined, 'proceed-and-flag past its deadline decided by default');
+eq(json(['ask', 'list', '--all']).asks.find((a) => a.id === late).decided_by_default, true, 'recorded as a default');
+eq(row(blk).state, 'expired', 'a blocking Ask expires');
+eq(row(blk).answerable && row(blk).overdue, true, 'and still waits for a person');
+
+// ---- console.needs rows, in the shape console.ts builds them
+const cts = fs.readFileSync(path.join(src, 'services/hyperfide/src/observability/console.ts'), 'utf8');
+for (const k of ["view:'console.needs'", "'asks'|'human_intents'|'admission_escalations'",
+                 'detail:{ask_kind:a.kind,body:a.body,options:a.options,recommended:a.recommended',
+                 'deadline:iso(a.deadline)', 'state_version:String(a.state_version)', 'task_key:a.task_key']) {
+    if (!cts.includes(k)) throw new Error('console.ts no longer has ' + k);
+}
+const hi = fs.readFileSync(path.join(src, 'services/hyperfide/src/policy/human_interface.ts'), 'utf8');
+if (!hi.includes("exact(input,['ask_id','expected_state_version','answer'])")) {
+    throw new Error('human.ask.answer input moved');
+}
+const asOf = new Date().toISOString(), soon = new Date(Date.now() + 3600e3).toISOString();
+const fr = { observed_at: asOf, age_seconds: 0, source: 'hyperfide.asks' };
+const ASK = '7d1e0c3a-0000-4000-8000-0000000000a1', RUN = '7d1e0c3a-0000-4000-8000-0000000000f1';
+const panel = {
+    view: 'console.needs', scope: { organisation_id: 'o', run_id: RUN }, as_of: asOf,
+    counts: { asks: 1, human_intents: 1, admission_escalations: 0 },
+    authority: 'PRIMARY_OBSERVATION', activity_is_qualified_progress: false,
+    sections: {
+        asks: { truncated: true, rows: [{ kind: 'ASK', id: ASK, state: 'OPEN', title: 'Pick a queue', since: asOf, freshness: fr,
+            references: { ask_id: ASK, run_id: RUN, task_id: 't-1', task_key: 'hf/3.2' },
+            detail: { ask_kind: 'decision', body: 'b', options: ['sqs', 'pg'], recommended: 'pg', default_policy: 'proceed-and-flag',
+                      deadline: soon, seconds_to_deadline: 3600, overdue: false, blocking: false, state_version: '4' } }] },
+        human_intents: { truncated: false, rows: [{ kind: 'HUMAN_INTENT', id: 'ev-1', state: 'PENDING', title: 'PAUSE r-1',
+            since: asOf, freshness: fr, references: { root_event_id: 'ev-1' }, detail: {} }] },
+        admission_escalations: { truncated: false, rows: [] },
+    },
+};
+eq(consolePanel({ ok: true, result: panel }).view, 'console.needs', 'enveloped panel');
+eq(consolePanel({ view: 'console.issues', sections: {} }), null, 'issues is not needs');
+eq(consolePanel({ ok: false, error: { code: 'X', message: 'no' } }), null, 'an error is no panel');
+m = needsModel(panel, json(LOCAL_ARGS));
+eq(m.available, true, 'console available');
+eq(m.counts.asks, 1, 'the console wins over the local table');
+eq(m.counts.human_intents, 1, 'human intents shown');
+eq(m.sections[0].truncated, true, 'truncation kept');
+const c = m.sections[0].rows[0];
+eq(c.kind, 'decision', 'console kind'); eq(c.task, 'hf/3.2', 'console task'); eq(c.deadline, soon, 'console deadline');
+eq(c.recommended, 'pg', 'console recommended');
+eq(m.sections[1].rows[0].answerable, false, 'an intent is not answered here');
+const routed = answerCommand(c, 'pg', repo);
+eq(routed.args[0] + ' ' + routed.args[1], 'ask answer', 'routed verb');
+for (const f of ['--input-file', '--run-id', '--operation-id', '--idempotency-key', '--correlation-id']) {
+    if (!routed.args.includes(f)) throw new Error('routed answer lacks ' + f);
+}
+eq(routed.args[routed.args.indexOf('--run-id') + 1], RUN, 'routed run');
+eq(JSON.stringify(routed.input), JSON.stringify({ ask_id: ASK, expected_state_version: '4', answer: 'pg' }), 'human.ask.answer input');
+eq(answerCommand(c, 'mysql', repo), null, 'routed non-option refused');
+eq(answerCommand({ ...c, kind: 'secret', options: [] }, 'hunter2', repo), null, 'routed raw secret refused');
+
+// ---- the view against the real cg: the console verb, the offline notice, the local Asks
+const cgJson = async (args) => { try { return JSON.parse(run([...args, '--json']).stdout); } catch { return null; } };
+const cv = run([...CONSOLE_ARGS, '--json']);
+eq(cv.status !== 0, true, 'the console verb fails in a local project');
+eq(consolePanel((() => { try { return JSON.parse(cv.stdout); } catch { return null; } })()), null, 'and prints no panel');
+let errJson = null; try { errJson = JSON.parse(cv.stderr.trim().split('\n').pop()); } catch { /* an older cg: plain text */ }
+if (errJson) { eq(errJson.ok, false, 'console error envelope'); eq(typeof errJson.error.code, 'string', 'with a code'); }
+(async () => {
+    const v = new NeedsView({ cgJson, cg: async (a) => { const r = run(a); return { code: r.status, stdout: r.stdout, stderr: r.stderr }; } });
+    await v.refresh();
+    eq(v.model.available, false, 'view: console offline');
+    const top = v.getChildren();
+    eq(top[0].id, 'needs:offline', 'offline notice first');
+    eq(top[0].command.command, 'codify.needs.refresh', 'notice retries');
+    eq(top.length, 2, 'notice and Asks only');
+    const kids = v.getChildren(top[1]);
+    eq(kids.length, v.model.counts.asks, 'one item per Ask');
+    const it = kids.find((k) => k.row.id === String(blk));
+    eq(it.contextValue, 'needs-row-answerable', 'answerable row');
+    eq(it.command.command, 'codify.needs.answer', 'click answers');
+    eq(/variable/.test(it.description) && /overdue/.test(it.description), true, 'description: kind and deadline');
+    const q = kids.find((k) => k.row.id === String(que));
+    eq(/→ yes/.test(q.description), true, 'description: recommended option');
+    eq(v.route({ kind: 'ask.answered', subject: '1' }), true, 'ask.* routed');
+    eq(v.route({ kind: 'memory.add' }), false, 'others are not');
+    const { applyEvent, liveModel } = require(path.join(dir, 'serve.js'));
+    eq(applyEvent(liveModel(), { kind: 'ask.raised', subject: '9', payload: {} }).view, 'needs', 'serve classifies ask.*');
+    const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+    if (!/require\('\.\/needs'\)/.test(ext) || !/needs\.register\(ctx/.test(ext) || !/applied\.view === 'needs'/.test(ext)) {
+        throw new Error('extension.js does not wire the Needs view');
+    }
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    const views = Object.values(pkg.contributes.views).flat().map((x) => x.id);
+    if (!views.includes('codifyNeeds')) throw new Error('codifyNeeds not declared');
+    if (!/createTreeView\('codifyNeeds'/.test(fs.readFileSync(path.join(dir, 'needs.js'), 'utf8'))) {
+        throw new Error('codifyNeeds declared but never provided');
+    }
+})().catch((e) => { console.error(e); process.exitCode = 1; });
+JS
+    [ $? -eq 0 ] || fail "needs view"
+    cd "$EXT"
 fi
 
 echo "14_vscode ok ($section)"

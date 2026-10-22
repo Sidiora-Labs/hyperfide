@@ -321,6 +321,8 @@ function applyEvent(model, ev) {
         model.drift += 1;
         return { view: 'drift', kind: k };
     }
+    /* ask.raised, ask.answered, ask.expired (src/ask.c): the Needs view */
+    if (k.startsWith('ask.')) return { view: 'needs', kind: k, ask: ev.subject || p.id || null };
     if (k === 'memory.add') {
         model.memories += 1;
         return { view: 'memories', id: p.id };
