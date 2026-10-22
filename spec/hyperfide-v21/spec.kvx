@@ -1011,7 +1011,7 @@ owner = "source"
 
 [task.5.7]
 title = "The task file is current before every commit"
-status = "implemented"
+status = "done"
 wave = 5
 requires = ["3.9"]
 touches = ["src/vcs.c", "src/spec.c", "src/cg.h", "services/hyperfide/src/integration/candidates.ts", "tests/integration/94_commit_spec_sync.sh"]
