@@ -428,6 +428,20 @@ do_3 = "Implement only this task in an isolated task worktree. Run real positive
 reqs = ["6.1"]
 owner = "source"
 
+[task.2.14]
+title = "CI runs the credential-store registrations and gates live provider cases on secrets"
+status = "pending"
+wave = 2
+requires = ["1.7"]
+touches = [".github/workflows/ci.yml", "tests/integration/82_ci_matrix.sh", "tests/hyperfide/ci"]
+verify_cmd = "bash tests/integration/82_ci_matrix.sh"
+do_1 = "The hyperfide-qualify job materialises a fixture credential-store configuration (schema_version 1 with secret_root, attachment_root, sources and targets, as services/hyperfide/src/identity/credentials.ts validates it) under a temp root and exports HF_CREDENTIAL_CONFIG_FILE, so registrations 9.1 to 9.4 run instead of printing SKIP; they need no real secret."
+do_2 = "Live provider cases run only when the RAILWAY_TOKEN repository secret is present, mapped into the job environment; without it they print SKIP with the reason. Secret values are never echoed, and the workflow passes them only to the steps that need them (D13)."
+do_3 = "The native-binary and parity-manifest registrations keep printing SKIP naming the missing variable; 82_ci_matrix.sh asserts the materialisation step, the secret gating, and each SKIP reason."
+do_4 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.5"]
+owner = "ci"
+
 [task.3.1]
 title = "The asks table"
 status = "pending"
