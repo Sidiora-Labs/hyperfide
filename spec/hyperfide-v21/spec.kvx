@@ -828,11 +828,11 @@ owner = "ask"
 
 [task.4.2]
 title = "Native events leave the sandbox"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["4.1"]
-touches = ["services/hyperfide/src/agents/supervision.ts", "services/hyperfide/src/events/api.ts", "services/hyperfide/components/12.2.json", "src/hyperfide/launch.c", "tests/hyperfide/cases/v21/4_2.py", "tests/integration/90_launch_events.sh"]
-verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_2.py && make -j2 cg && CG=$PWD/cg bash tests/integration/90_launch_events.sh"
+touches = ["services/hyperfide/src/agents/supervision.ts", "services/hyperfide/src/events/api.ts", "services/hyperfide/components/12.2.json", "src/hyperfide/launch.c", "tests/hyperfide/cases/v21/4_2.py", "tests/integration/101_launch_events.sh", "services/hyperfide/src/runner/dispatch.ts", "services/hyperfide/components/13.4-supervision.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "tests/hyperfide/cases/tasks/12_2.py", "tests/hyperfide/cases/tasks/13_4.py", "tests/hyperfide/cases/tasks/18_4.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_2.py && make -j2 cg && CG=$PWD/cg bash tests/integration/101_launch_events.sh"
 do_1 = "launch.c forwards classified native events through runner.launch.event.record; add the 12.2 handler; supervision inspect and runner ingest call the classifier."
 do_2 = "4_2.py and 90_launch_events.sh assert an AskUserQuestion inside a launched process becomes an Ask row."
 do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."

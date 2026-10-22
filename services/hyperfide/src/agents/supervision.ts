@@ -10,6 +10,9 @@ import type {InvocationContext} from '../transport/protocol.js';
 import {object} from '../policy/programme.js';
 import {isNativeAuthAuthority} from '../identity/native_auth.js';
 import {exactAgentObject,agentString,agentError,agentDigest,agentTransaction} from './sessions.js';
+import {classifyNativeEvent} from './admission.js';
+import {nativeAskRequests,raiseNativeAsks} from './native_asks.js';
+import type {NativeAskRequest,RaisedNativeAsk} from './native_asks.js';
 
 export interface MainStartupBudget {schema_version:1;host_id:string;pool_id:string;allowance:{cpu_millis:string;memory_bytes:string;agent_slots:string};headroom:{cpu_millis:string;memory_bytes:string}}
 export interface MainHostObservation {cpu_available_millis:string;memory_available_bytes:string;observed_at:string;source:'LINUX_PROCFS_CGROUP'}
@@ -224,6 +227,7 @@ export function createComponent(ctx:ComponentContext):Component{
   if(row.process_identity&&agentDigest(row.process_identity)!==agentDigest(identity))agentError('SUPERVISOR_HOST_IDENTITY_MISMATCH');
   let sequence=BigInt(String(row.output_sequence)),pending=Buffer.from(String(row.pending_stdout),'base64'),nativeId=row.native_session_id as string|null;
   if(observed.output_truncated)agentError('SUPERVISOR_OUTPUT_INCOMPLETE');
+  const prompts:{line:bigint;requests:NativeAskRequest[]}[]=[];let asks:RaisedNativeAsk[]=[];
   for(const item of observed.frames){
    const f=exactAgentObject(item,['sequence','stream','frame_digest','frame_b64']);const next=BigInt(agentString(f.sequence,'decimal'));
    if(next!==sequence+1n||!['stdout','stderr'].includes(String(f.stream))||typeof f.frame_b64!=='string'||f.frame_b64.length>5464)agentError('SUPERVISOR_HOST_INVALID');
@@ -237,6 +241,9 @@ export function createComponent(ctx:ComponentContext):Component{
      if(object(e)&&e.type==='system'&&e.subtype==='init'){
       const id=agentString(e.session_id,'uuid');if(nativeId&&nativeId!==id)agentError('SUPERVISOR_NATIVE_ID_MISMATCH');nativeId=id;
      }
+     // 4.2: a supervision session's AskUserQuestion or approval prompt becomes an Ask, as a sandboxed worker's does.
+     let signal:string;try{signal=classifyNativeEvent('claude',e).signal;}catch{continue;}
+     if(signal==='QUESTION'||signal==='APPROVAL_PROMPT')prompts.push({line:next,requests:nativeAskRequests('claude',e)});
     }
    }
   }
@@ -249,10 +256,11 @@ export function createComponent(ctx:ComponentContext):Component{
     if(!actual||actual.native_session_id!==null&&actual.native_session_id!==nativeId)agentError('SUPERVISOR_NATIVE_ID_MISMATCH');
     if(actual.native_session_id===null){const bound=await tx.query("UPDATE hyperfide.agent_sessions SET native_session_id=$4,state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='REGISTERED' AND native_session_id IS NULL RETURNING id",[i.principal.organisation_id,i.principal.run_id,row.session_id,nativeId]);if(bound.rows.length!==1)agentError('SUPERVISOR_NATIVE_BINDING_STALE');}
    }
+   for(const prompt of prompts)asks=asks.concat(await raiseNativeAsks(ctx,tx,i,{session:String(row.session_id),attempt:null,sandbox:null},v.launch_id+'.'+prompt.line,prompt.requests));
    const ended=['EXITED','STOPPED','FAILED'].includes(String(observed.state));
    await tx.query("UPDATE hyperfide.supervisor_launches SET output_sequence=$4,pending_stdout=$5,native_session_id=COALESCE(native_session_id,$6),process_identity=COALESCE(process_identity,$7),state=CASE WHEN $8 THEN 'EXITED' ELSE state END,exit_code=$9,observed_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND id=$3",[i.principal.organisation_id,i.principal.run_id,v.launch_id,sequence.toString(),pending.toString('base64'),nativeId,identity,ended,observed.exit_code??null]);
   });
-  return {launch_id:v.launch_id,session_id:row.session_id,native_session_id:nativeId,process_identity:identity,host_state:observed.state,last_observed_sequence:sequence.toString(),capacity_retained:true,release_requires_registered_quiescence:true,context_restored:false,grants_authority:false};
+  return {launch_id:v.launch_id,session_id:row.session_id,native_session_id:nativeId,process_identity:identity,host_state:observed.state,last_observed_sequence:sequence.toString(),asks,capacity_retained:true,release_requires_registered_quiescence:true,context_restored:false,grants_authority:false};
  }),
  'supervisor.session.input':action(async(input,i)=>{
   const v=exactAgentObject(input,['launch_id','operation_id','text']);agentString(v.launch_id,'uuid');agentString(v.operation_id,'uuid');
