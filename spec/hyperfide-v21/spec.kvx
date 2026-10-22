@@ -970,10 +970,10 @@ owner = "observability"
 
 [task.5.5]
 title = "Publication per wave"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["4.8"]
-touches = ["services/hyperfide/src/integration/publication.ts", "services/hyperfide/src/integration/release_barrier.ts", "services/hyperfide/src/artifacts/retention.ts", "tests/hyperfide/cases/v21/5_5.py"]
+touches = ["services/hyperfide/src/integration/publication.ts", "services/hyperfide/src/integration/release_barrier.ts", "services/hyperfide/src/artifacts/retention.ts", "tests/hyperfide/cases/v21/5_5.py", "services/hyperfide/src/policy/programme.ts", "deploy/hyperfide/policies/control.example.json"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/5_5.py"
 do_1 = "Squash one commit per task, batch per wave behind the release barrier, trailers with snapshot identities; retention prunes agent snapshots N days after publication while adoptable checkpoints survive."
 do_2 = "5_5.py publishes a wave of four tasks and asserts one commit per task, the barrier order, the trailers and the pruning schedule."
