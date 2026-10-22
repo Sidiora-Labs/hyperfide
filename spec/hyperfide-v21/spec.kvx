@@ -713,10 +713,10 @@ owner = "findings"
 
 [task.3.18]
 title = "Load-tolerant suites and honest skips"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.13"]
-touches = ["tests/integration/14_vscode.sh", "tests/integration/42_journal.sh", "tests/integration/48_plugin.sh", "tests/integration/81_workflow_pointer.sh", "tests/hyperfide/cases/v21/2_8.py", "tests/hyperfide/cases/v21/2_12.py", "tests/hyperfide/cases/v21/2_1.py", "tests/hyperfide/cases/tasks/29_7.py", "tests/hyperfide/cases/tasks/9_4.py", "tests/hyperfide/cases/tasks/8_2.py", "editors/vscode/extension.js", "tests/hyperfide/cases/v21/3_18.py"]
+touches = ["tests/integration/14_vscode.sh", "tests/integration/42_journal.sh", "tests/integration/48_plugin.sh", "tests/integration/81_workflow_pointer.sh", "tests/hyperfide/cases/v21/2_8.py", "tests/hyperfide/cases/v21/2_12.py", "tests/hyperfide/cases/v21/2_1.py", "tests/hyperfide/cases/tasks/29_7.py", "tests/hyperfide/cases/tasks/9_4.py", "tests/hyperfide/cases/tasks/8_2.py", "editors/vscode/extension.js", "editors/vscode/serve.js", "tests/hyperfide/support/identity_fixture.py", "tests/hyperfide/cases/v21/3_18.py"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh && CG=$PWD/cg bash tests/integration/42_journal.sh && CG=$PWD/cg bash tests/integration/48_plugin.sh && python3 tests/hyperfide/cases/v21/3_18.py"
 do_1 = "No suite fails on wall-clock time under host load: the event, decoration and 10000-push checks of 14_vscode.sh, its serve section's delayed-old-cg check, and the lock-hold window of 42_journal.sh measure the work done or use a budget derived from a baseline measured in the same run; 48_plugin.sh either performs its validate check or exits 77 with SKIP; 29_7.py, 9_4.py and 8_2.py print SKIP and exit 77 without DATABASE_URL; 81_workflow_pointer.sh is executable; 2_8.py's fixture.root assertion can fail, 2_12.py's gate assertion observes behaviour rather than source text, and 2_1.py shows a RELEASE_PENDING reservation being reused; extension.js's reconnect path re-registers the event watcher observably or drops the dead call."
 do_2 = "3_18.py runs the changed suites while N busy workers load the host and proves they pass, and proves each formerly weak assertion fails against a deliberately broken input."
