@@ -112,7 +112,6 @@ def build_release(base):
  return payload,public,signature,sha_bytes(mf.read_bytes())
 
 def install_checks(base,cluster,database_url):
- if os.geteuid()!=0:return check("install.root-required",lambda:"SKIP: installer requires the root operator")
  payload,public,signature,digest=build_release(base)
  destination=base/"service-root"
  argv=["node",str(payload/"deploy/hyperfide/install-service.mjs"),"--release-root",str(payload),"--destination-root",str(destination),"--trusted-key",str(public),"--signature-file",str(signature),"--manifest-digest",digest,"--service-uid","33025","--service-gid","33025","--promote"]
@@ -200,6 +199,9 @@ def worker_checks(folder,admin_url):
  finally:f.close()
 
 def main():
+ # The installer chowns to the service uid and the owned cluster starts through runuser, so a non-root host cannot
+ # prove the install behaviour; it skips under the tests/run.sh contract instead of recording a pass.
+ if os.geteuid()!=0:print("SKIP: installer and owned cluster require the root operator",flush=True);return 77
  cases=load("hf_29_5","tests/hyperfide/cases/tasks/29_5.py")
  # A client-only PostgreSQL package can be the newest version directory; use one that ships a server.
  servers=sorted((p for p in Path("/usr/lib/postgresql").glob("*/bin") if (p/"initdb").is_file()),key=lambda p:int(p.parent.name))
