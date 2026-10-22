@@ -57,9 +57,35 @@ export interface RailwayConfiguration {
   exec_ws_endpoint:string|null;
 }
 export class RailwayRequestError extends Error {
-  constructor(readonly code:'REJECTED'|'UNKNOWN'|'PROTOCOL',readonly providerCode:string|null=null) {
+  constructor(readonly code:'REJECTED'|'UNKNOWN'|'PROTOCOL',readonly providerCode:string|null=null,
+    readonly attempts=1,readonly retryAfterMs:number|null=null) {
     super('Railway request '+code); // Never include token-bearing provider text.
   }
+}
+/** Read-path retry budget for throttling (429) and provider faults (5xx). Mutations never use it:
+ * a 5xx reply is not proof that a mutation had no effect, so replaying one could double an effect. */
+export const RAILWAY_BACKOFF=Object.freeze({attempts:5,base_ms:200,cap_ms:5000});
+function retryable(error:unknown):error is RailwayRequestError {
+  return error instanceof RailwayRequestError&&/^HTTP_(429|5[0-9][0-9])$/.test(error.providerCode??'');
+}
+/** Full jitter: uniform over [0, min(cap, base*2^attempt)], but never sooner than a bounded Retry-After. */
+export function railwayBackoffDelay(attempt:number,retryAfterMs:number|null,random:()=>number=Math.random):number {
+  const ceiling=Math.min(RAILWAY_BACKOFF.cap_ms,RAILWAY_BACKOFF.base_ms*2**Math.min(attempt,20));
+  const jittered=Math.floor(random()*ceiling);
+  return Math.max(jittered,Math.min(retryAfterMs??0,RAILWAY_BACKOFF.cap_ms));
+}
+function retryAfter(header:string|null):number|null {
+  if(header===null)return null;
+  if(/^[0-9]{1,6}$/.test(header.trim()))return Number(header.trim())*1000;
+  const at=Date.parse(header);return Number.isFinite(at)?Math.max(0,at-Date.now()):null;
+}
+function pause(ms:number,signal?:AbortSignal):Promise<void> {
+  return new Promise((resolve,reject)=>{
+    if(signal?.aborted){reject(new RailwayRequestError('UNKNOWN'));return;}
+    const stop=()=>{clearTimeout(timer);reject(new RailwayRequestError('UNKNOWN'));};
+    const timer=setTimeout(()=>{signal?.removeEventListener('abort',stop);resolve();},ms);
+    signal?.addEventListener('abort',stop,{once:true});
+  });
 }
 async function boundedBody(response:Response):Promise<Buffer> {
   const maximum=16*1024*1024,declared=response.headers.get('content-length');
@@ -148,13 +174,29 @@ export class RailwayClient {
         body:JSON.stringify({query,variables})});
     } catch { throw new RailwayRequestError('UNKNOWN'); }
     // HTTP failure or a GraphQL error is not proof that a mutation had no effect.
-    if(!response.ok) throw new RailwayRequestError('UNKNOWN','HTTP_'+response.status);
+    if(!response.ok) throw new RailwayRequestError('UNKNOWN','HTTP_'+response.status,1,
+      response.status===429?retryAfter(response.headers.get('retry-after')):null);
     let value:unknown;
     try { value=JSON.parse((await boundedBody(response)).toString('utf8')); }
     catch { throw new RailwayRequestError('UNKNOWN'); }
     const item=object(value);
     if(item.errors!==undefined||!item.data||typeof item.data!=='object') throw new RailwayRequestError('UNKNOWN');
     return item.data as T;
+  }
+  /** Idempotent reads only. Exhaustion rethrows the last diagnosis with the attempt count so the
+   * caller's UNKNOWN observation records how hard the provider was tried. */
+  async readWithBackoff<T>(query:string,variables:JsonObject,signal?:AbortSignal):Promise<{data:T;attempts:number}> {
+    for(let attempt=1;;attempt++){
+      try{return {data:await this.request<T>(query,variables,signal),attempts:attempt};}
+      catch(error){
+        if(!retryable(error))throw error instanceof RailwayRequestError?
+          new RailwayRequestError(error.code,error.providerCode,attempt,error.retryAfterMs):error;
+        const delay=railwayBackoffDelay(attempt-1,error.retryAfterMs);
+        if(attempt>=RAILWAY_BACKOFF.attempts)
+          throw new RailwayRequestError(error.code,error.providerCode,attempt,error.providerCode==='HTTP_429'?delay:null);
+        await pause(delay,signal);
+      }
+    }
   }
   provenance():{mode:RailwayConfiguration['mode'];sdk:typeof RAILWAY_PIN;live_qualification:'NOT_EVALUATED'} {
     return {mode:this.config.mode,sdk:RAILWAY_PIN,live_qualification:'NOT_EVALUATED'};
