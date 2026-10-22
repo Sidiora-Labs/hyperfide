@@ -39,12 +39,16 @@ if sys.version_info[:3]!=(3,14,8):raise SystemExit('hyperfide release: Python3.1
 python_prefix=Path(sys.base_prefix).resolve()
 commit=run('git','rev-parse','HEAD');epoch=run('git','show','-s','--format=%ct','HEAD')
 with tempfile.TemporaryDirectory(prefix='hyperfide-release-build-') as temporary:
- temp=Path(temporary);build=temp/'services';build.mkdir()
+ # The build tree mirrors the checkout layout: npm run build stamps dist through ../../deploy/hyperfide/dist-stamp.mjs.
+ temp=Path(temporary);build=temp/'services/hyperfide';build.mkdir(parents=True)
+ stamp_tool=temp/'deploy/hyperfide/dist-stamp.mjs';copy_file(root/'deploy/hyperfide/dist-stamp.mjs',stamp_tool)
  for name in ['package.json','package-lock.json','tsconfig.json']:copy_file(root/'services/hyperfide'/name,build/name)
  shutil.copytree(root/'services/hyperfide/src',build/'src')
  subprocess.run(['npm','ci','--ignore-scripts'],cwd=build,check=True)
  subprocess.run(['npm','run','check'],cwd=build,check=True)
  subprocess.run(['npm','run','build'],cwd=build,check=True)
+ # The shipped dist must be the build of the committed source; dist/.source-digest.json then rides in the signed manifest.
+ if subprocess.run([str(node),str(stamp_tool),'check',str(build)]).returncode:raise SystemExit('hyperfide release: services dist is stale against its source')
  stage=temp/'release';stage.mkdir()
  copy_file(root/'hyperfide',stage/'bin/hyperfide',0o755)
  copy_file(root/'hyperfide',stage/'bin/cg',0o755)
