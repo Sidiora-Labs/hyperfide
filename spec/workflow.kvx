@@ -1,4 +1,7 @@
-# Hyperfide's own spec workflow. Hyperfide uses Hyperfide to build Hyperfide.
+# Hyperfide's own spec workflow: the single workflow source for this repo.
+# CLAUDE.md, AGENTS.md and agent-context.md only point here (`hyperfide spec
+# render`, `hyperfide agentmd`). Each rule is stated once, in one section;
+# a statement that needs another section names it instead of restating it.
 
 [meta]
 name            = "Hyperfide Workflow"
@@ -55,42 +58,71 @@ branch = "task/{feature}/{task}"
 base   = "wave/{feature}/{wave}"
 
 [principle]
-task_driven     = "Work is driven by the active feature's task list, in wave order."
-verified_done   = "A task is done only after real remote verification and graph checks pass. Wave closure additionally requires remote regression checks and independent correctness review; component success never certifies a full acceptance case."
-runtime_boundaries = "The approved Hyperfide programme permits declared TypeScript services, PostgreSQL, provider SDKs and native components. Pin and qualify dependencies; preserve the compatible local runtime and its cg compatibility alias."
+task_driven     = "Work is driven by the active feature's task list, in wave order, one claimed task per worker."
+verified_done   = "A task is done only when hyperfide spec done reruns its verify_cmd and graph checks and they pass. A wave closes only after its regression checks and an independent correctness review; a component passing never certifies a full acceptance case."
+dependencies    = "The hyperfide binary links sqlite, libc, curl and crypto and nothing else (the Makefile LDLIBS line is authoritative). The TypeScript services may use declared, pinned dependencies listed in their package.json. Anything else needs a permission Ask first."
 non_invasive    = "Hyperfide observes and advises by default; it blocks only where the user asked it to."
-local_first = "The compatible local graph, memory and workflow remain usable offline with no telemetry. Local caches identify their freshness and never grant remote fleet ownership. Decision-model output is advisory; verification and graph checks determine qualification."
-distributed_authority = "Remote fleet authority requires the authenticated coordinator and PostgreSQL. Engineering execution remains remote under the approved programme policy; disconnected clients cannot obtain or renew ownership from cached state."
+local_first     = "The local graph, memory and workflow work offline with no telemetry. Local caches state their freshness and never grant remote fleet ownership. Decision-model output narrows and ranks; verify_cmd and graph checks decide."
+distributed_authority = "Remote fleet ownership requires the authenticated coordinator and PostgreSQL; a disconnected client cannot obtain or renew it from cached state."
 anchor_intent   = "Anchor what a reader could not derive from the code: purpose, contract, danger, pointer. Derivable comments are noise."
-generated_owners = "hyperfide spec render owns AGENTS.md and CLAUDE.md; hyperfide agentmd owns agent-context.md in the configured context directory (.hyperfide/context by default; legacy .codify is migrated with backups); hyperfide codemap owns CODEMAP.md."
 
 [loop]
-step_1 = "hyperfide brief — load repo state, active task, and prior decisions."
+step_1 = "hyperfide brief — load repo state, the active task and prior decisions."
 step_2 = "hyperfide spec next — take the lowest-wave eligible task."
-step_3 = "hyperfide spec start <id> — claim it."
-step_4 = "hyperfide survey <area> for the wide picture, then hyperfide context <area> — the code you need in one call."
-step_5 = "Implement remotely in an isolated task workspace. Anchor nonderivable intent and retain durable evidence; the main host supervises."
-step_6 = "hyperfide review — the change against its criteria; hyperfide guard for grounding, contract, and hygiene findings; hyperfide anchors --stale for docs your edits outdated."
-step_7 = "Create an explicit-path Git commit tagged [spec:<feature>/<id>]. Qualify the task, commit its lifecycle projection, and push its reviewed task branch after every task; retain Git publication credentials at the supervising gateway."
-step_8 = "hyperfide spec done <id> — qualification runs; done means proven."
+step_3 = "hyperfide spec start <id> — claim it in an isolated task worktree or sandbox."
+step_4 = "hyperfide survey <area> for the wide picture, then hyperfide context <area> for the code you need."
+step_5 = "Implement only the claimed task. When you need a secret, variable, permission, decision or answer, raise an Ask ([asks]) instead of defaulting."
+step_6 = "hyperfide review against the task's criteria; hyperfide guard for grounding, contract and hygiene; hyperfide anchors --stale for docs your edits outdated."
+step_7 = "Update the task status in the feature spec.kvx, then commit explicit paths with a message tagged [spec:<feature>/<id>]. Publication beyond the task branch follows [publication]."
+step_8 = "hyperfide spec done <id> — qualification reruns verify_cmd; done means proven."
 
 [memory]
-recall   = "hyperfide recall at session start; hyperfide brief includes it automatically."
-remember = "Persist decisions and constraints as they occur, not afterwards."
+recall   = "hyperfide recall at session start; hyperfide brief includes it."
+remember = "hyperfide remember decisions and constraints as they occur, not afterwards."
 
 [status_values]
-task = ["pending", "in_progress", "implemented", "done"]
+# blocked: the attempt has an open blocking Ask; the task is not eligible
+# for dependants, stop preserves it, and stall detection exempts it.
+task = ["pending", "in_progress", "blocked", "implemented", "done"]
+
+[human]
+# What the humans do; every other job belongs to agents.
+job_1 = "Create the idea and the feature spec together with an agent."
+job_2 = "Provide variables, secrets and permissions, and judge output by answering Asks."
+job_3 = "Test the finished running system; that test is the release gate and closes the feature."
+no_direct_commits = "Humans do not commit to the monorepo directly; their changes arrive through a spec task."
+
+[asks]
+# The one channel from an agent to a human. Per-kind deadlines and
+# escalation chains are the policy table of hyperfide-v21 task 3.6; these
+# are the defaults it starts from.
+kinds = ["secret", "variable", "permission", "decision", "question"]
+secret     = "block"
+variable   = "block"
+permission = "block"
+decision   = "proceed-and-flag"
+question   = "proceed-and-flag"
+shape = "An Ask carries its kind, the options with one recommended, a deadline, its default policy, an escalation chain and the task, attempt, session and sandbox it came from."
+block = "block: the task is blocked until the Ask is answered."
+proceed_and_flag = "proceed-and-flag: work continues on the recommended option; when the deadline passes unanswered, the default taken is recorded as a decision naming the Ask it replaced."
+
+[publication]
+cadence    = "Per wave: qualified task results publish together once the wave closes, never task by task."
+final_wave = "The last wave of every feature is docs, release and changelog."
+task_file  = "The feature spec.kvx task statuses are current before every commit."
 
 [hard_rules]
-no_fakes        = "Never fake a test to make it pass."
+no_fakes        = "Never fake or weaken a test to make it pass."
 no_false_done   = "Never mark a task done that did not qualify."
-declared_dependencies = "Additional dependencies are approved for Hyperfide under the versioned programme policy. Declare, pin and verify them; unrelated repository policies remain unchanged."
+no_silent_default = "Never default a secret, variable, permission or decision you were not given; raise an Ask."
 warn_dont_block = "New governance defaults to a warning. Blocking is opt-in."
 
 [render]
 markdown_mirror = false
 mirror_to_kiro  = false
 banner = "GENERATED by hyperfide spec render from spec/ kvx — DO NOT EDIT."
+# printed in every generated file, so a reader knows what owns which file
+generated_owners = "hyperfide spec render owns AGENTS.md and CLAUDE.md; hyperfide agentmd owns agent-context.md in the configured context directory (.hyperfide/context by default; legacy .codify is migrated with backups); hyperfide codemap owns CODEMAP.md."
 
 [adapters]
 claude = "CLAUDE.md"
