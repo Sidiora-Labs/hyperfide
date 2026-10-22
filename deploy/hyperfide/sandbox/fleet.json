@@ -1,0 +1,53 @@
+{
+  "env": {
+    "token": "HF_RAILWAY_API_TOKEN",
+    "environmentId": "HF_RAILWAY_ENV_ID",
+    "gatewayUrl": "HF_GATEWAY_URL",
+    "gatewayKeys": "HF_GATEWAY_KEYS",
+    "gatewayModel": "HF_GATEWAY_MODEL"
+  },
+  "defaultModel": "cx/gpt-6.1-sol",
+  "repo": null,
+  "mainBranch": "main",
+  "checkpoint": null,
+  "checkpointCommit": null,
+  "checkpointPrefix": "hf-base-",
+  "pool": { "prefix": "hf-w", "defaultSize": 20, "maxSize": 100 },
+  "resources": { "cpu": 4, "memoryGB": 8 },
+  "idleTimeoutMinutes": 120,
+  "workspace": "/work/hyperfide",
+  "shellPrefix": "export PATH=/root/.local/share/mise/shims:/usr/local/bin:$PATH; ",
+  "cap": 20,
+  "staggerMs": 1500,
+  "backoff": { "initialMs": 60000, "maxMs": 600000 },
+  "git": { "name": "Hyperfide Fleet", "email": "fleet@hyperfide.invalid" },
+  "base": {
+    "steps": [
+      ["clone", "rm -rf {W} && git clone -q /work/in/main.bundle {W} && cd {W} && git checkout -q -B main {commit} && git remote remove origin && rm -f /work/in/main.bundle && git rev-parse HEAD", 1800],
+      ["cg", "cd {W} && make -j\"$(nproc)\" cg >/work/logs/make.log 2>&1 && ./cg --version", 1800],
+      ["service", "cd {W}/services/hyperfide && npm ci --ignore-scripts >/work/logs/npm-ci.log 2>&1 && npm run build >/work/logs/npm-build.log 2>&1 && ls dist | head -1", 1800],
+      ["index", "cd {W} && ./cg init >/work/logs/init.log 2>&1 && tail -2 /work/logs/init.log", 3600],
+      ["tools", "codex --version && /usr/lib/postgresql/18/bin/initdb --version && node -v && python3 --version && git --version", 300]
+    ]
+  },
+  "probe": "cd {W} && ./cg --version && ls services/hyperfide/dist | head -1",
+  "prepare": "make -j\"$(nproc)\" cg >/work/out/{S}.prepare.log 2>&1 && (git diff --quiet {checkpointCommit} HEAD -- services/hyperfide/package-lock.json || npm --prefix services/hyperfide ci --ignore-scripts >>/work/out/{S}.prepare.log 2>&1) && npm --prefix services/hyperfide run build >>/work/out/{S}.prepare.log 2>&1",
+  "qualify": {
+    "cmd": "(./cg spec start -f {feature} {task} >/dev/null 2>&1 || true); HYPERFIDE_PG_BIN=/usr/lib/postgresql/18/bin CG_BUSY_TIMEOUT_MS=300000 python3 tests/hyperfide/support/withpg.py -- ./cg spec done -f {feature} {task}",
+    "timeoutSec": 3600
+  },
+  "codex": {
+    "bin": "codex",
+    "sandboxMode": "workspace-write",
+    "timeoutSec": 7200
+  },
+  "evidenceDirs": ["spec/{feature}/evidence", "artifacts"],
+  "paths": {
+    "jobs": "state/jobs",
+    "ledger": "state/ledger",
+    "bundles": "state/bundles",
+    "evidence": "state/evidence",
+    "packets": "state/packets",
+    "logs": "state/logs"
+  }
+}
