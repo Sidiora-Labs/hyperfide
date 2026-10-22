@@ -197,10 +197,10 @@ owner = "ci"
 
 [task.1.8]
 title = "Repair the two failing C suites and close the orphaned Codify tasks"
-status = "pending"
+status = "implemented"
 wave = 1
 requires = []
-touches = ["tests/integration/62_ast_managed.sh", "tests/integration/78_v16_release.sh", "spec/codify-v07.5/spec.kvx", "spec/codify-v11/spec.kvx"]
+touches = ["tests/integration/62_ast_managed.sh", "tests/integration/78_v16_release.sh", "tests/integration/55_watch_health.sh", "spec/codify-v07.5/spec.kvx", "spec/codify-v11/spec.kvx"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/62_ast_managed.sh && CG=$PWD/cg bash tests/integration/78_v16_release.sh"
 do_1 = "Fix the link flags in 62 and the version gate in 78 so both pass against the current build without weakening what they check."
 do_2 = "Run codify-v07.5 task 3.1's verify once and close it with cg spec done -f codify-v07.5; close codify-v11 task 7.2 as superseded by codify-v16 with the reason in its kvx."
