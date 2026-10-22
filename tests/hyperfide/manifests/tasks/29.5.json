@@ -2100,18 +2100,18 @@
     },
     {
       "path": "services/hyperfide/dist/preparation/slices.d.ts",
-      "sha256": "8e5f8bb564c20f23f742e210063fd4833e315c613406073316789e9f902fa3f5",
-      "size": 3970
+      "sha256": "9c81445cbee163e8a871f53d6e41a58cba7b53635387317be5f98f120d2e5207",
+      "size": 6565
     },
     {
       "path": "services/hyperfide/dist/preparation/slices.js",
-      "sha256": "738dab6afff37e1ea7f74d6f8ce27e2868804049c029dd67f9de2fbf804e92f0",
-      "size": 75284
+      "sha256": "3130bfe20b9506d132fe9a792f4a044baeccb58785a42736a3fffc8d0dc3f238",
+      "size": 82707
     },
     {
       "path": "services/hyperfide/dist/preparation/slices.js.map",
-      "sha256": "ffef116550c1c11d42509ecbf37b0c5281162796a9ac59919785334e917581d5",
-      "size": 75309
+      "sha256": "81713f9b3b0673ee64a1f1924f1b596f44f2bce91f9931e7b916b094b04d47e9",
+      "size": 82172
     },
     {
       "path": "services/hyperfide/dist/providers/blaxel/images.d.ts",
@@ -2565,18 +2565,18 @@
     },
     {
       "path": "services/hyperfide/dist/runner/executor.d.ts",
-      "sha256": "884fe9c142ae28bb20b2e652030efc5ceeba176a616efb1784ea85e139dc6dc0",
-      "size": 2487
+      "sha256": "70aebc1208d1c0361476a4528be6b2195a979ca95b6298778f709cebcfe6c9fa",
+      "size": 2886
     },
     {
       "path": "services/hyperfide/dist/runner/executor.js",
-      "sha256": "7df1b8e464d4fa790367890a7715ae33ccb968fd52eb49d689d35839b1a91d96",
-      "size": 60014
+      "sha256": "20434ce8c0d3f13eaa8c17a93f2735a14ff58d84b8743d303e14957c511a6fb1",
+      "size": 62080
     },
     {
       "path": "services/hyperfide/dist/runner/executor.js.map",
-      "sha256": "579ff72e8525d350ebac7e2977e48fa003e059245848acb7bc3077649ecf144d",
-      "size": 56488
+      "sha256": "b6fd6c0551c62147ee533fff39844b7000bf213a06dca580e18501d42fa40cdd",
+      "size": 58064
     },
     {
       "path": "services/hyperfide/dist/runner/preparation_receipts.d.ts",
