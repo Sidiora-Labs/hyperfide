@@ -906,7 +906,7 @@ owner = "ask"
 
 [task.4.8]
 title = "The integrator merge queue"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["3.8"]
 touches = ["services/hyperfide/src/integration/candidates.ts", "services/hyperfide/src/integration/closure.ts", "services/hyperfide/src/integration/queue.ts", "services/hyperfide/components/19.1-queue.json", "deploy/hyperfide/policies/control.example.json", "tests/fixtures/route_contract/server_only.txt", "tests/hyperfide/cases/v21/4_8.py"]
