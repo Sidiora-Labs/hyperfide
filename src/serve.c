@@ -6,7 +6,8 @@
  *   exec {args:[...]}               any cg command, as the CLI runs it
  *   cancel {id}                     stop an in-flight tools/call or exec
  *   subscribe {since?, kinds?}      push "events" notifications from seq
- *   snapshot {all?}                 the native agents now, and the head
+ *   snapshot {all?}                 the native agents and open Asks now,
+ *                                   and the head
  *   unsubscribe {subscription}, ping, shutdown
  *
  * Every call runs in a child process (this binary, re-executed), so a
@@ -247,7 +248,7 @@ static void serve_push(Cg *cg, Sub *s) {
 
 /* ---------------- snapshot (codify-v15 2.3) ---------------- */
 
-/* {head, native:[...], counts}: what an editor's refresh starts from. The
+/* {head, native:[...], asks:[...], counts}: what an editor's refresh starts from. The
  * rows are the same tree cg fleet tree --json carries; head is the event
  * sequence they are current to, so a client subscribes from it and folds
  * every agent.native.* event after it onto these rows. */
@@ -264,6 +265,11 @@ static void serve_snapshot(Cg *cg, const char *id, const char *params) {
     StrBuf r; sb_init(&r);
     sb_printf(&r, "{\"head\":%ld,\"native\":", head);
     native_tree_json(cg, &r);
+    /* open Asks (hyperfide-v21 3.4); ask.* events after head fold onto
+     * them. Read only: expiry is swept by `cg ask expire`, and each
+     * row says whether its deadline has passed (overdue). */
+    sb_puts(&r, ",\"asks\":");
+    ask_list_json(cg, false, NULL, &r);
     sb_printf(&r, ",\"counts\":{\"live\":%d,\"subagents\":%d,"
                   "\"worktree_branches\":%d}}", live, subs, brs);
     native_show_all = was;

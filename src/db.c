@@ -157,7 +157,21 @@ static const char *SCHEMA =
     "CREATE TABLE IF NOT EXISTS fleet_approvals("
     "  id INTEGER PRIMARY KEY, run TEXT, gate TEXT NOT NULL,"
     "  subject TEXT NOT NULL, state TEXT NOT NULL, requested INTEGER NOT NULL,"
-    "  requested_by TEXT, decided INTEGER, decided_by TEXT, note TEXT);"
+    "  requested_by TEXT, decided INTEGER, decided_by TEXT, note TEXT,"
+    "  ask_id INTEGER);"
+    /* Asks (hyperfide-v21 3.4): the head of each Ask, in the shape of the
+     * service's hyperfide.asks; options and chain are JSON arrays, state
+     * open|expired|answered, and the event log (ask.*) is its history */
+    "CREATE TABLE IF NOT EXISTS asks("
+    "  id INTEGER PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL,"
+    "  body TEXT, options TEXT NOT NULL DEFAULT '[]', recommended TEXT,"
+    "  deadline INTEGER, default_policy TEXT NOT NULL,"
+    "  chain TEXT NOT NULL DEFAULT '[]', task TEXT, attempt TEXT,"
+    "  session TEXT, sandbox TEXT, raised_by TEXT, raised INTEGER NOT NULL,"
+    "  state TEXT NOT NULL, answer TEXT, answered_by TEXT, answered INTEGER,"
+    "  decided_by_default INTEGER NOT NULL DEFAULT 0, decision INTEGER,"
+    "  note TEXT, state_version INTEGER NOT NULL DEFAULT 1, run TEXT);"
+    "CREATE INDEX IF NOT EXISTS idx_asks_state ON asks(state,deadline);"
     /* content hashes cached by nanosecond file metadata make lifecycle
      * revisions exact without re-reading every file on every heartbeat */
     "CREATE TABLE IF NOT EXISTS runtime_files("
@@ -623,6 +637,21 @@ int cg_schema_upgrade(Cg *cg) {
                 "ALTER TABLE files ADD COLUMN base TEXT;"
                 "UPDATE files SET base = replace(path, rtrim(path, "
                 "replace(path, '/', '')), '')", NULL, NULL, NULL);
+    }
+    /* hyperfide-v21 3.4 links a fleet approval to its permission Ask; a
+     * table created before then gains the column in place */
+    {
+        sqlite3_stmt *q = NULL;
+        bool have = true;
+        if (sqlite3_prepare_v2(cg->db, "SELECT 1 FROM pragma_table_info("
+                               "'fleet_approvals') WHERE name='ask_id'", -1,
+                               &q, NULL) == SQLITE_OK) {
+            have = sqlite3_step(q) == SQLITE_ROW;
+            sqlite3_finalize(q);
+        }
+        if (!have)
+            sqlite3_exec(cg->db, "ALTER TABLE fleet_approvals ADD COLUMN "
+                         "ask_id INTEGER", NULL, NULL, NULL);
     }
     /* NULL marks legacy rows: a first walk must verify their content before
      * trusting metadata. Do not backfill nanoseconds from whole seconds. */

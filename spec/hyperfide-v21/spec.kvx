@@ -528,7 +528,7 @@ owner = "ask"
 
 [task.3.4]
 title = "Asks in the C core"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = []
 touches = ["src/db.c", "src/fleet.c", "src/serve.c", "src/ask.c", "src/cg.h", "tests/integration/87_ask.sh"]

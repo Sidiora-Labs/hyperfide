@@ -470,6 +470,39 @@ static const HelpCmd HELP[] = {
   .detail = "Root, active task with its criteria, uncommitted paths, recent "
     "decisions, and whether CODEMAP.md is current.",
   .related = "resume,recall,spec next" },
+{ .group = "agentic", .name = "ask", .args = "raise|answer|list|expire",
+  .usage = "ask raise <kind> <title> [flags] | answer <id> <answer> "
+    "[-m note] | list [--all] [--task T] | expire",
+  .summary = "durable questions from an agent to a person",
+  .detail = "An Ask has a kind (secret, variable, permission, decision, "
+    "question), options with one recommended, a deadline, a default policy "
+    "and the task, attempt, session and sandbox it came from. [asks] in "
+    "the workflow sets the policy per kind: block keeps the task waiting "
+    "past the deadline; proceed-and-flag takes the recommended option and "
+    "records the default as a decision. Fleet approvals are permission "
+    "Asks. Events: ask.raised, ask.answered, ask.expired.",
+  .related = "fleet approvals,events" },
+{ .group = "agentic", .name = "ask raise", .args = "<kind> <title>",
+  .usage = "ask raise <kind> <title> [--body T] [--option O]... "
+    "[--recommend O] [--deadline 90s|5m|2h|1d|@EPOCH] [--chain a,b] "
+    "[--task T] [--attempt A] [--session S] [--sandbox S]",
+  .summary = "raise an Ask instead of picking a default",
+  .flags = "--option O\tone choice; repeat it (permission defaults to "
+    "approve, reject)\n"
+    "--recommend O\tthe recommended choice; required for decision and "
+    "question\n"
+    "--deadline D\twhen the default policy applies\n"
+    "--chain a,b\tthe escalation chain\n", .hide = true },
+{ .group = "agentic", .name = "ask answer", .args = "<id> <answer>",
+  .usage = "ask answer <id> <answer> [-m note]",
+  .summary = "answer an Ask (a secret takes secret-ref:<id>)", .hide = true },
+{ .group = "agentic", .name = "ask list", .args = "[--all] [--task T]",
+  .usage = "ask list [--all] [--task T]",
+  .summary = "open Asks, overdue ones marked; read only", .hide = true },
+{ .group = "agentic", .name = "ask expire", .args = "",
+  .usage = "ask expire",
+  .summary = "apply the default policy to Asks past their deadline",
+  .hide = true },
 { .group = "agentic", .name = "review", .args = "",
   .usage = "review",
   .summary = "changed symbols vs acceptance criteria + risk",
