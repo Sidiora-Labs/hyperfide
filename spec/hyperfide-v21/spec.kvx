@@ -297,7 +297,7 @@ owner = "providers"
 
 [task.2.4]
 title = "Fleet-wide stop with its own driver loop"
-status = "pending"
+status = "done"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/recovery/stop.ts", "tests/hyperfide/cases/v21/2_4.py"]
