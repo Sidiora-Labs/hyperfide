@@ -43,6 +43,33 @@ export const preparationCompatibilityVerifier:EnvironmentCompatibilityVerifier=a
  return{compatible:proof.compatible,evidence_digest:proof.evidence_digest};
 };
 
+/** Freshness bound for a runner heartbeat, the same 90 s runner/bridge.ts uses to refuse a
+ * runner as RUNNER_NOT_CURRENT; the console inventory must never call a sandbox LIVE that the
+ * bridge would refuse. */
+export const RUNNER_HEARTBEAT_MAX_AGE_SECONDS=90;
+export type SandboxLiveness='LIVE'|'LOST'|'QUARANTINED'|'ORPHANED'|'PENDING'|'RETIRED';
+export interface SandboxLivenessInput {
+ observed_state:string;desired_state:string;heartbeat_age_seconds:number|null;enrolled:boolean;
+ intent_states:readonly string[];latest_intent_state:string|null;credential_quarantined:boolean;
+}
+/** Read-only classification for the operator console (hyperfide-v21 5.2). It grants no
+ * placement, admission or deletion authority: placement still needs fresh enrollment proof. */
+export function classifySandbox(s:SandboxLivenessInput,maxAge=RUNNER_HEARTBEAT_MAX_AGE_SECONDS):{liveness:SandboxLiveness;reasons:string[]}{
+ const reasons:string[]=[];
+ if(s.intent_states.includes('QUARANTINED'))reasons.push('PROVISIONING_INTENT_QUARANTINED');
+ if(s.credential_quarantined)reasons.push('RUNNER_CREDENTIAL_QUARANTINED');
+ if(reasons.length)return{liveness:'QUARANTINED',reasons};
+ if(s.observed_state==='DESTROYED'||s.observed_state==='DESTROYING')return{liveness:'RETIRED',reasons:['OBSERVED_'+s.observed_state]};
+ const fresh=s.heartbeat_age_seconds!==null&&s.heartbeat_age_seconds>=0&&s.heartbeat_age_seconds<=maxAge;
+ if(fresh&&s.observed_state!=='FAILED')return{liveness:'LIVE',reasons:['HEARTBEAT_FRESH']};
+ if(s.heartbeat_age_seconds!==null&&!fresh)reasons.push('HEARTBEAT_STALE');
+ else if(s.heartbeat_age_seconds===null&&s.enrolled)reasons.push('HEARTBEAT_MISSING');
+ if(s.observed_state==='FAILED')reasons.push('OBSERVED_FAILED');
+ if(s.latest_intent_state==='UNKNOWN'||s.latest_intent_state==='RECONCILING')reasons.push('PROVIDER_OUTCOME_'+s.latest_intent_state);
+ if(reasons.length)return{liveness:'LOST',reasons};
+ return{liveness:'PENDING',reasons:['NOT_YET_ENROLLED']};
+}
+
 interface Target {name:'coordinator'|'git'|'artifact'|'model';url:string;header_name:string;header_prefix:string;credential_ref:string;expected_status:number;denied_statuses:number[];expected_body_sha256:string|null}
 interface ConnectivityConfig {schema_version:1;evidence_scope:'LIVE_POOL'|'COMPONENT_FIXTURE';targets:Target[];timeout_ms:number;maximum_attempts:number;base_backoff_ms:number;max_backoff_ms:number;proof_max_age_ms:number}
 async function connectivity(env:Readonly<NodeJS.ProcessEnv>):Promise<ConnectivityConfig>{

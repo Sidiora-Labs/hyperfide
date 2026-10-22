@@ -122,8 +122,7 @@ static void ask_row_json(sqlite3_stmt *st, long now, StrBuf *b) {
 #undef I
 }
 
-/* the row as JSON into b; false when there is no such Ask */
-static bool ask_json(Cg *cg, long id, StrBuf *b) {
+bool ask_json(Cg *cg, long id, StrBuf *b) {
     sqlite3_stmt *st = cg_prep(cg, "SELECT " ASK_COLS " FROM asks WHERE id=?");
     if (!st) return false;
     sqlite3_bind_int64(st, 1, id);
@@ -239,6 +238,7 @@ long ask_raise(Cg *cg, const AskSpec *a) {
         return -1;
     }
     ask_event(cg, "ask.raised", id);
+    spec_ask_transition(cg, id);
     return id;
 }
 
@@ -265,6 +265,7 @@ int ask_record_answer(Cg *cg, long id, const char *answer, const char *by,
         return have ? 0 : -1;
     }
     ask_event(cg, "ask.answered", id);
+    spec_ask_transition(cg, id);
     return 1;
 }
 

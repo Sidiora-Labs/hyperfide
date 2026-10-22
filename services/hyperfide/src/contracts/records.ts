@@ -36,7 +36,8 @@ export interface RunRecord {
 export interface TaskRecord extends Scope {
   id: UUID; task_key: string; feature_package_id: UUID; spec_revision_id: UUID; spec_generation: Generation;
   criteria_digest: Digest; definition: Record<string, unknown>; wave: number; state: string;
-  generation: string; state_version: Generation;
+  // Set only while state is BLOCKED on a waiting blocking Ask (migration 0710, D4).
+  blocked_ask?: UUID | null; generation: string; state_version: Generation;
 }
 export interface AttemptRecord extends Scope {
   id: UUID; task_id: UUID; generation: Generation; authority_epoch: UUID; input_packet_digest: Digest;
