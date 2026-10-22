@@ -318,7 +318,7 @@ owner = "recovery"
 
 [task.2.5]
 title = "Local supervisor waits for Asks and escalates to the configured main"
-status = "implemented"
+status = "done"
 wave = 2
 requires = []
 touches = ["src/orchestrate.c", "src/fleet.c", "tests/integration/84_supervisor_wait.sh"]
@@ -344,7 +344,7 @@ owner = "findings"
 
 [task.2.7]
 title = "stdio mode with the identity component loaded"
-status = "implemented"
+status = "done"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/components/service.ts", "services/hyperfide/src/components/registry.ts", "tests/hyperfide/cases/v21/2_7.py", "tests/hyperfide/cases/tasks/15_2.py"]
@@ -370,7 +370,7 @@ owner = "runner"
 
 [task.2.9]
 title = "Deploy the supervisory host and the issue watcher"
-status = "implemented"
+status = "done"
 wave = 2
 requires = []
 touches = ["deploy/hyperfide/supervisory-host.service", "deploy/hyperfide/issue-watcher.service", "deploy/hyperfide/bootstrap-host.mjs", "scripts/release.sh", "services/hyperfide/src/deployment/releases.ts", "tests/hyperfide/cases/v21/2_9.py", "deploy/hyperfide/env/supervisory-host.env.example", "deploy/hyperfide/env/issue-watcher.env.example", "deploy/hyperfide/config/supervisory-host.example.json", "deploy/hyperfide/config/main-budget.example.json", "deploy/hyperfide/config/issue-watcher.example.json", "deploy/hyperfide/policies/supervisory-host.example.json", "tests/hyperfide/cases/v21/1_6.py"]
