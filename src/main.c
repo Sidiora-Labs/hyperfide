@@ -1,6 +1,7 @@
 #include <stdio.h>
 extern int hf_client_authority_guard(const char *operation, FILE *output);
 extern int hf_client_dispatch(int argc,char **argv,FILE *out,FILE *err);
+extern int hf_client_json_output; /* main strips --json before the client sees argv */
 extern int hf_entrypoint_dispatch(int argc,char **argv);
 extern int hf_client_authority_guard_args(const char *operation,int argc,char **argv,FILE *output);
 /* Codify CLI — see README.md */
@@ -198,6 +199,7 @@ int main(int argc, char **argv) {
     }
 
     { int launcher_rc = hf_entrypoint_dispatch(argc,argv); if (launcher_rc >= 0) return host_hook ? 0 : launcher_rc; }
+    hf_client_json_output = json;
     { int remote_rc = hf_client_dispatch(argc,argv,stdout,stderr); if (remote_rc >= 0) return remote_rc; }
 
     /* spec works without .codegraph — dispatch before opening the graph */

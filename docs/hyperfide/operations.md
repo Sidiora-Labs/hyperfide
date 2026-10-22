@@ -295,6 +295,10 @@ Provider components: 8.2 provider.pools.*, 8.3 provider.intents.* and provider.o
 
 Remote work is prepared in a primary transaction, its intent is committed, then the opaque runner permit executes. No remote build occurs inside a PostgreSQL transaction. Unknown execution or cleanup remains unknown and retains capacity until reconciliation proves otherwise.
 
+### Hand-built Railway sandbox fleet (interim)
+
+Until the sandbox path of hyperfide-v21 4.2 to 4.4 lands, `deploy/hyperfide/sandbox/` drives Railway Sandboxes directly through the `railway` SDK. It runs from the main working tree and never uses GitHub. It does four things: builds a base checkpoint (`hf-base-<commit10>`), runs a pool of up to 100 workers, runs qualify jobs (`cg spec done -f hyperfide` on a throwaway PostgreSQL cluster) and Codex jobs (one v21 task each: approval never, codify MCP with the ask tools, one gateway key per sandbox), and lands each result as a local `sandbox/<id>` branch with its evidence archive and a READY or NOT-QUALIFIED verdict. It reads only `HF_RAILWAY_API_TOKEN`, `HF_RAILWAY_ENV_ID`, `HF_GATEWAY_URL`, `HF_GATEWAY_KEYS` and `HF_GATEWAY_MODEL`, and redacts them from every log. The README in that directory gives the supervisor's command sequence. `tests/integration/96_sandbox_toolkit.sh` proves it against a stub SDK.
+
 ### Internal object store and regional mirrors
 
 Sandboxes never clone or fetch from GitHub; GitHub receives only the publication projection. Source comes from an internal object store: a bare Git repository on your infrastructure, with a bare mirror in each provider region, reachable over that provider's private network (for Railway, a `*.railway.internal` host).
