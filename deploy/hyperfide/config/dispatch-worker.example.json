@@ -1,0 +1,19 @@
+{
+  "organisation_id": "REPLACE_WITH_ORGANISATION_UUID",
+  "run_id": "REPLACE_WITH_RUN_UUID",
+  "credential_id": "REPLACE_WITH_DISPATCH_CREDENTIAL_UUID",
+  "key_file": "/etc/hyperfide/dispatch-worker.key",
+  "ca_file": "/etc/hyperfide/control-ca.crt",
+  "control_origin": "https://REPLACE_WITH_CONTROL_TLS_NAME:REPLACE_WITH_PORT",
+  "consumer_ids": ["finding:manager", "finding:operator"],
+  "routes": [
+    {"aggregate_type": "finding", "event_type": "finding.*", "component": "6.2", "action": "inbox.receive", "input_mode": "DELIVERY"}
+  ],
+  "poll_ms": 1000,
+  "retry_ms": 30000,
+  "lease_ms": 30000,
+  "batch_size": 4,
+  "request_timeout_ms": 10000,
+  "credential_ttl_seconds": 3600,
+  "credential_renewal_ms": 600000
+}
