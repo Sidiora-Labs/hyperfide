@@ -287,6 +287,27 @@ static void snapshot_tree(const Cg *cg, Manifest *m, bool store) {
     sc_free(&fresh);
 }
 
+int vcs_worktree_files(const Cg *cg, VcsFile **out) {
+    VcsSnapshotStats kept = g_snap_stats;
+    Manifest m = {0};
+    snapshot_tree(cg, &m, false);
+    g_snap_stats = kept;
+    VcsFile *v = xmalloc(sizeof(VcsFile) * (size_t)(m.n ? m.n : 1));
+    for (int i = 0; i < m.n; i++) {
+        v[i].path = m.v[i].path;            /* ownership moves to the caller */
+        v[i].size = m.v[i].size;
+        snprintf(v[i].hash, sizeof v[i].hash, "%s", m.v[i].hash);
+    }
+    free(m.v);
+    *out = v;
+    return m.n;
+}
+
+void vcs_worktree_files_free(VcsFile *files, int n) {
+    for (int i = 0; i < n; i++) free(files[i].path);
+    free(files);
+}
+
 /* Which authority the built-in store answers to, read from cg->root. The
  * store serves local and offline-local work; under a distributed descriptor
  * (task 25.3) the distributed authority owns source snapshots and this store

@@ -8,8 +8,29 @@ from importlib.util import spec_from_file_location,module_from_spec
 spec=spec_from_file_location("sessions_probe",Path(__file__).with_name("13_2.py"));module=module_from_spec(spec);spec.loader.exec_module(module)
 AgentFixture,uid,sha,expect=module.AgentFixture,module.uid,module.sha,module.expect
 ROOT=module.ROOT
-# Installed native ELF payload (the npm codex.js shim is refused by 14.3 binary pinning).
-CODEX_ELF=Path(os.environ.get("HF_TEST_NATIVE_CODEX_BINARY","/root/.local/share/mise/installs/node/lts/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex"))
+# The installed native Codex ELF payload (the npm codex.js shim is refused by 14.3 binary pinning).
+# Sandbox workers run Codex (decision D21), so the case locates it, never pins a host path:
+# HF_TEST_NATIVE_CODEX_BINARY when set, else `codex` on PATH or the native payload its npm shim ships.
+def is_elf(path):
+    try:return path.is_file() and path.open("rb").read(4)==b"\x7fELF"
+    except OSError:return False
+def locate_codex():
+    explicit=os.environ.get("HF_TEST_NATIVE_CODEX_BINARY")
+    if explicit:
+        path=Path(explicit)
+        return (path,None) if is_elf(path) else (None,"HF_TEST_NATIVE_CODEX_BINARY names no native ELF: "+explicit)
+    import shutil
+    found=shutil.which("codex")
+    if not found:return None,"codex is not on PATH and HF_TEST_NATIVE_CODEX_BINARY is unset"
+    path=Path(found).resolve()
+    if is_elf(path):return path,None
+    # npm layout: <pkg>/bin/codex.js beside <pkg>/vendor/<triple>/... or an optional
+    # @openai/codex-<platform> dependency under <pkg>/node_modules.
+    package=path.parent.parent
+    payloads=sorted(p for p in package.rglob("codex") if "vendor" in p.parts and is_elf(p))
+    if payloads:return payloads[0],None
+    return None,"codex on PATH ("+found+") ships no native ELF payload; set HF_TEST_NATIVE_CODEX_BINARY"
+CODEX_ELF,CODEX_ABSENT=locate_codex()
 RUN_POLICY=sha(b"policy")  # IdentityFixture's approved run policy digest
 DISPATCH_COMPONENTS=["3.1","4.1","2.1","2.4","7.2","7.3","3.2","6.1","5.1","5.2","6.2","6.3","12.2","13.4-dispatch"]
 os.umask(0o077)  # trusted configuration files must be owner-only
@@ -40,7 +61,7 @@ class AdmissionFixture(AgentFixture):
         try:super().__init__(admission=True)
         finally:OWNER.remove(self)
     def adapt(self,f):
-        expect(CODEX_ELF.is_file() and CODEX_ELF.read_bytes()[:4]==b"\x7fELF","installed native Codex ELF payload unavailable")
+        expect(CODEX_ELF is not None and is_elf(CODEX_ELF),"installed native Codex ELF payload unavailable")
         self.profile=dict(self.profile,binary=dict(self.profile["binary"],path=str(CODEX_ELF),digest=sha(CODEX_ELF.read_bytes())),configured_account_key="fixture-account")
         self.profile_path.write_text(json.dumps({"schema_version":1,"profiles":[self.profile]}))
         self.configuration=sha(canonical(self.profile))
@@ -144,6 +165,8 @@ def classifier_table():
     expect(all(value["results"]) and len(value["results"])==len(SIGNALS) and value["invalid"],"native signal classification wrong: "+str([i for i,ok in enumerate(value["results"]) if not ok]))
 
 def main():
+    if CODEX_ELF is None:
+        print("SKIP: "+CODEX_ABSENT,flush=True);return 77
     f=None
     try:
         check('admission.main-startup-sizing-only',startup_budget)

@@ -688,6 +688,14 @@ int vcs_commits_for_path(Cg *cg, const char *path, int limit, char ***ids,
 typedef struct { long files, hashed, cached; } VcsSnapshotStats;
 void vcs_snapshot_stats(VcsSnapshotStats *out);
 const char *vcs_store_mode(const Cg *cg, bool *authoritative);
+/* the working tree's files and content hashes through the store's stat
+ * cache, sorted by path (task hyperfide-v21/3.24: the runtime workspace
+ * revision reads this instead of keeping a second cache); returns the count,
+ * *out freed with vcs_worktree_files_free. Leaves vcs_snapshot_stats as the
+ * last snapshot set them. */
+typedef struct { char *path; long size; char hash[65]; } VcsFile;
+int vcs_worktree_files(const Cg *cg, VcsFile **out);
+void vcs_worktree_files_free(VcsFile *files, int n);
 
 /* ---------------- agent memory (memories table in graph.db) ---------- */
 typedef struct {
