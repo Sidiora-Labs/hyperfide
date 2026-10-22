@@ -55,7 +55,7 @@ EOF
     chmod +x "$TMP/oldcg"
     cat > "$TMP/delayedcg" <<EOF
 #!/bin/sh
-[ "\$1" = serve ] && { (sleep 0.03; echo "cg: unknown command 'serve'" >&2) & exit 1; }
+[ "\$1" = serve ] && { w=\$\$; (while kill -0 "\$w" 2>/dev/null; do :; done; echo "cg: unknown command 'serve'" >&2) & exit 1; }
 exec "$CG" "\$@"
 EOF
     chmod +x "$TMP/delayedcg"
@@ -66,6 +66,25 @@ const { ServeClient, liveModel, applyEvent } = require(path.join(dir, 'serve.js'
 const { patchRows, mergeTasks } = require(path.join(dir, 'tasks.js'));
 const check = (c, w) => { if (!c) throw new Error(w); };
 const cgRun = (...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8' });
+/* The patch is applied in the call itself: no promise comes back, and no
+ * process or server round trip can happen inside it (every child_process
+ * entry point and the given client's request throw while it runs). That is
+ * the property "instant" stood for; a stopwatch on a loaded host is not. */
+const synchronously = (fn, client) => {
+    const cpm = require('child_process'), saved = {}, names = ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork'];
+    const trip = (n) => () => { throw new Error(`the patch made a round trip (${n})`); };
+    for (const n of names) { saved[n] = cpm[n]; cpm[n] = trip(n); }
+    const req = client && client.request;
+    if (client) client.request = trip('serve request');
+    try {
+        const out = fn();
+        if (out && typeof out.then === 'function') throw new Error('the patch returned a promise');
+        return out;
+    } finally {
+        for (const n of names) cpm[n] = saved[n];
+        if (client) client.request = req;
+    }
+};
 
 (async () => {
     const logs = [];
@@ -88,33 +107,44 @@ const cgRun = (...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8' });
     const model = liveModel();
     const rows = mergeTasks(null, JSON.parse(cgRun('spec', 'trace', '--json').stdout),
                             JSON.parse(st.stdout), null);
-    const events = [];
-    let lastAt = 0;
-    c.on('event', (ev) => { events.push(ev); lastAt = Date.now(); });
+    const events = [], arrived = new Map();
+    c.on('event', (ev) => { events.push(ev); arrived.set(ev, Date.now()); });
     await c.subscribe();
     const before = events.length;
 
-    // a claim from another process reaches the row within 300 ms
+    // A claim from another process is pushed, not found by the server's
+    // 1 s safety re-check. Wall time on a loaded host says little alone, so
+    // the budget is 300 ms plus four of this run's own round trips through
+    // the same server (a snapshot: wake, database read, write, parse),
+    // measured before and after; a server that sat on the change until its
+    // next poll still misses it on an idle host.
+    const roundTrip = async () => { const s = Date.now(); await c.snapshot(); return Date.now() - s; };
+    const trips = [];
+    for (let i = 0; i < 5; i++) trips.push(await roundTrip());
     const t0 = Date.now();
     const r = cgRun('spec', 'claim', '2.1', '--agent', 'w9');
     check(r.status === 0, `claim: ${r.stderr}`);
     const claimAt = Date.now();
-    while (!events.slice(before).some((e) => e.kind === 'claim') && Date.now() - t0 < 3000)
+    while (!events.slice(before).some((e) => e.kind === 'claim') && Date.now() - t0 < 10000)
         await new Promise((res) => setTimeout(res, 5));
     const claim = events.slice(before).find((e) => e.kind === 'claim');
     check(claim, 'claim event pushed');
-    check(lastAt - claimAt < 300, `event took ${lastAt - claimAt} ms`);
+    for (let i = 0; i < 5; i++) trips.push(await roundTrip());
+    trips.sort((a, b) => a - b);
+    const budget = 300 + 4 * trips[trips.length >> 1];
+    const took = arrived.get(claim) - claimAt;
+    check(took < budget, `event took ${took} ms, budget ${budget} ms (median round trip ${trips[trips.length >> 1]} ms)`);
     const applied = applyEvent(model, claim);
     check(applied.view === 'tasks' && applied.task === '2.1' && applied.feature === 'sv', 'reducer');
-    const p0 = Date.now();
-    const row = patchRows(rows, 'sv', applied);
-    check(row && row.agent === 'w9' && row.claim.agent === 'w9', 'row patched');
-    check(Date.now() - p0 < 50, 'patch is instant');
+    // the row is right when patchRows returns: synchronous, no round trip
+    const row = synchronously(() => patchRows(rows, 'sv', applied), c);
+    check(row && row.agent === 'w9' && row.claim.agent === 'w9', 'row patched in the call (patch is instant)');
     check(model.claims['sv/2.1'].agent === 'w9', 'model holds the claim');
 
     // start moves the status; release clears the claim; other features are ignored
     cgRun('spec', 'start', '2.1');
-    while (!events.some((e) => e.kind === 'task.status' && e.payload.status === 'in_progress') && Date.now() - t0 < 3000)
+    const t1 = Date.now();
+    while (!events.some((e) => e.kind === 'task.status' && e.payload.status === 'in_progress') && Date.now() - t1 < 10000)
         await new Promise((res) => setTimeout(res, 5));
     const stEv = events.find((e) => e.kind === 'task.status' && e.payload.status === 'in_progress');
     check(patchRows(rows, 'sv', applyEvent(model, stEv)).status === 'in_progress', 'status patched');
@@ -134,23 +164,37 @@ const cgRun = (...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8' });
     let reconnected = false;
     c.on('reconnect', () => { reconnected = true; });
     c.proc.kill('SIGKILL');
-    for (let i = 0; i < 100 && !reconnected; i++) await new Promise((res) => setTimeout(res, 50));
+    // waits for completion, not a latency claim: bounded only so a hang fails
+    for (let i = 0; i < 200 && !reconnected; i++) await new Promise((res) => setTimeout(res, 50));
     check(reconnected && c.ready, 'reconnected after the server died');
     cgRun('spec', 'release', '2.1', '--agent', 'w9');
     const n = events.length;
-    for (let i = 0; i < 100 && events.length === n; i++) await new Promise((res) => setTimeout(res, 20));
+    for (let i = 0; i < 500 && !events.slice(n).some((e) => e.kind === 'release'); i++) await new Promise((res) => setTimeout(res, 20));
     check(events.slice(n).some((e) => e.kind === 'release'), 'events flow again after a reconnect');
     c.dispose();
 
-    // an older cg: start() is false, unsupported is set, nothing lingers
-    const old = new ServeClient(OLD, cwd, () => {});
-    check(await old.start() === false, 'old cg: start is false');
-    check(old.unsupported === true, 'old cg: reported as unsupported');
-    check(old.proc === null, 'old cg: no process left');
-    old.dispose();
-    // The wrapper exits before its child writes stderr, so exit and stream
+    // an older cg: start() is false, unsupported is set, nothing lingers.
+    // Three runs time a whole old-cg lifecycle on this host as it is now.
+    const lifecycles = [];
+    for (let i = 0; i < 3; i++) {
+        const old = new ServeClient(OLD, cwd, () => {});
+        const s0 = Date.now();
+        check(await old.start() === false, 'old cg: start is false');
+        lifecycles.push(Date.now() - s0);
+        check(old.unsupported === true, 'old cg: reported as unsupported');
+        check(old.proc === null, 'old cg: no process left');
+        old.dispose();
+    }
+    // The wrapper exits before its child writes stderr (the child waits for
+    // the reaped exit, no fixed delay), so exit and stream
     // closure occur in a known order. Unsupported detection must drain it.
+    // The child still needs the CPU once after the reap, so the drain window
+    // is the client's 100 ms plus four of this run's measured lifecycles: on
+    // a loaded host the window follows the host, and a client that does not
+    // wait for the stream at all fails however long the window is.
     const delayed = new ServeClient(DELAYED, cwd, () => {});
+    lifecycles.sort((a, b) => a - b);
+    delayed.drainMs = Math.max(delayed.drainMs, 100 + 4 * lifecycles[1]);
     check(await delayed.start() === false, 'delayed old cg: start is false');
     check(delayed.unsupported === true, 'delayed old cg: reported as unsupported');
     check(delayed.proc === null, 'delayed old cg: no process left');
@@ -273,10 +317,14 @@ const evs = run('events', '--kind', 'supervisor.,orch.spawn,agent.', '-n', '300'
 for (const e of evs) applyEvent(live, e);
 check(live.agents['w-st-2.1'] && live.agents['w-st-2.1'].last === 'Bash make test', 'the agent\'s last step is in the live model');
 check(Math.abs(live.agents['w-st-2.1'].cost - 0.42) < 1e-9, 'its cost too');
-const t0 = Date.now();
-liveDecorate(model, { live, events: evs.filter((e) => /^(supervisor\.|orch\.)/.test(e.kind)),
-                      runs: json('fleet', 'runs', '--json'), approvals: json('fleet', 'approvals', '--json') });
-check(Date.now() - t0 < 300, 'decoration is instant');
+// what cg answers is read first; only the decoration itself is timed, in
+// CPU time, so neither two cg spawns nor a loaded host count against it
+const decorateInput = { live, events: evs.filter((e) => /^(supervisor\.|orch\.)/.test(e.kind)),
+                        runs: json('fleet', 'runs', '--json'), approvals: json('fleet', 'approvals', '--json') };
+const d0 = process.cpuUsage();
+liveDecorate(model, decorateInput);
+const dcpu = process.cpuUsage(d0);
+check((dcpu.user + dcpu.system) / 1000 < 300, `decoration is instant (${Math.round((dcpu.user + dcpu.system) / 1000)} ms CPU)`);
 const find = (n, pred, out = []) => { if (!n) return out; if (pred(n)) out.push(n); for (const c of n.children || []) find(c, pred, out); return out; };
 const worker = find(model.main, (n) => n.agent === 'w-st-2.1')[0];
 check(worker, 'the claimed worker is in the tree: ' + JSON.stringify(model.main).slice(0, 400));
@@ -378,11 +426,17 @@ const real = approvalCard({ payload: { id: pending[0].id, gate: pending[0].gate,
 check(/open the pull request for fc/.test(real.title) && real.options.length === 2, real.title);
 
 // ---- the window at ten thousand entries
+// the window's cost is the work it does, read as this process's CPU time:
+// a loaded host stretches wall time, not the work. The best of three runs
+// drops a stray collection; a window that redoes the transcript per push
+// costs seconds here, a sound one a few milliseconds.
+const pushCpu = (n) => { const x = new Window(400, 200), c0 = process.cpuUsage();
+                         for (let i = 0; i < n; i++) x.push({ i });
+                         const c = process.cpuUsage(c0); return (c.user + c.system) / 1000; };
+const took = Math.min(pushCpu(10000), pushCpu(10000), pushCpu(10000));
+check(took < 200, `10000 pushes took ${took.toFixed(1)} ms CPU`);
 const w = new Window(400, 200);
-const t0 = Date.now();
 for (let i = 0; i < 10000; i++) w.push({ i });
-const took = Date.now() - t0;
-check(took < 200, `10000 pushes took ${took} ms`);
 check(w.shown.length === 400 && w.hiddenCount === 9600 && w.size === 10000, `window ${w.shown.length}/${w.hiddenCount}`);
 check(w.shown[0].i === 9600 && w.shown[399].i === 9999, 'the newest stay');
 const back = w.expand();
@@ -418,24 +472,29 @@ JS
     [ $? -eq 0 ] || fail "chat wiring"
 fi
 
-# ---- pushed cards (hyperfide-v21 1.12): the chat registers before the serve
-#      connection exists; an approval.request the real cg raises, pushed by
-#      the real cg serve, still becomes a card in the sidebar chat, once,
-#      and keeps doing so after a reconnect
+# ---- pushed cards (hyperfide-v21 1.12, 3.13): the real extension.js
+#      activate() runs against a stubbed vscode module and the real cg. The
+#      chat registers and its view resolves before the serve connection
+#      exists; an approval.request the real cg raises, pushed by the real cg
+#      serve, must still become a card in the sidebar chat, once, and the
+#      decision must arrive after the server dies and the client reconnects.
+#      A mutant copy of extension.js without its acpApi.watchEvents() calls
+#      must draw no card, so the check cannot pass on wiring it never ran.
 if want pushed; then
-    rm -rf "$TMP/pc"; mkdir -p "$TMP/pc/src" "$TMP/pc/lib"; cd "$TMP/pc"
-    git init -q -b main . 2>/dev/null || git init -q .
-    git config user.email t@t; git config user.name t
-    printf 'export function alpha(): number {\n  return 1;\n}\n' > src/a.ts
-    printf 'export function beta(): number {\n  return 3;\n}\n' > lib/b.ts
-    "$CG" spec new pc >/dev/null
-    "$CG" spec docs off >/dev/null
-    "$CG" spec start 1.1 >/dev/null; "$CG" spec done 1.1 >/dev/null
-    "$CG" spec mode parallel >/dev/null
-    "$CG" spec add 2.1 --title "Alpha" --wave 1 --reqs 1.1 --symbols alpha --touches 'src/a.ts' >/dev/null
-    "$CG" init >/dev/null
-    printf '.codegraph/\n*.lock\n' > .gitignore
-    cat >> spec/workflow.kvx <<'EOF'
+    pcsetup() {
+        rm -rf "$1"; mkdir -p "$1/src" "$1/lib"; cd "$1" || return 1
+        git init -q -b main . 2>/dev/null || git init -q .
+        git config user.email t@t; git config user.name t
+        printf 'export function alpha(): number {\n  return 1;\n}\n' > src/a.ts
+        printf 'export function beta(): number {\n  return 3;\n}\n' > lib/b.ts
+        "$CG" spec new pc >/dev/null
+        "$CG" spec docs off >/dev/null
+        "$CG" spec start 1.1 >/dev/null; "$CG" spec done 1.1 >/dev/null
+        "$CG" spec mode parallel >/dev/null
+        "$CG" spec add 2.1 --title "Alpha" --wave 1 --reqs 1.1 --symbols alpha --touches 'src/a.ts' >/dev/null
+        "$CG" init >/dev/null
+        printf '.codegraph/\n*.lock\n' > .gitignore
+        cat >> spec/workflow.kvx <<'EOF'
 
 [hierarchy]
 test_gate = "true"
@@ -445,82 +504,101 @@ pr        = "manual"
 branch  = "wave/{feature}/{wave}"
 approve = ["drift"]
 EOF
-    git add -A >/dev/null; git commit -qm base >/dev/null
-    pcproj="$(pwd -P)"
-    "$CG" fleet begin 2.1 >/dev/null || fail "pushed: fleet begin"
-    (
-        cd "$pcproj/.codegraph/worktrees/wave-pc-1" || exit 1
-        CG_AGENT=w-pc-1 CG_ROLE=worker CG_PARENT=fm-pc CG_BASE=feature/pc "$CG" spec start 2.1 >/dev/null
-        printf 'export function alpha(): number {\n  return 7;\n}\n' > src/a.ts
-        printf 'export function beta(): number {\n  return 8;\n}\n' > lib/b.ts
-        CG_AGENT=w-pc-1 CG_BASE=feature/pc "$CG" spec done 2.1 >/dev/null 2>&1
-        git add -A >/dev/null; git commit -qm "alpha [spec:pc/2.1]" >/dev/null
-        "$CG" sync >/dev/null
-    ) || fail "pushed: the drifting wave"
-    cd "$pcproj"
-    node - "$EXT" "$CG" "$pcproj" <<'JS'
-const path = require('path'), cp = require('child_process');
-const Module = require('module');
-const [dir, CG, cwd] = process.argv.slice(2);
+        git add -A >/dev/null; git commit -qm base >/dev/null
+        local proj; proj="$(pwd -P)"
+        "$CG" fleet begin 2.1 >/dev/null || return 1
+        (
+            cd "$proj/.codegraph/worktrees/wave-pc-1" || exit 1
+            CG_AGENT=w-pc-1 CG_ROLE=worker CG_PARENT=fm-pc CG_BASE=feature/pc "$CG" spec start 2.1 >/dev/null
+            printf 'export function alpha(): number {\n  return 7;\n}\n' > src/a.ts
+            printf 'export function beta(): number {\n  return 8;\n}\n' > lib/b.ts
+            CG_AGENT=w-pc-1 CG_BASE=feature/pc "$CG" spec done 2.1 >/dev/null 2>&1
+            git add -A >/dev/null; git commit -qm "alpha [spec:pc/2.1]" >/dev/null
+            "$CG" sync >/dev/null
+        ) || return 1
+        cd "$proj"
+    }
+    cat > "$TMP/pushed.js" <<'JS'
+'use strict';
+const path = require('path'), cp = require('child_process'), Module = require('module');
+const [dir, CG, cwd, mode] = process.argv.slice(2);
 const check = (c, w) => { if (!c) throw new Error(w); };
 const run = (env, ...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8', env: { ...process.env, ...env } });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (pred, ms) => { const end = Date.now() + ms; while (!pred() && Date.now() < end) await sleep(20); return pred(); };
 
-let provider = null;
-const stub = {
-    window: {
-        registerWebviewViewProvider: (id, p) => { if (id === 'codifyAgentView') provider = p; return { dispose() {} }; },
-        showInformationMessage: () => {}, showWarningMessage: () => {}, showErrorMessage: () => {},
-    },
-    commands: { registerCommand: () => ({ dispose() {} }), executeCommand: async () => {} },
-    workspace: { getConfiguration: () => ({ get: (k, d) => d, update: async () => {} }) },
-    env: { clipboard: { writeText() {} } },
-    Uri: { file: (p) => ({ fsPath: p }), parse: (u) => ({ url: u }) },
-    ConfigurationTarget: { Global: 1 },
-};
-const load = Module._load;
-Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
-const acp = require(path.join(dir, 'acp.js'));
-const { ServeClient } = require(path.join(dir, 'serve.js'));
-
-/* extension.js's own wiring, in shape: a fan list the serve client feeds,
- * and an availability that is false until it connects */
-let serveClient = null;
-const eventFans = [];
-const ctx = { subscriptions: [], workspaceState: { get: (k, d) => d, update: async () => {} } };
-const api = acp.register(ctx, {
-    cg: async () => ({ code: 1, stdout: '', stderr: '' }), cgJson: async () => null,
-    binary: () => CG, refresh: () => {}, workspaceRoot: () => cwd, startTerminal: () => {},
-    events: {
-        available: () => !!(serveClient && serveClient.ready),
-        on: (fn) => { eventFans.push(fn); return () => { const i = eventFans.indexOf(fn); if (i >= 0) eventFans.splice(i, 1); }; },
-    },
-});
-check(provider, 'the agent view is registered');
+/* Any vscode member the extension touches and this test does not observe
+ * is an inert callable; the members the test observes are real. */
+function auto() {
+    const kids = new Map();
+    return new Proxy(function () {}, {
+        get(t, k) {
+            if (Object.prototype.hasOwnProperty.call(t, k)) return t[k];
+            if (k === 'then') return undefined;
+            if (k === Symbol.toPrimitive) return () => '';
+            if (k === Symbol.iterator) return function* () {};
+            if (typeof k === 'symbol') return undefined;
+            if (!kids.has(k)) kids.set(k, auto());
+            return kids.get(k);
+        },
+        apply: () => auto(),
+        construct: () => auto(),
+    });
+}
+function stubbed(over) {
+    return new Proxy(over, { get(t, k) { if (k in t) return t[k]; if (k === 'then' || typeof k === 'symbol') return undefined; return (t[k] = auto()); } });
+}
+class EventEmitter {
+    constructor() { this.fns = []; this.event = (fn) => { this.fns.push(fn); return { dispose() {} }; }; }
+    fire(v) { for (const fn of this.fns) fn(v); }
+    dispose() {}
+}
 const posted = [];
 const view = {
     webview: { cspSource: 'x', options: {}, html: '', postMessage: (m) => { posted.push(m); return Promise.resolve(true); },
-               onDidReceiveMessage: () => ({ dispose() {} }) },
-    onDidDispose: () => ({ dispose() {} }),
+               onDidReceiveMessage: () => ({ dispose() {} }), asWebviewUri: (u) => u },
+    onDidDispose: () => ({ dispose() {} }), onDidChangeVisibility: () => ({ dispose() {} }), visible: true,
 };
-provider.resolveWebviewView(view);
-// the bug's precondition: register ran with no connection, so nothing listens
-check(eventFans.length === 0, `a listener before serve is up: ${eventFans.length}`);
-check(typeof api.watchEvents === 'function' && api.watchEvents() === false, 'no connection, no watcher');
-check(eventFans.length === 0, 'still nothing without a connection');
+let chatView = null, resolvedBeforeServe = null, activated = false;
+const serves = [];
+const settings = { languageServer: false, serve: true };
+const configuration = () => ({ get: (k, d) => (k in settings ? settings[k] : d), inspect: (k) => (k === 'binaryPath' ? { globalValue: CG } : undefined), update: async () => {} });
+const vscode = stubbed({
+    EventEmitter,
+    window: stubbed({
+        registerWebviewViewProvider: (id, p) => {
+            if (id === 'codifyAgentView') {
+                chatView = p;
+                /* the view opens while activate() still waits on serve's
+                 * initialize, which needs I/O and cannot have answered yet */
+                queueMicrotask(() => { resolvedBeforeServe = !activated; p.resolveWebviewView(view); });
+            }
+            return { dispose() {} };
+        },
+        state: { focused: false },
+    }),
+    workspace: stubbed({ workspaceFolders: [{ uri: { fsPath: cwd } }], getConfiguration: configuration }),
+    commands: stubbed({ registerCommand: () => ({ dispose() {} }), executeCommand: async () => {} }),
+});
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? vscode : load.apply(this, arguments); };
+/* the one handle the test needs on the extension's private ServeClient:
+ * its process, to kill it and watch the reconnect spawn the next */
+const spawn = cp.spawn;
+cp.spawn = function (bin, args) { const p = spawn.apply(this, arguments); if (Array.isArray(args) && args[0] === 'serve') serves.push(p); return p; };
+process.on('unhandledRejection', (e) => console.error('unhandled (stubbed UI): ' + (e && e.message)));
 
 (async () => {
-    serveClient = new ServeClient(CG, cwd, () => {});
-    check(await serveClient.start() === true, 'serve against the real cg');
-    serveClient.on('event', (ev) => { for (const fn of eventFans) fn(ev); });
-    check(api.watchEvents() === true && eventFans.length === 1, 'the watcher is installed once serve is up');
-    check(api.watchEvents() === true && eventFans.length === 1, 'a second call does not install twice');
-    let reconnected = 0;
-    serveClient.on('reconnect', () => { reconnected++; api.watchEvents(); });
-    await serveClient.subscribe();
-
+    const ext = require(path.join(dir, 'extension.js'));
+    const ctx = { subscriptions: [], workspaceState: { get: (k, d) => d, update: async () => {} }, globalState: { get: (k, d) => d, update: async () => {} },
+                  extensionPath: dir, extensionUri: { fsPath: dir } };
+    await ext.activate(ctx);
+    activated = true;
+    check(chatView && resolvedBeforeServe === true, 'the chat view resolved before serve connected');
+    check(serves.length === 1 && serves[0].exitCode === null, `activate connected one cg serve (${serves.length})`);
     const cards = () => posted.filter((m) => m.type === 'approval');
-    // negative: an unrelated pushed event draws no card
+
+    // an unrelated pushed event draws no card
     run({}, 'spec', 'claim', '1.1', '--agent', 'w-x');
     await sleep(300);
     check(cards().length === 0, 'a claim drew a card');
@@ -529,30 +607,41 @@ check(eventFans.length === 0, 'still nothing without a connection');
     const m = run({ CG_ROLE: 'worker', CG_AGENT: 'w-pc-1' }, 'fleet', 'merge-up', '2.1');
     check(m.status === 4, `merge-up should wait for approval (4), got ${m.status}: ${m.stderr}`);
     const id = JSON.parse(run({}, 'fleet', 'approvals', '--json').stdout).approvals[0].id;
-    for (let i = 0; i < 150 && !cards().length; i++) await sleep(20);
+    if (mode === 'mutant') {
+        /* the same window the real run gets */
+        await until(() => cards().length > 0, 3000);
+        check(cards().length === 0, 'an extension that never installs the watcher still drew a card');
+        console.log('mutant drew no card');
+        process.exit(0);
+    }
+    check(await until(() => cards().length > 0, 3000), 'no card after the request');
     const c = cards();
-    check(c.length === 1, `cards after the request: ${c.length}`);
-    check(c[0].id === id && /drift/.test(c[0].title) && c[0].options.length === 2, JSON.stringify(c[0]));
+    check(c.length === 1 && c[0].id === id && /drift/.test(c[0].title) && c[0].options.length === 2, JSON.stringify(c));
 
-    // the server dies; after the reconnect the decision still arrives, once
-    serveClient.proc.kill('SIGKILL');
-    for (let i = 0; i < 100 && !reconnected; i++) await sleep(50);
-    check(reconnected && serveClient.ready, 'reconnected');
-    check(eventFans.length === 1, `listeners after a reconnect: ${eventFans.length}`);
+    // the server dies; activate()'s reconnect handler brings it back and the decision still arrives, once
+    serves[0].kill('SIGKILL');
+    check(await until(() => serves.length === 2, 10000), 'no reconnect spawned a new cg serve');
     check(run({}, 'fleet', 'approve', String(id)).status === 0, 'approve');
     const done = () => posted.filter((x) => x.type === 'approval_done' && x.id === id);
-    for (let i = 0; i < 150 && !done().length; i++) await sleep(20);
+    check(await until(() => done().length > 0, 5000), 'the decision did not arrive after the reconnect');
     await sleep(200);
     check(done().length === 1 && done()[0].answer === 'approved', `decided after reconnect: ${JSON.stringify(done())}`);
     check(cards().length === 1, 'no duplicate card');
-    serveClient.dispose();
     console.log('pushed cards ok');
     process.exit(0);
 })().catch((e) => { console.error(e.stack || e); process.exit(1); });
 JS
-    [ $? -eq 0 ] || fail "pushed cards"
+    pcsetup "$TMP/pc" || fail "pushed: project setup"
+    node "$TMP/pushed.js" "$EXT" "$CG" "$(pwd -P)" real || fail "pushed cards"
 
-    # the extension installs the watcher once connected and again on reconnect
+    # the mutation: the same extension without its watchEvents() calls
+    rm -rf "$TMP/extmut"; cp -R "$EXT" "$TMP/extmut"
+    sed -i 's/acpApi\.watchEvents();//g' "$TMP/extmut/extension.js"
+    ! grep -q 'acpApi\.watchEvents()' "$TMP/extmut/extension.js" || fail "pushed: mutant still calls watchEvents"
+    pcsetup "$TMP/pcm" || fail "pushed: mutant project setup"
+    node "$TMP/pushed.js" "$TMP/extmut" "$CG" "$(pwd -P)" mutant || fail "pushed: the check passes without the wiring it tests"
+
+    # the extension installs the watcher once, when connected
     node - "$EXT" <<'JS'
 const fs = require('fs'), path = require('path');
 const ext = fs.readFileSync(path.join(process.argv[2], 'extension.js'), 'utf8');
@@ -560,7 +649,9 @@ const check = (c, w) => { if (!c) throw new Error(w); };
 const up = ext.indexOf('if (await serveClient.start())');
 const watch = ext.indexOf('acpApi.watchEvents()', up);
 check(up > 0 && watch > up && watch < ext.indexOf('serveClient.subscribe()', up), 'watchEvents after connect, before subscribe');
-check(/serveClient\.on\('reconnect', \(\) => \{ acpApi\.watchEvents\(\);/.test(ext), 'watchEvents on reconnect');
+// once is enough: the watcher is an eventFans entry, which outlives a
+// reconnect (the run above gets its decision after one with no second call)
+check(ext.indexOf('acpApi.watchEvents()', watch + 1) < 0, 'watchEvents is installed once, not again on reconnect');
 console.log('pushed wiring ok');
 JS
     [ $? -eq 0 ] || fail "pushed wiring"
@@ -1963,6 +2054,25 @@ const path = require('path'), fs = require('fs');
 const [, , dir, out, nowArg, WT, TP, HOME] = process.argv;
 const { nativeNodes, patchSessions, fleetTree } = require(path.join(dir, 'fleet.js'));
 const { liveModel, applyEvent, applySnapshot } = require(path.join(dir, 'serve.js'));
+/* The patch is applied in the call itself: no promise comes back, and no
+ * process or server round trip can happen inside it (every child_process
+ * entry point and the given client's request throw while it runs). That is
+ * the property "instant" stood for; a stopwatch on a loaded host is not. */
+const synchronously = (fn, client) => {
+    const cpm = require('child_process'), saved = {}, names = ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork'];
+    const trip = (n) => () => { throw new Error(`the patch made a round trip (${n})`); };
+    for (const n of names) { saved[n] = cpm[n]; cpm[n] = trip(n); }
+    const req = client && client.request;
+    if (client) client.request = trip('serve request');
+    try {
+        const out = fn();
+        if (out && typeof out.then === 'function') throw new Error('the patch returned a promise');
+        return out;
+    } finally {
+        for (const n of names) cpm[n] = saved[n];
+        if (client) client.request = req;
+    }
+};
 const now = Number(nowArg);
 const j = (n) => JSON.parse(fs.readFileSync(path.join(out, n), 'utf8'));
 const eq = (got, want, what) => {
@@ -2042,9 +2152,7 @@ for (const ev of evs) {
 }
 eq(live.native['claude:a1b2c3d4'].last_tool, 'Bash', 'reducer: last tool');
 eq(live.native['claude:a1b2c3d4'].state, 'stopped', 'reducer: stopped');
-const t0 = Date.now();
-const n = patchSessions(s, live.native, now);
-if (Date.now() - t0 > 50) throw new Error('the patch is not instant');
+const n = synchronously(() => patchSessions(s, live.native, now));
 if (n < 1) throw new Error('nothing patched');
 eq(s.nodes[0].children[0], sub, 'the row is patched in place');
 eq(sub.lastTool, 'Bash', 'patched last tool');
@@ -2284,6 +2392,178 @@ JS
     [ $? -eq 0 ] || fail "fleet projection"
 fi
 
+# ---- ACP terminal bridge, authenticate and MCP environment (hyperfide-v21
+# 6.9): the real AcpClient against a fake agent that demands sign-in and
+# drives terminal/*; secret references resolve into the adapter's
+# environment only. Every value here is a throwaway that is clearly fake.
+if want acpbridge; then
+    mkdir -p "$TMP/ab/ws/src" "$TMP/ab/outside"
+    printf 'one\ntwo\nthree\nfour\n' > "$TMP/ab/ws/src/sel.txt"
+    node - "$EXT" "$EXT/../../tests/fixtures/acp/bridge-agent.js" "$TMP/ab" <<'JS'
+const [ext, agentPath, dir] = process.argv.slice(2);
+const fs = require('fs');
+const path = require('path');
+const acp = require(path.join(ext, 'acp.js'));
+const { AcpClient, TerminalBridge, resolveEnvRefs, mcpEnvironment,
+    chooseAuthMethod, requestWithAuth, selectionBlock, promptBlocks } = acp;
+const pkg = JSON.parse(fs.readFileSync(path.join(ext, 'package.json'), 'utf8'));
+const src = fs.readFileSync(path.join(ext, 'acp.js'), 'utf8');
+const ws = path.join(dir, 'ws');
+const FAKE = 'fake-token-not-a-secret-6.9';
+let n = 0;
+function check(ok, what) { if (!ok) throw new Error('acpbridge: ' + what); n++; }
+
+(async () => {
+    // --- secret references (D17): only refs in settings, values via lookup
+    const looked = [];
+    const r = await resolveEnvRefs({ FAKE_ACP_TOKEN: 'secret-ref:test/fake-token' },
+        async (id, name) => { looked.push(`${id}:${name}`); return FAKE; });
+    check(r.env.FAKE_ACP_TOKEN === FAKE && r.missing.length === 0, 'ref resolves');
+    check(looked.join() === 'test/fake-token:FAKE_ACP_TOKEN', 'lookup by reference id');
+    let refused = '';
+    try { await resolveEnvRefs({ LEAK: 'fake-literal-value-xyz' }, async () => 'x'); }
+    catch (e) { refused = e.message; }
+    check(/must be a secret-ref:ID reference/.test(refused), 'a literal value is refused: ' + refused);
+    check(!/fake-literal-value-xyz/.test(refused), 'the refusal never echoes the value');
+    try { await resolveEnvRefs({ 'bad-name': 'secret-ref:x' }, async () => 'x'); refused = ''; }
+    catch (e) { refused = e.message; }
+    check(/invalid variable name/.test(refused), 'a bad variable name is refused');
+    const miss = await resolveEnvRefs({ GONE: 'secret-ref:nowhere' }, async () => undefined);
+    check(miss.missing.join() === 'GONE (secret-ref:nowhere)' && !('GONE' in miss.env), 'a missing value is named by reference');
+
+    // --- the injected MCP server's environment: exactly the configured names
+    const m = mcpEnvironment(['FAKE_ACP_TOKEN', 'HF_FAKE_HOST', 'NOPE', 'bad-name', 'HF_FAKE_HOST'],
+        r.env, { HF_FAKE_HOST: 'fake.example.invalid', OTHER: 'never-passed' });
+    check(JSON.stringify(m.env) === JSON.stringify([
+        { name: 'FAKE_ACP_TOKEN', value: FAKE }, { name: 'HF_FAKE_HOST', value: 'fake.example.invalid' }]),
+        'mcp env: ref first, then host, deduplicated: ' + JSON.stringify(m.env));
+    check(m.omitted.join() === 'NOPE', 'unset names are reported, not invented');
+    check(JSON.stringify(mcpEnvironment(undefined, {}, process.env).env) === '[]', 'nothing passes implicitly');
+    // the panel's own mcpServers(sess), run from its source like the binary test
+    const fnSrc = src.match(/function mcpServers\(sess\) \{[\s\S]*?\n\}/);
+    check(fnSrc, 'mcpServers(sess) is in acp.js');
+    const box = { deps: { binary: () => '/bin/fake-cg' } };
+    require('vm').createContext(box);
+    require('vm').runInContext(fnSrc[0], box);
+    const srv = box.mcpServers({ mcpEnv: m.env })[0];
+    check(srv.name === 'codify' && srv.command === '/bin/fake-cg' && srv.args[0] === 'mcp' &&
+        srv.env === m.env, 'the codify server carries the session env');
+    check(JSON.stringify(box.mcpServers(undefined)[0].env) === '[]', 'no session, no env');
+
+    // --- auth method choice
+    const methods = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }];
+    check(chooseAuthMethod(methods, 'b').id === 'b', 'the configured method wins');
+    check(chooseAuthMethod(methods, '') === null, 'two methods and no setting: ask');
+    check(chooseAuthMethod(methods, 'zzz') === null, 'a configured method the agent lacks: ask');
+    check(chooseAuthMethod([methods[0]], '').id === 'a', 'the only method is used');
+
+    // --- selection context
+    const sel = { path: path.join(ws, 'src/sel.txt'), text: 'two\nthree\n', startLine: 2, endLine: 3 };
+    const emb = selectionBlock(sel, ws, { embeddedContext: true });
+    check(emb.type === 'resource' && /\/src\/sel\.txt#L2-L3$/.test(emb.resource.uri) &&
+        emb.resource.text === 'two\nthree\n', 'embedded selection: ' + JSON.stringify(emb));
+    const link = selectionBlock(sel, ws, {});
+    check(link.type === 'resource_link' && link.name === 'src/sel.txt:2-3' &&
+        /^file:\/\//.test(link.uri), 'a link without embedded context: ' + JSON.stringify(link));
+    check(selectionBlock({ path: path.join(dir, 'outside/x.txt'), text: 'x', startLine: 1 }, ws, {}) === null,
+        'a selection outside the workspace is never sent');
+    check(promptBlocks('hi', null).length === 1 && promptBlocks('hi', emb)[1] === emb, 'prompt blocks');
+
+    // --- the live protocol: auth_required -> authenticate -> retry, then terminals
+    const logFile = path.join(dir, 'agent.jsonl');
+    const env = Object.assign({ BRIDGE_ACP_LOG: logFile, BRIDGE_ACP_OUTSIDE: path.join(dir, 'outside') }, r.env);
+    const bridge = new TerminalBridge(ws);
+    const chunks = [];
+    const connect = (extraEnv, terminal) => new AcpClient({
+        command: process.execPath, args: [agentPath], cwd: ws, env: extraEnv, terminal,
+        onNotify: (mm, p) => { if (p && p.update && p.update.content) chunks.push(p.update.content.text); },
+        onRequest: (mm, p) => {
+            if (bridge.handles(mm)) return bridge.request(mm, p);
+            const e = new Error('unsupported'); e.code = -32601; throw e;
+        },
+    });
+
+    // negative: no credential in the adapter's environment
+    const bare = connect({ BRIDGE_ACP_LOG: logFile }, true);
+    delete process.env.FAKE_ACP_TOKEN;
+    await bare.initialize();
+    let err = '';
+    try {
+        await requestWithAuth(bare, 'session/new', { cwd: ws, mcpServers: [] },
+            async (ms) => chooseAuthMethod(ms, 'fake-key'), 10000);
+    } catch (e) { err = e.message; }
+    check(/Fake key needs FAKE_ACP_TOKEN: map it in codify\.acp\.envRefs/.test(err), 'missing credential named: ' + err);
+    // negative: the user declines to choose
+    err = '';
+    try {
+        await requestWithAuth(bare, 'session/new', { cwd: ws, mcpServers: [] }, async () => null, 10000);
+    } catch (e) { err = e.message; }
+    check(/sign-in not chosen; methods: Fake key, Fake browser/.test(err), 'declined sign-in fails loudly: ' + err);
+    bare.stop();
+
+    const client = connect(env, true);
+    await client.initialize();
+    check(client.agent.authMethods.length === 2, 'authMethods negotiated');
+    const res = await requestWithAuth(client, 'session/new',
+        { cwd: ws, mcpServers: box.mcpServers({ mcpEnv: m.env }) },
+        async (ms) => chooseAuthMethod(ms, 'fake-key'), 10000);
+    check(res.sessionId === 'bridge-1', 'session created after sign-in');
+    await client.request('session/prompt', { sessionId: res.sessionId,
+        prompt: promptBlocks('run the bridge', emb) }, 30000);
+    client.stop();
+
+    const rep = JSON.parse(chunks[chunks.length - 1]);
+    check(rep.terminalCap === true, 'terminal capability advertised');
+    check(rep.blocks.join() === 'text,resource' && rep.context.resource.text === 'two\nthree\n', 'the selection reached the agent');
+    check(rep.argv.exit.exitCode === 3 && rep.argv.exit.signal === null, 'exit status: ' + JSON.stringify(rep.argv.exit));
+    check(/bridge out/.test(rep.argv.output.output) && /bridge err/.test(rep.argv.output.output), 'stdout and stderr captured');
+    check(rep.argv.output.exitStatus.exitCode === 3 && rep.argv.output.truncated === false, 'output carries the exit');
+    check(rep.argv.released === 'ok' && rep.argv.afterRelease === -32602, 'release frees the terminal');
+    check(rep.shell.exit.exitCode === 0 && /v=from-agent/.test(rep.shell.output.output), 'shell line with agent env: ' + JSON.stringify(rep.shell));
+    const bo = rep.bounded.output;
+    check(bo.truncated === true && Buffer.byteLength(bo.output) <= 11 && /tail$/.test(bo.output) &&
+        bo.output.indexOf('�') < 0, 'bounded on a character boundary: ' + JSON.stringify(bo));
+    check(rep.killed.exit.signal === 'SIGTERM' && /started/.test(rep.killed.output.output), 'kill: ' + JSON.stringify(rep.killed));
+    check(rep.outside.error && rep.outside.error.code === -32602 && /outside workspace/.test(rep.outside.error.message), 'cwd outside the workspace refused');
+    check(rep.unknown.code === -32602 && rep.noCommand.code === -32602, 'unknown terminal and empty command refused');
+    check(bridge.terms.size === 0, 'no terminal left behind');
+
+    // releaseAll takes running terminals with the session
+    const b2 = new TerminalBridge(ws);
+    const { terminalId } = b2.create({ command: process.execPath, args: ['-e', 'setInterval(() => {}, 1000)'] });
+    const t = b2.terms.get(terminalId);
+    b2.releaseAll();
+    const st = await new Promise((resolve) => t.waiters.push(resolve));
+    check(st.signal === 'SIGTERM' && b2.terms.size === 0, 'releaseAll kills and forgets');
+
+    // the credential travelled only where configured: the MCP server env
+    const frames = fs.readFileSync(logFile, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    const auths = frames.filter((f) => f.method === 'authenticate');
+    check(auths.length === 1 && JSON.stringify(auths[0].params) === '{"methodId":"fake-key"}', 'authenticate carries only the method id');
+    for (const f of frames) {
+        const scrubbed = JSON.stringify(f.params, (k, v) => (k === 'mcpServers' ? undefined : v));
+        check(scrubbed.indexOf(FAKE) < 0, `${f.method} frame carries no credential`);
+    }
+    check(err.indexOf(FAKE) < 0, 'no error text carries the credential');
+
+    // --- the panel wiring uses the bridge, the refs and the auth retry
+    check(/terminal: !!this\.opts\.terminal/.test(src), 'initialize advertises the bridge');
+    check(/sess\.terminals\.handles\(method\)/.test(src) && /sess\.terminals\.releaseAll\(\)/.test(src), 'sessions route and release terminals');
+    check((src.match(/requestWithAuth\(sess\.client, 'session\/(new|load|resume)'/g) || []).length === 3, 'new, load and resume sign in');
+    check(!/mcpServers\(\)/.test(src), 'every injection passes the session env');
+    check(/takeSelection\(sess\)\)/.test(src) && /watchSelection\(ctx\)/.test(src), 'typed messages carry the selection');
+    check(/password: true/.test(src) && /SECRET_KEY_PREFIX/.test(src), 'secret values are asked masked and kept in secret storage');
+    const props = pkg.contributes.configuration.properties;
+    for (const k of ['codify.acp.envRefs', 'codify.acp.mcpEnv', 'codify.acp.authMethod', 'codify.acp.selectionContext']) {
+        check(props[k], `${k} is a setting`);
+    }
+    check(props['codify.acp.envRefs'].additionalProperties.pattern === '^secret-ref:[A-Za-z0-9._/-]+$', 'envRefs holds references only');
+    console.log(`acpbridge ok (${n} checks)`);
+})().catch((e) => { console.error(e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "acp terminal bridge, authenticate and MCP environment"
+fi
+
 # ---- reconnect (hyperfide-v21 6.6): after a serve reconnect the snapshot
 #      replaces the native rows and the fleet view drops ghosts; agent names
 #      are unique per window and machine and a second window cannot take
@@ -2461,6 +2741,282 @@ const real = (p) => fs.realpathSync(p);
 })().catch((e) => { console.error(e.stack || e); process.exit(1); });
 JS
     [ $? -eq 0 ] || fail "reconnect snapshot, agent names, transcripts"
+fi
+
+# ---- ask registry (hyperfide-v21 6.1): ACP permission asks, fleet approvals
+#      and durable Asks in one registry; a fleet gate and its permission Ask
+#      are one item; the count reaches the status bar and the view badge;
+#      anything out of view is announced and answerable from the
+#      notification, the quick pick or the input box, through the real cg
+if want asks; then
+    node --check "$EXT/needs.js" || fail "syntax error in needs.js"
+    rm -rf "$TMP/ak"; cp -r "$FIXTURES/sample" "$TMP/ak"; cd "$TMP/ak"
+    git init -q -b main . 2>/dev/null || git init -q .
+    git config user.email t@t; git config user.name t
+    "$CG" init >/dev/null 2>&1
+    "$CG" spec new demo >/dev/null
+    "$CG" spec add 2.1 --title "Alpha" --wave 1 --reqs 1.1 >/dev/null
+    cat >> spec/workflow.kvx <<'EOF'
+
+[hierarchy]
+enabled = true
+
+[role.main]
+approve = ["pr"]
+EOF
+    git add -A >/dev/null; git commit -qm init >/dev/null
+    git branch wave/demo/1
+    akproj="$(pwd -P)"
+    HYPERFIDE_GH="$TMP/no-gh" node - "$EXT" "$CG" "$akproj" <<'JS'
+const path = require('path'), cp = require('child_process');
+const Module = require('module');
+const [dir, CG, cwd] = process.argv.slice(2);
+const check = (c, w) => { if (!c) throw new Error(w); };
+const run = (env, ...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8', env: { ...process.env, ...env } });
+const json = (...a) => JSON.parse(run({}, ...a, '--json').stdout);
+const main = { CG_ROLE: 'main', CG_AGENT: 'm' };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (f, w) => { for (let i = 0; i < 500 && !f(); i++) await sleep(20); check(f(), typeof w === 'function' ? w() : w); };
+
+/* ---- the pure registry, fed what the real cg prints */
+const { AskRegistry, badgeOf, describe } = require(path.join(dir, 'needs.js'));
+const { AgentPanel } = require(path.join(dir, 'agents.js'));
+const raise = (...a) => json('ask', 'raise', ...a).id;
+const vAsk = raise('variable', 'HF_SLICE_SOURCE_CONFIG path', '--task', 'demo/2.1');
+const dAsk = raise('decision', 'Which object store?', '--option', 's3', '--option', 'r2', '--recommend', 'r2');
+const pr = run(main, 'fleet', 'pr', '1', '-f', 'demo');
+check(pr.status === 4, `the pr gate should wait (4), got ${pr.status}: ${pr.stderr}`);
+const ap = json('fleet', 'approvals').approvals[0];
+check(ap && ap.ask > 0, `the gate carries its permission Ask: ${JSON.stringify(ap)}`);
+check(json('ask', 'list').asks.length === 3, 'cg lists three open Asks');
+
+const reg = new AskRegistry();
+const changes = [];
+reg.onChange((fresh) => changes.push(...fresh.map((i) => i.key)));
+check(reg.loadApprovals(json('fleet', 'approvals').approvals), 'approvals load');
+check(reg.loadAsks(json('ask', 'list').asks), 'asks load');
+let items = reg.items();
+check(items.length === 3, `the gate and its Ask are one item: ${items.map((i) => i.key)}`);
+const gate = items.find((i) => i.source === 'approval');
+check(gate && gate.id === ap.id && gate.askId === ap.ask && gate.blocking, `gate item: ${JSON.stringify(gate)}`);
+check(!items.some((i) => i.key === `ask:${ap.ask}`), 'the gate Ask is not listed twice');
+// the third source: a permission card an agent chat drew
+const chat = new AgentPanel((m) => {
+    if (m.type === 'permission') reg.addPermission('s1', m, { label: '2.1', answer: (o) => chat.answer(m.pid, o) });
+    if (m.type === 'permission_done') reg.settlePermission('s1', m.pid);
+});
+const granted = chat.ask({ toolCall: { title: 'Run make', kind: 'execute' },
+    options: [{ optionId: 'allow', name: 'Allow', kind: 'allow_once' }, { optionId: 'no', name: 'Reject', kind: 'reject_once' }] });
+// a card with nothing to click is answered by the panel, never registered
+chat.ask({ toolCall: { title: 'Nothing to pick' }, options: [] });
+items = reg.items();
+check(items.length === 4, `three sources merged: ${items.map((i) => i.key)}`);
+check(new Set(items.map((i) => i.source)).size === 3, 'acp, approval and ask all present');
+const c = reg.counts();
+check(c.open === 4 && c.blocking === 3, `counts: ${JSON.stringify(c)}`);
+check(items[items.length - 1].key === `ask:${dAsk}`, 'the proceed-and-flag Ask sorts after the blocking ones');
+const b = badgeOf(c);
+check(b.value === 4 && b.text === '$(bell-dot) 3 blocking · 4' &&
+      /3 blocking Asks waiting on you, 1 more open/.test(b.tooltip), JSON.stringify(b));
+check(badgeOf({ open: 2, blocking: 0 }).text === '$(bell) 2', 'nothing blocking: a plain count');
+check(badgeOf({ open: 0, blocking: 0 }) === null, 'no badge at zero');
+check(/^Ask #\d+ \(variable\) \[demo\/2\.1\]: HF_SLICE/.test(describe(reg.find(`ask:${vAsk}`))), 'describe');
+check(changes.length === 4 && new Set(changes).size === 4, `each item announced once: ${changes}`);
+// answering the card in the registry settles the agent's request
+check(reg.find(items.find((i) => i.source === 'acp').key).answer('allow'), 'answer the card');
+granted.then((r) => check(r.outcome.optionId === 'allow', 'the agent got its option'));
+check(reg.counts().open === 3, 'a settled card leaves the registry');
+// negative: a failed read empties nothing; unrelated or unknown events change nothing
+check(!reg.loadAsks(null) && !reg.loadApprovals(undefined) && reg.counts().open === 3, 'a failed read empties nothing');
+check(!reg.applyEvent({ kind: 'claim', payload: { id: vAsk } }), 'an unrelated event changes nothing');
+check(!reg.applyEvent({ kind: 'approval.decided', payload: { id: 9999 } }), 'an unknown approval changes nothing');
+// a read that started before an event must not erase it when it lands
+const mk = reg.mark();
+const stale = json('ask', 'list').asks;
+check(reg.applyEvent({ kind: 'ask.raised', payload: { id: 777, kind: 'variable', title: 'late', blocking: true, state: 'open' } }), 'a pushed raise');
+check(reg.loadAsks(stale, mk) && reg.find('ask:777'), 'an event during a read survives the read');
+check(reg.loadAsks(stale) && !reg.find('ask:777'), 'without the mark the read is the whole truth');
+
+// the pushed events alone build the same registry, the gate linked by title and task
+const evs = run({}, 'events', '--kind', 'ask.,approval.', '-n', '200', '--json').stdout
+    .split('\n').filter(Boolean).map((l) => JSON.parse(l));
+const fromEvents = new AskRegistry();
+for (const e of evs) fromEvents.applyEvent(e);
+const ek = fromEvents.items().map((i) => i.key).sort();
+check(JSON.stringify(ek) === JSON.stringify([`approval:${ap.id}`, `ask:${dAsk}`, `ask:${vAsk}`].sort()), `from events: ${ek}`);
+check(fromEvents.items().find((i) => i.source === 'approval').askId === ap.ask, 'events fold the gate Ask');
+
+/* ---- the editor surface, against a stub vscode and the real cg serve */
+const shown = [], picks = [];
+let bar = null, answerCmd = null, provider = null;
+let decide = () => undefined, quick = () => undefined, typed = () => undefined;
+const stub = {
+    window: {
+        registerWebviewViewProvider: (id, p) => { if (id === 'codifyAgentView') provider = p; return { dispose() {} }; },
+        createStatusBarItem: () => (bar = { text: '', visible: false, show() { this.visible = true; }, hide() { this.visible = false; }, dispose() {} }),
+        showWarningMessage: async (m, ...btn) => { shown.push({ level: 'warn', m, btn }); return decide(m, btn); },
+        showInformationMessage: async (m, ...btn) => { shown.push({ level: 'info', m, btn }); return decide(m, btn); },
+        showErrorMessage: async (m) => { shown.push({ level: 'error', m }); },
+        showQuickPick: async (list, o) => { picks.push({ list, o }); return quick(list, o); },
+        showInputBox: async (o) => typed(o),
+    },
+    commands: { registerCommand: (id, fn) => { if (id === 'codify.asks.answer') answerCmd = fn; return { dispose() {} }; },
+                executeCommand: async () => {} },
+    workspace: { getConfiguration: () => ({ get: (k, d) => d, update: async () => {} }) },
+    env: { clipboard: { writeText() {} } },
+    Uri: { file: (p) => ({ fsPath: p }), parse: (u) => ({ url: u }) },
+    ConfigurationTarget: { Global: 1 }, StatusBarAlignment: { Left: 1 },
+    ThemeColor: function (id) { this.id = id; },
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+const acp = require(path.join(dir, 'acp.js'));
+const { ServeClient } = require(path.join(dir, 'serve.js'));
+const cgp = (args) => new Promise((res) => cp.execFile(CG, args, { cwd },
+    (err, stdout, stderr) => res({ code: err ? (typeof err.code === 'number' ? err.code : 1) : 0, stdout, stderr })));
+let serveClient = null;
+const eventFans = [];
+const ctx = { subscriptions: [], workspaceState: { get: (k, d) => d, update: async () => {} } };
+const api = acp.register(ctx, {
+    cg: cgp, cgJson: async (a) => { const r = await cgp([...a, '--json']); try { return JSON.parse(r.stdout); } catch { return null; } },
+    binary: () => CG, refresh: () => {}, workspaceRoot: () => cwd, startTerminal: () => {},
+    events: {
+        available: () => !!(serveClient && serveClient.ready),
+        on: (fn) => { eventFans.push(fn); return () => { const i = eventFans.indexOf(fn); if (i >= 0) eventFans.splice(i, 1); }; },
+    },
+});
+check(provider && api.asks && answerCmd, 'the registry, its command and the view are registered');
+const view = {
+    visible: true, badge: undefined,
+    webview: { cspSource: 'x', options: {}, html: '', postMessage: () => Promise.resolve(true), onDidReceiveMessage: () => ({ dispose() {} }) },
+    onDidDispose: () => ({ dispose() {} }),
+};
+provider.resolveWebviewView(view);
+const R = api.asks.registry;
+
+(async () => {
+    // the first read (serve not up yet) finds the backlog: one batched notice
+    await until(() => R.counts().open === 3, `first read: ${JSON.stringify(R.counts())}`);
+    await until(() => shown.length === 1, `one notice for the backlog: ${JSON.stringify(shown)}`);
+    check(shown[0].level === 'warn' && /2 Asks waiting \(1 blocking\)/.test(shown[0].m) && shown[0].btn[0] === 'Answer…',
+          `the in-view gate is not announced, the two Asks are: ${JSON.stringify(shown[0])}`);
+    check(bar.visible && bar.text === '$(bell-dot) 2 blocking · 3' && bar.command === 'codify.asks.answer', `status bar: ${bar.text}`);
+    check(bar.backgroundColor && bar.backgroundColor.id === 'statusBarItem.warningBackground', 'blocking colours the status bar');
+    check(view.badge && view.badge.value === 3 && /2 blocking/.test(view.badge.tooltip), `view badge: ${JSON.stringify(view.badge)}`);
+
+    serveClient = new ServeClient(CG, cwd, () => {});
+    check(await serveClient.start() === true, 'serve against the real cg');
+    serveClient.on('event', (ev) => { for (const fn of eventFans) fn(ev); });
+    serveClient.on('reconnect', () => { api.watchEvents(); });
+    check(api.watchEvents() === true && eventFans.length === 1, 'one listener carries chat cards and the registry');
+    await serveClient.subscribe();
+    // the serve snapshot's asks array is a source the registry reads as is
+    const snap = await serveClient.snapshot();
+    check(Array.isArray(snap.asks) && snap.asks.length === 3, `snapshot asks: ${JSON.stringify(snap.asks)}`);
+    const viaSnap = new AskRegistry();
+    viaSnap.loadApprovals(json('fleet', 'approvals').approvals); viaSnap.loadAsks(snap.asks);
+    check(viaSnap.counts().open === 3 && viaSnap.counts().blocking === 2, 'the snapshot merges the same way');
+
+    // a pushed proceed-and-flag Ask: announced, answered from the notification
+    decide = (m, btn) => /Keep the old route/.test(m) ? btn.find((x) => /recommended/.test(x)) : undefined;
+    const n0 = shown.length;
+    const qAsk = raise('question', 'Keep the old route?', '--option', 'yes', '--option', 'no', '--recommend', 'no');
+    await until(() => shown.length > n0, () => 'the pushed Ask is announced' + JSON.stringify([qAsk, R.items().map((i) => i.key), shown, serveClient.ready, eventFans.length]));
+    check(shown[n0].level === 'info' && JSON.stringify(shown[n0].btn) === JSON.stringify(['yes', 'no (recommended)']), `buttons: ${JSON.stringify(shown[n0])}`);
+    await until(() => !R.find(`ask:${qAsk}`), 'answered from the notification');
+    const qRow = json('ask', 'list', '--all').asks.find((a) => a.id === qAsk);
+    check(qRow.state === 'answered' && qRow.answer === 'no', `cg recorded the answer: ${JSON.stringify(qRow)}`);
+
+    // the gate from the quick pick: blocking first, decided through cg fleet approve
+    quick = (list, o) => o.placeHolder === 'Answer which Ask?'
+        ? list.find((i) => /approval #/.test(i.description)) : list.find((i) => i.value === 'approve');
+    await answerCmd();
+    check(/^\$\(error\) /.test(picks[0].list[0].label) && picks[0].list.length === 3, `the pick list: ${JSON.stringify(picks[0].list)}`);
+    await until(() => !R.find(`approval:${ap.id}`), 'the gate was approved');
+    check(json('fleet', 'approvals', '--all').approvals.find((a) => a.id === ap.id).state === 'approved', 'cg approved the gate');
+    check(json('ask', 'list', '--all').asks.find((a) => a.id === ap.ask).answer === 'approve', 'and answered its Ask');
+    check(!R.find(`ask:${ap.ask}`), 'the gate Ask did not resurface on its own');
+
+    // the approved pr uses it up; the next asks again while the view is visible:
+    // the card is drawn there, so nothing is announced, and it is still one item
+    run(main, 'fleet', 'pr', '1', '-f', 'demo');
+    const n1 = shown.length;
+    check(run(main, 'fleet', 'pr', '1', '-f', 'demo').status === 4, 'the next pr waits again');
+    const ap2 = json('fleet', 'approvals').approvals[0];
+    await until(() => R.find(`approval:${ap2.id}`) && R.find(`approval:${ap2.id}`).askId === ap2.ask, 'the new gate is registered');
+    await sleep(300);
+    check(!R.find(`ask:${ap2.ask}`), 'the new gate is one item');
+    check(shown.length === n1, `no notice for an in-view gate: ${JSON.stringify(shown.slice(n1))}`);
+
+    // an ACP permission in a hidden editor panel: announced, answered from the notice
+    const sess = { taskId: '2.1', panel: { visible: false } };
+    sess.chat = new AgentPanel((m) => api.askPost(sess, m));
+    decide = (m) => /Run the migration/.test(m) ? 'Allow' : undefined;
+    const n2 = shown.length;
+    const got = sess.chat.ask({ toolCall: { title: 'Run the migration' },
+        options: [{ optionId: 'allow', name: 'Allow' }, { optionId: 'deny', name: 'Reject' }] });
+    await until(() => shown.length > n2, 'the hidden card is announced');
+    check(shown[n2].level === 'warn' && /Agent asks \[2\.1\]: Run the migration/.test(shown[n2].m), JSON.stringify(shown[n2]));
+    check((await got).outcome.optionId === 'allow', 'the agent was answered from the notification');
+    check(!R.items().some((i) => i.source === 'acp'), 'and the card left the registry');
+    // a visible surface's card is registered, not announced; a cancelled turn settles it
+    sess.panel.visible = true;
+    const n3 = shown.length;
+    sess.chat.ask({ toolCall: { title: 'Visible card' }, options: [{ optionId: 'ok', name: 'OK' }] });
+    await sleep(300);
+    check(shown.length === n3 && R.items().some((i) => i.source === 'acp'), 'an in-view card is registered, not announced');
+    check(sess.chat.settle('cancelled with the turn') === 1 && !R.items().some((i) => i.source === 'acp'), 'settled cards leave');
+
+    // the blocking variable, answered in the input box
+    quick = (list, o) => o.placeHolder === 'Answer which Ask?' ? list.find((i) => /HF_SLICE/.test(i.label)) : undefined;
+    typed = () => '/etc/hf/slices.json';
+    await answerCmd();
+    await until(() => !R.find(`ask:${vAsk}`), 'the variable was answered');
+    check(json('ask', 'list', '--all').asks.find((a) => a.id === vAsk).answer === '/etc/hf/slices.json', 'cg recorded the variable');
+
+    // a secret: the input refuses a raw value, cg refuses it too, and the Ask stays
+    const sAsk = raise('secret', 'Railway token', '--task', 'demo/2.1');
+    await until(() => R.find(`ask:${sAsk}`), 'the secret is registered');
+    let secretOpts = null;
+    typed = (o) => { secretOpts = o; return undefined; };
+    await answerCmd(`ask:${sAsk}`);
+    check(secretOpts && secretOpts.validateInput('hunter2') && !secretOpts.validateInput('secret-ref:railway-1'), 'secrets only by reference');
+    check(!(await api.asks.settle(R.find(`ask:${sAsk}`), 'hunter2')), 'cg refuses a raw secret');
+    check(shown.some((s) => s.level === 'error' && /secret-ref/.test(s.m)) && R.find(`ask:${sAsk}`), 'the refusal is shown and the Ask stays');
+
+    // reconnect: an Ask raised while serve is down is there after it comes back
+    serveClient.proc.kill('SIGKILL');
+    const xAsk = raise('permission', 'Delete the orphan sandbox');
+    await until(() => serveClient.ready && R.find(`ask:${xAsk}`), 'after a reconnect the registry is current');
+    check(eventFans.length === 1, `listeners after a reconnect: ${eventFans.length}`);
+
+    // the decision is open but not blocking; settle everything and the count clears
+    check(R.find(`ask:${dAsk}`) && !R.find(`ask:${dAsk}`).blocking, 'proceed-and-flag stays open, not blocking');
+    for (const [key, a] of [[`ask:${dAsk}`, 's3'], [`ask:${sAsk}`, 'secret-ref:railway-1'], [`ask:${xAsk}`, 'reject'], [`approval:${ap2.id}`, 'reject']]) {
+        check(await api.asks.settle(R.find(key), a), `settle ${key}`);
+    }
+    await until(() => R.counts().open === 0, `all answered: ${R.items().map((i) => i.key)}`);
+    check(json('ask', 'list').asks.length === 0 && json('fleet', 'approvals').approvals.length === 0, 'cg agrees nothing is open');
+    check(!bar.visible && view.badge === undefined, 'the status bar and the badge clear at zero');
+    serveClient.dispose();
+    console.log('ask registry ok');
+    process.exit(0);
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "ask registry"
+
+    # every chat surface feeds the registry, and the one event listener
+    # carries both the cards and the registry
+    node - "$EXT" <<'JS'
+const fs = require('fs'), path = require('path');
+const acp = fs.readFileSync(path.join(process.argv[2], 'acp.js'), 'utf8');
+const check = (c, w) => { if (!c) throw new Error(w); };
+check(/new AgentPanel\(\(msg\) => \{ askRegistryPost\(sess, msg\); panelPost\(sess, msg\); \}\)/.test(acp), 'every session feeds the registry');
+check(/fleetEventsOff = deps\.events\.on\(\(e\) => \{\s*if \(askApi\) askApi\.registry\.applyEvent\(e\);/.test(acp), 'events reach the registry');
+check(/function watchFleetEvents\(\) \{[^}]*askApi\.reload\(\)/.test(acp), 'a (re)connect re-reads the registry');
+console.log('ask registry wiring ok');
+JS
+    [ $? -eq 0 ] || fail "ask registry wiring"
 fi
 
 echo "14_vscode ok ($section)"

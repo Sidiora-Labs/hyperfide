@@ -145,6 +145,11 @@ def main():
   public.chmod(0o644)
   signed=subprocess.check_output(["openssl","pkeyutl","-sign","-rawin","-inkey",str(fixture.keys["operator"]["path"]),"-in",str(mf)])
   signature.write_bytes(signed);signature.chmod(0o644)
+  # hyperfide-v21 3.22: the signed release index sits beside manifest.sig and is verified first.
+  signer_der=subprocess.check_output(["openssl","pkey","-pubin","-in",str(public),"-outform","DER"])
+  manifest_digest="sha256:"+hashlib.sha256(mf.read_bytes()).hexdigest()
+  release_index=auth/"release.json";release_index.write_text(json.dumps({"schema_version":1,"release_version":json.loads(mf.read_text())["release_version"],"manifest_digest":manifest_digest,"archive":"fixture.tar.gz","archive_digest":"sha256:"+"0"*64,"signature":{"algorithm":"ED25519","file":"manifest.sig","key_fingerprint":"sha256:"+hashlib.sha256(signer_der).hexdigest()}},sort_keys=True)+"\n");release_index.chmod(0o644)
+  (auth/"release.json.sig").write_bytes(subprocess.check_output(["openssl","pkeyutl","-sign","-rawin","-inkey",str(fixture.keys["operator"]["path"]),"-in",str(release_index)]));(auth/"release.json.sig").chmod(0o644)
   fixture.stop();fixture.env.update(HYPERFIDE_TRUSTED_RELEASE_KEY_FILE=str(public),HYPERFIDE_RELEASE_SIGNATURE_FILE=str(signature));fixture.start()
   def authenticated():
    value=ok("inspect",{"manifest":"manifest.json"})
@@ -161,7 +166,8 @@ def main():
    original=public.read_bytes()
    replacement=subprocess.check_output(["openssl","pkey","-in",str(fixture.keys["other"]["path"]),"-pubout"])
    public.write_bytes(replacement)
-   try:rejected("inspect",{"manifest":"manifest.json"})
+   # Since hyperfide-v21 3.22 the signed release.json is checked first and names the refusal.
+   try:r=request("inspect",{"manifest":"manifest.json"});expect(r.get("ok") is False and r["error"]["code"]=="RELEASE_SIGNATURE_FORGED","wrong trust key accepted: "+json.dumps(r)[:300])
    finally:public.write_bytes(original)
   check("release.signature.wrong-trust-key-refused",changed_key)
   def writable_key():
@@ -232,7 +238,8 @@ def main():
   check("release.service.invalid-signature-preserves-current",bad_signature_stage)
   def wrong_manifest_stage():
    args=installer.copy();args[args.index("--manifest-digest")+1]="sha256:"+"0"*64
-   p,r=run_install(args);expect(p.returncode==78 and r["error"]["code"]=="INSTALL_AUTHENTICATED_PIN_REQUIRED","signature bypassed explicit operator manifest pin")
+   # The signed release.json pins the manifest too, so a different operator pin is refused there first (3.22).
+   p,r=run_install(args);expect(p.returncode==78 and r["error"]["code"] in ("INSTALL_AUTHENTICATED_PIN_REQUIRED","RELEASE_SIGNATURE_STALE"),"signature bypassed explicit operator manifest pin: "+json.dumps(r))
   check("release.service.explicit-pinned-identity",wrong_manifest_stage)
 
   def noncanonical_destination():

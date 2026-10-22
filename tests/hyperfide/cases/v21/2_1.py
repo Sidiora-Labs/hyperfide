@@ -245,10 +245,33 @@ def scenario(intents):
 
         second = {}
 
+        def accounts():
+            return f.sql("SELECT dimension,configured_limit::text AS lim,reserved::text AS res,state_version::text AS v FROM hyperfide.capacity_accounts WHERE organisation_id=$1 AND pool_id=$2 AND capacity_class='PHYSICAL' AND resource_key='' ORDER BY dimension", [org, f.pool])
+
+        def reserve_only():
+            # Fresh PROVISIONING reservations on the accounts as the release left
+            # them: unlike seed_provider_capacity, no account is re-written, so
+            # admission can only be open because the release opened it.
+            fresh = []
+            for name, quantity in {'SANDBOX': '1', 'CPU_MILLIS': '2000', 'MEMORY_BYTES': '4294967296', 'DISK_BYTES': '32212254720'}.items():
+                aid = f.sql("SELECT id FROM hyperfide.capacity_accounts WHERE organisation_id=$1 AND pool_id=$2 AND dimension=$3 AND capacity_class='PHYSICAL' AND resource_key=''", [org, f.pool, name])[0]['id']
+                rid = str(uuid.uuid4())
+                f.sql("INSERT INTO hyperfide.reservations(organisation_id,run_id,id,request_id,capacity_account_id,quantity,expires_at) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '1 hour')", [org, run_id, rid, str(uuid.uuid4()), aid, quantity])
+                fresh.append(rid)
+            return fresh
+
         def admitted():
-            intents.seed_provider_capacity(f)
-            _, (status, response) = create(f.reservations[4:])
+            # the released reservations stay RELEASE_PENDING and bound to the
+            # rejected intent: admission refuses to take them over
+            _, (status, response) = create(first)
+            expect(status >= 400 or response.get('ok') is False, ('a released reservation was admitted again', response))
+            expect('RESERVATION_INVALID' in json.dumps(response), ('released reservations refused for the wrong reason', response))
+            states = {r['state'] for r in f.sql("SELECT state FROM hyperfide.reservations WHERE organisation_id=$1 AND run_id=$2 AND id=ANY($3::uuid[])", [org, run_id, first])}
+            expect(states == {'RELEASE_PENDING'}, ('released reservations changed state', states))
+            before = accounts()
+            _, (status, response) = create(reserve_only())
             expect(status == 200 and response.get('ok') is True and response['result']['created'] is True, ('admission still blocked', response))
+            expect(accounts() == before, ('admission needed the capacity accounts re-written', before, accounts()))
             second['id'] = response['result']['intent']['id']
         check('v21.2.1.admission-restored', admitted)
 

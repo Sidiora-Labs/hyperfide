@@ -18,6 +18,8 @@ const cp = require('child_process');
 const INIT_TIMEOUT_MS = 8000;
 const CALL_TIMEOUT_MS = 10 * 60 * 1000;   /* a verify_cmd may take minutes */
 const RECONNECT_MS = [500, 1000, 2000, 5000, 10000];
+/* how long a failed handshake waits for an exited child's stderr to close */
+const STDERR_DRAIN_MS = 100;
 
 class ServeClient {
     constructor(bin, cwd, log) {
@@ -36,6 +38,7 @@ class ServeClient {
         this.retries = 0;
         this.info = null;          /* the initialize result */
         this.unsupported = false;  /* the binary has no `serve` */
+        this.drainMs = STDERR_DRAIN_MS;
     }
 
     on(name, fn) { (this.listeners[name] || (this.listeners[name] = [])).push(fn); }
@@ -88,7 +91,7 @@ class ServeClient {
             // Exit can reject initialize before the child's stderr stream drains.
             if (proc.exitCode !== null) {
                 await new Promise((resolve) => {
-                    const timer = setTimeout(resolve, 100);
+                    const timer = setTimeout(resolve, this.drainMs);
                     closed.then(() => { clearTimeout(timer); resolve(); });
                 });
             }
@@ -153,6 +156,9 @@ class ServeClient {
         }
     }
 
+    /* The protocol's tools/call, kept with tools(): the extension reaches a
+     * tool through exec(['tool', 'call', ...]), and 14_vscode.sh proves the
+     * served method through this client. */
     async tool(name, args) {
         return this.request('tools/call', { name, arguments: args || {} });
     }
@@ -187,10 +193,6 @@ class ServeClient {
             this.log(`serve snapshot after reconnect: ${e.message}`);
             return -1;
         }
-    }
-
-    async cancel(reqId) {
-        return this.request('cancel', { id: reqId }, 20000);
     }
 
     _consume(chunk) {

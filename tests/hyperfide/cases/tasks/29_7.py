@@ -5,7 +5,7 @@ The example contains illustrative identities, configuration/provenance digests a
 UTC dates. Operators must replace those bindings with retained local evidence.
 """
 from __future__ import annotations
-import copy, importlib.util, json, subprocess, sys, uuid
+import copy, importlib.util, json, os, subprocess, sys, uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
 s=importlib.util.spec_from_file_location('intent_fixture',ROOT/'tests/hyperfide/cases/tasks/8_3.py')
@@ -19,6 +19,7 @@ def check(name,fn):
  print(json.dumps({'type':'assertion','id':name,'expected':'observed','actual':actual}),flush=True)
 def main():
  if sys.argv[1:]==['--inventory']:print(json.dumps(IDS));return 0
+ if not os.environ.get('DATABASE_URL'):print('SKIP: DATABASE_URL is not set; run under tests/hyperfide/support/withpg.py',flush=True);return 77
  expect(not sys.argv[1:],'unknown argument')
  f=None;cleanup=False
  def setup(f):

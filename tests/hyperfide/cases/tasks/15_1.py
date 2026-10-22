@@ -288,6 +288,10 @@ def sql(statement,database="postgres"):
     expect(result.returncode==0,"owned checkpoint database operation failed")
     return result.stdout.strip()
 def cleanup(emit=True):
+    if not os.environ.get("DATABASE_URL"):
+        # The owned database lives only behind DATABASE_URL; without it none was created.
+        if emit:print(json.dumps({"type":"cleanup","complete":True,"resources":[]}),flush=True)
+        return 0
     try:
         sql("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='"+DATABASE+"' AND pid<>pg_backend_pid();")
         sql('DROP DATABASE IF EXISTS "'+DATABASE+'";')
@@ -472,6 +476,11 @@ def main():
     if "--cleanup" in sys.argv:return cleanup()
     if "--pin-manifest" in sys.argv:
         pin_manifest();return 0
+    # tests/run.sh skip contract: only --native-only runs without a disposable PostgreSQL.
+    if "--native-only" not in sys.argv and not os.environ.get("DATABASE_URL"):
+        print("SKIP: DATABASE_URL unset; the durable roundtrip needs tests/hyperfide/support/withpg.py (--native-only runs without it)",flush=True)
+        return 77
+    Path("/tmp/hyperfide").mkdir(parents=True,exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="hyperfide-task15-1-",dir="/tmp/hyperfide") as tmp:
         f=Fixture(Path(tmp))
         native_suite(f)

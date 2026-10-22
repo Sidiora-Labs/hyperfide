@@ -27,6 +27,13 @@ extern int hf_advice_unit(const char *obj, const char *key, double *out);
 #include <time.h>
 #include <unistd.h>
 
+/* A closed task is never begun, waited on or counted open: done, or the
+ * terminal superseded (2.15), whose work belongs to its superseded_by. */
+static bool fleet_status_closed(const char *status) {
+    return status && (strcmp(status, "done") == 0 ||
+                      strcmp(status, "superseded") == 0);
+}
+
 /* ---------------- identity ---------------- */
 
 typedef struct {
@@ -575,7 +582,7 @@ static unsigned gate_bit(const char *gate) {
 
 static void approval_event(Cg *cg, const char *kind, long id, const char *gate,
                            const char *subject, const char *state,
-                           const char *by, const char *note) {
+                           const char *by, const char *note, long ask) {
     StrBuf p; sb_init(&p);
     sb_printf(&p, "{\"id\":%ld,\"gate\":", id);
     sb_json_str(&p, gate);
@@ -585,6 +592,8 @@ static void approval_event(Cg *cg, const char *kind, long id, const char *gate,
     if (by) sb_json_str(&p, by); else sb_puts(&p, "null");
     sb_puts(&p, ",\"note\":");
     if (note) sb_json_str(&p, note); else sb_puts(&p, "null");
+    if (ask > 0) sb_printf(&p, ",\"ask_id\":%ld", ask);
+    else sb_puts(&p, ",\"ask_id\":null");
     sb_putc(&p, '}');
     char subj[400];
     snprintf(subj, sizeof subj, "%s:%s", gate, subject);
@@ -656,8 +665,6 @@ int fleet_gate(Cg *cg, const char *gate, const char *subject) {
         sqlite3_step(ins);
         sqlite3_finalize(ins);
         id = (long)sqlite3_last_insert_rowid(cg->db);
-        approval_event(cg, "approval.request", id, gate, subject, "pending",
-                       agent, NULL);
         /* the gate is a permission Ask too (hyperfide-v21 3.4): it reaches
          * every Ask reader, and answering it decides this approval */
         char title[400];
@@ -674,6 +681,9 @@ int fleet_gate(Cg *cg, const char *gate, const char *subject) {
             sqlite3_step(u);
             sqlite3_finalize(u);
         }
+        /* after the Ask, so a reader of the request can answer it there */
+        approval_event(cg, "approval.request", id, gate, subject, "pending",
+                       agent, NULL, ask);
     }
     fprintf(stderr, "hyperfide fleet: %s of %s waits for approval #%ld — a person runs "
             "`hyperfide fleet approve %ld` (or --reject); exit now and it is retried "
@@ -681,6 +691,9 @@ int fleet_gate(Cg *cg, const char *gate, const char *subject) {
     return CG_EXIT_APPROVAL;
 }
 
+/* An approval is decided once (hyperfide-v21 3.21). Its linked Ask is the
+ * single truth: when the Ask already carries an answer, the approval follows
+ * that answer and a conflicting decision is refused. */
 int fleet_approval_decide(Cg *cg, long id, bool reject, const char *by,
                           const char *note, bool sync_ask) {
     sqlite3_stmt *q = cg_prep(cg, "SELECT gate,subject,state,ifnull(ask_id,0) "
@@ -699,14 +712,33 @@ int fleet_approval_decide(Cg *cg, long id, bool reject, const char *by,
         fprintf(stderr, "hyperfide fleet: no approval #%ld\n", id);
         return 1;
     }
-    if (!strcmp(state, "used")) {
-        fprintf(stderr, "hyperfide fleet: approval #%ld was already used\n", id);
+    if (strcmp(state, "pending") != 0) {
+        fprintf(stderr, "hyperfide fleet: approval #%ld is already %s; an "
+                "approval is decided once\n", id, state);
         return 1;
+    }
+    bool conflict = false;
+    char held[32] = "";
+    if (sync_ask && ask > 0) {
+        int r = ask_record_answer(cg, ask, reject ? "reject" : "approve", by,
+                                  note);
+        if (r == 0) {
+            sqlite3_stmt *a = cg_prep(cg, "SELECT ifnull(answer,'') FROM asks "
+                                          "WHERE id=?");
+            sqlite3_bind_int64(a, 1, ask);
+            if (sqlite3_step(a) == SQLITE_ROW)
+                snprintf(held, sizeof held, "%s",
+                         (const char *)sqlite3_column_text(a, 0));
+            sqlite3_finalize(a);
+            bool ask_rejects = strcmp(held, "approve") != 0;
+            conflict = ask_rejects != reject;
+            reject = ask_rejects;
+        }
     }
     const char *to = reject ? "rejected" : "approved";
     sqlite3_stmt *u = cg_prep(cg,
         "UPDATE fleet_approvals SET state=?,decided=?,decided_by=?,note=? "
-        "WHERE id=?");
+        "WHERE id=? AND state='pending'");
     sqlite3_bind_text(u, 1, to, -1, SQLITE_TRANSIENT);
     sqlite3_bind_int64(u, 2, (long)time(NULL));
     if (by) sqlite3_bind_text(u, 3, by, -1, SQLITE_TRANSIENT);
@@ -716,9 +748,19 @@ int fleet_approval_decide(Cg *cg, long id, bool reject, const char *by,
     sqlite3_bind_int64(u, 5, id);
     sqlite3_step(u);
     sqlite3_finalize(u);
-    approval_event(cg, "approval.decided", id, gate, subject, to, by, note);
-    if (sync_ask && ask > 0)
-        ask_record_answer(cg, ask, reject ? "reject" : "approve", by, note);
+    if (sqlite3_changes(cg->db) != 1) {
+        fprintf(stderr, "hyperfide fleet: approval #%ld was decided "
+                "concurrently; an approval is decided once\n", id);
+        return 1;
+    }
+    approval_event(cg, "approval.decided", id, gate, subject, to, by, note,
+                   ask);
+    if (conflict) {
+        fprintf(stderr, "hyperfide fleet: Ask #%ld was already answered "
+                "\"%s\"; approval #%ld follows it and is %s\n", ask, held, id,
+                to);
+        return 1;
+    }
     return 0;
 }
 
@@ -1264,7 +1306,7 @@ static int fleet_plan(Cg *cg, const char *feature_ov, bool json) {
         int j = i;
         bool open = false;
         while (j < nt && tasks[j].wave == w) {
-            if (strcmp(tasks[j].status, "done") != 0) open = true;
+            if (!fleet_status_closed(tasks[j].status)) open = true;
             j++;
         }
         if (!per_wave) j = nt;               /* one manager owns every wave */
@@ -2119,8 +2161,9 @@ int fleet_worker_begin_ex(Cg *cg, const char *id, const char *feature_ov,
         lifecycle_close(&c);
         return 1;
     }
-    if (strcmp(status, "done") == 0) {
-        fprintf(stderr, "hyperfide fleet: %s is done — nothing to begin\n", id);
+    if (fleet_status_closed(status)) {
+        fprintf(stderr, "hyperfide fleet: %s is %s — nothing to begin\n", id,
+                status);
         lifecycle_close(&c);
         return 1;
     }
@@ -2651,8 +2694,7 @@ static int wave_open_tasks(const Lifecycle *c, long wave, const char *branch,
             (wave < 0 || kvx_long(f, sec, "wave", 0) == wave)) {
             char *st = kvx_str(f, sec, "status");
             char *bt = tip ? kvx_str(tip, sec, "status") : NULL;
-            bool done = (st && strcmp(st, "done") == 0) ||
-                        (bt && strcmp(bt, "done") == 0);
+            bool done = fleet_status_closed(st) || fleet_status_closed(bt);
             if (!done) {
                 if (names) {
                     if (open) sb_puts(names, ", ");
@@ -3063,7 +3105,7 @@ static void write_pr_body(Cg *cg, const Lifecycle *c, const char *branch,
             sb_json_str(&tasks, status);
             sb_putc(&tasks, '}');
             ntask++;
-            if (strcmp(status, "done") == 0) ndone++;
+            if (fleet_status_closed(status)) ndone++;
             free(tt); free(st); free(ids[i]);
         }
         free(ids);

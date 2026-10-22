@@ -55,7 +55,7 @@ export async function semanticDisposition(tx:FindingDatabase,scope:FindingScope,
 export async function withFindingTransaction<T>(context:ComponentContext,action:string,fn:(value:FindingTransaction)=>Promise<T>):Promise<T>{
  const call=await invocation(context,action),principal=call.principal;
  let gatewayOf:unknown;try{gatewayOf=(await import(new URL('../identity/enrollment.js',import.meta.url).href)).gatewayOf;}catch{fail('DEPENDENCY_NOT_READY','Actual identity and primary transaction gateway are required');}if(typeof gatewayOf!=='function')fail('DEPENDENCY_NOT_READY','Actual primary transaction gateway is absent');
- const gateway=gatewayOf(context),scope={organisation_id:principal.organisation_id,run_id:principal.run_id};const readOnly=['finding.inspect','finding.list','finding.context.read','finding.blockers.inspect','finding.github.status','finding.github.due'].includes(action);
+ const gateway=gatewayOf(context),scope={organisation_id:principal.organisation_id,run_id:principal.run_id};const readOnly=['finding.inspect','finding.list','finding.context.read','finding.blockers.inspect','finding.github.status','finding.github.due','finding.leader-queue.list','finding.intake.list','finding.repair.escalation.list'].includes(action);
  const guarded=async(tx:AuthorityTransaction)=>{await semanticDisposition(tx,scope,!readOnly);await tx.query(readOnly?'SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))':'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[scope.organisation_id+':'+scope.run_id+':finding-disposition']);await call.guard(tx);};
  try{return await gateway.withPrimaryTransaction({timeoutMs:10000,signal:context.signal,guard:guarded},async(tx:AuthorityTransaction)=>{
   await readiness(tx);
@@ -126,6 +126,12 @@ export async function acceptedResolution(tx:FindingDatabase,scope:FindingScope,t
  return {...condition,required_contract_ids:requiredContracts,proof_registry_digest:accepted.registry_digest,origin_task_id:taskId,spec_generation:task.rows[0]!.spec_generation,spec_revision_id:task.rows[0]!.spec_revision_id,required_check_ids:checks,counterfactual_check_ids:checks.includes(String(condition.condition_id))?[condition.condition_id]:checks,required_check_definitions:requiredDefinitions};
 }
 export async function revalidateResolution(tx:FindingDatabase,scope:FindingScope,f:Record<string,any>):Promise<void>{const stored=record(f.resolution_condition);const input=Object.fromEntries(['condition_id','criteria_digest','rubric_digest','requires_original_failure','required_contract_ids'].map(key=>[key,stored[key]]));const current=await acceptedResolution(tx,scope,String(f.origin_task_id),String(f.repository_id),input);if(canonical(current)!==canonical(stored))fail('RESOLUTION_CONDITION_CHANGED','Accepted resolution obligations are no longer current');}
+// 4.9 (req 6.3): findings read the internal trunk. A finding is recorded only against a commit the watchers discovered
+// (review.commits.discover reads refs/hyperfide/trunk/<run>), never against a GitHub head the trunk has not folded.
+export async function discoveredOnTrunk(tx:FindingDatabase,scope:FindingScope,repositoryId:string,sourceObjectId:string):Promise<void>{
+ const found=await tx.query('SELECT 1 FROM hyperfide.review_commits WHERE organisation_id=$1 AND run_id=$2 AND repository_id=$3 AND source_object_id=$4',[scope.organisation_id,scope.run_id,repositoryId,sourceObjectId]);
+ if(!found.rows.length)fail('FINDING_SOURCE_NOT_ON_TRUNK','A finding must name a commit the watchers discovered on the internal trunk');
+}
 export async function reportFinding(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{
  const payload=record(input);fields(payload,['observation_id','resolution_condition'],['collaborator_package_ids']);
  const observationId=uuid(payload.observation_id),requestedCondition=resolution(payload.resolution_condition),collaborators=ids(payload.collaborator_package_ids??[]).sort();
@@ -136,6 +142,7 @@ export async function reportFinding(value:FindingTransaction,input:unknown):Prom
  const observed=observation.rows[0]!;
  if(observed.observer_session_id!==principal.actor_id)await admin(value);
  await admittedEvidence(tx,scope,[observed.evidence_id],observed.repository_id,observed.source_object_id);
+ await discoveredOnTrunk(tx,scope,observed.repository_id,observed.source_object_id);
  const task=await tx.query('SELECT t.feature_package_id,t.criteria_digest FROM hyperfide.tasks t JOIN hyperfide.attempts a ON a.organisation_id=t.organisation_id AND a.run_id=t.run_id AND a.task_id=t.id WHERE t.organisation_id=$1 AND t.run_id=$2 AND t.id=$3 AND a.id=$4 FOR SHARE OF t,a',[scope.organisation_id,scope.run_id,observed.origin_task_id,observed.origin_attempt_id]);
  if(task.rows.length!==1)fail('ORIGIN_INVALID','Observation origin must identify an existing scoped task attempt');
  const condition=await acceptedResolution(tx,scope,String(observed.origin_task_id),String(observed.repository_id),requestedCondition);

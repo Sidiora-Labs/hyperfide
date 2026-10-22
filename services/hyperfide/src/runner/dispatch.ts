@@ -10,7 +10,9 @@ import type {ComputeToken} from '../scheduler/claim.js';
 import {requestDigest} from '../scheduler/claim.js';
 import {receive} from '../events/inbox.js';
 import {issue} from '../events/instructions.js';
-import {currentClaim,acknowledge} from '../events/outbox.js';
+import {currentClaim,acknowledge,gateway} from '../events/outbox.js';
+import {taskEnvReferences} from './bridge.js';
+import {recordLaunchEvent} from '../events/api.js';
 
 export interface RunnerSpawnInput {
  organisation_id:string;run_id:string;command_id:string;token:ComputeToken;
@@ -18,6 +20,21 @@ export interface RunnerSpawnInput {
 }
 export interface RunnerLaunchPlan {
  launch_id:string;slot_id:string;agent_session_id:string;connector_plan_digest:string;
+ /** D17: the launch's declared NAME -> 'secret-ref:ID' map; never values. */
+ env_refs?:Record<string,string>;
+}
+/** Task 3.10: a plan's declared references are checked against the environment
+ * profile of the pool that owns the token's sandbox before they enter START; an
+ * undeclared reference refuses the dispatch (RUNNER_SECRET_REFERENCE_UNDECLARED). */
+export async function launchEnvReferences(tx:Pick<PrimaryTransaction,'query'>,organisation_id:string,sandbox_id:string,declared:unknown):Promise<Readonly<Record<string,string>>>{
+ if(declared===undefined)return Object.freeze({});
+ const row=(await tx.query('SELECT pool_id FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$2',[organisation_id,sandbox_id])).rows[0] as {pool_id?:unknown}|undefined;
+ if(!row||typeof row.pool_id!=='string')fail('RUNNER_SECRET_PROFILE_UNAVAILABLE','Secret references require the sandbox pool environment profile');
+ return taskEnvReferences(tx,organisation_id,row.pool_id,declared);
+}
+/** The exact START body the route issues; env_refs is present only when declared. */
+export function startInstructionBody(selected:RunnerLaunchPlan,slot_id:string,env_refs:Readonly<Record<string,string>>):Record<string,unknown>{
+ return {launch_id:selected.launch_id,slot_id,agent_session_id:selected.agent_session_id,connector_plan_digest:selected.connector_plan_digest,...(Object.keys(env_refs).length?{env_refs:{...env_refs}}:{})};
 }
 /** Trusted13 startup code supplies the qualified model/connector plan. Models
  * cannot submit a callback or turn their own launch labels into authority. */
@@ -68,9 +85,10 @@ export function createComponent(ctx:ComponentContext):Component {
     const selected=await reader!(t,{...scope,command_id:v.command_id,token,packet_digest:v.packet_digest,payload_digest:v.payload_digest},i);
     if(!selected)fail('RUNNER_PLAN_NOT_READY','Actual connector/model/workspace qualification is unavailable; delivery stays pending');
     if(!uuid(selected.launch_id)||!uuid(selected.agent_session_id)||selected.slot_id!==token.slot_id||typeof selected.connector_plan_digest!=='string'||!DIGEST.test(selected.connector_plan_digest))fail('RUNNER_PLAN_INVALID','Trusted plan must preserve exact slot and immutable launch identity');
+    const env_refs=await launchEnvReferences(t,scope.organisation_id,token.sandbox_id,selected.env_refs);
     const result=await issue(t,{...scope,id:v.command_id,attempt_id:token.attempt_id,attempt_generation:token.attempt_generation,
      authority_epoch:token.authority_epoch,sandbox_boot_generation:token.sandbox_boot_generation,kind:'START',
-     body:{launch_id:selected.launch_id,slot_id:token.slot_id,agent_session_id:selected.agent_session_id,connector_plan_digest:selected.connector_plan_digest}});
+     body:startInstructionBody(selected,token.slot_id,env_refs)});
     return {recorded:true,command_id:v.command_id,launch_id:selected.launch_id,instruction:result,authority:'NONE',native_execution_observed:false};
    });
    if(!admitted.inbox_id||!['APPLIED','DUPLICATE'].includes(admitted.status))return {...admitted,acknowledged:false};
@@ -83,6 +101,8 @@ export function createComponent(ctx:ComponentContext):Component {
   'runner.dispatch.consume':(v,context)=>identityTransaction(context,(tx,i)=>{
    if(!object(v))fail('RUNNER_DISPATCH_INPUT_INVALID','Object delivery claim required');
    return cap.consume(tx as PrimaryTransaction,i,v as unknown as {event_id:string;attempt_count:string});
-  })
+  }),
+  // 4.2: the launch broker's structured events, native prompts among them, are recorded here.
+  'runner.launch.event.record':(v,context)=>recordLaunchEvent(gateway(ctx),ctx,context,v)
  }};
 }

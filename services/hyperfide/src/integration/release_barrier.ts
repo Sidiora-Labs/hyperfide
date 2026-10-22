@@ -163,3 +163,58 @@ export function createComponent(ctx:ComponentContext):Component{
  'integration.release.recover':async input=>recover(primaryClient(),await settings(),input)
  }});
 }
+
+// ---- Per-wave release barrier (hyperfide-v21 5.5, req 6.4) ----------------------------------------
+// The wave barrier pins one wave's publication set: its tasks in publication order, each with the
+// snapshot identities the integrator folded onto the internal trunk (4.8). It releases only when the
+// wave closure passed, every pinned snapshot is folded on the trunk under its own task, and the
+// protected target already carries the previous wave, so waves reach GitHub strictly in order.
+// Nothing here writes; integration/publication.ts publishes a released barrier as one ref update.
+export interface WaveBarrierTask {task_id:string;task_key:string;title:string;snapshot_ids:string[]}
+export interface WaveBarrier {
+ version:1;feature:string;wave:number;previous_wave:number|null;run_base:string;trunk_ref:string;target_ref:string;
+ release_time:string;closure:{outcome:'PASS'|'FAIL'|'PENDING';receipt_digest:string|null};tasks:WaveBarrierTask[];
+}
+/** What the publisher observed: each trunk fold (queue trailers) and each wave already on the target. */
+export interface WaveObservation {
+ trunk_folds:{commit:string;snapshot_id:string;task_id:string}[];
+ published:{feature:string;wave:number;barrier_digest:string}[];
+}
+const FEATURE=/^[a-z0-9][a-z0-9._-]{0,63}$/,TASK_KEY=/^[0-9A-Za-z][0-9A-Za-z._-]{0,31}$/;
+function waveNumber(v:unknown,label:string):number{if(!Number.isSafeInteger(v)||(v as number)<0||(v as number)>9999)fail('RELEASE_WAVE_INVALID',label+' must be a wave number');return v as number;}
+function oneLine(v:unknown,label:string,max:number):string{if(typeof v!=='string'||!v.trim()||v.length>max||/[\x00-\x1f\x7f]/.test(v))fail('RELEASE_WAVE_INVALID',label+' must be one bounded line');return v;}
+export function validateWaveBarrier(input:unknown):WaveBarrier{
+ const v=obj(input);keys(v,['version','feature','wave','previous_wave','run_base','trunk_ref','target_ref','release_time','closure','tasks']);
+ if(v.version!==1)fail('RELEASE_WAVE_INVALID','Wave barrier version 1 required');
+ if(typeof v.feature!=='string'||!FEATURE.test(v.feature))fail('RELEASE_WAVE_INVALID','Feature identity required');
+ const wave=waveNumber(v.wave,'wave'),previous=v.previous_wave===null?null:waveNumber(v.previous_wave,'previous_wave');
+ if(previous!==null&&previous>=wave)fail('RELEASE_WAVE_INVALID','The previous wave must precede this wave');
+ if(typeof v.run_base!=='string'||!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(v.run_base))fail('RELEASE_WAVE_INVALID','Run base must be a full Git object ID');
+ for(const ref of [v.trunk_ref,v.target_ref])if(typeof ref!=='string'||!/^refs\/[A-Za-z0-9._\/-]{1,200}$/.test(ref)||ref.includes('..')||ref.endsWith('/')||ref.endsWith('.lock'))fail('RELEASE_WAVE_INVALID','Full ref names required');
+ if(v.trunk_ref===v.target_ref)fail('RELEASE_WAVE_INVALID','The internal trunk is never the published target');
+ if(typeof v.release_time!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(v.release_time)||Number.isNaN(Date.parse(v.release_time))||new Date(v.release_time).toISOString().replace('.000Z','Z')!==v.release_time)fail('RELEASE_WAVE_INVALID','Release time must be a UTC second');
+ if(Date.parse(v.release_time)>Date.now()+60000)fail('RELEASE_WAVE_INVALID','Release time is in the future');
+ const c=obj(v.closure);keys(c,['outcome','receipt_digest']);
+ if(!['PASS','FAIL','PENDING'].includes(String(c.outcome))||c.receipt_digest!==null&&(typeof c.receipt_digest!=='string'||!/^sha256:[0-9a-f]{64}$/.test(c.receipt_digest)))fail('RELEASE_WAVE_INVALID','Closure outcome and receipt digest required');
+ if(!Array.isArray(v.tasks)||!v.tasks.length||v.tasks.length>500)fail('RELEASE_WAVE_INVALID','A bounded non-empty task list is required');
+ const tasks:WaveBarrierTask[]=v.tasks.map(raw=>{const t=obj(raw);keys(t,['task_id','task_key','title','snapshot_ids']);
+  if(typeof t.task_key!=='string'||!TASK_KEY.test(t.task_key))fail('RELEASE_WAVE_INVALID','Task key required');
+  if(!Array.isArray(t.snapshot_ids)||!t.snapshot_ids.length||t.snapshot_ids.length>100)fail('RELEASE_WAVE_INVALID','Every task publishes at least one snapshot');
+  return {task_id:uuid(t.task_id),task_key:t.task_key,title:oneLine(t.title,'Task title',200),snapshot_ids:t.snapshot_ids.map(uuid)};});
+ const ids=tasks.map(t=>t.task_id),keysSeen=tasks.map(t=>t.task_key),snaps=tasks.flatMap(t=>t.snapshot_ids);
+ if(new Set(ids).size!==ids.length||new Set(keysSeen).size!==keysSeen.length||new Set(snaps).size!==snaps.length)fail('RELEASE_WAVE_INVALID','Tasks and snapshots are pinned once each');
+ return {version:1,feature:v.feature,wave,previous_wave:previous,run_base:v.run_base,trunk_ref:v.trunk_ref as string,target_ref:v.target_ref as string,release_time:v.release_time,
+  closure:{outcome:c.outcome as 'PASS'|'FAIL'|'PENDING',receipt_digest:c.receipt_digest as string|null},tasks};
+}
+export function waveBarrierDigest(b:WaveBarrier):string{return hash(canonical(b));}
+/** HELD lists every gap at once so the operator sees them together; RELEASED has none. */
+export function evaluateWaveBarrier(b:WaveBarrier,o:WaveObservation):{state:'RELEASED'|'HELD';reasons:string[]}{
+ const reasons:string[]=[];
+ if(b.closure.outcome!=='PASS')reasons.push('WAVE_CLOSURE_'+b.closure.outcome);else if(!b.closure.receipt_digest)reasons.push('WAVE_CLOSURE_RECEIPT_MISSING');
+ const folds=new Map(o.trunk_folds.map(f=>[f.snapshot_id,f]));
+ for(const t of b.tasks)for(const s of t.snapshot_ids){const f=folds.get(s);if(!f)reasons.push('SNAPSHOT_NOT_FOLDED:'+s);else if(f.task_id!==t.task_id)reasons.push('SNAPSHOT_TASK_MISMATCH:'+s);}
+ const mine=o.published.filter(p=>p.feature===b.feature),latest=mine.length?Math.max(...mine.map(p=>p.wave)):null;
+ if(mine.some(p=>p.wave===b.wave))reasons.push('WAVE_ALREADY_PUBLISHED_UNDER_ANOTHER_BARRIER');
+ else if(latest!==b.previous_wave)reasons.push(b.previous_wave===null?'TARGET_ALREADY_CARRIES_WAVE:'+latest:'PREVIOUS_WAVE_UNPUBLISHED:'+b.previous_wave);
+ return {state:reasons.length?'HELD':'RELEASED',reasons};
+}
