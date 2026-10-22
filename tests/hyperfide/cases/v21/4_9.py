@@ -392,7 +392,8 @@ def main():
                 fixture = identity_fixture.IdentityFixture(extra_components=('3.1', '6.1', '6.2', '1.2-asks', '17.1', '18.1', '19.1-queue'), extra_setup=lambda f: setup(f, t18))
                 break
             except AssertionError as error:
-                if 'TX_TIMEOUT' not in str(error) or attempt == 2:
+                # A loaded host can leave the fixture's journal activation unknown; a retry builds a fresh database.
+                if not any(code in str(error) for code in ('TX_TIMEOUT', 'AUTHORITY_ACTIVATION_UNKNOWN')) or attempt == 2:
                     raise
         scenario(fixture, t18)
     except Exception:
