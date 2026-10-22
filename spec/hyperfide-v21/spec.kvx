@@ -231,7 +231,7 @@ owner = "console"
 
 [task.1.11]
 title = "Measure one day of source traffic on the monorepo"
-status = "pending"
+status = "in_progress"
 wave = 1
 requires = []
 touches = ["scripts/hyperfide/measure-source-day.sh", "docs/hyperfide/source-measurement.md"]
