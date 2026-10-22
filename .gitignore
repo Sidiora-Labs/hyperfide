@@ -49,7 +49,7 @@ tmp/
 # Historical integration backups may contain private MCP configuration.
 *.codify.bak
 **/.hyperfide/context/
-artifacts/
+/artifacts/
 # Real identities are host-local; the shipped *.example.json templates are bootstrap inputs and stay tracked.
 deploy/hyperfide/identity/*
 !deploy/hyperfide/identity/*.example.json
