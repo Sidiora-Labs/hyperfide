@@ -107,6 +107,18 @@ export function authorizedRun<T>(g:TransactionGateway,context:ComponentContext,i
     tx=>operation(tx,invocation));
 }
 
+/** Namespaces whose consumers receive only deliveries an enqueue names them for; a default fan-out (no consumer
+ * selection) skips them, so finding:* consumers see finding events and nothing else. */
+export const ADDRESSED_ONLY_PREFIXES:readonly string[]=Object.freeze(['finding:']);
+export function addressedOnly(key:string):boolean { return ADDRESSED_ONLY_PREFIXES.some(prefix=>key.startsWith(prefix)); }
+/** Contract: an addressed-only consumer's id is a pure function of its run scope and key, so a deployed dispatch
+ * worker can name it in its configuration before the server first creates it. */
+export function addressedConsumerId(s:Scope,key:string):string {
+  const k=name(key);if(!addressedOnly(k)) fail('EVENT_INPUT_INVALID','Only an addressed-only consumer has a derived id');
+  const h=createHash('sha256').update('hyperfide.addressed-consumer.v1\0'+uuid(s.organisation_id)+'\0'+uuid(s.run_id)+'\0'+k).digest('hex');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-5'+h.slice(13,16)+'-'+(8|parseInt(h[16]!,16)&3).toString(16)+h.slice(17,20)+'-'+h.slice(20,32);
+}
+
 // Registration and creation use the same short run lock, preventing a subscriber gap.
 export async function lockRun(tx: PrimaryTransaction, s: Scope, mode: 'shared'|'exclusive' = 'shared'): Promise<void> {
   assertPrimaryTransaction(tx);
@@ -120,6 +132,8 @@ export async function registerConsumer(tx: PrimaryTransaction, input: unknown): 
   const s=scope(v), id=uuid(v.id), key=name(v.consumer_key);
   if (typeof v.critical !== 'boolean' || !['ACTIVE','BUFFERING'].includes(String(v.state)))
     fail('EVENT_INPUT_INVALID','Registration needs critical and ACTIVE or BUFFERING');
+  if (addressedOnly(key) && id !== addressedConsumerId(s,key))
+    fail('EVENT_INPUT_INVALID','An addressed-only consumer must use its derived id');
   await lockRun(tx,s,'exclusive');
   const old = await tx.query('SELECT * FROM hyperfide.event_consumers WHERE organisation_id=$1 AND run_id=$2 AND (id=$3 OR consumer_key=$4) FOR UPDATE',
     [s.organisation_id,s.run_id,id,key]);
@@ -166,10 +180,10 @@ export async function enqueue(tx: PrimaryTransaction, value: unknown, options?: 
     }
     return {event:stored,replayed:true,obligations:prior.rows.length};
   }
-  const consumers=await tx.query("SELECT id,critical FROM hyperfide.event_consumers WHERE organisation_id=$1 AND run_id=$2 AND state IN ('ACTIVE','BUFFERING') ORDER BY id",
+  const consumers=await tx.query("SELECT id,critical,consumer_key FROM hyperfide.event_consumers WHERE organisation_id=$1 AND run_id=$2 AND state IN ('ACTIVE','BUFFERING') ORDER BY id",
     [e.organisation_id,e.run_id]);
   if(selected && selected.some(id=>!consumers.rows.some(r=>r.id===id))) fail('EVENT_CONSUMER_REQUIRED','Selected consumer is not registered and standing');
-  const recipients=consumers.rows.filter(r=>selected===undefined||selected.includes(r.id as string));
+  const recipients=consumers.rows.filter(r=>selected===undefined?!addressedOnly(r.consumer_key as string):selected.includes(r.id as string));
   if(!recipients.length) fail('EVENT_CONSUMER_REQUIRED','Register standing consumers before producing work');
   if(recipients.length>256) fail('EVENT_CONSUMER_LIMIT','Standing consumer fan-out exceeds the configured baseline bound');
   await tx.query('INSERT INTO hyperfide.outbox_events(organisation_id,run_id,id,aggregate_type,aggregate_id,aggregate_version,event_type,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)',

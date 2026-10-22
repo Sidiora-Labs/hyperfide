@@ -604,6 +604,19 @@ do_3 = "Implement only this task in an isolated task worktree. Run real positive
 reqs = ["6.5"]
 owner = "source"
 
+[task.3.12]
+title = "Finding consumers are claimable and provider throttling backs off"
+status = "implemented"
+wave = 3
+requires = ["2.6", "2.2"]
+touches = ["services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/events/outbox.ts", "services/hyperfide/src/events/dispatcher.ts", "services/hyperfide/src/providers/railway/reconciliation.ts", "services/hyperfide/src/providers/reconcile.ts", "tests/hyperfide/cases/v21/3_12.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_12.py"
+do_1 = "finding:manager and finding:operator receive finding deliveries only, not every enqueue that names no consumers; their consumer ids are stable and named in the shipped dispatch worker config so a deployed stack claims them; Railway writes (sandboxCreate and the rest) back off on 429 and 5xx before any UNKNOWN transition; an ownership probe that exhausts its retries yields UNVERIFIED, not not-ours; a DELETED inventory row is never overwritten to OWNERSHIP_VERIFIED by a later probe."
+do_2 = "3_12.py proves a task.changed event is not delivered to the finding consumers while a finding is, the shipped dispatch config names them, a 429 on sandboxCreate retries before UNKNOWN, an exhausted probe is UNVERIFIED, and a DELETED row survives re-observation."
+do_3 = "80_qualification_inputs.sh asserts both directories are tracked with the expected counts, that no verify_cmd in spec/hyperfide/spec.kvx names an untracked file, and that each evidence ref resolves."
+reqs = ["2.2"]
+owner = "findings"
+
 [task.4.1]
 title = "Classifier writes Asks"
 status = "pending"
