@@ -11,7 +11,8 @@
   "actions": [
     "submission.submit",
     "submission.revoke",
-    "submission.inspect"
+    "submission.inspect",
+    "submission.snapshot"
   ],
   "requires": [
     "4.2",

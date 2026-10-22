@@ -472,6 +472,7 @@
     "storage.runtime.describe",
     "submission.inspect",
     "submission.revoke",
+    "submission.snapshot",
     "submission.submit",
     "supervisor.session.describe",
     "supervisor.session.input",
