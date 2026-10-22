@@ -656,6 +656,20 @@ do_2 = "3_13.py proves a tampered cache is refused, a removed dist file makes th
 do_3 = "80_qualification_inputs.sh asserts both directories are tracked with the expected counts, that no verify_cmd in spec/hyperfide/spec.kvx names an untracked file, and that each evidence ref resolves."
 reqs = ["1.1"]
 owner = "qualification"
+
+[task.3.16]
+title = "Fleet stops release and admission honours a held scope"
+status = "implemented"
+wave = 3
+requires = ["3.11"]
+touches = ["services/hyperfide/src/recovery/stop.ts", "services/hyperfide/src/recovery/scope_hold.ts", "services/hyperfide/src/agents/admission.ts", "services/hyperfide/components/24.3.json", "services/hyperfide/src/identity/enrollment.ts", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/2_4.py", "tests/hyperfide/cases/v21/3_16.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_16.py"
+do_1 = "A held POOL, ORGANISATION or DEPLOYMENT stop can be released: a recovery.stop.release action with operator authority (a leader may release a POOL stop) marks the stop RELEASED, records who released it and why, emits an event, and the driver stops scanning it; admission refuses a run or sandbox whose scope is under a held stop with a named error instead of admitting it for the driver to stop later; the release and the admission check live in recovery/scope_hold.ts with a one-call insertion into admission.ts; 2_4.py prints SKIP and exits 77 when not root."
+do_2 = "3_16.py holds an ORGANISATION stop, proves a run admission in that organisation is refused, releases the stop, proves the same admission is then admitted and a replayed release is idempotent, and proves a non-operator release of a DEPLOYMENT stop is refused and recorded."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.3"]
+owner = "recovery"
+
 [task.4.1]
 title = "Classifier writes Asks"
 status = "implemented"

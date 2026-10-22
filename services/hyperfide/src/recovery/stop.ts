@@ -5,6 +5,7 @@ import type {PrimaryTransaction} from '../storage/transactions.js';
 import {writeSemanticDisposition} from '../storage/dispositions.js';
 import {lockRun as lockEventRun} from '../events/outbox.js';
 import {invocationOf} from '../identity/enrollment.js';
+import {releaseFleetStop,HELD_FLEET_STOP} from './scope_hold.js';
 import {record,scopeOf,uuid,positive,digest,timestamp,recoveryTransaction,operationReplay,finishOperation,capability,isSupervisor,isGateway,type RecoverySupervisor,type RecoveryScope,type RecoveryTransaction,type RecoveryGateway,type RecoveryExecutionControls,inspectRecoveryHold,createRecoveryControlCapability,inspectIntegrationRecovery,isExecutionControls,derivedOperationId,recoveryReady,lockRun,inputDigest} from './control.js';
 
 const modes=['PAUSE','DRAIN','CANCEL','STOP'] as const;
@@ -12,7 +13,7 @@ const ranks:Record<string,number>={PAUSE:2,DRAIN:1,CANCEL:4,STOP:3};
 const RUN_SCOPES=['RUN','PACKAGE','ATTEMPT','SANDBOX'];
 // Fleet scopes span runs, so they are recorded once and fanned out to per-run controls by the driver loop only.
 // A fleet stop holds its scope: RECONCILED means every target known so far has settled, and the driver keeps
-// fanning it out so a run or sandbox admitted later in that scope is stopped too.
+// fanning it out so a run or sandbox admitted later in that scope is stopped too, until recovery.stop.release (3.16).
 const FLEET_SCOPES=['POOL','ORGANISATION','DEPLOYMENT'];
 const TERMINAL_RUN="('STOPPED','SUCCEEDED','FAILED','CANCELLED')";
 const PAGE=1000;
@@ -145,7 +146,7 @@ async function applyScopedControl(deps:StopDependencies,input:unknown,fleetOpera
 const CANONICAL_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 /** D14: a DEPLOYMENT stop reaches every organisation, so it needs an allow-listed operator credential.
  * Unset or empty means nobody; a malformed entry is a configuration error, never a silent widening. */
-function deploymentOperators(env:Readonly<Record<string,string|undefined>>):string[]{
+export function deploymentOperators(env:Readonly<Record<string,string|undefined>>):string[]{
  const raw=(env.HYPERFIDE_DEPLOYMENT_OPERATORS??'').trim();
  if(!raw)return [];
  const ids=raw.split(',').map(item=>item.trim());
@@ -265,6 +266,7 @@ async function finalizeStop(deps:StopDependencies,cleanup:CleanupVerifier,scope:
    const plan=await deps.run(scope,async tx=>{
     const op=await tx.query("SELECT kind,result,created_at FROM hyperfide.recovery_operations WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3",[scope.organisation_id,scope.run_id,id]);
     if(op.rows[0]?.kind!=='STOP')throw new FoundationError('RECOVERY_OPERATION_INVALID','No matching scoped stop intent');
+    if((op.rows[0]!.result as Record<string,unknown>).release===true)throw new FoundationError('RECOVERY_OPERATION_INVALID','A release has nothing to finalize');
     if((op.rows[0]!.result as Record<string,unknown>).fleet===true)throw new FoundationError('RECOVERY_OPERATION_INVALID','A fleet stop finalizes through its per-run child operations');
     return {result:op.rows[0]!.result as Record<string,unknown>,created_at:op.rows[0]!.created_at};
    });
@@ -353,7 +355,10 @@ export function createStopDriver(options:StopDriverOptions):StopDriver{
   const complete=counts.pending===0&&counts.unsettled===0;
   // A held stop that saw nothing new is not rewritten, so holding costs reads only (jsonb reorders keys: compare by name).
   const unchanged=fleet.state===(complete?'RECONCILED':'APPLIED')&&intent.fanout_complete===complete&&intent.scope_held===true&&Object.entries(counts).every(([name,value])=>(intent.fanout as Record<string,unknown>|undefined)?.[name]===value);
+  // A release committed after this pass read the stop wins: the write-back never revives a released stop.
   if(!unchanged)await deps.run(fleetScope,async tx=>{
+   const current=(await tx.query("SELECT result->>'released' AS released FROM hyperfide.recovery_operations WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR UPDATE",[fleetScope.organisation_id,fleetScope.run_id,fleet.operation_id])).rows[0];
+   if(current?.released==='true')return;
    await finishOperation(tx,fleetScope,fleet.operation_id,{...intent,fanout:counts,fanout_complete:complete,stop_complete:complete,scope_held:true},complete?'RECONCILED':'APPLIED');
   });
   if(complete&&fleet.state!=='RECONCILED')report.fleet_completed++;
@@ -361,10 +366,10 @@ export function createStopDriver(options:StopDriverOptions):StopDriver{
  async function pass():Promise<StopDriverReport>{
   const report:StopDriverReport={started_at:new Date().toISOString(),finished_at:'',fleet_operations:0,children_applied:0,children_not_applicable:0,fleet_completed:0,operations_reconciled:0,operations_finalized:0,errors:[]};
   const base="SELECT o.organisation_id,o.run_id,o.operation_id,r.authority_epoch,o.result FROM hyperfide.recovery_operations o JOIN hyperfide.runs r ON r.organisation_id=o.organisation_id AND r.id=o.run_id WHERE (o.organisation_id,o.run_id,o.operation_id)>($1::uuid,$2::uuid,$3::uuid) AND o.kind='STOP' AND o.state='APPLIED' AND ";
-  // Settled fleet stops stay in the scan: they hold their scope against runs and sandboxes admitted later.
-  const fleetBase="SELECT o.organisation_id,o.run_id,o.operation_id,r.authority_epoch,o.state,o.result FROM hyperfide.recovery_operations o JOIN hyperfide.runs r ON r.organisation_id=o.organisation_id AND r.id=o.run_id WHERE (o.organisation_id,o.run_id,o.operation_id)>($1::uuid,$2::uuid,$3::uuid) AND o.kind='STOP' AND o.state IN ('APPLIED','RECONCILED') AND ";
+  // Settled fleet stops stay in the scan until released: they hold their scope against runs and sandboxes admitted later.
+  const fleetBase="SELECT o.organisation_id,o.run_id,o.operation_id,r.authority_epoch,o.state,o.result FROM hyperfide.recovery_operations o JOIN hyperfide.runs r ON r.organisation_id=o.organisation_id AND r.id=o.run_id WHERE (o.organisation_id,o.run_id,o.operation_id)>($1::uuid,$2::uuid,$3::uuid) AND ";
   for(let key:[string,string,string]=[NIL,NIL,NIL];;){
-   const fleets=await page(fleetBase+"o.result->>'fleet'='true' ORDER BY 1,2,3 LIMIT $4",key,[]);
+   const fleets=await page(fleetBase+HELD_FLEET_STOP+" ORDER BY 1,2,3 LIMIT $4",key,[]);
    for(const fleet of fleets){
     if(signal.aborted)return report;
     report.fleet_operations++;
@@ -427,12 +432,13 @@ export function createComponent(startup:ComponentContext):Component{
   driver.start();
  }
  return {apiVersion:1,capabilities:{'recovery.controls.v1':createRecoveryControlCapability()},close:()=>driver?.close(),actions:{
-  'recovery.stop.describe':(input)=>{record(input,[]);return {api_version:1,modes:[...modes],scopes:[...RUN_SCOPES,...FLEET_SCOPES],scope_precedence:'RUN_ENCLOSES_PACKAGE_ATTEMPT_SANDBOX',fleet_scopes:'FANNED_OUT_PER_RUN_BY_DRIVER',fleet_scope_held:true,external_stop_requires:'TRUSTED_IDENTITY_BOUND_SUPERVISOR',unreachable_means:'DEBT',
+  'recovery.stop.describe':(input)=>{record(input,[]);return {api_version:1,modes:[...modes],scopes:[...RUN_SCOPES,...FLEET_SCOPES],scope_precedence:'RUN_ENCLOSES_PACKAGE_ATTEMPT_SANDBOX',fleet_scopes:'FANNED_OUT_PER_RUN_BY_DRIVER',fleet_scope_held:true,fleet_release:'recovery.stop.release',external_stop_requires:'TRUSTED_IDENTITY_BOUND_SUPERVISOR',unreachable_means:'DEBT',
    driver:driver?driver.status():{running:false,interval_ms:0}};},
   'recovery.stop.request':(input,context)=>{
    const kind=typeof input==='object'&&input!==null?(input as Record<string,unknown>).scope_kind:undefined;
    return FLEET_SCOPES.includes(String(kind))?requestFleetControl(input,context):applyScopedControl(invoked(context),input);
   },
+  'recovery.stop.release':(input,context)=>releaseFleetStop(input,context,deploymentOperators),
   'recovery.stop.finalize':async(input,context)=>{
    const value=record(input,['scope','operation_id']);const scope=scopeOf(value.scope),id=uuid(value.operation_id);
    return finalizeStop(invoked(context),capability(context,'12.4','runner.supervisors.v1',isCleanup),scope,id);
