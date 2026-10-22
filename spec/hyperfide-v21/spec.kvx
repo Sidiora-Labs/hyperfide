@@ -608,7 +608,7 @@ owner = "source"
 
 [task.3.10]
 title = "Secret references reach the launched agent"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["2.8", "2.17"]
 touches = ["services/hyperfide/src/events/instructions.ts", "services/hyperfide/src/runner/dispatch.ts", "src/hyperfide/launch.c", "src/hyperfide/job.c", "tests/hyperfide/cases/v21/3_10.py"]
