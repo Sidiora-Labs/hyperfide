@@ -363,3 +363,31 @@ export function createComponent(ctx:ComponentContext):Component{
   'decision.jobs.process':(input,context)=>jobs.process(invocation(context),input),
   'decision.jobs.cancel':(input,context)=>jobs.cancel(invocation(context),input)},close:()=>jobs.close()};
 }
+
+// ---- Decided-by-default records (hyperfide-v21 3.6, req 3 ac_4, D11) -----------------------------------------
+// A proceed-and-flag Ask that expires unanswered becomes a decision nobody made: the recommended option is taken
+// and this record (migration 0712) is the flag. It names the Ask it replaced, the default taken, the options that
+// were open and the escalation chain of who would have answered, so the metrics of 6.x can count defaults and a
+// human can revisit each one. It is written in the expiring transaction; the table refuses a record that does
+// not match an Ask expired by default, and refuses any later edit.
+export interface ExpiredAskForDecision{organisation_id:string;run_id:string;id:string;kind:string}
+export interface DefaultDecisionRecord{
+ decision_id:string;ask_id:string;ask_state_version:string;kind:string;title:string;default_taken:string;options:string[];
+ would_have_answered:string[];policy_revision:string;task:string|null;attempt:string|null;deadline:string;decided_at:string;decided_by:string;
+}
+export async function recordDefaultDecision(tx:unknown,ask:ExpiredAskForDecision,decidedBy:string,policyRevision:string):Promise<DefaultDecisionRecord>{
+ assertPrimaryTransaction(tx);
+ uuid(ask.organisation_id);uuid(ask.run_id);uuid(ask.id);uuid(decidedBy);text(policyRevision,'Ask policy revision',128);
+ if(!['decision','question'].includes(ask.kind))fail('DECISION_SCHEMA','Only a proceed-and-flag kind is decided by default');
+ // Every field naming the Ask is copied from its head in the same statement, so the record cannot drift from it.
+ const q=await tx.query(`INSERT INTO hyperfide.ask_default_decisions(organisation_id,run_id,id,ask_id,ask_state_version,kind,title,default_taken,options,would_have_answered,policy_revision,task,attempt,deadline,decided_by)
+  SELECT organisation_id,run_id,$3,id,state_version,kind,title,answer,options,chain,$4,task,attempt,deadline,$5 FROM hyperfide.asks
+  WHERE organisation_id=$1 AND run_id=$2 AND id=$6 AND state='EXPIRED' AND decided_by_default RETURNING *`,
+  [ask.organisation_id,ask.run_id,randomUUID(),policyRevision,decidedBy,ask.id]);
+ if(q.rowCount!==1)fail('DECISION_SCHEMA','Ask was not expired by default in this run');
+ const r=q.rows[0] as Record<string,unknown>,iso=(value:unknown)=>value instanceof Date?value.toISOString():String(value);
+ return {decision_id:String(r.id),ask_id:String(r.ask_id),ask_state_version:String(r.ask_state_version),kind:String(r.kind),title:String(r.title),
+  default_taken:String(r.default_taken),options:r.options as string[],would_have_answered:r.would_have_answered as string[],policy_revision:String(r.policy_revision),
+  task:(r.task as string|null)??null,attempt:(r.attempt as string|null)??null,deadline:iso(r.deadline),decided_at:iso(r.decided_at),decided_by:String(r.decided_by)};
+}
+// ---- end decided-by-default records ---------------------------------------------------------------------------
