@@ -905,7 +905,7 @@ owner = "source"
 
 [task.4.9]
 title = "The internal trunk is the only advancing ref"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["4.8"]
 touches = ["services/hyperfide/src/review/coverage.ts", "services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/integration/publication.ts", "tests/hyperfide/cases/v21/4_9.py"]
