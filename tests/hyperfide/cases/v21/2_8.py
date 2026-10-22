@@ -282,6 +282,18 @@ def sandbox_scenario(p, t122, base):
           data.get("previous_agent", {}).get("pid") == agent0 and all(v.encode() not in ledger + coordinator for v in SECRETS.values()), data)
 
 
+def fixture_root(libc, euid=None):
+    """The probe reaps the agents it launches: it runs as root and is the child
+    subreaper, read back from the kernel rather than assumed."""
+    import ctypes
+    euid = os.geteuid() if euid is None else euid
+    set_rc = libc.prctl(36, 1, 0, 0, 0)  # PR_SET_CHILD_SUBREAPER
+    reaper = ctypes.c_int(0)
+    get_rc = libc.prctl(37, ctypes.byref(reaper), 0, 0, 0)  # PR_GET_CHILD_SUBREAPER
+    detail = {"euid": euid, "set": set_rc, "get": get_rc, "subreaper": reaper.value}
+    return euid == 0 and set_rc == 0 and get_rc == 0 and reaper.value == 1, detail
+
+
 def main():
     if os.geteuid() != 0:
         print("SKIP: task 2.8 sandbox probe needs root for slot uids and the native supervisor", flush=True)
@@ -302,8 +314,7 @@ def main():
     t295.postgres_bin = lambda: servers[-1]
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     import ctypes
-    ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0)
-    check("fixture.root", True)
+    check("fixture.root", *fixture_root(ctypes.CDLL(None, use_errno=True)))
     base = os.environ.copy()
     for key in list(base):
         if key == "DATABASE_URL" or key.startswith("HYPERFIDE_") and key.endswith("_DATABASE_URL") or key.startswith("PROBE_TOKEN_"):

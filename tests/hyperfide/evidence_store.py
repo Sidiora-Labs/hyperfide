@@ -36,6 +36,11 @@ UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 TASK = re.compile(r"^[0-9]+\.[0-9]+$")
 ISO = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$")
+COMMIT = re.compile(r"^[0-9a-f]{40}$")
+INDEX_MEMBER = "evidence-index.json"
+# The release marker (deployment/releases.ts UNIT_RECEIPT) is this member of task 26.4's bundle.
+UNIT_TASK = "26.4"
+STORE_NAMES = ("HF_ARTIFACT_S3_ENDPOINT", "HF_ARTIFACT_S3_REGION", "HF_ARTIFACT_S3_BUCKET", "HF_ARTIFACT_S3_ACCESS_KEY_ID", "HF_ARTIFACT_S3_SECRET_ACCESS_KEY")
 
 
 class EvidenceIntegrityError(Exception):
@@ -79,6 +84,11 @@ def load_record(root, task):
         record = json.loads(path.read_text())
     except ValueError as exc:
         raise EvidenceIntegrityError("unreadable receipt record " + str(path) + ": " + str(exc)) from exc
+    return validate_record(record, task)
+
+
+def validate_record(record, task):
+    """Structural and binding checks of a receipt record; needs no store."""
     _require(isinstance(record, dict) and record.get("schema_version") == 1 and record.get("kind") == RECORD_KIND and record.get("task") == task and record.get("bundle_format") == "tar", "receipt record is not an evidence receipt for task " + task)
     receipt = record.get("receipt")
     _require(isinstance(receipt, dict), "receipt record lacks a receipt")
@@ -94,13 +104,31 @@ def load_record(root, task):
     expected_org = os.environ.get("HF_ARTIFACT_ORGANISATION_ID")
     _require(not expected_org or expected_org == receipt["organisation_id"], "receipt organisation differs from HF_ARTIFACT_ORGANISATION_ID")
     _require(DIGEST.fullmatch(str(record.get("content_digest"))), "receipt record content digest is malformed")
+    commits = record.get("evidence_commits")
+    # Optional for records published before task 3.19; publish-evidence.py always writes it.
+    _require(commits is None or (isinstance(commits, dict) and commits and set(commits) <= {"commit", "requalified_on"} and all(isinstance(v, str) and COMMIT.fullmatch(v) for v in commits.values())), "receipt record evidence commits are malformed")
     return record
+
+
+def missing_store_names():
+    return [name for name in STORE_NAMES if not os.environ.get(name)]
+
+
+def index_commits(data):
+    """The commit fields of the bundle's evidence-index.json, as publish-evidence.py records them."""
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as archive:
+        try:
+            member = archive.getmember(INDEX_MEMBER)
+        except KeyError:
+            return {}
+        index = json.loads(archive.extractfile(member).read())
+    return {name: index[name] for name in ("commit", "requalified_on") if isinstance(index.get(name), str) and COMMIT.fullmatch(index[name])}
 
 
 def _config():
     env = os.environ
-    names = ("HF_ARTIFACT_S3_ENDPOINT", "HF_ARTIFACT_S3_REGION", "HF_ARTIFACT_S3_BUCKET", "HF_ARTIFACT_S3_ACCESS_KEY_ID", "HF_ARTIFACT_S3_SECRET_ACCESS_KEY")
-    missing = [name for name in names if not env.get(name)]
+    names = STORE_NAMES
+    missing = missing_store_names()
     if missing:
         raise EvidenceUnavailable("artifact store configuration absent: " + ", ".join(missing))
     if any(re.search(r"[\x00-\x1f\x7f]", env[name]) for name in names):
@@ -127,23 +155,28 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def _get(config, key, expected_digest, size):
+def signed_request(config, method, key, body=b"", extra=None):
+    """A SigV4 path-style request for one object key, signed as objects.ts S3.request signs it."""
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     day = now[:8]
     pathname = "/" + _encode(config["bucket"]) + "/" + "/".join(_encode(part) for part in key.split("/"))
-    payload = hashlib.sha256(b"").hexdigest()
-    headers = {"host": config["host"], "x-amz-content-sha256": payload, "x-amz-date": now}
+    payload = hashlib.sha256(body).hexdigest()
+    headers = {"host": config["host"], "x-amz-content-sha256": payload, "x-amz-date": now, **(extra or {})}
     if config["token"]:
         headers["x-amz-security-token"] = config["token"]
     names = sorted(headers)
-    canonical = "\n".join(["GET", pathname, "", "".join(name + ":" + headers[name].strip() + "\n" for name in names), ";".join(names), payload])
+    canonical = "\n".join([method, pathname, "", "".join(name + ":" + headers[name].strip() + "\n" for name in names), ";".join(names), payload])
     scope = day + "/" + config["region"] + "/s3/aws4_request"
     to_sign = "AWS4-HMAC-SHA256\n" + now + "\n" + scope + "\n" + hashlib.sha256(canonical.encode()).hexdigest()
     signing = ("AWS4" + config["secret"]).encode()
     for part in (day, config["region"], "s3", "aws4_request"):
         signing = hmac.new(signing, part.encode(), hashlib.sha256).digest()
     headers["authorization"] = "AWS4-HMAC-SHA256 Credential=" + config["access"] + "/" + scope + ", SignedHeaders=" + ";".join(names) + ", Signature=" + hmac.new(signing, to_sign.encode(), hashlib.sha256).hexdigest()
-    request = urllib.request.Request(config["origin"] + pathname, method="GET", headers={k: v for k, v in headers.items() if k != "host"})
+    return urllib.request.Request(config["origin"] + pathname, method=method, data=body if method == "PUT" else None, headers={k: v for k, v in headers.items() if k != "host"})
+
+
+def _get(config, key, expected_digest, size):
+    request = signed_request(config, "GET", key)
     opener = urllib.request.build_opener(_NoRedirect)
     last = None
     for _ in range(2):
@@ -197,6 +230,8 @@ def fetch_bundle(record):
     parts = [_get(config, key_of(organisation, run, chunk["digest"]), chunk["digest"], int(chunk["size_bytes"])) for chunk in chunks]
     bundle = b"".join(parts)
     _require(_sha(bundle) == manifest["content_digest"], "concatenated evidence digest differs from the manifest")
+    # The recorded commits are what 80_qualification_inputs.sh maps to refs/evidence; they must be the bundle's.
+    _require(record.get("evidence_commits") is None or index_commits(bundle) == record["evidence_commits"], "receipt record evidence commits differ from the bundled evidence index")
     return bundle
 
 
@@ -304,6 +339,51 @@ def resolve(root, task, required=False):
         shutil.rmtree(staging, ignore_errors=True)
         raise
     return {"status": "RESOLVED", "task": task, "receipt_id": record["receipt"]["receipt_id"], "manifest_digest": record["receipt"]["digest"], "content_digest": record["content_digest"]}
+
+
+def read_member(root, task, member):
+    """(bytes, source) of one file of a task's evidence without writing the cache.
+
+    A present cache is verified against the receipt first (_verify_cache); with no
+    cache the member comes from the receipted bundle in the store. EvidenceUnavailable
+    when neither exists or the store is not configured; integrity failures raise.
+    """
+    target = Path(root) / TASKS_DIR / task
+    if target.exists():
+        status = _verify_cache(root, task, target, False)
+        path = target / member
+        if not path.is_file() or path.is_symlink():
+            raise EvidenceUnavailable("local evidence cache for task " + task + " has no " + member)
+        return path.read_bytes(), "local" if status.get("verified") else "local-unverified"
+    record = load_record(root, task)
+    with tarfile.open(fileobj=io.BytesIO(fetch_bundle(record)), mode="r:") as archive:
+        try:
+            info = archive.getmember(member)
+        except KeyError as exc:
+            raise EvidenceIntegrityError("receipted bundle for task " + task + " has no " + member) from exc
+        _require(info.isfile(), "receipted " + member + " is not a regular member")
+        return archive.extractfile(info).read(), "store"
+
+
+def unit_receipt_input(root, scratch, override=None):
+    """The 26.4 marker input for scripts/release.sh: (path or None, source).
+
+    An explicit override wins; then the local cache; then the store by the tracked
+    receipt, so a clean host without artifacts/ still releases. A tracked receipt the
+    store cannot serve refuses rather than shipping the owning units unstartable.
+    """
+    if override:
+        return Path(override), "override"
+    try:
+        data, source = read_member(root, UNIT_TASK, INDEX_MEMBER)
+    except EvidenceUnavailable as exc:
+        if (receipts_dir(root) / (UNIT_TASK + ".json")).is_file():
+            raise EvidenceIntegrityError("task " + UNIT_TASK + " has a tracked receipt but the store cannot serve it: " + str(exc)) from exc
+        return None, "absent"
+    path = Path(scratch) / "unit-receipt" / INDEX_MEMBER
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return path, source
 
 
 def task_of_campaign(path):

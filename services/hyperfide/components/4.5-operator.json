@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "4.5-operator",
+  "task": "4.5",
+  "roles": [
+    "control"
+  ],
+  "module": "observability/notifications.js",
+  "entry": "createOperatorComponent",
+  "api_version": 1,
+  "actions": [
+    "fleet.notifications.operator.describe",
+    "fleet.notifications.operator.produce",
+    "fleet.notifications.operator.deliver",
+    "fleet.notifications.operator.list"
+  ],
+  "requires": [
+    "4.2"
+  ]
+}

@@ -15,7 +15,10 @@
     "finding.github.process-delivery",
     "finding.github.reconcile",
     "finding.github.status",
-    "finding.github.due"
+    "finding.github.due",
+    "finding.intake.list",
+    "finding.intake.dismiss",
+    "finding.intake.link"
   ],
   "requires": [
     "finding-registry"

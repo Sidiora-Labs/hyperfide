@@ -28,9 +28,22 @@ function name(value:unknown):string{
  if(typeof value!=='string'||!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value))fail('SLICE_SOURCE_UNAVAILABLE','Provider and region names must be plain identifiers');
  return value;
 }
-/** GitHub receives publications only; a github.com host is never a materialisation source, mirror or store. */
+/**
+ * An IP literal names no owner, so it cannot be shown not to be GitHub (hyperfide-v21 3.21). Covers bracketed IPv6 (mapped
+ * IPv4 included) and every IPv4 spelling inet_aton accepts: ssh: is not a special scheme, so URL leaves 0x8c.0122.28707 or
+ * 2358111235 as written where https: would have normalised it to dotted decimal.
+ */
+export function isIPLiteral(hostname:string):boolean{
+ const h=hostname.toLowerCase().replace(/\.$/,'');
+ if(h.startsWith('[')||h.includes(':'))return true;
+ const part=/^(0x[0-9a-f]*|0[0-7]*|[1-9][0-9]*)$/;
+ const parts=h.split('.');
+ return parts.length>=1&&parts.length<=4&&parts.every(p=>part.test(p));
+}
+/** GitHub receives publications only; a github.com host, or an IP literal that could be one, is never a materialisation source, mirror or store. */
 export function isGitHubHost(hostname:string):boolean{
  const h=hostname.toLowerCase().replace(/\.$/,'');
+ if(isIPLiteral(h))return true;
  return h==='github.com'||h.endsWith('.github.com')||h==='githubusercontent.com'||h.endsWith('.githubusercontent.com');
 }
 // A plain local path silently ignores --filter, so only URL transports are accepted.
@@ -39,7 +52,7 @@ export function sourceURL(value:unknown):string{
  let url:URL;try{url=new URL(value);}catch{return fail('SLICE_SOURCE_UNAVAILABLE','Source must be a URL, not a local path');}
  if(!['https:','ssh:','file:'].includes(url.protocol)||url.username||url.password||url.search||url.hash||(url.protocol==='file:'&&(url.hostname||!url.pathname.startsWith('/'))))
   fail('SLICE_SOURCE_UNAVAILABLE','Credential-free https, ssh or absolute file URL required');
- if(isGitHubHost(url.hostname))fail('SLICE_SOURCE_GITHUB_REFUSED','GitHub is the publication projection, never a materialisation source');
+ if(isGitHubHost(url.hostname))fail('SLICE_SOURCE_GITHUB_REFUSED',isIPLiteral(url.hostname)?'An IP-literal host cannot be shown not to be GitHub; name the store by host':'GitHub is the publication projection, never a materialisation source');
  return value;
 }
 function storeSource(value:unknown):StoreSource{

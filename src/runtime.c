@@ -290,77 +290,19 @@ static char *runtime_kind(const char *payload) {
     return xstrdup(kind);
 }
 
-typedef struct {
-    char *path;
-    long size;
-    sqlite3_int64 mtime_ns, ctime_ns;
-    char hash[65];
-} RuntimeFile;
-
-typedef struct { RuntimeFile *v; int n, cap; } RuntimeFiles;
-
-static void runtime_files_push(RuntimeFiles *files, const char *path,
-                               const struct stat *st) {
-    if (files->n == files->cap) {
-        files->cap = files->cap ? files->cap * 2 : 256;
-        files->v = xrealloc(files->v,
-                            sizeof(RuntimeFile) * (size_t)files->cap);
-    }
-    RuntimeFile *f = &files->v[files->n++];
-    memset(f, 0, sizeof *f);
-    f->path = xstrdup(path);
-    f->size = (long)st->st_size;
-    f->mtime_ns = (sqlite3_int64)st->st_mtime * 1000000000LL
-                  + st->st_mtim.tv_nsec;
-    f->ctime_ns = (sqlite3_int64)st->st_ctime * 1000000000LL
-                  + st->st_ctim.tv_nsec;
-}
-
-static void runtime_walk_files(const char *root, const char *rel,
-                               const Ignore *ig, RuntimeFiles *files) {
-    char abs[4600];
-    snprintf(abs, sizeof abs, "%s/%s", root, rel[0] ? rel : ".");
-    DIR *d = opendir(abs);
-    if (!d) return;
-    struct dirent *e;
-    while ((e = readdir(d))) {
-        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
-            continue;
-        char child[4096], child_abs[4900];
-        if (rel[0]) snprintf(child, sizeof child, "%s/%s", rel, e->d_name);
-        else snprintf(child, sizeof child, "%s", e->d_name);
-        snprintf(child_abs, sizeof child_abs, "%s/%s", root, child);
-        struct stat st;
-        if (lstat(child_abs, &st) != 0 || S_ISLNK(st.st_mode)) continue;
-        bool dir = S_ISDIR(st.st_mode);
-        if (ignore_match(ig, child, dir)) continue;
-        if (dir) runtime_walk_files(root, child, ig, files);
-        else if (S_ISREG(st.st_mode) && st.st_size <= 32L * 1024 * 1024)
-            runtime_files_push(files, child, &st);
-    }
-    closedir(d);
-}
-
-static int runtime_file_cmp(const void *a, const void *b) {
-    return strcmp(((const RuntimeFile *)a)->path,
-                  ((const RuntimeFile *)b)->path);
-}
-
-/* The stat walk is cheap; what was not is the write side — every file whose
- * size or times moved was hashed and saved in its own autocommit, so a
- * branch switch cost one fsync per file. One transaction batches them all.
- * A caller already inside a transaction keeps its own. */
+/* Hashes come from the built-in store's stat cache (vcs_worktree_files), so
+ * a file unchanged since the last snapshot is not read again here or there.
+ * runtime_files stays the current path->hash manifest govern.c diffs work
+ * against; it is written only where a hash moved, in one transaction, since
+ * one autocommit per file cost an fsync each on a branch switch. A caller
+ * already inside a transaction keeps its own. The mtime_ns and ctime_ns
+ * columns are no longer a cache key and are written as 0. */
 void runtime_workspace_revision(Cg *cg, char out[65]) {
-    Ignore ig;
-    ignore_load(&ig, cg->root);
-    RuntimeFiles files = {0};
-    runtime_walk_files(cg->root, "", &ig, &files);
-    ignore_free(&ig);
-    qsort(files.v, (size_t)files.n, sizeof(RuntimeFile), runtime_file_cmp);
+    VcsFile *files = NULL;
+    int n = vcs_worktree_files(cg, &files);
 
-    /* runtime_files is a hash cache: when the database is busy the walk
-     * still hashes what it must and the revision is still exact, but the
-     * cache is left for the next command instead of waiting or exiting */
+    /* when the database is busy the revision is still exact; the manifest
+     * table is left for the next command instead of waiting or exiting */
     bool autocommit = sqlite3_get_autocommit(cg->db) != 0;
     bool own_tx = autocommit && journal_begin(cg) == 0;
     bool can_write = own_tx || !autocommit;
@@ -369,48 +311,34 @@ void runtime_workspace_revision(Cg *cg, char out[65]) {
     cg_exec(cg, "DELETE FROM runtime_seen");
 
     sqlite3_stmt *find = cg_prep(cg,
-        "SELECT size,mtime_ns,ctime_ns,hash FROM runtime_files WHERE path=?");
+        "SELECT size,hash FROM runtime_files WHERE path=?");
     sqlite3_stmt *save = cg_prep(cg,
         "INSERT INTO runtime_files(path,size,mtime_ns,ctime_ns,hash) "
-        "VALUES(?,?,?,?,?) ON CONFLICT(path) DO UPDATE SET "
-        "size=excluded.size,mtime_ns=excluded.mtime_ns,"
-        "ctime_ns=excluded.ctime_ns,hash=excluded.hash");
+        "VALUES(?,?,0,0,?) ON CONFLICT(path) DO UPDATE SET "
+        "size=excluded.size,mtime_ns=0,ctime_ns=0,hash=excluded.hash");
     sqlite3_stmt *seen = cg_prep(cg,
         "INSERT OR IGNORE INTO runtime_seen(path) VALUES(?)");
     StrBuf manifest; sb_init(&manifest);
-    for (int i = 0; i < files.n; i++) {
-        RuntimeFile *f = &files.v[i];
-        sqlite3_bind_text(find, 1, f->path, -1, SQLITE_TRANSIENT);
-        bool cached = sqlite3_step(find) == SQLITE_ROW
-            && sqlite3_column_int64(find, 0) == f->size
-            && sqlite3_column_int64(find, 1) == f->mtime_ns
-            && sqlite3_column_int64(find, 2) == f->ctime_ns;
-        if (cached) {
-            snprintf(f->hash, sizeof f->hash, "%s",
-                     (const char *)sqlite3_column_text(find, 3));
-        }
-        sqlite3_reset(find); sqlite3_clear_bindings(find);
-        if (!cached) {
-            char abs[4900];
-            snprintf(abs, sizeof abs, "%s/%s", cg->root, f->path);
-            size_t len = 0;
-            char *data = read_entire_file(abs, &len);
-            if (!data) continue;
-            sha256_hex(data, len, f->hash);
-            free(data);
-            if (can_write) {
+    for (int i = 0; i < n; i++) {
+        VcsFile *f = &files[i];
+        if (can_write) {
+            sqlite3_bind_text(find, 1, f->path, -1, SQLITE_TRANSIENT);
+            const char *had = sqlite3_step(find) == SQLITE_ROW
+                ? (const char *)sqlite3_column_text(find, 1) : NULL;
+            bool current = had && strcmp(had, f->hash) == 0
+                && sqlite3_column_int64(find, 0) == f->size;
+            sqlite3_reset(find); sqlite3_clear_bindings(find);
+            if (!current) {
                 sqlite3_bind_text(save, 1, f->path, -1, SQLITE_TRANSIENT);
                 sqlite3_bind_int64(save, 2, f->size);
-                sqlite3_bind_int64(save, 3, f->mtime_ns);
-                sqlite3_bind_int64(save, 4, f->ctime_ns);
-                sqlite3_bind_text(save, 5, f->hash, -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(save, 3, f->hash, -1, SQLITE_TRANSIENT);
                 sqlite3_step(save);
                 sqlite3_reset(save); sqlite3_clear_bindings(save);
             }
+            sqlite3_bind_text(seen, 1, f->path, -1, SQLITE_TRANSIENT);
+            sqlite3_step(seen);
+            sqlite3_reset(seen); sqlite3_clear_bindings(seen);
         }
-        sqlite3_bind_text(seen, 1, f->path, -1, SQLITE_TRANSIENT);
-        sqlite3_step(seen);
-        sqlite3_reset(seen); sqlite3_clear_bindings(seen);
         sb_puts(&manifest, f->path); sb_putc(&manifest, '\0');
         sb_puts(&manifest, f->hash); sb_putc(&manifest, '\n');
     }
@@ -419,10 +347,9 @@ void runtime_workspace_revision(Cg *cg, char out[65]) {
         cg_exec(cg, "DELETE FROM runtime_files WHERE path NOT IN "
                     "(SELECT path FROM runtime_seen)");
     if (own_tx) cg_exec(cg, "COMMIT");
-    sha256_hex(manifest.p, manifest.len, out);
+    sha256_hex(manifest.p ? manifest.p : "", manifest.len, out);
     sb_free(&manifest);
-    for (int i = 0; i < files.n; i++) free(files.v[i].path);
-    free(files.v);
+    vcs_worktree_files_free(files, n);
 }
 
 typedef struct {

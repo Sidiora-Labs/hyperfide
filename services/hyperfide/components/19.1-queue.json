@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "19.1-queue",
+  "task": "19.1",
+  "roles": [
+    "control"
+  ],
+  "module": "integration/queue.js",
+  "entry": "createComponent",
+  "api_version": 1,
+  "actions": [
+    "integration.queue.fold"
+  ],
+  "requires": [
+    "4.2",
+    "6.1",
+    "1.2-asks"
+  ]
+}

@@ -182,7 +182,7 @@ def main():
         f.baseline_tree=driver.git('rev-parse',driver.baseline+'^{tree}')
         driver.setup(f);qualification.setup(f);setup(f)
     try:
-        f=scheduler.SchedulerFixture(extra_components=('1.1','12.2','16.1','16.2','16.3','16.4','17.4','18.1','18.2','18.3','18.4'),extra_setup=prepare,source_object_id=driver.baseline)
+        f=scheduler.SchedulerFixture(extra_components=('1.1','1.2-asks','12.2','16.1','16.2','16.3','16.4','17.4','18.1','18.2','18.3','18.4'),extra_setup=prepare,source_object_id=driver.baseline)
     except BaseException:
         qualification.close();driver.close();raise
     def call(action,payload):return c.call(f,action,payload,component='finding-remediation')
