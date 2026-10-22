@@ -375,10 +375,10 @@ owner = "deployment"
 
 [task.2.10]
 title = "Persist provisioner errors and harden install and release"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = []
-touches = ["services/hyperfide/src/providers/worker.ts", "deploy/hyperfide/install-service.mjs", "scripts/release.sh", "tests/hyperfide/cases/v21/2_10.py"]
+touches = ["services/hyperfide/src/providers/worker.ts", "deploy/hyperfide/install-service.mjs", "scripts/release.sh", "scripts/release-sign.sh", "tests/hyperfide/cases/v21/2_10.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_10.py"
 do_1 = "Provisioner worker errors are persisted with the intent; install-service reads the database before the pointer swap; release.sh signs release.json and fails without a key."
 do_2 = "2_10.py asserts each of the three behaviours."

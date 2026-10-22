@@ -14,6 +14,8 @@ while [ "$#" -gt 0 ]; do
  esac
 done
 [ -n "$output" ] || { echo "hyperfide release: --output is required" >&2; exit 2; }
+# Unsigned releases are refused before any build: manifest.sig and release.json.sig both come from this key.
+case "${HYPERFIDE_RELEASE_SIGNING_KEY_FILE:-}" in /*) ;; *) echo "hyperfide release: HYPERFIDE_RELEASE_SIGNING_KEY_FILE (absolute Ed25519 private key) is required" >&2; exit 2 ;; esac
 [ -z "$(git status --porcelain --untracked-files=normal)" ] || { echo "hyperfide release: source checkout must be committed and clean" >&2; exit 2; }
 case "${HYPERFIDE_BUILD_PLACEMENT:-}" in
  remote) ;;
@@ -118,6 +120,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-release-build-') as temporary
  (stage/'manifest.json').write_bytes(encoded)
  signature=None
  signing_key=os.environ.get('HYPERFIDE_RELEASE_SIGNING_KEY_FILE')
+ if not signing_key:raise SystemExit('hyperfide release: signing key is required')
  if signing_key:
   if not Path(signing_key).is_absolute():raise SystemExit('hyperfide release: signing key must be an absolute private reference')
   fd=os.open(signing_key,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
@@ -157,3 +160,4 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-release-build-') as temporary
  shutil.copyfile(root/'scripts/uninstall.sh',output/'uninstall')
  print(json.dumps({'constructed':True,'published':False,'deployment_authorized':False,'source_commit':commit,'manifest_digest':index['manifest_digest'],'files':len(files),'tests_run':bool(int(sys.argv[2])),'output':str(output)}))
 PY
+scripts/release-sign.sh "$HYPERFIDE_RELEASE_SIGNING_KEY_FILE" "$output/release.json" >/dev/null

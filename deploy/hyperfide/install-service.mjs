@@ -107,16 +107,20 @@ async function run(){
  await protectedPath(target,true);await immutableTree(target);
  const installed=await inspectPrebuiltRelease({...env,HYPERFIDE_RELEASE_ROOT:target},'manifest.json');
  if(installed.manifest_digest!==options.digest||installed.signature_status!=='VERIFIED')refuse('INSTALL_TARGET_CHANGED');
+ // The authority read precedes the pointer swap: an unreachable or unmigrated database
+ // refuses here with the old pointer intact, instead of an UNKNOWN after the swap.
+ const {createResourceContainer}=await import(pathToFileURL(path.join(target,'services/dist/storage/runtime.js')));
+ const {readAuthorityActivated}=await import(pathToFileURL(path.join(target,'services/dist/storage/durability.js')));
+ const resources=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});
+ try{authorityState=await readAuthorityActivated(resources,process.env.HYPERFIDE_DEPLOYMENT_ID);}
+ catch(error){refuse(typeof error?.code==='string'&&/^[A-Z][A-Z0-9_]{0,63}$/.test(error.code)?error.code:'INSTALL_AUTHORITY_UNREADABLE');}
+ finally{await resources.close();}
  const current=path.join(options.destination,'current');
  if(promote){
   try{const st=await fs.lstat(current);if(!st.isSymbolicLink()||st.uid!==0)refuse('INSTALL_CURRENT_CONFLICT');}catch(e){if(e.code!=='ENOENT')throw e;}
   const pending=path.join(options.destination,'.current-'+randomUUID());await fs.symlink(path.relative(options.destination,target),pending);
   try{await fs.rename(pending,current);pointerChanged=true;await syncDirectory(options.destination);}finally{await fs.unlink(pending).catch(()=>{});}
  }
- const {createResourceContainer}=await import(pathToFileURL(path.join(target,'services/dist/storage/runtime.js')));
- const {readAuthorityActivated}=await import(pathToFileURL(path.join(target,'services/dist/storage/durability.js')));
- const resources=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});
- try{authorityState=await readAuthorityActivated(resources,process.env.HYPERFIDE_DEPLOYMENT_ID);}finally{await resources.close();}
  const receipt={schema_version:1,owner:'hyperfide-service-installer',manifest_digest:options.digest,release_directory:target,service_identity:{uid:options.uid,gid:options.gid},authentication:installed.authentication,installable_units:installed.service_units.filter(u=>u.status==='INSTALLABLE').map(u=>u.unit),unqualified_units:installed.service_units.filter(u=>u.status!=='INSTALLABLE').map(u=>u.unit),promoted:promote,replayed,services_started:false,authority_activated:authorityState,build_on_supervision_host:false};
  const receiptFile=path.join(options.destination,'.receipt-'+randomUUID());const h=await fs.open(receiptFile,'wx',0o600);try{await h.writeFile(JSON.stringify(receipt)+'\n');await h.sync();}finally{await h.close();}
  await fs.rename(receiptFile,path.join(options.destination,'service-installation.json'));await syncDirectory(options.destination);
