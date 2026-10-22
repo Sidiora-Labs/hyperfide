@@ -296,6 +296,53 @@ export function validateQuotaObservation(value:unknown,scope:ProviderScope):Quot
     Date.parse(o.observed_at as string)>=Date.parse(o.expires_at as string))fail('QUOTA_OBSERVATION_STALE','Quota observation is stale or from the future');
   return o as unknown as QuotaObservation;
 }
+/** Provider quota observer contract (hyperfide-v21 2.3), shared by Railway and Blaxel.
+ * RECORDED answers come from a loopback fixture; LIVE runs only when trusted policy sets
+ * live_quota_observer to the boolean true, and nothing defaults it on. A provider response is
+ * {accountId,environmentId,limits:[{scope,dimension,limit}]}; each limit becomes a PROVIDER_API
+ * observation living QUOTA_OBSERVATION_TTL_MS, digested over query, scope and response, and
+ * referenced as '<provider>-<mode>:<digest>' (Railway keeps its historical fixture label). */
+export const QUOTA_OBSERVATION_TTL_MS=300000;
+export type QuotaObserverMode='RECORDED'|'LIVE';
+export function liveQuotaObserverFlag(value:unknown):boolean{
+ if(value===undefined)return false;
+ if(typeof value!=='boolean')fail('QUOTA_POLICY_INVALID','live_quota_observer must be the boolean true or false');
+ return value;
+}
+export function quotaObservationsFromResponse(provider:'railway'|'blaxel',mode:QuotaObserverMode,scope:ProviderScope,query:string,response:unknown,
+ dimensions:readonly QuotaDimension[],reference?:(evidence:string)=>string):QuotaObservation[]{
+ const v=obj(response,['accountId','environmentId','limits']);
+ if(v.accountId!==scope.provider_account_id||v.environmentId!==scope.environment_id)fail('QUOTA_SCOPE_MISMATCH','Provider quota answered for another account or environment');
+ if(!Array.isArray(v.limits)||!v.limits.length||v.limits.length>dimensions.length*2)fail('QUOTA_OBSERVATION_INVALID','Provider quota limits are empty or unbounded');
+ const evidence=digestDocument({query,scope,response:v}),observed=new Date();
+ const observed_at=observed.toISOString(),expires_at=new Date(observed.getTime()+QUOTA_OBSERVATION_TTL_MS).toISOString();
+ const evidence_reference=reference?reference(evidence):provider+'-'+mode.toLowerCase()+':'+evidence,seen=new Set<string>();
+ return v.limits.map(raw=>{
+  const l=obj(raw,['scope','dimension','limit']);
+  if(!['ACCOUNT','ENVIRONMENT'].includes(String(l.scope))||!dimensions.includes(l.dimension as QuotaDimension)||
+   typeof l.limit!=='string'||!/^(0|[1-9][0-9]{0,17})$/.test(l.limit)||seen.has(l.scope+':'+l.dimension))
+   fail('QUOTA_OBSERVATION_INVALID','Provider quota limit is malformed or duplicated');
+  seen.add(l.scope+':'+l.dimension);
+  return validateQuotaObservation({scope_kind:l.scope,scope_key:l.scope==='ACCOUNT'?scope.provider_account_id:scope.environment_id,
+   dimension:l.dimension,limit:l.limit,observed_at,expires_at,evidence_digest:evidence,basis:'PROVIDER_API',evidence_reference},scope);
+ });
+}
+/** Capacity attestations lapse silently into QUOTA_UNQUALIFIED (at most 30 days after
+ * declaration). Warn this long before: EXPIRING inside the window, LAPSED once past it. Only the
+ * latest-expiring retained attestation per pool configuration, scope and dimension is judged, so a
+ * renewal that outlives the window clears the warning.
+ * Surfaced on every pool capacity report; the notification and Ask route arrives with v21 4.5. */
+export const ATTESTATION_WARNING_WINDOW_SECONDS=7*86400;
+export interface AttestationExpiryWarning {attestation_id:string;pool_id:string;scope_kind:string;scope_key:string;dimension:string;
+ limit:string;expires_at:string;seconds_remaining:number;state:'EXPIRING'|'LAPSED';severity:'WARNING'|'ERROR';action:'RENEW_CAPACITY_ATTESTATION'}
+export async function attestationExpiryWarnings(client:Pick<PrimaryTransaction,'query'>,organisation:string,pools:readonly string[]):Promise<AttestationExpiryWarning[]>{
+ const rows=await client.query("SELECT d.id,d.pool_id,d.declaration->>'scope_kind' AS scope_kind,d.declaration->>'scope_key' AS scope_key,d.declaration->>'dimension' AS dimension,d.declaration->>'limit' AS quota_limit,d.expires_at,floor(extract(epoch FROM d.expires_at-clock_timestamp()))::bigint::text AS remaining FROM hyperfide.provider_capacity_attestations d JOIN hyperfide.provider_pool_configurations c ON c.organisation_id=d.organisation_id AND c.pool_id=d.pool_id AND c.configuration_digest=d.configuration_digest AND c.active WHERE d.organisation_id=$1 AND d.pool_id=ANY($2::uuid[]) AND d.declared_at<=clock_timestamp() AND d.expires_at<=clock_timestamp()+make_interval(secs=>$3) AND d.expires_at>clock_timestamp()-interval '30 days' AND NOT EXISTS(SELECT 1 FROM hyperfide.provider_capacity_attestations n JOIN hyperfide.artifacts a ON a.organisation_id=n.organisation_id AND a.run_id=n.provenance_run_id AND a.id=n.provenance_artifact_id AND a.digest=n.provenance_digest AND a.status='COMPLETE' WHERE n.organisation_id=d.organisation_id AND n.pool_id=d.pool_id AND n.configuration_digest=d.configuration_digest AND n.declaration->>'scope_kind'=d.declaration->>'scope_kind' AND n.declaration->>'scope_key'=d.declaration->>'scope_key' AND n.declaration->>'dimension'=d.declaration->>'dimension' AND n.declared_at<=clock_timestamp() AND n.expires_at>d.expires_at) ORDER BY d.expires_at,d.id",
+  [organisation,pools,ATTESTATION_WARNING_WINDOW_SECONDS]);
+ return rows.rows.map(r=>{const remaining=Number(r.remaining),lapsed=remaining<=0;
+  return{attestation_id:r.id,pool_id:r.pool_id,scope_kind:r.scope_kind,scope_key:r.scope_key,dimension:r.dimension,limit:r.quota_limit,
+   expires_at:new Date(r.expires_at).toISOString(),seconds_remaining:Math.max(remaining,0),state:lapsed?'LAPSED':'EXPIRING',severity:lapsed?'ERROR':'WARNING',
+   action:'RENEW_CAPACITY_ATTESTATION'};});
+}
 export async function currentPool(client:Pick<PrimaryTransaction,'query'>,config:DeploymentConfig,id:string):Promise<{pool:PoolConfig;scope:ProviderScope}>{
   const p=configuredPool(config,id),scope=configuredScope(config,p);
   const rows=await client.query('SELECT p.state FROM hyperfide.provider_pools p JOIN hyperfide.provider_pool_configurations c ON c.organisation_id=p.organisation_id AND c.pool_id=p.id WHERE p.organisation_id=$1 AND p.id=$2 AND c.configuration_digest=$3 AND c.active',
@@ -344,7 +391,8 @@ export async function poolCapacity(client:Pick<PrimaryTransaction,'query'>,confi
       limit_sources:[...new Set(origins(b.scope).map(r=>r.basis))],used:b.used.toString()})),
       used_account:usedAccount.toString(),used_environment:usedEnvironment.toString(),used_pool:usedPool.toString()};
   });
-  return {scope,dimensions,planning_limits:p.planning_limits,planning_grants_capacity:false,qualification:'DECLARED_OR_OBSERVED_LIMITS_ONLY',
+  const attestation_warnings=await attestationExpiryWarnings(client,config.organisation_id,[p.id]);
+  return {scope,dimensions,planning_limits:p.planning_limits,planning_grants_capacity:false,qualification:'DECLARED_OR_OBSERVED_LIMITS_ONLY',attestation_warnings,
     unknown_resource_capacity:orphanRows.rows.some(r=>usage.rows.some(u=>u.pool_id===r.pool_id)&&BigInt(r.unknown)>0n),authority:'OBSERVATION_ONLY'};
 }
 export async function assertPoolCapacity(client:PrimaryTransaction,config:DeploymentConfig,id:string,requested:Partial<Record<QuotaDimension,string>>,alreadyReserved=false):Promise<void>{
