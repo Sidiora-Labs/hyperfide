@@ -310,6 +310,8 @@ def main():
         check("admission.native-status-not-progress",status_only)
         check("admission.native-signal-connector-bound",lambda:f.bad("agent.admission.observe",observe({"type":"control_request","request":{"subtype":"can_use_tool"}},connector="claude"),"ADMISSION_SIGNAL_CONNECTOR_MISMATCH",component="13.4"))
         check("admission.native-signal-requires-diagnostics",lambda:f.bad("agent.admission.observe",observe(approval,refs=False),"ADMISSION_DIAGNOSTICS_REQUIRED",component="13.4"))
+        # 4.1: an approval prompt is also raised as a permission Ask, which needs the run's operator channel.
+        f.inner.sql("INSERT INTO hyperfide.event_consumers(organisation_id,run_id,id,consumer_key) VALUES($1,$2,$3,'operator:asks')",[f.scope["organisation_id"],f.scope["run_id"],uid()])
         escalated={}
         def approval_prompt():
             r=call("agent.admission.observe",observe(approval));escalated.update(r)
