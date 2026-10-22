@@ -7,7 +7,9 @@
  * uncommitted edits plus their inbound callers (the blast radius).
  */
 #include "cg.h"
+#include "hyperfide/client.h"
 #include <dirent.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <time.h>
@@ -105,10 +107,109 @@ static int ment_cmp(const void *a, const void *b) {
     return strcmp(((const MEnt *)a)->path, ((const MEnt *)b)->path);
 }
 
-/* hash every non-ignored file in the working tree; optionally store blobs */
+/* ---------------- stat cache ----------------
+ * One file per working tree under .codegraph/statcache/ (the object store is
+ * shared by every worktree, the cache is not): "<hash> <size> <mtime_s>
+ * <mtime_ns>\t<path>\n". A file whose size and mtime match its entry is not
+ * read again; its recorded hash stands. An entry is written only for a file
+ * whose mtime is older than the snapshot's start second, so a write landing
+ * in the same second as the snapshot (racily clean) is hashed next time
+ * instead of trusted. */
+
+typedef struct { char hash[65]; long size, msec, mnsec; char *path; } SEnt;
+typedef struct { SEnt *v; int n, cap; } StatCache;
+
+static VcsSnapshotStats g_snap_stats;
+
+void vcs_snapshot_stats(VcsSnapshotStats *out) { *out = g_snap_stats; }
+
+static void statcache_path(const Cg *cg, char *out, size_t cap) {
+    char id[65];
+    sha256_hex(cg->root, strlen(cg->root), id);
+    snprintf(out, cap, "%s/.codegraph/statcache/%.16s", cg->shared, id);
+}
+
+static int sent_cmp(const void *a, const void *b) {
+    return strcmp(((const SEnt *)a)->path, ((const SEnt *)b)->path);
+}
+
+static void sc_push(StatCache *c, const char *hash, long size, long msec,
+                    long mnsec, const char *path) {
+    if (c->n == c->cap) {
+        c->cap = c->cap ? c->cap * 2 : 256;
+        c->v = xrealloc(c->v, sizeof(SEnt) * (size_t)c->cap);
+    }
+    SEnt *e = &c->v[c->n++];
+    snprintf(e->hash, sizeof e->hash, "%s", hash);
+    e->size = size; e->msec = msec; e->mnsec = mnsec;
+    e->path = xstrdup(path);
+}
+
+static void sc_free(StatCache *c) {
+    for (int i = 0; i < c->n; i++) free(c->v[i].path);
+    free(c->v);
+    memset(c, 0, sizeof *c);
+}
+
+static void sc_load(const Cg *cg, StatCache *c) {
+    memset(c, 0, sizeof *c);
+    char p[4900];
+    statcache_path(cg, p, sizeof p);
+    char *data = read_entire_file(p, NULL);
+    if (!data) return;
+    char *save = NULL;
+    for (char *line = strtok_r(data, "\n", &save); line;
+         line = strtok_r(NULL, "\n", &save)) {
+        char hash[65];
+        long size, ms, mns;
+        char *tab = strchr(line, '\t');
+        if (!tab || !tab[1] ||
+            sscanf(line, "%64s %ld %ld %ld", hash, &size, &ms, &mns) != 4 ||
+            strlen(hash) != 64)
+            continue;
+        sc_push(c, hash, size, ms, mns, tab + 1);
+    }
+    free(data);
+    qsort(c->v, (size_t)c->n, sizeof(SEnt), sent_cmp);
+}
+
+static const SEnt *sc_find(const StatCache *c, const char *path) {
+    SEnt key = { .path = (char *)path };
+    return c->n ? bsearch(&key, c->v, (size_t)c->n, sizeof(SEnt), sent_cmp)
+                : NULL;
+}
+
+static void sc_save(const Cg *cg, StatCache *c) {
+    char p[4900], dir[4900];
+    snprintf(dir, sizeof dir, "%s/.codegraph/statcache", cg->shared);
+    if (mkdirs(dir) != 0) return;
+    statcache_path(cg, p, sizeof p);
+    qsort(c->v, (size_t)c->n, sizeof(SEnt), sent_cmp);
+    StrBuf b; sb_init(&b);
+    for (int i = 0; i < c->n; i++)
+        sb_printf(&b, "%s %ld %ld %ld\t%s\n", c->v[i].hash, c->v[i].size,
+                  c->v[i].msec, c->v[i].mnsec, c->v[i].path);
+    write_entire_file(p, b.p ? b.p : "", b.len);
+    sb_free(&b);
+}
+
+static bool obj_exists(const Cg *cg, const char *hash) {
+    char p[4900];
+    obj_path(cg, hash, p, sizeof p);
+    struct stat st;
+    return stat(p, &st) == 0;
+}
+
+/* hash every non-ignored file in the working tree; optionally store blobs.
+ * A file the stat cache vouches for is not opened; with store set its blob
+ * must already be in the object store, else it is read and written. */
 static void snapshot_tree(const Cg *cg, Manifest *m, bool store) {
     Ignore ig;
     ignore_load(&ig, cg->root);
+    StatCache old, fresh = {0};
+    sc_load(cg, &old);
+    long started = (long)time(NULL);
+    memset(&g_snap_stats, 0, sizeof g_snap_stats);
     /* local recursive walk (VCS includes binaries; index does not) */
     typedef struct { char rel[4096]; } Frame;
     Frame *stack = xmalloc(sizeof(Frame) * 512);
@@ -138,14 +239,31 @@ static void snapshot_tree(const Cg *cg, Manifest *m, bool store) {
             if (S_ISDIR(st.st_mode)) {
                 if (sp < 512) snprintf(stack[sp++].rel, 4096, "%s", crel);
             } else if (S_ISREG(st.st_mode) && st.st_size <= 32L * 1024 * 1024) {
-                size_t len = 0;
-                char *data = read_entire_file(cabs, &len);
-                if (!data) continue;
+                long msec = (long)st.st_mtim.tv_sec;
+                long mnsec = (long)st.st_mtim.tv_nsec;
+                const SEnt *hit = sc_find(&old, crel);
                 char hash[65];
-                if (store) obj_write(cg, data, len, hash);
-                else sha256_hex(data, len, hash);
-                man_push(m, hash, (long)len, crel);
-                free(data);
+                long len;
+                if (hit && hit->size == (long)st.st_size &&
+                    hit->msec == msec && hit->mnsec == mnsec &&
+                    (!store || obj_exists(cg, hit->hash))) {
+                    snprintf(hash, sizeof hash, "%s", hit->hash);
+                    len = hit->size;
+                    g_snap_stats.cached++;
+                } else {
+                    size_t n = 0;
+                    char *data = read_entire_file(cabs, &n);
+                    if (!data) continue;
+                    if (store) obj_write(cg, data, n, hash);
+                    else sha256_hex(data, n, hash);
+                    free(data);
+                    len = (long)n;
+                    g_snap_stats.hashed++;
+                }
+                g_snap_stats.files++;
+                man_push(m, hash, len, crel);
+                if (msec < started && len == (long)st.st_size)
+                    sc_push(&fresh, hash, len, msec, mnsec, crel);
             }
         }
         closedir(d);
@@ -153,6 +271,40 @@ static void snapshot_tree(const Cg *cg, Manifest *m, bool store) {
     free(stack);
     ignore_free(&ig);
     qsort(m->v, (size_t)m->n, sizeof(MEnt), ment_cmp);
+    /* rewrite only when the entries differ from what was loaded */
+    bool same = fresh.n == old.n;
+    if (same) {
+        qsort(fresh.v, (size_t)fresh.n, sizeof(SEnt), sent_cmp);
+        for (int i = 0; same && i < fresh.n; i++)
+            same = strcmp(fresh.v[i].path, old.v[i].path) == 0 &&
+                   strcmp(fresh.v[i].hash, old.v[i].hash) == 0 &&
+                   fresh.v[i].size == old.v[i].size &&
+                   fresh.v[i].msec == old.v[i].msec &&
+                   fresh.v[i].mnsec == old.v[i].mnsec;
+    }
+    if (!same) sc_save(cg, &fresh);
+    sc_free(&old);
+    sc_free(&fresh);
+}
+
+/* Which authority the built-in store answers to, read from cg->root. The
+ * store serves local and offline-local work; under a distributed descriptor
+ * (task 25.3) the distributed authority owns source snapshots and this store
+ * is a local, non-authoritative copy, offline included. */
+const char *vcs_store_mode(const Cg *cg, bool *authoritative) {
+    int here = open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    bool moved = here >= 0 && chdir(cg->root) == 0;
+    int mode = hf_client_authority_mode();
+    if (moved && fchdir(here) != 0)
+        fprintf(stderr, "hyperfide: could not return to the working directory\n");
+    if (here >= 0) close(here);
+    *authoritative = mode == 0 || mode == 3;     /* local, offline-local */
+    switch (mode) {
+    case 0: return "local";
+    case 1: return "distributed";
+    case 2: case 3: return "offline";
+    default: return "invalid";
+    }
 }
 
 static char *man_serialize(const Manifest *m, size_t *len) {
@@ -380,6 +532,10 @@ static void tree_status(Cg *cg, TreeDiff *td, bool json) {
 int cmd_status(Cg *cg, bool json) {
     TreeDiff td;
     tree_status(cg, &td, json);
+    VcsSnapshotStats ss;
+    vcs_snapshot_stats(&ss);
+    bool authoritative = false;
+    const char *mode = vcs_store_mode(cg, &authoritative);
     char hh[65] = "";
     head_read(cg, hh);
     if (json) {
@@ -389,12 +545,26 @@ int cmd_status(Cg *cg, bool json) {
         sb_puts(&b, ",\"added\":[");    sb_puts(&b, td.added.p);
         sb_puts(&b, "],\"modified\":[");sb_puts(&b, td.modified.p);
         sb_puts(&b, "],\"deleted\":["); sb_puts(&b, td.deleted.p);
-        sb_puts(&b, "]}\n");
+        /* the read counts stay out of JSON: they differ between two calls
+         * on one tree, and state/work-update deltas must not */
+        sb_printf(&b, "],\"store\":{\"engine\":\"builtin\",\"mode\":\"%s\","
+                  "\"authoritative\":%s,\"commit_required\":false}}\n",
+                  mode, authoritative ? "true" : "false");
         fputs(b.p, stdout);
         sb_free(&b);
     } else {
+        if (authoritative)
+            printf("store: built-in snapshot store, %s mode, authoritative\n",
+                   mode);
+        else
+            printf("store: built-in snapshot store, %s mode, NON-AUTHORITATIVE "
+                   "(a local copy; the distributed authority owns source "
+                   "snapshots)\n", mode);
+        printf("snapshot: %ld files, %ld hashed, %ld unchanged by stat cache\n",
+               ss.files, ss.hashed, ss.cached);
         if (hh[0]) printf("HEAD %.12s\n", hh);
-        else printf("no commits yet\n");
+        else printf("no snapshot recorded (none is required; qualification "
+                    "reads the working tree)\n");
         if (!td.na && !td.nm && !td.nd) printf("working tree clean\n");
         if (td.na) { printf("added:\n%s", td.added.p); }
         if (td.nm) { printf("modified:\n%s", td.modified.p); }

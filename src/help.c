@@ -779,8 +779,8 @@ static const HelpCmd HELP[] = {
     "block|reset|done]] [-f <feature>]",
   .summary = "the task board; hyperfide help spec lists every subcommand",
   .detail = "Specs are kvx files under spec/, independent of .codegraph/. "
-    "The loop: spec next, spec start <id>, implement, hyperfide commit, spec done "
-    "<id>. Every subcommand takes -f <feature> to name a feature other "
+    "The loop: spec next, spec start <id>, implement, spec done <id> (a "
+    "hyperfide commit snapshot is optional). Every subcommand takes -f <feature> to name a feature other "
     "than the active one, and --root DIR for another tree.",
   .examples = "hyperfide spec\nhyperfide spec next\nhyperfide spec done 4.1",
   .related = "brief,commit,fleet" },

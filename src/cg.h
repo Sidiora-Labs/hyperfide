@@ -681,6 +681,13 @@ int vcs_changed_paths(Cg *cg, const char *needle, char ***out);
  * ids and msgs, their strings, and dates are all malloc'd for the caller. */
 int vcs_commits_for_path(Cg *cg, const char *path, int limit, char ***ids,
                          char ***msgs, long **dates);
+/* the built-in store (task hyperfide-v21/3.9): counts from the last working
+ * tree snapshot (hashed = files read, cached = vouched for by the stat
+ * cache), and the authority mode the store answers to, with whether it is
+ * authoritative there (only local and offline-local) */
+typedef struct { long files, hashed, cached; } VcsSnapshotStats;
+void vcs_snapshot_stats(VcsSnapshotStats *out);
+const char *vcs_store_mode(const Cg *cg, bool *authoritative);
 
 /* ---------------- agent memory (memories table in graph.db) ---------- */
 typedef struct {
