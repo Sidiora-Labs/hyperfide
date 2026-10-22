@@ -26,6 +26,8 @@ export interface RunnerRemotePlan {
  preparation?:RunnerPreparationInput;
  source_digest:string;source_provenance_digest?:string;policy_digest:string;executable_digest:string;
  environment_digest:string;artifact_paths:string[];
+ /** The task's secret references, NAME to 'secret-ref:ID' (D17); admission checks them against the pool profile. */
+ env_refs?:Record<string,string>;
 }
 export interface RunnerStagingReference {
  role:string;artifact_id:string;storage_kind:'object'|'manifest';digest:string;manifest_digest?:string;size_bytes:string;
@@ -98,6 +100,45 @@ export function runnerCanonical(v:unknown):string {
 function safeRelative(v:string):boolean {return v!==''&&!path.posix.isAbsolute(v)&&!v.includes('\\')&&!/[\x00-\x1f]/.test(v)&&v.split('/').every(p=>p!==''&&p!=='.'&&p!=='..');}
 function absolute(v:unknown):v is string {return typeof v==='string'&&v.startsWith('/')&&!v.includes('\\')&&!/[\x00-\x1f]/.test(v)&&v.split('/').slice(1).every(p=>p!==''&&p!=='.'&&p!=='..');}
 function digest(v:unknown):v is string{return typeof v==='string'&&DIGEST.test(v);}
+// Tasks 2.8 and 2.17 (D17): a task names every secret variable it needs as
+// NAME -> 'secret-ref:ID'. The pool's environment profile is only an allowlist
+// of IDs and names no variables itself. Only references cross this boundary;
+// the provider resolves values into the native process.
+const ENV_NAME=/^[A-Za-z_][A-Za-z0-9_]{0,127}$/,SECRET_REF=/^secret-ref:[A-Za-z0-9][A-Za-z0-9._:/-]{0,239}$/;
+// Mirrors env_name_ok in src/hyperfide/launch.c; the two must reject the same names.
+const RESERVED_ENV=new Set(['PATH','HOME','TMPDIR','CODEX_HOME','CLAUDE_CONFIG_DIR','SSL_CERT_FILE','NODE_EXTRA_CA_CERTS']);
+function envReferenceShape(declared:unknown):asserts declared is Record<string,string>{
+ if(!object(declared)||Object.keys(declared).length>128)fail('RUNNER_SECRET_REFERENCE_INVALID','Bounded NAME to secret reference map required');
+ for(const [name,ref] of Object.entries(declared))if(!ENV_NAME.test(name)||RESERVED_ENV.has(name)||/^(HF_|LD_|DYLD_)/.test(name)||typeof ref!=='string'||!SECRET_REF.test(ref))fail('RUNNER_SECRET_REFERENCE_INVALID','Valid variable name and secret reference required: '+name);
+}
+export function declaredEnvReferences(declared:unknown,profile:readonly string[]|null):Readonly<Record<string,string>>{
+ if(declared===undefined)return Object.freeze({});
+ envReferenceShape(declared);
+ const out:Record<string,string>={};
+ for(const name of Object.keys(declared).sort()){const ref=declared[name]!;
+  if(!profile)fail('RUNNER_SECRET_PROFILE_UNAVAILABLE','Secret references require the pool environment profile');
+  if(!profile.includes(ref.slice('secret-ref:'.length)))fail('RUNNER_SECRET_REFERENCE_UNDECLARED','Environment profile does not declare the reference for '+name);
+  out[name]=ref;}
+ return Object.freeze(out);
+}
+export async function profileCredentialReferences(tx:Pick<PrimaryTransaction,'query'>,organisation_id:string,pool_id:string):Promise<string[]|null>{
+ const row=(await tx.query('SELECT e.manifest FROM hyperfide.provider_pools p JOIN hyperfide.environment_profiles e ON e.organisation_id=p.organisation_id AND e.id=p.profile_id WHERE p.organisation_id=$1 AND p.id=$2 FOR SHARE OF p,e',[organisation_id,pool_id])).rows[0];
+ const refs=object(row)&&object(row.manifest)&&object(row.manifest.profile)?row.manifest.profile.credential_references:undefined;
+ return Array.isArray(refs)&&refs.every(r=>typeof r==='string')?refs as string[]:null;
+}
+/** Declared references for one pool; the profile is read only when something is declared. */
+export async function taskEnvReferences(tx:Pick<PrimaryTransaction,'query'>,organisation_id:string,pool_id:string,declared:unknown):Promise<Readonly<Record<string,string>>>{
+ return declaredEnvReferences(declared,declared===undefined?null:await profileCredentialReferences(tx,organisation_id,pool_id));
+}
+/** Task 2.17: the immutable admitted packet and its digest. Declared references
+ * are checked against the bound pool's profile and written as packet.env_refs,
+ * which the executor launches with; a plan without references admits the same
+ * packet bytes as before. */
+export async function runnerAdmissionPacket(tx:Pick<PrimaryTransaction,'query'>,plan:RunnerRemotePlan,binding:Record<string,unknown>,allocation:Record<string,unknown>,readiness:Record<string,unknown>):Promise<{packet:Record<string,unknown>;digest:string}>{
+ const env_refs=await taskEnvReferences(tx,String(binding.organisation_id),String(binding.pool_id),plan.env_refs);
+ const packet=JSON.parse(JSON.stringify({request:plan,binding,allocation,source_state_digest:readiness.source_state_digest,workspace_digest:readiness.workspace_digest,...(Object.keys(env_refs).length?{env_refs}:{})})) as Record<string,unknown>;
+ return {packet,digest:hash(runnerCanonical(packet))};
+}
 async function schema(ctx:ComponentContext):Promise<void> {
  const bytes=await fs.readFile(new URL('../../migrations/0012-runner-registry.sql',import.meta.url));
  await gatewayOf(ctx).withPrimaryTransaction({timeoutMs:5000},async tx=>{
@@ -310,7 +351,9 @@ const permits=new WeakMap<object,{context:ComponentContext;plan:RunnerRemotePlan
 function validatePlan(plan:RunnerRemotePlan):void {
  if(!object(plan)||![plan.session_id,plan.operation_id,plan.repository_id,plan.reservation_id].every(uuid)||plan.job_id!==undefined&&!uuid(plan.job_id)||!Array.isArray(plan.argv)||!plan.argv.length||plan.argv.length>256||typeof plan.argv[0]!=='string'||!plan.argv[0]||plan.argv.some(x=>typeof x!=='string'||x.length>4096||x.includes('\0'))||plan.cwd!=='.'&&!safeRelative(plan.cwd)||!object(plan.environment)||Object.entries(plan.environment).some(([k,v])=>!/^[A-Z][A-Z0-9_]{0,63}$/.test(k)||/^(LD_|DYLD_|HF_|HOME$|TMPDIR$|PATH$)/.test(k)||typeof v!=='string'||v.includes('\0'))||plan.stdin!==undefined&&(typeof plan.stdin!=='string'||Buffer.byteLength(plan.stdin)>65536)||!Number.isInteger(plan.timeout_ms)||plan.timeout_ms<1||plan.timeout_ms>259200000||![plan.source_digest,plan.policy_digest,plan.executable_digest,plan.environment_digest].every(digest)||!Array.isArray(plan.artifact_paths)||plan.artifact_paths.length>64||plan.artifact_paths.some(x=>typeof x!=='string'||!safeRelative(x))||new Set(plan.artifact_paths).size!==plan.artifact_paths.length)fail('INVALID_REMOTE_PLAN','Bounded immutable registered command/source/environment plan required');
  if(hash(runnerCanonical(plan.environment))!==plan.environment_digest)fail('REMOTE_ENVIRONMENT_MISMATCH','Explicit environment bytes differ from the registered digest');
+ if(plan.env_refs!==undefined){envReferenceShape(plan.env_refs);if(Object.keys(plan.env_refs).some(name=>Object.hasOwn(plan.environment,name)))fail('RUNNER_SECRET_REFERENCE_INVALID','A variable is either explicit or a secret reference, never both');}
 }
+export {validatePlan as validateRunnerPlan};
 export function runnerResultSigningBytes(org:string,run:string,op:string,plan:string,result:string):Buffer{return Buffer.from(`HYPERFIDE-RUNNER-RESULT-V1\n${org}\n${run}\n${op}\n${plan}\n${result}\n`);}
 
 /** Read immutable15 payloads only after the SQL observation transaction closes.
@@ -472,7 +515,7 @@ export async function createRemoteComponent(ctx:ComponentContext):Promise<Compon
    const stableBinding=Object.fromEntries(['organisation_id','run_id','session_id','credential_id','sandbox_id','boot_id','boot_generation','slot_id','slot_generation','repository_id','launch_id','state_dir','runner_binary','runner_binary_digest','workspace_path','home_path','tmp_path','boot_preparation_digest','preparation_digest','readiness_digest','source_digest','source_object_id','source_tree_id','uid','gid','provider','pool_id','external_sandbox_id'].map(key=>[key,r[key]]));
    const stableAllocation=Object.fromEntries(['allocation_id','request_id','task_id','job_kind','reservation_id','slot_id','sandbox_id','sandbox_boot_generation','assignee_session_id','generation'].map(key=>[key,allocation[key]]));
    const checkedReadiness=await readRunnerReadiness(tx,r);
-   const packet=JSON.parse(JSON.stringify({request:plan,binding:stableBinding,allocation:stableAllocation,source_state_digest:checkedReadiness.source_state_digest,workspace_digest:checkedReadiness.workspace_digest})) as Record<string,unknown>;const pin=hash(runnerCanonical(packet));
+   const {packet,digest:pin}=await runnerAdmissionPacket(tx,plan,stableBinding,stableAllocation,checkedReadiness);
    await tx.query(`INSERT INTO hyperfide.runner_remote_jobs(organisation_id,run_id,operation_id,session_id,plan,plan_digest,principal,admission_digest,authority_epoch,reservation_id,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,LEAST($11::timestamptz,$12::timestamptz)) ON CONFLICT(organisation_id,run_id,operation_id) DO NOTHING`,[p.organisation_id,p.run_id,plan.operation_id,plan.session_id,JSON.stringify(packet),pin,JSON.stringify(p),hash(runnerCanonical(admitted)),p.deployment_epoch,plan.reservation_id,reservation.expires_at,p.expires_at]);
    const stored=(await tx.query('SELECT plan_digest FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3',[p.organisation_id,p.run_id,plan.operation_id])).rows[0];if(stored?.plan_digest!==pin)fail('REMOTE_OPERATION_CONFLICT','Operation identity cannot change its immutable execution input');
    const permit=Object.freeze({}) as RunnerRemotePermit;permits.set(permit,{context:ctx,plan,binding:r,principal:p,invocation:i,digest:pin});return permit;
