@@ -39,7 +39,7 @@ The JSON catalog contains complete approved task paths, steps, commands, owners 
 | Semantic/integration |Every-watcher/every-commit coverage, producer-consumer contracts, findings/GitHub, sole Git publication gateway and multi-repository release barrier.|
 | Migration and product |Actual SQLite-shape import, single-authority cutover/rollback, old/new CLI/MCP/editor/offline parity and Hyperfide identity.|
 | Advisory decisions |Three typed candidate adapters, migrated existing Jev/recap purposes, async fallback, temporally valid evaluation and controlled promotion.|
-| Release qualification |27.2 deterministic replay→27.3 real-provider staged48/72-hour campaigns→27.4 combinedfaults→28.3 fullcurrent-evidence closure.|
+| Release qualification |27.2 deterministic replay→27.3 real-provider qualification from the Paxeer X v6.12.0 production release run→27.4 combinedfaults→28.3 fullcurrent-evidence closure.|
 
 These stages are workstream explanations; the exact predecessor list below determines scheduling. Campaign numbering S0–S7 in verification.md is independent from implementation wave numbers.
 
@@ -311,7 +311,7 @@ These are approved implementation assignments for existing requirements, not cla
 
 | Task | Deliverable | Owner | Requires | Cases |
 |---|---|---|---|---|
-| 27.3 | Qualify both live providers and native agents through staged48/72-hour fleet campaigns | qualification | 27.2, 9.4, 10.4, 13.4, 11.4, 19.4, 23.3, 24.4, 22.4, 26.4, 1.2, 1.3, 14.4, 17.3, 18.2, 25.2 | V-036, V-037, V-038, V-039, V-040, V-041, V-042, V-043, V-044, V-045, V-046, V-050, V-051, V-052 |
+| 27.3 | Qualify both live providers and native agents from the Paxeer X v6.12.0 production release run | qualification | 27.2, 9.4, 10.4, 13.4, 11.4, 19.4, 23.3, 24.4, 22.4, 26.4, 1.2, 1.3, 14.4, 17.3, 18.2, 25.2 | V-036, V-037, V-038, V-039, V-040, V-041, V-042, V-043, V-044, V-045, V-046, V-050, V-051, V-052 |
 
 ### Wave 31 — 2 packages
 
@@ -469,7 +469,7 @@ Requires: 4.1, 4.2, 14.1.
 1. Import KVX criteria, task identities, repositories, allowed actions and closure policy into one pinned run revision; export revision-labelled KVX projections.
 2. Reject stale projection writes and preserve declared legacy status as history; load both large fixtures without treating declarations as runtime proof.
 3. Register this module through its task-owned component fragment in the established service entrypoint and verify its externally observable internal API behavior; an unreferenced source file or direct function-only test cannot satisfy the component gate.
-4. Retain the public synthetic V-001 and V-024 component qualifier calls, and append the required private-corpus qualification command with fail-closed shell conjunction. The selected private corpus must exist; its absence or any qualifier/checker failure returns nonzero.
+4. Retain the public synthetic V-001 and V-024 component qualifier calls, and append the required private-corpus qualification command with fail-closed shell conjunction. The selected private corpus must exist; its absence or any qualifier/checker failure returns nonzero. The private-corpus leg runs on the supervisory host where the private corpus lives, as an approved exception recorded in the run policy (decisions E-01); the public V-001 and V-024 legs run on the fleet like every other remote verification.
 5. Implement --qualify-private-corpus inside the already-owned task probe. Resolve only trusted ignored fixture references and generate immutable private registry, registration and manifest files entirely under ignored storage. Invoke the canonical qualifier and checker using the private registry/manifest for V-024; no core harness extension is needed.
 6. Preserve the public synthetic manifest without private corpus hashes, counts, paths or provenance. Private receipts remain separate from public component/full-case status, and task verification metadata must not import private content.
 7. Use the trusted ignored source descriptor supplied by the task owner, preserving its restrictive permissions. The private mode must require every explicitly selected source and its canonical private registration; it must not silently shrink the selected corpus. No descriptor contents are copied into public metadata.
@@ -2692,7 +2692,7 @@ Requires: 26.1, 25.3.
 1. Implement proposed hyperfide command and cg alias with argument/JSON/exit parity and nonrecursive executable resolution.
 2. Resolve approved release version/support window and public namespace ownership separately; never reserve or assume short alias/domain/package availability.
 3. Take Makefile ownership after task25.3 and installer/release-script ownership after task26.1. Build and install an actual canonical hyperfide executable and the approved cg compatibility entrypoint from the same qualified linked implementation; a wrapper over an unbuilt or unrelated PATH executable is insufficient. Preserve all native component, libcurl and TLS link dependencies without duplicate standalone-main objects.
-4. Update the actual installer, release and uninstaller paths to consume the approved canonical artifact manifest and install/remove both declared command names safely. Existing scripts/release.sh hardcodes strip/publish cg and overrides LDLIBS with legacy static flags; preserve the qualified link contract and explicitly package any required runtime libraries rather than silently dropping the new transport. Namespace and publication destinations remain configuration, never invented ownership.
+4. Update the actual installer, release and uninstaller paths to consume the approved canonical artifact manifest and install/remove both declared command names safely. Existing scripts/release.sh hardcodes strip/publish cg and overrides LDLIBS with legacy static flags; preserve the qualified link contract and explicitly package any required runtime libraries rather than silently dropping the new transport. Namespace and publication destinations remain configuration, never invented ownership. The release is relocatable, so its ELF files keep the host dynamic loader and RUNPATH $ORIGIN-relative bundled libraries; glibc's own members (the loader, libc, libm, libmvec, libpthread, libdl, librt, libutil, libresolv, libanl, libnsl, libBrokenLocale, libc_malloc_debug, libthread_db and libnss_*) are never bundled, because a bundled libc loaded by a host loader from a different glibc build crashes every runtime (observed on release 0d03ef51: glibc 2.43 bundle on a glibc 2.39 host, exit 139). Supported hosts need a glibc no older than the build host's, and release construction fails if a glibc member is staged or if the staged node does not report its pinned version both plainly and under the bundled library path.
 5. Qualify clean remote builds, installation to a disposable prefix, both command names, argument/JSON/exit parity and uninstall against the real produced artifacts. Run documented release construction in a nonpublishing fixture; this task does not independently authorize production publication.
 6. Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes.
 
@@ -2870,14 +2870,14 @@ Outputs: `artifacts/hyperfide/tasks/27.2/manifest.json`, `artifacts/hyperfide/ta
 
 Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt.
 
-### Task 27.3 — Qualify both live providers and native agents through staged48/72-hour fleet campaigns
+### Task 27.3 — Qualify both live providers and native agents from the Paxeer X v6.12.0 production release run
 
 Planning baseline pending · wave 30 · owner `qualification` · clause `27.3`
 
 Requires: 27.2, 9.4, 10.4, 13.4, 11.4, 19.4, 23.3, 24.4, 22.4, 26.4, 1.2, 1.3, 14.4, 17.3, 18.2, 25.2.
 
-1. Resolve actual account/auth/region/profile/SLO and sustained-concurrency window, qualify each provider separately in small canaries, then ramp the approved combined allocation through 2 slots → 10 sandboxes/20 sessions → 25/50 → 50/100 → 100 sandboxes/200 remote frontier sessions. The 100-sandbox target is the combined fleet; separate full-size provider soaks require an explicit additional campaign decision.
-2. Run approved48-hour then72-hour/1500-session campaigns with real native workloads, graph/build/review/integration and credential renewal; record actual concurrency, per-provider evidence, main-host exclusion and full resource inventory.
+1. The workload is the real production campaign, not a synthetic one: Hyperfide runs the Paxeer X v6.12.0 release fleet on its own tasks at full scale, and that run is the qualification campaign. No separate canary ladder, staged synthetic ramp or synthetic soak budget is run. Take the account, authentication mode, regions, profiles, SLOs and sustained-concurrency window from that run's pinned configuration (decisions O-01, O-02), and attribute evidence to each provider separately; the 100-sandbox target remains the combined fleet.
+2. Qualify the live provider paths, credential renewal and full resource inventory from that production run's evidence, with its real native, graph/build/review/integration workloads; record actual concurrency, per-provider evidence, observed account limits, main-host exclusion and full resource inventory. Every registered case keeps its measurable acceptance unchanged, including the V-050 and V-051 durations, concurrency and session-lifetime figures; a figure the production run does not reach leaves that case unqualified rather than satisfied.
 3. Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes.
 
 Owns: `tests/hyperfide/campaigns/live.py`, `tests/hyperfide/manifests/tasks/27.3.json`, `tests/hyperfide/cases/tasks/27_3.py`, `tests/hyperfide/registrations/27.3.json`.

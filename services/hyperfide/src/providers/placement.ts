@@ -11,7 +11,7 @@ import type {TransactionGateway,PrimaryTransaction} from '../storage/transaction
 import {operationPayloadDigest,validateProviderOperation,validateProviderOutcome} from './contract.js';
 import type {ProviderOperation,ProviderScope,ProviderOutcome} from './contract.js';
 import {providerDatabase,resolveSandboxBinding,assertInvocationRun,providerInvocation,bindProviderInvocation,obj,str,uuid,dec,dg,utc,fail,readDeployment,currentPool,configuredScope,transaction,digestDocument,providerAdapter,poolCapacity} from './pools.js';
-import type {ProviderDatabase,DeploymentConfig,ProviderIsolationFactory} from './pools.js';
+import type {ProviderDatabase,DeploymentConfig,ProviderIsolationFactory,ProviderRuntimeRegistry} from './pools.js';
 import {compareEnvironmentCompatibility} from '../preparation/manifests.js';
 
 
@@ -272,17 +272,25 @@ export interface IsolationTarget {
  reference_key:string;scope:ProviderScope;resource:NonNullable<ProviderOperation['resource']>;boot_id:string;
  preparation_digest:string;resource_topology_digest:string;
 }
-interface IsolationConfiguration {
+export interface IsolationConfiguration {
  schema_version:1;deployment_id:string;organisation_id:string;run_id:string;source_epoch:string|null;topology_digest:string;
  evidence_scope:'LIVE_PROVIDER'|'COMPONENT_FIXTURE';maximum_operation_ms:number;proof_max_age_ms:number;resources:IsolationTarget[];
+ /** A greenfield first-epoch configuration names no writer resource. */
+ scope?:'GREENFIELD';
 }
-async function isolationConfiguration(env:Readonly<NodeJS.ProcessEnv>):Promise<IsolationConfiguration>{
+export async function isolationConfiguration(env:Readonly<NodeJS.ProcessEnv>):Promise<IsolationConfiguration>{
  const file=env.HYPERFIDE_WRITER_ISOLATION_CONFIG;if(!file?.startsWith('/'))fail('ISOLATION_CONFIG_REQUIRED','Protected writer topology configuration required');
  const stat=await fs.lstat(file);if(!stat.isFile()||stat.isSymbolicLink()||stat.size>1048576||(stat.mode&0o077)||(process.getuid&&stat.uid!==process.getuid()))fail('ISOLATION_CONFIG_INVALID','Writer topology must be bounded and owner-only');
- const c=obj(JSON.parse(await fs.readFile(file,'utf8')),['schema_version','deployment_id','organisation_id','run_id','source_epoch','topology_digest','evidence_scope','maximum_operation_ms','proof_max_age_ms','resources']);
+ const raw=JSON.parse(await fs.readFile(file,'utf8')),greenfield=raw!==null&&typeof raw==='object'&&Object.hasOwn(raw,'scope');
+ const c=obj(raw,['schema_version','deployment_id','organisation_id','run_id','source_epoch','topology_digest','evidence_scope','maximum_operation_ms','proof_max_age_ms','resources',...(greenfield?['scope']:[])]);
  if(c.schema_version!==1||!['LIVE_PROVIDER','COMPONENT_FIXTURE'].includes(String(c.evidence_scope)))fail('ISOLATION_CONFIG_INVALID','Invalid isolation schema/evidence scope');
  uuid(c.deployment_id);uuid(c.organisation_id);uuid(c.run_id);if(c.source_epoch!==null)uuid(c.source_epoch);dg(c.topology_digest);
  for(const k of ['maximum_operation_ms','proof_max_age_ms'])if(!Number.isSafeInteger(c[k])||(c[k] as number)<100||(c[k] as number)>30000)fail('ISOLATION_CONFIG_INVALID','Isolation deadline/evidence lifetime must be bounded to30seconds');
+ if(greenfield){
+  if(c.scope!=='GREENFIELD'||c.evidence_scope!=='LIVE_PROVIDER'||c.source_epoch!==null||!Array.isArray(c.resources))fail('ISOLATION_CONFIG_INVALID','A greenfield configuration has live provider evidence, no source epoch and an explicit resource list');
+  if(c.resources.length!==0)fail('ISOLATION_PERMIT_SCOPE','A greenfield configuration cannot name a writer resource');
+  return c as unknown as IsolationConfiguration;
+ }
  if(!Array.isArray(c.resources)||!c.resources.length||c.resources.length>10000)fail('ISOLATION_CONFIG_INVALID','Explicit writer resources required');
  const names=new Set<string>();
  for(const raw of c.resources){
@@ -467,13 +475,13 @@ export function createProviderIsolationObserver(runtime:ProviderIsolationObserve
  };
 }
 
-export function createComponent(context:ComponentContext):Component{
-  const database=providerDatabase(context);
-  const destructionPreflight:ProviderIsolationCustodyPreflight=async(target,operationId,_authority,signal)=>{
-   const reader=database.runtime.destructionPreflight;
+/** Binds the registered retained-custody reader to the exact configured sandbox and boot on the primary. */
+export function createDestructionPreflight(runtime:{env:Readonly<NodeJS.ProcessEnv>;gateway:Pick<TransactionGateway,'withPrimaryTransaction'>;registry:Pick<ProviderRuntimeRegistry,'destructionPreflight'>}):ProviderIsolationCustodyPreflight{
+ return async(target,operationId,_authority,signal)=>{
+   const reader=runtime.registry.destructionPreflight;
    if(!reader)fail('DESTRUCTION_PREFLIGHT_UNAVAILABLE','Actual retained-custody proof required before destructive isolation');
-   const isolation=await isolationConfiguration(context.env),deployment=await readDeployment(context.env);
-   return database.gateway.withPrimaryTransaction({timeoutMs:5000,maxRetries:0,signal},async tx=>{
+   const isolation=await isolationConfiguration(runtime.env),deployment=await readDeployment(runtime.env);
+   return runtime.gateway.withPrimaryTransaction({timeoutMs:5000,maxRetries:0,signal},async tx=>{
     assertPrimaryTransaction(tx);
     const rows=await tx.query('SELECT s.*,b.boot_id FROM hyperfide.sandboxes s JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation WHERE s.organisation_id=$1 AND s.pool_id=$2 AND s.native_sandbox_id=$3 AND s.boot_generation=$4 FOR SHARE OF s,b',[isolation.organisation_id,target.scope.pool_id,target.resource.native_sandbox_id,target.resource.sandbox_boot_generation]);
     const row=rows.rows[0];
@@ -483,7 +491,12 @@ export function createComponent(context:ComponentContext):Component{
     const proof=await reader(tx,{organisation_id:isolation.organisation_id,run_id:isolation.run_id,sandbox_id:row.id,boot_generation:String(row.boot_generation),operation_id:operationId});
     return proof?{operation_id:operationId,resource_identity_digest:digestDocument({scope:target.scope,resource:target.resource,boot_id:target.boot_id,preparation_digest:target.preparation_digest}),evidence_digest:proof.evidence_digest,observed_at:proof.observed_at,expires_at:new Date(Date.parse(proof.observed_at)+isolation.proof_max_age_ms).toISOString()}:null;
    });
-  };
+ };
+}
+
+export function createComponent(context:ComponentContext):Component{
+  const database=providerDatabase(context);
+  const destructionPreflight=createDestructionPreflight({env:context.env,gateway:database.gateway,registry:database.runtime});
   const guarded=(fn:(i:unknown,c:DeploymentConfig,p:ConnectivityConfig,database:ProviderDatabase)=>Promise<unknown>)=>async(input:unknown,requestContext:ComponentContext)=>{
     if(context.signal.aborted)fail('PROVIDER_CLOSED','Provider placement is shutting down');
     const config=await readDeployment(context.env);return fn(input,config,await connectivity(context.env),bindProviderInvocation(database,config,invocationOf(requestContext),['PROVISIONER','COORDINATOR','OPERATOR']));

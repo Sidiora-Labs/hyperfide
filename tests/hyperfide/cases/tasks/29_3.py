@@ -6,15 +6,15 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
 spec=importlib.util.spec_from_file_location('isolation_fixture_29_3',ROOT/'tests/hyperfide/cases/tasks/8_2.py')
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
-IDS=['fence.binding.registered-component','fence.binding.non-circular','fence.binding.missing-preflight','fence.binding.first-isolation','fence.binding.preflight-exact-resource','fence.binding.resource-tamper','fence.binding.topology-tamper','fence.binding.permit-topology-tamper','fence.binding.permit-signature-tamper','fence.binding.target-digest-tamper','fence.binding.binding-tamper','fence.binding.no-repeat-destruction','fence.binding.preflight-unregistered']
+IDS=['fence.binding.registered-component','fence.binding.non-circular','fence.binding.missing-preflight','fence.binding.first-isolation','fence.binding.preflight-exact-resource','fence.binding.resource-tamper','fence.binding.topology-tamper','fence.binding.permit-topology-tamper','fence.binding.permit-signature-tamper','fence.binding.target-digest-tamper','fence.binding.binding-tamper','fence.binding.no-repeat-destruction','fence.binding.observation-agrees','fence.binding.observation-tamper','fence.binding.preflight-unregistered']
 SCRIPT=r"""
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {ComponentRegistry} from './services/hyperfide/dist/components/registry.js';
 import {digestDocument} from './services/hyperfide/dist/providers/pools.js';
-import {issueIsolationPermit,loadIsolationPermitVerifier} from './services/hyperfide/dist/identity/credentials.js';
-import {externalFenceTopologyDigest,createExternalWriterFence,FileExternalFenceJournal,bindProviderIsolation} from './services/hyperfide/dist/recovery/fencing.js';
+import {issueIsolationPermit,loadIsolationPermitVerifier,issueWriterObservationPermit,loadWriterObservationPermitVerifier} from './services/hyperfide/dist/identity/credentials.js';
+import {externalFenceTopologyDigest,createExternalWriterFence,createExternalWriterObserver,FileExternalFenceJournal,bindProviderIsolation} from './services/hyperfide/dist/recovery/fencing.js';
 import {startExternalFencingService} from './services/hyperfide/dist/recovery/fencing_service.js';
 import {createIsolationHttpClient} from './services/hyperfide/dist/transport/isolation.js';
 const c=JSON.parse(process.env.HF_BINDING_CONTEXT),controller=new AbortController(),signal=controller.signal;
@@ -67,6 +67,16 @@ try{
  await check('target-digest-tamper',async()=>{const changed=clone(config);changed.resources[0].resource_topology_digest=D;await privateWrite(process.env.HYPERFIDE_WRITER_ISOLATION_CONFIG,changed);try{await reject(()=>fence().isolate(input),'ISOLATION_PERMIT_SCOPE')}finally{await privateWrite(process.env.HYPERFIDE_WRITER_ISOLATION_CONFIG,config)}});
  await check('binding-tamper',async()=>{const file=c.journal+'/'+operationId+'.json',saved=await fs.readFile(file,'utf8'),changed=JSON.parse(saved);changed.resources['writer-node'].binding.topology_digest=D;await privateWrite(file,changed);try{await reject(()=>fence().isolate(input),'EXTERNAL_FENCE_INVALID')}finally{await fs.writeFile(file,saved)}});
  await check('no-repeat-destruction',async()=>{await fence().isolate(input);assert.equal(destroyCalls,1);assert.equal(preflightCalls,1)});
+ const observationVerifier=await loadWriterObservationPermitVerifier(c.verifier),observing=registry.resolveCapability('8.4','provider.observation.v1',v=>typeof v.observeConfiguredResource==='function');
+ const observer=(t=topology)=>createExternalWriterObserver(t,observing,legacy,journal);
+ const observationPermit=async extra=>{const now=Date.now();return observationVerifier.verifySigned(await issueWriterObservationPermit({...claims,purpose:'EXTERNAL_WRITER_OBSERVATION_ONLY',issued_at:new Date(now).toISOString(),expires_at:new Date(now+60000).toISOString(),nonce:randomUUID(),...extra},issuer))};
+ await check('observation-agrees',async()=>{const result=await observer().observe(await observationPermit({}),signal);assert.equal(result.topology_digest,topologyDigest);assert.equal(result.status,'OBSERVED',JSON.stringify(result));assert.equal(result.isolated_count,1);assert.equal(result.destruction_authority,false);assert.equal(destroyCalls,1)});
+ await check('observation-tamper',async()=>{
+  await reject(async()=>observer().observe(await observationPermit({topology_digest:D}),signal),'OBSERVATION_PERMIT_SCOPE');
+  await reject(async()=>observer().observe(await observationPermit({resources:[{reference_key:'writer-node',topology_digest:D}]}),signal),'EXTERNAL_FENCE_AUTHORITY_DENIED');
+  const t=clone(topology);t.resources[0].topology_digest=D;await reject(async()=>observer(t).observe(await observationPermit({}),signal),'EXTERNAL_FENCE_AUTHORITY_DENIED');
+  assert.equal(destroyCalls,1);
+ });
  unregister();unregister=undefined;
  await check('preflight-unregistered',async()=>{const p=verifier.verifySigned(await issueIsolationPermit({...claims,operation_id:randomUUID(),nonce:randomUUID()},issuer));await reject(()=>fence(topology,p).isolate({...input,operation_id:p.operation_id}),'DESTRUCTION_PREFLIGHT_UNAVAILABLE');assert.equal(destroyCalls,1)});
  console.log(JSON.stringify(results));

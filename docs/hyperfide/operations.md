@@ -107,11 +107,17 @@ Every entrypoint (control.js, provisioner.js, dispatch.js) accepts exactly these
 | --spec-revision REV | Required. Must equal the revision approved in the policy. |
 | --components DIR | Component fragment directory (default services/hyperfide/components). |
 | --module-root DIR | Built module root (default services/hyperfide/dist). |
-| --mode stdio\|https\|daemon | Default stdio (bounded JSONL on stdin/stdout). https and daemon print a ready event on stderr and run until SIGTERM/SIGINT. |
+| --mode stdio\|https\|daemon | Default stdio (bounded JSONL on stdin/stdout). https and daemon print a ready event on stderr and run until SIGTERM/SIGINT. The provisioner refuses daemon with TRANSPORT_CONFIG. |
 | --host, --port | HTTPS listener address (host default 127.0.0.1). |
 | --tls-cert, --tls-key | HTTPS certificate and private key. |
 
 HTTPS mode refuses with AUTH_REQUIRED unless the 14.1 identity component is registered, and refuses with TRANSPORT_CONFIG when HYPERFIDE_MIGRATION_JOB=1. HF_SERVICE_MAX_REQUEST_BYTES and HF_SERVICE_MAX_RESPONSE_BYTES set protocol byte limits (default 1 MiB, range 256 bytes to 64 MiB; HTTPS is further capped at 1 MiB). These are configured bounds, not measured capacity.
+
+The provisioner unit (deploy/hyperfide/provisioner.service) runs the same authenticated HTTPS transport as the control and dispatch units. Its listener comes from HYPERFIDE_PROVISIONER_LISTEN_HOST and HYPERFIDE_PROVISIONER_LISTEN_PORT in /etc/hyperfide/provisioner.env (template deploy/hyperfide/env/provisioner.env.example), with /etc/hyperfide/provisioner.crt and /etc/hyperfide/provisioner.key. Its identity configuration, HF_IDENTITY_CONFIG_FILE=/etc/hyperfide/provisioner-identity.json (template deploy/hyperfide/identity/provisioner-identity.example.json), must carry the canonical https origin that callers sign for, naming the certificate's host and the listener port; the placeholder origin refuses startup with COMPONENT_LOAD_FAILED (Invalid HTTPS origin) until it is replaced. Every provisioner-gated action, including provider.pools.configure, provider.pools.attest-capacity, provider.pools.observe, provider.intents.execute and provider.intents.reconcile, is reachable only through this listener and only for principals whose granted actions include it.
+
+The provisioner worker starts at service boot without a provider.worker.start call. The service signs a provider.worker.start invocation for itself with the key named in HF_PROVISIONER_EXECUTOR_CONFIG_FILE=/etc/hyperfide/provisioner-worker.json (template deploy/hyperfide/identity/provisioner-worker.example.json: schema_version 1, exactly one principal with credential_id and key_path, concurrency) and authenticates it through the 14.1 identity authority, as the runner executor does. The configuration file and the key it names must be absolute, owned by the service user, mode 0600, single-link regular files and not symlinks; anything else, a principal that is not the current ACTIVE PROVISIONER for the run's authority epoch, or a key that does not match it refuses startup with PROVISIONER_EXECUTOR_CONFIG_INVALID or PROVISIONER_EXECUTOR_IDENTITY_MISMATCH before the listener opens. Migration 0707-provisioner-worker-starts must be applied first (PROVISIONER_WORKER_SCHEMA_REQUIRED otherwise).
+
+Worker starts are durable per run in hyperfide.provisioner_worker_starts. A restart resumes the recorded start (resume_count increases, start_count and started_at do not); repeated provider.worker.start calls against a running worker change nothing. provider.worker.stop records STOPPED, so the next boot is a new start. A STARTED record owned by another current PROVISIONER credential refuses startup with WORKER_ALREADY_RUNNING; revoke or expire that credential before rotating the worker key. provider.worker.status reports the durable record beside the live loop state.
 
 Observed refusals from the built entrypoint in a task sandbox (exit code 1):
 
@@ -123,6 +129,61 @@ $ node services/hyperfide/dist/control.js --policy /nonexistent --spec-revision 
 ```
 
 Authenticated startup, refusal of a request that claims its own approval, refusal of a request for another run and service restart are exercised against PostgreSQL by tests/hyperfide/cases/tasks/28_1.py; the recorded outcome is artifacts/hyperfide/tasks/28.1/evidence-index.json (local, force-added evidence; not a full-case receipt).
+
+An installed release launches its own runtimes directly: runtime/node, bin/hyperfide, bin/hyperfide-native and runtime/python/bin/python3 (a wrapper over python3.bin) run under the host dynamic loader /lib64/ld-linux-x86-64.so.2 with the host glibc, and take every other native library from the release (bin/hyperfide and bin/hyperfide-native through RUNPATH $ORIGIN/../lib/hyperfide, the service units and the migration job through LD_LIBRARY_PATH=<release>/lib/hyperfide, Python through runtime/python/lib). glibc itself is never bundled, so a host needs a glibc no older than the one on the release build host; scripts/release.sh refuses to construct a release that stages a glibc member or whose node does not run both plainly and under the bundled library path.
+
+## Host bootstrap
+
+deploy/hyperfide/bootstrap-host.mjs prepares a host for the three service units. Run it as root from the installed release; it is idempotent, so rerun it after every release to pick up new templates:
+
+    /opt/hyperfide/current/runtime/node /opt/hyperfide/current/deploy/hyperfide/bootstrap-host.mjs
+
+It creates the hyperfide group (gid 1900) and the system users hyperfide (uid 1900, control), hyperfide-provisioner (1901) and hyperfide-dispatch (1902), all with primary group hyperfide, home /nonexistent and shell /usr/sbin/nologin, through groupadd and useradd. An existing account with another id, group, home or shell refuses with BOOTSTRAP_IDENTITY_CONFLICT before any tree is created. It then creates /etc/hyperfide and /var/lib/hyperfide (root:hyperfide 0750), one state directory per role with its authority-journal (and, for the provisioner, preparation) directory (role user, 0700), and installs:
+
+| Installed file | Source | Owner and mode |
+| --- | --- | --- |
+| /etc/hyperfide/ROLE.env | deploy/hyperfide/env/ROLE.env.example | root:root 0600 |
+| /etc/hyperfide/ROLE-policy.json | deploy/hyperfide/policies/ROLE.example.json (task 29.5) | role user 0600 |
+| /etc/hyperfide/ROLE-identity.json, provisioner-worker.json | deploy/hyperfide/identity/*.example.json | role user 0600 |
+| /etc/systemd/system/hyperfide-ROLE.service | deploy/hyperfide/ROLE.service | root:root 0644 |
+| hyperfide-ROLE.service.d/db-env.conf | EnvironmentFile=/etc/hyperfide/ROLE.db.env | root:root 0644 |
+| hyperfide-ROLE.service.d/preflight.conf | ExecStartPre running bootstrap-host.mjs --preflight ROLE | root:root 0644 |
+| /etc/hyperfide/grants.sql | deploy/hyperfide/grants.sql | root:root 0644 |
+
+Every file is created atomically and only when absent. An existing file is never rewritten or read, unless it is a release-owned unit, drop-in or grants.sql, which is compared and listed under differs when the release changed it; review and replace those by hand. An existing file that is a symlink, has more than one link or the wrong owner or mode refuses with BOOTSTRAP_CONFIG_UNSAFE. The script never creates a database URL, certificate, key or provider configuration; the outcome line lists each one still absent under operator_pending. HYPERFIDE_BOOTSTRAP_ROOT or --root DIR points the same steps at a prefix tree (useradd and groupadd run with --root), which is how acceptance case V-066 exercises it; only the real root runs systemctl daemon-reload.
+
+The preflight runs as each unit's ExecStartPre, as the unit's user and with its environment, before the entrypoint starts, and exits 78 with the refusal code the service itself would raise:
+
+| Gap | Refusal |
+| --- | --- |
+| Any HYPERFIDE_MIGRATION_* variable present | MIGRATION_CREDENTIAL_EXPOSED |
+| HYPERFIDE_REQUIRE_SYNC_REPLICA not 0 or 1 | DURABILITY_POLICY_REQUIRED |
+| HYPERFIDE_DEPLOYMENT_ID not a UUID, or HYPERFIDE_AUTHORITY_JOURNAL_DIR missing, not canonical, not owned by the unit's uid or group/world accessible | EXTERNAL_JOURNAL_REQUIRED |
+| Control without a 64-hex-character HYPERFIDE_CAUSAL_BARRIER_KEY | BARRIER_CONFIG_INVALID |
+| Listener host or port, or HYPERFIDE_SPEC_REVISION, missing | TRANSPORT_CONFIG |
+| HYPERFIDE_ROLE_PRIMARY_DATABASE_URL missing or not postgres | DATABASE_CONFIG_INVALID |
+| HF_IDENTITY_CONFIG_FILE missing | IDENTITY_CONFIG_REQUIRED |
+| Dispatch without HF_EVENT_DISPATCH_CONFIG | DISPATCH_CONFIG_REQUIRED |
+| Provisioner without an absolute HF_PROVISIONER_EXECUTOR_CONFIG_FILE | PROVISIONER_EXECUTOR_CONFIG_INVALID |
+| HYPERFIDE_EXTERNAL_FENCE_CONFIG_FILE missing or not canonical | EXTERNAL_FENCE_CONFIG_REQUIRED |
+| Fence configuration not a single-link 0600 file owned by the unit's uid | EXTERNAL_FENCE_CONFIG_UNSAFE |
+| Fence configuration fields, scope or topology invalid | EXTERNAL_FENCE_CONFIG_INVALID |
+| A required writer without an isolation boundary | EXTERNAL_FENCE_CONFIG_INCOMPLETE |
+| HYPERFIDE_POOL_CONFIG missing | POOL_CONFIG_REQUIRED |
+| HF_RAILWAY_CONFIG missing | Railway trusted configuration missing |
+
+The preflight prints only the outcome and code, never a value. A passing preflight does not prove that migrations, grants or an authority epoch exist; the service checks those at startup.
+
+A new host follows this sequence:
+
+1. Install the release with install-service.mjs (--service-uid 1900 --service-gid 1900), then run the bootstrap above.
+2. Edit /etc/hyperfide/ROLE.env for each role. Write /etc/hyperfide/ROLE.db.env by hand (root:root 0600) with the role's HYPERFIDE_ROLE_PRIMARY_DATABASE_URL, the scoped runtime login only; never pass a database URL through a script or put a migration credential in either file. Place each role's ROLE.crt and ROLE.key, the provisioner's external-fence.json, pools.json, railway.json and worker key, and the dispatch worker configuration with its key, with the owner and mode the table above names. Replace the policy and identity placeholders.
+3. Apply migrations with the migration credential in the operator's own environment (migrate.mjs --apply, see PostgreSQL and migrations).
+4. Apply grants.sql once per runtime login as the database owner. Grants need the migrated tables, so this follows step 3; rerun it after every migration.
+5. Activate the first epoch for control and adopt it for the provisioner and dispatch, as described in First authority epoch.
+6. Start the units: systemctl enable --now hyperfide-control hyperfide-provisioner hyperfide-dispatch. A unit whose preflight refuses does not start; journalctl -u hyperfide-ROLE shows the code.
+
+Identity enrolment of the service principals stays with bootstrap_identity.ts (task 26.4).
 
 ## Local CLI
 
@@ -145,7 +206,68 @@ Connection settings are read by services/hyperfide/src/storage/runtime.ts. Each 
 
 Migration credentials are dedicated to the migration operator. Task 4.4 owns ascending, checksummed migrations; request handlers never create their own tables. Missing schema is a readiness refusal. Preserve already applied SQL bytes and their checksums. The 28.2 documentation migration adds immutable packet, checker, baseline and closure records with the authority transaction-isolation guard.
 
+Run policies and runtime grants ship with the deployment files. deploy/hyperfide/policies/control.example.json, provisioner.example.json and dispatch.example.json each list every action the role's registered components admit, its startup action and, for dispatch, the standing worker actions plus every control action as a route candidate. Replace the programme, repository, approval record and specification revision placeholders, keep allowed_actions unchanged, and install each file as that role's --policy. A dispatch route whose action is missing from the dispatch policy refuses startup with DISPATCH_CONFIG_INVALID. After any change to component registrations, regenerate the examples with python3 tests/hyperfide/cases/tasks/29_5.py --write-policies; acceptance case V-062 fails and names each missing or unregistered action when a shipped list drifts.
+
+After migrations, the database owner that ran them applies deploy/hyperfide/grants.sql once per runtime login, for example psql "$OPERATOR_DATABASE_URL" -v runtime_role=hyperfide_control -f deploy/hyperfide/grants.sql, then again for the provisioner and dispatch logins. The script refuses a runtime login that is privileged, owns objects or is a member of another role; grants CONNECT, schema USAGE, SELECT on every table and INSERT, UPDATE and DELETE on every table except schema_migrations; and fails if the login keeps any migration privilege. Rerun it after every migration, since it sets no default privileges. Topology observation needs EXECUTE on pg_catalog.pg_control_system() and pg_control_checkpoint(). PostgreSQL grants that to PUBLIC by default, so the script only checks it. If a cluster revoked it, the script stops with an error naming the function, and a superuser has to run the script to grant it. Never give a runtime role the operator or superuser credential.
+
 Primary transactions use the shared 4.2 gateway. Identity guards run inside each actual transaction attempt and are repeated after retry. A lost COMMIT acknowledgement is an unknown outcome: reconcile the durable operation identity before another external side effect. Do not infer safe failover from an epoch row or a caller boolean; production promotion requires actual old-primary/control-writer fencing.
+
+## First authority epoch
+
+Every ordinary control, provisioner and dispatch service refuses to start until an ACTIVE epoch exists for HYPERFIDE_DEPLOYMENT_ID in the primary and the same epoch is current in that unit's own authority journal (HYPERFIDE_AUTHORITY_JOURNAL_DIR, a private directory owned by the unit's uid). A fresh install obtains its first epoch exactly once, after `--apply` has run, with the release fence driver `deploy/hyperfide/bootstrap-fence.mjs`. The driver never reads a signing key: the operator signs the isolation permit off-box.
+
+1. Environment for the control uid. Every path is absolute and every file is owned by that uid with mode 0600 (directories 0700) unless noted:
+   - DATABASE_URL and HYPERFIDE_MIGRATION_DATABASE_URL for the primary, HYPERFIDE_DEPLOYMENT_ID, and HYPERFIDE_AUTHORITY_JOURNAL_DIR (the control journal).
+   - HYPERFIDE_WRITER_ISOLATION_CONFIG: the writer isolation configuration. It names this deployment, `source_epoch: null`, `evidence_scope: "LIVE_PROVIDER"`, and every provider resource that can write (scope, native sandbox and boot generation, boot id, preparation digest).
+   - HF_LEGACY_WRITER_CONFIG_FILE: the legacy writer topology. Its `legacy_writer_id` is one of the isolation resource keys, its data roots are read-only mounts, and its pid and mount namespaces are those the activation job runs in.
+   - HYPERFIDE_POOL_CONFIG: the active pool configuration.
+   - HF_RAILWAY_CONFIG: live mode, not group or world writable. Also set the token variable it names in `token_env`. Set the Blaxel administrative credentials when a resource is on Blaxel.
+   - HYPERFIDE_EXTERNAL_FENCE_JOURNAL_DIR: a private, empty fence journal directory.
+   - HYPERFIDE_ISOLATION_PERMIT_VERIFIER_FILE: `{"schema_version":1,"issuers":[{"key_id":KEY_ID,"public_key_b64":RAW_ED25519_PUBLIC_KEY_BASE64URL}]}`, not group or world writable.
+   - HYPERFIDE_ISOLATION_PERMIT_FILE: the signed permit, written in step 5.
+2. Topology digest. Run `node deploy/hyperfide/bootstrap-fence.mjs --topology`. It prints the derived topology and its `topology_digest`. Write that digest into the isolation configuration as `topology_digest` and as every resource's `resource_topology_digest`, then rerun it until it reports `"consistent":true`. Any later change to the resources, the legacy topology or the namespaces changes the digest.
+3. Permit payload. Choose the activation operation id (UUID) and run `node deploy/hyperfide/bootstrap-fence.mjs --permit-payload --operation-id UUID --key-id KEY_ID [--ttl-seconds N] --output-dir DIR`. DIR is a private directory. The command writes `DIR/permit.payload` (the canonical claims: purpose EXTERNAL_WRITER_ISOLATION_ONLY, deployment, operation, organisation, run, null source epoch, topology digest, the exact resource allowlist, issue and expiry times, nonce) and `DIR/permit.signing-input`. The lifetime defaults to 900 seconds and is bounded to 60 to 3600 seconds.
+4. Signing, off-box. Review the payload, then sign the signing input with the issuer's Ed25519 key, for example `openssl pkeyutl -sign -rawin -inkey KEY.pem -in permit.signing-input -out permit.sig`. Return the 64-byte `permit.sig`.
+5. Sealing and verification. Run `node deploy/hyperfide/bootstrap-fence.mjs --seal-permit --operation-id UUID --key-id KEY_ID --payload DIR/permit.payload --signature permit.sig --output PERMIT`. It builds the canonical envelope, verifies it with the configured public keys against this deployment, operation and topology digest, and writes PERMIT with mode 0600. Point HYPERFIDE_ISOLATION_PERMIT_FILE at PERMIT. `--verify-permit --operation-id UUID` repeats the check. An unsigned or altered envelope (ISOLATION_PERMIT_INVALID), a permit for another deployment, operation or topology (ISOLATION_PERMIT_SCOPE) and an expired permit (ISOLATION_PERMIT_EXPIRED) are refused. So is an isolation configuration whose digests differ from the derived topology (EXTERNAL_FENCE_TOPOLOGY_DIGEST_MISMATCH). Each of these happens before any provider effect or epoch.
+6. Activation, inside the configured legacy namespaces and before the permit expires:
+
+       node deploy/hyperfide/migrate.mjs --activate-authority --release-root RELEASE --policy-file POLICY --spec-revision REV --operation-id UUID --fence-driver deploy/hyperfide/bootstrap-fence.mjs
+
+   The policy must admit storage.authority.activate for the control role. A relative `--fence-driver` resolves inside the release root and must be a root-owned file with no group or world write. An absolute one must be a private operator module (owned, mode 0600). The driver verifies the permit again, disables legacy admission, and isolates every configured resource through the provider admin transport. Isolation runs only after a fresh retained-custody proof for the exact sandbox and boot. The job builds the fence itself, so it refuses:
+   - a component-fixture topology (EXTERNAL_FENCE_EVIDENCE_SCOPE_MISMATCH);
+   - an unverified permit (ISOLATION_PERMIT_REQUIRED);
+   - an unknown provider outcome (EXTERNAL_FENCE_OUTCOME_UNKNOWN);
+   - a receipt whose validity exceeds 30 seconds or that has expired at primary admission (EXTERNAL_FENCE_INVALID, EXTERNAL_FENCE_EXPIRED).
+
+   Service code that reaches activation through storage.authority.v1 accepts only a fence built by createExternalWriterFence.
+
+The activation is BOOTSTRAP only when the deployment has no authority history. Re-running the same operation id replays the committed epoch without minting. Any other bootstrap while an epoch exists, including a revoked one, is refused with AUTHORITY_BOOTSTRAP_EXISTS. A lost publication is AUTHORITY_ACTIVATION_UNKNOWN (exit 75): rerun the same operation id to reconcile, never a new one.
+
+7. Follower adoption. The provisioner and dispatch units run as different uids and cannot share the control journal. Copy the committed document `<HYPERFIDE_AUTHORITY_JOURNAL_DIR>/<HYPERFIDE_DEPLOYMENT_ID>.authority.json` to a file owned by the follower's uid with mode 0600. Then run the following as that uid, with its own journal directory and a policy file it owns:
+
+       node deploy/hyperfide/migrate.mjs --adopt-authority --release-root RELEASE --policy-file POLICY --spec-revision REV --operation-id UUID --journal-document FILE
+
+   The policy must admit storage.authority.adopt. Adoption validates the document's hash chain, requires the ACTIVE state and a positive primary receipt whose proof digest matches the last record, and never mints an epoch. A PENDING, tampered, forked or rolled-back document is refused.
+8. Service start. Start the control, provisioner and dispatch units. Each one checks that the epoch in its own journal is the primary's ACTIVE epoch. Every outcome line, and install-service.mjs's receipt, reports authority_activated read from the primary (null when the read itself failed). Remove the permit and the payload directory after activation; the permit is valid only for this operation id.
+
+### Greenfield first epoch
+
+A fresh deployment has no writer to isolate, and its runs, pools, sandboxes and boots can only be created behind an ACTIVE epoch. Its first epoch therefore uses a greenfield configuration: the operator proves that nothing exists, and the activation creates the accepted-intent rows in the same primary transaction as the epoch. The commands are the same as above and follow the scope of the isolation configuration. The driver never reads a signing key.
+
+1. Environment for the control uid, as in step 1 above, with these differences:
+   - HYPERFIDE_WRITER_ISOLATION_CONFIG names this deployment, the organisation and run of the accepted intent, `source_epoch: null`, `evidence_scope: "LIVE_PROVIDER"`, `"scope": "GREENFIELD"` and `"resources": []`. A greenfield configuration that names a resource is refused with ISOLATION_PERMIT_SCOPE.
+   - HF_LEGACY_WRITER_CONFIG_FILE is unset. A configured legacy writer is refused with ISOLATION_PERMIT_SCOPE.
+   - HYPERFIDE_GREENFIELD_INTENT_FILE: `{"schema_version":1,"scope":{"organisation_id","project_id","run_id","allowed_actions"},"metadata":...,"accepted_intent":...}`, with the metadata and accepted intent of the first `hyperfide bootstrap` input. HYPERFIDE_BOOTSTRAP_SOURCE_ROOT is the directory that holds the accepted spec source.
+   - HYPERFIDE_POOL_CONFIG names the same organisation. Every pool in it is inventoried through its provider admin transport. Only Railway has one, so HF_RAILWAY_CONFIG must be in live mode with its token set.
+2. Topology digest. `--topology` prints the greenfield topology: zero required writers, zero resources, legacy status NONE, the accepted-intent digest and every configured pool scope. Write its `topology_digest` into the isolation configuration and rerun it until it reports `"consistent":true`.
+3. to 5. Permit. `--permit-payload` writes claims with `"scope":"GREENFIELD"` and an empty resource allowlist. Signing, sealing and `--verify-permit` work as above. A greenfield permit is refused against a writer configuration, and a writer permit against a greenfield one, with ISOLATION_PERMIT_SCOPE.
+6. Activation. Use the same `migrate.mjs --activate-authority ... --fence-driver deploy/hyperfide/bootstrap-fence.mjs` command. Before any epoch is minted, the driver refuses a deployment with any authority history with ISOLATION_PERMIT_SCOPE. It then proves emptiness:
+   - the primary holds no sandboxes, sandbox_boots, provider_pools or runs rows for the organisation;
+   - a complete inventory of every configured pool shows no sandbox other than a DESTROYED one.
+
+   Anything present is refused with GREENFIELD_NOT_EMPTY. An incomplete or failed inventory, or a pool whose provider has no inventory transport, is refused with GREENFIELD_EMPTINESS_UNPROVEN. The fence journal keeps the evidence document (scope GREENFIELD, resource_count 0, legacy_status NONE, the empty writer list, each inventory and the database counts) next to a receipt of at most 30 seconds. The primary transaction inserts the BOOTSTRAP epoch, rechecks emptiness, and imports the organisation, project, repositories, source objects, spec revision and run through the accepted-intent importer, with the run pinned to the new epoch. Re-running the same operation id replays the committed epoch. Service-reachable storage.authority.v1 refuses a greenfield fence.
+7. Follower adoption and service start: steps 7 and 8 above.
+8. First operator. Run `hyperfide bootstrap --input FILE` with the same scope, metadata and accepted intent, the new epoch as `authority_epoch` and the operator credential. The import replays, and the first OPERATOR is issued.
 
 ## Preparation, secrets and execution
 
@@ -230,6 +352,7 @@ Rollback restores the documented previous usable state only for reversible steps
 | Service refuses startup | Approval/revision/role, linked fragment, actual dependency capability and required schema. |
 | INVALID_ARGS or POLICY_INVALID at startup | Only the flags in the entrypoint table are accepted; --policy must name a readable regular JSON file of at most 1 MiB. |
 | AUTH_REQUIRED or TRANSPORT_CONFIG with --mode https | 14.1 identity component registered; HYPERFIDE_MIGRATION_JOB unset; TLS certificate/key readable. |
+| Provisioner refuses startup with PROVISIONER_EXECUTOR_CONFIG_INVALID, PROVISIONER_EXECUTOR_IDENTITY_MISMATCH or WORKER_ALREADY_RUNNING | Worker configuration and key are 0600, single-link, service-owned regular files; the credential is the current ACTIVE PROVISIONER with the matching key; no other current credential owns the run's durable worker start. |
 | DATABASE_CONFIG_INVALID or DATABASE_CONFIG_CONFLICT | Role-specific primary URL or DATABASE_URL present; HYPERFIDE_MIGRATION_DATABASE_URL for migrations; bounded PG settings in range; one configuration per process. |
 | ALIAS_CONFLICT during rename migration | Legacy CG_*/CODIFY_* and HYPERFIDE_* variables set to different values. |
 | Provider returns UNSUPPORTED | Requested capability against the Railway/Blaxel table above; no fallback emulation exists. |

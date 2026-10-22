@@ -12,7 +12,7 @@ def load(name,path):
 p=load('capacity_provider_fixture','tests/hyperfide/cases/tasks/8_3.py')
 s=load('capacity_scheduler_fixture','tests/hyperfide/cases/tasks/5_1.py')
 expect=p.expect
-IDS=['capacity.seed.unqualified-zero','capacity.seed.policy-provenance','capacity.seed.qualified-dimensions','capacity.seed.idempotent','capacity.seed.over-limit-refused','capacity.seed.atomic-running','capacity.seed.ready-current-boot','capacity.seed.observation-idempotent','capacity.seed.claim-admits','capacity.seed.allocated-not-revived','capacity.seed.stopped-retired','capacity.seed.replaced-retired','capacity.seed.old-observation-no-ready']
+IDS=['capacity.seed.claim-before-configure-refused','capacity.seed.unqualified-zero','capacity.seed.policy-provenance','capacity.seed.qualified-dimensions','capacity.seed.idempotent','capacity.seed.over-limit-refused','capacity.seed.atomic-running','capacity.seed.ready-current-boot','capacity.seed.observation-idempotent','capacity.seed.claim-admits','capacity.seed.allocated-not-revived','capacity.seed.stopped-retired','capacity.seed.replaced-retired','capacity.seed.old-observation-no-ready']
 FAILED=[]
 IDS+=['capacity.seed.reconfigure-held','capacity.seed.unqualified-admission-refused']
 def check(name,fn):
@@ -52,24 +52,34 @@ def main():
   org=f.ids['organisation'];run=f.ids['run']
   invoke('provider.worker.stop')
   def accounts():return f.sql('SELECT * FROM hyperfide.capacity_accounts WHERE organisation_id=$1 AND pool_id=$2 ORDER BY id',[org,f.pool])
+  def before_configure():
+   # A pool that was never configured has no policy, accounts or slots; claims refuse with the exact codes.
+   expect(not accounts() and not f.sql('SELECT 1 FROM hyperfide.scheduling_policies WHERE organisation_id=$1 AND pool_id=$2',[org,f.pool]),'capacity seeded before configure')
+   request=f.prepare_claim('b');unconfigured=str(uuid.uuid4());sandbox=str(uuid.uuid4())
+   f.sql("INSERT INTO hyperfide.provider_pools(organisation_id,id,provider,account_key,environment_key,region,profile_id) VALUES($1,$2,'railway','unconfigured-account','unconfigured-env','fixture',$3)",[org,unconfigured,f.ids['profile']])
+   f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,native_sandbox_id,observed_state,preparation_digest) VALUES($1,$2,$3,'unconfigured-native','RUNNING',$4)",[org,sandbox,unconfigured,f.preparation])
+   s.refused_unchanged(f,{**request,'request_id':str(uuid.uuid4()),'sandbox_id':str(uuid.uuid4())},'SLOT_UNAVAILABLE',key='manager2',message='not registered')
+   s.refused_unchanged(f,{**request,'request_id':str(uuid.uuid4()),'sandbox_id':sandbox},'SCHEDULING_POLICY_MISSING',key='manager2')
+   s.refused_unchanged(f,{**request,'request_id':str(uuid.uuid4()),'capacity':[{'capacity_account_id':str(uuid.uuid4()),'quantity':'1'}]},'CAPACITY_ACCOUNT_MISSING',key='manager2')
+  check(IDS[0],before_configure)
   invoke('provider.pools.configure')
-  check(IDS[0],lambda:expect(len(accounts())==11 and all(a['configured_limit']=='0' and a['qualification_state']=='UNQUALIFIED' for a in accounts()),accounts()))
+  check(IDS[1],lambda:expect(len(accounts())==11 and all(a['configured_limit']=='0' and a['qualification_state']=='UNQUALIFIED' for a in accounts()),accounts()))
   cfg=f.sql('SELECT configuration_digest FROM hyperfide.provider_pool_configurations WHERE organisation_id=$1 AND pool_id=$2 AND active',[org,f.pool])[0]['configuration_digest']
-  check(IDS[1],lambda:expect(f.sql('SELECT provenance_digest,qualification_state,aging_seconds,max_bypass_seconds,rate_window_ms,max_waiters FROM hyperfide.scheduling_policies WHERE organisation_id=$1 AND pool_id=$2',[org,f.pool])==[{'provenance_digest':cfg,'qualification_state':'QUALIFIED',**f.config['pools'][0]['scheduling_policy']}],'policy provenance absent'))
+  check(IDS[2],lambda:expect(f.sql('SELECT provenance_digest,qualification_state,aging_seconds,max_bypass_seconds,rate_window_ms,max_waiters FROM hyperfide.scheduling_policies WHERE organisation_id=$1 AND pool_id=$2',[org,f.pool])==[{'provenance_digest':cfg,'qualification_state':'QUALIFIED',**f.config['pools'][0]['scheduling_policy']}],'policy provenance absent'))
   for dimension,limit in f.config['pools'][0]['approved_limits'].items():
    for kind,key in [('ACCOUNT','capacity-account'),('ENVIRONMENT','capacity-env')]:
     f.sql("INSERT INTO hyperfide.provider_quota_observations(organisation_id,id,pool_id,configuration_digest,provider,account_key,scope_kind,scope_key,dimension,quota_limit,observed_at,expires_at,evidence_digest,basis,evidence_reference) VALUES($1,$2,$3,$4,'railway','capacity-account',$5,$6,$7,$8,clock_timestamp(),clock_timestamp()+interval '10 minutes',$9,'VERIFIED_OPERATOR_ATTESTATION','COMPONENT_FIXTURE_NOT_LIVE')",[org,str(uuid.uuid4()),f.pool,cfg,kind,key,dimension,limit,p.sha(b'capacity-component-qualified-envelope')])
   invoke('provider.pools.configure')
-  check(IDS[2],lambda:expect(all(a['qualification_state']=='QUALIFIED' and a['provenance_digest']!=cfg and a['configured_limit']==f.config['pools'][0]['approved_limits'][a['dimension']] for a in accounts()),accounts()))
+  check(IDS[3],lambda:expect(all(a['qualification_state']=='QUALIFIED' and a['provenance_digest']!=cfg and a['configured_limit']==f.config['pools'][0]['approved_limits'][a['dimension']] for a in accounts()),accounts()))
   before=accounts();policy=f.sql('SELECT * FROM hyperfide.scheduling_policies WHERE organisation_id=$1 AND pool_id=$2',[org,f.pool])
   invoke('provider.pools.configure')
-  check(IDS[3],lambda:expect(before==accounts() and policy==f.sql('SELECT * FROM hyperfide.scheduling_policies WHERE organisation_id=$1 AND pool_id=$2',[org,f.pool]),'reseed changed rows'))
+  check(IDS[4],lambda:expect(before==accounts() and policy==f.sql('SELECT * FROM hyperfide.scheduling_policies WHERE organisation_id=$1 AND pool_id=$2',[org,f.pool]),'reseed changed rows'))
   def overlimit():
    f.sql("UPDATE hyperfide.provider_quota_observations SET quota_limit=1 WHERE organisation_id=$1 AND pool_id=$2 AND dimension='AGENT'",[org,f.pool])
    try:
     answer=invoke('provider.pools.configure',ok=False);expect(answer.get('error',{}).get('code')=='CAPACITY_SEED_LIMIT_EXCEEDED',answer);expect(accounts()==before,'refusal mutated accounts')
    finally:f.sql("UPDATE hyperfide.provider_quota_observations SET quota_limit=2 WHERE organisation_id=$1 AND pool_id=$2 AND dimension='AGENT'",[org,f.pool])
-  check(IDS[4],overlimit)
+  check(IDS[5],overlimit)
   sandbox=str(uuid.uuid4());iid=str(uuid.uuid4())
   f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,native_sandbox_id,observed_state,preparation_digest) VALUES($1,$2,$3,'capacity-native','CREATING',$4)",[org,sandbox,f.pool,f.preparation])
   scope={'organisation_id':org,'pool_id':f.pool,'provider':'railway','provider_account_id':'capacity-account','environment_id':'capacity-env','region':'fixture','configuration_digest':cfg}
@@ -86,27 +96,27 @@ def main():
    try:
     expect(observe(False).get('ok') is False,'slot failure accepted');expect(not slots() and f.sql('SELECT observed_state FROM hyperfide.sandboxes WHERE id=$1',[sandbox])[0]['observed_state']=='CREATING','RUNNING committed without slot')
    finally:f.sql('DROP TRIGGER fixture_refuse_slot ON hyperfide.worker_slots; DROP FUNCTION hyperfide.fixture_refuse_slot()')
-  check(IDS[5],atomic)
+  check(IDS[6],atomic)
   observe();rows=slots()
-  check(IDS[6],lambda:expect(len(rows)==1 and rows[0]['state']=='READY' and rows[0]['boot_generation']=='1',rows))
-  observe();check(IDS[7],lambda:expect(slots()==rows,'observation duplicated/revived slot'))
+  check(IDS[7],lambda:expect(len(rows)==1 and rows[0]['state']=='READY' and rows[0]['boot_generation']=='1',rows))
+  observe();check(IDS[8],lambda:expect(slots()==rows,'observation duplicated/revived slot'))
   f.ids['sandbox']=sandbox;f.ids['slot_a']=rows[0]['id'];f.ids['boot']=f.sql('SELECT boot_id FROM hyperfide.sandbox_boots WHERE sandbox_id=$1',[sandbox])[0]['boot_id']
   f.accounts={a['dimension']:a['id'] for a in accounts() if a['capacity_class']=='EXECUTION'}
   budget=f.primary("return claims.qualifySandboxBudget(tx,data.qualification);",{'qualification':{'organisation_id':org,'sandbox_id':sandbox,'sandbox_boot_generation':'1','qualification_id':str(uuid.uuid4()),'evidence_digest':p.sha(b'component-fixed-boot-envelope'),'source':'OPERATOR_FIXED','hard_limits':{'cpu_millis':'8000','memory_bytes':'17179869184','disk_bytes':'34359738368'},'headroom':{'cpu_millis':'1000','memory_bytes':'1073741824','disk_bytes':'0'}}})
   expect('result' in budget,budget)
-  check(IDS[8],lambda:expect(bool(f.claim('a')),'claim refused seeded slot/accounts/policy'))
-  allocated=slots();observe();check(IDS[9],lambda:expect(allocated[0]['state']=='ALLOCATED' and slots()==allocated,'allocated slot revived'))
+  check(IDS[9],lambda:expect(bool(f.claim('a')),'claim refused seeded slot/accounts/policy'))
+  allocated=slots();observe();check(IDS[10],lambda:expect(allocated[0]['state']=='ALLOCATED' and slots()==allocated,'allocated slot revived'))
   simulated=json.loads(state.read_text());simulated['resources']['capacity-native']['state']='STOPPED';state.write_text(json.dumps(simulated))
   observe()
-  check(IDS[10],lambda:expect(all(w['state']=='RETIRED' for w in slots()),'stopped slot remains ready'))
+  check(IDS[11],lambda:expect(all(w['state']=='RETIRED' for w in slots()),'stopped slot remains ready'))
   # Replacement retires an independently READY boot as well as allocated boots.
   other=str(uuid.uuid4());slot=str(uuid.uuid4())
   f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,native_sandbox_id,observed_state,preparation_digest) VALUES($1,$2,$3,'replacement-native','RUNNING',$4)",[org,other,f.pool,f.preparation])
   f.sql("INSERT INTO hyperfide.worker_slots(organisation_id,id,sandbox_id,slot_key,boot_generation,capacity_kind) VALUES($1,$2,$3,'replacement',1,'AGENT')",[org,slot,other])
   f.sql('UPDATE hyperfide.sandboxes SET boot_generation=2,state_version=state_version+1 WHERE id=$1',[other])
-  check(IDS[11],lambda:expect(f.sql('SELECT state FROM hyperfide.worker_slots WHERE id=$1',[slot])[0]['state']=='RETIRED','replaced READY boot survived'))
+  check(IDS[12],lambda:expect(f.sql('SELECT state FROM hyperfide.worker_slots WHERE id=$1',[slot])[0]['state']=='RETIRED','replaced READY boot survived'))
   f.sql("UPDATE hyperfide.sandboxes SET boot_generation=2,observed_state='CREATING',state_version=state_version+1 WHERE id=$1",[sandbox])
-  observe();check(IDS[12],lambda:expect(all(w['state']=='RETIRED' for w in slots()),'old observation created ready slot'))
+  observe();check(IDS[13],lambda:expect(all(w['state']=='RETIRED' for w in slots()),'old observation created ready slot'))
   held_request={'request_id':str(uuid.uuid4()),'dimensions':[{'capacity_account_id':f.accounts['AGENT'],'quantity':'1'}],'expires_at':p.utc()}
   held=f.primary('return claims.reserveCapacity(tx,{...data.scope,...data.request});',{'request':held_request})
   expect('result' in held,held)
@@ -123,14 +133,14 @@ def main():
     expect(new['qualification_state']=='UNQUALIFIED' and new['provenance_digest']!=old['provenance_digest'],new)
     expect(int(new['configured_limit'])==int(old['reserved'])+int(old['allocated'])<=int(old['configured_limit']),new)
    invoke('provider.pools.configure');expect(accounts()==current and reservations()==held_rows,'unqualified reseed is not idempotent')
-  check(IDS[13],reconfigure_held)
+  check(IDS[14],reconfigure_held)
   def admission_refused():
    before=accounts()
    request={**held_request,'request_id':str(uuid.uuid4())}
    answer=f.primary('return claims.reserveCapacity(tx,{...data.scope,...data.request});',{'request':request})
    expect(answer.get('error',{}).get('code')=='CAPACITY_UNQUALIFIED',answer)
    expect(accounts()==before and reservations()==held_rows,'refused admission mutated held capacity')
-  check(IDS[14],admission_refused)
+  check(IDS[15],admission_refused)
   complete=True
  finally:
   if prov:

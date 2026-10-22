@@ -5,7 +5,7 @@ import {promisify} from 'node:util';
 import {createHash} from 'node:crypto';
 import type pg from 'pg';
 import {FoundationError,object} from '../policy/programme.js';
-import type {TransactionGateway} from '../storage/transactions.js';
+import type {PrimaryTransaction,TransactionGateway} from '../storage/transactions.js';
 import {assertCurrentAuthority} from '../storage/durability.js';
 import {writeSemanticDisposition} from '../storage/dispositions.js';
 import type {SpecTransaction} from './import.js';
@@ -32,9 +32,14 @@ function remote(value:unknown):value is string{
  try{const url=new URL(value);return ['https:','http:','ssh:','git:'].includes(url.protocol)&&!!url.hostname&&!url.password&&(!url.username||url.protocol==='ssh:'&&url.username==='git');}catch{return false;}
 }
 export function validateBootstrapMetadata(value:unknown,scope:SpecScope):BootstrapMetadata{
+ const metadata=validateMetadata(value,scope);
+ if(!UUID.test(scope.authority_epoch))fail('BOOTSTRAP_METADATA_INVALID','Explicit organisation, project, run and bounded repositories are required');
+ return metadata;
+}
+function validateMetadata(value:unknown,scope:Omit<SpecScope,'authority_epoch'>):BootstrapMetadata{
  const input=exact(value,['organisation','project','repositories']);
  const org=exact(input.organisation,['id','name']),project=exact(input.project,['id','name']);
- if(!UUID.test(scope.organisation_id)||!UUID.test(scope.project_id)||!UUID.test(scope.run_id)||!UUID.test(scope.authority_epoch)||
+ if(!UUID.test(scope.organisation_id)||!UUID.test(scope.project_id)||!UUID.test(scope.run_id)||
   !path.isAbsolute(scope.root)||org.id!==scope.organisation_id||project.id!==scope.project_id||!name(org.name)||!name(project.name)||
   !Array.isArray(input.repositories)||input.repositories.length<1||input.repositories.length>64)
   fail('BOOTSTRAP_METADATA_INVALID','Explicit organisation, project, run and bounded repositories are required');
@@ -189,16 +194,31 @@ export async function bootstrapAcceptedIntentWithGateway(
 ):Promise<unknown>{
  const metadata=validateBootstrapMetadata(rawMetadata,scope);
  await verifySources(metadata);
- return gateway.withPrimaryTransaction({timeoutMs:30000,maxRetries:2},async tx=>{
-  if((await tx.query('SELECT 1 FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2',[scope.organisation_id,scope.run_id])).rows.length)await writeSemanticDisposition(tx,scope);
-  await metadataTransaction(tx,scope,metadata);
-  const result=await importRunTransaction(tx,scope,input);
-  if(!object(result)||typeof result.revision_digest!=='string')
-   fail('BOOTSTRAP_ACCEPTANCE_MISMATCH','Importer did not return an exact accepted intake');
-  await writeSemanticDisposition(tx,scope);
-  await assertAcceptedBootstrap(tx,{organisation_id:scope.organisation_id,run_id:scope.run_id,
-   authority_epoch:scope.authority_epoch,accepted_revision_digest:result.revision_digest});
-  await assertCurrentAuthority(tx,{deployment_id,organisation_id:scope.organisation_id,run_id:scope.run_id,authority_epoch:scope.authority_epoch});
-  return result;
- });
+ return gateway.withPrimaryTransaction({timeoutMs:30000,maxRetries:2},tx=>acceptedIntentTransaction(tx,scope,metadata,input,deployment_id));
+}
+async function acceptedIntentTransaction(tx:PrimaryTransaction,scope:SpecScope,metadata:BootstrapMetadata,input:unknown,deployment_id:string):Promise<unknown>{
+ if((await tx.query('SELECT 1 FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2',[scope.organisation_id,scope.run_id])).rows.length)await writeSemanticDisposition(tx,scope);
+ await metadataTransaction(tx,scope,metadata);
+ const result=await importRunTransaction(tx,scope,input);
+ if(!object(result)||typeof result.revision_digest!=='string')
+  fail('BOOTSTRAP_ACCEPTANCE_MISMATCH','Importer did not return an exact accepted intake');
+ await writeSemanticDisposition(tx,scope);
+ await assertAcceptedBootstrap(tx,{organisation_id:scope.organisation_id,run_id:scope.run_id,
+  authority_epoch:scope.authority_epoch,accepted_revision_digest:result.revision_digest});
+ await assertCurrentAuthority(tx,{deployment_id,organisation_id:scope.organisation_id,run_id:scope.run_id,authority_epoch:scope.authority_epoch});
+ return result;
+}
+const verifiedMetadata=new WeakMap<object,string>();
+/** Validates greenfield metadata and verifies its Git sources before the epoch transaction; Git never runs inside it. */
+export async function verifyGreenfieldMetadata(rawMetadata:unknown,scope:Omit<SpecScope,'authority_epoch'>):Promise<BootstrapMetadata>{
+ const metadata=structuredClone(validateMetadata(rawMetadata,scope));
+ await verifySources(metadata);
+ verifiedMetadata.set(metadata,canonical(metadata));
+ return metadata;
+}
+/** The 26.4 import inside a caller's primary transaction, for metadata this process verified with verifyGreenfieldMetadata. */
+export async function importVerifiedIntentInTransaction(tx:PrimaryTransaction,scope:SpecScope,metadata:BootstrapMetadata,input:unknown,deployment_id:string):Promise<unknown>{
+ if(!object(metadata)||verifiedMetadata.get(metadata)!==canonical(metadata))fail('BOOTSTRAP_SOURCE_INVALID','Accepted-intent sources must be verified before the epoch transaction');
+ validateBootstrapMetadata(metadata,scope);
+ return acceptedIntentTransaction(tx,scope,metadata,input,deployment_id);
 }

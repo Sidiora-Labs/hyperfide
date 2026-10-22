@@ -6,7 +6,7 @@
 [meta]
 feature = "hyperfide"
 name = "Hyperfide"
-version = "2.0.0-proposed"
+version = "2.0.1-proposed"
 status = "in_progress"
 implementation_authorized = true
 review_date = "2026-10-16"
@@ -317,6 +317,25 @@ ac_2 = "The release status change and the 25.4 expectations SHALL change togethe
 ac_3 = "The units SHALL start their 26.4 entrypoints with the shipped configuration paths."
 ac_4 = "No unit SHALL be marked qualified without its receipt."
 
+[req.39]
+title = "Release-shipped bootstrap fence driver"
+story = "As the migration operator, I need the first authority epoch to be activatable from the release alone, without a private fence module."
+ac_1 = "The release SHALL ship a bootstrap fence driver module whose createBootstrapFenceArguments() builds the trusted LIVE_PROVIDER topology from the writer isolation configuration with every resources[].topology_digest, topology_digest and resource_topology_digest set to externalFenceTopologyDigest of that topology."
+ac_2 = "The driver SHALL bind the provider isolation backend through createProviderIsolation with the registered provider admin transports, the primary gateway and the same destruction preflight placement builds, SHALL use the migration.legacy-writers.v1 backend for legacy writer admission and observation, and SHALL open a private FileExternalFenceJournal directory owned by the invoking uid."
+ac_3 = "The isolation permit SHALL be produced by an operator: the release SHALL ship a command that emits the canonical permit payload for signing and verifies a signed permit with loadIsolationPermitVerifier before activation; an unsigned, mis-scoped or expired permit SHALL be refused and the signing key SHALL never be read by the driver."
+ac_4 = "migrate.mjs --activate-authority SHALL accept the shipped driver by its release-relative path, and activation through it SHALL satisfy every check task 29.1 enforces: LIVE_PROVIDER-only fence, receipt bound of 30 seconds, BOOTSTRAP exactly once."
+
+[req.40]
+title = "Greenfield first epoch"
+story = "As the migration operator of a fresh deployment, I need the first authority epoch without writers, resources or rows that only an active epoch can create."
+ac_1 = "A writer isolation configuration with scope GREENFIELD SHALL carry an explicit empty resources list, LIVE_PROVIDER evidence and no source epoch; the driver SHALL derive from it, the bootstrap accepted intent and the configured provider pools a greenfield topology with zero required writers, zero resources and legacy status NONE, whose digest binds the deployment, organisation, project, run, the accepted-intent digest and every pool scope. A configuration without that scope SHALL still require explicit writer resources."
+ac_2 = "A greenfield isolation permit SHALL carry scope GREENFIELD and an explicit empty resource allowlist bound to the greenfield topology digest. Permit verification SHALL refuse a greenfield permit against a non-greenfield expectation and a non-greenfield permit against a greenfield expectation with ISOLATION_PERMIT_SCOPE; an observation-only permit SHALL never carry a scope."
+ac_3 = "Before activation the driver SHALL prove that no writer exists: a complete inventory of every configured pool through the live provider admin transport SHALL show no sandbox other than a DESTROYED one, and the primary SHALL hold no sandboxes, sandbox_boots, provider_pools or runs rows for the organisation. Anything present SHALL be refused with GREENFIELD_NOT_EMPTY; an incomplete enumeration, or a pool whose provider has no inventory transport, SHALL be refused with GREENFIELD_EMPTINESS_UNPROVEN."
+ac_4 = "A greenfield permit or configuration on a deployment with any authority history, a configured legacy writer or any configured writer resource SHALL be refused with ISOLATION_PERMIT_SCOPE before any epoch is minted; replay of the exact committed greenfield operation SHALL return its epoch."
+ac_5 = "Activation SHALL mint the organisation, project, repository, source object, spec revision and run rows of the bound accepted intent through the accepted-intent importer, with the run pinned to the new epoch, in the same primary transaction that inserts the BOOTSTRAP epoch, after rechecking emptiness inside that transaction. A later hyperfide bootstrap of the same accepted intent at that epoch SHALL replay the import and issue the first OPERATOR."
+ac_6 = "The greenfield fence receipt SHALL keep the storage.authority.v1 FenceReceipt shape: fence_id is the operation id, isolated_writer is topology: followed by the greenfield topology digest, the receipt window is at most 30 seconds, and evidence_digest is the digest of an evidence document retained in the fence journal that records scope GREENFIELD, resource_count 0, legacy_status NONE, the empty writer list, each provider inventory and the database counts. The epoch row SHALL be activation_kind BOOTSTRAP with fence_id and proof_digest derived as for every other activation."
+ac_7 = "The service-reachable storage.authority.v1 activate and activateRestored SHALL refuse a greenfield fence. createExternalWriterFence, its topology checks and every check of tasks 29.1 and 29.11 SHALL remain unchanged, and the driver SHALL never read a signing key."
+
 [design]
 include = "design.body.md"
 
@@ -443,7 +462,7 @@ verification_scope = "Registered task-component variant only; all cases remain U
 do_1 = "Import KVX criteria, task identities, repositories, allowed actions and closure policy into one pinned run revision; export revision-labelled KVX projections."
 do_2 = "Reject stale projection writes and preserve declared legacy status as history; load both large fixtures without treating declarations as runtime proof."
 do_3 = "Register this module through its task-owned component fragment in the established service entrypoint and verify its externally observable internal API behavior; an unreferenced source file or direct function-only test cannot satisfy the component gate."
-do_4 = "Retain the public synthetic V-001 and V-024 component qualifier calls, and append the required private-corpus qualification command with fail-closed shell conjunction. The selected private corpus must exist; its absence or any qualifier/checker failure returns nonzero."
+do_4 = "Retain the public synthetic V-001 and V-024 component qualifier calls, and append the required private-corpus qualification command with fail-closed shell conjunction. The selected private corpus must exist; its absence or any qualifier/checker failure returns nonzero. The private-corpus leg runs on the supervisory host where the private corpus lives, as an approved exception recorded in the run policy (decisions E-01); the public V-001 and V-024 legs run on the fleet like every other remote verification."
 do_5 = "Implement --qualify-private-corpus inside the already-owned task probe. Resolve only trusted ignored fixture references and generate immutable private registry, registration and manifest files entirely under ignored storage. Invoke the canonical qualifier and checker using the private registry/manifest for V-024; no core harness extension is needed."
 do_6 = "Preserve the public synthetic manifest without private corpus hashes, counts, paths or provenance. Private receipts remain separate from public component/full-case status, and task verification metadata must not import private content."
 do_7 = "Use the trusted ignored source descriptor supplied by the task owner, preserving its restrictive permissions. The private mode must require every explicitly selected source and its canonical private registration; it must not silently shrink the selected corpus. No descriptor contents are copied into public metadata."
@@ -2104,7 +2123,7 @@ verification_scope = "Registered task-component variant only; all cases remain U
 do_1 = "Implement proposed hyperfide command and cg alias with argument/JSON/exit parity and nonrecursive executable resolution."
 do_2 = "Resolve approved release version/support window and public namespace ownership separately; never reserve or assume short alias/domain/package availability."
 do_3 = "Take Makefile ownership after task25.3 and installer/release-script ownership after task26.1. Build and install an actual canonical hyperfide executable and the approved cg compatibility entrypoint from the same qualified linked implementation; a wrapper over an unbuilt or unrelated PATH executable is insufficient. Preserve all native component, libcurl and TLS link dependencies without duplicate standalone-main objects."
-do_4 = "Update the actual installer, release and uninstaller paths to consume the approved canonical artifact manifest and install/remove both declared command names safely. Existing scripts/release.sh hardcodes strip/publish cg and overrides LDLIBS with legacy static flags; preserve the qualified link contract and explicitly package any required runtime libraries rather than silently dropping the new transport. Namespace and publication destinations remain configuration, never invented ownership."
+do_4 = "Update the actual installer, release and uninstaller paths to consume the approved canonical artifact manifest and install/remove both declared command names safely. Existing scripts/release.sh hardcodes strip/publish cg and overrides LDLIBS with legacy static flags; preserve the qualified link contract and explicitly package any required runtime libraries rather than silently dropping the new transport. Namespace and publication destinations remain configuration, never invented ownership. The release is relocatable, so its ELF files keep the host dynamic loader and RUNPATH $ORIGIN-relative bundled libraries; glibc's own members (the loader, libc, libm, libmvec, libpthread, libdl, librt, libutil, libresolv, libanl, libnsl, libBrokenLocale, libc_malloc_debug, libthread_db and libnss_*) are never bundled, because a bundled libc loaded by a host loader from a different glibc build crashes every runtime (observed on release 0d03ef51: glibc 2.43 bundle on a glibc 2.39 host, exit 139). Supported hosts need a glibc no older than the build host's, and release construction fails if a glibc member is staged or if the staged node does not report its pinned version both plainly and under the bundled library path."
 do_5 = "Qualify clean remote builds, installation to a disposable prefix, both command names, argument/JSON/exit parity and uninstall against the real produced artifacts. Run documented release construction in a nonpublishing fixture; this task does not independently authorize production publication."
 do_6 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
 
@@ -2229,7 +2248,7 @@ do_2 = "Exercise stale generations, reversed commits, unknown creates, replica l
 do_3 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
 
 [task.27.3]
-title = "Qualify both live providers and native agents through staged48/72-hour fleet campaigns"
+title = "Qualify both live providers and native agents from the Paxeer X v6.12.0 production release run"
 status = "pending"
 wave = 30
 requires = ["27.2", "9.4", "10.4", "13.4", "11.4", "19.4", "23.3", "24.4", "22.4", "26.4", "1.2", "1.3", "14.4", "17.3", "18.2", "25.2"]
@@ -2240,8 +2259,8 @@ acceptance_ids = ["V-036", "V-037", "V-038", "V-039", "V-040", "V-041", "V-042",
 owner = "qualification"
 artifacts = ["artifacts/hyperfide/tasks/27.3/manifest.json", "artifacts/hyperfide/tasks/27.3/evidence-index.json"]
 verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
-do_1 = "Resolve actual account/auth/region/profile/SLO and sustained-concurrency window, qualify each provider separately in small canaries, then ramp the approved combined allocation through 2 slots → 10 sandboxes/20 sessions → 25/50 → 50/100 → 100 sandboxes/200 remote frontier sessions. The 100-sandbox target is the combined fleet; separate full-size provider soaks require an explicit additional campaign decision."
-do_2 = "Run approved48-hour then72-hour/1500-session campaigns with real native workloads, graph/build/review/integration and credential renewal; record actual concurrency, per-provider evidence, main-host exclusion and full resource inventory."
+do_1 = "The workload is the real production campaign, not a synthetic one: Hyperfide runs the Paxeer X v6.12.0 release fleet on its own tasks at full scale, and that run is the qualification campaign. No separate canary ladder, staged synthetic ramp or synthetic soak budget is run. Take the account, authentication mode, regions, profiles, SLOs and sustained-concurrency window from that run's pinned configuration (decisions O-01, O-02), and attribute evidence to each provider separately; the 100-sandbox target remains the combined fleet."
+do_2 = "Qualify the live provider paths, credential renewal and full resource inventory from that production run's evidence, with its real native, graph/build/review/integration workloads; record actual concurrency, per-provider evidence, observed account limits, main-host exclusion and full resource inventory. Every registered case keeps its measurable acceptance unchanged, including the V-050 and V-051 durations, concurrency and session-lifetime figures; a figure the production run does not reach leaves that case unqualified rather than satisfied."
 do_3 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
 
 [task.27.4]
@@ -2331,7 +2350,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.1]
 title = "Activate the first authority epoch and let every role adopt it"
-status = "pending"
+status = "done"
 wave = 35
 requires = []
 touches = ["services/hyperfide/src/storage/durability.ts", "services/hyperfide/src/storage/authority_journal.ts", "services/hyperfide/src/recovery/fencing.ts", "deploy/hyperfide/migrate.mjs", "deploy/hyperfide/install-service.mjs", "tests/hyperfide/cases/tasks/29_1.py", "tests/hyperfide/registrations/29.1.json", "tests/hyperfide/manifests/tasks/29.1.json"]
@@ -2349,7 +2368,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.2]
 title = "Give the provisioner a transport and self-start its worker"
-status = "pending"
+status = "done"
 wave = 35
 requires = []
 touches = ["services/hyperfide/src/components/service.ts", "services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/providers/worker.ts", "deploy/hyperfide/provisioner.service", "tests/hyperfide/cases/tasks/29_2.py", "tests/hyperfide/registrations/29.2.json", "tests/hyperfide/manifests/tasks/29.2.json"]
@@ -2366,9 +2385,9 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.3]
 title = "Make the writer-isolation digest binding satisfiable and register destruction preflight"
-status = "pending"
+status = "done"
 wave = 35
-requires = []
+requires = ["29.1"]
 touches = ["services/hyperfide/src/recovery/fencing.ts", "services/hyperfide/src/providers/placement.ts", "services/hyperfide/src/identity/credentials.ts", "services/hyperfide/src/recovery/fencing_service.ts", "tests/hyperfide/cases/tasks/29_3.py", "tests/hyperfide/registrations/29.3.json", "tests/hyperfide/manifests/tasks/29.3.json"]
 verify_cmd = "python3 tests/hyperfide/qualify.py --case V-060 --manifest tests/hyperfide/manifests/tasks/29.3.json"
 reqs = ["37.1", "37.2", "37.3", "37.4"]
@@ -2383,7 +2402,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.4]
 title = "Export runner supervisor and preparation-receipt capabilities from 12.4"
-status = "pending"
+status = "done"
 wave = 35
 requires = []
 touches = ["services/hyperfide/src/runner/executor.ts", "services/hyperfide/src/runner/bridge.ts", "services/hyperfide/src/runner/preparation_receipts.ts", "tests/hyperfide/cases/tasks/29_4.py", "tests/hyperfide/registrations/29.4.json", "tests/hyperfide/manifests/tasks/29.4.json"]
@@ -2399,7 +2418,7 @@ do_3 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.5]
 title = "Ship per-role run policies and the operator grant script"
-status = "pending"
+status = "done"
 wave = 35
 requires = []
 touches = ["deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/provisioner.example.json", "deploy/hyperfide/policies/dispatch.example.json", "deploy/hyperfide/grants.sql", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/registrations/29.5.json", "tests/hyperfide/manifests/tasks/29.5.json"]
@@ -2416,7 +2435,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.6]
 title = "Seed worker slots, capacity accounts and scheduling policy"
-status = "pending"
+status = "done"
 wave = 36
 requires = ["29.2"]
 touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/providers/pools.ts", "services/hyperfide/migrations/0706-capacity-seeding.sql", "tests/hyperfide/cases/tasks/29_6.py", "tests/hyperfide/registrations/29.6.json", "tests/hyperfide/manifests/tasks/29.6.json"]
@@ -2433,9 +2452,9 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.7]
 title = "Qualify Railway capacity through operator declarations"
-status = "pending"
+status = "done"
 wave = 36
-requires = ["29.2"]
+requires = ["29.2", "29.6"]
 touches = ["services/hyperfide/src/providers/pools.ts", "deploy/hyperfide/capacity/railway.example.json", "tests/hyperfide/cases/tasks/29_7.py", "tests/hyperfide/registrations/29.7.json", "tests/hyperfide/manifests/tasks/29.7.json"]
 verify_cmd = "python3 tests/hyperfide/qualify.py --case V-064 --manifest tests/hyperfide/manifests/tasks/29.7.json"
 reqs = ["32.1", "32.2", "32.3", "32.4"]
@@ -2450,9 +2469,9 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.8]
 title = "Run Railway executeBound durably and complete the adapter surface"
-status = "pending"
+status = "done"
 wave = 36
-requires = ["29.2"]
+requires = ["29.2", "29.6"]
 touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/providers/railway/reconciliation.ts", "services/hyperfide/src/providers/railway/processes.ts", "tests/hyperfide/cases/tasks/29_8.py", "tests/hyperfide/registrations/29.8.json", "tests/hyperfide/manifests/tasks/29.8.json"]
 verify_cmd = "python3 tests/hyperfide/qualify.py --case V-065 --manifest tests/hyperfide/manifests/tasks/29.8.json"
 reqs = ["33.1", "33.2", "33.3", "33.4"]
@@ -2467,7 +2486,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.9]
 title = "Ship the host bootstrap and per-role environment preflight"
-status = "pending"
+status = "done"
 wave = 37
 requires = ["29.1", "29.2", "29.5"]
 touches = ["deploy/hyperfide/bootstrap-host.mjs", "deploy/hyperfide/env/control.env.example", "deploy/hyperfide/env/provisioner.env.example", "deploy/hyperfide/env/dispatch.env.example", "tests/hyperfide/cases/tasks/29_9.py", "tests/hyperfide/registrations/29.9.json", "tests/hyperfide/manifests/tasks/29.9.json"]
@@ -2485,7 +2504,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 [task.29.10]
 title = "Qualify the supervisory-host and issue-watcher units after 26.4"
 status = "pending"
-wave = 37
+wave = 38
 requires = ["26.4", "29.9"]
 touches = ["services/hyperfide/src/deployment/releases.ts", "tests/hyperfide/cases/tasks/25_4.py", "deploy/hyperfide/supervisory-host.service", "deploy/hyperfide/issue-watcher.service", "tests/hyperfide/cases/tasks/29_10.py", "tests/hyperfide/registrations/29.10.json", "tests/hyperfide/manifests/tasks/29.10.json"]
 verify_cmd = "python3 tests/hyperfide/qualify.py --case V-067 --manifest tests/hyperfide/manifests/tasks/29.10.json"
@@ -2498,6 +2517,41 @@ do_1 = "releases.ts:14-16 marks issue-watcher.service and supervisory-host.servi
 do_2 = "After 26.4 is done with its gates passing, change the status and the 25_4 expectations in one change that cites the 26.4 receipt; this is a qualified status transition, not a weakened check."
 do_3 = "Confirm the units start the 26.4 entrypoints with the shipped configuration paths (supervisory-host.service:20, issue-watcher.service:18)."
 do_4 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
+[task.29.11]
+title = "Ship the bootstrap fence driver and the permit signing command"
+status = "done"
+wave = 36
+requires = ["29.1", "29.3"]
+touches = ["deploy/hyperfide/bootstrap-fence.mjs", "deploy/hyperfide/migrate.mjs", "services/hyperfide/src/providers/placement.ts", "services/hyperfide/src/recovery/fencing.ts", "services/hyperfide/src/recovery/bootstrap_fence.ts", "docs/hyperfide/operations.md", "tests/hyperfide/cases/tasks/29_11.py", "tests/hyperfide/registrations/29.11.json", "tests/hyperfide/manifests/tasks/29.11.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-068 --manifest tests/hyperfide/manifests/tasks/29.11.json"
+reqs = ["39.1", "39.2", "39.3", "39.4"]
+acceptance_ids = ["V-068"]
+owner = "storage"
+artifacts = ["artifacts/hyperfide/tasks/29.11/manifest.json", "artifacts/hyperfide/tasks/29.11/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "migrate.mjs --activate-authority takes --fence-driver as a private operator module exporting createBootstrapFenceArguments(); nothing in the release implements one, so a fresh install cannot activate its first epoch. Add services/hyperfide/src/recovery/bootstrap_fence.ts building the arguments from HYPERFIDE_WRITER_ISOLATION_CONFIG (topology digests per req.39 ac_1), the provider admin transport registry, the primary gateway, the destruction preflight wrapper exported from placement.ts (today local to createComponent), the migration.legacy-writers.v1 backend from migration/legacy.ts and a private FileExternalFenceJournal; expose it as deploy/hyperfide/bootstrap-fence.mjs."
+do_2 = "Add the permit path: a release command that prints the canonical isolation permit payload for the deployment and topology, and verification of the operator-signed permit with loadIsolationPermitVerifier using the configured verifier key; refuse unsigned, mis-scoped or expired permits; never read the signing key."
+do_3 = "Let migrate.mjs resolve --fence-driver relative to --release-root when the path is not absolute, keeping the ownership and mode checks for private modules; document the full first-activation sequence in operations.md with the shipped driver."
+do_4 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
+
+[task.29.12]
+title = "Activate a greenfield first epoch under a proven-empty operator permit"
+status = "done"
+wave = 37
+requires = ["29.9", "29.11"]
+touches = ["deploy/hyperfide/bootstrap-fence.mjs", "services/hyperfide/src/recovery/bootstrap_fence.ts", "services/hyperfide/src/recovery/fencing.ts", "services/hyperfide/src/providers/placement.ts", "services/hyperfide/src/identity/credentials.ts", "services/hyperfide/src/storage/durability.ts", "services/hyperfide/src/spec/bootstrap.ts", "docs/hyperfide/operations.md", "tests/hyperfide/cases/tasks/29_12.py", "tests/hyperfide/registrations/29.12.json", "tests/hyperfide/manifests/tasks/29.12.json", "tests/hyperfide/registry.json"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --case V-069 --manifest tests/hyperfide/manifests/tasks/29.12.json"
+reqs = ["40.1", "40.2", "40.3", "40.4", "40.5", "40.6", "40.7"]
+acceptance_ids = ["V-069"]
+owner = "storage"
+artifacts = ["artifacts/hyperfide/tasks/29.12/manifest.json", "artifacts/hyperfide/tasks/29.12/evidence-index.json"]
+verification_scope = "Registered task-component variant only; all cases remain UNRUN now. This task receipt cannot replace any required full-case/provider/connector/campaign receipt."
+do_1 = "The 29.11 activation path needs a writer topology with non-empty required_writer_ids and resources (fencing.ts topology), explicit writer resources (placement.ts isolationConfiguration), and runs, ACTIVE provider_pools, sandboxes and sandbox_boots rows that only flows behind an ACTIVE epoch can create, so a fresh deployment cannot reach its first epoch. Add an optional scope GREENFIELD to the writer isolation configuration and to isolation permit claims and expectations per req.40 ac_1 and ac_2, leaving every non-greenfield check as it is."
+do_2 = "Add createGreenfieldWriterFence in fencing.ts, branded separately from live provider fences: it verifies the greenfield permit, takes the private fence journal operation, proves emptiness through the registered provider inventory transport and the primary per req.40 ac_3 and ac_4, retains the evidence document with the completion receipt and returns the FenceReceipt of req.40 ac_6."
+do_3 = "Let activateBootstrapAuthority accept the greenfield arguments the driver returns and mint the accepted-intent rows inside the epoch transaction through an in-transaction export of the 26.4 importer, keeping the legacy argument tuple and the service-reachable activation unchanged."
+do_4 = "Extend bootstrap-fence.mjs and bootstrap_fence.ts so --topology, --permit-payload, --seal-permit and --verify-permit and createBootstrapFenceArguments() follow the configured scope, read the accepted intent from HYPERFIDE_GREENFIELD_INTENT_FILE, and never read a signing key; document the greenfield sequence under First authority epoch in operations.md."
+do_5 = "Implement the task's registered positive/negative assertions and immutable manifest; execute them remotely after approval, preserving command, exact revisions, complete artifacts and independent observed outcomes."
 
 [acceptance.V-001]
 feature = "hyperfide"
@@ -3100,4 +3154,22 @@ scenario = "Read release status for both units before and after the 26.4 receipt
 expected = "Units stay UNQUALIFIED without the receipt and become qualified with it, with 25.4 expectations updated in the same change."
 contract = "verification.md"
 test = "python3 tests/hyperfide/qualify.py --case V-067 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-068]
+feature = "hyperfide"
+reqs = ["39.1", "39.2", "39.3", "39.4"]
+scenario = "Activate the first authority epoch with the shipped bootstrap fence driver against a disposable primary and a recorded provider transport, then repeat with an unsigned permit, a mis-scoped permit and a tampered topology digest."
+expected = "The signed activation produces one BOOTSTRAP epoch and every role adopts it; each defective input is refused before any epoch is minted."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-068 --manifest <immutable-full-case-campaign-manifest.json> (planned)"
+qualification = "UNRUN"
+
+[acceptance.V-069]
+feature = "hyperfide"
+reqs = ["40.1", "40.2", "40.3", "40.4", "40.5", "40.6", "40.7"]
+scenario = "On a disposable primary with a recorded provider admin transport, activate the first epoch of a fresh deployment under a greenfield permit, adopt it on every role, start control and issue the first operator; repeat with a sandbox present at the provider, a run present for the organisation, a greenfield permit on a deployment with history, a legacy permit on a greenfield configuration, and run the legacy activation unchanged."
+expected = "The proven-empty activation mints one BOOTSTRAP epoch with the accepted-intent rows in the same transaction, followers adopt it and control starts; each non-empty or mis-scoped input is refused with GREENFIELD_NOT_EMPTY or ISOLATION_PERMIT_SCOPE before any epoch or row is minted, and the legacy activation still passes every check."
+contract = "verification.md"
+test = "python3 tests/hyperfide/qualify.py --case V-069 --manifest tests/hyperfide/manifests/tasks/29.12.json"
 qualification = "UNRUN"

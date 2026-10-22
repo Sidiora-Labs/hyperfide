@@ -76,6 +76,8 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-release-build-') as temporary
  if host.exists():copy_file(host,stage/'services/runtime/supervisory_host.py')
  subprocess.run(['npm','ci','--omit=dev','--ignore-scripts'],cwd=stage/'services',check=True)
  # Bundle the actual linked dependencies instead of replacing qualified link flags.
+ # glibc's own members stay with the host loader: the relocatable ELF files name the host interpreter, and a bundled libc under a different loader crashes.
+ glibc=re.compile(r'ld-linux-x86-64\.so\.2|lib(?:c|m|mvec|pthread|dl|rt|util|resolv|anl|nsl|BrokenLocale|c_malloc_debug|thread_db|nss_[A-Za-z0-9_]+)\.so\.[0-9]+')
  executables=[(root/'hyperfide',stage/'lib/hyperfide'),(root/'build/hyperfide-native',stage/'lib/hyperfide'),(node,stage/'lib/hyperfide'),(Path('/usr/bin/git'),stage/'lib/hyperfide')]+[(item,python_stage/'lib') for item in [Path(sys.executable).resolve()]+sorted((stdlib/'lib-dynload').glob('*.so'))]
  for executable,library_root in executables:
   observed=subprocess.run(['ldd',str(executable)],text=True,capture_output=True)
@@ -83,6 +85,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-release-build-') as temporary
   if 'not found' in observed.stdout:raise SystemExit('hyperfide release: unresolved native runtime dependency')
   for raw in re.findall(r'(?:=>\s+|^\s*)(/[^\s()]+)',observed.stdout,re.M):
    source=Path(raw);target=library_root/source.name
+   if glibc.fullmatch(source.name):continue
    if target.exists() and digest(target)!=digest(source):raise SystemExit('hyperfide release: library name collision')
    copy_file(source,target,0o755)
  # npm's executable symlinks become ordinary pinned files in the release contract.
@@ -92,6 +95,12 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-release-build-') as temporary
    if not target.is_file() or not target.is_relative_to(stage):raise SystemExit('hyperfide release: unsafe package link')
    data=target.read_bytes();mode=0o755 if target.stat().st_mode&0o111 else 0o644
    item.unlink();item.write_bytes(data);item.chmod(mode)
+ if any(glibc.fullmatch(item.name) for item in stage.rglob('*')):raise SystemExit('hyperfide release: glibc members must come from the host loader, not the bundle')
+ for launch_env in [dict(os.environ),dict(os.environ,LD_LIBRARY_PATH=str(stage/'lib/hyperfide'))]:
+  launched=subprocess.run([str(stage/'runtime/node'),'--version'],env=launch_env,text=True,capture_output=True,timeout=60)
+  if launched.returncode or launched.stdout.strip()!='v24.22.0':raise SystemExit('hyperfide release: bundled node does not run as launched')
+ launched=subprocess.run([str(stage/'bin/hyperfide'),'--version'],text=True,capture_output=True,timeout=60)
+ if launched.returncode or launched.stdout.strip()!='2.0.0-dev':raise SystemExit('hyperfide release: bundled hyperfide does not run with its bundled libraries')
  probe_env=dict(os.environ,PYTHONHOME=str(python_stage),LD_LIBRARY_PATH=str(stage/'lib/hyperfide'))
  probe_code="import ctypes,os,sys; assert sys.version_info[:3]==(3,14,8); assert os.path.realpath(sys.base_prefix)==os.path.realpath(sys.argv[1]); libc=ctypes.CDLL(None,use_errno=True); value=ctypes.c_int(); assert libc.prctl(36,1,0,0,0)==0; assert libc.prctl(37,ctypes.byref(value),0,0,0)==0 and value.value==1; assert os.access('/proc/self/task/'+str(os.getpid())+'/children',os.R_OK); child=os.fork(); os._exit(0) if child==0 else None; assert os.waitpid(child,0)[0]==child"
  subprocess.run([str(python_stage/'bin/python3'),'-I','-c',probe_code,str(python_stage)],env=probe_env,check=True)

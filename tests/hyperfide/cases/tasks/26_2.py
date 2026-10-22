@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Construct a real nonpublished release and install its exact bytes into disposable prefixes."""
 from pathlib import Path
-import hashlib,json,os,shutil,subprocess,tempfile,sys,signal
+import hashlib,json,os,re,shutil,subprocess,tempfile,sys,signal
 ROOT=Path(__file__).resolve().parents[4];FAIL=[]
 NODE=Path(subprocess.check_output(["node","-p","process.execPath"],cwd=ROOT,text=True).strip())
 def expect(value):
@@ -79,7 +79,9 @@ def main():
   linked=run("ldd",str(current/"bin/hyperfide"),env=e)
   loaded={line.split("=>",1)[0].strip():Path(line.split("=>",1)[1].strip().split()[0]).resolve() for line in linked.stdout.splitlines() if "=> /" in line}
   check("native-actually-loads-bundled-curl-and-crypto",lambda:expect(linked.returncode==0 and loaded.get("libcurl.so.4")==current/"lib/hyperfide/libcurl.so.4" and loaded.get("libcrypto.so.3")==current/"lib/hyperfide/libcrypto.so.3"))
-  check("native-transitive-dependencies-use-bundled-bytes",lambda:expect(all(path==current/"lib/hyperfide"/name for name,path in loaded.items())))
+  glibc=re.compile(r"ld-linux-x86-64\.so\.2|lib(?:c|m|mvec|pthread|dl|rt|util|resolv|anl|nsl|BrokenLocale|c_malloc_debug|thread_db|nss_[A-Za-z0-9_]+)\.so\.[0-9]+")
+  check("native-transitive-dependencies-use-bundled-bytes",lambda:expect(all(not path.is_relative_to(current) if glibc.fullmatch(name) else path==current/"lib/hyperfide"/name for name,path in loaded.items())))
+  check("release-bundles-no-glibc-member",lambda:expect(not any(glibc.fullmatch(Path(name).name) for name in files)))
   check("signed-proof-inspector-and-fixed-host-git-inventory",lambda:expect({"services/proof/inspect-proof.py","services/proof/check-evidence.py","services/proof/proof_relocation.py","services/proof/registry.json","services/proof/manifest.schema.json","runtime/git"}<=files.keys() and files['runtime/git']['digest']=='sha256:'+hashlib.sha256(Path('/usr/bin/git').read_bytes()).hexdigest()))
   unknown=base/"unknown/bin";unknown.mkdir(parents=True);(unknown/"hyperfide").write_bytes(b"USER-OWNED-COMMAND")
   check("refuses-unowned-executable",lambda:expect(install({"HYPERFIDE_INSTALL_DIR":str(unknown)}).returncode!=0 and(unknown/"hyperfide").read_bytes()==b"USER-OWNED-COMMAND"))

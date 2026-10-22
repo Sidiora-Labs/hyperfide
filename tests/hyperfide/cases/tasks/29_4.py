@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
 IDS=["runner.exports.registered","runner.exports.supervisor-guard","runner.exports.receipt-functions","runner.exports.reproduction-guard","runner.exports.receipt-valid","runner.exports.receipt-wrong-operation","runner.exports.receipt-wrong-uid","runner.exports.receipt-absent","runner.exports.stop-empty","runner.exports.stop-debt-not-complete","runner.exports.stop-inventory-refused","runner.exports.stop-stale-epoch","runner.exports.stop-unknown","runner.exports.stop-retained-report","runner.exports.stop-credential-residue","runner.exports.stop-output-debt","runner.exports.stop-later-command","runner.exports.control-resolves","runner.exports.finalize-resolves"]
 IDS.insert(-2,'runner.exports.stop-stale-report')
+IDS.insert(-2,'runner.exports.missing-export-refused')
 FAILED=[]
 def check(name,value,detail="unexpected observation"):
  actual="observed" if value else str(detail)
@@ -62,6 +63,14 @@ try{
  // The real consumer reaches the exported read implementation and then refuses
  // this operator's nonexistent semantic job, rather than a missing capability.
  out['reproduction-guard']=registered===false&&await refused(()=>gateway.withPrimaryTransaction({timeoutMs:5000},tx=>reader(tx,invocation,request)),'REPRODUCTION_INPUT_AUTHORITY_DENIED');stopReader();
+ // Negative: the same consumers bound to a registered provider (12.1) that lacks
+ // both exports refuse rather than infer a supervisor or a receipt reader.
+ const absent=(name,guard)=>registry.resolveCapability('12.1',name,guard);
+ const missingSupervisor=await refused(()=>supervisorCapability({dependencies:{require:(_id,name,guard)=>absent(name,guard)}}),'RECOVERY_DEPENDENCY_UNAVAILABLE');
+ let missingReader;
+ const offMissing=registerReproductionJobInputs({dependencies:{require:(id,name,guard)=>id==='12.1'?{registerInputReader:(_namespace,fn)=>{missingReader=fn;return()=>{}}}:absent(name,guard)}},async()=>({authority:'EXPECTED_AUTHORITY',namespace:'REPRODUCTION'}));
+ const missingReceipts=await refused(()=>gateway.withPrimaryTransaction({timeoutMs:5000},tx=>missingReader(tx,invocation,request)),'REGISTRY_INVALID');offMissing();
+ out['missing-export-refused']=missingSupervisor&&missingReceipts&&await refused(()=>registry.resolveCapability('12.4','runner.supervisors.v0',v=>!!v),'REGISTRY_INVALID');
  const operation=randomUUID(),root='/run/hyperfide-stage/'+operation;
  const plan={operation_id:operation,plan_digest:digest,argv:['/usr/bin/node','/opt/prepare.mjs','--job-context',root+'/context.json'],executable_digest:digest,uid:1001,gid:1001,workspace_path:'/workspace'};
  const receipt={execution_plane:'REMOTE',operation_id:operation,plan_digest:digest,executable_digest:digest,preparation_stage:{stage_root:root,context_path:root+'/context.json',out_root:root+'/out',diagnostics_root:root+'/diagnostics',workspace_path:'/workspace',node_path:plan.argv[0],recipe_path:plan.argv[1],context_digest:digest,node_digest:digest,recipe_digest:digest,uid:1001,gid:1001}};

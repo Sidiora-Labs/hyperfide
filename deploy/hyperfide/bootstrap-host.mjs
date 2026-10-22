@@ -1,98 +1,151 @@
 #!/usr/bin/env node
-// Host preparation only. Identity enrollment, migrations and service start remain operator steps.
+// Host preparation only: accounts, trees, units and templates. It never writes or reads a secret.
+// Database URLs, keys, certificates and provider configuration are placed by the operator; identity
+// enrolment (26.4), migrations, grants, epoch activation and service start remain operator steps.
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {fileURLToPath, pathToFileURL} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {execFileSync} from 'node:child_process';
 const directory=path.dirname(fileURLToPath(import.meta.url));
-const roles=['control','provisioner','dispatch'];
-const user=role=>role==='control'?'hyperfide':'hyperfide-'+role;
+const RELEASE='/opt/hyperfide/current';
+const GROUP={name:'hyperfide',gid:1900};
+const ROLES={control:{user:'hyperfide',uid:1900},provisioner:{user:'hyperfide-provisioner',uid:1901},dispatch:{user:'hyperfide-dispatch',uid:1902}};
+const IDENTITY={control:{'control-identity.json':'control-identity.example.json'},provisioner:{'provisioner-identity.json':'provisioner-identity.example.json','provisioner-worker.json':'provisioner-worker.example.json'},dispatch:{'dispatch-identity.json':'dispatch-identity.example.json'}};
+const OPERATOR={control:[],provisioner:['external-fence.json','pools.json','railway.json','provisioner-worker.key'],dispatch:['dispatch-worker.json']};
 const fail=code=>{throw Object.assign(new Error(code),{code});};
+const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
+const record=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 async function runtime(name){
- const deployed='/opt/hyperfide/current/services/dist/'+name+'.js';
- try{await fs.access(deployed);return import(pathToFileURL(deployed));}
- catch(error){if(error.code!=='ENOENT')throw error;return import(new URL('../../services/hyperfide/dist/'+name+'.js',import.meta.url));}
+ for(const base of ['../../services/dist/','../../services/hyperfide/dist/']){
+  const file=path.join(directory,base,name+'.js');
+  try{await fs.access(file);}catch(error){if(error.code==='ENOENT')continue;throw error;}
+  return import(pathToFileURL(file));
+ }
+ fail('BOOTSTRAP_RUNTIME_MISSING');
+}
+// Mirrors recovery/fencing_service.ts configuration() so a gap refuses before the unit starts.
+async function fenceConfiguration(filename){
+ if(!filename||!path.isAbsolute(filename)||path.resolve(filename)!==filename||await fs.realpath(filename).catch(()=>null)!==filename)fail('EXTERNAL_FENCE_CONFIG_REQUIRED');
+ const file=await fs.open(filename,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
+ try{
+  const stat=await file.stat(),named=await fs.lstat(filename);
+  if(!stat.isFile()||stat.nlink!==1||stat.uid!==process.getuid()||(stat.mode&0o777)!==0o600||stat.size<1||stat.size>262144||stat.dev!==named.dev||stat.ino!==named.ino)fail('EXTERNAL_FENCE_CONFIG_UNSAFE');
+  let value;try{value=JSON.parse(await file.readFile('utf8'));}catch{fail('EXTERNAL_FENCE_CONFIG_INVALID');}
+  const fields=(v,required,optional=[])=>record(v)&&required.every(k=>Object.hasOwn(v,k))&&Object.keys(v).every(k=>required.includes(k)||optional.includes(k));
+  if(!fields(value,['schema_version','topology','journal_directory','verifier_file','transport'])||!fields(value.transport,['origin','host','port','certificate','private_key'],['max_concurrent','deadline_ms']))fail('EXTERNAL_FENCE_CONFIG_INVALID');
+  if(value.schema_version!==1||!record(value.topology)||value.topology.evidence_scope!=='LIVE_PROVIDER'||typeof value.journal_directory!=='string'||typeof value.verifier_file!=='string'||!path.isAbsolute(value.journal_directory)||!path.isAbsolute(value.verifier_file))fail('EXTERNAL_FENCE_CONFIG_INVALID');
+  return value;
+ }finally{await file.close();}
 }
 export async function preflight(role,env=process.env){
- if(!roles.includes(role))fail('BOOTSTRAP_ARGUMENTS');
+ if(!Object.hasOwn(ROLES,role))fail('BOOTSTRAP_ARGUMENTS');
  if(Object.keys(env).some(k=>k.startsWith('HYPERFIDE_MIGRATION_')))fail('MIGRATION_CREDENTIAL_EXPOSED');
  if(!['0','1'].includes(env.HYPERFIDE_REQUIRE_SYNC_REPLICA))fail('DURABILITY_POLICY_REQUIRED');
- if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(env.HYPERFIDE_DEPLOYMENT_ID??'')||!path.isAbsolute(env.HYPERFIDE_AUTHORITY_JOURNAL_DIR??''))fail('EXTERNAL_JOURNAL_REQUIRED');
- const journal=await fs.lstat(env.HYPERFIDE_AUTHORITY_JOURNAL_DIR).catch(()=>null);
- if(!journal?.isDirectory()||journal.isSymbolicLink()||journal.uid!==process.getuid()||(journal.mode&0o077)!==0||await fs.realpath(env.HYPERFIDE_AUTHORITY_JOURNAL_DIR)!==env.HYPERFIDE_AUTHORITY_JOURNAL_DIR)fail('EXTERNAL_JOURNAL_REQUIRED');
+ const journal=env.HYPERFIDE_AUTHORITY_JOURNAL_DIR??'';
+ if(!uuid.test(env.HYPERFIDE_DEPLOYMENT_ID??'')||!path.isAbsolute(journal)||path.resolve(journal)!==journal)fail('EXTERNAL_JOURNAL_REQUIRED');
+ const st=await fs.lstat(journal).catch(()=>null);
+ if(!st?.isDirectory()||st.uid!==process.getuid()||(st.mode&0o077)!==0||await fs.realpath(journal)!==journal)fail('EXTERNAL_JOURNAL_REQUIRED');
  if(role==='control'&&!/^[a-f0-9]{64}$/.test(env.HYPERFIDE_CAUSAL_BARRIER_KEY??''))fail('BARRIER_CONFIG_INVALID');
- const prefix=role==='control'?'':role.toUpperCase()+'_';
- if(!env['HYPERFIDE_'+prefix+'LISTEN_HOST']||!/^\d+$/.test(env['HYPERFIDE_'+prefix+'LISTEN_PORT']??'')||Number(env['HYPERFIDE_'+prefix+'LISTEN_PORT'])<1||Number(env['HYPERFIDE_'+prefix+'LISTEN_PORT'])>65535||!env.HYPERFIDE_SPEC_REVISION)fail('TRANSPORT_CONFIG');
- const db=env['HYPERFIDE_'+role.toUpperCase()+'_PRIMARY_DATABASE_URL'];
- try{if(!['postgres:','postgresql:'].includes(new URL(db).protocol))fail('DATABASE_CONFIG_INVALID');}catch{fail('DATABASE_CONFIG_INVALID');}
+ const prefix=role==='control'?'':role.toUpperCase()+'_',port=env['HYPERFIDE_'+prefix+'LISTEN_PORT']??'';
+ if(!env['HYPERFIDE_'+prefix+'LISTEN_HOST']||!/^[1-9][0-9]{0,4}$/.test(port)||Number(port)>65535||!env.HYPERFIDE_SPEC_REVISION)fail('TRANSPORT_CONFIG');
+ let protocol=null;try{protocol=new URL(env['HYPERFIDE_'+role.toUpperCase()+'_PRIMARY_DATABASE_URL']).protocol;}catch{}
+ if(!['postgres:','postgresql:'].includes(protocol))fail('DATABASE_CONFIG_INVALID');
+ if(!env.HF_IDENTITY_CONFIG_FILE)fail('IDENTITY_CONFIG_REQUIRED');
+ if(role==='dispatch'&&!env.HF_EVENT_DISPATCH_CONFIG)fail('DISPATCH_CONFIG_REQUIRED');
  if(role==='provisioner'){
-  const filename=env.HYPERFIDE_EXTERNAL_FENCE_CONFIG_FILE;
-  if(!filename||!path.isAbsolute(filename)||path.resolve(filename)!==filename||await fs.realpath(filename).catch(()=>null)!==filename)fail('EXTERNAL_FENCE_CONFIG_REQUIRED');
-  const st=await fs.lstat(filename);
-  if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.uid!==process.getuid()||(st.mode&0o777)!==0o600||st.size<1||st.size>262144)fail('EXTERNAL_FENCE_CONFIG_UNSAFE');
-  let config;try{config=JSON.parse(await fs.readFile(filename,'utf8'));}catch{fail('EXTERNAL_FENCE_CONFIG_INVALID');}
-  const fields=(v,required,optional=[])=>v&&typeof v==='object'&&!Array.isArray(v)&&required.every(k=>Object.hasOwn(v,k))&&Object.keys(v).every(k=>[...required,...optional].includes(k));
-  if(!fields(config,['schema_version','topology','journal_directory','verifier_file','transport'])||!fields(config.transport,['origin','host','port','certificate','private_key'],['max_concurrent','deadline_ms'])||config.schema_version!==1||config.topology?.evidence_scope!=='LIVE_PROVIDER'||typeof config.journal_directory!=='string'||typeof config.verifier_file!=='string'||!path.isAbsolute(config.journal_directory)||!path.isAbsolute(config.verifier_file))fail('EXTERNAL_FENCE_CONFIG_INVALID');
-  (await runtime('recovery/fencing')).externalFenceTopologyDigest(config.topology);
+  if(!path.isAbsolute(env.HF_PROVISIONER_EXECUTOR_CONFIG_FILE??''))fail('PROVISIONER_EXECUTOR_CONFIG_INVALID');
+  const fence=await fenceConfiguration(env.HYPERFIDE_EXTERNAL_FENCE_CONFIG_FILE);
+  (await runtime('recovery/fencing')).externalFenceTopologyDigest(fence.topology);
   await (await runtime('providers/pools')).readDeployment(env);
   (await runtime('providers/railway/preparation')).configuredClient({env});
  }
  return {outcome:'SUCCEEDED',role,services_started:false};
 }
-async function bootstrap(root){
+const rows=text=>text.split('\n').filter(Boolean).map(line=>line.split(':'));
+export async function bootstrap(root){
  if(process.geteuid()!==0)fail('BOOTSTRAP_ROOT_REQUIRED');
  if(!path.isAbsolute(root)||path.resolve(root)!==root)fail('BOOTSTRAP_ARGUMENTS');
- const at=p=>path.join(root,p);
- // Walk each component without following links, including existing host trees.
- async function mkdir(p,mode,uid=0,gid=0){
-  const target=at(p);let current=root;
-  for(const part of path.relative(root,target).split('/').filter(Boolean)){
-   current=path.join(current,part);try{await fs.mkdir(current,{mode:0o755});}catch(e){if(e.code!=='EEXIST')throw e;}
+ const at=p=>path.join(root,p),created=[],kept=[],differs=[];
+ async function syncDirectory(p){const h=await fs.open(p,'r');try{await h.sync();}finally{await h.close();}}
+ // Walk every component without following links; only Hyperfide's own directories get ownership and mode enforced.
+ async function mkdir(p,owned){
+  let current=root;
+  for(const part of p.split('/').filter(Boolean)){
+   current=path.join(current,part);
+   try{await fs.mkdir(current,{mode:0o755});created.push('/'+path.relative(root,current));}catch(e){if(e.code!=='EEXIST')throw e;}
    const st=await fs.lstat(current);if(!st.isDirectory()||st.isSymbolicLink())fail('BOOTSTRAP_UNSAFE_PATH');
   }
-  await fs.chown(target,uid,gid);await fs.chmod(target,mode);
+  if(owned){await fs.chown(current,owned.uid,owned.gid);await fs.chmod(current,owned.mode);}
  }
- async function install(source,p,mode,uid=0,gid=0){
-  const target=at(p);let handle;
-  try{handle=await fs.open(target,'wx',mode);}catch(e){if(e.code!=='EEXIST')throw e;const st=await fs.lstat(target);if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.uid!==uid||st.gid!==gid||(st.mode&0o777)!==mode)fail('BOOTSTRAP_CONFIG_UNSAFE');return;}
-  try{await handle.writeFile(source);await handle.chown(uid,gid);await handle.chmod(mode);await handle.sync();}finally{await handle.close();}
+ // Create atomically and never replace: a complete temporary file is hard-linked into place.
+ async function place(bytes,p,mode,uid,gid,{system=false,release=false}={}){
+  const target=at(p);
+  const existing=await fs.lstat(target).catch(e=>{if(e.code==='ENOENT')return null;throw e;});
+  if(existing){
+   if(system)return;
+   if(!existing.isFile()||existing.nlink!==1||existing.uid!==uid||existing.gid!==gid||(existing.mode&0o777)!==mode)fail('BOOTSTRAP_CONFIG_UNSAFE');
+   if(release&&!(await fs.readFile(target)).equals(Buffer.from(bytes)))differs.push(p);else kept.push(p);
+   return;
+  }
+  const temporary=path.join(path.dirname(target),'.'+path.basename(target)+'.bootstrap-'+process.pid);
+  const handle=await fs.open(temporary,'wx',0o600);
+  try{await handle.writeFile(bytes);await handle.chown(uid,gid);await handle.chmod(mode);await handle.sync();}
+  finally{await handle.close();}
+  try{await fs.link(temporary,target);}finally{await fs.unlink(temporary);}
+  await syncDirectory(path.dirname(target));created.push(p);
  }
+ const read=name=>fs.readFile(path.join(directory,name));
+ const tool=(name,args)=>{try{execFileSync(name,[...(root==='/'?[]:['--root',root]),...args],{stdio:'pipe'});}catch{fail('BOOTSTRAP_ACCOUNT_FAILED');}};
  await fs.mkdir(root,{recursive:true,mode:0o755});
  if(await fs.realpath(root)!==root)fail('BOOTSTRAP_UNSAFE_PATH');
- await mkdir('/etc',0o755);
- if(root!=='/'){
-  await install('root:x:0:0:root:/root:/bin/sh\n','/etc/passwd',0o644);
-  await install('root:x:0:\n','/etc/group',0o644);
- }
- for(const role of roles){
-  let passwd=await fs.readFile(at('/etc/passwd'),'utf8');
-  if(!passwd.split('\n').some(l=>l.startsWith(user(role)+':'))){
-   execFileSync('useradd',[...(root==='/'?[]:['--root',root]),'--system','--user-group','--no-create-home','--home-dir','/nonexistent','--shell','/usr/sbin/nologin',user(role)],{stdio:'pipe'});
+ await mkdir('/etc');
+ // Present on any real host; seeded only so a prefix tree has account databases for useradd --root.
+ await place('root:x:0:0:root:/root:/usr/sbin/nologin\n','/etc/passwd',0o644,0,0,{system:true});
+ await place('root:x:0:\n','/etc/group',0o644,0,0,{system:true});
+ await place('root:*:19000:0:99999:7:::\n','/etc/shadow',0o600,0,0,{system:true});
+ await place('root:*::\n','/etc/gshadow',0o600,0,0,{system:true});
+ const groups=rows(await fs.readFile(at('/etc/group'),'utf8'));
+ const group=groups.find(r=>r[0]===GROUP.name);
+ if(group){if(Number(group[2])!==GROUP.gid)fail('BOOTSTRAP_IDENTITY_CONFLICT');}
+ else{if(groups.some(r=>Number(r[2])===GROUP.gid))fail('BOOTSTRAP_IDENTITY_CONFLICT');tool('groupadd',['--system','--gid',String(GROUP.gid),GROUP.name]);}
+ for(const {user,uid} of Object.values(ROLES)){
+  const passwd=rows(await fs.readFile(at('/etc/passwd'),'utf8'));
+  if(!passwd.some(r=>r[0]===user)){
+   if(passwd.some(r=>Number(r[2])===uid))fail('BOOTSTRAP_IDENTITY_CONFLICT');
+   tool('useradd',['--system','--uid',String(uid),'--gid',String(GROUP.gid),'--no-user-group','--no-create-home','--home-dir','/nonexistent','--shell','/usr/sbin/nologin',user]);
   }
-  passwd=await fs.readFile(at('/etc/passwd'),'utf8');const row=passwd.split('\n').find(l=>l.startsWith(user(role)+':')).split(':');
-  if(Number(row[2])===0||row[5]!=='/nonexistent'||row[6]!=='/usr/sbin/nologin')fail('BOOTSTRAP_IDENTITY_UNSAFE');
+  const row=rows(await fs.readFile(at('/etc/passwd'),'utf8')).find(r=>r[0]===user);
+  if(!row||Number(row[2])!==uid||Number(row[3])!==GROUP.gid||row[5]!=='/nonexistent'||row[6]!=='/usr/sbin/nologin')fail('BOOTSTRAP_IDENTITY_CONFLICT');
  }
- await mkdir('/etc/hyperfide',0o711);await mkdir('/var/lib/hyperfide',0o711);
- await mkdir('/usr/lib/hyperfide',0o755);await mkdir('/etc/systemd/system',0o755);
- await install(await fs.readFile(fileURLToPath(import.meta.url)),'/usr/lib/hyperfide/bootstrap-host.mjs',0o755);
- for(const role of roles){
-  const row=(await fs.readFile(at('/etc/passwd'),'utf8')).split('\n').find(l=>l.startsWith(user(role)+':')).split(':');const uid=Number(row[2]),gid=Number(row[3]);
-  await mkdir('/var/lib/hyperfide/'+role,0o700,uid,gid);
-  await mkdir('/var/lib/hyperfide/'+role+'/authority-journal',0o700,uid,gid);
-  if(role==='provisioner')await mkdir('/var/lib/hyperfide/provisioner/preparation',0o700,uid,gid);
-  await install(await fs.readFile(path.join(directory,'env',role+'.env.example')),'/etc/hyperfide/'+role+'.env',0o640,0,gid);
-  await install(await fs.readFile(path.join(directory,'policies',role+'.example.json')),'/etc/hyperfide/'+role+'-policy.json',0o600,uid,gid);
-  const unit=(await fs.readFile(path.join(directory,role+'.service'),'utf8')).replace('[Service]','[Service]\nExecStartPre=/opt/hyperfide/current/runtime/node /usr/lib/hyperfide/bootstrap-host.mjs --preflight '+role);
-  await install(unit,'/etc/systemd/system/hyperfide-'+role+'.service',0o644);
+ const shared={uid:0,gid:GROUP.gid,mode:0o750};
+ await mkdir('/etc/hyperfide',shared);await mkdir('/var/lib/hyperfide',shared);await mkdir('/etc/systemd/system');
+ for(const [role,{uid}] of Object.entries(ROLES)){
+  const own={uid,gid:GROUP.gid,mode:0o700},unit='/etc/systemd/system/hyperfide-'+role+'.service';
+  await mkdir('/var/lib/hyperfide/'+role,own);
+  await mkdir('/var/lib/hyperfide/'+role+'/authority-journal',own);
+  if(role==='provisioner')await mkdir('/var/lib/hyperfide/provisioner/preparation',own);
+  await place(await read('env/'+role+'.env.example'),'/etc/hyperfide/'+role+'.env',0o600,0,0);
+  await place(await read('policies/'+role+'.example.json'),'/etc/hyperfide/'+role+'-policy.json',0o600,uid,GROUP.gid);
+  for(const [name,template] of Object.entries(IDENTITY[role]))await place(await read('identity/'+template),'/etc/hyperfide/'+name,0o600,uid,GROUP.gid);
+  await place(await read(role+'.service'),unit,0o644,0,0,{release:true});
+  await mkdir(unit+'.d',{uid:0,gid:0,mode:0o755});
+  await place('[Service]\nEnvironmentFile=/etc/hyperfide/'+role+'.db.env\n',unit+'.d/db-env.conf',0o644,0,0,{release:true});
+  await place('[Service]\nExecStartPre='+RELEASE+'/runtime/node '+RELEASE+'/deploy/hyperfide/bootstrap-host.mjs --preflight '+role+'\n',unit+'.d/preflight.conf',0o644,0,0,{release:true});
  }
- await install(await fs.readFile(path.join(directory,'grants.sql')),'/etc/hyperfide/grants.sql',0o600);
+ await place(await read('grants.sql'),'/etc/hyperfide/grants.sql',0o644,0,0,{release:true});
+ const pending=[];
+ for(const [role,files] of Object.entries(OPERATOR))for(const name of [role+'.db.env',role+'.crt',role+'.key',...files]){
+  const p='/etc/hyperfide/'+name;if(!await fs.lstat(at(p)).catch(()=>null))pending.push(p);
+ }
  if(root==='/')execFileSync('systemctl',['daemon-reload'],{stdio:'pipe'});
- return {outcome:'SUCCEEDED',root,users:'useradd',services_started:false,grants:'installed; trusted database operator must apply grants.sql'};
+ return {outcome:'SUCCEEDED',root,group:GROUP,users:Object.values(ROLES),created,kept,differs,operator_pending:pending,services_started:false};
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
- try{const args=process.argv.slice(2);let result;
+ try{
+  const args=process.argv.slice(2);let result;
   if(args.length===2&&args[0]==='--preflight')result=await preflight(args[1]);
-  else if(args.length===0||args.length===2&&args[0]==='--root')result=await bootstrap(args[1]??'/');
+  else if(args.length===0)result=await bootstrap(process.env.HYPERFIDE_BOOTSTRAP_ROOT||'/');
+  else if(args.length===2&&args[0]==='--root')result=await bootstrap(args[1]);
   else fail('BOOTSTRAP_ARGUMENTS');
   console.log(JSON.stringify(result));
  }catch(error){console.log(JSON.stringify({outcome:'REFUSED',error:{code:error.code??error.message},services_started:false}));process.exitCode=78;}

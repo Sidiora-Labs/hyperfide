@@ -72,6 +72,48 @@ const CLAIM=`SELECT id,state FROM hyperfide.provisioning_intents
   OR (state='ACKNOWLEDGED' AND kind='DESTROY' AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
   OR (state='RECONCILING' AND updated_at<=clock_timestamp()-make_interval(secs=>$6::double precision/1000)))
  ORDER BY updated_at,id LIMIT $7 FOR UPDATE SKIP LOCKED`;
+const START_MIGRATION='0707-provisioner-worker-starts';
+const START_COLUMNS='state,owner_credential_id,start_count::text,resume_count::text,started_at,updated_at';
+export interface DurableWorkerStart {state:'STARTED'|'STOPPED';owner_credential_id:string;start_count:string;resume_count:string;started_at:string;updated_at:string}
+async function assertStartSchema(database:ProviderDatabase):Promise<void>{
+ const expected=hash(await fs.readFile(new URL('../../migrations/'+START_MIGRATION+'.sql',import.meta.url)));
+ const row=(await database.query<{name:string;checksum:string}>('SELECT name,checksum FROM hyperfide.schema_migrations WHERE version=$1',[Number(START_MIGRATION.slice(0,4))])).rows[0];
+ if(!row||row.name!==START_MIGRATION||row.checksum!==expected)fail('PROVISIONER_WORKER_SCHEMA_REQUIRED','Apply the trusted provisioner worker start migration before service startup');
+}
+function durableStart(row:Record<string,unknown>|undefined):DurableWorkerStart|null{
+ return row?{state:row.state as DurableWorkerStart['state'],owner_credential_id:String(row.owner_credential_id),start_count:String(row.start_count),resume_count:String(row.resume_count),
+  started_at:new Date(row.started_at as string).toISOString(),updated_at:new Date(row.updated_at as string).toISOString()}:null;
+}
+/** Records the start for the authenticated run. A live local loop changes nothing; a
+ * process boot resumes its own STARTED record (resume_count only); a STOPPED record, or
+ * one owned by a credential that is no longer current, is a new start. */
+async function claimDurableStart(database:ProviderDatabase,organisation:string,invocation:InvocationContext,local:boolean):Promise<{started:boolean;durable:DurableWorkerStart}>{
+ const run=invocation.principal.run_id,owner=invocation.principal.credential_id;
+ return transaction(database,async c=>{
+  const row=(await c.query(`SELECT s.state,s.owner_credential_id,p.state='ACTIVE' AND p.expires_at>clock_timestamp() AND p.deployment_epoch=r.authority_epoch AS owner_current
+   FROM hyperfide.provisioner_worker_starts s JOIN hyperfide.identity_principals p ON p.credential_id=s.owner_credential_id
+   JOIN hyperfide.runs r ON r.organisation_id=s.organisation_id AND r.id=s.run_id WHERE s.organisation_id=$1 AND s.run_id=$2 FOR UPDATE OF s`,[organisation,run])).rows[0];
+  let started=false,result;
+  if(!row){
+   started=true;
+   result=await c.query(`INSERT INTO hyperfide.provisioner_worker_starts(organisation_id,run_id,owner_credential_id,state,start_count,resume_count,started_at)
+    VALUES($1,$2,$3,'STARTED',1,0,clock_timestamp()) RETURNING ${START_COLUMNS}`,[organisation,run,owner]);
+  }else if(row.state==='STARTED'&&row.owner_credential_id===owner){
+   result=local?await c.query(`SELECT ${START_COLUMNS} FROM hyperfide.provisioner_worker_starts WHERE organisation_id=$1 AND run_id=$2`,[organisation,run]):
+    await c.query(`UPDATE hyperfide.provisioner_worker_starts SET resume_count=resume_count+1,updated_at=clock_timestamp(),state_version=state_version+1
+     WHERE organisation_id=$1 AND run_id=$2 RETURNING ${START_COLUMNS}`,[organisation,run]);
+  }else{
+   if(row.state==='STARTED'&&row.owner_current===true)fail('WORKER_ALREADY_RUNNING','Another current provisioner credential owns this worker');
+   started=true;
+   result=await c.query(`UPDATE hyperfide.provisioner_worker_starts SET state='STARTED',owner_credential_id=$3,start_count=start_count+1,
+    started_at=clock_timestamp(),updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 RETURNING ${START_COLUMNS}`,[organisation,run,owner]);
+  }
+  return{started,durable:durableStart(result.rows[0])!};
+ });
+}
+async function readDurableStart(database:ProviderDatabase,organisation:string,run:string):Promise<DurableWorkerStart|null>{
+ return durableStart((await database.query(`SELECT ${START_COLUMNS} FROM hyperfide.provisioner_worker_starts WHERE organisation_id=$1 AND run_id=$2`,[organisation,run])).rows[0]);
+}
 interface Signer {credential_id:string;key:import('node:crypto').KeyObject;public_key_b64:string}
 type KeyObject=import('node:crypto').KeyObject;
 async function privateBytes(filename:unknown,limit:number):Promise<Buffer>{
@@ -108,8 +150,10 @@ export class ProvisionerWorker {
    try{config=await configuration(this.env);}catch{fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Valid private provisioner executor configuration required');}
    if(config.signers.length!==1)fail('PROVISIONER_EXECUTOR_CONFIG_INVALID','Exactly one worker owner required');
    const signer=config.signers[0]!;
-   const row=(await this.database.query('SELECT p.*,r.authority_epoch FROM hyperfide.identity_principals p JOIN hyperfide.runs r ON r.organisation_id=p.organisation_id AND r.id=p.run_id WHERE p.credential_id=$1',[signer.credential_id])).rows[0];
-   if(!row||row.role!=='PROVISIONER'||row.public_key_b64!==signer.public_key_b64||row.deployment_epoch!==row.authority_epoch)fail('PROVISIONER_EXECUTOR_IDENTITY_MISMATCH','Current matching provisioner identity required');
+   await assertStartSchema(this.database);
+   const row=(await this.database.query('SELECT p.*,r.authority_epoch,clock_timestamp() AS db_now FROM hyperfide.identity_principals p JOIN hyperfide.runs r ON r.organisation_id=p.organisation_id AND r.id=p.run_id WHERE p.credential_id=$1',[signer.credential_id])).rows[0];
+   if(!row||row.role!=='PROVISIONER'||row.public_key_b64!==signer.public_key_b64||row.state!=='ACTIVE'||row.deployment_epoch!==row.authority_epoch||row.attempt_id!==null||
+      new Date(row.expires_at).getTime()<=new Date(row.db_now).getTime())fail('PROVISIONER_EXECUTOR_IDENTITY_MISMATCH','Current matching provisioner identity required');
    const payload=Buffer.from(JSON.stringify({run_id:row.run_id,component:'8.3',action:'provider.worker.start',input:{},expected_version:null,authority:null}));
    const operation=randomUUID(),body=Buffer.from(JSON.stringify({protocol_version:1,operation_id:operation,idempotency_key:operation,payload_digest:hash(payload),correlation_id:operation,causation_id:null,payload_b64:payload.toString('base64url')}));
    const proof={id:signer.credential_id,time:String(Math.floor(Date.now()/1000)),nonce:randomUUID()};
@@ -136,16 +180,28 @@ export class ProvisionerWorker {
   assertInvocation(invocation);if(invocation.principal.role!=='PROVISIONER')fail('AUTH_SCOPE_DENIED','Only the provisioner principal can own provider effects');
   if(this.signal.aborted)fail('PROVIDER_CLOSED','Provisioner is shutting down');
   const settings=workerSettings(this.env),config=await readDeployment(this.env);
-  bindProviderInvocation(this.database,config,invocation,['PROVISIONER']);
+  const db=bindProviderInvocation(this.database,config,invocation,['PROVISIONER']);
   if(this.running){
    if(this.invocation!.principal.credential_id!==invocation.principal.credential_id||this.invocation!.principal.run_id!==invocation.principal.run_id)fail('WORKER_ALREADY_RUNNING','Another provisioner credential owns this worker');
-   return{started:false,...await this.status(invocation)};
+   const claim=await claimDurableStart(db,config.organisation_id,invocation,true);
+   return{started:claim.started,resumed:false,...await this.status(invocation)};
   }
+  // The durable record decides whether this is a new start or a restart resuming one.
+  const claim=await claimDurableStart(db,config.organisation_id,invocation,false);
   await this.stop();
   this.invocation=invocation;this.controller=new AbortController();this.stoppedReason=null;this.errors.clear();
   const signal=AbortSignal.any([this.signal,this.controller.signal]);
   this.loop=this.run(settings,signal);
-  return{started:true,...await this.status(invocation)};
+  return{started:claim.started,resumed:!claim.started,...await this.status(invocation)};
+ }
+ /** Explicit operator/provisioner stop: the durable record becomes STOPPED so the next
+  * boot is a new start rather than a resume. Process shutdown uses stop() only. */
+ async halt(invocation:InvocationContext):Promise<Record<string,unknown>>{
+  assertInvocation(invocation);
+  const config=await readDeployment(this.env),db=bindProviderInvocation(this.database,config,invocation,['OPERATOR','PROVISIONER']);
+  await this.stop();
+  await db.query("UPDATE hyperfide.provisioner_worker_starts SET state='STOPPED',updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND state='STARTED'",[config.organisation_id,invocation.principal.run_id]);
+  return this.status(invocation);
  }
  private async run(settings:ProvisionerWorkerSettings,signal:AbortSignal):Promise<void>{
   while(!signal.aborted){
@@ -201,7 +257,8 @@ export class ProvisionerWorker {
   const settings=workerSettings(this.env),running=this.running;
   const pools=await poolAdapterReadiness(db,config,invocation,running);
   const counts=(await db.query<{state:string;n:number}>('SELECT state,count(*)::int AS n FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND run_id=$2 GROUP BY state ORDER BY state',[config.organisation_id,invocation.principal.run_id])).rows;
-  return{running,role:'provisioner',owner_credential_id:running?this.invocation!.principal.credential_id:null,settings,active:[...this.active.keys()].sort(),
+  const durable=await readDurableStart(db,config.organisation_id,invocation.principal.run_id);
+  return{running,role:'provisioner',owner_credential_id:running?this.invocation!.principal.credential_id:null,durable,settings,active:[...this.active.keys()].sort(),
    counters:{...this.counters},errors:Object.fromEntries(this.errors),stopped_reason:this.stoppedReason,last_tick_at:this.lastTick,
    intents:Object.fromEntries(counts.map(r=>[r.state,r.n])),pools,operational_ready:running&&pools.length>0&&pools.every(p=>p.operational_ready)};
  }

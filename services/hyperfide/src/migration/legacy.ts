@@ -41,6 +41,9 @@ async function exactDirectory(name:string):Promise<void>{
 async function configuration(env:Readonly<NodeJS.ProcessEnv>,input:LegacyWriterInput):Promise<{config:Config;topology:string;roots:string[]}>{
  alive(input);
  if(!object(input)||Object.keys(input).some(k=>!['deployment_id','operation_id','source_epoch','signal'].includes(k))||![input.deployment_id,input.operation_id].every(v=>typeof v==='string'&&uuid.test(v))||!(input.source_epoch===null||typeof input.source_epoch==='string'&&uuid.test(input.source_epoch)))fail('LEGACY_FENCE_INPUT','Bound deployment, operation and source epoch required');
+ return pinnedConfiguration(env,input);
+}
+async function pinnedConfiguration(env:Readonly<NodeJS.ProcessEnv>,input:{deployment_id:string;source_epoch:string|null}):Promise<{config:Config;topology:string;roots:string[]}>{
  const filename=env.HF_LEGACY_WRITER_CONFIG_FILE;
  if(!filename||!path.isAbsolute(filename)||await fs.realpath(filename)!==filename)fail('LEGACY_CONFIG_REQUIRED','Trusted legacy writer topology is required');
  const stat=await fs.lstat(filename);
@@ -192,6 +195,12 @@ export class LegacyWriterAdmission {
  const evidence={topology,admission_digest,observations:observations.sort(),observed_visibility,read_only_aliases,observed_at,expires_at};
  return {...this.binding(input),status:'ISOLATED',topology_digest:topology,isolated_writer:config.legacy_writer_id,observed_at,expires_at,evidence_digest:hash(canonical(evidence)),visibility:observed_visibility,admission_disabled:true,writable_fds:0,writable_shared_mappings:0,read_only_aliases};
  }
+}
+/** The pinned topology a trusted fence driver binds into its external writer topology. */
+export async function legacyWriterTopology(env:Readonly<NodeJS.ProcessEnv>,binding:{deployment_id:string;source_epoch:string|null}):Promise<{topology_digest:string;legacy_writer_id:string;pid_namespace:string;mount_namespace:string}>{
+ if(!object(binding)||typeof binding.deployment_id!=='string'||!uuid.test(binding.deployment_id)||!(binding.source_epoch===null||typeof binding.source_epoch==='string'&&uuid.test(binding.source_epoch)))fail('LEGACY_FENCE_INPUT','Bound deployment and source epoch required');
+ const {config,topology}=await pinnedConfiguration(env,binding);
+ return {topology_digest:topology,legacy_writer_id:config.legacy_writer_id,pid_namespace:config.expected_pid_namespace,mount_namespace:config.expected_mount_namespace};
 }
 export function createLegacyWriterAdmission(env:Readonly<NodeJS.ProcessEnv>):LegacyWriterAdmission{return new LegacyWriterAdmission(env);}
 

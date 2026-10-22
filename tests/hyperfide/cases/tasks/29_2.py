@@ -13,6 +13,9 @@ IDS+=['provisioner.scope.'+a for _,a in ACTIONS]
 UNSAFE=['missing','group-readable','world-readable','symlink','hardlink']
 IDS+=['provisioner.credentials.'+target+'.'+variant for target in ['config','key'] for variant in UNSAFE]
 IDS+=['provisioner.credentials.wrong-role','provisioner.credentials.wrong-key']
+IDS+=['provisioner.unit.identity-origin','provisioner.https.unauthenticated','provisioner.boot.durable-start','provisioner.restart.durable-resume',
+      'provisioner.stop.durable-new-start','provisioner.mode.daemon-refused','provisioner.identity.placeholder-origin-refused',
+      'provisioner.boot.foreign-owner-refused','provisioner.boot.stale-owner-takeover']
 FAILED=[]
 def check(name,fn):
  try:fn();actual='observed'
@@ -45,6 +48,25 @@ def main():
    for token in ['--mode https','${HYPERFIDE_PROVISIONER_LISTEN_HOST}','${HYPERFIDE_PROVISIONER_LISTEN_PORT}','--tls-cert /etc/hyperfide/provisioner.crt','--tls-key /etc/hyperfide/provisioner.key','HF_PROVISIONER_EXECUTOR_CONFIG_FILE=','HF_IDENTITY_CONFIG_FILE=']:expect(token in text,token)
    expect('--mode daemon' not in text,'unit still uses daemon')
   check(IDS[0],unit)
+  def identity_templates():
+   identity=json.loads((ROOT/'deploy/hyperfide/identity/provisioner-identity.example.json').read_text())
+   expect(list(identity)==['schema_version','origin','clock_skew_seconds','grant_ttl_seconds','credential_ttl_seconds','principals'] and identity['schema_version']==1 and identity['origin'].startswith('https://'),identity)
+   worker=json.loads((ROOT/'deploy/hyperfide/identity/provisioner-worker.example.json').read_text())
+   expect(list(worker)==['schema_version','principals','concurrency'] and len(worker['principals'])==1 and list(worker['principals'][0])==['credential_id','key_path'] and worker['principals'][0]['key_path'].startswith('/etc/hyperfide/'),worker)
+   text=(ROOT/'deploy/hyperfide/provisioner.service').read_text()
+   expect('HF_IDENTITY_CONFIG_FILE=/etc/hyperfide/provisioner-identity.json' in text and 'HF_PROVISIONER_EXECUTOR_CONFIG_FILE=/etc/hyperfide/provisioner-worker.json' in text,'unit does not name the shipped identity and worker files')
+  check('provisioner.unit.identity-origin',identity_templates)
+  def durable():return result('provider.worker.status')['durable']
+  boot={}
+  def durable_start():
+   d=durable();expect(d['state']=='STARTED' and d['owner_credential_id']==f.ids['provisioner'] and d['start_count']=='1' and d['resume_count']=='0',d)
+   expect(len(f.sql('SELECT run_id FROM hyperfide.provisioner_worker_starts WHERE organisation_id=$1',[f.ids['organisation']]))==1,'durable start is not one row per run')
+   boot.update(d)
+  check('provisioner.boot.durable-start',durable_start)
+  def unauthenticated():
+   status,r=f.request(f.operation('8.2','provider.pools.configure',{}),key='provisioner',credential=str(uuid.uuid4()))
+   expect((status>=400 or r.get('ok') is False) and r.get('error',{}).get('code')=='AUTH_INVALID',(status,r))
+  check('provisioner.https.unauthenticated',unauthenticated)
   def running():
    s=result('provider.worker.status');expect(s['running'] is True and s['owner_credential_id']==f.ids['provisioner'],s)
   check(IDS[1],running)
@@ -83,6 +105,14 @@ def main():
    expect(len([c for c in json.loads(state.read_text())['calls'] if c['method']=='create' and c['operation_id']==intent['id']])==1,'restart duplicated create')
    expect(result('provider.worker.start',key='provisioner')['started'] is False,'restart left worker stopped')
   check(IDS[9],restart)
+  def durable_resume():
+   d=durable();expect(d['state']=='STARTED' and d['start_count']=='1' and d['resume_count']=='1' and d['started_at']==boot['started_at'] and d['owner_credential_id']==f.ids['provisioner'],(d,boot))
+  check('provisioner.restart.durable-resume',durable_resume)
+  def stop_then_boot():
+   s=result('provider.worker.stop');expect(s['running'] is False and s['durable']['state']=='STOPPED' and s['durable']['start_count']=='1',s)
+   f.stop();f.start();running()
+   d=durable();expect(d['state']=='STARTED' and d['start_count']=='2' and d['resume_count']=='1' and d['started_at']>boot['started_at'],d)
+  check('provisioner.stop.durable-new-start',stop_then_boot)
   f.add_principal('denied','VERIFIER')
   f.sql('UPDATE hyperfide.identity_principals SET allowed_actions=$2 WHERE credential_id=$1',[f.ids['denied'],['identity.describe']])
   identities=json.loads(f.identity_config.read_text())
@@ -92,10 +122,11 @@ def main():
   for component,action in ACTIONS:
    check('provisioner.scope.'+action,lambda component=component,action=action:refused(action,{},'AUTH_SCOPE_DENIED','denied',component))
   f.stop()
-  def boot_refusal(code):
-   args=['node',str(module/'provisioner.js'),'--policy',str(f.policy),'--spec-revision','fixture-identity-v1','--components',str(f.components),'--module-root',str(module),'--mode','https','--host','127.0.0.1','--port',str(f.port),'--tls-cert',str(f.ca),'--tls-key',str(f.tlskey)]
+  def boot_refusal(code,mode='https'):
+   args=['node',str(module/'provisioner.js'),'--policy',str(f.policy),'--spec-revision','fixture-identity-v1','--components',str(f.components),'--module-root',str(module),'--mode',mode,'--host','127.0.0.1','--port',str(f.port),'--tls-cert',str(f.ca),'--tls-key',str(f.tlskey)]
    p=subprocess.run(args,cwd=ROOT,env=f.env,capture_output=True,text=True,timeout=20)
    expect(p.returncode!=0 and '"event":"ready"' not in p.stderr and code in p.stderr,(p.returncode,p.stderr))
+   return p.stderr
   for target in ['config','key']:
    file=f.executor if target=='config' else f.keys['provisioner']['path']
    for variant in UNSAFE:
@@ -121,6 +152,29 @@ def main():
      boot_refusal('PROVISIONER_EXECUTOR_IDENTITY_MISMATCH')
     finally:f.executor.write_bytes(original)
    check('provisioner.credentials.'+label,mismatch)
+  check('provisioner.mode.daemon-refused',lambda:boot_refusal('TRANSPORT_CONFIG','daemon'))
+  def placeholder_origin():
+   raw=f.identity_config.read_bytes()
+   try:
+    config=json.loads(raw);config['origin']=json.loads((ROOT/'deploy/hyperfide/identity/provisioner-identity.example.json').read_text())['origin']
+    f.identity_config.write_text(json.dumps(config));err=boot_refusal('COMPONENT_LOAD_FAILED');expect('Invalid HTTPS origin' in err,err)
+   finally:f.identity_config.write_bytes(raw)
+  check('provisioner.identity.placeholder-origin-refused',placeholder_origin)
+  def foreign_owner():
+   f.add_principal('peer','PROVISIONER');f.stop()
+   f.sql("UPDATE hyperfide.provisioner_worker_starts SET owner_credential_id=$3,state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2",[org,run,f.ids['peer']])
+   boot_refusal('WORKER_ALREADY_RUNNING')
+  check('provisioner.boot.foreign-owner-refused',foreign_owner)
+  def stale_owner():
+   f.sql("UPDATE hyperfide.identity_principals SET state='REVOKED',credential_version=credential_version+1 WHERE credential_id=$1",[f.ids['peer']])
+   config=json.loads(f.identity_config.read_text());config['principals']=[p for p in config['principals'] if p['credential_id']!=f.ids['peer']]
+   f.identity_config.write_text(json.dumps(config))
+   f.start()
+   try:
+    d=durable();expect(d['state']=='STARTED' and d['owner_credential_id']==f.ids['provisioner'] and d['start_count']=='3',d)
+    running()
+   finally:f.stop()
+  check('provisioner.boot.stale-owner-takeover',stale_owner)
   f.close();f=None;complete=True
  finally:
   if f is not None:f.close()

@@ -49,3 +49,8 @@ tmp/
 # Historical integration backups may contain private MCP configuration.
 *.codify.bak
 **/.hyperfide/context/
+artifacts/
+deploy/hyperfide/identity/
+spec/hyperfide/evidence/
+tests/hyperfide/registrations/
+tests/hyperfide/manifests/tasks/
