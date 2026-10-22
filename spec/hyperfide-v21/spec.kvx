@@ -293,7 +293,7 @@ owner = "providers"
 
 [task.2.3]
 title = "Attestation expiry warnings and live quota observers"
-status = "implemented"
+status = "done"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/providers/pools.ts", "services/hyperfide/src/providers/railway/reconciliation.ts", "services/hyperfide/src/providers/blaxel/processes.ts", "tests/hyperfide/cases/v21/2_3.py"]
@@ -463,7 +463,7 @@ owner = "ci"
 
 [task.2.16]
 title = "Provider resolutions escalate on the provisioner worker loop"
-status = "implemented"
+status = "done"
 wave = 2
 requires = ["2.1"]
 touches = ["services/hyperfide/src/providers/worker.ts", "services/hyperfide/src/providers/reconcile.ts", "deploy/hyperfide/env/control.env.example", "deploy/hyperfide/env/provisioner.env.example", "tests/hyperfide/cases/v21/2_16.py"]
