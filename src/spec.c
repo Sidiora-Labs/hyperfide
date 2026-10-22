@@ -1615,6 +1615,53 @@ static int print_waiting(const Spec *s) {
     return n;
 }
 
+/* Pending leaves held by a superseded requirement (hyperfide-v21 3.21): a
+ * superseded task never qualifies, so the dependant waits until its requires
+ * name what superseded it. json: [{"id","requires","superseded_by"}];
+ * otherwise one "held:" line each. The count is returned. */
+static int superseded_holds(const Spec *s, StrBuf *json) {
+    int n = 0;
+    if (json) sb_putc(json, '[');
+    for (int i = 0; i < s->nids; i++) {
+        const char *id = s->ids[i];
+        if (!task_is_leaf(s, id)) continue;
+        char *st = task_status(s, id);
+        bool pending = !st[0] || strcmp(st, "pending") == 0;
+        free(st);
+        if (!pending) continue;
+        char sec[300];
+        task_sec(sec, sizeof sec, id);
+        char **rq; int nr = kvx_list(s->f, sec, "requires", &rq);
+        for (int j = 0; j < nr; j++) {
+            char *rs = task_status(s, rq[j]);
+            if (status_superseded(rs)) {
+                char rsec[300];
+                task_sec(rsec, sizeof rsec, rq[j]);
+                char *by = S(s->f, rsec, "superseded_by");
+                if (json) {
+                    if (n) sb_putc(json, ',');
+                    sb_puts(json, "{\"id\":"); sb_json_str(json, id);
+                    sb_puts(json, ",\"requires\":"); sb_json_str(json, rq[j]);
+                    sb_puts(json, ",\"superseded_by\":");
+                    if (by[0]) sb_json_str(json, by); else sb_puts(json, "null");
+                    sb_putc(json, '}');
+                } else {
+                    printf("held: %s requires %s, which is superseded%s%s — "
+                           "require what superseded it\n", id, rq[j],
+                           by[0] ? " by " : "", by);
+                }
+                free(by);
+                n++;
+            }
+            free(rs);
+            free(rq[j]);
+        }
+        free(rq);
+    }
+    if (json) sb_putc(json, ']');
+    return n;
+}
+
 static int spec_status_cmd(Spec *s, bool json) {
     int done = 0, implemented = 0, inprog = 0, pending = 0, leaves = 0,
         superseded = 0, waiting = 0;
@@ -1793,6 +1840,8 @@ static int spec_next_cmd(Spec *s, bool json) {
                 StrBuf b; sb_init(&b);
                 sb_puts(&b, "{\"next\":");
                 json_docs_task(&b, s);
+                sb_puts(&b, ",\"held_by_superseded\":");
+                superseded_holds(s, &b);
                 sb_puts(&b, "}\n");
                 fputs(b.p, stdout);
                 sb_free(&b);
@@ -1806,6 +1855,8 @@ static int spec_next_cmd(Spec *s, bool json) {
             StrBuf b; sb_init(&b);
             sb_puts(&b, "{\"next\":null,\"waiting\":");
             json_waiting(s, &b);
+            sb_puts(&b, ",\"held_by_superseded\":");
+            superseded_holds(s, &b);
             sb_puts(&b, "}\n");
             fputs(b.p, stdout);
             sb_free(&b);
@@ -1821,6 +1872,7 @@ static int spec_next_cmd(Spec *s, bool json) {
         else printf("no eligible task\n");
         free(stage);
         print_waiting(s);
+        superseded_holds(s, NULL);
         return 0;
     }
     if (json) {
@@ -1838,6 +1890,8 @@ static int spec_next_cmd(Spec *s, bool json) {
             sb_putc(&b, ']');
         }
         memory_free(mv, nm);
+        sb_puts(&b, ",\"held_by_superseded\":");
+        superseded_holds(s, &b);
         sb_puts(&b, "}\n");
         fputs(b.p, stdout);
         sb_free(&b);
@@ -1846,6 +1900,7 @@ static int spec_next_cmd(Spec *s, bool json) {
     print_task(s, next);
     spec_print_memories(s, next);
     printf("\nstart it: hyperfide spec start %s\n", next);
+    superseded_holds(s, NULL);
     return 0;
 }
 
@@ -2776,7 +2831,9 @@ static int spec_ready_cmd(Spec *s, bool json) {
     free(el);
     if (have_db) cg_close(&g);
     if (json) {
-        sb_puts(&b, "]}\n");
+        sb_puts(&b, "],\"held_by_superseded\":");
+        superseded_holds(s, &b);
+        sb_puts(&b, "}\n");
     } else if (ne) {
         StrBuf h; sb_init(&h);
         sb_printf(&h, "ready — %d eligible task(s)%s:\n", ne,
@@ -2789,6 +2846,7 @@ static int spec_ready_cmd(Spec *s, bool json) {
     }
     fputs(b.p, stdout);
     sb_free(&b);
+    if (!json) superseded_holds(s, NULL);
     return 0;
 }
 
@@ -3282,6 +3340,18 @@ static int spec_done_cmd(Spec *s, const char *id, const char *agent,
     if (!task_exists(s, id)) {
         fprintf(stderr, "hyperfide spec: no [task.%s] in %s\n", id, s->fpath);
         return 1;
+    }
+    {
+        /* terminal: neither qualification nor --force reopens it (3.21) */
+        char *sst = task_status(s, id);
+        bool sup = status_superseded(sst);
+        free(sst);
+        if (sup) {
+            fprintf(stderr, "hyperfide spec: task %s is superseded, a terminal "
+                    "status; it is never done, --force included — its work "
+                    "belongs to its superseded_by\n", id);
+            return 1;
+        }
     }
     if (spec_require_owner(s, id, agent, attempt, fence) != 0) return 1;
     char *st = task_status(s, id);

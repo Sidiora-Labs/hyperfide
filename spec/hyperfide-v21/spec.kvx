@@ -752,7 +752,7 @@ owner = "source"
 
 [task.3.21]
 title = "Supervisor exemptions, superseded handling and source host refusal"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.4", "3.11", "2.15"]
 touches = ["src/orchestrate.c", "src/spec.c", "src/fleet.c", "services/hyperfide/src/preparation/object_store.ts", "tests/integration/93_supervisor_scope.sh", "tests/hyperfide/cases/v21/3_21.py"]
