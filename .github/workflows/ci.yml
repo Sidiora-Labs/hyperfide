@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
 
+# Job names are asserted by tests/integration/82_ci_matrix.sh; rename both together.
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -18,3 +19,120 @@ jobs:
         run: make unit
       - name: integration tests
         run: make integration
+
+  hyperfide-service:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/hyperfide
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.0
+          cache: npm
+          cache-dependency-path: services/hyperfide/package-lock.json
+      - name: npm ci
+        run: npm ci
+      - name: typecheck
+        run: npx tsc -p tsconfig.json --noEmit
+      - name: build
+        run: npm run build
+      - name: syntax-check deploy scripts
+        working-directory: deploy/hyperfide
+        run: |
+          set -e
+          for f in *.mjs; do echo "node --check $f"; node --check "$f"; done
+
+  hyperfide-qualify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throwaway service credentials; the cases create and drop their own hf_* databases.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.0
+          cache: npm
+          cache-dependency-path: services/hyperfide/package-lock.json
+      - name: install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libcurl4-openssl-dev libssl-dev postgresql-client
+      - name: build cg
+        run: make
+      - name: build service
+        working-directory: services/hyperfide
+        run: npm ci && npm run build
+      - name: qualify registered cases
+        env:
+          HF_QUALIFY_OUT: ${{ runner.temp }}/qualify
+        # One qualify.py run per tracked registration, against its pinned manifest.
+        # A registration whose required_env is unset in CI (provider tokens, native
+        # agent binaries) prints SKIP with the variable name and never counts as PASS.
+        # tests/integration/82_ci_matrix.sh extracts and exercises this driver.
+        run: |
+          python3 - <<'QUALIFY'
+          import glob, json, os, subprocess, sys
+          root = os.environ.get("HF_QUALIFY_ROOT", ".")
+          out = os.environ.get("HF_QUALIFY_OUT") or os.path.join(root, ".qualify-out")
+          regs = sorted(glob.glob(os.path.join(root, "tests/hyperfide/registrations/**/*.json"), recursive=True))
+          if not regs:
+              print("FAIL qualification: no tracked registrations under tests/hyperfide/registrations")
+              sys.exit(1)
+          manifests = {}
+          for path in sorted(glob.glob(os.path.join(root, "tests/hyperfide/manifests/**/*.json"), recursive=True)):
+              with open(path) as fh:
+                  manifests[json.load(fh).get("registered_variant")] = path
+          counts = {"PASS": 0, "FAIL": 0, "SKIP": 0}
+          for path in regs:
+              with open(path) as fh:
+                  reg = json.load(fh)
+              variant, task = reg.get("variant"), reg.get("task")
+              missing = [name for name in reg.get("required_env", []) if not os.environ.get(name)]
+              manifest = manifests.get(variant)
+              if missing:
+                  print("SKIP %s: required environment absent: %s" % (variant, ", ".join(missing)))
+                  counts["SKIP"] += 1
+                  continue
+              if manifest is None:
+                  print("SKIP %s: no tracked manifest pins this variant" % variant)
+                  counts["SKIP"] += 1
+                  continue
+              argv = [sys.executable, "tests/hyperfide/qualify.py", "--manifest", os.path.abspath(manifest),
+                      "--output-dir", os.path.join(os.path.abspath(out), variant.replace(":", "_"))]
+              argv += ["--task", task] if task else ["--case"] + list(reg.get("cases", []))
+              proc = subprocess.run(argv, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+              status = "FAIL"
+              for line in reversed(proc.stdout.splitlines()):
+                  try:
+                      status = json.loads(line).get("status", "FAIL")
+                      break
+                  except ValueError:
+                      continue
+              if proc.returncode == 0 and status == "PASS":
+                  print("PASS %s" % variant)
+                  counts["PASS"] += 1
+              else:
+                  print("FAIL %s (%s, exit %d)" % (variant, status, proc.returncode))
+                  print("\n".join("     " + l for l in proc.stdout.splitlines()[-20:]))
+                  counts["FAIL"] += 1
+          print("qualify: %d passed, %d failed, %d skipped" % (counts["PASS"], counts["FAIL"], counts["SKIP"]))
+          sys.exit(1 if counts["FAIL"] else 0)
+          QUALIFY

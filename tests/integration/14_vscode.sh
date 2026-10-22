@@ -26,7 +26,7 @@ want() { [ "$section" = all ] || [ "$section" = "$1" ]; }
 
 EXT="$(cd "$(dirname "$0")/../../editors/vscode" && pwd)"
 
-command -v node >/dev/null 2>&1 || { echo "14_vscode skipped (no node)"; exit 0; }
+command -v node >/dev/null 2>&1 || { echo "SKIP: node not on PATH"; exit 77; }
 
 # ---- every source file parses
 for f in "$EXT"/*.js; do

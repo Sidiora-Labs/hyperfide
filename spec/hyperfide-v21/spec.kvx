@@ -179,7 +179,7 @@ owner = "deployment"
 
 [task.1.7]
 title = "CI builds and tests Hyperfide"
-status = "pending"
+status = "done"
 wave = 1
 requires = []
 touches = [".github/workflows/ci.yml", "tests/run.sh", "tests/integration/82_ci_matrix.sh"]

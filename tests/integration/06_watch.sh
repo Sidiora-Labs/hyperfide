@@ -3,8 +3,8 @@
 . "$(dirname "$0")/../lib.sh"
 
 if [ "$(uname -s)" != "Linux" ]; then
-    echo "skip: watch test is Linux-only"
-    exit 0
+    echo "SKIP: watch test is Linux-only"
+    exit 77
 fi
 
 cp -r "$FIXTURES/sample" "$TMP/proj"
