@@ -140,7 +140,7 @@ owner = "workflow"
 
 [task.1.4]
 title = "Rebuild the service dist and refuse stale builds"
-status = "pending"
+status = "in_progress"
 wave = 1
 requires = []
 touches = ["services/hyperfide/dist", "scripts/release.sh", "deploy/hyperfide/install-service.mjs", "tests/hyperfide/cases/v21/1_4.py"]

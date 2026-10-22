@@ -8,7 +8,7 @@
   },
   "packageManager": "npm@11.19.1",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node ../../deploy/hyperfide/dist-stamp.mjs write .",
     "check": "tsc -p tsconfig.json --noEmit",
     "control": "node dist/control.js",
     "provisioner": "node dist/provisioner.js",
