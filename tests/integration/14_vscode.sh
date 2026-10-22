@@ -2870,8 +2870,16 @@ if (errJson) { eq(errJson.ok, false, 'console error envelope'); eq(typeof errJso
     eq(/variable/.test(it.description) && /overdue/.test(it.description), true, 'description: kind and deadline');
     const q = kids.find((k) => k.row.id === String(que));
     eq(/→ yes/.test(q.description), true, 'description: recommended option');
+    const fired0 = v._em.n;
+    v.visible = false;
     eq(v.route({ kind: 'ask.answered', subject: '1' }), true, 'ask.* routed');
+    eq(v.route({ kind: 'ask.raised', subject: '2' }), true, 'a burst is routed too');
     eq(v.route({ kind: 'memory.add' }), false, 'others are not');
+    await new Promise((r) => setTimeout(r, 2500));
+    eq(v._em.n - fired0, 1, 'a routed burst redraws the hidden view once, by itself');
+    const ext0 = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+    eq(/applied\.view === 'needs'\) \{ needsApi\.route\(ev\); return; \}/.test(ext0), true,
+       'ask events do not queue the full catch-up refresh');
     const { applyEvent, liveModel } = require(path.join(dir, 'serve.js'));
     eq(applyEvent(liveModel(), { kind: 'ask.raised', subject: '9', payload: {} }).view, 'needs', 'serve classifies ask.*');
     const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');

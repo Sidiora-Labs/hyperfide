@@ -805,7 +805,7 @@ async function activate(ctx) {
                 if (applied.view === 'fleet' || applied.fleet) fleetApi.touch();
                 if ((applied.view === 'drift' || ev.kind === 'task.status') && fleetApi.drift) fleetApi.drift(ev);
                 if (applied.view === 'memories') memoryApi.touch();
-                if (applied.view === 'needs') needsApi.route(ev);
+                if (applied.view === 'needs') { needsApi.route(ev); return; }
                 scheduleRefresh(EVENT_REFRESH_MS);
             });
             serveClient.on('gap', () => scheduleRefresh(0));

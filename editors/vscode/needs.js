@@ -423,6 +423,7 @@ try { vscode = require('vscode'); } catch (_) { /* headless: model only */ }
 const CONSOLE_ARGS = ['console', 'needs'];
 const LOCAL_ARGS = ['ask', 'list'];
 const CALL_TIMEOUT_MS = 20000;
+const ROUTE_REDRAW_MS = 150;
 const REGISTRY_REDRAW_MS = 250;
 const SECRET_REF = /^secret-ref:[A-Za-z0-9._-]{1,200}$/;
 
@@ -617,11 +618,16 @@ class NeedsView {
         this._done();
     }
 
-    /* ask.* pushed through cg serve: the catch-up refresh the extension
-     * queues for every event redraws this view even while it is hidden */
+    /* ask.* pushed through cg serve: this view redraws itself (coalesced),
+     * even while hidden. The extension does not queue its full catch-up
+     * refresh for ask events: that sync contends with the Leaders view's
+     * own cg calls on the same events. */
     route(ev) {
         if (!ev || !ev.kind || !String(ev.kind).startsWith('ask.')) return false;
         this.force = true;
+        if (!this._routed) {
+            this._routed = setTimeout(() => { this._routed = null; this.refresh().catch(() => {}); }, ROUTE_REDRAW_MS);
+        }
         return true;
     }
 
