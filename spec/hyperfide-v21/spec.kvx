@@ -141,8 +141,8 @@ status = "done"
 wave = 1
 requires = []
 touches = ["spec/workflow.kvx", "src/spec.c", "src/agent.c", "tests/fixtures/specrepo/CLAUDE.md", "tests/fixtures/specrepo/.cursor/rules/spec-workflow.mdc", "tests/integration/81_workflow_pointer.sh"]
-# CLAUDE.md and AGENTS.md are gitignored render outputs: no commit can evidence them, so `spec render --check` in verify_cmd proves them instead.
-verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/81_workflow_pointer.sh && ./cg spec render --check"
+# CLAUDE.md and AGENTS.md are gitignored render outputs: no commit can evidence them, so `spec render --check` in verify_cmd proves them instead. Present outputs must already be current; only a fresh clone, which has neither, renders them first (task 3.13).
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/81_workflow_pointer.sh && { ./cg spec render --check || { test ! -e CLAUDE.md && test ! -e AGENTS.md && ./cg spec render && ./cg spec render --check; }; }"
 do_1 = "Rewrite spec/workflow.kvx so no two statements contradict: the dependency rule names sqlite, libc, curl and crypto for the binary and declared pinned TypeScript dependencies for the services; status_values gain blocked; add [human] (three jobs: spec with the agent, inputs and judgement, final system test as the release gate), [asks] (five kinds, default policies), [publication] (per wave, final wave docs/release/changelog, task file current before every commit)."
 do_2 = "build_brief emits only: the pointer sentence, the active feature path, the loop, and where to find the rules; no principle or rule text is duplicated into generated files. Regenerate CLAUDE.md and AGENTS.md; make cg agentmd's context file point at the kvx the same way."
 do_3 = "81_workflow_pointer.sh asserts the generated files contain the pointer and nothing else, that the kvx parses, and that no statement in [principle] or [hard_rules] names a dependency the Makefile does not link."
@@ -608,27 +608,27 @@ owner = "source"
 
 [task.3.10]
 title = "Secret references reach the launched agent"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["2.8", "2.17"]
 touches = ["services/hyperfide/src/events/instructions.ts", "services/hyperfide/src/runner/dispatch.ts", "src/hyperfide/launch.c", "src/hyperfide/job.c", "tests/hyperfide/cases/v21/3_10.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && make -j2 cg && python3 tests/hyperfide/cases/v21/3_10.py"
 do_1 = "The START instruction schema and runner/dispatch.ts carry the launch's declared env_refs (names and secret references, never values) so launch.c receives them from a coordinator-issued START, and job.c passes the resolved references into the job child's environment after clearenv() instead of stopping at the runner process."
 do_2 = "3_10.py proves a START with env_refs is admitted and reaches the launch, a START without them still works, values are never logged, a job child observes the resolved variable, and an undeclared reference is refused."
-do_3 = "80_qualification_inputs.sh asserts both directories are tracked with the expected counts, that no verify_cmd in spec/hyperfide/spec.kvx names an untracked file, and that each evidence ref resolves."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
 reqs = ["2.5"]
 owner = "runner"
 
 [task.3.11]
 title = "Stops hold their scope and the fleet accepts superseded"
-status = "pending"
+status = "done"
 wave = 3
 requires = ["2.4", "2.15"]
-touches = ["services/hyperfide/src/recovery/stop.ts", "src/orchestrate.c", "src/fleet.c", "src/docs.c", "src/drift.c", "tests/hyperfide/cases/v21/2_10.py", "tests/hyperfide/cases/v21/3_11.py", "tests/integration/90_superseded_fleet.sh"]
+touches = ["services/hyperfide/src/recovery/stop.ts", "src/orchestrate.c", "src/fleet.c", "src/docs.c", "src/drift.c", "tests/hyperfide/cases/v21/2_10.py", "tests/hyperfide/cases/v21/3_11.py", "tests/integration/90_superseded_fleet.sh", "tests/hyperfide/cases/v21/2_4.py", "docs/hyperfide/operations.md"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_11.py && make -j2 cg && CG=$PWD/cg bash tests/integration/90_superseded_fleet.sh"
 do_1 = "A POOL, ORGANISATION or DEPLOYMENT stop keeps holding its scope, so a run or sandbox admitted after the stop settled is refused or stopped by the driver, and a refused DEPLOYMENT stop returns an error rather than ok:true; the fleet, docs and drift paths treat superseded as closed so a feature carrying a superseded task runs under cg fleet up; 2_10.py exits 77 with SKIP when not root instead of recording a passing check."
 do_2 = "3_11.py starts a run after an ORGANISATION stop has reconciled and asserts it does not stay RUNNING; 90_superseded_fleet.sh runs a scratch feature with one superseded task under cg fleet up --foreground and asserts the fleet refuses nothing for it."
-do_3 = "80_qualification_inputs.sh asserts both directories are tracked with the expected counts, that no verify_cmd in spec/hyperfide/spec.kvx names an untracked file, and that each evidence ref resolves."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
 reqs = ["2.3"]
 owner = "recovery"
 
@@ -641,20 +641,20 @@ touches = ["services/hyperfide/src/findings/registry.ts", "services/hyperfide/sr
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_12.py"
 do_1 = "finding:manager and finding:operator receive finding deliveries only, not every enqueue that names no consumers; their consumer ids are stable and named in the shipped dispatch worker config so a deployed stack claims them; Railway writes (sandboxCreate and the rest) back off on 429 and 5xx before any UNKNOWN transition; an ownership probe that exhausts its retries yields UNVERIFIED, not not-ours; a DELETED inventory row is never overwritten to OWNERSHIP_VERIFIED by a later probe."
 do_2 = "3_12.py proves a task.changed event is not delivered to the finding consumers while a finding is, the shipped dispatch config names them, a 429 on sandboxCreate retries before UNKNOWN, an exhausted probe is UNVERIFIED, and a DELETED row survives re-observation."
-do_3 = "80_qualification_inputs.sh asserts both directories are tracked with the expected counts, that no verify_cmd in spec/hyperfide/spec.kvx names an untracked file, and that each evidence ref resolves."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
 reqs = ["2.2"]
 owner = "findings"
 
 [task.3.13]
 title = "Evidence cache, dist stamp, preflight and the 1.3 check"
-status = "pending"
+status = "done"
 wave = 3
 requires = ["1.2", "1.3", "1.4", "1.6", "1.12"]
-touches = ["tests/hyperfide/evidence_store.py", "deploy/hyperfide/dist-stamp.mjs", "deploy/hyperfide/bootstrap-host.mjs", "spec/hyperfide-v21/spec.kvx", "tests/integration/14_vscode.sh", "tests/hyperfide/cases/v21/3_13.py"]
+touches = ["tests/hyperfide/evidence_store.py", "deploy/hyperfide/dist-stamp.mjs", "deploy/hyperfide/bootstrap-host.mjs", "spec/hyperfide-v21/spec.kvx", "tests/integration/14_vscode.sh", "tests/hyperfide/cases/v21/3_13.py", "docs/hyperfide/operations.md"]
 verify_cmd = "python3 tests/hyperfide/cases/v21/3_13.py && make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
 do_1 = "evidence_store.resolve() compares a local artifacts cache with the tracked receipt's content digest before treating it as resolved; dist-stamp hashes the emitted dist tree so a missing or hand-edited dist file reads stale; bootstrap-host preflight stats HF_CREDENTIAL_CONFIG_FILE, lists every missing name at once and warns when HF_SLICE_SOURCE_CONFIG is absent; task 1.3's verify_cmd renders before --check so it passes on a fresh clone; 14_vscode.sh's pushed section drives activate() rather than a copy of the wiring and its delayed-old-cg check no longer depends on wall-clock timing."
 do_2 = "3_13.py proves a tampered cache is refused, a removed dist file makes the stamp stale, preflight reports two missing names in one refusal and warns on the absent slice source, and the 1.3 verify_cmd passes in a fresh worktree."
-do_3 = "80_qualification_inputs.sh asserts both directories are tracked with the expected counts, that no verify_cmd in spec/hyperfide/spec.kvx names an untracked file, and that each evidence ref resolves."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
 reqs = ["1.1"]
 owner = "qualification"
 [task.3.14]
@@ -662,10 +662,10 @@ title = "One MCP ask surface in both modes"
 status = "pending"
 wave = 3
 requires = ["3.5", "3.7"]
-touches = ["src/mcp.c", "src/hyperfide/client.c", "src/help.c", "README.md", "tests/integration/88_mcp_ask.sh", "tests/integration/92_mcp_route_names.sh"]
-verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/88_mcp_ask.sh && CG=$PWD/cg bash tests/integration/92_mcp_route_names.sh"
+touches = ["src/mcp.c", "src/hyperfide/client.c", "src/help.c", "README.md", "tests/integration/88_mcp_ask.sh", "tests/integration/95_mcp_route_names.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/88_mcp_ask.sh && CG=$PWD/cg bash tests/integration/95_mcp_route_names.sh"
 do_1 = "In distributed mode cg mcp exposes exactly one set of ask tools, the native ask_raise, ask_status, ask_list and approvals_list, which call the 3.7 client routes when the transport is distributed and the local store otherwise; tools derived from the route table never reuse a native tool name and skip the 1.2-asks component; the ask entry in src/help.c names the MCP tools; the README sentence saying the local CLI is not a control-service client is replaced by the routed-command truth."
-do_2 = "92_mcp_route_names.sh lists the MCP tools in local and distributed mode and asserts that no name appears twice, that the four ask tools are present in both modes, that no route-derived tool is named ask_*, and that in distributed mode ask_raise reaches the routed client through a stub transport that records the route."
+do_2 = "95_mcp_route_names.sh lists the MCP tools in local and distributed mode and asserts that no name appears twice, that the four ask tools are present in both modes, that no route-derived tool is named ask_*, and that in distributed mode ask_raise reaches the routed client through a stub transport that records the route."
 do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
 reqs = ["3.3"]
 owner = "ask"
@@ -866,7 +866,7 @@ owner = "observability"
 
 [task.4.6]
 title = "Readers for the leader queue, external intake and escalated repairs"
-status = "pending"
+status = "done"
 wave = 4
 requires = ["2.6"]
 touches = ["services/hyperfide/src/findings/routing.ts", "services/hyperfide/src/findings/github.ts", "services/hyperfide/src/findings/remediation.ts", "tests/hyperfide/cases/v21/4_6.py"]

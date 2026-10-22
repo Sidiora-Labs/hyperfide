@@ -161,3 +161,5 @@ hierarchy-worker-registration *
 legacy-writer-isolation *
 spec-obligations *
 spec-revisions *
+1.2-asks human.ask.sweep
+1.2-asks human.ask.policy
