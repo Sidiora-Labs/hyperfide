@@ -984,10 +984,10 @@ owner = "client"
 
 [task.5.4]
 title = "The three numbers"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["3.6", "2.12"]
-touches = ["services/hyperfide/src/observability/metrics.ts", "tests/hyperfide/cases/v21/5_4.py"]
+touches = ["services/hyperfide/src/observability/metrics.ts", "tests/hyperfide/cases/v21/5_4.py", "services/hyperfide/components/23.3.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/5_4.py"
 do_1 = "Metrics: decisions taken by default per hundred tasks, median Ask-to-answer seconds, bytes materialised per sandbox; exposed through console and cg."
 do_2 = "5_4.py asserts the three against seeded data."
