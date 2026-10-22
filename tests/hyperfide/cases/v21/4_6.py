@@ -165,7 +165,7 @@ try{
  await step('leader.list-after-route',()=>operator(v=>leaderQueueReader.list(v,{})));
  // External intake.
  await step('intake.list',()=>operator(v=>externalIntakeReader.list(v,{})));
- const issue=(repo,n,at)=>({repository_id:repo,issue_number:n,external_updated_at:at});
+ const issue=(repo,n,at)=>({repository_id:repo,issue_number:n,external_updated_at:at,reason:'triaged by the 4.6 case'});
  await step('intake.stale',()=>operator(v=>externalIntakeReader.acknowledge(v,issue(o.repo,102,'2026-10-01T00:00:00Z'))));
  await step('intake.ack',()=>operator(v=>externalIntakeReader.acknowledge(v,issue(o.repo,102,'2026-10-02T10:00:00Z'))));
  await step('intake.ack-replay',()=>operator(v=>externalIntakeReader.acknowledge(v,issue(o.repo,102,'2026-10-02T10:00:00Z'))));

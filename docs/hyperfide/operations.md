@@ -327,6 +327,18 @@ python3 tests/hyperfide/check-evidence.py --campaign /tmp/hyperfide/docs-compone
 
 This selects the registered task-component inventory. It does not replace a full-case campaign. A completed receipt chain whose authentication is described as unanchored-consistency-only proves internal consistency; authoritative admission still requires trusted execution custody and the exact current gate.
 
+### Finding readers
+
+Three sets of control actions let a person or the leader work what is waiting on findings. Each set lists, acknowledges and routes. Every verb needs the action in the credential's grant and the operator, coordinator or current programme leader role (`admin` in findings/registry.ts); any other role is refused with `AUTH_DENIED`. The list actions are read-only.
+
+| Reader | List | Acknowledge | Route |
+| --- | --- | --- | --- |
+| Leader queue | `finding.leader-queue.list` | `finding.leader-queue.acknowledge` (records who has seen a queued route) | `finding.leader-queue.route` (explicit assignment with a reason) |
+| External intake | `finding.intake.list` | `finding.intake.dismiss` (needs `reason`) | `finding.intake.link` (needs `reason`, links the issue to its canonical finding) |
+| Escalated repairs | `finding.repair.escalation.list` | `finding.repair.escalation.acknowledge` (makes sure the decision Ask exists) | `finding.repair.escalation.route` (reassigns the finding with a reason) |
+
+Dismissing or linking an external issue records `triaged_by`, `triage_reason` and `triaged_at` on `finding_external_intake` (migration 0714). The database refuses an unattributed move out of triage and any later rewrite of the attribution. A repair that escalates raises a decision Ask through the shared Ask channel (`deliverAsk` in policy/human_interface.ts), so it needs the run's `operator:asks` consumer and `HF_FINDING_ESCALATION_ASK_SECONDS`.
+
 ### Evidence in the artifact store
 
 The S3 artifact store (services/hyperfide/src/artifacts/objects.ts, backend s3-v1) is the authority for task evidence. artifacts/hyperfide/tasks/<id> is a local cache and is gitignored.

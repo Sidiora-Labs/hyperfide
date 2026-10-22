@@ -1,4 +1,4 @@
-import type {Component,ComponentContext} from '../components/registry.js';
+import type {Action,Component,ComponentContext} from '../components/registry.js';
 import {admin,decimal,digest,emit,fail,fields,finding,manager,record,text,uuid,withFindingTransaction} from './registry.js';
 import type {FindingTransaction} from './registry.js';
 
@@ -107,9 +107,22 @@ async function leaderQueueAcknowledge(value:FindingTransaction,input:unknown):Pr
  return {acknowledged:true,route_id:routeId,generation,acknowledged_by:value.principal.actor_id,replayed:false};
 }
 export const leaderQueueReader:FindingReader=Object.freeze({list:leaderQueueList,acknowledge:leaderQueueAcknowledge,route:assignFinding});
+/** Registered action names of the three readers (manifests 18.2 to 18.4, control policy, registry read-only list, operations docs). */
+export const READER_ACTIONS=Object.freeze({
+ leaderQueue:Object.freeze({list:'finding.leader-queue.list',acknowledge:'finding.leader-queue.acknowledge',route:'finding.leader-queue.route'}),
+ intake:Object.freeze({list:'finding.intake.list',acknowledge:'finding.intake.dismiss',route:'finding.intake.link'}),
+ escalation:Object.freeze({list:'finding.repair.escalation.list',acknowledge:'finding.repair.escalation.acknowledge',route:'finding.repair.escalation.route'})
+});
+/** Exposes a reader as component actions; each verb keeps the reader's own authority check inside the finding transaction. */
+export function readerActions(names:{list:string;acknowledge:string;route:string},reader:FindingReader):Record<string,Action>{
+ return {[names.list]:(input,context)=>withFindingTransaction(context,names.list,value=>reader.list(value,input)),
+  [names.acknowledge]:(input,context)=>withFindingTransaction(context,names.acknowledge,value=>reader.acknowledge(value,input)),
+  [names.route]:(input,context)=>withFindingTransaction(context,names.route,value=>reader.route(value,input))};
+}
 export function createComponent(_context:ComponentContext):Component{return {apiVersion:1,actions:{
  'finding.route':(input,context)=>withFindingTransaction(context,'finding.route',value=>route(value,input)),
  'finding.route.assign':(input,context)=>withFindingTransaction(context,'finding.route.assign',value=>route(value,input,true)),
  'finding.route.acknowledge':(input,context)=>withFindingTransaction(context,'finding.route.acknowledge',value=>acknowledge(value,input)),
- 'finding.route.collaborator.acknowledge':(input,context)=>withFindingTransaction(context,'finding.route.collaborator.acknowledge',value=>acknowledge(value,input,true))
+ 'finding.route.collaborator.acknowledge':(input,context)=>withFindingTransaction(context,'finding.route.collaborator.acknowledge',value=>acknowledge(value,input,true)),
+ ...readerActions(READER_ACTIONS.leaderQueue,leaderQueueReader)
 }};}
