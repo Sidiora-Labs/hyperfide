@@ -971,7 +971,7 @@ owner = "console"
 
 [task.5.3]
 title = "Console verbs in cg"
-status = "implemented"
+status = "done"
 wave = 5
 requires = ["5.1", "5.2"]
 touches = ["src/hyperfide/client.c", "src/hyperfide/client.h", "src/main.c", "src/help.c", "README.md", "tests/fixtures/route_contract/server_only.txt", "tests/integration/98_console_verbs.sh"]
