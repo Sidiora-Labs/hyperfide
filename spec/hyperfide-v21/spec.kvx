@@ -140,10 +140,10 @@ owner = "workflow"
 
 [task.1.4]
 title = "Rebuild the service dist and refuse stale builds"
-status = "in_progress"
+status = "done"
 wave = 1
 requires = []
-touches = ["services/hyperfide/dist", "scripts/release.sh", "deploy/hyperfide/install-service.mjs", "tests/hyperfide/cases/v21/1_4.py"]
+touches = ["scripts/release.sh", "deploy/hyperfide/install-service.mjs", "tests/hyperfide/cases/v21/1_4.py", "services/hyperfide/package.json", "deploy/hyperfide/dist-stamp.mjs"]
 verify_cmd = "npm --prefix services/hyperfide run build && python3 tests/hyperfide/cases/v21/1_4.py"
 do_1 = "Rebuild dist from the current source so recovery/bootstrap_fence.js exists; add a stale-dist check (source digest recorded at build, compared at install and release) that fails install-service and release.sh when dist is older than src."
 do_2 = "1_4.py builds, tampers a source file, and asserts the check refuses."
