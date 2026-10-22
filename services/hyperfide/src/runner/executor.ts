@@ -14,7 +14,7 @@ import type {InvocationContext,Principal} from '../transport/protocol.js';
 import {isArtifactStoreCapability} from '../artifacts/objects.js';
 import type {ArtifactStoreCapability} from '../artifacts/objects.js';
 import type {BoundProviderRequest,CapturedProviderOutput} from '../providers/reconcile.js';
-import {readRunnerBinding,readRunnerPreparationBinding,readRunnerReadiness,runnerCanonical,runnerResultSigningBytes} from './bridge.js';
+import {readRunnerBinding,readRunnerPreparationBinding,readRunnerReadiness,runnerCanonical,runnerResultSigningBytes,taskEnvReferences} from './bridge.js';
 import type {RunnerRemotePlan} from './bridge.js';
 import {readJobAllocation} from '../scheduler/claim.js';
 import {lookupNativeLaunch} from '../events/outbox.js';
@@ -84,33 +84,9 @@ async function authenticate(authority:IdentityAuthority,signer:Signer,run:string
  if(invocation.principal.role!=='PROVISIONER'||invocation.principal.credential_id!==signer.credential_id||invocation.principal.run_id!==run||invocation.principal.deployment_epoch!==epoch||!same(invocation.payload.input,input))fail('RUNNER_EXECUTOR_IDENTITY_MISMATCH','Authenticated service identity or exact request differs');
  return invocation;
 }
-// Task 2.8: a launch carries the secret references its task packet declares,
-// as NAME -> 'secret-ref:ID'. Every ID must be listed by the pool's environment
-// profile, which is an allowlist and names no variables itself. Only references
-// cross this boundary; the provider resolves values into the native process.
-const ENV_NAME=/^[A-Za-z_][A-Za-z0-9_]{0,127}$/,SECRET_REF=/^secret-ref:[A-Za-z0-9][A-Za-z0-9._:/-]{0,239}$/;
-// Mirrors env_name_ok in src/hyperfide/launch.c; the two must reject the same names.
-const RESERVED_ENV=new Set(['PATH','HOME','TMPDIR','CODEX_HOME','CLAUDE_CONFIG_DIR','SSL_CERT_FILE','NODE_EXTRA_CA_CERTS']);
-export function declaredEnvReferences(declared:unknown,profile:readonly string[]|null):Readonly<Record<string,string>>{
- if(declared===undefined)return Object.freeze({});
- if(!object(declared)||Object.keys(declared).length>128)fail('RUNNER_SECRET_REFERENCE_INVALID','Bounded NAME to secret reference map required');
- const out:Record<string,string>={};
- for(const name of Object.keys(declared).sort()){const ref=declared[name];
-  if(!ENV_NAME.test(name)||RESERVED_ENV.has(name)||/^(HF_|LD_|DYLD_)/.test(name)||typeof ref!=='string'||!SECRET_REF.test(ref))fail('RUNNER_SECRET_REFERENCE_INVALID','Valid variable name and secret reference required: '+name);
-  if(!profile)fail('RUNNER_SECRET_PROFILE_UNAVAILABLE','Secret references require the pool environment profile');
-  if(!profile.includes(ref.slice('secret-ref:'.length)))fail('RUNNER_SECRET_REFERENCE_UNDECLARED','Environment profile does not declare the reference for '+name);
-  out[name]=ref;}
- return Object.freeze(out);
-}
-export async function profileCredentialReferences(tx:Pick<PrimaryTransaction,'query'>,organisation_id:string,pool_id:string):Promise<string[]|null>{
- const row=(await tx.query('SELECT e.manifest FROM hyperfide.provider_pools p JOIN hyperfide.environment_profiles e ON e.organisation_id=p.organisation_id AND e.id=p.profile_id WHERE p.organisation_id=$1 AND p.id=$2 FOR SHARE OF p,e',[organisation_id,pool_id])).rows[0];
- const refs=object(row)&&object(row.manifest)&&object(row.manifest.profile)?row.manifest.profile.credential_references:undefined;
- return Array.isArray(refs)&&refs.every(r=>typeof r==='string')?refs as string[]:null;
-}
-/** Declared references for one pool; the profile is read only when something is declared. */
-export async function taskEnvReferences(tx:Pick<PrimaryTransaction,'query'>,organisation_id:string,pool_id:string,declared:unknown):Promise<Readonly<Record<string,string>>>{
- return declaredEnvReferences(declared,declared===undefined?null:await profileCredentialReferences(tx,organisation_id,pool_id));
-}
+// Task 2.8/2.17: the reference checks live beside admission in bridge.ts; the
+// executor re-checks the admitted packet's env_refs against the current profile.
+export {declaredEnvReferences,profileCredentialReferences,taskEnvReferences} from './bridge.js';
 function boundRequest(binding:Record<string,any>,operation_id:string,argv:string[],timeout_ms:number,env_refs:Readonly<Record<string,string>>={}):BoundProviderRequest{
  if(!digest(binding.boot_preparation_digest))fail('RUNNER_BOOT_SEED_UNPINNED','Actual registered sandbox boot preparation identity required');
  return {binding:{organisation_id:binding.organisation_id,run_id:binding.run_id,session_id:binding.session_id,pool_id:binding.pool_id,sandbox_id:binding.sandbox_id,external_sandbox_id:binding.external_sandbox_id,boot_generation:String(binding.boot_generation),preparation_digest:binding.boot_preparation_digest},operation_id,argv,cwd:binding.workspace_path,env_refs:{...env_refs},timeout_ms};

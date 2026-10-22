@@ -475,7 +475,7 @@ owner = "providers"
 
 [task.2.17]
 title = "Admission writes env_refs into the runner packet"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["2.8"]
 touches = ["services/hyperfide/src/runner/bridge.ts", "services/hyperfide/src/runner/executor.ts", "tests/hyperfide/cases/v21/2_17.py"]
