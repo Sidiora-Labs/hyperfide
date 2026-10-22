@@ -272,6 +272,8 @@ def main():
  if sys.argv[1:] and sys.argv[1:]!=["--cleanup"]:raise SystemExit("unsupported argument")
  if "--cleanup" in sys.argv:return 0 if cleanup(True) else 1
  os.environ["HYPERFIDE_DRAIN_TIMEOUT_MS"]=str(DRAIN_MS)
+ # These cases drive reconcile and finalize directly; the 2.4 background stop driver would race them.
+ os.environ["HYPERFIDE_STOP_DRIVER_INTERVAL_MS"]="0"
  fixture=None
  try:
   fencing_tests()

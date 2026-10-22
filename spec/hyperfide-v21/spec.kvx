@@ -301,10 +301,10 @@ owner = "providers"
 
 [task.2.4]
 title = "Fleet-wide stop with its own driver loop"
-status = "done"
+status = "implemented"
 wave = 2
 requires = []
-touches = ["services/hyperfide/src/recovery/stop.ts", "tests/hyperfide/cases/v21/2_4.py"]
+touches = ["services/hyperfide/src/recovery/stop.ts", "tests/hyperfide/cases/v21/2_4.py", "tests/hyperfide/cases/tasks/24_3.py", "docs/hyperfide/operations.md", "deploy/hyperfide/env/control.env.example"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_4.py"
 do_1 = "Stop runs a driver loop instead of waiting for reconcile calls; add POOL, ORGANISATION and DEPLOYMENT scopes; paginate the debt inventory past 1,000."
 do_2 = "2_4.py stops 1,500 synthetic debts across two pools and asserts every one reaches a terminal disposition without an external reconcile."
