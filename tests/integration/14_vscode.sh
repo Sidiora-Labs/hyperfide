@@ -2284,6 +2284,178 @@ JS
     [ $? -eq 0 ] || fail "fleet projection"
 fi
 
+# ---- ACP terminal bridge, authenticate and MCP environment (hyperfide-v21
+# 6.9): the real AcpClient against a fake agent that demands sign-in and
+# drives terminal/*; secret references resolve into the adapter's
+# environment only. Every value here is a throwaway that is clearly fake.
+if want acpbridge; then
+    mkdir -p "$TMP/ab/ws/src" "$TMP/ab/outside"
+    printf 'one\ntwo\nthree\nfour\n' > "$TMP/ab/ws/src/sel.txt"
+    node - "$EXT" "$EXT/../../tests/fixtures/acp/bridge-agent.js" "$TMP/ab" <<'JS'
+const [ext, agentPath, dir] = process.argv.slice(2);
+const fs = require('fs');
+const path = require('path');
+const acp = require(path.join(ext, 'acp.js'));
+const { AcpClient, TerminalBridge, resolveEnvRefs, mcpEnvironment,
+    chooseAuthMethod, requestWithAuth, selectionBlock, promptBlocks } = acp;
+const pkg = JSON.parse(fs.readFileSync(path.join(ext, 'package.json'), 'utf8'));
+const src = fs.readFileSync(path.join(ext, 'acp.js'), 'utf8');
+const ws = path.join(dir, 'ws');
+const FAKE = 'fake-token-not-a-secret-6.9';
+let n = 0;
+function check(ok, what) { if (!ok) throw new Error('acpbridge: ' + what); n++; }
+
+(async () => {
+    // --- secret references (D17): only refs in settings, values via lookup
+    const looked = [];
+    const r = await resolveEnvRefs({ FAKE_ACP_TOKEN: 'secret-ref:test/fake-token' },
+        async (id, name) => { looked.push(`${id}:${name}`); return FAKE; });
+    check(r.env.FAKE_ACP_TOKEN === FAKE && r.missing.length === 0, 'ref resolves');
+    check(looked.join() === 'test/fake-token:FAKE_ACP_TOKEN', 'lookup by reference id');
+    let refused = '';
+    try { await resolveEnvRefs({ LEAK: 'fake-literal-value-xyz' }, async () => 'x'); }
+    catch (e) { refused = e.message; }
+    check(/must be a secret-ref:ID reference/.test(refused), 'a literal value is refused: ' + refused);
+    check(!/fake-literal-value-xyz/.test(refused), 'the refusal never echoes the value');
+    try { await resolveEnvRefs({ 'bad-name': 'secret-ref:x' }, async () => 'x'); refused = ''; }
+    catch (e) { refused = e.message; }
+    check(/invalid variable name/.test(refused), 'a bad variable name is refused');
+    const miss = await resolveEnvRefs({ GONE: 'secret-ref:nowhere' }, async () => undefined);
+    check(miss.missing.join() === 'GONE (secret-ref:nowhere)' && !('GONE' in miss.env), 'a missing value is named by reference');
+
+    // --- the injected MCP server's environment: exactly the configured names
+    const m = mcpEnvironment(['FAKE_ACP_TOKEN', 'HF_FAKE_HOST', 'NOPE', 'bad-name', 'HF_FAKE_HOST'],
+        r.env, { HF_FAKE_HOST: 'fake.example.invalid', OTHER: 'never-passed' });
+    check(JSON.stringify(m.env) === JSON.stringify([
+        { name: 'FAKE_ACP_TOKEN', value: FAKE }, { name: 'HF_FAKE_HOST', value: 'fake.example.invalid' }]),
+        'mcp env: ref first, then host, deduplicated: ' + JSON.stringify(m.env));
+    check(m.omitted.join() === 'NOPE', 'unset names are reported, not invented');
+    check(JSON.stringify(mcpEnvironment(undefined, {}, process.env).env) === '[]', 'nothing passes implicitly');
+    // the panel's own mcpServers(sess), run from its source like the binary test
+    const fnSrc = src.match(/function mcpServers\(sess\) \{[\s\S]*?\n\}/);
+    check(fnSrc, 'mcpServers(sess) is in acp.js');
+    const box = { deps: { binary: () => '/bin/fake-cg' } };
+    require('vm').createContext(box);
+    require('vm').runInContext(fnSrc[0], box);
+    const srv = box.mcpServers({ mcpEnv: m.env })[0];
+    check(srv.name === 'codify' && srv.command === '/bin/fake-cg' && srv.args[0] === 'mcp' &&
+        srv.env === m.env, 'the codify server carries the session env');
+    check(JSON.stringify(box.mcpServers(undefined)[0].env) === '[]', 'no session, no env');
+
+    // --- auth method choice
+    const methods = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }];
+    check(chooseAuthMethod(methods, 'b').id === 'b', 'the configured method wins');
+    check(chooseAuthMethod(methods, '') === null, 'two methods and no setting: ask');
+    check(chooseAuthMethod(methods, 'zzz') === null, 'a configured method the agent lacks: ask');
+    check(chooseAuthMethod([methods[0]], '').id === 'a', 'the only method is used');
+
+    // --- selection context
+    const sel = { path: path.join(ws, 'src/sel.txt'), text: 'two\nthree\n', startLine: 2, endLine: 3 };
+    const emb = selectionBlock(sel, ws, { embeddedContext: true });
+    check(emb.type === 'resource' && /\/src\/sel\.txt#L2-L3$/.test(emb.resource.uri) &&
+        emb.resource.text === 'two\nthree\n', 'embedded selection: ' + JSON.stringify(emb));
+    const link = selectionBlock(sel, ws, {});
+    check(link.type === 'resource_link' && link.name === 'src/sel.txt:2-3' &&
+        /^file:\/\//.test(link.uri), 'a link without embedded context: ' + JSON.stringify(link));
+    check(selectionBlock({ path: path.join(dir, 'outside/x.txt'), text: 'x', startLine: 1 }, ws, {}) === null,
+        'a selection outside the workspace is never sent');
+    check(promptBlocks('hi', null).length === 1 && promptBlocks('hi', emb)[1] === emb, 'prompt blocks');
+
+    // --- the live protocol: auth_required -> authenticate -> retry, then terminals
+    const logFile = path.join(dir, 'agent.jsonl');
+    const env = Object.assign({ BRIDGE_ACP_LOG: logFile, BRIDGE_ACP_OUTSIDE: path.join(dir, 'outside') }, r.env);
+    const bridge = new TerminalBridge(ws);
+    const chunks = [];
+    const connect = (extraEnv, terminal) => new AcpClient({
+        command: process.execPath, args: [agentPath], cwd: ws, env: extraEnv, terminal,
+        onNotify: (mm, p) => { if (p && p.update && p.update.content) chunks.push(p.update.content.text); },
+        onRequest: (mm, p) => {
+            if (bridge.handles(mm)) return bridge.request(mm, p);
+            const e = new Error('unsupported'); e.code = -32601; throw e;
+        },
+    });
+
+    // negative: no credential in the adapter's environment
+    const bare = connect({ BRIDGE_ACP_LOG: logFile }, true);
+    delete process.env.FAKE_ACP_TOKEN;
+    await bare.initialize();
+    let err = '';
+    try {
+        await requestWithAuth(bare, 'session/new', { cwd: ws, mcpServers: [] },
+            async (ms) => chooseAuthMethod(ms, 'fake-key'), 10000);
+    } catch (e) { err = e.message; }
+    check(/Fake key needs FAKE_ACP_TOKEN: map it in codify\.acp\.envRefs/.test(err), 'missing credential named: ' + err);
+    // negative: the user declines to choose
+    err = '';
+    try {
+        await requestWithAuth(bare, 'session/new', { cwd: ws, mcpServers: [] }, async () => null, 10000);
+    } catch (e) { err = e.message; }
+    check(/sign-in not chosen; methods: Fake key, Fake browser/.test(err), 'declined sign-in fails loudly: ' + err);
+    bare.stop();
+
+    const client = connect(env, true);
+    await client.initialize();
+    check(client.agent.authMethods.length === 2, 'authMethods negotiated');
+    const res = await requestWithAuth(client, 'session/new',
+        { cwd: ws, mcpServers: box.mcpServers({ mcpEnv: m.env }) },
+        async (ms) => chooseAuthMethod(ms, 'fake-key'), 10000);
+    check(res.sessionId === 'bridge-1', 'session created after sign-in');
+    await client.request('session/prompt', { sessionId: res.sessionId,
+        prompt: promptBlocks('run the bridge', emb) }, 30000);
+    client.stop();
+
+    const rep = JSON.parse(chunks[chunks.length - 1]);
+    check(rep.terminalCap === true, 'terminal capability advertised');
+    check(rep.blocks.join() === 'text,resource' && rep.context.resource.text === 'two\nthree\n', 'the selection reached the agent');
+    check(rep.argv.exit.exitCode === 3 && rep.argv.exit.signal === null, 'exit status: ' + JSON.stringify(rep.argv.exit));
+    check(/bridge out/.test(rep.argv.output.output) && /bridge err/.test(rep.argv.output.output), 'stdout and stderr captured');
+    check(rep.argv.output.exitStatus.exitCode === 3 && rep.argv.output.truncated === false, 'output carries the exit');
+    check(rep.argv.released === 'ok' && rep.argv.afterRelease === -32602, 'release frees the terminal');
+    check(rep.shell.exit.exitCode === 0 && /v=from-agent/.test(rep.shell.output.output), 'shell line with agent env: ' + JSON.stringify(rep.shell));
+    const bo = rep.bounded.output;
+    check(bo.truncated === true && Buffer.byteLength(bo.output) <= 11 && /tail$/.test(bo.output) &&
+        bo.output.indexOf('�') < 0, 'bounded on a character boundary: ' + JSON.stringify(bo));
+    check(rep.killed.exit.signal === 'SIGTERM' && /started/.test(rep.killed.output.output), 'kill: ' + JSON.stringify(rep.killed));
+    check(rep.outside.error && rep.outside.error.code === -32602 && /outside workspace/.test(rep.outside.error.message), 'cwd outside the workspace refused');
+    check(rep.unknown.code === -32602 && rep.noCommand.code === -32602, 'unknown terminal and empty command refused');
+    check(bridge.terms.size === 0, 'no terminal left behind');
+
+    // releaseAll takes running terminals with the session
+    const b2 = new TerminalBridge(ws);
+    const { terminalId } = b2.create({ command: process.execPath, args: ['-e', 'setInterval(() => {}, 1000)'] });
+    const t = b2.terms.get(terminalId);
+    b2.releaseAll();
+    const st = await new Promise((resolve) => t.waiters.push(resolve));
+    check(st.signal === 'SIGTERM' && b2.terms.size === 0, 'releaseAll kills and forgets');
+
+    // the credential travelled only where configured: the MCP server env
+    const frames = fs.readFileSync(logFile, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    const auths = frames.filter((f) => f.method === 'authenticate');
+    check(auths.length === 1 && JSON.stringify(auths[0].params) === '{"methodId":"fake-key"}', 'authenticate carries only the method id');
+    for (const f of frames) {
+        const scrubbed = JSON.stringify(f.params, (k, v) => (k === 'mcpServers' ? undefined : v));
+        check(scrubbed.indexOf(FAKE) < 0, `${f.method} frame carries no credential`);
+    }
+    check(err.indexOf(FAKE) < 0, 'no error text carries the credential');
+
+    // --- the panel wiring uses the bridge, the refs and the auth retry
+    check(/terminal: !!this\.opts\.terminal/.test(src), 'initialize advertises the bridge');
+    check(/sess\.terminals\.handles\(method\)/.test(src) && /sess\.terminals\.releaseAll\(\)/.test(src), 'sessions route and release terminals');
+    check((src.match(/requestWithAuth\(sess\.client, 'session\/(new|load|resume)'/g) || []).length === 3, 'new, load and resume sign in');
+    check(!/mcpServers\(\)/.test(src), 'every injection passes the session env');
+    check(/takeSelection\(sess\)\)/.test(src) && /watchSelection\(ctx\)/.test(src), 'typed messages carry the selection');
+    check(/password: true/.test(src) && /SECRET_KEY_PREFIX/.test(src), 'secret values are asked masked and kept in secret storage');
+    const props = pkg.contributes.configuration.properties;
+    for (const k of ['codify.acp.envRefs', 'codify.acp.mcpEnv', 'codify.acp.authMethod', 'codify.acp.selectionContext']) {
+        check(props[k], `${k} is a setting`);
+    }
+    check(props['codify.acp.envRefs'].additionalProperties.pattern === '^secret-ref:[A-Za-z0-9._/-]+$', 'envRefs holds references only');
+    console.log(`acpbridge ok (${n} checks)`);
+})().catch((e) => { console.error(e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "acp terminal bridge, authenticate and MCP environment"
+fi
+
 # ---- reconnect (hyperfide-v21 6.6): after a serve reconnect the snapshot
 #      replaces the native rows and the fleet view drops ghosts; agent names
 #      are unique per window and machine and a second window cannot take
