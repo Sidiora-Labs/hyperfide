@@ -656,6 +656,19 @@ do_2 = "3_13.py proves a tampered cache is refused, a removed dist file makes th
 do_3 = "80_qualification_inputs.sh asserts both directories are tracked with the expected counts, that no verify_cmd in spec/hyperfide/spec.kvx names an untracked file, and that each evidence ref resolves."
 reqs = ["1.1"]
 owner = "qualification"
+
+[task.3.15]
+title = "Launch references have a producer"
+status = "implemented"
+wave = 3
+requires = ["3.10", "2.17"]
+touches = ["services/hyperfide/src/agents/dispatch.ts", "services/hyperfide/src/agents/env_refs.ts", "services/hyperfide/src/agents/admission.ts", "services/hyperfide/migrations/0713-launch-plan-env-refs.sql", "src/hyperfide/launch.c", "tests/hyperfide/cases/v21/3_15.py", "services/hyperfide/src/policy/human_interface.ts", "spec/hyperfide-v21/spec.kvx"]
+verify_cmd = "npm --prefix services/hyperfide run check && make -j2 cg && python3 tests/hyperfide/cases/v21/3_15.py"
+do_1 = "An agent launch's declared secret references live on the admission selection: the pool profile's task declaration (taskEnvReferences) is copied into hyperfide.native_launch_plans (new env_refs column, migration 0713) by the admission path that creates the plan, through a helper in agents/env_refs.ts called once from admission.ts, and agents/dispatch.ts launchPlan() returns them, so every coordinator-issued START carries env_refs without a hand-built request; under launch.serve, launch.c resolves references per START from the provider-resolved environment of the exec that started the serve process, re-read at each START, and refuses a START whose references it cannot resolve with a named error instead of launching without them."
+do_2 = "3_15.py proves a plan created from a pool profile with declared references stores them, launchPlan() returns them, the START carries exactly the declared names and never a value, a serve-mode launch resolves them per START, and a START naming an undeclared reference is refused."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.5"]
+owner = "runner"
 [task.4.1]
 title = "Classifier writes Asks"
 status = "implemented"
