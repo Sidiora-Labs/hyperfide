@@ -7,6 +7,7 @@ typedef enum {
 } HfDecisionPurpose;
 typedef enum {HF_DECISION_SUBMIT=1,HF_DECISION_RESULT} HfDecisionPhase;
 int hf_client_dispatch(int argc,char **argv,FILE *output,FILE *error);
+extern int hf_client_json_output; /* set by main from the global --json flag */
 int hf_client_authority_mode(void);
 int hf_client_decision_invoke(HfDecisionPurpose purpose,HfDecisionPhase phase,
  const char *input_json,const char *operation_id,const char *idempotency_key,
