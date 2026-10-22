@@ -435,7 +435,7 @@ owner = "source"
 
 [task.2.14]
 title = "CI runs the credential-store registrations and gates live provider cases on secrets"
-status = "implemented"
+status = "done"
 wave = 2
 requires = ["1.7"]
 touches = [".github/workflows/ci.yml", "tests/integration/82_ci_matrix.sh", "tests/hyperfide/ci"]
