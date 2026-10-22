@@ -741,8 +741,8 @@
     },
     {
       "path": "tests/hyperfide/proof_relocation.py",
-      "sha256": "dc5d5e1c96bcd792a69460bbe3f4d6045c467e7b347a835117a6a6ec9513a97c",
-      "size": 10796
+      "sha256": "c1c5a43f3dd096c3382fb30c7d8e739ea2241b896787ec371a0ab81b5acfb00c",
+      "size": 10925
     },
     {
       "path": "tests/hyperfide/qualify.py",
@@ -771,8 +771,8 @@
     },
     {
       "path": "tests/hyperfide/test_inspect_proof.py",
-      "sha256": "d919fc37821cf8917d55acab003a04d0e461ec7f9b91e82085a41809b1b6c511",
-      "size": 16297
+      "sha256": "e1ee4c2bda5404353786063a8e53077bccad67367eee2735b39cccf3e616f6a5",
+      "size": 18197
     },
     {
       "path": "tests/hyperfide/test_required_artifact_receipts.py",

@@ -58,8 +58,8 @@
   "inputs": [
     {
       "path": "deploy/hyperfide/install-service.mjs",
-      "sha256": "59afb4c56e4c3ee95903334531a37cec062fb6fe97956aab24dd3f37201358dc",
-      "size": 11299
+      "sha256": "a24283ddaa8747dcafde3b7911aa1e053795db2b5042d2a55b3c4068e000ca46",
+      "size": 11720
     },
     {
       "path": "deploy/hyperfide/migrate.mjs",
@@ -528,8 +528,8 @@
     },
     {
       "path": "services/hyperfide/package.json",
-      "sha256": "51c686f08fdfa47386af869cd6cdb63f1d2553f99366741239ded92dfe0d4398",
-      "size": 766
+      "sha256": "d6aaa8003808b48fe83699bf01c9d0f1d02474e777fcc1220c9c7cb388049c1e",
+      "size": 820
     },
     {
       "path": "services/hyperfide/src/components/registry.ts",
@@ -623,8 +623,8 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/29_1.py",
-      "sha256": "12610263c9a598f1237cbfa545fb4a841f02eb4bbeb28d33375d046e0d7cfe31",
-      "size": 21848
+      "sha256": "fbad96e3aa59e4fbb1421ceec0e43bfa48aca9d8b9f7feee0fbfae3029bf5cd0",
+      "size": 22155
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",

@@ -49,12 +49,16 @@ def required_actions():
                            declaration('src/policy/programme.ts', r'const bootAction = \{([^}]*)\}\[role\]')))
     worker = re.findall(r"'([^']+)'", declaration(
         'src/events/dispatcher.ts', r'const required=\[(.*?)\.\.\.config\.routes\.map\(r=>r\.action\)\];'))
-    if sorted(boot) != sorted(ROLES) or not worker:
-        raise AssertionError('boot or dispatcher worker actions could not be derived')
+    # The release migration job admits authority activation and adoption against the shipped control policy.
+    job = re.search(r"assertAdmission\(approved,'control',action==='--activate-authority'\?'([^']+)':'([^']+)'\)",
+                    (ROOT / 'deploy/hyperfide/migrate.mjs').read_text())
+    if sorted(boot) != sorted(ROLES) or not worker or not job:
+        raise AssertionError('boot, dispatcher worker or migration job actions could not be derived')
 
     def registered(role):
         return {action for fragment in fragments if role in fragment['roles'] for action in fragment['actions']}
     actions = {role: registered(role) | {boot[role]} for role in ROLES}
+    actions['control'] |= set(job.groups())
     # Operator routes invoke their action on control_origin, so every control action is a route candidate.
     actions['dispatch'] |= set(worker) | registered('control')
     return {role: sorted(items) for role, items in actions.items()}
@@ -169,7 +173,10 @@ def postgres_bin():
     configured = os.environ.get('HYPERFIDE_PG_BIN')
     if configured:
         return Path(configured)
-    installed = sorted(Path('/usr/lib/postgresql').glob('*/bin'), key=lambda path: int(path.parent.name))
+    # A client-only package installs bin/ without the server; only a directory with initdb can own a cluster.
+    installed = sorted((path for path in Path('/usr/lib/postgresql').glob('*/bin')
+                        if path.parent.name.isdigit() and (path / 'initdb').is_file()),
+                       key=lambda path: int(path.parent.name))
     if not installed:
         raise AssertionError('no PostgreSQL server binaries; set HYPERFIDE_PG_BIN')
     return installed[-1]
@@ -188,7 +195,9 @@ class Cluster:
         self.process = None
         self.server('initdb', '-D', self.data, '-U', SUPERUSER, '--auth=trust', '--no-locale', '--encoding=UTF8')
         with (self.data / 'postgresql.conf').open('a') as conf:
-            conf.write("\nlisten_addresses=''\nunix_socket_directories='" + str(self.root) + "'\n")
+            # Discarded after the run, so crash durability buys nothing; fsync stalls on a loaded host only skew deadlines.
+            conf.write("\nlisten_addresses=''\nunix_socket_directories='" + str(self.root) + "'\n"
+                       "fsync=off\nsynchronous_commit=off\n")
         # Keep the postmaster a direct child so stopping it leaves no reparented descendant behind.
         with (self.root / 'server.log').open('ab') as log:
             self.process = subprocess.Popen(['runuser', '-u', 'postgres', '--', str(self.bin / 'postgres'), '-D', str(self.data)],

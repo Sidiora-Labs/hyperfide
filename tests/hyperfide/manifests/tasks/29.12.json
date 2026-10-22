@@ -140,13 +140,13 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/29_12.py",
-      "sha256": "5fc07eebe6278401f8fb86ced3127caa7f3b6bec842edbaee8226916c0c50b56",
-      "size": 26911
+      "sha256": "f4429bb316549e3789c10c369383489a3198ef763c77031a12121cc41ffd0bce",
+      "size": 27216
     },
     {
       "path": "tests/hyperfide/cases/tasks/29_11.py",
-      "sha256": "e23bfe89a212283dcc4406595e90219648221d5c956eb11733869bac2ccd544a",
-      "size": 20832
+      "sha256": "4cdd9ceb3fcdd8453b7db8d8feac7ce2fd5cbc5966430c17f7785372245189f5",
+      "size": 21137
     },
     {
       "path": "tests/hyperfide/cases/tasks/29_3.py",

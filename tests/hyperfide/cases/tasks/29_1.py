@@ -3,6 +3,9 @@
 import importlib.util,json,os,select,shutil,signal,socket,subprocess,tempfile,time,uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
+# The migration job's authority grants come from the shipped control policy, never from the test; a policy that
+# drops them must make the activation and adoption probes fail.
+SHIPPED_AUTHORITY=[a for a in json.loads((ROOT/'deploy/hyperfide/policies/control.example.json').read_text())['allowed_actions'] if a.startswith('storage.authority.')]
 spec=importlib.util.spec_from_file_location('identity29',ROOT/'tests/hyperfide/support/identity_fixture.py')
 identity=importlib.util.module_from_spec(spec);spec.loader.exec_module(identity)
 IDS=['component-wired','bootstrap','replay','single-epoch','second-bootstrap','revoked-bootstrap','fixture-refused','unbranded-refused','expiry-bound','expired-refused','control-adopts','provisioner-adopts','dispatch-adopts','pending-refused','tamper-refused','proof-refused','owner-private','hardlink-refused','stored-active','stored-inactive','read-error','tooling-store-read','cli-activation','cli-adoption','cli-active','cli-inactive','cli-read-error','followers-no-mint','fixture-fencer-refused','control-refuses-before-adoption','provisioner-refuses-before-adoption','dispatch-refuses-before-adoption','control-starts','provisioner-starts','dispatch-starts']
@@ -87,7 +90,7 @@ def main():
   processes.append({'argv':p.args,'exit_code':p.returncode,'stdout':p.stdout,'stderr':p.stderr})
   (base/'authority-processes.json').write_text(json.dumps(processes,indent=2)+'\n')
  try:
-  f=identity.IdentityFixture(extra_actions=['storage.durability.inspect','storage.migrations.inspect','storage.authority.activate','storage.authority.adopt'])
+  f=identity.IdentityFixture(extra_actions=['storage.durability.inspect','storage.migrations.inspect']+SHIPPED_AUTHORITY)
   status,response=f.invoke('storage.durability.inspect',{},component='4.4');observed['component-wired']=status==200 and response.get('ok') is True
   folder.chmod(0o755);shutil.copyfile(shutil.which('node'),folder/'node');(folder/'node').chmod(0o755);(folder/'leader').mkdir(mode=0o700);(folder/'fences').mkdir(mode=0o700)
   driver=folder/'driver.mjs';driver.write_text(DRIVER.replace('FENCE',(ROOT/'services/hyperfide/dist/recovery/fencing.js').as_uri()).replace('CREDENTIALS',(ROOT/'services/hyperfide/dist/identity/credentials.js').as_uri()));driver.chmod(0o600)
