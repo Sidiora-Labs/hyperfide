@@ -9,6 +9,7 @@ import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError} from '../policy/programme.js';
 import {bindScope,primaryClient,isolatedPush,semanticDisposition,currentInvocation,obj,keys,scope,uuid,values,hash,canonical,fail,config,repository,git,tx,candidateReady,readCandidate,currentRun,reviewCoverage, type Scope,type IntegrationConfig} from './candidates.js';
 import {githubAdapter,type GitHubIntent,type HostedResult} from './github.js';
+import {validateWaveBarrier,waveBarrierDigest,evaluateWaveBarrier,type WaveBarrier} from './release_barrier.js';
 const exec=promisify(execFile);
 function hostedIntent(op:Record<string,any>,m:Record<string,any>):GitHubIntent{return {organisation_id:op.organisation_id,run_id:op.run_id,operation_id:op.id,operation_generation:String(op.operation_generation),repository_id:op.repository_id,target_ref:m.target_ref,expected_old_head:op.expected_old_head,candidate_head:op.candidate_head,candidate_digest:hash(canonical(m))};}
 async function hostedReceipt(db:import('./candidates.js').DB,s:Scope,id:string,result:HostedResult):Promise<void>{await db.query('INSERT INTO hyperfide.publication_hosted_receipts(organisation_id,run_id,id,operation_id,receipt_digest,receipt) VALUES($1,$2,$3,$4,$5,$6)',[...values(s),randomUUID(),id,hash(canonical(result)),result]);}
@@ -276,4 +277,124 @@ if(process.argv[2]==='--receive-hook'){
  const runtime='../storage/runtime.js';const ResourceContainer=(await import(runtime)).ResourceContainer;const resources=new ResourceContainer('control',env,new AbortController().signal);try{await receivePermit(null,key,process.env.GIT_PUSH_OPTION_0.slice(10),lines,await fs.realpath(process.cwd()),cfg,resources.gateway);}finally{await resources.close();}
  process.exit(0);
  }catch(error){const code=error instanceof FoundationError?error.code:'PUBLICATION_GATEWAY_ERROR';process.stderr.write('Hyperfide publication gateway rejected protected update: '+code+'\n');process.exit(1);}
+}
+
+// ==== Per-wave publication: the publishing side (hyperfide-v21 5.5, req 6.4) ========================
+// The watcher side of this file (4.9) reads the internal trunk; this section is the only path that
+// advances the protected target. A released wave barrier (release_barrier.ts) becomes one squashed
+// commit per task, in barrier order, each a cherry-pick of that task's trunk folds onto the target,
+// carrying the snapshot identities as trailers. The whole wave lands as ONE compare-and-swap ref
+// update, so a wave is never partly published. Commit dates are the barrier's release time, so a
+// rebuilt wave is byte-identical and a rerun replays instead of republishing. Hosted GitHub targets
+// are not written from here: the target must be a local protected repository (the managed receive
+// repository or a stand-in); its server-side hooks still run on the push.
+const PUBLISHER={GIT_AUTHOR_NAME:'Hyperfide Publisher',GIT_AUTHOR_EMAIL:'publisher@hyperfide.invalid',GIT_COMMITTER_NAME:'Hyperfide Publisher',GIT_COMMITTER_EMAIL:'publisher@hyperfide.invalid'};
+async function wgit(directory:string,args:string[],extra:Record<string,string>={},accept:number[]=[0]):Promise<{code:number;stdout:string}>{
+ try{
+  const r=await exec('git',['--no-replace-objects','-c','core.hooksPath=/dev/null','-c','gc.auto=0','-c','maintenance.auto=false',...args],{cwd:directory,encoding:'utf8',maxBuffer:16*1024*1024,timeout:120000,
+   env:{PATH:process.env.PATH,HOME:'/nonexistent',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_TERMINAL_PROMPT:'0',...extra}});
+  return {code:0,stdout:r.stdout};
+ }catch(error){
+  const e=error as {code?:unknown;stdout?:string;stderr?:string};
+  if(typeof e.code==='number'&&accept.includes(e.code))return {code:e.code,stdout:e.stdout??''};
+  return fail('PUBLICATION_WAVE_GIT_FAILED','git '+args[0]+' failed: '+String(e.stderr??e.code??'').slice(0,400));
+ }
+}
+function full(v:unknown):string{if(typeof v!=='string'||!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(v))fail('PUBLICATION_WAVE_GIT_FAILED','Full Git object ID expected');return v;}
+const wline=async(directory:string,args:string[]):Promise<string>=>(await wgit(directory,args)).stdout.trim();
+async function wref(directory:string,ref:string):Promise<string|null>{return (await wgit(directory,['rev-parse','--verify','--quiet',ref+'^{commit}'],{},[0,1,128])).stdout.trim()||null;}
+async function ancestor(directory:string,a:string,b:string):Promise<boolean>{return (await wgit(directory,['merge-base','--is-ancestor',a,b],{},[0,1])).code===0;}
+interface HistoryCommit {commit:string;time:number;trailers:Map<string,string[]>}
+/** First-parent history base..head, oldest first, with each commit's trailers. */
+async function history(directory:string,base:string,head:string):Promise<HistoryCommit[]>{
+ const out=(await wgit(directory,['log','--first-parent','--reverse','--format=%H%x1f%ct%x1f%(trailers:only,unfold)%x1e',base+'..'+head])).stdout;
+ return out.split('\x1e').map(x=>x.replace(/^\n/,'')).filter(Boolean).map(record=>{
+  const [commit,time,block]=record.split('\x1f');const trailers=new Map<string,string[]>();
+  for(const raw of (block??'').split('\n')){const m=/^([A-Za-z0-9-]+):\s*(.*)$/.exec(raw.trim());if(m)trailers.set(m[1]!,[...(trailers.get(m[1]!)??[]),m[2]!]);}
+  return {commit:full(commit),time:Number(time),trailers};
+ });
+}
+const first=(c:HistoryCommit,key:string):string|undefined=>c.trailers.get(key)?.[0];
+function publishedOn(commits:HistoryCommit[]):{commit:string;time:number;feature:string;wave:number;barrier_digest:string;task_key:string;snapshot_ids:string[]}[]{
+ return commits.filter(c=>first(c,'Hyperfide-Wave')!==undefined&&first(c,'Hyperfide-Barrier')!==undefined).map(c=>({commit:c.commit,time:c.time,feature:first(c,'Hyperfide-Feature')??'',wave:Number(first(c,'Hyperfide-Wave')),
+  barrier_digest:first(c,'Hyperfide-Barrier')!,task_key:first(c,'Hyperfide-Task-Key')??'',snapshot_ids:c.trailers.get('Hyperfide-Snapshot')??[]}));
+}
+async function localTarget(value:unknown):Promise<string>{
+ if(typeof value!=='string'||!path.isAbsolute(value))fail('PUBLICATION_WAVE_TARGET_UNSUPPORTED','Wave publication writes only a local protected repository by absolute path; hosted targets publish through the gateway adapter');
+ let real:string;try{real=await fs.realpath(value);}catch{return fail('PUBLICATION_WAVE_TARGET_UNKNOWN','Protected repository is absent');}
+ if(await wline(real,['rev-parse','--is-bare-repository'])!=='true')fail('PUBLICATION_WAVE_TARGET_UNSUPPORTED','The protected repository must be bare');
+ return real;
+}
+export interface WaveCommit {task_id:string;task_key:string;commit:string;tree:string;snapshot_ids:string[];trunk_commit:string}
+export interface WavePublicationReport {
+ state:'PUBLISHED'|'HELD';feature:string;wave:number;barrier_digest:string;target_ref:string;old_head:string;new_head:string;
+ reasons:string[];commits:WaveCommit[];pushed:boolean;replayed:boolean;
+}
+/** Snapshot identities the protected target carries, with the publication time of each. */
+export async function publishedSnapshots(originPath:string,targetRef:string,runBase:string):Promise<Map<string,{published_at:string;wave:number;feature:string;commit:string}>>{
+ const origin=await localTarget(originPath),head=await wref(origin,targetRef);if(!head)fail('PUBLICATION_WAVE_TARGET_UNKNOWN','Protected target ref is absent');
+ const found=new Map<string,{published_at:string;wave:number;feature:string;commit:string}>();
+ for(const p of publishedOn(await history(origin,full(runBase),head)))for(const s of p.snapshot_ids)found.set(s,{published_at:new Date(p.time*1000).toISOString(),wave:p.wave,feature:p.feature,commit:p.commit});
+ return found;
+}
+export async function publishWave(input:unknown,env:Readonly<NodeJS.ProcessEnv>=process.env):Promise<WavePublicationReport>{
+ const v=obj(input);keys(v,['repository_path','origin_path','barrier']);
+ if(env.HYPERFIDE_INTEGRATION_ROLE!=='PUBLICATION_GATEWAY')fail('PUBLICATION_ROLE_DENIED','Only the publication gateway advances the protected target; the integrator never pushes');
+ const b:WaveBarrier=validateWaveBarrier(v.barrier),digestOf=waveBarrierDigest(b);
+ if(typeof v.repository_path!=='string'||!path.isAbsolute(v.repository_path))fail('PUBLICATION_WAVE_INVALID','Absolute integrator repository path required');
+ const repo=v.repository_path,origin=await localTarget(v.origin_path);
+ const old=await wref(origin,b.target_ref);if(!old)fail('PUBLICATION_WAVE_TARGET_UNKNOWN','Protected target ref is absent');
+ // The target may have been advanced by an earlier wave; its objects are observed into the integrator store.
+ if(!await wref(repo,old))await wgit(repo,['fetch','--quiet','--no-tags',origin,'+'+b.target_ref+':refs/hyperfide/observed/'+b.feature]);
+ if(!await wref(repo,b.run_base)||!await ancestor(repo,b.run_base,old))fail('PUBLICATION_WAVE_TARGET_DIVERGED','The protected target does not descend from the run base');
+ const published=publishedOn(await history(repo,b.run_base,old));
+ const base={feature:b.feature,wave:b.wave,barrier_digest:digestOf,target_ref:b.target_ref,old_head:old};
+ const prior=published.filter(p=>p.barrier_digest===digestOf);
+ if(prior.length){
+  if(prior.length!==b.tasks.length||prior.some((p,i)=>p.task_key!==b.tasks[i]!.task_key))fail('PUBLICATION_WAVE_REPLAY_CONFLICT','The target carries this barrier in another shape');
+  const commits:WaveCommit[]=[];for(const [i,p] of prior.entries()){const t=b.tasks[i]!;commits.push({task_id:t.task_id,task_key:t.task_key,commit:p.commit,tree:await wline(repo,['rev-parse',p.commit+'^{tree}']),snapshot_ids:p.snapshot_ids,trunk_commit:''});}
+  return {...base,state:'PUBLISHED',new_head:old,reasons:[],commits,pushed:false,replayed:true};
+ }
+ const trunk=await wref(repo,b.trunk_ref);if(!trunk||!await ancestor(repo,b.run_base,trunk))fail('PUBLICATION_WAVE_TRUNK_UNKNOWN','The internal trunk is absent or does not descend from the run base');
+ const folds=(await history(repo,b.run_base,trunk)).flatMap(c=>{const s=first(c,'Hyperfide-Snapshot'),t=first(c,'Hyperfide-Task');return s&&t?[{commit:c.commit,snapshot_id:s,task_id:t}]:[];});
+ const verdict=evaluateWaveBarrier(b,{trunk_folds:folds,published});
+ if(verdict.state==='HELD')return {...base,state:'HELD',new_head:old,reasons:verdict.reasons,commits:[],pushed:false,replayed:false};
+ const order=new Map(folds.map((f,i)=>[f.snapshot_id,{...f,index:i}]));
+ const dated={...PUBLISHER,GIT_AUTHOR_DATE:b.release_time,GIT_COMMITTER_DATE:b.release_time};
+ let head=old;const commits:WaveCommit[]=[];
+ for(const t of b.tasks){
+  const own=t.snapshot_ids.map(s=>order.get(s)!).sort((x,y)=>x.index-y.index);let tree='',work=head;
+  for(const [i,f] of own.entries()){
+   // Cherry-pick of one fold: its own change (fold parent to fold) merged onto the publication head.
+   const merged=await wgit(repo,['merge-tree','--write-tree','--name-only','--no-messages','--merge-base='+f.commit+'^',work,f.commit],{},[0,1]);
+   const lines=merged.stdout.split('\n');tree=full(lines[0]);
+   if(merged.code===1)fail('PUBLICATION_WAVE_CONFLICT','Task '+t.task_key+' snapshot '+f.snapshot_id+' conflicts with the published target on '+lines.slice(1).filter(Boolean).join(', '));
+   // An unreferenced scaffold commit carries the partial squash into the next fold; it is never published.
+   if(i<own.length-1)work=await wline(repo,['commit-tree',tree,'-p',work,'-m','hyperfide: squash scaffold']);
+  }
+  const parent=head;
+  const message=b.feature+' '+t.task_key+': '+t.title+' [spec:'+b.feature+'/'+t.task_key+']\n\n'
+   +'Hyperfide-Feature: '+b.feature+'\nHyperfide-Wave: '+b.wave+'\nHyperfide-Task: '+t.task_id+'\nHyperfide-Task-Key: '+t.task_key+'\n'
+   +t.snapshot_ids.map(s=>'Hyperfide-Snapshot: '+s+'\n').join('')+'Hyperfide-Trunk: '+own.at(-1)!.commit+'\nHyperfide-Barrier: '+digestOf+'\n';
+  head=(await wgit(repo,['commit-tree',tree,'-p',parent,'-m',message],dated)).stdout.trim();
+  commits.push({task_id:t.task_id,task_key:t.task_key,commit:full(head),tree,snapshot_ids:t.snapshot_ids,trunk_commit:own.at(-1)!.commit});
+ }
+ // One compare-and-swap update for the whole wave; server-side hooks on the target still run.
+ let sent=true;
+ try{await isolatedPush(repo,['--porcelain','--atomic','--force-with-lease='+b.target_ref+':'+old,origin,head+':'+b.target_ref],env,'file');}catch{sent=false;}
+ const observed=await wref(origin,b.target_ref);
+ if(observed!==head){
+  if(!sent&&observed===old)fail('PUBLICATION_WAVE_REJECTED','The protected target refused the wave update; it still reads '+old);
+  fail('PUBLICATION_WAVE_OUTCOME_UNKNOWN','The protected target reads '+String(observed)+' after the wave update');
+ }
+ return {...base,state:'PUBLISHED',new_head:head,reasons:[],commits,pushed:true,replayed:false};
+}
+// Operator entry: node dist/integration/publication.js --publish-wave <request.json>; prints the report.
+// Exit 0 published or replayed, 3 held by the barrier, 1 refused (the code is printed).
+if(process.argv[2]==='--publish-wave'){
+ try{
+  const file=process.argv[3];if(!file)fail('PUBLICATION_WAVE_INVALID','Request file required');
+  const report=await publishWave(JSON.parse(await fs.readFile(file,'utf8')));
+  process.stdout.write(JSON.stringify({ok:true,result:report})+'\n');process.exit(report.state==='HELD'?3:0);
+ }catch(error){const code=error instanceof FoundationError?error.code:'PUBLICATION_WAVE_ERROR';process.stdout.write(JSON.stringify({ok:false,code,message:error instanceof Error?error.message:String(error)})+'\n');process.exit(1);}
 }

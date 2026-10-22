@@ -11,6 +11,9 @@
     "spec_revision": "replace-with-approved-spec-revision",
     "policy_revision": 1
   },
+  "publication": {
+    "snapshot_retention_days": 30
+  },
   "allowed_roles": [
     "control"
   ],
