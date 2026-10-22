@@ -634,7 +634,7 @@ owner = "recovery"
 
 [task.3.12]
 title = "Finding consumers are claimable and provider throttling backs off"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["2.6", "2.2"]
 touches = ["services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/events/outbox.ts", "services/hyperfide/src/events/dispatcher.ts", "services/hyperfide/src/providers/railway/reconciliation.ts", "services/hyperfide/src/providers/reconcile.ts", "tests/hyperfide/cases/v21/3_12.py"]
