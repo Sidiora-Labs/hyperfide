@@ -32,6 +32,7 @@ d_18 = "D18 Object store and CI live cases (tasks 2.11 and 2.14 Asks): missing_r
 d_19 = "D19 Worker runtime, decided 2026-10-22: task workers run as local worktree agents on the supervising host through wave 3; at the wave 4 closure (Asks raised from sandboxes, answers reaching the agent, native events leaving the sandbox) the control service is stood up on Railway against the existing PostgreSQL and wave 5 onward runs in Railway sandboxes, which is also the first end-to-end test of the running system (D9)."
 d_20 = "D20 Throughput, decided 2026-10-22 under the programme owner's instruction to parallelise: a task launches as soon as every task it requires is done on main, regardless of wave; wave closure (push and independent review) stays per wave; verified review findings become fix tasks in the current wave (3.10 to 3.13) instead of notes; the Railway control service and sandbox workers start as soon as 3.10, 4.2 and 4.4 are done rather than at the wave 4 closure (the D19 gate unchanged, the ceremony dropped)."
 d_21 = "D21 Sandbox worker runtime, decided 2026-10-22 by the programme owner: Railway sandbox workers run Codex (approvalPolicy never, the codify MCP server with the ask tools injected, 4.3); Claude Code remains the local worktree and editor connector; the runtime sentence of D19 reads accordingly."
+d_22 = "D22 Railway sandbox fleet now. A hand-built toolkit on the Railway sandbox SDK (4.10) stands the fleet up from the main working tree ahead of 4.2 and 4.4, on the base checkpoint of the earlier Paxeer fleet, running qualification jobs and Codex workers under D21; the 4.3 provider adopts the same checkpoint when it lands. Decided 2026-10-22 by the owner, who ordered one hundred sandboxes and every task in parallel."
 [req.1]
 title = "Reproducible qualification and one truthful workflow source"
 story = "As an engineer on the team of four, I need a fresh clone, CI and a remote worker to qualify the same way the main host does, and one workflow source that agents can read without contradiction."
@@ -915,6 +916,19 @@ do_2 = "4_9.py asserts a watcher observes an internal fold before any publicatio
 do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
 reqs = ["6.3"]
 owner = "source"
+
+[task.4.10]
+title = "Railway sandbox fleet toolkit"
+status = "pending"
+wave = 4
+requires = ["1.1", "1.2"]
+touches = ["deploy/hyperfide/sandbox/package.json", "deploy/hyperfide/sandbox/fleet.json", "deploy/hyperfide/sandbox/lib.mjs", "deploy/hyperfide/sandbox/provision.mjs", "deploy/hyperfide/sandbox/run-job.mjs", "deploy/hyperfide/sandbox/dispatch.mjs", "deploy/hyperfide/sandbox/collect.mjs", "deploy/hyperfide/sandbox/collect-all.mjs", "deploy/hyperfide/sandbox/gen-jobs.py", "deploy/hyperfide/sandbox/status.py", "deploy/hyperfide/sandbox/README.md", "deploy/hyperfide/sandbox/.gitignore", "tests/integration/96_sandbox_toolkit.sh", "docs/hyperfide/operations.md"]
+verify_cmd = "CG=$PWD/cg bash tests/integration/96_sandbox_toolkit.sh"
+do_1 = "A toolkit under deploy/hyperfide/sandbox drives Railway Sandboxes through the railway SDK from the main working tree, never GitHub: provision builds the base checkpoint for this repo (cg, the built service, PostgreSQL, Codex) on top of a named checkpoint and a pool of up to one hundred workers; gen-jobs builds qualify jobs (cg spec done -f hyperfide for the 7.x requalification) and Codex jobs (one v21 task each under D21: approval never, codify MCP with the ask tools, gateway key rotated per sandbox); dispatch runs jobs on free workers with a concurrency cap, stagger, one retry and 429 back-off; collect lands each result as a local sandbox/<id> branch plus its evidence archive, READY or NOT-QUALIFIED; status summarises the ledgers. Credentials come only from the HF_RAILWAY_API_TOKEN, HF_RAILWAY_ENV_ID, HF_GATEWAY_URL, HF_GATEWAY_KEYS and HF_GATEWAY_MODEL environment variables and are redacted from every log."
+do_2 = "96_sandbox_toolkit.sh proves provision, gen-jobs, dispatch of one qualify and one Codex job, collect and status against a stub SDK and a stub codex binary, SKIP 77 without node."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["4.10"]
+owner = "runner"
 
 [task.5.1]
 title = "Needs, Issues and Leaders read model"
