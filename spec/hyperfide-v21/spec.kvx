@@ -647,7 +647,7 @@ owner = "findings"
 
 [task.3.13]
 title = "Evidence cache, dist stamp, preflight and the 1.3 check"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["1.2", "1.3", "1.4", "1.6", "1.12"]
 touches = ["tests/hyperfide/evidence_store.py", "deploy/hyperfide/dist-stamp.mjs", "deploy/hyperfide/bootstrap-host.mjs", "spec/hyperfide-v21/spec.kvx", "tests/integration/14_vscode.sh", "tests/hyperfide/cases/v21/3_13.py", "docs/hyperfide/operations.md"]
