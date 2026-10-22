@@ -266,6 +266,9 @@ int hf_client_dispatch(int argc,char **argv,FILE *out,FILE *err){
  }
  int mode=hf_client_authority_mode();if(mode<0)return hf_client_error25(err,"AUTHORITY_MODE_INVALID","Authority configuration is invalid");
  if(!authority&&(mode==HF_LOCAL||mode==HF_OFFLINE_LOCAL)){int guard=hf_client_authority_guard_args("cli",argc,argv,err);return guard?guard:-1;}
+ /* status and state stay local in every mode: they report the built-in
+  * store as non-authoritative there (hyperfide-v21 3.9) and own nothing */
+ if(!strcmp(argv[1],"status")||!strcmp(argv[1],"state"))return -1;
  if(mode==HF_OFFLINE||mode==HF_OFFLINE_LOCAL)return hf_client_error25(err,"OFFLINE_AUTHORITY_UNAVAILABLE","Remote authority is unavailable while offline");
  if(!authority&&!strcmp(argv[1],"mcp")){if(argc!=2)return hf_client_error25(err,"INVALID_ARGS","Distributed MCP accepts no legacy options");return hf_client_mcp25(out,err);}
  const HfRoute25 *route=NULL;

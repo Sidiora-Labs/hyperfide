@@ -593,10 +593,10 @@ owner = "source"
 
 [task.3.9]
 title = "Built-in store: stat cache and non-authoritative mode"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = []
-touches = ["src/vcs.c", "src/cg.h", "tests/integration/89_vcs_statcache.sh"]
+touches = ["src/vcs.c", "src/cg.h", "tests/integration/89_vcs_statcache.sh", "src/hyperfide/client.c", "src/integrate.c", "src/spec.c", "src/help.c"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/89_vcs_statcache.sh"
 do_1 = "A stat cache keyed on path, size and mtime so a snapshot hashes only changed files; a non-authoritative flag in distributed mode (25.3) printed by cg status and state; cg commit is no longer required of agents."
 do_2 = "89_vcs_statcache.sh asserts an unchanged tree re-snapshots without re-reading files and that distributed mode marks the store non-authoritative."
