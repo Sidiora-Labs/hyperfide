@@ -120,7 +120,7 @@ owner = "qualification"
 
 [task.1.2]
 title = "Evidence and artifacts through the S3 artifact store"
-status = "implemented"
+status = "done"
 wave = 1
 requires = ["1.1"]
 touches = ["tests/hyperfide/qualify.py", "tests/hyperfide/check-evidence.py", "services/hyperfide/src/artifacts/objects.ts", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/1_2.py", "tests/hyperfide/evidence_store.py"]
