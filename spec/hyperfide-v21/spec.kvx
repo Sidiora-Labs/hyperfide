@@ -357,7 +357,7 @@ owner = "core"
 
 [task.2.8]
 title = "Secret references reach running sandboxes"
-status = "implemented"
+status = "done"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/runner/executor.ts", "src/hyperfide/launch.c", "tests/hyperfide/cases/v21/2_8.py"]
@@ -396,7 +396,7 @@ owner = "deployment"
 
 [task.2.11]
 title = "Internal object store with per-region mirrors"
-status = "implemented"
+status = "done"
 wave = 2
 requires = []
 touches = ["services/hyperfide/src/providers/railway/preparation.ts", "services/hyperfide/src/preparation/slices.ts", "services/hyperfide/src/preparation/object_store.ts", "deploy/hyperfide/bootstrap-host.mjs", "deploy/hyperfide/env/provisioner.env.example", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/2_11.py"]
