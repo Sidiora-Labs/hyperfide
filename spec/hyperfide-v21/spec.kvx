@@ -932,7 +932,7 @@ owner = "source"
 
 [task.4.10]
 title = "Railway sandbox fleet toolkit"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["1.1", "1.2"]
 touches = ["deploy/hyperfide/sandbox/package.json", "deploy/hyperfide/sandbox/fleet.json", "deploy/hyperfide/sandbox/lib.mjs", "deploy/hyperfide/sandbox/provision.mjs", "deploy/hyperfide/sandbox/run-job.mjs", "deploy/hyperfide/sandbox/dispatch.mjs", "deploy/hyperfide/sandbox/collect.mjs", "deploy/hyperfide/sandbox/collect-all.mjs", "deploy/hyperfide/sandbox/gen-jobs.py", "deploy/hyperfide/sandbox/status.py", "deploy/hyperfide/sandbox/README.md", "deploy/hyperfide/sandbox/.gitignore", "tests/integration/96_sandbox_toolkit.sh", "docs/hyperfide/operations.md"]

@@ -1,0 +1,11 @@
+{
+  "name": "hyperfide-sandbox-fleet",
+  "private": true,
+  "type": "module",
+  "description": "Railway sandbox fleet toolkit for Hyperfide (task hyperfide-v21/4.10); see README.md.",
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "railway": "3.16.0",
+    "ws": "^8.18.0"
+  }
+}
