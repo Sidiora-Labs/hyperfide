@@ -273,8 +273,35 @@ static int env_refs_declared(const HfJson *j,int object,EnvRefs *r){
 static int env_refs_resolve(EnvRefs *r){
  int missing=0;for(int k=0;k<r->n;++k){const char *v=getenv(r->name[k]);if(v&&*v&&strlen(v)<=HF_ENV_VALUE&&(r->value[k]=strdup(v)))continue;++missing;}return missing;
 }
+/* Task 3.15: under launch.serve the provider resolves a launch's references into
+ * the environment of the exec that started the serve process. Each START re-reads
+ * that exec environment (/proc/self/environ, which later setenv/clearenv in this
+ * process cannot change), so nothing is cached across STARTs; any reference it
+ * does not hold refuses the START. Returns the missing count. */
+#define HF_EXEC_ENVIRON (4<<20)
+static int serving_refs;
+static int env_refs_resolve_exec(EnvRefs *r){
+ char *buf=calloc(1,HF_EXEC_ENVIRON);size_t len=0;int fd=buf?open("/proc/self/environ",O_RDONLY|O_CLOEXEC):-1,failed=fd<0;
+ while(!failed&&len<HF_EXEC_ENVIRON-1){ssize_t got=read(fd,buf+len,HF_EXEC_ENVIRON-1-len);if(got<0&&errno==EINTR)continue;if(got<0)failed=1;else if(!got)break;else len+=(size_t)got;}
+ if(fd>=0)close(fd);
+ if(len>=HF_EXEC_ENVIRON-1)failed=1;
+ int missing=0;
+ for(int k=0;k<r->n;++k){size_t nl=strlen(r->name[k]);const char *found=NULL;
+  for(size_t at=0;!failed&&!found&&at<len;){const char *e=buf+at;size_t el=strnlen(e,len-at);if(el>nl&&!memcmp(e,r->name[k],nl)&&e[nl]=='=')found=e+nl+1;at+=el+1;}
+  if(!(found&&*found&&strlen(found)<=HF_ENV_VALUE&&(r->value[k]=strdup(found))))++missing;}
+ if(buf){explicit_bzero(buf,HF_EXEC_ENVIRON);free(buf);}
+ return missing;
+}
 static void env_refs_names(FILE *out,const EnvRefs *r,int present){int first=1;fputc('[',out);for(int k=0;k<r->n;++k)if(!!r->value[k]==present){if(!first)fputc(',',out);hf_json_write_string(out,r->name[k]);first=0;}fputc(']',out);}
-static int start_env_refs(const Instruction *i,EnvRefs *r){HfJson *b=malloc(sizeof *b);int ok=b&&hf_json_parse(b,i->body)&&env_refs_declared(b,hf_json_field(b,0,"env_refs"),r);free(b);if(ok)env_refs_resolve(r);return ok;}
+/* 0: resolved; 1: invalid declaration; 2: serve-mode reference unavailable. A direct
+ * launch.start keeps launching with missing names reported (relaunch supplies them). */
+static int start_env_refs(const Instruction *i,EnvRefs *r){
+ HfJson *b=malloc(sizeof *b);int ok=b&&hf_json_parse(b,i->body)&&env_refs_declared(b,hf_json_field(b,0,"env_refs"),r);free(b);
+ if(!ok)return 1;
+ if(!serving_refs){env_refs_resolve(r);return 0;}
+ if(env_refs_resolve_exec(r)){env_refs_clear(r);return 2;}
+ return 0;
+}
 typedef struct {int in,out,err,gate;} AgentPipes;
 /* Forks one agent held behind its gate; the caller releases it with 'G'. */
 static pid_t spawn_agent(const Instruction *i,HfJson *plan,char **argv,int binary,const EnvRefs *refs,AgentPipes *p){
@@ -517,10 +544,10 @@ static int launch_start(const RunnerConfig *c,Instruction *i,FILE *out) {
  if(fenced(db,i->launch)){sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);return refuse(out,"CANCELLED_BEFORE_START");}
  int lock=launch_lock(c->state,i->launch,1,NULL);
  if(lock<0){sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);return refuse(out,"LAUNCH_OWNER_ACTIVE");}
- HfJson *plan=NULL;char *plan_source=NULL,**argv=NULL,*identity=NULL,*accepted_data=NULL;int binary=-1,accepted=0;EnvRefs refs={0};const char *code="DURABLE_ACCEPTANCE_FAILED";size_t n=0;
+ HfJson *plan=NULL;char *plan_source=NULL,**argv=NULL,*identity=NULL,*accepted_data=NULL;int binary=-1,accepted=0,refs_status=0;EnvRefs refs={0};const char *code="DURABLE_ACCEPTANCE_FAILED";size_t n=0;
  if(!slot_identity(c,i)||!placement(c,"runner.agent.launch","implementation","native.spawn"))code="SLOT_OR_PLACEMENT_NOT_CURRENT";
  else if(!(plan=malloc(sizeof *plan))||!read_plan(c,i,plan,&plan_source,&argv,&binary))code="CONNECTOR_PLAN_NOT_QUALIFIED";
- else if(!start_env_refs(i,&refs))code="SECRET_REFERENCES_INVALID";
+ else if((refs_status=start_env_refs(i,&refs)))code=refs_status==1?"SECRET_REFERENCES_INVALID":"SECRET_REFERENCE_UNAVAILABLE";
  else {
   FILE *writer=open_memstream(&identity,&n);
   if(writer){fprintf(writer,"{\"organisation_id\":\"%s\",\"run_id\":\"%s\",\"sandbox_id\":\"%s\",\"boot_id\":\"%s\",\"boot_generation\":\"%s\",\"attempt_id\":\"%s\",\"attempt_generation\":\"%s\",\"authority_epoch\":\"%s\",\"agent_session_id\":\"%s\"}",c->organisation,c->run,c->sandbox,c->boot,c->generation,i->attempt,i->attempt_generation,i->epoch,i->session);if(fclose(writer)){free(identity);identity=NULL;}}
@@ -745,7 +772,7 @@ int hf_component_12_2(const char *action,const char *request,FILE *out) {
   int ok=j&&hf_json_parse(j,request)&&hf_json_only(j,0,keys,serving?3:1)&&hf_json_get(j,"config_path",config_path,sizeof config_path)&&
    (!serving||(bounded_i64(j,"run_seconds",1,86400,&seconds)&&bounded_i64(j,"poll_interval_ms",50,60000,&interval)))&&load_config(config_path,&c);free(j);
   if(!ok)return hf_native_error(out,"UNTRUSTED_RUNNER_CONFIG");
-  if(serving)return serve(&c,seconds,interval,out);
+  if(serving){serving_refs=1;return serve(&c,seconds,interval,out);}
   ReconcileStats rs={0};char *list=NULL;size_t n=0;FILE *o=open_memstream(&list,&n);int done=o&&reconcile(&c,o,&rs);if(o)fclose(o);
   if(done)fprintf(out,"{\"adopted\":%d,\"orphaned\":%d,\"lost\":%d,\"not_spawned\":%d,\"uncertain\":%d,\"relaunched\":0,\"launches\":%s}",rs.adopted,rs.orphaned,rs.lost,rs.not_spawned,rs.uncertain,list);
   free(list);return done?0:hf_native_error(out,"RECONCILIATION_FAILED");
