@@ -1101,7 +1101,7 @@ owner = "editor"
 
 [task.6.6]
 title = "Reconnect snapshot, unique agent names, wave transcripts"
-status = "implemented"
+status = "done"
 wave = 6
 requires = []
 touches = ["editors/vscode/serve.js", "editors/vscode/extension.js", "editors/vscode/acp.js", "editors/vscode/agents.js", "editors/vscode/fleet.js", "tests/integration/14_vscode.sh"]
