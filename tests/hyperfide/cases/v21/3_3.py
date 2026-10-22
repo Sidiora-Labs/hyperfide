@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""hyperfide-v21 3.3: blocked is the waiting state (migration 0710, D4).
+"""hyperfide-v21 3.3: blocked is the waiting state (migration 0711, D4).
 
 Applies every release migration to an owned throwaway PostgreSQL cluster
 (pattern of v21/3_1.py), grants the runtime role as deploy/hyperfide/grants.sql
@@ -183,9 +183,9 @@ def probe(t295, base, cluster, ids):
 
 
 def scenario(db, o, t295, base, cluster):
-    applied = db.rows("SELECT version,name FROM hyperfide.schema_migrations WHERE version=710", user=t295.SUPERUSER)
+    applied = db.rows("SELECT version,name FROM hyperfide.schema_migrations WHERE version=711", user=t295.SUPERUSER)
     column = db.rows("SELECT column_name FROM information_schema.columns WHERE table_schema='hyperfide' AND table_name='tasks' AND column_name='blocked_ask'")
-    check("migration.applied", applied == [{"version": 710, "name": "0710-blocked-tasks"}] and len(column) == 1, [applied, column])
+    check("migration.applied", applied == [{"version": 711, "name": "0711-blocked-tasks"}] and len(column) == 1, [applied, column])
 
     run1 = u()
     t = seed_run(db, o, run1, [("1.1", 1, True), ("1.2", 1, False), ("2.1", 2, False)])
