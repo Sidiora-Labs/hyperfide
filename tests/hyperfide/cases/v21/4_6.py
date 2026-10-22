@@ -36,8 +36,10 @@ ASSERTIONS = [
     "intake.refuse-dismissed-route",
     "intake.refuse-linked-dismiss",
     "repair.escalation-needs-deadline-policy",
+    "repair.escalation-needs-operator-channel",
     "repair.escalation-raises-decision-ask",
     "repair.ask-event",
+    "repair.ask-delivered-to-operator",
     "repair.list",
     "repair.refuse-not-escalated",
     "repair.refuse-stale",
@@ -182,7 +184,11 @@ try{
  const fail=()=>({repair_id:o.repair,expected_state_version:'1',evidence_ids:[o.evidence],reason:'reproduction still fails after the last allowed attempt'});
  await step('repair.no-policy',()=>operator(v=>failRepair(v,fail())));
  await step('repair.no-policy-state',()=>q('SELECT state FROM hyperfide.finding_repairs WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[o.org,o.run,o.repair]));
+ await step('repair.no-operator-channel',()=>policed(v=>failRepair(v,fail())));
+ await step('repair.no-operator-channel-asks',()=>q('SELECT count(*)::int AS n FROM hyperfide.asks WHERE organisation_id=$1',[o.org]));
+ await step('repair.operator-channel',()=>q("INSERT INTO hyperfide.event_consumers(organisation_id,run_id,consumer_key,critical,state) VALUES($1,$2,'operator:asks',false,'ACTIVE') RETURNING id::text",[o.org,o.run]));
  await step('repair.fail',()=>policed(v=>failRepair(v,fail())));
+ await step('repair.ask-delivery',()=>q("SELECT e.aggregate_id::text,e.aggregate_version::text,e.payload,c.consumer_key,d.state FROM hyperfide.outbox_events e JOIN hyperfide.event_deliveries d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.event_id=e.id JOIN hyperfide.event_consumers c ON c.organisation_id=d.organisation_id AND c.run_id=d.run_id AND c.id=d.consumer_id WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.aggregate_type='ask' AND e.event_type='ask.raised' ORDER BY e.aggregate_id",[o.org,o.run]));
  await step('repair.ask-id',()=>escalationAskId(scope,o.repair));
  await step('repair.options',()=>[...ESCALATION_OPTIONS]);
  await step('repair.asks',()=>q("SELECT id,run_id,kind,title,options,recommended,default_policy,chain,task,attempt,raised_by,state,extract(epoch FROM deadline-raised_at)::int AS window FROM hyperfide.asks WHERE organisation_id=$1 ORDER BY raised_at",[o.org]));
@@ -265,6 +271,14 @@ def scenario(cluster, t295, base, ids):
     state = out.get("repair.no-policy-state") or []
     check("repair.escalation-needs-deadline-policy", err(out.get("repair.no-policy"), "ASK_POLICY_REQUIRED") and state == [{"state": "RUNNING"}], [out.get("repair.no-policy"), state])
     ask_id = out.get("repair.ask-id")
+    check("repair.escalation-needs-operator-channel", err(out.get("repair.no-operator-channel"), "ASK_OPERATOR_CONSUMER_REQUIRED")
+          and out.get("repair.no-operator-channel-asks") == [{"n": 0}], [out.get("repair.no-operator-channel"), out.get("repair.no-operator-channel-asks")])
+    delivery = out.get("repair.ask-delivery") or []
+    payload = delivery[0]["payload"] if len(delivery) == 1 else {}
+    check("repair.ask-delivered-to-operator", len(delivery) == 1 and delivery[0]["aggregate_id"] == ask_id and delivery[0]["aggregate_version"] == "1"
+          and delivery[0]["consumer_key"] == "operator:asks" and delivery[0]["state"] == "PENDING" and payload.get("target") == "OPERATOR"
+          and (payload.get("ask") or {}).get("kind") == "decision" and (payload.get("ask") or {}).get("ask_id") == ask_id
+          and (payload.get("source") or {}).get("repair_id") == o["repair"], delivery)
     failed = out.get("repair.fail") or {}
     asks = out.get("repair.asks") or []
     first = asks[0] if asks else {}

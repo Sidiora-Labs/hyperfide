@@ -2,7 +2,9 @@ import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError} from '../policy/programme.js';
 import {acceptedResolution,admin,admittedEvidence,canonical,decimal,digest,digestValue,emit,fail,fields,finding,manager,oid,record,revalidateResolution,semanticDisposition,text,uuid,withFindingTransaction} from './registry.js';
 import type {FindingScope,FindingTransaction} from './registry.js';
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
+import {enqueue,resolveOperatorConsumer} from '../events/outbox.js';
+import type {PrimaryTransaction} from '../storage/transactions.js';
 import {assignFinding,readerLimit} from './routing.js';
 import type {FindingReader} from './routing.js';
 async function repair(value:FindingTransaction,id:string):Promise<Record<string,any>>{
@@ -134,8 +136,16 @@ async function raiseEscalationAsk(value:FindingTransaction,r:Record<string,any>,
  await asksInstalled(value);const {tx,scope}=value,askId=escalationAskId(scope,String(r.id)),seconds=escalationDeadlineSeconds(value.context);
  const title='Repair of finding '+String(r.finding_id)+' escalated after '+String(r.attempt_count)+' of '+String(r.max_attempts)+' attempts';
  const body='The repair budget is exhausted. HOLD keeps the finding assigned with no new repair; RETRY requests another repair under a raised budget; REASSIGN routes the finding to another package; ACCEPT_EXCEPTION records an accepted exception.\nRepair: '+String(r.id)+'\nLast failure: '+reason;
- const inserted=await tx.query("INSERT INTO hyperfide.asks(organisation_id,id,run_id,kind,title,body,options,recommended,deadline,default_policy,chain,task,attempt,raised_by) VALUES($1,$2,$3,'decision',$4,$5,$6::jsonb,'HOLD',clock_timestamp()+make_interval(secs=>$7),'proceed-and-flag','[\"leader\",\"operator\"]'::jsonb,$8,$9,$10) ON CONFLICT(organisation_id,id) DO NOTHING RETURNING id",
+ const inserted=await tx.query("INSERT INTO hyperfide.asks(organisation_id,id,run_id,kind,title,body,options,recommended,deadline,default_policy,chain,task,attempt,raised_by) VALUES($1,$2,$3,'decision',$4,$5,$6::jsonb,'HOLD',clock_timestamp()+make_interval(secs=>$7),'proceed-and-flag','[\"leader\",\"operator\"]'::jsonb,$8,$9,$10) ON CONFLICT(organisation_id,id) DO NOTHING RETURNING *",
   [scope.organisation_id,askId,scope.run_id,title.slice(0,512),body.slice(0,65536),JSON.stringify(ESCALATION_OPTIONS),seconds,r.repair_task_id,r.attempt_id??null,value.principal.credential_id]);
+ if(inserted.rows.length===1){
+  // Same channel and event shape as human.ask.raise (3.2): without the operator Ask channel the escalation is refused, never parked unseen.
+  const ptx=tx as unknown as PrimaryTransaction,consumer=await resolveOperatorConsumer(ptx,{organisation_id:scope.organisation_id,run_id:scope.run_id,namespace:'asks'});
+  if(!consumer)fail('ASK_OPERATOR_CONSUMER_REQUIRED','No operator Ask consumer (operator:asks) is registered for this run');
+  const row=inserted.rows[0]!,iso=(v:unknown)=>v instanceof Date?v.toISOString():v??null;
+  const view={ask_id:row.id,organisation_id:row.organisation_id,run_id:row.run_id,kind:row.kind,title:row.title,body:row.body,options:row.options,recommended:row.recommended,deadline:iso(row.deadline),default_policy:row.default_policy,chain:row.chain,task:row.task,attempt:row.attempt,session:row.session,sandbox:row.sandbox,raised_by:row.raised_by,raised_at:iso(row.raised_at),state:row.state,answered_by:row.answered_by,answer:row.answer,decided_by_default:row.decided_by_default,answered_at:iso(row.answered_at),expired_at:iso(row.expired_at),state_version:String(row.state_version)};
+  await enqueue(ptx,{organisation_id:scope.organisation_id,run_id:scope.run_id,id:randomUUID(),aggregate_type:'ask',aggregate_id:askId,aggregate_version:String(row.state_version),event_type:'ask.raised',payload:{schema_version:1,ask:view,actor_id:value.principal.actor_id,actor_role:value.principal.role,target:'OPERATOR',source:{repair_id:String(r.id),finding_id:String(r.finding_id)}}},{consumer_ids:[consumer]});
+ }
  return {ask_id:askId,raised:inserted.rows.length===1};
 }
 async function escalated(value:FindingTransaction,repairId:string):Promise<Record<string,any>>{
