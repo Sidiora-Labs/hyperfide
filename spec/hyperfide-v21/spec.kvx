@@ -1063,10 +1063,10 @@ owner = "editor"
 
 [task.6.4]
 title = "Sandboxes view"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["5.2"]
-touches = ["editors/vscode/sandboxes.js", "editors/vscode/package.json"]
+touches = ["editors/vscode/sandboxes.js", "editors/vscode/package.json", "editors/vscode/extension.js", "tests/integration/14_vscode.sh"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
 do_1 = "codifySandboxes tree view on console.sandboxes: provider, pool, task, heartbeat, slice size, snapshot state, queue position; attach opens the worker's session."
 do_2 = "Headless assertion through 14_vscode.sh."
