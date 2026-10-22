@@ -867,7 +867,7 @@ owner = "ask"
 
 [task.4.5]
 title = "Notification producers and the operator target"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["3.2"]
 touches = ["services/hyperfide/src/observability/notifications.ts", "services/hyperfide/components/4.5-operator.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "tests/fixtures/route_contract/server_only.txt", "tests/hyperfide/cases/v21/4_5.py"]
