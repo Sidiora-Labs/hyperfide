@@ -1033,20 +1033,29 @@ static const HelpCmd HELP[] = {
   .usage = "fleet begin <task-id> [-f <feature>] [--agent A] [--sparse | "
     "--full-tree REASON]",
   .summary = "the task worktree and branch, cut from its wave branch, claimed",
-  .detail = "With --sparse, or [hierarchy] sparse = \"slice\", a new worktree "
-    "holds only the task's slice (see slice); --full-tree records why a "
-    "worker gets the whole tree.",
+  .detail = "A new worktree holds only the task's slice (see slice) unless "
+    "[hierarchy] sparse = \"full\" opts the fleet out (reason "
+    "HIERARCHY_SPARSE_FULL) or --full-tree records why this worker gets the "
+    "whole tree. Manager and wave worktrees are always the full tree.",
   .flags = "--sparse\tcheck out only the slice manifest's paths\n"
     "--full-tree REASON\tthe whole tree, with an upper-case reason code\n" },
-{ .group = "fleet", .name = "slice", .args = "<task-id> [-f F] [--manifest FILE]",
-  .usage = "slice <task-id> [-f <feature>] [--manifest FILE]",
+{ .group = "fleet", .name = "slice",
+  .args = "<task-id> [-f F] [--manifest FILE | --widen PATH --reason CODE]",
+  .usage = "slice <task-id> [-f <feature>] [--manifest FILE | --widen PATH... "
+    "--reason CODE]",
   .summary = "the slice manifest a task's worker tree is cut from",
   .detail = "Derived from the task packet (touches, the build files on their "
     "directories, the feature's spec) or taken from the service's manifest "
     "(--manifest, e.g. the output of slice inspect in distributed mode), and "
-    "stored for fleet begin --sparse. A task with no touches or a glob is "
-    "FULL_TREE with the reason recorded.",
-  .examples = "hyperfide slice 2.13\nhyperfide slice 2.13 --json",
+    "stored for fleet begin. A task with no touches or a glob is "
+    "FULL_TREE with the reason recorded. --widen is the local widen step: the "
+    "path joins the worker's sparse checkout and is recorded in its [task] "
+    "touches and widened (REASON:path) before the slice is derived again.",
+  .flags = "--manifest FILE\tstore the service's manifest instead of deriving\n"
+    "--widen PATH\tadd a path to the worker's slice (repeatable)\n"
+    "--reason CODE\tthe upper-case reason a widen is recorded with\n",
+  .examples = "hyperfide slice 2.13\nhyperfide slice 2.13 --json\n"
+    "hyperfide slice 2.13 --widen src/util.c --reason OUT_OF_SLICE_WRITE",
   .related = "fleet begin" },
 { .group = "fleet", .name = "fleet merge-up", .args = "<id> [--keep]",
   .usage = "fleet merge-up <task-id> [-f <feature>] [--force] [--keep]",

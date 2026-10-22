@@ -1976,6 +1976,20 @@ static int slice_for_task(const Lifecycle *c, const char *id, const char *rev,
  * manifest, then the index and files for exactly those paths. The pattern
  * set lives in the worktree's own config, so the main tree stays full. A
  * failure removes the half-made worktree so a retry starts clean. */
+/* A slice path the task creates has no file in the tree yet, so checkout
+ * makes no directory for it: make it, so the worker can write it there. */
+static void slice_dirs_for(const char *wt, const char *entry) {
+    char d[4900];
+    snprintf(d, sizeof d, "%s/%s", wt, entry);
+    size_t n = strlen(d);
+    if (n && d[n - 1] == '/') d[n - 1] = 0;
+    else {
+        char *sl = strrchr(d, '/');
+        if (sl) *sl = 0;
+    }
+    mkdirs(d);
+}
+
 static int slice_worktree_add(const char *tree, const char *path,
                               const char *branch, const char *base,
                               const SliceManifest *m, bool *created,
@@ -2020,6 +2034,7 @@ static int slice_worktree_add(const char *tree, const char *path,
         sb_free(&r);
         return -1;
     }
+    for (int i = 0; i < m->ninc; i++) slice_dirs_for(path, m->inc[i]);
     *created = true;
     return 0;
 }
@@ -2114,11 +2129,13 @@ static int slice_widen(Cg *cg, Lifecycle *c, const char *id, long wave,
     if (!git_head(wt, hb, sizeof hb, head, sizeof head)) head[0] = 0;
     char prev_digest[80] = "", store[4800];
     slice_store_path(c, id, store, sizeof store);
-    SliceManifest prev;
-    if (access(store, F_OK) == 0 && slice_load(store, &prev) == 0) {
-        bool service = !strcmp(prev.source, "SERVICE");
-        snprintf(prev_digest, sizeof prev_digest, "%s", prev.digest);
-        slice_free(&prev);
+    char *stored = access(store, F_OK) == 0 ? read_entire_file(store, NULL) : NULL;
+    if (stored) {
+        char *src = json_get_string(stored, "source");
+        char *dg = json_get_string(stored, "digest");
+        bool service = src && !strcmp(src, "SERVICE");
+        snprintf(prev_digest, sizeof prev_digest, "%s", dg ? dg : "");
+        free(src); free(dg); free(stored);
         if (service) {
             fprintf(stderr, "hyperfide slice: %s was cut from a service manifest — widen "
                             "it through the service (preparation.slice.widen)\n", id);
@@ -2173,6 +2190,7 @@ static int slice_widen(Cg *cg, Lifecycle *c, const char *id, long wave,
         return 1;
     }
     sb_free(&err);
+    for (int i = 0; i < nadded; i++) slice_dirs_for(wt, added[i]);
     StrBuf raw; sb_init(&raw);
     json_list(&raw, touches, nt);
     rc = kvx_set_raw(wspec, sec, "touches", raw.p);
@@ -2355,12 +2373,18 @@ int fleet_worker_begin_ex(Cg *cg, const char *id, const char *feature_ov,
     /* the workspace: a sparse slice, or the full tree with its reason */
     char *conf = kvx_str(c.wf, "hierarchy", "sparse");
     bool opted_out = conf && (!strcmp(conf, "full") || !strcmp(conf, "off"));
-    bool sparse = g_begin_sparse >= 0 ? g_begin_sparse == 1 : !opted_out;
+    /* a worker template without {task} shares one worktree across the
+     * wave's tasks, which one task's slice cannot hold */
+    bool spans_wave = !hier_per_task(&c.h);
+    bool sparse = g_begin_sparse >= 0 ? g_begin_sparse == 1
+                                      : !opted_out && !spans_wave;
     free(conf);
     char ws_reason[64];
     snprintf(ws_reason, sizeof ws_reason, "%s",
              g_begin_full_reason[0] ? g_begin_full_reason
-                                    : sparse ? "" : "HIERARCHY_SPARSE_FULL");
+             : sparse               ? ""
+             : opted_out            ? "HIERARCHY_SPARSE_FULL"
+                                    : "WORKER_SPANS_WAVE");
     SliceManifest sm;
     memset(&sm, 0, sizeof sm);
     struct stat wst;
