@@ -52,5 +52,3 @@ tmp/
 artifacts/
 deploy/hyperfide/identity/
 spec/hyperfide/evidence/
-tests/hyperfide/registrations/
-tests/hyperfide/manifests/tasks/

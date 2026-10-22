@@ -1,0 +1,198 @@
+{
+  "approval": {
+    "allowed_actions": [
+      "postgresql.fixture.create",
+      "postgresql.fixture.drop",
+      "https.loopback.listen"
+    ],
+    "approved": true
+  },
+  "campaign_id": "hyperfide-task-5.2-component-v1-requal-12aa390190b3-requal-6a91b0130b1d-race-fix-requal-a923d185cd03",
+  "case_ids": [
+    "V-003",
+    "V-004"
+  ],
+  "expected_assertion_ids": [
+    "lease.renew.manager-denied",
+    "lease.expiry.primary-clock",
+    "lease.expired.dispatch-denied",
+    "lease.expiry.exact-attempt",
+    "lease.expiry.fences-authority",
+    "lease.expiry.keeps-quota",
+    "lease.expiry.requests-cleanup",
+    "lease.expiry.idempotent",
+    "lease.trusted-primary.renew",
+    "lease.pause.primary-history",
+    "lease.pause.blocks-advance",
+    "lease.pause.allows-checkpoint",
+    "lease.pause.allows-renewal",
+    "lease.control.unknown-fields",
+    "lease.resume.requires-cas",
+    "lease.resume.exact-generation",
+    "lease.drain.persisted-admission",
+    "lease.drain.requires-selector",
+    "lease.drain.blocks-admission",
+    "lease.cancel.foreign-manager",
+    "lease.cancel.logical-only",
+    "lease.cancel.replay",
+    "lease.cancel.stale-result-denied",
+    "lease.cancel.immutable-history",
+    "lease.cleanup.retains-sandbox-charges",
+    "lease.expiry.no-custody-created",
+    "lease.cleanup.observed",
+    "lease.recovery.exact-source-epoch",
+    "lease.recovery.transaction-rollback",
+    "lease.recovery.revokes-current",
+    "lease.recovery.retains-physical-debt",
+    "lease.recovery.does-not-rebind-run",
+    "lease.recovery.idempotent-revocation",
+    "lease.recovery.cleanup.observed",
+    "lease.component.registered",
+    "lease.generation.initial",
+    "lease.renew.worker-principal",
+    "lease.renew.foreign-worker-denied",
+    "lease.renew.invalid-authority-refused",
+    "lease.clock.strict-inputs",
+    "lease.expired.renew-refused",
+    "lease.expire.fences-generation",
+    "lease.generation.monotonic-reassignment",
+    "lease.generation.stale-requests-refused",
+    "lease.generation.one-current",
+    "lease.stale-artifact.retained-untrusted",
+    "custody.requires-released-compute",
+    "custody.worker-renewal-refused",
+    "custody.worker-cancel-refused",
+    "custody.expiry-never-reclaims",
+    "custody.fence-preserves",
+    "custody.reassignment-blocked",
+    "custody.revocation-reassignment-serialize",
+    "custody.revoked-worker-stays-stale",
+    "lease.generations.cleanup.observed",
+    "lease.clock.skewed-worker-primary-expiry",
+    "lease.clock.skewed-timezone-primary-expiry",
+    "lease.race.renew-expire-exactly-one",
+    "lease.races.cleanup.observed"
+  ],
+  "inputs": [
+    {
+      "path": "services/hyperfide/src/scheduler/leases.ts",
+      "sha256": "cf3b954099354627b3505a03ae9115f7951174d2bc277b2ea74563c8b2d70e74",
+      "size": 30836
+    },
+    {
+      "path": "services/hyperfide/components/5.2.json",
+      "sha256": "4cae0edf18155ab4444b27dd8b891bdbc3335da14433a1b8b9b0f303987ebf80",
+      "size": 363
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/5_2.py",
+      "sha256": "2ffc7ba093682774b9695bf62b5d4d33008b6050013e0eff84983347b2767dee",
+      "size": 40432
+    },
+    {
+      "path": "tests/hyperfide/registrations/5.2.json",
+      "sha256": "401ab1d4baaa851c10d6884601c21f1022fc13422bf6f32bf8ddd6f82d203841",
+      "size": 4161
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/5_1.py",
+      "sha256": "cc0f4d0fd03f16fb6c1df0df4d2433c43e813a2c67b373962337efe75514771e",
+      "size": 43289
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/3_2.py",
+      "sha256": "f718d35df3c5c6fd7149cd27e756027fbf638577e3862db291c51fb30d2ff6d4",
+      "size": 35541
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/3_1.py",
+      "sha256": "16359a464606e238a5bcfe16fce54d096ed48ae5182c18499d2b0613c21b3d08",
+      "size": 35448
+    },
+    {
+      "path": "tests/hyperfide/support/identity_fixture.py",
+      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
+      "size": 30314
+    },
+    {
+      "path": "services/hyperfide/migrations/0005-scheduling.sql",
+      "sha256": "6cad3cae3af9117c8215520ee3b78ebaedfb69a79b9281f3566f56c9e01f9e78",
+      "size": 26704
+    },
+    {
+      "path": "tests/hyperfide/qualify.py",
+      "sha256": "8aa17f5e2572c8557f15353f7267e98600547fb0f2693486c0e0f2fc1abce8c2",
+      "size": 37538
+    },
+    {
+      "path": "tests/hyperfide/check-evidence.py",
+      "sha256": "cc8de56fb25bea153490b4143a231f1ff6f4dac758baaea4bf90fb7d9ba236a0",
+      "size": 30633
+    },
+    {
+      "path": "tests/hyperfide/manifest.schema.json",
+      "sha256": "3407092d7e6e452bb288e996f840bd5bab22d6c0f494a49bf944cd73c18078b8",
+      "size": 3216
+    },
+    {
+      "path": "services/hyperfide/package.json",
+      "sha256": "51c686f08fdfa47386af869cd6cdb63f1d2553f99366741239ded92dfe0d4398",
+      "size": 766
+    },
+    {
+      "path": "services/hyperfide/package-lock.json",
+      "sha256": "101f5bc9fbb5864f227051eb2d0388449925df88c0fdd0e5755b40b808a4cfbb",
+      "size": 128778
+    },
+    {
+      "path": "services/hyperfide/tsconfig.json",
+      "sha256": "2b45e09325652f23d0bf4ec53439e4552cf4c2854d7288ce40186d4074f894bb",
+      "size": 487
+    },
+    {
+      "path": "services/hyperfide/dist/control.js",
+      "sha256": "1383288f00472de29607207d1d318e257c6e80c0fb2c05ca9fb2d974040e8032",
+      "size": 118
+    },
+    {
+      "path": "services/hyperfide/dist/scheduler/leases.js",
+      "sha256": "c60e2436c46125b615391c1503df3a5abd7e9bb34b7795d741493bd0e09f956e",
+      "size": 30171
+    },
+    {
+      "path": "services/hyperfide/dist/scheduler/claim.js",
+      "sha256": "7f81b4e7d9c8b97419c464844ed910764776c5f70edbfb054906ef50ffd91fb4",
+      "size": 88849
+    },
+    {
+      "path": "services/hyperfide/dist/scheduler/resources.js",
+      "sha256": "ec62e4f9221a32b9900759b8e2ca8220138e8319332dfd69b4579a5ac541b3da",
+      "size": 55412
+    },
+    {
+      "path": "services/hyperfide/dist/storage/runtime.js",
+      "sha256": "79edb921337c7546f593720dd063655e6843a0ca09c270973077da79b1bb26cd",
+      "size": 18037
+    }
+  ],
+  "policy": {
+    "cloud_provisioning": false,
+    "component_only": true,
+    "execution": "remote-only",
+    "fixture_cleanup": "observed PostgreSQL database/role, private directory and loopback listener absence; no retained external resources",
+    "frontier_calls": false,
+    "full_case_status": "INCOMPLETE",
+    "submission_replay_scope": "dependency-limited on pending 16.1; custody admission/revocation is trusted fixture SQL"
+  },
+  "registered_variant": "task:5.2",
+  "resources": [
+    {
+      "id": "hf-task-5.2-runtime",
+      "kind": "postgresql-database-role-listener",
+      "scope": "task5.2-disposable"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "task-component",
+  "seed": 1
+}

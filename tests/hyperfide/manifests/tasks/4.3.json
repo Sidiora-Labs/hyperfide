@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "campaign_id": "hyperfide-task-4.3-integrated-4fc39f31-v1-requal-6a1c18309430-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89-requal-a80cd7edbb1c-requal-a923d185cd03",
+  "registered_variant": "task:4.3",
+  "scope": "task-component",
+  "case_ids": [
+    "V-010",
+    "V-023"
+  ],
+  "expected_assertion_ids": [
+    "replica.fixture.real-signed-packet-and-physical-standby",
+    "replica.causal-exact-packet",
+    "replica.actual-snapshot-watermark",
+    "replica.primary-request-keeps-immutable-packet",
+    "replica.no-barrier-falls-back-explicitly",
+    "replica.reject-absent-packet",
+    "replica.reject-malformed-digest",
+    "replica.reject-tampered-signature",
+    "replica.reject-foreign-run-barrier",
+    "replica.reject-obsolete-cluster-barrier",
+    "replica.reject-expired-barrier",
+    "replica.reject-negative-wait",
+    "replica.reject-unavailable-graph-pin",
+    "replica.explicit-no-required-graph-pin",
+    "replica.native-graph-generation-one-remains-pinned",
+    "replica.native-graph-generation-two-remains-pinned",
+    "replica.native-mixed-graph-generation-refused",
+    "replica.native-graph-post-error-snapshot-clean",
+    "replica.reject-other-manager-scope",
+    "replica.reject-provider-role",
+    "replica.missing-runtime-topology-privilege-explicit",
+    "replica.real-paused-replay-fallback",
+    "replica.wait-before-snapshot-real-resume",
+    "replica.reject-barrier-for-different-packet",
+    "replica.old-packet-stays-old-after-new-packet",
+    "replica.unavailable-route-falls-back-primary",
+    "replica.real-promotion-invalidates-old-timeline-barrier",
+    "replica.promoted-read-endpoint-refused-and-primary-fallback",
+    "replica.runtime-remains-nonoperator",
+    "replica.reads-do-not-mutate-work-authority"
+  ],
+  "approval": {
+    "approved": true,
+    "allowed_actions": [
+      "postgresql.fixture.create",
+      "postgresql.fixture.drop",
+      "postgresql.replication.configure",
+      "postgresql.fixture.promote",
+      "graph.remote.extract",
+      "graph.component.invoke",
+      "storage.packet.invoke"
+    ]
+  },
+  "inputs": [
+    {
+      "path": "cg",
+      "sha256": "bcc8a52ffa7bf8c4eac06c8b728834531d1b9e97726e0bd56c1b2edcbc3a0bbe",
+      "size": 69285024
+    },
+    {
+      "path": "services/hyperfide/components/4.3.json",
+      "sha256": "73531571fd7254bcd89c65af3c2d5c94d7b6c941759e4cf4e7523241299323e2",
+      "size": 316
+    },
+    {
+      "path": "services/hyperfide/dist/control.js",
+      "sha256": "1383288f00472de29607207d1d318e257c6e80c0fb2c05ca9fb2d974040e8032",
+      "size": 118
+    },
+    {
+      "path": "services/hyperfide/dist/hierarchy/packets.js",
+      "sha256": "22be2bacb3d61fa469ba8ae814c5e9c8d47960d8c38ec524dca6cc7855deef06",
+      "size": 54813
+    },
+    {
+      "path": "services/hyperfide/dist/identity/enrollment.js",
+      "sha256": "19d6bb9bdaaf2f7bc921b1982e2c9458c51b5c7c471f1be120c540d8ab92cc77",
+      "size": 45109
+    },
+    {
+      "path": "services/hyperfide/dist/storage/dispositions.js",
+      "sha256": "3af6631b377b74dd7f82d00c0f4e1357d60eedf31825bb49bccfca8d1fd15d34",
+      "size": 2929
+    },
+    {
+      "path": "services/hyperfide/dist/storage/replicas.js",
+      "sha256": "38212ac1b460336799b552687283ea02219f84f4d0e98f8c73df1bb9a04d87ac",
+      "size": 18121
+    },
+    {
+      "path": "services/hyperfide/dist/storage/runtime.js",
+      "sha256": "79edb921337c7546f593720dd063655e6843a0ca09c270973077da79b1bb26cd",
+      "size": 18037
+    },
+    {
+      "path": "services/hyperfide/package-lock.json",
+      "sha256": "101f5bc9fbb5864f227051eb2d0388449925df88c0fdd0e5755b40b808a4cfbb",
+      "size": 128778
+    },
+    {
+      "path": "services/hyperfide/package.json",
+      "sha256": "51c686f08fdfa47386af869cd6cdb63f1d2553f99366741239ded92dfe0d4398",
+      "size": 766
+    },
+    {
+      "path": "services/hyperfide/src/storage/replicas.ts",
+      "sha256": "5b7699238e8c651e23442fff80b35c56cec5511065a682db905a714616981d74",
+      "size": 17805
+    },
+    {
+      "path": "services/hyperfide/tsconfig.json",
+      "sha256": "2b45e09325652f23d0bf4ec53439e4552cf4c2854d7288ce40186d4074f894bb",
+      "size": 487
+    },
+    {
+      "path": "src/scan.c",
+      "sha256": "341f718ecad43bf6243f892ef4d0bc095bd19762bb705456f86fb7ed8631de63",
+      "size": 89955
+    },
+    {
+      "path": "tests/hyperfide/cases/support/postgres_cluster.py",
+      "sha256": "71e86ee1f8e0ee180d551d74c9de987ffc25d8976c114a91cc000916b1c3f31a",
+      "size": 5412
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/3_1.py",
+      "sha256": "16359a464606e238a5bcfe16fce54d096ed48ae5182c18499d2b0613c21b3d08",
+      "size": 35448
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/3_2.py",
+      "sha256": "f718d35df3c5c6fd7149cd27e756027fbf638577e3862db291c51fb30d2ff6d4",
+      "size": 35541
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/4_3.py",
+      "sha256": "749b7308fdcddd4398df9a21ee3a5264814a5cfaa2016b21774c898dc4c44aa3",
+      "size": 19106
+    },
+    {
+      "path": "tests/hyperfide/check-evidence.py",
+      "sha256": "cc8de56fb25bea153490b4143a231f1ff6f4dac758baaea4bf90fb7d9ba236a0",
+      "size": 30633
+    },
+    {
+      "path": "tests/hyperfide/manifest.schema.json",
+      "sha256": "3407092d7e6e452bb288e996f840bd5bab22d6c0f494a49bf944cd73c18078b8",
+      "size": 3216
+    },
+    {
+      "path": "tests/hyperfide/qualify.py",
+      "sha256": "8aa17f5e2572c8557f15353f7267e98600547fb0f2693486c0e0f2fc1abce8c2",
+      "size": 37538
+    },
+    {
+      "path": "tests/hyperfide/registrations/4.3.json",
+      "sha256": "3d644f8a12262c9b4d6476e5b410206d47ad85e932ded2decd9a2ef9507a9d11",
+      "size": 3612
+    },
+    {
+      "path": "tests/hyperfide/support/identity_fixture.py",
+      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
+      "size": 30314
+    }
+  ],
+  "resources": [
+    {
+      "id": "hf-task-4.3-postgres",
+      "kind": "postgresql-processes",
+      "scope": "owned-primary-physical-standby-and-signed-packet-fixture"
+    }
+  ],
+  "seed": 1,
+  "policy": {
+    "component_only": true,
+    "execution": "remote-only",
+    "frontier_calls": false,
+    "cloud_provisioning": false,
+    "full_case_status": "INCOMPLETE",
+    "replica_authority": "NONE",
+    "postgresql_fixture": "real-owned-PG18-physical-streaming-standby",
+    "graph_input": "native-cg-extraction-and-exact-two-generation-packet-pins",
+    "topology_privileges": "explicit-trusted-operator-GRANT-control-system-checkpoint-only",
+    "promotion_scope": "isolated topology/barrier invalidation; production writer fencing remains4.4"
+  }
+}
