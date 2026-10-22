@@ -154,11 +154,11 @@ owner = "deployment"
 
 [task.1.5]
 title = "Ship activation and adoption grants in the control policy"
-status = "in_progress"
+status = "implemented"
 wave = 1
 requires = ["1.1"]
-touches = ["deploy/hyperfide/policies/control.example.json", "tests/hyperfide/cases/tasks/29_1.py", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/cases/tasks/29_11.py", "tests/hyperfide/cases/tasks/29_12.py"]
-verify_cmd = "python3 tests/hyperfide/qualify.py --case V-058 --manifest tests/hyperfide/manifests/tasks/29.5.json"
+touches = ["deploy/hyperfide/policies/control.example.json", "tests/hyperfide/cases/tasks/29_1.py", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/cases/tasks/29_11.py", "tests/hyperfide/cases/tasks/29_12.py", "tests/hyperfide/support/withpg.py", "tests/hyperfide/proof_relocation.py", "tests/hyperfide/test_inspect_proof.py", "tests/hyperfide/manifests/tasks/29.1.json", "tests/hyperfide/manifests/tasks/29.5.json", "tests/hyperfide/manifests/tasks/29.9.json", "tests/hyperfide/manifests/tasks/29.11.json", "tests/hyperfide/manifests/tasks/29.12.json", "tests/hyperfide/manifests/tasks/27.1.json", "tests/hyperfide/manifests/tasks/28.3.json"]
+verify_cmd = "python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/qualify.py --case V-062 --manifest tests/hyperfide/manifests/tasks/29.5.json && python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/qualify.py --case V-058 --manifest tests/hyperfide/manifests/tasks/29.1.json"
 do_1 = "Add storage.authority.activate and storage.authority.adopt to the shipped control policy; remove the test-side injection in the four 29.x cases so they qualify against the shipped files."
 do_2 = "Re-run V-058 and record the receipt; the 29.5 ledger row changes from done-without-shipped-policy to done."
 do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."

@@ -176,6 +176,34 @@ class ProofInspectionTests(unittest.TestCase):
         with self.assertRaises(module.Rejected):
             module.recheck(pins)
 
+    def test_editor_branch_key_is_neutral_but_git_settings_reject(self):
+        spec = importlib.util.spec_from_file_location("neutral_git_inspection", HERE / "proof_relocation.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        def required(value, message):
+            if not value:
+                raise ValueError(message)
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            subprocess.run(GIT + ["init", "-q", "-b", "main"], cwd=source, check=True, timeout=15)
+            (source / "probe.txt").write_text("probe\n")
+            subprocess.run(GIT + ["add", "probe.txt"], cwd=source, check=True, timeout=15)
+            subprocess.run(GIT + ["-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "commit", "-q", "-m", "probe"], cwd=source, check=True, timeout=15)
+            config = source / ".git/config"
+            original = config.read_text()
+            branch = '[branch "main"]\n\tremote = origin\n\tmerge = refs/heads/main\n'
+            config.write_text(original + branch + "\tvscode-merge-base = origin/main\n")
+            result = module.safe_git(source, ["rev-parse", "HEAD"], required)
+            self.assertEqual(result.returncode, 0, "editor-owned vscode-merge-base rejected")
+            for hostile in (branch + "\tvscode-merge-base = origin/main\n\tvscode-merge-base = origin/other\n",
+                            branch + "\trebase = true\n",
+                            branch + "\tmergeoptions = --no-verify\n",
+                            '[pull]\n\trebase = true\n',
+                            '[merge "untrusted"]\n\tdriver = sh -c true\n'):
+                config.write_text(original + hostile)
+                with self.assertRaises(ValueError, msg=hostile):
+                    module.safe_git(source, ["rev-parse", "HEAD"], required)
+
     def test_git_filter_configuration_never_executes(self):
         import os
         root, mapping = self.portable()

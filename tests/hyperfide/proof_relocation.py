@@ -143,7 +143,8 @@ def safe_git(workspace, arguments, require, portable=False):
             elif re.fullmatch(r'remote "[^"\n\\]+"', section):
                 allowed = {"url", "fetch", "promisor", "partialclonefilter"}
             elif re.fullmatch(r'branch "[^"\n\\]+"', section):
-                allowed = {"remote", "merge"}
+                # VS Code rewrites vscode-merge-base whenever it computes a merge base; Git never reads it.
+                allowed = {"remote", "merge", "vscode-merge-base"}
             elif section == "user":
                 allowed = {"name", "email"}
             elif section == "gc":

@@ -173,7 +173,10 @@ def postgres_bin():
     configured = os.environ.get('HYPERFIDE_PG_BIN')
     if configured:
         return Path(configured)
-    installed = sorted(Path('/usr/lib/postgresql').glob('*/bin'), key=lambda path: int(path.parent.name))
+    # A client-only package installs bin/ without the server; only a directory with initdb can own a cluster.
+    installed = sorted((path for path in Path('/usr/lib/postgresql').glob('*/bin')
+                        if path.parent.name.isdigit() and (path / 'initdb').is_file()),
+                       key=lambda path: int(path.parent.name))
     if not installed:
         raise AssertionError('no PostgreSQL server binaries; set HYPERFIDE_PG_BIN')
     return installed[-1]
@@ -192,7 +195,9 @@ class Cluster:
         self.process = None
         self.server('initdb', '-D', self.data, '-U', SUPERUSER, '--auth=trust', '--no-locale', '--encoding=UTF8')
         with (self.data / 'postgresql.conf').open('a') as conf:
-            conf.write("\nlisten_addresses=''\nunix_socket_directories='" + str(self.root) + "'\n")
+            # Discarded after the run, so crash durability buys nothing; fsync stalls on a loaded host only skew deadlines.
+            conf.write("\nlisten_addresses=''\nunix_socket_directories='" + str(self.root) + "'\n"
+                       "fsync=off\nsynchronous_commit=off\n")
         # Keep the postmaster a direct child so stopping it leaves no reparented descendant behind.
         with (self.root / 'server.log').open('ab') as log:
             self.process = subprocess.Popen(['runuser', '-u', 'postgres', '--', str(self.bin / 'postgres'), '-D', str(self.data)],
