@@ -765,10 +765,10 @@ owner = "supervisor"
 
 [task.3.22]
 title = "Release signatures verified"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["2.9", "2.10"]
-touches = ["scripts/release-sign.sh", "scripts/release.sh", "deploy/hyperfide/install-service.mjs", "services/hyperfide/src/deployment/releases.ts", "tests/hyperfide/cases/v21/2_9.py", "tests/hyperfide/cases/v21/2_10.py", "tests/hyperfide/cases/v21/3_22.py"]
+touches = ["scripts/release-sign.sh", "scripts/release.sh", "deploy/hyperfide/install-service.mjs", "services/hyperfide/src/deployment/releases.ts", "tests/hyperfide/cases/v21/2_9.py", "tests/hyperfide/cases/v21/2_10.py", "tests/hyperfide/cases/v21/3_22.py", "tests/hyperfide/cases/tasks/25_4.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_22.py"
 do_1 = "install-service and the release inspector verify release.json.sig against the configured public key before any file is used and refuse a missing, stale or forged signature with a named error; release-sign.sh's key gate stats the key file before the build starts; 2_9.py and 2_10.py assert marker staging and signing by running the scripts and reading their outputs, not by grepping their text."
 do_2 = "3_22.py signs a release with a scratch key, installs it, then proves a tampered release.json, a missing .sig and a wrong key are each refused, and that a missing key file fails before make runs."
