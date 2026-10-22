@@ -11,6 +11,8 @@ const modes=['PAUSE','DRAIN','CANCEL','STOP'] as const;
 const ranks:Record<string,number>={PAUSE:2,DRAIN:1,CANCEL:4,STOP:3};
 const RUN_SCOPES=['RUN','PACKAGE','ATTEMPT','SANDBOX'];
 // Fleet scopes span runs, so they are recorded once and fanned out to per-run controls by the driver loop only.
+// A fleet stop holds its scope: RECONCILED means every target known so far has settled, and the driver keeps
+// fanning it out so a run or sandbox admitted later in that scope is stopped too.
 const FLEET_SCOPES=['POOL','ORGANISATION','DEPLOYMENT'];
 const TERMINAL_RUN="('STOPPED','SUCCEEDED','FAILED','CANCELLED')";
 const PAGE=1000;
@@ -151,8 +153,15 @@ function deploymentOperators(env:Readonly<Record<string,string|undefined>>):stri
  return ids;
 }
 /** Records a fleet stop on the requesting run. It changes nothing else here: the driver fans it out per run.
- * A DEPLOYMENT stop from an operator outside the allow-list is persisted as REFUSED, which the driver never fans out. */
+ * A DEPLOYMENT stop from an operator outside the allow-list is persisted as REFUSED, which the driver never fans out,
+ * and the request (and any replay of it) fails with RECOVERY_DEPLOYMENT_OPERATOR_DENIED. */
 async function requestFleetControl(input:unknown,context:ComponentContext):Promise<unknown>{
+ const result=await recordFleetControl(input,context);
+ const error=result.refused===true?result.error as {code?:unknown;message?:unknown}|undefined:undefined;
+ if(error)throw new FoundationError(String(error.code),String(error.message)+' (refusal recorded as operation '+String(result.operation_id)+')');
+ return result;
+}
+async function recordFleetControl(input:unknown,context:ComponentContext):Promise<Record<string,unknown>>{
  const {value,scope,id,target,kind,mode}=controlInput(input,FLEET_SCOPES);
  const principal=invocationOf(context).principal;
  if(principal.role!=='OPERATOR')throw new FoundationError('ROLE_DENIED','Fleet stop scopes require an operator principal');
@@ -298,7 +307,7 @@ export interface StopDriverOptions {
  batch?:number;
 }
 export interface StopDriver {pass():Promise<StopDriverReport>;start():void;close():Promise<void>;status():Record<string,unknown>}
-interface OperationRow {organisation_id:string;run_id:string;operation_id:string;authority_epoch:string;result:Record<string,unknown>}
+interface OperationRow {organisation_id:string;run_id:string;operation_id:string;authority_epoch:string;state?:string;result:Record<string,unknown>}
 const errorCode=(error:unknown)=>error instanceof FoundationError?error.code:'RECOVERY_DRIVER_FAILED';
 /** Advances every open stop in the deployment without waiting for reconcile calls: fans fleet stops out
  * to per-run controls, reconciles open debts page by page, and finalizes when a cleanup verifier exists. */
@@ -342,16 +351,20 @@ export function createStopDriver(options:StopDriverOptions):StopDriver{
    const last=targets[targets.length-1]!;key=[last.organisation_id,last.run_id,last.sandbox_id??NIL];
   }
   const complete=counts.pending===0&&counts.unsettled===0;
-  await deps.run(fleetScope,async tx=>{
-   await finishOperation(tx,fleetScope,fleet.operation_id,{...intent,fanout:counts,fanout_complete:complete,stop_complete:complete},complete?'RECONCILED':'APPLIED');
+  // A held stop that saw nothing new is not rewritten, so holding costs reads only (jsonb reorders keys: compare by name).
+  const unchanged=fleet.state===(complete?'RECONCILED':'APPLIED')&&intent.fanout_complete===complete&&intent.scope_held===true&&Object.entries(counts).every(([name,value])=>(intent.fanout as Record<string,unknown>|undefined)?.[name]===value);
+  if(!unchanged)await deps.run(fleetScope,async tx=>{
+   await finishOperation(tx,fleetScope,fleet.operation_id,{...intent,fanout:counts,fanout_complete:complete,stop_complete:complete,scope_held:true},complete?'RECONCILED':'APPLIED');
   });
-  if(complete)report.fleet_completed++;
+  if(complete&&fleet.state!=='RECONCILED')report.fleet_completed++;
  }
  async function pass():Promise<StopDriverReport>{
   const report:StopDriverReport={started_at:new Date().toISOString(),finished_at:'',fleet_operations:0,children_applied:0,children_not_applicable:0,fleet_completed:0,operations_reconciled:0,operations_finalized:0,errors:[]};
   const base="SELECT o.organisation_id,o.run_id,o.operation_id,r.authority_epoch,o.result FROM hyperfide.recovery_operations o JOIN hyperfide.runs r ON r.organisation_id=o.organisation_id AND r.id=o.run_id WHERE (o.organisation_id,o.run_id,o.operation_id)>($1::uuid,$2::uuid,$3::uuid) AND o.kind='STOP' AND o.state='APPLIED' AND ";
+  // Settled fleet stops stay in the scan: they hold their scope against runs and sandboxes admitted later.
+  const fleetBase="SELECT o.organisation_id,o.run_id,o.operation_id,r.authority_epoch,o.state,o.result FROM hyperfide.recovery_operations o JOIN hyperfide.runs r ON r.organisation_id=o.organisation_id AND r.id=o.run_id WHERE (o.organisation_id,o.run_id,o.operation_id)>($1::uuid,$2::uuid,$3::uuid) AND o.kind='STOP' AND o.state IN ('APPLIED','RECONCILED') AND ";
   for(let key:[string,string,string]=[NIL,NIL,NIL];;){
-   const fleets=await page(base+"o.result->>'fleet'='true' ORDER BY 1,2,3 LIMIT $4",key,[]);
+   const fleets=await page(fleetBase+"o.result->>'fleet'='true' ORDER BY 1,2,3 LIMIT $4",key,[]);
    for(const fleet of fleets){
     if(signal.aborted)return report;
     report.fleet_operations++;
@@ -414,7 +427,7 @@ export function createComponent(startup:ComponentContext):Component{
   driver.start();
  }
  return {apiVersion:1,capabilities:{'recovery.controls.v1':createRecoveryControlCapability()},close:()=>driver?.close(),actions:{
-  'recovery.stop.describe':(input)=>{record(input,[]);return {api_version:1,modes:[...modes],scopes:[...RUN_SCOPES,...FLEET_SCOPES],scope_precedence:'RUN_ENCLOSES_PACKAGE_ATTEMPT_SANDBOX',fleet_scopes:'FANNED_OUT_PER_RUN_BY_DRIVER',external_stop_requires:'TRUSTED_IDENTITY_BOUND_SUPERVISOR',unreachable_means:'DEBT',
+  'recovery.stop.describe':(input)=>{record(input,[]);return {api_version:1,modes:[...modes],scopes:[...RUN_SCOPES,...FLEET_SCOPES],scope_precedence:'RUN_ENCLOSES_PACKAGE_ATTEMPT_SANDBOX',fleet_scopes:'FANNED_OUT_PER_RUN_BY_DRIVER',fleet_scope_held:true,external_stop_requires:'TRUSTED_IDENTITY_BOUND_SUPERVISOR',unreachable_means:'DEBT',
    driver:driver?driver.status():{running:false,interval_ms:0}};},
   'recovery.stop.request':(input,context)=>{
    const kind=typeof input==='object'&&input!==null?(input as Record<string,unknown>).scope_kind:undefined;

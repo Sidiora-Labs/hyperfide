@@ -620,10 +620,10 @@ owner = "runner"
 
 [task.3.11]
 title = "Stops hold their scope and the fleet accepts superseded"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["2.4", "2.15"]
-touches = ["services/hyperfide/src/recovery/stop.ts", "src/orchestrate.c", "src/fleet.c", "src/docs.c", "src/drift.c", "tests/hyperfide/cases/v21/2_10.py", "tests/hyperfide/cases/v21/3_11.py", "tests/integration/90_superseded_fleet.sh"]
+touches = ["services/hyperfide/src/recovery/stop.ts", "src/orchestrate.c", "src/fleet.c", "src/docs.c", "src/drift.c", "tests/hyperfide/cases/v21/2_10.py", "tests/hyperfide/cases/v21/3_11.py", "tests/integration/90_superseded_fleet.sh", "tests/hyperfide/cases/v21/2_4.py", "docs/hyperfide/operations.md"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_11.py && make -j2 cg && CG=$PWD/cg bash tests/integration/90_superseded_fleet.sh"
 do_1 = "A POOL, ORGANISATION or DEPLOYMENT stop keeps holding its scope, so a run or sandbox admitted after the stop settled is refused or stopped by the driver, and a refused DEPLOYMENT stop returns an error rather than ok:true; the fleet, docs and drift paths treat superseded as closed so a feature carrying a superseded task runs under cg fleet up; 2_10.py exits 77 with SKIP when not root instead of recording a passing check."
 do_2 = "3_11.py starts a run after an ORGANISATION stop has reconciled and asserts it does not stay RUNNING; 90_superseded_fleet.sh runs a scratch feature with one superseded task under cg fleet up --foreground and asserts the fleet refuses nothing for it."
