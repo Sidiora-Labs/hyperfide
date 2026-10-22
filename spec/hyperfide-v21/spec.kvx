@@ -202,7 +202,7 @@ owner = "ci"
 
 [task.1.8]
 title = "Repair the two failing C suites and close the orphaned Codify tasks"
-status = "implemented"
+status = "done"
 wave = 1
 requires = []
 touches = ["tests/integration/62_ast_managed.sh", "tests/integration/78_v16_release.sh", "tests/integration/55_watch_health.sh", "spec/codify-v07.5/spec.kvx", "spec/codify-v11/spec.kvx"]
@@ -410,7 +410,7 @@ owner = "source"
 
 [task.2.12]
 title = "Slices by default for every worker"
-status = "implemented"
+status = "done"
 wave = 2
 requires = ["2.11"]
 touches = ["services/hyperfide/src/preparation/slices.ts", "services/hyperfide/src/runner/executor.ts", "tests/hyperfide/cases/v21/2_12.py", "docs/hyperfide/source-measurement.md"]
