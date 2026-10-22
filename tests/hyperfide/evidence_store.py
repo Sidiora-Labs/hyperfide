@@ -237,8 +237,48 @@ def _extract(data, target):
             path.chmod(member.mode & 0o755)
 
 
+def _cache_holds(target, data):
+    """True when every member of a receipted bundle is present in the cache with the same bytes."""
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as archive:
+        for member in archive.getmembers():
+            path = target / member.name
+            if member.isdir():
+                if not path.is_dir() or path.is_symlink():
+                    return False
+            elif not path.is_file() or path.is_symlink() or path.read_bytes() != archive.extractfile(member).read():
+                return False
+    return True
+
+
+def _verify_cache(root, task, target, required):
+    """The local directory is a cache, never the authority (task 1.2 do_1, task 3.13).
+
+    A cache that bundles to the receipt's content digest is verified. A cache that differs
+    is accepted only when it still holds every receipted member byte for byte, which is the
+    state between a local qualification run (it appends receipts) and the next publication;
+    proving that needs the store. Anything else is stale or tampered and refused. With no
+    receipt the cache is unverifiable: a warning, or a refusal when evidence is required.
+    """
+    try:
+        record = load_record(root, task)
+    except EvidenceUnavailable as exc:
+        if required:
+            raise EvidenceUnavailable("local evidence cache for task " + task + " has no receipt to verify against: " + str(exc)) from exc
+        return {"status": "LOCAL_CACHE", "task": task, "verified": False, "warning": "local evidence cache is unverified: " + str(exc)}
+    receipted = {"receipt_id": record["receipt"]["receipt_id"], "content_digest": record["content_digest"]}
+    if _sha(bundle(target)) == record["content_digest"]:
+        return {"status": "LOCAL_CACHE", "task": task, "verified": True, **receipted}
+    try:
+        data = fetch_bundle(record)
+    except EvidenceUnavailable as exc:
+        raise EvidenceIntegrityError("local evidence cache for task " + task + " differs from its receipt and the store cannot show it is only ahead (" + str(exc) + "); move the cache aside to resolve from the store") from exc
+    _require(_cache_holds(target, data), "local evidence cache for task " + task + " is stale or tampered: it differs from receipted bundle " + record["content_digest"] + "; move it aside to resolve from the store")
+    return {"status": "LOCAL_CACHE", "task": task, "verified": True, "ahead_of_receipt": True, "warning": "local evidence cache for task " + task + " holds the receipted bundle plus unpublished additions", **receipted}
+
+
 def resolve(root, task, required=False):
-    """Fills artifacts/hyperfide/tasks/<task> from the store when it is absent.
+    """Fills artifacts/hyperfide/tasks/<task> from the store when it is absent, and
+    verifies it against the tracked receipt when it is present (_verify_cache).
 
     Returns a status dict. Integrity failures always raise EvidenceIntegrityError.
     A missing receipt or store configuration raises EvidenceUnavailable only when
@@ -247,7 +287,7 @@ def resolve(root, task, required=False):
     """
     target = Path(root) / TASKS_DIR / task
     if target.exists():
-        return {"status": "LOCAL_CACHE", "task": task}
+        return _verify_cache(root, task, target, required or os.environ.get("HYPERFIDE_EVIDENCE_REQUIRED") == "1")
     try:
         record = load_record(root, task)
         data = fetch_bundle(record)
