@@ -56,7 +56,7 @@ EOF
     chmod +x "$TMP/oldcg"
     cat > "$TMP/delayedcg" <<EOF
 #!/bin/sh
-[ "\$1" = serve ] && { (sleep 0.03; echo "cg: unknown command 'serve'" >&2) & exit 1; }
+[ "\$1" = serve ] && { w=\$\$; (while kill -0 "\$w" 2>/dev/null; do :; done; echo "cg: unknown command 'serve'" >&2) & exit 1; }
 exec "$CG" "\$@"
 EOF
     chmod +x "$TMP/delayedcg"
@@ -149,7 +149,8 @@ const cgRun = (...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8' });
     check(old.unsupported === true, 'old cg: reported as unsupported');
     check(old.proc === null, 'old cg: no process left');
     old.dispose();
-    // The wrapper exits before its child writes stderr, so exit and stream
+    // The wrapper exits before its child writes stderr (the child waits for
+    // the reaped exit, no fixed delay), so exit and stream
     // closure occur in a known order. Unsupported detection must drain it.
     const delayed = new ServeClient(DELAYED, cwd, () => {});
     check(await delayed.start() === false, 'delayed old cg: start is false');
@@ -419,24 +420,29 @@ JS
     [ $? -eq 0 ] || fail "chat wiring"
 fi
 
-# ---- pushed cards (hyperfide-v21 1.12): the chat registers before the serve
-#      connection exists; an approval.request the real cg raises, pushed by
-#      the real cg serve, still becomes a card in the sidebar chat, once,
-#      and keeps doing so after a reconnect
+# ---- pushed cards (hyperfide-v21 1.12, 3.13): the real extension.js
+#      activate() runs against a stubbed vscode module and the real cg. The
+#      chat registers and its view resolves before the serve connection
+#      exists; an approval.request the real cg raises, pushed by the real cg
+#      serve, must still become a card in the sidebar chat, once, and the
+#      decision must arrive after the server dies and the client reconnects.
+#      A mutant copy of extension.js without its acpApi.watchEvents() calls
+#      must draw no card, so the check cannot pass on wiring it never ran.
 if want pushed; then
-    rm -rf "$TMP/pc"; mkdir -p "$TMP/pc/src" "$TMP/pc/lib"; cd "$TMP/pc"
-    git init -q -b main . 2>/dev/null || git init -q .
-    git config user.email t@t; git config user.name t
-    printf 'export function alpha(): number {\n  return 1;\n}\n' > src/a.ts
-    printf 'export function beta(): number {\n  return 3;\n}\n' > lib/b.ts
-    "$CG" spec new pc >/dev/null
-    "$CG" spec docs off >/dev/null
-    "$CG" spec start 1.1 >/dev/null; "$CG" spec done 1.1 >/dev/null
-    "$CG" spec mode parallel >/dev/null
-    "$CG" spec add 2.1 --title "Alpha" --wave 1 --reqs 1.1 --symbols alpha --touches 'src/a.ts' >/dev/null
-    "$CG" init >/dev/null
-    printf '.codegraph/\n*.lock\n' > .gitignore
-    cat >> spec/workflow.kvx <<'EOF'
+    pcsetup() {
+        rm -rf "$1"; mkdir -p "$1/src" "$1/lib"; cd "$1" || return 1
+        git init -q -b main . 2>/dev/null || git init -q .
+        git config user.email t@t; git config user.name t
+        printf 'export function alpha(): number {\n  return 1;\n}\n' > src/a.ts
+        printf 'export function beta(): number {\n  return 3;\n}\n' > lib/b.ts
+        "$CG" spec new pc >/dev/null
+        "$CG" spec docs off >/dev/null
+        "$CG" spec start 1.1 >/dev/null; "$CG" spec done 1.1 >/dev/null
+        "$CG" spec mode parallel >/dev/null
+        "$CG" spec add 2.1 --title "Alpha" --wave 1 --reqs 1.1 --symbols alpha --touches 'src/a.ts' >/dev/null
+        "$CG" init >/dev/null
+        printf '.codegraph/\n*.lock\n' > .gitignore
+        cat >> spec/workflow.kvx <<'EOF'
 
 [hierarchy]
 test_gate = "true"
@@ -446,82 +452,101 @@ pr        = "manual"
 branch  = "wave/{feature}/{wave}"
 approve = ["drift"]
 EOF
-    git add -A >/dev/null; git commit -qm base >/dev/null
-    pcproj="$(pwd -P)"
-    "$CG" fleet begin 2.1 >/dev/null || fail "pushed: fleet begin"
-    (
-        cd "$pcproj/.codegraph/worktrees/wave-pc-1" || exit 1
-        CG_AGENT=w-pc-1 CG_ROLE=worker CG_PARENT=fm-pc CG_BASE=feature/pc "$CG" spec start 2.1 >/dev/null
-        printf 'export function alpha(): number {\n  return 7;\n}\n' > src/a.ts
-        printf 'export function beta(): number {\n  return 8;\n}\n' > lib/b.ts
-        CG_AGENT=w-pc-1 CG_BASE=feature/pc "$CG" spec done 2.1 >/dev/null 2>&1
-        git add -A >/dev/null; git commit -qm "alpha [spec:pc/2.1]" >/dev/null
-        "$CG" sync >/dev/null
-    ) || fail "pushed: the drifting wave"
-    cd "$pcproj"
-    node - "$EXT" "$CG" "$pcproj" <<'JS'
-const path = require('path'), cp = require('child_process');
-const Module = require('module');
-const [dir, CG, cwd] = process.argv.slice(2);
+        git add -A >/dev/null; git commit -qm base >/dev/null
+        local proj; proj="$(pwd -P)"
+        "$CG" fleet begin 2.1 >/dev/null || return 1
+        (
+            cd "$proj/.codegraph/worktrees/wave-pc-1" || exit 1
+            CG_AGENT=w-pc-1 CG_ROLE=worker CG_PARENT=fm-pc CG_BASE=feature/pc "$CG" spec start 2.1 >/dev/null
+            printf 'export function alpha(): number {\n  return 7;\n}\n' > src/a.ts
+            printf 'export function beta(): number {\n  return 8;\n}\n' > lib/b.ts
+            CG_AGENT=w-pc-1 CG_BASE=feature/pc "$CG" spec done 2.1 >/dev/null 2>&1
+            git add -A >/dev/null; git commit -qm "alpha [spec:pc/2.1]" >/dev/null
+            "$CG" sync >/dev/null
+        ) || return 1
+        cd "$proj"
+    }
+    cat > "$TMP/pushed.js" <<'JS'
+'use strict';
+const path = require('path'), cp = require('child_process'), Module = require('module');
+const [dir, CG, cwd, mode] = process.argv.slice(2);
 const check = (c, w) => { if (!c) throw new Error(w); };
 const run = (env, ...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8', env: { ...process.env, ...env } });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (pred, ms) => { const end = Date.now() + ms; while (!pred() && Date.now() < end) await sleep(20); return pred(); };
 
-let provider = null;
-const stub = {
-    window: {
-        registerWebviewViewProvider: (id, p) => { if (id === 'codifyAgentView') provider = p; return { dispose() {} }; },
-        showInformationMessage: () => {}, showWarningMessage: () => {}, showErrorMessage: () => {},
-    },
-    commands: { registerCommand: () => ({ dispose() {} }), executeCommand: async () => {} },
-    workspace: { getConfiguration: () => ({ get: (k, d) => d, update: async () => {} }) },
-    env: { clipboard: { writeText() {} } },
-    Uri: { file: (p) => ({ fsPath: p }), parse: (u) => ({ url: u }) },
-    ConfigurationTarget: { Global: 1 },
-};
-const load = Module._load;
-Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
-const acp = require(path.join(dir, 'acp.js'));
-const { ServeClient } = require(path.join(dir, 'serve.js'));
-
-/* extension.js's own wiring, in shape: a fan list the serve client feeds,
- * and an availability that is false until it connects */
-let serveClient = null;
-const eventFans = [];
-const ctx = { subscriptions: [], workspaceState: { get: (k, d) => d, update: async () => {} } };
-const api = acp.register(ctx, {
-    cg: async () => ({ code: 1, stdout: '', stderr: '' }), cgJson: async () => null,
-    binary: () => CG, refresh: () => {}, workspaceRoot: () => cwd, startTerminal: () => {},
-    events: {
-        available: () => !!(serveClient && serveClient.ready),
-        on: (fn) => { eventFans.push(fn); return () => { const i = eventFans.indexOf(fn); if (i >= 0) eventFans.splice(i, 1); }; },
-    },
-});
-check(provider, 'the agent view is registered');
+/* Any vscode member the extension touches and this test does not observe
+ * is an inert callable; the members the test observes are real. */
+function auto() {
+    const kids = new Map();
+    return new Proxy(function () {}, {
+        get(t, k) {
+            if (Object.prototype.hasOwnProperty.call(t, k)) return t[k];
+            if (k === 'then') return undefined;
+            if (k === Symbol.toPrimitive) return () => '';
+            if (k === Symbol.iterator) return function* () {};
+            if (typeof k === 'symbol') return undefined;
+            if (!kids.has(k)) kids.set(k, auto());
+            return kids.get(k);
+        },
+        apply: () => auto(),
+        construct: () => auto(),
+    });
+}
+function stubbed(over) {
+    return new Proxy(over, { get(t, k) { if (k in t) return t[k]; if (k === 'then' || typeof k === 'symbol') return undefined; return (t[k] = auto()); } });
+}
+class EventEmitter {
+    constructor() { this.fns = []; this.event = (fn) => { this.fns.push(fn); return { dispose() {} }; }; }
+    fire(v) { for (const fn of this.fns) fn(v); }
+    dispose() {}
+}
 const posted = [];
 const view = {
     webview: { cspSource: 'x', options: {}, html: '', postMessage: (m) => { posted.push(m); return Promise.resolve(true); },
-               onDidReceiveMessage: () => ({ dispose() {} }) },
-    onDidDispose: () => ({ dispose() {} }),
+               onDidReceiveMessage: () => ({ dispose() {} }), asWebviewUri: (u) => u },
+    onDidDispose: () => ({ dispose() {} }), onDidChangeVisibility: () => ({ dispose() {} }), visible: true,
 };
-provider.resolveWebviewView(view);
-// the bug's precondition: register ran with no connection, so nothing listens
-check(eventFans.length === 0, `a listener before serve is up: ${eventFans.length}`);
-check(typeof api.watchEvents === 'function' && api.watchEvents() === false, 'no connection, no watcher');
-check(eventFans.length === 0, 'still nothing without a connection');
+let chatView = null, resolvedBeforeServe = null, activated = false;
+const serves = [];
+const settings = { languageServer: false, serve: true };
+const configuration = () => ({ get: (k, d) => (k in settings ? settings[k] : d), inspect: (k) => (k === 'binaryPath' ? { globalValue: CG } : undefined), update: async () => {} });
+const vscode = stubbed({
+    EventEmitter,
+    window: stubbed({
+        registerWebviewViewProvider: (id, p) => {
+            if (id === 'codifyAgentView') {
+                chatView = p;
+                /* the view opens while activate() still waits on serve's
+                 * initialize, which needs I/O and cannot have answered yet */
+                queueMicrotask(() => { resolvedBeforeServe = !activated; p.resolveWebviewView(view); });
+            }
+            return { dispose() {} };
+        },
+        state: { focused: false },
+    }),
+    workspace: stubbed({ workspaceFolders: [{ uri: { fsPath: cwd } }], getConfiguration: configuration }),
+    commands: stubbed({ registerCommand: () => ({ dispose() {} }), executeCommand: async () => {} }),
+});
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? vscode : load.apply(this, arguments); };
+/* the one handle the test needs on the extension's private ServeClient:
+ * its process, to kill it and watch the reconnect spawn the next */
+const spawn = cp.spawn;
+cp.spawn = function (bin, args) { const p = spawn.apply(this, arguments); if (Array.isArray(args) && args[0] === 'serve') serves.push(p); return p; };
+process.on('unhandledRejection', (e) => console.error('unhandled (stubbed UI): ' + (e && e.message)));
 
 (async () => {
-    serveClient = new ServeClient(CG, cwd, () => {});
-    check(await serveClient.start() === true, 'serve against the real cg');
-    serveClient.on('event', (ev) => { for (const fn of eventFans) fn(ev); });
-    check(api.watchEvents() === true && eventFans.length === 1, 'the watcher is installed once serve is up');
-    check(api.watchEvents() === true && eventFans.length === 1, 'a second call does not install twice');
-    let reconnected = 0;
-    serveClient.on('reconnect', () => { reconnected++; api.watchEvents(); });
-    await serveClient.subscribe();
-
+    const ext = require(path.join(dir, 'extension.js'));
+    const ctx = { subscriptions: [], workspaceState: { get: (k, d) => d, update: async () => {} }, globalState: { get: (k, d) => d, update: async () => {} },
+                  extensionPath: dir, extensionUri: { fsPath: dir } };
+    await ext.activate(ctx);
+    activated = true;
+    check(chatView && resolvedBeforeServe === true, 'the chat view resolved before serve connected');
+    check(serves.length === 1 && serves[0].exitCode === null, `activate connected one cg serve (${serves.length})`);
     const cards = () => posted.filter((m) => m.type === 'approval');
-    // negative: an unrelated pushed event draws no card
+
+    // an unrelated pushed event draws no card
     run({}, 'spec', 'claim', '1.1', '--agent', 'w-x');
     await sleep(300);
     check(cards().length === 0, 'a claim drew a card');
@@ -530,28 +555,39 @@ check(eventFans.length === 0, 'still nothing without a connection');
     const m = run({ CG_ROLE: 'worker', CG_AGENT: 'w-pc-1' }, 'fleet', 'merge-up', '2.1');
     check(m.status === 4, `merge-up should wait for approval (4), got ${m.status}: ${m.stderr}`);
     const id = JSON.parse(run({}, 'fleet', 'approvals', '--json').stdout).approvals[0].id;
-    for (let i = 0; i < 150 && !cards().length; i++) await sleep(20);
+    if (mode === 'mutant') {
+        /* the same window the real run gets */
+        await until(() => cards().length > 0, 3000);
+        check(cards().length === 0, 'an extension that never installs the watcher still drew a card');
+        console.log('mutant drew no card');
+        process.exit(0);
+    }
+    check(await until(() => cards().length > 0, 3000), 'no card after the request');
     const c = cards();
-    check(c.length === 1, `cards after the request: ${c.length}`);
-    check(c[0].id === id && /drift/.test(c[0].title) && c[0].options.length === 2, JSON.stringify(c[0]));
+    check(c.length === 1 && c[0].id === id && /drift/.test(c[0].title) && c[0].options.length === 2, JSON.stringify(c));
 
-    // the server dies; after the reconnect the decision still arrives, once
-    serveClient.proc.kill('SIGKILL');
-    for (let i = 0; i < 100 && !reconnected; i++) await sleep(50);
-    check(reconnected && serveClient.ready, 'reconnected');
-    check(eventFans.length === 1, `listeners after a reconnect: ${eventFans.length}`);
+    // the server dies; activate()'s reconnect handler brings it back and the decision still arrives, once
+    serves[0].kill('SIGKILL');
+    check(await until(() => serves.length === 2, 10000), 'no reconnect spawned a new cg serve');
     check(run({}, 'fleet', 'approve', String(id)).status === 0, 'approve');
     const done = () => posted.filter((x) => x.type === 'approval_done' && x.id === id);
-    for (let i = 0; i < 150 && !done().length; i++) await sleep(20);
+    check(await until(() => done().length > 0, 5000), 'the decision did not arrive after the reconnect');
     await sleep(200);
     check(done().length === 1 && done()[0].answer === 'approved', `decided after reconnect: ${JSON.stringify(done())}`);
     check(cards().length === 1, 'no duplicate card');
-    serveClient.dispose();
     console.log('pushed cards ok');
     process.exit(0);
 })().catch((e) => { console.error(e.stack || e); process.exit(1); });
 JS
-    [ $? -eq 0 ] || fail "pushed cards"
+    pcsetup "$TMP/pc" || fail "pushed: project setup"
+    node "$TMP/pushed.js" "$EXT" "$CG" "$(pwd -P)" real || fail "pushed cards"
+
+    # the mutation: the same extension without its watchEvents() calls
+    rm -rf "$TMP/extmut"; cp -R "$EXT" "$TMP/extmut"
+    sed -i 's/acpApi\.watchEvents();//g' "$TMP/extmut/extension.js"
+    ! grep -q 'acpApi\.watchEvents()' "$TMP/extmut/extension.js" || fail "pushed: mutant still calls watchEvents"
+    pcsetup "$TMP/pcm" || fail "pushed: mutant project setup"
+    node "$TMP/pushed.js" "$TMP/extmut" "$CG" "$(pwd -P)" mutant || fail "pushed: the check passes without the wiring it tests"
 
     # the extension installs the watcher once connected and again on reconnect
     node - "$EXT" <<'JS'
