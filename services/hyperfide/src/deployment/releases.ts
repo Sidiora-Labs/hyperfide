@@ -32,11 +32,18 @@ export async function serviceUnitStatus(root:string,unit:string):Promise<{status
 /** The one marker an owning unit's ConditionPathExists may name: systemd's start gate,
  * the bootstrap preflight and this inspector then all decide from the same file. */
 export const UNIT_MARKER='/opt/hyperfide/current/'+UNIT_RECEIPT;
+/** Where release construction found the 26.4 receipt: an operator override, the local
+ * artifacts cache, or the artifact store by the tracked receipt record (hyperfide-v21 3.19,
+ * evidence_store.unit_receipt_input), which is how a clean host without artifacts/ releases. */
+export const UNIT_RECEIPT_SOURCES=Object.freeze(['override','local','local-unverified','store','absent'] as const);
+export type UnitReceiptSource=typeof UNIT_RECEIPT_SOURCES[number];
 /** Release construction (scripts/release.sh, hyperfide-v21 2.9) ships the receipt
- * only through this check, so a release never carries a marker the inspector rejects.
+ * only through this check, so a release never carries a marker the inspector rejects,
+ * whichever source supplied the bytes: the pinned digest is the authority.
  * An absent receipt ships no marker and leaves the owning units unstartable. */
-export async function stageUnitReceipt(stage:string,receipt:string):Promise<{staged:boolean;marker:string;units:{unit:string;status:string;owner_task?:string}[]}>{
+export async function stageUnitReceipt(stage:string,receipt:string,source:UnitReceiptSource='local'):Promise<{staged:boolean;marker:string;source:UnitReceiptSource;units:{unit:string;status:string;owner_task?:string}[]}>{
  if(!path.isAbsolute(stage)||!path.isAbsolute(receipt))fail('Absolute release stage and receipt paths required');
+ if(!UNIT_RECEIPT_SOURCES.includes(source))fail('Unknown unit receipt source');
  const owned=Object.keys(SERVICE_UNITS).filter(unit=>SERVICE_UNITS[unit]!.owner_task).sort();
  let bytes:Buffer;
  try{
@@ -44,15 +51,15 @@ export async function stageUnitReceipt(stage:string,receipt:string):Promise<{sta
   bytes=await fs.readFile(receipt);
  }catch(error){
   if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;
-  return {staged:false,marker:UNIT_RECEIPT,units:await Promise.all(owned.map(async unit=>({unit,...await serviceUnitStatus(stage,unit)})))};
+  return {staged:false,marker:UNIT_RECEIPT,source,units:await Promise.all(owned.map(async unit=>({unit,...await serviceUnitStatus(stage,unit)})))};
  }
- if('sha256:'+createHash('sha256').update(bytes).digest('hex')!==UNIT_RECEIPT_DIGEST)fail('Unit qualification receipt differs from the pinned 26.4 receipt');
+ if('sha256:'+createHash('sha256').update(bytes).digest('hex')!==UNIT_RECEIPT_DIGEST)fail('Unit qualification receipt from '+source+' differs from the pinned 26.4 receipt');
  const target=path.join(stage,UNIT_RECEIPT);
  await fs.mkdir(path.dirname(target),{recursive:true,mode:0o755});
  await fs.writeFile(target,bytes,{flag:'wx',mode:0o644});await fs.chmod(target,0o644);
  const units=await Promise.all(owned.map(async unit=>({unit,...await serviceUnitStatus(stage,unit)})));
  if(units.some(u=>u.status!=='INSTALLABLE')){await fs.unlink(target);fail('Staged unit receipt is not accepted');}
- return {staged:true,marker:UNIT_RECEIPT,units};
+ return {staged:true,marker:UNIT_RECEIPT,source,units};
 }
 function fail(message:string):never{throw new FoundationError('RELEASE_INVALID',message);}
 function exact(v:unknown,keys:string[]):Record<string,unknown>{if(!object(v)||Object.keys(v).some(k=>!keys.includes(k))||keys.some(k=>!(k in v)))fail('Unexpected release fields');return v;}

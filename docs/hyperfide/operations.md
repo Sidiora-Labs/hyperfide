@@ -346,6 +346,18 @@ Variables the store reads (the control service and both qualification scripts):
 
 Reading needs only s3:GetObject on the evidence prefix. Publishing runs in the control service with its own write credentials.
 
+Publishing from the host. One command publishes every local task directory: `python3 tests/hyperfide/publish-evidence.py --all`. Use `--task <id>` (repeatable) or `qualify.py --publish <id>` for a single task, and `--dry-run` to print the plan without publishing. For each task the command bundles the directory and calls the compiled publishEvidenceBundle (services/hyperfide/dist/artifacts/objects.js, so build first). The store calls (artifact.object.put, artifact.manifest.commit, artifact.manifest.read) go to component 15.2 of the control service through `hyperfide authority invoke`. The command then reads the receipted bundle back from the store with signed GETs. Only after that does it write tests/hyperfide/evidence-receipts/<id>.json, which you commit. The record also carries the bundle's evidence-index commits (`evidence_commits`), and resolution refuses a record whose commits differ from the bundle. A task whose tracked receipt already names the current bundle is reported CURRENT and skipped unless you pass `--force`. Required variables: the five HF_ARTIFACT_S3_* read variables above, HF_ARTIFACT_ORGANISATION_ID, and HYPERFIDE_TRANSPORT_CONFIG. The transport configuration must be an operator credential whose run is in the control service's HF_ARTIFACT_ALLOWED_RUN_IDS. If the configuration has no run_id, set HF_EVIDENCE_RUN_ID. When any of these is missing, the command refuses with exit 2, lists every missing name and states what it would publish. It never skips silently.
+
+Release marker. scripts/release.sh takes the 26.4 unit receipt from the first of these that exists:
+
+1. HYPERFIDE_RELEASE_UNIT_RECEIPT.
+2. The local artifacts/hyperfide/tasks/26.4 cache, verified against its receipt when one is tracked.
+3. The artifact store, by tests/hyperfide/evidence-receipts/26.4.json (evidence_store.unit_receipt_input). This is how a clean host without artifacts/ releases.
+
+If a tracked receipt exists but the store cannot serve it, the release refuses. stageUnitReceipt still accepts only the pinned digest, and its result names the source.
+
+80_qualification_inputs.sh cross-checks every tracked receipt's evidence commits against tests/hyperfide/evidence-refs.json without the store. It also runs the same check on a generated mapped receipt and an unmapped one, so CI exercises the check before any receipt is published. HYPERFIDE_EVIDENCE_RECEIPTS_DIR points it at another receipt directory.
+
 ## Documentation packet, check and close
 
 Documentation policy comes from the current accepted specification's explicit [documentation] section. Its original mode, targets and check_cmd survive import. A caller cannot override them. Missing, off or unsupported policy is held for an explicit disposition. Explicit packet, check and close operations are supported in auto and manual modes; manual mode never waives the independent checker or durable baseline.
