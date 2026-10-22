@@ -73,6 +73,13 @@
           "contextualTitle": "Hyperfide Agent"
         },
         {
+          "type": "webview",
+          "id": "codifyLeaders",
+          "name": "Leaders",
+          "contextualTitle": "Hyperfide Leaders",
+          "visibility": "collapsed"
+        },
+        {
           "id": "codifyMemories",
           "name": "Memory",
           "contextualTitle": "Hyperfide Memory",
