@@ -1,0 +1,19 @@
+{
+  "schema": "hyperfide.source-measurement/1",
+  "generated_at": "2026-10-22T10:57:36Z",
+  "window": {"since": "24 hours ago", "until": "now"},
+  "repo": {"path": "/tmp/claude-0/-root-cloudflare-os-codify/980e3828-dd1a-42a2-b230-b73f3e6faa83/scratchpad/monorepo/paxeer-monorepo", "trunk": "origin/main", "trunk_sha": "666469ff186892b307694fd2bb4ad5974f2c12bb", "tracked_files": 56663, "git_version": "2.43.0", "count_objects": {"count":0,"size":0,"in_pack":169516,"packs":1,"size_pack":803937,"prune_packable":0,"garbage":0,"size_garbage":0}},
+  "provider": {"name": "local", "region": "scratchpad-host", "env_keys": []},
+  "clone": {
+    "remote_is_github": true,
+    "samples": [{"mode":"full","round":1,"ok":true,"seconds":423.652,"object_bytes":819593216,"disk_bytes":3018383360,"checked_out_files":56663},{"mode":"partial","round":1,"ok":true,"seconds":300.486,"object_bytes":574459904,"disk_bytes":2773241856,"checked_out_files":56663},{"mode":"sparse","round":1,"ok":true,"seconds":16.665,"object_bytes":12378112,"disk_bytes":21737472,"checked_out_files":56663},{"mode":"full","round":2,"ok":true,"seconds":263.294,"object_bytes":819572736,"disk_bytes":3018362880,"checked_out_files":56663},{"mode":"partial","round":2,"ok":true,"seconds":241.657,"object_bytes":574459904,"disk_bytes":2773254144,"checked_out_files":56663},{"mode":"sparse","round":2,"ok":true,"seconds":14.437,"object_bytes":12378112,"disk_bytes":21737472,"checked_out_files":56663}],
+    "sampled": {"full":{"seconds":{"n":2,"p50":263.294,"p90":423.652,"max":423.652,"mean":343.473},"object_bytes":{"n":2,"p50":819572736,"p90":819593216,"max":819593216,"mean":819582976.000}},"partial":{"seconds":{"n":2,"p50":241.657,"p90":300.486,"max":300.486,"mean":271.072},"object_bytes":{"n":2,"p50":574459904,"p90":574459904,"max":574459904,"mean":574459904.000}},"sparse":{"seconds":{"n":2,"p50":14.437,"p90":16.665,"max":16.665,"mean":15.551},"object_bytes":{"n":2,"p50":12378112,"p90":12378112,"max":12378112,"mean":12378112.000}}},
+    "observed": {"seconds": null, "bytes": null}
+  },
+  "integration": {"first_parent_merges": 0, "non_merge_commits": 71, "history_wait_seconds": {"n":0,"p50":null,"p90":null,"max":null,"mean":null}, "observed_wait_seconds": null},
+  "conflicts": {"merges_replayed": 0, "textual_conflicts": 0, "observed_rebase_conflicts": null},
+  "github": {"repo": "Sidiora-Labs/paxeer-monorepo", "rate_limit": {"sampled_at":1792666655,"core":{"limit":5000,"used":32,"remaining":4968,"reset":1792667756},"graphql":{"limit":5000,"used":5,"remaining":4995,"reset":1792669010}}, "observed_push_refusals": null, "observed_rate_limited": null},
+  "maintenance": {"ran": true, "ok": true, "seconds": 0.724, "tasks": [{"task":"commit-graph","ok":true,"seconds":0.364},{"task":"loose-objects","ok":true,"seconds":0.090},{"task":"incremental-repack","ok":true,"seconds":0.270}], "observed_seconds": null},
+  "events": {"file": null, "lines": 0, "by_kind": {}},
+  "notes": []
+}

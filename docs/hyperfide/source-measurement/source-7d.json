@@ -1,0 +1,19 @@
+{
+  "schema": "hyperfide.source-measurement/1",
+  "generated_at": "2026-10-22T10:35:21Z",
+  "window": {"since": "7 days ago", "until": "now"},
+  "repo": {"path": "/tmp/claude-0/-root-cloudflare-os-codify/980e3828-dd1a-42a2-b230-b73f3e6faa83/scratchpad/monorepo/paxeer-monorepo", "trunk": "origin/main", "trunk_sha": "666469ff186892b307694fd2bb4ad5974f2c12bb", "tracked_files": 56663, "git_version": "2.43.0", "count_objects": {"count":0,"size":0,"in_pack":169516,"packs":1,"size_pack":803937,"prune_packable":0,"garbage":0,"size_garbage":0}},
+  "provider": {"name": "local", "region": "scratchpad-host", "env_keys": []},
+  "clone": {
+    "remote_is_github": true,
+    "samples": [],
+    "sampled": {},
+    "observed": {"seconds": null, "bytes": null}
+  },
+  "integration": {"first_parent_merges": 4, "non_merge_commits": 1107, "history_wait_seconds": {"n":15,"p50":4652,"p90":13407,"max":14315,"mean":5533.800}, "observed_wait_seconds": null},
+  "conflicts": {"merges_replayed": 4, "textual_conflicts": 0, "observed_rebase_conflicts": null},
+  "github": {"repo": "Sidiora-Labs/paxeer-monorepo", "rate_limit": {"sampled_at":1792665320,"core":{"limit":5000,"used":32,"remaining":4968,"reset":1792667756},"graphql":{"limit":5000,"used":0,"remaining":5000,"reset":1792668920}}, "observed_push_refusals": null, "observed_rate_limited": null},
+  "maintenance": {"ran": false, "ok": null, "seconds": null, "tasks": [], "observed_seconds": null},
+  "events": {"file": null, "lines": 0, "by_kind": {}},
+  "notes": []
+}

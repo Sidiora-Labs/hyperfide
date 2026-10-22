@@ -111,22 +111,61 @@ measurement.
 
 ## Results
 
-> **PENDING. Fill from the answer to the Ask for task 1.11.** The run needs the
-> monorepo, its sandbox clone URL, provider env and an events export, and the agent
-> that wrote this has none of them. Paste the report's numbers below without
-> rounding, and keep the JSON next to them as evidence.
+Measured 2026-10-22 on `Sidiora-Labs/paxeer-monorepo` (public GitHub), trunk
+`origin/main` at `666469ff186892b307694fd2bb4ad5974f2c12bb`. Two runs, both from a
+fresh clone on the Hyperfide build host, not from a Railway sandbox, so clone
+samples measure GitHub to this host and `provider.name` is `local`. No events
+export existed, so every `observed_*` field is `null`: nothing inside sandboxes
+was measured, only what the trunk history and the clone samples show.
+
+- 7-day window, history only, no clones: `source-measurement/source-7d.json`.
+- 24-hour window, two rounds of full, partial and sparse clones, with
+  `--maintenance`: `source-measurement/source-day.json`. Command:
+
+```sh
+scripts/hyperfide/measure-source-day.sh \
+  --repo <scratch clone> --trunk origin/main --since "24 hours ago" \
+  --provider local --region scratchpad-host \
+  --clone-mode full,partial,sparse --samples 2 --interval 0 \
+  --github Sidiora-Labs/paxeer-monorepo --maintenance --out source-day.json
+```
 
 | measure | value |
 |---|---|
-| date of run, window | |
-| tracked files, object store size | |
-| clone full: p50 / p90 seconds, p50 object bytes | |
-| clone partial: p50 / p90 seconds, p50 object bytes | |
-| clone sparse: p50 / p90 seconds, p50 object bytes | |
-| observed sandbox clones per day, p50 bytes | |
-| snapshot-to-integrated wait p50 / p90 (history, observed) | |
-| merges per day, textual conflicts | |
-| rebase conflicts per day (observed) | |
-| GitHub push refusals, rate-limited calls, lowest core remaining | |
-| git maintenance seconds per run | |
-| report JSON location | |
+| date of run, window | 2026-10-22T10:57:36Z, `24 hours ago` to `now`; 7-day run at 2026-10-22T10:35:21Z |
+| tracked files, object store size | 56,663 files; 169,516 objects in one pack of 803,937 KiB (785 MiB) |
+| clone full: p50 / p90 seconds, p50 object bytes | 263.294 / 423.652 s; 819,572,736 bytes (3,018,362,880 on disk) |
+| clone partial: p50 / p90 seconds, p50 object bytes | 241.657 / 300.486 s; 574,459,904 bytes (2,773,254,144 on disk) |
+| clone sparse: p50 / p90 seconds, p50 object bytes | 14.437 / 16.665 s; 12,378,112 bytes (21,737,472 on disk) |
+| observed sandbox clones per day, p50 bytes | null (no events export) |
+| snapshot-to-integrated wait p50 / p90 (history, observed) | 24 h: n=0, no merge in the window. 7 d: n=15, p50 4,652 s, p90 13,407 s, max 14,315 s. Observed: null |
+| merges per day, textual conflicts | 24 h: 0 first-parent merges, 71 non-merge trunk commits. 7 d: 4 merges, 1,107 non-merge commits; 0 of 4 replayed merges conflict |
+| rebase conflicts per day (observed) | null (no events export) |
+| GitHub push refusals, rate-limited calls, lowest core remaining | null, null; core 4,968 of 5,000 remaining (32 used), GraphQL 4,995 of 5,000 |
+| git maintenance seconds per run | 0.724 s (commit-graph 0.364, loose-objects 0.090, incremental-repack 0.270) |
+| report JSON location | `docs/hyperfide/source-measurement/source-day.json`, `docs/hyperfide/source-measurement/source-7d.json` |
+
+Two samples per mode is a floor for the distributions, not a day's spread; the
+7-day run carries the integration numbers because the 24-hour window held no
+merge. The `checked_out_files` value in the sparse rows counts index entries, not
+files on disk; the disk bytes show what the sparse checkout materialised.
+
+### What the numbers say
+
+1. **The trunk is pushed to directly.** 1,107 of 1,111 trunk commits in seven days
+   arrived without a merge commit, so the history-based wait (p50 78 min, p90
+   3.7 h over 15 merged commits) covers the 4 merges only. The wait of a direct
+   push is the time a sandbox spends on fetch, rebase and retry against one ref,
+   and that is invisible without `snapshot` events. 2.11 and 5.4 must emit them.
+2. **Partial clone does not pay; sparse does.** `--filter=blob:none` saves 30% of
+   the bytes and 8% of the time because the tree and commit objects of a 785 MiB
+   pack still travel. A sparse partial clone lands in 14 s and 12 MiB: 66 times
+   fewer object bytes and 18 times less time than the full clone a sandbox does
+   today. That is the floor a packet-scoped slice (11.5) starts from and the
+   baseline 5.4 measures its order-of-magnitude fall against.
+3. **Merge resolution is not the cost.** 0 textual conflicts in the merges that
+   exist. Maintenance is under a second on a repacked clone. The expensive parts are
+   the 4 to 7 minutes and 820 MB per full clone, and the queueing on one ref.
+4. **GitHub limits are not near.** 32 of 5,000 core calls were used by this run's
+   own sampling; refusals and rate-limit hits inside sandboxes stay unmeasured
+   until the events export exists.
