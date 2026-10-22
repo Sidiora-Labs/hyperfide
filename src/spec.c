@@ -60,9 +60,19 @@ static bool status_superseded(const char *status) {
     return strcmp(status, "superseded") == 0;
 }
 
+/* blocked is the waiting state (D4): an in_progress task whose attempt
+ * raised a blocking Ask, named in blocked_ask. Not done, not next, not
+ * eligible for dependants; only the Ask's answer returns it to
+ * in_progress. The documentation stage's "blocked" is a different thing (a
+ * failed docs closure) and is never a task status. */
+static bool status_blocked(const char *status) {
+    return strcmp(status, "blocked") == 0;
+}
+
 static const char *checkbox(const char *status) {
     if (strcmp(status, "done") == 0) return "[x]";
     if (strcmp(status, "in_progress") == 0) return "[-]";
+    if (status_blocked(status)) return "[?]";
     if (status_superseded(status)) return "[~]";
     return "[ ]";
 }
@@ -412,6 +422,12 @@ static char *render_tasks(const Kvx *f, const char *fdir, const char *banner,
                                  by);
             else sb_puts(&b, " — **Superseded, not qualified**");
             free(by);
+        }
+        if (status_blocked(status)) {
+            char *ask = S(f, sec, "blocked_ask");
+            if (ask[0]) sb_printf(&b, " — **Waiting on Ask #%s**", ask);
+            else sb_puts(&b, " — **Waiting on an Ask**");
+            free(ask);
         }
         sb_putc(&b, '\n');
         free(status); free(title);
@@ -1552,9 +1568,56 @@ static void spec_print_memories(Spec *s, const char *id) {
 
 static int spec_live_leases(const Spec *s, StrBuf *b, bool json);
 
+/* [{"id":..,"ask":..}] of the leaf tasks waiting on an Ask */
+static void json_waiting(const Spec *s, StrBuf *b) {
+    bool first = true;
+    sb_putc(b, '[');
+    for (int i = 0; i < s->nids; i++) {
+        if (!task_is_leaf(s, s->ids[i])) continue;
+        char *st = task_status(s, s->ids[i]);
+        if (status_blocked(st)) {
+            char sec[300];
+            task_sec(sec, sizeof sec, s->ids[i]);
+            char *ask = S(s->f, sec, "blocked_ask");
+            if (!first) sb_putc(b, ',');
+            first = false;
+            sb_puts(b, "{\"id\":");
+            sb_json_str(b, s->ids[i]);
+            sb_puts(b, ",\"ask\":");
+            if (ask[0]) sb_json_str(b, ask); else sb_puts(b, "null");
+            sb_putc(b, '}');
+            free(ask);
+        }
+        free(st);
+    }
+    sb_putc(b, ']');
+}
+
+/* one "waiting: <id> on Ask #N" line per blocked task; the count printed */
+static int print_waiting(const Spec *s) {
+    int n = 0;
+    for (int i = 0; i < s->nids; i++) {
+        if (!task_is_leaf(s, s->ids[i])) continue;
+        char *st = task_status(s, s->ids[i]);
+        if (status_blocked(st)) {
+            char sec[300];
+            task_sec(sec, sizeof sec, s->ids[i]);
+            char *ask = S(s->f, sec, "blocked_ask");
+            if (ask[0])
+                printf("waiting: %s on Ask #%s — answer it with `hyperfide ask "
+                       "answer %s <answer>`\n", s->ids[i], ask, ask);
+            else printf("waiting: %s on an unnamed Ask\n", s->ids[i]);
+            free(ask);
+            n++;
+        }
+        free(st);
+    }
+    return n;
+}
+
 static int spec_status_cmd(Spec *s, bool json) {
     int done = 0, implemented = 0, inprog = 0, pending = 0, leaves = 0,
-        superseded = 0;
+        superseded = 0, waiting = 0;
     for (int i = 0; i < s->nids; i++) {
         if (!task_is_leaf(s, s->ids[i])) continue;
         leaves++;
@@ -1563,6 +1626,7 @@ static int spec_status_cmd(Spec *s, bool json) {
         else if (strcmp(st, "implemented") == 0) implemented++;
         else if (strcmp(st, "in_progress") == 0) inprog++;
         else if (status_superseded(st)) superseded++;
+        else if (status_blocked(st)) waiting++;
         else pending++;
         free(st);
     }
@@ -1589,8 +1653,10 @@ static int spec_status_cmd(Spec *s, bool json) {
         sb_json_str(&b, spec_parallel_mode(s) ? "parallel" :
                         spec_prod_mode(s) ? "prod" : "standard");
         sb_printf(&b, ",\"tasks\":%d,\"done\":%d,\"implemented\":%d,"
-                  "\"in_progress\":%d,\"pending\":%d,\"superseded\":%d",
-                  leaves, done, implemented, inprog, pending, superseded);
+                  "\"in_progress\":%d,\"pending\":%d,\"superseded\":%d,"
+                  "\"blocked\":%d", leaves, done, implemented, inprog,
+                  pending, superseded, waiting);
+        if (waiting) { sb_puts(&b, ",\"waiting\":"); json_waiting(s, &b); }
         if (cur) { sb_puts(&b, ",\"current\":"); json_task(s, cur, &b); }
         if (next) { sb_puts(&b, ",\"next\":"); json_task(s, next, &b); }
         else if (docs_next) {
@@ -1630,7 +1696,9 @@ static int spec_status_cmd(Spec *s, bool json) {
     printf("tasks: %d — %d done, %d implemented, %d in progress, "
            "%d pending", leaves, done, implemented, inprog, pending);
     if (superseded) printf(", %d superseded", superseded);
+    if (waiting) printf(", %d blocked on asks", waiting);
     putchar('\n');
+    print_waiting(s);
     printf("documentation: %s (%s)\n", docs_stage, docs_mode);
     if (owned > 0) {
         int width = 30;
@@ -1734,7 +1802,15 @@ static int spec_next_cmd(Spec *s, bool json) {
             }
             return 0;
         }
-        if (json) { printf("{\"next\":null}\n"); return 0; }
+        if (json) {
+            StrBuf b; sb_init(&b);
+            sb_puts(&b, "{\"next\":null,\"waiting\":");
+            json_waiting(s, &b);
+            sb_puts(&b, "}\n");
+            fputs(b.p, stdout);
+            sb_free(&b);
+            return 0;
+        }
         const char *cur = spec_current(s);
         char *stage = spec_docs_stage(s);
         if (cur) printf("no eligible task — %s is in progress\n", cur);
@@ -1744,6 +1820,7 @@ static int spec_next_cmd(Spec *s, bool json) {
             printf("no eligible task — documentation is blocked\n");
         else printf("no eligible task\n");
         free(stage);
+        print_waiting(s);
         return 0;
     }
     if (json) {
@@ -2918,6 +2995,17 @@ static int spec_start_cmd(Spec *s, const char *id, bool force, bool ahead,
         free(st);
         return 1;
     }
+    if (status_blocked(st)) {
+        char sec[300];
+        task_sec(sec, sizeof sec, id);
+        char *ask = S(s->f, sec, "blocked_ask");
+        fprintf(stderr, "hyperfide spec: task %s is blocked on Ask #%s; "
+                "answering it (hyperfide ask answer %s <answer>) returns the "
+                "task to in_progress\n", id, ask[0] ? ask : "?",
+                ask[0] ? ask : "<id>");
+        free(ask); free(st);
+        return 1;
+    }
     bool already_in_progress = strcmp(st, "in_progress") == 0;
     if (strcmp(st, "done") == 0 && !force) {
         fprintf(stderr, "hyperfide spec: task %s is already done (--force to "
@@ -3884,7 +3972,7 @@ static const char *WORKFLOW_TEMPLATE =
 "remember = \"Persist decisions and constraints as they occur.\"\n"
 "\n"
 "[status_values]\n"
-"task = [\"pending\", \"in_progress\", \"implemented\", \"done\", \"superseded\"]\n"
+"task = [\"pending\", \"in_progress\", \"blocked\", \"implemented\", \"done\", \"superseded\"]\n"
 "\n"
 "[hard_rules]\n"
 "no_fakes      = \"Never fake a test to make it pass.\"\n"
@@ -4165,10 +4253,59 @@ static bool lint_cycle(Spec *s, const char *id, char **stack, int depth,
  * failures that only surface much later: unreachable waves, requires that
  * point at nothing, tasks with no acceptance criteria, and globs that can
  * never match a real path. */
+/* A blocked task names the Ask it waits on in blocked_ask (an id from
+ * `hyperfide ask`); nothing else carries one. Where the project database
+ * is reachable the Ask must exist and still wait. */
+static void lint_blocked(Lint *l, Spec *s, const char *sec, const char *id,
+                         const char *status, Cg *asks, int *opened) {
+    char *ask = S(s->f, sec, "blocked_ask");
+    if (!status_blocked(status)) {
+        if (ask[0])
+            lint_say(l, true, id, "blocked_ask = \"%s\" on a %s task; only "
+                     "a blocked task waits on an Ask", ask,
+                     status[0] ? status : "pending");
+        free(ask);
+        return;
+    }
+    char *end = NULL;
+    long n = ask[0] ? strtol(ask, &end, 10) : 0;
+    if (!ask[0]) {
+        lint_say(l, true, id, "blocked without a blocked_ask naming the Ask "
+                 "it waits on");
+    } else if (n <= 0 || (end && *end)) {
+        lint_say(l, true, id, "blocked_ask \"%s\" is not an Ask id", ask);
+    } else {
+        if (!*opened) *opened = memory_open_quiet(asks) ? 1 : -1;
+        sqlite3_stmt *q = *opened > 0 ? cg_prep(asks, "SELECT state,"
+                                       "default_policy FROM asks WHERE id=?")
+                                     : NULL;
+        if (q) {
+            sqlite3_bind_int64(q, 1, n);
+            if (sqlite3_step(q) != SQLITE_ROW)
+                lint_say(l, true, id, "blocked on Ask #%ld, which does not "
+                         "exist", n);
+            else {
+                const char *st = (const char *)sqlite3_column_text(q, 0);
+                const char *pol = (const char *)sqlite3_column_text(q, 1);
+                if (st && !strcmp(st, "answered"))
+                    lint_say(l, true, id, "blocked on Ask #%ld, which is "
+                             "answered; the task should be in_progress", n);
+                else if (pol && strcmp(pol, "block") != 0)
+                    lint_say(l, true, id, "blocked on Ask #%ld, which does "
+                             "not block (%s)", n, pol);
+            }
+            sqlite3_finalize(q);
+        }
+    }
+    free(ask);
+}
+
 static int spec_lint_cmd(Spec *s, bool json) {
     Lint l;
     memset(&l, 0, sizeof l);
     sb_init(&l.b);
+    Cg asks;
+    int asks_open = 0;      /* 0 untried, 1 open, -1 unavailable */
 
     /* every acceptance criterion id declared by [req.*] */
     char **reqsecs; int nreq = kvx_subsections(s->f, "req", &reqsecs);
@@ -4201,8 +4338,10 @@ static int spec_lint_cmd(Spec *s, bool json) {
         if (status[0] && strcmp(status, "pending") != 0 &&
             strcmp(status, "in_progress") != 0 &&
             strcmp(status, "implemented") != 0 &&
-            strcmp(status, "done") != 0 && !status_superseded(status))
+            strcmp(status, "done") != 0 && !status_superseded(status) &&
+            !status_blocked(status))
             lint_say(&l, true, id, "unknown status \"%s\"", status);
+        lint_blocked(&l, s, sec, id, status, &asks, &asks_open);
         if (status_superseded(status)) {
             char *why = S(s->f, sec, "superseded_reason");
             if (!why[0])
@@ -4293,6 +4432,7 @@ static int spec_lint_cmd(Spec *s, bool json) {
         printf("lint %s: clean\n", s->feature);
     }
     sb_free(&l.b);
+    if (asks_open > 0) cg_close(&asks);
     return l.errors ? 2 : 0;
 }
 
@@ -4410,6 +4550,75 @@ static int spec_load_tag(Spec *s, const char *requested, const char **id_out) {
         snprintf(feature, sizeof feature, "%.*s", (int)(slash - requested), requested);
     *id_out = slash ? slash + 1 : requested;
     return spec_load(s, NULL, feature[0] ? feature : NULL, true);
+}
+
+/* D4, called by ask.c after an Ask is raised or answered. A waiting
+ * blocking Ask (open or expired) on an in_progress task blocks it with
+ * blocked_ask naming the Ask. Answering the Ask a blocked task names moves
+ * it to the task's next waiting blocking Ask, or returns it to in_progress.
+ * Returns 1 when the task changed, 0 when the Ask has no effect on a task. */
+int spec_ask_transition(Cg *cg, long ask_id) {
+    sqlite3_stmt *q = cg_prep(cg, "SELECT ifnull(task,''),default_policy,"
+                                  "state FROM asks WHERE id=?");
+    if (!q) return 0;
+    sqlite3_bind_int64(q, 1, ask_id);
+    char *task = NULL, *policy = NULL, *state = NULL;
+    if (sqlite3_step(q) == SQLITE_ROW) {
+        task = xstrdup((const char *)sqlite3_column_text(q, 0));
+        policy = xstrdup((const char *)sqlite3_column_text(q, 1));
+        state = xstrdup((const char *)sqlite3_column_text(q, 2));
+    }
+    sqlite3_finalize(q);
+    int changed = 0;
+    if (!task || !task[0] || strcmp(policy, "block") != 0) goto out;
+    const char *slash = strchr(task, '/');
+    char feature[256] = "";
+    if (slash && (size_t)(slash - task) < sizeof feature)
+        snprintf(feature, sizeof feature, "%.*s", (int)(slash - task), task);
+    const char *id = slash ? slash + 1 : task;
+    Spec s;
+    if (spec_load(&s, cg->root, feature[0] ? feature : NULL, true) != 0 ||
+        !task_exists(&s, id) || !task_is_leaf(&s, id)) {
+        spec_close(&s);
+        goto out;
+    }
+    char sec[300], me[32];
+    task_sec(sec, sizeof sec, id);
+    snprintf(me, sizeof me, "%ld", ask_id);
+    char *status = task_status(&s, id);
+    char *named = S(s.f, sec, "blocked_ask");
+    if (strcmp(state, "answered") != 0) {
+        if (strcmp(status, "in_progress") == 0 &&
+            kvx_set_string(s.fpath, sec, "blocked_ask", me) == 0 &&
+            kvx_set_status(s.fpath, sec, "blocked") == 0)
+            changed = 1;
+    } else if (status_blocked(status) && strcmp(named, me) == 0) {
+        StrBuf tag; sb_init(&tag);
+        sb_printf(&tag, "%s/%s", s.feature, id);
+        sqlite3_stmt *n = cg_prep(cg,
+            "SELECT id FROM asks WHERE id<>? AND task IN (?,?) AND "
+            "default_policy='block' AND state IN ('open','expired') "
+            "ORDER BY id LIMIT 1");
+        long next = 0;
+        if (n) {
+            sqlite3_bind_int64(n, 1, ask_id);
+            sqlite3_bind_text(n, 2, id, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(n, 3, tag.p, -1, SQLITE_TRANSIENT);
+            if (sqlite3_step(n) == SQLITE_ROW) next = sqlite3_column_int64(n, 0);
+            sqlite3_finalize(n);
+        }
+        sb_free(&tag);
+        char nb[32];
+        snprintf(nb, sizeof nb, "%ld", next);
+        if (next) changed = kvx_set_string(s.fpath, sec, "blocked_ask", nb) == 0;
+        else changed = kvx_set_status(s.fpath, sec, "in_progress") == 0 &&
+                       kvx_set_string(s.fpath, sec, "blocked_ask", "") == 0;
+    }
+    free(status); free(named);
+    spec_close(&s);
+out:
+    free(task); free(policy); free(state);
+    return changed;
 }
 
 /* json_task of a resolved "feature/id", for callers outside the engine */
