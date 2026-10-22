@@ -828,7 +828,7 @@ owner = "runner"
 
 [task.4.3]
 title = "Launch prompt policy"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["3.5"]
 touches = ["README.md", "src/hyperfide/connectors.c", "tests/integration/91_connector_flags.sh"]
