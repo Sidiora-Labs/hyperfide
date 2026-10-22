@@ -556,7 +556,7 @@ owner = "ask"
 
 [task.3.6]
 title = "Per-kind Ask policy and decided-by-default records"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["3.2"]
 touches = ["services/hyperfide/src/agents/admission.ts", "services/hyperfide/src/decisions/jobs.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/migrations/0712-ask-default-decisions.sql", "services/hyperfide/components/1.2-asks.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "deploy/hyperfide/policies/provisioner.example.json", "tests/hyperfide/cases/v21/3_2.py", "tests/hyperfide/cases/v21/3_6.py"]
