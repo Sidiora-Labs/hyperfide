@@ -284,6 +284,165 @@ async function routineReceive(context:RuntimeContext,input:unknown):Promise<unkn
   return {status:received.status,event_id:received.event_id,inbox_id:received.inbox_id,admission:received.result};
  });
 }
+// Asks (hyperfide-v21 req 3): the durable channel from any role to a human, on hyperfide.asks (migration 0709).
+// The database owns the lifecycle and the no-silent-default rule; these actions add caller attribution, the
+// references a caller cannot forge, and delivery of every change to the run's operator consumer (6.1), which is
+// separate from the leader's session consumer. The leader sees Asks through human.ask.list, not by delivery.
+interface AskOutbox {
+ enqueue(tx:Tx,event:EventInput,options:{consumer_ids:string[]}):Promise<{event:unknown;replayed:boolean;obligations:number}>;
+ resolveOperatorConsumer(tx:Tx,input:{organisation_id:string;run_id:string;namespace:'asks'}):Promise<string|null>;
+}
+const askKinds=['secret','variable','permission','decision','question'] as const;
+type AskKind=typeof askKinds[number];
+// D11: the kind decides block versus proceed-and-flag; a caller cannot choose a silent default.
+const askPolicy:Readonly<Record<AskKind,'block'|'proceed-and-flag'>>=Object.freeze({secret:'block',variable:'block',permission:'block',decision:'proceed-and-flag',question:'proceed-and-flag'});
+// Choice kinds are answered with one of the offered options; variables and questions take free text.
+const choiceKinds:readonly AskKind[]=['permission','decision'];
+// Humans provide secrets, variables and permissions (D9); the leader may settle a decision or question.
+const askAnswerers:Readonly<Record<AskKind,readonly string[]>>=Object.freeze({secret:['OPERATOR'],variable:['OPERATOR'],permission:['OPERATOR'],decision:['OPERATOR','LEADER'],question:['OPERATOR','LEADER']});
+const askExpirers=['OPERATOR','COORDINATOR','LEADER'];
+const askReaders=['OPERATOR','COORDINATOR','LEADER','FEATURE_MANAGER'];
+const askStates=['OPEN','ANSWERED','EXPIRED'];
+interface AskRow extends QueryResultRow {[key:string]:unknown}
+function text(value:unknown,min:number,max:number,label:string):string{
+ if(typeof value!=='string'||value.length<min||value.length>max||/[\u0000]/.test(value))refuse(label+' is invalid');
+ return value;
+}
+function strings(value:unknown,label:string):string[]{
+ if(!Array.isArray(value)||value.length>64||value.some(item=>typeof item!=='string'||!item.length||item.length>512)||new Set(value).size!==value.length)refuse(label+' must be distinct bounded strings');
+ return value as string[];
+}
+function askView(row:AskRow):Record<string,unknown>{
+ const iso=(value:unknown)=>value instanceof Date?value.toISOString():value??null;
+ return {ask_id:row.id,organisation_id:row.organisation_id,run_id:row.run_id,kind:row.kind,title:row.title,body:row.body,options:row.options,
+  recommended:row.recommended,deadline:iso(row.deadline),default_policy:row.default_policy,chain:row.chain,task:row.task,attempt:row.attempt,
+  session:row.session,sandbox:row.sandbox,raised_by:row.raised_by,raised_at:iso(row.raised_at),state:row.state,answered_by:row.answered_by,
+  answer:row.answer,decided_by_default:row.decided_by_default,answered_at:iso(row.answered_at),expired_at:iso(row.expired_at),state_version:String(row.state_version)};
+}
+async function askTransaction<T>(context:RuntimeContext,action:string,roles:readonly string[]|null,operation:(tx:Tx,actor:Principal&{credential_id:string;attempt_id:string|null;sandbox_id:string|null},outbox:AskOutbox)=>Promise<T>,record:boolean):Promise<T>{
+ const actor=principal(context,action) as Principal&{credential_id:string;attempt_id:string|null;sandbox_id:string|null},invocation=invocationOf(context);
+ if(roles&&!roles.includes(actor.role))refuse('Role '+actor.role+' cannot perform '+action);
+ uuid(actor.credential_id);
+ const gateway=capability<Gateway>(context,'4.2','storage.transactions.v1',['withPrimaryTransaction']);
+ const outbox=capability<AskOutbox>(context,'6.1','events.outbox.v1',['enqueue','resolveOperatorConsumer']);
+ return gateway.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal:context.signal,guard:tx=>invocation.guard(tx)},async tx=>{
+  const run=await tx.query<{authority_epoch:string}>('SELECT authority_epoch::text FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE',[actor.organisation_id,actor.run_id]);
+  if(run.rowCount!==1||run.rows[0]!.authority_epoch!==actor.deployment_epoch)refuse('Run authority changed');
+  return record?recorded(tx,actor.actor_id,'envelope.'+action,invocation.operation,()=>operation(tx,actor,outbox)):operation(tx,actor,outbox);
+ });
+}
+async function deliverAsk(tx:Tx,outbox:AskOutbox,actor:Principal,row:AskRow,eventType:string):Promise<{event_id:string;operator_consumer_id:string;delivery_obligations:number}>{
+ const consumer=await outbox.resolveOperatorConsumer(tx,{organisation_id:actor.organisation_id,run_id:actor.run_id,namespace:'asks'});
+ // Delivery to operators is the point of an Ask; without their channel the change is refused, never parked unseen.
+ if(!consumer)throw new FoundationError('ASK_OPERATOR_CONSUMER_REQUIRED','No operator Ask consumer (operator:asks) is registered for this run');
+ const id=randomUUID(),view=askView(row);
+ const queued=await outbox.enqueue(tx,{organisation_id:actor.organisation_id,run_id:actor.run_id,id,aggregate_type:'ask',aggregate_id:String(row.id),
+  aggregate_version:String(row.state_version),event_type:eventType,payload:{schema_version:1,ask:view,actor_id:actor.actor_id,actor_role:actor.role,target:'OPERATOR'}},{consumer_ids:[consumer]});
+ return {event_id:id,operator_consumer_id:consumer,delivery_obligations:queued.obligations};
+}
+async function lockedAsk(tx:Tx,actor:Principal,input:Record<string,unknown>):Promise<AskRow>{
+ const found=await tx.query<AskRow>('SELECT *,(deadline IS NOT NULL AND clock_timestamp()>=deadline) AS due FROM hyperfide.asks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[actor.organisation_id,actor.run_id,uuid(input.ask_id)]);
+ if(found.rowCount!==1)refuse('Ask is not in this run');
+ const row=found.rows[0]!;
+ if(String(row.state_version)!==generation(input.expected_state_version))refuse('Ask changed since it was read; list it again');
+ return row;
+}
+function askRaise(context:RuntimeContext,input:unknown):Promise<unknown>{
+ const v=exact(input,['idempotency_key','kind','title','body','options','recommended','deadline_seconds','chain','task_id']);
+ if(typeof v.idempotency_key!=='string'||!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(v.idempotency_key))refuse('Ask idempotency key is invalid');
+ if(!askKinds.includes(v.kind as AskKind))refuse('Ask kind is unknown');
+ const kind=v.kind as AskKind,policy=askPolicy[kind],title=text(v.title,1,512,'Ask title'),body=text(v.body,0,65536,'Ask body');
+ const options=strings(v.options,'Ask options'),chain=strings(v.chain,'Ask escalation chain');
+ const recommended=v.recommended===null?null:text(v.recommended,1,512,'Recommended option');
+ if((recommended===null)!==(options.length===0)||(recommended!==null&&!options.includes(recommended)))refuse('Options need exactly one recommended choice among them');
+ const deadline=v.deadline_seconds;
+ if(deadline!==null&&(!Number.isSafeInteger(deadline)||Number(deadline)<1||Number(deadline)>30*86400))refuse('Ask deadline must be 1 s to 30 days away');
+ if(policy==='proceed-and-flag'&&(recommended===null||deadline===null))refuse('A proceed-and-flag Ask needs a recommended option and a deadline');
+ const requestedTask=v.task_id===null?null:uuid(v.task_id);
+ return askTransaction(context,'human.ask.raise',null,async(tx,actor,outbox)=>{
+  const scope='actor:'+actor.actor_id,requestDigest=digest({input:v,actor_id:actor.actor_id});
+  await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[canonical({organisation_id:actor.organisation_id,run_id:actor.run_id,scope,action:'human.ask.raise',idempotency_key:v.idempotency_key})]);
+  const prior=await tx.query<{request_digest:string;result:Record<string,unknown>|null;state:string}>(
+   'SELECT request_digest,result,state FROM hyperfide.command_inbox WHERE organisation_id=$1 AND run_id=$2 AND principal_scope=$3 AND operation=$4 AND idempotency_key=$5 FOR UPDATE',
+   [actor.organisation_id,actor.run_id,scope,'human.ask.raise',v.idempotency_key]);
+  if(prior.rowCount){
+   if(prior.rows[0]!.request_digest!==requestDigest)refuse('Idempotency key is already bound to a different Ask');
+   if(prior.rows[0]!.state!=='COMPLETED'||!prior.rows[0]!.result)refuse('Prior Ask outcome requires reconciliation');
+   return {...prior.rows[0]!.result,replayed:true};
+  }
+  // References come from the authenticated principal, never from the body: a worker's Ask names its own attempt.
+  let task=requestedTask;
+  if(actor.attempt_id){
+   const attempt=await tx.query<{task_id:string}>('SELECT task_id FROM hyperfide.attempts WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[actor.organisation_id,actor.run_id,actor.attempt_id]);
+   if(attempt.rowCount!==1)refuse('Caller attempt is not in this run');
+   if(task!==null&&task!==attempt.rows[0]!.task_id)refuse('An Ask from an attempt belongs to that attempt\'s task');
+   task=attempt.rows[0]!.task_id;
+  }else if(actor.role==='WORKER')refuse('A worker Ask requires its implementation attempt');
+  const session=(await tx.query('SELECT 1 FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[actor.organisation_id,actor.run_id,actor.actor_id])).rowCount===1?actor.actor_id:null;
+  if(task!==null&&(await tx.query('SELECT 1 FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[actor.organisation_id,actor.run_id,task])).rowCount!==1)refuse('Ask task is not in this run');
+  const inserted=await tx.query<AskRow>(`INSERT INTO hyperfide.asks(organisation_id,id,run_id,kind,title,body,options,recommended,deadline,default_policy,chain,task,attempt,session,sandbox,raised_by)
+   VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,CASE WHEN $9::int IS NULL THEN NULL ELSE clock_timestamp()+($9::int*interval '1 second') END,$10,$11::jsonb,$12,$13,$14,$15,$16) RETURNING *`,
+   [actor.organisation_id,randomUUID(),actor.run_id,kind,title,body,JSON.stringify(options),recommended,deadline,policy,JSON.stringify(chain),task,actor.attempt_id,session,actor.sandbox_id,actor.credential_id]);
+  const row=inserted.rows[0]!,delivery=await deliverAsk(tx,outbox,actor,row,'ask.raised');
+  const result={status:'RAISED',ask:askView(row),...delivery,replayed:false};
+  await tx.query("INSERT INTO hyperfide.command_inbox(organisation_id,run_id,id,principal_scope,operation,idempotency_key,request_digest,state,result) VALUES($1,$2,$3,$4,'human.ask.raise',$5,$6,'COMPLETED',$7::jsonb)",
+   [actor.organisation_id,actor.run_id,randomUUID(),scope,v.idempotency_key,requestDigest,JSON.stringify(result)]);
+  return result;
+ },true);
+}
+function askAnswer(context:RuntimeContext,input:unknown):Promise<unknown>{
+ const v=exact(input,['ask_id','expected_state_version','answer']),answer=text(v.answer,1,65536,'Answer');
+ return askTransaction(context,'human.ask.answer',null,async(tx,actor,outbox)=>{
+  const row=await lockedAsk(tx,actor,v),kind=row.kind as AskKind;
+  if(!askAnswerers[kind].includes(actor.role))refuse('Role '+actor.role+' cannot answer a '+kind+' Ask');
+  if(row.state==='ANSWERED')refuse('Ask is already answered');
+  if(row.state==='EXPIRED'&&row.default_policy!=='block')refuse('The default was taken at the deadline; raise a new Ask to change it');
+  if(kind==='secret'&&!/^secret-ref:[A-Za-z0-9._-]{1,200}$/.test(answer))refuse('A secret is answered with a secret-ref:, never its value');
+  if(choiceKinds.includes(kind)&&(row.options as string[]).length&&!(row.options as string[]).includes(answer))refuse('Answer must be one of the offered options');
+  const updated=await tx.query<AskRow>("UPDATE hyperfide.asks SET state='ANSWERED',answer=$4,answered_by=$5,answered_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 RETURNING *",
+   [actor.organisation_id,actor.run_id,row.id,answer,actor.credential_id]);
+  const next=updated.rows[0]!;
+  return {status:'ANSWERED',ask:askView(next),...await deliverAsk(tx,outbox,actor,next,'ask.answered')};
+ },true);
+}
+function askExpire(context:RuntimeContext,input:unknown):Promise<unknown>{
+ const v=exact(input,['ask_id','expected_state_version']);
+ return askTransaction(context,'human.ask.expire',askExpirers,async(tx,actor,outbox)=>{
+  const row=await lockedAsk(tx,actor,v);
+  if(row.state!=='OPEN')refuse('Only an open Ask expires');
+  if(row.due!==true)refuse('Ask deadline has not passed');
+  // D11: proceed-and-flag takes the recommended option and records it as a decision naming this Ask; block keeps waiting.
+  const updated=await tx.query<AskRow>(row.default_policy==='proceed-and-flag'
+   ?"UPDATE hyperfide.asks SET state='EXPIRED',answer=recommended,decided_by_default=true,expired_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 RETURNING *"
+   :"UPDATE hyperfide.asks SET state='EXPIRED',expired_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 RETURNING *",
+   [actor.organisation_id,actor.run_id,row.id]);
+  const next=updated.rows[0]!;
+  return {status:'EXPIRED',decided_by_default:next.decided_by_default,ask:askView(next),...await deliverAsk(tx,outbox,actor,next,'ask.expired')};
+ },true);
+}
+function askList(context:RuntimeContext,input:unknown):Promise<unknown>{
+ const v=exact(input,['state','limit']);
+ if(v.state!==null&&!askStates.includes(v.state as string))refuse('Ask state filter is unknown');
+ if(!Number.isSafeInteger(v.limit)||Number(v.limit)<1||Number(v.limit)>500)refuse('Ask list bound is invalid');
+ return askTransaction(context,'human.ask.list',null,async(tx,actor)=>{
+  // Programme readers see every Ask of the run; any other role sees only the Asks it raised from its own session or credential.
+  const all=askReaders.includes(actor.role);
+  const rows=await tx.query<AskRow>(`SELECT * FROM hyperfide.asks WHERE organisation_id=$1 AND run_id=$2 AND ($3::text IS NULL OR state=$3)
+   AND ($4::boolean OR session=$5 OR raised_by=$6) ORDER BY raised_at,id LIMIT $7`,
+   [actor.organisation_id,actor.run_id,v.state,all,actor.actor_id,actor.credential_id,Number(v.limit)+1]);
+  return {asks:rows.rows.slice(0,Number(v.limit)).map(askView),truncated:rows.rows.length>Number(v.limit),scope:all?'RUN':'OWN',authority:'NONE'};
+ },false);
+}
+// Registered separately (components/1.2-asks.json) for control, provisioner and dispatch: raising and answering need
+// only storage (4.2) and the outbox (6.1), so every role the policy allows reaches them without leader hierarchy.
+export function createAskComponent(_context:ComponentContext):Component{
+  return {apiVersion:1,actions:{
+    'human.ask.raise':(input,context)=>askRaise(context as RuntimeContext,input),
+    'human.ask.answer':(input,context)=>askAnswer(context as RuntimeContext,input),
+    'human.ask.list':(input,context)=>askList(context as RuntimeContext,input),
+    'human.ask.expire':(input,context)=>askExpire(context as RuntimeContext,input)
+  }};
+}
 export function createComponent(_context:ComponentContext):Component{
   return {apiVersion:1,actions:{
     'human.adopt':(input,context)=>processing(context as RuntimeContext,'human.adopt',input),

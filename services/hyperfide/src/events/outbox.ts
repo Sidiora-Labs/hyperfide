@@ -314,6 +314,21 @@ export async function bindSessionConsumer(tx:PrimaryTransaction,input:unknown,in
     [s.organisation_id,s.run_id,consumer,session,namespace,invocation.principal.actor_id]);
   return {...(await lookupConsumerBinding(tx,{...s,consumer_id:consumer}))!,replayed:false};
 }
+// The operator channel is one run-scoped consumer per namespace, separate from every session-bound leader or
+// manager consumer: Asks reach the humans even when no leader is registered or the leader is being replaced.
+// Only an OPERATOR may register it (outbox.consumer.register), so no agent can redirect what humans receive.
+export type OperatorConsumerNamespace='asks';
+export function operatorConsumerKey(namespace:OperatorConsumerNamespace):string {
+  if(namespace!=='asks') fail('EVENT_NAMESPACE_INVALID','Only a server-owned operator channel is supported');
+  return 'operator:'+namespace;
+}
+export async function resolveOperatorConsumer(tx:PrimaryTransaction,input:unknown):Promise<string|null> {
+  assertPrimaryTransaction(tx);
+  const v=fields(input,[...scopeKeys,'namespace']),s=scope(v),key=operatorConsumerKey(v.namespace as OperatorConsumerNamespace);
+  const found=await tx.query("SELECT id FROM hyperfide.event_consumers WHERE organisation_id=$1 AND run_id=$2 AND consumer_key=$3 AND state IN ('ACTIVE','BUFFERING')",
+    [s.organisation_id,s.run_id,key]);
+  return found.rows.length===1?uuid(found.rows[0]!.id):null;
+}
 // This reader exposes retained authenticated observations; it grants no execution or release authority.
 export async function lookupNativeLaunch(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext):Promise<unknown> {
   assertPrimaryTransaction(tx);assertInvocation(invocation);
@@ -382,10 +397,14 @@ export async function lookupNativeLaunch(tx:PrimaryTransaction,input:unknown,inv
 
 export function createComponent(context:ComponentContext):Component {
   const g=gateway(context);
-  const component={apiVersion:1 as const,capabilities:{'events.outbox.v1':Object.freeze({enqueue,lockRun,registerConsumer,claimPending,acknowledge,retry,sessionConsumerKey,bindSessionConsumer,resolveSessionConsumer,lookupConsumerBinding,lookupNativeLaunch})},actions:{
+  const component={apiVersion:1 as const,capabilities:{'events.outbox.v1':Object.freeze({enqueue,lockRun,registerConsumer,claimPending,acknowledge,retry,sessionConsumerKey,bindSessionConsumer,resolveSessionConsumer,lookupConsumerBinding,lookupNativeLaunch,operatorConsumerKey,resolveOperatorConsumer})},actions:{
     'outbox.describe':()=>({schema_version:1,delivery:'at-least-once',ordering:'per-aggregate-version',global_cursor:false,
       acknowledgement:'durable-matching-inbox',full_case_status:'INCOMPLETE'}),
-    'outbox.consumer.register':(input:unknown,context:ComponentContext)=>authorizedRun(g,context,input,['OPERATOR','COORDINATOR'],tx=>registerConsumer(tx,input)),
+    'outbox.consumer.register':(input:unknown,context:ComponentContext)=>authorizedRun(g,context,input,['OPERATOR','COORDINATOR'],(tx,invocation)=>{
+      if(object(input)&&typeof input.consumer_key==='string'&&input.consumer_key.startsWith('operator:')&&invocation.principal.role!=='OPERATOR')
+        fail('AUTH_ROLE_DENIED','Only an operator registers an operator channel');
+      return registerConsumer(tx,input);
+    }),
     'outbox.consumer.bind-session':(input:unknown,context:ComponentContext)=>authorizedRun(g,context,input,['OPERATOR','COORDINATOR','LEADER','FEATURE_MANAGER'],(tx,invocation)=>bindSessionConsumer(tx,input,invocation)),
     'outbox.consumer.resolve-session':(input:unknown,context:ComponentContext)=>authorizedRun(g,context,input,['OPERATOR','COORDINATOR','LEADER','FEATURE_MANAGER'],async(tx,invocation)=>{
       const v=fields(input,[...scopeKeys,'session_id','namespace']);await sessionBindingAuthority(tx,scope(v),uuid(v.session_id),invocation);
@@ -406,7 +425,8 @@ export interface EventOutboxCapability {
   enqueue:typeof enqueue; lockRun:typeof lockRun; registerConsumer:typeof registerConsumer;
   claimPending:typeof claimPending; acknowledge:typeof acknowledge; retry:typeof retry;
   sessionConsumerKey:typeof sessionConsumerKey;bindSessionConsumer:typeof bindSessionConsumer;resolveSessionConsumer:typeof resolveSessionConsumer;lookupConsumerBinding:typeof lookupConsumerBinding;lookupNativeLaunch:typeof lookupNativeLaunch;
+  operatorConsumerKey:typeof operatorConsumerKey;resolveOperatorConsumer:typeof resolveOperatorConsumer;
 }
 export function isEventOutboxCapability(value:unknown):value is EventOutboxCapability {
-  return object(value)&&['enqueue','lockRun','registerConsumer','claimPending','acknowledge','retry','sessionConsumerKey','bindSessionConsumer','resolveSessionConsumer','lookupConsumerBinding','lookupNativeLaunch'].every(key=>typeof value[key]==='function');
+  return object(value)&&['enqueue','lockRun','registerConsumer','claimPending','acknowledge','retry','sessionConsumerKey','bindSessionConsumer','resolveSessionConsumer','lookupConsumerBinding','lookupNativeLaunch','operatorConsumerKey','resolveOperatorConsumer'].every(key=>typeof value[key]==='function');
 }
