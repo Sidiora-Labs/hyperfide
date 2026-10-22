@@ -542,7 +542,7 @@ owner = "ask"
 
 [task.3.5]
 title = "Ask tools over MCP and the instruction rule"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["3.4"]
 touches = ["src/mcp.c", "src/ask.c", "src/cg.h", "spec/workflow.kvx", "README.md", "tests/integration/88_mcp_ask.sh"]
