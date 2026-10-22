@@ -22,6 +22,11 @@
 #              as a card through cg serve, once, and again after a reconnect
 # Run one section: 14_vscode.sh tasks
 . "$(dirname "$0")/../lib.sh"
+
+# cg rejects an alias pair with differing values (exit 78), and a supervising
+# host such as `cg spec done` exports both names of whatever it was given; the
+# variables this suite sets per command start unset so its values win.
+unset CG_AGENT HYPERFIDE_AGENT CG_ROLE HYPERFIDE_ROLE CG_PARENT HYPERFIDE_PARENT CG_FEATURE HYPERFIDE_FEATURE CG_WAVE HYPERFIDE_WAVE CG_BASE HYPERFIDE_BASE CG_GH HYPERFIDE_GH CG_JEV_CURL HYPERFIDE_JEV_CURL CG_JEV_BACKOFF_MS HYPERFIDE_JEV_BACKOFF_MS
 section="${1:-all}"
 
 want() { [ "$section" = all ] || [ "$section" = "$1" ]; }
