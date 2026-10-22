@@ -568,10 +568,10 @@ owner = "ask"
 
 [task.3.7]
 title = "Ask routes in the client"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.2", "1.9"]
-touches = ["src/hyperfide/client.c", "services/hyperfide/components", "tests/integration/83_route_contract.sh"]
+touches = ["src/hyperfide/client.c", "services/hyperfide/components", "tests/integration/83_route_contract.sh", "tests/fixtures/route_contract/server_only.txt", "src/help.c", "README.md", "tests/hyperfide/cases/v21/3_7.py"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/83_route_contract.sh"
 do_1 = "Client routes for the four ask actions with components JSON entries; the contract test covers them."
 do_2 = "cg hyperfide ask raise|answer|list work against a running control service."
