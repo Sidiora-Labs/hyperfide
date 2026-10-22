@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Reconciliation debt survives process restart and watcher coverage loss.
 . "$(dirname "$0")/../lib.sh"
+# The probe compiles against this checkout's sources, not $CG's directory:
+# the release gate (78) runs the suite with a cg built under build/release-check.*.
+src_dir="$(cd "$(dirname "$0")/../../src" && pwd)"
 
 cp -r "$FIXTURES/sample" "$TMP/proj"
 cd "$TMP/proj"
@@ -31,8 +34,8 @@ int main(int argc, char **argv) {
     return 0;
 }
 EOF
-cc -std=gnu11 -Isrc -I"$(dirname "$CG")/src" \
-   "$TMP/health_probe.c" "$(dirname "$CG")/src/watch_health.c" \
+cc -std=gnu11 -Isrc -I"$src_dir" \
+   "$TMP/health_probe.c" "$src_dir/watch_health.c" \
    -o "$TMP/health_probe"
 probe() { "$TMP/health_probe" "$PWD" "$1"; }
 has "$(probe read)" '0 0'

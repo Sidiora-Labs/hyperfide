@@ -88,7 +88,7 @@ status  = "pending"
 
 [task.3.1]
 title      = "Select and restore past ACP sessions"
-status     = "in_progress"
+status     = "done"
 wave       = 3
 requires   = ["2.1"]
 symbols    = ["connectAgent", "listPastSessions", "restorePastSession"]
