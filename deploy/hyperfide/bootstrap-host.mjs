@@ -46,7 +46,7 @@ async function supervisionPreflight(role,env){
  return {outcome:'SUCCEEDED',role,qualified_by:unit.owner_task,services_started:false};
 }
 // ---- end supervision roles ----
-const fail=(code,missing)=>{throw Object.assign(new Error(code),{code},missing?{missing}:{});};
+const fail=(code,missing,warned)=>{throw Object.assign(new Error(code),{code},missing?{missing}:{},warned?.length?{warnings:warned}:{});};
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const record=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 async function runtime(name){
@@ -94,17 +94,26 @@ async function absent(role,env){
   if(mode==='live'||env.HF_RAILWAY_RUNTIME_POLICY)names.push('HF_RAILWAY_RUNTIME_POLICY','HF_RAILWAY_RUNTIME_POLICY_DIGEST','HF_RAILWAY_PROCESS_ROOT','HF_CREDENTIAL_CONFIG_FILE');
  }
  const missing=names.filter(name=>!env[name]);
- if(env.HF_IDENTITY_CONFIG_FILE&&!(await fs.stat(env.HF_IDENTITY_CONFIG_FILE).catch(()=>null))?.isFile())missing.push(env.HF_IDENTITY_CONFIG_FILE);
+ // A file variable that is set but names no regular file is as absent as an unset one; its path is listed.
+ const files=['HF_IDENTITY_CONFIG_FILE',...(role==='provisioner'?['HF_PROVISIONER_EXECUTOR_CONFIG_FILE','HF_CREDENTIAL_CONFIG_FILE']:[])];
+ for(const name of files)if(env[name]&&!(await regularFile(env[name])))missing.push(env[name]);
  return missing;
+}
+const regularFile=async filename=>Boolean((await fs.stat(filename).catch(()=>null))?.isFile());
+// Gaps that do not block a start (decision D18): reported on success and on refusal alike.
+function warnings(role,env){
+ const out=[];
+ if(role==='provisioner'&&!env.HF_SLICE_SOURCE_CONFIG)out.push('HF_SLICE_SOURCE_CONFIG absent: no internal object store is configured for task slices (D18 warns, does not block)');
+ return out;
 }
 // The first failing check keeps its specific code; the refusal also carries every absent name at once.
 export async function preflight(role,env=process.env){
  if(!Object.hasOwn(ROLES,role))fail('BOOTSTRAP_ARGUMENTS');
  if(Object.hasOwn(SUPERVISION,role))return supervisionPreflight(role,env);
- const missing=await absent(role,env);
- try{await checks(role,env);}catch(error){if(missing.length)error.missing=missing;throw error;}
- if(missing.length)fail('PREFLIGHT_INPUT_MISSING',missing);
- return {outcome:'SUCCEEDED',role,services_started:false};
+ const missing=await absent(role,env),warned=warnings(role,env);
+ try{await checks(role,env);}catch(error){if(missing.length)error.missing=missing;if(warned.length)error.warnings=warned;throw error;}
+ if(missing.length)fail('PREFLIGHT_INPUT_MISSING',missing,warned);
+ return {outcome:'SUCCEEDED',role,...(warned.length?{warnings:warned}:{}),services_started:false};
 }
 async function checks(role,env){
  if(Object.keys(env).some(k=>k.startsWith('HYPERFIDE_MIGRATION_')))fail('MIGRATION_CREDENTIAL_EXPOSED');
@@ -121,7 +130,9 @@ async function checks(role,env){
  if(!env.HF_IDENTITY_CONFIG_FILE||!(await fs.stat(env.HF_IDENTITY_CONFIG_FILE).catch(()=>null))?.isFile())fail('IDENTITY_CONFIG_REQUIRED');
  if(role==='dispatch'&&!env.HF_EVENT_DISPATCH_CONFIG)fail('DISPATCH_CONFIG_REQUIRED');
  if(role==='provisioner'){
-  if(!path.isAbsolute(env.HF_PROVISIONER_EXECUTOR_CONFIG_FILE??''))fail('PROVISIONER_EXECUTOR_CONFIG_INVALID');
+  if(!path.isAbsolute(env.HF_PROVISIONER_EXECUTOR_CONFIG_FILE??'')||!(await regularFile(env.HF_PROVISIONER_EXECUTOR_CONFIG_FILE)))fail('PROVISIONER_EXECUTOR_CONFIG_INVALID');
+  // Required only for live Railway (absent() lists it); when set it must name an absolute regular file.
+  if(env.HF_CREDENTIAL_CONFIG_FILE&&(!path.isAbsolute(env.HF_CREDENTIAL_CONFIG_FILE)||!(await regularFile(env.HF_CREDENTIAL_CONFIG_FILE))))fail('CREDENTIAL_CONFIG_REQUIRED');
   const fence=await fenceConfiguration(env.HYPERFIDE_EXTERNAL_FENCE_CONFIG_FILE);
   (await runtime('recovery/fencing')).externalFenceTopologyDigest(fence.topology);
   await (await runtime('providers/pools')).readDeployment(env);
@@ -238,6 +249,10 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   else if(args.length===0)result=await bootstrap(process.env.HYPERFIDE_BOOTSTRAP_ROOT||'/');
   else if(args.length===2&&args[0]==='--root')result=await bootstrap(args[1]);
   else fail('BOOTSTRAP_ARGUMENTS');
+  for(const line of result.warnings??[])process.stderr.write('hyperfide preflight warning: '+line+'\n');
   console.log(JSON.stringify(result));
- }catch(error){console.log(JSON.stringify({outcome:'REFUSED',error:{code:error.code??error.message,...(error.missing?{missing:error.missing}:{})},services_started:false}));process.exitCode=78;}
+ }catch(error){
+  for(const line of error.warnings??[])process.stderr.write('hyperfide preflight warning: '+line+'\n');
+  console.log(JSON.stringify({outcome:'REFUSED',error:{code:error.code??error.message,...(error.missing?{missing:error.missing}:{})},...(error.warnings?{warnings:error.warnings}:{}),services_started:false}));process.exitCode=78;
+ }
 }
