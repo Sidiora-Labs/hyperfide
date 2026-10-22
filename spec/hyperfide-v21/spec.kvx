@@ -1309,7 +1309,7 @@ owner = "qualification"
 
 [task.7.12]
 title = "Campaign capture records pinned executables by digest, not by copy"
-status = "implemented"
+status = "done"
 wave = 7
 requires = ["3.19"]
 touches = ["tests/hyperfide/qualify.py", "tests/hyperfide/check-evidence.py", "tests/hyperfide/evidence_store.py", "tests/hyperfide/cases/v21/7_12.py"]
