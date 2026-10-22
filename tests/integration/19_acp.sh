@@ -8,7 +8,7 @@
 EXT="$(cd "$(dirname "$0")/../../editors/vscode" && pwd)"
 ACPFIX="$FIXTURES/acp"
 
-command -v node >/dev/null 2>&1 || { echo "19_acp skipped (no node)"; exit 0; }
+command -v node >/dev/null 2>&1 || { echo "SKIP: node not on PATH"; exit 77; }
 
 # ---- fixture and module sources parse
 node --check "$EXT/acp.js" || fail "syntax error in acp.js"

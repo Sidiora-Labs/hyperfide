@@ -11,7 +11,7 @@
 . "$(dirname "$0")/../lib.sh"
 
 GEN="$(cd "$(dirname "$0")/../scale" && pwd)/gen.py"
-command -v sqlite3 >/dev/null || { echo "46_scale: SKIP (no sqlite3 CLI)"; exit 0; }
+command -v sqlite3 >/dev/null || { echo "SKIP: sqlite3 CLI not on PATH"; exit 77; }
 
 json_get() {   # json_get '<json>' 'python expression over d'
     python3 -c 'import json,sys; d=json.loads(sys.argv[1]); print(eval(sys.argv[2]))' "$1" "$2"

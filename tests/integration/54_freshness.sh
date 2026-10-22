@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Subsecond metadata, explicit dirty paths and legacy timestamp migration.
 . "$(dirname "$0")/../lib.sh"
-command -v sqlite3 >/dev/null || { echo "54_freshness: SKIP (no sqlite3 CLI)"; exit 0; }
+command -v sqlite3 >/dev/null || { echo "SKIP: sqlite3 CLI not on PATH"; exit 77; }
 
 mkdir -p "$TMP/proj"
 cd "$TMP/proj"
