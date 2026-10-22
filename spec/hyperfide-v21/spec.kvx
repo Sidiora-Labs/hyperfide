@@ -24,6 +24,7 @@ d_10 = "D10 Evidence pointers: keep pre-rewrite commits alive under refs/evidenc
 d_11 = "D11 Ask default policies, confirmed 2026-10-22: secret, variable and permission block; decision and question proceed on the recommended option and flag; deadlines and chains are set by task 3.6."
 d_12 = "D12 Evidence refs: refs/evidence/* are published to origin and fetched by CI; 80_qualification_inputs.sh fails, never skips, when they are absent."
 d_13 = "D13 CI secrets: the operator supplies Railway and database credentials to CI for the provider-backed registrations; CI materialises HF_CREDENTIAL_CONFIG_FILE from secrets and never prints values."
+d_14 = "D14 Fleet stop authority, decided 2026-10-22 on the task 2.4 Ask: POOL and ORGANISATION stops need an OPERATOR of that organisation; a DEPLOYMENT stop additionally needs the operator credential on the HYPERFIDE_DEPLOYMENT_OPERATORS allow-list, and an unset list refuses every DEPLOYMENT stop. The stop driver polls every 5000 ms by default; 0 disables it."
 [req.1]
 title = "Reproducible qualification and one truthful workflow source"
 story = "As an engineer on the team of four, I need a fresh clone, CI and a remote worker to qualify the same way the main host does, and one workflow source that agents can read without contradiction."
