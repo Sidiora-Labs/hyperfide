@@ -765,7 +765,7 @@ owner = "supervisor"
 
 [task.3.22]
 title = "Release signatures verified"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["2.9", "2.10"]
 touches = ["scripts/release-sign.sh", "scripts/release.sh", "deploy/hyperfide/install-service.mjs", "services/hyperfide/src/deployment/releases.ts", "tests/hyperfide/cases/v21/2_9.py", "tests/hyperfide/cases/v21/2_10.py", "tests/hyperfide/cases/v21/3_22.py", "tests/hyperfide/cases/tasks/25_4.py"]
