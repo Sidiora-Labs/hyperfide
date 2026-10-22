@@ -714,6 +714,69 @@ function patchSessions(sessions, liveNative, now) {
     return changed;
 }
 
+/* ---------------- reconnect and transcripts (hyperfide-v21 6.6) ----------------
+ *
+ * After a serve reconnect the snapshot is the server's word on every native
+ * row (serve.js applySnapshot), so a row it no longer carries is a ghost of
+ * an agent that stopped or vanished while the pipe was down: prune it, then
+ * patchSessions folds the snapshot's rows on. Returns the rows removed. */
+function pruneSessions(sessions, liveNative) {
+    if (!sessions || !liveNative) return 0;
+    let removed = 0;
+    const keep = (list) => list.filter((n) => {
+        if (!Object.prototype.hasOwnProperty.call(liveNative, n.agent)) {
+            const count = (x) => 1 + x.children.reduce((a, c) => a + count(c), 0);
+            removed += count(n);
+            return false;
+        }
+        n.children = keep(n.children);
+        return true;
+    });
+    sessions.nodes = keep(sessions.nodes);
+    sessions.counts = nativeCounts(sessions.nodes);
+    return removed;
+}
+
+/* The root the supervisor writes agent logs under: cg's shared root (one
+ * per repository, the main worktree), not this window's folder. `shared`
+ * is what cg serve's initialize said; without it a linked worktree's .git
+ * file names the common git dir. readFile is injectable for the test. */
+function sharedRootOf(root, shared, readFile) {
+    if (shared) return shared;
+    if (!root) return null;
+    const read = readFile || ((f) => fs.readFileSync(f, 'utf8'));
+    try {
+        const m = /^gitdir:\s*(.+?)\s*$/m.exec(read(path.join(root, '.git')));
+        const g = m && path.resolve(root, m[1]);
+        const i = g ? g.lastIndexOf(`${path.sep}.git${path.sep}worktrees${path.sep}`) : -1;
+        if (i > 0) return g.slice(0, i);
+    } catch (_) { /* a directory .git, or none: root is the shared root */ }
+    return root;
+}
+
+/* Agent logs by preference, as src/orchestrate.c names them: main.log; a
+ * per-wave manager's <feature>-manager-<wave>.log (the default hierarchy
+ * since codify-v15 4.1), then the feature-wide <feature>-manager.log; a
+ * worker's <feature>-<task>.log. Under the shared root first, then this
+ * window's root for a supervisor that ran here. */
+function transcriptCandidates(n, roots) {
+    if (!n) return [];
+    let names = [];
+    if (n.kind === 'main') names = ['main.log'];
+    else if (n.kind === 'manager') {
+        if (n.wave !== null && n.wave !== undefined && n.wave >= 0)
+            names.push(`${n.feature}-manager-${n.wave}.log`);
+        names.push(`${n.feature}-manager.log`);
+    } else {
+        names = (n.tasks || []).map((t) => `${n.feature}-${t.id}.log`).reverse();
+    }
+    const out = [];
+    for (const r of [...new Set((roots || []).filter(Boolean))]) {
+        for (const f of names) out.push(path.join(r, '.codegraph', 'agents', f));
+    }
+    return out;
+}
+
 /* ---------------- the Start flow (headless-safe) ----------------
  *
  * What a person sees before the fleet starts: the roles and what each may
@@ -1129,6 +1192,17 @@ class FleetView {
         const n = patchSessions(this.sessions, live.native);
         if (n) this._em.fire();
         return n;
+    }
+
+    /* serve reconnected and resynced live.native from its snapshot:
+     * drop the ghosts, fold the snapshot on, redraw (hyperfide-v21 6.6) */
+    resyncLive() {
+        const live = this.deps && this.deps.live ? this.deps.live() : null;
+        if (!live || !live.native || !this.sessions) return this.patchLive();
+        const gone = pruneSessions(this.sessions, live.native);
+        const n = patchSessions(this.sessions, live.native);
+        if (gone || n) this._em.fire();
+        return gone + n;
     }
 
     sessionsRoot() {
@@ -1791,20 +1865,15 @@ async function cmdOpenTranscript(arg) {
     const n = arg && arg.node ? arg.node : null;
     const root = deps.workspaceRoot();
     if (!n || !root) return;
-    const dir = path.join(root, '.codegraph', 'agents');
-    let candidates = [];
-    if (n.kind === 'main') candidates = ['main.log'];
-    else if (n.kind === 'manager') candidates = [`${n.feature}-manager.log`];
-    else {
-        const ids = (n.tasks || []).map((t) => t.id);
-        candidates = ids.map((id) => `${n.feature}-${id}.log`);
-    }
-    const found = candidates.map((f) => path.join(dir, f)).filter((p) => fs.existsSync(p));
-    if (!found.length) {
-        vscode.window.showInformationMessage(`${n.agent} has no transcript yet (${candidates.join(', ') || 'no task'}).`);
+    const shared = sharedRootOf(root, deps.sharedRoot ? deps.sharedRoot() : null);
+    const candidates = transcriptCandidates(n, [shared, root]);
+    const found = candidates.find((p) => fs.existsSync(p));
+    if (!found) {
+        const names = [...new Set(candidates.map((p) => path.basename(p)))];
+        vscode.window.showInformationMessage(`${n.agent} has no transcript yet (${names.join(', ') || 'no task'}).`);
         return;
     }
-    const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(found[found.length - 1]));
+    const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(found));
     await vscode.window.showTextDocument(doc, { preview: true });
 }
 
@@ -1937,10 +2006,13 @@ function register(ctx, d) {
         /* a fleet event arrived: the next refresh redraws this view even
          * while it is hidden, so it is right the moment it is opened */
         touch: () => { view.force = true; view.patchLive(); },
+        /* serve reconnected: live.native is the snapshot now (6.6) */
+        resync: () => { view.force = true; view.resyncLive(); },
         get visible() { return view.visible; },
     };
 }
 
 module.exports = { register, FleetView, fleetTree, relAge, mergeState,
                    treeFacts, parentsFromTree, startPlan, liveDecorate,
-                   nativeNodes, patchSessions, projectionNodes, findingBadge };
+                   nativeNodes, patchSessions, projectionNodes, findingBadge,
+                   pruneSessions, sharedRootOf, transcriptCandidates };
