@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "socket_path": "/var/lib/hyperfide/supervisory-host/socket/host.sock",
+  "state_root": "/var/lib/hyperfide/supervisory-host/state",
+  "plan_root": "/var/lib/hyperfide/supervisory-host/plans",
+  "allowed_uids": "REPLACE_WITH_ARRAY_OF_NATIVE_CHILD_UIDS_AT_LEAST_1000_NEVER_1900",
+  "max_children": "REPLACE_WITH_INTEGER_1_TO_256",
+  "policy_file": "/etc/hyperfide/supervisory-host-policy.json",
+  "policy_sha256": "REPLACE_WITH_SHA256_HEX_OF_THE_POLICY_FILE_BYTES",
+  "termination_grace_seconds": "REPLACE_WITH_NUMBER_0.05_TO_30",
+  "max_output_bytes": "REPLACE_WITH_INTEGER_4096_TO_67108864",
+  "control_uid": 1900,
+  "control_gid": 1900
+}

@@ -13,6 +13,9 @@ DEPLOY = ROOT / 'deploy/hyperfide'
 ROLES = {'control': ('hyperfide', 1900), 'provisioner': ('hyperfide-provisioner', 1901), 'dispatch': ('hyperfide-dispatch', 1902)}
 EXAMPLES = ['control-identity', 'provisioner-identity', 'provisioner-worker', 'dispatch-identity']
 INPUTS = ['grants.sql'] + [p for role in ROLES for p in (f'env/{role}.env.example', f'policies/{role}.example.json', f'{role}.service')] + [f'identity/{n}.example.json' for n in EXAMPLES]
+# Supervision roles (hyperfide-v21 2.9) are read before the first write too.
+INPUTS += ['env/supervisory-host.env.example', 'config/supervisory-host.example.json', 'policies/supervisory-host.example.json',
+           'config/main-budget.example.json', 'supervisory-host.service', 'env/issue-watcher.env.example', 'config/issue-watcher.example.json', 'issue-watcher.service']
 FAILED = []
 
 

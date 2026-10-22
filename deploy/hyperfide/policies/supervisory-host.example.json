@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "purpose": "MAIN_SUPERVISOR",
+      "profile_digest": "REPLACE_WITH_64_HEX_PROFILE_DIGEST",
+      "restriction_profile_digest": "REPLACE_WITH_64_HEX_RESTRICTION_PROFILE_DIGEST",
+      "binary_digest": "REPLACE_WITH_64_HEX_DIGEST_OF_ARGV0_BYTES",
+      "argv": ["REPLACE_WITH_ROOT_OWNED_ABSOLUTE_EXECUTABLE"],
+      "cwd": "REPLACE_WITH_ROOT_OWNED_ABSOLUTE_DIRECTORY",
+      "uid": "REPLACE_WITH_ONE_OF_ALLOWED_UIDS",
+      "gid": "REPLACE_WITH_CHILD_GID_AT_LEAST_1000",
+      "home": "REPLACE_WITH_PRIVATE_HOME_DIRECTORY",
+      "temp": "REPLACE_WITH_PRIVATE_TEMP_DIRECTORY",
+      "env": {
+        "PATH": "/usr/bin:/bin",
+        "HOME": "REPLACE_WITH_SAME_AS_HOME",
+        "XDG_CONFIG_HOME": "REPLACE_WITH_HOME/.config",
+        "TMPDIR": "REPLACE_WITH_SAME_AS_TEMP",
+        "LANG": "C.UTF-8"
+      },
+      "resource_vector": {
+        "cpu_millis": "REPLACE_WITH_DECIMAL_STRING",
+        "memory_bytes": "REPLACE_WITH_DECIMAL_STRING",
+        "agent_slots": "1"
+      },
+      "max_runtime_seconds": "REPLACE_WITH_INTEGER_30_TO_86400"
+    }
+  ]
+}
