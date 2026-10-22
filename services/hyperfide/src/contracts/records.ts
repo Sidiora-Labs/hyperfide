@@ -247,3 +247,21 @@ export interface FindingRecord extends SourceReference {
   severity: 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL'; summary: string;
   state: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED'; state_version: Generation;
 }
+// hyperfide.asks head and hyperfide.ask_events history (migration 0709, v21 3.1).
+export type AskKind = 'secret' | 'variable' | 'permission' | 'decision' | 'question';
+export type AskDefaultPolicy = 'block' | 'proceed-and-flag';
+export type AskState = 'OPEN' | 'ANSWERED' | 'EXPIRED';
+export interface AskRecord {
+  organisation_id: UUID; id: UUID; run_id: UUID | null;
+  kind: AskKind; title: string; body: string; options: string[]; recommended: string | null;
+  deadline: string | null; default_policy: AskDefaultPolicy; chain: string[];
+  task: UUID | null; attempt: UUID | null; session: UUID | null; sandbox: UUID | null;
+  raised_by: UUID; raised_at: string; state: AskState;
+  answered_by: UUID | null; answer: string | null; decided_by_default: boolean;
+  answered_at: string | null; expired_at: string | null; state_version: Generation;
+}
+export interface AskEventRecord {
+  organisation_id: UUID; ask_id: UUID; state_version: Generation;
+  event_type: 'RAISED' | 'ANSWERED' | 'EXPIRED'; state: AskState;
+  actor: UUID | null; answer: string | null; decided_by_default: boolean; recorded_at: string;
+}
