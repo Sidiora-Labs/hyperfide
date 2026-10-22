@@ -19,6 +19,9 @@ import type {RunnerRemotePlan} from './bridge.js';
 import {readJobAllocation} from '../scheduler/claim.js';
 import {lookupNativeLaunch} from '../events/outbox.js';
 import {currentPool,digestDocument,readDeployment} from '../providers/pools.js';
+import {resolveWorkerWorkspace,workspaceDeclaration} from '../preparation/slices.js';
+import type {WorkerWorkspace} from '../preparation/slices.js';
+import type {QuerySession} from '../storage/transactions.js';
 
 interface Signer {credential_id:string;key:KeyObject;public_key_b64:string}
 interface ProviderResult {outcome:unknown;process_ref:unknown;captured?:CapturedProviderOutput;evidence_digest?:unknown;cleanup_confirmed?:unknown;[name:string]:unknown}
@@ -114,6 +117,21 @@ export async function taskEnvReferences(tx:Pick<PrimaryTransaction,'query'>,orga
 function boundRequest(binding:Record<string,any>,operation_id:string,argv:string[],timeout_ms:number,env_refs:Readonly<Record<string,string>>={}):BoundProviderRequest{
  if(!digest(binding.boot_preparation_digest))fail('RUNNER_BOOT_SEED_UNPINNED','Actual registered sandbox boot preparation identity required');
  return {binding:{organisation_id:binding.organisation_id,run_id:binding.run_id,session_id:binding.session_id,pool_id:binding.pool_id,sandbox_id:binding.sandbox_id,external_sandbox_id:binding.external_sandbox_id,boot_generation:String(binding.boot_generation),preparation_digest:binding.boot_preparation_digest},operation_id,argv,cwd:binding.workspace_path,env_refs:{...env_refs},timeout_ms};
+}
+/**
+ * Task v21 2.12: every worker job runs in the slice materialised for its allocated slot unless a full-tree reason is
+ * recorded (a FULL_TREE slice manifest on the slot, or request.workspace {mode:'FULL_TREE',fallback_reason}). Preparation
+ * jobs build the boot seed and are exempt, as are verification kinds: they are the full-tree comparison a slice result
+ * never claims to be. AGENT, CHILD and any unrecognised kind are workers. A refusal carries a WORKER_SLICE_* code and
+ * settles the admission as UNKNOWN.
+ */
+const VERIFICATION_JOB_KINDS=new Set(['BUILD','TEST','REVIEW','INDEX','INTEGRATION','PREPARATION','EXCLUSIVE_SERVICE']);
+export async function workerWorkspaceGate(tx:Pick<QuerySession,'query'>,row:{organisation_id:string;run_id:string;job_class?:string;plan:{request?:unknown;allocation?:unknown}}):Promise<WorkerWorkspace|null>{
+ const a=object(row.plan.allocation)?row.plan.allocation:{},request=object(row.plan.request)?row.plan.request:{};
+ if(row.job_class==='PREPARATION'||VERIFICATION_JOB_KINDS.has(String(a.job_kind)))return null;
+ const slot={sandbox_id:String(a.sandbox_id),slot_id:String(a.slot_id),sandbox_boot_generation:String(a.sandbox_boot_generation)};
+ if(!uuid(slot.sandbox_id)||!uuid(slot.slot_id)||!decimal(slot.sandbox_boot_generation,true))fail('WORKER_SLICE_SLOT_UNBOUND','A worker job needs its allocated slot to resolve its slice');
+ return resolveWorkerWorkspace(tx,{organisation_id:row.organisation_id,run_id:row.run_id},slot,workspaceDeclaration(request.workspace));
 }
 function jobRequest(row:Job,env_refs:Readonly<Record<string,string>>):BoundProviderRequest{
  const b=row.plan.binding;
@@ -251,6 +269,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  const retainedRequests=new WeakMap<object,{invocation:InvocationContext;session_id:string;launch_id:string;build:(r:Record<string,any>)=>BoundProviderRequest}>();
  let unregister:void|(()=>void);
  let active=0,completed=0,unknown=0,last_error:string|null=null;
+ const workspaces={slice:0,full_tree:0,refused:0};
  async function next(s:Signer):Promise<Job|null>{return g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal},async tx=>{
  const p=(await tx.query('SELECT p.*,r.authority_epoch,r.state AS run_state,clock_timestamp() AS db_now FROM hyperfide.identity_principals p JOIN hyperfide.runs r ON r.organisation_id=p.organisation_id AND r.id=p.run_id WHERE p.credential_id=$1 FOR SHARE OF p,r',[s.credential_id])).rows[0];
  if(!currentSigner(p,s))fail('RUNNER_EXECUTOR_IDENTITY_MISMATCH','Configured credential must be a live current provisioner with the matching public key');
@@ -270,9 +289,12 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  if(!allocation||(['allocation_id','generation','slot_id','sandbox_id','sandbox_boot_generation','assignee_session_id','request_id'] as const).some(key=>!same(allocation[key],row.plan.allocation[key])))fail('RUNNER_ALLOCATION_STALE','Current complete reservation assignment differs from admission');
  const reservation=(await tx.query("SELECT *,clock_timestamp() AS db_now FROM hyperfide.reservations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='ALLOCATED' FOR SHARE",[row.organisation_id,row.run_id,row.reservation_id])).rows[0];
  if(!reservation||new Date(reservation.expires_at).getTime()<=new Date(reservation.db_now).getTime())fail('RUNNER_RESERVATION_EXPIRED','Current allocated reservation required');
+ const workspace=await workerWorkspaceGate(tx as PrimaryTransaction,current);
+ if(workspace)workspaces[workspace.mode==='SLICE'?'slice':'full_tree']++;
  } catch(error) {
  const code=object(error)&&typeof error.code==='string'?error.code:'';
- if(!/^(AUTH_|RUNNER_|REMOTE_|JOB_|RESOURCE_|RESERVATION_)/.test(code))throw error;
+ if(!/^(AUTH_|RUNNER_|REMOTE_|JOB_|RESOURCE_|RESERVATION_|WORKER_SLICE_|WORKER_WORKSPACE_|SLICE_)/.test(code))throw error;
+ if(/^(WORKER_|SLICE_)/.test(code)){workspaces.refused++;last_error=code;}
  await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN' WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id]);
  unknown++;return null;
  }
@@ -404,5 +426,5 @@ const job=(await tx.query("SELECT job_class FROM hyperfide.runner_remote_jobs WH
  const preparing=job?.job_class==='PREPARATION';
  const r=await (preparing?readRunnerPreparationBinding:readRunnerBinding)(tx,b);for(const key of Object.keys(b))if(String(key==='preparation_digest'?r.boot_preparation_digest:r[key])!==String(b[key as keyof typeof b]))return null;if(!preparing)await readRunnerReadiness(tx,r);return {evidence_digest:r.observation_digest,observed_at:new Date(r.db_now).toISOString()};}catch{return null;}});
  const workers=Array.from({length:config.concurrency},(_,index)=>worker(index));
- return {apiVersion:1,capabilities:{'runner.native.v1':native},actions:{'runner.executor.describe':async(_input,context)=>{assertInvocation(context.invocation);await authority.authorize(context.invocation);if(context.invocation.principal.role!=='PROVISIONER'||!config.signers.some(s=>s.credential_id===context.invocation!.principal.credential_id))fail('ROLE_DENIED','Configured provisioner status required');return {active,completed,unknown,last_error,concurrency:config.concurrency,replay_policy:'NEVER_RELAUNCH_CLAIMED_OR_UNKNOWN',authority:'NONE'};}},close:async()=>{controller.abort();await Promise.all(workers);if(typeof unregister==='function')unregister();}};
+ return {apiVersion:1,capabilities:{'runner.native.v1':native},actions:{'runner.executor.describe':async(_input,context)=>{assertInvocation(context.invocation);await authority.authorize(context.invocation);if(context.invocation.principal.role!=='PROVISIONER'||!config.signers.some(s=>s.credential_id===context.invocation!.principal.credential_id))fail('ROLE_DENIED','Configured provisioner status required');return {active,completed,unknown,last_error,workspaces:{...workspaces,policy:'SLICE_UNLESS_FULL_TREE_REASON_RECORDED'},concurrency:config.concurrency,replay_policy:'NEVER_RELAUNCH_CLAIMED_OR_UNKNOWN',authority:'NONE'};}},close:async()=>{controller.abort();await Promise.all(workers);if(typeof unregister==='function')unregister();}};
 }
