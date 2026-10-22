@@ -23,8 +23,12 @@ d_10 = "D10 Evidence pointers: keep pre-rewrite commits alive under refs/evidenc
 
 d_11 = "D11 Ask default policies, confirmed 2026-10-22: secret, variable and permission block; decision and question proceed on the recommended option and flag; deadlines and chains are set by task 3.6."
 d_12 = "D12 Evidence refs: refs/evidence/* are published to origin and fetched by CI; 80_qualification_inputs.sh fails, never skips, when they are absent."
-d_13 = "D13 CI secrets: the operator supplies Railway and database credentials to CI for the provider-backed registrations; CI materialises HF_CREDENTIAL_CONFIG_FILE from secrets and never prints values."
+d_13 = "D13 CI secrets: CI materialises a fixture credential store for HF_CREDENTIAL_CONFIG_FILE (no secret needed) and maps the RAILWAY_TOKEN repository secret only into registrations whose required_env names HF_RAILWAY_TOKEN; the operator supplies that secret and any live-case variables; values are never printed."
 d_14 = "D14 Fleet stop authority, decided 2026-10-22 on the task 2.4 Ask: POOL and ORGANISATION stops need an OPERATOR of that organisation; a DEPLOYMENT stop additionally needs the operator credential on the HYPERFIDE_DEPLOYMENT_OPERATORS allow-list, and an unset list refuses every DEPLOYMENT stop. The stop driver polls every 5000 ms by default; 0 disables it."
+d_15 = "D15 Provider resolutions (task 2.1 Ask, 2026-10-22): RETAIN keeps an orphan counted as occupied but not unknown; DELETE records operator evidence and never calls the provider; RELEASE rejects the intent and hands its reservations to admission as RELEASE_PENDING; RETRY reconciles again with capacity held. Overdue items are durable rows in provider_resolution_asks until 3.1 migrates them. HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS has no code default; the operator sets it, 3600 recommended."
+d_16 = "D16 Railway adoption (task 2.2 Ask): the create-time marker HF_PROVISION_OPERATION_ID read through sandboxExec is adoption evidence for a lost native id; authenticated enrollment still gates readiness."
+d_17 = "D17 Secret references (task 2.8 Ask): the task packet names every variable (env_refs NAME to secret-ref:ID) and the pool profile is only an allowlist; admission writes env_refs in task 2.17."
+d_18 = "D18 Object store and CI live cases (tasks 2.11 and 2.14 Asks): missing_region is STORE while mirrors are stood up; provisioner preflight warns, does not block, without HF_SLICE_SOURCE_CONFIG; the store URL, the per-region mirror URLs and the mirror refresh owner are open operator variables. No live Railway CI case is registered until a throwaway environment exists; the secret gate stays as built."
 [req.1]
 title = "Reproducible qualification and one truthful workflow source"
 story = "As an engineer on the team of four, I need a fresh clone, CI and a remote worker to qualify the same way the main host does, and one workflow source that agents can read without contradiction."
@@ -442,6 +446,45 @@ do_3 = "The native-binary and parity-manifest registrations keep printing SKIP n
 do_4 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
 reqs = ["1.5"]
 owner = "ci"
+
+[task.2.15]
+title = "Terminal superseded status in the spec engine, and the load-sensitive suites"
+status = "pending"
+wave = 2
+requires = ["1.8"]
+touches = ["src/spec.c", "spec/workflow.kvx", "spec/codify-v11/spec.kvx", "tests/integration/23_dblock.sh", "tests/integration/32_supervisor.sh", "CONTRIBUTING.md", "tests/integration/85_superseded_status.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/85_superseded_status.sh && CG=$PWD/cg bash tests/integration/23_dblock.sh"
+do_1 = "Add a terminal superseded task status: lint accepts it, status and progress count it as closed but not qualified, next and ready skip it, render gives it a glyph; list it in spec/workflow.kvx status_values; then set codify-v11 task 7.2 to superseded (its superseded_by and superseded_reason keys already exist)."
+do_2 = "23_dblock.sh must pass when the caller exported CG_BUSY_TIMEOUT_MS or HYPERFIDE_BUSY_TIMEOUT_MS (clear the alias the test does not set); make the 2 s wall budget in 32_supervisor.sh hold on a loaded host (scale by load or measure against a reference) without weakening what it proves; correct CONTRIBUTING.md line 25, which still says 62 and 78 fail by design."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.5"]
+owner = "ci"
+
+[task.2.16]
+title = "Provider resolutions escalate on the provisioner worker loop"
+status = "pending"
+wave = 2
+requires = ["2.1"]
+touches = ["services/hyperfide/src/providers/worker.ts", "deploy/hyperfide/env/control.env.example", "deploy/hyperfide/env/provisioner.env.example", "tests/hyperfide/cases/v21/2_16.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_16.py"
+do_1 = "Call provider.resolutions.escalate from the provisioner worker loop on a cadence (HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS, 0 disables); document HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS in the env examples as a commented operator value (3600 recommended, no default in code, D15)."
+do_2 = "2_16.py asserts that an overdue orphan raises exactly one decision Ask from the loop, that a second pass raises none, that a resolved subject marks it ANSWERED, and that escalate refuses with RESOLUTION_WINDOW_REQUIRED when the window is unset."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.1"]
+owner = "providers"
+
+[task.2.17]
+title = "Admission writes env_refs into the runner packet"
+status = "pending"
+wave = 2
+requires = ["2.8"]
+touches = ["services/hyperfide/src/runner/bridge.ts", "services/hyperfide/src/runner/executor.ts", "tests/hyperfide/cases/v21/2_17.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_17.py"
+do_1 = "Admission in bridge.ts validates the task's secret references with declaredEnvReferences against the pool's environment profile and writes env_refs (NAME to secret-ref:ID) into the admitted RunnerRemotePlan; validatePlan accepts the field (D17)."
+do_2 = "2_17.py asserts that an admitted packet carries the references, that an undeclared reference is refused at admission with RUNNER_SECRET_REFERENCE_UNDECLARED, and that a packet without references is unchanged."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.5"]
+owner = "runner"
 
 [task.3.1]
 title = "The asks table"
