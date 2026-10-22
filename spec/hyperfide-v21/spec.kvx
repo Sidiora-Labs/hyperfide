@@ -621,7 +621,7 @@ owner = "runner"
 
 [task.3.11]
 title = "Stops hold their scope and the fleet accepts superseded"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["2.4", "2.15"]
 touches = ["services/hyperfide/src/recovery/stop.ts", "src/orchestrate.c", "src/fleet.c", "src/docs.c", "src/drift.c", "tests/hyperfide/cases/v21/2_10.py", "tests/hyperfide/cases/v21/3_11.py", "tests/integration/90_superseded_fleet.sh", "tests/hyperfide/cases/v21/2_4.py", "docs/hyperfide/operations.md"]
