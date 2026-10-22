@@ -166,7 +166,7 @@ owner = "deployment"
 
 [task.1.6]
 title = "Bootstrap a clean host without ignored inputs"
-status = "pending"
+status = "done"
 wave = 1
 requires = []
 touches = [".gitignore", "deploy/hyperfide/bootstrap-host.mjs", "deploy/hyperfide/identity", "deploy/hyperfide/bootstrap-fence.mjs", "tests/hyperfide/cases/v21/1_6.py"]

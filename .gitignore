@@ -50,7 +50,9 @@ tmp/
 *.codify.bak
 **/.hyperfide/context/
 artifacts/
-deploy/hyperfide/identity/
+# Real identities are host-local; the shipped *.example.json templates are bootstrap inputs and stay tracked.
+deploy/hyperfide/identity/*
+!deploy/hyperfide/identity/*.example.json
 spec/hyperfide/evidence/
 tests/hyperfide/registrations/
 tests/hyperfide/manifests/tasks/
