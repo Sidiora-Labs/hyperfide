@@ -292,6 +292,27 @@ Provider components: 8.2 provider.pools.*, 8.3 provider.intents.* and provider.o
 
 Remote work is prepared in a primary transaction, its intent is committed, then the opaque runner permit executes. No remote build occurs inside a PostgreSQL transaction. Unknown execution or cleanup remains unknown and retains capacity until reconciliation proves otherwise.
 
+### Internal object store and regional mirrors
+
+Sandboxes never clone or fetch from GitHub; GitHub receives only the publication projection. Source comes from an internal object store: a bare Git repository on your infrastructure, with a bare mirror in each provider region, reachable over that provider's private network (for Railway, a `*.railway.internal` host).
+
+The provisioner environment file names the configuration with `HF_SLICE_SOURCE_CONFIG` (an absolute path, at most 256 KiB, for example `/etc/hyperfide/object-store.json`):
+
+```json
+{"schema_version": 2, "missing_region": "STORE",
+ "repositories": {"<repository id>": {
+   "store": "ssh://objects.example.internal/srv/hyperfide/monorepo.git",
+   "mirrors": {"railway": {"us-west2": "ssh://objects-usw2.railway.internal/srv/monorepo.git"}},
+   "submodules": {"vendor/lib": {"store": "ssh://objects.example.internal/srv/lib.git", "mirrors": {}}}}}}
+```
+
+- Mirrors are keyed by provider, then region. Materialisation (`preparation.slice.materialize`) reads the provider and region of the sandbox's pool and clones from that mirror. `missing_region` is required and has no default: `STORE` sends a region without a mirror to the store, `REFUSE` refuses it with `SLICE_SOURCE_NO_REGIONAL_MIRROR`.
+- Every URL must be a credential-free `https`, `ssh` or absolute `file` URL. A `github.com`, `*.github.com` or `*.githubusercontent.com` host anywhere in the file is refused with `SLICE_SOURCE_GITHUB_REFUSED`. The schema 1 file (`url` per repository) is still read, as a store with no mirrors, under the same refusal.
+- A mirror that has not yet received the pinned commit is stale. Materialisation discards that clone, clones from the store, and records `source.mirror_holds_commit: false` in the materialisation evidence.
+- In live mode, `railwayMaterialisationSource` (railway.preparation.v1) refuses a Railway mirror that is not on the private network.
+- Store and mirrors must allow partial clone and pinned fetches: `git config uploadpack.allowFilter true` and `git config uploadpack.allowAnySHA1InWant true`. Keep mirrors current with `git fetch --prune origin` from the store (they are `git clone --mirror` copies).
+- Freshness: `node deploy/hyperfide/bootstrap-host.mjs --object-store-freshness <repository id>` compares every mirror's refs with the store's and prints each one as FRESH, STALE (refs `behind` or `extra`) or UNREACHABLE. It exits 0 only when every mirror is FRESH, 1 otherwise, and 78 with `SLICE_SOURCE_STORE_UNREACHABLE` when the store does not answer. Provisioner preflight validates the file when the variable is set.
+
 ## Verification and publication
 
 A worker submission enters durable custody for its exact commit and source manifest. Independent verifier jobs, review coverage, blocking findings and integration candidate gates govern publication. Transport credentials stay behind the publication gateway; expected old/new object IDs and current authority are checked at the actual Git side effect.

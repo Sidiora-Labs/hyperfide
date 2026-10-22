@@ -388,10 +388,10 @@ owner = "deployment"
 
 [task.2.11]
 title = "Internal object store with per-region mirrors"
-status = "pending"
+status = "in_progress"
 wave = 2
 requires = []
-touches = ["services/hyperfide/src/providers/railway/preparation.ts", "services/hyperfide/src/preparation/slices.ts", "deploy/hyperfide/bootstrap-host.mjs", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/2_11.py"]
+touches = ["services/hyperfide/src/providers/railway/preparation.ts", "services/hyperfide/src/preparation/slices.ts", "services/hyperfide/src/preparation/object_store.ts", "deploy/hyperfide/bootstrap-host.mjs", "deploy/hyperfide/env/provisioner.env.example", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/2_11.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_11.py"
 do_1 = "Stand up a bare repository as the internal object store with a mirror per provider region, configured through the environment profile; the provisioner clones and fetches from the nearest mirror and never from GitHub."
 do_2 = "2_11.py asserts the source URL resolution per region, the refusal of a GitHub URL as a materialisation source, and mirror freshness reporting."
