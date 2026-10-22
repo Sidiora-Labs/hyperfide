@@ -20,6 +20,10 @@
 #              patch against the real cg, reconnect, fallback on an old cg
 #   pushed   — (v21 1.12) an approval the real cg raises reaches the chat
 #              as a card through cg serve, once, and again after a reconnect
+#   sandboxes — (v21 6.4) the console.sandboxes view and its attach
+#   issues   — (v21 6.3) the Issues view: console.issues rows, drift.*
+#              from the real cg log and routed live, diagnostics, blocked
+#              cleared on resolution
 #   leaders  — (v21 6.5) the Leaders webview: a tab per leader, attach and
 #              steer through the real cg, its open Asks inline and answered
 # Run one section: 14_vscode.sh tasks
@@ -727,12 +731,14 @@ const fs = require('fs'), path = require('path');
 const dir = process.argv[2];
 const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
 // commands are registered from extension.js, agents.js, acp.js, tasks.js,
-// and fleet.js
+// fleet.js and sandboxes.js
 const src = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'agents.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'acp.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'tasks.js'), 'utf8') +
-    fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8');
+    fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8') +
+    fs.readFileSync(path.join(dir, 'sandboxes.js'), 'utf8') +
+    fs.readFileSync(path.join(dir, 'issues.js'), 'utf8');
 
 if (pkg.publisher !== 'SidioraLabs' || pkg.name !== 'codify-workflow') {
     throw new Error(`unexpected Marketplace identity: ${pkg.publisher}.${pkg.name}`);
@@ -2745,6 +2751,173 @@ JS
     [ $? -eq 0 ] || fail "reconnect snapshot, agent names, transcripts"
 fi
 
+if want sandboxes; then
+# ---- sandboxes (hyperfide-v21 6.4): the codifySandboxes view over the
+#      console.sandboxes read model: provider, pool, task, heartbeat, slice
+#      size, snapshot state and queue position per row, attach opening the
+#      worker's session, and a refusal shown as a refusal, never as rows
+    rm -rf "$TMP/sbx"; mkdir -p "$TMP/sbx"; cd "$TMP/sbx"
+    "$CG" init >/dev/null 2>&1
+    node - "$EXT" "$CG" "$(cd "$EXT/../.." && pwd)" <<'JS'
+const fs = require('fs'), path = require('path'), cp = require('child_process'), Module = require('module');
+const [dir, CG, src] = process.argv.slice(2);
+const eq = (a, b, m) => { if (a !== b) throw new Error(`${m}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`); };
+const ok = (c, m) => { if (!c) throw new Error(m); };
+
+// manifest: the view and its commands are declared, registered and wired
+const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+const sbxSrc = fs.readFileSync(path.join(dir, 'sandboxes.js'), 'utf8');
+const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+ok(pkg.contributes.views.codify.some((v) => v.id === 'codifySandboxes'), 'codifySandboxes view not declared');
+ok(/createTreeView\('codifySandboxes'/.test(sbxSrc), 'codifySandboxes declared but never populated');
+const declared = pkg.contributes.commands.map((c) => c.command);
+for (const c of ['codify.sandboxes.refresh', 'codify.sandboxes.attach']) {
+    ok(declared.includes(c), `${c} not declared`);
+    ok(sbxSrc.includes(`'${c}':`), `${c} not registered`);
+}
+ok(pkg.contributes.menus['view/item/context'].some((m) => m.command === 'codify.sandboxes.attach' &&
+    /viewItem == sandbox-worker-session/.test(m.when)), 'attach is not offered on a worker with a session');
+ok(/sandboxes\.register\(ctx,/.test(ext) && /await sandboxesApi\.refresh\(\)/.test(ext), 'extension.js does not wire the view into the one scheduler');
+ok(!/setInterval|createFileSystemWatcher/.test(sbxSrc), 'sandboxes.js runs a clock of its own');
+
+// every field the view reads is one console.ts declares (the read model of 5.2)
+const consoleTs = fs.readFileSync(path.join(src, 'services/hyperfide/src/observability/console.ts'), 'utf8');
+for (const f of ['view:\'console.sandboxes\'', 'heartbeat_max_age_seconds', 'liveness', 'pool_id', 'provider', 'heartbeat_age_seconds',
+                 'native_sandbox_id', 'workers', 'slot_key', 'task_id', 'session_id', 'included_paths', 'closure_files',
+                 'snapshot:{state:\'NO_ATTEMPT\'|\'NONE\'|\'CAPTURED\'', 'as_of', 'counts', 'truncated'])
+    ok(consoleTs.includes(f), `console.ts no longer declares ${f}`);
+
+const { sandboxNodes, parseAnswer, summary, queuePositions, COMMAND } = require(path.join(dir, 'sandboxes.js'));
+eq(COMMAND.join(' '), 'console sandboxes --json', 'the view reads the console verb');
+const worker = (slot, task, session, paths, closure, snap) => ({
+    slot_id: `slot-${slot}`, slot_key: slot, capacity_kind: 'TASK', state: task ? 'BUSY' : 'IDLE', boot_generation: '1',
+    attempt: task ? { run_id: 'run-1', id: `att-${task}`, task_id: task, generation: '1', kind: 'TASK', execution_state: 'RUNNING', compute_authority: 'CURRENT', lease_expires_at: null } : null,
+    runner: session ? { run_id: 'run-1', session_id: session, credential_id: 'c', state: 'CURRENT', observed_at: '2026-10-22T10:00:00.000Z', heartbeat_at: '2026-10-22T10:00:00.000Z' } : null,
+    slice: paths === null ? null : { state: 'MATERIALISED', run_id: 'run-1', digest: 'd', materialisation_id: 'm', mode: 'SPARSE', fallback_reason: null, included_paths: paths, closure_files: closure, verified_head: null, at: '2026-10-22T10:00:00.000Z' },
+    snapshot: task ? (snap ? { state: 'CAPTURED', id: 'snap-1', result_tree: 't', files_changed: '3', checkpoint_digest: null, at: 'x' } : { state: 'NONE', id: null, result_tree: null, files_changed: null, checkpoint_digest: null, at: null })
+        : { state: 'NO_ATTEMPT', id: null, result_tree: null, files_changed: null, checkpoint_digest: null, at: null },
+});
+const row = (o) => Object.assign({ kind: 'SANDBOX', reasons: [], region: 'us-west', native_sandbox_id: null, desired_state: 'RUNNING', observed_state: 'RUNNING',
+    boot_generation: '1', work_admitted: true, heartbeat_at: null, heartbeat_age_seconds: null, intent: null, quarantined_intents: [], orphan: null, attempts: 0, workers: [] }, o);
+const inv = { view: 'console.sandboxes', scope: { organisation_id: 'org' }, as_of: '2026-10-22T10:00:05.000Z', heartbeat_max_age_seconds: 90,
+    counts: { LIVE: 1, LOST: 1, QUARANTINED: 0, ORPHANED: 1, PENDING: 2, RETIRED: 0 }, truncated: false, authority: 'PRIMARY_OBSERVATION', activity_is_qualified_progress: false,
+    rows: [
+        row({ liveness: 'LIVE', sandbox_id: 'sb-live', pool_id: 'pool-a', provider: 'railway', native_sandbox_id: 'rw-1', heartbeat_age_seconds: 5,
+              workers: [worker('w0', '6.4', 'sess-1', 12, 40, true), worker('w1', null, null, null, null, false)] }),
+        row({ liveness: 'PENDING', sandbox_id: 'sb-p1', pool_id: 'pool-a', provider: 'railway', observed_state: null }),
+        row({ liveness: 'LOST', sandbox_id: 'sb-lost', pool_id: 'pool-b', provider: 'local', heartbeat_age_seconds: 600, reasons: ['HEARTBEAT_STALE'],
+              workers: [worker('w0', '6.9', 'sess-2', 1, null, false)] }),
+        row({ liveness: 'PENDING', sandbox_id: 'sb-p2', pool_id: 'pool-b', provider: 'local', observed_state: null }),
+        row({ kind: 'ORPHAN', liveness: 'ORPHANED', sandbox_id: null, pool_id: 'pool-a', provider: 'railway', native_sandbox_id: 'rw-9',
+              orphan: { state: 'UNVERIFIED', suspected_intent_id: null, first_observed_at: 'x', last_observed_at: 'x' } }),
+    ] };
+const m = sandboxNodes(inv);
+eq(m.ok, true, 'a console.sandboxes inventory is accepted');
+eq(m.nodes.length, 5, 'one row per sandbox and orphan');
+const [live, p1, lost, p2, orphan] = m.nodes;
+eq(live.provider, 'railway', 'provider'); eq(live.pool, 'pool-a', 'pool');
+eq(live.heartbeat, 'just now', 'heartbeat of a live sandbox'); eq(live.stale, false, 'a fresh heartbeat is not stale');
+eq(lost.heartbeat, '10m ago', 'heartbeat of a lost sandbox'); eq(lost.stale, true, 'past heartbeat_max_age_seconds is stale');
+eq(p1.heartbeat, 'no heartbeat', 'a pending sandbox has none');
+eq(p1.queue, 1, 'first pending sandbox is queue #1'); eq(p2.queue, 2, 'second pending sandbox is queue #2');
+eq(live.queue, null, 'a live sandbox is not queued'); eq(orphan.kind, 'orphan', 'orphan row kept');
+ok(/PENDING · railway\/pool-a · no heartbeat · queue #1/.test(p1.description), `pending row description: ${p1.description}`);
+eq(queuePositions([{ liveness: 'PENDING', queue_position: 7 }, { liveness: 'PENDING' }]).get(0), 7, 'the read model\'s own queue position wins');
+const [w0, w1] = live.workers;
+eq(w0.task, '6.4', 'worker task'); eq(w0.session, 'sess-1', 'worker session');
+eq(w0.slice.paths, 12, 'slice size in paths'); eq(w0.slice.text, '12 paths · closure 40 files', 'slice text');
+eq(w0.snapshot, 'CAPTURED', 'snapshot state'); eq(lost.workers[0].snapshot, 'NONE', 'no snapshot yet');
+eq(w1.task, null, 'idle worker'); eq(w1.snapshot, 'NO_ATTEMPT', 'idle worker snapshot'); eq(w1.slice.text, 'no slice', 'no slice is not zero');
+eq(lost.workers[0].slice.text, '1 path', 'singular slice');
+eq(live.tasks.join(), '6.4', 'tasks of a sandbox');
+ok(summary(m).startsWith('as of 2026-10-22T10:00:05.000Z · 1 live · 2 pending · 1 lost · 1 orphaned'), `summary: ${summary(m)}`);
+
+// negatives: a refusal, a foreign answer, a timeout and garbage are errors, never rows
+const refused = sandboxNodes(parseAnswer({ code: 1, stdout: '', stderr: '{"ok":false,"error":{"code":"CONSOLE_FORBIDDEN","message":"The console is for operators"}}' }));
+eq(refused.ok, false, 'a refusal is not an inventory'); ok(/CONSOLE_FORBIDDEN/.test(refused.error), 'the refusal code is shown');
+eq(refused.nodes.length, 0, 'a refusal draws no rows');
+eq(sandboxNodes({ view: 'console.needs', rows: [] }).ok, false, 'another console view is refused');
+eq(sandboxNodes(parseAnswer(null)).error, 'TIMEOUT: no answer in 20s', 'a wedged call is a timeout');
+ok(/EXIT_2: boom/.test(sandboxNodes(parseAnswer({ code: 2, stdout: 'boom\n', stderr: '' })).error), 'non-JSON output is an exit error');
+
+// the real cg: whatever it answers in this throwaway project (no distributed
+// authority) is either a real inventory or an error the view states
+const real = cp.spawnSync(CG, COMMAND, { encoding: 'utf8' });
+const rm = sandboxNodes(parseAnswer({ code: real.status, stdout: real.stdout, stderr: real.stderr }));
+ok(rm.ok ? Array.isArray(rm.nodes) : (typeof rm.error === 'string' && rm.error.length > 0 && rm.nodes.length === 0),
+   `real cg answer not handled: ${JSON.stringify(rm)}`);
+
+// the view against a stub vscode: hidden it asks nothing, visible it draws
+// the rows, and attach opens the worker's session document
+class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
+class EventEmitter { constructor() { this.fns = []; this.event = (f) => { this.fns.push(f); return { dispose() {} }; }; } fire(x) { this.fns.forEach((f) => f(x)); } }
+const commands = {}, opened = [];
+let providerOf = null, tv = null;
+const stub = {
+    TreeItem, EventEmitter, ThemeIcon: class { constructor(id, c) { this.id = id; this.color = c; } }, ThemeColor: class { constructor(id) { this.id = id; } },
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    window: {
+        createTreeView: (id, o) => { eq(id, 'codifySandboxes', 'tree view id'); tv = { visible: false, message: '', provider: o.treeDataProvider,
+            onDidChangeVisibility: (f) => { tv.fire = f; return { dispose() {} }; }, dispose() {} }; return tv; },
+        showInformationMessage: () => {}, showQuickPick: async (items) => items[0], showTextDocument: async (d) => { opened.push(d); },
+    },
+    workspace: { registerTextDocumentContentProvider: (s, p) => { eq(s, 'hyperfide-session', 'session scheme'); providerOf = p; return { dispose() {} }; },
+                 openTextDocument: async (uri) => ({ uri, text: providerOf.provideTextDocumentContent(uri) }) },
+    commands: { registerCommand: (n, f) => { commands[n] = f; return { dispose() {} }; } },
+    Uri: { parse: (u) => ({ toString: () => u }) },
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+delete require.cache[require.resolve(path.join(dir, 'sandboxes.js'))];
+const sbx = require(path.join(dir, 'sandboxes.js'));
+const calls = [];
+const events = [
+    { seq: 1, kind: 'agent.text', session: 'sess-1', payload: { text: 'working on 6.4' } },
+    { seq: 2, kind: 'agent.text', session: 'sess-2', payload: { text: 'not mine' } },
+    { seq: 3, kind: 'agent.tool', payload: { session_id: 'sess-1', tool: 'Edit' } },
+];
+const api = sbx.register({ subscriptions: [] }, { cg: async (args) => { calls.push(args.join(' '));
+    if (args[0] === 'console') return { code: 0, stdout: JSON.stringify(inv), stderr: '' };
+    if (args[0] === 'events') return { code: 0, stdout: events.map((e) => JSON.stringify(e)).join('\n') + '\n', stderr: '' };
+    return { code: 1, stdout: '', stderr: '' }; } });
+(async () => {
+    await api.refresh();               // the first pass always loads
+    eq(calls.length, 1, 'first refresh loads once');
+    await api.refresh();
+    eq(calls.length, 1, 'a hidden view asks nothing');
+    tv.fire({ visible: true }); await new Promise((r) => setImmediate(r));
+    eq(calls.length, 2, 'becoming visible loads');
+    const roots = tv.provider.getChildren();
+    eq(roots.length, 5, 'five roots');
+    const item = tv.provider.getTreeItem(roots[0]);
+    ok(/LIVE · railway\/pool-a · just now/.test(item.description), `sandbox item: ${item.description}`);
+    const kids = tv.provider.getChildren(roots[0]);
+    const wi = tv.provider.getTreeItem(kids[0]);
+    eq(wi.description, 'task 6.4 · slice 12 paths · closure 40 files · snapshot CAPTURED', 'worker item');
+    eq(wi.contextValue, 'sandbox-worker-session', 'a worker with a session offers attach');
+    eq(wi.command.command, 'codify.sandboxes.attach', 'clicking a worker attaches');
+    eq(tv.provider.getTreeItem(kids[1]).contextValue, 'sandbox-worker', 'an idle worker offers no attach');
+    ok(tv.message.startsWith('as of '), 'the view states its freshness');
+    await commands['codify.sandboxes.attach'](wi.command.arguments[0]);
+    eq(opened.length, 1, 'attach opens one document');
+    const text = opened[0].text;
+    ok(text.startsWith('# session sess-1'), 'the document is the worker\'s session');
+    ok(/task      6\.4/.test(text) && /working on 6\.4/.test(text) && /agent\.tool  Edit/.test(text), 'the session\'s events are in it');
+    ok(!/not mine/.test(text), 'another session\'s events are not');
+    await commands['codify.sandboxes.attach']();   // from the palette: a pick
+    eq(opened.length, 2, 'attach from the palette picks a worker');
+    // a refusal empties the view and says why
+    const api2 = sbx.register({ subscriptions: [] }, { cg: async () => ({ code: 1, stdout: '', stderr: '{"ok":false,"error":{"code":"OFFLINE_AUTHORITY_UNAVAILABLE","message":"offline"}}' }) });
+    await api2.refresh();
+    eq(tv.provider.getChildren().length, 0, 'a refusal draws no rows');
+    ok(/OFFLINE_AUTHORITY_UNAVAILABLE/.test(tv.message), 'the refusal is stated');
+    console.log('sandboxes ok');
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "sandboxes view"
+    cd "$TMP"
+fi
+
 # ---- ask registry (hyperfide-v21 6.1): ACP permission asks, fleet approvals
 #      and durable Asks in one registry; a fleet gate and its permission Ask
 #      are one item; the count reaches the status bar and the view badge;
@@ -3019,6 +3192,233 @@ check(/function watchFleetEvents\(\) \{[^}]*askApi\.reload\(\)/.test(acp), 'a (r
 console.log('ask registry wiring ok');
 JS
     [ $? -eq 0 ] || fail "ask registry wiring"
+fi
+
+# ---- issues (hyperfide-v21 6.3): the Issues view. console.issues rows in
+#      the exact console.ts row shape (a fixture: the service is not on this
+#      host), drift.* events from the real cg log and routed live through
+#      route(), file diagnostics, the badge, blocked cleared on resolution,
+#      and the real cg's answer to the console verb in a local project
+if want issues; then
+    rm -rf "$TMP/iss"; mkdir -p "$TMP/iss/src"; cd "$TMP/iss"
+    git init -q -b main . 2>/dev/null || git init -q .
+    git config user.email t@t; git config user.name t
+    echo 'export function alpha(){}' > src/a.ts
+    "$CG" spec new iv >/dev/null
+    "$CG" spec add 2.1 --title "Alpha" --wave 1 --touches 'src/a.ts' >/dev/null
+    "$CG" init >/dev/null
+    printf '.codegraph/\n*.lock\n' > .gitignore
+    git add -A >/dev/null; git commit -qm base >/dev/null
+    git checkout -qb task/iv/2.1
+    echo 'export function beta(){}' > src/b.ts
+    echo 'export function alpha(x){}' > src/a.ts
+    git add -A >/dev/null; git commit -qm work >/dev/null
+    "$CG" index >/dev/null 2>&1
+    "$CG" drift check 2.1 --base main --json > "$TMP/iss-spec.json"
+    "$CG" drift coverage -f iv --json >/dev/null
+    node - "$EXT" "$CG" "$TMP/iss" "$TMP/iss-spec.json" "$(cd "$EXT/../.." && pwd)" <<'JS'
+const path = require('path'), fs = require('fs'), cp = require('child_process');
+const Module = require('module');
+const [, , dir, CG, repo, specReport, src] = process.argv;
+const eq = (got, want, what) => {
+    if (got !== want) throw new Error(`${what}: ${JSON.stringify(got)} != ${JSON.stringify(want)}`);
+};
+const diag = { sets: new Map(), clears: 0 };
+class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
+const stub = {
+    EventEmitter: class { constructor() { this.n = 0; this.event = () => ({ dispose() {} }); } fire() { this.n++; } },
+    TreeItem,
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    ThemeIcon: class { constructor(id, color) { this.id = id; this.color = color; } },
+    ThemeColor: class { constructor(id) { this.id = id; } },
+    Uri: { file: (p) => ({ scheme: 'file', fsPath: p }) },
+    Range: class { constructor(a, b, c, d) { this.start = { line: a, character: b }; this.end = { line: c, character: d }; } },
+    Diagnostic: class { constructor(range, message, severity) { this.range = range; this.message = message; this.severity = severity; } },
+    DiagnosticSeverity: { Error: 0, Warning: 1, Information: 2, Hint: 3 },
+    commands: { executeCommand: () => {}, registerCommand: () => ({ dispose() {} }) },
+    window: {},
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+const { IssuesView, issuesModel, consolePanel, driftRows, CONSOLE_ARGS } = require(path.join(dir, 'issues.js'));
+const run = (args) => cp.spawnSync(CG, args, { cwd: repo, encoding: 'utf8' });
+
+// ---- a console.issues panel, row for row in the shape console.ts builds
+const asOf = new Date().toISOString();
+const fr = (s) => ({ observed_at: asOf, age_seconds: 0, source: s });
+const ASK = '7d1e0c3a-0000-4000-8000-000000000001';
+const panel = (askState, withRepair) => ({
+    view: 'console.issues', scope: { organisation_id: 'o', run_id: 'r' }, as_of: asOf,
+    counts: {}, authority: 'PRIMARY_OBSERVATION', activity_is_qualified_progress: false,
+    sections: {
+        leader_queue: { truncated: false, rows: [{ kind: 'LEADER_QUEUE', id: 'route-1', state: 'WAITING',
+            title: 'Null deref in parser', since: asOf, freshness: fr('hyperfide.finding_routes'),
+            references: { route_id: 'route-1', finding_id: 'f-1' },
+            detail: { severity: 'ERROR', path: 'src/a.ts', line: 1 } }] },
+        external_intake: { truncated: true, rows: [{ kind: 'EXTERNAL_INTAKE', id: 'repo#7', state: 'OPEN',
+            title: 'Crash on start', since: asOf, freshness: fr('github'),
+            references: { repository: 'acme/app', issue_number: '7' }, detail: { state: 'OPEN' } }] },
+        escalated_repairs: { truncated: false, rows: withRepair ? [{ kind: 'ESCALATED_REPAIR', id: 'rep-1',
+            state: 'ESCALATED', title: 'Repair of finding f-2', since: asOf, freshness: fr('hyperfide.finding_repairs'),
+            references: { repair_id: 'rep-1', finding_id: 'f-2', task_id: 't-9', ask_id: ASK },
+            detail: { severity: 'WARNING', ask: { state: askState, answer: null, decided_by_default: false, deadline: asOf },
+                      locations: [{ path: 'src/b.ts', line: 1 }] } }] : [] },
+        drift: { truncated: false, rows: [{ kind: 'DRIFT', id: 'SANDBOX:s-1', state: 'OBSERVATION_STALE',
+            title: 'SANDBOX desired RUNNING, observed RUNNING', since: asOf,
+            freshness: { ...fr('hyperfide.observability_observations'), stale: true },
+            references: { entity_type: 'SANDBOX', sandbox_id: 's-1' }, detail: {} }] },
+    },
+});
+// the shape is the service's: every row field console.ts declares
+const cts = fs.readFileSync(path.join(src, 'services/hyperfide/src/observability/console.ts'), 'utf8');
+for (const k of ["'leader_queue'", "'external_intake'", "'escalated_repairs'", "'drift'", "view:'console.issues'",
+                 'id:string;state:string;title:string;since:string;freshness:ConsoleFreshness']) {
+    if (!cts.includes(k)) throw new Error('console.ts no longer has ' + k);
+}
+
+// ---- consolePanel: bare, enveloped, and the negatives
+eq(consolePanel(panel('OPEN', true)).view, 'console.issues', 'bare panel');
+eq(consolePanel({ ok: true, result: panel('OPEN', true) }).as_of, asOf, 'enveloped panel');
+eq(consolePanel({ view: 'console.needs', sections: {} }), null, 'needs is not issues');
+eq(consolePanel(null), null, 'nothing');
+eq(consolePanel({ ok: false, error: { code: 'X' } }), null, 'an error');
+
+// ---- the drift log the real cg wrote, plus drift.spec with the real report
+const logged = run(['events', '--kind', 'drift.,task.status', '-n', '500', '--json']).stdout
+    .split('\n').filter(Boolean).map((l) => JSON.parse(l));
+const cov = logged.find((e) => e.kind === 'drift.coverage');
+if (!cov) throw new Error('the real cg logged no drift.coverage: ' + JSON.stringify(logged));
+const report = JSON.parse(fs.readFileSync(specReport, 'utf8'));
+eq(report.files_outside.join(), 'src/b.ts', 'real drift check: b.ts outside touches');
+// drift.c emits these keys; the reducer reads them
+const dc = fs.readFileSync(path.join(src, 'src/drift.c'), 'utf8');
+for (const k of ['"drift.spec"', '"drift.interface"', '"drift.coverage"', ',\\"files_outside\\":[%s],\\"symbols_undeclared\\":[%s]',
+                 '",\\"sites\\":[%s]', ',\\"line\\":%d}']) {
+    if (!dc.includes(k)) throw new Error('drift.c no longer emits ' + k);
+}
+const oc = fs.readFileSync(path.join(src, 'src/orchestrate.c'), 'utf8');
+if (!oc.includes('"drift.collision"') || !oc.includes(',\\"with\\":')) throw new Error('orchestrate.c collision payload moved');
+const specEv = { seq: 9001, at: Date.now(), kind: 'drift.spec', subject: report.task, branch: 'task/iv/2.1',
+                 payload: { task: report.task, base: 'main', head: 'task/iv/2.1',
+                            files_outside: report.files_outside, symbols_undeclared: report.symbols_undeclared } };
+
+// ---- the pure model
+const m = issuesModel(panel('OPEN', true), [cov, specEv]);
+eq(m.available, true, 'console available');
+eq(String(m.sections.map((s) => s.key)), 'leader_queue,external_intake,escalated_repairs,drift', 'four sections');
+eq(m.counts.drift, 3, 'console drift + coverage + spec');
+eq(m.sections[1].truncated, true, 'intake truncation kept');
+eq(m.blocked, 1, 'the repair with an open Ask holds work');
+const rep = m.sections[2].rows[0];
+eq(rep.blocked, true, 'repair blocked'); eq(rep.blockedBy, ASK, 'by its Ask');
+eq(m.diagnostics['src/a.ts'].some((d) => d.severity === 'error' && /Null deref/.test(d.message)), true, 'leader queue finding on a.ts');
+eq(m.diagnostics['src/b.ts'].some((d) => /outside its touches/.test(d.message)), true, 'drift.spec on b.ts');
+eq(m.diagnostics['src/a.ts'].some((d) => /alpha, which it does not declare/.test(d.message)), true, 'undeclared alpha at a.ts');
+eq(m.diagnostics['src/b.ts'].some((d) => d.source === 'hyperfide escalated_repair'), true, 'repair location');
+// a newer coverage event with nothing uncovered resolves the old one
+eq(driftRows([cov, { seq: cov.seq + 1, kind: 'drift.coverage', subject: 'iv', payload: { feature: 'iv', uncovered: 0, total: 1 } }]).length, 0,
+   'coverage resolved');
+// answered Ask: still listed, no longer blocked, and the transition reported
+const m2 = issuesModel(panel('ANSWERED', true), [cov, specEv], { previous: m });
+eq(m2.blocked, 0, 'answered Ask unblocks');
+eq(m2.cleared.map((r) => r.key).join(), 'console:escalated_repairs:rep-1', 'cleared on resolution');
+// a collision blocks until the awaited task is done
+const coll = { seq: 9002, kind: 'drift.collision', subject: 'iv/2.2', payload: { task: '2.2', with: '2.1', why: 'both touch src/a.ts', action: 'serialized' } };
+eq(driftRows([coll])[0].blocked, true, 'collision blocks');
+eq(driftRows([coll, { seq: 9003, kind: 'task.status', subject: 'iv/2.1', payload: { status: 'in_progress', feature: 'iv' } }]).length, 1,
+   'in progress does not resolve');
+eq(driftRows([coll, { seq: 9004, kind: 'task.status', subject: 'iv/2.1', payload: { status: 'done', feature: 'iv' } }]).length, 0,
+   'done resolves the collision');
+eq(driftRows([coll, { seq: 9004, kind: 'task.status', subject: 'other/2.1', payload: { status: 'done', feature: 'other' } }]).length, 1,
+   'another feature\'s 2.1 does not');
+
+// ---- the view against the real cg: console from a scripted source, drift from the real log
+let source = panel('OPEN', true);
+const calls = [];
+const cleared = [];
+const dcol = { set: (uri, list) => diag.sets.set(uri.fsPath, list), clear: () => { diag.sets.clear(); diag.clears++; } };
+const view = new IssuesView({
+    cgJson: async (args) => { calls.push(args.join(' ')); return args.join(' ') === CONSOLE_ARGS.join(' ') ? source : null; },
+    cg: async (args) => { const r = run(args); return { code: r.status, stdout: r.stdout, stderr: r.stderr }; },
+    workspaceRoot: () => repo, diagnostics: dcol, onCleared: (rows) => cleared.push(...rows),
+});
+view.view = {};
+(async () => {
+    await view.refresh();
+    eq(calls[0], 'console issues', 'reads console.issues');
+    eq(view.state, 'ready', 'ready');
+    let top = view.getChildren();
+    eq(top.map((t) => t.label).join(), 'Leader queue,External intake,Escalated repairs,Drift', 'tree roots');
+    eq(top[1].description, '1+', 'truncated count');
+    eq(top[2].description, '1 · 1 blocked', 'blocked count on the section');
+    eq(view.view.badge.value, 1, 'view badge counts blocked issues');
+    const repRow = view.getChildren(top[2])[0];
+    eq(repRow.contextValue, 'issues-row-blocked', 'blocked row');
+    eq(repRow.iconPath.id, 'circle-slash', 'blocked icon');
+    eq(repRow.command.command, 'codify.issues.open', 'a located row opens');
+    const lq = view.getChildren(top[0])[0];
+    eq(lq.iconPath.id, 'error', 'ERROR severity');
+    eq(view.getChildren(top[3]).length, 2, 'console drift + the real coverage event');
+    const aPath = path.join(repo, 'src/a.ts');
+    eq(diag.sets.has(aPath), true, 'diagnostics on a.ts');
+    eq(diag.sets.get(aPath)[0].severity, 0, 'error severity diagnostic');
+    eq(diag.sets.get(aPath)[0].range.start.line, 0, 'line 1 is range line 0');
+    // drift routed live: folded on at once, no cg call, not twice on replay
+    const before = calls.length;
+    eq(view.route(specEv), true, 'drift.spec routed');
+    eq(view.route(specEv), false, 'the same event is not counted twice');
+    eq(view.route({ seq: 1, kind: 'agent.text', subject: 'x', payload: {} }), false, 'other kinds are not issues');
+    eq(calls.length, before, 'routing makes no cg call');
+    eq(view.getChildren(view.getChildren()[3]).length, 3, 'routed drift.spec row');
+    eq(diag.sets.get(path.join(repo, 'src/b.ts')).some((d) => /outside its touches/.test(d.message)), true, 'routed diagnostic on b.ts');
+    view.route(coll);
+    eq(view.model.blocked, 2, 'collision adds a blocked row');
+    view.route({ seq: 9004, kind: 'task.status', subject: 'iv/2.1', payload: { status: 'done', feature: 'iv' } });
+    eq(view.model.blocked, 1, 'the awaited task done clears the collision');
+    eq(cleared.some((r) => r.drift === 'collision'), true, 'collision reported cleared');
+    // resolution in the read model: the repair leaves, its block and diagnostic go
+    source = panel('OPEN', false);
+    await view.refresh();
+    eq(view.model.blocked, 0, 'repair resolved');
+    eq(view.view.badge, undefined, 'badge cleared');
+    eq(cleared.some((r) => r.key === 'console:escalated_repairs:rep-1'), true, 'repair reported cleared');
+    eq((diag.sets.get(path.join(repo, 'src/b.ts')) || []).some((d) => d.source === 'hyperfide escalated_repair'), false,
+       'the resolved repair\'s diagnostic is gone');
+    // negative: the real cg in a local project has no console — notice, drift still shown
+    const real = new IssuesView({
+        cgJson: async (args) => { const r = run([...args, '--json']); try { return JSON.parse(r.stdout); } catch { return null; } },
+        cg: async (args) => { const r = run(args); return { code: r.status, stdout: r.stdout, stderr: r.stderr }; },
+        workspaceRoot: () => repo, diagnostics: null,
+    });
+    await real.refresh();
+    eq(real.model.available, false, 'no console in a local project');
+    top = real.getChildren();
+    eq(top.map((t) => t.label).join(), 'Hyperfide console not reachable,Drift', 'notice, then drift');
+    eq(top[0].command.command, 'codify.issues.refresh', 'notice retries');
+    eq(real.getChildren(top[1]).some((r) => /acceptance criteria uncovered/.test(r.label)), true, 'real coverage drift shown');
+    console.log('issues ok');
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "issues view"
+    node - "$EXT" <<'JS'
+const fs = require('fs'), path = require('path');
+const dir = process.argv[2];
+const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+const views = Object.values(pkg.contributes.views).flat().map((v) => v.id);
+if (!views.includes('codifyIssues')) throw new Error('codifyIssues not declared');
+const is = fs.readFileSync(path.join(dir, 'issues.js'), 'utf8');
+if (!/createTreeView\('codifyIssues'/.test(is)) throw new Error('codifyIssues never populated');
+if (!/createDiagnosticCollection\(/.test(is)) throw new Error('no DiagnosticCollection for findings');
+const fl = fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8');
+if (!/issues\.register\(ctx, d\)/.test(fl) || !/await issuesApi\.refresh\(\)/.test(fl)) throw new Error('issues not in the refresh chain');
+const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+if (!/applied\.view === 'drift'[^\n]*fleetApi\.drift\(ev\)/.test(ext)) throw new Error('drift.* events are not routed to the Issues view');
+const sv = fs.readFileSync(path.join(dir, 'serve.js'), 'utf8');
+if (!/k\.startsWith\('drift\.'\)[\s\S]{0,80}view: 'drift'/.test(sv)) throw new Error('serve no longer classifies drift.*');
+console.log('issues manifest ok');
+JS
+    [ $? -eq 0 ] || fail "issues manifest"
+    cd "$EXT"
 fi
 
 # ---- leaders (hyperfide-v21 6.5): the Leaders webview, attach-only. The
