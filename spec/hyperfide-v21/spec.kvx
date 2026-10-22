@@ -661,7 +661,7 @@ reqs = ["1.1"]
 owner = "qualification"
 [task.3.14]
 title = "One MCP ask surface in both modes"
-status = "pending"
+status = "done"
 wave = 3
 requires = ["3.5", "3.7"]
 touches = ["src/mcp.c", "src/hyperfide/client.c", "src/help.c", "README.md", "tests/integration/88_mcp_ask.sh", "tests/integration/95_mcp_route_names.sh"]
