@@ -347,7 +347,8 @@ async function lockedAsk(tx:Tx,actor:Principal,input:Record<string,unknown>):Pro
  if(String(row.state_version)!==generation(input.expected_state_version))refuse('Ask changed since it was read; list it again');
  return row;
 }
-function askRaise(context:RuntimeContext,input:unknown):Promise<unknown>{
+interface CheckedRaise {v:Record<string,unknown>;kind:AskKind;policy:'block'|'proceed-and-flag';title:string;body:string;options:string[];chain:string[];recommended:string|null;deadline:unknown;requestedTask:string|null}
+function checkRaise(input:unknown):CheckedRaise{
  const v=exact(input,['idempotency_key','kind','title','body','options','recommended','deadline_seconds','chain','task_id']);
  if(typeof v.idempotency_key!=='string'||!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(v.idempotency_key))refuse('Ask idempotency key is invalid');
  if(!askKinds.includes(v.kind as AskKind))refuse('Ask kind is unknown');
@@ -358,37 +359,46 @@ function askRaise(context:RuntimeContext,input:unknown):Promise<unknown>{
  const deadline=v.deadline_seconds;
  if(deadline!==null&&(!Number.isSafeInteger(deadline)||Number(deadline)<1||Number(deadline)>30*86400))refuse('Ask deadline must be 1 s to 30 days away');
  if(policy==='proceed-and-flag'&&(recommended===null||deadline===null))refuse('A proceed-and-flag Ask needs a recommended option and a deadline');
- const requestedTask=v.task_id===null?null:uuid(v.task_id);
- return askTransaction(context,'human.ask.raise',null,async(tx,actor,outbox)=>{
-  const scope='actor:'+actor.actor_id,requestDigest=digest({input:v,actor_id:actor.actor_id});
-  await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[canonical({organisation_id:actor.organisation_id,run_id:actor.run_id,scope,action:'human.ask.raise',idempotency_key:v.idempotency_key})]);
-  const prior=await tx.query<{request_digest:string;result:Record<string,unknown>|null;state:string}>(
-   'SELECT request_digest,result,state FROM hyperfide.command_inbox WHERE organisation_id=$1 AND run_id=$2 AND principal_scope=$3 AND operation=$4 AND idempotency_key=$5 FOR UPDATE',
-   [actor.organisation_id,actor.run_id,scope,'human.ask.raise',v.idempotency_key]);
-  if(prior.rowCount){
-   if(prior.rows[0]!.request_digest!==requestDigest)refuse('Idempotency key is already bound to a different Ask');
-   if(prior.rows[0]!.state!=='COMPLETED'||!prior.rows[0]!.result)refuse('Prior Ask outcome requires reconciliation');
-   return {...prior.rows[0]!.result,replayed:true};
-  }
-  // References come from the authenticated principal, never from the body: a worker's Ask names its own attempt.
-  let task=requestedTask;
-  if(actor.attempt_id){
-   const attempt=await tx.query<{task_id:string}>('SELECT task_id FROM hyperfide.attempts WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[actor.organisation_id,actor.run_id,actor.attempt_id]);
-   if(attempt.rowCount!==1)refuse('Caller attempt is not in this run');
-   if(task!==null&&task!==attempt.rows[0]!.task_id)refuse('An Ask from an attempt belongs to that attempt\'s task');
-   task=attempt.rows[0]!.task_id;
-  }else if(actor.role==='WORKER')refuse('A worker Ask requires its implementation attempt');
-  const session=(await tx.query('SELECT 1 FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[actor.organisation_id,actor.run_id,actor.actor_id])).rowCount===1?actor.actor_id:null;
-  if(task!==null&&(await tx.query('SELECT 1 FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[actor.organisation_id,actor.run_id,task])).rowCount!==1)refuse('Ask task is not in this run');
-  const inserted=await tx.query<AskRow>(`INSERT INTO hyperfide.asks(organisation_id,id,run_id,kind,title,body,options,recommended,deadline,default_policy,chain,task,attempt,session,sandbox,raised_by)
-   VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,CASE WHEN $9::int IS NULL THEN NULL ELSE clock_timestamp()+($9::int*interval '1 second') END,$10,$11::jsonb,$12,$13,$14,$15,$16) RETURNING *`,
-   [actor.organisation_id,randomUUID(),actor.run_id,kind,title,body,JSON.stringify(options),recommended,deadline,policy,JSON.stringify(chain),task,actor.attempt_id,session,actor.sandbox_id,actor.credential_id]);
-  const row=inserted.rows[0]!,delivery=await deliverAsk(tx,outbox,actor,row,'ask.raised');
-  const result={status:'RAISED',ask:askView(row),...delivery,replayed:false};
-  await tx.query("INSERT INTO hyperfide.command_inbox(organisation_id,run_id,id,principal_scope,operation,idempotency_key,request_digest,state,result) VALUES($1,$2,$3,$4,'human.ask.raise',$5,$6,'COMPLETED',$7::jsonb)",
-   [actor.organisation_id,actor.run_id,randomUUID(),scope,v.idempotency_key,requestDigest,JSON.stringify(result)]);
-  return result;
- },true);
+ return {v,kind,policy,title,body,options,chain,recommended,deadline,requestedTask:v.task_id===null?null:uuid(v.task_id)};
+}
+type AskActor=Principal&{credential_id:string;attempt_id:string|null;sandbox_id:string|null};
+/** References a trusted in-process caller derived under its own lock (4.1: the observed native session's rows). */
+export interface AskSubject {session:string;attempt:string|null;sandbox:string|null}
+async function raiseIn(tx:Tx,actor:AskActor,outbox:AskOutbox,c:CheckedRaise,subject:AskSubject|null):Promise<Record<string,unknown>>{
+ const {v,kind,policy,title,body,options,chain,recommended,deadline}=c;
+ const scope='actor:'+actor.actor_id,requestDigest=digest(subject?{input:v,actor_id:actor.actor_id,subject}:{input:v,actor_id:actor.actor_id});
+ await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[canonical({organisation_id:actor.organisation_id,run_id:actor.run_id,scope,action:'human.ask.raise',idempotency_key:v.idempotency_key})]);
+ const prior=await tx.query<{request_digest:string;result:Record<string,unknown>|null;state:string}>(
+  'SELECT request_digest,result,state FROM hyperfide.command_inbox WHERE organisation_id=$1 AND run_id=$2 AND principal_scope=$3 AND operation=$4 AND idempotency_key=$5 FOR UPDATE',
+  [actor.organisation_id,actor.run_id,scope,'human.ask.raise',v.idempotency_key]);
+ if(prior.rowCount){
+  if(prior.rows[0]!.request_digest!==requestDigest)refuse('Idempotency key is already bound to a different Ask');
+  if(prior.rows[0]!.state!=='COMPLETED'||!prior.rows[0]!.result)refuse('Prior Ask outcome requires reconciliation');
+  return {...prior.rows[0]!.result,replayed:true};
+ }
+ // References come from the authenticated principal (or the trusted subject), never from the body: a worker's Ask names its own attempt.
+ let task=c.requestedTask;
+ const attemptId=subject?subject.attempt:actor.attempt_id;
+ if(attemptId){
+  const attempt=await tx.query<{task_id:string}>('SELECT task_id FROM hyperfide.attempts WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[actor.organisation_id,actor.run_id,attemptId]);
+  if(attempt.rowCount!==1)refuse('Caller attempt is not in this run');
+  if(task!==null&&task!==attempt.rows[0]!.task_id)refuse('An Ask from an attempt belongs to that attempt\'s task');
+  task=attempt.rows[0]!.task_id;
+ }else if(!subject&&actor.role==='WORKER')refuse('A worker Ask requires its implementation attempt');
+ const session=subject?subject.session:(await tx.query('SELECT 1 FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[actor.organisation_id,actor.run_id,actor.actor_id])).rowCount===1?actor.actor_id:null;
+ if(task!==null&&(await tx.query('SELECT 1 FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[actor.organisation_id,actor.run_id,task])).rowCount!==1)refuse('Ask task is not in this run');
+ const inserted=await tx.query<AskRow>(`INSERT INTO hyperfide.asks(organisation_id,id,run_id,kind,title,body,options,recommended,deadline,default_policy,chain,task,attempt,session,sandbox,raised_by)
+  VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,CASE WHEN $9::int IS NULL THEN NULL ELSE clock_timestamp()+($9::int*interval '1 second') END,$10,$11::jsonb,$12,$13,$14,$15,$16) RETURNING *`,
+  [actor.organisation_id,randomUUID(),actor.run_id,kind,title,body,JSON.stringify(options),recommended,deadline,policy,JSON.stringify(chain),task,attemptId,session,subject?subject.sandbox:actor.sandbox_id,actor.credential_id]);
+ const row=inserted.rows[0]!,delivery=await deliverAsk(tx,outbox,actor,row,'ask.raised');
+ const result={status:'RAISED',ask:askView(row),...delivery,replayed:false};
+ await tx.query("INSERT INTO hyperfide.command_inbox(organisation_id,run_id,id,principal_scope,operation,idempotency_key,request_digest,state,result) VALUES($1,$2,$3,$4,'human.ask.raise',$5,$6,'COMPLETED',$7::jsonb)",
+  [actor.organisation_id,actor.run_id,randomUUID(),scope,v.idempotency_key,requestDigest,JSON.stringify(result)]);
+ return result;
+}
+function askRaise(context:RuntimeContext,input:unknown):Promise<unknown>{
+ const checked=checkRaise(input);
+ return askTransaction(context,'human.ask.raise',null,(tx,actor,outbox)=>raiseIn(tx,actor,outbox,checked,null),true);
 }
 function askAnswer(context:RuntimeContext,input:unknown):Promise<unknown>{
  const v=exact(input,['ask_id','expected_state_version','answer']),answer=text(v.answer,1,65536,'Answer');
@@ -435,8 +445,29 @@ function askList(context:RuntimeContext,input:unknown):Promise<unknown>{
 }
 // Registered separately (components/1.2-asks.json) for control, provisioner and dispatch: raising and answering need
 // only storage (4.2) and the outbox (6.1), so every role the policy allows reaches them without leader hierarchy.
-export function createAskComponent(_context:ComponentContext):Component{
-  return {apiVersion:1,actions:{
+/** In-process raise for components that observe agents (4.1 native classifier). The caller's action was already
+ * authorised and its transaction guarded; it supplies the references it derived under lock, and the Ask still goes
+ * through the same validation, idempotency and operator delivery as human.ask.raise. */
+export interface AskRaiseCapability {
+ schema_version:1;
+ raiseInTransaction(tx:unknown,invocation:unknown,input:unknown,subject:AskSubject):Promise<Record<string,unknown>>;
+}
+export function isAskRaiseCapability(value:unknown):value is AskRaiseCapability{
+ return object(value)&&value.schema_version===1&&typeof value.raiseInTransaction==='function';
+}
+export function createAskComponent(context:ComponentContext):Component{
+  const raise:AskRaiseCapability=Object.freeze({schema_version:1 as const,raiseInTransaction:async(tx:unknown,invocation:unknown,input:unknown,subject:AskSubject)=>{
+    if(!object(tx)||typeof tx.query!=="function")refuse('A guarded primary transaction is required');
+    if(!object(invocation)||!object(invocation.principal))refuse('An authenticated scoped caller is required');
+    const actor=invocation.principal as unknown as AskActor;
+    uuid(actor.actor_id);uuid(actor.organisation_id);uuid(actor.run_id);uuid(actor.credential_id);uuid(subject.session);
+    if(subject.attempt!==null)uuid(subject.attempt);
+    if(subject.sandbox!==null)uuid(subject.sandbox);
+    if(actor.run_id!==(context as RuntimeContext).policy.programme_id)refuse('Caller belongs to another approved programme');
+    const outbox=capability<AskOutbox>(context as RuntimeContext,'6.1','events.outbox.v1',['enqueue','resolveOperatorConsumer']);
+    return raiseIn(tx as unknown as Tx,actor,outbox,checkRaise(input),Object.freeze({...subject}));
+  }});
+  return {apiVersion:1,capabilities:Object.freeze({'human.asks.v1':raise}),actions:{
     'human.ask.raise':(input,context)=>askRaise(context as RuntimeContext,input),
     'human.ask.answer':(input,context)=>askAnswer(context as RuntimeContext,input),
     'human.ask.list':(input,context)=>askList(context as RuntimeContext,input),
