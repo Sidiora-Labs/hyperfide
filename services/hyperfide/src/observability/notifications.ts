@@ -2,6 +2,9 @@ import {randomUUID} from 'node:crypto';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {authority,object,text,uuid,digest,integer,hash,fail,lockRun,requireArtifact,numbers} from './views.js';
 import type {Session,Principal} from './views.js';
+import {invocationOf} from '../identity/enrollment.js';
+import {attestationExpiryWarnings} from '../providers/pools.js';
+import type {AttestationExpiryWarning} from '../providers/pools.js';
 interface Outbox {
  bindSessionConsumer(tx:Session,input:{organisation_id:string;run_id:string;session_id:string;consumer_id:string;namespace:'fleet_notification'},invocation:unknown):Promise<{session_id:string;consumer_id:string;replayed:boolean;registered_actor_id:string}>;
  enqueue(tx:Session,event:{organisation_id:string;run_id:string;id:string;aggregate_id:string;aggregate_type:string;aggregate_version:string;event_type:string;payload:Record<string,unknown>},options:{consumer_ids:string[]}):Promise<unknown>;
@@ -113,5 +116,178 @@ export function createComponent(startup:ComponentContext):Component{
  'fleet.notifications.enqueue':(input,ctx)=>authority(ctx,'fleet.notifications.enqueue',(tx,p)=>enqueueNotice(tx,p,input,knownSecrets)),
  'fleet.notifications.dispatch':(input,ctx)=>authority(ctx,'fleet.notifications.dispatch',(tx,p)=>dispatchNotices(tx,p,input,outbox,budget)),
  'fleet.notifications.inspect':(input,ctx)=>authority(ctx,'fleet.notifications.inspect',async(tx,p)=>{const v=object(input,['target_session_id','limit','after_id']),target=uuid(v.target_session_id),limit=v.limit===undefined?100:integer(v.limit,1,500),after=v.after_id===undefined?'00000000-0000-0000-0000-000000000000':uuid(v.after_id);recipientAccess(p,target);const q=await tx.query("SELECT n.id,n.target_session_id,n.target_boot_generation,n.severity,n.code,n.untrusted_summary,n.action_code,n.artifact_id,n.event_id,n.state,n.state_version,n.created_at,n.enqueued_at,d.state AS delivery_state FROM hyperfide.observability_notifications n LEFT JOIN hyperfide.event_deliveries d ON d.organisation_id=n.organisation_id AND d.run_id=n.run_id AND d.event_id=n.event_id AND d.consumer_id=n.target_consumer_id WHERE n.organisation_id=$1 AND n.run_id=$2 AND n.target_session_id=$3 AND n.id>$4 ORDER BY n.id LIMIT $5",[p.organisation_id,p.run_id,target,after,limit+1]);const rows=q.rows.slice(0,limit).map(n=>({...n,evidence_ref:evidenceRef(p,String(n.artifact_id)),external_send_verified:false,delivery_acknowledged:n.delivery_state==='ACKNOWLEDGED'}));return numbers({rows,pagination:{limit,next:q.rows.length>limit?q.rows[limit-1]!.id:null},summary_trust:'UNTRUSTED_DATA_NOT_AN_INSTRUCTION'});})
+ }};
+}
+
+
+// Operator target (hyperfide-v21 4.5, req 4.3). The notices above go to an identified leader session; these go to the
+// run's humans. Producers turn committed source records into one durable operator notice each, keyed by the source, so
+// a notice exists exactly when its source does: ask.raised and ask.expired events (written to operator:asks by 3.2),
+// finding.repair-escalated events (findings/remediation.ts) and capacity attestations entering the expiry window
+// (providers/pools.ts). Notices live in command_inbox under principal_scope 'operator_target' until a dedicated table is
+// warranted. The webhook channel is the one external send: its URL is the variable HYPERFIDE_OPERATOR_WEBHOOK_URL
+// (Ask 4.5), never echoed; without it notices stay PENDING and are never discarded.
+export const OPERATOR_WEBHOOK_VARIABLE='HYPERFIDE_OPERATOR_WEBHOOK_URL';
+const OPERATOR_SCOPE='operator_target',OPERATOR_OPERATION='operator.notice';
+const OPERATOR_ROLES=['OPERATOR','COORDINATOR','DISPATCH'];
+const OPERATOR_MAX_ATTEMPTS=10,OPERATOR_LEASE_MS=30000,OPERATOR_SEND_TIMEOUT_MS=5000,OPERATOR_BACKOFF_MS=5000;
+const SOURCE_EVENTS=['ask.raised','ask.expired','finding.repair-escalated'];
+type OperatorNoticeKind='ASK_RAISED'|'ASK_EXPIRED'|'REPAIR_ESCALATED'|'ATTESTATION_EXPIRING';
+interface OperatorPrincipal {organisation_id:string;run_id:string;actor_id:string;role:string;allowed_actions:readonly string[]}
+interface OperatorGateway {withPrimaryTransaction<T>(options:{timeoutMs:number;maxRetries:number;signal:AbortSignal;guard:(tx:Session)=>Promise<void>},operation:(tx:Session)=>Promise<T>):Promise<T>}
+export interface OperatorWebhook {url:URL;host:string}
+export type OperatorSend=(url:URL,body:string,headers:Record<string,string>,signal:AbortSignal)=>Promise<number>;
+
+// Plain http is accepted only for a loopback receiver (a local relay or the qualification stub); credentials in the
+// URL authority are refused so the value can never leak through a Basic-auth header or a log of the host.
+export function operatorWebhook(env:Readonly<NodeJS.ProcessEnv>):OperatorWebhook|null{
+ const raw=env[OPERATOR_WEBHOOK_VARIABLE];
+ if(raw===undefined||raw==='')return null;
+ let url:URL;
+ try{url=new URL(raw);}catch{return fail('OBSERVABILITY_CONFIG_INVALID',OPERATOR_WEBHOOK_VARIABLE+' is not a URL');}
+ const loopback=['127.0.0.1','localhost','[::1]'].includes(url.hostname);
+ if(raw.length>2048||url.username||url.password||url.hash||!(url.protocol==='https:'||url.protocol==='http:'&&loopback))
+  fail('OBSERVABILITY_CONFIG_INVALID',OPERATOR_WEBHOOK_VARIABLE+' must be an https URL (http only for loopback) without credentials or fragment');
+ return {url,host:url.host};
+}
+const CREDENTIAL_SHAPED=/\b(?:bearer|basic)\s+\S{4,}|-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----|\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|authorization)\s*[:=]\s*\S+|\b(?:gh[pousr]_|github_pat_|sk-(?:proj-)?)[A-Za-z0-9_-]{8,}|\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/i;
+// Agent-written text (an Ask title) leaves the system here, so credential-shaped content is withheld rather than sent.
+function outbound(value:unknown,knownSecrets:readonly string[],max=256):string|null{
+ if(typeof value!=='string')return null;
+ if(CREDENTIAL_SHAPED.test(value)||knownSecrets.some(s=>value.includes(s)))return '[withheld: credential-shaped content]';
+ return value.replace(/[\x00-\x1f\x7f]/g,' ').slice(0,max);
+}
+interface DraftNotice {key:string;kind:OperatorNoticeKind;severity:'INFO'|'WARNING'|'ERROR';action_code:string;source:Record<string,unknown>;subject:Record<string,unknown>;summary:string}
+type SourceEvent={id:string;event_type:string;payload:Record<string,any>};
+function askNotice(event:SourceEvent,knownSecrets:readonly string[]):DraftNotice|null{
+ const ask=event.payload?.ask;
+ if(!ask||typeof ask!=='object'||typeof ask.ask_id!=='string')return null;
+ const blocking=ask.default_policy==='block',raised=event.event_type==='ask.raised',title=outbound(ask.title,knownSecrets);
+ const subject={ask_id:ask.ask_id,ask_kind:ask.kind,title,default_policy:ask.default_policy,deadline:ask.deadline??null,state:ask.state,
+  task:ask.task??null,attempt:ask.attempt??null,session:ask.session??null,
+  options:Array.isArray(ask.options)?ask.options.slice(0,16).map((o:unknown)=>outbound(o,knownSecrets,128)):[],
+  recommended:outbound(ask.recommended,knownSecrets,128),decided_by_default:ask.decided_by_default===true,
+  default_answer:!raised&&ask.decided_by_default===true?outbound(ask.answer,knownSecrets,128):null,state_version:String(ask.state_version)};
+ const source={type:'OUTBOX_EVENT',event_id:event.id,event_type:event.event_type};
+ if(raised)return {key:event.id,kind:'ASK_RAISED',severity:blocking?'WARNING':'INFO',action_code:'ANSWER_ASK',source,subject,
+  summary:(blocking?'Blocking ':'')+String(ask.kind)+' Ask raised: '+title};
+ return {key:event.id,kind:'ASK_EXPIRED',severity:blocking?'ERROR':'WARNING',action_code:blocking?'ANSWER_ASK':'REVIEW_DEFAULT',source,subject,
+  summary:blocking?String(ask.kind)+' Ask passed its deadline and still blocks: '+title:String(ask.kind)+' Ask expired; the recommended option was taken by default: '+title};
+}
+function repairNotice(event:SourceEvent,knownSecrets:readonly string[]):DraftNotice|null{
+ const p=event.payload;
+ if(!p||typeof p.finding_id!=='string'||typeof p.repair_id!=='string')return null;
+ return {key:event.id,kind:'REPAIR_ESCALATED',severity:'ERROR',action_code:'DECIDE_REPAIR',source:{type:'OUTBOX_EVENT',event_id:event.id,event_type:event.event_type},
+  subject:{finding_id:p.finding_id,repair_id:p.repair_id,reason:outbound(p.reason,knownSecrets),registry_version:p.registry_version??null},
+  summary:'Repair escalated after its attempt budget for finding '+p.finding_id};
+}
+function attestationNotice(w:AttestationExpiryWarning):DraftNotice{
+ // EXPIRING and LAPSED are distinct notices, so a lapse is reported even when the expiring warning was delivered.
+ return {key:'attestation:'+w.attestation_id+':'+w.state,kind:'ATTESTATION_EXPIRING',severity:w.severity,action_code:w.action,source:{type:'CAPACITY_ATTESTATION',attestation_id:w.attestation_id},
+  subject:{...w},summary:'Capacity attestation '+(w.state==='LAPSED'?'lapsed':'expires '+w.expires_at)+' for pool '+w.pool_id+' '+w.scope_kind+' '+w.dimension};
+}
+function operatorPrincipal(context:ComponentContext,action:string):OperatorPrincipal{
+ const p=invocationOf(context).principal as unknown as OperatorPrincipal;
+ if(!p||!Array.isArray(p.allowed_actions)||!p.allowed_actions.includes(action)||p.run_id!==context.policy.programme_id)fail('AUTHENTICATION_REQUIRED','Authenticated run-scoped invocation required');
+ if(!OPERATOR_ROLES.includes(p.role))fail('NOTIFICATION_OPERATOR_FORBIDDEN','Role '+p.role+' cannot perform '+action);
+ return p;
+}
+function operatorTransaction<T>(context:ComponentContext,p:OperatorPrincipal,operation:(tx:Session)=>Promise<T>):Promise<T>{
+ const gateway=context.dependencies.require('4.2','storage.transactions.v1',(v:unknown):v is OperatorGateway=>!!v&&typeof (v as OperatorGateway).withPrimaryTransaction==='function');
+ const invocation=invocationOf(context);
+ return gateway.withPrimaryTransaction({timeoutMs:10000,maxRetries:2,signal:invocation.signal??context.signal,guard:tx=>invocation.guard(tx as never)},async tx=>{
+  await lockRun(tx,p as unknown as Principal,'operator-target');return operation(tx);
+ });
+}
+function noticeView(row:Record<string,any>):Record<string,unknown>{
+ const r=row.result??{},d=r.delivery??{};
+ return {...r.notice,state:row.state==='COMPLETED'?'DELIVERED':row.state==='FAILED'?'FAILED':'PENDING',attempts:d.attempts??0,next_attempt_at:d.next_attempt_at??null,
+  last_status:d.last_status??null,last_error:d.last_error??null,delivered_at:d.delivered_at??null,state_version:String(row.state_version)};
+}
+export async function produceOperatorNotices(tx:Session,p:OperatorPrincipal,input:unknown,knownSecrets:readonly string[]):Promise<unknown>{
+ const v=object(input,['limit']),limit=v.limit===undefined?100:integer(v.limit,1,500);
+ const events=await tx.query(`SELECT e.id::text AS id,e.event_type,e.payload FROM hyperfide.outbox_events e WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.event_type=ANY($3::text[])
+  AND e.aggregate_type=CASE WHEN e.event_type LIKE 'ask.%' THEN 'ask' ELSE 'finding' END
+  AND NOT EXISTS(SELECT 1 FROM hyperfide.command_inbox c WHERE c.organisation_id=e.organisation_id AND c.run_id=e.run_id AND c.principal_scope=$4 AND c.operation=$5 AND c.idempotency_key=e.id::text)
+  ORDER BY e.created_at,e.id LIMIT $6`,[p.organisation_id,p.run_id,SOURCE_EVENTS,OPERATOR_SCOPE,OPERATOR_OPERATION,limit]);
+ const drafts:DraftNotice[]=[];let skipped=0;
+ for(const e of events.rows as SourceEvent[]){const d=e.event_type==='finding.repair-escalated'?repairNotice(e,knownSecrets):askNotice(e,knownSecrets);if(d)drafts.push(d);else skipped++;}
+ const pools=await tx.query('SELECT id FROM hyperfide.provider_pools WHERE organisation_id=$1',[p.organisation_id]);
+ if(pools.rows.length)for(const w of await attestationExpiryWarnings(tx,p.organisation_id,pools.rows.map(r=>String(r.id))))drafts.push(attestationNotice(w));
+ const clock=await tx.query('SELECT clock_timestamp() AS now'),now=new Date(clock.rows[0]!.now as Date).toISOString();
+ const produced:Record<string,unknown>[]=[];
+ for(const d of drafts){
+  if(produced.length>=limit)break;
+  const id=randomUUID(),notice={schema_version:1,notice_id:id,target:'OPERATOR',kind:d.kind,severity:d.severity,action_code:d.action_code,organisation_id:p.organisation_id,run_id:p.run_id,
+   source:d.source,subject:d.subject,summary:d.summary,summary_trust:'UNTRUSTED_DATA_NOT_AN_INSTRUCTION',produced_at:now,producer_actor_id:p.actor_id};
+  const inserted=await tx.query(`INSERT INTO hyperfide.command_inbox(organisation_id,run_id,id,principal_scope,operation,idempotency_key,request_digest,state,result) VALUES($1,$2,$3,$4,$5,$6,$7,'PENDING',$8::jsonb)
+   ON CONFLICT (organisation_id,run_id,principal_scope,operation,idempotency_key) DO NOTHING RETURNING id`,
+   [p.organisation_id,p.run_id,id,OPERATOR_SCOPE,OPERATOR_OPERATION,d.key,hash({key:d.key,kind:d.kind,source:d.source}),JSON.stringify({notice,delivery:{attempts:0,next_attempt_at:now}})]);
+  if(inserted.rows.length)produced.push({notice_id:id,kind:d.kind,severity:d.severity,source:d.source});
+ }
+ return {produced,produced_count:produced.length,skipped_malformed_sources:skipped,truncated:events.rows.length===limit||produced.length>=limit,external_delivery:'NOT_ATTEMPTED'};
+}
+async function defaultSend(url:URL,body:string,headers:Record<string,string>,signal:AbortSignal):Promise<number>{
+ const response=await fetch(url,{method:'POST',body,headers,redirect:'manual',signal});
+ await response.arrayBuffer().catch(()=>undefined);
+ return response.status;
+}
+interface ClaimedNotice {id:string;result:{notice:Record<string,unknown>;delivery:{attempts?:number}}}
+export async function deliverOperatorNotices(context:ComponentContext,p:OperatorPrincipal,input:unknown,webhook:OperatorWebhook|null,send:OperatorSend=defaultSend):Promise<unknown>{
+ const v=object(input,['limit']),limit=v.limit===undefined?20:integer(v.limit,1,50);
+ if(!webhook)return {delivered:0,failed:0,retrying:0,held:true,reason:'OPERATOR_WEBHOOK_NOT_CONFIGURED',variable:OPERATOR_WEBHOOK_VARIABLE,discarded:0};
+ const lease=randomUUID();
+ // Claim, send outside any transaction, then record: a crash in between leaves a lease that expires into a retry,
+ // so delivery is at least once and receivers deduplicate on Hyperfide-Notice-Id.
+ const claimed=await operatorTransaction(context,p,async tx=>{
+  const rows=await tx.query(`SELECT id,result FROM hyperfide.command_inbox WHERE organisation_id=$1 AND run_id=$2 AND principal_scope=$3 AND operation=$4 AND state='PENDING'
+   AND (result->'delivery'->>'next_attempt_at')::timestamptz<=clock_timestamp() AND coalesce((result->'delivery'->>'lease_until')::timestamptz<=clock_timestamp(),true)
+   ORDER BY CASE result->'notice'->>'severity' WHEN 'ERROR' THEN 0 WHEN 'WARNING' THEN 1 ELSE 2 END,created_at,id LIMIT $5 FOR UPDATE SKIP LOCKED`,
+   [p.organisation_id,p.run_id,OPERATOR_SCOPE,OPERATOR_OPERATION,limit]);
+  for(const r of rows.rows)await tx.query(`UPDATE hyperfide.command_inbox SET result=jsonb_set(result,'{delivery}',(result->'delivery')||jsonb_build_object('lease_id',$4::text,'lease_until',clock_timestamp()+make_interval(secs=>$5))),state_version=state_version+1
+   WHERE organisation_id=$1 AND run_id=$2 AND id=$3`,[p.organisation_id,p.run_id,r.id,lease,OPERATOR_LEASE_MS/1000]);
+  return rows.rows as ClaimedNotice[];
+ });
+ const outcomes=await Promise.all(claimed.map(async row=>{
+  const attempt=(row.result.delivery.attempts??0)+1,notice=row.result.notice,body=JSON.stringify({...notice,delivery_attempt:attempt});
+  try{
+   const status=await send(webhook.url,body,{'Content-Type':'application/json','Hyperfide-Notice-Id':String(notice.notice_id),'Hyperfide-Notice-Kind':String(notice.kind)},AbortSignal.timeout(OPERATOR_SEND_TIMEOUT_MS));
+   return {row,attempt,status:status as number|null,error:status>=200&&status<300?null:'HTTP_'+status};
+  }catch(e){return {row,attempt,status:null,error:(e as Error)?.name==='TimeoutError'?'TIMEOUT':'NETWORK_ERROR'};}
+ }));
+ return operatorTransaction(context,p,async tx=>{
+  let delivered=0,failed=0,retrying=0;const results:Record<string,unknown>[]=[];
+  for(const o of outcomes){
+   const ok=o.error===null,exhausted=!ok&&o.attempt>=OPERATOR_MAX_ATTEMPTS,backoff=Math.min(OPERATOR_BACKOFF_MS*2**(o.attempt-1),300000),state=ok?'COMPLETED':exhausted?'FAILED':'PENDING';
+   const updated=await tx.query(`UPDATE hyperfide.command_inbox SET state=$5,result=jsonb_set(result,'{delivery}',((result->'delivery')-'lease_id'-'lease_until')||jsonb_build_object('attempts',$6::int,'last_status',$7::int,'last_error',$8::text,
+     'last_attempt_at',clock_timestamp(),'next_attempt_at',CASE WHEN $9::boolean THEN NULL ELSE clock_timestamp()+make_interval(secs=>$10) END,'delivered_at',CASE WHEN $11::boolean THEN clock_timestamp() ELSE NULL END)),state_version=state_version+1
+    WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='PENDING' AND result->'delivery'->>'lease_id'=$4 RETURNING id`,
+    [p.organisation_id,p.run_id,o.row.id,lease,state,o.attempt,o.status,o.error,ok||exhausted,backoff/1000,ok]);
+   if(!updated.rows.length)continue;
+   if(ok)delivered++;else if(exhausted)failed++;else retrying++;
+   results.push({notice_id:o.row.result.notice.notice_id,kind:o.row.result.notice.kind,state:ok?'DELIVERED':exhausted?'FAILED':'PENDING',attempts:o.attempt,last_status:o.status,last_error:o.error});
+  }
+  return {delivered,failed,retrying,results,webhook_host:webhook.host,held:false,discarded:0};
+ });
+}
+export async function listOperatorNotices(tx:Session,p:OperatorPrincipal,input:unknown):Promise<unknown>{
+ const v=object(input,['state','limit']),limit=v.limit===undefined?100:integer(v.limit,1,500);
+ const state=v.state===undefined||v.state===null?null:text(v.state,16);
+ if(state!==null&&!['PENDING','DELIVERED','FAILED'].includes(state))fail('OBSERVABILITY_INPUT_INVALID','Operator notice state filter is unknown');
+ const stored=state===null?null:state==='DELIVERED'?'COMPLETED':state;
+ const rows=await tx.query('SELECT id,state,result,state_version FROM hyperfide.command_inbox WHERE organisation_id=$1 AND run_id=$2 AND principal_scope=$3 AND operation=$4 AND ($5::text IS NULL OR state=$5) ORDER BY created_at,id LIMIT $6',
+  [p.organisation_id,p.run_id,OPERATOR_SCOPE,OPERATOR_OPERATION,stored,limit+1]);
+ return numbers({notices:rows.rows.slice(0,limit).map(noticeView),truncated:rows.rows.length>limit,summary_trust:'UNTRUSTED_DATA_NOT_AN_INSTRUCTION'});
+}
+// Registered as components/4.5-operator.json; it needs only storage (4.2), not the leader-recipient machinery of 23.4.
+export function createOperatorComponent(startup:ComponentContext,send?:OperatorSend):Component{
+ const webhook=operatorWebhook(startup.env);
+ const knownSecrets=Object.freeze(Object.entries(startup.env).filter(([key,value])=>/(?:TOKEN|SECRET|PASSWORD|PRIVATE_KEY|API_KEY)/i.test(key)&&typeof value==='string'&&value.length>=8&&value.length<=65536).map(([,value])=>value!).slice(0,128));
+ return {apiVersion:1,actions:{
+  'fleet.notifications.operator.describe':async input=>{object(input,[]);return {schema_version:1,target:'OPERATOR',channel:'WEBHOOK',variable:OPERATOR_WEBHOOK_VARIABLE,configured:webhook!==null,webhook_host:webhook?.host??null,
+   producers:['ASK_RAISED','ASK_EXPIRED','REPAIR_ESCALATED','ATTESTATION_EXPIRING'],max_attempts:OPERATOR_MAX_ATTEMPTS,delivery_semantics:'AT_LEAST_ONCE_DEDUPLICATE_ON_NOTICE_ID',unconfigured:'HOLD_PENDING_NEVER_DISCARD'};},
+  'fleet.notifications.operator.produce':(input,ctx)=>{const p=operatorPrincipal(ctx,'fleet.notifications.operator.produce');return operatorTransaction(ctx,p,tx=>produceOperatorNotices(tx,p,input,knownSecrets));},
+  'fleet.notifications.operator.deliver':(input,ctx)=>deliverOperatorNotices(ctx,operatorPrincipal(ctx,'fleet.notifications.operator.deliver'),input,webhook,send),
+  'fleet.notifications.operator.list':(input,ctx)=>{const p=operatorPrincipal(ctx,'fleet.notifications.operator.list');return operatorTransaction(ctx,p,tx=>listOperatorNotices(tx,p,input));}
  }};
 }
