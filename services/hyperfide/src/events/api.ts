@@ -6,6 +6,9 @@ import { object } from '../policy/programme.js';
 import { fields,scope,uuid,integer,bounded,canonical,digest,fail,authorizedRun,lockRun,requireInvocation } from './outbox.js';
 import { instruction,instructionRecipient,runnerMatches,registerRunnerConsumer,handoff,recordRunnerAcknowledgement } from './instructions.js';
 import { pollRunnerCommands } from './runner_commands.js';
+import { classifyNativeEvent } from '../agents/admission.js';
+import { nativeAskRequests,raiseNativeAsks } from '../agents/native_asks.js';
+import type { RaisedNativeAsk } from '../agents/native_asks.js';
 
 // Authenticated coordinator API binding for runner-facing command operations.
 // Every handler derives organisation/run, sandbox, boot and boot generation from
@@ -122,6 +125,76 @@ function receipt(value:unknown,status:'ADMITTED'|'DUPLICATE'):Record<string,unkn
   const r=value as Record<string,unknown>;
   return {status,admitted:true,event_id:r.event_id,sequence:r.sequence,receipt_cursor:r.receipt_cursor,
     payload_digest:r.payload_digest,received_at:r.received_at,publication_fenced:r.publication_fenced,execution_authority:false,task_qualified:false};
+}
+
+// hyperfide-v21 4.2 (req 4 ac_1): the launch broker (src/hyperfide/launch.c) spools every structured launch event
+// and posts it here. Native question and approval prompts arrive as native.question / native.approval carrying the
+// agent's raw protocol line; the 4.1 classifier and Ask path run on it so a prompt inside a sandbox becomes an Ask row
+// attributed to the launch's session, attempt and sandbox. The broker retries until recorded:true, so content the
+// classifier cannot read is recorded and acknowledged, never refused (a refusal would wedge the spool).
+export const LAUNCH_EVENT_FIELDS=['schema_version','event_id','organisation_id','run_id','sandbox_id','boot_id','sandbox_boot_generation',
+  'launch_id','command_id','sequence','kind','observed_at_seconds','data'] as const;
+const NATIVE_KINDS=new Set(['native.question','native.approval']);
+type LaunchStart={attempt_id:string;agent_session_id:string};
+async function launchStart(tx:PrimaryTransaction,s:{organisation_id:string;run_id:string},command:string,launch:string,sandbox:string,boot:string):Promise<LaunchStart> {
+  const row=(await tx.query(`SELECT aggregate_id,event_type,payload FROM hyperfide.outbox_events WHERE organisation_id=$1 AND run_id=$2 AND id=$3
+    AND aggregate_type='attempt.instructions'`,[s.organisation_id,s.run_id,command])).rows[0];
+  const p=row?.payload as Record<string,unknown>|undefined,body=p&&object(p.body)?p.body:undefined;
+  if(!row||row.event_type!=='instruction.start'||!body||body.launch_id!==launch||p!.sandbox_id!==sandbox||p!.boot_id!==boot||
+    p!.attempt_id!==row.aggregate_id||typeof body.agent_session_id!=='string')
+    fail('RUNNER_EVENT_LAUNCH_UNKNOWN','Native events name the START instruction of a launch on the authenticated boot');
+  return {attempt_id:uuid(row.aggregate_id),agent_session_id:uuid(body.agent_session_id)};
+}
+export async function recordLaunchEvent(g:TransactionGateway,component:ComponentContext,context:ComponentContext,input:unknown):Promise<unknown> {
+  const invocation=requireInvocation(context,input,['RUNNER']),p=invocation.principal;
+  const v=fields(input,LAUNCH_EVENT_FIELDS),s=scope(v);
+  if(!p.sandbox_id||!p.boot_id||!p.boot_generation)fail('AUTH_SCOPE_DENIED','A genuine current sandbox boot is required for launch events');
+  if(v.schema_version!==1||uuid(v.sandbox_id)!==p.sandbox_id||uuid(v.boot_id)!==p.boot_id||integer(v.sandbox_boot_generation)!==p.boot_generation)
+    fail('AUTH_SCOPE_DENIED','Launch events come only from the authenticated sandbox boot');
+  if(typeof v.kind!=='string'||!/^[a-z][a-z0-9._-]{0,95}$/.test(v.kind))fail('RUNNER_EVENT_TYPE_INVALID','Launch event kinds are bounded names');
+  if(!object(v.data)||Buffer.byteLength(canonical(v.data))>RUNNER_EVENT_BOUNDS.payload_bytes)fail('RUNNER_EVENT_TOO_LARGE','Launch event data must be a bounded object');
+  if(typeof v.observed_at_seconds!=='number'||!Number.isSafeInteger(v.observed_at_seconds)||v.observed_at_seconds<0)
+    fail('EVENT_INPUT_INVALID','Observation time is whole seconds');
+  const e={...s,event_id:uuid(v.event_id),launch_id:uuid(v.launch_id),command_id:v.command_id===null?null:uuid(v.command_id),
+    sequence:integer(v.sequence),kind:v.kind,sandbox_id:p.sandbox_id,boot_id:p.boot_id};
+  const native=NATIVE_KINDS.has(e.kind),data=v.data as Record<string,unknown>;
+  if(native&&(e.command_id===null||(data.connector!=='codex'&&data.connector!=='claude')||typeof data.agent_session_id!=='string'||!object(data.event)))
+    fail('EVENT_INPUT_INVALID','A native event names its START command, connector, session and protocol message');
+  const principal='runner:'+e.sandbox_id+':'+e.boot_id,requestHash=digest(v);
+  return g.withPrimaryTransaction({timeoutMs:10000,maxRetries:3,signal:invocation.signal,guard:tx=>invocation.identityGuard(tx)},async tx=>{
+    await lockRun(tx,s);
+    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['runner.launch-event:'+s.organisation_id+':'+e.launch_id]);
+    const prior=(await tx.query(`SELECT request_digest,result FROM hyperfide.command_inbox WHERE organisation_id=$1 AND run_id=$2
+      AND operation='runner.launch-event' AND idempotency_key=$3`,[s.organisation_id,s.run_id,e.event_id])).rows[0];
+    if(prior){
+      if(prior.request_digest!==requestHash)fail('RUNNER_EVENT_CONFLICT','Event identity was reused with different contents');
+      const {payload:_payload,...recorded}=prior.result as Record<string,unknown>;
+      return {...recorded,replayed:true};
+    }
+    const slot=e.launch_id+':'+e.sequence;
+    const taken=(await tx.query(`SELECT result FROM hyperfide.command_inbox WHERE organisation_id=$1 AND run_id=$2
+      AND operation='runner.launch-event-sequence' AND idempotency_key=$3`,[s.organisation_id,s.run_id,slot])).rows[0];
+    if(taken)fail('RUNNER_EVENT_SEQUENCE_CONFLICT','Launch sequence was already recorded for another event');
+    let signal:string|null=null,asks:RaisedNativeAsk[]=[],session:string|null=null,attempt:string|null=null;
+    if(native){
+      const start=await launchStart(tx,s,e.command_id!,e.launch_id,e.sandbox_id,e.boot_id);
+      if(data.agent_session_id!==start.agent_session_id)fail('AUTH_SCOPE_DENIED','Native event names another session than its launch');
+      if(p.attempt_id!==null&&p.attempt_id!==start.attempt_id)fail('AUTH_SCOPE_DENIED','Authenticated runner is bound to a different attempt');
+      session=start.agent_session_id;attempt=start.attempt_id;
+      const connector=data.connector as 'codex'|'claude';
+      try{signal=classifyNativeEvent(connector,data.event).signal;}catch{signal='UNCLASSIFIED';}
+      asks=await raiseNativeAsks(component,tx,invocation,{session,attempt,sandbox:e.sandbox_id},e.event_id,nativeAskRequests(connector,data.event));
+    }
+    const result={recorded:true,event_id:e.event_id,launch_id:e.launch_id,sequence:e.sequence,kind:e.kind,
+      agent_session_id:session,attempt_id:attempt,signal,asks,execution_authority:false};
+    await tx.query(`INSERT INTO hyperfide.command_inbox(organisation_id,run_id,id,principal_scope,operation,idempotency_key,request_digest,state,result)
+      VALUES($1,$2,$3,$4,'runner.launch-event',$5,$6,'COMPLETED',$7::jsonb)`,[s.organisation_id,s.run_id,randomUUID(),principal,e.event_id,requestHash,
+      canonical({...result,payload:v})]);
+    await tx.query(`INSERT INTO hyperfide.command_inbox(organisation_id,run_id,id,principal_scope,operation,idempotency_key,request_digest,state,result)
+      VALUES($1,$2,$3,$4,'runner.launch-event-sequence',$5,$6,'COMPLETED',$7::jsonb)`,[s.organisation_id,s.run_id,randomUUID(),principal,slot,requestHash,
+      canonical({event_id:e.event_id})]);
+    return {...result,replayed:false};
+  });
 }
 
 export function runnerApi(g:TransactionGateway):Record<string,Action> {
