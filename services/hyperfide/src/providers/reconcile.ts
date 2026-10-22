@@ -345,26 +345,38 @@ export async function reconcileIntent(pool:ProviderDatabase,config:DeploymentCon
     }
     const report=validateInventory({scope:original.scope,pages,evaluated_at:new Date().toISOString()}) as {enumeration_complete:boolean};
     if(!report.enumeration_complete)fail('PROVIDER_INVENTORY_INCOMPLETE','Incomplete inventory cannot resolve uncertainty');
-    const matches:Array<{nativeId:string;evidence:string}>=[];
+    const matches:Array<{nativeId:string;evidence:string}>=[],unverified:string[]=[];
+    // No registered probe can never verify ownership, so it quarantines as before; a probe that ran and failed cannot.
+    let probe:ReturnType<typeof providerOwnershipProbe>|null=null;
+    try{probe=providerOwnershipProbe(original.scope.provider,pool.runtime);}catch{probe=null;}
     for(const page of pages)for(const item of page.items){
       const known=await pool.query('SELECT id FROM hyperfide.sandboxes WHERE organisation_id=$1 AND pool_id=$2 AND native_sandbox_id=$3',[config.organisation_id,row.pool_id,item.native_sandbox_id]);
       if(known.rows.length)continue;
-      await pool.query("INSERT INTO hyperfide.provider_orphans(organisation_id,pool_id,native_sandbox_id,suspected_intent_id) VALUES($1,$2,$3,$4) ON CONFLICT(organisation_id,pool_id,native_sandbox_id) DO UPDATE SET last_observed_at=clock_timestamp()",[config.organisation_id,row.pool_id,item.native_sandbox_id,id]);
+      const orphan=(await pool.query("INSERT INTO hyperfide.provider_orphans(organisation_id,pool_id,native_sandbox_id,suspected_intent_id) VALUES($1,$2,$3,$4) ON CONFLICT(organisation_id,pool_id,native_sandbox_id) DO UPDATE SET last_observed_at=clock_timestamp(),suspected_intent_id=COALESCE(provider_orphans.suspected_intent_id,EXCLUDED.suspected_intent_id) RETURNING state",[config.organisation_id,row.pool_id,item.native_sandbox_id,id])).rows[0];
+      // D15: DELETE is the operator's evidence that the resource is gone; a later sighting never reopens it for adoption.
+      if(orphan?.state==='DELETED'||!probe)continue;
       try{
-        const observed=await boundedProvider(providerOwnershipProbe(original.scope.provider,pool.runtime)(original.scope,id,item.native_sandbox_id,signal),signal,reconciliationDeadline);
+        const observed=await boundedProvider(probe(original.scope,id,item.native_sandbox_id,signal),signal,reconciliationDeadline);
         if(observed.matches&&observed.operation_id===id&&observed.native_sandbox_id===item.native_sandbox_id){
           dg(observed.evidence_digest);matches.push({nativeId:item.native_sandbox_id,evidence:observed.evidence_digest});
         }
-      }catch{/* Missing ownership proof leaves a quarantined resource, never deletion authority. */}
+      }catch{unverified.push(item.native_sandbox_id);}
+    }
+    if(unverified.length){
+      // An exhausted or failed probe is not evidence that the resource is someone else's: keep the intent reconcilable
+      // (UNKNOWN, re-claimed after the worker's retry interval) instead of an operator-only quarantine.
+      await pool.query("UPDATE hyperfide.provisioning_intents SET state='UNKNOWN',failure_code='OWNERSHIP_PROBE_UNVERIFIED',updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND id=$2 AND state IN ('UNKNOWN','RECONCILING','SUBMITTING')",[config.organisation_id,id]);
+      fail('OWNERSHIP_PROBE_UNVERIFIED','Ownership of '+unverified.length+' provider resource'+(unverified.length===1?'':'s')+' could not be probed; reconciliation will retry');
     }
     if(matches.length!==1){
       await pool.query("UPDATE hyperfide.provisioning_intents SET state='QUARANTINED',failure_code=$3,updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND id=$2",
         [config.organisation_id,id,matches.length?'MULTIPLE_OWNED_CANDIDATES':'OWNERSHIP_UNVERIFIED']);
       return{intent:await intent(pool,config.organisation_id,id),candidate_count:matches.length,absence_authorized:false};
     }
-    await hooks.persistEarlyResource(original as ProviderOperation<'create'>,matches[0]!.nativeId);
-    await pool.query("UPDATE hyperfide.provider_orphans SET state='OWNERSHIP_VERIFIED',ownership_evidence_digest=$4 WHERE organisation_id=$1 AND pool_id=$2 AND native_sandbox_id=$3",
+    const verified=await pool.query("UPDATE hyperfide.provider_orphans SET state='OWNERSHIP_VERIFIED',ownership_evidence_digest=$4 WHERE organisation_id=$1 AND pool_id=$2 AND native_sandbox_id=$3 AND state<>'DELETED' RETURNING native_sandbox_id",
       [config.organisation_id,row.pool_id,matches[0]!.nativeId,matches[0]!.evidence]);
+    if(verified.rows.length!==1)fail('RESOLUTION_CONFLICT','The candidate was resolved as deleted by an operator during reconciliation');
+    await hooks.persistEarlyResource(original as ProviderOperation<'create'>,matches[0]!.nativeId);
     row=await intent(pool,config.organisation_id,id);
   }
   if(!row.native_sandbox_id)fail('RESOURCE_OWNERSHIP_UNKNOWN','Reconciliation did not establish a resource identity');

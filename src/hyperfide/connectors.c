@@ -182,6 +182,35 @@ int hf_connector_resume_qualified(const char *connector,char *out,size_t size){
  if(strcmp(actual,expected)||!resume_receipt(&a,&r))return 0;
  snprintf(out,size,"%s",r.digest);return 1;
 }
+/* Prompt policy for every worker launch (hyperfide-v21 4.3, req 4, D11).
+ * A worker runs headless in a sandbox: nobody is at its terminal. A native prompt there (a Claude
+ * permission dialog or AskUserQuestion, a Codex approval or requestUserInput) is invisible to every
+ * person and hangs the attempt until its lease expires. So native prompts stay disabled (Claude:
+ * --permission-mode dontAsk --permission-prompts none; Codex: approvalPolicy never), and every launch
+ * carries the codify MCP server (codify_binary, `mcp`) with the ask tools allowed, plus the instruction
+ * rule for when to raise each kind. The Ask is the only path by which a question becomes visible.
+ * ASK_RULE is spec/workflow.kvx [loop] step_5 verbatim; 91_connector_flags.sh fails on drift. */
+static const char ASK_RULE[]="Implement only the claimed task. Never default what you were not given: raise an Ask (MCP ask_raise, or hyperfide ask raise), keep working on what does not depend on it, and read the answer with ask_status. Raise a secret when a credential or token is missing (it is answered with a secret-ref, never a value); a variable when a configuration value, path or endpoint is unknown; a permission before anything destructive, outside the task's touches, or a new dependency; a decision when more than one design fits, naming the option you recommend; a question when the spec or a criterion is ambiguous, with your reading as the recommendation. secret, variable and permission block; decision and question proceed on the recommendation and are flagged ([asks]).";
+static const char ASK_TOOLS[]="mcp__codify__ask_raise,mcp__codify__ask_status,mcp__codify__ask_list,mcp__codify__approvals_list";
+/* The codify binary that serves `mcp` (cg and hyperfide are one executable; this component may run as the
+ * separate hyperfide-native). HF_CODIFY_MCP_BINARY names it when the launcher knows; otherwise this process
+ * when it is that binary, the release layout (bin/hyperfide beside bin/hyperfide-native), or the dev tree
+ * (build/hyperfide-native under the checkout's ./hyperfide). No binary, no launch: never a launch without Asks. */
+static int runnable(const char *p){struct stat st;return *p=='/'&&stat(p,&st)==0&&S_ISREG(st.st_mode)&&access(p,X_OK)==0;}
+static int codify_binary(char *buf,size_t cap){const char *env=getenv("HF_CODIFY_MCP_BINARY");
+ if(env&&*env){if(strlen(env)>=cap||!runnable(env))return 0;snprintf(buf,cap,"%s",env);return 1;}
+ char self[PATH_MAX];ssize_t n=readlink("/proc/self/exe",self,sizeof self-1);if(n<=0||(size_t)n>=sizeof self-1||*self!='/')return 0;self[n]=0;
+ char *slash=strrchr(self,'/');if((!strcmp(slash+1,"hyperfide")||!strcmp(slash+1,"cg"))&&(size_t)n<cap){snprintf(buf,cap,"%s",self);return 1;}
+ *slash=0;if((size_t)snprintf(buf,cap,"%s/hyperfide",self)<cap&&runnable(buf))return 1;
+ char *parent=strrchr(self,'/');if(parent&&!strcmp(parent+1,"build")&&parent>self){*parent=0;if((size_t)snprintf(buf,cap,"%s/hyperfide",self)<cap&&runnable(buf))return 1;}
+ return 0;}
+/* One argv element holding `key="value"` as a TOML basic string, for Codex `-c`. */
+static void toml_arg(FILE *o,const char *key,const char *value){char *b=NULL;size_t len=0;FILE *m=open_memstream(&b,&len);if(!m)exit(1);
+ fprintf(m,"%s=\"",key);for(const unsigned char *p=(const unsigned char*)value;*p;p++){if(*p=='"'||*p=='\\')fprintf(m,"\\%c",*p);else if(*p<32)fprintf(m,"\\u%04x",*p);else fputc(*p,m);}fputc('"',m);fclose(m);quoted(o,b);free(b);}
+static void ask_channel(FILE *o,const char *name,const char *self){
+ if(!strcmp(name,"codex")){fputs(",\"-c\",",o);toml_arg(o,"approval_policy","never");fputs(",\"-c\",",o);toml_arg(o,"mcp_servers.codify.command",self);fputs(",\"-c\",\"mcp_servers.codify.args=[\\\"mcp\\\"]\",\"-c\",",o);toml_arg(o,"developer_instructions",ASK_RULE);return;}
+ char *b=NULL;size_t len=0;FILE *m=open_memstream(&b,&len);if(!m)exit(1);fputs("{\"mcpServers\":{\"codify\":{\"type\":\"stdio\",\"command\":",m);quoted(m,self);fputs(",\"args\":[\"mcp\"]}}}",m);fclose(m);
+ fputs(",\"--mcp-config\",",o);quoted(o,b);free(b);fputs(",\"--allowedTools\",",o);quoted(o,ASK_TOOLS);fputs(",\"--append-system-prompt\",",o);quoted(o,ASK_RULE);}
 int hf_component_13_1(const char *action,const char *json,FILE *out){
 Field fs[16];int n=fields(json,fs,16,"|connector||expected_version||alias||auth_profile||workspace||home||temp||permission_mode||native_session_id||operation||turn_id||text||request_id||frame|");
 if(n<0)return error(out,"CONNECTOR_INVALID");
@@ -275,10 +304,11 @@ Resolution res;if(resolve_alias(name,alias,home,&res))return error(out,"CONNECTO
 if(res.found&&(strcmp(res.model,resolved)||(res.provider[0]&&strcmp(res.provider,provider_name))))return error(out,"CONNECTOR_PROFILE_DRIFT");
 Receipt granted;const int eligible=receipt(&profile,&granted)&&dispatch_qualified(&granted,session[0]!=0)&&!supervisory;
 if(session[0]&&!eligible)return error(out,"CONNECTOR_UNSUPPORTED");
+char self[4096];if(!supervisory&&!codify_binary(self,sizeof self))return error(out,"CONNECTOR_UNSUPPORTED");
 fputs("{\"connector\":",out);quoted(out,name);fputs(",\"version\":",out);quoted(out,pin);fputs(",\"requested_model_id\":",out);quoted(out,resolved);fputs(",\"configured_provider_id\":",out);quoted(out,provider_name);fputs(",\"observed_model_id\":",out);if(eligible)quoted(out,granted.observed_model);else fputs("null",out);fputs(",\"observed_provider_id\":",out);if(eligible)quoted(out,granted.observed_provider);else fputs("null",out);fputs(",\"alias_resolution\":",out);resolution_json(out,&res);fputs(",\"auth_profile\":",out);quoted(out,auth);fputs(",\"argv\":[",out);quoted(out,exe);
-if(!strcmp(name,"codex"))fputs(",\"app-server\",\"--listen\",\"stdio://\",\"--disable\",\"multi_agent\",\"--disable\",\"multi_agent_v2\",\"--disable\",\"multi_agent_v2_dynamic_tools\",\"-c\",\"agents.enabled=false\"",out);
+if(!strcmp(name,"codex")){fputs(",\"app-server\",\"--listen\",\"stdio://\",\"--disable\",\"multi_agent\",\"--disable\",\"multi_agent_v2\",\"--disable\",\"multi_agent_v2_dynamic_tools\",\"-c\",\"agents.enabled=false\"",out);ask_channel(out,name,self);}
 else if(supervisory){fputs(",\"--print\",\"--restricted\",\"--tools\",\"\",\"--strict-mcp-config\",\"--mcp-config\",",out);quoted(out,mcp_config);fputs(",\"--input-format\",\"stream-json\",\"--output-format\",\"stream-json\",\"--verbose\",\"--permission-mode\",\"dontAsk\",\"--permission-prompts\",\"none\",\"--setting-sources\",\"\",\"--model\",",out);quoted(out,resolved);}
-else {fputs(",\"--print\",\"--input-format\",\"stream-json\",\"--output-format\",\"stream-json\",\"--verbose\",\"--permission-mode\",\"dontAsk\",\"--permission-prompts\",\"none\",\"--strict-mcp-config\",\"--setting-sources\",\"\",\"--disallowedTools\",\"Agent,Task,Workflow\",\"--model\",",out);quoted(out,resolved);if(session[0]){fputs(",\"--resume\",",out);quoted(out,session);}}
+else {fputs(",\"--print\",\"--input-format\",\"stream-json\",\"--output-format\",\"stream-json\",\"--verbose\",\"--permission-mode\",\"dontAsk\",\"--permission-prompts\",\"none\",\"--strict-mcp-config\",\"--setting-sources\",\"\",\"--disallowedTools\",\"Agent,Task,Workflow\"",out);ask_channel(out,name,self);fputs(",\"--model\",",out);quoted(out,resolved);if(session[0]){fputs(",\"--resume\",",out);quoted(out,session);}}
 fputs("],\"permission_mode\":",out);quoted(out,permission);fputs(",\"binary_digest\":",out);quoted(out,profile.digest);fputs(",\"profile_digest\":",out);quoted(out,profile.profile_digest);fputs(",\"permission_profile_id\":",out);quoted(out,profile.permission);fputs(eligible?",\"dispatch_eligible\":true,\"qualification_receipt_digest\":":",\"dispatch_eligible\":false,\"qualification_receipt_digest\":null",out);if(eligible)quoted(out,granted.digest);fputs(",\"cwd\":",out);quoted(out,workspace);fputs(",\"home\":",out);quoted(out,home);fputs(",\"temp\":",out);quoted(out,temp);fputs(",\"native_session_id\":",out);if(session[0])quoted(out,session);else fputs("null",out);fputs(eligible?",\"delegation_enabled\":false,\"requires_supervisor\":true,\"live_qualified\":true}":",\"delegation_enabled\":false,\"requires_supervisor\":true,\"live_qualified\":false}",out);return 0;}
 if(!strcmp(action,"connector.encode")){
 if(!keys(fs,n,"|connector||operation||native_session_id||turn_id||text||request_id|"))return error(out,"CONNECTOR_INVALID");

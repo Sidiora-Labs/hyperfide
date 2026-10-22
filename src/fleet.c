@@ -27,6 +27,13 @@ extern int hf_advice_unit(const char *obj, const char *key, double *out);
 #include <time.h>
 #include <unistd.h>
 
+/* A closed task is never begun, waited on or counted open: done, or the
+ * terminal superseded (2.15), whose work belongs to its superseded_by. */
+static bool fleet_status_closed(const char *status) {
+    return status && (strcmp(status, "done") == 0 ||
+                      strcmp(status, "superseded") == 0);
+}
+
 /* ---------------- identity ---------------- */
 
 typedef struct {
@@ -1264,7 +1271,7 @@ static int fleet_plan(Cg *cg, const char *feature_ov, bool json) {
         int j = i;
         bool open = false;
         while (j < nt && tasks[j].wave == w) {
-            if (strcmp(tasks[j].status, "done") != 0) open = true;
+            if (!fleet_status_closed(tasks[j].status)) open = true;
             j++;
         }
         if (!per_wave) j = nt;               /* one manager owns every wave */
@@ -2339,8 +2346,9 @@ int fleet_worker_begin_ex(Cg *cg, const char *id, const char *feature_ov,
         lifecycle_close(&c);
         return 1;
     }
-    if (strcmp(status, "done") == 0) {
-        fprintf(stderr, "hyperfide fleet: %s is done — nothing to begin\n", id);
+    if (fleet_status_closed(status)) {
+        fprintf(stderr, "hyperfide fleet: %s is %s — nothing to begin\n", id,
+                status);
         lifecycle_close(&c);
         return 1;
     }
@@ -2877,8 +2885,7 @@ static int wave_open_tasks(const Lifecycle *c, long wave, const char *branch,
             (wave < 0 || kvx_long(f, sec, "wave", 0) == wave)) {
             char *st = kvx_str(f, sec, "status");
             char *bt = tip ? kvx_str(tip, sec, "status") : NULL;
-            bool done = (st && strcmp(st, "done") == 0) ||
-                        (bt && strcmp(bt, "done") == 0);
+            bool done = fleet_status_closed(st) || fleet_status_closed(bt);
             if (!done) {
                 if (names) {
                     if (open) sb_puts(names, ", ");
@@ -3289,7 +3296,7 @@ static void write_pr_body(Cg *cg, const Lifecycle *c, const char *branch,
             sb_json_str(&tasks, status);
             sb_putc(&tasks, '}');
             ntask++;
-            if (strcmp(status, "done") == 0) ndone++;
+            if (fleet_status_closed(status)) ndone++;
             free(tt); free(st); free(ids[i]);
         }
         free(ids);
