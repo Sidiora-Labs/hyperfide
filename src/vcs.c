@@ -359,6 +359,8 @@ static int commit_load(const Cg *cg, const char *hash, Commit *c) {
 
 int cmd_commit_with_options(Cg *cg, const char *msg, bool quiet,
                             const char *spec_tag, bool amend) {
+    /* the task file rides in this snapshot, so it must be current first */
+    if (spec_commit_sync(spec_tag) != 0) return 1;
     Manifest m = {0};
     snapshot_tree(cg, &m, true);
     size_t mlen = 0;

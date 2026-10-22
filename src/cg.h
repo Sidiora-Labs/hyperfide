@@ -833,6 +833,9 @@ int spec_claim(Cg *g, const char *root, const char *feature, const char *id,
 char *spec_active_tag(void);
 /* requested in_progress task as "feature/id"; NULL when invalid/not active */
 char *spec_task_tag(const char *requested);
+/* before a snapshot: bring the claimed task's kvx status and evidence pointer
+ * in line with its claim receipt; 1 (reason printed) when they disagree */
+int   spec_commit_sync(const char *requested);
 /* touches globs of the in-progress task; 0 when none (everything in scope) */
 int   spec_active_touches(char ***out);
 /* can these two touch patterns cover a common path? glob-vs-glob aware */
