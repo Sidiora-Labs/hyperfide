@@ -163,7 +163,7 @@ owner = "deployment"
 
 [task.1.5]
 title = "Ship activation and adoption grants in the control policy"
-status = "implemented"
+status = "done"
 wave = 1
 requires = ["1.1"]
 touches = ["deploy/hyperfide/policies/control.example.json", "tests/hyperfide/cases/tasks/29_1.py", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/cases/tasks/29_11.py", "tests/hyperfide/cases/tasks/29_12.py", "tests/hyperfide/support/withpg.py", "tests/hyperfide/proof_relocation.py", "tests/hyperfide/test_inspect_proof.py", "tests/hyperfide/manifests/tasks/29.1.json", "tests/hyperfide/manifests/tasks/29.5.json", "tests/hyperfide/manifests/tasks/29.9.json", "tests/hyperfide/manifests/tasks/29.11.json", "tests/hyperfide/manifests/tasks/29.12.json", "tests/hyperfide/manifests/tasks/27.1.json", "tests/hyperfide/manifests/tasks/28.3.json"]
@@ -423,7 +423,7 @@ owner = "source"
 
 [task.2.13]
 title = "Sparse worktrees for the local fleet"
-status = "implemented"
+status = "done"
 wave = 2
 requires = ["2.12"]
 touches = ["src/fleet.c", "src/hyperfide/client.c", "tests/integration/85_sparse_worktree.sh"]
@@ -450,7 +450,7 @@ owner = "ci"
 
 [task.2.15]
 title = "Terminal superseded status in the spec engine, and the load-sensitive suites"
-status = "implemented"
+status = "done"
 wave = 2
 requires = ["1.8"]
 touches = ["src/spec.c", "spec/workflow.kvx", "spec/codify-v11/spec.kvx", "tests/integration/23_dblock.sh", "tests/integration/32_supervisor.sh", "CONTRIBUTING.md", "tests/integration/85_superseded_status.sh"]
