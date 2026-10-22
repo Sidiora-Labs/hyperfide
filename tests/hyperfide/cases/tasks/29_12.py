@@ -4,6 +4,9 @@ The Railway admin API is a recorded read-only test transport; this is component 
 import datetime,hashlib,importlib.util,json,os,shutil,subprocess,sys,tempfile,uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
+# The migration job's authority grants come from the shipped control policy, never from the test; a policy that
+# drops them must make the activation and adoption probes fail.
+SHIPPED_AUTHORITY=[a for a in json.loads((ROOT/'deploy/hyperfide/policies/control.example.json').read_text())['allowed_actions'] if a.startswith('storage.authority.')]
 spec=importlib.util.spec_from_file_location('bootstrap_29_12',ROOT/'tests/hyperfide/cases/tasks/29_11.py')
 legacy=importlib.util.module_from_spec(spec);spec.loader.exec_module(legacy)
 sys.path.insert(0,str(ROOT/'tests/hyperfide/support'))
@@ -36,7 +39,7 @@ def main():
   log.append({'argv':[str(a) for a in argv],'exit_code':p.returncode,'stdout':p.stdout[-4000:],'stderr':p.stderr[-4000:]})
   return p
  try:
-  f=IdentityFixture(extra_actions=['storage.authority.activate','storage.authority.adopt'])
+  f=IdentityFixture(extra_actions=SHIPPED_AUTHORITY)
   owner_sql=lambda sql,values=():f.sql(sql,list(values),serial=False)
   folder.chmod(0o755)
   # Release-layout copy: root-owned files without group or world write, traversable by the follower uids.

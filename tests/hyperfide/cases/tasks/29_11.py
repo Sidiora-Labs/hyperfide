@@ -4,6 +4,9 @@ The Railway admin API is a recorded test transport; this is component evidence, 
 import base64,hashlib,importlib.util,json,os,shutil,subprocess,sys,tempfile,time,uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
+# The migration job's authority grants come from the shipped control policy, never from the test; a policy that
+# drops them must make the activation and adoption probes fail.
+SHIPPED_AUTHORITY=[a for a in json.loads((ROOT/'deploy/hyperfide/policies/control.example.json').read_text())['allowed_actions'] if a.startswith('storage.authority.')]
 spec=importlib.util.spec_from_file_location('binding_29_11',ROOT/'tests/hyperfide/cases/tasks/29_3.py')
 binding=importlib.util.module_from_spec(spec);spec.loader.exec_module(binding)
 m=binding.m
@@ -139,7 +142,7 @@ def main():
  base=Path(os.environ.get('HYPERFIDE_CAMPAIGN_DIR','/tmp/hyperfide/task29.11'));base.mkdir(parents=True,exist_ok=True)
  f=None;observed={};processes=[];complete=False;folder=Path(tempfile.mkdtemp(prefix='hf-bootstrap-fence-'))
  try:
-  f=m.ProvisionerFixture(extra_components=['8.2'],extra_setup=binding.setup,extra_actions=['storage.authority.activate','storage.authority.adopt'])
+  f=m.ProvisionerFixture(extra_components=['8.2'],extra_setup=binding.setup,extra_actions=SHIPPED_AUTHORITY)
   status,response=f.invoke('provider.pools.configure',{},component='8.2',key='operator');m.expect(status==200 and response.get('ok') is True,response)
   org=f.ids['organisation'];sandbox=str(uuid.uuid4())
   f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,native_sandbox_id,observed_state,preparation_digest) VALUES($1,$2,$3,$4,'RUNNING',$5)",[org,sandbox,f.pool,NATIVE,f.preparation])

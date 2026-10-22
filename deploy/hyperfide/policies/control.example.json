@@ -460,6 +460,8 @@
     "spec.proof.register",
     "spec.proof.review.register",
     "spec.task.resolve",
+    "storage.authority.activate",
+    "storage.authority.adopt",
     "storage.durability.inspect",
     "storage.migrations.apply",
     "storage.migrations.inspect",

@@ -49,12 +49,16 @@ def required_actions():
                            declaration('src/policy/programme.ts', r'const bootAction = \{([^}]*)\}\[role\]')))
     worker = re.findall(r"'([^']+)'", declaration(
         'src/events/dispatcher.ts', r'const required=\[(.*?)\.\.\.config\.routes\.map\(r=>r\.action\)\];'))
-    if sorted(boot) != sorted(ROLES) or not worker:
-        raise AssertionError('boot or dispatcher worker actions could not be derived')
+    # The release migration job admits authority activation and adoption against the shipped control policy.
+    job = re.search(r"assertAdmission\(approved,'control',action==='--activate-authority'\?'([^']+)':'([^']+)'\)",
+                    (ROOT / 'deploy/hyperfide/migrate.mjs').read_text())
+    if sorted(boot) != sorted(ROLES) or not worker or not job:
+        raise AssertionError('boot, dispatcher worker or migration job actions could not be derived')
 
     def registered(role):
         return {action for fragment in fragments if role in fragment['roles'] for action in fragment['actions']}
     actions = {role: registered(role) | {boot[role]} for role in ROLES}
+    actions['control'] |= set(job.groups())
     # Operator routes invoke their action on control_origin, so every control action is a route candidate.
     actions['dispatch'] |= set(worker) | registered('control')
     return {role: sorted(items) for role, items in actions.items()}

@@ -117,8 +117,8 @@
     },
     {
       "path": "deploy/hyperfide/policies/control.example.json",
-      "sha256": "576f014ef691f75130337455dd4df66ccb3a5064678d1d0c945565b9409002c9",
-      "size": 14909
+      "sha256": "5e06a0dd61fc153dff825d34dafe307facf4d855c6ede42f232c83261e70612a",
+      "size": 14974
     },
     {
       "path": "deploy/hyperfide/policies/dispatch.example.json",

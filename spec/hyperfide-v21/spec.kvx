@@ -154,7 +154,7 @@ owner = "deployment"
 
 [task.1.5]
 title = "Ship activation and adoption grants in the control policy"
-status = "pending"
+status = "in_progress"
 wave = 1
 requires = ["1.1"]
 touches = ["deploy/hyperfide/policies/control.example.json", "tests/hyperfide/cases/tasks/29_1.py", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/cases/tasks/29_11.py", "tests/hyperfide/cases/tasks/29_12.py"]
