@@ -60,7 +60,7 @@ base   = "wave/{feature}/{wave}"
 [principle]
 task_driven     = "Work is driven by the active feature's task list, in wave order, one claimed task per worker."
 verified_done   = "A task is done only when hyperfide spec done reruns its verify_cmd and graph checks and they pass. A wave closes only after its regression checks and an independent correctness review; a component passing never certifies a full acceptance case."
-dependencies    = "The hyperfide binary links sqlite, libc, curl and crypto and nothing else (the Makefile LDLIBS line is authoritative). The TypeScript services may use declared, pinned dependencies listed in their package.json. Anything else needs a permission Ask first."
+dependencies    = "The hyperfide binary links sqlite, curl and crypto plus the C library and its pthread and math objects, and nothing else (the Makefile LDLIBS line is authoritative). The TypeScript services may use declared, pinned dependencies listed in their package.json. Anything else needs a permission Ask first."
 non_invasive    = "Hyperfide observes and advises by default; it blocks only where the user asked it to."
 local_first     = "The local graph, memory and workflow work offline with no telemetry. Local caches state their freshness and never grant remote fleet ownership. Decision-model output narrows and ranks; verify_cmd and graph checks decide."
 distributed_authority = "Remote fleet ownership requires the authenticated coordinator and PostgreSQL; a disconnected client cannot obtain or renew it from cached state."
@@ -122,7 +122,7 @@ task_file  = "The feature spec.kvx task statuses are current before every commit
 no_fakes        = "Never fake or weaken a test to make it pass."
 no_false_done   = "Never mark a task done that did not qualify."
 no_silent_default = "Never default a secret, variable, permission or decision you were not given; raise an Ask."
-warn_dont_block = "New governance defaults to a warning. Blocking is opt-in."
+warn_dont_block = "New governance defaults to a warning. Blocking is opt-in, except the [asks] policy, where secret, variable and permission Asks block by design."
 
 [render]
 markdown_mirror = false

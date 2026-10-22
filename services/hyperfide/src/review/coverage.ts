@@ -10,6 +10,7 @@ import {databaseError} from '../storage/schema.js';
 import {assertInvocation} from '../transport/protocol.js';
 import {readSemanticDisposition,writeSemanticDisposition} from '../storage/dispositions.js';
 import {assertPrimaryTransaction,type PrimaryTransaction} from '../storage/transactions.js';
+import {TRUNK_PREFIX} from '../integration/queue.js';
 
 const execute=promisify(execFile);
 export type ReviewDb=Pick<PrimaryTransaction,'query'>;
@@ -167,8 +168,8 @@ export async function configureReviewPolicy(context:ComponentContext,value:unkno
   return {policy_digest:policyDigest,replayed:false,watchers:definition.watchers.length,mode:definition.mode};
  });
 }
-interface RepositoryConfig {path:string;refs:string[]}
-async function repositoryConfig(env:Readonly<NodeJS.ProcessEnv>,repositoryId:string):Promise<RepositoryConfig>{
+interface RepositoryConfig {path:string;refs:string[];trunk:string}
+async function repositoryConfig(env:Readonly<NodeJS.ProcessEnv>,repositoryId:string,runId:string):Promise<RepositoryConfig>{
  let all:Record<string,unknown>;
  try{
   const parsed:unknown=JSON.parse(env.HYPERFIDE_REVIEW_REPOSITORIES??'{}');
@@ -177,14 +178,17 @@ async function repositoryConfig(env:Readonly<NodeJS.ProcessEnv>,repositoryId:str
   for(const key of Object.keys(all))uuid(key);
  }catch{fail('REVIEW_CONFIG_INVALID','Trusted review repository configuration is missing or invalid');}
  const entry=all![repositoryId];if(!entry)fail('REVIEW_REPOSITORY_UNAVAILABLE','Repository has no trusted local Git checkout');
- const v=obj(entry,['path','refs']);const directory=await fs.realpath(text(v.path,4096));const refs=strings(v.refs,32);
- if(!refs.length||refs.some(ref=>!/^refs\/(heads|remotes)\/[A-Za-z0-9][A-Za-z0-9._/-]{0,240}$/.test(ref)||ref.includes('..')))
+ const v=obj(entry,['path','refs'],['refs']);const directory=await fs.realpath(text(v.path,4096));const refs=strings(v.refs??[],32);
+ // Watchers read the internal trunk (4.9, req 6.3); a remote-tracking ref mirrors GitHub, which advances only through
+ // publication, so it is never a discovery source. Local branches remain for a run that has no integrator yet.
+ if(refs.some(ref=>ref.startsWith('refs/remotes/')))fail('REVIEW_CONFIG_INVALID','Watchers read the internal trunk, never a GitHub-tracking ref');
+ if(refs.some(ref=>!/^refs\/heads\/[A-Za-z0-9][A-Za-z0-9._/-]{0,240}$/.test(ref)||ref.includes('..')))
   fail('REVIEW_CONFIG_INVALID','Discovery needs explicit trusted branch refs');
  const allowed=env.HYPERFIDE_REVIEW_ALLOWED_ROOT;
  if(!allowed)fail('REVIEW_CONFIG_INVALID','Trusted review checkout root is required');
  const root=await fs.realpath(allowed);if(directory!==root&&!directory.startsWith(root+path.sep))
   fail('REVIEW_REPOSITORY_UNAVAILABLE','Review checkout escapes its trusted root');
- return {path:directory,refs};
+ return {path:directory,refs,trunk:TRUNK_PREFIX+runId};
 }
 async function git(repository:string,args:string[],acceptable:number[]=[0]):Promise<string>{
  try{
@@ -200,8 +204,10 @@ async function git(repository:string,args:string[],acceptable:number[]=[0]):Prom
   return fail('REVIEW_GIT_FAILED','Pinned local Git discovery failed; no completeness claim was made');
  }
 }
-async function heads(config:RepositoryConfig):Promise<Record<string,string>>{
- const result:Record<string,string>={};
+/** The observed heads: the run's internal trunk first, at the run base until the integrator's first fold, then any local branch. */
+async function heads(config:RepositoryConfig,base:string):Promise<Record<string,string>>{
+ const trunk=(await git(config.path,['rev-parse','--verify','--quiet',config.trunk+'^{commit}'],[1])).trim();
+ const result:Record<string,string>={[config.trunk]:trunk?oid(trunk):base};
  for(const ref of config.refs)result[ref]=oid((await git(config.path,['rev-parse','--verify',ref+'^{commit}'])).trim());
  return result;
 }
@@ -211,12 +217,12 @@ export async function discoverReviewCommits(context:ComponentContext,value:unkno
  const binding=scope(v),repositoryId=uuid(v.repository_id),batch=v.batch_size??64;
  if(typeof batch!=='number'||!Number.isSafeInteger(batch)||batch<1||batch>256)fail('REVIEW_INPUT_INVALID','Discovery batch must be one to 256 commits');
  authorizeReview(context,binding,['OPERATOR','LEADER','COORDINATOR','FEATURE_MANAGER','COMMIT_WATCHER','INTEGRATOR']);
- const config=await repositoryConfig(context.env,repositoryId);
- const snapshot=await heads(config);
+ const config=await repositoryConfig(context.env,repositoryId,binding.run_id);
  const initial=await transaction(context,binding,db=>db.query<{source_object_id:string}>('SELECT source_object_id FROM hyperfide.run_repositories WHERE organisation_id=$1 AND run_id=$2 AND repository_id=$3',[binding.organisation_id,binding.run_id,repositoryId]),false);
  if(initial.rows.length!==1)fail('REVIEW_SCOPE_INVALID','Repository is not part of this run');
  const base=oid(initial.rows[0]!.source_object_id);
  await git(config.path,['cat-file','-e',base+'^{commit}']);
+ const snapshot=await heads(config,base);
  const reachable=(await git(config.path,['rev-list','--reverse','--topo-order','--max-count=100001',...Object.values(snapshot),'--not',base])).trim().split('\n').filter(Boolean).map(oid);
  if(reachable.length>100000)fail('REVIEW_DISCOVERY_LIMIT','History exceeds the explicit discovery bound; narrow the approved branch/base range');
  const existing=await transaction(context,binding,db=>db.query<{source_object_id:string}>('SELECT source_object_id FROM hyperfide.review_commits WHERE organisation_id=$1 AND run_id=$2 AND repository_id=$3 AND source_object_id=ANY($4::text[])',[binding.organisation_id,binding.run_id,repositoryId,reachable]),false);
@@ -249,7 +255,7 @@ export async function discoverReviewCommits(context:ComponentContext,value:unkno
    }
   }
  }
- const changed=canonical(await heads(config))!==canonical(snapshot);
+ const changed=canonical(await heads(config,base))!==canonical(snapshot);
  const observationDigest=hash({repository_id:repositoryId,base,refs:snapshot});
  return transaction(context,binding,async db=>{
   const active=await db.query<{digest:string;definition:WatcherPolicy}>('SELECT digest,definition FROM hyperfide.review_policies WHERE organisation_id=$1 AND run_id=$2 AND active',[binding.organisation_id,binding.run_id]);

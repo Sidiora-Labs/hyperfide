@@ -563,6 +563,7 @@ def main():
     selector.add_argument("--suite")
     selector.add_argument("--list-cases", action="store_true")
     selector.add_argument("--bundle-evidence", metavar="TASK", help="write the deterministic evidence bundle of artifacts/hyperfide/tasks/TASK for publishEvidenceBundle")
+    selector.add_argument("--publish", metavar="TASK", help="publish the task's evidence bundle to the artifact store and write its tracked receipt (publish-evidence.py)")
     parser.add_argument("--bundle-output")
     parser.add_argument("--require-evidence", action="store_true", help="block when prior evidence cannot be resolved from the artifact store (default: warn)")
     parser.add_argument("--format", choices=("json", "text"), default="json")
@@ -574,6 +575,12 @@ def main():
     args = parser.parse_args()
     try:
         root = Path(args.root).resolve()
+        if args.publish:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("publish_evidence", Path(__file__).resolve().parent / "publish-evidence.py")
+            publisher = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(publisher)
+            return publisher.main(["--root", str(root), "--task", args.publish])
         if args.bundle_evidence:
             task_dir = root / evidence_store.TASKS_DIR / args.bundle_evidence
             if not evidence_store.TASK.fullmatch(args.bundle_evidence) or not task_dir.is_dir() or not args.bundle_output:

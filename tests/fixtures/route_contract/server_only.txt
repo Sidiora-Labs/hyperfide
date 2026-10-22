@@ -19,6 +19,7 @@
 14.1 identity.principal.renew
 14.1 identity.service.issue
 14.1 identity.main.issue
+16.1 submission.snapshot
 16.3 qualification.review.record
 16.3 qualification.accept
 16.4 assurance.invalidate
@@ -63,8 +64,6 @@ spec-import spec.projection.check
 
 # Components no client command reaches.
 1.1 *
-# Ask actions (hyperfide-v21 3.2); task 3.7 routes them in client.c and removes this line.
-1.2-asks *
 1.3 *
 1.4 *
 10.1 *
@@ -102,6 +101,8 @@ spec-import spec.projection.check
 17.3 *
 17.4 *
 19.1 *
+# Integrator merge queue (hyperfide-v21 4.8): run by the integrator, not the CLI.
+19.1-queue *
 19.2 *
 19.3 *
 19.4 *
@@ -136,6 +137,8 @@ spec-import spec.projection.check
 4.2 *
 4.3 *
 4.4 *
+# Operator notification target (hyperfide-v21 4.5); no client command routes it yet.
+4.5-operator *
 6.1 *
 6.2 *
 6.3 *
@@ -162,3 +165,6 @@ hierarchy-worker-registration *
 legacy-writer-isolation *
 spec-obligations *
 spec-revisions *
+1.2-asks human.ask.sweep
+1.2-asks human.ask.policy
+1.2-asks human.ask.seed

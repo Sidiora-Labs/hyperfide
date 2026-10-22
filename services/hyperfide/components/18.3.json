@@ -12,7 +12,10 @@
     "finding.route",
     "finding.route.assign",
     "finding.route.acknowledge",
-    "finding.route.collaborator.acknowledge"
+    "finding.route.collaborator.acknowledge",
+    "finding.leader-queue.list",
+    "finding.leader-queue.acknowledge",
+    "finding.leader-queue.route"
   ],
   "requires": [
     "finding-registry"

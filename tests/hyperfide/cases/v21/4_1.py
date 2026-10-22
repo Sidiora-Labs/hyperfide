@@ -6,7 +6,7 @@ can_use_tool control request) and Codex item/tool/requestUserInput as a QUESTION
 classification still carries no native text. Then, on an owned throwaway PostgreSQL cluster (the v21/3_2.py pattern),
 the control service runs in HTTPS mode with the 13.4 admission component wired to the 1.2-asks raise path; both native
 shapes and a Claude approval prompt are fed through agent.admission.observe and the case asserts the Ask rows: kind,
-default policy from the kind, options parsed from the event, the agent's own question text preserved, references to
+default policy, deadline and chain from the kind (3.6 ASK_POLICY), options parsed from the event, the agent's own question text preserved, references to
 the observed session, delivery to the operator consumer, and one Ask per native prompt across replays. Prints SKIP and
 exits 77 when no PostgreSQL server or root is available.
 """
@@ -47,6 +47,25 @@ import {nativeAskRequests as a} from './services/hyperfide/dist/agents/native_as
 const cases=JSON.parse(process.argv[1]);
 console.log(JSON.stringify(cases.map(([connector,event])=>({classification:c(connector,event),asks:a(connector,event)}))));
 """
+POLICY_PROBE = r"""
+import {ASK_POLICY as p} from './services/hyperfide/dist/agents/admission.js';
+console.log(JSON.stringify(p));
+"""
+POLICY = {}
+
+
+def ask_policy(kind):
+    # The 3.6 table is the source of the per-kind terms; read it from the compiled service rather than restating it.
+    if not POLICY:
+        result = subprocess.run(['node', '--input-type=module', '-e', POLICY_PROBE], cwd=ROOT, capture_output=True, text=True, timeout=30)
+        expect(result.returncode == 0, 'compiled ASK_POLICY unavailable: ' + result.stderr[-1500:])
+        POLICY.update(json.loads(result.stdout))
+    return POLICY[kind]
+
+
+def follows_policy(row):
+    p = ask_policy(row['kind'])
+    return row['default_policy'] == p['default_policy'] and row['deadline_s'] == p['deadline_seconds'] and row['chain'] == p['chain']
 
 
 def uid():
@@ -197,7 +216,7 @@ def scenario(f):
         return response['result']
 
     def asks(where='true', values=()):
-        return f.sql('SELECT id::text,kind,title,body,options,recommended,default_policy,deadline IS NOT NULL AS has_deadline,chain,task::text,attempt::text,session::text,sandbox::text,raised_by::text,state '
+        return f.sql('SELECT id::text,kind,title,body,options,recommended,default_policy,round(extract(epoch FROM deadline-raised_at))::int AS deadline_s,chain,task::text,attempt::text,session::text,sandbox::text,raised_by::text,state '
                      'FROM hyperfide.asks WHERE ' + where + ' ORDER BY raised_at,id', list(values))
 
     def deliveries(ask_id):
@@ -229,7 +248,7 @@ def scenario(f):
         expect(first['options'] == ['Online copy (Recommended)', 'Lock and rewrite'] and first['recommended'] == 'Online copy (Recommended)', 'options not parsed from the event: ' + json.dumps(first))
         expect(second['options'] == ['eu-west', 'us-east'] and second['recommended'] == 'eu-west' and second['body'].startswith(CLAUDE_QUESTIONS[1]['question']), 'second question wrong: ' + json.dumps(second))
         for row in rows:
-            expect(row['kind'] == 'question' and row['default_policy'] == 'proceed-and-flag' and row['has_deadline'] and row['state'] == 'OPEN', 'question policy not from the kind: ' + json.dumps(row))
+            expect(row['kind'] == 'question' and row['default_policy'] == 'proceed-and-flag' and follows_policy(row) and row['state'] == 'OPEN', 'question policy not from the kind: ' + json.dumps(row))
             expect(row['task'] == c['task'] and row['attempt'] == c['attempt'] and row['session'] == c['session'] and row['sandbox'] == i['sandbox'] and row['raised_by'] == i['operator'],
                    'Ask not attributed to the observed session: ' + json.dumps(row))
             expect([d['consumer'] for d in deliveries(row['id'])] == [i['operator_consumer']], 'ask.raised not delivered to the operator consumer')
@@ -252,9 +271,9 @@ def scenario(f):
         rows = asks('session=$1', [i['codex']['session']])
         expect([row['kind'] for row in rows] == ['question', 'secret'], 'Codex Ask kinds wrong: ' + json.dumps(rows)[:800])
         q, secret = rows
-        expect(q['options'] == ['staging', 'production'] and q['recommended'] == 'staging' and q['default_policy'] == 'proceed-and-flag'
+        expect(q['options'] == ['staging', 'production'] and q['recommended'] == 'staging' and q['default_policy'] == 'proceed-and-flag' and follows_policy(q)
                and q['body'].startswith('Which environment should the smoke test run against?') and 'Shared staging cluster.' in q['body'] and q['title'] == 'Target: Which environment should the smoke test run against?', json.dumps(q))
-        expect(secret['default_policy'] == 'block' and not secret['has_deadline'] and secret['options'] == [] and secret['recommended'] is None
+        expect(secret['default_policy'] == 'block' and follows_policy(secret) and secret['options'] == [] and secret['recommended'] is None
                and 'Paste the deploy token for the staging cluster.' in secret['body'], 'a secret question may not proceed by default: ' + json.dumps(secret))
         expect(all(row['task'] == i['codex']['task'] and row['attempt'] == i['codex']['attempt'] for row in rows), 'Codex Asks not attributed to its attempt')
     check('codex.request-user-input-raises-asks', codex_question)
@@ -266,7 +285,7 @@ def scenario(f):
         expect('rm -rf' not in json.dumps(result), 'the admission evidence kept the native command')
         row = asks('id=$1', [result['asks'][0]['ask_id']])[0]
         expect(row['title'] == 'Claude asks to use Bash' and 'rm -rf build/ && make release' in row['body'] and row['options'] == ['deny', 'approve'] and row['recommended'] == 'deny'
-               and not row['has_deadline'] and row['session'] == i['claude']['session'], 'permission Ask wrong: ' + json.dumps(row))
+               and row['kind'] == 'permission' and follows_policy(row) and row['session'] == i['claude']['session'], 'permission Ask wrong: ' + json.dumps(row))
     check('approval.permission-ask-and-escalation', approval)
 
     def nothing_else():
