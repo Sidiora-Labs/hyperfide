@@ -57,6 +57,7 @@
     "human.ask.list",
     "human.ask.policy",
     "human.ask.raise",
+    "human.ask.seed",
     "human.ask.sweep",
     "identity.binding.observe",
     "identity.describe",

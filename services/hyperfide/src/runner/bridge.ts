@@ -13,6 +13,7 @@ import {readRuntimeReadiness} from '../providers/pools.js';
 import {isArtifactStoreCapability} from '../artifacts/objects.js';
 import type {ArtifactStoreCapability} from '../artifacts/objects.js';
 import {assertSandboxReservation} from '../scheduler/claim.js';
+import {RUNNER_HEARTBEAT_MAX_AGE_SECONDS} from '../providers/placement.js';
 import {readPreparationReceipt,recordPreparationReceipt,verifyPreparationReceipt} from './preparation_receipts.js';
 import type {PreparationReceiptPlan,VerifiedPreparationReceipt} from './preparation_receipts.js';
 import {lockRun,scopeOf} from '../recovery/control.js';
@@ -180,7 +181,7 @@ export async function readRunnerBinding(tx:PrimaryTransaction,scope:{organisatio
  JOIN hyperfide.identity_runner_status st ON st.credential_id=c.credential_id AND st.preparation_digest=r.boot_preparation_digest
  WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.session_id=$3 AND r.state='CURRENT'
  AND s.observed_state='RUNNING' AND w.state IN('READY','ALLOCATED','DRAINING') FOR SHARE OF r,s,b,w,c,st`,[scope.organisation_id,scope.run_id,scope.session_id])).rows[0];
- if(!r||r.credential_state!=='ACTIVE'||new Date(r.credential_expires_at).getTime()<=new Date(r.db_now).getTime()||new Date(r.heartbeat_at).getTime()+90000<=new Date(r.db_now).getTime())fail('RUNNER_NOT_CURRENT','Current authenticated runner/boot/slot observation required');
+ if(!r||r.credential_state!=='ACTIVE'||new Date(r.credential_expires_at).getTime()<=new Date(r.db_now).getTime()||new Date(r.heartbeat_at).getTime()+RUNNER_HEARTBEAT_MAX_AGE_SECONDS*1000<=new Date(r.db_now).getTime())fail('RUNNER_NOT_CURRENT','Current authenticated runner/boot/slot observation required');
  r.boot_generation=String(r.boot_generation);r.slot_generation=String(r.slot_generation);r.registration_version=String(r.registration_version);
  return r as Binding;
 }
@@ -198,7 +199,7 @@ export async function readRunnerPreparationBinding(tx:PrimaryTransaction,scope:{
  WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.session_id=$3 AND r.state IN('PREPARING','CURRENT') AND s.observed_state='RUNNING'
  AND w.state IN('READY','ALLOCATED') AND r.boot_preparation_digest=s.preparation_digest AND st.preparation_digest=s.preparation_digest
  AND ep.content_digest=s.preparation_digest AND c.state='ACTIVE' AND c.expires_at>clock_timestamp()
- AND st.heartbeat_at>clock_timestamp()-interval '90 seconds' FOR SHARE OF r,s,b,w,p,ep,c,st`,[scope.organisation_id,scope.run_id,scope.session_id])).rows[0];
+ AND st.heartbeat_at>clock_timestamp()-interval '${RUNNER_HEARTBEAT_MAX_AGE_SECONDS} seconds' FOR SHARE OF r,s,b,w,p,ep,c,st`,[scope.organisation_id,scope.run_id,scope.session_id])).rows[0];
  if(!row||!object(row.preparation_recipes))fail('RUNNER_PREPARATION_UNAVAILABLE','Bound live runner and approved parent preparation identity required');
  row.boot_generation=String(row.boot_generation);row.slot_generation=String(row.slot_generation);row.registration_version=String(row.registration_version);return row as Binding;
 }

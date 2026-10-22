@@ -25,7 +25,16 @@ function fields(value: Record<string, unknown>, expected: string[], label: strin
 function nonempty(value: unknown): value is string { return typeof value === 'string' && value.trim().length > 0; }
 export function validatePolicy(value: unknown, expectedRevision: string, role: ServiceRole): ProgrammePolicy {
   if (!object(value)) throw new FoundationError('POLICY_INVALID', 'Policy must be an object');
-  fields(value, ['schema_version','programme_id','repository','spec_revision','policy_revision','status','approval','allowed_roles','allowed_actions'], 'Policy');
+  // Optional operator variables for per-wave publication (hyperfide-v21 5.5); artifacts/retention.ts reads them.
+  if ('publication' in value) {
+    const publication = value.publication;
+    if (!object(publication)) throw new FoundationError('POLICY_INVALID', 'Publication settings must be an object');
+    fields(publication, ['snapshot_retention_days'], 'Publication');
+    const days = publication.snapshot_retention_days;
+    if (!Number.isSafeInteger(days) || (days as number) < 1 || (days as number) > 3650)
+      throw new FoundationError('POLICY_INVALID', 'publication.snapshot_retention_days must be 1 to 3650 days');
+  }
+  fields(Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'publication')), ['schema_version','programme_id','repository','spec_revision','policy_revision','status','approval','allowed_roles','allowed_actions'], 'Policy');
   if (value.schema_version !== 1 || !nonempty(value.programme_id) || !nonempty(value.repository) ||
       !nonempty(value.spec_revision) || !Number.isSafeInteger(value.policy_revision) || (value.policy_revision as number) < 1)
     throw new FoundationError('POLICY_INVALID', 'Invalid policy version or identities');

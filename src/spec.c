@@ -1615,6 +1615,53 @@ static int print_waiting(const Spec *s) {
     return n;
 }
 
+/* Pending leaves held by a superseded requirement (hyperfide-v21 3.21): a
+ * superseded task never qualifies, so the dependant waits until its requires
+ * name what superseded it. json: [{"id","requires","superseded_by"}];
+ * otherwise one "held:" line each. The count is returned. */
+static int superseded_holds(const Spec *s, StrBuf *json) {
+    int n = 0;
+    if (json) sb_putc(json, '[');
+    for (int i = 0; i < s->nids; i++) {
+        const char *id = s->ids[i];
+        if (!task_is_leaf(s, id)) continue;
+        char *st = task_status(s, id);
+        bool pending = !st[0] || strcmp(st, "pending") == 0;
+        free(st);
+        if (!pending) continue;
+        char sec[300];
+        task_sec(sec, sizeof sec, id);
+        char **rq; int nr = kvx_list(s->f, sec, "requires", &rq);
+        for (int j = 0; j < nr; j++) {
+            char *rs = task_status(s, rq[j]);
+            if (status_superseded(rs)) {
+                char rsec[300];
+                task_sec(rsec, sizeof rsec, rq[j]);
+                char *by = S(s->f, rsec, "superseded_by");
+                if (json) {
+                    if (n) sb_putc(json, ',');
+                    sb_puts(json, "{\"id\":"); sb_json_str(json, id);
+                    sb_puts(json, ",\"requires\":"); sb_json_str(json, rq[j]);
+                    sb_puts(json, ",\"superseded_by\":");
+                    if (by[0]) sb_json_str(json, by); else sb_puts(json, "null");
+                    sb_putc(json, '}');
+                } else {
+                    printf("held: %s requires %s, which is superseded%s%s — "
+                           "require what superseded it\n", id, rq[j],
+                           by[0] ? " by " : "", by);
+                }
+                free(by);
+                n++;
+            }
+            free(rs);
+            free(rq[j]);
+        }
+        free(rq);
+    }
+    if (json) sb_putc(json, ']');
+    return n;
+}
+
 static int spec_status_cmd(Spec *s, bool json) {
     int done = 0, implemented = 0, inprog = 0, pending = 0, leaves = 0,
         superseded = 0, waiting = 0;
@@ -1793,6 +1840,8 @@ static int spec_next_cmd(Spec *s, bool json) {
                 StrBuf b; sb_init(&b);
                 sb_puts(&b, "{\"next\":");
                 json_docs_task(&b, s);
+                sb_puts(&b, ",\"held_by_superseded\":");
+                superseded_holds(s, &b);
                 sb_puts(&b, "}\n");
                 fputs(b.p, stdout);
                 sb_free(&b);
@@ -1806,6 +1855,8 @@ static int spec_next_cmd(Spec *s, bool json) {
             StrBuf b; sb_init(&b);
             sb_puts(&b, "{\"next\":null,\"waiting\":");
             json_waiting(s, &b);
+            sb_puts(&b, ",\"held_by_superseded\":");
+            superseded_holds(s, &b);
             sb_puts(&b, "}\n");
             fputs(b.p, stdout);
             sb_free(&b);
@@ -1821,6 +1872,7 @@ static int spec_next_cmd(Spec *s, bool json) {
         else printf("no eligible task\n");
         free(stage);
         print_waiting(s);
+        superseded_holds(s, NULL);
         return 0;
     }
     if (json) {
@@ -1838,6 +1890,8 @@ static int spec_next_cmd(Spec *s, bool json) {
             sb_putc(&b, ']');
         }
         memory_free(mv, nm);
+        sb_puts(&b, ",\"held_by_superseded\":");
+        superseded_holds(s, &b);
         sb_puts(&b, "}\n");
         fputs(b.p, stdout);
         sb_free(&b);
@@ -1846,6 +1900,7 @@ static int spec_next_cmd(Spec *s, bool json) {
     print_task(s, next);
     spec_print_memories(s, next);
     printf("\nstart it: hyperfide spec start %s\n", next);
+    superseded_holds(s, NULL);
     return 0;
 }
 
@@ -2776,7 +2831,9 @@ static int spec_ready_cmd(Spec *s, bool json) {
     free(el);
     if (have_db) cg_close(&g);
     if (json) {
-        sb_puts(&b, "]}\n");
+        sb_puts(&b, "],\"held_by_superseded\":");
+        superseded_holds(s, &b);
+        sb_puts(&b, "}\n");
     } else if (ne) {
         StrBuf h; sb_init(&h);
         sb_printf(&h, "ready — %d eligible task(s)%s:\n", ne,
@@ -2789,6 +2846,7 @@ static int spec_ready_cmd(Spec *s, bool json) {
     }
     fputs(b.p, stdout);
     sb_free(&b);
+    if (!json) superseded_holds(s, NULL);
     return 0;
 }
 
@@ -3282,6 +3340,18 @@ static int spec_done_cmd(Spec *s, const char *id, const char *agent,
     if (!task_exists(s, id)) {
         fprintf(stderr, "hyperfide spec: no [task.%s] in %s\n", id, s->fpath);
         return 1;
+    }
+    {
+        /* terminal: neither qualification nor --force reopens it (3.21) */
+        char *sst = task_status(s, id);
+        bool sup = status_superseded(sst);
+        free(sst);
+        if (sup) {
+            fprintf(stderr, "hyperfide spec: task %s is superseded, a terminal "
+                    "status; it is never done, --force included — its work "
+                    "belongs to its superseded_by\n", id);
+            return 1;
+        }
     }
     if (spec_require_owner(s, id, agent, attempt, fence) != 0) return 1;
     char *st = task_status(s, id);
@@ -4550,6 +4620,111 @@ static int spec_load_tag(Spec *s, const char *requested, const char **id_out) {
         snprintf(feature, sizeof feature, "%.*s", (int)(slash - requested), requested);
     *id_out = slash ? slash + 1 : requested;
     return spec_load(s, NULL, feature[0] ? feature : NULL, true);
+}
+
+/* hyperfide-v21 5.7 (req 6 ac_4): the task file is current before every
+ * commit. The claim receipt — the task's latest attempt — is the authority
+ * and the kvx follows it. A live running receipt on a pending declaration
+ * (a merge took another branch's copy of the file) is refreshed to
+ * in_progress; the task's `evidence` key is pointed at the receipt. A
+ * declaration that already calls the work finished while its receipt still
+ * runs, or still calls it open after the receipt completed, is a
+ * disagreement: the commit refuses instead of snapshotting a lie. With no
+ * claimed task or no receipt there is nothing to reconcile. Returns 0 to
+ * proceed, 1 to refuse. */
+int spec_commit_sync(const char *requested) {
+    Spec s;
+    const char *id = NULL;
+    int lrc = requested && requested[0] ? spec_load_tag(&s, requested, &id)
+                                        : spec_load(&s, NULL, NULL, true);
+    if (lrc != 0) { spec_close(&s); return 0; }
+    Cg g;
+    if (!memory_open_quiet(&g)) { spec_close(&s); return 0; }
+    spec_attempt_sweep(&g);
+
+    char own[64] = "";
+    if (!id) {
+        const char *agent = cg_agent_name(NULL);
+        sqlite3_stmt *q = cg_prep(&g,
+            "SELECT task FROM attempts WHERE agent=? AND task LIKE ?||'/%' "
+            "AND state='running' AND expires>strftime('%s','now') "
+            "ORDER BY fence DESC LIMIT 1");
+        sqlite3_bind_text(q, 1, agent ? agent : "", -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(q, 2, s.feature, -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(q) == SQLITE_ROW) {
+            const char *t = (const char *)sqlite3_column_text(q, 0);
+            const char *sl = strrchr(t, '/');
+            snprintf(own, sizeof own, "%s", sl ? sl + 1 : t);
+            id = own;
+        }
+        sqlite3_finalize(q);
+        if (!id && !spec_parallel_mode(&s) && spec_in_progress_count(&s) == 1)
+            id = spec_current(&s);
+    }
+    if (!id || !task_exists(&s, id) || !task_is_leaf(&s, id)) {
+        cg_close(&g); spec_close(&s); return 0;
+    }
+
+    char tag[700], attempt[80] = "", rstate[32] = "";
+    snprintf(tag, sizeof tag, "%s/%s", s.feature, id);
+    sqlite3_stmt *r = cg_prep(&g,
+        "SELECT attempt_id,state FROM attempts WHERE task=? "
+        "ORDER BY fence DESC LIMIT 1");
+    sqlite3_bind_text(r, 1, tag, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(r) == SQLITE_ROW) {
+        snprintf(attempt, sizeof attempt, "%s",
+                 (const char *)sqlite3_column_text(r, 0));
+        snprintf(rstate, sizeof rstate, "%s",
+                 (const char *)sqlite3_column_text(r, 1));
+    }
+    sqlite3_finalize(r);
+    cg_close(&g);
+
+    bool running = strcmp(rstate, "running") == 0;
+    bool completed = strcmp(rstate, "completed") == 0;
+    if (!running && !completed) { spec_close(&s); return 0; }
+
+    char sec[300];
+    task_sec(sec, sizeof sec, id);
+    char *st = task_status(&s, id);
+    bool open = strcmp(st, "in_progress") == 0 || strcmp(st, "blocked") == 0;
+    bool finished = strcmp(st, "implemented") == 0 || strcmp(st, "done") == 0;
+    int rc = 0;
+    if (running && !open && strcmp(st, "pending") != 0) {
+        fprintf(stderr, "hyperfide commit: %s says task %s is %s, but its claim "
+                "receipt (attempt %.12s) is still running — finish it with "
+                "`hyperfide spec implemented %s` or `hyperfide spec done %s` "
+                "rather than editing the status\n", s.fpath, id, st, attempt,
+                id, id);
+        rc = 1;
+    } else if (completed && !finished) {
+        fprintf(stderr, "hyperfide commit: %s says task %s is %s, but its claim "
+                "receipt (attempt %.12s) completed — the task file is behind "
+                "the receipt; re-claim the task or restore its status\n",
+                s.fpath, id, st, attempt);
+        rc = 1;
+    } else {
+        bool refreshed = false;
+        if (running && strcmp(st, "pending") == 0) {
+            if (kvx_set_status(s.fpath, sec, "in_progress") != 0) rc = 1;
+            else refreshed = true;
+        }
+        char want[96];
+        snprintf(want, sizeof want, "attempt:%s", attempt);
+        char *have = S(s.f, sec, "evidence");
+        if (rc == 0 && strcmp(have, want) != 0 &&
+            kvx_set_string(s.fpath, sec, "evidence", want) != 0)
+            rc = 1;
+        free(have);
+        if (rc != 0)
+            fprintf(stderr, "hyperfide commit: could not refresh [%s] in %s\n",
+                    sec, s.fpath);
+        else if (refreshed)
+            spec_render(s.root, false, true);
+    }
+    free(st);
+    spec_close(&s);
+    return rc;
 }
 
 /* D4, called by ask.c after an Ask is raised or answered. A waiting

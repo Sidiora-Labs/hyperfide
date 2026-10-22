@@ -12,6 +12,7 @@
     "fleet.metrics.describe",
     "fleet.metrics.record",
     "fleet.metrics.snapshot",
+    "fleet.metrics.numbers",
     "fleet.metrics.compare"
   ],
   "requires": [

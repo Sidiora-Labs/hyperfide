@@ -397,8 +397,18 @@ export function createComponent(context:ComponentContext):Component{
  * minimum_age_ms.RELEASE (null keeps them indefinitely). operations.md documents this; change both together.
  */
 export const EVIDENCE_RETENTION=Object.freeze({retention_class:'RELEASE',retention_until:null,retention_hold:false} as const);
-/** Tracked at tests/hyperfide/evidence-receipts/<task>.json; tests/hyperfide/evidence_store.py resolves it. */
-export interface EvidenceReceiptRecord{schema_version:1;kind:'hyperfide-evidence-receipt';task:string;bundle_format:'tar';content_digest:string;total_size_bytes:string;chunk_count:number;retention_class:string;receipt:ArtifactReceipt}
+/** The evidence-index.json commits of a bundle. 80_qualification_inputs.sh maps them to refs/evidence
+ * without the store; evidence_store.fetch_bundle refuses a record whose commits differ from the bundle's. */
+export type EvidenceCommits={commit?:string;requalified_on?:string};
+/** Tracked at tests/hyperfide/evidence-receipts/<task>.json; tests/hyperfide/evidence_store.py resolves it
+ * and tests/hyperfide/publish-evidence.py (the host command) writes it. */
+export interface EvidenceReceiptRecord{schema_version:1;kind:'hyperfide-evidence-receipt';task:string;bundle_format:'tar';content_digest:string;total_size_bytes:string;chunk_count:number;retention_class:string;receipt:ArtifactReceipt;evidence_commits?:EvidenceCommits}
+function evidenceCommits(value:EvidenceCommits|undefined):EvidenceCommits|undefined{
+ if(value===undefined)return undefined;
+ const keys=Object.keys(value);
+ if(!keys.length||keys.some(key=>key!=='commit'&&key!=='requalified_on')||Object.values(value).some(commit=>typeof commit!=='string'||!/^[0-9a-f]{40}$/.test(commit)))fail('ARTIFACT_INPUT_INVALID','Evidence commits must be 40-hex commit and requalified_on fields');
+ return {...value};
+}
 function succeeded(value:unknown,step:string):Record<string,unknown>{
  const result=value as Record<string,unknown>|null;
  if(!result||typeof result!=='object'||result.outcome!=='SUCCEEDED'||result.availability!=='VERIFIED')fail('ARTIFACT_NOT_COMPLETE','Evidence publication did not verify '+step+'; reconcile before retry');
@@ -408,8 +418,9 @@ function succeeded(value:unknown,step:string):Record<string,unknown>{
  * Publishes a task evidence bundle (qualify.py --bundle-evidence) as verified chunks plus a
  * committed chunk manifest, and returns the receipt record a clone needs to resolve it.
  */
-export async function publishEvidenceBundle(store:ArtifactStoreCapability,context:ComponentContext|InvocationContext,scope:ArtifactScope,task:string,bundle:Buffer):Promise<EvidenceReceiptRecord>{
+export async function publishEvidenceBundle(store:ArtifactStoreCapability,context:ComponentContext|InvocationContext,scope:ArtifactScope,task:string,bundle:Buffer,commits?:EvidenceCommits):Promise<EvidenceReceiptRecord>{
  if(!/^[0-9]+\.[0-9]+$/.test(task))fail('ARTIFACT_INPUT_INVALID','Invalid task identity');
+ const evidence=evidenceCommits(commits);
  if(bundle.length>MAX_CHUNKS*MAX_OBJECT)fail('ARTIFACT_INPUT_INVALID','Evidence bundle exceeds manifest bounds');
  const chunks:Chunk[]=[];
  for(let offset=0;offset<bundle.length;offset+=MAX_OBJECT){
@@ -424,5 +435,5 @@ export async function publishEvidenceBundle(store:ArtifactStoreCapability,contex
  const read=succeeded(await store.invoke('artifact.manifest.read',{...scope,artifact_id:manifestId},context),'manifest read');
  const receipt=read.receipt as ArtifactReceipt|null;
  if(!receipt||read.content_digest!==hash(bundle)||receipt.storage_backend!==BACKEND)fail('ARTIFACT_BINDING_CONFLICT','Evidence manifest receipt differs from the published bundle');
- return {schema_version:1,kind:'hyperfide-evidence-receipt',task,bundle_format:'tar',content_digest:hash(bundle),total_size_bytes:String(bundle.length),chunk_count:chunks.length,retention_class:EVIDENCE_RETENTION.retention_class,receipt};
+ return {schema_version:1,kind:'hyperfide-evidence-receipt',task,bundle_format:'tar',content_digest:hash(bundle),total_size_bytes:String(bundle.length),chunk_count:chunks.length,retention_class:EVIDENCE_RETENTION.retention_class,receipt,...(evidence?{evidence_commits:evidence}:{})};
 }

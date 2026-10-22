@@ -216,7 +216,10 @@ if [ -n "$REAL_CLAUDE" ]; then
         || fail "claude plugin validate rejected the plugin"
     echo "48_plugin: claude plugin validate passed"
 else
-    echo "48_plugin: claude not on PATH - validate skipped"
+    # every check above passed, but the one that only the real claude can
+    # make did not run: that is a skip, never a pass (tests/run.sh contract)
+    echo "SKIP: claude not on PATH; the plugin tree checks passed but claude plugin validate did not run"
+    exit 77
 fi
 
 echo "48_plugin ok"

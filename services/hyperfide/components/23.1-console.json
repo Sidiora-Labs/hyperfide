@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "23.1-console",
+  "task": "23.1",
+  "roles": [
+    "control"
+  ],
+  "module": "observability/console.js",
+  "entry": "createComponent",
+  "api_version": 1,
+  "actions": [
+    "console.sandboxes",
+    "console.needs",
+    "console.issues",
+    "console.leaders"
+  ],
+  "requires": [
+    "4.2",
+    "14.1"
+  ]
+}

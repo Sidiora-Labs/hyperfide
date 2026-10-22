@@ -371,6 +371,7 @@ async function createCandidate(pool:DB,cfg:IntegrationConfig,input:unknown):Prom
  for(const p of prepared){
   const contributors=[];
   for(const old of p.contributors){const c=await custody(db,s,old.id,String(old.custody_generation));if(c.source_object_id!==old.source_object_id||c.repository_id!==p.t.repository_id||c.authority_epoch!==run.authority_epoch)fail('INTEGRATION_INPUT_STALE','Contributor changed during candidate build');contributors.push({custody_id:c.id,custody_generation:String(c.custody_generation),task_id:c.task_id,source_object_id:c.source_object_id,criteria_digest:c.criteria_digest,source_manifest_digest:c.source_manifest_digest,evidence_manifest_digest:c.evidence_manifest_digest,proof_criteria_digest:c.accepted_criteria_digest,qualification_receipt_digest:c.qualification_receipt_digest,proof_source_manifest_digest:c.proof_source_manifest_digest});}
+  await requireSpecStatusMatchesQualification(db,s,candidateFile(p.r.path,p.head),contributors.map(c=>c.task_id));
   const a=(await db.query('SELECT * FROM hyperfide.branch_authorities WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[...values(s),p.a.id])).rows[0];
   if(!a||a.authority!=='ACTIVE'||String(a.branch_generation)!==String(p.a.branch_generation)||a.expected_old_head!==p.a.expected_old_head||a.authority_epoch!==run.authority_epoch)fail('INTEGRATION_BRANCH_STALE','Target authority changed during candidate build');
   const gitProvenance={schema_version:1,kind:'GIT_CANDIDATE_PROVENANCE_V1',repository_id:p.t.repository_id,source_object_id:p.head,tree:p.tree,parents:p.parents,baseline:p.a.expected_old_head,construction_receipt_digest:p.remote_receipt_digest};const m:CandidateManifest={version:1,request_id:request,run_id:s.run_id,spec_revision_id:run.spec_revision_id,spec_generation:String(run.spec_generation),policy_digest:run.policy_digest,authority_epoch:run.authority_epoch,repository_id:p.t.repository_id,branch_authority_id:a.id,branch_generation:String(a.branch_generation),target_ref:p.r.target_ref,expected_old_head:a.expected_old_head,candidate_head:p.head,tree:p.tree,parents:p.parents,git_provenance_manifest:gitProvenance,git_provenance_manifest_digest:hash(canonical(gitProvenance)),contributors,commit_set:commitSet,execution_session_id:p.t.session_id,execution_receipt_digest:p.remote_receipt_digest,declared_context:{environment_digest:String(v.environment_digest),contract_digest:String(v.contract_digest),authority:'UNVERIFIED_CALLER_LABELS'},context_authority:'IMMUTABLE_REVIEW_INPUT_BINDINGS',required_gates:p.r.gates,review_policy_digest:p.r.review_policy_digest,review_rubrics:p.r.review_rubrics,required_graph:p.r.required_graph,review_sources:[...new Set([p.head,...contributors.map(c=>c.source_object_id)])].sort()};
@@ -440,4 +441,49 @@ export function createComponent(ctx:ComponentContext):Component{
  'integration.candidate.verify':async input=>runGates(primaryClient(),await settings(),ctx.env,input),
  'integration.candidate.admit':async input=>{const v=obj(input);keys(v,['organisation_id','run_id','candidate_id']);const s=scope(v),id=uuid(v.candidate_id);return tx(primaryClient(),async db=>{const c=await candidateReady(db,s,id);await db.query("UPDATE hyperfide.integration_candidates SET state='READY',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3",[...values(s),id]);return {candidate_id:id,input_manifest_digest:c.row.input_manifest_digest,state:'READY',integrated:false,wave_closed:false,programme_qualified:false};});}
  }});
+}
+
+// ---- hyperfide-v21 5.7 (req 6 ac_4): the task file a candidate carries says
+// what qualification proved. Kept apart from the merge queue (4.8).
+/** Whether a spec status agrees with a qualification outcome: a PASS task is
+ * implemented (trunk qualification pending) or done; any other outcome must
+ * claim neither. */
+export function specStatusAgrees(status:string|undefined,qualification:string):boolean{
+ const finished=status==='implemented'||status==='done';
+ return qualification==='PASS'?finished:!finished;
+}
+/** The scalar status of [task.<key>] in KVX text; undefined when absent. */
+export function specTaskStatus(kvx:string,taskKey:string):string|undefined{
+ const lines=kvx.split('\n');const start=lines.findIndex(l=>l.trim()==='[task.'+taskKey+']');if(start<0)return undefined;
+ for(const line of lines.slice(start+1)){if(line.startsWith('['))break;const m=/^status\s*=\s*"([^"]*)"/.exec(line);if(m)return m[1];}
+ return undefined;
+}
+/** Tasks whose spec status disagrees with their qualification, as
+ * "key: status (qualification)". */
+export function specStatusMismatches(kvx:string,tasks:{task_key:string;qualification_outcome:string}[]):string[]{
+ return tasks.filter(t=>!specStatusAgrees(specTaskStatus(kvx,t.task_key),t.qualification_outcome)).map(t=>t.task_key+': '+(specTaskStatus(kvx,t.task_key)??'absent')+' ('+t.qualification_outcome+')');
+}
+/** Reads one file of the imported candidate tree; undefined when absent. */
+export function candidateFile(repositoryPath:string,head:string):(file:string)=>Promise<string|undefined>{
+ return async file=>{try{return await git(repositoryPath,['show',head+':'+file]);}catch{return undefined;}};
+}
+/** Refuses a candidate whose own tree carries a spec that disagrees with its
+ * contributors' qualification. The file is spec/<feature>/spec.kvx (the
+ * Codify layout) named by the pinned revision's [meta]; a tree without that
+ * file keeps its spec in another repository and is not this check's to judge. */
+export async function requireSpecStatusMatchesQualification(db:DB,s:Scope,read:(file:string)=>Promise<string|undefined>,taskIds:string[]):Promise<void>{
+ if(!taskIds.length)return;
+ const rows=(await db.query("SELECT t.task_key,coalesce(c.qualification_outcome,'UNKNOWN') AS qualification_outcome,sr.document->'parsed'->'sections' AS sections FROM hyperfide.tasks t JOIN hyperfide.spec_revisions sr ON sr.organisation_id=t.organisation_id AND sr.id=t.spec_revision_id LEFT JOIN hyperfide.submission_custodies c ON c.organisation_id=t.organisation_id AND c.run_id=t.run_id AND c.id=t.current_custody_id WHERE t.organisation_id=$1 AND t.run_id=$2 AND t.id=ANY($3::uuid[])",[...values(s),taskIds])).rows;
+ const byFile=new Map<string,{task_key:string;qualification_outcome:string}[]>();
+ for(const r of rows){
+  const meta=Array.isArray(r.sections)?r.sections.find((x:Record<string,any>)=>x?.name==='meta'):undefined;
+  const feature=meta?.fields?.feature?.value??meta?.fields?.slug?.value;
+  if(typeof feature!=='string'||!/^[A-Za-z0-9._-]+$/.test(feature))continue;
+  const file='spec/'+feature+'/spec.kvx';byFile.set(file,[...(byFile.get(file)??[]),r]);
+ }
+ for(const [file,tasks] of byFile){
+  const kvx=await read(file);if(kvx===undefined)continue;
+  const wrong=specStatusMismatches(kvx,tasks);
+  if(wrong.length)fail('INTEGRATION_SPEC_STATUS_MISMATCH','Candidate '+file+' disagrees with qualification: '+wrong.join('; '));
+ }
 }
