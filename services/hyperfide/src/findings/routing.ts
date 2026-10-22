@@ -59,6 +59,54 @@ async function acknowledge(value:FindingTransaction,input:unknown,collaborator=f
  }
  return {acknowledged:true,route_id:routeId,generation,owner_generation:ownerGeneration,package_id:packageId};
 }
+/** Explicit assignment with a rationale; the route verb of every finding reader. */
+export function assignFinding(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{return route(value,input,true);}
+/**
+ * Contract shared by the three human-facing finding readers (leader queue, external intake, escalated repairs):
+ * list what is waiting, acknowledge that a human or the leader has seen it, route it to an accountable owner.
+ * Each verb runs inside a caller-supplied finding transaction; the console read model (req 5) composes them.
+ */
+export interface FindingReader {
+ list(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>;
+ acknowledge(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>;
+ route(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>;
+}
+export function readerLimit(value:unknown):number{
+ const limit=value===undefined?50:value;if(typeof limit!=='number'||!Number.isSafeInteger(limit)||limit<1||limit>200)fail('INVALID_REQUEST','Reader limit must be from 1 to 200');return limit;
+}
+export const LEADER_QUEUE_ACKNOWLEDGED='finding.leader-queue.acknowledged';
+const CLOSED_PHASES=['RESOLVED','ACCEPTED_EXCEPTION','NOT_REPRODUCED','DUPLICATE'];
+// Only a finding whose newest route generation still sits in the leader queue is waiting there.
+const LEADER_QUEUE=`SELECT r.id AS route_id,r.finding_id,r.generation::text,r.owner_package_id,r.reason,r.created_at,g.phase,g.state_version::text AS registry_version,
+ ack.payload->>'actor_id' AS acknowledged_by,ack.created_at AS acknowledged_at
+ FROM hyperfide.finding_routes r
+ JOIN hyperfide.finding_registry_records g ON g.organisation_id=r.organisation_id AND g.run_id=r.run_id AND g.finding_id=r.finding_id
+ LEFT JOIN LATERAL (SELECT e.payload,e.created_at FROM hyperfide.outbox_events e WHERE e.organisation_id=r.organisation_id AND e.run_id=r.run_id AND e.aggregate_type='finding' AND e.aggregate_id=r.finding_id AND e.event_type=$3 AND e.payload->>'route_id'=r.id::text ORDER BY e.aggregate_version LIMIT 1) ack ON true
+ WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.leader_queue AND NOT (g.phase=ANY($4::text[]))
+ AND r.generation=(SELECT max(x.generation) FROM hyperfide.finding_routes x WHERE x.organisation_id=r.organisation_id AND x.run_id=r.run_id AND x.finding_id=r.finding_id)`;
+async function leaderQueueList(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{
+ const p=record(input??{});fields(p,[],['limit','unacknowledged']);await admin(value);const limit=readerLimit(p.limit);
+ if(p.unacknowledged!==undefined&&typeof p.unacknowledged!=='boolean')fail('INVALID_REQUEST','unacknowledged must be a boolean');
+ const rows=await value.tx.query(LEADER_QUEUE+(p.unacknowledged?' AND ack.payload IS NULL':'')+' ORDER BY r.created_at,r.id LIMIT '+String(limit+1),[value.scope.organisation_id,value.scope.run_id,LEADER_QUEUE_ACKNOWLEDGED,CLOSED_PHASES]);
+ return {items:rows.rows.slice(0,limit).map(row=>({...row,acknowledged:row.acknowledged_by!==null})),truncated:rows.rows.length>limit};
+}
+/** The leader (or an operator) records that it has seen a queued route; the record is a finding event, so managers and operators hear it too. */
+async function leaderQueueAcknowledge(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{
+ const p=record(input);fields(p,['route_id','generation']);await admin(value);
+ const routeId=uuid(p.route_id),generation=decimal(p.generation),{tx,scope}=value;
+ const routes=await tx.query('SELECT * FROM hyperfide.finding_routes WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[scope.organisation_id,scope.run_id,routeId]);
+ if(routes.rows.length!==1)fail('ROUTE_NOT_FOUND','Route does not exist in this run');const routed=routes.rows[0]!;
+ const f=await finding(tx,scope,routed.finding_id,true);
+ const latest=await tx.query('SELECT id FROM hyperfide.finding_routes WHERE organisation_id=$1 AND run_id=$2 AND finding_id=$3 ORDER BY generation DESC LIMIT 1',[scope.organisation_id,scope.run_id,routed.finding_id]);
+ if(latest.rows[0]?.id!==routeId||String(routed.generation)!==generation)fail('STALE_ROUTE','A newer route supersedes this acknowledgement');
+ if(!routed.leader_queue)fail('NOT_IN_LEADER_QUEUE','Route is assigned to a live manager, not the leader queue');
+ if(CLOSED_PHASES.includes(f.phase))fail('FINDING_CLOSED','A closed or duplicate finding is not waiting in the leader queue');
+ const prior=await tx.query("SELECT payload->>'actor_id' AS actor_id FROM hyperfide.outbox_events WHERE organisation_id=$1 AND run_id=$2 AND aggregate_type='finding' AND aggregate_id=$3 AND event_type=$4 AND payload->>'route_id'=$5 LIMIT 1",[scope.organisation_id,scope.run_id,routed.finding_id,LEADER_QUEUE_ACKNOWLEDGED,routeId]);
+ if(prior.rows.length)return {acknowledged:true,route_id:routeId,generation,acknowledged_by:prior.rows[0]!.actor_id,replayed:true};
+ await emit(tx,scope,String(routed.finding_id),String(f.registry_version),LEADER_QUEUE_ACKNOWLEDGED,{finding_id:routed.finding_id,route_id:routeId,generation,actor_id:value.principal.actor_id,actor_role:value.principal.role,credential_id:value.principal.credential_id});
+ return {acknowledged:true,route_id:routeId,generation,acknowledged_by:value.principal.actor_id,replayed:false};
+}
+export const leaderQueueReader:FindingReader=Object.freeze({list:leaderQueueList,acknowledge:leaderQueueAcknowledge,route:assignFinding});
 export function createComponent(_context:ComponentContext):Component{return {apiVersion:1,actions:{
  'finding.route':(input,context)=>withFindingTransaction(context,'finding.route',value=>route(value,input)),
  'finding.route.assign':(input,context)=>withFindingTransaction(context,'finding.route.assign',value=>route(value,input,true)),
