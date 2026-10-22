@@ -12,8 +12,8 @@ import {
   type ProviderAdapter, type ProviderScope, type ProviderOperation, type ProviderOutcome, type ResourceRef,
   type InventoryPage, type CapabilityProfile, type ProviderState
 } from '../contract.js';
-import { RailwayClient, RailwayRequestError, configuredClient, absolute, digest, hash, instant, integer, object, sameScope, scope, text,
-  validatePreparedBase, type PreparedRailwayBase } from './preparation.js';
+import { RailwayClient, RailwayRequestError, RAILWAY_BACKOFF, railwayBackoffDelay, configuredClient, absolute, digest, hash, instant, integer, object, sameScope, scope, text,
+  validatePreparedBase, type PreparedRailwayBase, type JsonObject } from './preparation.js';
 import { RailwaySessionSpool, createRailwayArtifactChunkSink, type RailwayChunkSink, type RailwayArchiveBinding, type RailwayArtifactInvoke, type RailwayCaptureProof } from './processes.js';
 import { validateRuntimeProfile, runtimeOptions, runtimeGraphQLInput, type RailwayRuntimeProfile, type CredentialResolver } from './profile.js';
 
@@ -21,6 +21,28 @@ const fields='id status networkIsolation environmentId region idleTimeoutMinutes
 const sandboxQuery='query RailwayObserve($environmentId:String!,$id:String!){sandbox(environmentId:$environmentId,id:$id){'+fields+'}}';
 const inventoryQuery='query RailwayInventory($environmentId:String!,$first:Int,$after:String){sandboxes(environmentId:$environmentId,first:$first,after:$after){edges{node{'+fields+'}}pageInfo{hasNextPage endCursor}}}';
 const sessionQuery='query RailwaySessions($environmentId:String!,$id:String!,$after:String){sandboxSessions(environmentId:$environmentId,id:$id,after:$after){edges{node{name kind attached command createdAt foregroundActive runState{running exitCode exitedAt}}}pageInfo{hasNextPage endCursor}}}';
+/** Railway writes back off only where a replay cannot double an effect. A 429 is Railway refusing the request before
+ * processing it, so every write retries it under the shared budget; a 5xx proves nothing about a mutation, so only an
+ * idempotent write (destroy) retries one, and a create that meets a 5xx stays UNKNOWN for marker reconciliation. */
+export async function railwayWrite<T>(client:RailwayClient,query:string,variables:JsonObject,idempotent:boolean,signal?:AbortSignal):Promise<T> {
+  for(let attempt=1;;attempt++){
+    try{return await client.request<T>(query,variables,signal);}
+    catch(error){
+      if(!(error instanceof RailwayRequestError))throw error;
+      const code=error.providerCode??'';
+      const retryable=code==='HTTP_429'||idempotent&&/^HTTP_5[0-9][0-9]$/.test(code);
+      const delay=railwayBackoffDelay(attempt-1,error.retryAfterMs);
+      if(!retryable||attempt>=RAILWAY_BACKOFF.attempts)
+        throw new RailwayRequestError(error.code,error.providerCode,attempt,code==='HTTP_429'?delay:null);
+      await new Promise<void>((resolve,reject)=>{
+        if(signal?.aborted){reject(new RailwayRequestError('UNKNOWN',error.providerCode,attempt));return;}
+        const stop=()=>{clearTimeout(timer);reject(new RailwayRequestError('UNKNOWN',error.providerCode,attempt));};
+        const timer=setTimeout(()=>{signal?.removeEventListener('abort',stop);resolve();},delay);
+        signal?.addEventListener('abort',stop,{once:true});
+      });
+    }
+  }
+}
 interface ProviderInfo {id:string;status:ProviderState;environmentId:string;region:string;idleTimeoutMinutes:number|null}
 function info(value:unknown,client:RailwayClient):ProviderInfo {
   const v=object(value);
@@ -226,9 +248,9 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
           // This marker is correlation only; authenticated enrollment proves adoption authority.
           options.env={...options.env,HF_PROVISION_OPERATION_ID:operation.identity.operation_id};
           mutationDispatched=true;
-          const data=await client.request<{sandboxCreate:unknown}>(
+          const data=await railwayWrite<{sandboxCreate:unknown}>(client,
             'mutation RailwayCreate($input:SandboxCreateInput!){sandboxCreate(input:$input){'+fields+'}}',
-            {input:runtimeGraphQLInput(profile,options)},signal);
+            {input:runtimeGraphQLInput(profile,options)},false,signal);
           // Capture the returned ID before validating placement/status: even a malformed observation can orphan a real resource.
           const raw=object(data.sandboxCreate),nativeId=text(raw.id);
           resource={native_sandbox_id:nativeId,sandbox_boot_generation:generation};
@@ -328,11 +350,11 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
         }
         case 'destroy':{
           mutationDispatched=true;
-          const response=await client.request<{sandboxDestroy:boolean}>(
+          const response=await railwayWrite<{sandboxDestroy:boolean}>(client,
             'mutation RailwayDestroy($environmentId:String!,$id:String!){sandboxDestroy(environmentId:$environmentId,id:$id)}',
-            {environmentId:operation.scope.environment_id,id:resource!.native_sandbox_id},signal);
+            {environmentId:operation.scope.environment_id,id:resource!.native_sandbox_id},true,signal);
           if(response.sandboxDestroy!==true)throw new Error('Railway deletion unconfirmed');
-          const observed=await client.request<{sandbox:unknown}>(sandboxQuery,
+          const {data:observed}=await client.readWithBackoff<{sandbox:unknown}>(sandboxQuery,
             {environmentId:operation.scope.environment_id,id:resource!.native_sandbox_id},signal);
           const terminal=observed.sandbox===null?null:info(observed.sandbox,client);
           if(terminal!==null&&terminal.id!==resource!.native_sandbox_id)throw new Error('Railway deletion resource mismatch');
@@ -520,13 +542,13 @@ export function createRailwayIsolationTransport(client:RailwayClient,fixedScope:
     const resource=operation.resource;
     try{
       if(operation.kind==='destroy'){
-        const accepted=await client.request<{sandboxDestroy:boolean}>(
+        const accepted=await railwayWrite<{sandboxDestroy:boolean}>(client,
           'mutation RailwayIsolationDestroy($environmentId:String!,$id:String!){sandboxDestroy(environmentId:$environmentId,id:$id)}',
-          {environmentId:fixedScope.environment_id,id:resource.native_sandbox_id},bounded);
+          {environmentId:fixedScope.environment_id,id:resource.native_sandbox_id},true,bounded);
         if(accepted.sandboxDestroy!==true)return unknown(operation,resource);
       }
       // A scoped exact get is independent of mutation acceptance and inventory enumeration.
-      const data=await client.request<{sandbox:unknown}>(sandboxQuery,
+      const {data}=await client.readWithBackoff<{sandbox:unknown}>(sandboxQuery,
         {environmentId:fixedScope.environment_id,id:resource.native_sandbox_id},bounded);
       const observed=data.sandbox===null?null:info(data.sandbox,client);
       if(observed&&observed.id!==resource.native_sandbox_id)throw new Error('Railway isolation observed different resource');
