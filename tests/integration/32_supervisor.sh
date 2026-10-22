@@ -322,11 +322,24 @@ stall   = "1h"
 retries = 0' setup_repo
     : > "$TMP/go/wall-2.1"
     timeout 120 "$CG" fleet up --foreground -n 1 >/dev/null 2>&1 || true
-    evk supervisor.budget | python3 -c '
+    # The budget binds every worker, so on a loaded host the ordinary 3.1
+    # worker can legitimately outlive 2 s too. The proof is about 2.1: stopped
+    # exactly once, for the wall budget, not before it was spent. Any other
+    # stop must also come after its own worker ran for the budget (the spawn
+    # event is written a moment after the clock starts; 1.5 s of 2 s still
+    # tells a spent budget from a premature or mis-scaled one).
+    { evk supervisor.budget; evk orch.spawn; } | python3 -c '
 import json, sys
 ev = [json.loads(l) for l in sys.stdin if l.strip()]
-assert len(ev) == 1 and ev[0]["subject"] == "fleet/2.1", ev
-assert ev[0]["payload"]["reason"] == "wall-clock budget of 2s spent", ev
+budget = [e for e in ev if e["kind"] == "supervisor.budget"]
+spawn = [e for e in ev if e["kind"] == "orch.spawn"]
+assert len([e for e in budget if e["subject"] == "fleet/2.1"]) == 1, budget
+for e in budget:
+    assert e["payload"]["reason"] == "wall-clock budget of 2s spent", e
+    t = e["payload"]["task"]
+    began = [x["at"] for x in spawn
+             if x["payload"].get("task") == t and x["at"] <= e["at"]]
+    assert began and e["at"] - max(began) >= 1500, (e, spawn)
 ' || fail "wall budget"
     [ "$(count supervisor.stall 'True')" = 0 ] || fail "a busy worker must not be called stalled"
 

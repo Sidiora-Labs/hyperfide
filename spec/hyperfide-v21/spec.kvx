@@ -450,7 +450,7 @@ owner = "ci"
 
 [task.2.15]
 title = "Terminal superseded status in the spec engine, and the load-sensitive suites"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["1.8"]
 touches = ["src/spec.c", "spec/workflow.kvx", "spec/codify-v11/spec.kvx", "tests/integration/23_dblock.sh", "tests/integration/32_supervisor.sh", "CONTRIBUTING.md", "tests/integration/85_superseded_status.sh"]

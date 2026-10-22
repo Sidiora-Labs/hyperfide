@@ -22,7 +22,7 @@ make            # builds ./hyperfide and ./cg, a byte-identical copy
 make test       # make unit + make integration
 ```
 
-If `make test` passes on a clean checkout, your environment is fine for the local CLI. In this revision two integration scripts fail regardless of environment, so check which scripts fail rather than relying on the exit status alone. `62_ast_managed.sh` links `build/libcg.a` without `-lcurl -lcrypto`. `78_v16_release.sh`, the 1.6 release gate, reruns every fixture (including 62) and requires the binary version to be 1.6.0. Note that `78_v16_release.sh` also runs `make clean` in the checkout and rebuilds with `-Werror`. That removes `build/hyperfide-native`, so rerun `make hyperfide-native` afterwards.
+If `make test` passes on a clean checkout, your environment is fine for the local CLI. No integration script fails by design: a script that cannot run in your environment prints `SKIP: <reason>` and exits 77. `78_v16_release.sh`, the release gate, builds a fresh `-Werror` binary in a scratch directory under `build/release-check.*` (your checkout's build is left alone), derives the expected version from `src/cg.h`, and reruns every integration fixture against it, so it is the slowest script in the suite.
 
 The Hyperfide control plane under `services/hyperfide/` is TypeScript. Its `package.json` pins Node 24.22.0 and npm 11.19.1, and `package-lock.json` pins the dependencies:
 
