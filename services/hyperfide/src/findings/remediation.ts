@@ -1,7 +1,12 @@
 import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError} from '../policy/programme.js';
-import {acceptedResolution,admittedEvidence,canonical,decimal,digest,digestValue,emit,fail,fields,finding,manager,oid,record,revalidateResolution,semanticDisposition,text,uuid,withFindingTransaction} from './registry.js';
+import {acceptedResolution,admin,admittedEvidence,canonical,decimal,digest,digestValue,emit,fail,fields,finding,manager,oid,record,revalidateResolution,semanticDisposition,text,uuid,withFindingTransaction} from './registry.js';
 import type {FindingScope,FindingTransaction} from './registry.js';
+import {createHash,randomUUID} from 'node:crypto';
+import {enqueue,resolveOperatorConsumer} from '../events/outbox.js';
+import type {PrimaryTransaction} from '../storage/transactions.js';
+import {assignFinding,readerLimit} from './routing.js';
+import type {FindingReader} from './routing.js';
 async function repair(value:FindingTransaction,id:string):Promise<Record<string,any>>{
  const result=await value.tx.query('SELECT * FROM hyperfide.finding_repairs WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[value.scope.organisation_id,value.scope.run_id,id]);
  if(result.rows.length!==1)fail('REPAIR_NOT_FOUND','Repair does not exist in the authenticated run');return result.rows[0]!;
@@ -111,6 +116,74 @@ async function resolve(value:FindingTransaction,input:unknown):Promise<Record<st
  await tx.query('UPDATE hyperfide.findings SET state=\'RESOLVED\',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[scope.organisation_id,scope.run_id,r.finding_id]);
  await emit(tx,scope,String(r.finding_id),(BigInt(f.registry_version)+1n).toString(),'finding.resolved',{finding_id:r.finding_id,repair_id:id,custody_id:r.custody_id,source_object_id:r.intended_source_object_id,receipt_digest:proof.receipt_digest});return {repair_id:id,resolved:true,receipt_digest:proof.receipt_digest,replayed:false};
 }
+export const ESCALATION_OPTIONS=Object.freeze(['HOLD','RETRY','REASSIGN','ACCEPT_EXCEPTION']);
+/** One Ask per escalated repair: its id is derived from the repair, so raising is idempotent across retries and readers. */
+export function escalationAskId(scope:FindingScope,repairId:string):string{
+ const h=createHash('sha256').update('repair-escalation:'+scope.organisation_id+':'+scope.run_id+':'+repairId).digest('hex');
+ return h.slice(0,8)+'-'+h.slice(8,12)+'-8'+h.slice(13,16)+'-'+((parseInt(h[16]!,16)&3)|8).toString(16)+h.slice(17,20)+'-'+h.slice(20,32);
+}
+/**
+ * The decision deadline has no code default (workflow [asks]: a decision proceeds on its recommended option and is flagged
+ * when the deadline passes); the operator sets HF_FINDING_ESCALATION_ASK_SECONDS until the 3.6 per-kind policy table owns it.
+ */
+function escalationDeadlineSeconds(context:ComponentContext):number{
+ const raw=context.env.HF_FINDING_ESCALATION_ASK_SECONDS;if(!raw||!/^[1-9][0-9]{1,6}$/.test(raw)||Number(raw)<60||Number(raw)>2592000)fail('ASK_POLICY_REQUIRED','HF_FINDING_ESCALATION_ASK_SECONDS (60 to 2592000) must be set before a repair can escalate');return Number(raw);
+}
+async function asksInstalled(value:FindingTransaction):Promise<void>{
+ const installed=await value.tx.query("SELECT to_regclass('hyperfide.asks')::text AS installed");if(!installed.rows[0]?.installed)fail('DEPENDENCY_NOT_READY','The asks migration (0709) must be applied');
+}
+async function raiseEscalationAsk(value:FindingTransaction,r:Record<string,any>,reason:string):Promise<{ask_id:string;raised:boolean}>{
+ await asksInstalled(value);const {tx,scope}=value,askId=escalationAskId(scope,String(r.id)),seconds=escalationDeadlineSeconds(value.context);
+ const title='Repair of finding '+String(r.finding_id)+' escalated after '+String(r.attempt_count)+' of '+String(r.max_attempts)+' attempts';
+ const body='The repair budget is exhausted. HOLD keeps the finding assigned with no new repair; RETRY requests another repair under a raised budget; REASSIGN routes the finding to another package; ACCEPT_EXCEPTION records an accepted exception.\nRepair: '+String(r.id)+'\nLast failure: '+reason;
+ const inserted=await tx.query("INSERT INTO hyperfide.asks(organisation_id,id,run_id,kind,title,body,options,recommended,deadline,default_policy,chain,task,attempt,raised_by) VALUES($1,$2,$3,'decision',$4,$5,$6::jsonb,'HOLD',clock_timestamp()+make_interval(secs=>$7),'proceed-and-flag','[\"leader\",\"operator\"]'::jsonb,$8,$9,$10) ON CONFLICT(organisation_id,id) DO NOTHING RETURNING *",
+  [scope.organisation_id,askId,scope.run_id,title.slice(0,512),body.slice(0,65536),JSON.stringify(ESCALATION_OPTIONS),seconds,r.repair_task_id,r.attempt_id??null,value.principal.credential_id]);
+ if(inserted.rows.length===1){
+  // Same channel and event shape as human.ask.raise (3.2): without the operator Ask channel the escalation is refused, never parked unseen.
+  const ptx=tx as unknown as PrimaryTransaction,consumer=await resolveOperatorConsumer(ptx,{organisation_id:scope.organisation_id,run_id:scope.run_id,namespace:'asks'});
+  if(!consumer)fail('ASK_OPERATOR_CONSUMER_REQUIRED','No operator Ask consumer (operator:asks) is registered for this run');
+  const row=inserted.rows[0]!,iso=(v:unknown)=>v instanceof Date?v.toISOString():v??null;
+  const view={ask_id:row.id,organisation_id:row.organisation_id,run_id:row.run_id,kind:row.kind,title:row.title,body:row.body,options:row.options,recommended:row.recommended,deadline:iso(row.deadline),default_policy:row.default_policy,chain:row.chain,task:row.task,attempt:row.attempt,session:row.session,sandbox:row.sandbox,raised_by:row.raised_by,raised_at:iso(row.raised_at),state:row.state,answered_by:row.answered_by,answer:row.answer,decided_by_default:row.decided_by_default,answered_at:iso(row.answered_at),expired_at:iso(row.expired_at),state_version:String(row.state_version)};
+  await enqueue(ptx,{organisation_id:scope.organisation_id,run_id:scope.run_id,id:randomUUID(),aggregate_type:'ask',aggregate_id:askId,aggregate_version:String(row.state_version),event_type:'ask.raised',payload:{schema_version:1,ask:view,actor_id:value.principal.actor_id,actor_role:value.principal.role,target:'OPERATOR',source:{repair_id:String(r.id),finding_id:String(r.finding_id)}}},{consumer_ids:[consumer]});
+ }
+ return {ask_id:askId,raised:inserted.rows.length===1};
+}
+async function escalated(value:FindingTransaction,repairId:string):Promise<Record<string,any>>{
+ const r=await repair(value,repairId);if(r.state!=='ESCALATED')fail('REPAIR_NOT_ESCALATED','Only an escalated repair is read, acknowledged or routed here');return r;
+}
+async function repairEvent(value:FindingTransaction,repairId:string,event:string,payload:Record<string,unknown>):Promise<void>{
+ await value.tx.query('INSERT INTO hyperfide.finding_repair_events(organisation_id,run_id,repair_id,actor_id,event_type,payload,actor_role,credential_id) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8)',[value.scope.organisation_id,value.scope.run_id,repairId,value.principal.actor_id,event,JSON.stringify(payload),value.principal.role,value.principal.credential_id]);
+}
+async function escalationList(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{
+ const p=record(input??{});fields(p,[],['limit']);await admin(value);await asksInstalled(value);const limit=readerLimit(p.limit),{tx,scope}=value;
+ const rows=await tx.query("SELECT r.id AS repair_id,r.finding_id,r.repair_task_id,r.attempt_count,r.max_attempts,r.state_version::text,r.updated_at,g.phase,g.state_version::text AS registry_version,(SELECT e.payload->>'reason' FROM hyperfide.finding_repair_events e WHERE e.organisation_id=r.organisation_id AND e.run_id=r.run_id AND e.repair_id=r.id AND e.event_type='ESCALATED' ORDER BY e.created_at DESC LIMIT 1) AS reason,EXISTS(SELECT 1 FROM hyperfide.finding_repair_events e WHERE e.organisation_id=r.organisation_id AND e.run_id=r.run_id AND e.repair_id=r.id AND e.event_type='ESCALATION_ACKNOWLEDGED') AS acknowledged,(SELECT e.payload->>'route_id' FROM hyperfide.finding_repair_events e WHERE e.organisation_id=r.organisation_id AND e.run_id=r.run_id AND e.repair_id=r.id AND e.event_type='ESCALATION_ROUTED' ORDER BY e.created_at DESC LIMIT 1) AS route_id FROM hyperfide.finding_repairs r JOIN hyperfide.finding_registry_records g ON g.organisation_id=r.organisation_id AND g.run_id=r.run_id AND g.finding_id=r.finding_id WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.state='ESCALATED' ORDER BY r.updated_at,r.id LIMIT $3",[scope.organisation_id,scope.run_id,limit+1]);
+ const items=rows.rows.slice(0,limit).map(row=>({...row,ask_id:escalationAskId(scope,String(row.repair_id))}));
+ const asks=items.length?await tx.query('SELECT id,state,answer,decided_by_default,deadline FROM hyperfide.asks WHERE organisation_id=$1 AND id=ANY($2::uuid[])',[scope.organisation_id,items.map(item=>item.ask_id)]):{rows:[]};
+ const byId=new Map(asks.rows.map(row=>[String(row.id),row]));
+ return {items:items.map(item=>{const a=byId.get(item.ask_id);return {...item,ask:a?{state:a.state,answer:a.answer,decided_by_default:a.decided_by_default,deadline:a.deadline}:null};}),truncated:rows.rows.length>limit};
+}
+/** Acknowledging records who has seen the escalation and makes sure its decision Ask exists (escalations older than the Ask are backfilled). */
+async function escalationAcknowledge(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{
+ const p=record(input);fields(p,['repair_id','expected_state_version']);await admin(value);const id=uuid(p.repair_id),version=decimal(p.expected_state_version);
+ const r=await escalated(value,id);if(String(r.state_version)!==version)fail('STALE_REPAIR','Repair changed since the escalation was read');
+ const last=await value.tx.query("SELECT payload->>'reason' AS reason FROM hyperfide.finding_repair_events WHERE organisation_id=$1 AND run_id=$2 AND repair_id=$3 AND event_type='ESCALATED' ORDER BY created_at DESC LIMIT 1",[value.scope.organisation_id,value.scope.run_id,id]);
+ const ask=await raiseEscalationAsk(value,r,String(last.rows[0]?.reason??'repair budget exhausted'));
+ const prior=await value.tx.query("SELECT actor_id FROM hyperfide.finding_repair_events WHERE organisation_id=$1 AND run_id=$2 AND repair_id=$3 AND event_type='ESCALATION_ACKNOWLEDGED' LIMIT 1",[value.scope.organisation_id,value.scope.run_id,id]);
+ if(prior.rows.length)return {repair_id:id,acknowledged:true,acknowledged_by:prior.rows[0]!.actor_id,ask_id:ask.ask_id,replayed:true};
+ await repairEvent(value,id,'ESCALATION_ACKNOWLEDGED',{ask_id:ask.ask_id});
+ return {repair_id:id,acknowledged:true,acknowledged_by:value.principal.actor_id,ask_id:ask.ask_id,replayed:false};
+}
+/** Routes the escalated finding to an accountable package with a rationale, through the same explicit assignment as the leader queue. */
+async function escalationRoute(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{
+ const p=record(input);fields(p,['repair_id','request_id','expected_state_version','package_id','reason']);await admin(value);const id=uuid(p.repair_id);
+ const r=await escalated(value,id);
+ const routed=await assignFinding(value,{finding_id:String(r.finding_id),request_id:p.request_id,expected_state_version:p.expected_state_version,package_id:p.package_id,reason:p.reason});
+ const routeId=String((routed.route as Record<string,unknown>).id);
+ if(!routed.replayed)await repairEvent(value,id,'ESCALATION_ROUTED',{route_id:routeId,package_id:p.package_id});
+ return {repair_id:id,route_id:routeId,leader_queue:(routed.route as Record<string,unknown>).leader_queue,replayed:routed.replayed};
+}
+export const escalatedRepairReader:FindingReader=Object.freeze({list:escalationList,acknowledge:escalationAcknowledge,route:escalationRoute});
+export async function failRepair(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{return failure(value,input);}
 async function failure(value:FindingTransaction,input:unknown):Promise<Record<string,unknown>>{
  const p=record(input);fields(p,['repair_id','expected_state_version','evidence_ids','reason']);const id=uuid(p.repair_id),version=decimal(p.expected_state_version),reason=text(p.reason,'repair failure rationale'),{tx,scope}=value;
  const r=await repair(value,id),f=await finding(tx,scope,r.finding_id,true);await manager(value,String(f.owner_package_id));if(String(r.state_version)!==version||!['RUNNING','READY_FOR_RECHECK'].includes(r.state))fail('STALE_REPAIR','Repair failure does not match the current repair');
@@ -119,7 +192,9 @@ async function failure(value:FindingTransaction,input:unknown):Promise<Record<st
  await tx.query('UPDATE hyperfide.finding_repairs SET state=$4,updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[scope.organisation_id,scope.run_id,id,state]);
  await tx.query('INSERT INTO hyperfide.finding_repair_events(organisation_id,run_id,repair_id,actor_id,event_type,payload,actor_role,credential_id) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8)',[scope.organisation_id,scope.run_id,id,value.principal.actor_id,state,JSON.stringify({reason,evidence_ids:evidenceIds}),value.principal.role,value.principal.credential_id]);
  await tx.query('UPDATE hyperfide.finding_registry_records SET phase=\'ASSIGNED\',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND finding_id=$3',[scope.organisation_id,scope.run_id,r.finding_id]);
- await emit(tx,scope,String(r.finding_id),(BigInt(f.registry_version)+1n).toString(),escalated?'finding.repair-escalated':'finding.repair-failed',{finding_id:r.finding_id,repair_id:id,reason});return {repair_id:id,state,escalated};
+ await emit(tx,scope,String(r.finding_id),(BigInt(f.registry_version)+1n).toString(),escalated?'finding.repair-escalated':'finding.repair-failed',{finding_id:r.finding_id,repair_id:id,reason});
+ const ask=escalated?await raiseEscalationAsk(value,{...r,state},reason):null;
+ return {repair_id:id,state,escalated,...(ask?{ask_id:ask.ask_id}:{})};
 }
 export async function inspectFindingResolution(tx:FindingTransaction['tx'],scope:FindingScope,findingId:string):Promise<{current:boolean;reason?:string}>{
  try{await semanticDisposition(tx,scope);const f=await finding(tx,scope,uuid(findingId));if(f.phase!=='RESOLVED'){return {current:false,reason:'FINDING_NOT_RESOLVED'};}const rows=await tx.query('SELECT * FROM hyperfide.finding_repairs WHERE organisation_id=$1 AND run_id=$2 AND finding_id=$3 AND state=\'RESOLVED\' ORDER BY updated_at DESC,id DESC LIMIT 1',[scope.organisation_id,scope.run_id,findingId]);const r=rows.rows[0];if(!r||r.resolution_digest!==f.resolution_digest){return {current:false,reason:'RESOLUTION_PROOF_MISSING'};}await qualifiedRepairProof(tx,scope,r,f,r.resolution_proof?.reproduction_plan_id,true);return {current:true};}catch(error){if(error instanceof FoundationError)return {current:false,reason:'RESOLUTION_PROOF_STALE_OR_UNAVAILABLE'};throw error;}

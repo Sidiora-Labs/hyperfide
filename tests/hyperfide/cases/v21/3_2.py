@@ -160,7 +160,8 @@ def scenario(f):
             expect(result['ask']['default_policy'] == ('proceed-and-flag' if kind == 'decision' else 'block'), result)
             raised[kind] = result
         check('raise.' + kind, raise_kind)
-    check('refuse.proceed-without-deadline', lambda: refused('human.ask.raise', ask('decision', ['a', 'b'], 'a', None), 'needs a recommended option and a deadline', key='worker'))
+    # 3.6: the deadline now comes from the kind's policy table, so a proceed-and-flag Ask is refused only without a recommended option.
+    check('refuse.proceed-without-recommended', lambda: refused('human.ask.raise', ask('decision', [], None, None), 'needs a recommended option', key='worker'))
     check('refuse.unknown-kind', lambda: refused('human.ask.raise', ask('wish', [], None, None), 'kind is unknown', key='worker'))
     check('refuse.caller-default-policy', lambda: refused('human.ask.raise', dict(ask('secret', [], None, None), default_policy='proceed-and-flag'), 'fields are invalid', key='worker'))
     check('refuse.recommended-outside-options', lambda: refused('human.ask.raise', ask('decision', ['a', 'b'], 'c', 60), 'recommended', key='worker'))

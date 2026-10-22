@@ -3,7 +3,7 @@ import type pg from 'pg';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError,object} from '../policy/programme.js';
 import {databaseError} from '../storage/schema.js';
-import {enqueue} from '../events/outbox.js';
+import {addressedConsumerId,enqueue} from '../events/outbox.js';
 import type {PrimaryTransaction} from '../storage/transactions.js';
 import type {AuthorityTransaction} from '../transport/protocol.js';
 
@@ -75,10 +75,15 @@ export async function manager(value:FindingTransaction,packageId:string):Promise
  if(result.rows[0]?.manager_session_id!==value.principal.actor_id)fail('AUTH_DENIED','Only the current accountable manager may mutate this finding');
 }
 export const FINDING_CONSUMER_KEYS=Object.freeze({manager:'finding:manager',operator:'finding:operator'});
+/** Ids of the finding consumers for a run. They are addressed-only (outbox ADDRESSED_ONLY_PREFIXES) with derived ids, so
+ * the dispatch worker config can name them by key (deploy/hyperfide/config/dispatch-worker.example.json). */
+export function findingConsumerIds(scope:{organisation_id:string;run_id:string}):{manager:string;operator:string}{
+ return {manager:addressedConsumerId(scope,FINDING_CONSUMER_KEYS.manager),operator:addressedConsumerId(scope,FINDING_CONSUMER_KEYS.operator)};
+}
 /** Standing run-scoped finding consumers; created on first emit so a finding never fails for want of a subscriber. */
 export async function findingConsumers(tx:FindingDatabase,scope:FindingScope):Promise<string[]>{
- const keys=[FINDING_CONSUMER_KEYS.manager,FINDING_CONSUMER_KEYS.operator];
- await tx.query("INSERT INTO hyperfide.event_consumers(organisation_id,run_id,consumer_key,critical,state) SELECT $1,$2,unnest($3::text[]),true,'ACTIVE' ON CONFLICT(organisation_id,run_id,consumer_key) DO NOTHING",[scope.organisation_id,scope.run_id,keys]);
+ const keys=[FINDING_CONSUMER_KEYS.manager,FINDING_CONSUMER_KEYS.operator],ids=findingConsumerIds(scope);
+ await tx.query("INSERT INTO hyperfide.event_consumers(organisation_id,run_id,id,consumer_key,critical,state) SELECT $1,$2,unnest($3::uuid[]),unnest($4::text[]),true,'ACTIVE' ON CONFLICT(organisation_id,run_id,consumer_key) DO NOTHING",[scope.organisation_id,scope.run_id,[ids.manager,ids.operator],keys]);
  const found=await tx.query('SELECT id::text,consumer_key,state FROM hyperfide.event_consumers WHERE organisation_id=$1 AND run_id=$2 AND consumer_key=ANY($3::text[])',[scope.organisation_id,scope.run_id,keys]);
  if(found.rows.length!==keys.length||found.rows.some(row=>!['ACTIVE','BUFFERING'].includes(row.state)))fail('EVENT_CONSUMER_REQUIRED','Finding manager and operator consumers must be standing');
  return keys.map(key=>String(found.rows.find(row=>row.consumer_key===key)!.id));
