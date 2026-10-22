@@ -945,7 +945,7 @@ owner = "runner"
 
 [task.5.1]
 title = "Needs, Issues and Leaders read model"
-status = "implemented"
+status = "done"
 wave = 5
 requires = ["3.2", "4.6"]
 touches = ["services/hyperfide/src/observability/console.ts", "services/hyperfide/src/observability/views.ts", "tests/hyperfide/cases/v21/5_1.py", "services/hyperfide/components/23.1-console.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "tests/fixtures/route_contract/server_only.txt", "tests/hyperfide/cases/v21/5_2.py"]
