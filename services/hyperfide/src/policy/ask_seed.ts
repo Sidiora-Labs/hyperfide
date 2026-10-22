@@ -49,19 +49,19 @@ export async function observeFencePermit(env:Readonly<NodeJS.ProcessEnv>):Promis
  }
 }
 
-export async function askSeeds(tx:Tx,input:{organisation_id:string;run_id:string;decision_deadline_seconds:number;permit:PermitObservation}):Promise<Seed[]>{
- const seeds:Seed[]=[];
- // Open decisions: proceed-and-flag on the recommended option at the operator's deadline (D11).
+export async function askSeeds(tx:Tx,input:{organisation_id:string;run_id:string;deadline_cap:(kind:SeedRequest['kind'])=>number;permit:PermitObservation}):Promise<Seed[]>{
+ const seeds:Seed[]=[],cap=(kind:SeedRequest['kind'],seconds:number)=>Math.min(seconds,input.deadline_cap(kind));
+ // Open decisions: proceed-and-flag on the recommended option at the decision policy deadline (D11, 3.6).
  for(const d of openDecisions)seeds.push({source:'decision',key:d.id,request:{idempotency_key:'seed.decision.'+d.id,kind:'decision',
   title:'Decision '+d.id+': '+d.title,body:d.gate+' Register: spec/hyperfide/decisions.md '+d.id+'.',options:[...d.options],recommended:d.options[0]!,
-  deadline_seconds:input.decision_deadline_seconds,chain:['operator']}});
+  deadline_seconds:null,chain:['operator']}});
  // Capacity attestations inside the warning window or recently lapsed (providers/pools.ts observer). Renewal is the
- // operator's to grant, so a permission Ask that blocks; its deadline is the attestation's own expiry.
+ // operator's to grant, so a permission Ask that blocks; its expiry, when sooner than the policy deadline, is the deadline.
  const pools=(await tx.query<{pool_id:string}>('SELECT DISTINCT pool_id FROM hyperfide.provider_pool_configurations WHERE organisation_id=$1 AND active ORDER BY pool_id',[input.organisation_id])).rows.map(r=>r.pool_id);
  for(const w of pools.length?await attestationExpiryWarnings(tx,input.organisation_id,pools):[])seeds.push({source:'attestation',key:w.attestation_id,request:{
   idempotency_key:'seed.attestation.'+w.attestation_id,kind:'permission',title:'Renew capacity attestation '+w.attestation_id,
   body:'Pool '+w.pool_id+' '+w.scope_kind+':'+w.scope_key+' '+w.dimension+' limit '+w.limit+' attested until '+w.expires_at+'; once lapsed the pool is QUOTA_UNQUALIFIED for this dimension.',
-  options:['renew','let-lapse'],recommended:'renew',deadline_seconds:w.seconds_remaining>=1?Math.min(w.seconds_remaining,30*86400):null,chain:['operator']}});
+  options:['renew','let-lapse'],recommended:'renew',deadline_seconds:w.seconds_remaining>=1?cap('permission',w.seconds_remaining):null,chain:['operator']}});
  // The fence permit this host holds, for this organisation and run only.
  const p=input.permit;
  if(p.state==='UNREADABLE')seeds.push({source:'fence-permit',key:'configured',request:null,reason:p.code});
@@ -72,7 +72,7 @@ export async function askSeeds(tx:Tx,input:{organisation_id:string;run_id:string
   else seeds.push({source:'fence-permit',key:permit.permit_digest,request:{idempotency_key:'seed.fence-permit.'+permit.permit_digest,kind:'permission',
    title:'Fence permit for operation '+permit.operation_id+' expires '+permit.expires_at,
    body:'The off-box isolation permit (deployment '+permit.deployment_id+', issuer '+permit.issuer_key_id+') stops verifying at '+permit.expires_at+'; the fence operation needs a freshly signed permit after that.',
-   options:['re-sign','let-expire'],recommended:'re-sign',deadline_seconds:remaining,chain:['operator']}});
+   options:['re-sign','let-expire'],recommended:'re-sign',deadline_seconds:cap('permission',remaining),chain:['operator']}});
  }
  // Drain controls with a future deadline (scheduler/claim.ts applies the fallback once it passes). Unanswered,
  // the fallback is what happens, so it is the recommended option of a proceed-and-flag decision.
@@ -84,7 +84,7 @@ export async function askSeeds(tx:Tx,input:{organisation_id:string;run_id:string
   seeds.push({source:'drain',key:d.id+'.'+d.generation,request:{idempotency_key:'seed.drain.'+d.id+'.'+d.generation,kind:'decision',
    title:'Drain of '+d.scope_kind+' '+d.scope_id+' reaches its deadline '+new Date(d.deadline_at).toISOString(),
    body:'Execution control '+d.id+' generation '+d.generation+' drains until '+new Date(d.deadline_at).toISOString()+' and then applies '+d.fallback_mode+'. Extending needs a new drain control.',
-   options:[fallback,'extend-drain'],recommended:fallback,deadline_seconds:Math.min(Number(d.remaining),30*86400),chain:['operator']}});
+   options:[fallback,'extend-drain'],recommended:fallback,deadline_seconds:cap('decision',Number(d.remaining)),chain:['operator']}});
  }
  return seeds;
 }

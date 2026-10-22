@@ -16,7 +16,6 @@ sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 FAILED = []
 COMPONENT = '1.2-asks'
 DAY = 86400
-DECISION_DEADLINE = 14 * DAY
 
 
 def uid():
@@ -113,7 +112,7 @@ def scenario(f):
         expect(response.get('ok') is False and needle in json.dumps(response), action + ' was not refused with ' + needle + ': ' + json.dumps(response)[:800])
 
     def seed():
-        return ok('human.ask.seed', {'decision_deadline_seconds': DECISION_DEADLINE})
+        return ok('human.ask.seed', {})
 
     def asks():
         return f.sql("SELECT id::text,kind,title,options,recommended,default_policy,chain,state,raised_by::text,"
@@ -154,13 +153,15 @@ def scenario(f):
         return ident
     i['drain'] = drain('RUN', r, None, 3600, 'PAUSE')
 
-    check('refuse.before-operator-channel', lambda: refused('human.ask.seed', {'decision_deadline_seconds': DECISION_DEADLINE}, 'ASK_OPERATOR_CONSUMER_REQUIRED'))
+    check('refuse.before-operator-channel', lambda: refused('human.ask.seed', {}, 'ASK_OPERATOR_CONSUMER_REQUIRED'))
     check('refuse.nothing-raised-without-channel', lambda: expect(totals()['asks'] == 0, 'a refused seed left Asks behind'))
     i['operator_consumer'] = uid()
     check('operator-channel.registered', lambda: ok('outbox.consumer.register', dict(scope, id=i['operator_consumer'], consumer_key='operator:asks', critical=False, state='ACTIVE'), component='6.1'))
-    check('refuse.deadline-required', lambda: refused('human.ask.seed', {}, 'invalid'))
-    check('refuse.deadline-bounded', lambda: refused('human.ask.seed', {'decision_deadline_seconds': 31 * DAY}, 'Decision deadline'))
-    check('refuse.provisioner-role', lambda: refused('human.ask.seed', {'decision_deadline_seconds': DECISION_DEADLINE}, 'human.ask.seed', key='provisioner'))
+    # Deadlines belong to the 3.6 kind policy, so a caller cannot choose one for the seed.
+    check('refuse.caller-deadline', lambda: refused('human.ask.seed', {'decision_deadline_seconds': 60}, 'invalid'))
+    policy = {}
+    check('policy.read', lambda: policy.update(ok('human.ask.policy', {})['kinds']))
+    check('refuse.provisioner-role', lambda: refused('human.ask.seed', {}, 'human.ask.seed', key='provisioner'))
 
     # Without a permit file the observer reports, it does not raise.
     first = {}
@@ -175,7 +176,7 @@ def scenario(f):
         for item, row in rows.items():
             expect(row['kind'] == 'decision' and row['default_policy'] == 'proceed-and-flag' and row['state'] == 'OPEN', row)
             expect(row['options'] == options[item] and row['recommended'] == options[item][0], (item, row['options'], options[item]))
-            expect(abs(int(row['window']) - DECISION_DEADLINE) <= 2 and row['chain'] == ['operator'] and row['raised_by'] == i['operator'], row)
+            expect(abs(int(row['window']) - policy['decision']['deadline_seconds']) <= 2 and row['chain'] == ['operator'] and row['raised_by'] == i['operator'], row)
         expect(sorted(s['key'] for s in first['seeds'] if s['source'] == 'decision' and s['status'] == 'RAISED') == sorted(options), first)
     check('seed.decision-per-open-item-with-register-options', decisions)
 
@@ -184,8 +185,10 @@ def scenario(f):
         expect(set(rows) == {i['soon'], i['lapsed']}, 'attestation Asks are not exactly the expiring and lapsed ones: ' + json.dumps(sorted(rows)))
         soon, lapsed = rows[i['soon']], rows[i['lapsed']]
         expect(soon['kind'] == 'permission' and soon['default_policy'] == 'block' and soon['options'] == ['renew', 'let-lapse'] and soon['recommended'] == 'renew', soon)
-        expect(3 * DAY - 120 <= int(soon['window']) <= 3 * DAY, 'expiring attestation deadline is not its expiry: %s' % soon['window'])
-        expect(lapsed['deadline'] is None and lapsed['default_policy'] == 'block', 'a lapsed attestation keeps no deadline: ' + json.dumps(lapsed, default=str))
+        # Three days out is beyond the permission policy deadline, which therefore bounds it; a lapsed one takes the policy deadline.
+        cap = policy['permission']['deadline_seconds']
+        expect(cap < 3 * DAY and abs(int(soon['window']) - cap) <= 2, 'expiring attestation deadline is not the policy bound: %s' % soon['window'])
+        expect(abs(int(lapsed['window']) - cap) <= 2 and lapsed['default_policy'] == 'block', 'a lapsed attestation does not take the policy deadline: ' + json.dumps(lapsed, default=str))
     check('seed.attestations-from-observer', attestations)
 
     def drains():

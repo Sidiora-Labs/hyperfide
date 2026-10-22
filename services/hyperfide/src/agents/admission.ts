@@ -6,6 +6,7 @@ import {assertPrimaryTransaction} from '../storage/transactions.js';
 import type {PrimaryTransaction} from '../storage/transactions.js';
 import type {InvocationContext,AuthorityTransaction} from '../transport/protocol.js';
 import {object} from '../policy/programme.js';
+import {nativeAskRequests,raiseNativeAsks} from './native_asks.js';
 
 type Policy={organisation_id:string;run_id:string;run_policy_digest:string;quota_key:string;connector:string;connector_version:string;provider:string;model:string;auth_profile:string;permission_profile:string;qualification_digest:string;max_concurrent:number;max_attempts:number;retry_base_ms:number;retry_max_ms:number;unattended:true;native_delegation:false};
 async function policies(ctx:ComponentContext):Promise<Policy[]>{
@@ -48,7 +49,7 @@ export type NativeAdmissionReason='RATE_LIMIT'|'QUOTA_LIMIT'|'AUTH_EXPIRED'|'APP
 export interface NativeSignalClassification {
  connector:'codex'|'claude';
  /** Liveness/waiting/progress are distinct: no classification ever reports useful progress. */
- signal:'RATE_LIMITED'|'QUOTA_EXHAUSTED'|'AUTH_FAILED'|'APPROVAL_PROMPT'|'DELEGATION_REQUESTED'|'MODEL_WAITING'|'MODEL_ERROR'|'RATE_LIMIT_STATUS'|'TURN_FINISHED'|'IGNORED';
+ signal:'RATE_LIMITED'|'QUOTA_EXHAUSTED'|'AUTH_FAILED'|'APPROVAL_PROMPT'|'QUESTION'|'DELEGATION_REQUESTED'|'MODEL_WAITING'|'MODEL_ERROR'|'RATE_LIMIT_STATUS'|'TURN_FINISHED'|'IGNORED';
  reason:NativeAdmissionReason|null;code:string|null;resets_at:string|null;useful_progress:false;
 }
 const field=(value:unknown,key:string):unknown=>object(value)?value[key]:undefined;
@@ -66,8 +67,10 @@ export function classifyNativeEvent(connector:'codex'|'claude',event:unknown):Na
  if(connector==='codex'){
   const method=event.method,params=field(event,'params');
   if(typeof method!=='string')agentError('ADMISSION_SIGNAL_INVALID');
+  // A question to the user is answered through an Ask (4.1, native_asks.ts), not by holding admission capacity.
+  if(event.id!==undefined&&method==='item/tool/requestUserInput')return out('QUESTION',null,method);
   // Server-to-client requests need an interactive answer; unattended policy never auto-approves.
-  if(event.id!==undefined&&['item/commandExecution/requestApproval','item/fileChange/requestApproval','item/permissions/requestApproval','execCommandApproval','applyPatchApproval','item/tool/requestUserInput','mcpServer/elicitation/request'].includes(method))return out('APPROVAL_PROMPT','APPROVAL_REQUIRED',method);
+  if(event.id!==undefined&&['item/commandExecution/requestApproval','item/fileChange/requestApproval','item/permissions/requestApproval','execCommandApproval','applyPatchApproval','mcpServer/elicitation/request'].includes(method))return out('APPROVAL_PROMPT','APPROVAL_REQUIRED',method);
   // Hyperfide never supplies account tokens to a native process (no credential sharing).
   if(event.id!==undefined&&method==='account/chatgptAuthTokens/refresh')return out('AUTH_FAILED','AUTH_EXPIRED',method);
   if(method==='error'){
@@ -107,7 +110,8 @@ export function classifyNativeEvent(connector:'codex'|'claude',event:unknown):Na
   if(status==='rejected')return out('RATE_LIMITED','RATE_LIMIT',text(field(info,'rateLimitType'))??'rejected',resets);
   return out('RATE_LIMIT_STATUS',null,text(status),resets);
  }
- if(type==='control_request'&&field(field(event,'request'),'subtype')==='can_use_tool')return out('APPROVAL_PROMPT','APPROVAL_REQUIRED','can_use_tool');
+ if(type==='control_request'&&field(field(event,'request'),'subtype')==='can_use_tool')
+  return field(field(event,'request'),'tool_name')==='AskUserQuestion'?out('QUESTION',null,'AskUserQuestion'):out('APPROVAL_PROMPT','APPROVAL_REQUIRED','can_use_tool');
  if(type==='assistant'){
   const error=event.error;
   if(error==='rate_limit'||error==='overloaded')return out('RATE_LIMITED','RATE_LIMIT',error);
@@ -116,6 +120,7 @@ export function classifyNativeEvent(connector:'codex'|'claude',event:unknown):Na
   if(typeof error==='string')return out('MODEL_ERROR',null,text(error));
   const content=field(field(event,'message'),'content');
   if(Array.isArray(content)&&content.some(part=>field(part,'type')==='tool_use'&&['Task','Agent'].includes(String(field(part,'name')))))return out('DELEGATION_REQUESTED','DELEGATION_UNSUPPORTED','tool_use');
+  if(Array.isArray(content)&&content.some(part=>field(part,'type')==='tool_use'&&field(part,'name')==='AskUserQuestion'))return out('QUESTION',null,'AskUserQuestion');
   return out('IGNORED',null);
  }
  if(type==='result')return out(event.is_error===true?'MODEL_ERROR':'TURN_FINISHED',null,text(event.subtype));
@@ -286,18 +291,25 @@ export function createComponent(ctx:ComponentContext):Component{
  if(name==='observe'){
  if(v.connector!=='codex'&&v.connector!=='claude')agentError('AGENT_INPUT_INVALID');
  if(JSON.stringify(v.event).length>65536)agentError('ADMISSION_SIGNAL_INVALID');
- const classification=classifyNativeEvent(v.connector,v.event);
+ const classification=classifyNativeEvent(v.connector,v.event),askRequests=nativeAskRequests(v.connector,v.event);
  return agentOperation(client,s,agentString(v.operation_id,'uuid'),{kind:'agent.admission.observe',...v},async()=>{
+ // 4.1: a native question or approval prompt is raised as an Ask on behalf of the observed session.
+ const asks=async()=>{
+  if(!askRequests.length)return [];
+  const owner=(await client.query('SELECT attempt_id,sandbox_id FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[s.organisation_id,s.run_id,s.session_id])).rows[0] as Record<string,unknown>;
+  return raiseNativeAsks(ctx,client,invocation,{session:s.session_id,attempt:owner.attempt_id==null?null:String(owner.attempt_id),sandbox:owner.sandbox_id==null?null:String(owner.sandbox_id)},String(v.operation_id),askRequests);
+ };
  const reservation=(await client.query('SELECT quota_key FROM hyperfide.agent_admission_reservations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND session_id=$4',[s.organisation_id,s.run_id,id,s.session_id])).rows[0];
  const p=reservation&&selected.find(p=>p.organisation_id===s.organisation_id&&p.run_id===s.run_id&&p.quota_key===reservation.quota_key);
  if(p&&p.connector!==v.connector)agentError('ADMISSION_SIGNAL_CONNECTOR_MISMATCH');
  if(!classification.reason){
  // Observations without an admission consequence never become liveness or success evidence.
  if(!reservation)agentError('ADMISSION_RESERVATION_NOT_FOUND');
- return {kind:'ADMISSION_OBSERVATION',reservation_id:id,classification,reported:false,grants_authority:false};
+ return {kind:'ADMISSION_OBSERVATION',reservation_id:id,classification,reported:false,asks:await asks(),grants_authority:false};
  }
  if(!references(v.diagnostic_refs).length)agentError('ADMISSION_DIAGNOSTICS_REQUIRED');
- return {...await execute(classification.reason,classification),reported:true};
+ const reported=await execute(classification.reason,classification);
+ return {...reported,reported:true,asks:await asks()};
  },invocation);
  }
  return execute();
@@ -334,3 +346,37 @@ export function createComponent(ctx:ComponentContext):Component{
  }});
  return Object.assign(component,{capabilities:Object.freeze({'agent.admission.v1':capability})});
 }
+
+// ---- Ask policy per kind (hyperfide-v21 3.6, req 3 ac_4) -----------------------------------------------------
+// Kept apart from native admission above: task 4.1 classifies native QUESTION signals in this file, and both
+// sections must merge mechanically. This table is the one source for how an Ask waits and who settles it.
+// D11 fixes the default policy (secret, variable and permission block; decision and question proceed on the
+// recommended option and flag) and leaves the deadlines and chains to this table. The deadline is the longest a
+// raiser may set; a caller may only shorten it. The chain is the ordered escalation of who is asked, lowest
+// first, and always ends at the operator. Who may answer is the policy chain, never a caller's widening of it.
+export type AskPolicyKind='secret'|'variable'|'permission'|'decision'|'question';
+export type AskChainMember='leader'|'operator';
+export interface AskKindPolicy{default_policy:'block'|'proceed-and-flag';deadline_seconds:number;chain:readonly AskChainMember[]}
+export const ASK_POLICY_REVISION='v21-3.6.1';
+export const ASK_CHAIN_MEMBERS:readonly AskChainMember[]=Object.freeze(['leader','operator'] as const);
+const askKindPolicy=(default_policy:AskKindPolicy['default_policy'],deadline_seconds:number,chain:AskChainMember[]):Readonly<AskKindPolicy>=>
+ Object.freeze({default_policy,deadline_seconds,chain:Object.freeze(chain)});
+export const ASK_POLICY:Readonly<Record<AskPolicyKind,Readonly<AskKindPolicy>>>=Object.freeze({
+ secret:askKindPolicy('block',86400,['operator']),
+ variable:askKindPolicy('block',86400,['operator']),
+ permission:askKindPolicy('block',14400,['operator']),
+ decision:askKindPolicy('proceed-and-flag',14400,['leader','operator']),
+ question:askKindPolicy('proceed-and-flag',3600,['leader','operator'])
+});
+export function askAnswererRoles(kind:AskPolicyKind):string[]{return ASK_POLICY[kind].chain.map(member=>member.toUpperCase());}
+// Resolves a raise against the table: a null deadline takes the policy deadline, an empty chain the policy chain.
+// Returns the refusal reason instead of throwing so the caller keeps its own error vocabulary.
+export function resolveAskPolicy(kind:AskPolicyKind,deadlineSeconds:number|null,chain:readonly string[]):
+ {ok:true;default_policy:AskKindPolicy['default_policy'];deadline_seconds:number;chain:AskChainMember[]}|{ok:false;reason:string}{
+ const p=ASK_POLICY[kind];
+ if(deadlineSeconds!==null&&deadlineSeconds>p.deadline_seconds)return {ok:false,reason:'Ask deadline exceeds the '+kind+' policy deadline of '+p.deadline_seconds+' s'};
+ if(chain.some(member=>!ASK_CHAIN_MEMBERS.includes(member as AskChainMember)))return {ok:false,reason:'Ask escalation chain names an unknown member'};
+ if(chain.length&&chain[chain.length-1]!=='operator')return {ok:false,reason:'Ask escalation chain must end at the operator'};
+ return {ok:true,default_policy:p.default_policy,deadline_seconds:deadlineSeconds??p.deadline_seconds,chain:chain.length?[...chain] as AskChainMember[]:[...p.chain]};
+}
+// ---- end Ask policy -------------------------------------------------------------------------------------------

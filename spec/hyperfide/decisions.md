@@ -81,7 +81,7 @@ A recorded exception narrows where one named verification leg executes; it does 
 
 ## Seeded Ask options
 
-`human.ask.seed` (hyperfide-v21 task 4.7) raises one decision Ask per item above, idempotently, with these options. The first option is the recommended one and keeps the current gate or recorded decision; under D11 a decision Ask that reaches its operator-chosen deadline unanswered proceeds on it and is flagged. The catalogue in `services/hyperfide/src/policy/ask_seed.ts` mirrors this table and `tests/hyperfide/cases/v21/4_7.py` fails when they differ. The same action raises renewal Asks for expiring capacity attestations and fence permits, and drain-deadline decisions, from their observers.
+`human.ask.seed` (hyperfide-v21 task 4.7) raises one decision Ask per item above, idempotently, with these options. The first option is the recommended one and keeps the current gate or recorded decision; under D11 a decision Ask that reaches the decision policy deadline of task 3.6 unanswered proceeds on it and is flagged. The catalogue in `services/hyperfide/src/policy/ask_seed.ts` mirrors this table and `tests/hyperfide/cases/v21/4_7.py` fails when they differ. The same action raises renewal Asks for expiring capacity attestations and fence permits, and drain-deadline decisions, from their observers.
 
 | ID | Options (recommended first) |
 |---|---|
