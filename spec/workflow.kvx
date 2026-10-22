@@ -71,7 +71,7 @@ step_1 = "hyperfide brief — load repo state, the active task and prior decisio
 step_2 = "hyperfide spec next — take the lowest-wave eligible task."
 step_3 = "hyperfide spec start <id> — claim it in an isolated task worktree or sandbox."
 step_4 = "hyperfide survey <area> for the wide picture, then hyperfide context <area> for the code you need."
-step_5 = "Implement only the claimed task. When you need a secret, variable, permission, decision or answer, raise an Ask ([asks]) instead of defaulting."
+step_5 = "Implement only the claimed task. Never default what you were not given: raise an Ask (MCP ask_raise, or hyperfide ask raise), keep working on what does not depend on it, and read the answer with ask_status. Raise a secret when a credential or token is missing (it is answered with a secret-ref, never a value); a variable when a configuration value, path or endpoint is unknown; a permission before anything destructive, outside the task's touches, or a new dependency; a decision when more than one design fits, naming the option you recommend; a question when the spec or a criterion is ambiguous, with your reading as the recommendation. secret, variable and permission block; decision and question proceed on the recommendation and are flagged ([asks])."
 step_6 = "hyperfide review against the task's criteria; hyperfide guard for grounding, contract and hygiene; hyperfide anchors --stale for docs your edits outdated."
 step_7 = "Update the task status in the feature spec.kvx, then commit explicit paths with a message tagged [spec:<feature>/<id>]. Publication beyond the task branch follows [publication]."
 step_8 = "hyperfide spec done <id> — qualification reruns verify_cmd; done means proven."
@@ -81,8 +81,12 @@ recall   = "hyperfide recall at session start; hyperfide brief includes it."
 remember = "hyperfide remember decisions and constraints as they occur, not afterwards."
 
 [status_values]
-# blocked: the attempt has an open blocking Ask; the task is not eligible
-# for dependants, stop preserves it, and stall detection exempts it.
+# blocked: the attempt has an open blocking Ask, named in the task's
+# blocked_ask; raising it from an in_progress task blocks the task and
+# answering it returns the task to in_progress. A blocked task is not next
+# and not eligible for dependants, stop preserves it, and stall detection
+# exempts it. (The documentation stage's "blocked" is a failed docs closure,
+# not this.)
 # superseded: terminal; closed without qualifying, its work owned by the
 # task or feature named in superseded_by, the reason in superseded_reason.
 task = ["pending", "in_progress", "blocked", "implemented", "done", "superseded"]
@@ -97,7 +101,8 @@ no_direct_commits = "Humans do not commit to the monorepo directly; their change
 [asks]
 # The one channel from an agent to a human. Per-kind deadlines and
 # escalation chains are the policy table of hyperfide-v21 task 3.6; these
-# are the defaults it starts from.
+# are the defaults it starts from. When an agent raises each kind is the
+# instruction rule in [loop] step_5.
 kinds = ["secret", "variable", "permission", "decision", "question"]
 secret     = "block"
 variable   = "block"

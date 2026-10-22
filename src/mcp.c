@@ -696,6 +696,140 @@ static int t_codemap(void *v) {
     return cmd_codemap(c->cg, &o);
 }
 
+/* ---- Asks (hyperfide-v21 3.5): an agent raises and reads Asks; only a
+ * person answers them (`hyperfide ask answer`, the console), so no answer
+ * tool exists here. Everything goes through ask.c's store. */
+
+/* a JSON string-or-array argument as malloc'd strings into v (cap n) */
+static int mcp_str_list(const char *args, const char *key, char **v, int cap) {
+    char *raw = args ? json_get_raw(args, key) : NULL;
+    int n = 0;
+    if (raw && raw[0] == '[') {
+        char **items = NULL;
+        int k = json_array_items(raw, &items);
+        for (int i = 0; i < k; i++) {
+            char *s = json_string_value(items[i]);
+            if (s && s[0] && n < cap) v[n++] = s; else free(s);
+            free(items[i]);
+        }
+        free(items);
+    } else if (raw) {
+        char *s = json_string_value(raw);
+        if (s && s[0] && n < cap) v[n++] = s; else free(s);
+    }
+    free(raw);
+    return n;
+}
+static int t_ask_raise(void *v) {
+    CallCtx *c = v;
+    static const char *const KEY[] = { "body", "recommend", "task", "attempt",
+                                       "session", "sandbox" };
+    static const char *const FLAG[] = { "--body", "--recommend", "--task",
+                                        "--attempt", "--session", "--sandbox" };
+    char *kind = c->args ? json_get_string(c->args, "kind") : NULL;
+    char *title = c->args ? json_get_string(c->args, "title") : NULL;
+    if (!kind || !title) {
+        free(kind); free(title);
+        printf("{\"error\":\"kind and title are required\"}\n");
+        return 1;
+    }
+    char *opts[32], *chain[16], *vals[6];
+    int nopt = mcp_str_list(c->args, "options", opts, 32);
+    int nchain = mcp_str_list(c->args, "chain", chain, 16);
+    StrBuf cj; sb_init(&cj);
+    for (int i = 0; i < nchain; i++) {
+        if (i) sb_putc(&cj, ',');
+        sb_puts(&cj, chain[i]);
+    }
+    /* deadline: the CLI's 90s/5m/2h/1d/@EPOCH, or a number of seconds */
+    char *draw = json_get_raw(c->args, "deadline");
+    char *deadline = draw && draw[0] == '"' ? json_string_value(draw) : NULL;
+    if (draw && !deadline && strcmp(draw, "null") != 0) {
+        size_t len = strlen(draw) + 2;
+        deadline = malloc(len);
+        snprintf(deadline, len, "%ss", draw);
+    }
+    free(draw);
+    char *a[5 + 2 * 32 + 2 * 8];
+    int n = 0;
+    a[n++] = "cg"; a[n++] = "ask"; a[n++] = "raise";
+    a[n++] = kind; a[n++] = title;
+    for (int i = 0; i < nopt; i++) { a[n++] = "--option"; a[n++] = opts[i]; }
+    for (int i = 0; i < 6; i++) {
+        vals[i] = json_get_string(c->args, KEY[i]);
+        if (vals[i] && vals[i][0]) { a[n++] = (char *)FLAG[i]; a[n++] = vals[i]; }
+    }
+    if (nchain) { a[n++] = "--chain"; a[n++] = cj.p; }
+    if (deadline) { a[n++] = "--deadline"; a[n++] = deadline; }
+    int saved = fold_stderr();
+    int rc = cmd_ask(c->cg, n, a, true);
+    unfold_stderr(saved);
+    for (int i = 0; i < nopt; i++) free(opts[i]);
+    for (int i = 0; i < nchain; i++) free(chain[i]);
+    for (int i = 0; i < 6; i++) free(vals[i]);
+    sb_free(&cj); free(deadline); free(kind); free(title);
+    return rc;
+}
+/* one Ask by id, or a task's open Asks and whether one of them blocks it */
+static int t_ask_status(void *v) {
+    CallCtx *c = v;
+    long id = c->args ? json_get_int(c->args, "id", 0) : 0;
+    StrBuf b; sb_init(&b);
+    if (id > 0) {
+        sb_puts(&b, "{\"ask\":");
+        if (!ask_json(c->cg, id, &b)) {
+            sb_free(&b);
+            printf("{\"error\":\"no Ask #%ld\"}\n", id);
+            return 1;
+        }
+        sb_puts(&b, "}\n");
+    } else {
+        char *task = c->args ? json_get_string(c->args, "task") : NULL;
+        const char *t = task && task[0] ? task : getenv("CG_TASK");
+        if (!t || !t[0]) {
+            free(task);
+            sb_free(&b);
+            printf("{\"error\":\"pass id, or task (CG_TASK is not set)\"}\n");
+            return 1;
+        }
+        StrBuf rows; sb_init(&rows);
+        ask_list_json(c->cg, false, t, &rows);
+        sb_puts(&b, "{\"task\":");
+        sb_json_str(&b, t);
+        sb_printf(&b, ",\"blocked\":%s,\"asks\":%s}\n",
+                  strstr(rows.p, "\"blocking\":true") ? "true" : "false",
+                  rows.p);
+        sb_free(&rows);
+        free(task);
+    }
+    fputs(b.p, stdout);
+    sb_free(&b);
+    return 0;
+}
+static int t_ask_list(void *v) {
+    CallCtx *c = v;
+    char *all = c->args ? json_get_raw(c->args, "all") : NULL;
+    char *task = c->args ? json_get_string(c->args, "task") : NULL;
+    StrBuf b; sb_init(&b);
+    sb_puts(&b, "{\"asks\":");
+    ask_list_json(c->cg, all && strcmp(all, "true") == 0,
+                  task && task[0] ? task : NULL, &b);
+    sb_puts(&b, "}\n");
+    fputs(b.p, stdout);
+    sb_free(&b);
+    free(all); free(task);
+    return 0;
+}
+static int t_approvals_list(void *v) {
+    CallCtx *c = v;
+    char *all = c->args ? json_get_raw(c->args, "all") : NULL;
+    char *a[] = { "cg", "fleet", "approvals", "--all" };
+    int rc = cmd_fleet_approvals(c->cg, all && strcmp(all, "true") == 0 ? 4 : 3,
+                                 a, true);
+    free(all);
+    return rc;
+}
+
 /* codify-v15 1.2: the narrowing search_code and get_context share */
 #define S_QFILTER "\"path\":{\"type\":[\"string\",\"array\"],\"items\":" \
                  "{\"type\":\"string\"},\"description\":\"only paths under " \
@@ -875,6 +1009,34 @@ static int t_codemap(void *v) {
                   "\"token budget, default 8000\"},\"json\":{\"type\":" \
                   "\"boolean\",\"description\":\"structured map instead " \
                   "of markdown\"}}}"
+
+#define S_ASK_RAISE "{\"type\":\"object\",\"properties\":{" \
+    "\"kind\":{\"type\":\"string\",\"enum\":[\"secret\",\"variable\"," \
+    "\"permission\",\"decision\",\"question\"]}," \
+    "\"title\":{\"type\":\"string\",\"description\":\"the question in one " \
+    "sentence\"},\"body\":{\"type\":\"string\",\"description\":\"context: " \
+    "what is blocked and what you finished anyway\"}," \
+    "\"options\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}," \
+    "\"description\":\"the choices (permission defaults to approve, " \
+    "reject)\"},\"recommend\":{\"type\":\"string\",\"description\":\"the " \
+    "option you recommend; required for decision and question\"}," \
+    "\"deadline\":{\"type\":[\"string\",\"integer\"],\"description\":" \
+    "\"90s, 5m, 2h, 1d, @EPOCH, or seconds from now\"}," \
+    "\"chain\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}," \
+    "\"description\":\"escalation chain, first to answer first\"}," \
+    "\"task\":{\"type\":\"string\"},\"attempt\":{\"type\":\"string\"}," \
+    "\"session\":{\"type\":\"string\"},\"sandbox\":{\"type\":\"string\"}}," \
+    "\"required\":[\"kind\",\"title\"]}"
+#define S_ASK_STATUS "{\"type\":\"object\",\"properties\":{" \
+    "\"id\":{\"type\":\"integer\",\"description\":\"the Ask ask_raise " \
+    "returned\"},\"task\":{\"type\":\"string\",\"description\":\"without " \
+    "id: this task's open Asks (defaults to CG_TASK)\"}}}"
+#define S_ASK_LIST "{\"type\":\"object\",\"properties\":{" \
+    "\"all\":{\"type\":\"boolean\",\"description\":\"every Ask, newest " \
+    "first, not only open ones\"},\"task\":{\"type\":\"string\"}}}"
+#define S_APPROVALS "{\"type\":\"object\",\"properties\":{" \
+    "\"all\":{\"type\":\"boolean\",\"description\":\"decided approvals " \
+    "too, newest first\"}}}"
 
 /* Tool annotations let a client decide what it may run without asking. A
  * read-only tool can be auto-approved; without the hint every search prompts
@@ -1226,6 +1388,27 @@ static const struct {
       "Never overwrites a file Hyperfide did not generate.",
       S_PROMOTE, A_WRITE, "Promote a memory to a skill", t_skills_promote,
       false },
+    { "ask_raise",
+      "Raise an Ask instead of defaulting: a secret, variable, permission, "
+      "decision or question for a person, with options, the one you "
+      "recommend, a deadline and an escalation chain. secret, variable and "
+      "permission block the task until answered; decision and question "
+      "proceed on the recommendation and are flagged ([asks] in the "
+      "workflow). Never put a secret's value here. Returns the Ask.",
+      S_ASK_RAISE, A_WRITE, "Raise an Ask", t_ask_raise, false },
+    { "ask_status",
+      "One Ask by id (state, answer, whether it blocks, overdue, decided by "
+      "default), or without id a task's open Asks and whether the task is "
+      "blocked on one. Poll this after ask_raise; a person answers.",
+      S_ASK_STATUS, A_READ, "Ask status", t_ask_status, false },
+    { "ask_list",
+      "Open Asks (all=true: every Ask, newest first), optionally one "
+      "task's, each with kind, options, recommendation, policy and state.",
+      S_ASK_LIST, A_READ, "List Asks", t_ask_list, false },
+    { "approvals_list",
+      "Fleet approvals waiting on a person (all=true: decided ones too), "
+      "each with gate, subject, state and its permission Ask.",
+      S_APPROVALS, A_READ, "List approvals", t_approvals_list, false },
     { "codemap",
       "The repository map as CODEMAP.md would hold it: overview with build "
       "and test commands, layout, entry points, modules with their most-"

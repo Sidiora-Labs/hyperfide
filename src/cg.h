@@ -995,10 +995,16 @@ long ask_raise(Cg *cg, const AskSpec *a);      /* id, -1 refused (printed) */
 int  ask_record_answer(Cg *cg, long id, const char *answer, const char *by,
                        const char *note);
 int  ask_expire_due(Cg *cg, long now);         /* number that expired */
+/* Ask #id as a JSON object into b; false when there is no such Ask */
+bool ask_json(Cg *cg, long id, StrBuf *b);
 /* open Asks (all: every Ask, newest first), optionally one task's, as a
  * JSON array */
 void ask_list_json(Cg *cg, bool all, const char *task, StrBuf *b);
 int  cmd_ask(Cg *cg, int argc, char **argv, bool json);
+/* D4 (spec.c, hyperfide-v21 3.3): a blocking Ask on an in_progress task
+ * blocks it with blocked_ask; its answer returns the task to in_progress.
+ * 1 when the task's declaration changed. */
+int  spec_ask_transition(Cg *cg, long ask_id);
 
 /* ---------------- agent drivers (drivers.c) ---------------- */
 typedef struct {
