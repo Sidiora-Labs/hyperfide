@@ -6,6 +6,7 @@ import {invocationOf,recorded} from '../identity/enrollment.js';
 import {ASK_POLICY,ASK_POLICY_REVISION,askAnswererRoles,resolveAskPolicy} from '../agents/admission.js';
 import {recordDefaultDecision} from '../decisions/jobs.js';
 import type {ExpiredAskForDecision} from '../decisions/jobs.js';
+import {applyProviderAskAnswer} from '../providers/reconcile.js';
 
 interface Tx { query<R extends QueryResultRow=QueryResultRow>(text:string,values?:unknown[]):Promise<QueryResult<R>> }
 interface Principal {
@@ -291,7 +292,7 @@ async function routineReceive(context:RuntimeContext,input:unknown):Promise<unkn
 // The database owns the lifecycle and the no-silent-default rule; these actions add caller attribution, the
 // references a caller cannot forge, and delivery of every change to the run's operator consumer (6.1), which is
 // separate from the leader's session consumer. The leader sees Asks through human.ask.list, not by delivery.
-interface AskOutbox {
+export interface AskOutbox {
  enqueue(tx:Tx,event:EventInput,options:{consumer_ids:string[]}):Promise<{event:unknown;replayed:boolean;obligations:number}>;
  resolveOperatorConsumer(tx:Tx,input:{organisation_id:string;run_id:string;namespace:'asks'}):Promise<string|null>;
 }
@@ -368,7 +369,7 @@ function checkRaise(input:unknown):CheckedRaise{
  if(policy==='proceed-and-flag'&&recommended===null)refuse('A proceed-and-flag Ask needs a recommended option to take at its deadline');
  return {v,kind,policy,title,body,options,chain,recommended,deadline,requestedTask:v.task_id===null?null:uuid(v.task_id)};
 }
-type AskActor=Principal&{credential_id:string;attempt_id:string|null;sandbox_id:string|null};
+export type AskActor=Principal&{credential_id:string;attempt_id:string|null;sandbox_id:string|null};
 /** References a trusted in-process caller derived under its own lock (4.1: the observed native session's rows). */
 export interface AskSubject {session:string;attempt:string|null;sandbox:string|null}
 async function raiseIn(tx:Tx,actor:AskActor,outbox:AskOutbox,c:CheckedRaise,subject:AskSubject|null):Promise<Record<string,unknown>>{
@@ -407,6 +408,18 @@ function askRaise(context:RuntimeContext,input:unknown):Promise<unknown>{
  const checked=checkRaise(input);
  return askTransaction(context,'human.ask.raise',null,(tx,actor,outbox)=>raiseIn(tx,actor,outbox,checked,null),true);
 }
+/** 3.23: raise from a component that owns the Ask's subject (provider resolutions), inside its own authorised and
+ * guarded primary transaction, with the same validation, kind policy, idempotency and operator delivery. */
+export function raiseAskIn(tx:Tx,actor:AskActor,outbox:AskOutbox,input:unknown):Promise<Record<string,unknown>>{
+ return raiseIn(tx,actor,outbox,checkRaise(input),null);
+}
+/** 3.23: closes an open Ask whose subject its owning component settled by its own action, delivered to the Ask's run. */
+export async function settleAskIn(tx:Tx,actor:AskActor,outbox:AskOutbox,ask:{organisation_id:string;id:string},answer:string):Promise<Record<string,unknown>|null>{
+ const updated=await tx.query<AskRow>("UPDATE hyperfide.asks SET state='ANSWERED',answer=$3,answered_by=$4,answered_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND id=$2 AND state='OPEN' AND run_id IS NOT NULL RETURNING *",
+  [ask.organisation_id,ask.id,text(answer,1,65536,'Answer'),actor.credential_id]);
+ const next=updated.rows[0];
+ return next?{ask:askView(next),...await deliverAsk(tx,outbox,{...actor,run_id:String(next.run_id)},next,'ask.answered')}:null;
+}
 function askAnswer(context:RuntimeContext,input:unknown):Promise<unknown>{
  const v=exact(input,['ask_id','expected_state_version','answer']),answer=text(v.answer,1,65536,'Answer');
  return askTransaction(context,'human.ask.answer',null,async(tx,actor,outbox)=>{
@@ -416,10 +429,12 @@ function askAnswer(context:RuntimeContext,input:unknown):Promise<unknown>{
   if(row.state==='EXPIRED'&&row.default_policy!=='block')refuse('The default was taken at the deadline; raise a new Ask to change it');
   if(kind==='secret'&&!/^secret-ref:[A-Za-z0-9._-]{1,200}$/.test(answer))refuse('A secret is answered with a secret-ref:, never its value');
   if(choiceKinds.includes(kind)&&(row.options as string[]).length&&!(row.options as string[]).includes(answer))refuse('Answer must be one of the offered options');
+  // 3.23: an Ask about a provider subject is answered only by settling that subject in this transaction.
+  const applied=await applyProviderAskAnswer(tx,actor,{organisation_id:actor.organisation_id,id:String(row.id)},answer,outbox);
   const updated=await tx.query<AskRow>("UPDATE hyperfide.asks SET state='ANSWERED',answer=$4,answered_by=$5,answered_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 RETURNING *",
    [actor.organisation_id,actor.run_id,row.id,answer,actor.credential_id]);
   const next=updated.rows[0]!;
-  return {status:'ANSWERED',ask:askView(next),...await deliverAsk(tx,outbox,actor,next,'ask.answered')};
+  return {status:'ANSWERED',ask:askView(next),...(applied?{applied}:{}),...await deliverAsk(tx,outbox,actor,next,'ask.answered')};
  },true);
 }
 function askExpire(context:RuntimeContext,input:unknown):Promise<unknown>{

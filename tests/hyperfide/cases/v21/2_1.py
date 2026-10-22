@@ -197,6 +197,9 @@ def scenario(intents):
         check('v21.2.1.delete-needs-evidence', lambda: refused('provider.orphans.resolve', {**orphan, 'resolution': 'DELETE', 'reason': 'no proof given', 'evidence_digest': None}, 'DELETION_EVIDENCE_REQUIRED'))
         check('v21.2.1.unknown-orphan-refused', lambda: refused('provider.orphans.resolve', {'pool_id': f.pool, 'native_sandbox_id': 'never-seen', 'resolution': 'RETAIN', 'reason': 'absent', 'evidence_digest': None}, 'ORPHAN_UNKNOWN'))
 
+        # 3.23: provider Asks are raised into hyperfide.asks and delivered on the run's operator channel; this
+        # fixture inserts the run directly (no spec import), so it registers that channel itself.
+        f.sql("INSERT INTO hyperfide.event_consumers(organisation_id,run_id,id,consumer_key,critical,state) VALUES($1,$2,$3,'operator:asks',false,'ACTIVE')", [org, run_id, str(uuid.uuid4())])
         asks = {}
 
         def escalated():
