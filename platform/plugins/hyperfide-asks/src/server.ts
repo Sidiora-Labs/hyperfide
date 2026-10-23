@@ -7,13 +7,10 @@ import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { BinaryAskBridge, type AskBridge } from "./inbox-adapter.js";
 import { InboxService } from "./inbox.js";
 import { inboxContract } from "./contract.js";
-import { createThreadAskLifecycle } from "../../../packages/plugin-sdk/src/thread-ask-lifecycle.js";
+import { createThreadAskLifecycle } from "@hyperfide/plugin-sdk/host";
 import { AskTaskFlags } from "../../hyperfide-spec/src/ask-task-flags.js";
 import { AskThreadLifecycle } from "./thread-lifecycle.js";
-import type {
-  AskBridge as ThreadAskBridge,
-  TaskThreads,
-} from "./thread-bridge.js";
+import type { TaskThreads } from "./thread-lifecycle.js";
 
 export function registerInbox(api: HyperfidePluginApi, bridge: AskBridge) {
   const inbox = new InboxService(bridge, async (value) => {
@@ -105,7 +102,7 @@ export default async function plugin(api: HyperfidePluginApi) {
 /** Composition point for the 3.1 bridge and 2.3 worker-thread registry. */
 export function createAskThreadService(args: {
   repository: string;
-  bridge: ThreadAskBridge;
+  bridge: Pick<StoreBridge, "policy" | "list" | "watch">;
   threads: TaskThreads;
   operations: Parameters<typeof createThreadAskLifecycle>[0];
   board?: AskTaskFlags;
