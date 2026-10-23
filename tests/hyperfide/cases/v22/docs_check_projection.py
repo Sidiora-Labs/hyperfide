@@ -81,7 +81,14 @@ def main():
             'unresolved = ""\n\n'
             '[claim.1]\ntype = "symbol"\nvalue = "DurableMemoryBridge"\n'
             'document = "docs/hyperfide/platform.md"\n'
-            f'evidence = {json.dumps(evidence + ":5")}\n'
+            f'evidence = {json.dumps(evidence + ":20")}\n\n'
+            # Every exported type of the indexed surface is a required symbol; each needs a mapped claim.
+            '[claim.2]\ntype = "symbol"\nvalue = "DurableMemory"\n'
+            'document = "docs/hyperfide/platform.md"\n'
+            f'evidence = {json.dumps(evidence + ":13")}\n\n'
+            '[claim.3]\ntype = "symbol"\nvalue = "TaskScope"\n'
+            'document = "docs/hyperfide/platform.md"\n'
+            f'evidence = {json.dumps(evidence + ":18")}\n'
         )
         run('docs', 'check', '-f', 'docs-review')
 
