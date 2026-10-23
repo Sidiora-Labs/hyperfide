@@ -791,7 +791,7 @@ owner = "ask"
 
 [task.3.24]
 title = "Harness and docs hygiene"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["3.9", "5.2"]
 touches = ["docs/hyperfide/operations.md", "deploy/hyperfide/env/control.env.example", "tests/hyperfide/cases/tasks/24_1.py", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/cases/tasks/15_1.py", "services/hyperfide/src/runner/bridge.ts", "src/runtime.c", "editors/vscode/serve.js", "tests/hyperfide/cases/v21/3_24.py", "tests/hyperfide/cases/tasks/13_4.py", "src/vcs.c", "src/cg.h"]
