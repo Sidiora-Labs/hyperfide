@@ -19,12 +19,15 @@ export interface WavePullRequestClient {
 export function wavePullRequests(client: WavePullRequestClient, repo: string) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo))
     throw new Error("Invalid GitHub repository");
-  return (wave: WavePullRequest) =>
-    client.createPullRequest({
+  return async (wave: WavePullRequest) => {
+    const result = await client.createPullRequest({
       repo,
       head: wave.branch,
       base: wave.base,
       title: `${wave.feature}: wave ${wave.wave}`,
       body: wave.summary,
     });
+    if (!result.url?.trim()) throw new Error("Pull request client returned no URL");
+    return result;
+  };
 }
