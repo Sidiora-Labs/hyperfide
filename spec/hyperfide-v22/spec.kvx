@@ -188,7 +188,7 @@ owner = "docs"
 
 [task.0.7]
 title = "Final identity sweep, directory renames and a green platform"
-status = "in_progress"
+status = "implemented"
 wave = 0
 requires = ["0.2", "0.3", "0.4", "0.5", "0.6"]
 touches = ["platform/**", "tests/hyperfide/cases/v22/identity_gate.py", "tests/hyperfide/cases/v22/0_7.sh", "tests/hyperfide/cases/v22/identity_allowlist.txt"]
