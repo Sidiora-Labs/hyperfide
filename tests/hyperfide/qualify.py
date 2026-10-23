@@ -67,11 +67,20 @@ def immutable(path, data):
         os.fsync(stream.fileno())
     path.chmod(0o444)
 
-def snapshot(campaign, original, category, original_label=None):
+def snapshot(campaign, original, category, original_label=None, workspace=None):
+    """Copy a workspace file into the campaign; outside the workspace record a reference only.
+
+    Pinned interpreters (node, python) live outside the workspace and would otherwise be copied
+    into every campaign twice (task 7.12): a reference carries original_path, sha256 and size,
+    and check-evidence.py re-digests it from original_path on the checking host.
+    """
     original = Path(original)
     if not original.is_file() or original.is_symlink():
         raise GateError("missing or symlink input: " + str(original))
     data = original.read_bytes()
+    if workspace is not None and not original.resolve().is_relative_to(workspace):
+        return {"kind": "reference", "original_path": original_label or str(original.resolve()),
+                "sha256": digest(data), "size": len(data)}
     relative = Path(category) / digest(data) / original.name
     target = campaign / relative
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -416,15 +425,17 @@ def execute(args, root, registry_path, registry, registration, registration_path
                     raise GateError("required fixture lacks content pin: " + fixture)
             for label, pin in pins.items():
                 path = Path(label) if Path(label).is_absolute() else root / label
-                record = snapshot(output_dir, path, "inputs", label)
+                record = snapshot(output_dir, path, "inputs", label, root)
                 if record["sha256"] != pin["sha256"] or record["size"] != pin["size"]:
                     raise GateError("input digest/size mismatch: " + label)
                 inputs.append(record)
-                source_paths.add(path.resolve())
+                # One record per pinned input: only reviewed sources are also source records (task 7.12).
+                before[str(path.resolve())] = record["sha256"]
+            source_paths.update((root / relative).resolve() for relative in registration['source_files'])
             inventory = source_inventory(root, registration, inventory_exclusion)
             source_paths.update(Path(item['original_path']) for item in inventory)
             for path in sorted(source_paths):
-                record = snapshot(output_dir, path, "sources")
+                record = snapshot(output_dir, path, "sources", workspace=root)
                 source_files.append(record)
                 before[str(path)] = record["sha256"]
         except GateError as exc:

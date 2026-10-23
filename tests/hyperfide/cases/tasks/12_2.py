@@ -70,7 +70,7 @@ ASSERTIONS = [
 ]
 RESOURCE = "runner-dispatch-database"
 # Dependency closure of services/hyperfide/components/12.2.json (fragment files by id).
-DISPATCH_COMPONENTS = ["2.1", "2.4", "3.1", "3.2", "5.1", "5.2", "6.1", "6.2", "6.3", "7.2", "7.3", "12.2"]
+DISPATCH_COMPONENTS = ["2.1", "2.4", "3.1", "3.2", "5.1", "5.2", "6.1", "6.2", "6.3", "7.2", "7.3", "1.2-asks", "12.2"]
 RESULTS = {}
 
 

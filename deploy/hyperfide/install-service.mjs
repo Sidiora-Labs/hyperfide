@@ -80,8 +80,12 @@ async function run(){
  if(!path.isAbsolute(options.destination)||options.destination==='/'||path.normalize(options.destination)!==options.destination)refuse('INSTALL_UNPROTECTED_PATH');
  const parent=path.dirname(options.destination);await protectedPath(parent,true);
  await protectedPath(module,false);
- const {inspectPrebuiltRelease}=await import(pathToFileURL(module).href);
+ const {inspectPrebuiltRelease,verifyReleaseIndex}=await import(pathToFileURL(module).href);
  const env={HYPERFIDE_RELEASE_ROOT:options.source,HYPERFIDE_TRUSTED_RELEASE_KEY_FILE:options.key,HYPERFIDE_RELEASE_SIGNATURE_FILE:options.signature};
+ // release.json.sig beside the manifest signature is checked before any release file is read:
+ // a missing, forged or stale signed index refuses with RELEASE_SIGNATURE_MISSING, _FORGED or _STALE.
+ if(typeof verifyReleaseIndex!=='function')refuse('INSTALL_VERIFIER_OUTDATED');
+ await verifyReleaseIndex(env,options.digest);
  const verified=await inspectPrebuiltRelease(env,'manifest.json');
  if(verified.signature_status!=='VERIFIED'||verified.authentication?.mode!=='ED25519'||verified.manifest_digest!==options.digest)refuse('INSTALL_AUTHENTICATED_PIN_REQUIRED');
  const manifestBytes=await readManifest(path.join(options.source,'manifest.json'));
