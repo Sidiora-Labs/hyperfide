@@ -322,7 +322,7 @@ owner = "spec"
 
 [task.2.2]
 title = "Task board"
-status = "implemented"
+status = "done"
 wave = 2
 requires = ["2.1"]
 touches = ["platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/2_2.sh"]
