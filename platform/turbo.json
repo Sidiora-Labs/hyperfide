@@ -1212,6 +1212,7 @@
     "@hyperfide/hyperfide-dispatch#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
+    "@hyperfide/hyperfide-qualify#typecheck": {"dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]},
     "@hyperfide/hyperfide-spec#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },

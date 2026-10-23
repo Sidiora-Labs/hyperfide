@@ -109,7 +109,7 @@ export interface ClosurePluginHost extends PublicationHost {
     register(name: string, handler: (input: any) => Promise<unknown>): void;
   };
 }
-export default function registerWaveClosure(host: ClosurePluginHost) {
+export function registerWaveClosure(host: ClosurePluginHost) {
   const detail = waveDetail(host.authority);
   const publication = new WavePublication(host);
   host.rpc.register(
@@ -134,3 +134,15 @@ export default function registerWaveClosure(host: ClosurePluginHost) {
 }
 
 export { registerLaneReceipts } from "./projection-lane-receipts";
+
+export * from "./qualification";
+import { registerQualification, type QualificationHost } from "./qualification";
+export function qualificationPlugin(host: ClosurePluginHost): ReturnType<typeof registerQualification> | undefined;
+export function qualificationPlugin(host: QualificationHost & Partial<CheckerHost>, config?: CheckerConfig): ReturnType<typeof registerQualification> | undefined;
+export function qualificationPlugin(host: ClosurePluginHost | (QualificationHost & Partial<CheckerHost>), config?: CheckerConfig) {
+  const lanes = "realtime" in host ? registerQualification(host) : undefined;
+  if ("authority" in host) registerWaveClosure(host);
+  if (config && "onImplemented" in host && host.onImplemented) registerChecker(host as CheckerHost, config);
+  return lanes;
+}
+export default qualificationPlugin;

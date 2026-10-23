@@ -53,6 +53,7 @@
     "hyperfide-plugin-bb--storage-retention": "workspace:*",
     "hyperfide-plugin-machine-railway": "workspace:*",
     "hyperfide-plugin-machine-blaxel": "workspace:*",
-    "@hyperfide/hyperfide-graph": "workspace:*"
+    "@hyperfide/hyperfide-graph": "workspace:*",
+    "@hyperfide/hyperfide-qualify": "workspace:*"
   }
 }

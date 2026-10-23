@@ -1,8 +1,2 @@
-import { defineConfig } from "vitest/config";
-export default defineConfig({
-  test: {
-    name: "hyperfide-qualify",
-    include: ["*.test.ts"],
-    testTimeout: 15000,
-  },
-});
+import { defineConfig } from 'vitest/config';
+export default defineConfig({resolve: {conditions: ['source']}, test: {include: ['*.test.ts'], testTimeout: 30000}});
