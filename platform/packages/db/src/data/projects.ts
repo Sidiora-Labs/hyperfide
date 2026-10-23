@@ -74,8 +74,10 @@ function publicProjectFilter() {
   return and(eq(projects.kind, "standard"), isNull(projects.deletedAt));
 }
 
-export function listPublicProjects(db: DbQueryConnection): ProjectRow[] {
-  return db
+export async function listPublicProjects(
+  db: DbQueryConnection,
+): Promise<ProjectRow[]> {
+  return await db
     .select()
     .from(projects)
     .where(publicProjectFilter())
@@ -83,37 +85,39 @@ export function listPublicProjects(db: DbQueryConnection): ProjectRow[] {
     .all();
 }
 
-function getLastPublicProject(db: DbQueryConnection): ProjectRow | null {
+async function getLastPublicProject(
+  db: DbQueryConnection,
+): Promise<ProjectRow | null> {
   return (
-    db
+    (await db
       .select()
       .from(projects)
       .where(publicProjectFilter())
       .orderBy(desc(projects.sortKey), desc(projects.id))
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-function getPublicProjectForMutation(
+async function getPublicProjectForMutation(
   db: DbQueryConnection,
   id: string,
-): ProjectRow | null {
+): Promise<ProjectRow | null> {
   return (
-    db
+    (await db
       .select()
       .from(projects)
       .where(and(eq(projects.id, id), publicProjectFilter()))
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-function getPublicProjectWithLocalPathSource(
+async function getPublicProjectWithLocalPathSource(
   db: DbQueryConnection,
   source: CreateProjectLocalPathSourceInput,
 ) {
   return (
-    db
+    (await db
       .select({ project: projects, source: projectSources })
       .from(projects)
       .innerJoin(projectSources, eq(projectSources.projectId, projects.id))
@@ -127,26 +131,28 @@ function getPublicProjectWithLocalPathSource(
       )
       .orderBy(asc(projects.sortKey), asc(projects.id))
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function getPublicProjectByLocalPathSource(
+export async function getPublicProjectByLocalPathSource(
   db: DbQueryConnection,
   source: CreateProjectLocalPathSourceInput,
-): ProjectRow | null {
-  return getPublicProjectWithLocalPathSource(db, source)?.project ?? null;
+): Promise<ProjectRow | null> {
+  return (
+    (await getPublicProjectWithLocalPathSource(db, source))?.project ?? null
+  );
 }
 
-function insertProject(tx: DbTransaction, input: CreateProjectInput) {
+async function insertProject(tx: DbTransaction, input: CreateProjectInput) {
   const now = Date.now();
   const projectId = createProjectId();
   const sourceId = createProjectSourceId();
-  const lastProject = getLastPublicProject(tx);
+  const lastProject = await getLastPublicProject(tx);
   const sortKey = lastProject
     ? createOrderKeyAfter({ previousKey: lastProject.sortKey })
     : createOrderKeyBetween({ previousKey: null, nextKey: null });
-  const project = tx
+  const project = await tx
     .insert(projects)
     .values({
       id: projectId,
@@ -157,7 +163,7 @@ function insertProject(tx: DbTransaction, input: CreateProjectInput) {
     })
     .returning()
     .get();
-  const source = tx
+  const source = await tx
     .insert(projectSources)
     .values({
       id: sourceId,
@@ -179,10 +185,10 @@ function notifyProjectCreated(notifier: DbNotifier, projectId: string): void {
   notifier.notifyProject(projectId, ["project-sources-changed"]);
 }
 
-function resolveProjectNeighbor(
+async function resolveProjectNeighbor(
   db: DbQueryConnection,
   args: ResolveProjectNeighborArgs,
-): ProjectRow | null | false {
+): Promise<ProjectRow | null | false> {
   if (args.neighborProjectId === null) {
     return null;
   }
@@ -190,31 +196,38 @@ function resolveProjectNeighbor(
     return false;
   }
 
-  return getPublicProjectForMutation(db, args.neighborProjectId) ?? false;
+  return (
+    (await getPublicProjectForMutation(db, args.neighborProjectId)) ?? false
+  );
 }
 
-export function createProject(
+export async function createProject(
   db: DbConnection,
   notifier: DbNotifier,
   input: CreateProjectInput,
 ) {
-  const { project, source } = db.transaction((tx) => insertProject(tx, input));
+  const { project, source } = await db.transaction(
+    async (tx) => await insertProject(tx, input),
+  );
   notifyProjectCreated(notifier, project.id);
   return { project, source: toProjectSource(source) };
 }
 
-export function findOrCreateProjectByLocalPathSource(
+export async function findOrCreateProjectByLocalPathSource(
   db: DbConnection,
   notifier: DbNotifier,
   input: CreateProjectInput,
 ) {
-  const { created, project, source } = db.transaction(
-    (tx) => {
-      const existing = getPublicProjectWithLocalPathSource(tx, input.source);
+  const { created, project, source } = await db.transaction(
+    async (tx) => {
+      const existing = await getPublicProjectWithLocalPathSource(
+        tx,
+        input.source,
+      );
       if (existing) {
         return { created: false, ...existing };
       }
-      return { created: true, ...insertProject(tx, input) };
+      return { created: true, ...(await insertProject(tx, input)) };
     },
     { behavior: "immediate" },
   );
@@ -232,23 +245,28 @@ const prepareGetProject = (db: DbQueryConnection) =>
     .where(eq(projects.id, placeholder("id")))
     .prepare();
 
-export function getProject(db: DbConnection, id: string) {
-  return prepareCachedQuery(db, prepareGetProject).get({ id }) ?? null;
+export async function getProject(db: DbConnection, id: string) {
+  return (await prepareCachedQuery(db, prepareGetProject).get({ id })) ?? null;
 }
 
-export function getPersonalProject(db: DbConnection) {
+export async function getPersonalProject(db: DbConnection) {
   return (
-    db
+    (await db
       .select()
       .from(projects)
-      .where(and(eq(projects.id, PERSONAL_PROJECT_ID), eq(projects.kind, "personal")))
-      .get() ?? null
+      .where(
+        and(
+          eq(projects.id, PERSONAL_PROJECT_ID),
+          eq(projects.kind, "personal"),
+        ),
+      )
+      .get()) ?? null
   );
 }
 
-export function ensurePersonalProject(db: DbConnection) {
+export async function ensurePersonalProject(db: DbConnection) {
   const now = Date.now();
-  db
+  await db
     .insert(projects)
     .values({
       id: PERSONAL_PROJECT_ID,
@@ -261,7 +279,7 @@ export function ensurePersonalProject(db: DbConnection) {
     .onConflictDoNothing()
     .run();
 
-  const project = getPersonalProject(db);
+  const project = await getPersonalProject(db);
   if (!project) {
     throw new Error("Personal project row was not created");
   }
@@ -272,20 +290,20 @@ export interface UpdateProjectInput {
   name?: string;
 }
 
-export function setProjectGitRemoteUrlIfMissing(
+export async function setProjectGitRemoteUrlIfMissing(
   db: DbConnection,
   notifier: DbNotifier,
   id: string,
   gitRemoteUrl: string,
 ) {
-  const updated = db
+  const updated = await db
     .update(projects)
     .set({ gitRemoteUrl, updatedAt: Date.now() })
     .where(and(eq(projects.id, id), isNull(projects.gitRemoteUrl)))
     .returning()
     .get();
   if (updated) {
-    notifier.notifyProject(id, ["project-updated"]);
+    await notifier.notifyProject(id, ["project-updated"]);
   }
   return updated ?? null;
 }
@@ -295,33 +313,33 @@ export interface MarkProjectDeletedArgs {
   projectId: string;
 }
 
-export function updateProject(
+export async function updateProject(
   db: DbConnection,
   notifier: DbNotifier,
   id: string,
   input: UpdateProjectInput,
 ) {
   const now = Date.now();
-  const updated = db
+  const updated = await db
     .update(projects)
     .set({ ...input, updatedAt: now })
     .where(eq(projects.id, id))
     .returning()
     .get();
   if (updated) {
-    notifier.notifyProject(id, ["project-updated"]);
+    await notifier.notifyProject(id, ["project-updated"]);
   }
   return updated ?? null;
 }
 
-export function markProjectDeleted(
+export async function markProjectDeleted(
   db: DbConnection | DbTransaction,
   notifier: DbNotifier,
   args: MarkProjectDeletedArgs,
 ) {
   const deletedAt = args.deletedAt ?? Date.now();
   const updated =
-    db
+    (await db
       .update(projects)
       .set({
         deletedAt,
@@ -329,34 +347,34 @@ export function markProjectDeleted(
       })
       .where(and(eq(projects.id, args.projectId), isNull(projects.deletedAt)))
       .returning()
-      .get() ?? null;
+      .get()) ?? null;
 
   if (updated) {
-    notifier.notifyProject(args.projectId, ["project-updated"]);
+    await notifier.notifyProject(args.projectId, ["project-updated"]);
   }
 
   return updated;
 }
 
-export function reorderProject({
+export async function reorderProject({
   db,
   nextProjectId,
   notifier,
   previousProjectId,
   projectId,
-}: ReorderProjectArgs): ReorderProjectResult {
-  const result = db.transaction(
-    (tx): ReorderProjectResult => {
-      const movedProject = getPublicProjectForMutation(tx, projectId);
+}: ReorderProjectArgs): Promise<ReorderProjectResult> {
+  const result = await db.transaction(
+    async (tx): Promise<ReorderProjectResult> => {
+      const movedProject = await getPublicProjectForMutation(tx, projectId);
       if (!movedProject) {
         return { kind: "not_found" };
       }
 
-      const previousProject = resolveProjectNeighbor(tx, {
+      const previousProject = await resolveProjectNeighbor(tx, {
         movedProjectId: projectId,
         neighborProjectId: previousProjectId,
       });
-      const nextProject = resolveProjectNeighbor(tx, {
+      const nextProject = await resolveProjectNeighbor(tx, {
         movedProjectId: projectId,
         neighborProjectId: nextProjectId,
       });
@@ -371,13 +389,14 @@ export function reorderProject({
         return { kind: "invalid_neighbor_order" };
       }
 
-      const currentProjects = listPublicProjects(tx);
+      const currentProjects = await listPublicProjects(tx);
       const currentIndex = currentProjects.findIndex(
         (project) => project.id === projectId,
       );
       const currentPreviousProjectId =
         currentProjects[currentIndex - 1]?.id ?? null;
-      const currentNextProjectId = currentProjects[currentIndex + 1]?.id ?? null;
+      const currentNextProjectId =
+        currentProjects[currentIndex + 1]?.id ?? null;
       if (
         currentPreviousProjectId === previousProjectId &&
         currentNextProjectId === nextProjectId
@@ -392,7 +411,7 @@ export function reorderProject({
         previousKey: previousProject?.sortKey ?? null,
         nextKey: nextProject?.sortKey ?? null,
       });
-      const updated = tx
+      const updated = await tx
         .update(projects)
         .set({ sortKey, updatedAt: Date.now() })
         .where(eq(projects.id, projectId))
@@ -404,26 +423,30 @@ export function reorderProject({
 
       return {
         kind: "reordered",
-        projects: listPublicProjects(tx),
+        projects: await listPublicProjects(tx),
       };
     },
     { behavior: "immediate" },
   );
 
   if (result.kind === "reordered") {
-    notifier.notifyProject(projectId, ["project-order-changed"]);
+    await notifier.notifyProject(projectId, ["project-order-changed"]);
   }
   return result;
 }
 
-export function deleteProject(
+export async function deleteProject(
   db: DbConnection,
   notifier: DbNotifier,
   id: string,
 ) {
-  const existing = db.select().from(projects).where(eq(projects.id, id)).get();
+  const existing = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, id))
+    .get();
   if (!existing) return false;
-  db.delete(projects).where(eq(projects.id, id)).run();
-  notifier.notifyProject(id, ["project-deleted"]);
+  await db.delete(projects).where(eq(projects.id, id)).run();
+  await notifier.notifyProject(id, ["project-deleted"]);
   return true;
 }

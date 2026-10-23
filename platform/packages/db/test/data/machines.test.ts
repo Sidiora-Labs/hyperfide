@@ -1,3 +1,5 @@
+// Native SQLite snapshots exercise serialize/reopen; portable placement reads run above.
+import { isPostgresTest } from "../../src/testing.js";
 import { describe, expect, it } from "vitest";
 import { createConnection } from "../../src/connection.js";
 import { eq } from "drizzle-orm";
@@ -16,10 +18,10 @@ import { noopNotifier } from "../../src/notifier.js";
 import { environments, threads } from "../../src/schema.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, { name: "test-host" });
-  const { project } = createProject(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, { name: "test-host" });
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
@@ -27,49 +29,71 @@ function setup() {
 }
 
 describe("machine provisioning state", () => {
-  it("selects unfinished provider machines through creation, suspension and removal", () => {
-    const { db, host } = setup();
+  it("selects unfinished provider machines through creation, suspension and removal", async () => {
+    const { db, host } = await setup();
     try {
-      updateHost(db, noopNotifier, host.id, { machineProviderId: "test-machine" });
-      const other = upsertHost(db, noopNotifier, { name: "other-provider" });
-      updateHost(db, noopNotifier, other.id, { machineProviderId: "other-machine" });
-      for (const phase of ["creating", "active", "suspending", "suspended", "resuming", "removing"] as const) {
-        updateHost(db, noopNotifier, host.id, { phase });
-        expect(listProviderMachines(db, "test-machine").map((row) => row.id)).toEqual([host.id]);
+      await updateHost(db, noopNotifier, host.id, {
+        machineProviderId: "test-machine",
+      });
+      const other = await upsertHost(db, noopNotifier, {
+        name: "other-provider",
+      });
+      await updateHost(db, noopNotifier, other.id, {
+        machineProviderId: "other-machine",
+      });
+      for (const phase of [
+        "creating",
+        "active",
+        "suspending",
+        "suspended",
+        "resuming",
+        "removing",
+      ] as const) {
+        await updateHost(db, noopNotifier, host.id, { phase });
+        expect(
+          (await listProviderMachines(db, "test-machine")).map((row) => row.id),
+        ).toEqual([host.id]);
       }
-      updateHost(db, noopNotifier, host.id, { phase: "destroyed" });
-      expect(listProviderMachines(db, "test-machine")).toEqual([]);
-      updateHost(db, noopNotifier, host.id, { phase: "active", destroyedAt: 1 });
-      expect(listProviderMachines(db, "test-machine")).toEqual([]);
+      await updateHost(db, noopNotifier, host.id, { phase: "destroyed" });
+      expect(await listProviderMachines(db, "test-machine")).toEqual([]);
+      await updateHost(db, noopNotifier, host.id, {
+        phase: "active",
+        destroyedAt: 1,
+      });
+      expect(await listProviderMachines(db, "test-machine")).toEqual([]);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("distinguishes starting launches from live threads retained until archive", () => {
-    const { db, host, project } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("distinguishes starting launches from live threads retained until archive", async () => {
+    const { db, host, project } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "starting",
     });
-    updateHost(db, noopNotifier, host.id, { launchKey: thread.id });
+    await updateHost(db, noopNotifier, host.id, { launchKey: thread.id });
 
-    expect(machineHasLiveThreadLaunch(db, host.id)).toBe(true);
-    expect(machineHasStartingThreadLaunch(db, host.id)).toBe(true);
+    expect(await machineHasLiveThreadLaunch(db, host.id)).toBe(true);
+    expect(await machineHasStartingThreadLaunch(db, host.id)).toBe(true);
     for (const status of ["active", "idle", "error"] as const) {
-      db.update(threads).set({ status }).where(eq(threads.id, thread.id)).run();
-      expect(machineHasStartingThreadLaunch(db, host.id)).toBe(false);
-      expect(machineHasLiveThreadLaunch(db, host.id)).toBe(true);
+      await db
+        .update(threads)
+        .set({ status })
+        .where(eq(threads.id, thread.id))
+        .run();
+      expect(await machineHasStartingThreadLaunch(db, host.id)).toBe(false);
+      expect(await machineHasLiveThreadLaunch(db, host.id)).toBe(true);
     }
-    archiveThread(db, noopNotifier, thread.id);
-    expect(machineHasLiveThreadLaunch(db, host.id)).toBe(false);
-    expect(machineHasStartingThreadLaunch(db, host.id)).toBe(false);
+    await archiveThread(db, noopNotifier, thread.id);
+    expect(await machineHasLiveThreadLaunch(db, host.id)).toBe(false);
+    expect(await machineHasStartingThreadLaunch(db, host.id)).toBe(false);
   });
 
-  it("finds a provisioning environment on the host until it is ready", () => {
-    const { db, host, project } = setup();
-    const environment = createEnvironment(db, noopNotifier, {
+  it("finds a provisioning environment on the host until it is ready", async () => {
+    const { db, host, project } = await setup();
+    const environment = await createEnvironment(db, noopNotifier, {
       projectId: project.id,
       hostId: host.id,
       path: "/tmp/environment",
@@ -78,22 +102,23 @@ describe("machine provisioning state", () => {
       environmentProvider: null,
     });
 
-    expect(machineHasProvisioningEnvironment(db, host.id)).toBe(true);
-    db.update(environments)
+    expect(await machineHasProvisioningEnvironment(db, host.id)).toBe(true);
+    await db
+      .update(environments)
       .set({ status: "ready" })
       .where(eq(environments.id, environment.id))
       .run();
-    expect(machineHasProvisioningEnvironment(db, host.id)).toBe(false);
+    expect(await machineHasProvisioningEnvironment(db, host.id)).toBe(false);
   });
 });
 
 describe("pending machine ownership", () => {
-  it.each(["pending", "provisioning"] as const)(
+  it.skipIf(isPostgresTest).each(["pending", "provisioning"] as const)(
     "retains persisted %s placement after reloading the database",
-    (kind) => {
-      const { db, host, project } = setup();
+    async (kind) => {
+      const { db, host, project } = await setup();
       try {
-        const thread = createThread(db, noopNotifier, {
+        const thread = await createThread(db, noopNotifier, {
           projectId: project.id,
           providerId: "codex",
           status: kind === "pending" ? "pending" : "starting",
@@ -102,7 +127,8 @@ describe("pending machine ownership", () => {
           type: "provider",
           machine: { type: "existing", hostId: host.id },
         };
-        db.update(threads)
+        await db
+          .update(threads)
           .set({
             startupContext: JSON.stringify(
               kind === "pending"
@@ -112,19 +138,19 @@ describe("pending machine ownership", () => {
           })
           .where(eq(threads.id, thread.id))
           .run();
-        const restored = createConnection(db.$client.serialize());
+        const restored = await createConnection(db.$client.serialize());
         try {
-          expect(machineHasPendingThreads(restored, host.id)).toBe(true);
-          expect(machineHasPendingThreads(restored, "different-host")).toBe(
-            false,
-          );
+          expect(await machineHasPendingThreads(restored, host.id)).toBe(true);
+          expect(
+            await machineHasPendingThreads(restored, "different-host"),
+          ).toBe(false);
           for (const patch of [
             { status: "error" },
             { status: "idle" },
             { archivedAt: 1 },
             { deletedAt: 1 },
           ] as const) {
-            restored
+            await restored
               .update(threads)
               .set({
                 status: kind === "pending" ? "pending" : "starting",
@@ -134,26 +160,28 @@ describe("pending machine ownership", () => {
               })
               .where(eq(threads.id, thread.id))
               .run();
-            expect(machineHasPendingThreads(restored, host.id)).toBe(false);
+            expect(await machineHasPendingThreads(restored, host.id)).toBe(
+              false,
+            );
           }
         } finally {
-          restored.$client.close();
+          await restored.close();
         }
       } finally {
-        db.$client.close();
+        await db.close();
       }
     },
   );
 
-  it("retains a preparing owner through ready-before-attachment but releases orphan or cancelled preparation", () => {
-    const { db, host, project } = setup();
+  it("retains a preparing owner through ready-before-attachment but releases orphan or cancelled preparation", async () => {
+    const { db, host, project } = await setup();
     try {
-      const thread = createThread(db, noopNotifier, {
+      const thread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         status: "starting",
       });
-      const environment = createEnvironment(db, noopNotifier, {
+      const environment = await createEnvironment(db, noopNotifier, {
         projectId: project.id,
         hostId: host.id,
         path: "/tmp/preparing",
@@ -161,23 +189,27 @@ describe("pending machine ownership", () => {
         providerOwnsPath: false,
         environmentProvider: null,
       });
-      db.update(environments)
+      await db
+        .update(environments)
         .set({ ownerThreadId: thread.id })
         .where(eq(environments.id, environment.id))
         .run();
       for (const status of ["creating", "provisioning", "ready"] as const) {
-        db.update(environments)
+        await db
+          .update(environments)
           .set({ status })
           .where(eq(environments.id, environment.id))
           .run();
-        expect(machineHasPendingThreads(db, host.id)).toBe(true);
+        expect(await machineHasPendingThreads(db, host.id)).toBe(true);
       }
-      db.update(environments)
+      await db
+        .update(environments)
         .set({ teardownStatus: "running" })
         .where(eq(environments.id, environment.id))
         .run();
-      expect(machineHasPendingThreads(db, host.id)).toBe(false);
-      db.update(environments)
+      expect(await machineHasPendingThreads(db, host.id)).toBe(false);
+      await db
+        .update(environments)
         .set({ teardownStatus: null })
         .where(eq(environments.id, environment.id))
         .run();
@@ -188,7 +220,8 @@ describe("pending machine ownership", () => {
         { archivedAt: 1 },
         { deletedAt: 1 },
       ] as const) {
-        db.update(threads)
+        await db
+          .update(threads)
           .set({
             status: "starting",
             archivedAt: null,
@@ -197,19 +230,19 @@ describe("pending machine ownership", () => {
           })
           .where(eq(threads.id, thread.id))
           .run();
-        expect(machineHasPendingThreads(db, host.id)).toBe(false);
+        expect(await machineHasPendingThreads(db, host.id)).toBe(false);
       }
-      db.delete(threads).where(eq(threads.id, thread.id)).run();
-      expect(machineHasPendingThreads(db, host.id)).toBe(false);
+      await db.delete(threads).where(eq(threads.id, thread.id)).run();
+      expect(await machineHasPendingThreads(db, host.id)).toBe(false);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("finds an unattached pending reuse intent without retaining failed or destroyed workspaces", () => {
-    const { db, host, project } = setup();
+  it("finds an unattached pending reuse intent without retaining failed or destroyed workspaces", async () => {
+    const { db, host, project } = await setup();
     try {
-      const environment = createEnvironment(db, noopNotifier, {
+      const environment = await createEnvironment(db, noopNotifier, {
         projectId: project.id,
         hostId: host.id,
         path: "/tmp/reuse",
@@ -217,12 +250,13 @@ describe("pending machine ownership", () => {
         providerOwnsPath: false,
         environmentProvider: null,
       });
-      const thread = createThread(db, noopNotifier, {
+      const thread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         status: "pending",
       });
-      db.update(threads)
+      await db
+        .update(threads)
         .set({
           startupContext: JSON.stringify({
             kind: "pending",
@@ -231,9 +265,11 @@ describe("pending machine ownership", () => {
         })
         .where(eq(threads.id, thread.id))
         .run();
-      expect(machineHasPendingThreads(db, host.id)).toBe(true);
-      const oldHost = upsertHost(db, noopNotifier, { name: "previous-host" });
-      const oldEnvironment = createEnvironment(db, noopNotifier, {
+      expect(await machineHasPendingThreads(db, host.id)).toBe(true);
+      const oldHost = await upsertHost(db, noopNotifier, {
+        name: "previous-host",
+      });
+      const oldEnvironment = await createEnvironment(db, noopNotifier, {
         projectId: project.id,
         hostId: oldHost.id,
         path: "/tmp/old",
@@ -241,20 +277,22 @@ describe("pending machine ownership", () => {
         providerOwnsPath: false,
         environmentProvider: null,
       });
-      db.update(environments)
+      await db
+        .update(environments)
         .set({ ownerThreadId: thread.id })
         .where(eq(environments.id, oldEnvironment.id))
         .run();
-      expect(machineHasPendingThreads(db, oldHost.id)).toBe(false);
+      expect(await machineHasPendingThreads(db, oldHost.id)).toBe(false);
       for (const status of ["error", "destroyed"] as const) {
-        db.update(environments)
+        await db
+          .update(environments)
           .set({ status })
           .where(eq(environments.id, environment.id))
           .run();
-        expect(machineHasPendingThreads(db, host.id)).toBe(false);
+        expect(await machineHasPendingThreads(db, host.id)).toBe(false);
       }
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 });

@@ -19,13 +19,13 @@ describe("createAsyncRerunner", () => {
   it("runs a task requested as the completed drain is settling", async () => {
     const runner = createAsyncRerunner<string>();
     const calls: string[] = [];
-    const trailing = createDeferredPromise<void>();
+    const trailing = await createDeferredPromise<void>();
 
     const first = runner.run("thread", async () => {
       calls.push("first");
     });
     queueMicrotask(() => {
-      queueMicrotask(() => {
+      queueMicrotask(async () => {
         void runner
           .run("thread", async () => {
             calls.push("trailing");
@@ -40,8 +40,8 @@ describe("createAsyncRerunner", () => {
 
   it("runs the latest task requested while the key is in flight", async () => {
     const runner = createLifecycleDedupers().threadProvisionAdvance;
-    const firstStarted = createDeferredPromise<void>();
-    const releaseFirst = createDeferredPromise<void>();
+    const firstStarted = await createDeferredPromise<void>();
+    const releaseFirst = await createDeferredPromise<void>();
     const calls: string[] = [];
 
     const first = runner.run("thread", async () => {
@@ -65,8 +65,8 @@ describe("createAsyncRerunner", () => {
 
   it("runs a pending task after the in-flight task rejects", async () => {
     const runner = createAsyncRerunner<string>();
-    const firstStarted = createDeferredPromise<void>();
-    const releaseFirst = createDeferredPromise<void>();
+    const firstStarted = await createDeferredPromise<void>();
+    const releaseFirst = await createDeferredPromise<void>();
     const calls: string[] = [];
 
     const first = runner.run("thread", async () => {

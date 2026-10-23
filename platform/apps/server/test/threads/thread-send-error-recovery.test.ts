@@ -14,26 +14,26 @@ import { createTestAppHarness, withTestHarness } from "../helpers/test-app.js";
 
 type TestHarness = Awaited<ReturnType<typeof createTestAppHarness>>;
 
-function seedErroredThread(harness: TestHarness) {
-  const { host } = seedHostSession(harness.deps, {
+async function seedErroredThread(harness: TestHarness) {
+  const { host } = await seedHostSession(harness.deps, {
     id: "host-error-recovery",
   });
-  const { project } = seedProjectWithSource(harness.deps, {
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: "/tmp/error-recovery-project",
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: "/tmp/error-recovery-environment",
     status: "ready",
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     environmentId: environment.id,
     projectId: project.id,
     status: "error",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     providerThreadId: "provider-error-recovery",
     threadId: thread.id,
@@ -44,7 +44,7 @@ function seedErroredThread(harness: TestHarness) {
 describe("errored thread correction", () => {
   it("starts a recovery turn for steer-if-active", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedErroredThread(harness);
+      const { environment, thread } = await seedErroredThread(harness);
 
       await sendThreadMessage(harness.deps, {
         environment,
@@ -60,7 +60,7 @@ describe("errored thread correction", () => {
         trigger: "user",
       });
 
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         status: "active",
       });
       const queued = await waitForQueuedCommand(
@@ -79,7 +79,7 @@ describe("errored thread correction", () => {
 
   it("rejects explicit steer for an errored thread", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedErroredThread(harness);
+      const { environment, thread } = await seedErroredThread(harness);
 
       await expect(
         sendThreadMessage(harness.deps, {
@@ -106,7 +106,7 @@ describe("errored thread correction", () => {
         },
         status: 409,
       });
-      expect(getThread(harness.db, thread.id)?.status).toBe("error");
+      expect((await getThread(harness.db, thread.id))?.status).toBe("error");
     });
   });
 });

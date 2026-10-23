@@ -30,26 +30,26 @@ function text(value: string): PromptInput {
 
 it.each([false, true])(
   "removes the native draft schema without moving queue data (original migration applied: %s)",
-  (alreadyMigrated) => {
-    const db = createConnection(":memory:");
+  async (alreadyMigrated) => {
+    const db = await createConnection(":memory:");
     try {
-      migrate(db);
-      const draftThread = createThread(db, noopNotifier, {
+      await migrate(db);
+      const draftThread = await createThread(db, noopNotifier, {
         projectId: PERSONAL_PROJECT_ID,
         providerId: "test-provider",
         status: "pending",
       });
-      const followUpThread = createThread(db, noopNotifier, {
+      const followUpThread = await createThread(db, noopNotifier, {
         projectId: PERSONAL_PROJECT_ID,
         providerId: "test-provider",
         status: "idle",
       });
-      const queue = (
+      const queue = async (
         threadId: string,
         content: PromptInput[],
         pluginId: string | null,
       ) =>
-        createQueuedThreadMessage(db, noopNotifier, {
+        await createQueuedThreadMessage(db, noopNotifier, {
           threadId,
           content,
           model: "test-model",
@@ -64,9 +64,9 @@ it.each([false, true])(
           payload: { kind: "inline" },
           systemNotice: null,
         });
-      queue(draftThread.id, [text("First draft")], "drafts");
-      queue(followUpThread.id, [text("Draft one")], "drafts");
-      queue(
+      await queue(draftThread.id, [text("First draft")], "drafts");
+      await queue(followUpThread.id, [text("Draft one")], "drafts");
+      await queue(
         followUpThread.id,
         [
           text("Draft two"),
@@ -74,19 +74,23 @@ it.each([false, true])(
         ],
         "drafts",
       );
-      queue(followUpThread.id, [text("Queued for real")], null);
-      queue(followUpThread.id, [text("Held elsewhere")], "concurrency-limit");
-      db.$client.exec(
+      await queue(followUpThread.id, [text("Queued for real")], null);
+      await queue(
+        followUpThread.id,
+        [text("Held elsewhere")],
+        "concurrency-limit",
+      );
+      await db.$client.exec(
         `INSERT INTO plugins (id, source, provenance, source_kind, source_builtin_name, root_dir, version, installed_at, updated_at)
          VALUES ('drafts', 'builtin:drafts', 'builtin', 'builtin', 'drafts', '/tmp/drafts', '0.1.0', 1, 1)`,
       );
-      db.$client
+      await db.$client
         .prepare("DELETE FROM __drizzle_migrations WHERE created_at >= ?")
         .run(THREAD_DRAFTS_MIGRATION_TIMESTAMP);
 
       if (alreadyMigrated) {
-        db.$client.exec(originalMigration);
-        db.$client
+        await db.$client.exec(originalMigration);
+        await db.$client
           .prepare(
             "INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)",
           )
@@ -95,53 +99,57 @@ it.each([false, true])(
             THREAD_DRAFTS_MIGRATION_TIMESTAMP,
           );
         expect(
-          db.$client
+          await db.$client
             .prepare("SELECT draft FROM threads WHERE draft IS NOT NULL")
             .all(),
         ).toHaveLength(2);
       }
 
-      const queueBefore = db.$client
+      const queueBefore = await db.$client
         .prepare("SELECT * FROM queued_thread_messages ORDER BY id")
         .all();
-      const pluginsBefore = db.$client
+      const pluginsBefore = await db.$client
         .prepare("SELECT * FROM plugins ORDER BY id")
         .all();
-      const threadsBefore = db.$client
+      const threadsBefore = await db.$client
         .prepare("SELECT id, status FROM threads ORDER BY id")
         .all();
       expect(queueBefore).toHaveLength(alreadyMigrated ? 2 : 5);
 
       dropIdleLifecycleIndexes(db);
-      rewindThreadPruningWork(db);
-      dropPluginEnabledFollowsDefaultColumn(db);
-      dropQueuedMessageEditHeldUntilColumn(db);
-      dropMarketplaceSourceGitSubdirectoryColumn(db);
-      dropThreadParentNotificationsColumn(db);
-      migrate(db);
-      migrate(db);
+      await rewindThreadPruningWork(db);
+      await dropPluginEnabledFollowsDefaultColumn(db);
+      await dropQueuedMessageEditHeldUntilColumn(db);
+      await dropMarketplaceSourceGitSubdirectoryColumn(db);
+      await dropThreadParentNotificationsColumn(db);
+      await migrate(db);
+      await migrate(db);
 
       expect(
-        db.$client
+        await db.$client
           .prepare("SELECT * FROM queued_thread_messages ORDER BY id")
           .all(),
       ).toEqual(queueBefore);
       expect(
-        db.$client.prepare("SELECT * FROM plugins ORDER BY id").all(),
+        await db.$client.prepare("SELECT * FROM plugins ORDER BY id").all(),
       ).toEqual(pluginsBefore);
       expect(
-        db.$client.prepare("SELECT id, status FROM threads ORDER BY id").all(),
+        await db.$client
+          .prepare("SELECT id, status FROM threads ORDER BY id")
+          .all(),
       ).toEqual(threadsBefore);
       expect(
-        db.$client
+        await db.$client
           .prepare(
             "SELECT name FROM pragma_table_info('threads') WHERE name = 'draft'",
           )
           .all(),
       ).toEqual([]);
-      expect(db.$client.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+      expect(
+        await db.$client.prepare("PRAGMA foreign_key_check").all(),
+      ).toEqual([]);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   },
 );

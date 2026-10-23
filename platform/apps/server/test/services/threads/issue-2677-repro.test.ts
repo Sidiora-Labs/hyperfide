@@ -28,40 +28,43 @@ import {
 import type { TestAppHarness } from "../../helpers/test-app.js";
 
 interface FamilyFixture {
-  child: ReturnType<typeof seedThread>;
-  environment: ReturnType<typeof seedEnvironment>;
-  parent: ReturnType<typeof seedThread>;
+  child: Awaited<ReturnType<typeof seedThread>>;
+  environment: Awaited<ReturnType<typeof seedEnvironment>>;
+  parent: Awaited<ReturnType<typeof seedThread>>;
   sessionId: string;
 }
 
-function seedFamily(harness: TestAppHarness, suffix: string): FamilyFixture {
-  const { host, session } = seedHostSession(harness.deps, {
+async function seedFamily(
+  harness: TestAppHarness,
+  suffix: string,
+): Promise<FamilyFixture> {
+  const { host, session } = await seedHostSession(harness.deps, {
     id: `host-${suffix}`,
   });
-  const { project } = seedProjectWithSource(harness.deps, {
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
   });
-  const parent = seedThread(harness.deps, {
+  const parent = await seedThread(harness.deps, {
     environmentId: environment.id,
     projectId: project.id,
     title: "Parent",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     providerThreadId: `provider-parent-${suffix}`,
     threadId: parent.id,
   });
-  const child = seedThread(harness.deps, {
+  const child = await seedThread(harness.deps, {
     environmentId: environment.id,
     parentThreadId: parent.id,
     projectId: project.id,
     title: "Child",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     providerThreadId: `provider-child-${suffix}`,
     threadId: child.id,
@@ -81,7 +84,7 @@ async function postEventBatch(args: {
 }): Promise<Response> {
   return args.harness.app.request("/internal/session/events", {
     method: "POST",
-    headers: internalAuthHeaders(args.harness),
+    headers: await internalAuthHeaders(args.harness),
     body: JSON.stringify({
       sessionId: args.sessionId,
       eventGroups: groupHostDaemonEvents(args.events),
@@ -89,32 +92,33 @@ async function postEventBatch(args: {
   });
 }
 
-function parentSystemMessageKinds(
+async function parentSystemMessageKinds(
   harness: TestAppHarness,
   parentThreadId: string,
-): string[] {
-  return harness.db
-    .select()
-    .from(events)
-    .where(
-      and(
-        eq(events.threadId, parentThreadId),
-        eq(events.type, "client/turn/requested"),
-      ),
-    )
-    .all()
-    .flatMap((row) => {
-      const data = turnRequestEventDataSchema.parse(JSON.parse(row.data));
-      return data.initiator === "system" && data.systemMessageKind
-        ? [data.systemMessageKind]
-        : [];
-    });
+): Promise<string[]> {
+  return (
+    await harness.db
+      .select()
+      .from(events)
+      .where(
+        and(
+          eq(events.threadId, parentThreadId),
+          eq(events.type, "client/turn/requested"),
+        ),
+      )
+      .all()
+  ).flatMap((row) => {
+    const data = turnRequestEventDataSchema.parse(JSON.parse(row.data));
+    return data.initiator === "system" && data.systemMessageKind
+      ? [data.systemMessageKind]
+      : [];
+  });
 }
 
 describe("child outcome reconciliation", () => {
   it("does not report a failed outcome after a later accepted turn becomes active", async () => {
     await withChildThreadNotificationClock(async (harness) => {
-      const fixture = seedFamily(harness, "late-acceptance");
+      const fixture = await seedFamily(harness, "late-acceptance");
       await sendThreadMessage(harness.deps, {
         environment: fixture.environment,
         payload: {
@@ -142,7 +146,9 @@ describe("child outcome reconciliation", () => {
         errorCode: "command_timeout",
         errorMessage: "Timed out waiting for command result",
       });
-      expect(getThread(harness.db, fixture.child.id)?.status).toBe("active");
+      expect((await getThread(harness.db, fixture.child.id))?.status).toBe(
+        "active",
+      );
       const turnId = "turn-late-acceptance";
       const response = await postEventBatch({
         harness,
@@ -170,18 +176,24 @@ describe("child outcome reconciliation", () => {
         ],
       });
       expect(response.status).toBe(200);
-      expect(getThread(harness.db, fixture.child.id)?.status).toBe("active");
+      expect((await getThread(harness.db, fixture.child.id))?.status).toBe(
+        "active",
+      );
 
       await flushChildThreadNotifications();
 
-      expect(getThread(harness.db, fixture.child.id)?.status).toBe("active");
-      expect(parentSystemMessageKinds(harness, fixture.parent.id)).toEqual([]);
+      expect((await getThread(harness.db, fixture.child.id))?.status).toBe(
+        "active",
+      );
+      expect(
+        await parentSystemMessageKinds(harness, fixture.parent.id),
+      ).toEqual([]);
     });
   });
 
   it("keeps one outcome when the same child is queued twice", async () => {
     await withChildThreadNotificationClock(async (harness) => {
-      const fixture = seedFamily(harness, "duplicate");
+      const fixture = await seedFamily(harness, "duplicate");
       for (let index = 0; index < 2; index += 1) {
         await queueChildThreadTurnNotificationBestEffort(harness.deps, {
           childThread: fixture.child,
@@ -192,9 +204,9 @@ describe("child outcome reconciliation", () => {
 
       await flushChildThreadNotifications();
 
-      expect(parentSystemMessageKinds(harness, fixture.parent.id)).toEqual([
-        "child-failed",
-      ]);
+      expect(
+        await parentSystemMessageKinds(harness, fixture.parent.id),
+      ).toEqual(["child-failed"]);
     });
   });
 });

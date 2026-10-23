@@ -28,14 +28,14 @@ export function createManualMachineProviderRecord(
         context.signal.throwIfAborted();
         const resource = { key: context.key };
         await context.checkpoint(resource);
-        context.report.step("Preparing machine enrollment");
+        await context.report.step("Preparing machine enrollment");
         let hostName: string;
         try {
           const enrollment = await enrollments.prepare({
             key: context.key,
             signal: context.signal,
           });
-          context.report.step("Run the enrollment command shown below");
+          await context.report.step("Run the enrollment command shown below");
           ({ hostName } = await enrollments.waitForConnection({
             enrollmentId: enrollment.id,
             timeoutMs: 15 * 60_000,
@@ -45,7 +45,7 @@ export function createManualMachineProviderRecord(
           enrollments.clearPending(context.key);
           throw error;
         }
-        context.report.step("Machine connected");
+        await context.report.step("Machine connected");
         return {
           status: "created",
           name: hostName,
@@ -56,7 +56,7 @@ export function createManualMachineProviderRecord(
         return { status: "removed" };
       },
       async remove(context) {
-        context.report.step(
+        await context.report.step(
           `Uninstall the machine service with its original installer: install-machine.sh --uninstall --host-id ${context.hostId} (on Windows: node "%USERPROFILE%\\.hyperfide-machines\\<server>\\install-machine-windows.mjs" --uninstall --host-id ${context.hostId})`,
         );
         return { status: "removed" };
@@ -85,7 +85,7 @@ export function withManualMachineProvider(
     async invokeProvider(pluginId, label, run) {
       if (pluginId !== MANUAL_PROVIDER_OWNER)
         return bridge.invokeProvider(pluginId, label, run);
-      return invokePluginInline(run);
+      return await invokePluginInline(run);
     },
   };
 }

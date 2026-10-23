@@ -16,14 +16,14 @@ const surfaceOptions: ThreadTimelineSurfaceOptions = {
 };
 
 describe("resolveThreadTimelineSurface", () => {
-  it("keys the response cache on the plan command without changing the cursor surface", () => {
-    withTestThread(({ db, thread }) => {
-      const withoutPlan = resolveThreadTimelineSurface(
+  it("keys the response cache on the plan command without changing the cursor surface", async () => {
+    await withTestThread(async ({ db, thread }) => {
+      const withoutPlan = await resolveThreadTimelineSurface(
         db,
         thread,
         surfaceOptions,
       );
-      const withPlan = resolveThreadTimelineSurface(db, thread, {
+      const withPlan = await resolveThreadTimelineSurface(db, thread, {
         ...surfaceOptions,
         planCommand: { trigger: "/", name: "plan", trailingText: " " },
       });

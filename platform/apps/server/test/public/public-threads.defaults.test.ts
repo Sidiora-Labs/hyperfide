@@ -36,12 +36,12 @@ describe("public thread default routes", () => {
 
   it("remembers resolved execution options after thread creation", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-defaults-create",
       });
-      seedEnvironment(harness.deps, {
+      await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/thread-defaults-create",
@@ -92,7 +92,7 @@ describe("public thread default routes", () => {
         },
       });
       expect(
-        getProjectExecutionDefaults(harness.db, {
+        await getProjectExecutionDefaults(harness.db, {
           projectId: project.id,
         }),
       ).toEqual({
@@ -107,27 +107,31 @@ describe("public thread default routes", () => {
 
   it("allows managed-worktree threads on a secondary host", async () => {
     await withTestHarness(async (harness) => {
-      const provider = installFakeGitWorktreeProvider();
-      const { host: localHost } = seedHostSession(harness.deps, {
+      const provider = await installFakeGitWorktreeProvider();
+      const { host: localHost } = await seedHostSession(harness.deps, {
         id: "host-managed-default",
       });
       seedPrimaryHost(harness.deps, localHost.id);
-      const { host: secondaryHost } = seedHostSession(harness.deps, {
+      const { host: secondaryHost } = await seedHostSession(harness.deps, {
         id: "host-managed-secondary",
       });
-      setExperiments(harness.db, {
+      await setExperiments(harness.db, {
         ...defaultExperiments,
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: localHost.id,
         path: "/tmp/default-managed-source",
       });
-      const secondarySource = createProjectSource(harness.db, harness.hub, {
-        projectId: project.id,
-        type: "local_path",
-        hostId: secondaryHost.id,
-        path: "/tmp/secondary-managed-source",
-      });
+      const secondarySource = await createProjectSource(
+        harness.db,
+        harness.hub,
+        {
+          projectId: project.id,
+          type: "local_path",
+          hostId: secondaryHost.id,
+          path: "/tmp/secondary-managed-source",
+        },
+      );
       if (secondarySource.type !== "local_path") {
         throw new Error("Expected local_path project source");
       }
@@ -167,12 +171,12 @@ describe("public thread default routes", () => {
 
   it("does not remember project defaults after CLI-origin thread creation", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-defaults-cli-origin",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/thread-defaults-cli-origin",
@@ -203,7 +207,7 @@ describe("public thread default routes", () => {
 
       expect(response.status).toBe(201);
       expect(
-        getProjectExecutionDefaults(harness.db, {
+        await getProjectExecutionDefaults(harness.db, {
           projectId: project.id,
         }),
       ).toBeNull();
@@ -212,18 +216,18 @@ describe("public thread default routes", () => {
 
   it("inherits the remembered provider and execution defaults when thread creation omits them", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-defaults-inherit",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/thread-defaults-inherit",
       });
 
-      upsertProjectExecutionDefaults(harness.db, {
+      await upsertProjectExecutionDefaults(harness.db, {
         projectId: project.id,
         providerId: "codex",
         model: "gpt-5",
@@ -270,8 +274,8 @@ describe("public thread default routes", () => {
 
   it("uses the explicit provider catalog default when stored defaults belong to another provider", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      registerProviderHostRpcResponder(harness, {
+      const { host, session } = await seedHostSession(harness.deps);
+      await registerProviderHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         restoreCommandCaptureAfterResponse: true,
@@ -287,17 +291,17 @@ describe("public thread default routes", () => {
           },
         },
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-defaults-provider-mismatch",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/thread-defaults-provider-mismatch",
       });
 
-      upsertProjectExecutionDefaults(harness.db, {
+      await upsertProjectExecutionDefaults(harness.db, {
         projectId: project.id,
         providerId: "codex",
         model: "gpt-5",
@@ -341,29 +345,32 @@ describe("public thread default routes", () => {
 
   it("uses the catalog isDefault model when provider and project defaults are omitted", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      const providerResponder = registerProviderHostRpcResponder(harness, {
-        hostId: host.id,
-        sessionId: session.id,
-        restoreCommandCaptureAfterResponse: true,
-        modelsByProviderId: {
-          codex: {
-            models: [
-              availableModelFixture({ model: "gpt-first" }),
-              availableModelFixture({
-                model: "gpt-provider-default",
-                isDefault: true,
-              }),
-            ],
-            selectedOnlyModels: [],
+      const { host, session } = await seedHostSession(harness.deps);
+      const providerResponder = await registerProviderHostRpcResponder(
+        harness,
+        {
+          hostId: host.id,
+          sessionId: session.id,
+          restoreCommandCaptureAfterResponse: true,
+          modelsByProviderId: {
+            codex: {
+              models: [
+                availableModelFixture({ model: "gpt-first" }),
+                availableModelFixture({
+                  model: "gpt-provider-default",
+                  isDefault: true,
+                }),
+              ],
+              selectedOnlyModels: [],
+            },
           },
         },
-      });
-      const { project } = seedProjectWithSource(harness.deps, {
+      );
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-defaults-missing",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/thread-defaults-missing",
@@ -411,8 +418,8 @@ describe("public thread default routes", () => {
 
   it("creates from displayed execution values when only the provider has a client source", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      registerProviderHostRpcResponder(harness, {
+      const { host, session } = await seedHostSession(harness.deps);
+      await registerProviderHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         restoreCommandCaptureAfterResponse: true,
@@ -428,11 +435,11 @@ describe("public thread default routes", () => {
           },
         },
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-defaults-client-provider",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/thread-defaults-client-provider",
@@ -484,8 +491,8 @@ describe("public thread default routes", () => {
 
   it("returns an actionable error when an explicitly requested provider's model catalog cannot be loaded", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      registerProviderHostRpcResponder(harness, {
+      const { host, session } = await seedHostSession(harness.deps);
+      await registerProviderHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         modelErrorsByProviderId: {
@@ -495,11 +502,11 @@ describe("public thread default routes", () => {
           },
         },
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-defaults-catalog-error",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/thread-defaults-catalog-error",
@@ -532,7 +539,7 @@ describe("public thread default routes", () => {
         retryable: true,
       });
       expect(
-        listThreadsWithPendingInteractionState(harness.db, {
+        await listThreadsWithPendingInteractionState(harness.db, {
           projectId: project.id,
         }),
       ).toHaveLength(0);
@@ -543,8 +550,8 @@ describe("public thread default routes", () => {
     "falls back to another available provider when the product default's model catalog is %s",
     async (catalogState) => {
       await withTestHarness(async (harness) => {
-        const { host, session } = seedHostSession(harness.deps);
-        registerProviderHostRpcResponder(harness, {
+        const { host, session } = await seedHostSession(harness.deps);
+        await registerProviderHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           restoreCommandCaptureAfterResponse: true,
@@ -562,11 +569,11 @@ describe("public thread default routes", () => {
                 }
               : {},
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
           path: "/tmp/thread-defaults-catalog-fallback",
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
           path: "/tmp/thread-defaults-catalog-fallback",
@@ -605,12 +612,12 @@ describe("public thread default routes", () => {
 
   it("rejects thread creation without an origin at the public API boundary", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-defaults-missing-origin",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/thread-defaults-missing-origin",
@@ -643,28 +650,28 @@ describe("public thread default routes", () => {
 
   it("does not overwrite project execution defaults after a thread send", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-send-defaults",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/thread-send-defaults",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "idle",
       });
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-send-defaults",
         model: "gpt-5",
       });
-      upsertProjectExecutionDefaults(harness.db, {
+      await upsertProjectExecutionDefaults(harness.db, {
         projectId: project.id,
         providerId: thread.providerId,
         model: "gpt-5",
@@ -707,7 +714,7 @@ describe("public thread default routes", () => {
         },
       });
       expect(
-        getProjectExecutionDefaults(harness.db, {
+        await getProjectExecutionDefaults(harness.db, {
           projectId: project.id,
         }),
       ).toEqual({
@@ -722,8 +729,8 @@ describe("public thread default routes", () => {
 
   it("does not synthesize project defaults in sidebar bootstrap", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-defaults-sidebar",
       });
@@ -739,7 +746,7 @@ describe("public thread default routes", () => {
       );
       expect(sidebarProject?.defaultExecutionOptions).toBeNull();
       expect(
-        getProjectExecutionDefaults(harness.db, {
+        await getProjectExecutionDefaults(harness.db, {
           projectId: project.id,
         }),
       ).toBeNull();
@@ -748,16 +755,16 @@ describe("public thread default routes", () => {
 
   it("excludes hidden threads from sidebar bootstrap", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-defaults-sidebar-hidden",
       });
-      const visibleThread = seedThread(harness.deps, {
+      const visibleThread = await seedThread(harness.deps, {
         projectId: project.id,
         title: "Visible thread",
       });
-      const hiddenThread = seedThread(harness.deps, {
+      const hiddenThread = await seedThread(harness.deps, {
         projectId: project.id,
         title: "Hidden worker",
         visibility: "hidden",

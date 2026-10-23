@@ -25,11 +25,11 @@ export interface EnvironmentDirectoryContinuation {
   path: string;
 }
 
-export function findEnvironmentDirectoryContinuation(
+export async function findEnvironmentDirectoryContinuation(
   deps: Pick<AppDeps, "db">,
   args: { threadId: string; turnId: string },
-): EnvironmentDirectoryContinuation | null {
-  const row = deps.db
+): Promise<EnvironmentDirectoryContinuation | null> {
+  const row = await deps.db
     .select({ data: storedEvents.data })
     .from(storedEvents)
     .where(
@@ -63,7 +63,7 @@ export async function continueAfterEnvironmentDirectoryUpdate(
   deps: LoggedPendingInteractionWorkSessionDeps,
   args: EnvironmentDirectoryContinuation & { threadId: string },
 ): Promise<boolean> {
-  const thread = getThread(deps.db, args.threadId);
+  const thread = await getThread(deps.db, args.threadId);
   if (
     !thread ||
     thread.environmentId !== args.environmentId ||
@@ -77,7 +77,7 @@ export async function continueAfterEnvironmentDirectoryUpdate(
   if (thread.status !== "idle") {
     return false;
   }
-  return queueParentSystemMessage(deps, {
+  return await queueParentSystemMessage(deps, {
     parentThreadId: thread.id,
     input: [
       {

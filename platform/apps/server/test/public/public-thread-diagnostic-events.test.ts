@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { setAppSettings, findTimelineWindowBudgetFloorSequence } from "@hyperfide/db";
+import {
+  setAppSettings,
+  findTimelineWindowBudgetFloorSequence,
+} from "@hyperfide/db";
 import { defaultAppSettings, threadScope } from "@hyperfide/domain";
 import { threadTimelineResponseSchema } from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
@@ -11,13 +14,13 @@ describe("diagnostic timeline visibility", () => {
     "follows the setting, including cached responses, with development=%s",
     async (isDevelopment) => {
       await withTestHarness({ isDevelopment }, async (harness) => {
-        const { thread } = seedThreadFixture(harness);
+        const { thread } = await seedThreadFixture(harness);
         const common = {
           threadId: thread.id,
           providerThreadId: "provider-session",
           scope: threadScope(),
         };
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...common,
           sequence: 1,
           type: "provider/unhandled",
@@ -27,7 +30,7 @@ describe("diagnostic timeline visibility", () => {
             rawEvent: { jsonrpc: "2.0", method: "sdk/example" },
           },
         });
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...common,
           sequence: 2,
           type: "provider.env-resolved",
@@ -41,7 +44,7 @@ describe("diagnostic timeline visibility", () => {
             ],
           },
         });
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...common,
           sequence: 3,
           type: "provider/warning",
@@ -63,7 +66,7 @@ describe("diagnostic timeline visibility", () => {
           );
         };
         expect(await readTitles()).toEqual(["Configuration warning"]);
-        setAppSettings(harness.db, {
+        await setAppSettings(harness.db, {
           ...defaultAppSettings,
           showDiagnosticEvents: true,
         });
@@ -72,7 +75,7 @@ describe("diagnostic timeline visibility", () => {
           "Provider environment resolved",
           "Configuration warning",
         ]);
-        setAppSettings(harness.db, defaultAppSettings);
+        await setAppSettings(harness.db, defaultAppSettings);
         expect(await readTitles()).toEqual(["Configuration warning"]);
       });
     },
@@ -81,7 +84,7 @@ describe("diagnostic timeline visibility", () => {
 
 it("excludes hidden diagnostics from rows and budgets while advancing the history snapshot", async () => {
   await withTestHarness(async (harness) => {
-    const { thread } = seedThreadFixture(harness);
+    const { thread } = await seedThreadFixture(harness);
     const common = {
       threadId: thread.id,
       providerThreadId: "provider-session",
@@ -94,14 +97,14 @@ it("excludes hidden diagnostics from rows and budgets while advancing the histor
       expect(response.status).toBe(200);
       return threadTimelineResponseSchema.parse(await readJson(response));
     };
-    seedEvent(harness.deps, {
+    await seedEvent(harness.deps, {
       ...common,
       sequence: 1,
       type: "provider/warning",
       data: { category: "config", summary: "Keep this visible" },
     });
     const before = await readTimeline();
-    seedEvent(harness.deps, {
+    await seedEvent(harness.deps, {
       ...common,
       sequence: 2,
       type: "provider.env-resolved",
@@ -115,7 +118,7 @@ it("excludes hidden diagnostics from rows and budgets while advancing the histor
         ],
       },
     });
-    seedEvent(harness.deps, {
+    await seedEvent(harness.deps, {
       ...common,
       sequence: 3,
       type: "provider/unhandled",
@@ -132,7 +135,7 @@ it("excludes hidden diagnostics from rows and budgets while advancing the histor
       before.timelinePage.historySnapshot,
     );
     expect(
-      findTimelineWindowBudgetFloorSequence(harness.db, {
+      await findTimelineWindowBudgetFloorSequence(harness.db, {
         threadId: thread.id,
         sequenceStart: 0,
         excludedTypes: [],
@@ -144,7 +147,7 @@ it("excludes hidden diagnostics from rows and budgets while advancing the histor
       [4, "model_fallback"],
       [5, "model_refusal_fallback"],
     ] as const) {
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...common,
         sequence,
         type: "provider/unhandled",

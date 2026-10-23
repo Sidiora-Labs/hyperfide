@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../../src/testing.js";
 import { turnScope } from "@hyperfide/domain";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
@@ -29,12 +31,12 @@ import {
 } from "../../src/schema.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "completed-output-migration-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "completed-output-migration-project",
     source: {
       hostId: host.id,
@@ -42,7 +44,7 @@ function setup() {
       type: "local_path",
     },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
   });
@@ -91,9 +93,9 @@ interface InsertLegacyOutputArgs extends RetainedEventOutputTarget {
   truncation?: Record<string, unknown>;
 }
 
-function insertLegacyOutput(args: InsertLegacyOutputArgs): void {
+async function insertLegacyOutput(args: InsertLegacyOutputArgs): Promise<void> {
   const itemId = `${args.eventId}-item`;
-  args.db
+  await args.db
     .insert(events)
     .values({
       createdAt: args.createdAt,
@@ -121,8 +123,8 @@ function insertLegacyOutput(args: InsertLegacyOutputArgs): void {
     .run();
 }
 
-function migrateCommandOutput(db: DbConnection, migratedAt: number) {
-  return migrateNextCompletedEventItemOutput(db, {
+async function migrateCommandOutput(db: DbConnection, migratedAt: number) {
+  return await migrateNextCompletedEventItemOutput(db, {
     itemKind: "commandExecution",
     limit: 10,
     migratedAt,
@@ -130,15 +132,15 @@ function migrateCommandOutput(db: DbConnection, migratedAt: number) {
   });
 }
 
-function insertLegacyImageGeneration(args: {
+async function insertLegacyImageGeneration(args: {
   createdAt: number;
   db: DbConnection;
   eventId: string;
   output: string;
   sequence: number;
   threadId: string;
-}): void {
-  args.db
+}): Promise<void> {
+  await args.db
     .insert(events)
     .values({
       createdAt: args.createdAt,
@@ -178,8 +180,11 @@ function insertLegacyImageGeneration(args: {
     .run();
 }
 
-function migrateLegacyImageGeneration(db: DbConnection, migratedAt: number) {
-  return migrateNextLegacyImageGenerationOutput(db, {
+async function migrateLegacyImageGeneration(
+  db: DbConnection,
+  migratedAt: number,
+) {
+  return await migrateNextLegacyImageGenerationOutput(db, {
     limit: 10,
     migratedAt,
   });
@@ -188,46 +193,60 @@ function migrateLegacyImageGeneration(db: DbConnection, migratedAt: number) {
 describe("completed event output migration", () => {
   it.each(["completed", "legacy-image"] as const)(
     "queues %s rewrites atomically with event migration",
-    (kind) => {
-      const { db, thread } = setup();
+    async (kind) => {
+      const { db, thread } = await setup();
       const migratedAt = 1_800_000_000_000;
       try {
         const args = {
-          db, threadId: thread.id, eventId: "rewrite", sequence: 1,
-          createdAt: migratedAt - 1, output: "x".repeat(50_000),
+          db,
+          threadId: thread.id,
+          eventId: "rewrite",
+          sequence: 1,
+          createdAt: migratedAt - 1,
+          output: "x".repeat(50_000),
         };
         if (kind === "completed")
-          insertLegacyOutput({ ...args, itemKind: "commandExecution", outputPath: "aggregatedOutput" });
-        else insertLegacyImageGeneration(args);
-        const migrateOutput = () => kind === "completed"
-          ? migrateCommandOutput(db, migratedAt)
-          : migrateLegacyImageGeneration(db, migratedAt);
-        const before = listStoredEventRows(db, { threadId: thread.id });
-        expect(() => db.transaction(() => {
-          expect(migrateOutput().action).toBe("migrated");
-          throw new Error("rollback rewrite");
-        })).toThrow("rollback rewrite");
-        expect(listStoredEventRows(db, { threadId: thread.id })).toEqual(before);
-        expect(db.select().from(threadPruningWork).all()).toEqual([]);
-        expect(migrateOutput().action).toBe("migrated");
-        expect(db.select().from(threadPruningWork).all()).toEqual([
+          await insertLegacyOutput({
+            ...args,
+            itemKind: "commandExecution",
+            outputPath: "aggregatedOutput",
+          });
+        else await insertLegacyImageGeneration(args);
+        const migrateOutput = async () =>
+          kind === "completed"
+            ? await migrateCommandOutput(db, migratedAt)
+            : await migrateLegacyImageGeneration(db, migratedAt);
+        const before = await listStoredEventRows(db, { threadId: thread.id });
+        await expect(
+          (async () =>
+            db.transaction(async () => {
+              expect((await migrateOutput()).action).toBe("migrated");
+              throw new Error("rollback rewrite");
+            }))(),
+        ).rejects.toThrow("rollback rewrite");
+        expect(await listStoredEventRows(db, { threadId: thread.id })).toEqual(
+          before,
+        );
+        expect(await db.select().from(threadPruningWork).all()).toEqual([]);
+        expect((await migrateOutput()).action).toBe("migrated");
+        expect(await db.select().from(threadPruningWork).all()).toEqual([
           { policy: "resolved-items", threadId: thread.id, revision: 1 },
         ]);
       } finally {
-        db.$client.close();
+        await db.close();
       }
     },
   );
 
-  it("migrates one retained legacy inline output without changing raw reads", () => {
+  it("migrates one retained legacy inline output without changing raw reads", async () => {
     const migratedAt = 1_800_000_000_000;
     const createdAt = migratedAt - 60_000;
     const output =
       "legacy-head-" +
       "x".repeat(COMPLETED_EVENT_OUTPUT_TRUNCATION_THRESHOLD_CHARS) +
       "-legacy-tail";
-    const { db, thread } = setup();
-    insertLegacyOutput({
+    const { db, thread } = await setup();
+    await insertLegacyOutput({
       createdAt,
       db,
       eventId: "evt_legacy_command",
@@ -239,7 +258,7 @@ describe("completed event output migration", () => {
     });
 
     expect(
-      migrateNextCompletedEventItemOutput(db, {
+      await migrateNextCompletedEventItemOutput(db, {
         itemKind: "commandExecution",
         limit: 10,
         migratedAt,
@@ -253,26 +272,30 @@ describe("completed event output migration", () => {
       threadId: thread.id,
     });
 
-    const [stored] = listStoredEventRows(db, { threadId: thread.id });
+    const [stored] = await listStoredEventRows(db, { threadId: thread.id });
     if (!stored) {
       throw new Error("Expected migrated event");
     }
     expect(readOutput(stored.data, "aggregatedOutput")).not.toBe(output);
-    const [hydrated] = hydrateRetainedEventOutputRows(db, [stored], migratedAt);
+    const [hydrated] = await hydrateRetainedEventOutputRows(
+      db,
+      [stored],
+      migratedAt,
+    );
     expect(hydrated && readOutput(hydrated.data, "aggregatedOutput")).toBe(
       output,
     );
-    db.$client.close();
+    await db.close();
   });
 
-  it("migrates every authoritative output path one row at a time", () => {
+  it("migrates every authoritative output path one row at a time", async () => {
     const migratedAt = 1_800_000_000_000;
     const output = "p".repeat(
       COMPLETED_EVENT_OUTPUT_TRUNCATION_THRESHOLD_CHARS + 1,
     );
-    const { db, thread } = setup();
+    const { db, thread } = await setup();
     for (const [index, target] of RETAINED_EVENT_OUTPUT_TARGETS.entries()) {
-      insertLegacyOutput({
+      await insertLegacyOutput({
         ...target,
         createdAt: migratedAt - 1,
         db,
@@ -285,7 +308,7 @@ describe("completed event output migration", () => {
 
     for (const [index, target] of RETAINED_EVENT_OUTPUT_TARGETS.entries()) {
       expect(
-        migrateNextCompletedEventItemOutput(db, {
+        await migrateNextCompletedEventItemOutput(db, {
           ...target,
           limit: 10,
           migratedAt,
@@ -298,11 +321,15 @@ describe("completed event output migration", () => {
       });
     }
 
-    expect(db.select().from(retainedEventOutputs).all()).toHaveLength(
+    expect(await db.select().from(retainedEventOutputs).all()).toHaveLength(
       RETAINED_EVENT_OUTPUT_TARGETS.length,
     );
-    const stored = listStoredEventRows(db, { threadId: thread.id });
-    const hydrated = hydrateRetainedEventOutputRows(db, stored, migratedAt);
+    const stored = await listStoredEventRows(db, { threadId: thread.id });
+    const hydrated = await hydrateRetainedEventOutputRows(
+      db,
+      stored,
+      migratedAt,
+    );
     for (const [index, target] of RETAINED_EVENT_OUTPUT_TARGETS.entries()) {
       const row = hydrated.find(
         (candidate) => candidate.id === `evt_path_${index}`,
@@ -311,14 +338,14 @@ describe("completed event output migration", () => {
         `${target.itemKind}-${output}`,
       );
     }
-    db.$client.close();
+    await db.close();
   });
 
-  it("uses the new-write UTF-16 threshold for astral Unicode output", () => {
+  it("uses the new-write UTF-16 threshold for astral Unicode output", async () => {
     const migratedAt = 1_800_000_000_000;
     const output = "😀".repeat(20_000);
-    const { db, thread } = setup();
-    insertLegacyOutput({
+    const { db, thread } = await setup();
+    await insertLegacyOutput({
       createdAt: migratedAt - 1,
       db,
       eventId: "evt_astral_unicode",
@@ -330,14 +357,14 @@ describe("completed event output migration", () => {
     });
 
     expect(output.length).toBe(40_000);
-    expect(migrateCommandOutput(db, migratedAt)).toMatchObject({
+    expect(await migrateCommandOutput(db, migratedAt)).toMatchObject({
       action: "migrated",
       eventId: "evt_astral_unicode",
       migratedRows: 1,
       retained: true,
     });
-    const [stored] = listStoredEventRows(db, { threadId: thread.id });
-    const [hydrated] = hydrateRetainedEventOutputRows(
+    const [stored] = await listStoredEventRows(db, { threadId: thread.id });
+    const [hydrated] = await hydrateRetainedEventOutputRows(
       db,
       stored ? [stored] : [],
       migratedAt,
@@ -345,15 +372,15 @@ describe("completed event output migration", () => {
     expect(hydrated && readOutput(hydrated.data, "aggregatedOutput")).toBe(
       output,
     );
-    db.$client.close();
+    await db.close();
   });
 
-  it("previews an already expired output without retaining a sidecar", () => {
+  it("previews an already expired output without retaining a sidecar", async () => {
     const migratedAt = 1_800_000_000_000;
     const createdAt = migratedAt - COMPLETED_EVENT_OUTPUT_RETENTION_MS;
     const output = "expired-" + "e".repeat(40_000);
-    const { db, thread } = setup();
-    insertLegacyOutput({
+    const { db, thread } = await setup();
+    await insertLegacyOutput({
       createdAt,
       db,
       eventId: "evt_expired",
@@ -364,31 +391,31 @@ describe("completed event output migration", () => {
       threadId: thread.id,
     });
 
-    expect(migrateCommandOutput(db, migratedAt)).toMatchObject({
+    expect(await migrateCommandOutput(db, migratedAt)).toMatchObject({
       action: "migrated",
       migratedRows: 1,
       retained: false,
     });
-    expect(db.select().from(retainedEventOutputs).all()).toEqual([]);
-    const [stored] = listStoredEventRows(db, { threadId: thread.id });
+    expect(await db.select().from(retainedEventOutputs).all()).toEqual([]);
+    const [stored] = await listStoredEventRows(db, { threadId: thread.id });
     if (!stored) {
       throw new Error("Expected expired migrated event");
     }
     expect(readOutput(stored.data, "aggregatedOutput")).not.toBe(output);
     expect(
-      hydrateRetainedEventOutputRows(db, [stored], migratedAt)[0]?.data,
+      (await hydrateRetainedEventOutputRows(db, [stored], migratedAt))[0]?.data,
     ).toBe(stored.data);
     expect(
       JSON.parse(stored.data).item.truncation.aggregatedOutput.truncatedAt,
     ).toBe(createdAt + COMPLETED_EVENT_OUTPUT_RETENTION_MS);
-    db.$client.close();
+    await db.close();
   });
 
-  it("skips malformed, extension, small, and already previewed rows", () => {
+  it("skips malformed, extension, small, and already previewed rows", async () => {
     const migratedAt = 1_800_000_000_000;
     const output = "s".repeat(40_000);
-    const { db, thread } = setup();
-    insertLegacyOutput({
+    const { db, thread } = await setup();
+    await insertLegacyOutput({
       createdAt: migratedAt - 4,
       data: "{malformed",
       db,
@@ -399,7 +426,7 @@ describe("completed event output migration", () => {
       sequence: 1,
       threadId: thread.id,
     });
-    insertLegacyOutput({
+    await insertLegacyOutput({
       createdAt: migratedAt - 3,
       db,
       eventId: "evt_skip_2_extension",
@@ -410,7 +437,7 @@ describe("completed event output migration", () => {
       sequence: 2,
       threadId: thread.id,
     });
-    insertLegacyOutput({
+    await insertLegacyOutput({
       createdAt: migratedAt - 2,
       db,
       eventId: "evt_skip_3_small",
@@ -420,7 +447,7 @@ describe("completed event output migration", () => {
       sequence: 3,
       threadId: thread.id,
     });
-    insertLegacyOutput({
+    await insertLegacyOutput({
       createdAt: migratedAt - 1,
       db,
       eventId: "evt_skip_4_previewed",
@@ -432,7 +459,7 @@ describe("completed event output migration", () => {
       truncation: { aggregatedOutput: { originalLength: output.length } },
     });
 
-    expect(migrateCommandOutput(db, migratedAt)).toEqual({
+    expect(await migrateCommandOutput(db, migratedAt)).toEqual({
       action: "scanned",
       eventId: null,
       migratedBytes: 0,
@@ -441,89 +468,103 @@ describe("completed event output migration", () => {
       scanRows: 4,
       threadId: null,
     });
-    expect(db.select().from(retainedEventOutputs).all()).toEqual([]);
-    db.$client.close();
+    expect(await db.select().from(retainedEventOutputs).all()).toEqual([]);
+    await db.close();
   });
 
-  it("advances past a byte-large value below the UTF-16 threshold across restart", () => {
-    const migratedAt = 1_800_000_000_000;
-    const setupResult = setup();
-    insertLegacyOutput({
-      createdAt: migratedAt - 2,
-      db: setupResult.db,
-      eventId: "evt_multibyte_below_threshold",
-      itemKind: "commandExecution",
-      output: "é".repeat(20_000),
-      outputPath: "aggregatedOutput",
-      sequence: 1,
-      threadId: setupResult.thread.id,
-    });
-    insertLegacyOutput({
-      createdAt: migratedAt - 1,
-      db: setupResult.db,
-      eventId: "evt_after_multibyte",
-      itemKind: "commandExecution",
-      output: "a".repeat(40_000),
-      outputPath: "aggregatedOutput",
-      sequence: 2,
-      threadId: setupResult.thread.id,
-    });
-
-    expect(migrateCommandOutput(setupResult.db, migratedAt)).toMatchObject({
-      action: "scanned",
-      migratedRows: 0,
-    });
-    const serialized = setupResult.db.$client.serialize();
-    setupResult.db.$client.close();
-
-    const restarted = createConnection(serialized);
-    expect(migrateCommandOutput(restarted, migratedAt)).toMatchObject({
-      action: "migrated",
-      eventId: "evt_after_multibyte",
-      migratedRows: 1,
-    });
-    expect(restarted.select().from(retainedEventOutputs).all()).toHaveLength(1);
-    restarted.$client.close();
-  });
-
-  it("persists and reuses a bounded scan window across advances and restart", () => {
-    const migratedAt = 1_800_000_000_000;
-    const output = "window-" + "v".repeat(40_000);
-    const setupResult = setup();
-    for (let sequence = 1; sequence <= 20; sequence += 1) {
-      insertLegacyOutput({
-        createdAt: migratedAt - 1,
+  it.skipIf(isPostgresTest)(
+    "advances past a byte-large value below the UTF-16 threshold across restart",
+    async () => {
+      const migratedAt = 1_800_000_000_000;
+      const setupResult = await setup();
+      await insertLegacyOutput({
+        createdAt: migratedAt - 2,
         db: setupResult.db,
-        eventId: `evt_window_${String(sequence).padStart(2, "0")}`,
+        eventId: "evt_multibyte_below_threshold",
         itemKind: "commandExecution",
-        output: `${sequence}-${output}`,
+        output: "é".repeat(20_000),
         outputPath: "aggregatedOutput",
-        sequence,
+        sequence: 1,
         threadId: setupResult.thread.id,
       });
-    }
+      await insertLegacyOutput({
+        createdAt: migratedAt - 1,
+        db: setupResult.db,
+        eventId: "evt_after_multibyte",
+        itemKind: "commandExecution",
+        output: "a".repeat(40_000),
+        outputPath: "aggregatedOutput",
+        sequence: 2,
+        threadId: setupResult.thread.id,
+      });
 
-    expect(migrateCommandOutput(setupResult.db, migratedAt)).toMatchObject({
-      eventId: "evt_window_01",
-      scanRows: 10,
-    });
-    const serialized = setupResult.db.$client.serialize();
-    setupResult.db.$client.close();
+      expect(
+        await migrateCommandOutput(setupResult.db, migratedAt),
+      ).toMatchObject({
+        action: "scanned",
+        migratedRows: 0,
+      });
+      const serialized = setupResult.db.$client.serialize();
+      await setupResult.db.close();
 
-    const restarted = createConnection(serialized);
-    expect(migrateCommandOutput(restarted, migratedAt)).toMatchObject({
-      eventId: "evt_window_02",
-      scanRows: 0,
-    });
-    expect(restarted.select().from(retainedEventOutputs).all()).toHaveLength(2);
-    restarted.$client.close();
-  });
+      const restarted = await createConnection(serialized);
+      expect(await migrateCommandOutput(restarted, migratedAt)).toMatchObject({
+        action: "migrated",
+        eventId: "evt_after_multibyte",
+        migratedRows: 1,
+      });
+      expect(
+        await restarted.select().from(retainedEventOutputs).all(),
+      ).toHaveLength(1);
+      await restarted.close();
+    },
+  );
 
-  it("stores completion permanently instead of rescanning completed history", () => {
+  it.skipIf(isPostgresTest)(
+    "persists and reuses a bounded scan window across advances and restart",
+    async () => {
+      const migratedAt = 1_800_000_000_000;
+      const output = "window-" + "v".repeat(40_000);
+      const setupResult = await setup();
+      for (let sequence = 1; sequence <= 20; sequence += 1) {
+        await insertLegacyOutput({
+          createdAt: migratedAt - 1,
+          db: setupResult.db,
+          eventId: `evt_window_${String(sequence).padStart(2, "0")}`,
+          itemKind: "commandExecution",
+          output: `${sequence}-${output}`,
+          outputPath: "aggregatedOutput",
+          sequence,
+          threadId: setupResult.thread.id,
+        });
+      }
+
+      expect(
+        await migrateCommandOutput(setupResult.db, migratedAt),
+      ).toMatchObject({
+        eventId: "evt_window_01",
+        scanRows: 10,
+      });
+      const serialized = setupResult.db.$client.serialize();
+      await setupResult.db.close();
+
+      const restarted = await createConnection(serialized);
+      expect(await migrateCommandOutput(restarted, migratedAt)).toMatchObject({
+        eventId: "evt_window_02",
+        scanRows: 0,
+      });
+      expect(
+        await restarted.select().from(retainedEventOutputs).all(),
+      ).toHaveLength(2);
+      await restarted.close();
+    },
+  );
+
+  it("stores completion permanently instead of rescanning completed history", async () => {
     const migratedAt = 1_800_000_000_000;
     const output = "w".repeat(40_000);
-    const { db, thread } = setup();
-    insertLegacyOutput({
+    const { db, thread } = await setup();
+    await insertLegacyOutput({
       createdAt: migratedAt - 1,
       db,
       eventId: "evt_wrap_later",
@@ -533,12 +574,16 @@ describe("completed event output migration", () => {
       sequence: 1,
       threadId: thread.id,
     });
-    expect(migrateCommandOutput(db, migratedAt).eventId).toBe("evt_wrap_later");
-    expect(migrateCommandOutput(db, migratedAt).action).toBe("complete");
+    expect((await migrateCommandOutput(db, migratedAt)).eventId).toBe(
+      "evt_wrap_later",
+    );
+    expect((await migrateCommandOutput(db, migratedAt)).action).toBe(
+      "complete",
+    );
     expect(
-      migrateCommandOutput(db, migratedAt + 7 * 24 * 60 * 60 * 1_000),
+      await migrateCommandOutput(db, migratedAt + 7 * 24 * 60 * 60 * 1_000),
     ).toMatchObject({ action: "complete", scanRows: 0 });
-    insertLegacyOutput({
+    await insertLegacyOutput({
       createdAt: migratedAt - 2,
       db,
       eventId: "evt_wrap_earlier",
@@ -549,20 +594,20 @@ describe("completed event output migration", () => {
       threadId: thread.id,
     });
     expect(
-      migrateCommandOutput(db, migratedAt + 30 * 24 * 60 * 60 * 1_000),
+      await migrateCommandOutput(db, migratedAt + 30 * 24 * 60 * 60 * 1_000),
     ).toMatchObject({ action: "complete", scanRows: 0 });
-    expect(db.select().from(retainedEventOutputs).all()).toHaveLength(1);
+    expect(await db.select().from(retainedEventOutputs).all()).toHaveLength(1);
     expect(
-      db.select().from(maintenanceScanCursors).all()[0]?.lastCreatedAt,
+      (await db.select().from(maintenanceScanCursors).all())[0]?.lastCreatedAt,
     ).toBe(-1);
-    db.$client.close();
+    await db.close();
   });
 
-  it("skips oversized legacy rows and continues to the next bounded candidate", () => {
+  it("skips oversized legacy rows and continues to the next bounded candidate", async () => {
     const migratedAt = 1_800_000_000_000;
-    const { db, thread } = setup();
+    const { db, thread } = await setup();
     const oversizedOutput = "o".repeat(8 * 1024 * 1024);
-    insertLegacyOutput({
+    await insertLegacyOutput({
       createdAt: migratedAt - 2,
       db,
       eventId: "evt_oversized_inline",
@@ -572,7 +617,7 @@ describe("completed event output migration", () => {
       sequence: 1,
       threadId: thread.id,
     });
-    insertLegacyOutput({
+    await insertLegacyOutput({
       createdAt: migratedAt - 1,
       db,
       eventId: "evt_bounded_after_oversized",
@@ -583,25 +628,26 @@ describe("completed event output migration", () => {
       threadId: thread.id,
     });
 
-    expect(migrateCommandOutput(db, migratedAt)).toMatchObject({
+    expect(await migrateCommandOutput(db, migratedAt)).toMatchObject({
       action: "migrated",
       eventId: "evt_bounded_after_oversized",
       migratedRows: 1,
     });
-    expect(db.select().from(retainedEventOutputs).all()).toHaveLength(1);
-    const oversized = listStoredEventRows(db, { threadId: thread.id }).find(
-      (row) => row.id === "evt_oversized_inline",
-    );
+    expect(await db.select().from(retainedEventOutputs).all()).toHaveLength(1);
+    const oversized = (
+      await listStoredEventRows(db, { threadId: thread.id })
+    ).find((row) => row.id === "evt_oversized_inline");
     expect(JSON.parse(oversized?.data ?? "").item.aggregatedOutput).toBe(
       oversizedOutput,
     );
-    db.$client.close();
+    await db.close();
   });
 
-  it("does not reuse the superseded bulk truncation cursor", () => {
+  it("does not reuse the superseded bulk truncation cursor", async () => {
     const migratedAt = 1_800_000_000_000;
-    const { db, thread } = setup();
-    db.insert(maintenanceScanCursors)
+    const { db, thread } = await setup();
+    await db
+      .insert(maintenanceScanCursors)
       .values({
         id: "completed_event_output_truncation:v1:commandExecution:aggregatedOutput",
         itemKind: "commandExecution",
@@ -613,7 +659,7 @@ describe("completed event output migration", () => {
         version: 1,
       })
       .run();
-    insertLegacyOutput({
+    await insertLegacyOutput({
       createdAt: migratedAt - 1,
       db,
       eventId: "evt_new_cursor",
@@ -624,16 +670,20 @@ describe("completed event output migration", () => {
       threadId: thread.id,
     });
 
-    expect(migrateCommandOutput(db, migratedAt).eventId).toBe("evt_new_cursor");
-    expect(db.select().from(maintenanceScanCursors).all()).toHaveLength(2);
-    db.$client.close();
+    expect((await migrateCommandOutput(db, migratedAt)).eventId).toBe(
+      "evt_new_cursor",
+    );
+    expect(await db.select().from(maintenanceScanCursors).all()).toHaveLength(
+      2,
+    );
+    await db.close();
   });
 
-  it("sidecarizes a legacy Codex image result without rewriting its event envelope", () => {
+  it("sidecarizes a legacy Codex image result without rewriting its event envelope", async () => {
     const migratedAt = 1_800_000_000_000;
     const output = "image-result-" + "i".repeat(4 * 1024 * 1024);
-    const { db, thread } = setup();
-    insertLegacyImageGeneration({
+    const { db, thread } = await setup();
+    await insertLegacyImageGeneration({
       createdAt: migratedAt - 1,
       db,
       eventId: "evt_legacy_image_generation",
@@ -642,21 +692,21 @@ describe("completed event output migration", () => {
       threadId: thread.id,
     });
 
-    expect(migrateLegacyImageGeneration(db, migratedAt)).toMatchObject({
+    expect(await migrateLegacyImageGeneration(db, migratedAt)).toMatchObject({
       action: "migrated",
       eventId: "evt_legacy_image_generation",
       migratedRows: 1,
       retained: true,
       threadId: thread.id,
     });
-    const [stored] = listStoredEventRows(db, { threadId: thread.id });
+    const [stored] = await listStoredEventRows(db, { threadId: thread.id });
     if (!stored) {
       throw new Error("Expected migrated legacy image generation event");
     }
     expect(stored.type).toBe("provider/unhandled");
     expect(stored.itemKind).toBeNull();
     expect(readLegacyImageGenerationOutput(stored.data)).not.toBe(output);
-    const [hydrated] = hydrateRetainedEventOutputRowsWithinDataByteLimit(
+    const [hydrated] = await hydrateRetainedEventOutputRowsWithinDataByteLimit(
       db,
       [stored],
       8 * 1024 * 1024,
@@ -668,101 +718,109 @@ describe("completed event output migration", () => {
     expect(
       JSON.parse(hydrated?.data ?? "{}").rawEvent.params.item.truncation,
     ).toBeUndefined();
-    db.$client.close();
+    await db.close();
   });
 
-  it("resumes legacy image migration one row at a time with independent cursor state", () => {
-    const migratedAt = 1_800_000_000_000;
-    const setupResult = setup();
-    for (const sequence of [1, 2]) {
-      insertLegacyImageGeneration({
-        createdAt: migratedAt - 1,
+  it.skipIf(isPostgresTest)(
+    "resumes legacy image migration one row at a time with independent cursor state",
+    async () => {
+      const migratedAt = 1_800_000_000_000;
+      const setupResult = await setup();
+      for (const sequence of [1, 2]) {
+        await insertLegacyImageGeneration({
+          createdAt: migratedAt - 1,
+          db: setupResult.db,
+          eventId: `evt_legacy_image_restart_${sequence}`,
+          output: `${sequence}-` + "r".repeat(40_000),
+          sequence,
+          threadId: setupResult.thread.id,
+        });
+      }
+      expect(
+        await migrateLegacyImageGeneration(setupResult.db, migratedAt),
+      ).toMatchObject({
+        action: "migrated",
+        eventId: "evt_legacy_image_restart_1",
+        migratedRows: 1,
+      });
+      const serialized = setupResult.db.$client.serialize();
+      await setupResult.db.close();
+
+      const restarted = await createConnection(serialized);
+      expect(
+        await migrateLegacyImageGeneration(restarted, migratedAt),
+      ).toMatchObject({
+        action: "migrated",
+        eventId: "evt_legacy_image_restart_2",
+        migratedRows: 1,
+      });
+      expect(
+        await restarted.select().from(retainedEventOutputs).all(),
+      ).toHaveLength(2);
+      expect(
+        (await restarted.select().from(maintenanceScanCursors).all()).every(
+          (cursor) => cursor.policy.startsWith("legacy_image_generation"),
+        ),
+      ).toBe(true);
+      await restarted.close();
+    },
+  );
+
+  it.skipIf(isPostgresTest)(
+    "bounds a sparse legacy image scan by all event rows across restart",
+    async () => {
+      const migratedAt = 1_800_000_000_000;
+      const setupResult = await setup();
+      for (const sequence of [1, 2]) {
+        await insertLegacyOutput({
+          createdAt: migratedAt - sequence,
+          db: setupResult.db,
+          eventId: `evt_0${sequence}_unrelated`,
+          itemKind: "commandExecution",
+          output: "small",
+          outputPath: "aggregatedOutput",
+          sequence,
+          threadId: setupResult.thread.id,
+        });
+      }
+      await insertLegacyImageGeneration({
+        createdAt: migratedAt - 10_000,
         db: setupResult.db,
-        eventId: `evt_legacy_image_restart_${sequence}`,
-        output: `${sequence}-` + "r".repeat(40_000),
-        sequence,
+        eventId: "evt_03_legacy_image",
+        output: "image-" + "i".repeat(40_000),
+        sequence: 3,
         threadId: setupResult.thread.id,
       });
-    }
-    expect(
-      migrateLegacyImageGeneration(setupResult.db, migratedAt),
-    ).toMatchObject({
-      action: "migrated",
-      eventId: "evt_legacy_image_restart_1",
-      migratedRows: 1,
-    });
-    const serialized = setupResult.db.$client.serialize();
-    setupResult.db.$client.close();
 
-    const restarted = createConnection(serialized);
-    expect(migrateLegacyImageGeneration(restarted, migratedAt)).toMatchObject({
-      action: "migrated",
-      eventId: "evt_legacy_image_restart_2",
-      migratedRows: 1,
-    });
-    expect(restarted.select().from(retainedEventOutputs).all()).toHaveLength(2);
-    expect(
-      restarted
-        .select()
-        .from(maintenanceScanCursors)
-        .all()
-        .every((cursor) => cursor.policy.startsWith("legacy_image_generation")),
-    ).toBe(true);
-    restarted.$client.close();
-  });
+      expect(
+        await migrateNextLegacyImageGenerationOutput(setupResult.db, {
+          limit: 2,
+          migratedAt,
+        }),
+      ).toMatchObject({ action: "scanned", migratedRows: 0, scanRows: 2 });
+      const serialized = setupResult.db.$client.serialize();
+      await setupResult.db.close();
 
-  it("bounds a sparse legacy image scan by all event rows across restart", () => {
-    const migratedAt = 1_800_000_000_000;
-    const setupResult = setup();
-    for (const sequence of [1, 2]) {
-      insertLegacyOutput({
-        createdAt: migratedAt - sequence,
-        db: setupResult.db,
-        eventId: `evt_0${sequence}_unrelated`,
-        itemKind: "commandExecution",
-        output: "small",
-        outputPath: "aggregatedOutput",
-        sequence,
-        threadId: setupResult.thread.id,
+      const restarted = await createConnection(serialized);
+      expect(
+        await migrateNextLegacyImageGenerationOutput(restarted, {
+          limit: 2,
+          migratedAt,
+        }),
+      ).toMatchObject({
+        action: "migrated",
+        eventId: "evt_03_legacy_image",
+        migratedRows: 1,
+        scanRows: 1,
       });
-    }
-    insertLegacyImageGeneration({
-      createdAt: migratedAt - 10_000,
-      db: setupResult.db,
-      eventId: "evt_03_legacy_image",
-      output: "image-" + "i".repeat(40_000),
-      sequence: 3,
-      threadId: setupResult.thread.id,
-    });
+      await restarted.close();
+    },
+  );
 
-    expect(
-      migrateNextLegacyImageGenerationOutput(setupResult.db, {
-        limit: 2,
-        migratedAt,
-      }),
-    ).toMatchObject({ action: "scanned", migratedRows: 0, scanRows: 2 });
-    const serialized = setupResult.db.$client.serialize();
-    setupResult.db.$client.close();
-
-    const restarted = createConnection(serialized);
-    expect(
-      migrateNextLegacyImageGenerationOutput(restarted, {
-        limit: 2,
-        migratedAt,
-      }),
-    ).toMatchObject({
-      action: "migrated",
-      eventId: "evt_03_legacy_image",
-      migratedRows: 1,
-      scanRows: 1,
-    });
-    restarted.$client.close();
-  });
-
-  it("drops expired legacy image results and skips unrelated unhandled events", () => {
+  it("drops expired legacy image results and skips unrelated unhandled events", async () => {
     const migratedAt = 1_800_000_000_000;
-    const { db, thread } = setup();
-    insertLegacyImageGeneration({
+    const { db, thread } = await setup();
+    await insertLegacyImageGeneration({
       createdAt: migratedAt - COMPLETED_EVENT_OUTPUT_RETENTION_MS,
       db,
       eventId: "evt_expired_legacy_image",
@@ -788,7 +846,8 @@ describe("completed event output migration", () => {
       },
       rawType: "item/completed",
     });
-    db.insert(events)
+    await db
+      .insert(events)
       .values({
         createdAt: migratedAt - 1,
         data: malformedData,
@@ -805,82 +864,93 @@ describe("completed event output migration", () => {
       })
       .run();
 
-    expect(migrateLegacyImageGeneration(db, migratedAt)).toMatchObject({
+    expect(await migrateLegacyImageGeneration(db, migratedAt)).toMatchObject({
       action: "migrated",
       eventId: "evt_expired_legacy_image",
       retained: false,
     });
-    expect(db.select().from(retainedEventOutputs).all()).toEqual([]);
-    expect(migrateLegacyImageGeneration(db, migratedAt).action).toBe("scanned");
+    expect(await db.select().from(retainedEventOutputs).all()).toEqual([]);
+    expect((await migrateLegacyImageGeneration(db, migratedAt)).action).toBe(
+      "scanned",
+    );
     expect(
-      db
-        .select({ data: events.data })
-        .from(events)
-        .where(eq(events.id, "evt_malformed_image"))
-        .get()?.data,
+      (
+        await db
+          .select({ data: events.data })
+          .from(events)
+          .where(eq(events.id, "evt_malformed_image"))
+          .get()
+      )?.data,
     ).toBe(malformedData);
-    db.$client.close();
+    await db.close();
   });
 
-  it("advances past a malformed legacy image candidate across restart", () => {
-    const migratedAt = 1_800_000_000_000;
-    const setupResult = setup();
-    const malformedData = JSON.stringify({
-      providerId: "codex",
-      rawEvent: {
-        jsonrpc: "2.0",
-        method: "item/completed",
-        params: {
-          item: {
-            failure: null,
-            id: "malformed-image",
-            result: "malformed-" + "m".repeat(40_000),
-            status: "futureStatus",
-            type: "imageGeneration",
+  it.skipIf(isPostgresTest)(
+    "advances past a malformed legacy image candidate across restart",
+    async () => {
+      const migratedAt = 1_800_000_000_000;
+      const setupResult = await setup();
+      const malformedData = JSON.stringify({
+        providerId: "codex",
+        rawEvent: {
+          jsonrpc: "2.0",
+          method: "item/completed",
+          params: {
+            item: {
+              failure: null,
+              id: "malformed-image",
+              result: "malformed-" + "m".repeat(40_000),
+              status: "futureStatus",
+              type: "imageGeneration",
+            },
           },
         },
-      },
-      rawType: "item/completed",
-    });
-    setupResult.db
-      .insert(events)
-      .values({
-        createdAt: migratedAt - 2,
-        data: malformedData,
-        id: "evt_malformed_image_before_valid",
-        itemId: null,
-        itemKind: null,
-        parentToolCallId: null,
-        providerThreadId: "codex-thread",
-        scopeKind: "turn",
-        sequence: 1,
+        rawType: "item/completed",
+      });
+      await setupResult.db
+        .insert(events)
+        .values({
+          createdAt: migratedAt - 2,
+          data: malformedData,
+          id: "evt_malformed_image_before_valid",
+          itemId: null,
+          itemKind: null,
+          parentToolCallId: null,
+          providerThreadId: "codex-thread",
+          scopeKind: "turn",
+          sequence: 1,
+          threadId: setupResult.thread.id,
+          turnId: "turn-malformed-image",
+          type: "provider/unhandled",
+        })
+        .run();
+      await insertLegacyImageGeneration({
+        createdAt: migratedAt - 1,
+        db: setupResult.db,
+        eventId: "evt_valid_image_after_malformed",
+        output: "valid-" + "v".repeat(40_000),
+        sequence: 2,
         threadId: setupResult.thread.id,
-        turnId: "turn-malformed-image",
-        type: "provider/unhandled",
-      })
-      .run();
-    insertLegacyImageGeneration({
-      createdAt: migratedAt - 1,
-      db: setupResult.db,
-      eventId: "evt_valid_image_after_malformed",
-      output: "valid-" + "v".repeat(40_000),
-      sequence: 2,
-      threadId: setupResult.thread.id,
-    });
+      });
 
-    expect(
-      migrateLegacyImageGeneration(setupResult.db, migratedAt),
-    ).toMatchObject({ action: "scanned", migratedRows: 0 });
-    const serialized = setupResult.db.$client.serialize();
-    setupResult.db.$client.close();
+      expect(
+        await migrateLegacyImageGeneration(setupResult.db, migratedAt),
+      ).toMatchObject({ action: "scanned", migratedRows: 0 });
+      const serialized = setupResult.db.$client.serialize();
+      await setupResult.db.close();
 
-    const restarted = createConnection(serialized);
-    expect(migrateLegacyImageGeneration(restarted, migratedAt)).toMatchObject({
-      action: "migrated",
-      eventId: "evt_valid_image_after_malformed",
-      migratedRows: 1,
-    });
-    expect(restarted.select().from(retainedEventOutputs).all()).toHaveLength(1);
-    restarted.$client.close();
-  });
+      const restarted = await createConnection(serialized);
+      expect(
+        await migrateLegacyImageGeneration(restarted, migratedAt),
+      ).toMatchObject({
+        action: "migrated",
+        eventId: "evt_valid_image_after_malformed",
+        migratedRows: 1,
+      });
+      expect(
+        await restarted.select().from(retainedEventOutputs).all(),
+      ).toHaveLength(1);
+      await restarted.close();
+    },
+  );
 });

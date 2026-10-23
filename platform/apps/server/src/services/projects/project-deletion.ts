@@ -41,18 +41,18 @@ interface ProjectDeletionThread {
 type ProjectDeletionDeps = LoggedPendingInteractionWorkSessionDeps &
   Pick<AppDeps, "terminalSessions">;
 
-function isProjectDeletionActive(
+async function isProjectDeletionActive(
   deps: Pick<AppDeps, "db">,
   projectId: string,
-): boolean {
-  return getProject(deps.db, projectId)?.deletedAt !== null;
+): Promise<boolean> {
+  return (await getProject(deps.db, projectId))?.deletedAt !== null;
 }
 
-function listProjectDeletionThreads(
+async function listProjectDeletionThreads(
   db: DbQueryConnection,
   args: ProjectDeletionArgs,
-): ProjectDeletionThread[] {
-  return db
+): Promise<ProjectDeletionThread[]> {
+  return await db
     .select({
       deletedAt: threads.deletedAt,
       environmentId: threads.environmentId,
@@ -64,24 +64,31 @@ function listProjectDeletionThreads(
     .all();
 }
 
-function tombstoneProjectThreadsForDeletion(
+async function tombstoneProjectThreadsForDeletion(
   deps: ProjectDeletionDeps,
   args: ProjectDeletionArgs,
-): { deletedThreads: Thread[]; projectThreads: ProjectDeletionThread[] } {
+): Promise<{
+  deletedThreads: Thread[];
+  projectThreads: ProjectDeletionThread[];
+}> {
   const notificationBuffer = new NotificationBuffer();
-  const result = deps.db.transaction(
-    (tx) => {
-      markProjectDeleted(tx, notificationBuffer, {
+  const result = await deps.db.transaction(
+    async (tx) => {
+      await markProjectDeleted(tx, notificationBuffer, {
         projectId: args.projectId,
       });
 
       const deletedThreads: Thread[] = [];
-      const threadsForDeletion = listProjectDeletionThreads(tx, args);
+      const threadsForDeletion = await listProjectDeletionThreads(tx, args);
       for (const thread of threadsForDeletion) {
         if (thread.deletedAt === null) {
-          const deletedThread = markThreadDeleted(tx, notificationBuffer, {
-            threadId: thread.id,
-          });
+          const deletedThread = await markThreadDeleted(
+            tx,
+            notificationBuffer,
+            {
+              threadId: thread.id,
+            },
+          );
           if (deletedThread) deletedThreads.push(deletedThread);
         }
       }
@@ -89,48 +96,51 @@ function tombstoneProjectThreadsForDeletion(
     },
     { behavior: "immediate" },
   );
-  notificationBuffer.flushInto(deps.hub);
+  await notificationBuffer.flushInto(deps.hub);
   for (const thread of result.deletedThreads) {
     emitPluginThreadDeleted(thread);
-    cancelAbandonedProviderCreations(deps, thread.id);
+    await cancelAbandonedProviderCreations(deps, thread.id);
   }
   return result;
 }
 
-function hasRemainingProjectThreads(
+async function hasRemainingProjectThreads(
   deps: Pick<AppDeps, "db">,
   projectId: string,
-): boolean {
+): Promise<boolean> {
   return (
-    deps.db
+    (await deps.db
       .select({ id: threads.id })
       .from(threads)
       .where(eq(threads.projectId, projectId))
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-export function beginProjectDeletion(
+export async function beginProjectDeletion(
   deps: ProjectDeletionDeps,
   args: ProjectDeletionArgs,
-): void {
-  if (!getProject(deps.db, args.projectId)) {
+): Promise<void> {
+  if (!(await getProject(deps.db, args.projectId))) {
     return;
   }
 
-  const projectEnvironments = listEnvironments(deps.db, {
+  const projectEnvironments = await listEnvironments(deps.db, {
     projectId: args.projectId,
   });
   const environmentsById = new Map(
     projectEnvironments.map((environment) => [environment.id, environment]),
   );
-  const { projectThreads } = tombstoneProjectThreadsForDeletion(deps, args);
+  const { projectThreads } = await tombstoneProjectThreadsForDeletion(
+    deps,
+    args,
+  );
   for (const thread of projectThreads) {
     const environment = thread.environmentId
       ? (environmentsById.get(thread.environmentId) ??
-        getEnvironment(deps.db, thread.environmentId))
+        (await getEnvironment(deps.db, thread.environmentId)))
       : null;
-    requestThreadStorageDeletion(deps, thread, environment);
+    await requestThreadStorageDeletion(deps, thread, environment);
   }
 }
 
@@ -155,63 +165,66 @@ export async function advanceProjectDeletion(
   deps: ProjectDeletionDeps,
   args: ProjectDeletionArgs,
 ): Promise<boolean> {
-  if (!isProjectDeletionActive(deps, args.projectId)) {
+  if (!(await isProjectDeletionActive(deps, args.projectId))) {
     return false;
   }
 
-  if (!getProject(deps.db, args.projectId)) {
+  if (!(await getProject(deps.db, args.projectId))) {
     return true;
   }
 
-  const projectEnvironments = listEnvironments(deps.db, {
+  const projectEnvironments = await listEnvironments(deps.db, {
     projectId: args.projectId,
   });
   const environmentsById = new Map(
     projectEnvironments.map((environment) => [environment.id, environment]),
   );
-  const projectThreads = listProjectDeletionThreads(deps.db, {
+  const projectThreads = await listProjectDeletionThreads(deps.db, {
     projectId: args.projectId,
   });
   for (const thread of projectThreads) {
     const environment = thread.environmentId
       ? (environmentsById.get(thread.environmentId) ??
-        getEnvironment(deps.db, thread.environmentId))
+        (await getEnvironment(deps.db, thread.environmentId)))
       : null;
 
     if (thread.deletedAt === null) {
-      const deletedThread = markThreadDeleted(deps.db, deps.hub, {
+      const deletedThread = await markThreadDeleted(deps.db, deps.hub, {
         threadId: thread.id,
       });
       if (deletedThread) emitPluginThreadDeleted(deletedThread);
     }
-    cancelAbandonedProviderCreations(deps, thread.id);
-    deps.terminalSessions.closeDeletedThreadTerminals({ threadId: thread.id });
-    requestThreadStorageDeletion(deps, thread, environment);
+    await cancelAbandonedProviderCreations(deps, thread.id);
+    await deps.terminalSessions.closeDeletedThreadTerminals({
+      threadId: thread.id,
+    });
+    await requestThreadStorageDeletion(deps, thread, environment);
   }
 
-  if (hasRemainingProjectThreads(deps, args.projectId)) {
+  if (await hasRemainingProjectThreads(deps, args.projectId)) {
     return false;
   }
 
   for (const environment of projectEnvironments) {
     if (environment.environmentProviderId === null) continue;
-    if (!requestEnvironmentRemoval(deps, environment.id)) return false;
+    if (!(await requestEnvironmentRemoval(deps, environment.id))) return false;
     await sweepProviderEnvironment(deps, environment.id);
-    const current = getEnvironment(deps.db, environment.id);
+    const current = await getEnvironment(deps.db, environment.id);
     if (current !== null && current.teardownStatus !== "removed") return false;
   }
-  deleteProject(deps.db, deps.hub, args.projectId);
+  await deleteProject(deps.db, deps.hub, args.projectId);
   await deleteProjectAttachments(deps.config.dataDir, args.projectId);
   return true;
 }
 
-export function listProjectsPendingDeletion(
+export async function listProjectsPendingDeletion(
   deps: Pick<AppDeps, "db">,
-): string[] {
-  return deps.db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(isNotNull(projects.deletedAt))
-    .all()
-    .map((project) => project.id);
+): Promise<string[]> {
+  return (
+    await deps.db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(isNotNull(projects.deletedAt))
+      .all()
+  ).map((project) => project.id);
 }

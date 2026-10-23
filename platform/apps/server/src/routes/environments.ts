@@ -164,8 +164,11 @@ const NON_GIT_DIFF_NOT_APPLICABLE = {
   message: "Workspace diff is not available for non-git environments",
 } as const;
 
-function resolveGitDiffWorkspaceTarget(deps: AppDeps, environmentId: string) {
-  const environment = requireReadyEnvironment(deps.db, environmentId);
+async function resolveGitDiffWorkspaceTarget(
+  deps: AppDeps,
+  environmentId: string,
+) {
+  const environment = await requireReadyEnvironment(deps.db, environmentId);
   if (!environment.isGitRepo) {
     return null;
   }
@@ -188,12 +191,12 @@ function diffViewedTargetKey(target: WorkspaceDiffTarget): string {
   }
 }
 
-function resolveDiffViewedScope(
+async function resolveDiffViewedScope(
   deps: AppDeps,
   environmentId: string,
   target: WorkspaceDiffTarget,
-): DiffViewedFileScope {
-  const environment = requireEnvironment(deps.db, environmentId);
+): Promise<DiffViewedFileScope> {
+  const environment = await requireEnvironment(deps.db, environmentId);
   return {
     environmentId: environment.id,
     targetKey: diffViewedTargetKey(target),
@@ -206,11 +209,14 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
   });
   const routes = publicApiRoutes.environments;
   post(routes.cleanup, async (context, query) => {
-    const environment = requireEnvironment(deps.db, context.req.param("id"));
+    const environment = await requireEnvironment(
+      deps.db,
+      context.req.param("id"),
+    );
     if (
-      countLiveThreadsInEnvironment(deps.db, {
+      (await countLiveThreadsInEnvironment(deps.db, {
         environmentId: environment.id,
-      }) > 0
+      })) > 0
     )
       throw new ApiError(
         409,
@@ -221,7 +227,7 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
       await recoverEnvironmentCleanup(deps, environment.id);
       return context.json({ ok: true } as const);
     }
-    if (!cleanupEnvironment(deps, environment.id))
+    if (!(await cleanupEnvironment(deps, environment.id)))
       throw new ApiError(
         409,
         "invalid_request",
@@ -236,9 +242,9 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
       offset: query?.offset,
     });
     return context.json(
-      toEnvironmentResponses(
+      await toEnvironmentResponses(
         deps.db,
-        listEnvironments(deps.db, {
+        await listEnvironments(deps.db, {
           ...(query?.projectId ? { projectId: query.projectId } : {}),
           ...(query?.hostId ? { hostId: query.hostId } : {}),
           ...(query?.environmentProviderId
@@ -256,12 +262,15 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
     );
   });
 
-  del(routes.delete, (context) => {
-    const environment = requireEnvironment(deps.db, context.req.param("id"));
+  del(routes.delete, async (context) => {
+    const environment = await requireEnvironment(
+      deps.db,
+      context.req.param("id"),
+    );
     if (
-      countLiveThreadsInEnvironment(deps.db, {
+      (await countLiveThreadsInEnvironment(deps.db, {
         environmentId: environment.id,
-      }) > 0
+      })) > 0
     ) {
       throw new ApiError(
         409,
@@ -270,32 +279,35 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
       );
     }
     if (environment.status !== "destroyed") {
-      if (!requestEnvironmentRemoval(deps, environment.id)) {
+      if (!(await requestEnvironmentRemoval(deps, environment.id))) {
         throw new ApiError(
           409,
           "invalid_request",
           `Environment cannot be deleted while ${environment.status}`,
         );
       }
-      deps.terminalSessions.closeDestroyedEnvironmentTerminals({
+      await deps.terminalSessions.closeDestroyedEnvironmentTerminals({
         environmentId: environment.id,
       });
     }
     return context.json({ ok: true } as const);
   });
 
-  get(routes.get, (context) =>
+  get(routes.get, async (context) =>
     context.json(
-      toEnvironmentResponse(
+      await toEnvironmentResponse(
         deps.db,
-        requireEnvironment(deps.db, context.req.param("id")),
+        await requireEnvironment(deps.db, context.req.param("id")),
       ),
     ),
   );
 
-  patch(routes.update, (context, payload) => {
-    const environment = requireEnvironment(deps.db, context.req.param("id"));
-    const updated = updateEnvironmentMetadata(
+  patch(routes.update, async (context, payload) => {
+    const environment = await requireEnvironment(
+      deps.db,
+      context.req.param("id"),
+    );
+    const updated = await updateEnvironmentMetadata(
       deps.db,
       deps.hub,
       environment.id,
@@ -304,12 +316,17 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
     if (!updated) {
       throw new ApiError(404, "environment_not_found", "Environment not found");
     }
-    return context.json(toEnvironmentResponse(deps.db, updated));
+    return context.json(await toEnvironmentResponse(deps.db, updated));
   });
 
-  post(routes.archiveThreads, (context) => {
-    const environment = requireEnvironment(deps.db, context.req.param("id"));
-    const archivedThreadIds = archiveEnvironmentThreads(deps, { environment });
+  post(routes.archiveThreads, async (context) => {
+    const environment = await requireEnvironment(
+      deps.db,
+      context.req.param("id"),
+    );
+    const archivedThreadIds = await archiveEnvironmentThreads(deps, {
+      environment,
+    });
     return context.json({
       ok: true,
       archivedThreadIds,
@@ -317,7 +334,7 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(routes.status, async (context, query) => {
-    const environment = requireReadyEnvironment(
+    const environment = await requireReadyEnvironment(
       deps.db,
       context.req.param("id"),
     );
@@ -333,8 +350,8 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
       environmentId: environment.id,
       hostId: target.hostId,
       key: workspaceStatusCacheKey(target, query.mergeBaseBranch),
-      load: () =>
-        callEnvironmentWorkspaceStatus(deps, {
+      load: async () =>
+        await callEnvironmentWorkspaceStatus(deps, {
           target,
           ...(query.mergeBaseBranch
             ? { mergeBaseBranch: query.mergeBaseBranch }
@@ -354,7 +371,10 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(routes.diff, async (context, query) => {
-    const target = resolveGitDiffWorkspaceTarget(deps, context.req.param("id"));
+    const target = await resolveGitDiffWorkspaceTarget(
+      deps,
+      context.req.param("id"),
+    );
     if (target === null) {
       return context.json(NON_GIT_DIFF_NOT_APPLICABLE);
     }
@@ -384,7 +404,10 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(routes.diffFiles, async (context, query) => {
-    const target = resolveGitDiffWorkspaceTarget(deps, context.req.param("id"));
+    const target = await resolveGitDiffWorkspaceTarget(
+      deps,
+      context.req.param("id"),
+    );
     if (target === null) {
       return context.json(NON_GIT_DIFF_NOT_APPLICABLE);
     }
@@ -397,8 +420,8 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
         ignoreWhitespace,
         workspaceContext: target.workspaceContext,
       }),
-      load: () =>
-        callHostRetryableOnlineRpc(deps, {
+      load: async () =>
+        await callHostRetryableOnlineRpc(deps, {
           hostId: target.hostId,
           timeoutMs: COMMAND_TIMEOUT_MS,
           command: {
@@ -449,7 +472,10 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
   });
 
   post(routes.diffPatch, async (context, payload) => {
-    const target = resolveGitDiffWorkspaceTarget(deps, context.req.param("id"));
+    const target = await resolveGitDiffWorkspaceTarget(
+      deps,
+      context.req.param("id"),
+    );
     if (target === null) {
       return context.json(NON_GIT_DIFF_NOT_APPLICABLE);
     }
@@ -478,54 +504,63 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
     });
   });
 
-  get(routes.diffViewed, (context, query) => {
-    const scope = resolveDiffViewedScope(
+  get(routes.diffViewed, async (context, query) => {
+    const scope = await resolveDiffViewedScope(
       deps,
       context.req.param("id"),
       toWorkspaceDiffTarget(query),
     );
-    return context.json({ files: listDiffViewedFiles(deps.db, scope, null) });
+    return context.json({
+      files: await listDiffViewedFiles(deps.db, scope, null),
+    });
   });
 
-  post(routes.queryDiffViewed, (context, payload) => {
-    const scope = resolveDiffViewedScope(
+  post(routes.queryDiffViewed, async (context, payload) => {
+    const scope = await resolveDiffViewedScope(
       deps,
       context.req.param("id"),
       toWorkspaceDiffTarget(payload),
     );
     return context.json({
-      files: listDiffViewedFiles(deps.db, scope, payload.paths),
+      files: await listDiffViewedFiles(deps.db, scope, payload.paths),
     });
   });
 
-  put(routes.markDiffViewed, (context, payload) => {
-    const scope = resolveDiffViewedScope(
+  put(routes.markDiffViewed, async (context, payload) => {
+    const scope = await resolveDiffViewedScope(
       deps,
       context.req.param("id"),
       payload.target,
     );
-    markDiffViewedFile(deps.db, {
+    await markDiffViewedFile(deps.db, {
       ...scope,
       path: payload.path,
       revision: payload.revision,
     });
-    deps.hub.notifyEnvironment(scope.environmentId, ["diff-viewed-changed"]);
+    await deps.hub.notifyEnvironment(scope.environmentId, [
+      "diff-viewed-changed",
+    ]);
     return context.json({ ok: true as const });
   });
 
-  del(routes.clearDiffViewed, (context, payload) => {
-    const scope = resolveDiffViewedScope(
+  del(routes.clearDiffViewed, async (context, payload) => {
+    const scope = await resolveDiffViewedScope(
       deps,
       context.req.param("id"),
       payload.target,
     );
-    clearDiffViewedFiles(deps.db, { ...scope, path: payload.path ?? null });
-    deps.hub.notifyEnvironment(scope.environmentId, ["diff-viewed-changed"]);
+    await clearDiffViewedFiles(deps.db, {
+      ...scope,
+      path: payload.path ?? null,
+    });
+    await deps.hub.notifyEnvironment(scope.environmentId, [
+      "diff-viewed-changed",
+    ]);
     return context.json({ ok: true as const });
   });
 
   get(routes.diffFile, async (context, query) => {
-    const environment = requireReadyEnvironment(
+    const environment = await requireReadyEnvironment(
       deps.db,
       context.req.param("id"),
     );
@@ -562,7 +597,7 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(routes.diffBranches, async (context, query) => {
-    const environment = requireReadyEnvironment(
+    const environment = await requireReadyEnvironment(
       deps.db,
       context.req.param("id"),
     );
@@ -590,7 +625,7 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(routes.paths, async (context, query) => {
-    const environment = requireReadyEnvironment(
+    const environment = await requireReadyEnvironment(
       deps.db,
       context.req.param("id"),
     );
@@ -630,7 +665,7 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
   });
 
   post(routes.actions, async (context) => {
-    const environment = requireReadyEnvironment(
+    const environment = await requireReadyEnvironment(
       deps.db,
       context.req.param("id"),
     );
@@ -677,8 +712,8 @@ export function registerEnvironmentRoutes(app: Hono, deps: AppDeps): void {
 
       const result = await mapNoChangesTo409(
         "No uncommitted changes to commit",
-        () =>
-          runLiveCommandAndWait(deps, {
+        async () =>
+          await runLiveCommandAndWait(deps, {
             hostId: target.hostId,
             timeoutMs: COMMAND_TIMEOUT_MS,
             command: {

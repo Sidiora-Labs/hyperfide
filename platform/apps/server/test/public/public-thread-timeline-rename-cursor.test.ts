@@ -32,7 +32,7 @@ describe("timeline older-page cursors after a rename", () => {
         featureFlags: { ...defaultFeatureFlags, timelineWindowEventBudget: 2 },
       },
       async (harness) => {
-        const { thread, environment } = seedThreadFixture(harness, {
+        const { thread, environment } = await seedThreadFixture(harness, {
           thread: { providerId: "codex", title: "Before rename" },
         });
         let sequence = 0;
@@ -43,13 +43,13 @@ describe("timeline older-page cursors after a rename", () => {
             providerThreadId: "provider-thread",
             scope: turnScope(`turn-${turn}`),
           };
-          seedEvent(harness.deps, {
+          await seedEvent(harness.deps, {
             ...scope,
             sequence: ++sequence,
             type: "turn/started",
             data: {},
           });
-          seedEvent(harness.deps, {
+          await seedEvent(harness.deps, {
             ...scope,
             sequence: ++sequence,
             type: "item/completed",
@@ -61,7 +61,7 @@ describe("timeline older-page cursors after a rename", () => {
               },
             },
           });
-          seedEvent(harness.deps, {
+          await seedEvent(harness.deps, {
             ...scope,
             sequence: ++sequence,
             type: "turn/completed",

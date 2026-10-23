@@ -107,7 +107,7 @@ export async function callPluginHostRpc(
   const result =
     signal === undefined
       ? await rpc
-      : await new Promise<Awaited<typeof rpc>>((resolve, reject) => {
+      : await new Promise<Awaited<typeof rpc>>(async (resolve, reject) => {
           let settled = false;
           let aborted = false;
           const finish = (fn: () => void): void => {
@@ -116,7 +116,7 @@ export async function callPluginHostRpc(
             signal.removeEventListener("abort", onAbort);
             fn();
           };
-          const onAbort = (): void => {
+          const onAbort = async (): Promise<void> => {
             aborted = true;
             void callHostOnlineRpc(deps, {
               hostId: args.hostId,
@@ -130,7 +130,7 @@ export async function callPluginHostRpc(
             }).catch(() => undefined);
           };
           signal.addEventListener("abort", onAbort, { once: true });
-          if (signal.aborted) onAbort();
+          if (signal.aborted) await onAbort();
           rpc.then(
             (value) =>
               finish(() => (aborted ? reject(abortError()) : resolve(value))),
@@ -145,18 +145,21 @@ export async function disposePluginHostWorkers(
   deps: WorkSessionDeps,
   args: { pluginId: string; generation: string },
 ): Promise<void> {
-  const calls = listPublicHosts(deps.db)
-    .filter((host) => deps.hub.hasDaemonForHost(host.id))
-    .map((host) =>
-      callHostOnlineRpc(deps, {
-        hostId: host.id,
-        timeoutMs: HOST_RPC_TRANSPORT_GRACE_MS,
-        command: {
-          type: "plugin.host.dispose",
-          pluginId: args.pluginId,
-          generation: args.generation,
-        },
-      }),
-    );
+  const calls = await Promise.all(
+    (await listPublicHosts(deps.db))
+      .filter((host) => deps.hub.hasDaemonForHost(host.id))
+      .map(
+        async (host) =>
+          await callHostOnlineRpc(deps, {
+            hostId: host.id,
+            timeoutMs: HOST_RPC_TRANSPORT_GRACE_MS,
+            command: {
+              type: "plugin.host.dispose",
+              pluginId: args.pluginId,
+              generation: args.generation,
+            },
+          }),
+      ),
+  );
   await Promise.allSettled(calls);
 }

@@ -101,17 +101,20 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { thread } = seedThreadFixture(harness, {
+      const { thread } = await seedThreadFixture(harness, {
         thread: { status: "starting" },
       });
 
-      const started = applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
-        threadId: thread.id,
-        event: { type: "run.started" },
-      });
+      const started = await applyLoggedThreadLifecycleEvent(
+        lifecycleDeps(harness),
+        {
+          threadId: thread.id,
+          event: { type: "run.started" },
+        },
+      );
       expect(started.applied).toBe(true);
 
-      const duplicate = applyLoggedThreadLifecycleEvent(
+      const duplicate = await applyLoggedThreadLifecycleEvent(
         lifecycleDeps(harness),
         {
           threadId: thread.id,
@@ -140,10 +143,10 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         thread: { status: "active" },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-1",
@@ -155,16 +158,21 @@ describe("plugin thread lifecycle events", () => {
         },
       });
 
-      const outcome = applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
-        threadId: thread.id,
-        event: { type: "run.succeeded" },
-      });
-      expect(outcome.applied).toBe(true);
-      expect(
-        applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
+      const outcome = await applyLoggedThreadLifecycleEvent(
+        lifecycleDeps(harness),
+        {
           threadId: thread.id,
           event: { type: "run.succeeded" },
-        }).applied,
+        },
+      );
+      expect(outcome.applied).toBe(true);
+      expect(
+        (
+          await applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
+            threadId: thread.id,
+            event: { type: "run.succeeded" },
+          })
+        ).applied,
       ).toBe(false);
 
       await vi.waitFor(() => expect(recorded).toHaveLength(1));
@@ -172,9 +180,9 @@ describe("plugin thread lifecycle events", () => {
       expect(recorded[0]?.thread.status).toBe("idle");
       expect(recorded[0]?.lastAssistantText).toBe("All done.");
 
-      const entry = harness.pluginService
-        .list()
-        .find((plugin) => plugin.id === "observer");
+      const entry = (await harness.pluginService.list()).find(
+        (plugin) => plugin.id === "observer",
+      );
       expect(entry?.handlerStats.count).toBe(1);
       expect(entry?.handlerStats.errorCount).toBe(0);
     } finally {
@@ -194,10 +202,10 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         thread: { status: "active" },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         scope: threadScope(),
@@ -206,16 +214,21 @@ describe("plugin thread lifecycle events", () => {
         data: { code: "provider_process_exited", message: "provider exploded" },
       });
 
-      const outcome = applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
-        threadId: thread.id,
-        event: { type: "run.failed" },
-      });
-      expect(outcome.applied).toBe(true);
-      expect(
-        applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
+      const outcome = await applyLoggedThreadLifecycleEvent(
+        lifecycleDeps(harness),
+        {
           threadId: thread.id,
           event: { type: "run.failed" },
-        }).applied,
+        },
+      );
+      expect(outcome.applied).toBe(true);
+      expect(
+        (
+          await applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
+            threadId: thread.id,
+            event: { type: "run.failed" },
+          })
+        ).applied,
       ).toBe(false);
 
       await vi.waitFor(() => expect(recorded).toHaveLength(1));
@@ -239,17 +252,17 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { thread } = seedThreadFixture(harness, {
+      const { thread } = await seedThreadFixture(harness, {
         thread: { status: "active" },
       });
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         threadId: thread.id,
         turnId: "turn-pending-event",
         providerThreadId: "provider-thread-pending-event",
       });
 
       const result =
-        harness.deps.pendingInteractions.registerPendingInteraction({
+        await harness.deps.pendingInteractions.registerPendingInteraction({
           interaction: {
             threadId: thread.id,
             turnId: "turn-pending-event",
@@ -289,7 +302,7 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { environment, project } = seedThreadFixture(harness);
+      const { environment, project } = await seedThreadFixture(harness);
       const request: ThreadCreateServiceRequest = {
         environment: { type: "reuse", environmentId: environment.id },
         input: [],
@@ -302,7 +315,7 @@ describe("plugin thread lifecycle events", () => {
         visibility: "visible",
         parentNotifications: "auto",
       };
-      const thread = createThreadRecord(
+      const thread = await createThreadRecord(
         { db: harness.db, hub: harness.hub },
         { environmentId: environment.id, request },
       );
@@ -331,9 +344,9 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { environment, project } = seedThreadFixture(harness);
-      const createHidden = (originPluginId: string) =>
-        createThreadRecord(
+      const { environment, project } = await seedThreadFixture(harness);
+      const createHidden = async (originPluginId: string) =>
+        await createThreadRecord(
           { db: harness.db, hub: harness.hub },
           {
             environmentId: environment.id,
@@ -353,11 +366,11 @@ describe("plugin thread lifecycle events", () => {
           },
         );
 
-      createHidden("other-plugin");
+      await createHidden("other-plugin");
       await vi.waitFor(() => expect(recorded).toHaveLength(1));
       expect(recorded[0]?.thread.visibility).toBe("hidden");
 
-      const owned = createHidden("observer");
+      const owned = await createHidden("observer");
       await vi.waitFor(() => expect(recorded).toHaveLength(2));
       expect(recorded[1]?.thread).toMatchObject({
         id: owned.id,
@@ -380,7 +393,7 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { environment, project } = seedThreadFixture(harness);
+      const { environment, project } = await seedThreadFixture(harness);
 
       const response = await harness.app.request("/api/v1/threads", {
         method: "POST",
@@ -419,14 +432,14 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { project, thread } = seedThreadFixture(harness, {
+      const { project, thread } = await seedThreadFixture(harness, {
         thread: { status: "idle" },
       });
-      const alreadyDeleted = seedThread(harness.deps, {
+      const alreadyDeleted = await seedThread(harness.deps, {
         projectId: project.id,
         lifecycleOwnerThreadId: thread.id,
       });
-      const liveChild = seedThread(harness.deps, {
+      const liveChild = await seedThread(harness.deps, {
         projectId: project.id,
         lifecycleOwnerThreadId: thread.id,
       });
@@ -481,10 +494,10 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { project, thread } = seedThreadFixture(harness, {
+      const { project, thread } = await seedThreadFixture(harness, {
         thread: { status: "idle" },
       });
-      const child = seedThread(harness.deps, {
+      const child = await seedThread(harness.deps, {
         projectId: project.id,
         lifecycleOwnerThreadId: thread.id,
       });
@@ -549,11 +562,11 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { project, thread: parent } = seedThreadFixture(harness, {
+      const { project, thread: parent } = await seedThreadFixture(harness, {
         thread: { status: "idle" },
       });
-      const child = seedThread(harness.deps, { projectId: project.id });
-      const sibling = seedThread(harness.deps, {
+      const child = await seedThread(harness.deps, { projectId: project.id });
+      const sibling = await seedThread(harness.deps, {
         projectId: project.id,
         parentThreadId: parent.id,
       });
@@ -568,7 +581,9 @@ describe("plugin thread lifecycle events", () => {
       expect((await move({ parentThreadId: parent.id })).status).toBe(200);
       expect((await move({ title: "Renamed" })).status).toBe(200);
       await vi.waitFor(() => expect(recorded).toHaveLength(1));
-      archiveThreadAndReleaseChildren(harness.deps, { threadId: parent.id });
+      await archiveThreadAndReleaseChildren(harness.deps, {
+        threadId: parent.id,
+      });
       await vi.waitFor(() => expect(recorded).toHaveLength(3));
       expect(recorded[0]).toEqual({
         threadId: child.id,
@@ -601,15 +616,15 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { project, thread } = seedThreadFixture(harness, {
+      const { project, thread } = await seedThreadFixture(harness, {
         thread: { status: "idle" },
       });
-      const child = seedThread(harness.deps, {
+      const child = await seedThread(harness.deps, {
         projectId: project.id,
         lifecycleOwnerThreadId: thread.id,
       });
-      beginProjectDeletion(harness.deps, { projectId: project.id });
-      beginProjectDeletion(harness.deps, { projectId: project.id });
+      await beginProjectDeletion(harness.deps, { projectId: project.id });
+      await beginProjectDeletion(harness.deps, { projectId: project.id });
       await vi.waitFor(() => expect(recorded).toHaveLength(2));
       expect(recorded.sort()).toEqual([thread.id, child.id].sort());
     } finally {
@@ -627,7 +642,7 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { thread } = seedThreadFixture(harness, {
+      const { thread } = await seedThreadFixture(harness, {
         thread: { status: "idle" },
       });
 
@@ -641,10 +656,10 @@ describe("plugin thread lifecycle events", () => {
       );
 
       expect(response.status).toBe(200);
-      await vi.waitFor(() => {
-        const entry = harness.pluginService
-          .list()
-          .find((plugin) => plugin.id === "observer");
+      await vi.waitFor(async () => {
+        const entry = (await harness.pluginService.list()).find(
+          (plugin) => plugin.id === "observer",
+        );
         expect(entry?.handlerStats.count).toBe(1);
         expect(entry?.handlerStats.errorCount).toBe(1);
         expect(entry?.status).toBe("running");
@@ -669,23 +684,26 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { thread } = seedThreadFixture(harness, {
+      const { thread } = await seedThreadFixture(harness, {
         thread: { status: "active" },
       });
 
-      const outcome = applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
-        threadId: thread.id,
-        event: { type: "run.succeeded" },
-      });
+      const outcome = await applyLoggedThreadLifecycleEvent(
+        lifecycleDeps(harness),
+        {
+          threadId: thread.id,
+          event: { type: "run.succeeded" },
+        },
+      );
       expect(outcome.applied).toBe(true);
 
       await vi.waitFor(() => expect(recorded).toHaveLength(1));
       expect(recorded[0]?.lastAssistantText).toBeNull();
 
-      await vi.waitFor(() => {
-        const entry = harness.pluginService
-          .list()
-          .find((plugin) => plugin.id === "observer");
+      await vi.waitFor(async () => {
+        const entry = (await harness.pluginService.list()).find(
+          (plugin) => plugin.id === "observer",
+        );
         expect(entry?.handlerStats.count).toBe(2);
         expect(entry?.handlerStats.errorCount).toBe(1);
         expect(entry?.handlerStats.maxMs).toBeGreaterThanOrEqual(0);
@@ -719,21 +737,21 @@ describe("plugin thread lifecycle events", () => {
       }
     `);
     try {
-      const { thread } = seedThreadFixture(harness, {
+      const { thread } = await seedThreadFixture(harness, {
         thread: { status: "active" },
       });
-      applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
+      await applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
         threadId: thread.id,
         event: { type: "run.succeeded" },
       });
       await vi.waitFor(() => expect(recorded).toHaveLength(1));
 
       await harness.pluginService.setEnabled("observer", false);
-      applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
+      await applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
         threadId: thread.id,
         event: { type: "run.started" },
       });
-      applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
+      await applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
         threadId: thread.id,
         event: { type: "run.succeeded" },
       });
@@ -760,27 +778,29 @@ it("coalesces thread appends and delivers current status without reading history
     }
   `);
   try {
-    const { thread } = seedThreadFixture(harness, {
+    const { thread } = await seedThreadFixture(harness, {
       thread: { status: "starting" },
     });
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     for (let i = 0; i < 20; i++) emitPluginThreadEvents(thread.id);
     await vi.advanceTimersByTimeAsync(999);
     expect(recorded).toHaveLength(0);
-    applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
+    await applyLoggedThreadLifecycleEvent(lifecycleDeps(harness), {
       threadId: thread.id,
       event: { type: "run.started" },
     });
     await vi.advanceTimersByTimeAsync(1);
-    expect(recorded).toMatchObject([
+    await vi.waitFor(async () => expect(recorded).toMatchObject([
       {
         thread: { id: thread.id, status: "active" },
-        sequence: getLatestThreadSequence(harness.db, { threadId: thread.id }),
+        sequence: await getLatestThreadSequence(harness.db, {
+          threadId: thread.id,
+        }),
       },
-    ]);
+    ]));
     emitPluginThreadEvents(thread.id);
     await vi.advanceTimersByTimeAsync(1000);
-    expect(recorded).toHaveLength(2);
+    await vi.waitFor(() => expect(recorded).toHaveLength(2));
     await vi.advanceTimersByTimeAsync(5000);
     expect(recorded).toHaveLength(2);
   } finally {

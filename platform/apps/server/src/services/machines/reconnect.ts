@@ -58,7 +58,7 @@ export async function reconnectBootstrapForCredential(
 ): Promise<EnrollmentBootstrap | null> {
   const enrollment = await findUnusedEnrollmentCredential(deps.db, credential);
   if (enrollment?.enrollSource !== "reconnect") return null;
-  const host = getHost(deps.db, enrollment.hostId);
+  const host = await getHost(deps.db, enrollment.hostId);
   if (!host || host.destroyedAt !== null || host.phase !== "active")
     return null;
   const grant = await serverAccess.repair(deps, {
@@ -66,7 +66,7 @@ export async function reconnectBootstrapForCredential(
     hostId: host.id,
     signal: AbortSignal.timeout(SERVER_ACCESS_TIMEOUT_MS),
   });
-  const session = getLatestSessionForHost(deps.db, { hostId: host.id });
+  const session = await getLatestSessionForHost(deps.db, { hostId: host.id });
   return {
     hostId: host.id,
     serverUrl: grant.serverUrl,

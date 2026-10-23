@@ -135,7 +135,7 @@ export async function waitForThreadOutputContaining(
   timeoutMs = 10_000,
 ): Promise<string> {
   let currentOutput = "";
-  return pollUntil(
+  return await pollUntil(
     async () => {
       const output = await getThreadOutput(api, threadId);
       currentOutput = previewThreadText(output);
@@ -154,7 +154,7 @@ export async function waitForEventType(
   timeoutMs = 10_000,
 ): Promise<ThreadEventRow> {
   let lastTypes = "none";
-  return pollUntil(
+  return await pollUntil(
     async () => {
       const events = await getThreadEvents(api, threadId);
       lastTypes = events.map((event) => event.type).join(", ") || "none";
@@ -171,7 +171,7 @@ export async function waitForHostConnected(
   timeoutMs = 10_000,
 ): Promise<Host> {
   let currentHosts = "none";
-  return pollUntil(
+  return await pollUntil(
     async () => {
       const response = await api.hosts.$get({});
       if (response.status !== 200) {
@@ -213,7 +213,7 @@ export async function waitForEnvironmentStatus(
   timeoutMs = 10_000,
 ): Promise<Environment> {
   let currentStatus = "unknown";
-  return pollUntil(
+  return await pollUntil(
     async () => {
       const environment = await getEnvironment(api, environmentId);
       currentStatus = environment.status;

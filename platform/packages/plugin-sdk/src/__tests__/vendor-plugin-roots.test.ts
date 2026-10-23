@@ -57,14 +57,14 @@ async function writePlugin(
   );
 }
 
-function installed(
+async function installed(
   plugins: Record<
     string,
     { scope: string; installPath: string; gitCommitSha?: string }[]
   >,
   registryDir = claudeDir,
 ): Promise<void> {
-  return writeJson(
+  return await writeJson(
     path.join(registryDir, "plugins", "installed_plugins.json"),
     {
       version: 2,

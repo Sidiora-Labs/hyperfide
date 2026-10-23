@@ -22,7 +22,7 @@ describe("NotificationHub", () => {
   });
 
   it("batches tag changes and delivers them to every connected client without subscriptions", async () => {
-    const hub = new NotificationHub();
+    const hub = await new NotificationHub();
     const first = createMockHubSocket();
     const second = createMockHubSocket();
     const disconnected = createMockHubSocket();
@@ -40,12 +40,12 @@ describe("NotificationHub", () => {
     expect(disconnected.messages).toEqual([]);
   });
 
-  it("includes thread notification metadata when provided", () => {
-    const hub = new NotificationHub();
+  it("includes thread notification metadata when provided", async () => {
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
 
     hub.subscribe(socket, { kind: "thread-detail", threadId: "thread-1" });
-    hub.notifyThread("thread-1", ["archived-changed"], {
+    await hub.notifyThread("thread-1", ["archived-changed"], {
       projectId: "project-1",
     });
 
@@ -59,15 +59,15 @@ describe("NotificationHub", () => {
     });
   });
 
-  it("subscribes clients and delivers environment notifications", () => {
-    const hub = new NotificationHub();
+  it("subscribes clients and delivers environment notifications", async () => {
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
 
     hub.subscribe(socket, {
       kind: "environment-detail",
       environmentId: "environment-1",
     });
-    hub.notifyEnvironment("environment-1", ["metadata-changed"]);
+    await hub.notifyEnvironment("environment-1", ["metadata-changed"]);
 
     expect(socket.messages).toHaveLength(1);
     expect(JSON.parse(socket.messages[0])).toMatchObject({
@@ -78,15 +78,15 @@ describe("NotificationHub", () => {
     });
   });
 
-  it("cleans up subscriptions on client disconnect", () => {
-    const hub = new NotificationHub();
+  it("cleans up subscriptions on client disconnect", async () => {
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
 
     hub.subscribe(socket, { kind: "thread-detail", threadId: "thread-1" });
     hub.subscribe(socket, { kind: "project-detail", projectId: "project-1" });
     hub.unregisterClient(socket);
-    hub.notifyThread("thread-1", ["events-appended"]);
-    hub.notifyProject("project-1", ["threads-changed"]);
+    await hub.notifyThread("thread-1", ["events-appended"]);
+    await hub.notifyProject("project-1", ["threads-changed"]);
 
     expect(socket.messages).toHaveLength(0);
   });
@@ -147,8 +147,8 @@ describe("NotificationHub", () => {
     expect(changes).toEqual([{ started: [target], stopped: [] }]);
   });
 
-  it("watches only for visible clients while still routing changes to hidden ones", () => {
-    const hub = new NotificationHub();
+  it("watches only for visible clients while still routing changes to hidden ones", async () => {
+    const hub = await new NotificationHub();
     const first = createMockHubSocket();
     const second = createMockHubSocket();
     const environment = {
@@ -173,7 +173,7 @@ describe("NotificationHub", () => {
     expect(hub.listWatchedTargets("environment-detail")).toEqual([environment]);
     hub.setClientVisible(second, false);
     hub.subscribe(second, pullRequest);
-    hub.notifyEnvironment("environment-1", ["metadata-changed"]);
+    await hub.notifyEnvironment("environment-1", ["metadata-changed"]);
     hub.setClientVisible(second, true);
     hub.unregisterClient(second);
     hub.unregisterClient(first);
@@ -336,8 +336,8 @@ describe("NotificationHub", () => {
     expect(socket.messages).toEqual([]);
   });
 
-  it("notifies all clients subscribed to the same thread", () => {
-    const hub = new NotificationHub();
+  it("notifies all clients subscribed to the same thread", async () => {
+    const hub = await new NotificationHub();
     const socket1 = createMockHubSocket();
     const socket2 = createMockHubSocket();
     const socket3 = createMockHubSocket();
@@ -345,7 +345,7 @@ describe("NotificationHub", () => {
     hub.subscribe(socket1, { kind: "thread-detail", threadId: "thread-1" });
     hub.subscribe(socket2, { kind: "thread-detail", threadId: "thread-1" });
     hub.subscribe(socket3, { kind: "thread-detail", threadId: "thread-2" });
-    hub.notifyThread("thread-1", ["status-changed"]);
+    await hub.notifyThread("thread-1", ["status-changed"]);
 
     expect(socket1.messages).toHaveLength(1);
     expect(socket2.messages).toHaveLength(1);
@@ -355,15 +355,15 @@ describe("NotificationHub", () => {
   it("cancels the replaced daemon session's pending disconnect timer", async () => {
     vi.useFakeTimers();
     try {
-      const hub = new NotificationHub();
+      const hub = await new NotificationHub();
       const socket1 = createMockHubSocket();
       const socket2 = createMockHubSocket();
       const callback = vi.fn();
 
-      hub.registerDaemon("session-1", "host-1", socket1);
+      await hub.registerDaemon("session-1", "host-1", socket1);
       hub.scheduleDaemonDisconnect("session-1", 1_000, callback);
 
-      hub.registerDaemon("session-2", "host-1", socket2);
+      await hub.registerDaemon("session-2", "host-1", socket2);
       await vi.advanceTimersByTimeAsync(1_000);
 
       expect(callback).not.toHaveBeenCalled();
@@ -374,9 +374,9 @@ describe("NotificationHub", () => {
   });
 
   it("sends host RPC requests to the active daemon and resolves responses", async () => {
-    const hub = new NotificationHub();
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
-    hub.registerDaemon("session-1", "host-1", socket);
+    await hub.registerDaemon("session-1", "host-1", socket);
 
     const wait = hub.requestHostOnlineRpc({
       hostId: "host-1",
@@ -427,9 +427,9 @@ describe("NotificationHub", () => {
   });
 
   it("cancels the daemon request when the caller aborts", async () => {
-    const hub = new NotificationHub();
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
-    hub.registerDaemon("session-1", "host-1", socket);
+    await hub.registerDaemon("session-1", "host-1", socket);
     const abortController = new AbortController();
 
     const wait = hub.requestHostOnlineRpc({
@@ -474,9 +474,9 @@ describe("NotificationHub", () => {
 
   it("cancels the daemon request when the wait times out", async () => {
     vi.useFakeTimers();
-    const hub = new NotificationHub();
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
-    hub.registerDaemon("session-1", "host-1", socket);
+    await hub.registerDaemon("session-1", "host-1", socket);
 
     const wait = hub.requestHostOnlineRpc({
       hostId: "host-1",
@@ -505,9 +505,9 @@ describe("NotificationHub", () => {
   });
 
   it("does not send a request whose signal is already aborted", async () => {
-    const hub = new NotificationHub();
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
-    hub.registerDaemon("session-1", "host-1", socket);
+    await hub.registerDaemon("session-1", "host-1", socket);
     const abortController = new AbortController();
     abortController.abort();
 
@@ -532,9 +532,9 @@ describe("NotificationHub", () => {
   });
 
   it("rejects in-flight host RPC requests when the daemon unregisters", async () => {
-    const hub = new NotificationHub();
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
-    hub.registerDaemon("session-1", "host-1", socket);
+    await hub.registerDaemon("session-1", "host-1", socket);
 
     const wait = hub.requestHostOnlineRpc({
       hostId: "host-1",
@@ -555,19 +555,21 @@ describe("NotificationHub", () => {
     await expect(wait).rejects.toThrow("Host daemon is not connected");
   });
 
-  it("skips and logs broadcasts that fail outgoing schema validation", () => {
+  it("skips and logs broadcasts that fail outgoing schema validation", async () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
     try {
-      const hub = new NotificationHub();
+      const hub = await new NotificationHub();
       const socket = createMockHubSocket();
       hub.subscribe(socket, { kind: "thread-detail", threadId: "thread-1" });
 
       const changes: ThreadChangeKind[] = ["events-appended"];
       appendRawChangeKind(changes, "not-a-real-change-kind");
 
-      expect(() => hub.notifyThread("thread-1", changes)).not.toThrow();
+      await expect(
+        (async () => await hub.notifyThread("thread-1", changes))(),
+      ).resolves.not.toThrow();
 
       expect(socket.messages).toHaveLength(0);
       expect(consoleError).toHaveBeenCalledWith(
@@ -579,12 +581,12 @@ describe("NotificationHub", () => {
     }
   });
 
-  it("delivers system notifications to system subscribers", () => {
-    const hub = new NotificationHub();
+  it("delivers system notifications to system subscribers", async () => {
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
 
     hub.subscribe(socket, { kind: "system" });
-    hub.notifySystem(["config-changed"]);
+    await hub.notifySystem(["config-changed"]);
 
     expect(socket.messages).toHaveLength(1);
     expect(JSON.parse(socket.messages[0])).toEqual({
@@ -594,8 +596,8 @@ describe("NotificationHub", () => {
     });
   });
 
-  it("delivers host notifications to list and detail subscribers", () => {
-    const hub = new NotificationHub();
+  it("delivers host notifications to list and detail subscribers", async () => {
+    const hub = await new NotificationHub();
     const entityWideSocket = createMockHubSocket();
     const idScopedSocket = createMockHubSocket();
     const otherHostSocket = createMockHubSocket();
@@ -603,7 +605,7 @@ describe("NotificationHub", () => {
     hub.subscribe(entityWideSocket, { kind: "host-list" });
     hub.subscribe(idScopedSocket, { kind: "host-detail", hostId: "host-1" });
     hub.subscribe(otherHostSocket, { kind: "host-detail", hostId: "host-2" });
-    hub.notifyHost("host-1", ["host-connected"]);
+    await hub.notifyHost("host-1", ["host-connected"]);
 
     const expected = {
       type: "changed",
@@ -620,13 +622,13 @@ describe("NotificationHub", () => {
     expect(otherHostSocket.messages).toHaveLength(0);
   });
 
-  it("broadcasts host-connected when a daemon registers", () => {
-    const hub = new NotificationHub();
+  it("broadcasts host-connected when a daemon registers", async () => {
+    const hub = await new NotificationHub();
     const clientSocket = createMockHubSocket();
     const daemonSocket = createMockHubSocket();
 
     hub.subscribe(clientSocket, { kind: "host-list" });
-    hub.registerDaemon("session-1", "host-1", daemonSocket);
+    await hub.registerDaemon("session-1", "host-1", daemonSocket);
 
     expect(clientSocket.messages.map((message) => JSON.parse(message))).toEqual(
       [
@@ -640,8 +642,8 @@ describe("NotificationHub", () => {
     );
   });
 
-  it("passes every declared change kind through the outgoing schema gate", () => {
-    const hub = new NotificationHub();
+  it("passes every declared change kind through the outgoing schema gate", async () => {
+    const hub = await new NotificationHub();
     const threadSocket = createMockHubSocket();
     const projectSocket = createMockHubSocket();
     const environmentSocket = createMockHubSocket();
@@ -663,11 +665,11 @@ describe("NotificationHub", () => {
     hub.subscribe(hostSocket, { kind: "host-detail", hostId: "host-1" });
     hub.subscribe(systemSocket, { kind: "system" });
 
-    hub.notifyThread("thread-1", [...THREAD_CHANGE_KINDS]);
-    hub.notifyProject("project-1", [...PROJECT_CHANGE_KINDS]);
-    hub.notifyEnvironment("environment-1", [...ENVIRONMENT_CHANGE_KINDS]);
-    hub.notifyHost("host-1", [...HOST_CHANGE_KINDS]);
-    hub.notifySystem([...SYSTEM_CHANGE_KINDS]);
+    await hub.notifyThread("thread-1", [...THREAD_CHANGE_KINDS]);
+    await hub.notifyProject("project-1", [...PROJECT_CHANGE_KINDS]);
+    await hub.notifyEnvironment("environment-1", [...ENVIRONMENT_CHANGE_KINDS]);
+    await hub.notifyHost("host-1", [...HOST_CHANGE_KINDS]);
+    await hub.notifySystem([...SYSTEM_CHANGE_KINDS]);
 
     expect(threadSocket.messages).toHaveLength(1);
     expect(JSON.parse(threadSocket.messages[0]).changes).toEqual([
@@ -705,9 +707,9 @@ describe("NotificationHub events-appended thread-list coalescing", () => {
     return socket.messages.map((message) => JSON.parse(message));
   }
 
-  it("delivers every events-appended frame to detail subscribers but coalesces list-only subscribers to one per window", () => {
+  it("delivers every events-appended frame to detail subscribers but coalesces list-only subscribers to one per window", async () => {
     vi.useFakeTimers();
-    const hub = new NotificationHub();
+    const hub = await new NotificationHub();
     const detailSocket = createMockHubSocket();
     const listSocket = createMockHubSocket();
     const listAndDetailSocket = createMockHubSocket();
@@ -728,7 +730,7 @@ describe("NotificationHub events-appended thread-list coalescing", () => {
       "item/agentMessage/delta",
       "item/started",
     ] as const) {
-      hub.notifyThread("thread-1", ["events-appended"], {
+      await hub.notifyThread("thread-1", ["events-appended"], {
         eventTypes: [eventType],
         timelineSequence: ++timelineSequence,
       });
@@ -763,7 +765,7 @@ describe("NotificationHub events-appended thread-list coalescing", () => {
 
     vi.advanceTimersByTime(5_000);
     expect(listSocket.messages).toHaveLength(2);
-    hub.notifyThread("thread-1", ["events-appended"], {
+    await hub.notifyThread("thread-1", ["events-appended"], {
       eventTypes: ["item/agentMessage/delta"],
     });
     expect(listSocket.messages).toHaveLength(3);
@@ -771,35 +773,39 @@ describe("NotificationHub events-appended thread-list coalescing", () => {
     expect(listSocket.messages).toHaveLength(3);
   });
 
-  it("bypasses coalescing when metadata carries a list-relevant signal or another change kind", () => {
+  it("bypasses coalescing when metadata carries a list-relevant signal or another change kind", async () => {
     vi.useFakeTimers();
-    const hub = new NotificationHub();
+    const hub = await new NotificationHub();
     const listSocket = createMockHubSocket();
     hub.subscribe(listSocket, { kind: "thread-list" });
 
-    hub.notifyThread("thread-1", ["events-appended"], {
+    await hub.notifyThread("thread-1", ["events-appended"], {
       eventTypes: ["item/agentMessage/delta"],
     });
     expect(listSocket.messages).toHaveLength(1);
 
-    hub.notifyThread("thread-1", ["events-appended"], {
+    await hub.notifyThread("thread-1", ["events-appended"], {
       backgroundActivityChanged: true,
       eventTypes: ["item/agentMessage/delta"],
     });
-    hub.notifyThread("thread-1", ["events-appended"], {
+    await hub.notifyThread("thread-1", ["events-appended"], {
       eventTypes: ["turn/completed"],
     });
-    hub.notifyThread("thread-1", ["events-appended"], {
+    await hub.notifyThread("thread-1", ["events-appended"], {
       eventTypes: ["client/turn/requested"],
     });
-    hub.notifyThread("thread-1", ["events-appended"], {
+    await hub.notifyThread("thread-1", ["events-appended"], {
       hasPendingInteraction: true,
     });
-    hub.notifyThread("thread-1", ["events-appended", "read-state-changed"], {
-      eventTypes: ["item/agentMessage/delta"],
-      projectId: "project-1",
-    });
-    hub.notifyThread("thread-1", ["status-changed"]);
+    await hub.notifyThread(
+      "thread-1",
+      ["events-appended", "read-state-changed"],
+      {
+        eventTypes: ["item/agentMessage/delta"],
+        projectId: "project-1",
+      },
+    );
+    await hub.notifyThread("thread-1", ["status-changed"]);
     expect(listSocket.messages).toHaveLength(7);
     expect(messagesOf(listSocket).map((message) => message.changes)).toEqual([
       ["events-appended"],
@@ -814,19 +820,19 @@ describe("NotificationHub events-appended thread-list coalescing", () => {
 
   it("coalesces per thread and resolves thread event waiters for every frame", async () => {
     vi.useFakeTimers();
-    const hub = new NotificationHub();
+    const hub = await new NotificationHub();
     const listSocket = createMockHubSocket();
     hub.subscribe(listSocket, { kind: "thread-list" });
 
-    hub.notifyThread("thread-1", ["events-appended"]);
-    hub.notifyThread("thread-2", ["events-appended"]);
+    await hub.notifyThread("thread-1", ["events-appended"]);
+    await hub.notifyThread("thread-2", ["events-appended"]);
     expect(messagesOf(listSocket).map((message) => message.id)).toEqual([
       "thread-1",
       "thread-2",
     ]);
 
     const waiter = hub.registerThreadEventWaiter("thread-1", 10_000).promise;
-    hub.notifyThread("thread-1", ["events-appended"]);
+    await hub.notifyThread("thread-1", ["events-appended"]);
     await expect(waiter).resolves.toBe(true);
     vi.advanceTimersByTime(1_000);
     expect(listSocket.messages).toHaveLength(3);
@@ -838,9 +844,9 @@ describe("NotificationHub events-appended thread-list coalescing", () => {
     });
   });
 
-  it("delivers history compaction to detail subscribers and listeners but not to list-only sockets", () => {
+  it("delivers history compaction to detail subscribers and listeners but not to list-only sockets", async () => {
     vi.useFakeTimers();
-    const hub = new NotificationHub();
+    const hub = await new NotificationHub();
     const detailSocket = createMockHubSocket();
     const listSocket = createMockHubSocket();
     const otherDetailSocket = createMockHubSocket();
@@ -858,7 +864,7 @@ describe("NotificationHub events-appended thread-list coalescing", () => {
       threadId: "thread-2",
     });
 
-    hub.notifyThread("thread-1", ["history-compacted"]);
+    await hub.notifyThread("thread-1", ["history-compacted"]);
     vi.advanceTimersByTime(1_000);
 
     expect(messagesOf(detailSocket)).toEqual([
@@ -873,19 +879,19 @@ describe("NotificationHub events-appended thread-list coalescing", () => {
     expect(otherDetailSocket.messages).toEqual([]);
     expect(seen).toEqual([["history-compacted"]]);
 
-    hub.notifyThread("thread-1", ["history-rewritten"]);
+    await hub.notifyThread("thread-1", ["history-rewritten"]);
     expect(listSocket.messages).toHaveLength(1);
   });
 
-  it("still tells changed-message listeners about coalesced frames", () => {
+  it("still tells changed-message listeners about coalesced frames", async () => {
     vi.useFakeTimers();
-    const hub = new NotificationHub();
+    const hub = await new NotificationHub();
     const seen: string[][] = [];
     hub.onChangedMessage((message) => {
       if (message.entity === "thread") seen.push([...message.changes]);
     });
-    hub.notifyThread("thread-1", ["events-appended"]);
-    hub.notifyThread("thread-1", ["events-appended"]);
+    await hub.notifyThread("thread-1", ["events-appended"]);
+    await hub.notifyThread("thread-1", ["events-appended"]);
     expect(seen).toEqual([["events-appended"], ["events-appended"]]);
   });
 });

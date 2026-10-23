@@ -28,7 +28,11 @@ describe("path plugin version reload", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-versioned");
+    rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-versioned",
+    );
     await mkdir(rootDir, { recursive: true });
     await writeManifest("0.1.0");
     await writeFile(
@@ -49,8 +53,9 @@ describe("path plugin version reload", () => {
 
     expect(outcome.ok).toBe(true);
     expect(
-      harness.pluginService.list().find((entry) => entry.id === "versioned")
-        ?.version,
+      (await harness.pluginService.list()).find(
+        (entry) => entry.id === "versioned",
+      )?.version,
     ).toBe("0.2.0");
   });
 });

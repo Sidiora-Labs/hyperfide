@@ -50,33 +50,39 @@ export function isServerMachineHost(
   );
 }
 
-export function resolvePrimaryHostId(deps: PrimaryHostDeps): string | null {
+export async function resolvePrimaryHostId(
+  deps: PrimaryHostDeps,
+): Promise<string | null> {
   const configured = readPrimaryHostIdFromDataDir({
     dataDir: deps.config.dataDir,
   });
   const configuredHost =
-    configured === null ? null : getHost(deps.db, configured);
+    configured === null ? null : await getHost(deps.db, configured);
   return configuredHost?.destroyedAt === null ? configuredHost.id : null;
 }
 
-export function requirePrimaryHostId(deps: PrimaryHostDeps): string {
-  const hostId = resolvePrimaryHostId(deps);
+export async function requirePrimaryHostId(
+  deps: PrimaryHostDeps,
+): Promise<string> {
+  const hostId = await resolvePrimaryHostId(deps);
   if (!hostId) {
     throw primaryHostUnavailableError();
   }
   return hostId;
 }
 
-export function assertUsableHostId(
+export async function assertUsableHostId(
   deps: PrimaryHostDeps,
   args: AssertUsableHostIdArgs,
-): void {
-  requireNonDestroyedHostWithStatus(deps, args.hostId);
+): Promise<void> {
+  await requireNonDestroyedHostWithStatus(deps, args.hostId);
 }
 
-export function requireConnectedPrimaryHostId(deps: PrimaryHostDeps): string {
-  const hostId = requirePrimaryHostId(deps);
-  requireNonDestroyedHostWithStatus(deps, hostId);
-  requireConnectedHostSession(deps, hostId);
+export async function requireConnectedPrimaryHostId(
+  deps: PrimaryHostDeps,
+): Promise<string> {
+  const hostId = await requirePrimaryHostId(deps);
+  await requireNonDestroyedHostWithStatus(deps, hostId);
+  await requireConnectedHostSession(deps, hostId);
   return hostId;
 }

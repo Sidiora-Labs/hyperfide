@@ -111,7 +111,7 @@ export function createNpmResolverRun(options?: {
     options?.readJson ?? ((response: Response) => response.json());
   const cache = new Map<string, Promise<Packument>>();
   return {
-    getPackument(intent) {
+    async getPackument(intent) {
       const registry = intent.registry.replace(/\/+$/, "");
       const key = `${registry}\n${intent.packageName}`;
       const existing = cache.get(key);
@@ -720,7 +720,7 @@ export async function resolveGitUpdate(args: {
     commit: args.currentCommit,
   });
   if (args.intent.kind === "range") {
-    return resolveGitRangeUpdate({
+    return await resolveGitRangeUpdate({
       url: args.url,
       intent: args.intent,
       current,

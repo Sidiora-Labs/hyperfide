@@ -26,10 +26,10 @@ describe("AI service registry", () => {
   it("caches status for ten seconds and refreshes after", async () => {
     let clock = 1_000;
     const status = vi.fn(async () => ({ ready: true as const }));
-    const registry = createAiServiceRegistry({ now: () => clock });
+    const registry = await createAiServiceRegistry({ now: () => clock });
     registry.register(service(status));
 
-    expect(registry.peekStatus(ACME)).toBeNull();
+    expect(await registry.peekStatus(ACME)).toBeNull();
     await expect(registry.status(ACME)).resolves.toEqual({ ready: true });
     await registry.status(ACME);
     expect(status).toHaveBeenCalledTimes(1);
@@ -40,7 +40,7 @@ describe("AI service registry", () => {
   });
 
   it("keeps services with the same id from different plugins apart", async () => {
-    const registry = createAiServiceRegistry();
+    const registry = await createAiServiceRegistry();
     registry.register(service(null));
     registry.register(
       service(
@@ -65,7 +65,7 @@ describe("AI service registry", () => {
   });
 
   it("reports a throwing or invalid status as not ready", async () => {
-    const registry = createAiServiceRegistry();
+    const registry = await createAiServiceRegistry();
     registry.register(
       service(async () => {
         throw new Error("Sign in first");
@@ -95,7 +95,7 @@ describe("AI service registry", () => {
     const onStatusChange = vi.fn();
     let ready = false;
     let clock = 0;
-    const registry = createAiServiceRegistry({
+    const registry = await createAiServiceRegistry({
       onStatusChange,
       now: () => clock,
     });

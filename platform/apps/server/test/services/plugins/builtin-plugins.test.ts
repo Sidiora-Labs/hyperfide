@@ -259,7 +259,7 @@ describe("builtin plugin reconciliation", () => {
     delete globals.__builtinFixtureLoads;
     delete globals.__packagedBuiltinLoads;
     delete globals.__hotBuiltinServerVersion;
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-builtin-plugins-"));
   });
 
@@ -297,7 +297,7 @@ describe("builtin plugin reconciliation", () => {
 
   afterEach(async () => {
     await service?.stop();
-    db.$client.close();
+    await db.close();
     await rm(workDir, { recursive: true, force: true });
   });
 
@@ -306,7 +306,7 @@ describe("builtin plugin reconciliation", () => {
 
     await service.start();
 
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       {
         id: "builtin-fixture",
         source: "builtin:fixture",
@@ -321,14 +321,14 @@ describe("builtin plugin reconciliation", () => {
       },
     ]);
     expect(loadCount()).toBe(1);
-    expect(getInstalledPluginRegistration(db, "builtin-fixture")).toMatchObject(
-      {
-        provenance: "builtin",
-        sourceKind: "builtin",
-        sourceBuiltinName: "fixture",
-        normalizationVersion: 1,
-      },
-    );
+    expect(
+      await getInstalledPluginRegistration(db, "builtin-fixture"),
+    ).toMatchObject({
+      provenance: "builtin",
+      sourceKind: "builtin",
+      sourceBuiltinName: "fixture",
+      normalizationVersion: 1,
+    });
   });
 
   it("removes a builtin and its data once hyperfide no longer bundles it", async () => {
@@ -336,10 +336,10 @@ describe("builtin plugin reconciliation", () => {
     const secretsDir = join(dataDir, "plugins", "builtin-fixture", "secrets");
     service = createService({ db, dataDir });
     await service.start();
-    expect(service.list()[0]?.isOrphanedBuiltin).toBe(false);
+    expect((await service.list())[0]?.isOrphanedBuiltin).toBe(false);
     await service.stop();
-    setPluginSettingsValues(db, "builtin-fixture", { mode: "on" });
-    upsertPluginSchedule(db, {
+    await setPluginSettingsValues(db, "builtin-fixture", { mode: "on" });
+    await upsertPluginSchedule(db, {
       pluginId: "builtin-fixture",
       name: "tick",
       cron: "* * * * *",
@@ -351,19 +351,19 @@ describe("builtin plugin reconciliation", () => {
     service = createService({ db, dataDir, includeBuiltin: false });
     await service.start();
 
-    expect(service.list()).toEqual([]);
+    expect(await service.list()).toEqual([]);
     expect(
-      getInstalledPluginRegistration(db, "builtin-fixture"),
+      await getInstalledPluginRegistration(db, "builtin-fixture"),
     ).toBeUndefined();
-    expect(getPluginSettingsValues(db, "builtin-fixture")).toEqual({});
-    expect(listPluginSchedules(db, "builtin-fixture")).toEqual([]);
+    expect(await getPluginSettingsValues(db, "builtin-fixture")).toEqual({});
+    expect(await listPluginSchedules(db, "builtin-fixture")).toEqual([]);
     await expect(stat(secretsDir)).rejects.toThrow();
     await service.stop();
 
     service = createService({ db, dataDir });
     await service.start();
 
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       { id: "builtin-fixture", enabled: true, isOrphanedBuiltin: false },
     ]);
   });
@@ -393,14 +393,14 @@ describe("builtin plugin reconciliation", () => {
       service = createService({ db, dataDir, includeBuiltin: false });
       await expect(service.start()).rejects.toThrow("secret removal failed");
       expect(
-        getInstalledPluginRegistration(db, "builtin-fixture"),
+        await getInstalledPluginRegistration(db, "builtin-fixture"),
       ).toBeDefined();
       expect(await readFile(join(secretsDir, "token"), "utf8")).toBe("secret");
 
       service = createService({ db, dataDir, includeBuiltin: false });
       await service.start();
       expect(
-        getInstalledPluginRegistration(db, "builtin-fixture"),
+        await getInstalledPluginRegistration(db, "builtin-fixture"),
       ).toBeUndefined();
       await expect(stat(secretsDir)).rejects.toThrow();
     } finally {
@@ -415,21 +415,28 @@ describe("builtin plugin reconciliation", () => {
       ["legacy-path", `path:${fixtureRoot}`, 1, 101],
       ["legacy-builtin", "builtin:fixture", 0, 102],
       ["legacy-npm", "npm:hyperfide-plugin-legacy@1.2.3", 1, 103],
-      ["legacy-git", `git:github.com/acme/hyperfide-plugin-legacy@${sha}`, 0, 104],
+      [
+        "legacy-git",
+        `git:github.com/acme/hyperfide-plugin-legacy@${sha}`,
+        0,
+        104,
+      ],
     ] as const;
-    const insert = db.$client.prepare(
+    const insert = await db.$client.prepare(
       `INSERT INTO plugins
        (id, source, root_dir, version, enabled, removed_at, installed_at, updated_at)
        VALUES (?, ?, ?, '0.1.0', ?, ?, 10, 20)`,
     );
     for (const [id, source, enabled, removedAt] of legacyRows) {
-      insert.run(id, source, legacyRoot, enabled, removedAt);
+      await insert.run(id, source, legacyRoot, enabled, removedAt);
     }
 
     service = createService({ db, dataDir: join(workDir, "data") });
     await service.start();
 
-    expect(getInstalledPluginRegistration(db, "legacy-path")).toMatchObject({
+    expect(
+      await getInstalledPluginRegistration(db, "legacy-path"),
+    ).toMatchObject({
       enabled: true,
       removedAt: 101,
       provenance: "direct",
@@ -437,14 +444,18 @@ describe("builtin plugin reconciliation", () => {
       sourcePath: fixtureRoot,
       normalizationVersion: 1,
     });
-    expect(getInstalledPluginRegistration(db, "legacy-builtin")).toMatchObject({
+    expect(
+      await getInstalledPluginRegistration(db, "legacy-builtin"),
+    ).toMatchObject({
       enabled: false,
       removedAt: 102,
       provenance: "builtin",
       sourceKind: "builtin",
       sourceBuiltinName: "fixture",
     });
-    expect(getInstalledPluginRegistration(db, "legacy-npm")).toMatchObject({
+    expect(
+      await getInstalledPluginRegistration(db, "legacy-npm"),
+    ).toMatchObject({
       enabled: true,
       removedAt: 103,
       sourceKind: "npm",
@@ -452,7 +463,9 @@ describe("builtin plugin reconciliation", () => {
       sourceNpmRequestedSpec: "1.2.3",
       npmResolvedVersion: "1.2.3",
     });
-    expect(getInstalledPluginRegistration(db, "legacy-git")).toMatchObject({
+    expect(
+      await getInstalledPluginRegistration(db, "legacy-git"),
+    ).toMatchObject({
       enabled: false,
       removedAt: 104,
       sourceKind: "git",
@@ -461,20 +474,26 @@ describe("builtin plugin reconciliation", () => {
       gitResolvedCommit: sha,
     });
 
-    const once = legacyRows.map(([id]) =>
-      getInstalledPluginRegistration(db, id),
+    const once = await Promise.all(
+      legacyRows.map(
+        async ([id]) => await getInstalledPluginRegistration(db, id),
+      ),
     );
     await service.stop();
     service = createService({ db, dataDir: join(workDir, "data") });
     await service.start();
     expect(
-      legacyRows.map(([id]) => getInstalledPluginRegistration(db, id)),
+      await Promise.all(
+        legacyRows.map(
+          async ([id]) => await getInstalledPluginRegistration(db, id),
+        ),
+      ),
     ).toEqual(once);
   });
 
   it("keeps an offline legacy git ref unclassified", async () => {
     const missingRepo = join(workDir, "missing-remote");
-    db.$client
+    await db.$client
       .prepare(
         `INSERT INTO plugins
          (id, source, root_dir, version, enabled, installed_at, updated_at)
@@ -490,7 +509,7 @@ describe("builtin plugin reconciliation", () => {
     await service.start();
 
     expect(
-      getInstalledPluginRegistration(db, "legacy-offline-tag"),
+      await getInstalledPluginRegistration(db, "legacy-offline-tag"),
     ).toMatchObject({
       normalizationVersion: 1,
       sourceGitRequestedRef: "v1.0.0",
@@ -506,7 +525,7 @@ describe("builtin plugin reconciliation", () => {
     });
     await service.start();
 
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       {
         id: "builtin-fixture",
         source: "builtin:fixture",
@@ -517,7 +536,7 @@ describe("builtin plugin reconciliation", () => {
     expect(loadCount()).toBe(0);
 
     await service.setEnabled("builtin-fixture", true);
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       { id: "builtin-fixture", enabled: true, status: "running" },
     ]);
     expect(loadCount()).toBe(1);
@@ -530,7 +549,7 @@ describe("builtin plugin reconciliation", () => {
     });
     await service.start();
 
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       { id: "builtin-fixture", enabled: true, status: "running" },
     ]);
   });
@@ -544,7 +563,7 @@ describe("builtin plugin reconciliation", () => {
         defaultEnabled: initialDefault,
       });
       await service.start();
-      expect(service.list()).toMatchObject([
+      expect(await service.list()).toMatchObject([
         {
           id: "builtin-fixture",
           enabled: initialDefault,
@@ -561,7 +580,7 @@ describe("builtin plugin reconciliation", () => {
       });
       await service.start();
 
-      expect(service.list()).toMatchObject([
+      expect(await service.list()).toMatchObject([
         {
           id: "builtin-fixture",
           enabled: !initialDefault,
@@ -590,7 +609,7 @@ describe("builtin plugin reconciliation", () => {
     });
     await service.start();
 
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       { id: "builtin-fixture", enabled: false, status: "disabled" },
     ]);
   });
@@ -634,7 +653,7 @@ describe("builtin plugin reconciliation", () => {
       });
       await service.start();
 
-      expect(service.list()).toMatchObject([
+      expect(await service.list()).toMatchObject([
         {
           id: pluginId,
           source: `builtin:${builtinName}`,
@@ -656,7 +675,7 @@ describe("builtin plugin reconciliation", () => {
 
     await service.start();
 
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       {
         id: "side-chat",
         source: "builtin:side-chat",
@@ -672,13 +691,13 @@ describe("builtin plugin reconciliation", () => {
     await service.start();
 
     await expect(service.remove("builtin-fixture")).resolves.toBe(true);
-    expect(service.list()).toEqual([]);
+    expect(await service.list()).toEqual([]);
     await service.stop();
 
     service = createService({ db, dataDir: join(workDir, "data") });
     await service.start();
 
-    expect(service.list()).toEqual([]);
+    expect(await service.list()).toEqual([]);
     expect(loadCount()).toBe(1);
   });
 
@@ -715,9 +734,9 @@ describe("builtin plugin reconciliation", () => {
     });
     await service.start();
 
-    const entry = service
-      .list()
-      .find((plugin) => plugin.id === "builtin-fixture");
+    const entry = (await service.list()).find(
+      (plugin) => plugin.id === "builtin-fixture",
+    );
     expect(entry?.source).toBe("builtin:fixture");
     expect(entry?.version).toBe("0.2.0");
     expect(entry?.status).toBe("running");
@@ -839,7 +858,7 @@ describe("builtin plugin reconciliation", () => {
       watchBuiltinPluginSources: true,
     });
     await service.start();
-    const beforeHash = service.list()[0]?.app.bundle?.hash;
+    const beforeHash = (await service.list())[0]?.app.bundle?.hash;
     expect(beforeHash).toBeTruthy();
     await expect(
       readFile(join(mutableRoot, "dist", "app.js"), "utf8"),
@@ -862,7 +881,7 @@ describe("builtin plugin reconciliation", () => {
     });
     await service.start();
 
-    expect(service.list()[0]?.app.bundle?.hash).not.toBe(beforeHash);
+    expect((await service.list())[0]?.app.bundle?.hash).not.toBe(beforeHash);
     await expect(
       readFile(join(mutableRoot, "dist", "app.js"), "utf8"),
     ).resolves.toContain("after");
@@ -902,7 +921,7 @@ describe("builtin plugin reconciliation", () => {
       watchBuiltinPluginSources: true,
     });
     await service.start();
-    const before = service.list()[0]?.app.bundle;
+    const before = (await service.list())[0]?.app.bundle;
     expect(before).not.toBeNull();
 
     await writeFile(
@@ -910,13 +929,13 @@ describe("builtin plugin reconciliation", () => {
       "export default function App( {\n",
     );
     let deadline = Date.now() + 20_000;
-    let failed = service.list()[0];
+    let failed = (await service.list())[0];
     while (
       !failed?.statusDetail?.includes("frontend bundle build failed") &&
       Date.now() < deadline
     ) {
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
-      failed = service.list()[0];
+      failed = (await service.list())[0];
     }
     expect(failed?.status).toBe("running");
     expect(failed?.statusDetail).toContain("frontend bundle build failed");
@@ -927,14 +946,14 @@ describe("builtin plugin reconciliation", () => {
       "export default function App() { return <div>after</div>; }\n",
     );
     deadline = Date.now() + 20_000;
-    let after = service.list()[0];
+    let after = (await service.list())[0];
     while (
       (after?.statusDetail !== null ||
         after.app.bundle?.hash === before?.hash) &&
       Date.now() < deadline
     ) {
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
-      after = service.list()[0];
+      after = (await service.list())[0];
     }
     expect(after?.statusDetail).toBeNull();
     expect(after?.app.bundle?.hash).not.toBe(before?.hash);
@@ -965,7 +984,7 @@ describe("builtin plugin reconciliation", () => {
     });
     await service.start();
 
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       {
         id: "automations",
         source: "builtin:automations",
@@ -1006,7 +1025,7 @@ describe("builtin plugin reconciliation", () => {
     });
     await service.start();
 
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       {
         id: "automations",
         source: "builtin:automations",

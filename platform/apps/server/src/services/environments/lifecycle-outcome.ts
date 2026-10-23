@@ -46,13 +46,13 @@ function isDbConnection(db: DbQueryConnection): db is DbConnection {
   return "$client" in db;
 }
 
-export function applyLoggedEnvironmentLifecycleEvent(
+export async function applyLoggedEnvironmentLifecycleEvent(
   deps: ApplyLoggedEnvironmentLifecycleEventDeps,
   args: ApplyEnvironmentLifecycleEventArgs,
-): ApplyEnvironmentLifecycleEventOutcome {
+): Promise<ApplyEnvironmentLifecycleEventOutcome> {
   const outcome = isDbConnection(deps.db)
-    ? applyEnvironmentLifecycleEvent(deps.db, deps.hub, args)
-    : applyEnvironmentLifecycleEventInTransaction(deps.db, args);
+    ? await applyEnvironmentLifecycleEvent(deps.db, deps.hub, args)
+    : await applyEnvironmentLifecycleEventInTransaction(deps.db, args);
   if (!isDbConnection(deps.db) && outcome.applied) {
     deps.hub.notifyEnvironment(args.environmentId, outcome.changes);
   }
@@ -60,11 +60,14 @@ export function applyLoggedEnvironmentLifecycleEvent(
   return outcome;
 }
 
-export function applyLoggedEnvironmentLifecycleEventInTransaction(
+export async function applyLoggedEnvironmentLifecycleEventInTransaction(
   deps: ApplyLoggedEnvironmentLifecycleEventTransactionDeps,
   args: ApplyEnvironmentLifecycleEventArgs,
-): ApplyEnvironmentLifecycleEventOutcome {
-  const outcome = applyEnvironmentLifecycleEventInTransaction(deps.db, args);
+): Promise<ApplyEnvironmentLifecycleEventOutcome> {
+  const outcome = await applyEnvironmentLifecycleEventInTransaction(
+    deps.db,
+    args,
+  );
   logUnappliedEnvironmentLifecycleEvent(deps.logger, args, outcome);
   return outcome;
 }

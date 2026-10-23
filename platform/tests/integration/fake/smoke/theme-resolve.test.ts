@@ -7,8 +7,8 @@ import { withHarness } from "../../helpers/harness.js";
 const CUSTOM_CSS = ":root, .light { --canvas: oklch(0.98 0 0); }\n";
 
 describe.sequential("theme resolve integration", () => {
-  it("resolves a theme by id without activating it", () =>
-    withHarness(async (harness) => {
+  it("resolves a theme by id without activating it", async () =>
+    await withHarness(async (harness) => {
       const themeDir = path.join(
         harness.server.config.dataDir,
         "theme",
@@ -51,8 +51,8 @@ describe.sequential("theme resolve integration", () => {
       expect(catalog.active.themeId).toBe("default");
     }));
 
-  it("rejects unknown and malformed theme ids", () =>
-    withHarness(async (harness) => {
+  it("rejects unknown and malformed theme ids", async () =>
+    await withHarness(async (harness) => {
       const missing = await harness.api.settings.themes[":id"].$get({
         param: { id: "no-such-theme" },
       });

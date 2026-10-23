@@ -148,7 +148,7 @@ export async function createMachineAuthService(
     baseURL: "http://localhost",
     secret,
     database: drizzleAdapter(args.db, {
-      provider: "sqlite",
+      provider: args.db.dialect === "postgresql" ? "pg" : "sqlite",
       schema: machineAuthSchema,
     }),
     plugins: [
@@ -219,41 +219,49 @@ export async function createMachineAuthService(
     await readyPromise;
   }
 
+  const verificationOperations = new Map<string, Promise<unknown>>();
+
   async function verifyKey(
     verifyArgs: ApiKeyVerificationArgs,
   ): Promise<ApiKeyVerificationResult | null> {
     await ensureReady();
 
-    const result = await auth.api.verifyApiKey({
-      body: {
-        configId: verifyArgs.configId,
-        key: verifyArgs.token,
+    return await runSerialized(
+      verificationOperations,
+      verifyArgs.token,
+      async () => {
+        const result = await auth.api.verifyApiKey({
+          body: {
+            configId: verifyArgs.configId,
+            key: verifyArgs.token,
+          },
+        });
+
+        if (!result.valid || !result.key || !result.key.enabled) {
+          return null;
+        }
+
+        const metadata = parseCredentialMetadata(result.key.metadata);
+        if (!metadata) {
+          args.logger.warn(
+            { configId: verifyArgs.configId, keyId: result.key.id },
+            "Machine auth key metadata is missing required fields",
+          );
+          return null;
+        }
+
+        return {
+          keyId: result.key.id,
+          metadata,
+          expiresAtMs: result.key.expiresAt?.getTime() ?? null,
+          cacheable:
+            result.key.rateLimitEnabled === false &&
+            result.key.remaining === null &&
+            result.key.refillAmount === null &&
+            result.key.refillInterval === null,
+        };
       },
-    });
-
-    if (!result.valid || !result.key || !result.key.enabled) {
-      return null;
-    }
-
-    const metadata = parseCredentialMetadata(result.key.metadata);
-    if (!metadata) {
-      args.logger.warn(
-        { configId: verifyArgs.configId, keyId: result.key.id },
-        "Machine auth key metadata is missing required fields",
-      );
-      return null;
-    }
-
-    return {
-      keyId: result.key.id,
-      metadata,
-      expiresAtMs: result.key.expiresAt?.getTime() ?? null,
-      cacheable:
-        result.key.rateLimitEnabled === false &&
-        result.key.remaining === null &&
-        result.key.refillAmount === null &&
-        result.key.refillInterval === null,
-    };
+    );
   }
 
   async function createDaemonHostKey(
@@ -327,7 +335,7 @@ export async function createMachineAuthService(
       hostId,
       token,
     }: EnrollHostArgs): Promise<EnrollHostResult | null> {
-      return runSerialized(hostOperations, hostId, async () => {
+      return await runSerialized(hostOperations, hostId, async () => {
         const verified = await verifyKey({
           configId: DAEMON_ENROLL_CONFIG_ID,
           token,
@@ -365,7 +373,7 @@ export async function createMachineAuthService(
       enrollSource,
       hostId,
     }: IssueHostEnrollKeyArgs): Promise<IssueHostEnrollKeyResult> {
-      return runSerialized(hostOperations, hostId, async () => {
+      return await runSerialized(hostOperations, hostId, async () => {
         await ensureReady();
         const metadata = {
           enrollSource,
@@ -399,8 +407,11 @@ export async function createMachineAuthService(
     async revokeHostEnrollKeys({
       hostId,
     }: RevokeHostAuthKeysArgs): Promise<void> {
-      await runSerialized(hostOperations, hostId, () =>
-        disableActiveKeysForHost(DAEMON_ENROLL_CONFIG_ID, hostId),
+      await runSerialized(
+        hostOperations,
+        hostId,
+        async () =>
+          await disableActiveKeysForHost(DAEMON_ENROLL_CONFIG_ID, hostId),
       );
     },
     async revokeHostAuthKeys({

@@ -35,18 +35,18 @@ function agentMessageData(text: string): string {
   });
 }
 
-beforeAll(() => {
-  db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, { name: "decode-host" });
-  const { project } = createProject(db, noopNotifier, {
+beforeAll(async () => {
+  db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, { name: "decode-host" });
+  const { project } = await createProject(db, noopNotifier, {
     name: "decode-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/decode" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
   });
-  insertEvents(db, noopNotifier, [
+  await insertEvents(db, noopNotifier, [
     {
       data: agentMessageData("Hello"),
       itemId: "message-1",
@@ -74,7 +74,7 @@ beforeAll(() => {
       type: "system/operation",
     },
   ]);
-  const rows = listStoredEventRows(db, { threadId: thread.id });
+  const rows = await listStoredEventRows(db, { threadId: thread.id });
   message = rows[0]!;
   operation = rows[1]!;
 });
@@ -83,8 +83,8 @@ beforeEach(() => {
   clearStoredEventDecodeCache(db);
 });
 
-afterAll(() => {
-  db.$client.close();
+afterAll(async () => {
+  await db.close();
 });
 
 describe("stored event decode cache", () => {

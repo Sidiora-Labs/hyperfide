@@ -541,7 +541,7 @@ async function handleRequest(
   );
   const pathname = url.pathname;
   if (pathname === "/api/connect/redeem-machine") {
-    return handleRedeemMachine(req, res);
+    return await handleRedeemMachine(req, res);
   }
   if (pathname === "/api/connect/desktop-session") {
     return handleDesktopSession(req, res);
@@ -654,7 +654,7 @@ function main(): void {
   for (const host of ["127.0.0.1", "::1"]) {
     const server = https.createServer(
       { key: tls.key, cert: tls.cert },
-      (req, res) => {
+      async (req, res) => {
         handleRequest(req, res).catch((error: unknown) => {
           process.stderr.write(
             `connect-stub: handler error ${String(error)}\n`,

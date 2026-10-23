@@ -101,14 +101,18 @@ async function cachedGitCredentials(run: typeof runGh, refresh: boolean) {
     credentialCaches.set(run, cache);
   }
   return structuredClone(
-    await cache.run("github.com", () => loadGitCredentials(run), refresh),
+    await cache.run(
+      "github.com",
+      async () => await loadGitCredentials(run),
+      refresh,
+    ),
   );
 }
 
 export async function resolveGitCredentials(
   run = runGh,
 ): Promise<HostDaemonContributedEnvEntry[]> {
-  return cachedGitCredentials(run, false);
+  return await cachedGitCredentials(run, false);
 }
 
 export async function machineGitHealth(run = runGh) {

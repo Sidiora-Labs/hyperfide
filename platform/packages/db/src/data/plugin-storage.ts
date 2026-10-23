@@ -17,27 +17,29 @@ export interface PluginSettingRow {
   updatedAt: number;
 }
 
-
-export function getPluginKvValue(
+export async function getPluginKvValue(
   db: DbConnection,
   pluginId: string,
   key: string,
-): string | undefined {
-  return db
-    .select({ value: pluginKv.value })
-    .from(pluginKv)
-    .where(and(eq(pluginKv.pluginId, pluginId), eq(pluginKv.key, key)))
-    .get()?.value;
+): Promise<string | undefined> {
+  return (
+    await db
+      .select({ value: pluginKv.value })
+      .from(pluginKv)
+      .where(and(eq(pluginKv.pluginId, pluginId), eq(pluginKv.key, key)))
+      .get()
+  )?.value;
 }
 
-export function setPluginKvValue(
+export async function setPluginKvValue(
   db: DbConnection,
   pluginId: string,
   key: string,
   value: string,
-): void {
+): Promise<void> {
   const updatedAt = Date.now();
-  db.insert(pluginKv)
+  await db
+    .insert(pluginKv)
     .values({ pluginId, key, value, updatedAt })
     .onConflictDoUpdate({
       target: [pluginKv.pluginId, pluginKv.key],
@@ -46,52 +48,53 @@ export function setPluginKvValue(
     .run();
 }
 
-export function deleteAllPluginKvValues(
+export async function deleteAllPluginKvValues(
   db: DbConnection,
   pluginId: string,
-): number {
-  return db.delete(pluginKv).where(eq(pluginKv.pluginId, pluginId)).run()
-    .changes;
+): Promise<number> {
+  return (
+    await db.delete(pluginKv).where(eq(pluginKv.pluginId, pluginId)).run()
+  ).changes;
 }
 
-export function deletePluginKvValue(
+export async function deletePluginKvValue(
   db: DbConnection,
   pluginId: string,
   key: string,
-): boolean {
-  const result = db
+): Promise<boolean> {
+  const result = await db
     .delete(pluginKv)
     .where(and(eq(pluginKv.pluginId, pluginId), eq(pluginKv.key, key)))
     .run();
   return result.changes > 0;
 }
 
-export function listPluginKvKeys(
+export async function listPluginKvKeys(
   db: DbConnection,
   pluginId: string,
   prefix?: string,
-): string[] {
+): Promise<string[]> {
   const conditions = [eq(pluginKv.pluginId, pluginId)];
   if (prefix !== undefined && prefix.length > 0) {
     conditions.push(
       sql`${pluginKv.key} LIKE ${likePrefixPattern(prefix)} ESCAPE '\\'`,
     );
   }
-  return db
-    .select({ key: pluginKv.key })
-    .from(pluginKv)
-    .where(and(...conditions))
-    .orderBy(asc(pluginKv.key))
-    .all()
-    .map((row) => row.key);
+  return (
+    await db
+      .select({ key: pluginKv.key })
+      .from(pluginKv)
+      .where(and(...conditions))
+      .orderBy(asc(pluginKv.key))
+      .all()
+  ).map((row) => row.key);
 }
 
-
-export function getPluginSettingsValues(
+export async function getPluginSettingsValues(
   db: DbConnection,
   pluginId: string,
-): Record<string, string> {
-  const rows = db
+): Promise<Record<string, string>> {
+  const rows = await db
     .select({ key: pluginSettings.key, value: pluginSettings.value })
     .from(pluginSettings)
     .where(eq(pluginSettings.pluginId, pluginId))
@@ -99,16 +102,17 @@ export function getPluginSettingsValues(
   return Object.fromEntries(rows.map((row) => [row.key, row.value]));
 }
 
-export function setPluginSettingsValues(
+export async function setPluginSettingsValues(
   db: DbConnection,
   pluginId: string,
   values: Record<string, string | null>,
-): void {
+): Promise<void> {
   const updatedAt = Date.now();
-  db.transaction((tx) => {
+  await db.transaction(async (tx) => {
     for (const [key, value] of Object.entries(values)) {
       if (value === null) {
-        tx.delete(pluginSettings)
+        await tx
+          .delete(pluginSettings)
           .where(
             and(
               eq(pluginSettings.pluginId, pluginId),
@@ -118,7 +122,8 @@ export function setPluginSettingsValues(
           .run();
         continue;
       }
-      tx.insert(pluginSettings)
+      await tx
+        .insert(pluginSettings)
         .values({ pluginId, key, value, updatedAt })
         .onConflictDoUpdate({
           target: [pluginSettings.pluginId, pluginSettings.key],
@@ -129,20 +134,21 @@ export function setPluginSettingsValues(
   });
 }
 
-export function deleteAllPluginSettings(
+export async function deleteAllPluginSettings(
   db: DbConnection,
   pluginId: string,
-): void {
-  db.delete(pluginSettings)
+): Promise<void> {
+  await db
+    .delete(pluginSettings)
     .where(eq(pluginSettings.pluginId, pluginId))
     .run();
 }
 
-export function listPluginKvRows(
+export async function listPluginKvRows(
   db: DbConnection,
   pluginId: string,
-): PluginKvRow[] {
-  return db
+): Promise<PluginKvRow[]> {
+  return await db
     .select()
     .from(pluginKv)
     .where(eq(pluginKv.pluginId, pluginId))
@@ -150,11 +156,11 @@ export function listPluginKvRows(
     .all();
 }
 
-export function listPluginSettingRows(
+export async function listPluginSettingRows(
   db: DbConnection,
   pluginId: string,
-): PluginSettingRow[] {
-  return db
+): Promise<PluginSettingRow[]> {
+  return await db
     .select()
     .from(pluginSettings)
     .where(eq(pluginSettings.pluginId, pluginId))

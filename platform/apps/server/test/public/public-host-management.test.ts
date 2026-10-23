@@ -69,15 +69,15 @@ function requestJoinCode(app: {
 describe("public host management", () => {
   it("reads machine paths after an offline session without requiring threads", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps, { id: "host_paths" });
+      const host = await seedHost(harness.deps, { id: "host_paths" });
       const response = await harness.app.request(`${API}/hosts/${host.id}`);
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({
         threadStorageRootPath: null,
       });
-      const session = seedSession(harness.deps, host.id);
+      const session = await seedSession(harness.deps, host.id);
       harness.hub.unregisterDaemon(session.id);
-      harness.db
+      await harness.db
         .update(hostDaemonSessions)
         .set({
           status: "closed",
@@ -86,11 +86,11 @@ describe("public host management", () => {
         })
         .where(eq(hostDaemonSessions.id, session.id))
         .run();
-      const latest = seedSession(harness.deps, host.id, {
+      const latest = await seedSession(harness.deps, host.id, {
         instanceId: "instance-2",
       });
       harness.hub.unregisterDaemon(latest.id);
-      harness.db
+      await harness.db
         .update(hostDaemonSessions)
         .set({
           status: "closed",
@@ -114,8 +114,8 @@ describe("public host management", () => {
 
   it("reconnects a machine by re-enrolling it, replacing access only when the installer runs", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps, { id: "host_reconnect" });
-      harness.db
+      const host = await seedHost(harness.deps, { id: "host_reconnect" });
+      await harness.db
         .update(hosts)
         .set({
           serverAccessProviderId: "relay",
@@ -143,8 +143,8 @@ describe("public host management", () => {
         list: () => [{ pluginId: "test", provider }],
         invoke: async (_id, run) => run(),
       });
-      const session = seedSession(harness.deps, host.id);
-      harness.hub.registerDaemon(session.id, host.id, {
+      const session = await seedSession(harness.deps, host.id);
+      await harness.hub.registerDaemon(session.id, host.id, {
         close: vi.fn(),
         send: vi.fn(),
       });
@@ -211,7 +211,7 @@ describe("public host management", () => {
       });
       expect(enrolled.status).toBe(201);
       expect(await readJson(enrolled)).toMatchObject({ hostId: host.id });
-      expect(getHost(harness.db, host.id)).toMatchObject({
+      expect(await getHost(harness.db, host.id)).toMatchObject({
         name: host.name,
         destroyedAt: null,
       });
@@ -237,10 +237,10 @@ describe("public host management", () => {
 
   it("refuses to reconnect the server's own machine or a machine that is not active", async () => {
     await withTestHarness(async (harness) => {
-      const primary = seedHost(harness.deps, { id: "host_primary" });
+      const primary = await seedHost(harness.deps, { id: "host_primary" });
       seedPrimaryHost(harness.deps, primary.id);
-      const suspended = seedHost(harness.deps, { id: "host_suspended" });
-      harness.db
+      const suspended = await seedHost(harness.deps, { id: "host_suspended" });
+      await harness.db
         .update(hosts)
         .set({ phase: "suspended", suspendedAt: Date.now() })
         .where(eq(hosts.id, suspended.id))
@@ -274,7 +274,7 @@ describe("public host management", () => {
       });
 
       expect(response.status).toBe(201);
-      expect(getHost(harness.db, issued.hostId)).toMatchObject({
+      expect(await getHost(harness.db, issued.hostId)).toMatchObject({
         name: "Modal abc1",
       });
       const hostsResponse = await harness.app.request("/api/v1/hosts");
@@ -293,7 +293,7 @@ describe("public host management", () => {
       expect(issued.joinCode).toMatch(/^hyperfide_de_/u);
       expect(issued.expiresAt).toBeGreaterThan(Date.now());
       expect(issued.expiresAt).toBeLessThanOrEqual(Date.now() + 15 * 60 * 1000);
-      expect(getHost(harness.db, issued.hostId)).toBeNull();
+      expect(await getHost(harness.db, issued.hostId)).toBeNull();
 
       const enrollResponse = await harness.app.request(
         "/internal/hosts/enroll",
@@ -314,7 +314,7 @@ describe("public host management", () => {
 
       expect(enrollResponse.status).toBe(201);
       const enrolled = (await readJson(enrollResponse)) as { hostKey: string };
-      expect(getHost(harness.db, issued.hostId)).toMatchObject({
+      expect(await getHost(harness.db, issued.hostId)).toMatchObject({
         connectMachineId: "machine-cloud-1",
         name: "Build Machine",
       });
@@ -361,12 +361,14 @@ describe("public host management", () => {
       const openedSession = hostDaemonSessionOpenResponseSchema.parse(
         await readJson(sessionResponse),
       );
-      expect(getHost(harness.db, issued.hostId)).toMatchObject({
+      expect(await getHost(harness.db, issued.hostId)).toMatchObject({
         connectMachineId: "machine-cloud-2",
         name: "My Build Box",
       });
       expect(
-        getSessionById(harness.db, { sessionId: openedSession.sessionId }),
+        await getSessionById(harness.db, {
+          sessionId: openedSession.sessionId,
+        }),
       ).toMatchObject({ hostName: "Build Machine" });
 
       const publicHostResponse = await harness.app.request(
@@ -401,13 +403,15 @@ describe("public host management", () => {
       expect(await readJson(response)).toMatchObject({
         code: "invalid_request",
       });
-      expect(getHost(harness.db, issued.hostId)).toBeNull();
+      expect(await getHost(harness.db, issued.hostId)).toBeNull();
     });
   });
 
   it("rejects machine-gated host-management mutations", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps, { id: "host_machine_forbidden" });
+      const host = await seedHost(harness.deps, {
+        id: "host_machine_forbidden",
+      });
       const requests = [
         harness.app.request(`${API}/hosts/join-codes`, {
           method: "POST",
@@ -468,7 +472,7 @@ describe("public host management", () => {
           code: "machine_host_management_forbidden",
         });
       }
-      expect(getHost(harness.db, host.id)).toMatchObject({
+      expect(await getHost(harness.db, host.id)).toMatchObject({
         destroyedAt: null,
         maxPermissionMode: "full",
         name: host.name,
@@ -478,9 +482,13 @@ describe("public host management", () => {
 
   it("filters the host list by type and rejects unknown types", async () => {
     await withTestHarness(async (harness) => {
-      const persistent = seedHost(harness.deps, { id: "host_persistent" });
-      const ephemeral = seedHost(harness.deps, { id: "host_ephemeral" });
-      updateHost(harness.db, harness.hub, ephemeral.id, { type: "ephemeral" });
+      const persistent = await seedHost(harness.deps, {
+        id: "host_persistent",
+      });
+      const ephemeral = await seedHost(harness.deps, { id: "host_ephemeral" });
+      await updateHost(harness.db, harness.hub, ephemeral.id, {
+        type: "ephemeral",
+      });
 
       const listIds = async (query: string) => {
         const response = await harness.app.request(`${API}/hosts${query}`);
@@ -502,8 +510,10 @@ describe("public host management", () => {
 
   it("stores a permission ceiling for a session-gated request", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps, { id: "host_ceiling" });
-      expect(getHost(harness.db, host.id)?.maxPermissionMode).toBe("full");
+      const host = await seedHost(harness.deps, { id: "host_ceiling" });
+      expect((await getHost(harness.db, host.id))?.maxPermissionMode).toBe(
+        "full",
+      );
 
       const response = await harness.app.request(
         `${API}/hosts/${host.id}/permission-ceiling`,
@@ -522,7 +532,7 @@ describe("public host management", () => {
         id: host.id,
         maxPermissionMode: "accept-edits",
       });
-      expect(getHost(harness.db, host.id)?.maxPermissionMode).toBe(
+      expect((await getHost(harness.db, host.id))?.maxPermissionMode).toBe(
         "accept-edits",
       );
     });
@@ -530,7 +540,7 @@ describe("public host management", () => {
 
   it("renames a host, broadcasts it, and rejects unknown or destroyed hosts", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps, { id: "host_rename" });
+      const host = await seedHost(harness.deps, { id: "host_rename" });
       const notifyHost = vi.spyOn(harness.hub, "notifyHost");
 
       const response = await harness.app.request(`${API}/hosts/${host.id}`, {
@@ -544,7 +554,9 @@ describe("public host management", () => {
         id: host.id,
         name: "Renamed Machine",
       });
-      expect(getHost(harness.db, host.id)?.name).toBe("Renamed Machine");
+      expect((await getHost(harness.db, host.id))?.name).toBe(
+        "Renamed Machine",
+      );
       expect(notifyHost).toHaveBeenCalledWith(host.id, ["host-connected"]);
 
       const unknownResponse = await harness.app.request(
@@ -557,7 +569,7 @@ describe("public host management", () => {
       );
       expect(unknownResponse.status).toBe(404);
 
-      updateHost(harness.db, harness.hub, host.id, {
+      await updateHost(harness.db, harness.hub, host.id, {
         destroyedAt: Date.now(),
       });
       const destroyedResponse = await harness.app.request(
@@ -574,7 +586,7 @@ describe("public host management", () => {
 
   it("queues a retry only for an older daemon awaiting an update", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps, { id: "host_retry_update" });
+      const host = await seedHost(harness.deps, { id: "host_retry_update" });
 
       const notNeeded = await harness.app.request(
         `${API}/hosts/${host.id}/retry-update`,
@@ -582,7 +594,7 @@ describe("public host management", () => {
       );
       expect(notNeeded.status).toBe(409);
 
-      updateHost(harness.db, harness.hub, host.id, {
+      await updateHost(harness.db, harness.hub, host.id, {
         lastRejectedProtocolVersion: HOST_DAEMON_PROTOCOL_VERSION - 1,
       });
       const response = await harness.app.request(
@@ -594,7 +606,7 @@ describe("public host management", () => {
       expect(harness.hub.takeHostProtocolUpdateRetry(host.id)).toBe(true);
       expect(harness.hub.takeHostProtocolUpdateRetry(host.id)).toBe(false);
 
-      updateHost(harness.db, harness.hub, host.id, {
+      await updateHost(harness.db, harness.hub, host.id, {
         lastRejectedProtocolVersion: HOST_DAEMON_PROTOCOL_VERSION + 1,
       });
       const newerDaemon = await harness.app.request(
@@ -610,23 +622,25 @@ describe("public host management", () => {
 
   it("revokes host credentials, closes its live session, tombstones it, and preserves environments", async () => {
     await withTestHarness(async (harness) => {
-      const primary = seedHost(harness.deps, { id: "host_primary" });
+      const primary = await seedHost(harness.deps, { id: "host_primary" });
       seedPrimaryHost(harness.deps, primary.id);
-      const host = seedHost(harness.deps, { id: "host_remove" });
-      const session = seedSession(harness.deps, host.id);
+      const host = await seedHost(harness.deps, { id: "host_remove" });
+      const session = await seedSession(harness.deps, host.id);
       const socket = {
         close: vi.fn(),
         send: vi.fn(),
       };
-      harness.hub.registerDaemon(session.id, host.id, socket);
-      const project = seedProjectWithSource(harness.deps, {
-        hostId: host.id,
-      }).project;
-      const environment = seedEnvironment(harness.deps, {
+      await harness.hub.registerDaemon(session.id, host.id, socket);
+      const project = (
+        await seedProjectWithSource(harness.deps, {
+          hostId: host.id,
+        })
+      ).project;
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const activeThread = seedThread(harness.deps, {
+      const activeThread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         status: "active",
@@ -654,17 +668,19 @@ describe("public host management", () => {
       );
       expect(socket.close).toHaveBeenCalledWith(1000, "expired");
       expect(
-        getSessionById(harness.db, { sessionId: session.id }),
+        await getSessionById(harness.db, { sessionId: session.id }),
       ).toMatchObject({
         status: "closed",
         closeReason: "expired",
       });
-      expect(getHost(harness.db, host.id)?.destroyedAt).not.toBeNull();
-      expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+      expect((await getHost(harness.db, host.id))?.destroyedAt).not.toBeNull();
+      expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
         id: environment.id,
         hostId: host.id,
       });
-      expect(getThread(harness.db, activeThread.id)?.status).toBe("idle");
+      expect((await getThread(harness.db, activeThread.id))?.status).toBe(
+        "idle",
+      );
       const environmentRead = await harness.app.request(
         `${API}/environments/${environment.id}`,
       );
@@ -709,23 +725,23 @@ describe("public host management", () => {
       await withTestHarness(async (harness) => {
         const remove = vi.fn(async () => ({ status: "removed" as const }));
         installMachineProvider({ ephemeral: type === "ephemeral", remove });
-        const primary = seedHost(harness.deps, { id: "host_primary" });
+        const primary = await seedHost(harness.deps, { id: "host_primary" });
         seedPrimaryHost(harness.deps, primary.id);
-        const host = seedHost(harness.deps, { id: "host_sandbox" });
-        updateHost(harness.db, harness.hub, host.id, {
+        const host = await seedHost(harness.deps, { id: "host_sandbox" });
+        await updateHost(harness.db, harness.hub, host.id, {
           machineProviderId: "test-machine",
           phase: "active",
           resource: { allocation: "sandbox" },
           type,
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
         });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           environmentId: environment.id,
           projectId: project.id,
           status,
@@ -734,7 +750,7 @@ describe("public host management", () => {
         });
 
         if (status !== "idle") {
-          seedTurnStarted(harness.deps, {
+          await seedTurnStarted(harness.deps, {
             environmentId: environment.id,
             threadId: thread.id,
             turnId: "turn_removal",
@@ -748,8 +764,8 @@ describe("public host management", () => {
         expect(removed.status).toBe(200);
         expect(await readJson(removed)).toEqual({ ok: true });
         expect(remove).toHaveBeenCalledOnce();
-        expect(getHost(harness.db, host.id)?.phase).toBe("destroyed");
-        expect(getEnvironment(harness.db, environment.id)?.status).toBe(
+        expect((await getHost(harness.db, host.id))?.phase).toBe("destroyed");
+        expect((await getEnvironment(harness.db, environment.id))?.status).toBe(
           "destroyed",
         );
         const environmentRead = await harness.app.request(
@@ -758,13 +774,13 @@ describe("public host management", () => {
         expect(await readJson(environmentRead)).toMatchObject({
           hostLifecycle: "removed",
         });
-        expect(getThread(harness.db, thread.id)).toMatchObject({
+        expect(await getThread(harness.db, thread.id)).toMatchObject({
           archivedAt: null,
           status: "idle",
         });
         if (status !== "idle") {
           expect(
-            listStoredTurnCompletedKeys(harness.db, {
+            await listStoredTurnCompletedKeys(harness.db, {
               keys: [{ threadId: thread.id, turnId: "turn_removal" }],
             }),
           ).toEqual([{ threadId: thread.id, turnId: "turn_removal" }]);
@@ -775,11 +791,11 @@ describe("public host management", () => {
 
   it("deletes a removed host's stored provider model catalogs", async () => {
     await withTestHarness(async (harness) => {
-      const primary = seedHost(harness.deps, { id: "host_primary" });
+      const primary = await seedHost(harness.deps, { id: "host_primary" });
       seedPrimaryHost(harness.deps, primary.id);
-      const host = seedHost(harness.deps, { id: "host_remove_catalogs" });
+      const host = await seedHost(harness.deps, { id: "host_remove_catalogs" });
       const key = { hostId: host.id, providerId: "codex", scopeKey: "" };
-      replaceStoredProviderModelCatalog(harness.db, {
+      await replaceStoredProviderModelCatalog(harness.db, {
         row: {
           ...key,
           fingerprint: "fingerprint",
@@ -795,15 +811,17 @@ describe("public host management", () => {
       });
 
       expect(response.status).toBe(200);
-      expect(getStoredProviderModelCatalog(harness.db, key)).toBeNull();
+      expect(await getStoredProviderModelCatalog(harness.db, key)).toBeNull();
     });
   });
 
   it("announces a removed host to plugins", async () => {
     await withTestHarness(async (harness) => {
-      const primary = seedHost(harness.deps, { id: "host_primary" });
+      const primary = await seedHost(harness.deps, { id: "host_primary" });
       seedPrimaryHost(harness.deps, primary.id);
-      const host = seedHost(harness.deps, { id: "host_remove_announced" });
+      const host = await seedHost(harness.deps, {
+        id: "host_remove_announced",
+      });
       const announced = vi.spyOn(
         harness.pluginService.events,
         "emitHostDeleted",
@@ -824,7 +842,7 @@ describe("public host management", () => {
 
   it("refuses to remove the primary host", async () => {
     await withTestHarness(async (harness) => {
-      const primary = seedHost(harness.deps, { id: "host_primary" });
+      const primary = await seedHost(harness.deps, { id: "host_primary" });
       seedPrimaryHost(harness.deps, primary.id);
 
       const response = await harness.app.request(`${API}/hosts/${primary.id}`, {
@@ -835,15 +853,15 @@ describe("public host management", () => {
       expect(await readJson(response)).toMatchObject({
         code: "primary_host_removal_refused",
       });
-      expect(getHost(harness.db, primary.id)?.destroyedAt).toBeNull();
+      expect((await getHost(harness.db, primary.id))?.destroyedAt).toBeNull();
     });
   });
 
   it("removes a host without the retired cloud plugin", async () => {
     await withTestHarness(async (harness) => {
-      const primary = seedHost(harness.deps, { id: "host_primary" });
+      const primary = await seedHost(harness.deps, { id: "host_primary" });
       seedPrimaryHost(harness.deps, primary.id);
-      const host = seedHost(harness.deps, {
+      const host = await seedHost(harness.deps, {
         connectMachineId: "machine-cloud-remove",
         id: "host_cloud_remove",
       });

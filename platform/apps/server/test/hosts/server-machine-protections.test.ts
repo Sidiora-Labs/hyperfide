@@ -11,10 +11,13 @@ afterEach(() => {
   setPluginMachineProviderBridge(undefined);
 });
 
-function insertProviderMachine(harness: TestAppHarness, name: string): string {
+async function insertProviderMachine(
+  harness: TestAppHarness,
+  name: string,
+): Promise<string> {
   const id = createHostId();
   const now = Date.now();
-  harness.db
+  await harness.db
     .insert(hosts)
     .values({
       id,
@@ -35,13 +38,13 @@ function insertProviderMachine(harness: TestAppHarness, name: string): string {
 }
 
 describe("server machine protections", () => {
-  it("refuses to suspend or resume the machine that runs the server", () =>
-    withTestHarness(async (harness) => {
+  it("refuses to suspend or resume the machine that runs the server", async () =>
+    await withTestHarness(async (harness) => {
       installMachineProvider({
         suspend: async () => ({ resource: { id: "vm" } }),
         resume: async () => ({ resource: { id: "vm" } }),
       });
-      const serverMachine = insertProviderMachine(harness, "server-vm");
+      const serverMachine = await insertProviderMachine(harness, "server-vm");
       seedPrimaryHost(harness.deps, serverMachine);
 
       for (const action of ["suspend", "resume"]) {
@@ -54,9 +57,11 @@ describe("server machine protections", () => {
           code: "server_host_lifecycle_refused",
         });
       }
-      expect(getHost(harness.db, serverMachine)?.phase).toBe("creating");
+      expect((await getHost(harness.db, serverMachine))?.phase).toBe(
+        "creating",
+      );
 
-      const otherMachine = insertProviderMachine(harness, "worker-vm");
+      const otherMachine = await insertProviderMachine(harness, "worker-vm");
       const other = await harness.app.request(
         `/api/v1/hosts/${otherMachine}/suspend`,
         { method: "POST" },
@@ -67,16 +72,16 @@ describe("server machine protections", () => {
       });
     }));
 
-  it("skips the server machine in machine provider lifecycle sweeps", () =>
-    withTestHarness(async (harness) => {
+  it("skips the server machine in machine provider lifecycle sweeps", async () =>
+    await withTestHarness(async (harness) => {
       const create = vi.fn(async ({ key }: { key: string }) => ({
         status: "created" as const,
         name: `Created ${key}`,
         resource: { key },
       }));
       installMachineProvider({ create });
-      const serverMachine = insertProviderMachine(harness, "server-vm");
-      const otherMachine = insertProviderMachine(harness, "worker-vm");
+      const serverMachine = await insertProviderMachine(harness, "server-vm");
+      const otherMachine = await insertProviderMachine(harness, "worker-vm");
       seedPrimaryHost(harness.deps, serverMachine);
 
       await sweepMachineLifecycles(harness.deps);
@@ -84,7 +89,9 @@ describe("server machine protections", () => {
       expect(create.mock.calls.map(([context]) => context.key)).toEqual([
         "launch-worker-vm",
       ]);
-      expect(getHost(harness.db, otherMachine)?.phase).toBe("active");
-      expect(getHost(harness.db, serverMachine)?.phase).toBe("creating");
+      expect((await getHost(harness.db, otherMachine))?.phase).toBe("active");
+      expect((await getHost(harness.db, serverMachine))?.phase).toBe(
+        "creating",
+      );
     }));
 });

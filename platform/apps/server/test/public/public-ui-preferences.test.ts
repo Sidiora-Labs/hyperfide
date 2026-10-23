@@ -37,7 +37,7 @@ describe("public ui preferences", () => {
         const key = "sidebar.threadListProvider";
         const expected =
           previous === "__builtin__" ? "thread-list/thread-list" : previous;
-        overwriteStoredUiPreference(harness.deps.db, {
+        await overwriteStoredUiPreference(harness.deps.db, {
           key,
           valueJson: JSON.stringify(previous),
         });
@@ -65,11 +65,11 @@ describe("public ui preferences", () => {
   it("ignores stored rows for the retired sidebar header preference", async () => {
     await withTestHarness(async (harness) => {
       const key = "sidebar.headerProvider";
-      overwriteStoredUiPreference(harness.deps.db, {
+      await overwriteStoredUiPreference(harness.deps.db, {
         key,
         valueJson: JSON.stringify("garden/icons"),
       });
-      harness.deps.db.$client
+      await harness.deps.db.$client
         .prepare(
           "INSERT INTO ui_preference_defaults (key, value_json) VALUES (?, ?)",
         )
@@ -96,7 +96,7 @@ describe("public ui preferences", () => {
 
   it("reads sidebar provider rows stored before the rail and resolves the removed built-in to Automatic", async () => {
     await withTestHarness(async (harness) => {
-      overwriteStoredUiPreference(harness.deps.db, {
+      await overwriteStoredUiPreference(harness.deps.db, {
         key: "sidebar.navigationProvider",
         valueJson: JSON.stringify("navigation/navigation"),
       });
@@ -290,7 +290,7 @@ describe("public ui preferences", () => {
         },
       });
       expect(
-        harness.db.$client
+        await harness.db.$client
           .prepare("SELECT key FROM ui_preferences WHERE key = ?")
           .get("sidebar.organizationMode"),
       ).toBeUndefined();
@@ -299,7 +299,7 @@ describe("public ui preferences", () => {
 
   it("exposes an installation fallback at revision zero and accepts legacy choices", async () => {
     await withTestHarness(async (harness) => {
-      harness.db.$client.exec(
+      await harness.db.$client.exec(
         `INSERT INTO ui_preference_defaults VALUES ('sidebar.organizationMode', '"project"')`,
       );
       expect(await readJson(await listPreferences(harness))).toMatchObject({
@@ -340,10 +340,10 @@ describe("public ui preferences", () => {
     "preserves saved %s organization over the installation fallback",
     async (value) => {
       await withTestHarness(async (harness) => {
-        harness.db.$client.exec(
+        await harness.db.$client.exec(
           `INSERT INTO ui_preference_defaults VALUES ('sidebar.organizationMode', '"project"')`,
         );
-        harness.db.$client
+        await harness.db.$client
           .prepare(
             "INSERT INTO ui_preferences (key, value_json, revision, updated_at) VALUES (?, ?, 3, 1)",
           )
@@ -467,7 +467,7 @@ describe("public ui preferences", () => {
 
   it("falls back to the default when a stored value no longer parses", async () => {
     await withTestHarness(async (harness) => {
-      harness.db.$client.exec(
+      await harness.db.$client.exec(
         `INSERT INTO ui_preferences (key, value_json, revision, updated_at) VALUES ('sidebar.organizationMode', '"by-color"', 4, 1), ('sidebar.unknownKey', '1', 2, 1)`,
       );
       const listed = (await readJson(await listPreferences(harness))) as {

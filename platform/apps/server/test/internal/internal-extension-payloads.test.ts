@@ -85,13 +85,15 @@ async function setup() {
       },
     },
   });
-  const { host, session } = seedHostSession(harness.deps);
-  const { project } = seedProjectWithSource(harness.deps, { hostId: host.id });
-  const environment = seedEnvironment(harness.deps, {
+  const { host, session } = await seedHostSession(harness.deps);
+  const { project } = await seedProjectWithSource(harness.deps, {
+    hostId: host.id,
+  });
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     providerId: PROVIDER_ID,
@@ -107,7 +109,7 @@ async function post(
 ): Promise<Response> {
   return harness.app.request("/internal/session/events", {
     method: "POST",
-    headers: internalAuthHeaders(harness),
+    headers: await internalAuthHeaders(harness),
     body: JSON.stringify({
       sessionId,
       eventGroups: groupHostDaemonEvents(batch),
@@ -115,26 +117,27 @@ async function post(
   });
 }
 
-function storedRows(harness: TestAppHarness, threadId: string) {
-  return harness.db
-    .select({
-      type: events.type,
-      itemKind: events.itemKind,
-      scopeKind: events.scopeKind,
-      turnId: events.turnId,
-      data: events.data,
-    })
-    .from(events)
-    .where(eq(events.threadId, threadId))
-    .orderBy(events.sequence)
-    .all()
-    .map((row) => ({
-      type: row.type,
-      itemKind: row.itemKind,
-      scopeKind: row.scopeKind,
-      turnId: row.turnId,
-      data: JSON.parse(row.data) as unknown,
-    }));
+async function storedRows(harness: TestAppHarness, threadId: string) {
+  return (
+    await harness.db
+      .select({
+        type: events.type,
+        itemKind: events.itemKind,
+        scopeKind: events.scopeKind,
+        turnId: events.turnId,
+        data: events.data,
+      })
+      .from(events)
+      .where(eq(events.threadId, threadId))
+      .orderBy(events.sequence)
+      .all()
+  ).map((row) => ({
+    type: row.type,
+    itemKind: row.itemKind,
+    scopeKind: row.scopeKind,
+    turnId: row.turnId,
+    data: JSON.parse(row.data) as unknown,
+  }));
 }
 
 function extensionItemEvent(
@@ -212,7 +215,7 @@ describe("extension payload ingest validation", () => {
         },
       ]);
       expect(response.status).toBe(200);
-      expect(storedRows(harness, thread.id)).toMatchObject([
+      expect(await storedRows(harness, thread.id)).toMatchObject([
         { type: "turn/started" },
         {
           type: "item/started",
@@ -258,7 +261,7 @@ describe("extension payload ingest validation", () => {
         ],
         rejectedEvents: [],
       });
-      const rows = storedRows(harness, thread.id);
+      const rows = await storedRows(harness, thread.id);
       expect(rows.map((row) => row.type)).toEqual([
         "turn/started",
         "provider/unhandled",
@@ -315,7 +318,7 @@ describe("extension payload ingest validation", () => {
         }),
       ]);
       expect(response.status).toBe(200);
-      const rows = storedRows(harness, thread.id);
+      const rows = await storedRows(harness, thread.id);
       expect(rows.map((row) => row.type)).toEqual([
         "turn/started",
         "provider/unhandled",
@@ -381,10 +384,9 @@ describe("extension payload ingest validation", () => {
         extensionItemEvent(thread.id, { text: "hi" }, `${PLUGIN_ID}/badge`),
       ]);
       expect(response.status).toBe(200);
-      expect(storedRows(harness, thread.id).map((row) => row.type)).toEqual([
-        "turn/started",
-        "provider/unhandled",
-      ]);
+      expect(
+        (await storedRows(harness, thread.id)).map((row) => row.type),
+      ).toEqual(["turn/started", "provider/unhandled"]);
     } finally {
       await harness.cleanup();
     }
@@ -404,7 +406,7 @@ describe("extension kind ownership at ingest", () => {
         displayName: "Gadgets",
         extensionKinds: {},
       });
-      const other = seedThread(harness.deps, {
+      const other = await seedThread(harness.deps, {
         projectId: thread.projectId,
         environmentId: thread.environmentId,
         providerId: OTHER_PROVIDER_ID,
@@ -424,7 +426,7 @@ describe("extension kind ownership at ingest", () => {
         ],
         rejectedEvents: [],
       });
-      const foreignRows = storedRows(harness, other.id);
+      const foreignRows = await storedRows(harness, other.id);
       expect(foreignRows.map((row) => row.type)).toEqual([
         "turn/started",
         "provider/unhandled",
@@ -468,7 +470,7 @@ describe("extension kind ownership at ingest", () => {
         extensionStateEvent(thread.id, { status: "active" }),
       ]);
       expect(own.status).toBe(200);
-      expect(storedRows(harness, thread.id)).toMatchObject([
+      expect(await storedRows(harness, thread.id)).toMatchObject([
         { type: "turn/started" },
         {
           type: "item/started",
@@ -490,7 +492,7 @@ describe("extension kind ownership at ingest", () => {
   it("refuses every extension kind on a thread whose provider has no live registration", async () => {
     const { harness, session, thread } = await setup();
     try {
-      const orphan = seedThread(harness.deps, {
+      const orphan = await seedThread(harness.deps, {
         projectId: thread.projectId,
         environmentId: thread.environmentId,
         providerId: "unregistered",
@@ -502,7 +504,7 @@ describe("extension kind ownership at ingest", () => {
         extensionStateEvent(orphan.id, { status: "active" }),
       ]);
       expect(response.status).toBe(200);
-      const rows = storedRows(harness, orphan.id);
+      const rows = await storedRows(harness, orphan.id);
       expect(rows.map((row) => row.type)).toEqual([
         "turn/started",
         "provider/unhandled",
@@ -563,7 +565,9 @@ describe("extension kind ownership at ingest", () => {
         ),
       ]);
       expect(response.status).toBe(200);
-      expect(storedRows(harness, thread.id).map((row) => row.type)).toEqual([
+      expect(
+        (await storedRows(harness, thread.id)).map((row) => row.type),
+      ).toEqual([
         "thread/extensionState/updated",
         "thread/extensionState/updated",
       ]);
@@ -664,7 +668,7 @@ describe("extension kind ownership at ingest", () => {
       expect((await patch({ mode: "build", web: true })).status).toBe(200);
       expect(await pendingValues()).toEqual({ mode: "build", web: true });
       expect(
-        resolvePendingThreadSessionOptions(harness.deps.db, thread.id),
+        await resolvePendingThreadSessionOptions(harness.deps.db, thread.id),
       ).toEqual({ mode: "build", web: true });
 
       expect((await patch({ web: null })).status).toBe(200);
@@ -675,7 +679,7 @@ describe("extension kind ownership at ingest", () => {
       ).toBe(200);
       expect(await pendingValues()).toEqual({ mode: null, web: null });
       expect(
-        resolvePendingThreadSessionOptions(harness.deps.db, thread.id),
+        await resolvePendingThreadSessionOptions(harness.deps.db, thread.id),
       ).toEqual({});
 
       expect(
@@ -691,7 +695,7 @@ describe("extension kind ownership at ingest", () => {
         ),
       ]);
       expect(forged.status).toBe(200);
-      expect(storedRows(harness, thread.id).at(-1)?.type).toBe(
+      expect((await storedRows(harness, thread.id)).at(-1)?.type).toBe(
         "provider/unhandled",
       );
       expect(await pendingValues()).toEqual({ mode: null, web: null });
@@ -711,9 +715,9 @@ describe("extension kind ownership at ingest", () => {
         ),
       ]);
       expect(response.status).toBe(200);
-      expect(storedRows(harness, thread.id).map((row) => row.type)).toEqual([
-        "provider/unhandled",
-      ]);
+      expect(
+        (await storedRows(harness, thread.id)).map((row) => row.type),
+      ).toEqual(["provider/unhandled"]);
       const timeline = threadTimelineResponseSchema.parse(
         await readJson(
           await harness.app.request(`/api/v1/threads/${thread.id}/timeline`),

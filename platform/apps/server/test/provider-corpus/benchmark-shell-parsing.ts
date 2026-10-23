@@ -39,13 +39,15 @@ function summary(values: number[]) {
 }
 
 const loadBefore = loadavg();
-const results = cases.map(({ name, command }) => {
-  const fixture = createSyntheticThread(1_500);
+const results = cases.map(async ({ name, command }) => {
+  const fixture = await createSyntheticThread(1_500);
   const { db } = fixture;
-  db.update(events)
+  await db
+    .update(events)
     .set({ id: sql`'benchmark-event-' || ${events.sequence}` })
     .run();
-  db.update(events)
+  await db
+    .update(events)
     .set({
       data: sql`json_set(${events.data}, '$.item.command', ${command})`,
     })
@@ -64,7 +66,7 @@ const results = cases.map(({ name, command }) => {
     clearTimelineSelectionMemo(db);
     const cpuStart = threadCpuUsage();
     const start = performance.now();
-    const result = buildThreadTimelineWithProfile(db, thread, {
+    const result = await buildThreadTimelineWithProfile(db, thread, {
       completedTurnDisplay: "collapse",
       eventBudget: 1_500,
       includeClearedContextHistory: false,
@@ -97,7 +99,7 @@ const results = cases.map(({ name, command }) => {
         .digest("hex"),
     );
   }
-  fixture.close();
+  await fixture.close();
   return {
     name,
     commandChars: command.length,

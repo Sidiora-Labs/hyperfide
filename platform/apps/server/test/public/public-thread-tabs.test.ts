@@ -1,4 +1,7 @@
-import { threadTabsResponseSchema, type ThreadTab } from "@hyperfide/server-contract";
+import {
+  threadTabsResponseSchema,
+  type ThreadTab,
+} from "@hyperfide/server-contract";
 import { describe, expect, it, vi } from "vitest";
 import { readJson } from "../helpers/json.js";
 import { seedThreadFixture } from "../helpers/seed.js";
@@ -97,7 +100,7 @@ const ALL_TAB_KINDS: readonly ThreadTab[] = [
 describe("public thread tabs", () => {
   it("stores every tab kind and rejects stale writes", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
+      const { thread } = await seedThreadFixture(harness);
       const notifyThread = vi.spyOn(harness.hub, "notifyThread");
 
       const initialResponse = await getTabs(harness, thread.id);
@@ -147,7 +150,7 @@ describe("public thread tabs", () => {
 
   it("omits a null hostId on the wire so strict older clients still parse", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
+      const { thread } = await seedThreadFixture(harness);
       const tabs: readonly ThreadTab[] = [
         {
           environmentId: "env_1",
@@ -209,7 +212,7 @@ describe("public thread tabs", () => {
 
   it("rejects duplicate tab ids and unknown threads", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
+      const { thread } = await seedThreadFixture(harness);
       const duplicateResponse = await putTabs(harness, thread.id, {
         expectedRevision: 0,
         tabs: [

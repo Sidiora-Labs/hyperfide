@@ -1,3 +1,5 @@
+// SQLite total_changes() measures native write amplification.
+import { isPostgresTest } from "../../src/testing.js";
 import { createMigratedConnection } from "../../src/testing.js";
 import {
   appendDaemonEventsInTransaction,
@@ -13,20 +15,20 @@ import {
 import { threadScope } from "@hyperfide/domain";
 import { expect, it } from "vitest";
 
-it.each(["daemon", "stored", "import", "copy"] as const)(
+it.skipIf(isPostgresTest).each(["daemon", "stored", "import", "copy"] as const)(
   "bounds pruning writes for %s event batches and rolls them back with events",
-  (mode) => {
-    const db = createMigratedConnection();
-    const host = upsertHost(db, noopNotifier, { name: "ingestion" });
-    const { project } = createProject(db, noopNotifier, {
+  async (mode) => {
+    const db = await createMigratedConnection();
+    const host = await upsertHost(db, noopNotifier, { name: "ingestion" });
+    const { project } = await createProject(db, noopNotifier, {
       name: "ingestion",
       source: { type: "local_path", hostId: host.id, path: "/tmp/ingestion" },
     });
-    const thread = createThread(db, noopNotifier, {
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "benchmark",
     });
-    const source = createThread(db, noopNotifier, {
+    const source = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "benchmark",
     });
@@ -37,37 +39,40 @@ it.each(["daemon", "stored", "import", "copy"] as const)(
         type: "system/error" as const,
         data: { message: "benchmark" },
       }));
-    db.transaction((tx) =>
-      appendStoredThreadEventsInTransaction(tx, stored(source.id)),
+    await db.transaction(
+      async (tx) =>
+        await appendStoredThreadEventsInTransaction(tx, stored(source.id)),
     );
-    const copied = listStoredEventRows(db, { threadId: source.id });
+    const copied = await listStoredEventRows(db, { threadId: source.id });
     let sequence = 0;
-    const append = () => {
+    const append = async () => {
       const inputs = stored(thread.id);
       switch (mode) {
         case "daemon":
-          db.transaction((tx) =>
-            appendDaemonEventsInTransaction(
-              tx,
-              inputs.map((input) => ({
-                ...input,
-                data: JSON.stringify(input.data),
-                environmentId: null,
-                providerThreadId: null,
-                itemId: null,
-                itemKind: null,
-                parentToolCallId: null,
-              })),
-            ),
+          await db.transaction(
+            async (tx) =>
+              await appendDaemonEventsInTransaction(
+                tx,
+                inputs.map((input) => ({
+                  ...input,
+                  data: JSON.stringify(input.data),
+                  environmentId: null,
+                  providerThreadId: null,
+                  itemId: null,
+                  itemKind: null,
+                  parentToolCallId: null,
+                })),
+              ),
           );
           break;
         case "stored":
-          db.transaction((tx) =>
-            appendStoredThreadEventsInTransaction(tx, inputs),
+          await db.transaction(
+            async (tx) =>
+              await appendStoredThreadEventsInTransaction(tx, inputs),
           );
           break;
         case "import":
-          insertEvents(
+          await insertEvents(
             db,
             noopNotifier,
             inputs.map((input) => ({
@@ -81,54 +86,56 @@ it.each(["daemon", "stored", "import", "copy"] as const)(
           );
           break;
         case "copy":
-          db.transaction((tx) =>
-            copyStoredThreadEventsInTransaction(tx, {
-              rows: copied,
-              targetThreadId: thread.id,
-              targetEnvironmentId: null,
-            }),
+          await db.transaction(
+            async (tx) =>
+              await copyStoredThreadEventsInTransaction(tx, {
+                rows: copied,
+                targetThreadId: thread.id,
+                targetEnvironmentId: null,
+              }),
           );
           break;
       }
     };
-    const changes = () =>
-      db.$client.prepare("SELECT total_changes()").pluck().get();
+    const changes = async () =>
+      await db.$client.prepare("SELECT total_changes()").pluck().get();
     try {
-      const before = changes();
+      const before = await changes();
       if (typeof before !== "number")
         throw new Error("Invalid SQLite change count");
-      append();
-      const after = changes();
+      await append();
+      const after = await changes();
       if (typeof after !== "number")
         throw new Error("Invalid SQLite change count");
       expect(after - before).toBeLessThanOrEqual(128 + 1);
       expect(
-        db.$client
+        await db.$client
           .prepare(
             "SELECT count(*) FROM thread_pruning_work WHERE thread_id = ?",
           )
           .pluck()
           .get(thread.id),
       ).toBe(1);
-      append();
-      const coalesced = changes();
+      await append();
+      const coalesced = await changes();
       if (typeof coalesced !== "number")
         throw new Error("Invalid SQLite change count");
       expect(coalesced - after).toBe(128);
-      db.$client
+      await db.$client
         .prepare("DELETE FROM thread_pruning_work WHERE thread_id = ?")
         .run(thread.id);
-      expect(() =>
-        db.transaction(() => {
-          append();
-          throw new Error("rollback ingestion");
-        }),
-      ).toThrow("rollback ingestion");
-      expect(listStoredEventRows(db, { threadId: thread.id })).toHaveLength(
-        256,
-      );
+      await expect(
+        (async () =>
+          db.transaction(async () => {
+            await append();
+            throw new Error("rollback ingestion");
+          }))(),
+      ).rejects.toThrow("rollback ingestion");
       expect(
-        db.$client
+        await listStoredEventRows(db, { threadId: thread.id }),
+      ).toHaveLength(256);
+      expect(
+        await db.$client
           .prepare(
             "SELECT count(*) FROM thread_pruning_work WHERE thread_id = ?",
           )
@@ -136,7 +143,7 @@ it.each(["daemon", "stored", "import", "copy"] as const)(
           .get(thread.id),
       ).toBe(0);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   },
 );

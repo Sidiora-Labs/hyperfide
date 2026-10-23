@@ -1,3 +1,4 @@
+import { buildPluginHost } from "@hyperfide/plugin-build";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
@@ -6,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { HostDaemonBridgeLaunch } from "@hyperfide/host-daemon-contract";
-import { buildPluginHost, resolvePluginBuildToolchain } from "@hyperfide/plugin-build";
+import { resolvePluginBuildToolchain } from "@hyperfide/plugin-build";
 import {
   validatePluginProviderDeclaration,
   type NormalizedPluginProviderDeclaration,

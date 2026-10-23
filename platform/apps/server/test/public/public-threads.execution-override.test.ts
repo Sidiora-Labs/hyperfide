@@ -11,14 +11,14 @@ import {
 import { withTestHarness } from "../helpers/test-app.js";
 import type { TestAppHarness } from "../helpers/test-app.js";
 
-function stubProviderCatalog(
+async function stubProviderCatalog(
   harness: TestAppHarness,
   hostId: string,
   sessionId: string,
   providerId: string,
   model: string,
-): void {
-  registerProviderHostRpcResponder(harness, {
+): Promise<void> {
+  await registerProviderHostRpcResponder(harness, {
     hostId,
     sessionId,
     modelsByProviderId: {
@@ -46,19 +46,21 @@ function stubProviderCatalog(
   });
 }
 
-function seedProviderThread(
+async function seedProviderThread(
   harness: TestAppHarness,
   providerId = "claude-code",
 ) {
-  const { host, session } = seedHostSession(harness.deps, {
+  const { host, session } = await seedHostSession(harness.deps, {
     id: `host-override-${providerId}`,
   });
-  const { project } = seedProjectWithSource(harness.deps, { hostId: host.id });
-  const environment = seedEnvironment(harness.deps, {
+  const { project } = await seedProjectWithSource(harness.deps, {
+    hostId: host.id,
+  });
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     providerId,
@@ -83,11 +85,11 @@ describe("PATCH /threads/:id execution override", () => {
   ]) {
     it(`persists a catalog-scoped model + reasoning override for ${provider.id}`, async () => {
       await withTestHarness(async (harness) => {
-        const { host, session, thread } = seedProviderThread(
+        const { host, session, thread } = await seedProviderThread(
           harness,
           provider.id,
         );
-        stubProviderCatalog(
+        await stubProviderCatalog(
           harness,
           host.id,
           session.id,
@@ -101,18 +103,20 @@ describe("PATCH /threads/:id execution override", () => {
         });
 
         expect(response.status).toBe(200);
-        expect(getThreadExecutionOverride(harness.db, thread.id)).toEqual({
-          modelOverride: provider.model,
-          reasoningLevelOverride: "high",
-        });
+        expect(await getThreadExecutionOverride(harness.db, thread.id)).toEqual(
+          {
+            modelOverride: provider.model,
+            reasoningLevelOverride: "high",
+          },
+        );
       });
     });
   }
 
   it("rejects a model that is not in the provider's catalog", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedProviderThread(harness);
-      stubProviderCatalog(
+      const { host, session, thread } = await seedProviderThread(harness);
+      await stubProviderCatalog(
         harness,
         host.id,
         session.id,
@@ -129,7 +133,7 @@ describe("PATCH /threads/:id execution override", () => {
       expect(JSON.stringify(body)).toContain(
         "not available in this thread's claude-code model catalog",
       );
-      expect(getThreadExecutionOverride(harness.db, thread.id)).toEqual({
+      expect(await getThreadExecutionOverride(harness.db, thread.id)).toEqual({
         modelOverride: null,
         reasoningLevelOverride: null,
       });

@@ -204,19 +204,20 @@ function isIgnorableRow(row: StoredEventRow): boolean {
   return IGNORABLE_EVENT_TYPES.has(row.type) && row.parentToolCallId === null;
 }
 
-function listAppendableRows(
+async function listAppendableRows(
   db: DbConnection,
   args: LatestTimelineSelectionMemoArgs,
   entry: TimelineSelectionMemoEntry,
-): StoredEventRow[] | null {
+): Promise<StoredEventRow[] | null> {
   if (
     args.maxSeq < entry.maxSeq ||
     args.maxSeq - entry.maxSeq > TIMELINE_SELECTION_MEMO_MAX_APPENDED_ROWS ||
-    getLatestThreadSequence(db, { threadId: args.threadId }) !== args.maxSeq
+    (await getLatestThreadSequence(db, { threadId: args.threadId })) !==
+      args.maxSeq
   ) {
     return null;
   }
-  const appendedRows = listStoredEventRowsInSequenceRange(db, {
+  const appendedRows = await listStoredEventRowsInSequenceRange(db, {
     afterSequence: entry.maxSeq,
     limit: TIMELINE_SELECTION_MEMO_MAX_APPENDED_ROWS + 1,
     maxInlineOutputChars: args.maxInlineOutputChars,
@@ -246,12 +247,12 @@ export function forgetLatestTimelineSelections(
   deleteThreadMemoEntries(memo, threadId, () => false);
 }
 
-export function lookupLatestTimelineSelection(
+export async function lookupLatestTimelineSelection(
   db: DbConnection,
   args: LatestTimelineSelectionMemoArgs,
-): LatestTimelineSelectionLookup {
+): Promise<LatestTimelineSelectionLookup> {
   const generation = getThreadEventRewriteGeneration(args.threadId);
-  const dataVersion = getDatabaseDataVersion(db);
+  const dataVersion = await getDatabaseDataVersion(db);
   const miss: LatestTimelineSelectionLookup = {
     budgetFloor: null,
     dataVersion,
@@ -269,12 +270,12 @@ export function lookupLatestTimelineSelection(
   ) {
     return miss;
   }
-  const appendableRows = listAppendableRows(db, args, entry);
+  const appendableRows = await listAppendableRows(db, args, entry);
   if (appendableRows === null) {
     return miss;
   }
   const budgetFloor: TimelineBudgetFloor = {
-    sequence: findTimelineWindowBudgetFloorSequence(db, {
+    sequence: await findTimelineWindowBudgetFloorSequence(db, {
       threadId: args.threadId,
       sequenceStart: args.epochSequenceStart,
       beforeSequence: args.maxSeq + 1,

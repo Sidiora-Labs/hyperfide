@@ -61,15 +61,15 @@ function countTimelineRows(rows: readonly TimelineRow[]): number {
   return count;
 }
 
-function buildRowSnapshot(
+async function buildRowSnapshot(
   loaded: LoadedCorpusThread,
   corpusThread: CorpusThread,
   registry: ProviderRegistryService,
-): { rows: number; snapshot: JsonValue } {
+): Promise<{ rows: number; snapshot: JsonValue }> {
   let rows = 0;
   const variants: RowSnapshot["variants"] = {};
   for (const variant of TIMELINE_VARIANTS) {
-    const pages = buildAllRouteTimelinePages({
+    const pages = await buildAllRouteTimelinePages({
       db: loaded.db,
       registry,
       thread: loaded.thread,
@@ -148,14 +148,14 @@ describe.skipIf(!available)("provider corpus row snapshots", () => {
 
   it.each(corpusThreads.map((thread) => [thread.id, thread.provider] as const))(
     "%s (%s)",
-    (threadId, provider) => {
+    async (threadId, provider) => {
       if (registry === null) {
         throw new Error("provider registry did not load");
       }
       const corpusThread = loadCorpusThread(threadId);
-      const loaded = loadCorpusThreadIntoDb(corpusThread);
+      const loaded = await loadCorpusThreadIntoDb(corpusThread);
       try {
-        const built = buildRowSnapshot(loaded, corpusThread, registry);
+        const built = await buildRowSnapshot(loaded, corpusThread, registry);
         const serialized = `${JSON.stringify(built.snapshot)}\n`;
         totals.threads += 1;
         totals.rows += built.rows;
@@ -163,7 +163,11 @@ describe.skipIf(!available)("provider corpus row snapshots", () => {
         const filePath = snapshotFilePath(rowsDir, provider, threadId);
 
         if (mode === "write") {
-          const rebuilt = buildRowSnapshot(loaded, corpusThread, registry);
+          const rebuilt = await buildRowSnapshot(
+            loaded,
+            corpusThread,
+            registry,
+          );
           expect(JSON.stringify(rebuilt.snapshot)).toBe(
             JSON.stringify(built.snapshot),
           );
@@ -245,7 +249,7 @@ describe.skipIf(!available)("provider corpus row snapshots", () => {
           );
         }
       } finally {
-        loaded.close();
+        await loaded.close();
       }
     },
     PER_THREAD_TIMEOUT_MS,

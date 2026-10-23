@@ -34,7 +34,7 @@ import {
 } from "./queued-messages.js";
 
 export interface QueueWaitPluginDirectory {
-  isPluginExpectedToRun(pluginId: string): boolean;
+  isPluginExpectedToRun(pluginId: string): boolean | Promise<boolean>;
 }
 
 export type QueuedMessageDispatchWake =
@@ -71,13 +71,13 @@ const pendingPluginRechecks = new WeakSet<
   QueueDispatchDeps["lifecycleDedupers"]
 >();
 
-function clearThreadQueueWaitsOfKind(
+async function clearThreadQueueWaitsOfKind(
   deps: Pick<QueueDispatchDeps, "db" | "hub">,
   args: { threadId: string; kind: QueuedMessageWaitingOnKind },
-): number {
-  const rows = listQueuedThreadMessagesWaitingOnKind(deps.db, args);
+): Promise<number> {
+  const rows = await listQueuedThreadMessagesWaitingOnKind(deps.db, args);
   for (const row of rows) {
-    clearQueuedMessageWait(deps, {
+    await clearQueuedMessageWait(deps, {
       queuedMessageId: row.id,
       threadId: args.threadId,
     });
@@ -85,21 +85,21 @@ function clearThreadQueueWaitsOfKind(
   return rows.length;
 }
 
-function prepareQueuedMessageDispatchWake(
+async function prepareQueuedMessageDispatchWake(
   deps: Pick<QueueDispatchDeps, "db" | "hub" | "logger">,
   wake: QueuedMessageDispatchWake,
-): PreparedQueuedMessageDispatchWake[] {
+): Promise<PreparedQueuedMessageDispatchWake[]> {
   switch (wake.kind) {
     case "workspace-ready":
       return [wake];
     case "provisioning-ended":
-      clearThreadQueueWaitsOfKind(deps, {
+      await clearThreadQueueWaitsOfKind(deps, {
         threadId: wake.threadId,
         kind: "provisioning",
       });
       return [];
     case "host-connected": {
-      if (isMachineWaitingForExecution(deps, wake.hostId)) return [];
+      if (await isMachineWaitingForExecution(deps, wake.hostId)) return [];
       return [wake];
     }
     default:
@@ -174,11 +174,14 @@ export function requestQueuedMachineReadiness(
   if (pending.has(hostId)) return;
   pending.add(hostId);
   void waitForMachineMaintenance(deps, hostId)
-    .then(() => {
-      return ensureHostSessionReadyForWork(deps, { hostId });
+    .then(async () => {
+      return await ensureHostSessionReadyForWork(deps, { hostId });
     })
-    .then(() => {
-      requestQueuedMessageDispatch(deps, { kind: "host-connected", hostId });
+    .then(async () => {
+      await requestQueuedMessageDispatch(deps, {
+        kind: "host-connected",
+        hostId,
+      });
     })
     .catch((error) => {
       deps.logger.warn(
@@ -189,25 +192,26 @@ export function requestQueuedMachineReadiness(
     .finally(() => pending.delete(hostId));
 }
 
-export function requestQueuedMessageDispatch(
+export async function requestQueuedMessageDispatch(
   deps: QueueDispatchDeps,
   wake: QueuedMessageDispatchWake,
-): void {
+): Promise<void> {
   if (isServerMoveFrozen(deps.db)) {
     return;
   }
   if (
     wake.kind === "host-connected" &&
-    isMachineWaitingForExecution(deps, wake.hostId)
+    (await isMachineWaitingForExecution(deps, wake.hostId))
   ) {
     if (
-      listThreadIdsWithHostOfflineQueueWaits(deps.db, wake.hostId).length > 0
+      (await listThreadIdsWithHostOfflineQueueWaits(deps.db, wake.hostId))
+        .length > 0
     ) {
-      requestQueuedMachineReadiness(deps, wake.hostId);
+      await requestQueuedMachineReadiness(deps, wake.hostId);
     }
     return;
   }
-  for (const prepared of prepareQueuedMessageDispatchWake(deps, wake)) {
+  for (const prepared of await prepareQueuedMessageDispatchWake(deps, wake)) {
     schedulePreparedQueuedMessageDispatch(deps, prepared);
   }
 }
@@ -219,7 +223,7 @@ export async function runQueuedMessageDispatch(
   if (isServerMoveFrozen(deps.db)) {
     return;
   }
-  for (const prepared of prepareQueuedMessageDispatchWake(deps, wake)) {
+  for (const prepared of await prepareQueuedMessageDispatchWake(deps, wake)) {
     await executePreparedQueuedMessageDispatch(deps, prepared);
   }
 }
@@ -230,11 +234,11 @@ async function executePreparedQueuedMessageDispatch(
 ): Promise<void> {
   switch (wake.kind) {
     case "host-connected":
-      for (const threadId of listThreadIdsWithHostOfflineQueueWaits(
+      for (const threadId of await listThreadIdsWithHostOfflineQueueWaits(
         deps.db,
         wake.hostId,
       )) {
-        for (const row of listQueuedThreadMessagesWaitingOnKind(deps.db, {
+        for (const row of await listQueuedThreadMessagesWaitingOnKind(deps.db, {
           kind: "host-offline",
           threadId,
         })) {
@@ -274,7 +278,7 @@ async function executePreparedQueuedMessageDispatch(
       await runDueScheduledDispatch(deps, wake.now);
       return;
     case "idle-recovery":
-      releaseStaleQueuedMessageDispatchClaims(deps, wake.now);
+      await releaseStaleQueuedMessageDispatchClaims(deps, wake.now);
       await runIdleThreadRecovery(deps);
       return;
     case "failed-retry":
@@ -312,16 +316,22 @@ async function runTurnStartedDispatch(
   deps: QueueDispatchDeps,
   threadId: string,
 ): Promise<void> {
-  const turnStartingRows = listQueuedThreadMessagesWaitingOnKind(deps.db, {
-    kind: "turn-starting",
-    threadId,
-  });
-  const provisioningRows = listQueuedThreadMessagesWaitingOnKind(deps.db, {
-    kind: "provisioning",
-    threadId,
-  });
+  const turnStartingRows = await listQueuedThreadMessagesWaitingOnKind(
+    deps.db,
+    {
+      kind: "turn-starting",
+      threadId,
+    },
+  );
+  const provisioningRows = await listQueuedThreadMessagesWaitingOnKind(
+    deps.db,
+    {
+      kind: "provisioning",
+      threadId,
+    },
+  );
   for (const row of provisioningRows) {
-    clearQueuedMessageWait(deps, {
+    await clearQueuedMessageWait(deps, {
       queuedMessageId: row.id,
       threadId,
     });
@@ -348,14 +358,14 @@ async function runWorkspaceReadyDispatch(
   deps: QueueDispatchDeps,
   threadId: string,
 ): Promise<void> {
-  const thread = getThread(deps.db, threadId);
+  const thread = await getThread(deps.db, threadId);
   if (thread?.status === "starting") return;
-  const rows = listQueuedThreadMessagesWaitingOnKind(deps.db, {
+  const rows = await listQueuedThreadMessagesWaitingOnKind(deps.db, {
     kind: "provisioning",
     threadId,
   });
   for (const row of rows) {
-    clearQueuedMessageWait(deps, {
+    await clearQueuedMessageWait(deps, {
       queuedMessageId: row.id,
       threadId,
     });
@@ -373,9 +383,13 @@ async function runInteractionSettledDispatch(
   deps: QueueDispatchDeps,
   threadId: string,
 ): Promise<void> {
-  if (deps.pendingInteractions.hasTurnBoundPendingThreadInteraction(threadId))
+  if (
+    await deps.pendingInteractions.hasTurnBoundPendingThreadInteraction(
+      threadId,
+    )
+  )
     return;
-  const cleared = clearThreadQueueWaitsOfKind(deps, {
+  const cleared = await clearThreadQueueWaitsOfKind(deps, {
     threadId,
     kind: "interaction",
   });
@@ -407,18 +421,21 @@ async function attemptAutomaticQueuedMessage(
 ): Promise<void> {
   if (args.respectRequeuePacing && isDispatchRequeuedRecently(row.threadId))
     return;
-  if (getQueuedThreadMessage(deps.db, row.id) === null) return;
-  const thread = getThread(deps.db, row.threadId);
+  if ((await getQueuedThreadMessage(deps.db, row.id)) === null) return;
+  const thread = await getThread(deps.db, row.threadId);
   if (!thread || thread.deletedAt !== null) return;
   try {
     await sendQueuedMessage(deps, {
       claimPolicy: {
         kind: "automatic",
-        isGroupEligible: createAutomaticQueuedMessageGroupEligibility(deps, {
-          now: args.now,
-          retryingFailure: args.retryingFailure,
-          thread,
-        }),
+        isGroupEligible: await createAutomaticQueuedMessageGroupEligibility(
+          deps,
+          {
+            now: args.now,
+            retryingFailure: args.retryingFailure,
+            thread,
+          },
+        ),
         retryingFailure: args.retryingFailure,
       },
       mode: "auto",
@@ -437,7 +454,7 @@ async function attemptAutomaticQueuedMessage(
       );
       return;
     }
-    recordQueuedMessageDrainFailure(deps, {
+    await recordQueuedMessageDrainFailure(deps, {
       error,
       now: args.now,
       row,
@@ -458,7 +475,7 @@ async function runPluginRecheckDispatch(
   deps: QueueDispatchDeps,
 ): Promise<void> {
   const now = Date.now();
-  for (const row of listQueuedThreadMessagePluginWaitRefs(deps.db)) {
+  for (const row of await listQueuedThreadMessagePluginWaitRefs(deps.db)) {
     await attemptAutomaticQueuedMessage(deps, row, {
       now,
       respectRequeuePacing: true,
@@ -474,12 +491,15 @@ async function runPluginUnregisteredDispatch(
   const holder =
     `${QUEUED_MESSAGE_PLUGIN_WAIT_HOLDER_PREFIX}${pluginId}` as const;
   const threadIds = new Set<string>();
-  for (const row of listQueuedThreadMessagesByWaitHolder(deps.db, holder)) {
+  for (const row of await listQueuedThreadMessagesByWaitHolder(
+    deps.db,
+    holder,
+  )) {
     deps.logger.info(
       { queuedMessageId: row.id, pluginId, threadId: row.threadId },
       "Clearing a queue wait: its holding plugin was unregistered",
     );
-    clearQueuedMessageWait(deps, {
+    await clearQueuedMessageWait(deps, {
       queuedMessageId: row.id,
       threadId: row.threadId,
     });
@@ -492,7 +512,7 @@ async function runDueScheduledDispatch(
   deps: QueueDispatchDeps,
   now: number,
 ): Promise<void> {
-  for (const row of listDueScheduledQueuedThreadMessages(deps.db, now)) {
+  for (const row of await listDueScheduledQueuedThreadMessages(deps.db, now)) {
     await attemptAutomaticQueuedMessage(deps, row, {
       now,
       respectRequeuePacing: true,
@@ -517,7 +537,10 @@ async function runFailedRetryDispatch(
   deps: QueueDispatchDeps,
   now: number,
 ): Promise<void> {
-  for (const row of listRetryableFailedQueuedThreadMessages(deps.db, now)) {
+  for (const row of await listRetryableFailedQueuedThreadMessages(
+    deps.db,
+    now,
+  )) {
     deps.logger.info(
       {
         failureCount: row.failureCount,
@@ -535,7 +558,7 @@ async function runFailedRetryDispatch(
 }
 
 async function runIdleThreadRecovery(deps: QueueDispatchDeps): Promise<void> {
-  for (const candidate of listIdleThreadsWithQueuedMessages(deps.db)) {
+  for (const candidate of await listIdleThreadsWithQueuedMessages(deps.db)) {
     await runThreadReadyDispatch(deps, candidate.threadId);
   }
 }
@@ -545,16 +568,16 @@ async function runOrphanedPluginWaitRecovery(
   plugins: QueueWaitPluginDirectory,
 ): Promise<void> {
   const threadIds = new Set<string>();
-  for (const row of listQueuedThreadMessagePluginWaitRefs(deps.db)) {
+  for (const row of await listQueuedThreadMessagePluginWaitRefs(deps.db)) {
     const pluginId = row.waitHolder.slice(
       QUEUED_MESSAGE_PLUGIN_WAIT_HOLDER_PREFIX.length,
     );
-    if (plugins.isPluginExpectedToRun(pluginId)) continue;
+    if (await plugins.isPluginExpectedToRun(pluginId)) continue;
     deps.logger.info(
       { queuedMessageId: row.id, pluginId, threadId: row.threadId },
       "Clearing a queue wait: its holding plugin is not going to run",
     );
-    clearQueuedMessageWait(deps, {
+    await clearQueuedMessageWait(deps, {
       queuedMessageId: row.id,
       threadId: row.threadId,
     });

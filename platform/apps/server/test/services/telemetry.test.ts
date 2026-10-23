@@ -35,11 +35,15 @@ describe("local event logging", () => {
     };
     const events = await createTelemetryService({ logger });
     await Promise.all(
-      ["desktop", "web"].map((surface) =>
-        runWithTelemetryAppSurface(surface as "desktop" | "web", async () => {
-          await Promise.resolve();
-          events.capture({ name: "app_started" });
-        }),
+      ["desktop", "web"].map(
+        async (surface) =>
+          await runWithTelemetryAppSurface(
+            surface as "desktop" | "web",
+            async () => {
+              await Promise.resolve();
+              events.capture({ name: "app_started" });
+            },
+          ),
       ),
     );
     expect(

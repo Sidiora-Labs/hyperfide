@@ -72,11 +72,11 @@ export function turnFinishedOutcome(
   return null;
 }
 
-function failureCategory(
+async function failureCategory(
   db: TurnTelemetryDeps["db"],
   threadId: string,
-): TurnErrorCategory {
-  const interruption = getLatestStoredThreadEventOfTypes(db, {
+): Promise<TurnErrorCategory> {
+  const interruption = await getLatestStoredThreadEventOfTypes(db, {
     threadId,
     types: ["system/thread/interrupted", "system/error", "turn/started"],
     afterSequence: 0,
@@ -91,7 +91,7 @@ function failureCategory(
     if (reason === "host-daemon-restarted" || reason === "host-connection-lost")
       return "host_lost";
   }
-  const latest = getLatestStoredThreadEventOfTypes(db, {
+  const latest = await getLatestStoredThreadEventOfTypes(db, {
     threadId,
     types: ["system/error", "turn/started"],
     afterSequence: 0,
@@ -107,38 +107,38 @@ function failureCategory(
     if (category !== undefined) return category;
   }
   return turnErrorCategory(
-    buildTurnFailedEvent(db, threadId)?.errorInfo?.category ?? null,
+    (await buildTurnFailedEvent(db, threadId))?.errorInfo?.category ?? null,
   );
 }
 
-export function recordFinishedTurn(
+export async function recordFinishedTurn(
   db: DbQueryConnection,
   threadId: string,
   event: ThreadLifecycleEvent,
   previousStatus: ThreadStatus,
-): void {
+): Promise<void> {
   const deps = turnTelemetryDeps;
   if (!deps?.telemetry.isEnabled()) return;
   const outcome = turnFinishedOutcome(event, previousStatus);
   if (outcome === null) return;
   try {
-    const thread = getThread(db, threadId);
+    const thread = await getThread(db, threadId);
     if (!thread) return;
     const properties = {
       outcome,
       provider: reportedProviderId(thread.providerId),
       error_category:
         outcome === "failed"
-          ? failureCategory(deps.db, threadId)
+          ? await failureCategory(deps.db, threadId)
           : ("none" as const),
     };
-    afterCommit(db, () => {
+    afterCommit(db, async () => {
       if (!deps.telemetry.isEnabled()) return;
       deps.telemetry.capture({
         name: "turn_finished",
         properties: {
           ...properties,
-          install_turn_number: claimInstallTurnNumber(
+          install_turn_number: await claimInstallTurnNumber(
             deps.db,
             thread.updatedAt,
           ),

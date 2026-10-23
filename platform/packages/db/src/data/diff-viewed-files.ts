@@ -12,13 +12,13 @@ export interface DiffViewedFileRecord {
   revision: string;
 }
 
-export function listDiffViewedFiles(
+export async function listDiffViewedFiles(
   db: DbConnection,
   scope: DiffViewedFileScope,
   paths: readonly string[] | null,
-): DiffViewedFileRecord[] {
+): Promise<DiffViewedFileRecord[]> {
   if (paths?.length === 0) return [];
-  return db
+  return await db
     .select({
       path: diffViewedFiles.path,
       revision: diffViewedFiles.revision,
@@ -35,12 +35,13 @@ export function listDiffViewedFiles(
     .all();
 }
 
-export function markDiffViewedFile(
+export async function markDiffViewedFile(
   db: DbConnection,
   args: DiffViewedFileScope & DiffViewedFileRecord,
-): void {
+): Promise<void> {
   const updatedAt = Date.now();
-  db.insert(diffViewedFiles)
+  await db
+    .insert(diffViewedFiles)
     .values({ ...args, updatedAt })
     .onConflictDoUpdate({
       target: [
@@ -53,11 +54,12 @@ export function markDiffViewedFile(
     .run();
 }
 
-export function clearDiffViewedFiles(
+export async function clearDiffViewedFiles(
   db: DbConnection,
   args: DiffViewedFileScope & { path: string | null },
-): void {
-  db.delete(diffViewedFiles)
+): Promise<void> {
+  await db
+    .delete(diffViewedFiles)
     .where(
       and(
         eq(diffViewedFiles.environmentId, args.environmentId),

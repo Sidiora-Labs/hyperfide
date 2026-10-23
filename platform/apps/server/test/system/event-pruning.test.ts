@@ -72,13 +72,15 @@ function createContextWindowUsageData(
   };
 }
 
-function listEventSequencesForType(
+async function listEventSequencesForType(
   harness: Awaited<ReturnType<typeof createTestAppHarness>>,
   args: { itemId?: string; threadId: string; type: string },
-): number[] {
-  return listEvents(harness.db, {
-    threadId: args.threadId,
-  })
+): Promise<number[]> {
+  return (
+    await listEvents(harness.db, {
+      threadId: args.threadId,
+    })
+  )
     .filter(
       (event) =>
         event.type === args.type &&
@@ -87,14 +89,14 @@ function listEventSequencesForType(
     .map((event) => event.sequence);
 }
 
-function drainLivePruning(
+async function drainLivePruning(
   deps: Parameters<typeof pruneThreadEventHistoryBestEffort>[0],
   args: Parameters<typeof pruneThreadEventHistoryBestEffort>[1],
 ) {
   let totalRemoved = 0;
   let passesSinceRemoval = 0;
   for (let i = 0; i < 1000 && passesSinceRemoval < 256; i++) {
-    const result = pruneThreadEventHistoryBestEffort(deps, args);
+    const result = await pruneThreadEventHistoryBestEffort(deps, args);
     if (result === null) throw new Error("Live cleanup failed");
     expect(result.scanned).toBeLessThanOrEqual(32);
     totalRemoved += result.totalRemoved;
@@ -103,17 +105,17 @@ function drainLivePruning(
   return { totalRemoved };
 }
 
-function seedNoiseRows(
+async function seedNoiseRows(
   harness: Awaited<ReturnType<typeof createTestAppHarness>>,
   args: SeedNoiseRowsArgs,
-): void {
+): Promise<void> {
   const startingSequence = args.startingSequence ?? 1;
   for (
     let sequence = startingSequence;
     sequence <= args.endingSequence;
     sequence += 1
   ) {
-    seedStoredEvent(harness.deps, {
+    await seedStoredEvent(harness.deps, {
       threadId: args.threadId,
       providerThreadId: "provider-thread-1",
       sequence,
@@ -129,7 +131,7 @@ function seedNoiseRows(
   }
 }
 
-function seedResolvedAssistantMessage(
+async function seedResolvedAssistantMessage(
   harness: Awaited<ReturnType<typeof createTestAppHarness>>,
   args: {
     completedSequence: number;
@@ -138,10 +140,10 @@ function seedResolvedAssistantMessage(
     threadId: string;
     turnId?: string;
   },
-): void {
+): Promise<void> {
   const turnId = args.turnId ?? "turn-1";
   for (const sequence of args.deltaSequences) {
-    seedStoredEvent(harness.deps, {
+    await seedStoredEvent(harness.deps, {
       threadId: args.threadId,
       sequence,
       type: "item/agentMessage/delta",
@@ -155,7 +157,7 @@ function seedResolvedAssistantMessage(
     });
   }
 
-  seedStoredEvent(harness.deps, {
+  await seedStoredEvent(harness.deps, {
     threadId: args.threadId,
     sequence: args.completedSequence,
     type: "item/completed",
@@ -175,21 +177,21 @@ function seedResolvedAssistantMessage(
 describe("thread event pruning", () => {
   it("preserves context window usage when idle pruning removes old context-usage rows", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const host = await seedHost(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
       for (let sequence = 1; sequence <= 305; sequence += 1) {
-        seedStoredEvent(harness.deps, {
+        await seedStoredEvent(harness.deps, {
           threadId: thread.id,
           providerThreadId: "provider-thread-1",
           sequence,
@@ -205,28 +207,30 @@ describe("thread event pruning", () => {
         });
       }
 
-      const result = drainLivePruning(harness.deps, {
+      const result = await drainLivePruning(harness.deps, {
         mode: "idle",
         threadId: thread.id,
       });
-      const timeline = buildThreadTimelineWithProfile(harness.db, thread, {
-        completedTurnDisplay: "collapse",
-        eventBudget: 1_000_000,
-        includeClearedContextHistory: false,
-        includeDiagnosticOperations: true,
-        compactionOfferEnabled: false,
-        summarizeShellCommands: true,
-        maxInlineOutputChars: null,
-        maxSeq: 0,
-        page: {
-          kind: "latest",
-          segmentLimit: Number.MAX_SAFE_INTEGER,
-        },
-      }).response;
+      const timeline = (
+        await buildThreadTimelineWithProfile(harness.db, thread, {
+          completedTurnDisplay: "collapse",
+          eventBudget: 1_000_000,
+          includeClearedContextHistory: false,
+          includeDiagnosticOperations: true,
+          compactionOfferEnabled: false,
+          summarizeShellCommands: true,
+          maxInlineOutputChars: null,
+          maxSeq: 0,
+          page: {
+            kind: "latest",
+            segmentLimit: Number.MAX_SAFE_INTEGER,
+          },
+        })
+      ).response;
 
       expect(result.totalRemoved).toBe(303);
       expect(
-        listEventSequencesForType(harness, {
+        await listEventSequencesForType(harness, {
           threadId: thread.id,
           type: "thread/contextWindowUsage/updated",
         }),
@@ -241,25 +245,25 @@ describe("thread event pruning", () => {
 
   it("prunes thread history when turn completion returns the thread to idle", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const host = await seedHost(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "active",
       });
 
-      seedNoiseRows(harness, {
+      await seedNoiseRows(harness, {
         threadId: thread.id,
         endingSequence: 305,
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         scope: turnScope("turn-1"),
         sequence: 306,
@@ -270,13 +274,13 @@ describe("thread event pruning", () => {
           providerThreadId: "provider-thread-1",
         },
       });
-      seedResolvedAssistantMessage(harness, {
+      await seedResolvedAssistantMessage(harness, {
         threadId: thread.id,
         itemId: "msg-1",
         deltaSequences: [307, 308],
         completedSequence: 309,
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         scope: turnScope("turn-1"),
         sequence: 310,
@@ -288,7 +292,7 @@ describe("thread event pruning", () => {
         },
       });
 
-      applyTurnCompletedEvent(harness.deps, {
+      await applyTurnCompletedEvent(harness.deps, {
         type: "turn/completed",
         threadId: thread.id,
         providerThreadId: "provider-thread-1",
@@ -296,16 +300,21 @@ describe("thread event pruning", () => {
         status: "completed",
       });
 
-      expect(getThread(harness.db, thread.id)?.status).toBe("idle");
-      drainLivePruning(harness.deps, { threadId: thread.id, mode: "idle" });
+      expect((await getThread(harness.db, thread.id))?.status).toBe("idle");
+      await drainLivePruning(harness.deps, {
+        threadId: thread.id,
+        mode: "idle",
+      });
       expect(
-        listEventSequencesForType(harness, {
-          threadId: thread.id,
-          type: "thread/tokenUsage/updated",
-        }).at(0),
+        (
+          await listEventSequencesForType(harness, {
+            threadId: thread.id,
+            type: "thread/tokenUsage/updated",
+          })
+        ).at(0),
       ).toBe(305);
       expect(
-        listEventSequencesForType(harness, {
+        await listEventSequencesForType(harness, {
           threadId: thread.id,
           type: "item/agentMessage/delta",
         }),
@@ -315,20 +324,20 @@ describe("thread event pruning", () => {
 
   it("identifies root completions even when the thread is already settled", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const host = await seedHost(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "idle",
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         scope: turnScope("turn-1"),
         sequence: 1,
@@ -339,7 +348,7 @@ describe("thread event pruning", () => {
           providerThreadId: "provider-thread-1",
         },
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         scope: turnScope("turn-1"),
         sequence: 2,
@@ -351,7 +360,7 @@ describe("thread event pruning", () => {
         },
       });
 
-      const result = applyTurnCompletedEvent(harness.deps, {
+      const result = await applyTurnCompletedEvent(harness.deps, {
         type: "turn/completed",
         threadId: thread.id,
         providerThreadId: "provider-thread-1",
@@ -361,31 +370,31 @@ describe("thread event pruning", () => {
 
       expect(result.isRootTurnCompletion).toBe(true);
       expect(result.nextStatus).toBeNull();
-      expect(getThread(harness.db, thread.id)?.status).toBe("idle");
+      expect((await getThread(harness.db, thread.id))?.status).toBe("idle");
     });
   });
 
   it("prunes thread history on archive using the same usage retention rule", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const host = await seedHost(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "idle",
       });
 
-      seedNoiseRows(harness, {
+      await seedNoiseRows(harness, {
         threadId: thread.id,
         endingSequence: 130,
       });
-      seedResolvedAssistantMessage(harness, {
+      await seedResolvedAssistantMessage(harness, {
         threadId: thread.id,
         itemId: "msg-1",
         deltaSequences: [131, 132],
@@ -400,16 +409,23 @@ describe("thread event pruning", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(getThread(harness.db, thread.id)?.archivedAt).toBeTypeOf("number");
-      drainLivePruning(harness.deps, { threadId: thread.id, mode: "archived" });
+      expect((await getThread(harness.db, thread.id))?.archivedAt).toBeTypeOf(
+        "number",
+      );
+      await drainLivePruning(harness.deps, {
+        threadId: thread.id,
+        mode: "archived",
+      });
       expect(
-        listEventSequencesForType(harness, {
-          threadId: thread.id,
-          type: "thread/tokenUsage/updated",
-        }).at(0),
+        (
+          await listEventSequencesForType(harness, {
+            threadId: thread.id,
+            type: "thread/tokenUsage/updated",
+          })
+        ).at(0),
       ).toBe(130);
       expect(
-        listEventSequencesForType(harness, {
+        await listEventSequencesForType(harness, {
           threadId: thread.id,
           type: "item/agentMessage/delta",
         }),
@@ -419,20 +435,20 @@ describe("thread event pruning", () => {
 
   it("notifies only after a committed live advance and reports its bounded work", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const host = await seedHost(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
       for (let sequence = 1; sequence <= 100; sequence++)
-        seedStoredEvent(harness.deps, {
+        await seedStoredEvent(harness.deps, {
           threadId: thread.id,
           providerThreadId: "provider-thread",
           sequence,
@@ -445,7 +461,7 @@ describe("thread event pruning", () => {
       const notify = vi
         .spyOn(harness.deps.hub, "notifyThread")
         .mockImplementation(() => {});
-      const first = pruneThreadEventHistoryBestEffort(harness.deps, {
+      const first = await pruneThreadEventHistoryBestEffort(harness.deps, {
         threadId: thread.id,
         mode: "active",
       });
@@ -457,7 +473,7 @@ describe("thread event pruning", () => {
       expect(notify).toHaveBeenCalledExactlyOnceWith(thread.id, [
         "history-compacted",
       ]);
-      const second = pruneThreadEventHistoryBestEffort(harness.deps, {
+      const second = await pruneThreadEventHistoryBestEffort(harness.deps, {
         threadId: thread.id,
         mode: "active",
       });
@@ -469,25 +485,25 @@ describe("thread event pruning", () => {
 
   it("logs and returns null when best-effort pruning cannot run", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const host = await seedHost(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
       const loggerWarn = vi.fn();
       harness.deps.logger.warn = loggerWarn;
 
-      harness.db.$client.close();
+      await harness.db.close();
 
       expect(
-        pruneThreadEventHistoryBestEffort(harness.deps, {
+        await pruneThreadEventHistoryBestEffort(harness.deps, {
           mode: "idle",
           threadId: thread.id,
         }),
@@ -504,31 +520,31 @@ describe("thread event pruning", () => {
 
   it("prunes active-thread noise rows after ingest without dropping unresolved deltas", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "active",
       });
 
-      seedNoiseRows(harness, {
+      await seedNoiseRows(harness, {
         threadId: thread.id,
         endingSequence: 1_000,
       });
-      seedResolvedAssistantMessage(harness, {
+      await seedResolvedAssistantMessage(harness, {
         threadId: thread.id,
         itemId: "msg-completed",
         deltaSequences: [1_001, 1_002],
         completedSequence: 1_003,
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         scope: turnScope("turn-1"),
         sequence: 1_006,
@@ -541,7 +557,7 @@ describe("thread event pruning", () => {
         },
       });
       for (const sequence of [1_004, 1_005]) {
-        seedStoredEvent(harness.deps, {
+        await seedStoredEvent(harness.deps, {
           threadId: thread.id,
           scope: turnScope("turn-active"),
           sequence,
@@ -557,7 +573,7 @@ describe("thread event pruning", () => {
 
       const response = await harness.app.request("/internal/session/events", {
         method: "POST",
-        headers: internalAuthHeaders(harness),
+        headers: await internalAuthHeaders(harness),
         body: JSON.stringify({
           sessionId: session.id,
           eventGroups: groupHostDaemonEvents([
@@ -591,25 +607,27 @@ describe("thread event pruning", () => {
       });
 
       expect(response.status).toBe(200);
-      drainLivePruning(harness.deps, {
+      await drainLivePruning(harness.deps, {
         threadId: thread.id,
         mode: "active",
       });
       expect(
-        listEventSequencesForType(harness, {
-          threadId: thread.id,
-          type: "thread/tokenUsage/updated",
-        }).at(0),
+        (
+          await listEventSequencesForType(harness, {
+            threadId: thread.id,
+            type: "thread/tokenUsage/updated",
+          })
+        ).at(0),
       ).toBe(1007);
       expect(
-        listEventSequencesForType(harness, {
+        await listEventSequencesForType(harness, {
           threadId: thread.id,
           type: "item/agentMessage/delta",
           itemId: "msg-completed",
         }),
       ).toEqual([1_001]);
       expect(
-        listEventSequencesForType(harness, {
+        await listEventSequencesForType(harness, {
           threadId: thread.id,
           type: "item/agentMessage/delta",
           itemId: "msg-active",

@@ -23,7 +23,7 @@ export async function callEnvironmentWorkspaceStatus(
   deps: AppDeps,
   args: CallEnvironmentWorkspaceStatusArgs,
 ): Promise<WorkspaceStatusResult> {
-  return callEnvironmentWorkspaceStatusWith(
+  return await callEnvironmentWorkspaceStatusWith(
     deps,
     args,
     callHostRetryableOnlineRpc,
@@ -34,19 +34,19 @@ export async function callEnvironmentWorkspaceStatusForWork(
   deps: AppDeps,
   args: CallEnvironmentWorkspaceStatusArgs,
 ): Promise<WorkspaceStatusResult> {
-  return callEnvironmentWorkspaceStatusWith(
+  return await callEnvironmentWorkspaceStatusWith(
     deps,
     args,
     callHostRetryableOnlineRpcForWork,
   );
 }
 
-function callEnvironmentWorkspaceStatusWith(
+async function callEnvironmentWorkspaceStatusWith(
   deps: AppDeps,
   args: CallEnvironmentWorkspaceStatusArgs,
   callRpc: typeof callHostRetryableOnlineRpc,
 ): Promise<WorkspaceStatusResult> {
-  return callRpc(deps, {
+  return await callRpc(deps, {
     hostId: args.target.hostId,
     timeoutMs: COMMAND_TIMEOUT_MS,
     command: {

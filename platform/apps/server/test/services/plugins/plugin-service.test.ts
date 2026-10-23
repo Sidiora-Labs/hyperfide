@@ -113,7 +113,7 @@ describe("plugin service", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
@@ -179,7 +179,7 @@ describe("plugin service", () => {
       if (mode === "startup") {
         await service.stop();
         service = createTelemetryTrackedService([]);
-        expect(service.list()[0]).toMatchObject({
+        expect((await service.list())[0]).toMatchObject({
           status: "starting",
           statusDetail: null,
         });
@@ -202,17 +202,19 @@ describe("plugin service", () => {
     }`,
       );
       const operation =
-        mode === "startup" ? service.start() : service.reload("starting");
+        (await mode) === "startup"
+          ? service.start()
+          : service.reload("starting");
       try {
         await loading;
         const { plugins } = pluginListResponseSchema.parse({
-          plugins: service.list(),
+          plugins: await service.list(),
         });
         expect(plugins[0]).toMatchObject({
           status: "starting",
           statusDetail: null,
         });
-        expect(service.getHttpRoute("starting", "GET", "/")).toEqual({
+        expect(await service.getHttpRoute("starting", "GET", "/")).toEqual({
           outcome: "not-running",
           status: "starting",
           detail: null,
@@ -226,7 +228,7 @@ describe("plugin service", () => {
         await operation;
         vi.unstubAllGlobals();
       }
-      expect(service.list()[0]).toMatchObject({
+      expect((await service.list())[0]).toMatchObject({
         status: "running",
         statusDetail: null,
       });
@@ -273,7 +275,9 @@ describe("plugin service", () => {
     });
     await service.installPath(rootDir);
 
-    const enabled = service.list().find((entry) => entry.id === "capabilities");
+    const enabled = (await service.list()).find(
+      (entry) => entry.id === "capabilities",
+    );
     expect(enabled?.capabilities).toEqual([
       {
         kind: "skill",
@@ -310,8 +314,7 @@ describe("plugin service", () => {
     await service.setEnabled("capabilities", false);
 
     expect(
-      service
-        .list()
+      (await service.list())
         .find((entry) => entry.id === "capabilities")
         ?.capabilities.map((capability) => capability.kind),
     ).toEqual(["skill", "skill", "theme"]);
@@ -328,7 +331,7 @@ describe("plugin service", () => {
     });
     await service.installPath(bad);
     await service.installPath(good);
-    const entries = service.list();
+    const entries = await service.list();
     expect(entries.find((p) => p.id === "bad")?.status).toBe("error");
     expect(entries.find((p) => p.id === "bad")?.statusDetail).toContain(
       "boom at load",
@@ -358,7 +361,7 @@ describe("plugin service", () => {
     const globals = globalThis as Record<string, unknown>;
     expect(globals.__cyclerVersion).toBe("v2");
     expect(globals.__cyclerDisposals).toEqual(["second", "first"]);
-    expect(service.list().find((p) => p.id === "cycler")?.status).toBe(
+    expect((await service.list()).find((p) => p.id === "cycler")?.status).toBe(
       "running",
     );
   });
@@ -466,7 +469,7 @@ describe("plugin service", () => {
     await service.installPath(importedDir);
     await service.installPath(importerDir);
     const globals = globalThis as Record<string, unknown>;
-    const read = globals.failImporterRead as () => Promise<string>;
+    const read = (await globals.failImporterRead) as () => Promise<string>;
     expect(await read()).toBe("shared1:cjs1");
 
     await writeFile(
@@ -479,9 +482,9 @@ describe("plugin service", () => {
     );
     await writeFile(join(importedDir, "server.js"), `export default 42;\n`);
     await service.reload("fail-imported");
-    expect(service.list().find((p) => p.id === "fail-imported")?.status).toBe(
-      "running",
-    );
+    expect(
+      (await service.list()).find((p) => p.id === "fail-imported")?.status,
+    ).toBe("running");
 
     expect(await read()).toBe("shared1:cjs1");
   });
@@ -539,15 +542,16 @@ describe("plugin service", () => {
     );
     await service.installPath(rootDir);
     const globals = globalThis as Record<string, unknown>;
-    const loadLazy = globals.rollbackerLoadLazy as () => Promise<string>;
+    const loadLazy =
+      (await globals.rollbackerLoadLazy) as () => Promise<string>;
     expect(await loadLazy()).toBe("lazy1");
 
     await writeFile(join(rootDir, "server.js"), `export default 42;\n`);
     await writeFile(join(rootDir, "lazy.js"), `export const LAZY = "lazy2";\n`);
     await service.reload("rollbacker");
-    expect(service.list().find((p) => p.id === "rollbacker")?.status).toBe(
-      "running",
-    );
+    expect(
+      (await service.list()).find((p) => p.id === "rollbacker")?.status,
+    ).toBe("running");
     expect(await loadLazy()).toBe("lazy1");
   });
 
@@ -575,7 +579,7 @@ describe("plugin service", () => {
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(tooNew);
-    expect(service.list().find((p) => p.id === "too-new")?.status).toBe(
+    expect((await service.list()).find((p) => p.id === "too-new")?.status).toBe(
       "incompatible",
     );
 
@@ -586,7 +590,7 @@ describe("plugin service", () => {
     await service.installPath(vanishing);
     await rm(vanishing, { recursive: true, force: true });
     await service.reload("vanishing");
-    const entry = service.list().find((p) => p.id === "vanishing");
+    const entry = (await service.list()).find((p) => p.id === "vanishing");
     expect(entry?.status).toBe("running");
     expect(entry?.statusDetail).toContain("reload failed");
     expect(entry?.statusDetail).toContain("reinstall");
@@ -613,8 +617,8 @@ describe("plugin service", () => {
       name: "hyperfide-plugin-zzz-broken",
       serverSource: `export default function plugin() { throw new Error("nope"); }`,
     });
-    const install = (id: string, rootDir: string) => {
-      upsertInstalledPlugin(db, {
+    const install = async (id: string, rootDir: string) => {
+      await upsertInstalledPlugin(db, {
         id,
         source: `path:${rootDir}`,
         provenance: { kind: "direct" },
@@ -633,11 +637,11 @@ describe("plugin service", () => {
         enabledFollowsDefault: false,
       });
     };
-    install("aaa-slow", slowRoot);
-    install("zzz-pending", pendingRoot);
-    install("zzz-broken", brokenRoot);
+    await install("aaa-slow", slowRoot);
+    await install("zzz-pending", pendingRoot);
+    await install("zzz-broken", brokenRoot);
 
-    const booting = createPluginService({
+    const booting = await createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db,
@@ -659,21 +663,24 @@ describe("plugin service", () => {
       await vi.waitFor(() => {
         expect(globals.__slowFactoryEntered).toBe(true);
       });
-      expect(booting.isPluginExpectedToRun("zzz-pending")).toBe(true);
-      expect(booting.isPluginExpectedToRun("never-installed")).toBe(false);
+      expect(await booting.isPluginExpectedToRun("zzz-pending")).toBe(true);
+      expect(await booting.isPluginExpectedToRun("never-installed")).toBe(
+        false,
+      );
       await started;
 
-      expect(booting.isPluginExpectedToRun("zzz-pending")).toBe(true);
-      expect(booting.isPluginExpectedToRun("zzz-broken")).toBe(false);
+      expect(await booting.isPluginExpectedToRun("zzz-pending")).toBe(true);
+      expect(await booting.isPluginExpectedToRun("zzz-broken")).toBe(false);
 
-      install("arrived-late", pendingRoot);
+      await install("arrived-late", pendingRoot);
       expect(
-        booting.list().find((entry) => entry.id === "arrived-late")?.status,
+        (await booting.list()).find((entry) => entry.id === "arrived-late")
+          ?.status,
       ).toBe("starting");
-      expect(booting.isPluginExpectedToRun("arrived-late")).toBe(false);
+      expect(await booting.isPluginExpectedToRun("arrived-late")).toBe(false);
 
       await booting.setEnabled("zzz-pending", false);
-      expect(booting.isPluginExpectedToRun("zzz-pending")).toBe(false);
+      expect(await booting.isPluginExpectedToRun("zzz-pending")).toBe(false);
     } finally {
       delete globals.__slowFactoryEntered;
       await booting.stop();
@@ -716,7 +723,7 @@ describe("plugin service", () => {
       serverSource: `export default function plugin() {}`,
     });
 
-    upsertInstalledPlugin(db, {
+    await upsertInstalledPlugin(db, {
       id: "notify",
       source: `path:${rootDir}`,
       provenance: { kind: "direct" },
@@ -735,9 +742,9 @@ describe("plugin service", () => {
       enabledFollowsDefault: false,
     });
 
-    const after = makeService("0.39.0");
+    const after = await makeService("0.39.0");
     await after.start();
-    const entry = after.list().find((p) => p.id === "notify");
+    const entry = (await after.list()).find((p) => p.id === "notify");
     expect(entry?.status).toBe("incompatible");
     expect(entry?.statusDetail).toBe(
       "requires hyperfide >=0.38.0 <0.39.0, this is 0.39.0",
@@ -765,7 +772,7 @@ describe("plugin service", () => {
     expect(manifest.devDependencies["@hyperfide/plugin-sdk"]).toBe("0.4.8");
     expect(semver.gt(PLUGIN_SDK_VERSION, "0.4.8")).toBe(true);
 
-    upsertInstalledPlugin(db, {
+    await upsertInstalledPlugin(db, {
       id: "sdk-upgrade-fixture",
       source: `path:${rootDir}`,
       provenance: { kind: "direct" },
@@ -784,7 +791,7 @@ describe("plugin service", () => {
       enabledFollowsDefault: false,
     });
 
-    const upgraded = createPluginService({
+    const upgraded = await createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db,
@@ -803,9 +810,9 @@ describe("plugin service", () => {
     });
     await upgraded.start();
     try {
-      const entry = upgraded
-        .list()
-        .find((plugin) => plugin.id === "sdk-upgrade-fixture");
+      const entry = (await upgraded.list()).find(
+        (plugin) => plugin.id === "sdk-upgrade-fixture",
+      );
       expect(entry?.status).toBe("running");
       expect(entry?.statusDetail).toBeNull();
       expect(upgraded.getApi("sdk-upgrade-fixture")).toBeDefined();
@@ -815,7 +822,7 @@ describe("plugin service", () => {
   });
 
   it("skips the engines gate on 0.0.0 dev builds instead of marking everything incompatible", async () => {
-    const devService = createPluginService({
+    const devService = await createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db,
@@ -843,7 +850,7 @@ describe("plugin service", () => {
 
   it("reports one anonymous plugin_installed event per user install", async () => {
     const captured: TelemetryEvent[] = [];
-    const tracked = createTelemetryTrackedService(captured);
+    const tracked = await createTelemetryTrackedService(captured);
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-tracked",
       serverSource: "export default function plugin() {}",
@@ -862,9 +869,9 @@ describe("plugin service", () => {
       },
     ]);
     await tracked.reload("tracked");
-    expect(tracked.list().find((entry) => entry.id === "tracked")?.status).toBe(
-      "running",
-    );
+    expect(
+      (await tracked.list()).find((entry) => entry.id === "tracked")?.status,
+    ).toBe("running");
     expect((await tracked.setEnabled("tracked", false))?.status).toBe(
       "disabled",
     );
@@ -875,7 +882,7 @@ describe("plugin service", () => {
 
   it("does not report plugin_installed during boot-time reconcile", async () => {
     const captured: TelemetryEvent[] = [];
-    const tracked = createTelemetryTrackedService(captured);
+    const tracked = await createTelemetryTrackedService(captured);
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-reconciled",
       serverSource: "export default function plugin() {}",
@@ -888,7 +895,7 @@ describe("plugin service", () => {
 
     expect(captured).toEqual([]);
     expect(
-      tracked.list().find((entry) => entry.id === "reconciled")?.status,
+      (await tracked.list()).find((entry) => entry.id === "reconciled")?.status,
     ).toBe("running");
     await tracked.stop();
   });
@@ -944,8 +951,8 @@ describe("plugin service", () => {
     });
   });
 
-  it("adds marketplace discovery metadata to an installed plugin", () => {
-    upsertPluginMarketplace(db, {
+  it("adds marketplace discovery metadata to an installed plugin", async () => {
+    await upsertPluginMarketplace(db, {
       name: "acme",
       sourceKind: "https",
       manifestUrl: "https://plugins.acme.test/marketplace.json",
@@ -997,7 +1004,7 @@ describe("plugin service", () => {
       lastAttemptedRefreshAt: 1,
       lastError: null,
     });
-    upsertInstalledPlugin(db, {
+    await upsertInstalledPlugin(db, {
       id: "installed-tool",
       source: "git:https://github.com/acme/plugins.git@v1.0.0",
       provenance: {
@@ -1026,7 +1033,7 @@ describe("plugin service", () => {
     });
 
     expect(
-      service.list().find((entry) => entry.id === "installed-tool"),
+      (await service.list()).find((entry) => entry.id === "installed-tool"),
     ).toMatchObject({
       categoryId: "acme-tools",
       category: "Acme tools",
@@ -1038,7 +1045,7 @@ describe("plugin service", () => {
       updatedAt: "2026-08-27T16:12:00Z",
     });
 
-    upsertPluginMarketplace(db, {
+    await upsertPluginMarketplace(db, {
       name: "acme",
       sourceKind: "https",
       manifestUrl: "https://plugins.acme.test/marketplace.json",
@@ -1077,7 +1084,8 @@ describe("plugin service", () => {
     });
 
     expect(
-      service.list().find((entry) => entry.id === "installed-tool")?.category,
+      (await service.list()).find((entry) => entry.id === "installed-tool")
+        ?.category,
     ).toBe("Updated Acme tools");
   });
 
@@ -1087,17 +1095,19 @@ describe("plugin service", () => {
       serverSource: `export default function plugin() { return new Promise(() => {}); }`,
     });
     await service.installPath(rootDir);
-    const entry = service.list().find((p) => p.id === "hang");
+    const entry = (await service.list()).find((p) => p.id === "hang");
     expect(entry?.status).toBe("error");
     expect(entry?.statusDetail).toContain("timed out");
   });
 
   it("holds every plugin a hold names at start without running its factory or starting its services", async () => {
     const globals = globalThis as Record<string, unknown>;
-    const db = createMigratedConnection();
-    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-hold-test-"));
+    const db = await createMigratedConnection();
+    const workDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-plugin-hold-test-"),
+    );
     const fixture = { db, workDir };
-    let service = createTelemetryTrackedService([], fixture);
+    let service = await createTelemetryTrackedService([], fixture);
 
     try {
       const heldAccountRoot = await writePlugin(workDir, {
@@ -1144,7 +1154,9 @@ describe("plugin service", () => {
 
       for (const id of ["held-tunnel", "held-account"]) {
         expect(service.getApi(id)).toBeUndefined();
-        expect(service.list().find((entry) => entry.id === id)).toMatchObject({
+        expect(
+          (await service.list()).find((entry) => entry.id === id),
+        ).toMatchObject({
           enabled: true,
           status: "disabled",
           statusDetail: "Held for this test.",
@@ -1157,7 +1169,7 @@ describe("plugin service", () => {
       try {
         await service.stop();
       } finally {
-        db.$client.close();
+        await db.close();
         delete globals.__heldFactoryRuns;
         delete globals.__heldServiceStarts;
         await rm(workDir, { recursive: true, force: true });
@@ -1202,10 +1214,10 @@ describe("plugin service", () => {
       delete globals.__heldLoads;
     });
 
-    function expectHeld(): void {
+    async function expectHeld(): Promise<void> {
       expect(service.getApi("held-copy")).toBeUndefined();
       expect(
-        service.list().find((entry) => entry.id === "held-copy"),
+        (await service.list()).find((entry) => entry.id === "held-copy"),
       ).toMatchObject({
         enabled: true,
         status: "disabled",
@@ -1219,28 +1231,28 @@ describe("plugin service", () => {
         status: "disabled",
         statusDetail: HELD_DETAIL,
       });
-      expectHeld();
+      await expectHeld();
 
       await service.setEnabled("held-copy", false);
       expect(await service.setEnabled("held-copy", true)).toMatchObject({
         status: "disabled",
         statusDetail: HELD_DETAIL,
       });
-      expectHeld();
+      await expectHeld();
     });
 
     it("keeps it unloaded on a reload of every plugin or of that plugin alone", async () => {
       expect(await service.reload()).toMatchObject({ ok: true });
-      expectHeld();
+      await expectHeld();
       expect(service.getApi("free-copy")).toBeDefined();
 
       expect(await service.reload("held-copy")).toMatchObject({ ok: true });
-      expectHeld();
+      await expectHeld();
     });
 
     it("keeps it unloaded when its settings are updated", async () => {
       expect(await service.updateSettings("held-copy", {})).toBeUndefined();
-      expectHeld();
+      await expectHeld();
     });
 
     it("loads it on enable or reload once the hold is released, without a restart", async () => {
@@ -1291,7 +1303,7 @@ describe("plugin service", () => {
           });
         }`,
     });
-    const observing = createPluginService({
+    const observing = await createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db,
@@ -1347,7 +1359,7 @@ describe("plugin service", () => {
     await service.installPath(checkoutA);
     await service.updateSettings("moved", { floor: "1", token: "s3cret" });
     expect(
-      db.$client
+      await db.$client
         .prepare("SELECT name FROM plugin_schedules WHERE plugin_id = ?")
         .all("moved"),
     ).toEqual([{ name: "sweep" }]);
@@ -1361,7 +1373,7 @@ describe("plugin service", () => {
       rootDir: checkoutB,
     });
     expect((globalThis as Record<string, unknown>).__movedCheckout).toBe("b");
-    expect(getInstalledPlugin(db, "moved")).toMatchObject({
+    expect(await getInstalledPlugin(db, "moved")).toMatchObject({
       sourceKind: "path",
       sourcePath: checkoutB,
       rootDir: checkoutB,
@@ -1371,7 +1383,7 @@ describe("plugin service", () => {
       token: { set: true },
     });
     expect(
-      db.$client
+      await db.$client
         .prepare("SELECT name FROM plugin_schedules WHERE plugin_id = ?")
         .all("moved"),
     ).toEqual([{ name: "sweep" }]);
@@ -1380,8 +1392,8 @@ describe("plugin service", () => {
     await mkdir(checkoutC, { recursive: true });
     await writeFile(join(checkoutC, "package.json"), "{ not json");
     await expect(service.installPath(checkoutC)).rejects.toThrowError();
-    expect(getInstalledPlugin(db, "moved")?.rootDir).toBe(checkoutB);
-    expect(service.list().find((p) => p.id === "moved")?.status).toBe(
+    expect((await getInstalledPlugin(db, "moved"))?.rootDir).toBe(checkoutB);
+    expect((await service.list()).find((p) => p.id === "moved")?.status).toBe(
       "running",
     );
     expect((await service.getSettings("moved"))?.values).toEqual({
@@ -1418,7 +1430,7 @@ describe("plugin service", () => {
       status: "disabled",
       source: `path:${checkoutB}`,
     });
-    expect(getInstalledPlugin(db, "dormant")).toMatchObject({
+    expect(await getInstalledPlugin(db, "dormant")).toMatchObject({
       enabled: false,
       rootDir: checkoutB,
     });
@@ -1463,13 +1475,15 @@ describe("plugin service", () => {
       /failed to start from path:.*boom at startup.*was kept/,
     );
 
-    expect(getInstalledPlugin(db, "brittle")).toMatchObject({
+    expect(await getInstalledPlugin(db, "brittle")).toMatchObject({
       sourcePath: checkoutA,
       rootDir: checkoutA,
       version: "0.2.0",
       enabled: true,
     });
-    expect(service.list().find((p) => p.id === "brittle")).toMatchObject({
+    expect(
+      (await service.list()).find((p) => p.id === "brittle"),
+    ).toMatchObject({
       source: `path:${checkoutA}`,
       version: "0.2.0",
       status: "running",
@@ -1510,7 +1524,7 @@ describe("plugin service", () => {
       name: "hyperfide-plugin-attached",
       serverSource: `export default function plugin() {}`,
     });
-    seedEnvironmentAtPath(db, {
+    await seedEnvironmentAtPath(db, {
       path: dirname(checkoutRoot),
       environmentProviderId: "project-checkout",
       providerOwnsPath: false,
@@ -1529,7 +1543,7 @@ describe("plugin service", () => {
       name: "hyperfide-plugin-owned",
       serverSource: `export default function plugin() {}`,
     });
-    seedEnvironmentAtPath(db, {
+    await seedEnvironmentAtPath(db, {
       path: dirname(ownedRoot),
       environmentProviderId: "git-worktree",
       providerOwnsPath: true,
@@ -1552,7 +1566,7 @@ describe("plugins-changed broadcast", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-notify-test-"));
     notifySystem = vi.fn<(changes: SystemChangeKind[]) => void>();
     providerRegistry = createProviderRegistryService();
@@ -1602,22 +1616,22 @@ describe("plugins-changed broadcast", () => {
   });
 });
 
-function seedEnvironmentAtPath(
+async function seedEnvironmentAtPath(
   db: DbConnection,
   args: {
     environmentProviderId: string;
     path: string;
     providerOwnsPath: boolean;
   },
-): void {
-  const host = upsertHost(db, noopNotifier, {
+): Promise<void> {
+  const host = await upsertHost(db, noopNotifier, {
     name: "Test host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "Plugin source project",
     source: { type: "local_path", hostId: host.id, path: args.path },
   });
-  createEnvironment(db, noopNotifier, {
+  await createEnvironment(db, noopNotifier, {
     projectId: project.id,
     hostId: host.id,
     path: args.path,

@@ -48,41 +48,43 @@ export interface PluginStateSnapshotRow {
   updatedAt: number;
 }
 
-export function createPluginStateSnapshot(
+export async function createPluginStateSnapshot(
   db: DbConnection,
   snapshot: PluginStateSnapshotRow,
-): PluginStateSnapshotRow {
-  db.insert(pluginStateSnapshots).values(snapshot).run();
+): Promise<PluginStateSnapshotRow> {
+  await db.insert(pluginStateSnapshots).values(snapshot).run();
   return snapshot;
 }
 
-export function getPluginStateSnapshot(
+export async function getPluginStateSnapshot(
   db: DbConnection,
   id: string,
-): PluginStateSnapshotRow | undefined {
-  return db
+): Promise<PluginStateSnapshotRow | undefined> {
+  return await db
     .select()
     .from(pluginStateSnapshots)
     .where(eq(pluginStateSnapshots.id, id))
     .get();
 }
 
-export function listPluginStateSnapshots(
+export async function listPluginStateSnapshots(
   db: DbConnection,
   pluginId?: string,
-): PluginStateSnapshotRow[] {
+): Promise<PluginStateSnapshotRow[]> {
   const query = db.select().from(pluginStateSnapshots);
-  return (pluginId === undefined
-    ? query
-    : query.where(eq(pluginStateSnapshots.pluginId, pluginId)))
+  return await (
+    pluginId === undefined
+      ? query
+      : query.where(eq(pluginStateSnapshots.pluginId, pluginId))
+  )
     .orderBy(asc(pluginStateSnapshots.createdAt), asc(pluginStateSnapshots.id))
     .all();
 }
 
-export function listIncompletePluginRollbackSnapshots(
+export async function listIncompletePluginRollbackSnapshots(
   db: DbConnection,
-): PluginStateSnapshotRow[] {
-  return db
+): Promise<PluginStateSnapshotRow[]> {
+  return await db
     .select()
     .from(pluginStateSnapshots)
     .where(
@@ -92,7 +94,7 @@ export function listIncompletePluginRollbackSnapshots(
     .all();
 }
 
-export function setPluginStateSnapshotRollbackPending(
+export async function setPluginStateSnapshotRollbackPending(
   db: DbConnection,
   id: string,
   rollback: {
@@ -103,49 +105,53 @@ export function setPluginStateSnapshotRollbackPending(
     detail: string;
     updatedAt: number;
   },
-): boolean {
+): Promise<boolean> {
   return (
-    db
-      .update(pluginStateSnapshots)
-      .set({
-        status: "rollback-pending",
-        rollbackCandidateVersion: rollback.candidateVersion,
-        rollbackSourceFingerprint: rollback.sourceFingerprint,
-        rollbackHyperfideVersion: rollback.hyperfideVersion,
-        rollbackSdkVersion: rollback.sdkVersion,
-        rollbackDetail: rollback.detail,
-        updatedAt: rollback.updatedAt,
-      })
-      .where(
-        and(
-          eq(pluginStateSnapshots.id, id),
-          eq(pluginStateSnapshots.status, "ready"),
-        ),
-      )
-      .run().changes > 0
+    (
+      await db
+        .update(pluginStateSnapshots)
+        .set({
+          status: "rollback-pending",
+          rollbackCandidateVersion: rollback.candidateVersion,
+          rollbackSourceFingerprint: rollback.sourceFingerprint,
+          rollbackHyperfideVersion: rollback.hyperfideVersion,
+          rollbackSdkVersion: rollback.sdkVersion,
+          rollbackDetail: rollback.detail,
+          updatedAt: rollback.updatedAt,
+        })
+        .where(
+          and(
+            eq(pluginStateSnapshots.id, id),
+            eq(pluginStateSnapshots.status, "ready"),
+          ),
+        )
+        .run()
+    ).changes > 0
   );
 }
 
-export function setPluginStateSnapshotStatus(
+export async function setPluginStateSnapshotStatus(
   db: DbConnection,
   id: string,
   status: PluginStateSnapshotRow["status"],
   updatedAt: number,
-): boolean {
+): Promise<boolean> {
   return (
-    db
-      .update(pluginStateSnapshots)
-      .set({ status, updatedAt })
-      .where(eq(pluginStateSnapshots.id, id))
-      .run().changes > 0
+    (
+      await db
+        .update(pluginStateSnapshots)
+        .set({ status, updatedAt })
+        .where(eq(pluginStateSnapshots.id, id))
+        .run()
+    ).changes > 0
   );
 }
 
-export function listExpiredPluginStateSnapshots(
+export async function listExpiredPluginStateSnapshots(
   db: DbConnection,
   now: number,
-): PluginStateSnapshotRow[] {
-  return db
+): Promise<PluginStateSnapshotRow[]> {
+  return await db
     .select()
     .from(pluginStateSnapshots)
     .where(
@@ -161,19 +167,21 @@ export function listExpiredPluginStateSnapshots(
     .all();
 }
 
-export function deletePluginStateSnapshot(
+export async function deletePluginStateSnapshot(
   db: DbConnection,
   id: string,
-): boolean {
+): Promise<boolean> {
   return (
-    db
-      .delete(pluginStateSnapshots)
-      .where(eq(pluginStateSnapshots.id, id))
-      .run().changes > 0
+    (
+      await db
+        .delete(pluginStateSnapshots)
+        .where(eq(pluginStateSnapshots.id, id))
+        .run()
+    ).changes > 0
   );
 }
 
-export function replacePluginSnapshotState(
+export async function replacePluginSnapshotState(
   db: DbConnection,
   pluginId: string,
   state: {
@@ -181,30 +189,34 @@ export function replacePluginSnapshotState(
     settings: PluginSettingRow[];
     schedules: PluginScheduleRow[];
   },
-): void {
-  db.transaction((tx) => {
-    tx.delete(pluginKv).where(eq(pluginKv.pluginId, pluginId)).run();
-    tx.delete(pluginSettings).where(eq(pluginSettings.pluginId, pluginId)).run();
-    tx.delete(pluginSchedules)
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(pluginKv).where(eq(pluginKv.pluginId, pluginId)).run();
+    await tx
+      .delete(pluginSettings)
+      .where(eq(pluginSettings.pluginId, pluginId))
+      .run();
+    await tx
+      .delete(pluginSchedules)
       .where(eq(pluginSchedules.pluginId, pluginId))
       .run();
-    if (state.kv.length > 0) tx.insert(pluginKv).values(state.kv).run();
+    if (state.kv.length > 0) await tx.insert(pluginKv).values(state.kv).run();
     if (state.settings.length > 0) {
-      tx.insert(pluginSettings).values(state.settings).run();
+      await tx.insert(pluginSettings).values(state.settings).run();
     }
     if (state.schedules.length > 0) {
-      tx.insert(pluginSchedules).values(state.schedules).run();
+      await tx.insert(pluginSchedules).values(state.schedules).run();
     }
   });
 }
 
-export function listGarbageCollectablePluginArtifacts(
+export async function listGarbageCollectablePluginArtifacts(
   db: DbConnection,
   args: {
     retention: { now: number; cutoff: number } | null;
     pluginId: string | null;
   },
-): Array<typeof pluginArtifacts.$inferSelect> {
+): Promise<Array<typeof pluginArtifacts.$inferSelect>> {
   const activeArtifact = db
     .select({ id: installedPlugins.id })
     .from(installedPlugins)
@@ -230,7 +242,7 @@ export function listGarbageCollectablePluginArtifacts(
         ),
       ),
     );
-  return db
+  return await db
     .select()
     .from(pluginArtifacts)
     .where(

@@ -63,10 +63,10 @@ function handleUsageRequest(
 describe("GET /api/v1/system/usage-limits", () => {
   it("shares concurrent usage requests but refreshes on explicit reload and reconnect", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "shared-usage",
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         async handle(request) {
@@ -90,11 +90,13 @@ describe("GET /api/v1/system/usage-limits", () => {
         expect(count()).toBe(3);
         await read();
         expect(count()).toBe(3);
-        await Promise.all(Array.from({ length: 8 }, () => read(true)));
+        await Promise.all(
+          Array.from({ length: 8 }, async () => await read(true)),
+        );
         expect(count()).toBe(6);
         await read();
         expect(count()).toBe(6);
-        harness.hub.notifyHost(host.id, ["host-connected"]);
+        await harness.hub.notifyHost(host.id, ["host-connected"]);
         await read();
         expect(count()).toBe(9);
       } finally {
@@ -105,11 +107,11 @@ describe("GET /api/v1/system/usage-limits", () => {
 
   it("retries provider usage errors instead of retaining them", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "retry-usage",
       });
       let probes = 0;
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle(request) {
@@ -182,9 +184,11 @@ describe("GET /api/v1/system/usage-limits", () => {
           },
         }),
       );
-      const primary = seedHostSession(harness.deps, { id: "host-primary" });
+      const primary = await seedHostSession(harness.deps, {
+        id: "host-primary",
+      });
       seedPrimaryHost(harness.deps, primary.host.id);
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: primary.host.id,
         sessionId: primary.session.id,
         handle: handleUsageRequest,
@@ -213,9 +217,11 @@ describe("GET /api/v1/system/usage-limits", () => {
 
   it("loads one provider without waiting for its peers", async () => {
     await withTestHarness(async (harness) => {
-      const primary = seedHostSession(harness.deps, { id: "host-primary" });
+      const primary = await seedHostSession(harness.deps, {
+        id: "host-primary",
+      });
       seedPrimaryHost(harness.deps, primary.host.id);
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: primary.host.id,
         sessionId: primary.session.id,
         handle: handleUsageRequest,
@@ -244,13 +250,13 @@ describe("GET /api/v1/system/usage-limits", () => {
 
   it("routes an explicit machine selection to that host daemon", async () => {
     await withTestHarness(async (harness) => {
-      const primary = seedHost(harness.deps, { id: "host-primary" });
+      const primary = await seedHost(harness.deps, { id: "host-primary" });
       seedPrimaryHost(harness.deps, primary.id);
-      const remote = seedHostSession(harness.deps, {
+      const remote = await seedHostSession(harness.deps, {
         id: "host-remote",
         name: "builder",
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: remote.host.id,
         sessionId: remote.session.id,
         handle: handleUsageRequest,

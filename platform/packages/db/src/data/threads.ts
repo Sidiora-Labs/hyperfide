@@ -72,20 +72,21 @@ function liveThreads(...where: ThreadWhere[]): ThreadWhere {
   return nonDeletedThreads(...where, isNull(threads.archivedAt));
 }
 
-function countThreadsWhere(
+async function countThreadsWhere(
   db: ThreadWriteConnection,
   where: ThreadWhere,
-): number {
+): Promise<number> {
   return (
-    db.select({ count: count() }).from(threads).where(where).get()?.count ?? 0
+    (await db.select({ count: count() }).from(threads).where(where).get())
+      ?.count ?? 0
   );
 }
 
-function listThreadsWhere(
+async function listThreadsWhere(
   db: ThreadWriteConnection,
   where: ThreadWhere,
-): ThreadRow[] {
-  return db.select().from(threads).where(where).all();
+): Promise<ThreadRow[]> {
+  return await db.select().from(threads).where(where).all();
 }
 
 export interface ThreadSearchHighlightRange {
@@ -181,24 +182,28 @@ function buildThreadSearchSegmentId(args: {
   return `${args.threadId}:${args.sourceKind}:${args.sourceKey}`;
 }
 
-function deleteThreadSearchSegmentById(
+async function deleteThreadSearchSegmentById(
   db: ThreadWriteConnection,
   id: string,
-): void {
-  db.delete(threadSearchSegments).where(eq(threadSearchSegments.id, id)).run();
+): Promise<void> {
+  await db
+    .delete(threadSearchSegments)
+    .where(eq(threadSearchSegments.id, id))
+    .run();
 }
 
-function upsertThreadSearchSegment(
+async function upsertThreadSearchSegment(
   db: ThreadWriteConnection,
   args: UpsertThreadSearchSegmentArgs,
-): void {
+): Promise<void> {
   const searchableText = args.text.trim();
   if (searchableText.length === 0) {
-    deleteThreadSearchSegmentById(db, args.id);
+    await deleteThreadSearchSegmentById(db, args.id);
     return;
   }
 
-  db.insert(threadSearchSegments)
+  await db
+    .insert(threadSearchSegments)
     .values({
       id: args.id,
       threadId: args.threadId,
@@ -222,13 +227,13 @@ function upsertThreadSearchSegment(
     .run();
 }
 
-export function upsertThreadSearchSegments(
+export async function upsertThreadSearchSegments(
   db: ThreadWriteConnection,
   args: UpsertThreadSearchSegmentsArgs,
-): void {
+): Promise<void> {
   const updatedAt = args.updatedAt ?? Date.now();
   for (const segment of args.segments) {
-    upsertThreadSearchSegment(db, {
+    await upsertThreadSearchSegment(db, {
       ...segment,
       id: buildThreadSearchSegmentId(segment),
       updatedAt,
@@ -236,11 +241,11 @@ export function upsertThreadSearchSegments(
   }
 }
 
-function upsertThreadTitleSearchSegments(
+async function upsertThreadTitleSearchSegments(
   db: ThreadWriteConnection,
   args: UpsertThreadTitleSearchSegmentsArgs,
-): void {
-  upsertThreadSearchSegments(db, {
+): Promise<void> {
+  await upsertThreadSearchSegments(db, {
     updatedAt: args.updatedAt,
     segments: [
       {
@@ -288,7 +293,7 @@ export class InvalidLifecycleOwnerError extends Error {
   }
 }
 
-export function createThread(
+export async function createThread(
   db: DbConnection,
   notifier: DbNotifier,
   input: CreateThreadInput,
@@ -297,10 +302,10 @@ export function createThread(
   const now = Date.now();
   const id = createThreadId();
   const originKind = input.originKind ?? null;
-  const thread = db.transaction(
-    (tx) => {
+  const thread = await db.transaction(
+    async (tx) => {
       if (input.lifecycleOwnerThreadId) {
-        const owner = tx
+        const owner = await tx
           .select({ id: threads.id })
           .from(threads)
           .innerJoin(projects, eq(projects.id, threads.projectId))
@@ -317,7 +322,7 @@ export function createThread(
           throw new InvalidLifecycleOwnerError();
         }
       }
-      const createdThread = tx
+      const createdThread = await tx
         .insert(threads)
         .values({
           id,
@@ -331,7 +336,7 @@ export function createThread(
           pinSortKey: input.pinned
             ? createOrderKeyBetween({
                 previousKey: null,
-                nextKey: getFirstPinnedThread(tx)?.pinSortKey ?? null,
+                nextKey: (await getFirstPinnedThread(tx))?.pinSortKey ?? null,
               })
             : null,
           status: input.status ?? "starting",
@@ -357,13 +362,13 @@ export function createThread(
         createdThread.originKind === "fork" &&
         createdThread.sourceThreadId !== null
       ) {
-        copyProjectAttachmentOwnership(
+        await copyProjectAttachmentOwnership(
           tx,
           createdThread.sourceThreadId,
           createdThread.id,
         );
       }
-      upsertThreadTitleSearchSegments(tx, {
+      await upsertThreadTitleSearchSegments(tx, {
         threadId: createdThread.id,
         title: createdThread.title,
         titleFallback: createdThread.titleFallback,
@@ -374,7 +379,7 @@ export function createThread(
         input.pluginMetadata !== null &&
         Object.keys(input.pluginMetadata.metadata).length > 0
       ) {
-        insertThreadPluginMetadata(tx, {
+        await insertThreadPluginMetadata(tx, {
           threadId: createdThread.id,
           pluginId: input.pluginMetadata.pluginId,
           metadata: input.pluginMetadata.metadata,
@@ -384,10 +389,10 @@ export function createThread(
     },
     { behavior: "immediate" },
   );
-  notifier.notifyThread(id, ["thread-created"], {
+  await notifier.notifyThread(id, ["thread-created"], {
     projectId: input.projectId,
   });
-  notifier.notifyProject(input.projectId, ["threads-changed"]);
+  await notifier.notifyProject(input.projectId, ["threads-changed"]);
   return thread;
 }
 
@@ -398,8 +403,8 @@ const prepareGetThread = (db: DbQueryConnection) =>
     .where(eq(threads.id, placeholder("id")))
     .prepare();
 
-export function getThread(db: ThreadWriteConnection, id: string) {
-  return prepareCachedQuery(db, prepareGetThread).get({ id }) ?? null;
+export async function getThread(db: ThreadWriteConnection, id: string) {
+  return (await prepareCachedQuery(db, prepareGetThread).get({ id })) ?? null;
 }
 
 export interface ThreadMentionRow {
@@ -409,14 +414,14 @@ export interface ThreadMentionRow {
   titleFallback: string | null;
 }
 
-export function listThreadMentionRowsByIds(
+export async function listThreadMentionRowsByIds(
   db: DbQueryConnection,
   threadIds: readonly string[],
-): ThreadMentionRow[] {
+): Promise<ThreadMentionRow[]> {
   if (threadIds.length === 0) {
     return [];
   }
-  return db
+  return await db
     .select({
       id: threads.id,
       projectId: threads.projectId,
@@ -538,15 +543,17 @@ function pinnedThreadWhere() {
   );
 }
 
-function getFirstPinnedThread(db: DbQueryConnection): ThreadRow | null {
+async function getFirstPinnedThread(
+  db: DbQueryConnection,
+): Promise<ThreadRow | null> {
   return (
-    db
+    (await db
       .select()
       .from(threads)
       .where(pinnedThreadWhere())
       .orderBy(asc(threads.pinSortKey), asc(threads.id))
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
@@ -561,10 +568,10 @@ function filterVisiblePinnedThreadRoots<
   );
 }
 
-export function listActiveVisiblePinnedThreadRoots(
+export async function listActiveVisiblePinnedThreadRoots(
   db: DbQueryConnection,
-): ThreadRow[] {
-  const pinnedThreads = db
+): Promise<ThreadRow[]> {
+  const pinnedThreads = await db
     .select()
     .from(threads)
     .where(liveThreads(pinnedThreadWhere()))
@@ -590,14 +597,15 @@ function threadWithPendingInteractionBaseQuery(db: DbConnection) {
     .leftJoin(environments, eq(threads.environmentId, environments.id));
 }
 
-export function listActiveVisiblePinnedThreadRootsWithPendingInteractionState(
+export async function listActiveVisiblePinnedThreadRootsWithPendingInteractionState(
   db: DbConnection,
-): ThreadWithPendingInteractionState[] {
-  const pinnedThreads = threadWithPendingInteractionBaseQuery(db)
-    .where(liveThreads(pinnedThreadWhere()))
-    .orderBy(asc(threads.pinSortKey), asc(threads.id))
-    .all()
-    .map(toThreadWithPendingInteractionState);
+): Promise<ThreadWithPendingInteractionState[]> {
+  const pinnedThreads = (
+    await threadWithPendingInteractionBaseQuery(db)
+      .where(liveThreads(pinnedThreadWhere()))
+      .orderBy(asc(threads.pinSortKey), asc(threads.id))
+      .all()
+  ).map(toThreadWithPendingInteractionState);
 
   return filterVisiblePinnedThreadRoots({ pinnedThreads });
 }
@@ -1007,10 +1015,10 @@ function buildThreadSearchSnippet(args: {
   };
 }
 
-function listThreadSearchMatchRows(
+async function listThreadSearchMatchRows(
   db: DbConnection,
   args: ListThreadSearchMatchRowsArgs,
-): ThreadSearchMatchRow[] {
+): Promise<ThreadSearchMatchRow[]> {
   const tokenThreadSelects = args.tokenMatchQueries.map(
     (matchQuery) => sql`
       SELECT DISTINCT s.thread_id AS threadId
@@ -1027,7 +1035,7 @@ function listThreadSearchMatchRows(
         ) DESC,`
       : sql``;
 
-  return db.all<ThreadSearchMatchRow>(sql`
+  return await db.all<ThreadSearchMatchRow>(sql`
     WITH all_token_segments AS MATERIALIZED (
       SELECT rowid AS segmentRowid
       FROM thread_search_segments_fts
@@ -1119,10 +1127,10 @@ function listThreadSearchMatchRows(
   `);
 }
 
-function hydrateThreadSearchGroup(
+async function hydrateThreadSearchGroup(
   db: DbConnection,
   args: HydrateThreadSearchGroupArgs,
-): ThreadSearchResultGroup {
+): Promise<ThreadSearchResultGroup> {
   const firstRow = args.rows[0];
   if (firstRow === undefined) {
     return { total: 0, results: [] };
@@ -1157,9 +1165,11 @@ function hydrateThreadSearchGroup(
   }
 
   const threadsById = new Map(
-    threadWithPendingInteractionBaseQuery(db)
-      .where(nonDeletedThreads(inArray(threads.id, threadIds)))
-      .all()
+    (
+      await threadWithPendingInteractionBaseQuery(db)
+        .where(nonDeletedThreads(inArray(threads.id, threadIds)))
+        .all()
+    )
       .map(toThreadWithPendingInteractionState)
       .map((thread) => [thread.id, thread]),
   );
@@ -1177,10 +1187,10 @@ function hydrateThreadSearchGroup(
   return { total: firstRow.total, results };
 }
 
-export function searchThreadsWithPendingInteractionState(
+export async function searchThreadsWithPendingInteractionState(
   db: DbConnection,
   args: SearchThreadsWithPendingInteractionStateArgs,
-): ThreadSearchResults {
+): Promise<ThreadSearchResults> {
   const tokens = listThreadSearchQueryTokens(args.query);
   const tokenMatchQueries = listThreadSearchTokenMatchQueries(tokens);
   const anyTokenMatchQuery =
@@ -1196,7 +1206,7 @@ export function searchThreadsWithPendingInteractionState(
     THREAD_SEARCH_LIMIT_PER_GROUP_MAX,
   );
 
-  const rows = listThreadSearchMatchRows(db, {
+  const rows = await listThreadSearchMatchRows(db, {
     allTokensMatchQuery: tokenMatchQueries.join(" AND "),
     anyTokenMatchQuery,
     limitPerGroup,
@@ -1204,11 +1214,11 @@ export function searchThreadsWithPendingInteractionState(
   });
 
   return {
-    active: hydrateThreadSearchGroup(db, {
+    active: await hydrateThreadSearchGroup(db, {
       tokens,
       rows: rows.filter((row) => row.archived === 0),
     }),
-    archived: hydrateThreadSearchGroup(db, {
+    archived: await hydrateThreadSearchGroup(db, {
       tokens,
       rows: rows.filter((row) => row.archived === 1),
     }),
@@ -1257,10 +1267,10 @@ export interface CountThreadsResult {
  * (Limiters do not use this: reconciling several pools needs the rows, which
  * is `listRunningThreads`' job.)
  */
-export function countThreads(
+export async function countThreads(
   db: DbQueryConnection,
   options: CountThreadsOptions,
-): CountThreadsResult {
+): Promise<CountThreadsResult> {
   const needsEnvironmentJoin =
     options.hostId !== undefined || options.groupBy === "host";
   const filters = [
@@ -1302,7 +1312,7 @@ export function countThreads(
     const joined = needsEnvironmentJoin
       ? base.leftJoin(environments, eq(environments.id, threads.environmentId))
       : base;
-    return { total: joined.where(and(...filters)).get()?.value ?? 0 };
+    return { total: (await joined.where(and(...filters)).get())?.value ?? 0 };
   }
 
   const base = db
@@ -1312,7 +1322,7 @@ export function countThreads(
   const joined = needsEnvironmentJoin
     ? base.leftJoin(environments, eq(environments.id, threads.environmentId))
     : base;
-  const rows = joined
+  const rows = await joined
     .where(and(...filters))
     .groupBy(groupColumn)
     .all();
@@ -1371,23 +1381,26 @@ export interface RunningThreadRow {
  * `archived_at IS NULL` is the leading equality and the status set is the
  * range that follows.
  */
-export function listRunningThreads(db: DbQueryConnection): RunningThreadRow[] {
-  return db
-    .select({
-      id: threads.id,
-      hostId: environments.hostId,
-    })
-    .from(threads)
-    .leftJoin(environments, eq(environments.id, threads.environmentId))
-    .where(
-      and(
-        liveThreads(),
-        inArray(threads.status, [...OCCUPYING_THREAD_STATUSES]),
-      ),
-    )
-    .orderBy(asc(threads.id))
-    .all()
-    .map((row) => ({ ...row, hostId: row.hostId ?? null }));
+export async function listRunningThreads(
+  db: DbQueryConnection,
+): Promise<RunningThreadRow[]> {
+  return (
+    await db
+      .select({
+        id: threads.id,
+        hostId: environments.hostId,
+      })
+      .from(threads)
+      .leftJoin(environments, eq(environments.id, threads.environmentId))
+      .where(
+        and(
+          liveThreads(),
+          inArray(threads.status, [...OCCUPYING_THREAD_STATUSES]),
+        ),
+      )
+      .orderBy(asc(threads.id))
+      .all()
+  ).map((row) => ({ ...row, hostId: row.hostId ?? null }));
 }
 
 const ARCHIVED_TEARDOWN_THREAD_STATUSES: readonly ThreadStatus[] = [
@@ -1404,9 +1417,9 @@ export interface ArchivedTeardownThreadRow {
   status: ThreadStatus;
 }
 
-export function listArchivedThreadsPendingTeardown(
+export async function listArchivedThreadsPendingTeardown(
   db: DbQueryConnection,
-): ArchivedTeardownThreadRow[] {
+): Promise<ArchivedTeardownThreadRow[]> {
   const selection = {
     archivedAt: threads.archivedAt,
     environmentId: threads.environmentId,
@@ -1417,7 +1430,7 @@ export function listArchivedThreadsPendingTeardown(
     isNotNull(threads.archivedAt),
     isNull(threads.deletedAt),
   );
-  return db
+  return await db
     .select(selection)
     .from(threads)
     .where(
@@ -1451,10 +1464,10 @@ export function listArchivedThreadsPendingTeardown(
     .all();
 }
 
-export function listThreadsWithPendingInteractionState(
+export async function listThreadsWithPendingInteractionState(
   db: DbConnection,
   options: ListThreadsOptions,
-): ThreadWithPendingInteractionState[] {
+): Promise<ThreadWithPendingInteractionState[]> {
   if (options.threadIds?.length === 0) return [];
   let query = threadWithPendingInteractionBaseQuery(db)
     .where(and(...buildListThreadsFilters(options)))
@@ -1466,18 +1479,20 @@ export function listThreadsWithPendingInteractionState(
   if (options.offset !== undefined) {
     query = query.offset(options.offset);
   }
-  const rows = query.all();
+  const rows = await query.all();
 
   return rows.map(toThreadWithPendingInteractionState);
 }
 
-export function hasActiveThreadAttention(db: DbConnection): boolean {
+export async function hasActiveThreadAttention(
+  db: DbConnection,
+): Promise<boolean> {
   const unreadThread = or(
     isNull(threads.lastReadAt),
     lt(threads.lastReadAt, threads.latestAttentionAt),
   );
 
-  const row = db
+  const row = await db
     .select({ id: threads.id })
     .from(threads)
     .leftJoin(
@@ -1499,15 +1514,15 @@ export function hasActiveThreadAttention(db: DbConnection): boolean {
   return row !== undefined;
 }
 
-export function listThreadsWithPendingInteractionStateForProjects(
+export async function listThreadsWithPendingInteractionStateForProjects(
   db: DbConnection,
   options: ListThreadsForProjectsOptions,
-): ThreadWithPendingInteractionState[] {
+): Promise<ThreadWithPendingInteractionState[]> {
   if (options.projectIds.length === 0) {
     return [];
   }
 
-  const rows = threadWithPendingInteractionBaseQuery(db)
+  const rows = await threadWithPendingInteractionBaseQuery(db)
     .where(and(...buildListThreadsForProjectsFilters(options)))
     .orderBy(...buildListThreadsOrderBy(options))
     .all();
@@ -1515,11 +1530,11 @@ export function listThreadsWithPendingInteractionStateForProjects(
   return rows.map(toThreadWithPendingInteractionState);
 }
 
-export function countLiveThreadsInEnvironment(
+export async function countLiveThreadsInEnvironment(
   db: ThreadWriteConnection,
   args: CountLiveThreadsInEnvironmentArgs,
-): number {
-  return countThreadsWhere(
+): Promise<number> {
+  return await countThreadsWhere(
     db,
     liveThreads(
       eq(threads.environmentId, args.environmentId),
@@ -1528,11 +1543,11 @@ export function countLiveThreadsInEnvironment(
   );
 }
 
-export function listLiveThreadsInEnvironment(
+export async function listLiveThreadsInEnvironment(
   db: ThreadWriteConnection,
   args: ListLiveThreadsInEnvironmentArgs,
-): ThreadRow[] {
-  return db
+): Promise<ThreadRow[]> {
+  return await db
     .select()
     .from(threads)
     .where(liveThreads(eq(threads.environmentId, args.environmentId)))
@@ -1540,31 +1555,31 @@ export function listLiveThreadsInEnvironment(
     .all();
 }
 
-export function countNonDeletedAssignedChildThreads(
+export async function countNonDeletedAssignedChildThreads(
   db: DbConnection,
   args: CountNonDeletedAssignedChildThreadsArgs,
-): number {
-  return countThreadsWhere(
+): Promise<number> {
+  return await countThreadsWhere(
     db,
     nonDeletedThreads(eq(threads.parentThreadId, args.parentThreadId)),
   );
 }
 
-export function listUnarchivedAssignedChildThreads(
+export async function listUnarchivedAssignedChildThreads(
   db: ThreadWriteConnection,
   args: ListUnarchivedAssignedChildThreadsArgs,
-): ThreadRow[] {
-  return listThreadsWhere(
+): Promise<ThreadRow[]> {
+  return await listThreadsWhere(
     db,
     liveThreads(eq(threads.parentThreadId, args.parentThreadId)),
   );
 }
 
-export function listNonDeletedHiddenSourceThreads(
+export async function listNonDeletedHiddenSourceThreads(
   db: ThreadWriteConnection,
   args: ListNonDeletedHiddenSourceThreadsArgs,
-): ThreadRow[] {
-  return listThreadsWhere(
+): Promise<ThreadRow[]> {
+  return await listThreadsWhere(
     db,
     nonDeletedThreads(
       eq(threads.sourceThreadId, args.sourceThreadId),
@@ -1573,25 +1588,25 @@ export function listNonDeletedHiddenSourceThreads(
   );
 }
 
-export function listNonDeletedChildThreads(
+export async function listNonDeletedChildThreads(
   db: ThreadWriteConnection,
   args: ListNonDeletedChildThreadsArgs,
-): ThreadRow[] {
-  return listThreadsWhere(
+): Promise<ThreadRow[]> {
+  return await listThreadsWhere(
     db,
     nonDeletedThreads(eq(threads.parentThreadId, args.parentThreadId)),
   );
 }
 
-export function listThreadEnvironmentAssignmentsOnHost(
+export async function listThreadEnvironmentAssignmentsOnHost(
   db: DbConnection,
   args: ListThreadEnvironmentAssignmentsOnHostArgs,
-): ThreadEnvironmentAssignmentRow[] {
+): Promise<ThreadEnvironmentAssignmentRow[]> {
   if (args.threadIds.length === 0) {
     return [];
   }
 
-  return db
+  return await db
     .select({
       threadId: threads.id,
       environmentId: environments.id,
@@ -1607,39 +1622,41 @@ export function listThreadEnvironmentAssignmentsOnHost(
     .all();
 }
 
-export function listExistingThreadIds(
+export async function listExistingThreadIds(
   db: DbQueryConnection,
   threadIds: string[],
-): string[] {
+): Promise<string[]> {
   if (threadIds.length === 0) {
     return [];
   }
-  return db
-    .select({ id: threads.id })
-    .from(threads)
-    .where(inArray(threads.id, threadIds))
-    .all()
-    .map((row) => row.id);
+  return (
+    await db
+      .select({ id: threads.id })
+      .from(threads)
+      .where(inArray(threads.id, threadIds))
+      .all()
+  ).map((row) => row.id);
 }
 
-export function listHostThreadIds(
+export async function listHostThreadIds(
   db: DbConnection,
   args: ListHostThreadIdsArgs,
-): string[] {
-  return db
-    .select({ id: threads.id })
-    .from(threads)
-    .innerJoin(environments, eq(threads.environmentId, environments.id))
-    .where(eq(environments.hostId, args.hostId))
-    .all()
-    .map((row) => row.id);
+): Promise<string[]> {
+  return (
+    await db
+      .select({ id: threads.id })
+      .from(threads)
+      .innerJoin(environments, eq(threads.environmentId, environments.id))
+      .where(eq(environments.hostId, args.hostId))
+      .all()
+  ).map((row) => row.id);
 }
 
-export function listActiveHostThreads(
+export async function listActiveHostThreads(
   db: DbConnection,
   args: ListActiveHostThreadsArgs,
-): ThreadRow[] {
-  return db
+): Promise<ThreadRow[]> {
+  return await db
     .select(getTableColumns(threads))
     .from(threads)
     .innerJoin(environments, eq(threads.environmentId, environments.id))
@@ -1652,16 +1669,19 @@ export function listActiveHostThreads(
     .all();
 }
 
-export function pinThread(
+export async function pinThread(
   db: ThreadWriteConnection,
   notifier: DbNotifier,
   args: PinThreadArgs,
 ) {
-  const result = db.transaction(
-    (tx): PinThreadMutationResult | null => {
+  const result = await db.transaction(
+    async (tx): Promise<PinThreadMutationResult | null> => {
       const existing =
-        tx.select().from(threads).where(eq(threads.id, args.threadId)).get() ??
-        null;
+        (await tx
+          .select()
+          .from(threads)
+          .where(eq(threads.id, args.threadId))
+          .get()) ?? null;
       if (!existing || existing.deletedAt !== null) {
         return null;
       }
@@ -1669,13 +1689,13 @@ export function pinThread(
         return { changed: false, thread: existing };
       }
 
-      const firstPinnedThread = getFirstPinnedThread(tx);
+      const firstPinnedThread = await getFirstPinnedThread(tx);
       const pinSortKey = createOrderKeyBetween({
         previousKey: null,
         nextKey: firstPinnedThread?.pinSortKey ?? null,
       });
       const now = Date.now();
-      const updated = tx
+      const updated = await tx
         .update(threads)
         .set({
           pinnedAt: args.pinnedAt ?? now,
@@ -1691,23 +1711,26 @@ export function pinThread(
   );
 
   if (result?.changed) {
-    notifier.notifyThread(args.threadId, ["pin-state-changed"], {
+    await notifier.notifyThread(args.threadId, ["pin-state-changed"], {
       projectId: result.thread.projectId,
     });
   }
   return result?.thread ?? null;
 }
 
-export function unpinThread(
+export async function unpinThread(
   db: ThreadWriteConnection,
   notifier: DbNotifier,
   args: UnpinThreadArgs,
 ) {
-  const result = db.transaction(
-    (tx): PinThreadMutationResult | null => {
+  const result = await db.transaction(
+    async (tx): Promise<PinThreadMutationResult | null> => {
       const existing =
-        tx.select().from(threads).where(eq(threads.id, args.threadId)).get() ??
-        null;
+        (await tx
+          .select()
+          .from(threads)
+          .where(eq(threads.id, args.threadId))
+          .get()) ?? null;
       if (!existing || existing.deletedAt !== null) {
         return null;
       }
@@ -1715,7 +1738,7 @@ export function unpinThread(
         return { changed: false, thread: existing };
       }
 
-      const updated = tx
+      const updated = await tx
         .update(threads)
         .set({
           pinnedAt: null,
@@ -1731,24 +1754,28 @@ export function unpinThread(
   );
 
   if (result?.changed) {
-    notifier.notifyThread(args.threadId, ["pin-state-changed"], {
+    await notifier.notifyThread(args.threadId, ["pin-state-changed"], {
       projectId: result.thread.projectId,
     });
   }
   return result?.thread ?? null;
 }
 
-export function reorderPinnedThread({
+export async function reorderPinnedThread({
   db,
   nextThreadId,
   notifier,
   previousThreadId,
   threadId,
-}: ReorderPinnedThreadArgs): ReorderPinnedThreadResult {
-  const result = db.transaction(
-    (tx): ReorderPinnedThreadResult => {
+}: ReorderPinnedThreadArgs): Promise<ReorderPinnedThreadResult> {
+  const result = await db.transaction(
+    async (tx): Promise<ReorderPinnedThreadResult> => {
       const movedThread =
-        tx.select().from(threads).where(eq(threads.id, threadId)).get() ?? null;
+        (await tx
+          .select()
+          .from(threads)
+          .where(eq(threads.id, threadId))
+          .get()) ?? null;
       if (!movedThread || movedThread.deletedAt !== null) {
         return { kind: "not_found" };
       }
@@ -1756,7 +1783,7 @@ export function reorderPinnedThread({
         return { kind: "not_pinned" };
       }
 
-      const currentThreads = listActiveVisiblePinnedThreadRoots(tx);
+      const currentThreads = await listActiveVisiblePinnedThreadRoots(tx);
       const currentIndex = currentThreads.findIndex(
         (thread) => thread.id === threadId,
       );
@@ -1807,7 +1834,7 @@ export function reorderPinnedThread({
         previousKey: previousThread?.pinSortKey ?? null,
         nextKey: nextThread?.pinSortKey ?? null,
       });
-      const updated = tx
+      const updated = await tx
         .update(threads)
         .set({ pinSortKey, updatedAt: Date.now() })
         .where(and(eq(threads.id, threadId), pinnedThreadWhere()))
@@ -1819,7 +1846,7 @@ export function reorderPinnedThread({
 
       return {
         kind: "reordered",
-        threads: listActiveVisiblePinnedThreadRoots(tx),
+        threads: await listActiveVisiblePinnedThreadRoots(tx),
       };
     },
     { behavior: "immediate" },
@@ -1830,7 +1857,7 @@ export function reorderPinnedThread({
       (thread) => thread.id === threadId,
     );
     if (reorderedThread) {
-      notifier.notifyThread(threadId, ["pin-state-changed"], {
+      await notifier.notifyThread(threadId, ["pin-state-changed"], {
         projectId: reorderedThread.projectId,
       });
     }
@@ -1848,14 +1875,18 @@ export interface UpdateThreadInput {
   parentNotifications?: ThreadParentNotifications;
 }
 
-export function updateThread(
+export async function updateThread(
   db: ThreadWriteConnection,
   notifier: DbNotifier,
   id: string,
   input: UpdateThreadInput,
 ) {
   const now = Date.now();
-  const existing = db.select().from(threads).where(eq(threads.id, id)).get();
+  const existing = await db
+    .select()
+    .from(threads)
+    .where(eq(threads.id, id))
+    .get();
   if (!existing) {
     return null;
   }
@@ -1899,14 +1930,14 @@ export function updateThread(
     set.parentNotifications = input.parentNotifications;
   }
 
-  const updated = db
+  const updated = await db
     .update(threads)
     .set(set)
     .where(eq(threads.id, id))
     .returning()
     .get();
   if (updated && "title" in input) {
-    upsertThreadTitleSearchSegments(db, {
+    await upsertThreadTitleSearchSegments(db, {
       threadId: updated.id,
       title: updated.title,
       titleFallback: updated.titleFallback,
@@ -1914,7 +1945,7 @@ export function updateThread(
     });
   }
   if (updated && changes.length > 0) {
-    notifier.notifyThread(id, changes, {
+    await notifier.notifyThread(id, changes, {
       projectId: existing.projectId,
     });
   }
@@ -1926,11 +1957,11 @@ export interface ThreadExecutionOverride {
   reasoningLevelOverride: ReasoningLevel | null;
 }
 
-export function getThreadExecutionOverride(
+export async function getThreadExecutionOverride(
   db: ThreadWriteConnection,
   id: string,
-): ThreadExecutionOverride | null {
-  const row = db
+): Promise<ThreadExecutionOverride | null> {
+  const row = await db
     .select({
       modelOverride: threads.modelOverride,
       reasoningLevelOverride: threads.reasoningLevelOverride,
@@ -1947,7 +1978,7 @@ export interface SetThreadExecutionOverrideInput {
   reasoningLevelOverride?: ReasoningLevel | null;
 }
 
-export function setThreadExecutionOverride(
+export async function setThreadExecutionOverride(
   db: ThreadWriteConnection,
   input: SetThreadExecutionOverrideInput,
 ) {
@@ -1958,7 +1989,7 @@ export function setThreadExecutionOverride(
   if ("reasoningLevelOverride" in input) {
     set.reasoningLevelOverride = input.reasoningLevelOverride;
   }
-  const updated = db
+  const updated = await db
     .update(threads)
     .set(set)
     .where(eq(threads.id, input.threadId))
@@ -1972,12 +2003,12 @@ export interface SetThreadStartupContextInput {
   startupContext: string | null;
 }
 
-export function setThreadStartupContext(
+export async function setThreadStartupContext(
   db: ThreadWriteConnection,
   input: SetThreadStartupContextInput,
 ) {
   return (
-    db
+    (await db
       .update(threads)
       .set({
         startupContext: input.startupContext,
@@ -1985,32 +2016,38 @@ export function setThreadStartupContext(
       })
       .where(eq(threads.id, input.threadId))
       .returning()
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function getThreadStartupContext(
+export async function getThreadStartupContext(
   db: DbQueryConnection,
   threadId: string,
-): string | null {
+): Promise<string | null> {
   return (
-    db
-      .select({ startupContext: threads.startupContext })
-      .from(threads)
-      .where(eq(threads.id, threadId))
-      .get()?.startupContext ?? null
+    (
+      await db
+        .select({ startupContext: threads.startupContext })
+        .from(threads)
+        .where(eq(threads.id, threadId))
+        .get()
+    )?.startupContext ?? null
   );
 }
 
-export function deleteThread(
+export async function deleteThread(
   db: ThreadWriteConnection,
   notifier: DbNotifier,
   id: string,
 ) {
-  const existing = db.select().from(threads).where(eq(threads.id, id)).get();
+  const existing = await db
+    .select()
+    .from(threads)
+    .where(eq(threads.id, id))
+    .get();
   if (!existing) return false;
   if (
-    db
+    await db
       .select({ id: threads.id })
       .from(threads)
       .where(eq(threads.lifecycleOwnerThreadId, id))
@@ -2018,20 +2055,20 @@ export function deleteThread(
       .get()
   )
     return false;
-  db.delete(threads).where(eq(threads.id, id)).run();
-  notifier.notifyThread(id, ["thread-deleted"], {
+  await db.delete(threads).where(eq(threads.id, id)).run();
+  await notifier.notifyThread(id, ["thread-deleted"], {
     projectId: existing.projectId,
   });
-  notifier.notifyProject(existing.projectId, ["threads-changed"]);
+  await notifier.notifyProject(existing.projectId, ["threads-changed"]);
   return true;
 }
 
-export function listThreadAncestors(
+export async function listThreadAncestors(
   db: DbQueryConnection,
   threadIds: readonly string[],
-): Array<{ threadId: string; ancestorIds: string[] }> {
+): Promise<Array<{ threadId: string; ancestorIds: string[] }>> {
   if (threadIds.length === 0) return [];
-  const rows = db.all<{ id: string; parentId: string | null }>(sql`
+  const rows = await db.all<{ id: string; parentId: string | null }>(sql`
     WITH RECURSIVE chain(id, parent_id) AS (
       SELECT id, parent_thread_id FROM threads WHERE ${inArray(threads.id, [...threadIds])}
       UNION
@@ -2064,13 +2101,13 @@ export interface ListThreadDescendantsOptions {
   includeHidden: boolean;
 }
 
-export function listThreadDescendants(
+export async function listThreadDescendants(
   db: DbQueryConnection,
   threadIds: readonly string[],
   options: ListThreadDescendantsOptions,
-): Array<{ threadId: string; descendantIds: string[] }> {
+): Promise<Array<{ threadId: string; descendantIds: string[] }>> {
   if (threadIds.length === 0) return [];
-  const rows = db.all<{
+  const rows = await db.all<{
     id: string;
     parentId: string | null;
     archived: number;
@@ -2151,31 +2188,34 @@ export function deletionThreadTreeIdsForProject(projectId: string): SQL {
   );
 }
 
-export function listLifecycleThreadDependents(
+export async function listLifecycleThreadDependents(
   db: DbQueryConnection,
   id: string,
 ) {
-  return db
+  return await db
     .select()
     .from(threads)
     .where(eq(threads.lifecycleOwnerThreadId, id))
     .all();
 }
 
-export function listThreadDeletionTree(db: DbQueryConnection, id: string) {
-  return db
+export async function listThreadDeletionTree(
+  db: DbQueryConnection,
+  id: string,
+) {
+  return await db
     .select()
     .from(threads)
     .where(inArray(threads.id, deletionThreadTreeIdsForThread(id)))
     .all();
 }
 
-export function markThreadDeleted(
+export async function markThreadDeleted(
   db: ThreadWriteConnection,
   notifier: DbNotifier,
   args: MarkThreadDeletedArgs,
 ) {
-  const updated = db
+  const updated = await db
     .update(threads)
     .set({
       deletedAt: args.deletedAt ?? Date.now(),
@@ -2190,39 +2230,39 @@ export function markThreadDeleted(
     .returning()
     .all();
   for (const thread of updated) {
-    notifier.notifyThread(thread.id, ["thread-deleted"], {
+    await notifier.notifyThread(thread.id, ["thread-deleted"], {
       projectId: thread.projectId,
     });
-    notifier.notifyProject(thread.projectId, ["threads-changed"]);
+    await notifier.notifyProject(thread.projectId, ["threads-changed"]);
   }
   return (
     updated.find((thread) => thread.id === args.threadId) ??
-    getThread(db, args.threadId)
+    (await getThread(db, args.threadId))
   );
 }
 
-export function markThreadStorageDeleted(
+export async function markThreadStorageDeleted(
   db: ThreadWriteConnection,
   args: { threadId: string },
 ) {
   return (
-    db
+    (await db
       .update(threads)
       .set({ storageDeletedAt: Date.now() })
       .where(eq(threads.id, args.threadId))
       .returning()
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function archiveThread(
+export async function archiveThread(
   db: ThreadWriteConnection,
   notifier: DbNotifier,
   id: string,
 ) {
   const now = Date.now();
-  const updated = db.transaction((tx) => {
-    const archived = tx
+  const updated = await db.transaction(async (tx) => {
+    const archived = await tx
       .update(threads)
       .set({ archivedAt: now, updatedAt: now })
       .where(
@@ -2234,7 +2274,7 @@ export function archiveThread(
       )
       .returning()
       .all();
-    markThreadPruningPolicyWork(
+    await markThreadPruningPolicyWork(
       tx,
       archived.map((thread) => thread.id),
       "rate-limits",
@@ -2242,43 +2282,44 @@ export function archiveThread(
     return archived;
   });
   for (const thread of updated) {
-    notifier.notifyThread(thread.id, ["archived-changed"], {
+    await notifier.notifyThread(thread.id, ["archived-changed"], {
       projectId: thread.projectId,
     });
   }
-  const root = updated.find((thread) => thread.id === id) ?? getThread(db, id);
+  const root =
+    updated.find((thread) => thread.id === id) ?? (await getThread(db, id));
   return root?.deletedAt === null ? root : null;
 }
 
-export function unarchiveThread(
+export async function unarchiveThread(
   db: DbConnection,
   notifier: DbNotifier,
   id: string,
 ) {
-  const updated = db.transaction(
-    (tx) => {
-      const current = getThread(tx, id);
+  const updated = await db.transaction(
+    async (tx) => {
+      const current = await getThread(tx, id);
       if (current?.deletedAt !== null) return null;
       if (current.lifecycleOwnerThreadId) {
-        const owner = getThread(tx, current.lifecycleOwnerThreadId);
+        const owner = await getThread(tx, current.lifecycleOwnerThreadId);
         if (!owner || owner.archivedAt !== null || owner.deletedAt !== null)
           return null;
       }
       const now = Date.now();
-      const unarchived = tx
+      const unarchived = await tx
         .update(threads)
         .set({ archivedAt: null, updatedAt: now })
         .where(and(eq(threads.id, id), isNotNull(threads.archivedAt)))
         .returning()
         .get();
       if (unarchived)
-        markThreadPruningPolicyWork(tx, [unarchived.id], "rate-limits");
+        await markThreadPruningPolicyWork(tx, [unarchived.id], "rate-limits");
       return unarchived;
     },
     { behavior: "immediate" },
   );
   if (updated) {
-    notifier.notifyThread(id, ["archived-changed"], {
+    await notifier.notifyThread(id, ["archived-changed"], {
       projectId: updated.projectId,
     });
   }
@@ -2331,11 +2372,11 @@ export function requireThreadLifecycleEventApplied(
   return outcome.thread;
 }
 
-export function applyThreadLifecycleEventInTransaction(
+export async function applyThreadLifecycleEventInTransaction(
   db: DbTransaction,
   args: ApplyThreadLifecycleEventArgs,
-): ApplyThreadLifecycleEventOutcome {
-  const thread = db
+): Promise<ApplyThreadLifecycleEventOutcome> {
+  const thread = await db
     .select()
     .from(threads)
     .where(eq(threads.id, args.threadId))
@@ -2381,7 +2422,7 @@ export function applyThreadLifecycleEventInTransaction(
     set.latestAttentionAt = now;
   }
 
-  const updated = db
+  const updated = await db
     .update(threads)
     .set(set)
     .where(
@@ -2399,12 +2440,12 @@ export function applyThreadLifecycleEventInTransaction(
   return { applied: true, thread: updated };
 }
 
-export function applyThreadLifecycleEvent(
+export async function applyThreadLifecycleEvent(
   db: DbConnection,
   args: ApplyThreadLifecycleEventArgs,
-): ApplyThreadLifecycleEventOutcome {
-  return db.transaction(
-    (tx) => applyThreadLifecycleEventInTransaction(tx, args),
+): Promise<ApplyThreadLifecycleEventOutcome> {
+  return await db.transaction(
+    async (tx) => await applyThreadLifecycleEventInTransaction(tx, args),
     { behavior: "immediate" },
   );
 }

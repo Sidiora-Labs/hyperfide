@@ -23,19 +23,19 @@ describe("plugin catalog routes", () => {
   let dataDir: string;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     dataDir = await mkdtemp(join(tmpdir(), "hyperfide-catalog-routes-"));
   });
 
   afterEach(async () => {
-    db.$client.close();
+    await db.close();
     await rm(dataDir, { recursive: true, force: true });
   });
 
-  function catalogApp(
+  async function catalogApp(
     fetchImpl?: Parameters<typeof createPluginCatalogService>[0]["fetch"],
   ) {
-    const catalog = createPluginCatalogService({
+    const catalog = await createPluginCatalogService({
       db,
       appVersion: "1.0.0",
       marketplaceUrl: MANIFEST_URL,
@@ -54,7 +54,7 @@ describe("plugin catalog routes", () => {
       },
       ...(fetchImpl === undefined ? {} : { fetch: fetchImpl }),
     });
-    const app = new Hono();
+    const app = await new Hono();
     registerPluginCatalogRoutes(
       app,
       catalog,
@@ -64,7 +64,7 @@ describe("plugin catalog routes", () => {
   }
 
   it("serves status/search and validates install requests", async () => {
-    const { app } = catalogApp();
+    const { app } = await catalogApp();
 
     const status = await app.request("/plugin-catalog");
     await expect(status.json()).resolves.toMatchObject({
@@ -106,7 +106,7 @@ describe("plugin catalog routes", () => {
   });
 
   it("identifies background installs with the same entry ID as catalog search", async () => {
-    const { app } = catalogApp();
+    const { app } = await catalogApp();
     const search = await app.request(
       "/plugin-catalog/search?q=thread-hover-cards",
     );
@@ -138,7 +138,7 @@ describe("plugin catalog routes", () => {
   });
 
   it("serves a cached icon with hash-gated caching and refuses unknown ones", async () => {
-    const { app, catalog } = catalogApp(async (url) =>
+    const { app, catalog } = await catalogApp(async (url) =>
       url === MANIFEST_URL
         ? new Response(
             JSON.stringify({
@@ -211,8 +211,8 @@ describe("plugin catalog routes", () => {
       };
     }
 
-    function acmeApp() {
-      return catalogApp(async (url) =>
+    async function acmeApp() {
+      return await catalogApp(async (url) =>
         url === ACME_URL
           ? new Response(JSON.stringify(acmeCatalog()), {
               status: 200,
@@ -223,7 +223,7 @@ describe("plugin catalog routes", () => {
     }
 
     async function postJson(
-      app: ReturnType<typeof catalogApp>["app"],
+      app: Awaited<ReturnType<typeof catalogApp>>["app"],
       path: string,
       body: unknown,
     ): Promise<Response> {
@@ -235,7 +235,7 @@ describe("plugin catalog routes", () => {
     }
 
     it("adds, lists, refreshes, and removes through the routes", async () => {
-      const { app } = acmeApp();
+      const { app } = await acmeApp();
 
       const added = await postJson(app, "/marketplaces", { source: ACME_URL });
       expect(added.status).toBe(200);
@@ -267,7 +267,7 @@ describe("plugin catalog routes", () => {
     });
 
     it("validates request bodies and marketplace names at the boundary", async () => {
-      const { app } = acmeApp();
+      const { app } = await acmeApp();
 
       const badBody = await postJson(app, "/marketplaces", { url: ACME_URL });
       expect(badBody.status).toBe(422);
@@ -320,7 +320,7 @@ describe("plugin catalog routes", () => {
     });
 
     it("serves an install plan and refuses an unknown selector", async () => {
-      const { app } = acmeApp();
+      const { app } = await acmeApp();
       await postJson(app, "/marketplaces", { source: ACME_URL });
 
       const plan = await app.request(
@@ -352,7 +352,7 @@ describe("plugin catalog routes", () => {
     });
 
     it("routes an install to the named marketplace", async () => {
-      const { app } = acmeApp();
+      const { app } = await acmeApp();
       await postJson(app, "/marketplaces", { source: ACME_URL });
 
       const install = await postJson(app, "/plugin-catalog/install", {

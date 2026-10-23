@@ -34,7 +34,7 @@ export async function createRecoveryThread(
     workspaceType === "unmanaged"
       ? { type: "unmanaged" as const, path: harness.repoDir }
       : { type: "managed-worktree" as const };
-  return createReadyHostThread(harness, {
+  return await createReadyHostThread(harness, {
     projectId: project.id,
     timeoutMs: DEFAULT_TIMEOUT_MS,
     workspace,

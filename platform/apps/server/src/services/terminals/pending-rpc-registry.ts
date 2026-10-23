@@ -15,7 +15,7 @@ type PendingRpcRegistryOptions<TKey, TResult> = (
   | { timeoutMs: null }
 ) & {
   onFail?: (key: TKey, error: Error) => void;
-  onSettle?: (key: TKey, result: TResult) => void;
+  onSettle?: (key: TKey, result: TResult) => void | Promise<void>;
 };
 
 interface PendingRpcClaim<TResult> {
@@ -68,6 +68,19 @@ export class PendingRpcRegistry<TKey extends PendingRpcKey, TResult> {
     this.options.onSettle?.(entry.key, result);
     entry.resolve(result);
     return true;
+  }
+
+  async settleAsync(rpcKey: string, result: TResult): Promise<boolean> {
+    const entry = this.take(rpcKey);
+    if (!entry) return false;
+    try {
+      await this.options.onSettle?.(entry.key, result);
+      entry.resolve(result);
+      return true;
+    } catch (error) {
+      entry.reject(error as Error);
+      throw error;
+    }
   }
 
   fail(rpcKey: string, error: Error): boolean {

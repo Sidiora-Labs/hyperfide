@@ -33,11 +33,11 @@ export function getLeadingAgentOnlyInput(input: PromptInput[]): PromptInput[] {
   );
 }
 
-export function resolveDeferredFirstTurnContext(
+export async function resolveDeferredFirstTurnContext(
   db: DbQueryConnection,
   threadId: string,
-): DeferredFirstTurnContext | null {
-  const row = getLastStoredTurnRequestEvent(db, threadId);
+): Promise<DeferredFirstTurnContext | null> {
+  const row = await getLastStoredTurnRequestEvent(db, threadId);
   if (!row || row.type !== "client/turn/requested") {
     return null;
   }
@@ -52,17 +52,17 @@ export function resolveDeferredFirstTurnContext(
     request.source === "tell" &&
     request.request.method === "turn/start" &&
     request.target.kind === "new-turn" &&
-    getThread(db, threadId)?.status === "error";
+    (await getThread(db, threadId))?.status === "error";
   const leadingInput = getLeadingAgentOnlyInput(request.input);
   const context = leadingInput.length > 0 ? [...leadingInput] : null;
   if (
     context === null ||
     (!isSeedRequest && !isUndeliveredRetry) ||
-    findStoredEventRow(db, {
+    (await findStoredEventRow(db, {
       afterSequence: row.sequence,
       threadId,
       type: "turn/started",
-    }) !== null
+    })) !== null
   ) {
     return null;
   }
@@ -97,11 +97,11 @@ export function prependDeferredFirstTurnContext(
   };
 }
 
-export function requireDeferredFirstTurnContextCurrent(
+export async function requireDeferredFirstTurnContextCurrent(
   db: DbQueryConnection,
   args: { requestSequence: number; threadId: string },
-): void {
-  const current = resolveDeferredFirstTurnContext(db, args.threadId);
+): Promise<void> {
+  const current = await resolveDeferredFirstTurnContext(db, args.threadId);
   if (current?.requestSequence === args.requestSequence) {
     return;
   }

@@ -6,11 +6,11 @@ import { withTestHarness } from "../helpers/test-app.js";
 describe("internal plugin host events", () => {
   it("attributes worker exits to the authenticated daemon host", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       const handleHostWorkerExit = vi.fn();
       const socket = { close: vi.fn(), send: vi.fn() };
 
-      onDaemonSocketMessage(
+      await onDaemonSocketMessage(
         harness.deps,
         {
           hostId: host.id,
@@ -36,11 +36,11 @@ describe("internal plugin host events", () => {
 
   it("attributes host signals to the authenticated daemon host", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       const handleHostSignal = vi.fn();
       const socket = { close: vi.fn(), send: vi.fn() };
 
-      onDaemonSocketMessage(
+      await onDaemonSocketMessage(
         harness.deps,
         {
           hostId: host.id,

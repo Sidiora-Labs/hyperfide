@@ -26,7 +26,7 @@ const snapshot: ContextSnapshot = {
 describe("recorded thread context API", () => {
   it("returns the persisted root snapshot, drops superseded details, and respects clear boundaries", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
+      const { thread } = await seedThreadFixture(harness);
       const endpoint = `/api/v1/threads/${thread.id}/context`;
       const read = async () => {
         const response = await harness.app.request(endpoint);
@@ -42,7 +42,7 @@ describe("recorded thread context API", () => {
         parentToolCallId: null,
       };
       expect(await read()).toEqual({ usage: null });
-      insertEvents(harness.db, harness.hub, [
+      await insertEvents(harness.db, harness.hub, [
         {
           ...base,
           sequence: 1,
@@ -92,7 +92,7 @@ describe("recorded thread context API", () => {
       expect(await timeline.json()).toMatchObject({
         contextWindowUsage: { snapshot },
       });
-      insertEvents(harness.db, harness.hub, [
+      await insertEvents(harness.db, harness.hub, [
         {
           ...base,
           sequence: 4,
@@ -109,7 +109,7 @@ describe("recorded thread context API", () => {
       expect(await read()).toEqual({
         usage: { usedTokens: 200, modelContextWindow: 1_000, estimated: false },
       });
-      insertEvents(harness.db, harness.hub, [
+      await insertEvents(harness.db, harness.hub, [
         {
           ...base,
           sequence: 5,
@@ -128,7 +128,7 @@ describe("recorded thread context API", () => {
 
   it("offers compaction once a large context's prompt cache expires", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness, {
+      const { thread } = await seedThreadFixture(harness, {
         thread: { providerId: "pi" },
       });
       const read = async () => {
@@ -160,12 +160,12 @@ describe("recorded thread context API", () => {
         outputTokens: 0,
         reasoningOutputTokens: 0,
       };
-      const insertUsage = (
+      const insertUsage = async (
         sequence: number,
         usedTokens: number,
         cache: { promptCacheTtlMs?: number },
       ) =>
-        insertEvents(harness.db, harness.hub, [
+        await insertEvents(harness.db, harness.hub, [
           {
             ...base,
             sequence,
@@ -194,19 +194,19 @@ describe("recorded thread context API", () => {
         ]);
 
       const before = Date.now();
-      insertUsage(1, 150_000, { promptCacheTtlMs: 3_600_000 });
+      await insertUsage(1, 150_000, { promptCacheTtlMs: 3_600_000 });
       const after = Date.now();
       expect(await read()).toBeUndefined();
 
-      setExperiments(harness.db, { compactExpiredCache: true });
+      await setExperiments(harness.db, { compactExpiredCache: true });
       const offerAt = Date.parse(await read());
       expect(offerAt).toBeGreaterThanOrEqual(before + 3_600_000);
       expect(offerAt).toBeLessThanOrEqual(after + 3_600_000);
 
-      insertUsage(3, 150_000, {});
+      await insertUsage(3, 150_000, {});
       expect(await read()).toBeUndefined();
 
-      insertUsage(5, 99_999, { promptCacheTtlMs: 300_000 });
+      await insertUsage(5, 99_999, { promptCacheTtlMs: 300_000 });
       expect(await read()).toBeUndefined();
     });
   });

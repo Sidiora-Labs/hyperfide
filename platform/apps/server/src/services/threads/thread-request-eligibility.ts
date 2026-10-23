@@ -1,4 +1,7 @@
-import { type LocalPathProjectSource, PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import {
+  type LocalPathProjectSource,
+  PERSONAL_PROJECT_ID,
+} from "@hyperfide/domain";
 import type { EnvironmentRow } from "@hyperfide/db";
 import type { EnvironmentArgs } from "@hyperfide/server-contract";
 import { ApiError } from "../../errors.js";
@@ -111,17 +114,19 @@ function assertReuseWorkspaceProjectCompatibility(
   }
 }
 
-function resolveHostThreadRequestEnvironment(
+async function resolveHostThreadRequestEnvironment(
   deps: ThreadRequestEnvironmentDeps,
   environment: HostThreadRequestEnvironment,
   projectId: string,
-):
+): Promise<
   | ResolvedHostThreadRequestEnvironment
-  | ResolvedPersonalThreadRequestEnvironment {
+  | ResolvedPersonalThreadRequestEnvironment
+> {
   if (environment.workspace.type === "personal") {
     assertPersonalWorkspaceProjectCompatibility(projectId);
-    const hostId = environment.hostId ?? requireConnectedPrimaryHostId(deps);
-    assertUsableHostId(deps, { hostId });
+    const hostId =
+      environment.hostId ?? (await requireConnectedPrimaryHostId(deps));
+    await assertUsableHostId(deps, { hostId });
     return {
       hostId,
       type: "personal",
@@ -129,7 +134,7 @@ function resolveHostThreadRequestEnvironment(
   }
 
   const hostId = requireHostEnvironmentId(environment);
-  assertUsableHostId(deps, { hostId });
+  await assertUsableHostId(deps, { hostId });
 
   if (
     environment.workspace.type === "unmanaged" &&
@@ -144,7 +149,7 @@ function resolveHostThreadRequestEnvironment(
     };
   }
 
-  const localSource = requireSourceForHost(deps, projectId, hostId);
+  const localSource = await requireSourceForHost(deps, projectId, hostId);
 
   return {
     hostId,
@@ -156,13 +161,13 @@ function resolveHostThreadRequestEnvironment(
   };
 }
 
-export function resolveReuseThreadRequestEnvironment(
+export async function resolveReuseThreadRequestEnvironment(
   deps: ThreadRequestEnvironmentDeps,
   environment: ReuseThreadRequestEnvironment,
   projectId: string,
   allowUnmanagedPersonalProjectReuseEnvironmentId: string | undefined,
-): ResolvedReuseThreadRequestEnvironment {
-  let reusedEnvironment = requireEnvironment(
+): Promise<ResolvedReuseThreadRequestEnvironment> {
+  let reusedEnvironment = await requireEnvironment(
     deps.db,
     environment.environmentId,
   );
@@ -178,13 +183,16 @@ export function resolveReuseThreadRequestEnvironment(
     reusedEnvironment,
     allowUnmanagedPersonalProjectReuseEnvironmentId,
   );
-  assertUsableHostId(deps, { hostId: reusedEnvironment.hostId });
-  assertEnvironmentPathAvailable(deps, {
+  await assertUsableHostId(deps, { hostId: reusedEnvironment.hostId });
+  await assertEnvironmentPathAvailable(deps, {
     hostId: reusedEnvironment.hostId,
     path: reusedEnvironment.path ?? reusedEnvironment.claimPath,
     threadId: null,
   });
-  reusedEnvironment = requireEnvironment(deps.db, environment.environmentId);
+  reusedEnvironment = await requireEnvironment(
+    deps.db,
+    environment.environmentId,
+  );
   if (reusedEnvironment.ownerThreadId !== null) {
     throw new ApiError(
       409,
@@ -200,19 +208,19 @@ export function resolveReuseThreadRequestEnvironment(
   };
 }
 
-export function resolveStableThreadRequestEnvironment(
+export async function resolveStableThreadRequestEnvironment(
   deps: ThreadRequestEnvironmentDeps,
   args: ResolveStableThreadRequestEnvironmentArgs,
-): ResolvedStableThreadRequestEnvironment {
+): Promise<ResolvedStableThreadRequestEnvironment> {
   switch (args.environment.type) {
     case "host":
-      return resolveHostThreadRequestEnvironment(
+      return await resolveHostThreadRequestEnvironment(
         deps,
         args.environment,
         args.projectId,
       );
     case "reuse":
-      return resolveReuseThreadRequestEnvironment(
+      return await resolveReuseThreadRequestEnvironment(
         deps,
         args.environment,
         args.projectId,

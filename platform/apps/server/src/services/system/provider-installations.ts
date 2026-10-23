@@ -33,7 +33,10 @@ interface ProviderInstallationAggregationOptions {
   onDeadlineExceeded: (provider: InstallationProvider) => void;
   prepare: (
     provider: InstallationProvider,
-  ) => PreparedProviderInstallationRequest | null;
+  ) =>
+    | PreparedProviderInstallationRequest
+    | null
+    | Promise<PreparedProviderInstallationRequest | null>;
 }
 
 function canOmitProviderInstallationStatusError(error: unknown): boolean {
@@ -52,7 +55,7 @@ export async function aggregateProviderInstallations(
   const entries = await mapProviderMaintenanceRequests(
     providers,
     async (provider): Promise<[string, ProviderCliStatus] | null> => {
-      const request = options.prepare(provider);
+      const request = await options.prepare(provider);
       if (request === null) return null;
       const remainingMs = options.deadlineMs - options.now();
       if (remainingMs <= 0) {
@@ -123,8 +126,11 @@ export async function getProviderInstallations(
         "Failed to load provider installation status; omitting provider",
       );
     },
-    prepare: (provider) => {
-      const bridgeLaunch = resolveBridgeLaunchForProviderId(deps, provider.id);
+    prepare: async (provider) => {
+      const bridgeLaunch = await resolveBridgeLaunchForProviderId(
+        deps,
+        provider.id,
+      );
       if (bridgeLaunch === null) {
         deps.logger.warn(
           {
@@ -136,12 +142,12 @@ export async function getProviderInstallations(
         );
         return null;
       }
-      return async (timeoutMs) => {
+      return async (timeoutMs: number) => {
         try {
           return await providerStatusCache(deps).run(
             `${args.hostId} ${provider.id} ${deps.providerRegistry.getRegistrationRevision()} ${JSON.stringify(bridgeLaunch)}`,
-            () =>
-              callHostRetryableOnlineRpc(deps, {
+            async () =>
+              await callHostRetryableOnlineRpc(deps, {
                 hostId: args.hostId,
                 timeoutMs,
                 command: {

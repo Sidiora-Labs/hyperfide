@@ -1,4 +1,7 @@
-import { createQueuedThreadMessage, listQueuedThreadMessages } from "@hyperfide/db";
+import {
+  createQueuedThreadMessage,
+  listQueuedThreadMessages,
+} from "@hyperfide/db";
 import {
   turnScope,
   USER_QUESTION_MAX_FREE_TEXT_LENGTH,
@@ -41,17 +44,17 @@ import { withTestHarness } from "../helpers/test-app.js";
 import { handleDaemonSocketClosed } from "../../src/internal/session-owner-side-effects.js";
 import { appendThreadEvent } from "../../src/services/threads/thread-events.js";
 
-function registerPendingInteraction(
+async function registerPendingInteraction(
   deps: Pick<AppDeps, "db" | "hub">,
   lifecycle: PendingInteractionLifecycle,
   interaction: PendingInteractionCreate,
 ) {
-  seedTurnStarted(deps, {
+  await seedTurnStarted(deps, {
     threadId: interaction.threadId,
     turnId: interaction.turnId,
     providerThreadId: interaction.providerThreadId,
   });
-  return lifecycle.registerPendingInteraction({
+  return await lifecycle.registerPendingInteraction({
     interaction,
   });
 }
@@ -255,7 +258,7 @@ describe("public thread interaction routes", () => {
 
   it("lists, gets, and resolves thread-owned interactions", async () => {
     await withTestHarness(async (harness) => {
-      const { session, project, environment, thread } = seedThreadFixture(
+      const { session, project, environment, thread } = await seedThreadFixture(
         harness,
         {
           session: {
@@ -263,12 +266,12 @@ describe("public thread interaction routes", () => {
           },
         },
       );
-      const otherThread = seedThread(harness.deps, {
+      const otherThread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      const registered = registerPendingInteraction(
+      const registered = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -412,13 +415,13 @@ describe("public thread interaction routes", () => {
 
   it("rejects unavailable command decisions and malformed provider-specific resolutions", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness, {
+      const { thread } = await seedThreadFixture(harness, {
         session: {
           id: "host-public-thread-invalid-resolution",
         },
       });
 
-      const commandApproval = registerPendingInteraction(
+      const commandApproval = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -478,14 +481,15 @@ describe("public thread interaction routes", () => {
           "Invalid discriminator value. Expected 'allow_once' | 'allow_for_session' | 'deny'",
       });
 
-      harness.db.transaction((tx) =>
-        harness.deps.pendingInteractions.interruptPendingInteractionInTransaction(
-          { db: tx, hub: harness.deps.hub },
-          {
-            interactionId: commandApproval.interaction.id,
-            reason: "Provider exited",
-          },
-        ),
+      await harness.db.transaction(
+        async (tx) =>
+          await harness.deps.pendingInteractions.interruptPendingInteractionInTransaction(
+            { db: tx, hub: harness.deps.hub },
+            {
+              interactionId: commandApproval.interaction.id,
+              reason: "Provider exited",
+            },
+          ),
       );
 
       const interruptedResolution = await harness.app.request(
@@ -511,13 +515,13 @@ describe("public thread interaction routes", () => {
 
   it("resolves permission requests and rejects grants outside the requested scope", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness, {
+      const { thread } = await seedThreadFixture(harness, {
         session: {
           id: "host-public-thread-permission-resolution",
         },
       });
 
-      const permissionRequest = registerPendingInteraction(
+      const permissionRequest = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -589,7 +593,7 @@ describe("public thread interaction routes", () => {
       );
       expect(grantCommandResponse.status).toBe(200);
 
-      const deniedPermissionRequest = registerPendingInteraction(
+      const deniedPermissionRequest = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -644,7 +648,7 @@ describe("public thread interaction routes", () => {
       );
       expect(denyCommandResponse.status).toBe(200);
 
-      const invalidPermissionRequest = registerPendingInteraction(
+      const invalidPermissionRequest = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -703,13 +707,13 @@ describe("public thread interaction routes", () => {
 
   it("rejects provider-specific command approval amendment resolutions", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness, {
+      const { thread } = await seedThreadFixture(harness, {
         session: {
           id: "host-public-thread-amendment-resolution",
         },
       });
 
-      const commandApproval = registerPendingInteraction(
+      const commandApproval = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -762,23 +766,23 @@ describe("public thread interaction routes", () => {
     "rejects invalid user-question resolutions: $name",
     async (testCase) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps, {
+        const { host } = await seedHostSession(harness.deps, {
           id: `host-public-thread-question-${testCase.id}`,
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
         });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           providerId: "claude-code",
         });
 
-        const userQuestion = registerPendingInteraction(
+        const userQuestion = await registerPendingInteraction(
           harness.deps,
           harness.deps.pendingInteractions,
           {
@@ -827,18 +831,18 @@ describe("public thread interaction routes", () => {
 
   it("holds sends and rejects queued-message send while a thread awaits user interaction", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-public-thread-blocked-send",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/blocked-send-project",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "idle",
@@ -846,24 +850,28 @@ describe("public thread interaction routes", () => {
       // An `idle` thread has always run a turn, and the checkpoint resolves the
       // execution tuple it would freeze on a queued row before it decides to
       // queue — so the fixture needs the prior turn a real thread would have.
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         environmentId: environment.id,
         providerThreadId: "provider-thread-blocked",
         threadId: thread.id,
       });
-      const queuedMessage = createQueuedThreadMessage(harness.db, harness.hub, {
-        threadId: thread.id,
-        content: textInput("Queued message"),
-        model: "gpt-5",
-        serviceTier: "default",
-        reasoningLevel: "medium",
-        permissionMode: "full",
-        waitingOn: null,
-        sendAt: null,
-        payload: { kind: "inline" },
-        systemNotice: null,
-      });
-      const pending = registerPendingInteraction(
+      const queuedMessage = await createQueuedThreadMessage(
+        harness.db,
+        harness.hub,
+        {
+          threadId: thread.id,
+          content: textInput("Queued message"),
+          model: "gpt-5",
+          serviceTier: "default",
+          reasoningLevel: "medium",
+          permissionMode: "full",
+          waitingOn: null,
+          sendAt: null,
+          payload: { kind: "inline" },
+          systemNotice: null,
+        },
+      );
+      const pending = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -914,7 +922,7 @@ describe("public thread interaction routes", () => {
       // The queued row sits alongside the message that was already queued, and
       // it is the only one carrying the interaction wait.
       expect(
-        listQueuedThreadMessages(harness.db, thread.id).filter(
+        (await listQueuedThreadMessages(harness.db, thread.id)).filter(
           (row) => row.waitingOn !== null,
         ),
       ).toHaveLength(1);
@@ -956,17 +964,17 @@ describe("public thread interaction routes", () => {
           "Thread is awaiting user interaction. Resolve the pending interaction before sending another prompt.",
       });
 
-      const activeThread = seedThread(harness.deps, {
+      const activeThread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "active",
       });
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         threadId: activeThread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-active-blocked",
       });
-      const activeThreadPending = registerPendingInteraction(
+      const activeThreadPending = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1016,31 +1024,31 @@ describe("public thread interaction routes", () => {
         },
       });
       expect(
-        listQueuedThreadMessages(harness.db, activeThread.id),
+        await listQueuedThreadMessages(harness.db, activeThread.id),
       ).toHaveLength(1);
     });
   });
 
   it("queues turn commands with the resolved permission mode", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-public-thread-permission-mode",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/permission-mode-project",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
         status: "idle",
       });
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-permission-mode",
@@ -1078,23 +1086,23 @@ describe("public thread interaction routes", () => {
 
   it("normalizes the writable alias in queued messages without accepting readonly", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-public-queued-permission-compatibility",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         providerId: "codex",
         status: "active",
       });
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         environmentId: environment.id,
         providerThreadId: "provider-public-queued-permission-compatibility",
         threadId: thread.id,
@@ -1113,9 +1121,9 @@ describe("public thread interaction routes", () => {
         },
       );
       expect(compatibleResponse.status).toBe(200);
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toMatchObject([
-        { permissionMode: "accept-edits" },
-      ]);
+      expect(
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toMatchObject([{ permissionMode: "accept-edits" }]);
 
       const readonlyResponse = await harness.app.request(
         `/api/v1/threads/${thread.id}/send`,
@@ -1130,24 +1138,26 @@ describe("public thread interaction routes", () => {
         },
       );
       expect(readonlyResponse.status).toBe(400);
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(1);
+      expect(
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toHaveLength(1);
     });
   });
 
   it("rejects explicit send permission modes unsupported by the provider", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-public-thread-unsupported-permission-mode",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/unsupported-permission-mode-project",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "pi",
@@ -1180,11 +1190,11 @@ describe("public thread interaction routes", () => {
 
   it("keeps a pending interaction answerable across a host disconnect", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedThreadFixture(harness, {
+      const { host, session, thread } = await seedThreadFixture(harness, {
         session: { id: "host-public-thread-interaction-disconnect" },
         thread: { status: "active" },
       });
-      const registered = registerPendingInteraction(
+      const registered = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1211,7 +1221,7 @@ describe("public thread interaction routes", () => {
         });
 
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-      handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
       vi.advanceTimersByTime(10 * 60_000);
       vi.useRealTimers();
 
@@ -1225,7 +1235,7 @@ describe("public thread interaction routes", () => {
         status: "pending",
       });
 
-      seedSession(harness.deps, host.id);
+      await seedSession(harness.deps, host.id);
       const reconnected = await resolve();
       expect(reconnected.status).toBe(200);
       await expect(readJson(reconnected)).resolves.toMatchObject({
@@ -1236,13 +1246,13 @@ describe("public thread interaction routes", () => {
 
   it("projects pending-interaction lifecycle updates into the thread timeline", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         session: {
           id: "host-public-thread-interaction-timeline",
         },
         thread: { status: "active" },
       });
-      appendThreadEvent(harness.deps, {
+      await appendThreadEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         type: "turn/started",
@@ -1253,7 +1263,7 @@ describe("public thread interaction routes", () => {
         },
       });
 
-      const registered = registerPendingInteraction(
+      const registered = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1276,7 +1286,7 @@ describe("public thread interaction routes", () => {
         );
       }
 
-      harness.deps.pendingInteractions.resolvePendingInteraction({
+      await harness.deps.pendingInteractions.resolvePendingInteraction({
         threadId: thread.id,
         interactionId: registered.interaction.id,
         resolution: createAllowOnceResolution(),
@@ -1318,13 +1328,13 @@ describe("public thread interaction routes", () => {
 
   it("projects denied command approvals into target-specific timeline rows", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         session: {
           id: "host-public-thread-interaction-denied-timeline",
         },
         thread: { status: "active" },
       });
-      appendThreadEvent(harness.deps, {
+      await appendThreadEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         type: "turn/started",
@@ -1335,7 +1345,7 @@ describe("public thread interaction routes", () => {
         },
       });
 
-      const registered = registerPendingInteraction(
+      const registered = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1358,7 +1368,7 @@ describe("public thread interaction routes", () => {
         );
       }
 
-      harness.deps.pendingInteractions.resolvePendingInteraction({
+      await harness.deps.pendingInteractions.resolvePendingInteraction({
         threadId: thread.id,
         interactionId: registered.interaction.id,
         resolution: createDenyResolution(),
@@ -1400,13 +1410,13 @@ describe("public thread interaction routes", () => {
 
   it("projects file-change approvals into item-specific timeline rows without diffs", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         session: {
           id: "host-public-thread-interaction-file-timeline",
         },
         thread: { status: "active" },
       });
-      appendThreadEvent(harness.deps, {
+      await appendThreadEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         type: "turn/started",
@@ -1417,7 +1427,7 @@ describe("public thread interaction routes", () => {
         },
       });
 
-      const registered = registerPendingInteraction(
+      const registered = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1462,13 +1472,13 @@ describe("public thread interaction routes", () => {
 
   it("projects permission-grant approvals into typed lifecycle timeline rows", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         session: {
           id: "host-public-thread-interaction-permission-timeline",
         },
         thread: { status: "active" },
       });
-      appendThreadEvent(harness.deps, {
+      await appendThreadEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         type: "turn/started",
@@ -1479,7 +1489,7 @@ describe("public thread interaction routes", () => {
         },
       });
 
-      const registered = registerPendingInteraction(
+      const registered = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {

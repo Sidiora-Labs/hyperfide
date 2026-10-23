@@ -70,9 +70,11 @@ function npmRunForRow(row: InstalledPluginRow): NpmResolverRun {
 
 export interface PluginUpdates {
   checkForUpdates(id?: string): Promise<PluginUpdateCheckEntry[]>;
-  startPeriodicUpdateChecks(): void;
+  startPeriodicUpdateChecks(): void | Promise<void>;
   stopPeriodicUpdateChecks(): Promise<void>;
-  listUpdateResults(): PluginUpdateCheckEntry[];
+  listUpdateResults():
+    | PluginUpdateCheckEntry[]
+    | Promise<PluginUpdateCheckEntry[]>;
   getSource(id: string): Promise<PluginSourceDetail | undefined>;
   applyUpdate(id: string): Promise<PluginApplyUpdateOutcome>;
 }
@@ -82,11 +84,13 @@ interface PluginUpdatesContext {
   registrationMutationKey: string;
   withLifecycleLock: <T>(id: string, fn: () => Promise<T>) => Promise<T>;
   withPluginOperationLock: <T>(id: string, fn: () => Promise<T>) => Promise<T>;
-  notifyPluginsChanged: () => void;
+  notifyPluginsChanged: () => void | Promise<void>;
   installedUpdateVersion: (
     row: InstalledPluginRow,
   ) => PluginResolvedUpdateVersion;
-  npmIntentForRow: (row: InstalledPluginRow) => NpmSourceIntentForResolution;
+  npmIntentForRow: (
+    row: InstalledPluginRow,
+  ) => NpmSourceIntentForResolution | Promise<NpmSourceIntentForResolution>;
   managedArtifacts: Pick<
     ReturnType<typeof createManagedPluginArtifacts>,
     "applyNpmCandidate" | "stageGitCandidate"
@@ -94,7 +98,7 @@ interface PluginUpdatesContext {
   runArtifactGc: ReturnType<typeof createPluginActivation>["runArtifactGc"];
   safeModeActivationRefusal: (
     args: SafeModeActivationRefusalArgs,
-  ) => string | null;
+  ) => string | null | Promise<string | null>;
 }
 
 export function createPluginUpdates(
@@ -159,8 +163,10 @@ export function createPluginUpdates(
     return common;
   }
 
-  function persistUpdateEntry(entry: PluginUpdateCheckEntry): void {
-    const changed = setInstalledPluginUpdateState(deps.db, entry.id, {
+  async function persistUpdateEntry(
+    entry: PluginUpdateCheckEntry,
+  ): Promise<void> {
+    const changed = await setInstalledPluginUpdateState(deps.db, entry.id, {
       lastCheckAt: now(),
       availableCompatibleVersion: entry.candidate?.version ?? null,
       newestIncompatibleVersion: entry.blocked?.version ?? null,
@@ -246,10 +252,10 @@ export function createPluginUpdates(
       }
     }
     if (
-      !setInstalledPluginSourceClassification(deps.db, row.id, {
+      !(await setInstalledPluginSourceClassification(deps.db, row.id, {
         kind: "git",
         refKind: classified.refKind,
-      })
+      }))
     ) {
       throw new Error(`plugin "${row.id}" disappeared during normalization`);
     }
@@ -293,8 +299,8 @@ export function createPluginUpdates(
       };
     }
     if (args.row.sourceKind === "npm") {
-      return resolveNpmUpdate({
-        intent: npmIntentForRow(args.row),
+      return await resolveNpmUpdate({
+        intent: await npmIntentForRow(args.row),
         current: installed,
         appVersion: deps.appVersion,
         run: args.npmRun,
@@ -381,8 +387,8 @@ export function createPluginUpdates(
   let periodicChecksStopped = true;
   let inFlightSweep: Promise<PluginUpdateCheckEntry[]> | null = null;
 
-  function periodicCheckDelay(): number {
-    const stamps = listInstalledPlugins(deps.db)
+  async function periodicCheckDelay(): Promise<number> {
+    const stamps = (await listInstalledPlugins(deps.db))
       .filter(
         (row) => row.sourceKind !== "path" && row.sourceKind !== "builtin",
       )
@@ -427,7 +433,7 @@ export function createPluginUpdates(
         const index = next++;
         const row = rows[index] as InstalledPluginRow;
         results[index] = await withLifecycleLock(row.id, async () => {
-          const current = getInstalledPlugin(deps.db, row.id);
+          const current = await getInstalledPlugin(deps.db, row.id);
           if (!current) {
             throw new Error(
               `plugin "${row.id}" disappeared during update check`,
@@ -442,7 +448,7 @@ export function createPluginUpdates(
             installedUpdateVersion(current),
             resolution,
           );
-          persistUpdateEntry(checked);
+          await persistUpdateEntry(checked);
           return checked;
         });
       }
@@ -453,16 +459,16 @@ export function createPluginUpdates(
         worker,
       ),
     );
-    notifyPluginsChanged();
+    await notifyPluginsChanged();
     return results;
   }
 
   const updates: PluginUpdates = {
-    startPeriodicUpdateChecks() {
+    async startPeriodicUpdateChecks() {
       if (!periodicChecksStopped) return;
       periodicChecksStopped = false;
       cancelPeriodicCheck = scheduleUpdateCheck(
-        periodicCheckDelay(),
+        await periodicCheckDelay(),
         runPeriodicCheck,
       );
     },
@@ -475,19 +481,21 @@ export function createPluginUpdates(
     },
 
     checkForUpdates(id) {
-      if (id !== undefined) {
-        const row = getInstalledPlugin(deps.db, id);
-        if (!row) throw new Error(`unknown plugin "${id}"`);
-        return checkRows([row]);
-      }
-      inFlightSweep ??= checkRows(listInstalledPlugins(deps.db)).finally(() => {
+      if (id !== undefined)
+        return (async () => {
+          const row = await getInstalledPlugin(deps.db, id);
+          if (!row) throw new Error(`unknown plugin "${id}"`);
+          return await checkRows([row]);
+        })();
+      inFlightSweep ??= (async () =>
+        checkRows(await listInstalledPlugins(deps.db)))().finally(() => {
         inFlightSweep = null;
       });
       return inFlightSweep;
     },
 
-    listUpdateResults() {
-      return listInstalledPlugins(deps.db)
+    async listUpdateResults() {
+      return (await listInstalledPlugins(deps.db))
         .sort((a, b) => a.id.localeCompare(b.id))
         .map((row) => {
           if (
@@ -520,10 +528,10 @@ export function createPluginUpdates(
     },
 
     async getSource(id) {
-      const row = getInstalledPlugin(deps.db, id);
+      const row = await getInstalledPlugin(deps.db, id);
       if (row === undefined) return undefined;
       const manifest = await readPluginManifest(row.rootDir).catch(() => null);
-      const artifacts = listRecentPluginArtifacts(deps.db, id, 10);
+      const artifacts = await listRecentPluginArtifacts(deps.db, id, 10);
       return {
         requested: row.source,
         resolved: installedUpdateVersion(row).display,
@@ -562,165 +570,168 @@ export function createPluginUpdates(
     },
 
     async applyUpdate(id) {
-      return withPluginOperationLock(REGISTRATION_MUTATION_KEY, async () => {
-        const row = getInstalledPlugin(deps.db, id);
-        if (!row) return { ok: false, error: `unknown plugin "${id}"` };
-        const safeModeRefusal = safeModeActivationRefusal({
-          pluginId: id,
-          provenance: row.provenance,
-          builtinName:
-            row.sourceKind === "builtin" ? row.sourceBuiltinName : null,
-          action: "update",
-        });
-        if (safeModeRefusal !== null) {
-          return { ok: false, error: safeModeRefusal };
-        }
-        const from = installedUpdateVersion(row);
-        const npmRun = npmRunForRow(row);
-        const selectionNpmIntent =
-          row.sourceKind === "npm" ? npmIntentForRow(row) : undefined;
-        const resolution = await resolveUpdateForRow({
-          row,
-          npmRun,
-        });
-        const checked = checkEntryFromResolution(id, from, resolution);
-        persistUpdateEntry(checked);
-
-        if (resolution.outcome === "pinned") {
-          return {
-            ok: false,
-            error:
-              row.sourceKind === "path"
-                ? `plugin "${id}" is a local path source with no update channel; edit it in place and run \`hyperfide-platform plugin reload ${id}\`, or move it with \`hyperfide-platform plugin install path:<new directory>\` (settings, secrets, and schedules are kept)`
-                : `plugin "${id}" is pinned by its source intent; remove and reinstall it with an npm range, a git branch, or a git semver range to track updates`,
-          };
-        }
-        if (resolution.outcome === "incompatible") {
-          return {
-            ok: false,
-            error: `${resolution.newest.display} is incompatible: ${problemMessages(resolution.reasons).join("; ")}`,
-          };
-        }
-        if (resolution.outcome === "unavailable") {
-          return { ok: false, error: resolution.detail };
-        }
-        const to =
-          resolution.outcome === "update-available"
-            ? resolution.candidate
-            : from;
-        if (resolution.outcome === "current") {
-          return {
-            ok: true,
-            result: {
-              applied: false,
-              from,
-              outcome: "current",
-            },
-          };
-        }
-
-        try {
-          if (row.sourceKind === "npm" && selectionNpmIntent !== undefined) {
-            const selected = await selectNpmCandidate({
-              intent: selectionNpmIntent,
-              appVersion: deps.appVersion,
-              run: npmRun,
-            });
-            if (selected.outcome !== "selected") {
-              throw new Error(
-                `npm candidate changed during update: ${selected.outcome}`,
-              );
-            }
-            if (selected.candidate.version !== to.version) {
-              throw new Error(
-                `npm candidate changed during update: resolved ${to.version}, selected ${selected.candidate.version}`,
-              );
-            }
-            const activationRow = getInstalledPlugin(deps.db, id);
-            if (activationRow === undefined) {
-              throw new Error(`plugin "${id}" disappeared before activation`);
-            }
-            await applyNpmCandidate({
-              row: activationRow,
-              selectionIntent: selectionNpmIntent,
-              candidate: selected.candidate,
-            });
-          } else if (
-            row.sourceKind === "git" &&
-            resolution.outcome === "update-available"
-          ) {
-            const activationRow = getInstalledPlugin(deps.db, id);
-            if (activationRow === undefined) {
-              throw new Error(`plugin "${id}" disappeared before activation`);
-            }
-            const intent = await classifiedGitIntentForRow(activationRow);
-            if (intent.outcome === "unavailable") {
-              return { ok: false, error: intent.detail };
-            }
-            const staged = await stageGitCandidate({
-              row: activationRow,
-              commit: resolution.candidate.version,
-              promote: true,
-              activationSelector: activationSelectorForCandidate({
-                selector: intent.selector,
-                candidateCommit: resolution.candidate.version,
-                candidateTag: resolution.candidateGitTag,
-              }),
-            });
-            if (staged.outcome !== "valid") {
-              const detail =
-                staged.outcome === "invalid"
-                  ? staged.detail
-                  : problemMessages(staged.reasons).join("; ");
-              return { ok: false, error: `update refused: ${detail}` };
-            }
+      return await withPluginOperationLock(
+        REGISTRATION_MUTATION_KEY,
+        async () => {
+          const row = await getInstalledPlugin(deps.db, id);
+          if (!row) return { ok: false, error: `unknown plugin "${id}"` };
+          const safeModeRefusal = await safeModeActivationRefusal({
+            pluginId: id,
+            provenance: row.provenance,
+            builtinName:
+              row.sourceKind === "builtin" ? row.sourceBuiltinName : null,
+            action: "update",
+          });
+          if (safeModeRefusal !== null) {
+            return { ok: false, error: safeModeRefusal };
           }
-        } catch (error) {
-          if (error instanceof PluginActivationRolledBackError) {
+          const from = installedUpdateVersion(row);
+          const npmRun = npmRunForRow(row);
+          const selectionNpmIntent =
+            row.sourceKind === "npm" ? await npmIntentForRow(row) : undefined;
+          const resolution = await resolveUpdateForRow({
+            row,
+            npmRun,
+          });
+          const checked = checkEntryFromResolution(id, from, resolution);
+          await persistUpdateEntry(checked);
+
+          if (resolution.outcome === "pinned") {
+            return {
+              ok: false,
+              error:
+                row.sourceKind === "path"
+                  ? `plugin "${id}" is a local path source with no update channel; edit it in place and run \`hyperfide plugin reload ${id}\`, or move it with \`hyperfide plugin install path:<new directory>\` (settings, secrets, and schedules are kept)`
+                  : `plugin "${id}" is pinned by its source intent; remove and reinstall it with an npm range, a git branch, or a git semver range to track updates`,
+            };
+          }
+          if (resolution.outcome === "incompatible") {
+            return {
+              ok: false,
+              error: `${resolution.newest.display} is incompatible: ${problemMessages(resolution.reasons).join("; ")}`,
+            };
+          }
+          if (resolution.outcome === "unavailable") {
+            return { ok: false, error: resolution.detail };
+          }
+          const to =
+            resolution.outcome === "update-available"
+              ? resolution.candidate
+              : from;
+          if (resolution.outcome === "current") {
             return {
               ok: true,
               result: {
                 applied: false,
                 from,
-                to,
-                outcome: "rolled-back",
-                detail: error.message,
+                outcome: "current",
               },
             };
           }
-          throw error;
-        }
-        await removeUnusedPluginArtifacts({
-          db: deps.db,
-          dataDir: deps.dataDir,
-          pluginId: id,
-          warn: (message) => deps.logger.warn(message),
-        });
-        await runArtifactGc();
-        const updatedRow = getInstalledPlugin(deps.db, id);
-        if (!updatedRow) {
-          throw new Error(`plugin "${id}" disappeared after update`);
-        }
-        const updatedVersion = installedUpdateVersion(updatedRow);
-        persistUpdateEntry(
-          checkEntryFromResolution(id, updatedVersion, {
-            outcome: "current",
-            current: updatedVersion,
-            ...(semver.coerce(deps.appVersion)?.version === "0.0.0"
-              ? { devMode: true }
-              : {}),
-          }),
-        );
-        return {
-          ok: true,
-          result: {
-            applied: true,
-            from,
-            to,
-            outcome: "updated",
-          },
-        };
-      });
+
+          try {
+            if (row.sourceKind === "npm" && selectionNpmIntent !== undefined) {
+              const selected = await selectNpmCandidate({
+                intent: selectionNpmIntent,
+                appVersion: deps.appVersion,
+                run: npmRun,
+              });
+              if (selected.outcome !== "selected") {
+                throw new Error(
+                  `npm candidate changed during update: ${selected.outcome}`,
+                );
+              }
+              if (selected.candidate.version !== to.version) {
+                throw new Error(
+                  `npm candidate changed during update: resolved ${to.version}, selected ${selected.candidate.version}`,
+                );
+              }
+              const activationRow = await getInstalledPlugin(deps.db, id);
+              if (activationRow === undefined) {
+                throw new Error(`plugin "${id}" disappeared before activation`);
+              }
+              await applyNpmCandidate({
+                row: activationRow,
+                selectionIntent: selectionNpmIntent,
+                candidate: selected.candidate,
+              });
+            } else if (
+              row.sourceKind === "git" &&
+              resolution.outcome === "update-available"
+            ) {
+              const activationRow = await getInstalledPlugin(deps.db, id);
+              if (activationRow === undefined) {
+                throw new Error(`plugin "${id}" disappeared before activation`);
+              }
+              const intent = await classifiedGitIntentForRow(activationRow);
+              if (intent.outcome === "unavailable") {
+                return { ok: false, error: intent.detail };
+              }
+              const staged = await stageGitCandidate({
+                row: activationRow,
+                commit: resolution.candidate.version,
+                promote: true,
+                activationSelector: activationSelectorForCandidate({
+                  selector: intent.selector,
+                  candidateCommit: resolution.candidate.version,
+                  candidateTag: resolution.candidateGitTag,
+                }),
+              });
+              if (staged.outcome !== "valid") {
+                const detail =
+                  staged.outcome === "invalid"
+                    ? staged.detail
+                    : problemMessages(staged.reasons).join("; ");
+                return { ok: false, error: `update refused: ${detail}` };
+              }
+            }
+          } catch (error) {
+            if (error instanceof PluginActivationRolledBackError) {
+              return {
+                ok: true,
+                result: {
+                  applied: false,
+                  from,
+                  to,
+                  outcome: "rolled-back",
+                  detail: error.message,
+                },
+              };
+            }
+            throw error;
+          }
+          await removeUnusedPluginArtifacts({
+            db: deps.db,
+            dataDir: deps.dataDir,
+            pluginId: id,
+            warn: (message) => deps.logger.warn(message),
+          });
+          await runArtifactGc();
+          const updatedRow = await getInstalledPlugin(deps.db, id);
+          if (!updatedRow) {
+            throw new Error(`plugin "${id}" disappeared after update`);
+          }
+          const updatedVersion = installedUpdateVersion(updatedRow);
+          await persistUpdateEntry(
+            checkEntryFromResolution(id, updatedVersion, {
+              outcome: "current",
+              current: updatedVersion,
+              ...(semver.coerce(deps.appVersion)?.version === "0.0.0"
+                ? { devMode: true }
+                : {}),
+            }),
+          );
+          return {
+            ok: true,
+            result: {
+              applied: true,
+              from,
+              to,
+              outcome: "updated",
+            },
+          };
+        },
+      );
     },
   };
   return updates;

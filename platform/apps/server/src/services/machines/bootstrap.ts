@@ -34,8 +34,10 @@ const installerSource = readFile(INSTALL_MACHINE_SCRIPT_PATH, "utf8");
 function createOutputReporter(report: PluginMachineProviderProgress) {
   let pending = "";
   const tail: string[] = [];
+  const logs: Promise<unknown>[] = [];
   const emit = (line: string, terminated: boolean): void => {
-    report.log(line + (terminated ? "\n" : ""));
+    const logged = report.log(line + (terminated ? "\n" : ""));
+    if (logged) logs.push(Promise.resolve(logged));
     tail.push(line);
     if (tail.length > 20) tail.shift();
   };
@@ -49,10 +51,12 @@ function createOutputReporter(report: PluginMachineProviderProgress) {
         pending = pending.slice(match.index + match[0].length);
       }
     },
-    finish(): void {
-      if (pending.length === 0) return;
-      emit(pending, false);
-      pending = "";
+    async finish(): Promise<void> {
+      if (pending.length > 0) {
+        emit(pending, false);
+        pending = "";
+      }
+      await Promise.all(logs);
     },
     failureMessage(): string {
       return tail.length === 0
@@ -75,20 +79,21 @@ export function createMachineBootstrapApi(
   return {
     async bootstrap(request) {
       request.signal.throwIfAborted();
-      request.report.step("Preparing machine enrollment");
+      const preparing = request.report.step("Preparing machine enrollment");
+      if (preparing) await preparing;
       try {
         const enrollment = await enrollments.prepare({
           key: request.key,
           signal: request.signal,
         });
         request.signal.throwIfAborted();
-        request.report.step(
+        await request.report.step(
           enrollment.state === "enrolled"
             ? "Starting enrolled machine"
             : "Bootstrapping machine",
         );
         const execution = await (enrollment.state === "enrolled"
-          ? installerStartCommand(enrollment.hostId)
+          ? await installerStartCommand(enrollment.hostId)
           : installerCommand(enrollment.bootstrap));
         const output = createOutputReporter(request.report);
         let result;
@@ -103,10 +108,10 @@ export function createMachineBootstrapApi(
           request.signal.throwIfAborted();
           throw new Error("Machine bootstrap command failed");
         }
-        output.finish();
+        await output.finish();
         if (result.exitCode !== 0) throw new Error(output.failureMessage());
         request.signal.throwIfAborted();
-        request.report.step("Waiting for machine connection");
+        await request.report.step("Waiting for machine connection");
         await enrollments.waitForConnection({
           enrollmentId: enrollment.id,
           timeoutMs: 120_000,

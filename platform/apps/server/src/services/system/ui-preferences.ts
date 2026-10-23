@@ -53,15 +53,17 @@ function toEntry<Key extends UiPreferenceKey>(
     : defaultEntry;
 }
 
-export function readUiPreferences(deps: AppDeps): UiPreferenceEntries {
+export async function readUiPreferences(
+  deps: AppDeps,
+): Promise<UiPreferenceEntries> {
   const defaults = new Map(
-    listStoredUiPreferenceDefaults(deps.db).map((row) => [
+    (await listStoredUiPreferenceDefaults(deps.db)).map((row) => [
       row.key,
       row.valueJson,
     ]),
   );
   const stored = new Map<string, StoredUiPreference>();
-  for (const row of listStoredUiPreferences(deps.db)) {
+  for (const row of await listStoredUiPreferences(deps.db)) {
     if (isUiPreferenceKey(row.key)) stored.set(row.key, row);
   }
   return Object.fromEntries(
@@ -80,11 +82,11 @@ export type WriteUiPreferenceResult<Key extends UiPreferenceKey> =
   | { outcome: "updated"; entry: UiPreferenceEntry<Key> }
   | { outcome: "conflict"; revision: number };
 
-export function writeUiPreference<Key extends UiPreferenceKey>(
+export async function writeUiPreference<Key extends UiPreferenceKey>(
   deps: AppDeps,
   args: { expectedRevision: number; key: Key; value: UiPreferenceValue<Key> },
-): WriteUiPreferenceResult<Key> {
-  const result = replaceStoredUiPreference(deps.db, {
+): Promise<WriteUiPreferenceResult<Key>> {
+  const result = await replaceStoredUiPreference(deps.db, {
     expectedRevision: args.expectedRevision,
     key: args.key,
     valueJson: JSON.stringify(args.value),
@@ -98,15 +100,15 @@ export function writeUiPreference<Key extends UiPreferenceKey>(
   };
 }
 
-export function resetUiPreference<Key extends UiPreferenceKey>(
+export async function resetUiPreference<Key extends UiPreferenceKey>(
   deps: AppDeps,
   key: Key,
-): UiPreferenceEntry<Key> {
+): Promise<UiPreferenceEntry<Key>> {
   const value = installationDefault(
     key,
-    getStoredUiPreferenceDefault(deps.db, key),
+    await getStoredUiPreferenceDefault(deps.db, key),
   );
-  const { revision } = overwriteStoredUiPreference(deps.db, {
+  const { revision } = await overwriteStoredUiPreference(deps.db, {
     key,
     valueJson: JSON.stringify(value),
   });

@@ -49,7 +49,7 @@ import {
 } from "../../../src/services/server-move/freeze-state.js";
 
 const logger = testLogger as unknown as Logger;
-const run = promisify(execFile);
+const run = await promisify(execFile);
 
 async function git(cwd: string, args: string[]): Promise<string> {
   return (await run("git", args, { cwd })).stdout.trim();
@@ -83,15 +83,16 @@ async function commitPlugin(
   );
   await git(repo, ["add", "-A"]);
   await git(repo, ["commit", "-qm", version]);
-  return git(repo, ["rev-parse", "HEAD"]);
+  return await git(repo, ["rev-parse", "HEAD"]);
 }
 
 describe("plugin update scheduling", () => {
   it("waits one full interval when no plugins are eligible for update checks", async () => {
     const HOUR = 60 * 60 * 1_000;
-    const emptyDb = createMigratedConnection();
+    const emptyDb = await createMigratedConnection();
     const scheduled: number[] = [];
-    const emptyService = createPluginService({
+    const emptyService = await createPluginService({
+      bundledPlugins: [],
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db: emptyDb,
@@ -113,20 +114,21 @@ describe("plugin update scheduling", () => {
     });
 
     try {
-      emptyService.startPeriodicUpdateChecks();
+      await emptyService.startPeriodicUpdateChecks();
       expect(scheduled).toEqual([6 * HOUR]);
     } finally {
       await emptyService.stop();
-      emptyDb.$client.close();
+      await emptyDb.close();
     }
   });
 
   it("defers a periodic update check while the server is moving", async () => {
     const HOUR = 60 * 60 * 1_000;
-    const frozenDb = createMigratedConnection();
+    const frozenDb = await createMigratedConnection();
     const scheduled: { delayMs: number; onElapsed: () => Promise<void> }[] = [];
     const notifySystem = vi.fn();
-    const frozenService = createPluginService({
+    const frozenService = await createPluginService({
+      bundledPlugins: [],
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db: frozenDb,
@@ -153,8 +155,8 @@ describe("plugin update scheduling", () => {
     };
 
     try {
-      frozenService.startPeriodicUpdateChecks();
-      const initial = takeScheduled();
+      await frozenService.startPeriodicUpdateChecks();
+      const initial = await takeScheduled();
       setServerMoveFrozen(frozenDb, true);
       await initial.onElapsed();
       expect(notifySystem).not.toHaveBeenCalled();
@@ -168,13 +170,13 @@ describe("plugin update scheduling", () => {
       expect(scheduled.map((entry) => entry.delayMs)).toEqual([6 * HOUR]);
     } finally {
       await frozenService.stop();
-      frozenDb.$client.close();
+      await frozenDb.close();
     }
   });
 
   it("sweeps on start when a plugin was never checked, then waits out the interval across restarts", async () => {
     const HOUR = 60 * 60 * 1_000;
-    const schedulingDb = createMigratedConnection();
+    const schedulingDb = await createMigratedConnection();
     const schedulingWorkDir = await mkdtemp(
       join(tmpdir(), "hyperfide-plugin-update-scheduling-"),
     );
@@ -212,9 +214,9 @@ describe("plugin update scheduling", () => {
       return deferredFetch;
     });
 
-    const upsertNpmRow = (id: string) => {
+    const upsertNpmRow = async (id: string) => {
       const packageName = `hyperfide-plugin-${id}`;
-      upsertInstalledPlugin(schedulingDb, {
+      await upsertInstalledPlugin(schedulingDb, {
         id,
         source: `npm:${packageName}`,
         provenance: { kind: "direct" },
@@ -247,6 +249,7 @@ describe("plugin update scheduling", () => {
       await service?.stop();
       scheduled = [];
       service = createPluginService({
+        bundledPlugins: [],
         aiServices: createAiServiceRegistry(),
         telemetry: createNoopTelemetryService(),
         db: schedulingDb,
@@ -260,7 +263,6 @@ describe("plugin update scheduling", () => {
         logger,
         dataDir: join(schedulingWorkDir, "data"),
         appVersion: "1.0.0",
-        bundledPlugins: [],
         stabilizationWindowMs: 0,
         now: () => clock,
         scheduleUpdateCheck: (delayMs, onElapsed) => {
@@ -276,44 +278,48 @@ describe("plugin update scheduling", () => {
     };
 
     try {
-      upsertNpmRow("scheduled");
+      await upsertNpmRow("scheduled");
       await restartWithScheduler();
-      service?.startPeriodicUpdateChecks();
+      await service?.startPeriodicUpdateChecks();
       expect(scheduled.map((entry) => entry.delayMs)).toEqual([0]);
       const initial = scheduled.shift();
       if (initial === undefined)
         throw new Error("missing initial update check");
       const sweep = initial.onElapsed();
-      expect(getInstalledPlugin(schedulingDb, "scheduled")).toMatchObject({
-        lastUpdateCheckAt: null,
-        availableCompatibleVersion: null,
-      });
+      expect(await getInstalledPlugin(schedulingDb, "scheduled")).toMatchObject(
+        {
+          lastUpdateCheckAt: null,
+          availableCompatibleVersion: null,
+        },
+      );
       resolveFirstFetch(packumentResponse());
       expect(sweep).toBeInstanceOf(Promise);
       await sweep;
-      expect(getInstalledPlugin(schedulingDb, "scheduled")).toMatchObject({
-        lastUpdateCheckAt: clock,
-        availableCompatibleVersion: "1.1.0",
-      });
+      expect(await getInstalledPlugin(schedulingDb, "scheduled")).toMatchObject(
+        {
+          lastUpdateCheckAt: clock,
+          availableCompatibleVersion: "1.1.0",
+        },
+      );
       expect(scheduled.map((entry) => entry.delayMs)).toEqual([6 * HOUR]);
       await service?.stopPeriodicUpdateChecks();
       expect(scheduled).toHaveLength(0);
 
       clock += 2 * HOUR;
       await restartWithScheduler();
-      service?.startPeriodicUpdateChecks();
+      await service?.startPeriodicUpdateChecks();
       expect(scheduled.map((entry) => entry.delayMs)).toEqual([4 * HOUR]);
       await service?.stopPeriodicUpdateChecks();
 
-      upsertNpmRow("never-checked");
+      await upsertNpmRow("never-checked");
       await service?.checkForUpdates("scheduled");
-      service?.startPeriodicUpdateChecks();
+      await service?.startPeriodicUpdateChecks();
       expect(scheduled.map((entry) => entry.delayMs)).toEqual([0]);
       await service?.stopPeriodicUpdateChecks();
     } finally {
       await service?.stopPeriodicUpdateChecks();
       await service?.stop();
-      schedulingDb.$client.close();
+      await schedulingDb.close();
       vi.unstubAllGlobals();
       await rm(schedulingWorkDir, { recursive: true, force: true });
     }
@@ -336,7 +342,7 @@ describe("plugin update service and routes", () => {
     | undefined;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-update-"));
     repo = join(workDir, "repo");
     await mkdir(repo, { recursive: true });
@@ -347,6 +353,7 @@ describe("plugin update service and routes", () => {
     afterArtifactPromoted = undefined;
     materializationCount = 0;
     service = createPluginService({
+      bundledPlugins: [],
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db,
@@ -383,7 +390,7 @@ describe("plugin update service and routes", () => {
   afterEach(async () => {
     vi.unstubAllGlobals();
     await service.stop();
-    db.$client.close();
+    await db.close();
     await rm(workDir, { recursive: true, force: true });
   });
 
@@ -398,8 +405,8 @@ describe("plugin update service and routes", () => {
       "hyperfide-plugin-offline-registry",
       "hyperfide-plugin-healthy-registry",
     ]) {
-      const id = packageName.replace("hyperfide-plugin-", "");
-      upsertInstalledPlugin(db, {
+      const id = await packageName.replace("hyperfide-plugin-", "");
+      await upsertInstalledPlugin(db, {
         id,
         source: `npm:${packageName}`,
         provenance: { kind: "direct" },
@@ -467,7 +474,7 @@ describe("plugin update service and routes", () => {
         }),
       ]),
     );
-    expect(service.listUpdateResults()).toEqual(
+    expect(await service.listUpdateResults()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "offline-registry",
@@ -482,7 +489,7 @@ describe("plugin update service and routes", () => {
   });
 
   it("reports legacy retired-marketplace installs as unavailable without fetching", async () => {
-    upsertInstalledPlugin(db, {
+    await upsertInstalledPlugin(db, {
       id: "legacy-marketplace",
       source: "npm:hyperfide-plugin-legacy-marketplace@^0.2.0",
       provenance: {
@@ -536,7 +543,7 @@ describe("plugin update service and routes", () => {
     pluginId: string,
     sourceRepo: string,
   ): Promise<void> {
-    const rootDir = getInstalledPlugin(db, pluginId)?.rootDir;
+    const rootDir = (await getInstalledPlugin(db, pluginId))?.rootDir;
     if (rootDir === undefined) throw new Error(`missing ${pluginId}`);
     const clone = join(workDir, `phase-one-clone-${pluginId}`);
     await run("git", ["clone", "--quiet", "--no-checkout", sourceRepo, clone]);
@@ -585,11 +592,11 @@ describe("plugin update service and routes", () => {
       },
       { timeout: 10_000 },
     );
-    expect(getInstalledPlugin(db, "updater")?.version).toBe("1.1.0");
+    expect((await getInstalledPlugin(db, "updater"))?.version).toBe("1.1.0");
   });
 
   it("checks, reads persisted state, and updates through the exact HTTP contract", async () => {
-    db.$client
+    await db.$client
       .prepare("UPDATE plugins SET source_git_ref_kind = NULL WHERE id = ?")
       .run("updater");
     await restorePhaseOneCloneHistory("updater", repo);
@@ -611,7 +618,7 @@ describe("plugin update service and routes", () => {
         },
       ],
     });
-    expect(getInstalledPluginRegistration(db, "updater")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "updater")).toMatchObject({
       sourceGitRefKind: "branch",
     });
 
@@ -674,7 +681,7 @@ describe("plugin update service and routes", () => {
       source: `git:${repo}@main`,
       selection: { kind: "root" },
     });
-    upsertPluginMarketplace(db, {
+    await upsertPluginMarketplace(db, {
       name: "acme-plugins",
       sourceKind: "path",
       manifestUrl: workDir,
@@ -694,7 +701,7 @@ describe("plugin update service and routes", () => {
       lastAttemptedRefreshAt: Date.now(),
       lastError: null,
     });
-    const catalog = createPluginCatalogService({
+    const catalog = await createPluginCatalogService({
       db,
       appVersion: "1.0.0",
       marketplaceUrl: "https://marketplace.test/marketplace.json",
@@ -705,7 +712,7 @@ describe("plugin update service and routes", () => {
 
     const removed = await catalog.removeMarketplace("acme-plugins");
     expect(removed.convertedPluginIds).toEqual(["updater"]);
-    expect(getInstalledPlugin(db, "updater")).toMatchObject({
+    expect(await getInstalledPlugin(db, "updater")).toMatchObject({
       provenance: "direct",
       catalogEntryId: null,
       catalogMarketplaceName: null,
@@ -753,10 +760,12 @@ describe("plugin update service and routes", () => {
       error: expect.stringContaining("is incompatible"),
     });
     expect(
-      service.list().find((entry) => entry.id === "updater"),
+      (await service.list()).find((entry) => entry.id === "updater"),
     ).toMatchObject({ version: "1.0.0", status: "running" });
     expect(
-      service.listUpdateResults().find((entry) => entry.id === "updater"),
+      (await service.listUpdateResults()).find(
+        (entry) => entry.id === "updater",
+      ),
     ).toMatchObject({
       installed: { version: installedCommit },
       blocked: { version: incompatibleCommit },
@@ -764,7 +773,7 @@ describe("plugin update service and routes", () => {
   });
 
   it("serializes two updates for one plugin so only one applies", async () => {
-    const before = getInstalledPluginRegistration(db, "updater");
+    const before = await getInstalledPluginRegistration(db, "updater");
     if (before === undefined) throw new Error("missing installed updater");
     const oldRoot = before.rootDir;
     const nextCommit = await commitPlugin(repo, "1.1.0");
@@ -788,29 +797,28 @@ describe("plugin update service and routes", () => {
         }),
       ]),
     );
-    expect(service.listUpdateResults()).toMatchObject([
+    expect(await service.listUpdateResults()).toMatchObject([
       {
         outcome: "current",
         installed: { version: nextCommit },
       },
     ]);
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       { id: "updater", version: "1.1.0", status: "running" },
     ]);
-    const updated = getInstalledPluginRegistration(db, "updater");
+    const updated = await getInstalledPluginRegistration(db, "updater");
     expect(updated).toMatchObject({
       rootDir: expect.stringContaining(nextCommit),
       activeArtifactId: expect.any(String),
     });
     expect(updated?.rootDir).not.toBe(oldRoot);
     await expect(stat(oldRoot)).rejects.toMatchObject({ code: "ENOENT" });
-    expect(listPluginArtifacts(db, "updater")).toHaveLength(1);
+    expect(await listPluginArtifacts(db, "updater")).toHaveLength(1);
   });
 
   it("rolls back when a background service crashes during stabilization", async () => {
-    const installedCommit = getInstalledPluginRegistration(
-      db,
-      "updater",
+    const installedCommit = (
+      await getInstalledPluginRegistration(db, "updater")
     )?.gitResolvedCommit;
     if (installedCommit === null || installedCommit === undefined) {
       throw new Error("missing installed commit");
@@ -822,6 +830,7 @@ describe("plugin update service and routes", () => {
     vi.stubGlobal("__hyperfidePluginStabilizationCrash", serviceCrash);
     await service.stop();
     service = createPluginService({
+      bundledPlugins: [],
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db,
@@ -862,12 +871,12 @@ describe("plugin update service and routes", () => {
         detail: expect.stringContaining("service unstable crashed"),
       },
     });
-    expect(getInstalledPluginRegistration(db, "updater")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "updater")).toMatchObject({
       gitResolvedCommit: installedCommit,
       lastFailureVersion: candidateCommit,
     });
     expect(
-      service.list().find((entry) => entry.id === "updater"),
+      (await service.list()).find((entry) => entry.id === "updater"),
     ).toMatchObject({
       updateState: {
         lastFailure: {
@@ -878,7 +887,7 @@ describe("plugin update service and routes", () => {
       },
     });
     expect(
-      service.list().find((entry) => entry.id === "updater"),
+      (await service.list()).find((entry) => entry.id === "updater"),
     ).toMatchObject({ id: "updater", version: "1.0.0", status: "running" });
   }, 60_000);
 
@@ -886,24 +895,26 @@ describe("plugin update service and routes", () => {
     const pluginDir = join(workDir, "data", "plugins", "updater");
     const databasePath = join(pluginDir, "data.db");
     const secretPath = join(pluginDir, "secrets", "token");
-    const oldRegistration = getInstalledPluginRegistration(db, "updater");
+    const oldRegistration = await getInstalledPluginRegistration(db, "updater");
     if (
       oldRegistration?.activeArtifactId === null ||
       oldRegistration === undefined
     ) {
       throw new Error("missing old registration");
     }
-    const oldArtifact = listPluginArtifacts(db, "updater").find(
+    const oldArtifact = (await listPluginArtifacts(db, "updater")).find(
       (artifact) => artifact.id === oldRegistration.activeArtifactId,
     );
     if (oldArtifact === undefined) throw new Error("missing old artifact");
-    const api = service.getApi("updater");
+    const api = await service.getApi("updater");
     if (api === undefined) throw new Error("updater did not load");
-    const pluginDb = api.storage.database();
+    const pluginDb = await api.storage.database();
     pluginDb.exec("CREATE TABLE restart_state (value TEXT NOT NULL)");
-    pluginDb.prepare("INSERT INTO restart_state VALUES (?)").run("old-db");
+    await pluginDb
+      .prepare("INSERT INTO restart_state VALUES (?)")
+      .run("old-db");
     await api.storage.kv.set("restart-cursor", "old-kv");
-    setPluginSettingsValues(db, "updater", {
+    await setPluginSettingsValues(db, "updater", {
       restartMode: JSON.stringify("old-setting"),
     });
     await mkdir(join(pluginDir, "secrets"), { recursive: true });
@@ -926,6 +937,7 @@ describe("plugin update service and routes", () => {
     );
     await service.stop();
     service = createPluginService({
+      bundledPlugins: [],
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db,
@@ -945,7 +957,7 @@ describe("plugin update service and routes", () => {
       },
     });
     await service.start();
-    upsertPluginSchedule(db, {
+    await upsertPluginSchedule(db, {
       pluginId: "updater",
       name: "restart-sync",
       cron: "0 * * * *",
@@ -954,18 +966,19 @@ describe("plugin update service and routes", () => {
     await expect(service.applyUpdate("updater")).rejects.toThrow(
       "simulated process exit during rollback",
     );
-    expect(getInstalledPluginRegistration(db, "updater")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "updater")).toMatchObject({
       version: "1.1.0",
       activeArtifactId: expect.not.stringMatching(
         oldRegistration.activeArtifactId,
       ),
     });
-    expect(listPluginStateSnapshots(db, "updater")).toMatchObject([
+    expect(await listPluginStateSnapshots(db, "updater")).toMatchObject([
       { status: "restoring", fromArtifactId: oldRegistration.activeArtifactId },
     ]);
 
     await service.stop();
     service = createPluginService({
+      bundledPlugins: [],
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db,
@@ -983,36 +996,36 @@ describe("plugin update service and routes", () => {
     });
     await service.start();
 
-    expect(getInstalledPluginRegistration(db, "updater")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "updater")).toMatchObject({
       version: oldRegistration.version,
       activeArtifactId: oldRegistration.activeArtifactId,
       lastFailureVersion: expect.any(String),
     });
     expect(
-      service.list().find((entry) => entry.id === "updater"),
+      (await service.list()).find((entry) => entry.id === "updater"),
     ).toMatchObject({ version: oldRegistration.version, status: "running" });
-    const restored = new Database(databasePath, { readonly: true });
+    const restored = await new Database(databasePath, { readonly: true });
     expect(
-      restored.prepare("SELECT value FROM restart_state").pluck().get(),
+      await restored.prepare("SELECT value FROM restart_state").pluck().get(),
     ).toBe("old-db");
-    restored.close();
-    expect(getPluginKvValue(db, "updater", "restart-cursor")).toBe(
+    await restored.close();
+    expect(await getPluginKvValue(db, "updater", "restart-cursor")).toBe(
       JSON.stringify("old-kv"),
     );
-    expect(getPluginSettingsValues(db, "updater")).toEqual({
+    expect(await getPluginSettingsValues(db, "updater")).toEqual({
       restartMode: JSON.stringify("old-setting"),
     });
-    expect(listPluginSchedules(db, "updater")).toMatchObject([
+    expect(await listPluginSchedules(db, "updater")).toMatchObject([
       { name: "restart-sync", cron: "0 * * * *", nextRunAt: 4321 },
     ]);
     expect(await readFile(secretPath, "utf8")).toBe("restart-secret");
     await stat(oldArtifact.path);
-    expect(listPluginStateSnapshots(db, "updater")).toMatchObject([
+    expect(await listPluginStateSnapshots(db, "updater")).toMatchObject([
       { status: "restored" },
     ]);
   }, 60_000);
 
-  function upsertNpmRow(
+  async function upsertNpmRow(
     id: string,
     registry: string,
     provenance:
@@ -1020,9 +1033,9 @@ describe("plugin update service and routes", () => {
       | { kind: "catalog"; marketplace: string; entryId: string } = {
       kind: "direct",
     },
-  ): void {
+  ): Promise<void> {
     const packageName = `hyperfide-plugin-${id}`;
-    upsertInstalledPlugin(db, {
+    await upsertInstalledPlugin(db, {
       id,
       source: `npm:${packageName}`,
       provenance,
@@ -1060,7 +1073,7 @@ describe("plugin update service and routes", () => {
   }, 60_000);
 
   it("keeps the guarded registry policy for catalog installs during a check", async () => {
-    upsertNpmRow("listed", "https://127.0.0.1", {
+    await upsertNpmRow("listed", "https://127.0.0.1", {
       kind: "catalog",
       marketplace: "hyperfide-community",
       entryId: "listed",
@@ -1085,6 +1098,7 @@ describe("plugin update service and routes", () => {
     let clock = Date.now();
     const makeService = () =>
       createPluginService({
+        bundledPlugins: [],
         aiServices: createAiServiceRegistry(),
         telemetry: createNoopTelemetryService(),
         db,
@@ -1104,22 +1118,30 @@ describe("plugin update service and routes", () => {
       });
     service = makeService();
     await service.start();
-    const oldArtifact = listPluginArtifacts(db, "updater").find(
-      (artifact) =>
-        artifact.id ===
-        getInstalledPluginRegistration(db, "updater")?.activeArtifactId,
-    );
+    const oldArtifact = (
+      await Promise.all(
+        (await listPluginArtifacts(db, "updater")).map(
+          async (value, index, array) => ({
+            value,
+            matches: await (async (artifact) =>
+              artifact.id ===
+              (await getInstalledPluginRegistration(db, "updater"))
+                ?.activeArtifactId)(value),
+          }),
+        ),
+      )
+    ).find((entry) => entry.matches)?.value;
     if (oldArtifact === undefined) throw new Error("missing old artifact");
     await commitPlugin(repo, "1.1.0");
     await expect(service.applyUpdate("updater")).resolves.toMatchObject({
       ok: true,
       result: { applied: true },
     });
-    expect(listPluginStateSnapshots(db, "updater")).toHaveLength(1);
-    const remaining = listPluginArtifacts(db, "updater");
+    expect(await listPluginStateSnapshots(db, "updater")).toHaveLength(1);
+    const remaining = await listPluginArtifacts(db, "updater");
     expect(remaining).toHaveLength(1);
     expect(remaining[0]?.id).toBe(
-      getInstalledPluginRegistration(db, "updater")?.activeArtifactId,
+      (await getInstalledPluginRegistration(db, "updater"))?.activeArtifactId,
     );
     await expect(stat(oldArtifact.path)).rejects.toMatchObject({
       code: "ENOENT",
@@ -1130,8 +1152,8 @@ describe("plugin update service and routes", () => {
     await service.stop();
     service = makeService();
     await service.start();
-    expect(listPluginStateSnapshots(db, "updater")).toHaveLength(0);
-    expect(listPluginArtifacts(db, "updater")).toEqual(remaining);
+    expect(await listPluginStateSnapshots(db, "updater")).toHaveLength(0);
+    expect(await listPluginArtifacts(db, "updater")).toEqual(remaining);
   }, 60_000);
 
   it("orders removal after an in-flight update without resurrecting the plugin", async () => {
@@ -1159,7 +1181,7 @@ describe("plugin update service and routes", () => {
       result: { applied: true },
     });
     await expect(removal).resolves.toBe(true);
-    expect(getInstalledPluginRegistration(db, "updater")).toBeUndefined();
+    expect(await getInstalledPluginRegistration(db, "updater")).toBeUndefined();
   });
 
   it("orders disablement after an in-flight update without re-enabling it", async () => {
@@ -1187,7 +1209,7 @@ describe("plugin update service and routes", () => {
       result: { applied: true },
     });
     await expect(disable).resolves.toMatchObject({ enabled: false });
-    expect(getInstalledPluginRegistration(db, "updater")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "updater")).toMatchObject({
       version: "1.1.0",
       enabled: false,
     });
@@ -1202,7 +1224,7 @@ describe("plugin update service and routes", () => {
 
     expect(checked).toHaveLength(1);
     expect(applied).toMatchObject({ ok: true });
-    expect(getInstalledPluginRegistration(db, "updater")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "updater")).toMatchObject({
       gitResolvedCommit: nextCommit,
       version: "1.1.0",
     });
@@ -1236,7 +1258,7 @@ describe("plugin update service and routes", () => {
       );
       await git(repo, ["add", "-A"]);
       await git(repo, ["commit", "-qm", `nested ${version}`]);
-      return git(repo, ["rev-parse", "HEAD"]);
+      return await git(repo, ["rev-parse", "HEAD"]);
     };
 
     await commitNested("1.0.0");
@@ -1258,7 +1280,9 @@ describe("plugin update service and routes", () => {
       ok: true,
       result: { applied: true, outcome: "updated" },
     });
-    expect(getInstalledPluginRegistration(db, "nested-updater")).toMatchObject({
+    expect(
+      await getInstalledPluginRegistration(db, "nested-updater"),
+    ).toMatchObject({
       sourceGitSubdirectory: "plugins/nested",
       gitResolvedCommit: nextCommit,
       version: "1.1.0",
@@ -1272,7 +1296,9 @@ describe("plugin update service and routes", () => {
       ok: true,
       result: { applied: false, outcome: "rolled-back" },
     });
-    expect(getInstalledPluginRegistration(db, "nested-updater")).toMatchObject({
+    expect(
+      await getInstalledPluginRegistration(db, "nested-updater"),
+    ).toMatchObject({
       sourceGitSubdirectory: "plugins/nested",
       gitResolvedCommit: nextCommit,
       version: "1.1.0",
@@ -1307,7 +1333,7 @@ describe("plugin update service and routes", () => {
     );
     await run("git", ["clone", "--quiet", repo, legacyRoot]);
     const currentCommit = await git(repo, ["rev-parse", "HEAD"]);
-    upsertInstalledPlugin(db, {
+    await upsertInstalledPlugin(db, {
       id: "updater",
       source: `git:${repo}@main`,
       provenance: { kind: "direct" },
@@ -1331,14 +1357,14 @@ describe("plugin update service and routes", () => {
       enabledFollowsDefault: false,
     });
     await service.reload("updater");
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       { id: "updater", rootDir: legacyRoot, status: "running" },
     ]);
 
     const nextCommit = await commitPlugin(repo, "1.1.0");
     const applied = await service.applyUpdate("updater");
     expect(applied).toMatchObject({ ok: true, result: { applied: true } });
-    const migrated = getInstalledPluginRegistration(db, "updater");
+    const migrated = await getInstalledPluginRegistration(db, "updater");
     expect(migrated).toMatchObject({
       rootDir: expect.stringContaining(
         join("plugins", "cache", "git", "local"),
@@ -1382,7 +1408,7 @@ describe("plugin update service and routes", () => {
     await git(repoDir, ["add", "-A"]);
     await git(repoDir, ["commit", "-qm", tag]);
     await git(repoDir, ["tag", tag]);
-    return git(repoDir, ["rev-parse", "HEAD"]);
+    return await git(repoDir, ["rev-parse", "HEAD"]);
   }
 
   it("offers and applies a newer tag inside a git semver range", async () => {
@@ -1405,7 +1431,7 @@ describe("plugin update service and routes", () => {
 
     const applied = await service.applyUpdate("tagged");
     expect(applied).toMatchObject({ ok: true, result: { applied: true } });
-    expect(getInstalledPluginRegistration(db, "tagged")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "tagged")).toMatchObject({
       sourceGitRange: "^1.0.0",
       sourceGitResolvedTag: "v1.1.0",
       gitResolvedCommit: nextCommit,
@@ -1418,7 +1444,7 @@ describe("plugin update service and routes", () => {
   it("refuses to resolve a release tag that was moved to another commit", async () => {
     const tagged = await taggedRepo();
     await service.install(`git:${tagged}@semver:^1.0.0`, { kind: "root" });
-    const installed = getInstalledPluginRegistration(db, "tagged");
+    const installed = await getInstalledPluginRegistration(db, "tagged");
     await writeFile(join(tagged, "release.txt"), "rewritten");
     await git(tagged, ["add", "-A"]);
     await git(tagged, ["commit", "-qm", "rewrite"]);
@@ -1439,7 +1465,7 @@ describe("plugin update service and routes", () => {
         `${installed?.gitResolvedCommit ?? ""} to ${moved}`,
       ),
     });
-    expect(getInstalledPluginRegistration(db, "tagged")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "tagged")).toMatchObject({
       sourceGitResolvedTag: "v1.0.0",
       gitResolvedCommit: installed?.gitResolvedCommit,
     });
@@ -1452,8 +1478,8 @@ describe("plugin update service and routes", () => {
     await expect(service.install(source, { kind: "root" })).rejects.toThrow(
       /already installed/,
     );
-    const installed = getInstalledPluginRegistration(db, "tagged");
-    db.$client
+    const installed = await getInstalledPluginRegistration(db, "tagged");
+    await db.$client
       .prepare("UPDATE plugins SET source_git_ref_kind = NULL WHERE id = ?")
       .run("tagged");
 
@@ -1475,7 +1501,7 @@ describe("plugin update service and routes", () => {
         }),
       ]),
     );
-    expect(getInstalledPluginRegistration(db, "tagged")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "tagged")).toMatchObject({
       sourceGitRefKind: "tag",
       gitResolvedCommit: installed?.gitResolvedCommit,
     });
@@ -1488,8 +1514,8 @@ describe("plugin update service and routes", () => {
   it("refuses to turn a legacy tag pin into a same-name branch", async () => {
     const tagged = await taggedRepo();
     await service.install(`git:${tagged}@v1.0.0`, { kind: "root" });
-    const installed = getInstalledPluginRegistration(db, "tagged");
-    db.$client
+    const installed = await getInstalledPluginRegistration(db, "tagged");
+    await db.$client
       .prepare("UPDATE plugins SET source_git_ref_kind = NULL WHERE id = ?")
       .run("tagged");
     await restorePhaseOneCloneHistory("tagged", tagged);
@@ -1507,11 +1533,11 @@ describe("plugin update service and routes", () => {
         detail: expect.stringContaining("recorded it as a tag"),
       },
     ]);
-    expect(getInstalledPluginRegistration(db, "tagged")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "tagged")).toMatchObject({
       sourceGitRefKind: null,
       gitResolvedCommit: installed?.gitResolvedCommit,
     });
-    expect(service.list()).toEqual(
+    expect(await service.list()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "tagged",
@@ -1567,7 +1593,7 @@ describe("plugin update service and routes", () => {
 
     const applied = await service.applyUpdate("tagged");
     expect(applied).toMatchObject({ ok: true, result: { applied: true } });
-    expect(getInstalledPluginRegistration(db, "tagged")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "tagged")).toMatchObject({
       sourceGitResolvedTag: "v1.1.0",
       gitResolvedCommit: compatible,
     });
@@ -1594,7 +1620,7 @@ describe("plugin update service and routes", () => {
 
     await service.install(`git:${tagged}@semver:^1.0.0`, { kind: "root" });
 
-    expect(getInstalledPluginRegistration(db, "tagged")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "tagged")).toMatchObject({
       sourceGitResolvedTag: "v1.0.0",
       gitResolvedCommit: compatible,
     });

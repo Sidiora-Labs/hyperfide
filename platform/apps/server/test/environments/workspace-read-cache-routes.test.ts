@@ -43,14 +43,14 @@ function workspaceStatus(
   };
 }
 
-function seedGitEnvironment(harness: TestAppHarness, suffix: string) {
-  const { host } = seedHostSession(harness.deps, {
+async function seedGitEnvironment(harness: TestAppHarness, suffix: string) {
+  const { host } = await seedHostSession(harness.deps, {
     id: `host-workspace-read-cache-${suffix}`,
   });
-  const { project } = seedProjectWithSource(harness.deps, {
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     branchName: "hyperfide/pr-cache",
@@ -64,7 +64,7 @@ function seedGitEnvironment(harness: TestAppHarness, suffix: string) {
 describe("workspace read caches on the environment routes", () => {
   it("serves overlapping and repeated status reads from one daemon probe until work-status-changed", async () => {
     await withTestHarness(async (harness) => {
-      const { environment } = seedGitEnvironment(harness, "status");
+      const { environment } = await seedGitEnvironment(harness, "status");
       const url = `/api/v1/environments/${environment.id}/status`;
 
       const first = harness.app.request(url);
@@ -93,7 +93,9 @@ describe("workspace read caches on the environment routes", () => {
       await expect(readJson(third)).resolves.toMatchObject({
         workspace: { branch: { currentBranch: "feature/one" } },
       });
-      expect(listQueuedCommands(harness, "workspace.status")).toHaveLength(0);
+      expect(
+        await listQueuedCommands(harness, "workspace.status"),
+      ).toHaveLength(0);
 
       const withMergeBase = harness.app.request(
         `${url}?mergeBaseBranch=release`,
@@ -115,7 +117,9 @@ describe("workspace read caches on the environment routes", () => {
       );
       expect((await withMergeBase).status).toBe(200);
 
-      harness.hub.notifyEnvironment(environment.id, ["work-status-changed"]);
+      await harness.hub.notifyEnvironment(environment.id, [
+        "work-status-changed",
+      ]);
       const fourth = harness.app.request(url);
       const refreshedCommand = await waitForQueuedCommandAfter(
         harness,
@@ -140,7 +144,10 @@ describe("workspace read caches on the environment routes", () => {
 
   it("drops the cached status when the commit action mutates the workspace", async () => {
     await withTestHarness(async (harness) => {
-      const { environment } = seedGitEnvironment(harness, "commit-action");
+      const { environment } = await seedGitEnvironment(
+        harness,
+        "commit-action",
+      );
       const statusUrl = `/api/v1/environments/${environment.id}/status`;
 
       const dirtyRead = harness.app.request(statusUrl);
@@ -232,8 +239,8 @@ it.each(["suspended", "suspending"] as const)(
   "does not send passive status RPCs to a %s machine",
   async (phase) => {
     await withTestHarness(async (h) => {
-      const { host, environment } = seedGitEnvironment(h, phase);
-      updateHost(h.db, h.hub, host.id, {
+      const { host, environment } = await seedGitEnvironment(h, phase);
+      await updateHost(h.db, h.hub, host.id, {
         phase,
         machineProviderId: "test-paused-provider",
         suspendedAt: phase === "suspended" ? Date.now() : null,
@@ -242,7 +249,7 @@ it.each(["suspended", "suspending"] as const)(
         `/api/v1/environments/${environment.id}/status`,
       );
       expect(response.status).not.toBe(404);
-      expect(listQueuedCommands(h, "workspace.status")).toHaveLength(0);
+      expect(await listQueuedCommands(h, "workspace.status")).toHaveLength(0);
     });
   },
 );

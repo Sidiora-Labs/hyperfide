@@ -33,8 +33,8 @@ function textInput(text: string): PromptInput[] {
 const defaultInput = textInput("hello");
 const altInput = textInput("world");
 
-function queueTurnEndMessage(
-  db: ReturnType<typeof createMigratedConnection>,
+async function queueTurnEndMessage(
+  db: Awaited<ReturnType<typeof createMigratedConnection>>,
   threadId: string,
   content: PromptInput[],
   wait: {
@@ -45,7 +45,7 @@ function queueTurnEndMessage(
     waitingOn: { kind: "thread-busy" },
   },
 ) {
-  return createQueuedThreadMessage(db, noopNotifier, {
+  return await createQueuedThreadMessage(db, noopNotifier, {
     threadId,
     content,
     model: "gpt-5",
@@ -59,16 +59,16 @@ function queueTurnEndMessage(
   });
 }
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
   });
@@ -76,14 +76,14 @@ function setup() {
 }
 
 describe("queued thread messages", () => {
-  it("lists an idle thread waiting for its turn to start", () => {
-    const { db, project } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("lists an idle thread waiting for its turn to start", async () => {
+    const { db, project } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "idle",
     });
-    createQueuedThreadMessage(db, noopNotifier, {
+    await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -97,13 +97,13 @@ describe("queued thread messages", () => {
     });
 
     expect(
-      listIdleThreadsWithQueuedMessages(db).map((row) => row.threadId),
+      (await listIdleThreadsWithQueuedMessages(db)).map((row) => row.threadId),
     ).toContain(thread.id);
   });
 
-  it("updates queued message content without changing its identity or position", () => {
-    const { db, thread } = setup();
-    const first = createQueuedThreadMessage(db, noopNotifier, {
+  it("updates queued message content without changing its identity or position", async () => {
+    const { db, thread } = await setup();
+    const first = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -115,7 +115,7 @@ describe("queued thread messages", () => {
       payload: { kind: "inline" },
       systemNotice: null,
     });
-    const second = createQueuedThreadMessage(db, noopNotifier, {
+    const second = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -127,16 +127,16 @@ describe("queued thread messages", () => {
       payload: { kind: "inline" },
       systemNotice: null,
     });
-    setQueuedThreadMessageGroupBoundary({
+    await setQueuedThreadMessageGroupBoundary({
       db,
       expectedGroupedPrefixQueuedMessageIds: [first.id, second.id],
       groupBoundaryQueuedMessageId: second.id,
       notifier: noopNotifier,
       threadId: thread.id,
     });
-    const before = getQueuedThreadMessage(db, first.id);
+    const before = await getQueuedThreadMessage(db, first.id);
 
-    const result = updateQueuedThreadMessage(db, noopNotifier, {
+    const result = await updateQueuedThreadMessage(db, noopNotifier, {
       content: textInput("edited in place"),
       expectedUpdatedAt: before?.updatedAt ?? -1,
       id: first.id,
@@ -145,9 +145,9 @@ describe("queued thread messages", () => {
 
     expect(result.kind).toBe("updated");
     expect(
-      listQueuedThreadMessages(db, thread.id).map((row) => row.id),
+      (await listQueuedThreadMessages(db, thread.id)).map((row) => row.id),
     ).toEqual([first.id, second.id]);
-    expect(getQueuedThreadMessage(db, first.id)).toMatchObject({
+    expect(await getQueuedThreadMessage(db, first.id)).toMatchObject({
       content: JSON.stringify(textInput("edited in place")),
       createdAt: before?.createdAt,
       groupWithNext: true,
@@ -160,9 +160,9 @@ describe("queued thread messages", () => {
     });
   });
 
-  it("rejects a second update based on the same queued message version", () => {
-    const { db, thread } = setup();
-    const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+  it("rejects a second update based on the same queued message version", async () => {
+    const { db, thread } = await setup();
+    const queuedMessage = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -176,32 +176,34 @@ describe("queued thread messages", () => {
     });
 
     expect(
-      updateQueuedThreadMessage(db, noopNotifier, {
-        content: textInput("first edit"),
-        expectedUpdatedAt: queuedMessage.updatedAt,
-        id: queuedMessage.id,
-        threadId: thread.id,
-      }).kind,
+      (
+        await updateQueuedThreadMessage(db, noopNotifier, {
+          content: textInput("first edit"),
+          expectedUpdatedAt: queuedMessage.updatedAt,
+          id: queuedMessage.id,
+          threadId: thread.id,
+        })
+      ).kind,
     ).toBe("updated");
     expect(
-      updateQueuedThreadMessage(db, noopNotifier, {
+      await updateQueuedThreadMessage(db, noopNotifier, {
         content: textInput("stale edit"),
         expectedUpdatedAt: queuedMessage.updatedAt,
         id: queuedMessage.id,
         threadId: thread.id,
       }),
     ).toEqual({ kind: "stale" });
-    expect(getQueuedThreadMessage(db, queuedMessage.id)?.content).toBe(
+    expect((await getQueuedThreadMessage(db, queuedMessage.id))?.content).toBe(
       JSON.stringify(textInput("first edit")),
     );
   });
 
-  it("advances updatedAt when an update occurs within the same millisecond", () => {
+  it("advances updatedAt when an update occurs within the same millisecond", async () => {
     const fixedNow = Date.now();
     const dateNow = vi.spyOn(Date, "now").mockReturnValue(fixedNow);
     try {
-      const { db, thread } = setup();
-      const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      const { db, thread } = await setup();
+      const queuedMessage = await createQueuedThreadMessage(db, noopNotifier, {
         threadId: thread.id,
         content: defaultInput,
         model: "gpt-5",
@@ -214,7 +216,7 @@ describe("queued thread messages", () => {
         systemNotice: null,
       });
 
-      const result = updateQueuedThreadMessage(db, noopNotifier, {
+      const result = await updateQueuedThreadMessage(db, noopNotifier, {
         content: altInput,
         expectedUpdatedAt: queuedMessage.updatedAt,
         id: queuedMessage.id,
@@ -230,9 +232,9 @@ describe("queued thread messages", () => {
     }
   });
 
-  it("does not update a queued message that is already claimed for sending", () => {
-    const { db, thread } = setup();
-    const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+  it("does not update a queued message that is already claimed for sending", async () => {
+    const { db, thread } = await setup();
+    const queuedMessage = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -244,26 +246,26 @@ describe("queued thread messages", () => {
       payload: { kind: "inline" },
       systemNotice: null,
     });
-    claimQueuedThreadMessageGroup(db, noopNotifier, queuedMessage.id, {
+    await claimQueuedThreadMessageGroup(db, noopNotifier, queuedMessage.id, {
       kind: "explicit-send",
     });
 
     expect(
-      updateQueuedThreadMessage(db, noopNotifier, {
+      await updateQueuedThreadMessage(db, noopNotifier, {
         content: altInput,
         expectedUpdatedAt: queuedMessage.updatedAt,
         id: queuedMessage.id,
         threadId: thread.id,
       }),
     ).toEqual({ kind: "claimed" });
-    expect(getQueuedThreadMessage(db, queuedMessage.id)?.content).toBe(
+    expect((await getQueuedThreadMessage(db, queuedMessage.id))?.content).toBe(
       JSON.stringify(defaultInput),
     );
   });
 
-  it("deletes a queued message", () => {
-    const { db, thread } = setup();
-    const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+  it("deletes a queued message", async () => {
+    const { db, thread } = await setup();
+    const queuedMessage = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -276,18 +278,18 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
 
-    expect(deleteQueuedThreadMessage(db, noopNotifier, queuedMessage.id)).toBe(
-      true,
-    );
-    expect(listQueuedThreadMessages(db, thread.id)).toHaveLength(0);
-    expect(deleteQueuedThreadMessage(db, noopNotifier, queuedMessage.id)).toBe(
-      false,
-    );
+    expect(
+      await deleteQueuedThreadMessage(db, noopNotifier, queuedMessage.id),
+    ).toBe(true);
+    expect(await listQueuedThreadMessages(db, thread.id)).toHaveLength(0);
+    expect(
+      await deleteQueuedThreadMessage(db, noopNotifier, queuedMessage.id),
+    ).toBe(false);
   });
 
-  it("claims a queued message and hides it from the queue until the claim is released", () => {
-    const { db, thread } = setup();
-    const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+  it("claims a queued message and hides it from the queue until the claim is released", async () => {
+    const { db, thread } = await setup();
+    const queuedMessage = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -300,31 +302,30 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
 
-    const claimedQueuedMessage = claimQueuedThreadMessageGroup(
-      db,
-      noopNotifier,
-      queuedMessage.id,
-      { kind: "explicit-send" },
+    const claimedQueuedMessage = (
+      await claimQueuedThreadMessageGroup(db, noopNotifier, queuedMessage.id, {
+        kind: "explicit-send",
+      })
     )?.[0];
     expect(claimedQueuedMessage?.id).toBe(queuedMessage.id);
     expect(claimedQueuedMessage?.claimToken).toMatch(/^qclaim_/);
-    expect(listQueuedThreadMessages(db, thread.id)).toHaveLength(0);
+    expect(await listQueuedThreadMessages(db, thread.id)).toHaveLength(0);
 
     if (!claimedQueuedMessage) {
       throw new Error("Expected queued message claim");
     }
     expect(
-      releaseQueuedMessageClaim(db, noopNotifier, {
+      await releaseQueuedMessageClaim(db, noopNotifier, {
         id: queuedMessage.id,
         claimToken: claimedQueuedMessage.claimToken,
       }),
     ).toBe(true);
-    expect(listQueuedThreadMessages(db, thread.id)).toHaveLength(1);
+    expect(await listQueuedThreadMessages(db, thread.id)).toHaveLength(1);
   });
 
-  it("does not release or consume a queued message claimed by another owner", () => {
-    const { db, thread } = setup();
-    const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+  it("does not release or consume a queued message claimed by another owner", async () => {
+    const { db, thread } = await setup();
+    const queuedMessage = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -336,80 +337,81 @@ describe("queued thread messages", () => {
       payload: { kind: "inline" },
       systemNotice: null,
     });
-    const firstClaim = claimQueuedThreadMessageGroup(
-      db,
-      noopNotifier,
-      queuedMessage.id,
-      { kind: "explicit-send" },
+    const firstClaim = (
+      await claimQueuedThreadMessageGroup(db, noopNotifier, queuedMessage.id, {
+        kind: "explicit-send",
+      })
     )?.[0];
     if (!firstClaim) {
       throw new Error("Expected first queued message claim");
     }
     expect(
-      releaseQueuedMessageClaim(db, noopNotifier, {
+      await releaseQueuedMessageClaim(db, noopNotifier, {
         id: queuedMessage.id,
         claimToken: "qclaim_staleowner",
       }),
     ).toBe(false);
-    expect(getQueuedThreadMessage(db, queuedMessage.id)?.claimToken).toBe(
-      firstClaim.claimToken,
-    );
     expect(
-      db.transaction((tx) =>
-        deleteClaimedQueuedThreadMessageBatchInTransaction(tx, {
-          queuedMessages: [
-            { id: queuedMessage.id, claimToken: "qclaim_staleowner" },
-          ],
-        }),
+      (await getQueuedThreadMessage(db, queuedMessage.id))?.claimToken,
+    ).toBe(firstClaim.claimToken);
+    expect(
+      await db.transaction(
+        async (tx) =>
+          await deleteClaimedQueuedThreadMessageBatchInTransaction(tx, {
+            queuedMessages: [
+              { id: queuedMessage.id, claimToken: "qclaim_staleowner" },
+            ],
+          }),
       ),
     ).toBe(false);
 
     expect(
-      releaseQueuedMessageClaim(db, noopNotifier, {
+      await releaseQueuedMessageClaim(db, noopNotifier, {
         id: queuedMessage.id,
         claimToken: firstClaim.claimToken,
       }),
     ).toBe(true);
-    const secondClaim = claimQueuedThreadMessageGroup(
-      db,
-      noopNotifier,
-      queuedMessage.id,
-      { kind: "explicit-send" },
+    const secondClaim = (
+      await claimQueuedThreadMessageGroup(db, noopNotifier, queuedMessage.id, {
+        kind: "explicit-send",
+      })
     )?.[0];
     if (!secondClaim) {
       throw new Error("Expected second queued message claim");
     }
     expect(secondClaim.claimToken).not.toBe(firstClaim.claimToken);
     expect(
-      db.transaction((tx) =>
-        deleteClaimedQueuedThreadMessageBatchInTransaction(tx, {
-          queuedMessages: [
-            { id: queuedMessage.id, claimToken: firstClaim.claimToken },
-          ],
-        }),
+      await db.transaction(
+        async (tx) =>
+          await deleteClaimedQueuedThreadMessageBatchInTransaction(tx, {
+            queuedMessages: [
+              { id: queuedMessage.id, claimToken: firstClaim.claimToken },
+            ],
+          }),
       ),
     ).toBe(false);
-    expect(getQueuedThreadMessage(db, queuedMessage.id)?.claimToken).toBe(
-      secondClaim.claimToken,
-    );
     expect(
-      db.transaction((tx) =>
-        deleteClaimedQueuedThreadMessageBatchInTransaction(tx, {
-          queuedMessages: [
-            { id: queuedMessage.id, claimToken: secondClaim.claimToken },
-          ],
-        }),
+      (await getQueuedThreadMessage(db, queuedMessage.id))?.claimToken,
+    ).toBe(secondClaim.claimToken);
+    expect(
+      await db.transaction(
+        async (tx) =>
+          await deleteClaimedQueuedThreadMessageBatchInTransaction(tx, {
+            queuedMessages: [
+              { id: queuedMessage.id, claimToken: secondClaim.claimToken },
+            ],
+          }),
       ),
     ).toBe(true);
-    expect(getQueuedThreadMessage(db, queuedMessage.id)).toBeNull();
+    expect(await getQueuedThreadMessage(db, queuedMessage.id)).toBeNull();
   });
 
-  it("releases stale queued message claims", () => {
-    const { db, thread } = setup();
+  it("releases stale queued message claims", async () => {
+    const { db, thread } = await setup();
     const nowSpy = vi.spyOn(Date, "now");
     try {
       nowSpy.mockReturnValue(1_000);
-      const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      const queuedMessage = await createQueuedThreadMessage(db, noopNotifier, {
         threadId: thread.id,
         content: defaultInput,
         model: "gpt-5",
@@ -421,40 +423,42 @@ describe("queued thread messages", () => {
         payload: { kind: "inline" },
         systemNotice: null,
       });
-      const claimedQueuedMessage = claimQueuedThreadMessageGroup(
-        db,
-        noopNotifier,
-        queuedMessage.id,
-        { kind: "explicit-send" },
+      const claimedQueuedMessage = (
+        await claimQueuedThreadMessageGroup(
+          db,
+          noopNotifier,
+          queuedMessage.id,
+          { kind: "explicit-send" },
+        )
       )?.[0];
       expect(claimedQueuedMessage?.claimedAt).toBe(1_000);
       expect(claimedQueuedMessage?.claimToken).toMatch(/^qclaim_/);
-      expect(listQueuedThreadMessages(db, thread.id)).toHaveLength(0);
+      expect(await listQueuedThreadMessages(db, thread.id)).toHaveLength(0);
 
       nowSpy.mockReturnValue(10_000);
       expect(
-        releaseStaleQueuedMessageClaims(db, noopNotifier, {
+        await releaseStaleQueuedMessageClaims(db, noopNotifier, {
           claimedBefore: 5_000,
           protectedClaimTokens: [],
         }),
       ).toBe(1);
       expect(
-        listQueuedThreadMessages(db, thread.id).map((row) => row.id),
+        (await listQueuedThreadMessages(db, thread.id)).map((row) => row.id),
       ).toEqual([queuedMessage.id]);
       expect(
-        getQueuedThreadMessage(db, queuedMessage.id)?.claimToken,
+        (await getQueuedThreadMessage(db, queuedMessage.id))?.claimToken,
       ).toBeNull();
     } finally {
       nowSpy.mockRestore();
     }
   });
 
-  it("does not release stale queued message claims protected by a live owner", () => {
-    const { db, thread } = setup();
+  it("does not release stale queued message claims protected by a live owner", async () => {
+    const { db, thread } = await setup();
     const nowSpy = vi.spyOn(Date, "now");
     try {
       nowSpy.mockReturnValue(1_000);
-      const protectedQueuedMessage = createQueuedThreadMessage(
+      const protectedQueuedMessage = await createQueuedThreadMessage(
         db,
         noopNotifier,
         {
@@ -470,7 +474,7 @@ describe("queued thread messages", () => {
           systemNotice: null,
         },
       );
-      const releasableQueuedMessage = createQueuedThreadMessage(
+      const releasableQueuedMessage = await createQueuedThreadMessage(
         db,
         noopNotifier,
         {
@@ -486,17 +490,21 @@ describe("queued thread messages", () => {
           systemNotice: null,
         },
       );
-      const protectedClaim = claimQueuedThreadMessageGroup(
-        db,
-        noopNotifier,
-        protectedQueuedMessage.id,
-        { kind: "explicit-send" },
+      const protectedClaim = (
+        await claimQueuedThreadMessageGroup(
+          db,
+          noopNotifier,
+          protectedQueuedMessage.id,
+          { kind: "explicit-send" },
+        )
       )?.[0];
-      const releasableClaim = claimQueuedThreadMessageGroup(
-        db,
-        noopNotifier,
-        releasableQueuedMessage.id,
-        { kind: "explicit-send" },
+      const releasableClaim = (
+        await claimQueuedThreadMessageGroup(
+          db,
+          noopNotifier,
+          releasableQueuedMessage.id,
+          { kind: "explicit-send" },
+        )
       )?.[0];
       if (!protectedClaim || !releasableClaim) {
         throw new Error("Expected queued message claims");
@@ -504,66 +512,78 @@ describe("queued thread messages", () => {
 
       nowSpy.mockReturnValue(10_000);
       expect(
-        releaseStaleQueuedMessageClaims(db, noopNotifier, {
+        await releaseStaleQueuedMessageClaims(db, noopNotifier, {
           claimedBefore: 5_000,
           protectedClaimTokens: [protectedClaim.claimToken],
         }),
       ).toBe(1);
 
       expect(
-        getQueuedThreadMessage(db, protectedQueuedMessage.id)?.claimToken,
+        (await getQueuedThreadMessage(db, protectedQueuedMessage.id))
+          ?.claimToken,
       ).toBe(protectedClaim.claimToken);
       expect(
-        getQueuedThreadMessage(db, releasableQueuedMessage.id)?.claimToken,
+        (await getQueuedThreadMessage(db, releasableQueuedMessage.id))
+          ?.claimToken,
       ).toBeNull();
       expect(
-        listQueuedThreadMessages(db, thread.id).map((row) => row.id),
+        (await listQueuedThreadMessages(db, thread.id)).map((row) => row.id),
       ).toEqual([releasableQueuedMessage.id]);
     } finally {
       nowSpy.mockRestore();
     }
   });
 
-  it("claims the oldest queued message first", () => {
-    const { db, thread } = setup();
+  it("claims the oldest queued message first", async () => {
+    const { db, thread } = await setup();
     const nowSpy = vi.spyOn(Date, "now");
     try {
       nowSpy.mockReturnValueOnce(1_000);
-      const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-        threadId: thread.id,
-        content: defaultInput,
-        model: "gpt-5",
-        reasoningLevel: "medium",
-        permissionMode: "full",
-        serviceTier: "default",
-        waitingOn: { kind: "turn-starting" },
-        sendAt: null,
-        payload: { kind: "inline" },
-        systemNotice: null,
-      });
-      nowSpy.mockReturnValueOnce(2_000);
-      const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-        threadId: thread.id,
-        content: altInput,
-        model: "gpt-5",
-        reasoningLevel: "high",
-        permissionMode: "full",
-        serviceTier: "default",
-        waitingOn: null,
-        sendAt: null,
-        payload: { kind: "inline" },
-        systemNotice: null,
-      });
-
-      const claimedQueuedMessage = claimNextQueuedThreadMessageGroup(
+      const firstQueuedMessage = await createQueuedThreadMessage(
         db,
         noopNotifier,
-        thread.id,
-        () => true,
+        {
+          threadId: thread.id,
+          content: defaultInput,
+          model: "gpt-5",
+          reasoningLevel: "medium",
+          permissionMode: "full",
+          serviceTier: "default",
+          waitingOn: { kind: "turn-starting" },
+          sendAt: null,
+          payload: { kind: "inline" },
+          systemNotice: null,
+        },
+      );
+      nowSpy.mockReturnValueOnce(2_000);
+      const secondQueuedMessage = await createQueuedThreadMessage(
+        db,
+        noopNotifier,
+        {
+          threadId: thread.id,
+          content: altInput,
+          model: "gpt-5",
+          reasoningLevel: "high",
+          permissionMode: "full",
+          serviceTier: "default",
+          waitingOn: null,
+          sendAt: null,
+          payload: { kind: "inline" },
+          systemNotice: null,
+        },
+      );
+
+      const claimedQueuedMessage = (
+        await claimNextQueuedThreadMessageGroup(
+          db,
+          noopNotifier,
+          thread.id,
+          () => true,
+        )
       )?.[0];
       expect(claimedQueuedMessage?.id).toBe(firstQueuedMessage.id);
       expect(
-        listQueuedThreadMessages(db, thread.id).map(
+        (await listQueuedThreadMessages(db, thread.id)).map(
           (queuedMessage) => queuedMessage.id,
         ),
       ).toEqual([secondQueuedMessage.id]);
@@ -572,46 +592,58 @@ describe("queued thread messages", () => {
     }
   });
 
-  it("persists the contiguous lead group boundary", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: textInput("third"),
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
+  it("persists the contiguous lead group boundary", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const thirdQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: textInput("third"),
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
 
-    const result = setQueuedThreadMessageGroupBoundary({
+    const result = await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -624,7 +656,7 @@ describe("queued thread messages", () => {
 
     expect(result.kind).toBe("updated");
     expect(
-      listQueuedThreadMessages(db, thread.id).map((queuedMessage) => ({
+      (await listQueuedThreadMessages(db, thread.id)).map((queuedMessage) => ({
         id: queuedMessage.id,
         groupWithNext: queuedMessage.groupWithNext,
       })),
@@ -635,56 +667,70 @@ describe("queued thread messages", () => {
     ]);
   });
 
-  it("rejects a group boundary when the expected prefix is stale", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: textInput("third"),
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    expect(
-      reorderQueuedThreadMessage({
-        db,
-        notifier: noopNotifier,
+  it("rejects a group boundary when the expected prefix is stale", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
         threadId: thread.id,
-        queuedMessageId: thirdQueuedMessage.id,
-        previousQueuedMessageId: firstQueuedMessage.id,
-        nextQueuedMessageId: secondQueuedMessage.id,
-      }).kind,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const thirdQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: textInput("third"),
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    expect(
+      (
+        await reorderQueuedThreadMessage({
+          db,
+          notifier: noopNotifier,
+          threadId: thread.id,
+          queuedMessageId: thirdQueuedMessage.id,
+          previousQueuedMessageId: firstQueuedMessage.id,
+          nextQueuedMessageId: secondQueuedMessage.id,
+        })
+      ).kind,
     ).toBe("reordered");
 
-    const result = setQueuedThreadMessageGroupBoundary({
+    const result = await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -697,7 +743,7 @@ describe("queued thread messages", () => {
 
     expect(result.kind).toBe("stale_neighbor");
     expect(
-      listQueuedThreadMessages(db, thread.id).map((queuedMessage) => ({
+      (await listQueuedThreadMessages(db, thread.id)).map((queuedMessage) => ({
         id: queuedMessage.id,
         groupWithNext: queuedMessage.groupWithNext,
       })),
@@ -708,45 +754,57 @@ describe("queued thread messages", () => {
     ]);
   });
 
-  it("claims the contiguous lead group together", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: textInput("third"),
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    setQueuedThreadMessageGroupBoundary({
+  it("claims the contiguous lead group together", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const thirdQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: textInput("third"),
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -757,7 +815,7 @@ describe("queued thread messages", () => {
       groupBoundaryQueuedMessageId: secondQueuedMessage.id,
     });
 
-    const claimedQueuedMessages = claimNextQueuedThreadMessageGroup(
+    const claimedQueuedMessages = await claimNextQueuedThreadMessageGroup(
       db,
       noopNotifier,
       thread.id,
@@ -768,20 +826,20 @@ describe("queued thread messages", () => {
       claimedQueuedMessages?.map((queuedMessage) => queuedMessage.id),
     ).toEqual([firstQueuedMessage.id, secondQueuedMessage.id]);
     expect(
-      listQueuedThreadMessages(db, thread.id).map(
+      (await listQueuedThreadMessages(db, thread.id)).map(
         (queuedMessage) => queuedMessage.id,
       ),
     ).toEqual([thirdQueuedMessage.id]);
   });
 
-  it("pauses ordinary turn-end rows without pausing system notices", () => {
-    const { db, project } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("pauses ordinary turn-end rows without pausing system notices", async () => {
+    const { db, project } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "idle",
     });
-    const ordinary = createQueuedThreadMessage(db, noopNotifier, {
+    const ordinary = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -793,7 +851,7 @@ describe("queued thread messages", () => {
       payload: { kind: "inline" },
       systemNotice: null,
     });
-    const notice = createQueuedThreadMessage(db, noopNotifier, {
+    const notice = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -812,7 +870,7 @@ describe("queued thread messages", () => {
         },
       },
     });
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -826,36 +884,38 @@ describe("queued thread messages", () => {
     ]);
 
     expect(
-      listIdleThreadsWithQueuedMessages(db).map((row) => row.threadId),
+      (await listIdleThreadsWithQueuedMessages(db)).map((row) => row.threadId),
     ).toContain(thread.id);
     expect(
-      claimQueuedThreadMessageGroup(db, noopNotifier, ordinary.id, {
+      await claimQueuedThreadMessageGroup(db, noopNotifier, ordinary.id, {
         kind: "automatic",
         isGroupEligible: () => true,
         retryingFailure: false,
       }),
     ).toBeNull();
     expect(
-      claimNextQueuedThreadMessageGroup(
-        db,
-        noopNotifier,
-        thread.id,
-        () => true,
+      (
+        await claimNextQueuedThreadMessageGroup(
+          db,
+          noopNotifier,
+          thread.id,
+          () => true,
+        )
       )?.map((row) => row.id),
     ).toEqual([notice.id]);
     expect(
-      listQueuedThreadMessages(db, thread.id).map((row) => row.id),
+      (await listQueuedThreadMessages(db, thread.id)).map((row) => row.id),
     ).toEqual([ordinary.id]);
   });
 
-  it("lets a row the user asked for during the stop out of the manual-stop pause", () => {
-    const { db, project } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("lets a row the user asked for during the stop out of the manual-stop pause", async () => {
+    const { db, project } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "idle",
     });
-    const heldBack = createQueuedThreadMessage(db, noopNotifier, {
+    const heldBack = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -867,19 +927,23 @@ describe("queued thread messages", () => {
       payload: { kind: "inline" },
       systemNotice: null,
     });
-    const askedForDuringStop = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: { kind: "stopping" },
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    insertEvents(db, noopNotifier, [
+    const askedForDuringStop = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: { kind: "stopping" },
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -893,36 +957,38 @@ describe("queued thread messages", () => {
     ]);
 
     expect(
-      listIdleThreadsWithQueuedMessages(db).map((row) => row.threadId),
+      (await listIdleThreadsWithQueuedMessages(db)).map((row) => row.threadId),
     ).toContain(thread.id);
     expect(
-      claimQueuedThreadMessageGroup(db, noopNotifier, heldBack.id, {
+      await claimQueuedThreadMessageGroup(db, noopNotifier, heldBack.id, {
         kind: "automatic",
         isGroupEligible: () => true,
         retryingFailure: false,
       }),
     ).toBeNull();
     expect(
-      claimNextQueuedThreadMessageGroup(
-        db,
-        noopNotifier,
-        thread.id,
-        () => true,
+      (
+        await claimNextQueuedThreadMessageGroup(
+          db,
+          noopNotifier,
+          thread.id,
+          () => true,
+        )
       )?.map((row) => row.id),
     ).toEqual([askedForDuringStop.id]);
     expect(
-      listQueuedThreadMessages(db, thread.id).map((row) => row.id),
+      (await listQueuedThreadMessages(db, thread.id)).map((row) => row.id),
     ).toEqual([heldBack.id]);
   });
 
-  it("keeps a paused thread off the idle drain when every row is an ordinary turn-end wait", () => {
-    const { db, project } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("keeps a paused thread off the idle drain when every row is an ordinary turn-end wait", async () => {
+    const { db, project } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "idle",
     });
-    createQueuedThreadMessage(db, noopNotifier, {
+    await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -934,7 +1000,7 @@ describe("queued thread messages", () => {
       payload: { kind: "inline" },
       systemNotice: null,
     });
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -948,13 +1014,13 @@ describe("queued thread messages", () => {
     ]);
 
     expect(
-      listIdleThreadsWithQueuedMessages(db).map((row) => row.threadId),
+      (await listIdleThreadsWithQueuedMessages(db)).map((row) => row.threadId),
     ).not.toContain(thread.id);
   });
 
-  it("does not split a requeued group: the tail waits with its blocked lead", () => {
-    const { db, thread } = setup();
-    const lead = createQueuedThreadMessage(db, noopNotifier, {
+  it("does not split a requeued group: the tail waits with its blocked lead", async () => {
+    const { db, thread } = await setup();
+    const lead = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -966,7 +1032,7 @@ describe("queued thread messages", () => {
       payload: { kind: "inline" },
       systemNotice: null,
     });
-    const tail = createQueuedThreadMessage(db, noopNotifier, {
+    const tail = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -978,14 +1044,14 @@ describe("queued thread messages", () => {
       payload: { kind: "inline" },
       systemNotice: null,
     });
-    setQueuedThreadMessageGroupBoundary({
+    await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
       expectedGroupedPrefixQueuedMessageIds: [lead.id, tail.id],
       groupBoundaryQueuedMessageId: tail.id,
     });
-    const claimed = claimNextQueuedThreadMessageGroup(
+    const claimed = await claimNextQueuedThreadMessageGroup(
       db,
       noopNotifier,
       thread.id,
@@ -995,7 +1061,7 @@ describe("queued thread messages", () => {
       lead.id,
       tail.id,
     ]);
-    requeueClaimedQueuedThreadMessages(db, noopNotifier, {
+    await requeueClaimedQueuedThreadMessages(db, noopNotifier, {
       claims: claimed!.map(({ id, claimToken }) => ({ id, claimToken })),
       threadId: thread.id,
       waitingOn: { kind: "plugin", pluginId: "limits", reason: "At capacity" },
@@ -1005,7 +1071,7 @@ describe("queued thread messages", () => {
     // The requeue wrote the wait on the lead only; the tail must not be
     // claimable alone, or the drain would dispatch half a composed prompt.
     expect(
-      claimNextQueuedThreadMessageGroup(
+      await claimNextQueuedThreadMessageGroup(
         db,
         noopNotifier,
         thread.id,
@@ -1014,7 +1080,7 @@ describe("queued thread messages", () => {
     ).toBeNull();
 
     // An independent row behind the blocked group still drains past it.
-    const independent = createQueuedThreadMessage(db, noopNotifier, {
+    const independent = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: textInput("independent"),
       model: "gpt-5",
@@ -1027,18 +1093,20 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     expect(
-      claimNextQueuedThreadMessageGroup(
-        db,
-        noopNotifier,
-        thread.id,
-        () => true,
+      (
+        await claimNextQueuedThreadMessageGroup(
+          db,
+          noopNotifier,
+          thread.id,
+          () => true,
+        )
       )?.map((queuedMessage) => queuedMessage.id),
     ).toEqual([independent.id]);
   });
 
-  it("claiming a cleared lead takes its still-grouped tail with it", () => {
-    const { db, thread } = setup();
-    const lead = createQueuedThreadMessage(db, noopNotifier, {
+  it("claiming a cleared lead takes its still-grouped tail with it", async () => {
+    const { db, thread } = await setup();
+    const lead = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1050,7 +1118,7 @@ describe("queued thread messages", () => {
       payload: { kind: "inline" },
       systemNotice: null,
     });
-    const tail = createQueuedThreadMessage(db, noopNotifier, {
+    const tail = await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1062,26 +1130,26 @@ describe("queued thread messages", () => {
       payload: { kind: "inline" },
       systemNotice: null,
     });
-    setQueuedThreadMessageGroupBoundary({
+    await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
       expectedGroupedPrefixQueuedMessageIds: [lead.id, tail.id],
       groupBoundaryQueuedMessageId: tail.id,
     });
-    const claimed = claimNextQueuedThreadMessageGroup(
+    const claimed = await claimNextQueuedThreadMessageGroup(
       db,
       noopNotifier,
       thread.id,
       () => true,
     );
-    requeueClaimedQueuedThreadMessages(db, noopNotifier, {
+    await requeueClaimedQueuedThreadMessages(db, noopNotifier, {
       claims: claimed!.map(({ id, claimToken }) => ({ id, claimToken })),
       threadId: thread.id,
       waitingOn: { kind: "plugin", pluginId: "limits", reason: "At capacity" },
       sendAt: null,
     });
-    clearQueuedThreadMessageWaitingOn(db, noopNotifier, {
+    await clearQueuedThreadMessageWaitingOn(db, noopNotifier, {
       id: lead.id,
       threadId: thread.id,
     });
@@ -1089,51 +1157,65 @@ describe("queued thread messages", () => {
     // The requested drain clears the lead's wait and claims by id; the claim
     // is a claim on the batch, so the tail dispatches with it.
     expect(
-      claimQueuedThreadMessageGroup(db, noopNotifier, lead.id, {
-        kind: "explicit-send",
-      })?.map((queuedMessage) => queuedMessage.id),
+      (
+        await claimQueuedThreadMessageGroup(db, noopNotifier, lead.id, {
+          kind: "explicit-send",
+        })
+      )?.map((queuedMessage) => queuedMessage.id),
     ).toEqual([lead.id, tail.id]);
   });
 
-  it("claims only the selected message when sending outside the lead group", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: textInput("third"),
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    setQueuedThreadMessageGroupBoundary({
+  it("claims only the selected message when sending outside the lead group", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const thirdQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: textInput("third"),
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -1144,7 +1226,7 @@ describe("queued thread messages", () => {
       groupBoundaryQueuedMessageId: secondQueuedMessage.id,
     });
 
-    const claimedQueuedMessages = claimQueuedThreadMessageGroup(
+    const claimedQueuedMessages = await claimQueuedThreadMessageGroup(
       db,
       noopNotifier,
       thirdQueuedMessage.id,
@@ -1155,51 +1237,63 @@ describe("queued thread messages", () => {
       claimedQueuedMessages?.map((queuedMessage) => queuedMessage.id),
     ).toEqual([thirdQueuedMessage.id]);
     expect(
-      listQueuedThreadMessages(db, thread.id).map(
+      (await listQueuedThreadMessages(db, thread.id)).map(
         (queuedMessage) => queuedMessage.id,
       ),
     ).toEqual([firstQueuedMessage.id, secondQueuedMessage.id]);
   });
 
-  it("clears the previous group edge when deleting a grouped follower", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: textInput("third"),
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    setQueuedThreadMessageGroupBoundary({
+  it("clears the previous group edge when deleting a grouped follower", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const thirdQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: textInput("third"),
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -1211,11 +1305,11 @@ describe("queued thread messages", () => {
     });
 
     expect(
-      deleteQueuedThreadMessage(db, noopNotifier, secondQueuedMessage.id),
+      await deleteQueuedThreadMessage(db, noopNotifier, secondQueuedMessage.id),
     ).toBe(true);
 
     expect(
-      listQueuedThreadMessages(db, thread.id).map((queuedMessage) => ({
+      (await listQueuedThreadMessages(db, thread.id)).map((queuedMessage) => ({
         id: queuedMessage.id,
         groupWithNext: queuedMessage.groupWithNext,
       })),
@@ -1224,54 +1318,68 @@ describe("queued thread messages", () => {
       { id: thirdQueuedMessage.id, groupWithNext: false },
     ]);
     expect(
-      claimNextQueuedThreadMessageGroup(
-        db,
-        noopNotifier,
-        thread.id,
-        () => true,
+      (
+        await claimNextQueuedThreadMessageGroup(
+          db,
+          noopNotifier,
+          thread.id,
+          () => true,
+        )
       )?.map((queuedMessage) => queuedMessage.id),
     ).toEqual([firstQueuedMessage.id]);
   });
 
-  it("clears the previous group edge when claiming a grouped follower", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "high",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: textInput("third"),
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    setQueuedThreadMessageGroupBoundary({
+  it("clears the previous group edge when claiming a grouped follower", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "high",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const thirdQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: textInput("third"),
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -1283,13 +1391,20 @@ describe("queued thread messages", () => {
     });
 
     expect(
-      claimQueuedThreadMessageGroup(db, noopNotifier, secondQueuedMessage.id, {
-        kind: "explicit-send",
-      })?.map((queuedMessage) => queuedMessage.id),
+      (
+        await claimQueuedThreadMessageGroup(
+          db,
+          noopNotifier,
+          secondQueuedMessage.id,
+          {
+            kind: "explicit-send",
+          },
+        )
+      )?.map((queuedMessage) => queuedMessage.id),
     ).toEqual([secondQueuedMessage.id]);
 
     expect(
-      listQueuedThreadMessages(db, thread.id).map((queuedMessage) => ({
+      (await listQueuedThreadMessages(db, thread.id)).map((queuedMessage) => ({
         id: queuedMessage.id,
         groupWithNext: queuedMessage.groupWithNext,
       })),
@@ -1299,45 +1414,57 @@ describe("queued thread messages", () => {
     ]);
   });
 
-  it("clears the claimed follower group edge when releasing a failed direct send", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: textInput("third"),
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    setQueuedThreadMessageGroupBoundary({
+  it("clears the claimed follower group edge when releasing a failed direct send", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const thirdQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: textInput("third"),
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -1349,7 +1476,7 @@ describe("queued thread messages", () => {
       groupBoundaryQueuedMessageId: thirdQueuedMessage.id,
     });
 
-    const claimed = claimQueuedThreadMessageGroup(
+    const claimed = await claimQueuedThreadMessageGroup(
       db,
       noopNotifier,
       secondQueuedMessage.id,
@@ -1361,13 +1488,13 @@ describe("queued thread messages", () => {
     expect(claimed?.[0]).toBeDefined();
     if (!claimed?.[0]) return;
 
-    releaseQueuedMessageClaim(db, noopNotifier, {
+    await releaseQueuedMessageClaim(db, noopNotifier, {
       id: claimed[0].id,
       claimToken: claimed[0].claimToken,
     });
 
     expect(
-      listQueuedThreadMessages(db, thread.id).map((queuedMessage) => ({
+      (await listQueuedThreadMessages(db, thread.id)).map((queuedMessage) => ({
         id: queuedMessage.id,
         groupWithNext: queuedMessage.groupWithNext,
       })),
@@ -1378,35 +1505,43 @@ describe("queued thread messages", () => {
     ]);
   });
 
-  it("rejects grouped prefixes that mix sender attribution", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      senderThreadId: "thr_sender",
-      model: "gpt-5",
-      reasoningLevel: "high",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
+  it("rejects grouped prefixes that mix sender attribution", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        senderThreadId: "thr_sender",
+        model: "gpt-5",
+        reasoningLevel: "high",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
 
-    const result = setQueuedThreadMessageGroupBoundary({
+    const result = await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -1419,7 +1554,7 @@ describe("queued thread messages", () => {
 
     expect(result.kind).toBe("invalid_sender");
     expect(
-      listQueuedThreadMessages(db, thread.id).map((queuedMessage) => ({
+      (await listQueuedThreadMessages(db, thread.id)).map((queuedMessage) => ({
         id: queuedMessage.id,
         groupWithNext: queuedMessage.groupWithNext,
       })),
@@ -1429,34 +1564,42 @@ describe("queued thread messages", () => {
     ]);
   });
 
-  it("rejects grouped prefixes that mix execution options", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5.5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
+  it("rejects grouped prefixes that mix execution options", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5.5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
 
-    const result = setQueuedThreadMessageGroupBoundary({
+    const result = await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -1469,7 +1612,7 @@ describe("queued thread messages", () => {
 
     expect(result.kind).toBe("invalid_execution_options");
     expect(
-      listQueuedThreadMessages(db, thread.id).map((queuedMessage) => ({
+      (await listQueuedThreadMessages(db, thread.id)).map((queuedMessage) => ({
         id: queuedMessage.id,
         groupWithNext: queuedMessage.groupWithNext,
       })),
@@ -1479,33 +1622,41 @@ describe("queued thread messages", () => {
     ]);
   });
 
-  it("does not consume any grouped claim when batch deletion is stale", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    setQueuedThreadMessageGroupBoundary({
+  it("does not consume any grouped claim when batch deletion is stale", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -1515,7 +1666,7 @@ describe("queued thread messages", () => {
       ],
       groupBoundaryQueuedMessageId: secondQueuedMessage.id,
     });
-    const claimedQueuedMessages = claimNextQueuedThreadMessageGroup(
+    const claimedQueuedMessages = await claimNextQueuedThreadMessageGroup(
       db,
       noopNotifier,
       thread.id,
@@ -1530,61 +1681,74 @@ describe("queued thread messages", () => {
       { ...claimedQueuedMessages[1]!, claimToken: "qclaim_stale" },
     ];
     expect(
-      db.transaction((tx) =>
-        deleteClaimedQueuedThreadMessageBatchInTransaction(tx, {
-          queuedMessages: staleClaim,
-        }),
+      await db.transaction(
+        async (tx) =>
+          await deleteClaimedQueuedThreadMessageBatchInTransaction(tx, {
+            queuedMessages: staleClaim,
+          }),
       ),
     ).toBe(false);
 
-    expect(getQueuedThreadMessage(db, firstQueuedMessage.id)?.claimToken).toBe(
-      claimedQueuedMessages[0]!.claimToken,
-    );
-    expect(getQueuedThreadMessage(db, secondQueuedMessage.id)?.claimToken).toBe(
-      claimedQueuedMessages[1]!.claimToken,
-    );
+    expect(
+      (await getQueuedThreadMessage(db, firstQueuedMessage.id))?.claimToken,
+    ).toBe(claimedQueuedMessages[0]!.claimToken);
+    expect(
+      (await getQueuedThreadMessage(db, secondQueuedMessage.id))?.claimToken,
+    ).toBe(claimedQueuedMessages[1]!.claimToken);
   });
 
-  it("reorders queued messages to the front, middle, and end", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "high",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: textInput("third"),
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
+  it("reorders queued messages to the front, middle, and end", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "high",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const thirdQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: textInput("third"),
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
 
-    const moveToFront = reorderQueuedThreadMessage({
+    const moveToFront = await reorderQueuedThreadMessage({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -1594,14 +1758,14 @@ describe("queued thread messages", () => {
     });
     expect(moveToFront.kind).toBe("reordered");
     expect(
-      listQueuedThreadMessages(db, thread.id).map((row) => row.id),
+      (await listQueuedThreadMessages(db, thread.id)).map((row) => row.id),
     ).toEqual([
       thirdQueuedMessage.id,
       firstQueuedMessage.id,
       secondQueuedMessage.id,
     ]);
 
-    const moveToMiddle = reorderQueuedThreadMessage({
+    const moveToMiddle = await reorderQueuedThreadMessage({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -1611,14 +1775,14 @@ describe("queued thread messages", () => {
     });
     expect(moveToMiddle.kind).toBe("reordered");
     expect(
-      listQueuedThreadMessages(db, thread.id).map((row) => row.id),
+      (await listQueuedThreadMessages(db, thread.id)).map((row) => row.id),
     ).toEqual([
       thirdQueuedMessage.id,
       secondQueuedMessage.id,
       firstQueuedMessage.id,
     ]);
 
-    const moveToEnd = reorderQueuedThreadMessage({
+    const moveToEnd = await reorderQueuedThreadMessage({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -1628,7 +1792,7 @@ describe("queued thread messages", () => {
     });
     expect(moveToEnd.kind).toBe("reordered");
     expect(
-      listQueuedThreadMessages(db, thread.id).map((row) => row.id),
+      (await listQueuedThreadMessages(db, thread.id)).map((row) => row.id),
     ).toEqual([
       secondQueuedMessage.id,
       firstQueuedMessage.id,
@@ -1636,110 +1800,136 @@ describe("queued thread messages", () => {
     ]);
   });
 
-  it("claims the reordered first queued message", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "high",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-
-    expect(
-      reorderQueuedThreadMessage({
-        db,
-        notifier: noopNotifier,
-        threadId: thread.id,
-        queuedMessageId: secondQueuedMessage.id,
-        previousQueuedMessageId: null,
-        nextQueuedMessageId: firstQueuedMessage.id,
-      }).kind,
-    ).toBe("reordered");
-
-    const claimedQueuedMessage = claimNextQueuedThreadMessageGroup(
+  it("claims the reordered first queued message", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
       db,
       noopNotifier,
-      thread.id,
-      () => true,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "high",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+
+    expect(
+      (
+        await reorderQueuedThreadMessage({
+          db,
+          notifier: noopNotifier,
+          threadId: thread.id,
+          queuedMessageId: secondQueuedMessage.id,
+          previousQueuedMessageId: null,
+          nextQueuedMessageId: firstQueuedMessage.id,
+        })
+      ).kind,
+    ).toBe("reordered");
+
+    const claimedQueuedMessage = (
+      await claimNextQueuedThreadMessageGroup(
+        db,
+        noopNotifier,
+        thread.id,
+        () => true,
+      )
     )?.[0];
     expect(claimedQueuedMessage?.id).toBe(secondQueuedMessage.id);
     expect(
-      listQueuedThreadMessages(db, thread.id).map((row) => row.id),
+      (await listQueuedThreadMessages(db, thread.id)).map((row) => row.id),
     ).toEqual([firstQueuedMessage.id]);
   });
 
-  it("rolls back a reorder when the requested group boundary is invalid", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      senderThreadId: "thr_sender",
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: textInput("third"),
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
+  it("rolls back a reorder when the requested group boundary is invalid", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        senderThreadId: "thr_sender",
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const thirdQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: textInput("third"),
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
 
     expect(
-      reorderQueuedThreadMessage({
-        db,
-        notifier: noopNotifier,
-        threadId: thread.id,
-        queuedMessageId: thirdQueuedMessage.id,
-        previousQueuedMessageId: null,
-        nextQueuedMessageId: firstQueuedMessage.id,
-        groupBoundaryQueuedMessageId: secondQueuedMessage.id,
-      }).kind,
+      (
+        await reorderQueuedThreadMessage({
+          db,
+          notifier: noopNotifier,
+          threadId: thread.id,
+          queuedMessageId: thirdQueuedMessage.id,
+          previousQueuedMessageId: null,
+          nextQueuedMessageId: firstQueuedMessage.id,
+          groupBoundaryQueuedMessageId: secondQueuedMessage.id,
+        })
+      ).kind,
     ).toBe("invalid_sender");
 
     expect(
-      listQueuedThreadMessages(db, thread.id).map((queuedMessage) => ({
+      (await listQueuedThreadMessages(db, thread.id)).map((queuedMessage) => ({
         id: queuedMessage.id,
         groupWithNext: queuedMessage.groupWithNext,
       })),
@@ -1750,45 +1940,57 @@ describe("queued thread messages", () => {
     ]);
   });
 
-  it("clears grouping when reorder-only would regroup different messages", () => {
-    const { db, thread } = setup();
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: textInput("third"),
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    setQueuedThreadMessageGroupBoundary({
+  it("clears grouping when reorder-only would regroup different messages", async () => {
+    const { db, thread } = await setup();
+    const firstQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const thirdQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: textInput("third"),
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    await setQueuedThreadMessageGroupBoundary({
       db,
       notifier: noopNotifier,
       threadId: thread.id,
@@ -1800,18 +2002,20 @@ describe("queued thread messages", () => {
     });
 
     expect(
-      reorderQueuedThreadMessage({
-        db,
-        notifier: noopNotifier,
-        threadId: thread.id,
-        queuedMessageId: thirdQueuedMessage.id,
-        previousQueuedMessageId: firstQueuedMessage.id,
-        nextQueuedMessageId: secondQueuedMessage.id,
-      }).kind,
+      (
+        await reorderQueuedThreadMessage({
+          db,
+          notifier: noopNotifier,
+          threadId: thread.id,
+          queuedMessageId: thirdQueuedMessage.id,
+          previousQueuedMessageId: firstQueuedMessage.id,
+          nextQueuedMessageId: secondQueuedMessage.id,
+        })
+      ).kind,
     ).toBe("reordered");
 
     expect(
-      listQueuedThreadMessages(db, thread.id).map((queuedMessage) => ({
+      (await listQueuedThreadMessages(db, thread.id)).map((queuedMessage) => ({
         id: queuedMessage.id,
         groupWithNext: queuedMessage.groupWithNext,
       })),
@@ -1821,140 +2025,174 @@ describe("queued thread messages", () => {
       { id: secondQueuedMessage.id, groupWithNext: false },
     ]);
     expect(
-      claimNextQueuedThreadMessageGroup(
-        db,
-        noopNotifier,
-        thread.id,
-        () => true,
+      (
+        await claimNextQueuedThreadMessageGroup(
+          db,
+          noopNotifier,
+          thread.id,
+          () => true,
+        )
       )?.map((queuedMessage) => queuedMessage.id),
     ).toEqual([firstQueuedMessage.id]);
   });
 
-  it("rejects reordering claimed, missing, cross-thread, and inverted neighbors", () => {
-    const { db, thread } = setup();
-    const otherThread = createThread(db, noopNotifier, {
+  it("rejects reordering claimed, missing, cross-thread, and inverted neighbors", async () => {
+    const { db, thread } = await setup();
+    const otherThread = await createThread(db, noopNotifier, {
       projectId: thread.projectId,
       providerId: "codex",
     });
-    const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: altInput,
-      model: "gpt-5",
-      reasoningLevel: "high",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: thread.id,
-      content: textInput("third"),
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-    const otherQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
-      threadId: otherThread.id,
-      content: defaultInput,
-      model: "gpt-5",
-      reasoningLevel: "medium",
-      permissionMode: "full",
-      serviceTier: "default",
-      waitingOn: null,
-      sendAt: null,
-      payload: { kind: "inline" },
-      systemNotice: null,
-    });
-
-    expect(
-      reorderQueuedThreadMessage({
-        db,
-        notifier: noopNotifier,
-        threadId: thread.id,
-        queuedMessageId: "qmsg_missing",
-        previousQueuedMessageId: null,
-        nextQueuedMessageId: firstQueuedMessage.id,
-      }).kind,
-    ).toBe("not_found");
-    expect(
-      reorderQueuedThreadMessage({
-        db,
-        notifier: noopNotifier,
-        threadId: thread.id,
-        queuedMessageId: thirdQueuedMessage.id,
-        previousQueuedMessageId: otherQueuedMessage.id,
-        nextQueuedMessageId: null,
-      }).kind,
-    ).toBe("stale_neighbor");
-    expect(
-      reorderQueuedThreadMessage({
-        db,
-        notifier: noopNotifier,
-        threadId: thread.id,
-        queuedMessageId: firstQueuedMessage.id,
-        previousQueuedMessageId: thirdQueuedMessage.id,
-        nextQueuedMessageId: secondQueuedMessage.id,
-      }).kind,
-    ).toBe("invalid_neighbor_order");
-
-    const claimedQueuedMessage = claimQueuedThreadMessageGroup(
+    const firstQueuedMessage = await createQueuedThreadMessage(
       db,
       noopNotifier,
-      secondQueuedMessage.id,
-      { kind: "explicit-send" },
+      {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const secondQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: altInput,
+        model: "gpt-5",
+        reasoningLevel: "high",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const thirdQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: thread.id,
+        content: textInput("third"),
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+    const otherQueuedMessage = await createQueuedThreadMessage(
+      db,
+      noopNotifier,
+      {
+        threadId: otherThread.id,
+        content: defaultInput,
+        model: "gpt-5",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      },
+    );
+
+    expect(
+      (
+        await reorderQueuedThreadMessage({
+          db,
+          notifier: noopNotifier,
+          threadId: thread.id,
+          queuedMessageId: "qmsg_missing",
+          previousQueuedMessageId: null,
+          nextQueuedMessageId: firstQueuedMessage.id,
+        })
+      ).kind,
+    ).toBe("not_found");
+    expect(
+      (
+        await reorderQueuedThreadMessage({
+          db,
+          notifier: noopNotifier,
+          threadId: thread.id,
+          queuedMessageId: thirdQueuedMessage.id,
+          previousQueuedMessageId: otherQueuedMessage.id,
+          nextQueuedMessageId: null,
+        })
+      ).kind,
+    ).toBe("stale_neighbor");
+    expect(
+      (
+        await reorderQueuedThreadMessage({
+          db,
+          notifier: noopNotifier,
+          threadId: thread.id,
+          queuedMessageId: firstQueuedMessage.id,
+          previousQueuedMessageId: thirdQueuedMessage.id,
+          nextQueuedMessageId: secondQueuedMessage.id,
+        })
+      ).kind,
+    ).toBe("invalid_neighbor_order");
+
+    const claimedQueuedMessage = (
+      await claimQueuedThreadMessageGroup(
+        db,
+        noopNotifier,
+        secondQueuedMessage.id,
+        { kind: "explicit-send" },
+      )
     )?.[0];
     if (!claimedQueuedMessage) {
       throw new Error("Expected queued message claim");
     }
     expect(
-      reorderQueuedThreadMessage({
-        db,
-        notifier: noopNotifier,
-        threadId: thread.id,
-        queuedMessageId: secondQueuedMessage.id,
-        previousQueuedMessageId: null,
-        nextQueuedMessageId: firstQueuedMessage.id,
-      }).kind,
+      (
+        await reorderQueuedThreadMessage({
+          db,
+          notifier: noopNotifier,
+          threadId: thread.id,
+          queuedMessageId: secondQueuedMessage.id,
+          previousQueuedMessageId: null,
+          nextQueuedMessageId: firstQueuedMessage.id,
+        })
+      ).kind,
     ).toBe("claimed");
     expect(
-      reorderQueuedThreadMessage({
-        db,
-        notifier: noopNotifier,
-        threadId: thread.id,
-        queuedMessageId: thirdQueuedMessage.id,
-        previousQueuedMessageId: null,
-        nextQueuedMessageId: secondQueuedMessage.id,
-      }).kind,
+      (
+        await reorderQueuedThreadMessage({
+          db,
+          notifier: noopNotifier,
+          threadId: thread.id,
+          queuedMessageId: thirdQueuedMessage.id,
+          previousQueuedMessageId: null,
+          nextQueuedMessageId: secondQueuedMessage.id,
+        })
+      ).kind,
     ).toBe("stale_neighbor");
   });
 
   describe("edit holds", () => {
-    it("keeps an edited row and the rows behind it from automatic dispatch until the save", () => {
-      const { db, thread } = setup();
-      const edited = queueTurnEndMessage(db, thread.id, textInput("ORIGINAL"));
-      const behind = queueTurnEndMessage(db, thread.id, altInput);
+    it("keeps an edited row and the rows behind it from automatic dispatch until the save", async () => {
+      const { db, thread } = await setup();
+      const edited = await queueTurnEndMessage(
+        db,
+        thread.id,
+        textInput("ORIGINAL"),
+      );
+      const behind = await queueTurnEndMessage(db, thread.id, altInput);
 
       expect(
-        holdQueuedThreadMessageForEdit(db, {
+        await holdQueuedThreadMessageForEdit(db, {
           heldUntil: Date.now() + 60_000,
           id: edited.id,
           threadId: thread.id,
@@ -1962,7 +2200,7 @@ describe("queued thread messages", () => {
       ).toEqual({ kind: "held" });
 
       expect(
-        claimNextQueuedThreadMessageGroup(
+        await claimNextQueuedThreadMessageGroup(
           db,
           noopNotifier,
           thread.id,
@@ -1970,17 +2208,17 @@ describe("queued thread messages", () => {
         ),
       ).toBeNull();
       expect(
-        claimQueuedThreadMessageGroup(db, noopNotifier, edited.id, {
+        await claimQueuedThreadMessageGroup(db, noopNotifier, edited.id, {
           kind: "automatic",
           isGroupEligible: () => true,
           retryingFailure: false,
         }),
       ).toBeNull();
-      expect(getQueuedThreadMessage(db, edited.id)?.updatedAt).toBe(
+      expect((await getQueuedThreadMessage(db, edited.id))?.updatedAt).toBe(
         edited.updatedAt,
       );
 
-      const saved = updateQueuedThreadMessage(db, noopNotifier, {
+      const saved = await updateQueuedThreadMessage(db, noopNotifier, {
         content: textInput("SAVED EDIT"),
         expectedUpdatedAt: edited.updatedAt,
         id: edited.id,
@@ -1988,7 +2226,7 @@ describe("queued thread messages", () => {
       });
       expect(saved).toMatchObject({ kind: "updated", releasedEditHold: true });
 
-      const claimed = claimNextQueuedThreadMessageGroup(
+      const claimed = await claimNextQueuedThreadMessageGroup(
         db,
         noopNotifier,
         thread.id,
@@ -1998,103 +2236,109 @@ describe("queued thread messages", () => {
         [edited.id, JSON.stringify(textInput("SAVED EDIT"))],
       ]);
       expect(
-        listQueuedThreadMessages(db, thread.id).map((row) => row.id),
+        (await listQueuedThreadMessages(db, thread.id)).map((row) => row.id),
       ).toEqual([behind.id]);
     });
 
-    it("lets a row dispatch once its hold is released or lapses", () => {
-      const { db, thread } = setup();
-      const released = queueTurnEndMessage(db, thread.id, defaultInput);
-      const lapsed = queueTurnEndMessage(db, thread.id, altInput);
-      holdQueuedThreadMessageForEdit(db, {
+    it("lets a row dispatch once its hold is released or lapses", async () => {
+      const { db, thread } = await setup();
+      const released = await queueTurnEndMessage(db, thread.id, defaultInput);
+      const lapsed = await queueTurnEndMessage(db, thread.id, altInput);
+      await holdQueuedThreadMessageForEdit(db, {
         heldUntil: Date.now() + 60_000,
         id: released.id,
         threadId: thread.id,
       });
-      holdQueuedThreadMessageForEdit(db, {
+      await holdQueuedThreadMessageForEdit(db, {
         heldUntil: Date.now() - 1,
         id: lapsed.id,
         threadId: thread.id,
       });
 
       expect(
-        releaseQueuedThreadMessageEditHold(db, {
+        await releaseQueuedThreadMessageEditHold(db, {
           id: released.id,
           threadId: thread.id,
         }),
       ).toBe(true);
       expect(
-        releaseQueuedThreadMessageEditHold(db, {
+        await releaseQueuedThreadMessageEditHold(db, {
           id: released.id,
           threadId: thread.id,
         }),
       ).toBe(false);
 
       expect(
-        claimNextQueuedThreadMessageGroup(
-          db,
-          noopNotifier,
-          thread.id,
-          () => true,
+        (
+          await claimNextQueuedThreadMessageGroup(
+            db,
+            noopNotifier,
+            thread.id,
+            () => true,
+          )
         )?.map((row) => row.id),
       ).toEqual([released.id]);
       expect(
-        claimNextQueuedThreadMessageGroup(
-          db,
-          noopNotifier,
-          thread.id,
-          () => true,
+        (
+          await claimNextQueuedThreadMessageGroup(
+            db,
+            noopNotifier,
+            thread.id,
+            () => true,
+          )
         )?.map((row) => row.id),
       ).toEqual([lapsed.id]);
     });
 
-    it("does not hold back idle-drain rows behind an edited row that waits on something else", () => {
-      const { db, thread } = setup();
-      const scheduled = queueTurnEndMessage(db, thread.id, defaultInput, {
+    it("does not hold back idle-drain rows behind an edited row that waits on something else", async () => {
+      const { db, thread } = await setup();
+      const scheduled = await queueTurnEndMessage(db, thread.id, defaultInput, {
         sendAt: Date.now() + 60_000,
         waitingOn: { kind: "time" },
       });
-      const plain = queueTurnEndMessage(db, thread.id, altInput);
-      holdQueuedThreadMessageForEdit(db, {
+      const plain = await queueTurnEndMessage(db, thread.id, altInput);
+      await holdQueuedThreadMessageForEdit(db, {
         heldUntil: Date.now() + 60_000,
         id: scheduled.id,
         threadId: thread.id,
       });
 
       expect(
-        claimNextQueuedThreadMessageGroup(
-          db,
-          noopNotifier,
-          thread.id,
-          () => true,
+        (
+          await claimNextQueuedThreadMessageGroup(
+            db,
+            noopNotifier,
+            thread.id,
+            () => true,
+          )
         )?.map((row) => row.id),
       ).toEqual([plain.id]);
     });
 
-    it("refuses to hold a row a dispatch already claimed or another thread owns", () => {
-      const { db, project, thread } = setup();
-      const otherThread = createThread(db, noopNotifier, {
+    it("refuses to hold a row a dispatch already claimed or another thread owns", async () => {
+      const { db, project, thread } = await setup();
+      const otherThread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
       });
-      const queued = queueTurnEndMessage(db, thread.id, defaultInput);
+      const queued = await queueTurnEndMessage(db, thread.id, defaultInput);
 
       expect(
-        holdQueuedThreadMessageForEdit(db, {
+        await holdQueuedThreadMessageForEdit(db, {
           heldUntil: Date.now() + 60_000,
           id: queued.id,
           threadId: otherThread.id,
         }),
       ).toEqual({ kind: "not_found" });
 
-      claimNextQueuedThreadMessageGroup(
+      await claimNextQueuedThreadMessageGroup(
         db,
         noopNotifier,
         thread.id,
         () => true,
       );
       expect(
-        holdQueuedThreadMessageForEdit(db, {
+        await holdQueuedThreadMessageForEdit(db, {
           heldUntil: Date.now() + 60_000,
           id: queued.id,
           threadId: thread.id,

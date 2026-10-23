@@ -9,11 +9,11 @@ import {
 
 it("filters stored environment paths while every host is offline", async () => {
   await withTestHarness(async (harness) => {
-    const host = seedHost(harness.deps);
-    const { project } = seedProjectWithSource(harness.deps, {
+    const host = await seedHost(harness.deps);
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
       path: "/tmp/stored-workspace",

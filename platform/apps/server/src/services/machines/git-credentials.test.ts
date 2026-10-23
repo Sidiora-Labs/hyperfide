@@ -218,7 +218,7 @@ describe("server Git credential refresh", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     const run = gh();
     const results = await Promise.all(
-      Array.from({ length: 20 }, () => resolveGitCredentials(run)),
+      Array.from({ length: 20 }, async () => await resolveGitCredentials(run)),
     );
     expect(run).toHaveBeenCalledTimes(2);
     results[0]!.find((entry) => entry.name === "GH_TOKEN")!.value = "mutated";

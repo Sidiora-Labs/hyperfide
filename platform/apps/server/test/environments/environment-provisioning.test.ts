@@ -26,10 +26,10 @@ import { withTestHarness } from "../helpers/test-app.js";
 describe("environment reprovisioning", () => {
   it("fails host-backed thread creation before creating provisioning state when the host is disconnected", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps, {
+      const host = await seedHost(harness.deps, {
         id: "host-thread-create-offline",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-create-offline-project",
       });
@@ -63,43 +63,48 @@ describe("environment reprovisioning", () => {
         },
         status: 502,
       });
-      expect(harness.db.select({ id: threads.id }).from(threads).all()).toEqual(
-        [],
-      );
       expect(
-        harness.db.select({ id: environments.id }).from(environments).all(),
+        await harness.db.select({ id: threads.id }).from(threads).all(),
+      ).toEqual([]);
+      expect(
+        await harness.db
+          .select({ id: environments.id })
+          .from(environments)
+          .all(),
       ).toEqual([]);
     });
   });
 
   it("marks orphaned provisioning environments interrupted on startup recovery", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-orphaned-env-provision",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         status: "provisioning",
         environmentProviderId: "personal-workspace",
         isGitRepo: false,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "starting",
       });
       await runStartupRecoverySweep(harness.deps);
 
-      expect(getEnvironment(harness.db, environment.id)?.status).toBe("error");
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect((await getEnvironment(harness.db, environment.id))?.status).toBe(
+        "error",
+      );
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         status: "error",
       });
       expect(
-        listEvents(harness.db, { threadId: thread.id }).map(
+        (await listEvents(harness.db, { threadId: thread.id })).map(
           (event) => event.type,
         ),
       ).toEqual(["system/thread-provisioning", "system/error"]);
@@ -109,13 +114,13 @@ describe("environment reprovisioning", () => {
 
 it("does not replace an unresolved RuntimeManager setup with a new successful attempt", async () => {
   await withTestHarness(async (harness) => {
-    const { host, session } = seedHostSession(harness.deps, {
+    const { host, session } = await seedHostSession(harness.deps, {
       id: "host-setup-retry",
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
       status: "provisioning",
@@ -124,7 +129,7 @@ it("does not replace an unresolved RuntimeManager setup with a new successful at
       providerOwnsPath: true,
     });
     const id = `environment:${environment.id}:retry:setup`;
-    harness.db
+    await harness.db
       .insert(environmentHookOperations)
       .values({
         id,
@@ -136,7 +141,7 @@ it("does not replace an unresolved RuntimeManager setup with a new successful at
       })
       .run();
     const attach = vi.fn(async () => ({ ok: true as const, result: {} }));
-    registerHostRpcResponder(harness, {
+    await registerHostRpcResponder(harness, {
       hostId: host.id,
       sessionId: session.id,
       handle: attach,
@@ -155,11 +160,13 @@ it("does not replace an unresolved RuntimeManager setup with a new successful at
       },
     });
     await expect
-      .poll(() => getEnvironment(harness.db, environment.id)?.status)
+      .poll(
+        async () => (await getEnvironment(harness.db, environment.id))?.status,
+      )
       .toBe("error");
     expect(attach).not.toHaveBeenCalled();
     expect(
-      harness.db.select().from(environmentHookOperations).get(),
+      await harness.db.select().from(environmentHookOperations).get(),
     ).toMatchObject({ id, startedAt: 1, finishedAt: null });
   });
 });
@@ -172,11 +179,11 @@ it.each([
   "settles setup failure %s only when termination is confirmed",
   async (errorCode, retryable) => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         status: "provisioning",
@@ -185,7 +192,7 @@ it.each([
         providerOwnsPath: true,
       });
       let fail = true;
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: () =>
@@ -217,15 +224,18 @@ it.each([
         request,
       });
       await expect
-        .poll(() => getEnvironment(harness.db, environment.id)?.status)
+        .poll(
+          async () =>
+            (await getEnvironment(harness.db, environment.id))?.status,
+        )
         .toBe("error");
-      const operation = () =>
-        harness.db.select().from(environmentHookOperations).get();
+      const operation = async () =>
+        await harness.db.select().from(environmentHookOperations).get();
       if (retryable)
-        expect(operation()?.finishedAt).toEqual(expect.any(Number));
-      else expect(operation()?.finishedAt).toBeNull();
+        expect((await operation())?.finishedAt).toEqual(expect.any(Number));
+      else expect((await operation())?.finishedAt).toBeNull();
       fail = false;
-      harness.db
+      await harness.db
         .update(environments)
         .set({ status: "provisioning" })
         .where(eq(environments.id, environment.id))
@@ -235,7 +245,10 @@ it.each([
         request,
       });
       await expect
-        .poll(() => getEnvironment(harness.db, environment.id)?.status)
+        .poll(
+          async () =>
+            (await getEnvironment(harness.db, environment.id))?.status,
+        )
         .toBe(retryable ? "ready" : "error");
       expect(
         responder.requests.filter(
@@ -243,11 +256,11 @@ it.each([
         ),
       ).toHaveLength(retryable ? 2 : 1);
       if (retryable)
-        expect(operation()).toMatchObject({
+        expect(await operation()).toMatchObject({
           finishedAt: expect.any(Number),
           error: null,
         });
-      else expect(operation()?.finishedAt).toBeNull();
+      else expect((await operation())?.finishedAt).toBeNull();
     });
   },
 );

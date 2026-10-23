@@ -21,10 +21,10 @@ const GLOBAL_CLI_SKILL_NAMES: readonly string[] = ["hyperfide-cli"];
 
 const STATUS_TIMEOUT_MS = 5_000;
 
-export function listInstallableMachineIds(
+export async function listInstallableMachineIds(
   deps: GlobalSkillInstallDeps,
-): string[] {
-  return listHosts(deps.db)
+): Promise<string[]> {
+  return (await listHosts(deps.db))
     .filter((host) => host.type !== "ephemeral")
     .map((host) => host.id);
 }
@@ -97,7 +97,7 @@ export async function readGlobalCliSkillStatus(
   deps: GlobalSkillInstallDeps,
   args: InstallGlobalCliSkillsArgs,
 ): Promise<SystemCliSkillsStatusResponse> {
-  const hosts = listNonDestroyedHostsByIds(deps.db, args.hostIds);
+  const hosts = await listNonDestroyedHostsByIds(deps.db, args.hostIds);
   const skills = resolveGlobalCliSkills(deps);
   const machines = await Promise.all(
     hosts.map(async (host) => {
@@ -143,7 +143,7 @@ export async function installGlobalCliSkills(
   deps: GlobalSkillInstallDeps,
   args: InstallGlobalCliSkillsArgs,
 ): Promise<InstallGlobalCliSkillsResult> {
-  const hosts = listNonDestroyedHostsByIds(deps.db, args.hostIds);
+  const hosts = await listNonDestroyedHostsByIds(deps.db, args.hostIds);
   const missingHostId = args.hostIds.find(
     (hostId) => !hosts.some((host) => host.id === hostId),
   );

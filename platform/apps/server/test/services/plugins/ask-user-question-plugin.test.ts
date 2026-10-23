@@ -42,21 +42,21 @@ describe("ask-user-question builtin plugin", () => {
     model: string;
     label: string;
   }) {
-    const { host } = seedHostSession(harness.deps, {
+    const { host } = await seedHostSession(harness.deps, {
       id: `host-${args.label}`,
       name: `Host ${args.label}`,
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
       name: args.label,
       path: join(harness.config.dataDir, args.label),
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
       path: join(harness.config.dataDir, args.label),
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       providerId: args.providerId,

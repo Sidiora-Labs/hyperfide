@@ -19,14 +19,14 @@ export async function createProjectFixture(
   harness: IntegrationHarness,
   name: string,
 ): Promise<ProjectFixture> {
-  return createProjectFixtureForHarness(harness, { name });
+  return await createProjectFixtureForHarness(harness, { name });
 }
 
 export async function createReadyThread(
   harness: IntegrationHarness,
   options: ReadyHostThreadOptions,
 ): Promise<ReadyThreadFixture> {
-  return createReadyHostThread(harness, {
+  return await createReadyHostThread(harness, {
     ...options,
     timeoutMs: DEFAULT_TIMEOUT_MS,
   });

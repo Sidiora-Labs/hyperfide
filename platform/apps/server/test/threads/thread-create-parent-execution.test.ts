@@ -1,4 +1,7 @@
-import { setDisabledProviderIds, upsertProjectExecutionDefaults } from "@hyperfide/db";
+import {
+  setDisabledProviderIds,
+  upsertProjectExecutionDefaults,
+} from "@hyperfide/db";
 import { describe, expect, it } from "vitest";
 import type { ThreadCreateServiceRequestInput } from "../../src/services/threads/thread-create-request.js";
 import { createThreadFromRequest } from "../../src/services/threads/thread-create.js";
@@ -138,21 +141,21 @@ describe("child creation execution defaults", () => {
       expected,
     }) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { host } = await seedHostSession(harness.deps);
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
         });
-        const parent = seedThread(harness.deps, {
+        const parent = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           providerId: parentProviderId,
         });
         if (hasParentExecution) {
-          seedThreadRuntimeState(harness.deps, {
+          await seedThreadRuntimeState(harness.deps, {
             threadId: parent.id,
             environmentId: environment.id,
             providerThreadId: "parent-session",
@@ -161,7 +164,7 @@ describe("child creation execution defaults", () => {
             permissionMode: "auto",
           });
         }
-        upsertProjectExecutionDefaults(harness.db, {
+        await upsertProjectExecutionDefaults(harness.db, {
           projectId: project.id,
           providerId: "codex",
           model: "project-model",
@@ -169,7 +172,7 @@ describe("child creation execution defaults", () => {
           permissionMode: "auto",
           serviceTier: "default",
         });
-        setDisabledProviderIds(harness.db, disabledProviderIds);
+        await setDisabledProviderIds(harness.db, disabledProviderIds);
 
         const child = await createThreadFromRequest(harness.deps, {
           projectId: project.id,

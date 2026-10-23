@@ -212,11 +212,12 @@ export function prepareLegacyImageGenerationOutputData(args: {
   });
 }
 
-export function insertPreparedRetainedEventOutput(
+export async function insertPreparedRetainedEventOutput(
   db: DbQueryConnection,
   args: InsertPreparedRetainedEventOutputArgs,
-): void {
-  db.insert(retainedEventOutputs)
+): Promise<void> {
+  await db
+    .insert(retainedEventOutputs)
     .values({
       eventId: args.eventId,
       expiresAt: args.output.expiresAt,
@@ -227,11 +228,11 @@ export function insertPreparedRetainedEventOutput(
     .run();
 }
 
-export function copyRetainedEventOutput(
+export async function copyRetainedEventOutput(
   db: DbQueryConnection,
   args: CopyRetainedEventOutputArgs,
-): void {
-  db.run(sql`INSERT INTO retained_event_outputs
+): Promise<void> {
+  await db.run(sql`INSERT INTO retained_event_outputs
     (event_id, output_path, value, expires_at)
     SELECT
       ${args.targetEventId},
@@ -299,23 +300,23 @@ function removeOutputTruncation(
   }
 }
 
-export function hydrateRetainedEventOutputRows<
+export async function hydrateRetainedEventOutputRows<
   TRow extends HydratableStoredEventRow,
 >(
   db: DbQueryConnection,
   rows: readonly TRow[],
   now: number = Date.now(),
-): TRow[] {
+): Promise<TRow[]> {
   if (rows.length === 0) {
     return [];
   }
-  const outputs = queryInSqliteVariableBatches({
+  const outputs = await queryInSqliteVariableBatches({
     dedupeKey: (eventId) => eventId,
     fixedVariableCount: 1,
     variableCountPerValue: 1,
     values: rows.map((row) => row.id),
-    queryBatch: (batch) =>
-      db
+    queryBatch: async (batch) =>
+      await db
         .select({
           encodedValue: retainedEventOutputs.value,
           eventId: retainedEventOutputs.eventId,
@@ -342,18 +343,18 @@ export function hydrateRetainedEventOutputRows<
   });
 }
 
-function listRetainedEventOutputSizes(
+async function listRetainedEventOutputSizes(
   db: DbQueryConnection,
   eventIds: readonly string[],
   now: number,
-): RetainedEventOutputSizeRow[] {
-  return queryInSqliteVariableBatches({
+): Promise<RetainedEventOutputSizeRow[]> {
+  return await queryInSqliteVariableBatches({
     dedupeKey: (eventId) => eventId,
     fixedVariableCount: 1,
     variableCountPerValue: 1,
     values: eventIds,
-    queryBatch: (batch) =>
-      db
+    queryBatch: async (batch) =>
+      await db
         .select({
           eventId: retainedEventOutputs.eventId,
           outputPath: retainedEventOutputs.outputPath,
@@ -411,14 +412,14 @@ function projectedHydratedDataBytes<TRow extends HydratableStoredEventRow>(
   }, 0);
 }
 
-export function canHydrateRetainedEventOutputRowsWithinDataByteLimit<
+export async function canHydrateRetainedEventOutputRowsWithinDataByteLimit<
   TRow extends HydratableStoredEventRow,
 >(
   db: DbQueryConnection,
   rows: readonly TRow[],
   maxDataBytes: number,
   now: number = Date.now(),
-): boolean {
+): Promise<boolean> {
   if (rows.length === 0) {
     return true;
   }
@@ -434,7 +435,7 @@ export function canHydrateRetainedEventOutputRowsWithinDataByteLimit<
     rowCountsByEventId.set(row.id, (rowCountsByEventId.get(row.id) ?? 0) + 1);
   }
   const eventIds = [...rowCountsByEventId.keys()];
-  const sizes = listRetainedEventOutputSizes(db, eventIds, now);
+  const sizes = await listRetainedEventOutputSizes(db, eventIds, now);
   if (sizes.length === 0) {
     return true;
   }
@@ -444,35 +445,35 @@ export function canHydrateRetainedEventOutputRowsWithinDataByteLimit<
   return projectedHydratedDataBytes(rows, sizes) <= maxDataBytes;
 }
 
-export function hydrateRetainedEventOutputRowsWithinDataByteLimit<
+export async function hydrateRetainedEventOutputRowsWithinDataByteLimit<
   TRow extends HydratableStoredEventRow,
 >(
   db: DbQueryConnection,
   rows: readonly TRow[],
   maxDataBytes: number,
   now: number = Date.now(),
-): TRow[] {
+): Promise<TRow[]> {
   if (
-    !canHydrateRetainedEventOutputRowsWithinDataByteLimit(
+    !(await canHydrateRetainedEventOutputRowsWithinDataByteLimit(
       db,
       rows,
       maxDataBytes,
       now,
-    )
+    ))
   ) {
     return [...rows];
   }
-  return hydrateRetainedEventOutputRows(db, rows, now);
+  return await hydrateRetainedEventOutputRows(db, rows, now);
 }
 
-export function deleteExpiredRetainedEventOutputs(
+export async function deleteExpiredRetainedEventOutputs(
   db: DbQueryConnection,
   args: DeleteExpiredRetainedEventOutputsArgs,
-): DeleteExpiredRetainedEventOutputsResult {
+): Promise<DeleteExpiredRetainedEventOutputsResult> {
   if (args.limit <= 0) {
     return { deleted: 0, threadIds: [] };
   }
-  const rows = db
+  const rows = await db
     .select({
       eventId: retainedEventOutputs.eventId,
       threadId: events.threadId,
@@ -487,7 +488,7 @@ export function deleteExpiredRetainedEventOutputs(
     return { deleted: 0, threadIds: [] };
   }
   const eventIds = rows.map((row) => row.eventId);
-  const result = db
+  const result = await db
     .delete(retainedEventOutputs)
     .where(inArray(retainedEventOutputs.eventId, eventIds))
     .run();

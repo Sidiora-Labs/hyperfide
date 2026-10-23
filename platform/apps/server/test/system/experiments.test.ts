@@ -28,8 +28,7 @@ function putGeneralSettings(harness: TestAppHarness, body: object) {
 
 async function configExperiments(harness: TestAppHarness) {
   const response = await harness.app.request("/api/v1/system/config");
-  return systemConfigResponseSchema.parse(await readJson(response))
-    .experiments;
+  return systemConfigResponseSchema.parse(await readJson(response)).experiments;
 }
 
 describe("experiments settings", () => {
@@ -83,7 +82,7 @@ describe("experiments settings", () => {
         performanceDiagnostics: true,
         timelinePush: true,
       });
-      expect(getExperiments(harness.db)).toEqual({
+      expect(await getExperiments(harness.db)).toEqual({
         changelogPreview: true,
         compactExpiredCache: true,
         serverMove: true,
@@ -117,12 +116,13 @@ describe("experiments settings", () => {
         timelinePush: false,
       });
       expect(
-        harness.db.$client
-          .prepare<[], { key: string }>(
-            "SELECT key FROM system_experiments ORDER BY key",
-          )
-          .all()
-          .map((row) => row.key),
+        (
+          await harness.db.$client
+            .prepare<[], { key: string }>(
+              "SELECT key FROM system_experiments ORDER BY key",
+            )
+            .all()
+        ).map((row) => row.key),
       ).toEqual(["changelogPreview", "serverMove"]);
     });
   });
@@ -134,7 +134,7 @@ describe("experiments settings", () => {
     await withTestHarness(async (harness) => {
       const response = await putExperiments(harness, body);
       expect(response.status).toBe(400);
-      expect(getExperiments(harness.db)).toEqual(defaultExperiments);
+      expect(await getExperiments(harness.db)).toEqual(defaultExperiments);
     });
   });
 
@@ -154,7 +154,7 @@ describe("experiments settings", () => {
         timelinePush: false,
       });
 
-      harness.db.$client.prepare("DELETE FROM system_experiments").run();
+      await harness.db.$client.prepare("DELETE FROM system_experiments").run();
       expect(await configExperiments(harness)).toEqual(earlyAdopterExperiments);
 
       const { earlyAdopter: omitted, ...legacy } = defaultAppSettings;

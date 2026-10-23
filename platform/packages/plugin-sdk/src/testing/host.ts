@@ -237,7 +237,7 @@ export function experimental_createHostEntryHarness<
       return retainedWorkerLeases.size;
     },
 
-    experimental_dispose() {
+    async experimental_dispose() {
       disposePromise ??= (async () => {
         lifecycleController.abort();
         for (const call of activeCalls) call.abort();

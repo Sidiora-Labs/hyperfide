@@ -16,17 +16,17 @@ const API = "/api/v1";
 describe("thread deletion on a removed machine", () => {
   it("finishes deleting the thread without asking the removed machine to delete storage", async () => {
     await withTestHarness(async (harness) => {
-      const primary = seedHost(harness.deps, { id: "host_primary" });
+      const primary = await seedHost(harness.deps, { id: "host_primary" });
       seedPrimaryHost(harness.deps, primary.id);
-      const host = seedHost(harness.deps, { id: "host_removed" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const host = await seedHost(harness.deps, { id: "host_removed" });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         status: "idle",
@@ -45,9 +45,13 @@ describe("thread deletion on a removed machine", () => {
       expect(deleted.status).toBe(200);
       await runThreadLifecycleSweep(harness.deps);
 
-      expect(getThread(harness.db, thread.id)).toBeNull();
+      expect(await getThread(harness.db, thread.id)).toBeNull();
       expect(
-        listQueuedThreadCommands(harness, "thread.storage.delete", thread.id),
+        await listQueuedThreadCommands(
+          harness,
+          "thread.storage.delete",
+          thread.id,
+        ),
       ).toHaveLength(0);
     });
   });

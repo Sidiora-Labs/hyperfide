@@ -22,16 +22,16 @@ const PLUGIN_METADATA_MARKER = "timeline-plugin-metadata-must-stay-private";
 const PROCESS_EVENT =
   '<process_event kind="success" process_id="proc_551c">Process completed successfully</process_event>';
 
-function setup(): { db: DbConnection; thread: Thread } {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup(): Promise<{ db: DbConnection; thread: Thread }> {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     originPluginId: "timeline-launcher",
     pluginMetadata: {
       pluginId: "timeline-launcher",
@@ -45,7 +45,10 @@ function setup(): { db: DbConnection; thread: Thread } {
 
 type EventInput = Parameters<typeof insertEvents>[2][number];
 
-function seedExtensionTriggeredTurn(db: DbConnection, thread: Thread): void {
+async function seedExtensionTriggeredTurn(
+  db: DbConnection,
+  thread: Thread,
+): Promise<void> {
   const events: EventInput[] = [];
   let sequence = 0;
   const push = (event: Omit<EventInput, "sequence" | "threadId">): void => {
@@ -137,7 +140,7 @@ function seedExtensionTriggeredTurn(db: DbConnection, thread: Thread): void {
     providerThreadId,
   });
 
-  insertEvents(db, noopNotifier, events);
+  await insertEvents(db, noopNotifier, events);
 }
 
 function conversationTexts(rows: readonly TimelineRow[]): string[] {
@@ -153,11 +156,11 @@ function conversationTexts(rows: readonly TimelineRow[]): string[] {
 }
 
 describe("timeline pages with provider-recorded input", () => {
-  it("keeps the user's earlier turn on the latest page and nests the provider input in its turn", () => {
-    const { db, thread } = setup();
-    seedExtensionTriggeredTurn(db, thread);
+  it("keeps the user's earlier turn on the latest page and nests the provider input in its turn", async () => {
+    const { db, thread } = await setup();
+    await seedExtensionTriggeredTurn(db, thread);
 
-    const { response } = buildThreadTimelineWithProfile(db, thread, {
+    const { response } = await buildThreadTimelineWithProfile(db, thread, {
       completedTurnDisplay: "collapse",
       eventBudget: 1_000_000,
       includeClearedContextHistory: false,

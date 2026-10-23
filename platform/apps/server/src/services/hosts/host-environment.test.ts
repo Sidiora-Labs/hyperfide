@@ -49,9 +49,9 @@ it("gives every host user environment while forwarding automatic gh credentials 
   const db = createConnection(":memory:");
   const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-backfilled-env-"));
   try {
-    migrate(db);
-    upsertHost(db, noopNotifier, { id: "legacy-remote", name: "Remote" });
-    upsertHost(db, noopNotifier, { id: "local-daemon", name: "Local" });
+    await migrate(db);
+    await upsertHost(db, noopNotifier, { id: "legacy-remote", name: "Remote" });
+    await upsertHost(db, noopNotifier, { id: "local-daemon", name: "Local" });
     const sql = (
       await readFile(
         new URL(
@@ -65,9 +65,11 @@ it("gives every host user environment while forwarding automatic gh credentials 
       .find((statement) => statement.includes("UPDATE hosts"));
     if (sql === undefined) throw new Error("Missing manual machine backfill");
     db.$client.exec(sql);
-    migrate(db);
+    await migrate(db);
     await writeFile(join(dataDir, "host-id"), "local-daemon");
-    expect(getHost(db, "legacy-remote")?.machineProviderId).toBe("manual");
+    expect((await getHost(db, "legacy-remote"))?.machineProviderId).toBe(
+      "manual",
+    );
     await replaceMachineEnvironment(db, dataDir, {
       variables: [{ name: "MACHINE_VALUE", value: "configured", note: null }],
     });
@@ -101,7 +103,10 @@ it("gives every host user environment while forwarding automatic gh credentials 
         value: "configured",
       }),
     ]);
-    upsertHost(db, noopNotifier, { id: "providerless", name: "Providerless" });
+    await upsertHost(db, noopNotifier, {
+      id: "providerless",
+      name: "Providerless",
+    });
     expect(
       await resolveHostEnvironment(deps, {
         hostId: "providerless",
@@ -113,7 +118,7 @@ it("gives every host user environment while forwarding automatic gh credentials 
         expect.objectContaining({ name: "GH_TOKEN", value: "test-gh-secret" }),
       ]),
     );
-    setAppSettings(db, {
+    await setAppSettings(db, {
       ...defaultAppSettings,
       machineGitCredentialsEnabled: false,
     });
@@ -148,16 +153,16 @@ it("gives every host user environment while forwarding automatic gh credentials 
     );
   } finally {
     vi.unstubAllEnvs();
-    db.$client.close();
+    await db.close();
     await rm(dataDir, { recursive: true, force: true });
   }
 });
 
 it("forwards automatic gh credentials to every machine when the server has no local host daemon", async () => {
-  const db = createMigratedConnection();
+  const db = await createMigratedConnection();
   const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-serverless-env-"));
   try {
-    upsertHost(db, noopNotifier, { id: "remote", name: "Remote" });
+    await upsertHost(db, noopNotifier, { id: "remote", name: "Remote" });
     const bin = join(dataDir, "bin");
     await mkdir(bin);
     await writeFakeGh(bin);
@@ -171,7 +176,7 @@ it("forwards automatic gh credentials to every machine when the server has no lo
         expect.objectContaining({ name: "GIT_CONFIG_COUNT" }),
       ]),
     );
-    setAppSettings(db, {
+    await setAppSettings(db, {
       ...defaultAppSettings,
       machineGitCredentialsEnabled: false,
     });
@@ -180,7 +185,7 @@ it("forwards automatic gh credentials to every machine when the server has no lo
     ).toEqual([]);
   } finally {
     vi.unstubAllEnvs();
-    db.$client.close();
+    await db.close();
     await rm(dataDir, { recursive: true, force: true });
   }
 });

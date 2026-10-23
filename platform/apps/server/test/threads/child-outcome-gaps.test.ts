@@ -3,7 +3,11 @@ import {
   listEvents,
   listQueuedThreadMessages,
 } from "@hyperfide/db";
-import { threadScope, turnScope, turnRequestEventDataSchema } from "@hyperfide/domain";
+import {
+  threadScope,
+  turnScope,
+  turnRequestEventDataSchema,
+} from "@hyperfide/domain";
 import { groupHostDaemonEvents } from "@hyperfide/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { finalizeStoppedThread } from "../../src/services/threads/thread-lifecycle.js";
@@ -25,7 +29,7 @@ import { textInput } from "../helpers/prompt-input.js";
 import { internalAuthHeaders } from "../helpers/commands.js";
 import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
 
-function seedParentAndChild(
+async function seedParentAndChild(
   harness: TestAppHarness,
   childStatus: "active" | "starting" | "idle",
 ) {
@@ -34,13 +38,13 @@ function seedParentAndChild(
     environment,
     session,
     thread: parent,
-  } = seedThreadFixture(harness);
-  seedThreadRuntimeState(harness.deps, {
+  } = await seedThreadFixture(harness);
+  await seedThreadRuntimeState(harness.deps, {
     threadId: parent.id,
     environmentId: environment.id,
     providerThreadId: "parent-provider-thread",
   });
-  const child = seedThread(harness.deps, {
+  const child = await seedThread(harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     parentThreadId: parent.id,
@@ -50,8 +54,11 @@ function seedParentAndChild(
   return { parent, child, environment, session };
 }
 
-function parentSystemRequests(harness: TestAppHarness, parentThreadId: string) {
-  return listEvents(harness.db, { threadId: parentThreadId })
+async function parentSystemRequests(
+  harness: TestAppHarness,
+  parentThreadId: string,
+) {
+  return (await listEvents(harness.db, { threadId: parentThreadId }))
     .filter((row) => row.type === "client/turn/requested")
     .map((row) => turnRequestEventDataSchema.parse(JSON.parse(row.data)))
     .filter((data) => data.initiator === "system");
@@ -62,24 +69,24 @@ afterEach(() => vi.useRealTimers());
 describe("child outcomes without provider completion", () => {
   it("keeps a manual Stop silent when it synthesizes an open turn interruption", async () => {
     await withTestHarness(async (harness) => {
-      const { parent, child, environment } = seedParentAndChild(
+      const { parent, child, environment } = await seedParentAndChild(
         harness,
         "active",
       );
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         environmentId: environment.id,
         threadId: child.id,
         turnId: "child-turn",
       });
 
       vi.useFakeTimers();
-      finalizeStoppedThread(harness.deps, { threadId: child.id });
-      finalizeStoppedThread(harness.deps, { threadId: child.id });
+      await finalizeStoppedThread(harness.deps, { threadId: child.id });
+      await finalizeStoppedThread(harness.deps, { threadId: child.id });
       await vi.advanceTimersByTimeAsync(2_000);
 
-      expect(parentSystemRequests(harness, parent.id)).toHaveLength(0);
+      expect(await parentSystemRequests(harness, parent.id)).toHaveLength(0);
       expect(
-        listEvents(harness.db, { threadId: child.id }).some(
+        (await listEvents(harness.db, { threadId: child.id })).some(
           (event) =>
             event.type === "turn/completed" &&
             JSON.parse(event.data).status === "interrupted",
@@ -95,16 +102,14 @@ describe("child outcomes without provider completion", () => {
     "sends $expectedNotices parent notices for a provider interruption after $reason",
     async ({ reason, expectedNotices }) => {
       await withTestHarness(async (harness) => {
-        const { parent, child, environment, session } = seedParentAndChild(
-          harness,
-          "active",
-        );
-        seedTurnStarted(harness.deps, {
+        const { parent, child, environment, session } =
+          await seedParentAndChild(harness, "active");
+        await seedTurnStarted(harness.deps, {
           environmentId: environment.id,
           threadId: child.id,
           turnId: "child-turn",
         });
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: child.id,
           environmentId: environment.id,
           providerThreadId: "provider-child-turn",
@@ -117,7 +122,7 @@ describe("child outcomes without provider completion", () => {
         vi.useFakeTimers();
         const response = await harness.app.request("/internal/session/events", {
           method: "POST",
-          headers: internalAuthHeaders(harness),
+          headers: await internalAuthHeaders(harness),
           body: JSON.stringify({
             sessionId: session.id,
             eventGroups: groupHostDaemonEvents([
@@ -137,11 +142,14 @@ describe("child outcomes without provider completion", () => {
         expect(response.status).toBe(200);
         await vi.advanceTimersByTimeAsync(2_000);
         if (expectedNotices === 1) {
-          await vi.waitFor(() =>
-            expect(parentSystemRequests(harness, parent.id)).toHaveLength(1),
+          await vi.waitFor(async () =>
+            expect(await parentSystemRequests(harness, parent.id)).toHaveLength(
+              1,
+            ),
           );
           expect(
-            parentSystemRequests(harness, parent.id)[0]?.systemMessageSubject,
+            (await parentSystemRequests(harness, parent.id))[0]
+              ?.systemMessageSubject,
           ).toMatchObject({
             outcomes: [
               {
@@ -152,7 +160,9 @@ describe("child outcomes without provider completion", () => {
             ],
           });
         } else {
-          expect(parentSystemRequests(harness, parent.id)).toHaveLength(0);
+          expect(await parentSystemRequests(harness, parent.id)).toHaveLength(
+            0,
+          );
         }
       });
     },
@@ -160,8 +170,8 @@ describe("child outcomes without provider completion", () => {
 
   it("keeps each interruption cause attached to its child in a batch", async () => {
     await withTestHarness(async (harness) => {
-      const { parent, child } = seedParentAndChild(harness, "idle");
-      const sibling = seedThread(harness.deps, {
+      const { parent, child } = await seedParentAndChild(harness, "idle");
+      const sibling = await seedThread(harness.deps, {
         projectId: parent.projectId,
         environmentId: child.environmentId,
         parentThreadId: parent.id,
@@ -192,10 +202,10 @@ describe("child outcomes without provider completion", () => {
       });
       await vi.advanceTimersByTimeAsync(2_000);
 
-      await vi.waitFor(() =>
-        expect(parentSystemRequests(harness, parent.id)).toHaveLength(1),
+      await vi.waitFor(async () =>
+        expect(await parentSystemRequests(harness, parent.id)).toHaveLength(1),
       );
-      const [notice] = parentSystemRequests(harness, parent.id);
+      const [notice] = await parentSystemRequests(harness, parent.id);
       expect(notice?.systemMessageKind).toBe("child-outcome-batch");
       expect(notice?.systemMessageSubject).toEqual({
         kind: "thread-batch",
@@ -227,40 +237,42 @@ describe("child outcomes without provider completion", () => {
 
   it("notifies the parent when setup fails before the child starts a turn", async () => {
     await withTestHarness(async (harness) => {
-      const { parent, child, environment } = seedParentAndChild(
+      const { parent, child, environment } = await seedParentAndChild(
         harness,
         "starting",
       );
 
       vi.useFakeTimers();
-      failThreadProvisioning(harness.deps, {
+      await failThreadProvisioning(harness.deps, {
         thread: child,
         environmentId: environment.id,
         detail: "Workspace setup failed",
       });
       await vi.advanceTimersByTimeAsync(2_000);
 
-      await vi.waitFor(() =>
-        expect(parentSystemRequests(harness, parent.id)).toMatchObject([
+      await vi.waitFor(async () =>
+        expect(await parentSystemRequests(harness, parent.id)).toMatchObject([
           { systemMessageKind: "child-failed" },
         ]),
       );
       expect(
-        JSON.stringify(parentSystemRequests(harness, parent.id)[0]?.input),
+        JSON.stringify(
+          (await parentSystemRequests(harness, parent.id))[0]?.input,
+        ),
       ).toContain("failed during workspace setup before a turn began");
     });
   });
 
   it("notifies the parent when an environment fails during setup", async () => {
     await withTestHarness(async (harness) => {
-      const { parent } = seedParentAndChild(harness, "idle");
-      const host = seedHost(harness.deps);
-      const environment = seedEnvironment(harness.deps, {
+      const { parent } = await seedParentAndChild(harness, "idle");
+      const host = await seedHost(harness.deps);
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: parent.projectId,
         status: "provisioning",
       });
-      seedThread(harness.deps, {
+      await seedThread(harness.deps, {
         projectId: parent.projectId,
         environmentId: environment.id,
         parentThreadId: parent.id,
@@ -268,14 +280,14 @@ describe("child outcomes without provider completion", () => {
       });
 
       vi.useFakeTimers();
-      interruptEnvironmentProvisioningForHost(harness.deps, {
+      await interruptEnvironmentProvisioningForHost(harness.deps, {
         hostId: host.id,
         reason: "Host disconnected during setup",
       });
       await vi.advanceTimersByTimeAsync(2_000);
 
-      await vi.waitFor(() =>
-        expect(parentSystemRequests(harness, parent.id)).toMatchObject([
+      await vi.waitFor(async () =>
+        expect(await parentSystemRequests(harness, parent.id)).toMatchObject([
           { systemMessageKind: "child-failed" },
         ]),
       );
@@ -284,8 +296,8 @@ describe("child outcomes without provider completion", () => {
 
   it("notifies the parent only after a queued send exhausts retries", async () => {
     await withTestHarness(async (harness) => {
-      const { parent, child } = seedParentAndChild(harness, "idle");
-      const row = seedQueuedMessage(harness.deps, {
+      const { parent, child } = await seedParentAndChild(harness, "idle");
+      const row = await seedQueuedMessage(harness.deps, {
         threadId: child.id,
         content: textInput("Continue the child work"),
         waitingOn: { kind: "thread-busy" },
@@ -293,7 +305,7 @@ describe("child outcomes without provider completion", () => {
 
       vi.useFakeTimers();
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        recordQueuedMessageDrainFailure(harness.deps, {
+        await recordQueuedMessageDrainFailure(harness.deps, {
           error: new Error("dispatch failed"),
           now: Date.now(),
           row,
@@ -301,11 +313,11 @@ describe("child outcomes without provider completion", () => {
         });
       }
       expect(
-        getQueuedThreadMessage(harness.db, row.id)?.nextAttemptAt,
+        (await getQueuedThreadMessage(harness.db, row.id))?.nextAttemptAt,
       ).not.toBeNull();
-      expect(parentSystemRequests(harness, parent.id)).toHaveLength(0);
+      expect(await parentSystemRequests(harness, parent.id)).toHaveLength(0);
 
-      recordQueuedMessageDrainFailure(harness.deps, {
+      await recordQueuedMessageDrainFailure(harness.deps, {
         error: new Error("dispatch failed"),
         now: Date.now(),
         row,
@@ -314,17 +326,21 @@ describe("child outcomes without provider completion", () => {
       await vi.advanceTimersByTimeAsync(2_000);
 
       expect(
-        getQueuedThreadMessage(harness.db, row.id)?.nextAttemptAt,
+        (await getQueuedThreadMessage(harness.db, row.id))?.nextAttemptAt,
       ).toBeNull();
-      await vi.waitFor(() =>
-        expect(parentSystemRequests(harness, parent.id)).toMatchObject([
+      await vi.waitFor(async () =>
+        expect(await parentSystemRequests(harness, parent.id)).toMatchObject([
           { systemMessageKind: "child-failed" },
         ]),
       );
       expect(
-        JSON.stringify(parentSystemRequests(harness, parent.id)[0]?.input),
+        JSON.stringify(
+          (await parentSystemRequests(harness, parent.id))[0]?.input,
+        ),
       ).toContain("could not send a queued message after retrying");
-      expect(listQueuedThreadMessages(harness.db, parent.id)).toHaveLength(0);
+      expect(
+        await listQueuedThreadMessages(harness.db, parent.id),
+      ).toHaveLength(0);
     });
   });
 });
@@ -342,34 +358,36 @@ describe("child parent-notification policy", () => {
           environment,
           session,
           thread: parent,
-        } = seedThreadFixture(harness);
-        seedThreadRuntimeState(harness.deps, {
+        } = await seedThreadFixture(harness);
+        await seedThreadRuntimeState(harness.deps, {
           threadId: parent.id,
           environmentId: environment.id,
           providerThreadId: "parent-provider-thread",
         });
         const policies = ["auto", "stuck", "off"] as const;
-        const children = policies.map((parentNotifications) => {
-          const child = seedThread(harness.deps, {
-            projectId: project.id,
-            environmentId: environment.id,
-            parentThreadId: parent.id,
-            parentNotifications,
-            status: "active",
-            title: `${parentNotifications} child`,
-          });
-          seedTurnStarted(harness.deps, {
-            environmentId: environment.id,
-            threadId: child.id,
-            turnId: `${parentNotifications}-turn`,
-          });
-          return { child, parentNotifications };
-        });
+        const children = await Promise.all(
+          policies.map(async (parentNotifications) => {
+            const child = await seedThread(harness.deps, {
+              projectId: project.id,
+              environmentId: environment.id,
+              parentThreadId: parent.id,
+              parentNotifications,
+              status: "active",
+              title: `${parentNotifications} child`,
+            });
+            await seedTurnStarted(harness.deps, {
+              environmentId: environment.id,
+              threadId: child.id,
+              turnId: `${parentNotifications}-turn`,
+            });
+            return { child, parentNotifications };
+          }),
+        );
 
         vi.useFakeTimers();
         const response = await harness.app.request("/internal/session/events", {
           method: "POST",
-          headers: internalAuthHeaders(harness),
+          headers: await internalAuthHeaders(harness),
           body: JSON.stringify({
             sessionId: session.id,
             eventGroups: groupHostDaemonEvents(
@@ -394,10 +412,12 @@ describe("child parent-notification policy", () => {
             notifiedPolicies.some((policy) => policy === parentNotifications),
           )
           .map(({ child }) => child.id);
-        await vi.waitFor(() =>
-          expect(parentSystemRequests(harness, parent.id)).toHaveLength(1),
+        await vi.waitFor(async () =>
+          expect(await parentSystemRequests(harness, parent.id)).toHaveLength(
+            1,
+          ),
         );
-        const outcomes = parentSystemRequests(harness, parent.id)[0]
+        const outcomes = (await parentSystemRequests(harness, parent.id))[0]
           ?.systemMessageSubject;
         expect(outcomes).toMatchObject({
           outcomes: expectedThreadIds.map((threadId) => ({ threadId, status })),

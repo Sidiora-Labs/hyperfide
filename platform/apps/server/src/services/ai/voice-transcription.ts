@@ -10,10 +10,10 @@ interface TranscribeVoiceInputArgs {
 
 const VOICE_TRANSCRIPTION_MAX_BYTES = 25 * 1024 * 1024;
 
-export function resolveVoiceTranscriptionEnabled(
+export async function resolveVoiceTranscriptionEnabled(
   deps: LoggedWorkSessionDeps,
-): boolean {
-  return isAiTaskAvailable(deps, "voice");
+): Promise<boolean> {
+  return await isAiTaskAvailable(deps, "voice");
 }
 
 function trimPrompt(prompt: string | undefined): string | null {

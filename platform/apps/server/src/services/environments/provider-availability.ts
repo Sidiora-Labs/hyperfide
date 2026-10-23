@@ -1,5 +1,8 @@
 import { getProjectSourceByHost } from "@hyperfide/db";
-import { isLocalPathProjectSource, PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import {
+  isLocalPathProjectSource,
+  PERSONAL_PROJECT_ID,
+} from "@hyperfide/domain";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import type { WorkSessionDeps } from "../../types.js";
 import { callHostRetryableOnlineRpc } from "../hosts/online-rpc.js";
@@ -30,10 +33,10 @@ export type EnvironmentProviderAvailabilityResolution =
   | { ok: true; availability: PluginEnvironmentProviderAvailability }
   | { ok: false; message: string };
 
-export function environmentProviderAcceptsEmptyInputs(
+export async function environmentProviderAcceptsEmptyInputs(
   record: PluginEnvironmentProviderRecord,
 ): Promise<boolean> {
-  return acceptsEmptyInputs(record.provider, (run) =>
+  return await acceptsEmptyInputs(record.provider, (run) =>
     invokeEnvironmentProvider(
       record,
       `"${record.provider.id}" environment provider empty inputs`,
@@ -42,36 +45,44 @@ export function environmentProviderAcceptsEmptyInputs(
   );
 }
 
-export function environmentProviderMatchesContext(
+export async function environmentProviderMatchesContext(
   deps: WorkSessionDeps,
   record: PluginEnvironmentProviderRecord,
   query: { projectId: string; hostId?: string },
-): boolean {
-  const project = requirePublicProject(deps.db, query.projectId);
+): Promise<boolean> {
+  const project = await requirePublicProject(deps.db, query.projectId);
   const hosts =
     query.hostId === undefined
-      ? listPublicHostsWithStatus(deps)
-      : [getNonDestroyedHostWithStatus(deps, query.hostId)];
-  return hosts.some((host) => {
-    if (host === null) return false;
-    const requires = record.provider.requires;
-    if (requires.projectless !== (project.id === PERSONAL_PROJECT_ID)) {
-      return false;
-    }
-    const source = getProjectSourceByHost(deps.db, project.id, host.id);
-    const projectCheckout =
-      source !== null && isLocalPathProjectSource(source)
-        ? { path: source.path }
-        : null;
-    if (
-      (requires.projectCheckout || requires.gitCheckout) &&
-      projectCheckout === null
-    ) {
-      return false;
-    }
-    if (requires.gitRemote && project.gitRemoteUrl === null) return false;
-    return true;
-  });
+      ? await listPublicHostsWithStatus(deps)
+      : [await getNonDestroyedHostWithStatus(deps, query.hostId)];
+  return (
+    await Promise.all(
+      hosts.map(async (host) => {
+        if (host === null) return false;
+        const requires = record.provider.requires;
+        if (requires.projectless !== (project.id === PERSONAL_PROJECT_ID)) {
+          return false;
+        }
+        const source = await getProjectSourceByHost(
+          deps.db,
+          project.id,
+          host.id,
+        );
+        const projectCheckout =
+          source !== null && isLocalPathProjectSource(source)
+            ? { path: source.path }
+            : null;
+        if (
+          (requires.projectCheckout || requires.gitCheckout) &&
+          projectCheckout === null
+        ) {
+          return false;
+        }
+        if (requires.gitRemote && project.gitRemoteUrl === null) return false;
+        return true;
+      }),
+    )
+  ).some(Boolean);
 }
 
 export async function resolvePluginEnvironmentProviderAvailability(
@@ -85,8 +96,8 @@ export async function resolvePluginEnvironmentProviderAvailability(
   const invocation = await invokeEnvironmentProvider(
     record,
     `"${record.provider.id}" environment provider availability`,
-    () =>
-      decideWithinBox(
+    async () =>
+      await decideWithinBox(
         () => Promise.resolve(availability(context)),
         environmentProviderDecisionTimeoutMs(),
       ),
@@ -99,7 +110,7 @@ const pendingGitInspections = new WeakMap<
   Map<string, Promise<GitCheckoutAvailability>>
 >();
 
-export function resolveGitCheckoutAvailability(
+export async function resolveGitCheckoutAvailability(
   deps: WorkSessionDeps,
   args: { hostId: string; path: string },
 ): Promise<GitCheckoutAvailability> {

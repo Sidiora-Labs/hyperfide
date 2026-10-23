@@ -39,23 +39,23 @@ export function buildSuggestedBranchName(
     : `${args.branchPrefix}${args.threadId}`;
 }
 
-export function requirePublicProjectForThreadCreate(
+export async function requirePublicProjectForThreadCreate(
   deps: Pick<AppDeps, "db">,
   projectId: string,
 ) {
-  const project = getProject(deps.db, projectId);
+  const project = await getProject(deps.db, projectId);
   if (!project || project.deletedAt !== null) {
     throw new ApiError(404, "project_not_found", "Project not found");
   }
   return project;
 }
 
-export function requireSourceForHost(
+export async function requireSourceForHost(
   deps: Pick<AppDeps, "db">,
   projectId: string,
   hostId: string,
-): LocalPathProjectSource {
-  const source = getProjectSourceByHost(deps.db, projectId, hostId);
+): Promise<LocalPathProjectSource> {
+  const source = await getProjectSourceByHost(deps.db, projectId, hostId);
   if (!source || source.type !== "local_path") {
     throw new ApiError(
       409,
@@ -87,7 +87,7 @@ export function buildEnvironmentProvisionCommand(
   };
 }
 
-export function createThreadRecord(
+export async function createThreadRecord(
   deps: Pick<AppDeps, "db"> & { hub: DbNotifier },
   args: {
     environmentId: string | null;
@@ -96,12 +96,12 @@ export function createThreadRecord(
   },
 ) {
   const sectionId = args.request.sectionId ?? null;
-  if (sectionId !== null && !getThreadSectionById(deps.db, sectionId)) {
+  if (sectionId !== null && !(await getThreadSectionById(deps.db, sectionId))) {
     throw new ApiError(404, "section_not_found", "Section not found");
   }
 
   try {
-    const thread = createThread(deps.db, deps.hub, {
+    const thread = await createThread(deps.db, deps.hub, {
       projectId: args.request.projectId,
       environmentId: args.environmentId,
       providerId: args.request.providerId,
@@ -135,7 +135,7 @@ export function createThreadRecord(
       sectionId !== null &&
       error instanceof Error &&
       isSqliteForeignKeyConstraint(error) &&
-      !getThreadSectionById(deps.db, sectionId)
+      !(await getThreadSectionById(deps.db, sectionId))
     ) {
       throw new ApiError(404, "section_not_found", "Section not found");
     }
@@ -143,8 +143,11 @@ export function createThreadRecord(
   }
 }
 
-export function getThreadSafe(deps: Pick<AppDeps, "db">, threadId: string) {
-  const thread = getThread(deps.db, threadId);
+export async function getThreadSafe(
+  deps: Pick<AppDeps, "db">,
+  threadId: string,
+) {
+  const thread = await getThread(deps.db, threadId);
   if (!thread) {
     throw new ApiError(500, "internal_error", "Thread was not created");
   }

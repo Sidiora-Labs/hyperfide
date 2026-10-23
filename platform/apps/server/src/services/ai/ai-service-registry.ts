@@ -32,7 +32,9 @@ export interface AiServiceRegistry {
   register(registration: AiServiceRegistration): { dispose(): void };
   get(key: AiServiceKey): AiServiceRegistration | null;
   list(): AiServiceRegistration[];
-  peekStatus(key: AiServiceKey): AiServiceStatus | null;
+  peekStatus(
+    key: AiServiceKey,
+  ): AiServiceStatus | null | Promise<AiServiceStatus | null>;
   status(key: AiServiceKey): Promise<AiServiceStatus>;
 }
 
@@ -104,7 +106,9 @@ export function createAiServiceRegistry(
   const statuses = new Map<AiServiceRegistration, CachedStatus>();
   const inFlight = new Map<AiServiceRegistration, Promise<AiServiceStatus>>();
 
-  function refresh(service: AiServiceRegistration): Promise<AiServiceStatus> {
+  async function refresh(
+    service: AiServiceRegistration,
+  ): Promise<AiServiceStatus> {
     const pending = inFlight.get(service);
     if (pending !== undefined) return pending;
     const request = readStatus(service)
@@ -150,7 +154,7 @@ export function createAiServiceRegistry(
     list() {
       return [...services.values()];
     },
-    peekStatus(key) {
+    async peekStatus(key) {
       const service = services.get(mapKey(key));
       if (service === undefined) return null;
       const cached = statuses.get(service);
@@ -168,7 +172,7 @@ export function createAiServiceRegistry(
       if (cached !== undefined && now() - cached.checkedAt <= STATUS_TTL_MS) {
         return cached.status;
       }
-      return refresh(service);
+      return await refresh(service);
     },
   };
 }

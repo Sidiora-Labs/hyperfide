@@ -17,9 +17,9 @@ const contract = defineRpcContract({
 describe("callPluginHostRpc", () => {
   it("forwards a 20MB recording through the existing daemon wire contract", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       const audioBase64 = Buffer.alloc(20 * 1024 * 1024).toString("base64");
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: async (request) => {
@@ -52,7 +52,7 @@ describe("callPluginHostRpc", () => {
 
   it("waits for host execution to stop after forwarding cancellation", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       let releaseCall: (() => void) | undefined;
       const callHeld = new Promise<void>((resolve) => {
         releaseCall = resolve;
@@ -61,7 +61,7 @@ describe("callPluginHostRpc", () => {
       const cancelReceived = new Promise<void>((resolve) => {
         recordCancel = resolve;
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: async (request) => {

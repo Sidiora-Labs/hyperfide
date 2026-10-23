@@ -464,9 +464,9 @@ export function createComposerHandleBinding(
       warnDeprecatedComposerMember("experimental_onSubmitted", "onSubmitted");
       return onSubmitted(listener);
     },
-    experimental_submit: (options) => {
+    experimental_submit: async (options) => {
       warnDeprecatedComposerMember("experimental_submit", "submit");
-      return submit(options);
+      return await submit(options);
     },
     experimental_setSelection: (selection) => {
       warnDeprecatedComposerMember("experimental_setSelection", "setSelection");

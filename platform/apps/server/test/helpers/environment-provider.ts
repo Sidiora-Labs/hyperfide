@@ -101,7 +101,8 @@ export function installDefaultEnvironmentProviders(): void {
     listEnvironmentProviders: () => records,
     getEnvironmentProvider: (id) =>
       records.find((record) => record.provider.id === id),
-    invokeProvider: (_pluginId, _label, run) => invokePluginInline(run),
+    invokeProvider: async (_pluginId, _label, run) =>
+      await invokePluginInline(run),
     decisionTimeoutMs: 10_000,
   });
 }
@@ -133,7 +134,8 @@ export function installFakeEnvironmentProvider(
   setPluginEnvironmentProviderBridge({
     listEnvironmentProviders: () => [record],
     getEnvironmentProvider: (id) => (id === args.id ? record : undefined),
-    invokeProvider: (_pluginId, _label, run) => invokePluginInline(run),
+    invokeProvider: async (_pluginId, _label, run) =>
+      await invokePluginInline(run),
     decisionTimeoutMs: 10_000,
   });
   onTestFinished(() => {

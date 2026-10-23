@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../../src/testing.js";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
@@ -15,15 +17,15 @@ import {
 } from "../../src/data/threads.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, hub, { name: "host" });
-  const { project } = createProject(db, hub, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, hub, { name: "host" });
+  const { project } = await createProject(db, hub, {
     name: "project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/ownership" },
   });
-  const spawn = (lifecycleOwnerThreadId?: string) =>
-    createThread(db, hub, {
+  const spawn = async (lifecycleOwnerThreadId?: string) =>
+    await createThread(db, hub, {
       projectId: project.id,
       providerId: "test",
       lifecycleOwnerThreadId,
@@ -33,135 +35,161 @@ function setup() {
 }
 
 describe("lifecycle ownership", () => {
-  it("cascades through archived intermediates while preserving ownership and history until leaf deletion", () => {
-    const { db, spawn } = setup();
-    const owner = spawn();
-    const child = spawn(owner.id);
-    const leaf = spawn(child.id);
-    const independent = spawn();
-    archiveThread(db, hub, child.id);
-    expect(getThread(db, owner.id)?.archivedAt).toBeNull();
-    archiveThread(db, hub, owner.id);
+  it("cascades through archived intermediates while preserving ownership and history until leaf deletion", async () => {
+    const { db, spawn } = await setup();
+    const owner = await spawn();
+    const child = await spawn(owner.id);
+    const leaf = await spawn(child.id);
+    const independent = await spawn();
+    await archiveThread(db, hub, child.id);
+    expect((await getThread(db, owner.id))?.archivedAt).toBeNull();
+    await archiveThread(db, hub, owner.id);
     for (const thread of [owner, child, leaf])
-      expect(getThread(db, thread.id)?.archivedAt).toEqual(expect.any(Number));
-    expect(unarchiveThread(db, hub, leaf.id)).toBeNull();
-    unarchiveThread(db, hub, owner.id);
-    expect(getThread(db, child.id)?.archivedAt).toEqual(expect.any(Number));
-    unarchiveThread(db, hub, child.id);
-    expect(unarchiveThread(db, hub, leaf.id)?.archivedAt).toBeNull();
-    markThreadDeleted(db, hub, { threadId: owner.id });
-    expect(deleteThread(db, hub, owner.id)).toBe(false);
-    expect(() =>
-      db.delete(threads).where(eq(threads.id, owner.id)).run(),
-    ).toThrow();
-    expect(getThread(db, child.id)?.lifecycleOwnerThreadId).toBe(owner.id);
-    expect(deleteThread(db, hub, child.id)).toBe(false);
-    expect(deleteThread(db, hub, leaf.id)).toBe(true);
-    expect(deleteThread(db, hub, child.id)).toBe(true);
-    expect(deleteThread(db, hub, owner.id)).toBe(true);
-    expect(getThread(db, independent.id)?.deletedAt).toBeNull();
+      expect((await getThread(db, thread.id))?.archivedAt).toEqual(
+        expect.any(Number),
+      );
+    expect(await unarchiveThread(db, hub, leaf.id)).toBeNull();
+    await unarchiveThread(db, hub, owner.id);
+    expect((await getThread(db, child.id))?.archivedAt).toEqual(
+      expect.any(Number),
+    );
+    await unarchiveThread(db, hub, child.id);
+    expect((await unarchiveThread(db, hub, leaf.id))?.archivedAt).toBeNull();
+    await markThreadDeleted(db, hub, { threadId: owner.id });
+    expect(await deleteThread(db, hub, owner.id)).toBe(false);
+    await expect(
+      (async () =>
+        await db.delete(threads).where(eq(threads.id, owner.id)).run())(),
+    ).rejects.toThrow();
+    expect((await getThread(db, child.id))?.lifecycleOwnerThreadId).toBe(
+      owner.id,
+    );
+    expect(await deleteThread(db, hub, child.id)).toBe(false);
+    expect(await deleteThread(db, hub, leaf.id)).toBe(true);
+    expect(await deleteThread(db, hub, child.id)).toBe(true);
+    expect(await deleteThread(db, hub, owner.id)).toBe(true);
+    expect((await getThread(db, independent.id))?.deletedAt).toBeNull();
   });
 
-  it("rejects unavailable owners and accepts cross-project owners", () => {
-    const { db, spawn, project, host } = setup();
-    expect(() => spawn("missing")).toThrow(/lifecycleOwner/);
-    const owner = spawn();
-    archiveThread(db, hub, owner.id);
-    expect(() => spawn(owner.id)).toThrow(/lifecycleOwner/);
-    unarchiveThread(db, hub, owner.id);
-    markThreadDeleted(db, hub, { threadId: owner.id });
-    expect(() => spawn(owner.id)).toThrow(/lifecycleOwner/);
-    const live = spawn();
-    const other = createProject(db, hub, {
-      name: "other",
-      source: { type: "local_path", hostId: host.id, path: "/tmp/other" },
-    }).project;
+  it("rejects unavailable owners and accepts cross-project owners", async () => {
+    const { db, spawn, project, host } = await setup();
+    await expect((async () => await spawn("missing"))()).rejects.toThrow(
+      /lifecycleOwner/,
+    );
+    const owner = await spawn();
+    await archiveThread(db, hub, owner.id);
+    await expect((async () => await spawn(owner.id))()).rejects.toThrow(
+      /lifecycleOwner/,
+    );
+    await unarchiveThread(db, hub, owner.id);
+    await markThreadDeleted(db, hub, { threadId: owner.id });
+    await expect((async () => await spawn(owner.id))()).rejects.toThrow(
+      /lifecycleOwner/,
+    );
+    const live = await spawn();
+    const other = (
+      await createProject(db, hub, {
+        name: "other",
+        source: { type: "local_path", hostId: host.id, path: "/tmp/other" },
+      })
+    ).project;
     expect(other.id).not.toBe(project.id);
-    const dependent = createThread(db, hub, {
+    const dependent = await createThread(db, hub, {
       projectId: other.id,
       providerId: "test",
       lifecycleOwnerThreadId: live.id,
     });
-    archiveThread(db, hub, live.id);
-    expect(getThread(db, dependent.id)?.archivedAt).toEqual(expect.any(Number));
-    markThreadDeleted(db, hub, { threadId: live.id });
-    expect(getThread(db, dependent.id)?.deletedAt).toEqual(expect.any(Number));
+    await archiveThread(db, hub, live.id);
+    expect((await getThread(db, dependent.id))?.archivedAt).toEqual(
+      expect.any(Number),
+    );
+    await markThreadDeleted(db, hub, { threadId: live.id });
+    expect((await getThread(db, dependent.id))?.deletedAt).toEqual(
+      expect.any(Number),
+    );
   });
 
-  it("preserves earlier archive/delete timestamps and skips deleted rows during archive", () => {
-    const { db, spawn } = setup();
-    const owner = spawn();
-    const archived = spawn(owner.id);
-    const deleted = spawn(owner.id);
-    db.update(threads)
+  it("preserves earlier archive/delete timestamps and skips deleted rows during archive", async () => {
+    const { db, spawn } = await setup();
+    const owner = await spawn();
+    const archived = await spawn(owner.id);
+    const deleted = await spawn(owner.id);
+    await db
+      .update(threads)
       .set({ archivedAt: 100, updatedAt: 100 })
       .where(eq(threads.id, archived.id))
       .run();
-    markThreadDeleted(db, hub, { threadId: deleted.id, deletedAt: 200 });
-    archiveThread(db, hub, owner.id);
-    expect(getThread(db, archived.id)?.archivedAt).toBe(100);
-    expect(getThread(db, deleted.id)?.archivedAt).toBeNull();
-    markThreadDeleted(db, hub, { threadId: owner.id, deletedAt: 300 });
-    expect(getThread(db, deleted.id)?.deletedAt).toBe(200);
-    expect(getThread(db, archived.id)?.deletedAt).toBe(300);
+    await markThreadDeleted(db, hub, { threadId: deleted.id, deletedAt: 200 });
+    await archiveThread(db, hub, owner.id);
+    expect((await getThread(db, archived.id))?.archivedAt).toBe(100);
+    expect((await getThread(db, deleted.id))?.archivedAt).toBeNull();
+    await markThreadDeleted(db, hub, { threadId: owner.id, deletedAt: 300 });
+    expect((await getThread(db, deleted.id))?.deletedAt).toBe(200);
+    expect((await getThread(db, archived.id))?.deletedAt).toBe(300);
   });
 });
 
-it("leaves existing helpers unowned and preserves their state during migration", () => {
-  const { db, spawn, project } = setup();
-  const owner = spawn();
-  const side = createThread(db, hub, {
-    projectId: project.id,
-    providerId: "test",
-    sourceThreadId: owner.id,
-    originKind: "fork",
-    originPluginId: "side-chat",
-    visibility: "hidden",
-  });
-  const unknown = createThread(db, hub, {
-    projectId: project.id,
-    providerId: "test",
-    sourceThreadId: owner.id,
-    originKind: "fork",
-    visibility: "hidden",
-    title: "side-chat",
-  });
-  const worker = createThread(db, hub, {
-    projectId: project.id,
-    providerId: "test",
-    originPluginId: "workflows",
-    pluginMetadata: {
-      pluginId: "workflows",
-      metadata: {
-        workflowWorker: 1,
-        runId: "run",
-        callId: "call",
-        originThreadId: owner.id,
+it.skipIf(isPostgresTest)(
+  "leaves existing helpers unowned and preserves their state during migration",
+  async () => {
+    const { db, spawn, project } = await setup();
+    const owner = await spawn();
+    const side = await createThread(db, hub, {
+      projectId: project.id,
+      providerId: "test",
+      sourceThreadId: owner.id,
+      originKind: "fork",
+      originPluginId: "side-chat",
+      visibility: "hidden",
+    });
+    const unknown = await createThread(db, hub, {
+      projectId: project.id,
+      providerId: "test",
+      sourceThreadId: owner.id,
+      originKind: "fork",
+      visibility: "hidden",
+      title: "side-chat",
+    });
+    const worker = await createThread(db, hub, {
+      projectId: project.id,
+      providerId: "test",
+      originPluginId: "workflows",
+      pluginMetadata: {
+        pluginId: "workflows",
+        metadata: {
+          workflowWorker: 1,
+          runId: "run",
+          callId: "call",
+          originThreadId: owner.id,
+        },
       },
-    },
-  });
-  db.update(threads)
-    .set({ createdAt: 1, deletedAt: 2, archivedAt: 2 })
-    .where(eq(threads.id, owner.id))
-    .run();
-  const migration = readFileSync(
-    new URL("../../drizzle/0121_fluffy_major_mapleleaf.sql", import.meta.url),
-    "utf8",
-  );
-  const before = db.$client.prepare("SELECT * FROM threads ORDER BY id").all();
-  db.$client.exec(`
+    });
+    await db
+      .update(threads)
+      .set({ createdAt: 1, deletedAt: 2, archivedAt: 2 })
+      .where(eq(threads.id, owner.id))
+      .run();
+    const migration = readFileSync(
+      new URL("../../drizzle/0121_fluffy_major_mapleleaf.sql", import.meta.url),
+      "utf8",
+    );
+    const before = await db.$client
+      .prepare("SELECT * FROM threads ORDER BY id")
+      .all();
+    await db.$client.exec(`
     DROP INDEX threads_lifecycle_owner_idx;
     ALTER TABLE threads DROP COLUMN lifecycle_owner_thread_id;
   `);
-  db.$client.exec(migration);
-  expect(db.$client.prepare("SELECT * FROM threads ORDER BY id").all()).toEqual(
-    before,
-  );
-  for (const child of [side, worker, unknown])
-    expect(getThread(db, child.id)).toMatchObject({
-      lifecycleOwnerThreadId: null,
-      deletedAt: null,
-      archivedAt: null,
-    });
-  expect(db.$client.pragma("foreign_key_check")).toEqual([]);
-});
+    await db.$client.exec(migration);
+    expect(
+      await db.$client.prepare("SELECT * FROM threads ORDER BY id").all(),
+    ).toEqual(before);
+    for (const child of [side, worker, unknown])
+      expect(await getThread(db, child.id)).toMatchObject({
+        lifecycleOwnerThreadId: null,
+        deletedAt: null,
+        archivedAt: null,
+      });
+    expect(db.$client.pragma("foreign_key_check")).toEqual([]);
+  },
+);

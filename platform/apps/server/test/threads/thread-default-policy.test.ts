@@ -86,11 +86,11 @@ function makeParentThread(
 }
 
 describe("resolveCreateThreadExecutionDefaults", () => {
-  it("uses the picker's first provider without pinning a model", () => {
-    expect(registry.list()[0]?.info.id).toBe("codex");
+  it("uses the picker's first provider without pinning a model", async () => {
+    expect((await registry.list())[0]?.info.id).toBe("codex");
 
     expect(
-      resolveCreateThreadExecutionDefaults(registry, {
+      await resolveCreateThreadExecutionDefaults(registry, {
         storedDefaults: null,
       }),
     ).toEqual({
@@ -113,12 +113,12 @@ describe("resolveCreateThreadExecutionDefaults", () => {
       providerOrder: ["pi", "claude-code"],
       defaultProviderId: null as string | null,
     };
-    const userRegistry = createProviderRegistryService({
+    const userRegistry = await createProviderRegistryService({
       readUserProviderPreferences: () => preferences,
     });
     await registerFirstPartyProviders(userRegistry);
 
-    expect(userRegistry.list().map((entry) => entry.info.id)).toEqual([
+    expect((await userRegistry.list()).map((entry) => entry.info.id)).toEqual([
       "pi",
       "claude-code",
       "codex",
@@ -129,22 +129,28 @@ describe("resolveCreateThreadExecutionDefaults", () => {
       "acp-hermes-agent",
     ]);
     expect(
-      resolveCreateThreadExecutionDefaults(userRegistry, {
-        storedDefaults: null,
-      }).providerId,
+      (
+        await resolveCreateThreadExecutionDefaults(userRegistry, {
+          storedDefaults: null,
+        })
+      ).providerId,
     ).toBe("pi");
 
     preferences.defaultProviderId = "codex";
     expect(
-      resolveCreateThreadExecutionDefaults(userRegistry, {
-        storedDefaults: null,
-      }).providerId,
+      (
+        await resolveCreateThreadExecutionDefaults(userRegistry, {
+          storedDefaults: null,
+        })
+      ).providerId,
     ).toBe("codex");
     preferences.defaultProviderId = "not-installed";
     expect(
-      resolveCreateThreadExecutionDefaults(userRegistry, {
-        storedDefaults: null,
-      }).providerId,
+      (
+        await resolveCreateThreadExecutionDefaults(userRegistry, {
+          storedDefaults: null,
+        })
+      ).providerId,
     ).toBe("pi");
   });
 
@@ -159,9 +165,11 @@ describe("resolveCreateThreadExecutionDefaults", () => {
     await registerFirstPartyProviders(userRegistry);
 
     expect(
-      resolveCreateThreadExecutionDefaults(userRegistry, {
-        storedDefaults: null,
-      }).providerFallbackCandidates,
+      (
+        await resolveCreateThreadExecutionDefaults(userRegistry, {
+          storedDefaults: null,
+        })
+      ).providerFallbackCandidates,
     ).toEqual([
       "pi",
       "claude-code",
@@ -173,26 +181,30 @@ describe("resolveCreateThreadExecutionDefaults", () => {
     ]);
   });
 
-  it("has no fallback candidates when a provider was explicitly requested", () => {
+  it("has no fallback candidates when a provider was explicitly requested", async () => {
     expect(
-      resolveCreateThreadExecutionDefaults(registry, {
-        requestedProviderId: "codex",
-        storedDefaults: null,
-      }).providerFallbackCandidates,
+      (
+        await resolveCreateThreadExecutionDefaults(registry, {
+          requestedProviderId: "codex",
+          storedDefaults: null,
+        })
+      ).providerFallbackCandidates,
     ).toEqual([]);
   });
 
-  it("has no fallback candidates when a stored default provider is used", () => {
+  it("has no fallback candidates when a stored default provider is used", async () => {
     expect(
-      resolveCreateThreadExecutionDefaults(registry, {
-        storedDefaults: makeDefaults({ providerId: "codex" }),
-      }).providerFallbackCandidates,
+      (
+        await resolveCreateThreadExecutionDefaults(registry, {
+          storedDefaults: makeDefaults({ providerId: "codex" }),
+        })
+      ).providerFallbackCandidates,
     ).toEqual([]);
   });
 
-  it("discards stored defaults when the resolved provider changes", () => {
+  it("discards stored defaults when the resolved provider changes", async () => {
     expect(
-      resolveCreateThreadExecutionDefaults(registry, {
+      await resolveCreateThreadExecutionDefaults(registry, {
         requestedProviderId: "pi",
         storedDefaults: makeDefaults({
           providerId: "codex",
@@ -206,14 +218,14 @@ describe("resolveCreateThreadExecutionDefaults", () => {
     });
   });
 
-  it("reuses matching stored defaults", () => {
+  it("reuses matching stored defaults", async () => {
     const storedDefaults = makeDefaults({
       model: "gpt-5.1",
       permissionMode: "accept-edits",
     });
 
     expect(
-      resolveCreateThreadExecutionDefaults(registry, {
+      await resolveCreateThreadExecutionDefaults(registry, {
         storedDefaults,
       }),
     ).toEqual({
@@ -230,7 +242,7 @@ describe("resolveCreateThreadExecutionDefaults", () => {
     });
 
     expect(
-      resolveCreateThreadExecutionDefaults(degradedRegistry, {
+      await resolveCreateThreadExecutionDefaults(degradedRegistry, {
         storedDefaults: null,
       }),
     ).toEqual({
@@ -253,12 +265,15 @@ describe("resolveCreateThreadExecutionDefaults", () => {
       unavailablePluginIds: ["provider-codex"],
     });
 
-    expect(() =>
-      resolveCreateThreadExecutionDefaults(degradedRegistry, {
-        requestedProviderId: "codex",
-        storedDefaults: null,
-      }),
-    ).toThrow(/Codex is unavailable because its provider plugin failed/u);
+    await expect(
+      (async () =>
+        await resolveCreateThreadExecutionDefaults(degradedRegistry, {
+          requestedProviderId: "codex",
+          storedDefaults: null,
+        }))(),
+    ).rejects.toThrow(
+      /Codex is unavailable because its provider plugin failed/u,
+    );
   });
 });
 
@@ -266,9 +281,9 @@ describe("resolveCreateThreadEnvironment", () => {
   async function resolveEnvironment(
     args: Parameters<typeof resolveCreateThreadEnvironment>[1],
   ) {
-    return withTestHarness((harness) => {
+    return await withTestHarness(async (harness) => {
       installFakeGitWorktreeProvider();
-      return resolveCreateThreadEnvironment(harness.deps, args);
+      return await resolveCreateThreadEnvironment(harness.deps, args);
     });
   }
 
@@ -329,21 +344,25 @@ describe("resolveCreateThreadEnvironment", () => {
   it("uses a fresh worktree on the parent's machine for a project child", async () => {
     await withTestHarness(async (harness) => {
       installFakeGitWorktreeProvider();
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-project-child",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/project-child-source",
       });
-      const parentEnvironment = createEnvironment(harness.db, harness.hub, {
-        projectId: project.id,
-        hostId: host.id,
-        path: "/tmp/project-child-parent",
-        providerOwnsPath: true,
-        status: "ready",
-        environmentProvider: null,
-      });
+      const parentEnvironment = await createEnvironment(
+        harness.db,
+        harness.hub,
+        {
+          projectId: project.id,
+          hostId: host.id,
+          path: "/tmp/project-child-parent",
+          providerOwnsPath: true,
+          status: "ready",
+          environmentProvider: null,
+        },
+      );
       await expect(
         resolveCreateThreadEnvironment(harness.deps, {
           parentThread: makeParentThread({
@@ -459,15 +478,19 @@ describe("resolveCreateThreadEnvironment", () => {
     async ({ requestedEnvironment, reuseParent }) => {
       await withTestHarness(async (harness) => {
         installFakeGitWorktreeProvider();
-        const { host } = seedHostSession(harness.deps, { id: "host-1" });
-        const parentEnvironment = createEnvironment(harness.db, harness.hub, {
-          projectId: PERSONAL_PROJECT_ID,
-          hostId: host.id,
-          path: "/tmp/personal-child-parent",
-          providerOwnsPath: true,
-          status: "ready",
-          environmentProvider: null,
-        });
+        const { host } = await seedHostSession(harness.deps, { id: "host-1" });
+        const parentEnvironment = await createEnvironment(
+          harness.db,
+          harness.hub,
+          {
+            projectId: PERSONAL_PROJECT_ID,
+            hostId: host.id,
+            path: "/tmp/personal-child-parent",
+            providerOwnsPath: true,
+            status: "ready",
+            environmentProvider: null,
+          },
+        );
         await expect(
           resolveCreateThreadEnvironment(harness.deps, {
             parentThread: makeParentThread({
@@ -534,23 +557,27 @@ describe("resolveCreateThreadEnvironment", () => {
   it("gives a sub-thread of a project with no commits a worktree of the source", async () => {
     await withTestHarness(async (harness) => {
       installFakeGitWorktreeProvider();
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-default-order",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/default-order-source",
       });
-      const parentEnvironment = createEnvironment(harness.db, harness.hub, {
-        projectId: project.id,
-        hostId: host.id,
-        path: "/tmp/parent-environment",
-        providerOwnsPath: true,
-        status: "ready",
-        environmentProvider: null,
-      });
-      registerHostRpcResponder(harness, {
+      const parentEnvironment = await createEnvironment(
+        harness.db,
+        harness.hub,
+        {
+          projectId: project.id,
+          hostId: host.id,
+          path: "/tmp/parent-environment",
+          providerOwnsPath: true,
+          status: "ready",
+          environmentProvider: null,
+        },
+      );
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: () => ({
@@ -590,15 +617,15 @@ describe("resolveProjectDefaultThreadEnvironment", () => {
   it("uses a worktree for a Git project", async () => {
     await withTestHarness(async (harness) => {
       installFakeGitWorktreeProvider();
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-git-default",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/git-default-source",
       });
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: () => ({
@@ -634,15 +661,15 @@ describe("resolveProjectDefaultThreadEnvironment", () => {
 
   it("uses the project checkout for a non-Git project", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-non-git-default",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/non-git-default-source",
       });
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: () => ({
@@ -675,7 +702,7 @@ describe("resolveProjectDefaultThreadEnvironment", () => {
   it("uses the personal workspace with no project", async () => {
     await withTestHarness(async (harness) => {
       installFakePersonalWorkspaceProvider();
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-personal-default",
       });
       seedPrimaryHost(harness.deps, host.id);

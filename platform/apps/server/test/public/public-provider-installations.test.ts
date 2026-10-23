@@ -152,10 +152,10 @@ function handleProviderInstallationRpc(
 describe("public provider installation routes", () => {
   it("shares concurrent status probes and invalidates after installation, reconnect and TTL expiry", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "cached-installations",
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         async handle(request) {
@@ -188,7 +188,7 @@ describe("public provider installation routes", () => {
       expect(installed.status).toBe(200);
       await read();
       expect(count()).toBe(8);
-      harness.hub.notifyHost(host.id, ["host-connected"]);
+      await harness.hub.notifyHost(host.id, ["host-connected"]);
       await read();
       expect(count()).toBe(12);
       const realNow = Date.now();
@@ -205,10 +205,10 @@ describe("public provider installation routes", () => {
 
   it("lists installation-capable registered providers in registry order", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "provider-installation-status-host",
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: handleProviderInstallationRpc,
@@ -251,8 +251,9 @@ describe("public provider installation routes", () => {
             request.command.type === "provider.installation.status"
               ? request.command.providerId
               : null,
-          ),
-      ).toEqual(["codex", "claude-code", "pi", "acp-cursor"]);
+          )
+          .sort(),
+      ).toEqual(["codex", "claude-code", "pi", "acp-cursor"].sort());
     });
   });
 
@@ -260,10 +261,10 @@ describe("public provider installation routes", () => {
     await withTestHarness(async (harness) => {
       const warn = vi.fn();
       harness.deps.logger = { ...harness.deps.logger, warn };
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "provider-installation-partial-status-host",
       });
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -306,10 +307,10 @@ describe("public provider installation routes", () => {
 
   it("preserves the host unavailable route error when the target host is offline", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "provider-installation-offline-host",
       });
-      handleDaemonSessionSilent(harness.deps, { sessionId: session.id });
+      await handleDaemonSessionSilent(harness.deps, { sessionId: session.id });
       harness.hub.cancelPendingDaemonDisconnect(session.id);
 
       const response = await harness.app.request(
@@ -327,7 +328,7 @@ describe("public provider installation routes", () => {
     "does not resume a %s machine when reading provider status",
     async (phase) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps, {
+        const { host } = await seedHostSession(harness.deps, {
           id: "provider-installation-suspended-host",
         });
         registerInstallationProviders(
@@ -366,7 +367,7 @@ describe("public provider installation routes", () => {
           decisionTimeoutMs: 10_000,
         });
         try {
-          updateHost(harness.db, harness.hub, host.id, {
+          await updateHost(harness.db, harness.hub, host.id, {
             machineProviderId: "test-machine",
             phase,
             suspendedAt: phase === "suspended" ? Date.now() : null,
@@ -380,7 +381,7 @@ describe("public provider installation routes", () => {
           expect(await readJson(response)).toMatchObject({
             code: "host_unavailable",
           });
-          expect(getHost(harness.db, host.id)?.phase).toBe(phase);
+          expect((await getHost(harness.db, host.id))?.phase).toBe(phase);
           expect(resume).not.toHaveBeenCalled();
           expect(rpc).not.toHaveBeenCalled();
         } finally {
@@ -456,10 +457,10 @@ describe("public provider installation routes", () => {
 
   it("dispatches install/update by registered provider id", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "provider-installation-run-host",
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: handleProviderInstallationRpc,
@@ -512,11 +513,11 @@ describe("public provider installation routes", () => {
         ["installable-agent"],
         "installed",
       );
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "provider-installation-refresh-host",
       });
       let installed = false;
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {

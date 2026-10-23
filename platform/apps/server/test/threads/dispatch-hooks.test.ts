@@ -78,7 +78,7 @@ function installHooks(
     listHooks: (hook) => registry[hook],
     // Mirrors the plugin service's failure isolation: a throw is reported, not
     // propagated, and the runner is what turns it into a failed dispatch.
-    invokeHook: (_pluginId, _label, run) => invokePluginInline(run),
+    invokeHook: async (_pluginId, _label, run) => await invokePluginInline(run),
     decisionTimeoutMs: options.decisionTimeoutMs ?? 10_000,
   });
 }
@@ -87,13 +87,13 @@ afterEach(() => {
   setPluginHookProvider(undefined);
 });
 
-function seedDispatchFixture(harness: TestAppHarness, hostId: string) {
-  const { host } = seedHostSession(harness.deps, { id: hostId });
-  const { project } = seedProjectWithSource(harness.deps, {
+async function seedDispatchFixture(harness: TestAppHarness, hostId: string) {
+  const { host } = await seedHostSession(harness.deps, { id: hostId });
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: WORKSPACE_PATH,
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: WORKSPACE_PATH,
@@ -101,7 +101,7 @@ function seedDispatchFixture(harness: TestAppHarness, hostId: string) {
   return { environment, host, project };
 }
 
-function createHookedThread(
+async function createHookedThread(
   harness: TestAppHarness,
   args: {
     hostId: string;
@@ -110,7 +110,7 @@ function createHookedThread(
     model?: string;
   },
 ) {
-  return createThreadFromRequest(harness.deps, {
+  return await createThreadFromRequest(harness.deps, {
     environment: {
       type: "host",
       hostId: args.hostId,
@@ -130,8 +130,8 @@ function createHookedThread(
  * about "did a turn dispatch" compare counts rather than expecting an empty
  * list.
  */
-function turnRequests(harness: TestAppHarness, threadId: string) {
-  return listEvents(harness.db, { threadId }).filter(
+async function turnRequests(harness: TestAppHarness, threadId: string) {
+  return (await listEvents(harness.db, { threadId })).filter(
     (event) => event.type === "client/turn/requested",
   );
 }
@@ -140,20 +140,20 @@ function turnRequests(harness: TestAppHarness, threadId: string) {
  * A thread's queued rows: a live queued row carrying a wait. This is the queue
  * shape that replaced the hold table — the row IS the queued dispatch.
  */
-function queuedRows(
+async function queuedRows(
   harness: TestAppHarness,
   threadId: string,
-): ThreadQueuedMessage[] {
-  return listQueuedThreadMessages(harness.db, threadId)
+): Promise<ThreadQueuedMessage[]> {
+  return (await listQueuedThreadMessages(harness.db, threadId))
     .map(toThreadQueuedMessage)
     .filter((entry) => entry.waitingOn !== null);
 }
 
-function onlyQueuedRow(
+async function onlyQueuedRow(
   harness: TestAppHarness,
   threadId: string,
-): ThreadQueuedMessage {
-  const rows = queuedRows(harness, threadId);
+): Promise<ThreadQueuedMessage> {
+  const rows = await queuedRows(harness, threadId);
   if (rows.length !== 1 || rows[0] === undefined) {
     throw new Error(`expected exactly one queued row, found ${rows.length}`);
   }
@@ -161,23 +161,26 @@ function onlyQueuedRow(
 }
 
 /** A live thread that can take a follow-up send. */
-function seedRunnableThread(
+async function seedRunnableThread(
   harness: TestAppHarness,
   args: { hostId: string; status: "idle" | "active" },
 ) {
-  const { environment, project } = seedDispatchFixture(harness, args.hostId);
-  const thread = seedThread(harness.deps, {
+  const { environment, project } = await seedDispatchFixture(
+    harness,
+    args.hostId,
+  );
+  const thread = await seedThread(harness.deps, {
     environmentId: environment.id,
     projectId: project.id,
     status: args.status,
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     providerThreadId: `provider-${args.hostId}`,
     threadId: thread.id,
   });
   if (args.status === "active") {
-    seedTurnStarted(harness.deps, {
+    await seedTurnStarted(harness.deps, {
       environmentId: environment.id,
       threadId: thread.id,
       turnId: `turn-${args.hostId}`,
@@ -212,7 +215,7 @@ describe("message.dispatch hook context", () => {
           },
         ],
       });
-      const { host, project } = seedDispatchFixture(
+      const { host, project } = await seedDispatchFixture(
         harness,
         "host-new-thread-submission",
       );
@@ -249,12 +252,12 @@ describe("message.dispatch hook context", () => {
           },
         ],
       });
-      const { thread } = seedRunnableThread(harness, {
+      const { thread } = await seedRunnableThread(harness, {
         hostId: "host-plugin-before-time",
         status: "idle",
       });
 
-      const sendAt = Date.now() + 60_000;
+      const sendAt = (await Date.now()) + 60_000;
       const response = await acceptThreadSendRequest(harness.deps, {
         payload: {
           input: textInput("scheduled draft"),
@@ -265,18 +268,21 @@ describe("message.dispatch hook context", () => {
       });
 
       expect(response.delivery).toBe("queued");
-      expect(onlyQueuedRow(harness, thread.id).waitingOn).toEqual({
+      expect((await onlyQueuedRow(harness, thread.id)).waitingOn).toEqual({
         kind: "plugin",
         pluginId: "drafts",
         reason: "Draft",
       });
-      expect(onlyQueuedRow(harness, thread.id).sendAt).toBeNull();
+      expect((await onlyQueuedRow(harness, thread.id)).sendAt).toBeNull();
     });
   });
 
   it("hands the hook the start intent's host before an environment exists", async () => {
     await withTestHarness(async (harness) => {
-      const { host, project } = seedDispatchFixture(harness, "host-intent");
+      const { host, project } = await seedDispatchFixture(
+        harness,
+        "host-intent",
+      );
       const seen: { environment: unknown; hostId: string | null }[] = [];
       installHooks({
         "message.dispatch": [
@@ -313,7 +319,7 @@ describe("message.dispatch hook context", () => {
       // names the machine it will occupy — a per-host limiter that saw null
       // here would wave every cold start past its pool.
       expect(seen).toEqual([{ environment: null, hostId: host.id }]);
-      expect(queuedRows(harness, thread.id)).toHaveLength(1);
+      expect(await queuedRows(harness, thread.id)).toHaveLength(1);
     });
   });
 });
@@ -329,17 +335,17 @@ describe("pending admission races", () => {
         handler: () => ({ action: "wait", reason: "at capacity" }) as const,
       });
       installHooks(registry);
-      const { host, project } = seedDispatchFixture(harness, "host-race");
+      const { host, project } = await seedDispatchFixture(harness, "host-race");
       const created = await createHookedThread(harness, {
         hostId: host.id,
         projectId: project.id,
       });
       setPluginHookProvider(undefined);
-      const stale = getThread(harness.db, created.id);
+      const stale = await getThread(harness.db, created.id);
       if (!stale) throw new Error("expected the pending thread");
       expect(stale.status).toBe("pending");
-      const attempt = (text: string) =>
-        attemptDispatch(harness.deps, {
+      const attempt = async (text: string) =>
+        await attemptDispatch(harness.deps, {
           thread: stale,
           payload: { input: textInput(text), mode: "start" },
           source: { kind: "inline" },
@@ -396,7 +402,10 @@ describe("message.dispatch hook composition", () => {
         },
       );
       installHooks(registry);
-      const { host, project } = seedDispatchFixture(harness, "host-hook-order");
+      const { host, project } = await seedDispatchFixture(
+        harness,
+        "host-hook-order",
+      );
 
       const thread = await createHookedThread(harness, {
         hostId: host.id,
@@ -408,7 +417,9 @@ describe("message.dispatch hook composition", () => {
       // Every handler decides about the same resolved request, and that is the
       // tuple the queued row freezes.
       expect(secondSawModel).toBe("requested-model");
-      expect(onlyQueuedRow(harness, thread.id).model).toBe("requested-model");
+      expect((await onlyQueuedRow(harness, thread.id)).model).toBe(
+        "requested-model",
+      );
     });
   });
 
@@ -426,14 +437,17 @@ describe("message.dispatch hook composition", () => {
         },
       );
       installHooks(registry);
-      const { host, project } = seedDispatchFixture(harness, "host-hook-multi");
+      const { host, project } = await seedDispatchFixture(
+        harness,
+        "host-hook-multi",
+      );
 
       const thread = await createHookedThread(harness, {
         hostId: host.id,
         projectId: project.id,
       });
 
-      expect(onlyQueuedRow(harness, thread.id).waitingOn).toEqual({
+      expect((await onlyQueuedRow(harness, thread.id)).waitingOn).toEqual({
         kind: "plugin",
         pluginId: "limiter",
         reason: "at capacity (also waiting on quiet-hours: after hours)",
@@ -460,13 +474,17 @@ describe("message.dispatch hook composition", () => {
         },
       );
       installHooks(registry);
-      const { host, project } = seedDispatchFixture(
+      const { host, project } = await seedDispatchFixture(
         harness,
         "host-hook-reject",
       );
 
-      const error = await expectApiError(() =>
-        createHookedThread(harness, { hostId: host.id, projectId: project.id }),
+      const error = await expectApiError(
+        async () =>
+          await createHookedThread(harness, {
+            hostId: host.id,
+            projectId: project.id,
+          }),
       );
 
       expect(error.status).toBe(409);
@@ -475,7 +493,7 @@ describe("message.dispatch hook composition", () => {
       expect(error.body.details).toEqual({ pluginId: "dlp" });
       expect(laterHandlerRan).toBe(false);
       // Nothing persisted: a rejected create leaves no thread and no row.
-      expect(listQueuedThreadMessagesForApi(harness.db, {})).toEqual([]);
+      expect(await listQueuedThreadMessagesForApi(harness.db, {})).toEqual([]);
     });
   });
 
@@ -498,11 +516,20 @@ describe("message.dispatch hook composition", () => {
         },
       });
       installHooks(registry);
-      const { host, project } = seedDispatchFixture(harness, "host-hook-lock");
+      const { host, project } = await seedDispatchFixture(
+        harness,
+        "host-hook-lock",
+      );
 
       await Promise.all([
-        createHookedThread(harness, { hostId: host.id, projectId: project.id }),
-        createHookedThread(harness, { hostId: host.id, projectId: project.id }),
+        createHookedThread(harness, {
+          hostId: host.id,
+          projectId: project.id,
+        }),
+        createHookedThread(harness, {
+          hostId: host.id,
+          projectId: project.id,
+        }),
       ]);
 
       expect(maxInFlight).toBe(1);
@@ -525,7 +552,7 @@ describe("message.dispatch hook admission visibility", () => {
         handler: async () => {
           // Precisely what the concurrency limiter does: ask the server what
           // is running, at the moment the handler runs.
-          const running = listRunningThreads(harness.db);
+          const running = await listRunningThreads(harness.db);
           seen.push(running.map((row) => row.id));
           return running.length >= 1
             ? ({
@@ -536,11 +563,20 @@ describe("message.dispatch hook admission visibility", () => {
         },
       });
       installHooks(registry);
-      const { host, project } = seedDispatchFixture(harness, "host-admission");
+      const { host, project } = await seedDispatchFixture(
+        harness,
+        "host-admission",
+      );
 
       const created = await Promise.all([
-        createHookedThread(harness, { hostId: host.id, projectId: project.id }),
-        createHookedThread(harness, { hostId: host.id, projectId: project.id }),
+        createHookedThread(harness, {
+          hostId: host.id,
+          projectId: project.id,
+        }),
+        createHookedThread(harness, {
+          hostId: host.id,
+          projectId: project.id,
+        }),
       ]);
 
       expect(seen).toHaveLength(2);
@@ -551,9 +587,11 @@ describe("message.dispatch hook admission visibility", () => {
       const queued = created.find((thread) => thread.id !== admittedId)!;
       expect(created.map((thread) => thread.id)).toContain(admittedId);
       // One admitted and started, one still pending with its message queued.
-      expect(getThread(harness.db, admittedId)?.status).not.toBe("pending");
-      expect(getThread(harness.db, queued.id)?.status).toBe("pending");
-      expect(onlyQueuedRow(harness, queued.id).waitingOn).toEqual({
+      expect((await getThread(harness.db, admittedId))?.status).not.toBe(
+        "pending",
+      );
+      expect((await getThread(harness.db, queued.id))?.status).toBe("pending");
+      expect((await onlyQueuedRow(harness, queued.id)).waitingOn).toEqual({
         kind: "plugin",
         pluginId: "limiter",
         reason: "1 of 1 running on all hosts",
@@ -574,13 +612,15 @@ describe("message.dispatch hook admission visibility", () => {
       const registry = emptyRegistry();
       registry["message.dispatch"].push({
         pluginId: "limiter",
-        handler: () => {
-          seen.push(listRunningThreads(harness.db).map((row) => row.id));
+        handler: async () => {
+          seen.push(
+            (await listRunningThreads(harness.db)).map((row) => row.id),
+          );
           return { action: "proceed" } as const;
         },
       });
       installHooks(registry);
-      const { environment, thread } = seedRunnableThread(harness, {
+      const { environment, thread } = await seedRunnableThread(harness, {
         hostId: "host-warm-admission",
         status: "idle",
       });
@@ -594,10 +634,10 @@ describe("message.dispatch hook admission visibility", () => {
       expect(seen).toEqual([[]]);
       // It IS committed by the time the send returns, so the next attempt —
       // and every other reader — sees it.
-      expect(listRunningThreads(harness.db).map((row) => row.id)).toEqual([
-        thread.id,
-      ]);
-      seedTurnStarted(harness.deps, {
+      expect(
+        (await listRunningThreads(harness.db)).map((row) => row.id),
+      ).toEqual([thread.id]);
+      await seedTurnStarted(harness.deps, {
         environmentId: environment.id,
         providerThreadId: "provider-host-warm-admission",
         threadId: thread.id,
@@ -606,7 +646,7 @@ describe("message.dispatch hook admission visibility", () => {
 
       await acceptThreadSendRequest(harness.deps, {
         payload: { input: textInput("a steer"), mode: "steer" },
-        thread: getThread(harness.db, thread.id)!,
+        thread: (await getThread(harness.db, thread.id))!,
       });
       expect(seen[1]).toEqual([thread.id]);
     });
@@ -619,15 +659,18 @@ describe("dispatch hooks and the no-hook path", () => {
       // A provider is registered, but no plugin answers `message.dispatch`:
       // the pass must not run, take the lock, or allocate a queued row.
       installHooks(emptyRegistry());
-      const { host, project } = seedDispatchFixture(harness, "host-hook-none");
+      const { host, project } = await seedDispatchFixture(
+        harness,
+        "host-hook-none",
+      );
 
       const thread = await createHookedThread(harness, {
         hostId: host.id,
         projectId: project.id,
       });
 
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
-      const types = listEvents(harness.db, { threadId: thread.id }).map(
+      expect(await listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+      const types = (await listEvents(harness.db, { threadId: thread.id })).map(
         (event) => event.type,
       );
       expect(types).toContain("client/turn/requested");
@@ -652,16 +695,17 @@ describe("dispatch hooks and the no-hook path", () => {
         },
       });
       installHooks(registry);
-      const { thread } = seedRunnableThread(harness, {
+      const { thread } = await seedRunnableThread(harness, {
         hostId: "host-hook-steer",
         status: "active",
       });
 
-      const error = await expectApiError(() =>
-        acceptThreadSendRequest(harness.deps, {
-          payload: { input: textInput("actually, stop"), mode: "steer" },
-          thread,
-        }),
+      const error = await expectApiError(
+        async () =>
+          await acceptThreadSendRequest(harness.deps, {
+            payload: { input: textInput("actually, stop"), mode: "steer" },
+            thread,
+          }),
       );
 
       expect(error.status).toBe(409);
@@ -693,7 +737,7 @@ describe("message.dispatch hook message author", () => {
   it("reads a message a user typed as user with no sender", async () => {
     await withTestHarness(async (harness) => {
       const seen = recordAuthors();
-      const { thread } = seedRunnableThread(harness, {
+      const { thread } = await seedRunnableThread(harness, {
         hostId: "host-author-user",
         status: "idle",
       });
@@ -711,7 +755,7 @@ describe("message.dispatch hook message author", () => {
     await withTestHarness(async (harness) => {
       const queuedMessages: ThreadQueuedMessage[][] = [];
       const seen = recordAuthors(queuedMessages);
-      const { thread } = seedRunnableThread(harness, {
+      const { thread } = await seedRunnableThread(harness, {
         hostId: "host-author-retry",
         status: "idle",
       });
@@ -735,7 +779,7 @@ describe("message.dispatch hook message author", () => {
         trigger: "user",
       });
 
-      const queued = onlyQueuedRow(harness, thread.id);
+      const queued = await onlyQueuedRow(harness, thread.id);
       expect(queued).toMatchObject({
         initiator: "system",
         senderThreadId: null,
@@ -761,11 +805,14 @@ describe("message.dispatch hook message author", () => {
   it("reports the same author on a drained re-attempt as on the first", async () => {
     await withTestHarness(async (harness) => {
       const seen = recordAuthors();
-      const { environment, project, thread } = seedRunnableThread(harness, {
-        hostId: "host-author-drain",
-        status: "idle",
-      });
-      const sender = seedThread(harness.deps, {
+      const { environment, project, thread } = await seedRunnableThread(
+        harness,
+        {
+          hostId: "host-author-drain",
+          status: "idle",
+        },
+      );
+      const sender = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         status: "active",
@@ -779,7 +826,7 @@ describe("message.dispatch hook message author", () => {
         },
         thread,
       });
-      onlyQueuedRow(harness, thread.id);
+      await onlyQueuedRow(harness, thread.id);
 
       await runQueuedMessageDispatch(harness.deps, { kind: "plugin-recheck" });
 
@@ -798,20 +845,20 @@ describe("message.dispatch hook message author", () => {
       await withTestHarness(async (harness) => {
         const queuedMessages: ThreadQueuedMessage[][] = [];
         const seen = recordAuthors(queuedMessages);
-        const { environment, project } = seedDispatchFixture(
+        const { environment, project } = await seedDispatchFixture(
           harness,
           "host-author-spawn",
         );
-        const source = seedThread(harness.deps, {
+        const source = await seedThread(harness.deps, {
           environmentId: environment.id,
           projectId: project.id,
         });
-        seedThreadRuntimeState(harness.deps, {
+        await seedThreadRuntimeState(harness.deps, {
           environmentId: environment.id,
           providerThreadId: "provider-author-spawn-source",
           threadId: source.id,
         });
-        seedTurnStarted(harness.deps, {
+        await seedTurnStarted(harness.deps, {
           environmentId: environment.id,
           threadId: source.id,
           turnId: "turn-author-spawn-source",
@@ -832,7 +879,7 @@ describe("message.dispatch hook message author", () => {
           sourceThreadId: source.id,
           startedOnBehalfOf: { initiator, senderThreadId: source.id },
         });
-        const queued = onlyQueuedRow(harness, spawned.id);
+        const queued = await onlyQueuedRow(harness, spawned.id);
         expect(queued).toMatchObject({ initiator, senderThreadId: source.id });
 
         await runQueuedMessageDispatch(harness.deps, {
@@ -873,7 +920,7 @@ describe("message.dispatch hook message author", () => {
         },
       });
       installHooks(registry);
-      const { host, project } = seedDispatchFixture(
+      const { host, project } = await seedDispatchFixture(
         harness,
         "host-origin-drain",
       );
@@ -891,7 +938,7 @@ describe("message.dispatch hook message author", () => {
         providerId: "codex",
         startedOnBehalfOf: null,
       });
-      onlyQueuedRow(harness, thread.id);
+      await onlyQueuedRow(harness, thread.id);
 
       await runQueuedMessageDispatch(harness.deps, { kind: "plugin-recheck" });
 
@@ -914,7 +961,7 @@ describe("message.dispatch hook message author", () => {
         },
       });
       installHooks(registry);
-      const { thread } = seedRunnableThread(harness, {
+      const { thread } = await seedRunnableThread(harness, {
         hostId: "host-origin-send",
         status: "idle",
       });
@@ -923,7 +970,7 @@ describe("message.dispatch hook message author", () => {
         payload: { input: textInput("a follow-up"), mode: "auto" },
         thread,
       });
-      onlyQueuedRow(harness, thread.id);
+      await onlyQueuedRow(harness, thread.id);
 
       await runQueuedMessageDispatch(harness.deps, { kind: "plugin-recheck" });
 
@@ -946,11 +993,14 @@ describe("message.dispatch hook message author", () => {
         },
       });
       installHooks(registry);
-      const { environment, project, thread } = seedRunnableThread(harness, {
-        hostId: "host-legacy-behalf",
-        status: "idle",
-      });
-      const sender = seedThread(harness.deps, {
+      const { environment, project, thread } = await seedRunnableThread(
+        harness,
+        {
+          hostId: "host-legacy-behalf",
+          status: "idle",
+        },
+      );
+      const sender = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         status: "active",
@@ -1069,18 +1119,24 @@ describe("message.dispatch grouped authors", () => {
       originPluginId,
     }) => {
       await withTestHarness(async (harness) => {
-        const { environment, project, thread } = seedRunnableThread(harness, {
-          hostId: "host-grouped-authors",
-          status: "idle",
-        });
-        const senders = [0, 1].map(() =>
-          seedThread(harness.deps, {
-            environmentId: environment.id,
-            projectId: project.id,
-          }),
+        const { environment, project, thread } = await seedRunnableThread(
+          harness,
+          {
+            hostId: "host-grouped-authors",
+            status: "idle",
+          },
+        );
+        const senders = await Promise.all(
+          [0, 1].map(
+            async () =>
+              await seedThread(harness.deps, {
+                environmentId: environment.id,
+                projectId: project.id,
+              }),
+          ),
         );
         const senderThreadId =
-          sender === "shared"
+          (await sender) === "shared"
             ? senders[0]!.id
             : sender === "mixed"
               ? "mixed"
@@ -1098,42 +1154,46 @@ describe("message.dispatch grouped authors", () => {
           },
         });
         installHooks(registry);
-        const rows = authors.map((author, index) =>
-          createQueuedThreadMessage(harness.db, harness.deps.hub, {
-            threadId: thread.id,
-            content: textInput(`message ${index + 1}`),
-            senderThreadId: null,
-            origin: origins[index]!,
-            originPluginId: pluginIds[index]!,
-            requestedBy:
-              author === "user"
-                ? null
-                : {
-                    initiator: author,
-                    senderThreadId: senders[sharedSender ? 0 : index]!.id,
-                  },
-            model: "requested-model",
-            reasoningLevel: "medium",
-            permissionMode: "auto",
-            serviceTier: "default",
-            payload: { kind: "inline" },
-            waitingOn: { kind: "thread-busy" },
-            sendAt: null,
-            systemNotice: null,
-          }),
+        const rows = await mapSequential(
+          authors,
+          async (author, index) =>
+            await createQueuedThreadMessage(harness.db, harness.deps.hub, {
+              threadId: thread.id,
+              content: textInput(`message ${index + 1}`),
+              senderThreadId: null,
+              origin: origins[index]!,
+              originPluginId: pluginIds[index]!,
+              requestedBy:
+                author === "user"
+                  ? null
+                  : {
+                      initiator: author,
+                      senderThreadId: senders[sharedSender ? 0 : index]!.id,
+                    },
+              model: "requested-model",
+              reasoningLevel: "medium",
+              permissionMode: "auto",
+              serviceTier: "default",
+              payload: { kind: "inline" },
+              waitingOn: { kind: "thread-busy" },
+              sendAt: null,
+              systemNotice: null,
+            }),
         );
         const ids = rows.map((row) => row.id);
         expect(
-          setQueuedThreadMessageGroupBoundary({
-            db: harness.db,
-            notifier: harness.deps.hub,
-            threadId: thread.id,
-            expectedGroupedPrefixQueuedMessageIds: ids,
-            groupBoundaryQueuedMessageId: rows[1]!.id,
-          }).kind,
+          (
+            await setQueuedThreadMessageGroupBoundary({
+              db: harness.db,
+              notifier: harness.deps.hub,
+              threadId: thread.id,
+              expectedGroupedPrefixQueuedMessageIds: ids,
+              groupBoundaryQueuedMessageId: rows[1]!.id,
+            })
+          ).kind,
         ).toBe("updated");
 
-        const turnsBefore = turnRequests(harness, thread.id).length;
+        const turnsBefore = (await turnRequests(harness, thread.id)).length;
         expect(
           await sendNextQueuedMessageIfPresent(harness.deps, {
             threadId: thread.id,
@@ -1163,9 +1223,13 @@ describe("message.dispatch grouped authors", () => {
           seen[0]?.queuedMessages[0],
         );
         expect(
-          listQueuedThreadMessages(harness.db, thread.id).map((row) => row.id),
+          (await listQueuedThreadMessages(harness.db, thread.id)).map(
+            (row) => row.id,
+          ),
         ).toEqual(ids);
-        expect(turnRequests(harness, thread.id)).toHaveLength(turnsBefore);
+        expect(await turnRequests(harness, thread.id)).toHaveLength(
+          turnsBefore,
+        );
 
         proceed = true;
         await sendQueuedMessage(harness.deps, {
@@ -1174,7 +1238,7 @@ describe("message.dispatch grouped authors", () => {
           mode: "auto",
           claimPolicy: {
             kind: "automatic",
-            isGroupEligible: createAutomaticQueuedMessageGroupEligibility(
+            isGroupEligible: await createAutomaticQueuedMessageGroupEligibility(
               harness.deps,
               { now: Date.now(), retryingFailure: false, thread },
             ),
@@ -1189,8 +1253,12 @@ describe("message.dispatch grouped authors", () => {
           originPluginId,
           queuedMessages: ids.map((id) => ({ id })),
         });
-        expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
-        expect(turnRequests(harness, thread.id)).toHaveLength(turnsBefore + 1);
+        expect(await listQueuedThreadMessages(harness.db, thread.id)).toEqual(
+          [],
+        );
+        expect(await turnRequests(harness, thread.id)).toHaveLength(
+          turnsBefore + 1,
+        );
       });
     },
   );
@@ -1218,7 +1286,7 @@ describe("message.dispatch hooks on the queue drain", () => {
         },
       });
       installHooks(registry);
-      const { thread } = seedRunnableThread(harness, {
+      const { thread } = await seedRunnableThread(harness, {
         hostId: "host-plugin-submission",
         status: "idle",
       });
@@ -1235,7 +1303,7 @@ describe("message.dispatch hooks on the queue drain", () => {
         },
         thread,
       });
-      onlyQueuedRow(harness, thread.id);
+      await onlyQueuedRow(harness, thread.id);
 
       await runQueuedMessageDispatch(harness.deps, { kind: "plugin-recheck" });
 
@@ -1251,7 +1319,7 @@ describe("message.dispatch hooks on the queue drain", () => {
         handler: () => ({ action: "wait", reason: "at capacity" }) as const,
       });
       installHooks(registry);
-      const { thread } = seedRunnableThread(harness, {
+      const { thread } = await seedRunnableThread(harness, {
         hostId: "host-hook-drain",
         status: "idle",
       });
@@ -1259,7 +1327,7 @@ describe("message.dispatch hooks on the queue drain", () => {
         payload: { input: textInput("queued work") },
         thread,
       });
-      const turnsBefore = turnRequests(harness, thread.id).length;
+      const turnsBefore = (await turnRequests(harness, thread.id)).length;
 
       const drained = await sendNextQueuedMessageIfPresent(harness.deps, {
         threadId: thread.id,
@@ -1268,7 +1336,7 @@ describe("message.dispatch hooks on the queue drain", () => {
       expect(drained).toBe(true);
       // The claim is handed back rather than consumed: it is the SAME row, now
       // queued, so the user still has one card for one message.
-      const waiting = onlyQueuedRow(harness, thread.id);
+      const waiting = await onlyQueuedRow(harness, thread.id);
       expect(waiting.id).toBe(queued.id);
       expect(waiting.content).toEqual(textInput("queued work"));
       expect(waiting.waitingOn).toEqual({
@@ -1276,14 +1344,14 @@ describe("message.dispatch hooks on the queue drain", () => {
         pluginId: "limiter",
         reason: "at capacity",
       });
-      expect(turnRequests(harness, thread.id)).toHaveLength(turnsBefore);
+      expect(await turnRequests(harness, thread.id)).toHaveLength(turnsBefore);
     });
   });
 
   it("returns an ordinary row when its hook pass crosses a manual stop", async () => {
     await withTestHarness(async (harness) => {
-      const entered = createDeferredPromise<void>();
-      const release = createDeferredPromise<void>();
+      const entered = await createDeferredPromise<void>();
+      const release = await createDeferredPromise<void>();
       const registry = emptyRegistry();
       registry["message.dispatch"].push({
         pluginId: "limiter",
@@ -1294,7 +1362,7 @@ describe("message.dispatch hooks on the queue drain", () => {
         },
       });
       installHooks(registry);
-      const { thread } = seedRunnableThread(harness, {
+      const { thread } = await seedRunnableThread(harness, {
         hostId: "host-hook-stop-race",
         status: "idle",
       });
@@ -1302,18 +1370,18 @@ describe("message.dispatch hooks on the queue drain", () => {
         payload: { input: textInput("stay paused") },
         thread,
       });
-      const turnsBefore = turnRequests(harness, thread.id).length;
+      const turnsBefore = (await turnRequests(harness, thread.id)).length;
 
       const draining = sendNextQueuedMessageIfPresent(harness.deps, {
         threadId: thread.id,
       });
       await entered.promise;
       try {
-        applyLoggedThreadLifecycleEvent(harness.deps, {
+        await applyLoggedThreadLifecycleEvent(harness.deps, {
           event: { type: "run.started" },
           threadId: thread.id,
         });
-        seedTurnStarted(harness.deps, {
+        await seedTurnStarted(harness.deps, {
           environmentId: thread.environmentId,
           providerThreadId: "provider-host-hook-stop-race",
           threadId: thread.id,
@@ -1337,14 +1405,24 @@ describe("message.dispatch hooks on the queue drain", () => {
       }
 
       await expect(draining).resolves.toBe(false);
-      expect(getThread(harness.db, thread.id)?.status).toBe("idle");
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toMatchObject([
-        { id: queued.id },
-      ]);
-      expect(turnRequests(harness, thread.id)).toHaveLength(turnsBefore);
+      expect((await getThread(harness.db, thread.id))?.status).toBe("idle");
       expect(
-        listQueuedThreadCommands(harness, "turn.submit", thread.id),
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toMatchObject([{ id: queued.id }]);
+      expect(await turnRequests(harness, thread.id)).toHaveLength(turnsBefore);
+      expect(
+        await listQueuedThreadCommands(harness, "turn.submit", thread.id),
       ).toEqual([]);
     });
   });
 });
+
+async function mapSequential<T, R>(
+  values: readonly T[],
+  map: (value: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  for (const [index, value] of values.entries())
+    results.push(await map(value, index));
+  return results;
+}

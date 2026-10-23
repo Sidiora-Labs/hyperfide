@@ -85,8 +85,8 @@ describe.sequential("fake provider provider-isolation multi-thread integration",
     });
   });
 
-  it("handles three concurrent threads across shared and isolated environments", () =>
-    withHarness(async (harness) => {
+  it("handles three concurrent threads across shared and isolated environments", async () =>
+    await withHarness(async (harness) => {
       const secondRepoDir = await createTestGitRepo({
         repoDir: path.join(path.dirname(harness.repoDir), "stress-project"),
       });

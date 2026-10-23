@@ -117,13 +117,12 @@ function providerMatchesFilter(
   }
 }
 
-function listConfiguredSystemProviderInfos(
+async function listConfiguredSystemProviderInfos(
   deps: Pick<LoggedWorkSessionDeps, "providerRegistry">,
   filter: ProviderFilter = {},
-): ProviderInfo[] {
-  const disabled = deps.providerRegistry.disabledProviderIds();
-  return deps.providerRegistry
-    .list()
+): Promise<ProviderInfo[]> {
+  const disabled = await deps.providerRegistry.disabledProviderIds();
+  return (await deps.providerRegistry.list())
     .filter(
       (entry) =>
         !disabled.has(entry.info.id) &&
@@ -133,11 +132,11 @@ function listConfiguredSystemProviderInfos(
     .map((entry) => entry.info);
 }
 
-function includeRequestedRegisteredProvider(
+async function includeRequestedRegisteredProvider(
   deps: Pick<LoggedWorkSessionDeps, "providerRegistry">,
   providers: ProviderInfo[],
   providerId: string | undefined,
-): ProviderInfo[] {
+): Promise<ProviderInfo[]> {
   if (
     providerId === undefined ||
     providers.some((provider) => provider.id === providerId)
@@ -146,7 +145,7 @@ function includeRequestedRegisteredProvider(
   }
   const registration = deps.providerRegistry.get(providerId);
   return registration === null ||
-    deps.providerRegistry.disabledProviderIds().has(providerId)
+    (await deps.providerRegistry.disabledProviderIds()).has(providerId)
     ? providers
     : [...providers, registration.info];
 }
@@ -162,20 +161,18 @@ async function listInstalledPluginProviderInfos(
   hostId: string,
   filter: ProviderFilter,
 ): Promise<ProviderInfo[]> {
-  const disabled = deps.providerRegistry.disabledProviderIds();
-  const registrations = deps.providerRegistry
-    .list()
-    .filter(
-      (registration) =>
-        !disabled.has(registration.info.id) &&
-        registration.visibility === "installed" &&
-        providerMatchesFilter(registration.info, filter),
-    );
+  const disabled = await deps.providerRegistry.disabledProviderIds();
+  const registrations = (await deps.providerRegistry.list()).filter(
+    (registration) =>
+      !disabled.has(registration.info.id) &&
+      registration.visibility === "installed" &&
+      providerMatchesFilter(registration.info, filter),
+  );
   const budget = createProviderListingBudget();
   const results = await mapProviderMaintenanceRequests(
     registrations,
     async (registration) => {
-      const bridgeLaunch = resolveBridgeLaunchForProviderId(
+      const bridgeLaunch = await resolveBridgeLaunchForProviderId(
         deps,
         registration.info.id,
       );
@@ -202,8 +199,9 @@ async function listInstalledPluginProviderInfos(
         if (cached === undefined) {
           deps.providerRegistry.rememberInstalled(cacheKey, installed);
         } else {
-          void deps.providerRegistry.revalidateInstalled(cacheKey, () =>
-            probe(createProviderListingBudget()),
+          void deps.providerRegistry.revalidateInstalled(
+            cacheKey,
+            async () => await probe(createProviderListingBudget()),
           );
         }
         return (await installed) ? registration.info : null;
@@ -236,29 +234,24 @@ export async function listSystemProviderInfosForHost(
   hostId: string,
   filter: ProviderFilter = {},
 ): Promise<ProviderInfo[]> {
-  const configured = listConfiguredSystemProviderInfos(deps, filter);
-  const installed = await listInstalledPluginProviderInfos(
-    deps,
-    hostId,
-    filter,
-  );
+  const configured = await listConfiguredSystemProviderInfos(deps, filter);
+  const installed = listInstalledPluginProviderInfos(deps, hostId, filter);
   const visibleIds = new Set([
     ...configured.map((provider) => provider.id),
-    ...installed.map((provider) => provider.id),
+    ...(await installed).map((provider) => provider.id),
   ]);
-  return deps.providerRegistry
-    .list()
+  return (await deps.providerRegistry.list())
     .filter((registration) => visibleIds.has(registration.info.id))
     .map((registration) => registration.info);
 }
 
-function resolveSystemProviderInfosPlan(
+async function resolveSystemProviderInfosPlan(
   deps: LoggedWorkSessionDeps,
   query: ListSystemProviderInfosRequest = {},
-): ResolveSystemProviderInfosPlanResult {
+): Promise<ResolveSystemProviderInfosPlanResult> {
   try {
-    const hostId = resolveSystemLookupHostId(deps, query);
-    requireConnectedHostSession(deps, hostId);
+    const hostId = await resolveSystemLookupHostId(deps, query);
+    await requireConnectedHostSession(deps, hostId);
     return {
       hostId,
       hostLookupError: null,
@@ -281,7 +274,7 @@ function resolveSystemProviderInfosPlan(
       hostId: null,
       hostLookupError: error,
       providersPromise: Promise.resolve(
-        listConfiguredSystemProviderInfos(deps, {
+        await listConfiguredSystemProviderInfos(deps, {
           capability: query.capability,
           providerId: query.onlyProviderId,
         }),
@@ -290,12 +283,33 @@ function resolveSystemProviderInfosPlan(
   }
 }
 
-export async function listSystemProviderInfos(
+const providerListings = new WeakMap<
+  object,
+  Map<string, Promise<ProviderInfo[]>>
+>();
+export function listSystemProviderInfos(
   deps: LoggedWorkSessionDeps,
   query: ListSystemProviderInfosRequest = {},
 ): Promise<ProviderInfo[]> {
-  await deps.providerRegistry.whenRegistrationsSettled();
-  return await resolveSystemProviderInfosPlan(deps, query).providersPromise;
+  let listings = providerListings.get(deps.db);
+  if (!listings) {
+    listings = new Map();
+    providerListings.set(deps.db, listings);
+  }
+  const key = JSON.stringify([
+    query,
+    deps.providerRegistry.getRegistrationRevision(),
+  ]);
+  const existing = listings.get(key);
+  if (existing) return existing;
+  const pending = (async () => {
+    await deps.providerRegistry.whenRegistrationsSettled();
+    return (await resolveSystemProviderInfosPlan(deps, query)).providersPromise;
+  })().finally(() => {
+    listings.delete(key);
+  });
+  listings.set(key, pending);
+  return pending;
 }
 
 export async function resolveSystemProviderModels(
@@ -303,10 +317,12 @@ export async function resolveSystemProviderModels(
   args: ResolveSystemProviderModelsArgs,
 ): Promise<ModelListResult> {
   await deps.providerRegistry.whenProviderRegistered(args.providerId);
-  const provider = includeRequestedRegisteredProvider(
-    deps,
-    listConfiguredSystemProviderInfos(deps),
-    args.providerId,
+  const provider = (
+    await includeRequestedRegisteredProvider(
+      deps,
+      await listConfiguredSystemProviderInfos(deps),
+      args.providerId,
+    )
   ).find((entry) => entry.id === args.providerId);
   if (provider === undefined) {
     throw new ApiError(
@@ -338,13 +354,15 @@ export async function resolveSystemProviderModels(
   };
 }
 
-function listVisibleCustomModels(
+async function listVisibleCustomModels(
   deps: Pick<LoggedWorkSessionDeps, "config" | "db">,
-): CustomProviderModel[] {
+): Promise<CustomProviderModel[]> {
   if (deps.config.customModels.length === 0) {
     return deps.config.customModels;
   }
-  return getAppSettings(deps.db).streamerMode ? [] : deps.config.customModels;
+  return (await getAppSettings(deps.db)).streamerMode
+    ? []
+    : deps.config.customModels;
 }
 
 function buildCustomModel(
@@ -411,19 +429,19 @@ export function appendCustomModels(
   };
 }
 
-export function resolveSystemExecutionOptions(
+export async function resolveSystemExecutionOptions(
   deps: LoggedWorkSessionDeps,
   query: SystemExecutionOptionsRequest,
 ): Promise<SystemExecutionOptionsResponse> {
-  return resolveExecutionOptions(deps, query, { kind: "picker" });
+  return await resolveExecutionOptions(deps, query, { kind: "picker" });
 }
 
-export function resolveSystemExecutionOptionsForValidation(
+export async function resolveSystemExecutionOptionsForValidation(
   deps: LoggedWorkSessionDeps,
   query: SystemExecutionOptionsRequest,
   requiredModel: string | null,
 ): Promise<SystemExecutionOptionsResponse> {
-  return resolveExecutionOptions(deps, query, {
+  return await resolveExecutionOptions(deps, query, {
     kind: "validation",
     requiredModel,
   });
@@ -440,21 +458,24 @@ async function resolveExecutionOptions(
     await deps.providerRegistry.whenProviderRegistered(query.providerId);
   }
   if (query.projectId !== undefined) {
-    requireProject(deps.db, query.projectId);
+    await requireProject(deps.db, query.projectId);
   }
   const { hostId, hostLookupError, providersPromise } =
-    resolveSystemProviderInfosPlan(deps, query);
+    await resolveSystemProviderInfosPlan(deps, query);
   const cwd =
     query.environmentId !== undefined
-      ? (requireEnvironment(deps.db, query.environmentId).path ?? undefined)
+      ? ((await requireEnvironment(deps.db, query.environmentId)).path ??
+        undefined)
       : query.projectId !== undefined && hostId !== null
-        ? projectCheckoutPathOnHost(deps, query.projectId, hostId)
+        ? await projectCheckoutPathOnHost(deps, query.projectId, hostId)
         : undefined;
   const configuredRequestedProvider = query.providerId
-    ? includeRequestedRegisteredProvider(
-        deps,
-        listConfiguredSystemProviderInfos(deps),
-        query.providerId,
+    ? (
+        await includeRequestedRegisteredProvider(
+          deps,
+          await listConfiguredSystemProviderInfos(deps),
+          query.providerId,
+        )
       ).find((provider) => provider.id === query.providerId)
     : undefined;
   const earlyModelResultPromise =
@@ -473,7 +494,7 @@ async function resolveExecutionOptions(
     await earlyModelResultPromise?.catch(() => undefined);
     throw error;
   }
-  providers = includeRequestedRegisteredProvider(
+  providers = await includeRequestedRegisteredProvider(
     deps,
     providers,
     query.providerId,
@@ -488,7 +509,7 @@ async function resolveExecutionOptions(
         ? providers[0]
         : requestedProvider;
 
-  const permissionCeiling = getHostPermissionCeiling(deps, hostId);
+  const permissionCeiling = await getHostPermissionCeiling(deps, hostId);
 
   if (!modelsProvider) {
     return {
@@ -512,7 +533,7 @@ async function resolveExecutionOptions(
     const { models, selectedOnlyModels } = appendCustomModels(
       deps.providerRegistry,
       {
-        customModels: listVisibleCustomModels(deps),
+        customModels: await listVisibleCustomModels(deps),
         models: [],
         providerId: modelsProvider.id,
         selectedOnlyModels: [],
@@ -546,7 +567,7 @@ async function resolveExecutionOptions(
   const { models, selectedOnlyModels } = appendCustomModels(
     deps.providerRegistry,
     {
-      customModels: listVisibleCustomModels(deps),
+      customModels: await listVisibleCustomModels(deps),
       models: modelResult.models,
       providerId: modelsProvider.id,
       selectedOnlyModels: modelResult.selectedOnlyModels,

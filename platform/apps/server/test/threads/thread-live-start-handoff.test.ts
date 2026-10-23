@@ -60,21 +60,21 @@ interface FailLiveStartRpcArgs {
 async function startLiveThreadStartRpc(
   args: StartLiveThreadStartRpcArgs,
 ): Promise<LiveThreadStartRpcFixture> {
-  const { host } = seedHostSession(args.harness.deps, {
+  const { host } = await seedHostSession(args.harness.deps, {
     id: `host-live-start-handoff-${args.requestIdValue}`,
   });
-  const { project } = seedProjectWithSource(args.harness.deps, {
+  const { project } = await seedProjectWithSource(args.harness.deps, {
     hostId: host.id,
     path: `/tmp/live-start-handoff-${args.requestIdValue}`,
   });
-  const environment = seedEnvironment(args.harness.deps, {
+  const environment = await seedEnvironment(args.harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: `/tmp/live-start-handoff-${args.requestIdValue}`,
     status: "ready",
   });
-  const owner = seedThread(args.harness.deps, { projectId: project.id });
-  const thread = seedThread(args.harness.deps, {
+  const owner = await seedThread(args.harness.deps, { projectId: project.id });
+  const thread = await seedThread(args.harness.deps, {
     lifecycleOwnerThreadId: owner.id,
     projectId: project.id,
     environmentId: environment.id,
@@ -120,7 +120,7 @@ describe("live thread start handoff", () => {
         requestIdValue: 1,
       });
       try {
-        requestThreadStopForCurrentState(
+        await requestThreadStopForCurrentState(
           harness.deps,
           fixture.thread,
           fixture.environment,
@@ -137,7 +137,7 @@ describe("live thread start handoff", () => {
           environmentId: fixture.environment.id,
           threadId: fixture.thread.id,
         });
-        expect(getThread(harness.db, fixture.thread.id)?.status).toBe(
+        expect((await getThread(harness.db, fixture.thread.id))?.status).toBe(
           "stopping",
         );
         await reportQueuedCommandSuccess(harness, stopCommand, {
@@ -176,11 +176,11 @@ describe("live thread start handoff", () => {
           environmentId: fixture.environment.id,
           threadId: fixture.thread.id,
         });
-        expect(getThread(harness.db, fixture.thread.id)?.archivedAt).toEqual(
-          expect.any(Number),
-        );
         expect(
-          listQueuedThreadCommands(
+          (await getThread(harness.db, fixture.thread.id))?.archivedAt,
+        ).toEqual(expect.any(Number));
+        expect(
+          await listQueuedThreadCommands(
             harness,
             "thread.archive",
             fixture.thread.id,
@@ -226,14 +226,14 @@ describe("live thread start handoff", () => {
           environmentId: fixture.environment.id,
           threadId: fixture.thread.id,
         });
-        expect(getThread(harness.db, fixture.thread.id)).toMatchObject({
+        expect(await getThread(harness.db, fixture.thread.id)).toMatchObject({
           deletedAt: expect.any(Number),
           storageDeletedAt: null,
         });
         await reportQueuedCommandSuccess(harness, storageDeleteCommand, {
           providerCheckpointId: null,
         });
-        expect(getThread(harness.db, fixture.thread.id)).toBeNull();
+        expect(await getThread(harness.db, fixture.thread.id)).toBeNull();
       } finally {
         await failLiveStartRpc({
           harness,
@@ -250,7 +250,7 @@ describe("live thread start handoff", () => {
         requestIdValue: 4,
       });
 
-      requestThreadStopForCurrentState(
+      await requestThreadStopForCurrentState(
         harness.deps,
         fixture.thread,
         fixture.environment,
@@ -264,7 +264,7 @@ describe("live thread start handoff", () => {
       await reportQueuedCommandSuccess(harness, stopCommand, {
         providerCheckpointId: null,
       });
-      expect(getThread(harness.db, fixture.thread.id)).toMatchObject({
+      expect(await getThread(harness.db, fixture.thread.id)).toMatchObject({
         status: "idle",
       });
 
@@ -272,7 +272,7 @@ describe("live thread start handoff", () => {
         providerThreadId: "provider-stopped-late-start",
       });
 
-      expect(getThread(harness.db, fixture.thread.id)).toMatchObject({
+      expect(await getThread(harness.db, fixture.thread.id)).toMatchObject({
         archivedAt: null,
         status: "idle",
       });
@@ -286,7 +286,7 @@ describe("live thread start handoff", () => {
         requestIdValue: 7,
       });
 
-      requestThreadStopForCurrentState(
+      await requestThreadStopForCurrentState(
         harness.deps,
         fixture.thread,
         fixture.environment,
@@ -297,7 +297,7 @@ describe("live thread start handoff", () => {
           command.type === "thread.stop" &&
           command.threadId === fixture.thread.id,
       );
-      expect(getThread(harness.db, fixture.thread.id)).toMatchObject({
+      expect(await getThread(harness.db, fixture.thread.id)).toMatchObject({
         status: "stopping",
       });
 
@@ -305,14 +305,14 @@ describe("live thread start handoff", () => {
         providerThreadId: "provider-stop-in-flight-late-start",
       });
 
-      expect(getThread(harness.db, fixture.thread.id)).toMatchObject({
+      expect(await getThread(harness.db, fixture.thread.id)).toMatchObject({
         status: "stopping",
       });
 
       await reportQueuedCommandSuccess(harness, stopCommand, {
         providerCheckpointId: null,
       });
-      expect(getThread(harness.db, fixture.thread.id)).toMatchObject({
+      expect(await getThread(harness.db, fixture.thread.id)).toMatchObject({
         status: "idle",
       });
     });
@@ -335,7 +335,7 @@ describe("live thread start handoff", () => {
         "/internal/session/events",
         {
           method: "POST",
-          headers: internalAuthHeaders(harness),
+          headers: await internalAuthHeaders(harness),
           body: JSON.stringify({
             sessionId,
             eventGroups: groupHostDaemonEvents([
@@ -369,7 +369,7 @@ describe("live thread start handoff", () => {
         },
       );
       expect(eventResponse.status).toBe(200);
-      expect(getThread(harness.db, fixture.thread.id)).toMatchObject({
+      expect(await getThread(harness.db, fixture.thread.id)).toMatchObject({
         status: "idle",
       });
 
@@ -377,7 +377,7 @@ describe("live thread start handoff", () => {
         providerThreadId,
       });
 
-      expect(getThread(harness.db, fixture.thread.id)).toMatchObject({
+      expect(await getThread(harness.db, fixture.thread.id)).toMatchObject({
         status: "idle",
       });
     });
@@ -417,12 +417,12 @@ describe("live thread start handoff", () => {
           providerCheckpointId: null,
         });
         if (action === "archive") {
-          expect(getThread(harness.db, fixture.thread.id)).toMatchObject({
+          expect(await getThread(harness.db, fixture.thread.id)).toMatchObject({
             archivedAt: expect.any(Number),
             status: "idle",
           });
         } else {
-          expect(getThread(harness.db, fixture.thread.id)).toBeNull();
+          expect(await getThread(harness.db, fixture.thread.id)).toBeNull();
         }
 
         await reportQueuedCommandSuccess(harness, fixture.startCommand, {
@@ -430,12 +430,12 @@ describe("live thread start handoff", () => {
         });
 
         if (action === "archive") {
-          expect(getThread(harness.db, fixture.thread.id)).toMatchObject({
+          expect(await getThread(harness.db, fixture.thread.id)).toMatchObject({
             archivedAt: expect.any(Number),
             status: "idle",
           });
         } else {
-          expect(getThread(harness.db, fixture.thread.id)).toBeNull();
+          expect(await getThread(harness.db, fixture.thread.id)).toBeNull();
         }
       });
     },

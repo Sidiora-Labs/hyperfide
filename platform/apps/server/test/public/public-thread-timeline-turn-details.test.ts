@@ -20,14 +20,14 @@ describe("public timeline turn summary details", () => {
     "excludes an item completed beyond the requested range (start %s)",
     async (sourceSeqStart) => {
       await withTestHarness(async (harness) => {
-        const { environment, thread } = seedThreadFixture(harness);
+        const { environment, thread } = await seedThreadFixture(harness);
         const context = {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId: "provider-thread-1",
           scope: turnScope("turn-1"),
         };
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...context,
           sequence: 1,
           type: "turn/started",
@@ -38,7 +38,7 @@ describe("public timeline turn summary details", () => {
           [3, "short-command", "completed"],
           [4, "long-command", "completed"],
         ] as const) {
-          seedEvent(harness.deps, {
+          await seedEvent(harness.deps, {
             ...context,
             sequence,
             type: status === "pending" ? "item/started" : "item/completed",
@@ -57,7 +57,7 @@ describe("public timeline turn summary details", () => {
             },
           });
         }
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...context,
           sequence: 5,
           type: "turn/completed",
@@ -99,13 +99,13 @@ describe("public timeline turn summary details", () => {
 
   it("hydrates an interaction-only summary range before a user steer", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const eventContext = {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
       };
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventContext,
         scope: turnScope("turn-1"),
         sequence: 1,
@@ -116,7 +116,7 @@ describe("public timeline turn summary details", () => {
         [2, "pending"],
         [3, "resolved"],
       ] as const) {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...eventContext,
           scope: threadScope(),
           sequence,
@@ -139,7 +139,7 @@ describe("public timeline turn summary details", () => {
         });
       }
       const clientRequestId = encodeClientTurnRequestIdNumber({ value: 101 });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventContext,
         scope: threadScope(),
         sequence: 4,
@@ -162,14 +162,14 @@ describe("public timeline turn summary details", () => {
           source: "tell",
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventContext,
         scope: turnScope("turn-1"),
         sequence: 5,
         type: "turn/input/accepted",
         data: { clientRequestId },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventContext,
         scope: turnScope("turn-1"),
         sequence: 6,
@@ -178,7 +178,7 @@ describe("public timeline turn summary details", () => {
           item: { type: "agentMessage", id: "assistant-1", text: "Done." },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventContext,
         scope: turnScope("turn-1"),
         sequence: 7,
@@ -228,7 +228,7 @@ describe("public timeline turn summary details", () => {
     { range: 6, description: "an interaction during another turn" },
   ])("rejects turn details for $description", async ({ range }) => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const eventContext = {
         threadId: thread.id,
         environmentId: environment.id,
@@ -238,7 +238,7 @@ describe("public timeline turn summary details", () => {
         [1, "turn-1"],
         [3, "turn-2"],
       ] as const) {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...eventContext,
           scope: turnScope(turnId),
           sequence,
@@ -246,14 +246,14 @@ describe("public timeline turn summary details", () => {
           data: {},
         });
       }
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventContext,
         scope: turnScope("turn-1"),
         sequence: 2,
         type: "turn/completed",
         data: { status: "completed" },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventContext,
         scope: turnScope("turn-2"),
         sequence: 4,
@@ -267,14 +267,14 @@ describe("public timeline turn summary details", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventContext,
         scope: threadScope(),
         sequence: 5,
         type: "system/error",
         data: { message: "Standalone error" },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventContext,
         scope: threadScope(),
         sequence: 6,

@@ -32,7 +32,41 @@ import {
 
 export const LIVE_DAEMON_COMMAND_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
+const settlements = new WeakMap<object, Set<Promise<void>>>();
+const settledCallbacks = new WeakMap<object, Set<Promise<void>>>();
+
+async function trackSettlement(
+  db: object,
+  work: () => Promise<void>,
+  registry = settlements,
+): Promise<void> {
+  const pending = registry.get(db) ?? new Set<Promise<void>>();
+  registry.set(db, pending);
+  const completion = Promise.resolve().then(work);
+  pending.add(completion);
+  try {
+    await completion;
+  } finally {
+    pending.delete(completion);
+  }
+}
+
+export async function whenLiveHostCommandSettlementsIdle(
+  db: object,
+  includeCallbacks = false,
+): Promise<void> {
+  for (;;) {
+    const pending = [
+      ...(settlements.get(db) ?? []),
+      ...(includeCallbacks ? (settledCallbacks.get(db) ?? []) : []),
+    ];
+    if (!pending.length) return;
+    await Promise.allSettled(pending);
+  }
+}
+
 interface RunLiveHostCommandArgs<TType extends HostDaemonSettledCommandType> {
+  onRequestSent?: () => void;
   command: Extract<HostDaemonCommand, { type: TType }>;
   execution?: HostDaemonCommandExecutionRecord;
   hostId: string;
@@ -57,7 +91,7 @@ interface StartLiveHostCommandArgs<
   TType extends HostDaemonSettledCommandType,
 > extends RunLiveHostCommandArgs<TType> {
   onError?: LiveHostCommandErrorHandler<TType>;
-  onSettled?: () => void | Promise<void>;
+  onSettled?: () => unknown;
 }
 
 type LiveHostCommandResultReportForType<
@@ -187,12 +221,12 @@ export async function runLiveHostCommandSettlement(
   deps: CommandResultSideEffectsDeps,
   settle: (
     settlementDeps: CommandResultSettlementDeps,
-  ) => CommandResultSideEffectsResult,
+  ) => CommandResultSideEffectsResult | Promise<CommandResultSideEffectsResult>,
 ): Promise<void> {
   const notificationBuffer = new NotificationBuffer();
-  const sideEffects = deps.db.transaction(
-    (tx) =>
-      settle(
+  const sideEffects = await deps.db.transaction(
+    async (tx) =>
+      await settle(
         buildCommandResultSettlementDeps({
           db: tx,
           deps,
@@ -201,7 +235,7 @@ export async function runLiveHostCommandSettlement(
       ),
     { behavior: "immediate" },
   );
-  notificationBuffer.flushInto(deps.hub);
+  await notificationBuffer.flushInto(deps.hub);
   await runPostCommitActions(deps, sideEffects.postCommitActions);
 }
 
@@ -211,8 +245,12 @@ async function applyLiveHostCommandReport<
   deps: CommandResultSideEffectsDeps,
   args: ApplyLiveHostCommandReportArgs<TType>,
 ): Promise<void> {
-  await runLiveHostCommandSettlement(deps, (settlementDeps) =>
-    handleLiveCommandResultSideEffects(settlementDeps, args),
+  await trackSettlement(deps.db, () =>
+    runLiveHostCommandSettlement(
+      deps,
+      async (settlementDeps) =>
+        await handleLiveCommandResultSideEffects(settlementDeps, args),
+    ),
   );
 }
 
@@ -247,8 +285,12 @@ export async function runLiveHostCommand<
                 : await resolveHostEnvironment(deps, {
                     hostId: args.hostId,
                     projectId:
-                      getEnvironment(deps.db, sourceCommand.environmentId)
-                        ?.projectId ?? null,
+                      (
+                        await getEnvironment(
+                          deps.db,
+                          sourceCommand.environmentId,
+                        )
+                      )?.projectId ?? null,
                   }),
           }
         : {}),
@@ -256,6 +298,7 @@ export async function runLiveHostCommand<
     noteTurnTraceCommandSent({ command: sourceCommand, hostId: args.hostId });
     const result = await call(deps, {
       command,
+      onRequestSent: args.onRequestSent,
       hostId: args.hostId,
       timeoutMs: args.timeoutMs,
     });
@@ -312,10 +355,18 @@ export function startLiveHostCommand<
 >(
   deps: CommandResultSideEffectsDeps,
   args: StartLiveHostCommandArgs<TType>,
-): void {
+): Promise<void> {
   const execution =
     args.execution ?? createLiveHostCommandExecution(args.hostId);
-  void runLiveHostCommand(deps, { ...args, execution })
+  let dispatched!: () => void;
+  const sent = new Promise<void>((resolve) => {
+    dispatched = resolve;
+  });
+  const settled = runLiveHostCommand(deps, {
+    ...args,
+    execution,
+    onRequestSent: dispatched,
+  })
     .catch((error) => {
       const normalized =
         error instanceof Error ? error : new Error(String(error));
@@ -341,7 +392,13 @@ export function startLiveHostCommand<
     })
     .finally(async () => {
       try {
-        await args.onSettled?.();
+        await trackSettlement(
+          deps.db,
+          async () => {
+            await args.onSettled?.();
+          },
+          settledCallbacks,
+        );
       } catch (error) {
         deps.logger.error(
           { err: error, commandType: args.command.type },
@@ -349,4 +406,5 @@ export function startLiveHostCommand<
         );
       }
     });
+  return Promise.race([sent, settled]).then(() => {});
 }

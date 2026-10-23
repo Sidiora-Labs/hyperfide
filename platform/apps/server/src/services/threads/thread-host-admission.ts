@@ -2,14 +2,14 @@ import { getEnvironment, getHost, type DbQueryConnection } from "@hyperfide/db";
 import type { Thread } from "@hyperfide/domain";
 import { ApiError } from "../../errors.js";
 
-export function assertThreadHostAcceptsWork(
+export async function assertThreadHostAcceptsWork(
   db: DbQueryConnection,
   thread: Pick<Thread, "environmentId">,
-): void {
+): Promise<void> {
   if (thread.environmentId === null) return;
-  const environment = getEnvironment(db, thread.environmentId);
+  const environment = await getEnvironment(db, thread.environmentId);
   if (environment === null) return;
-  const host = getHost(db, environment.hostId);
+  const host = await getHost(db, environment.hostId);
   if (host?.phase === "removing") {
     throw new ApiError(
       409,

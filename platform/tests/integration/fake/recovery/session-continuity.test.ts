@@ -19,8 +19,8 @@ import {
 describe.sequential("fake provider session continuity integration", () => {
   it(
     "preserves event sequencing and completes new work across restart",
-    () =>
-      withHarness(async (harness) => {
+    async () =>
+      await withHarness(async (harness) => {
         const { thread } = await createRecoveryThread(
           harness,
           "Restart Continuity",
@@ -94,8 +94,8 @@ describe.sequential("fake provider session continuity integration", () => {
 
   it(
     "closes the old daemon session after restart and accepts new live work",
-    () =>
-      withHarness(async (harness) => {
+    async () =>
+      await withHarness(async (harness) => {
         const { thread } = await createRecoveryThread(
           harness,
           "Old Session Rejection",
@@ -121,7 +121,7 @@ describe.sequential("fake provider session continuity integration", () => {
         await harness.restartDaemon("old-session-restart");
         await waitForHostConnected(harness.api, RECOVERY_TIMEOUT_MS);
 
-        const oldSession = readSessionRow(harness.db, oldSessionId);
+        const oldSession = await readSessionRow(harness.db, oldSessionId);
         expect(oldSession?.status).toBe("closed");
 
         await sendTextMessage(harness.api, thread.id, {

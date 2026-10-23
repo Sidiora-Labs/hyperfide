@@ -26,29 +26,29 @@ const PROVIDER_THREAD_ID = "provider-turn-trace";
 
 afterEach(() => vi.restoreAllMocks());
 
-function seedIdleThread(harness: TestAppHarness): {
+async function seedIdleThread(harness: TestAppHarness): Promise<{
   sessionId: string;
   thread: Thread;
-} {
-  const { host, session } = seedHostSession(harness.deps, {
+}> {
+  const { host, session } = await seedHostSession(harness.deps, {
     id: "host-turn-trace",
   });
-  const { project } = seedProjectWithSource(harness.deps, {
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: "/tmp/turn-trace",
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: "/tmp/turn-trace",
     status: "ready",
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     status: "idle",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     providerThreadId: PROVIDER_THREAD_ID,
     threadId: thread.id,
@@ -63,7 +63,7 @@ async function postEvents(
 ): Promise<void> {
   const response = await harness.app.request("/internal/session/events", {
     method: "POST",
-    headers: internalAuthHeaders(harness),
+    headers: await internalAuthHeaders(harness),
     body: JSON.stringify({
       sessionId,
       eventGroups: groupHostDaemonEvents(envelopes),
@@ -107,10 +107,10 @@ describe("turn trace", () => {
     await withTestHarness(
       { performanceDiagnosticsAvailable: true },
       async (harness) => {
-        setExperiments(harness.db, { performanceDiagnostics: true });
+        await setExperiments(harness.db, { performanceDiagnostics: true });
         const turnTraceLogs = spyOnTraceLogs(harness, "Turn trace");
         const streamTraceLogs = spyOnTraceLogs(harness, "Stream trace");
-        const { sessionId, thread } = seedIdleThread(harness);
+        const { sessionId, thread } = await seedIdleThread(harness);
 
         await sendFollowUp(harness, thread);
         const submit = await waitForQueuedCommand(
@@ -225,7 +225,7 @@ describe("turn trace", () => {
       async (harness) => {
         const turnTraceLogs = spyOnTraceLogs(harness, "Turn trace");
         const streamTraceLogs = spyOnTraceLogs(harness, "Stream trace");
-        const { sessionId, thread } = seedIdleThread(harness);
+        const { sessionId, thread } = await seedIdleThread(harness);
 
         await sendFollowUp(harness, thread);
         const submit = await waitForQueuedCommand(

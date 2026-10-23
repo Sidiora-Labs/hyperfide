@@ -28,7 +28,7 @@ describe("pluginCliResponse", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-transform");
-    const reader = response.body!.getReader();
+    const reader = await response.body!.getReader();
     const first = await reader.read();
     expect(new TextDecoder().decode(first.value)).toBe("\n");
     await vi.advanceTimersByTimeAsync(5);
@@ -68,7 +68,7 @@ describe("pluginCliResponse", () => {
     const responsePromise = pluginCliResponse(pending.promise, 5);
     await vi.advanceTimersByTimeAsync(5);
     const response = await responsePromise;
-    const reader = response.body!.getReader();
+    const reader = await response.body!.getReader();
     expect((await reader.read()).done).toBe(false);
     await reader.cancel();
     expect(vi.getTimerCount()).toBe(0);

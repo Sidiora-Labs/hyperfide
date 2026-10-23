@@ -18,7 +18,7 @@ async function stopRunningThread(
   row: { hostId: string | null; id: string },
   targetHostName: string,
 ): Promise<void> {
-  const thread = getThread(deps.db, row.id);
+  const thread = await getThread(deps.db, row.id);
   if (thread === null) {
     return;
   }
@@ -27,7 +27,7 @@ async function stopRunningThread(
       ? null
       : { id: thread.environmentId, hostId: row.hostId };
   if (thread.status === "active") {
-    appendSystemErrorEvent(deps, {
+    await appendSystemErrorEvent(deps, {
       threadId: thread.id,
       environmentId: thread.environmentId,
       scope: threadScope(),
@@ -57,7 +57,7 @@ export async function stopRunningServerWork(
     if (failure !== undefined) {
       throw failure;
     }
-    const running = listRunningThreads(deps.db);
+    const running = await listRunningThreads(deps.db);
     if (running.length === 0 && inflight.size === 0) {
       return;
     }

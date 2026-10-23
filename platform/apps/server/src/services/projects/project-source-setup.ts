@@ -23,7 +23,7 @@ export function projectSourceHostConflict(): ApiError {
   );
 }
 
-export function registerProjectSourceOnHost(
+export async function registerProjectSourceOnHost(
   deps: Pick<CommandResultSideEffectsDeps, "db" | "hub">,
   args: {
     projectId: string;
@@ -35,7 +35,7 @@ export function registerProjectSourceOnHost(
 ) {
   let source;
   try {
-    source = createProjectSource(deps.db, deps.hub, {
+    source = await createProjectSource(deps.db, deps.hub, {
       projectId: args.projectId,
       type: "local_path",
       hostId: args.hostId,
@@ -56,7 +56,7 @@ export function registerProjectSourceOnHost(
     throw error;
   }
   if (args.gitRemoteUrl !== null) {
-    setProjectGitRemoteUrlIfMissing(
+    await setProjectGitRemoteUrlIfMissing(
       deps.db,
       deps.hub,
       args.projectId,
@@ -114,7 +114,7 @@ export async function cloneProjectSourceOnHost(
           : {}),
       },
     });
-    return registerProjectSourceOnHost(deps, {
+    return await registerProjectSourceOnHost(deps, {
       projectId: args.projectId,
       hostId: args.hostId,
       ...resolved,
@@ -122,7 +122,7 @@ export async function cloneProjectSourceOnHost(
     });
   } finally {
     unregister?.();
-    progress?.dispose();
+    await progress?.dispose();
   }
 }
 
@@ -140,7 +140,7 @@ const pendingSetups = new WeakMap<
     string,
     {
       hostId: string;
-      promise: Promise<ReturnType<typeof registerProjectSourceOnHost>>;
+      promise: Promise<Awaited<ReturnType<typeof registerProjectSourceOnHost>>>;
     }
   >
 >();
@@ -181,7 +181,11 @@ async function recoverOrCloneProjectSource(
   deps: CommandResultSideEffectsDeps,
   args: EnsureProjectSourceArgs,
 ) {
-  const source = getProjectSourceByHost(deps.db, args.projectId, args.hostId);
+  const source = await getProjectSourceByHost(
+    deps.db,
+    args.projectId,
+    args.hostId,
+  );
   if (source !== null) return source;
   if (args.remoteUrl === null) {
     throw new ApiError(
@@ -216,7 +220,7 @@ async function recoverOrCloneProjectSource(
         "The project setup target does not match this project's Git remote",
       );
     }
-    return registerProjectSourceOnHost(deps, {
+    return await registerProjectSourceOnHost(deps, {
       projectId: args.projectId,
       hostId: args.hostId,
       ...inspected,
@@ -229,5 +233,5 @@ async function recoverOrCloneProjectSource(
       "The machine did not report whether the project setup target exists",
     );
   }
-  return cloneProjectSourceOnHost(deps, { ...args, targetPath: path });
+  return await cloneProjectSourceOnHost(deps, { ...args, targetPath: path });
 }

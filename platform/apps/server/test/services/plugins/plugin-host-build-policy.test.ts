@@ -24,7 +24,7 @@ import { testLogger } from "../../helpers/test-app.js";
 
 describe("mutable plugin host build policy", () => {
   let service: PluginService;
-  let db: ReturnType<typeof createMigratedConnection>;
+  let db: Awaited<ReturnType<typeof createMigratedConnection>>;
   let workDir: string;
   let rootDir: string;
   let artifactPath: string;
@@ -50,7 +50,7 @@ describe("mutable plugin host build policy", () => {
   }
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-host-build-policy-"));
     service = createService("0.9.0");
     rootDir = join(workDir, "hyperfide-plugin-host-policy");
@@ -105,7 +105,7 @@ describe("mutable plugin host build policy", () => {
 
   afterEach(async () => {
     await service.stop();
-    db.$client.close();
+    await db.close();
     await rm(workDir, { recursive: true, force: true });
   });
 
@@ -121,7 +121,8 @@ describe("mutable plugin host build policy", () => {
         expect((await service.reload("host-policy")).ok).toBe(true);
       }
       expect(
-        service.list().find((entry) => entry.id === "host-policy")?.status,
+        (await service.list()).find((entry) => entry.id === "host-policy")
+          ?.status,
       ).toBe("running");
       expect(await readFile(artifactPath)).toEqual(bytes);
       expect((await stat(artifactPath)).mtimeMs).toBe(before.mtimeMs);
