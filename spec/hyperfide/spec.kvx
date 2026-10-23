@@ -2503,7 +2503,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.29.10]
 title = "Qualify the supervisory-host and issue-watcher units after 26.4"
-status = "pending"
+status = "done"
 wave = 38
 requires = ["26.4", "29.9"]
 touches = ["services/hyperfide/src/deployment/releases.ts", "tests/hyperfide/cases/tasks/25_4.py", "deploy/hyperfide/supervisory-host.service", "deploy/hyperfide/issue-watcher.service", "tests/hyperfide/cases/tasks/29_10.py", "tests/hyperfide/registrations/29.10.json", "tests/hyperfide/manifests/tasks/29.10.json"]
