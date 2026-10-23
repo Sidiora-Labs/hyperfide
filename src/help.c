@@ -36,6 +36,7 @@ typedef struct {
 typedef struct { const char *key, *title, *blurb; } HelpGroup;
 
 static const HelpGroup GROUPS[] = {
+    {"platform", "platform", "the Hyperfide platform runtime"},
     {"graph", "graph", "the code graph: index, search, and read"},
     {"vc", "version control", "snapshots, history, and the event log"},
     {"memory", "memory", "durable agent notes, stored beside the graph"},
@@ -49,6 +50,14 @@ static const HelpGroup GROUPS[] = {
 #define NGROUPS (int)(sizeof GROUPS / sizeof GROUPS[0])
 
 static const HelpCmd HELP[] = {
+{ .group = "platform", .name = "platform", .args = "<args...>",
+  .usage = "platform <args...>",
+  .summary = "run the Hyperfide platform CLI",
+  .detail = "Executes HYPERFIDE_PLATFORM_BIN, the repository's "
+    "platform/apps/cli/bin/hyperfide-platform, or hyperfide-platform on PATH, "
+    "in that order. Arguments, streams and exit status pass through. "
+    "HYPERFIDE_REPO_ROOT names the repository root. Missing CLI exits 69.",
+  .examples = "hyperfide platform --help" },
 /* ---------------- graph ---------------- */
 { .group = "graph", .name = "init", .args = "[--nested]",
   .usage = "init [--nested] [--force]",
