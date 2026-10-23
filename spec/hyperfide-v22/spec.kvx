@@ -683,7 +683,7 @@ owner = "qualification"
 
 [task.7.1]
 title = "Slices environment provider"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["2.3", "1.6"]
 touches = ["platform/plugins/environment-slices/**", "platform/packages/bundled-plugins/**", "docs/hyperfide/source-tracking.md", "tests/hyperfide/cases/v22/7_1.sh"]
