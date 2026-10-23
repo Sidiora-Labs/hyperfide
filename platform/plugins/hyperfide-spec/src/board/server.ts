@@ -1,9 +1,26 @@
 import { openSpecStorage } from '../storage.js';
 import type { PluginStorage } from '@hyperfide/authority';
 import { execFile } from 'node:child_process';
-import type { BoardAction, BoardRpc, Task } from './read-model-projection';
+import { readdir, stat } from 'node:fs/promises';
+import { join } from 'node:path';
+import type { BoardAction, BoardRpc, Task } from './model.js';
 
 export type CommandRunner = (binary: string, args: string[], cwd: string) => Promise<void>;
+export async function latestReceipt(repository: string, id: string): Promise<string | undefined> {
+  if (!/^[a-zA-Z0-9_.-]+$/.test(id) || id === '.' || id === '..') return;
+  const directory = join(repository, 'artifacts/hyperfide/tasks', id);
+  const entries = await readdir(directory, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  });
+  const receipts = await Promise.all(entries.filter(entry => entry.isDirectory()).map(async entry => {
+    const path = join('artifacts/hyperfide/tasks', id, entry.name, 'receipt.json');
+    try { return { path, time: (await stat(join(repository, path))).mtimeMs }; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; }
+  }));
+  const latest = receipts.filter(receipt => receipt !== undefined).sort((a, b) => b.time - a.time)[0];
+  return latest ? './' + latest.path.split('/').map(encodeURIComponent).join('/') : undefined;
+}
 const run: CommandRunner = (binary, args, cwd) => new Promise((resolve, reject) => {
   execFile(binary, args, { cwd }, (error, stdout, stderr) => {
     if (error) reject(new Error(stderr.trim() || stdout.trim() || error.message));
@@ -17,7 +34,9 @@ export function createBoardServer(repository: string, readTasks: BoardRpc['tasks
   const tasks = async (feature: string) => {
     const storage = suppliedStorage ?? await openSpecStorage(repository);
     try {
-      const rows = await readTasks(feature);
+      const rows = await Promise.all((await readTasks(feature)).map(async task => ({
+        ...task, latestReceipt: await latestReceipt(repository, task.id),
+      })));
       await storage.put('board:' + feature, rows);
       return rows;
     } finally { if (!suppliedStorage) storage.close(); }

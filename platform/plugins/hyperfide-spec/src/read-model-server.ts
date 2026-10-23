@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { SpecReader, binaryCommand } from './reader.js';
 import type { SpecSnapshot } from './shared/model.js';
 import { specContract } from './shared/contract.js';
+import registerBoard from './board/plugin-server.js';
 
 export async function registerSpecReadModel(api: HyperfidePluginApi, repositories: string[], binary = 'hyperfide') {
   const readers = new Map<string, SpecReader>();
@@ -34,6 +35,7 @@ export async function registerSpecReadModel(api: HyperfidePluginApi, repositorie
 }
 
 export default async function specPlugin(api: HyperfidePluginApi) {
+  registerBoard(api);
   const repositories = await api.storage.kv.get<string[]>('spec.repositories') ??
     (await api.sdk.projects.list()).flatMap(project => project.sources.map(source => source.path));
   const binary = await api.storage.kv.get<string>('spec.binaryPath');
