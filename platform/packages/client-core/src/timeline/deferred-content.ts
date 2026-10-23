@@ -1,5 +1,5 @@
-import type { TimelineRow } from "@bb/server-contract";
-import type { ThreadTimelineViewRow } from "@bb/thread-view";
+import type { TimelineRow } from "@hyperfide/server-contract";
+import type { ThreadTimelineViewRow } from "@hyperfide/thread-view";
 
 export function deferredTimelineContentItemId(
   row: ThreadTimelineViewRow,

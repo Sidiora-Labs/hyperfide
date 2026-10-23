@@ -9,16 +9,16 @@ import {
   createAgentRuntime,
   type AgentRuntime,
   type AgentRuntimeSkillRoot,
-} from "@bb/agent-runtime";
-import { events } from "@bb/db";
+} from "@hyperfide/agent-runtime";
+import { events } from "@hyperfide/db";
 import {
   encodeClientTurnRequestIdNumber,
   toolCallResponseSchema,
   type ThreadEvent,
   type ToolCallRequest,
   type ToolCallResponse,
-} from "@bb/domain";
-import { groupHostDaemonEvents } from "@bb/host-daemon-contract";
+} from "@hyperfide/domain";
+import { groupHostDaemonEvents } from "@hyperfide/host-daemon-contract";
 import { resolveBuiltinPluginRootPath } from "../../src/services/plugins/builtin-registry.js";
 import {
   buildExecutionOptions,

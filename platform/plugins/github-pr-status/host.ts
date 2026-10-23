@@ -1,5 +1,5 @@
 import { access } from "node:fs/promises";
-import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
+import { experimental_defineHostEntry } from "@hyperfide/plugin-sdk/host";
 import { getCurrentBranch } from "bb-environment-provider-host/git";
 import { githubPrStatusHostContract } from "./contract.js";
 import {

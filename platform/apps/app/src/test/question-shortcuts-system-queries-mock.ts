@@ -1,4 +1,4 @@
-import { defaultAppSettings, type AppKeybindings } from "@bb/domain";
+import { defaultAppSettings, type AppKeybindings } from "@hyperfide/domain";
 
 const questionSelectKeybindings: AppKeybindings = ([1, 2, 3] as const).map(
   (digit) => ({

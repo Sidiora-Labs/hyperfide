@@ -3,13 +3,13 @@ import {
   QueryObserver,
   type QueryClient,
 } from "@tanstack/react-query";
-import { createDeferredPromise, createMemoryStorage } from "@bb/test-helpers";
-import type { SystemConfigResponse } from "@bb/server-contract";
+import { createDeferredPromise, createMemoryStorage } from "@hyperfide/test-helpers";
+import type { SystemConfigResponse } from "@hyperfide/server-contract";
 import {
   defaultAppSettings,
   type AppKeybindingOverrides,
   type AppKeybindings,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   modelCatalogCacheKey,

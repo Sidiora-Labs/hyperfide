@@ -1,4 +1,4 @@
-import type { SkillSummary } from "@bb/server-contract";
+import type { SkillSummary } from "@hyperfide/server-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildRegistrySkillReferencePrompt,

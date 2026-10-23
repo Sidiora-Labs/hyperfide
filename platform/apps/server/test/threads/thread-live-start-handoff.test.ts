@@ -1,13 +1,13 @@
-import { getThread } from "@bb/db";
-import type { EnvironmentRow } from "@bb/db";
+import { getThread } from "@hyperfide/db";
+import type { EnvironmentRow } from "@hyperfide/db";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
   type ResolvedThreadExecutionOptions,
   type Thread,
-} from "@bb/domain";
-import { groupHostDaemonEvents } from "@bb/host-daemon-contract";
+} from "@hyperfide/domain";
+import { groupHostDaemonEvents } from "@hyperfide/host-daemon-contract";
 import { describe, expect, it } from "vitest";
 import {
   hasLiveThreadStartInFlight,

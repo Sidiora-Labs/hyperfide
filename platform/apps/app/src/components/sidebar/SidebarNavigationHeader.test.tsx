@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ExperimentalSidebarHeaderProps } from "@get-bb/plugin-sdk";
+import type { ExperimentalSidebarHeaderProps } from "@hyperfide/plugin-sdk";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { resetAllCrashedPluginSlotsForTest } from "@/components/plugin/PluginSlotMount";
 import type { ExperimentalSidebarNavigationSlot } from "@/lib/plugin-slots";

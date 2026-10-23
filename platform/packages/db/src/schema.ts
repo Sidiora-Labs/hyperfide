@@ -10,13 +10,13 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
-import { queuedMessageStateValues } from "@bb/domain/queued-message-lifecycle";
-import { threadStatusValues } from "@bb/domain/thread-status";
-import { startedOnBehalfOfInitiatorValues } from "@bb/domain/started-on-behalf-of";
-import { threadCreateOriginValues } from "@bb/domain/thread-create-origin";
-import { threadOriginKindValues } from "@bb/domain/thread-origin-kind";
-import { threadParentNotificationsValues } from "@bb/domain/thread-parent-notifications";
-import { threadVisibilityValues } from "@bb/domain/thread-visibility";
+import { queuedMessageStateValues } from "@hyperfide/domain/queued-message-lifecycle";
+import { threadStatusValues } from "@hyperfide/domain/thread-status";
+import { startedOnBehalfOfInitiatorValues } from "@hyperfide/domain/started-on-behalf-of";
+import { threadCreateOriginValues } from "@hyperfide/domain/thread-create-origin";
+import { threadOriginKindValues } from "@hyperfide/domain/thread-origin-kind";
+import { threadParentNotificationsValues } from "@hyperfide/domain/thread-parent-notifications";
+import { threadVisibilityValues } from "@hyperfide/domain/thread-visibility";
 import type {
   EnvironmentProviderSelection,
   JsonValue,
@@ -38,7 +38,7 @@ import type {
   ThreadEventScopeKind,
   ThreadEventType,
   ProjectKind,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { RetainedEventOutputPath } from "./retained-event-output.js";
 
 export const authUsers = sqliteTable(

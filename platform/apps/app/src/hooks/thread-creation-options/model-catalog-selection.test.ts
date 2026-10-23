@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AvailableModel } from "@bb/domain";
+import type { AvailableModel } from "@hyperfide/domain";
 import {
   resolveModelCatalogSelection,
   resolveModelReasoningLevel,

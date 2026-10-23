@@ -10,7 +10,7 @@ import {
   type ExperimentalThreadTabActionContext,
   type ExperimentalThreadActionTabProps,
   type ThreadChatMessageAction,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 const PLUGIN_ID = "side-chat";
 const PANEL_ACTION_ID = "side-chat";

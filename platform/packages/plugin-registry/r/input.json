@@ -5,9 +5,9 @@
   "title": "input",
   "description": "BB ui \"input\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/coarse-pointer-sizing",
-    "@bb/motion",
-    "@bb/utils"
+    "@hyperfide/coarse-pointer-sizing",
+    "@hyperfide/motion",
+    "@hyperfide/utils"
   ],
   "files": [
     {

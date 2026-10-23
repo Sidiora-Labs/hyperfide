@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { BottomAnchoredScrollBody } from "./bottom-anchored-scroll-body.js";
 import { PAGE_SHELL_CONTENT_STYLE } from "./page-shell-content-style.js";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { OverflowFade } from "@bb/shared-ui/overflow-fade";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { OverflowFade } from "@hyperfide/shared-ui/overflow-fade";
 import { TitleBarScrollFade } from "./title-bar-scroll-fade.js";
 
 type PageShellScrollBehavior = "bottom-anchor" | "static";

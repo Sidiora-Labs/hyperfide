@@ -1,4 +1,4 @@
-# @get-bb/plugin-sdk
+# @hyperfide/plugin-sdk
 
 The typed facade BB plugin authors compile against. The root preserves the
 complete `BbPluginApi` and `BbSdk` contract; `./app` is the frontend runtime
@@ -116,13 +116,13 @@ for a cleanup-safe editor enhancement.
 ## External plugin tests
 
 The packed package includes executable JavaScript and portable declarations
-for `@get-bb/plugin-sdk/testing` and `@get-bb/plugin-sdk/testing/app`; neither subpath
+for `@hyperfide/plugin-sdk/testing` and `@hyperfide/plugin-sdk/testing/app`; neither subpath
 imports BB workspace packages or source TypeScript at runtime. Install the SDK
 with the test stack used by your plugin (the peer dependencies are optional so
 headless plugins do not install a browser harness):
 
 ```sh
-npm install --save-dev @get-bb/plugin-sdk vitest better-sqlite3 cron-parser hono
+npm install --save-dev @hyperfide/plugin-sdk vitest better-sqlite3 cron-parser hono
 npm install --save-dev react react-dom @testing-library/react jsdom # frontend tests
 ```
 
@@ -132,7 +132,7 @@ Backend example:
 import {
   createFakePluginHost,
   makePluginAgentConfigurationContext,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import plugin from "./server.js";
 
 const host = createFakePluginHost({ pluginId: "notes" });
@@ -171,7 +171,7 @@ import {
   loadPluginApp,
   mountPluginContentScripts,
   renderSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app.js"));
 const scripts = await mountPluginContentScripts(app, { pluginId: "notes" });
@@ -191,7 +191,7 @@ await scripts.lifecycle.dispose();
 ```
 
 `loadPluginApp` installs the runtime and validates all registrations; pass the
-imported module or a thunk. `@get-bb/plugin-sdk/app` exports look the runtime
+imported module or a thunk. `@hyperfide/plugin-sdk/app` exports look the runtime
 up when they are called or rendered, so a static import of `app.tsx` or of
 components works too. `mountPluginContentScripts` mirrors the host's ordered mount,
 rollback, independent per-window signal, and exact-once disposal. `renderSlot` supplies
@@ -222,14 +222,14 @@ multi-plugin arbitration; use a live BB test for those boundaries.
 ## Declaration surface
 
 The complete root declaration flattens the unpublished BB workspace contracts.
-The testing declarations reuse that public `@get-bb/plugin-sdk` root instead of
-embedding a second copy, and no declaration depends on unpublished `@bb/*`
+The testing declarations reuse that public `@hyperfide/plugin-sdk` root instead of
+embedding a second copy, and no declaration depends on unpublished `@hyperfide/*`
 packages. Genuine npm types (`hono`, `better-sqlite3`, React, and Testing
 Library) remain peer imports. Zod is a runtime dependency of the SDK, so
 plugins only declare it when their own source imports it. Scaffolded plugins depend on this package —
 `bb plugin new` pins it exactly in `devDependencies` — and read the root/app
-declarations straight from `node_modules/@get-bb/plugin-sdk/bundled-types/`,
+declarations straight from `node_modules/@hyperfide/plugin-sdk/bundled-types/`,
 the same files the testing subpaths reuse. Plugins scaffolded before that
 switch still vendor a copy of the root/app declarations in `types/` and map
-`@get-bb/plugin-sdk` onto them through their `tsconfig.json`; `bb plugin
+`@hyperfide/plugin-sdk` onto them through their `tsconfig.json`; `bb plugin
 types` keeps those refreshed until they migrate.

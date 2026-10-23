@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defaultResolvedCodeTheme } from "@bb/domain";
+import { defaultResolvedCodeTheme } from "@hyperfide/domain";
 import { applyResolvedCodeTheme } from "@/lib/code-theme";
 import { parseGitDiffFiles } from "@/components/git-diff/git-diff-parsing";
 import BbDiff from "./BbDiff";

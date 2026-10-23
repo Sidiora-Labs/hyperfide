@@ -39,7 +39,7 @@ function createTestRepo({ bbAppVersion, desktopVersion }) {
   );
   writeFileSync(
     join(repoRoot, "apps", "desktop", "package.json"),
-    createPackageJson({ name: "@bb/desktop", version: desktopVersion }),
+    createPackageJson({ name: "@hyperfide/desktop", version: desktopVersion }),
   );
 
   return repoRoot;
@@ -100,7 +100,7 @@ describe("bump-version", () => {
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain(
-      "New version 0.0.7 must be greater than current max 0.0.9 across bb-app=0.0.6 @bb/desktop=0.0.9.",
+      "New version 0.0.7 must be greater than current max 0.0.9 across bb-app=0.0.6 @hyperfide/desktop=0.0.9.",
     );
     expect(readPackageContent(repoRoot, "packages/bb-app/package.json")).toBe(
       originalBbAppContent,
@@ -118,7 +118,7 @@ describe("bump-version", () => {
     const result = runScript(repoRoot, ["0.0.7"]);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain("Bumped: bb-app + @bb/desktop → 0.0.7");
+    expect(result.stdout).toContain("Bumped: bb-app + @hyperfide/desktop → 0.0.7");
     expect(readVersion(repoRoot, "packages/bb-app/package.json")).toBe("0.0.7");
     expect(readVersion(repoRoot, "apps/desktop/package.json")).toBe("0.0.7");
   });

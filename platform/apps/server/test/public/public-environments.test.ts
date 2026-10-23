@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getEnvironment } from "@bb/db";
+import { getEnvironment } from "@hyperfide/db";
 import {
   registerTestHostRpcCapture,
   reportQueuedCommandError,

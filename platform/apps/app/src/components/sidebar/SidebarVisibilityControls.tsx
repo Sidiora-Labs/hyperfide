@@ -1,9 +1,9 @@
 import type { ComponentProps } from "react";
-import { Skeleton } from "@bb/shared-ui/skeleton";
-import { COARSE_POINTER_COMPACT_ROW_HEIGHT_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
+import { COARSE_POINTER_COMPACT_ROW_HEIGHT_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import { defineSplit, SplitLoadFailure } from "@/lib/define-split";
 import type { SidebarVisibilityCustomize as SidebarVisibilityCustomizeView } from "./SidebarVisibilityCustomize";
-import { SidebarCustomizePanel } from "@bb/shared-ui/sidebar-customize-panel";
+import { SidebarCustomizePanel } from "@hyperfide/shared-ui/sidebar-customize-panel";
 
 type SidebarVisibilityCustomizeProps = ComponentProps<
   typeof SidebarVisibilityCustomizeView

@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import type { WorkspaceDiffTarget } from "@bb/domain";
+import type { WorkspaceDiffTarget } from "@hyperfide/domain";
 import { afterEach, expect, it, vi } from "vitest";
 import { sdk } from "@/lib/sdk";
 import { makeDiffFileEntry } from "@/test/fixtures/diff-files";

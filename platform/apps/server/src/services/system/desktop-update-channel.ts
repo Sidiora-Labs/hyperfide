@@ -3,7 +3,7 @@ import {
   desktopAppUpdateMessageSchema,
   type DesktopAppUpdateInfo,
   type DesktopAppUpdateRequest,
-} from "@bb/config/desktop-app-update";
+} from "@hyperfide/config/desktop-app-update";
 
 export interface DesktopUpdateChannel {
   request(

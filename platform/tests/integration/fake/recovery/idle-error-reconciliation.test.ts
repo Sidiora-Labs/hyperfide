@@ -9,7 +9,7 @@ import { withHarness } from "../../helpers/harness.js";
 import {
   applyThreadLifecycleEvent,
   requireThreadLifecycleEventApplied,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   createRecoveryThread,
   RECOVERY_TEST_TIMEOUT_MS,

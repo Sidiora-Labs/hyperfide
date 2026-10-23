@@ -7,7 +7,7 @@ import {
   hostDaemonSessions,
   hosts,
   environments as environmentRows,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { handleHostRemoved } from "../../internal/session-owner-side-effects.js";
 import type { WorkSessionDeps } from "../../types.js";
 import { maintainMachine } from "./lifecycle.js";
@@ -29,14 +29,14 @@ import {
   machineHasLiveThreads,
   machineHasPendingThreads,
   updateHost,
-} from "@bb/db";
-import { jsonValueSchema, type Host, type JsonValue } from "@bb/domain";
+} from "@hyperfide/db";
+import { jsonValueSchema, type Host, type JsonValue } from "@hyperfide/domain";
 import type {
   PluginMachineProviderCreateResult,
   PluginMachineProviderResource,
   PluginMachineProviderProgress,
-} from "@get-bb/plugin-sdk/machine-provider";
-import { summarizeStandardIssues } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/machine-provider";
+import { summarizeStandardIssues } from "@hyperfide/plugin-sdk/internal/host-policy";
 import { ApiError } from "../../errors.js";
 import type { ThreadProvisioningDeps } from "../threads/thread-provisioning-environment.js";
 import { decideWithinBox } from "../threads/dispatch-hooks.js";

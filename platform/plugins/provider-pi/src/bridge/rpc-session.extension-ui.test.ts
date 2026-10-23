@@ -30,7 +30,7 @@ it("auto-cancels extension dialogs in a helper session without a UI handler", as
   `;
   vi.stubEnv(PI_BRIDGE_COMMAND_ENV, process.execPath);
   vi.stubEnv(PI_BRIDGE_ARGS_ENV, JSON.stringify(["-e", script, "--"]));
-  vi.stubEnv("BB_PI_BRIDGE_READINESS_TIMEOUT_MS", "1000");
+  vi.stubEnv("HYPERFIDE_PI_BRIDGE_READINESS_TIMEOUT_MS", "1000");
   const session = new PiRpcSession(
     {
       cwd: dir,

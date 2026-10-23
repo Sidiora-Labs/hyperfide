@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clientMessageSchema, type ClientMessage } from "@bb/domain";
-import type { RealtimeSubscriptionTarget } from "@bb/server-contract";
+import { clientMessageSchema, type ClientMessage } from "@hyperfide/domain";
+import type { RealtimeSubscriptionTarget } from "@hyperfide/server-contract";
 
 const fakeSocketState = vi.hoisted(() => {
   type CloseHandler = () => void;

@@ -4,8 +4,8 @@ import { useMemo, type ComponentProps, type ReactNode } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import {
   usePluginComposerHost,

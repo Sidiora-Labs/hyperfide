@@ -1,4 +1,4 @@
-import type { Thread } from "@bb/domain";
+import type { Thread } from "@hyperfide/domain";
 
 export type ThreadReadState = Pick<Thread, "lastReadAt" | "latestAttentionAt">;
 

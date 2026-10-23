@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
-import { UPDATE_ACTION_ICON } from "@bb/domain/update-state";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { UPDATE_ACTION_ICON } from "@hyperfide/domain/update-state";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
+} from "@hyperfide/shared-ui/tooltip";
 import type { PluginRowSignal } from "./plugin-status";
 import { isReadablePluginVersion, UPDATE_ICON_STYLE } from "./plugin-ui";
 

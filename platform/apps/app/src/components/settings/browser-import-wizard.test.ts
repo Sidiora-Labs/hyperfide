@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DesktopBrowserImportSource } from "@bb/host-daemon-contract";
+import type { DesktopBrowserImportSource } from "@hyperfide/host-daemon-contract";
 import {
   canCloseDialog,
   failedDialogStep,

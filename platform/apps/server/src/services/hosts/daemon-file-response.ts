@@ -1,6 +1,6 @@
 import { requestMatchesEntityTag } from "../files/entity-tag.js";
 import { Buffer } from "node:buffer";
-import type { HostDaemonOnlineRpcResultByType } from "@bb/host-daemon-contract";
+import type { HostDaemonOnlineRpcResultByType } from "@hyperfide/host-daemon-contract";
 import { ApiError } from "../../errors.js";
 
 const OCTET_STREAM_MIME_TYPE = "application/octet-stream";

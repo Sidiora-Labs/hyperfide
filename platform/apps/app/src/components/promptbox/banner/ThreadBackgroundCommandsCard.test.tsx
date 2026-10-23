@@ -13,7 +13,7 @@ import {
   backgroundCommandRow,
   workflowRow,
 } from "@/test/fixtures/thread-timeline-rows";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { ThreadBackgroundCommandsCard } from "./ThreadBackgroundCommandsCard";
 
 let resizeObserverCallback: ResizeObserverCallback | null = null;

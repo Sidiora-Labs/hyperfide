@@ -1,5 +1,5 @@
 import type { MarkdownPreviewLinkHandler } from "@/components/ui/markdown-link";
-import type { TerminalCreateTarget } from "@bb/server-contract";
+import type { TerminalCreateTarget } from "@hyperfide/server-contract";
 import { ThreadTerminalContent } from "./ThreadTerminalContent";
 import { useThreadTerminalController } from "./useThreadTerminalController";
 

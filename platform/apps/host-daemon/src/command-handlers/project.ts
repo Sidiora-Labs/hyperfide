@@ -4,7 +4,7 @@ import {
   runGit,
   WorkspaceError,
   type GitProcessOptions,
-} from "@bb/host-workspace";
+} from "@hyperfide/host-workspace";
 import { ExpectedCommandDispatchError } from "../command-dispatch-support.js";
 
 const PROJECT_CLONE_TIMEOUT_MS = 20 * 60 * 1000;

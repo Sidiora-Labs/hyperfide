@@ -1,9 +1,9 @@
-import { createDeferredPromise } from "@bb/test-helpers";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getHost, setAppSettings, updateHost, upsertHost } from "@bb/db";
-import { defaultAppSettings } from "@bb/domain";
-import type { ServerAccessProviderDeclaration } from "@get-bb/plugin-sdk";
+import { getHost, setAppSettings, updateHost, upsertHost } from "@hyperfide/db";
+import { defaultAppSettings } from "@hyperfide/domain";
+import type { ServerAccessProviderDeclaration } from "@hyperfide/plugin-sdk";
 import {
   serverAccess,
   serverAccessStatus,

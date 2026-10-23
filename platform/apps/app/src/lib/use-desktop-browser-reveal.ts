@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { BbDesktopBrowserRevealRequest } from "@bb/desktop-contract";
+import type { BbDesktopBrowserRevealRequest } from "@hyperfide/desktop-contract";
 import { getDesktopBrowserApi } from "./bb-desktop";
 
 export function useDesktopBrowserReveal({

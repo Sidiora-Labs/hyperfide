@@ -13,12 +13,12 @@ import {
   markThreadDeleted,
   threads,
   reserveEnvironment,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   type ResolvedThreadExecutionOptions,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { describe, expect, it, vi } from "vitest";
 import {
   runThreadLifecycleSweep,
@@ -63,7 +63,7 @@ import { installFakeEnvironmentProvider } from "../helpers/environment-provider.
 import { withTestHarness } from "../helpers/test-app.js";
 import { handleDaemonSocketClosed } from "../../src/internal/session-owner-side-effects.js";
 import { onDaemonSocketOpen } from "../../src/ws/daemon-protocol.js";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract";
 import { advanceEnvironmentProvisioning } from "../../src/services/environments/environment-engine.js";
 
 const THREAD_START_EXECUTION = {

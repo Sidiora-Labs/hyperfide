@@ -1,5 +1,5 @@
-import * as questionFormHost from "@bb/shared-ui/question-form-host";
-import * as voiceInputTextarea from "@bb/shared-ui/voice-input-textarea";
+import * as questionFormHost from "@hyperfide/shared-ui/question-form-host";
+import * as voiceInputTextarea from "@hyperfide/shared-ui/voice-input-textarea";
 import * as react from "react";
 import * as reactDom from "react-dom";
 import * as reactDomClient from "react-dom/client";
@@ -22,9 +22,9 @@ import * as pierreDiffs from "@pierre/diffs";
 import * as clsx from "clsx";
 import * as tailwindMerge from "tailwind-merge";
 import * as classVarianceAuthority from "class-variance-authority";
-import * as sharedUiIcon from "@bb/shared-ui/icon";
-import { createDebouncedCallbackScheduler } from "@bb/domain";
-import { BbHttpError } from "@bb/sdk/browser";
+import * as sharedUiIcon from "@hyperfide/shared-ui/icon";
+import { createDebouncedCallbackScheduler } from "@hyperfide/domain";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import type { QueryClient } from "@tanstack/react-query";
 import { markEnabledPluginListStale } from "@/hooks/cache-owners/plugin-cache-owner";
 import { pluginListQueryOptions } from "@/hooks/queries/plugin-settings-queries";
@@ -39,8 +39,8 @@ import type {
   PluginContentScriptDisposer,
   PluginContentScriptRegistration,
   PluginSdkApp,
-} from "@get-bb/plugin-sdk";
-import { normalizePluginThreadRowStatus } from "@get-bb/plugin-sdk/internal/composer-customization-validation";
+} from "@hyperfide/plugin-sdk";
+import { normalizePluginThreadRowStatus } from "@hyperfide/plugin-sdk/internal/composer-customization-validation";
 import { resetCrashedPluginSlots } from "@/components/plugin/PluginSlotMount";
 import { runWithPluginDomIsolationAsync } from "./foreign-dom-mutation-guard";
 import {
@@ -53,7 +53,7 @@ import {
   collectPluginAppRegistrations,
   isPluginAppDefinition,
 } from "./plugin-app-definition";
-import { setPluginAssetIcons } from "@bb/shared-ui/icon-registry";
+import { setPluginAssetIcons } from "@hyperfide/shared-ui/icon-registry";
 import { setPluginLogoUrls, type PluginLogoUrls } from "./plugin-logos";
 import { createGatedPierreDiffsReact } from "./plugin-pierre-diffs-react";
 import {
@@ -806,7 +806,7 @@ async function reconcileCandidate(
     const definition = record.module.default;
     if (!isPluginAppDefinition(definition)) {
       throw new Error(
-        "the bundle's default export is not definePluginApp(...) from @get-bb/plugin-sdk/app",
+        "the bundle's default export is not definePluginApp(...) from @hyperfide/plugin-sdk/app",
       );
     }
     collected = collectPluginAppRegistrations(definition, (message) => {

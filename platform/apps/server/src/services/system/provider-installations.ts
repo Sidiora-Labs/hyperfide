@@ -5,8 +5,8 @@ import {
 import type {
   ProviderCliStatus,
   ProviderCliStatusResponse,
-} from "@bb/host-daemon-contract";
-import type { ProviderInfo } from "@bb/domain";
+} from "@hyperfide/host-daemon-contract";
+import type { ProviderInfo } from "@hyperfide/domain";
 import { ZodError } from "zod";
 import type { WorkSessionDeps } from "../../types.js";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";

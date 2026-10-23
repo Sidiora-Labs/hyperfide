@@ -3,7 +3,7 @@ import type {
   SystemProviderInfo,
   SystemProviderCatalogEntry,
   SystemProvidersQuery,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   readExecutionOptions,
   signalRequestArgs,

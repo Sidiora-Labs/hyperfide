@@ -1,11 +1,11 @@
-import { rpcInvalidationTags } from "@get-bb/plugin-sdk/internal/rpc-tags";
-import type { ContractTagDeclarations } from "@bb/domain";
+import { rpcInvalidationTags } from "@hyperfide/plugin-sdk/internal/rpc-tags";
+import type { ContractTagDeclarations } from "@hyperfide/domain";
 import {
   environmentCompositionSchema,
   validateServerAccessProviderDeclaration,
   type NormalizedPluginEnvironmentComposition,
   type NormalizedPluginInteractionRequest,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
 import { createMachineBootstrapApi } from "../machines/bootstrap.js";
 import type { MachineEnrollments } from "../machines/enrollments.js";
 import { listServerAccessProviders } from "./plugin-server-access-registry.js";
@@ -22,8 +22,8 @@ import {
   listPluginKvKeys,
   setPluginKvValue,
   type DbConnection,
-} from "@bb/db";
-import type { ThreadEventItemPresentation } from "@bb/domain";
+} from "@hyperfide/db";
+import type { ThreadEventItemPresentation } from "@hyperfide/domain";
 import type {
   BbPluginApi,
   PluginAgentConfiguration,
@@ -78,7 +78,7 @@ import type {
   StandardSchemaV1,
   PluginRpcContract,
   ExperimentalPluginRpcHandlerContext,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   KV_VALUE_MAX_BYTES,
   normalizeAgentToolRegistration,
@@ -108,13 +108,13 @@ import {
   validateSettingsUpdate,
   validatePluginAiServiceDeclaration,
   validatePluginProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
 import type {
   NormalizedPluginAiService,
   NormalizedPluginEnvironmentProvider,
   NormalizedPluginMachineProvider,
   NormalizedPluginProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
 import type {
   BbSdk,
   ThreadForkArgs,
@@ -122,7 +122,7 @@ import type {
   ThreadPluginMetadataArgs,
   ThreadPluginMetadataUpdateArgs,
   ThreadSpawnArgs,
-} from "@bb/sdk";
+} from "@hyperfide/sdk";
 import { requestEnvironmentProviderRecheck } from "./plugin-environment-provider-registry.js";
 import { requestServerAccessRecheck } from "./plugin-server-access-registry.js";
 import {
@@ -146,7 +146,7 @@ export type {
   PluginMentionTrigger,
   PluginThreadEventName,
   PluginThreadEventPayloads,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 
 class PluginContextStaleError extends Error {
   constructor(pluginId: string) {
@@ -274,7 +274,7 @@ export interface PluginApiHandle {
   machineProviders: Map<string, NormalizedPluginMachineProvider>;
   serverAccessProviders: Map<
     string,
-    import("@get-bb/plugin-sdk").ServerAccessProviderDeclaration
+    import("@hyperfide/plugin-sdk").ServerAccessProviderDeclaration
   >;
   /** HTTP routes recorded by `bb.http.route`; dropped with the handle. */
   httpRoutes: PluginHttpRouteRecord[];
@@ -641,7 +641,7 @@ export function createPluginApi(options: {
   const machineProviders = new Map<string, NormalizedPluginMachineProvider>();
   const serverAccessProviders = new Map<
     string,
-    import("@get-bb/plugin-sdk").ServerAccessProviderDeclaration
+    import("@hyperfide/plugin-sdk").ServerAccessProviderDeclaration
   >();
   const httpRoutes: PluginHttpRouteRecord[] = [];
   const websocketRoutes: PluginWebSocketRouteRecord[] = [];
@@ -1244,7 +1244,7 @@ export function createPluginApi(options: {
   const experimental_environments: PluginEnvironments = {
     register(
       declaration:
-        | import("@get-bb/plugin-sdk").PluginEnvironmentProviderDeclaration
+        | import("@hyperfide/plugin-sdk").PluginEnvironmentProviderDeclaration
         | NormalizedPluginEnvironmentComposition,
     ) {
       assertLive();
@@ -1298,7 +1298,7 @@ export function createPluginApi(options: {
     },
   };
 
-  const experimental_serverAccess: import("@get-bb/plugin-sdk").PluginServerAccess =
+  const experimental_serverAccess: import("@hyperfide/plugin-sdk").PluginServerAccess =
     {
       register(declaration) {
         assertLive();

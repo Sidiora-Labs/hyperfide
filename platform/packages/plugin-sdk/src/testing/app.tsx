@@ -1,5 +1,5 @@
 import { experimental_PluginRpcCallError } from "../rpc-contract.js";
-import { invalidateTags, pluginTagScope } from "@bb/query-tags";
+import { invalidateTags, pluginTagScope } from "@hyperfide/query-tags";
 import { QueryClient } from "@tanstack/react-query";
 import {
   createRpcQueryHooks,
@@ -144,7 +144,7 @@ import {
   type DiffProps,
   type SourceCodeProps,
   type JsonValue,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { isComposerDraftEmpty } from "../internal/composer-view.js";
 import {
   appendComposerDraft,
@@ -166,14 +166,14 @@ import {
 } from "../internal/plugin-app-collector.js";
 
 /**
- * `@get-bb/plugin-sdk/testing/app` — the frontend plugin test harness. Tests a
+ * `@hyperfide/plugin-sdk/testing/app` — the frontend plugin test harness. Tests a
  * plugin's `app.tsx` source directly under vitest + jsdom, without the bb
  * host or the esbuild bundle:
  *
  * - {@link installTestPluginRuntime} fills `globalThis.__bbPluginRuntime.
- *   pluginSdkApp` with a test implementation of the `@get-bb/plugin-sdk/app`
+ *   pluginSdkApp` with a test implementation of the `@hyperfide/plugin-sdk/app`
  *   surface (the same seam `bb plugin build` shims to the real app). The
- *   `@get-bb/plugin-sdk/app` exports look the runtime up when they are called
+ *   `@hyperfide/plugin-sdk/app` exports look the runtime up when they are called
  *   or rendered, so import order does not matter: install the runtime any time
  *   before the first hook runs ({@link loadPluginApp} and {@link renderSlot}
  *   install it for you).
@@ -324,7 +324,7 @@ interface SlotEnv {
   navigateCalls: NavigateCall[];
   appPanel: ExperimentalAppPanel;
   experimental_fixedTabOpenCalls: ExperimentalFixedTabOpenCall[];
-  experimental_tabOpenCalls: import("@get-bb/plugin-sdk").ExperimentalTabOpenOptions[];
+  experimental_tabOpenCalls: import("@hyperfide/plugin-sdk").ExperimentalTabOpenOptions[];
   fixedTabTarget: TestFixedTabTargetStore;
   composer: TestComposerStore;
   composerLog: ComposerLog;
@@ -720,14 +720,14 @@ function useSlotEnv(hook: string): SlotEnv {
   const env = useContext(SlotEnvContext);
   if (!env) {
     throw new Error(
-      `${hook}() needs the test slot environment — mount the component via renderSlot(...) from @get-bb/plugin-sdk/testing/app`,
+      `${hook}() needs the test slot environment — mount the component via renderSlot(...) from @hyperfide/plugin-sdk/testing/app`,
     );
   }
   return env;
 }
 
 // ---------------------------------------------------------------------------
-// The fake @get-bb/plugin-sdk/app runtime.
+// The fake @hyperfide/plugin-sdk/app runtime.
 // ---------------------------------------------------------------------------
 
 /** Same shape (and checks) as the BB app's real definePluginApp. */
@@ -1531,7 +1531,7 @@ const testPluginSdkApp = {
   },
   experimental_useFixedTabTarget<Target extends JsonValue>(
     tab:
-      | import("@get-bb/plugin-sdk").ExperimentalTabTargetReference<Target>
+      | import("@hyperfide/plugin-sdk").ExperimentalTabTargetReference<Target>
       | ExperimentalPluginFixedTabReference<Target>,
   ): ExperimentalFixedTabTargetState<Target> | null {
     const store = useSlotEnv("experimental_useFixedTabTarget").fixedTabTarget;
@@ -1841,7 +1841,7 @@ interface PluginRuntimeHost {
 
 /**
  * Install the test runtime at `globalThis.__bbPluginRuntime.pluginSdkApp`,
- * plus the React the `@get-bb/plugin-sdk/app` components render through.
+ * plus the React the `@hyperfide/plugin-sdk/app` components render through.
  * Idempotent per module instance. Call it before the first SDK hook runs or
  * SDK component renders; when the plugin's modules are imported does not
  * matter.
@@ -1915,7 +1915,7 @@ export async function loadPluginApp(
     : (resolved as PluginAppModule).default;
   if (!isPluginAppDefinition(definition)) {
     throw new Error(
-      "the bundle's default export is not definePluginApp(...) from @get-bb/plugin-sdk/app",
+      "the bundle's default export is not definePluginApp(...) from @hyperfide/plugin-sdk/app",
     );
   }
   return collectPluginAppRegistrations(definition);
@@ -2220,7 +2220,7 @@ export interface RenderSlotOptions<
   /** Host acceptance for an owner-scoped fixed-tab selection. */
   experimental_openFixedTab?: (call: ExperimentalFixedTabOpenCall) => boolean;
   experimental_openTab?: (
-    call: import("@get-bb/plugin-sdk").ExperimentalTabOpenOptions,
+    call: import("@hyperfide/plugin-sdk").ExperimentalTabOpenOptions,
   ) => boolean;
   /** Initial session target visible to `experimental_useFixedTabTarget`. */
   experimental_fixedTabTarget?: {
@@ -2261,7 +2261,7 @@ export interface RenderedSlotInspectionState {
   readonly navigateCalls: NavigateCall[];
   /** Every validated `experimental_useAppPanel().openFixedTab` call. */
   readonly experimental_fixedTabOpenCalls: ExperimentalFixedTabOpenCall[];
-  readonly experimental_tabOpenCalls: import("@get-bb/plugin-sdk").ExperimentalTabOpenOptions[];
+  readonly experimental_tabOpenCalls: import("@hyperfide/plugin-sdk").ExperimentalTabOpenOptions[];
   /** @internal Every `experimental_useSidebarThreadActions()` call, in order; kept for plugins built against older SDKs. */
   readonly sidebarActionCalls: SidebarActionCall[];
   /**
@@ -2432,7 +2432,7 @@ export function renderSlot<
 
   const navigateCalls: NavigateCall[] = [];
   const experimental_fixedTabOpenCalls: ExperimentalFixedTabOpenCall[] = [];
-  const experimental_tabOpenCalls: import("@get-bb/plugin-sdk").ExperimentalTabOpenOptions[] =
+  const experimental_tabOpenCalls: import("@hyperfide/plugin-sdk").ExperimentalTabOpenOptions[] =
     [];
   let fixedTabTargetSnapshot =
     options.experimental_fixedTabTarget === undefined

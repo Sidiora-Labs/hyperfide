@@ -1,4 +1,4 @@
-import { experimental_saveFile } from "@get-bb/plugin-sdk/app";
+import { experimental_saveFile } from "@hyperfide/plugin-sdk/app";
 import { useEffect, useState } from "react";
 import { attachmentDownloadUrl } from "../../shared/attachments.js";
 import type { Attachment } from "../../shared/contract.js";

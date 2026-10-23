@@ -23,7 +23,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import type {
   ComposerView,
   ExperimentalComposerSelection,
@@ -31,7 +31,7 @@ import type {
   PluginFileOpenerProps,
   PluginNewThreadPanelProps,
   ExperimentalThreadActionTabProps,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { createPluginPanelFixedPanelTab } from "@/lib/fixed-panel-tabs-state";
 import {
   resetPluginSlotStoreForTest,
@@ -89,7 +89,7 @@ import {
   useNewTabActions,
 } from "@/components/secondary-panel/NewTabActions";
 import { buildFileOpenerPanelTab } from "./file-opener-tabs";
-import type { PromptDraftState } from "@bb/client-core";
+import type { PromptDraftState } from "@hyperfide/client-core";
 
 function composerTextEffectValues(storageKey: string | null) {
   return getComposerTextEffects(storageKey).map(({ effect }) => effect);

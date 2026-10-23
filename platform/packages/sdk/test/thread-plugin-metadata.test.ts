@@ -1,4 +1,4 @@
-import type { JsonObject } from "@bb/domain";
+import type { JsonObject } from "@hyperfide/domain";
 import { describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
 import { createBbSdk } from "../src/core.js";

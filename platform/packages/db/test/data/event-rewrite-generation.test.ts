@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { threadScope, turnScope } from "@bb/domain";
+import { threadScope, turnScope } from "@hyperfide/domain";
 import type { DbConnection } from "../../src/connection.js";
 import { getThreadEventRewriteGeneration } from "../../src/data/event-rewrite-generation.js";
 import {

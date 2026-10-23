@@ -2,11 +2,11 @@ import {
   isStandaloneBuiltinClearCommand,
   isStandaloneBuiltinCompactCommand,
   type Thread,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   SendMessageRequest,
   SendMessageResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { ApiError } from "../../errors.js";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { attemptDispatch } from "./dispatch-attempt.js";

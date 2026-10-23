@@ -11,7 +11,7 @@ import {
   experimental_useSidebarNavigationSplit,
   type ExperimentalSidebarNavigationItem,
   type ExperimentalSidebarNavigationProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { COARSE_POINTER_ICON_SIZE_CLASS } from "@/components/ui/coarse-pointer-sizing";
 import { Icon } from "@/components/ui/icon";

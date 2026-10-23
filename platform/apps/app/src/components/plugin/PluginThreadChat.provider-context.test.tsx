@@ -17,9 +17,9 @@ import {
   it,
   vi,
 } from "vitest";
-import type { PluginTimelineRendererProps } from "@get-bb/plugin-sdk";
+import type { PluginTimelineRendererProps } from "@hyperfide/plugin-sdk";
 import { sdk } from "@/lib/sdk";
-import { makeProviderInfo } from "@bb/test-helpers/domain-fixtures";
+import { makeProviderInfo } from "@hyperfide/test-helpers/domain-fixtures";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { pluginSdkAppImplementation } from "@/lib/plugin-sdk-app-impl";
 import { toolRow } from "@/test/fixtures/thread-timeline-rows";

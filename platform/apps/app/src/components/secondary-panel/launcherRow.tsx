@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import {
   COARSE_POINTER_ICON_SIZE_CLASS,
   COARSE_POINTER_TEXT_SM_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
-import { Icon } from "@bb/shared-ui/icon";
-import { CHROME_SECTION_LABEL_CLASS } from "@bb/shared-ui/chrome-style-tokens";
-import { LIST_HOVER_TRANSITION } from "@bb/shared-ui/motion";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { CHROME_SECTION_LABEL_CLASS } from "@hyperfide/shared-ui/chrome-style-tokens";
+import { LIST_HOVER_TRANSITION } from "@hyperfide/shared-ui/motion";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 const LAUNCHER_ROW_SHELL_CLASS = `group flex w-full min-w-0 items-center gap-1.5 rounded px-2 py-1.5 text-left ${LIST_HOVER_TRANSITION} focus-visible:outline-none ${COARSE_POINTER_TEXT_SM_CLASS}`;
 export const LAUNCHER_ROW_BASE_CLASS = `${LAUNCHER_ROW_SHELL_CLASS} focus-visible:ring-1 focus-visible:ring-ring`;

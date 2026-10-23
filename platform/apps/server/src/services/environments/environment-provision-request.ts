@@ -1,4 +1,4 @@
-import type { EnvironmentProvisionCommand } from "@bb/host-daemon-contract";
+import type { EnvironmentProvisionCommand } from "@hyperfide/host-daemon-contract";
 
 export interface EnvironmentProvisionRequest {
   command: EnvironmentProvisionCommand;

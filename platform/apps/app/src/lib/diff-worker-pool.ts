@@ -1,4 +1,4 @@
-import { POINTER_COARSE_QUERY } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import { POINTER_COARSE_QUERY } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
 
 const DIFF_WORKER_POOL_MAX_SIZE = 4;
 const DIFF_WORKER_POOL_CONSTRAINED_MAX_SIZE = 2;

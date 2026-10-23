@@ -1,9 +1,9 @@
-import { SERVER_MOVE_STEP_IDS, type ServerMoveStepId } from "@bb/domain";
+import { SERVER_MOVE_STEP_IDS, type ServerMoveStepId } from "@hyperfide/domain";
 import type {
   ServerMoveStatus,
   ServerMoveStepStatus,
-} from "@bb/server-contract";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/server-contract";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import {
   ServerMoveOverlayView,
   type ServerMoveOverlayViewProps,

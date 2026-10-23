@@ -3,7 +3,7 @@ import type {
   RegistrySkill,
   RegistrySkillDetail,
   RegistrySkillFile,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 
 export const SKILLS_BASE_URL = "https://www.skills.sh";
 const DEFAULT_PAGE_SIZE = 24;

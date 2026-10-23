@@ -1,6 +1,6 @@
-import { ensurePersonalProject, listEnvironments } from "@bb/db";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import type { PluginEnvironmentProviderValidateContext } from "@get-bb/plugin-sdk/environment-provider";
+import { ensurePersonalProject, listEnvironments } from "@hyperfide/db";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import type { PluginEnvironmentProviderValidateContext } from "@hyperfide/plugin-sdk/environment-provider";
 import { describe, expect, it } from "vitest";
 import { createThreadFromRequest } from "../../src/services/threads/thread-create.js";
 import { DEFAULT_ENVIRONMENT_PROVIDER_ID } from "../../src/services/environments/environment-provider-ids.js";

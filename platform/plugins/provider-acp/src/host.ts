@@ -1,10 +1,10 @@
 import os from "node:os";
-import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
-import { experimental_probeAcpAgent } from "@get-bb/plugin-sdk/provider-bridge/acp";
+import { experimental_defineHostEntry } from "@hyperfide/plugin-sdk/host";
+import { experimental_probeAcpAgent } from "@hyperfide/plugin-sdk/provider-bridge/acp";
 import { acpHostContract } from "./contract.js";
 import { resolveAcpNativeRoots } from "./native-roots/index.js";
 
-export { experimental_acpProviderBridge as experimental_providerBridge } from "@get-bb/plugin-sdk/provider-bridge/acp";
+export { experimental_acpProviderBridge as experimental_providerBridge } from "@hyperfide/plugin-sdk/provider-bridge/acp";
 
 export default experimental_defineHostEntry({
   contract: acpHostContract,

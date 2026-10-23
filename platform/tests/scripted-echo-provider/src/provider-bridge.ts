@@ -30,7 +30,7 @@ import {
   providerRecoveryKindSchema,
   runBridgeRequest,
   type ProviderRecoveryHint,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { appendFileSync } from "node:fs";
 import { z } from "zod";
 

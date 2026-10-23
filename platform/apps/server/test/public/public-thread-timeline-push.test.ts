@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { turnScope, type ThreadTimelineSubscriptionTarget } from "@bb/domain";
+import { turnScope, type ThreadTimelineSubscriptionTarget } from "@hyperfide/domain";
 import {
   applyTimelineDelta,
   threadTimelineResponseSchema,
@@ -7,7 +7,7 @@ import {
   type ThreadTimelineResponse,
   type ThreadTimelineSignal,
   type TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import { createMockHubSocket } from "../helpers/mock-hub-socket.js";
 import { seedEvent, seedThread, seedThreadFixture } from "../helpers/seed.js";

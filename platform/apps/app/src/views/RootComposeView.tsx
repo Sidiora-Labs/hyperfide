@@ -1,7 +1,7 @@
 import { BrowserTabIcon } from "@/components/secondary-panel/BrowserTabIcon";
 import { getPanelTabHistoryKey } from "@/components/secondary-panel/recentlyClosedPanelTabs";
-import { appendQuoteAndAttachmentsToDraft } from "@bb/client-core";
-import type { ComposerAttachment } from "@get-bb/plugin-sdk";
+import { appendQuoteAndAttachmentsToDraft } from "@hyperfide/client-core";
+import type { ComposerAttachment } from "@hyperfide/plugin-sdk";
 import { createCoreComposerActions } from "@/lib/plugin-composer-handle";
 
 import {
@@ -19,11 +19,11 @@ import {
   type Host,
   type ProviderInfo,
   type ThreadListEntry,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   SidebarBootstrapResponse,
   TerminalSession,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   NewThreadComposer,
   type NewThreadComposerState,
@@ -39,7 +39,7 @@ import {
   useProviderCliInstallRunner,
 } from "@/components/provider-cli/provider-cli-install";
 import { providerCliJobKey } from "@/components/provider-cli/provider-cli-install-store";
-import { PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID } from "@bb/client-core";
+import { PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID } from "@hyperfide/client-core";
 import {
   encodeProviderValue,
   encodeReuseValue,
@@ -63,14 +63,14 @@ import {
   LazyBrowserTabDeck,
   preloadThreadSecondaryPanel,
 } from "@/components/secondary-panel/lazySecondaryPanelComponents";
-import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { EmptyStatePanel } from "@hyperfide/shared-ui/empty-state";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { PageShell } from "@/components/ui/page-shell.js";
-import { Button } from "@bb/shared-ui/button";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
-import { COARSE_POINTER_COMPACT_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+import { Button } from "@hyperfide/shared-ui/button";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { usePointerCoarse } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
+import { COARSE_POINTER_COMPACT_ICON_SIZE_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import { PluginItemIcon } from "@/components/plugin/PluginIcon";
 import { usePluginNewThreadPanelActions } from "@/components/plugin/PluginPanelActions";
 import { PluginThreadPanelNavigationProvider } from "@/components/plugin/plugin-thread-panel-navigation";
@@ -95,7 +95,7 @@ import {
   type OpenAttachmentRequest,
 } from "@/components/secondary-panel/AttachmentOpenerContext";
 import { PluginComposerHostProvider } from "@/components/plugin/plugin-composer-host";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
 import { useQuickCreateProjectController } from "@/hooks/useQuickCreateProject";
 import { useNavigateToThreadAfterCreatePreference } from "@/lib/root-compose-create-preference";
 import {
@@ -136,7 +136,7 @@ import {
   useThreadFileTabs,
   type FileSearchSelection,
 } from "@/components/secondary-panel/useThreadFileTabs";
-import { isSecondaryFileTab } from "@bb/client-core";
+import { isSecondaryFileTab } from "@hyperfide/client-core";
 import { RightPanelFileTabIcon } from "@/components/secondary-panel/RightPanelFileTabIcon";
 import {
   buildTerminalSyncedSecondaryFileTabs,

@@ -1,10 +1,10 @@
-import type { Environment, WorkspaceFileStatus } from "@bb/domain";
-import type { OpenInTargetContext } from "@bb/host-daemon-contract";
+import type { Environment, WorkspaceFileStatus } from "@hyperfide/domain";
+import type { OpenInTargetContext } from "@hyperfide/host-daemon-contract";
 import type { WorkspaceChangedFilesSection } from "@/components/workspace/workspace-change-summary";
 import type {
   EnvironmentFilePreviewSource,
   WorkspaceFilePreviewStatusLabel,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import { buildAbsoluteFilePath } from "@/lib/absolute-file-path";
 
 interface ResolveThreadWorkspaceOpenPathArgs {

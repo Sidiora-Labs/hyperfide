@@ -5,7 +5,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { threadsQueryKey } from "@/hooks/queries/query-keys";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import { useSenderThreadMetadataById } from "./useSenderThreadMetadataById";
 import { createQueryNotificationScheduler } from "@/test/queryNotificationScheduler";
 

@@ -1,4 +1,4 @@
-export const BB_PI_EXTENSION_SOURCE = String.raw`
+export const HYPERFIDE_PI_EXTENSION_SOURCE = String.raw`
 import { readFileSync, renameSync, writeSync } from "node:fs";
 import { Socket } from "node:net";
 import { StringDecoder } from "node:string_decoder";

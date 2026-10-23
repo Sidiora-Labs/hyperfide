@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getThreadExecutionOverride } from "@bb/db";
+import { getThreadExecutionOverride } from "@hyperfide/db";
 import { registerProviderHostRpcResponder } from "../helpers/host-rpc.js";
 import { readJson } from "../helpers/json.js";
 import {

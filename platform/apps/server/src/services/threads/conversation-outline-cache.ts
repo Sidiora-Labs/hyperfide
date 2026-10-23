@@ -2,12 +2,12 @@ import {
   getDatabaseDataVersion,
   getThreadEventRewriteGeneration,
   type DbConnection,
-} from "@bb/db";
-import type { ThreadConversationOutlineItem } from "@bb/server-contract";
+} from "@hyperfide/db";
+import type { ThreadConversationOutlineItem } from "@hyperfide/server-contract";
 import {
   MIN_AGENT_MESSAGE_DELTAS_FOR_SUMMARY_COMPACTION,
   type ThreadEventWithMeta,
-} from "@bb/thread-view";
+} from "@hyperfide/thread-view";
 
 interface ConversationOutlineProjection {
   events: ThreadEventWithMeta[];

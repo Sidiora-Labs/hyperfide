@@ -1,5 +1,5 @@
-import type { AvailableModel, ProviderInfo } from "@bb/domain";
-import type { SystemExecutionOptionsResponse } from "@bb/server-contract";
+import type { AvailableModel, ProviderInfo } from "@hyperfide/domain";
+import type { SystemExecutionOptionsResponse } from "@hyperfide/server-contract";
 
 function provider(
   info: Pick<

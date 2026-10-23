@@ -23,11 +23,11 @@ import type {
   ThreadRuntimeDisplayStatus,
   ThreadStatus,
   WorkspaceGitOperation,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   CreateExecutionInputSources,
   CreateThreadEnvironmentArgs,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   BbSdkAreas,
   PluginThreadMetadataListArgs,
@@ -35,7 +35,7 @@ import type {
   ThreadPluginMetadataArgs,
   ThreadPluginMetadataResult,
   ThreadPluginMetadataUpdateArgs,
-} from "@bb/sdk";
+} from "@hyperfide/sdk";
 import type { JsonValue } from "./json-value.js";
 import type { PluginMentionTrigger } from "./backend-contract.js";
 import type {
@@ -47,10 +47,10 @@ import type {
 } from "./rpc-contract.js";
 
 /**
- * The `@get-bb/plugin-sdk/app` contract (plugin design §5.2) — pure types with no
+ * The `@hyperfide/plugin-sdk/app` contract (plugin design §5.2) — pure types with no
  * side effects. The BB app imports these to keep its real implementation in
  * sync (`satisfies PluginSdkApp`). Plugin authors import the same shapes through
- * `@get-bb/plugin-sdk/app`.
+ * `@hyperfide/plugin-sdk/app`.
  *
  * Per-slot props are versioned contracts: additive-only within an SDK major.
  */
@@ -1163,7 +1163,7 @@ export interface PluginPendingInteractionRegistration {
    * splits on the slash to find this registration under its plugin.
    * `bb.ui.requestInput` validates `rendererId` against `/^[a-zA-Z0-9_-]+$/`;
    * an extension kind must match `/^[a-z0-9-]+\/[a-z0-9-]+$/`
-   * (`EXTENSION_KIND_PATTERN` in @bb/domain), so an id addressable both ways
+   * (`EXTENSION_KIND_PATTERN` in @hyperfide/domain), so an id addressable both ways
    * uses lowercase letters, digits, and "-" only.
    */
   id: string;
@@ -4823,11 +4823,11 @@ export interface BbNavigate {
 
 // ---------------------------------------------------------------------------
 // The whole runtime surface. Declaration-versus-runtime parity is tested
-// against the actual `@get-bb/plugin-sdk/app` module namespace.
+// against the actual `@hyperfide/plugin-sdk/app` module namespace.
 //
 // Components are deliberately NOT part of this surface (removed 2026-07-03,
 // plugin design §5.5): plugins vendor shadcn-style component source from the
-// BB registry (`npx shadcn add @bb/<name>`) and own it. `bb plugin build`
+// BB registry (`npx shadcn add @hyperfide/<name>`) and own it. `bb plugin build`
 // shims react, the shared-singleton packages (portal radix families,
 // sonner, vaul, @pierre/diffs) and the host-resident libraries every plugin
 // would otherwise duplicate (clsx, tailwind-merge, class-variance-authority,
@@ -4942,7 +4942,7 @@ export interface ExperimentalRpcMutationState<
 }
 
 /**
- * Everything `@get-bb/plugin-sdk/app` resolves to at runtime. The BB app builds
+ * Everything `@hyperfide/plugin-sdk/app` resolves to at runtime. The BB app builds
  * the real implementation and `satisfies` this interface; `bb plugin build`
  * shims the specifier to that object on `globalThis.__bbPluginRuntime`.
  */

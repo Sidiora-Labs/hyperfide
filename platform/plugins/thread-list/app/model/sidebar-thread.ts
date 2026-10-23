@@ -1,3 +1,3 @@
-import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
+import type { PluginSidebarThread } from "@hyperfide/plugin-sdk/app";
 
 export type SidebarThread = PluginSidebarThread;

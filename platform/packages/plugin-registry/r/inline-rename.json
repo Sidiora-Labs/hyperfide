@@ -5,8 +5,8 @@
   "title": "inline-rename",
   "description": "BB ui \"inline-rename\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/use-compact-viewport",
-    "@bb/use-pointer-coarse"
+    "@hyperfide/use-compact-viewport",
+    "@hyperfide/use-pointer-coarse"
   ],
   "files": [
     {

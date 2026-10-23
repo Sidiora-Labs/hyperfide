@@ -9,7 +9,7 @@
     "@dnd-kit/sortable"
   ],
   "registryDependencies": [
-    "@bb/use-drag-click-suppression"
+    "@hyperfide/use-drag-click-suppression"
   ],
   "files": [
     {

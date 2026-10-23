@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import { serverMoveStatusSchema } from "@bb/server-contract";
+import { serverMoveStatusSchema } from "@hyperfide/server-contract";
 import { z } from "zod";
 import { readOptionalText, writeTextAtomically } from "./managed-files.js";
 

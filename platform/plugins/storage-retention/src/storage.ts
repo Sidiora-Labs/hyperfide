@@ -1,5 +1,5 @@
-import { ARCHIVE_UNDO_GRACE_MS } from "@bb/domain";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { ARCHIVE_UNDO_GRACE_MS } from "@hyperfide/domain";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import {
   diskCapacitySchema,

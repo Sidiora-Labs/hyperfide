@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { BbDesktopVersionFeed } from "@bb/desktop-contract";
+import type { BbDesktopVersionFeed } from "@hyperfide/desktop-contract";
 import {
   createDesktopUpdateService,
   DESKTOP_UPDATE_CHECK_TIMEOUT_MS,

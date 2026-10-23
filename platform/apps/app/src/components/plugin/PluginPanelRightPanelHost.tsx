@@ -16,8 +16,8 @@ import {
 import { createPortal } from "react-dom";
 import { atom, useAtom, useAtomValue, useStore } from "jotai";
 import { atomFamily } from "jotai-family";
-import type { Host, JsonValue } from "@bb/domain";
-import { jsonValueSchema } from "@bb/domain";
+import type { Host, JsonValue } from "@hyperfide/domain";
+import { jsonValueSchema } from "@hyperfide/domain";
 import { PluginTabScope, usePluginTabs } from "./PluginTabs";
 import type { PluginNavTabSlot } from "@/lib/plugin-slots";
 import type { AppTabOpenIntent } from "@/lib/app-navigation-host";
@@ -25,13 +25,13 @@ import {
   createPanelActionDestination,
   runPluginPanelAction,
 } from "./PluginPanelActions";
-import { Button } from "@bb/shared-ui/button";
-import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@bb/shared-ui/chrome-style-tokens";
-import { COARSE_POINTER_HEADER_ICON_BUTTON_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { Icon } from "@bb/shared-ui/icon";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
+import { Button } from "@hyperfide/shared-ui/button";
+import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@hyperfide/shared-ui/chrome-style-tokens";
+import { COARSE_POINTER_HEADER_ICON_BUTTON_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@hyperfide/shared-ui/tooltip";
 import { useAppCommandHandler } from "@/components/commands/AppCommandProvider";
 import { PluginIcon, PluginItemIcon } from "@/components/plugin/PluginIcon";
 import { RIGHT_PANEL_TOGGLE_ICON_NAME } from "@/components/secondary-panel/panelToggleControlState";
@@ -64,7 +64,7 @@ import {
   type TerminalFixedPanelTab,
 } from "@/lib/fixed-panel-tabs-state";
 import { createFileOpenerOriginalTab } from "./file-opener-tabs";
-import { activateSecondaryPanelTabInState } from "@bb/client-core";
+import { activateSecondaryPanelTabInState } from "@hyperfide/client-core";
 import {
   terminalQueryScopeForTarget,
   useTerminals,

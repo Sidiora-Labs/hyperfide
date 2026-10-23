@@ -3,7 +3,7 @@ import type {
   PermissionMode,
   ReasoningLevel,
   ServiceTier,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import path from "node:path";
 
 import {

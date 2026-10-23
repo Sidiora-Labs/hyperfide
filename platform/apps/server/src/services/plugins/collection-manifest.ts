@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import type { PluginSourceSelection } from "@bb/server-contract";
+import type { PluginSourceSelection } from "@hyperfide/server-contract";
 import {
   normalizePluginSubdirectory,
   realPathInside,

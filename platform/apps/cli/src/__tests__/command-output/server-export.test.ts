@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import {
   collectLogPayloads,

@@ -1,7 +1,7 @@
 import { useMemo, type RefObject } from "react";
-import type { ExperimentalSidebarNavigationPlacement } from "@get-bb/plugin-sdk";
-import { PopoverContent } from "@bb/shared-ui/popover";
-import type { SidebarVisibilityItem } from "@bb/shared-ui/sidebar-visibility-customize";
+import type { ExperimentalSidebarNavigationPlacement } from "@hyperfide/plugin-sdk";
+import { PopoverContent } from "@hyperfide/shared-ui/popover";
+import type { SidebarVisibilityItem } from "@hyperfide/shared-ui/sidebar-visibility-customize";
 import { SidebarVisibilityCustomize } from "./SidebarVisibilityControls";
 import {
   SidebarNavigationIcon,

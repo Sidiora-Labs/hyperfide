@@ -1,4 +1,4 @@
-import type { BbPluginApi, PluginAgentToolResult } from "@get-bb/plugin-sdk";
+import type { BbPluginApi, PluginAgentToolResult } from "@hyperfide/plugin-sdk";
 import {
   ASK_USER_QUESTION_RENDERER_ID,
   interactionResponseSchema,

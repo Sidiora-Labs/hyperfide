@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { experimental_createBridgeJsonRpcTestHarness as createBridgeJsonRpcTestHarness } from "@get-bb/plugin-sdk/provider-bridge/testing";
-import type { BridgeJsonRpcTestHarness } from "@get-bb/plugin-sdk/provider-bridge/testing";
-import type { ThreadDelta } from "@get-bb/plugin-sdk/provider-bridge";
+import { experimental_createBridgeJsonRpcTestHarness as createBridgeJsonRpcTestHarness } from "@hyperfide/plugin-sdk/provider-bridge/testing";
+import type { BridgeJsonRpcTestHarness } from "@hyperfide/plugin-sdk/provider-bridge/testing";
+import type { ThreadDelta } from "@hyperfide/plugin-sdk/provider-bridge";
 
 import { handleLine } from "./bridge.js";
 import {

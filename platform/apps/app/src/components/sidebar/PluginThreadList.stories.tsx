@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import type { SidebarBootstrapResponse } from "@bb/server-contract";
-import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import type { SidebarBootstrapResponse } from "@hyperfide/server-contract";
+import { installTestPluginRuntime } from "@hyperfide/plugin-sdk/testing/app";
 import { ThreadActionsProvider } from "@/components/thread/ThreadActionsProvider";
 import { SidebarContent, SidebarProvider } from "@/components/ui/sidebar";
 import {

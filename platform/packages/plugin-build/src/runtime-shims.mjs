@@ -11,14 +11,14 @@
 // (#2072). The sibling runtime-shims.d.mts declares its shape for tsc.
 
 /** The SDK app subpath plugin sources import. */
-export const PLUGIN_SDK_APP_SPECIFIER = "@get-bb/plugin-sdk/app";
+export const PLUGIN_SDK_APP_SPECIFIER = "@hyperfide/plugin-sdk/app";
 
 /**
  * Legacy alias for {@link PLUGIN_SDK_APP_SPECIFIER}, kept so pre-rename plugin
  * sources still build. It resolves to the same runtime slot and the same
  * export list; a later change removes it.
  */
-export const LEGACY_PLUGIN_SDK_APP_SPECIFIER = "@bb/plugin-sdk/app";
+export const LEGACY_PLUGIN_SDK_APP_SPECIFIER = "@hyperfide/plugin-sdk/app";
 
 /**
  * The shared-ui icon module. Builtin plugins import it by package specifier;
@@ -26,13 +26,13 @@ export const LEGACY_PLUGIN_SDK_APP_SPECIFIER = "@bb/plugin-sdk/app";
  * runtime shim plugin routes both to the same host slot so no plugin bundle
  * carries a second hugeicons map.
  */
-export const SHARED_UI_ICON_SPECIFIER = "@bb/shared-ui/icon";
+export const SHARED_UI_ICON_SPECIFIER = "@hyperfide/shared-ui/icon";
 
 export const SHARED_UI_QUESTION_FORM_HOST_SPECIFIER =
-  "@bb/shared-ui/question-form-host";
+  "@hyperfide/shared-ui/question-form-host";
 
 export const SHARED_UI_VOICE_INPUT_TEXTAREA_SPECIFIER =
-  "@bb/shared-ui/voice-input-textarea";
+  "@hyperfide/shared-ui/voice-input-textarea";
 
 /**
  * Runtime slot on `globalThis.__bbPluginRuntime` per shimmed specifier.
@@ -106,7 +106,7 @@ function packageNameOf(specifier) {
 
 /**
  * Shimmed modules that are not npm packages a plugin would install: the SDK
- * facade (pinned separately, as `@get-bb/plugin-sdk`) and the workspace-only
+ * facade (pinned separately, as `@hyperfide/plugin-sdk`) and the workspace-only
  * shared-ui icon module.
  */
 const NON_NPM_SHIM_PACKAGES = new Set([

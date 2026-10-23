@@ -5,9 +5,9 @@ import {
   readLastServerMoveFile,
   readServerConnectHoldFile,
   writeServerConnectHoldFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import { describe, expect, it } from "vitest";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { readIncomingMoveState, writeIncomingMoveState } from "./move-state.js";
 import {
   activateCommand,

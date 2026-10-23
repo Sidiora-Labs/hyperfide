@@ -1,4 +1,4 @@
-import type { Host } from "@bb/domain";
+import type { Host } from "@hyperfide/domain";
 import { searchPickerOptions } from "./picker-search";
 
 export const MACHINE_SEARCH_MIN_OPTIONS = 5;

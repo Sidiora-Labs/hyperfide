@@ -1,5 +1,5 @@
-import type { BbPluginApi, MachineBootstrapRequest } from "@get-bb/plugin-sdk";
-import type { PluginMachineProviderResource } from "@get-bb/plugin-sdk/machine-provider";
+import type { BbPluginApi, MachineBootstrapRequest } from "@hyperfide/plugin-sdk";
+import type { PluginMachineProviderResource } from "@hyperfide/plugin-sdk/machine-provider";
 import { errorMessage } from "../error-message.js";
 import type { SandboxBackend } from "./sandbox-backend.js";
 

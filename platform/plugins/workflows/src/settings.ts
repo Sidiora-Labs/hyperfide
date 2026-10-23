@@ -2,7 +2,7 @@ import type {
   BbPluginApi,
   PluginSettingDescriptors,
   PluginSettingsValues,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 interface IntegerField {

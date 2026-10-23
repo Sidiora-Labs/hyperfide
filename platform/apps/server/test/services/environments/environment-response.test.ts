@@ -4,8 +4,8 @@ import {
   updateHost,
   upsertHost,
   type EnvironmentRow,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import {
   resolveEnvironmentWorkspaceDisplayKind,
   toEnvironmentResponse,

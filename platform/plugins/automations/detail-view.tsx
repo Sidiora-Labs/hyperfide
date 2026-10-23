@@ -15,7 +15,7 @@ import {
   experimental_ProviderModelPicker as ProviderModelPicker,
   type ExperimentalProviderModelPickerRouting,
   type ExperimentalProviderModelPickerValue,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { HOVER_REVEAL_NO_HOVER_VISIBLE_CLASS } from "@/components/ui/hover-reveal";
 import { DelayedLoading } from "@/components/ui/delayed-loading";

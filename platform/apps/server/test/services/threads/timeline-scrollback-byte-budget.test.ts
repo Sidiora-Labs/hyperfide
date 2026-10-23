@@ -4,15 +4,15 @@ import {
   prependOlderTimelineRows,
   resolveLoadedTimelineSurfaceKey,
   type LoadedTimelineState,
-} from "@bb/client-core";
-import { getThread } from "@bb/db";
+} from "@hyperfide/client-core";
+import { getThread } from "@hyperfide/db";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
   type Thread,
-} from "@bb/domain";
-import type { TimelinePaginationCursor } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { TimelinePaginationCursor } from "@hyperfide/server-contract";
 import { buildThreadTimelineWithProfile } from "../../../src/services/threads/timeline.js";
 import { seedEvent, seedThreadFixture } from "../../helpers/seed.js";
 import {

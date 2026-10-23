@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
-import { getThread, listRunningThreads } from "@bb/db";
-import { threadScope } from "@bb/domain";
+import { getThread, listRunningThreads } from "@hyperfide/db";
+import { threadScope } from "@hyperfide/domain";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { appendSystemErrorEvent } from "../threads/thread-events.js";
 import { stopThreadForCurrentState } from "../threads/thread-lifecycle.js";

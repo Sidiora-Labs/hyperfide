@@ -56,7 +56,7 @@ import {
   type PluginThreadActionsTriggerProps,
   type PluginSidebarThreadRowStatus,
   type PluginProvidersState,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import type { SidebarThread } from "../model/sidebar-thread.js";
 import {
   NO_THREAD_IDS,

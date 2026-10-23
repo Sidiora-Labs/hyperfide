@@ -1,5 +1,5 @@
 {
-  "name": "@bb/scripts",
+  "name": "@hyperfide/scripts",
   "version": "0.0.1",
   "type": "module",
   "private": true,
@@ -25,16 +25,16 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@bb/config": "workspace:*",
-    "@bb/db": "workspace:*",
-    "@bb/domain": "workspace:*",
-    "@bb/host-daemon-contract": "workspace:*",
-    "@bb/process-utils": "workspace:*",
+    "@hyperfide/config": "workspace:*",
+    "@hyperfide/db": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/host-daemon-contract": "workspace:*",
+    "@hyperfide/process-utils": "workspace:*",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
-    "@bb/test-helpers": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/test-helpers": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",

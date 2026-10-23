@@ -1,6 +1,6 @@
 /// <reference types="vitest/jsdom" />
 
-import "@bb/shared-ui/icon-extended";
+import "@hyperfide/shared-ui/icon-extended";
 
 if (typeof globalThis.navigator === "undefined") {
   Object.defineProperty(globalThis, "navigator", {

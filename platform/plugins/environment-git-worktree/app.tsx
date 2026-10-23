@@ -11,31 +11,31 @@ import {
   BranchPickerRow,
   BranchPickerSearch,
   BranchPickerSectionHeader,
-} from "@bb/shared-ui/branch-picker-primitives";
-import { Button } from "@bb/shared-ui/button";
+} from "@hyperfide/shared-ui/branch-picker-primitives";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   COARSE_POINTER_COMPACT_ICON_SIZE_CLASS,
   COARSE_POINTER_COMPACT_ICON_SIZE_SHRINK_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { MenuHoverProvider } from "@bb/shared-ui/menu-item-hover";
-import { LIST_HOVER_TRANSITION } from "@bb/shared-ui/motion";
+} from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { MenuHoverProvider } from "@hyperfide/shared-ui/menu-item-hover";
+import { LIST_HOVER_TRANSITION } from "@hyperfide/shared-ui/motion";
 import {
   OPTION_BASE_CLASS_NAME,
   OPTION_INTERACTIVE_CLASS_NAME,
   OPTION_MUTED_CLASS_NAME,
   OPTION_TRIGGER_CONTENT_CLASS_NAME,
-} from "@bb/shared-ui/option-display";
-import { blurActiveKeyboardInputWithin } from "@bb/shared-ui/overlay-trigger";
-import { Popover, PopoverContent, PopoverTrigger } from "@bb/shared-ui/popover";
+} from "@hyperfide/shared-ui/option-display";
+import { blurActiveKeyboardInputWithin } from "@hyperfide/shared-ui/overlay-trigger";
+import { Popover, PopoverContent, PopoverTrigger } from "@hyperfide/shared-ui/popover";
 import {
   definePluginApp,
   experimental_useBranches,
   useRpc,
   type JsonValue,
   type PluginEnvironmentProviderInputsProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import type { DiscoveredWorktree } from "./contract.js";
 import { GIT_WORKTREE_ENVIRONMENT_PROVIDER_ID } from "./provider-id.js";
 import type { WorktreeInputs, worktreeRpcContract } from "./server.js";

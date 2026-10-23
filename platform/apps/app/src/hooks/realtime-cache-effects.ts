@@ -1,6 +1,6 @@
-import { CORE_TAG_SCOPE, invalidateTags, pluginTagScope } from "@bb/query-tags";
+import { CORE_TAG_SCOPE, invalidateTags, pluginTagScope } from "@hyperfide/query-tags";
 import type { QueryClient } from "@tanstack/react-query";
-import { assertNever } from "@bb/core-ui";
+import { assertNever } from "@hyperfide/core-ui";
 import {
   createDebouncedCallbackScheduler,
   type ChangedMessage,
@@ -11,8 +11,8 @@ import {
   type ThreadEventType,
   type ThreadChangeMetadata,
   type ThreadChangeKind,
-} from "@bb/domain";
-import type { RealtimeSubscriptionTarget } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { RealtimeSubscriptionTarget } from "@hyperfide/server-contract";
 import {
   invalidateRealtimeQueriesAfterServerReconnect,
   invalidateRealtimeQueriesFetchedBeforeInitialConnect,

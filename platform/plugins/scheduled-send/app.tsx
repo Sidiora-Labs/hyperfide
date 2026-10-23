@@ -28,7 +28,7 @@ import {
   useComposer,
   type ComposerSendMenuItem,
   type PluginComposerApi,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   DEFAULT_SCHEDULE_PRESET_ID,
   MAX_SCHEDULE_AHEAD_MS,

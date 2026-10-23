@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppCommandId } from "@bb/domain";
+import type { AppCommandId } from "@hyperfide/domain";
 import type {
   BbDesktopApi,
   BbDesktopBrowserFindResult,
@@ -9,7 +9,7 @@ import type {
   BbDesktopBrowserState,
   BbDesktopInfo,
   BbDesktopWindowState,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import {
   HYPERFIDE_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
   HYPERFIDE_DESKTOP_GET_INFO_CHANNEL,

@@ -1,5 +1,5 @@
 {
-  "name": "@bb/config",
+  "name": "@hyperfide/config",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -161,13 +161,13 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@bb/domain": "workspace:*",
-    "@bb/process-utils": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/process-utils": "workspace:*",
     "fs-native-extensions": "1.5.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2"

@@ -1,7 +1,7 @@
 import { AbortError } from "p-retry";
 import { describe, expect, it, vi } from "vitest";
-import type { PendingInteractionCreate } from "@bb/domain";
-import { HOST_ARTIFACT_MAX_BYTES } from "@bb/host-daemon-contract/protocol";
+import type { PendingInteractionCreate } from "@hyperfide/domain";
+import { HOST_ARTIFACT_MAX_BYTES } from "@hyperfide/host-daemon-contract/protocol";
 import {
   createServerClient,
   readHostArtifactBytes,

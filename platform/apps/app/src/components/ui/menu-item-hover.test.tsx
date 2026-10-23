@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   MenuHoverProvider,
   useMenuItemHover,
-} from "@bb/shared-ui/menu-item-hover";
+} from "@hyperfide/shared-ui/menu-item-hover";
 
 function HoverItem({ label }: { label: string }) {
   const { hoverProps } = useMenuItemHover();
@@ -57,7 +57,7 @@ describe("menu persistent last-hovered", () => {
 
   it("moves the highlight to an item from a separately bundled copy", async () => {
     vi.resetModules();
-    const pluginCopy = await import("@bb/shared-ui/menu-item-hover");
+    const pluginCopy = await import("@hyperfide/shared-ui/menu-item-hover");
     expect(pluginCopy.useMenuItemHover).not.toBe(useMenuItemHover);
     function PluginItem({ label }: { label: string }) {
       const { hoverProps } = pluginCopy.useMenuItemHover();

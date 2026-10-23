@@ -11,13 +11,13 @@ import {
   updateTerminalSessions,
   type TerminalSessionMutation,
   type TerminalSessionRow,
-} from "@bb/db";
-import type { TerminalSessionCloseReason } from "@bb/domain";
+} from "@hyperfide/db";
+import type { TerminalSessionCloseReason } from "@hyperfide/domain";
 import type {
   HostDaemonDaemonWsMessage,
   HostDaemonServerWsMessage,
-} from "@bb/host-daemon-contract";
-import { HOST_DAEMON_TERMINAL_EXIT_RETENTION_MS } from "@bb/host-daemon-contract/protocol";
+} from "@hyperfide/host-daemon-contract";
+import { HOST_DAEMON_TERMINAL_EXIT_RETENTION_MS } from "@hyperfide/host-daemon-contract/protocol";
 import type {
   CloseTerminalRequest,
   CreateTerminalRequest,
@@ -31,7 +31,7 @@ import type {
   TerminalResizeRequest,
   TerminalSession,
   UpdateTerminalRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { ApiError } from "../../errors.js";
 import type { AppDeps, ServerLogger } from "../../types.js";
 import { assertUsableHostId } from "../hosts/primary-host.js";

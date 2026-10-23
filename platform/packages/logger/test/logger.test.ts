@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
-const LOGGER_IMPORT_SPECIFIER = "@bb/logger";
+const LOGGER_IMPORT_SPECIFIER = "@hyperfide/logger";
 
 const tempDirs: string[] = [];
 

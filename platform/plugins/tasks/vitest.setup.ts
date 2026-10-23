@@ -1,4 +1,4 @@
-import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+import { installTestPluginRuntime } from "@hyperfide/plugin-sdk/testing/app";
 import { configure } from "@testing-library/react";
 import { beforeEach } from "vitest";
 

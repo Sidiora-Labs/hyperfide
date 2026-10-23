@@ -16,11 +16,11 @@ import {
   experimental_rerecordCurrentBridgeLane as rerecordCurrentBridgeLane,
   experimental_resolveProviderBridgeLaunch as resolveProviderBridgeLaunch,
   experimental_withCurrentBridgeLane as withCurrentBridgeLane,
-} from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@hyperfide/plugin-sdk/provider-bridge/testing";
 import type {
   CreateParityAssembler,
   RecordedCell,
-} from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@hyperfide/plugin-sdk/provider-bridge/testing";
 
 const packageRoot = dirname(fileURLToPath(import.meta.url));
 const RECORDINGS_ROOT = join(packageRoot, "recordings");

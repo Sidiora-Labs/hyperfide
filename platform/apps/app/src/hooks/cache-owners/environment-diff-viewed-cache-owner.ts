@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { WorkspaceDiffTarget } from "@bb/domain";
-import type { EnvironmentDiffViewedResponse } from "@bb/server-contract";
+import type { WorkspaceDiffTarget } from "@hyperfide/domain";
+import type { EnvironmentDiffViewedResponse } from "@hyperfide/server-contract";
 import {
   environmentDiffTargetKey,
   environmentDiffViewedQueryKey,

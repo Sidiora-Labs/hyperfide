@@ -1,23 +1,23 @@
 import type { ComponentType, ReactElement, ReactNode } from "react";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { COARSE_POINTER_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { COARSE_POINTER_ICON_SIZE_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { LIST_HOVER_TRANSITION } from "@bb/shared-ui/motion";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/dropdown-menu";
+import { LIST_HOVER_TRANSITION } from "@hyperfide/shared-ui/motion";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   OPTION_BASE_CLASS_NAME,
   OPTION_INTERACTIVE_CLASS_NAME,
   OPTION_MENU_CONTENT_CLASS_NAME,
   OPTION_MUTED_CLASS_NAME,
   OPTION_TRIGGER_CONTENT_CLASS_NAME,
-} from "@bb/shared-ui/option-display";
+} from "@hyperfide/shared-ui/option-display";
 
 const OPTION_WARNING_TEXT_CLASS_NAME = "text-warning-text";
 const OPTION_WARNING_INTERACTIVE_CLASS_NAME =

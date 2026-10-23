@@ -3,7 +3,7 @@ import {
   useBbNavigate,
   useRealtime,
   useRpc,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Badge as BbBadge } from "@/components/ui/badge";
 import { Button as BbButton } from "@/components/ui/button";
 import { Checkbox as BbCheckbox } from "@/components/ui/checkbox";

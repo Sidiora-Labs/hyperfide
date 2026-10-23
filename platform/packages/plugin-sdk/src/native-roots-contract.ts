@@ -30,7 +30,7 @@ import {
   providerResolvedNativeRootsSchema,
   type ProviderResolvedNativeRootInput,
   type ProviderResolvedNativeRoots,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { defineRpcContract } from "./rpc-contract.js";
 
 export const experimental_nativeRootsResolveInputSchema = z

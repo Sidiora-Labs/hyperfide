@@ -2,13 +2,13 @@ import type { DiffFileFilters } from "./git-diff/diff-file-filters";
 import { type ReactNode, useEffect, useMemo } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { DiffPresentation } from "@/components/code/code-rendering";
-import type { WorkspaceDiffTarget } from "@bb/domain";
+import type { WorkspaceDiffTarget } from "@hyperfide/domain";
 import type { MarkdownLinkRouting } from "@/components/ui/markdown-link-routing.js";
-import { Skeleton } from "@bb/shared-ui/skeleton";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 import { DiffLoadingSkeleton } from "@/components/code/code-loading-skeletons";
 import { BbDiffSplit } from "@/components/code/BbDiffSplit";
 import { useRequestPierreWorkerPool } from "@/lib/pierre-worker-pool-gate";
-import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
+import { EmptyStatePanel } from "@hyperfide/shared-ui/empty-state";
 import {
   useEnvironmentDiffFiles,
   useEnvironment,
@@ -34,8 +34,8 @@ import type {
   FilePreview,
   FilePreviewLineRange,
   WorkspaceFilePreviewStatusLabel,
-} from "@bb/client-core";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/client-core";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { PANEL_SCROLL_SLOT_CLASS } from "./panelChromeClasses";
 import { DiffFilesPanel } from "./git-diff/DiffFilesPanel";
 import { clearDiffFileCardStates } from "./git-diff/diffFilesStore";

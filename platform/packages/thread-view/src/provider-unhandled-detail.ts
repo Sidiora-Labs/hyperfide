@@ -1,4 +1,4 @@
-import type { ProviderUnhandledEvent } from "@bb/domain";
+import type { ProviderUnhandledEvent } from "@hyperfide/domain";
 
 const HUMANIZED_EVENT_TOKEN_MAP: Record<string, string> = {
   api: "API",

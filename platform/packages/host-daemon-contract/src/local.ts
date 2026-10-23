@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import { z } from "zod";
-import type { EmptyInput, Endpoint } from "@bb/hono-typed-routes";
+import type { EmptyInput, Endpoint } from "@hyperfide/hono-typed-routes";
 
 export const DEFAULT_HOST_DAEMON_LOCAL_HEALTH_PATH = "/health";
 export const DEFAULT_HOST_DAEMON_LOCAL_BIND_HOST = "127.0.0.1";

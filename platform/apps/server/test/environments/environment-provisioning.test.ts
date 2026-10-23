@@ -5,7 +5,7 @@ import {
   getThread,
   listEvents,
   threads,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { advanceEnvironmentProvisioning } from "../../src/services/environments/environment-engine.js";

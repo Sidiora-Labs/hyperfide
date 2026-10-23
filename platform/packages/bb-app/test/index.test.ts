@@ -19,8 +19,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { waitForProcessExit } from "@bb/config/child-process-exit";
-import { resolvePortFromEnv } from "@bb/config/runtime";
+import { waitForProcessExit } from "@hyperfide/config/child-process-exit";
+import { resolvePortFromEnv } from "@hyperfide/config/runtime";
 import {
   assertBbAppArtifacts,
   assertBbHostArtifacts,

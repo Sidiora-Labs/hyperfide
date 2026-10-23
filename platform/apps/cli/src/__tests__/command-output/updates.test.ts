@@ -1,9 +1,9 @@
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import type { Host } from "@bb/domain";
+import type { Host } from "@hyperfide/domain";
 import type {
   HostProviderCliStatusResponse,
   SystemAppUpdateStatus,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   collectLogPayloads,
   readlineMocks,

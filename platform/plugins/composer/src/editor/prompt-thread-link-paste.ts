@@ -1,4 +1,4 @@
-import type { ExperimentalComposerThreadLink } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalComposerThreadLink } from "@hyperfide/plugin-sdk/app";
 import { Extension, getChangedRanges, type Editor } from "@tiptap/core";
 import { closeHistory, isHistoryTransaction } from "@tiptap/pm/history";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";

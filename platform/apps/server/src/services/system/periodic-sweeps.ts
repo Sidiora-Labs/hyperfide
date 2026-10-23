@@ -44,7 +44,7 @@ import {
   threads,
   DEFAULT_COMPLETED_EVENT_OUTPUT_MIGRATION_SCAN_LIMIT,
   DEFAULT_LEGACY_IMAGE_GENERATION_MIGRATION_SCAN_LIMIT,
-} from "@bb/db";
+} from "@hyperfide/db";
 import type {
   AppDeps,
   LoggedPendingInteractionWorkSessionDeps,

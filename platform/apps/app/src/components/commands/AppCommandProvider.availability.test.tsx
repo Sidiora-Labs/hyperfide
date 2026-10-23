@@ -9,7 +9,7 @@ import {
   type AppCommandContextKey,
   type AppCommandId,
   type AppDefaultKeybinding,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   AppCommandProvider,
   useAppCommandContext,

@@ -1,4 +1,4 @@
-import { getHost } from "@bb/db";
+import { getHost } from "@hyperfide/db";
 import type { LoggedWorkSessionDeps } from "../../types.js";
 import { runtimeErrorLogFields } from "../lib/error-log-fields.js";
 import { listSystemProviderInfosForHost } from "../system/execution-options.js";

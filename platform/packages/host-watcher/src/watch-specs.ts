@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { isPathWithinDirectory } from "@bb/process-utils";
+import { isPathWithinDirectory } from "@hyperfide/process-utils";
 import type {
   ParcelWatcherEventBatch,
   ParcelWatcherSubscribeOptions,

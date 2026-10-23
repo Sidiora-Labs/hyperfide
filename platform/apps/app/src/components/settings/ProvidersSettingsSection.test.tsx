@@ -10,10 +10,10 @@ import {
 import { MemoryRouter } from "react-router-dom";
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SystemProviderCatalogEntry } from "@bb/server-contract";
-import type { ProviderInfo } from "@bb/domain";
-import { defaultAppSettings } from "@bb/domain";
-import { makeProviderInfo } from "@bb/test-helpers/domain-fixtures";
+import type { SystemProviderCatalogEntry } from "@hyperfide/server-contract";
+import type { ProviderInfo } from "@hyperfide/domain";
+import { defaultAppSettings } from "@hyperfide/domain";
+import { makeProviderInfo } from "@hyperfide/test-helpers/domain-fixtures";
 import {
   ProvidersSettingsSection,
   reorderProviderIds,

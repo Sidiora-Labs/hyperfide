@@ -2,8 +2,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { runGit } from "@bb/host-workspace";
-import { initRepo } from "@bb/test-helpers";
+import { runGit } from "@hyperfide/host-workspace";
+import { initRepo } from "@hyperfide/test-helpers";
 import { listWorkspacePaths } from "./file-list.js";
 import { listHostPaths } from "./host-files.js";
 

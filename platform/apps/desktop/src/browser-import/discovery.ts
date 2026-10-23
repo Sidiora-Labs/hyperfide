@@ -9,7 +9,7 @@ import {
   resolve,
   sep,
 } from "node:path";
-import type { DesktopBrowserImportSourceProfile } from "@bb/host-daemon-contract";
+import type { DesktopBrowserImportSourceProfile } from "@hyperfide/host-daemon-contract";
 import { openReadOnlyDatabase } from "./cookie-database.js";
 import { listBrowserStorageNames } from "./browser-applications.js";
 import {

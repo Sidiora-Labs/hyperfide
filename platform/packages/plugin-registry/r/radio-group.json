@@ -8,8 +8,8 @@
     "@radix-ui/react-radio-group"
   ],
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/utils"
+    "@hyperfide/icon",
+    "@hyperfide/utils"
   ],
   "files": [
     {

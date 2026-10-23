@@ -4,7 +4,7 @@ Use this index to check `app.tsx` test imports; backend-api-index.md lists
 the backend and host-entry test entrypoints.
 Read `testing.md` for examples and fidelity limits.
 
-## `@get-bb/plugin-sdk/testing/app`
+## `@hyperfide/plugin-sdk/testing/app`
 
 - `RpcCall`
 - `SdkCall`

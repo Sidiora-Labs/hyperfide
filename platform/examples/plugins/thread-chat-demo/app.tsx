@@ -8,7 +8,7 @@ import {
   useBbNavigate,
   type ExperimentalTabRegistration,
   type JsonValue,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 type DemoThreadTarget = { kind: "thread"; threadId: string };
 

@@ -18,7 +18,7 @@ import { MobileAppSection } from "./MobileAppSection";
 import {
   buildBridgeInjectionScript,
   type NativeShellHandshake,
-} from "@bb/mobile-bridge";
+} from "@hyperfide/mobile-bridge";
 import { resetNativeShellForTests } from "@/lib/native-shell/native-shell";
 
 beforeEach(() => {

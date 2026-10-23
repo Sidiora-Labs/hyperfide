@@ -14,9 +14,9 @@ import type {
   ComposerSelection,
   ComposerView,
   PluginComposerScope,
-} from "@get-bb/plugin-sdk";
-import { isComposerDraftEmpty } from "@get-bb/plugin-sdk/internal/composer-view";
-import type { PromptDraftState } from "@bb/client-core";
+} from "@hyperfide/plugin-sdk";
+import { isComposerDraftEmpty } from "@hyperfide/plugin-sdk/internal/composer-view";
+import type { PromptDraftState } from "@hyperfide/client-core";
 
 export interface PluginComposerHost {
   scope: PluginComposerScope;

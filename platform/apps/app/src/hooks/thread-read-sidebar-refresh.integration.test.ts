@@ -1,6 +1,6 @@
 import { MutationObserver, QueryObserver } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import { createAppQueryClient } from "@/lib/query-client";
 import { sdk } from "@/lib/sdk";
 import { bindSdkToPlugin } from "@/lib/plugin-bound-sdk";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Command } from "commander";
-import { renderTemplate } from "@bb/templates";
+import { renderTemplate } from "@hyperfide/templates";
 import { registerMarketplaceCommands } from "../commands/marketplace.js";
 import { registerPluginCommands } from "../commands/plugin.js";
 

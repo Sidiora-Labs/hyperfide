@@ -8,7 +8,7 @@ export default defineWorkspaceTestConfig({
     silent: "passed-only",
     projects: sharedWorkerProjects({
       pkgDir: import.meta.dirname,
-      name: "@bb/process-utils",
+      name: "@hyperfide/process-utils",
       include: ["test/**/*.test.ts"],
     }),
   },

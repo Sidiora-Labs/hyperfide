@@ -8,7 +8,7 @@
     "@radix-ui/react-progress"
   ],
   "registryDependencies": [
-    "@bb/utils"
+    "@hyperfide/utils"
   ],
   "files": [
     {

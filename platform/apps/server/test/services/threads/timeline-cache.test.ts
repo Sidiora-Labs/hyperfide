@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ThreadTimelineResponse } from "@bb/server-contract";
+import type { ThreadTimelineResponse } from "@hyperfide/server-contract";
 import type { ThreadTimelinePageRequest } from "../../../src/services/threads/timeline-pagination.js";
 import {
   buildThreadTimelineCacheKey,

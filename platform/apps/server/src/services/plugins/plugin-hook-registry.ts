@@ -1,4 +1,4 @@
-import type { PluginHookHandler, PluginHookName } from "@get-bb/plugin-sdk";
+import type { PluginHookHandler, PluginHookName } from "@hyperfide/plugin-sdk";
 import { errorMessage } from "../lib/error-log-fields.js";
 
 /** One plugin's handler for one hook. */

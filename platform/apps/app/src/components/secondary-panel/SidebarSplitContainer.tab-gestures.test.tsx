@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { afterEach, expect, it, vi } from "vitest";
 import { SecondaryPanelTabStrip } from "./SecondaryPanelTabStrip";
 import { SidebarSplitContainer } from "./SidebarSplitContainer";

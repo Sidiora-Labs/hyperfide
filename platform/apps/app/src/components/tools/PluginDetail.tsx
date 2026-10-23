@@ -56,9 +56,9 @@ import {
 } from "@/lib/plugin-frontend";
 import { usePluginSlots } from "@/lib/plugin-slots";
 import { getPluginConfigurationRoutePath } from "@/lib/route-paths";
-import { splitPluginDisplayName } from "@bb/domain/plugin-display-name";
-import { Icon } from "@bb/shared-ui/icon";
-import { formatHomePathForDisplay } from "@bb/shared-ui/lib/utils";
+import { splitPluginDisplayName } from "@hyperfide/domain/plugin-display-name";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { formatHomePathForDisplay } from "@hyperfide/shared-ui/lib/utils";
 import {
   ResourceActionButton,
   ResourceActivitySection,
@@ -69,14 +69,14 @@ import {
   ResourceListState,
   ResourceOverflowMenu,
   type ResourceOverflowMenuItem,
-} from "@bb/shared-ui/resource-list";
-import { Switch } from "@bb/shared-ui/switch";
+} from "@hyperfide/shared-ui/resource-list";
+import { Switch } from "@hyperfide/shared-ui/switch";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
+} from "@hyperfide/shared-ui/tooltip";
 import { useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
 

@@ -16,7 +16,7 @@ describe("buildPiSessionParams", () => {
         },
       }).shellEnvOverrides,
     ).toEqual({
-      BB_THREAD_ID: "bb-thread-1",
+      HYPERFIDE_THREAD_ID: "bb-thread-1",
       TEST_VAR: "123",
     });
   });

@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CREATE_PLUGIN_PROMPT } from "@bb/client-core";
+import { CREATE_PLUGIN_PROMPT } from "@hyperfide/client-core";
 import {
   BROWSE_ARCHETYPES,
   UTILITY_EXAMPLES,
@@ -10,7 +10,7 @@ import {
 } from "./browse-hero-archetypes";
 import { BrowseArchetypeCards } from "./BrowseArchetypeCards";
 import { BrowseHeroCarousel } from "./BrowseHeroCarousel";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 
 const openComposer = vi.fn<(seed: string | undefined) => void>();
 

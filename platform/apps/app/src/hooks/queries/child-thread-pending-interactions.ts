@@ -1,6 +1,6 @@
 import { useQueries, type UseQueryResult } from "@tanstack/react-query";
 import { useMemo } from "react";
-import type { PendingInteraction } from "@bb/domain";
+import type { PendingInteraction } from "@hyperfide/domain";
 import { sdk } from "@/lib/sdk";
 import { REALTIME_OWNED_NO_FOCUS_QUERY_POLICY } from "./query-policies";
 import { threadPendingInteractionsQueryKey } from "./query-keys";

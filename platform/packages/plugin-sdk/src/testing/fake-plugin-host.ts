@@ -1,6 +1,6 @@
 import { experimental_PluginRpcCallError } from "../rpc-contract.js";
 import { rpcInvalidationTags, rpcResponseTags } from "../internal/rpc-tags.js";
-import type { ContractTagDeclarations } from "@bb/domain";
+import type { ContractTagDeclarations } from "@hyperfide/domain";
 import {
   environmentCompositionSchema,
   validateServerAccessProviderDeclaration,
@@ -13,7 +13,7 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { CronExpressionParser } from "cron-parser";
 import { Hono } from "hono";
-import { deepFreezePluginMetadata, validatePluginMetadata } from "@bb/domain";
+import { deepFreezePluginMetadata, validatePluginMetadata } from "@hyperfide/domain";
 import {
   adoptHttpRouteResponse,
   aiServiceAlreadyRegisteredMessage,
@@ -120,7 +120,7 @@ import type {
   ExperimentalPluginRpcHandlerContext,
   StandardSchemaV1,
   JsonValue,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   createFakeSdk,
   type FakeSdkHarness,
@@ -1484,7 +1484,7 @@ function createFakePluginHostInternal(
   const experimental_environments: PluginEnvironments = {
     register(
       declaration:
-        | import("@get-bb/plugin-sdk").PluginEnvironmentProviderDeclaration
+        | import("@hyperfide/plugin-sdk").PluginEnvironmentProviderDeclaration
         | NormalizedPluginEnvironmentComposition,
     ) {
       assertLive();

@@ -4,7 +4,7 @@ import {
   type PendingInteractionResolution,
   type UserQuestionPendingInteractionPayload,
   type UserQuestionPendingInteractionResolution,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import {
   buildClaudeApprovalInteractionPayload,
   buildClaudeInteractiveResponse,

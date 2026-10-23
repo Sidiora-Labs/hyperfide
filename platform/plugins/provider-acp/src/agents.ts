@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { PluginProviderReasoningLevel } from "@get-bb/plugin-sdk";
-import { experimental_acpLaunchSpecSchema } from "@get-bb/plugin-sdk/provider-bridge/acp";
-import type { AcpLaunchSpec } from "@get-bb/plugin-sdk/provider-bridge/acp";
+import type { PluginProviderReasoningLevel } from "@hyperfide/plugin-sdk";
+import { experimental_acpLaunchSpecSchema } from "@hyperfide/plugin-sdk/provider-bridge/acp";
+import type { AcpLaunchSpec } from "@hyperfide/plugin-sdk/provider-bridge/acp";
 import type { AcpNativeRootsResolver } from "./native-roots/resolver.js";
 import { registryAgentIcon } from "./registry-icons.js";
 

@@ -3,8 +3,8 @@ import {
   setAppSettings,
   updateHost,
   upsertProjectExecutionDefaults,
-} from "@bb/db";
-import type { PermissionMode } from "@bb/domain";
+} from "@hyperfide/db";
+import type { PermissionMode } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import {
   buildExistingThreadExecutionInput,

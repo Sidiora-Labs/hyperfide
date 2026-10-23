@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ThreadListEntry } from "@bb/domain";
+import type { ThreadListEntry } from "@hyperfide/domain";
 import {
   act,
   cleanup,
@@ -15,11 +15,11 @@ import { Provider, createStore } from "jotai";
 import { mobileRecentsCollapsedThreadIdsAtom } from "./mobile-recents-collapse";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
-import type { SystemEnvironmentProvider } from "@bb/server-contract";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import type { SystemEnvironmentProvider } from "@hyperfide/server-contract";
 import { systemEnvironmentProvidersQueryKey } from "@/hooks/queries/environment-provider-queries";
 import { RootComposeMobileRecents } from "./RootComposeMobileRecents";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import { CORE_THREAD_ACTIONS } from "@/lib/thread-actions/core-thread-actions";
 import { ThreadActionCollectors } from "@/lib/thread-actions/thread-action-registry";
 

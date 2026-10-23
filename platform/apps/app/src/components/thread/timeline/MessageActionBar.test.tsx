@@ -13,8 +13,8 @@ import {
   resetPluginLogoStoreForTest,
   setPluginLogoUrls,
 } from "@/lib/plugin-logos";
-import { COMPACT_VIEWPORT_QUERY } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { POINTER_COARSE_QUERY } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import { COMPACT_VIEWPORT_QUERY } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { POINTER_COARSE_QUERY } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
 import {
   findMessageActionTooltipCollisionBoundary,
   MessageActionBar,

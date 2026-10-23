@@ -1,5 +1,5 @@
 {
-  "name": "@bb/desktop",
+  "name": "@hyperfide/desktop",
   "version": "0.46.1",
   "private": true,
   "description": "macOS, Linux, and Windows Electron shell for Hyperfide",
@@ -20,7 +20,7 @@
     "package": "pnpm run prepare-runtime && pnpm run build && node scripts/run-electron-builder.mjs --mac --dir --arm64",
     "package:linux": "pnpm run prepare-runtime && pnpm run build && node scripts/run-electron-builder.mjs --linux --dir --x64",
     "package:win": "pnpm run prepare-runtime && pnpm run build && node scripts/run-electron-builder.mjs --win --dir --x64",
-    "prepare-runtime": "pnpm exec turbo run build --filter=bb-app --output-logs=new-only",
+    "prepare-runtime": "pnpm exec turbo run build --filter=hyperfide-app --output-logs=new-only",
     "smoke:appimage-lifecycle": "node scripts/smoke-linux-appimage-lifecycle.mjs",
     "smoke:packaged": "node scripts/smoke-packaged-app.mjs",
     "smoke:packaged-npm": "node scripts/smoke-packaged-npm.mjs",
@@ -32,7 +32,7 @@
     "smoke:browser-address": "node scripts/smoke-browser-address.mjs"
   },
   "dependencies": {
-    "@bb/host-daemon-contract": "workspace:*",
+    "@hyperfide/host-daemon-contract": "workspace:*",
     "bb-app": "workspace:*",
     "electron-updater": "^6.8.3",
     "semver": "^7.7.0",
@@ -40,14 +40,14 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/config": "workspace:*",
-    "@bb/desktop-contract": "workspace:*",
-    "@bb/domain": "workspace:*",
-    "@bb/server-archive": "workspace:*",
-    "@bb/server-contract": "workspace:*",
-    "@bb/test-helpers": "workspace:*",
-    "@bb/text-utils": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/config": "workspace:*",
+    "@hyperfide/desktop-contract": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/server-archive": "workspace:*",
+    "@hyperfide/server-contract": "workspace:*",
+    "@hyperfide/test-helpers": "workspace:*",
+    "@hyperfide/text-utils": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/node": "^24.9.0",
     "@types/semver": "^7.7.0",
     "@types/ws": "^8.18.1",

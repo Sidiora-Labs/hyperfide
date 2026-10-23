@@ -1,4 +1,4 @@
-import type { PluginProviderDeclaration } from "@get-bb/plugin-sdk";
+import type { PluginProviderDeclaration } from "@hyperfide/plugin-sdk";
 import { PI_NATIVE_ROOTS_DECLARATION } from "./native-roots.js";
 
 export function piProviderDeclaration(): PluginProviderDeclaration {
@@ -13,7 +13,7 @@ export function piProviderDeclaration(): PluginProviderDeclaration {
       iconTint: { light: "#6D5DFB", dark: "#6D5DFB" },
     },
     maintenance: { health: true, usage: false, installation: true },
-    env: { passthrough: ["BB_PI_BRIDGE_COMMAND", "BB_PI_BRIDGE_ARGS"] },
+    env: { passthrough: ["HYPERFIDE_PI_BRIDGE_COMMAND", "HYPERFIDE_PI_BRIDGE_ARGS"] },
     capabilities: {
       supportsServiceTier: false,
       supportsNativeUserQuestion: false,

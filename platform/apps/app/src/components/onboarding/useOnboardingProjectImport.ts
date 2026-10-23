@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { isPromptDraftEmpty } from "@bb/client-core";
+import { isPromptDraftEmpty } from "@hyperfide/client-core";
 import { useCreateProject } from "@/hooks/mutations/project-mutations";
 import { usePromptDraftController } from "@/hooks/usePromptDraftStorage";
 import { useImportedProjectDefault } from "@/lib/root-compose-selection";

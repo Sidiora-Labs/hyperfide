@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import type { PluginApplyUpdateResult } from "@bb/server-contract";
+import type { PluginApplyUpdateResult } from "@hyperfide/server-contract";
 import { createPluginUpdateJobs } from "../../../src/services/plugins/plugin-update-jobs.js";
 import { reportPluginUpdatePhase } from "../../../src/services/plugins/plugin-update-progress.js";
 

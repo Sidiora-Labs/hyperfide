@@ -11,13 +11,13 @@ import {
   type KeyedView,
   type KeyedViewSlot,
   type TaggedOptimisticUpdate,
-} from "@bb/query-tags";
+} from "@hyperfide/query-tags";
 import {
   threadWithRuntimeSchema,
   type ThreadListEntry,
   type ThreadWithRuntime,
-} from "@bb/domain";
-import type { ThreadResponse } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { ThreadResponse } from "@hyperfide/server-contract";
 import {
   ARCHIVED_THREADS_LIST_KIND,
   allThreadDetailBootstrapQueryKeyPrefix,

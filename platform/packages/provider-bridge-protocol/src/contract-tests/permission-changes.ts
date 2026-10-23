@@ -1,5 +1,5 @@
 import { deepStrictEqual } from "node:assert";
-import type { RuntimePermissionPolicy } from "@bb/domain";
+import type { RuntimePermissionPolicy } from "@hyperfide/domain";
 
 type PermissionMode = RuntimePermissionPolicy["permissionMode"];
 

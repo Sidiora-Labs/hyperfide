@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import { listRunningThreads, type DbConnection } from "@bb/db";
-import { defaultFeatureFlags } from "@bb/domain";
+import { listRunningThreads, type DbConnection } from "@hyperfide/db";
+import { defaultFeatureFlags } from "@hyperfide/domain";
 import {
   acquireDaemonLock,
   createHostDaemonApp,
@@ -14,7 +14,7 @@ import {
   persistHostId,
   type HostDaemon,
   type HostDaemonApp,
-} from "@bb/host-daemon/test";
+} from "@hyperfide/host-daemon/test";
 import { initDb } from "../../../apps/server/src/db.js";
 import { createLifecycleDedupers } from "../../../apps/server/src/lifecycle-dedupers.js";
 import { createApp } from "../../../apps/server/src/server.js";
@@ -51,8 +51,8 @@ import { HostSharedPortCoordinator } from "../../../apps/server/src/ws/host-shar
 import { NotificationHub } from "../../../apps/server/src/ws/hub.js";
 import { WatchInterestCoordinator } from "../../../apps/server/src/ws/watch-interests.js";
 import { WorkspaceReadCaches } from "../../../apps/server/src/services/environments/workspace-read-cache.js";
-import { createPublicApiClient } from "@bb/server-contract";
-import { resolveProjectEnvCandidates } from "@bb/test-helpers";
+import { createPublicApiClient } from "@hyperfide/server-contract";
+import { resolveProjectEnvCandidates } from "@hyperfide/test-helpers";
 import { waitForHostConnected } from "./assertions.js";
 import { createIntegrationFetch } from "./fetch.js";
 import { isNodeError, removePathWithRetry } from "./remove-path.js";

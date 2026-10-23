@@ -2,7 +2,7 @@ import type {
   PluginProviderCapabilities,
   PluginProviderDeclaration,
   PluginProviderStrings,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { ACP_FAMILY, type AcpAgentDefinition } from "./agents.js";
 
 const ACP_BASE_CAPABILITIES: PluginProviderCapabilities = {

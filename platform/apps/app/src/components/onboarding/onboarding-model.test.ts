@@ -1,8 +1,8 @@
-import type { ProviderCliStatus } from "@bb/host-daemon-contract";
+import type { ProviderCliStatus } from "@hyperfide/host-daemon-contract";
 import type {
   HostDiscoveredRepo,
   SystemProviderState,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import {
   defaultSelectedRepoPaths,

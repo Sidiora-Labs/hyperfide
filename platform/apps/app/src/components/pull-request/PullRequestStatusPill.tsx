@@ -1,6 +1,6 @@
 import type { PullRequest } from "bb-plugin-bb--github-pr-status/contract";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   describePullRequestStatus,
   getPullRequestStateDisplay,

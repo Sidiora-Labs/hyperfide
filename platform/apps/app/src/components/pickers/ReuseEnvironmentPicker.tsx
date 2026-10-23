@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Button } from "@bb/shared-ui/button";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Button } from "@hyperfide/shared-ui/button";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   Command,
   CommandEmpty,
@@ -8,15 +8,15 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@bb/shared-ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@bb/shared-ui/popover";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { LIST_HOVER_TRANSITION } from "@bb/shared-ui/motion";
+} from "@hyperfide/shared-ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@hyperfide/shared-ui/popover";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
+import { LIST_HOVER_TRANSITION } from "@hyperfide/shared-ui/motion";
 import {
   COARSE_POINTER_COMPACT_ICON_SIZE_CLASS,
   COARSE_POINTER_COMPACT_ICON_SIZE_SHRINK_CLASS,
   COARSE_POINTER_ICON_SIZE_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
+} from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import {
   findEnvironmentDisplayProvider,
   getEnvironmentLabelIconName,
@@ -24,19 +24,19 @@ import {
   UNNAMED_ENVIRONMENT_LABEL,
 } from "@/lib/environment-workspace-display";
 import { useSystemEnvironmentProviders } from "@/hooks/queries/environment-provider-queries";
-import { resolveEnvironmentDisplayName } from "@bb/core-ui";
+import { resolveEnvironmentDisplayName } from "@hyperfide/core-ui";
 import {
   ThreadTitle,
   useResolveThreadTitle,
 } from "@/components/thread/ThreadTitleMentions";
-import type { SystemEnvironmentProvider } from "@bb/server-contract";
+import type { SystemEnvironmentProvider } from "@hyperfide/server-contract";
 import {
   OPTION_BASE_CLASS_NAME,
   OPTION_INTERACTIVE_CLASS_NAME,
   OPTION_MENU_CONTENT_CLASS_NAME,
   OPTION_MUTED_CLASS_NAME,
   OPTION_TRIGGER_CONTENT_CLASS_NAME,
-} from "@bb/shared-ui/option-display";
+} from "@hyperfide/shared-ui/option-display";
 
 const REUSE_THREAD_PREVIEW_LIMIT = 2;
 const REUSE_SEARCH_MIN_OPTIONS = 7;

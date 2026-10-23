@@ -42,8 +42,8 @@ describe.runIf(posix)("createCliRunner", () => {
     return createCliRunner({
       env: {
         PATH: process.env.PATH,
-        BB_THREAD_ID: "thr_parent",
-        BB_SERVER_HEADERS: '{"x":"y"}',
+        HYPERFIDE_THREAD_ID: "thr_parent",
+        HYPERFIDE_SERVER_HEADERS: '{"x":"y"}',
       },
       serverUrl: () => "http://127.0.0.1:1",
       resolveBinary: async () => binary,
@@ -59,7 +59,7 @@ describe.runIf(posix)("createCliRunner", () => {
 
   it("passes arguments verbatim, the server URL, and stdin, and strips thread context", async () => {
     await script(
-      `printf '%s|' "$@"; printf '\\n%s|%s|%s\\n' "$BB_SERVER_URL" "\${BB_THREAD_ID:-unset}" "\${BB_SERVER_HEADERS:-unset}"; cat; exit 3`,
+      `printf '%s|' "$@"; printf '\\n%s|%s|%s\\n' "$HYPERFIDE_SERVER_URL" "\${HYPERFIDE_THREAD_ID:-unset}" "\${HYPERFIDE_SERVER_HEADERS:-unset}"; cat; exit 3`,
     );
     const result = await runner()(
       ["thread", "tell", "a b", "$(touch x); `id`", "--flag=;rm"],
@@ -167,20 +167,20 @@ describe("cliEnvironment", () => {
     const env = cliEnvironment(
       {
         HOME: "/home/me",
-        BB_SERVER_URL: "http://elsewhere",
-        BB_PROJECT_ID: "prj",
-        BB_ENVIRONMENT_ID: "env",
-        BB_THREAD_STORAGE: "/tmp/x",
+        HYPERFIDE_SERVER_URL: "http://elsewhere",
+        HYPERFIDE_PROJECT_ID: "prj",
+        HYPERFIDE_ENVIRONMENT_ID: "env",
+        HYPERFIDE_THREAD_STORAGE: "/tmp/x",
       },
       "http://127.0.0.1:9",
     );
     expect(env).toMatchObject({
       HOME: "/home/me",
-      BB_SERVER_URL: "http://127.0.0.1:9",
+      HYPERFIDE_SERVER_URL: "http://127.0.0.1:9",
       NO_COLOR: "1",
     });
-    expect(env.BB_PROJECT_ID).toBeUndefined();
-    expect(env.BB_ENVIRONMENT_ID).toBeUndefined();
-    expect(env.BB_THREAD_STORAGE).toBeUndefined();
+    expect(env.HYPERFIDE_PROJECT_ID).toBeUndefined();
+    expect(env.HYPERFIDE_ENVIRONMENT_ID).toBeUndefined();
+    expect(env.HYPERFIDE_THREAD_STORAGE).toBeUndefined();
   });
 });

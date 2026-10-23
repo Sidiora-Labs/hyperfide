@@ -6,8 +6,8 @@ import type {
   ExperimentalBadge,
   ExperimentalSidebarNavigationItem,
   ExperimentalSidebarNavigationProps,
-} from "@get-bb/plugin-sdk/app";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/app";
+import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app"));
 const rail = app.experimentalSidebarNavigations.find(

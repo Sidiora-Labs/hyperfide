@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-bb-guide",
+  "name": "hyperfide-plugin-bb-guide",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -27,8 +27,8 @@
     "prepare:bundled": "bb-plugin-build prepare-bundled"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.0.0",
     "better-sqlite3": "12.10.0",

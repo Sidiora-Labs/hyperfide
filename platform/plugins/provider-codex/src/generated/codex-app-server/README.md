@@ -48,7 +48,7 @@ imports to `.js` specifiers, delete everything not reachable from the
 importers listed above (and the barrels), then verify:
 
 ```bash
-pnpm exec turbo run typecheck --filter=bb-plugin-provider-codex
+pnpm exec turbo run typecheck --filter=hyperfide-plugin-provider-codex
 ```
 
 TypeScript reports any over-deletion as a missing-module error; a green

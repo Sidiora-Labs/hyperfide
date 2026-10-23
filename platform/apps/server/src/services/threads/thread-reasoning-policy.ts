@@ -1,4 +1,4 @@
-import type { ReasoningLevel } from "@bb/domain";
+import type { ReasoningLevel } from "@hyperfide/domain";
 import type { ProviderRegistryService } from "../providers/provider-registry.js";
 
 export function getSupportedReasoningLevelsForProvider(

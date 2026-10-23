@@ -6,14 +6,14 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ProjectResponse } from "@bb/server-contract";
+import type { ProjectResponse } from "@hyperfide/server-contract";
 import { useRouteState } from "@/hooks/useRouteState";
 import {
   useAddLocalProjectSource,
   useDeleteProject,
   useUpdateProject,
 } from "@/hooks/mutations/project-mutations";
-import { useDialogState } from "@bb/shared-ui/use-dialog-state";
+import { useDialogState } from "@hyperfide/shared-ui/use-dialog-state";
 import {
   useLocalPathPicker,
   type LocalPathSubmitParams,

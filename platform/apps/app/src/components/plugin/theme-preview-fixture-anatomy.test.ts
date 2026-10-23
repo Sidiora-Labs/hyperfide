@@ -36,7 +36,7 @@ const SHARED_FIXTURE_ANCHORS: readonly FixtureAnchor[] = [
   {
     file: "apps/app/src/components/sidebar/SectionSidebar.tsx",
     mustContain: [
-      'from "@bb/shared-ui/button"',
+      'from "@hyperfide/shared-ui/button"',
       "PROJECT_LIST_ACTION_BUTTON_CLASS",
       "CHROME_SECTION_LABEL_CLASS",
       "SIDEBAR_STANDARD_ROW_PADDING_CLASS",

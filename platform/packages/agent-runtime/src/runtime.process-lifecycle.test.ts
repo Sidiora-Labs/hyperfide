@@ -8,7 +8,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
 import { createAgentRuntime } from "./runtime.js";
 import { createProviderForId } from "./provider-registry.js";
 import { RuntimeProviderProcessManager } from "./runtime-provider-process.js";
@@ -17,7 +17,7 @@ import type { BridgeProtocolAdapter } from "./bridge-protocol-adapter.js";
 import {
   parseJsonRpcLine,
   settleJsonRpcResponse,
-} from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import {
   createScriptedEchoLaunch,
   createScriptedEchoProcessLog,

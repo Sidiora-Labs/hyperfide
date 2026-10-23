@@ -5,7 +5,7 @@ import {
   getDatabaseMaintenanceActivity,
   isDatabaseMaintenanceIdle,
   THREAD_PRUNING_POLICIES,
-} from "@bb/db";
+} from "@hyperfide/db";
 import type { AppDeps } from "../../types.js";
 
 export interface ThreadPruningSweepLimits {

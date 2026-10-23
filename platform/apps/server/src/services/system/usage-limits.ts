@@ -6,8 +6,8 @@ import type {
   ProviderUsage,
   ProviderUsageResponse,
   HostDaemonOnlineRpcResult,
-} from "@bb/host-daemon-contract";
-import type { SystemUsageLimitsQuery } from "@bb/server-contract";
+} from "@hyperfide/host-daemon-contract";
+import type { SystemUsageLimitsQuery } from "@hyperfide/server-contract";
 import type { AppDeps } from "../../types.js";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import { callHostRetryableOnlineRpc } from "../hosts/online-rpc.js";

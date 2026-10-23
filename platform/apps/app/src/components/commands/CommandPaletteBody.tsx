@@ -9,8 +9,8 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   PALETTE_ACTION_BUCKETS,
   type PaletteAction,

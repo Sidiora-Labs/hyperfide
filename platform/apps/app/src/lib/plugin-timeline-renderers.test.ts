@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PluginTimelineRendererProps } from "@get-bb/plugin-sdk";
+import type { PluginTimelineRendererProps } from "@hyperfide/plugin-sdk";
 import {
   getPluginSlotSnapshot,
   resetPluginSlotStoreForTest,

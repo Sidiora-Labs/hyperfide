@@ -1,11 +1,11 @@
 import { Command } from "commander";
-import { threadStatusSchema, threadStatusValues } from "@bb/domain";
+import { threadStatusSchema, threadStatusValues } from "@hyperfide/domain";
 import {
   DEFAULT_THREAD_WAIT_POLL_INTERVAL_MS,
   type ThreadWaitTarget,
   ThreadWaitTimeoutError,
   ThreadWaitUnreachableError,
-} from "@bb/sdk";
+} from "@hyperfide/sdk";
 import { action, CliExitError } from "../../action.js";
 import { createCliBbSdk } from "../../client.js";
 import { durationHelp } from "../../duration.js";

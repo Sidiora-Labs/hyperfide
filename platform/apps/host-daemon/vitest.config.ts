@@ -14,7 +14,7 @@ export default defineWorkspaceTestConfig({
     testTimeout: 15_000,
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "@bb/host-daemon",
+      name: "@hyperfide/host-daemon",
       include: ["src/**/*.test.ts", "test/**/*.test.ts"],
     }),
   },

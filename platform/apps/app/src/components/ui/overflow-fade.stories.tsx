@@ -3,7 +3,7 @@ import { StoryCard, StoryRow } from "../../../.ladle/story-card";
 import {
   OverflowFade,
   type OverflowFadeTone,
-} from "@bb/shared-ui/overflow-fade";
+} from "@hyperfide/shared-ui/overflow-fade";
 
 export default {
   title: "ui/Overflow fade",

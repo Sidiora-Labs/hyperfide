@@ -18,7 +18,7 @@ export default defineWorkspaceTestConfig({
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
       aliases: { "@": path.resolve(__dirname, "./src") },
-      name: "@bb/mobile",
+      name: "@hyperfide/mobile",
       include: ["src/**/*.test.ts"],
     }),
   },

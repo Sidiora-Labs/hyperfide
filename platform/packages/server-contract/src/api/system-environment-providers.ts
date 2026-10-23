@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { jsonValueSchema } from "@bb/domain";
+import { jsonValueSchema } from "@hyperfide/domain";
 
 const systemEnvironmentProviderAvailabilitySchema = z.discriminatedUnion(
   "status",

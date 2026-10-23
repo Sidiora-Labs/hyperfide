@@ -1,8 +1,8 @@
-import type { Thread } from "@bb/domain";
+import type { Thread } from "@hyperfide/domain";
 import {
   ConfirmDeleteDialog,
   ConfirmDeleteDialogContent,
-} from "@bb/shared-ui/confirm-delete-dialog";
+} from "@hyperfide/shared-ui/confirm-delete-dialog";
 import { formatChildThreadCount } from "@/lib/child-thread-copy";
 
 export interface ThreadDeleteDialogTarget {

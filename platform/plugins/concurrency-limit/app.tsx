@@ -4,7 +4,7 @@ import {
   useRealtime,
   useRpc,
   type StandardSchemaV1InferOutput,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Input } from "@/components/ui/input";
 import {
   commitGlobalLimitDraft,

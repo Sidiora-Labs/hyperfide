@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { permissionModeValues } from "@bb/domain";
+import { permissionModeValues } from "@hyperfide/domain";
 
 const qaRoot = path.resolve(import.meta.dirname, "../../../qa");
 const publicPermissionModes = new Set<string>(permissionModeValues);

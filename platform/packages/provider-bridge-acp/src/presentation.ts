@@ -1,9 +1,9 @@
-import type { DeltaPresentation } from "@bb/provider-bridge-protocol";
+import type { DeltaPresentation } from "@hyperfide/provider-bridge-protocol";
 import {
   presentationFileName,
   presentationTitle,
   withTitle,
-} from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import type { AcpToolKind } from "./wire.js";
 
 function stripCodeTicks(text: string): string {

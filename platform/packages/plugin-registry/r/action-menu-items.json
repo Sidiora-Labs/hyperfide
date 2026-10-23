@@ -5,10 +5,10 @@
   "title": "action-menu-items",
   "description": "BB ui \"action-menu-items\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/context-menu",
-    "@bb/dropdown-menu",
-    "@bb/icon",
-    "@bb/utils"
+    "@hyperfide/context-menu",
+    "@hyperfide/dropdown-menu",
+    "@hyperfide/icon",
+    "@hyperfide/utils"
   ],
   "files": [
     {

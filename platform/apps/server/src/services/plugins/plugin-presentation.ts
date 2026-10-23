@@ -1,6 +1,6 @@
-import type { ThreadEventItemPresentation } from "@bb/domain";
-import { isNamespacedGlyph, isPluginOwnedIconPath } from "@bb/domain";
-import type { PluginRowPresentation } from "@get-bb/plugin-sdk";
+import type { ThreadEventItemPresentation } from "@hyperfide/domain";
+import { isNamespacedGlyph, isPluginOwnedIconPath } from "@hyperfide/domain";
+import type { PluginRowPresentation } from "@hyperfide/plugin-sdk";
 
 export const GENERIC_PLUGIN_GLYPH = "Toolbox";
 

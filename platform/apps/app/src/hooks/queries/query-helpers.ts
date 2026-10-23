@@ -1,4 +1,4 @@
-import { toRecord } from "@bb/core-ui";
+import { toRecord } from "@hyperfide/core-ui";
 import { HttpError } from "@/lib/api";
 import { BbHttpError } from "@/lib/sdk";
 

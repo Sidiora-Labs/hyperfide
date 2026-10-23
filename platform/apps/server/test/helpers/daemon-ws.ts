@@ -1,4 +1,4 @@
-import type { JsonObject } from "@bb/domain";
+import type { JsonObject } from "@hyperfide/domain";
 import { onDaemonSocketMessage } from "../../src/ws/daemon-protocol.js";
 import type { TestAppHarness } from "./test-app.js";
 

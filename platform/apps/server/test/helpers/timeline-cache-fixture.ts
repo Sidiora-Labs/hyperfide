@@ -7,7 +7,7 @@ import {
   type Thread,
   type ThreadEventItemType,
   type ThreadEventType,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   createConnection,
   createProject,
@@ -17,8 +17,8 @@ import {
   noopNotifier,
   upsertHost,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 
 export type Random = () => number;
 

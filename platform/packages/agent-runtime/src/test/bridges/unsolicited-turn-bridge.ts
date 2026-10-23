@@ -5,7 +5,7 @@ import {
   THREAD_DELTA_NOTIFICATION_METHOD,
   type ThreadDelta,
   experimental_defineProviderBridge,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { z } from "zod";
 
 export const UNSOLICITED_TURN_THREAD_ID_ENV = "UNSOLICITED_TURN_THREAD_ID";

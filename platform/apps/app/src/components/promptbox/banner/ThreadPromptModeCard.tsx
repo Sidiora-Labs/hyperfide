@@ -1,4 +1,4 @@
-import type { ThreadTimelineActivePromptMode } from "@bb/domain";
+import type { ThreadTimelineActivePromptMode } from "@hyperfide/domain";
 import { CollapsibleActiveStackCard } from "@/components/promptbox/banner/CollapsibleActiveStackCard";
 
 interface ThreadPromptModeCardProps {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SystemEnvironmentProvider } from "@bb/server-contract";
+import type { SystemEnvironmentProvider } from "@hyperfide/server-contract";
 import {
   filterReuseThreadOptions,
   reuseThreadOptionDisplay,

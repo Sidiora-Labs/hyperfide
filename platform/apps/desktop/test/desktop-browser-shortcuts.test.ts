@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AppKeybindings } from "@bb/domain";
+import type { AppKeybindings } from "@hyperfide/domain";
 import { resolveDesktopBrowserAppCommand } from "../src/desktop-browser-shortcuts.js";
 
 const keybindings: AppKeybindings = [

@@ -4,8 +4,8 @@ import {
   ensurePersonalProject,
   listPublicProjects,
   setExperiments,
-} from "@bb/db";
-import { defaultExperiments, PERSONAL_PROJECT_ID } from "@bb/domain";
+} from "@hyperfide/db";
+import { defaultExperiments, PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import {
   reportQueuedCommandSuccess,
   waitForQueuedCommand,

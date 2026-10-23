@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { renderHook } from "@testing-library/react";
-import { makeThread } from "@bb/test-helpers/domain-fixtures";
+import { makeThread } from "@hyperfide/test-helpers/domain-fixtures";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { usePromptMentions } from "./usePromptMentions";
 

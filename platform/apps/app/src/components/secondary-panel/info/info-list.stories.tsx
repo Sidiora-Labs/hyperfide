@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { PanelStage } from "../ThreadMetadataContent.fixtures";
 import { ThreadMetadataCard } from "../ThreadMetadataContent";
 import { StoryCard, StoryRow } from "../../../../.ladle/story-card";

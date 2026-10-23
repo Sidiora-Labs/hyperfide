@@ -19,7 +19,7 @@ import {
   type AppUpdatePending,
   type LauncherToServerMessage,
   type NpmAppRevision,
-} from "@bb/config/app-update";
+} from "@hyperfide/config/app-update";
 import {
   createLauncherAppUpdateController,
   type LauncherAppUpdateController,

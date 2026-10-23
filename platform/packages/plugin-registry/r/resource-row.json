@@ -5,14 +5,14 @@
   "title": "resource-row",
   "description": "BB ui \"resource-row\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/dropdown-menu",
-    "@bb/empty-state",
-    "@bb/hover-reveal",
-    "@bb/icon",
-    "@bb/skeleton",
-    "@bb/tooltip",
-    "@bb/utils"
+    "@hyperfide/button",
+    "@hyperfide/dropdown-menu",
+    "@hyperfide/empty-state",
+    "@hyperfide/hover-reveal",
+    "@hyperfide/icon",
+    "@hyperfide/skeleton",
+    "@hyperfide/tooltip",
+    "@hyperfide/utils"
   ],
   "files": [
     {

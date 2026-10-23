@@ -4,8 +4,8 @@ import {
   createRequestTimeoutFetch,
   DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS,
   type BbSdk,
-} from "@bb/sdk";
-import type { ExperimentalPluginRpcCaller } from "@get-bb/plugin-sdk";
+} from "@hyperfide/sdk";
+import type { ExperimentalPluginRpcCaller } from "@hyperfide/plugin-sdk";
 
 export const PLUGIN_RPC_CALLER_HEADER = "x-bb-plugin-caller";
 

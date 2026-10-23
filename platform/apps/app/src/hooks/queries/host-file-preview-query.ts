@@ -1,7 +1,7 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { loadFilePreview } from "@/lib/api";
 import { buildHostFileContentUrl } from "@/lib/file-content-urls";
-import type { FilePreview } from "@bb/client-core";
+import type { FilePreview } from "@hyperfide/client-core";
 import type { QueryOptions } from "./query-helpers";
 import { hostFilePreviewQueryKey } from "./query-keys";
 import { HEAVY_PAYLOAD_QUERY_POLICY } from "./query-policies";

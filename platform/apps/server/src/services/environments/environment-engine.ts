@@ -1,7 +1,7 @@
 import { emitPluginEnvironmentRemoved } from "../plugins/plugin-thread-events.js";
 import { withHostCleanup } from "../hosts/cleanup-context.js";
 import { findHostDataDir } from "../lib/entity-lookup.js";
-import { getLatestThreadSequence, updateThread } from "@bb/db";
+import { getLatestThreadSequence, updateThread } from "@hyperfide/db";
 import {
   assertEnvironmentPathAvailable,
   findBlockingEnvironmentPathClaim,
@@ -43,7 +43,7 @@ import {
   type DbQueryConnection,
   threads,
   markHostEnvironmentsDestroyed,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   canonicalizeHostPath,
   isAbsoluteHostPath,
@@ -57,14 +57,14 @@ import {
   type SystemThreadProvisioningStatus,
   type ThreadStatus,
   threadScope,
-} from "@bb/domain";
-import { type ThreadResponse } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import { type ThreadResponse } from "@hyperfide/server-contract";
 import {
   type PluginEnvironmentProviderCreateContext,
   type PluginEnvironmentProviderCreateResult,
   type PluginEnvironmentProviderProgress,
   type PluginEnvironmentProviderRestoreContext,
-} from "@get-bb/plugin-sdk/environment-provider";
+} from "@hyperfide/plugin-sdk/environment-provider";
 import {
   type ThreadProvisioningDeps,
   ensureWorkspaceReadyEventInTransaction,
@@ -83,7 +83,7 @@ import {
   applyLoggedEnvironmentLifecycleEventInTransaction,
 } from "./lifecycle-outcome.js";
 import { buildEnvironmentProvisionCommand } from "../threads/thread-create-helpers.js";
-import { recordProvisionedEnvironmentWorkspace } from "@bb/db/internal-environment-lifecycle";
+import { recordProvisionedEnvironmentWorkspace } from "@hyperfide/db/internal-environment-lifecycle";
 import { type AppDeps } from "../../types.js";
 import {
   appendThreadProvisioningEvent,

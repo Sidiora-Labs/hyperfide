@@ -1,12 +1,12 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import type { Host } from "@bb/domain";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+import type { Host } from "@hyperfide/domain";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import type {
   ThreadStoragePathListResponse,
   WorkspacePathEntry,
   WorkspacePathListResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";
 import { WithDesktopBrowser } from "../../../.ladle/story-desktop";
 import { createAppQueryClient } from "@/lib/query-client";
@@ -18,7 +18,7 @@ import { ThreadSecondaryPanel } from "./ThreadSecondaryPanel";
 import type { SecondaryPanelRenderableTab } from "./ThreadSecondaryPanel";
 import { NewTabPage } from "./NewTabPage";
 import type { FileSearchSelection } from "./useThreadFileTabs";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import {
   getThreadRecentItemsStorageKey,
   type ThreadRecentItem,

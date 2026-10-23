@@ -26,7 +26,7 @@ const dotEnv = loadDotEnv();
 export default defineWorkspaceTestConfig({
   test: {
     silent: "passed-only",
-    name: "@bb/agent-runtime:integration",
+    name: "@hyperfide/agent-runtime:integration",
     include: ["src/integration*.test.ts"],
     globalSetup: ["src/test/integration-global-setup.ts"],
     exclude: ["dist/**", "node_modules/**"],

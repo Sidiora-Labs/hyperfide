@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AppKeybinding } from "@bb/domain";
+import type { AppKeybinding } from "@hyperfide/domain";
 import { parseDesktopSystemConfig } from "../src/desktop-system-config.js";
 
 const reloadBinding: AppKeybinding = {

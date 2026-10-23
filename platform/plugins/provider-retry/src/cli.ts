@@ -6,7 +6,7 @@ import {
   type BbPluginApi,
   type PluginCliContext,
   type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   findQueuedRetry,
   listQueuedRetries,

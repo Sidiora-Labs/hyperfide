@@ -8,8 +8,8 @@
     "react-resizable-panels"
   ],
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/utils"
+    "@hyperfide/icon",
+    "@hyperfide/utils"
   ],
   "files": [
     {

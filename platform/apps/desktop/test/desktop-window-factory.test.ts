@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   MACOS_TRAFFIC_LIGHT_INSET_PX,
   MACOS_TRAFFIC_LIGHT_TOP_INSET_PX,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import {
   createDesktopWindowFactory,
   type DesktopBrowserWindow,

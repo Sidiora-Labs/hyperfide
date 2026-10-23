@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { deferredTimelineContentItemId } from "@bb/client-core";
-import type { ThreadTimelineViewRow } from "@bb/thread-view";
+import { deferredTimelineContentItemId } from "@hyperfide/client-core";
+import type { ThreadTimelineViewRow } from "@hyperfide/thread-view";
 import { BbDiffSplit } from "@/components/code/BbDiffSplit";
 import type { ThreadTimelineTurnSummaryDetailsQueryIdentity } from "@/hooks/queries/query-keys";
 import { prefetchThreadTimelineTurnSummaryDetails } from "@/hooks/queries/thread-panel-queries";

@@ -5,7 +5,7 @@ import { basename, join } from "node:path";
 import type {
   DiscoverReposResult,
   DiscoveredRepo,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 
 const SKIP_DIRECTORIES = new Set([
   "node_modules",

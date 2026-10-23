@@ -1,5 +1,5 @@
 {
-  "name": "@bb/agent-runtime",
+  "name": "@hyperfide/agent-runtime",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -24,16 +24,16 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@bb/domain": "workspace:*",
-    "@bb/process-utils": "workspace:*",
-    "@bb/provider-bridge-protocol": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/process-utils": "workspace:*",
+    "@hyperfide/provider-bridge-protocol": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
-    "@bb/test-helpers": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/test-helpers": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "tsx": "^4.23.1",

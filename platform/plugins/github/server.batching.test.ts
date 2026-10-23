@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import plugin, { githubRpcContract } from "./server";
 
 const fake = vi.hoisted(() => ({

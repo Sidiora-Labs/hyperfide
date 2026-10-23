@@ -5,7 +5,7 @@
   "title": "activity-row-styles",
   "description": "BB ui \"activity-row-styles\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/utils"
+    "@hyperfide/utils"
   ],
   "files": [
     {

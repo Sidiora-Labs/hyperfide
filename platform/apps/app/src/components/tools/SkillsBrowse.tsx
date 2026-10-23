@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
-import type { SkillSummary } from "@bb/server-contract";
-import { ResourceInfiniteScrollSentinel } from "@bb/shared-ui/resource-pagination";
-import { Skeleton } from "@bb/shared-ui/skeleton";
+import type { SkillSummary } from "@hyperfide/server-contract";
+import { ResourceInfiniteScrollSentinel } from "@hyperfide/shared-ui/resource-pagination";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 import {
   ResourceBrowseCard,
   ResourceBrowseGrid,
@@ -11,14 +11,14 @@ import {
   ResourceListState,
   ResourceOverflowMenu,
   ResourceToolbar,
-} from "@bb/shared-ui/resource-list";
+} from "@hyperfide/shared-ui/resource-list";
 import {
   formatInstallCount,
   formatRegistrySource,
   REGISTRY_PAGE_SIZE,
 } from "@/lib/skills-registry";
 import type { RegistrySkill, RegistrySkillDetail } from "@/lib/skills-registry";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { useLocalOpenTargets } from "@/hooks/useLocalOpenTargets";
 import { SkillDetailView } from "@/components/tools/SkillDetailView";
 import { TOOLS_PAGE_BAND_CLASSES } from "@/components/tools/tools-navigation";

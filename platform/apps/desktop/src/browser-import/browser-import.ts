@@ -4,7 +4,7 @@ import type {
   DesktopBrowserImportSelection,
   DesktopBrowserImportSource,
   DesktopBrowserImportUnavailableReason,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { readChromiumCookies } from "./chromium-cookies.js";
 import { runSecretCommand, type SecretCommandRunner } from "./chromium-keys.js";
 import {

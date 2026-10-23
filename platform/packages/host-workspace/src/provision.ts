@@ -1,5 +1,5 @@
-import type { ProvisioningTranscriptEntry, WorkspaceStatus } from "@bb/domain";
-import { pathExists } from "@bb/process-utils";
+import type { ProvisioningTranscriptEntry, WorkspaceStatus } from "@hyperfide/domain";
+import { pathExists } from "@hyperfide/process-utils";
 import type {
   CommitOptions,
   LocalStateSnapshot,

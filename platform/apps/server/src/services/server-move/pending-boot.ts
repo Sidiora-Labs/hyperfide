@@ -13,8 +13,8 @@ import {
   type DbConnection,
   type RerootServerOwnedPathsResult,
   type SwapServerHostRolesResult,
-} from "@bb/db";
-import { appSettingsSchema } from "@bb/domain";
+} from "@hyperfide/db";
+import { appSettingsSchema } from "@hyperfide/domain";
 import {
   readLastServerMoveFile,
   readServerImportFile,
@@ -23,7 +23,7 @@ import {
   writeLastServerMoveFile,
   writeServerImportFile,
   type ServerImportFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import { z } from "zod";
 import type { AppDeps, ServerLogger } from "../../types.js";
 import { readPrimaryHostIdFromDataDir } from "../hosts/primary-host.js";

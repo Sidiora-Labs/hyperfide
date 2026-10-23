@@ -5,7 +5,7 @@ import {
 } from "./usePendingAttachmentUploads";
 import { useInitialPromptDraft } from "./mentions/initial-prompt-draft";
 import { ProviderRequirementBanner } from "./banner/ProviderRequirementBanner";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import { recordTelemetryEvent } from "@/components/onboarding/onboarding-telemetry";
 import {
   getPluginConfigurationRoutePath,
@@ -30,19 +30,19 @@ import {
   type ProjectExecutionDefaults,
   type ReasoningLevel,
   type ServiceTier,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ExperimentalComposerSelection,
   NewThreadRequest,
   PluginEnvironmentProviderInputsChange,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type {
   CreateThreadRequest,
   CreateExecutionInputSources,
   SidebarBootstrapResponse,
   SystemEnvironmentProvider,
   SystemExecutionOptionsModelLoadError,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { ProjectSelectorCreateProjectConfig } from "@/components/pickers/ProjectSelector";
 import {
   encodeReuseValue,
@@ -64,13 +64,13 @@ import {
   NewThreadPromptBox,
   type NewThreadPromptBoxProps,
 } from "@/components/promptbox/NewThreadPromptBox";
-import { buildProviderPromptActionProps } from "@bb/client-core";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
+import { buildProviderPromptActionProps } from "@hyperfide/client-core";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
 import {
   type PluginComposerHost,
   useComposerHostSelection,
 } from "@/components/plugin/plugin-composer-host";
-import type { ComposerSubmitExtras } from "@get-bb/plugin-sdk/internal/composer-handle";
+import type { ComposerSubmitExtras } from "@hyperfide/plugin-sdk/internal/composer-handle";
 import {
   readExecutionSelection,
   resolveComposerSelectionDeadline,
@@ -124,7 +124,7 @@ import {
   promptDraftToInput,
   type PromptDraftAttachment,
   type PromptDraftState,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   getProjectComposeRoutePath,
   getThreadRoutePath,

@@ -3,18 +3,18 @@ import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
-} from "@bb/domain";
-import type { Thread } from "@bb/domain";
+} from "@hyperfide/domain";
+import type { Thread } from "@hyperfide/domain";
 import {
   createProject,
   createThread,
   insertEvents,
   noopNotifier,
   upsertHost,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import type { DbConnection } from "@bb/db";
-import type { TimelineRow } from "@bb/server-contract";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import type { DbConnection } from "@hyperfide/db";
+import type { TimelineRow } from "@hyperfide/server-contract";
 import { buildThreadTimelineWithProfile } from "../../../src/services/threads/timeline.js";
 
 const providerThreadId = "pi-thread-1";

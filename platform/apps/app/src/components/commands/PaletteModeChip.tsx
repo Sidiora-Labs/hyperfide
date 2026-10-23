@@ -1,4 +1,4 @@
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { TabPill } from "@/components/ui/tab-pill";
 
 export interface PaletteModeChipProps {

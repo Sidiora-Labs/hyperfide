@@ -3,7 +3,7 @@ import type {
   QueryClient,
   QueryKey,
 } from "@tanstack/react-query";
-import type { ThreadListEntry } from "@bb/domain";
+import type { ThreadListEntry } from "@hyperfide/domain";
 
 export type ThreadListCacheData =
   | ThreadListEntry[]

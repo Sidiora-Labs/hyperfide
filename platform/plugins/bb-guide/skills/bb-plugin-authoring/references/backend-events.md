@@ -223,7 +223,7 @@ and removal; providers must not keep duplicate launch records or call
 `sdk.environments.delete` to drive retirement. `icon` accepts host glyphs,
 plugin-relative assets, and this plugin's declared namespaced icons, and
 `app.slots.experimental_providerIcon` with `providerKind: "environment"` can
-override it. The `@get-bb/plugin-sdk/environment-provider` entry exports the
+override it. The `@hyperfide/plugin-sdk/environment-provider` entry exports the
 operation types.
 
 ```ts
@@ -386,7 +386,7 @@ Handler parameters and return values are inferred from the schemas.
 Method names can use dot-separated segments with letters, digits, `-`, and `_`.
 
 ```ts
-import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 export const rpcContract = defineRpcContract({
@@ -416,7 +416,7 @@ In `app.tsx`, import only the backend contract's type. The backend module and
 its dependencies are erased from the frontend bundle:
 
 ```tsx
-import { useRpc } from "@get-bb/plugin-sdk/app";
+import { useRpc } from "@hyperfide/plugin-sdk/app";
 import type { rpcContract } from "./server";
 
 function IssuesButton() {
@@ -440,7 +440,7 @@ Failures use stable codes: `invalid_json`, `invalid_input`, `handler_error`,
 also carry normalized `{ message, path? }[]` issues. Unknown methods return
 404, invalid JSON/input returns 400, and handler/output/serialization failures
 return 500. Throw `new experimental_PluginRpcRefusal({ code, message, issues? })`
-from `@get-bb/plugin-sdk` for expected refusals:
+from `@hyperfide/plugin-sdk` for expected refusals:
 `forbidden` → 403, `not_found` → 404, `conflict` → 409, `invalid` → 422.
 Codes and optional `PluginRpcValidationIssue[]` issues reach callers in the error envelope.
 Refusals do not increment handler error counts or change status detail.

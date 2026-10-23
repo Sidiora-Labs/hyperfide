@@ -15,7 +15,7 @@ import {
 import {
   experimental_isProviderBridgeRecording,
   experimental_recordProviderChildIo,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import type { ClaudePermissionMode } from "../interactive-contract.js";
 import {
   isMissingClaudeCliMessage,

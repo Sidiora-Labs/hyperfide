@@ -1,8 +1,8 @@
 // Generates src/generated/templates.generated.ts from src/templates/*.md.
 //
 // The output is NOT committed: turbo runs this as
-// `@bb/templates#generate:templates` before any task that resolves
-// @bb/templates sources (see the `topo` task in turbo.json). Run it by hand
+// `@hyperfide/templates#generate:templates` before any task that resolves
+// @hyperfide/templates sources (see the `topo` task in turbo.json). Run it by hand
 // only for a one-off look at the output:
 //
 //   node packages/templates/scripts/generate-templates.mjs

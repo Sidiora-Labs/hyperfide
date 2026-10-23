@@ -1,4 +1,4 @@
-import { HOST_DAEMON_RESTART_EXIT_CODE } from "@bb/config/machine-service";
+import { HOST_DAEMON_RESTART_EXIT_CODE } from "@hyperfide/config/machine-service";
 import { describe, expect, it } from "vitest";
 import {
   superviseHostDaemonProcess,

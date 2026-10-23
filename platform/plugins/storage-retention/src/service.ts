@@ -1,5 +1,5 @@
 import { readThreads } from "./sdk-data.js";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { policySchema, runSchema, type Policy, type Run } from "./contract.js";
 import { selectCandidates } from "./policy.js";
 

@@ -2,8 +2,8 @@
 
 import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginFileOpenerProps } from "@get-bb/plugin-sdk/app";
+import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
+import type { PluginFileOpenerProps } from "@hyperfide/plugin-sdk/app";
 
 const editor = vi.hoisted(() => ({
   setSelection: vi.fn(),

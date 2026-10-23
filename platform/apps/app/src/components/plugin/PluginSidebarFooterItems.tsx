@@ -8,10 +8,10 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { ExperimentalSidebarFooterCommandKind } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { Icon } from "@bb/shared-ui/icon";
+import type { ExperimentalSidebarFooterCommandKind } from "@hyperfide/plugin-sdk/internal/plugin-app-collector";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -30,14 +30,14 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from "@bb/shared-ui/context-menu";
+} from "@hyperfide/shared-ui/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
+} from "@hyperfide/shared-ui/dropdown-menu";
 import {
   useSidebarFooterPreferences,
   useMeasureSidebarFooterCapacity,
@@ -45,7 +45,7 @@ import {
   type FooterItem,
   type BuiltinFooterId,
 } from "@/components/sidebar/sidebarFooterPreferences";
-import { SIDEBAR_FOOTER_ACTION_CLASS } from "@bb/shared-ui/sidebar-row-classes";
+import { SIDEBAR_FOOTER_ACTION_CLASS } from "@hyperfide/shared-ui/sidebar-row-classes";
 
 function footerItemKey(item: PluginSidebarFooterItemSlot): string {
   return `${item.pluginId}/${item.id}/${item.generation}`;

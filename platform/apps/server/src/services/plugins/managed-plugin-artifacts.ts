@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
-import { derivePluginId } from "@bb/domain";
+import { derivePluginId } from "@hyperfide/domain";
 import {
   createPluginArtifact,
   getInstalledPlugin,
@@ -16,12 +16,12 @@ import {
   type PluginGitSelector,
   type PluginProvenance,
   type PluginSourceIntent,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   buildPluginApp,
   buildPluginHost,
   buildPluginServer,
-} from "@bb/plugin-build";
+} from "@hyperfide/plugin-build";
 import {
   assertPublicMarketplaceUrl,
   boundedResponseJson,
@@ -34,7 +34,7 @@ import { validatePluginArtifactMeta } from "./app-bundle.js";
 import type {
   InstalledPlugin,
   PluginSourceSelection,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { resolveSelectedSubdirectory } from "./collection-manifest.js";
 import {
   gitArtifactCacheDir,

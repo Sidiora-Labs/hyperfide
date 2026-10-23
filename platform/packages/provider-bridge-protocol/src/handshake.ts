@@ -1,4 +1,4 @@
-import { providerForkSchema } from "@bb/domain";
+import { providerForkSchema } from "@hyperfide/domain";
 import { z } from "zod";
 import { PROVIDER_BRIDGE_PROTOCOL_VERSION } from "./version.js";
 

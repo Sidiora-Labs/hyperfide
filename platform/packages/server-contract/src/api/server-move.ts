@@ -2,7 +2,7 @@ import {
   lastServerMoveSchema,
   serverMoveModeSchema,
   serverMoveStepIdSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { z } from "zod";
 
 export const serverMoveStepStatusSchema = z.enum([

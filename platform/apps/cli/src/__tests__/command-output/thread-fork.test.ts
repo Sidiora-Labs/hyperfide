@@ -1,6 +1,6 @@
-import { forkThreadRequestSchema } from "@bb/server-contract";
+import { forkThreadRequestSchema } from "@hyperfide/server-contract";
 import { describe, expect, it, vi } from "vitest";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import {
   collectLogLines,
   getHelpOutput,

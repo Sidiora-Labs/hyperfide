@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { COARSE_POINTER_TEXT_SM_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { EmptyState } from "@bb/shared-ui/empty-state";
-import { Icon } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { COARSE_POINTER_TEXT_SM_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { EmptyState } from "@hyperfide/shared-ui/empty-state";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { Input } from "@hyperfide/shared-ui/input";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   describeLifecycleError,
   formatLifecycleErrorDescription,

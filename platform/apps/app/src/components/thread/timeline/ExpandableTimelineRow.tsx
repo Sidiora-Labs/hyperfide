@@ -10,15 +10,15 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
-import type { TimelineTitle } from "@bb/thread-view";
+import type { TimelineTitle } from "@hyperfide/thread-view";
 import {
   COLLAPSIBLE_HEADER_STATIC_TONE_CLASS,
   ExpandablePanel,
   getCollapsibleHeaderToneClass,
   type ExpandablePanelIntentHandlers,
 } from "../../ui/disclosure.js";
-import type { IconName } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { IconName } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { useTimelineReasoningExpansion } from "./TimelineReasoningExpansion.js";
 import {
   TIMELINE_ROW_HEADER_CONTENT_CLASS_NAME,

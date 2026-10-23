@@ -1,7 +1,7 @@
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PLUGIN_CLI_OUTPUT_MAX_BYTES } from "@get-bb/plugin-sdk";
+import { PLUGIN_CLI_OUTPUT_MAX_BYTES } from "@hyperfide/plugin-sdk";
 import {
   generatedSkillsRootPath,
   pluginCommandsSkillDir,
@@ -22,7 +22,7 @@ const CLI_SOURCE = `
       name: "acme",
       summary: "Acme tools",
       commands: [
-        { name: "issues", summary: "List issues", usage: "bb acme issues [--json]" },
+        { name: "issues", summary: "List issues", usage: "hyperfide-platform acme issues [--json]" },
       ],
       async run(argv: string[], ctx: any) {
         if (argv[0] === "fail") return { exitCode: 3, stderr: "acme failed" };
@@ -123,7 +123,7 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
             {
               name: "issues",
               summary: "List issues",
-              usage: "bb acme issues [--json]",
+              usage: "hyperfide-platform acme issues [--json]",
             },
           ],
           rendersHelp: false,

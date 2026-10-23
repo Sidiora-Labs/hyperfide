@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import type { ChildProcessByStdio } from "node:child_process";
-import { resolveCodexHome } from "@bb/config/codex-home";
+import { resolveCodexHome } from "@hyperfide/config/codex-home";
 import { runMainIfEntrypoint } from "../lib/script-entry.js";
 import {
   bold,

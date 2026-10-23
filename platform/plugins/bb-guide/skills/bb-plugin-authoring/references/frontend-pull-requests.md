@@ -10,8 +10,8 @@ While a row is on screen the plugin re-checks it and refreshes it only when it
 changes.
 
 ```tsx
-import { defineRpcContract } from "@get-bb/plugin-sdk";
-import { experimental_useRpcKeyedQuery } from "@get-bb/plugin-sdk/app";
+import { defineRpcContract } from "@hyperfide/plugin-sdk";
+import { experimental_useRpcKeyedQuery } from "@hyperfide/plugin-sdk/app";
 import { z } from "zod";
 
 const githubPrStatus = defineRpcContract({
@@ -58,7 +58,7 @@ In `renderSlot(...)` tests, answer the read with the `rpc` option:
 
 The hook and its
 `PluginSidebarPullRequest` and `PluginSidebarThreadPullRequestState` types were
-removed from `@get-bb/plugin-sdk/app`'s typings, so TypeScript reports the
+removed from `@hyperfide/plugin-sdk/app`'s typings, so TypeScript reports the
 import. Plugins that still import it keep building and working: bb's plugin
 build resolves the name to the app's runtime member, prints a warning that
 names this replacement, and bb writes the same warning to the plugin's log

@@ -1,13 +1,13 @@
 import { useState } from "react";
-import type { Host, LastServerMove } from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
+import type { Host, LastServerMove } from "@hyperfide/domain";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { ConfirmDeleteDialog } from "@bb/shared-ui/confirm-delete-dialog";
+} from "@hyperfide/shared-ui/dialog";
+import { ConfirmDeleteDialog } from "@hyperfide/shared-ui/confirm-delete-dialog";
 import { appToast } from "@/components/ui/app-toast";
 import {
   SettingsRow,

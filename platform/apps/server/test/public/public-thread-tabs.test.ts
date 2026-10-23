@@ -1,4 +1,4 @@
-import { threadTabsResponseSchema, type ThreadTab } from "@bb/server-contract";
+import { threadTabsResponseSchema, type ThreadTab } from "@hyperfide/server-contract";
 import { describe, expect, it, vi } from "vitest";
 import { readJson } from "../helpers/json.js";
 import { seedThreadFixture } from "../helpers/seed.js";

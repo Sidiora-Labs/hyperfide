@@ -12,12 +12,12 @@ import {
   markDiffViewedFile,
   updateEnvironmentMetadata,
   type DiffViewedFileScope,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   environmentStatusValues,
   type EnvironmentStatus,
   type WorkspaceDiffTarget,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   publicApiRoutes,
   typedRoutes,
@@ -25,7 +25,7 @@ import {
   type EnvironmentDiffFileQuery,
   type EnvironmentDiffQuery,
   type PublicApiSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { Hono } from "hono";
 import type { AppDeps } from "../types.js";
 import {

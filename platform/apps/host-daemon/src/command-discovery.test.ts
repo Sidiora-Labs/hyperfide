@@ -17,8 +17,8 @@ import type {
   ProviderNativeRoots,
   ProviderResolvedNativeRoot,
   ProviderResolvedNativeRoots,
-} from "@bb/domain";
-import type { HostProviderCommand } from "@bb/host-daemon-contract";
+} from "@hyperfide/domain";
+import type { HostProviderCommand } from "@hyperfide/host-daemon-contract";
 import {
   type CommandScanRoot,
   discoverProviderCommands,

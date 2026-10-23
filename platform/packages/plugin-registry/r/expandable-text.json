@@ -5,7 +5,7 @@
   "title": "expandable-text",
   "description": "BB ui \"expandable-text\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/utils"
+    "@hyperfide/utils"
   ],
   "files": [
     {

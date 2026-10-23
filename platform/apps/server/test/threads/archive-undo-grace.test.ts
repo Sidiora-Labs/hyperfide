@@ -3,7 +3,7 @@ import {
   getTerminalSession,
   getThread,
   threads,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { runThreadLifecycleSweep } from "../../src/services/system/periodic-sweeps.js";

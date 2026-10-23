@@ -2,7 +2,7 @@ import os from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveDevInstanceConfig } from "@bb/config/runtime";
+import { resolveDevInstanceConfig } from "@hyperfide/config/runtime";
 import { resolveDrizzleDataDir } from "../drizzle.config.js";
 
 const testDir = dirname(fileURLToPath(import.meta.url));

@@ -4,7 +4,7 @@ import {
   createFakePluginHost,
   makeThreadResponse,
   type FakePluginHost,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import slackBot from "./server";
 
 const SIGNING_SECRET = "test-signing-secret";

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { appThemeSchema } from "@bb/domain";
+import { appThemeSchema } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import { withHarness } from "../../helpers/harness.js";
 

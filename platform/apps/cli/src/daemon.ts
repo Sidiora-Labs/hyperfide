@@ -1,4 +1,4 @@
-import { fetchLocalHostId as fetchSdkLocalHostId } from "@bb/sdk/node";
+import { fetchLocalHostId as fetchSdkLocalHostId } from "@hyperfide/sdk/node";
 
 let cachedHostId: string | null | undefined;
 

@@ -1,11 +1,11 @@
-# @bb/mobile
+# @hyperfide/mobile
 
 Native iOS/Android client for bb (Expo SDK 57, React Native 0.86, Expo
 Router, NativeWind v5).
 
 Status: a native shell around the web interface (#2515). `app/webview.tsx`
 loads the active server's web app in `react-native-webview` and talks to it
-over `@bb/mobile-bridge` (handshake, haptics, app-icon badge, share, open
+over `@hyperfide/mobile-bridge` (handshake, haptics, app-icon badge, share, open
 external links, open native screens, save files on iOS). Threads, projects, plugins and server
 settings run in the page. The native screens cover what the page cannot
 own: first-run pairing (Direct URL and bb connect QR / code enrollment),
@@ -68,7 +68,7 @@ src/
     query/               per-profile QueryClient, AppState focus, realtime →
                          system config invalidation, session refetch
     realtime/            WebSocketManager-shaped realtime on RN WebSocket
-    sdk/                 createMobileSdk (@bb/sdk/browser + app-surface header),
+    sdk/                 createMobileSdk (@hyperfide/sdk/browser + app-surface header),
                          per-profile client registry
     session/             bb connect desktop-session cookie scheduler
     share/               inbound share intent → shell composer seed
@@ -113,7 +113,7 @@ scripts/                 generate-native-theme.ts (theme tokens),
                          testflight-distribute.mjs (TestFlight distribution)
 ```
 
-Rules: import `@bb/sdk/browser` (never `@bb/sdk`); no `@bb/shared-ui`; no DOM
+Rules: import `@hyperfide/sdk/browser` (never `@hyperfide/sdk`); no `@hyperfide/shared-ui`; no DOM
 APIs; keep RN-dependent code out of `src/lib/**` except `src/lib/native`.
 
 ## Prerequisites (macOS)
@@ -168,7 +168,7 @@ key; Android updates require the same key as the installed dev app.
 The existing local build retains the regular app identity for smoke tests:
 
 ```bash
-pnpm exec turbo run build:android:local --filter=@bb/mobile
+pnpm exec turbo run build:android:local --filter=@hyperfide/mobile
 adb install -r apps/mobile/build-output/bb-android-local.apk
 ```
 
@@ -182,7 +182,7 @@ Run the mobile backend described below, then `adb reverse tcp:41999 tcp:41999`
 so the Android app can reach it at `http://127.0.0.1:41999`. Keep the reverse
 mapping active during tests. Android does not share the Mac loopback directly.
 
-Run `pnpm exec turbo run e2e:android --filter=@bb/mobile` with only the intended
+Run `pnpm exec turbo run e2e:android --filter=@hyperfide/mobile` with only the intended
 Android emulator/device connected. The smoke flow clears this app's local data,
 pairs the fixture, sends a message, checks Android back navigation, relaunches,
 and opens native device settings. Use a normal embedded build, not
@@ -282,8 +282,8 @@ phones need a Tailscale Serve URL, bb connect, or a temporary
 
 ```bash
 # terminal 1: deterministic backend (fake provider, fixed port 41999) serving the built web app
-pnpm exec turbo run build --filter=@bb/app
-HYPERFIDE_MOBILE_E2E_SERVE_APP=1 pnpm --filter @bb/integration-tests e2e:mobile-backend
+pnpm exec turbo run build --filter=@hyperfide/app
+HYPERFIDE_MOBILE_E2E_SERVE_APP=1 pnpm --filter @hyperfide/integration-tests e2e:mobile-backend
 # terminal 2: Metro (EXPO_PUBLIC_HYPERFIDE_E2E=1 wipes profiles/preferences on every launch)
 cd apps/mobile && EXPO_PUBLIC_HYPERFIDE_SERVER_URL=http://127.0.0.1:41999 EXPO_PUBLIC_HYPERFIDE_E2E=1 pnpm dev --port 8082
 # terminal 3: flows
@@ -306,7 +306,7 @@ device settings from it.
 server the phone cannot reach, so the shell never loads a dead origin; it
 does not use the harness backend.
 `shell-connect.yaml` drives bb connect end to end against the stub apex +
-gate (`pnpm --filter @bb/integration-tests e2e:mobile-connect-stub`, see
+gate (`pnpm --filter @hyperfide/integration-tests e2e:mobile-connect-stub`, see
 "bb connect" below): manual code entry with the handle and the self-hosted
 apex → enrolled screen (session signed in, account servers listed) → Done →
 the shell through the gate (cookie on fetch and on `/ws`) → the stub expires
@@ -571,14 +571,14 @@ Beta App Review and another build of the same version usually does not.
 `apps/app/src/lib/themes/*.ts`: every color token per palette × light/dark as a
 plain RN color string, with `nativeRadii` and the touch (`pointer: coarse`)
 `nativeTypography` scale. Do not edit it by hand. After changing theme.css or a
-palette, run `pnpm --filter @bb/mobile theme:generate` and commit the result;
+palette, run `pnpm --filter @hyperfide/mobile theme:generate` and commit the result;
 `src/theme/generate-native-theme.test.ts` fails when the file is stale.
 
 ## Notes
 
 - Workspace packages resolve from TypeScript source through `metro.config.js`
-  (`source` export condition for `@bb/*` only, `./x.js` → `./x.ts`).
-- Import `@bb/sdk/browser`, never `@bb/sdk` (lint-enforced).
+  (`source` export condition for `@hyperfide/*` only, `./x.js` → `./x.ts`).
+- Import `@hyperfide/sdk/browser`, never `@hyperfide/sdk` (lint-enforced).
 - Never spread a `Headers` instance into a fetch init on React Native.
 - `lightningcss` is pinned to 1.30.1 for `@expo/metro-config` (NativeWind v5).
 - Type-scale line heights in `global.css` are unitless ratios
@@ -668,7 +668,7 @@ For a device smoke test:
 7. Remove the test attachments and text without sending a message.
 
 Bridge regression tests run with
-`pnpm exec turbo run test typecheck --filter=@bb/mobile-bridge`.
+`pnpm exec turbo run test typecheck --filter=@hyperfide/mobile-bridge`.
 
 ## Android message copy
 

@@ -4,8 +4,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { HOST_ID_FILE_NAME } from "@bb/host-daemon-contract";
-import { sanitizeInheritedChildProcessEnv } from "@bb/process-utils";
+import { HOST_ID_FILE_NAME } from "@hyperfide/host-daemon-contract";
+import { sanitizeInheritedChildProcessEnv } from "@hyperfide/process-utils";
 
 const execFileAsync = promisify(execFileCallback);
 

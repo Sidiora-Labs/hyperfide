@@ -4,7 +4,7 @@ import {
   type AppDefaultKeybinding,
   type AppShortcut,
   type KeyboardCommandId,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   resolvePluginCommandDefaults,
   shortcutsConflict,

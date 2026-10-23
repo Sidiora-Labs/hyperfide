@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+import { installTestPluginRuntime } from "@hyperfide/plugin-sdk/testing/app";
 import type { UsageRequest } from "./server.js";
 import { loadUsage, UsageSettingsContent } from "./settings.js";
 import type {

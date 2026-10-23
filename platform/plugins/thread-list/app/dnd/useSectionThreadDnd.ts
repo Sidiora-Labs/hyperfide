@@ -20,7 +20,7 @@ import {
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import type { SidebarThread } from "../model/sidebar-thread.js";
-import { useSdk } from "@get-bb/plugin-sdk/app";
+import { useSdk } from "@hyperfide/plugin-sdk/app";
 import type { NeighborReorderRequest } from "../model/neighbor-reorder.js";
 import {
   getSidebarDndItemId,

@@ -1,11 +1,11 @@
 /**
- * `@get-bb/plugin-sdk/testing` — the backend plugin test harness: a fake BB
+ * `@hyperfide/plugin-sdk/testing` — the backend plugin test harness: a fake BB
  * plugin host (`createFakePluginHost`) whose `bb` satisfies `BbPluginApi`,
  * plus fixtures. The package ships executable JavaScript and portable
  * declarations for use from external plugin repositories.
  *
  * The frontend harness (loadPluginApp/renderSlot) lives at
- * `@get-bb/plugin-sdk/testing/app` so backend-only tests never load React.
+ * `@hyperfide/plugin-sdk/testing/app` so backend-only tests never load React.
  */
 export {
   createFakePluginHost,

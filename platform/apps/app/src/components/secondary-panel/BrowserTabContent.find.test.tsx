@@ -7,15 +7,15 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH } from "@bb/desktop-contract";
+import { HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH } from "@hyperfide/desktop-contract";
 import type {
   BbDesktopBrowserApi,
   BbDesktopBrowserFindInPageRequest,
   BbDesktopBrowserFindResult,
   BbDesktopBrowserState,
   BbDesktopBrowserStopFindInPageRequest,
-} from "@bb/desktop-contract";
-import { defaultAppSettings } from "@bb/domain";
+} from "@hyperfide/desktop-contract";
+import { defaultAppSettings } from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createBbDesktopApi,

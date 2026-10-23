@@ -1,4 +1,4 @@
-import type { PathListIncludeQueryValue } from "@bb/server-contract";
+import type { PathListIncludeQueryValue } from "@hyperfide/server-contract";
 import { ApiError } from "../errors.js";
 
 interface PathKindInclusion {

@@ -3,17 +3,17 @@ import {
   getStoredThreadTabs,
   hostDaemonSessions,
   markThreadDeleted,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   desktopBrowserLeaseSchema,
   desktopBrowserResultSchemas,
   type DesktopBrowserTab,
   type HostDaemonOnlineRpcRequestMessage,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   desktopBrowserScopeSchema,
   threadTabsSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 import { revokeThreadDesktopBrowserControl } from "../src/services/desktop-browsers.js";
@@ -28,7 +28,7 @@ import {
   seedThreadFixture,
 } from "./helpers/seed.js";
 import { withTestHarness, type TestAppHarness } from "./helpers/test-app.js";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 
 const leaseSchema = desktopBrowserScopeSchema
   .extend(desktopBrowserLeaseSchema.shape)

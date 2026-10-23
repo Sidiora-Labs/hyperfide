@@ -1,4 +1,4 @@
-import { Switch } from "@bb/shared-ui/switch";
+import { Switch } from "@hyperfide/shared-ui/switch";
 import { useAtom } from "jotai";
 import { SettingsWithControl } from "@/components/ui/settings-section";
 import { dimInactiveSplitsAtom } from "@/lib/split-layout/atoms";

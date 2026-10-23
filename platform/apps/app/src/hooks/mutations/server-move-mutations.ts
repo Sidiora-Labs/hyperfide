@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   ServerMoveCheckRequest,
   ServerMoveStartRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { sdk } from "@/lib/sdk";
 import {
   applyServerMoveStatus,

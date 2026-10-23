@@ -1,10 +1,10 @@
-import { getLatestThreadSequence } from "@bb/db";
+import { getLatestThreadSequence } from "@hyperfide/db";
 import { emitPluginThreadEvents } from "../../../src/services/plugins/plugin-thread-events.js";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { threadScope, turnScope } from "@bb/domain";
+import { threadScope, turnScope } from "@hyperfide/domain";
 import { applyLoggedThreadLifecycleEvent } from "../../../src/services/threads/lifecycle-outcome.js";
 import { beginProjectDeletion } from "../../../src/services/projects/project-deletion.js";
 import { createThreadRecord } from "../../../src/services/threads/thread-create-helpers.js";

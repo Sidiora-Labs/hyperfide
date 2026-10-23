@@ -3,8 +3,8 @@
 import { StrictMode } from "react";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useQuery } from "@tanstack/react-query";
-import type { ThreadWithRuntime } from "@bb/domain";
-import { makeThreadWithRuntime } from "@bb/test-helpers/domain-fixtures";
+import type { ThreadWithRuntime } from "@hyperfide/domain";
+import { makeThreadWithRuntime } from "@hyperfide/test-helpers/domain-fixtures";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { makeThreadResponse } from "@/test/fixtures/thread-responses";
 import { sdk } from "@/lib/sdk";

@@ -4,13 +4,13 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 import {
   CONTEXT_CARD_CLASS,
   CONTEXT_CARD_INSET_CLASS,
   CONTEXT_CARD_SEGMENT_CLASS,
-} from "@bb/shared-ui/chrome-style-tokens";
+} from "@hyperfide/shared-ui/chrome-style-tokens";
 
 export const PROMPT_STACK_CARD_ROW_HEIGHT = 32;
 export const PROMPT_CONTEXT_BANNER_COLLAPSED_HEIGHT = 35;

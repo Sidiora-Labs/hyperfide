@@ -5,7 +5,7 @@ import {
   withTimelineRowChildren,
   type TimelinePaginationCursor,
   type TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 
 export type ThreadTimelinePageKind = "latest" | "older";
 

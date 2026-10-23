@@ -15,7 +15,7 @@ export default defineWorkspaceTestConfig({
     },
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "@bb/plugin-build",
+      name: "@hyperfide/plugin-build",
       include: ["src/**/*.test.ts"],
     }),
   },

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type {
   BbPluginApi,
   PluginThreadEventPayloads,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { EnvHttpProxyAgent, fetch as undiciFetch } from "undici";
 import type { Dispatcher } from "undici";
 import { z } from "zod";

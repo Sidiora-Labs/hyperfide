@@ -1,4 +1,4 @@
-import { sliceUtf16Head } from "@bb/text-utils";
+import { sliceUtf16Head } from "@hyperfide/text-utils";
 
 const TERMINAL_TITLE_MAX_LENGTH = 200;
 

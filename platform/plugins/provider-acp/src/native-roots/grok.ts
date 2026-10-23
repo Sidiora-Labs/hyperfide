@@ -3,7 +3,7 @@ import {
   experimental_resolveClaudePluginRoots,
   experimental_resolveVendorPluginRoots,
   type ExperimentalVendorPlugin,
-} from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/plugin-sdk/host";
 import { parse as parseToml } from "smol-toml";
 import { z } from "zod";
 import type {

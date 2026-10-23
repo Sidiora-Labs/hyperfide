@@ -33,9 +33,9 @@ import {
   type DbNotifier,
   type DbQueryConnection,
   type DbTransaction,
-} from "@bb/db";
-import { assertNever } from "@bb/core-ui";
-import { COMPETING_TURN_ERROR_CODE } from "@bb/host-daemon-contract";
+} from "@hyperfide/db";
+import { assertNever } from "@hyperfide/core-ui";
+import { COMPETING_TURN_ERROR_CODE } from "@hyperfide/host-daemon-contract";
 import {
   type ProvisioningTranscriptEntry,
   type SystemThreadInterruptedReason,
@@ -46,7 +46,7 @@ import {
   type ThreadStatus,
   threadScope,
   turnScope,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   AppDeps,
   LoggedPendingInteractionWorkSessionDeps,

@@ -2,7 +2,7 @@ import type {
   ThreadEvent,
   ThreadEventFileChange,
   ThreadEventItemPresentation,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   itemStatusToApprovalStatus,
   itemStatusToExecStatus,

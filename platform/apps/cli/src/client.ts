@@ -1,4 +1,4 @@
-import { createNodeBbSdk, type BbSdk } from "@bb/sdk/node";
+import { createNodeBbSdk, type BbSdk } from "@hyperfide/sdk/node";
 import type { Dispatcher } from "undici";
 
 type CliRequestInit = RequestInit & { dispatcher?: Dispatcher };

@@ -1,4 +1,4 @@
-import { getThreadExecutionOverride, setThreadExecutionOverride } from "@bb/db";
+import { getThreadExecutionOverride, setThreadExecutionOverride } from "@hyperfide/db";
 import { describe, expect, it } from "vitest";
 import { recoverThreadModelOverride } from "../../../src/services/threads/thread-execution-override.js";
 import { buildExecutionOptions } from "../../../src/services/threads/thread-commands.js";

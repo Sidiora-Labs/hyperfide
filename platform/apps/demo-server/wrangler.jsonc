@@ -2,7 +2,7 @@
 //
 // Deploy: .github/workflows/deploy-demo-server.yml on every push to main that
 // touches apps/demo-server, or by hand:
-//   pnpm --filter @bb/demo-server exec wrangler deploy
+//   pnpm --filter @hyperfide/demo-server exec wrangler deploy
 //
 // No route is declared, so the worker serves from
 // https://bb-demo-server.<account-subdomain>.workers.dev. That is deliberate:

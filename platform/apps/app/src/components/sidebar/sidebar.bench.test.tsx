@@ -6,7 +6,7 @@ import { act, cleanup, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { createStore, Provider as JotaiProvider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -16,12 +16,12 @@ import {
   UI_PREFERENCE_KEYS,
   type ThreadListEntry,
   type ThreadStatus,
-} from "@bb/domain";
-import type { SidebarBootstrapResponse } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { SidebarBootstrapResponse } from "@hyperfide/server-contract";
 import {
   makeHost,
   makeThreadListEntry,
-} from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/test-helpers/domain-fixtures";
 import { makeProjectWithThreadsResponse } from "@/test/fixtures/projects";
 import {
   hostsQueryKey,
@@ -48,7 +48,7 @@ import {
   ThreadActionSurfaceVisibility,
 } from "@/lib/thread-actions/thread-action-registry";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
+import { collectPluginAppRegistrations } from "@hyperfide/plugin-sdk/internal/plugin-app-collector";
 import { PluginThreadList } from "./PluginThreadList";
 import { SidebarThreadEntriesTestProvider } from "@/test/sidebarThreadEntriesTestProvider";
 

@@ -1,4 +1,4 @@
-import { rawThreadIdSchema } from "@bb/domain";
+import { rawThreadIdSchema } from "@hyperfide/domain";
 import type { EventProjectionToolParsedIntent } from "./event-projection-types.js";
 
 const SHELL_WRAPPER_NAMES = new Set(["sh", "bash", "zsh"]);

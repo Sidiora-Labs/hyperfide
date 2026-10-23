@@ -1,15 +1,15 @@
-import { appendQuoteAndAttachmentsToDraft } from "@bb/client-core";
+import { appendQuoteAndAttachmentsToDraft } from "@hyperfide/client-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PromptTextMention } from "@bb/domain";
-import type { PromptDraftState } from "@bb/client-core";
-import type { ComposerEditorState } from "@get-bb/plugin-sdk/internal/composer-handle";
+import type { PromptTextMention } from "@hyperfide/domain";
+import type { PromptDraftState } from "@hyperfide/client-core";
+import type { ComposerEditorState } from "@hyperfide/plugin-sdk/internal/composer-handle";
 import {
   clearComposerEditorBridge,
   publishComposerEditorBridge,
   type ComposerEditorBridge,
 } from "./composer-editor-registry";
-import { createComposerHandleBinding } from "@get-bb/plugin-sdk/internal/composer-handle";
-import type { PluginComposerScope } from "@get-bb/plugin-sdk";
+import { createComposerHandleBinding } from "@hyperfide/plugin-sdk/internal/composer-handle";
+import type { PluginComposerScope } from "@hyperfide/plugin-sdk";
 import {
   notifyComposerSubmitted,
   subscribeComposerSubmitted,

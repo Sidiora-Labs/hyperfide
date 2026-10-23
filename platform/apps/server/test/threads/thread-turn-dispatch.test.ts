@@ -1,4 +1,4 @@
-import { getThread, listEvents } from "@bb/db";
+import { getThread, listEvents } from "@hyperfide/db";
 import { afterEach, expect, it, vi } from "vitest";
 import { dispatchTurnDuringReprovision } from "../../src/services/threads/thread-turn-dispatch.js";
 import { readThreadProvisionContext } from "../../src/services/threads/thread-startup-store.js";

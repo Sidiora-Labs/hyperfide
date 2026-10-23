@@ -12,11 +12,11 @@ import {
   symlink,
 } from "node:fs/promises";
 import { dirname, join, resolve, win32 } from "node:path";
-import { CLI_LAUNCHER_MARKER } from "@bb/config/cli-command";
+import { CLI_LAUNCHER_MARKER } from "@hyperfide/config/cli-command";
 import type {
   SystemCliCommandShadow,
   SystemCliCommandStatus,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { z } from "zod";
 import { ApiError } from "../../errors.js";
 

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { defaultExperiments } from "@bb/domain";
+import { defaultExperiments } from "@hyperfide/domain";
 import {
   computeTimelineRowDelta,
   type ThreadTimelineResponse,
   type TimelinePaginationCursor,
   type TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createStore, Provider as JotaiProvider } from "jotai";
 import { makeThread } from "../../../../.ladle/story-fixtures";

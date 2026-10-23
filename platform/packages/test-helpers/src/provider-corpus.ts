@@ -10,12 +10,12 @@ import {
   threadStatusSchema,
   threadVisibilitySchema,
   turnScope,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ThreadEventRow,
   ThreadEventScope,
   ThreadEventScopeKind,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { z } from "zod";
 
 const corpusScopeKindSchema = z.enum(["thread", "turn"]);

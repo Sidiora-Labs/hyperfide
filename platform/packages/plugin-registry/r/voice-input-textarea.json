@@ -7,7 +7,7 @@
   "files": [
     {
       "path": "registry/components/ui/voice-input-textarea.tsx",
-      "content": "import {\n  experimental_VoiceInputTextarea,\n  type ExperimentalVoiceInputTextareaProps,\n} from \"@get-bb/plugin-sdk/app\";\n\nexport type VoiceInputTextareaProps = ExperimentalVoiceInputTextareaProps;\nexport const VoiceInputTextarea = experimental_VoiceInputTextarea;\n",
+      "content": "import {\n  experimental_VoiceInputTextarea,\n  type ExperimentalVoiceInputTextareaProps,\n} from \"@hyperfide/plugin-sdk/app\";\n\nexport type VoiceInputTextareaProps = ExperimentalVoiceInputTextareaProps;\nexport const VoiceInputTextarea = experimental_VoiceInputTextarea;\n",
       "type": "registry:ui",
       "target": "components/ui/voice-input-textarea.tsx"
     }

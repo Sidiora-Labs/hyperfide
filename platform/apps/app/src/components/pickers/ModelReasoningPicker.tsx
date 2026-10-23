@@ -10,30 +10,30 @@ import {
 import type {
   SystemExecutionOptionsModelLoadError,
   SystemProvidersQuery,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   resolveServiceTierOptions,
   type ProviderOptionDescriptor,
   type ReasoningLevel,
   type ServiceTier,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   stripModelBrandPrefix,
   type ProviderPickerOption,
 } from "./model-brand-prefix";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { Input } from "@hyperfide/shared-ui/input";
 import {
   COARSE_POINTER_ICON_SIZE_CLASS,
   COARSE_POINTER_PROVIDER_TAB_SIZE_CLASS,
   COARSE_POINTER_TEXT_SM_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
-import { Popover, PopoverContent, PopoverTrigger } from "@bb/shared-ui/popover";
-import { Skeleton } from "@bb/shared-ui/skeleton";
-import { LIST_HOVER_TRANSITION } from "@bb/shared-ui/motion";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { Popover, PopoverContent, PopoverTrigger } from "@hyperfide/shared-ui/popover";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
+import { LIST_HOVER_TRANSITION } from "@hyperfide/shared-ui/motion";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   prefetchSystemExecutionOptions,
   useSystemExecutionOptions,
@@ -41,13 +41,13 @@ import {
 import { resolveModelCatalogSelection } from "@/hooks/thread-creation-options/model-catalog-selection";
 import { formatModelLabel as formatFallbackModelLabel } from "@/hooks/thread-creation-options/selection-state";
 import { reasoningLevelLabel } from "@/lib/reasoning-labels";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   OPTION_BASE_CLASS_NAME,
   OPTION_INTERACTIVE_CLASS_NAME,
   OPTION_MUTED_CLASS_NAME,
   OPTION_TRIGGER_CONTENT_CLASS_NAME,
-} from "@bb/shared-ui/option-display";
+} from "@hyperfide/shared-ui/option-display";
 import { type PickerOption } from "./OptionPicker";
 import type { ModelPickerOption } from "./model-picker-option";
 import {

@@ -3,7 +3,7 @@ import type {
   PromptTextMention,
   ReasoningLevel,
   ServiceTier,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { AppCreateThreadRequest } from "../api-types.js";
 import { promptDraftToInput, type PromptDraftState } from "./prompt-draft.js";
 

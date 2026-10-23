@@ -1,8 +1,8 @@
-import { getAppSettings, getHost, hosts } from "@bb/db";
+import { getAppSettings, getHost, hosts } from "@hyperfide/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import type { ServerAccessGrant } from "@get-bb/plugin-sdk";
-import type { ServerAccessStatus } from "@bb/server-contract";
+import type { ServerAccessGrant } from "@hyperfide/plugin-sdk";
+import type { ServerAccessStatus } from "@hyperfide/server-contract";
 import { decideWithinBox } from "../threads/dispatch-hooks.js";
 import type { WorkSessionDeps } from "../../types.js";
 import {

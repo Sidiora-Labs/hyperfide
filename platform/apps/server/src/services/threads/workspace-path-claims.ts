@@ -2,7 +2,7 @@ import {
   findForeignManagedEnvironmentAtHostPath,
   findProjectEnvironmentByHostPath,
   type DbConnection,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { isBbManagedWorkspacePath } from "./workspace-paths.js";
 
 interface ForeignProjectPathCheckArgs {

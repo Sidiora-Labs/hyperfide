@@ -4,7 +4,7 @@ import {
   execPortableFile,
   terminateWindowsProcessTrees,
   type ProcessStopResult,
-} from "@bb/process-utils";
+} from "@hyperfide/process-utils";
 
 export interface GitBashRuntime {
   bashPath: string;

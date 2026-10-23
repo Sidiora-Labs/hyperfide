@@ -11,7 +11,7 @@ import {
 import type {
   SystemAppUpdateResult,
   SystemAppUpdateStatus,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { appToast } from "@/components/ui/app-toast";
 import { systemAppUpdateQueryKey } from "@/hooks/queries/query-keys";

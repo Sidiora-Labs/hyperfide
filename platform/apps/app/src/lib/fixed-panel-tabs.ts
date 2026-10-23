@@ -10,7 +10,7 @@ import { atom } from "jotai";
 import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { atomFamily } from "jotai-family";
-import type { TerminalCreateTarget } from "@bb/server-contract";
+import type { TerminalCreateTarget } from "@hyperfide/server-contract";
 import { createLocalStorageSyncStorage } from "./browser-storage";
 import { hasThreadId } from "./thread-id";
 import { useThreadTabs } from "@/hooks/queries/thread-tabs-query";
@@ -18,7 +18,7 @@ import {
   closeSecondaryPanelTabInState,
   setSecondaryPanelTabsInState,
   reconcileFixedPanelViewTabsInState,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   EMPTY_FIXED_PANEL_TABS_STATE,
   createGitDiffFixedPanelTab,

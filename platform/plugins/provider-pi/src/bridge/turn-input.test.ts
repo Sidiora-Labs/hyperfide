@@ -4,7 +4,7 @@ import { join } from "node:path";
 import {
   turnStartParamsSchema,
   type PromptInput,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { expect, it } from "vitest";
 import { extractPiPromptInput } from "./turn-input.js";
 

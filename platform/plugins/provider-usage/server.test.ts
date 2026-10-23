@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest";
 import {
   createFakePluginHost,
   makeHostResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import plugin from "./server.js";
 import { usageListMethod, usageFetchMethod } from "./usage-source-contract.js";
 

@@ -1,5 +1,5 @@
-import type { JsonValue } from "@get-bb/plugin-sdk";
-import type { JsonObject } from "@get-bb/plugin-sdk/provider-bridge";
+import type { JsonValue } from "@hyperfide/plugin-sdk";
+import type { JsonObject } from "@hyperfide/plugin-sdk/provider-bridge";
 import { fetchChatGpt, isCloudflareChallenge } from "./chatgpt-fetch.js";
 import type {
   CodexAiCompleteInput,

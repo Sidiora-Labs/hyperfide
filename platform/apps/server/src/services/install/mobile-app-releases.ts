@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   androidAppArtifactSchema,
   type SystemMobileAppReleasesResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 
 const releaseSchema = z.object({
   assets: z.array(

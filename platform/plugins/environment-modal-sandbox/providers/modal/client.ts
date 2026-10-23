@@ -1,4 +1,4 @@
-import type { MachineExecutor } from "@get-bb/plugin-sdk";
+import type { MachineExecutor } from "@hyperfide/plugin-sdk";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { Status } from "nice-grpc-common";

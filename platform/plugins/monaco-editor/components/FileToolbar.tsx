@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { experimental_copyToClipboard } from "@get-bb/plugin-sdk/app";
+import { experimental_copyToClipboard } from "@hyperfide/plugin-sdk/app";
 import { cn } from "@/lib/utils";
 
 export type SaveIndicator = "clean" | "dirty" | "saving" | "error";

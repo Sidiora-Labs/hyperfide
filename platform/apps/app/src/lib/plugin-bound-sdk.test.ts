@@ -1,4 +1,4 @@
-import type { BbSdkAreas } from "@bb/sdk";
+import type { BbSdkAreas } from "@hyperfide/sdk";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -6,7 +6,7 @@ import {
   makeThreadWithRuntime,
   makeThreadListEntry,
   makeHost,
-} from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/test-helpers/domain-fixtures";
 import {
   environmentQueryKey,
   hostsQueryKey,
@@ -20,10 +20,10 @@ import {
   makeSidebarBootstrapResponse,
   makeProjectWithThreadsResponse,
 } from "@/test/fixtures/projects";
-import type { SidebarBootstrapResponse } from "@bb/server-contract";
+import type { SidebarBootstrapResponse } from "@hyperfide/server-contract";
 import { makeThreadResponse } from "@/test/fixtures/thread-responses";
 import { bindSdkToPlugin, getPluginBoundSdk } from "./plugin-bound-sdk";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 
 function makeSdk() {
   const threads = {

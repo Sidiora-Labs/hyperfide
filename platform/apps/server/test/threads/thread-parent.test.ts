@@ -1,5 +1,5 @@
-import { createProject, createThread, noopNotifier, upsertHost } from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+import { createProject, createThread, noopNotifier, upsertHost } from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../src/errors.js";
 import {

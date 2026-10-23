@@ -1,5 +1,5 @@
-import type { ThreadChatProps } from "@get-bb/plugin-sdk";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { ThreadChatProps } from "@hyperfide/plugin-sdk";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { defineSplit } from "@/lib/define-split";
 import { ThreadChatLoadingBody } from "@/components/thread/timeline/ThreadChatLoading";
 

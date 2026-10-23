@@ -1,6 +1,6 @@
 import { useMemo, type ComponentProps, type ReactNode } from "react";
-import { Skeleton } from "@bb/shared-ui/skeleton";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   PluginComposerHostScopeProvider,
   usePluginComposerHost,

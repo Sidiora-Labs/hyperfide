@@ -6,7 +6,7 @@ import type {
   TerminalListResponse,
   TerminalSession,
   UpdateTerminalRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { BbHttpError, sdk } from "@/lib/sdk";
 import {
   applyTerminalSessionClose,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { threadScope, turnScope, type Thread } from "@bb/domain";
+import { threadScope, turnScope, type Thread } from "@hyperfide/domain";
 import {
   createProject,
   createThread,
@@ -12,8 +12,8 @@ import {
   threads,
   upsertHost,
   type SlowDbQueryLogFields,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { eq } from "drizzle-orm";
 import {
   buildThreadConversationOutline,

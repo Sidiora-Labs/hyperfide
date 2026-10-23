@@ -1,7 +1,7 @@
-import { CompetingTurnError } from "@bb/agent-runtime";
-import { COMPETING_TURN_ERROR_CODE } from "@bb/host-daemon-contract";
-import { BRIDGE_JSON_RPC_ERRORS } from "@bb/provider-bridge-protocol";
-import { JsonRpcResponseError } from "@bb/provider-bridge-protocol/bridge-kit";
+import { CompetingTurnError } from "@hyperfide/agent-runtime";
+import { COMPETING_TURN_ERROR_CODE } from "@hyperfide/host-daemon-contract";
+import { BRIDGE_JSON_RPC_ERRORS } from "@hyperfide/provider-bridge-protocol";
+import { JsonRpcResponseError } from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import { describe, expect, it } from "vitest";
 import {
   CommandDispatchError,

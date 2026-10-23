@@ -3,14 +3,14 @@ import {
   getThread,
   listEvents,
   setAiServiceSelection,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   type ResolvedThreadExecutionOptions,
   systemThreadProvisioningEventDataSchema,
   threadSchema,
   turnScope,
-} from "@bb/domain";
-import { groupHostDaemonEvents } from "@bb/host-daemon-contract";
+} from "@hyperfide/domain";
+import { groupHostDaemonEvents } from "@hyperfide/host-daemon-contract";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   internalAuthHeaders,

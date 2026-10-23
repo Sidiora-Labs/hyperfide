@@ -4,7 +4,7 @@ import {
   experimental_killPortableProcess,
   experimental_recordProviderChildIo,
   experimental_spawnPortableProcess,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import type { z } from "zod";
 
 const STDERR_TAIL_MAX_CHUNKS = 40;

@@ -3,7 +3,7 @@ import {
   type DynamicTool,
   type InstructionMode,
   type ReasoningLevel,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 
 type PiReasoningLevel = "off" | "low" | "medium" | "high" | "xhigh" | "max";
 
@@ -71,7 +71,7 @@ export function buildPiSessionParams(
   return {
     cwd: args.cwd,
     shellEnvOverrides: {
-      BB_THREAD_ID: args.threadId,
+      HYPERFIDE_THREAD_ID: args.threadId,
       ...buildShellEnvOverrides(args.options.envVars),
     },
     ...(instructions

@@ -2,9 +2,9 @@ import type {
   PluginComposerApi,
   PluginMessageActionContext,
   ThreadChatMessageReference,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type { PluginComposerHost } from "@/components/plugin/plugin-composer-host";
-import { createComposerHandleBinding } from "@get-bb/plugin-sdk/internal/composer-handle";
+import { createComposerHandleBinding } from "@hyperfide/plugin-sdk/internal/composer-handle";
 import { detachedComposerController } from "./plugin-composer-handle";
 import type { MarkdownMessageDirectiveOpenThreadPanel } from "@/components/ui/markdown-message-directives";
 import type { PluginMessageActionSlot } from "./plugin-slots";

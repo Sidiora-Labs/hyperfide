@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { EmptyState } from "@bb/shared-ui/empty-state";
+import { EmptyState } from "@hyperfide/shared-ui/empty-state";
 import { defineSplit } from "@/lib/define-split";
 import type { RemotePathBrowser } from "./RemotePathBrowser";
 

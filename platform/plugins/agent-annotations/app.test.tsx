@@ -6,11 +6,11 @@ import type {
   ExperimentalPluginBrowserPageEvaluateOptions,
   ExperimentalPluginBrowserToolbarActionProps,
   JsonValue,
-} from "@get-bb/plugin-sdk/app";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/app";
+import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app"));
-const { useComposer } = await import("@get-bb/plugin-sdk/app");
+const { useComposer } = await import("@hyperfide/plugin-sdk/app");
 
 afterEach(cleanup);
 

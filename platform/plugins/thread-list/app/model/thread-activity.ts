@@ -2,7 +2,7 @@ import type {
   PluginSidebarThread,
   PluginSidebarThreadIndicator,
   PluginSidebarThreadRowStatus,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 type ThreadStatusShape = Pick<
   PluginSidebarThread,

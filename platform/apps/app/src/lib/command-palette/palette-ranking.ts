@@ -1,4 +1,4 @@
-import { fuzzyMatchText } from "@bb/fuzzy-match";
+import { fuzzyMatchText } from "@hyperfide/fuzzy-match";
 import type { PaletteAction } from "./palette-action";
 
 export const PALETTE_RESULT_LIMIT = 50;

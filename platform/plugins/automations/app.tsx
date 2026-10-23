@@ -13,7 +13,7 @@ import {
   useRpc,
   type ExperimentalThreadInfoProps,
   type PluginNavPanelProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import type { automationRpcContract } from "./src/rpc.js";
 import { toast } from "sonner";
 import type {

@@ -2,7 +2,7 @@
 
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defaultAppTheme } from "@bb/domain";
+import { defaultAppTheme } from "@hyperfide/domain";
 import {
   FAVICON_COLOR_STORAGE_KEY,
   useFaviconColorSync,

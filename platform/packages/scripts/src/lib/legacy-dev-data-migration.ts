@@ -8,7 +8,7 @@ import {
   stat,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { DevInstanceConfig } from "@bb/config/runtime";
+import type { DevInstanceConfig } from "@hyperfide/config/runtime";
 
 export interface LegacyDevDataMigrationResult {
   migratedEntries: string[];

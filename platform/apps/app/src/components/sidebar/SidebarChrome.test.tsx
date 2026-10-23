@@ -3,8 +3,8 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BbDesktopInfo } from "@bb/desktop-contract";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
 import {

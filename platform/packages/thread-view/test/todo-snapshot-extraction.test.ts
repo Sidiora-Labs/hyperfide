@@ -1,5 +1,5 @@
-import { jsonObjectSchema, turnScope } from "@bb/domain";
-import type { Thread, ThreadEventPlanStep } from "@bb/domain";
+import { jsonObjectSchema, turnScope } from "@hyperfide/domain";
+import type { Thread, ThreadEventPlanStep } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import { extractThreadTimelinePendingTodos } from "../src/todo-snapshot-extraction.js";
 import type { ThreadEventWithMeta } from "../src/build-event-projection.js";

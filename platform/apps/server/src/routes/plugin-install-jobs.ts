@@ -1,5 +1,5 @@
 import type { Context, Hono } from "hono";
-import type { PluginInstallJob } from "@bb/server-contract";
+import type { PluginInstallJob } from "@hyperfide/server-contract";
 import type { PluginInstallJobs } from "../services/plugins/plugin-install-jobs.js";
 
 export function prefersRespondAsync(context: Context): boolean {

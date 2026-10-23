@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
-import { markThreadDeleted, threadPluginMetadata, threads } from "@bb/db";
-import { jsonObjectSchema, PLUGIN_METADATA_MAX_BYTES } from "@bb/domain";
-import { pluginThreadMetadataListResponseSchema } from "@bb/server-contract";
+import { markThreadDeleted, threadPluginMetadata, threads } from "@hyperfide/db";
+import { jsonObjectSchema, PLUGIN_METADATA_MAX_BYTES } from "@hyperfide/domain";
+import { pluginThreadMetadataListResponseSchema } from "@hyperfide/server-contract";
 import { describe, expect, it, vi } from "vitest";
 import { readJson } from "../helpers/json.js";
 import {

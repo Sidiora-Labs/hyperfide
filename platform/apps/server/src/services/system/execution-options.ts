@@ -4,14 +4,14 @@ import type {
   SystemExecutionOptionsQuery,
   SystemExecutionOptionsResponse,
   SystemProvidersQuery,
-} from "@bb/server-contract";
-import { type CustomProviderModel } from "@bb/config/bb-app-managed-config";
+} from "@hyperfide/server-contract";
+import { type CustomProviderModel } from "@hyperfide/config/bb-app-managed-config";
 import {
   reasoningEffortsForLevels,
   type AvailableModel,
   type ProviderInfo,
-} from "@bb/domain";
-import { getAppSettings } from "@bb/db";
+} from "@hyperfide/domain";
+import { getAppSettings } from "@hyperfide/db";
 import type { LoggedWorkSessionDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
 import { callHostRetryableOnlineRpc } from "../hosts/online-rpc.js";

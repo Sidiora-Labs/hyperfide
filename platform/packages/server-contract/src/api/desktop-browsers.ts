@@ -3,7 +3,7 @@ import {
   desktopBrowserBrokerProofSchema,
   desktopBrowserImportSelectionSchema,
   desktopBrowserNavigationUrlSchema,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { z } from "zod";
 
 const id = z.string().min(1).max(256);
@@ -97,16 +97,16 @@ export type ExperimentalDesktopBrowserLease =
     expiresAt: number;
   };
 export type ExperimentalDesktopBrowserInstances = {
-  instances: (import("@bb/host-daemon-contract").DesktopBrowserInstance & {
+  instances: (import("@hyperfide/host-daemon-contract").DesktopBrowserInstance & {
     hostId: string;
   })[];
 };
 export type ExperimentalDesktopBrowserTabs =
-  import("@bb/host-daemon-contract").DesktopBrowserResult<"desktop.browser.list_tabs">;
+  import("@hyperfide/host-daemon-contract").DesktopBrowserResult<"desktop.browser.list_tabs">;
 export type ExperimentalDesktopBrowserCreated =
-  import("@bb/host-daemon-contract").DesktopBrowserResult<"desktop.browser.create_tab">;
+  import("@hyperfide/host-daemon-contract").DesktopBrowserResult<"desktop.browser.create_tab">;
 export type ExperimentalDesktopBrowserCapture =
-  import("@bb/host-daemon-contract").DesktopBrowserResult<"desktop.browser.capture_tab">;
+  import("@hyperfide/host-daemon-contract").DesktopBrowserResult<"desktop.browser.capture_tab">;
 export type ExperimentalDesktopBrowserConnection = {
   hostId: string;
   wsEndpoint: string;
@@ -122,6 +122,6 @@ export type ExperimentalDesktopBrowserImportCookiesInput = z.input<
   typeof desktopBrowserImportCookiesRequestSchema
 >;
 export type ExperimentalDesktopBrowserImportSources =
-  import("@bb/host-daemon-contract").DesktopBrowserResult<"desktop.browser.list_import_sources">;
+  import("@hyperfide/host-daemon-contract").DesktopBrowserResult<"desktop.browser.list_import_sources">;
 export type ExperimentalDesktopBrowserImportOutcome =
-  import("@bb/host-daemon-contract").DesktopBrowserResult<"desktop.browser.import_cookies">;
+  import("@hyperfide/host-daemon-contract").DesktopBrowserResult<"desktop.browser.import_cookies">;

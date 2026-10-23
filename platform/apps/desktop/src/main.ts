@@ -29,23 +29,23 @@ import { autoUpdater } from "electron-updater";
 import {
   APP_SURFACE_DESKTOP,
   APP_SURFACE_ENV_NAME,
-} from "@bb/config/app-surface";
-import { findMachineServiceFile } from "@bb/config/machine-service";
+} from "@hyperfide/config/app-surface";
+import { findMachineServiceFile } from "@hyperfide/config/machine-service";
 import {
   appCommandIdSchema,
   type AppCommandId,
   type AppKeybindings,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   bbDesktopBrowserImportCookiesRequestSchema,
   bbDesktopThemeSchema,
   type BbDesktopInfo,
   type BbDesktopWindowState,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import {
   serverMessageLenientSchema,
   type ClientMessage,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { z } from "zod";
 import { registerDesktopClipboardIpc } from "./desktop-clipboard.js";
 import { registerDesktopWindowFocusIpc } from "./desktop-window-focus.js";
@@ -218,7 +218,7 @@ import {
   bbDesktopZoomCommandSchema,
   bbDesktopWindowFindRequestSchema,
   type BbDesktopZoomCommand,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import { nextZoomFactor } from "./desktop-zoom.js";
 import {
   HYPERFIDE_DESKTOP_BROWSER_TARGET_CHANNEL,

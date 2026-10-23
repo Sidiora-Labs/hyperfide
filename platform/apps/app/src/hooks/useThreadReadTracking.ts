@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import type { Thread } from "@bb/domain";
-import { isThreadRead, type ThreadReadState } from "@bb/client-core";
+import type { Thread } from "@hyperfide/domain";
+import { isThreadRead, type ThreadReadState } from "@hyperfide/client-core";
 import {
   useDocumentVisibilityRevision,
   useDocumentVisible,

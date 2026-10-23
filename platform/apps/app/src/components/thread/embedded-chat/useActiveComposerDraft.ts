@@ -1,12 +1,12 @@
 import { useCallback, useMemo } from "react";
-import type { PromptTextMention } from "@bb/domain";
+import type { PromptTextMention } from "@hyperfide/domain";
 import {
   usePromptDraftStorage,
   type PromptDraftScope,
 } from "@/hooks/usePromptDraftStorage";
-import { promptDraftToInput } from "@bb/client-core";
-import type { PromptDraftAttachment, PromptDraftState } from "@bb/client-core";
-import type { PromptInput } from "@bb/domain";
+import { promptDraftToInput } from "@hyperfide/client-core";
+import type { PromptDraftAttachment, PromptDraftState } from "@hyperfide/client-core";
+import type { PromptInput } from "@hyperfide/domain";
 
 export interface InlineComposerDraftSession {
   editSessionId: number;

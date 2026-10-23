@@ -3,13 +3,13 @@ import type {
   ReasoningLevel,
   ServiceTier,
   SessionOptionSelections,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   CreateExecutionInputSources,
   ExecutionInputFieldSource,
   ExistingThreadExecutionInputSources,
   SystemProvidersQuery,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   StoredPermissionMode,
   StoredReasoningLevel,

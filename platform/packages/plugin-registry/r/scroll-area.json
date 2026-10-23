@@ -8,7 +8,7 @@
     "@radix-ui/react-scroll-area"
   ],
   "registryDependencies": [
-    "@bb/utils"
+    "@hyperfide/utils"
   ],
   "files": [
     {

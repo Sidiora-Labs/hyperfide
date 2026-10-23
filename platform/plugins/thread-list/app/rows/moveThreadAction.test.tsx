@@ -9,11 +9,11 @@ import type {
   PluginBrowserBbSdk,
   PluginThreadAction,
   PluginThreadActionTarget,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   installTestPluginRuntime,
   renderSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 import { makePluginProject, sdkResult } from "../model/fixtures.js";
 import {
   preferenceValueAtom,
@@ -21,7 +21,7 @@ import {
 } from "../preferences/preferences-sync.js";
 
 installTestPluginRuntime();
-const { useBbNavigate, useSdk } = await import("@get-bb/plugin-sdk/app");
+const { useBbNavigate, useSdk } = await import("@hyperfide/plugin-sdk/app");
 const { moveThreadAction } = await import("./moveThreadAction.js");
 
 afterEach(() => {

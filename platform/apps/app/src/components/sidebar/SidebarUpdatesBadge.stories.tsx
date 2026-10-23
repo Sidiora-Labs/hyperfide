@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { ProviderCliInstallAction } from "@bb/host-daemon-contract";
+import type { ProviderCliInstallAction } from "@hyperfide/host-daemon-contract";
 import { SettingsStoryFixtures } from "../../../.ladle/settings-story-fixtures";
 import {
   HOST_IDS,
@@ -15,7 +15,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useLocation } from "react-router-dom";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import { MachinesSettingsSection } from "@/components/settings/MachinesSettingsSection";
 import { SettingsStoryChrome } from "../../../.ladle/story-settings-chrome";
 import { AppLayoutSidebar } from "@/components/layout/AppLayoutSidebar";

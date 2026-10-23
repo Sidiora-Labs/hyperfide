@@ -131,7 +131,7 @@ sets an individual priority; the same operations are available through the
 
 A bb server started from inside another bb server's thread inherits that parent's
 pooler routing through its environment. The parent contributes
-`BB_ACCOUNT_POOL_PARENT_URL` and `BB_ACCOUNT_POOL_PARENT_TOKEN` alongside the
+`HYPERFIDE_ACCOUNT_POOL_PARENT_URL` and `HYPERFIDE_ACCOUNT_POOL_PARENT_TOKEN` alongside the
 provider routing variables, and the nested server enables the pooler on first run
 when it sees them.
 

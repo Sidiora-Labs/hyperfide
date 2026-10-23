@@ -1,4 +1,4 @@
-import { execPortableFile } from "@bb/process-utils";
+import { execPortableFile } from "@hyperfide/process-utils";
 import { execFile } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";

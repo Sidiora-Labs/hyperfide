@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { ToolCallResponse } from "@bb/domain";
+import type { ToolCallResponse } from "@hyperfide/domain";
 import type { ServerLogger } from "../../types.js";
 
 export const PLUGIN_TOOL_CALL_AWAITING_USER_RESULT_TEXT =

@@ -2,7 +2,7 @@
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { AppCommandProvider } from "@/components/commands/AppCommandProvider";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";

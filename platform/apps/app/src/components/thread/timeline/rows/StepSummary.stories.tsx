@@ -1,4 +1,4 @@
-import type { TimelineRow } from "@bb/server-contract";
+import type { TimelineRow } from "@hyperfide/server-contract";
 import { ThreadTimelineRows } from "@/components/thread/timeline";
 import {
   commandRow,
@@ -68,7 +68,7 @@ const commandTurboBuild: TimelineRow = commandRow({
   status: "completed",
   callId: "call_buildDomainCoreUi",
   command:
-    "pnpm exec turbo run build --filter=@bb/domain --filter=@bb/core-ui --filter=@bb/server-contract --concurrency=1",
+    "pnpm exec turbo run build --filter=@hyperfide/domain --filter=@hyperfide/core-ui --filter=@hyperfide/server-contract --concurrency=1",
   cwd: null,
   source: null,
   output: "",
@@ -89,7 +89,7 @@ const commandTurboTestServer: TimelineRow = commandRow({
   status: "completed",
   callId: "call_testServer",
   command:
-    "pnpm exec turbo run test --filter=@bb/server --only --concurrency=1 -- --run test/threads/timeline-service.test.ts",
+    "pnpm exec turbo run test --filter=@hyperfide/server --only --concurrency=1 -- --run test/threads/timeline-service.test.ts",
   cwd: null,
   source: null,
   output: "",
@@ -110,7 +110,7 @@ const commandTurboTestCoreUi: TimelineRow = commandRow({
   status: "completed",
   callId: "call_testCoreUi",
   command:
-    "pnpm exec turbo run test --filter=@bb/core-ui --concurrency=1 -- --run test/to-view-messages.assistant-streams.test.ts",
+    "pnpm exec turbo run test --filter=@hyperfide/core-ui --concurrency=1 -- --run test/to-view-messages.assistant-streams.test.ts",
   cwd: null,
   source: null,
   output: "",
@@ -131,7 +131,7 @@ const commandTurboBuildForce: TimelineRow = commandRow({
   status: "completed",
   callId: "call_buildForce",
   command:
-    "pnpm exec turbo run build --filter=@bb/domain --filter=@bb/core-ui --force --concurrency=1",
+    "pnpm exec turbo run build --filter=@hyperfide/domain --filter=@hyperfide/core-ui --force --concurrency=1",
   cwd: null,
   source: null,
   output: "",

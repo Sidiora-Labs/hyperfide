@@ -2,11 +2,11 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import semver from "semver";
-import { PLUGIN_SDK_MAJOR } from "@bb/domain";
+import { PLUGIN_SDK_MAJOR } from "@hyperfide/domain";
 import {
   assertValidPluginCompactIconSvg,
   assertValidPluginIconSvg,
-} from "@bb/plugin-build";
+} from "@hyperfide/plugin-build";
 
 interface PluginArtifactMeta {
   sdkMajor: number;

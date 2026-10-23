@@ -9,7 +9,7 @@ export default defineWorkspaceTestConfig({
     testTimeout: 15_000,
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "@bb/host-workspace",
+      name: "@hyperfide/host-workspace",
       include: ["test/**/*.test.ts"],
     }),
   },

@@ -6,8 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   ExperimentalPermissionModePickerProps,
   ExperimentalProviderModelPickerProps,
-} from "@get-bb/plugin-sdk/app";
-import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/app";
+import { installTestPluginRuntime } from "@hyperfide/plugin-sdk/testing/app";
 import type {
   AgentExecutionUpdate,
   AutomationDetailResponse,
@@ -18,7 +18,7 @@ import {
   ScriptAutomationDefinition,
 } from "../detail-view.js";
 
-vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => ({
+vi.mock("@hyperfide/plugin-sdk/app", async (importOriginal) => ({
   ...(await importOriginal()),
   experimental_ProviderModelPicker: ({
     value,

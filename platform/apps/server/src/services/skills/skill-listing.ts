@@ -2,14 +2,14 @@ import { Buffer } from "node:buffer";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { resolveDataDirSkillsRootPath } from "@bb/config/skill-storage-paths";
-import type { DiscoveredSkill, SkillRootKind } from "@bb/host-daemon-contract";
+import { resolveDataDirSkillsRootPath } from "@hyperfide/config/skill-storage-paths";
+import type { DiscoveredSkill, SkillRootKind } from "@hyperfide/host-daemon-contract";
 import type {
   SkillProvider,
   SkillScope,
   SkillSummary,
-} from "@bb/server-contract";
-import { editableSkillScopeSchema } from "@bb/server-contract";
+} from "@hyperfide/server-contract";
+import { editableSkillScopeSchema } from "@hyperfide/server-contract";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import { ApiError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";

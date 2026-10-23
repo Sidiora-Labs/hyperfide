@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createFakePluginHost,
   type FakePluginHarness,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { createStore, registerTasksApi } from "../api";
 import { tasksRpcContract } from "../shared/contract";
 import { rpcInput } from "../test-fixtures.js";

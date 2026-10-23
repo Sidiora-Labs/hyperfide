@@ -3,7 +3,7 @@
 ## The backend factory
 
 ```ts
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 
 export default async function plugin(bb: BbPluginApi) {
   // Register surfaces here. Load-safe: settings, storage, http, rpc,
@@ -150,7 +150,7 @@ the SPA + `/api` + `/ws` — for plugins that proxy or relay traffic back to
 the server itself. **Bind-gated** like `bb.sdk`: reading it before the server is
 listening throws, so prefer reading it from handlers, services, and timers.
 `bb.server.experimental_appUrl` gives the operator-configured public app URL,
-or `null` when `BB_APP_URL` is empty. It is not bind-gated.
+or `null` when `HYPERFIDE_APP_URL` is empty. It is not bind-gated.
 `bb.server.experimental_dataDir` gives the exact server data directory for a
 migration from BB-managed files. Do not write plugin state there. Use
 `bb.storage` for plugin-owned state.
@@ -165,7 +165,7 @@ shared by the server and host modules:
 import {
   defineRpcContract,
   type ExperimentalHostSignals,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 export const hostContract = defineRpcContract({
@@ -186,7 +186,7 @@ The host entry default-exports its implementation:
 
 ```ts
 // host.ts
-import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
+import { experimental_defineHostEntry } from "@hyperfide/plugin-sdk/host";
 import { hostContract, hostSignals } from "./contract.js";
 
 export default experimental_defineHostEntry({
@@ -210,7 +210,7 @@ Do not construct the entry object without this helper.
 
 A host entry that deletes a directory it owns should first call
 `experimental_killProcessesWithCwdUnder({ directories: [directory] })` from
-`@get-bb/plugin-sdk/host`, which SIGTERMs every process whose working
+`@hyperfide/plugin-sdk/host`, which SIGTERMs every process whose working
 directory is at or under any listed directory and SIGKILLs what survives the
 grace. Each call lists process working directories once, so pass a whole batch
 in one call rather than looping. Removing a
@@ -274,7 +274,7 @@ starts it again. A crash fails in-flight calls, emits
 starts a fresh worker. Idle stops, graceful reload, disable, uninstall, and
 daemon shutdown do not emit it. The event is ephemeral, so long-lived plugins
 must also reconcile when their target host reconnects. Host code receives the
-normalized user `PATH` without daemon-owned `BB_*` variables.
+normalized user `PATH` without daemon-owned `HYPERFIDE_*` variables.
 
 Host limits protect the daemon:
 
@@ -293,23 +293,23 @@ These worker, idle-eviction, retention, and call-timeout rules cover host RPC
 only. A provider bridge exported from the same artifact runs in its own
 process with its own lifecycle (see providers.md).
 
-Host production code may import public `@get-bb/plugin-sdk` entrypoints, Node
+Host production code may import public `@hyperfide/plugin-sdk` entrypoints, Node
 APIs, and ordinary third-party dependencies. It must not import private
-monorepo packages such as `@bb/domain`, `@bb/host-workspace`, or any other
-`@bb/*` package; the host artifact build rejects those imports anywhere in its
+monorepo packages such as `@hyperfide/domain`, `@hyperfide/host-workspace`, or any other
+`@hyperfide/*` package; the host artifact build rejects those imports anywhere in its
 dependency graph, including type-only imports and relative paths that resolve
 into a private package. Keep shared contract types plugin-local and validate
 them at the RPC boundary.
 
-Where `@get-bb/plugin-sdk` goes in `package.json` depends on what the host
+Where `@hyperfide/plugin-sdk` goes in `package.json` depends on what the host
 entry imports. A host entry that uses only the root helpers
 (`experimental_defineHostEntry`, `defineRpcContract`,
 `PLUGIN_CLI_OUTPUT_MAX_BYTES`) keeps the SDK in exact `devDependencies`: the
 host builder stubs those helpers and bundles them into the self-contained
 artifact, including for managed Git installs, which run
 `npm install --omit=dev`. A host entry that imports
-`@get-bb/plugin-sdk/provider-bridge` or a
-published `@get-bb/plugin-sdk/host` contract such as
+`@hyperfide/plugin-sdk/provider-bridge` or a
+published `@hyperfide/plugin-sdk/host` contract such as
 `experimental_nativeRootsHostContract` is bundled from the plugin's own SDK
 install, so that plugin lists the SDK under `dependencies`. Every provider
 plugin does this. Either way the daemon never resolves the SDK or private BB

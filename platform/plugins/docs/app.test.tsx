@@ -1,4 +1,4 @@
-import type { ExperimentalTabRegistration } from "@get-bb/plugin-sdk";
+import type { ExperimentalTabRegistration } from "@hyperfide/plugin-sdk";
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
@@ -8,7 +8,7 @@ import {
   loadPluginApp,
   renderSlot,
   type RenderSlotOptions,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app"));
 const docsRegistration = app.navPanels[0]!;

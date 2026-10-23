@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-bb--storage-retention",
+  "name": "hyperfide-plugin-bb--storage-retention",
   "version": "0.1.0",
   "description": "Inspect machine storage and automatically archive or delete old threads.",
   "private": true,
@@ -31,13 +31,13 @@
     "prepare:bundled": "bb-plugin-build prepare-bundled"
   },
   "dependencies": {
-    "@bb/domain": "workspace:^",
-    "@bb/shared-ui": "workspace:*",
+    "@hyperfide/domain": "workspace:^",
+    "@hyperfide/shared-ui": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

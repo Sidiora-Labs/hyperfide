@@ -25,12 +25,12 @@ afterEach(() => {
 describe("experimental_scanPublicSdkOnly", () => {
   it("walks the package, skipping node_modules and dist, and accepts the published SDK surface", () => {
     plant({
-      "server.ts": `import { z } from "zod";\nimport type { BbPluginApi } from "@get-bb/plugin-sdk";\nimport { join } from "node:path";\nimport { helper } from "./src/helper.js";\n`,
-      "src/helper.ts": `import "@get-bb/plugin-sdk/provider-bridge";\nimport "@get-bb/plugin-sdk/provider-bridge/acp";\nimport "@get-bb/plugin-sdk/host";\nexport const helper = 1;\n`,
-      "app.tsx": `import "@get-bb/plugin-sdk/app";\n`,
-      "server.test.ts": `import { it } from "vitest";\nimport "@get-bb/plugin-sdk/testing";\nimport "@get-bb/plugin-sdk/provider-bridge/testing";\n`,
-      "node_modules/dep/index.js": `require("@bb/domain");\n`,
-      "dist/server.js": `import "@bb/domain";\n`,
+      "server.ts": `import { z } from "zod";\nimport type { BbPluginApi } from "@hyperfide/plugin-sdk";\nimport { join } from "node:path";\nimport { helper } from "./src/helper.js";\n`,
+      "src/helper.ts": `import "@hyperfide/plugin-sdk/provider-bridge";\nimport "@hyperfide/plugin-sdk/provider-bridge/acp";\nimport "@hyperfide/plugin-sdk/host";\nexport const helper = 1;\n`,
+      "app.tsx": `import "@hyperfide/plugin-sdk/app";\n`,
+      "server.test.ts": `import { it } from "vitest";\nimport "@hyperfide/plugin-sdk/testing";\nimport "@hyperfide/plugin-sdk/provider-bridge/testing";\n`,
+      "node_modules/dep/index.js": `require("@hyperfide/domain");\n`,
+      "dist/server.js": `import "@hyperfide/domain";\n`,
     });
     const scan = scanPublicSdkOnly(packageRoot);
     expect(scan.files.sort()).toEqual([
@@ -45,15 +45,15 @@ describe("experimental_scanPublicSdkOnly", () => {
 
   it("reports a private workspace import, a specifier outside the allowlist, and a testing subpath in plugin code", () => {
     plant({
-      "server.ts": `import { events } from "@bb/db";\nimport yaml from "yaml";\nimport "@get-bb/plugin-sdk/testing";\n`,
-      "server.test.ts": `import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";\nimport { describe } from "vitest";\n`,
+      "server.ts": `import { events } from "@hyperfide/db";\nimport yaml from "yaml";\nimport "@hyperfide/plugin-sdk/testing";\n`,
+      "server.test.ts": `import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";\nimport { describe } from "vitest";\n`,
     });
     expect(scanPublicSdkOnly(packageRoot).violations).toEqual([
-      { file: "server.ts", specifier: "@bb/db", reason: "private-package" },
+      { file: "server.ts", specifier: "@hyperfide/db", reason: "private-package" },
       { file: "server.ts", specifier: "yaml", reason: "outside-allowlist" },
       {
         file: "server.ts",
-        specifier: "@get-bb/plugin-sdk/testing",
+        specifier: "@hyperfide/plugin-sdk/testing",
         reason: "outside-allowlist",
       },
     ]);
@@ -100,9 +100,9 @@ describe("experimental_scanPublicSdkOnly", () => {
     plant({
       "server.ts": [
         `const name = "domain";`,
-        `const spec = "@bb/" + name;`,
+        `const spec = "@hyperfide/" + name;`,
         `const a = await import(spec);`,
-        "const b = await import(`@bb/${name}`);",
+        "const b = await import(`@hyperfide/${name}`);",
         `const c = require(spec);`,
         `const d = await import("./literal.js");`,
         "",
@@ -113,7 +113,7 @@ describe("experimental_scanPublicSdkOnly", () => {
       { file: "server.ts", specifier: "spec", reason: "dynamic-specifier" },
       {
         file: "server.ts",
-        specifier: "`@bb/${name}`",
+        specifier: "`@hyperfide/${name}`",
         reason: "dynamic-specifier",
       },
       { file: "server.ts", specifier: "spec", reason: "dynamic-specifier" },
@@ -127,14 +127,14 @@ describe("experimental_scanPublicSdkOnly", () => {
         "class Store { async require(path: string): Promise<void> {} }",
         "interface Importer { import(estimate: number): void; }",
         "f.import(estimate);",
-        'f.import("@bb/db");',
+        'f.import("@hyperfide/db");',
         "store?.require(path);",
-        'const label = { import: "@bb/db", export: 1 };',
-        "const pattern = /from [\"']@bb\\/db[\"']/u;",
-        '// import("@bb/db") or require(name)',
-        '/* export * from "@bb/db"; */',
-        "const text = \"import('@bb/db')\";",
-        'const doc = `require(name) from "@bb/db"`;',
+        'const label = { import: "@hyperfide/db", export: 1 };',
+        "const pattern = /from [\"']@hyperfide\\/db[\"']/u;",
+        '// import("@hyperfide/db") or require(name)',
+        '/* export * from "@hyperfide/db"; */',
+        "const text = \"import('@hyperfide/db')\";",
+        'const doc = `require(name) from "@hyperfide/db"`;',
         "const url = import.meta.url;",
         "",
       ].join("\n"),
@@ -145,11 +145,11 @@ describe("experimental_scanPublicSdkOnly", () => {
         "",
       ].join("\n"),
       "app.tsx": [
-        'import "@get-bb/plugin-sdk/app";',
+        'import "@hyperfide/plugin-sdk/app";',
         "export function Panel<T,>(props: { items: T[] }) {",
         "  return (",
         '    <section title="don\'t import">',
-        '      <p>Can\'t import (beta) from "@bb/db" // or require(it)</p>',
+        '      <p>Can\'t import (beta) from "@hyperfide/db" // or require(it)</p>',
         "      {props.items.length > 0 ? <List items={props.items} /> : null}",
         "      <>{/* import(name) */}</>",
         "    </section>",
@@ -164,23 +164,23 @@ describe("experimental_scanPublicSdkOnly", () => {
   it("still reports every real import form, including ones the old text scan read", () => {
     plant({
       "server.ts": [
-        'import type { Event } from "@bb/domain";',
+        'import type { Event } from "@hyperfide/domain";',
         'import defaultThing, { named } from "yaml";',
-        'import * as ns from "@bb/sdk";',
+        'import * as ns from "@hyperfide/sdk";',
         'import "side-effect";',
-        'import legacy = require("@bb/legacy");',
-        'export { thing } from "@bb/reexport";',
-        'export * as all from "@bb/star";',
-        'export type { Shape } from "@bb/types";',
-        'type Lazy = typeof import("@bb/lazy-type");',
+        'import legacy = require("@hyperfide/legacy");',
+        'export { thing } from "@hyperfide/reexport";',
+        'export * as all from "@hyperfide/star";',
+        'export type { Shape } from "@hyperfide/types";',
+        'type Lazy = typeof import("@hyperfide/lazy-type");',
         "const lazy = cond ? import(spec) : null;",
-        'const nested = `${await import("@bb/in-template")}`;',
-        'const viaRequire = [require("@bb/required")];',
+        'const nested = `${await import("@hyperfide/in-template")}`;',
+        'const viaRequire = [require("@hyperfide/required")];',
         "",
       ].join("\n"),
       "app.tsx": [
         "export const View = () => (",
-        '  <div onClick={() => import("@bb/from-jsx")}>{require(name)}</div>',
+        '  <div onClick={() => import("@hyperfide/from-jsx")}>{require(name)}</div>',
         ");",
         "",
       ].join("\n"),
@@ -191,36 +191,36 @@ describe("experimental_scanPublicSdkOnly", () => {
         .filter((violation) => violation.file === file)
         .map(({ specifier, reason }) => `${reason} ${specifier}`);
     expect(reported("app.tsx")).toEqual([
-      "private-package @bb/from-jsx",
+      "private-package @hyperfide/from-jsx",
       "dynamic-specifier name",
     ]);
     expect(reported("server.ts")).toEqual([
-      "private-package @bb/domain",
+      "private-package @hyperfide/domain",
       "outside-allowlist yaml",
-      "private-package @bb/sdk",
+      "private-package @hyperfide/sdk",
       "outside-allowlist side-effect",
-      "private-package @bb/legacy",
-      "private-package @bb/reexport",
-      "private-package @bb/star",
-      "private-package @bb/types",
-      "private-package @bb/lazy-type",
+      "private-package @hyperfide/legacy",
+      "private-package @hyperfide/reexport",
+      "private-package @hyperfide/star",
+      "private-package @hyperfide/types",
+      "private-package @hyperfide/lazy-type",
       "dynamic-specifier spec",
-      "private-package @bb/in-template",
-      "private-package @bb/required",
+      "private-package @hyperfide/in-template",
+      "private-package @hyperfide/required",
     ]);
   });
 
-  it("lists @bb/* names from both dependency blocks of package.json", () => {
+  it("lists @hyperfide/* names from both dependency blocks of package.json", () => {
     plant(
       { "server.ts": "" },
       {
-        dependencies: { "@get-bb/plugin-sdk": "^0.4.0", "@bb/domain": "*" },
-        devDependencies: { vitest: "^4", "@bb/test-helpers": "*" },
+        dependencies: { "@hyperfide/plugin-sdk": "^0.4.0", "@hyperfide/domain": "*" },
+        devDependencies: { vitest: "^4", "@hyperfide/test-helpers": "*" },
       },
     );
     expect(scanPublicSdkOnly(packageRoot).privateDependencies).toEqual([
-      "@bb/domain",
-      "@bb/test-helpers",
+      "@hyperfide/domain",
+      "@hyperfide/test-helpers",
     ]);
   });
 });

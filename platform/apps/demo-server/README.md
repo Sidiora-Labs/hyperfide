@@ -25,8 +25,8 @@ From the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm exec turbo run build typecheck test --filter=@bb/demo-server
-pnpm --filter @bb/demo-server exec wrangler dev --local --port 41998
+pnpm exec turbo run build typecheck test --filter=@hyperfide/demo-server
+pnpm --filter @hyperfide/demo-server exec wrangler dev --local --port 41998
 ```
 
 The Worker tests start an isolated local Wrangler instance and check real shell
@@ -44,7 +44,7 @@ packages, plugins, or shared build inputs change. It also supports manual dispat
 For a manual deployment, build and verify first, then run:
 
 ```sh
-pnpm --filter @bb/demo-server exec wrangler deploy
+pnpm --filter @hyperfide/demo-server exec wrangler deploy
 ```
 
 After deployment, check `/health`, `/`, and a sample thread deep link, then repeat

@@ -17,7 +17,7 @@ import type {
   ProcessExitResult,
 } from "../src/lib/process-helpers.js";
 import type { WritePidFileRequest } from "../src/lib/pid-file.js";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 
 interface FakeRuntimeWaiter {
   predicate(): boolean;

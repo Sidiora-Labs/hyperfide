@@ -1,4 +1,4 @@
-import type { PluginMarketplaceCategory } from "@bb/domain";
+import type { PluginMarketplaceCategory } from "@hyperfide/domain";
 import type {
   PluginApplyUpdateResult as SdkPluginApplyUpdateResult,
   PluginCatalogAuthor,
@@ -9,7 +9,7 @@ import type {
   PluginMarketplaceRefreshResult,
   PluginSourceDetail as SdkPluginSourceDetail,
   PluginUpdateCheckEntry,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { invalidatePluginList } from "../cache-owners/plugin-cache-owner";
 import { createPluginsClient } from "./plugin-client";

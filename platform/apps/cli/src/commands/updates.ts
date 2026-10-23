@@ -1,16 +1,16 @@
 import { Command } from "commander";
-import type { Host } from "@bb/domain";
+import type { Host } from "@hyperfide/domain";
 import {
   UPDATE_STATE_PRESENTATION,
   type UpdateState,
-} from "@bb/domain/update-state";
+} from "@hyperfide/domain/update-state";
 import type {
   HostProviderCliStatusResponse,
   SystemAppUpdateResult,
   SystemAppUpdateRevision,
   SystemAppUpdateStatus,
   SystemVersionResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { action, CliExitError } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { columnWidths, printBorderlessTable } from "../table.js";

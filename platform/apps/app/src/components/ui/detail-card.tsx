@@ -1,6 +1,6 @@
 import { type CSSProperties, type ReactNode, type UIEventHandler } from "react";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 export const DETAIL_ROW_ICON_CLASS =
   "size-3 shrink-0 text-subtle-foreground max-md:pointer-coarse:size-4";

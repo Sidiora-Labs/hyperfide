@@ -4,7 +4,7 @@ import {
   UrlLink,
   useBbNavigate,
   type PluginPendingInteractionProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { QuestionForm } from "@/components/ui/question-form";

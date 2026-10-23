@@ -20,10 +20,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   PluginComposerApi,
   PluginComposerScope,
-} from "@get-bb/plugin-sdk";
-import type { PromptDraftState } from "@bb/client-core";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+} from "@hyperfide/plugin-sdk";
+import type { PromptDraftState } from "@hyperfide/client-core";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { PluginContext } from "@/components/plugin/plugin-context";
 import { resetAllCrashedPluginSlotsForTest } from "@/components/plugin/PluginSlotMount";
 import type { PluginComposerHost } from "@/components/plugin/plugin-composer-host";

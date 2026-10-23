@@ -12,7 +12,7 @@ import {
 } from "./upstream-transport.js";
 import path from "node:path";
 import { z } from "zod";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { registerPoolCli } from "./cli.js";
 import {
   accountPoolConfigSchema,

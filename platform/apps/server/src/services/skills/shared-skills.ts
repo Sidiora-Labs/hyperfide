@@ -5,9 +5,9 @@ import {
   normalizeProviderNativeRoots,
   providerNativeRootsAreEmpty,
   type ProviderNativeRoots,
-} from "@bb/domain";
-import type { DiscoveredSkill } from "@bb/host-daemon-contract";
-import type { SkillSummary } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { DiscoveredSkill } from "@hyperfide/host-daemon-contract";
+import type { SkillSummary } from "@hyperfide/server-contract";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import type { LoggedWorkSessionDeps } from "../../types.js";
 import { callHostRetryableOnlineRpc } from "../hosts/online-rpc.js";

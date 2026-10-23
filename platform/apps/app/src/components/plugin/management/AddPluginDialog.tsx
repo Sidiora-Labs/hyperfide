@@ -5,8 +5,8 @@ import {
   type PluginCatalogInstallPlan,
   type PluginCatalogResolvedSource,
   type PluginInstallJob,
-} from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
+} from "@hyperfide/server-contract";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   Dialog,
   DialogContent,
@@ -14,9 +14,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Icon } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
+} from "@hyperfide/shared-ui/dialog";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { Input } from "@hyperfide/shared-ui/input";
 import { pluginAdminErrorMessage } from "@/lib/plugin-admin-error";
 import { applyPluginInstallJob } from "@/hooks/cache-owners/plugin-cache-owner";
 import { useCatalogInstallPlan } from "@/hooks/queries/plugin-catalog-queries";

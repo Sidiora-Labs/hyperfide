@@ -22,7 +22,7 @@ import {
   type ExperimentalComposerInput,
   type ExperimentalDroppedThreadMention,
   type ExperimentalComposerPromptAction as PromptBoxAction,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import type { Node as ProseMirrorNode, Slice } from "@tiptap/pm/model";
 import { CommandManager } from "@tiptap/core";
 import { closeHistory } from "@tiptap/pm/history";

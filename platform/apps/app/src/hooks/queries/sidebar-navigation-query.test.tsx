@@ -4,7 +4,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import {
   sidebarBootstrapResponseSchema,
   type SidebarBootstrapResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { request } from "@/lib/api";
 import {
@@ -12,7 +12,7 @@ import {
   SIDEBAR_BOOTSTRAP_CACHE_KEY,
   resetSidebarBootstrapCacheForTest,
 } from "@/lib/sidebar-bootstrap-cache";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { useSidebarNavigation } from "./sidebar-navigation-query";
 import {

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { THREAD_CONTEXT_CLEAR_OPERATION } from "@bb/domain";
+import { THREAD_CONTEXT_CLEAR_OPERATION } from "@hyperfide/domain";
 import {
   advanceThreadPruning,
   deleteThreadEventSuffixInTransaction,
   getLatestCompletedThreadContextClearSequence,
   getLatestThreadSequence,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   clearTimelineOrderingContextCache,
   getTimelineGroupingContext,

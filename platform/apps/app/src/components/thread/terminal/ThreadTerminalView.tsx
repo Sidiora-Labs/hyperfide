@@ -21,14 +21,14 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@bb/shared-ui/context-menu";
-import { TERMINAL_DATA_MAX_BYTES } from "@bb/domain";
-import { useMediaQuery } from "@bb/shared-ui/hooks/use-media-query";
+} from "@hyperfide/shared-ui/context-menu";
+import { TERMINAL_DATA_MAX_BYTES } from "@hyperfide/domain";
+import { useMediaQuery } from "@hyperfide/shared-ui/hooks/use-media-query";
 import { appToast } from "@/components/ui/app-toast";
 import type {
   TerminalServerMessage,
   TerminalSession,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { useAppThemeEpoch } from "@/hooks/useAppTheme";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { usePreferredTheme } from "@/hooks/useTheme";
@@ -50,7 +50,7 @@ import {
   importTerminalModules,
   importTerminalWebglAddon,
 } from "./terminal-modules";
-import { TerminalWebSocketTransport } from "@bb/client-core";
+import { TerminalWebSocketTransport } from "@hyperfide/client-core";
 import { TerminalLinkOpenDialog } from "./TerminalLinkOpenDialog";
 import { TerminalMobileControls } from "./TerminalMobileControls";
 import {

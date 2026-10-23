@@ -1,4 +1,4 @@
-import type { ApiClient } from "@bb/server-contract";
+import type { ApiClient } from "@hyperfide/server-contract";
 import type {
   FetchImplementation,
   JsonBodyOf,

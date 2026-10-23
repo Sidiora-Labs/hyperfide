@@ -9,7 +9,7 @@ import {
 } from "../model/project-thread-groups.js";
 import { sectionKeyForThreadSection } from "../model/section-keys.js";
 import type { CollapsibleSidebarSectionId } from "../model/sidebar-section-id.js";
-import { useBbContext } from "@get-bb/plugin-sdk/app";
+import { useBbContext } from "@hyperfide/plugin-sdk/app";
 import type { OrganizationMode as SidebarOrganizationMode } from "../../shared/preferences.js";
 import { useSidebarData } from "../model/use-sidebar-data.js";
 import {

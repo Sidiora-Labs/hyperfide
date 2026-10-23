@@ -1,4 +1,4 @@
-import { stopProcessGroupLeaderFirst } from "@bb/process-utils";
+import { stopProcessGroupLeaderFirst } from "@hyperfide/process-utils";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -12,7 +12,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const BRIDGE_MODULE = resolve(here, "bridge.ts");
 const FAKE_AGENT_PATH = resolve(here, "fake-acp-agent.mjs");
 const WORKER_ENTRY = fileURLToPath(
-  import.meta.resolve("@bb/provider-bridge-protocol/bridge-worker-entry"),
+  import.meta.resolve("@hyperfide/provider-bridge-protocol/bridge-worker-entry"),
 );
 const TSX_LOADER = import.meta.resolve("tsx");
 

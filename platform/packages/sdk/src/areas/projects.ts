@@ -23,9 +23,9 @@ import type {
   UploadedPromptAttachment,
   WorkspacePathListResponse,
   WorkspaceFileListResponse,
-} from "@bb/server-contract";
-import { uploadedPromptAttachmentSchema } from "@bb/server-contract";
-import type { ProjectExecutionDefaults, ProjectSource } from "@bb/domain";
+} from "@hyperfide/server-contract";
+import { uploadedPromptAttachmentSchema } from "@hyperfide/server-contract";
+import type { ProjectExecutionDefaults, ProjectSource } from "@hyperfide/domain";
 import { signalRequestArgs, type CreateSdkAreaArgs } from "./common.js";
 
 export interface ProjectListArgs {

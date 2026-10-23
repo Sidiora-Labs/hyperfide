@@ -13,7 +13,7 @@ import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   accountSchema,
@@ -1758,12 +1758,12 @@ describe("Account Pool plugin", () => {
           "Claude Code limits Opus to a 200k context window behind a custom base URL; the hub forwards to Anthropic's API",
       },
       {
-        name: "BB_ACCOUNT_POOL_PARENT_URL",
+        name: "HYPERFIDE_ACCOUNT_POOL_PARENT_URL",
         value: { serverPath: "/api/v1/plugins/account-pool/http" },
         reason: "Account Pooler hub for nested bb servers on this machine",
       },
       {
-        name: "BB_ACCOUNT_POOL_PARENT_TOKEN",
+        name: "HYPERFIDE_ACCOUNT_POOL_PARENT_TOKEN",
         value: fixture.key,
         reason: "Account Pooler hub token for this machine",
       },
@@ -7179,8 +7179,8 @@ describe("Account Pool nested proxy", () => {
         args.parentUrl === null
           ? {}
           : {
-              BB_ACCOUNT_POOL_PARENT_URL: args.parentUrl,
-              BB_ACCOUNT_POOL_PARENT_TOKEN: PARENT_TOKEN,
+              HYPERFIDE_ACCOUNT_POOL_PARENT_URL: args.parentUrl,
+              HYPERFIDE_ACCOUNT_POOL_PARENT_TOKEN: PARENT_TOKEN,
             },
     })(host.bb);
     host.harness.behavior.runService("hub");
@@ -7298,8 +7298,8 @@ describe("Account Pool nested proxy", () => {
       "ENABLE_TOOL_SEARCH",
       "_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL",
       "ENABLE_PROMPT_CACHING_1H",
-      "BB_ACCOUNT_POOL_PARENT_URL",
-      "BB_ACCOUNT_POOL_PARENT_TOKEN",
+      "HYPERFIDE_ACCOUNT_POOL_PARENT_URL",
+      "HYPERFIDE_ACCOUNT_POOL_PARENT_TOKEN",
     ]);
     expect(
       entries.find((entry) => entry.name === "ANTHROPIC_BASE_URL")?.value,

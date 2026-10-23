@@ -1,8 +1,8 @@
-import { getAiServiceSelections, setAiServiceSelection } from "@bb/db";
+import { getAiServiceSelections, setAiServiceSelection } from "@hyperfide/db";
 import {
   systemAiServicesResponseSchema,
   testAiServiceResponseSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import { registerFakeAiService } from "../helpers/ai-services.js";
 import { readJson } from "../helpers/json.js";

@@ -1,4 +1,4 @@
-import type { SystemProvidersQuery } from "@bb/server-contract";
+import type { SystemProvidersQuery } from "@hyperfide/server-contract";
 import type { WorkSessionDeps } from "../../types.js";
 import { requireEnvironment } from "../lib/entity-lookup.js";
 import {

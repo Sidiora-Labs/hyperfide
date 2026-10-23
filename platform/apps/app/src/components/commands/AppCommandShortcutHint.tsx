@@ -1,4 +1,4 @@
-import { ShortcutPill } from "@bb/shared-ui/shortcut-pill";
+import { ShortcutPill } from "@hyperfide/shared-ui/shortcut-pill";
 import type { AppShortcutPresentation } from "@/lib/app-keybindings";
 import { useIsAppCommandModifierHeld } from "./AppCommandProvider";
 

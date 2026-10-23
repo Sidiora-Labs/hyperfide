@@ -1,4 +1,4 @@
-import type { IconName } from "@bb/shared-ui/icon";
+import type { IconName } from "@hyperfide/shared-ui/icon";
 import { SETTINGS_ROUTE_PATH, getSettingsRoutePath } from "@/lib/route-paths";
 
 export const SETTINGS_NAV_SECTIONS = [

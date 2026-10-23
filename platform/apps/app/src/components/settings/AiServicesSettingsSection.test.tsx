@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SystemAiServicesResponse } from "@bb/server-contract";
+import type { SystemAiServicesResponse } from "@hyperfide/server-contract";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import {
   AiServicesSettingsSection,

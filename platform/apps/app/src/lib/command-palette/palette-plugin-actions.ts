@@ -1,5 +1,5 @@
-import { pluginCommandId, type PluginCommandId } from "@bb/domain";
-import type { PluginCommandContext } from "@get-bb/plugin-sdk";
+import { pluginCommandId, type PluginCommandId } from "@hyperfide/domain";
+import type { PluginCommandContext } from "@hyperfide/plugin-sdk";
 import type { PluginThreadPanelOpenHandler } from "@/components/plugin/plugin-thread-panel-navigation";
 import type { PluginCommandPaletteActionSlot } from "@/lib/plugin-slots";
 import { getPluginDisplayName } from "@/lib/plugin-logos";

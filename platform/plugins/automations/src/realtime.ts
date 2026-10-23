@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 
 type AutomationSignalKind = "automations-changed" | "automation-runs-changed";
 

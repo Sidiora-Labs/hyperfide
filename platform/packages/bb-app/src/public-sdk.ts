@@ -6,7 +6,7 @@ import {
   createNodeBbSdk,
   type BbSdk,
   type CreateNodeBbSdkArgs,
-} from "@bb/sdk/node";
+} from "@hyperfide/sdk/node";
 import type {
   BbRealtimeSubscribeArgs,
   BbRealtimeSocket,
@@ -14,7 +14,7 @@ import type {
   BbRealtimeSocketMessageEvent,
   ThreadGetResult,
   ThreadStatusArgs,
-} from "@bb/sdk/node";
+} from "@hyperfide/sdk/node";
 
 export {
   BbHttpError,
@@ -22,7 +22,7 @@ export {
   ThreadWaitTimeoutError,
   ThreadWaitUnreachableError,
 };
-export type * from "@bb/sdk/node";
+export type * from "@hyperfide/sdk/node";
 export type {
   GitBranchSelection,
   JsonValue,
@@ -32,15 +32,15 @@ export type {
   ReasoningLevel,
   ServiceTier,
   ThreadStatus,
-} from "@bb/sdk/node";
+} from "@hyperfide/sdk/node";
 export type {
   CreateExecutionInputSources,
   EnvironmentArgs,
   ExistingThreadExecutionInputSources,
   UnmanagedBranchSpec,
   WorkspaceArgs,
-} from "@bb/sdk/node";
-export type { CallerExecutionInputSource as ExecutionInputSource } from "@bb/sdk/node";
+} from "@hyperfide/sdk/node";
+export type { CallerExecutionInputSource as ExecutionInputSource } from "@hyperfide/sdk/node";
 
 export type BBSdkOptions = CreateNodeBbSdkArgs;
 export type BBSdkRealtimeSubscribeArgs = BbRealtimeSubscribeArgs;

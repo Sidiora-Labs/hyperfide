@@ -1,5 +1,5 @@
 {
-  "name": "@bb/mobile-bridge",
+  "name": "@hyperfide/mobile-bridge",
   "version": "0.0.1",
   "type": "module",
   "sideEffects": false,
@@ -20,7 +20,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^4.1.1"

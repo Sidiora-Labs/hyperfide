@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createDebouncedCallbackScheduler } from "@bb/domain";
-import { isPathWithinDirectory } from "@bb/process-utils";
+import { createDebouncedCallbackScheduler } from "@hyperfide/domain";
+import { isPathWithinDirectory } from "@hyperfide/process-utils";
 import {
   RootSubscription,
   type ParcelWatcherEventBatch,

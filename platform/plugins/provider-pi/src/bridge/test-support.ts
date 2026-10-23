@@ -7,12 +7,12 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { vi } from "vitest";
 import { z } from "zod";
-import { experimental_createBridgeJsonRpcTestHarness as createBridgeJsonRpcTestHarness } from "@get-bb/plugin-sdk/provider-bridge/testing";
+import { experimental_createBridgeJsonRpcTestHarness as createBridgeJsonRpcTestHarness } from "@hyperfide/plugin-sdk/provider-bridge/testing";
 import type {
   BridgeJsonRpcId,
   BridgeJsonRpcObject,
   BridgeJsonRpcOutputMessage,
-} from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@hyperfide/plugin-sdk/provider-bridge/testing";
 import { experimental_closeAllForTests, handleLine } from "./bridge.js";
 import { PI_BRIDGE_ARGS_ENV, PI_BRIDGE_COMMAND_ENV } from "./rpc-child.js";
 import { PI_BRIDGE_SESSION_DIR_ENV } from "./session-paths.js";

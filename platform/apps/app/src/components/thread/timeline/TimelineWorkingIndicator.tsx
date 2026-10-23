@@ -1,4 +1,4 @@
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { ExpandableTimelineRow } from "./ExpandableTimelineRow.js";
 import { TimelineReasoningDetail } from "./TimelineReasoningDetail.js";
 import { TimelineStatusIndicator } from "./TimelineStatusIndicator.js";

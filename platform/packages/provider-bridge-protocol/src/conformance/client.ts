@@ -1,4 +1,4 @@
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
 import { z } from "zod";
 import type { BridgeDeltaEventCollector } from "../testing/bridge-delta-assembly.js";
 import { THREAD_DELTA_NOTIFICATION_METHOD } from "../thread-delta.js";

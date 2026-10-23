@@ -1,5 +1,5 @@
 import Table from "cli-table3";
-import { displayWidth, truncateToWidth } from "@bb/text-utils";
+import { displayWidth, truncateToWidth } from "@hyperfide/text-utils";
 
 interface BorderlessTableOptions {
   head: string[];

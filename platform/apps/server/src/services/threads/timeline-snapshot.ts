@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { threadStatusSchema, type Thread } from "@bb/domain";
-import { getLatestThreadSequence, type DbConnection } from "@bb/db";
-import type { TimelinePaginationCursor } from "@bb/server-contract";
+import { threadStatusSchema, type Thread } from "@hyperfide/domain";
+import { getLatestThreadSequence, type DbConnection } from "@hyperfide/db";
+import type { TimelinePaginationCursor } from "@hyperfide/server-contract";
 import { ApiError } from "../../errors.js";
 import type { ThreadTimelinePageRequest } from "./timeline-pagination.js";
 

@@ -5,18 +5,18 @@ import {
   getStoredProviderModelCatalog,
   replaceStoredProviderModelCatalog,
   type ProviderModelCatalogRowKey,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   availableModelSchema,
   providerModelCatalogDependsOnWorkspace,
   type AvailableModel,
   type ProviderInfo,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   HostDaemonBridgeLaunch,
   HostDaemonContributedEnvEntry,
-} from "@bb/host-daemon-contract";
-import type { SystemExecutionOptionsModelLoadErrorCode } from "@bb/server-contract";
+} from "@hyperfide/host-daemon-contract";
+import type { SystemExecutionOptionsModelLoadErrorCode } from "@hyperfide/server-contract";
 import { z } from "zod";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import { ApiError } from "../../errors.js";

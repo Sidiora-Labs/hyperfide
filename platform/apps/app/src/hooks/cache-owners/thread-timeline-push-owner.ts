@@ -1,12 +1,12 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { COMPACT_VIEWPORT_QUERY } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { getMediaQuerySnapshot } from "@bb/shared-ui/hooks/use-media-query";
+import { COMPACT_VIEWPORT_QUERY } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { getMediaQuerySnapshot } from "@hyperfide/shared-ui/hooks/use-media-query";
 import {
   applyTimelineDelta,
   type SystemConfigResponse,
   type ThreadTimelineResponse,
   type ThreadTimelineSignal,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { markStreamTrace } from "@/lib/stream-trace";
 import {
   systemConfigQueryKey,

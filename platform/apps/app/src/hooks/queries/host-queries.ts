@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
-import type { Host } from "@bb/domain";
+import type { Host } from "@hyperfide/domain";
 import type {
   HostDirectoryListing,
   HostDiscoveredReposResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { sdk } from "@/lib/sdk";
 import { useHostListRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { useSystemConfig } from "@/hooks/queries/system-queries";

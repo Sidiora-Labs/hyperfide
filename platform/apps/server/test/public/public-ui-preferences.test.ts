@@ -1,5 +1,5 @@
-import { overwriteStoredUiPreference } from "@bb/db";
-import { defaultUiPreferences, UI_PREFERENCE_KEYS } from "@bb/domain";
+import { overwriteStoredUiPreference } from "@hyperfide/db";
+import { defaultUiPreferences, UI_PREFERENCE_KEYS } from "@hyperfide/domain";
 import { describe, expect, it, vi } from "vitest";
 import { readJson } from "../helpers/json.js";
 import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";

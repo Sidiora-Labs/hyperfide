@@ -1,5 +1,5 @@
 import type { RetryAvailability } from "./retry-contract.js";
-import type { PluginTurnFailedEvent } from "@get-bb/plugin-sdk";
+import type { PluginTurnFailedEvent } from "@hyperfide/plugin-sdk";
 
 export const RESET_BUFFER_MS = 15_000;
 

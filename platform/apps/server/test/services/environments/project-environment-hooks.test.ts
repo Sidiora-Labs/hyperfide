@@ -1,4 +1,4 @@
-import { projects, updateHost } from "@bb/db";
+import { projects, updateHost } from "@hyperfide/db";
 import { expect, it } from "vitest";
 import { runEnvironmentHook } from "../../../src/services/environments/environment-hooks.js";
 import { setMachineEnvironmentVariable } from "../../../src/services/machines/environment-storage.js";

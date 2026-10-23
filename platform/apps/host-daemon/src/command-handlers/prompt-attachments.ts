@@ -4,8 +4,8 @@ import {
   PROMPT_ATTACHMENT_MAX_BYTES,
   type ClientTurnRequestId,
   type PromptInput,
-} from "@bb/domain";
-import { resolveContainedPath } from "@bb/process-utils";
+} from "@hyperfide/domain";
+import { resolveContainedPath } from "@hyperfide/process-utils";
 import {
   CommandDispatchError,
   type CommandDispatchOptions,

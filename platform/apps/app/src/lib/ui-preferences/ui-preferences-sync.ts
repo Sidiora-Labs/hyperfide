@@ -5,13 +5,13 @@ import type {
   UiPreferenceEntry,
   UiPreferenceKey,
   UiPreferenceValue,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   updateUiPreferenceRoute,
   UI_PREFERENCES_TAG,
   type UiPreferencesResponse,
-} from "@bb/server-contract";
-import { CORE_TAG_SCOPE, invalidateTags } from "@bb/query-tags";
+} from "@hyperfide/server-contract";
+import { CORE_TAG_SCOPE, invalidateTags } from "@hyperfide/query-tags";
 import { appToast } from "@/components/ui/app-toast";
 import { uiPreferencesQueryOptions } from "@/hooks/queries/system-queries";
 import { runRouteMutation } from "@/hooks/queries/route-tags";

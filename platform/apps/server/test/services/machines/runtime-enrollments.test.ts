@@ -6,9 +6,9 @@ import {
   listPublicHosts,
   hosts,
   setAppSettings,
-} from "@bb/db";
-import { defaultAppSettings } from "@bb/domain";
-import type { ServerAccessGrant } from "@get-bb/plugin-sdk";
+} from "@hyperfide/db";
+import { defaultAppSettings } from "@hyperfide/domain";
+import type { ServerAccessGrant } from "@hyperfide/plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
 import { getMachineEnrollmentService } from "../../../src/services/machines/machine-services.js";
 import { serverAccess } from "../../../src/services/machines/server-access.js";

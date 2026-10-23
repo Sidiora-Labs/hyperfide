@@ -1,13 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { AgentRuntime } from "@bb/agent-runtime";
+import type { AgentRuntime } from "@hyperfide/agent-runtime";
 import type {
   HostDaemonInjectedSkillSource,
   ProviderCliInstallEvent,
   ProviderCliStatus,
-} from "@bb/host-daemon-contract";
-import type { HostWorkspace } from "@bb/host-workspace";
-import { createDeferredPromise, makeTempDir } from "@bb/test-helpers";
+} from "@hyperfide/host-daemon-contract";
+import type { HostWorkspace } from "@hyperfide/host-workspace";
+import { createDeferredPromise, makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it, vi, type Mock } from "vitest";
 import {
   dispatchCommand,

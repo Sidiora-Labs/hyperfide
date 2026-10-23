@@ -12,14 +12,14 @@ import type {
   ProviderUsage,
   ProviderUsageResult,
   ProviderUsageWindow,
-} from "@bb/provider-bridge-protocol";
-import { execPortableFile } from "@bb/process-utils";
+} from "@hyperfide/provider-bridge-protocol";
+import { execPortableFile } from "@hyperfide/process-utils";
 import {
   clampPercent,
   downloadedInstallerCommand,
   resolveExecutablePath,
   versionFrom,
-} from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import { z } from "zod";
 import { readOpenCodeGoUsage } from "./opencode-usage.js";
 

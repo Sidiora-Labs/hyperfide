@@ -9,7 +9,7 @@ import { DiffHost } from "./DiffHost";
 import { SourceCodeHost } from "./SourceCodeHost";
 
 const downloads = await vi.hoisted(async () => {
-  const { createDeferredPromise } = await import("@bb/test-helpers");
+  const { createDeferredPromise } = await import("@hyperfide/test-helpers");
   return {
     diff: createDeferredPromise<void>(),
     source: createDeferredPromise<void>(),

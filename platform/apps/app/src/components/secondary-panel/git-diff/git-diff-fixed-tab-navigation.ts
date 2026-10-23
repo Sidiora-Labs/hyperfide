@@ -1,4 +1,4 @@
-import type { JsonValue } from "@get-bb/plugin-sdk";
+import type { JsonValue } from "@hyperfide/plugin-sdk";
 import type { AppFixedTabDestination } from "@/lib/app-fixed-tab-navigation";
 import type { AppFixedTabReference } from "@/lib/app-navigation-host";
 

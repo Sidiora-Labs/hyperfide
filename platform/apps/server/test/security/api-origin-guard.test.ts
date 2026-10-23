@@ -1,5 +1,5 @@
 import http from "node:http";
-import { createNodeBbSdk } from "@bb/sdk/node";
+import { createNodeBbSdk } from "@hyperfide/sdk/node";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   startTestServer,

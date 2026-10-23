@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type {
   PluginInstallJob,
   PluginInstallJobState,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { makeInstalledPlugin } from "@/test/fixtures/plugins";
 import { appToast } from "@/components/ui/app-toast";
 import {

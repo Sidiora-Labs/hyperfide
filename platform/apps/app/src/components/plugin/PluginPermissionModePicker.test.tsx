@@ -8,9 +8,9 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import type { PermissionMode, ProviderInfo } from "@bb/domain";
-import { makeProviderInfo } from "@bb/test-helpers/domain-fixtures";
-import type { SystemExecutionOptionsResponse } from "@bb/server-contract";
+import type { PermissionMode, ProviderInfo } from "@hyperfide/domain";
+import { makeProviderInfo } from "@hyperfide/test-helpers/domain-fixtures";
+import type { SystemExecutionOptionsResponse } from "@hyperfide/server-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { systemExecutionOptionsQueryKey } from "@/hooks/queries/query-keys";
 import {

@@ -3,7 +3,7 @@ import {
   cliCommand,
   defineCli,
   type BbPluginApi,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 export const MAX_CUSTOM_INSTRUCTIONS_LENGTH = 4096;

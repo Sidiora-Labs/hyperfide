@@ -18,8 +18,8 @@ import type { QueryClient } from "@tanstack/react-query";
 import type {
   ThreadTimelineResponse,
   TimelineUserConversationRow,
-} from "@bb/server-contract";
-import { createDeferredPromise, type DeferredPromise } from "@bb/test-helpers";
+} from "@hyperfide/server-contract";
+import { createDeferredPromise, type DeferredPromise } from "@hyperfide/test-helpers";
 import {
   afterEach,
   beforeEach,

@@ -4,7 +4,7 @@ import { cleanup, render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { useEffect } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { defaultAppSettings, type AppDefaultKeybinding } from "@bb/domain";
+import { defaultAppSettings, type AppDefaultKeybinding } from "@hyperfide/domain";
 import {
   AppCommandProvider,
   useAppCommandRunner,

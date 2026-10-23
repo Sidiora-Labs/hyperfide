@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { threadScope, type PromptInput } from "@bb/domain";
+import { threadScope, type PromptInput } from "@hyperfide/domain";
 import { noopNotifier } from "../../src/notifier.js";
 import { insertEvents } from "../../src/data/events.js";
 import {

@@ -5,13 +5,13 @@ import {
   countAppliedMigrations,
   getExperiments,
   type DbConnection,
-} from "@bb/db";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+} from "@hyperfide/db";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract";
 import {
   listServerOwnedEntries,
   writeServerArchive,
   type ServerArchiveSourceFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import type { ServerLogger } from "../../types.js";
 import { listOldCopyEntries } from "./switch.js";
 

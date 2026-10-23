@@ -6,15 +6,15 @@ import { createInterface } from "node:readline/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { Command, Option } from "commander";
 import { z } from "zod";
-import { derivePluginId, jsonValueSchema } from "@bb/domain";
+import { derivePluginId, jsonValueSchema } from "@hyperfide/domain";
 import {
   pluginCliCall,
   RESERVED_HYPERFIDE_CLI_COMMANDS,
-} from "@bb/domain/plugin-cli";
+} from "@hyperfide/domain/plugin-cli";
 import {
   pluginInstallBadge,
   type PluginInstallBadge,
-} from "@bb/domain/plugin-install-badge";
+} from "@hyperfide/domain/plugin-install-badge";
 import type {
   InstalledPlugin as PluginEntry,
   PluginApplyUpdateResult,
@@ -22,17 +22,17 @@ import type {
   PluginCatalogResolvedSource,
   PluginCatalogSearchResult,
   PluginUpdateCheckEntry as PluginUpdateResult,
-} from "@bb/server-contract";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
-import { BbHttpError, pluginMutationResponseSchema } from "@bb/sdk";
-import { parseDataDirEnvValue, resolveProdDataDir } from "@bb/config/runtime";
+} from "@hyperfide/server-contract";
+import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
+import { BbHttpError, pluginMutationResponseSchema } from "@hyperfide/sdk";
+import { parseDataDirEnvValue, resolveProdDataDir } from "@hyperfide/config/runtime";
 import {
   migratePluginToPackageLayout,
   resolvePluginSdkLayout,
   scaffoldPlugin,
   setPluginSdkPin,
   type PluginPackageLayoutMigration,
-} from "@bb/templates/plugin-scaffold";
+} from "@hyperfide/templates/plugin-scaffold";
 import { action, CliExitError } from "../action.js";
 import { cliFetch, createCliBbSdk } from "../client.js";
 import {
@@ -43,7 +43,7 @@ import {
   PLUGIN_TOOLCHAIN_PINS,
   resolvePluginBuildToolchain,
   type PluginBuildToolchain,
-} from "@bb/plugin-build";
+} from "@hyperfide/plugin-build";
 import { runPluginCliCommand } from "../plugin-cli-proxy.js";
 import { resolveBbCliVersion } from "../version.js";
 
@@ -199,19 +199,19 @@ function warnIfSdkPinIsStale(pin: string | null): void {
   if (pin === null || !EXACT_VERSION_PATTERN.test(pin)) return;
   if (pin === PLUGIN_SDK_VERSION) return;
   console.warn(
-    `This plugin pins @get-bb/plugin-sdk ${pin}; this bb's SDK is ${PLUGIN_SDK_VERSION} — \`hyperfide-platform plugin types\` updates the pin.`,
+    `This plugin pins @hyperfide/plugin-sdk ${pin}; this bb's SDK is ${PLUGIN_SDK_VERSION} — \`hyperfide-platform plugin types\` updates the pin.`,
   );
 }
 
 function printMigrationPlan(plan: PluginPackageLayoutMigration): void {
   if (plan.pin !== null) {
     console.log(
-      `  package.json   devDependencies "@get-bb/plugin-sdk": ${plan.pin.from ?? "(none)"} → ${plan.pin.to}`,
+      `  package.json   devDependencies "@hyperfide/plugin-sdk": ${plan.pin.from ?? "(none)"} → ${plan.pin.to}`,
     );
   }
   if (plan.movedFromDependencies) {
     console.log(
-      '  package.json   move "@get-bb/plugin-sdk" from dependencies to devDependencies',
+      '  package.json   move "@hyperfide/plugin-sdk" from dependencies to devDependencies',
     );
   }
   if (plan.enginesFloor !== null) {
@@ -233,7 +233,7 @@ function printMigrationPlan(plan: PluginPackageLayoutMigration): void {
   }
   for (const file of plan.rewrittenImports) {
     console.log(
-      `  rewrite        ${file.path} (${file.imports} import${file.imports === 1 ? "" : "s"} of "@bb/plugin-sdk" → "@get-bb/plugin-sdk")`,
+      `  rewrite        ${file.path} (${file.imports} import${file.imports === 1 ? "" : "s"} of "@hyperfide/plugin-sdk" → "@hyperfide/plugin-sdk")`,
     );
   }
 }
@@ -318,7 +318,7 @@ async function warnIfSdkVersionUnpublished(): Promise<void> {
   if (status === "published") return;
   if (status === "unknown") {
     console.warn(
-      `Warning: could not reach the npm registry to verify that @get-bb/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — is published.`,
+      `Warning: could not reach the npm registry to verify that @hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — is published.`,
     );
     console.warn(
       "  If `npm install` fails to resolve it, the version may not be on your registry yet.",
@@ -326,7 +326,7 @@ async function warnIfSdkVersionUnpublished(): Promise<void> {
     return;
   }
   console.warn(
-    `Warning: @get-bb/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — was not found on npm.`,
+    `Warning: @hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — was not found on npm.`,
   );
   console.warn(
     "  `npm install` in the new plugin will fail until that version publishes.",
@@ -337,7 +337,7 @@ async function warnIfSdkVersionUnpublished(): Promise<void> {
   console.warn("  devDependency at the tarball:");
   console.warn("    (cd <bb-repo>/packages/plugin-sdk && npm pack)");
   console.warn(
-    '    npm pkg set devDependencies.@get-bb/plugin-sdk="file:/abs/path/to/get-bb-plugin-sdk-' +
+    '    npm pkg set devDependencies.@hyperfide/plugin-sdk="file:/abs/path/to/get-bb-plugin-sdk-' +
       `${PLUGIN_SDK_VERSION}.tgz"`,
   );
 }
@@ -359,7 +359,7 @@ async function probeSdkVersionPublished(): Promise<
 > {
   try {
     const { stdout } = await execNpm(
-      ["view", `@get-bb/plugin-sdk@${PLUGIN_SDK_VERSION}`, "version", "--json"],
+      ["view", `@hyperfide/plugin-sdk@${PLUGIN_SDK_VERSION}`, "version", "--json"],
       { timeout: 5_000, killSignal: "SIGKILL" },
     );
     return stdout.trim().length === 0 ? "missing" : "published";
@@ -1489,7 +1489,7 @@ export function registerPluginCommands(
   plugin
     .command("types [path]")
     .description(
-      "Sync a package-layout plugin's @get-bb/plugin-sdk surface to the running bb (default: cwd): repin the npm devDependency and the declared type-only devDependencies of the packages bb shims at runtime (sonner, vaul, the portal radix families, ...); legacy vendored-layout plugins must migrate first",
+      "Sync a package-layout plugin's @hyperfide/plugin-sdk surface to the running bb (default: cwd): repin the npm devDependency and the declared type-only devDependencies of the packages bb shims at runtime (sonner, vaul, the portal radix families, ...); legacy vendored-layout plugins must migrate first",
     )
     .option(
       "--check",
@@ -1508,7 +1508,7 @@ export function registerPluginCommands(
         if (layout.kind === "package") {
           if (opts.check) {
             console.log(
-              `This plugin uses the npm package @get-bb/plugin-sdk; pin is ${layout.pin ?? "not declared"}, host is ${PLUGIN_SDK_VERSION}.`,
+              `This plugin uses the npm package @hyperfide/plugin-sdk; pin is ${layout.pin ?? "not declared"}, host is ${PLUGIN_SDK_VERSION}.`,
             );
             const pending = await setPluginSdkPin({
               rootDir,
@@ -1517,15 +1517,15 @@ export function registerPluginCommands(
             });
             if (pending === null) {
               console.log(
-                "The declarations are in node_modules/@get-bb/plugin-sdk/bundled-types/ — read them for exact signatures.",
+                "The declarations are in node_modules/@hyperfide/plugin-sdk/bundled-types/ — read them for exact signatures.",
               );
               return;
             }
             if (pending.pin !== null || pending.movedFromDependencies) {
               console.error(
                 pending.pin === null
-                  ? 'Move "@get-bb/plugin-sdk" from dependencies to devDependencies — bb provides its runtime (`hyperfide-platform plugin types` does it for you).'
-                  : `Set "@get-bb/plugin-sdk" to ${PLUGIN_SDK_VERSION} in devDependencies and re-run npm install (\`hyperfide-platform plugin types\` does it for you).`,
+                  ? 'Move "@hyperfide/plugin-sdk" from dependencies to devDependencies — bb provides its runtime (`hyperfide-platform plugin types` does it for you).'
+                  : `Set "@hyperfide/plugin-sdk" to ${PLUGIN_SDK_VERSION} in devDependencies and re-run npm install (\`hyperfide-platform plugin types\` does it for you).`,
               );
             }
             for (const shim of pending.shimmedTypePins) {
@@ -1543,21 +1543,21 @@ export function registerPluginCommands(
           });
           if (changed === null) {
             console.log(
-              `@get-bb/plugin-sdk is already pinned to ${PLUGIN_SDK_VERSION} — this bb's SDK version${hasApp ? ", and the declared runtime-shimmed packages are at this bb's versions" : ""}.`,
+              `@hyperfide/plugin-sdk is already pinned to ${PLUGIN_SDK_VERSION} — this bb's SDK version${hasApp ? ", and the declared runtime-shimmed packages are at this bb's versions" : ""}.`,
             );
             console.log(
-              "The declarations are in node_modules/@get-bb/plugin-sdk/bundled-types/ — read them for exact signatures.",
+              "The declarations are in node_modules/@hyperfide/plugin-sdk/bundled-types/ — read them for exact signatures.",
             );
             return;
           }
           if (changed.pin !== null) {
             console.log(
-              `@get-bb/plugin-sdk: ${changed.pin.from ?? "(not declared)"} → ${changed.pin.to} in devDependencies.`,
+              `@hyperfide/plugin-sdk: ${changed.pin.from ?? "(not declared)"} → ${changed.pin.to} in devDependencies.`,
             );
           }
           if (changed.movedFromDependencies) {
             console.log(
-              "Moved @get-bb/plugin-sdk from dependencies to devDependencies.",
+              "Moved @hyperfide/plugin-sdk from dependencies to devDependencies.",
             );
           }
           for (const shim of changed.shimmedTypePins) {
@@ -1577,7 +1577,7 @@ export function registerPluginCommands(
   plugin
     .command("migrate [path]")
     .description(
-      "Switch a plugin that vendors types/ to the @get-bb/plugin-sdk npm package (default: cwd): pin the devDependency, drop the tsconfig path map, delete the vendored declarations, and rewrite pre-rename @bb/plugin-sdk imports in the plugin's sources; prints the plan and asks first",
+      "Switch a plugin that vendors types/ to the @hyperfide/plugin-sdk npm package (default: cwd): pin the devDependency, drop the tsconfig path map, delete the vendored declarations, and rewrite pre-rename @hyperfide/plugin-sdk imports in the plugin's sources; prints the plan and asks first",
     )
     .option("--yes", "Skip the confirmation prompt")
     .action(
@@ -1592,14 +1592,14 @@ export function registerPluginCommands(
         });
         if (!plan.changed) {
           console.log(
-            `Already migrated: this plugin uses the @get-bb/plugin-sdk npm package (pin ${layout.pin ?? "not declared"}).`,
+            `Already migrated: this plugin uses the @hyperfide/plugin-sdk npm package (pin ${layout.pin ?? "not declared"}).`,
           );
           return;
         }
         console.log(
           layout.kind === "vendored"
-            ? `${rootDir} vendors its SDK declarations. Migrating to the @get-bb/plugin-sdk npm package will:`
-            : `${rootDir} is missing part of the @get-bb/plugin-sdk npm package layout. Completing the migration will:`,
+            ? `${rootDir} vendors its SDK declarations. Migrating to the @hyperfide/plugin-sdk npm package will:`
+            : `${rootDir} is missing part of the @hyperfide/plugin-sdk npm package layout. Completing the migration will:`,
         );
         printMigrationPlan(plan);
         await confirmPluginAction(
@@ -1622,7 +1622,7 @@ export function registerPluginCommands(
           rootDir,
           sdkVersion: PLUGIN_SDK_VERSION,
         });
-        console.log("Migrated to the @get-bb/plugin-sdk npm package.");
+        console.log("Migrated to the @hyperfide/plugin-sdk npm package.");
         if (plan.removedTypesDir && !applied.removedTypesDir) {
           console.warn(
             `Warning: ${join(rootDir, "types")} still exists — a file appeared in it during the migration, so it was left in place along with the tsconfig "types" include.`,

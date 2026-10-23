@@ -15,21 +15,21 @@ import {
   listThreadEventSuffixBackgroundSettlementRows,
   type AppendStoredThreadEventArgs,
   type DbQueryConnection,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   threadScope,
   type PromptInput,
   type Thread,
   type ThreadEvent,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   EditMessageRequest,
   EditMessageResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   HostDaemonCommand,
   HostDaemonCommandResult,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
 import {

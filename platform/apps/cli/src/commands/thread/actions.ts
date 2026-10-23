@@ -7,8 +7,8 @@ import {
   type ServiceTier,
   type ThreadParentNotifications,
   type ThreadVisibility,
-} from "@bb/domain";
-import { threadEnvironmentUnavailableApiErrorSchema } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import { threadEnvironmentUnavailableApiErrorSchema } from "@hyperfide/server-contract";
 import { action, CliExitError } from "../../action.js";
 import { createCliBbSdk } from "../../client.js";
 import { requireTextInput, TEXT_FILE_HELP_SUFFIX } from "../../text-input.js";
@@ -16,8 +16,8 @@ import {
   BbHttpError,
   type ThreadRetryResult,
   type ThreadSendResult,
-} from "@bb/sdk";
-import type { QueuedMessageWaitingOn } from "@bb/domain";
+} from "@hyperfide/sdk";
+import type { QueuedMessageWaitingOn } from "@hyperfide/domain";
 import {
   collectOption,
   confirmDestructiveAction,

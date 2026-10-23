@@ -1,4 +1,4 @@
-import { createBrowserBbSdk, type BrowserBbSdk } from "@bb/sdk/browser";
+import { createBrowserBbSdk, type BrowserBbSdk } from "@hyperfide/sdk/browser";
 import type { ServerProfile } from "../profiles/profile";
 import {
   createMobileRealtime,

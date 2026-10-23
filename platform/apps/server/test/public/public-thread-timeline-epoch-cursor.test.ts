@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { defaultFeatureFlags, turnScope } from "@bb/domain";
-import { prependOlderTimelineRows } from "@bb/client-core";
+import { defaultFeatureFlags, turnScope } from "@hyperfide/domain";
+import { prependOlderTimelineRows } from "@hyperfide/client-core";
 import {
   threadTimelineResponseSchema,
   type TimelinePaginationCursor,
   type TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import { seedEvent, seedThreadFixture } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";

@@ -19,7 +19,7 @@ import {
   type PluginNavPanelProps,
   type ExperimentalThreadActionTabProps,
   type ExperimentalLiveFileTarget,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   DOMParser as ProseMirrorDOMParser,
   type Node as ProseMirrorNode,

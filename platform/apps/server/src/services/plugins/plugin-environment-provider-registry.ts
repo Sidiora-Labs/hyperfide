@@ -1,5 +1,5 @@
-import type { NormalizedPluginEnvironmentComposition } from "@get-bb/plugin-sdk/internal/host-policy";
-import type { NormalizedPluginEnvironmentProvider } from "@get-bb/plugin-sdk/internal/host-policy";
+import type { NormalizedPluginEnvironmentComposition } from "@hyperfide/plugin-sdk/internal/host-policy";
+import type { NormalizedPluginEnvironmentProvider } from "@hyperfide/plugin-sdk/internal/host-policy";
 import {
   DEFAULT_PLUGIN_HOOK_TIMEOUT_MS,
   invokeBridgedProvider,

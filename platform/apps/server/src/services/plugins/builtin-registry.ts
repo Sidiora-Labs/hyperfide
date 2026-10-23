@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { RETIRED_PLUGIN_SUCCESSORS } from "@bb/domain";
+import { RETIRED_PLUGIN_SUCCESSORS } from "@hyperfide/domain";
 
 export interface BundledPluginDefinition {
   name: string;

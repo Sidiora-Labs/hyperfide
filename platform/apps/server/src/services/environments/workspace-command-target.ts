@@ -1,5 +1,5 @@
-import type { EnvironmentStatus } from "@bb/domain";
-import type { WorkspaceContext } from "@bb/host-daemon-contract";
+import type { EnvironmentStatus } from "@hyperfide/domain";
+import type { WorkspaceContext } from "@hyperfide/host-daemon-contract";
 import { throwEnvironmentNotReady } from "../lib/lifecycle-api-errors.js";
 
 interface WorkspaceCommandTargetEnvironment {

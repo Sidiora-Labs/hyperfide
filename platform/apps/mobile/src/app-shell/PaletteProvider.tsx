@@ -1,4 +1,4 @@
-import { isBuiltInThemeId, type BuiltInThemeId } from "@bb/domain";
+import { isBuiltInThemeId, type BuiltInThemeId } from "@hyperfide/domain";
 import {
   createContext,
   useContext,

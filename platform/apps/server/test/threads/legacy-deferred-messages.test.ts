@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { listEvents, listQueuedThreadMessages, markThreadDeleted } from "@bb/db";
+import { listEvents, listQueuedThreadMessages, markThreadDeleted } from "@hyperfide/db";
 import { describe, expect, it } from "vitest";
 import { deliverLegacyDeferredThreadMessages } from "../../src/services/threads/legacy-deferred-messages.js";
 import { toThreadQueuedMessage } from "../../src/services/threads/thread-queued-messages.js";

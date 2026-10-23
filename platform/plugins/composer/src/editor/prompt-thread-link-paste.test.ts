@@ -3,7 +3,7 @@
 import type {
   ExperimentalComposerThreadLink,
   ExperimentalComposerThreadLinkTarget,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Editor } from "@tiptap/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { promptEditorExtensions } from "./prompt-editor-extensions";

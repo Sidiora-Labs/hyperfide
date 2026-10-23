@@ -4,8 +4,8 @@ import { cleanup, render, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { buildTimelineViewRows } from "@bb/thread-view";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { buildTimelineViewRows } from "@hyperfide/thread-view";
 import {
   BottomAnchorContext,
   type BottomAnchorContextValue,

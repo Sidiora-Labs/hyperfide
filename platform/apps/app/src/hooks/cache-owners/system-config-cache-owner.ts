@@ -6,11 +6,11 @@ import {
   type AppSettings,
   type ExperimentUpdates,
   type Experiments,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   SystemAiServicesResponse,
   SystemConfigResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   systemAiServicesQueryKey,
   systemConfigQueryKey,

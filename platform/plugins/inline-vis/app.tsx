@@ -17,7 +17,7 @@ import {
   type ExperimentalCodeFenceRendererProps,
   type PluginMessageDirectiveProps,
   type MarkdownProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   FRAME_HEIGHT_BEFORE_FIRST_REPORT,
   FRAME_MAX_HEIGHT,

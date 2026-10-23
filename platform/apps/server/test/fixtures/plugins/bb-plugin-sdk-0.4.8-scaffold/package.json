@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-sdk-upgrade-fixture",
+  "name": "hyperfide-plugin-sdk-upgrade-fixture",
   "version": "0.1.0",
   "type": "module",
   "engines": {
@@ -18,7 +18,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "0.4.8",
+    "@hyperfide/plugin-sdk": "0.4.8",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

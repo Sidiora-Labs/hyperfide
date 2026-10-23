@@ -7,7 +7,7 @@ does not cover:
 
 1. **`bb plugin types`**, run in the plugin directory (or given its path),
    syncs that plugin's SDK surface to the running bb — no server needed. It
-   repins the exact `@get-bb/plugin-sdk` devDependency to this bb's SDK
+   repins the exact `@hyperfide/plugin-sdk` devDependency to this bb's SDK
    version and brings the declared runtime-shimmed packages' type-only
    devDependencies to the versions this bb ships, moving them out of
    `dependencies` when needed (run `npm install` after). For an older plugin
@@ -19,19 +19,19 @@ does not cover:
    comments:
    - a plugin that depends on the npm package (every current scaffold) has
      them after `npm install` at
-     `node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts`
+     `node_modules/@hyperfide/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts`
      (`bb-plugin-sdk-app.d.ts` for frontend symbols and
      `bb-plugin-sdk-host.d.ts` for the host entry);
    - an older plugin carries `types/bb-plugin-sdk.d.ts` (plus
      `types/bb-plugin-sdk-app.d.ts` for an app), which its `tsconfig.json`
-     maps `@get-bb/plugin-sdk` onto. That layout lacks the `/host` and
+     maps `@hyperfide/plugin-sdk` onto. That layout lacks the `/host` and
      `/testing/host` subpaths, so migrate before adding `bb.host`.
      `bb plugin migrate` converts such a plugin to the npm package: it prints
      the plan and asks first (`--yes` when stdin is not a terminal), pins the
      SDK devDependency (moving it out of `dependencies` and raising an older
      `engines.bbPluginSdk` floor), drops the tsconfig path map, deletes the
      vendored declarations (keeping `types/` if it holds your own files), and
-     rewrites `@bb/plugin-sdk` imports; rerunning is a no-op, and you run
+     rewrites `@hyperfide/plugin-sdk` imports; rerunning is a no-op, and you run
      `npm install` after. Never migrate a plugin the user did not ask you to
      migrate.
 3. **`git clone --depth 1 https://github.com/get-bb/bb`** for host behavior or

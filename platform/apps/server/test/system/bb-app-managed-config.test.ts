@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { formatBbAppConfigPath } from "@bb/config/bb-app-managed-config";
-import { defaultFeatureFlags } from "@bb/domain";
+import { formatBbAppConfigPath } from "@hyperfide/config/bb-app-managed-config";
+import { defaultFeatureFlags } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import {
   applyBbAppManagedConfig,

@@ -51,11 +51,11 @@ export {
 export {
   sanitizeInheritedChildProcessEnv as experimental_sanitizeInheritedChildProcessEnv,
   spawnPortableOutputProcess as experimental_spawnPortableOutputProcess,
-} from "@bb/process-utils";
-export type { SanitizeInheritedChildProcessEnvArgs as ExperimentalSanitizeInheritedChildProcessEnvArgs } from "@bb/process-utils";
+} from "@hyperfide/process-utils";
+export type { SanitizeInheritedChildProcessEnvArgs as ExperimentalSanitizeInheritedChildProcessEnvArgs } from "@hyperfide/process-utils";
 
-export { runVcsProcess as experimental_runVcsProcess } from "@bb/process-utils";
+export { runVcsProcess as experimental_runVcsProcess } from "@hyperfide/process-utils";
 export type {
   VcsProcessOptions as ExperimentalVcsProcessOptions,
   VcsProcessPriority as ExperimentalVcsProcessPriority,
-} from "@bb/process-utils";
+} from "@hyperfide/process-utils";

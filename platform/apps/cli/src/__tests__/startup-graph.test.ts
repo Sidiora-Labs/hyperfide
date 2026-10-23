@@ -191,7 +191,7 @@ describe("bb startup module graph", () => {
       );
     }, 60_000);
 
-    it("is how @bb/cli#build builds the shipped CLI", async () => {
+    it("is how @hyperfide/cli#build builds the shipped CLI", async () => {
       const packageJson = cliPackageJsonSchema.parse(
         JSON.parse(await readFile(join(cliRoot, "package.json"), "utf8")),
       );

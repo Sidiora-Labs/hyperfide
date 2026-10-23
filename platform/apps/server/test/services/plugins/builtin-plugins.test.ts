@@ -20,10 +20,10 @@ import {
   setPluginSettingsValues,
   upsertPluginSchedule,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@bb/domain";
-import type { Logger } from "@bb/logger";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@hyperfide/domain";
+import type { Logger } from "@hyperfide/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
@@ -37,7 +37,7 @@ import {
   OFFICIAL_PLUGINS,
   resolveBuiltinPluginRootPath,
 } from "../../../src/services/plugins/builtin-registry.js";
-import { copyPluginRuntime } from "@bb/plugin-build";
+import { copyPluginRuntime } from "@hyperfide/plugin-build";
 import { testLogger } from "../../helpers/test-app.js";
 import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
 

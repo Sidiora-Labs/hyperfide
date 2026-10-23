@@ -5,12 +5,12 @@
   "title": "branch-picker-primitives",
   "description": "BB ui \"branch-picker-primitives\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/coarse-pointer-sizing",
-    "@bb/icon",
-    "@bb/input",
-    "@bb/menu-item-hover",
-    "@bb/motion",
-    "@bb/utils"
+    "@hyperfide/coarse-pointer-sizing",
+    "@hyperfide/icon",
+    "@hyperfide/input",
+    "@hyperfide/menu-item-hover",
+    "@hyperfide/motion",
+    "@hyperfide/utils"
   ],
   "files": [
     {

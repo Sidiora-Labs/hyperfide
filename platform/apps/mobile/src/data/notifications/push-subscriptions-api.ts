@@ -1,4 +1,4 @@
-import { BbHttpError, createBrowserBbSdk } from "@bb/sdk/browser";
+import { BbHttpError, createBrowserBbSdk } from "@hyperfide/sdk/browser";
 import { z } from "zod";
 import {
   pushSubscriptionsAddOutputSchema,

@@ -8,7 +8,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { formatAppUpdateShimLockPath } from "@bb/config/app-update";
+import { formatAppUpdateShimLockPath } from "@hyperfide/config/app-update";
 import {
   acquireShimLock,
   isSameRevision,

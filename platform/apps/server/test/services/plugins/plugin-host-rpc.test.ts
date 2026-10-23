@@ -1,4 +1,4 @@
-import { defineRpcContract } from "@get-bb/plugin-sdk";
+import { defineRpcContract } from "@hyperfide/plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { callPluginHostRpc } from "../../../src/services/plugins/plugin-host-rpc.js";

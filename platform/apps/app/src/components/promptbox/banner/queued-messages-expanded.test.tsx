@@ -3,9 +3,9 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
-import type { ThreadQueuedMessage } from "@bb/domain";
-import { makeThreadQueuedMessage } from "@bb/test-helpers/domain-fixtures";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import type { ThreadQueuedMessage } from "@hyperfide/domain";
+import { makeThreadQueuedMessage } from "@hyperfide/test-helpers/domain-fixtures";
 import { afterEach, describe, expect, it } from "vitest";
 import { useQueuedMessagesExpanded } from "./queued-messages-expanded";
 

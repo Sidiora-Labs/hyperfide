@@ -1,5 +1,5 @@
-import type { MachineLifecycle } from "@bb/domain";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { MachineLifecycle } from "@hyperfide/domain";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 export type MachineLifecycleNoticeState = Pick<MachineLifecycle, "phase"> & {
   message: string | null;

@@ -8,7 +8,7 @@ import {
   type ExperimentalComposerCommandSuggestionGroup,
   type ExperimentalComposerCommandTrigger,
   type ExperimentalComposerThreadRelation,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { Pill } from "@/components/ui/pill";
 import { TruncateStart } from "@/components/ui/truncate-start";

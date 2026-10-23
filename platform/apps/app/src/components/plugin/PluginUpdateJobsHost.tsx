@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
-import type { PluginUpdateJob } from "@bb/server-contract";
+import type { PluginUpdateJob } from "@hyperfide/server-contract";
 import { usePluginUpdateJobs } from "@/hooks/queries/plugin-update-job-queries";
 import {
   invalidatePluginList,

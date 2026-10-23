@@ -10,7 +10,7 @@ export default defineWorkspaceTestConfig({
     globalSetup: ["test/setup/migrated-db-template.ts"],
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "@bb/db",
+      name: "@hyperfide/db",
       include: ["test/**/*.test.ts"],
     }),
   },

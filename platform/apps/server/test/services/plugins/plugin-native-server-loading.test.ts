@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import { afterEach, describe, expect, it } from "vitest";
 
 const run = promisify(execFile);
@@ -41,7 +41,7 @@ describe("native plugin server loading", () => {
     await writeFile(join(rootDir, "server.ts"), "throw new Error('source');");
     await writeFile(
       join(rootDir, "dist", "server.js"),
-      `import { defineRpcContract } from "@get-bb/plugin-sdk";
+      `import { defineRpcContract } from "@hyperfide/plugin-sdk";
 import Database from "better-sqlite3";
 export default function plugin() {
   const database = new Database(":memory:");
@@ -74,8 +74,8 @@ export default function plugin() {
     ).href;
     const script = `
 import pino from "pino";
-import { upsertInstalledPlugin } from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+import { upsertInstalledPlugin } from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { createPluginService } from ${JSON.stringify(runtimeUrl)};
 import { createAiServiceRegistry } from ${JSON.stringify(aiRegistryUrl)};
 import { createNoopTelemetryService } from ${JSON.stringify(telemetryUrl)};
@@ -170,7 +170,7 @@ process.stdout.write(JSON.stringify(result));
     );
     await writeFile(
       join(rootDir, "server.ts"),
-      `import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+      `import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
 const value: string = "loaded";
 export default function plugin(bb: BbPluginApi) {
   void bb;
@@ -195,7 +195,7 @@ export default function plugin(bb: BbPluginApi) {
     ).href;
     const script = `
 import pino from "pino";
-import { createMigratedConnection } from "@bb/db/testing";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { createPluginService } from ${JSON.stringify(serviceUrl)};
 import { createAiServiceRegistry } from ${JSON.stringify(aiRegistryUrl)};
 import { createNoopTelemetryService } from ${JSON.stringify(telemetryUrl)};
@@ -315,7 +315,7 @@ process.stdout.write(JSON.stringify(result));
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import pino from "pino";
-import { createMigratedConnection } from "@bb/db/testing";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { createPluginService } from ${JSON.stringify(serviceUrl)};
 import { createAiServiceRegistry } from ${JSON.stringify(aiRegistryUrl)};
 import { createNoopTelemetryService } from ${JSON.stringify(telemetryUrl)};

@@ -3,13 +3,13 @@ import type {
   WatchThreadStorageRootArgs,
   WatchWorkspaceArgs,
   WorkspaceWatchError,
-} from "@bb/host-watcher";
-import type { HostWorkspace } from "@bb/host-workspace";
+} from "@hyperfide/host-watcher";
+import type { HostWorkspace } from "@hyperfide/host-workspace";
 import {
   createDeferredPromise,
   makeWorkspaceMergeBase,
   makeWorkspaceStatus,
-} from "@bb/test-helpers";
+} from "@hyperfide/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import { WatchManager, type WatchManagerOptions } from "./watch-manager.js";
 

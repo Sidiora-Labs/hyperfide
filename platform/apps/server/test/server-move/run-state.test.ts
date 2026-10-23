@@ -2,14 +2,14 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { upsertHost } from "@bb/db";
-import { SERVER_MOVE_STEP_IDS, type ServerMoveStepId } from "@bb/domain";
-import type { HostDaemonOnlineRpcRequestMessage } from "@bb/host-daemon-contract";
-import { writeServerMovedFile } from "@bb/server-archive";
+import { upsertHost } from "@hyperfide/db";
+import { SERVER_MOVE_STEP_IDS, type ServerMoveStepId } from "@hyperfide/domain";
+import type { HostDaemonOnlineRpcRequestMessage } from "@hyperfide/host-daemon-contract";
+import { writeServerMovedFile } from "@hyperfide/server-archive";
 import type {
   ServerMoveStatus,
   ServerMoveStepStatus,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { afterEach, describe, expect, it } from "vitest";
 import { createServerMoveCoordinator } from "../../src/services/server-move/coordinator.js";
 import {

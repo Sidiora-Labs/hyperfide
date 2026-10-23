@@ -1,7 +1,7 @@
-import { SERVER_MOVE_STEP_IDS } from "@bb/domain";
-import { BbHttpError } from "@bb/sdk/browser";
-import type { ServerMoveStatus } from "@bb/server-contract";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+import { SERVER_MOVE_STEP_IDS } from "@hyperfide/domain";
+import { BbHttpError } from "@hyperfide/sdk/browser";
+import type { ServerMoveStatus } from "@hyperfide/server-contract";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import { describe, expect, it } from "vitest";
 import {
   canMoveServerHere,

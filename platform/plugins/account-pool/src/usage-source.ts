@@ -1,4 +1,4 @@
-import { type BbPluginApi } from "@get-bb/plugin-sdk";
+import { type BbPluginApi } from "@hyperfide/plugin-sdk";
 import type { AccountSummary } from "./contracts.js";
 import type { AccountPoolHub } from "./hub.js";
 import {

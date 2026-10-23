@@ -1,5 +1,5 @@
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
-import { type Thread, type ThreadListEntry } from "@bb/domain";
+import { type Thread, type ThreadListEntry } from "@hyperfide/domain";
 import { sdk } from "@/lib/sdk";
 import type { useSidebarNavigation } from "@/hooks/queries/sidebar-navigation-query";
 import {

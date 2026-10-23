@@ -11,7 +11,7 @@ const args = process.argv.slice(2);
 if (args[0] === "view") {
   const mode = process.env.HYPERFIDE_TEST_NPM_VIEW ?? "published";
   if (mode === "e404") {
-    process.stderr.write("npm error code E404\\nnpm error 404 Not Found - GET https://registry.npmjs.org/@get-bb%2fplugin-sdk\\n");
+    process.stderr.write("npm error code E404\\nnpm error 404 Not Found - GET https://registry.npmjs.org/@hyperfide%2fplugin-sdk\\n");
     process.exit(1);
   }
   if (mode === "error") {

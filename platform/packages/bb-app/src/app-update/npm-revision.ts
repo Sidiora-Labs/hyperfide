@@ -7,7 +7,7 @@ import { z } from "zod";
 import {
   formatAppUpdateVersionsDir,
   type NpmAppRevision,
-} from "@bb/config/app-update";
+} from "@hyperfide/config/app-update";
 import { runCheckedCommand, type RunCommand } from "./run-command.js";
 import { isSamePath } from "./shim-support.js";
 

@@ -1,4 +1,4 @@
-import { getEnvironment, hostDaemonSessions } from "@bb/db";
+import { getEnvironment, hostDaemonSessions } from "@hyperfide/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 import { onDaemonSocketMessage } from "../../src/ws/daemon-protocol.js";

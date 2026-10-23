@@ -4,10 +4,10 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { useComposedRefs } from "@radix-ui/react-compose-refs";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { useScrollOverflowState } from "@/components/thread/timeline/useScrollOverflowState";
 import { PaletteModeChip, type PaletteModeChipProps } from "./PaletteModeChip";
 import { PALETTE_INPUT_CLASS, PaletteInputBand } from "./PaletteInputBand";

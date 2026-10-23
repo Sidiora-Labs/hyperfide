@@ -8,7 +8,7 @@ import {
   type QueryKey,
 } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
-import type { PendingInteraction, ThreadListEntry } from "@bb/domain";
+import type { PendingInteraction, ThreadListEntry } from "@hyperfide/domain";
 import type {
   ThreadListResponse,
   ThreadPendingInteractionsResponse,
@@ -16,11 +16,11 @@ import type {
   ThreadSearchResponse,
   ThreadWithIncludesResponse,
   ThreadTimelineResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { useDebouncedValue } from "../useDebouncedValue";
 import { routeTaggedPages, routeTaggedRead } from "./route-tags";
-import { applyTimelineDelta, publicApiRoutes } from "@bb/server-contract";
-import type { ThreadListFilters } from "@bb/client-core";
+import { applyTimelineDelta, publicApiRoutes } from "@hyperfide/server-contract";
+import type { ThreadListFilters } from "@hyperfide/client-core";
 import { sdk } from "@/lib/sdk";
 import {
   useThreadDetailRealtimeSubscription,

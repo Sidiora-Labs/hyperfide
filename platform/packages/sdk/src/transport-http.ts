@@ -1,4 +1,4 @@
-import { createApiClient } from "@bb/server-contract";
+import { createApiClient } from "@hyperfide/server-contract";
 import {
   readJsonResponse,
   readVoidResponse,

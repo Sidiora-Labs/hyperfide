@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { listOpenFilePids, readPositivePidFile } from "@bb/test-helpers";
+import { listOpenFilePids, readPositivePidFile } from "@hyperfide/test-helpers";
 import { isNodeError, removePathWithRetry } from "./helpers/remove-path.js";
 
 const INTEGRATION_TMP_PREFIX = "bb-integration-";

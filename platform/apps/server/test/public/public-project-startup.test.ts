@@ -1,4 +1,4 @@
-import { upsertProjectExecutionDefaults } from "@bb/db";
+import { upsertProjectExecutionDefaults } from "@hyperfide/db";
 import { describe, expect, it } from "vitest";
 import { registerFirstPartyProviders } from "../helpers/provider-registry.js";
 import { withTestHarness } from "../helpers/test-app.js";

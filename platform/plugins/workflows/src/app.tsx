@@ -46,7 +46,7 @@ import {
   useRpc,
   type PluginMessageDirectiveProps,
   type ExperimentalThreadActionTabProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   WORKFLOW_RUNS_REALTIME_CHANNEL,
   workflowRunsSignalThreadId,

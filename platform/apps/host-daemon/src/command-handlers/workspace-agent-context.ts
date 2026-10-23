@@ -1,11 +1,11 @@
 import { constants } from "node:fs";
-import { isPathWithinDirectory } from "@bb/process-utils";
+import { isPathWithinDirectory } from "@hyperfide/process-utils";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type {
   HostDaemonOnlineRpcResult,
   WorkspaceProjectSkillFile,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   CommandDispatchError,
   type CommandOf,

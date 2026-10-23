@@ -1,5 +1,5 @@
 import { nextZoomFactor } from "./desktop-zoom.js";
-import type { BbDesktopZoomCommand } from "@bb/desktop-contract";
+import type { BbDesktopZoomCommand } from "@hyperfide/desktop-contract";
 import type { BrowserWindowConstructorOptions, Event } from "electron";
 import {
   MIN_WINDOW_HEIGHT,
@@ -23,7 +23,7 @@ import {
   MACOS_TRAFFIC_LIGHT_INSET_PX,
   MACOS_TRAFFIC_LIGHT_SIZE_PX,
   MACOS_TRAFFIC_LIGHT_TOP_INSET_PX,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import { HYPERFIDE_DESKTOP_ZOOM_CHANGED_CHANNEL } from "./desktop-update-ipc.js";
 
 type DesktopWindowIcon = BrowserWindowConstructorOptions["icon"];

@@ -5,7 +5,7 @@ import {
   type PluginCliContext,
   type PluginCliRegistration,
   type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type { z } from "zod";
 import type { rpcContract } from "./contracts.js";
 

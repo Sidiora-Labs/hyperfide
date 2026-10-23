@@ -9,9 +9,9 @@ import {
   type CSSProperties,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePrefersReducedMotion } from "@bb/shared-ui/hooks/use-media-query";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { usePrefersReducedMotion } from "@hyperfide/shared-ui/hooks/use-media-query";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { PluginNewThreadComposer } from "@/components/plugin/PluginNewThreadComposer";
 import { useCreateThread } from "@/hooks/mutations/thread-runtime-mutations";
 import { getPromptDraftAccessor } from "@/hooks/usePromptDraftStorage";

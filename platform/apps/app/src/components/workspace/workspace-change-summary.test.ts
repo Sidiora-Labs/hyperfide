@@ -1,9 +1,9 @@
-import type { WorkspaceCommitSummary, WorkspaceFileStatus } from "@bb/domain";
+import type { WorkspaceCommitSummary, WorkspaceFileStatus } from "@hyperfide/domain";
 import {
   makeWorkspaceMergeBase,
   makeWorkspaceStatus,
   makeWorkspaceWorkingTree,
-} from "@bb/test-helpers";
+} from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
 import {
   formatChangeSummary,

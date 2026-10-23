@@ -5,7 +5,7 @@ import {
   experimental_THREAD_ACTION_GROUPS,
   experimental_useSidebarThreads,
   type PluginThreadActionRegistration,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   buildSidebarEntitySectionId,
   normalizeSidebarSectionOrder,

@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest";
 import {
   createFakePluginHost,
   makeHostResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { registerUsageSource as plugin } from "./usage-source.js";
 import {
   usageListMethod,

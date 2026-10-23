@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { BbDesktopBrowserApi } from "@bb/desktop-contract";
+import type { BbDesktopBrowserApi } from "@hyperfide/desktop-contract";
 import { getDesktopBrowserApi } from "@/lib/bb-desktop";
 import {
   openUrlByPreference,

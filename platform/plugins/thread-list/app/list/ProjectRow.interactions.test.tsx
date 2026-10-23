@@ -19,7 +19,7 @@ import {
   renderSlot,
   type PluginSdkTestFakes,
   type RenderedSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 import type { SectionThreadDndState } from "../dnd/useSectionThreadDnd.js";
 import type { ProjectThreadListState } from "./ProjectRow.js";
 import { buildPinnedSidebarState } from "../model/pinned-sidebar-threads.js";

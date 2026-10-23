@@ -8,7 +8,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { startTransition, useState, type ReactNode } from "react";
-import { makeThreadWithRuntime } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadWithRuntime } from "@hyperfide/test-helpers/domain-fixtures";
 import { threadQueryKey } from "@/hooks/queries/query-keys";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router-dom";
@@ -20,8 +20,8 @@ import { usePluginId } from "@/components/plugin/plugin-context";
 import { resetAllCrashedPluginSlotsForTest } from "@/components/plugin/PluginSlotMount";
 import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   SidebarProvider,
   SidebarTrigger,

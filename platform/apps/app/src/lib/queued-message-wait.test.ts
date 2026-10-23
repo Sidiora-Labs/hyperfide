@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { QueuedMessageWaitingOn } from "@bb/domain";
+import type { QueuedMessageWaitingOn } from "@hyperfide/domain";
 import {
   describeQueuedMessageWait,
   formatQueuedMessageCountdown,

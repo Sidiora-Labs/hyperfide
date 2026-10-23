@@ -4,12 +4,12 @@ import {
   providerResolvedNativeRootsSchema,
   type ProviderNativeRootSet,
   type ProviderResolvedNativeRoots,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   HostDaemonOnlineRpcResultForCommand,
   HostDaemonRetryableOnlineRpcCommand,
-} from "@bb/host-daemon-contract";
-import { experimental_nativeRootsHostContract } from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/host-daemon-contract";
+import { experimental_nativeRootsHostContract } from "@hyperfide/plugin-sdk/host";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import type { AppDeps, WorkSessionDeps } from "../../types.js";
 import {

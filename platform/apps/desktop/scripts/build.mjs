@@ -152,4 +152,4 @@ await Promise.all([
   }),
 ]);
 
-process.stdout.write("@bb/desktop: built Electron entries\n");
+process.stdout.write("@hyperfide/desktop: built Electron entries\n");

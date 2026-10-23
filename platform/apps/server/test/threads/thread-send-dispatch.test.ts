@@ -10,8 +10,8 @@ import {
   setAppSettings,
   setQueuedThreadMessageFailureReason,
   setQueuedThreadMessageGroupBoundary,
-} from "@bb/db";
-import type { EnvironmentRow } from "@bb/db";
+} from "@hyperfide/db";
+import type { EnvironmentRow } from "@hyperfide/db";
 import {
   changedMessageSchema,
   threadScope,
@@ -20,8 +20,8 @@ import {
   type Thread,
   type ThreadChangedMessage,
   type ThreadEvent,
-} from "@bb/domain";
-import { groupHostDaemonEvents } from "@bb/host-daemon-contract";
+} from "@hyperfide/domain";
+import { groupHostDaemonEvents } from "@hyperfide/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TelemetryService } from "../../src/services/system/telemetry.js";
 import * as queuedDispatch from "../../src/services/threads/queued-message-dispatch.js";

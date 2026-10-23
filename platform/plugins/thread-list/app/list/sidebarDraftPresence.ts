@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useSyncExternalStore } from "react";
-import { useSidebarThreadDraftIds } from "@get-bb/plugin-sdk/app";
+import { useSidebarThreadDraftIds } from "@hyperfide/plugin-sdk/app";
 
 const NO_DRAFT_THREAD_IDS: ReadonlySet<string> = new Set();
 export const NO_THREAD_IDS: readonly string[] = [];

@@ -1,4 +1,4 @@
-import { collectOptionalFieldPaths } from "@bb/test-helpers";
+import { collectOptionalFieldPaths } from "@hyperfide/test-helpers";
 import {
   TERMINAL_COLS_MAX,
   TERMINAL_DATA_MAX_BASE64_LENGTH,
@@ -7,7 +7,7 @@ import {
   threadScope,
   turnScope,
   type JsonObject,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import * as contract from "../src/index.js";
 import {

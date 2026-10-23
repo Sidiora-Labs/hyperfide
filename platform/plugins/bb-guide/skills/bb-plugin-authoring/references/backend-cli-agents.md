@@ -37,7 +37,7 @@ in one error, typed value errors, and with `--json` a
 stderr keeps the readable text.
 
 ```ts
-import { PluginCliError, cliCommand, defineCli } from "@get-bb/plugin-sdk";
+import { PluginCliError, cliCommand, defineCli } from "@hyperfide/plugin-sdk";
 
 bb.cli.register(
   defineCli({
@@ -105,7 +105,7 @@ the plugin.
 Agents discover plugin commands through the server-generated
 `plugin-commands` skill, which lists each command's `summary` and the
 `commands` usage lines — fill both in. Combined stdout and stderr must fit
-`PLUGIN_CLI_OUTPUT_MAX_BYTES` from `@get-bb/plugin-sdk` (1,048,576 UTF-8 bytes).
+`PLUGIN_CLI_OUTPUT_MAX_BYTES` from `@hyperfide/plugin-sdk` (1,048,576 UTF-8 bytes).
 The host rejects a larger result atomically as `plugin_cli_output_too_large`;
 it never clips it. Page growing collections, cap verbose fields, and use
 file/streaming commands for large content. Caveat: under the workspace

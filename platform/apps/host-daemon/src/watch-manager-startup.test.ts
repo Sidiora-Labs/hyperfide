@@ -3,9 +3,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import parcelWatcher from "@parcel/watcher";
-import { createHostWatcher } from "@bb/host-watcher";
-import { provisionWorkspace, type HostWorkspace } from "@bb/host-workspace";
-import { createDeferredPromise, initRepo, makeTempDir } from "@bb/test-helpers";
+import { createHostWatcher } from "@hyperfide/host-watcher";
+import { provisionWorkspace, type HostWorkspace } from "@hyperfide/host-workspace";
+import { createDeferredPromise, initRepo, makeTempDir } from "@hyperfide/test-helpers";
 import { expect, it, vi } from "vitest";
 import { WatchManager } from "./watch-manager.js";
 

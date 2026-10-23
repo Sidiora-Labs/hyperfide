@@ -37,7 +37,7 @@ function exportedNames(
   return names;
 }
 
-describe("scheduled removals on @get-bb/plugin-sdk/provider-bridge", () => {
+describe("scheduled removals on @hyperfide/plugin-sdk/provider-bridge", () => {
   it("keeps every name the audit doc schedules for removal exported until the next major", async () => {
     const [doc, declarations] = await Promise.all([
       readFile(DOC_URL, "utf8"),

@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { getSessionById, getThread, listEvents } from "@bb/db";
-import { threadScope, turnScope } from "@bb/domain";
+import { getSessionById, getThread, listEvents } from "@hyperfide/db";
+import { threadScope, turnScope } from "@hyperfide/domain";
 import {
   writeServerImportFile,
   type ServerImportFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import { describe, expect, it } from "vitest";
 import { disconnectImportedDaemonSessions } from "../../src/internal/session-owner-side-effects.js";
 import { applyServerImportAtBoot } from "../../src/services/server-move/pending-boot.js";

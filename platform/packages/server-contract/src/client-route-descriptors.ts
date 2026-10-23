@@ -4,7 +4,7 @@ import {
   jsonRequest,
   jsonResponse,
   noRequest,
-} from "@bb/hono-typed-routes";
+} from "@hyperfide/hono-typed-routes";
 import {
   updateUiPreferenceRequestSchema,
   type PathUiPreferenceKey,

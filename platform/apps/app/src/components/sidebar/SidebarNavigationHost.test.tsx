@@ -20,10 +20,10 @@ import {
 import type {
   ExperimentalSidebarNavigationProps,
   PluginAppBuilder,
-} from "@get-bb/plugin-sdk/app";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+} from "@hyperfide/plugin-sdk/app";
+import { collectPluginAppRegistrations } from "@hyperfide/plugin-sdk/internal/plugin-app-collector";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { resetAllCrashedPluginSlotsForTest } from "@/components/plugin/PluginSlotMount";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import {

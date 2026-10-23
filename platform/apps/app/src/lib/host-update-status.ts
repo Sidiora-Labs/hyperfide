@@ -1,5 +1,5 @@
-import type { Host } from "@bb/domain";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract/protocol";
+import type { Host } from "@hyperfide/domain";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract/protocol";
 
 const HOST_UPDATE_STALL_THRESHOLD_MS = 2 * 60 * 1000;
 

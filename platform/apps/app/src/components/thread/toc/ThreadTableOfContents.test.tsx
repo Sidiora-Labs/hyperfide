@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ThreadListEntry, ThreadWithRuntime } from "@bb/domain";
+import type { ThreadListEntry, ThreadWithRuntime } from "@hyperfide/domain";
 import {
   act,
   cleanup,
@@ -17,7 +17,7 @@ import type {
   SidebarBootstrapResponse,
   TimelineConversationRow,
   TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { commandRow } from "@/test/fixtures/thread-timeline-rows";
 
 vi.mock("@/components/ui/bottom-anchored-scroll-body.js", () => ({
@@ -41,8 +41,8 @@ import {
   type TocItem,
 } from "./ThreadTableOfContents";
 import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
-import { makeThreadListEntry as makeThreadListEntryFixture } from "@bb/test-helpers/domain-fixtures";
-import { makeThreadWithRuntime as makeThreadWithRuntimeFixture } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry as makeThreadListEntryFixture } from "@hyperfide/test-helpers/domain-fixtures";
+import { makeThreadWithRuntime as makeThreadWithRuntimeFixture } from "@hyperfide/test-helpers/domain-fixtures";
 import {
   makeProjectWithThreadsResponse,
   makeSidebarBootstrapResponse,

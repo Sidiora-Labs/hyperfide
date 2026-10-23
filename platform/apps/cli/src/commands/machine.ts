@@ -4,7 +4,7 @@ import {
   type MachineEnrollmentOptions,
 } from "./machine-enrollment.js";
 import { Command } from "commander";
-import { jsonValueSchema, type Host, type JsonValue } from "@bb/domain";
+import { jsonValueSchema, type Host, type JsonValue } from "@hyperfide/domain";
 import { action, CliExitError } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { columnWidths, printBorderlessTable } from "../table.js";

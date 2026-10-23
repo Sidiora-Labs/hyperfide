@@ -5,16 +5,16 @@ import {
   markThreadDeleted,
   setExperiments,
   setThreadExecutionOverride,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   defaultExperiments,
   encodeClientTurnRequestIdNumber,
   normalizeProviderNativeRoots,
-} from "@bb/domain";
-import { validatePluginProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
-import type { PluginAgentConfigurationContext } from "@get-bb/plugin-sdk";
+} from "@hyperfide/domain";
+import { validatePluginProviderDeclaration } from "@hyperfide/plugin-sdk/internal/host-policy";
+import type { PluginAgentConfigurationContext } from "@hyperfide/plugin-sdk";
 import { buildPluginProviderRegistration } from "../../src/services/providers/plugin-provider-registration.js";
-import type { DiscoveredSkill } from "@bb/host-daemon-contract";
+import type { DiscoveredSkill } from "@hyperfide/host-daemon-contract";
 import { setPluginAgentContributions } from "../../src/services/plugins/plugin-agent-contributions.js";
 import { readSkillTreeManifest } from "../../src/services/skills/injected-skills.js";
 import type { PluginAgentToolContribution } from "../../src/services/plugins/plugin-service.js";

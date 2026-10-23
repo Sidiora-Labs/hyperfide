@@ -16,9 +16,9 @@ import {
 } from "./FilePreview";
 import { SOURCE_CODE_MAX_LINES } from "@/components/code/source-code-budget";
 import { SecondaryPanelFilePreview } from "./ThreadStorageFilePreview";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { HttpError } from "@/lib/api";
-import { BbHttpError } from "@bb/sdk/browser";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import {
   PierreWorkerPoolGateContext,
   type PierreWorkerPoolGate,

@@ -9,13 +9,13 @@ import {
   noopNotifier,
   threads,
   upsertHost,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import type { DbConnection } from "@bb/db";
-import { defaultFeatureFlags } from "@bb/domain";
-import type { Thread } from "@bb/domain";
-import type { ThreadTimelineResponse } from "@bb/server-contract";
-import type { CorpusThread } from "@bb/test-helpers";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import type { DbConnection } from "@hyperfide/db";
+import { defaultFeatureFlags } from "@hyperfide/domain";
+import type { Thread } from "@hyperfide/domain";
+import type { ThreadTimelineResponse } from "@hyperfide/server-contract";
+import type { CorpusThread } from "@hyperfide/test-helpers";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { resolveRepoRelativeFile } from "./env-file-path.js";

@@ -1,16 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Environment, WorkspaceDiffTarget } from "@bb/domain";
+import type { Environment, WorkspaceDiffTarget } from "@hyperfide/domain";
 import type {
   EnvironmentDiffBranchesResponse,
   EnvironmentDiffFilesResponse,
   EnvironmentStatusResponse,
   WorkspacePathListResponse,
-} from "@bb/server-contract";
-import type { EnvironmentDiffArgs } from "@bb/sdk/browser";
+} from "@hyperfide/server-contract";
+import type { EnvironmentDiffArgs } from "@hyperfide/sdk/browser";
 import type {
   EnvironmentFilePreviewSource,
   FilePreview,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import { loadFilePreview } from "@/lib/api";
 import { buildEnvironmentFileContentUrl } from "@/lib/file-content-urls";
 import { sdk } from "@/lib/sdk";

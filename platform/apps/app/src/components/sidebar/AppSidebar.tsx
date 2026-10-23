@@ -6,10 +6,10 @@ import {
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { THREAD_JUMP_APP_COMMAND_IDS } from "@bb/domain";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { THREAD_JUMP_APP_COMMAND_IDS } from "@hyperfide/domain";
 import { useNavigate } from "react-router-dom";
-import { OverflowFade } from "@bb/shared-ui/overflow-fade";
+import { OverflowFade } from "@hyperfide/shared-ui/overflow-fade";
 import {
   Sidebar,
   SidebarCollapsibleBody,
@@ -31,7 +31,7 @@ import {
 import { SidebarPluginAttentionGlyph } from "./SidebarPluginAttentionGlyph";
 import { SidebarUpdatesBadge } from "./SidebarUpdatesBadge";
 import { SidebarResizeHandle, SidebarTopReserveRow } from "./SidebarChrome";
-import { SIDEBAR_FOOTER_ACTION_CLASS } from "@bb/shared-ui/sidebar-row-classes";
+import { SIDEBAR_FOOTER_ACTION_CLASS } from "@hyperfide/shared-ui/sidebar-row-classes";
 import { getRootComposeRoutePath, getThreadRoutePath } from "@/lib/route-paths";
 import { openUrlInExternalBrowser } from "@/lib/url-open-routing";
 import {

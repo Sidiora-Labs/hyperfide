@@ -1,4 +1,4 @@
-import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
+import { experimental_createHostEntryHarness } from "@hyperfide/plugin-sdk/testing/host";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createKeepAwakeHostEntry } from "./host.js";
 

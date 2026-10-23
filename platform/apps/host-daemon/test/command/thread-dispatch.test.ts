@@ -1,17 +1,17 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { AgentRuntimeOptions } from "@bb/agent-runtime";
+import type { AgentRuntimeOptions } from "@hyperfide/agent-runtime";
 import type {
   HostDaemonBridgeLaunch,
   HostDaemonCommand,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   encodeClientTurnRequestIdNumber,
   PROMPT_ATTACHMENT_MAX_BYTES,
   type ClientTurnRequestId,
   type PromptInput,
-} from "@bb/domain";
-import { makeTempDir } from "@bb/test-helpers";
+} from "@hyperfide/domain";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import { dispatchCommand } from "../../src/command-dispatch.js";
 import { CommandDispatchError } from "../../src/command-dispatch-support.js";

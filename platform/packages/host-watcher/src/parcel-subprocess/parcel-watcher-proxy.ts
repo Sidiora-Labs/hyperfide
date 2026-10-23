@@ -1,4 +1,4 @@
-import { calculateExponentialBackoffDelay } from "@bb/domain";
+import { calculateExponentialBackoffDelay } from "@hyperfide/domain";
 import type {
   ParcelAsyncSubscription,
   ParcelWatcherBackend,

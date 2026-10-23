@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 
 describe("plugin SDK compatibility version", () => {

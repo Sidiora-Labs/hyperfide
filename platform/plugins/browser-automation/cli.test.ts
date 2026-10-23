@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PluginCliContext, PluginCliResult } from "@get-bb/plugin-sdk";
+import type { PluginCliContext, PluginCliResult } from "@hyperfide/plugin-sdk";
 import {
   browserCliFailure,
   createBrowserAutomationCli,

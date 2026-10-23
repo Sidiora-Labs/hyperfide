@@ -9,8 +9,8 @@ import {
   listStoredEventRows,
   noopNotifier,
   upsertHost,
-} from "@bb/db";
-import { threadScope } from "@bb/domain";
+} from "@hyperfide/db";
+import { threadScope } from "@hyperfide/domain";
 import { expect, it } from "vitest";
 
 it.each(["daemon", "stored", "import", "copy"] as const)(

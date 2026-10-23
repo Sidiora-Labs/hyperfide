@@ -10,7 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { buildPluginApp, resolvePluginBuildToolchain } from "@bb/plugin-build";
+import { buildPluginApp, resolvePluginBuildToolchain } from "@hyperfide/plugin-build";
 
 function testToolchain() {
   return resolvePluginBuildToolchain(

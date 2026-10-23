@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { writeServerMovedFile } from "@bb/server-archive";
+import { writeServerMovedFile } from "@hyperfide/server-archive";
 import { describe, expect, it } from "vitest";
 import type { ServerMovedNotice } from "../server-connection-support.js";
 import {

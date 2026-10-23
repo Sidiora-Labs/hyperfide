@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import type { ExperimentalPermissionModePickerProps } from "@get-bb/plugin-sdk";
+import type { ExperimentalPermissionModePickerProps } from "@hyperfide/plugin-sdk";
 import { PermissionModePicker } from "@/components/pickers/PermissionModePicker";
 import { useThreadCreationOptions } from "@/hooks/useThreadCreationOptions";
 import { resolvePluginExecutionRouting } from "./plugin-execution-routing";

@@ -1,4 +1,4 @@
-import { FILE_LIST_LIMIT_MAX } from "@bb/server-contract";
+import { FILE_LIST_LIMIT_MAX } from "@hyperfide/server-contract";
 import { parseBoundedPositiveOptionalInteger } from "../services/lib/validation.js";
 
 const FILE_LIST_LIMIT_DEFAULT = 1000;

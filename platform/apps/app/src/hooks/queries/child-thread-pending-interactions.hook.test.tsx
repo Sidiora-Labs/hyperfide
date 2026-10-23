@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { PendingInteraction } from "@bb/domain";
+import type { PendingInteraction } from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   EMPTY_CHILD_THREAD_PENDING_ATTENTION,

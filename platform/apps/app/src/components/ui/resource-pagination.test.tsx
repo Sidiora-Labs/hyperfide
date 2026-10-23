@@ -12,7 +12,7 @@ import {
   useResourceInfiniteItems,
   useResourcePagination,
   useResourceViewportPageSize,
-} from "@bb/shared-ui/resource-pagination";
+} from "@hyperfide/shared-ui/resource-pagination";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const ROWS = Array.from({ length: 30 }, (_, index) => index + 1);

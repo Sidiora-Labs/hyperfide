@@ -1,10 +1,10 @@
 import { setTimeout as delay } from "node:timers/promises";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import type {
   PluginEnvironmentProviderCreateContext,
   PluginEnvironmentProviderCreateResult,
   PluginEnvironmentProviderProgress,
-} from "@get-bb/plugin-sdk/environment-provider";
+} from "@hyperfide/plugin-sdk/environment-provider";
 import { reportHostProgress } from "bb-environment-provider-host/progress";
 import { z } from "zod";
 import {

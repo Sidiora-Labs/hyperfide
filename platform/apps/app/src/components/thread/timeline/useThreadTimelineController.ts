@@ -4,7 +4,7 @@ import {
   type QueryClient,
   type QueryObserverResult,
 } from "@tanstack/react-query";
-import type { ThreadTimelineResponse, TimelineRow } from "@bb/server-contract";
+import type { ThreadTimelineResponse, TimelineRow } from "@hyperfide/server-contract";
 import {
   areTimelinePaginationCursorsEqual,
   buildLoadedTimelineState,
@@ -13,7 +13,7 @@ import {
   recoverLoadedTimelineAfterStaleCursor,
   resolveLoadedTimelineSurfaceKey,
   type LoadedTimelineState,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import { hasThreadTimelineUnseenEvents } from "@/hooks/cache-owners/thread-timeline-unseen-events";
 import { useConnectionAwareQueryState } from "@/hooks/queries/connection-aware-query-state";
 import { threadTimelineQueryKey } from "@/hooks/queries/query-keys";

@@ -17,7 +17,7 @@ import {
   type SelectedLineRange,
   type VirtualFileMetrics,
 } from "@pierre/diffs";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import { getDiffShadowRoots } from "@/components/git-diff/git-diff-patch-text";
 import { usePierreLineSelectionActions } from "@/components/git-diff/PierreLineSelectionActions.js";
 import { usePreferredTheme } from "@/hooks/useTheme";
@@ -28,7 +28,7 @@ import {
   useRequirePierreWorkerPool,
 } from "@/lib/pierre-worker-pool-gate";
 import { usePierreStrictModeRecoveryOptions } from "@/lib/pierre-strict-mode-recovery";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   truncateSourceCode,
   type SourceCodeTruncation,

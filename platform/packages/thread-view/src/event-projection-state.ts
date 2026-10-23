@@ -1,4 +1,4 @@
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
 import type {
   BuildEventProjectionMessagesOptions,
   EventProjectionMessage,

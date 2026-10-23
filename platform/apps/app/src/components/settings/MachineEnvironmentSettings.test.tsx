@@ -9,7 +9,7 @@ import {
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { MachineEnvironmentList } from "@bb/server-contract";
+import type { MachineEnvironmentList } from "@hyperfide/server-contract";
 import {
   MachineEnvironmentSettings,
   ScopedMachineEnvironmentSettings,

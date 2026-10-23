@@ -1,15 +1,15 @@
-import { getHost, updateHost } from "@bb/db";
+import { getHost, updateHost } from "@hyperfide/db";
 import { setPluginMachineProviderBridge } from "../../src/services/plugins/plugin-machine-provider-registry.js";
 import type {
   HostDaemonOnlineRpcRequestMessage,
   ProviderCliStatusResponse,
-} from "@bb/host-daemon-contract";
-import { systemProviderInfoSchema } from "@bb/server-contract";
-import { DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS } from "@bb/sdk";
+} from "@hyperfide/host-daemon-contract";
+import { systemProviderInfoSchema } from "@hyperfide/server-contract";
+import { DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS } from "@hyperfide/sdk";
 import {
   validatePluginProviderDeclaration,
   validatePluginMachineProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
 import { describe, expect, it, vi } from "vitest";
 import { COMMAND_TIMEOUT_MS } from "../../src/constants.js";
 import { buildPluginProviderRegistration } from "../../src/services/providers/plugin-provider-registration.js";

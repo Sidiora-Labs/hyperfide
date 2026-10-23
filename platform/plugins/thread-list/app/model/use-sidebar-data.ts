@@ -7,7 +7,7 @@ import {
   type PluginSidebarSection,
   type PluginSidebarThread,
   type PluginSidebarThreadsState,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import type { SidebarThread } from "./sidebar-thread.js";
 
 export interface SidebarProject {

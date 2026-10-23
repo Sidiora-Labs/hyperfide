@@ -1,4 +1,4 @@
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
 
 export class RuntimeBackgroundWorkState {
   private readonly openTaskIdsByThreadId = new Map<string, Set<string>>();

@@ -2,14 +2,14 @@ import {
   ResourceCreateButton,
   type ResourceCreateMenuAction,
   type ResourceCreateTemplateGroup,
-} from "@bb/shared-ui/resource-list";
-import type { IconName } from "@bb/shared-ui/icon";
+} from "@hyperfide/shared-ui/resource-list";
+import type { IconName } from "@hyperfide/shared-ui/icon";
 import {
   BROWSE_ARCHETYPES,
   UTILITY_EXAMPLES,
   briefPrompt,
 } from "@/components/plugin/browse-hero/browse-hero-archetypes";
-import { CREATE_PLUGIN_PROMPT, CREATE_SKILL_PROMPT } from "@bb/client-core";
+import { CREATE_PLUGIN_PROMPT, CREATE_SKILL_PROMPT } from "@hyperfide/client-core";
 
 type CreateViaPromptKind = "skill" | "plugin";
 

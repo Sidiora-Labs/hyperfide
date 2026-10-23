@@ -1,4 +1,4 @@
-import { templateDefinitions, type TemplateId } from "@bb/templates/generated";
+import { templateDefinitions, type TemplateId } from "@hyperfide/templates/generated";
 
 export interface GuideRenderArgs {
   chapter?: string;

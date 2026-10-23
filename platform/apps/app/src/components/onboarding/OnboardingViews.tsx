@@ -1,12 +1,12 @@
-import { ExpandableText } from "@bb/shared-ui/expandable-text";
+import { ExpandableText } from "@hyperfide/shared-ui/expandable-text";
 import type { ReactNode } from "react";
-import type { ExperimentalProviderIconProps } from "@get-bb/plugin-sdk/app";
-import { Button } from "@bb/shared-ui/button";
-import { Checkbox } from "@bb/shared-ui/checkbox";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { ResourceBrowseGrid } from "@bb/shared-ui/resource-list";
-import { Switch } from "@bb/shared-ui/switch";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { ExperimentalProviderIconProps } from "@hyperfide/plugin-sdk/app";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Checkbox } from "@hyperfide/shared-ui/checkbox";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
+import { ResourceBrowseGrid } from "@hyperfide/shared-ui/resource-list";
+import { Switch } from "@hyperfide/shared-ui/switch";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   PluginAuthorByline,
   PluginCard,

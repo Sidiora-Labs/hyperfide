@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { systemConfigResponseSchema } from "@bb/server-contract";
+import { systemConfigResponseSchema } from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import {
   type TestAppHarnessConfigOverrides,

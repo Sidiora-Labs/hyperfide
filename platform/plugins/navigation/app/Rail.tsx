@@ -4,7 +4,7 @@ import {
   experimental_useSidebarNavigation,
   experimental_useSidebarNavigationSplit,
   type ExperimentalSidebarNavigationItem,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { ShortcutPill } from "@/components/ui/shortcut-pill";

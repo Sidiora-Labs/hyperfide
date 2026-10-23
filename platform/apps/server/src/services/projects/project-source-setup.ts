@@ -1,5 +1,5 @@
 import { createCloneProgressReporter } from "./clone-progress.js";
-import type { PluginEnvironmentProviderProgress } from "@get-bb/plugin-sdk/environment-provider";
+import type { PluginEnvironmentProviderProgress } from "@hyperfide/plugin-sdk/environment-provider";
 import { registerEnvironmentProgressReport } from "../environments/environment-hooks.js";
 import { resolveHostEnvironment } from "../hosts/host-environment.js";
 import {
@@ -7,7 +7,7 @@ import {
   getProjectSourceByHost,
   isSqliteUniqueConstraintOnColumns,
   setProjectGitRemoteUrlIfMissing,
-} from "@bb/db";
+} from "@hyperfide/db";
 import type { CommandResultSideEffectsDeps } from "../../internal/command-result-side-effects.js";
 import { ApiError } from "../../errors.js";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";

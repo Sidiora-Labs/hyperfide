@@ -3,9 +3,9 @@ import {
   deleteThread,
   listPendingInteractionsByThread,
   markHostEnvironmentsDestroyed,
-} from "@bb/db";
-import type { HostDaemonInteractiveRequest } from "@bb/host-daemon-contract";
-import { renderTemplate } from "@bb/templates";
+} from "@hyperfide/db";
+import type { HostDaemonInteractiveRequest } from "@hyperfide/host-daemon-contract";
+import { renderTemplate } from "@hyperfide/templates";
 import { describe, expect, it } from "vitest";
 import { toPendingInteraction } from "../../src/services/interactions/pending-interaction-serialization.js";
 import {

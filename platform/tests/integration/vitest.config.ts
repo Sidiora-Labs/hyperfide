@@ -22,7 +22,7 @@ export default defineWorkspaceTestConfig({
       {
         extends: true,
         test: {
-          name: "@bb/integration-tests",
+          name: "@hyperfide/integration-tests",
           fileParallelism: true,
           isolate: false,
           globalSetup: ["./global-setup.ts"],
@@ -32,7 +32,7 @@ export default defineWorkspaceTestConfig({
       {
         extends: true,
         test: {
-          name: "@bb/integration-tests:native-roots-golden",
+          name: "@hyperfide/integration-tests:native-roots-golden",
           include: ["native-roots-golden/**/*.test.ts"],
         },
       },

@@ -1,5 +1,5 @@
 /**
- * `@get-bb/plugin-sdk/provider-bridge/acp` — the published ACP bridge kit.
+ * `@hyperfide/plugin-sdk/provider-bridge/acp` — the published ACP bridge kit.
  *
  * The Agent Client Protocol (https://agentclientprotocol.com) is one wire
  * protocol spoken by many agents, so bb runs all of them through one generic
@@ -11,7 +11,7 @@
  * ```ts
  * // host.ts (the plugin's `bb.host` entry)
  * export { experimental_acpProviderBridge as experimental_providerBridge }
- *   from "@get-bb/plugin-sdk/provider-bridge/acp";
+ *   from "@hyperfide/plugin-sdk/provider-bridge/acp";
  *
  * // server.ts
  * bb.providers.register({
@@ -40,7 +40,7 @@
  * // host.ts
  * import {
  *   experimental_registerAcpDialect,
- * } from "@get-bb/plugin-sdk/provider-bridge/acp";
+ * } from "@hyperfide/plugin-sdk/provider-bridge/acp";
  *
  * experimental_registerAcpDialect({
  *   id: "amp",
@@ -59,35 +59,35 @@
  * consumes are not published: the surface grows with a consumer, not ahead
  * of one.
  */
-import type { AcpLaunchSpec } from "@bb/provider-bridge-acp";
+import type { AcpLaunchSpec } from "@hyperfide/provider-bridge-acp";
 
-export { acpProviderBridge as experimental_acpProviderBridge } from "@bb/provider-bridge-acp";
+export { acpProviderBridge as experimental_acpProviderBridge } from "@hyperfide/provider-bridge-acp";
 /**
  * Add an agent dialect to the bridge in this host artifact. Call it at
  * module load, before the bridge handles a command. Throws for an empty id
  * and for the id of a dialect the bridge ships; registering the same id
  * again replaces the earlier registration.
  */
-export { registerAcpDialect as experimental_registerAcpDialect } from "@bb/provider-bridge-acp";
+export { registerAcpDialect as experimental_registerAcpDialect } from "@hyperfide/provider-bridge-acp";
 export type {
   AcpClassifiedToolCall,
   AcpClientRequestOutcome,
   AcpDelegationReport,
   AcpDialect,
   AcpToolIdentity,
-} from "@bb/provider-bridge-acp";
+} from "@hyperfide/provider-bridge-acp";
 
 export {
   acpAgentProbeSchema as experimental_acpAgentProbeSchema,
   probeAcpAgent as experimental_probeAcpAgent,
-} from "@bb/provider-bridge-acp";
+} from "@hyperfide/provider-bridge-acp";
 export type {
   AcpAgentProbe,
   AcpAgentProbeRequest,
-} from "@bb/provider-bridge-acp";
+} from "@hyperfide/provider-bridge-acp";
 
-export { acpLaunchSpecSchema as experimental_acpLaunchSpecSchema } from "@bb/provider-bridge-acp";
-export type { AcpLaunchSpec } from "@bb/provider-bridge-acp";
+export { acpLaunchSpecSchema as experimental_acpLaunchSpecSchema } from "@hyperfide/provider-bridge-acp";
+export type { AcpLaunchSpec } from "@hyperfide/provider-bridge-acp";
 /**
  * @deprecated The bridge reads the parsed `AcpLaunchSpec` directly; the
  * profile it used to derive from the spec carried the same fields under
@@ -102,5 +102,5 @@ export type {
   AcpToolCallStatus,
   AcpToolCallUpdateEvent,
   AcpToolKind,
-} from "@bb/provider-bridge-acp";
-export type { AgentModelCatalog as AcpAgentModelCatalog } from "@bb/provider-bridge-acp";
+} from "@hyperfide/provider-bridge-acp";
+export type { AgentModelCatalog as AcpAgentModelCatalog } from "@hyperfide/provider-bridge-acp";

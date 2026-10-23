@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ClientTurnRequestId, ThreadEvent } from "@bb/domain";
-import { threadScope, turnScope } from "@bb/domain";
+import type { ClientTurnRequestId, ThreadEvent } from "@hyperfide/domain";
+import { threadScope, turnScope } from "@hyperfide/domain";
 import type { DeltaItemShape, ThreadDelta } from "../thread-delta.js";
 import {
   createDeltaAssembler,

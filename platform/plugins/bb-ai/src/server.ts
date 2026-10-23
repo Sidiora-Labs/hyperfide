@@ -5,7 +5,7 @@ import {
   PluginCliError,
   type BbPluginApi,
   type PluginAiServiceStatus,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import {
@@ -16,7 +16,7 @@ import {
 } from "./account-contract.js";
 import { formatResetTime, formatUsage } from "./format.js";
 
-export const BB_AI_SERVICE_ID = "bb";
+export const HYPERFIDE_AI_SERVICE_ID = "bb";
 const COMPLETE_PATH = "/api/ai/v1/complete";
 const TRANSCRIBE_PATH = "/api/ai/v1/transcribe";
 const USAGE_PATH = "/api/ai/v1/usage";
@@ -24,7 +24,7 @@ const COMPLETE_TIMEOUT_MS = 7_000;
 const TRANSCRIBE_TIMEOUT_MS = 65_000;
 export const TRANSCRIBE_MAX_BYTES = 10 * 1024 * 1024;
 const ENABLED_KEY = "enabled";
-const BB_CLOUD_OFF_MESSAGE = "bb cloud is off. Turn it on with `bb ai on`.";
+const HYPERFIDE_CLOUD_OFF_MESSAGE = "bb cloud is off. Turn it on with `bb ai on`.";
 const SIGN_IN_MESSAGE = "Sign in to your bb account";
 const ACCOUNT_DOWN_MESSAGE = "Hosted accounts are disabled";
 
@@ -131,7 +131,7 @@ export const bbAiRpcContract = defineRpcContract({
 
 const OFF_STATUS: PluginAiServiceStatus = {
   ready: false,
-  message: BB_CLOUD_OFF_MESSAGE,
+  message: HYPERFIDE_CLOUD_OFF_MESSAGE,
 };
 
 interface Exhaustion {
@@ -220,7 +220,7 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
     timeoutMs: number,
     signal: AbortSignal,
   ): Promise<string> {
-    if (!enabled) throw new Error(BB_CLOUD_OFF_MESSAGE);
+    if (!enabled) throw new Error(HYPERFIDE_CLOUD_OFF_MESSAGE);
     const account = await accountStatus();
     if (account === null) throw new Error(ACCOUNT_DOWN_MESSAGE);
     if (!account.signedIn) throw new Error(SIGN_IN_MESSAGE);
@@ -228,7 +228,7 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
     const until = exhaustedUntil(key);
     if (until !== null) throw new Error(limitReachedMessage(until));
     const payload = await body();
-    if (!enabled) throw new Error(BB_CLOUD_OFF_MESSAGE);
+    if (!enabled) throw new Error(HYPERFIDE_CLOUD_OFF_MESSAGE);
     const response = await accountFetch(
       { target: "api", method: "POST", path, body: payload, timeoutMs },
       signal,
@@ -341,7 +341,7 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
   }
 
   bb.experimental_aiServices.register({
-    id: BB_AI_SERVICE_ID,
+    id: HYPERFIDE_AI_SERVICE_ID,
     displayName: "bb cloud",
     complete: (prompt, { signal }) => complete(prompt, signal),
     transcribe: (audio, { signal, hint }) => transcribe(audio, hint, signal),

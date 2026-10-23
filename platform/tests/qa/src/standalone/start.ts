@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { shellSingleQuote } from "@bb/test-helpers";
+import { shellSingleQuote } from "@hyperfide/test-helpers";
 import {
   buildStandaloneShellExports,
   buildDaemonRestartCommand,
@@ -32,7 +32,7 @@ function parseArgs() {
       const nextArg = process.argv[index + 1];
       if (nextArg !== "env" && nextArg !== "json") {
         throw new Error(
-          "Usage: pnpm --filter @bb/qa standalone:start --format json|env",
+          "Usage: pnpm --filter @hyperfide/qa standalone:start --format json|env",
         );
       }
       format = nextArg;
@@ -41,7 +41,7 @@ function parseArgs() {
     }
 
     throw new Error(
-      "Usage: pnpm --filter @bb/qa standalone:start --format json|env",
+      "Usage: pnpm --filter @hyperfide/qa standalone:start --format json|env",
     );
   }
 
@@ -121,9 +121,9 @@ async function main() {
     });
 
     const cleanupCommand =
-      `pnpm --silent --dir ${shellSingleQuote(repoRoot)} --filter @bb/qa standalone:stop ` +
+      `pnpm --silent --dir ${shellSingleQuote(repoRoot)} --filter @hyperfide/qa standalone:stop ` +
       `--state ${shellSingleQuote(statePath)} && ` +
-      `pnpm --silent --dir ${shellSingleQuote(repoRoot)} --filter @bb/qa standalone:cleanup`;
+      `pnpm --silent --dir ${shellSingleQuote(repoRoot)} --filter @hyperfide/qa standalone:cleanup`;
     const restartDaemonCommand = buildDaemonRestartCommand({
       cwd: repoRoot,
       daemonPid: daemonProcess.pid,

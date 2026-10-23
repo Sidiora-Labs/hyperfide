@@ -20,9 +20,9 @@ import {
 } from "react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
-import type { BbDesktopInfo } from "@bb/desktop-contract";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
+import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import {
@@ -117,7 +117,7 @@ function RootComposeFixture() {
   return <div data-testid="root-compose-view" />;
 }
 
-vi.mock("@bb/shared-ui/hooks/use-compact-viewport", () => ({
+vi.mock("@hyperfide/shared-ui/hooks/use-compact-viewport", () => ({
   useIsCompactViewport: () => viewportState.compact,
 }));
 

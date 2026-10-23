@@ -8,8 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { usePersistentOverlayFocus } from "@bb/shared-ui/responsive-overlay";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { usePersistentOverlayFocus } from "@hyperfide/shared-ui/responsive-overlay";
 import { APP_OVERLAY_LAYER } from "@/components/ui/app-overlay-layers";
 import { hasTextSelectionWithin } from "@/components/ui/gesture-dom";
 import { useHorizontalDismissDrag } from "@/components/ui/use-horizontal-dismiss-drag";

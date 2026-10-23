@@ -6,7 +6,7 @@ import {
   type BbPluginApi,
   type MessageDispatchHookDecision,
   type PluginThreadEventName,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { concurrencyLimitHostContract } from "./contract.js";
 import {

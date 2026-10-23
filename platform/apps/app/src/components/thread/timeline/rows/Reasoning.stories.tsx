@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   systemRow,
   fileReadRow,

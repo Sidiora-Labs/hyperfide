@@ -8,7 +8,7 @@ import {
   isBuiltInThemeId,
   type AppTheme,
   type FaviconColorPreference,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { action } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { outputJson, type JsonOutputOptions } from "./helpers.js";

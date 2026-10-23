@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Session } from "electron";
-import type { DesktopBrowserChanged } from "@bb/host-daemon-contract";
+import type { DesktopBrowserChanged } from "@hyperfide/host-daemon-contract";
 
 vi.mock("electron", () => ({
   BrowserWindow: class {},

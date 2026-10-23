@@ -1,5 +1,5 @@
 import * as z from "zod/mini";
-import type { ComposerMention } from "@get-bb/plugin-sdk/app";
+import type { ComposerMention } from "@hyperfide/plugin-sdk/app";
 import type { JSONContent } from "@tiptap/react";
 import {
   Fragment,

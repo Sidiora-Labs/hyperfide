@@ -1,11 +1,11 @@
-import { createEventId, getThread } from "@bb/db";
+import { createEventId, getThread } from "@hyperfide/db";
 import {
   THREAD_CONTEXT_CLEAR_OPERATION,
   THREAD_CONTEXT_CLEARED_DETAIL,
   threadScope,
   type Environment,
   type Thread,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { ApiError } from "../../errors.js";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { withThreadContextClearGuard } from "./thread-context-mutation-guard.js";

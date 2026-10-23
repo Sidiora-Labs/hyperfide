@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { parseDataDirEnvValue, resolveProdDataDir } from "@bb/config/runtime";
+import { parseDataDirEnvValue, resolveProdDataDir } from "@hyperfide/config/runtime";
 import { z } from "zod";
 
 export const CLI_ERROR_LOG_FILE_NAME = "cli-errors.jsonl";

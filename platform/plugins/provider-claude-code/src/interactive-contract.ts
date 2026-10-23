@@ -4,7 +4,7 @@ import {
   type PendingInteractionGrantedPermissionProfile,
   type PendingInteractionGrantablePermissionProfile,
   type RuntimePermissionPolicy,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { z } from "zod";
 
 export const CLAUDE_USER_QUESTION_TOOL_NAME = "AskUserQuestion";

@@ -1,7 +1,7 @@
 import type {
   ExperimentalComposerCommandTrigger,
   PluginMentionTrigger,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 
 export type TypeaheadTrigger =
   | { char: PluginMentionTrigger; kind: "mention" }

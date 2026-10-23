@@ -7,7 +7,7 @@ import {
   setPluginLogoUrls,
   resetPluginLogoStoreForTest,
 } from "@/lib/plugin-logos";
-import { COMPACT_VIEWPORT_QUERY } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { COMPACT_VIEWPORT_QUERY } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import type { PluginPanelActionEntry } from "@/components/plugin/PluginPanelActions";
 import { setCompactSidebarDrawerShowing } from "@/components/ui/sidebar-mobile-drawer-visibility";
 import {

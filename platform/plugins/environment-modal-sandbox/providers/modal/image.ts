@@ -1,4 +1,4 @@
-import type { PluginMachineProviderProgress } from "@get-bb/plugin-sdk/machine-provider";
+import type { PluginMachineProviderProgress } from "@hyperfide/plugin-sdk/machine-provider";
 import { ModalClient, NotFoundError } from "modal";
 import { z } from "zod";
 import { readStandardImage } from "../../standard-image.js";

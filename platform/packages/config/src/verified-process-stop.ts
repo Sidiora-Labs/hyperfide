@@ -1,4 +1,4 @@
-import { readProcessIdentity, type ProcessIdentity } from "@bb/process-utils";
+import { readProcessIdentity, type ProcessIdentity } from "@hyperfide/process-utils";
 
 const POLL_INTERVAL_MS = 100;
 

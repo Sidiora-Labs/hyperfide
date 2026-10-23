@@ -1,4 +1,4 @@
-import { joinHostPath } from "@bb/domain";
+import { joinHostPath } from "@hyperfide/domain";
 
 export function joinHostPathSegments(
   rootPath: string,

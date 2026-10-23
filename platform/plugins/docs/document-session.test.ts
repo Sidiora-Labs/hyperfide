@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Proposal } from "./proposals.js";
 import { createDocumentSession } from "./document-session.js";
 
-vi.mock("@get-bb/plugin-sdk/app", () => ({
+vi.mock("@hyperfide/plugin-sdk/app", () => ({
   useRealtime: vi.fn(),
   useRpc: vi.fn(),
 }));

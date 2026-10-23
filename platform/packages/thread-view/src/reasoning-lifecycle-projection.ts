@@ -1,4 +1,4 @@
-import type { ActiveThinking } from "@bb/domain";
+import type { ActiveThinking } from "@hyperfide/domain";
 import type { EventMeta } from "./event-decode.js";
 import type {
   BuildEventProjectionMessagesOptions,

@@ -5,7 +5,7 @@ import type {
   SystemThreadProvisioningStatus,
   ThreadEvent,
   ThreadEventRow,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   finalizeOperationMessage,
   interruptOperationMessage,

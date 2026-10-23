@@ -1,4 +1,4 @@
-import { PLUGIN_INTERACTION_MAX_TITLE_LENGTH } from "@get-bb/plugin-sdk/provider-bridge";
+import { PLUGIN_INTERACTION_MAX_TITLE_LENGTH } from "@hyperfide/plugin-sdk/provider-bridge";
 import {
   truncateCodePoints,
   type CodexMcpElicitation,

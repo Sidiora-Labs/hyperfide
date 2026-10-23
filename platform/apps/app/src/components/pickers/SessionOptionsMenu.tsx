@@ -1,25 +1,25 @@
 import { Fragment } from "react";
-import type { ThreadSessionOption } from "@bb/domain";
-import type { ThreadTimelineSessionOption } from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { COARSE_POINTER_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+import type { ThreadSessionOption } from "@hyperfide/domain";
+import type { ThreadTimelineSessionOption } from "@hyperfide/server-contract";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { COARSE_POINTER_ICON_SIZE_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { LIST_HOVER_TRANSITION } from "@bb/shared-ui/motion";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/dropdown-menu";
+import { LIST_HOVER_TRANSITION } from "@hyperfide/shared-ui/motion";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   OPTION_BASE_CLASS_NAME,
   OPTION_INTERACTIVE_CLASS_NAME,
   OPTION_MENU_CONTENT_CLASS_NAME,
   OPTION_MUTED_CLASS_NAME,
   OPTION_TRIGGER_CONTENT_CLASS_NAME,
-} from "@bb/shared-ui/option-display";
+} from "@hyperfide/shared-ui/option-display";
 
 const SESSION_OPTIONS_MENU_LABEL = "Agent options";
 const SESSION_OPTION_MODE_CATEGORY = "mode";

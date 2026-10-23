@@ -3,17 +3,17 @@ import { createReadStream } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { getExperiments } from "@bb/db";
-import type { LastServerMove } from "@bb/domain";
+import { getExperiments } from "@hyperfide/db";
+import type { LastServerMove } from "@hyperfide/domain";
 import {
   readLastServerMoveFile,
   writeLastServerMoveFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import {
   publicApiRoutes,
   typedRoutes,
   type PublicApiSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { Hono } from "hono";
 import { ApiError } from "../errors.js";
 import {

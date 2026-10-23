@@ -1,5 +1,5 @@
 {
-  "name": "@bb/cli",
+  "name": "@hyperfide/cli",
   "version": "0.0.1",
   "type": "module",
   "bin": {
@@ -14,18 +14,18 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@bb/client-core": "workspace:*",
-    "@bb/config": "workspace:*",
-    "@bb/core-ui": "workspace:*",
-    "@bb/domain": "workspace:*",
-    "@bb/host-daemon-contract": "workspace:*",
-    "@bb/plugin-build": "workspace:*",
-    "@bb/sdk": "workspace:*",
-    "@bb/server-archive": "workspace:*",
-    "@bb/server-contract": "workspace:*",
-    "@bb/templates": "workspace:*",
-    "@bb/text-utils": "workspace:*",
-    "@bb/thread-view": "workspace:*",
+    "@hyperfide/client-core": "workspace:*",
+    "@hyperfide/config": "workspace:*",
+    "@hyperfide/core-ui": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/host-daemon-contract": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/sdk": "workspace:*",
+    "@hyperfide/server-archive": "workspace:*",
+    "@hyperfide/server-contract": "workspace:*",
+    "@hyperfide/templates": "workspace:*",
+    "@hyperfide/text-utils": "workspace:*",
+    "@hyperfide/thread-view": "workspace:*",
     "bb-plugin-bb--github-pr-status": "workspace:*",
     "cli-table3": "^0.6.5",
     "commander": "^13.0.0",
@@ -34,8 +34,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/test-helpers": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/test-helpers": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@tailwindcss/node": "^4.3.0",
     "@tailwindcss/oxide": "^4.3.0",
     "@types/mime-types": "^3.0.1",

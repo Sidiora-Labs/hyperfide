@@ -8,16 +8,16 @@ import type {
   PromptTextMention,
   ThreadQueuedMessage,
   WorkspaceStatus,
-} from "@bb/domain";
-import { makeThreadQueuedMessage } from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/domain";
+import { makeThreadQueuedMessage } from "@hyperfide/test-helpers/domain-fixtures";
 import {
   formatEnvironmentDisplay,
   type EnvironmentDisplayHostContext,
-} from "@bb/core-ui";
+} from "@hyperfide/core-ui";
 import type {
   SystemExecutionOptionsModelLoadError,
   ThreadContextWindowUsage,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   FollowUpPromptBox,
   type FollowUpSubmitMode,
@@ -64,8 +64,8 @@ import type {
   ExecutionPermissionConfig,
 } from "@/components/promptbox/ExecutionControls";
 import { PageShell } from "@/components/ui/page-shell.js";
-import { promptDraftToInput, type PromptDraftState } from "@bb/client-core";
-import { queuedInputToDraft } from "@bb/client-core";
+import { promptDraftToInput, type PromptDraftState } from "@hyperfide/client-core";
+import { queuedInputToDraft } from "@hyperfide/client-core";
 
 export default {
   title: "promptbox/Follow Up Prompt Box",

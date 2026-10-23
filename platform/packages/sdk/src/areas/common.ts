@@ -1,7 +1,7 @@
 import type {
   SystemExecutionOptionsQuery,
   SystemExecutionOptionsResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { BbSdkTransport } from "../transport.js";
 
 export interface CreateSdkAreaArgs {

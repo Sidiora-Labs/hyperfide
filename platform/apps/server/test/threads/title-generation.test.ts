@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PromptInput } from "@bb/domain";
+import type { PromptInput } from "@hyperfide/domain";
 import {
   collectInvokedPromptCommands,
   deriveForkTitle,

@@ -1,5 +1,5 @@
 import { itemStatusToExecStatus } from "./exec-lifecycle.js";
-import type { ThreadEvent, ThreadEventBackgroundTaskItem } from "@bb/domain";
+import type { ThreadEvent, ThreadEventBackgroundTaskItem } from "@hyperfide/domain";
 import type { EventMeta } from "./event-decode.js";
 import type {
   EventProjectionMessage,

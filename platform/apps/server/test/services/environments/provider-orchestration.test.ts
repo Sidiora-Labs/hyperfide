@@ -1,5 +1,5 @@
-import { createBbSdk } from "@bb/sdk/core";
-import { createHttpTransport } from "@bb/sdk/node";
+import { createBbSdk } from "@hyperfide/sdk/core";
+import { createHttpTransport } from "@hyperfide/sdk/node";
 import { appendThreadProvisioningEvent } from "../../../src/services/threads/thread-events.js";
 import { requestThreadStopForCurrentState } from "../../../src/services/threads/thread-lifecycle.js";
 import {
@@ -10,12 +10,12 @@ import { withEnvironmentCleanupSlot } from "../../../src/services/environments/c
 import { reportEnvironmentHookProgress } from "../../../src/services/environments/environment-hooks.js";
 import { registerHostRpcResponder } from "../../helpers/host-rpc.js";
 import { registerTestHostRpcCapture } from "../../helpers/commands.js";
-import { recordProvisionedEnvironmentWorkspace } from "@bb/db/internal-environment-lifecycle";
+import { recordProvisionedEnvironmentWorkspace } from "@hyperfide/db/internal-environment-lifecycle";
 import { createThreadFromRequest } from "../../../src/services/threads/thread-create.js";
 import {
   encodeClientTurnRequestIdNumber,
   systemThreadProvisioningEventDataSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { requireThreadCommandEnvironment } from "../../../src/services/threads/thread-command-environment.js";
 import { ensureThreadProvisionEnvironmentReady } from "../../../src/services/threads/thread-provisioning-environment.js";
 import {
@@ -23,8 +23,8 @@ import {
   createThreadStartup,
 } from "../../../src/services/threads/thread-startup-store.js";
 import { z } from "zod";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import { handleUpdateEnvironmentDirectoryToolCall } from "../../../src/services/threads/thread-environment-directory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
@@ -43,11 +43,11 @@ import {
   updatePreparingEnvironment,
   threads,
   updateThread,
-} from "@bb/db";
-import type { JsonValue } from "@bb/domain";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
-import type { PluginEnvironmentProviderDeclaration } from "@get-bb/plugin-sdk";
-import { validatePluginEnvironmentProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/db";
+import type { JsonValue } from "@hyperfide/domain";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
+import type { PluginEnvironmentProviderDeclaration } from "@hyperfide/plugin-sdk";
+import { validatePluginEnvironmentProviderDeclaration } from "@hyperfide/plugin-sdk/internal/host-policy";
 import {
   markProviderEnvironmentAttached,
   cancelProviderEnvironmentCreation,

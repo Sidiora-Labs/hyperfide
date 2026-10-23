@@ -1,5 +1,5 @@
 import { registerPluginUpdateJobRoutes } from "../../../src/routes/plugin-update-jobs.js";
-import { pluginUpdateJobResponseSchema } from "@bb/server-contract";
+import { pluginUpdateJobResponseSchema } from "@hyperfide/server-contract";
 import { createPluginUpdateJobs } from "../../../src/services/plugins/plugin-update-jobs.js";
 import { execFile } from "node:child_process";
 import {
@@ -30,9 +30,9 @@ import {
   upsertInstalledPlugin,
   upsertPluginMarketplace,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import type { Logger } from "@bb/logger";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import type { Logger } from "@hyperfide/logger";
 import { registerPluginRoutes } from "../../../src/routes/plugins.js";
 import { createPluginInstallJobs } from "../../../src/services/plugins/plugin-install-jobs.js";
 import { createPluginCatalogService } from "../../../src/services/plugin-catalog/plugin-catalog-service.js";

@@ -1,4 +1,4 @@
-import type { PluginEnvironmentProviderProgress } from "@get-bb/plugin-sdk/environment-provider";
+import type { PluginEnvironmentProviderProgress } from "@hyperfide/plugin-sdk/environment-provider";
 
 export function createCloneProgressReporter(
   target: PluginEnvironmentProviderProgress,

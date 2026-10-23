@@ -1,4 +1,4 @@
-import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
+import { experimental_defineHostEntry } from "@hyperfide/plugin-sdk/host";
 import { echoProviderHostContract } from "./contract.js";
 
 export { experimental_providerBridge } from "./src/provider-bridge.js";

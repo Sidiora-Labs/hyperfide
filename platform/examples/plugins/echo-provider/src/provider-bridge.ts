@@ -27,7 +27,7 @@ import {
   threadStopParamsSchema,
   turnStartParamsSchema,
   turnSteerParamsSchema,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";

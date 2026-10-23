@@ -3,7 +3,7 @@ import type {
   BbSdkAreas,
   ThreadMutationResult,
   ThreadUpdateArgs,
-} from "@bb/sdk";
+} from "@hyperfide/sdk";
 import { sdk } from "@/lib/sdk";
 import { registerThreadEntityViews } from "../cache-owners/thread-entity-store";
 import {

@@ -1,4 +1,4 @@
-import { durationToCompactString } from "@bb/thread-view";
+import { durationToCompactString } from "@hyperfide/thread-view";
 import { useSecondTick } from "@/hooks/useSecondTick";
 
 export function LiveDurationText({ startedAt }: { startedAt: number }) {

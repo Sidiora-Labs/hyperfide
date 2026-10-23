@@ -13,7 +13,7 @@ import {
   type AppUpdateResult,
   type AppUpdateTarget,
   type LauncherToServerMessage,
-} from "@bb/config/app-update";
+} from "@hyperfide/config/app-update";
 import {
   formatNpmRevisionPackageRoot,
   installNpmRevision,

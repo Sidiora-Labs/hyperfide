@@ -1,4 +1,4 @@
-import { bbDesktopClipboardContentSchema } from "@bb/desktop-contract";
+import { bbDesktopClipboardContentSchema } from "@hyperfide/desktop-contract";
 import { clipboard, ClipboardItem, ipcMain } from "electron";
 import { HYPERFIDE_DESKTOP_WRITE_CLIPBOARD_CHANNEL } from "./desktop-window-command-ipc.js";
 

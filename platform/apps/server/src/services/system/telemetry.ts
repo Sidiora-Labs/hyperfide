@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { RequestAppSurface } from "@bb/config/app-surface";
-import type { RecordTelemetryEventRequest } from "@bb/server-contract";
+import type { RequestAppSurface } from "@hyperfide/config/app-surface";
+import type { RecordTelemetryEventRequest } from "@hyperfide/server-contract";
 import type { ServerLogger } from "../../types.js";
 
 const telemetryAppSurfaceStorage = new AsyncLocalStorage<RequestAppSurface>();

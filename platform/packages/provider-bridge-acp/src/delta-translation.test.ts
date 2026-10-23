@@ -1,9 +1,9 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { threadScope, turnScope, type ThreadEvent } from "@bb/domain";
-import type { ProviderRuntimeEvent } from "@bb/provider-bridge-protocol/bridge-kit";
-import { createDeltaAssembler } from "@bb/provider-bridge-protocol/assembler";
-import type { DeltaAssembler } from "@bb/provider-bridge-protocol/assembler";
+import { threadScope, turnScope, type ThreadEvent } from "@hyperfide/domain";
+import type { ProviderRuntimeEvent } from "@hyperfide/provider-bridge-protocol/bridge-kit";
+import { createDeltaAssembler } from "@hyperfide/provider-bridge-protocol/assembler";
+import type { DeltaAssembler } from "@hyperfide/provider-bridge-protocol/assembler";
 import {
   ACP_COMPACTION_COMPLETED_METHOD,
   ACP_COMPACTION_STARTED_METHOD,

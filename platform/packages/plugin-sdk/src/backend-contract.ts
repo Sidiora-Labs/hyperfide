@@ -1,4 +1,4 @@
-import type { EnvironmentRemoval } from "@bb/domain";
+import type { EnvironmentRemoval } from "@hyperfide/domain";
 import type { MachineBootstrapApi } from "./machine-bootstrap.js";
 import type Database from "better-sqlite3";
 import type { Context } from "hono";
@@ -20,8 +20,8 @@ import type {
   ThreadQueuedMessage,
   ThreadTurnInitiator,
   WorkspaceProvisionType,
-} from "@bb/domain";
-import type { ProviderFork } from "@bb/domain/provider-fork";
+} from "@hyperfide/domain";
+import type { ProviderFork } from "@hyperfide/domain/provider-fork";
 import type {
   BbSdk,
   PluginThreadMetadataListArgs,
@@ -29,12 +29,12 @@ import type {
   ThreadPluginMetadataArgs,
   ThreadPluginMetadataUpdateArgs,
   ThreadPluginMetadataResult,
-} from "@bb/sdk";
+} from "@hyperfide/sdk";
 import type {
   ExecutionInputFieldSource,
   ThreadResponse,
   TerminalSession,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { JsonValue, ReadonlyJsonValue } from "./json-value.js";
 import type {
   ExperimentalPluginRpcHandlersWithContext,
@@ -54,7 +54,7 @@ import type {
  * (apps/server/src/services/plugins/plugin-api.ts), which imports these
  * shapes so the contract and the implementation cannot drift. Plugin authors
  * import them type-only (`import type { BbPluginApi } from
- * "@get-bb/plugin-sdk"`); the import is erased when BB loads the file.
+ * "@hyperfide/plugin-sdk"`); the import is erased when BB loads the file.
  *
  * Runtime classes stay host-side. NeedsConfigurationError in particular is
  * matched by NAME, so plugin code needs no runtime import:
@@ -1334,7 +1334,7 @@ export interface PluginProviderCapabilities {
  * Provider copy core surfaces render from per-provider tables today (usage
  * banners, sign-in hints, the mobile picker, the agent guide). Declared once
  * here so no core surface keys copy on a provider id. Mirrors
- * `providerStringsSchema` in `@bb/domain`, which is the client projection.
+ * `providerStringsSchema` in `@hyperfide/domain`, which is the client projection.
  */
 export interface PluginProviderStrings {
   /** How to sign in on the host ("Run `claude` on the machine to sign in."). */
@@ -1618,7 +1618,7 @@ export interface PluginProviderDeclaration {
   experimental_nativeCommandRoots?: PluginProviderNativeRoots;
   /**
    * This plugin's `bb.host` entry implements
-   * `experimental_nativeRootsHostContract` (`@get-bb/plugin-sdk/host`): core
+   * `experimental_nativeRootsHostContract` (`@hyperfide/plugin-sdk/host`): core
    * calls `resolveNativeRoots({ cwd })` on the workspace host when it lists
    * commands or skills, and scans what comes back beside the declared roots.
    * This is where a provider's host-only knowledge goes — a config-moved

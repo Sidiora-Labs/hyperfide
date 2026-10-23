@@ -14,19 +14,19 @@ import type {
   PluginThreadActionsMenuProps,
   PluginThreadActionsTriggerProps,
   PluginThreadActionTarget,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
-} from "@bb/shared-ui/context-menu";
+} from "@hyperfide/shared-ui/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { CompactLongPressMenu } from "@bb/shared-ui/compact-long-press-menu";
+} from "@hyperfide/shared-ui/dropdown-menu";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { CompactLongPressMenu } from "@hyperfide/shared-ui/compact-long-press-menu";
 import {
   ThreadActionMenuRows,
   useThreadActionMenuGroups,

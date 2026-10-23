@@ -3,14 +3,14 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
-import { isNightlyAppVersion } from "@bb/config/app-update";
-import type { DesktopAppUpdateInfo } from "@bb/config/desktop-app-update";
-import { mutateManagedJsonFile } from "@bb/config/managed-json-file";
+import { isNightlyAppVersion } from "@hyperfide/config/app-update";
+import type { DesktopAppUpdateInfo } from "@hyperfide/config/desktop-app-update";
+import { mutateManagedJsonFile } from "@hyperfide/config/managed-json-file";
 import {
   systemAppUpdateResultSchema,
   type SystemAppUpdateActivity,
   type SystemAppUpdateStatus,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { ApiError } from "../../errors.js";
 import type { ServerLogger } from "../../types.js";
 import type { AppUpdateService } from "./app-update.js";

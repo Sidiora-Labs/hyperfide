@@ -1,4 +1,4 @@
-import type { ExperimentalComposerDecorationSource } from "@get-bb/plugin-sdk";
+import type { ExperimentalComposerDecorationSource } from "@hyperfide/plugin-sdk";
 import { Extension, type Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import {

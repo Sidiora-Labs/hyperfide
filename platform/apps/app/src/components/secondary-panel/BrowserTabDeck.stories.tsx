@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { BbDesktopBrowserState } from "@bb/desktop-contract";
+import type { BbDesktopBrowserState } from "@hyperfide/desktop-contract";
 import {
   getBrowserHistoryStorageKey,
   type BrowserHistoryEntry,
@@ -7,7 +7,7 @@ import {
 import type { BrowserFixedPanelTab } from "@/lib/fixed-panel-tabs-state";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";
 import { WithDesktopBrowser } from "../../../.ladle/story-desktop";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { BrowserTabDeck } from "./BrowserTabDeck";
 import {
   ThreadSecondaryPanel,

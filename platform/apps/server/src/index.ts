@@ -1,10 +1,10 @@
 import { join } from "node:path";
-import { loadServerConfig } from "@bb/config/server";
+import { loadServerConfig } from "@hyperfide/config/server";
 import {
   installSafeProcessDiagnostics,
   installSocketTypeOfServiceGuard,
   writeSafeProcessDiagnosticReport,
-} from "@bb/process-utils";
+} from "@hyperfide/process-utils";
 
 const serverConfig = loadServerConfig();
 const diagnosticsLogsDir = join(serverConfig.HYPERFIDE_DATA_DIR, "logs");

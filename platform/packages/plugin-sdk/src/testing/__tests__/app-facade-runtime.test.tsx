@@ -33,7 +33,7 @@ function ContextProbe() {
   );
 }
 
-describe("@get-bb/plugin-sdk/app without a runtime at import time", () => {
+describe("@hyperfide/plugin-sdk/app without a runtime at import time", () => {
   it("loaded before any runtime was installed", () => {
     expect(runtimeAtImport).toBeUndefined();
   });

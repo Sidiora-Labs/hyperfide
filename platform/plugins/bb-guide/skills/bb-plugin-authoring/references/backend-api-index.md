@@ -4,7 +4,7 @@ Use this index to check backend, host, AI-service, and test imports.
 Read the detailed backend references for behavior, fields, and examples.
 Read the installed declarations for exact current signatures.
 
-## `@get-bb/plugin-sdk`
+## `@hyperfide/plugin-sdk`
 
 - `PLUGIN_CLI_OUTPUT_MAX_BYTES`
 - `defineRpcContract`
@@ -367,7 +367,7 @@ Read the installed declarations for exact current signatures.
 - `ThreadChatProps`
 - `UrlLinkProps`
 
-## `@get-bb/plugin-sdk/environment-provider`
+## `@hyperfide/plugin-sdk/environment-provider`
 
 - `PluginEnvironmentProviderAvailabilityContext`
 - `PluginEnvironmentProviderAvailability`
@@ -382,7 +382,7 @@ Read the installed declarations for exact current signatures.
 - `PluginEnvironmentProviderRemoveContext`
 - `PluginEnvironmentProviderRemoveResult`
 
-## `@get-bb/plugin-sdk/machine-provider`
+## `@hyperfide/plugin-sdk/machine-provider`
 
 - `PluginMachineProviderDefinition`
 - `PluginMachineProviderInputsSchema`
@@ -395,7 +395,7 @@ Read the installed declarations for exact current signatures.
 - `PluginMachineProviderResourceResult`
 - `PluginMachineProviderRemoveResult`
 
-## `@get-bb/plugin-sdk/host`
+## `@hyperfide/plugin-sdk/host`
 
 - `experimental_defineHostEntry`
 - `experimental_filterResolvedNativeRoots`
@@ -440,7 +440,7 @@ Read the installed declarations for exact current signatures.
 - `ExperimentalVendorPluginRoots`
 - `ExperimentalVendorPluginRootsArgs`
 
-## `@get-bb/plugin-sdk/testing`
+## `@hyperfide/plugin-sdk/testing`
 
 - `ExperimentalFakeWebSocketRouteRecord`
 - `ExperimentalFakeWebSocketSession`
@@ -478,7 +478,7 @@ Read the installed declarations for exact current signatures.
 - `PublicSdkOnlyScanOptions`
 - `PublicSdkOnlyViolation`
 
-## `@get-bb/plugin-sdk/testing/host`
+## `@hyperfide/plugin-sdk/testing/host`
 
 - `experimental_createHostEntryHarness`
 - `ExperimentalCreateHostEntryHarnessOptions`

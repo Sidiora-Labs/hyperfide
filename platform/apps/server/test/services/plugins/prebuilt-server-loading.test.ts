@@ -12,10 +12,10 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertInstalledPlugin, type DbConnection } from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@bb/domain";
-import type { Logger } from "@bb/logger";
+import { upsertInstalledPlugin, type DbConnection } from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@hyperfide/domain";
+import type { Logger } from "@hyperfide/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,

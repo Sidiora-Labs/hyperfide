@@ -1,4 +1,4 @@
-import { BbHttpError } from "@bb/sdk/browser";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import { describe, expect, it } from "vitest";
 import { mapAuthError } from "./auth-error";
 

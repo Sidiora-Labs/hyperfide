@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import piPlugin from "./server.js";
 
 function registeredDeclaration() {
@@ -16,7 +16,7 @@ function registeredDeclaration() {
 describe("the pi plugin's environment passthrough", () => {
   it("declares the bridge command override variables so a host-set value reaches the bridge", () => {
     expect(registeredDeclaration().env).toEqual({
-      passthrough: ["BB_PI_BRIDGE_COMMAND", "BB_PI_BRIDGE_ARGS"],
+      passthrough: ["HYPERFIDE_PI_BRIDGE_COMMAND", "HYPERFIDE_PI_BRIDGE_ARGS"],
     });
   });
 });

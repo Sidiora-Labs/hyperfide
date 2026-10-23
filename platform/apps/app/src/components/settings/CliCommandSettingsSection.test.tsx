@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { SystemCliCommandStatus } from "@bb/server-contract";
+import type { SystemCliCommandStatus } from "@hyperfide/server-contract";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { CliCommandSettingsSectionContent } from "./CliCommandSettingsSection";

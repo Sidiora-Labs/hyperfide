@@ -1,4 +1,4 @@
-import { definePluginApp } from "@get-bb/plugin-sdk/app";
+import { definePluginApp } from "@hyperfide/plugin-sdk/app";
 import { TasksAppShell } from "./shell/app-shell.js";
 import { useTasksBadge } from "./shell/badge.js";
 import { TasksNavigationPanel } from "./shell/navigation-panel.js";

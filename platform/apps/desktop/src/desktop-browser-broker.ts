@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import type {
   BbDesktopBrowserControlState,
   BbDesktopBrowserTarget,
-} from "@bb/desktop-contract";
-import { isRawThreadId } from "@bb/domain";
+} from "@hyperfide/desktop-contract";
+import { isRawThreadId } from "@hyperfide/domain";
 import type {
   DesktopBrowserChanged,
   DesktopBrowserCommand,
@@ -11,7 +11,7 @@ import type {
   DesktopBrowserLease,
   DesktopBrowserResult,
   DesktopBrowserTab,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   createDesktopBrowserCdpBridge,
   type DesktopBrowserCdpAdapter,

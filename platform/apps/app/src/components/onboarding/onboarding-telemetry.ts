@@ -1,4 +1,4 @@
-import type { RecordTelemetryEventRequest } from "@bb/server-contract";
+import type { RecordTelemetryEventRequest } from "@hyperfide/server-contract";
 
 export type OnboardingEntry = "first_run" | "replay";
 

@@ -1,6 +1,6 @@
-import { getProjectSourceByHost } from "@bb/db";
-import { isLocalPathProjectSource } from "@bb/domain";
-import type { SystemEnvironmentProvider } from "@bb/server-contract";
+import { getProjectSourceByHost } from "@hyperfide/db";
+import { isLocalPathProjectSource } from "@hyperfide/domain";
+import type { SystemEnvironmentProvider } from "@hyperfide/server-contract";
 import type { WorkSessionDeps } from "../../types.js";
 import {
   getNonDestroyedHostWithStatus,
