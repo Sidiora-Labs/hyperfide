@@ -110,7 +110,7 @@ heading = "Implementation Plan: hyperfide-v22"
 
 [task.0.1]
 title = "Rename map and codemod"
-status = "done"
+status = "implemented"
 wave = 0
 requires = []
 touches = ["platform/tools/rename/map.json", "platform/tools/rename/apply.mjs", "platform/tools/rename/README.md", "tests/hyperfide/cases/v22/0_1.sh", "tests/hyperfide/cases/v22/fixtures/rename/**"]
