@@ -1296,7 +1296,7 @@ owner = "hygiene"
 
 [task.7.11]
 title = "Full-case registrations for the remaining V-cases"
-status = "in_progress"
+status = "implemented"
 wave = 7
 requires = ["7.9"]
 touches = ["tests/hyperfide/registry.json", "tests/hyperfide/registrations"]
