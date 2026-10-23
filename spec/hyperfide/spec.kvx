@@ -2265,7 +2265,7 @@ do_3 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.27.4]
 title = "Run composite fault qualification and independent invariant reconstruction"
-status = "pending"
+status = "done"
 wave = 31
 requires = ["27.3", "24.4", "19.4"]
 touches = ["tests/hyperfide/campaigns/faults.py", "tests/hyperfide/manifests/tasks/27.4.json", "tests/hyperfide/cases/tasks/27_4.py", "tests/hyperfide/registrations/27.4.json"]

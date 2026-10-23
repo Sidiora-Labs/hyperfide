@@ -1758,6 +1758,15 @@
       ]
     },
     {
+      "ref": "refs/evidence/27.4/2",
+      "task": "27.4",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
       "ref": "refs/evidence/28.1/1",
       "task": "28.1",
       "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
