@@ -10,19 +10,19 @@ import { advanceThreadProvisioning } from "./thread-provisioning.js";
 import type { ThreadProvisioningDeps } from "./thread-provisioning-environment.js";
 import { removeCreatingMachine } from "../machines/provider-orchestration.js";
 
-export function scheduleEnvironmentProvisioning(
+export async function scheduleEnvironmentProvisioning(
   deps: ThreadProvisioningDeps,
   threadId: string,
   at: number,
-): void {
-  const context = getThreadProvisionContext(deps.db, threadId);
+): Promise<void> {
+  const context = await getThreadProvisionContext(deps.db, threadId);
   if (context === null || context.request.environmentIntent.type !== "provider")
     return;
   const timer = setTimeout(
-    () => {
+    async () => {
       clearThreadProvisionSchedule(threadId);
       if (Date.now() < at)
-        return scheduleEnvironmentProvisioning(deps, threadId, at);
+        return await scheduleEnvironmentProvisioning(deps, threadId, at);
       void advanceThreadProvisioning(deps, { threadId }).catch((error) =>
         deps.logger.warn({ threadId, error }, "Environment advancement failed"),
       );
@@ -38,10 +38,10 @@ export function scheduleEnvironmentProvisioning(
   });
 }
 
-export function recheckEnvironmentProviderCreations(
+export async function recheckEnvironmentProviderCreations(
   deps: ThreadProvisioningDeps,
   pluginId: string,
-): void {
+): Promise<void> {
   const owned = new Set(
     listEnvironmentProviders()
       .filter((record) => record.pluginId === pluginId)
@@ -49,14 +49,14 @@ export function recheckEnvironmentProviderCreations(
   );
   for (const entry of listThreadProvisionSchedules())
     if (owned.has(entry.environmentProviderId))
-      scheduleEnvironmentProvisioning(deps, entry.threadId, Date.now());
+      await scheduleEnvironmentProvisioning(deps, entry.threadId, Date.now());
 }
 
-export function recheckEnvironmentProvisioning(
+export async function recheckEnvironmentProvisioning(
   deps: ThreadProvisioningDeps,
   threadId: string,
-): void {
-  scheduleEnvironmentProvisioning(deps, threadId, Date.now());
+): Promise<void> {
+  await scheduleEnvironmentProvisioning(deps, threadId, Date.now());
 }
 
 export function scheduledEnvironmentProviderAskCount(): number {

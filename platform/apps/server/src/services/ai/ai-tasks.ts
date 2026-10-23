@@ -114,15 +114,20 @@ export function aiTaskServices(
   return service === null ? [] : [service];
 }
 
-export function isAiTaskAvailable(
+export async function isAiTaskAvailable(
   deps: Pick<AiTaskDeps, "aiServices" | "db">,
   task: AiTask,
-): boolean {
-  const selection = getAiServiceSelections(deps.db)[task];
-  return aiTaskServices(deps, task, selection).some(
-    (service) =>
-      deps.aiServices.peekStatus(aiServiceKey(service))?.ready === true,
-  );
+): Promise<boolean> {
+  const selection = (await getAiServiceSelections(deps.db))[task];
+  return (
+    await Promise.all(
+      aiTaskServices(deps, task, selection).map(
+        async (service) =>
+          (await deps.aiServices.peekStatus(aiServiceKey(service)))?.ready ===
+          true,
+      ),
+    )
+  ).some(Boolean);
 }
 
 function linkedSignal(
@@ -179,7 +184,7 @@ export async function runAiTask<T>(
   args: RunAiTaskArgs<T>,
 ): Promise<AiTaskOutcome<T>> {
   const startedAt = Date.now();
-  const selection = getAiServiceSelections(deps.db)[args.task];
+  const selection = (await getAiServiceSelections(deps.db))[args.task];
   const fail = (
     reason: AiTaskFailureReason,
     message: string,
@@ -231,7 +236,9 @@ export async function runAiTask<T>(
     };
     try {
       const raw = await abortable(
-        Promise.resolve().then(() => args.call(service, link.signal)),
+        Promise.resolve().then(
+          async () => await args.call(service, link.signal),
+        ),
         link.signal,
       );
       const value = args.accept(raw);
@@ -281,7 +288,7 @@ export async function runAiTask<T>(
   return fail(last.reason, last.message);
 }
 
-export function runTextAiTask(
+export async function runTextAiTask(
   deps: AiTaskDeps,
   args: {
     task: AiTextTask;
@@ -292,7 +299,7 @@ export function runTextAiTask(
     signal?: AbortSignal;
   },
 ): Promise<AiTaskOutcome<string>> {
-  return runAiTask(deps, {
+  return await runAiTask(deps, {
     task: args.task,
     label: args.label,
     ...(args.logContext === undefined ? {} : { logContext: args.logContext }),

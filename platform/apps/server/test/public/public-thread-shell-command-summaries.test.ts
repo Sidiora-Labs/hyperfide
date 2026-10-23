@@ -16,11 +16,11 @@ const SUMMARY = [
   { type: "search", command: COMMAND, query: "pending", path: "checks.log" },
 ];
 
-function seedTurnWithCommand(
+async function seedTurnWithCommand(
   harness: TestAppHarness,
   completed: boolean,
-): { threadId: string; turnId: string } {
-  const { environment, thread } = seedThreadFixture(harness);
+): Promise<{ threadId: string; turnId: string }> {
+  const { environment, thread } = await seedThreadFixture(harness);
   const turnId = "turn-1";
   const turn = {
     threadId: thread.id,
@@ -35,19 +35,19 @@ function seedTurnWithCommand(
     cwd: "/tmp",
     approvalStatus: null,
   } as const;
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     ...turn,
     sequence: 1,
     type: "turn/started",
     data: {},
   });
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     ...turn,
     sequence: 2,
     type: "item/started",
     data: { item: { ...item, status: "pending" } },
   });
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     ...turn,
     sequence: 3,
     type: "item/completed",
@@ -61,7 +61,7 @@ function seedTurnWithCommand(
     },
   });
   if (completed) {
-    seedEvent(harness.deps, {
+    await seedEvent(harness.deps, {
       ...turn,
       sequence: 4,
       type: "turn/completed",
@@ -82,7 +82,7 @@ function commandIntents(rows: readonly TimelineRow[]): unknown[] {
 describe("shell command summaries", () => {
   it("follows the setting, including cached timeline responses", async () => {
     await withTestHarness(async (harness) => {
-      const { threadId } = seedTurnWithCommand(harness, false);
+      const { threadId } = await seedTurnWithCommand(harness, false);
       const readIntents = async () => {
         const response = await harness.app.request(
           `/api/v1/threads/${threadId}/timeline`,
@@ -94,19 +94,19 @@ describe("shell command summaries", () => {
       };
 
       expect(await readIntents()).toEqual([SUMMARY]);
-      setAppSettings(harness.db, {
+      await setAppSettings(harness.db, {
         ...defaultAppSettings,
         summarizeShellCommands: false,
       });
       expect(await readIntents()).toEqual([[]]);
-      setAppSettings(harness.db, defaultAppSettings);
+      await setAppSettings(harness.db, defaultAppSettings);
       expect(await readIntents()).toEqual([SUMMARY]);
     });
   });
 
   it("follows the setting in completed turn details", async () => {
     await withTestHarness(async (harness) => {
-      const { threadId, turnId } = seedTurnWithCommand(harness, true);
+      const { threadId, turnId } = await seedTurnWithCommand(harness, true);
       const readIntents = async () => {
         const response = await harness.app.request(
           `/api/v1/threads/${threadId}/timeline/turn-summary-details?turnId=${turnId}&sourceSeqStart=1&sourceSeqEnd=4`,
@@ -120,7 +120,7 @@ describe("shell command summaries", () => {
       };
 
       expect(await readIntents()).toEqual([SUMMARY]);
-      setAppSettings(harness.db, {
+      await setAppSettings(harness.db, {
         ...defaultAppSettings,
         summarizeShellCommands: false,
       });

@@ -48,16 +48,16 @@ function requestId(value: number): ClientTurnRequestId {
   return encodeClientTurnRequestIdNumber({ value });
 }
 
-function setup(): { db: DbConnection; thread: Thread } {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup(): Promise<{ db: DbConnection; thread: Thread }> {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "claude-code",
   });
@@ -96,11 +96,11 @@ interface SeedOptions {
   itemsPerTurn: readonly number[];
 }
 
-function seedTurns(
+async function seedTurns(
   db: DbConnection,
   thread: Thread,
   options: SeedOptions,
-): void {
+): Promise<void> {
   const events: EventInput[] = [];
   let sequence = 0;
   const push = (event: Omit<EventInput, "sequence" | "threadId">): void => {
@@ -337,15 +337,15 @@ function seedTurns(
     }
   });
 
-  insertEvents(db, noopNotifier, events);
+  await insertEvents(db, noopNotifier, events);
 }
 
-function appendCommandItems(
+async function appendCommandItems(
   db: DbConnection,
   thread: Thread,
   args: { commandChars: number; count: number; itemStart: number },
-): void {
-  let sequence = getLatestThreadSequence(db, { threadId: thread.id });
+): Promise<void> {
+  let sequence = await getLatestThreadSequence(db, { threadId: thread.id });
   const events: EventInput[] = [];
   const push = (event: Omit<EventInput, "sequence" | "threadId">): void => {
     sequence += 1;
@@ -394,10 +394,10 @@ function appendCommandItems(
       }),
     });
   }
-  insertEvents(db, noopNotifier, events);
+  await insertEvents(db, noopNotifier, events);
 }
 
-function buildPage(
+async function buildPage(
   db: DbConnection,
   thread: Thread,
   eventBudget: number,
@@ -407,7 +407,7 @@ function buildPage(
   includeNestedRows = false,
   deferContent = false,
 ) {
-  return buildThreadTimelineWithProfile(db, thread, {
+  return await buildThreadTimelineWithProfile(db, thread, {
     completedTurnDisplay: "collapse",
     deferContent,
     eventBudget,
@@ -425,14 +425,14 @@ function buildPage(
   });
 }
 
-function buildNestedPage(
+async function buildNestedPage(
   db: DbConnection,
   thread: Thread,
   eventBudget: number,
   cursor: TimelinePaginationCursor | null,
   responseByteBudget = THREAD_TIMELINE_EVENT_DATA_BYTE_LIMIT,
 ) {
-  return buildThreadTimelineWithProfile(db, thread, {
+  return await buildThreadTimelineWithProfile(db, thread, {
     completedTurnDisplay: "collapse",
     eventBudget,
     responseByteBudget,
@@ -451,17 +451,17 @@ function buildNestedPage(
 
 type TurnDetailsPageOptions = Parameters<typeof buildTurnDetailsPage>[2];
 
-function walkTurnDetailsPages(
+async function walkTurnDetailsPages(
   db: DbConnection,
   thread: Thread,
   options: TurnDetailsPageOptions,
 ) {
-  const response = buildTurnDetailsPage(db, thread, options);
-  let rows = response.rows;
+  const response = await buildTurnDetailsPage(db, thread, options);
+  let rows = await response.rows;
   let cursor = response.olderCursor;
   let pages = 0;
   while (cursor) {
-    const older = buildTurnDetailsPage(db, thread, {
+    const older = await buildTurnDetailsPage(db, thread, {
       ...options,
       beforeCursor: cursor,
     });
@@ -475,86 +475,102 @@ function walkTurnDetailsPages(
   return { ...response, rows, olderCursor: null };
 }
 
-function expandDeferredDelegations(
+async function expandDeferredDelegations(
   db: DbConnection,
   thread: Thread,
   options: TurnDetailsPageOptions,
   rows: TimelineRow[],
-): TimelineRow[] {
-  return rows.map((row): TimelineRow => {
-    if (row.kind === "turn" && row.children !== null) {
-      return {
-        ...row,
-        children: expandDeferredDelegations(db, thread, options, row.children),
-      };
-    }
-    if ("contentDeferred" in row && row.contentDeferred === true) {
-      const itemId =
-        row.kind === "work" && "callId" in row
-          ? row.callId
-          : row.kind === "system" && "reasoningId" in row
-            ? row.reasoningId
-            : undefined;
-      const loaded = walkTurnDetailsPages(db, thread, {
-        ...options,
-        itemId: itemId ?? null,
-        sourceSeqStart: row.sourceSeqStart,
-        sourceSeqEnd: row.sourceSeqEnd,
-      }).rows.find((candidate) => candidate.id === row.id);
-      if (loaded === undefined) {
-        throw new Error(`Expected deferred content for ${row.id}`);
+): Promise<TimelineRow[]> {
+  return await Promise.all(
+    rows.map(async (row): Promise<TimelineRow> => {
+      if (row.kind === "turn" && row.children !== null) {
+        return {
+          ...row,
+          children: await expandDeferredDelegations(
+            db,
+            thread,
+            options,
+            row.children,
+          ),
+        };
       }
-      return loaded;
-    }
-    if (row.kind !== "work" || row.workKind !== "delegation") {
-      return row;
-    }
-    if (row.childRows !== null) {
+      if ("contentDeferred" in row && row.contentDeferred === true) {
+        const itemId =
+          row.kind === "work" && "callId" in row
+            ? row.callId
+            : row.kind === "system" && "reasoningId" in row
+              ? row.reasoningId
+              : undefined;
+        const loaded = (
+          await walkTurnDetailsPages(db, thread, {
+            ...options,
+            itemId: itemId ?? null,
+            sourceSeqStart: row.sourceSeqStart,
+            sourceSeqEnd: row.sourceSeqEnd,
+          })
+        ).rows.find((candidate) => candidate.id === row.id);
+        if (loaded === undefined) {
+          throw new Error(`Expected deferred content for ${row.id}`);
+        }
+        return loaded;
+      }
+      if (row.kind !== "work" || row.workKind !== "delegation") {
+        return row;
+      }
+      if (row.childRows !== null) {
+        return {
+          ...row,
+          childRows: await expandDeferredDelegations(
+            db,
+            thread,
+            options,
+            row.childRows,
+          ),
+        };
+      }
+      const scoped = (
+        await walkTurnDetailsPages(db, thread, {
+          ...options,
+          itemId: row.callId,
+          sourceSeqStart: row.sourceSeqStart,
+          sourceSeqEnd: row.sourceSeqEnd,
+        })
+      ).rows[0];
+      if (
+        scoped?.kind !== "work" ||
+        scoped.workKind !== "delegation" ||
+        scoped.childRows === null
+      ) {
+        throw new Error(`Expected delegation ${row.callId} children`);
+      }
       return {
         ...row,
-        childRows: expandDeferredDelegations(
+        childRows: await expandDeferredDelegations(
           db,
           thread,
           options,
-          row.childRows,
+          scoped.childRows,
         ),
       };
-    }
-    const scoped = walkTurnDetailsPages(db, thread, {
-      ...options,
-      itemId: row.callId,
-      sourceSeqStart: row.sourceSeqStart,
-      sourceSeqEnd: row.sourceSeqEnd,
-    }).rows[0];
-    if (
-      scoped?.kind !== "work" ||
-      scoped.workKind !== "delegation" ||
-      scoped.childRows === null
-    ) {
-      throw new Error(`Expected delegation ${row.callId} children`);
-    }
-    return {
-      ...row,
-      childRows: expandDeferredDelegations(
-        db,
-        thread,
-        options,
-        scoped.childRows,
-      ),
-    };
-  });
+    }),
+  );
 }
 
-function buildTimelineTurnSummaryDetails(
+async function buildTimelineTurnSummaryDetails(
   db: DbConnection,
   thread: Thread,
   options: Omit<TurnDetailsPageOptions, "deferContent" | "itemId">,
 ) {
   const pageOptions = { ...options, deferContent: true, itemId: null };
-  const response = walkTurnDetailsPages(db, thread, pageOptions);
+  const response = await walkTurnDetailsPages(db, thread, pageOptions);
   return {
     ...response,
-    rows: expandDeferredDelegations(db, thread, pageOptions, response.rows),
+    rows: await expandDeferredDelegations(
+      db,
+      thread,
+      pageOptions,
+      response.rows,
+    ),
   };
 }
 
@@ -581,13 +597,13 @@ interface WalkResult {
   rows: string[];
 }
 
-function walkAllPages(
+async function walkAllPages(
   db: DbConnection,
   thread: Thread,
   eventBudget: number,
   segmentLimit = 20,
   includeNestedRows = false,
-): WalkResult {
+): Promise<WalkResult> {
   let mergedRows: TimelineRow[] = [];
   const seenCursors = new Set<string>();
   let cursor: TimelinePaginationCursor | null = null;
@@ -595,7 +611,7 @@ function walkAllPages(
   let pages = 0;
 
   for (;;) {
-    const { profile, response } = buildPage(
+    const { profile, response } = await buildPage(
       db,
       thread,
       eventBudget,
@@ -633,10 +649,10 @@ function walkAllPages(
 }
 
 describe("in-turn timeline windows", () => {
-  const expectSteerDetailsOwnership = (
+  const expectSteerDetailsOwnership = async (
     steerStatus: "accepted" | "rejected",
-  ): void => {
-    const { db, thread } = setup();
+  ): Promise<void> => {
+    const { db, thread } = await setup();
     const initialRequestId = requestId(1);
     const steerRequestId = requestId(2);
     const turnId = "turn-1";
@@ -669,7 +685,7 @@ describe("in-turn timeline windows", () => {
             }),
           };
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -794,8 +810,9 @@ describe("in-turn timeline windows", () => {
       },
     ]);
 
-    const timeline = buildPage(db, thread, LARGE_BUDGET, null).response;
-    const latest = buildPage(db, thread, LARGE_BUDGET, null, 1).response;
+    const timeline = (await buildPage(db, thread, LARGE_BUDGET, null)).response;
+    const latest = (await buildPage(db, thread, LARGE_BUDGET, null, 1))
+      .response;
     expect(latest.timelinePage.olderCursor).not.toBeNull();
     expect(latest.rows).toContainEqual(
       expect.objectContaining({
@@ -807,12 +824,14 @@ describe("in-turn timeline windows", () => {
         }),
       }),
     );
-    const older = buildPage(
-      db,
-      thread,
-      LARGE_BUDGET,
-      latest.timelinePage.olderCursor!,
-      1,
+    const older = (
+      await buildPage(
+        db,
+        thread,
+        LARGE_BUDGET,
+        latest.timelinePage.olderCursor!,
+        1,
+      )
     ).response;
     expect(older.timelinePage.olderCursor).toBeNull();
     expect(
@@ -840,7 +859,7 @@ describe("in-turn timeline windows", () => {
       turnRequest: { kind: "steer", status: steerStatus },
     });
 
-    const details = buildTimelineTurnSummaryDetails(db, thread, {
+    const details = await buildTimelineTurnSummaryDetails(db, thread, {
       completedTurnDisplay: "collapse",
       includeDiagnosticOperations: false,
       summarizeShellCommands: true,
@@ -863,23 +882,26 @@ describe("in-turn timeline windows", () => {
     ).toHaveLength(1);
   };
 
-  it("keeps an accepted steer out of details for work that spans it", () => {
-    expectSteerDetailsOwnership("accepted");
+  it("keeps an accepted steer out of details for work that spans it", async () => {
+    await expectSteerDetailsOwnership("accepted");
   });
 
-  it("keeps a rejected steer out of details for work that spans it", () => {
-    expectSteerDetailsOwnership("rejected");
+  it("keeps a rejected steer out of details for work that spans it", async () => {
+    await expectSteerDetailsOwnership("rejected");
   });
 
-  it("bounds a running turn that is larger than the whole budget", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, { completeLastTurn: false, itemsPerTurn: [300] });
+  it("bounds a running turn that is larger than the whole budget", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
+      completeLastTurn: false,
+      itemsPerTurn: [300],
+    });
 
-    const unbudgeted = buildPage(db, thread, LARGE_BUDGET, null);
+    const unbudgeted = await buildPage(db, thread, LARGE_BUDGET, null);
     expect(unbudgeted.profile.eventRowCount).toBeGreaterThan(600);
     expect(unbudgeted.response.timelinePage.olderCursor).toBeNull();
 
-    const budgeted = buildPage(db, thread, 100, null);
+    const budgeted = await buildPage(db, thread, 100, null);
     expect(budgeted.profile.eventRowCount).toBe(
       unbudgeted.profile.eventRowCount,
     );
@@ -892,22 +914,23 @@ describe("in-turn timeline windows", () => {
     );
   });
 
-  it("keeps a compact summary stable despite large source events", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("keeps a compact summary stable despite large source events", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       commandChars: THREAD_TIMELINE_EVENT_DATA_BYTE_LIMIT - 500_000,
       completeLastTurn: false,
       itemsPerTurn: [1],
     });
-    appendCommandItems(db, thread, {
+    await appendCommandItems(db, thread, {
       commandChars: 1,
       count: 1_000,
       itemStart: 1,
     });
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
-        sequence: getLatestThreadSequence(db, { threadId: thread.id }) + 1,
+        sequence:
+          (await getLatestThreadSequence(db, { threadId: thread.id })) + 1,
         type: "turn/completed",
         scope: turnScope("turn-1"),
         providerThreadId,
@@ -918,43 +941,46 @@ describe("in-turn timeline windows", () => {
       },
     ]);
 
-    const walked = walkAllPages(db, thread, LARGE_BUDGET);
+    const walked = await walkAllPages(db, thread, LARGE_BUDGET);
 
     expect(walked.pages).toBe(1);
     expect(walked.rows).not.toHaveLength(0);
   });
 
-  it("pages back through a running oversized turn to exactly the unbudgeted rows", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("pages back through a running oversized turn to exactly the unbudgeted rows", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       completeLastTurn: false,
       itemsPerTurn: [20, 30, 300],
     });
 
-    const unbudgeted = walkAllPages(db, thread, LARGE_BUDGET);
-    const budgeted = walkAllPages(db, thread, 100);
+    const unbudgeted = await walkAllPages(db, thread, LARGE_BUDGET);
+    const budgeted = await walkAllPages(db, thread, 100);
 
     expect(budgeted.rows).toEqual(unbudgeted.rows);
     expect(budgeted.pages).toBeGreaterThan(1);
     expect(budgeted.maxEventRowCount).toBeLessThan(unbudgeted.maxEventRowCount);
   });
 
-  it("keeps a finished turn whole under the event-count budget", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, { completeLastTurn: true, itemsPerTurn: [300] });
+  it("keeps a finished turn whole under the event-count budget", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
+      completeLastTurn: true,
+      itemsPerTurn: [300],
+    });
 
-    const budgeted = buildPage(db, thread, 100, null);
+    const budgeted = await buildPage(db, thread, 100, null);
 
     expect(budgeted.response.timelinePage.olderCursor).toBeNull();
     expect(budgeted.response.timelinePage.olderCursor).toBeNull();
     expect(budgeted.response.rows).toEqual(
-      buildPage(db, thread, LARGE_BUDGET, null).response.rows,
+      (await buildPage(db, thread, LARGE_BUDGET, null)).response.rows,
     );
   });
 
-  it("pages through a finished turn that exceeds the response byte budget", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("pages through a finished turn that exceeds the response byte budget", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       commandChars: SCALED_COMMAND_CHARS,
       completeLastTurn: true,
       itemsPerTurn: [BYTE_WINDOW_ITEM_COUNT],
@@ -966,7 +992,7 @@ describe("in-turn timeline windows", () => {
     let cursor: TimelinePaginationCursor | null = null;
     let pages = 0;
     for (;;) {
-      const page = buildNestedPage(
+      const page = await buildNestedPage(
         db,
         thread,
         LARGE_BUDGET,
@@ -983,7 +1009,7 @@ describe("in-turn timeline windows", () => {
         expect(row.status).toBe("completed");
         expect(row.id).not.toContain(":sequence-page:");
         turnRowIds.add(row.id);
-        const details = buildTimelineTurnSummaryDetails(db, thread, {
+        const details = await buildTimelineTurnSummaryDetails(db, thread, {
           completedTurnDisplay: "collapse",
           includeDiagnosticOperations: false,
           summarizeShellCommands: true,
@@ -1018,47 +1044,32 @@ describe("in-turn timeline windows", () => {
     expect(turnRowIds.size).toBe(1);
   }, 15_000);
 
-  it("keeps latest byte-page row identities stable while a turn grows", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("keeps latest byte-page row identities stable while a turn grows", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       commandChars: SCALED_COMMAND_CHARS,
       completeLastTurn: false,
       itemsPerTurn: [100],
     });
 
-    const first = buildPage(
-      db,
-      thread,
-      LARGE_BUDGET,
-      null,
-      20,
-      SCALED_BYTE_BUDGET,
+    const first = (
+      await buildPage(db, thread, LARGE_BUDGET, null, 20, SCALED_BYTE_BUDGET)
     ).response;
-    appendCommandItems(db, thread, {
+    await appendCommandItems(db, thread, {
       commandChars: SCALED_COMMAND_CHARS,
       count: 20,
       itemStart: 100,
     });
-    const second = buildPage(
-      db,
-      thread,
-      LARGE_BUDGET,
-      null,
-      20,
-      SCALED_BYTE_BUDGET,
+    const second = (
+      await buildPage(db, thread, LARGE_BUDGET, null, 20, SCALED_BYTE_BUDGET)
     ).response;
-    appendCommandItems(db, thread, {
+    await appendCommandItems(db, thread, {
       commandChars: SCALED_COMMAND_CHARS,
       count: 10,
       itemStart: 120,
     });
-    const third = buildPage(
-      db,
-      thread,
-      LARGE_BUDGET,
-      null,
-      20,
-      SCALED_BYTE_BUDGET,
+    const third = (
+      await buildPage(db, thread, LARGE_BUDGET, null, 20, SCALED_BYTE_BUDGET)
     ).response;
 
     expect(first.timelinePage.olderCursor?.anchorId).not.toBe(
@@ -1094,21 +1105,22 @@ describe("in-turn timeline windows", () => {
     }
   });
 
-  it("uses bounded retained previews while it expands a byte-budget slice", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("uses bounded retained previews while it expands a byte-budget slice", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       completeLastTurn: true,
       itemsPerTurn: [150],
       outputChars: 50_000,
     });
 
-    const latest = buildNestedPage(db, thread, LARGE_BUDGET, null).response;
+    const latest = (await buildNestedPage(db, thread, LARGE_BUDGET, null))
+      .response;
     const turnRow = latest.rows.find((row) => row.kind === "turn");
     expect(turnRow?.kind).toBe("turn");
     if (turnRow?.kind !== "turn") {
       throw new Error("expected a turn row");
     }
-    const details = walkTurnDetailsPages(db, thread, {
+    const details = await walkTurnDetailsPages(db, thread, {
       deferContent: false,
       itemId: null,
       completedTurnDisplay: "collapse",
@@ -1138,9 +1150,9 @@ describe("in-turn timeline windows", () => {
     ).toBe(true);
   });
 
-  it("expands each delegated byte-budget slice with realistic parent ordering", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("expands each delegated byte-budget slice with realistic parent ordering", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       commandChars: SCALED_COMMAND_CHARS,
       completeLastTurn: true,
       delegateLastTurn: true,
@@ -1152,7 +1164,7 @@ describe("in-turn timeline windows", () => {
     let cursor: TimelinePaginationCursor | null = null;
     let pages = 0;
     for (;;) {
-      const page = buildNestedPage(
+      const page = await buildNestedPage(
         db,
         thread,
         LARGE_BUDGET,
@@ -1169,7 +1181,7 @@ describe("in-turn timeline windows", () => {
         if (pages === 1) {
           expect(row.sourceSeqStart).toBeLessThanOrEqual(4);
         }
-        const details = buildTimelineTurnSummaryDetails(db, thread, {
+        const details = await buildTimelineTurnSummaryDetails(db, thread, {
           completedTurnDisplay: "collapse",
           includeDiagnosticOperations: false,
           summarizeShellCommands: true,
@@ -1201,9 +1213,9 @@ describe("in-turn timeline windows", () => {
     expect(expandedCommandCallIds.size).toBe(BYTE_WINDOW_ITEM_COUNT);
   }, 15_000);
 
-  it("returns one oversized atomic row without discarding its content", () => {
-    const { db, thread } = setup();
-    insertEvents(db, noopNotifier, [
+  it("returns one oversized atomic row without discarding its content", async () => {
+    const { db, thread } = await setup();
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1218,7 +1230,7 @@ describe("in-turn timeline windows", () => {
       },
     ]);
 
-    const latest = buildPage(db, thread, LARGE_BUDGET, null);
+    const latest = await buildPage(db, thread, LARGE_BUDGET, null);
     expect(latest.response.timelinePage.olderCursor).toBeNull();
     expect(latest.response.timelinePage.olderCursor).toBeNull();
     expect(latest.response.rows).toHaveLength(1);
@@ -1230,9 +1242,9 @@ describe("in-turn timeline windows", () => {
     expect(latest.profile.eventRowCount).toBe(1);
   });
 
-  it("keeps bounded legacy image completions visible before and after migration sweeps", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, { completeLastTurn: false, itemsPerTurn: [0] });
+  it("keeps bounded legacy image completions visible before and after migration sweeps", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, { completeLastTurn: false, itemsPerTurn: [0] });
     const migratedAt = Date.now() + 1_000;
     const cases = [
       { id: "short", result: "encoded-small", status: "completed" },
@@ -1244,8 +1256,8 @@ describe("in-turn timeline windows", () => {
       { id: "large", result: "i".repeat(40_000), status: "completed" },
       { id: "diagnostic", result: "", status: "failed" },
     ];
-    const sequence = getLatestThreadSequence(db, { threadId: thread.id });
-    insertEvents(
+    const sequence = await getLatestThreadSequence(db, { threadId: thread.id });
+    await insertEvents(
       db,
       noopNotifier,
       cases.map((item, index) => ({
@@ -1285,41 +1297,44 @@ describe("in-turn timeline windows", () => {
       callId: id,
       status: status === "failed" ? "error" : "completed",
     }));
-    const visible = () =>
-      buildNestedPage(db, thread, LARGE_BUDGET, null)
-        .response.rows.flatMap((row) =>
+    const visible = async () =>
+      (await buildNestedPage(db, thread, LARGE_BUDGET, null)).response.rows
+        .flatMap((row) =>
           row.kind === "turn" && row.children ? row.children : [row],
         )
         .filter(
           (row) => row.kind === "work" && row.workKind === "image-generation",
         )
         .map((row) => ({ callId: row.callId, status: row.status }));
-    expect(visible()).toEqual(expected);
+    expect(await visible()).toEqual(expected);
     let migratedRows = 0;
     for (let pass = 0; pass < cases.length; pass += 1) {
-      migratedRows += migrateNextLegacyImageGenerationOutput(db, {
-        limit: 100,
-        migratedAt,
-      }).migratedRows;
+      migratedRows += (
+        await migrateNextLegacyImageGenerationOutput(db, {
+          limit: 100,
+          migratedAt,
+        })
+      ).migratedRows;
     }
     expect(migratedRows).toBe(1);
-    expect(visible()).toEqual([
+    expect(await visible()).toEqual([
       ...expected,
       { callId: "large", status: "completed" },
     ]);
-    db.$client.close();
+    await db.close();
   });
 
-  it("renders a migrated oversized Codex image generation as a compact row", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, { completeLastTurn: false, itemsPerTurn: [0] });
+  it("renders a migrated oversized Codex image generation as a compact row", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, { completeLastTurn: false, itemsPerTurn: [0] });
     const migratedAt = Date.now() + 1_000;
     const result = "encoded-image-" + "i".repeat(4 * 1024 * 1024);
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         createdAt: migratedAt - 1,
         threadId: thread.id,
-        sequence: getLatestThreadSequence(db, { threadId: thread.id }) + 1,
+        sequence:
+          (await getLatestThreadSequence(db, { threadId: thread.id })) + 1,
         type: "provider/unhandled",
         scope: turnScope("turn-1"),
         providerThreadId,
@@ -1352,7 +1367,7 @@ describe("in-turn timeline windows", () => {
     ]);
 
     expect(
-      migrateNextLegacyImageGenerationOutput(db, {
+      await migrateNextLegacyImageGenerationOutput(db, {
         limit: 10,
         migratedAt,
       }),
@@ -1362,7 +1377,7 @@ describe("in-turn timeline windows", () => {
       retained: true,
       threadId: thread.id,
     });
-    const page = buildNestedPage(db, thread, LARGE_BUDGET, null);
+    const page = await buildNestedPage(db, thread, LARGE_BUDGET, null);
     const rows = page.response.rows.flatMap((row) =>
       row.kind === "turn" && row.children ? row.children : [row],
     );
@@ -1391,33 +1406,33 @@ describe("in-turn timeline windows", () => {
     ).toBe(false);
   });
 
-  it("keeps a parented aggregate whole instead of bypassing the budget during closure", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("keeps a parented aggregate whole instead of bypassing the budget during closure", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       completeLastTurn: false,
       delegateLastTurn: true,
       itemsPerTurn: [300],
     });
 
-    const unbudgeted = buildNestedPage(db, thread, LARGE_BUDGET, null);
-    const budgeted = buildNestedPage(db, thread, 100, null);
+    const unbudgeted = await buildNestedPage(db, thread, LARGE_BUDGET, null);
+    const budgeted = await buildNestedPage(db, thread, 100, null);
 
     expect(budgeted.response.timelinePage.olderCursor).not.toBeNull();
     expect(budgeted.profile.eventRowCount).toBeGreaterThan(600);
-    expect(walkAllPages(db, thread, 100, 20, true).rows).toEqual(
+    expect((await walkAllPages(db, thread, 100, 20, true)).rows).toEqual(
       unbudgeted.response.rows.map((row) => JSON.stringify(row)),
     );
   });
 
-  it("returns a settled delegation in a running turn without its children, then loads them by call", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("returns a settled delegation in a running turn without its children, then loads them by call", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       completeLastTurn: false,
       delegateLastTurn: true,
       itemsPerTurn: [300],
     });
 
-    const page = buildPage(
+    const page = await buildPage(
       db,
       thread,
       100,
@@ -1437,7 +1452,7 @@ describe("in-turn timeline windows", () => {
     expect(delegation.childRows).toBeNull();
     expect(page.response.timelinePage.olderCursor).toBeNull();
 
-    const firstPage = buildTurnDetailsPage(db, thread, {
+    const firstPage = await buildTurnDetailsPage(db, thread, {
       deferContent: true,
       itemId: delegation.callId,
       completedTurnDisplay: "collapse",
@@ -1458,7 +1473,7 @@ describe("in-turn timeline windows", () => {
     );
     expect(firstPage.olderCursor).not.toBeNull();
 
-    const nested = buildNestedPage(db, thread, LARGE_BUDGET, null);
+    const nested = await buildNestedPage(db, thread, LARGE_BUDGET, null);
     const nestedDelegation = nested.response.rows.find(
       (row) => row.kind === "work" && row.workKind === "delegation",
     );
@@ -1468,14 +1483,16 @@ describe("in-turn timeline windows", () => {
     ) {
       throw new Error("expected a nested delegation row");
     }
-    const walked = buildTimelineTurnSummaryDetails(db, thread, {
-      completedTurnDisplay: "collapse",
-      includeDiagnosticOperations: false,
-      summarizeShellCommands: true,
-      sourceSeqEnd: nestedDelegation.sourceSeqEnd,
-      sourceSeqStart: nestedDelegation.sourceSeqStart,
-      turnId: nestedDelegation.turnId ?? "",
-    }).rows;
+    const walked = (
+      await buildTimelineTurnSummaryDetails(db, thread, {
+        completedTurnDisplay: "collapse",
+        includeDiagnosticOperations: false,
+        summarizeShellCommands: true,
+        sourceSeqEnd: nestedDelegation.sourceSeqEnd,
+        sourceSeqStart: nestedDelegation.sourceSeqStart,
+        turnId: nestedDelegation.turnId ?? "",
+      })
+    ).rows;
     expect(
       walked.find(
         (row) => row.kind === "work" && row.workKind === "delegation",
@@ -1483,16 +1500,16 @@ describe("in-turn timeline windows", () => {
     ).toEqual(nestedDelegation);
   });
 
-  it("gives an item straddling the cut to exactly one page, completed", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("gives an item straddling the cut to exactly one page, completed", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       completeLastTurn: false,
       itemsPerTurn: [300],
       longRunningItemIndexes: [0],
     });
 
     const straddlingRowId = `${thread.id}:command:turn-1-item-0`;
-    const budgeted = walkAllPages(db, thread, 100);
+    const budgeted = await walkAllPages(db, thread, 100);
     const matches = budgeted.rows.filter((row) =>
       row.includes(`"id":${JSON.stringify(straddlingRowId)}`),
     );
@@ -1502,9 +1519,9 @@ describe("in-turn timeline windows", () => {
     expect(matches[0]).toContain("late output 0");
   });
 
-  it("gives a straddling item to exactly one byte page's details, completed", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("gives a straddling item to exactly one byte page's details, completed", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       commandChars: SCALED_COMMAND_CHARS,
       completeLastTurn: true,
       itemsPerTurn: [BYTE_WINDOW_ITEM_COUNT],
@@ -1517,7 +1534,7 @@ describe("in-turn timeline windows", () => {
     let pages = 0;
     const seenSummaries = new Set<string>();
     for (;;) {
-      const page = buildNestedPage(
+      const page = await buildNestedPage(
         db,
         thread,
         LARGE_BUDGET,
@@ -1530,7 +1547,7 @@ describe("in-turn timeline windows", () => {
           continue;
         }
         seenSummaries.add(row.id);
-        const details = buildTimelineTurnSummaryDetails(db, thread, {
+        const details = await buildTimelineTurnSummaryDetails(db, thread, {
           completedTurnDisplay: "collapse",
           includeDiagnosticOperations: false,
           summarizeShellCommands: true,
@@ -1566,35 +1583,39 @@ describe("in-turn timeline windows", () => {
     );
   }, 15_000);
 
-  it("rejects a sequence cursor whose id and sequence disagree", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, { completeLastTurn: false, itemsPerTurn: [300] });
+  it("rejects a sequence cursor whose id and sequence disagree", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
+      completeLastTurn: false,
+      itemsPerTurn: [300],
+    });
 
-    const cursor = buildPage(db, thread, 100, null).response.timelinePage
-      .olderCursor;
+    const cursor = (await buildPage(db, thread, 100, null)).response
+      .timelinePage.olderCursor;
     expect(cursor).not.toBeNull();
 
-    expect(() =>
-      buildPage(db, thread, 100, {
-        anchorId: cursor!.anchorId,
-        anchorSeq: cursor!.anchorSeq + 1,
-      }),
-    ).toThrow(/no longer available/);
+    await expect(
+      (async () =>
+        await buildPage(db, thread, 100, {
+          anchorId: cursor!.anchorId,
+          anchorSeq: cursor!.anchorSeq + 1,
+        }))(),
+    ).rejects.toThrow(/no longer available/);
   });
 
-  it("does not read past its cursor on an older page", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("does not read past its cursor on an older page", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       completeLastTurn: true,
       itemsPerTurn: [5, 5, 400],
     });
 
-    const latest = buildPage(db, thread, 100, null);
+    const latest = await buildPage(db, thread, 100, null);
     expect(latest.profile.eventRowCount).toBeGreaterThan(700);
     const cursor = latest.response.timelinePage.olderCursor;
     expect(cursor).not.toBeNull();
 
-    const older = buildPage(db, thread, 100, cursor);
+    const older = await buildPage(db, thread, 100, cursor);
     expect(older.profile.eventRowCount).toBeLessThan(100);
     expect(
       older.response.rows.some((row) => row.sourceSeqStart > cursor!.anchorSeq),
@@ -1603,8 +1624,8 @@ describe("in-turn timeline windows", () => {
 });
 
 describe("timeline window hints", () => {
-  it("includes provisioning before the first visible user message", () => {
-    const { db, thread } = setup();
+  it("includes provisioning before the first visible user message", async () => {
+    const { db, thread } = await setup();
     const fillerEvent = (sequence: number): EventInput => ({
       threadId: thread.id,
       sequence,
@@ -1620,7 +1641,7 @@ describe("timeline window hints", () => {
         operationId: `event-budget-${sequence}`,
       }),
     });
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1678,13 +1699,13 @@ describe("timeline window hints", () => {
       },
     ]);
 
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       Array.from({ length: 1_498 }, (_, index) => fillerEvent(index + 4)),
     );
 
-    const timeline = buildPage(db, thread, 1_501, null).response;
+    const timeline = (await buildPage(db, thread, 1_501, null)).response;
 
     expect(timeline.timelinePage.olderCursor).toBeNull();
     expect(timeline.timelinePage.olderCursor).toBeNull();
@@ -1703,7 +1724,7 @@ describe("timeline window hints", () => {
       ]),
     );
 
-    const budgeted = buildPage(db, thread, 1_500, null).response;
+    const budgeted = (await buildPage(db, thread, 1_500, null)).response;
     expect(budgeted.timelinePage.olderCursor).toBeNull();
     expect(budgeted.rows).toEqual(timeline.rows);
     expect(
@@ -1715,11 +1736,16 @@ describe("timeline window hints", () => {
       ),
     ).toBe(true);
 
-    insertEvents(db, noopNotifier, [fillerEvent(1_502), fillerEvent(1_503)]);
-    const exactFloor = buildPage(db, thread, 1_500, null).response.timelinePage;
+    await insertEvents(db, noopNotifier, [
+      fillerEvent(1_502),
+      fillerEvent(1_503),
+    ]);
+    const exactFloor = (await buildPage(db, thread, 1_500, null)).response
+      .timelinePage;
     expect(exactFloor.olderCursor).toMatchObject({ anchorSeq: 3 });
 
-    const latest = buildPage(db, thread, LARGE_BUDGET, null, 1).response;
+    const latest = (await buildPage(db, thread, LARGE_BUDGET, null, 1))
+      .response;
     expect(latest.timelinePage.olderCursor).not.toBeNull();
     expect(latest.rows).toEqual(
       expect.arrayContaining([
@@ -1734,12 +1760,14 @@ describe("timeline window hints", () => {
       throw new Error("expected an older timeline cursor");
     }
 
-    const older = buildPage(
-      db,
-      thread,
-      LARGE_BUDGET,
-      latest.timelinePage.olderCursor,
-      1,
+    const older = (
+      await buildPage(
+        db,
+        thread,
+        LARGE_BUDGET,
+        latest.timelinePage.olderCursor,
+        1,
+      )
     ).response;
     expect(older.timelinePage.olderCursor).toBeNull();
     expect(older.timelinePage.olderCursor).toBeNull();
@@ -1754,11 +1782,16 @@ describe("timeline window hints", () => {
 
   it.each([false, true])(
     "walks every message in a steer-heavy turn with empty input %s",
-    (empty) => {
-      const { db, thread } = setup();
+    async (empty) => {
+      const { db, thread } = await setup();
       try {
-        seedTurns(db, thread, { completeLastTurn: false, itemsPerTurn: [2] });
-        let sequence = getLatestThreadSequence(db, { threadId: thread.id });
+        await seedTurns(db, thread, {
+          completeLastTurn: false,
+          itemsPerTurn: [2],
+        });
+        let sequence = await getLatestThreadSequence(db, {
+          threadId: thread.id,
+        });
         const events: EventInput[] = [];
         for (let index = 0; index < 25; index += 1) {
           const clientRequestId = requestId(index + 2);
@@ -1819,31 +1852,31 @@ describe("timeline window hints", () => {
               }),
             });
         }
-        insertEvents(db, noopNotifier, events);
-        const canonical = buildPage(
-          db,
-          thread,
-          LARGE_BUDGET,
-          null,
-          100,
-        ).response;
-        const walked = walkAllPages(db, thread, 100, 1);
+        await insertEvents(db, noopNotifier, events);
+        const canonical = (await buildPage(db, thread, LARGE_BUDGET, null, 100))
+          .response;
+        const walked = await walkAllPages(db, thread, 100, 1);
         expect(walked.rows).toEqual(
           canonical.rows.map((row) => JSON.stringify(row)),
         );
         if (!empty) expect(walked.pages).toBeGreaterThan(1);
       } finally {
-        db.$client.close();
+        await db.close();
       }
     },
   );
 
-  it("pages at a steer without projecting a partial summary from latest plan state", () => {
-    const { db, thread } = setup();
+  it("pages at a steer without projecting a partial summary from latest plan state", async () => {
+    const { db, thread } = await setup();
     try {
-      seedTurns(db, thread, { completeLastTurn: true, itemsPerTurn: [1, 0] });
-      db.$client.exec("UPDATE events SET sequence = sequence + 100000");
-      db.$client.exec("UPDATE events SET sequence = (sequence - 100000) * 10");
+      await seedTurns(db, thread, {
+        completeLastTurn: true,
+        itemsPerTurn: [1, 0],
+      });
+      await db.$client.exec("UPDATE events SET sequence = sequence + 100000");
+      await db.$client.exec(
+        "UPDATE events SET sequence = (sequence - 100000) * 10",
+      );
       const base = {
         threadId: thread.id,
         providerThreadId,
@@ -1851,7 +1884,7 @@ describe("timeline window hints", () => {
         itemKind: null,
         parentToolCallId: null,
       };
-      insertEvents(db, noopNotifier, [
+      await insertEvents(db, noopNotifier, [
         {
           ...base,
           sequence: 45,
@@ -1908,24 +1941,30 @@ describe("timeline window hints", () => {
           data: JSON.stringify({ clientRequestId: requestId(3) }),
         },
       ]);
-      const reference = buildPage(db, thread, LARGE_BUDGET, null, 100).response;
+      const reference = (await buildPage(db, thread, LARGE_BUDGET, null, 100))
+        .response;
       expect(reference.timelinePage.olderCursor).toBeNull();
       for (const segmentLimit of [1, 2]) {
-        const walked = walkAllPages(db, thread, LARGE_BUDGET, segmentLimit);
+        const walked = await walkAllPages(
+          db,
+          thread,
+          LARGE_BUDGET,
+          segmentLimit,
+        );
         expect(walked.rows).toEqual(
           reference.rows.map((row) => JSON.stringify(row)),
         );
         expect(walked.pages).toBeGreaterThan(1);
       }
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("treats a steer sent with nothing running as a pageable anchor", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, { completeLastTurn: true, itemsPerTurn: [40] });
-    insertEvents(db, noopNotifier, [
+  it("treats a steer sent with nothing running as a pageable anchor", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, { completeLastTurn: true, itemsPerTurn: [40] });
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1_000,
@@ -1959,19 +1998,21 @@ describe("timeline window hints", () => {
       },
     ]);
 
-    const walked = walkAllPages(db, thread, 20);
+    const walked = await walkAllPages(db, thread, 20);
     expect(walked.pages).toBeGreaterThan(1);
-    expect(walked.rows).toEqual(walkAllPages(db, thread, LARGE_BUDGET).rows);
+    expect(walked.rows).toEqual(
+      (await walkAllPages(db, thread, LARGE_BUDGET)).rows,
+    );
   });
 });
 
 describe("timeline window event exclusions", () => {
-  it("never reads workspace diff events into a window", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, { completeLastTurn: true, itemsPerTurn: [5] });
-    const withoutDiffs = buildPage(db, thread, LARGE_BUDGET, null);
+  it("never reads workspace diff events into a window", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, { completeLastTurn: true, itemsPerTurn: [5] });
+    const withoutDiffs = await buildPage(db, thread, LARGE_BUDGET, null);
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 500,
@@ -1985,7 +2026,7 @@ describe("timeline window event exclusions", () => {
       },
     ]);
 
-    const withDiffs = buildPage(db, thread, LARGE_BUDGET, null);
+    const withDiffs = await buildPage(db, thread, LARGE_BUDGET, null);
     expect(withDiffs.profile.eventRowCount).toBe(
       withoutDiffs.profile.eventRowCount,
     );
@@ -1994,11 +2035,11 @@ describe("timeline window event exclusions", () => {
 });
 
 describe("timeline inline output reads", () => {
-  it("shortens an oversized command output during the read", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, { completeLastTurn: false, itemsPerTurn: [1] });
+  it("shortens an oversized command output during the read", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, { completeLastTurn: false, itemsPerTurn: [1] });
     const output = "x".repeat(50_000);
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 500,
@@ -2023,30 +2064,34 @@ describe("timeline inline output reads", () => {
       },
     ]);
 
-    const capped = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      eventBudget: LARGE_BUDGET,
-      includeClearedContextHistory: false,
-      includeDiagnosticOperations: false,
-      compactionOfferEnabled: false,
-      summarizeShellCommands: true,
-      includeNestedRows: false,
-      maxInlineOutputChars: 32_000,
-      maxSeq: 0,
-      page: { kind: "latest", segmentLimit: 20 },
-    }).response;
-    const uncapped = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      eventBudget: LARGE_BUDGET,
-      includeClearedContextHistory: false,
-      includeDiagnosticOperations: false,
-      compactionOfferEnabled: false,
-      summarizeShellCommands: true,
-      includeNestedRows: false,
-      maxInlineOutputChars: null,
-      maxSeq: 0,
-      page: { kind: "latest", segmentLimit: 20 },
-    }).response;
+    const capped = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: LARGE_BUDGET,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        includeNestedRows: false,
+        maxInlineOutputChars: 32_000,
+        maxSeq: 0,
+        page: { kind: "latest", segmentLimit: 20 },
+      })
+    ).response;
+    const uncapped = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: LARGE_BUDGET,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        includeNestedRows: false,
+        maxInlineOutputChars: null,
+        maxSeq: 0,
+        page: { kind: "latest", segmentLimit: 20 },
+      })
+    ).response;
 
     const cappedRow = capped.rows.find(
       (row) => row.kind === "work" && row.id.endsWith("big-item"),
@@ -2075,43 +2120,44 @@ describe("timeline inline output reads", () => {
 });
 
 describe("background tasks across an in-turn window", () => {
-  it("keeps the running-workflow banner when the window starts after the task began", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("keeps the running-workflow banner when the window starts after the task began", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       backgroundTask: "open",
       completeLastTurn: false,
       itemsPerTurn: [300],
     });
 
-    const budgeted = buildPage(db, thread, 100, null);
+    const budgeted = await buildPage(db, thread, 100, null);
     expect(budgeted.response.timelinePage.olderCursor?.anchorId).toMatch(
       /^timeline-v3:/,
     );
     expect(budgeted.profile.eventRowCount).toBeGreaterThan(600);
     expect(budgeted.response.activeWorkflows).toHaveLength(1);
     expect(budgeted.response.activeWorkflows).toEqual(
-      buildPage(db, thread, LARGE_BUDGET, null).response.activeWorkflows,
+      (await buildPage(db, thread, LARGE_BUDGET, null)).response
+        .activeWorkflows,
     );
   });
 
-  it("drops the banner once the task completes, whatever the window", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("drops the banner once the task completes, whatever the window", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       backgroundTask: "completed",
       completeLastTurn: false,
       itemsPerTurn: [300],
     });
 
-    expect(buildPage(db, thread, 100, null).response.activeWorkflows).toEqual(
-      [],
-    );
+    expect(
+      (await buildPage(db, thread, 100, null)).response.activeWorkflows,
+    ).toEqual([]);
   });
 });
 
 describe("in-turn windows and items that only stream", () => {
-  it("gives an item to one page when its in-window presence is output deltas", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, {
+  it("gives an item to one page when its in-window presence is output deltas", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, {
       completeLastTurn: false,
       itemsPerTurn: [300],
       longRunningItemIndexes: [0],
@@ -2119,7 +2165,7 @@ describe("in-turn windows and items that only stream", () => {
     });
 
     const streamingRowId = `${thread.id}:command:turn-1-item-0`;
-    const budgeted = walkAllPages(db, thread, 100);
+    const budgeted = await walkAllPages(db, thread, 100);
     const matches = budgeted.rows.filter((row) =>
       row.includes(`"id":${JSON.stringify(streamingRowId)}`),
     );
@@ -2134,11 +2180,11 @@ describe("in-turn windows and items that only stream", () => {
     { includeStartedEvent: true, providerShape: "with item/started" },
   ])(
     "keeps an unfinished assistant message whole across the cut $providerShape",
-    ({ includeStartedEvent }) => {
-      const { db, thread } = setup();
+    async ({ includeStartedEvent }) => {
+      const { db, thread } = await setup();
       const itemId = "assistant-1";
       const turnId = "turn-1";
-      seedTurns(db, thread, {
+      await seedTurns(db, thread, {
         completeLastTurn: false,
         itemsPerTurn: [100],
       });
@@ -2179,9 +2225,9 @@ describe("in-turn windows and items that only stream", () => {
           }),
         });
       });
-      insertEvents(db, noopNotifier, events);
+      await insertEvents(db, noopNotifier, events);
 
-      const budgeted = buildPage(db, thread, 100, null);
+      const budgeted = await buildPage(db, thread, 100, null);
       const assistant = budgeted.response.rows.find(
         (row) => row.kind === "conversation" && row.role === "assistant",
       );
@@ -2192,7 +2238,7 @@ describe("in-turn windows and items that only stream", () => {
         { length: 25 },
         (_, index) => `[later-${index}]\n`,
       );
-      insertEvents(
+      await insertEvents(
         db,
         noopNotifier,
         laterChunks.map((delta, index) => ({
@@ -2212,26 +2258,26 @@ describe("in-turn windows and items that only stream", () => {
         })),
       );
 
-      const refreshed = buildPage(db, thread, 100, null);
+      const refreshed = await buildPage(db, thread, 100, null);
       const refreshedAssistant = refreshed.response.rows.find(
         (row) => row.kind === "conversation" && row.role === "assistant",
       );
       expect(refreshedAssistant?.text).toBe(
         [...chunks, ...laterChunks].join(""),
       );
-      const unbudgeted = buildPage(db, thread, LARGE_BUDGET, null);
-      expect(walkAllPages(db, thread, 100).rows).toEqual(
+      const unbudgeted = await buildPage(db, thread, LARGE_BUDGET, null);
+      expect((await walkAllPages(db, thread, 100)).rows).toEqual(
         unbudgeted.response.rows.map((row) => JSON.stringify(row)),
       );
     },
   );
 });
 
-function seedCrossTurnCompletion(
+async function seedCrossTurnCompletion(
   db: DbConnection,
   thread: Thread,
   options: { reuseCallIdInLaterTurn: boolean },
-): void {
+): Promise<void> {
   const events: EventInput[] = [];
   let sequence = 0;
   const push = (event: Omit<EventInput, "sequence" | "threadId">): void => {
@@ -2322,42 +2368,46 @@ function seedCrossTurnCompletion(
   push(agentMessage("turn-2", "msg-2", "Second turn done."));
   push(turnLifecycle("turn-2", "turn/completed"));
 
-  insertEvents(db, noopNotifier, events);
+  await insertEvents(db, noopNotifier, events);
 }
 
-function collectTurnDetailsAndChildren(
+async function collectTurnDetailsAndChildren(
   db: DbConnection,
   thread: Thread,
-): Map<string, { children: TimelineRow[]; details: TimelineRow[] }> {
+): Promise<Map<string, { children: TimelineRow[]; details: TimelineRow[] }>> {
   const byTurnId = new Map<
     string,
     { children: TimelineRow[]; details: TimelineRow[] }
   >();
-  for (const row of buildNestedPage(db, thread, LARGE_BUDGET, null).response
-    .rows) {
+  for (const row of (await buildNestedPage(db, thread, LARGE_BUDGET, null))
+    .response.rows) {
     if (row.kind !== "turn") {
       continue;
     }
     byTurnId.set(row.turnId, {
       children: row.children ?? [],
-      details: buildTimelineTurnSummaryDetails(db, thread, {
-        completedTurnDisplay: "collapse",
-        includeDiagnosticOperations: false,
-        summarizeShellCommands: true,
-        sourceSeqEnd: row.sourceSeqEnd,
-        sourceSeqStart: row.sourceSeqStart,
-        turnId: row.turnId,
-      }).rows,
+      details: (
+        await buildTimelineTurnSummaryDetails(db, thread, {
+          completedTurnDisplay: "collapse",
+          includeDiagnosticOperations: false,
+          summarizeShellCommands: true,
+          sourceSeqEnd: row.sourceSeqEnd,
+          sourceSeqStart: row.sourceSeqStart,
+          turnId: row.turnId,
+        })
+      ).rows,
     });
   }
   return byTurnId;
 }
 
 describe("turn details for an item that finishes in a later turn", () => {
-  it("retains interrupted thinking when the provider completes the item after Stop", () => {
-    const { db, thread } = setup();
-    seedTurns(db, thread, { completeLastTurn: false, itemsPerTurn: [0] });
-    const firstSequence = getLatestThreadSequence(db, { threadId: thread.id });
+  it("retains interrupted thinking when the provider completes the item after Stop", async () => {
+    const { db, thread } = await setup();
+    await seedTurns(db, thread, { completeLastTurn: false, itemsPerTurn: [0] });
+    const firstSequence = await getLatestThreadSequence(db, {
+      threadId: thread.id,
+    });
     const turnId = "turn-1";
     const itemId = "stopped-reasoning";
     const text = "Checking each constraint before choosing a solution.";
@@ -2397,7 +2447,7 @@ describe("turn details for an item that finishes in a later turn", () => {
       scope: threadScope(),
       data: JSON.stringify({ reason: "manual-stop" }),
     });
-    insertEvents(db, noopNotifier, events);
+    await insertEvents(db, noopNotifier, events);
     const storedCount = events.length;
     push({
       ...base,
@@ -2415,24 +2465,28 @@ describe("turn details for an item that finishes in a later turn", () => {
         execution,
       }),
     });
-    insertEvents(db, noopNotifier, events.slice(storedCount));
-    const unfinishedLatest = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      eventBudget: LARGE_BUDGET,
-      includeClearedContextHistory: false,
-      includeDiagnosticOperations: false,
-      compactionOfferEnabled: false,
-      summarizeShellCommands: true,
-      includeNestedRows: true,
-      maxInlineOutputChars: 32_000,
-      maxSeq: 0,
-      page: { kind: "latest", segmentLimit: 1 },
-    }).response;
-    const unfinishedOlder = buildNestedPage(
-      db,
-      thread,
-      LARGE_BUDGET,
-      unfinishedLatest.timelinePage.olderCursor!,
+    await insertEvents(db, noopNotifier, events.slice(storedCount));
+    const unfinishedLatest = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: LARGE_BUDGET,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        includeNestedRows: true,
+        maxInlineOutputChars: 32_000,
+        maxSeq: 0,
+        page: { kind: "latest", segmentLimit: 1 },
+      })
+    ).response;
+    const unfinishedOlder = (
+      await buildNestedPage(
+        db,
+        thread,
+        LARGE_BUDGET,
+        unfinishedLatest.timelinePage.olderCursor!,
+      )
     ).response;
     const beforeThought = unfinishedOlder.rows.find(
       (row) =>
@@ -2456,11 +2510,12 @@ describe("turn details for an item that finishes in a later turn", () => {
       type: "turn/completed",
       data: JSON.stringify({ status: "interrupted", providerThreadId }),
     });
-    insertEvents(db, noopNotifier, events.slice(-2));
+    await insertEvents(db, noopNotifier, events.slice(-2));
 
-    const latest = buildPage(db, thread, LARGE_BUDGET, null, 1).response;
+    const latest = (await buildPage(db, thread, LARGE_BUDGET, null, 1))
+      .response;
     expect(latest.rows.some((row) => row.kind === "system")).toBe(false);
-    const after = collectTurnDetailsAndChildren(db, thread).get(turnId);
+    const after = (await collectTurnDetailsAndChildren(db, thread)).get(turnId);
     const thoughts = after?.details.filter(
       (row) =>
         row.kind === "system" &&
@@ -2476,12 +2531,14 @@ describe("turn details for an item that finishes in a later turn", () => {
         sourceSeqEnd: firstSequence + 5,
       }),
     ]);
-    const older = buildPage(
-      db,
-      thread,
-      LARGE_BUDGET,
-      latest.timelinePage.olderCursor!,
-      1,
+    const older = (
+      await buildPage(
+        db,
+        thread,
+        LARGE_BUDGET,
+        latest.timelinePage.olderCursor!,
+        1,
+      )
     ).response;
     const olderTurn = older.rows.find(
       (row) => row.kind === "turn" && row.turnId === turnId,
@@ -2491,25 +2548,29 @@ describe("turn details for an item that finishes in a later turn", () => {
       throw new Error("Expected the older turn summary");
     }
     expect(
-      buildTimelineTurnSummaryDetails(db, thread, {
-        completedTurnDisplay: "collapse",
-        includeDiagnosticOperations: false,
-        summarizeShellCommands: true,
-        sourceSeqEnd: olderTurn.sourceSeqEnd,
-        sourceSeqStart: olderTurn.sourceSeqStart,
-        turnId,
-      }).rows,
+      (
+        await buildTimelineTurnSummaryDetails(db, thread, {
+          completedTurnDisplay: "collapse",
+          includeDiagnosticOperations: false,
+          summarizeShellCommands: true,
+          sourceSeqEnd: olderTurn.sourceSeqEnd,
+          sourceSeqStart: olderTurn.sourceSeqStart,
+          turnId,
+        })
+      ).rows,
     ).toEqual(after?.details);
-    expect(collectTurnDetailsAndChildren(db, thread).get(turnId)).toEqual(
-      after,
-    );
+    expect(
+      (await collectTurnDetailsAndChildren(db, thread)).get(turnId),
+    ).toEqual(after);
   });
 
-  it("shows the spawning turn's item completed with its late output", () => {
-    const { db, thread } = setup();
-    seedCrossTurnCompletion(db, thread, { reuseCallIdInLaterTurn: false });
+  it("shows the spawning turn's item completed with its late output", async () => {
+    const { db, thread } = await setup();
+    await seedCrossTurnCompletion(db, thread, {
+      reuseCallIdInLaterTurn: false,
+    });
 
-    const turns = collectTurnDetailsAndChildren(db, thread);
+    const turns = await collectTurnDetailsAndChildren(db, thread);
     const turn1 = turns.get("turn-1");
     expect(turn1).toBeDefined();
     expect(turn1!.children).toEqual([
@@ -2523,11 +2584,11 @@ describe("turn details for an item that finishes in a later turn", () => {
     expect(turn1!.details).toEqual(turn1!.children);
   });
 
-  it("keeps a later turn's reuse of the call id out of the spawning turn", () => {
-    const { db, thread } = setup();
-    seedCrossTurnCompletion(db, thread, { reuseCallIdInLaterTurn: true });
+  it("keeps a later turn's reuse of the call id out of the spawning turn", async () => {
+    const { db, thread } = await setup();
+    await seedCrossTurnCompletion(db, thread, { reuseCallIdInLaterTurn: true });
 
-    const turns = collectTurnDetailsAndChildren(db, thread);
+    const turns = await collectTurnDetailsAndChildren(db, thread);
     expect([...turns.keys()]).toEqual(["turn-1", "turn-2"]);
     for (const [turnId, { children, details }] of turns) {
       expect(children, turnId).toEqual([

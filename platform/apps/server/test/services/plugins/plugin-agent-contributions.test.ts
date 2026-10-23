@@ -100,7 +100,7 @@ describe("plugin skills tier", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-skills-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
@@ -207,12 +207,14 @@ describe("plugin agent contributions reach thread runtime config", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    pluginsDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-runtime-test-"));
+    pluginsDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-plugin-runtime-test-"),
+    );
   });
 
   it("isolates resolver failures and timeouts", async () => {
-    const db = createMigratedConnection();
-    const service = createPluginService({
+    const db = await createMigratedConnection();
+    const service = await createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db,
@@ -276,18 +278,18 @@ describe("plugin agent contributions reach thread runtime config", () => {
     const entry = await harness.pluginService.installPath(rootDir);
     expect(entry.status).toBe("running");
 
-    const { host } = seedHostSession(harness.deps, {
+    const { host } = await seedHostSession(harness.deps, {
       id: "host-plugin-agent-contributions",
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
       path: join(harness.config.dataDir, "plugin-agent-workspace"),
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       providerId: "codex",
@@ -297,8 +299,8 @@ describe("plugin agent contributions reach thread runtime config", () => {
       { model: "gpt-5" },
       { threadId: thread.id },
     );
-    const buildCommand = (requestValue: number) =>
-      buildThreadStartCommand(harness.deps, {
+    const buildCommand = async (requestValue: number) =>
+      await buildThreadStartCommand(harness.deps, {
         environment,
         execution,
         fork: null,
@@ -369,18 +371,18 @@ describe("plugin agent contributions reach thread runtime config", () => {
     await harness.pluginService.installPath(firstRoot);
     await harness.pluginService.installPath(secondRoot);
 
-    const { host } = seedHostSession(harness.deps, {
+    const { host } = await seedHostSession(harness.deps, {
       id: "host-provider-env",
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
       path: join(harness.config.dataDir, "provider-env-workspace"),
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       providerId: "codex",

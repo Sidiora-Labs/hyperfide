@@ -194,9 +194,18 @@ export function createRpcQueryHooks(useHost: () => RpcQueryHost) {
           scope: pluginTagScope(pluginId),
           tagsOf,
         }),
-        queryFn: () =>
-          runTaggedRead(host.queryClient, queryKey, async () =>
-            callRpc(host, pluginId, options.contract, options.method, input),
+        queryFn: async () =>
+          await runTaggedRead(
+            host.queryClient,
+            queryKey,
+            async () =>
+              await callRpc(
+                host,
+                pluginId,
+                options.contract,
+                options.method,
+                input,
+              ),
           ),
       },
       host.queryClient,

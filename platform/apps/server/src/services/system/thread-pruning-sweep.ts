@@ -37,7 +37,7 @@ export async function runThreadPruningSweep(
       performance.now() - startedAt < limits.elapsedBudgetMs &&
       completed.size < THREAD_PRUNING_POLICIES.length
     ) {
-      const activity = getDatabaseMaintenanceActivity(deps.db);
+      const activity = await getDatabaseMaintenanceActivity(deps.db);
       if (!isDatabaseMaintenanceIdle(activity)) {
         reason = "busy";
         deps.logger.debug(
@@ -46,10 +46,10 @@ export async function runThreadPruningSweep(
         );
         break;
       }
-      const policy = getNextThreadPruningPolicy(deps.db, completed);
+      const policy = await getNextThreadPruningPolicy(deps.db, completed);
       if (policy === null) break;
       const advanceStartedAt = performance.now();
-      const result = advanceThreadPruning(deps.db, policy);
+      const result = await advanceThreadPruning(deps.db, policy);
       const advanceElapsedMs = performance.now() - advanceStartedAt;
       maxAdvanceMs = Math.max(maxAdvanceMs, advanceElapsedMs);
       if (advanceElapsedMs >= 50)
@@ -77,7 +77,7 @@ export async function runThreadPruningSweep(
     throw error;
   } finally {
     for (const threadId of compactedThreadIds)
-      deps.hub.notifyThread(threadId, ["history-compacted"]);
+      await deps.hub.notifyThread(threadId, ["history-compacted"]);
     deps.logger.debug(
       {
         advances,

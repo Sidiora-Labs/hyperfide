@@ -19,10 +19,10 @@ interface AssertPromptHistoryForTurnRequestArgs {
   threadId: string;
 }
 
-export function assertPromptHistoryForTurnRequest(
+export async function assertPromptHistoryForTurnRequest(
   args: AssertPromptHistoryForTurnRequestArgs,
-): void {
-  const turnRequestRows = args.db
+): Promise<void> {
+  const turnRequestRows = await args.db
     .select({
       data: events.data,
       sequence: events.sequence,
@@ -48,7 +48,7 @@ export function assertPromptHistoryForTurnRequest(
   }
   expect(turnRequestRow.threadId).toBe(args.threadId);
 
-  const historyRow = args.db
+  const historyRow = await args.db
     .select({
       input: promptHistoryEntries.input,
       requestSequence: promptHistoryEntries.requestSequence,

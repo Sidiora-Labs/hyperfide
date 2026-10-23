@@ -56,11 +56,11 @@ function backgroundTaskData(status: string, taskStatus: string) {
   };
 }
 
-function seedOpenBackgroundTask(
+async function seedOpenBackgroundTask(
   harness: TestAppHarness,
   args: { environmentId: string; threadId: string },
-): void {
-  seedStoredEvent(harness.deps, {
+): Promise<void> {
+  await seedStoredEvent(harness.deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     sequence: 1,
@@ -69,7 +69,7 @@ function seedOpenBackgroundTask(
     providerThreadId: PROVIDER_THREAD_ID,
     data: { providerThreadId: PROVIDER_THREAD_ID },
   });
-  seedStoredEvent(harness.deps, {
+  await seedStoredEvent(harness.deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     sequence: 2,
@@ -80,7 +80,7 @@ function seedOpenBackgroundTask(
     itemKind: "backgroundTask",
     data: backgroundTaskData("pending", "running"),
   });
-  seedStoredEvent(harness.deps, {
+  await seedStoredEvent(harness.deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     sequence: 3,
@@ -102,17 +102,17 @@ describe("daemon sessions in an imported server snapshot", () => {
         project,
         environment,
         thread: activeThread,
-      } = seedThreadFixture(harness, { thread: { status: "active" } });
-      seedTurnStarted(harness.deps, {
+      } = await seedThreadFixture(harness, { thread: { status: "active" } });
+      await seedTurnStarted(harness.deps, {
         environmentId: environment.id,
         threadId: activeThread.id,
         turnId: "turn-live-1",
       });
-      const idleThread = seedThread(harness.deps, {
+      const idleThread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      seedOpenBackgroundTask(harness, {
+      await seedOpenBackgroundTask(harness, {
         environmentId: environment.id,
         threadId: idleThread.id,
       });
@@ -130,27 +130,29 @@ describe("daemon sessions in an imported server snapshot", () => {
         { id: session.id, hostId: host.id },
       ]);
       expect(
-        getSessionById(harness.db, { sessionId: session.id })?.status,
+        (await getSessionById(harness.db, { sessionId: session.id }))?.status,
       ).toBe("active");
 
-      disconnectImportedDaemonSessions(harness.deps, {
+      await disconnectImportedDaemonSessions(harness.deps, {
         sessions: boot.importedDaemonSessions,
       });
 
       expect(
-        getSessionById(harness.db, { sessionId: session.id }),
+        await getSessionById(harness.db, { sessionId: session.id }),
       ).toMatchObject({ status: "closed", closeReason: "daemon-disconnect" });
       expect(harness.hub.hasDaemonForHost(host.id)).toBe(false);
-      expect(getThread(harness.db, activeThread.id)?.status).toBe("error");
+      expect((await getThread(harness.db, activeThread.id))?.status).toBe(
+        "error",
+      );
       expect(
-        listEvents(harness.db, { threadId: activeThread.id })
+        (await listEvents(harness.db, { threadId: activeThread.id }))
           .filter((row) => row.type === "system/thread/interrupted")
           .map((row) => JSON.parse(row.data)),
       ).toEqual([
         { reason: "host-daemon-restarted", cause: "host-connection-lost" },
       ]);
       expect(
-        listEvents(harness.db, { threadId: idleThread.id })
+        (await listEvents(harness.db, { threadId: idleThread.id }))
           .filter((row) => row.type === "item/backgroundTask/completed")
           .map((row) => JSON.parse(row.data)),
       ).toEqual([

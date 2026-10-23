@@ -10,8 +10,8 @@ const liveThreadCondition = or(
   eq(threads.status, "active"),
 );
 
-export function listProviderMachines(db: Connection, providerId: string) {
-  return db
+export async function listProviderMachines(db: Connection, providerId: string) {
+  return await db
     .select()
     .from(hosts)
     .where(
@@ -24,25 +24,28 @@ export function listProviderMachines(db: Connection, providerId: string) {
     .all();
 }
 
-export function machineHasLiveThreads(db: Connection, hostId: string): boolean {
+export async function machineHasLiveThreads(
+  db: Connection,
+  hostId: string,
+): Promise<boolean> {
   return (
-    db
+    (await db
       .select({ id: threads.id })
       .from(threads)
       .innerJoin(environments, eq(threads.environmentId, environments.id))
       .where(and(eq(environments.hostId, hostId), liveThreadCondition))
       .limit(1)
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-function machineHasThreadLaunchWhere(
+async function machineHasThreadLaunchWhere(
   db: Connection,
   hostId: string,
   threadCondition: SQL | undefined,
-): boolean {
+): Promise<boolean> {
   return (
-    db
+    (await db
       .select({ id: threads.id })
       .from(hosts)
       .innerJoin(threads, eq(hosts.launchKey, threads.id))
@@ -50,27 +53,27 @@ function machineHasThreadLaunchWhere(
         and(eq(hosts.id, hostId), isNull(hosts.destroyedAt), threadCondition),
       )
       .limit(1)
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-export function machineHasLiveThreadLaunch(
+export async function machineHasLiveThreadLaunch(
   db: Connection,
   hostId: string,
-): boolean {
-  return machineHasThreadLaunchWhere(db, hostId, liveThreadCondition);
+): Promise<boolean> {
+  return await machineHasThreadLaunchWhere(db, hostId, liveThreadCondition);
 }
 
-export function machineHasPendingThreads(
+export async function machineHasPendingThreads(
   db: Connection,
   hostId: string,
-): boolean {
+): Promise<boolean> {
   const intent = sql`case json_extract(${threads.startupContext}, '$.kind')
     when 'pending' then json_extract(${threads.startupContext}, '$.environmentIntent')
     when 'provisioning' then json_extract(${threads.startupContext}, '$.request.environmentIntent')
   end`;
   return (
-    db
+    (await db
       .select({ id: threads.id })
       .from(threads)
       .leftJoin(
@@ -111,16 +114,16 @@ export function machineHasPendingThreads(
         ),
       )
       .limit(1)
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-export function machineHasProvisioningEnvironment(
+export async function machineHasProvisioningEnvironment(
   db: Connection,
   hostId: string,
-): boolean {
+): Promise<boolean> {
   return (
-    db
+    (await db
       .select({ id: environments.id })
       .from(environments)
       .where(
@@ -130,15 +133,15 @@ export function machineHasProvisioningEnvironment(
         ),
       )
       .limit(1)
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-export function machineHasStartingThreadLaunch(
+export async function machineHasStartingThreadLaunch(
   db: Connection,
   hostId: string,
-): boolean {
-  return machineHasThreadLaunchWhere(
+): Promise<boolean> {
+  return await machineHasThreadLaunchWhere(
     db,
     hostId,
     and(

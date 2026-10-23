@@ -23,16 +23,16 @@ interface HostFile {
 
 const REVISION = "0".repeat(64);
 
-function serveFiles(
+async function serveFiles(
   harness: TestHarness,
   args: {
     hostId: string;
     sessionId: string;
     files: Map<string, HostFile>;
   },
-): HostCommand[] {
+): Promise<HostCommand[]> {
   const commands: HostCommand[] = [];
-  registerHostRpcResponder(harness, {
+  await registerHostRpcResponder(harness, {
     hostId: args.hostId,
     sessionId: args.sessionId,
     handle: ({ command }) => {
@@ -73,9 +73,9 @@ describe("file content routes", () => {
     ["xhtml", "application/xhtml+xml"],
   ])("sends a sandbox policy for %s documents", async (extension, mimeType) => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedThreadFixture(harness);
+      const { host, session, thread } = await seedThreadFixture(harness);
       const bytes = Buffer.from("<script>alert(document.domain)</script>");
-      serveFiles(harness, {
+      await serveFiles(harness, {
         hostId: host.id,
         sessionId: session.id,
         files: new Map([[`/tmp/probe.${extension}`, { bytes, mimeType }]]),
@@ -98,9 +98,9 @@ describe("file content routes", () => {
 
   it("streams thread storage with ranges and sandboxed HTML", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedThreadFixture(harness);
+      const { host, session, thread } = await seedThreadFixture(harness);
       const storageRoot = `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`;
-      const commands = serveFiles(harness, {
+      const commands = await serveFiles(harness, {
         hostId: host.id,
         sessionId: session.id,
         files: new Map([
@@ -151,8 +151,8 @@ describe("file content routes", () => {
 
   it("reports file changes before streaming as retryable conflicts", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedThreadFixture(harness);
-      registerHostRpcResponder(harness, {
+      const { host, session, thread } = await seedThreadFixture(harness);
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: ({ command }) => {
@@ -194,10 +194,10 @@ describe("file content routes", () => {
 
   it("serves HTML larger than the preview render limit as sandboxed bytes", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedThreadFixture(harness);
+      const { host, session, thread } = await seedThreadFixture(harness);
       const storageRoot = `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`;
       const html = Buffer.alloc(6 * 1024 * 1024, "a");
-      serveFiles(harness, {
+      await serveFiles(harness, {
         hostId: host.id,
         sessionId: session.id,
         files: new Map([
@@ -219,10 +219,10 @@ describe("file content routes", () => {
 
   it("reads thread host files from the filesystem root without a ready environment", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedThreadFixture(harness, {
+      const { host, session, thread } = await seedThreadFixture(harness, {
         environment: { status: "provisioning" },
       });
-      const commands = serveFiles(harness, {
+      const commands = await serveFiles(harness, {
         hostId: host.id,
         sessionId: session.id,
         files: new Map([
@@ -248,11 +248,11 @@ describe("file content routes", () => {
 
   it("refuses thread host files for a thread without an environment", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: null,
       });
@@ -276,8 +276,8 @@ describe("file content routes", () => {
     "maps daemon $errorCode failures on file reads to $expectedStatus",
     async ({ errorCode, expectedStatus }) => {
       await withTestHarness(async (harness) => {
-        const { host, session, thread } = seedThreadFixture(harness);
-        registerHostRpcResponder(harness, {
+        const { host, session, thread } = await seedThreadFixture(harness);
+        await registerHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           handle: () => ({
@@ -300,11 +300,11 @@ describe("file content routes", () => {
 
   it("reads working-tree files by chunk and git revisions in one read", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, environment } = seedThreadFixture(harness, {
+      const { host, session, environment } = await seedThreadFixture(harness, {
         environment: { path: "/tmp/lease-env" },
       });
       const commands: HostCommand[] = [];
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: ({ command }) => {
@@ -387,13 +387,13 @@ describe("file content routes", () => {
 
   it("reads project files from the primary host source or a named host", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/primary/project",
       });
-      const commands = serveFiles(harness, {
+      const commands = await serveFiles(harness, {
         hostId: host.id,
         sessionId: session.id,
         files: new Map([
@@ -426,8 +426,8 @@ describe("file content routes", () => {
 
   it("maps Windows drive paths to the drive root and rejects backslash traversal", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      const commands = serveFiles(harness, {
+      const { host, session } = await seedHostSession(harness.deps);
+      const commands = await serveFiles(harness, {
         hostId: host.id,
         sessionId: session.id,
         files: new Map([

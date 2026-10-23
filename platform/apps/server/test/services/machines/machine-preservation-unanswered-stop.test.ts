@@ -31,28 +31,30 @@ afterEach(() => {
 });
 
 it("preserves a machine whose daemon never answers the stop, and frees the queue", async () =>
-  withTestHarness(async (harness) => {
-    const { host } = seedHostSession(harness.deps, { id: "unanswered-stop" });
-    const { project } = seedProjectWithSource(harness.deps, {
+  await withTestHarness(async (harness) => {
+    const { host } = await seedHostSession(harness.deps, {
+      id: "unanswered-stop",
+    });
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       status: "active",
     });
-    seedTurnStarted(harness.deps, {
+    await seedTurnStarted(harness.deps, {
       threadId: thread.id,
       environmentId: environment.id,
       turnId: "turn-unanswered",
     });
     vi.spyOn(harness.hub, "requestHostOnlineRpc").mockImplementation(
       async () => {
-        seedQueuedMessage(harness.deps, {
+        await seedQueuedMessage(harness.deps, {
           threadId: thread.id,
           content: textInput("okay push it when you're ready"),
           waitingOn: { kind: "stopping" },
@@ -65,9 +67,9 @@ it("preserves a machine whose daemon never answers the stop, and frees the queue
     await maintainMachine(harness.deps, host.id, "operation-unanswered", save);
 
     expect(save).toHaveBeenCalledOnce();
-    expect(getThread(harness.db, thread.id)?.status).toBe("idle");
+    expect((await getThread(harness.db, thread.id))?.status).toBe("idle");
     expect(
-      harness.db
+      await harness.db
         .select({ id: events.id })
         .from(events)
         .where(
@@ -79,9 +81,9 @@ it("preserves a machine whose daemon never answers the stop, and frees the queue
         )
         .all(),
     ).toHaveLength(1);
-    await vi.waitFor(() => {
+    await vi.waitFor(async () => {
       expect(
-        listQueuedThreadMessagesWaitingOnKind(harness.db, {
+        await listQueuedThreadMessagesWaitingOnKind(harness.db, {
           threadId: thread.id,
           kind: "stopping",
         }),
@@ -90,21 +92,23 @@ it("preserves a machine whose daemon never answers the stop, and frees the queue
   }));
 
 it("does not snapshot a connected machine whose daemon answers neither the stop nor the shutdown", async () =>
-  withTestHarness(async (harness) => {
-    const { host } = seedHostSession(harness.deps, { id: "unanswered-save" });
-    const { project } = seedProjectWithSource(harness.deps, {
+  await withTestHarness(async (harness) => {
+    const { host } = await seedHostSession(harness.deps, {
+      id: "unanswered-save",
+    });
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       status: "active",
     });
-    seedTurnStarted(harness.deps, {
+    await seedTurnStarted(harness.deps, {
       threadId: thread.id,
       environmentId: environment.id,
       turnId: "turn-unanswered-save",
@@ -114,7 +118,7 @@ it("does not snapshot a connected machine whose daemon answers neither the stop 
       suspend,
       resume: async ({ resource }) => ({ resource }),
     });
-    updateHost(harness.db, harness.hub, host.id, {
+    await updateHost(harness.db, harness.hub, host.id, {
       machineProviderId: "test-machine",
       resource: { id: "owned" },
     });
@@ -130,8 +134,8 @@ it("does not snapshot a connected machine whose daemon answers neither the stop 
       (error: unknown) => error,
     );
     await advanceUntilTrue(
-      () =>
-        getHost(harness.db, host.id)?.statusMessage?.includes(
+      async () =>
+        (await getHost(harness.db, host.id))?.statusMessage?.includes(
           "did not shut down cleanly",
         ) === true,
       5_000,
@@ -140,7 +144,7 @@ it("does not snapshot a connected machine whose daemon answers neither the stop 
 
     expect(shutdown).toHaveBeenCalledOnce();
     expect(suspend).not.toHaveBeenCalled();
-    expect(getHost(harness.db, host.id)?.statusMessage).toContain(
+    expect((await getHost(harness.db, host.id))?.statusMessage).toContain(
       "did not shut down cleanly",
     );
   }));

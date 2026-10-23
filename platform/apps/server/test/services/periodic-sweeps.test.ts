@@ -9,7 +9,6 @@ import {
   getEnvironment,
   hostDaemonSessions,
   listQueuedThreadMessages,
-  RETAINED_EVENT_OUTPUT_TARGETS,
   retainedEventOutputs,
   threads,
   threadPruningCursors,
@@ -66,23 +65,23 @@ function installHooks(registry: HookRegistry): void {
   });
 }
 
-function seedRunnableThread(harness: TestAppHarness, hostId: string) {
-  const { host } = seedHostSession(harness.deps, { id: hostId });
-  const { project } = seedProjectWithSource(harness.deps, {
+async function seedRunnableThread(harness: TestAppHarness, hostId: string) {
+  const { host } = await seedHostSession(harness.deps, { id: hostId });
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: `/tmp/${hostId}`,
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: `/tmp/${hostId}`,
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     environmentId: environment.id,
     projectId: project.id,
     status: "idle",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     providerThreadId: `provider-${hostId}`,
     threadId: thread.id,
@@ -111,9 +110,9 @@ describe("runPeriodicSweeps", () => {
   it("deletes expired retained outputs across yielded advances without changing previews", async () => {
     const now = Date.now();
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       for (const sequence of [1, 2]) {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           createdAt: now - COMPLETED_EVENT_OUTPUT_RETENTION_MS - sequence,
           data: {
             item: {
@@ -135,14 +134,14 @@ describe("runPeriodicSweeps", () => {
           type: "item/completed",
         });
       }
-      const previews = harness.db
+      const previews = await harness.db
         .select({ data: events.data, id: events.id })
         .from(events)
         .where(eq(events.threadId, thread.id))
         .all();
-      expect(harness.db.select().from(retainedEventOutputs).all()).toHaveLength(
-        2,
-      );
+      expect(
+        await harness.db.select().from(retainedEventOutputs).all(),
+      ).toHaveLength(2);
       const observedSidecarCounts: number[] = [];
       const changes: (readonly string[])[] = [];
       const unsubscribe = harness.deps.hub.onChangedMessage((message) => {
@@ -151,12 +150,12 @@ describe("runPeriodicSweeps", () => {
         }
       });
       let sweepSettled = false;
-      const probe = () => {
+      const probe = async () => {
         if (sweepSettled) {
           return;
         }
         observedSidecarCounts.push(
-          harness.db.select().from(retainedEventOutputs).all().length,
+          (await harness.db.select().from(retainedEventOutputs).all()).length,
         );
         setImmediate(probe);
       };
@@ -173,10 +172,12 @@ describe("runPeriodicSweeps", () => {
         unsubscribe();
       }
 
-      expect(harness.db.select().from(retainedEventOutputs).all()).toEqual([]);
+      expect(
+        await harness.db.select().from(retainedEventOutputs).all(),
+      ).toEqual([]);
       expect(observedSidecarCounts).toContain(1);
       expect(
-        harness.db
+        await harness.db
           .select({ data: events.data, id: events.id })
           .from(events)
           .where(eq(events.threadId, thread.id))
@@ -193,10 +194,10 @@ describe("runPeriodicSweeps", () => {
   it("migrates legacy outputs one per event-loop turn and notifies their thread", async () => {
     await withTestHarness(async (harness) => {
       const now = Date.now();
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const output = "legacy-" + "m".repeat(40_000);
       for (const sequence of [1, 2]) {
-        harness.db
+        await harness.db
           .insert(events)
           .values({
             createdAt: now - COMPLETED_EVENT_OUTPUT_RETENTION_MS - sequence,
@@ -222,22 +223,23 @@ describe("runPeriodicSweeps", () => {
           .run();
       }
 
-      const countLargeInlineOutputs = () =>
-        harness.db
-          .select({ data: events.data })
-          .from(events)
-          .where(eq(events.threadId, thread.id))
-          .all()
-          .filter(
-            (row) => JSON.parse(row.data).item.aggregatedOutput.length > 40_000,
-          ).length;
+      const countLargeInlineOutputs = async () =>
+        (
+          await harness.db
+            .select({ data: events.data })
+            .from(events)
+            .where(eq(events.threadId, thread.id))
+            .all()
+        ).filter(
+          (row) => JSON.parse(row.data).item.aggregatedOutput.length > 40_000,
+        ).length;
       const observedCounts: number[] = [];
       let sweepSettled = false;
-      const probe = () => {
+      const probe = async () => {
         if (sweepSettled) {
           return;
         }
-        observedCounts.push(countLargeInlineOutputs());
+        observedCounts.push(await countLargeInlineOutputs());
         setImmediate(probe);
       };
       const changes: (readonly string[])[] = [];
@@ -259,7 +261,7 @@ describe("runPeriodicSweeps", () => {
         unsubscribe();
       }
 
-      expect(countLargeInlineOutputs()).toBe(0);
+      expect(await countLargeInlineOutputs()).toBe(0);
       expect(observedCounts).toContain(1);
       expect(
         changes.filter((threadChanges) =>
@@ -272,8 +274,8 @@ describe("runPeriodicSweeps", () => {
   it("migrates legacy Codex image output and invalidates its thread history", async () => {
     await withTestHarness(async (harness) => {
       const now = Date.now();
-      const { environment, thread } = seedThreadFixture(harness);
-      harness.db
+      const { environment, thread } = await seedThreadFixture(harness);
+      await harness.db
         .insert(events)
         .values({
           createdAt: now - 1_000,
@@ -327,15 +329,15 @@ describe("runPeriodicSweeps", () => {
         unsubscribe();
       }
 
-      const [stored] = harness.db
+      const [stored] = await harness.db
         .select({ data: events.data })
         .from(events)
         .where(eq(events.threadId, thread.id))
         .all();
       expect(stored?.data.length).toBeLessThan(10_000);
-      expect(harness.db.select().from(retainedEventOutputs).all()).toHaveLength(
-        1,
-      );
+      expect(
+        await harness.db.select().from(retainedEventOutputs).all(),
+      ).toHaveLength(1);
       expect(
         changes.filter((threadChanges) =>
           threadChanges.includes("history-compacted"),
@@ -386,17 +388,17 @@ describe("runPeriodicSweeps", () => {
       });
 
       for (const hostId of ["host-idle-recovery-a", "host-idle-recovery-b"]) {
-        const idleThread = seedRunnableThread(harness, hostId);
-        seedQueuedMessage(harness.deps, {
+        const idleThread = await seedRunnableThread(harness, hostId);
+        await seedQueuedMessage(harness.deps, {
           content: textInput("block idle recovery"),
           threadId: idleThread.id,
         });
       }
-      const scheduledThread = seedRunnableThread(
+      const scheduledThread = await seedRunnableThread(
         harness,
         "host-scheduled-recovery",
       );
-      seedQueuedMessage(harness.deps, {
+      await seedQueuedMessage(harness.deps, {
         content: textInput("deliver on the overlapping tick"),
         sendAt: Date.now() - 1_000,
         threadId: scheduledThread.id,
@@ -413,21 +415,14 @@ describe("runPeriodicSweeps", () => {
       const firstSweep = runPeriodicSweeps(deps);
       await idleRecoveryStarted;
       const overlappingSweep = runPeriodicSweeps(deps);
-      for (
-        let yielded = 0;
-        yielded <= RETAINED_EVENT_OUTPUT_TARGETS.length + 1;
-        yielded += 1
-      ) {
-        await new Promise<void>((resolve) => setImmediate(resolve));
-      }
-      releaseRunningJob(releaseIdleRecovery);
       try {
         await expect(secondAttempt).resolves.toBe("scheduled");
         await overlappingSweep;
         expect(
-          listQueuedThreadMessages(harness.db, scheduledThread.id),
+          await listQueuedThreadMessages(harness.db, scheduledThread.id),
         ).toEqual([]);
       } finally {
+        releaseRunningJob(releaseIdleRecovery);
         await Promise.all([firstSweep, overlappingSweep]);
       }
     });
@@ -435,9 +430,9 @@ describe("runPeriodicSweeps", () => {
 
   it("continues later sweep jobs after an earlier job fails", async () => {
     await withTestHarness(async (harness) => {
-      const { session } = seedHostSession(harness.deps);
+      const { session } = await seedHostSession(harness.deps);
       const closedAt = Date.now() - CLOSED_SESSION_ROW_RETENTION_MS - 1;
-      harness.db
+      await harness.db
         .update(hostDaemonSessions)
         .set({
           closedAt,
@@ -468,7 +463,7 @@ describe("runPeriodicSweeps", () => {
 
       await runPeriodicSweeps(deps);
 
-      const sessionAfterSweep = harness.db
+      const sessionAfterSweep = await harness.db
         .select({ id: hostDaemonSessions.id })
         .from(hostDaemonSessions)
         .where(eq(hostDaemonSessions.id, session.id))
@@ -486,22 +481,22 @@ describe("runPeriodicSweeps", () => {
 
   it("keeps a long-destroyed environment so deleting its thread still removes host storage", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         environmentProviderId: "personal-workspace",
         isGitRepo: false,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         status: "idle",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         data: { text: "history" },
         environmentId: environment.id,
         scope: threadScope(),
@@ -510,12 +505,12 @@ describe("runPeriodicSweeps", () => {
         type: "system/manager/user_message",
       });
       const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60_000;
-      harness.db
+      await harness.db
         .update(threads)
         .set({ archivedAt: eightDaysAgo })
         .where(eq(threads.id, thread.id))
         .run();
-      harness.db
+      await harness.db
         .update(environments)
         .set({
           status: "destroyed",
@@ -531,11 +526,11 @@ describe("runPeriodicSweeps", () => {
         plugins: harness.pluginService,
       });
 
-      expect(getEnvironment(harness.db, environment.id)?.status).toBe(
+      expect((await getEnvironment(harness.db, environment.id))?.status).toBe(
         "destroyed",
       );
       expect(
-        harness.db
+        await harness.db
           .select({ environmentId: events.environmentId })
           .from(events)
           .where(eq(events.threadId, thread.id))
@@ -552,14 +547,18 @@ describe("runPeriodicSweeps", () => {
       );
       expect(response.status).toBe(200);
       expect(
-        listQueuedThreadCommands(harness, "thread.storage.delete", thread.id),
+        await listQueuedThreadCommands(
+          harness,
+          "thread.storage.delete",
+          thread.id,
+        ),
       ).toHaveLength(1);
     });
   });
 
   it("retries pruning on the next tick after a busy skip and continues without an hourly delay", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
+      const { thread } = await seedThreadFixture(harness);
       const deps = {
         ...harness.deps,
         pluginSchedules: harness.pluginService,
@@ -567,7 +566,7 @@ describe("runPeriodicSweeps", () => {
         pluginService: harness.pluginService,
         pluginCatalogService: harness.pluginCatalogService,
       };
-      insertEvents(
+      await insertEvents(
         harness.db,
         noopNotifier,
         [1, 2].map((sequence) => ({
@@ -582,7 +581,7 @@ describe("runPeriodicSweeps", () => {
           createdAt: 1,
         })),
       );
-      harness.db
+      await harness.db
         .update(threads)
         .set({ status: "active" })
         .where(eq(threads.id, thread.id))
@@ -592,10 +591,10 @@ describe("runPeriodicSweeps", () => {
       const clock = vi.spyOn(Date, "now").mockReturnValue(now);
       try {
         await runPeriodicSweepJobs(deps, pruningJobs, Date.now());
-        expect(harness.db.select().from(threadPruningCursors).all()).toEqual(
-          [],
-        );
-        harness.db
+        expect(
+          await harness.db.select().from(threadPruningCursors).all(),
+        ).toEqual([]);
+        await harness.db
           .update(threads)
           .set({ status: "idle" })
           .where(eq(threads.id, thread.id))
@@ -603,13 +602,13 @@ describe("runPeriodicSweeps", () => {
         clock.mockReturnValue(now + 10_000);
         await runPeriodicSweepJobs(deps, pruningJobs, Date.now());
         expect(
-          harness.db
+          await harness.db
             .select({ sequence: events.sequence })
             .from(events)
             .where(eq(events.threadId, thread.id))
             .all(),
         ).toEqual([{ sequence: 2 }]);
-        insertEvents(harness.db, noopNotifier, [
+        await insertEvents(harness.db, noopNotifier, [
           {
             threadId: thread.id,
             sequence: 3,
@@ -625,7 +624,7 @@ describe("runPeriodicSweeps", () => {
         clock.mockReturnValue(now + 20_000);
         await runPeriodicSweepJobs(deps, pruningJobs, Date.now());
         expect(
-          harness.db
+          await harness.db
             .select({ sequence: events.sequence })
             .from(events)
             .where(eq(events.threadId, thread.id))

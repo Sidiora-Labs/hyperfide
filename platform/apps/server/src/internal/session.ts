@@ -66,7 +66,7 @@ export function registerInternalSessionRoutes(
   serverMove: ServerMoveSessionGate,
 ): void {
   const machineEnvironment = new HostEnvironmentSync(deps);
-  deps.hub.onChangedMessage((message) => {
+  deps.hub.onChangedMessage(async (message) => {
     const hostIds =
       message.entity === "system" && message.changes.includes("config-changed")
         ? deps.hub.listConnectedHostIds()
@@ -76,7 +76,7 @@ export function registerInternalSessionRoutes(
           ? [message.id]
           : [];
     if (hostIds.length === 0) return;
-    const { idleProviderSessionTimeoutMinutes } = getAppSettings(deps.db);
+    const { idleProviderSessionTimeoutMinutes } = await getAppSettings(deps.db);
     for (const hostId of hostIds) {
       deps.hub.sendDaemonMessage(hostId, {
         type: "provider-session-policy.replace",
@@ -124,11 +124,11 @@ export function registerInternalSessionRoutes(
     if (
       !isCompatibleHostDaemonProtocolVersion(compatibility.data.protocolVersion)
     ) {
-      updateHost(deps.db, deps.hub, daemon.hostId, {
+      await updateHost(deps.db, deps.hub, daemon.hostId, {
         lastRejectedProtocolVersion: compatibility.data.protocolVersion,
       });
       const retryUpdate = deps.hub.takeHostProtocolUpdateRetry(daemon.hostId);
-      deps.hub.notifyHost(daemon.hostId, ["host-disconnected"]);
+      await deps.hub.notifyHost(daemon.hostId, ["host-disconnected"]);
       deps.logger.error(
         {
           hostId: daemon.hostId,
@@ -158,7 +158,7 @@ export function registerInternalSessionRoutes(
     }
     const payload = parsed.data;
 
-    const host = getHost(deps.db, daemon.hostId);
+    const host = await getHost(deps.db, daemon.hostId);
     if (host?.phase === "suspending" || host?.phase === "suspended") {
       throw new ApiError(
         409,
@@ -167,19 +167,19 @@ export function registerInternalSessionRoutes(
       );
     }
 
-    const previousSession = getLatestSessionForHost(deps.db, {
+    const previousSession = await getLatestSessionForHost(deps.db, {
       hostId: daemon.hostId,
     });
     const connectMachineId = resolveReportedConnectMachineId(context);
-    upsertHost(deps.db, deps.hub, {
+    await upsertHost(deps.db, deps.hub, {
       ...(connectMachineId !== undefined ? { connectMachineId } : {}),
       id: daemon.hostId,
       name: payload.hostName,
     });
-    updateHost(deps.db, deps.hub, daemon.hostId, {
+    await updateHost(deps.db, deps.hub, daemon.hostId, {
       lastRejectedProtocolVersion: null,
     });
-    const session = openSession(deps.db, {
+    const session = await openSession(deps.db, {
       hostId: daemon.hostId,
       instanceId: payload.instanceId,
       hostName: payload.hostName,
@@ -190,7 +190,7 @@ export function registerInternalSessionRoutes(
     });
     deps.hub.recordDaemonSessionPlatform(session.id, payload.platform);
     deps.hub.recordDaemonSessionLocalApiPort(session.id, payload.localApiPort);
-    deps.sharedPorts.recordHostConnectCapability({
+    await deps.sharedPorts.recordHostConnectCapability({
       hostId: daemon.hostId,
       sessionId: session.id,
       hasMachineCredential: payload.hasMachineCredential,
@@ -205,7 +205,7 @@ export function registerInternalSessionRoutes(
     });
     await serverMove.sessionOpened(daemon.hostId);
 
-    const retiredEnvironmentIds = listRetiredLoadedEnvironmentIdsOnHost(
+    const retiredEnvironmentIds = await listRetiredLoadedEnvironmentIdsOnHost(
       deps.db,
       {
         hostId: daemon.hostId,
@@ -220,13 +220,15 @@ export function registerInternalSessionRoutes(
         sessionId: session.id,
         heartbeatIntervalMs: HEARTBEAT_INTERVAL_MS,
         leaseTimeoutMs: LEASE_TIMEOUT_MS,
-        watchSet: deps.watchInterests.reconcileWatchSetForHost(daemon.hostId),
-        connectShares: deps.sharedPorts.reconcileSharedPortsForHost(
+        watchSet: await deps.watchInterests.reconcileWatchSetForHost(
           daemon.hostId,
         ),
-        ...(deps.sharedPorts.hostSupportsNextTunnel(daemon.hostId)
+        connectShares: await deps.sharedPorts.reconcileSharedPortsForHost(
+          daemon.hostId,
+        ),
+        ...((await deps.sharedPorts.hostSupportsNextTunnel(daemon.hostId))
           ? {
-              connectNext: deps.sharedPorts.reconcileNextTunnelForHost(
+              connectNext: await deps.sharedPorts.reconcileNextTunnelForHost(
                 daemon.hostId,
               ),
             }
@@ -234,7 +236,7 @@ export function registerInternalSessionRoutes(
         pluginHostGenerations: plugins.listHostArtifactGenerations(),
         retiredEnvironmentIds,
         machineEnvironment: await machineEnvironment.snapshot(daemon.hostId),
-        idleProviderSessionTimeoutMinutes: getAppSettings(deps.db)
+        idleProviderSessionTimeoutMinutes: (await getAppSettings(deps.db))
           .idleProviderSessionTimeoutMinutes,
       },
       201,
@@ -245,13 +247,13 @@ export function registerInternalSessionRoutes(
     "/session/project-attachment-content",
     hostDaemonProjectAttachmentContentQuerySchema,
     async (context, query) => {
-      const session = requireAuthenticatedDaemonSession({
+      const session = await requireAuthenticatedDaemonSession({
         context,
         db: deps.db,
         sessionId: query.sessionId,
       });
 
-      const { environment, thread } = requirePublicThreadEnvironment(
+      const { environment, thread } = await requirePublicThreadEnvironment(
         deps.db,
         query.threadId,
       );

@@ -42,8 +42,8 @@ const REBUILD_TEST_TIMEOUT_MS = scaleTimeoutMs(120_000);
 describe.sequential("fake provider environment-isolation multi-thread integration", () => {
   it(
     "refuses sends to a destroyed worktree until the thread restores it",
-    () =>
-      withHarness(
+    async () =>
+      await withHarness(
         { builtinPlugins: ["environment-git-worktree"] },
         async (harness) => {
           const project = await createProjectFixture(harness, {
@@ -84,7 +84,7 @@ describe.sequential("fake provider environment-isolation multi-thread integratio
             )
             .toBe("retiring");
           await fs.access(originalWorkspacePath);
-          harness.db
+          await harness.db
             .update(environments)
             .set({ retireAt: Date.now() - 1 })
             .where(eq(environments.id, worktreeThread.environment.id))
@@ -165,8 +165,8 @@ describe.sequential("fake provider environment-isolation multi-thread integratio
     REBUILD_TEST_TIMEOUT_MS,
   );
 
-  it("isolates concurrent work across separate environments", () =>
-    withHarness(async (harness) => {
+  it("isolates concurrent work across separate environments", async () =>
+    await withHarness(async (harness) => {
       const secondRepoDir = await createTestGitRepo({
         repoDir: path.join(path.dirname(harness.repoDir), "second-project"),
       });

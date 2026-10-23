@@ -151,8 +151,9 @@ describe("install cancellation", () => {
   it("kills the running install command and its children when the install is cancelled", async () => {
     const controller = new AbortController();
     const started = Date.now();
-    const command = runCancellableInstall(controller.signal, () =>
-      runInstallCommand(process.execPath, sleeper),
+    const command = runCancellableInstall(
+      controller.signal,
+      async () => await runInstallCommand(process.execPath, sleeper),
     );
     setTimeout(() => controller.abort(), 50);
 
@@ -172,7 +173,7 @@ describe("install cancellation", () => {
       runCancellableInstall(committed.signal, async () => {
         commitInstall();
         committed.abort();
-        return runInstallCommand(process.execPath, ["-e", "1"]);
+        return await runInstallCommand(process.execPath, ["-e", "1"]);
       }),
     ).resolves.toBe("");
   });

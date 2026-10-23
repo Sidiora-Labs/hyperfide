@@ -107,11 +107,11 @@ function requestFingerprint(payload: EditMessageRequest): string {
     .digest("hex");
 }
 
-function findCommittedOperation(
+async function findCommittedOperation(
   db: DbQueryConnection,
   args: { operationId: string; threadId: string },
-): { fingerprint: string; requestSequence: number } | null {
-  const row = db
+): Promise<{ fingerprint: string; requestSequence: number } | null> {
+  const row = await db
     .select()
     .from(events)
     .where(
@@ -147,14 +147,14 @@ async function stopThreadBeforeMessageEdit(
     threadId: string;
   },
 ): Promise<Thread> {
-  let thread = getThread(deps.db, args.threadId);
+  let thread = await getThread(deps.db, args.threadId);
   if (!thread) conflict("Thread not found");
   if (isMessageEditThreadQuiescent(thread)) return thread;
 
   await ensureHostSessionReadyForWork(deps, {
     hostId: args.environment.hostId,
   });
-  requestThreadStopForCurrentState(deps, thread, args.environment);
+  await requestThreadStopForCurrentState(deps, thread, args.environment);
 
   const deadline = Date.now() + EDIT_MESSAGE_STOP_TIMEOUT_MS;
   while (true) {
@@ -163,7 +163,7 @@ async function stopThreadBeforeMessageEdit(
       conflict("The thread did not stop before the message edit timed out");
     }
     const waiter = deps.hub.registerThreadEventWaiter(args.threadId, remaining);
-    thread = getThread(deps.db, args.threadId);
+    thread = await getThread(deps.db, args.threadId);
     if (!thread) {
       waiter.cancel();
       conflict("Thread not found");
@@ -178,12 +178,12 @@ async function stopThreadBeforeMessageEdit(
   }
 }
 
-function getTurnCompletion(
+async function getTurnCompletion(
   db: DbQueryConnection,
   threadId: string,
   turnId: string,
-): Extract<ThreadEvent, { type: "turn/completed" }> | null {
-  const row = db
+): Promise<Extract<ThreadEvent, { type: "turn/completed" }> | null> {
+  const row = await db
     .select()
     .from(events)
     .where(
@@ -218,11 +218,11 @@ export function resolveTurnProviderCheckpointId(args: {
     : null;
 }
 
-function resolveEditableTurnCandidate(
+async function resolveEditableTurnCandidate(
   db: DbQueryConnection,
   thread: Thread,
   requestRow: Parameters<typeof parseStoredTurnRequestEvent>[0],
-): EditableTurn {
+): Promise<EditableTurn> {
   const request = parseStoredTurnRequestEvent(requestRow);
   if (
     request.initiator !== "user" ||
@@ -236,7 +236,7 @@ function resolveEditableTurnCandidate(
     conflict("Grouped messages cannot be edited yet");
   }
 
-  const acceptedRows = db
+  const acceptedRows = await db
     .select({ sequence: events.sequence, turnId: events.turnId })
     .from(events)
     .where(
@@ -255,14 +255,14 @@ function resolveEditableTurnCandidate(
   }
 
   if (
-    !hasRootStoredTurnStarted(db, {
+    !(await hasRootStoredTurnStarted(db, {
       threadId: thread.id,
       turnId: accepted.turnId,
-    })
+    }))
   ) {
     conflict("The selected message does not belong to a root turn");
   }
-  const precedingTurn = db
+  const precedingTurn = await db
     .select({ turnId: events.turnId })
     .from(events)
     .where(
@@ -280,7 +280,7 @@ function resolveEditableTurnCandidate(
   const precedingCompletion =
     precedingTurnId === null
       ? null
-      : getTurnCompletion(db, thread.id, precedingTurnId);
+      : await getTurnCompletion(db, thread.id, precedingTurnId);
   if (
     precedingTurnId !== null &&
     (precedingCompletion === null ||
@@ -291,7 +291,7 @@ function resolveEditableTurnCandidate(
   const precedingSessionClaim =
     precedingCompletion?.providerThreadId == null
       ? null
-      : classifyStoredProviderThreadClaim(db, {
+      : await classifyStoredProviderThreadClaim(db, {
           providerThreadId: precedingCompletion.providerThreadId,
           threadId: thread.id,
         });
@@ -316,9 +316,10 @@ function resolveEditableTurnCandidate(
   if (precedingTurnId !== null && precedingProviderCheckpoint === null) {
     conflict("This earlier provider turn has no editable history checkpoint");
   }
-  const oldMaxSequence = getHighWaterMarks(db, [thread.id])[thread.id] ?? 0;
+  const oldMaxSequence =
+    (await getHighWaterMarks(db, [thread.id]))[thread.id] ?? 0;
   if (
-    wouldRemoveSharedProviderSessionClaim(db, {
+    await wouldRemoveSharedProviderSessionClaim(db, {
       cutoffSequence: requestRow.sequence,
       oldMaxSequence,
       threadId: thread.id,
@@ -341,19 +342,19 @@ function resolveEditableTurnCandidate(
   };
 }
 
-function resolveEditableTurn(
+async function resolveEditableTurn(
   db: DbQueryConnection,
   policyDeps: ThreadMessageEditPolicyDeps,
   thread: Thread,
   requestSequence?: number,
-): EditableTurn {
+): Promise<EditableTurn> {
   const refusal = resolveThreadMessageEditRefusal(policyDeps, thread);
   if (refusal !== null) {
     conflict(refusal);
   }
 
   if (requestSequence !== undefined) {
-    const requestRow = db
+    const requestRow = await db
       .select(TURN_REQUEST_ROW_COLUMNS)
       .from(events)
       .where(
@@ -366,12 +367,12 @@ function resolveEditableTurn(
       .limit(1)
       .get();
     if (requestRow !== undefined) {
-      return resolveEditableTurnCandidate(db, thread, requestRow);
+      return await resolveEditableTurnCandidate(db, thread, requestRow);
     }
     conflict("The thread has no editable user message");
   }
 
-  const requestRows = db
+  const requestRows = await db
     .select(TURN_REQUEST_ROW_COLUMNS)
     .from(events)
     .where(
@@ -387,7 +388,7 @@ function resolveEditableTurn(
     .all();
   for (const requestRow of requestRows) {
     try {
-      return resolveEditableTurnCandidate(db, thread, requestRow);
+      return await resolveEditableTurnCandidate(db, thread, requestRow);
     } catch (error) {
       if (
         !(error instanceof ApiError) ||
@@ -401,7 +402,7 @@ function resolveEditableTurn(
   conflict("The thread has no editable user message");
 }
 
-function listCarriedBackgroundSettlements(
+async function listCarriedBackgroundSettlements(
   db: DbQueryConnection,
   args: {
     cutoffSequence: number;
@@ -409,10 +410,9 @@ function listCarriedBackgroundSettlements(
     oldMaxSequence: number;
     threadId: string;
   },
-): AppendStoredThreadEventArgs[] {
-  return listThreadEventSuffixBackgroundSettlementRows(
-    db,
-    args,
+): Promise<AppendStoredThreadEventArgs[]> {
+  return (
+    await listThreadEventSuffixBackgroundSettlementRows(db, args)
   ).flatMap<AppendStoredThreadEventArgs>((row) => {
     const event = parseStoredEvent(row);
     const carried = {
@@ -480,7 +480,7 @@ export async function editThreadMessage(
   },
 ): Promise<EditMessageResponse> {
   const fingerprint = requestFingerprint(args.payload);
-  const committed = findCommittedOperation(deps.db, {
+  const committed = await findCommittedOperation(deps.db, {
     operationId: args.payload.operationId,
     threadId: args.thread.id,
   });
@@ -495,18 +495,18 @@ export async function editThreadMessage(
     };
   }
   if (
-    deps.pendingInteractions.hasTurnBoundPendingThreadInteraction(
+    await deps.pendingInteractions.hasTurnBoundPendingThreadInteraction(
       args.thread.id,
     )
   ) {
     conflict("Resolve the pending interaction before editing the message");
   }
-  if (hasClaimedQueuedThreadMessages(deps.db, args.thread.id)) {
+  if (await hasClaimedQueuedThreadMessages(deps.db, args.thread.id)) {
     conflict("Wait for queued messages being sent before editing a message");
   }
-  const initialThread = getThread(deps.db, args.thread.id);
+  const initialThread = await getThread(deps.db, args.thread.id);
   if (!initialThread) conflict("Thread not found");
-  const senderThreadId = resolveMessageSenderThreadId(deps, {
+  const senderThreadId = await resolveMessageSenderThreadId(deps, {
     senderThreadId: args.payload.senderThreadId,
     targetThread: initialThread,
   });
@@ -516,7 +516,7 @@ export async function editThreadMessage(
     startedOnBehalfOf: null,
   });
 
-  const initialTarget = resolveEditableTurn(
+  const initialTarget = await resolveEditableTurn(
     deps.db,
     deps,
     initialThread,
@@ -527,9 +527,11 @@ export async function editThreadMessage(
     threadId: initialThread.id,
   });
   if (
-    listOpenBackgroundTaskItemRowsForThread(deps.db, {
-      threadId: initialThread.id,
-    }).length > 0
+    (
+      await listOpenBackgroundTaskItemRowsForThread(deps.db, {
+        threadId: initialThread.id,
+      })
+    ).length > 0
   ) {
     await ensureHostSessionReadyForWork(deps, {
       hostId: args.environment.hostId,
@@ -537,11 +539,11 @@ export async function editThreadMessage(
     await stopThreadForCurrentState(deps, editableThread, args.environment, {
       requireStopped: true,
     });
-    const stoppedThread = getThread(deps.db, initialThread.id);
+    const stoppedThread = await getThread(deps.db, initialThread.id);
     if (!stoppedThread) conflict("Thread not found");
     editableThread = stoppedThread;
   }
-  const target = resolveEditableTurn(
+  const target = await resolveEditableTurn(
     deps.db,
     deps,
     editableThread,
@@ -620,23 +622,23 @@ export async function editThreadMessage(
   let cancelledRetryCount = 0;
   try {
     await sendThreadMessage(deps, {
-      beforeAppendInTransaction: ({ tx }) => {
-        if (getActivePendingInteractionForThread(tx, editableThread.id)) {
+      beforeAppendInTransaction: async ({ tx }) => {
+        if (await getActivePendingInteractionForThread(tx, editableThread.id)) {
           conflict(
             "Resolve the pending interaction before editing the message",
           );
         }
-        if (hasClaimedQueuedThreadMessages(tx, editableThread.id)) {
+        if (await hasClaimedQueuedThreadMessages(tx, editableThread.id)) {
           conflict(
             "Wait for queued messages being sent before editing a message",
           );
         }
-        const currentThread = getThread(tx, editableThread.id);
+        const currentThread = await getThread(tx, editableThread.id);
         if (!currentThread) conflict("Thread not found");
         if (!isMessageEditThreadQuiescent(currentThread)) {
           conflict("The thread changed while the edit was being prepared");
         }
-        const currentTarget = resolveEditableTurn(
+        const currentTarget = await resolveEditableTurn(
           tx,
           deps,
           currentThread,
@@ -648,14 +650,14 @@ export async function editThreadMessage(
         ) {
           conflict("The thread changed while the edit was being prepared");
         }
-        const carriedSettlements = listCarriedBackgroundSettlements(tx, {
+        const carriedSettlements = await listCarriedBackgroundSettlements(tx, {
           cutoffSequence: target.requestSequence,
           environmentId: editableThread.environmentId,
           oldMaxSequence: target.oldMaxSequence,
           threadId: editableThread.id,
         });
         requestSequence = target.oldMaxSequence + 2 + carriedSettlements.length;
-        appendThreadEventInTransaction(tx, {
+        await appendThreadEventInTransaction(tx, {
           threadId: editableThread.id,
           environmentId: editableThread.environmentId,
           type: "system/operation",
@@ -676,17 +678,17 @@ export async function editThreadMessage(
           },
         });
         cancelledRetryCount =
-          deleteQueuedRetriesForThreadEventSuffixInTransaction(tx, {
+          await deleteQueuedRetriesForThreadEventSuffixInTransaction(tx, {
             cutoffSequence: target.requestSequence,
             oldMaxSequence: target.oldMaxSequence,
             threadId: editableThread.id,
           });
-        deleteThreadEventSuffixInTransaction(tx, {
+        await deleteThreadEventSuffixInTransaction(tx, {
           cutoffSequence: target.requestSequence,
           oldMaxSequence: target.oldMaxSequence,
           threadId: editableThread.id,
         });
-        appendThreadEventsInTransaction(tx, carriedSettlements);
+        await appendThreadEventsInTransaction(tx, carriedSettlements);
       },
       environment: args.environment,
       historyReplacement: {
@@ -703,7 +705,7 @@ export async function editThreadMessage(
       thread: editableThread,
       trigger: "user",
     });
-    deps.hub.notifyThread(
+    await deps.hub.notifyThread(
       editableThread.id,
       [
         "history-rewritten",
@@ -715,7 +717,7 @@ export async function editThreadMessage(
     );
   } catch (error) {
     await discardStagedRewind?.();
-    const concurrentCommit = findCommittedOperation(deps.db, {
+    const concurrentCommit = await findCommittedOperation(deps.db, {
       operationId: args.payload.operationId,
       threadId: editableThread.id,
     });

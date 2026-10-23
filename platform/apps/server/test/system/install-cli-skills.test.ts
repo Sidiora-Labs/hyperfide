@@ -48,27 +48,33 @@ describe("install cli skills", () => {
   it("installs the built-in bb-cli tree on every requested machine", async () => {
     await withTestHarness(async (harness) => {
       await writeBuiltinCliSkill(harness);
-      const laptop = seedHostSession(harness.deps, { id: "host-laptop" });
-      const studio = seedHostSession(harness.deps, { id: "host-studio" });
-      const responders = [laptop, studio].map(({ host, session }) =>
-        registerHostRpcResponder(harness, {
-          hostId: host.id,
-          sessionId: session.id,
-          handle: (request) => {
-            expect(request.command).toMatchObject({
-              type: "host.install_global_skills",
-              skills: [{ name: "bb-cli", entryPath: "SKILL.md" }],
-            });
-            return {
-              ok: true,
-              result: {
-                installations: [
-                  { name: "bb-cli", path: `/home/${host.id}/.agents/skills` },
-                ],
+      const laptop = await seedHostSession(harness.deps, { id: "host-laptop" });
+      const studio = await seedHostSession(harness.deps, { id: "host-studio" });
+      const responders = await Promise.all(
+        [laptop, studio].map(
+          async ({ host, session }) =>
+            await registerHostRpcResponder(harness, {
+              hostId: host.id,
+              sessionId: session.id,
+              handle: (request) => {
+                expect(request.command).toMatchObject({
+                  type: "host.install_global_skills",
+                  skills: [{ name: "bb-cli", entryPath: "SKILL.md" }],
+                });
+                return {
+                  ok: true,
+                  result: {
+                    installations: [
+                      {
+                        name: "bb-cli",
+                        path: `/home/${host.id}/.agents/skills`,
+                      },
+                    ],
+                  },
+                };
               },
-            };
-          },
-        }),
+            }),
+        ),
       );
 
       const response = await harness.app.request(
@@ -91,9 +97,9 @@ describe("install cli skills", () => {
   it("reports a failing machine without dropping the one that worked", async () => {
     await withTestHarness(async (harness) => {
       await writeBuiltinCliSkill(harness);
-      const laptop = seedHostSession(harness.deps, { id: "host-laptop" });
-      const studio = seedHostSession(harness.deps, { id: "host-studio" });
-      registerHostRpcResponder(harness, {
+      const laptop = await seedHostSession(harness.deps, { id: "host-laptop" });
+      const studio = await seedHostSession(harness.deps, { id: "host-studio" });
+      await registerHostRpcResponder(harness, {
         hostId: laptop.host.id,
         sessionId: laptop.session.id,
         handle: () => ({
@@ -103,7 +109,7 @@ describe("install cli skills", () => {
           },
         }),
       });
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: studio.host.id,
         sessionId: studio.session.id,
         handle: () => ({
@@ -147,9 +153,11 @@ describe("install cli skills", () => {
   it("maps each machine's reported hashes to a product status", async () => {
     await withTestHarness(async (harness) => {
       await writeBuiltinCliSkill(harness);
-      const current = seedHostSession(harness.deps, { id: "host-current" });
-      const stale = seedHostSession(harness.deps, { id: "host-stale" });
-      const empty = seedHostSession(harness.deps, { id: "host-empty" });
+      const current = await seedHostSession(harness.deps, {
+        id: "host-current",
+      });
+      const stale = await seedHostSession(harness.deps, { id: "host-stale" });
+      const empty = await seedHostSession(harness.deps, { id: "host-empty" });
       const expectedHash = expectedCliSkillTreeHash(harness);
       const hashByHostId: Record<string, string | null> = {
         "host-current": expectedHash,
@@ -157,7 +165,7 @@ describe("install cli skills", () => {
         "host-empty": null,
       };
       for (const { host, session } of [current, stale, empty]) {
-        registerHostRpcResponder(harness, {
+        await registerHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           handle: (request) => {
@@ -201,7 +209,7 @@ describe("install cli skills", () => {
   it("reports a machine with no daemon session as unknown", async () => {
     await withTestHarness(async (harness) => {
       await writeBuiltinCliSkill(harness);
-      seedHost(harness.deps, { id: "host-offline" });
+      await seedHost(harness.deps, { id: "host-offline" });
 
       const response = await harness.app.request("/api/v1/system/cli-skills");
       const body = systemCliSkillsStatusResponseSchema.parse(

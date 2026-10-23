@@ -28,8 +28,8 @@ export function createDesktopAppUpdateService(args: {
   channel: DesktopUpdateChannel;
   currentVersion: string;
   dataDir: string;
-  countRunningThreads: () => number;
-  notifyChanged: () => void;
+  countRunningThreads: () => number | Promise<number>;
+  notifyChanged: () => void | Promise<void>;
   logger: ServerLogger;
 }): AppUpdateService {
   const path = join(args.dataDir, "bb-desktop-app-update.json");
@@ -79,10 +79,10 @@ export function createDesktopAppUpdateService(args: {
   void initialized.catch((error: unknown) => {
     args.logger.warn({ error }, "Could not read desktop update state");
   });
-  const unsubscribe = args.channel.subscribe((next) => {
+  const unsubscribe = args.channel.subscribe(async (next) => {
     updaterUnavailable = next === null;
     if (next !== null) info = next;
-    args.notifyChanged();
+    await args.notifyChanged();
   });
 
   const refresh = async (forceRefresh: boolean): Promise<void> => {
@@ -131,7 +131,7 @@ export function createDesktopAppUpdateService(args: {
           : null,
       activity,
       lastResult,
-      runningThreadCount: args.countRunningThreads(),
+      runningThreadCount: await args.countRunningThreads(),
     };
   };
   const waitForDownload = async (version: string): Promise<void> => {
@@ -190,7 +190,7 @@ export function createDesktopAppUpdateService(args: {
     };
     try {
       await waitForDownload(version);
-      const count = args.countRunningThreads();
+      const count = await args.countRunningThreads();
       if (count > 0 && !confirmed) {
         throw new Error(
           `${String(count)} thread${count === 1 ? "" : "s"} started while bb was downloading the update. Update again to restart.`,
@@ -208,7 +208,7 @@ export function createDesktopAppUpdateService(args: {
         targetCommit: null,
         targetVersion: version,
       };
-      args.notifyChanged();
+      await args.notifyChanged();
       await delay(1_500, undefined, { signal: abort.signal });
       await args.channel.request("install");
     } catch (error) {
@@ -227,7 +227,7 @@ export function createDesktopAppUpdateService(args: {
       lastResult = failure;
       activity = { phase: "idle" };
       applying = false;
-      args.notifyChanged();
+      await args.notifyChanged();
     }
   };
 
@@ -273,20 +273,20 @@ export function createDesktopAppUpdateService(args: {
           step: `Downloading bb-app ${status.available.version}`,
           targetVersion: status.available.version,
         };
-        args.notifyChanged();
+        await args.notifyChanged();
         void runUpdate(
           status.available.version,
           confirmInterruptingThreads,
-        ).catch((error: unknown) => {
+        ).catch(async (error: unknown) => {
           args.logger.error(
             { error },
             "Could not record the desktop update result",
           );
           applying = false;
           activity = { phase: "idle" };
-          args.notifyChanged();
+          await args.notifyChanged();
         });
-        return getStatus({ forceRefresh: false });
+        return await getStatus({ forceRefresh: false });
       } catch (error) {
         applying = false;
         throw error;
@@ -306,8 +306,8 @@ export function createDesktopAppUpdateService(args: {
         }),
       });
       lastResult = state.lastResult;
-      args.notifyChanged();
-      return getStatus({ forceRefresh: false });
+      await args.notifyChanged();
+      return await getStatus({ forceRefresh: false });
     },
     dispose() {
       abort.abort();

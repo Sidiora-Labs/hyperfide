@@ -72,11 +72,11 @@ interface ResolverStub {
   holdUntil: Promise<void> | null;
 }
 
-function registerResolverHost(
+async function registerResolverHost(
   harness: TestAppHarness,
   hostId: string,
-): ResolverStub {
-  const { host, session } = seedHostSession(harness.deps, { id: hostId });
+): Promise<ResolverStub> {
+  const { host, session } = await seedHostSession(harness.deps, { id: hostId });
   const stub: ResolverStub = {
     calls: [],
     answer: { skills: [{ path: USER_SKILLS.path, origin: "user" }] },
@@ -89,7 +89,7 @@ function registerResolverHost(
     }
     return { ok: true, result: { output: stub.answer } };
   };
-  registerHostRpcResponder(harness, {
+  await registerHostRpcResponder(harness, {
     hostId: host.id,
     sessionId: session.id,
     handle: (request) => {
@@ -125,9 +125,9 @@ describe("resolveProviderNativeRootSet", () => {
           PLUGIN_ID,
           stubHostArtifact(PLUGIN_ID),
         );
-        const stubA = registerResolverHost(harness, "host-a");
-        const stubB = registerResolverHost(harness, "host-b");
-        const reg = registration(harness, "resolving");
+        const stubA = await registerResolverHost(harness, "host-a");
+        const stubB = await registerResolverHost(harness, "host-b");
+        const reg = await registration(harness, "resolving");
 
         const first = await resolveProviderNativeRootSet(harness.deps, {
           registration: reg,
@@ -220,10 +220,10 @@ describe("resolveProviderNativeRootSet", () => {
           PLUGIN_ID,
           stubHostArtifact(PLUGIN_ID),
         );
-        const stub = registerResolverHost(harness, "host-a");
-        const reg = registration(harness, "resolving");
-        const resolve = () =>
-          resolveProviderNativeRootSet(harness.deps, {
+        const stub = await registerResolverHost(harness, "host-a");
+        const reg = await registration(harness, "resolving");
+        const resolve = async () =>
+          await resolveProviderNativeRootSet(harness.deps, {
             registration: reg,
             hostId: "host-a",
             cwd: "/work/one",
@@ -266,17 +266,18 @@ describe("resolveProviderNativeRootSet", () => {
         PLUGIN_ID,
         stubHostArtifact(PLUGIN_ID),
       );
-      const stub = registerResolverHost(harness, "host-a");
+      const stub = await registerResolverHost(harness, "host-a");
       const reg = registration(harness, "resolving");
 
       const results = await Promise.all(
-        [0, 1, 2].map(() =>
-          resolveProviderNativeRootSet(harness.deps, {
-            registration: reg,
-            hostId: "host-a",
-            cwd: "/work/one",
-            timeoutMs: COMMAND_TIMEOUT_MS,
-          }),
+        [0, 1, 2].map(
+          async () =>
+            await resolveProviderNativeRootSet(harness.deps, {
+              registration: reg,
+              hostId: "host-a",
+              cwd: "/work/one",
+              timeoutMs: COMMAND_TIMEOUT_MS,
+            }),
         ),
       );
 
@@ -293,10 +294,10 @@ describe("resolveProviderNativeRootSet", () => {
         PLUGIN_ID,
         stubHostArtifact(PLUGIN_ID),
       );
-      const stub = registerResolverHost(harness, "host-a");
+      const stub = await registerResolverHost(harness, "host-a");
       const reg = registration(harness, "resolving");
-      const resolve = () =>
-        resolveProviderNativeRootSet(harness.deps, {
+      const resolve = async () =>
+        await resolveProviderNativeRootSet(harness.deps, {
           registration: reg,
           hostId: "host-a",
           cwd: "/work/one",
@@ -338,12 +339,12 @@ describe("resolveProviderNativeRootSet", () => {
           PLUGIN_ID,
           stubHostArtifact(PLUGIN_ID),
         );
-        const stub = registerResolverHost(harness, "host-a");
+        const stub = await registerResolverHost(harness, "host-a");
         const reg = registration(harness, "resolving");
         const warn = vi.fn();
         const deps = { ...harness.deps, logger: { ...testLogger, warn } };
-        const resolve = (cwd: string) =>
-          resolveProviderNativeRootSet(deps, {
+        const resolve = async (cwd: string) =>
+          await resolveProviderNativeRootSet(deps, {
             registration: reg,
             hostId: "host-a",
             cwd,
@@ -396,7 +397,7 @@ describe("resolveProviderNativeRootSet", () => {
     await withTestHarness(
       { extraProviders: [RESOLVING, declared] },
       async (harness) => {
-        const stub = registerResolverHost(harness, "host-a");
+        const stub = await registerResolverHost(harness, "host-a");
         const warn = vi.fn();
         const deps = { ...harness.deps, logger: { ...testLogger, warn } };
 

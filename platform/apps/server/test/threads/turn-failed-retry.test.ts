@@ -56,7 +56,7 @@ function installHooks(
   };
   setPluginHookProvider({
     listHooks: (hook) => registry[hook],
-    invokeHook: (_pluginId, _label, run) => invokePluginInline(run),
+    invokeHook: async (_pluginId, _label, run) => await invokePluginInline(run),
     decisionTimeoutMs: 10_000,
   });
 }
@@ -101,23 +101,23 @@ function recordTurnFailedAnnouncements(): string[] {
  * does not add another: the retry tests are about how many `client/turn/
  * requested` events exist, and a second seeded one would hide a duplicate.
  */
-function seedFailableThread(harness: TestAppHarness, hostId: string) {
-  const { host } = seedHostSession(harness.deps, { id: hostId });
-  const { project } = seedProjectWithSource(harness.deps, {
+async function seedFailableThread(harness: TestAppHarness, hostId: string) {
+  const { host } = await seedHostSession(harness.deps, { id: hostId });
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: WORKSPACE_PATH,
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: WORKSPACE_PATH,
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     environmentId: environment.id,
     projectId: project.id,
     status: "active",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     inputText: "Do the thing",
     providerThreadId: `provider-${hostId}`,
@@ -128,7 +128,7 @@ function seedFailableThread(harness: TestAppHarness, hostId: string) {
     host,
     project,
     thread,
-    requestId: lastTurnRequest(harness, thread.id).requestId,
+    requestId: (await lastTurnRequest(harness, thread.id)).requestId,
   };
 }
 
@@ -145,17 +145,17 @@ function turnRequestData(event: { data: string }): StoredTurnRequest {
   return JSON.parse(event.data) as StoredTurnRequest;
 }
 
-function lastTurnRequest(
+async function lastTurnRequest(
   harness: TestAppHarness,
   threadId: string,
-): StoredTurnRequest {
-  const events = turnRequests(harness, threadId);
+): Promise<StoredTurnRequest> {
+  const events = await turnRequests(harness, threadId);
   const last = events[events.length - 1];
   if (last === undefined) throw new Error("expected a turn request");
   return turnRequestData(last);
 }
 
-function seedRateLimitFailure(
+async function seedRateLimitFailure(
   harness: TestAppHarness,
   args: {
     environmentId: string;
@@ -165,12 +165,13 @@ function seedRateLimitFailure(
   },
 ) {
   const providerThreadId = "provider-session";
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     providerThreadId,
     sequence:
-      getLatestThreadSequence(harness.db, { threadId: args.threadId }) + 1,
+      (await getLatestThreadSequence(harness.db, { threadId: args.threadId })) +
+      1,
     type: "provider/rateLimits/updated",
     scope: { kind: "thread" },
     data: {
@@ -193,12 +194,13 @@ function seedRateLimitFailure(
       },
     },
   });
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     providerThreadId,
     sequence:
-      getLatestThreadSequence(harness.db, { threadId: args.threadId }) + 1,
+      (await getLatestThreadSequence(harness.db, { threadId: args.threadId })) +
+      1,
     type: "provider/error",
     scope: { kind: "thread" },
     data: {
@@ -217,17 +219,18 @@ function seedRateLimitFailure(
  * The provider's acceptance record for a request, as the assembler stores it.
  * Its presence is what makes a later failure "accepted-then-failed".
  */
-function seedInputAccepted(
+async function seedInputAccepted(
   harness: TestAppHarness,
   args: { environmentId: string; threadId: string; requestId: string },
 ) {
   const providerThreadId = "provider-session";
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     providerThreadId,
     sequence:
-      getLatestThreadSequence(harness.db, { threadId: args.threadId }) + 1,
+      (await getLatestThreadSequence(harness.db, { threadId: args.threadId })) +
+      1,
     type: "turn/input/accepted",
     scope: { kind: "turn", turnId: "turn-1" },
     data: {
@@ -242,7 +245,7 @@ function seedInputAccepted(
  * at the door: `reason` carries the daemon's error code verbatim, which for a
  * runtime-typed rejection is `rate_limited` or `auth_required`.
  */
-function seedDoorRejection(
+async function seedDoorRejection(
   harness: TestAppHarness,
   args: {
     environmentId: string;
@@ -251,11 +254,12 @@ function seedDoorRejection(
     reason: string;
   },
 ) {
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     sequence:
-      getLatestThreadSequence(harness.db, { threadId: args.threadId }) + 1,
+      (await getLatestThreadSequence(harness.db, { threadId: args.threadId })) +
+      1,
     type: "client/turn/rejected",
     scope: { kind: "thread" },
     data: {
@@ -266,34 +270,37 @@ function seedDoorRejection(
   });
 }
 
-function failThread(harness: TestAppHarness, threadId: string): void {
-  applyLoggedThreadLifecycleEvent(harness.deps, {
+async function failThread(
+  harness: TestAppHarness,
+  threadId: string,
+): Promise<void> {
+  await applyLoggedThreadLifecycleEvent(harness.deps, {
     event: { type: "run.failed" },
     threadId,
   });
 }
 
-function turnRequests(harness: TestAppHarness, threadId: string) {
-  return listEvents(harness.db, { threadId }).filter(
+async function turnRequests(harness: TestAppHarness, threadId: string) {
+  return (await listEvents(harness.db, { threadId })).filter(
     (event) => event.type === "client/turn/requested",
   );
 }
 
 /** The thread's queued rows: a live queued row with a wait on it. */
-function queuedRows(
+async function queuedRows(
   harness: TestAppHarness,
   threadId: string,
-): ThreadQueuedMessage[] {
-  return listQueuedThreadMessages(harness.db, threadId)
+): Promise<ThreadQueuedMessage[]> {
+  return (await listQueuedThreadMessages(harness.db, threadId))
     .map(toThreadQueuedMessage)
     .filter((entry) => entry.waitingOn !== null);
 }
 
-function onlyQueuedRow(
+async function onlyQueuedRow(
   harness: TestAppHarness,
   threadId: string,
-): ThreadQueuedMessage {
-  const rows = queuedRows(harness, threadId);
+): Promise<ThreadQueuedMessage> {
+  const rows = await queuedRows(harness, threadId);
   if (rows.length !== 1 || rows[0] === undefined) {
     throw new Error(`expected exactly one queued row, found ${rows.length}`);
   }
@@ -301,8 +308,8 @@ function onlyQueuedRow(
 }
 
 /** The thread row as the retry service takes it. */
-function requireThread(harness: TestAppHarness, threadId: string) {
-  const thread = getThread(harness.db, threadId);
+async function requireThread(harness: TestAppHarness, threadId: string) {
+  const thread = await getThread(harness.db, threadId);
   if (thread === null) throw new Error("expected a thread");
   return thread;
 }
@@ -322,20 +329,20 @@ async function sweepPastResume(harness: TestAppHarness): Promise<void> {
 describe("the turn.failed announcement", () => {
   it("carries the failed turn's ids and the provider's failure facts", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, requestId, thread } = seedFailableThread(
+      const { environment, requestId, thread } = await seedFailableThread(
         harness,
         "host-ctx",
       );
       const resetsAtMs = Date.now() + 3_600_000;
-      seedRateLimitFailure(harness, {
+      await seedRateLimitFailure(harness, {
         environmentId: environment.id,
         threadId: thread.id,
         resetsAtMs,
       });
 
-      failThread(harness, thread.id);
+      await failThread(harness, thread.id);
 
-      const event = buildTurnFailedEvent(harness.db, thread.id);
+      const event = await buildTurnFailedEvent(harness.db, thread.id);
       if (event === null) throw new Error("expected a turn.failed payload");
       expect(event.threadId).toBe(thread.id);
       expect(event.requestId).toBe(requestId);
@@ -352,19 +359,19 @@ describe("the turn.failed announcement", () => {
 
   it("labels a typed door rejection and reports the input as never accepted", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, requestId, thread } = seedFailableThread(
+      const { environment, requestId, thread } = await seedFailableThread(
         harness,
         "host-door",
       );
-      seedDoorRejection(harness, {
+      await seedDoorRejection(harness, {
         environmentId: environment.id,
         threadId: thread.id,
         requestId,
         reason: "rate_limited",
       });
-      failThread(harness, thread.id);
+      await failThread(harness, thread.id);
 
-      const event = buildTurnFailedEvent(harness.db, thread.id);
+      const event = await buildTurnFailedEvent(harness.db, thread.id);
       // The rejection never reached a provider turn, so the typed code on the
       // rejection row is the failure's only classification — without this
       // mapping a door-rejected rate limit is invisible to a retry policy.
@@ -376,61 +383,61 @@ describe("the turn.failed announcement", () => {
       expect(event?.turnId).toBeNull();
       expect(event?.inputAccepted).toBe(false);
 
-      const unmapped = seedFailableThread(harness, "host-door-unmapped");
-      seedDoorRejection(harness, {
+      const unmapped = await seedFailableThread(harness, "host-door-unmapped");
+      await seedDoorRejection(harness, {
         environmentId: unmapped.environment.id,
         threadId: unmapped.thread.id,
         requestId: unmapped.requestId,
         reason: "stale_turn",
       });
-      failThread(harness, unmapped.thread.id);
+      await failThread(harness, unmapped.thread.id);
       // A reason without a typed classification stays null rather than
       // guessing a category.
       expect(
-        buildTurnFailedEvent(harness.db, unmapped.thread.id)?.errorInfo,
+        (await buildTurnFailedEvent(harness.db, unmapped.thread.id))?.errorInfo,
       ).toBeNull();
     });
   });
 
   it("reports acceptance when the provider took the input before failing", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, requestId, thread } = seedFailableThread(
+      const { environment, requestId, thread } = await seedFailableThread(
         harness,
         "host-accepted",
       );
-      seedInputAccepted(harness, {
+      await seedInputAccepted(harness, {
         environmentId: environment.id,
         threadId: thread.id,
         requestId,
       });
-      seedRateLimitFailure(harness, {
+      await seedRateLimitFailure(harness, {
         environmentId: environment.id,
         threadId: thread.id,
         resetsAtMs: Date.now() + 3_600_000,
       });
-      failThread(harness, thread.id);
+      await failThread(harness, thread.id);
 
-      expect(buildTurnFailedEvent(harness.db, thread.id)?.inputAccepted).toBe(
-        true,
-      );
+      expect(
+        (await buildTurnFailedEvent(harness.db, thread.id))?.inputAccepted,
+      ).toBe(true);
     });
   });
 
   it("is announced for a failure and for nothing else", async () => {
     await withTestHarness(async (harness) => {
       const announced = recordTurnFailedAnnouncements();
-      const succeeding = seedFailableThread(harness, "host-ok").thread;
-      const failing = seedFailableThread(harness, "host-not-ok").thread;
+      const succeeding = (await seedFailableThread(harness, "host-ok")).thread;
+      const failing = (await seedFailableThread(harness, "host-not-ok")).thread;
 
       // A turn that finished is not news to a retry policy, and neither is a
       // thread the user stopped: only `run.failed` announces.
-      applyLoggedThreadLifecycleEvent(harness.deps, {
+      await applyLoggedThreadLifecycleEvent(harness.deps, {
         event: { type: "run.succeeded" },
         threadId: succeeding.id,
       });
       expect(announced).toEqual([]);
 
-      failThread(harness, failing.id);
+      await failThread(harness, failing.id);
       expect(announced).toEqual([failing.id]);
     });
   });
@@ -440,11 +447,14 @@ describe("retrying a failed turn", () => {
   it("queues a by-reference row on the clock and re-submits the original turn", async () => {
     await withTestHarness(async (harness) => {
       const sendAt = Date.now() + 60_000;
-      const { requestId, thread } = seedFailableThread(harness, "host-retry");
-      failThread(harness, thread.id);
+      const { requestId, thread } = await seedFailableThread(
+        harness,
+        "host-retry",
+      );
+      await failThread(harness, thread.id);
 
       const result = await retryFailedTurn(harness.deps, {
-        thread: requireThread(harness, thread.id),
+        thread: await requireThread(harness, thread.id),
         request: { turnRequestId: requestId, sendAt, reason: "Rate limited" },
       });
 
@@ -453,7 +463,7 @@ describe("retrying a failed turn", () => {
         turnRequestId: requestId,
         attempt: 2,
       });
-      const queued = onlyQueuedRow(harness, thread.id);
+      const queued = await onlyQueuedRow(harness, thread.id);
       // A by-reference row: it names the request it will re-submit and carries
       // the retrier's reason, and it is due at `sendAt` so the ordinary due
       // sweep — the same one a scheduled send uses — is what wakes it.
@@ -468,7 +478,7 @@ describe("retrying a failed turn", () => {
 
       await sweepPastResume(harness);
 
-      const requests = turnRequests(harness, thread.id);
+      const requests = await turnRequests(harness, thread.id);
       expect(requests).toHaveLength(2);
       const retryRequest = requests[1];
       if (retryRequest === undefined) throw new Error("expected a retry turn");
@@ -485,30 +495,30 @@ describe("retrying a failed turn", () => {
       // timeline from showing "Do the thing" twice.
       expect(data.initiator).toBe("system");
       expect(data.input[0]?.visibility).toBe("agent-only");
-      const userRequests = turnRequests(harness, thread.id).filter(
+      const userRequests = (await turnRequests(harness, thread.id)).filter(
         (event) => turnRequestData(event).initiator === "user",
       );
       expect(userRequests).toHaveLength(1);
       // The row was consumed by the dispatch rather than left on the queue.
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+      expect(await listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
     });
   });
 
   it("continues an accepted turn instead of re-asking it", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, requestId, thread } = seedFailableThread(
+      const { environment, requestId, thread } = await seedFailableThread(
         harness,
         "host-continue",
       );
-      seedInputAccepted(harness, {
+      await seedInputAccepted(harness, {
         environmentId: environment.id,
         threadId: thread.id,
         requestId,
       });
-      failThread(harness, thread.id);
+      await failThread(harness, thread.id);
 
       const result = await retryFailedTurn(harness.deps, {
-        thread: requireThread(harness, thread.id),
+        thread: await requireThread(harness, thread.id),
         request: {
           turnRequestId: requestId,
           sendAt: null,
@@ -517,7 +527,7 @@ describe("retrying a failed turn", () => {
       });
       expect(result.delivery).toBe("sent");
 
-      const requests = turnRequests(harness, thread.id);
+      const requests = await turnRequests(harness, thread.id);
       expect(requests).toHaveLength(2);
       const retryRequest = requests[1];
       if (retryRequest === undefined) throw new Error("expected a retry turn");
@@ -536,59 +546,67 @@ describe("retrying a failed turn", () => {
 
   it("dispatches immediately when no instant is named", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedFailableThread(harness, "host-retry-now");
-      failThread(harness, thread.id);
+      const { thread } = await seedFailableThread(harness, "host-retry-now");
+      await failThread(harness, thread.id);
 
       const result = await retryFailedTurn(harness.deps, {
-        thread: requireThread(harness, thread.id),
+        thread: await requireThread(harness, thread.id),
         request: { turnRequestId: null, sendAt: null, reason: "Retry" },
       });
 
       // No row ever exists for a retry nothing is holding: it takes the same
       // path an unblocked send takes.
       expect(result.delivery).toBe("sent");
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
-      expect(turnRequests(harness, thread.id)).toHaveLength(2);
+      expect(await listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+      expect(await turnRequests(harness, thread.id)).toHaveLength(2);
     });
   });
 
   it("replays the failed attempt's execution instead of re-resolving today's", async () => {
     await withTestHarness(async (harness) => {
-      const { requestId, thread } = seedFailableThread(harness, "host-exec");
-      failThread(harness, thread.id);
+      const { requestId, thread } = await seedFailableThread(
+        harness,
+        "host-exec",
+      );
+      await failThread(harness, thread.id);
       // The user moved the thread's sticky model AFTER the failure. The retry
       // re-runs a turn that was already composed against gpt-5, so the new
       // override must not silently swap the model under it — and replaying the
       // tuple must not overwrite the override the user just set, either.
-      setThreadExecutionOverride(harness.db, {
+      await setThreadExecutionOverride(harness.db, {
         threadId: thread.id,
         modelOverride: "gpt-6-pro",
         reasoningLevelOverride: "max",
       });
 
       await retryFailedTurn(harness.deps, {
-        thread: requireThread(harness, thread.id),
+        thread: await requireThread(harness, thread.id),
         request: { turnRequestId: requestId, sendAt: null, reason: "Retry" },
       });
 
-      const requests = turnRequests(harness, thread.id);
+      const requests = await turnRequests(harness, thread.id);
       const retryRequest = requests[1];
       if (retryRequest === undefined) throw new Error("expected a retry turn");
       expect(turnRequestData(retryRequest).execution.model).toBe("gpt-5");
-      expect(requireThread(harness, thread.id).modelOverride).toBe("gpt-6-pro");
-      expect(requireThread(harness, thread.id).reasoningLevelOverride).toBe(
-        "max",
+      expect((await requireThread(harness, thread.id)).modelOverride).toBe(
+        "gpt-6-pro",
       );
+      expect(
+        (await requireThread(harness, thread.id)).reasoningLevelOverride,
+      ).toBe("max");
     });
   });
 
   it("refuses the second of two concurrent retries of one failure", async () => {
     await withTestHarness(async (harness) => {
-      const { requestId, thread } = seedFailableThread(harness, "host-race");
-      failThread(harness, thread.id);
-      const retry = () =>
-        retryFailedTurn(harness.deps, {
-          thread: requireThread(harness, thread.id),
+      const { requestId, thread } = await seedFailableThread(
+        harness,
+        "host-race",
+      );
+      await failThread(harness, thread.id);
+      const retry = async () =>
+        await retryFailedTurn(harness.deps, {
+          thread: await requireThread(harness, thread.id),
           request: {
             turnRequestId: requestId,
             sendAt: Date.now() + 60_000,
@@ -610,19 +628,19 @@ describe("retrying a failed turn", () => {
       expect(
         (rejected as PromiseRejectedResult | undefined)?.reason,
       ).toMatchObject({ body: { code: "retry_already_queued" } });
-      expect(queuedRows(harness, thread.id)).toHaveLength(1);
+      expect(await queuedRows(harness, thread.id)).toHaveLength(1);
     });
   });
 
   it("counts a retry's own failure as a later attempt of the same original", async () => {
     await withTestHarness(async (harness) => {
-      const { requestId, thread } = seedFailableThread(
+      const { requestId, thread } = await seedFailableThread(
         harness,
         "host-attempts",
       );
-      failThread(harness, thread.id);
+      await failThread(harness, thread.id);
       await retryFailedTurn(harness.deps, {
-        thread: requireThread(harness, thread.id),
+        thread: await requireThread(harness, thread.id),
         request: {
           turnRequestId: requestId,
           sendAt: Date.now() + 60_000,
@@ -631,8 +649,8 @@ describe("retrying a failed turn", () => {
       });
       await sweepPastResume(harness);
 
-      failThread(harness, thread.id);
-      const failedAgain = buildTurnFailedEvent(harness.db, thread.id);
+      await failThread(harness, thread.id);
+      const failedAgain = await buildTurnFailedEvent(harness.db, thread.id);
       // The second failure is the RETRY's, so the policy sees attempt 2 and
       // the id of the attempt that just failed — core walks the chain back to
       // the user's turn itself when it queues the next one.
@@ -640,14 +658,14 @@ describe("retrying a failed turn", () => {
       expect(failedAgain?.requestId).not.toBe(requestId);
 
       await retryFailedTurn(harness.deps, {
-        thread: requireThread(harness, thread.id),
+        thread: await requireThread(harness, thread.id),
         request: {
           turnRequestId: failedAgain?.requestId ?? null,
           sendAt: Date.now() + 60_000,
           reason: "Rate limited",
         },
       });
-      expect(onlyQueuedRow(harness, thread.id).payload).toEqual({
+      expect((await onlyQueuedRow(harness, thread.id)).payload).toEqual({
         kind: "retry",
         retryOfTurnRequestId: requestId,
         attempt: 3,
@@ -677,10 +695,10 @@ describe("retrying a failed turn", () => {
           },
         ],
       });
-      const { thread } = seedFailableThread(harness, "host-limit");
-      failThread(harness, thread.id);
+      const { thread } = await seedFailableThread(harness, "host-limit");
+      await failThread(harness, thread.id);
       await retryFailedTurn(harness.deps, {
-        thread: requireThread(harness, thread.id),
+        thread: await requireThread(harness, thread.id),
         request: {
           turnRequestId: null,
           sendAt: Date.now() + 60_000,
@@ -694,8 +712,8 @@ describe("retrying a failed turn", () => {
       // The turn did not dispatch; the same row is queued again, this time by
       // the limiter, and its schedule is cleared because the limiter named no
       // instant of its own.
-      expect(turnRequests(harness, thread.id)).toHaveLength(1);
-      const requeued = onlyQueuedRow(harness, thread.id);
+      expect(await turnRequests(harness, thread.id)).toHaveLength(1);
+      const requeued = await onlyQueuedRow(harness, thread.id);
       expect(requeued.waitingOn).toEqual({
         kind: "plugin",
         pluginId: "concurrency-limit",
@@ -708,10 +726,13 @@ describe("retrying a failed turn", () => {
 
   it("refuses a thread that has not failed, a turn that is not the failed one, and a second live retry", async () => {
     await withTestHarness(async (harness) => {
-      const { requestId, thread } = seedFailableThread(harness, "host-refuse");
-      const retry = (turnRequestId: string | null) =>
-        retryFailedTurn(harness.deps, {
-          thread: requireThread(harness, thread.id),
+      const { requestId, thread } = await seedFailableThread(
+        harness,
+        "host-refuse",
+      );
+      const retry = async (turnRequestId: string | null) =>
+        await retryFailedTurn(harness.deps, {
+          thread: await requireThread(harness, thread.id),
           request: {
             turnRequestId,
             sendAt: Date.now() + 60_000,
@@ -724,7 +745,7 @@ describe("retrying a failed turn", () => {
         body: { code: "no_failed_turn" },
       });
 
-      failThread(harness, thread.id);
+      await failThread(harness, thread.id);
       // A turn the caller decided about that is not the one that failed: the
       // thread moved on, so the decision no longer applies.
       await expect(retry("creq_2222222222")).rejects.toMatchObject({
@@ -737,15 +758,15 @@ describe("retrying a failed turn", () => {
       await expect(retry(requestId)).rejects.toMatchObject({
         body: { code: "retry_already_queued" },
       });
-      expect(queuedRows(harness, thread.id)).toHaveLength(1);
+      expect(await queuedRows(harness, thread.id)).toHaveLength(1);
 
       // The due sweep has claimed the retry and is deciding about it: it
       // vanishes from the live queue, but it is still the one live retry of
       // this turn.
-      const claimed = claimQueuedThreadMessageGroup(
+      const claimed = await claimQueuedThreadMessageGroup(
         harness.db,
         harness.deps.hub,
-        onlyQueuedRow(harness, thread.id).id,
+        (await onlyQueuedRow(harness, thread.id)).id,
         { kind: "explicit-send" },
       );
       expect(claimed).toHaveLength(1);
@@ -759,7 +780,7 @@ describe("retrying a failed turn", () => {
 describe("pooled provider retry integration", () => {
   it("queues a durable retry for a pool 429 without a provider quota event", async () => {
     await withTestHarness(async (harness) => {
-      const { thread, environment, host, requestId } = seedFailableThread(
+      const { thread, environment, host, requestId } = await seedFailableThread(
         harness,
         "host-pooled-retry",
       );
@@ -774,13 +795,13 @@ describe("pooled provider retry integration", () => {
         env: NodeJS.ProcessEnv;
         fetch: typeof fetch;
       }) => (bb: BbPluginApi) => Promise<void> =
-        poolModule.createAccountPoolPlugin;
+        await poolModule.createAccountPoolPlugin;
       const retryModule = await import(
         new URL("../../../../plugins/provider-retry/server.ts", import.meta.url)
           .href
       );
       const providerRetryPlugin: (bb: BbPluginApi) => Promise<void> =
-        retryModule.default;
+        await retryModule.default;
       const retryAvailabilityMethod = "provider-retry.v1.availability";
       const retryAvailabilitySchema = z.object({
         kind: z.literal("blocked"),
@@ -789,7 +810,7 @@ describe("pooled provider retry integration", () => {
       const now = Date.now();
       const resetAt = now + 3_600_000;
       const dataDir = await mkdtemp(path.join(tmpdir(), "bb-pool-retry-"));
-      const pool = createFakePluginHost({
+      const pool = await createFakePluginHost({
         pluginId: "account-pool",
         dataDir,
         sdk: {
@@ -797,12 +818,14 @@ describe("pooled provider retry integration", () => {
           system: { providerStates: async () => ({ providers: [] }) },
           threads: {
             events: {
-              list: async () => [{ data: lastTurnRequest(harness, thread.id) }],
+              list: async () => [
+                { data: await lastTurnRequest(harness, thread.id) },
+              ],
             },
           },
         },
       });
-      const retry = createFakePluginHost({
+      const retry = await createFakePluginHost({
         pluginId: "provider-retry",
         sdk: {
           plugins: {
@@ -820,8 +843,8 @@ describe("pooled provider retry integration", () => {
           },
           threads: {
             retry: async (request) =>
-              retryFailedTurn(harness.deps, {
-                thread: requireThread(harness, request.threadId),
+              await retryFailedTurn(harness.deps, {
+                thread: await requireThread(harness, request.threadId),
                 request: {
                   turnRequestId: request.turnRequestId ?? null,
                   sendAt: request.sendAt ?? null,
@@ -855,7 +878,7 @@ describe("pooled provider retry integration", () => {
           label: null,
           priority: 1,
         });
-        pool.harness.behavior.runService("hub");
+        await pool.harness.behavior.runService("hub");
         const entries = await pool.harness.behavior.resolveProviderEnv(
           "claude-code",
           { threadId: thread.id, projectId: thread.projectId, hostId: host.id },
@@ -874,11 +897,13 @@ describe("pooled provider retry integration", () => {
         );
         expect(response.status).toBe(429);
         await response.text();
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           sequence:
-            getLatestThreadSequence(harness.db, { threadId: thread.id }) + 1,
+            (await getLatestThreadSequence(harness.db, {
+              threadId: thread.id,
+            })) + 1,
           type: "provider/error",
           scope: { kind: "thread" },
           data: {
@@ -891,8 +916,8 @@ describe("pooled provider retry integration", () => {
             },
           },
         });
-        failThread(harness, thread.id);
-        const failed = buildTurnFailedEvent(harness.db, thread.id);
+        await failThread(harness, thread.id);
+        const failed = await buildTurnFailedEvent(harness.db, thread.id);
         if (failed === null) throw new Error("Expected a failed turn");
         expect(failed.rateLimits).toBeNull();
         await providerRetryPlugin(retry.bb);
@@ -900,7 +925,7 @@ describe("pooled provider retry integration", () => {
           (await retry.harness.behavior.emitThreadEvent("turn.failed", failed))
             .errors,
         ).toEqual([]);
-        const queued = listQueuedThreadMessages(harness.db, thread.id);
+        const queued = await listQueuedThreadMessages(harness.db, thread.id);
         expect(queued).toHaveLength(1);
         const row = queued[0]!;
         expect(row.sendAt).toBeGreaterThanOrEqual(resetAt + 15_000);

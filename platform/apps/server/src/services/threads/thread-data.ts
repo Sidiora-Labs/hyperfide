@@ -109,16 +109,16 @@ function parseStoredEventRow(row: StoredEventRow): ThreadEventRow {
   });
 }
 
-function hydrateRawThreadEventRows(
+async function hydrateRawThreadEventRows(
   db: DbConnection,
   rows: readonly StoredEventRow[],
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   if (
-    !canHydrateRetainedEventOutputRowsWithinDataByteLimit(
+    !(await canHydrateRetainedEventOutputRowsWithinDataByteLimit(
       db,
       rows,
       THREAD_EVENT_RESPONSE_DATA_BYTE_LIMIT,
-    )
+    ))
   ) {
     throw new ApiError(
       413,
@@ -126,14 +126,14 @@ function hydrateRawThreadEventRows(
       "Event response exceeds the 8 MiB limit",
     );
   }
-  return hydrateRetainedEventOutputRows(db, rows);
+  return await hydrateRetainedEventOutputRows(db, rows);
 }
 
-export function listThreadEventRows(
+export async function listThreadEventRows(
   db: DbConnection,
   args: ListThreadEventRowsArgs,
-): ThreadEventRow[] {
-  const rows = listStoredEventRowRecords(db, {
+): Promise<ThreadEventRow[]> {
+  const rows = await listStoredEventRowRecords(db, {
     afterSequence: args.afterSeq,
     beforeSequence: args.beforeSeq,
     limit: args.limit,
@@ -141,16 +141,16 @@ export function listThreadEventRows(
     threadId: args.threadId,
     types: args.types,
   });
-  return hydrateRawThreadEventRows(db, rows).map((row) =>
+  return (await hydrateRawThreadEventRows(db, rows)).map((row) =>
     parseStoredEventRow(row),
   );
 }
 
-export function findThreadEvent(
+export async function findThreadEvent(
   db: DbConnection,
   args: FindThreadEventArgs,
-): ThreadEventRow | null {
-  const row = findStoredEventRowRecord(db, {
+): Promise<ThreadEventRow | null> {
+  const row = await findStoredEventRowRecord(db, {
     afterSequence: args.afterSeq,
     threadId: args.threadId,
     type: args.type,
@@ -158,15 +158,15 @@ export function findThreadEvent(
   if (!row) {
     return null;
   }
-  const [hydrated] = hydrateRawThreadEventRows(db, [row]);
+  const [hydrated] = await hydrateRawThreadEventRows(db, [row]);
   return parseStoredEventRow(hydrated ?? row);
 }
 
-export function getLastThreadOutput(
+export async function getLastThreadOutput(
   db: DbConnection,
   threadId: string,
-): string | null {
-  const row = getLatestThreadOutputEventRow(db, { threadId });
+): Promise<string | null> {
+  const row = await getLatestThreadOutputEventRow(db, { threadId });
 
   if (!row) return null;
 
@@ -187,11 +187,11 @@ export function getLastThreadOutput(
   return null;
 }
 
-export function getLastThreadErrorMessage(
+export async function getLastThreadErrorMessage(
   db: DbConnection,
   threadId: string,
-): string | null {
-  const row = getLatestThreadSystemErrorEventRow(db, { threadId });
+): Promise<string | null> {
+  const row = await getLatestThreadSystemErrorEventRow(db, { threadId });
   if (!row) return null;
   const eventRow = parseStoredEventRow(row);
   return eventRow.type === "system/error" ? eventRow.data.message : null;

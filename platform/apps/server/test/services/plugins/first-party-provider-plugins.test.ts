@@ -151,12 +151,12 @@ describe("first-party provider plugins", () => {
     await withTestHarness(
       { seedFirstPartyProviders: false },
       async (harness) => {
-        const registry = harness.deps.providerRegistry;
-        expect(registry.list()).toEqual([]);
+        const registry = await harness.deps.providerRegistry;
+        expect(await registry.list()).toEqual([]);
 
         await installFirstPartyProviderPlugins(harness);
 
-        const after = registry.list();
+        const after = await registry.list();
         expect(after.map((entry) => entry.info.id)).toEqual(PROVIDER_IDS);
 
         for (const [index, registration] of after.entries()) {
@@ -361,7 +361,7 @@ describe("first-party provider plugins", () => {
     await withTestHarness(
       { seedFirstPartyProviders: false },
       async (harness) => {
-        const registry = harness.deps.providerRegistry;
+        const registry = await harness.deps.providerRegistry;
         await installFirstPartyProviderPlugins(harness);
         expect(registry.get("pi")?.pluginId).toBe("provider-pi");
 
@@ -372,7 +372,7 @@ describe("first-party provider plugins", () => {
         expect(registry.getSupportedPermissionModes("pi")).toBeNull();
         expect(registry.supportsFork("pi")).toBe(false);
         expect(registry.supportsManualCompaction("pi")).toBe(false);
-        expect(registry.list().map((entry) => entry.info.id)).toEqual([
+        expect((await registry.list()).map((entry) => entry.info.id)).toEqual([
           "codex",
           "claude-code",
           "acp-cursor",
@@ -386,7 +386,7 @@ describe("first-party provider plugins", () => {
 
         await harness.pluginService.setEnabled("provider-pi", true);
         expect(registry.get("pi")?.pluginId).toBe("provider-pi");
-        expect(registry.list().map((entry) => entry.info.id)).toEqual(
+        expect((await registry.list()).map((entry) => entry.info.id)).toEqual(
           PROVIDER_IDS,
         );
       },

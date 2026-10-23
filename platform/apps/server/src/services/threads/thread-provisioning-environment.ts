@@ -48,23 +48,26 @@ interface EnsureWorkspaceReadyEventArgs {
   threadId: string;
 }
 
-export function ensureWorkspaceReadyEvent(
+export async function ensureWorkspaceReadyEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: EnsureWorkspaceReadyEventArgs,
-): boolean {
-  return deps.db.transaction(
-    (tx) =>
-      ensureWorkspaceReadyEventInTransaction({ db: tx, hub: deps.hub }, args),
+): Promise<boolean> {
+  return await deps.db.transaction(
+    async (tx) =>
+      await ensureWorkspaceReadyEventInTransaction(
+        { db: tx, hub: deps.hub },
+        args,
+      ),
     { behavior: "immediate" },
   );
 }
 
-export function ensureWorkspaceReadyEventInTransaction(
+export async function ensureWorkspaceReadyEventInTransaction(
   deps: { db: DbTransaction; hub: DbNotifier },
   args: EnsureWorkspaceReadyEventArgs,
-): boolean {
-  const thread = getThread(deps.db, args.threadId);
-  const context = getThreadProvisionContext(deps.db, args.threadId);
+): Promise<boolean> {
+  const thread = await getThread(deps.db, args.threadId);
+  const context = await getThreadProvisionContext(deps.db, args.threadId);
   if (
     thread?.status !== "starting" ||
     thread.deletedAt !== null ||
@@ -76,7 +79,7 @@ export function ensureWorkspaceReadyEventInTransaction(
   const appendedSequence =
     context.state.provisionEventSequence === null
       ? null
-      : appendThreadProvisioningEventInTransaction(deps.db, {
+      : await appendThreadProvisioningEventInTransaction(deps.db, {
           threadId: thread.id,
           environmentId: args.environmentId,
           provisioningId: context.state.provisioningId,
@@ -84,7 +87,7 @@ export function ensureWorkspaceReadyEventInTransaction(
           entries: args.entries,
         });
   context.state.workspaceReadyEventSequence = appendedSequence;
-  saveThreadProvisionContext({
+  await saveThreadProvisionContext({
     replace: false,
     db: deps.db,
     threadId: thread.id,
@@ -92,7 +95,7 @@ export function ensureWorkspaceReadyEventInTransaction(
   });
   if (appendedSequence !== null)
     deps.hub.notifyThread(thread.id, ["events-appended"], {
-      timelineSequence: getLatestThreadSequence(deps.db, {
+      timelineSequence: await getLatestThreadSequence(deps.db, {
         threadId: thread.id,
       }),
       eventTypes: ["system/thread-provisioning"],
@@ -105,18 +108,18 @@ interface FailThreadProvisioningArgs {
   environmentId: string | null;
   thread: Thread;
 }
-export function failThreadProvisioning(
+export async function failThreadProvisioning(
   deps: ThreadProvisioningDeps,
   args: FailThreadProvisioningArgs,
-): void {
-  const context = getThreadProvisionContext(deps.db, args.thread.id);
+): Promise<void> {
+  const context = await getThreadProvisionContext(deps.db, args.thread.id);
   clearThreadProvisionSchedule(args.thread.id);
   if (
     context !== null &&
     context.state.environmentId === null &&
     context.state.provisionEventSequence !== null
   ) {
-    appendThreadProvisioningEvent(deps, {
+    await appendThreadProvisioningEvent(deps, {
       threadId: args.thread.id,
       environmentId: null,
       provisioningId: context.state.provisioningId,
@@ -132,11 +135,11 @@ export function failThreadProvisioning(
       ],
     });
   }
-  requestQueuedMessageDispatch(deps, {
+  await requestQueuedMessageDispatch(deps, {
     kind: "provisioning-ended",
     threadId: args.thread.id,
   });
-  appendSystemErrorEvent(deps, {
+  await appendSystemErrorEvent(deps, {
     threadId: args.thread.id,
     environmentId: args.environmentId,
     code: "thread_provisioning_failed",
@@ -144,7 +147,7 @@ export function failThreadProvisioning(
     detail: args.detail,
     scope: threadScope(),
   });
-  const outcome = applyLoggedThreadLifecycleEvent(deps, {
+  const outcome = await applyLoggedThreadLifecycleEvent(deps, {
     event: { type: "run.failed" },
     threadId: args.thread.id,
   });
@@ -154,15 +157,16 @@ export function failThreadProvisioning(
       "Failed environment preparation cleanup will retry",
     ),
   );
-  if (outcome.applied) queueChildSetupFailureNotification(deps, args.thread);
+  if (outcome.applied)
+    await queueChildSetupFailureNotification(deps, args.thread);
 }
 
-export function queueChildSetupFailureNotification(
+export async function queueChildSetupFailureNotification(
   deps: LoggedPendingInteractionWorkSessionDeps,
   thread: Thread,
-): void {
+): Promise<void> {
   if (!isParentNotifiableChildThread(thread, "failed")) return;
-  void queueChildThreadTurnNotificationBestEffort(deps, {
+  await queueChildThreadTurnNotificationBestEffort(deps, {
     childThread: thread,
     parentThreadId: thread.parentThreadId,
     turnStatus: "failed",
@@ -186,11 +190,10 @@ export async function ensureThreadProvisionEnvironmentReady(
     const intent = context.request.environmentIntent;
     if (
       intent.type === "provider" ||
-      getEnvironment(deps.db, intent.environmentId)?.status !== "ready"
+      (await getEnvironment(deps.db, intent.environmentId))?.status !== "ready"
     ) {
-      context.state.provisionEventSequence = appendThreadProvisioningEvent(
-        deps,
-        {
+      context.state.provisionEventSequence =
+        await appendThreadProvisioningEvent(deps, {
           threadId: thread.id,
           environmentId: thread.environmentId,
           provisioningId: context.state.provisioningId,
@@ -203,9 +206,8 @@ export async function ensureThreadProvisionEnvironmentReady(
               status: "started",
             },
           ],
-        },
-      );
-      saveThreadProvisionContext({
+        });
+      await saveThreadProvisionContext({
         replace: false,
         db: deps.db,
         threadId: thread.id,
@@ -228,13 +230,13 @@ export async function ensureThreadProvisionEnvironmentReady(
           threadId: thread.id,
           writeTranscript: false,
         })
-          .then((metadata) => {
+          .then(async (metadata) => {
             if (!metadata.titleApplied || !metadata.title) {
               return;
             }
-            const titledThread = getThread(deps.db, thread.id);
+            const titledThread = await getThread(deps.db, thread.id);
             const environment = titledThread?.environmentId
-              ? getEnvironment(deps.db, titledThread.environmentId)
+              ? await getEnvironment(deps.db, titledThread.environmentId)
               : null;
             if (
               !titledThread ||
@@ -244,7 +246,7 @@ export async function ensureThreadProvisionEnvironmentReady(
             ) {
               return;
             }
-            dispatchThreadRenameCommand(deps, {
+            await dispatchThreadRenameCommand(deps, {
               environment: {
                 id: environment.id,
                 hostId: environment.hostId,
@@ -267,8 +269,8 @@ export async function ensureThreadProvisionEnvironmentReady(
     }
   }
   if (
-    getThreadProvisionContext(deps.db, thread.id)?.state.provisioningId !==
-    context.state.provisioningId
+    (await getThreadProvisionContext(deps.db, thread.id))?.state
+      .provisioningId !== context.state.provisioningId
   )
     return null;
   let environment: EnvironmentRow | null;
@@ -277,7 +279,7 @@ export async function ensureThreadProvisionEnvironmentReady(
     if (result.kind === "waiting") return null;
     environment = result.environment;
   } else {
-    environment = getEnvironment(
+    environment = await getEnvironment(
       deps.db,
       context.request.environmentIntent.environmentId,
     );
@@ -288,13 +290,13 @@ export async function ensureThreadProvisionEnvironmentReady(
     environmentId: environment.id,
     threadId: thread.id,
   });
-  const attached = getThreadProvisionContext(deps.db, thread.id);
+  const attached = await getThreadProvisionContext(deps.db, thread.id);
   if (attached === null || attached.state.environmentId !== environment.id)
     return null;
 
   return {
     context: attached,
-    environment: getEnvironment(deps.db, environment.id) ?? environment,
+    environment: (await getEnvironment(deps.db, environment.id)) ?? environment,
     thread,
   };
 }

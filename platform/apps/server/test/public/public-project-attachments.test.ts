@@ -24,10 +24,10 @@ async function upload(
 describe("public project attachments", () => {
   it("preserves text and binary bytes plus upload filename and MIME metadata", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-project-attachments",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
       const fixtures = [
@@ -98,10 +98,10 @@ describe("public project attachments", () => {
 
   it("returns stable invalid_request envelopes for oversize and ambiguous forms", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-project-attachment-limits",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
       const retinaScreenshot = await upload(
@@ -160,10 +160,10 @@ describe("public project attachments", () => {
 
   it("rejects HEIC/HEIF image uploads instead of storing an image nothing can render", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-project-attachment-heic",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
       const heicBytes = new Uint8Array([
@@ -219,13 +219,13 @@ describe("public project attachments", () => {
 
   it("keeps attachment read tokens scoped to their owning project", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-project-attachment-scope",
       });
-      const { project: owner } = seedProjectWithSource(harness.deps, {
+      const { project: owner } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const { project: other } = seedProjectWithSource(harness.deps, {
+      const { project: other } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
       const response = await upload(

@@ -71,7 +71,7 @@ export async function findUnusedEnrollmentCredential(
   enrollSource: string | null;
   expiresAt: number;
 } | null> {
-  const row = db
+  const row = await db
     .select({
       hostId: sql<string>`json_extract(${authApiKeys.metadata}, '$.hostId')`,
       enrollSource: sql<
@@ -108,9 +108,9 @@ export function createMachineEnrollmentService(
   >();
   const locks = new Map<string, Promise<unknown>>();
 
-  function hasIssuedDaemonCredential(hostId: string): boolean {
+  async function hasIssuedDaemonCredential(hostId: string): Promise<boolean> {
     return (
-      deps.db
+      (await deps.db
         .select({ id: authApiKeys.id })
         .from(authApiKeys)
         .where(
@@ -121,7 +121,7 @@ export function createMachineEnrollmentService(
           ),
         )
         .limit(1)
-        .get() !== undefined
+        .get()) !== undefined
     );
   }
 
@@ -136,8 +136,8 @@ export function createMachineEnrollmentService(
   }
 
   function scoped(owner: string): MachineEnrollments {
-    function hostForId(id: string) {
-      const host = getHost(deps.db, id);
+    async function hostForId(id: string) {
+      const host = await getHost(deps.db, id);
       const provider =
         host?.machineProviderId === null
           ? undefined
@@ -158,9 +158,12 @@ export function createMachineEnrollmentService(
         if (!request.key.trim())
           throw new Error("Machine enrollment key must not be empty");
         const lockKey = JSON.stringify([owner, request.key]);
-        return runSerialized(locks, lockKey, async () => {
+        return await runSerialized(locks, lockKey, async () => {
           request.signal.throwIfAborted();
-          const host = getNonDestroyedHostByLaunchKey(deps.db, request.key);
+          const host = await getNonDestroyedHostByLaunchKey(
+            deps.db,
+            request.key,
+          );
           if (!host) throw new Error("Machine creation host was not found");
           if (
             host.phase === "destroyed" ||
@@ -222,7 +225,7 @@ export function createMachineEnrollmentService(
         const deadline = Date.now() + timeoutMs;
         while (true) {
           signal.throwIfAborted();
-          const host = hostForId(enrollmentId);
+          const host = await hostForId(enrollmentId);
           if (
             host.destroyedAt !== null ||
             (host.phase === "removing" && !isHostCleanupAllowed(deps, host.id))
@@ -233,7 +236,7 @@ export function createMachineEnrollmentService(
             return {
               hostId: host.id,
               hostName:
-                getLatestSessionForHost(deps.db, { hostId: host.id })
+                (await getLatestSessionForHost(deps.db, { hostId: host.id }))
                   ?.hostName ?? host.name,
             };
           }
@@ -249,7 +252,7 @@ export function createMachineEnrollmentService(
     hostId: string;
     owner: string;
   }): Promise<EnrollmentBootstrap | null> {
-    const host = getHost(deps.db, request.hostId);
+    const host = await getHost(deps.db, request.hostId);
     const entry = pending.get(request.hostId);
     if (
       !host ||
@@ -259,13 +262,11 @@ export function createMachineEnrollmentService(
       entry.owner !== request.owner ||
       entry.bootstrap.expiresAt <= Date.now() ||
       deps.isConnected(host.id) ||
-      hasIssuedDaemonCredential(host.id)
+      (await hasIssuedDaemonCredential(host.id))
     )
       return null;
     const bootstrap = entry.bootstrap;
-    if (
-      !(await hasUnusedEnrollmentCredential(host.id, bootstrap.credential))
-    )
+    if (!(await hasUnusedEnrollmentCredential(host.id, bootstrap.credential)))
       return null;
     if (pending.get(request.hostId) !== entry) return null;
     return bootstrap;

@@ -61,7 +61,7 @@ describe("appearance settings", () => {
       expect(appThemeSchema.parse(await readJson(put))).toEqual(
         appearanceForPalette("nord"),
       );
-      expect(getStoredThemeId(harness.db)).toBe("nord");
+      expect(await getStoredThemeId(harness.db)).toBe("nord");
 
       const config = await harness.app.request("/api/v1/system/config");
       expect(
@@ -87,7 +87,7 @@ describe("appearance settings", () => {
         customCss: css,
         faviconColor: "teal",
       });
-      expect(getStoredThemeId(harness.db)).toBe("midnight");
+      expect(await getStoredThemeId(harness.db)).toBe("midnight");
 
       const config = systemConfigResponseSchema.parse(
         await readJson(await harness.app.request("/api/v1/system/config")),
@@ -110,7 +110,7 @@ describe("appearance settings", () => {
         body: JSON.stringify({ themeId: "default", faviconColor: "teal" }),
       });
       expect(put.status).toBe(200);
-      expect(getStoredFaviconColor(harness.db)).toBe("teal");
+      expect(await getStoredFaviconColor(harness.db)).toBe("teal");
 
       const config = systemConfigResponseSchema.parse(
         await readJson(await harness.app.request("/api/v1/system/config")),
@@ -138,7 +138,7 @@ describe("appearance settings", () => {
       expect(appThemeSchema.parse(await readJson(put))).toEqual(
         appearanceForPalette("nord", { faviconColor: "purple" }),
       );
-      expect(getStoredFaviconColor(harness.db)).toBe("purple");
+      expect(await getStoredFaviconColor(harness.db)).toBe("purple");
     });
   });
 
@@ -282,7 +282,7 @@ describe("appearance settings", () => {
       const config = systemConfigResponseSchema.parse(
         await readJson(await harness.app.request("/api/v1/system/config")),
       );
-      expect(getStoredThemeId(harness.db)).toBe("ghost");
+      expect(await getStoredThemeId(harness.db)).toBe("ghost");
       expect(config.appearance).toEqual(defaultAppTheme);
       expect(config.customThemes).toEqual([]);
     });

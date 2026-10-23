@@ -25,8 +25,8 @@ import {
 } from "./shared.js";
 
 describe.sequential("fake provider smoke environment integration", () => {
-  it("reports workspace status, diff, and branches for a ready environment", () =>
-    withHarness(async (harness) => {
+  it("reports workspace status, diff, and branches for a ready environment", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(
         harness,
         "Workspace Status Smoke",
@@ -58,8 +58,8 @@ describe.sequential("fake provider smoke environment integration", () => {
       expect(branches.branches).toContain("main");
     }));
 
-  it("paginates the diff through diff/files and diff/patch for a ready environment", () =>
-    withHarness(async (harness) => {
+  it("paginates the diff through diff/files and diff/patch for a ready environment", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(
         harness,
         "Diff Pagination Smoke",
@@ -108,8 +108,8 @@ describe.sequential("fake provider smoke environment integration", () => {
       );
     }));
 
-  it("commits dirty workspace changes through the environment actions route", () =>
-    withHarness(async (harness) => {
+  it("commits dirty workspace changes through the environment actions route", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(
         harness,
         "Workspace Commit Smoke",
@@ -176,8 +176,8 @@ describe.sequential("fake provider smoke environment integration", () => {
       expect(subject.trim()).toBe("bb: automated commit");
     }));
 
-  it("archives and unarchives a thread, blocking work while archived", () =>
-    withHarness(async (harness) => {
+  it("archives and unarchives a thread, blocking work while archived", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(harness, "Archive Smoke");
       const { thread } = await createReadyThread(harness, {
         projectId: project.id,
@@ -218,8 +218,8 @@ describe.sequential("fake provider smoke environment integration", () => {
       expect(output).toContain("after unarchive");
     }));
 
-  it("deletes a thread after turn history has been created", () =>
-    withHarness(async (harness) => {
+  it("deletes a thread after turn history has been created", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(harness, "Delete Smoke");
       const { thread } = await createReadyThread(harness, {
         projectId: project.id,

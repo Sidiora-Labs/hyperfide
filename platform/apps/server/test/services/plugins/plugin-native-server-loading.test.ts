@@ -80,8 +80,8 @@ import { createPluginService } from ${JSON.stringify(runtimeUrl)};
 import { createAiServiceRegistry } from ${JSON.stringify(aiRegistryUrl)};
 import { createNoopTelemetryService } from ${JSON.stringify(telemetryUrl)};
 const [rootDir, dataDir] = process.argv.slice(1);
-const db = createMigratedConnection();
-upsertInstalledPlugin(db, {
+const db = await createMigratedConnection();
+await upsertInstalledPlugin(db, {
   id: "native-externals",
   source: "git:github.com/acme/hyperfide-plugin-native-externals@v1",
   rootDir,
@@ -118,13 +118,14 @@ const service = createPluginService({
   loadTimeoutMs: 2000
 });
 await service.reload("native-externals");
-const entry = service.list().find((plugin) => plugin.id === "native-externals");
+const entry = (await service.list()).find((plugin) => plugin.id === "native-externals");
 const result = {
   status: entry?.status,
   statusDetail: entry?.statusDetail,
   types: globalThis.__nativeExternalTypes
 };
 await service.stop();
+await db.close();
 process.stdout.write(JSON.stringify(result));
 `;
 
@@ -200,7 +201,7 @@ import { createPluginService } from ${JSON.stringify(serviceUrl)};
 import { createAiServiceRegistry } from ${JSON.stringify(aiRegistryUrl)};
 import { createNoopTelemetryService } from ${JSON.stringify(telemetryUrl)};
 const [rootDir, dataDir] = process.argv.slice(1);
-const db = createMigratedConnection();
+const db = await createMigratedConnection();
 const service = createPluginService({
   aiServices: createAiServiceRegistry(),
   telemetry: createNoopTelemetryService(),
@@ -222,6 +223,7 @@ const result = {
   value: globalThis.__nativeSourceResult
 };
 await service.stop();
+await db.close();
 process.stdout.write(JSON.stringify(result));
 `;
 
@@ -320,7 +322,7 @@ import { createPluginService } from ${JSON.stringify(serviceUrl)};
 import { createAiServiceRegistry } from ${JSON.stringify(aiRegistryUrl)};
 import { createNoopTelemetryService } from ${JSON.stringify(telemetryUrl)};
 const [importedDir, importerDir, dataDir] = process.argv.slice(1);
-const db = createMigratedConnection();
+const db = await createMigratedConnection();
 const service = createPluginService({
   aiServices: createAiServiceRegistry(),
   telemetry: createNoopTelemetryService(),
@@ -343,6 +345,7 @@ await writeFile(join(importedDir, "shared.js"), 'export const value = "after";\\
 await service.reload("imported");
 const after = await read();
 await service.stop();
+await db.close();
 process.stdout.write(JSON.stringify({ before, after }));
 `;
 

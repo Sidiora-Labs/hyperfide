@@ -15,7 +15,7 @@ import { applyLoggedThreadLifecycleEvent } from "../services/threads/lifecycle-o
 interface ApplyTurnCompletedEventResult {
   isRootTurnCompletion: boolean;
   nextStatus: ThreadStatus | null;
-  thread: ReturnType<typeof getThread>;
+  thread: Awaited<ReturnType<typeof getThread>>;
 }
 
 function lifecycleEventForTurnCompletion(
@@ -30,11 +30,11 @@ function lifecycleEventForTurnCompletion(
   return { type: "run.succeeded" };
 }
 
-export function applyTurnCompletedEvent(
+export async function applyTurnCompletedEvent(
   deps: Pick<AppDeps, "db" | "hub" | "logger" | "providerRegistry">,
   payload: Extract<ThreadEvent, { type: "turn/completed" }>,
-): ApplyTurnCompletedEventResult {
-  const thread = getThread(deps.db, payload.threadId);
+): Promise<ApplyTurnCompletedEventResult> {
+  const thread = await getThread(deps.db, payload.threadId);
   if (!thread) {
     return { isRootTurnCompletion: false, nextStatus: null, thread: null };
   }
@@ -43,7 +43,7 @@ export function applyTurnCompletedEvent(
     type: payload.type,
     scope: payload.scope,
   });
-  const isRootTurnCompletion = hasRootStoredTurnStarted(deps.db, {
+  const isRootTurnCompletion = await hasRootStoredTurnStarted(deps.db, {
     threadId: payload.threadId,
     turnId,
   });
@@ -51,7 +51,7 @@ export function applyTurnCompletedEvent(
     return { isRootTurnCompletion, nextStatus: null, thread };
   }
 
-  const outcome = applyLoggedThreadLifecycleEvent(deps, {
+  const outcome = await applyLoggedThreadLifecycleEvent(deps, {
     event: lifecycleEventForTurnCompletion(payload.status),
     threadId: payload.threadId,
   });
@@ -62,7 +62,7 @@ export function applyTurnCompletedEvent(
   }
 
   if (nextStatus === "idle") {
-    pruneThreadEventHistoryBestEffort(deps, {
+    await pruneThreadEventHistoryBestEffort(deps, {
       mode: "idle",
       threadId: payload.threadId,
     });

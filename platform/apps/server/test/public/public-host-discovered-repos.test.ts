@@ -14,19 +14,19 @@ import { withTestHarness } from "../helpers/test-app.js";
 describe("GET /hosts/:id/discovered-repos", () => {
   it("asks the machine for recent repos and marks the ones that are already projects", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-repo-discovery",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "Known",
         path: "/home/user/code/known",
       });
-      const { host: otherHost } = seedHostSession(harness.deps, {
+      const { host: otherHost } = await seedHostSession(harness.deps, {
         id: "host-repo-discovery-other",
       });
-      seedProjectWithSource(harness.deps, {
+      await seedProjectWithSource(harness.deps, {
         hostId: otherHost.id,
         name: "Elsewhere",
         path: "/home/user/code/fresh",

@@ -13,7 +13,11 @@ describe("/plugins/safe-mode", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-extra");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-extra",
+    );
     await mkdir(rootDir, { recursive: true });
     await writeFile(
       join(rootDir, "package.json"),
@@ -61,7 +65,9 @@ describe("/plugins/safe-mode", () => {
     await expect(on.json()).resolves.toEqual({ enabled: true, problems: [] });
     await expect((await request()).json()).resolves.toEqual({ enabled: true });
     expect(
-      harness.pluginService.list().find((plugin) => plugin.id === "extra"),
+      (await harness.pluginService.list()).find(
+        (plugin) => plugin.id === "extra",
+      ),
     ).toMatchObject({ enabled: true, status: "disabled" });
 
     await expect((await put({ enabled: false })).json()).resolves.toEqual({
@@ -69,7 +75,9 @@ describe("/plugins/safe-mode", () => {
       problems: [],
     });
     expect(
-      harness.pluginService.list().find((plugin) => plugin.id === "extra"),
+      (await harness.pluginService.list()).find(
+        (plugin) => plugin.id === "extra",
+      ),
     ).toMatchObject({ enabled: true, status: "running" });
   });
 

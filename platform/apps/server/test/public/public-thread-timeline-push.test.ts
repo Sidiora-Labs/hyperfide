@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { turnScope, type ThreadTimelineSubscriptionTarget } from "@hyperfide/domain";
+import {
+  turnScope,
+  type ThreadTimelineSubscriptionTarget,
+} from "@hyperfide/domain";
 import {
   applyTimelineDelta,
   threadTimelineResponseSchema,
@@ -47,14 +50,14 @@ function applySignal(
 describe("thread-timeline realtime push", () => {
   it("pushes a full window, then deltas that keep a subscriber equal to a fresh GET", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const turn = {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "p1",
         scope: turnScope("turn-1"),
       } as const;
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         sequence: 1,
         type: "turn/started",
@@ -72,13 +75,13 @@ describe("thread-timeline realtime push", () => {
 
       const lines = ["First line\n", "second line\n", "third line\n"];
       for (const [index, delta] of lines.entries()) {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...turn,
           sequence: index + 2,
           type: "item/agentMessage/delta",
           data: { itemId: "assistant-1", delta },
         });
-        harness.deps.hub.notifyThread(thread.id, ["events-appended"]);
+        await harness.deps.hub.notifyThread(thread.id, ["events-appended"]);
         await settlePushes();
         const [signal] = timelineSignals(socket.messages.splice(0));
         expect(signal).toMatchObject({
@@ -93,7 +96,7 @@ describe("thread-timeline realtime push", () => {
         expect(client).toEqual(await getTimeline(harness, thread.id));
       }
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         sequence: 5,
         type: "item/completed",
@@ -105,13 +108,13 @@ describe("thread-timeline realtime push", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         sequence: 6,
         type: "turn/completed",
         data: { status: "completed" },
       });
-      harness.deps.hub.notifyThread(thread.id, ["events-appended"]);
+      await harness.deps.hub.notifyThread(thread.id, ["events-appended"]);
       await settlePushes();
       const [completed] = timelineSignals(socket.messages.splice(0));
       expect(completed?.afterSequence).toBe(4);
@@ -124,8 +127,8 @@ describe("thread-timeline realtime push", () => {
 
   it("coalesces notifications in one tick and skips threads without subscribers", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
-      const other = seedThread(harness.deps, {
+      const { environment, thread } = await seedThreadFixture(harness);
+      const other = await seedThread(harness.deps, {
         projectId: thread.projectId,
         environmentId: environment.id,
       });
@@ -137,7 +140,7 @@ describe("thread-timeline realtime push", () => {
         deferContent: false,
       });
       for (const sequence of [1, 2]) {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId: "p1",
@@ -146,8 +149,8 @@ describe("thread-timeline realtime push", () => {
           type: sequence === 1 ? "turn/started" : "item/agentMessage/delta",
           data: sequence === 1 ? {} : { itemId: "a", delta: "hi\n" },
         });
-        harness.deps.hub.notifyThread(thread.id, ["events-appended"]);
-        harness.deps.hub.notifyThread(other.id, ["events-appended"]);
+        await harness.deps.hub.notifyThread(thread.id, ["events-appended"]);
+        await harness.deps.hub.notifyThread(other.id, ["events-appended"]);
       }
       await settlePushes();
 
@@ -165,7 +168,7 @@ describe("thread-timeline realtime push", () => {
 
   it("resumes a dropped socket with a full window instead of a stale delta", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const target: ThreadTimelineSubscriptionTarget = {
         kind: "thread-timeline",
         threadId: thread.id,
@@ -174,7 +177,7 @@ describe("thread-timeline realtime push", () => {
       };
       let socket = createMockHubSocket();
       const appendAndPush = async (sequence: number) => {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId: "p1",
@@ -183,7 +186,7 @@ describe("thread-timeline realtime push", () => {
           type: sequence === 1 ? "turn/started" : "item/agentMessage/delta",
           data: sequence === 1 ? {} : { itemId: "a", delta: `${sequence}\n` },
         });
-        harness.deps.hub.notifyThread(thread.id, ["events-appended"]);
+        await harness.deps.hub.notifyThread(thread.id, ["events-appended"]);
         await settlePushes();
         return timelineSignals(socket.messages.splice(0));
       };

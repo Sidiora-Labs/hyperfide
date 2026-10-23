@@ -20,9 +20,9 @@ import {
   loadThreadConversationOutline,
 } from "../../../src/services/threads/timeline.js";
 
-function setup(status: Thread["status"] = "starting") {
+async function setup(status: Thread["status"] = "starting") {
   const queries: SlowDbQueryLogFields[] = [];
-  const db = createMigratedConnection({
+  const db = await createMigratedConnection({
     slowQueryThresholdMs: 0,
     slowQueryLogger: {
       info(fields) {
@@ -30,14 +30,14 @@ function setup(status: Thread["status"] = "starting") {
       },
     },
   });
-  const host = upsertHost(db, noopNotifier, {
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
     status,
@@ -46,8 +46,8 @@ function setup(status: Thread["status"] = "starting") {
 }
 
 describe("thread conversation outline performance", () => {
-  it("bounds previews while preserving whitespace normalization and Unicode", () => {
-    const { db, thread } = setup();
+  it("bounds previews while preserving whitespace normalization and Unicode", async () => {
+    const { db, thread } = await setup();
     const cases = [
       { text: " \t\r\n\u00a0\ufeff", preview: "" },
       { text: "  Hello\t\nworld \u00a0!  ", preview: "Hello world !" },
@@ -62,7 +62,7 @@ describe("thread conversation outline performance", () => {
       { text: "Hello" + " ".repeat(1_000) + "world", preview: "Hello world" },
       { text: "word ".repeat(100_000), preview: "word ".repeat(40).trimEnd() },
     ];
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       cases.map(({ text }, index) => ({
@@ -77,7 +77,7 @@ describe("thread conversation outline performance", () => {
       })),
     );
 
-    const outline = buildThreadConversationOutline(db, thread, {
+    const outline = await buildThreadConversationOutline(db, thread, {
       completedTurnDisplay: "collapse",
       includeClearedContextHistory: false,
       maxSeq: cases.length,
@@ -86,12 +86,12 @@ describe("thread conversation outline performance", () => {
     expect(outline.items.map((item) => item.preview)).toEqual(
       cases.map(({ preview }) => preview),
     );
-    db.$client.close();
+    await db.close();
   });
 
-  it("loads an exact materialized stable outline without event history", () => {
-    const { db, queries, thread } = setup("idle");
-    insertEvents(db, noopNotifier, [
+  it("loads an exact materialized stable outline without event history", async () => {
+    const { db, queries, thread } = await setup("idle");
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -103,10 +103,13 @@ describe("thread conversation outline performance", () => {
         data: JSON.stringify({ text: "Persisted response" }),
       },
     ]);
-    const outlineSequence = getLatestStoredConversationOutlineSequence(db, {
-      threadId: thread.id,
-    });
-    const first = loadThreadConversationOutline(db, thread, {
+    const outlineSequence = await getLatestStoredConversationOutlineSequence(
+      db,
+      {
+        threadId: thread.id,
+      },
+    );
+    const first = await loadThreadConversationOutline(db, thread, {
       completedTurnDisplay: "collapse",
       includeClearedContextHistory: false,
       maxSeq: 1,
@@ -114,7 +117,7 @@ describe("thread conversation outline performance", () => {
     });
     queries.length = 0;
 
-    const second = loadThreadConversationOutline(db, thread, {
+    const second = await loadThreadConversationOutline(db, thread, {
       completedTurnDisplay: "collapse",
       includeClearedContextHistory: false,
       maxSeq: 2,
@@ -130,12 +133,12 @@ describe("thread conversation outline performance", () => {
         query.sql.includes('from "thread_conversation_outlines"'),
       ),
     ).toBe(true);
-    db.$client.close();
+    await db.close();
   });
 
-  it("rejects materialized outlines after metadata changes and rewinds", () => {
-    const { db, queries, thread } = setup("idle");
-    insertEvents(db, noopNotifier, [
+  it("rejects materialized outlines after metadata changes and rewinds", async () => {
+    const { db, queries, thread } = await setup("idle");
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -147,23 +150,24 @@ describe("thread conversation outline performance", () => {
         data: JSON.stringify({ text: "Original response" }),
       },
     ]);
-    loadThreadConversationOutline(db, thread, {
+    await loadThreadConversationOutline(db, thread, {
       completedTurnDisplay: "collapse",
       includeClearedContextHistory: false,
       maxSeq: 1,
       outlineSequence: 1,
     });
-    db.update(threads)
+    await db
+      .update(threads)
       .set({ title: "Renamed thread" })
       .where(eq(threads.id, thread.id))
       .run();
-    const renamedThread = getThread(db, thread.id);
+    const renamedThread = await getThread(db, thread.id);
     if (renamedThread === null) {
       throw new Error("Expected renamed thread");
     }
     queries.length = 0;
 
-    loadThreadConversationOutline(db, renamedThread, {
+    await loadThreadConversationOutline(db, renamedThread, {
       completedTurnDisplay: "collapse",
       includeClearedContextHistory: false,
       maxSeq: 1,
@@ -173,16 +177,17 @@ describe("thread conversation outline performance", () => {
     expect(queries.some((query) => query.sql.includes('from "events"'))).toBe(
       true,
     );
-    db.transaction((tx) =>
-      deleteThreadEventSuffixInTransaction(tx, {
-        cutoffSequence: 1,
-        oldMaxSequence: 1,
-        threadId: thread.id,
-      }),
+    await db.transaction(
+      async (tx) =>
+        await deleteThreadEventSuffixInTransaction(tx, {
+          cutoffSequence: 1,
+          oldMaxSequence: 1,
+          threadId: thread.id,
+        }),
     );
     queries.length = 0;
 
-    const rewound = loadThreadConversationOutline(db, renamedThread, {
+    const rewound = await loadThreadConversationOutline(db, renamedThread, {
       completedTurnDisplay: "collapse",
       includeClearedContextHistory: false,
       maxSeq: 0,
@@ -193,12 +198,12 @@ describe("thread conversation outline performance", () => {
     expect(queries.some((query) => query.sql.includes('from "events"'))).toBe(
       true,
     );
-    db.$client.close();
+    await db.close();
   });
 
-  it("does not materialize active thread revisions", () => {
-    const { db, thread } = setup("active");
-    insertEvents(db, noopNotifier, [
+  it("does not materialize active thread revisions", async () => {
+    const { db, thread } = await setup("active");
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -211,20 +216,20 @@ describe("thread conversation outline performance", () => {
       },
     ]);
 
-    loadThreadConversationOutline(db, thread, {
+    await loadThreadConversationOutline(db, thread, {
       completedTurnDisplay: "collapse",
       includeClearedContextHistory: false,
       maxSeq: 1,
       outlineSequence: 1,
     });
 
-    expect(getThreadConversationOutlineRecord(db, thread.id)).toBeNull();
-    db.$client.close();
+    expect(await getThreadConversationOutlineRecord(db, thread.id)).toBeNull();
+    await db.close();
   });
 
-  it("selects only events that can produce conversation rows", () => {
-    const { db, queries, thread } = setup();
-    insertEvents(db, noopNotifier, [
+  it("selects only events that can produce conversation rows", async () => {
+    const { db, queries, thread } = await setup();
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -260,7 +265,7 @@ describe("thread conversation outline performance", () => {
     ]);
     queries.length = 0;
 
-    const outline = buildThreadConversationOutline(db, thread, {
+    const outline = await buildThreadConversationOutline(db, thread, {
       completedTurnDisplay: "collapse",
       includeClearedContextHistory: false,
       maxSeq: 2,
@@ -275,12 +280,12 @@ describe("thread conversation outline performance", () => {
     expect(eventSelectQueries).toHaveLength(1);
     expect(eventSelectQueries[0]?.sql).toContain('"events"."type" in');
     expect(eventSelectQueries[0]?.sql).not.toContain('"events"."type" not in');
-    db.$client.close();
+    await db.close();
   });
 
-  it("preserves errored-turn conversation visibility", () => {
-    const { db, thread } = setup();
-    insertEvents(db, noopNotifier, [
+  it("preserves errored-turn conversation visibility", async () => {
+    const { db, thread } = await setup();
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -333,13 +338,13 @@ describe("thread conversation outline performance", () => {
       },
     ]);
 
-    const outline = buildThreadConversationOutline(db, thread, {
+    const outline = await buildThreadConversationOutline(db, thread, {
       completedTurnDisplay: "collapse",
       includeClearedContextHistory: false,
       maxSeq: 4,
     });
 
     expect(outline.items).toEqual([]);
-    db.$client.close();
+    await db.close();
   });
 });

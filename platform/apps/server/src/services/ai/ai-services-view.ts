@@ -56,7 +56,7 @@ export async function buildAiServicesView(
     services.map((service) => deps.aiServices.status(aiServiceKey(service))),
   );
   return {
-    selections: getAiServiceSelections(deps.db),
+    selections: await getAiServiceSelections(deps.db),
     services: services.map((service, index) => ({
       id: service.id,
       displayName: service.displayName,
@@ -90,9 +90,9 @@ export async function updateAiServiceSelection(
       );
     }
   }
-  setAiServiceSelection(deps.db, task, selection);
-  deps.hub.notifySystem(["config-changed"]);
-  return buildAiServicesView(deps);
+  await setAiServiceSelection(deps.db, task, selection);
+  await deps.hub.notifySystem(["config-changed"]);
+  return await buildAiServicesView(deps);
 }
 
 function sampleFor(task: AiTextTask): {

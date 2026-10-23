@@ -12,8 +12,8 @@ type InputsValue<S> = S extends StandardSchemaV1
   ? StandardSchemaV1InferOutput<S>
   : null;
 export interface PluginMachineProviderProgress {
-  step(text: string): void;
-  log(text: string): void;
+  step(text: string): void | Promise<void>;
+  log(text: string): void | Promise<void>;
 }
 
 export type PluginMachineProviderAvailability =
@@ -107,4 +107,12 @@ export interface PluginMachineProviderDefinition<
   ): Promise<PluginMachineProviderRemoveResult>;
 }
 
-export type { FleetJob, FleetHost, FleetEnrollment, FleetState, FleetAuthority, FleetTransport, FleetScheduler } from "./fleet.js";
+export type {
+  FleetJob,
+  FleetHost,
+  FleetEnrollment,
+  FleetState,
+  FleetAuthority,
+  FleetTransport,
+  FleetScheduler,
+} from "./fleet.js";

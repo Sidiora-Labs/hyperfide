@@ -77,18 +77,21 @@ export function parseServerMoveTargetPort(
   return port;
 }
 
-export function resumeServerMoveDeferredWork(
+export async function resumeServerMoveDeferredWork(
   deps: LoggedPendingInteractionWorkSessionDeps,
-): void {
+): Promise<void> {
   for (const hostId of deps.hub.listConnectedHostIds()) {
     const daemonSessionId = deps.hub.getDaemonSessionIdForHost(hostId);
     if (daemonSessionId !== null) {
-      deps.terminalSessions.reconcileDisconnectedHostTerminals({
+      await deps.terminalSessions.reconcileDisconnectedHostTerminals({
         daemonSessionId,
         hostId,
       });
     }
-    requestQueuedMessageDispatch(deps, { hostId, kind: "host-connected" });
+    await requestQueuedMessageDispatch(deps, {
+      hostId,
+      kind: "host-connected",
+    });
     void resumeEnvironmentProvisioningForHost(deps, { hostId }).catch(
       (error: unknown) => {
         deps.logger.warn(
@@ -109,8 +112,8 @@ export function createDefaultServerMoveEnvironment(
     allowLoopbackServerUrl: allowsLoopbackServerMoveUrl(args.env),
     bindHost: args.bindHost,
     deps,
-    exportArchive: (exportArgs) =>
-      exportServerArchive({
+    exportArchive: async (exportArgs) =>
+      await exportServerArchive({
         appVersion: deps.config.appVersion,
         dataDir: deps.config.dataDir,
         db: deps.db,
@@ -137,7 +140,8 @@ export function createDefaultServerMoveEnvironment(
         });
       },
     },
-    readServerDiskFreeBytes: () => readDiskFreeBytes(deps.config.dataDir),
+    readServerDiskFreeBytes: async () =>
+      await readDiskFreeBytes(deps.config.dataDir),
     resolveMode: () => resolveServerMoveMode(deps, pluginService),
     resolveServerHostGrant: async (hostId, signal) => {
       const grant = await serverAccess.resolve(deps, {
@@ -147,11 +151,12 @@ export function createDefaultServerMoveEnvironment(
       });
       return { serverUrl: grant.serverUrl, headers: grant.headers ?? {} };
     },
-    resumeDeferredWork: () => resumeServerMoveDeferredWork(deps),
+    resumeDeferredWork: async () => await resumeServerMoveDeferredWork(deps),
     retireProcess: args.retireProcess,
     serverAppSurface: args.appSurface,
     serverTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    stopRunningWork: (stopArgs) => stopRunningServerWork(deps, stopArgs),
+    stopRunningWork: async (stopArgs) =>
+      await stopRunningServerWork(deps, stopArgs),
     targetServerPort: () => targetPortOverride ?? deps.config.serverPort,
     timings: SERVER_MOVE_TIMINGS,
   };

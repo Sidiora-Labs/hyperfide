@@ -1,4 +1,8 @@
-import { environments, hasStoredSpawnAgentToolCall, threads } from "@hyperfide/db";
+import {
+  environments,
+  hasStoredSpawnAgentToolCall,
+  threads,
+} from "@hyperfide/db";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   PromptInput,
@@ -191,10 +195,10 @@ function resolvePromptMode(
     : undefined;
 }
 
-function toRuntimeExecutionOptions(
+async function toRuntimeExecutionOptions(
   args: RuntimeExecutionOptionsArgs,
-): RuntimeThreadExecutionOptions {
-  const permissionMode = clampPermissionModeToHost(args.deps, {
+): Promise<RuntimeThreadExecutionOptions> {
+  const permissionMode = await clampPermissionModeToHost(args.deps, {
     hostId: args.hostId,
     permissionMode: args.execution.permissionMode,
     providerId: args.providerId,
@@ -204,14 +208,16 @@ function toRuntimeExecutionOptions(
     providerId: args.providerId,
   });
   const providerOptions =
-    args.deps.providerRegistry.get(args.providerId)?.deriveProviderOptions({
-      threadId: args.threadId,
-      projectId: args.projectId,
-      model: args.execution.model,
-      permissionMode,
-      ...(promptMode !== undefined ? { promptMode } : {}),
-    }) ?? {};
-  const sessionOptions = resolvePendingThreadSessionOptions(
+    (await args.deps.providerRegistry
+      .get(args.providerId)
+      ?.deriveProviderOptions({
+        threadId: args.threadId,
+        projectId: args.projectId,
+        model: args.execution.model,
+        permissionMode,
+        ...(promptMode !== undefined ? { promptMode } : {}),
+      })) ?? {};
+  const sessionOptions = await resolvePendingThreadSessionOptions(
     args.deps.db,
     args.threadId,
   );
@@ -277,7 +283,10 @@ export async function buildThreadStartCommand(
     environment: args.environment,
     model: args.execution.model,
   });
-  const bridgeLaunch = requireBridgeLaunchForProviderId(deps, args.providerId);
+  const bridgeLaunch = await requireBridgeLaunchForProviderId(
+    deps,
+    args.providerId,
+  );
   return {
     type: "thread.start",
     environmentId: args.environment.id,
@@ -293,7 +302,7 @@ export async function buildThreadStartCommand(
     ...(args.inputGroups !== undefined
       ? { inputGroups: args.inputGroups }
       : {}),
-    options: toRuntimeExecutionOptions({
+    options: await toRuntimeExecutionOptions({
       ...args,
       deps,
       hostId: args.environment.hostId,
@@ -310,10 +319,10 @@ export async function buildThreadStartCommand(
   };
 }
 
-function buildPreparedTurnSubmitCommandPayload(
+async function buildPreparedTurnSubmitCommandPayload(
   args: PreparedTurnSubmitCommandBuildArgs,
-): PreparedTurnSubmitCommandPayload {
-  const bridgeLaunch = requireBridgeLaunchForProviderId(
+): Promise<PreparedTurnSubmitCommandPayload> {
+  const bridgeLaunch = await requireBridgeLaunchForProviderId(
     args.deps,
     args.runtimeContext.providerId,
   );
@@ -326,7 +335,7 @@ function buildPreparedTurnSubmitCommandPayload(
     ...(args.inputGroups !== undefined
       ? { inputGroups: args.inputGroups }
       : {}),
-    options: toRuntimeExecutionOptions({
+    options: await toRuntimeExecutionOptions({
       ...args,
       input: args.input,
       projectId: args.runtimeContext.projectId,
@@ -366,7 +375,7 @@ export async function prepareTurnSubmitCommandPayload(
   await deps.providerRegistry.whenRegistrationsSettled();
   const providerThreadId = requireProviderThreadId(
     args.providerThreadId ??
-      requireDispatchableProviderThreadId(deps, args.thread.id),
+      (await requireDispatchableProviderThreadId(deps, args.thread.id)),
     args.thread.id,
   );
   const runtimeContext = await resolveThreadRuntimeCommandConfig(deps, {
@@ -374,7 +383,7 @@ export async function prepareTurnSubmitCommandPayload(
     environment: args.environment,
     model: args.execution.model,
   });
-  return buildPreparedTurnSubmitCommandPayload({
+  return await buildPreparedTurnSubmitCommandPayload({
     deps,
     environmentId: args.environment.id,
     hostId: args.environment.hostId,
@@ -406,11 +415,11 @@ function requireProviderThreadId(
   return providerThreadId;
 }
 
-function threadHasLiveChildren(
+async function threadHasLiveChildren(
   deps: Pick<AppDeps, "db">,
   threadId: string,
-): boolean {
-  const row = deps.db
+): Promise<boolean> {
+  const row = await deps.db
     .select({ id: threads.id })
     .from(threads)
     .where(
@@ -425,15 +434,15 @@ function threadHasLiveChildren(
   return row !== undefined;
 }
 
-export function dispatchThreadRenameCommand(
+export async function dispatchThreadRenameCommand(
   deps: CommandResultSideEffectsDeps,
   args: DispatchThreadRenameCommandArgs,
-): void {
+): Promise<void> {
   if (!providerSupportsThreadRename(deps.providerRegistry, args.providerId)) {
     return;
   }
 
-  startLiveHostCommand(deps, {
+  await startLiveHostCommand(deps, {
     command: {
       type: "thread.rename",
       environmentId: args.environment.id,
@@ -451,11 +460,11 @@ export function dispatchThreadRenameCommand(
   });
 }
 
-export function dispatchArchivedThreadProviderArchiveCommand(
+export async function dispatchArchivedThreadProviderArchiveCommand(
   deps: CommandResultSideEffectsDeps,
   args: DispatchArchivedThreadProviderArchiveCommandArgs,
-): boolean {
-  const thread = deps.db
+): Promise<boolean> {
+  const thread = await deps.db
     .select()
     .from(threads)
     .where(eq(threads.id, args.threadId))
@@ -464,12 +473,12 @@ export function dispatchArchivedThreadProviderArchiveCommand(
     return false;
   }
 
-  const providerThreadId = getLastProviderThreadId(deps, thread.id);
+  const providerThreadId = await getLastProviderThreadId(deps, thread.id);
   if (!providerThreadId || !thread.environmentId) {
     return false;
   }
 
-  const environment = deps.db
+  const environment = await deps.db
     .select()
     .from(environments)
     .where(eq(environments.id, thread.environmentId))
@@ -491,8 +500,8 @@ export function dispatchArchivedThreadProviderArchiveCommand(
   }
 
   if (
-    threadHasLiveChildren(deps, thread.id) ||
-    hasStoredSpawnAgentToolCall(deps.db, thread.id)
+    (await threadHasLiveChildren(deps, thread.id)) ||
+    (await hasStoredSpawnAgentToolCall(deps.db, thread.id))
   ) {
     return false;
   }
@@ -504,7 +513,7 @@ export function dispatchArchivedThreadProviderArchiveCommand(
     path: environment.path,
   });
 
-  const bridgeLaunch = resolveBridgeLaunchForProviderId(
+  const bridgeLaunch = await resolveBridgeLaunchForProviderId(
     deps,
     thread.providerId,
   );
@@ -512,7 +521,7 @@ export function dispatchArchivedThreadProviderArchiveCommand(
     return false;
   }
 
-  startLiveHostCommand(deps, {
+  await startLiveHostCommand(deps, {
     command: {
       type: "thread.archive",
       environmentId: environment.id,
@@ -534,10 +543,10 @@ export function dispatchArchivedThreadProviderArchiveCommand(
   return true;
 }
 
-export function dispatchThreadUnarchiveCommand(
+export async function dispatchThreadUnarchiveCommand(
   deps: CommandResultSideEffectsDeps,
   args: DispatchThreadUnarchiveCommandArgs,
-): boolean {
+): Promise<boolean> {
   if (
     !providerSupportsThreadArchiveForwarding(
       deps.providerRegistry,
@@ -550,7 +559,7 @@ export function dispatchThreadUnarchiveCommand(
     return false;
   }
 
-  const bridgeLaunch = resolveBridgeLaunchForProviderId(
+  const bridgeLaunch = await resolveBridgeLaunchForProviderId(
     deps,
     args.thread.providerId,
   );
@@ -558,7 +567,7 @@ export function dispatchThreadUnarchiveCommand(
     return false;
   }
 
-  startLiveHostCommand(deps, {
+  await startLiveHostCommand(deps, {
     command: {
       type: "thread.unarchive",
       environmentId: args.environment.id,

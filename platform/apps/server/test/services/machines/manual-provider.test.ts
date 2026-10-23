@@ -7,8 +7,8 @@ import { seedHost, seedPrimaryHost } from "../../helpers/seed.js";
 it("creates, enrolls, and removes a manual machine by host id", async () => {
   await withTestHarness(async (harness) => {
     seedPrimaryHost(harness.deps, "local");
-    seedHost(harness.deps, { id: "local" });
-    setAppSettings(harness.db, {
+    await seedHost(harness.deps, { id: "local" });
+    await setAppSettings(harness.db, {
       ...defaultAppSettings,
       defaultMachineAccess: "direct",
       machineServerUrl: "https://machine.example.test",
@@ -24,8 +24,8 @@ it("creates, enrolls, and removes a manual machine by host id", async () => {
     });
     expect(response.status).toBe(201);
     const created = (await response.json()) as { id: string };
-    await vi.waitFor(() =>
-      expect(getHost(harness.db, created.id)).toMatchObject({
+    await vi.waitFor(async () =>
+      expect(await getHost(harness.db, created.id)).toMatchObject({
         phase: "creating",
         statusMessage: "Run the enrollment command shown below",
       }),
@@ -42,7 +42,7 @@ it("creates, enrolls, and removes a manual machine by host id", async () => {
       /X-BB-Enrollment: ([^']+)/u,
     )?.[1];
     expect(credential).toBeTruthy();
-    expect(JSON.stringify(getHost(harness.db, created.id))).not.toContain(
+    expect(JSON.stringify(await getHost(harness.db, created.id))).not.toContain(
       credential,
     );
 
@@ -51,7 +51,7 @@ it("creates, enrolls, and removes a manual machine by host id", async () => {
       token: credential!,
     });
     expect(enrolled).not.toBeNull();
-    openSession(harness.db, {
+    await openSession(harness.db, {
       hostId: created.id,
       instanceId: "manual-instance",
       hostName: "Studio Mac",
@@ -60,14 +60,14 @@ it("creates, enrolls, and removes a manual machine by host id", async () => {
       heartbeatIntervalMs: 5_000,
       leaseTimeoutMs: 30_000,
     });
-    harness.hub.registerDaemon("manual-session", created.id, {
+    await harness.hub.registerDaemon("manual-session", created.id, {
       close() {},
       send() {},
     });
     await expect
-      .poll(() => getHost(harness.db, created.id)?.phase)
+      .poll(async () => (await getHost(harness.db, created.id))?.phase)
       .toBe("active");
-    expect(getHost(harness.db, created.id)).toMatchObject({
+    expect(await getHost(harness.db, created.id)).toMatchObject({
       launchKey: "manual-host",
       machineProviderId: "manual",
       name: "Studio Mac",
@@ -91,6 +91,6 @@ it("creates, enrolls, and removes a manual machine by host id", async () => {
       status: 200,
       body: { ok: true },
     });
-    expect(getHost(harness.db, created.id)?.phase).toBe("destroyed");
+    expect((await getHost(harness.db, created.id))?.phase).toBe("destroyed");
   });
 });

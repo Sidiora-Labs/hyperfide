@@ -58,16 +58,16 @@ function clientTurnRequestedEvent(
   };
 }
 
-function setup(): { db: DbConnection; thread: Thread } {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup(): Promise<{ db: DbConnection; thread: Thread }> {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
   });
@@ -75,10 +75,10 @@ function setup(): { db: DbConnection; thread: Thread } {
 }
 
 describe("timeline context-clear epochs", () => {
-  it("excludes large old events from byte budgets and rejects cursors before the boundary", () => {
-    const { db, thread } = setup();
+  it("excludes large old events from byte budgets and rejects cursors before the boundary", async () => {
+    const { db, thread } = await setup();
     try {
-      insertEvents(db, noopNotifier, [
+      await insertEvents(db, noopNotifier, [
         {
           threadId: thread.id,
           sequence: 1,
@@ -117,11 +117,13 @@ describe("timeline context-clear epochs", () => {
         maxInlineOutputChars: null,
         maxSeq: 2,
       };
-      const latest = buildThreadTimelineWithProfile(db, thread, {
-        completedTurnDisplay: "collapse",
-        ...options,
-        page: { kind: "latest", segmentLimit: 20 },
-      }).response;
+      const latest = (
+        await buildThreadTimelineWithProfile(db, thread, {
+          completedTurnDisplay: "collapse",
+          ...options,
+          page: { kind: "latest", segmentLimit: 20 },
+        })
+      ).response;
       expect(latest.rows).toEqual([
         expect.objectContaining({
           sourceSeqStart: 2,
@@ -131,26 +133,28 @@ describe("timeline context-clear epochs", () => {
       expect(latest.timelinePage).toMatchObject({
         olderCursor: null,
       });
-      expect(
-        () =>
-          buildThreadTimelineWithProfile(db, thread, {
-            completedTurnDisplay: "collapse",
-            ...options,
-            page: {
-              kind: "older",
-              segmentLimit: 20,
-              beforeCursor: { anchorId: "old-anchor", anchorSeq: 1 },
-            },
-          }).response,
-      ).toThrow(/no longer available/);
+      await expect(
+        (async () =>
+          (
+            await buildThreadTimelineWithProfile(db, thread, {
+              completedTurnDisplay: "collapse",
+              ...options,
+              page: {
+                kind: "older",
+                segmentLimit: 20,
+                beforeCursor: { anchorId: "old-anchor", anchorSeq: 1 },
+              },
+            })
+          ).response)(),
+      ).rejects.toThrow(/no longer available/);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("shows only the latest completed epoch while retaining older events", () => {
-    const { db, thread } = setup();
-    insertEvents(db, noopNotifier, [
+  it("shows only the latest completed epoch while retaining older events", async () => {
+    const { db, thread } = await setup();
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -230,18 +234,20 @@ describe("timeline context-clear epochs", () => {
       },
     ]);
 
-    const timeline = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      eventBudget: 1_000,
-      includeNestedRows: true,
-      includeClearedContextHistory: false,
-      includeDiagnosticOperations: false,
-      compactionOfferEnabled: false,
-      summarizeShellCommands: true,
-      maxInlineOutputChars: null,
-      maxSeq: 6,
-      page: { kind: "latest", segmentLimit: 20 },
-    }).response;
+    const timeline = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: 1_000,
+        includeNestedRows: true,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        maxInlineOutputChars: null,
+        maxSeq: 6,
+        page: { kind: "latest", segmentLimit: 20 },
+      })
+    ).response;
 
     expect(timeline.contextBoundarySeq).toBe(5);
     expect(
@@ -256,21 +262,23 @@ describe("timeline context-clear epochs", () => {
       olderCursor: null,
     });
     expect(
-      buildThreadConversationOutline(db, thread, {
-        completedTurnDisplay: "collapse",
-        includeClearedContextHistory: false,
-        maxSeq: 6,
-      }).items.map((item) => item.preview),
+      (
+        await buildThreadConversationOutline(db, thread, {
+          completedTurnDisplay: "collapse",
+          includeClearedContextHistory: false,
+          maxSeq: 6,
+        })
+      ).items.map((item) => item.preview),
     ).toEqual(["Newest response"]);
-    expect(listEvents(db, { threadId: thread.id })).toHaveLength(6);
-    db.$client.close();
+    expect(await listEvents(db, { threadId: thread.id })).toHaveLength(6);
+    await db.close();
   });
 
-  it("never paginates older rows across the completed context boundary", () => {
-    const { db, thread } = setup();
+  it("never paginates older rows across the completed context boundary", async () => {
+    const { db, thread } = await setup();
     const requestEvent = (sequence: number, value: number, text: string) =>
       clientTurnRequestedEvent(thread, sequence, value, text);
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -320,18 +328,20 @@ describe("timeline context-clear epochs", () => {
       },
     ]);
 
-    let page = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      eventBudget: 1_000,
-      includeNestedRows: true,
-      includeClearedContextHistory: false,
-      includeDiagnosticOperations: false,
-      compactionOfferEnabled: false,
-      summarizeShellCommands: true,
-      maxInlineOutputChars: null,
-      maxSeq: 6,
-      page: { kind: "latest", segmentLimit: 1 },
-    }).response;
+    let page = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: 1_000,
+        includeNestedRows: true,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        maxInlineOutputChars: null,
+        maxSeq: 6,
+        page: { kind: "latest", segmentLimit: 1 },
+      })
+    ).response;
     const rowSequences: number[] = [];
 
     for (;;) {
@@ -342,18 +352,20 @@ describe("timeline context-clear epochs", () => {
       const cursor = page.timelinePage.olderCursor;
       if (cursor === null) throw new Error("expected an older cursor");
       expect(cursor.anchorSeq).toBeGreaterThanOrEqual(2);
-      page = buildThreadTimelineWithProfile(db, thread, {
-        completedTurnDisplay: "collapse",
-        eventBudget: 1_000,
-        includeNestedRows: true,
-        includeClearedContextHistory: false,
-        includeDiagnosticOperations: false,
-        compactionOfferEnabled: false,
-        summarizeShellCommands: true,
-        maxInlineOutputChars: null,
-        maxSeq: 6,
-        page: { kind: "older", segmentLimit: 1, beforeCursor: cursor },
-      }).response;
+      page = (
+        await buildThreadTimelineWithProfile(db, thread, {
+          completedTurnDisplay: "collapse",
+          eventBudget: 1_000,
+          includeNestedRows: true,
+          includeClearedContextHistory: false,
+          includeDiagnosticOperations: false,
+          compactionOfferEnabled: false,
+          summarizeShellCommands: true,
+          maxInlineOutputChars: null,
+          maxSeq: 6,
+          page: { kind: "older", segmentLimit: 1, beforeCursor: cursor },
+        })
+      ).response;
     }
 
     expect(rowSequences).toContain(2);
@@ -361,12 +373,12 @@ describe("timeline context-clear epochs", () => {
     expect(page.timelinePage).toMatchObject({
       olderCursor: null,
     });
-    db.$client.close();
+    await db.close();
   });
 
-  it("pages earlier contexts above the boundary when cleared history is included", () => {
-    const { db, thread } = setup();
-    insertEvents(db, noopNotifier, [
+  it("pages earlier contexts above the boundary when cleared history is included", async () => {
+    const { db, thread } = await setup();
+    await insertEvents(db, noopNotifier, [
       clientTurnRequestedEvent(thread, 1, 1, "Earlier task"),
       {
         threadId: thread.id,
@@ -414,10 +426,12 @@ describe("timeline context-clear epochs", () => {
       maxSeq: 4,
     };
 
-    let page = buildThreadTimelineWithProfile(db, thread, {
-      ...options,
-      page: { kind: "latest", segmentLimit: 1 },
-    }).response;
+    let page = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        ...options,
+        page: { kind: "latest", segmentLimit: 1 },
+      })
+    ).response;
     expect(page.contextBoundarySeq).toBe(3);
     expect(page.contextWindowUsage).toBeUndefined();
     const rows: string[] = [];
@@ -431,10 +445,12 @@ describe("timeline context-clear epochs", () => {
       );
       const cursor = page.timelinePage.olderCursor;
       if (page.timelinePage.olderCursor === null || cursor === null) break;
-      page = buildThreadTimelineWithProfile(db, thread, {
-        ...options,
-        page: { kind: "older", segmentLimit: 1, beforeCursor: cursor },
-      }).response;
+      page = (
+        await buildThreadTimelineWithProfile(db, thread, {
+          ...options,
+          page: { kind: "older", segmentLimit: 1, beforeCursor: cursor },
+        })
+      ).response;
     }
     expect(rows).toEqual(["Earlier task", "Context cleared", "Fresh task"]);
 
@@ -444,33 +460,38 @@ describe("timeline context-clear epochs", () => {
       maxSeq: 4,
     };
     expect(
-      buildThreadConversationOutline(db, thread, outlineOptions).items.map(
-        (item) => item.preview,
-      ),
+      (
+        await buildThreadConversationOutline(db, thread, outlineOptions)
+      ).items.map((item) => item.preview),
     ).toEqual(["Earlier task", "Fresh task"]);
     expect(
-      loadThreadConversationOutline(db, thread, {
-        ...outlineOptions,
-        outlineSequence: 4,
-      }).items.map((item) => item.preview),
+      (
+        await loadThreadConversationOutline(db, thread, {
+          ...outlineOptions,
+          outlineSequence: 4,
+        })
+      ).items.map((item) => item.preview),
     ).toEqual(["Earlier task", "Fresh task"]);
     expect(
-      getThreadMessage(db, thread, {
-        ...outlineOptions,
-        seq: 1,
-        before: 0,
-        after: 0,
-      }).message.text,
+      (
+        await getThreadMessage(db, thread, {
+          ...outlineOptions,
+          seq: 1,
+          before: 0,
+          after: 0,
+        })
+      ).message.text,
     ).toBe("Earlier task");
-    expect(() =>
-      getThreadMessage(db, thread, {
-        ...outlineOptions,
-        includeClearedContextHistory: false,
-        seq: 1,
-        before: 0,
-        after: 0,
-      }),
-    ).toThrow(/context clear hidden it/);
-    db.$client.close();
+    await expect(
+      (async () =>
+        await getThreadMessage(db, thread, {
+          ...outlineOptions,
+          includeClearedContextHistory: false,
+          seq: 1,
+          before: 0,
+          after: 0,
+        }))(),
+    ).rejects.toThrow(/context clear hidden it/);
+    await db.close();
   });
 });

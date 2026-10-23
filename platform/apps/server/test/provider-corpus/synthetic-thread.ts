@@ -14,7 +14,11 @@ import {
   threadScope,
   turnScope,
 } from "@hyperfide/domain";
-import type { Thread, ThreadEventScope, ThreadEventType } from "@hyperfide/domain";
+import type {
+  Thread,
+  ThreadEventScope,
+  ThreadEventType,
+} from "@hyperfide/domain";
 
 type InsertEventInput = Parameters<typeof insertEvents>[2][number];
 
@@ -448,19 +452,21 @@ export interface SyntheticThread {
   db: DbConnection;
   eventCount: number;
   thread: Thread;
-  close(): void;
+  close(): void | Promise<void>;
 }
 
-export function createSyntheticThread(minimumEvents: number): SyntheticThread {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+export async function createSyntheticThread(
+  minimumEvents: number,
+): Promise<SyntheticThread> {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "synthetic-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "synthetic-project",
     source: { type: "local_path", hostId: host.id, path: "/workspace/project" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
     status: "idle",
@@ -469,7 +475,7 @@ export function createSyntheticThread(minimumEvents: number): SyntheticThread {
   for (let turn = 1; builder.events.length < minimumEvents; turn += 1) {
     pushSyntheticTurn(builder, thread.id, turn);
   }
-  const inserted = insertEvents(db, noopNotifier, builder.events);
+  const inserted = await insertEvents(db, noopNotifier, builder.events);
   if (inserted.insertedCount !== builder.events.length) {
     throw new Error(
       `Synthetic thread inserted ${inserted.insertedCount} of ${builder.events.length} events`,
@@ -479,8 +485,8 @@ export function createSyntheticThread(minimumEvents: number): SyntheticThread {
     db,
     eventCount: builder.events.length,
     thread,
-    close: () => {
-      db.$client.close();
+    close: async () => {
+      await db.close();
     },
   };
 }

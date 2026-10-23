@@ -92,7 +92,7 @@ export function registerInternalHostRoutes(app: Hono, deps: AppDeps): void {
       if (!enrollment) {
         throw new ApiError(401, "unauthorized", "Unauthorized");
       }
-      upsertHost(deps.db, deps.hub, {
+      await upsertHost(deps.db, deps.hub, {
         ...(connectMachineId !== undefined ? { connectMachineId } : {}),
         id: enrollment.metadata.hostId,
         name: payload.hostName,

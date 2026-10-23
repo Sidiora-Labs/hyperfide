@@ -3,7 +3,10 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { resolveDataDirSkillsRootPath } from "@hyperfide/config/skill-storage-paths";
-import type { DiscoveredSkill, SkillRootKind } from "@hyperfide/host-daemon-contract";
+import type {
+  DiscoveredSkill,
+  SkillRootKind,
+} from "@hyperfide/host-daemon-contract";
 import type {
   SkillProvider,
   SkillScope,
@@ -213,9 +216,9 @@ export async function listProjectSkills(
   deps: AppDeps,
   args: { workspace: CommandWorkspace },
 ): Promise<SkillSummary[]> {
-  const skillProviders = deps.providerRegistry
-    .list()
-    .filter(providerHasNativeRootSurface);
+  const skillProviders = (await deps.providerRegistry.list()).filter(
+    providerHasNativeRootSurface,
+  );
   const [perProvider, sharedSkills] = await Promise.all([
     Promise.all(
       skillProviders.map(
@@ -382,7 +385,7 @@ export async function listProjectSkillFiles(
 ): Promise<{ files: string[]; truncated: boolean }> {
   const skill = await resolveProjectSkill(deps, args);
   if (isServerOwnedSkill(deps, skill)) {
-    return listServerSkillFiles(skill);
+    return await listServerSkillFiles(skill);
   }
   const rootPath = hostPathDirname(skill.filePath);
   const result = await callHostRetryableOnlineRpc(deps, {

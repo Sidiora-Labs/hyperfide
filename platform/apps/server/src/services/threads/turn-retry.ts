@@ -30,11 +30,11 @@ type TurnRetryDeps = LoggedPendingInteractionWorkSessionDeps;
  * same turn twice, which the user would see as two identical retry cards and
  * the provider as two identical turns.
  */
-function hasQueuedRetryFor(
+async function hasQueuedRetryFor(
   deps: Pick<TurnRetryDeps, "db">,
   args: { threadId: string; originalRequestId: string },
-): boolean {
-  return hasQueuedRetryOfTurnRequest(deps.db, {
+): Promise<boolean> {
+  return await hasQueuedRetryOfTurnRequest(deps.db, {
     threadId: args.threadId,
     retryOfTurnRequestId: args.originalRequestId,
   });
@@ -50,7 +50,7 @@ function hasQueuedRetryFor(
  * caller means rather than selecting among several — it is how a retry policy
  * that decided on one failure refuses to act on a different one it never saw.
  */
-function requireFailedTurn(
+async function requireFailedTurn(
   deps: Pick<TurnRetryDeps, "db">,
   args: { thread: Thread; turnRequestId: ClientTurnRequestId | null },
 ) {
@@ -62,7 +62,7 @@ function requireFailedTurn(
       `Thread ${thread.id} has no failed turn to retry: it is ${thread.status}.`,
     );
   }
-  const failed = loadFailedTurn(deps.db, thread.id);
+  const failed = await loadFailedTurn(deps.db, thread.id);
   if (failed === null) {
     throw new ApiError(
       409,
@@ -105,11 +105,11 @@ const CONTINUE_ACCEPTED_TURN_TEXT = "Please continue.";
  * was, on the attempt that failed, using the same projection rule that has
  * always hidden system continuations.
  */
-function retryInput(
+async function retryInput(
   deps: Pick<TurnRetryDeps, "db">,
   args: { threadId: string; failed: FailedTurnRecord },
-): { input: PromptInput[]; inputGroups?: PromptInput[][] } {
-  if (wasFailedTurnInputAccepted(deps.db, args)) {
+): Promise<{ input: PromptInput[]; inputGroups?: PromptInput[][] }> {
+  if (await wasFailedTurnInputAccepted(deps.db, args)) {
     return {
       input: [
         {
@@ -187,7 +187,7 @@ export async function retryFailedTurn(
   args: RetryFailedTurnArgs,
 ): Promise<RetryTurnResponse> {
   const { request, thread } = args;
-  const failed = requireFailedTurn(deps, {
+  const failed = await requireFailedTurn(deps, {
     thread,
     turnRequestId: request.turnRequestId,
   });
@@ -195,8 +195,11 @@ export async function retryFailedTurn(
   const originalRequestId = chain.originalRequestId;
   const inFlightKey = `${thread.id}:${originalRequestId}`;
   if (
-    retriesInFlight.has(inFlightKey) ||
-    hasQueuedRetryFor(deps, { threadId: thread.id, originalRequestId })
+    (await hasQueuedRetryFor(deps, {
+      threadId: thread.id,
+      originalRequestId,
+    })) ||
+    retriesInFlight.has(inFlightKey)
   ) {
     throw new ApiError(
       409,
@@ -213,7 +216,7 @@ export async function retryFailedTurn(
         // A retry never steers: it re-runs a turn, so a thread that is busy
         // again is something to wait behind rather than to interrupt.
         mode: "queue-if-active",
-        ...retryInput(deps, { threadId: thread.id, failed }),
+        ...(await retryInput(deps, { threadId: thread.id, failed })),
         ...retryExecution(failed),
         ...(request.sendAt === null ? {} : { sendAt: request.sendAt }),
       },

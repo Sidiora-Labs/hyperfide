@@ -48,8 +48,8 @@ function assertServerManagementAllowed(context: GateAuthHeaderReader): void {
 export const SERVER_MOVE_EXPERIMENT_DISABLED_MESSAGE =
   'Moving the server is off. Turn on the "Server move" experiment in Settings → Experiments, or run bb settings experiment serverMove true, then try again.';
 
-function assertServerMoveExperimentEnabled(deps: AppDeps): void {
-  if (!getExperiments(deps.db).serverMove) {
+async function assertServerMoveExperimentEnabled(deps: AppDeps): Promise<void> {
+  if (!(await getExperiments(deps.db)).serverMove) {
     throw new ApiError(
       403,
       "server_move_experiment_disabled",
@@ -86,13 +86,13 @@ export function registerServerMoveRoutes(
 
   post(routes.checkMove, async (context, payload) => {
     assertServerManagementAllowed(context);
-    assertServerMoveExperimentEnabled(deps);
+    await assertServerMoveExperimentEnabled(deps);
     return context.json(await serverMove.check(payload));
   });
 
   post(routes.startMove, async (context, payload) => {
     assertServerManagementAllowed(context);
-    assertServerMoveExperimentEnabled(deps);
+    await assertServerMoveExperimentEnabled(deps);
     return context.json(await serverMove.start(payload));
   });
 
@@ -104,14 +104,14 @@ export function registerServerMoveRoutes(
     });
   });
 
-  post(routes.cancelMove, (context) => {
+  post(routes.cancelMove, async (context) => {
     assertServerManagementAllowed(context);
-    return context.json(serverMove.cancel());
+    return context.json(await serverMove.cancel());
   });
 
   post(routes.export, async (context) => {
     assertServerManagementAllowed(context);
-    assertServerMoveExperimentEnabled(deps);
+    await assertServerMoveExperimentEnabled(deps);
     if (isServerMoveInFlight(serverMove.getStatus())) {
       throw new ApiError(
         409,
@@ -169,9 +169,9 @@ export function registerServerMoveRoutes(
 
   del(publicApiRoutes.hosts.deleteOldServerCopy, async (context) => {
     assertServerManagementAllowed(context);
-    assertServerMoveExperimentEnabled(deps);
+    await assertServerMoveExperimentEnabled(deps);
     const hostId = context.req.param("id");
-    assertUsableHostId(deps, { hostId });
+    await assertUsableHostId(deps, { hostId });
     const lastMove = await readLastServerMoveFile(deps.config.dataDir);
     if (lastMove === null || lastMove.fromHostId !== hostId) {
       throw new ApiError(
@@ -191,7 +191,7 @@ export function registerServerMoveRoutes(
         oldCopyDeletedAt: Date.now(),
       });
     }
-    deps.hub.notifySystem(["server-move-changed"]);
+    await deps.hub.notifySystem(["server-move-changed"]);
     return context.json({ deleted: result.deleted });
   });
 }

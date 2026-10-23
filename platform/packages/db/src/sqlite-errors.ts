@@ -5,6 +5,7 @@ interface SqliteUniqueConstraintColumnsArgs {
 }
 
 function getSqliteErrorCode(error: Error): string | null {
+  if (error.cause instanceof Error) return getSqliteErrorCode(error.cause);
   const code = "code" in error ? error.code : null;
   return typeof code === "string" ? code : null;
 }
@@ -17,6 +18,13 @@ export function isSqliteUniqueConstraintOnColumns(
   error: Error,
   args: SqliteUniqueConstraintColumnsArgs,
 ): boolean {
+  if (getSqliteErrorCode(error) === "23505") {
+    const cause = error.cause instanceof Error ? error.cause : error;
+    return (
+      ("constraint" in cause && cause.constraint === args.indexName) ||
+      cause.message.includes(args.indexName)
+    );
+  }
   if (!isSqliteUniqueConstraintError(error)) {
     return false;
   }
@@ -32,6 +40,7 @@ export function isSqliteUniqueConstraintOnColumns(
 
 export function isSqliteForeignKeyConstraint(error: Error): boolean {
   return (
+    getSqliteErrorCode(error) === "23503" ||
     getSqliteErrorCode(error) === "SQLITE_CONSTRAINT_FOREIGNKEY" ||
     error.message.includes("FOREIGN KEY constraint failed")
   );

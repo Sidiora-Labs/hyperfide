@@ -102,13 +102,13 @@ describe("store-installed official plugins", () => {
 
   beforeEach(async () => {
     delete globals.__builtinFixtureLoads;
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "bb-community-plugins-"));
   });
 
   afterEach(async () => {
     await service?.stop();
-    db.$client.close();
+    await db.close();
     await rm(workDir, { recursive: true, force: true });
   });
 
@@ -120,7 +120,7 @@ describe("store-installed official plugins", () => {
     });
     await service.start();
 
-    expect(service.list()).toEqual([]);
+    expect(await service.list()).toEqual([]);
     expect(loadCount()).toBe(0);
   });
 
@@ -140,14 +140,14 @@ describe("store-installed official plugins", () => {
       catalogEntryId: "fixture",
       status: "running",
     });
-    expect(getInstalledPluginRegistration(db, "builtin-fixture")).toMatchObject(
-      {
-        provenance: "catalog",
-        catalogEntryId: "fixture",
-        sourceKind: "builtin",
-        sourceBuiltinName: "fixture",
-      },
-    );
+    expect(
+      await getInstalledPluginRegistration(db, "builtin-fixture"),
+    ).toMatchObject({
+      provenance: "catalog",
+      catalogEntryId: "fixture",
+      sourceKind: "builtin",
+      sourceBuiltinName: "fixture",
+    });
 
     await service.stop();
     service = createService({
@@ -156,7 +156,7 @@ describe("store-installed official plugins", () => {
       bundled: [officialEntry()],
     });
     await service.start();
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       { id: "builtin-fixture", provenance: "catalog", status: "running" },
     ]);
   });
@@ -164,7 +164,7 @@ describe("store-installed official plugins", () => {
   it.each([true, false])(
     "moves old BB Community provenance to BB Official when autoInstall is %s",
     async (autoInstall) => {
-      upsertInstalledPlugin(db, {
+      await upsertInstalledPlugin(db, {
         id: "builtin-fixture",
         source: "builtin:fixture",
         provenance: {
@@ -195,13 +195,13 @@ describe("store-installed official plugins", () => {
       await service.start();
 
       expect(
-        getInstalledPluginRegistration(db, "builtin-fixture"),
+        await getInstalledPluginRegistration(db, "builtin-fixture"),
       ).toMatchObject({
         provenance: "catalog",
         catalogEntryId: "fixture",
         catalogMarketplaceName: "bb-official",
       });
-      expect(service.list()).toMatchObject([
+      expect(await service.list()).toMatchObject([
         {
           id: "builtin-fixture",
           provenance: "catalog",
@@ -224,7 +224,7 @@ describe("store-installed official plugins", () => {
     await service.installOfficialPlugin("fixture");
 
     await expect(service.remove("builtin-fixture")).resolves.toBe(true);
-    expect(service.list()).toEqual([]);
+    expect(await service.list()).toEqual([]);
     await service.stop();
 
     service = createService({
@@ -233,7 +233,7 @@ describe("store-installed official plugins", () => {
       bundled: [officialEntry()],
     });
     await service.start();
-    expect(service.list()).toEqual([]);
+    expect(await service.list()).toEqual([]);
 
     await expect(
       service.installOfficialPlugin("fixture"),
@@ -247,7 +247,7 @@ describe("store-installed official plugins", () => {
       bundled: [officialEntry({ autoInstall: true })],
     });
     await service.start();
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       { id: "builtin-fixture", provenance: "builtin" },
     ]);
     await service.stop();
@@ -258,7 +258,7 @@ describe("store-installed official plugins", () => {
       bundled: [officialEntry({ autoInstall: false })],
     });
     await service.start();
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       { id: "builtin-fixture", provenance: "catalog" },
     ]);
   });
@@ -269,7 +269,7 @@ describe("store-installed official plugins", () => {
       dataDir: join(workDir, "data"),
       bundled: [officialEntry({ autoInstall: true, defaultEnabled: false })],
     });
-    expect(service.list()).toEqual([]);
+    expect(await service.list()).toEqual([]);
 
     await expect(
       service.installOfficialPlugin("fixture"),
@@ -281,7 +281,7 @@ describe("store-installed official plugins", () => {
       status: "running",
     });
     await service.start();
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       {
         id: "builtin-fixture",
         provenance: "builtin",

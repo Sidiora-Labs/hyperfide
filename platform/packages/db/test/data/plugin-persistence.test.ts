@@ -19,13 +19,13 @@ import { createMigratedConnection } from "../../src/testing.js";
 describe("normalized plugin persistence", () => {
   let db: DbConnection;
 
-  beforeEach(() => {
-    db = createMigratedConnection();
+  beforeEach(async () => {
+    db = await createMigratedConnection();
   });
 
-  afterEach(() => db.$client.close());
+  afterEach(async () => await db.close());
 
-  it("persists typed plugin intent and an active artifact reference", () => {
+  it("persists typed plugin intent and an active artifact reference", async () => {
     const linearPlugin: UpsertInstalledPluginInput = {
       id: "linear",
       source: "npm:hyperfide-plugin-linear@1.2.3",
@@ -58,8 +58,8 @@ describe("normalized plugin persistence", () => {
       enabled: true,
       enabledFollowsDefault: false,
     };
-    upsertInstalledPlugin(db, linearPlugin);
-    createPluginArtifact(db, {
+    await upsertInstalledPlugin(db, linearPlugin);
+    await createPluginArtifact(db, {
       id: "artifact-1",
       pluginId: "linear",
       sourceKind: "npm",
@@ -72,12 +72,15 @@ describe("normalized plugin persistence", () => {
       validationResult: "valid",
       validatedAt: 100,
     });
-    upsertInstalledPlugin(db, { ...linearPlugin, activeArtifactId: "artifact-1" });
-    expect(getInstalledPlugin(db, "linear")?.rootDir).toBe(
+    await upsertInstalledPlugin(db, {
+      ...linearPlugin,
+      activeArtifactId: "artifact-1",
+    });
+    expect((await getInstalledPlugin(db, "linear"))?.rootDir).toBe(
       "/cache/artifact-1.tgz",
     );
 
-    expect(getInstalledPluginRegistration(db, "linear")).toMatchObject({
+    expect(await getInstalledPluginRegistration(db, "linear")).toMatchObject({
       provenance: "catalog",
       catalogEntryId: "linear",
       catalogMarketplaceName: "bb-community",
@@ -87,14 +90,14 @@ describe("normalized plugin persistence", () => {
       npmResolvedVersion: "1.2.3",
       activeArtifactId: "artifact-1",
     });
-    expect(listPluginArtifacts(db, "linear")).toHaveLength(1);
-    expect(deletePluginArtifact(db, "artifact-1")).toBe(true);
-    expect(getInstalledPluginRegistration(db, "linear")?.activeArtifactId).toBe(
-      null,
-    );
+    expect(await listPluginArtifacts(db, "linear")).toHaveLength(1);
+    expect(await deletePluginArtifact(db, "artifact-1")).toBe(true);
+    expect(
+      (await getInstalledPluginRegistration(db, "linear"))?.activeArtifactId,
+    ).toBe(null);
   });
 
-  it("rejects an npm artifact without registry integrity at runtime", () => {
+  it("rejects an npm artifact without registry integrity at runtime", async () => {
     const invalidArtifact = {
       id: "artifact-invalid",
       pluginId: "missing",
@@ -107,12 +110,12 @@ describe("normalized plugin persistence", () => {
       validationResult: "pending",
       validatedAt: null,
     };
-    expect(() =>
+    await expect(
       Reflect.apply(createPluginArtifact, undefined, [db, invalidArtifact]),
-    ).toThrow(/resolution fields/);
+    ).rejects.toThrow(/resolution fields/);
   });
 
-  it("stores a git ref and a git tag range in mutually exclusive columns", () => {
+  it("stores a git ref and a git tag range in mutually exclusive columns", async () => {
     const common = {
       provenance: { kind: "direct" } as const,
       exactResolution: { kind: "git" as const, commit: "abcdef1234567" },
@@ -128,7 +131,7 @@ describe("normalized plugin persistence", () => {
       enabled: true,
       enabledFollowsDefault: false,
     };
-    upsertInstalledPlugin(db, {
+    await upsertInstalledPlugin(db, {
       ...common,
       id: "ranged",
       source: "git:/repo@semver:notes/:^1.0.0",
@@ -144,7 +147,7 @@ describe("normalized plugin persistence", () => {
         },
       },
     });
-    expect(getInstalledPlugin(db, "ranged")).toMatchObject({
+    expect(await getInstalledPlugin(db, "ranged")).toMatchObject({
       sourceGitRange: "^1.0.0",
       sourceGitTagPrefix: "notes/",
       sourceGitResolvedTag: "notes/v1.4.2",
@@ -152,7 +155,7 @@ describe("normalized plugin persistence", () => {
       sourceGitRefKind: null,
     });
 
-    upsertInstalledPlugin(db, {
+    await upsertInstalledPlugin(db, {
       ...common,
       id: "ranged",
       source: "git:/repo@main",
@@ -163,7 +166,7 @@ describe("normalized plugin persistence", () => {
         selector: { kind: "ref", ref: "main", refKind: "branch" },
       },
     });
-    expect(getInstalledPlugin(db, "ranged")).toMatchObject({
+    expect(await getInstalledPlugin(db, "ranged")).toMatchObject({
       sourceGitRange: null,
       sourceGitTagPrefix: null,
       sourceGitResolvedTag: null,
@@ -172,7 +175,7 @@ describe("normalized plugin persistence", () => {
     });
   });
 
-  it("retains artifact records when a plugin registration is removed", () => {
+  it("retains artifact records when a plugin registration is removed", async () => {
     const retainedPlugin: UpsertInstalledPluginInput = {
       id: "retained",
       source: "git:/repo@main",
@@ -196,8 +199,8 @@ describe("normalized plugin persistence", () => {
       enabled: true,
       enabledFollowsDefault: false,
     };
-    upsertInstalledPlugin(db, retainedPlugin);
-    createPluginArtifact(db, {
+    await upsertInstalledPlugin(db, retainedPlugin);
+    await createPluginArtifact(db, {
       id: "retained-artifact",
       pluginId: "retained",
       sourceKind: "git",
@@ -210,26 +213,29 @@ describe("normalized plugin persistence", () => {
       validationResult: "valid",
       validatedAt: Date.now(),
     });
-    upsertInstalledPlugin(db, { ...retainedPlugin, activeArtifactId: "retained-artifact" });
+    await upsertInstalledPlugin(db, {
+      ...retainedPlugin,
+      activeArtifactId: "retained-artifact",
+    });
 
-    expect(deleteInstalledPlugin(db, "retained")).toBe(true);
-    expect(listPluginArtifacts(db, "retained")).toHaveLength(1);
+    expect(await deleteInstalledPlugin(db, "retained")).toBe(true);
+    expect(await listPluginArtifacts(db, "retained")).toHaveLength(1);
   });
 
-  it("matches LIKE metacharacters in key and path prefixes literally", () => {
+  it("matches LIKE metacharacters in key and path prefixes literally", async () => {
     for (const key of ["a_b/1", "axb/2", "50%/3", "50x/4", "c\\d/5", "cxd/6"]) {
-      setPluginKvValue(db, "kv-plugin", key, "value");
+      await setPluginKvValue(db, "kv-plugin", key, "value");
     }
-    expect(listPluginKvKeys(db, "kv-plugin", "a_b")).toEqual(["a_b/1"]);
-    expect(listPluginKvKeys(db, "kv-plugin", "50%")).toEqual(["50%/3"]);
-    expect(listPluginKvKeys(db, "kv-plugin", "c\\")).toEqual(["c\\d/5"]);
+    expect(await listPluginKvKeys(db, "kv-plugin", "a_b")).toEqual(["a_b/1"]);
+    expect(await listPluginKvKeys(db, "kv-plugin", "50%")).toEqual(["50%/3"]);
+    expect(await listPluginKvKeys(db, "kv-plugin", "c\\")).toEqual(["c\\d/5"]);
 
     for (const [id, path] of [
       ["root", "/cache/a_b"],
       ["child", "/cache/a_b/child"],
       ["sibling", "/cache/axb/child"],
     ] as const) {
-      createPluginArtifact(db, {
+      await createPluginArtifact(db, {
         id,
         pluginId: "path-plugin",
         sourceKind: "npm",
@@ -244,10 +250,12 @@ describe("normalized plugin persistence", () => {
       });
     }
     expect(
-      listPluginArtifactsUnderPath(db, "/cache/a_b", "/").map(({ id }) => id),
+      (await listPluginArtifactsUnderPath(db, "/cache/a_b", "/")).map(
+        ({ id }) => id,
+      ),
     ).toEqual(["child"]);
     expect(
-      listPluginArtifactsAtOrUnderPath(db, "/cache/a_b", "/").map(
+      (await listPluginArtifactsAtOrUnderPath(db, "/cache/a_b", "/")).map(
         ({ id }) => id,
       ),
     ).toEqual(["root", "child"]);

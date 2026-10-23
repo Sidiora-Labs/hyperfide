@@ -18,9 +18,9 @@ afterEach(async () => {
 
 async function harness() {
   const dataDir = await mkdtemp(join(tmpdir(), "bb-enrollments-test-"));
-  const db = createMigratedConnection();
+  const db = await createMigratedConnection();
   cleanup.push(async () => {
-    db.$client.close();
+    await db.close();
     await rm(dataDir, { recursive: true, force: true });
   });
   const machineAuth = await createMachineAuthService({
@@ -69,9 +69,10 @@ async function harness() {
     }),
     decisionTimeoutMs: 1_000,
   });
-  const seed = (key: string) => {
+  const seed = async (key: string) => {
     const now = Date.now();
-    db.insert(hosts)
+    await db
+      .insert(hosts)
       .values({
         id: `host_${key}`,
         name: "Test machine",
@@ -100,7 +101,7 @@ async function harness() {
 describe("machine enrollments", () => {
   it("serializes same-key prepares and reissues credentials for the same durable identity", async () => {
     const h = await harness();
-    h.seed("create");
+    await h.seed("create");
     const [first, parallel] = await Promise.all([
       h.api.prepare({ signal: new AbortController().signal, key: "create" }),
       h.api.prepare({ signal: new AbortController().signal, key: "create" }),
@@ -121,20 +122,20 @@ describe("machine enrollments", () => {
     if (parallel.state !== "pending")
       throw new Error("Expected pending enrollment");
     expect(parallel.bootstrap.credential).not.toBe(first.bootstrap.credential);
-    expect(JSON.stringify(h.db.select().from(hosts).all())).not.toContain(
+    expect(JSON.stringify(await h.db.select().from(hosts).all())).not.toContain(
       first.bootstrap.credential,
     );
   });
 
   it("rejects removed identities", async () => {
     const h = await harness();
-    h.seed("removed");
+    await h.seed("removed");
     const prepared = await h.api.prepare({
       signal: new AbortController().signal,
       key: "removed",
     });
     if (prepared.state !== "pending") throw new Error("Expected enrollment");
-    h.db
+    await h.db
       .update(hosts)
       .set({ phase: "destroyed" })
       .where(eq(hosts.id, prepared.hostId))
@@ -146,7 +147,7 @@ describe("machine enrollments", () => {
 
   it("recovers a lost exchange response with a fresh credential for the same identity", async () => {
     const h = await harness();
-    h.seed("lost-response");
+    await h.seed("lost-response");
     const first = await h.api.prepare({
       signal: new AbortController().signal,
       key: "lost-response",
@@ -192,7 +193,7 @@ describe("machine enrollments", () => {
     expect(
       await h.machineAuth.verifyDaemonHostKey(recovered.hostKey),
     ).not.toBeNull();
-    h.db
+    await h.db
       .update(hosts)
       .set({ lastSeenAt: Date.now() })
       .where(eq(hosts.id, first.hostId))
@@ -211,7 +212,7 @@ describe("machine enrollments", () => {
 
   it("recovers access failures with the same durable host identity", async () => {
     const h = await harness();
-    h.seed("create");
+    await h.seed("create");
     h.serverAccess.resolve.mockRejectedValueOnce(
       new Error("temporarily unavailable"),
     );
@@ -228,7 +229,7 @@ describe("machine enrollments", () => {
 
 it("propagates cancellation to acquisition and never publishes a late enrollment command", async () => {
   const h = await harness();
-  h.seed("cancel");
+  await h.seed("cancel");
   const controller = new AbortController();
   let finish: () => void = () => {};
   let acquisitionSignal: AbortSignal | undefined;

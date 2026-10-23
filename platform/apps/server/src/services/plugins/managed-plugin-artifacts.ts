@@ -1,3 +1,4 @@
+import { buildProjectedPluginHost as buildPluginHost } from "../../v22-identity-projection.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
@@ -17,11 +18,7 @@ import {
   type PluginProvenance,
   type PluginSourceIntent,
 } from "@hyperfide/db";
-import {
-  buildPluginApp,
-  buildPluginHost,
-  buildPluginServer,
-} from "@hyperfide/plugin-build";
+import { buildPluginApp, buildPluginServer } from "@hyperfide/plugin-build";
 import {
   assertPublicMarketplaceUrl,
   boundedResponseJson,
@@ -191,8 +188,8 @@ export function createListedRegistryNpmResolverRun(listedRegistry: string) {
         redirect: "error",
       });
     },
-    readJson: (response) =>
-      boundedResponseJson(
+    readJson: async (response) =>
+      await boundedResponseJson(
         response,
         MARKETPLACE_PACKUMENT_MAX_BYTES,
         "npm registry metadata",
@@ -457,7 +454,7 @@ export function createManagedPluginArtifacts(
       return undefined;
     }
     if (existing.validationResult === "pending") {
-      setPluginArtifactValidation(deps.db, existing.id, {
+      await setPluginArtifactValidation(deps.db, existing.id, {
         contentHash: existing.contentHash,
         validationResult: "valid",
         validatedAt: Date.now(),
@@ -466,37 +463,40 @@ export function createManagedPluginArtifacts(
     return existing;
   }
 
-  function markArtifactValid(artifactId: string, contentHash: string): void {
+  async function markArtifactValid(
+    artifactId: string,
+    contentHash: string,
+  ): Promise<void> {
     if (
-      !setPluginArtifactValidation(deps.db, artifactId, {
+      !(await setPluginArtifactValidation(deps.db, artifactId, {
         contentHash,
         validationResult: "valid",
         validatedAt: Date.now(),
-      })
+      }))
     ) {
       throw new Error(`plugin artifact disappeared: ${artifactId}`);
     }
   }
 
-  function ownedOrCreatedArtifact(args: {
+  async function ownedOrCreatedArtifact(args: {
     owned: PluginArtifactRow | undefined;
     create: Parameters<typeof createPluginArtifact>[1] & {
       contentHash: string;
     };
     resetExisting: boolean;
-  }): PluginArtifactRow {
+  }): Promise<PluginArtifactRow> {
     if (args.owned === undefined) {
-      return createPluginArtifact(deps.db, args.create);
+      return await createPluginArtifact(deps.db, args.create);
     }
     if (args.resetExisting) {
       if (args.create.gitCheckoutRoot !== null) {
-        setPluginArtifactGitCheckoutRoot(
+        await setPluginArtifactGitCheckoutRoot(
           deps.db,
           args.owned.id,
           args.create.gitCheckoutRoot,
         );
       }
-      setPluginArtifactValidation(deps.db, args.owned.id, {
+      await setPluginArtifactValidation(deps.db, args.owned.id, {
         contentHash: args.create.contentHash,
         validationResult: "pending",
         validatedAt: null,
@@ -505,10 +505,10 @@ export function createManagedPluginArtifacts(
     return args.owned;
   }
 
-  function preservedNestedRoots(root: string): string[] {
+  async function preservedNestedRoots(root: string): Promise<string[]> {
     return nestedPluginRoots(
       root,
-      listPluginArtifactsUnderPath(deps.db, root, sep).map(
+      (await listPluginArtifactsUnderPath(deps.db, root, sep)).map(
         (artifact) => artifact.path,
       ),
     );
@@ -519,7 +519,7 @@ export function createManagedPluginArtifacts(
     changedRoot: string;
     changedArtifactId: string;
   }): Promise<void> {
-    const artifacts = listPluginArtifactsAtOrUnderPath(
+    const artifacts = await listPluginArtifactsAtOrUnderPath(
       deps.db,
       args.checkoutRoot,
       sep,
@@ -536,7 +536,7 @@ export function createManagedPluginArtifacts(
       }
       const contentHash = await hashInstallDir(artifact.path);
       if (
-        !setPluginArtifactValidation(
+        !(await setPluginArtifactValidation(
           deps.db,
           artifact.id,
           artifact.validationResult === "pending"
@@ -546,7 +546,7 @@ export function createManagedPluginArtifacts(
                 validationResult: "valid",
                 validatedAt: artifact.validatedAt ?? Date.now(),
               },
-        )
+        ))
       ) {
         throw new Error(`plugin artifact disappeared: ${artifact.id}`);
       }
@@ -586,12 +586,12 @@ export function createManagedPluginArtifacts(
         );
       }
     }
-    return resolveGitRangeSelector({
+    return await resolveGitRangeSelector({
       url: parsed.url,
       range: selector.range,
       tagPrefix: selector.kind === "range" ? selector.tagPrefix : "",
-      probeCandidate: (candidate) =>
-        probeGitInstallCandidate({
+      probeCandidate: async (candidate) =>
+        await probeGitInstallCandidate({
           parsed,
           source,
           selection,
@@ -721,7 +721,7 @@ export function createManagedPluginArtifacts(
       parsed.cachePath,
       resolvedCommit,
     );
-    return withArtifactLock(targetDir, async () => {
+    return await withArtifactLock(targetDir, async () => {
       const stagingDir = `${targetDir}.staging`;
       await rm(stagingDir, { recursive: true, force: true });
       const cachedSubdirectory = await resolveSelectedSubdirectory({
@@ -753,7 +753,7 @@ export function createManagedPluginArtifacts(
       if (cachedManifest !== null && cachedRegistrationIdentity !== null) {
         assertExpectedPluginId(context, cachedManifest.id, source);
         assertInstallRegistrationAvailable(
-          getInstalledPlugin(deps.db, cachedManifest.id),
+          await getInstalledPlugin(deps.db, cachedManifest.id),
           cachedRegistrationIdentity,
           cachedManifest.id,
         );
@@ -761,7 +761,7 @@ export function createManagedPluginArtifacts(
       const existingArtifact =
         cachedManifest === null
           ? undefined
-          : getPluginArtifactByResolution(deps.db, {
+          : await getPluginArtifactByResolution(deps.db, {
               sourceKind: "git",
               pluginId: cachedManifest.id,
               path: targetRoot,
@@ -806,7 +806,7 @@ export function createManagedPluginArtifacts(
         const stagedManifest = await readPluginManifest(stagedRealRoot);
         assertExpectedPluginId(context, stagedManifest.id, source);
         assertInstallRegistrationAvailable(
-          getInstalledPlugin(deps.db, stagedManifest.id),
+          await getInstalledPlugin(deps.db, stagedManifest.id),
           stagedRegistrationIdentity,
           stagedManifest.id,
         );
@@ -817,8 +817,8 @@ export function createManagedPluginArtifacts(
           refuseEngineMismatch: true,
         });
         const contentHash = await hashInstallDir(stagedRealRoot);
-        const artifact = ownedOrCreatedArtifact({
-          owned: getPluginArtifactByResolution(deps.db, {
+        const artifact = await ownedOrCreatedArtifact({
+          owned: await getPluginArtifactByResolution(deps.db, {
             sourceKind: "git",
             pluginId: stagedManifest.id,
             path: stagedTargetRoot,
@@ -854,7 +854,7 @@ export function createManagedPluginArtifacts(
               targetDir,
               subdirectory: stagedSubdirectory,
               contentHash,
-              preserveNestedRoots: preservedNestedRoots(stagedTargetRoot),
+              preserveNestedRoots: await preservedNestedRoots(stagedTargetRoot),
             });
             await refreshAncestorArtifactHashes({
               checkoutRoot: targetDir,
@@ -866,7 +866,7 @@ export function createManagedPluginArtifacts(
               artifactId: artifact.id,
               path: stagedTargetRoot,
             });
-            markArtifactValid(artifact.id, promotedHash);
+            await markArtifactValid(artifact.id, promotedHash);
           },
         });
       } catch (error) {
@@ -932,7 +932,7 @@ export function createManagedPluginArtifacts(
     const pluginId = derivePluginId(parsed.name);
     assertExpectedPluginId(context, pluginId, source);
     assertInstallRegistrationAvailable(
-      getInstalledPlugin(deps.db, pluginId),
+      await getInstalledPlugin(deps.db, pluginId),
       registrationIdentity,
       pluginId,
     );
@@ -972,7 +972,7 @@ export function createManagedPluginArtifacts(
       candidate.version,
     );
     const rootDir = npmPackageRoot(prefix, parsed.name);
-    return withArtifactLock(prefix, async () => {
+    return await withArtifactLock(prefix, async () => {
       const stagingPrefix = `${prefix}.staging`;
       await rm(stagingPrefix, { recursive: true, force: true });
       const cachedManifest = await readPluginManifest(rootDir).catch(
@@ -981,7 +981,7 @@ export function createManagedPluginArtifacts(
       const existingArtifact =
         cachedManifest === null
           ? undefined
-          : getPluginArtifactByResolution(deps.db, {
+          : await getPluginArtifactByResolution(deps.db, {
               sourceKind: "npm",
               pluginId: cachedManifest.id,
               path: rootDir,
@@ -1034,16 +1034,16 @@ export function createManagedPluginArtifacts(
         }
         const manifest = await readPluginManifest(stagedRoot);
         const contentHash = await hashInstallDir(stagingPrefix);
-        const artifact = ownedOrCreatedArtifact({
+        const artifact = await ownedOrCreatedArtifact({
           owned:
             existingArtifact ??
-            getPluginArtifactByResolution(deps.db, {
+            (await getPluginArtifactByResolution(deps.db, {
               sourceKind: "npm",
               pluginId: manifest.id,
               path: rootDir,
               version: candidate.version,
               integrity: candidate.integrity,
-            }),
+            })),
           create: {
             id: randomUUID(),
             pluginId: manifest.id,
@@ -1083,7 +1083,7 @@ export function createManagedPluginArtifacts(
               artifactId: artifact.id,
               path: rootDir,
             });
-            markArtifactValid(artifact.id, contentHash);
+            await markArtifactValid(artifact.id, contentHash);
           },
         });
       } catch (error) {
@@ -1133,11 +1133,12 @@ export function createManagedPluginArtifacts(
     );
     const targetRoot = pluginRootDir(targetDir, args.row.sourceGitSubdirectory);
     if (args.promote && !args.artifactLocked) {
-      return withArtifactLock(targetDir, () =>
-        stageGitCandidate({ ...args, artifactLocked: true }),
+      return await withArtifactLock(
+        targetDir,
+        async () => await stageGitCandidate({ ...args, artifactLocked: true }),
       );
     }
-    const existingArtifact = getPluginArtifactByResolution(deps.db, {
+    const existingArtifact = await getPluginArtifactByResolution(deps.db, {
       sourceKind: "git",
       pluginId: args.row.id,
       path: targetRoot,
@@ -1167,7 +1168,7 @@ export function createManagedPluginArtifacts(
         throw new Error(`plugin "${args.row.id}" update lacks git intent`);
       }
       if (existingArtifact.validationResult === "pending") {
-        setPluginArtifactValidation(deps.db, existingArtifact.id, {
+        await setPluginArtifactValidation(deps.db, existingArtifact.id, {
           contentHash: existingArtifact.contentHash,
           validationResult: "valid",
           validatedAt: Date.now(),
@@ -1274,7 +1275,7 @@ export function createManagedPluginArtifacts(
         }
         const activationSelector = args.activationSelector;
         const contentHash = await hashInstallDir(realPluginRoot);
-        const artifact = ownedOrCreatedArtifact({
+        const artifact = await ownedOrCreatedArtifact({
           owned: existingArtifact,
           create: {
             id: randomUUID(),
@@ -1310,7 +1311,7 @@ export function createManagedPluginArtifacts(
               targetDir,
               subdirectory: args.row.sourceGitSubdirectory,
               contentHash,
-              preserveNestedRoots: preservedNestedRoots(targetRoot),
+              preserveNestedRoots: await preservedNestedRoots(targetRoot),
             });
             await refreshAncestorArtifactHashes({
               checkoutRoot: targetDir,
@@ -1322,7 +1323,7 @@ export function createManagedPluginArtifacts(
               artifactId: artifact.id,
               path: targetRoot,
             });
-            markArtifactValid(artifact.id, promotedHash);
+            await markArtifactValid(artifact.id, promotedHash);
           },
         });
         artifactId = artifact.id;
@@ -1354,8 +1355,8 @@ export function createManagedPluginArtifacts(
       targetPrefix,
       args.selectionIntent.packageName,
     );
-    return withArtifactLock(targetPrefix, async () => {
-      const existingArtifact = getPluginArtifactByResolution(deps.db, {
+    return await withArtifactLock(targetPrefix, async () => {
+      const existingArtifact = await getPluginArtifactByResolution(deps.db, {
         sourceKind: "npm",
         pluginId: args.row.id,
         path: targetRoot,
@@ -1419,7 +1420,7 @@ export function createManagedPluginArtifacts(
           );
         }
         const contentHash = await hashInstallDir(stagingPrefix);
-        const artifact = ownedOrCreatedArtifact({
+        const artifact = await ownedOrCreatedArtifact({
           owned: existingArtifact,
           create: {
             id: randomUUID(),
@@ -1459,7 +1460,7 @@ export function createManagedPluginArtifacts(
               artifactId: artifact.id,
               path: targetRoot,
             });
-            markArtifactValid(artifact.id, contentHash);
+            await markArtifactValid(artifact.id, contentHash);
           },
         });
       } catch (error) {

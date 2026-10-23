@@ -96,7 +96,9 @@ const ACME_AI = { pluginId: "acme-ai", serviceId: "acme-ai" };
 async function withPluginHarness(
   run: (harness: TestAppHarness, workDir: string) => Promise<void>,
 ): Promise<void> {
-  const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-ai-service-test-"));
+  const workDir = await mkdtemp(
+    join(tmpdir(), "hyperfide-plugin-ai-service-test-"),
+  );
   try {
     await withTestHarness((harness) => run(harness, workDir));
   } finally {
@@ -222,16 +224,17 @@ describe("bb.experimental_aiServices.register (server)", () => {
         await writeFile(join(rootDir, "host.ts"), HOST_SOURCE);
         await harness.pluginService.reload(entry.id);
         expect(
-          harness.pluginService.list().find((plugin) => plugin.id === entry.id)
-            ?.status,
+          (await harness.pluginService.list()).find(
+            (plugin) => plugin.id === entry.id,
+          )?.status,
         ).toBe("running");
         expect(harness.deps.providerRegistry.get(id)?.info.available).toBe(
           true,
         );
         expect(
-          harness.deps.providerRegistry
-            .list()
-            .filter((provider) => provider.info.id === id),
+          (await harness.deps.providerRegistry.list()).filter(
+            (provider) => provider.info.id === id,
+          ),
         ).toHaveLength(1);
         expect(
           harness.deps.aiServices.get({ pluginId: entry.id, serviceId: id })

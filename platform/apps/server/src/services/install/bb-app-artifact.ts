@@ -259,7 +259,7 @@ export function createBbAppArtifactService(
   let resolvedPackagePromise: Promise<ResolvedBbAppPackage> | undefined;
   let artifactPromise: Promise<BbAppArtifact> | undefined;
 
-  function getResolvedPackage(): Promise<ResolvedBbAppPackage> {
+  async function getResolvedPackage(): Promise<ResolvedBbAppPackage> {
     resolvedPackagePromise ??= resolveBbAppPackage(options.serverEntryUrl);
     return resolvedPackagePromise;
   }
@@ -315,7 +315,7 @@ export function createBbAppArtifactService(
   }
 
   return {
-    getArtifact(): Promise<BbAppArtifact> {
+    async getArtifact(): Promise<BbAppArtifact> {
       artifactPromise ??= buildArtifact().catch((error: unknown) => {
         artifactPromise = undefined;
         throw error;

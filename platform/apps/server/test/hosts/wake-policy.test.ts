@@ -49,8 +49,8 @@ afterEach(() => {
 it.each(commands)(
   "does not wake for $type through either live command dispatcher",
   async (command) =>
-    withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+    await withTestHarness(async (harness) => {
+      const { host } = await seedHostSession(harness.deps, {
         id: "non-waking-command",
       });
       const resume = vi.fn(async () => ({ resource: { id: "restored" } }));
@@ -58,7 +58,7 @@ it.each(commands)(
         resume,
         suspend: async () => ({ resource: { id: "saved" } }),
       });
-      updateHost(harness.db, harness.hub, host.id, {
+      await updateHost(harness.db, harness.hub, host.id, {
         machineProviderId: "test-machine",
         phase: "suspended",
         resource: { id: "saved" },
@@ -72,19 +72,21 @@ it.each(commands)(
       }
       expect(resume).not.toHaveBeenCalled();
       expect(request).not.toHaveBeenCalled();
-      expect(getHost(harness.db, host.id)?.phase).toBe("suspended");
+      expect((await getHost(harness.db, host.id))?.phase).toBe("suspended");
     }),
 );
 
 it("only wakes a workspace preflight when its caller explicitly requests work", async () =>
-  withTestHarness(async (harness) => {
-    const { host } = seedHostSession(harness.deps, { id: "explicit-work" });
+  await withTestHarness(async (harness) => {
+    const { host } = await seedHostSession(harness.deps, {
+      id: "explicit-work",
+    });
     const resume = vi.fn(async () => ({ resource: { id: "restored" } }));
     installMachineProvider({
       resume,
       suspend: async () => ({ resource: { id: "saved" } }),
     });
-    updateHost(harness.db, harness.hub, host.id, {
+    await updateHost(harness.db, harness.hub, host.id, {
       machineProviderId: "test-machine",
       phase: "suspended",
       resource: { id: "saved" },
@@ -113,14 +115,16 @@ it("only wakes a workspace preflight when its caller explicitly requests work", 
   }));
 
 it("does not wake a suspended machine for migration RPCs", async () =>
-  withTestHarness(async (harness) => {
-    const { host } = seedHostSession(harness.deps, { id: "migration-policy" });
+  await withTestHarness(async (harness) => {
+    const { host } = await seedHostSession(harness.deps, {
+      id: "migration-policy",
+    });
     const resume = vi.fn(async () => ({ resource: { id: "restored" } }));
     installMachineProvider({
       resume,
       suspend: async () => ({ resource: { id: "saved" } }),
     });
-    updateHost(harness.db, harness.hub, host.id, {
+    await updateHost(harness.db, harness.hub, host.id, {
       machineProviderId: "test-machine",
       phase: "suspended",
       resource: { id: "saved" },
@@ -148,5 +152,5 @@ it("does not wake a suspended machine for migration RPCs", async () =>
     }
     expect(resume).not.toHaveBeenCalled();
     expect(request).not.toHaveBeenCalled();
-    expect(getHost(harness.db, host.id)?.phase).toBe("suspended");
+    expect((await getHost(harness.db, host.id))?.phase).toBe("suspended");
   }));

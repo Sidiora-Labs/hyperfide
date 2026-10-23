@@ -165,13 +165,13 @@ export function registerSystemRoutes(
     return context.json(await mobileAppReleases());
   });
 
-  get(routes.attention, (context) =>
-    context.json({ hasAttention: hasActiveThreadAttention(deps.db) }),
+  get(routes.attention, async (context) =>
+    context.json({ hasAttention: await hasActiveThreadAttention(deps.db) }),
   );
 
-  function readAppKeybindingOverrides(): AppKeybindingOverrides {
+  async function readAppKeybindingOverrides(): Promise<AppKeybindingOverrides> {
     try {
-      return getAppKeybindingOverrides(deps.db);
+      return await getAppKeybindingOverrides(deps.db);
     } catch (error) {
       deps.logger.error(
         { err: error },
@@ -201,8 +201,8 @@ export function registerSystemRoutes(
   }
 
   async function buildSystemConfigResponse(serverUrl: string) {
-    const keybindingOverrides = readAppKeybindingOverrides();
-    const primaryHostId = resolvePrimaryHostId(deps);
+    const keybindingOverrides = await readAppKeybindingOverrides();
+    const primaryHostId = await resolvePrimaryHostId(deps);
     const localHelperPorts = [
       ...new Set([
         deps.config.hostDaemonPort,
@@ -210,21 +210,21 @@ export function registerSystemRoutes(
       ]),
     ];
     return {
-      generalSettings: compatibleGeneralSettings(),
+      generalSettings: await compatibleGeneralSettings(),
       serverAccess: await serverAccessStatus(deps),
-      authority: await authorityBridge?.status() ?? { status: "disabled" },
+      authority: (await authorityBridge?.status()) ?? { status: "disabled" },
       keybindings: applyAppKeybindingOverrides(
         DEFAULT_APP_KEYBINDINGS,
         keybindingOverrides,
       ),
       defaultKeybindings: DEFAULT_APP_KEYBINDINGS,
       keybindingOverrides,
-      experiments: getExperiments(deps.db),
+      experiments: await getExperiments(deps.db),
       performanceDiagnosticsAvailable:
         deps.config.performanceDiagnosticsAvailable,
       appearance: await resolveSelectedTheme(
-        getStoredThemeId(deps.db),
-        getStoredFaviconColor(deps.db),
+        await getStoredThemeId(deps.db),
+        await getStoredFaviconColor(deps.db),
       ),
       customThemes: listCustomThemeNames(themeRoot),
       pluginThemes: pluginService.listThemes(),
@@ -237,7 +237,7 @@ export function registerSystemRoutes(
         primaryHostId === null
           ? null
           : deps.hub.getDaemonPlatformForHost(primaryHostId),
-      voiceTranscriptionEnabled: resolveVoiceTranscriptionEnabled(deps),
+      voiceTranscriptionEnabled: await resolveVoiceTranscriptionEnabled(deps),
       dataDir: deps.config.dataDir,
     };
   }
@@ -247,8 +247,8 @@ export function registerSystemRoutes(
     return context.json(await buildSystemConfigResponse(serverUrl));
   });
 
-  function compatibleGeneralSettings() {
-    const settings = getAppSettings(deps.db);
+  async function compatibleGeneralSettings() {
+    const settings = await getAppSettings(deps.db);
     return {
       ...settings,
       showUnhandledProviderEvents: settings.showDiagnosticEvents,
@@ -268,7 +268,7 @@ export function registerSystemRoutes(
       null,
     );
     deps.lifecycleDedupers.providerModelCatalogs.markAllStale();
-    deps.hub.notifySystem(["config-changed"]);
+    await deps.hub.notifySystem(["config-changed"]);
     return context.json(await machineEnvironmentView(deps.db));
   });
 
@@ -281,7 +281,7 @@ export function registerSystemRoutes(
       );
     await deleteMachineEnvironmentVariable(deps.db, payload.name, null);
     deps.lifecycleDedupers.providerModelCatalogs.markAllStale();
-    deps.hub.notifySystem(["config-changed"]);
+    await deps.hub.notifySystem(["config-changed"]);
     return context.json(await machineEnvironmentView(deps.db));
   });
 
@@ -297,13 +297,13 @@ export function registerSystemRoutes(
       );
     await replaceMachineEnvironment(deps.db, deps.config.dataDir, payload);
     deps.lifecycleDedupers.providerModelCatalogs.markAllStale();
-    deps.hub.notifySystem(["config-changed"]);
+    await deps.hub.notifySystem(["config-changed"]);
     return context.json(await machineEnvironmentView(deps.db));
   });
 
-  put(routes.generalSettings, (context, payload) => {
+  put(routes.generalSettings, async (context, payload) => {
     const { showUnhandledProviderEvents, ...settings } = payload;
-    const current = getAppSettings(deps.db);
+    const current = await getAppSettings(deps.db);
     const diagnosticValue =
       "showDiagnosticEvents" in settings
         ? settings.showDiagnosticEvents
@@ -338,21 +338,21 @@ export function registerSystemRoutes(
           ? showUnhandledProviderEvents
           : diagnosticValue,
     });
-    setAppSettings(deps.db, updatedSettings);
-    deps.hub.notifySystem(["config-changed"]);
-    return context.json(compatibleGeneralSettings());
+    await setAppSettings(deps.db, updatedSettings);
+    await deps.hub.notifySystem(["config-changed"]);
+    return context.json(await compatibleGeneralSettings());
   });
 
-  put(routes.keyboardSettings, (context, payload) => {
-    setAppKeybindingOverrides(deps.db, payload);
-    deps.hub.notifySystem(["config-changed"]);
-    return context.json(getAppKeybindingOverrides(deps.db));
+  put(routes.keyboardSettings, async (context, payload) => {
+    await setAppKeybindingOverrides(deps.db, payload);
+    await deps.hub.notifySystem(["config-changed"]);
+    return context.json(await getAppKeybindingOverrides(deps.db));
   });
 
-  put(routes.experiments, (context, payload) => {
-    setExperiments(deps.db, payload);
-    deps.hub.notifySystem(["config-changed"]);
-    return context.json(getExperiments(deps.db));
+  put(routes.experiments, async (context, payload) => {
+    await setExperiments(deps.db, payload);
+    await deps.hub.notifySystem(["config-changed"]);
+    return context.json(await getExperiments(deps.db));
   });
 
   async function requireKnownTheme(themeId: string): Promise<void> {
@@ -377,8 +377,8 @@ export function registerSystemRoutes(
   put(routes.appearance, async (context, payload) => {
     const { themeId, faviconColor } = payload;
     await requireKnownTheme(themeId);
-    setStoredAppearance(deps.db, { themeId, faviconColor });
-    deps.hub.notifySystem(["config-changed"]);
+    await setStoredAppearance(deps.db, { themeId, faviconColor });
+    await deps.hub.notifySystem(["config-changed"]);
     return context.json(await resolveSelectedTheme(themeId, faviconColor));
   });
 
@@ -386,7 +386,7 @@ export function registerSystemRoutes(
     const themeId = context.req.param("id");
     await requireKnownTheme(themeId);
     return context.json(
-      await resolveSelectedTheme(themeId, getStoredFaviconColor(deps.db)),
+      await resolveSelectedTheme(themeId, await getStoredFaviconColor(deps.db)),
     );
   });
 
@@ -396,8 +396,8 @@ export function registerSystemRoutes(
       custom: listCustomThemeNames(themeRoot),
       plugins: pluginService.listThemes(),
       active: await resolveSelectedTheme(
-        getStoredThemeId(deps.db),
-        getStoredFaviconColor(deps.db),
+        await getStoredThemeId(deps.db),
+        await getStoredFaviconColor(deps.db),
       ),
     }),
   );
@@ -417,7 +417,7 @@ export function registerSystemRoutes(
       await readGlobalCliSkillStatus(deps, {
         hostIds:
           query.hostIds === undefined
-            ? listInstallableMachineIds(deps)
+            ? await listInstallableMachineIds(deps)
             : query.hostIds.split(",").filter((hostId) => hostId.length > 0),
       }),
     ),
@@ -431,7 +431,7 @@ export function registerSystemRoutes(
     const project =
       query.projectId === undefined
         ? null
-        : requirePublicProject(deps.db, query.projectId);
+        : await requirePublicProject(deps.db, query.projectId);
     return context.json({
       providers: (
         await Promise.all(
@@ -463,19 +463,19 @@ export function registerSystemRoutes(
             .map(async (record): Promise<SystemEnvironmentProvider | null> => {
               if (
                 query.projectId !== undefined &&
-                !environmentProviderMatchesContext(deps, record, {
+                !(await environmentProviderMatchesContext(deps, record, {
                   projectId: query.projectId,
                   ...(query.hostId === undefined
                     ? {}
                     : { hostId: query.hostId }),
-                })
+                }))
               ) {
                 return null;
               }
               const machineAvailability =
                 query.projectId === undefined
                   ? {}
-                  : environmentProviderMachineAvailability(deps, record, {
+                  : await environmentProviderMachineAvailability(deps, record, {
                       projectId: query.projectId,
                       ...(query.hostId === undefined
                         ? {}
@@ -604,7 +604,7 @@ export function registerSystemRoutes(
 
   get(routes.providerCatalog, async (context) => {
     await deps.providerRegistry.whenRegistrationsSettled();
-    return context.json(providerManagementCatalog(deps, pluginService));
+    return context.json(await providerManagementCatalog(deps, pluginService));
   });
   put(routes.providerEnabled, async (context, payload) =>
     context.json(

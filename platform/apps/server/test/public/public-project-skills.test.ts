@@ -60,7 +60,7 @@ function registryHtml(args: {
   })}</script>`;
 }
 
-function registerSkillRpc(
+async function registerSkillRpc(
   harness: Parameters<typeof registerHostRpcResponder>[0],
   args: {
     hostId: string;
@@ -72,9 +72,9 @@ function registerSkillRpc(
     fileContentsByRoot?: Record<string, string>;
     writeConflicts?: boolean;
   },
-): SkillRpcStub {
+): Promise<SkillRpcStub> {
   const stub: SkillRpcStub = { requests: [] };
-  const responder = registerHostRpcResponder(harness, {
+  const responder = await registerHostRpcResponder(harness, {
     hostId: args.hostId,
     sessionId: args.sessionId,
     handle: (request) => {
@@ -190,7 +190,10 @@ async function writePluginSkillFixture(rootPath: string): Promise<{
   pluginRootPath: string;
   skillFilePath: string;
 }> {
-  const pluginRootPath = join(rootPath, "hyperfide-plugin-skill-catalog-fixture");
+  const pluginRootPath = join(
+    rootPath,
+    "hyperfide-plugin-skill-catalog-fixture",
+  );
   const skillRootPath = join(pluginRootPath, "skills", "plugin-notes");
   await mkdir(skillRootPath, { recursive: true });
   await writeFile(
@@ -244,19 +247,19 @@ describe("public project skills route", () => {
         },
       },
       async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-shared-skill-list",
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
           path: "/tmp/shared-skill-list",
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
           path: "/tmp/shared-skill-list",
         });
-        registerSkillRpc(harness, {
+        await registerSkillRpc(harness, {
           hostId: host.id,
           sessionId: session.id,
           skillsByProvider: {
@@ -1058,14 +1061,14 @@ describe("public project skills route", () => {
 
   it("maps scope, de-dupes shared bb skills, and sorts the listing", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-skills",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/skills-project",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/skills-env",
@@ -1075,7 +1078,7 @@ describe("public project skills route", () => {
         "bb-data-dir",
         "/data/skills/bb-helper/SKILL.md",
       );
-      const stub = registerSkillRpc(harness, {
+      const stub = await registerSkillRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         skillsByProvider: {
@@ -1179,8 +1182,7 @@ describe("public project skills route", () => {
       const listed = stub.requests
         .map((request) => request.command)
         .filter((command) => command.type === "host.list_skills");
-      const surfaced = harness.deps.providerRegistry
-        .list()
+      const surfaced = (await harness.deps.providerRegistry.list())
         .filter(providerHasNativeRootSurface)
         .map((registration) => registration.info.id)
         .sort();
@@ -1246,15 +1248,15 @@ describe("public project skills route", () => {
         }),
       ]);
 
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-registry-provenance",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/registry-provenance-project",
       });
-      registerSkillRpc(harness, {
+      await registerSkillRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
       });
@@ -1289,25 +1291,27 @@ describe("public project skills route", () => {
   });
 
   it("lists and reads a bb plugin skill from the authoritative runtime catalog", async () => {
-    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-skill-route-"));
+    const workDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-plugin-skill-route-"),
+    );
     try {
       await withTestHarness(async (harness) => {
-        setExperiments(harness.db, {
+        await setExperiments(harness.db, {
           ...defaultExperiments,
         });
         const { pluginRootPath, skillFilePath } =
           await writePluginSkillFixture(workDir);
         const installed =
           await harness.pluginService.installPath(pluginRootPath);
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-plugin-skill",
         });
         seedPrimaryHost(harness.deps, host.id);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
           path: "/tmp/plugin-skill-project",
         });
-        const stub = registerSkillRpc(harness, {
+        const stub = await registerSkillRpc(harness, {
           hostId: host.id,
           sessionId: session.id,
         });
@@ -1360,19 +1364,19 @@ describe("public project skills route", () => {
 
   it("deletes a bb skill via the confined daemon primitive", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-skill-delete",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/skill-delete-project",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/skill-delete-env",
       });
-      const stub = registerSkillRpc(harness, {
+      const stub = await registerSkillRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         skillsByProvider: {
@@ -1418,19 +1422,19 @@ describe("public project skills route", () => {
 
   it("deletes a user-owned provider skill through its resolved root", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-provider-skill-delete",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/provider-skill-delete-project",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/provider-skill-delete-env",
       });
-      const stub = registerSkillRpc(harness, {
+      const stub = await registerSkillRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         skillsByProvider: {
@@ -1474,19 +1478,19 @@ describe("public project skills route", () => {
 
   it("lists bundled skill files and reads the selected file relative to the skill root", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-skill-files",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/skill-files-project",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/skill-files-env",
       });
-      const stub = registerSkillRpc(harness, {
+      const stub = await registerSkillRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         skillsByProvider: {
@@ -1547,17 +1551,17 @@ describe("public project skills route", () => {
 
   it("uses opaque IDs to read duplicate-name skills from distinct roots", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-duplicate-skills",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/duplicate-skills-project",
       });
       const claudePath = "/home/.claude/skills/review/SKILL.md";
       const codexPath = "/home/.codex/skills/review/SKILL.md";
-      registerSkillRpc(harness, {
+      await registerSkillRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         skillsByProvider: {
@@ -1594,15 +1598,15 @@ describe("public project skills route", () => {
 
   it("edits a Claude user skill through its authoritative local path", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-claude-skill-edit",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/claude-skill-edit-project",
       });
-      const stub = registerSkillRpc(harness, {
+      const stub = await registerSkillRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         skillsByProvider: {
@@ -1649,17 +1653,17 @@ describe("public project skills route", () => {
 
   it("returns 409 for stale bb and provider skill revisions", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-stale-skill-edit",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/stale-skill-edit-project",
       });
       const bbPath = "/data/skills/review/SKILL.md";
       const providerPath = "/home/.claude/skills/review/SKILL.md";
-      const stub = registerSkillRpc(harness, {
+      const stub = await registerSkillRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         skillsByProvider: {
@@ -1710,16 +1714,16 @@ describe("public project skills route", () => {
 
   it("rejects a bb-project delete when no workspace resolves", async () => {
     await withTestHarness(async (harness) => {
-      const { host: hostA, session } = seedHostSession(harness.deps, {
+      const { host: hostA, session } = await seedHostSession(harness.deps, {
         id: "host-primary",
       });
-      const hostB = seedHost(harness.deps, { id: "host-source" });
+      const hostB = await seedHost(harness.deps, { id: "host-source" });
       seedPrimaryHost(harness.deps, hostA.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: hostB.id,
         path: "/tmp/other-host-project",
       });
-      registerSkillRpc(harness, {
+      await registerSkillRpc(harness, {
         hostId: hostA.id,
         sessionId: session.id,
         skillsByProvider: {

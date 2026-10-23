@@ -164,12 +164,12 @@ export function isLoopbackUrl(url: URL): boolean {
   return isLoopbackHostname(url.hostname);
 }
 
-export function oldServerAddress(
+export async function oldServerAddress(
   db: DbConnection,
   managed: ServerManagedFiles,
-): URL | null {
+): Promise<URL | null> {
   return parseHttpUrl(
-    getAppSettings(db).machineServerUrl ??
+    (await getAppSettings(db)).machineServerUrl ??
       managed.env.HYPERFIDE_EXTERNAL_URL ??
       null,
   );

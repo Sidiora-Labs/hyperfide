@@ -35,21 +35,23 @@ interface ThreadScript {
     type: SeedEventType,
     scope: ReturnType<typeof turnScope> | ReturnType<typeof threadScope>,
     data: Record<string, unknown>,
-  ): void;
-  startTurn(turn: number): string;
-  finishedTurn(turn: number): void;
+  ): void | Promise<void>;
+  startTurn(turn: number): Promise<string>;
+  finishedTurn(turn: number): void | Promise<void>;
 }
 
-function createThreadScript(harness: TestAppHarness): ThreadScript {
-  const { environment, thread } = seedThreadFixture(harness, {
+async function createThreadScript(
+  harness: TestAppHarness,
+): Promise<ThreadScript> {
+  const { environment, thread } = await seedThreadFixture(harness, {
     thread: { providerId: "codex" },
   });
   let sequence = 0;
   const script: ThreadScript = {
     threadId: thread.id,
-    append(type, scope, data) {
+    async append(type, scope, data) {
       sequence += 1;
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "p1",
@@ -59,10 +61,10 @@ function createThreadScript(harness: TestAppHarness): ThreadScript {
         data,
       });
     },
-    startTurn(turn) {
+    async startTurn(turn) {
       const turnId = `turn-${turn}`;
       const clientRequestId = encodeClientTurnRequestIdNumber({ value: turn });
-      script.append("client/turn/requested", threadScope(), {
+      await script.append("client/turn/requested", threadScope(), {
         direction: "outbound",
         source: "tell",
         initiator: "user",
@@ -79,32 +81,32 @@ function createThreadScript(harness: TestAppHarness): ThreadScript {
           source: "client/turn/requested",
         },
       });
-      script.append("turn/started", turnScope(turnId), {});
-      script.append("turn/input/accepted", turnScope(turnId), {
+      await script.append("turn/started", turnScope(turnId), {});
+      await script.append("turn/input/accepted", turnScope(turnId), {
         clientRequestId,
       });
       return turnId;
     },
-    finishedTurn(turn) {
-      const turnId = script.startTurn(turn);
-      script.append("item/completed", turnScope(turnId), {
+    async finishedTurn(turn) {
+      const turnId = await script.startTurn(turn);
+      await script.append("item/completed", turnScope(turnId), {
         item: {
           type: "agentMessage",
           id: `${turnId}-narration`,
           text: `Checking turn ${turn}.`,
         },
       });
-      script.append("item/completed", turnScope(turnId), {
+      await script.append("item/completed", turnScope(turnId), {
         item: command(`${turnId}-command`, "completed", `turn ${turn} output`),
       });
-      script.append("item/completed", turnScope(turnId), {
+      await script.append("item/completed", turnScope(turnId), {
         item: {
           type: "agentMessage",
           id: `${turnId}-answer`,
           text: `Turn ${turn} is done.`,
         },
       });
-      script.append("turn/completed", turnScope(turnId), {
+      await script.append("turn/completed", turnScope(turnId), {
         status: "completed",
       });
     },
@@ -241,7 +243,7 @@ async function refresh(
     await refetch(harness, client, threadId);
     return;
   }
-  harness.deps.hub.notifyThread(threadId, ["events-appended"]);
+  await harness.deps.hub.notifyThread(threadId, ["events-appended"]);
   await new Promise((resolve) => setTimeout(resolve, 50));
   const signals = socket.messages
     .splice(0)
@@ -365,15 +367,17 @@ describe.each(["refetch", "push"] as const)(
       let paged: unknown = null;
       let pages = 0;
       await withTestHarness(SMALL_WINDOW, async (harness) => {
-        const script = createThreadScript(harness);
-        for (let turn = 1; turn <= 8; turn += 1) script.finishedTurn(turn);
+        const script = await createThreadScript(harness);
+        for (let turn = 1; turn <= 8; turn += 1)
+          await script.finishedTurn(turn);
         const client = await openThread(harness, script.threadId, delivery);
         pages = await walkToStart(harness, client, script.threadId);
         paged = comparableRows(client.loaded.rows, script.threadId);
       });
       await withTestHarness(async (harness) => {
-        const script = createThreadScript(harness);
-        for (let turn = 1; turn <= 8; turn += 1) script.finishedTurn(turn);
+        const script = await createThreadScript(harness);
+        for (let turn = 1; turn <= 8; turn += 1)
+          await script.finishedTurn(turn);
         const whole = await readLatest(harness, script.threadId);
         expect(whole.timelinePage.olderCursor).toBeNull();
         expect(pages).toBeGreaterThan(2);
@@ -383,47 +387,52 @@ describe.each(["refetch", "push"] as const)(
 
     it("streams into a scrolled-back view and ends equal to a fresh walk", async () => {
       await withTestHarness(SMALL_WINDOW, async (harness) => {
-        const script = createThreadScript(harness);
-        for (let turn = 1; turn <= 6; turn += 1) script.finishedTurn(turn);
-        const turnId = script.startTurn(7);
+        const script = await createThreadScript(harness);
+        for (let turn = 1; turn <= 6; turn += 1)
+          await script.finishedTurn(turn);
+        const turnId = await script.startTurn(7);
         const client = await openThread(harness, script.threadId, delivery);
         await scrollBack(harness, client, script.threadId, 2);
         const scrolledBackIds = client.loaded.rows
           .slice(0, 3)
           .map((row) => row.id);
 
-        const steps: (() => void)[] = [
-          () =>
-            script.append("item/agentMessage/delta", turnScope(turnId), {
+        const steps: (() => unknown)[] = [
+          async () =>
+            await script.append("item/agentMessage/delta", turnScope(turnId), {
               itemId: "turn-7-live",
               delta: "Reading the logs.\n",
             }),
-          () =>
-            script.append("item/started", turnScope(turnId), {
+          async () =>
+            await script.append("item/started", turnScope(turnId), {
               item: command("turn-7-command", "pending", null),
             }),
-          () =>
-            script.append("item/completed", turnScope(turnId), {
+          async () =>
+            await script.append("item/completed", turnScope(turnId), {
               item: command("turn-7-command", "completed", "ok"),
             }),
-          () =>
-            script.append("item/completed", turnScope(turnId), {
+          async () =>
+            await script.append("item/completed", turnScope(turnId), {
               item: {
                 type: "agentMessage",
                 id: "turn-7-live",
                 text: "Reading the logs.\nAll clear.",
               },
             }),
-          () =>
-            script.append("turn/completed", turnScope(turnId), {
+          async () =>
+            await script.append("turn/completed", turnScope(turnId), {
               status: "completed",
             }),
-          () => script.startTurn(8),
-          () =>
-            script.append("item/agentMessage/delta", turnScope("turn-8"), {
-              itemId: "turn-8-live",
-              delta: "Next.\n",
-            }),
+          async () => await script.startTurn(8),
+          async () =>
+            await script.append(
+              "item/agentMessage/delta",
+              turnScope("turn-8"),
+              {
+                itemId: "turn-8-live",
+                delta: "Next.\n",
+              },
+            ),
         ];
         for (const step of steps) {
           step();
@@ -444,9 +453,10 @@ describe.each(["refetch", "push"] as const)(
 
     it("keeps a scrolled-back view unchanged when a refetch finds no new events", async () => {
       await withTestHarness(SMALL_WINDOW, async (harness) => {
-        const script = createThreadScript(harness);
-        for (let turn = 1; turn <= 6; turn += 1) script.finishedTurn(turn);
-        script.startTurn(7);
+        const script = await createThreadScript(harness);
+        for (let turn = 1; turn <= 6; turn += 1)
+          await script.finishedTurn(turn);
+        await script.startTurn(7);
         const client = await openThread(harness, script.threadId, delivery);
         await scrollBack(harness, client, script.threadId, 2);
         const before = client.loaded;
@@ -467,11 +477,11 @@ describe.each(["refetch", "push"] as const)(
 
     it("streams a running turn larger than the window while scrolled back inside it", async () => {
       await withTestHarness(SMALL_WINDOW, async (harness) => {
-        const script = createThreadScript(harness);
-        script.finishedTurn(1);
-        const turnId = script.startTurn(2);
+        const script = await createThreadScript(harness);
+        await script.finishedTurn(1);
+        const turnId = await script.startTurn(2);
         for (let index = 0; index < 12; index += 1) {
-          script.append("item/completed", turnScope(turnId), {
+          await script.append("item/completed", turnScope(turnId), {
             item: command(`turn-2-command-${index}`, "completed", `${index}`),
           });
         }
@@ -479,14 +489,14 @@ describe.each(["refetch", "push"] as const)(
         await scrollBack(harness, client, script.threadId, 1);
 
         for (let index = 12; index < 20; index += 1) {
-          script.append("item/completed", turnScope(turnId), {
+          await script.append("item/completed", turnScope(turnId), {
             item: command(`turn-2-command-${index}`, "completed", `${index}`),
           });
           await refresh(harness, client, script.threadId);
           expectUniqueIds(client.loaded.rows);
           expectEndsWithLatest(client);
         }
-        script.append("turn/completed", turnScope(turnId), {
+        await script.append("turn/completed", turnScope(turnId), {
           status: "completed",
         });
         await refresh(harness, client, script.threadId);
@@ -502,29 +512,29 @@ describe.each(["refetch", "push"] as const)(
       "drops in-turn rows a completed turn absorbed, scrolled back %i pages",
       async (pages) => {
         await withTestHarness(SMALL_WINDOW, async (harness) => {
-          const script = createThreadScript(harness);
-          script.finishedTurn(1);
-          const turnId = script.startTurn(2);
+          const script = await createThreadScript(harness);
+          await script.finishedTurn(1);
+          const turnId = await script.startTurn(2);
           for (let index = 0; index < 12; index += 1) {
-            script.append("item/completed", turnScope(turnId), {
+            await script.append("item/completed", turnScope(turnId), {
               item: command(`turn-2-command-${index}`, "completed", `${index}`),
             });
           }
-          script.append("item/agentMessage/delta", turnScope(turnId), {
+          await script.append("item/agentMessage/delta", turnScope(turnId), {
             itemId: "turn-2-answer",
             delta: "Done.\n",
           });
           const client = await openThread(harness, script.threadId, delivery);
           await scrollBack(harness, client, script.threadId, pages);
 
-          script.append("item/completed", turnScope(turnId), {
+          await script.append("item/completed", turnScope(turnId), {
             item: {
               type: "agentMessage",
               id: "turn-2-answer",
               text: "Done.\n",
             },
           });
-          script.append("turn/completed", turnScope(turnId), {
+          await script.append("turn/completed", turnScope(turnId), {
             status: "completed",
           });
           await refresh(harness, client, script.threadId);
@@ -543,20 +553,21 @@ describe.each(["refetch", "push"] as const)(
 
     it("updates a scrolled-back item that completes in a later turn", async () => {
       await withTestHarness(SMALL_WINDOW, async (harness) => {
-        const script = createThreadScript(harness);
-        script.finishedTurn(1);
-        const turnId = script.startTurn(2);
-        script.append("item/started", turnScope(turnId), {
+        const script = await createThreadScript(harness);
+        await script.finishedTurn(1);
+        const turnId = await script.startTurn(2);
+        await script.append("item/started", turnScope(turnId), {
           item: command("dev-server", "pending", null),
         });
-        script.append("turn/completed", turnScope(turnId), {
+        await script.append("turn/completed", turnScope(turnId), {
           status: "completed",
         });
-        for (let turn = 3; turn <= 6; turn += 1) script.finishedTurn(turn);
+        for (let turn = 3; turn <= 6; turn += 1)
+          await script.finishedTurn(turn);
         const client = await openThread(harness, script.threadId, delivery);
         await walkToStart(harness, client, script.threadId);
 
-        script.append("item/completed", turnScope(turnId), {
+        await script.append("item/completed", turnScope(turnId), {
           item: command("dev-server", "completed", "dev server exited"),
         });
         await refresh(harness, client, script.threadId);
@@ -571,16 +582,17 @@ describe.each(["refetch", "push"] as const)(
 
     it("recovers a scrolled-back view whose cursor went stale on rename", async () => {
       await withTestHarness(SMALL_WINDOW, async (harness) => {
-        const script = createThreadScript(harness);
-        for (let turn = 1; turn <= 6; turn += 1) script.finishedTurn(turn);
+        const script = await createThreadScript(harness);
+        for (let turn = 1; turn <= 6; turn += 1)
+          await script.finishedTurn(turn);
         const client = await openThread(harness, script.threadId, delivery);
         await scrollBack(harness, client, script.threadId, 1);
         expect(client.loaded.olderCursor).not.toBeNull();
 
-        updateThread(harness.db, harness.hub, script.threadId, {
+        await updateThread(harness.db, harness.hub, script.threadId, {
           title: "Renamed while scrolled back",
         });
-        script.startTurn(7);
+        await script.startTurn(7);
         await loadOlder(harness, client, script.threadId);
 
         expect(client.staleCursorRecoveries).toBe(1);

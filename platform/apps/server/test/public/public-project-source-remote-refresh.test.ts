@@ -14,11 +14,11 @@ import { withTestHarness } from "../helpers/test-app.js";
 describe("public project source remote refresh", () => {
   it("backfills a missing remote when a local source is updated", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-source-remote-refresh",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project, source } = seedProjectWithSource(harness.deps, {
+      const { project, source } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/project-source-remote-refresh",
       });

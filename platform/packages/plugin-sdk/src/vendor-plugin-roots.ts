@@ -482,10 +482,10 @@ async function directoryHasClaudePluginManifest(
   }
 }
 
-function readClaudePluginManifest(
+async function readClaudePluginManifest(
   pluginRootPath: string,
 ): Promise<ClaudePluginManifest | null> {
-  return readJsonFile(
+  return await readJsonFile(
     path.join(pluginRootPath, CLAUDE_PLUGIN_MANIFEST_PATH),
     claudePluginManifestSchema,
   );
@@ -693,7 +693,7 @@ async function isSkillsDirectoryPluginEntry(
   origin: ResolvedRootOrigin,
 ): Promise<boolean> {
   if (entry.isDirectory()) {
-    return directoryHasClaudePluginManifest(entryPath);
+    return await directoryHasClaudePluginManifest(entryPath);
   }
   if (!entry.isSymbolicLink() || origin !== "user") {
     return false;

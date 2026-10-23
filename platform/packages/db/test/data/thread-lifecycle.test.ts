@@ -17,12 +17,12 @@ import { upsertHost } from "../../src/data/hosts.js";
 import { withWriteAfterFirstRead } from "../helpers/interleave.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
@@ -30,15 +30,15 @@ function setup() {
 }
 
 describe("applyThreadLifecycleEvent", () => {
-  it("applies a legal event and persists the row", () => {
-    const { db, project } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("applies a legal event and persists the row", async () => {
+    const { db, project } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "starting",
     });
 
-    const outcome = applyThreadLifecycleEvent(db, {
+    const outcome = await applyThreadLifecycleEvent(db, {
       event: { type: "run.started" },
       threadId: thread.id,
     });
@@ -47,41 +47,42 @@ describe("applyThreadLifecycleEvent", () => {
     if (outcome.applied) {
       expect(outcome.thread.status).toBe("active");
     }
-    expect(getThread(db, thread.id)?.status).toBe("active");
+    expect((await getThread(db, thread.id))?.status).toBe("active");
   });
 
-  it("applies events inside an existing transaction", () => {
-    const { db, project } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("applies events inside an existing transaction", async () => {
+    const { db, project } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "active",
     });
 
-    const outcome = db.transaction((tx) =>
-      applyThreadLifecycleEventInTransaction(tx, {
-        event: { type: "run.succeeded" },
-        threadId: thread.id,
-      }),
+    const outcome = await db.transaction(
+      async (tx) =>
+        await applyThreadLifecycleEventInTransaction(tx, {
+          event: { type: "run.succeeded" },
+          threadId: thread.id,
+        }),
     );
 
     expect(outcome.applied).toBe(true);
-    expect(getThread(db, thread.id)?.status).toBe("idle");
+    expect((await getThread(db, thread.id))?.status).toBe("idle");
   });
 
-  it("no-ops as illegal-transition and leaves the row untouched", () => {
+  it("no-ops as illegal-transition and leaves the row untouched", async () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(1_000);
-      const { db, project } = setup();
-      const thread = createThread(db, noopNotifier, {
+      const { db, project } = await setup();
+      const thread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         status: "idle",
       });
 
       vi.setSystemTime(2_000);
-      const outcome = applyThreadLifecycleEvent(db, {
+      const outcome = await applyThreadLifecycleEvent(db, {
         event: { type: "run.succeeded" },
         threadId: thread.id,
       });
@@ -91,23 +92,23 @@ describe("applyThreadLifecycleEvent", () => {
         detail: "no transition for run.succeeded from status idle",
         reason: "illegal-transition",
       });
-      expect(getThread(db, thread.id)).toEqual(thread);
+      expect(await getThread(db, thread.id)).toEqual(thread);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("no-ops as superseded when the thread is deleted", () => {
-    const { db, project } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("no-ops as superseded when the thread is deleted", async () => {
+    const { db, project } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "starting",
     });
-    markThreadDeleted(db, noopNotifier, { threadId: thread.id });
-    const beforeRow = getThread(db, thread.id);
+    await markThreadDeleted(db, noopNotifier, { threadId: thread.id });
+    const beforeRow = await getThread(db, thread.id);
 
-    const outcome = applyThreadLifecycleEvent(db, {
+    const outcome = await applyThreadLifecycleEvent(db, {
       event: { type: "run.started" },
       threadId: thread.id,
     });
@@ -117,12 +118,12 @@ describe("applyThreadLifecycleEvent", () => {
       detail: "deletedAt set",
       reason: "superseded",
     });
-    expect(getThread(db, thread.id)).toEqual(beforeRow);
+    expect(await getThread(db, thread.id)).toEqual(beforeRow);
   });
 
-  it("no-ops as not-found for a missing thread", () => {
-    const { db } = setup();
-    const outcome = applyThreadLifecycleEvent(db, {
+  it("no-ops as not-found for a missing thread", async () => {
+    const { db } = await setup();
+    const outcome = await applyThreadLifecycleEvent(db, {
       event: { type: "run.started" },
       threadId: "thr_nonexistent",
     });
@@ -133,22 +134,23 @@ describe("applyThreadLifecycleEvent", () => {
     });
   });
 
-  it("no-ops as cas-conflict when the status changes between load and update", () => {
-    const { db, project } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("no-ops as cas-conflict when the status changes between load and update", async () => {
+    const { db, project } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "starting",
     });
 
-    const outcome = db.transaction((tx: DbTransaction) => {
-      const interleaved = withWriteAfterFirstRead(tx, () => {
-        tx.update(threads)
+    const outcome = await db.transaction(async (tx: DbTransaction) => {
+      const interleaved = withWriteAfterFirstRead(tx, async () => {
+        await tx
+          .update(threads)
           .set({ status: "idle" })
           .where(eq(threads.id, thread.id))
           .run();
       });
-      return applyThreadLifecycleEventInTransaction(interleaved, {
+      return await applyThreadLifecycleEventInTransaction(interleaved, {
         event: { type: "run.started" },
         threadId: thread.id,
       });
@@ -159,14 +161,14 @@ describe("applyThreadLifecycleEvent", () => {
       detail: "status changed from starting while applying run.started",
       reason: "cas-conflict",
     });
-    expect(getThread(db, thread.id)?.status).toBe("idle");
+    expect((await getThread(db, thread.id))?.status).toBe("idle");
   });
 
-  it("sets latestAttentionAt only on attention-worthy transitions", () => {
+  it("sets latestAttentionAt only on attention-worthy transitions", async () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(1_000);
-      const { db, project } = setup();
+      const { db, project } = await setup();
 
       const cases = [
         {
@@ -202,12 +204,14 @@ describe("applyThreadLifecycleEvent", () => {
       let now = 1_000;
       for (const testCase of cases) {
         const parentThreadId = testCase.parent
-          ? createThread(db, noopNotifier, {
-              projectId: project.id,
-              providerId: "codex",
-            }).id
+          ? (
+              await createThread(db, noopNotifier, {
+                projectId: project.id,
+                providerId: "codex",
+              })
+            ).id
           : null;
-        const thread = createThread(db, noopNotifier, {
+        const thread = await createThread(db, noopNotifier, {
           parentThreadId,
           projectId: project.id,
           providerId: "codex",
@@ -216,7 +220,7 @@ describe("applyThreadLifecycleEvent", () => {
 
         now += 1_000;
         vi.setSystemTime(now);
-        const outcome = applyThreadLifecycleEvent(db, {
+        const outcome = await applyThreadLifecycleEvent(db, {
           event: testCase.event,
           threadId: thread.id,
         });
@@ -238,15 +242,15 @@ describe("applyThreadLifecycleEvent", () => {
 });
 
 describe("requireThreadLifecycleEventApplied", () => {
-  it("throws a typed error carrying reason and detail on a no-op", () => {
-    const { db, project } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("throws a typed error carrying reason and detail on a no-op", async () => {
+    const { db, project } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "idle",
     });
 
-    const outcome = applyThreadLifecycleEvent(db, {
+    const outcome = await applyThreadLifecycleEvent(db, {
       event: { type: "run.succeeded" },
       threadId: thread.id,
     });

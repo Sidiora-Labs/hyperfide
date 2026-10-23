@@ -6,14 +6,14 @@ import { gitSelectorForRow } from "../../../src/services/plugins/git-source-inte
 describe("persisted git source intent", () => {
   let db: DbConnection;
 
-  beforeEach(() => {
-    db = createMigratedConnection();
+  beforeEach(async () => {
+    db = await createMigratedConnection();
   });
 
-  afterEach(() => db.$client.close());
+  afterEach(async () => await db.close());
 
-  it("accepts one complete selector and rejects every corrupt union shape", () => {
-    const row = upsertInstalledPlugin(db, {
+  it("accepts one complete selector and rejects every corrupt union shape", async () => {
+    const row = await upsertInstalledPlugin(db, {
       id: "selector-shape",
       source: "git:/repo@main",
       provenance: { kind: "direct" },

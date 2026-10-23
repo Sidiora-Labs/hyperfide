@@ -87,7 +87,7 @@ describe("app keybindings", () => {
         body: JSON.stringify(overrides),
       });
       expect(response.status).toBe(200);
-      expect(getAppKeybindingOverrides(harness.db)).toEqual(overrides);
+      expect(await getAppKeybindingOverrides(harness.db)).toEqual(overrides);
       const config = systemConfigResponseSchema.parse(
         await readJson(await harness.app.request("/api/v1/system/config")),
       );
@@ -705,7 +705,7 @@ describe("app keybindings", () => {
       expect(
         appKeybindingOverridesSchema.parse(await readJson(response)),
       ).toEqual(overrides);
-      expect(getAppKeybindingOverrides(harness.db)).toEqual(overrides);
+      expect(await getAppKeybindingOverrides(harness.db)).toEqual(overrides);
 
       const configResponse = await harness.app.request("/api/v1/system/config");
       const config = systemConfigResponseSchema.parse(
@@ -814,7 +814,7 @@ describe("app keybindings", () => {
 
   it("falls back to defaults when stored overrides are corrupt", async () => {
     await withTestHarness(async (harness) => {
-      harness.db.$client
+      await harness.db.$client
         .prepare(
           `INSERT INTO app_settings_values (key, value, updated_at)
            VALUES (?, ?, ?)

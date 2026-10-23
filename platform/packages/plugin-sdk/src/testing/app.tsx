@@ -2410,7 +2410,7 @@ export function renderSlot<
     return strictJsonRoundTrip(parsedOutput, `rpc "${method}" result`);
   };
   const rpcClient: PluginRpcClient = {
-    call: (method, input) => callRpc(method, input),
+    call: async (method, input) => await callRpc(method, input),
   };
 
   const realtimeHandlers = new Map<string, Set<(payload: unknown) => void>>();
@@ -3009,7 +3009,7 @@ export function renderSlot<
     pluginId: options.pluginId ?? "test-plugin",
     queryClient,
     subscribe: () => () => {},
-    call: (_pluginId, method, input) => callRpc(method, input),
+    call: async (_pluginId, method, input) => await callRpc(method, input),
   };
   const env: SlotEnv = {
     rpcQueryHost,

@@ -35,14 +35,15 @@ function parseStoredValue(text: string): unknown {
   }
 }
 
-function writeValue(
+async function writeValue(
   db: DbQueryConnection,
   key: string,
   value: unknown,
   updatedAt: number,
-): void {
+): Promise<void> {
   const text = JSON.stringify(value);
-  db.insert(appSettingsValues)
+  await db
+    .insert(appSettingsValues)
     .values({ key, value: text, updatedAt })
     .onConflictDoUpdate({
       target: appSettingsValues.key,
@@ -51,9 +52,9 @@ function writeValue(
     .run();
 }
 
-export function getAppSettings(db: DbConnection): AppSettings {
+export async function getAppSettings(db: DbConnection): Promise<AppSettings> {
   const values: Record<string, unknown> = { ...defaultAppSettings };
-  const rows = db
+  const rows = await db
     .select({ key: appSettingsValues.key, value: appSettingsValues.value })
     .from(appSettingsValues)
     .where(
@@ -86,23 +87,26 @@ export function getAppSettings(db: DbConnection): AppSettings {
   return appSettingsSchema.parse(values);
 }
 
-export function setAppSettings(db: DbConnection, settings: AppSettings): void {
+export async function setAppSettings(
+  db: DbConnection,
+  settings: AppSettings,
+): Promise<void> {
   const updatedAt = Date.now();
-  db.transaction((transaction) => {
+  await db.transaction(async (transaction) => {
     for (const key of appSettingsKeys) {
-      writeValue(transaction, key, settings[key], updatedAt);
+      await writeValue(transaction, key, settings[key], updatedAt);
     }
-    transaction
+    await transaction
       .delete(appSettingsValues)
       .where(eq(appSettingsValues.key, LEGACY_DIAGNOSTIC_EVENTS_KEY))
       .run();
   });
 }
 
-export function getAppKeybindingOverrides(
+export async function getAppKeybindingOverrides(
   db: DbConnection,
-): AppKeybindingOverrides {
-  const row = db
+): Promise<AppKeybindingOverrides> {
+  const row = await db
     .select({ value: appSettingsValues.value })
     .from(appSettingsValues)
     .where(eq(appSettingsValues.key, KEYBINDING_OVERRIDES_KEY))
@@ -114,15 +118,17 @@ export function getAppKeybindingOverrides(
   return appKeybindingOverridesSchema.parse(parseStoredValue(row.value));
 }
 
-export function setAppKeybindingOverrides(
+export async function setAppKeybindingOverrides(
   db: DbConnection,
   overrides: AppKeybindingOverrides,
-): void {
-  writeValue(db, KEYBINDING_OVERRIDES_KEY, overrides, Date.now());
+): Promise<void> {
+  await writeValue(db, KEYBINDING_OVERRIDES_KEY, overrides, Date.now());
 }
 
-export function getAiServiceSelections(db: DbConnection): AiServiceSelections {
-  const row = db
+export async function getAiServiceSelections(
+  db: DbConnection,
+): Promise<AiServiceSelections> {
+  const row = await db
     .select({ value: appSettingsValues.value })
     .from(appSettingsValues)
     .where(eq(appSettingsValues.key, AI_SERVICE_SELECTIONS_KEY))
@@ -132,24 +138,29 @@ export function getAiServiceSelections(db: DbConnection): AiServiceSelections {
   const selections: AiServiceSelections = { ...defaultAiServiceSelections };
   if (typeof stored !== "object" || stored === null) return selections;
   for (const task of AI_TASKS) {
-    const parsed = aiServiceSelectionSchema.safeParse(Reflect.get(stored, task));
+    const parsed = aiServiceSelectionSchema.safeParse(
+      Reflect.get(stored, task),
+    );
     if (parsed.success) selections[task] = parsed.data;
   }
   return selections;
 }
 
-export function setAiServiceSelection(
+export async function setAiServiceSelection(
   db: DbConnection,
   task: AiTask,
   selection: AiServiceSelection,
-): AiServiceSelections {
-  const selections = { ...getAiServiceSelections(db), [task]: selection };
-  writeValue(db, AI_SERVICE_SELECTIONS_KEY, selections, Date.now());
+): Promise<AiServiceSelections> {
+  const selections = {
+    ...(await getAiServiceSelections(db)),
+    [task]: selection,
+  };
+  await writeValue(db, AI_SERVICE_SELECTIONS_KEY, selections, Date.now());
   return selections;
 }
 
-export function getEarlyAdopter(db: DbConnection): boolean {
-  const row = db
+export async function getEarlyAdopter(db: DbConnection): Promise<boolean> {
+  const row = await db
     .select({ value: appSettingsValues.value })
     .from(appSettingsValues)
     .where(eq(appSettingsValues.key, appSettingsKeySchema.enum.earlyAdopter))
@@ -157,8 +168,8 @@ export function getEarlyAdopter(db: DbConnection): boolean {
   return row !== undefined && parseStoredValue(row.value) === true;
 }
 
-export function getPluginSafeMode(db: DbConnection): boolean {
-  const row = db
+export async function getPluginSafeMode(db: DbConnection): Promise<boolean> {
+  const row = await db
     .select({ value: appSettingsValues.value })
     .from(appSettingsValues)
     .where(eq(appSettingsValues.key, PLUGIN_SAFE_MODE_KEY))
@@ -166,12 +177,17 @@ export function getPluginSafeMode(db: DbConnection): boolean {
   return row !== undefined && parseStoredValue(row.value) === true;
 }
 
-export function setPluginSafeMode(db: DbConnection, enabled: boolean): void {
-  writeValue(db, PLUGIN_SAFE_MODE_KEY, enabled, Date.now());
+export async function setPluginSafeMode(
+  db: DbConnection,
+  enabled: boolean,
+): Promise<void> {
+  await writeValue(db, PLUGIN_SAFE_MODE_KEY, enabled, Date.now());
 }
 
-export function getDisabledProviderIds(db: DbConnection): string[] {
-  const row = db
+export async function getDisabledProviderIds(
+  db: DbConnection,
+): Promise<string[]> {
+  const row = await db
     .select({ value: appSettingsValues.value })
     .from(appSettingsValues)
     .where(eq(appSettingsValues.key, DISABLED_PROVIDER_IDS_KEY))
@@ -182,11 +198,11 @@ export function getDisabledProviderIds(db: DbConnection): string[] {
   return parsed.success ? parsed.data : [];
 }
 
-export function setDisabledProviderIds(
+export async function setDisabledProviderIds(
   db: DbConnection,
   providerIds: readonly string[],
-): void {
-  writeValue(db, DISABLED_PROVIDER_IDS_KEY, providerIds, Date.now());
+): Promise<void> {
+  await writeValue(db, DISABLED_PROVIDER_IDS_KEY, providerIds, Date.now());
 }
 
 const pluginProviderCatalogSchema =
@@ -199,11 +215,11 @@ function pluginProviderCatalogKey(pluginId: string): string {
   return `pluginProviders:${pluginId}`;
 }
 
-export function getDisabledPluginProviderCatalog(
+export async function getDisabledPluginProviderCatalog(
   db: DbConnection,
   pluginId: string,
-): Array<{ id: string; displayName: string }> {
-  const row = db
+): Promise<Array<{ id: string; displayName: string }>> {
+  const row = await db
     .select({ value: appSettingsValues.value })
     .from(appSettingsValues)
     .where(eq(appSettingsValues.key, pluginProviderCatalogKey(pluginId)))
@@ -214,36 +230,44 @@ export function getDisabledPluginProviderCatalog(
   return parsed.success ? parsed.data : [];
 }
 
-export function setDisabledPluginProviderCatalog(
+export async function setDisabledPluginProviderCatalog(
   db: DbConnection,
   pluginId: string,
   providers: Array<{ id: string; displayName: string }>,
-): void {
-  writeValue(db, pluginProviderCatalogKey(pluginId), providers, Date.now());
+): Promise<void> {
+  await writeValue(
+    db,
+    pluginProviderCatalogKey(pluginId),
+    providers,
+    Date.now(),
+  );
 }
 
-export function forgetPluginProviders(
+export async function forgetPluginProviders(
   db: DbConnection,
   pluginId: string,
   providerIds: ReadonlySet<string>,
-): void {
-  const disabledProviderIds = getDisabledProviderIds(db);
-  db.transaction((transaction) => {
-    writeValue(
+): Promise<void> {
+  const disabledProviderIds = await getDisabledProviderIds(db);
+  await db.transaction(async (transaction) => {
+    await writeValue(
       transaction,
       DISABLED_PROVIDER_IDS_KEY,
       disabledProviderIds.filter((id) => !providerIds.has(id)),
       Date.now(),
     );
-    transaction
+    await transaction
       .delete(appSettingsValues)
       .where(eq(appSettingsValues.key, pluginProviderCatalogKey(pluginId)))
       .run();
   });
 }
 
-export function claimInstallTurnNumber(db: DbQueryConnection, now: number): number {
-  const row = db
+export async function claimInstallTurnNumber(
+  db: DbQueryConnection,
+  now: number,
+): Promise<number> {
+  const row = await db
     .insert(appSettingsValues)
     .values({ key: INSTALL_TURN_NUMBER_KEY, value: "1", updatedAt: now })
     .onConflictDoUpdate({

@@ -170,7 +170,7 @@ export async function createBbAppManagedConfigReloader(
     });
     replaceRuntimeConfig(args.config, nextConfig);
     if (reloadArgs.notify) {
-      args.hub.notifySystem(["config-changed"]);
+      await args.hub.notifySystem(["config-changed"]);
     }
   }
 

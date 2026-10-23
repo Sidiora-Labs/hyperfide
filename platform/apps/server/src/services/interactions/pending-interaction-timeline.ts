@@ -136,12 +136,12 @@ function approvalItemWriteFor(interaction: PendingInteraction): {
   return item === null ? null : { interaction, item };
 }
 
-function buildPendingInteractionTimelineWrites(
+async function buildPendingInteractionTimelineWrites(
   db: Pick<AppDeps, "db">["db"] | DbTransaction,
   interaction: PendingInteraction,
-): AppendStoredThreadEventArgs[] {
+): Promise<AppendStoredThreadEventArgs[]> {
   const environmentId =
-    getThread(db, interaction.threadId)?.environmentId ?? null;
+    (await getThread(db, interaction.threadId))?.environmentId ?? null;
   const writes: AppendStoredThreadEventArgs[] = [
     {
       threadId: interaction.threadId,
@@ -166,28 +166,31 @@ function buildPendingInteractionTimelineWrites(
   return writes;
 }
 
-export function appendPendingInteractionTimelineEvent(
+export async function appendPendingInteractionTimelineEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   interaction: PendingInteraction,
-): void {
-  for (const write of buildPendingInteractionTimelineWrites(
+): Promise<void> {
+  for (const write of await buildPendingInteractionTimelineWrites(
     deps.db,
     interaction,
   )) {
-    appendThreadEvent(deps, write);
+    await appendThreadEvent(deps, write);
   }
 }
 
-export function appendPendingInteractionTimelineEventInTransaction(
+export async function appendPendingInteractionTimelineEventInTransaction(
   deps: PendingInteractionTimelineTransactionDeps,
   interaction: PendingInteraction,
-): void {
-  const writes = buildPendingInteractionTimelineWrites(deps.db, interaction);
+): Promise<void> {
+  const writes = await buildPendingInteractionTimelineWrites(
+    deps.db,
+    interaction,
+  );
   for (const write of writes) {
-    appendThreadEventInTransaction(deps.db, write);
+    await appendThreadEventInTransaction(deps.db, write);
   }
   deps.hub.notifyThread(interaction.threadId, ["events-appended"], {
-    timelineSequence: getLatestThreadSequence(deps.db, {
+    timelineSequence: await getLatestThreadSequence(deps.db, {
       threadId: interaction.threadId,
     }),
     eventTypes: writes.map((write) => write.type),

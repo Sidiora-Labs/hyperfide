@@ -33,8 +33,8 @@ import {
   type TestAppHarness,
 } from "../helpers/test-app.js";
 
-const API = "/api/v1";
-const OLD = "host-old";
+const API = await "/api/v1";
+const OLD = await "host-old";
 const NEW = "host-new";
 const WORKER = "host-worker";
 const DIRECT_URL = "https://desktop.example.test";
@@ -82,19 +82,19 @@ function probeReply(
     : { ok: true, result: inspectResult() };
 }
 
-function seedTopology(harness: TestAppHarness): void {
-  seedHost(harness.deps, { id: OLD, name: "Laptop" });
+async function seedTopology(harness: TestAppHarness): Promise<void> {
+  await seedHost(harness.deps, { id: OLD, name: "Laptop" });
   seedPrimaryHost(harness.deps, OLD);
-  seedHost(harness.deps, { id: NEW, name: "Desktop" });
-  seedHost(harness.deps, { id: WORKER, name: "Worker" });
-  setExperiments(harness.db, { ...defaultExperiments, serverMove: true });
+  await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+  await seedHost(harness.deps, { id: WORKER, name: "Worker" });
+  await setExperiments(harness.db, { ...defaultExperiments, serverMove: true });
 }
 
 describe("server move routes", () => {
-  it("refuses to check, start, export, or delete old copies while the serverMove experiment is off", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      setExperiments(harness.db, defaultExperiments);
+  it("refuses to check, start, export, or delete old copies while the serverMove experiment is off", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
+      await setExperiments(harness.db, defaultExperiments);
       const gated = await Promise.all([
         postJson(harness, `${API}/server/move/check`, {
           targetHostId: NEW,
@@ -124,19 +124,23 @@ describe("server move routes", () => {
       ).toEqual({ move: null, lastMove: null });
     }));
 
-  it("runs a move through the public routes, freezes writes, and serves the archive only to the target", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
+  it("runs a move through the public routes, freezes writes, and serves the archive only to the target", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
       const events: string[] = [];
-      const releasePrepare = createDeferredPromise<void>();
+      const releasePrepare = await createDeferredPromise<void>();
       const received: { prepare: PrepareCommand | null } = { prepare: null };
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
+      await registerFakeDaemon(harness, {
+        events,
+        hostId: OLD,
+        handle: probeReply,
+      });
+      await registerFakeDaemon(harness, {
         events,
         hostId: WORKER,
         handle: probeReply,
       });
-      registerFakeDaemon(harness, {
+      await registerFakeDaemon(harness, {
         events,
         hostId: NEW,
         handle: async (request): Promise<FakeDaemonReply> => {
@@ -360,9 +364,9 @@ describe("server move routes", () => {
       expect(events).toContain(`server.moved:${WORKER}`);
     }));
 
-  it("refuses machine credentials on every server move route", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
+  it("refuses machine credentials on every server move route", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
       const machine = { "x-bb-gate-auth": "machine" };
       const responses = await Promise.all([
         postJson(
@@ -401,9 +405,9 @@ describe("server move routes", () => {
       }
     }));
 
-  it("reports the last move and records old copy deletion even when the machine already removed it", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
+  it("reports the last move and records old copy deletion even when the machine already removed it", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
       const lastMove = {
         moveId: "move-1",
         fromHostId: OLD,
@@ -440,7 +444,7 @@ describe("server move routes", () => {
         code: "old_server_copy_not_found",
       });
 
-      const daemon = registerFakeDaemon(harness, {
+      const daemon = await registerFakeDaemon(harness, {
         events: [],
         hostId: OLD,
         handle: () => ({ ok: true, result: { deleted: false } }),
@@ -460,9 +464,9 @@ describe("server move routes", () => {
       ).toEqual(expect.any(Number));
     }));
 
-  it("streams a gzip export with a dated file name and its SHA-256 digest", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
+  it("streams a gzip export with a dated file name and its SHA-256 digest", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
       const response = await postExport(harness);
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toBe("application/gzip");

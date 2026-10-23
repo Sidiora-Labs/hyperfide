@@ -12,7 +12,9 @@ const LAUNCHER_REQUEST_TIMEOUT_MS = 15 * 1000;
 export interface LauncherChannel {
   dispose(): void;
   onDisconnect(listener: () => void): () => void;
-  onStatus(listener: (status: LauncherAppUpdateStatus) => void): () => void;
+  onStatus(
+    listener: (status: LauncherAppUpdateStatus) => void | Promise<void>,
+  ): () => void;
   request(request: AppUpdateLauncherRequest): Promise<unknown>;
 }
 

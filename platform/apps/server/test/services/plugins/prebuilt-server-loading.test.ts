@@ -64,7 +64,7 @@ describe("prebuilt server bundle loading", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-prebuilt-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
@@ -123,8 +123,11 @@ describe("prebuilt server bundle loading", () => {
 
   it("loads a compatible ESM prebuild from a CommonJS plugin package", async () => {
     const rootDir = await writePrebuiltPlugin("hyperfide-plugin-gitdist");
-    upsertInstalledPlugin(db, {
-      ...gitPersistence("https://github.com/acme/hyperfide-plugin-gitdist", "v1"),
+    await upsertInstalledPlugin(db, {
+      ...gitPersistence(
+        "https://github.com/acme/hyperfide-plugin-gitdist",
+        "v1",
+      ),
       id: "gitdist",
       source: "git:github.com/acme/hyperfide-plugin-gitdist@v1",
       rootDir,
@@ -138,7 +141,9 @@ describe("prebuilt server bundle loading", () => {
         | undefined) ?? 0;
     await service.reload("gitdist");
 
-    const entry = service.list().find((plugin) => plugin.id === "gitdist");
+    const entry = (await service.list()).find(
+      (plugin) => plugin.id === "gitdist",
+    );
     expect(entry?.status).toBe("running");
     expect(entry?.statusDetail).toBeNull();
     expect((globalThis as Record<string, unknown>).__prebuiltDistLoads).toBe(
@@ -203,7 +208,9 @@ export default function plugin() {
   });
 
   it("bounds compiled artifacts and evicts loaded source modules", async () => {
-    const rootDir = await writePrebuiltPlugin("hyperfide-plugin-reload-retention");
+    const rootDir = await writePrebuiltPlugin(
+      "hyperfide-plugin-reload-retention",
+    );
     const sourcePath = join(rootDir, "server.ts");
     const cacheRoot = join(workDir, "data", "plugins", "runtime", "server");
     for (let generation = 0; generation < 8; generation += 1) {
@@ -234,8 +241,8 @@ export default function plugin() {
     const linkedDataDir = join(workDir, "linked-data");
     await mkdir(realDataDir);
     await symlink(realDataDir, linkedDataDir, "dir");
-    const linkedDb = createMigratedConnection();
-    const linkedService = createPluginService({
+    const linkedDb = await createMigratedConnection();
+    const linkedService = await createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db: linkedDb,
@@ -254,7 +261,9 @@ export default function plugin() {
     const state = globalThis as Record<string, unknown>;
     state.__symlinkEvaluations = 0;
     try {
-      const rootDir = await writePrebuiltPlugin("hyperfide-plugin-symlink-data");
+      const rootDir = await writePrebuiltPlugin(
+        "hyperfide-plugin-symlink-data",
+      );
       const sourcePath = join(rootDir, "server.ts");
       await writeFile(
         sourcePath,
@@ -297,8 +306,11 @@ export default function plugin() {
       sdkMajor: PLUGIN_SDK_MAJOR,
       sdkVersion: `${PLUGIN_SDK_MAJOR}.999.0`,
     });
-    upsertInstalledPlugin(db, {
-      ...gitPersistence("https://github.com/acme/hyperfide-plugin-minordist", "v1"),
+    await upsertInstalledPlugin(db, {
+      ...gitPersistence(
+        "https://github.com/acme/hyperfide-plugin-minordist",
+        "v1",
+      ),
       id: "minordist",
       source: "git:github.com/acme/hyperfide-plugin-minordist@v1",
       rootDir,
@@ -308,7 +320,9 @@ export default function plugin() {
     });
     await service.reload("minordist");
 
-    const entry = service.list().find((plugin) => plugin.id === "minordist");
+    const entry = (await service.list()).find(
+      (plugin) => plugin.id === "minordist",
+    );
     expect(entry?.status).toBe("error");
     expect(entry?.statusDetail).toContain("source must not load");
   });
@@ -318,8 +332,11 @@ export default function plugin() {
       sdkMajor: 999,
       sdkVersion: "999.0.0",
     });
-    upsertInstalledPlugin(db, {
-      ...gitPersistence("https://github.com/acme/hyperfide-plugin-staledist", "v1"),
+    await upsertInstalledPlugin(db, {
+      ...gitPersistence(
+        "https://github.com/acme/hyperfide-plugin-staledist",
+        "v1",
+      ),
       id: "staledist",
       source: "git:github.com/acme/hyperfide-plugin-staledist@v1",
       rootDir,
@@ -329,7 +346,9 @@ export default function plugin() {
     });
     await service.reload("staledist");
 
-    const entry = service.list().find((plugin) => plugin.id === "staledist");
+    const entry = (await service.list()).find(
+      (plugin) => plugin.id === "staledist",
+    );
     expect(entry?.status).toBe("error");
     expect(entry?.statusDetail).toContain("source must not load");
   });

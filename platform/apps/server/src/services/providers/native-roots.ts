@@ -265,7 +265,7 @@ export async function scanProviderNativeRoots(
     cwd: args.cwd,
     nativeRoots,
   };
-  return callHostRetryableOnlineRpc(deps, {
+  return await callHostRetryableOnlineRpc(deps, {
     hostId: args.hostId,
     timeoutMs: budget.remainingMs(),
     command:

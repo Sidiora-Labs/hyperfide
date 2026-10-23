@@ -193,11 +193,11 @@ async function main(): Promise<void> {
     await harness.cleanup();
     process.exit(0);
   };
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", async () => void shutdown("SIGINT"));
+  process.on("SIGTERM", async () => void shutdown("SIGTERM"));
 
-  setAppSettings(harness.db, {
-    ...getAppSettings(harness.db),
+  await setAppSettings(harness.db, {
+    ...(await getAppSettings(harness.db)),
     onboardingCompletedAt: new Date().toISOString(),
   });
 

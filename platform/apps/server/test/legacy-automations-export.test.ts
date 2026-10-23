@@ -61,7 +61,7 @@ describe("exportLegacyAutomationsForPluginImport", () => {
   });
 
   afterEach(async () => {
-    db.$client.close();
+    await db.close();
     await rm(dataDir, { recursive: true, force: true });
   });
 
@@ -75,16 +75,16 @@ describe("exportLegacyAutomationsForPluginImport", () => {
     ).not.toThrow();
   });
 
-  it("refuses to migrate legacy automation rows without plugin export context", () => {
+  it("refuses to migrate legacy automation rows without plugin export context", async () => {
     const dbPath = join(dataDir, "legacy.sqlite");
-    const legacyDb = createConnection(dbPath);
-    legacyDb.$client.exec(`
+    const legacyDb = await createConnection(dbPath);
+    await legacyDb.$client.exec(`
       CREATE TABLE automations (id text PRIMARY KEY NOT NULL);
       INSERT INTO automations (id) VALUES ('auto_legacy');
     `);
-    legacyDb.$client.close();
+    await legacyDb.close();
 
-    expect(() => initDb(dbPath)).toThrow(
+    await expect((async () => await initDb(dbPath))()).rejects.toThrow(
       "Cannot migrate legacy automations without dataDir and logger",
     );
   });
@@ -99,7 +99,7 @@ describe("exportLegacyAutomationsForPluginImport", () => {
       "echo ok\n",
     );
 
-    db.$client
+    await db.$client
       .prepare(
         `INSERT INTO automations (
            id, project_id, target_thread_id, name, enabled, trigger_type,
@@ -136,7 +136,7 @@ describe("exportLegacyAutomationsForPluginImport", () => {
         10,
         20,
       );
-    db.$client
+    await db.$client
       .prepare(
         `INSERT INTO automation_runs (
            id, automation_id, run_mode, thread_id, status, trigger,
@@ -197,7 +197,7 @@ describe("exportLegacyAutomationsForPluginImport", () => {
 
   it("exports a script automation whose script file is missing instead of aborting", async () => {
     createLegacyTables(db);
-    db.$client
+    await db.$client
       .prepare(
         `INSERT INTO automations (
            id, project_id, target_thread_id, name, enabled, trigger_type,

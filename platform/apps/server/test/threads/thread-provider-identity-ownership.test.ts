@@ -30,24 +30,24 @@ const OWN_SESSION = "session-alpha";
 const FOREIGN_SESSION = "session-beta";
 const BATCH_AT = 1_787_775_164_121;
 
-function seedThreads(harness: TestAppHarness) {
-  const { host, session } = seedHostSession(harness.deps);
-  const { project } = seedProjectWithSource(harness.deps, {
+async function seedThreads(harness: TestAppHarness) {
+  const { host, session } = await seedHostSession(harness.deps);
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: "/tmp/identity-ownership",
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: "/tmp/identity-ownership",
     status: "ready",
   });
-  const first = seedThread(harness.deps, {
+  const first = await seedThread(harness.deps, {
     environmentId: environment.id,
     projectId: project.id,
     status: "idle",
   });
-  const second = seedThread(harness.deps, {
+  const second = await seedThread(harness.deps, {
     environmentId: environment.id,
     projectId: project.id,
     status: "idle",
@@ -55,7 +55,7 @@ function seedThreads(harness: TestAppHarness) {
   return { environment, first, host, second, session };
 }
 
-function seedStampedTurn(
+async function seedStampedTurn(
   harness: TestAppHarness,
   args: {
     createdAt: number;
@@ -65,12 +65,12 @@ function seedStampedTurn(
     threadId: string;
     turnId: string;
   },
-): void {
+): Promise<void> {
   for (const [offset, type] of [
     [0, "turn/started"],
     [1, "turn/completed"],
   ] as const) {
-    seedStoredEvent(harness.deps, {
+    await seedStoredEvent(harness.deps, {
       threadId: args.threadId,
       environmentId: args.environmentId,
       providerThreadId: args.providerThreadId,
@@ -86,18 +86,18 @@ function seedStampedTurn(
   }
 }
 
-function seedArchivedConcurrentStartPair(
+async function seedArchivedConcurrentStartPair(
   harness: TestAppHarness,
   args: { environmentId: string; earlyId: string; lateId: string },
-): void {
-  seedThreadIdentity(harness.deps, {
+): Promise<void> {
+  await seedThreadIdentity(harness.deps, {
     threadId: args.earlyId,
     environmentId: args.environmentId,
     providerThreadId: "01a03fb4-1bb9-session-a",
     createdAt: BATCH_AT,
     sequence: 3,
   });
-  seedThreadIdentity(harness.deps, {
+  await seedThreadIdentity(harness.deps, {
     threadId: args.lateId,
     environmentId: args.environmentId,
     providerThreadId: "01a03fb4-1c1a-session-b",
@@ -105,7 +105,7 @@ function seedArchivedConcurrentStartPair(
     sequence: 3,
   });
   for (const threadId of [args.earlyId, args.lateId]) {
-    seedThreadIdentity(harness.deps, {
+    await seedThreadIdentity(harness.deps, {
       threadId,
       environmentId: args.environmentId,
       providerThreadId: "01a03fb4-1bb9-session-a",
@@ -113,7 +113,7 @@ function seedArchivedConcurrentStartPair(
       sequence: 6,
     });
   }
-  seedStampedTurn(harness, {
+  await seedStampedTurn(harness, {
     createdAt: BATCH_AT + 119,
     environmentId: args.environmentId,
     providerThreadId: "01a03fb4-1c1a-session-b",
@@ -121,7 +121,7 @@ function seedArchivedConcurrentStartPair(
     threadId: args.earlyId,
     turnId: "turn-early",
   });
-  seedStampedTurn(harness, {
+  await seedStampedTurn(harness, {
     createdAt: BATCH_AT + 119,
     environmentId: args.environmentId,
     providerThreadId: "01a03fb4-1bb9-session-a",
@@ -205,20 +205,20 @@ describe("provider session ownership on dispatch", () => {
         environment,
         first: owner,
         second: contaminated,
-      } = seedThreads(harness);
-      seedThreadIdentity(harness.deps, {
+      } = await seedThreads(harness);
+      await seedThreadIdentity(harness.deps, {
         threadId: owner.id,
         environmentId: environment.id,
         providerThreadId: FOREIGN_SESSION,
         createdAt: BATCH_AT,
         sequence: 1,
       });
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         environmentId: environment.id,
         providerThreadId: OWN_SESSION,
         threadId: contaminated.id,
       });
-      seedStampedTurn(harness, {
+      await seedStampedTurn(harness, {
         createdAt: BATCH_AT + 600_000,
         environmentId: environment.id,
         providerThreadId: FOREIGN_SESSION,
@@ -226,7 +226,7 @@ describe("provider session ownership on dispatch", () => {
         threadId: contaminated.id,
         turnId: "turn-contaminated",
       });
-      seedThreadIdentity(harness.deps, {
+      await seedThreadIdentity(harness.deps, {
         threadId: contaminated.id,
         environmentId: environment.id,
         providerThreadId: FOREIGN_SESSION,
@@ -247,7 +247,11 @@ describe("provider session ownership on dispatch", () => {
         resumeContext: { providerThreadId: OWN_SESSION },
       });
       expect(
-        listQueuedThreadCommands(harness, "thread.start", contaminated.id),
+        await listQueuedThreadCommands(
+          harness,
+          "thread.start",
+          contaminated.id,
+        ),
       ).toHaveLength(0);
     });
   });
@@ -256,8 +260,8 @@ describe("provider session ownership on dispatch", () => {
     "refuses an invalid persisted identity %s without starting a replacement session",
     async (providerThreadId) => {
       await withTestHarness(async (harness) => {
-        const { environment, first: thread } = seedThreads(harness);
-        seedStoredEvent(harness.deps, {
+        const { environment, first: thread } = await seedThreads(harness);
+        await seedStoredEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId,
@@ -266,7 +270,7 @@ describe("provider session ownership on dispatch", () => {
           sequence: 1,
           data: {},
         });
-        const before = listEvents(harness.db, { threadId: thread.id });
+        const before = await listEvents(harness.db, { threadId: thread.id });
         await expect(
           sendUserMessage(harness, { environment, thread }),
         ).rejects.toMatchObject({
@@ -281,12 +285,14 @@ describe("provider session ownership on dispatch", () => {
           },
         });
         expect(
-          listQueuedThreadCommands(harness, "thread.start", thread.id),
+          await listQueuedThreadCommands(harness, "thread.start", thread.id),
         ).toHaveLength(0);
         expect(
-          listQueuedThreadCommands(harness, "turn.submit", thread.id),
+          await listQueuedThreadCommands(harness, "turn.submit", thread.id),
         ).toHaveLength(0);
-        expect(listEvents(harness.db, { threadId: thread.id })).toEqual(before);
+        expect(await listEvents(harness.db, { threadId: thread.id })).toEqual(
+          before,
+        );
       });
     },
   );
@@ -299,22 +305,22 @@ describe("provider session ownership on dispatch", () => {
         host,
         second: contaminated,
         session,
-      } = seedThreads(harness);
-      seedThreadIdentity(harness.deps, {
+      } = await seedThreads(harness);
+      await seedThreadIdentity(harness.deps, {
         threadId: owner.id,
         environmentId: environment.id,
         providerThreadId: FOREIGN_SESSION,
         createdAt: BATCH_AT,
         sequence: 1,
       });
-      seedThreadIdentity(harness.deps, {
+      await seedThreadIdentity(harness.deps, {
         threadId: contaminated.id,
         environmentId: environment.id,
         providerThreadId: FOREIGN_SESSION,
         createdAt: BATCH_AT + 140,
         sequence: 1,
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: ({ command }): HostRpcHandlerResult => {
@@ -335,7 +341,7 @@ describe("provider session ownership on dispatch", () => {
           }
         },
       });
-      const eventsBefore = listEvents(harness.db, {
+      const eventsBefore = await listEvents(harness.db, {
         threadId: contaminated.id,
       });
 
@@ -347,9 +353,9 @@ describe("provider session ownership on dispatch", () => {
           claimantThreadIds: [owner.id],
         },
       );
-      expect(listEvents(harness.db, { threadId: contaminated.id })).toEqual(
-        eventsBefore,
-      );
+      expect(
+        await listEvents(harness.db, { threadId: contaminated.id }),
+      ).toEqual(eventsBefore);
       expect(
         responder.requests.filter(
           ({ command }) =>
@@ -396,14 +402,18 @@ describe("provider session ownership on dispatch", () => {
 
   it("refuses both threads of a same-millisecond claim without dispatching or rewriting history", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, first: early, second: late } = seedThreads(harness);
-      seedArchivedConcurrentStartPair(harness, {
+      const {
+        environment,
+        first: early,
+        second: late,
+      } = await seedThreads(harness);
+      await seedArchivedConcurrentStartPair(harness, {
         environmentId: environment.id,
         earlyId: early.id,
         lateId: late.id,
       });
-      const earlyEvents = listEvents(harness.db, { threadId: early.id });
-      const lateEvents = listEvents(harness.db, { threadId: late.id });
+      const earlyEvents = await listEvents(harness.db, { threadId: early.id });
+      const lateEvents = await listEvents(harness.db, { threadId: late.id });
 
       await expectProviderSessionUnavailable(
         sendUserMessage(harness, { environment, thread: early }),
@@ -423,25 +433,33 @@ describe("provider session ownership on dispatch", () => {
       );
       for (const type of ["thread.start", "turn.submit"] as const) {
         for (const threadId of [early.id, late.id]) {
-          expect(listQueuedThreadCommands(harness, type, threadId)).toEqual([]);
+          expect(
+            await listQueuedThreadCommands(harness, type, threadId),
+          ).toEqual([]);
         }
       }
-      expect(listEvents(harness.db, { threadId: early.id })).toEqual(
+      expect(await listEvents(harness.db, { threadId: early.id })).toEqual(
         earlyEvents,
       );
-      expect(listEvents(harness.db, { threadId: late.id })).toEqual(lateEvents);
+      expect(await listEvents(harness.db, { threadId: late.id })).toEqual(
+        lateEvents,
+      );
     });
   });
 
   it("records the refusal on a queued message instead of starting a new session", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, first: early, second: late } = seedThreads(harness);
-      seedArchivedConcurrentStartPair(harness, {
+      const {
+        environment,
+        first: early,
+        second: late,
+      } = await seedThreads(harness);
+      await seedArchivedConcurrentStartPair(harness, {
         environmentId: environment.id,
         earlyId: early.id,
         lateId: late.id,
       });
-      const queued = seedQueuedMessage(harness.deps, {
+      const queued = await seedQueuedMessage(harness.deps, {
         threadId: early.id,
         content: textInput("Queued follow-up"),
       });
@@ -451,13 +469,15 @@ describe("provider session ownership on dispatch", () => {
         threadId: early.id,
       });
 
-      const [row] = listQueuedThreadMessages(harness.db, early.id);
+      const [row] = await listQueuedThreadMessages(harness.db, early.id);
       expect(row?.id).toBe(queued.id);
       expect(row?.failureReason).toBe(
         "Another thread claimed this thread's provider session in the same millisecond, so bb will not guess whose it is. Clear context (/clear or bb thread clear) for a new session; history is kept.",
       );
       for (const type of ["thread.start", "turn.submit"] as const) {
-        expect(listQueuedThreadCommands(harness, type, early.id)).toEqual([]);
+        expect(await listQueuedThreadCommands(harness, type, early.id)).toEqual(
+          [],
+        );
       }
     });
   });

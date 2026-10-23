@@ -24,14 +24,16 @@ export function registerQueueRoutes(app: Hono, deps: AppDeps): void {
     onValidationError: (msg) => new ApiError(400, "invalid_request", msg),
   });
 
-  get(publicApiRoutes.queue.list, (context, query) => {
+  get(publicApiRoutes.queue.list, async (context, query) => {
     return context.json(
-      listQueuedThreadMessagesForApi(deps.db, {
-        ...(query.threadId !== undefined ? { threadId: query.threadId } : {}),
-        ...(query.waitHolder !== undefined
-          ? { waitHolder: query.waitHolder }
-          : {}),
-      }).map(toThreadQueuedMessage),
+      (
+        await listQueuedThreadMessagesForApi(deps.db, {
+          ...(query.threadId !== undefined ? { threadId: query.threadId } : {}),
+          ...(query.waitHolder !== undefined
+            ? { waitHolder: query.waitHolder }
+            : {}),
+        })
+      ).map(toThreadQueuedMessage),
     );
   });
 }

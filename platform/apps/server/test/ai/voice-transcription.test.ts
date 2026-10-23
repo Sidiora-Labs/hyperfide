@@ -95,7 +95,7 @@ describe("voice transcription", () => {
         body: { code: "provider_rpc_error" },
       });
 
-      setAiServiceSelection(harness.deps.db, "voice", { mode: "off" });
+      await setAiServiceSelection(harness.deps.db, "voice", { mode: "off" });
       await expect(
         transcribeVoiceInput(harness.deps, {
           file: voiceFile(),
@@ -136,15 +136,15 @@ describe("voice transcription", () => {
 
   it("enables the microphone only when the voice task has a ready service", async () => {
     await withTestHarness({}, async (harness) => {
-      expect(resolveVoiceTranscriptionEnabled(harness.deps)).toBe(false);
+      expect(await resolveVoiceTranscriptionEnabled(harness.deps)).toBe(false);
       registerCodexVoice(harness, async () => "hi");
       await harness.deps.aiServices.status({
         pluginId: "provider-codex",
         serviceId: "codex",
       });
-      expect(resolveVoiceTranscriptionEnabled(harness.deps)).toBe(true);
-      setAiServiceSelection(harness.deps.db, "voice", { mode: "off" });
-      expect(resolveVoiceTranscriptionEnabled(harness.deps)).toBe(false);
+      expect(await resolveVoiceTranscriptionEnabled(harness.deps)).toBe(true);
+      await setAiServiceSelection(harness.deps.db, "voice", { mode: "off" });
+      expect(await resolveVoiceTranscriptionEnabled(harness.deps)).toBe(false);
     });
   });
 });

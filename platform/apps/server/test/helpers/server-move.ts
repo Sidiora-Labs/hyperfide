@@ -92,17 +92,17 @@ function toResponse(
   };
 }
 
-export function registerFakeDaemon(
+export async function registerFakeDaemon(
   harness: Pick<TestAppHarness, "hub">,
   args: RegisterFakeDaemonArgs,
-): FakeDaemon {
+): Promise<FakeDaemon> {
   const daemon: FakeDaemon = {
     hostId: args.hostId,
     movedMessages: [],
     requests: [],
     sessionId: `session-${args.hostId}`,
   };
-  harness.hub.registerDaemon(daemon.sessionId, args.hostId, {
+  await harness.hub.registerDaemon(daemon.sessionId, args.hostId, {
     close() {},
     send(data) {
       const message = hostDaemonServerWsMessageSchema.parse(JSON.parse(data));
@@ -164,9 +164,9 @@ export function createTestServerMoveEnvironment(
     allowLoopbackServerUrl: false,
     bindHost: null,
     deps: harness.deps,
-    exportArchive: (args) => {
+    exportArchive: async (args) => {
       events.push("export");
-      return exportServerArchive({
+      return await exportServerArchive({
         appVersion: harness.config.appVersion,
         dataDir: harness.config.dataDir,
         db: harness.db,

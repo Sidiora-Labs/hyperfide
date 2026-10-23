@@ -77,8 +77,8 @@ function completedTurnRow(rows: readonly TimelineRow[], turnId: string) {
   return row;
 }
 
-function seedV3Thread(harness: TestAppHarness): string {
-  const { environment, thread } = seedThreadFixture(harness);
+async function seedV3Thread(harness: TestAppHarness): Promise<string> {
+  const { environment, thread } = await seedThreadFixture(harness);
   const turnOne = {
     threadId: thread.id,
     environmentId: environment.id,
@@ -86,16 +86,16 @@ function seedV3Thread(harness: TestAppHarness): string {
     scope: turnScope("turn-1"),
   } as const;
   let sequence = 0;
-  const seed = (
+  const seed = async (
     scope: typeof turnOne,
     type: "turn/started" | "item/completed" | "turn/completed",
     data: Record<string, unknown>,
   ) => {
     sequence += 1;
-    seedEvent(harness.deps, { ...scope, sequence, type, data });
+    await seedEvent(harness.deps, { ...scope, sequence, type, data });
   };
-  seed(turnOne, "turn/started", {});
-  seed(turnOne, "item/completed", {
+  await seed(turnOne, "turn/started", {});
+  await seed(turnOne, "item/completed", {
     item: {
       type: "fileRead",
       id: "read-1",
@@ -104,7 +104,7 @@ function seedV3Thread(harness: TestAppHarness): string {
       status: "completed",
     },
   });
-  seed(turnOne, "item/completed", {
+  await seed(turnOne, "item/completed", {
     item: {
       type: "search",
       id: "grep-1",
@@ -114,7 +114,7 @@ function seedV3Thread(harness: TestAppHarness): string {
       status: "completed",
     },
   });
-  seed(turnOne, "item/completed", {
+  await seed(turnOne, "item/completed", {
     item: {
       type: "planSteps",
       id: "plan-1",
@@ -122,7 +122,7 @@ function seedV3Thread(harness: TestAppHarness): string {
       status: "completed",
     },
   });
-  seed(turnOne, "item/completed", {
+  await seed(turnOne, "item/completed", {
     item: {
       type: "extension",
       id: "ext-1",
@@ -136,14 +136,14 @@ function seedV3Thread(harness: TestAppHarness): string {
       },
     },
   });
-  seed(turnOne, "item/completed", {
+  await seed(turnOne, "item/completed", {
     item: { type: "agentMessage", id: "assistant-1", text: "Done." },
   });
-  seed(turnOne, "turn/completed", { status: "completed" });
+  await seed(turnOne, "turn/completed", { status: "completed" });
 
   const turnTwo = { ...turnOne, scope: turnScope("turn-2") } as const;
-  seed(turnTwo, "turn/started", {});
-  seed(turnTwo, "item/completed", {
+  await seed(turnTwo, "turn/started", {});
+  await seed(turnTwo, "item/completed", {
     item: {
       type: "fileRead",
       id: "read-2",
@@ -151,7 +151,7 @@ function seedV3Thread(harness: TestAppHarness): string {
       status: "completed",
     },
   });
-  seed(turnTwo, "item/completed", {
+  await seed(turnTwo, "item/completed", {
     item: {
       type: "planSteps",
       id: "plan-2",
@@ -165,7 +165,7 @@ function seedV3Thread(harness: TestAppHarness): string {
 describe("GET /threads/:id/timeline work-row kinds", () => {
   it("serves the current work kinds to a request that declares nothing", async () => {
     await withTestHarness(async (harness) => {
-      const threadId = seedV3Thread(harness);
+      const threadId = await seedV3Thread(harness);
 
       const latest = await getTimeline(harness, threadId);
       const nested = await getTimeline(

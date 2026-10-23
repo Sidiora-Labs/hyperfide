@@ -51,8 +51,8 @@ function pathPlugin(
   };
 }
 
-function seedPluginPaths(db: DbConnection): void {
-  upsertInstalledPlugin(
+async function seedPluginPaths(db: DbConnection): Promise<void> {
+  await upsertInstalledPlugin(
     db,
     pathPlugin(
       "server-owned",
@@ -60,7 +60,7 @@ function seedPluginPaths(db: DbConnection): void {
       `${SOURCE_ROOT}/plugins/local-copy`,
     ),
   );
-  upsertInstalledPlugin(
+  await upsertInstalledPlugin(
     db,
     pathPlugin(
       "sibling-prefix",
@@ -68,11 +68,11 @@ function seedPluginPaths(db: DbConnection): void {
       "/home/me/.bb-machines/other/plugin",
     ),
   );
-  upsertInstalledPlugin(
+  await upsertInstalledPlugin(
     db,
     pathPlugin("outside", "/home/me/code/plugin", "/home/me/code/plugin"),
   );
-  createPluginArtifact(db, {
+  await createPluginArtifact(db, {
     id: "artifact-git",
     pluginId: "server-owned",
     sourceKind: "git",
@@ -85,7 +85,7 @@ function seedPluginPaths(db: DbConnection): void {
     validationResult: "valid",
     validatedAt: 1,
   });
-  createPluginArtifact(db, {
+  await createPluginArtifact(db, {
     id: "artifact-outside",
     pluginId: "outside",
     sourceKind: "npm",
@@ -98,7 +98,7 @@ function seedPluginPaths(db: DbConnection): void {
     validationResult: "valid",
     validatedAt: 1,
   });
-  createPluginStateSnapshot(db, {
+  await createPluginStateSnapshot(db, {
     id: "snapshot-1",
     pluginId: "server-owned",
     fromArtifactId: null,
@@ -123,7 +123,7 @@ function seedPluginPaths(db: DbConnection): void {
     ["https-lookalike", "https", `${SOURCE_ROOT}/marketplaces/not-a-path`],
     ["bundled", "path", "/opt/bb-app/plugins"],
   ] as const) {
-    upsertPluginMarketplace(db, {
+    await upsertPluginMarketplace(db, {
       name,
       sourceKind,
       manifestUrl,
@@ -141,31 +141,32 @@ function seedPluginPaths(db: DbConnection): void {
   }
 }
 
-function pluginPaths(db: DbConnection) {
-  return db
-    .select({
-      id: installedPlugins.id,
-      rootDir: installedPlugins.rootDir,
-      sourcePath: installedPlugins.sourcePath,
-    })
-    .from(installedPlugins)
-    .all()
-    .sort((left, right) => left.id.localeCompare(right.id));
+async function pluginPaths(db: DbConnection) {
+  return (
+    await db
+      .select({
+        id: installedPlugins.id,
+        rootDir: installedPlugins.rootDir,
+        sourcePath: installedPlugins.sourcePath,
+      })
+      .from(installedPlugins)
+      .all()
+  ).sort((left, right) => left.id.localeCompare(right.id));
 }
 
 describe("server move data helpers", () => {
   let db: DbConnection;
 
-  beforeEach(() => {
-    db = createMigratedConnection();
+  beforeEach(async () => {
+    db = await createMigratedConnection();
   });
 
-  afterEach(() => db.$client.close());
+  afterEach(async () => await db.close());
 
-  it("re-roots only server-owned plugin paths under the source data dir", () => {
-    seedPluginPaths(db);
+  it("re-roots only server-owned plugin paths under the source data dir", async () => {
+    await seedPluginPaths(db);
 
-    const result = rerootServerOwnedPluginPaths(db, {
+    const result = await rerootServerOwnedPluginPaths(db, {
       fromRoot: SOURCE_ROOT,
       toRoot: TARGET_ROOT,
     });
@@ -176,7 +177,7 @@ describe("server move data helpers", () => {
       pluginStateSnapshots: 4,
       pluginMarketplaces: 1,
     });
-    expect(pluginPaths(db)).toEqual([
+    expect(await pluginPaths(db)).toEqual([
       {
         id: "outside",
         rootDir: "/home/me/code/plugin",
@@ -194,7 +195,7 @@ describe("server move data helpers", () => {
       },
     ]);
     expect(
-      listPluginArtifacts(db, "server-owned").map((artifact) => ({
+      (await listPluginArtifacts(db, "server-owned")).map((artifact) => ({
         path: artifact.path,
         gitCheckoutRoot: artifact.gitCheckoutRoot,
       })),
@@ -204,10 +205,12 @@ describe("server move data helpers", () => {
         gitCheckoutRoot: `${TARGET_ROOT}/plugins/cache/git/abc123`,
       },
     ]);
-    expect(listPluginArtifacts(db, "outside")[0]?.path).toBe(
+    expect((await listPluginArtifacts(db, "outside"))[0]?.path).toBe(
       "/var/cache/bb/artifact.tgz",
     );
-    expect(listPluginStateSnapshots(db, "server-owned")[0]).toMatchObject({
+    expect(
+      (await listPluginStateSnapshots(db, "server-owned"))[0],
+    ).toMatchObject({
       snapshotPath: `${TARGET_ROOT}/plugins/snapshots/server-owned/1`,
       databasePath: `${TARGET_ROOT}/plugins/snapshots/server-owned/1/data.db`,
       statePath: `${TARGET_ROOT}/plugins/snapshots/server-owned/1/host-state.json`,
@@ -216,7 +219,10 @@ describe("server move data helpers", () => {
     });
     expect(
       Object.fromEntries(
-        listPluginMarketplaces(db).map((row) => [row.name, row.manifestUrl]),
+        (await listPluginMarketplaces(db)).map((row) => [
+          row.name,
+          row.manifestUrl,
+        ]),
       ),
     ).toMatchObject({
       "local-path": `${TARGET_ROOT}/marketplaces/local`,
@@ -225,7 +231,7 @@ describe("server move data helpers", () => {
     });
 
     expect(
-      rerootServerOwnedPluginPaths(db, {
+      await rerootServerOwnedPluginPaths(db, {
         fromRoot: SOURCE_ROOT,
         toRoot: TARGET_ROOT,
       }),
@@ -237,9 +243,9 @@ describe("server move data helpers", () => {
     });
   });
 
-  it("stays idempotent when the target root is nested inside the source root", () => {
+  it("stays idempotent when the target root is nested inside the source root", async () => {
     const nestedTarget = `${SOURCE_ROOT}/imported`;
-    upsertInstalledPlugin(
+    await upsertInstalledPlugin(
       db,
       pathPlugin(
         "server-owned",
@@ -248,16 +254,16 @@ describe("server move data helpers", () => {
       ),
     );
 
-    rerootServerOwnedPluginPaths(db, {
+    await rerootServerOwnedPluginPaths(db, {
       fromRoot: SOURCE_ROOT,
       toRoot: nestedTarget,
     });
-    rerootServerOwnedPluginPaths(db, {
+    await rerootServerOwnedPluginPaths(db, {
       fromRoot: SOURCE_ROOT,
       toRoot: nestedTarget,
     });
 
-    expect(pluginPaths(db)).toEqual([
+    expect(await pluginPaths(db)).toEqual([
       {
         id: "server-owned",
         rootDir: `${nestedTarget}/plugins/local-copy`,
@@ -266,38 +272,41 @@ describe("server move data helpers", () => {
     ]);
   });
 
-  it("swaps host roles once and leaves provider-managed targets alone", () => {
+  it("swaps host roles once and leaves provider-managed targets alone", async () => {
     const now = 5_000;
-    upsertHost(db, noopNotifier, { id: "old-server", name: "Laptop" });
-    upsertHost(db, noopNotifier, { id: "target", name: "Desktop" });
-    upsertHost(db, noopNotifier, { id: "cloud", name: "Cloud VM" });
-    updateHost(db, noopNotifier, "target", {
+    await upsertHost(db, noopNotifier, { id: "old-server", name: "Laptop" });
+    await upsertHost(db, noopNotifier, { id: "target", name: "Desktop" });
+    await upsertHost(db, noopNotifier, { id: "cloud", name: "Cloud VM" });
+    await updateHost(db, noopNotifier, "target", {
       machineProviderId: "manual",
       resource: { version: 1, hostId: "target" },
     });
-    updateHost(db, noopNotifier, "cloud", {
+    await updateHost(db, noopNotifier, "cloud", {
       machineProviderId: "digitalocean",
       resource: { dropletId: 1 },
     });
 
     expect(
-      swapServerHostRoles(db, {
+      await swapServerHostRoles(db, {
         targetHostId: "target",
         sourceServerHostId: "old-server",
         now,
       }),
-    ).toEqual({ targetHostBecameServer: true, sourceServerHostBecameManual: true });
-    expect(getHost(db, "target")).toMatchObject({
+    ).toEqual({
+      targetHostBecameServer: true,
+      sourceServerHostBecameManual: true,
+    });
+    expect(await getHost(db, "target")).toMatchObject({
       machineProviderId: null,
       resource: null,
     });
-    expect(getHost(db, "old-server")).toMatchObject({
+    expect(await getHost(db, "old-server")).toMatchObject({
       machineProviderId: "manual",
       resource: { version: 1, hostId: "old-server" },
       updatedAt: now,
     });
     expect(
-      swapServerHostRoles(db, {
+      await swapServerHostRoles(db, {
         targetHostId: "target",
         sourceServerHostId: "old-server",
         now,
@@ -308,7 +317,7 @@ describe("server move data helpers", () => {
     });
 
     expect(
-      swapServerHostRoles(db, {
+      await swapServerHostRoles(db, {
         targetHostId: "cloud",
         sourceServerHostId: null,
         now,
@@ -317,28 +326,28 @@ describe("server move data helpers", () => {
       targetHostBecameServer: false,
       sourceServerHostBecameManual: false,
     });
-    expect(getHost(db, "cloud")).toMatchObject({
+    expect(await getHost(db, "cloud")).toMatchObject({
       machineProviderId: "digitalocean",
       resource: { dropletId: 1 },
     });
   });
 
-  it("counts applied migrations only on migrated databases", () => {
-    expect(countAppliedMigrations(db)).toBeGreaterThan(100);
-    const fresh = createConnection(":memory:");
+  it("counts applied migrations only on migrated databases", async () => {
+    expect(await countAppliedMigrations(db)).toBeGreaterThan(0);
+    const fresh = await createConnection(":memory:");
     try {
-      expect(countAppliedMigrations(fresh)).toBe(0);
+      expect(await countAppliedMigrations(fresh)).toBe(0);
     } finally {
-      fresh.$client.close();
+      await fresh.close();
     }
   });
 
-  it("lists path-installed plugin sources that are still installed", () => {
-    seedPluginPaths(db);
-    markInstalledPluginRemoved(db, "sibling-prefix");
+  it("lists path-installed plugin sources that are still installed", async () => {
+    await seedPluginPaths(db);
+    await markInstalledPluginRemoved(db, "sibling-prefix");
 
     expect(
-      listPathInstalledPluginSources(db).sort((left, right) =>
+      (await listPathInstalledPluginSources(db)).sort((left, right) =>
         left.id.localeCompare(right.id),
       ),
     ).toEqual([

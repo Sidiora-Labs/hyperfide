@@ -26,17 +26,17 @@ const SHARED_PATH = "/tmp/shared-workspace-path-repo";
 describe("thread creation on a path another project already uses", () => {
   it("creates a project-owned environment instead of failing on the personal claim", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-shared-workspace-path",
       });
-      ensurePersonalProject(harness.deps.db);
-      const personalEnvironment = seedEnvironment(harness.deps, {
+      await ensurePersonalProject(harness.deps.db);
+      const personalEnvironment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: PERSONAL_PROJECT_ID,
         path: SHARED_PATH,
       });
 
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: SHARED_PATH,
       });
@@ -62,7 +62,7 @@ describe("thread creation on a path another project already uses", () => {
           queued.command.type === "thread.start" &&
           queued.command.threadId === thread.id,
       );
-      const projectEnvironments = listEnvironments(harness.deps.db, {
+      const projectEnvironments = await listEnvironments(harness.deps.db, {
         projectId: project.id,
       });
       expect(projectEnvironments).toHaveLength(1);
@@ -95,26 +95,29 @@ describe("thread creation on a path another project already uses", () => {
         },
         decide: () => ({ action: "wait", reason: "…" }),
       });
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-shared-checkout",
       });
-      const { project: busyProject } = seedProjectWithSource(harness.deps, {
-        hostId: host.id,
-        name: "Busy Project",
-        path: SHARED_PATH,
-      });
-      const busyEnvironment = seedEnvironment(harness.deps, {
+      const { project: busyProject } = await seedProjectWithSource(
+        harness.deps,
+        {
+          hostId: host.id,
+          name: "Busy Project",
+          path: SHARED_PATH,
+        },
+      );
+      const busyEnvironment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: busyProject.id,
         path: SHARED_PATH,
       });
-      seedThread(harness.deps, {
+      await seedThread(harness.deps, {
         projectId: busyProject.id,
         environmentId: busyEnvironment.id,
         status: "active",
       });
 
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "Checkout Project",
         path: SHARED_PATH,
@@ -149,22 +152,22 @@ describe("thread creation on a path another project already uses", () => {
         },
       });
       expect(
-        listEnvironments(harness.deps.db, { projectId: project.id }),
+        await listEnvironments(harness.deps.db, { projectId: project.id }),
       ).toEqual([]);
     });
   });
 
   it("refuses to attach in place to another project's managed worktree", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-managed-alias",
       });
       const worktreePath = "/tmp/bb-worktrees/env_owner/repo";
-      const { project: owner } = seedProjectWithSource(harness.deps, {
+      const { project: owner } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "Owning Project",
       });
-      seedEnvironment(harness.deps, {
+      await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: owner.id,
         path: worktreePath,
@@ -172,7 +175,7 @@ describe("thread creation on a path another project already uses", () => {
         providerOwnsPath: true,
       });
 
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "Aliasing Project",
         path: "/tmp/aliasing-project",
@@ -194,21 +197,21 @@ describe("thread creation on a path another project already uses", () => {
       ).rejects.toThrow("bb-managed workspace owned by another project");
 
       expect(
-        listEnvironments(harness.deps.db, { projectId: project.id }),
+        await listEnvironments(harness.deps.db, { projectId: project.id }),
       ).toEqual([]);
     });
   });
 
   it("refuses a managed path whose owner has not stored it yet", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-pending-managed",
       });
-      const { project: owner } = seedProjectWithSource(harness.deps, {
+      const { project: owner } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "Owning Project",
       });
-      const pending = seedEnvironment(harness.deps, {
+      const pending = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: owner.id,
         path: null,
@@ -217,7 +220,7 @@ describe("thread creation on a path another project already uses", () => {
         providerOwnsPath: true,
       });
 
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "Racing Project",
         path: "/tmp/racing-project",
@@ -242,22 +245,22 @@ describe("thread creation on a path another project already uses", () => {
       ).rejects.toThrow("inside bb-managed storage");
 
       expect(
-        listEnvironments(harness.deps.db, { projectId: project.id }),
+        await listEnvironments(harness.deps.db, { projectId: project.id }),
       ).toEqual([]);
     });
   });
 
   it("accepts a second project's checkout request at a path the first project's checkout row holds", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-two-projects-one-checkout",
       });
-      const { project: first } = seedProjectWithSource(harness.deps, {
+      const { project: first } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "First Project",
         path: SHARED_PATH,
       });
-      const firstEnvironment = seedEnvironment(harness.deps, {
+      const firstEnvironment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: first.id,
         path: SHARED_PATH,
@@ -265,7 +268,7 @@ describe("thread creation on a path another project already uses", () => {
         providerOwnsPath: false,
       });
 
-      const { project: second } = seedProjectWithSource(harness.deps, {
+      const { project: second } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "Second Project",
         path: SHARED_PATH,
@@ -292,7 +295,7 @@ describe("thread creation on a path another project already uses", () => {
           queued.command.type === "thread.start" &&
           queued.command.threadId === thread.id,
       );
-      const secondEnvironments = listEnvironments(harness.deps.db, {
+      const secondEnvironments = await listEnvironments(harness.deps.db, {
         projectId: second.id,
       });
       expect(secondEnvironments).toHaveLength(1);
@@ -307,14 +310,14 @@ describe("attaching to a path that already has an environment", () => {
 
   it("keeps bb's ownership of a managed workspace a later thread attaches to", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-adopt-managed",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "Adopting Project",
       });
-      const managed = seedEnvironment(harness.deps, {
+      const managed = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: MANAGED_PATH,
@@ -363,9 +366,11 @@ describe("attaching to a path that already has an environment", () => {
           queued.command.threadId === thread.id,
       );
 
-      const attached = listEnvironments(harness.deps.db, {
-        projectId: project.id,
-      }).find((environment) => environment.path === MANAGED_PATH);
+      const attached = (
+        await listEnvironments(harness.deps.db, {
+          projectId: project.id,
+        })
+      ).find((environment) => environment.path === MANAGED_PATH);
       expect(attached?.id).toBe(managed.id);
       expect(attached?.providerOwnsPath).toBe(true);
     });

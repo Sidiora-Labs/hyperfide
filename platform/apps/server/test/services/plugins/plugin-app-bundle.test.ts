@@ -16,7 +16,7 @@ import {
 
 const BASE = "http://127.0.0.1:3334";
 
-const run = promisify(execFile);
+const run = await promisify(execFile);
 
 async function hasBinary(command: string): Promise<boolean> {
   try {
@@ -106,7 +106,11 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
   });
 
   it("builds path installs at install time and serves hash-cached assets", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-appy");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-appy",
+    );
     await writeAppPluginFixture(rootDir, {
       name: "hyperfide-plugin-appy",
       appSource: COMPRESSIBLE_APP_SOURCE,
@@ -288,7 +292,11 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
   }, 60_000);
 
   it("fails the install when the frontend build fails", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-bad");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-bad",
+    );
     await writeAppPluginFixture(rootDir, {
       name: "hyperfide-plugin-bad",
       appSource: "export default function App( {\n",
@@ -296,11 +304,15 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
     await expect(
       harness.pluginService.installPath(rootDir),
     ).rejects.toThrowError(/frontend bundle build for "bad" failed/);
-    expect(harness.pluginService.list()).toHaveLength(0);
+    expect(await harness.pluginService.list()).toHaveLength(0);
   }, 60_000);
 
   it("rebuilds a path plugin at load when the recorded SDK version is stale", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-aged");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-aged",
+    );
     await writeAppPluginFixture(rootDir, { name: "hyperfide-plugin-aged" });
     await harness.pluginService.installPath(rootDir);
 
@@ -313,15 +325,19 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
 
     const meta = JSON.parse(await readFile(metaPath, "utf8"));
     expect(meta.sdkVersion).toBe(PLUGIN_SDK_VERSION);
-    const entry = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "aged");
+    const entry = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "aged",
+    );
     expect(entry?.app.bundle?.sdkVersion).toBe(PLUGIN_SDK_VERSION);
     expect(entry?.app.bundle?.compatible).toBe(true);
   }, 120_000);
 
   it("keeps an npm plugin's backend running with compatible:false on a major mismatch (no rebuild)", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-oldie");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-oldie",
+    );
     await writeAppPluginFixture(rootDir, { name: "hyperfide-plugin-oldie" });
     const staleMajor = PLUGIN_SDK_MAJOR + 1;
     await mkdir(join(rootDir, "dist"), { recursive: true });
@@ -330,7 +346,7 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
       join(rootDir, "dist", "app.meta.json"),
       JSON.stringify({ sdkMajor: staleMajor, sdkVersion: `${staleMajor}.0.0` }),
     );
-    upsertInstalledPlugin(harness.db, {
+    await upsertInstalledPlugin(harness.db, {
       ...npmPersistence("hyperfide-plugin-oldie", "0.1.0"),
       id: "oldie",
       source: "npm:hyperfide-plugin-oldie@0.1.0",
@@ -341,9 +357,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
     });
     await harness.pluginService.reload("oldie");
 
-    const entry = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "oldie");
+    const entry = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "oldie",
+    );
     expect(entry?.status).toBe("running");
     expect(entry?.app.hasApp).toBe(true);
     expect(entry?.app.bundle).toMatchObject({
@@ -362,7 +378,11 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
   });
 
   it("refreshes the served bundle hash on reload-by-id after dist changes (bb plugin dev cycle)", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-devy");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-devy",
+    );
     await writeAppPluginFixture(rootDir, { name: "hyperfide-plugin-devy" });
     await mkdir(join(rootDir, "dist"), { recursive: true });
     await writeFile(join(rootDir, "dist", "app.js"), "export default 1;\n");
@@ -373,7 +393,7 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
         sdkVersion: PLUGIN_SDK_VERSION,
       }),
     );
-    upsertInstalledPlugin(harness.db, {
+    await upsertInstalledPlugin(harness.db, {
       ...npmPersistence("hyperfide-plugin-devy", "0.1.0"),
       id: "devy",
       source: "npm:hyperfide-plugin-devy@0.1.0",
@@ -383,9 +403,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
       enabledFollowsDefault: false,
     });
     await harness.pluginService.reload("devy");
-    const before = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "devy")?.app.bundle;
+    const before = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "devy",
+    )?.app.bundle;
     expect(before).not.toBeNull();
 
     await writeFile(join(rootDir, "dist", "app.js"), "export default 2;\n");
@@ -395,9 +415,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
     );
     expect(reload.status).toBe(200);
 
-    const after = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "devy")?.app.bundle;
+    const after = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "devy",
+    )?.app.bundle;
     expect(after).not.toBeNull();
     expect(after?.hash).not.toBe(before?.hash);
     expect(after?.jsUrl).toBe(
@@ -416,9 +436,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
     );
     await writeAppPluginFixture(rootDir, { name: "hyperfide-plugin-brittle" });
     await harness.pluginService.installPath(rootDir);
-    const before = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "brittle");
+    const before = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "brittle",
+    );
     expect(before?.app.bundle).not.toBeNull();
 
     await writeFile(
@@ -431,9 +451,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
     );
     await harness.pluginService.reload("brittle");
 
-    const entry = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "brittle");
+    const entry = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "brittle",
+    );
     expect(entry?.status).toBe("running");
     expect(entry?.statusDetail).toContain("frontend bundle rebuild failed");
     expect(entry?.app).toEqual({ hasApp: true, bundle: null });
@@ -444,7 +464,11 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
   }, 120_000);
 
   it("re-keys the bundle hash when only the meta changes (same js/css)", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-meta");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-meta",
+    );
     await writeAppPluginFixture(rootDir, { name: "hyperfide-plugin-meta" });
     await mkdir(join(rootDir, "dist"), { recursive: true });
     await writeFile(join(rootDir, "dist", "app.js"), "export default 1;\n");
@@ -455,7 +479,7 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
         sdkVersion: PLUGIN_SDK_VERSION,
       }),
     );
-    upsertInstalledPlugin(harness.db, {
+    await upsertInstalledPlugin(harness.db, {
       ...npmPersistence("hyperfide-plugin-meta", "0.1.0"),
       id: "meta",
       source: "npm:hyperfide-plugin-meta@0.1.0",
@@ -465,9 +489,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
       enabledFollowsDefault: false,
     });
     await harness.pluginService.reload("meta");
-    const before = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "meta")?.app.bundle;
+    const before = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "meta",
+    )?.app.bundle;
     expect(before?.compatible).toBe(true);
 
     const staleMajor = PLUGIN_SDK_MAJOR + 1;
@@ -476,9 +500,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
       JSON.stringify({ sdkMajor: staleMajor, sdkVersion: `${staleMajor}.0.0` }),
     );
     await harness.pluginService.reload("meta");
-    const after = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "meta")?.app.bundle;
+    const after = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "meta",
+    )?.app.bundle;
     expect(after?.compatible).toBe(false);
     expect(after?.hash).not.toBe(before?.hash);
   });
@@ -489,10 +513,12 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
       "fixtures",
       "hyperfide-plugin-malformed",
     );
-    await writeAppPluginFixture(rootDir, { name: "hyperfide-plugin-malformed" });
+    await writeAppPluginFixture(rootDir, {
+      name: "hyperfide-plugin-malformed",
+    });
     await mkdir(join(rootDir, "dist"), { recursive: true });
     await writeFile(join(rootDir, "dist", "app.js"), "export default 1;\n");
-    upsertInstalledPlugin(harness.db, {
+    await upsertInstalledPlugin(harness.db, {
       ...npmPersistence("hyperfide-plugin-malformed", "0.1.0"),
       id: "malformed",
       source: "npm:hyperfide-plugin-malformed@0.1.0",
@@ -513,9 +539,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
         JSON.stringify(badMeta),
       );
       await harness.pluginService.reload("malformed");
-      const entry = harness.pluginService
-        .list()
-        .find((plugin) => plugin.id === "malformed");
+      const entry = (await harness.pluginService.list()).find(
+        (plugin) => plugin.id === "malformed",
+      );
       expect(entry?.app, JSON.stringify(badMeta)).toEqual({
         hasApp: true,
         bundle: null,
@@ -524,7 +550,11 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
   });
 
   it("stops serving assets when the plugin is disabled", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-gated");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-gated",
+    );
     await writeAppPluginFixture(rootDir, { name: "hyperfide-plugin-gated" });
     await mkdir(join(rootDir, "dist"), { recursive: true });
     await writeFile(join(rootDir, "dist", "app.js"), "export default 1;\n");
@@ -535,7 +565,7 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
         sdkVersion: PLUGIN_SDK_VERSION,
       }),
     );
-    upsertInstalledPlugin(harness.db, {
+    await upsertInstalledPlugin(harness.db, {
       ...npmPersistence("hyperfide-plugin-gated", "0.1.0"),
       id: "gated",
       source: "npm:hyperfide-plugin-gated@0.1.0",
@@ -545,9 +575,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
       enabledFollowsDefault: false,
     });
     await harness.pluginService.reload("gated");
-    const bundle = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "gated")?.app.bundle;
+    const bundle = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "gated",
+    )?.app.bundle;
     expect(bundle).not.toBeNull();
     const url = `${BASE}${bundle?.jsUrl ?? ""}`;
     expect((await harness.app.request(url)).status).toBe(200);
@@ -560,9 +590,13 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
   });
 
   it("reports bundle:null when an npm plugin's dist is missing at load", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-bare");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-bare",
+    );
     await writeAppPluginFixture(rootDir, { name: "hyperfide-plugin-bare" });
-    upsertInstalledPlugin(harness.db, {
+    await upsertInstalledPlugin(harness.db, {
       ...npmPersistence("hyperfide-plugin-bare", "0.1.0"),
       id: "bare",
       source: "npm:hyperfide-plugin-bare@0.1.0",
@@ -573,9 +607,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
     });
     await harness.pluginService.reload("bare");
 
-    const entry = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "bare");
+    const entry = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "bare",
+    );
     expect(entry?.status).toBe("running");
     expect(entry?.app).toEqual({ hasApp: true, bundle: null });
     const response = await harness.app.request(
@@ -592,7 +626,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
         const workDir = join(harness.config.dataDir, "npm-work");
 
         const noDistDir = join(workDir, "no-dist");
-        await writeAppPluginFixture(noDistDir, { name: "hyperfide-plugin-nodist" });
+        await writeAppPluginFixture(noDistDir, {
+          name: "hyperfide-plugin-nodist",
+        });
 
         const prebuiltDir = join(workDir, "prebuilt");
         await writeAppPluginFixture(prebuiltDir, {
@@ -709,7 +745,7 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
               kind: "root",
             }),
           ).rejects.toThrowError(/must publish a prebuilt bundle/);
-          expect(harness.pluginService.list()).toHaveLength(0);
+          expect(await harness.pluginService.list()).toHaveLength(0);
           const prefix = join(
             harness.config.dataDir,
             "plugins",
@@ -719,9 +755,12 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
           await expect(stat(prefix)).rejects.toThrowError();
 
           await expect(
-            harness.pluginService.install("npm:hyperfide-plugin-partial@0.1.0", {
-              kind: "root",
-            }),
+            harness.pluginService.install(
+              "npm:hyperfide-plugin-partial@0.1.0",
+              {
+                kind: "root",
+              },
+            ),
           ).rejects.toThrowError(
             /app artifact.*SDK major.*rebuild the app artifact/,
           );
@@ -733,7 +772,7 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
           );
           await expect(stat(partialPrefix)).rejects.toThrowError();
           await expect(stat(`${partialPrefix}.staging`)).rejects.toThrowError();
-          expect(harness.pluginService.list()).toHaveLength(0);
+          expect(await harness.pluginService.list()).toHaveLength(0);
 
           const entry = await harness.pluginService.install(
             "npm:hyperfide-plugin-prebuilt@0.1.0",

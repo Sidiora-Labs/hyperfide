@@ -1,4 +1,9 @@
-import { noopNotifier, setAppSettings, updateHost, upsertHost } from "@hyperfide/db";
+import {
+  noopNotifier,
+  setAppSettings,
+  updateHost,
+  upsertHost,
+} from "@hyperfide/db";
 import { createMigratedConnection } from "@hyperfide/db/testing";
 import { defaultAppSettings } from "@hyperfide/domain";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -10,17 +15,17 @@ import { replaceMachineEnvironment } from "../machines/environment-settings.js";
 import { HostEnvironmentSync } from "./host-environment-sync.js";
 
 it("synchronizes configured variables to every connected host", async () => {
-  const db = createMigratedConnection();
+  const db = await createMigratedConnection();
   const dataDir = await mkdtemp(join(tmpdir(), "bb-machine-env-sync-"));
   const hub = new NotificationHub();
   try {
-    setAppSettings(db, {
+    await setAppSettings(db, {
       ...defaultAppSettings,
       machineGitCredentialsEnabled: false,
     });
     for (const id of ["remote", "local"]) {
-      upsertHost(db, noopNotifier, { id, name: id });
-      updateHost(db, noopNotifier, id, { machineProviderId: "manual" });
+      await upsertHost(db, noopNotifier, { id, name: id });
+      await updateHost(db, noopNotifier, id, { machineProviderId: "manual" });
     }
     await writeFile(join(dataDir, "host-id"), "local");
     await replaceMachineEnvironment(db, dataDir, {
@@ -39,7 +44,7 @@ it("synchronizes configured variables to every connected host", async () => {
       expect.objectContaining({ name: "MACHINE_VALUE", value: "first" }),
     );
     const sent: string[] = [];
-    hub.registerDaemon("session-1", "remote", {
+    await hub.registerDaemon("session-1", "remote", {
       send: (data) => {
         sent.push(data);
       },
@@ -57,19 +62,19 @@ it("synchronizes configured variables to every connected host", async () => {
     await replaceMachineEnvironment(db, dataDir, {
       variables: [{ name: "MACHINE_VALUE", value: "second", note: null }],
     });
-    hub.notifySystem(["config-changed"]);
+    await hub.notifySystem(["config-changed"]);
     await vi.waitFor(() => expect(sent).toHaveLength(2));
     expect(JSON.parse(sent[1]!)).toMatchObject({
       environment: { entries: [expect.objectContaining({ value: "second" })] },
     });
     await replaceMachineEnvironment(db, dataDir, { variables: [] });
-    hub.notifySystem(["config-changed"]);
+    await hub.notifySystem(["config-changed"]);
     await vi.waitFor(() => expect(sent).toHaveLength(3));
     expect(JSON.parse(sent[2]!)).toMatchObject({
       environment: { entries: [] },
     });
     hub.unregisterDaemon("session-1");
-    hub.registerDaemon("session-2", "remote", {
+    await hub.registerDaemon("session-2", "remote", {
       send: (data) => {
         sent.push(data);
       },
@@ -82,7 +87,7 @@ it("synchronizes configured variables to every connected host", async () => {
   } finally {
     hub.unregisterDaemon("session-1");
     hub.unregisterDaemon("session-2");
-    db.$client.close();
+    await db.close();
     await rm(dataDir, { recursive: true, force: true });
   }
 });

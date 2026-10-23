@@ -25,8 +25,10 @@ interface LatestMigrationCreatedAtRow {
   createdAt: number | null;
 }
 
-function readLatestAppliedMigrationCreatedAt(db: DbConnection): number {
-  const row = db.$client
+async function readLatestAppliedMigrationCreatedAt(
+  db: DbConnection,
+): Promise<number> {
+  const row = await db.$client
     .prepare<[], LatestMigrationCreatedAtRow>(
       `
         SELECT MAX(created_at) AS createdAt
@@ -59,7 +61,7 @@ describe("server skeleton", () => {
 
   it("serves install version metadata without auth", async () => {
     const harness = await createTestAppHarness();
-    const { app } = createApp(harness.deps, {
+    const { app } = await createApp(harness.deps, {
       bbAppArtifactService: {
         getArtifact: async () => ({
           digest: "a".repeat(64),
@@ -91,7 +93,7 @@ describe("server skeleton", () => {
       path: tarballPath,
       size: 13,
     }));
-    const { app } = createApp(harness.deps, {
+    const { app } = await createApp(harness.deps, {
       bbAppArtifactService: { getArtifact, getVersion: async () => "test" },
     });
     try {
@@ -124,7 +126,7 @@ describe("server skeleton", () => {
       { code },
     );
     const log = vi.spyOn(harness.deps.logger, "error");
-    const { app } = createApp(harness.deps, {
+    const { app } = await createApp(harness.deps, {
       bbAppArtifactService: {
         getArtifact: async () => {
           throw error;
@@ -228,7 +230,7 @@ describe("server skeleton", () => {
       info: vi.fn(),
       warn: vi.fn(),
     };
-    const serverApp = createApp(
+    const serverApp = await createApp(
       {
         ...harness.deps,
         logger,
@@ -263,7 +265,7 @@ describe("server skeleton", () => {
       info: vi.fn(),
       warn: vi.fn(),
     };
-    const serverApp = createApp(
+    const serverApp = await createApp(
       {
         ...harness.deps,
         logger,
@@ -273,13 +275,13 @@ describe("server skeleton", () => {
       },
     );
     try {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-slow-api-events-wait",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const thread = seedThread(harness.deps, { projectId: project.id });
+      const thread = await seedThread(harness.deps, { projectId: project.id });
 
       const response = await serverApp.app.request(
         `/api/v1/threads/${thread.id}/events/wait?type=turn%2Fstarted&waitMs=0`,
@@ -293,38 +295,38 @@ describe("server skeleton", () => {
     }
   });
 
-  it("ensures the personal project without pinning execution defaults", () => {
-    const db = initDb(":memory:");
+  it("ensures the personal project without pinning execution defaults", async () => {
+    const db = await initDb(":memory:");
     try {
-      expect(getPersonalProject(db)).toMatchObject({
+      expect(await getPersonalProject(db)).toMatchObject({
         id: PERSONAL_PROJECT_ID,
         kind: "personal",
         name: "Personal",
       });
 
       expect(
-        getProjectExecutionDefaults(db, {
+        await getProjectExecutionDefaults(db, {
           projectId: PERSONAL_PROJECT_ID,
         }),
       ).toBeNull();
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("warns when startup finds future-dated applied migrations", () => {
+  it("warns when startup finds future-dated applied migrations", async () => {
     const dataDir = mkdtempSync(join(tmpdir(), "bb-server-db-startup-"));
     try {
       const dbPath = join(dataDir, "bb.db");
-      const seedDb = initDb(dbPath);
+      const seedDb = await initDb(dbPath);
       let futureCreatedAt: number;
       try {
         const latestMigrationCreatedAt =
-          readLatestAppliedMigrationCreatedAt(seedDb);
+          await readLatestAppliedMigrationCreatedAt(seedDb);
         vi.useFakeTimers();
         vi.setSystemTime(latestMigrationCreatedAt + 10_000);
         futureCreatedAt = Date.now() + 60_000;
-        seedDb.$client
+        await seedDb.$client
           .prepare<InsertMigrationParameters>(
             `
               INSERT INTO __drizzle_migrations (hash, created_at)
@@ -333,7 +335,7 @@ describe("server skeleton", () => {
           )
           .run("future-migration-hash", futureCreatedAt);
       } finally {
-        seedDb.$client.close();
+        await seedDb.close();
       }
 
       const logger = {
@@ -342,7 +344,7 @@ describe("server skeleton", () => {
         info: vi.fn(),
         warn: vi.fn(),
       };
-      const db = initDb(dbPath, { logger });
+      const db = await initDb(dbPath, { logger });
       try {
         expect(logger.warn).toHaveBeenCalledWith(
           {
@@ -357,7 +359,7 @@ describe("server skeleton", () => {
           "Applied database migrations have future timestamps",
         );
       } finally {
-        db.$client.close();
+        await db.close();
       }
     } finally {
       rmSync(dataDir, { force: true, recursive: true });

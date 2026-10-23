@@ -182,16 +182,17 @@ describe("bb.providers.register (server)", () => {
       );
       await harness.pluginService.reload(entry.id);
       expect(
-        harness.pluginService.list().find((plugin) => plugin.id === entry.id)
-          ?.status,
+        (await harness.pluginService.list()).find(
+          (plugin) => plugin.id === entry.id,
+        )?.status,
       ).toBe("running");
       expect(
         harness.deps.providerRegistry.get("failed-agent")?.info.available,
       ).toBe(true);
       expect(
-        harness.deps.providerRegistry
-          .list()
-          .filter((provider) => provider.info.id === "failed-agent"),
+        (await harness.deps.providerRegistry.list()).filter(
+          (provider) => provider.info.id === "failed-agent",
+        ),
       ).toHaveLength(1);
 
       await harness.pluginService.setEnabled(entry.id, false);
@@ -215,9 +216,9 @@ describe("bb.providers.register (server)", () => {
       expect(reloaded).toMatchObject({
         pluginId: entry.id,
       });
-      const listed = harness.deps.providerRegistry
-        .list()
-        .filter((candidate) => candidate.info.id === "reload-agent");
+      const listed = (await harness.deps.providerRegistry.list()).filter(
+        (candidate) => candidate.info.id === "reload-agent",
+      );
       expect(listed).toHaveLength(1);
     });
   });

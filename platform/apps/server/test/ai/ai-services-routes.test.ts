@@ -99,16 +99,18 @@ describe("AI services routes", () => {
         pluginId: "helper-plugin",
         serviceId: "helper",
       });
-      expect(getAiServiceSelections(harness.db)["thread-title"]).toEqual(
-        view.selections["thread-title"],
-      );
+      expect(
+        (await getAiServiceSelections(harness.db))["thread-title"],
+      ).toEqual(view.selections["thread-title"]);
 
       const off = await putSelection(harness, {
         task: "thread-title",
         selection: { mode: "off" },
       });
       expect(off.status).toBe(200);
-      expect(getAiServiceSelections(harness.db)["thread-title"]).toEqual({
+      expect(
+        (await getAiServiceSelections(harness.db))["thread-title"],
+      ).toEqual({
         mode: "off",
       });
     });
@@ -173,7 +175,7 @@ describe("AI services routes", () => {
       if (message !== null) {
         expect(error).toMatchObject({ message });
       }
-      expect(getAiServiceSelections(harness.db)).toEqual({
+      expect(await getAiServiceSelections(harness.db)).toEqual({
         "thread-title": { mode: "automatic" },
         "commit-message": { mode: "automatic" },
         voice: { mode: "automatic" },
@@ -184,7 +186,7 @@ describe("AI services routes", () => {
   it("runs a sample through the selected service and cleans the reply", async () => {
     await withTestHarness({}, async (harness) => {
       const { text } = registerServices(harness);
-      setAiServiceSelection(harness.deps.db, "thread-title", {
+      await setAiServiceSelection(harness.deps.db, "thread-title", {
         mode: "service",
         pluginId: "helper-plugin",
         serviceId: "helper",
@@ -223,7 +225,7 @@ describe("AI services routes", () => {
           throw new Error("bad key");
         },
       });
-      setAiServiceSelection(harness.deps.db, "commit-message", {
+      await setAiServiceSelection(harness.deps.db, "commit-message", {
         mode: "service",
         pluginId: "broken-plugin",
         serviceId: "broken",

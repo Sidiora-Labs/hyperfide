@@ -5,7 +5,11 @@ import {
 import { sweepProviderMachine } from "../machines/provider-orchestration.js";
 import { cancelProviderEnvironmentCreation } from "../environments/environment-engine.js";
 import { getPreparingEnvironment } from "@hyperfide/db";
-import { getThread, type DbTransaction, type EnvironmentRow } from "@hyperfide/db";
+import {
+  getThread,
+  type DbTransaction,
+  type EnvironmentRow,
+} from "@hyperfide/db";
 import {
   type EnvironmentProviderSelection,
   type PromptInput,
@@ -67,7 +71,9 @@ interface RequestThreadProvisionArgs {
 }
 
 interface RequestThreadTargetReprovisionArgs {
-  beforeRequestAppendInTransaction?: (args: { tx: DbTransaction }) => void;
+  beforeRequestAppendInTransaction?: (args: {
+    tx: DbTransaction;
+  }) => void | Promise<void>;
   environment: EnvironmentRow;
   execution: ResolvedThreadExecutionOptions;
   input: PromptInput[];
@@ -107,11 +113,11 @@ interface EnvironmentPayloadThreadArgs {
   thread: Thread;
 }
 
-function getCurrentProvisioningFailureThread(
+async function getCurrentProvisioningFailureThread(
   deps: Pick<AppDeps, "db">,
   args: CurrentProvisioningFailureThreadArgs,
-): Thread | null {
-  const currentThread = getThread(deps.db, args.threadId);
+): Promise<Thread | null> {
+  const currentThread = await getThread(deps.db, args.threadId);
   if (!currentThread || currentThread.deletedAt !== null) {
     clearThreadProvisionSchedule(args.threadId);
     return null;
@@ -124,7 +130,7 @@ function getCurrentProvisioningFailureThread(
     return null;
   }
 
-  const activeContext = getThreadProvisionContext(deps.db, args.threadId);
+  const activeContext = await getThreadProvisionContext(deps.db, args.threadId);
   if (
     activeContext === null ||
     activeContext.state.provisioningId !== args.context.state.provisioningId
@@ -141,14 +147,14 @@ interface SettleSeededThreadProvisioningArgs {
   threadId: string;
 }
 
-function settleSeededThreadProvisioning(
+async function settleSeededThreadProvisioning(
   deps: ThreadProvisioningDeps,
   args: SettleSeededThreadProvisioningArgs,
-): void {
-  const settled = deps.db.transaction(
-    (tx) => {
-      const current = getThreadProvisionContext(tx, args.threadId);
-      const outcome = applyLoggedThreadLifecycleEventInTransaction(
+): Promise<void> {
+  const settled = await deps.db.transaction(
+    async (tx) => {
+      const current = await getThreadProvisionContext(tx, args.threadId);
+      const outcome = await applyLoggedThreadLifecycleEventInTransaction(
         { db: tx, logger: deps.logger },
         { threadId: args.threadId, event: { type: "run.succeeded" } },
       );
@@ -158,7 +164,7 @@ function settleSeededThreadProvisioning(
         current.state.provisioningId === args.context.state.provisioningId &&
         current.state.provisionEventSequence !== null;
       if (completedProvisioning) {
-        appendThreadProvisioningEventInTransaction(tx, {
+        await appendThreadProvisioningEventInTransaction(tx, {
           threadId: args.threadId,
           environmentId: args.environmentId,
           provisioningId: current.state.provisioningId,
@@ -177,14 +183,14 @@ function settleSeededThreadProvisioning(
     );
     return;
   }
-  deps.hub.notifyThread(
+  await deps.hub.notifyThread(
     args.threadId,
     ["status-changed"],
-    buildThreadStatusChangeMetadata(deps, settled.outcome.thread),
+    await buildThreadStatusChangeMetadata(deps, settled.outcome.thread),
   );
   if (settled.completedProvisioning) {
-    deps.hub.notifyThread(args.threadId, ["events-appended"], {
-      timelineSequence: getLatestThreadSequence(deps.db, {
+    await deps.hub.notifyThread(args.threadId, ["events-appended"], {
+      timelineSequence: await getLatestThreadSequence(deps.db, {
         threadId: args.threadId,
       }),
       eventTypes: ["system/thread-provisioning"],
@@ -197,7 +203,7 @@ async function startThreadIfEnvironmentReady(
   args: EnvironmentPayloadThreadArgs,
 ): Promise<void> {
   if (args.environment.status === "error") {
-    failThreadProvisioning(deps, {
+    await failThreadProvisioning(deps, {
       thread: args.thread,
       environmentId: args.environment.id,
       detail: "Environment provisioning failed",
@@ -208,7 +214,7 @@ async function startThreadIfEnvironmentReady(
     return;
   }
   if (args.environment.status !== "ready") {
-    failThreadProvisioning(deps, {
+    await failThreadProvisioning(deps, {
       thread: args.thread,
       environmentId: args.environment.id,
       detail: `Environment is ${args.environment.status}`,
@@ -216,7 +222,7 @@ async function startThreadIfEnvironmentReady(
     return;
   }
   if (!args.environment.path) {
-    failThreadProvisioning(deps, {
+    await failThreadProvisioning(deps, {
       thread: args.thread,
       environmentId: args.environment.id,
       detail: "Environment is ready without a workspace path",
@@ -224,7 +230,7 @@ async function startThreadIfEnvironmentReady(
     return;
   }
 
-  const workspaceReady = ensureWorkspaceReadyEvent(deps, {
+  const workspaceReady = await ensureWorkspaceReadyEvent(deps, {
     threadId: args.thread.id,
     environmentId: args.environment.id,
     entries: buildCwdBranchEntries({
@@ -241,7 +247,7 @@ async function startThreadIfEnvironmentReady(
   // waiting here rather than after the dispatch below: the wait is over at
   // this line, and the `run.succeeded` branch below returns without
   // dispatching anything. A thread with nothing queued no-ops.
-  requestQueuedMessageDispatch(deps, {
+  await requestQueuedMessageDispatch(deps, {
     kind: "workspace-ready",
     threadId: args.thread.id,
   });
@@ -250,7 +256,7 @@ async function startThreadIfEnvironmentReady(
     args.context.request.seedWithoutRun &&
     args.context.request.fork === null
   ) {
-    settleSeededThreadProvisioning(deps, {
+    await settleSeededThreadProvisioning(deps, {
       context: args.context,
       environmentId: args.environment.id,
       threadId: args.thread.id,
@@ -287,18 +293,18 @@ async function startThreadIfEnvironmentReady(
   });
 }
 
-export function requestThreadProvision(
+export async function requestThreadProvision(
   deps: Pick<AppDeps, "db" | "hub">,
   args: RequestThreadProvisionArgs,
-): ThreadProvisionContext {
-  return deps.db.transaction(() => {
+): Promise<ThreadProvisionContext> {
+  return await deps.db.transaction(async () => {
     const { initiator, senderThreadId } = resolveDispatchAuthor({
       retrying: false,
       senderThreadId: null,
       startedOnBehalfOf: args.startedOnBehalfOf,
     });
     const target: TurnRequestTarget = { kind: "thread-start" };
-    const request = appendClientTurnEvent(deps, {
+    const request = await appendClientTurnEvent(deps, {
       threadId: args.thread.id,
       environmentId: args.thread.environmentId,
       type: "client/turn/requested",
@@ -310,14 +316,14 @@ export function requestThreadProvision(
       source: "spawn",
       target,
     });
-    recordAcceptedPromptHistoryEntry(deps, {
+    await recordAcceptedPromptHistoryEntry(deps, {
       thread: args.thread,
       input: args.input,
       initiator,
       target,
       requestSequence: request.sequence,
     });
-    appendClientTurnEvent(deps, {
+    await appendClientTurnEvent(deps, {
       threadId: args.thread.id,
       environmentId: args.thread.environmentId,
       type: "client/thread/start",
@@ -332,7 +338,7 @@ export function requestThreadProvision(
       input: args.providerInput ?? args.input,
       seedWithoutRun: args.startedOnBehalfOf !== null,
     });
-    saveThreadProvisionContext({
+    await saveThreadProvisionContext({
       replace: true,
       db: deps.db,
       threadId: args.thread.id,
@@ -342,13 +348,13 @@ export function requestThreadProvision(
   });
 }
 
-export function requestThreadEnvironmentRestore(
+export async function requestThreadEnvironmentRestore(
   deps: Pick<AppDeps, "db" | "hub" | "logger">,
   args: RequestThreadEnvironmentRestoreArgs,
-): ThreadProvisionContext | null {
-  return deps.db.transaction(
-    (tx) => {
-      const prepared = applyLoggedThreadLifecycleEventInTransaction(
+): Promise<ThreadProvisionContext | null> {
+  return await deps.db.transaction(
+    async (tx) => {
+      const prepared = await applyLoggedThreadLifecycleEventInTransaction(
         { db: tx, logger: deps.logger },
         { event: { type: "run.preparing" }, threadId: args.thread.id },
       );
@@ -370,7 +376,7 @@ export function requestThreadEnvironmentRestore(
         seedWithoutRun: true,
         titleProvided: true,
       });
-      saveThreadProvisionContext({
+      await saveThreadProvisionContext({
         replace: true,
         db: tx,
         threadId: args.thread.id,
@@ -382,12 +388,12 @@ export function requestThreadEnvironmentRestore(
   );
 }
 
-export function requestThreadTargetReprovision(
+export async function requestThreadTargetReprovision(
   deps: Pick<AppDeps, "db" | "hub">,
   args: RequestThreadTargetReprovisionArgs,
-): ThreadProvisionContext {
-  return deps.db.transaction(() => {
-    const request = appendReprovisionTurnRequest(deps, args);
+): Promise<ThreadProvisionContext> {
+  return await deps.db.transaction(async () => {
+    const request = await appendReprovisionTurnRequest(deps, args);
     const context = createThreadStartup({
       clientRequestId: request.requestId,
       environmentIntent:
@@ -414,7 +420,7 @@ export function requestThreadTargetReprovision(
       seedWithoutRun: false,
       titleProvided: true,
     });
-    saveThreadProvisionContext({
+    await saveThreadProvisionContext({
       replace: true,
       db: deps.db,
       threadId: args.thread.id,
@@ -424,16 +430,16 @@ export function requestThreadTargetReprovision(
   });
 }
 
-function appendReprovisionTurnRequest(
+async function appendReprovisionTurnRequest(
   deps: Pick<AppDeps, "db" | "hub">,
   args: Omit<RequestThreadTargetReprovisionArgs, "provider">,
 ) {
   const requestId = createClientTurnRequestId();
-  const request = deps.db.transaction(
-    (tx) => {
-      args.beforeRequestAppendInTransaction?.({ tx });
+  const request = await deps.db.transaction(
+    async (tx) => {
+      await args.beforeRequestAppendInTransaction?.({ tx });
       const request =
-        appendPreparedClientTurnRequestedEventWithNotificationInTransaction(
+        await appendPreparedClientTurnRequestedEventWithNotificationInTransaction(
           tx,
           {
             threadId: args.thread.id,
@@ -454,7 +460,7 @@ function appendReprovisionTurnRequest(
             requestId,
           },
         );
-      recordAcceptedPromptHistoryEntry(
+      await recordAcceptedPromptHistoryEntry(
         { db: tx },
         {
           thread: args.thread,
@@ -468,7 +474,7 @@ function appendReprovisionTurnRequest(
     },
     { behavior: "immediate" },
   );
-  deps.hub.notifyThread(
+  await deps.hub.notifyThread(
     args.thread.id,
     request.notificationChanges,
     request.notificationMetadata,
@@ -480,7 +486,7 @@ async function advanceThreadProvisioningOnce(
   deps: ThreadProvisioningDeps,
   args: AdvanceThreadProvisioningArgs,
 ): Promise<void> {
-  const thread = getThread(deps.db, args.threadId);
+  const thread = await getThread(deps.db, args.threadId);
   if (
     !thread ||
     thread.deletedAt !== null ||
@@ -492,9 +498,9 @@ async function advanceThreadProvisioningOnce(
     clearThreadProvisionSchedule(thread.id);
     return;
   }
-  let context = getThreadProvisionContext(deps.db, thread.id);
+  let context = await getThreadProvisionContext(deps.db, thread.id);
   if (!context) {
-    failThreadProvisioning(deps, {
+    await failThreadProvisioning(deps, {
       thread,
       environmentId: thread.environmentId,
       detail: "Thread setup did not finish. Retry the thread to continue.",
@@ -520,7 +526,7 @@ async function advanceThreadProvisioningOnce(
       thread: ready.thread,
     });
   } catch (error) {
-    const failureThread = getCurrentProvisioningFailureThread(deps, {
+    const failureThread = await getCurrentProvisioningFailureThread(deps, {
       context,
       threadId: thread.id,
     });
@@ -528,7 +534,7 @@ async function advanceThreadProvisioningOnce(
       return;
     }
     const detail = error instanceof Error ? error.message : String(error);
-    failThreadProvisioning(deps, {
+    await failThreadProvisioning(deps, {
       thread: failureThread,
       environmentId: context.state.environmentId ?? failureThread.environmentId,
       detail,
@@ -540,8 +546,9 @@ export async function advanceThreadProvisioning(
   deps: ThreadProvisioningDeps,
   args: AdvanceThreadProvisioningArgs,
 ): Promise<void> {
-  await deps.lifecycleDedupers.threadProvisionAdvance.run(args.threadId, () =>
-    advanceThreadProvisioningOnce(deps, args),
+  await deps.lifecycleDedupers.threadProvisionAdvance.run(
+    args.threadId,
+    async () => await advanceThreadProvisioningOnce(deps, args),
   );
 }
 
@@ -571,13 +578,13 @@ export async function restoreInterruptedThreadStartupRequest(
   deps: ThreadProvisioningDeps,
   threadId: string,
 ): Promise<ThreadProvisionContext["request"] | null> {
-  const context = readThreadProvisionContext(deps.db, threadId);
+  const context = await readThreadProvisionContext(deps.db, threadId);
   if (context === null) return null;
-  const provisioning = getPreparingEnvironment(deps.db, threadId);
+  const provisioning = await getPreparingEnvironment(deps.db, threadId);
   if (provisioning !== null) {
     await cancelProviderEnvironmentCreation(deps, threadId);
   }
-  const machine = getNonDestroyedHostByLaunchKey(deps.db, threadId);
+  const machine = await getNonDestroyedHostByLaunchKey(deps.db, threadId);
   if (machine?.phase === "removing") {
     await sweepProviderMachine(deps, machine.id);
   }

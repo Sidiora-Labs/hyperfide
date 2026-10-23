@@ -22,11 +22,11 @@ import {
 let db: DbConnection;
 let dataDir: string;
 beforeEach(async () => {
-  db = createMigratedConnection();
+  db = await createMigratedConnection();
   dataDir = await mkdtemp(join(tmpdir(), "bb-env-encryption-"));
 });
 afterEach(async () => {
-  db.$client.close();
+  await db.close();
   await rm(dataDir, { recursive: true, force: true });
 });
 it("stores encrypted values that survive a database reopen", async () => {
@@ -37,18 +37,18 @@ it("stores encrypted values that survive a database reopen", async () => {
       note: null,
     })),
   });
-  const rows = readMachineEnvironment(db);
-  const persisted = db.select().from(environmentVariables).all();
+  const rows = await readMachineEnvironment(db);
+  const persisted = await db.select().from(environmentVariables).all();
   expect(JSON.stringify(persisted)).not.toContain("private-");
   if (process.platform !== "win32") {
     expect(
       (await stat(join(dataDir, "machine-environment-key"))).mode & 0o777,
     ).toBe(0o600);
   }
-  db.$client.close();
-  db = createMigratedConnection();
-  db.insert(environmentVariables).values(persisted).run();
-  expect(readMachineEnvironment(db)).toEqual(rows);
+  await db.close();
+  db = await createMigratedConnection();
+  await db.insert(environmentVariables).values(persisted).run();
+  expect(await readMachineEnvironment(db)).toEqual(rows);
   expect(await decryptMachineEnvironment(dataDir, rows[1]!)).toBe(
     "private-TOKEN",
   );
@@ -61,14 +61,16 @@ it("replaces the whole list while retaining unchanged ciphertext", async () => {
       { name: "TOKEN", value: "private", note: null },
     ],
   });
-  const token = readMachineEnvironment(db).find((row) => row.name === "TOKEN");
+  const token = (await readMachineEnvironment(db)).find(
+    (row) => row.name === "TOKEN",
+  );
   await replaceMachineEnvironment(db, dataDir, {
     variables: [
       { name: "TOKEN", value: null, note: "Retained" },
       { name: "ADDED", value: "new", note: null },
     ],
   });
-  const rows = readMachineEnvironment(db);
+  const rows = await readMachineEnvironment(db);
   expect(rows.map((row) => row.name)).toEqual(["ADDED", "TOKEN"]);
   expect(rows[1]).toEqual({ ...token, note: "Retained" });
   expect(await decryptMachineEnvironment(dataDir, rows[1]!)).toBe("private");
@@ -78,7 +80,7 @@ it("authenticates ciphertext and its variable name", async () => {
   await replaceMachineEnvironment(db, dataDir, {
     variables: [{ name: "TOKEN", value: "private", note: null }],
   });
-  const [row] = readMachineEnvironment(db);
+  const [row] = await readMachineEnvironment(db);
   await expect(
     decryptMachineEnvironment(dataDir, { ...row!, name: "OTHER" }),
   ).rejects.toThrow("cannot be decrypted");
@@ -96,7 +98,7 @@ it("does not replace a missing encryption key or overwrite existing ciphertext",
   await replaceMachineEnvironment(db, dataDir, {
     variables: [{ name: "TOKEN", value: "private", note: null }],
   });
-  const before = db.select().from(environmentVariables).all();
+  const before = await db.select().from(environmentVariables).all();
   await rm(join(dataDir, "machine-environment-key"));
   await expect(
     replaceMachineEnvironment(db, dataDir, {
@@ -106,7 +108,7 @@ it("does not replace a missing encryption key or overwrite existing ciphertext",
       ],
     }),
   ).rejects.toThrow("encryption key is unavailable");
-  expect(db.select().from(environmentVariables).all()).toEqual(before);
+  expect(await db.select().from(environmentVariables).all()).toEqual(before);
   await expect(
     readFile(join(dataDir, "machine-environment-key")),
   ).rejects.toMatchObject({ code: "ENOENT" });
@@ -123,11 +125,12 @@ it("serializes replacement and removal without resurrecting values", async () =>
     }),
     replaceMachineEnvironment(db, dataDir, { variables: [] }),
   ]);
-  expect(readMachineEnvironment(db)).toEqual([]);
+  expect(await readMachineEnvironment(db)).toEqual([]);
 });
 
 it("isolates scopes, authenticates scope, and preserves concurrent edits", async () => {
-  db.insert(projects)
+  await db
+    .insert(projects)
     .values(
       ["a", "b"].map((id) => ({ id, name: id, createdAt: 1, updatedAt: 1 })),
     )
@@ -158,39 +161,44 @@ it("isolates scopes, authenticates scope, and preserves concurrent edits", async
       "b",
     ),
   ]);
-  const a = readMachineEnvironment(db, "a");
+  const a = await readMachineEnvironment(db, "a");
   expect(a.map((row) => row.name)).toEqual(["OTHER", "TOKEN"]);
   expect(await decryptMachineEnvironment(dataDir, a[1]!)).toBe("project-a");
   expect(
     await decryptMachineEnvironment(
       dataDir,
-      readMachineEnvironment(db, "b")[0]!,
+      (await readMachineEnvironment(db, "b"))[0]!,
     ),
   ).toBe("");
   await expect(
     decryptMachineEnvironment(dataDir, { ...a[1]!, projectId: "b" }),
   ).rejects.toThrow("cannot be decrypted");
   await deleteMachineEnvironmentVariable(db, "TOKEN", "a");
-  expect(readMachineEnvironment(db, "a").map((row) => row.name)).toEqual([
-    "OTHER",
-  ]);
   expect(
-    await decryptMachineEnvironment(dataDir, readMachineEnvironment(db)[0]!),
+    (await readMachineEnvironment(db, "a")).map((row) => row.name),
+  ).toEqual(["OTHER"]);
+  expect(
+    await decryptMachineEnvironment(
+      dataDir,
+      (await readMachineEnvironment(db))[0]!,
+    ),
   ).toBe("global");
-  db.delete(projects).where(eq(projects.id, "a")).run();
-  expect(readMachineEnvironment(db, "a")).toEqual([]);
-  expect(readMachineEnvironment(db, "b")).toHaveLength(1);
-  const global = readMachineEnvironment(db)[0]!;
-  expect(() =>
-    db
-      .insert(environmentVariables)
-      .values({ ...global, updatedAt: 1 })
-      .run(),
-  ).toThrow();
+  await db.delete(projects).where(eq(projects.id, "a")).run();
+  expect(await readMachineEnvironment(db, "a")).toEqual([]);
+  expect(await readMachineEnvironment(db, "b")).toHaveLength(1);
+  const global = (await readMachineEnvironment(db))[0]!;
+  await expect(
+    (async () =>
+      await db
+        .insert(environmentVariables)
+        .values({ ...global, updatedAt: 1 })
+        .run())(),
+  ).rejects.toThrow();
 });
 
 it("does not create a new key for an empty scope when another scope still has ciphertext", async () => {
-  db.insert(projects)
+  await db
+    .insert(projects)
     .values({ id: "a", name: "A", createdAt: 1, updatedAt: 1 })
     .run();
   await setMachineEnvironmentVariable(
@@ -208,7 +216,7 @@ it("does not create a new key for an empty scope when another scope still has ci
       null,
     ),
   ).rejects.toThrow("encryption key is unavailable");
-  expect(readMachineEnvironment(db)).toEqual([]);
+  expect(await readMachineEnvironment(db)).toEqual([]);
 });
 
 it("migrates legacy settings without changing ciphertext or requiring its key", async () => {
@@ -225,7 +233,8 @@ it("migrates legacy settings without changing ciphertext or requiring its key", 
     cipher.getAuthTag(),
     encrypted,
   ]).toString("base64");
-  db.insert(appSettingsValues)
+  await db
+    .insert(appSettingsValues)
     .values({
       key: "machineEnvironment:TOKEN",
       value: JSON.stringify({
@@ -247,13 +256,11 @@ it("migrates legacy settings without changing ciphertext or requiring its key", 
   );
   db.$client.exec(sql);
   expect(
-    db
-      .select()
-      .from(appSettingsValues)
-      .all()
-      .some((row) => row.key.startsWith("machineEnvironment:")),
+    (await db.select().from(appSettingsValues).all()).some((row) =>
+      row.key.startsWith("machineEnvironment:"),
+    ),
   ).toBe(false);
-  expect(readMachineEnvironment(db)[0]).toMatchObject({
+  expect((await readMachineEnvironment(db))[0]).toMatchObject({
     ciphertext,
     encryptionVersion: 1,
     projectId: null,
@@ -265,17 +272,20 @@ it("migrates legacy settings without changing ciphertext or requiring its key", 
     { mode: 0o600 },
   );
   expect(
-    await decryptMachineEnvironment(dataDir, readMachineEnvironment(db)[0]!),
+    await decryptMachineEnvironment(
+      dataDir,
+      (await readMachineEnvironment(db))[0]!,
+    ),
   ).toBe("legacy-secret");
   await replaceMachineEnvironment(db, dataDir, {
     variables: [{ name: "TOKEN", value: null, note: "Retained" }],
   });
-  expect(readMachineEnvironment(db)[0]?.ciphertext).toBe(ciphertext);
+  expect((await readMachineEnvironment(db))[0]?.ciphertext).toBe(ciphertext);
   await setMachineEnvironmentVariable(
     db,
     dataDir,
     { name: "TOKEN", value: "updated", note: null },
     null,
   );
-  expect(readMachineEnvironment(db)[0]?.encryptionVersion).toBe(2);
+  expect((await readMachineEnvironment(db))[0]?.encryptionVersion).toBe(2);
 });

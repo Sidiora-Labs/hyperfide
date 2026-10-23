@@ -263,8 +263,8 @@ describe("event loop stall monitor", () => {
     let release!: () => void;
     const held = runEventLoopWork(
       "GET /api/v1/threads/thr_example/timeline",
-      () =>
-        runEventLoopWork(
+      async () =>
+        await runEventLoopWork(
           "timeline-build thr_example",
           () =>
             new Promise<void>((resolve) => {
@@ -401,8 +401,8 @@ describe("event loop stall monitor", () => {
 
   it("serializes CPU profiles outside the server thread", async () => {
     installHistogram({ maxDelayMs: 0, meanDelayMs: 0, p99DelayMs: 0 });
-    const db = createMigratedConnection();
-    setExperiments(db, { performanceDiagnostics: true });
+    const db = await createMigratedConnection();
+    await setExperiments(db, { performanceDiagnostics: true });
     const dataDir = await mkdtemp(join(tmpdir(), "bb-profile-attribution-"));
     const logger = { info: vi.fn(), warn: vi.fn() };
     const stringify = JSON.stringify;
@@ -436,7 +436,7 @@ describe("event loop stall monitor", () => {
     } finally {
       await recorder?.stop();
       stringifySpy.mockRestore();
-      db.$client.close();
+      await db.close();
       await rm(dataDir, { recursive: true, force: true });
     }
   });

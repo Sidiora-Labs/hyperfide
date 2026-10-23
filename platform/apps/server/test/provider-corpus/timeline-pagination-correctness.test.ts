@@ -53,9 +53,12 @@ describe.skipIf(!corpusAvailable())(
         const harness = await createTestAppHarness();
         try {
           const corpus = loadCorpusThread(threadId);
-          const { db, thread } = loadCorpusThreadIntoDb(corpus, harness.db);
-          db.transaction(() => {
-            const update = db.$client.prepare(
+          const { db, thread } = await loadCorpusThreadIntoDb(
+            corpus,
+            harness.db,
+          );
+          await db.transaction(async () => {
+            const update = await db.$client.prepare(
               "UPDATE events SET data = ? WHERE id = ?",
             );
             for (const event of corpus.eventRows) {
@@ -67,8 +70,8 @@ describe.skipIf(!corpusAvailable())(
                   )?.itemKind ?? null,
               });
               if (prepared.retainedOutput !== null) {
-                update.run(prepared.data, event.id);
-                insertPreparedRetainedEventOutput(db, {
+                await update.run(prepared.data, event.id);
+                await insertPreparedRetainedEventOutput(db, {
                   eventId: event.id,
                   output: prepared.retainedOutput,
                 });
@@ -76,13 +79,15 @@ describe.skipIf(!corpusAvailable())(
             }
           });
           const canonicalStart = performance.now();
-          const events = listStoredTimelineWindowEventRows(db, {
-            threadId,
-            sequenceStart: 0,
-            maxInlineOutputChars: 32_000,
-            excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
-            excludeDiagnosticEvents: true,
-          }).map(toThreadEventWithMeta);
+          const events = (
+            await listStoredTimelineWindowEventRows(db, {
+              threadId,
+              sequenceStart: 0,
+              maxInlineOutputChars: 32_000,
+              excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
+              excludeDiagnosticEvents: true,
+            })
+          ).map(toThreadEventWithMeta);
           const canonical = buildThreadTimelineFromEvents({
             events: compactThreadTimelineSummaryEvents(events),
             contextWindowEvents: [],
@@ -168,7 +173,7 @@ describe.skipIf(!corpusAvailable())(
           const expectedIds = new Set(expected.map((row) => row.id));
           const actualIds = new Set(rows.map((row) => row.id));
           clearTimelineOrderingContextCache(db);
-          const { profile } = buildThreadTimelineWithProfile(db, thread, {
+          const { profile } = await buildThreadTimelineWithProfile(db, thread, {
             completedTurnDisplay: "collapse",
             eventBudget: 1_500,
             includeClearedContextHistory: false,
@@ -176,14 +181,14 @@ describe.skipIf(!corpusAvailable())(
             compactionOfferEnabled: false,
             summarizeShellCommands: true,
             maxInlineOutputChars: 32_000,
-            maxSeq: getLatestThreadSequence(db, { threadId }),
+            maxSeq: await getLatestThreadSequence(db, { threadId }),
             page: { kind: "latest", segmentLimit: 20 },
           });
           results.push({
             profile,
             threadId,
             events: corpus.eventRows.length,
-            maxSeq: getLatestThreadSequence(db, { threadId }),
+            maxSeq: await getLatestThreadSequence(db, { threadId }),
             canonicalMs,
             pages: durations.length,
             latestMs: durations[0],

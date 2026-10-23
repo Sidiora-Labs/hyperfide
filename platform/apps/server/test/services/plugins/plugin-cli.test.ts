@@ -131,7 +131,9 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
       ],
       mentionProviders: [],
     });
-    const entry = harness.pluginService.list().find((p) => p.id === "acme");
+    const entry = (await harness.pluginService.list()).find(
+      (p) => p.id === "acme",
+    );
     expect(entry?.cliCommand).toEqual({ name: "acme", summary: "Acme tools" });
   });
 
@@ -235,9 +237,9 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
     ).json()) as { exitCode: number; stderr: string };
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("kaboom");
-    const stats = harness.pluginService
-      .list()
-      .find((p) => p.id === "acme")?.handlerStats;
+    const stats = (await harness.pluginService.list()).find(
+      (p) => p.id === "acme",
+    )?.handlerStats;
     expect(stats?.errorCount).toBe(1);
   });
 

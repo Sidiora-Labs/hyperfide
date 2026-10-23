@@ -115,7 +115,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("serves a path-shaped branding.icon as a hashed compact SVG asset", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-mark");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-mark",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-mark",
       brandingIcon: "./assets/icon.svg",
@@ -213,15 +217,19 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
     expect(Buffer.from(await dark.arrayBuffer()).equals(latin1)).toBe(true);
 
     await harness.pluginService.reload("logoraw");
-    const reloaded = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "logoraw");
+    const reloaded = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "logoraw",
+    );
     expect(reloaded?.status, reloaded?.statusDetail ?? "").toBe("running");
     expect(reloaded?.logoUrl).toBe(entry.logoUrl);
   });
 
   it("serves an explicit light SVG hash-cached as image/svg+xml", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-logoa");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-logoa",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-logoa",
       logoLight: "./logo.svg",
@@ -252,7 +260,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("serves an explicit PNG as image/png", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-logob");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-logob",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-logob",
       logoLight: "./logo.png",
@@ -266,7 +278,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("honors a relocated bb.branding.logo.light webp", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-logoc");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-logoc",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-logoc",
       logoLight: "./assets/mark.webp",
@@ -283,7 +299,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("rejects a light logo that escapes the plugin directory", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-logod");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-logod",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-logod",
       logoLight: "../outside.svg",
@@ -296,7 +316,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("does not auto-detect an undeclared root logo", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-logof");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-logof",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-logof",
       files: { "logo.svg": SVG_LOGO },
@@ -311,7 +335,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("keeps advertising and serving both logos when the plugin is disabled", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-logog");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-logog",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-logog",
       logoLight: "./logo.svg",
@@ -341,7 +369,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("keeps a disabled plugin's manifest name and icon in the inventory", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-ident");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-ident",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-ident",
       pluginName: "Identity Demo",
@@ -360,7 +392,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("drops a removed plugin's identity (logo 404s after uninstall)", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-gone");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-gone",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-gone",
       logoLight: "./logo.svg",
@@ -376,7 +412,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("serves immutable snapshot bytes until reload refreshes the hash", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-logoh");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-logoh",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-logoh",
       logoLight: "./logo.svg",
@@ -398,9 +438,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
 
     await harness.pluginService.reload("logoh");
 
-    const reloaded = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "logoh");
+    const reloaded = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "logoh",
+    );
     expect(reloaded?.logoUrl).not.toBeNull();
     expect(reloaded?.logoUrl).not.toBe(firstUrl);
 
@@ -413,7 +453,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("serves an explicit dark SVG as image/svg+xml", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-darka");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-darka",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-darka",
       logoLight: "./logo.svg",
@@ -450,7 +494,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("rejects a dark logo with an unsupported extension", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-darke");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-darke",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-darke",
       logoLight: "./logo.svg",
@@ -465,7 +513,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("reports logoDarkUrl null and 404s the dark asset when only a light logo ships", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-darkf");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-darkf",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-darkf",
       logoLight: "./logo.svg",
@@ -482,7 +534,11 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("refreshes the dark logo hash on reload after the file changes", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-darkg");
+    const rootDir = join(
+      harness.config.dataDir,
+      "fixtures",
+      "hyperfide-plugin-darkg",
+    );
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-darkg",
       logoLight: "./logo.svg",
@@ -498,9 +554,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
     await writeFile(join(rootDir, "logo-dark.svg"), changed);
     await harness.pluginService.reload("darkg");
 
-    const reloaded = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "darkg");
+    const reloaded = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "darkg",
+    );
     expect(reloaded?.logoDarkUrl).not.toBeNull();
     expect(reloaded?.logoDarkUrl).not.toBe(firstUrl);
     expect(reloaded?.logoUrl).toBe(firstLightUrl);

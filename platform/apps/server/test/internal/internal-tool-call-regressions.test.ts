@@ -22,16 +22,16 @@ import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
 describe("internal tool-call regressions", () => {
   it("rejects tool calls for threads owned by a different host", async () => {
     await withTestHarness(async (harness) => {
-      const hostA = seedHostSession(harness.deps, { id: "host-tool-a" });
-      const hostB = seedHostSession(harness.deps, { id: "host-tool-b" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const hostA = await seedHostSession(harness.deps, { id: "host-tool-a" });
+      const hostB = await seedHostSession(harness.deps, { id: "host-tool-b" });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: hostB.host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: hostB.host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
@@ -40,7 +40,7 @@ describe("internal tool-call regressions", () => {
         "/internal/session/tool-call",
         {
           method: "POST",
-          headers: internalAuthHeaders(harness),
+          headers: await internalAuthHeaders(harness),
           body: JSON.stringify({
             sessionId: hostA.session.id,
             threadId: thread.id,
@@ -60,7 +60,7 @@ describe("internal tool-call regressions", () => {
         code: "invalid_request",
       });
       expect(
-        harness.db
+        await harness.db
           .select()
           .from(events)
           .where(eq(events.threadId, thread.id))
@@ -70,26 +70,26 @@ describe("internal tool-call regressions", () => {
   });
 });
 
-function seedIdleProviderThread(harness: TestAppHarness, value: number) {
-  const { host, session } = seedHostSession(harness.deps, {
+async function seedIdleProviderThread(harness: TestAppHarness, value: number) {
+  const { host, session } = await seedHostSession(harness.deps, {
     id: `host-detached-tool-${value}`,
   });
-  const { project } = seedProjectWithSource(harness.deps, {
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: `/tmp/detached-tool-${value}`,
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: `/tmp/detached-tool-${value}`,
     status: "ready",
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     status: "idle",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     providerThreadId: `provider-detached-tool-${value}`,
     threadId: thread.id,
@@ -146,12 +146,14 @@ function installWaitingTool(
   });
 }
 
-function turnRequestedEvents(harness: TestAppHarness, threadId: string) {
-  return harness.db
-    .select()
-    .from(events)
-    .where(eq(events.threadId, threadId))
-    .all()
+async function turnRequestedEvents(harness: TestAppHarness, threadId: string) {
+  return (
+    await harness.db
+      .select()
+      .from(events)
+      .where(eq(events.threadId, threadId))
+      .all()
+  )
     .filter((row) => row.type === "client/turn/requested")
     .map((row) => JSON.parse(row.data) as Record<string, unknown>);
 }
@@ -159,7 +161,7 @@ function turnRequestedEvents(harness: TestAppHarness, threadId: string) {
 describe("plugin tool calls that outlive their round trip", () => {
   it("aborts an ordinary tool when the response stream is cancelled", async () => {
     await withTestHarness(async (harness) => {
-      const { session, thread } = seedIdleProviderThread(harness, 3);
+      const { session, thread } = await seedIdleProviderThread(harness, 3);
       const record: PluginAgentToolRecord = {
         name: "ordinary_tool",
         description: "Work without a form",
@@ -174,7 +176,7 @@ describe("plugin tool calls that outlive their round trip", () => {
       const finished = new Promise<void>((resolve) => {
         finish = resolve;
       });
-      const initialRequests = turnRequestedEvents(harness, thread.id);
+      const initialRequests = await turnRequestedEvents(harness, thread.id);
       setPluginAgentContributions({
         listSkillRootContributions: () => [],
         listAgentTools: () => [],
@@ -196,7 +198,7 @@ describe("plugin tool calls that outlive their round trip", () => {
           "/internal/session/tool-call",
           {
             method: "POST",
-            headers: internalAuthHeaders(harness),
+            headers: await internalAuthHeaders(harness),
             body: JSON.stringify({
               sessionId: session.id,
               threadId: thread.id,
@@ -213,9 +215,9 @@ describe("plugin tool calls that outlive their round trip", () => {
         finish();
         await new Promise<void>((resolve) => setImmediate(resolve));
         expect(
-          listQueuedThreadCommands(harness, "turn.submit", thread.id),
+          await listQueuedThreadCommands(harness, "turn.submit", thread.id),
         ).toHaveLength(0);
-        expect(turnRequestedEvents(harness, thread.id)).toEqual(
+        expect(await turnRequestedEvents(harness, thread.id)).toEqual(
           initialRequests,
         );
       } finally {
@@ -227,7 +229,7 @@ describe("plugin tool calls that outlive their round trip", () => {
 
   it("answers the round trip with a waiting notice, keeps the card open, and delivers the answer as a system message", async () => {
     await withTestHarness(async (harness) => {
-      const { session, thread } = seedIdleProviderThread(harness, 1);
+      const { session, thread } = await seedIdleProviderThread(harness, 1);
       const record: PluginAgentToolRecord = {
         name: "wait_for_user",
         description: "Wait",
@@ -246,7 +248,7 @@ describe("plugin tool calls that outlive their round trip", () => {
           "/internal/session/tool-call",
           {
             method: "POST",
-            headers: internalAuthHeaders(harness),
+            headers: await internalAuthHeaders(harness),
             body: JSON.stringify({
               sessionId: session.id,
               threadId: thread.id,
@@ -267,14 +269,14 @@ describe("plugin tool calls that outlive their round trip", () => {
           ],
         });
         const [interaction] =
-          harness.deps.pendingInteractions.listPendingThreadInteractions(
+          await harness.deps.pendingInteractions.listPendingThreadInteractions(
             thread.id,
           );
         expect(interaction).toBeDefined();
 
         expect(toolSignal?.aborted).toBe(false);
         expect(
-          harness.deps.pendingInteractions.getThreadInteraction({
+          await harness.deps.pendingInteractions.getThreadInteraction({
             threadId: thread.id,
             interactionId: interaction!.id,
           }),
@@ -290,12 +292,12 @@ describe("plugin tool calls that outlive their round trip", () => {
         );
         expect(late.status).toBe(200);
 
-        await vi.waitFor(() => {
+        await vi.waitFor(async () => {
           expect(
-            listQueuedThreadCommands(harness, "turn.submit", thread.id),
+            await listQueuedThreadCommands(harness, "turn.submit", thread.id),
           ).toHaveLength(1);
         });
-        const [command] = listQueuedThreadCommands(
+        const [command] = await listQueuedThreadCommands(
           harness,
           "turn.submit",
           thread.id,
@@ -308,7 +310,9 @@ describe("plugin tool calls that outlive their round trip", () => {
             }),
           ],
         });
-        const delivered = turnRequestedEvents(harness, thread.id).at(-1);
+        const delivered = (await turnRequestedEvents(harness, thread.id)).at(
+          -1,
+        );
         expect(delivered).toMatchObject({
           initiator: "system",
           systemMessageKind: "tool-result-delivered",
@@ -320,7 +324,9 @@ describe("plugin tool calls that outlive their round trip", () => {
           target: { kind: "new-turn" },
         });
       } finally {
-        harness.deps.pendingInteractions.interruptPluginInteractions("fixture");
+        await harness.deps.pendingInteractions.interruptPluginInteractions(
+          "fixture",
+        );
         setPluginAgentContributions(undefined);
       }
     });
@@ -328,7 +334,7 @@ describe("plugin tool calls that outlive their round trip", () => {
 
   it("does not wake an idle thread for a failed detached result", async () => {
     await withTestHarness(async (harness) => {
-      const { session, thread } = seedIdleProviderThread(harness, 2);
+      const { session, thread } = await seedIdleProviderThread(harness, 2);
       const record: PluginAgentToolRecord = {
         name: "wait_for_user",
         description: "Wait",
@@ -344,7 +350,7 @@ describe("plugin tool calls that outlive their round trip", () => {
           "/internal/session/tool-call",
           {
             method: "POST",
-            headers: internalAuthHeaders(harness),
+            headers: await internalAuthHeaders(harness),
             body: JSON.stringify({
               sessionId: session.id,
               threadId: thread.id,
@@ -357,11 +363,11 @@ describe("plugin tool calls that outlive their round trip", () => {
         );
         await response.json();
         const [interaction] =
-          harness.deps.pendingInteractions.listPendingThreadInteractions(
+          await harness.deps.pendingInteractions.listPendingThreadInteractions(
             thread.id,
           );
 
-        harness.deps.pendingInteractions.cancelPluginInteraction({
+        await harness.deps.pendingInteractions.cancelPluginInteraction({
           interactionId: interaction!.id,
           threadId: thread.id,
           reason: "user",
@@ -369,9 +375,9 @@ describe("plugin tool calls that outlive their round trip", () => {
         await new Promise((resolve) => setTimeout(resolve, 20));
 
         expect(
-          listQueuedThreadCommands(harness, "turn.submit", thread.id),
+          await listQueuedThreadCommands(harness, "turn.submit", thread.id),
         ).toHaveLength(0);
-        expect(turnRequestedEvents(harness, thread.id)).toHaveLength(1);
+        expect(await turnRequestedEvents(harness, thread.id)).toHaveLength(1);
       } finally {
         setPluginAgentContributions(undefined);
       }

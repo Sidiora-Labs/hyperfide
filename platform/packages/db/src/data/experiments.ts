@@ -11,11 +11,11 @@ import type { DbConnection } from "../connection.js";
 import { systemExperiments } from "../schema.js";
 import { getEarlyAdopter } from "./app-settings.js";
 
-export function getExperiments(db: DbConnection): Experiments {
-  const experiments = getEarlyAdopter(db)
+export async function getExperiments(db: DbConnection): Promise<Experiments> {
+  const experiments = (await getEarlyAdopter(db))
     ? { ...earlyAdopterExperiments }
     : { ...defaultExperiments };
-  const rows = db
+  const rows = await db
     .select()
     .from(systemExperiments)
     .where(inArray(systemExperiments.key, [...experimentKeys]))
@@ -31,16 +31,16 @@ export function getExperiments(db: DbConnection): Experiments {
   return experiments;
 }
 
-export function setExperiments(
+export async function setExperiments(
   db: DbConnection,
   updates: ExperimentUpdates,
-): void {
+): Promise<void> {
   const updatedAt = Date.now();
-  db.transaction((transaction) => {
+  await db.transaction(async (transaction) => {
     for (const key of experimentKeys) {
       const value = updates[key];
       if (value === undefined) continue;
-      transaction
+      await transaction
         .insert(systemExperiments)
         .values({ key, value, updatedAt })
         .onConflictDoUpdate({

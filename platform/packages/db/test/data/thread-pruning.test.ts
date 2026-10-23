@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../../src/testing.js";
 import { markThreadPruningWork } from "../../src/data/thread-pruning-work.js";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -5,11 +7,20 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { createConnection } from "../../src/connection.js";
-import { events, threadPruningCursors, threadPruningWork, threads } from "../../src/schema.js";
+import {
+  events,
+  threadPruningCursors,
+  threadPruningWork,
+  threads,
+} from "../../src/schema.js";
 import { noopNotifier } from "../../src/notifier.js";
 import { upsertHost } from "../../src/data/hosts.js";
 import { createProject } from "../../src/data/projects.js";
-import { archiveThread, createThread, unarchiveThread } from "../../src/data/threads.js";
+import {
+  archiveThread,
+  createThread,
+  unarchiveThread,
+} from "../../src/data/threads.js";
 import {
   advanceThreadPruning,
   getNextThreadPruningPolicy,
@@ -28,27 +39,27 @@ import { getThreadEventRewriteGeneration } from "../../src/data/event-rewrite-ge
 import { THREAD_CONTEXT_CLEAR_OPERATION, turnScope } from "@hyperfide/domain";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, { name: "pruning" });
-  const { project } = createProject(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, { name: "pruning" });
+  const { project } = await createProject(db, noopNotifier, {
     name: "pruning",
     source: { type: "local_path", hostId: host.id, path: "/tmp/pruning" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
   });
   return { db, thread, project };
 }
 
-type Fixture = ReturnType<typeof setup>;
-function seed(
+type Fixture = Awaited<ReturnType<typeof setup>>;
+async function seed(
   f: Fixture,
   sequence: number,
   values: Partial<typeof events.$inferInsert> = {},
 ) {
-  f.db
+  await f.db
     .insert(events)
     .values({
       id: `${f.thread.id}-${sequence}`,
@@ -62,12 +73,12 @@ function seed(
       ...values,
     })
     .run();
-  markThreadPruningWork(f.db, [f.thread.id]);
+  await markThreadPruningWork(f.db, [f.thread.id]);
 }
-function cycle(f: Fixture, policy: ThreadPruningPolicy) {
+async function cycle(f: Fixture, policy: ThreadPruningPolicy) {
   const results = [];
   for (let i = 0; i < 2000; i++) {
-    const result = advanceThreadPruning(f.db, policy);
+    const result = await advanceThreadPruning(f.db, policy);
     expect(result.scanned).toBeLessThanOrEqual(500);
     expect(result.removed).toBeLessThanOrEqual(500);
     results.push(result);
@@ -75,58 +86,82 @@ function cycle(f: Fixture, policy: ThreadPruningPolicy) {
   }
   throw new Error("Pruning did not finish a cycle");
 }
-function sequences(f: Fixture) {
-  return f.db
-    .select({ sequence: events.sequence })
-    .from(events)
-    .where(eq(events.threadId, f.thread.id))
-    .orderBy(events.sequence)
-    .all()
-    .map((r) => r.sequence);
+async function sequences(f: Fixture) {
+  return (
+    await f.db
+      .select({ sequence: events.sequence })
+      .from(events)
+      .where(eq(events.threadId, f.thread.id))
+      .orderBy(events.sequence)
+      .all()
+  ).map((r) => r.sequence);
 }
 
 describe("thread pruning", () => {
-  it("queues archive changes for every owned thread and rolls them back together", () => {
-    const f = setup();
+  it("queues archive changes for every owned thread and rolls them back together", async () => {
+    const f = await setup();
     try {
-      const child = createThread(f.db, noopNotifier, {
+      const child = await createThread(f.db, noopNotifier, {
         projectId: f.project.id,
         providerId: "codex",
         lifecycleOwnerThreadId: f.thread.id,
       });
-      const work = () => f.db.select().from(threadPruningWork).all();
-      expect(() => f.db.transaction((tx) => {
-        archiveThread(tx, noopNotifier, f.thread.id);
-        throw new Error("rollback archive");
-      })).toThrow("rollback archive");
-      expect(work()).toEqual([]);
-      expect(f.db.select().from(threads).all().every((thread) => thread.archivedAt === null)).toBe(true);
-      archiveThread(f.db, noopNotifier, f.thread.id);
-      expect(work()).toHaveLength(2);
-      expect(work()).toEqual(expect.arrayContaining([
-        { policy: "rate-limits", threadId: f.thread.id, revision: 1 },
-        { policy: "rate-limits", threadId: child.id, revision: 1 },
-      ]));
-      archiveThread(f.db, noopNotifier, f.thread.id);
-      expect(work().every((row) => row.revision === 1)).toBe(true);
-      unarchiveThread(f.db, noopNotifier, f.thread.id);
-      expect(() => f.db.transaction(() => {
-        unarchiveThread(f.db, noopNotifier, child.id);
-        throw new Error("rollback unarchive");
-      })).toThrow("rollback unarchive");
-      expect(work().find((row) => row.threadId === child.id)?.revision).toBe(1);
-      expect(f.db.select().from(threads).where(eq(threads.id, child.id)).get()?.archivedAt).not.toBeNull();
-      unarchiveThread(f.db, noopNotifier, child.id);
-      expect(work().every((row) => row.revision === 2)).toBe(true);
+      const work = async () =>
+        await f.db.select().from(threadPruningWork).all();
+      await expect(
+        (async () =>
+          f.db.transaction(async (tx) => {
+            await archiveThread(tx, noopNotifier, f.thread.id);
+            throw new Error("rollback archive");
+          }))(),
+      ).rejects.toThrow("rollback archive");
+      expect(await work()).toEqual([]);
+      expect(
+        (await f.db.select().from(threads).all()).every(
+          (thread) => thread.archivedAt === null,
+        ),
+      ).toBe(true);
+      await archiveThread(f.db, noopNotifier, f.thread.id);
+      expect(await work()).toHaveLength(2);
+      expect(await work()).toEqual(
+        expect.arrayContaining([
+          { policy: "rate-limits", threadId: f.thread.id, revision: 1 },
+          { policy: "rate-limits", threadId: child.id, revision: 1 },
+        ]),
+      );
+      await archiveThread(f.db, noopNotifier, f.thread.id);
+      expect((await work()).every((row) => row.revision === 1)).toBe(true);
+      await unarchiveThread(f.db, noopNotifier, f.thread.id);
+      await expect(
+        (async () =>
+          f.db.transaction(async () => {
+            await unarchiveThread(f.db, noopNotifier, child.id);
+            throw new Error("rollback unarchive");
+          }))(),
+      ).rejects.toThrow("rollback unarchive");
+      expect(
+        (await work()).find((row) => row.threadId === child.id)?.revision,
+      ).toBe(1);
+      expect(
+        (
+          await f.db
+            .select()
+            .from(threads)
+            .where(eq(threads.id, child.id))
+            .get()
+        )?.archivedAt,
+      ).not.toBeNull();
+      await unarchiveThread(f.db, noopNotifier, child.id);
+      expect((await work()).every((row) => row.revision === 2)).toBe(true);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("advances past a thread that becomes dirty again before its next cycle", () => {
-    const f = setup();
+  it("advances past a thread that becomes dirty again before its next cycle", async () => {
+    const f = await setup();
     try {
-      const other = createThread(f.db, noopNotifier, {
+      const other = await createThread(f.db, noopNotifier, {
         projectId: f.project.id,
         providerId: "codex",
       });
@@ -134,20 +169,22 @@ describe("thread pruning", () => {
         a.id.localeCompare(b.id),
       );
       if (!first || !second) throw new Error("Missing pruning fixtures");
-      seed({ ...f, thread: first }, 1);
-      seed({ ...f, thread: second }, 1);
-      expect(advanceThreadPruning(f.db, "rate-limits").threadId).toBe(first.id);
-      seed({ ...f, thread: first }, 2);
-      expect(advanceThreadPruning(f.db, "rate-limits").threadId).toBe(
+      await seed({ ...f, thread: first }, 1);
+      await seed({ ...f, thread: second }, 1);
+      expect((await advanceThreadPruning(f.db, "rate-limits")).threadId).toBe(
+        first.id,
+      );
+      await seed({ ...f, thread: first }, 2);
+      expect((await advanceThreadPruning(f.db, "rate-limits")).threadId).toBe(
         second.id,
       );
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("requires output presence only when pruning command output deltas", () => {
-    const f = setup();
+  it("requires output presence only when pruning command output deltas", async () => {
+    const f = await setup();
     try {
       let sequence = 0;
       const retained: number[] = [];
@@ -164,12 +201,12 @@ describe("thread pruning", () => {
           ['{"item":{"aggregatedOutput":"done"}}', true],
         ] as const) {
           const itemId = `item-${sequence}`;
-          seed(f, ++sequence, { type, itemId });
+          await seed(f, ++sequence, { type, itemId });
           retained.push(sequence);
-          seed(f, ++sequence, { type, itemId });
+          await seed(f, ++sequence, { type, itemId });
           if (itemKind === "commandExecution" && !hasOutput)
             retained.push(sequence);
-          seed(f, ++sequence, {
+          await seed(f, ++sequence, {
             type: "item/completed",
             itemKind,
             itemId,
@@ -178,676 +215,777 @@ describe("thread pruning", () => {
           retained.push(sequence);
         }
       }
-      cycle(f, "resolved-items");
-      expect(sequences(f)).toEqual(retained);
+      await cycle(f, "resolved-items");
+      expect(await sequences(f)).toEqual(retained);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("rotates scoped live policies durably and drains active usage without global idle cleanup", () => {
-    let f = setup();
-    try {
-      f.db
-        .update(threads)
-        .set({ status: "active" })
-        .where(eq(threads.id, f.thread.id))
-        .run();
-      for (let i = 1; i <= 200; i++) {
-        seed(f, i, {
-          type: "thread/contextWindowUsage/updated",
-          data: JSON.stringify({
-            contextWindowUsage: {
-              usedTokens: i,
-              modelContextWindow: i === 1 ? 200000 : null,
-            },
-          }),
-        });
-      }
-      seed(f, 201, { type: "turn/completed" });
-      const policies = [];
-      for (let i = 0; i < 160; i++) {
-        const policy = getNextThreadPruningPolicy(f.db, new Set(), f.thread.id);
-        if (policy === null) throw new Error("Missing policy");
-        policies.push(policy);
-        const result = advanceThreadPruning(f.db, { threadId: f.thread.id });
-        expect(result.scanned).toBeLessThanOrEqual(32);
-        expect(result.removed).toBeLessThanOrEqual(32);
-        if (i === 6) {
-          const saved = f.db.$client.serialize();
-          f.db.$client.close();
-          f = { ...f, db: createConnection(saved) };
+  it.skipIf(isPostgresTest)(
+    "rotates scoped live policies durably and drains active usage without global idle cleanup",
+    async () => {
+      let f = await setup();
+      try {
+        await f.db
+          .update(threads)
+          .set({ status: "active" })
+          .where(eq(threads.id, f.thread.id))
+          .run();
+        for (let i = 1; i <= 200; i++) {
+          await seed(f, i, {
+            type: "thread/contextWindowUsage/updated",
+            data: JSON.stringify({
+              contextWindowUsage: {
+                usedTokens: i,
+                modelContextWindow: i === 1 ? 200000 : null,
+              },
+            }),
+          });
         }
+        await seed(f, 201, { type: "turn/completed" });
+        const policies = [];
+        for (let i = 0; i < 160; i++) {
+          const policy = await getNextThreadPruningPolicy(
+            f.db,
+            new Set(),
+            f.thread.id,
+          );
+          if (policy === null) throw new Error("Missing policy");
+          policies.push(policy);
+          const result = await advanceThreadPruning(f.db, {
+            threadId: f.thread.id,
+          });
+          expect(result.scanned).toBeLessThanOrEqual(32);
+          expect(result.removed).toBeLessThanOrEqual(32);
+          if (i === 6) {
+            const saved = f.db.$client.serialize();
+            await f.db.close();
+            f = { ...f, db: createConnection(saved) };
+          }
+        }
+        expect(policies.slice(0, 8)).toEqual([
+          "rate-limits",
+          "usage",
+          "turn-diffs",
+          "resolved-items",
+          "rate-limits",
+          "usage",
+          "turn-diffs",
+          "resolved-items",
+        ]);
+        expect(await sequences(f)).toEqual([1, 200, 201]);
+        expect(
+          (await f.db.select().from(threadPruningCursors).all()).every(
+            (row) => row.scope === f.thread.id,
+          ),
+        ).toBe(true);
+      } finally {
+        await f.db.close();
       }
-      expect(policies.slice(0, 8)).toEqual([
-        "rate-limits",
-        "usage",
-        "turn-diffs",
-        "resolved-items",
-        "rate-limits",
-        "usage",
-        "turn-diffs",
-        "resolved-items",
-      ]);
-      expect(sequences(f)).toEqual([1, 200, 201]);
-      expect(
-        f.db
-          .select()
-          .from(threadPruningCursors)
-          .all()
-          .every((row) => row.scope === f.thread.id),
-      ).toBe(true);
-    } finally {
-      f.db.$client.close();
-    }
-  });
+    },
+  );
 
-  it("reaches resolved deltas beyond unrelated history in one scoped advance", () => {
-    const f = setup();
+  it("reaches resolved deltas beyond unrelated history in one scoped advance", async () => {
+    const f = await setup();
     try {
-      f.db.transaction(() => {
+      await f.db.transaction(async () => {
         for (let i = 1; i <= 2000; i++)
-          seed(f, i, { type: "provider/warning" });
-        seed(f, 2001, { type: "item/agentMessage/delta", itemId: "message" });
-        seed(f, 2002, { type: "item/agentMessage/delta", itemId: "message" });
-        seed(f, 2003, {
+          await seed(f, i, { type: "provider/warning" });
+        await seed(f, 2001, {
+          type: "item/agentMessage/delta",
+          itemId: "message",
+        });
+        await seed(f, 2002, {
+          type: "item/agentMessage/delta",
+          itemId: "message",
+        });
+        await seed(f, 2003, {
           type: "item/completed",
           itemKind: "agentMessage",
           itemId: "message",
         });
       });
       for (let i = 0; i < 3; i++)
-        advanceThreadPruning(f.db, { threadId: f.thread.id });
-      const result = advanceThreadPruning(f.db, { threadId: f.thread.id });
+        await advanceThreadPruning(f.db, { threadId: f.thread.id });
+      const result = await advanceThreadPruning(f.db, {
+        threadId: f.thread.id,
+      });
       expect(result.policy).toBe("resolved-items");
       expect(result.scanned).toBe(2);
       expect(result.removed).toBe(1);
-      expect(sequences(f)).toContain(2001);
-      expect(sequences(f)).not.toContain(2002);
-      expect(sequences(f)).toContain(2003);
+      expect(await sequences(f)).toContain(2001);
+      expect(await sequences(f)).not.toContain(2002);
+      expect(await sequences(f)).toContain(2003);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("rolls back scoped live progress and deletion and restores the busy timeout", () => {
-    const f = setup();
-    try {
-      seed(f, 1);
-      seed(f, 2);
-      f.db.run(
-        sql`CREATE TRIGGER fail_live_advance BEFORE UPDATE ON thread_pruning_cursors BEGIN SELECT RAISE(ABORT, 'live advance failed'); END`,
-      );
-      const generation = getThreadEventRewriteGeneration(f.thread.id);
-      expect(() =>
-        advanceThreadPruning(f.db, { threadId: f.thread.id }),
-      ).toThrow("live advance failed");
-      expect(f.db.$client.pragma("busy_timeout", { simple: true })).toBe(5000);
-      expect(sequences(f)).toEqual([1, 2]);
-      expect(f.db.select().from(threadPruningCursors).all()).toEqual([]);
-      expect(getThreadEventRewriteGeneration(f.thread.id)).toBe(generation);
-      f.db.run(sql`DROP TRIGGER fail_live_advance`);
-      expect(
-        advanceThreadPruning(f.db, { threadId: f.thread.id }).removed,
-      ).toBe(1);
-      expect(getThreadEventRewriteGeneration(f.thread.id)).toBe(generation + 1);
-    } finally {
-      f.db.$client.close();
-    }
-  });
+  it.skipIf(isPostgresTest)(
+    "rolls back scoped live progress and deletion and restores the busy timeout",
+    async () => {
+      const f = await setup();
+      try {
+        await seed(f, 1);
+        await seed(f, 2);
+        await f.db.run(
+          sql`CREATE TRIGGER fail_live_advance BEFORE UPDATE ON thread_pruning_cursors BEGIN SELECT RAISE(ABORT, 'live advance failed'); END`,
+        );
+        const generation = getThreadEventRewriteGeneration(f.thread.id);
+        await expect(
+          (async () =>
+            await advanceThreadPruning(f.db, { threadId: f.thread.id }))(),
+        ).rejects.toThrow("live advance failed");
+        expect(f.db.$client.pragma("busy_timeout", { simple: true })).toBe(
+          5000,
+        );
+        expect(await sequences(f)).toEqual([1, 2]);
+        expect(await f.db.select().from(threadPruningCursors).all()).toEqual(
+          [],
+        );
+        expect(getThreadEventRewriteGeneration(f.thread.id)).toBe(generation);
+        await f.db.run(sql`DROP TRIGGER fail_live_advance`);
+        expect(
+          (await advanceThreadPruning(f.db, { threadId: f.thread.id })).removed,
+        ).toBe(1);
+        expect(getThreadEventRewriteGeneration(f.thread.id)).toBe(
+          generation + 1,
+        );
+      } finally {
+        await f.db.close();
+      }
+    },
+  );
 
-  it("isolates live progress by thread and preserves global progress on thread deletion", () => {
-    const f = setup();
+  it("isolates live progress by thread and preserves global progress on thread deletion", async () => {
+    const f = await setup();
     try {
       const other = {
         ...f,
-        thread: createThread(f.db, noopNotifier, {
+        thread: await createThread(f.db, noopNotifier, {
           projectId: f.project.id,
           providerId: "codex",
         }),
       };
       for (const fixture of [f, other]) {
-        fixture.db.transaction(() => {
+        await fixture.db.transaction(async () => {
           for (let i = 1; i <= 600; i++)
-            seed(fixture, i, { type: "item/agentMessage/delta" });
+            await seed(fixture, i, { type: "item/agentMessage/delta" });
         });
         for (let i = 0; i < 4; i++)
-          advanceThreadPruning(f.db, { threadId: fixture.thread.id });
+          await advanceThreadPruning(f.db, { threadId: fixture.thread.id });
       }
-      advanceThreadPruning(f.db, "rate-limits");
-      const before = f.db.select().from(threadPruningCursors).all();
+      await advanceThreadPruning(f.db, "rate-limits");
+      const before = await f.db.select().from(threadPruningCursors).all();
       expect(
         before
           .filter((row) => row.policy === "deltas")
           .map((row) => row.scope)
           .sort(),
       ).toEqual([f.thread.id, other.thread.id].sort());
-      const hasLiveDeltaCursor = () =>
-        f.db
-          .select()
-          .from(threadPruningCursors)
-          .all()
-          .some((row) => row.policy === "deltas" && row.scope === f.thread.id);
-      for (let i = 0; i < 1000 && hasLiveDeltaCursor(); i++)
-        advanceThreadPruning(f.db, { threadId: f.thread.id });
-      expect(hasLiveDeltaCursor()).toBe(false);
-      const remaining = f.db.select().from(threadPruningCursors).all();
+      const hasLiveDeltaCursor = async () =>
+        (await f.db.select().from(threadPruningCursors).all()).some(
+          (row) => row.policy === "deltas" && row.scope === f.thread.id,
+        );
+      for (let i = 0; i < 1000 && (await hasLiveDeltaCursor()); i++)
+        await advanceThreadPruning(f.db, { threadId: f.thread.id });
+      expect(await hasLiveDeltaCursor()).toBe(false);
+      const remaining = await f.db.select().from(threadPruningCursors).all();
       expect(remaining.filter((row) => row.scope !== f.thread.id)).toEqual(
         before.filter((row) => row.scope !== f.thread.id),
       );
-      f.db.delete(threads).where(eq(threads.id, other.thread.id)).run();
+      await f.db.delete(threads).where(eq(threads.id, other.thread.id)).run();
       expect(
-        f.db
-          .select()
-          .from(threadPruningCursors)
-          .all()
-          .filter((row) => row.scope !== f.thread.id),
+        (await f.db.select().from(threadPruningCursors).all()).filter(
+          (row) => row.scope !== f.thread.id,
+        ),
       ).toEqual(before.filter((row) => row.scope === ""));
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("keeps only the latest thread snapshot across restart and late arrivals", () => {
-    let f = setup();
-    try {
-      f.db.transaction(() => {
-        for (let i = 1; i <= 1100; i++)
-          seed(f, i, {
-            data: JSON.stringify({
-              rateLimits: { providerId: "codex" },
-            }),
-          });
-        for (const [i, data] of [
-          "{broken",
-          "{}",
-          '{"rateLimits":{"providerId":3}}',
-          '{"rateLimits":{"providerId":""}}',
-        ].entries())
-          seed(f, 1101 + i, { data });
-      });
-      advanceThreadPruning(f.db, "rate-limits");
-      expect(
-        advanceThreadPruning(f.db, "rate-limits").scanned,
-      ).toBeLessThanOrEqual(64);
-      seed(f, 1105);
-      const saved = f.db.$client.serialize();
-      f.db.$client.close();
-      f = { ...f, db: createConnection(saved) };
-      cycle(f, "rate-limits");
-      expect(sequences(f)).toEqual([1105]);
-      cycle(f, "rate-limits");
-      expect(sequences(f)).toEqual([1105]);
-      expect(
-        getLatestStoredRateLimitsEvent(f.db, {
-          threadId: f.thread.id,
-        })?.sequence,
-      ).toBe(1105);
-      expect(cycle(f, "rate-limits").reduce((n, r) => n + r.removed, 0)).toBe(
-        0,
-      );
-    } finally {
-      f.db.$client.close();
-    }
-  });
+  it.skipIf(isPostgresTest)(
+    "keeps only the latest thread snapshot across restart and late arrivals",
+    async () => {
+      let f = await setup();
+      try {
+        await f.db.transaction(async () => {
+          for (let i = 1; i <= 1100; i++)
+            await seed(f, i, {
+              data: JSON.stringify({
+                rateLimits: { providerId: "codex" },
+              }),
+            });
+          for (const [i, data] of [
+            "{broken",
+            "{}",
+            '{"rateLimits":{"providerId":3}}',
+            '{"rateLimits":{"providerId":""}}',
+          ].entries())
+            await seed(f, 1101 + i, { data });
+        });
+        await advanceThreadPruning(f.db, "rate-limits");
+        expect(
+          (await advanceThreadPruning(f.db, "rate-limits")).scanned,
+        ).toBeLessThanOrEqual(64);
+        await seed(f, 1105);
+        const saved = f.db.$client.serialize();
+        await f.db.close();
+        f = { ...f, db: createConnection(saved) };
+        await cycle(f, "rate-limits");
+        expect(await sequences(f)).toEqual([1105]);
+        await cycle(f, "rate-limits");
+        expect(await sequences(f)).toEqual([1105]);
+        expect(
+          (
+            await getLatestStoredRateLimitsEvent(f.db, {
+              threadId: f.thread.id,
+            })
+          )?.sequence,
+        ).toBe(1105);
+        expect(
+          (await cycle(f, "rate-limits")).reduce((n, r) => n + r.removed, 0),
+        ).toBe(0);
+      } finally {
+        await f.db.close();
+      }
+    },
+  );
 
-  it("advances live cleanup past retained first deltas and revisits late completions", () => {
-    const f = setup();
-    try {
-      f.db.transaction(() => {
-        for (let i = 1; i <= 125; i++) {
-          seed(f, i, { type: "item/agentMessage/delta", itemId: `item-${i}` });
-          seed(f, 126 + i, {
-            type: "item/completed",
-            itemKind: "agentMessage",
-            itemId: `item-${i}`,
+  it.skipIf(isPostgresTest)(
+    "advances live cleanup past retained first deltas and revisits late completions",
+    async () => {
+      const f = await setup();
+      try {
+        await f.db.transaction(async () => {
+          for (let i = 1; i <= 125; i++) {
+            await seed(f, i, {
+              type: "item/agentMessage/delta",
+              itemId: `item-${i}`,
+            });
+            await seed(f, 126 + i, {
+              type: "item/completed",
+              itemKind: "agentMessage",
+              itemId: `item-${i}`,
+            });
+          }
+          await seed(f, 126, {
+            type: "item/agentMessage/delta",
+            itemId: "item-1",
           });
-        }
-        seed(f, 126, { type: "item/agentMessage/delta", itemId: "item-1" });
-        seed(f, 252, { type: "turn/completed" });
-      });
-      f.db.run(
-        sql`CREATE TRIGGER fail_live_insert BEFORE INSERT ON thread_pruning_cursors WHEN NEW.policy = 'deltas' BEGIN SELECT RAISE(ABORT, 'live insert failed'); END`,
-      );
-      expect(() => advanceThreadPruning(f.db, "resolved-items")).toThrow(
-        "live insert failed",
-      );
-      expect(sequences(f)).toContain(126);
-      expect(f.db.select().from(threadPruningCursors).all()).toEqual([]);
-      f.db.run(sql`DROP TRIGGER fail_live_insert`);
-      expect(
-        cycle(f, "resolved-items").reduce((n, r) => n + r.removed, 0),
-      ).toBe(1);
-      expect(sequences(f)).not.toContain(126);
-      expect(sequences(f).filter((sequence) => sequence <= 125)).toHaveLength(
-        125,
-      );
-      seed(f, 253, { type: "item/agentMessage/delta", itemId: "late" });
-      seed(f, 254, { type: "item/agentMessage/delta", itemId: "late" });
-      cycle(f, "resolved-items");
-      expect(sequences(f)).toContain(254);
-      seed(f, 255, {
-        type: "item/completed",
-        itemKind: "agentMessage",
-        itemId: "late",
-      });
-      cycle(f, "resolved-items");
-      expect(sequences(f)).toContain(253);
-      expect(sequences(f)).not.toContain(254);
-    } finally {
-      f.db.$client.close();
-    }
-  });
-
-  it("persists unfinished live probes across restart and rolls progress back with deletion", () => {
-    let f = setup();
-    try {
-      seed(f, 1, {
-        type: "item/agentMessage/delta",
-        itemId: "reused",
-        parentToolCallId: "target",
-      });
-      seed(f, 2, {
-        type: "item/agentMessage/delta",
-        itemId: "reused",
-        parentToolCallId: "target",
-      });
-      f.db.transaction(() => {
-        for (let i = 3; i <= 1202; i++)
-          seed(f, i, {
-            type: "item/completed",
-            itemKind: "agentMessage",
-            itemId: "reused",
-            parentToolCallId: `other-${i}`,
-          });
-        seed(f, 1203, {
+          await seed(f, 252, { type: "turn/completed" });
+        });
+        await f.db.run(
+          sql`CREATE TRIGGER fail_live_insert BEFORE INSERT ON thread_pruning_cursors WHEN NEW.policy = 'deltas' BEGIN SELECT RAISE(ABORT, 'live insert failed'); END`,
+        );
+        await expect(
+          (async () => await advanceThreadPruning(f.db, "resolved-items"))(),
+        ).rejects.toThrow("live insert failed");
+        expect(await sequences(f)).toContain(126);
+        expect(await f.db.select().from(threadPruningCursors).all()).toEqual(
+          [],
+        );
+        await f.db.run(sql`DROP TRIGGER fail_live_insert`);
+        expect(
+          (await cycle(f, "resolved-items")).reduce((n, r) => n + r.removed, 0),
+        ).toBe(1);
+        expect(await sequences(f)).not.toContain(126);
+        expect(
+          (await sequences(f)).filter((sequence) => sequence <= 125),
+        ).toHaveLength(125);
+        await seed(f, 253, { type: "item/agentMessage/delta", itemId: "late" });
+        await seed(f, 254, { type: "item/agentMessage/delta", itemId: "late" });
+        await cycle(f, "resolved-items");
+        expect(await sequences(f)).toContain(254);
+        await seed(f, 255, {
           type: "item/completed",
           itemKind: "agentMessage",
+          itemId: "late",
+        });
+        await cycle(f, "resolved-items");
+        expect(await sequences(f)).toContain(253);
+        expect(await sequences(f)).not.toContain(254);
+      } finally {
+        await f.db.close();
+      }
+    },
+  );
+
+  it.skipIf(isPostgresTest)(
+    "persists unfinished live probes across restart and rolls progress back with deletion",
+    async () => {
+      let f = await setup();
+      try {
+        await seed(f, 1, {
+          type: "item/agentMessage/delta",
           itemId: "reused",
           parentToolCallId: "target",
         });
-      });
-      expect(advanceThreadPruning(f.db, "resolved-items").removed).toBe(0);
-      const before = f.db.select().from(threadPruningCursors).all();
-      expect(
-        before.find((row) => row.policy === "deltas")?.probeSequence,
-      ).toBeGreaterThan(0);
-      f.db.run(
-        sql`CREATE TRIGGER fail_live_cursor BEFORE UPDATE ON thread_pruning_cursors BEGIN SELECT RAISE(ABORT, 'live cursor failed'); END`,
-      );
-      expect(() => advanceThreadPruning(f.db, "resolved-items")).toThrow(
-        "live cursor failed",
-      );
-      expect(f.db.select().from(threadPruningCursors).all()).toEqual(before);
-      f.db.run(sql`DROP TRIGGER fail_live_cursor`);
-      const saved = f.db.$client.serialize();
-      f.db.$client.close();
-      f = { ...f, db: createConnection(saved) };
-      cycle(f, "resolved-items");
-      expect(sequences(f)).toContain(1);
-      expect(sequences(f)).not.toContain(2);
-      f.db.delete(threads).where(eq(threads.id, f.thread.id)).run();
-      expect(
-        f.db
-          .select()
-          .from(threadPruningCursors)
-          .all()
-          .filter((row) => row.scope !== ""),
-      ).toEqual([]);
-    } finally {
-      f.db.$client.close();
-    }
-  });
-
-  it("finishes unarchived cleanup in the background and advances past retained task progress", () => {
-    const f = setup();
-    try {
-      f.db.transaction(() => {
-        for (let i = 1; i <= 510; i++)
-          seed(f, i, {
-            type: "item/backgroundTask/progress",
-            itemId: `task-${i}`,
-          });
-        seed(f, 511, {
-          type: "item/backgroundTask/progress",
-          itemId: "task-1",
+        await seed(f, 2, {
+          type: "item/agentMessage/delta",
+          itemId: "reused",
+          parentToolCallId: "target",
         });
-        seed(f, 512, { type: "turn/completed" });
-      });
-      cycle(f, "resolved-items");
-      expect(sequences(f)).not.toContain(1);
-      expect(sequences(f)).toContain(511);
-      seed(f, 513, { type: "item/agentMessage/delta", itemId: "message" });
-      seed(f, 514, { type: "item/agentMessage/delta", itemId: "message" });
-      seed(f, 515, {
-        type: "item/completed",
-        itemId: "message",
-        itemKind: "agentMessage",
-      });
-      cycle(f, "resolved-items");
-      expect(sequences(f)).toContain(513);
-      expect(sequences(f)).not.toContain(514);
-    } finally {
-      f.db.$client.close();
-    }
-  }, 15_000);
+        await f.db.transaction(async () => {
+          for (let i = 3; i <= 1202; i++)
+            await seed(f, i, {
+              type: "item/completed",
+              itemKind: "agentMessage",
+              itemId: "reused",
+              parentToolCallId: `other-${i}`,
+            });
+          await seed(f, 1203, {
+            type: "item/completed",
+            itemKind: "agentMessage",
+            itemId: "reused",
+            parentToolCallId: "target",
+          });
+        });
+        expect(
+          (await advanceThreadPruning(f.db, "resolved-items")).removed,
+        ).toBe(0);
+        const before = await f.db.select().from(threadPruningCursors).all();
+        expect(
+          before.find((row) => row.policy === "deltas")?.probeSequence,
+        ).toBeGreaterThan(0);
+        await f.db.run(
+          sql`CREATE TRIGGER fail_live_cursor BEFORE UPDATE ON thread_pruning_cursors BEGIN SELECT RAISE(ABORT, 'live cursor failed'); END`,
+        );
+        await expect(
+          (async () => await advanceThreadPruning(f.db, "resolved-items"))(),
+        ).rejects.toThrow("live cursor failed");
+        expect(await f.db.select().from(threadPruningCursors).all()).toEqual(
+          before,
+        );
+        await f.db.run(sql`DROP TRIGGER fail_live_cursor`);
+        const saved = f.db.$client.serialize();
+        await f.db.close();
+        f = { ...f, db: createConnection(saved) };
+        await cycle(f, "resolved-items");
+        expect(await sequences(f)).toContain(1);
+        expect(await sequences(f)).not.toContain(2);
+        await f.db.delete(threads).where(eq(threads.id, f.thread.id)).run();
+        expect(
+          (await f.db.select().from(threadPruningCursors).all()).filter(
+            (row) => row.scope !== "",
+          ),
+        ).toEqual([]);
+      } finally {
+        await f.db.close();
+      }
+    },
+  );
 
-  it("prunes oversized snapshots without parsing their payloads", () => {
-    const f = setup();
+  it(
+    "finishes unarchived cleanup in the background and advances past retained task progress",
+    async () => {
+      const f = await setup();
+      try {
+        await f.db.transaction(async () => {
+          for (let i = 1; i <= 510; i++)
+            await seed(f, i, {
+              type: "item/backgroundTask/progress",
+              itemId: `task-${i}`,
+            });
+          await seed(f, 511, {
+            type: "item/backgroundTask/progress",
+            itemId: "task-1",
+          });
+          await seed(f, 512, { type: "turn/completed" });
+        });
+        await cycle(f, "resolved-items");
+        expect(await sequences(f)).not.toContain(1);
+        expect(await sequences(f)).toContain(511);
+        await seed(f, 513, {
+          type: "item/agentMessage/delta",
+          itemId: "message",
+        });
+        await seed(f, 514, {
+          type: "item/agentMessage/delta",
+          itemId: "message",
+        });
+        await seed(f, 515, {
+          type: "item/completed",
+          itemId: "message",
+          itemKind: "agentMessage",
+        });
+        await cycle(f, "resolved-items");
+        expect(await sequences(f)).toContain(513);
+        expect(await sequences(f)).not.toContain(514);
+      } finally {
+        await f.db.close();
+      }
+    },
+    isPostgresTest ? 60_000 : 15_000,
+  );
+
+  it("prunes oversized snapshots without parsing their payloads", async () => {
+    const f = await setup();
     try {
       const data = JSON.stringify({
         rateLimits: { providerId: "codex" },
         padding: "x".repeat(2 * 1024 * 1024),
       });
-      seed(f, 1, { data });
-      seed(f, 2, { data });
-      const first = advanceThreadPruning(f.db, "rate-limits");
+      await seed(f, 1, { data });
+      await seed(f, 2, { data });
+      const first = await advanceThreadPruning(f.db, "rate-limits");
       expect(first.scanned).toBe(2);
       expect(first.removed).toBe(1);
-      cycle(f, "rate-limits");
-      expect(sequences(f)).toEqual([2]);
+      await cycle(f, "rate-limits");
+      expect(await sequences(f)).toEqual([2]);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("rolls back the cursor and deletions together without publishing a rewrite generation", () => {
-    const f = setup();
-    try {
-      seed(f, 1);
-      f.db
-        .insert(threadPruningCursors)
-        .values({ policy: "rate-limits", version: 1, updatedAt: 1 })
-        .run();
-      seed(f, 2);
-      const before = f.db.select().from(threadPruningCursors).all();
-      const generation = getThreadEventRewriteGeneration(f.thread.id);
-      f.db.run(
-        sql`CREATE TRIGGER fail_pruning BEFORE UPDATE ON thread_pruning_cursors BEGIN SELECT RAISE(ABORT, 'injected failure'); END`,
-      );
-      expect(() => advanceThreadPruning(f.db, "rate-limits")).toThrow(
-        "injected failure",
-      );
-      expect(sequences(f)).toEqual([1, 2]);
-      expect(f.db.select().from(threadPruningCursors).all()).toEqual(before);
-      expect(getThreadEventRewriteGeneration(f.thread.id)).toBe(generation);
-      f.db.run(sql`DROP TRIGGER fail_pruning`);
-      expect(advanceThreadPruning(f.db, "rate-limits").removed).toBe(1);
-      expect(getThreadEventRewriteGeneration(f.thread.id)).toBe(generation + 1);
-    } finally {
-      f.db.$client.close();
-    }
-  });
+  it.skipIf(isPostgresTest)(
+    "rolls back the cursor and deletions together without publishing a rewrite generation",
+    async () => {
+      const f = await setup();
+      try {
+        await seed(f, 1);
+        await f.db
+          .insert(threadPruningCursors)
+          .values({ policy: "rate-limits", version: 1, updatedAt: 1 })
+          .run();
+        await seed(f, 2);
+        const before = await f.db.select().from(threadPruningCursors).all();
+        const generation = getThreadEventRewriteGeneration(f.thread.id);
+        await f.db.run(
+          sql`CREATE TRIGGER fail_pruning BEFORE UPDATE ON thread_pruning_cursors BEGIN SELECT RAISE(ABORT, 'injected failure'); END`,
+        );
+        await expect(
+          (async () => await advanceThreadPruning(f.db, "rate-limits"))(),
+        ).rejects.toThrow("injected failure");
+        expect(await sequences(f)).toEqual([1, 2]);
+        expect(await f.db.select().from(threadPruningCursors).all()).toEqual(
+          before,
+        );
+        expect(getThreadEventRewriteGeneration(f.thread.id)).toBe(generation);
+        await f.db.run(sql`DROP TRIGGER fail_pruning`);
+        expect((await advanceThreadPruning(f.db, "rate-limits")).removed).toBe(
+          1,
+        );
+        expect(getThreadEventRewriteGeneration(f.thread.id)).toBe(
+          generation + 1,
+        );
+      } finally {
+        await f.db.close();
+      }
+    },
+  );
 
-  it("resumes after a competing writer and preserves the current latest snapshot after truncation", () => {
-    let f = setup();
-    const directory = mkdtempSync(join(tmpdir(), "bb-pruning-concurrent-"));
-    const path = join(directory, "fixture.db");
-    let writer: ReturnType<typeof createConnection> | undefined;
-    try {
-      f.db.transaction(() => {
-        for (let i = 1; i <= 600; i++) seed(f, i);
-      });
-      writeFileSync(path, f.db.$client.serialize());
-      f.db.$client.close();
-      f = { ...f, db: createConnection(path) };
-      writer = createConnection(path);
-      advanceThreadPruning(f.db, "rate-limits");
-      writer.$client.exec("BEGIN IMMEDIATE");
-      expect(() =>
-        advanceThreadPruning(f.db, { threadId: f.thread.id }),
-      ).toThrow("database is locked");
-      expect(f.db.$client.pragma("busy_timeout", { simple: true })).toBe(5000);
-      expect(() => advanceThreadPruning(f.db, "rate-limits")).toThrow(
-        "database is locked",
-      );
-      expect(f.db.$client.pragma("busy_timeout", { simple: true })).toBe(5000);
-      writer.$client.exec("ROLLBACK");
-      const batch = advanceThreadPruning(f.db, "rate-limits");
-      const nextSurvivor = 599;
-      expect(batch.removed).toBeLessThanOrEqual(64);
-      writer.delete(events).where(eq(events.sequence, 600)).run();
-      markThreadPruningWork(writer, [f.thread.id]);
-      cycle(f, "rate-limits");
-      expect(sequences(f)).toEqual([nextSurvivor]);
-      expect(
-        getLatestStoredRateLimitsEvent(f.db, {
-          threadId: f.thread.id,
-        })?.sequence,
-      ).toBe(nextSurvivor);
-    } finally {
-      writer?.$client.close();
-      f.db.$client.close();
-      rmSync(directory, { recursive: true, force: true });
-    }
-  });
+  it.skipIf(isPostgresTest)(
+    "resumes after a competing writer and preserves the current latest snapshot after truncation",
+    async () => {
+      let f = await setup();
+      const directory = mkdtempSync(join(tmpdir(), "bb-pruning-concurrent-"));
+      const path = join(directory, "fixture.db");
+      let writer: ReturnType<typeof createConnection> | undefined;
+      try {
+        await f.db.transaction(async () => {
+          for (let i = 1; i <= 600; i++) await seed(f, i);
+        });
+        writeFileSync(path, f.db.$client.serialize());
+        await f.db.close();
+        f = { ...f, db: createConnection(path) };
+        writer = createConnection(path);
+        await advanceThreadPruning(f.db, "rate-limits");
+        await writer.$client.exec("BEGIN IMMEDIATE");
+        await expect(
+          (async () =>
+            await advanceThreadPruning(f.db, { threadId: f.thread.id }))(),
+        ).rejects.toThrow("database is locked");
+        expect(f.db.$client.pragma("busy_timeout", { simple: true })).toBe(
+          5000,
+        );
+        await expect(
+          (async () => await advanceThreadPruning(f.db, "rate-limits"))(),
+        ).rejects.toThrow("database is locked");
+        expect(f.db.$client.pragma("busy_timeout", { simple: true })).toBe(
+          5000,
+        );
+        await writer.$client.exec("ROLLBACK");
+        const batch = await advanceThreadPruning(f.db, "rate-limits");
+        const nextSurvivor = 599;
+        expect(batch.removed).toBeLessThanOrEqual(64);
+        await writer.delete(events).where(eq(events.sequence, 600)).run();
+        await markThreadPruningWork(writer, [f.thread.id]);
+        await cycle(f, "rate-limits");
+        expect(await sequences(f)).toEqual([nextSurvivor]);
+        expect(
+          (
+            await getLatestStoredRateLimitsEvent(f.db, {
+              threadId: f.thread.id,
+            })
+          )?.sequence,
+        ).toBe(nextSurvivor);
+      } finally {
+        await writer?.close();
+        await f.db.close();
+        rmSync(directory, { recursive: true, force: true });
+      }
+    },
+  );
 
-  it("revisits new thread IDs behind the traversal cursor", () => {
-    const f = setup();
+  it("revisits new thread IDs behind the traversal cursor", async () => {
+    const f = await setup();
     try {
-      seed(f, 1);
-      seed(f, 2);
-      cycle(f, "rate-limits");
-      const added = createThread(f.db, noopNotifier, {
+      await seed(f, 1);
+      await seed(f, 2);
+      await cycle(f, "rate-limits");
+      const added = await createThread(f.db, noopNotifier, {
         projectId: f.project.id,
         providerId: "claude",
       });
-      f.db
+      await f.db
         .update(threads)
         .set({ id: "aaa-pruning" })
         .where(eq(threads.id, added.id))
         .run();
       const newer = { ...f, thread: { ...added, id: "aaa-pruning" } };
-      seed(newer, 1);
-      seed(newer, 2);
-      cycle(f, "rate-limits");
-      expect(sequences(newer)).toEqual([2]);
+      await seed(newer, 1);
+      await seed(newer, 2);
+      await cycle(f, "rate-limits");
+      expect(await sequences(newer)).toEqual([2]);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("retains the latest historical row and skips incoming diffs without allocating sequences", () => {
-    const f = setup();
+  it("retains the latest historical row and skips incoming diffs without allocating sequences", async () => {
+    const f = await setup();
     try {
-      seed(f, 1, { type: "turn/started", providerThreadId: "old", data: "{}" });
-      seed(f, 2, {
+      await seed(f, 1, {
+        type: "turn/started",
+        providerThreadId: "old",
+        data: "{}",
+      });
+      await seed(f, 2, {
         type: "item/completed",
         itemId: "edit",
         itemKind: "fileChange",
         data: '{"item":{"type":"fileChange","id":"edit","changes":[]}}',
       });
-      seed(f, 3, {
+      await seed(f, 3, {
         type: "turn/diff/updated",
         providerThreadId: "new",
         data: '{"diff":"large"}',
       });
-      cycle(f, "turn-diffs");
-      expect(sequences(f)).toEqual([1, 2, 3]);
-      expect(getHighWaterMarks(f.db, [f.thread.id])[f.thread.id]).toBe(3);
-      expect(getLastStoredProviderThreadId(f.db, f.thread.id)).toBeNull();
+      await cycle(f, "turn-diffs");
+      expect(await sequences(f)).toEqual([1, 2, 3]);
+      expect((await getHighWaterMarks(f.db, [f.thread.id]))[f.thread.id]).toBe(
+        3,
+      );
+      expect(await getLastStoredProviderThreadId(f.db, f.thread.id)).toBeNull();
       expect(
-        listThreadTurnInterruptionEventStates(f.db, {
-          threadIds: [f.thread.id],
-        })[0]?.latestProviderThreadId,
+        (
+          await listThreadTurnInterruptionEventStates(f.db, {
+            threadIds: [f.thread.id],
+          })
+        )[0]?.latestProviderThreadId,
       ).toBeNull();
-      const result = f.db.transaction((tx) =>
-        appendDaemonEventsInTransaction(tx, [
-          {
-            threadId: f.thread.id,
-            environmentId: null,
-            scope: turnScope("turn"),
-            providerThreadId: "newer",
-            type: "turn/diff/updated",
-            itemId: null,
-            itemKind: null,
-            parentToolCallId: null,
-            data: '{"diff":"never stored"}',
-          },
-          {
-            threadId: f.thread.id,
-            environmentId: null,
-            scope: turnScope("turn"),
-            providerThreadId: "newer",
-            type: "item/completed",
-            itemId: "edit2",
-            itemKind: "fileChange",
-            parentToolCallId: null,
-            data: '{"item":{"type":"fileChange","id":"edit2","changes":[]}}',
-          },
-        ]),
+      const result = await f.db.transaction(
+        async (tx) =>
+          await appendDaemonEventsInTransaction(tx, [
+            {
+              threadId: f.thread.id,
+              environmentId: null,
+              scope: turnScope("turn"),
+              providerThreadId: "newer",
+              type: "turn/diff/updated",
+              itemId: null,
+              itemKind: null,
+              parentToolCallId: null,
+              data: '{"diff":"never stored"}',
+            },
+            {
+              threadId: f.thread.id,
+              environmentId: null,
+              scope: turnScope("turn"),
+              providerThreadId: "newer",
+              type: "item/completed",
+              itemId: "edit2",
+              itemKind: "fileChange",
+              parentToolCallId: null,
+              data: '{"item":{"type":"fileChange","id":"edit2","changes":[]}}',
+            },
+          ]),
       );
       expect(result.acceptedEvents.map((r) => r.sequence)).toEqual([4]);
       expect(result.insertedInputIndexes).toEqual([1]);
-      expect(sequences(f)).toEqual([1, 2, 3, 4]);
-      expect(getLastStoredProviderThreadId(f.db, f.thread.id)).toBeNull();
-      cycle(f, "turn-diffs");
-      expect(sequences(f)).toEqual([1, 2, 4]);
-      expect(getHighWaterMarks(f.db, [f.thread.id])[f.thread.id]).toBe(4);
-    } finally {
-      f.db.$client.close();
-    }
-  });
-
-  it("preserves the current latest row when resuming after truncation", () => {
-    const f = setup();
-    try {
-      f.db.transaction(() => {
-        for (let i = 1; i <= 1200; i++)
-          seed(f, i, { type: "turn/diff/updated", data: "{}" });
-      });
-      expect(advanceThreadPruning(f.db, "turn-diffs").removed).toBe(500);
-      f.db.transaction((tx) =>
-        deleteThreadEventSuffixInTransaction(tx, {
-          threadId: f.thread.id,
-          cutoffSequence: 1000,
-          oldMaxSequence: 1200,
-        }),
+      expect(await sequences(f)).toEqual([1, 2, 3, 4]);
+      expect(await getLastStoredProviderThreadId(f.db, f.thread.id)).toBeNull();
+      await cycle(f, "turn-diffs");
+      expect(await sequences(f)).toEqual([1, 2, 4]);
+      expect((await getHighWaterMarks(f.db, [f.thread.id]))[f.thread.id]).toBe(
+        4,
       );
-      expect(getHighWaterMarks(f.db, [f.thread.id])[f.thread.id]).toBe(999);
-      cycle(f, "turn-diffs");
-      expect(sequences(f)).toEqual([999]);
-      expect(getHighWaterMarks(f.db, [f.thread.id])[f.thread.id]).toBe(999);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("recovers identity from retained lifecycle events and respects context clearing", () => {
-    const f = setup();
+  it("preserves the current latest row when resuming after truncation", async () => {
+    const f = await setup();
     try {
-      seed(f, 1, {
+      await f.db.transaction(async () => {
+        for (let i = 1; i <= 1200; i++)
+          await seed(f, i, { type: "turn/diff/updated", data: "{}" });
+      });
+      expect((await advanceThreadPruning(f.db, "turn-diffs")).removed).toBe(
+        500,
+      );
+      await f.db.transaction(
+        async (tx) =>
+          await deleteThreadEventSuffixInTransaction(tx, {
+            threadId: f.thread.id,
+            cutoffSequence: 1000,
+            oldMaxSequence: 1200,
+          }),
+      );
+      expect((await getHighWaterMarks(f.db, [f.thread.id]))[f.thread.id]).toBe(
+        999,
+      );
+      await cycle(f, "turn-diffs");
+      expect(await sequences(f)).toEqual([999]);
+      expect((await getHighWaterMarks(f.db, [f.thread.id]))[f.thread.id]).toBe(
+        999,
+      );
+    } finally {
+      await f.db.close();
+    }
+  });
+
+  it("recovers identity from retained lifecycle events and respects context clearing", async () => {
+    const f = await setup();
+    try {
+      await seed(f, 1, {
         type: "thread/identity",
         providerThreadId: "old",
         data: "{}",
       });
-      seed(f, 2, { type: "turn/started", providerThreadId: "old", data: "{}" });
-      seed(f, 3, {
+      await seed(f, 2, {
+        type: "turn/started",
+        providerThreadId: "old",
+        data: "{}",
+      });
+      await seed(f, 3, {
         type: "turn/diff/updated",
         providerThreadId: "old",
         data: "{}",
       });
-      seed(f, 4, {
+      await seed(f, 4, {
         type: "thread/identity",
         providerThreadId: "new",
         data: "{}",
       });
-      seed(f, 5, {
+      await seed(f, 5, {
         type: "turn/diff/updated",
         providerThreadId: "new",
         data: "{}",
       });
-      seed(f, 6, {
+      await seed(f, 6, {
         type: "turn/completed",
         providerThreadId: "new",
         data: "{}",
       });
-      seed(f, 7, { type: "system/error", providerThreadId: null, data: "{}" });
-      cycle(f, "turn-diffs");
-      expect(sequences(f)).toEqual([1, 2, 4, 6, 7]);
-      expect(getLastStoredProviderThreadId(f.db, f.thread.id)).toBe("new");
+      await seed(f, 7, {
+        type: "system/error",
+        providerThreadId: null,
+        data: "{}",
+      });
+      await cycle(f, "turn-diffs");
+      expect(await sequences(f)).toEqual([1, 2, 4, 6, 7]);
+      expect(await getLastStoredProviderThreadId(f.db, f.thread.id)).toBe(
+        "new",
+      );
       expect(
-        listThreadTurnInterruptionEventStates(f.db, {
-          threadIds: [f.thread.id],
-        })[0]?.latestProviderThreadId,
+        (
+          await listThreadTurnInterruptionEventStates(f.db, {
+            threadIds: [f.thread.id],
+          })
+        )[0]?.latestProviderThreadId,
       ).toBe("new");
-      seed(f, 8, {
+      await seed(f, 8, {
         type: "system/operation",
         data: JSON.stringify({
           operation: THREAD_CONTEXT_CLEAR_OPERATION,
           status: "completed",
         }),
       });
-      expect(getLastStoredProviderThreadId(f.db, f.thread.id)).toBeNull();
-      seed(f, 9, {
+      expect(await getLastStoredProviderThreadId(f.db, f.thread.id)).toBeNull();
+      await seed(f, 9, {
         type: "thread/identity",
         providerThreadId: "replacement",
         data: "{}",
       });
-      expect(getLastStoredProviderThreadId(f.db, f.thread.id)).toBe(
+      expect(await getLastStoredProviderThreadId(f.db, f.thread.id)).toBe(
         "replacement",
       );
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("drains more than 500 resolved deltas and preserves scope, first-delta and output guards", () => {
-    const f = setup();
+  it("drains more than 500 resolved deltas and preserves scope, first-delta and output guards", async () => {
+    const f = await setup();
     try {
-      archiveThread(f.db, noopNotifier, f.thread.id);
-      f.db.transaction(() => {
+      await archiveThread(f.db, noopNotifier, f.thread.id);
+      await f.db.transaction(async () => {
         for (let i = 1; i <= 1200; i++)
-          seed(f, i, {
+          await seed(f, i, {
             type: "item/commandExecution/outputDelta",
             itemId: "cmd",
             itemKind: "commandExecution",
             data: '{"delta":"x"}',
           });
-        seed(f, 1201, {
+        await seed(f, 1201, {
           type: "item/completed",
           itemId: "cmd",
           itemKind: "commandExecution",
           data: '{"item":{"aggregatedOutput":"x"}}',
         });
         for (let i = 1202; i <= 1203; i++)
-          seed(f, i, {
+          await seed(f, i, {
             type: "item/commandExecution/outputDelta",
             itemId: "cmd",
             turnId: "other",
             data: '{"delta":"keep"}',
           });
         for (let i = 1204; i <= 1205; i++)
-          seed(f, i, {
+          await seed(f, i, {
             type: "item/commandExecution/outputDelta",
             itemId: "cmd",
             parentToolCallId: "nested",
             data: '{"delta":"keep"}',
           });
         for (let i = 1206; i <= 1207; i++)
-          seed(f, i, {
+          await seed(f, i, {
             type: "item/commandExecution/outputDelta",
             itemId: "no-output",
             data: '{"delta":"keep"}',
           });
-        seed(f, 1208, {
+        await seed(f, 1208, {
           type: "item/completed",
           itemId: "no-output",
           itemKind: "commandExecution",
           data: '{"item":{}}',
         });
       });
-      cycle(f, "resolved-items");
-      expect(sequences(f)).toEqual([
+      await cycle(f, "resolved-items");
+      expect(await sequences(f)).toEqual([
         1, 1201, 1202, 1203, 1204, 1205, 1206, 1207, 1208,
       ]);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("preserves the first delta of each type across batches with reversed storage order", () => {
-    const f = setup();
+  it("preserves the first delta of each type across batches with reversed storage order", async () => {
+    const f = await setup();
     try {
       const types = [
         "item/agentMessage/delta",
@@ -858,7 +996,7 @@ describe("thread pruning", () => {
       for (const [index, itemKind] of (
         ["agentMessage", "commandExecution", "reasoning"] as const
       ).entries()) {
-        seed(f, 13 + index, {
+        await seed(f, 13 + index, {
           type: "item/completed",
           itemId: "item",
           itemKind,
@@ -866,21 +1004,22 @@ describe("thread pruning", () => {
         });
       }
       for (let sequence = 12; sequence > 0; sequence--) {
-        seed(f, sequence, {
+        await seed(f, sequence, {
           type: types[(sequence - 1) % types.length],
           itemId: "item",
         });
       }
-      seed(f, 16, { type: "turn/completed" });
+      await seed(f, 16, { type: "turn/completed" });
       let complete = false;
       let removed = 0;
       for (let i = 0; i < 30; i++) {
-        const batch = f.db.transaction((tx) =>
-          advanceLiveEventPruning(tx, {
-            threadId: f.thread.id,
-            kind: "deltas",
-            limit: 5,
-          }),
+        const batch = await f.db.transaction(
+          async (tx) =>
+            await advanceLiveEventPruning(tx, {
+              threadId: f.thread.id,
+              kind: "deltas",
+              limit: 5,
+            }),
         );
         expect(batch.scanned).toBeLessThanOrEqual(5);
         removed += batch.removed;
@@ -891,43 +1030,46 @@ describe("thread pruning", () => {
       }
       expect(complete).toBe(true);
       expect(removed).toBe(8);
-      expect(sequences(f)).toEqual([1, 2, 3, 4, 13, 14, 15, 16]);
+      expect(await sequences(f)).toEqual([1, 2, 3, 4, 13, 14, 15, 16]);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("rechecks archive status and the latest-event safeguard between rate batches", () => {
-    const f = setup();
+  it("rechecks archive status and the latest-event safeguard between rate batches", async () => {
+    const f = await setup();
     try {
-      for (let i = 1; i <= 130; i++) seed(f, i);
-      seed(f, 131, { type: "turn/completed" });
-      archiveThread(f.db, noopNotifier, f.thread.id);
-      expect(advanceThreadPruning(f.db, "rate-limits").removed).toBe(64);
-      unarchiveThread(f.db, noopNotifier, f.thread.id);
-      cycle(f, "rate-limits");
-      expect(sequences(f)).toEqual([130, 131]);
-      archiveThread(f.db, noopNotifier, f.thread.id);
-      f.db.delete(events).where(eq(events.sequence, 131)).run();
-      markThreadPruningWork(f.db, [f.thread.id]);
-      cycle(f, "rate-limits");
-      expect(sequences(f)).toEqual([130]);
-      seed(f, 131, { type: "turn/completed" });
-      cycle(f, "rate-limits");
-      expect(sequences(f)).toEqual([131]);
+      for (let i = 1; i <= 130; i++) await seed(f, i);
+      await seed(f, 131, { type: "turn/completed" });
+      await archiveThread(f.db, noopNotifier, f.thread.id);
+      expect((await advanceThreadPruning(f.db, "rate-limits")).removed).toBe(
+        64,
+      );
+      await unarchiveThread(f.db, noopNotifier, f.thread.id);
+      await cycle(f, "rate-limits");
+      expect(await sequences(f)).toEqual([130, 131]);
+      await archiveThread(f.db, noopNotifier, f.thread.id);
+      await f.db.delete(events).where(eq(events.sequence, 131)).run();
+      await markThreadPruningWork(f.db, [f.thread.id]);
+      await cycle(f, "rate-limits");
+      expect(await sequences(f)).toEqual([130]);
+      await seed(f, 131, { type: "turn/completed" });
+      await cycle(f, "rate-limits");
+      expect(await sequences(f)).toEqual([131]);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
   it.each([null, 1])(
     "keeps only root usage and capacity witnesses with archivedAt=%s",
-    (archivedAt) => {
-      const f = setup();
+    async (archivedAt) => {
+      const f = await setup();
       try {
-        if (archivedAt !== null) archiveThread(f.db, noopNotifier, f.thread.id);
+        if (archivedAt !== null)
+          await archiveThread(f.db, noopNotifier, f.thread.id);
         for (let sequence = 1; sequence <= 6; sequence++) {
-          seed(f, sequence, {
+          await seed(f, sequence, {
             type: "thread/contextWindowUsage/updated",
             data: JSON.stringify({
               contextWindowUsage: {
@@ -936,7 +1078,7 @@ describe("thread pruning", () => {
               },
             }),
           });
-          seed(f, sequence + 6, {
+          await seed(f, sequence + 6, {
             type: "thread/tokenUsage/updated",
             data: JSON.stringify({
               tokenUsage: {
@@ -945,39 +1087,42 @@ describe("thread pruning", () => {
             }),
           });
         }
-        seed(f, 13, {
+        await seed(f, 13, {
           type: "turn/started",
           turnId: "nested",
           parentToolCallId: "parent",
         });
-        seed(f, 14, {
+        await seed(f, 14, {
           type: "thread/contextWindowUsage/updated",
           turnId: "nested",
           data: '{"contextWindowUsage":{"modelContextWindow":1000}}',
         });
-        seed(f, 15, { type: "thread/tokenUsage/updated", turnId: "nested" });
-        cycle(f, "usage");
-        expect(sequences(f)).toEqual([2, 6, 12, 13, 15]);
-        seed(f, 16, { type: "turn/completed" });
-        cycle(f, "usage");
-        expect(sequences(f)).toEqual([2, 6, 12, 13, 16]);
+        await seed(f, 15, {
+          type: "thread/tokenUsage/updated",
+          turnId: "nested",
+        });
+        await cycle(f, "usage");
+        expect(await sequences(f)).toEqual([2, 6, 12, 13, 15]);
+        await seed(f, 16, { type: "turn/completed" });
+        await cycle(f, "usage");
+        expect(await sequences(f)).toEqual([2, 6, 12, 13, 16]);
       } finally {
-        f.db.$client.close();
+        await f.db.close();
       }
     },
   );
 
-  it("retains the latest context snapshot boundary through pruning between estimates", () => {
-    const f = setup();
+  it("retains the latest context snapshot boundary through pruning between estimates", async () => {
+    const f = await setup();
     try {
-      const usage = (sequence: number, values: object) =>
-        seed(f, sequence, {
+      const usage = async (sequence: number, values: object) =>
+        await seed(f, sequence, {
           type: "thread/contextWindowUsage/updated",
           data: JSON.stringify({
             contextWindowUsage: { estimated: true, ...values },
           }),
         });
-      usage(1, {
+      await usage(1, {
         usedTokens: 128000,
         modelContextWindow: 256000,
         snapshot: {
@@ -985,21 +1130,21 @@ describe("thread pruning", () => {
           autoCompactAtTokens: 223000,
         },
       });
-      usage(2, { usedTokens: 140000, modelContextWindow: 1000000 });
-      usage(3, { usedTokens: 150000, modelContextWindow: 1000000 });
-      cycle(f, "usage");
-      expect(sequences(f)).toEqual([1, 3]);
-      usage(4, { usedTokens: null, modelContextWindow: null });
-      usage(5, { usedTokens: 160000, modelContextWindow: 1000000 });
-      cycle(f, "usage");
-      expect(sequences(f)).toEqual([4, 5]);
+      await usage(2, { usedTokens: 140000, modelContextWindow: 1000000 });
+      await usage(3, { usedTokens: 150000, modelContextWindow: 1000000 });
+      await cycle(f, "usage");
+      expect(await sequences(f)).toEqual([1, 3]);
+      await usage(4, { usedTokens: null, modelContextWindow: null });
+      await usage(5, { usedTokens: 160000, modelContextWindow: 1000000 });
+      await cycle(f, "usage");
+      expect(await sequences(f)).toEqual([4, 5]);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("reports exact removed UTF-8 bytes while retaining usage keepers", () => {
-    const f = setup();
+  it("reports exact removed UTF-8 bytes while retaining usage keepers", async () => {
+    const f = await setup();
     try {
       const context = (modelContextWindow: number | null) =>
         JSON.stringify({
@@ -1011,38 +1156,40 @@ describe("thread pruning", () => {
         context(null),
         context(null),
         "",
-        "é🙂\0x",
+        isPostgresTest ? "é🙂 x" : "é🙂\0x",
         "{}",
         "malformed",
       ];
       for (const [index, data] of payloads.entries())
-        seed(f, index + 1, {
+        await seed(f, index + 1, {
           type:
             index < 3
               ? "thread/contextWindowUsage/updated"
               : "thread/tokenUsage/updated",
           data,
         });
-      seed(f, 8, {
+      await seed(f, 8, {
         type: "turn/started",
         turnId: "nested",
         parentToolCallId: "tool",
       });
-      seed(f, 9, {
+      await seed(f, 9, {
         type: "thread/tokenUsage/updated",
         turnId: "nested",
         data: "{}",
       });
-      seed(f, 10, { type: "turn/completed" });
-      const results = cycle(f, "usage");
-      expect(sequences(f)).toEqual([1, 3, 7, 8, 10]);
+      await seed(f, 10, { type: "turn/completed" });
+      const results = await cycle(f, "usage");
+      expect(await sequences(f)).toEqual([1, 3, 7, 8, 10]);
       expect(results.reduce((total, result) => total + result.removed, 0)).toBe(
         5,
       );
       expect(
         results.reduce((total, result) => total + result.removedBytes, 0),
       ).toBe(
-        Buffer.byteLength(context(null)) + Buffer.byteLength("é🙂\0x") + 4,
+        Buffer.byteLength(context(null)) +
+          Buffer.byteLength(isPostgresTest ? "é🙂 x" : "é🙂\0x") +
+          4,
       );
       expect(
         results
@@ -1050,17 +1197,17 @@ describe("thread pruning", () => {
           .every((result) => result.removedBytes === 0),
       ).toBe(true);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("restarts usage keeper discovery after a keeper disappears during a visit", () => {
-    const f = setup();
+  it("restarts usage keeper discovery after a keeper disappears during a visit", async () => {
+    const f = await setup();
     try {
-      archiveThread(f.db, noopNotifier, f.thread.id);
-      f.db.transaction(() => {
+      await archiveThread(f.db, noopNotifier, f.thread.id);
+      await f.db.transaction(async () => {
         for (let i = 1; i <= 600; i++)
-          seed(f, i, {
+          await seed(f, i, {
             type: "thread/contextWindowUsage/updated",
             data: JSON.stringify({
               contextWindowUsage: {
@@ -1068,137 +1215,144 @@ describe("thread pruning", () => {
               },
             }),
           });
-        seed(f, 1000, {
+        await seed(f, 1000, {
           type: "system/error",
           scopeKind: "thread",
           turnId: null,
           data: "{}",
         });
       });
-      advanceThreadPruning(f.db, "usage");
-      advanceThreadPruning(f.db, "usage");
-      f.db.delete(events).where(eq(events.sequence, 600)).run();
-      markThreadPruningWork(f.db, [f.thread.id]);
-      expect(advanceThreadPruning(f.db, "usage").removed).toBe(0);
-      cycle(f, "usage");
-      cycle(f, "usage");
-      expect(sequences(f)).toEqual([1, 599, 1000]);
+      await advanceThreadPruning(f.db, "usage");
+      await advanceThreadPruning(f.db, "usage");
+      await f.db.delete(events).where(eq(events.sequence, 600)).run();
+      await markThreadPruningWork(f.db, [f.thread.id]);
+      expect((await advanceThreadPruning(f.db, "usage")).removed).toBe(0);
+      await cycle(f, "usage");
+      await cycle(f, "usage");
+      expect(await sequences(f)).toEqual([1, 599, 1000]);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("revisits deltas whose completion arrives after their candidate window", () => {
-    const f = setup();
+  it("revisits deltas whose completion arrives after their candidate window", async () => {
+    const f = await setup();
     try {
-      archiveThread(f.db, noopNotifier, f.thread.id);
-      f.db.transaction(() => {
+      await archiveThread(f.db, noopNotifier, f.thread.id);
+      await f.db.transaction(async () => {
         for (let i = 1; i <= 800; i++)
-          seed(f, i, {
+          await seed(f, i, {
             type: "item/agentMessage/delta",
             itemId: "late",
             data: '{"delta":"part"}',
           });
       });
       for (let i = 0; i < 10; i++) {
-        const result = advanceThreadPruning(f.db, "resolved-items");
+        const result = await advanceThreadPruning(f.db, "resolved-items");
         if (result.scanned > 0) break;
       }
-      seed(f, 801, {
+      await seed(f, 801, {
         type: "item/completed",
         itemId: "late",
         itemKind: "agentMessage",
         data: '{"item":{"text":"complete"}}',
       });
-      cycle(f, "resolved-items");
-      expect(sequences(f)).toContain(1);
-      cycle(f, "resolved-items");
-      expect(sequences(f)).toEqual([1, 801]);
+      await cycle(f, "resolved-items");
+      expect(await sequences(f)).toContain(1);
+      await cycle(f, "resolved-items");
+      expect(await sequences(f)).toEqual([1, 801]);
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 
-  it("resumes bounded support probes through adversarial reused-item scopes", () => {
-    let f = setup();
-    try {
-      archiveThread(f.db, noopNotifier, f.thread.id);
-      seed(f, 1, {
-        type: "item/agentMessage/delta",
-        itemId: "reused",
-        parentToolCallId: "target",
-      });
-      seed(f, 2, {
-        type: "item/agentMessage/delta",
-        itemId: "reused",
-        parentToolCallId: "target",
-      });
-      f.db.transaction(() => {
-        for (let i = 3; i <= 1202; i++)
-          seed(f, i, {
+  it.skipIf(isPostgresTest)(
+    "resumes bounded support probes through adversarial reused-item scopes",
+    async () => {
+      let f = await setup();
+      try {
+        await archiveThread(f.db, noopNotifier, f.thread.id);
+        await seed(f, 1, {
+          type: "item/agentMessage/delta",
+          itemId: "reused",
+          parentToolCallId: "target",
+        });
+        await seed(f, 2, {
+          type: "item/agentMessage/delta",
+          itemId: "reused",
+          parentToolCallId: "target",
+        });
+        await f.db.transaction(async () => {
+          for (let i = 3; i <= 1202; i++)
+            await seed(f, i, {
+              type: "item/completed",
+              itemId: "reused",
+              itemKind: "agentMessage",
+              parentToolCallId: `other-${i}`,
+              data: '{"item":{"text":"unrelated"}}',
+            });
+          await seed(f, 1203, {
             type: "item/completed",
             itemId: "reused",
             itemKind: "agentMessage",
-            parentToolCallId: `other-${i}`,
-            data: '{"item":{"text":"unrelated"}}',
+            parentToolCallId: "target",
+            data: '{"item":{"text":"complete"}}',
           });
-        seed(f, 1203, {
-          type: "item/completed",
-          itemId: "reused",
-          itemKind: "agentMessage",
-          parentToolCallId: "target",
-          data: '{"item":{"text":"complete"}}',
         });
-      });
-      let pending = false;
-      for (let i = 0; i < 30; i++) {
-        advanceThreadPruning(f.db, "resolved-items");
-        if (
-          f.db
-            .select()
-            .from(threadPruningCursors)
-            .all()
-            .some((row) => row.probeEventId !== null && row.probeSequence > 0)
-        ) {
-          pending = true;
-          break;
+        let pending = false;
+        for (let i = 0; i < 30; i++) {
+          await advanceThreadPruning(f.db, "resolved-items");
+          if (
+            (await f.db.select().from(threadPruningCursors).all()).some(
+              (row) => row.probeEventId !== null && row.probeSequence > 0,
+            )
+          ) {
+            pending = true;
+            break;
+          }
         }
+        expect(pending).toBe(true);
+        const saved = f.db.$client.serialize();
+        await f.db.close();
+        f = { ...f, db: createConnection(saved) };
+        expect(await sequences(f)).toContain(2);
+        const results = await cycle(f, "resolved-items");
+        expect(results.reduce((sum, r) => sum + r.removed, 0)).toBe(1);
+        expect(await sequences(f)).toContain(1);
+        expect(await sequences(f)).not.toContain(2);
+      } finally {
+        await f.db.close();
       }
-      expect(pending).toBe(true);
-      const saved = f.db.$client.serialize();
-      f.db.$client.close();
-      f = { ...f, db: createConnection(saved) };
-      expect(sequences(f)).toContain(2);
-      const results = cycle(f, "resolved-items");
-      expect(results.reduce((sum, r) => sum + r.removed, 0)).toBe(1);
-      expect(sequences(f)).toContain(1);
-      expect(sequences(f)).not.toContain(2);
-    } finally {
-      f.db.$client.close();
-    }
-  });
+    },
+  );
 
-  it("cycles past disappeared threads and resets independent versioned policies", () => {
-    const f = setup();
+  it("cycles past disappeared threads and resets independent versioned policies", async () => {
+    const f = await setup();
     try {
-      for (let i = 1; i <= 501; i++) seed(f, i);
-      advanceThreadPruning(f.db, "rate-limits");
-      f.db.delete(threads).where(eq(threads.id, f.thread.id)).run();
-      expect(advanceThreadPruning(f.db, "rate-limits").action).toBe(
+      for (let i = 1; i <= 501; i++) await seed(f, i);
+      await advanceThreadPruning(f.db, "rate-limits");
+      await f.db.delete(threads).where(eq(threads.id, f.thread.id)).run();
+      expect((await advanceThreadPruning(f.db, "rate-limits")).action).toBe(
         "missing-thread",
       );
-      cycle(f, "rate-limits");
-      f.db
+      await cycle(f, "rate-limits");
+      await f.db
         .update(threadPruningCursors)
         .set({ version: 0, lastThreadId: "zzz" })
         .run();
-      cycle(f, "rate-limits");
-      expect(f.db.select().from(threadPruningCursors).get()?.version).toBe(1);
-      expect(f.db.select().from(threadPruningCursors).all()).toHaveLength(1);
-      cycle(f, "turn-diffs");
-      expect(f.db.select().from(threadPruningCursors).all()).toHaveLength(2);
+      await cycle(f, "rate-limits");
+      expect(
+        (await f.db.select().from(threadPruningCursors).get())?.version,
+      ).toBe(1);
+      expect(await f.db.select().from(threadPruningCursors).all()).toHaveLength(
+        1,
+      );
+      await cycle(f, "turn-diffs");
+      expect(await f.db.select().from(threadPruningCursors).all()).toHaveLength(
+        2,
+      );
     } finally {
-      f.db.$client.close();
+      await f.db.close();
     }
   });
 });

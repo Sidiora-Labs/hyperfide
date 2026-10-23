@@ -70,25 +70,26 @@ export function resolveSnapshotMode(
 export interface LoadedCorpusThread {
   db: DbConnection;
   thread: Thread;
-  close(): void;
+  close(): void | Promise<void>;
 }
 
-export function loadCorpusThreadIntoDb(
+export async function loadCorpusThreadIntoDb(
   corpusThread: CorpusThread,
   connection?: DbConnection,
-): LoadedCorpusThread {
-  const db = connection ?? createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+): Promise<LoadedCorpusThread> {
+  const db = (await connection) ?? (await createMigratedConnection());
+  const host = await upsertHost(db, noopNotifier, {
     name: "provider-corpus-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "provider-corpus",
     source: { type: "local_path", hostId: host.id, path: "/provider-corpus" },
   });
   const row = corpusThread.thread;
-  db.transaction(
-    (tx) => {
-      tx.insert(threads)
+  await db.transaction(
+    async (tx) => {
+      await tx
+        .insert(threads)
         .values({
           id: row.id,
           projectId: project.id,
@@ -116,7 +117,7 @@ export function loadCorpusThreadIntoDb(
         })
         .run();
       for (const event of corpusThread.eventRows) {
-        tx.run(
+        await tx.run(
           sql`INSERT INTO events (id, thread_id, environment_id, scope_kind, turn_id, provider_thread_id, sequence, type, item_id, item_kind, parent_tool_call_id, data, created_at)
               VALUES (${event.id}, ${event.threadId}, ${null}, ${event.scopeKind}, ${event.turnId}, ${event.providerThreadId}, ${event.sequence}, ${event.type}, ${event.itemId}, ${event.itemKind}, ${event.parentToolCallId}, ${event.data}, ${event.createdAt})`,
         );
@@ -124,15 +125,15 @@ export function loadCorpusThreadIntoDb(
     },
     { behavior: "immediate" },
   );
-  const thread = getThread(db, row.id);
+  const thread = await getThread(db, row.id);
   if (!thread) {
     throw new Error(`Corpus thread ${row.id} did not load`);
   }
   return {
     db,
     thread,
-    close: () => {
-      db.$client.close();
+    close: async () => {
+      await db.close();
     },
   };
 }
@@ -160,11 +161,11 @@ export interface BuildRouteTimelinePageArgs {
   variant: TimelineVariant;
 }
 
-export function buildRouteTimelinePage(
+export async function buildRouteTimelinePage(
   args: BuildRouteTimelinePageArgs,
-): BuiltTimelinePage {
+): Promise<BuiltTimelinePage> {
   const includeNestedRows = args.variant === "nested";
-  const { profile, response } = buildThreadTimelineWithProfile(
+  const { profile, response } = await buildThreadTimelineWithProfile(
     args.db,
     args.thread,
     {
@@ -179,7 +180,7 @@ export function buildRouteTimelinePage(
       maxInlineOutputChars: DEFAULT_MAX_INLINE_OUTPUT_CHARS,
       maxSeq:
         args.maxSeq ??
-        getLatestThreadSequence(args.db, { threadId: args.thread.id }),
+        (await getLatestThreadSequence(args.db, { threadId: args.thread.id })),
       page: args.page,
       providerDisplayName: args.registry.get(args.thread.providerId)?.info
         .displayName,
@@ -222,14 +223,14 @@ export function latestTimelinePage(): ThreadTimelinePageRequest {
   };
 }
 
-export function buildAllRouteTimelinePages(
+export async function buildAllRouteTimelinePages(
   args: Omit<BuildRouteTimelinePageArgs, "page">,
-): BuiltTimelinePage[] {
+): Promise<BuiltTimelinePage[]> {
   const pages: BuiltTimelinePage[] = [];
   const seenCursors = new Set<string>();
   let page = latestTimelinePage();
   for (;;) {
-    const built = buildRouteTimelinePage({ ...args, page });
+    const built = await buildRouteTimelinePage({ ...args, page });
     pages.push(built);
     const { olderCursor } = built.response.timelinePage;
     if (olderCursor === null) {

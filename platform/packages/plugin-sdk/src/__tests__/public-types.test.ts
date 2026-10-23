@@ -140,6 +140,7 @@ const EXPECTED_BACKEND_ROOT_TYPE_EXPORTS = [
   "InternalDoNotUsePluginHostNextTunnelStatus",
   "PluginStatusApi",
   "PluginStorage",
+  "PluginAsyncDatabase",
   "PluginThreadEventHandler",
   "PluginThreadEventName",
   "PluginThreadEventPayloads",
@@ -278,7 +279,10 @@ describe("backend plugin SDK public surface", () => {
     const [backendContract, declarations] = await Promise.all([
       readFile(new URL("../backend-contract.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/hyperfide-plugin-sdk.d.ts", import.meta.url),
+        new URL(
+          "../../bundled-types/hyperfide-plugin-sdk.d.ts",
+          import.meta.url,
+        ),
         "utf8",
       ),
     ]);
@@ -317,7 +321,10 @@ describe("backend plugin SDK public surface", () => {
     const [rpcContract, declarations] = await Promise.all([
       readFile(new URL("../rpc-contract.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/hyperfide-plugin-sdk.d.ts", import.meta.url),
+        new URL(
+          "../../bundled-types/hyperfide-plugin-sdk.d.ts",
+          import.meta.url,
+        ),
         "utf8",
       ),
     ]);
@@ -346,7 +353,10 @@ describe("backend plugin SDK public surface", () => {
     const [cliSpec, declarations] = await Promise.all([
       readFile(new URL("../cli-spec.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/hyperfide-plugin-sdk.d.ts", import.meta.url),
+        new URL(
+          "../../bundled-types/hyperfide-plugin-sdk.d.ts",
+          import.meta.url,
+        ),
         "utf8",
       ),
     ]);
@@ -379,7 +389,10 @@ describe("backend plugin SDK public surface", () => {
     const [hostContract, declarations] = await Promise.all([
       readFile(new URL("../host-contract.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/hyperfide-plugin-sdk.d.ts", import.meta.url),
+        new URL(
+          "../../bundled-types/hyperfide-plugin-sdk.d.ts",
+          import.meta.url,
+        ),
         "utf8",
       ),
     ]);

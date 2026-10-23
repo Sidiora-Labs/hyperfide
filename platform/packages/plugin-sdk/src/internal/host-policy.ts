@@ -2998,10 +2998,10 @@ export function validateBackgroundServiceRegistration(
 export function validateScheduleRegistration(
   name: string,
   cron: string,
-  fn: () => void | Promise<void>,
+  fn: () => unknown,
   existing: readonly { name: string }[],
   parseCron: (cron: string) => void,
-): { name: string; cron: string; fn: () => void | Promise<void> } {
+): { name: string; cron: string; fn: () => unknown } {
   if (typeof name !== "string" || !BACKGROUND_NAME_PATTERN.test(name)) {
     throw new Error(
       `invalid schedule name ${JSON.stringify(name)} — use letters, digits, "-" and "_"`,

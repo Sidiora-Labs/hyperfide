@@ -96,12 +96,12 @@ interface PluginRegistrationContext {
   checkEngineRange: (manifest: PluginManifest) => string | undefined;
   checkPluginSdkRange: (manifest: PluginManifest) => string | undefined;
   syncCliSkill: () => Promise<void>;
-  notifyPluginsChanged: () => void;
-  list: () => InstalledPlugin[];
+  notifyPluginsChanged: () => void | Promise<void>;
+  list: () => InstalledPlugin[] | Promise<InstalledPlugin[]>;
   runInstallHandlers: (id: string) => Promise<void>;
   safeModeActivationRefusal: (
     args: SafeModeActivationRefusalArgs,
-  ) => string | null;
+  ) => string | null | Promise<string | null>;
 }
 
 export function createPluginRegistration(context: PluginRegistrationContext) {
@@ -327,7 +327,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
   ): Promise<InstalledPlugin> {
     const initialManifest =
       args.preparedManifest ?? (await readPluginManifest(args.rootDir));
-    const safeModeRefusal = safeModeActivationRefusal({
+    const safeModeRefusal = await safeModeActivationRefusal({
       pluginId: initialManifest.id,
       provenance: args.provenance.kind,
       builtinName:
@@ -336,7 +336,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
     });
     if (safeModeRefusal !== null) throw new Error(safeModeRefusal);
     assertInstallRegistrationAvailable(
-      getInstalledPlugin(deps.db, initialManifest.id),
+      await getInstalledPlugin(deps.db, initialManifest.id),
       args,
       initialManifest.id,
     );
@@ -362,14 +362,14 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
     let isFreshInstall = false;
     commitInstall();
     await withLifecycleLock(manifest.id, async () => {
-      const existing = getInstalledPlugin(deps.db, manifest.id);
+      const existing = await getInstalledPlugin(deps.db, manifest.id);
       isFreshInstall = existing === undefined;
       assertInstallRegistrationAvailable(existing, args, manifest.id);
       const movedFrom = pathSourceMoveFrom(existing, args);
       await disposeOne(manifest.id);
       try {
         await args.beforePersist?.();
-        upsertInstalledPlugin(deps.db, {
+        await upsertInstalledPlugin(deps.db, {
           id: manifest.id,
           source: args.source,
           provenance: args.provenance,
@@ -382,7 +382,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
           enabled: movedFrom?.enabled ?? true,
           enabledFollowsDefault: false,
         });
-        const row = getInstalledPlugin(deps.db, manifest.id);
+        const row = await getInstalledPlugin(deps.db, manifest.id);
         if (row) {
           await loadOne(row);
         }
@@ -397,9 +397,9 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
       } catch (error) {
         if (movedFrom !== undefined) {
           await disposeOne(manifest.id);
-          restoreRegistration(movedFrom);
+          await restoreRegistration(movedFrom);
         }
-        const previous = getInstalledPlugin(deps.db, manifest.id);
+        const previous = await getInstalledPlugin(deps.db, manifest.id);
         if (previous) {
           await loadOne(previous);
         }
@@ -415,9 +415,9 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
       }
     });
     await syncCliSkill();
-    notifyPluginsChanged();
+    await notifyPluginsChanged();
     if (isFreshInstall) await runInstallHandlers(manifest.id);
-    const entry = list().find((p) => p.id === manifest.id);
+    const entry = (await list()).find((p) => p.id === manifest.id);
     if (!entry) throw new Error(`plugin ${manifest.id} missing after install`);
     deps.telemetry.capture(
       pluginInstalledTelemetryEvent(
@@ -449,7 +449,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
           );
     if (
       isBbManagedWorkspacePath({ dataDir: deps.dataDir, path: rootDir }) ||
-      findProviderEnvironmentContainingPath(deps.db, rootDir) !== null
+      (await findProviderEnvironmentContainingPath(deps.db, rootDir)) !== null
     ) {
       logger.warn(
         `plugin "${rootDir}" is installed from inside a bb-managed workspace; ` +
@@ -457,7 +457,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
           "Reinstall from a stable path outside the managed workspace to avoid losing it.",
       );
     }
-    return registerInstalled({
+    return await registerInstalled({
       rootDir,
       source: `path:${rootDir}`,
       provenance: { kind: "direct" },
@@ -468,9 +468,9 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
     });
   }
 
-  function npmIntentForRow(
+  async function npmIntentForRow(
     row: InstalledPluginRow,
-  ): NpmSourceIntentForResolution {
+  ): Promise<NpmSourceIntentForResolution> {
     if (
       row.sourceKind !== "npm" ||
       row.sourceNpmPackage === null ||
@@ -491,10 +491,10 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
       }
       specKind = parsed.specKind;
       if (
-        !setInstalledPluginSourceClassification(deps.db, row.id, {
+        !(await setInstalledPluginSourceClassification(deps.db, row.id, {
           kind: "npm",
           specKind,
-        })
+        }))
       ) {
         throw new Error(`plugin "${row.id}" disappeared during normalization`);
       }
@@ -553,7 +553,9 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
     };
   }
 
-  function sourceIntentForRow(row: InstalledPluginRow): PluginSourceIntent {
+  async function sourceIntentForRow(
+    row: InstalledPluginRow,
+  ): Promise<PluginSourceIntent> {
     if (row.sourceKind === "path" && row.sourcePath !== null) {
       return { kind: "path", canonicalPath: row.sourcePath };
     }
@@ -561,7 +563,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
       return { kind: "builtin", name: row.sourceBuiltinName };
     }
     if (row.sourceKind === "npm")
-      return { kind: "npm", ...npmIntentForRow(row) };
+      return { kind: "npm", ...(await npmIntentForRow(row)) };
     if (row.sourceKind === "git") {
       const selector = gitSelectorForRow(row);
       if (row.sourceGitUrl !== null && selector !== null) {
@@ -599,12 +601,12 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
     throw new Error(`plugin "${row.id}" has corrupt exact resolution`);
   }
 
-  function restoreRegistration(row: InstalledPluginRow): void {
-    upsertInstalledPlugin(deps.db, {
+  async function restoreRegistration(row: InstalledPluginRow): Promise<void> {
+    await upsertInstalledPlugin(deps.db, {
       id: row.id,
       source: row.source,
       provenance: provenanceForRow(row),
-      sourceIntent: sourceIntentForRow(row),
+      sourceIntent: await sourceIntentForRow(row),
       exactResolution: exactResolutionForRow(row),
       updateState: {
         lastCheckAt: row.lastUpdateCheckAt,
@@ -657,7 +659,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
     if (!bundled) {
       throw new Error(`unknown builtin plugin "${parsed.name}"`);
     }
-    return registerInstalled({
+    return await registerInstalled({
       rootDir: bundled.rootDir,
       source: builtinPluginSource(parsed.name),
       provenance: bundledPluginProvenance(bundled),
@@ -682,7 +684,10 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
         );
         continue;
       }
-      const existing = getInstalledPluginRegistration(deps.db, manifest.id);
+      const existing = await getInstalledPluginRegistration(
+        deps.db,
+        manifest.id,
+      );
       const provenance = bundledPluginProvenance(bundled, existing);
       if (existing?.removedAt !== null && existing?.removedAt !== undefined) {
         continue;
@@ -721,7 +726,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
         existing.rootDir !== bundled.rootDir ||
         existing.enabled !== enabled
       ) {
-        upsertInstalledPlugin(deps.db, {
+        await upsertInstalledPlugin(deps.db, {
           id: manifest.id,
           source,
           provenance,
@@ -739,7 +744,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
   }
 
   async function backfillNormalizedPluginRegistrations(): Promise<void> {
-    for (const row of listUnnormalizedPluginRegistrations(deps.db)) {
+    for (const row of await listUnnormalizedPluginRegistrations(deps.db)) {
       const parsed = parsePluginSource(row.source);
       let sourceIntent: NormalizeLegacyInstalledPluginInput["sourceIntent"];
       let exactResolution: LegacyPluginExactResolution;
@@ -790,7 +795,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
         } catch {}
         exactResolution = { kind: "git", commit };
       }
-      normalizeInstalledPluginRegistration(deps.db, {
+      await normalizeInstalledPluginRegistration(deps.db, {
         ...row,
         provenance,
         sourceIntent,

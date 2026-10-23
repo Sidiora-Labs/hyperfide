@@ -103,7 +103,7 @@ export function startServerPlugins(
     })
     .finally(() => {
       args.providerRegistry.markRegistrationsSettled();
-      args.pluginService.startPeriodicUpdateChecks();
+      return args.pluginService.startPeriodicUpdateChecks();
     });
 }
 
@@ -117,7 +117,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     logger,
   });
   let diagnosticsEnabled = () => false;
-  const db = initDb(serverConfig.databasePath, {
+  const db = await initDb(serverConfig.databasePath, {
     slowQueryThresholdMs: () => (diagnosticsEnabled() ? 25 : 100),
     slowQueryDiagnosticsEnabled: () => diagnosticsEnabled(),
     dataDir: serverConfig.HYPERFIDE_DATA_DIR,
@@ -138,9 +138,9 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     });
   }
   if (serverConfig.HYPERFIDE_SKIP_ONBOARDING) {
-    const settings = getAppSettings(db);
+    const settings = await getAppSettings(db);
     if (settings.onboardingCompletedAt === null) {
-      setAppSettings(db, {
+      await setAppSettings(db, {
         ...settings,
         onboardingCompletedAt: new Date().toISOString(),
       });
@@ -184,11 +184,11 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
 
   const providerRegistry = createProviderRegistryService({
     deferRegistrationsSettled: true,
-    readUserProviderPreferences: () => {
-      const settings = getAppSettings(db);
+    readUserProviderPreferences: async () => {
+      const settings = await getAppSettings(db);
       return {
         providerOrder: settings.providerOrder,
-        disabledProviderIds: getDisabledProviderIds(db),
+        disabledProviderIds: await getDisabledProviderIds(db),
         defaultProviderId: settings.defaultProviderId,
       };
     },
@@ -227,7 +227,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
   const pluginHostArtifacts = new PluginHostArtifactRegistry();
   const providerNativeRoots = createProviderNativeRootsCache();
   const aiServices = createAiServiceRegistry({
-    onStatusChange: () => hub.notifySystem(["config-changed"]),
+    onStatusChange: async () => await hub.notifySystem(["config-changed"]),
   });
   const pendingInteractions = new PendingInteractionLifecycle({
     config: runtimeConfig,
@@ -243,7 +243,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     telemetry,
     terminalSessions,
   });
-  pendingInteractions.start();
+  await pendingInteractions.start();
   setPluginToolCallRegistry(new PluginToolCallRegistry({ logger }));
 
   const appVersion = createAppVersionService({
@@ -267,19 +267,23 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
           appSurface: serverConfig.HYPERFIDE_APP_SURFACE,
           appVersion,
           config: runtimeConfig,
-          countRunningThreads: () => listRunningThreads(db).length,
+          countRunningThreads: async () =>
+            (await listRunningThreads(db)).length,
           launcher:
             appUpdateMode === null ? null : createLauncherChannel(process),
           logger,
           mode: appUpdateMode,
-          notifyChanged: () => hub.notifySystem(["app-update-changed"]),
+          notifyChanged: async () =>
+            await hub.notifySystem(["app-update-changed"]),
         })
       : createDesktopAppUpdateService({
           channel: desktopUpdateChannel,
           currentVersion: runtimeConfig.appVersion,
           dataDir: serverConfig.HYPERFIDE_DATA_DIR,
-          countRunningThreads: () => listRunningThreads(db).length,
-          notifyChanged: () => hub.notifySystem(["app-update-changed"]),
+          countRunningThreads: async () =>
+            (await listRunningThreads(db)).length,
+          notifyChanged: async () =>
+            await hub.notifySystem(["app-update-changed"]),
           logger,
         });
   const cliCommand = createCliCommandService({
@@ -296,7 +300,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     pluginCatalogService,
     pluginService,
     serverMove,
-  } = createApp(
+  } = await createApp(
     {
       appUpdate,
       appVersion,
@@ -333,7 +337,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
       performanceDiagnosticsEnabled: () => diagnosticsEnabled(),
     },
   );
-  disconnectImportedDaemonSessions(
+  await disconnectImportedDaemonSessions(
     {
       config: runtimeConfig,
       db,
@@ -399,7 +403,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
   };
   const providerModelCatalogPrewarm =
     pendingServerMove === null
-      ? installProviderModelCatalogPrewarm(sweepDeps)
+      ? await installProviderModelCatalogPrewarm(sweepDeps)
       : null;
   if (pendingServerMove === null) {
     await runStartupRecoverySweep(sweepDeps).catch((error) => {
@@ -451,7 +455,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
       });
     }
     pluginCatalogService.startPeriodicRefresh();
-    sweepInterval = setInterval(() => {
+    sweepInterval = setInterval(async () => {
       if (!isServerMoveFrozen(db)) {
         void runPeriodicSweeps(sweepDeps);
       }
@@ -465,7 +469,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
   }
 
   let shutdownPromise: Promise<void> | null = null;
-  const runShutdown = (): Promise<void> => {
+  const runShutdown = async (): Promise<void> => {
     if (shutdownPromise) {
       return shutdownPromise;
     }
@@ -510,18 +514,18 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     });
   }
 
-  process.on("uncaughtException", (error: unknown) => {
-    if (pluginService.handleUncaughtException(error)) return;
+  process.on("uncaughtException", async (error: unknown) => {
+    if (await pluginService.handleUncaughtException(error)) return;
     const message =
       error instanceof Error ? (error.stack ?? error.message) : String(error);
     process.stderr.write(`${message}\n`);
     process.exit(1);
   });
 
-  process.once("SIGINT", () => {
+  process.once("SIGINT", async () => {
     void runShutdown().finally(() => process.exit(0));
   });
-  process.once("SIGTERM", () => {
+  process.once("SIGTERM", async () => {
     void runShutdown().finally(() => process.exit(0));
   });
 }

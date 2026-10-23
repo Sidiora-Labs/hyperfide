@@ -1,7 +1,10 @@
 import { resolve, sep } from "node:path";
 import semver from "semver";
 import { formatServerDataSize } from "@hyperfide/domain";
-import { APP_SURFACE_DESKTOP, type AppSurface } from "@hyperfide/config/app-surface";
+import {
+  APP_SURFACE_DESKTOP,
+  type AppSurface,
+} from "@hyperfide/config/app-surface";
 import { isLoopbackHostname } from "@hyperfide/config/loopback";
 import {
   getHost,
@@ -53,7 +56,7 @@ const GIB = 1024 ** 3;
 const DISK_HEADROOM_RATIO = 0.1;
 const TIGHT_DISK_SPACE_RATIO = 1.5;
 
-type HostRow = NonNullable<ReturnType<typeof getHost>>;
+type HostRow = NonNullable<Awaited<ReturnType<typeof getHost>>>;
 
 type TargetVersionCheck =
   | { kind: "current" }
@@ -300,7 +303,7 @@ async function inspectHost(
   hostId: string,
   paths: string[],
 ): Promise<ServerMoveInspectResult> {
-  return callHostOnlineRpc(environment.deps, {
+  return await callHostOnlineRpc(environment.deps, {
     hostId,
     timeoutMs: environment.inspectTimeoutMs,
     command: {
@@ -511,15 +514,15 @@ function appendVersionItems(args: {
   );
 }
 
-function appendServerStateItems(args: {
+async function appendServerStateItems(args: {
   environment: ServerMoveCheckEnvironment;
   items: ServerMoveCheckItem[];
   mode: ServerMoveModeResolution;
   sourceServerHostId: string | null;
   targetHostId: string;
-}): void {
+}): Promise<void> {
   const { deps } = args.environment;
-  const runningTurns = listRunningThreads(deps.db).length;
+  const runningTurns = (await listRunningThreads(deps.db)).length;
   if (runningTurns > 0) {
     args.items.push({
       id: "running-turns",
@@ -528,7 +531,7 @@ function appendServerStateItems(args: {
       detail: "Continue them with a new turn after the move.",
     });
   }
-  const schedules = listPluginSchedules(deps.db).length;
+  const schedules = (await listPluginSchedules(deps.db)).length;
   if (schedules > 0) {
     args.items.push({
       id: "plugin-schedules",
@@ -538,7 +541,7 @@ function appendServerStateItems(args: {
     });
   }
   const connectedHostIds = new Set(deps.hub.listConnectedHostIds());
-  const offlineMachines = listPublicHosts(deps.db).filter(
+  const offlineMachines = (await listPublicHosts(deps.db)).filter(
     (host) =>
       host.type === "persistent" &&
       host.id !== args.targetHostId &&
@@ -557,7 +560,7 @@ function appendServerStateItems(args: {
       }`,
     });
   }
-  if (getInstalledPlugin(deps.db, DOCS_PLUGIN_ID)?.enabled === true) {
+  if ((await getInstalledPlugin(deps.db, DOCS_PLUGIN_ID))?.enabled === true) {
     args.items.push({
       id: "docs-vaults",
       severity: "warning",
@@ -576,19 +579,19 @@ function appendServerStateItems(args: {
   }
 }
 
-function appendTransportItems(args: {
+async function appendTransportItems(args: {
   deps: AppDeps;
   items: ServerMoveCheckItem[];
   mode: ServerMoveModeResolution;
   targetHost: HostRow;
-}): void {
+}): Promise<void> {
   if (
     args.mode.mode !== "direct" &&
     args.targetHost.serverAccessProviderId !== "direct"
   ) {
     return;
   }
-  const address = parseHttpUrl(machineServerUrl(args.deps).url);
+  const address = parseHttpUrl((await machineServerUrl(args.deps)).url);
   if (
     address === null ||
     address.protocol !== "http:" ||
@@ -620,17 +623,17 @@ function appendSkippedServerFileItems(args: {
   });
 }
 
-function appendManagedAddressItems(args: {
+async function appendManagedAddressItems(args: {
   deps: AppDeps;
   items: ServerMoveCheckItem[];
   managed: ServerManagedFiles;
   mode: ServerMoveModeResolution;
   serverUrl: string | null;
-}): void {
+}): Promise<void> {
   if (args.mode.mode !== "direct") {
     return;
   }
-  const oldAddress = oldServerAddress(args.deps.db, args.managed);
+  const oldAddress = await oldServerAddress(args.deps.db, args.managed);
   for (const address of args.managed.addresses) {
     const url = parseHttpUrl(address.value);
     if (url === null) {
@@ -681,7 +684,9 @@ export async function runServerMoveCheck(
     dataDir: deps.config.dataDir,
   });
   const sourceServerHost =
-    sourceServerHostId === null ? null : getHost(deps.db, sourceServerHostId);
+    sourceServerHostId === null
+      ? null
+      : await getHost(deps.db, sourceServerHostId);
   const liveSourceServerHost =
     sourceServerHost?.destroyedAt === null ? sourceServerHost : null;
   if (liveSourceServerHost === null) {
@@ -693,7 +698,7 @@ export async function runServerMoveCheck(
         "Moving the server needs the machine that runs it. Start bb with its local machine, then try again.",
     });
   }
-  const targetRow = getHost(deps.db, request.targetHostId);
+  const targetRow = await getHost(deps.db, request.targetHostId);
   const targetHost = targetRow?.destroyedAt === null ? targetRow : null;
   const mode = await environment.resolveMode();
   const directUrl =
@@ -793,7 +798,7 @@ export async function runServerMoveCheck(
   let inspect: ServerMoveInspectResult | null = null;
   let artifactSizeBytes = 0;
   if (targetBlockers.length === 0) {
-    const pathPlugins = listPathInstalledPluginSources(deps.db).filter(
+    const pathPlugins = (await listPathInstalledPluginSources(deps.db)).filter(
       (plugin) => !isUnderDirectory(plugin.sourcePath, deps.config.dataDir),
     );
     const envPaths = listEnvPathValues(managed.env);
@@ -869,16 +874,16 @@ export async function runServerMoveCheck(
       serverName: liveSourceServerHost.name,
     });
   }
-  appendServerStateItems({
+  await appendServerStateItems({
     environment,
     items,
     mode,
     sourceServerHostId,
     targetHostId: targetHost.id,
   });
-  appendTransportItems({ deps, items, mode, targetHost });
+  await appendTransportItems({ deps, items, mode, targetHost });
   appendSkippedServerFileItems({ inventory, items });
-  appendManagedAddressItems({ deps, items, managed, mode, serverUrl });
+  await appendManagedAddressItems({ deps, items, managed, mode, serverUrl });
   return {
     mode,
     response: {

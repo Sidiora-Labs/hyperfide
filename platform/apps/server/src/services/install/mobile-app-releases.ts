@@ -51,7 +51,7 @@ async function readReleases(): Promise<SystemMobileAppReleasesResponse> {
 export function createMobileAppReleaseService() {
   let pending: Promise<SystemMobileAppReleasesResponse> | null = null;
   let expiresAt = 0;
-  return () => {
+  return async () => {
     if (!pending || Date.now() >= expiresAt) {
       expiresAt = Date.now() + 5 * 60_000;
       pending = readReleases().catch(() => ({ android: null }));

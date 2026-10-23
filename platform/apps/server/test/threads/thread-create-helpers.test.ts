@@ -94,11 +94,11 @@ describe("buildSuggestedBranchName", () => {
 describe("createThreadRecord", () => {
   it.each([{}, { sendAt: Date.now() + 60_000 }])(
     "preserves placement at creation for %j",
-    (mode) => {
-      const db = createMigratedConnection();
+    async (mode) => {
+      const db = await createMigratedConnection();
       try {
-        const host = upsertHost(db, noopNotifier, { name: "Test" });
-        const { project } = createProject(db, noopNotifier, {
+        const host = await upsertHost(db, noopNotifier, { name: "Test" });
+        const { project } = await createProject(db, noopNotifier, {
           name: "Test",
           source: {
             type: "local_path",
@@ -106,11 +106,11 @@ describe("createThreadRecord", () => {
             path: "/tmp/placement",
           },
         });
-        const section = createThreadSection(db, noopNotifier, {
+        const section = await createThreadSection(db, noopNotifier, {
           name: "Managers",
         });
         if (section.status !== "created") throw new Error("Expected section");
-        const thread = createThreadRecord(
+        const thread = await createThreadRecord(
           { db, hub: noopNotifier },
           {
             environmentId: null,
@@ -135,19 +135,19 @@ describe("createThreadRecord", () => {
         expect(thread.pinnedAt).not.toBeNull();
         expect(thread.pinSortKey).not.toBeNull();
       } finally {
-        db.$client.close();
+        await db.close();
       }
     },
   );
 
-  it("returns section_not_found when the section is stale by create time", () => {
-    const db = createMigratedConnection();
+  it("returns section_not_found when the section is stale by create time", async () => {
+    const db = await createMigratedConnection();
     try {
       const deps = { db, hub: noopNotifier };
-      const host = upsertHost(db, noopNotifier, {
+      const host = await upsertHost(db, noopNotifier, {
         name: "Test Host",
       });
-      const { project } = createProject(db, noopNotifier, {
+      const { project } = await createProject(db, noopNotifier, {
         name: "Test Project",
         source: {
           hostId: host.id,
@@ -155,25 +155,25 @@ describe("createThreadRecord", () => {
           type: "local_path",
         },
       });
-      const environment = createEnvironment(db, noopNotifier, {
+      const environment = await createEnvironment(db, noopNotifier, {
         providerOwnsPath: false,
         hostId: host.id,
         path: "/tmp/stale-section-create-project",
         projectId: project.id,
         status: "ready",
       });
-      const sectionResult = createThreadSection(db, noopNotifier, {
+      const sectionResult = await createThreadSection(db, noopNotifier, {
         name: "Race",
       });
       if (sectionResult.status !== "created") {
         throw new Error("Expected section fixture to be created");
       }
-      deleteThreadSection(db, noopNotifier, {
+      await deleteThreadSection(db, noopNotifier, {
         id: sectionResult.section.id,
       });
 
       try {
-        createThreadRecord(deps, {
+        await createThreadRecord(deps, {
           environmentId: environment.id,
           request: {
             environment: {
@@ -202,7 +202,7 @@ describe("createThreadRecord", () => {
         });
       }
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 });

@@ -162,8 +162,8 @@ async function fetchGithubSkillMarkdown(
     `${skillId}/SKILL.md`,
   ];
   const candidates = await Promise.all(
-    candidatePaths.map((candidatePath) =>
-      fetchGithubMarkdown(repo, candidatePath),
+    candidatePaths.map(
+      async (candidatePath) => await fetchGithubMarkdown(repo, candidatePath),
     ),
   );
   const directMatch = candidates.find((candidate) => candidate !== null);
@@ -187,7 +187,7 @@ async function fetchGithubSkillMarkdown(
     )[0];
   if (!nestedPath) return null;
 
-  return fetchGithubMarkdown(repo, nestedPath);
+  return await fetchGithubMarkdown(repo, nestedPath);
 }
 
 async function fetchPublicSkillMarkdown(
@@ -205,8 +205,8 @@ async function fetchPublicSkillMarkdown(
   }
 }
 
-function fetchGithubSkillPaths(repo: string): Promise<string[]> {
-  return githubSkillPathMemo.run(repo, async () => {
+async function fetchGithubSkillPaths(repo: string): Promise<string[]> {
+  return await githubSkillPathMemo.run(repo, async () => {
     const response = await registryFetch(
       `https://api.github.com/repos/${repo}/git/trees/HEAD?recursive=1`,
       {
@@ -451,7 +451,7 @@ export async function resolveRegistrySkillById(
   id: string,
 ): Promise<RegistrySkill> {
   const { source, skillId } = parseRegistrySkillId(id);
-  return registryEntryMemo.run(id, async () => {
+  return await registryEntryMemo.run(id, async () => {
     const response = await registryFetch(registrySkillUrl(id));
     if (!response.ok) {
       throw new ApiError(

@@ -15,7 +15,7 @@ import {
 } from "./helpers/seed.js";
 import { type TestAppHarness, withTestHarness } from "./helpers/test-app.js";
 
-function installMachineProvider(harness: TestAppHarness, hostId: string) {
+async function installMachineProvider(harness: TestAppHarness, hostId: string) {
   const resume = vi.fn(async () => ({ resource: { id: "owned" } }));
   const record = {
     pluginId: "test-machine",
@@ -45,14 +45,14 @@ function installMachineProvider(harness: TestAppHarness, hostId: string) {
     }),
     decisionTimeoutMs: 10_000,
   });
-  updateHost(harness.db, harness.hub, hostId, {
+  await updateHost(harness.db, harness.hub, hostId, {
     machineProviderId: "test-machine",
     resource: { id: "owned" },
   });
   return {
     resume,
-    suspend() {
-      updateHost(harness.db, harness.hub, hostId, {
+    async suspend() {
+      await updateHost(harness.db, harness.hub, hostId, {
         phase: "suspended",
         suspendedAt: Date.now(),
       });
@@ -68,9 +68,9 @@ afterEach(() => {
 describe.sequential("suspended machine lifecycle policy", () => {
   it("does not resume for execution options", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const machine = installMachineProvider(harness, host.id);
-      machine.suspend();
+      const { host } = await seedHostSession(harness.deps);
+      const machine = await installMachineProvider(harness, host.id);
+      await machine.suspend();
       const rpc = vi.spyOn(harness.hub, "requestHostOnlineRpc");
 
       const response = await harness.app.request(
@@ -85,12 +85,12 @@ describe.sequential("suspended machine lifecycle policy", () => {
 
   it("does not resume while computing environment provider availability", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const machine = installMachineProvider(harness, host.id);
-      machine.suspend();
+      const machine = await installMachineProvider(harness, host.id);
+      await machine.suspend();
       const rpc = vi.spyOn(harness.hub, "requestHostOnlineRpc");
 
       const response = await harness.app.request(
@@ -105,20 +105,20 @@ describe.sequential("suspended machine lifecycle policy", () => {
 
   it("uses the persisted daemon data directory for thread storage location", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
       });
-      const machine = installMachineProvider(harness, host.id);
-      machine.suspend();
+      const machine = await installMachineProvider(harness, host.id);
+      await machine.suspend();
       const rpc = vi.spyOn(harness.hub, "requestHostOnlineRpc");
 
       const response = await harness.app.request(
@@ -137,9 +137,9 @@ describe.sequential("suspended machine lifecycle policy", () => {
 
   it("fails file reads fast without resuming", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const machine = installMachineProvider(harness, host.id);
-      machine.suspend();
+      const { host } = await seedHostSession(harness.deps);
+      const machine = await installMachineProvider(harness, host.id);
+      await machine.suspend();
       const rpc = vi.spyOn(harness.hub, "requestHostOnlineRpc");
 
       const response = await harness.app.request("/api/v1/files/read", {
@@ -159,10 +159,10 @@ describe.sequential("suspended machine lifecycle policy", () => {
 
   it("does not resume when the desktop browser lease release timer expires", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedThreadFixture(harness);
-      const machine = installMachineProvider(harness, host.id);
+      const { host, session, thread } = await seedThreadFixture(harness);
+      const machine = await installMachineProvider(harness, host.id);
       const commands: HostDaemonOnlineRpcRequestMessage["command"][] = [];
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: ({ command }) => {
@@ -220,7 +220,7 @@ describe.sequential("suspended machine lifecycle policy", () => {
         },
       );
       expect(response.status).toBe(200);
-      machine.suspend();
+      await machine.suspend();
       const commandCount = commands.length;
 
       await vi.advanceTimersByTimeAsync(1000);
@@ -232,18 +232,18 @@ describe.sequential("suspended machine lifecycle policy", () => {
 
   it("resumes a suspended machine for thread send", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, environment, thread } = seedThreadFixture(
+      const { host, session, environment, thread } = await seedThreadFixture(
         harness,
         {
           thread: { status: "idle" },
         },
       );
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
         threadId: thread.id,
       });
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: ({ command }) => {
@@ -253,8 +253,8 @@ describe.sequential("suspended machine lifecycle policy", () => {
           throw new Error(`Unexpected host RPC ${command.type}`);
         },
       });
-      const machine = installMachineProvider(harness, host.id);
-      machine.suspend();
+      const machine = await installMachineProvider(harness, host.id);
+      await machine.suspend();
 
       const response = await harness.app.request(
         `/api/v1/threads/${thread.id}/send`,
@@ -270,7 +270,9 @@ describe.sequential("suspended machine lifecycle policy", () => {
 
       expect(response.status).toBe(200);
       expect(machine.resume).toHaveBeenCalledTimes(1);
-      expect(getHost(harness.db, host.id)?.phase).toBe("active");
+      await vi.waitFor(async () =>
+        expect((await getHost(harness.db, host.id))?.phase).toBe("active"),
+      );
     });
   });
 });

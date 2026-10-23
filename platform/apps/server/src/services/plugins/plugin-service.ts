@@ -49,7 +49,10 @@ import {
   marketplacePublisherLabel,
   pluginPublisherLabel,
 } from "../plugin-catalog/marketplace-publishers.js";
-import { deleteSecretFile, readOrCreateSecretFile } from "@hyperfide/secret-storage";
+import {
+  deleteSecretFile,
+  readOrCreateSecretFile,
+} from "@hyperfide/secret-storage";
 import {
   pluginUpdateCheckEntrySchema,
   ROOT_PLUGIN_SOURCE_SELECTION,
@@ -240,7 +243,7 @@ export interface PluginStartOptions {
 }
 
 export interface PluginService {
-  isBuiltin(id: string): boolean;
+  isBuiltin(id: string): boolean | Promise<boolean>;
   events: PluginThreadEventEmitter;
   /** The hook chain the dispatch pipeline consults; registered in createApp. */
   hooks: PluginHookProvider;
@@ -254,14 +257,22 @@ export interface PluginService {
   bindSdk(args: { baseUrl: string }): void;
   start(options?: PluginStartOptions): Promise<void>;
   stop(): Promise<void>;
-  handleUncaughtException(error: unknown): boolean;
-  list(): InstalledPlugin[];
+  handleUncaughtException(error: unknown): boolean | Promise<boolean>;
+  list(): InstalledPlugin[] | Promise<InstalledPlugin[]>;
   getDisplayName(id: string): string;
-  providerCatalog(): Array<{
-    id: string;
-    displayName: string;
-    pluginId: string;
-  }>;
+  providerCatalog():
+    | Array<{
+        id: string;
+        displayName: string;
+        pluginId: string;
+      }>
+    | Promise<
+        Array<{
+          id: string;
+          displayName: string;
+          pluginId: string;
+        }>
+      >;
   listThemes(): PluginThemeMeta[];
   readThemeCss(themeId: string): Promise<string | null>;
   readThemeCodeTheme(themeId: string): DeclaredCodeTheme | null;
@@ -292,9 +303,11 @@ export interface PluginService {
   >;
   installPath(path: string): Promise<InstalledPlugin>;
   checkForUpdates(id?: string): Promise<PluginUpdateCheckEntry[]>;
-  startPeriodicUpdateChecks(): void;
+  startPeriodicUpdateChecks(): void | Promise<void>;
   stopPeriodicUpdateChecks(): Promise<void>;
-  listUpdateResults(): PluginUpdateCheckEntry[];
+  listUpdateResults():
+    | PluginUpdateCheckEntry[]
+    | Promise<PluginUpdateCheckEntry[]>;
   getSource(id: string): Promise<PluginSourceDetail | undefined>;
   applyUpdate(id: string): Promise<PluginApplyUpdateOutcome>;
   remove(id: string): Promise<boolean>;
@@ -304,7 +317,7 @@ export interface PluginService {
     enabled: boolean,
   ): Promise<InstalledPlugin | undefined>;
   reload(id?: string): Promise<PluginReloadOutcome>;
-  getSafeMode(): boolean;
+  getSafeMode(): boolean | Promise<boolean>;
   setSafeMode(enabled: boolean): Promise<PluginSafeModeUpdateResponse>;
   getApi(id: string): BbPluginApi | undefined;
   /**
@@ -320,7 +333,7 @@ export interface PluginService {
    * incompatible, or never reached by a pass that has since ended — does not,
    * and its waits clear.
    */
-  isPluginExpectedToRun(id: string): boolean;
+  isPluginExpectedToRun(id: string): boolean | Promise<boolean>;
   /**
    * On-disk asset backing GET /plugins/:id/assets/app.{js,css}: file path
    * plus the current content hash (the route compares ?h against it for
@@ -351,14 +364,14 @@ export interface PluginService {
     authenticatedHostId: string;
     pluginId: string;
     generation: string;
-  }): void;
+  }): void | Promise<void>;
   handleHostSignal(args: {
     authenticatedHostId: string;
     pluginId: string;
     generation: string;
     signal: string;
     payload: JsonValue;
-  }): void;
+  }): void | Promise<void>;
   getSettings(id: string): Promise<PluginSettingsView | undefined>;
   updateSettings(
     id: string,
@@ -368,13 +381,22 @@ export interface PluginService {
     id: string,
     method: string,
     path: string,
-  ): PluginWireLookup<PluginHttpRouteRecord>;
+  ):
+    | PluginWireLookup<PluginHttpRouteRecord>
+    | Promise<PluginWireLookup<PluginHttpRouteRecord>>;
   getWebSocketRoute(
     id: string,
     path: string,
-  ): PluginWireLookup<PluginWebSocketRouteRecord>;
+  ):
+    | PluginWireLookup<PluginWebSocketRouteRecord>
+    | Promise<PluginWireLookup<PluginWebSocketRouteRecord>>;
   discoverRpc(query: PluginRpcDiscoveryQuery): PublishedPluginRpcMethod[];
-  getRpcHandler(id: string, method: string): PluginWireLookup<PluginRpcHandler>;
+  getRpcHandler(
+    id: string,
+    method: string,
+  ):
+    | PluginWireLookup<PluginRpcHandler>
+    | Promise<PluginWireLookup<PluginRpcHandler>>;
   /**
    * The caller of a plugin rpc request: a plugin when `token` is the live
    * per-load token its `bb.sdk.plugins.callRpc` attaches, the client when no
@@ -398,7 +420,7 @@ export interface PluginService {
     id: string,
     route: PluginWebSocketRouteRecord,
     event: "open" | "message" | "close" | "error",
-    run: () => void | Promise<void>,
+    run: () => unknown,
   ): Promise<void>;
   invokeRpcHandler(
     id: string,
@@ -897,7 +919,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
     }
   }
 
-  function notifyPluginsChanged(): void {
+  async function notifyPluginsChanged(): Promise<void> {
     const changes: SystemChangeKind[] = ["plugins-changed"];
     const providerRegistrationRevision =
       deps.providerRegistry?.getRegistrationRevision();
@@ -908,7 +930,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
       lastNotifiedProviderRegistrationRevision = providerRegistrationRevision;
       changes.push("provider-registrations-changed");
     }
-    deps.hub.notifySystem(changes);
+    await deps.hub.notifySystem(changes);
   }
 
   function compactPath(path: string): string {
@@ -1026,10 +1048,10 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
     return capabilities;
   }
 
-  function list(): InstalledPlugin[] {
-    const scheduleRows = listPluginSchedules(deps.db);
-    const rows = listInstalledPlugins(deps.db);
-    const catalogData = installedCatalogData(rows);
+  async function list(): Promise<InstalledPlugin[]> {
+    const scheduleRows = await listPluginSchedules(deps.db);
+    const rows = await listInstalledPlugins(deps.db);
+    const catalogData = await installedCatalogData(rows);
     return rows
       .sort((a, b) => a.id.localeCompare(b.id))
       .map((row) => {
@@ -1160,10 +1182,12 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
     return manifest;
   }
 
-  function installedCatalogData(rows: readonly InstalledPluginRow[]): {
+  async function installedCatalogData(
+    rows: readonly InstalledPluginRow[],
+  ): Promise<{
     metadataByPluginId: ReadonlyMap<string, InstalledCatalogMetadata>;
     publisherLabels: ReadonlyMap<string, string>;
-  } {
+  }> {
     const rowsByMarketplace = new Map<string, InstalledPluginRow[]>();
     const marketplaceNamesInUse = new Set<string>();
     for (const row of rows) {
@@ -1182,7 +1206,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
       marketplaceManifestCache.clear();
       return { metadataByPluginId, publisherLabels };
     }
-    const marketplaces = listPluginMarketplaces(deps.db);
+    const marketplaces = await listPluginMarketplaces(deps.db);
     const marketplaceByName = new Map(
       marketplaces.map((marketplace) => [marketplace.name, marketplace]),
     );
@@ -1236,9 +1260,9 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
     return { metadataByPluginId, publisherLabels };
   }
 
-  function pluginProviderCatalog(
+  async function pluginProviderCatalog(
     row: InstalledPluginRow,
-  ): Array<{ id: string; displayName: string }> {
+  ): Promise<Array<{ id: string; displayName: string }>> {
     const manifest =
       loaded.get(row.id)?.manifest ?? identities.get(row.id)?.manifest;
     const catalog = new Map(
@@ -1248,15 +1272,20 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
       ]),
     );
     if (!row.enabled) {
-      for (const provider of getDisabledPluginProviderCatalog(deps.db, row.id))
+      for (const provider of await getDisabledPluginProviderCatalog(
+        deps.db,
+        row.id,
+      ))
         catalog.set(provider.id, provider);
     }
     return [...catalog.values()];
   }
 
-  function pluginProviderIds(row: InstalledPluginRow): Set<string> {
+  async function pluginProviderIds(
+    row: InstalledPluginRow,
+  ): Promise<Set<string>> {
     return new Set([
-      ...pluginProviderCatalog(row).map((provider) => provider.id),
+      ...(await pluginProviderCatalog(row)).map((provider) => provider.id),
       ...(loaded
         .get(row.id)
         ?.handle.listProviderDeclarations()
@@ -1269,12 +1298,12 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
     providerIds: ReadonlySet<string>,
   ): Promise<void> {
     deps.onPluginUnregistered?.(row.id);
-    forgetPluginProviders(deps.db, row.id, providerIds);
+    await forgetPluginProviders(deps.db, row.id, providerIds);
     // The uninstalled tree is no longer reloadable, so stop the module
     // resolve hook from scanning it on every later import.
     forgetMutableRoot(row.rootDir);
-    deletePluginSchedules(deps.db, row.id);
-    deleteAllPluginSettings(deps.db, row.id);
+    await deletePluginSchedules(deps.db, row.id);
+    await deleteAllPluginSettings(deps.db, row.id);
     await rm(pluginSecretsDir(deps.dataDir, row.id), {
       recursive: true,
       force: true,
@@ -1283,19 +1312,23 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
 
   async function handOverRetiredBuiltins(): Promise<void> {
     for (const retired of retiredBundledPlugins) {
-      const row = getInstalledPlugin(deps.db, retired.pluginId);
+      const row = await getInstalledPlugin(deps.db, retired.pluginId);
       if (row === undefined || !isOrphanedBuiltinRow(row)) continue;
       if (row.enabled) {
-        const stored = getPluginSettingsValues(deps.db, row.id);
+        const stored = await getPluginSettingsValues(deps.db, row.id);
         const carried = Object.fromEntries(
           retired.carriedSettings.flatMap((key) =>
             Object.hasOwn(stored, key) ? [[key, stored[key]]] : [],
           ),
         );
         if (Object.keys(carried).length > 0) {
-          setPluginSettingsValues(deps.db, retired.successorPluginId, carried);
+          await setPluginSettingsValues(
+            deps.db,
+            retired.successorPluginId,
+            carried,
+          );
         }
-        const successor = getInstalledPluginRegistration(
+        const successor = await getInstalledPluginRegistration(
           deps.db,
           retired.successorPluginId,
         );
@@ -1303,14 +1336,14 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
           successor?.removedAt !== null &&
           successor?.removedAt !== undefined
         ) {
-          restoreRemovedInstalledPlugin(deps.db, successor.id);
+          await restoreRemovedInstalledPlugin(deps.db, successor.id);
         } else if (successor !== undefined && !successor.enabled) {
-          setInstalledPluginEnabled(deps.db, successor.id, true);
+          await setInstalledPluginEnabled(deps.db, successor.id, true);
         }
       }
       await deleteRemovedPluginData(row, new Set());
-      deleteAllPluginKvValues(deps.db, row.id);
-      deleteInstalledPlugin(deps.db, row.id);
+      await deleteAllPluginKvValues(deps.db, row.id);
+      await deleteInstalledPlugin(deps.db, row.id);
       logger.info(
         row.enabled
           ? `plugin ${row.id} retired; its settings moved to ${retired.successorPluginId}, which is now enabled`
@@ -1320,10 +1353,10 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
   }
 
   async function removeUnbundledBuiltins(): Promise<void> {
-    for (const row of listInstalledPlugins(deps.db)) {
+    for (const row of await listInstalledPlugins(deps.db)) {
       if (!isOrphanedBuiltinRow(row)) continue;
-      await deleteRemovedPluginData(row, pluginProviderIds(row));
-      deleteInstalledPlugin(deps.db, row.id);
+      await deleteRemovedPluginData(row, await pluginProviderIds(row));
+      await deleteInstalledPlugin(deps.db, row.id);
       logger.info(
         `plugin ${row.id} removed because bb no longer bundles ${row.source}; its settings, secrets, and schedules were deleted`,
       );
@@ -1374,13 +1407,13 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
         }));
       },
       emitThreadEvents(threadId) {
-        emitThreadEvent("experimental_thread.events", () => {
-          const thread = getThread(deps.db, threadId);
+        emitThreadEvent("experimental_thread.events", async () => {
+          const thread = await getThread(deps.db, threadId);
           return thread === null
             ? null
             : {
-                thread: buildThreadDto(thread),
-                sequence: getLatestThreadSequence(deps.db, { threadId }),
+                thread: await buildThreadDto(thread),
+                sequence: await getLatestThreadSequence(deps.db, { threadId }),
               };
         });
       },
@@ -1393,51 +1426,51 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
         }));
       },
       emitThreadCreated(thread) {
-        emitThreadEvent("thread.created", () => ({
-          thread: buildThreadDto(thread),
+        emitThreadEvent("thread.created", async () => ({
+          thread: await buildThreadDto(thread),
         }));
       },
       emitThreadActive(thread) {
-        emitThreadEvent("thread.active", () => ({
-          thread: buildThreadDto(thread),
+        emitThreadEvent("thread.active", async () => ({
+          thread: await buildThreadDto(thread),
         }));
       },
       emitThreadIdle(thread) {
-        emitThreadEvent("thread.idle", () => ({
-          thread: buildThreadDto(thread),
-          lastAssistantText: getLastThreadOutput(deps.db, thread.id),
+        emitThreadEvent("thread.idle", async () => ({
+          thread: await buildThreadDto(thread),
+          lastAssistantText: await getLastThreadOutput(deps.db, thread.id),
         }));
       },
       emitThreadFailed(thread) {
-        emitThreadEvent("thread.failed", () => ({
-          thread: buildThreadDto(thread),
-          error: getLastThreadErrorMessage(deps.db, thread.id),
+        emitThreadEvent("thread.failed", async () => ({
+          thread: await buildThreadDto(thread),
+          error: await getLastThreadErrorMessage(deps.db, thread.id),
         }));
       },
       emitThreadArchived(thread) {
-        emitThreadEvent("thread.archived", () => ({
-          thread: buildThreadDto(thread),
+        emitThreadEvent("thread.archived", async () => ({
+          thread: await buildThreadDto(thread),
         }));
       },
       emitThreadUnarchived(thread) {
-        emitThreadEvent("thread.unarchived", () => ({
-          thread: buildThreadDto(thread),
+        emitThreadEvent("thread.unarchived", async () => ({
+          thread: await buildThreadDto(thread),
         }));
       },
       emitThreadParentChanged(thread, previousParentThreadId) {
-        emitThreadEvent("experimental_thread.parentChanged", () => ({
-          thread: buildThreadDto(thread),
+        emitThreadEvent("experimental_thread.parentChanged", async () => ({
+          thread: await buildThreadDto(thread),
           previousParentThreadId,
         }));
       },
       emitThreadDeleted(thread) {
-        emitThreadEvent("thread.deleted", () => ({
-          thread: buildThreadDto(thread),
+        emitThreadEvent("thread.deleted", async () => ({
+          thread: await buildThreadDto(thread),
         }));
       },
       emitInteractionPending(thread, interaction) {
-        emitThreadEvent("interaction.pending", () => ({
-          thread: buildThreadDto(thread),
+        emitThreadEvent("interaction.pending", async () => ({
+          thread: await buildThreadDto(thread),
           interaction,
         }));
       },
@@ -1448,8 +1481,9 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
       emitTurnFailed(threadId) {
         // Built lazily inside the emitter: with no listener the failure path
         // pays one map lookup and never touches the database.
-        emitThreadEvent("turn.failed", () =>
-          buildTurnFailedEvent(deps.db, threadId),
+        emitThreadEvent(
+          "turn.failed",
+          async () => await buildTurnFailedEvent(deps.db, threadId),
         );
       },
     },
@@ -1492,9 +1526,11 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
       try {
         await backfillNormalizedPluginRegistrations();
         await withPluginOperationLock(REGISTRATION_MUTATION_KEY, async () => {
-          for (const artifact of listPendingGitPluginArtifacts(deps.db)) {
-            await withArtifactLock(artifact.path, () =>
-              recoverInterruptedGitPluginPromotion(artifact.path),
+          for (const artifact of await listPendingGitPluginArtifacts(deps.db)) {
+            await withArtifactLock(
+              artifact.path,
+              async () =>
+                await recoverInterruptedGitPluginPromotion(artifact.path),
             );
           }
           await recoverIncompletePluginRollbacks();
@@ -1509,7 +1545,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
       await withPluginOperationLock(REGISTRATION_MUTATION_KEY, runArtifactGc);
       if (deps.watchBuiltinPluginSources) {
         for (const bundled of bundledPlugins) {
-          const row = listInstalledPlugins(deps.db).find(
+          const row = (await listInstalledPlugins(deps.db)).find(
             (candidate) =>
               candidate.sourceKind === "builtin" &&
               candidate.sourceBuiltinName === bundled.name,
@@ -1541,14 +1577,14 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
                   warnings: app.migrationWarnings,
                 });
                 setDevBuildProblem(row.id, "frontend", null);
-                notifyPluginsChanged();
+                await notifyPluginsChanged();
               } catch (error) {
                 setDevBuildProblem(
                   row.id,
                   "frontend",
                   error instanceof Error ? error.message : String(error),
                 );
-                notifyPluginsChanged();
+                await notifyPluginsChanged();
                 throw error;
               }
             },
@@ -1562,26 +1598,26 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
                   toolchain: await getPluginBuildToolchain(deps),
                 });
                 setDevBuildProblem(row.id, "host", null);
-                notifyPluginsChanged();
+                await notifyPluginsChanged();
               } catch (error) {
                 setDevBuildProblem(
                   row.id,
                   "host",
                   error instanceof Error ? error.message : String(error),
                 );
-                notifyPluginsChanged();
+                await notifyPluginsChanged();
                 throw error;
               }
             },
             reloadPlugin: async () => {
               const problem = await withLifecycleLock(row.id, async () => {
-                const current = getInstalledPlugin(deps.db, row.id);
+                const current = await getInstalledPlugin(deps.db, row.id);
                 if (current === undefined) return null;
                 await disposeOne(row.id);
-                return loadOne(current);
+                return await loadOne(current);
               });
               await syncCliSkill();
-              notifyPluginsChanged();
+              await notifyPluginsChanged();
               if (problem !== null) throw new Error(problem);
             },
             log: (message) => logger.info(`plugin ${row.id}: ${message}`),
@@ -1605,14 +1641,14 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
         }
       }
       await syncCliSkill();
-      notifyPluginsChanged();
+      await notifyPluginsChanged();
     },
 
     async stop() {
       for (const watcher of builtinSourceWatchers.splice(0)) watcher.close();
       await disposeAll();
       await syncCliSkill();
-      notifyPluginsChanged();
+      await notifyPluginsChanged();
     },
 
     handleUncaughtException,
@@ -1623,251 +1659,291 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
         loaded.get(id)?.manifest.name ?? identities.get(id)?.manifest.name ?? id
       );
     },
-    providerCatalog() {
-      return listInstalledPlugins(deps.db).flatMap((row) =>
-        pluginProviderCatalog(row).map((provider) => ({
-          ...provider,
-          pluginId: row.id,
-        })),
-      );
+    async providerCatalog() {
+      return (
+        await Promise.all(
+          (await listInstalledPlugins(deps.db)).map(async (row) =>
+            (await pluginProviderCatalog(row)).map((provider) => ({
+              ...provider,
+              pluginId: row.id,
+            })),
+          ),
+        )
+      ).flat();
     },
 
     async install(source, selection) {
-      return withPluginOperationLock(REGISTRATION_MUTATION_KEY, async () => {
-        const parsed = parsePluginSource(source);
-        if (parsed.kind === "git") {
-          return installGitSource(parsed, source, selection);
-        }
-        if (parsed.kind === "path") {
-          return installPathSource(parsed.path, selection);
-        }
-        if (selection.kind !== "root") {
-          throw new Error(
-            `install refused: ${selection.kind === "entry" ? "--plugin" : "--subdirectory"} applies to git: and path: sources only`,
-          );
-        }
-        if (parsed.kind === "builtin") return installBuiltinSource(parsed);
-        refuseBuiltinShadow(derivePluginId(parsed.name));
-        return installNpmSource(parsed, source);
-      });
+      return await withPluginOperationLock(
+        REGISTRATION_MUTATION_KEY,
+        async () => {
+          const parsed = parsePluginSource(source);
+          if (parsed.kind === "git") {
+            return await installGitSource(parsed, source, selection);
+          }
+          if (parsed.kind === "path") {
+            return await installPathSource(parsed.path, selection);
+          }
+          if (selection.kind !== "root") {
+            throw new Error(
+              `install refused: ${selection.kind === "entry" ? "--plugin" : "--subdirectory"} applies to git: and path: sources only`,
+            );
+          }
+          if (parsed.kind === "builtin")
+            return await installBuiltinSource(parsed);
+          refuseBuiltinShadow(derivePluginId(parsed.name));
+          return await installNpmSource(parsed, source);
+        },
+      );
     },
 
     async installOfficialPlugin(name) {
-      return withPluginOperationLock(REGISTRATION_MUTATION_KEY, async () => {
-        const bundled = bundledPlugins.find((plugin) => plugin.name === name);
-        if (bundled === undefined) {
-          throw new Error(`unknown official plugin "${name}"`);
-        }
-        return installBuiltinSource({ kind: "builtin", name });
-      });
+      return await withPluginOperationLock(
+        REGISTRATION_MUTATION_KEY,
+        async () => {
+          const bundled = bundledPlugins.find((plugin) => plugin.name === name);
+          if (bundled === undefined) {
+            throw new Error(`unknown official plugin "${name}"`);
+          }
+          return await installBuiltinSource({ kind: "builtin", name });
+        },
+      );
     },
 
     async installCatalogPlugin(entry) {
-      return withPluginOperationLock(REGISTRATION_MUTATION_KEY, async () => {
-        const parsed = parsePluginSource(entry.source);
-        const context: InstallContext = {
-          provenance: {
-            kind: "catalog",
-            marketplace: entry.marketplace,
-            entryId: entry.entryId,
-          },
-          expectedPluginId: entry.pluginId,
-          ...(entry.npmRegistry === undefined
-            ? {}
-            : { npmRegistry: entry.npmRegistry }),
-          ...(entry.expectedGitCommit === undefined
-            ? {}
-            : { expectedGitCommit: entry.expectedGitCommit }),
-          ...(entry.expectedNpmVersion === undefined
-            ? {}
-            : { expectedNpmVersion: entry.expectedNpmVersion }),
-          ...(entry.expectedNpmIntegrity === undefined
-            ? {}
-            : { expectedNpmIntegrity: entry.expectedNpmIntegrity }),
-        };
-        if (parsed.kind === "git") {
-          return installGitSource(
-            parsed,
-            entry.source,
-            entry.selection,
-            context,
-          );
-        }
-        if (parsed.kind === "npm") {
-          if (entry.selection.kind !== "root") {
-            throw new Error(
-              `catalog entry "${entry.entryId}" selects a subdirectory of an npm package`,
+      return await withPluginOperationLock(
+        REGISTRATION_MUTATION_KEY,
+        async () => {
+          const parsed = parsePluginSource(entry.source);
+          const context: InstallContext = {
+            provenance: {
+              kind: "catalog",
+              marketplace: entry.marketplace,
+              entryId: entry.entryId,
+            },
+            expectedPluginId: entry.pluginId,
+            ...(entry.npmRegistry === undefined
+              ? {}
+              : { npmRegistry: entry.npmRegistry }),
+            ...(entry.expectedGitCommit === undefined
+              ? {}
+              : { expectedGitCommit: entry.expectedGitCommit }),
+            ...(entry.expectedNpmVersion === undefined
+              ? {}
+              : { expectedNpmVersion: entry.expectedNpmVersion }),
+            ...(entry.expectedNpmIntegrity === undefined
+              ? {}
+              : { expectedNpmIntegrity: entry.expectedNpmIntegrity }),
+          };
+          if (parsed.kind === "git") {
+            return await installGitSource(
+              parsed,
+              entry.source,
+              entry.selection,
+              context,
             );
           }
-          refuseBuiltinShadow(derivePluginId(parsed.name));
-          return installNpmSource(parsed, entry.source, context);
-        }
-        throw new Error(
-          `catalog entry "${entry.entryId}" has an unsupported source "${entry.source}"`,
-        );
-      });
+          if (parsed.kind === "npm") {
+            if (entry.selection.kind !== "root") {
+              throw new Error(
+                `catalog entry "${entry.entryId}" selects a subdirectory of an npm package`,
+              );
+            }
+            refuseBuiltinShadow(derivePluginId(parsed.name));
+            return await installNpmSource(parsed, entry.source, context);
+          }
+          throw new Error(
+            `catalog entry "${entry.entryId}" has an unsupported source "${entry.source}"`,
+          );
+        },
+      );
     },
 
-    resolveCatalogNpmSource: (args) =>
-      managedPluginArtifacts.resolveNpmCandidateForPlan(args),
+    resolveCatalogNpmSource: async (args) =>
+      await managedPluginArtifacts.resolveNpmCandidateForPlan(args),
 
-    installPath: (path) =>
-      withPluginOperationLock(REGISTRATION_MUTATION_KEY, () =>
-        installPathSource(path, ROOT_PLUGIN_SOURCE_SELECTION),
+    installPath: async (path) =>
+      await withPluginOperationLock(
+        REGISTRATION_MUTATION_KEY,
+        async () => await installPathSource(path, ROOT_PLUGIN_SOURCE_SELECTION),
       ),
 
     ...pluginUpdates,
 
     async remove(id) {
-      return withPluginOperationLock(REGISTRATION_MUTATION_KEY, async () => {
-        const row = getInstalledPlugin(deps.db, id);
-        const providerIds = row ? pluginProviderIds(row) : new Set<string>();
-        await withLifecycleLock(id, () => disposeOne(id));
-        statuses.delete(id);
-        handlerStats.delete(id);
-        agentToolProblems.delete(id);
-        appBundles.delete(id);
-        brandingAssets.delete(id);
-        identities.delete(id);
-        const removed = row
-          ? row.sourceKind === "builtin"
-            ? markInstalledPluginRemoved(deps.db, id)
-            : deleteInstalledPlugin(deps.db, id)
-          : false;
-        if (removed && row) {
-          await deleteRemovedPluginData(row, providerIds);
-          logger.info(
-            `plugin ${id} removed from ${row.source}; its settings, secrets, and schedules were deleted`,
-          );
-          const managedDir =
-            row.activeArtifactId === null && row.sourceKind === "git"
-              ? row.rootDir
-              : row.activeArtifactId === null &&
-                  row.sourceKind === "npm" &&
-                  row.sourceNpmPackage !== null &&
-                  row.sourceNpmRequestedSpec !== null
-                ? npmInstallPrefix(
-                    deps.dataDir,
-                    row.sourceNpmPackage,
-                    row.sourceNpmRequestedSpec || "latest",
-                  )
-                : undefined;
-          if (managedDir !== undefined) {
-            await rm(managedDir, { recursive: true, force: true });
+      return await withPluginOperationLock(
+        REGISTRATION_MUTATION_KEY,
+        async () => {
+          const row = await getInstalledPlugin(deps.db, id);
+          const providerIds = row
+            ? await pluginProviderIds(row)
+            : new Set<string>();
+          await withLifecycleLock(id, async () => await disposeOne(id));
+          statuses.delete(id);
+          handlerStats.delete(id);
+          agentToolProblems.delete(id);
+          appBundles.delete(id);
+          brandingAssets.delete(id);
+          identities.delete(id);
+          const removed = row
+            ? row.sourceKind === "builtin"
+              ? await markInstalledPluginRemoved(deps.db, id)
+              : await deleteInstalledPlugin(deps.db, id)
+            : false;
+          if (removed && row) {
+            await deleteRemovedPluginData(row, providerIds);
+            logger.info(
+              `plugin ${id} removed from ${row.source}; its settings, secrets, and schedules were deleted`,
+            );
+            const managedDir =
+              row.activeArtifactId === null && row.sourceKind === "git"
+                ? row.rootDir
+                : row.activeArtifactId === null &&
+                    row.sourceKind === "npm" &&
+                    row.sourceNpmPackage !== null &&
+                    row.sourceNpmRequestedSpec !== null
+                  ? npmInstallPrefix(
+                      deps.dataDir,
+                      row.sourceNpmPackage,
+                      row.sourceNpmRequestedSpec || "latest",
+                    )
+                  : undefined;
+            if (managedDir !== undefined) {
+              await rm(managedDir, { recursive: true, force: true });
+            }
+            await removeUnusedPluginArtifacts({
+              db: deps.db,
+              dataDir: deps.dataDir,
+              pluginId: id,
+              warn: (message) => logger.warn(message),
+            });
           }
-          await removeUnusedPluginArtifacts({
-            db: deps.db,
-            dataDir: deps.dataDir,
-            pluginId: id,
-            warn: (message) => logger.warn(message),
-          });
-        }
-        await syncCliSkill();
-        notifyPluginsChanged();
-        return removed;
-      });
+          await syncCliSkill();
+          await notifyPluginsChanged();
+          return removed;
+        },
+      );
     },
 
-    pruneCache({ dryRun }) {
-      return withPluginOperationLock(REGISTRATION_MUTATION_KEY, () =>
-        prunePluginCache({
-          db: deps.db,
-          dataDir: deps.dataDir,
-          dryRun,
-          warn: (message) => logger.warn(message),
-        }),
+    async pruneCache({ dryRun }) {
+      return await withPluginOperationLock(
+        REGISTRATION_MUTATION_KEY,
+        async () =>
+          await prunePluginCache({
+            db: deps.db,
+            dataDir: deps.dataDir,
+            dryRun,
+            warn: (message) => logger.warn(message),
+          }),
       );
     },
 
     async setEnabled(id, enabled) {
-      return withPluginOperationLock(REGISTRATION_MUTATION_KEY, async () => {
-        const applyEnabled = async (
-          pluginId: string,
-          nextEnabled: boolean,
-        ): Promise<boolean> => {
-          const plugin = loaded.get(pluginId);
-          if (!nextEnabled && plugin !== undefined) {
-            setDisabledPluginProviderCatalog(
-              deps.db,
-              pluginId,
-              plugin.handle
-                .listProviderDeclarations()
-                .map(({ id, displayName }) => ({ id, displayName })),
-            );
-          }
-          if (!setInstalledPluginEnabled(deps.db, pluginId, nextEnabled)) {
-            return false;
-          }
-          if (nextEnabled) {
-            const row = getInstalledPlugin(deps.db, pluginId);
-            if (row) {
-              await withLifecycleLock(pluginId, () => loadOne(row));
+      return await withPluginOperationLock(
+        REGISTRATION_MUTATION_KEY,
+        async () => {
+          const applyEnabled = async (
+            pluginId: string,
+            nextEnabled: boolean,
+          ): Promise<boolean> => {
+            const plugin = loaded.get(pluginId);
+            if (!nextEnabled && plugin !== undefined) {
+              await setDisabledPluginProviderCatalog(
+                deps.db,
+                pluginId,
+                plugin.handle
+                  .listProviderDeclarations()
+                  .map(({ id, displayName }) => ({ id, displayName })),
+              );
             }
-          } else {
-            await withLifecycleLock(pluginId, async () => {
-              await disposeOne(pluginId);
-              if ((hungServices.get(pluginId)?.size ?? 0) === 0) {
-                setStatus(pluginId, "disabled");
+            if (
+              !(await setInstalledPluginEnabled(deps.db, pluginId, nextEnabled))
+            ) {
+              return false;
+            }
+            if (nextEnabled) {
+              const row = await getInstalledPlugin(deps.db, pluginId);
+              if (row) {
+                await withLifecycleLock(
+                  pluginId,
+                  async () => await loadOne(row),
+                );
               }
-            });
-            deps.onPluginUnregistered?.(pluginId);
-          }
-          return true;
-        };
+            } else {
+              await withLifecycleLock(pluginId, async () => {
+                await disposeOne(pluginId);
+                if ((hungServices.get(pluginId)?.size ?? 0) === 0) {
+                  setStatus(pluginId, "disabled");
+                }
+              });
+              deps.onPluginUnregistered?.(pluginId);
+            }
+            return true;
+          };
 
-        if (getInstalledPlugin(deps.db, id) === undefined) return undefined;
-        if (!(await applyEnabled(id, enabled))) return undefined;
-        await syncCliSkill();
-        notifyPluginsChanged();
-        return list().find((p) => p.id === id);
-      });
+          if ((await getInstalledPlugin(deps.db, id)) === undefined)
+            return undefined;
+          if (!(await applyEnabled(id, enabled))) return undefined;
+          await syncCliSkill();
+          await notifyPluginsChanged();
+          return (await list()).find((p) => p.id === id);
+        },
+      );
     },
 
-    getSafeMode() {
-      return getPluginSafeMode(deps.db);
+    async getSafeMode() {
+      return await getPluginSafeMode(deps.db);
     },
 
     async setSafeMode(enabled) {
-      return withPluginOperationLock(REGISTRATION_MUTATION_KEY, async () => {
-        if (getPluginSafeMode(deps.db) === enabled) {
-          return { enabled, problems: [] };
-        }
-        setPluginSafeMode(deps.db, enabled);
-        const rows = listInstalledPlugins(deps.db)
-          .filter((row) => row.enabled && !isSafeModeExemptRow(row))
-          .sort((a, b) => a.id.localeCompare(b.id));
-        const problems: string[] = [];
-        for (const row of rows) {
-          const problem = await withLifecycleLock(row.id, () => loadOne(row));
-          if (problem !== null) {
-            problems.push(`plugin "${row.id}" did not start: ${problem}`);
+      return await withPluginOperationLock(
+        REGISTRATION_MUTATION_KEY,
+        async () => {
+          if ((await getPluginSafeMode(deps.db)) === enabled) {
+            return { enabled, problems: [] };
           }
-          if (enabled) deps.onPluginUnregistered?.(row.id);
-        }
-        await syncCliSkill();
-        notifyPluginsChanged();
-        return { enabled, problems };
-      });
+          await setPluginSafeMode(deps.db, enabled);
+          const rows = (await listInstalledPlugins(deps.db))
+            .filter((row) => row.enabled && !isSafeModeExemptRow(row))
+            .sort((a, b) => a.id.localeCompare(b.id));
+          const problems: string[] = [];
+          for (const row of rows) {
+            const problem = await withLifecycleLock(
+              row.id,
+              async () => await loadOne(row),
+            );
+            if (problem !== null) {
+              problems.push(`plugin "${row.id}" did not start: ${problem}`);
+            }
+            if (enabled) deps.onPluginUnregistered?.(row.id);
+          }
+          await syncCliSkill();
+          await notifyPluginsChanged();
+          return { enabled, problems };
+        },
+      );
     },
 
     async reload(id) {
-      const rows = listInstalledPlugins(deps.db).filter(
+      const rows = (await listInstalledPlugins(deps.db)).filter(
         (row) => id === undefined || row.id === id,
       );
       const failures: string[] = [];
       for (const row of rows.sort((a, b) => a.id.localeCompare(b.id))) {
-        const problem = await withLifecycleLock(row.id, () => loadOne(row));
+        const problem = await withLifecycleLock(
+          row.id,
+          async () => await loadOne(row),
+        );
         if (problem !== null) {
           failures.push(`plugin "${row.id}" reload failed: ${problem}`);
-        } else if (isSuppressedBySafeMode(row)) {
+        } else if (await isSuppressedBySafeMode(row)) {
           failures.push(
             `plugin "${row.id}" was not reloaded: plugin safe mode is on`,
           );
         }
       }
       await syncCliSkill();
-      notifyPluginsChanged();
-      const plugins = list();
+      await notifyPluginsChanged();
+      const plugins = await list();
       return failures.length === 0
         ? { ok: true, plugins }
         : { ok: false, error: failures.join("; "), plugins };
@@ -1877,10 +1953,10 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
       return loaded.get(id)?.handle.api;
     },
 
-    isPluginExpectedToRun(id) {
+    async isPluginExpectedToRun(id) {
       if (loaded.has(id) || suspendedPluginIds.has(id)) return true;
       if (!loadPassActive) return false;
-      const row = getInstalledPlugin(deps.db, id);
+      const row = await getInstalledPlugin(deps.db, id);
       return row !== undefined && getStatus(row).status === "starting";
     },
 
@@ -1931,7 +2007,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
         .sort((a, b) => a.pluginId.localeCompare(b.pluginId));
     },
 
-    handleHostWorkerExit(args) {
+    async handleHostWorkerExit(args) {
       const plugin = loaded.get(args.pluginId);
       const artifact = hostArtifacts.get(args.pluginId);
       if (
@@ -1948,7 +2024,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
       }
     },
 
-    handleHostSignal(args) {
+    async handleHostSignal(args) {
       const plugin = loaded.get(args.pluginId);
       const artifact = hostArtifacts.get(args.pluginId);
       if (
@@ -1988,7 +2064,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
     async getSettings(id) {
       const plugin = loaded.get(id);
       if (!plugin) return undefined;
-      return buildPluginSettingsView({
+      return await buildPluginSettingsView({
         db: deps.db,
         dataDir: deps.dataDir,
         pluginId: id,
@@ -2023,32 +2099,32 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
           }
         }
         deps.onSettingsChanged?.(id);
-        notifyPluginsChanged();
+        await notifyPluginsChanged();
         if (statuses.get(id)?.status === "needs-configuration") {
-          const row = getInstalledPlugin(deps.db, id);
+          const row = await getInstalledPlugin(deps.db, id);
           if (row) {
             await withLifecycleLock(id, async () => {
               await disposeOne(id);
               await loadOne(row);
             });
-            notifyPluginsChanged();
+            await notifyPluginsChanged();
           }
         }
       }
-      return buildPluginSettingsView(storeArgs);
+      return await buildPluginSettingsView(storeArgs);
     },
 
-    getHttpRoute(id, method, path) {
+    async getHttpRoute(id, method, path) {
       const normalizedMethod = method.toUpperCase();
-      return wireLookup(id, (plugin) =>
+      return await wireLookup(id, (plugin) =>
         plugin.handle.httpRoutes.find(
           (route) => route.method === normalizedMethod && route.path === path,
         ),
       );
     },
 
-    getWebSocketRoute(id, path) {
-      return wireLookup(id, (plugin) =>
+    async getWebSocketRoute(id, path) {
+      return await wireLookup(id, (plugin) =>
         plugin.handle.websocketRoutes.find((route) => route.path === path),
       );
     },
@@ -2079,8 +2155,10 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
         );
     },
 
-    getRpcHandler(id, method) {
-      return wireLookup(id, (plugin) => plugin.handle.rpcHandlers.get(method));
+    async getRpcHandler(id, method) {
+      return await wireLookup(id, (plugin) =>
+        plugin.handle.rpcHandlers.get(method),
+      );
     },
 
     resolveRpcCaller,
@@ -2173,7 +2251,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
           parsedOutput,
         );
         if (invalidated.length > 0)
-          deps.hub.notifyPluginChanged(id, invalidated);
+          await deps.hub.notifyPluginChanged(id, invalidated);
         return { ok: true as const, result: resultValue };
       });
       if (outcome.ok) return outcome.value;
@@ -2187,7 +2265,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
     },
 
     async httpToken(id, options) {
-      if (!getInstalledPlugin(deps.db, id)) return undefined;
+      if (!(await getInstalledPlugin(deps.db, id))) return undefined;
       const dir = pluginSecretsDir(deps.dataDir, id);
       if (options?.rotate) {
         await deleteSecretFile(join(dir, HTTP_TOKEN_FILE));
@@ -2212,7 +2290,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
         );
       const plugin = loaded.get(id);
       if (!plugin) {
-        const row = getInstalledPlugin(deps.db, id);
+        const row = await getInstalledPlugin(deps.db, id);
         if (!row) return fail(`unknown plugin "${id}"`);
         const { status, detail } = getStatus(row);
         return fail(
@@ -2279,7 +2357,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
         .filter(({ provider }) => provider !== null)
         .map(({ pluginId }) => pluginId);
       const metadataByPluginId = new Map<string, JsonObject>();
-      for (const row of listThreadPluginMetadataRows(
+      for (const row of await listThreadPluginMetadataRows(
         deps.db,
         context.thread.id,
         configuringPluginIds,
@@ -2310,18 +2388,21 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
         const knownToolIds = new Set(
           pluginTools.map(({ record }) => record.name),
         );
-        const outcome = await invokeWrapped(pluginId, "agent configure", () =>
-          normalizePluginAgentConfiguration({
-            knownSkillIds,
-            knownToolIds,
-            pluginId,
-            value: provider({
-              ...context,
-              pluginMetadata: deepFreezePluginMetadata(
-                metadataByPluginId.get(pluginId) ?? {},
-              ),
+        const outcome = await invokeWrapped(
+          pluginId,
+          "agent configure",
+          async () =>
+            normalizePluginAgentConfiguration({
+              knownSkillIds,
+              knownToolIds,
+              pluginId,
+              value: await provider({
+                ...context,
+                pluginMetadata: deepFreezePluginMetadata(
+                  metadataByPluginId.get(pluginId) ?? {},
+                ),
+              }),
             }),
-          }),
         );
         if (!outcome.ok) {
           selectedSkillIdsByPlugin.set(pluginId, new Set());
@@ -2363,7 +2444,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
           pluginId,
           `provider environment for ${providerId}`,
           async () =>
-            raceTimeout(
+            await raceTimeout(
               Promise.resolve(resolve(context)).then((value) =>
                 validatePluginProviderEnvEntries(value),
               ),
@@ -2548,7 +2629,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
           error: `malformed plugin mention item id ${JSON.stringify(itemId)}`,
         };
       }
-      const lookup = wireLookup(pluginId, (plugin) =>
+      const lookup = await wireLookup(pluginId, (plugin) =>
         plugin.handle.mentionProviders.find(
           (record) => record.id === providerId,
         ),
@@ -2642,8 +2723,8 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
     },
 
     async readLogTail(id, tail) {
-      if (!getInstalledPlugin(deps.db, id)) return undefined;
-      return readPluginLogTail(deps.dataDir, id, tail);
+      if (!(await getInstalledPlugin(deps.db, id))) return undefined;
+      return await readPluginLogTail(deps.dataDir, id, tail);
     },
 
     setSchedulesPaused(paused) {
@@ -2651,59 +2732,68 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
     },
 
     async suspendPlugins(args) {
-      return withPluginOperationLock(REGISTRATION_MUTATION_KEY, async () => {
-        const suspended: string[] = [];
-        const rows = listInstalledPlugins(deps.db).sort((left, right) =>
-          left.id.localeCompare(right.id),
-        );
-        for (const row of rows) {
-          if (!loaded.has(row.id) || args.keep(row)) continue;
-          await withLifecycleLock(row.id, async () => {
-            await disposeOne(row.id);
-            setStatus(
-              row.id,
-              "disabled",
-              "Paused while the server moves to another machine",
-            );
-          });
-          suspendedPluginIds.add(row.id);
-          suspended.push(row.id);
-        }
-        if (suspended.length > 0) {
-          await syncCliSkill();
-          notifyPluginsChanged();
-        }
-        return suspended;
-      });
+      return await withPluginOperationLock(
+        REGISTRATION_MUTATION_KEY,
+        async () => {
+          const suspended: string[] = [];
+          const rows = (await listInstalledPlugins(deps.db)).sort(
+            (left, right) => left.id.localeCompare(right.id),
+          );
+          for (const row of rows) {
+            if (!loaded.has(row.id) || args.keep(row)) continue;
+            await withLifecycleLock(row.id, async () => {
+              await disposeOne(row.id);
+              setStatus(
+                row.id,
+                "disabled",
+                "Paused while the server moves to another machine",
+              );
+            });
+            suspendedPluginIds.add(row.id);
+            suspended.push(row.id);
+          }
+          if (suspended.length > 0) {
+            await syncCliSkill();
+            await notifyPluginsChanged();
+          }
+          return suspended;
+        },
+      );
     },
 
     async resumeSuspendedPlugins() {
-      return withPluginOperationLock(REGISTRATION_MUTATION_KEY, async () => {
-        const ids = [...suspendedPluginIds].sort();
-        suspendedPluginIds.clear();
-        const resumed: string[] = [];
-        for (const id of ids) {
-          const row = getInstalledPlugin(deps.db, id);
-          if (row === undefined) continue;
-          const problem = await withLifecycleLock(id, () => loadOne(row));
-          if (problem !== null) {
-            logger.warn(
-              `plugin ${id} did not resume after a server move: ${problem}`,
+      return await withPluginOperationLock(
+        REGISTRATION_MUTATION_KEY,
+        async () => {
+          const ids = [...suspendedPluginIds].sort();
+          suspendedPluginIds.clear();
+          const resumed: string[] = [];
+          for (const id of ids) {
+            const row = await getInstalledPlugin(deps.db, id);
+            if (row === undefined) continue;
+            const problem = await withLifecycleLock(
+              id,
+              async () => await loadOne(row),
             );
+            if (problem !== null) {
+              logger.warn(
+                `plugin ${id} did not resume after a server move: ${problem}`,
+              );
+            }
+            resumed.push(id);
           }
-          resumed.push(id);
-        }
-        if (ids.length > 0) {
-          await syncCliSkill();
-          notifyPluginsChanged();
-        }
-        return resumed;
-      });
+          if (ids.length > 0) {
+            await syncCliSkill();
+            await notifyPluginsChanged();
+          }
+          return resumed;
+        },
+      );
     },
 
     async sweepDueSchedules(now) {
       if (schedulesPaused || loaded.size === 0) return;
-      const due = listDuePluginSchedules(deps.db, {
+      const due = await listDuePluginSchedules(deps.db, {
         now,
         limit: SCHEDULE_SWEEP_BATCH_SIZE,
       });
@@ -2723,7 +2813,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
           );
           continue;
         }
-        const claimed = claimPluginScheduledRun(deps.db, {
+        const claimed = await claimPluginScheduledRun(deps.db, {
           pluginId: row.pluginId,
           name: row.name,
           expectedNextRunAt: row.nextRunAt,
@@ -2736,7 +2826,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
           `schedule ${row.name}`,
           () => schedule.fn(),
         );
-        recordPluginScheduleResult(deps.db, {
+        await recordPluginScheduleResult(deps.db, {
           pluginId: row.pluginId,
           name: row.name,
           status: outcome.ok ? "ok" : "error",

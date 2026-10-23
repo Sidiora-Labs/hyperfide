@@ -51,7 +51,7 @@ export function createKeyedLock<TKey>(): <TValue>(
   operation: () => Promise<TValue>,
 ) => Promise<TValue> {
   const locks = new Map<TKey, Promise<unknown>>();
-  return (key, operation) => runSerialized(locks, key, operation);
+  return async (key, operation) => await runSerialized(locks, key, operation);
 }
 
 export function createAsyncRerunner<TKey>(): AsyncRerunner<TKey> {
@@ -63,7 +63,7 @@ export function createAsyncRerunner<TKey>(): AsyncRerunner<TKey> {
   const pendingByKey = new Map<TKey, State>();
 
   return {
-    run(key, task) {
+    async run(key, task) {
       const pending = pendingByKey.get(key);
       if (pending !== undefined) {
         pending.nextTask = task;

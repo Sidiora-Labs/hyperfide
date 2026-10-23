@@ -10,7 +10,7 @@ import { createNoopTelemetryService } from "../../../src/services/system/telemet
 import { createMigratedConnection } from "@hyperfide/db/testing";
 
 async function createRuntime() {
-  const db = createMigratedConnection();
+  const db = await createMigratedConnection();
   return createPluginRuntime({
     machineEnrollments: null,
     includedBuiltinNames: new Set(),

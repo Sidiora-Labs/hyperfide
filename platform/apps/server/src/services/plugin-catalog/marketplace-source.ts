@@ -175,7 +175,7 @@ export async function materializeMarketplace(args: {
   warn?: (message: string) => void;
 }): Promise<MaterializedMarketplace> {
   if (args.source.kind === "https") {
-    return materializeHttps(
+    return await materializeHttps(
       args.source,
       args.cached,
       args.fetch,
@@ -184,14 +184,14 @@ export async function materializeMarketplace(args: {
     );
   }
   if (args.source.kind === "path") {
-    return materializeLocal(
+    return await materializeLocal(
       args.source.directory,
       null,
       async () => {},
       args.warn,
     );
   }
-  return materializeGit(args.source, args.stagingDir, args.warn);
+  return await materializeGit(args.source, args.stagingDir, args.warn);
 }
 
 async function materializeHttps(
@@ -371,7 +371,7 @@ async function gitMarketplaceRoot(
       `marketplace subdirectory "${subdirectory}" is not a directory in the repository`,
     );
   }
-  return realPathInside(checkout, directory, "marketplace subdirectory");
+  return await realPathInside(checkout, directory, "marketplace subdirectory");
 }
 
 async function materializeGit(
@@ -398,15 +398,16 @@ async function materializeGit(
       "--verify",
       "--end-of-options",
       `${source.ref}^{commit}`,
-    ]).catch(() =>
-      runInstallCommand("git", [
-        "-C",
-        checkout,
-        "rev-parse",
-        "--verify",
-        "--end-of-options",
-        `refs/remotes/origin/${source.ref}^{commit}`,
-      ]),
+    ]).catch(
+      async () =>
+        await runInstallCommand("git", [
+          "-C",
+          checkout,
+          "rev-parse",
+          "--verify",
+          "--end-of-options",
+          `refs/remotes/origin/${source.ref}^{commit}`,
+        ]),
     );
     await runInstallCommand("git", [
       ...GIT_CLONE_ARGS,

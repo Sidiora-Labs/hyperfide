@@ -1,3 +1,4 @@
+import { resolveProjectedSkillRoot } from "../../../src/v22-identity-projection.js";
 import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -6,10 +7,12 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-const SKILL_ROOT = fileURLToPath(
-  new URL(
-    "../../../../../plugins/bb-guide/skills/hyperfide-plugin-authoring/",
-    import.meta.url,
+const SKILL_ROOT = resolveProjectedSkillRoot(
+  fileURLToPath(
+    new URL(
+      "../../../../../plugins/bb-guide/skills/hyperfide-plugin-authoring/",
+      import.meta.url,
+    ),
   ),
 );
 

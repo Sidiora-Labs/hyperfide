@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../src/testing.js";
 import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -43,15 +45,15 @@ function getOnlyInfoLog(logger: CapturingSlowQueryLogger): LoggedInfo {
   return infoLog;
 }
 
-describe("createConnection", () => {
-  it("distinguishes time waiting inside SQLite from CPU work", () => {
+describe.skipIf(isPostgresTest)("createConnection", () => {
+  it("distinguishes time waiting inside SQLite from CPU work", async () => {
     const logger = new CapturingSlowQueryLogger();
-    const db = createConnection(":memory:", {
+    const db = await createConnection(":memory:", {
       slowQueryLogger: logger,
       slowQueryThresholdMs: 0,
       slowQueryDiagnosticsEnabled: () => true,
     });
-    migrate(db);
+    await migrate(db);
     try {
       const signal = new Int32Array(new SharedArrayBuffer(4));
       let insideBefore = resourceUsage();
@@ -93,7 +95,7 @@ describe("createConnection", () => {
       }
       expect(diagnostics.wal).toEqual({ sizeBytes: null, sampledAt: null });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
@@ -102,17 +104,17 @@ describe("createConnection", () => {
     let diagnosticsEnabled = false;
     const directory = mkdtempSync(join(tmpdir(), "bb-wal-sampler-"));
     const databasePath = join(directory, "bb.db");
-    const template = createMigratedConnection();
+    const template = await createMigratedConnection();
     writeFileSync(databasePath, template.$client.serialize());
-    template.$client.close();
-    const db = createConnection(databasePath, {
+    await template.close();
+    const db = await createConnection(databasePath, {
       slowQueryLogger: logger,
       slowQueryThresholdMs: 0,
       slowQueryDiagnosticsEnabled: () => diagnosticsEnabled,
     });
     try {
-      db.$client.exec("CREATE TABLE diagnostic_values (value INTEGER)");
-      db.$client.exec("INSERT INTO diagnostic_values VALUES (0)");
+      await db.$client.exec("CREATE TABLE diagnostic_values (value INTEGER)");
+      await db.$client.exec("INSERT INTO diagnostic_values VALUES (0)");
       const update = db.$client.prepare(
         "UPDATE diagnostic_values SET value = value + 1",
       );
@@ -157,19 +159,19 @@ describe("createConnection", () => {
         })
         .toEqual({ sizeBytes: null, sampledAt: expect.any(String) });
     } finally {
-      db.$client.close();
+      await db.close();
       rmSync(directory, { recursive: true, force: true });
     }
   });
 
-  it("applies live thresholds to statements prepared before the setting changed", () => {
+  it("applies live thresholds to statements prepared before the setting changed", async () => {
     const logger = new CapturingSlowQueryLogger();
     let thresholdMs = Infinity;
-    const db = createConnection(":memory:", {
+    const db = await createConnection(":memory:", {
       slowQueryLogger: logger,
       slowQueryThresholdMs: () => thresholdMs,
     });
-    migrate(db);
+    await migrate(db);
     try {
       const statement = db.$client.prepare("SELECT 1");
       statement.get();
@@ -182,21 +184,21 @@ describe("createConnection", () => {
       statement.get();
       expect(logger.infoLogs).toHaveLength(0);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
   it.each(["default", "deferred", "immediate", "exclusive"] as const)(
     "times complete %s transactions and exec while preserving rollback and receivers",
-    (mode) => {
+    async (mode) => {
       const logger = new CapturingSlowQueryLogger();
-      const db = createConnection(":memory:", {
+      const db = await createConnection(":memory:", {
         slowQueryLogger: logger,
         slowQueryThresholdMs: 0,
       });
-      migrate(db);
+      await migrate(db);
       try {
-        db.$client.exec("CREATE TABLE diagnostic_values (value TEXT)");
+        await db.$client.exec("CREATE TABLE diagnostic_values (value TEXT)");
         logger.clear();
         expect(
           db.$client.exec(
@@ -247,14 +249,14 @@ describe("createConnection", () => {
         expect(transaction.default).toBe(transaction);
         expect(Reflect.get(transaction[mode], "database")).toBe(db.$client);
       } finally {
-        db.$client.close();
+        await db.close();
       }
     },
   );
 
-  it("logs slow prepared statement executions without parameter values", () => {
+  it("logs slow prepared statement executions without parameter values", async () => {
     const logger = new CapturingSlowQueryLogger();
-    const db = createConnection(":memory:", {
+    const db = await createConnection(":memory:", {
       slowQueryLogger: logger,
       slowQueryThresholdMs: 0,
     });
@@ -269,12 +271,12 @@ describe("createConnection", () => {
     expect(infoLog.fields.sql).toBe("SELECT ? AS value");
     expect(infoLog.fields.sql).not.toContain("sensitive-value");
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("redacts SQL string literals in slow query logs", () => {
+  it("redacts SQL string literals in slow query logs", async () => {
     const logger = new CapturingSlowQueryLogger();
-    const db = createConnection(":memory:", {
+    const db = await createConnection(":memory:", {
       slowQueryLogger: logger,
       slowQueryThresholdMs: 0,
     });
@@ -285,17 +287,18 @@ describe("createConnection", () => {
     expect(infoLog.fields.sql).toBe("SELECT '?' AS value");
     expect(infoLog.fields.sql).not.toContain("sensitive-literal");
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("logs slow drizzle ORM statement executions", () => {
+  it("logs slow drizzle ORM statement executions", async () => {
     const logger = new CapturingSlowQueryLogger();
-    const db = createConnection(":memory:", {
+    const db = await createConnection(":memory:", {
       slowQueryLogger: logger,
       slowQueryThresholdMs: 0,
     });
-    migrate(db);
-    db.insert(hosts)
+    await migrate(db);
+    await db
+      .insert(hosts)
       .values({
         createdAt: 1,
         id: "host-drizzle",
@@ -306,7 +309,7 @@ describe("createConnection", () => {
       .run();
     logger.clear();
 
-    const row = db
+    const row = await db
       .select()
       .from(hosts)
       .where(eq(hosts.id, "host-drizzle"))
@@ -321,12 +324,12 @@ describe("createConnection", () => {
     expect(infoLog.fields.sql).toContain("hosts");
     expect(infoLog.fields.sql).not.toContain("host-drizzle");
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("keeps truncated slow query SQL within the logged length limit", () => {
+  it("keeps truncated slow query SQL within the logged length limit", async () => {
     const logger = new CapturingSlowQueryLogger();
-    const db = createConnection(":memory:", {
+    const db = await createConnection(":memory:", {
       slowQueryLogger: logger,
       slowQueryThresholdMs: 0,
     });
@@ -340,12 +343,12 @@ describe("createConnection", () => {
     expect(infoLog.fields.sql).toHaveLength(1_000);
     expect(infoLog.fields.sql.endsWith("...")).toBe(true);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("applies the hot-path sqlite pragmas on a file database", () => {
+  it("applies the hot-path sqlite pragmas on a file database", async () => {
     const directory = mkdtempSync(join(tmpdir(), "bb-db-pragmas-"));
-    const db = createConnection(join(directory, "bb.db"));
+    const db = await createConnection(join(directory, "bb.db"));
 
     try {
       expect(
@@ -370,7 +373,7 @@ describe("createConnection", () => {
         },
       ).toEqual({ journal_mode: "wal" });
     } finally {
-      db.$client.close();
+      await db.close();
       rmSync(directory, { force: true, recursive: true });
     }
   });

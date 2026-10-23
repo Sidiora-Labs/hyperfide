@@ -157,12 +157,12 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
     ThreadConversationOutlineResponse["items"]
   >();
   const CONVERSATION_OUTLINE_CACHE_MAX_ENTRIES = 128;
-  const resolveConversationRowsOptions = (thread: Thread) => {
+  const resolveConversationRowsOptions = async (thread: Thread) => {
     const providerDisplayName = resolveThreadProviderDisplayName(
       deps,
       thread.providerId,
     );
-    const settings = getAppSettings(deps.db);
+    const settings = await getAppSettings(deps.db);
     return {
       completedTurnDisplay: resolveThreadCompletedTurnDisplay(
         deps,
@@ -170,14 +170,14 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
         thread.providerId,
       ),
       includeClearedContextHistory: settings.keepHistoryAfterContextClear,
-      maxSeq: getLatestThreadSequence(deps.db, { threadId: thread.id }),
+      maxSeq: await getLatestThreadSequence(deps.db, { threadId: thread.id }),
       ...(providerDisplayName === undefined ? {} : { providerDisplayName }),
     };
   };
 
-  get(routes.pluginMetadata.get, (context, query) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
-    const { metadata, corrupt } = getThreadPluginMetadata(
+  get(routes.pluginMetadata.get, async (context, query) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
+    const { metadata, corrupt } = await getThreadPluginMetadata(
       deps.db,
       thread.id,
       query.pluginId,
@@ -190,9 +190,9 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
     return context.json(metadata);
   });
 
-  patch(routes.pluginMetadata.update, (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
-    const result = patchThreadPluginMetadata(deps.db, {
+  patch(routes.pluginMetadata.update, async (context, payload) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
+    const result = await patchThreadPluginMetadata(deps.db, {
       threadId: thread.id,
       pluginId: payload.pluginId,
       set: payload.set ?? {},
@@ -213,13 +213,13 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
     return context.json(result.metadata);
   });
 
-  get(routes.context, (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  get(routes.context, async (context) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     const sequenceStart =
-      getLatestCompletedThreadContextClearSequence(deps.db, {
+      (await getLatestCompletedThreadContextClearSequence(deps.db, {
         threadId: thread.id,
-      }) ?? 0;
-    const rows = listContextWindowUsageRows(deps.db, {
+      })) ?? 0;
+    const rows = await listContextWindowUsageRows(deps.db, {
       threadId: thread.id,
       sequenceStart,
     });
@@ -230,8 +230,8 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
       usage:
         usage === null
           ? null
-          : withCompactionOffer(deps.db, {
-              enabled: isCompactionOfferEnabled(deps, thread.providerId),
+          : await withCompactionOffer(deps.db, {
+              enabled: await isCompactionOfferEnabled(deps, thread.providerId),
               sequenceStart,
               threadId: thread.id,
               usage,
@@ -239,10 +239,10 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
     });
   });
 
-  get(routes.timeline, (context, query) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  get(routes.timeline, async (context, query) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     return context.json(
-      timelineWindows.read(
+      await timelineWindows.read(
         thread,
         {
           deferContent: query.deferContent === "true",
@@ -255,22 +255,22 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
     );
   });
 
-  get(routes.conversationOutline, (context, query) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  get(routes.conversationOutline, async (context, query) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     const selectItems = (items: ThreadConversationOutlineResponse["items"]) =>
       query.role === undefined
         ? items
         : items.filter((item) => item.role === query.role);
 
-    const outlineSequence = getLatestStoredConversationOutlineSequence(
+    const outlineSequence = await getLatestStoredConversationOutlineSequence(
       deps.db,
       { threadId: thread.id },
     );
-    const outlineOptions = resolveConversationRowsOptions(thread);
+    const outlineOptions = await resolveConversationRowsOptions(thread);
     const { maxSeq } = outlineOptions;
     const cacheKey = JSON.stringify([
       thread.id,
-      getDatabaseDataVersion(deps.db),
+      await getDatabaseDataVersion(deps.db),
       buildThreadConversationOutlineProjectionKey(
         thread,
         outlineSequence,
@@ -283,7 +283,7 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
       conversationOutlineCache.set(cacheKey, cached);
       return context.json({ items: selectItems(cached), maxSeq });
     }
-    const response = loadThreadConversationOutline(deps.db, thread, {
+    const response = await loadThreadConversationOutline(deps.db, thread, {
       ...outlineOptions,
       outlineSequence,
     });
@@ -300,8 +300,8 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
     return context.json({ ...response, items: selectItems(response.items) });
   });
 
-  get(routes.message, (context, query) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  get(routes.message, async (context, query) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     const seq = context.req.param("seq");
     if (!/^\d+$/.test(seq)) {
       throw new ApiError(
@@ -311,8 +311,8 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
       );
     }
     return context.json(
-      getThreadMessage(deps.db, thread, {
-        ...resolveConversationRowsOptions(thread),
+      await getThreadMessage(deps.db, thread, {
+        ...(await resolveConversationRowsOptions(thread)),
         seq: parseInteger(seq, "seq"),
         before: parseOptionalInteger(query.before, "before") ?? 0,
         after: parseOptionalInteger(query.after, "after") ?? 0,
@@ -320,11 +320,11 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
     );
   });
 
-  get(routes.timelineTurnSummaryDetails, (context, query) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
-    const settings = getAppSettings(deps.db);
+  get(routes.timelineTurnSummaryDetails, async (context, query) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
+    const settings = await getAppSettings(deps.db);
     return context.json(
-      buildTimelineTurnSummaryDetails(deps.db, thread, {
+      await buildTimelineTurnSummaryDetails(deps.db, thread, {
         beforeCursor: query.beforeCursor,
         deferContent: query.deferContent === "true",
         itemId: query.itemId ?? null,
@@ -346,24 +346,26 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
     );
   });
 
-  get(routes.output, (context) => {
-    requirePublicThread(deps.db, context.req.param("id"));
+  get(routes.output, async (context) => {
+    await requirePublicThread(deps.db, context.req.param("id"));
     return context.json({
-      output: getLastThreadOutput(deps.db, context.req.param("id")),
+      output: await getLastThreadOutput(deps.db, context.req.param("id")),
     });
   });
 
-  get(routes.queuedMessages, (context) => {
+  get(routes.queuedMessages, async (context) => {
     const threadId = context.req.param("id");
-    requirePublicThread(deps.db, threadId);
+    await requirePublicThread(deps.db, threadId);
     return context.json(
-      listQueuedThreadMessages(deps.db, threadId).map(toThreadQueuedMessage),
+      (await listQueuedThreadMessages(deps.db, threadId)).map(
+        toThreadQueuedMessage,
+      ),
     );
   });
 
-  get(routes.promptHistory, (context, query) => {
+  get(routes.promptHistory, async (context, query) => {
     const threadId = context.req.param("id");
-    requirePublicThread(deps.db, threadId);
+    await requirePublicThread(deps.db, threadId);
     const limit = parseBoundedPositiveOptionalInteger({
       defaultValue: PROMPT_HISTORY_ENTRY_LIMIT,
       max: PROMPT_HISTORY_ENTRY_LIMIT,
@@ -372,17 +374,17 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
     });
 
     return context.json(
-      listThreadPromptHistory(deps, {
+      await listThreadPromptHistory(deps, {
         threadId,
         limit,
       }),
     );
   });
 
-  get(routes.events, (context, query) => {
-    requirePublicThread(deps.db, context.req.param("id"));
+  get(routes.events, async (context, query) => {
+    await requirePublicThread(deps.db, context.req.param("id"));
     return context.json(
-      listThreadEventRows(deps.db, {
+      await listThreadEventRows(deps.db, {
         threadId: context.req.param("id"),
         afterSeq: parseOptionalInteger(query.afterSeq, "afterSeq"),
         beforeSeq: parseOptionalInteger(query.beforeSeq, "beforeSeq"),
@@ -400,7 +402,7 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
 
   get(routes.eventWait, async (context, query) => {
     const threadId = context.req.param("id");
-    requirePublicThread(deps.db, threadId);
+    await requirePublicThread(deps.db, threadId);
 
     const afterSeq = parseOptionalInteger(query.afterSeq, "afterSeq");
     const waitMs = Math.min(
@@ -413,22 +415,22 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
     }
     const eventType = parsedEventType.data;
 
-    const findMatch = () =>
-      findThreadEvent(deps.db, { threadId, type: eventType, afterSeq });
+    const findMatch = async () =>
+      await findThreadEvent(deps.db, { threadId, type: eventType, afterSeq });
 
     const deadline = Date.now() + waitMs;
-    let match = findMatch();
+    let match = await findMatch();
     while (!match) {
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;
       const waiter = deps.hub.registerThreadEventWaiter(threadId, remaining);
-      match = findMatch();
+      match = await findMatch();
       if (match) {
         waiter.cancel();
         break;
       }
       await waiter.promise;
-      match = findMatch();
+      match = await findMatch();
     }
 
     if (!match) {
@@ -440,7 +442,7 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
 
   get(routes.defaultExecutionOptions, async (context) => {
     const threadId = context.req.param("id");
-    requirePublicThread(deps.db, threadId);
+    await requirePublicThread(deps.db, threadId);
     return context.json(
       (
         await tryResolveExistingThreadExecutionPlan(deps, {

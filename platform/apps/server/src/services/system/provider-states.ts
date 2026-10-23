@@ -51,7 +51,10 @@ async function getProviderState(
       "This provider does not report readiness.",
     );
   }
-  const bridgeLaunch = resolveBridgeLaunchForProviderId(deps, args.provider.id);
+  const bridgeLaunch = await resolveBridgeLaunchForProviderId(
+    deps,
+    args.provider.id,
+  );
   if (bridgeLaunch === null) {
     return unknownProviderState(
       args.provider,
@@ -111,14 +114,15 @@ export async function getProviderStates(
   deps: AppDeps,
   query: SystemProvidersQuery,
 ): Promise<SystemProviderStatesResponse> {
-  const hostId = resolveSystemLookupHostId(deps, query);
+  const hostId = await resolveSystemLookupHostId(deps, query);
   const cwd =
     query.environmentId === undefined
       ? undefined
-      : (requireEnvironment(deps.db, query.environmentId).path ?? undefined);
+      : ((await requireEnvironment(deps.db, query.environmentId)).path ??
+        undefined);
   const providers = await listSystemProviderInfos(deps, { hostId });
   try {
-    requireConnectedHostSession(deps, hostId);
+    await requireConnectedHostSession(deps, hostId);
   } catch (error) {
     if (!isHostUnavailableApiError(error)) {
       throw error;
@@ -133,12 +137,14 @@ export async function getProviderStates(
     };
   }
   return {
-    providers: await mapProviderMaintenanceRequests(providers, (provider) =>
-      getProviderState(deps, {
-        hostId,
-        provider,
-        ...(cwd === undefined ? {} : { cwd }),
-      }),
+    providers: await mapProviderMaintenanceRequests(
+      providers,
+      async (provider) =>
+        getProviderState(deps, {
+          hostId,
+          provider,
+          ...(cwd === undefined ? {} : { cwd }),
+        }),
     ),
   };
 }

@@ -27,13 +27,25 @@ export function resolveDrizzleDataDir(mode: BbRuntimeMode): string {
 }
 
 const dataDir = resolveDrizzleDataDir(runtimeMode);
-const dbPath = resolve(resolveDataDirDatabasePath({ dataDir }));
+const dbPath =
+  process.env.HYPERFIDE_DATABASE_URL?.replace(/^sqlite:(?:\/\/)?/, "") ??
+  resolve(resolveDataDirDatabasePath({ dataDir }));
 
-export default defineConfig({
-  schema: "./src/schema.ts",
-  out: "./drizzle",
-  dialect: "sqlite",
-  dbCredentials: {
-    url: dbPath,
-  },
-});
+export default defineConfig(
+  process.env.HYPERFIDE_DATABASE_URL?.match(/^postgres(?:ql)?:/)
+    ? {
+        schema: "./src/schema-postgres.ts",
+        out: "./drizzle-postgres",
+        dialect: "postgresql",
+        schemaFilter: ["platform"],
+        dbCredentials: { url: process.env.HYPERFIDE_DATABASE_URL },
+      }
+    : {
+        schema: "./src/schema.ts",
+        out: "./drizzle",
+        dialect: "sqlite",
+        dbCredentials: {
+          url: dbPath,
+        },
+      },
+);

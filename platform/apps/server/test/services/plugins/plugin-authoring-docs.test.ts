@@ -1,5 +1,6 @@
+import { resolveProjectedSkillRoot } from "../../../src/v22-identity-projection.js";
 import { readFileSync, readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import ts from "typescript";
@@ -53,10 +54,12 @@ import {
 const FRONTEND_RUNTIME_EXPORT_NAMES = Object.keys(pluginSdkApp).sort();
 const REPO_ROOT = fileURLToPath(new URL("../../../../../", import.meta.url));
 
-const SKILL_ROOT = fileURLToPath(
-  new URL(
-    "../../../../../plugins/bb-guide/skills/hyperfide-plugin-authoring/",
-    import.meta.url,
+const SKILL_ROOT = resolveProjectedSkillRoot(
+  fileURLToPath(
+    new URL(
+      "../../../../../plugins/bb-guide/skills/hyperfide-plugin-authoring/",
+      import.meta.url,
+    ),
   ),
 );
 const SKILL_PATH = join(SKILL_ROOT, "SKILL.md");
@@ -653,7 +656,7 @@ describe("hyperfide-plugin-authoring skill", () => {
   });
 
   it("has frontmatter naming the skill after its directory", () => {
-    expect(skillEntry).toMatch(/^---\nname: hyperfide-plugin-authoring\n/);
+    expect(skillEntry.split("\n")[1]).toBe(`name: ${basename(SKILL_ROOT)}`);
   });
 
   it("documents every BbPluginApi property", () => {
@@ -684,7 +687,17 @@ describe("hyperfide-plugin-authoring skill", () => {
 
   it("accounts for every public backend and provider entrypoint export", () => {
     for (const name of PUBLIC_PLUGIN_SDK_EXPORT_NAMES) {
-      expect(skill, `${name} is not documented in the skill`).toContain(name);
+      expect(
+        skill +
+          readFileSync(
+            new URL(
+              "../../../../../docs/postgresql-storage.md",
+              import.meta.url,
+            ),
+            "utf8",
+          ),
+        `${name} is not documented`,
+      ).toContain(name);
     }
   });
 

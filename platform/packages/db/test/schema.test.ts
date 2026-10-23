@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../src/testing.js";
 import { createMigratedConnection } from "../src/testing.js";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
@@ -29,10 +31,10 @@ interface ColumnNameRow {
   name: string;
 }
 
-function closeConnection(
-  db: ReturnType<typeof createMigratedConnection>,
-): void {
-  db.$client.close();
+async function closeConnection(
+  db: Awaited<ReturnType<typeof createMigratedConnection>>,
+): Promise<void> {
+  await db.close();
 }
 
 interface TableColumnRow {
@@ -40,107 +42,124 @@ interface TableColumnRow {
 }
 
 describe("db rebuild schema", () => {
-  it("does not retain the derived host daemon heartbeat column", () => {
-    const db = createMigratedConnection();
+  it.skipIf(isPostgresTest)(
+    "does not retain the derived host daemon heartbeat column",
+    async () => {
+      const db = await createMigratedConnection();
 
-    const columnNames = db.$client
-      .prepare<[], TableColumnRow>(
-        "SELECT name FROM pragma_table_info('host_daemon_sessions')",
-      )
-      .all()
-      .map((column) => column.name);
+      const columnNames = (
+        await db.$client
+          .prepare<[], TableColumnRow>(
+            "SELECT name FROM pragma_table_info('host_daemon_sessions')",
+          )
+          .all()
+      ).map((column) => column.name);
 
-    expect(columnNames).not.toContain("last_heartbeat_at");
+      expect(columnNames).not.toContain("last_heartbeat_at");
 
-    closeConnection(db);
-  });
+      await closeConnection(db);
+    },
+  );
 
-  it("creates pending interactions with the canonical thread-scoped columns", () => {
-    const db = createMigratedConnection();
+  it.skipIf(isPostgresTest)(
+    "creates pending interactions with the canonical thread-scoped columns",
+    async () => {
+      const db = await createMigratedConnection();
 
-    const columns = db.$client
-      .prepare(
-        'SELECT name, lower(type) AS type, "notnull" AS "notNull", pk AS "primaryKey" FROM pragma_table_info(\'pending_interactions\')',
-      )
-      .all();
+      const columns = await db.$client
+        .prepare(
+          'SELECT name, lower(type) AS type, "notnull" AS "notNull", pk AS "primaryKey" FROM pragma_table_info(\'pending_interactions\')',
+        )
+        .all();
 
-    expect(columns).toHaveLength(17);
-    expect(columns).toEqual(
-      expect.arrayContaining([
-        { name: "id", type: "text", notNull: 1, primaryKey: 1 },
-        { name: "thread_id", type: "text", notNull: 1, primaryKey: 0 },
-        { name: "origin_kind", type: "text", notNull: 1, primaryKey: 0 },
-        { name: "turn_id", type: "text", notNull: 0, primaryKey: 0 },
-        { name: "provider_id", type: "text", notNull: 0, primaryKey: 0 },
-        { name: "provider_thread_id", type: "text", notNull: 0, primaryKey: 0 },
-        {
-          name: "provider_request_id",
-          type: "text",
-          notNull: 0,
-          primaryKey: 0,
-        },
-        { name: "plugin_id", type: "text", notNull: 0, primaryKey: 0 },
-        { name: "renderer_id", type: "text", notNull: 0, primaryKey: 0 },
-        { name: "status", type: "text", notNull: 1, primaryKey: 0 },
-        { name: "payload", type: "text", notNull: 1, primaryKey: 0 },
-        { name: "resolution", type: "text", notNull: 0, primaryKey: 0 },
-        { name: "status_reason", type: "text", notNull: 0, primaryKey: 0 },
-        { name: "created_at", type: "integer", notNull: 1, primaryKey: 0 },
-        { name: "expires_at", type: "integer", notNull: 0, primaryKey: 0 },
-        { name: "resolved_at", type: "integer", notNull: 0, primaryKey: 0 },
-        { name: "updated_at", type: "integer", notNull: 1, primaryKey: 0 },
-      ]),
-    );
+      expect(columns).toHaveLength(17);
+      expect(columns).toEqual(
+        expect.arrayContaining([
+          { name: "id", type: "text", notNull: 1, primaryKey: 1 },
+          { name: "thread_id", type: "text", notNull: 1, primaryKey: 0 },
+          { name: "origin_kind", type: "text", notNull: 1, primaryKey: 0 },
+          { name: "turn_id", type: "text", notNull: 0, primaryKey: 0 },
+          { name: "provider_id", type: "text", notNull: 0, primaryKey: 0 },
+          {
+            name: "provider_thread_id",
+            type: "text",
+            notNull: 0,
+            primaryKey: 0,
+          },
+          {
+            name: "provider_request_id",
+            type: "text",
+            notNull: 0,
+            primaryKey: 0,
+          },
+          { name: "plugin_id", type: "text", notNull: 0, primaryKey: 0 },
+          { name: "renderer_id", type: "text", notNull: 0, primaryKey: 0 },
+          { name: "status", type: "text", notNull: 1, primaryKey: 0 },
+          { name: "payload", type: "text", notNull: 1, primaryKey: 0 },
+          { name: "resolution", type: "text", notNull: 0, primaryKey: 0 },
+          { name: "status_reason", type: "text", notNull: 0, primaryKey: 0 },
+          { name: "created_at", type: "integer", notNull: 1, primaryKey: 0 },
+          { name: "expires_at", type: "integer", notNull: 0, primaryKey: 0 },
+          { name: "resolved_at", type: "integer", notNull: 0, primaryKey: 0 },
+          { name: "updated_at", type: "integer", notNull: 1, primaryKey: 0 },
+        ]),
+      );
 
-    closeConnection(db);
-  });
+      await closeConnection(db);
+    },
+  );
 
-  it("does not persist terminal runtime-only columns", () => {
-    const db = createMigratedConnection();
+  it.skipIf(isPostgresTest)(
+    "does not persist terminal runtime-only columns",
+    async () => {
+      const db = await createMigratedConnection();
 
-    try {
-      const columnNames = db.$client
-        .prepare<[], ColumnNameRow>(
-          `
+      try {
+        const columnNames = (
+          await db.$client
+            .prepare<[], ColumnNameRow>(
+              `
             SELECT name
             FROM pragma_table_info('terminal_sessions')
             ORDER BY cid
           `,
-        )
-        .all()
-        .map((row) => row.name);
+            )
+            .all()
+        ).map((row) => row.name);
 
-      expect(columnNames).toEqual([
-        "id",
-        "thread_id",
-        "environment_id",
-        "host_id",
-        "daemon_session_id",
-        "title",
-        "initial_cwd",
-        "cols",
-        "rows",
-        "status",
-        "exit_code",
-        "close_reason",
-        "created_at",
-        "updated_at",
-        "last_user_input_at",
-      ]);
-    } finally {
-      closeConnection(db);
-    }
-  });
+        expect(columnNames).toEqual([
+          "id",
+          "thread_id",
+          "environment_id",
+          "host_id",
+          "daemon_session_id",
+          "title",
+          "initial_cwd",
+          "cols",
+          "rows",
+          "status",
+          "exit_code",
+          "close_reason",
+          "created_at",
+          "updated_at",
+          "last_user_input_at",
+        ]);
+      } finally {
+        await closeConnection(db);
+      }
+    },
+  );
 
-  it("cascades host deletion to host-scoped project sources", () => {
-    const db = createMigratedConnection();
+  it("cascades host deletion to host-scoped project sources", async () => {
+    const db = await createMigratedConnection();
 
     const now = Date.now();
     const hostId = createHostId();
     const projectId = createProjectId();
     const sourceId = createProjectSourceId();
 
-    db.insert(hosts)
+    await db
+      .insert(hosts)
       .values({
         id: hostId,
         name: "Local host",
@@ -150,7 +169,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(projects)
+    await db
+      .insert(projects)
       .values({
         id: projectId,
         name: "Rebuild",
@@ -158,7 +178,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(projectSources)
+    await db
+      .insert(projectSources)
       .values({
         id: sourceId,
         projectId,
@@ -170,15 +191,15 @@ describe("db rebuild schema", () => {
       })
       .run();
 
-    db.delete(hosts).where(eq(hosts.id, hostId)).run();
+    await db.delete(hosts).where(eq(hosts.id, hostId)).run();
 
-    expect(db.select().from(projectSources).all()).toHaveLength(0);
+    expect(await db.select().from(projectSources).all()).toHaveLength(0);
 
-    closeConnection(db);
+    await closeConnection(db);
   });
 
-  it("cascades project deletion to environments and threads", () => {
-    const db = createMigratedConnection();
+  it("cascades project deletion to environments and threads", async () => {
+    const db = await createMigratedConnection();
 
     const now = Date.now();
     const hostId = createHostId();
@@ -186,7 +207,8 @@ describe("db rebuild schema", () => {
     const environmentId = createEnvironmentId();
     const threadId = createThreadId();
 
-    db.insert(hosts)
+    await db
+      .insert(hosts)
       .values({
         id: hostId,
         name: "Local host",
@@ -196,7 +218,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(projects)
+    await db
+      .insert(projects)
       .values({
         id: projectId,
         name: "Rebuild",
@@ -204,7 +227,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(environments)
+    await db
+      .insert(environments)
       .values({
         id: environmentId,
         projectId,
@@ -216,7 +240,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(threads)
+    await db
+      .insert(threads)
       .values({
         id: threadId,
         projectId,
@@ -229,23 +254,24 @@ describe("db rebuild schema", () => {
       })
       .run();
 
-    db.delete(projects).where(eq(projects.id, projectId)).run();
+    await db.delete(projects).where(eq(projects.id, projectId)).run();
 
-    expect(db.select().from(environments).all()).toHaveLength(0);
-    expect(db.select().from(threads).all()).toHaveLength(0);
+    expect(await db.select().from(environments).all()).toHaveLength(0);
+    expect(await db.select().from(threads).all()).toHaveLength(0);
 
-    closeConnection(db);
+    await closeConnection(db);
   });
 
-  it("cascades thread deletion to thread-owned rows", () => {
-    const db = createMigratedConnection();
+  it("cascades thread deletion to thread-owned rows", async () => {
+    const db = await createMigratedConnection();
 
     const now = Date.now();
     const hostId = createHostId();
     const projectId = createProjectId();
     const threadId = createThreadId();
 
-    db.insert(hosts)
+    await db
+      .insert(hosts)
       .values({
         id: hostId,
         name: "Local host",
@@ -255,7 +281,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(projects)
+    await db
+      .insert(projects)
       .values({
         id: projectId,
         name: "Rebuild",
@@ -263,7 +290,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(threads)
+    await db
+      .insert(threads)
       .values({
         id: threadId,
         projectId,
@@ -274,7 +302,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(threadDynamicContextFileStates)
+    await db
+      .insert(threadDynamicContextFileStates)
       .values({
         threadId,
         fileKey: "manager-preferences",
@@ -286,17 +315,17 @@ describe("db rebuild schema", () => {
       })
       .run();
 
-    db.delete(threads).where(eq(threads.id, threadId)).run();
+    await db.delete(threads).where(eq(threads.id, threadId)).run();
 
-    expect(db.select().from(threadDynamicContextFileStates).all()).toHaveLength(
-      0,
-    );
+    expect(
+      await db.select().from(threadDynamicContextFileStates).all(),
+    ).toHaveLength(0);
 
-    closeConnection(db);
+    await closeConnection(db);
   });
 
-  it("cascades host deletion to host-scoped records", () => {
-    const db = createMigratedConnection();
+  it("cascades host deletion to host-scoped records", async () => {
+    const db = await createMigratedConnection();
 
     const now = Date.now();
     const hostId = createHostId();
@@ -304,7 +333,8 @@ describe("db rebuild schema", () => {
     const environmentId = createEnvironmentId();
     const sessionId = createHostDaemonSessionId();
 
-    db.insert(hosts)
+    await db
+      .insert(hosts)
       .values({
         id: hostId,
         name: "Local host",
@@ -314,7 +344,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(projects)
+    await db
+      .insert(projects)
       .values({
         id: projectId,
         name: "Rebuild",
@@ -322,7 +353,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(environments)
+    await db
+      .insert(environments)
       .values({
         id: environmentId,
         projectId,
@@ -335,7 +367,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(hostDaemonSessions)
+    await db
+      .insert(hostDaemonSessions)
       .values({
         id: sessionId,
         hostId,
@@ -351,16 +384,16 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.delete(hosts).where(eq(hosts.id, hostId)).run();
+    await db.delete(hosts).where(eq(hosts.id, hostId)).run();
 
-    expect(db.select().from(environments).all()).toHaveLength(0);
-    expect(db.select().from(hostDaemonSessions).all()).toHaveLength(0);
+    expect(await db.select().from(environments).all()).toHaveLength(0);
+    expect(await db.select().from(hostDaemonSessions).all()).toHaveLength(0);
 
-    closeConnection(db);
+    await closeConnection(db);
   });
 
-  it("sets nullable environment references to null when an environment is deleted", () => {
-    const db = createMigratedConnection();
+  it("sets nullable environment references to null when an environment is deleted", async () => {
+    const db = await createMigratedConnection();
 
     const now = Date.now();
     const hostId = createHostId();
@@ -368,7 +401,8 @@ describe("db rebuild schema", () => {
     const environmentId = createEnvironmentId();
     const threadId = createThreadId();
 
-    db.insert(hosts)
+    await db
+      .insert(hosts)
       .values({
         id: hostId,
         name: "Local host",
@@ -378,7 +412,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(projects)
+    await db
+      .insert(projects)
       .values({
         id: projectId,
         name: "Rebuild",
@@ -386,7 +421,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(environments)
+    await db
+      .insert(environments)
       .values({
         id: environmentId,
         projectId,
@@ -399,7 +435,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(threads)
+    await db
+      .insert(threads)
       .values({
         id: threadId,
         projectId,
@@ -411,7 +448,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(events)
+    await db
+      .insert(events)
       .values({
         id: createEventId(),
         threadId,
@@ -424,22 +462,26 @@ describe("db rebuild schema", () => {
       })
       .run();
 
-    db.delete(environments).where(eq(environments.id, environmentId)).run();
+    await db
+      .delete(environments)
+      .where(eq(environments.id, environmentId))
+      .run();
 
-    expect(db.select().from(threads).get()?.environmentId).toBeNull();
-    expect(db.select().from(events).get()?.environmentId).toBeNull();
+    expect((await db.select().from(threads).get())?.environmentId).toBeNull();
+    expect((await db.select().from(events).get())?.environmentId).toBeNull();
 
-    closeConnection(db);
+    await closeConnection(db);
   });
 
-  it("cascades thread deletion to events, prompt history, and queued messages", () => {
-    const db = createMigratedConnection();
+  it("cascades thread deletion to events, prompt history, and queued messages", async () => {
+    const db = await createMigratedConnection();
 
     const now = Date.now();
     const projectId = createProjectId();
     const threadId = createThreadId();
 
-    db.insert(projects)
+    await db
+      .insert(projects)
       .values({
         id: projectId,
         name: "Rebuild",
@@ -447,7 +489,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(threads)
+    await db
+      .insert(threads)
       .values({
         id: threadId,
         projectId,
@@ -458,7 +501,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(queuedThreadMessages)
+    await db
+      .insert(queuedThreadMessages)
       .values({
         id: createQueuedThreadMessageId(),
         threadId,
@@ -473,7 +517,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(promptHistoryEntries)
+    await db
+      .insert(promptHistoryEntries)
       .values({
         id: createPromptHistoryEntryId(),
         projectId,
@@ -484,7 +529,8 @@ describe("db rebuild schema", () => {
         createdAt: now,
       })
       .run();
-    db.insert(events)
+    await db
+      .insert(events)
       .values({
         id: createEventId(),
         threadId,
@@ -496,23 +542,24 @@ describe("db rebuild schema", () => {
       })
       .run();
 
-    db.delete(threads).where(eq(threads.id, threadId)).run();
+    await db.delete(threads).where(eq(threads.id, threadId)).run();
 
-    expect(db.select().from(queuedThreadMessages).all()).toHaveLength(0);
-    expect(db.select().from(promptHistoryEntries).all()).toHaveLength(0);
-    expect(db.select().from(events).all()).toHaveLength(0);
+    expect(await db.select().from(queuedThreadMessages).all()).toHaveLength(0);
+    expect(await db.select().from(promptHistoryEntries).all()).toHaveLength(0);
+    expect(await db.select().from(events).all()).toHaveLength(0);
 
-    closeConnection(db);
+    await closeConnection(db);
   });
 
-  it("rejects duplicate event sequence numbers within a thread", () => {
-    const db = createMigratedConnection();
+  it("rejects duplicate event sequence numbers within a thread", async () => {
+    const db = await createMigratedConnection();
 
     const now = Date.now();
     const projectId = createProjectId();
     const threadId = createThreadId();
 
-    db.insert(projects)
+    await db
+      .insert(projects)
       .values({
         id: projectId,
         name: "Rebuild",
@@ -520,7 +567,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(threads)
+    await db
+      .insert(threads)
       .values({
         id: threadId,
         projectId,
@@ -531,7 +579,8 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    db.insert(events)
+    await db
+      .insert(events)
       .values({
         id: createEventId(),
         threadId,
@@ -543,22 +592,23 @@ describe("db rebuild schema", () => {
       })
       .run();
 
-    expect(() =>
-      db
-        .insert(events)
-        .values({
-          id: createEventId(),
-          threadId,
-          scopeKind: "thread",
-          sequence: 1,
-          type: "system/error",
-          data: "{}",
-          createdAt: now + 1,
-        })
-        .run(),
-    ).toThrow();
+    await expect(
+      (async () =>
+        await db
+          .insert(events)
+          .values({
+            id: createEventId(),
+            threadId,
+            scopeKind: "thread",
+            sequence: 1,
+            type: "system/error",
+            data: "{}",
+            createdAt: now + 1,
+          })
+          .run())(),
+    ).rejects.toThrow();
 
-    closeConnection(db);
+    await closeConnection(db);
   });
 
   it("generates prefixed ids for rebuild entities", () => {
@@ -573,11 +623,12 @@ describe("db rebuild schema", () => {
     expect(createHostDaemonSessionId()).toMatch(/^hses_/u);
   });
 
-  it("requires a non-null data_dir on host_daemon_sessions", () => {
-    const db = createMigratedConnection();
+  it("requires a non-null data_dir on host_daemon_sessions", async () => {
+    const db = await createMigratedConnection();
     const hostId = createHostId();
     const now = Date.now();
-    db.insert(hosts)
+    await db
+      .insert(hosts)
       .values({
         id: hostId,
         name: "host",
@@ -587,24 +638,27 @@ describe("db rebuild schema", () => {
         updatedAt: now,
       })
       .run();
-    expect(() =>
-      db
-        .insert(hostDaemonSessions)
-        .values({
-          id: createHostDaemonSessionId(),
-          hostId,
-          instanceId: "instance",
-          hostName: "host",
-          protocolVersion: 1,
-          heartbeatIntervalMs: 1_000,
-          leaseTimeoutMs: 10_000,
-          status: "active",
-          leaseExpiresAt: now + 10_000,
-          createdAt: now,
-          updatedAt: now,
-        } as never)
-        .run(),
-    ).toThrow(/NOT NULL constraint failed: host_daemon_sessions\.data_dir/);
-    closeConnection(db);
+    await expect(
+      (async () =>
+        await db
+          .insert(hostDaemonSessions)
+          .values({
+            id: createHostDaemonSessionId(),
+            hostId,
+            instanceId: "instance",
+            hostName: "host",
+            protocolVersion: 1,
+            heartbeatIntervalMs: 1_000,
+            leaseTimeoutMs: 10_000,
+            status: "active",
+            leaseExpiresAt: now + 10_000,
+            createdAt: now,
+            updatedAt: now,
+          } as never)
+          .run())(),
+    ).rejects.toThrow(
+      /NOT NULL constraint failed: host_daemon_sessions\.data_dir|null value in column "data_dir"/,
+    );
+    await closeConnection(db);
   });
 });

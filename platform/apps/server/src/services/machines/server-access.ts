@@ -46,8 +46,8 @@ const availabilitySchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("unavailable"), message: z.string() }),
 ]);
 
-export function machineServerUrl(deps: Dependencies) {
-  const configured = getAppSettings(deps.db).machineServerUrl;
+export async function machineServerUrl(deps: Dependencies) {
+  const configured = (await getAppSettings(deps.db)).machineServerUrl;
   const raw = configured ?? process.env.HYPERFIDE_EXTERNAL_URL ?? null;
   const parsed = reachableUrlSchema.safeParse(raw);
   return {
@@ -61,8 +61,8 @@ export function machineServerUrl(deps: Dependencies) {
   };
 }
 
-function serverAccessConfiguration(deps: Dependencies) {
-  const direct = machineServerUrl(deps);
+async function serverAccessConfiguration(deps: Dependencies) {
+  const direct = await machineServerUrl(deps);
   const records = listServerAccessProviders();
   const providers: Array<{
     id: string;
@@ -81,7 +81,7 @@ function serverAccessConfiguration(deps: Dependencies) {
     description: "Use your own domain or network address.",
     pluginId: null,
   });
-  const configured = getAppSettings(deps.db).defaultMachineAccess;
+  const configured = (await getAppSettings(deps.db)).defaultMachineAccess;
   const defaultProviderId = configured ?? records[0]?.provider.id ?? "direct";
   return {
     providers,
@@ -94,7 +94,7 @@ function serverAccessConfiguration(deps: Dependencies) {
 export async function serverAccessStatus(
   deps: Dependencies,
 ): Promise<ServerAccessStatus> {
-  const configuration = serverAccessConfiguration(deps);
+  const configuration = await serverAccessConfiguration(deps);
   const records = listServerAccessProviders();
   const providers = await Promise.all(
     configuration.providers.map(async (provider) => {
@@ -104,8 +104,8 @@ export async function serverAccessStatus(
         record === undefined
           ? null
           : await decideWithinBox(
-              () =>
-                invokeServerAccessProvider(record, async () =>
+              async () =>
+                await invokeServerAccessProvider(record, async () =>
                   record.provider.availability(),
                 ),
               5_000,
@@ -127,7 +127,7 @@ export async function serverAccessStatus(
 }
 
 function acquisitionKey(
-  host: NonNullable<ReturnType<typeof getHost>>,
+  host: NonNullable<Awaited<ReturnType<typeof getHost>>>,
   fallback: string,
 ): string {
   const owner =
@@ -148,10 +148,10 @@ async function resolve(
   },
 ): Promise<ServerAccessGrant> {
   args.signal.throwIfAborted();
-  const host = getHost(deps.db, args.hostId);
+  const host = await getHost(deps.db, args.hostId);
   if (!host || host.destroyedAt !== null)
     throw new Error("Machine identity is unavailable");
-  const status = serverAccessConfiguration(deps);
+  const status = await serverAccessConfiguration(deps);
   const providerId = host.serverAccessProviderId ?? status.defaultProviderId;
   let grant: ServerAccessGrant;
   if (providerId === "direct") {
@@ -190,7 +190,7 @@ async function resolve(
     if (availability.status !== "available") {
       throw new Error(availability.message);
     }
-    deps.db
+    await deps.db
       .update(hosts)
       .set({ serverAccessProviderId: providerId })
       .where(eq(hosts.id, args.hostId))
@@ -209,14 +209,14 @@ async function resolve(
       if ("status" in parsed.data) throw new Error(parsed.data.message);
       grant = parsed.data;
     } catch (error) {
-      deps.db
+      await deps.db
         .update(hosts)
         .set({
           statusMessage: error instanceof Error ? error.message : String(error),
         })
         .where(eq(hosts.id, args.hostId))
         .run();
-      deps.hub.notifyHost(args.hostId, ["host-connected"]);
+      await deps.hub.notifyHost(args.hostId, ["host-connected"]);
       throw error;
     }
   }
@@ -226,7 +226,7 @@ async function resolve(
   ) {
     throw new Error("Server access provider changed its grant identity");
   }
-  deps.db
+  await deps.db
     .update(hosts)
     .set({
       serverAccessProviderId: providerId,
@@ -244,7 +244,7 @@ async function release(
   args: { key: string; hostId: string },
   purpose: "remove" | "repair" = "remove",
 ) {
-  const host = getHost(deps.db, args.hostId);
+  const host = await getHost(deps.db, args.hostId);
   if (!host) return;
   const providerId = host.serverAccessProviderId;
   const grantId = host.serverAccessGrantId;
@@ -270,7 +270,7 @@ async function release(
       );
     }
   }
-  deps.db
+  await deps.db
     .update(hosts)
     .set({
       serverAccessProviderId: purpose === "repair" ? providerId : null,
@@ -285,11 +285,11 @@ async function repair(
   args: { key: string; hostId: string; signal: AbortSignal },
 ): Promise<ServerAccessGrant> {
   args.signal.throwIfAborted();
-  const host = getHost(deps.db, args.hostId);
+  const host = await getHost(deps.db, args.hostId);
   if (!host || host.destroyedAt !== null)
     throw new Error("Machine identity is unavailable");
   await release(deps, args, "repair");
-  return resolve(deps, args);
+  return await resolve(deps, args);
 }
 
 export const serverAccess = { resolve, release, repair };

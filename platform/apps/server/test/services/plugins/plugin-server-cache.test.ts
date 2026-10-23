@@ -35,8 +35,8 @@ describe("plugin server cache", () => {
       join(rootDir, "server.ts"),
       'import { value } from "cache-dependency"; export default () => value;\n',
     );
-    const build = () =>
-      buildCachedPluginServer({
+    const build = async () =>
+      await buildCachedPluginServer({
         rootDir,
         dataDir,
         pluginId: "cache-graph",

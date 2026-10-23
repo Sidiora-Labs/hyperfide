@@ -4,7 +4,7 @@ import type { TestAppHarness } from "./test-app.js";
 
 export interface TestDaemonWebSocket {
   close(code?: number, reason?: string): void;
-  send(data: string): void;
+  send(data: string): void | Promise<void>;
 }
 
 interface FeedRawDaemonWebSocketMessageArgs {
@@ -15,10 +15,10 @@ interface FeedRawDaemonWebSocketMessageArgs {
   socket: TestDaemonWebSocket;
 }
 
-export function feedRawDaemonWebSocketMessage(
+export async function feedRawDaemonWebSocketMessage(
   args: FeedRawDaemonWebSocketMessageArgs,
-): void {
-  onDaemonSocketMessage(args.harness.deps, {
+): Promise<void> {
+  await onDaemonSocketMessage(args.harness.deps, {
     hostId: args.hostId,
     raw: JSON.stringify(args.rawMessage),
     sessionId: args.sessionId,

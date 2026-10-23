@@ -71,8 +71,8 @@ function providerCliInstallEventsToNdjson(events: readonly unknown[]): string {
   return events.map((event) => `${JSON.stringify(event)}\n`).join("");
 }
 
-function requireMutableHost(deps: AppDeps, hostId: string) {
-  const host = getNonDestroyedHost(deps.db, hostId);
+async function requireMutableHost(deps: AppDeps, hostId: string) {
+  const host = await getNonDestroyedHost(deps.db, hostId);
   if (!host) {
     throw new ApiError(404, "host_not_found", "Host not found");
   }
@@ -130,22 +130,23 @@ export function registerHostRoutes(
     );
   });
 
-  get(routes.list, (context, query) =>
+  get(routes.list, async (context, query) =>
     context.json(
-      listPublicHostsWithStatus(deps, {
+      await listPublicHostsWithStatus(deps, {
         includeCreating: query.includeCreating === "true",
         type: query.type,
       }),
     ),
   );
 
-  get(routes.get, (context) => {
+  get(routes.get, async (context) => {
     const hostId = context.req.param("id");
-    const host = requireNonDestroyedHostWithStatus(deps, hostId);
-    const session = getLatestSessionForHost(deps.db, { hostId });
+    const host = await requireNonDestroyedHostWithStatus(deps, hostId);
+    const session = await getLatestSessionForHost(deps.db, { hostId });
     return context.json({
       ...host,
-      connectMachineId: requireMutableHost(deps, hostId).connectMachineId,
+      connectMachineId: (await requireMutableHost(deps, hostId))
+        .connectMachineId,
       threadStorageRootPath:
         session === null
           ? null
@@ -155,7 +156,7 @@ export function registerHostRoutes(
 
   get(routes.enrollmentCommand, async (context) => {
     assertHostManagementAllowed(context);
-    requireMutableHost(deps, context.req.param("id"));
+    await requireMutableHost(deps, context.req.param("id"));
     return context.json(
       await manualHostCommand(
         getMachineEnrollmentService(deps),
@@ -167,8 +168,11 @@ export function registerHostRoutes(
   post(routes.reconnect, async (context) => {
     assertHostManagementAllowed(context);
     const hostId = context.req.param("id");
-    const host = requireMutableHost(deps, hostId);
-    if (resolvePrimaryHostId(deps) === hostId || host.phase !== "active")
+    const host = await requireMutableHost(deps, hostId);
+    if (
+      (await resolvePrimaryHostId(deps)) === hostId ||
+      host.phase !== "active"
+    )
       throw new ApiError(
         409,
         "machine_reconnect_unavailable",
@@ -183,38 +187,42 @@ export function registerHostRoutes(
     return context.json(await prepareReconnect(deps, hostId), 201);
   });
 
-  patch(routes.update, (context, payload) => {
+  patch(routes.update, async (context, payload) => {
     assertHostManagementAllowed(context);
     const hostId = context.req.param("id");
-    requireMutableHost(deps, hostId);
-    const updated = updateHost(deps.db, deps.hub, hostId, {
+    await requireMutableHost(deps, hostId);
+    const updated = await updateHost(deps.db, deps.hub, hostId, {
       name: payload.name,
     });
     if (!updated) {
       throw new ApiError(404, "host_not_found", "Host not found");
     }
-    deps.hub.notifyHost(hostId, ["host-connected"]);
-    return context.json(requireNonDestroyedHostWithStatus(deps, updated.id));
+    await deps.hub.notifyHost(hostId, ["host-connected"]);
+    return context.json(
+      await requireNonDestroyedHostWithStatus(deps, updated.id),
+    );
   });
 
-  patch(routes.updatePermissionCeiling, (context, payload) => {
+  patch(routes.updatePermissionCeiling, async (context, payload) => {
     assertHostManagementAllowed(context);
     const hostId = context.req.param("id");
-    requireMutableHost(deps, hostId);
-    const updated = updateHost(deps.db, deps.hub, hostId, {
+    await requireMutableHost(deps, hostId);
+    const updated = await updateHost(deps.db, deps.hub, hostId, {
       maxPermissionMode: payload.maxPermissionMode,
     });
     if (!updated) {
       throw new ApiError(404, "host_not_found", "Host not found");
     }
-    deps.hub.notifyHost(hostId, ["host-connected"]);
-    return context.json(requireNonDestroyedHostWithStatus(deps, updated.id));
+    await deps.hub.notifyHost(hostId, ["host-connected"]);
+    return context.json(
+      await requireNonDestroyedHostWithStatus(deps, updated.id),
+    );
   });
 
-  post(routes.retryUpdate, (context) => {
+  post(routes.retryUpdate, async (context) => {
     assertHostManagementAllowed(context);
     const hostId = context.req.param("id");
-    const host = requireMutableHost(deps, hostId);
+    const host = await requireMutableHost(deps, hostId);
     if (host.lastRejectedProtocolVersion === null) {
       throw new ApiError(
         409,
@@ -233,27 +241,36 @@ export function registerHostRoutes(
     return context.json({ ok: true as const });
   });
 
-  post(routes.reconcile, (context) => {
+  post(routes.reconcile, async (context) => {
     assertHostManagementAllowed(context);
     const hostId = context.req.param("id");
-    startMachineReconciliation(deps, hostId);
-    return context.json(requireNonDestroyedHostWithStatus(deps, hostId), 202);
+    await startMachineReconciliation(deps, hostId);
+    return context.json(
+      await requireNonDestroyedHostWithStatus(deps, hostId),
+      202,
+    );
   });
 
-  post(routes.suspend, (context) => {
+  post(routes.suspend, async (context) => {
     assertHostManagementAllowed(context);
     const hostId = context.req.param("id");
     assertNotServerMachine(deps, hostId);
-    startMachineSuspension(deps, hostId);
-    return context.json(requireNonDestroyedHostWithStatus(deps, hostId), 202);
+    await startMachineSuspension(deps, hostId);
+    return context.json(
+      await requireNonDestroyedHostWithStatus(deps, hostId),
+      202,
+    );
   });
 
-  post(routes.resume, (context) => {
+  post(routes.resume, async (context) => {
     assertHostManagementAllowed(context);
     const hostId = context.req.param("id");
     assertNotServerMachine(deps, hostId);
-    startMachineResume(deps, hostId);
-    return context.json(requireNonDestroyedHostWithStatus(deps, hostId), 202);
+    await startMachineResume(deps, hostId);
+    return context.json(
+      await requireNonDestroyedHostWithStatus(deps, hostId),
+      202,
+    );
   });
 
   post(routes.retryCleanup, async (context) => {
@@ -269,8 +286,8 @@ export function registerHostRoutes(
       await forceMachineRemoval(deps, hostId);
       return context.json({ ok: true as const });
     }
-    const host = requireMutableHost(deps, hostId);
-    if (resolvePrimaryHostId(deps) === hostId) {
+    const host = await requireMutableHost(deps, hostId);
+    if ((await resolvePrimaryHostId(deps)) === hostId) {
       throw new ApiError(
         400,
         "primary_host_removal_refused",
@@ -279,8 +296,8 @@ export function registerHostRoutes(
     }
 
     if (host.machineProviderId !== null) {
-      requestMachineRemoval(deps, hostId);
-      settleRemovedHostWork(deps, { hostId });
+      await requestMachineRemoval(deps, hostId);
+      await settleRemovedHostWork(deps, { hostId });
       await sweepProviderMachine(deps, hostId);
       return context.json({ ok: true });
     }
@@ -291,20 +308,20 @@ export function registerHostRoutes(
     });
     const sessionId = deps.hub.getDaemonSessionIdForHost(hostId);
     if (sessionId) {
-      handleHostRemoved(deps, { hostId, sessionId });
+      await handleHostRemoved(deps, { hostId, sessionId });
     }
-    settleRemovedHostWork(deps, { hostId });
-    const destroyed = updateHost(deps.db, deps.hub, hostId, {
+    await settleRemovedHostWork(deps, { hostId });
+    const destroyed = await updateHost(deps.db, deps.hub, hostId, {
       destroyedAt: Date.now(),
     });
-    deps.lifecycleDedupers.providerModelCatalogs.forgetHost(deps, hostId);
+    await deps.lifecycleDedupers.providerModelCatalogs.forgetHost(deps, hostId);
     if (destroyed !== null) emitPluginHostDeleted(destroyed);
     return context.json({ ok: true });
   });
 
   get(routes.discoveredRepos, async (context) => {
     const hostId = context.req.param("id");
-    assertUsableHostId(deps, { hostId });
+    await assertUsableHostId(deps, { hostId });
     const result = await callHostRetryableOnlineRpc(deps, {
       hostId,
       timeoutMs: COMMAND_TIMEOUT_MS,
@@ -316,22 +333,26 @@ export function registerHostRoutes(
       },
     });
     return context.json({
-      repos: result.repos.map((repo) => ({
-        ...repo,
-        projectId:
-          getPublicProjectByLocalPathSource(deps.db, {
-            type: "local_path",
-            hostId,
-            path: repo.path,
-          })?.id ?? null,
-      })),
+      repos: await Promise.all(
+        result.repos.map(async (repo) => ({
+          ...repo,
+          projectId:
+            (
+              await getPublicProjectByLocalPathSource(deps.db, {
+                type: "local_path",
+                hostId,
+                path: repo.path,
+              })
+            )?.id ?? null,
+        })),
+      ),
       truncated: result.truncated,
     });
   });
 
   get(routes.directory, async (context, query) => {
     const hostId = context.req.param("id");
-    assertUsableHostId(deps, { hostId });
+    await assertUsableHostId(deps, { hostId });
     const result = await callHostRetryableOnlineRpc(deps, {
       hostId,
       timeoutMs: COMMAND_TIMEOUT_MS,
@@ -345,8 +366,11 @@ export function registerHostRoutes(
 
   get(routes.cloneDefaultPath, async (context, query) => {
     const hostId = context.req.param("id");
-    assertUsableHostId(deps, { hostId });
-    const project = requirePublicStandardProject(deps.db, query.projectId);
+    await assertUsableHostId(deps, { hostId });
+    const project = await requirePublicStandardProject(
+      deps.db,
+      query.projectId,
+    );
     const result = await callHostRetryableOnlineRpc(deps, {
       hostId,
       timeoutMs: COMMAND_TIMEOUT_MS,
@@ -360,7 +384,7 @@ export function registerHostRoutes(
 
   post(routes.pathsExist, async (context, payload) => {
     const hostId = context.req.param("id");
-    assertUsableHostId(deps, { hostId });
+    await assertUsableHostId(deps, { hostId });
     const result = await callHostRetryableOnlineRpc(deps, {
       hostId,
       timeoutMs: COMMAND_TIMEOUT_MS,
@@ -374,7 +398,7 @@ export function registerHostRoutes(
 
   post(routes.pickFolder, async (context, payload) => {
     const hostId = context.req.param("id");
-    assertUsableHostId(deps, { hostId });
+    await assertUsableHostId(deps, { hostId });
     if (payload.clientHostId !== hostId) {
       throw new ApiError(
         409,
@@ -394,14 +418,14 @@ export function registerHostRoutes(
 
   get(routes.providerCliStatus, async (context) => {
     const hostId = context.req.param("id");
-    assertUsableHostId(deps, { hostId });
+    await assertUsableHostId(deps, { hostId });
     const result = await getProviderInstallations(deps, { hostId });
     return context.json(result);
   });
 
   post(routes.providerCliInstall, async (context, payload) => {
     const hostId = context.req.param("id");
-    assertUsableHostId(deps, { hostId });
+    await assertUsableHostId(deps, { hostId });
     await deps.providerRegistry.whenProviderRegistered(payload.provider);
     const registration = deps.providerRegistry.get(payload.provider);
     if (registration === null || !registration.info.maintenance.installation) {
@@ -411,7 +435,7 @@ export function registerHostRoutes(
         `Provider installation is unavailable for ${payload.provider}`,
       );
     }
-    const bridgeLaunch = resolveBridgeLaunchForProviderId(
+    const bridgeLaunch = await resolveBridgeLaunchForProviderId(
       deps,
       payload.provider,
     );
@@ -422,17 +446,20 @@ export function registerHostRoutes(
         `Provider bridge is unavailable for ${payload.provider}`,
       );
     }
-    const result = await serializeProviderInstallation(deps, hostId, () =>
-      callHostOnlineRpcForWork(deps, {
-        hostId,
-        timeoutMs: PROVIDER_CLI_INSTALL_TIMEOUT_MS,
-        command: {
-          type: "provider.installation.run",
-          providerId: payload.provider,
-          action: payload.actionKind,
-          bridgeLaunch,
-        },
-      }),
+    const result = await serializeProviderInstallation(
+      deps,
+      hostId,
+      async () =>
+        await callHostOnlineRpcForWork(deps, {
+          hostId,
+          timeoutMs: PROVIDER_CLI_INSTALL_TIMEOUT_MS,
+          command: {
+            type: "provider.installation.run",
+            providerId: payload.provider,
+            action: payload.actionKind,
+            bridgeLaunch,
+          },
+        }),
     );
     if (
       result.events.some((event) => event.type === "completed" && event.success)

@@ -13,22 +13,22 @@ import { NotificationHub } from "../../src/ws/hub.js";
 import { assertPromptHistoryForTurnRequest } from "../helpers/prompt-history.js";
 import { textInput } from "../helpers/prompt-input.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/source" },
   });
-  const environment = createEnvironment(db, noopNotifier, {
+  const environment = await createEnvironment(db, noopNotifier, {
     providerOwnsPath: false,
     hostId: host.id,
     projectId: project.id,
     status: "ready",
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     environmentId: environment.id,
     providerId: "codex",
@@ -39,11 +39,11 @@ function setup() {
 }
 
 describe("thread provisioning state", () => {
-  it("stores provisioning progress in the durable thread startup context", () => {
-    const { db, host, hub, thread } = setup();
+  it("stores provisioning progress in the durable thread startup context", async () => {
+    const { db, host, hub, thread } = await setup();
     const input = textInput("start this workspace");
 
-    const context = requestThreadProvision(
+    const context = await requestThreadProvision(
       { db, hub },
       {
         thread,
@@ -73,8 +73,8 @@ describe("thread provisioning state", () => {
     expect(context.state.environmentId).toBeNull();
     expect(context.state.provisionEventSequence).toBeNull();
     expect(context.state.workspaceReadyEventSequence).toBeNull();
-    expect(getThreadProvisionContext(db, thread.id)).toEqual(context);
-    assertPromptHistoryForTurnRequest({
+    expect(await getThreadProvisionContext(db, thread.id)).toEqual(context);
+    await assertPromptHistoryForTurnRequest({
       db,
       threadId: thread.id,
       scope: "project",

@@ -1,3 +1,7 @@
+import {
+  projectPluginPackageJson,
+  projectSkillRoot,
+} from "../../v22-identity-projection.js";
 import { lstat, readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import semver from "semver";
@@ -80,7 +84,9 @@ export async function readPluginManifest(
 ): Promise<PluginManifest> {
   const packageJsonPath = join(rootDir, "package.json");
   const json = await readPluginPackageJsonFile(packageJsonPath);
-  const parsed = pluginPackageJsonSchema.safeParse(json);
+  const parsed = pluginPackageJsonSchema.safeParse(
+    projectPluginPackageJson(json, Object.keys(pluginPackageJsonSchema.shape)),
+  );
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const path = issue?.path.join(".") ?? "";
@@ -106,7 +112,9 @@ export async function readPluginManifest(
     ? await resolveManifestEntryFile(rootDir, bb.host, "bb.host")
     : undefined;
   const skillsRootPaths = (bb.skills ?? ["skills"]).map((entry) =>
-    resolveManifestPath(rootDir, entry.replace(/\/\*$/, ""), "bb.skills"),
+    projectSkillRoot(
+      resolveManifestPath(rootDir, entry.replace(/\/\*$/, ""), "bb.skills"),
+    ),
   );
   const resolveBrandingAsset = (entry: string, label: string): string => {
     if (!/\.(svg|png|webp)$/i.test(entry)) {
@@ -197,7 +205,11 @@ export async function readPluginManifest(
       id: theme.id,
       name: theme.name,
       description: theme.description ?? null,
-      cssPath: resolveManifestPath(rootDir, theme.css, `bb.themes.${theme.id}.css`),
+      cssPath: resolveManifestPath(
+        rootDir,
+        theme.css,
+        `bb.themes.${theme.id}.css`,
+      ),
       codeTheme,
       codeThemePaths,
     };
@@ -240,7 +252,9 @@ export async function readPluginManifest(
       ({ id, displayName }) => ({ id, displayName }),
     ),
     serverEntry,
-    appEntry: bb.app ? resolveManifestPath(rootDir, bb.app, "bb.app") : undefined,
+    appEntry: bb.app
+      ? resolveManifestPath(rootDir, bb.app, "bb.app")
+      : undefined,
     hostEntry,
     themes,
     skillsRootPaths,

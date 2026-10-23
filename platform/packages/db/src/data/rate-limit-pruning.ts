@@ -2,7 +2,7 @@ import { isBeforeLatestThreadEvent } from "./event-pruning-guards.js";
 import { sql } from "drizzle-orm";
 import type { DbQueryConnection } from "../connection.js";
 
-export function pruneRateLimitSnapshotWindow(
+export async function pruneRateLimitSnapshotWindow(
   db: DbQueryConnection,
   args: {
     threadId: string;
@@ -11,7 +11,7 @@ export function pruneRateLimitSnapshotWindow(
     limit: number;
   },
 ) {
-  const rows = db.all<{ id: string; sequence: number }>(sql`
+  const rows = await db.all<{ id: string; sequence: number }>(sql`
     SELECT id, sequence FROM events INDEXED BY events_thread_type_sequence_idx
     WHERE thread_id = ${args.threadId} AND type = 'provider/rateLimits/updated'
       AND sequence > ${args.afterSequence} AND sequence <= ${args.throughSequence}
@@ -20,7 +20,8 @@ export function pruneRateLimitSnapshotWindow(
   const removed =
     rows.length === 0
       ? 0
-      : db.run(sql`
+      : (
+          await db.run(sql`
     DELETE FROM events WHERE id IN (${sql.join(
       rows.map((row) => sql`${row.id}`),
       sql`, `,
@@ -29,7 +30,8 @@ export function pruneRateLimitSnapshotWindow(
       AND (EXISTS (SELECT 1 FROM threads WHERE id = ${args.threadId} AND archived_at IS NOT NULL)
         OR sequence < (SELECT sequence FROM events WHERE thread_id = ${args.threadId}
           AND type = 'provider/rateLimits/updated' ORDER BY sequence DESC LIMIT 1))
-  `).changes;
+  `)
+        ).changes;
   return {
     removed,
     scanned: rows.length,

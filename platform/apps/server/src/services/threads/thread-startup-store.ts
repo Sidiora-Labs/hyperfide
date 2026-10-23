@@ -88,19 +88,19 @@ const providerSchedules = new Map<
   }
 >();
 
-export function saveThreadProvisionContext(entry: {
+export async function saveThreadProvisionContext(entry: {
   db: DbConnection | DbTransaction;
   replace: boolean;
   context: ThreadProvisionContext;
   threadId: string;
-}): void {
+}): Promise<void> {
   if (
-    !persistThreadProvisionContext(
+    !(await persistThreadProvisionContext(
       entry.db,
       entry.threadId,
       entry.context,
       entry.replace,
-    )
+    ))
   )
     return;
   const existing = providerSchedules.get(entry.threadId);
@@ -135,17 +135,17 @@ export function clearAllThreadProvisionSchedules(): void {
     clearThreadProvisionSchedule(threadId);
 }
 
-export function getThreadProvisionContext(
+export async function getThreadProvisionContext(
   db: DbConnection | DbTransaction,
   threadId: string,
-): ThreadProvisionContext | null {
-  const thread = db
+): Promise<ThreadProvisionContext | null> {
+  const thread = await db
     .select({ status: threads.status })
     .from(threads)
     .where(eq(threads.id, threadId))
     .get();
   return thread?.status === "starting" || thread?.status === "stopping"
-    ? readThreadProvisionContext(db, threadId)
+    ? await readThreadProvisionContext(db, threadId)
     : null;
 }
 
@@ -156,42 +156,47 @@ export function listThreadProvisionSchedules() {
   }));
 }
 
-function persistThreadProvisionContext(
+async function persistThreadProvisionContext(
   db: DbConnection | DbTransaction,
   threadId: string,
   context: ThreadProvisionContext,
   replace: boolean,
-): boolean {
+): Promise<boolean> {
   const persisted = persistedThreadProvisionContextSchema.parse(context);
   return (
-    db
-      .update(threads)
-      .set({
-        startupContext: JSON.stringify({ kind: "provisioning", ...persisted }),
-      })
-      .where(
-        and(
-          eq(threads.id, threadId),
-          eq(threads.status, "starting"),
-          replace
-            ? undefined
-            : or(
-                isNull(threads.startupContext),
-                sql`json_extract(${threads.startupContext}, '$.kind') = 'provisioning' AND json_extract(${threads.startupContext}, '$.state.provisioningId') = ${context.state.provisioningId}`,
-              ),
-        ),
-      )
-      .run().changes > 0
+    (
+      await db
+        .update(threads)
+        .set({
+          startupContext: JSON.stringify({
+            kind: "provisioning",
+            ...persisted,
+          }),
+        })
+        .where(
+          and(
+            eq(threads.id, threadId),
+            eq(threads.status, "starting"),
+            replace
+              ? undefined
+              : or(
+                  isNull(threads.startupContext),
+                  sql`json_extract(${threads.startupContext}, '$.kind') = 'provisioning' AND json_extract(${threads.startupContext}, '$.state.provisioningId') = ${context.state.provisioningId}`,
+                ),
+          ),
+        )
+        .run()
+    ).changes > 0
   );
 }
 
-export function readThreadStartupContextOfKind<T>(
+export async function readThreadStartupContextOfKind<T>(
   db: DbConnection | DbTransaction,
   threadId: string,
   kind: "pending" | "provisioning",
   schema: z.ZodType<T>,
-): T | null {
-  const stored = getThreadStartupContext(db, threadId);
+): Promise<T | null> {
+  const stored = await getThreadStartupContext(db, threadId);
   if (stored === null) return null;
   const value: unknown = JSON.parse(stored);
   const header = z
@@ -201,11 +206,11 @@ export function readThreadStartupContextOfKind<T>(
   return schema.parse(value);
 }
 
-export function readThreadProvisionContext(
+export async function readThreadProvisionContext(
   db: DbConnection | DbTransaction,
   threadId: string,
-): ThreadProvisionContext | null {
-  return readThreadStartupContextOfKind(
+): Promise<ThreadProvisionContext | null> {
+  return await readThreadStartupContextOfKind(
     db,
     threadId,
     "provisioning",

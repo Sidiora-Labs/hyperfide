@@ -50,13 +50,17 @@ async function installPlugin(harness: TestAppHarness, id: string) {
   );
   const installed = await harness.pluginService.installPath(root);
   expect(installed.status).toBe("running");
-  const api = harness.pluginService.getApi(id);
+  const api = await harness.pluginService.getApi(id);
   if (!api) throw new Error("Plugin API was not loaded");
   return api;
 }
 
-function launch(harness: TestAppHarness, key: string, providerId: string) {
-  harness.db
+async function launch(
+  harness: TestAppHarness,
+  key: string,
+  providerId: string,
+) {
+  await harness.db
     .insert(hosts)
     .values({
       id: `host_${key}`,
@@ -81,7 +85,7 @@ describe("production machine enrollment wiring", () => {
     await withTestHarness(async (h) => {
       const api = await installPlugin(h, "resource-reader");
       const hostId = "resource-host";
-      h.db
+      await h.db
         .insert(hosts)
         .values({
           id: hostId,
@@ -96,7 +100,7 @@ describe("production machine enrollment wiring", () => {
       expect(await api.experimental_machines.getResource(hostId)).toEqual({
         sandboxId: "sandbox-existing",
       });
-      h.db
+      await h.db
         .update(hosts)
         .set({ resource: { sandboxId: null, snapshotImageId: "image-1" } })
         .where(eq(hosts.id, hostId))
@@ -105,7 +109,7 @@ describe("production machine enrollment wiring", () => {
         sandboxId: null,
         snapshotImageId: "image-1",
       });
-      h.db
+      await h.db
         .update(hosts)
         .set({ resource: null })
         .where(eq(hosts.id, hostId))
@@ -119,14 +123,14 @@ describe("production machine enrollment wiring", () => {
 
   it("reserves the launch host through the loaded plugin and reuses production connection state", async () => {
     await withTestHarness(async (h) => {
-      setAppSettings(h.db, {
+      await setAppSettings(h.db, {
         ...defaultAppSettings,
         defaultMachineAccess: "direct",
         machineServerUrl: "https://machine.example.test",
       });
       const api = await installPlugin(h, "enrollment-runtime");
-      launch(h, "runtime-launch", "enrollment-runtime-machine");
-      const enrollments = getMachineEnrollmentService(h.deps).forOwner(
+      await launch(h, "runtime-launch", "enrollment-runtime-machine");
+      const enrollments = await getMachineEnrollmentService(h.deps).forOwner(
         "enrollment-runtime",
       );
       const enrollment = await enrollments.prepare({
@@ -134,7 +138,7 @@ describe("production machine enrollment wiring", () => {
         key: "runtime-launch",
       });
       expect(
-        getNonDestroyedHostByLaunchKey(h.db, "runtime-launch"),
+        await getNonDestroyedHostByLaunchKey(h.db, "runtime-launch"),
       ).toMatchObject({
         id: enrollment.hostId,
         resource: { checkpoint: "preserve" },
@@ -174,7 +178,7 @@ describe("production machine enrollment wiring", () => {
             token: input.credential,
           }),
         ).not.toBeNull();
-        h.hub.registerDaemon("runtime-session", enrollment.hostId, {
+        await h.hub.registerDaemon("runtime-session", enrollment.hostId, {
           close() {},
           send() {},
         });
@@ -225,7 +229,7 @@ describe("production machine enrollment wiring", () => {
     await withTestHarness(async (h) => {
       const api = await installPlugin(h, "enrollment-runtime");
       await installPlugin(h, "enrollment-other");
-      const enrollments = getMachineEnrollmentService(h.deps).forOwner(
+      const enrollments = await getMachineEnrollmentService(h.deps).forOwner(
         "enrollment-runtime",
       );
       const otherEnrollments = getMachineEnrollmentService(h.deps).forOwner(
@@ -252,11 +256,11 @@ describe("production machine enrollment wiring", () => {
         acquire,
         release,
       });
-      setAppSettings(h.db, {
+      await setAppSettings(h.db, {
         ...defaultAppSettings,
         defaultMachineAccess: "runtime-access",
       });
-      launch(h, "failure-launch", "enrollment-runtime-machine");
+      await launch(h, "failure-launch", "enrollment-runtime-machine");
       await expect(
         otherEnrollments.prepare({
           signal: new AbortController().signal,
@@ -273,11 +277,14 @@ describe("production machine enrollment wiring", () => {
           key: "failure-launch",
         }),
       ).rejects.toThrow();
-      const reserved = getNonDestroyedHostByLaunchKey(h.db, "failure-launch");
+      const reserved = await getNonDestroyedHostByLaunchKey(
+        h.db,
+        "failure-launch",
+      );
       expect(reserved?.id).toBeTruthy();
       expect(reserved?.resource).toEqual({ checkpoint: "preserve" });
       expect(
-        listPublicHosts(h.db, { includeCreating: true }).find(
+        (await listPublicHosts(h.db, { includeCreating: true })).find(
           (host) => host.id === reserved?.id,
         )?.statusMessage,
       ).toBe("Cloud device may need dashboard revocation");
@@ -287,7 +294,7 @@ describe("production machine enrollment wiring", () => {
       });
       expect(enrollment.hostId).toBe(reserved?.id);
       expect(
-        listPublicHosts(h.db).some((host) => host.id === reserved?.id),
+        (await listPublicHosts(h.db)).some((host) => host.id === reserved?.id),
       ).toBe(false);
       await serverAccess.release(h.deps, {
         hostId: enrollment.hostId,
@@ -299,11 +306,13 @@ describe("production machine enrollment wiring", () => {
         hostId: enrollment.hostId,
       });
       expect(
-        h.db
-          .select({ providerId: hosts.serverAccessProviderId })
-          .from(hosts)
-          .where(eq(hosts.id, enrollment.hostId))
-          .get()?.providerId,
+        (
+          await h.db
+            .select({ providerId: hosts.serverAccessProviderId })
+            .from(hosts)
+            .where(eq(hosts.id, enrollment.hostId))
+            .get()
+        )?.providerId,
       ).toBeNull();
       await expect(
         enrollments.prepare({
@@ -322,7 +331,11 @@ it("serves a composition's explicit icon instead of the machine provider's icon"
     const svg =
       '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1z"/></svg>';
     await writeFile(
-      join(h.config.dataDir, "hyperfide-plugin-icon-runtime", "composition.svg"),
+      join(
+        h.config.dataDir,
+        "hyperfide-plugin-icon-runtime",
+        "composition.svg",
+      ),
       svg,
     );
     api.experimental_environments.register({

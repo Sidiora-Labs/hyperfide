@@ -7,8 +7,8 @@ import { withHarness } from "../../helpers/harness.js";
 import { DEFAULT_TIMEOUT_MS } from "./shared.js";
 
 describe.sequential("custom provider models integration", () => {
-  it("offers config-registered custom models after a config reload", () =>
-    withHarness(async (harness) => {
+  it("offers config-registered custom models after a config reload", async () =>
+    await withHarness(async (harness) => {
       await waitForHostConnected(harness.api, DEFAULT_TIMEOUT_MS);
 
       await fs.writeFile(

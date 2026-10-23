@@ -524,22 +524,22 @@ function randomSessionRows(state: SessionState, random: Random): RowSpec[] {
   ];
 }
 
-function expectWarmEqualsCold(
+async function expectWarmEqualsCold(
   testThread: TestThread,
   args: BuildArgs,
   label: string,
-): BuiltTimelinePage {
-  const build = (db: TestThread["db"]) =>
-    buildRouteTimelinePage({
+): Promise<BuiltTimelinePage> {
+  const build = async (db: TestThread["db"]) =>
+    await buildRouteTimelinePage({
       ...args,
       db,
       registry,
       thread: testThread.thread,
     });
-  const warm = build(testThread.db);
+  const warm = await build(testThread.db);
   clearCrossBuildTimelineCaches(testThread.coldDb);
   clearTimelineOrderingContextCache(testThread.coldDb);
-  const cold = build(testThread.coldDb);
+  const cold = await build(testThread.coldDb);
   expect(selectionWasReused(cold.profile)).toBe(false);
   expect(JSON.stringify(warm.response), label).toBe(
     JSON.stringify(cold.response),
@@ -553,18 +553,18 @@ function expectWarmEqualsCold(
   return warm;
 }
 
-function walkOlderPages(
+async function walkOlderPages(
   testThread: TestThread,
   latest: BuiltTimelinePage,
   args: BuildArgs,
   label: string,
-): void {
+): Promise<void> {
   let page = latest;
   for (let depth = 0; depth < 10; depth += 1) {
     const cursor = page.response.timelinePage.olderCursor;
     if (page.response.timelinePage.olderCursor === null || cursor === null)
       return;
-    page = expectWarmEqualsCold(
+    page = await expectWarmEqualsCold(
       testThread,
       {
         ...args,
@@ -643,10 +643,11 @@ function planStepsRow(turnId: string, id: string, step: string): RowSpec {
   });
 }
 
-function pruneUsageSnapshots(testThread: TestThread): void {
+async function pruneUsageSnapshots(testThread: TestThread): Promise<void> {
   for (let pass = 0; pass < 100; pass += 1) {
     if (
-      advanceThreadPruning(testThread.db, "usage").action === "cycle-complete"
+      (await advanceThreadPruning(testThread.db, "usage")).action ===
+      "cycle-complete"
     )
       return;
   }
@@ -654,21 +655,21 @@ function pruneUsageSnapshots(testThread: TestThread): void {
 }
 
 describe("latest timeline selection memo", () => {
-  it("matches a cold build over randomized streaming, out-of-order deltas, rewrites, prunes and context clears", () => {
+  it("matches a cold build over randomized streaming, out-of-order deltas, rewrites, prunes and context clears", async () => {
     let reused = 0;
     let rebuilt = 0;
     for (let seed = 1; seed <= SEEDS; seed += 1) {
       const random = createRandom(seed);
-      withTestThread((testThread) => {
+      await withTestThread(async (testThread) => {
         const state = initialState();
         for (let step = 0; step < STEPS; step += 1) {
           const roll = random();
-          const latest = getLatestThreadSequence(testThread.db, {
+          const latest = await getLatestThreadSequence(testThread.db, {
             threadId: testThread.thread.id,
           });
           if (step > 8 && roll < 0.05) {
-            testThread.db.transaction((tx) => {
-              deleteThreadEventSuffixInTransaction(tx, {
+            await testThread.db.transaction(async (tx) => {
+              await deleteThreadEventSuffixInTransaction(tx, {
                 cutoffSequence: Math.max(1, latest - Math.floor(random() * 3)),
                 oldMaxSequence: latest,
                 threadId: testThread.thread.id,
@@ -682,17 +683,17 @@ describe("latest timeline selection memo", () => {
               turnCounter: state.turnCounter,
             });
           } else if (step > 8 && roll < 0.1) {
-            pruneThreadEventHistory(
+            await pruneThreadEventHistory(
               { db: testThread.db },
               { mode: "active", threadId: testThread.thread.id },
             );
-            pruneUsageSnapshots(testThread);
+            await pruneUsageSnapshots(testThread);
           } else {
-            append(testThread, randomSessionRows(state, random));
+            await append(testThread, randomSessionRows(state, random));
           }
           const label = JSON.stringify({ seed, step });
           const includeDiagnosticOperations = random() < 0.2;
-          const warm = expectWarmEqualsCold(
+          const warm = await expectWarmEqualsCold(
             testThread,
             latestArgs("default", includeDiagnosticOperations),
             label,
@@ -702,13 +703,13 @@ describe("latest timeline selection memo", () => {
           } else {
             rebuilt += 1;
           }
-          expectWarmEqualsCold(
+          await expectWarmEqualsCold(
             testThread,
             latestArgs("nested", includeDiagnosticOperations),
             `${label} nested`,
           );
           if (step % 10 === 9) {
-            walkOlderPages(
+            await walkOlderPages(
               testThread,
               warm,
               latestArgs("default", includeDiagnosticOperations),
@@ -720,33 +721,33 @@ describe("latest timeline selection memo", () => {
     }
     expect(reused).toBeGreaterThan(SEEDS * 10);
     expect(rebuilt).toBeGreaterThan(SEEDS * 15);
-  }, 120_000);
+  }, /^postgres(?:ql)?:/.test(process.env.HYPERFIDE_DATABASE_URL ?? "") ? 300_000 : 120_000);
 
-  it("reuses the selection for root deltas and rebuilds for lifecycle rows", () => {
-    withTestThread((testThread) => {
+  it("reuses the selection for root deltas and rebuilds for lifecycle rows", async () => {
+    await withTestThread(async (testThread) => {
       const args = latestArgs("default");
-      append(testThread, [
+      await append(testThread, [
         ...startTurn(initialState()),
         messageStarted("turn-1", "message-1"),
       ]);
-      const initial = expectWarmEqualsCold(testThread, args, "initial");
+      const initial = await expectWarmEqualsCold(testThread, args, "initial");
       expect(selectionWasReused(initial.profile)).toBe(false);
 
-      append(testThread, [
+      await append(testThread, [
         messageDelta("turn-1", "message-1", "Hello"),
         messageDelta("turn-1", "message-1", " world\n"),
         contextUsage("turn-1", 12),
       ]);
-      const delta = expectWarmEqualsCold(testThread, args, "delta");
+      const delta = await expectWarmEqualsCold(testThread, args, "delta");
       expect(selectionWasReused(delta.profile)).toBe(true);
-      const nested = expectWarmEqualsCold(
+      const nested = await expectWarmEqualsCold(
         testThread,
         latestArgs("nested"),
         "nested at the same sequence",
       );
       expect(selectionWasReused(nested.profile)).toBe(true);
 
-      append(testThread, [
+      await append(testThread, [
         itemRow("item/started", "turn-1", {
           approvalStatus: null,
           command: "ls",
@@ -756,10 +757,14 @@ describe("latest timeline selection memo", () => {
           type: "commandExecution",
         }),
       ]);
-      const lifecycle = expectWarmEqualsCold(testThread, args, "lifecycle");
+      const lifecycle = await expectWarmEqualsCold(
+        testThread,
+        args,
+        "lifecycle",
+      );
       expect(selectionWasReused(lifecycle.profile)).toBe(false);
 
-      append(testThread, [
+      await append(testThread, [
         deltaRow(
           "item/commandExecution/outputDelta",
           "turn-1",
@@ -767,25 +772,29 @@ describe("latest timeline selection memo", () => {
           "file\n",
         ),
       ]);
-      const outputDelta = expectWarmEqualsCold(testThread, args, "output");
+      const outputDelta = await expectWarmEqualsCold(
+        testThread,
+        args,
+        "output",
+      );
       expect(selectionWasReused(outputDelta.profile)).toBe(true);
 
-      append(testThread, [
+      await append(testThread, [
         {
           ...messageDelta("turn-1", "message-1", "nested"),
           parentToolCallId: "agent-1",
         },
       ]);
-      const parented = expectWarmEqualsCold(testThread, args, "parented");
+      const parented = await expectWarmEqualsCold(testThread, args, "parented");
       expect(selectionWasReused(parented.profile)).toBe(false);
     });
   });
 
-  it("rebuilds when a root delta arrives for an earlier turn outside the latest window", () => {
-    withTestThread((testThread) => {
+  it("rebuilds when a root delta arrives for an earlier turn outside the latest window", async () => {
+    await withTestThread(async (testThread) => {
       const state = initialState();
       const args = latestArgs("default");
-      append(testThread, [
+      await append(testThread, [
         ...startTurn(state),
         messageStarted("turn-1", "message-1"),
         messageDelta("turn-1", "message-1", "old\n"),
@@ -797,16 +806,18 @@ describe("latest timeline selection memo", () => {
           messageDelta("turn-2", "message-2", `w${index}\n`),
         ),
       ]);
-      const before = expectWarmEqualsCold(testThread, args, "before");
+      const before = await expectWarmEqualsCold(testThread, args, "before");
       expect(before.response.timelinePage.returnedSegmentCount).toBe(1);
-      append(testThread, [messageDelta("turn-2", "message-2", "tick\n")]);
-      const tick = expectWarmEqualsCold(testThread, args, "tick");
+      await append(testThread, [messageDelta("turn-2", "message-2", "tick\n")]);
+      const tick = await expectWarmEqualsCold(testThread, args, "tick");
       expect(selectionWasReused(tick.profile)).toBe(true);
 
-      append(testThread, [messageDelta("turn-1", "message-1", " late\n")]);
-      const late = expectWarmEqualsCold(testThread, args, "late delta");
+      await append(testThread, [
+        messageDelta("turn-1", "message-1", " late\n"),
+      ]);
+      const late = await expectWarmEqualsCold(testThread, args, "late delta");
       expect(selectionWasReused(late.profile)).toBe(false);
-      append(testThread, [
+      await append(testThread, [
         deltaRow(
           "item/commandExecution/outputDelta",
           "turn-1",
@@ -814,7 +825,7 @@ describe("latest timeline selection memo", () => {
           "late output\n",
         ),
       ]);
-      const fetchedLate = expectWarmEqualsCold(
+      const fetchedLate = await expectWarmEqualsCold(
         testThread,
         args,
         "late delta for a fetched turn",
@@ -823,35 +834,43 @@ describe("latest timeline selection memo", () => {
     });
   });
 
-  it("rebuilds when deltas arrive before their turn/started", () => {
-    withTestThread((testThread) => {
+  it("rebuilds when deltas arrive before their turn/started", async () => {
+    await withTestThread(async (testThread) => {
       const args = latestArgs("default");
-      append(testThread, [
+      await append(testThread, [
         ...startTurn(initialState()),
         messageStarted("turn-1", "message-1"),
         messageDelta("turn-1", "message-1", "one\n"),
       ]);
-      expectWarmEqualsCold(testThread, args, "initial");
-      append(testThread, [messageDelta("turn-1", "message-1", "two\n")]);
-      const tick = expectWarmEqualsCold(testThread, args, "tick");
+      await expectWarmEqualsCold(testThread, args, "initial");
+      await append(testThread, [messageDelta("turn-1", "message-1", "two\n")]);
+      const tick = await expectWarmEqualsCold(testThread, args, "tick");
       expect(selectionWasReused(tick.profile)).toBe(true);
 
-      append(testThread, [messageDelta("turn-2", "message-9", "early\n")]);
-      const early = expectWarmEqualsCold(testThread, args, "early delta");
+      await append(testThread, [
+        messageDelta("turn-2", "message-9", "early\n"),
+      ]);
+      const early = await expectWarmEqualsCold(testThread, args, "early delta");
       expect(selectionWasReused(early.profile)).toBe(false);
-      append(testThread, [messageDelta("turn-2", "message-9", "again\n")]);
-      const earlyAgain = expectWarmEqualsCold(testThread, args, "early again");
+      await append(testThread, [
+        messageDelta("turn-2", "message-9", "again\n"),
+      ]);
+      const earlyAgain = await expectWarmEqualsCold(
+        testThread,
+        args,
+        "early again",
+      );
       expect(selectionWasReused(earlyAgain.profile)).toBe(false);
 
-      append(testThread, [{ turnId: "turn-2", type: "turn/started" }]);
-      expectWarmEqualsCold(testThread, args, "late started");
+      await append(testThread, [{ turnId: "turn-2", type: "turn/started" }]);
+      await expectWarmEqualsCold(testThread, args, "late started");
     });
   });
 
-  it("rebuilds a snapshot below the head without leaking later head state, and reuses at the head", () => {
-    withTestThread((testThread) => {
+  it("rebuilds a snapshot below the head without leaking later head state, and reuses at the head", async () => {
+    await withTestThread(async (testThread) => {
       const state = initialState();
-      append(testThread, [
+      await append(testThread, [
         ...startTurn(state),
         goalRow(testThread.thread.id, "first goal"),
         planStepsRow("turn-1", "plan-1", "Ship it"),
@@ -868,7 +887,7 @@ describe("latest timeline selection memo", () => {
         messageStarted("turn-2", "message-2"),
         messageDelta("turn-2", "message-2", "two\n"),
       ]);
-      const initial = expectWarmEqualsCold(
+      const initial = await expectWarmEqualsCold(
         testThread,
         singleSegmentArgs,
         "initial",
@@ -883,15 +902,15 @@ describe("latest timeline selection memo", () => {
         workflows: ["task:wf-1"],
       });
 
-      const laggingSeq = append(testThread, [
+      const laggingSeq = await append(testThread, [
         messageDelta("turn-2", "message-2", "three\n"),
       ]);
-      append(testThread, [
+      await append(testThread, [
         goalRow(testThread.thread.id, "second goal"),
         planStepsRow("turn-2", "plan-2", "Ship again"),
         workflowTaskUpdate("task:wf-1", true),
       ]);
-      const lagging = expectWarmEqualsCold(
+      const lagging = await expectWarmEqualsCold(
         testThread,
         { ...singleSegmentArgs, maxSeq: laggingSeq },
         "lagging snapshot",
@@ -909,23 +928,33 @@ describe("latest timeline selection memo", () => {
         pendingTodos: null,
       });
 
-      expectWarmEqualsCold(testThread, singleSegmentArgs, "head snapshot");
-      append(testThread, [messageDelta("turn-2", "message-2", "four\n")]);
-      const head = expectWarmEqualsCold(testThread, singleSegmentArgs, "head");
+      await expectWarmEqualsCold(
+        testThread,
+        singleSegmentArgs,
+        "head snapshot",
+      );
+      await append(testThread, [messageDelta("turn-2", "message-2", "four\n")]);
+      const head = await expectWarmEqualsCold(
+        testThread,
+        singleSegmentArgs,
+        "head",
+      );
       expect(selectionWasReused(head.profile)).toBe(true);
     });
   });
 
-  it("rebuilds and reorders rows when a parented excluded row extends a delegating span past a user request", () => {
-    withTestThread((testThread) => {
+  it("rebuilds and reorders rows when a parented excluded row extends a delegating span past a user request", async () => {
+    await withTestThread(async (testThread) => {
       const state = initialState();
       const args = latestArgs("default");
-      const boundary = (maxSeq: number) =>
-        getTimelineGroupingContext(testThread.coldDb, {
-          maxSeq,
-          sequenceStart: 0,
-          threadId: testThread.thread.id,
-        }).orderingBoundarySequence;
+      const boundary = async (maxSeq: number) =>
+        (
+          await getTimelineGroupingContext(testThread.coldDb, {
+            maxSeq,
+            sequenceStart: 0,
+            threadId: testThread.thread.id,
+          })
+        ).orderingBoundarySequence;
       const rowStarts = (page: BuiltTimelinePage) =>
         page.response.rows.map((row) => row.sourceSeqStart);
       const message = (id: string) =>
@@ -934,30 +963,30 @@ describe("latest timeline selection memo", () => {
           text: id,
           type: "agentMessage",
         });
-      const steerSeq = append(testThread, [
+      const steerSeq = await append(testThread, [
         ...startTurn(state),
         agentToolCall("item/started", "turn-1", "agent-1"),
         userRequest(2, { kind: "new-turn" }, "Steer"),
       ]);
-      const requestSeq = append(testThread, [
+      const requestSeq = await append(testThread, [
         acceptedInput(2, "turn-1"),
         message("message-1"),
         agentToolCall("item/started", "turn-1", "agent-2"),
         userRequest(3, { kind: "new-turn" }, "Queued"),
       ]);
-      const beforeSeq = append(testThread, [
+      const beforeSeq = await append(testThread, [
         message("message-2"),
         completeTurn(state, "turn-1"),
       ]);
-      const before = expectWarmEqualsCold(testThread, args, "before");
-      expect(boundary(beforeSeq)).toBe(requestSeq);
+      const before = await expectWarmEqualsCold(testThread, args, "before");
+      expect(await boundary(beforeSeq)).toBe(requestSeq);
       expect(rowStarts(before)).toEqual([1, 4, 5, 8, 7, 9, 10]);
 
-      const maxSeq = append(testThread, [
+      const maxSeq = await append(testThread, [
         contextUsage("turn-1", 42, "agent-1"),
       ]);
-      const after = expectWarmEqualsCold(testThread, args, "after");
-      expect(boundary(maxSeq)).toBe(steerSeq);
+      const after = await expectWarmEqualsCold(testThread, args, "after");
+      expect(await boundary(maxSeq)).toBe(steerSeq);
       expect(rowStarts(after)).toEqual([1, 4, 5, 7, 8, 9, 10]);
       expect(selectionWasReused(after.profile)).toBe(false);
     });
@@ -968,15 +997,15 @@ describe("latest timeline selection memo", () => {
     { itemId: "agent-1", itemKind: "toolCall" },
   ] as const)(
     "rebuilds for a delta row whose item kind is $itemKind",
-    (testCase) => {
-      withTestThread((testThread) => {
+    async (testCase) => {
+      await withTestThread(async (testThread) => {
         const args = latestArgs("default");
-        append(testThread, [
+        await append(testThread, [
           ...startTurn(initialState()),
           messageStarted("turn-1", "message-1"),
         ]);
-        expectWarmEqualsCold(testThread, args, "before");
-        append(testThread, [
+        await expectWarmEqualsCold(testThread, args, "before");
+        await append(testThread, [
           {
             data: { itemId: testCase.itemId, message: "working" },
             itemId: testCase.itemId,
@@ -985,29 +1014,39 @@ describe("latest timeline selection memo", () => {
             type: "item/toolCall/progress",
           },
         ]);
-        const after = expectWarmEqualsCold(testThread, args, "after");
+        const after = await expectWarmEqualsCold(testThread, args, "after");
         expect(selectionWasReused(after.profile)).toBe(false);
       });
     },
   );
 
-  it("rebuilds when appended deltas move the budget floor past an anchor", () => {
-    withTestThread((testThread) => {
+  it("rebuilds when appended deltas move the budget floor past an anchor", async () => {
+    await withTestThread(async (testThread) => {
       const state = initialState();
       const args = latestArgs("default");
-      append(testThread, [
+      await append(testThread, [
         ...startTurn(state),
         completeTurn(state, "turn-1"),
         ...startTurn(state),
         messageStarted("turn-2", "message-2"),
       ]);
-      const before = expectWarmEqualsCold(testThread, args, "before floor");
+      const before = await expectWarmEqualsCold(
+        testThread,
+        args,
+        "before floor",
+      );
       expect(before.response.timelinePage.returnedSegmentCount).toBe(2);
 
       let crossed = false;
       for (let index = 0; index < 20 && !crossed; index += 1) {
-        append(testThread, [messageDelta("turn-2", "message-2", "word ")]);
-        const page = expectWarmEqualsCold(testThread, args, `delta ${index}`);
+        await append(testThread, [
+          messageDelta("turn-2", "message-2", "word "),
+        ]);
+        const page = await expectWarmEqualsCold(
+          testThread,
+          args,
+          `delta ${index}`,
+        );
         crossed = page.response.timelinePage.returnedSegmentCount === 1;
         if (crossed) {
           expect(selectionWasReused(page.profile)).toBe(false);
@@ -1020,75 +1059,89 @@ describe("latest timeline selection memo", () => {
   it.each([
     {
       name: "resolved deltas are pruned",
-      rewrite: (testThread: TestThread) =>
-        advanceThreadPruning(testThread.db, "resolved-items").removed,
+      rewrite: async (testThread: TestThread) =>
+        (await advanceThreadPruning(testThread.db, "resolved-items")).removed,
     },
     {
       name: "another connection deletes a delta",
-      rewrite: (testThread: TestThread, sequence: number) =>
-        testThread.coldDb.$client
-          .prepare("DELETE FROM events WHERE thread_id = ? AND sequence = ?")
-          .run(testThread.thread.id, sequence).changes,
+      rewrite: async (testThread: TestThread, sequence: number) =>
+        (
+          await testThread.coldDb.$client
+            .prepare("DELETE FROM events WHERE thread_id = ? AND sequence = ?")
+            .run(testThread.thread.id, sequence)
+        ).changes,
     },
-  ])("rebuilds after $name", ({ rewrite }) => {
-    withTestThread((testThread) => {
+  ])("rebuilds after $name", async ({ rewrite }) => {
+    await withTestThread(async (testThread) => {
       const args = latestArgs("nested");
-      append(testThread, [
+      await append(testThread, [
         ...startTurn(initialState()),
         messageStarted("turn-1", "message-1"),
         messageStarted("turn-1", "message-2"),
         messageDelta("turn-1", "message-1", "one\n"),
       ]);
-      const deletedSeq = append(testThread, [
+      const deletedSeq = await append(testThread, [
         messageDelta("turn-1", "message-1", "two\n"),
       ]);
-      append(testThread, [
+      await append(testThread, [
         itemRow("item/completed", "turn-1", {
           id: "message-1",
           text: "one\ntwo\n",
           type: "agentMessage",
         }),
       ]);
-      expectWarmEqualsCold(testThread, args, "completed");
+      await expectWarmEqualsCold(testThread, args, "completed");
 
-      expect(rewrite(testThread, deletedSeq)).toBe(1);
-      append(testThread, [messageDelta("turn-1", "message-2", "three")]);
-      const rewritten = expectWarmEqualsCold(testThread, args, "rewritten");
+      expect(await rewrite(testThread, deletedSeq)).toBe(1);
+      await append(testThread, [messageDelta("turn-1", "message-2", "three")]);
+      const rewritten = await expectWarmEqualsCold(
+        testThread,
+        args,
+        "rewritten",
+      );
       expect(selectionWasReused(rewritten.profile)).toBe(false);
     });
   });
 
-  it("builds cold for idle threads and forgets a thread once it stops being active", () => {
-    withTestThread((testThread) => {
-      append(testThread, [
+  it("builds cold for idle threads and forgets a thread once it stops being active", async () => {
+    await withTestThread(async (testThread) => {
+      await append(testThread, [
         ...startTurn(initialState()),
         messageStarted("turn-1", "message-1"),
       ]);
-      expectWarmEqualsCold(testThread, latestArgs("default"), "active");
+      await expectWarmEqualsCold(testThread, latestArgs("default"), "active");
       expect(countTimelineSelectionMemoEntries(testThread.db)).toBe(1);
 
       const idle: TestThread = {
         ...testThread,
         thread: { ...testThread.thread, status: "idle" },
       };
-      append(idle, [messageDelta("turn-1", "message-1", "word")]);
-      const page = expectWarmEqualsCold(idle, latestArgs("default"), "idle");
+      await append(idle, [messageDelta("turn-1", "message-1", "word")]);
+      const page = await expectWarmEqualsCold(
+        idle,
+        latestArgs("default"),
+        "idle",
+      );
       expect(selectionWasReused(page.profile)).toBe(false);
       expect(countTimelineSelectionMemoEntries(idle.db)).toBe(0);
     });
   });
 
-  it("keeps one entry per thread across a context clear", () => {
-    withTestThread((testThread) => {
+  it("keeps one entry per thread across a context clear", async () => {
+    await withTestThread(async (testThread) => {
       const state = initialState();
-      append(testThread, startTurn(state));
-      expectWarmEqualsCold(testThread, latestArgs("default"), "first epoch");
-      append(testThread, [
+      await append(testThread, startTurn(state));
+      await expectWarmEqualsCold(
+        testThread,
+        latestArgs("default"),
+        "first epoch",
+      );
+      await append(testThread, [
         completeTurn(state, "turn-1"),
         contextClear("clear-1"),
         ...startTurn(state),
       ]);
-      const second = expectWarmEqualsCold(
+      const second = await expectWarmEqualsCold(
         testThread,
         latestArgs("default"),
         "second epoch",
@@ -1098,20 +1151,20 @@ describe("latest timeline selection memo", () => {
     });
   });
 
-  it("bounds the memo to its entry cap across threads", () => {
-    withTestThread((testThread) => {
+  it("bounds the memo to its entry cap across threads", async () => {
+    await withTestThread(async (testThread) => {
       for (
         let index = 0;
         index < TIMELINE_SELECTION_MEMO_MAX_ENTRIES + 4;
         index += 1
       ) {
-        const thread = createThread(testThread.db, noopNotifier, {
+        const thread = await createThread(testThread.db, noopNotifier, {
           projectId: testThread.projectId,
           providerId: "codex",
           status: "active",
         });
-        append({ db: testThread.db, thread }, startTurn(initialState()));
-        buildRouteTimelinePage({
+        await append({ db: testThread.db, thread }, startTurn(initialState()));
+        await buildRouteTimelinePage({
           ...latestArgs("default"),
           db: testThread.db,
           registry,

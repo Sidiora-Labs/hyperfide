@@ -19,10 +19,10 @@ import { createMockHubSocket } from "../helpers/mock-hub-socket.js";
 import { seedHostSession } from "../helpers/seed.js";
 import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
 
-function connectDaemon(harness: TestAppHarness) {
-  const { host, session } = seedHostSession(harness.deps);
+async function connectDaemon(harness: TestAppHarness) {
+  const { host, session } = await seedHostSession(harness.deps);
   const socket = createMockHubSocket();
-  harness.hub.registerDaemon(session.id, host.id, socket);
+  await harness.hub.registerDaemon(session.id, host.id, socket);
   return { hostId: host.id, sessionId: session.id, socket };
 }
 
@@ -32,101 +32,117 @@ describe("daemon liveness checks", () => {
     vi.restoreAllMocks();
   });
 
-  it("bounds liveness writes during message bursts while renewing heartbeats and rejecting closed sessions", async () => {
-    await withTestHarness(async (harness) => {
-      const daemon = connectDaemon(harness);
-      const session = getSessionById(harness.db, {
-        sessionId: daemon.sessionId,
-      })!;
-      const now = vi.spyOn(Date, "now").mockReturnValue(session.updatedAt + 1);
-      const changes = () =>
-        harness.db.$client
-          .prepare<[], { count: number }>("SELECT total_changes() AS count")
-          .get()!.count;
-      const send = (type: "heartbeat" | "host-rpc.response") =>
-        feedRawDaemonWebSocketMessage({
-          harness,
-          hostId: daemon.hostId,
+  it.skipIf(/^postgres(?:ql)?:/.test(process.env.HYPERFIDE_DATABASE_URL ?? ""))(
+    "bounds liveness writes during message bursts while renewing heartbeats and rejecting closed sessions (SQLite total_changes counter)",
+    async () => {
+      await withTestHarness(async (harness) => {
+        const daemon = await connectDaemon(harness);
+        const session = (await getSessionById(harness.db, {
           sessionId: daemon.sessionId,
-          socket: daemon.socket,
-          rawMessage:
-            type === "heartbeat"
-              ? { type }
-              : {
-                  type,
-                  requestId: "finished-request",
-                  commandType: "host.list_files",
-                  ok: true,
-                  result: { files: [], truncated: false },
-                },
+        }))!;
+        const now = vi
+          .spyOn(Date, "now")
+          .mockReturnValue(session.updatedAt + 1);
+        const changes = async () =>
+          (await harness.db.$client
+            .prepare<[], { count: number }>("SELECT total_changes() AS count")
+            .get())!.count;
+        const send = async (type: "heartbeat" | "host-rpc.response") =>
+          await feedRawDaemonWebSocketMessage({
+            harness,
+            hostId: daemon.hostId,
+            sessionId: daemon.sessionId,
+            socket: daemon.socket,
+            rawMessage:
+              type === "heartbeat"
+                ? { type }
+                : {
+                    type,
+                    requestId: "finished-request",
+                    commandType: "host.list_files",
+                    ok: true,
+                    result: { files: [], truncated: false },
+                  },
+          });
+        const before = await changes();
+        for (let index = 0; index < 100; index += 1)
+          await send("host-rpc.response");
+        expect((await changes()) - before).toBeLessThanOrEqual(2);
+        expect(daemon.socket.closed).toEqual([]);
+
+        now.mockReturnValue(session.updatedAt + HEARTBEAT_INTERVAL_MS);
+        await send("host-rpc.response");
+        const renewed = (await getSessionById(harness.db, {
+          sessionId: daemon.sessionId,
+        }))!;
+        expect(renewed.leaseExpiresAt).toBe(Date.now() + LEASE_TIMEOUT_MS);
+
+        now.mockReturnValue(Date.now() + 1);
+        await send("heartbeat");
+        expect(
+          (await getSessionById(harness.db, { sessionId: daemon.sessionId }))!
+            .leaseExpiresAt,
+        ).toBe(Date.now() + LEASE_TIMEOUT_MS);
+        expect(
+          daemon.socket.messages.map((message) => JSON.parse(message)),
+        ).toContainEqual({ type: "heartbeat-ack" });
+
+        await harness.db
+          .update(hostDaemonSessions)
+          .set({ leaseExpiresAt: Date.now() + 1 })
+          .where(eq(hostDaemonSessions.id, daemon.sessionId))
+          .run();
+        await send("host-rpc.response");
+        expect(
+          (await getSessionById(harness.db, { sessionId: daemon.sessionId }))!
+            .leaseExpiresAt,
+        ).toBe(Date.now() + LEASE_TIMEOUT_MS);
+
+        const beforeClockChange = (await getSessionById(harness.db, {
+          sessionId: daemon.sessionId,
+        }))!;
+        now.mockReturnValue(Date.now() - 100);
+        await send("host-rpc.response");
+        expect(
+          await getSessionById(harness.db, { sessionId: daemon.sessionId }),
+        ).toMatchObject({
+          updatedAt: Date.now(),
+          leaseExpiresAt: beforeClockChange.leaseExpiresAt + 1,
         });
-      const before = changes();
-      for (let index = 0; index < 100; index += 1) send("host-rpc.response");
-      expect(changes() - before).toBeLessThanOrEqual(2);
-      expect(daemon.socket.closed).toEqual([]);
 
-      now.mockReturnValue(session.updatedAt + HEARTBEAT_INTERVAL_MS);
-      send("host-rpc.response");
-      const renewed = getSessionById(harness.db, {
-        sessionId: daemon.sessionId,
-      })!;
-      expect(renewed.leaseExpiresAt).toBe(Date.now() + LEASE_TIMEOUT_MS);
-
-      now.mockReturnValue(Date.now() + 1);
-      send("heartbeat");
-      expect(
-        getSessionById(harness.db, { sessionId: daemon.sessionId })!
-          .leaseExpiresAt,
-      ).toBe(Date.now() + LEASE_TIMEOUT_MS);
-      expect(
-        daemon.socket.messages.map((message) => JSON.parse(message)),
-      ).toContainEqual({ type: "heartbeat-ack" });
-
-      harness.db
-        .update(hostDaemonSessions)
-        .set({ leaseExpiresAt: Date.now() + 1 })
-        .where(eq(hostDaemonSessions.id, daemon.sessionId))
-        .run();
-      send("host-rpc.response");
-      expect(
-        getSessionById(harness.db, { sessionId: daemon.sessionId })!
-          .leaseExpiresAt,
-      ).toBe(Date.now() + LEASE_TIMEOUT_MS);
-
-      const beforeClockChange = getSessionById(harness.db, {
-        sessionId: daemon.sessionId,
-      })!;
-      now.mockReturnValue(Date.now() - 100);
-      send("host-rpc.response");
-      expect(
-        getSessionById(harness.db, { sessionId: daemon.sessionId }),
-      ).toMatchObject({
-        updatedAt: Date.now(),
-        leaseExpiresAt: beforeClockChange.leaseExpiresAt + 1,
+        await closeSession(
+          harness.db,
+          noopNotifier,
+          daemon.sessionId,
+          "replaced",
+        );
+        const closed = await getSessionById(harness.db, {
+          sessionId: daemon.sessionId,
+        });
+        await send("host-rpc.response");
+        expect(
+          await getSessionById(harness.db, { sessionId: daemon.sessionId }),
+        ).toEqual(closed);
+        expect(daemon.socket.closed.length).toBeGreaterThan(0);
       });
-
-      closeSession(harness.db, noopNotifier, daemon.sessionId, "replaced");
-      const closed = getSessionById(harness.db, {
-        sessionId: daemon.sessionId,
-      });
-      send("host-rpc.response");
-      expect(
-        getSessionById(harness.db, { sessionId: daemon.sessionId }),
-      ).toEqual(closed);
-      expect(daemon.socket.closed.length).toBeGreaterThan(0);
-    });
-  });
+    },
+  );
 
   it("closes a daemon socket that sends nothing for the lease timeout", async () => {
     await withTestHarness(async (harness) => {
-      const daemon = connectDaemon(harness);
+      const daemon = await connectDaemon(harness);
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
       const stop = startDaemonLivenessChecks(harness.deps);
       try {
-        vi.advanceTimersByTime(LEASE_TIMEOUT_MS);
+        await vi.advanceTimersByTimeAsync(LEASE_TIMEOUT_MS);
         expect(harness.hub.hasDaemonForHost(daemon.hostId)).toBe(true);
 
-        vi.advanceTimersByTime(HEARTBEAT_INTERVAL_MS);
+        await vi.advanceTimersByTimeAsync(HEARTBEAT_INTERVAL_MS);
+        await vi.waitFor(async () =>
+          expect(
+            await getSessionById(harness.db, { sessionId: daemon.sessionId }),
+          ).toMatchObject({ status: "closed", closeReason: "expired" }),
+        );
         expect(harness.hub.hasDaemonForHost(daemon.hostId)).toBe(false);
         expect(
           daemon.socket.messages.map((message) => JSON.parse(message)),
@@ -135,12 +151,12 @@ describe("daemon liveness checks", () => {
           { code: 1000, reason: "expired" },
         ]);
         expect(
-          getSessionById(harness.db, { sessionId: daemon.sessionId }),
+          await getSessionById(harness.db, { sessionId: daemon.sessionId }),
         ).toMatchObject({ status: "closed", closeReason: "expired" });
 
-        onDaemonSocketClose(harness.deps, daemon.sessionId);
+        await onDaemonSocketClose(harness.deps, daemon.sessionId);
         expect(
-          getSessionById(harness.db, { sessionId: daemon.sessionId }),
+          await getSessionById(harness.db, { sessionId: daemon.sessionId }),
         ).toMatchObject({ status: "closed", closeReason: "expired" });
       } finally {
         stop();
@@ -151,13 +167,15 @@ describe("daemon liveness checks", () => {
 
   it("keeps a daemon that sends a message within every lease window", async () => {
     await withTestHarness(async (harness) => {
-      const daemon = connectDaemon(harness);
+      const daemon = await connectDaemon(harness);
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
       const stop = startDaemonLivenessChecks(harness.deps);
       try {
         for (let round = 0; round < 4; round += 1) {
-          vi.advanceTimersByTime(LEASE_TIMEOUT_MS - HEARTBEAT_INTERVAL_MS);
-          feedRawDaemonWebSocketMessage({
+          await vi.advanceTimersByTimeAsync(
+            LEASE_TIMEOUT_MS - HEARTBEAT_INTERVAL_MS,
+          );
+          await feedRawDaemonWebSocketMessage({
             harness,
             hostId: daemon.hostId,
             rawMessage: { type: "heartbeat" },
@@ -169,7 +187,7 @@ describe("daemon liveness checks", () => {
         expect(harness.hub.hasDaemonForHost(daemon.hostId)).toBe(true);
         expect(daemon.socket.closed).toEqual([]);
         expect(
-          getSessionById(harness.db, { sessionId: daemon.sessionId }),
+          await getSessionById(harness.db, { sessionId: daemon.sessionId }),
         ).toMatchObject({ status: "active" });
       } finally {
         stop();

@@ -10,8 +10,8 @@ it("deduplicates an active update, queues other updates, and proceeds after fail
       reject = rejectPromise;
     },
   );
-  const jobs = createPluginUpdateJobs({ notifyChanged: () => {} });
-  const first = jobs.start({
+  const jobs = await createPluginUpdateJobs({ notifyChanged: () => {} });
+  const first = await jobs.start({
     pluginId: "one",
     displayName: "One",
     run: async () => {
@@ -25,8 +25,12 @@ it("deduplicates an active update, queues other updates, and proceeds after fail
     outcome: "rolled-back",
     detail: "restored",
   }));
-  const second = jobs.start({ pluginId: "two", displayName: "Two", run: next });
-  const duplicate = jobs.start({
+  const second = await jobs.start({
+    pluginId: "two",
+    displayName: "Two",
+    run: next,
+  });
+  const duplicate = await jobs.start({
     pluginId: "one",
     displayName: "One",
     run: next,

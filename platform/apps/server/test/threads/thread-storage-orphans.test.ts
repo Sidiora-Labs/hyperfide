@@ -32,20 +32,20 @@ function orphanedThreadIdAt(index: number): string {
 describe("thread storage orphan cleanup", () => {
   it("skips the sweep while app work is active", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      seedThread(harness.deps, {
+      await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         status: "active",
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -53,7 +53,7 @@ describe("thread storage orphan cleanup", () => {
         },
       });
       try {
-        runThreadStorageOrphanSweep(harness.deps);
+        await runThreadStorageOrphanSweep(harness.deps);
         await sleep(20);
         expect(responder.requests).toEqual([]);
       } finally {
@@ -64,7 +64,7 @@ describe("thread storage orphan cleanup", () => {
 
   it("removes a backlog across idle passes and stops listing a cleaned session", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       const rootPath = path.join(session.dataDir, "thread-storage");
       const storedIds = new Set(
         Array.from(
@@ -73,7 +73,7 @@ describe("thread storage orphan cleanup", () => {
         ),
       );
       const commandTypes: string[] = [];
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -103,19 +103,19 @@ describe("thread storage orphan cleanup", () => {
       const countOf = (type: string) =>
         commandTypes.filter((commandType) => commandType === type).length;
       try {
-        runThreadStorageOrphanSweep(harness.deps);
+        await runThreadStorageOrphanSweep(harness.deps);
         await vi.waitFor(() => {
           expect(storedIds.size).toBe(50);
         });
         await sleep(20);
 
-        runThreadStorageOrphanSweep(harness.deps);
+        await runThreadStorageOrphanSweep(harness.deps);
         await vi.waitFor(() => {
           expect(storedIds.size).toBe(0);
         });
         await sleep(20);
 
-        runThreadStorageOrphanSweep(harness.deps);
+        await runThreadStorageOrphanSweep(harness.deps);
         await sleep(20);
         expect(countOf("host.browse_directory")).toBe(1);
         expect(countOf("host.remove_path")).toBe(
@@ -129,12 +129,12 @@ describe("thread storage orphan cleanup", () => {
 
   it("continues removing orphaned directories after a removal fails", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       const rootPath = path.join(session.dataDir, "thread-storage");
       const rejectedPath = path.join(rootPath, "thr_2222222222");
       const removablePath = path.join(rootPath, "thr_3333333333");
       const attemptedPaths: string[] = [];
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -182,10 +182,10 @@ describe("thread storage orphan cleanup", () => {
 
   it("starts no removals once the pass's elapsed budget is spent", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       const rootPath = path.join(session.dataDir, "thread-storage");
       const commandTypes: string[] = [];
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -224,12 +224,12 @@ describe("thread storage orphan cleanup", () => {
 
   it("moves past a rejected orphan on the next pass without listing again", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       const rootPath = path.join(session.dataDir, "thread-storage");
       const rejectedPath = path.join(rootPath, "thr_6666666666");
       const removablePath = path.join(rootPath, "thr_7777777777");
       const commandPaths: string[] = [];
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -281,12 +281,12 @@ describe("thread storage orphan cleanup", () => {
 
   it("parks the session's queue when a removal times out instead of starting more deletions", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       const rootPath = path.join(session.dataDir, "thread-storage");
       const slowPath = path.join(rootPath, "thr_4444444444");
       const laterPath = path.join(rootPath, "thr_5555555555");
       const attemptedPaths: string[] = [];
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -338,23 +338,23 @@ describe("thread storage orphan cleanup", () => {
 
   it("removes only thread-shaped directories that have no thread record", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const liveThread = seedThread(harness.deps, {
+      const liveThread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
       });
-      const deletedThread = seedThread(harness.deps, {
+      const deletedThread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
       });
-      markThreadDeleted(harness.db, harness.hub, {
+      await markThreadDeleted(harness.db, harness.hub, {
         threadId: deletedThread.id,
       });
       const rootPath = path.join(session.dataDir, "thread-storage");
@@ -367,7 +367,7 @@ describe("thread storage orphan cleanup", () => {
         orphanedThreadIdAt(index),
       );
       const removedPaths: string[] = [];
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request: HostDaemonOnlineRpcRequestMessage) => {

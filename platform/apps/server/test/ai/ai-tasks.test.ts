@@ -151,7 +151,7 @@ describe("AI task routing", () => {
         pluginId: "second-plugin",
         complete: async () => "Second title",
       });
-      setAiServiceSelection(harness.deps.db, "thread-title", {
+      await setAiServiceSelection(harness.deps.db, "thread-title", {
         mode: "service",
         pluginId: "second-plugin",
         serviceId: "helper",
@@ -246,7 +246,7 @@ describe("AI task routing", () => {
           throw new Error("bad key");
         },
       });
-      setAiServiceSelection(harness.deps.db, "commit-message", {
+      await setAiServiceSelection(harness.deps.db, "commit-message", {
         mode: "service",
         pluginId: "z-openrouter",
         serviceId: "my-openrouter",
@@ -278,7 +278,7 @@ describe("AI task routing", () => {
         id: "my-openrouter",
         pluginId: "someone-else",
       });
-      setAiServiceSelection(harness.deps.db, "thread-title", {
+      await setAiServiceSelection(harness.deps.db, "thread-title", {
         mode: "service",
         pluginId: "my-openrouter",
         serviceId: "my-openrouter",
@@ -302,7 +302,9 @@ describe("AI task routing", () => {
         pluginId: "provider-codex",
         builtin: true,
       });
-      setAiServiceSelection(harness.deps.db, "thread-title", { mode: "off" });
+      await setAiServiceSelection(harness.deps.db, "thread-title", {
+        mode: "off",
+      });
 
       const outcome = await runTextAiTask(harness.deps, {
         task: "thread-title",
@@ -387,7 +389,7 @@ describe("AI task routing", () => {
         status: async () => ({ ready: false, message: "Signed out" }),
       });
 
-      expect(isAiTaskAvailable(harness.deps, "voice")).toBe(false);
+      expect(await isAiTaskAvailable(harness.deps, "voice")).toBe(false);
       await harness.deps.aiServices.status({
         pluginId: "provider-codex",
         serviceId: "codex",
@@ -396,14 +398,14 @@ describe("AI task routing", () => {
         pluginId: "bb-ai",
         serviceId: "bb",
       });
-      expect(isAiTaskAvailable(harness.deps, "voice")).toBe(true);
+      expect(await isAiTaskAvailable(harness.deps, "voice")).toBe(true);
 
-      setAiServiceSelection(harness.deps.db, "voice", {
+      await setAiServiceSelection(harness.deps.db, "voice", {
         mode: "service",
         pluginId: "bb-ai",
         serviceId: "bb",
       });
-      expect(isAiTaskAvailable(harness.deps, "voice")).toBe(false);
+      expect(await isAiTaskAvailable(harness.deps, "voice")).toBe(false);
     });
   });
 });

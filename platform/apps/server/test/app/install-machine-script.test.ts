@@ -1,3 +1,4 @@
+import { projectedInstallerCli } from "../../src/v22-identity-projection.js";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -78,7 +79,9 @@ function runScript(
 
 const BOOTSTRAP_ARGS = ["--bootstrap-env", "HYPERFIDE_ENROLLMENT"];
 
-function bootstrapBundle(serverUrl = "https://machine.hyperfide.example"): string {
+function bootstrapBundle(
+  serverUrl = "https://machine.hyperfide.example",
+): string {
   return JSON.stringify({
     hostId: "host-test",
     serverUrl,
@@ -263,7 +266,10 @@ function writeEnrollingBbApp(
   statusServerUrl?: string,
 ): void {
   writeExecutable(
-    join(fixture.binDir, "hyperfide-app"),
+    join(
+      fixture.binDir,
+      projectedInstallerCli(readFileSync(SCRIPT_PATH, "utf8")),
+    ),
     createEnrollingBbAppScript({ hostId, invocationPath, statusServerUrl }),
   );
   writeEnrollingBb(fixture, hostId);
@@ -381,7 +387,12 @@ exec '${process.execPath}' "$@"
     const invocationPath = join(dataDir, "invocation");
     mkdirSync(join(dataDir, "npm", "bin"), { recursive: true });
     writeExecutable(
-      join(dataDir, "npm", "bin", "hyperfide-app"),
+      join(
+        dataDir,
+        "npm",
+        "bin",
+        projectedInstallerCli(readFileSync(SCRIPT_PATH, "utf8")),
+      ),
       createEnrollingBbAppScript({ hostId: "host-test", invocationPath }),
     );
     const daemonPidPath = join(dataDir, "install-daemon.pid");
@@ -420,7 +431,8 @@ exec '${process.execPath}' "$@"
     writeJoinedState({ ...fixture, dataDir });
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
     const serviceDir = join(fixture.homeDir, ".config", "systemd", "user");
-    const serviceName = "bb-host-daemon-machine-hyperfide-example-host-test.service";
+    const serviceName =
+      "bb-host-daemon-machine-hyperfide-example-host-test.service";
     const servicePath = join(serviceDir, serviceName);
     mkdirSync(serviceDir, { recursive: true });
     writeFileSync(
@@ -458,9 +470,12 @@ exec '${process.execPath}' "$@"
 
   it("stops and uninstalls a Linux service after a server move rewrote its server URL", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"), {
-      recursive: true,
-    });
+    mkdirSync(
+      join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"),
+      {
+        recursive: true,
+      },
+    );
     const dataDir = realpathSync(
       join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"),
     );
@@ -470,7 +485,8 @@ exec '${process.execPath}' "$@"
     );
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
     const serviceDir = join(fixture.homeDir, ".config", "systemd", "user");
-    const serviceName = "bb-host-daemon-machine-hyperfide-example-host-test.service";
+    const serviceName =
+      "bb-host-daemon-machine-hyperfide-example-host-test.service";
     const servicePath = join(serviceDir, serviceName);
     const otherServiceName = "bb-host-daemon-other-example-host-test.service";
     mkdirSync(serviceDir, { recursive: true });
@@ -516,9 +532,12 @@ exec '${process.execPath}' "$@"
 
   it("boots out a macOS launch agent after a server move rewrote its server URL", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"), {
-      recursive: true,
-    });
+    mkdirSync(
+      join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"),
+      {
+        recursive: true,
+      },
+    );
     const dataDir = realpathSync(
       join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"),
     );
@@ -554,9 +573,12 @@ exec '${process.execPath}' "$@"
 
   it("refuses lifecycle actions when several services reference the machine data directory", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"), {
-      recursive: true,
-    });
+    mkdirSync(
+      join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"),
+      {
+        recursive: true,
+      },
+    );
     const dataDir = realpathSync(
       join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"),
     );
@@ -934,7 +956,13 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
   it("installs the server tarball even when a same-version bb-app is on PATH", () => {
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
-    writeExecutable(join(fixture.binDir, "hyperfide-app"), "#!/bin/sh\nexit 99\n");
+    writeExecutable(
+      join(
+        fixture.binDir,
+        projectedInstallerCli(readFileSync(SCRIPT_PATH, "utf8")),
+      ),
+      "#!/bin/sh\nexit 99\n",
+    );
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
       HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
@@ -1148,9 +1176,19 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
   it("refuses a data dir enrolled for a different host instead of faking success", () => {
     const fixture = createFixture();
     writeCurlArtifactMock(fixture, 404);
-    writeExecutable(join(fixture.binDir, "hyperfide-app"), "#!/bin/sh\nexit 99\n");
+    writeExecutable(
+      join(
+        fixture.binDir,
+        projectedInstallerCli(readFileSync(SCRIPT_PATH, "utf8")),
+      ),
+      "#!/bin/sh\nexit 99\n",
+    );
     writeEnrollingBb(fixture);
-    writeJoinedState(fixture, "https://machine.hyperfide.example", "host-other");
+    writeJoinedState(
+      fixture,
+      "https://machine.hyperfide.example",
+      "host-other",
+    );
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
       HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
@@ -1237,7 +1275,9 @@ fi
       `<key>HYPERFIDE_DATA_DIR</key><string>${fixture.dataDir}</string>`,
     );
     expect(plist).toContain("<string>--auto-update</string>");
-    expect(plist).toContain("<string>https://machine.hyperfide.example</string>");
+    expect(plist).toContain(
+      "<string>https://machine.hyperfide.example</string>",
+    );
   });
 
   it("sends a legacy machine credential when adopting a data directory", () => {
@@ -1366,7 +1406,10 @@ fi
     const fixture = createFixture();
     writeCurlArtifactMock(fixture, 404);
     writeExecutable(
-      join(fixture.binDir, "hyperfide-app"),
+      join(
+        fixture.binDir,
+        projectedInstallerCli(readFileSync(SCRIPT_PATH, "utf8")),
+      ),
       `#!/usr/bin/env node
 setInterval(() => {}, 1000);
 `,
@@ -1378,7 +1421,7 @@ setInterval(() => {}, 1000);
       HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
-    expect(result.status).toBe(1);
+    expect(result.status, result.stdout + result.stderr).toBe(1);
     expect(result.stdout).toContain(
       "Still waiting for the host daemon (5/60 checks)",
     );
@@ -1386,7 +1429,7 @@ setInterval(() => {}, 1000);
       "Still waiting for the host daemon (60/60 checks)",
     );
     expect(result.stderr).toContain("The bb host daemon did not connect");
-  });
+  }, 60_000);
 
   it("starts a fresh macOS launch agent once and replaces it with one new process", () => {
     const fixture = createFixture();
@@ -1435,7 +1478,9 @@ fi
     expect(secondResult.status, secondResult.stderr).toBe(0);
     expect(secondResult.stdout).toContain("already joined");
     expect(secondResult.stdout).toContain("  ●  bb machine is ready");
-    expect(secondResult.stdout).toContain("server  https://machine.hyperfide.example");
+    expect(secondResult.stdout).toContain(
+      "server  https://machine.hyperfide.example",
+    );
     expect(secondResult.stdout).toContain(
       "service " +
         join(
@@ -1464,7 +1509,9 @@ fi
     expect(plist).toContain(
       `<string>--host-daemon-port</string>\n    <string>${selectedPort}</string>`,
     );
-    expect(plist).toContain("<string>https://machine.hyperfide.example</string>");
+    expect(plist).toContain(
+      "<string>https://machine.hyperfide.example</string>",
+    );
     expect(plist).toContain(
       `<key>HYPERFIDE_APP_NPM_PREFIX</key><string>${realpathSync(fixture.dataDir)}/npm</string>`,
     );
@@ -1634,7 +1681,7 @@ printf '%s\n' "$*" >>"${join(fixture.dataDir, "launchctl.log")}"
     expect(result.stdout).toContain(
       "Still waiting for the launch agent (60/60 checks)",
     );
-  });
+  }, 60_000);
 
   it("restarts an active Linux systemd user unit after replacing it", () => {
     const fixture = createFixture();

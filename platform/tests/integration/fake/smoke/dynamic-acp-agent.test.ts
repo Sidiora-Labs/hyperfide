@@ -55,8 +55,8 @@ async function registerDynamicAcpAgents(
 describe.sequential("dynamic ACP integration smoke", () => {
   it(
     "spawns configured ACP agents for model list, start, submit, and lazy resume",
-    () =>
-      withHarness(async (harness) => {
+    async () =>
+      await withHarness(async (harness) => {
         await registerDynamicAcpAgents(harness);
 
         const providersResponse = await harness.api.system.providers.$get({});

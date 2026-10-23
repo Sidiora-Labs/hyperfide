@@ -134,14 +134,14 @@ function refuseProviderSelection(
   );
 }
 
-function toProviderProjectCheckout(
+async function toProviderProjectCheckout(
   db: DbConnection,
   args: { checkout: ProjectSource | null; hostId: string; projectId: string },
-): ProviderOperationContext["projectCheckout"] {
+): Promise<ProviderOperationContext["projectCheckout"]> {
   return args.checkout !== null && isLocalPathProjectSource(args.checkout)
     ? {
         path: args.checkout.path,
-        experimental_ownsPath: projectSourceOwnsPath(
+        experimental_ownsPath: await projectSourceOwnsPath(
           db,
           args.projectId,
           args.hostId,
@@ -204,11 +204,11 @@ export async function parseProviderInputs(
   return value.data;
 }
 
-export function requireEnvironmentPlacementHost(
+export async function requireEnvironmentPlacementHost(
   deps: PlacementDeps,
   hostId: string,
 ) {
-  const host = requireNonDestroyedHostWithStatus(deps, hostId);
+  const host = await requireNonDestroyedHostWithStatus(deps, hostId);
   if (host.lifecycle.phase === "removing") {
     throw new ApiError(
       409,
@@ -229,9 +229,9 @@ export async function completeProviderSelection(
   const requires = record.provider.requires;
   let machine: EnvironmentMachineSelection;
   if (selection.machine.type === "existing") {
-    requireEnvironmentPlacementHost(deps, selection.machine.hostId);
+    await requireEnvironmentPlacementHost(deps, selection.machine.hostId);
     if (requires.projectCheckout) {
-      requireSourceForHost(deps, projectId, selection.machine.hostId);
+      await requireSourceForHost(deps, projectId, selection.machine.hostId);
     }
     machine = selection.machine;
   } else {
@@ -303,8 +303,8 @@ export async function validateProviderSelection(
 ): Promise<void> {
   const environmentProviderId = record.provider.id;
   const requires = record.provider.requires;
-  const project = requirePublicProject(deps.db, args.projectId);
-  const host = getNonDestroyedHostWithStatus(deps, args.hostId);
+  const project = await requirePublicProject(deps.db, args.projectId);
+  const host = await getNonDestroyedHostWithStatus(deps, args.hostId);
   if (host === null) {
     refuseProviderSelection(
       environmentProviderId,
@@ -314,8 +314,8 @@ export async function validateProviderSelection(
   const checkout =
     host === null
       ? null
-      : getProjectSourceByHost(deps.db, args.projectId, host.id);
-  const projectCheckout = toProviderProjectCheckout(deps.db, {
+      : await getProjectSourceByHost(deps.db, args.projectId, host.id);
+  const projectCheckout = await toProviderProjectCheckout(deps.db, {
     checkout,
     hostId: host.id,
     projectId: project.id,
@@ -380,8 +380,8 @@ export async function validateProviderSelection(
   const invocation = await invokeEnvironmentProvider(
     record,
     `"${environmentProviderId}" environment provider validate`,
-    () =>
-      decideWithinBox(
+    async () =>
+      await decideWithinBox(
         () =>
           Promise.resolve(
             validate({
@@ -438,10 +438,10 @@ export interface ResolveThreadEnvironmentPlacementArgs {
   requestedEnvironment: EnvironmentArgs | ProviderEnvironmentArgs;
 }
 
-function reuseEnvironmentPlacement(
+async function reuseEnvironmentPlacement(
   deps: PlacementDeps,
   environment: EnvironmentRow,
-): ThreadEnvironmentPlacement {
+): Promise<ThreadEnvironmentPlacement> {
   if (
     environment.teardownStatus !== null ||
     (environment.status !== "ready" && environment.status !== "provisioning")
@@ -452,7 +452,7 @@ function reuseEnvironmentPlacement(
     throwEnvironmentNotReady(environment);
   }
   if (environment.status === "provisioning") {
-    requireNonDestroyedHostWithStatus(deps, environment.hostId);
+    await requireNonDestroyedHostWithStatus(deps, environment.hostId);
   }
   return {
     environmentId: environment.id,
@@ -504,35 +504,47 @@ export async function resolveThreadEnvironmentPlacement(
       if (
         (target.provider.requires.projectCheckout ||
           target.provider.requires.gitRemote) &&
-        requirePublicProject(deps.db, args.projectId).gitRemoteUrl === null
+        (await requirePublicProject(deps.db, args.projectId)).gitRemoteUrl ===
+          null
       )
         refuseProviderSelection(
           requested.environmentProviderId,
           "requires a project with a Git remote",
         );
     }
-    return providerPlacement(deps, args.projectId, environmentProviderId, {
-      machine,
-      inputs: requested.inputs,
-    });
+    return await providerPlacement(
+      deps,
+      args.projectId,
+      environmentProviderId,
+      {
+        machine,
+        inputs: requested.inputs,
+      },
+    );
   }
-  const resolvedEnvironment = resolveStableThreadRequestEnvironment(deps, {
-    ...(args.allowUnmanagedPersonalProjectReuseEnvironmentId !== undefined
-      ? {
-          allowUnmanagedPersonalProjectReuseEnvironmentId:
-            args.allowUnmanagedPersonalProjectReuseEnvironmentId,
-        }
-      : {}),
-    environment: args.requestedEnvironment,
-    projectId: args.projectId,
-  });
+  const resolvedEnvironment = await resolveStableThreadRequestEnvironment(
+    deps,
+    {
+      ...(args.allowUnmanagedPersonalProjectReuseEnvironmentId !== undefined
+        ? {
+            allowUnmanagedPersonalProjectReuseEnvironmentId:
+              args.allowUnmanagedPersonalProjectReuseEnvironmentId,
+          }
+        : {}),
+      environment: args.requestedEnvironment,
+      projectId: args.projectId,
+    },
+  );
   switch (resolvedEnvironment.type) {
     case "reuse":
-      return reuseEnvironmentPlacement(deps, resolvedEnvironment.environment);
+      return await reuseEnvironmentPlacement(
+        deps,
+        resolvedEnvironment.environment,
+      );
     case "host": {
       const workspace = resolvedEnvironment.workspace;
       if (workspace.type !== "unmanaged") {
-        return providerPlacement(
+        return await providerPlacement(
           deps,
           args.projectId,
           DEFAULT_ENVIRONMENT_PROVIDER_ID.gitWorktree,
@@ -555,7 +567,7 @@ export async function resolveThreadEnvironmentPlacement(
           hostId: resolvedEnvironment.hostId,
         })
       ).dataDir;
-      const refusal = suppliedWorkspacePathRefusal(deps.db, {
+      const refusal = await suppliedWorkspacePathRefusal(deps.db, {
         dataDir,
         hostId: resolvedEnvironment.hostId,
         path: resolvedEnvironment.unmanagedPath,
@@ -564,7 +576,7 @@ export async function resolveThreadEnvironmentPlacement(
       if (refusal !== null) {
         throw new ApiError(409, "invalid_request", refusal);
       }
-      return providerPlacement(
+      return await providerPlacement(
         deps,
         args.projectId,
         DEFAULT_ENVIRONMENT_PROVIDER_ID.projectCheckout,
@@ -581,7 +593,7 @@ export async function resolveThreadEnvironmentPlacement(
       );
     }
     case "personal": {
-      return providerPlacement(
+      return await providerPlacement(
         deps,
         args.projectId,
         DEFAULT_ENVIRONMENT_PROVIDER_ID.personalWorkspace,
@@ -605,7 +617,7 @@ export async function resolveProviderOperationContext(
   >,
   record: NonNullable<ReturnType<typeof getEnvironmentProvider>>,
 ): Promise<ProviderOperationContext | null> {
-  const project = requirePublicProject(deps.db, thread.projectId);
+  const project = await requirePublicProject(deps.db, thread.projectId);
   let selection;
   try {
     selection = intent.selectionResolved
@@ -623,7 +635,7 @@ export async function resolveProviderOperationContext(
   }
   const machineDecision =
     selection.machine.type === "new"
-      ? askMachineLaunch(deps, {
+      ? await askMachineLaunch(deps, {
           key: thread.id,
           lifetime: "thread",
           record: requireRegisteredMachineProvider(
@@ -637,9 +649,11 @@ export async function resolveProviderOperationContext(
   const hostId =
     selection.machine.type === "existing"
       ? selection.machine.hostId
-      : getNonDestroyedHostByLaunchKey(deps.db, thread.id)?.id;
+      : (await getNonDestroyedHostByLaunchKey(deps.db, thread.id))?.id;
   const host =
-    hostId === undefined ? null : getNonDestroyedHostWithStatus(deps, hostId);
+    hostId === undefined
+      ? null
+      : await getNonDestroyedHostWithStatus(deps, hostId);
   if (host === null) {
     throw providerFailure(
       intent.environmentProviderId,
@@ -648,12 +662,12 @@ export async function resolveProviderOperationContext(
     );
   }
   if (machineDecision?.action === "reject") {
-    reportMachineProgress(deps, thread.id, {
+    await reportMachineProgress(deps, thread.id, {
       step: null,
       log: machineFailureLog(machineDecision.log, machineDecision.message),
       failed: true,
     });
-    failPreparingEnvironment(deps, thread.id, machineDecision.message);
+    await failPreparingEnvironment(deps, thread.id, machineDecision.message);
     throw new ApiError(
       409,
       "machine_provider_rejected",
@@ -661,14 +675,18 @@ export async function resolveProviderOperationContext(
     );
   }
   if (machineDecision?.action === "wait") {
-    reportMachineProgress(deps, thread.id, {
+    await reportMachineProgress(deps, thread.id, {
       step: machineDecision.reason,
       log: machineDecision.log,
     });
-    updatePreparingEnvironmentProgress(deps, thread.id, {
+    await updatePreparingEnvironmentProgress(deps, thread.id, {
       statusMessage: machineDecision.reason,
     });
-    scheduleEnvironmentProvisioning(deps, thread.id, machineDecision.sendAt);
+    await scheduleEnvironmentProvisioning(
+      deps,
+      thread.id,
+      machineDecision.sendAt,
+    );
     return null;
   }
   const requires = record.provider.requires;
@@ -680,25 +698,29 @@ export async function resolveProviderOperationContext(
       { details: { environmentProviderId: intent.environmentProviderId } },
     );
   }
-  let checkout = getProjectSourceByHost(deps.db, thread.projectId, host.id);
+  let checkout = await getProjectSourceByHost(
+    deps.db,
+    thread.projectId,
+    host.id,
+  );
   if (
     selection.machine.type === "new" &&
     requires.projectCheckout &&
     checkout === null
   ) {
-    reportMachineProgress(deps, thread.id, {
+    await reportMachineProgress(deps, thread.id, {
       step: "Setting up project on machine",
       log: machineDecision?.log ?? "",
     });
-    updatePreparingEnvironmentProgress(deps, thread.id, {
+    await updatePreparingEnvironmentProgress(deps, thread.id, {
       statusMessage: "Setting up project on machine",
     });
     checkout = await ensureProjectSourceOnHost(deps, {
       report: {
-        step: (step) =>
-          reportMachineProgress(deps, thread.id, { step, log: "" }),
-        log: (log) =>
-          reportMachineProgress(deps, thread.id, { step: null, log }),
+        step: async (step) =>
+          await reportMachineProgress(deps, thread.id, { step, log: "" }),
+        log: async (log) =>
+          await reportMachineProgress(deps, thread.id, { step: null, log }),
       },
       projectId: project.id,
       projectName: project.name,
@@ -706,7 +728,7 @@ export async function resolveProviderOperationContext(
       remoteUrl: project.gitRemoteUrl,
     });
   }
-  const projectCheckout = toProviderProjectCheckout(deps.db, {
+  const projectCheckout = await toProviderProjectCheckout(deps.db, {
     checkout,
     hostId: host.id,
     projectId: project.id,
@@ -721,7 +743,7 @@ export async function resolveProviderOperationContext(
   intent.machine = selection.machine;
   intent.inputs = selection.inputs;
   intent.selectionResolved = true;
-  return buildProviderOperationContext(deps, {
+  return await buildProviderOperationContext(deps, {
     host,
     inputs: selection.inputs,
     machine: selection.machine,
@@ -732,15 +754,15 @@ export async function resolveProviderOperationContext(
   });
 }
 
-function buildProviderOperationContext(
+async function buildProviderOperationContext(
   deps: ThreadProvisioningDeps,
   args: Pick<
     ProviderOperationContext,
     "host" | "inputs" | "machine" | "project" | "projectCheckout"
   > & { record: PluginEnvironmentProviderRecord; thread: Thread },
-): ProviderOperationContext {
+): Promise<ProviderOperationContext> {
   return {
-    thread: toThreadResponseFromThread(deps, { thread: args.thread }),
+    thread: await toThreadResponseFromThread(deps, { thread: args.thread }),
     project: args.project,
     host: args.host,
     machine: args.machine,
@@ -750,11 +772,11 @@ function buildProviderOperationContext(
       : null,
     inputs: args.inputs,
     suggestedBranchName: buildSuggestedBranchName({
-      branchPrefix: getAppSettings(deps.db).managedBranchPrefix,
+      branchPrefix: (await getAppSettings(deps.db)).managedBranchPrefix,
       title: args.thread.title ?? args.thread.titleFallback,
       threadId: args.thread.id,
     }),
-    environment: threadProvisionContextEnvironment(
+    environment: await threadProvisionContextEnvironment(
       deps,
       args.thread.environmentId,
     ),
@@ -786,14 +808,14 @@ function machineFailureLog(log: string, message: string): string {
   return `${trimmedLog}\n${message}\n`;
 }
 
-function reportMachineProgress(
+export async function reportMachineProgress(
   deps: ThreadProvisioningDeps,
   threadId: string,
   args: { step: string | null; log: string; failed?: boolean },
-): void {
-  const startup = getThreadProvisionContext(deps.db, threadId);
+): Promise<void> {
+  const startup = await getThreadProvisionContext(deps.db, threadId);
   if (startup === null) return;
-  const row = getPreparingEnvironment(deps.db, threadId);
+  const row = await getPreparingEnvironment(deps.db, threadId);
   const attempt = row?.attempt ?? 0;
   const previous = row?.statusMessage ?? null;
   const entries: ProvisioningTranscriptEntry[] = [];
@@ -826,63 +848,69 @@ function reportMachineProgress(
       status: "failed",
     });
   if (entries.length === 0) return;
-  appendThreadProvisioningEvent(deps, {
+  await appendThreadProvisioningEvent(deps, {
     threadId,
     environmentId: row?.id ?? null,
     provisioningId: startup.state.provisioningId,
     status: "active",
     entries,
   });
-  deps.hub.notifyThread(threadId, ["events-appended"], {
-    timelineSequence: getLatestThreadSequence(deps.db, { threadId: threadId }),
+  await deps.hub.notifyThread(threadId, ["events-appended"], {
+    timelineSequence: await getLatestThreadSequence(deps.db, {
+      threadId: threadId,
+    }),
     eventTypes: ["system/thread-provisioning"],
   });
 }
 
-function updatePreparingEnvironmentProgress(
+async function updatePreparingEnvironmentProgress(
   deps: ThreadProvisioningDeps,
   threadId: string,
   change: { statusMessage: string },
-): void {
-  const row = getPreparingEnvironment(deps.db, threadId);
+): Promise<void> {
+  const row = await getPreparingEnvironment(deps.db, threadId);
   if (row === null || row.status !== "creating") return;
   if (row.statusMessage === change.statusMessage) return;
   if (
-    updatePreparingEnvironment(deps.db, {
+    await updatePreparingEnvironment(deps.db, {
       ...row,
       statusMessage: change.statusMessage,
     })
   )
-    deps.hub.notifyEnvironment(row.id, ["metadata-changed"]);
+    await deps.hub.notifyEnvironment(row.id, ["metadata-changed"]);
 }
 
-function failPreparingEnvironment(
+async function failPreparingEnvironment(
   deps: ThreadProvisioningDeps,
   threadId: string,
   statusMessage: string,
-): void {
-  const row = getPreparingEnvironment(deps.db, threadId);
+): Promise<void> {
+  const row = await getPreparingEnvironment(deps.db, threadId);
   if (row === null || row.status !== "creating") return;
   if (
-    updatePreparingEnvironment(deps.db, {
-      ...row,
-      status: "error",
-      statusMessage,
-    })
+    await updatePreparingEnvironment(
+      deps.db,
+      {
+        ...row,
+        status: "error",
+        statusMessage,
+      },
+      "creating",
+    )
   )
-    deps.hub.notifyEnvironment(row.id, ["metadata-changed"]);
+    await deps.hub.notifyEnvironment(row.id, ["metadata-changed"]);
 }
-function threadProvisionContextEnvironment(
+async function threadProvisionContextEnvironment(
   deps: Pick<ThreadProvisioningDeps, "db">,
   environmentId: string | null,
-): Environment | null {
+): Promise<Environment | null> {
   if (environmentId === null) {
     return null;
   }
-  const environment = getEnvironment(deps.db, environmentId);
+  const environment = await getEnvironment(deps.db, environmentId);
   return environment === null
     ? null
-    : toEnvironmentResponse(deps.db, environment);
+    : await toEnvironmentResponse(deps.db, environment);
 }
 export async function refreshAttachedEnvironmentBranch(
   deps: ThreadProvisioningDeps,
@@ -903,10 +931,15 @@ export async function refreshAttachedEnvironmentBranch(
       checkout.kind === "branch" || checkout.kind === "unborn"
         ? checkout.branchName
         : null;
-    recordEnvironmentCurrentBranch(deps.db, deps.hub, args.environmentId, {
-      branchName,
-      defaultBranch: inspection.defaultBranch ?? branchName,
-    });
+    await recordEnvironmentCurrentBranch(
+      deps.db,
+      deps.hub,
+      args.environmentId,
+      {
+        branchName,
+        defaultBranch: inspection.defaultBranch ?? branchName,
+      },
+    );
   } catch (error) {
     deps.logger.warn(
       {
@@ -943,13 +976,14 @@ async function reserveEnvironmentBeforeMachine(
     args.record.pluginId,
     selection.machine.machineProviderId,
   );
-  const machineDecision = askMachineLaunch(deps, {
+  const machineDecision = await askMachineLaunch(deps, {
     key: args.thread.id,
     lifetime: "thread",
     record: machineRecord,
     inputs: selection.machine.inputs,
+    deferCreate: true,
   });
-  const hostRow = getNonDestroyedHostByLaunchKey(deps.db, args.thread.id);
+  const hostRow = await getNonDestroyedHostByLaunchKey(deps.db, args.thread.id);
   if (hostRow === null)
     throw new ApiError(
       409,
@@ -958,20 +992,20 @@ async function reserveEnvironmentBeforeMachine(
         ? machineDecision.message
         : "Machine was removed",
     );
-  const host = getNonDestroyedHostWithStatus(deps, hostRow.id);
+  const host = await getNonDestroyedHostWithStatus(deps, hostRow.id);
   if (host === null)
     throw new ApiError(409, "machine_provider_rejected", "Machine was removed");
   args.intent.machine = selection.machine;
   args.intent.inputs = selection.inputs;
   args.intent.selectionResolved = true;
-  saveThreadProvisionContext({
+  await saveThreadProvisionContext({
     db: deps.db,
     replace: false,
     threadId: args.thread.id,
     context: args.context,
   });
-  const project = requirePublicProject(deps.db, args.thread.projectId);
-  const context = buildProviderOperationContext(deps, {
+  const project = await requirePublicProject(deps.db, args.thread.projectId);
+  const context = await buildProviderOperationContext(deps, {
     host,
     inputs: selection.inputs,
     machine: selection.machine,
@@ -986,20 +1020,37 @@ async function reserveEnvironmentBeforeMachine(
       : machineDecision.action === "wait"
         ? machineDecision.reason
         : machineDecision.message;
-  const decision = prepareProviderEnvironment(deps, args.record, context, {
-    advance: machineDecision.action !== "reject",
-    contextReady: false,
-    statusMessage,
-  });
+  const decision = await prepareProviderEnvironment(
+    deps,
+    args.record,
+    context,
+    {
+      advance: false,
+      contextReady: false,
+      statusMessage,
+    },
+  );
+  if (machineDecision.action === "wait") {
+    await askMachineLaunch(deps, {
+      key: args.thread.id,
+      lifetime: "thread",
+      record: machineRecord,
+      inputs: selection.machine.inputs,
+    });
+  }
   if (machineDecision.action === "reject") {
-    reportMachineProgress(deps, args.thread.id, {
+    await reportMachineProgress(deps, args.thread.id, {
       step: null,
       log: machineFailureLog(machineDecision.log, machineDecision.message),
       failed: true,
     });
-    failPreparingEnvironment(deps, args.thread.id, machineDecision.message);
+    await failPreparingEnvironment(
+      deps,
+      args.thread.id,
+      machineDecision.message,
+    );
   } else if (machineDecision.log.length > 0)
-    reportMachineProgress(deps, args.thread.id, {
+    await reportMachineProgress(deps, args.thread.id, {
       step: null,
       log: machineDecision.log,
     });
@@ -1013,7 +1064,7 @@ export async function resolveEnvironmentProvider(
   { kind: "resolved"; environment: EnvironmentRow } | { kind: "waiting" }
 > {
   const context = args.context;
-  const thread = getThread(deps.db, args.thread.id);
+  const thread = await getThread(deps.db, args.thread.id);
   if (thread === null || thread.status !== "starting")
     return { kind: "waiting" };
   const intent = context.request.environmentIntent;
@@ -1021,12 +1072,12 @@ export async function resolveEnvironmentProvider(
     throw new Error("Missing environment provider selection");
   const record = getEnvironmentProvider(intent.environmentProviderId);
   if (record === undefined) {
-    scheduleEnvironmentProvisioning(deps, thread.id, Date.now() + 30_000);
+    await scheduleEnvironmentProvisioning(deps, thread.id, Date.now() + 30_000);
     return { kind: "waiting" };
   }
   if (
     intent.machine.type === "new" &&
-    getPreparingEnvironment(deps.db, thread.id) === null
+    (await getPreparingEnvironment(deps.db, thread.id)) === null
   ) {
     const decision = await reserveEnvironmentBeforeMachine(deps, {
       context,
@@ -1041,7 +1092,7 @@ export async function resolveEnvironmentProvider(
         decision.message,
         { details: { environmentProviderId: intent.environmentProviderId } },
       );
-    scheduleEnvironmentProvisioning(
+    await scheduleEnvironmentProvisioning(
       deps,
       thread.id,
       decision.action === "wait" ? decision.sendAt : Date.now(),
@@ -1055,14 +1106,14 @@ export async function resolveEnvironmentProvider(
     record,
   );
   if (operation === null) return { kind: "waiting" };
-  const current = getThreadProvisionContext(deps.db, thread.id);
+  const current = await getThreadProvisionContext(deps.db, thread.id);
   if (
     current === null ||
     current.state.provisioningId !== context.state.provisioningId
   )
     return { kind: "waiting" };
   if (current.request.environmentIntent.type === "reuse") {
-    const environment = getEnvironment(
+    const environment = await getEnvironment(
       deps.db,
       current.request.environmentIntent.environmentId,
     );
@@ -1070,19 +1121,19 @@ export async function resolveEnvironmentProvider(
       ? { kind: "waiting" }
       : { kind: "resolved", environment };
   }
-  saveThreadProvisionContext({
+  await saveThreadProvisionContext({
     db: deps.db,
     replace: false,
     threadId: thread.id,
     context,
   });
-  const decision = prepareProviderEnvironment(deps, record, operation);
+  const decision = await prepareProviderEnvironment(deps, record, operation);
   if (decision.action === "reject")
     throw new ApiError(409, "environment_provider_rejected", decision.message, {
       details: { environmentProviderId: intent.environmentProviderId },
     });
   if (decision.action === "wait") {
-    scheduleEnvironmentProvisioning(deps, thread.id, decision.sendAt);
+    await scheduleEnvironmentProvisioning(deps, thread.id, decision.sendAt);
     return { kind: "waiting" };
   }
   const environment = decision.environment;
@@ -1110,7 +1161,7 @@ export type ProviderEnvironmentCreationDecision =
       environment: EnvironmentRow;
     };
 
-export function prepareProviderEnvironment(
+export async function prepareProviderEnvironment(
   deps: ThreadProvisioningDeps,
   record: PluginEnvironmentProviderRecord,
   context: ProviderOperationContext,
@@ -1119,15 +1170,15 @@ export function prepareProviderEnvironment(
     contextReady?: boolean;
     statusMessage?: string;
   } = {},
-): ProviderEnvironmentCreationDecision {
-  requireEnvironmentPlacementHost(deps, context.host.id);
+): Promise<ProviderEnvironmentCreationDecision> {
+  await requireEnvironmentPlacementHost(deps, context.host.id);
   const now = Date.now();
   const policy = record.provider.policy;
   const previous =
     context.environment === null
       ? null
-      : getEnvironment(deps.db, context.environment.id);
-  let row = getPreparingEnvironment(deps.db, context.thread.id);
+      : await getEnvironment(deps.db, context.environment.id);
+  let row = await getPreparingEnvironment(deps.db, context.thread.id);
   if (
     (row !== null &&
       row.attempt > 0 &&
@@ -1199,7 +1250,7 @@ export function prepareProviderEnvironment(
       policy.pathKeys === "per-attempt" || context.environment !== null
         ? `${context.thread.id}-${attempt}`
         : context.thread.id;
-    row = reserveEnvironment(deps.db, {
+    row = await reserveEnvironment(deps.db, {
       projectId: context.project.id,
       ownerThreadId: context.thread.id,
       environmentProviderId: record.provider.id,
@@ -1213,10 +1264,10 @@ export function prepareProviderEnvironment(
         `${context.environment === null ? "Preparing" : "Restoring"} ${record.provider.displayName}…`,
       environmentProviderSelection: selected,
     });
-    deps.hub.notifyEnvironment(row.id, ["environment-created"]);
-    const startup = getThreadProvisionContext(deps.db, context.thread.id);
+    await deps.hub.notifyEnvironment(row.id, ["environment-created"]);
+    const startup = await getThreadProvisionContext(deps.db, context.thread.id);
     if (startup !== null) {
-      appendThreadProvisioningEvent(deps, {
+      await appendThreadProvisioningEvent(deps, {
         threadId: context.thread.id,
         environmentId: row.id,
         provisioningId: startup.state.provisioningId,
@@ -1230,8 +1281,8 @@ export function prepareProviderEnvironment(
           },
         ],
       });
-      deps.hub.notifyThread(context.thread.id, ["events-appended"], {
-        timelineSequence: getLatestThreadSequence(deps.db, {
+      await deps.hub.notifyThread(context.thread.id, ["events-appended"], {
+        timelineSequence: await getLatestThreadSequence(deps.db, {
           threadId: context.thread.id,
         }),
         eventTypes: ["system/thread-provisioning"],
@@ -1311,19 +1362,20 @@ async function providerPlacement(
     if (parsed.data !== null) {
       const path = canonicalizeHostPath(parsed.data);
       const hostId = selection.machine.hostId;
-      const refusal = foreignProjectOwnedPathRefusal(deps.db, {
+      const refusal = await foreignProjectOwnedPathRefusal(deps.db, {
         projectId,
         hostId,
         path,
       });
       if (refusal !== null) throw new ApiError(409, "invalid_request", refusal);
-      const existing = findProjectEnvironmentByHostPath(
+      const existing = await findProjectEnvironmentByHostPath(
         deps.db,
         projectId,
         hostId,
         path,
       );
-      if (existing !== null) return reuseEnvironmentPlacement(deps, existing);
+      if (existing !== null)
+        return await reuseEnvironmentPlacement(deps, existing);
     }
   }
   return {

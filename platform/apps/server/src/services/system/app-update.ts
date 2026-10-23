@@ -41,11 +41,11 @@ interface CreateAppUpdateServiceArgs {
   appSurface: AppSurface;
   appVersion: AppVersionService;
   config: Pick<ServerRuntimeConfig, "appVersion" | "isDevelopment">;
-  countRunningThreads: () => number;
+  countRunningThreads: () => number | Promise<number>;
   launcher: LauncherChannel | null;
   logger: ServerLogger;
   mode: AppUpdateMode | null;
-  notifyChanged: () => void;
+  notifyChanged: () => void | Promise<void>;
   now?: () => number;
   sourceCheckTtlMs?: number;
 }
@@ -136,10 +136,13 @@ export function createAppUpdateService(
   let confirmedInterruptingThreads = false;
   let decidedReadyAt: string | null = null;
 
-  const decideRestart = (launcher: LauncherChannel, readyAt: string): void => {
+  const decideRestart = async (
+    launcher: LauncherChannel,
+    readyAt: string,
+  ): Promise<void> => {
     if (decidedReadyAt === readyAt) return;
     decidedReadyAt = readyAt;
-    const runningThreadCount = args.countRunningThreads();
+    const runningThreadCount = await args.countRunningThreads();
     const request: AppUpdateLauncherRequest =
       runningThreadCount > 0 && !confirmedInterruptingThreads
         ? {
@@ -158,20 +161,20 @@ export function createAppUpdateService(
   };
 
   const unsubscribeStatus =
-    args.launcher?.onStatus((status) => {
+    args.launcher?.onStatus(async (status) => {
       launcherStatus = status;
       resolveFirstStatus?.();
       resolveFirstStatus = null;
       if (status.activity.phase === "ready" && args.launcher !== null) {
-        decideRestart(args.launcher, status.activity.startedAt);
+        await decideRestart(args.launcher, status.activity.startedAt);
       }
-      args.notifyChanged();
+      await args.notifyChanged();
     }) ?? (() => undefined);
   const unsubscribeDisconnect =
-    args.launcher?.onDisconnect(() => {
+    args.launcher?.onDisconnect(async () => {
       launcherConnected = false;
       launcherStatus = null;
-      args.notifyChanged();
+      await args.notifyChanged();
     }) ?? (() => undefined);
 
   const resolveSupport = (): SystemAppUpdateSupport => {
@@ -187,7 +190,7 @@ export function createAppUpdateService(
     return { kind: "supported", mode: args.mode };
   };
 
-  const refreshSourceCheck = (
+  const refreshSourceCheck = async (
     launcher: LauncherChannel,
   ): Promise<SourceUpdateCheck | null> => {
     if (sourceCheckInflight !== null) return sourceCheckInflight;
@@ -226,13 +229,15 @@ export function createAppUpdateService(
     forceRefresh: boolean,
   ): Promise<SourceUpdateCheck | null> => {
     if (forceRefresh) {
-      return refreshSourceCheck(launcher);
+      return await refreshSourceCheck(launcher);
     }
     if (
       lastSourceCheckAttemptAt === null ||
       now() - lastSourceCheckAttemptAt >= sourceCheckTtlMs
     ) {
-      void refreshSourceCheck(launcher).then(() => args.notifyChanged());
+      void refreshSourceCheck(launcher).then(
+        async () => await args.notifyChanged(),
+      );
     }
     return sourceCheck;
   };
@@ -330,7 +335,7 @@ export function createAppUpdateService(
         status?.lastResult === null || status?.lastResult === undefined
           ? null
           : toPublicResult(status.lastResult),
-      runningThreadCount: args.countRunningThreads(),
+      runningThreadCount: await args.countRunningThreads(),
       support,
     };
   };
@@ -355,7 +360,7 @@ export function createAppUpdateService(
       } catch (error) {
         throw new ApiError(409, "app_update_rejected", errorMessage(error));
       }
-      return getStatus({ forceRefresh: false });
+      return await getStatus({ forceRefresh: false });
     },
     async apply({ confirmInterruptingThreads }) {
       const launcher = requireLauncher();
@@ -420,7 +425,7 @@ export function createAppUpdateService(
         { targetVersion: available.version, targetCommit: available.commit },
         "In-app bb update requested",
       );
-      return getStatus({ forceRefresh: false });
+      return await getStatus({ forceRefresh: false });
     },
     dispose() {
       unsubscribeStatus();

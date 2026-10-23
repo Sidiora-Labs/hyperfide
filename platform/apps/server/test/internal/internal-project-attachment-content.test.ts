@@ -13,17 +13,17 @@ import { withTestHarness } from "../helpers/test-app.js";
 describe("internal project attachment content", () => {
   it("returns attachment bytes to the daemon assigned to the thread environment", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-attachment-content",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
@@ -39,7 +39,7 @@ describe("internal project attachment content", () => {
       const response = await harness.app.request(
         `/internal/session/project-attachment-content?sessionId=${session.id}&threadId=${thread.id}&projectId=${project.id}&path=${attachmentPath}`,
         {
-          headers: internalAuthHeaders(harness, { hostId: host.id }),
+          headers: await internalAuthHeaders(harness, { hostId: host.id }),
         },
       );
 
@@ -53,20 +53,20 @@ describe("internal project attachment content", () => {
 
   it("rejects a daemon that is not assigned to the thread environment", async () => {
     await withTestHarness(async (harness) => {
-      const hostA = seedHostSession(harness.deps, {
+      const hostA = await seedHostSession(harness.deps, {
         id: "host-attachment-content-a",
       });
-      const hostB = seedHostSession(harness.deps, {
+      const hostB = await seedHostSession(harness.deps, {
         id: "host-attachment-content-b",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: hostA.host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: hostA.host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
@@ -74,7 +74,9 @@ describe("internal project attachment content", () => {
       const response = await harness.app.request(
         `/internal/session/project-attachment-content?sessionId=${hostB.session.id}&threadId=${thread.id}&projectId=${project.id}&path=network-tab.har`,
         {
-          headers: internalAuthHeaders(harness, { hostId: hostB.host.id }),
+          headers: await internalAuthHeaders(harness, {
+            hostId: hostB.host.id,
+          }),
         },
       );
 
@@ -84,17 +86,20 @@ describe("internal project attachment content", () => {
 
   it("rejects a project-scoped attachment token request for a mismatched project id", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-attachment-content-project-mismatch",
       });
-      const { project: threadProject } = seedProjectWithSource(harness.deps, {
-        hostId: host.id,
-      });
-      const environment = seedEnvironment(harness.deps, {
+      const { project: threadProject } = await seedProjectWithSource(
+        harness.deps,
+        {
+          hostId: host.id,
+        },
+      );
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: threadProject.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: threadProject.id,
         environmentId: environment.id,
       });
@@ -102,7 +107,7 @@ describe("internal project attachment content", () => {
       const response = await harness.app.request(
         `/internal/session/project-attachment-content?sessionId=${session.id}&threadId=${thread.id}&projectId=proj_missing_attachment_content&path=network-tab.har`,
         {
-          headers: internalAuthHeaders(harness, { hostId: host.id }),
+          headers: await internalAuthHeaders(harness, { hostId: host.id }),
         },
       );
 

@@ -59,12 +59,12 @@ function scopeCommand(input: ExperimentalDesktopBrowserScope) {
   };
 }
 
-function authorize(
+async function authorize(
   deps: WorkSessionDeps,
   scope: ExperimentalDesktopBrowserScope,
 ) {
-  requirePublicThread(deps.db, scope.threadId);
-  requireNonDestroyedHostWithStatus(deps, scope.hostId);
+  await requirePublicThread(deps.db, scope.threadId);
+  await requireNonDestroyedHostWithStatus(deps, scope.hostId);
 }
 
 function sameScope(
@@ -79,11 +79,11 @@ function sameScope(
   );
 }
 
-function requireLease(
+async function requireLease(
   deps: WorkSessionDeps,
   input: ExperimentalDesktopBrowserLeaseRequest,
 ) {
-  authorize(deps, input);
+  await authorize(deps, input);
   const entry = registry(deps).get(input.leaseId);
   if (
     !entry ||
@@ -100,8 +100,8 @@ function requireLease(
   return entry;
 }
 
-function readStoredTabs(db: WorkSessionDeps["db"], threadId: string) {
-  const stored = getStoredThreadTabs(db, threadId);
+async function readStoredTabs(db: WorkSessionDeps["db"], threadId: string) {
+  const stored = await getStoredThreadTabs(db, threadId);
   return {
     stored,
     tabs: stored ? threadTabsSchema.parse(JSON.parse(stored.tabsJson)) : [],
@@ -151,13 +151,13 @@ function assertTabsInThread(
   }
 }
 
-function sendReleaseControl(
+async function sendReleaseControl(
   call: typeof callHostOnlineRpc,
   deps: WorkSessionDeps,
   input: ExperimentalDesktopBrowserScope,
   leaseId: string,
 ) {
-  return call(deps, {
+  return await call(deps, {
     hostId: input.hostId,
     timeoutMs: 10000,
     command: {
@@ -168,53 +168,55 @@ function sendReleaseControl(
   });
 }
 
-export function persistDesktopBrowserTab(
+export async function persistDesktopBrowserTab(
   deps: Pick<WorkSessionDeps, "db" | "hub">,
   scope: ExperimentalDesktopBrowserScope,
   tab: DesktopBrowserTab,
 ) {
   if (tab.threadId !== scope.threadId || tab.url.length > 4096) return;
-  requirePublicThread(deps.db, scope.threadId);
-  const { stored, tabs } = readStoredTabs(deps.db, scope.threadId);
+  await requirePublicThread(deps.db, scope.threadId);
+  const { stored, tabs } = await readStoredTabs(deps.db, scope.threadId);
   const next = toStoredBrowserTab(scope, tab);
   const index = tabs.findIndex((value) => value.id === tab.tabId);
   if (index < 0) tabs.push(next);
   else tabs[index] = next;
   const parsed = threadTabsSchema.parse(tabs);
-  replaceStoredThreadTabs(deps.db, {
+  await replaceStoredThreadTabs(deps.db, {
     threadId: scope.threadId,
     expectedRevision: stored?.revision ?? 0,
     tabsJson: JSON.stringify(parsed),
   });
-  deps.hub.notifyThread(scope.threadId, ["tabs-changed"]);
+  await deps.hub.notifyThread(scope.threadId, ["tabs-changed"]);
 }
 
-export function removeDesktopBrowserTab(
+export async function removeDesktopBrowserTab(
   deps: Pick<WorkSessionDeps, "db" | "hub">,
   scope: ExperimentalDesktopBrowserScope,
   tabId: string,
 ) {
-  const { stored, tabs } = readStoredTabs(deps.db, scope.threadId);
+  const { stored, tabs } = await readStoredTabs(deps.db, scope.threadId);
   if (!stored) return;
   const filtered = tabs.filter(
     (tab) => !(tab.id === tabId && sameDesktopTarget(tab, scope)),
   );
   if (filtered.length === tabs.length) return;
-  replaceStoredThreadTabs(deps.db, {
+  await replaceStoredThreadTabs(deps.db, {
     threadId: scope.threadId,
     expectedRevision: stored.revision,
     tabsJson: JSON.stringify(filtered),
   });
-  deps.hub.notifyThread(scope.threadId, ["tabs-changed"]);
+  await deps.hub.notifyThread(scope.threadId, ["tabs-changed"]);
 }
 
 export async function proveDesktopBrowserBroker(
   deps: WorkSessionDeps,
   input: DesktopBrowserBrokerProofRequest,
 ) {
-  requireNonDestroyedHostWithStatus(deps, input.hostId);
+  await requireNonDestroyedHostWithStatus(deps, input.hostId);
   const sessionId = deps.hub.getDaemonSessionIdForHost(input.hostId);
-  const session = sessionId ? getSessionById(deps.db, { sessionId }) : null;
+  const session = sessionId
+    ? await getSessionById(deps.db, { sessionId })
+    : null;
   if (
     session &&
     !hostDaemonSupportsDesktopBrokerProof(session.protocolVersion)
@@ -225,7 +227,7 @@ export async function proveDesktopBrowserBroker(
       "Update this machine to verify desktop browser registration",
     );
   }
-  return callHostOnlineRpc(deps, {
+  return await callHostOnlineRpc(deps, {
     hostId: input.hostId,
     timeoutMs: 5000,
     command: { type: "desktop.broker.prove", challenge: input.challenge },
@@ -236,7 +238,7 @@ export async function listDesktopBrowserInstances(
   deps: WorkSessionDeps,
   hostId: string,
 ) {
-  requireNonDestroyedHostWithStatus(deps, hostId);
+  await requireNonDestroyedHostWithStatus(deps, hostId);
   const result = await callHostOnlineRpc(deps, {
     hostId,
     timeoutMs: 10000,
@@ -251,7 +253,7 @@ export async function listDesktopBrowserTabs(
   deps: WorkSessionDeps,
   scope: ExperimentalDesktopBrowserScope,
 ) {
-  authorize(deps, scope);
+  await authorize(deps, scope);
   const result = await callHostOnlineRpc(deps, {
     hostId: scope.hostId,
     timeoutMs: 10000,
@@ -265,7 +267,7 @@ export async function createDesktopBrowserTab(
   deps: WorkSessionDeps,
   input: ExperimentalDesktopBrowserCreateRequest,
 ) {
-  authorize(deps, input);
+  await authorize(deps, input);
   const result = await callHostOnlineRpcForWork(deps, {
     hostId: input.hostId,
     timeoutMs: 15000,
@@ -278,7 +280,7 @@ export async function createDesktopBrowserTab(
     },
   });
   try {
-    persistDesktopBrowserTab(deps, input, result.tab);
+    await persistDesktopBrowserTab(deps, input, result.tab);
   } catch (error) {
     await desktopBrowserTabAction(
       deps,
@@ -329,7 +331,7 @@ export async function acquireDesktopBrowserControl(
   deps: WorkSessionDeps,
   input: ExperimentalDesktopBrowserAcquireRequest,
 ) {
-  authorize(deps, input);
+  await authorize(deps, input);
   const lease: ExperimentalDesktopBrowserLease = {
     hostId: input.hostId,
     ...scopeCommand(input),
@@ -338,7 +340,7 @@ export async function acquireDesktopBrowserControl(
     controllerLabel: input.controllerLabel,
     expiresAt: Date.now() + input.ttlMs,
   };
-  const timer = setTimeout(() => {
+  const timer = setTimeout(async () => {
     void releaseExpiredDesktopBrowserControl(deps, lease).catch(() => {});
   }, input.ttlMs);
   timer.unref();
@@ -423,7 +425,7 @@ export async function openDesktopBrowserConnection(
   deps: WorkSessionDeps,
   input: ExperimentalDesktopBrowserLeaseRequest,
 ) {
-  const entry = requireLease(deps, input);
+  const entry = await requireLease(deps, input);
   const result = await callHostOnlineRpcForWork(deps, {
     hostId: input.hostId,
     timeoutMs: 10000,
@@ -434,7 +436,7 @@ export async function openDesktopBrowserConnection(
       tabIds: entry.lease.tabIds,
     },
   });
-  requireLease(deps, input);
+  await requireLease(deps, input);
   return { ...result, hostId: input.hostId, expiresAt: entry.lease.expiresAt };
 }
 
@@ -443,7 +445,7 @@ export async function desktopBrowserTabAction(
   input: ExperimentalDesktopBrowserTabRequest,
   action: "reveal" | "close",
 ) {
-  authorize(deps, input);
+  await authorize(deps, input);
   const result = await callHostOnlineRpcForWork(deps, {
     hostId: input.hostId,
     timeoutMs: 10000,
@@ -456,7 +458,8 @@ export async function desktopBrowserTabAction(
       tabId: input.tabId,
     },
   });
-  if (action === "close") removeDesktopBrowserTab(deps, input, input.tabId);
+  if (action === "close")
+    await removeDesktopBrowserTab(deps, input, input.tabId);
   return result;
 }
 
@@ -464,8 +467,8 @@ export async function captureDesktopBrowserTab(
   deps: WorkSessionDeps,
   input: ExperimentalDesktopBrowserTabRequest,
 ) {
-  authorize(deps, input);
-  return callHostOnlineRpcForWork(deps, {
+  await authorize(deps, input);
+  return await callHostOnlineRpcForWork(deps, {
     hostId: input.hostId,
     timeoutMs: 15000,
     command: {
@@ -480,8 +483,8 @@ export async function listDesktopBrowserImportSources(
   deps: WorkSessionDeps,
   input: ExperimentalDesktopBrowserInstanceRequest,
 ) {
-  requireNonDestroyedHostWithStatus(deps, input.hostId);
-  return callHostOnlineRpc(deps, {
+  await requireNonDestroyedHostWithStatus(deps, input.hostId);
+  return await callHostOnlineRpc(deps, {
     hostId: input.hostId,
     timeoutMs: 15000,
     command: {
@@ -496,8 +499,8 @@ export async function importDesktopBrowserCookies(
   deps: WorkSessionDeps,
   input: ExperimentalDesktopBrowserImportCookiesRequest,
 ) {
-  requireNonDestroyedHostWithStatus(deps, input.hostId);
-  return callHostOnlineRpc(deps, {
+  await requireNonDestroyedHostWithStatus(deps, input.hostId);
+  return await callHostOnlineRpc(deps, {
     hostId: input.hostId,
     timeoutMs: 120000,
     command: {
@@ -518,7 +521,11 @@ export async function revokeThreadDesktopBrowserControl(
     (entry) => entry.lease.threadId === threadId,
   );
   await Promise.allSettled(
-    leases.map((entry) => releaseDesktopBrowserControl(deps, entry.lease)),
+    await Promise.all(
+      leases.map(
+        async (entry) => await releaseDesktopBrowserControl(deps, entry.lease),
+      ),
+    ),
   );
 }
 
@@ -539,8 +546,8 @@ export async function syncDesktopBrowserTabs(
   }
   const key = JSON.stringify([scope.hostId, scope.instanceId, scope.threadId]);
   pending.delete(key);
-  requirePublicThread(deps.db, scope.threadId);
-  const { stored, tabs } = readStoredTabs(deps.db, scope.threadId);
+  await requirePublicThread(deps.db, scope.threadId);
+  const { stored, tabs } = await readStoredTabs(deps.db, scope.threadId);
   const ids = new Set(nativeTabs.map((tab) => tab.tabId));
   const next = tabs.filter(
     (tab) => !(sameDesktopTarget(tab, scope) && !ids.has(tab.id)),
@@ -570,12 +577,12 @@ export async function syncDesktopBrowserTabs(
   }
   const tabsJson = JSON.stringify(threadTabsSchema.parse(next));
   if (tabsJson !== JSON.stringify(tabs)) {
-    replaceStoredThreadTabs(deps.db, {
+    await replaceStoredThreadTabs(deps.db, {
       threadId: scope.threadId,
       expectedRevision: stored?.revision ?? 0,
       tabsJson,
     });
-    deps.hub.notifyThread(scope.threadId, ["tabs-changed"]);
+    await deps.hub.notifyThread(scope.threadId, ["tabs-changed"]);
   }
   if (!claimedByOtherWindow) return;
   const adoption = Symbol();
@@ -592,44 +599,69 @@ export async function syncDesktopBrowserTabs(
       )
     )
       return;
-    requirePublicThread(deps.db, scope.threadId);
-    const { stored, tabs } = readStoredTabs(deps.db, scope.threadId);
-    if (!stored) return;
-    let adopted = false;
-    const duplicates: string[] = [];
-    const next = tabs.map((previous) => {
-      const tab = nativeTabs.find((value) => value.tabId === previous.id);
-      if (
-        tab === undefined ||
-        tab.threadId !== scope.threadId ||
-        tab.url.length > 4096 ||
-        previous.kind !== "browser" ||
-        previous.desktopTarget?.hostId !== scope.hostId
-      )
-        return previous;
-      if (previous.desktopTarget.instanceId === scope.instanceId)
-        return previous;
-      if (live.has(previous.desktopTarget.instanceId)) {
-        duplicates.push(tab.tabId);
-        return previous;
-      }
-      adopted = true;
-      return toStoredBrowserTab(scope, tab);
-    });
-    if (adopted) {
-      replaceStoredThreadTabs(deps.db, {
-        threadId: scope.threadId,
-        expectedRevision: stored.revision,
-        tabsJson: JSON.stringify(threadTabsSchema.parse(next)),
+    await withTabAdoptionLock(deps.hub, scope.threadId, async () => {
+      await requirePublicThread(deps.db, scope.threadId);
+      const { stored, tabs } = await readStoredTabs(deps.db, scope.threadId);
+      if (!stored) return;
+      let adopted = false;
+      const duplicates: string[] = [];
+      const next = tabs.map((previous) => {
+        const tab = nativeTabs.find((value) => value.tabId === previous.id);
+        if (
+          tab === undefined ||
+          tab.threadId !== scope.threadId ||
+          tab.url.length > 4096 ||
+          previous.kind !== "browser" ||
+          previous.desktopTarget?.hostId !== scope.hostId
+        )
+          return previous;
+        if (previous.desktopTarget.instanceId === scope.instanceId)
+          return previous;
+        if (live.has(previous.desktopTarget.instanceId)) {
+          duplicates.push(tab.tabId);
+          return previous;
+        }
+        adopted = true;
+        return toStoredBrowserTab(scope, tab);
       });
-      deps.hub.notifyThread(scope.threadId, ["tabs-changed"]);
-    }
-    await Promise.all(
-      duplicates.map((tabId) =>
-        desktopBrowserTabAction(deps, { ...scope, tabId }, "close"),
-      ),
-    );
+      if (adopted) {
+        await replaceStoredThreadTabs(deps.db, {
+          threadId: scope.threadId,
+          expectedRevision: stored.revision,
+          tabsJson: JSON.stringify(threadTabsSchema.parse(next)),
+        });
+        await deps.hub.notifyThread(scope.threadId, ["tabs-changed"]);
+      }
+      await Promise.all(
+        duplicates.map(
+          async (tabId) =>
+            await desktopBrowserTabAction(deps, { ...scope, tabId }, "close"),
+        ),
+      );
+    });
   } finally {
     if (pending.get(key) === adoption) pending.delete(key);
   }
+}
+
+const tabAdoptionLocks = new WeakMap<
+  WorkSessionDeps["hub"],
+  Map<string, Promise<void>>
+>();
+async function withTabAdoptionLock(
+  hub: WorkSessionDeps["hub"],
+  threadId: string,
+  work: () => Promise<void>,
+): Promise<void> {
+  let locks = tabAdoptionLocks.get(hub);
+  if (!locks) {
+    locks = new Map();
+    tabAdoptionLocks.set(hub, locks);
+  }
+  const pending = (locks.get(threadId) ?? Promise.resolve()).then(work);
+  locks.set(
+    threadId,
+    pending.catch(() => {}),
+  );
+  await pending;
 }

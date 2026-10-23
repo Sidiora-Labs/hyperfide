@@ -148,7 +148,7 @@ export async function createMachineAuthService(
     baseURL: "http://localhost",
     secret,
     database: drizzleAdapter(args.db, {
-      provider: "sqlite",
+      provider: args.db.dialect === "postgresql" ? "pg" : "sqlite",
       schema: machineAuthSchema,
     }),
     plugins: [
@@ -327,7 +327,7 @@ export async function createMachineAuthService(
       hostId,
       token,
     }: EnrollHostArgs): Promise<EnrollHostResult | null> {
-      return runSerialized(hostOperations, hostId, async () => {
+      return await runSerialized(hostOperations, hostId, async () => {
         const verified = await verifyKey({
           configId: DAEMON_ENROLL_CONFIG_ID,
           token,
@@ -365,7 +365,7 @@ export async function createMachineAuthService(
       enrollSource,
       hostId,
     }: IssueHostEnrollKeyArgs): Promise<IssueHostEnrollKeyResult> {
-      return runSerialized(hostOperations, hostId, async () => {
+      return await runSerialized(hostOperations, hostId, async () => {
         await ensureReady();
         const metadata = {
           enrollSource,
@@ -399,8 +399,11 @@ export async function createMachineAuthService(
     async revokeHostEnrollKeys({
       hostId,
     }: RevokeHostAuthKeysArgs): Promise<void> {
-      await runSerialized(hostOperations, hostId, () =>
-        disableActiveKeysForHost(DAEMON_ENROLL_CONFIG_ID, hostId),
+      await runSerialized(
+        hostOperations,
+        hostId,
+        async () =>
+          await disableActiveKeysForHost(DAEMON_ENROLL_CONFIG_ID, hostId),
       );
     },
     async revokeHostAuthKeys({

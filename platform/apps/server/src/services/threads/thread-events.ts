@@ -50,7 +50,11 @@ import type {
 import { ApiError, TurnStartGuardError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";
 import { parseStoredEventPayload } from "./thread-data.js";
-import type { DbNotifier, DbQueryConnection, DbTransaction } from "@hyperfide/db";
+import type {
+  DbNotifier,
+  DbQueryConnection,
+  DbTransaction,
+} from "@hyperfide/db";
 import type { AppendStoredThreadEventArgs as AppendThreadEventArgs } from "@hyperfide/db";
 
 interface ThreadEventReadDeps {
@@ -223,7 +227,9 @@ function buildClientTurnRequestedEventData(
   };
 }
 
-type AppendClientTurnEvent = (args: AppendThreadEventArgs) => number;
+type AppendClientTurnEvent = (
+  args: AppendThreadEventArgs,
+) => number | Promise<number>;
 
 interface ThreadReadStateUpdate {
   changed: boolean;
@@ -268,21 +274,21 @@ function buildClientTurnRequestedEventArgs(
   };
 }
 
-function appendBuiltClientTurnRequestedEvent(
+async function appendBuiltClientTurnRequestedEvent(
   append: AppendClientTurnEvent,
   args: PreparedClientTurnRequestedEventArgs,
-): AppendedClientTurnRequest {
-  const sequence = append(buildClientTurnRequestedEventArgs(args));
+): Promise<AppendedClientTurnRequest> {
+  const sequence = await append(buildClientTurnRequestedEventArgs(args));
   return { requestId: args.requestId, sequence };
 }
 
-function appendBuiltClientTurnEvent(
+async function appendBuiltClientTurnEvent(
   append: AppendClientTurnEvent,
   args: ClientTurnEventArgs,
-): number | AppendedClientTurnRequest {
+): Promise<number | AppendedClientTurnRequest> {
   switch (args.type) {
     case "client/thread/start":
-      return append({
+      return await append({
         threadId: args.threadId,
         environmentId: args.environmentId,
         type: args.type,
@@ -290,7 +296,7 @@ function appendBuiltClientTurnEvent(
         data: buildClientTurnBaseEventData(args),
       });
     case "client/turn/requested": {
-      return appendBuiltClientTurnRequestedEvent(append, {
+      return await appendBuiltClientTurnRequestedEvent(append, {
         ...args,
         requestId: createClientTurnRequestId(),
       });
@@ -304,10 +310,10 @@ function isThreadReadStateUpdate(
   return result !== null;
 }
 
-function applyUserTurnReadForEvent(
+async function applyUserTurnReadForEvent(
   db: DbTransaction,
   args: AppendThreadEventArgs,
-): ThreadReadStateUpdate | null {
+): Promise<ThreadReadStateUpdate | null> {
   if (args.type !== "client/turn/requested") {
     return null;
   }
@@ -315,8 +321,8 @@ function applyUserTurnReadForEvent(
     return null;
   }
 
-  const previousThread = getThread(db, args.threadId);
-  const updatedThread = updateThread(db, noopNotifier, args.threadId, {
+  const previousThread = await getThread(db, args.threadId);
+  const updatedThread = await updateThread(db, noopNotifier, args.threadId, {
     lastReadAt: Date.now(),
   });
   if (!previousThread || !updatedThread) {
@@ -330,24 +336,28 @@ function applyUserTurnReadForEvent(
   };
 }
 
-function appendThreadEventsInTransactionWithAttention(
+async function appendThreadEventsInTransactionWithAttention(
   db: DbTransaction,
   args: readonly AppendThreadEventArgs[],
-): AppendThreadEventsTransactionResult {
-  assertStoredTurnStartedForEvents(db, args);
-  const sequences = appendStoredThreadEventsInTransaction(db, args);
-  const readStateUpdates = args
-    .map((eventArgs) => applyUserTurnReadForEvent(db, eventArgs))
-    .filter(isThreadReadStateUpdate);
+): Promise<AppendThreadEventsTransactionResult> {
+  await assertStoredTurnStartedForEvents(db, args);
+  const sequences = await appendStoredThreadEventsInTransaction(db, args);
+  const readStateUpdates = (
+    await Promise.all(
+      args.map(
+        async (eventArgs) => await applyUserTurnReadForEvent(db, eventArgs),
+      ),
+    )
+  ).filter(isThreadReadStateUpdate);
 
   return { readStateUpdates, sequences };
 }
 
-function appendThreadEventInTransactionWithAttention(
+async function appendThreadEventInTransactionWithAttention(
   db: DbTransaction,
   args: AppendThreadEventArgs,
-): AppendThreadEventTransactionResult {
-  const result = appendThreadEventsInTransactionWithAttention(db, [args]);
+): Promise<AppendThreadEventTransactionResult> {
+  const result = await appendThreadEventsInTransactionWithAttention(db, [args]);
   const sequence = result.sequences[0];
   if (sequence === undefined) {
     throw new Error("Expected one appended thread event sequence");
@@ -410,22 +420,22 @@ function collectTurnStartRequirements(
   });
 }
 
-function listExistingTurnStartKeys(
+async function listExistingTurnStartKeys(
   db: DbQueryConnection,
   requirements: readonly TurnStartKey[],
-): Set<string> {
+): Promise<Set<string>> {
   return new Set(
-    listStoredTurnStartedKeys(db, { keys: requirements }).map((key) =>
+    (await listStoredTurnStartedKeys(db, { keys: requirements })).map((key) =>
       getTurnStartKey(key),
     ),
   );
 }
 
-function assertStoredTurnStartedForEvents(
+async function assertStoredTurnStartedForEvents(
   db: DbQueryConnection,
   eventArgs: readonly AppendThreadEventArgs[],
-): void {
-  const existingTurnKeys = listExistingTurnStartKeys(
+): Promise<void> {
+  const existingTurnKeys = await listExistingTurnStartKeys(
     db,
     collectTurnStartRequirements(eventArgs),
   );
@@ -464,16 +474,16 @@ function assertStoredTurnStartedForEvents(
 export function appendThreadEvent<TType extends ThreadEventType>(
   deps: Pick<AppDeps, "db" | "hub">,
   args: AppendThreadEventArgs<TType>,
-): number;
-export function appendThreadEvent(
+): Promise<number>;
+export async function appendThreadEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: AppendThreadEventArgs,
-): number {
-  const result = deps.db.transaction(
-    (tx) => appendThreadEventInTransactionWithAttention(tx, args),
+): Promise<number> {
+  const result = await deps.db.transaction(
+    async (tx) => await appendThreadEventInTransactionWithAttention(tx, args),
     { behavior: "immediate" },
   );
-  deps.hub.notifyThread(
+  await deps.hub.notifyThread(
     args.threadId,
     buildAppendThreadEventNotificationChanges(result.readStateUpdate),
     buildAppendThreadEventNotificationMetadata({
@@ -488,35 +498,36 @@ export function appendThreadEvent(
 export function appendThreadEventInTransaction<TType extends ThreadEventType>(
   db: DbTransaction,
   args: AppendThreadEventArgs<TType>,
-): number;
-export function appendThreadEventInTransaction(
+): Promise<number>;
+export async function appendThreadEventInTransaction(
   db: DbTransaction,
   args: AppendThreadEventArgs,
-): number {
-  return appendThreadEventInTransactionWithAttention(db, args).sequence;
+): Promise<number> {
+  return (await appendThreadEventInTransactionWithAttention(db, args)).sequence;
 }
 
-export function appendThreadEventsInTransaction(
+export async function appendThreadEventsInTransaction(
   db: DbTransaction,
   args: readonly AppendThreadEventArgs[],
-): number[] {
-  return appendThreadEventsInTransactionWithAttention(db, args).sequences;
+): Promise<number[]> {
+  return (await appendThreadEventsInTransactionWithAttention(db, args))
+    .sequences;
 }
 
 export function appendClientTurnEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: ClientTurnRequestedEventArgs,
-): AppendedClientTurnRequest;
+): Promise<AppendedClientTurnRequest>;
 export function appendClientTurnEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: ClientTurnLifecycleEventArgs,
-): number;
-export function appendClientTurnEvent(
+): Promise<number>;
+export async function appendClientTurnEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: ClientTurnEventArgs,
-): number | AppendedClientTurnRequest {
-  return appendBuiltClientTurnEvent(
-    (eventArgs) => appendThreadEvent(deps, eventArgs),
+): Promise<number | AppendedClientTurnRequest> {
+  return await appendBuiltClientTurnEvent(
+    async (eventArgs) => await appendThreadEvent(deps, eventArgs),
     args,
   );
 }
@@ -524,22 +535,22 @@ export function appendClientTurnEvent(
 export function appendClientTurnEventInTransaction(
   db: DbTransaction,
   args: ClientTurnRequestedEventArgs,
-): AppendedClientTurnRequest;
-export function appendClientTurnEventInTransaction(
+): Promise<AppendedClientTurnRequest>;
+export async function appendClientTurnEventInTransaction(
   db: DbTransaction,
   args: ClientTurnEventArgs,
-): number | AppendedClientTurnRequest {
-  return appendBuiltClientTurnEvent(
-    (eventArgs) => appendThreadEventInTransaction(db, eventArgs),
+): Promise<number | AppendedClientTurnRequest> {
+  return await appendBuiltClientTurnEvent(
+    async (eventArgs) => await appendThreadEventInTransaction(db, eventArgs),
     args,
   );
 }
 
-export function appendPreparedClientTurnRequestedEventWithNotificationInTransaction(
+export async function appendPreparedClientTurnRequestedEventWithNotificationInTransaction(
   db: DbTransaction,
   args: PreparedClientTurnRequestedEventArgs,
-): AppendedClientTurnRequestWithNotification {
-  const result = appendThreadEventInTransactionWithAttention(
+): Promise<AppendedClientTurnRequestWithNotification> {
+  const result = await appendThreadEventInTransactionWithAttention(
     db,
     buildClientTurnRequestedEventArgs(args),
   );
@@ -621,18 +632,18 @@ function buildThreadProvisioningEventArgs(
   };
 }
 
-export function appendThreadProvisioningEvent(
+export async function appendThreadProvisioningEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: AppendThreadProvisioningEventArgs,
-): number {
-  return appendThreadEvent(deps, buildThreadProvisioningEventArgs(args));
+): Promise<number> {
+  return await appendThreadEvent(deps, buildThreadProvisioningEventArgs(args));
 }
 
-export function appendThreadProvisioningEventInTransaction(
+export async function appendThreadProvisioningEventInTransaction(
   db: DbTransaction,
   args: AppendThreadProvisioningEventArgs,
-): number {
-  return appendThreadEventInTransaction(
+): Promise<number> {
+  return await appendThreadEventInTransaction(
     db,
     buildThreadProvisioningEventArgs(args),
   );
@@ -683,18 +694,18 @@ function buildSystemErrorEventArgs(
   };
 }
 
-export function appendSystemErrorEvent(
+export async function appendSystemErrorEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: AppendSystemErrorEventArgs,
-): number {
-  return appendThreadEvent(deps, buildSystemErrorEventArgs(args));
+): Promise<number> {
+  return await appendThreadEvent(deps, buildSystemErrorEventArgs(args));
 }
 
-export function appendSystemErrorEventInTransaction(
+export async function appendSystemErrorEventInTransaction(
   deps: ThreadEventTransactionDeps,
   args: AppendSystemErrorEventArgs,
-): number {
-  const sequence = appendThreadEventInTransaction(
+): Promise<number> {
+  const sequence = await appendThreadEventInTransaction(
     deps.db,
     buildSystemErrorEventArgs(args),
   );
@@ -715,11 +726,11 @@ export function buildSystemErrorEventData(
   });
 }
 
-export function appendThreadInterruptedEventInTransaction(
+export async function appendThreadInterruptedEventInTransaction(
   db: DbTransaction,
   args: AppendThreadInterruptedEventArgs,
-): number {
-  return appendThreadEventInTransaction(db, {
+): Promise<number> {
+  return await appendThreadEventInTransaction(db, {
     threadId: args.threadId,
     type: "system/thread/interrupted",
     scope: threadScope(),
@@ -761,34 +772,34 @@ function threadOwnershipChangeMessage(
   }
 }
 
-function resolveParentThreadTitle(
+async function resolveParentThreadTitle(
   db: DbQueryConnection,
   parentThreadId: string | null,
-): string | null {
+): Promise<string | null> {
   if (parentThreadId === null) {
     return null;
   }
-  const thread = getThread(db, parentThreadId);
+  const thread = await getThread(db, parentThreadId);
   if (!thread) {
     return null;
   }
   return thread.title ?? thread.titleFallback ?? null;
 }
 
-function buildThreadOwnershipChangeEventArgs(
+async function buildThreadOwnershipChangeEventArgs(
   db: DbQueryConnection,
   args: AppendThreadOwnershipChangeEventArgs,
-): AppendThreadEventArgs<"system/operation"> | null {
+): Promise<AppendThreadEventArgs<"system/operation"> | null> {
   const action = resolveThreadOwnershipChangeAction(args);
   if (!action) {
     return null;
   }
 
-  const previousParentThreadTitle = resolveParentThreadTitle(
+  const previousParentThreadTitle = await resolveParentThreadTitle(
     db,
     args.previousParentThreadId,
   );
-  const nextParentThreadTitle = resolveParentThreadTitle(
+  const nextParentThreadTitle = await resolveParentThreadTitle(
     db,
     args.nextParentThreadId,
   );
@@ -814,69 +825,69 @@ function buildThreadOwnershipChangeEventArgs(
   };
 }
 
-export function appendThreadOwnershipChangeEvent(
+export async function appendThreadOwnershipChangeEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: AppendThreadOwnershipChangeEventArgs,
-): number | null {
-  const eventArgs = buildThreadOwnershipChangeEventArgs(deps.db, args);
-  return eventArgs === null ? null : appendThreadEvent(deps, eventArgs);
+): Promise<number | null> {
+  const eventArgs = await buildThreadOwnershipChangeEventArgs(deps.db, args);
+  return eventArgs === null ? null : await appendThreadEvent(deps, eventArgs);
 }
 
-export function appendThreadOwnershipChangeEventInTransaction(
+export async function appendThreadOwnershipChangeEventInTransaction(
   deps: ThreadEventTransactionDeps,
   args: AppendThreadOwnershipChangeEventArgs,
-): number | null {
-  const eventArgs = buildThreadOwnershipChangeEventArgs(deps.db, args);
+): Promise<number | null> {
+  const eventArgs = await buildThreadOwnershipChangeEventArgs(deps.db, args);
   if (eventArgs === null) {
     return null;
   }
 
-  const sequence = appendThreadEventInTransaction(deps.db, eventArgs);
+  const sequence = await appendThreadEventInTransaction(deps.db, eventArgs);
   deps.hub.notifyThread(args.threadId, ["events-appended"], {
     timelineSequence: sequence,
   });
   return sequence;
 }
 
-export function getActiveTurnId(
+export async function getActiveTurnId(
   deps: ThreadEventReadDeps,
   threadId: string,
-): string | null {
-  return getActiveStoredTurnId(deps.db, threadId);
+): Promise<string | null> {
+  return await getActiveStoredTurnId(deps.db, threadId);
 }
 
-export function isActiveTurnMainRunIdle(
+export async function isActiveTurnMainRunIdle(
   deps: ThreadEventReadDeps,
   thread: Pick<Thread, "id" | "status">,
-): boolean {
+): Promise<boolean> {
   if (thread.status !== "active") {
     return false;
   }
-  const activeTurnId = getActiveStoredTurnId(deps.db, thread.id);
+  const activeTurnId = await getActiveStoredTurnId(deps.db, thread.id);
   return (
     activeTurnId !== null &&
-    isStoredTurnMainRunIdle(deps.db, {
+    (await isStoredTurnMainRunIdle(deps.db, {
       threadId: thread.id,
       turnId: activeTurnId,
-    })
+    }))
   );
 }
 
-export function isManualCompactionActive(
+export async function isManualCompactionActive(
   deps: ThreadEventReadDeps,
   thread: Pick<Thread, "id" | "status">,
-): boolean {
+): Promise<boolean> {
   if (thread.status !== "active") {
     return false;
   }
 
-  const activeTurnId = getActiveStoredTurnId(deps.db, thread.id);
+  const activeTurnId = await getActiveStoredTurnId(deps.db, thread.id);
   const requestRow = activeTurnId
-    ? (getStoredTurnRequestEventForTurn(deps.db, {
+    ? ((await getStoredTurnRequestEventForTurn(deps.db, {
         threadId: thread.id,
         turnId: activeTurnId,
-      }) ?? getLastStoredTurnRequestEvent(deps.db, thread.id))
-    : getLastStoredTurnRequestEvent(deps.db, thread.id);
+      })) ?? (await getLastStoredTurnRequestEvent(deps.db, thread.id)))
+    : await getLastStoredTurnRequestEvent(deps.db, thread.id);
   if (!requestRow) {
     return false;
   }
@@ -888,18 +899,18 @@ export function isManualCompactionActive(
   );
 }
 
-export function getLastProviderThreadId(
+export async function getLastProviderThreadId(
   deps: ThreadEventReadDeps,
   threadId: string,
-): string | null {
-  return getLastStoredProviderThreadId(deps.db, threadId);
+): Promise<string | null> {
+  return await getLastStoredProviderThreadId(deps.db, threadId);
 }
 
-export function requireDispatchableProviderThreadId(
+export async function requireDispatchableProviderThreadId(
   deps: ThreadEventReadDeps,
   threadId: string,
-): string | null {
-  const session = getStoredProviderSession(deps.db, threadId);
+): Promise<string | null> {
+  const session = await getStoredProviderSession(deps.db, threadId);
   switch (session.kind) {
     case "none":
       return null;
@@ -927,11 +938,11 @@ export function requireDispatchableProviderThreadId(
   }
 }
 
-export function getLastExecutionOptions(
+export async function getLastExecutionOptions(
   deps: Pick<AppDeps, "db">,
   threadId: string,
-): RecordedThreadExecutionOptions | null {
-  const row = getLastStoredTurnRequestEvent(deps.db, threadId);
+): Promise<RecordedThreadExecutionOptions | null> {
+  const row = await getLastStoredTurnRequestEvent(deps.db, threadId);
 
   return row ? parseStoredTurnRequestEvent(row).execution : null;
 }

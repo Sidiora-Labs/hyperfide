@@ -101,11 +101,11 @@ describe("public thread data routes", () => {
       expect(initialList.status).toBe(200);
       expect(await readJson(initialList)).toEqual([]);
 
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         title: "Release checklist",
       });
@@ -196,7 +196,7 @@ describe("public thread data routes", () => {
         name: "Ship room",
         updatedThreadCount: 1,
       });
-      expect(getThread(harness.db, thread.id)?.sectionId).toBeNull();
+      expect((await getThread(harness.db, thread.id))?.sectionId).toBeNull();
       const emptyList = await harness.app.request("/api/v1/thread-sections");
       expect(await readJson(emptyList)).toEqual([]);
 
@@ -231,11 +231,11 @@ describe("public thread data routes", () => {
 
   it("updates visibility and requires includeHidden to list hidden threads", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         title: "Visibility candidate",
       });
@@ -280,31 +280,31 @@ describe("public thread data routes", () => {
 
   it("lists only the threads on one environment", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-list-env",
         projectId: project.id,
       });
-      const other = seedEnvironment(harness.deps, {
+      const other = await seedEnvironment(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-list-env-other",
         projectId: project.id,
       });
-      const onEnvironment = seedThread(harness.deps, {
+      const onEnvironment = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         title: "On the environment",
       });
-      seedThread(harness.deps, {
+      await seedThread(harness.deps, {
         environmentId: other.id,
         projectId: project.id,
         title: "Somewhere else",
       });
-      seedThread(harness.deps, {
+      await seedThread(harness.deps, {
         projectId: project.id,
         title: "No environment yet",
       });
@@ -320,51 +320,51 @@ describe("public thread data routes", () => {
 
   it("lists only the unarchived threads whose environment is on one machine", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const other = seedHost(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const other = await seedHost(harness.deps, {
         id: "host_other",
         name: "Other",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const first = seedEnvironment(harness.deps, {
+      const first = await seedEnvironment(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-list-host-a",
         projectId: project.id,
       });
-      const second = seedEnvironment(harness.deps, {
+      const second = await seedEnvironment(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-list-host-b",
         projectId: project.id,
       });
-      const elsewhere = seedEnvironment(harness.deps, {
+      const elsewhere = await seedEnvironment(harness.deps, {
         hostId: other.id,
         path: "/tmp/thread-list-host-other",
         projectId: project.id,
       });
-      const onFirst = seedThread(harness.deps, {
+      const onFirst = await seedThread(harness.deps, {
         environmentId: first.id,
         projectId: project.id,
       });
-      const onSecond = seedThread(harness.deps, {
+      const onSecond = await seedThread(harness.deps, {
         environmentId: second.id,
         projectId: project.id,
       });
-      const archived = seedThread(harness.deps, {
+      const archived = await seedThread(harness.deps, {
         environmentId: second.id,
         projectId: project.id,
       });
-      harness.db
+      await harness.db
         .update(threadRows)
         .set({ archivedAt: 1 })
         .where(eq(threadRows.id, archived.id))
         .run();
-      seedThread(harness.deps, {
+      await seedThread(harness.deps, {
         environmentId: elsewhere.id,
         projectId: project.id,
       });
-      seedThread(harness.deps, { projectId: project.id });
+      await seedThread(harness.deps, { projectId: project.id });
 
       const response = await harness.app.request(
         `/api/v1/threads?hostId=${host.id}&archived=false`,
@@ -379,13 +379,13 @@ describe("public thread data routes", () => {
 
   it("lists only the requested thread IDs, treats an empty list as no threads and caps the list", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const first = seedThread(harness.deps, { projectId: project.id });
-      const second = seedThread(harness.deps, { projectId: project.id });
-      seedThread(harness.deps, { projectId: project.id });
+      const first = await seedThread(harness.deps, { projectId: project.id });
+      const second = await seedThread(harness.deps, { projectId: project.id });
+      await seedThread(harness.deps, { projectId: project.id });
       const list = async (threadIds: string) => {
         const response = await harness.app.request(
           `/api/v1/threads?threadIds=${threadIds}`,
@@ -415,13 +415,17 @@ describe("public thread data routes", () => {
 
   it("allows creating or assigning a hidden thread in a section", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const sectionResult = createThreadSection(harness.db, harness.deps.hub, {
-        name: "Work",
-      });
+      const sectionResult = await createThreadSection(
+        harness.db,
+        harness.deps.hub,
+        {
+          name: "Work",
+        },
+      );
       if (sectionResult.status !== "created") {
         throw new Error("Expected section fixture to be created");
       }
@@ -448,7 +452,7 @@ describe("public thread data routes", () => {
       expect(createdThread.sectionId).toBe(sectionResult.section.id);
       expect(createdThread.visibility).toBe("hidden");
 
-      const hiddenThread = seedThread(harness.deps, {
+      const hiddenThread = await seedThread(harness.deps, {
         projectId: project.id,
         visibility: "hidden",
       });
@@ -465,7 +469,7 @@ describe("public thread data routes", () => {
       expect(response.status).toBe(200);
       const updatedThread = threadSchema.parse(await readJson(response));
       expect(updatedThread.sectionId).toBe(sectionResult.section.id);
-      expect(getThread(harness.db, hiddenThread.id)?.sectionId).toBe(
+      expect((await getThread(harness.db, hiddenThread.id))?.sectionId).toBe(
         sectionResult.section.id,
       );
     });
@@ -473,7 +477,7 @@ describe("public thread data routes", () => {
 
   it("embeds thread environment and host snapshots when requested", async () => {
     await withTestHarness(async (harness) => {
-      const { host, environment, thread } = seedThreadFixture(harness, {
+      const { host, environment, thread } = await seedThreadFixture(harness, {
         session: {
           id: "host-thread-include",
         },
@@ -505,10 +509,10 @@ describe("public thread data routes", () => {
 
   it("retains a removed machine name for thread history without exposing an active host", async () => {
     await withTestHarness(async (harness) => {
-      const { host, environment, thread } = seedThreadFixture(harness, {
+      const { host, environment, thread } = await seedThreadFixture(harness, {
         session: { id: "host-thread-removed-name" },
       });
-      harness.deps.db
+      await harness.deps.db
         .update(hosts)
         .set({ destroyedAt: Date.now() })
         .where(eq(hosts.id, host.id))
@@ -530,25 +534,25 @@ describe("public thread data routes", () => {
 
   it("returns null thread includes when relations are absent or unresolved", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-null-include",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const threadWithoutEnvironment = seedThread(harness.deps, {
+      const threadWithoutEnvironment = await seedThread(harness.deps, {
         environmentId: null,
         projectId: project.id,
       });
-      const threadWithMissingHost = seedThread(harness.deps, {
+      const threadWithMissingHost = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
       });
-      harness.deps.db.delete(hosts).where(eq(hosts.id, host.id)).run();
+      await harness.deps.db.delete(hosts).where(eq(hosts.id, host.id)).run();
 
       const noEnvironmentResponse = await harness.app.request(
         `/api/v1/threads/${threadWithoutEnvironment.id}?include=environment,host`,
@@ -576,11 +580,11 @@ describe("public thread data routes", () => {
 
   it("rejects invalid thread include values", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
       });
 
@@ -593,7 +597,7 @@ describe("public thread data routes", () => {
 
   it("returns a timeline when a stored history holds a duplicate turn/started from a daemon replay", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const eventBase = {
         threadId: thread.id,
         environmentId: environment.id,
@@ -601,19 +605,19 @@ describe("public thread data routes", () => {
         scope: turnScope("turn-retried"),
       };
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventBase,
         sequence: 1,
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventBase,
         sequence: 2,
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventBase,
         sequence: 3,
         type: "item/completed",
@@ -627,7 +631,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...eventBase,
         sequence: 4,
         type: "turn/completed",
@@ -650,15 +654,15 @@ describe("public thread data routes", () => {
 
   it("returns the full conversation outline beyond the paginated timeline window", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      const seedMessageTurn = (args: {
+      const seedMessageTurn = async (args: {
         requestId: number;
         startSequence: number;
         text: string;
         turnId: string;
       }) => {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           sequence: args.startSequence,
@@ -684,7 +688,7 @@ describe("public thread data routes", () => {
             source: "tell",
           },
         });
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId: "provider-thread-1",
@@ -693,7 +697,7 @@ describe("public thread data routes", () => {
           type: "turn/started",
           data: {},
         });
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId: "provider-thread-1",
@@ -708,7 +712,7 @@ describe("public thread data routes", () => {
             },
           },
         });
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId: "provider-thread-1",
@@ -719,19 +723,19 @@ describe("public thread data routes", () => {
         });
       };
 
-      seedMessageTurn({
+      await seedMessageTurn({
         requestId: 101,
         startSequence: 1,
         text: "First question",
         turnId: "turn-1",
       });
-      seedMessageTurn({
+      await seedMessageTurn({
         requestId: 102,
         startSequence: 5,
         text: "Second question",
         turnId: "turn-2",
       });
-      seedMessageTurn({
+      await seedMessageTurn({
         requestId: 103,
         startSequence: 9,
         text: "Third question",
@@ -800,7 +804,7 @@ describe("public thread data routes", () => {
 
   it("returns an empty conversation outline for a thread with no events", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
+      const { thread } = await seedThreadFixture(harness);
 
       const response = await harness.app.request(
         `/api/v1/threads/${thread.id}/conversation-outline`,
@@ -815,8 +819,8 @@ describe("public thread data routes", () => {
 
   it("reuses the conversation outline across timeline-only events", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
-      seedEvent(harness.deps, {
+      const { environment, thread } = await seedThreadFixture(harness);
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -845,7 +849,7 @@ describe("public thread data routes", () => {
       expect(first.maxSeq).toBe(1);
       expect(countFullOutlineQueries()).toBe(1);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -876,7 +880,7 @@ describe("public thread data routes", () => {
       expect(cached).toEqual({ items: first.items, maxSeq: 2 });
       expect(countFullOutlineQueries()).toBe(1);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 3,
@@ -898,14 +902,15 @@ describe("public thread data routes", () => {
         "New visible response",
       ]);
       expect(countFullOutlineQueries()).toBe(2);
-      harness.db.transaction((tx) =>
-        deleteThreadEventSuffixInTransaction(tx, {
-          threadId: thread.id,
-          cutoffSequence: 3,
-          oldMaxSequence: 3,
-        }),
+      await harness.db.transaction(
+        async (tx) =>
+          await deleteThreadEventSuffixInTransaction(tx, {
+            threadId: thread.id,
+            cutoffSequence: 3,
+            oldMaxSequence: 3,
+          }),
       );
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 3,
@@ -931,9 +936,9 @@ describe("public thread data routes", () => {
 
   it("summarizes attachment-only messages in the conversation outline", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -986,14 +991,14 @@ describe("public thread data routes", () => {
 
   it("uses uploaded project attachments for localFile prompt input and timeline metadata", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-uploaded-local-file",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/uploaded-local-file-project",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/uploaded-local-file-project",
@@ -1123,14 +1128,14 @@ describe("public thread data routes", () => {
 
   it("rejects bare relative localFile prompt paths that were not uploaded", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-missing-local-file-token",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/missing-local-file-token-project",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/missing-local-file-token-project",
@@ -1165,7 +1170,7 @@ describe("public thread data routes", () => {
         ),
       });
       expect(
-        harness.db
+        await harness.db
           .select({ id: events.id })
           .from(events)
           .where(eq(events.type, "client/turn/requested"))
@@ -1176,9 +1181,9 @@ describe("public thread data routes", () => {
 
   it("hydrates timeline turn-summary details from the summary row identity and range", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1187,7 +1192,7 @@ describe("public thread data routes", () => {
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1204,7 +1209,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1219,7 +1224,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1267,7 +1272,7 @@ describe("public thread data routes", () => {
 
   it("hydrates turn-summary workflow details with late background task completion", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const taskData = (
         status: "pending" | "completed",
         taskStatus: "running" | "completed",
@@ -1286,7 +1291,7 @@ describe("public thread data routes", () => {
         },
       });
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1295,7 +1300,7 @@ describe("public thread data routes", () => {
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1304,7 +1309,7 @@ describe("public thread data routes", () => {
         type: "item/started",
         data: taskData("pending", "running"),
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1319,7 +1324,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1330,7 +1335,7 @@ describe("public thread data routes", () => {
           status: "completed",
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1386,20 +1391,20 @@ describe("public thread data routes", () => {
 
   it("hydrates a summary whose range reaches turn completion", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const base = {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
         scope: turnScope("turn-1"),
       };
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...base,
         sequence: 1,
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...base,
         sequence: 2,
         type: "item/started",
@@ -1407,13 +1412,13 @@ describe("public thread data routes", () => {
           item: { type: "reasoning", id: "orphan", summary: [], content: [] },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...base,
         sequence: 3,
         type: "item/reasoning/textDelta",
         data: { itemId: "orphan", delta: "Thinking" },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...base,
         sequence: 4,
         type: "item/completed",
@@ -1421,13 +1426,13 @@ describe("public thread data routes", () => {
           item: { type: "agentMessage", id: "intermediate", text: "Checking." },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...base,
         sequence: 5,
         type: "item/completed",
         data: { item: { type: "agentMessage", id: "final", text: "Done." } },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...base,
         sequence: 6,
         type: "turn/completed",
@@ -1472,7 +1477,7 @@ describe("public thread data routes", () => {
 
   it("returns active background task state when the task started outside the latest window", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const requestData = (requestId: number, text: string) => ({
         direction: "outbound" as const,
         requestId: encodeClientTurnRequestIdNumber({ value: requestId }),
@@ -1513,12 +1518,12 @@ describe("public thread data routes", () => {
         },
       });
       const providerThreadId = "provider-thread-1";
-      const seedClientRequest = (
+      const seedClientRequest = async (
         sequence: number,
         requestId: number,
         text: string,
       ) => {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           sequence,
@@ -1527,14 +1532,18 @@ describe("public thread data routes", () => {
           data: requestData(requestId, text),
         });
       };
-      const seedCompletedMessageTurn = (args: {
+      const seedCompletedMessageTurn = async (args: {
         requestId: number;
         requestSequence: number;
         text: string;
         turnId: string;
       }) => {
-        seedClientRequest(args.requestSequence, args.requestId, args.text);
-        seedEvent(harness.deps, {
+        await seedClientRequest(
+          args.requestSequence,
+          args.requestId,
+          args.text,
+        );
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId,
@@ -1543,7 +1552,7 @@ describe("public thread data routes", () => {
           scope: turnScope(args.turnId),
           data: {},
         });
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId,
@@ -1558,7 +1567,7 @@ describe("public thread data routes", () => {
             },
           },
         });
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId,
@@ -1581,8 +1590,8 @@ describe("public thread data routes", () => {
         },
       ] as const;
 
-      seedClientRequest(1, 101, "Start background work");
-      seedEvent(harness.deps, {
+      await seedClientRequest(1, 101, "Start background work");
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId,
@@ -1592,7 +1601,7 @@ describe("public thread data routes", () => {
         data: {},
       });
       for (const [index, task] of activeTasks.entries()) {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId,
@@ -1601,7 +1610,7 @@ describe("public thread data routes", () => {
           scope: turnScope("turn-1"),
           data: taskData(task),
         });
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           providerThreadId,
@@ -1611,7 +1620,7 @@ describe("public thread data routes", () => {
           data: taskData(task),
         });
       }
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId,
@@ -1620,13 +1629,13 @@ describe("public thread data routes", () => {
         scope: turnScope("turn-1"),
         data: { status: "completed" },
       });
-      seedCompletedMessageTurn({
+      await seedCompletedMessageTurn({
         requestId: 202,
         requestSequence: 10,
         text: "Middle turn",
         turnId: "turn-2",
       });
-      seedCompletedMessageTurn({
+      await seedCompletedMessageTurn({
         requestId: 303,
         requestSequence: 20,
         text: "Latest turn",
@@ -1657,9 +1666,9 @@ describe("public thread data routes", () => {
 
   it("hydrates turn-summary details when the range overlaps another turn", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1668,7 +1677,7 @@ describe("public thread data routes", () => {
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1677,7 +1686,7 @@ describe("public thread data routes", () => {
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1694,7 +1703,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1709,7 +1718,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1724,7 +1733,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1735,7 +1744,7 @@ describe("public thread data routes", () => {
           status: "completed",
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -1784,10 +1793,10 @@ describe("public thread data routes", () => {
 
   it("hydrates parent turn-summary details with delegated child rows", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const providerThreadId = "provider-thread-1";
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId,
@@ -1796,7 +1805,7 @@ describe("public thread data routes", () => {
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId,
@@ -1817,7 +1826,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId,
@@ -1839,7 +1848,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId,
@@ -1848,7 +1857,7 @@ describe("public thread data routes", () => {
         type: "turn/completed",
         data: { status: "completed" },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId,
@@ -1857,7 +1866,7 @@ describe("public thread data routes", () => {
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId,
@@ -1873,7 +1882,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId,
@@ -1944,7 +1953,7 @@ describe("public thread data routes", () => {
 
   it("expands the newest slice when a large delegation parent completes last", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const providerThreadId = "provider-thread-1";
       const turnId = "parent-turn";
       const parentToolCallId = "agent-call";
@@ -2060,7 +2069,7 @@ describe("public thread data routes", () => {
         parentToolCallId: null,
         data: JSON.stringify({ status: "completed", providerThreadId }),
       });
-      insertEvents(harness.deps.db, harness.deps.hub, eventInputs);
+      await insertEvents(harness.deps.db, harness.deps.hub, eventInputs);
 
       const timelineResponse = await harness.app.request(
         `/api/v1/threads/${thread.id}/timeline`,
@@ -2087,9 +2096,9 @@ describe("public thread data routes", () => {
 
   it("hydrates turn-summary details with future accepted input context", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -2116,7 +2125,7 @@ describe("public thread data routes", () => {
           source: "tell",
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -2125,7 +2134,7 @@ describe("public thread data routes", () => {
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -2142,7 +2151,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 4,
@@ -2169,7 +2178,7 @@ describe("public thread data routes", () => {
           source: "tell",
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -2184,7 +2193,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -2195,7 +2204,7 @@ describe("public thread data routes", () => {
           clientRequestId: encodeClientTurnRequestIdNumber({ value: 101 }),
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -2224,9 +2233,9 @@ describe("public thread data routes", () => {
 
   it("hydrates a single-event turn-summary detail range", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -2235,7 +2244,7 @@ describe("public thread data routes", () => {
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -2250,7 +2259,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -2283,7 +2292,7 @@ describe("public thread data routes", () => {
 
   it("rejects invalid thread data query params with a 400", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
+      const { thread } = await seedThreadFixture(harness);
 
       const response = await harness.app.request(
         `/api/v1/threads/${thread.id}/timeline/turn-summary-details?turnId=turn-1&sourceSeqStart=oops&sourceSeqEnd=2`,
@@ -2297,9 +2306,9 @@ describe("public thread data routes", () => {
 
   it("returns thread output and default execution options from stored events", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -2326,7 +2335,7 @@ describe("public thread data routes", () => {
           source: "tell",
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-output",
@@ -2341,7 +2350,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-output",
@@ -2381,9 +2390,9 @@ describe("public thread data routes", () => {
 
   it("returns a user-visible system output when a later assistant item is empty", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-output",
@@ -2396,7 +2405,7 @@ describe("public thread data routes", () => {
           turnId: "turn-1",
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-output",
@@ -2424,9 +2433,9 @@ describe("public thread data routes", () => {
 
   it("skips malformed item/completed events and returns the last valid output", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-output",
@@ -2441,7 +2450,7 @@ describe("public thread data routes", () => {
           },
         },
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-output",
@@ -2470,9 +2479,9 @@ describe("public thread data routes", () => {
 
   it("returns the latest stored execution options from request events", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -2499,7 +2508,7 @@ describe("public thread data routes", () => {
           source: "spawn",
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 2,
@@ -2543,10 +2552,10 @@ describe("public thread data routes", () => {
 
   it("returns sticky execution overrides in thread default execution options", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         thread: { providerId: "claude-code" },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -2573,7 +2582,7 @@ describe("public thread data routes", () => {
           source: "tell",
         },
       });
-      setThreadExecutionOverride(harness.db, {
+      await setThreadExecutionOverride(harness.db, {
         threadId: thread.id,
         modelOverride: "claude-opus-4-8",
         reasoningLevelOverride: "high",
@@ -2596,10 +2605,10 @@ describe("public thread data routes", () => {
 
   it("returns null default execution options for stale stored provider capabilities", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         thread: { providerId: "pi" },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -2638,9 +2647,9 @@ describe("public thread data routes", () => {
 
   it("fails loudly when the latest stored request event is malformed", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -2667,7 +2676,7 @@ describe("public thread data routes", () => {
           source: "tell",
         },
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         itemId: null,
@@ -2703,7 +2712,7 @@ describe("public thread data routes", () => {
 
   it("marks threads as read and unread", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
+      const { thread } = await seedThreadFixture(harness);
 
       const readResponse = await harness.app.request(
         `/api/v1/threads/${thread.id}/read`,
@@ -2716,7 +2725,7 @@ describe("public thread data routes", () => {
         await readJson(readResponse),
       );
       expect(readThread.lastReadAt).toBeTypeOf("number");
-      const threadAfterRead = getThread(harness.db, thread.id);
+      const threadAfterRead = await getThread(harness.db, thread.id);
       expect(threadAfterRead?.lastReadAt).toBeTypeOf("number");
       expect(threadAfterRead?.latestAttentionAt).toBe(thread.latestAttentionAt);
 
@@ -2730,7 +2739,7 @@ describe("public thread data routes", () => {
       await expect(readJson(unreadResponse)).resolves.toMatchObject({
         lastReadAt: null,
       });
-      const threadAfterUnread = getThread(harness.db, thread.id);
+      const threadAfterUnread = await getThread(harness.db, thread.id);
       expect(threadAfterUnread?.lastReadAt).toBeNull();
       expect(threadAfterUnread?.latestAttentionAt).toBe(
         thread.latestAttentionAt,
@@ -2742,8 +2751,8 @@ describe("public thread data routes", () => {
     await withTestHarness(async (harness) => {
       const capture = vi.fn<TelemetryService["capture"]>();
       harness.deps.telemetry = { ...harness.deps.telemetry, capture };
-      const { environment, thread } = seedThreadFixture(harness);
-      seedEvent(harness.deps, {
+      const { environment, thread } = await seedThreadFixture(harness);
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -2790,7 +2799,7 @@ describe("public thread data routes", () => {
         await readJson(createResponse),
       );
       expect(
-        getQueuedThreadMessage(harness.db, queuedMessage.id),
+        await getQueuedThreadMessage(harness.db, queuedMessage.id),
       ).toMatchObject({
         id: queuedMessage.id,
       });
@@ -2803,7 +2812,7 @@ describe("public thread data routes", () => {
           provider: "codex",
         },
       });
-      const queuedMessageBeforeUpdate = getQueuedThreadMessage(
+      const queuedMessageBeforeUpdate = await getQueuedThreadMessage(
         harness.db,
         queuedMessage.id,
       );
@@ -2828,7 +2837,7 @@ describe("public thread data routes", () => {
         content: [{ type: "text", text: "Edited queued message" }],
       });
       expect(
-        getQueuedThreadMessage(harness.db, queuedMessage.id),
+        await getQueuedThreadMessage(harness.db, queuedMessage.id),
       ).toMatchObject({
         content: JSON.stringify([
           { type: "text", text: "Edited queued message", mentions: [] },
@@ -2855,7 +2864,7 @@ describe("public thread data routes", () => {
         message: "Queued message changed since editing began",
       });
       expect(
-        getQueuedThreadMessage(harness.db, queuedMessage.id)?.content,
+        (await getQueuedThreadMessage(harness.db, queuedMessage.id))?.content,
       ).toBe(
         JSON.stringify([
           { type: "text", text: "Edited queued message", mentions: [] },
@@ -2870,7 +2879,9 @@ describe("public thread data routes", () => {
       );
       expect(deleteResponse.status).toBe(200);
       await expect(readJson(deleteResponse)).resolves.toEqual({ ok: true });
-      expect(getQueuedThreadMessage(harness.db, queuedMessage.id)).toBeNull();
+      expect(
+        await getQueuedThreadMessage(harness.db, queuedMessage.id),
+      ).toBeNull();
     });
   });
 
@@ -2878,12 +2889,12 @@ describe("public thread data routes", () => {
     await withTestHarness(async (harness) => {
       const capture = vi.fn<TelemetryService["capture"]>();
       harness.deps.telemetry = { ...harness.deps.telemetry, capture };
-      const { project, thread } = seedThreadFixture(harness, {
+      const { project, thread } = await seedThreadFixture(harness, {
         thread: {
           status: "active",
         },
       });
-      const senderThread = seedThread(harness.deps, {
+      const senderThread = await seedThread(harness.deps, {
         projectId: project.id,
       });
 
@@ -2916,7 +2927,7 @@ describe("public thread data routes", () => {
           sendAt: null,
         },
       });
-      const queuedRows = listQueuedThreadMessages(harness.db, thread.id);
+      const queuedRows = await listQueuedThreadMessages(harness.db, thread.id);
       expect(queuedRows).toMatchObject([
         {
           senderThreadId: senderThread.id,
@@ -2929,7 +2940,7 @@ describe("public thread data routes", () => {
       // Nothing was dispatched, and queueing writes no timeline event at all:
       // the queue rows above the composer are the only narration of a wait.
       expect(
-        harness.db
+        await harness.db
           .select({ type: events.type })
           .from(events)
           .where(eq(events.threadId, thread.id))
@@ -2941,18 +2952,21 @@ describe("public thread data routes", () => {
 
   it("queues send requests whose senderThreadId is in another project", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness, {
+      const { thread } = await seedThreadFixture(harness, {
         thread: {
           status: "active",
         },
       });
-      const { host: otherHost } = seedHostSession(harness.deps, {
+      const { host: otherHost } = await seedHostSession(harness.deps, {
         id: "host-cross-project-sender",
       });
-      const { project: otherProject } = seedProjectWithSource(harness.deps, {
-        hostId: otherHost.id,
-      });
-      const crossProjectSender = seedThread(harness.deps, {
+      const { project: otherProject } = await seedProjectWithSource(
+        harness.deps,
+        {
+          hostId: otherHost.id,
+        },
+      );
+      const crossProjectSender = await seedThread(harness.deps, {
         projectId: otherProject.id,
       });
 
@@ -2985,7 +2999,9 @@ describe("public thread data routes", () => {
           sendAt: null,
         },
       });
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toMatchObject([
+      expect(
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toMatchObject([
         {
           senderThreadId: crossProjectSender.id,
           threadId: thread.id,
@@ -2996,8 +3012,8 @@ describe("public thread data routes", () => {
 
   it("sends queued sender messages as agent-originated turn requests", async () => {
     await withTestHarness(async (harness) => {
-      const { project, thread } = seedThreadFixture(harness);
-      const senderThread = seedThread(harness.deps, {
+      const { project, thread } = await seedThreadFixture(harness);
+      const senderThread = await seedThread(harness.deps, {
         projectId: project.id,
       });
 
@@ -3035,7 +3051,7 @@ describe("public thread data routes", () => {
       );
 
       expect(sendResponse.status).toBe(200);
-      const requestedEvent = harness.db
+      const requestedEvent = await harness.db
         .select({ data: events.data })
         .from(events)
         .where(eq(events.threadId, thread.id))
@@ -3053,31 +3069,33 @@ describe("public thread data routes", () => {
           senderThreadId: senderThread.id,
         }),
       );
-      expect(getQueuedThreadMessage(harness.db, queuedMessage.id)).toBeNull();
+      expect(
+        await getQueuedThreadMessage(harness.db, queuedMessage.id),
+      ).toBeNull();
     });
   });
 
   it("reorders thread queued messages", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-queued-message-reorder",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-queued-message-reorder-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
       });
-      const firstQueuedMessage = seedQueuedMessage(harness.deps, {
+      const firstQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("First queued message"),
       });
-      const secondQueuedMessage = seedQueuedMessage(harness.deps, {
+      const secondQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Second queued message"),
       });
-      const thirdQueuedMessage = seedQueuedMessage(harness.deps, {
+      const thirdQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Third queued message"),
       });
@@ -3106,7 +3124,7 @@ describe("public thread data routes", () => {
         secondQueuedMessage.id,
       ]);
       expect(
-        listQueuedThreadMessages(harness.db, thread.id).map(
+        (await listQueuedThreadMessages(harness.db, thread.id)).map(
           (queuedMessage) => queuedMessage.id,
         ),
       ).toEqual([
@@ -3119,25 +3137,25 @@ describe("public thread data routes", () => {
 
   it("maps queued message reorder not-found and invalid-neighbor errors", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-queued-message-reorder-errors",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-queued-message-reorder-errors-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
       });
-      const firstQueuedMessage = seedQueuedMessage(harness.deps, {
+      const firstQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("First queued message"),
       });
-      const secondQueuedMessage = seedQueuedMessage(harness.deps, {
+      const secondQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Second queued message"),
       });
-      const thirdQueuedMessage = seedQueuedMessage(harness.deps, {
+      const thirdQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Third queued message"),
       });
@@ -3184,22 +3202,22 @@ describe("public thread data routes", () => {
 
   it("rejects grouping queued messages with different execution options", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-queued-message-group-execution-errors",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-queued-message-group-execution-errors-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
       });
-      const firstQueuedMessage = seedQueuedMessage(harness.deps, {
+      const firstQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("First queued message"),
         model: "gpt-5",
       });
-      const secondQueuedMessage = seedQueuedMessage(harness.deps, {
+      const secondQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Second queued message"),
         model: "gpt-5.5",
@@ -3233,37 +3251,39 @@ describe("public thread data routes", () => {
 
   it("rejects a stale queued-message group boundary prefix", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-queued-message-group-stale-prefix",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-queued-message-group-stale-prefix-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
       });
-      const firstQueuedMessage = seedQueuedMessage(harness.deps, {
+      const firstQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("First queued message"),
       });
-      const secondQueuedMessage = seedQueuedMessage(harness.deps, {
+      const secondQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Second queued message"),
       });
-      const thirdQueuedMessage = seedQueuedMessage(harness.deps, {
+      const thirdQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Third queued message"),
       });
       expect(
-        reorderQueuedThreadMessage({
-          db: harness.db,
-          notifier: harness.hub,
-          threadId: thread.id,
-          queuedMessageId: thirdQueuedMessage.id,
-          previousQueuedMessageId: firstQueuedMessage.id,
-          nextQueuedMessageId: secondQueuedMessage.id,
-        }).kind,
+        (
+          await reorderQueuedThreadMessage({
+            db: harness.db,
+            notifier: harness.hub,
+            threadId: thread.id,
+            queuedMessageId: thirdQueuedMessage.id,
+            previousQueuedMessageId: firstQueuedMessage.id,
+            nextQueuedMessageId: secondQueuedMessage.id,
+          })
+        ).kind,
       ).toBe("reordered");
 
       const response = await harness.app.request(
@@ -3293,25 +3313,25 @@ describe("public thread data routes", () => {
 
   it("returns queued messages without notification for unchanged reorder requests", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-queued-message-reorder-unchanged",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-queued-message-reorder-unchanged-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
       });
-      const firstQueuedMessage = seedQueuedMessage(harness.deps, {
+      const firstQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("First queued message"),
       });
-      const secondQueuedMessage = seedQueuedMessage(harness.deps, {
+      const secondQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Second queued message"),
       });
-      const thirdQueuedMessage = seedQueuedMessage(harness.deps, {
+      const thirdQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Third queued message"),
       });
@@ -3343,31 +3363,31 @@ describe("public thread data routes", () => {
 
   it("rejects stale and claimed queued message reorder requests", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-queued-message-reorder-stale",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-queued-message-reorder-stale-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
       });
-      const firstQueuedMessage = seedQueuedMessage(harness.deps, {
+      const firstQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("First queued message"),
       });
-      const secondQueuedMessage = seedQueuedMessage(harness.deps, {
+      const secondQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Second queued message"),
       });
-      const thirdQueuedMessage = seedQueuedMessage(harness.deps, {
+      const thirdQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Third queued message"),
       });
 
       expect(
-        deleteQueuedThreadMessage(
+        await deleteQueuedThreadMessage(
           harness.db,
           harness.hub,
           firstQueuedMessage.id,
@@ -3392,11 +3412,13 @@ describe("public thread data routes", () => {
         message: "Queued message order changed",
       });
 
-      const claimedQueuedMessage = claimQueuedThreadMessageGroup(
-        harness.db,
-        harness.hub,
-        secondQueuedMessage.id,
-        { kind: "explicit-send" },
+      const claimedQueuedMessage = (
+        await claimQueuedThreadMessageGroup(
+          harness.db,
+          harness.hub,
+          secondQueuedMessage.id,
+          { kind: "explicit-send" },
+        )
       )?.[0];
       expect(claimedQueuedMessage?.id).toBe(secondQueuedMessage.id);
       const claimedResponse = await harness.app.request(
@@ -3422,24 +3444,24 @@ describe("public thread data routes", () => {
 
   it("auto-sends queued messages created on idle provider threads", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-queued-message-create-idle-auto-send",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/queued-message-create-idle-auto-send-source",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/queued-message-create-idle-auto-send-environment",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "idle",
       });
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-queued-message-create-idle-auto-send",
@@ -3476,7 +3498,7 @@ describe("public thread data routes", () => {
         },
       });
       expect("inputGroups" in queued.command).toBe(false);
-      const requestedEvent = harness.db
+      const requestedEvent = await harness.db
         .select({ data: events.data })
         .from(events)
         .where(
@@ -3490,46 +3512,50 @@ describe("public thread data routes", () => {
       expect(
         Object.hasOwn(JSON.parse(requestedEvent!.data), "inputGroups"),
       ).toBe(false);
-      expect(getQueuedThreadMessage(harness.db, queuedMessage.id)).toBeNull();
-      expect(getThread(harness.db, thread.id)?.status).toBe("active");
+      expect(
+        await getQueuedThreadMessage(harness.db, queuedMessage.id),
+      ).toBeNull();
+      expect((await getThread(harness.db, thread.id))?.status).toBe("active");
     });
   });
 
   it("sends the contiguous lead queued-message group as one turn request", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         thread: {
           status: "idle",
         },
       });
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-queued-message-group",
       });
-      const firstQueuedMessage = seedQueuedMessage(harness.deps, {
+      const firstQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("First grouped queued message"),
       });
-      const secondQueuedMessage = seedQueuedMessage(harness.deps, {
+      const secondQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Second grouped queued message"),
       });
-      const thirdQueuedMessage = seedQueuedMessage(harness.deps, {
+      const thirdQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Ungrouped queued message"),
       });
       expect(
-        setQueuedThreadMessageGroupBoundary({
-          db: harness.db,
-          notifier: harness.hub,
-          threadId: thread.id,
-          expectedGroupedPrefixQueuedMessageIds: [
-            firstQueuedMessage.id,
-            secondQueuedMessage.id,
-          ],
-          groupBoundaryQueuedMessageId: secondQueuedMessage.id,
-        }).kind,
+        (
+          await setQueuedThreadMessageGroupBoundary({
+            db: harness.db,
+            notifier: harness.hub,
+            threadId: thread.id,
+            expectedGroupedPrefixQueuedMessageIds: [
+              firstQueuedMessage.id,
+              secondQueuedMessage.id,
+            ],
+            groupBoundaryQueuedMessageId: secondQueuedMessage.id,
+          })
+        ).kind,
       ).toBe("updated");
 
       const sendResponse = await harness.app.request(
@@ -3563,18 +3589,18 @@ describe("public thread data routes", () => {
       });
 
       expect(
-        getQueuedThreadMessage(harness.db, firstQueuedMessage.id),
+        await getQueuedThreadMessage(harness.db, firstQueuedMessage.id),
       ).toBeNull();
       expect(
-        getQueuedThreadMessage(harness.db, secondQueuedMessage.id),
+        await getQueuedThreadMessage(harness.db, secondQueuedMessage.id),
       ).toBeNull();
       expect(
-        getQueuedThreadMessage(harness.db, thirdQueuedMessage.id),
+        await getQueuedThreadMessage(harness.db, thirdQueuedMessage.id),
       ).toMatchObject({
         id: thirdQueuedMessage.id,
       });
 
-      const requestedEvents = harness.db
+      const requestedEvents = await harness.db
         .select({
           data: events.data,
         })
@@ -3617,8 +3643,8 @@ describe("public thread data routes", () => {
 
   it("lists queued thread messages", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
-      seedQueuedMessage(harness.deps, {
+      const { thread } = await seedThreadFixture(harness);
+      await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("First queued message"),
         model: "gpt-5",
@@ -3626,7 +3652,7 @@ describe("public thread data routes", () => {
         permissionMode: "full",
         serviceTier: "default",
       });
-      seedQueuedMessage(harness.deps, {
+      await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Second queued message"),
         model: "gpt-5",
@@ -3667,8 +3693,8 @@ describe("public thread data routes", () => {
 
   it("inherits thread default execution options when queued message overrides are omitted", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
-      seedEvent(harness.deps, {
+      const { environment, thread } = await seedThreadFixture(harness);
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -3713,7 +3739,7 @@ describe("public thread data routes", () => {
         await readJson(createResponse),
       );
       expect(
-        getQueuedThreadMessage(harness.db, queuedMessage.id),
+        await getQueuedThreadMessage(harness.db, queuedMessage.id),
       ).toMatchObject({
         id: queuedMessage.id,
         model: "gpt-5",
@@ -3726,20 +3752,21 @@ describe("public thread data routes", () => {
 
   it("persists queued message model and service tier and clears the queued message after reprovision send", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/queued-message-reprovision",
         status: "error",
         environmentProviderId: "personal-workspace",
-        environmentProviderPluginId: "hyperfide-plugin-environment-personal-workspace",
+        environmentProviderPluginId:
+          "hyperfide-plugin-environment-personal-workspace",
         isGitRepo: false,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
@@ -3801,7 +3828,7 @@ describe("public thread data routes", () => {
 
       expect(sendResponse.status).toBe(200);
       expect(
-        getQueuedThreadMessage(harness.db, createdQueuedMessage.id),
+        await getQueuedThreadMessage(harness.db, createdQueuedMessage.id),
       ).toBeNull();
       await reportNextEnvironmentAttachSuccess(harness, thread.id);
       const startCommand = await waitForQueuedCommand(
@@ -3810,18 +3837,19 @@ describe("public thread data routes", () => {
           command.type === "thread.start" && command.threadId === thread.id,
       );
       expect(startCommand.command.type).toBe("thread.start");
-      const requestedEvent = harness.db
-        .select({ data: events.data })
-        .from(events)
-        .where(eq(events.threadId, thread.id))
-        .orderBy(events.sequence)
-        .all()
-        .find((event) => {
-          const parsed = JSON.parse(event.data) as {
-            execution?: { model?: string; serviceTier?: string };
-          };
-          return parsed.execution?.model === "gpt-5";
-        });
+      const requestedEvent = (
+        await harness.db
+          .select({ data: events.data })
+          .from(events)
+          .where(eq(events.threadId, thread.id))
+          .orderBy(events.sequence)
+          .all()
+      ).find((event) => {
+        const parsed = JSON.parse(event.data) as {
+          execution?: { model?: string; serviceTier?: string };
+        };
+        return parsed.execution?.model === "gpt-5";
+      });
       expect(requestedEvent).toBeTruthy();
       expect(
         requestedEvent ? JSON.parse(requestedEvent.data) : null,
@@ -3832,7 +3860,7 @@ describe("public thread data routes", () => {
         },
       });
       expect(
-        harness.db
+        await harness.db
           .select({ id: events.id })
           .from(events)
           .where(
@@ -3848,21 +3876,21 @@ describe("public thread data routes", () => {
 
   it("keeps queued messages when reprovision dispatch is rejected", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/queued-message-reprovision-rejected",
         status: "error",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      const queuedMessage = seedQueuedMessage(harness.deps, {
+      const queuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Queued message survives rejected reprovision"),
       });
@@ -3880,14 +3908,14 @@ describe("public thread data routes", () => {
 
       expect(sendResponse.status).toBe(409);
       expect(
-        getQueuedThreadMessage(harness.db, queuedMessage.id),
+        await getQueuedThreadMessage(harness.db, queuedMessage.id),
       ).toMatchObject({
         id: queuedMessage.id,
         claimedAt: null,
         claimToken: null,
       });
       expect(
-        harness.db
+        await harness.db
           .select({ id: events.id })
           .from(events)
           .where(
@@ -3903,24 +3931,25 @@ describe("public thread data routes", () => {
 
   it("persists queued reprovision request before starting the provision command", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/queued-message-immediate-reprovision",
         status: "error",
         environmentProviderId: "personal-workspace",
-        environmentProviderPluginId: "hyperfide-plugin-environment-personal-workspace",
+        environmentProviderPluginId:
+          "hyperfide-plugin-environment-personal-workspace",
         isGitRepo: false,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      const queuedMessage = seedQueuedMessage(harness.deps, {
+      const queuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Queued message before immediate reprovision"),
       });
@@ -3949,33 +3978,41 @@ describe("public thread data routes", () => {
         requestEventCount: number;
       } | null = null;
 
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
-        handle: (request): HostRpcHandlerResult => {
+        handle: async (request): Promise<HostRpcHandlerResult> => {
           if (request.command.type === "environment.attach") {
-            const currentThread = getThread(harness.db, thread.id);
+            const currentThread = await getThread(harness.db, thread.id);
             stateAtProvisionStart = {
               activeContextStage:
                 currentThread?.status !== "starting"
                   ? "inactive"
-                  : (getPreparingEnvironment(harness.db, thread.id)?.status ??
+                  : ((await getPreparingEnvironment(harness.db, thread.id))
+                      ?.status ??
                     (currentThread.environmentId === null
                       ? null
-                      : (getEnvironment(harness.db, currentThread.environmentId)
-                          ?.status ?? null))),
+                      : ((
+                          await getEnvironment(
+                            harness.db,
+                            currentThread.environmentId,
+                          )
+                        )?.status ?? null))),
               queuedMessageExists:
-                getQueuedThreadMessage(harness.db, queuedMessage.id) !== null,
-              requestEventCount: harness.db
-                .select({ id: events.id })
-                .from(events)
-                .where(
-                  and(
-                    eq(events.threadId, thread.id),
-                    eq(events.type, "client/turn/requested"),
-                  ),
-                )
-                .all().length,
+                (await getQueuedThreadMessage(harness.db, queuedMessage.id)) !==
+                null,
+              requestEventCount: (
+                await harness.db
+                  .select({ id: events.id })
+                  .from(events)
+                  .where(
+                    and(
+                      eq(events.threadId, thread.id),
+                      eq(events.type, "client/turn/requested"),
+                    ),
+                  )
+                  .all()
+              ).length,
             };
             return {
               ok: true,
@@ -4035,28 +4072,29 @@ describe("public thread data routes", () => {
 
   it("preserves grouped queued messages and consumes them during reprovision send", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/grouped-queued-message-reprovision",
         status: "error",
         environmentProviderId: "personal-workspace",
-        environmentProviderPluginId: "hyperfide-plugin-environment-personal-workspace",
+        environmentProviderPluginId:
+          "hyperfide-plugin-environment-personal-workspace",
         isGitRepo: false,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      const firstQueuedMessage = seedQueuedMessage(harness.deps, {
+      const firstQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("First reprovision grouped message"),
       });
-      const secondQueuedMessage = seedQueuedMessage(harness.deps, {
+      const secondQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: textInput("Second reprovision grouped message"),
       });
@@ -4080,16 +4118,18 @@ describe("public thread data routes", () => {
         }),
       });
       expect(
-        setQueuedThreadMessageGroupBoundary({
-          db: harness.db,
-          notifier: harness.hub,
-          threadId: thread.id,
-          expectedGroupedPrefixQueuedMessageIds: [
-            firstQueuedMessage.id,
-            secondQueuedMessage.id,
-          ],
-          groupBoundaryQueuedMessageId: secondQueuedMessage.id,
-        }).kind,
+        (
+          await setQueuedThreadMessageGroupBoundary({
+            db: harness.db,
+            notifier: harness.hub,
+            threadId: thread.id,
+            expectedGroupedPrefixQueuedMessageIds: [
+              firstQueuedMessage.id,
+              secondQueuedMessage.id,
+            ],
+            groupBoundaryQueuedMessageId: secondQueuedMessage.id,
+          })
+        ).kind,
       ).toBe("updated");
 
       const sendResponse = await harness.app.request(
@@ -4105,10 +4145,10 @@ describe("public thread data routes", () => {
 
       expect(sendResponse.status, await sendResponse.clone().text()).toBe(200);
       expect(
-        getQueuedThreadMessage(harness.db, firstQueuedMessage.id),
+        await getQueuedThreadMessage(harness.db, firstQueuedMessage.id),
       ).toBeNull();
       expect(
-        getQueuedThreadMessage(harness.db, secondQueuedMessage.id),
+        await getQueuedThreadMessage(harness.db, secondQueuedMessage.id),
       ).toBeNull();
 
       await reportNextEnvironmentAttachSuccess(harness, thread.id);
@@ -4118,7 +4158,7 @@ describe("public thread data routes", () => {
           command.type === "thread.start" && command.threadId === thread.id,
       );
 
-      const requestedEvent = harness.db
+      const requestedEvent = await harness.db
         .select({ data: events.data })
         .from(events)
         .where(
@@ -4156,21 +4196,24 @@ describe("public thread data routes", () => {
 
   it("sends grouped queued sender messages with matching input and inputGroups", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, project, thread } = seedThreadFixture(harness, {
-        thread: {
-          status: "active",
+      const { environment, project, thread } = await seedThreadFixture(
+        harness,
+        {
+          thread: {
+            status: "active",
+          },
         },
-      });
-      const senderThread = seedThread(harness.deps, {
+      );
+      const senderThread = await seedThread(harness.deps, {
         projectId: project.id,
       });
-      seedThreadIdentity(harness.deps, {
+      await seedThreadIdentity(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-active-grouped-sender",
         sequence: 1,
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-active-grouped-sender",
@@ -4179,27 +4222,29 @@ describe("public thread data routes", () => {
         type: "turn/started",
         data: {},
       });
-      const firstQueuedMessage = seedQueuedMessage(harness.deps, {
+      const firstQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         senderThreadId: senderThread.id,
         content: textInput("First grouped sender message"),
       });
-      const secondQueuedMessage = seedQueuedMessage(harness.deps, {
+      const secondQueuedMessage = await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         senderThreadId: senderThread.id,
         content: textInput("Second grouped sender message"),
       });
       expect(
-        setQueuedThreadMessageGroupBoundary({
-          db: harness.db,
-          notifier: harness.hub,
-          threadId: thread.id,
-          expectedGroupedPrefixQueuedMessageIds: [
-            firstQueuedMessage.id,
-            secondQueuedMessage.id,
-          ],
-          groupBoundaryQueuedMessageId: secondQueuedMessage.id,
-        }).kind,
+        (
+          await setQueuedThreadMessageGroupBoundary({
+            db: harness.db,
+            notifier: harness.hub,
+            threadId: thread.id,
+            expectedGroupedPrefixQueuedMessageIds: [
+              firstQueuedMessage.id,
+              secondQueuedMessage.id,
+            ],
+            groupBoundaryQueuedMessageId: secondQueuedMessage.id,
+          })
+        ).kind,
       ).toBe("updated");
 
       const sendResponse = await harness.app.request(
@@ -4255,18 +4300,19 @@ describe("public thread data routes", () => {
         ),
       );
 
-      const requestedEvent = harness.db
-        .select({ data: events.data })
-        .from(events)
-        .where(
-          and(
-            eq(events.threadId, thread.id),
-            eq(events.type, "client/turn/requested"),
-          ),
-        )
-        .orderBy(events.sequence)
-        .all()
-        .at(-1);
+      const requestedEvent = (
+        await harness.db
+          .select({ data: events.data })
+          .from(events)
+          .where(
+            and(
+              eq(events.threadId, thread.id),
+              eq(events.type, "client/turn/requested"),
+            ),
+          )
+          .orderBy(events.sequence)
+          .all()
+      ).at(-1);
       expect(requestedEvent).toBeTruthy();
       const requestedData = JSON.parse(requestedEvent?.data ?? "{}") as {
         input?: unknown;
@@ -4279,14 +4325,14 @@ describe("public thread data routes", () => {
 
   it("keeps queued messages when send is attempted while a starting thread is still starting", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-queued-message-created-thread-send",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/queued-message-created-thread-send",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/queued-message-created-thread-send",
@@ -4360,20 +4406,21 @@ describe("public thread data routes", () => {
         code: "queued_message_still_waiting",
       });
       expect(
-        getQueuedThreadMessage(harness.db, createdQueuedMessage.id),
+        await getQueuedThreadMessage(harness.db, createdQueuedMessage.id),
       ).toMatchObject({
         id: createdQueuedMessage.id,
         waitingOn: JSON.stringify({ kind: "provisioning" }),
       });
-      const requestedEvents = harness.db
-        .select({ type: events.type })
-        .from(events)
-        .where(eq(events.threadId, createdThread.id))
-        .all()
-        .filter((event) => event.type === "client/turn/requested");
+      const requestedEvents = (
+        await harness.db
+          .select({ type: events.type })
+          .from(events)
+          .where(eq(events.threadId, createdThread.id))
+          .all()
+      ).filter((event) => event.type === "client/turn/requested");
       expect(requestedEvents).toHaveLength(1);
       expect(
-        harness.db
+        await harness.db
           .select({ id: queuedThreadMessages.id })
           .from(queuedThreadMessages)
           .where(eq(queuedThreadMessages.threadId, createdThread.id))
@@ -4384,17 +4431,17 @@ describe("public thread data routes", () => {
 
   it("lists thread storage files via host.list_files", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/project-source",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/project-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
@@ -4436,17 +4483,17 @@ describe("public thread data routes", () => {
 
   it("resolves thread storage location without a host filesystem command", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/project-source",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/project-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
@@ -4467,17 +4514,17 @@ describe("public thread data routes", () => {
 
   it("lists thread storage paths via host.list_paths", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/project-source",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/project-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
@@ -4547,18 +4594,18 @@ describe("public thread data routes", () => {
 
   it("lists thread storage files without requiring a ready environment", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/project-source",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/project-source",
         status: "provisioning",
       });
-      harness.db
+      await harness.db
         .update(environments)
         .set({
           path: null,
@@ -4567,7 +4614,7 @@ describe("public thread data routes", () => {
         })
         .where(eq(environments.id, environment.id))
         .run();
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "starting",
@@ -4600,7 +4647,7 @@ describe("public thread data routes", () => {
 
   it("returns an empty thread storage file list when the durable storage is absent", async () => {
     await withTestHarness(async (harness) => {
-      const { host, thread } = seedThreadFixture(harness);
+      const { host, thread } = await seedThreadFixture(harness);
       const threadStoragePath = `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`;
 
       const filesPromise = harness.app.request(
@@ -4632,9 +4679,9 @@ describe("public thread data routes", () => {
 
   it("filters and reverse-pages thread events", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -4642,7 +4689,7 @@ describe("public thread data routes", () => {
         scope: threadScope(),
         data: { message: "first" },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -4651,7 +4698,7 @@ describe("public thread data routes", () => {
         type: "item/completed",
         data: { item: { type: "agentMessage", id: "msg-1", text: "Reply" } },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 3,
@@ -4659,7 +4706,7 @@ describe("public thread data routes", () => {
         scope: threadScope(),
         data: { message: "second" },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 4,
@@ -4681,9 +4728,9 @@ describe("public thread data routes", () => {
 
   it("rejects thread event list pages above the public limit", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       for (let sequence = 1; sequence <= 101; sequence += 1) {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           data: { message: `error ${sequence}` },
           environmentId: environment.id,
           scope: threadScope(),
@@ -4702,7 +4749,7 @@ describe("public thread data routes", () => {
 
   it("rejects invalid thread event list filters", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
+      const { thread } = await seedThreadFixture(harness);
       const response = await harness.app.request(
         `/api/v1/threads/${thread.id}/events?types=not-a-real-event`,
       );
@@ -4716,10 +4763,10 @@ describe("public thread data routes", () => {
 
   it("fails loudly when stored queued message content is malformed", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
+      const { thread } = await seedThreadFixture(harness);
       const now = Date.now();
       const queuedMessageId = createQueuedThreadMessageId();
-      const queuedMessage = harness.db
+      const queuedMessage = await harness.db
         .insert(queuedThreadMessages)
         .values({
           id: queuedMessageId,
@@ -4758,9 +4805,9 @@ describe("public thread data routes", () => {
 
   it("returns existing matching event immediately from /events/wait", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -4768,7 +4815,7 @@ describe("public thread data routes", () => {
         scope: threadScope(),
         data: { text: "A legacy note" },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -4792,9 +4839,9 @@ describe("public thread data routes", () => {
 
   it("returns 204 on timeout when no matching event exists", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -4812,9 +4859,9 @@ describe("public thread data routes", () => {
 
   it("respects afterSeq when waiting for events", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-thread-1",
@@ -4842,7 +4889,7 @@ describe("public thread data routes", () => {
 
   it("rejects invalid event types on /events/wait", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness);
+      const { thread } = await seedThreadFixture(harness);
 
       const response = await harness.app.request(
         `/api/v1/threads/${thread.id}/events/wait?type=not-a-real-event&waitMs=100`,

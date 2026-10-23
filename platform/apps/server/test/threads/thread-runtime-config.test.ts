@@ -92,7 +92,7 @@ async function writeWorkspaceAgentInstructions(
   await writeFile(path.join(bbDir, "AGENTS.md"), args.content, "utf8");
 }
 
-function registerRemoteRuntimeFileResponder(
+async function registerRemoteRuntimeFileResponder(
   harness: TestAppHarness,
   args: {
     files: ReadonlyMap<string, string>;
@@ -100,8 +100,8 @@ function registerRemoteRuntimeFileResponder(
     sessionId: string;
     sharedSkills?: DiscoveredSkill[];
   },
-): HostRpcResponder {
-  return registerHostRpcResponder(harness, {
+): Promise<HostRpcResponder> {
+  return await registerHostRpcResponder(harness, {
     hostId: args.hostId,
     sessionId: args.sessionId,
     handle: ({ command }) => {
@@ -172,23 +172,23 @@ describe("thread runtime config", () => {
         ],
       },
       async (harness) => {
-        const { host } = seedHostSession(harness.deps, {
+        const { host } = await seedHostSession(harness.deps, {
           id: "host-runtime-custom-acp",
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
           path: "/tmp/custom-acp",
         });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           providerId: "acp-custom",
         });
-        seedThreadRuntimeState(harness.deps, {
+        await seedThreadRuntimeState(harness.deps, {
           environmentId: environment.id,
           providerThreadId: "provider-custom",
           threadId: thread.id,
@@ -310,23 +310,23 @@ describe("thread runtime config", () => {
     "carries plugin-declared ACP launch specs for $providerId in bridge options",
     async ({ expectedSpec, providerId, requestedModel }) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps, {
+        const { host } = await seedHostSession(harness.deps, {
           id: `host-runtime-known-${providerId}`,
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
           path: "/tmp/known-acp",
         });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           providerId,
         });
-        seedThreadRuntimeState(harness.deps, {
+        await seedThreadRuntimeState(harness.deps, {
           environmentId: environment.id,
           providerThreadId: `provider-${providerId}`,
           threadId: thread.id,
@@ -423,25 +423,25 @@ describe("thread runtime config", () => {
       requestedModel,
     }) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps, {
+        const { host } = await seedHostSession(harness.deps, {
           id: `host-runtime-${childProviderId}-${parentProviderId ?? "root"}`,
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
         });
         const parentThread =
           parentProviderId === null
             ? null
-            : seedThread(harness.deps, {
+            : await seedThread(harness.deps, {
                 projectId: project.id,
                 environmentId: environment.id,
                 providerId: parentProviderId,
               });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           parentThreadId: parentThread?.id ?? null,
@@ -461,21 +461,21 @@ describe("thread runtime config", () => {
 
   it("uses project permission defaults for child threads without parent execution history", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-runtime-managed-child-project-default-permission-mode",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const parentThread = seedThread(harness.deps, {
+      const parentThread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      const childThread = seedThread(harness.deps, {
+      const childThread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         parentThreadId: parentThread.id,
@@ -503,27 +503,27 @@ describe("thread runtime config", () => {
 
   it("inherits live parent execution permission before project defaults", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-runtime-child-parent-execution-permission-mode",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const parentThread = seedThread(harness.deps, {
+      const parentThread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         threadId: parentThread.id,
         environmentId: environment.id,
         providerThreadId: "provider-parent-permission-mode",
         permissionMode: "accept-edits",
       });
-      const childThread = seedThread(harness.deps, {
+      const childThread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         parentThreadId: parentThread.id,
@@ -559,34 +559,34 @@ describe("thread runtime config", () => {
     "allows $providerId full mode from $modeSource under an auto parent",
     async ({ providerId, model, modeSource }) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps, {
+        const { host } = await seedHostSession(harness.deps, {
           id: "host-runtime-child-full-mode",
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
         });
-        const parentThread = seedThread(harness.deps, {
+        const parentThread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
         });
-        seedThreadRuntimeState(harness.deps, {
+        await seedThreadRuntimeState(harness.deps, {
           threadId: parentThread.id,
           environmentId: environment.id,
           providerThreadId: "provider-parent-auto",
           permissionMode: "auto",
         });
-        const childThread = seedThread(harness.deps, {
+        const childThread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           parentThreadId: parentThread.id,
           providerId,
         });
         if (modeSource === "recorded") {
-          seedThreadRuntimeState(harness.deps, {
+          await seedThreadRuntimeState(harness.deps, {
             threadId: childThread.id,
             environmentId: environment.id,
             providerThreadId: "provider-child-full",
@@ -610,24 +610,24 @@ describe("thread runtime config", () => {
 
   it("treats ghost parent references as root-thread execution defaults", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-runtime-deleted-parent-permission-mode",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const deletedParent = seedThread(harness.deps, {
+      const deletedParent = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      markThreadDeleted(harness.db, harness.hub, {
+      await markThreadDeleted(harness.db, harness.hub, {
         threadId: deletedParent.id,
       });
-      const childThread = seedThread(harness.deps, {
+      const childThread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         parentThreadId: deletedParent.id,
@@ -655,17 +655,17 @@ describe("thread runtime config", () => {
 
   it("honors requested Accept Edits permission mode when the provider supports it", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-runtime-permission-mode-workspace-write",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
@@ -682,17 +682,17 @@ describe("thread runtime config", () => {
 
   it("rejects permission modes unsupported by the provider", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-runtime-permission-mode-unsupported",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "pi",
@@ -712,17 +712,17 @@ describe("thread runtime config", () => {
     "accepts %s reasoning for Pi sessions",
     async (reasoningLevel) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps, {
+        const { host } = await seedHostSession(harness.deps, {
           id: `host-runtime-pi-${reasoningLevel}-reasoning`,
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
         });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           providerId: "pi",
@@ -745,17 +745,17 @@ describe("thread runtime config", () => {
 
   it("rejects reasoning levels unsupported by the provider", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-runtime-reasoning-level-unsupported",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
@@ -791,18 +791,18 @@ describe("thread runtime config", () => {
         name: "project-helper",
         rootPath: path.join(workspacePath, ".hyperfide", "skills"),
       });
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-runtime-injected-skills",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: workspacePath,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
@@ -849,19 +849,19 @@ describe("thread runtime config", () => {
 
   it("carries each provider's plugin-derived options and nothing provider-named on the shared contract", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-provider-options",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
 
       async function build(providerId: "codex" | "claude-code" | "pi") {
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           providerId,
@@ -878,7 +878,7 @@ describe("thread runtime config", () => {
           },
           { threadId: thread.id },
         );
-        return buildThreadStartCommand(harness.deps, {
+        return await buildThreadStartCommand(harness.deps, {
           environment,
           execution,
           fork: null,
@@ -962,17 +962,17 @@ describe("thread runtime config", () => {
         stubHostArtifact(pluginId),
       );
 
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-provider-hook",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "hooked",
@@ -1011,17 +1011,17 @@ describe("thread runtime config", () => {
 
   it("enters plan mode when the prompt starts from the provider's declared plan command", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-runtime-claude-plan",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "claude-code",
@@ -1073,7 +1073,7 @@ describe("thread runtime config", () => {
         claudeCodePermissionMode: "plan",
       });
 
-      const piThread = seedThread(harness.deps, {
+      const piThread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "pi",
@@ -1102,23 +1102,23 @@ describe("thread runtime config", () => {
 
   it("consumes the sticky thread execution override across turns without a request value", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-runtime-execution-override",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "claude-code",
       });
 
-      setThreadExecutionOverride(harness.db, {
+      await setThreadExecutionOverride(harness.db, {
         threadId: thread.id,
         modelOverride: "claude-opus-4-8",
         reasoningLevelOverride: "high",
@@ -1145,18 +1145,18 @@ describe("thread runtime config", () => {
   it("resolves the workspace, storage path, and environment directory dynamic tool", async () => {
     await withTestHarness(async (harness) => {
       const hostId = "host-runtime";
-      seedHostSession(harness.deps, { id: hostId });
-      const { project } = seedProjectWithSource(harness.deps, {
+      await seedHostSession(harness.deps, { id: hostId });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId,
         path: "/tmp/runtime-project-root",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId,
         projectId: project.id,
         path: "/tmp/runtime-project-root",
         environmentProviderId: "project-checkout",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
@@ -1227,14 +1227,14 @@ describe("thread runtime config", () => {
 
   it("reads workspace .hyperfide/AGENTS.md from a non-primary host", async () => {
     await withTestHarness(async (harness) => {
-      const { host: primary } = seedHostSession(harness.deps, {
+      const { host: primary } = await seedHostSession(harness.deps, {
         id: "host-runtime-agents-primary",
       });
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-runtime-agents-remote",
       });
       seedPrimaryHost(harness.deps, primary.id);
-      setExperiments(harness.db, {
+      await setExperiments(harness.db, {
         ...defaultExperiments,
       });
       const workspacePath = "/remote/runtime-agents-workspace";
@@ -1243,7 +1243,7 @@ describe("thread runtime config", () => {
         ".hyperfide",
         "AGENTS.md",
       );
-      const responder = registerRemoteRuntimeFileResponder(harness, {
+      const responder = await registerRemoteRuntimeFileResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         files: new Map([
@@ -1253,16 +1253,16 @@ describe("thread runtime config", () => {
           ],
         ]),
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: workspacePath,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: workspacePath,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
       });
@@ -1290,32 +1290,32 @@ describe("thread runtime config", () => {
 
   it("treats a missing remote workspace .hyperfide/AGENTS.md as null", async () => {
     await withTestHarness(async (harness) => {
-      const { host: primary } = seedHostSession(harness.deps, {
+      const { host: primary } = await seedHostSession(harness.deps, {
         id: "host-runtime-missing-agents-primary",
       });
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-runtime-missing-agents-remote",
       });
       seedPrimaryHost(harness.deps, primary.id);
-      setExperiments(harness.db, {
+      await setExperiments(harness.db, {
         ...defaultExperiments,
       });
       const workspacePath = "/remote/runtime-missing-agents-workspace";
-      registerRemoteRuntimeFileResponder(harness, {
+      await registerRemoteRuntimeFileResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         files: new Map(),
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: workspacePath,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: workspacePath,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
       });
@@ -1333,14 +1333,14 @@ describe("thread runtime config", () => {
 
   it("enumerates project skills through a non-primary host", async () => {
     await withTestHarness(async (harness) => {
-      const { host: primary } = seedHostSession(harness.deps, {
+      const { host: primary } = await seedHostSession(harness.deps, {
         id: "host-runtime-skills-primary",
       });
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-runtime-skills-remote",
       });
       seedPrimaryHost(harness.deps, primary.id);
-      setExperiments(harness.db, {
+      await setExperiments(harness.db, {
         ...defaultExperiments,
       });
       const workspacePath = "/remote/runtime-skills-workspace";
@@ -1351,7 +1351,7 @@ describe("thread runtime config", () => {
         "remote-review",
       );
       const skillFilePath = path.posix.join(skillRootPath, "SKILL.md");
-      const responder = registerRemoteRuntimeFileResponder(harness, {
+      const responder = await registerRemoteRuntimeFileResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         files: new Map([
@@ -1368,16 +1368,16 @@ describe("thread runtime config", () => {
           ],
         ]),
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: workspacePath,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: workspacePath,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
       });
@@ -1413,7 +1413,7 @@ describe("thread runtime config", () => {
         },
       },
       async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-runtime-shared-skills",
         });
         const workspacePath = "/remote/runtime-shared-skills";
@@ -1424,7 +1424,7 @@ describe("thread runtime config", () => {
           "portable-review",
           "SKILL.md",
         );
-        const responder = registerRemoteRuntimeFileResponder(harness, {
+        const responder = await registerRemoteRuntimeFileResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           files: new Map(),
@@ -1439,16 +1439,16 @@ describe("thread runtime config", () => {
             },
           ],
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
           path: workspacePath,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
           path: workspacePath,
         });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           environmentId: environment.id,
           projectId: project.id,
           providerId: "claude-code",
@@ -1491,21 +1491,21 @@ describe("thread runtime config", () => {
   it("appends data-dir AGENTS.md instructions before workspace instructions", async () => {
     await withTestHarness(async (harness) => {
       const hostId = "host-runtime-data-dir-agents-md";
-      seedHostSession(harness.deps, { id: hostId });
+      await seedHostSession(harness.deps, { id: hostId });
       const workspacePath = path.join(
         harness.config.dataDir,
         "data-dir-agents-md-workspace",
       );
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId,
         path: workspacePath,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId,
         projectId: project.id,
         path: workspacePath,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
@@ -1587,21 +1587,21 @@ describe("thread runtime config", () => {
     it("appends attributed plugin instructions after tool snippets and before data-dir instructions", async () => {
       await withTestHarness(async (harness) => {
         const hostId = "host-runtime-plugin-instr";
-        seedHostSession(harness.deps, { id: hostId });
+        await seedHostSession(harness.deps, { id: hostId });
         const workspacePath = path.join(
           harness.config.dataDir,
           "plugin-instr-workspace",
         );
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId,
           path: workspacePath,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId,
           projectId: project.id,
           path: workspacePath,
         });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           providerId: "codex",
@@ -1672,17 +1672,17 @@ describe("thread runtime config", () => {
     it("skips null/empty providers, truncates long text, and isolates throws", async () => {
       await withTestHarness(async (harness) => {
         const hostId = "host-runtime-plugin-instr-edge";
-        seedHostSession(harness.deps, { id: hostId });
-        const { project } = seedProjectWithSource(harness.deps, {
+        await seedHostSession(harness.deps, { id: hostId });
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId,
           path: "/tmp/runtime-plugin-instr-edge",
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId,
           projectId: project.id,
           path: "/tmp/runtime-plugin-instr-edge",
         });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
         });

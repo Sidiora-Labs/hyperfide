@@ -1,5 +1,8 @@
 import { getEnvironment, getHost } from "@hyperfide/db";
-import { clampPermissionModeToCeiling, type PermissionMode } from "@hyperfide/domain";
+import {
+  clampPermissionModeToCeiling,
+  type PermissionMode,
+} from "@hyperfide/domain";
 import { ApiError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";
 
@@ -19,27 +22,27 @@ export function isHostPermissionCeilingConflictError(
   return error instanceof HostPermissionCeilingConflictError;
 }
 
-export function getHostPermissionCeiling(
+export async function getHostPermissionCeiling(
   deps: PermissionCeilingDeps,
   hostId: string | null,
-): PermissionMode {
+): Promise<PermissionMode> {
   if (hostId === null) return "full";
-  return getHost(deps.db, hostId)?.maxPermissionMode ?? "full";
+  return (await getHost(deps.db, hostId))?.maxPermissionMode ?? "full";
 }
 
-export function resolveEnvironmentHostId(
+export async function resolveEnvironmentHostId(
   deps: PermissionCeilingDeps,
   environmentId: string | null,
-): string | null {
+): Promise<string | null> {
   if (environmentId === null) return null;
-  return getEnvironment(deps.db, environmentId)?.hostId ?? null;
+  return (await getEnvironment(deps.db, environmentId))?.hostId ?? null;
 }
 
-export function clampPermissionModeToHost(
+export async function clampPermissionModeToHost(
   deps: Pick<AppDeps, "db" | "providerRegistry">,
   args: ClampPermissionModeToHostArgs,
-): PermissionMode {
-  const ceiling = getHostPermissionCeiling(deps, args.hostId);
+): Promise<PermissionMode> {
+  const ceiling = await getHostPermissionCeiling(deps, args.hostId);
   const supported = args.providerId
     ? deps.providerRegistry.getSupportedPermissionModes(args.providerId)
     : null;

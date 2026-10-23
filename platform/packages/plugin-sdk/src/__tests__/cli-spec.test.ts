@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PluginCliRegistration, PluginCliResult } from "../index.js";
 import { PluginCliError, cliCommand, defineCli } from "../index.js";
 
-function run(
+async function run(
   registration: PluginCliRegistration,
   argv: string[],
 ): Promise<PluginCliResult> {

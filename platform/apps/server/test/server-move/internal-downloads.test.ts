@@ -25,11 +25,11 @@ type PrepareCommand = Extract<
 >;
 
 describe("server move downloads", () => {
-  it("streams the archive and the full bb-app package with exact content lengths", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: "host-old", name: "Laptop" });
+  it("streams the archive and the full bb-app package with exact content lengths", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: "host-old", name: "Laptop" });
       seedPrimaryHost(harness.deps, "host-old");
-      seedHost(harness.deps, { id: "host-new", name: "Desktop" });
+      await seedHost(harness.deps, { id: "host-new", name: "Desktop" });
       const artifactDir = await mkdtemp(join(tmpdir(), "bb-app-artifact-"));
       try {
         const artifactPath = join(artifactDir, "bb-app-full.tgz");
@@ -55,10 +55,10 @@ describe("server move downloads", () => {
             },
           },
         );
-        const coordinator = createServerMoveCoordinator(environment);
+        const coordinator = await createServerMoveCoordinator(environment);
         const releasePrepare = createDeferredPromise<FakeDaemonReply>();
         const received: { prepare: PrepareCommand | null } = { prepare: null };
-        registerFakeDaemon(harness, {
+        await registerFakeDaemon(harness, {
           events,
           hostId: "host-old",
           handle: (request) =>
@@ -69,7 +69,7 @@ describe("server move downloads", () => {
                 }
               : { ok: true, result: inspectResult() },
         });
-        registerFakeDaemon(harness, {
+        await registerFakeDaemon(harness, {
           events,
           hostId: "host-new",
           handle: (request) => {
@@ -87,7 +87,7 @@ describe("server move downloads", () => {
             }
           },
         });
-        const app = new Hono();
+        const app = await new Hono();
         app.onError(createServerErrorHandler(testLogger));
         app.use("*", async (context, next) => {
           setAuthenticatedDaemon(context, {
@@ -141,7 +141,7 @@ describe("server move downloads", () => {
         });
         expect(forbidden.status).toBe(403);
         expect((await stat(artifactPath)).size).toBe(artifactBytes.byteLength);
-        coordinator.cancel();
+        await coordinator.cancel();
         releasePrepare.resolve({
           ok: false,
           errorCode: "server_move_cancelled",

@@ -23,11 +23,11 @@ type EnvironmentProvisioningCancellationForThreadStopResult =
   | "awaiting_host_cancel"
   | "ready_to_finalize";
 
-function hasOtherLiveThreadDependingOnEnvironmentProvision(
+async function hasOtherLiveThreadDependingOnEnvironmentProvision(
   deps: EnvironmentProvisionCancellationReadDeps,
   args: CancelEnvironmentProvisioningForThreadStopArgs,
-): boolean {
-  const row = deps.db
+): Promise<boolean> {
+  const row = await deps.db
     .select({ id: threads.id })
     .from(threads)
     .where(
@@ -44,15 +44,15 @@ function hasOtherLiveThreadDependingOnEnvironmentProvision(
   return row !== undefined;
 }
 
-export function cancelEnvironmentProvisioningForThreadStopInTransaction(
+export async function cancelEnvironmentProvisioningForThreadStopInTransaction(
   deps: EnvironmentProvisionCancellationTransactionDeps,
   args: CancelEnvironmentProvisioningForThreadStopArgs,
-): EnvironmentProvisioningCancellationForThreadStopResult {
-  if (hasOtherLiveThreadDependingOnEnvironmentProvision(deps, args)) {
+): Promise<EnvironmentProvisioningCancellationForThreadStopResult> {
+  if (await hasOtherLiveThreadDependingOnEnvironmentProvision(deps, args)) {
     return "ready_to_finalize";
   }
 
-  const environment = getEnvironment(deps.db, args.environmentId);
+  const environment = await getEnvironment(deps.db, args.environmentId);
   if (!environment) {
     return "ready_to_finalize";
   }

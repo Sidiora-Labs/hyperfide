@@ -531,7 +531,10 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
 
   const serviceContext = new AsyncLocalStorage<ServiceInstance>();
 
-  function runService(id: string, service: ServiceRuntime): void {
+  async function runService(
+    id: string,
+    service: ServiceRuntime,
+  ): Promise<void> {
     const controller = new AbortController();
     service.controller = controller;
     service.state = "running";
@@ -562,7 +565,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     );
   }
 
-  function handleUncaughtException(error: unknown): boolean {
+  async function handleUncaughtException(error: unknown): Promise<boolean> {
     const instance = serviceContext.getStore();
     if (instance === undefined) return false;
     const { id, service, controller } = instance;
@@ -649,9 +652,9 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     logger.warn(
       `[plugin:${id}] service ${name} crashed: ${message} — restarting in ${delayMs}ms`,
     );
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       service.restartTimer = null;
-      if (!service.disposed) runService(id, service);
+      if (!service.disposed) await runService(id, service);
     }, delayMs);
     timer.unref?.();
     service.restartTimer = timer;
@@ -895,13 +898,16 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
    */
   function emitThreadEvent<E extends PluginThreadEventName>(
     event: E,
-    buildPayload: () => PluginThreadEventPayloads[E] | null,
+    buildPayload: () =>
+      | PluginThreadEventPayloads[E]
+      | null
+      | Promise<PluginThreadEventPayloads[E] | null>,
   ): void {
     if (!hasThreadEventHandlers(event)) return;
-    setImmediate(() => {
+    setImmediate(async () => {
       let payload: PluginThreadEventPayloads[E] | null;
       try {
-        payload = buildPayload();
+        payload = await buildPayload();
       } catch (error) {
         logger.warn(
           `failed to build ${event} plugin event payload: ${error instanceof Error ? error.message : String(error)}`,
@@ -926,8 +932,8 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     };
   }
 
-  function buildThreadDto(thread: Thread) {
-    return toThreadResponseFromThread(
+  async function buildThreadDto(thread: Thread) {
+    return await toThreadResponseFromThread(
       {
         db: deps.db,
         hub: deps.hub,
@@ -1056,13 +1062,13 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
         artifact: "host",
       })
     ) {
-      return validate("host");
+      return await validate("host");
     }
     return null;
   }
 
-  function isBuiltinPluginId(id: string): boolean {
-    const row = getInstalledPlugin(deps.db, id);
+  async function isBuiltinPluginId(id: string): Promise<boolean> {
+    const row = await getInstalledPlugin(deps.db, id);
     return row !== undefined && row.provenance === "builtin";
   }
 
@@ -1105,46 +1111,48 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     async function buildSource(
       serverEntry = manifest.serverEntry,
     ): Promise<ResolvedServerEntry> {
-      const built = await withArtifactLock(`server:${row.id}`, async () =>
-        buildCachedPluginServer({
-          rootDir: row.rootDir,
-          dataDir: deps.dataDir,
-          pluginId: row.id,
-          sdkVersion: PLUGIN_SDK_VERSION,
-          bbVersion: deps.appVersion,
-          validatedConfig: {
-            serverEntry,
-            packageName: manifest.packageName,
-            pluginVersion: manifest.version,
-          },
-          toolchain: () => getPluginBuildToolchain(deps),
-          runtimeImports: {
-            [PLUGIN_SDK_SPECIFIER]: {
-              path: pluginSdkRuntimeEntry,
+      const built = await withArtifactLock(
+        `server:${row.id}`,
+        async () =>
+          await buildCachedPluginServer({
+            rootDir: row.rootDir,
+            dataDir: deps.dataDir,
+            pluginId: row.id,
+            sdkVersion: PLUGIN_SDK_VERSION,
+            bbVersion: deps.appVersion,
+            validatedConfig: {
+              serverEntry,
+              packageName: manifest.packageName,
+              pluginVersion: manifest.version,
             },
-            "better-sqlite3": {
-              path: runtimeRequire.resolve("better-sqlite3"),
-              external: true,
+            toolchain: async () => await getPluginBuildToolchain(deps),
+            runtimeImports: {
+              [PLUGIN_SDK_SPECIFIER]: {
+                path: pluginSdkRuntimeEntry,
+              },
+              "better-sqlite3": {
+                path: runtimeRequire.resolve("better-sqlite3"),
+                external: true,
+              },
             },
-          },
-          fallbackResolve: (specifier) => {
-            try {
-              const resolved = import.meta.resolve(specifier);
-              return resolved.startsWith("file:")
-                ? fileURLToPath(resolved)
-                : resolved;
-            } catch {}
-            try {
-              return runtimeRequire.resolve(specifier);
-            } catch {
-              return undefined;
-            }
-          },
-        }),
+            fallbackResolve: (specifier) => {
+              try {
+                const resolved = import.meta.resolve(specifier);
+                return resolved.startsWith("file:")
+                  ? fileURLToPath(resolved)
+                  : resolved;
+              } catch {}
+              try {
+                return runtimeRequire.resolve(specifier);
+              } catch {
+                return undefined;
+              }
+            },
+          }),
       );
       return { ...built, loader: "cjs" };
     }
-    if (row.sourceKind === "path") return buildSource();
+    if (row.sourceKind === "path") return await buildSource();
     if (
       row.sourceKind === "builtin" &&
       !isPackagedBuiltinEntry({
@@ -1154,7 +1162,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
         artifact: "server",
       })
     ) {
-      if (initializedSourceBuiltinIds.has(row.id)) return buildSource();
+      if (initializedSourceBuiltinIds.has(row.id)) return await buildSource();
       initializedSourceBuiltinIds.add(row.id);
       const { digest } = await hashFile(manifest.serverEntry);
       return { path: manifest.serverEntry, digest, loader: "esm" };
@@ -1163,7 +1171,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     try {
       await stat(distJsPath);
     } catch {
-      return buildSource();
+      return await buildSource();
     }
     let meta: { sdkMajor: number; sdkVersion: string } | null = null;
     try {
@@ -1175,13 +1183,13 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       logger.warn(
         `plugin ${row.id}: ignoring prebuilt dist/server.js (built with SDK ${meta?.sdkVersion ?? "unknown"}, running SDK is ${PLUGIN_SDK_VERSION}) — loading from source`,
       );
-      return buildSource();
+      return await buildSource();
     }
     const { digest } = await hashFile(distJsPath);
     if (await packageScopeIsEsm(distJsPath, row.rootDir)) {
       return { path: distJsPath, digest, loader: "esm" };
     }
-    return buildSource(distJsPath);
+    return await buildSource(distJsPath);
   }
 
   async function loadAppBundleCandidate(
@@ -1408,7 +1416,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
         pluginId: args.row.id,
         declaration: args.declaration,
         iconHash: icon?.hash ?? null,
-        readSettings: () =>
+        readSettings: async () =>
           readPluginSettingsValuesSync({
             db: deps.db,
             pluginId: args.row.id,
@@ -1499,21 +1507,24 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     });
   }
 
-  function isSuppressedBySafeMode(
+  async function isSuppressedBySafeMode(
     row: Pick<
       InstalledPluginRow,
       "enabled" | "provenance" | "sourceKind" | "sourceBuiltinName"
     >,
-  ): boolean {
+  ): Promise<boolean> {
     return (
-      row.enabled && !isSafeModeExemptRow(row) && getPluginSafeMode(deps.db)
+      row.enabled &&
+      !isSafeModeExemptRow(row) &&
+      (await getPluginSafeMode(deps.db))
     );
   }
 
-  function safeModeActivationRefusal(
+  async function safeModeActivationRefusal(
     args: SafeModeActivationRefusalArgs,
-  ): string | null {
-    if (isSafeModeExempt(args) || !getPluginSafeMode(deps.db)) return null;
+  ): Promise<string | null> {
+    if (isSafeModeExempt(args) || !(await getPluginSafeMode(deps.db)))
+      return null;
     return `plugin safe mode is on; turn it off with \`bb plugin safe-mode off\` before you ${args.action} "${args.pluginId}"`;
   }
 
@@ -1526,7 +1537,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       logger.warn(`plugin ${row.id} not loaded (held): ${held}`);
       return null;
     }
-    if (isSuppressedBySafeMode(row)) {
+    if (await isSuppressedBySafeMode(row)) {
       await disposeOne(row.id);
       await populateIdentity(row);
       if ((hungServices.get(row.id)?.size ?? 0) === 0) {
@@ -1624,7 +1635,8 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       getAppUrl: deps.getAppUrl ?? (() => null),
       getLoopbackBaseUrl: () => boundLoopbackBaseUrl,
       rpcCaller: rpcCallers.issue(row.id),
-      invalidateRpc: (tags) => deps.hub.notifyPluginChanged(row.id, tags),
+      invalidateRpc: async (tags) =>
+        await deps.hub.notifyPluginChanged(row.id, tags),
       whileRpcWatched: (method, handler) => {
         const active = new Map<string, AbortController>();
         const isWatchedRead = (target: PluginReadSubscriptionTarget) =>
@@ -1696,14 +1708,14 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
         // queue to walk; asking for a drain there is honestly a no-op.
         deps.requestQueueDrain?.();
       },
-      requestInteraction: (args) => {
+      requestInteraction: async (args) => {
         if (!deps.pendingInteractions) {
           throw new Error("Plugin interactions are unavailable in this host");
         }
         if (disposingPluginIds.has(row.id)) {
           throw new Error(`plugin "${row.id}" is disposing`);
         }
-        return deps.pendingInteractions.requestPluginInteraction({
+        return await deps.pendingInteractions.requestPluginInteraction({
           ...args,
           pluginId: row.id,
         });
@@ -1714,17 +1726,20 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
         }
         return deps.ensureSharedPortTunnel(hostId);
       },
-      validateSharedPortDeclaration: (hostId, ports) => {
+      validateSharedPortDeclaration: async (hostId, ports) => {
         if (!deps.sharedPorts) {
           throw new Error("host shared-port control plane is unavailable");
         }
-        return deps.sharedPorts.validateSharedPortDeclaration(hostId, ports);
+        return await deps.sharedPorts.validateSharedPortDeclaration(
+          hostId,
+          ports,
+        );
       },
-      declareSharedPorts: (hostId, ports) => {
+      declareSharedPorts: async (hostId, ports) => {
         if (!deps.sharedPorts) {
           throw new Error("host shared-port control plane is unavailable");
         }
-        deps.sharedPorts.declareSharedPorts({
+        await deps.sharedPorts.declareSharedPorts({
           ownerId: row.id,
           hostId,
           ports,
@@ -1735,11 +1750,14 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       },
       nextTunnelStatuses: () => [],
       onNextTunnelStatusChange: () => () => {},
-      replaceDeclaredSharedPorts: (declarations) => {
+      replaceDeclaredSharedPorts: async (declarations) => {
         if (declarations.length > 0 && !deps.sharedPorts) {
           throw new Error("host shared-port control plane is unavailable");
         }
-        deps.sharedPorts?.replaceDeclarationsForOwner(row.id, declarations);
+        await deps.sharedPorts?.replaceDeclarationsForOwner(
+          row.id,
+          declarations,
+        );
       },
       callPluginHost: (args) => {
         if (hostArtifactCandidate === null) {
@@ -1899,7 +1917,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       if (hungAfterDispose !== undefined && hungAfterDispose.size > 0) {
         for (const rollback of rollbackGenerations.reverse()) rollback();
         loaded.delete(row.id);
-        deps.sharedPorts?.clearDeclarationsForOwner(row.id);
+        await deps.sharedPorts?.clearDeclarationsForOwner(row.id);
         discardCandidateHandle(handle);
         return hungServicesDetail(hungAfterDispose);
       }
@@ -1910,7 +1928,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       );
     }
     disposeUnavailableProviderRegistrations(row.id);
-    deps.hub.notifyPluginChanged(row.id, null);
+    await deps.hub.notifyPluginChanged(row.id, null);
     loaded.set(row.id, plugin);
     appBundles.set(row.id, appBundleCandidate.snapshot);
     if (hostArtifactCandidate === null) hostArtifacts.delete(row.id);
@@ -1918,15 +1936,15 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     brandingAssets.set(row.id, brandingAssetCandidate);
     needsConfiguration.delete(row.id);
     agentToolProblems.delete(row.id);
-    handle.activate();
+    await handle.activate();
     const now = Date.now();
-    prunePluginSchedules(
+    await prunePluginSchedules(
       deps.db,
       row.id,
       handle.schedules.map((schedule) => schedule.name),
     );
     for (const schedule of handle.schedules) {
-      upsertPluginSchedule(deps.db, {
+      await upsertPluginSchedule(deps.db, {
         pluginId: row.id,
         name: schedule.name,
         cron: schedule.cron,
@@ -1934,7 +1952,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       });
     }
     for (const service of plugin.services) {
-      runService(row.id, service);
+      await runService(row.id, service);
     }
     if (!needsConfiguration.has(row.id)) {
       const details = [
@@ -1973,7 +1991,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       }
       abortPluginToolCallsForPlugin(id, "plugin-disposed");
       try {
-        deps.pendingInteractions?.interruptPluginInteractions(id);
+        await deps.pendingInteractions?.interruptPluginInteractions(id);
       } catch (error) {
         logger.warn(
           `plugin ${id} interaction cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -2010,11 +2028,11 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     const plugin = loaded.get(id);
     if (!plugin) return;
     loaded.delete(id);
-    deps.hub.notifyPluginChanged(id, null);
+    await deps.hub.notifyPluginChanged(id, null);
     await disposePluginInstance(id, plugin);
     releaseMutableRoots(plugin.moduleRootUrls);
     hostArtifacts.delete(id);
-    deps.sharedPorts?.clearDeclarationsForOwner(id);
+    await deps.sharedPorts?.clearDeclarationsForOwner(id);
   }
 
   async function disposeAll(): Promise<void> {
@@ -2023,27 +2041,27 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       ...unavailableProviderRegistrations.keys(),
     ]);
     for (const id of pluginIds) {
-      await withLifecycleLock(id, () => disposeOne(id));
+      await withLifecycleLock(id, async () => await disposeOne(id));
     }
   }
 
   async function loadAll(): Promise<void> {
-    const rows = listInstalledPlugins(deps.db).sort((a, b) =>
+    const rows = (await listInstalledPlugins(deps.db)).sort((a, b) =>
       a.id.localeCompare(b.id),
     );
     for (const row of rows) {
       if (loaded.has(row.id)) continue;
-      await withLifecycleLock(row.id, () => loadOne(row));
+      await withLifecycleLock(row.id, async () => await loadOne(row));
     }
   }
 
-  function wireLookup<T>(
+  async function wireLookup<T>(
     id: string,
     find: (plugin: LoadedPlugin) => T | undefined,
-  ): PluginWireLookup<T> {
+  ): Promise<PluginWireLookup<T>> {
     const plugin = loaded.get(id);
     if (!plugin) {
-      const row = getInstalledPlugin(deps.db, id);
+      const row = await getInstalledPlugin(deps.db, id);
       if (!row) return { outcome: "unknown-plugin" };
       return {
         outcome: "not-running",

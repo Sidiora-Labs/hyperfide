@@ -76,17 +76,17 @@ interface RegisterCommandRpcArgs {
   resolveDelayMs?: number;
 }
 
-function registerCommandRpc(
+async function registerCommandRpc(
   harness: Parameters<typeof registerHostRpcResponder>[0],
   args: RegisterCommandRpcArgs,
-): CommandRpcStub {
+): Promise<CommandRpcStub> {
   const stub: CommandRpcStub = {
     commands: args.commands,
     requests: [],
     skillRequests: [],
     resolveRequests: [],
   };
-  registerHostRpcResponder(harness, {
+  await registerHostRpcResponder(harness, {
     hostId: args.hostId,
     sessionId: args.sessionId,
     handle: (request) => {
@@ -175,15 +175,15 @@ describe("public project command typeahead route", () => {
         },
       },
       async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-shared-skills",
         });
         seedPrimaryHost(harness.deps, host.id);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
           path: "/tmp/shared-skills",
         });
-        const stub = registerCommandRpc(harness, {
+        const stub = await registerCommandRpc(harness, {
           hostId: host.id,
           sessionId: session.id,
           commands: [],
@@ -241,15 +241,15 @@ describe("public project command typeahead route", () => {
         ],
       },
       async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-custom-acp-skills",
         });
         seedPrimaryHost(harness.deps, host.id);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
           path: "/tmp/custom-acp-skills",
         });
-        const stub = registerCommandRpc(harness, {
+        const stub = await registerCommandRpc(harness, {
           hostId: host.id,
           sessionId: session.id,
           commands: [],
@@ -284,15 +284,15 @@ describe("public project command typeahead route", () => {
         provider.pluginId,
         stubHostArtifact(provider.pluginId),
       );
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-commands-resolving",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/resolving-project",
       });
-      const stub = registerCommandRpc(harness, {
+      const stub = await registerCommandRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         commands: [skill("vendor:review", "user")],
@@ -385,15 +385,15 @@ describe("public project command typeahead route", () => {
         provider.pluginId,
         stubHostArtifact(provider.pluginId),
       );
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-commands-slow-resolver",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/slow-resolver-project",
       });
-      const stub = registerCommandRpc(harness, {
+      const stub = await registerCommandRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         commands: [skill("after-the-wait", "user")],
@@ -445,15 +445,15 @@ describe("public project command typeahead route", () => {
         ],
       },
       async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-commands-rootless",
         });
         seedPrimaryHost(harness.deps, host.id);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
           path: "/tmp/rootless-project",
         });
-        const stub = registerCommandRpc(harness, {
+        const stub = await registerCommandRpc(harness, {
           hostId: host.id,
           sessionId: session.id,
           commands: [skill("never-asked", "user")],
@@ -476,18 +476,21 @@ describe("public project command typeahead route", () => {
 
   it("uses the server skill catalog when discovery targets another machine", async () => {
     await withTestHarness(async (harness) => {
-      const primaryHost = seedHost(harness.deps, {
+      const primaryHost = await seedHost(harness.deps, {
         id: "host-commands-primary",
       });
       seedPrimaryHost(harness.deps, primaryHost.id);
-      const { host: remoteHost, session } = seedHostSession(harness.deps, {
-        id: "host-commands-remote",
-      });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host: remoteHost, session } = await seedHostSession(
+        harness.deps,
+        {
+          id: "host-commands-remote",
+        },
+      );
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: primaryHost.id,
         path: "/tmp/remote-commands-project",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: remoteHost.id,
         projectId: project.id,
         path: "/tmp/remote-commands-env",
@@ -503,7 +506,7 @@ describe("public project command typeahead route", () => {
         "---\nname: synced-remote\ndescription: Synced remote skill\n---\n",
         "utf8",
       );
-      const stub = registerCommandRpc(harness, {
+      const stub = await registerCommandRpc(harness, {
         hostId: remoteHost.id,
         sessionId: session.id,
         commands: [],
@@ -536,19 +539,19 @@ describe("public project command typeahead route", () => {
 
   it("sorts and de-dupes the command catalog with project winning over user", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-commands-claude",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/claude-commands-project",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/claude-commands-env",
       });
-      const stub = registerCommandRpc(harness, {
+      const stub = await registerCommandRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         commands: [
@@ -636,15 +639,15 @@ describe("public project command typeahead route", () => {
         inheritedSkillsRootPaths: ["/tmp/bb-parent-skills"],
       },
       async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-commands-inherited-skills",
         });
         seedPrimaryHost(harness.deps, host.id);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
           path: "/tmp/inherited-skills-project",
         });
-        const stub = registerCommandRpc(harness, {
+        const stub = await registerCommandRpc(harness, {
           hostId: host.id,
           sessionId: session.id,
           commands: [
@@ -680,17 +683,17 @@ describe("public project command typeahead route", () => {
 
   it("returns an empty list without an RPC for a provider with no command surface", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-commands-unknown",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const stub = registerCommandRpc(harness, {
+      const stub = await registerCommandRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         commands: [skill("anything", "user")],
@@ -709,21 +712,21 @@ describe("public project command typeahead route", () => {
 
   it("degrades to the project source (no 409) when the given environment is still provisioning", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-commands-provisioning",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/provisioning-project",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/provisioning-env",
         status: "provisioning",
       });
-      const stub = registerCommandRpc(harness, {
+      const stub = await registerCommandRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         commands: [skill("user-only", "user", { description: "Home skill" })],
@@ -754,16 +757,18 @@ describe("public project command typeahead route", () => {
 
   it("passes cwd: null when there is neither a given environment nor a project source", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-commands-no-source",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const otherHost = seedHost(harness.deps, { id: "host-commands-other" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const otherHost = await seedHost(harness.deps, {
+        id: "host-commands-other",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: otherHost.id,
         path: "/tmp/other-host-project",
       });
-      const stub = registerCommandRpc(harness, {
+      const stub = await registerCommandRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         commands: [skill("user-only", "user")],
@@ -794,11 +799,11 @@ describe("public project command typeahead route", () => {
 
   it("lists user-home skills and live provider commands for the personal project", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-commands-personal",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const stub = registerCommandRpc(harness, {
+      const stub = await registerCommandRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         commands: [skill("home-skill", "user")],
@@ -833,11 +838,13 @@ describe("public project command typeahead route", () => {
 
   it("returns an error response when the host is offline", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps, { id: "host-commands-offline" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const host = await seedHost(harness.deps, {
+        id: "host-commands-offline",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });

@@ -377,7 +377,7 @@ describe("app update service", () => {
   it("restarts a staged update once no unconfirmed threads are running", async () => {
     let runningThreads = 0;
     const launcher = new FakeLauncher();
-    const service = createAppUpdateService({
+    const service = await createAppUpdateService({
       currentCommit: null,
       appSurface: "web",
       appVersion: appVersion({}),
@@ -389,6 +389,7 @@ describe("app update service", () => {
       notifyChanged: vi.fn(),
     });
     launcher.push({});
+    await new Promise<void>((resolve) => setImmediate(resolve));
     await service.apply({ confirmInterruptingThreads: false });
 
     runningThreads = 1;
@@ -400,6 +401,7 @@ describe("app update service", () => {
         targetVersion: "1.1.0",
       },
     });
+    await new Promise<void>((resolve) => setImmediate(resolve));
     launcher.push({
       activity: {
         phase: "ready",
@@ -408,6 +410,7 @@ describe("app update service", () => {
         targetVersion: "1.1.0",
       },
     });
+    await new Promise<void>((resolve) => setImmediate(resolve));
 
     expect(launcher.requests.slice(1)).toEqual([
       {
@@ -418,6 +421,7 @@ describe("app update service", () => {
     ]);
 
     launcher.push({});
+    await new Promise<void>((resolve) => setImmediate(resolve));
     await service.apply({ confirmInterruptingThreads: true });
     launcher.push({
       activity: {
@@ -427,6 +431,7 @@ describe("app update service", () => {
         targetVersion: "1.1.0",
       },
     });
+    await new Promise<void>((resolve) => setImmediate(resolve));
     expect(launcher.requests.at(-1)).toEqual({ type: "restart" });
   });
 
@@ -544,7 +549,9 @@ describe("launcher channel", () => {
     const port = new FakeProcessPort();
     const channel = createLauncherChannel(port);
     const statuses: LauncherAppUpdateStatus[] = [];
-    channel?.onStatus((status) => statuses.push(status));
+    channel?.onStatus((status) => {
+      statuses.push(status);
+    });
 
     port.emit("message", {
       channel: "bb-app-update/status",

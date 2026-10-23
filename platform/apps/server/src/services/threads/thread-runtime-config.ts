@@ -121,15 +121,15 @@ export async function resolveThreadRuntimeCommandConfig(
 ): Promise<ResolvedThreadRuntimeCommandConfig> {
   markTurnTraceSpan("runtimeConfig.started");
   const workspacePath = requireWorkspacePath(args.environment);
-  const project = getProject(deps.db, args.thread.projectId);
+  const project = await getProject(deps.db, args.thread.projectId);
   if (!project) {
     throw new ApiError(404, "project_not_found", "Project not found");
   }
-  const environment = getEnvironment(deps.db, args.environment.id);
+  const environment = await getEnvironment(deps.db, args.environment.id);
   if (!environment) {
     throw new ApiError(404, "environment_not_found", "Environment not found");
   }
-  const host = getHost(deps.db, args.environment.hostId);
+  const host = await getHost(deps.db, args.environment.hostId);
   if (!host) {
     throw new ApiError(404, "host_not_found", "Host not found");
   }

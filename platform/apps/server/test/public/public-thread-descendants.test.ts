@@ -36,31 +36,32 @@ async function descendantsOf(
   );
 }
 
-function seedTree(harness: TestAppHarness) {
-  const { host } = seedHostSession(harness.deps);
-  const { project } = seedProjectWithSource(harness.deps, {
+async function seedTree(harness: TestAppHarness) {
+  const { host } = await seedHostSession(harness.deps);
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: "/tmp/public-thread-descendants",
   });
-  const seed = (parentThreadId: string | null = null) =>
-    seedThread(harness.deps, { projectId: project.id, parentThreadId });
-  const root = seed();
-  const child = seed(root.id);
-  const grandchild = seed(child.id);
-  const sibling = seed(root.id);
-  const other = seed();
+  const seed = async (parentThreadId: string | null = null) =>
+    await seedThread(harness.deps, { projectId: project.id, parentThreadId });
+  const root = await seed();
+  const child = await seed(root.id);
+  const grandchild = await seed(child.id);
+  const sibling = await seed(root.id);
+  const other = await seed();
   return { root, child, grandchild, sibling, other };
 }
 
 describe("POST /threads/descendants", () => {
   it("returns each live thread's descendants children first, once per id", async () => {
     await withTestHarness(async (harness) => {
-      const { root, child, grandchild, sibling, other } = seedTree(harness);
-      const deletedChild = seedThread(harness.deps, {
+      const { root, child, grandchild, sibling, other } =
+        await seedTree(harness);
+      const deletedChild = await seedThread(harness.deps, {
         projectId: root.projectId,
         parentThreadId: other.id,
       });
-      markThreadDeleted(harness.db, harness.hub, {
+      await markThreadDeleted(harness.db, harness.hub, {
         threadId: deletedChild.id,
       });
 
@@ -80,7 +81,8 @@ describe("POST /threads/descendants", () => {
 
   it("follows a subtree nested under a new parent and children released by an archived parent", async () => {
     await withTestHarness(async (harness) => {
-      const { root, child, grandchild, sibling, other } = seedTree(harness);
+      const { root, child, grandchild, sibling, other } =
+        await seedTree(harness);
 
       const nest = await harness.app.request(`/api/v1/threads/${child.id}`, {
         method: "PATCH",
@@ -88,14 +90,16 @@ describe("POST /threads/descendants", () => {
         body: JSON.stringify({ parentThreadId: other.id }),
       });
       expect(nest.status).toBe(200);
-      await expect(descendantsOf(harness, [root.id, other.id])).resolves.toEqual(
-        {
-          [root.id]: [sibling.id],
-          [other.id]: [child.id, grandchild.id],
-        },
-      );
+      await expect(
+        descendantsOf(harness, [root.id, other.id]),
+      ).resolves.toEqual({
+        [root.id]: [sibling.id],
+        [other.id]: [child.id, grandchild.id],
+      });
 
-      archiveThreadAndReleaseChildren(harness.deps, { threadId: other.id });
+      await archiveThreadAndReleaseChildren(harness.deps, {
+        threadId: other.id,
+      });
       await expect(
         descendantsOf(harness, [other.id, child.id]),
       ).resolves.toEqual({
@@ -107,13 +111,13 @@ describe("POST /threads/descendants", () => {
 
   it("omits archived and hidden descendants unless asked, still walking through them", async () => {
     await withTestHarness(async (harness) => {
-      const { root, child, grandchild, sibling } = seedTree(harness);
-      const hidden = seedThread(harness.deps, {
+      const { root, child, grandchild, sibling } = await seedTree(harness);
+      const hidden = await seedThread(harness.deps, {
         projectId: root.projectId,
         parentThreadId: root.id,
         visibility: "hidden",
       });
-      archiveThread(harness.db, harness.hub, child.id);
+      await archiveThread(harness.db, harness.hub, child.id);
       const sorted = async (flags: {
         includeArchived?: boolean;
         includeHidden?: boolean;

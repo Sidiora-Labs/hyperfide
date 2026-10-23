@@ -80,7 +80,7 @@ describe("plugin settings + storage", () => {
   let systemBroadcasts: string[][];
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-storage-test-"));
     dataDir = join(workDir, "data");
     systemBroadcasts = [];
@@ -160,7 +160,7 @@ describe("plugin settings + storage", () => {
 
     it("reads a legacy stored numeric string as a number", async () => {
       await installConfigurable();
-      setPluginSettingsValues(db, "configurable", {
+      await setPluginSettingsValues(db, "configurable", {
         retries: JSON.stringify(" 5 "),
       });
 
@@ -291,7 +291,7 @@ describe("plugin settings + storage", () => {
         state.settings.experimental_set({ notes: "1234" }),
       ).rejects.toThrow("lowercase letters only");
 
-      const app = new Hono();
+      const app = await new Hono();
       registerPluginRoutes(
         app,
         { config: { serverPort: 3334 }, db },
@@ -343,12 +343,12 @@ describe("plugin settings + storage", () => {
         note: "kept?",
       });
       expect(
-        Object.keys(getPluginSettingsValues(db, "configurable")),
+        Object.keys(await getPluginSettingsValues(db, "configurable")),
       ).toContain("note");
 
       await service.remove("configurable");
 
-      expect(getPluginSettingsValues(db, "configurable")).toEqual({});
+      expect(await getPluginSettingsValues(db, "configurable")).toEqual({});
       await expect(
         stat(join(dataDir, "plugins", "configurable", "secrets")),
       ).rejects.toThrow();
@@ -356,7 +356,7 @@ describe("plugin settings + storage", () => {
 
     it("serves schema+values over the routes; PUT validates with 400s", async () => {
       await installConfigurable();
-      const app = new Hono();
+      const app = await new Hono();
       registerPluginRoutes(
         app,
         { config: { serverPort: 3334 }, db },
@@ -424,7 +424,7 @@ describe("plugin settings + storage", () => {
         `,
       });
       await service.installPath(rootDir);
-      const entry = service.list().find((p) => p.id === "bad-schema");
+      const entry = (await service.list()).find((p) => p.id === "bad-schema");
       expect(entry?.status).toBe("error");
       expect(entry?.statusDetail).toContain("broken");
     });
@@ -439,7 +439,7 @@ describe("plugin settings + storage", () => {
       await service.installPath(rootDir);
       const api = service.getApi("kver");
       expect(api).toBeDefined();
-      const kv = api!.storage.kv;
+      const kv = await api!.storage.kv;
 
       await kv.set("issue:1", { title: "one" });
       await kv.set("issue:2", { title: "two" });
@@ -532,7 +532,7 @@ describe("plugin settings + storage", () => {
       const api = service.getApi("migration-collision");
       expect(api).toBeDefined();
       if (!api) throw new Error("migration-collision plugin did not load");
-      const database = api.storage.database();
+      const database = await api.storage.database();
       expect(() =>
         api.storage.migrate(database, [
           "CREATE TABLE replacements (id INTEGER PRIMARY KEY)",
@@ -550,7 +550,7 @@ describe("plugin settings + storage", () => {
       const api = service.getApi("legacy-migrations");
       expect(api).toBeDefined();
       if (!api) throw new Error("legacy-migrations plugin did not load");
-      const database = api.storage.database();
+      const database = await api.storage.database();
       database.exec(
         "CREATE TABLE items (id INTEGER PRIMARY KEY); CREATE TABLE _bb_migrations (id INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL); INSERT INTO _bb_migrations VALUES (0, 1), (2, 1)",
       );
@@ -558,7 +558,7 @@ describe("plugin settings + storage", () => {
         "CREATE TABLE items (id INTEGER PRIMARY KEY)",
       ]);
 
-      const rows = database
+      const rows = await database
         .prepare("SELECT id, statement_hash FROM _bb_migrations ORDER BY id")
         .all();
       expect(rows).toEqual([
@@ -640,16 +640,16 @@ describe("plugin settings + storage", () => {
     const globals = globalThis as Record<string, unknown>;
     delete globals.__needsKeyLoads;
     await service.installPath(rootDir);
-    expect(service.list().find((p) => p.id === "needs-key")?.status).toBe(
-      "needs-configuration",
-    );
+    expect(
+      (await service.list()).find((p) => p.id === "needs-key")?.status,
+    ).toBe("needs-configuration");
     expect(globals.__needsKeyLoads).toBe(1);
 
     await service.updateSettings("needs-key", { apiKey: "shhh" });
     expect(globals.__needsKeyLoads).toBe(2);
-    expect(service.list().find((p) => p.id === "needs-key")?.status).toBe(
-      "running",
-    );
+    expect(
+      (await service.list()).find((p) => p.id === "needs-key")?.status,
+    ).toBe("running");
   });
 
   it("saving settings does NOT reload a healthy running plugin", async () => {
@@ -670,7 +670,7 @@ describe("plugin settings + storage", () => {
     await service.installPath(rootDir);
     await service.updateSettings("healthy", { note: "hi" });
     expect(globals.__healthyLoads).toBe(1);
-    expect(service.list().find((p) => p.id === "healthy")?.status).toBe(
+    expect((await service.list()).find((p) => p.id === "healthy")?.status).toBe(
       "running",
     );
   });

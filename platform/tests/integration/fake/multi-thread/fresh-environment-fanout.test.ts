@@ -1,6 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { shellSingleQuote, waitForSetupMarkerCount } from "@hyperfide/test-helpers";
+import {
+  shellSingleQuote,
+  waitForSetupMarkerCount,
+} from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
 import {
   createHostThread,
@@ -23,8 +26,8 @@ const THREADS_PER_PROVIDER = 5;
 const FRESH_FANOUT_TIMEOUT_MS = scaleTimeoutMs(45_000);
 
 describe.sequential("fake provider fresh-environment fanout integration", () => {
-  it("runs same-source managed worktree setup scripts concurrently", () =>
-    withHarness(
+  it("runs same-source managed worktree setup scripts concurrently", async () =>
+    await withHarness(
       { builtinPlugins: ["environment-git-worktree"] },
       async (harness) => {
         const coordinationDir = path.join(
@@ -117,8 +120,8 @@ describe.sequential("fake provider fresh-environment fanout integration", () => 
       },
     ));
 
-  it("starts five fresh managed-worktree threads per provider concurrently", () =>
-    withHarness(
+  it("starts five fresh managed-worktree threads per provider concurrently", async () =>
+    await withHarness(
       { builtinPlugins: ["environment-git-worktree"] },
       async (harness) => {
         const project = await createProjectFixture(harness, {

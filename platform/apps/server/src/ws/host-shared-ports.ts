@@ -1,4 +1,8 @@
-import { getNonDestroyedHost, getSessionById, type DbConnection } from "@hyperfide/db";
+import {
+  getNonDestroyedHost,
+  getSessionById,
+  type DbConnection,
+} from "@hyperfide/db";
 import {
   hostDaemonConnectNextConfigSchema,
   hostDaemonConnectNextStatusSchema,
@@ -89,12 +93,12 @@ export class HostSharedPortCoordinator {
 
   constructor(private readonly deps: HostSharedPortCoordinatorDeps) {}
 
-  recordHostConnectCapability(args: {
+  async recordHostConnectCapability(args: {
     hostId: string;
     sessionId: string;
     hasMachineCredential: boolean;
-  }): void {
-    this.requireShareCapableHost(args.hostId);
+  }): Promise<void> {
+    await this.requireShareCapableHost(args.hostId);
     this.connectCapabilityByHost.set(args.hostId, {
       hasMachineCredential: args.hasMachineCredential,
       sessionId: args.sessionId,
@@ -117,10 +121,10 @@ export class HostSharedPortCoordinator {
     if (changed) this.notifyNextTunnelListeners();
   }
 
-  setNextTunnelConfig(
+  async setNextTunnelConfig(
     ownerId: string,
     config: HostDaemonConnectNextConfig | null,
-  ): void {
+  ): Promise<void> {
     if (ownerId.trim().length === 0) {
       throw new Error("connect next ownerId must be non-empty");
     }
@@ -145,28 +149,30 @@ export class HostSharedPortCoordinator {
     }
     this.nextTunnelGeneration += 1;
     for (const hostId of this.connectCapabilityByHost.keys()) {
-      this.pushCurrentNextTunnelForHost(hostId);
+      await this.pushCurrentNextTunnelForHost(hostId);
     }
   }
 
-  reconcileNextTunnelForHost(hostId: string): HostDaemonConnectNext {
+  async reconcileNextTunnelForHost(
+    hostId: string,
+  ): Promise<HostDaemonConnectNext> {
     return {
       generation: this.nextTunnelGeneration,
-      config: this.canReceiveSharedPorts(hostId)
+      config: (await this.canReceiveSharedPorts(hostId))
         ? (this.nextTunnel?.config ?? null)
         : null,
     };
   }
 
-  hostSupportsNextTunnel(hostId: string): boolean {
-    return this.connectCapabilityState(hostId) !== null;
+  async hostSupportsNextTunnel(hostId: string): Promise<boolean> {
+    return (await this.connectCapabilityState(hostId)) !== null;
   }
 
-  pushCurrentNextTunnelForHost(hostId: string): void {
-    if (!this.hostSupportsNextTunnel(hostId)) return;
+  async pushCurrentNextTunnelForHost(hostId: string): Promise<void> {
+    if (!(await this.hostSupportsNextTunnel(hostId))) return;
     this.deps.hub.sendDaemonMessage(hostId, {
       type: "connect-next.replace",
-      ...this.reconcileNextTunnelForHost(hostId),
+      ...(await this.reconcileNextTunnelForHost(hostId)),
     });
   }
 
@@ -192,10 +198,10 @@ export class HostSharedPortCoordinator {
     this.notifyNextTunnelListeners();
   }
 
-  listNextTunnelStatuses(): HostNextTunnelStatus[] {
+  async listNextTunnelStatuses(): Promise<HostNextTunnelStatus[]> {
     const statuses: HostNextTunnelStatus[] = [];
     for (const [hostId, entry] of this.nextTunnelStatusByHost) {
-      const host = getNonDestroyedHost(this.deps.db, hostId);
+      const host = await getNonDestroyedHost(this.deps.db, hostId);
       if (!host) continue;
       statuses.push({ hostId, hostName: host.name, status: entry.status });
     }
@@ -221,17 +227,17 @@ export class HostSharedPortCoordinator {
     }
   }
 
-  validateSharedPortDeclaration(
+  async validateSharedPortDeclaration(
     hostId: string,
     ports: readonly number[],
-  ): number[] {
+  ): Promise<number[]> {
     if (hostId.trim().length === 0) {
       throw new Error("shared-port declaration hostId must be non-empty");
     }
     const normalized = normalizePorts(ports);
     if (normalized.length > 0) {
-      const host = this.requireDurablyEnrolledHost(hostId);
-      const state = this.connectCapabilityState(hostId);
+      const host = await this.requireDurablyEnrolledHost(hostId);
+      const state = await this.connectCapabilityState(hostId);
       if (state !== null && !state.capability.hasMachineCredential) {
         this.throwMissingMachineCredential(host);
       }
@@ -239,36 +245,39 @@ export class HostSharedPortCoordinator {
     return normalized;
   }
 
-  declareSharedPorts(args: {
+  async declareSharedPorts(args: {
     ownerId: string;
     hostId: string;
     ports: readonly number[];
-  }): void {
+  }): Promise<void> {
     if (args.ownerId.trim().length === 0) {
       throw new Error("shared-port declaration ownerId must be non-empty");
     }
-    const ports = this.validateSharedPortDeclaration(args.hostId, args.ports);
+    const ports = await this.validateSharedPortDeclaration(
+      args.hostId,
+      args.ports,
+    );
     const current = this.declarationsByHost.get(args.hostId);
     const candidate = new Map(current ?? []);
     candidate.set(args.ownerId, { ports });
     this.declarationsByHost.set(args.hostId, candidate);
-    this.publishIfChanged(args.hostId);
+    await this.publishIfChanged(args.hostId);
   }
 
-  replaceDeclarationsForOwner(
+  async replaceDeclarationsForOwner(
     ownerId: string,
     declarations: readonly {
       hostId: string;
       ports: readonly number[];
     }[],
-  ): void {
+  ): Promise<void> {
     if (ownerId.trim().length === 0) {
       throw new Error("shared-port declaration ownerId must be non-empty");
     }
 
     const normalizedByHost = new Map<string, number[]>();
     for (const declaration of declarations) {
-      const ports = this.validateSharedPortDeclaration(
+      const ports = await this.validateSharedPortDeclaration(
         declaration.hostId,
         declaration.ports,
       );
@@ -293,11 +302,11 @@ export class HostSharedPortCoordinator {
       if (replacement.size === 0) this.declarationsByHost.delete(hostId);
       else this.declarationsByHost.set(hostId, replacement);
     }
-    for (const hostId of affectedHostIds) this.publishIfChanged(hostId);
+    for (const hostId of affectedHostIds) await this.publishIfChanged(hostId);
   }
 
-  clearDeclarationsForOwner(ownerId: string): void {
-    this.setNextTunnelConfig(ownerId, null);
+  async clearDeclarationsForOwner(ownerId: string): Promise<void> {
+    await this.setNextTunnelConfig(ownerId, null);
     for (const [hostId, declarations] of this.declarationsByHost) {
       if (!declarations.delete(ownerId)) {
         continue;
@@ -305,30 +314,32 @@ export class HostSharedPortCoordinator {
       if (declarations.size === 0) {
         this.declarationsByHost.delete(hostId);
       }
-      this.publishIfChanged(hostId);
+      await this.publishIfChanged(hostId);
     }
   }
 
-  recordTunnelIdentity(
+  async recordTunnelIdentity(
     hostId: string,
     identity: HostDaemonConnectTunnelIdentity,
-  ): HostDaemonConnectTunnelIdentity {
-    this.requireConnectedEnrolledHost(hostId);
+  ): Promise<HostDaemonConnectTunnelIdentity> {
+    await this.requireConnectedEnrolledHost(hostId);
     const parsed = hostDaemonConnectTunnelIdentitySchema.parse(identity);
     this.tunnelIdentityByHost.set(hostId, parsed);
     return parsed;
   }
 
-  getTunnelIdentity(hostId: string): HostDaemonConnectTunnelIdentity | null {
-    this.requireConnectedEnrolledHost(hostId);
+  async getTunnelIdentity(
+    hostId: string,
+  ): Promise<HostDaemonConnectTunnelIdentity | null> {
+    await this.requireConnectedEnrolledHost(hostId);
     return this.tunnelIdentityByHost.get(hostId) ?? null;
   }
 
-  ensureTunnelIdentity(
+  async ensureTunnelIdentity(
     hostId: string,
     ensure: () => Promise<HostDaemonConnectTunnelIdentity>,
   ): Promise<HostDaemonConnectTunnelIdentity> {
-    const current = this.getTunnelIdentity(hostId);
+    const current = await this.getTunnelIdentity(hostId);
     if (current !== null) {
       return Promise.resolve(current);
     }
@@ -338,7 +349,9 @@ export class HostSharedPortCoordinator {
     }
     let pending: Promise<HostDaemonConnectTunnelIdentity>;
     pending = ensure()
-      .then((identity) => this.recordTunnelIdentity(hostId, identity))
+      .then(
+        async (identity) => await this.recordTunnelIdentity(hostId, identity),
+      )
       .finally(() => {
         if (this.tunnelIdentityPromiseByHost.get(hostId) === pending) {
           this.tunnelIdentityPromiseByHost.delete(hostId);
@@ -348,9 +361,11 @@ export class HostSharedPortCoordinator {
     return pending;
   }
 
-  reconcileSharedPortsForHost(hostId: string): HostDaemonConnectShares {
+  async reconcileSharedPortsForHost(
+    hostId: string,
+  ): Promise<HostDaemonConnectShares> {
     const generation = this.generationByHost.get(hostId) ?? 0;
-    if (!this.canReceiveSharedPorts(hostId)) {
+    if (!(await this.canReceiveSharedPorts(hostId))) {
       return { generation, ports: [] };
     }
     return this.resolveDeclarations(
@@ -359,8 +374,10 @@ export class HostSharedPortCoordinator {
     );
   }
 
-  pushCurrentSharedPortsForHost(hostId: string): HostDaemonConnectShares {
-    const shares = this.reconcileSharedPortsForHost(hostId);
+  async pushCurrentSharedPortsForHost(
+    hostId: string,
+  ): Promise<HostDaemonConnectShares> {
+    const shares = await this.reconcileSharedPortsForHost(hostId);
     this.deps.hub.sendDaemonMessage(hostId, {
       type: "connect-shares.replace",
       ...shares,
@@ -368,19 +385,19 @@ export class HostSharedPortCoordinator {
     return shares;
   }
 
-  private requireShareCapableHost(hostId: string) {
+  private async requireShareCapableHost(hostId: string) {
     if (hostId.trim().length === 0) {
       throw new Error("shared-port declaration hostId must be non-empty");
     }
-    const host = getNonDestroyedHost(this.deps.db, hostId);
+    const host = await getNonDestroyedHost(this.deps.db, hostId);
     if (!host) {
       throw new Error(`cannot declare shared ports for unknown host ${hostId}`);
     }
     return host;
   }
 
-  private requireDurablyEnrolledHost(hostId: string) {
-    const host = this.requireShareCapableHost(hostId);
+  private async requireDurablyEnrolledHost(hostId: string) {
+    const host = await this.requireShareCapableHost(hostId);
     if (host.connectMachineId === null) {
       throw new ApiError(
         409,
@@ -392,12 +409,12 @@ export class HostSharedPortCoordinator {
     return host;
   }
 
-  private connectCapabilityState(
+  private async connectCapabilityState(
     hostId: string,
-  ): HostConnectCapabilityState | null {
+  ): Promise<HostConnectCapabilityState | null> {
     const capability = this.connectCapabilityByHost.get(hostId);
     const session = capability
-      ? getSessionById(this.deps.db, { sessionId: capability.sessionId })
+      ? await getSessionById(this.deps.db, { sessionId: capability.sessionId })
       : null;
     if (
       capability === undefined ||
@@ -413,18 +430,18 @@ export class HostSharedPortCoordinator {
     };
   }
 
-  private canReceiveSharedPorts(hostId: string): boolean {
-    const host = getNonDestroyedHost(this.deps.db, hostId);
+  private async canReceiveSharedPorts(hostId: string): Promise<boolean> {
+    const host = await getNonDestroyedHost(this.deps.db, hostId);
     if (!host || host.connectMachineId === null) return false;
     return (
-      this.connectCapabilityState(hostId)?.capability.hasMachineCredential ===
-      true
+      (await this.connectCapabilityState(hostId))?.capability
+        .hasMachineCredential === true
     );
   }
 
-  private requireConnectedEnrolledHost(hostId: string) {
-    const host = this.requireDurablyEnrolledHost(hostId);
-    const state = this.connectCapabilityState(hostId);
+  private async requireConnectedEnrolledHost(hostId: string) {
+    const host = await this.requireDurablyEnrolledHost(hostId);
+    const state = await this.connectCapabilityState(hostId);
     if (state === null || state.leaseExpiresAt <= Date.now()) {
       throw new ApiError(
         503,
@@ -451,7 +468,7 @@ export class HostSharedPortCoordinator {
     );
   }
 
-  private publishIfChanged(hostId: string): void {
+  private async publishIfChanged(hostId: string): Promise<void> {
     const currentGeneration = this.generationByHost.get(hostId) ?? 0;
     const nextGeneration = currentGeneration + 1;
     const shares = this.resolveDeclarations(
@@ -468,7 +485,7 @@ export class HostSharedPortCoordinator {
 
     this.fingerprintByHost.set(hostId, nextFingerprint);
     this.generationByHost.set(hostId, nextGeneration);
-    if (this.canReceiveSharedPorts(hostId)) {
+    if (await this.canReceiveSharedPorts(hostId)) {
       this.deps.hub.sendDaemonMessage(hostId, {
         type: "connect-shares.replace",
         ...shares,

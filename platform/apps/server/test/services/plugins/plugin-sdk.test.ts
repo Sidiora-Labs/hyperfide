@@ -114,12 +114,12 @@ describe("plugin bb.sdk bind gate", () => {
   const sharedPorts = {
     declareSharedPorts: vi.fn(),
     validateSharedPortDeclaration: vi.fn(
-      (_hostId: string, ports: readonly number[]) => [...ports],
+      async (_hostId: string, ports: readonly number[]) => [...ports],
     ),
     replaceDeclarationsForOwner: vi.fn(),
     clearDeclarationsForOwner: vi.fn(),
     setNextTunnelConfig: vi.fn(),
-    listNextTunnelStatuses: vi.fn(() => [
+    listNextTunnelStatuses: vi.fn(async () => [
       {
         hostId: "host-1",
         hostName: "Sawyer Air",
@@ -186,7 +186,7 @@ describe("plugin bb.sdk bind gate", () => {
   });
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-sdk-test-"));
     sharedPorts.declareSharedPorts.mockClear();
     sharedPorts.validateSharedPortDeclaration.mockClear();
@@ -236,7 +236,7 @@ describe("plugin bb.sdk bind gate", () => {
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
-    const api = requireApi(service, "gate");
+    const api = await requireApi(service, "gate");
 
     expect(() => api.sdk).toThrow(
       /bb\.sdk is not available until the server is listening/,
@@ -254,7 +254,7 @@ describe("plugin bb.sdk bind gate", () => {
     });
     await service.installPath(rootDir);
     service.bindSdk({ baseUrl: "http://127.0.0.1:9" });
-    const api = requireApi(service, "metadata-boundary");
+    const api = await requireApi(service, "metadata-boundary");
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const invalidValues: Array<{
       value: unknown;
@@ -303,7 +303,7 @@ describe("plugin bb.sdk bind gate", () => {
     });
     await service.installPath(rootDir);
     service.bindSdk({ baseUrl: "https://bb.example.test" });
-    const api = requireApi(service, "metadata-attribution");
+    const api = await requireApi(service, "metadata-attribution");
     const requests: unknown[] = [];
     vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
       requests.push(JSON.parse(String(init?.body)));
@@ -361,7 +361,7 @@ describe("plugin bb.sdk bind gate", () => {
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
-    const api = requireApi(service, "app-url");
+    const api = await requireApi(service, "app-url");
 
     expect(api.server.experimental_appUrl).toBe("https://bb.example.test");
     appUrl = null;
@@ -374,13 +374,13 @@ describe("plugin bb.sdk bind gate", () => {
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
-    const api = requireApi(service, "shares");
+    const api = await requireApi(service, "shares");
 
     await expect(api.hosts.ensureSharedPortTunnel("host-1")).resolves.toEqual({
       label: "sawyer-air",
       baseDomain: "hyperfide.example",
     });
-    api.hosts.declareSharedPorts("host-1", [8080, 3000]);
+    await api.hosts.declareSharedPorts("host-1", [8080, 3000]);
 
     expect(ensureSharedPortTunnel).toHaveBeenCalledWith("host-1");
 
@@ -402,7 +402,7 @@ describe("plugin bb.sdk bind gate", () => {
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
-    const api = requireApi(service, "next");
+    const api = await requireApi(service, "next");
     const config = {
       domain: "next.hyperfide.example",
       server: {
@@ -442,7 +442,7 @@ describe("plugin bb.sdk bind gate", () => {
       `,
     });
     await service.installPath(rootDir);
-    const api = requireApi(service, "host-client");
+    const api = await requireApi(service, "host-client");
     const contract = defineRpcContract({
       ping: {
         input: z.object({ value: z.string() }).strict(),
@@ -492,26 +492,26 @@ describe("plugin bb.sdk bind gate", () => {
         .update(await readFile(servedArtifact.path))
         .digest("hex"),
     ).toBe(artifact.digest);
-    service.handleHostWorkerExit({
+    await service.handleHostWorkerExit({
       authenticatedHostId: "host-1",
       pluginId: "host-client",
       generation: "stale-generation",
     });
-    service.handleHostSignal({
+    await service.handleHostSignal({
       authenticatedHostId: "host-1",
       pluginId: "host-client",
       generation: "stale-generation",
       signal: "changed",
       payload: { sequence: 1 },
     });
-    service.handleHostSignal({
+    await service.handleHostSignal({
       authenticatedHostId: "host-1",
       pluginId: "host-client",
       generation: artifact.generation,
       signal: "changed",
       payload: { sequence: 2 },
     });
-    service.handleHostWorkerExit({
+    await service.handleHostWorkerExit({
       authenticatedHostId: "host-1",
       pluginId: "host-client",
       generation: artifact.generation,
@@ -597,9 +597,11 @@ describe("plugin bb.sdk bind gate", () => {
 describe("plugin bb.sdk against a running server", () => {
   it("returns the server-side Standard Schema output after the host JSON wire", async () => {
     const server = await startTestServer();
-    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-host-transform-"));
+    const workDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-plugin-host-transform-"),
+    );
     try {
-      const { host } = seedHostSession(server.deps, {
+      const { host } = await seedHostSession(server.deps, {
         id: "host-plugin-transform",
       });
       const rootDir = await writePlugin(workDir, {
@@ -658,14 +660,16 @@ describe("plugin bb.sdk against a running server", () => {
 
   it("covers live plugin metadata routes, namespace validation, and lifecycle guards", async () => {
     const server = await startTestServer();
-    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-metadata-live-"));
+    const workDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-plugin-metadata-live-"),
+    );
     try {
-      const { host } = seedHostSession(server.deps);
+      const { host } = await seedHostSession(server.deps);
       seedPrimaryHost(server.deps, host.id);
-      const { project } = seedProjectWithSource(server.deps, {
+      const { project } = await seedProjectWithSource(server.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(server.deps, {
+      const environment = await seedEnvironment(server.deps, {
         hostId: host.id,
         projectId: project.id,
       });
@@ -675,8 +679,8 @@ describe("plugin bb.sdk against a running server", () => {
         serverSource: `export default function plugin() {}`,
       });
       await server.pluginService.installPath(rootDir);
-      const api = requireApi(server.pluginService, "meta-owner");
-      const thread = createThread(server.db, server.deps.hub, {
+      const api = await requireApi(server.pluginService, "meta-owner");
+      const thread = await createThread(server.db, server.deps.hub, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
@@ -781,7 +785,7 @@ describe("plugin bb.sdk against a running server", () => {
         message: expect.stringContaining("set and remove overlap"),
       });
       for (const status of ["active", "stopping"] as const) {
-        const candidate = createThread(server.db, server.deps.hub, {
+        const candidate = await createThread(server.db, server.deps.hub, {
           projectId: project.id,
           environmentId: environment.id,
           providerId: "codex",
@@ -795,14 +799,14 @@ describe("plugin bb.sdk against a running server", () => {
           }),
         ).resolves.toEqual({ status });
       }
-      const archived = createThread(server.db, server.deps.hub, {
+      const archived = await createThread(server.db, server.deps.hub, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
         status: "idle",
         originPluginId: "meta-owner",
       });
-      archiveThread(server.db, server.deps.hub, archived.id);
+      await archiveThread(server.db, server.deps.hub, archived.id);
       await expect(
         api.sdk.threads.updatePluginMetadata({
           threadId: archived.id,
@@ -830,24 +834,24 @@ describe("plugin bb.sdk against a running server", () => {
       return observations;
     };
     try {
-      const { host } = seedHostSession(server.deps);
-      const { project } = seedProjectWithSource(server.deps, {
+      const { host } = await seedHostSession(server.deps);
+      const { project } = await seedProjectWithSource(server.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(server.deps, {
+      const environment = await seedEnvironment(server.deps, {
         hostId: host.id,
         projectId: project.id,
       });
       server.pluginService.bindSdk({ baseUrl: server.baseUrl });
-      const thread = createThread(server.db, server.deps.hub, {
+      const thread = await createThread(server.db, server.deps.hub, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
         status: "active",
       });
       const context = agentConfigurationContext(thread.id);
-      const make = (name: string) =>
-        writePlugin(workDir, {
+      const make = async (name: string) =>
+        await writePlugin(workDir, {
           name: `hyperfide-plugin-${name}`,
           serverSource: `
             function deepFrozen(value) {
@@ -877,12 +881,12 @@ describe("plugin bb.sdk against a running server", () => {
           levels: { deeper: { items: [{ leaf: "value" }, ["nested"]] } },
         },
       };
-      insertThreadPluginMetadata(server.db, {
+      await insertThreadPluginMetadata(server.db, {
         threadId: thread.id,
         pluginId: "alpha",
         metadata: alphaMetadata,
       });
-      insertThreadPluginMetadata(server.db, {
+      await insertThreadPluginMetadata(server.db, {
         threadId: thread.id,
         pluginId: "beta",
         metadata: { beta: { own: true } },
@@ -912,7 +916,7 @@ describe("plugin bb.sdk against a running server", () => {
         }),
       ).resolves.toEqual({ alpha: { own: false }, updated: true });
       expect(observationGlobal.__bbMetadataSeen).toBeUndefined();
-      expect(getThread(server.db, thread.id)?.status).toBe("active");
+      expect((await getThread(server.db, thread.id))?.status).toBe("active");
       expect(activeTurnSnapshot).toEqual(alphaMetadata);
 
       await server.pluginService.resolveAgentConfiguration({
@@ -930,11 +934,11 @@ describe("plugin bb.sdk against a running server", () => {
       );
 
       const secretMarker = "sk-live-SECRET-token-value";
-      const writeCorruptRow = server.db.$client.prepare(
+      const writeCorruptRow = await server.db.$client.prepare(
         "INSERT INTO thread_plugin_metadata (thread_id, plugin_id, metadata_json) VALUES (?, ?, ?) ON CONFLICT (thread_id, plugin_id) DO UPDATE SET metadata_json = excluded.metadata_json",
       );
       for (const pluginId of ["alpha", "delta", "not-loaded"]) {
-        writeCorruptRow.run(thread.id, pluginId, secretMarker);
+        await writeCorruptRow.run(thread.id, pluginId, secretMarker);
       }
       const warn = vi.spyOn(server.deps.logger, "warn");
       try {
@@ -990,15 +994,15 @@ describe("plugin bb.sdk against a running server", () => {
       __bbRegisterLateConfigure?: () => void;
     };
     try {
-      const { host } = seedHostSession(server.deps);
-      const { project } = seedProjectWithSource(server.deps, {
+      const { host } = await seedHostSession(server.deps);
+      const { project } = await seedProjectWithSource(server.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(server.deps, {
+      const environment = await seedEnvironment(server.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = createThread(server.db, server.deps.hub, {
+      const thread = await createThread(server.db, server.deps.hub, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
@@ -1034,7 +1038,7 @@ describe("plugin bb.sdk against a running server", () => {
           `,
         }),
       );
-      insertThreadPluginMetadata(server.db, {
+      await insertThreadPluginMetadata(server.db, {
         threadId: thread.id,
         pluginId: "bbb-late",
         metadata: { own: true },
@@ -1064,7 +1068,9 @@ describe("plugin bb.sdk against a running server", () => {
 
   it("tells rpc handlers which plugin called them and treats every other caller as a client", async () => {
     const server = await startTestServer();
-    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-rpc-caller-"));
+    const workDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-plugin-rpc-caller-"),
+    );
     try {
       server.pluginService.bindSdk({ baseUrl: server.baseUrl });
       for (const name of ["callee", "caller"]) {
@@ -1156,13 +1162,13 @@ describe("plugin bb.sdk against a running server", () => {
     const server = await startTestServer();
     const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-sdk-live-"));
     try {
-      const { host } = seedHostSession(server.deps);
+      const { host } = await seedHostSession(server.deps);
       seedPrimaryHost(server.deps, host.id);
-      const { project } = seedProjectWithSource(server.deps, {
+      const { project } = await seedProjectWithSource(server.deps, {
         hostId: host.id,
         path: "/tmp/plugin-sdk-live-source",
       });
-      const environment = seedEnvironment(server.deps, {
+      const environment = await seedEnvironment(server.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/plugin-sdk-live-source",
@@ -1175,7 +1181,7 @@ describe("plugin bb.sdk against a running server", () => {
       });
       const entry = await server.pluginService.installPath(rootDir);
       expect(entry.status).toBe("running");
-      const api = requireApi(server.pluginService, "spawner");
+      const api = await requireApi(server.pluginService, "spawner");
 
       const projects = await api.sdk.projects.list();
       expect(projects.map((p) => p.id)).toContain(project.id);
@@ -1230,7 +1236,7 @@ describe("plugin bb.sdk against a running server", () => {
       expect(thread.originPluginId).toBe("spawner");
       expect(thread.visibility).toBe("hidden");
       expect(thread).not.toHaveProperty("pluginMetadata");
-      expect(getThread(server.db, thread.id)).toMatchObject({
+      expect(await getThread(server.db, thread.id)).toMatchObject({
         originPluginId: "spawner",
         visibility: "hidden",
       });
@@ -1262,7 +1268,7 @@ describe("plugin bb.sdk against a running server", () => {
       );
       expect(JSON.stringify(allThreads)).not.toContain(launchMarker);
 
-      const operable = createThread(server.db, server.deps.hub, {
+      const operable = await createThread(server.db, server.deps.hub, {
         environmentId: environment.id,
         originPluginId: "spawner",
         pluginMetadata: {
@@ -1274,7 +1280,7 @@ describe("plugin bb.sdk against a running server", () => {
         status: "idle",
         visibility: "hidden",
       });
-      seedThreadRuntimeState(server.deps, {
+      await seedThreadRuntimeState(server.deps, {
         environmentId: environment.id,
         inputText: "Initial turn",
         providerThreadId: "provider-hidden-plugin-thread",

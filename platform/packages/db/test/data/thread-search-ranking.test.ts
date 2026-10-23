@@ -177,24 +177,24 @@ function displayTitle(fixture: FixtureThread): string {
   return fixture.title ?? fixture.titleFallback ?? "";
 }
 
-function seedWorkspace(): ReturnType<typeof createConnection> {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, { name: "test-host" });
-  const { project } = createProject(db, noopNotifier, {
+async function seedWorkspace(): Promise<ReturnType<typeof createConnection>> {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, { name: "test-host" });
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const setUpdatedAt = db.$client.prepare(
+  const setUpdatedAt = await db.$client.prepare(
     "UPDATE threads SET updated_at = ? WHERE id = ?",
   );
   for (const fixture of workspace) {
-    const created = createThread(db, noopNotifier, {
+    const created = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       title: fixture.title,
       titleFallback: fixture.titleFallback,
     });
-    upsertThreadSearchSegments(db, {
+    await upsertThreadSearchSegments(db, {
       segments: fixture.messages.map((text, index) => ({
         threadId: created.id,
         sourceKind: index % 2 === 0 ? "user_message" : "assistant_message",
@@ -203,20 +203,22 @@ function seedWorkspace(): ReturnType<typeof createConnection> {
         text,
       })),
     });
-    if (fixture.archived) archiveThread(db, noopNotifier, created.id);
-    setUpdatedAt.run(fixture.updatedAt, created.id);
+    if (fixture.archived) await archiveThread(db, noopNotifier, created.id);
+    await setUpdatedAt.run(fixture.updatedAt, created.id);
   }
   return db;
 }
 
 describe("thread search ranking evals", () => {
-  it.each(cases)("ranks $query", ({ query, group, titleMatches }) => {
-    const db = seedWorkspace();
+  it.each(cases)("ranks $query", async ({ query, group, titleMatches }) => {
+    const db = await seedWorkspace();
     try {
-      const results = searchThreadsWithPendingInteractionState(db, {
-        query,
-        limitPerGroup: 20,
-      })[group];
+      const results = (
+        await searchThreadsWithPendingInteractionState(db, {
+          query,
+          limitPerGroup: 20,
+        })
+      )[group];
       const titles = results.results.map(
         (result) => result.thread.title ?? result.thread.titleFallback ?? "",
       );
@@ -265,7 +267,7 @@ describe("thread search ranking evals", () => {
         }
       }
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 });

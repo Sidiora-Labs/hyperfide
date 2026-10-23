@@ -142,21 +142,24 @@ function pluginMentionInput(args: {
   ];
 }
 
-function seedColdIdleThreadFixture(harness: TestAppHarness, value: number) {
-  const { host } = seedHostSession(harness.deps, {
+async function seedColdIdleThreadFixture(
+  harness: TestAppHarness,
+  value: number,
+) {
+  const { host } = await seedHostSession(harness.deps, {
     id: `host-mentions-${value}`,
   });
-  const { project } = seedProjectWithSource(harness.deps, {
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: `/tmp/mentions-${value}`,
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: `/tmp/mentions-${value}`,
     status: "ready",
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     status: "idle",
@@ -164,9 +167,15 @@ function seedColdIdleThreadFixture(harness: TestAppHarness, value: number) {
   return { environment, thread };
 }
 
-function seedWarmIdleThreadFixture(harness: TestAppHarness, value: number) {
-  const { environment, thread } = seedColdIdleThreadFixture(harness, value);
-  seedThreadRuntimeState(harness.deps, {
+async function seedWarmIdleThreadFixture(
+  harness: TestAppHarness,
+  value: number,
+) {
+  const { environment, thread } = await seedColdIdleThreadFixture(
+    harness,
+    value,
+  );
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     providerThreadId: `provider-mentions-${value}`,
     threadId: thread.id,
@@ -256,9 +265,9 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
         ],
       },
     ]);
-    const entry = harness.pluginService
-      .list()
-      .find((plugin) => plugin.id === "mentions");
+    const entry = (await harness.pluginService.list()).find(
+      (plugin) => plugin.id === "mentions",
+    );
     expect(entry?.handlerStats.errorCount).toBe(1);
   });
 
@@ -343,7 +352,7 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
   });
 
   it("resolves each unique mention once at send and attaches agent-only context inputs", async () => {
-    const { environment, thread } = seedColdIdleThreadFixture(harness, 1);
+    const { environment, thread } = await seedColdIdleThreadFixture(harness, 1);
 
     await sendThreadMessage(harness.deps, {
       environment,
@@ -399,7 +408,10 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
   });
 
   it("attaches mention-resolved images and their labels as agent-only inputs", async () => {
-    const { environment, thread } = seedColdIdleThreadFixture(harness, 11);
+    const { environment, thread } = await seedColdIdleThreadFixture(
+      harness,
+      11,
+    );
 
     await sendThreadMessage(harness.deps, {
       environment,
@@ -448,8 +460,8 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
   });
 
   it("resolves plugin mentions when a queued message dispatches on the idle-provider fast path", async () => {
-    const { thread } = seedWarmIdleThreadFixture(harness, 5);
-    const queued = seedQueuedMessage(harness.deps, {
+    const { thread } = await seedWarmIdleThreadFixture(harness, 5);
+    const queued = await seedQueuedMessage(harness.deps, {
       threadId: thread.id,
       content: pluginMentionInput({
         text: "@Fix login bug",
@@ -493,7 +505,7 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
   });
 
   it("blocks the send with a 422 when resolve throws, and dispatches nothing", async () => {
-    const { environment, thread } = seedColdIdleThreadFixture(harness, 2);
+    const { environment, thread } = await seedColdIdleThreadFixture(harness, 2);
 
     await expect(
       sendThreadMessage(harness.deps, {
@@ -523,15 +535,15 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
     });
 
     expect(
-      listQueuedThreadCommands(harness, "thread.start", thread.id),
+      await listQueuedThreadCommands(harness, "thread.start", thread.id),
     ).toHaveLength(0);
     expect(
-      listQueuedThreadCommands(harness, "turn.submit", thread.id),
+      await listQueuedThreadCommands(harness, "turn.submit", thread.id),
     ).toHaveLength(0);
   });
 
   it("blocks the send when the mentioned plugin is not running or the item id is malformed", async () => {
-    const { environment, thread } = seedColdIdleThreadFixture(harness, 3);
+    const { environment, thread } = await seedColdIdleThreadFixture(harness, 3);
     const basePayload = {
       mode: "start" as const,
       model: "gpt-5",
@@ -667,8 +679,10 @@ describe("mention search time box", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-mention-timeout-"));
+    db = await createMigratedConnection();
+    workDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-plugin-mention-timeout-"),
+    );
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -734,9 +748,9 @@ describe("mention search time box", () => {
         ],
       },
     ]);
-    const listEntry = service
-      .list()
-      .find((plugin) => plugin.id === "slow-mentions");
+    const listEntry = (await service.list()).find(
+      (plugin) => plugin.id === "slow-mentions",
+    );
     expect(listEntry?.handlerStats.errorCount).toBe(1);
   });
 });
@@ -747,8 +761,10 @@ describe("mention resolve time box", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-resolve-timeout-"));
+    db = await createMigratedConnection();
+    workDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-plugin-resolve-timeout-"),
+    );
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -800,9 +816,9 @@ describe("mention resolve time box", () => {
       ok: false,
       error: expect.stringContaining("timed out after 100ms"),
     });
-    const listEntry = service
-      .list()
-      .find((plugin) => plugin.id === "slow-resolve");
+    const listEntry = (await service.list()).find(
+      (plugin) => plugin.id === "slow-resolve",
+    );
     expect(listEntry?.handlerStats.errorCount).toBe(1);
   });
 });

@@ -22,7 +22,7 @@ export async function clearThreadContext(
   },
 ): Promise<void> {
   await withThreadContextClearGuard(args.thread.id, async () => {
-    const thread = getThread(deps.db, args.thread.id);
+    const thread = await getThread(deps.db, args.thread.id);
     if (!thread) {
       throw new ApiError(404, "invalid_request", "Thread not found");
     }
@@ -37,7 +37,9 @@ export async function clearThreadContext(
       );
     }
     if (
-      deps.pendingInteractions.hasTurnBoundPendingThreadInteraction(thread.id)
+      await deps.pendingInteractions.hasTurnBoundPendingThreadInteraction(
+        thread.id,
+      )
     ) {
       throw new ApiError(
         409,
@@ -47,7 +49,7 @@ export async function clearThreadContext(
     }
 
     await stopThreadForCurrentState(deps, thread, args.environment);
-    const releasedThread = getThread(deps.db, thread.id);
+    const releasedThread = await getThread(deps.db, thread.id);
     if (
       !releasedThread ||
       (releasedThread.status !== "idle" && releasedThread.status !== "error")
@@ -59,7 +61,7 @@ export async function clearThreadContext(
       );
     }
 
-    appendThreadEvent(deps, {
+    await appendThreadEvent(deps, {
       threadId: releasedThread.id,
       environmentId: releasedThread.environmentId,
       type: "system/operation",
@@ -71,13 +73,13 @@ export async function clearThreadContext(
         message: THREAD_CONTEXT_CLEARED_DETAIL,
       },
     });
-    deps.hub.notifyThread(
+    await deps.hub.notifyThread(
       releasedThread.id,
       ["history-rewritten", "status-changed"],
-      buildThreadStatusChangeMetadata(deps, releasedThread),
+      await buildThreadStatusChangeMetadata(deps, releasedThread),
     );
   });
-  requestQueuedMessageDispatch(deps, {
+  await requestQueuedMessageDispatch(deps, {
     kind: "thread-ready",
     threadId: args.thread.id,
   });

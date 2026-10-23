@@ -138,7 +138,7 @@ async function validateSite(
         reason: `payload is ${bytes} bytes; the limit is ${EXTENSION_PAYLOAD_MAX_BYTES}`,
       };
     }
-    return validateAgainstSchema(coreSchema, site.payload);
+    return await validateAgainstSchema(coreSchema, site.payload);
   }
   const ownership = extensionOwnershipProblem(deps, site, providerId);
   if (ownership !== null) {
@@ -163,7 +163,7 @@ async function validateSite(
       reason: `payload is ${bytes} bytes; the limit is ${EXTENSION_PAYLOAD_MAX_BYTES}`,
     };
   }
-  return validateAgainstSchema(schema, site.payload);
+  return await validateAgainstSchema(schema, site.payload);
 }
 
 function toUnhandledEvent(
@@ -199,7 +199,8 @@ export async function validateExtensionPayloads(
       if (site === null) {
         return envelope;
       }
-      const providerId = getThread(deps.db, site.threadId)?.providerId ?? null;
+      const providerId =
+        (await getThread(deps.db, site.threadId))?.providerId ?? null;
       const outcome = await validateSite(deps, site, providerId);
       if (outcome.ok) {
         return envelope;

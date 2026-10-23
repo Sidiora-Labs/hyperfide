@@ -75,7 +75,7 @@ export async function validateDaemonWebSocket(
     deps,
     args.authorizationHeader,
   );
-  const session = requireAuthorizedOpenSession(deps.db, {
+  const session = await requireAuthorizedOpenSession(deps.db, {
     hostId: verified.hostId,
     sessionId,
   });
@@ -97,21 +97,21 @@ export const SERVER_MOVE_FENCED_DAEMON_MESSAGE_TYPES: ReadonlySet<
   "terminal.exited",
 ]);
 
-export function onDaemonSocketOpen(
+export async function onDaemonSocketOpen(
   deps: LoggedPendingInteractionWorkSessionDeps &
     Pick<AppDeps, "hub" | "logger" | "sharedPorts" | "terminalSessions">,
   args: { hostId: string; sessionId: string; socket: DaemonSocket },
-): void {
+): Promise<void> {
   deps.logger.info(
     { sessionId: args.sessionId, hostId: args.hostId },
     "Daemon WebSocket opened",
   );
-  deps.hub.registerDaemon(args.sessionId, args.hostId, args.socket);
-  handleDaemonSocketOpened(deps, { hostId: args.hostId });
-  deps.sharedPorts.pushCurrentSharedPortsForHost(args.hostId);
-  deps.sharedPorts.pushCurrentNextTunnelForHost(args.hostId);
+  await deps.hub.registerDaemon(args.sessionId, args.hostId, args.socket);
+  await handleDaemonSocketOpened(deps, { hostId: args.hostId });
+  await deps.sharedPorts.pushCurrentSharedPortsForHost(args.hostId);
+  await deps.sharedPorts.pushCurrentNextTunnelForHost(args.hostId);
   if (!isServerMoveSnapshotFenced(deps.db)) {
-    deps.terminalSessions.reconcileDisconnectedHostTerminals({
+    await deps.terminalSessions.reconcileDisconnectedHostTerminals({
       daemonSessionId: args.sessionId,
       hostId: args.hostId,
     });
@@ -123,7 +123,7 @@ export function onDaemonSocketOpen(
   // `host-offline` wait with no schedule, so no sweep can see it — the
   // machine coming back is that wait's release signal, and this socket
   // opening is where core hears it.
-  requestQueuedMessageDispatch(deps, {
+  await requestQueuedMessageDispatch(deps, {
     hostId: args.hostId,
     kind: "host-connected",
   });
@@ -141,12 +141,12 @@ export function onDaemonSocketOpen(
   });
 }
 
-export function onDaemonSocketMessage(
+export async function onDaemonSocketMessage(
   deps: WorkSessionDeps & Pick<AppDeps, "sharedPorts" | "terminalSessions">,
   args: DaemonSocketMessageArgs,
   plugins?: Pick<PluginService, "handleHostSignal" | "handleHostWorkerExit">,
   serverMove?: Pick<ServerMoveCoordinator, "handleProgress">,
-): void {
+): Promise<void> {
   deps.hub.recordDaemonActivity(args.sessionId);
   const message = parseSocketMessage(
     args.socket,
@@ -158,8 +158,8 @@ export function onDaemonSocketMessage(
   }
 
   try {
-    runEventLoopWorkSync(`ws:daemon ${message.type}`, () => {
-      const session = requireAuthorizedOpenSession(deps.db, {
+    await runEventLoopWorkSync(`ws:daemon ${message.type}`, async () => {
+      const session = await requireAuthorizedOpenSession(deps.db, {
         hostId: args.hostId,
         sessionId: args.sessionId,
       });
@@ -170,7 +170,7 @@ export function onDaemonSocketMessage(
         now - session.updatedAt >= session.heartbeatIntervalMs ||
         session.leaseExpiresAt <= now + session.heartbeatIntervalMs
       ) {
-        heartbeatSession(
+        await heartbeatSession(
           deps.db,
           session.id,
           Math.max(now + session.leaseTimeoutMs, session.leaseExpiresAt + 1),
@@ -197,7 +197,7 @@ export function onDaemonSocketMessage(
         return;
       }
       if (message.type === "environment-change") {
-        notifyDaemonEnvironmentChange(deps, {
+        await notifyDaemonEnvironmentChange(deps, {
           hostId: args.hostId,
           environmentId: message.environmentId,
           change: message.change,
@@ -205,7 +205,7 @@ export function onDaemonSocketMessage(
         return;
       }
       if (message.type === "environment-metadata-change") {
-        recordDaemonEnvironmentMetadataChange(deps, {
+        await recordDaemonEnvironmentMetadataChange(deps, {
           hostId: args.hostId,
           environmentId: message.environmentId,
           workspace: message.workspace,
@@ -240,7 +240,10 @@ export function onDaemonSocketMessage(
         return;
       }
       if (message.type === "connect-tunnel.identity") {
-        deps.sharedPorts.recordTunnelIdentity(args.hostId, message.identity);
+        await deps.sharedPorts.recordTunnelIdentity(
+          args.hostId,
+          message.identity,
+        );
         return;
       }
       if (message.type === "connect-next.status") {
@@ -268,13 +271,13 @@ export function onDaemonSocketMessage(
             "Dropping desktop browser snapshot the server cannot apply",
           );
         };
-        void syncDesktopBrowserTabs(deps, scope, message.tabs).catch(
+        await syncDesktopBrowserTabs(deps, scope, message.tabs).catch(
           logDropped,
         );
         return;
       }
       if (message.type === "plugin-host.worker-exited") {
-        plugins?.handleHostWorkerExit({
+        await plugins?.handleHostWorkerExit({
           authenticatedHostId: args.hostId,
           pluginId: message.pluginId,
           generation: message.generation,
@@ -282,15 +285,15 @@ export function onDaemonSocketMessage(
         return;
       }
       if (message.type === "environment.hook.progress") {
-        reportEnvironmentHookProgress(deps, args.hostId, message);
+        await reportEnvironmentHookProgress(deps, args.hostId, message);
         return;
       }
       if (message.type === "server_move.progress") {
-        serverMove?.handleProgress(args.hostId, message);
+        await serverMove?.handleProgress(args.hostId, message);
         return;
       }
       if (message.type === "plugin-host.signal") {
-        plugins?.handleHostSignal({
+        await plugins?.handleHostSignal({
           authenticatedHostId: args.hostId,
           pluginId: message.pluginId,
           generation: message.generation,
@@ -306,7 +309,7 @@ export function onDaemonSocketMessage(
       if (message.type === "machine.shutdown-ack") {
         return;
       }
-      deps.terminalSessions.handleDaemonTerminalMessage({
+      await deps.terminalSessions.handleDaemonTerminalMessage({
         hostId: args.hostId,
         message,
         sessionId: args.sessionId,
@@ -315,7 +318,7 @@ export function onDaemonSocketMessage(
   } catch (error) {
     if (error instanceof ApiError && error.body.code === "inactive_session") {
       deps.logger.info(
-        getInactiveSessionLogFields(deps.db, {
+        await getInactiveSessionLogFields(deps.db, {
           authenticatedHostId: args.hostId,
           now: Date.now(),
           sessionId: args.sessionId,
@@ -358,22 +361,22 @@ const DAEMON_LIVENESS_MAX_QUIET_CHECKS = Math.ceil(
 export function startDaemonLivenessChecks(
   deps: LoggedPendingInteractionWorkSessionDeps & Pick<AppDeps, "sharedPorts">,
 ): () => void {
-  const interval = setInterval(() => {
+  const interval = setInterval(async () => {
     for (const sessionId of deps.hub.takeSilentDaemonSessionIds(
       DAEMON_LIVENESS_MAX_QUIET_CHECKS,
     )) {
-      handleDaemonSessionSilent(deps, { sessionId });
+      await handleDaemonSessionSilent(deps, { sessionId });
     }
   }, DAEMON_LIVENESS_CHECK_INTERVAL_MS);
   interval.unref();
   return () => clearInterval(interval);
 }
 
-export function onDaemonSocketClose(
+export async function onDaemonSocketClose(
   deps: LoggedPendingInteractionWorkSessionDeps & Pick<AppDeps, "sharedPorts">,
   sessionId: string,
-): void {
-  handleDaemonSocketClosed(deps, {
+): Promise<void> {
+  await handleDaemonSocketClosed(deps, {
     sessionId,
   });
 }

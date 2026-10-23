@@ -99,13 +99,13 @@ describe("hero plugin: slack-bot", () => {
   it("webhook → spawn → thread.idle → chat.postMessage, end to end", async () => {
     const server = await startTestServer({ appVersion: APP_VERSION });
     installFakeGitWorktreeProvider();
-    const realFetch = globalThis.fetch;
+    const realFetch = await globalThis.fetch;
     const slackCalls: Array<{ url: string; body: Record<string, unknown> }> =
       [];
     try {
-      const { host } = seedHostSession(server.deps);
+      const { host } = await seedHostSession(server.deps);
       seedPrimaryHost(server.deps, host.id);
-      const { project } = seedProjectWithSource(server.deps, {
+      const { project } = await seedProjectWithSource(server.deps, {
         hostId: host.id,
         path: "/tmp/slack-bot-hero-source",
       });
@@ -149,7 +149,8 @@ describe("hero plugin: slack-bot", () => {
       });
       await server.pluginService.reload("slack-bot");
       expect(
-        server.pluginService.list().find((p) => p.id === "slack-bot")?.status,
+        (await server.pluginService.list()).find((p) => p.id === "slack-bot")
+          ?.status,
       ).toBe("running");
 
       const eventsUrl = `${server.baseUrl}/api/v1/plugins/slack-bot/http/events`;
@@ -196,13 +197,13 @@ describe("hero plugin: slack-bot", () => {
       expect(mention.status).toBe(200);
       expect(await mention.json()).toEqual({ ok: true });
 
-      const api = server.pluginService.getApi("slack-bot");
+      const api = await server.pluginService.getApi("slack-bot");
       expect(api).toBeDefined();
       const threadId = await api?.storage.kv.get<string>(
         "slack:1720000000.000100",
       );
       expect(threadId).toBeDefined();
-      const threadRow = getThread(server.db, threadId as string);
+      const threadRow = await getThread(server.db, threadId as string);
       expect(threadRow?.originPluginId).toBe("slack-bot");
       expect(threadRow?.title).toBe("Slack: summarize the release notes");
 
@@ -212,19 +213,19 @@ describe("hero plugin: slack-bot", () => {
         logger: testLogger,
         providerRegistry: server.deps.providerRegistry,
       };
-      applyLoggedThreadLifecycleEvent(lifecycleDeps, {
+      await applyLoggedThreadLifecycleEvent(lifecycleDeps, {
         threadId: threadId as string,
         event: { type: "run.started" },
       });
-      seedEvent(server.deps, {
+      await seedEvent(server.deps, {
         threadId: threadId as string,
         environmentId: threadRow?.environmentId ?? null,
         providerThreadId: "provider-slack-1",
         scope: turnScope("turn-1"),
         sequence:
-          getLatestThreadSequence(server.db, {
+          (await getLatestThreadSequence(server.db, {
             threadId: threadId as string,
-          }) + 1,
+          })) + 1,
         type: "item/completed",
         data: {
           item: {
@@ -234,7 +235,7 @@ describe("hero plugin: slack-bot", () => {
           },
         },
       });
-      const outcome = applyLoggedThreadLifecycleEvent(lifecycleDeps, {
+      const outcome = await applyLoggedThreadLifecycleEvent(lifecycleDeps, {
         threadId: threadId as string,
         event: { type: "run.succeeded" },
       });
@@ -248,9 +249,9 @@ describe("hero plugin: slack-bot", () => {
         text: "Release notes: all green.",
       });
 
-      const listed = server.pluginService
-        .list()
-        .find((p) => p.id === "slack-bot");
+      const listed = (await server.pluginService.list()).find(
+        (p) => p.id === "slack-bot",
+      );
       expect(listed?.handlerStats.errorCount).toBe(0);
     } finally {
       globalThis.fetch = realFetch;
