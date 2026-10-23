@@ -309,7 +309,7 @@ owner = "graph"
 
 [task.2.1]
 title = "Spec read model and RPC"
-status = "implemented"
+status = "done"
 wave = 2
 requires = ["1.3"]
 touches = ["platform/plugins/hyperfide-spec/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/2_1.sh"]
