@@ -456,7 +456,7 @@ owner = "qualification"
 
 [task.4.1]
 title = "Verify lanes"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["2.1"]
 touches = ["platform/plugins/hyperfide-qualify/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/4_1.sh"]
