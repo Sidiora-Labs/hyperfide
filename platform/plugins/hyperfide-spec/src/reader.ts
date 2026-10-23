@@ -1,3 +1,4 @@
+import { durableMemorySchema, type DurableMemory } from '../../memory/durable-memory.js';
 import { execFile } from 'node:child_process';
 import { watch, type FSWatcher } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
@@ -89,7 +90,14 @@ export class SpecReader implements SpecRpc {
   async task(feature: string, id: string) {
     const found = (await this.tasks(feature)).find(item => item.id === id);
     if (!found) throw new Error(`Unknown task ${feature}/${id}`);
-    return found;
+    const recalledDecisions: DurableMemory[] = [];
+    for (const type of ['decision', 'constraint']) {
+      const result = await this.command(['recall', '--task', `${feature}/${id}`, '--type', type, '-n', '1000', '--json'], this.repository);
+      if (!Array.isArray(result.memories)) throw new Error('Invalid memory JSON');
+      recalledDecisions.push(...result.memories.map(value => durableMemorySchema.parse(value))
+        .filter(memory => memory.task === `${feature}/${id}` && memory.type === type));
+    }
+    return { ...found, recalledDecisions };
   }
   async waves(feature: string) {
     const tasks = await this.tasks(feature);

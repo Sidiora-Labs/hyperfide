@@ -40,6 +40,7 @@ beforeEach(async () => {
   await writeFile(join(repository, 'spec/workflow.kvx'), '[meta]\nactive_feature = "demo"\n');
   await writeFile(join(repository, 'spec/demo/spec.kvx'), fixture());
   execFileSync('git', ['init', '-q', repository]);
+  execFileSync(binary, ['init'], { cwd: repository, stdio: 'pipe' });
   cache = new Map();
   storage = { async get(key) { return cache.get(key); }, async set(key, value) { cache.set(key, value); } };
 });

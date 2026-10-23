@@ -1,3 +1,4 @@
+import type { DurableMemory } from "../../../memory/durable-memory.js";
 export const statuses = ['pending', 'in_progress', 'blocked', 'implemented', 'done', 'superseded'] as const;
 export type Status = typeof statuses[number];
 export interface Criterion { id: string; text: string }
@@ -14,6 +15,7 @@ export interface Task {
   reqs: string[];
   owner: string;
   criteria: Criterion[];
+  recalledDecisions?: DurableMemory[];
   [field: `do_${number}`]: string;
 }
 export interface Feature { id: string; name: string; status: string; tasks: Task[] }

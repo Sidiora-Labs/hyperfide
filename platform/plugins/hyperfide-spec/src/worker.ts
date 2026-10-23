@@ -1,4 +1,6 @@
 import type { RunResult } from "./execution.js";
+import { TaskMemory } from "../task-memory.js";
+import { DurableMemoryBridge } from "../../memory/durable-memory.js";
 import { taskPacket } from "./shared/packet.js";
 import { featureFromKvx } from "./kvx.js";
 import type { Task } from "./shared/model.js";
@@ -51,7 +53,7 @@ export function spawnTaskThread(host: TaskWorkerHost, request: WorkerThreadReque
   return host.spawn(request);
 }
 
-export function createTaskWorker(adapter: TaskWorkerHost) {
+export function createTaskWorker(adapter: TaskWorkerHost, memory = new TaskMemory(new DurableMemoryBridge())) {
   const running = new Set<string>();
   return {
     async runTask(input: RunTaskInput) {
@@ -81,8 +83,9 @@ export function createTaskWorker(adapter: TaskWorkerHost) {
           environment: { type: "provider", environmentProviderId: input.environmentProviderId ?? "environment-git-worktree" },
           env: { CG_TASK: input.task },
           title: `${input.feature}/${input.task}: ${task.title}`,
-          prompt: taskPacket(input.feature, input.task, task,
+          prompt: await memory.packet(taskPacket(input.feature, input.task, task,
             base, preamble),
+            { repository: input.repository, task: `${input.feature}/${input.task}` }, task.requires ?? []),
           origin: "plugin",
           originPluginId: "hyperfide-spec",
         });

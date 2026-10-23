@@ -20,6 +20,7 @@ export function BoardPanel() {
       void rpc.call('boardTasks', scope).then(tasks => {
         if (active && root.current) dispose = mountBoard(root.current, { feature, tasks }, {
           tasks: feature => rpc.call('boardTasks', { ...scope, feature }),
+          task: (feature, id) => rpc.call('boardTask', { ...scope, feature, id }),
           action: (feature, id, action) => rpc.call('boardAction', { ...scope, feature, id, action }),
         });
       }).catch(error => { if (active) setError(String(error)); });

@@ -7,5 +7,6 @@ export const scopeSchema = z.object({ hostId: text, repository: text, feature: t
 export const actionSchema = scopeSchema.extend({ id: text, action: z.enum(['start', 'implemented']) });
 export const boardContract = defineRpcContract({
   boardTasks: { input: scopeSchema, output: z.custom<Task[]>() },
+  boardTask: { input: scopeSchema.extend({ id: text }), output: z.custom<Task>() },
   boardAction: { input: actionSchema, output: z.void() },
 });
