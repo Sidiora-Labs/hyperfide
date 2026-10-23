@@ -148,6 +148,18 @@ function registerCommands(ctx, cmds) {
     }
 }
 
+/* The view modules register their own codify.* commands; each one the manifest
+ * declares gets its hyperfide.* name here, forwarding to the codify.* handler,
+ * so every contributed command answers to both names (6.7). */
+function registerModuleAliases(ctx, own) {
+    for (const { command } of require('./package.json').contributes.commands) {
+        if (!command.startsWith('codify.') || Object.prototype.hasOwnProperty.call(own, command)) continue;
+        const alias = commandAliases(command)[1];
+        ctx.subscriptions.push(vscode.commands.registerCommand(alias,
+            (...args) => vscode.commands.executeCommand(command, ...args)));
+    }
+}
+
 function workspaceRoot() {
     const f = vscode.workspace.workspaceFolders;
     return f && f.length ? f[0].uri.fsPath : undefined;
@@ -852,6 +864,7 @@ async function activate(ctx) {
     sandboxesApi = sandboxes.register(ctx, { cg });
     needsApi = needs.register(ctx, { cg: poolCg, cgJson: poolCgJson, workspaceRoot,
         registry: acpApi.asks && acpApi.asks.registry });
+    registerModuleAliases(ctx, cmds);
 
     /* Language features are best-effort: a workspace with no .codegraph, or
      * no cg on PATH, still gets the spec tooling above. */

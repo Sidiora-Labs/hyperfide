@@ -32,6 +32,10 @@
 #   pool     — (v21 6.8) the serve pool: one cg serve per workspace root,
 #              Needs and Issues merged across roots with the project named on
 #              each row, answers routed back to their own root
+#   aliases  — (v21 6.7) every codify.* command contributed and registered
+#              as hyperfide.*, the README's strings against the code, and
+#              the VSIX packaged at package.json's version with a check that
+#              refuses another
 # Run one section: 14_vscode.sh tasks
 . "$(dirname "$0")/../lib.sh"
 
@@ -794,7 +798,12 @@ if (/zed-industries\/codex-acp/.test(codexAdapter.description || '')) {
 const declared = pkg.contributes.commands.map((c) => c.command);
 const registered = [...src.matchAll(/'(codify\.[A-Za-z.]+)':/g)].map((m) => m[1]);
 
-for (const c of declared) {
+// hyperfide.* ids are the aliases of codify.* ones (the alias section proves
+// they are registered); the codify.* ids are the handlers the source names
+for (const c of declared.filter((c) => c.startsWith('hyperfide.'))) {
+    if (!registered.includes('codify.' + c.slice('hyperfide.'.length))) throw new Error(`alias without a handler: ${c}`);
+}
+for (const c of declared.filter((c) => !c.startsWith('hyperfide.'))) {
     if (!registered.includes(c)) throw new Error(`declared but not registered: ${c}`);
 }
 for (const c of registered) {
@@ -4051,6 +4060,194 @@ JS
     if node "$TMP/pool.js" "$TMP/extpool" "$CG" "$TMP/poolm/alpha" "$TMP/poolm/beta" mutant >/dev/null 2>&1; then
         fail "pool: the check passes with one serve for every root"
     fi
+    cd "$EXT"
+fi
+
+if want aliases; then
+# ---- aliases (hyperfide-v21 6.7): every contributed codify.* command is also
+#      contributed and registered as hyperfide.*, the README's strings are the
+#      code's, and the VSIX is packaged at package.json's version with a check
+#      that refuses one that is not. Each check is also run on a mutant copy
+#      that must fail it.
+    cat > "$TMP/alias_manifest.js" <<'JS'
+'use strict';
+const fs = require('fs'), path = require('path');
+const pkg = JSON.parse(fs.readFileSync(path.join(process.argv[2], 'package.json'), 'utf8'));
+const check = (c, w) => { if (!c) throw new Error(w); };
+const cmds = pkg.contributes.commands, byId = new Map(cmds.map((c) => [c.command, c]));
+check(byId.size === cmds.length, 'a command id is contributed twice');
+const legacy = cmds.filter((c) => c.command.startsWith('codify.'));
+check(legacy.length > 0 && legacy.length * 2 === cmds.length, `codify.* ${legacy.length} vs all ${cmds.length}`);
+const palette = new Map((pkg.contributes.menus.commandPalette || []).map((m) => [m.command, m.when]));
+for (const c of legacy) {
+    const twin = byId.get('hyperfide.' + c.command.slice('codify.'.length));
+    check(twin, `no hyperfide alias for ${c.command}`);
+    check(twin.title === c.title && twin.icon === c.icon, `alias ${twin.command} differs from ${c.command}`);
+    // one palette row per command: the legacy id is hidden, its alias is
+    // shown unless the legacy one was a context-only command
+    check(palette.get(c.command) === 'false', `${c.command} is listed in the palette next to its alias`);
+}
+for (const [id, when] of palette) {
+    if (!id.startsWith('hyperfide.')) continue;
+    check(when === 'false' && byId.has(id), `palette entry ${id}`);
+}
+console.log('alias manifest ok:', legacy.length, 'commands under both names');
+JS
+    node "$TMP/alias_manifest.js" "$EXT" || fail "aliases: manifest"
+    rm -rf "$TMP/extalias"; cp -R "$EXT" "$TMP/extalias"
+    node -e '
+const fs = require("fs"), f = process.argv[1], p = JSON.parse(fs.readFileSync(f, "utf8"));
+p.contributes.commands = p.contributes.commands.filter((c) => c.command !== "hyperfide.fleet.refresh");
+fs.writeFileSync(f, JSON.stringify(p, null, 2));' "$TMP/extalias/package.json"
+    if node "$TMP/alias_manifest.js" "$TMP/extalias" >/dev/null 2>&1; then
+        fail "aliases: the manifest check passes with an alias missing"
+    fi
+
+    # the real activate(): every contributed id, under both names, has a handler
+    mkdir -p "$TMP/aliasws"
+    cat > "$TMP/alias_runtime.js" <<'JS'
+'use strict';
+const path = require('path'), Module = require('module');
+const [dir, CG, cwd] = process.argv.slice(2);
+const check = (c, w) => { if (!c) throw new Error(w); };
+function auto() {
+    const kids = new Map();
+    return new Proxy(function () {}, {
+        get(t, k) {
+            if (Object.prototype.hasOwnProperty.call(t, k)) return t[k];
+            if (k === 'then') return undefined;
+            if (k === Symbol.toPrimitive) return () => '';
+            if (k === Symbol.iterator) return function* () {};
+            if (typeof k === 'symbol') return undefined;
+            if (!kids.has(k)) kids.set(k, auto());
+            return kids.get(k);
+        },
+        apply: () => auto(), construct: () => auto(),
+    });
+}
+function stubbed(over) {
+    return new Proxy(over, { get(t, k) { if (k in t) return t[k]; if (k === 'then' || typeof k === 'symbol') return undefined; return (t[k] = auto()); } });
+}
+class EventEmitter {
+    constructor() { this.fns = []; this.event = (fn) => { this.fns.push(fn); return { dispose() {} }; }; }
+    fire(v) { for (const fn of this.fns) fn(v); }
+    dispose() {}
+}
+const registered = new Map(), executed = [];
+const settings = { languageServer: false, serve: false };
+const configuration = () => ({ get: (k, d) => (k in settings ? settings[k] : d), inspect: (k) => (k === 'binaryPath' ? { globalValue: CG } : undefined), update: async () => {} });
+const vscode = stubbed({
+    EventEmitter,
+    window: stubbed({ state: { focused: false } }),
+    workspace: stubbed({ workspaceFolders: [{ uri: { fsPath: cwd } }], getConfiguration: configuration }),
+    commands: stubbed({
+        registerCommand: (id, fn) => { check(!registered.has(id), `registered twice: ${id}`); registered.set(id, fn); return { dispose() {} }; },
+        executeCommand: async (id, ...args) => { executed.push([id, ...args]); },
+    }),
+});
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? vscode : load.apply(this, arguments); };
+process.on('unhandledRejection', () => {});
+(async () => {
+    const pkg = require(path.join(dir, 'package.json'));
+    const ext = require(path.join(dir, 'extension.js'));
+    const ctx = { subscriptions: [], workspaceState: { get: (k, d) => d, update: async () => {} }, globalState: { get: (k, d) => d, update: async () => {} },
+                  extensionPath: dir, extensionUri: { fsPath: dir } };
+    await ext.activate(ctx);
+    const missing = pkg.contributes.commands.map((c) => c.command).filter((id) => !registered.has(id));
+    check(missing.length === 0, `contributed but never registered: ${missing.join(', ')}`);
+    // extension.js's own table: the alias is the very same handler
+    check(registered.get('hyperfide.brief') === registered.get('codify.brief'), 'hyperfide.brief is not codify.brief\'s handler');
+    // a view module's command: the alias forwards to it with its arguments
+    const arg = { id: 'row' };
+    await registered.get('hyperfide.fleet.refresh')(arg, 2);
+    check(executed.length === 1 && executed[0][0] === 'codify.fleet.refresh' && executed[0][1] === arg && executed[0][2] === 2,
+          `hyperfide.fleet.refresh forwarded ${JSON.stringify(executed)}`);
+    console.log('alias runtime ok:', registered.size, 'ids registered');
+    process.exit(0);
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    node "$TMP/alias_runtime.js" "$EXT" "$CG" "$TMP/aliasws" || fail "aliases: runtime registration"
+    rm -rf "$TMP/extaliasr"; cp -R "$EXT" "$TMP/extaliasr"
+    sed -i 's/^    registerModuleAliases(ctx, cmds);$//' "$TMP/extaliasr/extension.js"
+    ! grep -q '^    registerModuleAliases(ctx, cmds);' "$TMP/extaliasr/extension.js" || fail "aliases: runtime mutant not applied"
+    if node "$TMP/alias_runtime.js" "$TMP/extaliasr" "$CG" "$TMP/aliasws" >/dev/null 2>&1; then
+        fail "aliases: the runtime check passes without the module aliases"
+    fi
+
+    # the README says what the code does: titles, ids, settings and defaults,
+    # the output channel
+    cat > "$TMP/alias_readme.js" <<'JS'
+'use strict';
+const fs = require('fs'), path = require('path');
+const dir = process.argv[2];
+const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+const readme = fs.readFileSync(path.join(dir, 'README.md'), 'utf8');
+const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+const check = (c, w) => { if (!c) throw new Error(w); };
+const titles = new Set(pkg.contributes.commands.map((c) => c.title));
+for (const m of readme.matchAll(/(\*\*|\*)(Hyperfide: [^*]+)\1/g)) {
+    check(m[2] === 'Hyperfide: …' || titles.has(m[2]), `README names a command that is not contributed: ${m[2]}`);
+}
+const props = pkg.contributes.configuration.properties;
+const ids = new Set([...Object.keys(props), ...pkg.contributes.commands.map((c) => c.command)]);
+const prefixes = new Set(Object.keys(props).flatMap((k) => { const p = k.split('.'); return p.slice(2).map((_, i) => p.slice(0, i + 2).join('.')); }));
+for (const m of readme.matchAll(/`((?:codify|hyperfide)\.[A-Za-z.]+)`/g)) {
+    check(ids.has(m[1]) || prefixes.has(m[1]), `README names an unknown setting or command: ${m[1]}`);
+}
+const shown = (v) => (v === '' || (Array.isArray(v) && !v.length) || (v && typeof v === 'object' && !Object.keys(v).length)) ? '*(empty)*' : '`' + v + '`';
+for (const [k, p] of Object.entries(props)) {
+    const row = readme.split('\n').find((l) => l.startsWith('| `' + k + '` |'));
+    check(row, `setting ${k} has no README row`);
+    check(row.split(' | ')[1] === shown(p.default), `README default for ${k}: ${row.split(' | ')[1]} vs ${shown(p.default)}`);
+}
+const channel = /createOutputChannel\('([^']+)'\)/.exec(ext)[1];
+for (const m of readme.matchAll(/`(\w+)` output channel|output channel \(still named `(\w+)`\)/g)) {
+    check((m[1] || m[2]) === channel, `README names the output channel ${m[1] || m[2]}, the code ${channel}`);
+}
+check(readme.includes('`' + channel + '` output channel'), 'README does not name the output channel');
+check(/also contributed and registered as `hyperfide\.\*`/.test(readme), 'README does not state the alias');
+console.log('README matches the code');
+JS
+    node "$TMP/alias_readme.js" "$EXT" || fail "aliases: README"
+    rm -rf "$TMP/extreadme"; cp -R "$EXT" "$TMP/extreadme"
+    printf '\nRun **Hyperfide: Frobnicate the Fleet** and set `codify.frobnicate`.\n' >> "$TMP/extreadme/README.md"
+    if node "$TMP/alias_readme.js" "$TMP/extreadme" >/dev/null 2>&1; then
+        fail "aliases: the README check passes with a command and setting that do not exist"
+    fi
+
+    # the VSIX: packaged at the source version, a stale one replaced, and a
+    # package whose version differs from package.json refused
+    PKGV="$(cd "$EXT/../.." && pwd)/scripts/package-vsix.py"
+    ver="$(node -p 'require(process.argv[1]).version' "$EXT/package.json")"
+    rm -rf "$TMP/vsix"; mkdir -p "$TMP/vsix"
+    : > "$TMP/vsix/codify-workflow-1.4.0.vsix"
+    out="$(python3 -I "$PKGV" --source "$EXT" --out "$TMP/vsix" 2>&1)" || fail "aliases: packaging failed: $out"
+    [ -f "$TMP/vsix/codify-workflow-$ver.vsix" ] || fail "aliases: no codify-workflow-$ver.vsix"
+    [ ! -e "$TMP/vsix/codify-workflow-1.4.0.vsix" ] || fail "aliases: the stale VSIX was kept"
+    python3 -I "$PKGV" --check "$TMP/vsix/codify-workflow-$ver.vsix" --source "$EXT" >/dev/null || fail "aliases: the packaged VSIX fails its own check"
+    python3 -I - "$TMP/vsix/codify-workflow-$ver.vsix" "$ver" <<'PY' || fail "aliases: VSIX layout"
+import json, sys, zipfile
+z = zipfile.ZipFile(sys.argv[1]); names = set(z.namelist())
+for n in ('extension.vsixmanifest', '[Content_Types].xml', 'extension/package.json', 'extension/extension.js', 'extension/readme.md'):
+    assert n in names, n
+assert json.loads(z.read('extension/package.json'))['version'] == sys.argv[2]
+assert 'Version="%s"' % sys.argv[2] in z.read('extension.vsixmanifest').decode()
+assert not any(n.endswith('.vsix') or '/.' in n for n in names), names
+PY
+    # mutants: a package built from another version, and one renamed to the source version
+    rm -rf "$TMP/extvsix" "$TMP/vsixm"; cp -R "$EXT" "$TMP/extvsix"; mkdir -p "$TMP/vsixm"
+    rm -f "$TMP/extvsix"/*.vsix
+    node -e 'const fs=require("fs"),f=process.argv[1],p=JSON.parse(fs.readFileSync(f,"utf8"));p.version="9.9.9";fs.writeFileSync(f,JSON.stringify(p,null,2));' "$TMP/extvsix/package.json"
+    python3 -I "$PKGV" --source "$TMP/extvsix" --out "$TMP/vsixm" >/dev/null || fail "aliases: mutant packaging"
+    if python3 -I "$PKGV" --check "$TMP/vsixm/codify-workflow-9.9.9.vsix" --source "$EXT" >/dev/null 2>&1; then
+        fail "aliases: the version check accepts a VSIX at another version"
+    fi
+    cp "$TMP/vsixm/codify-workflow-9.9.9.vsix" "$TMP/vsixm/codify-workflow-$ver.vsix"
+    msg="$(python3 -I "$PKGV" --check "$TMP/vsixm/codify-workflow-$ver.vsix" --source "$EXT" 2>&1)" && \
+        fail "aliases: the version check accepts a renamed VSIX at another version"
+    echo "$msg" | grep -q 'manifest version 9.9.9' || fail "aliases: the refusal does not name the packaged version: $msg"
+    echo "vsix at $ver ok, mismatch refused"
     cd "$EXT"
 fi
 
