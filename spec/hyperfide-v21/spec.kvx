@@ -1088,10 +1088,10 @@ owner = "editor"
 
 [task.6.5]
 title = "Leaders webview"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["5.1"]
-touches = ["editors/vscode/acp.js", "editors/vscode/agentpanel.html"]
+touches = ["editors/vscode/acp.js", "editors/vscode/agentpanel.html", "editors/vscode/package.json", "tests/integration/14_vscode.sh"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
 do_1 = "Leaders webview in attach-only mode reusing the attach and steer code, one tab per leader, with its open Asks inline."
 do_2 = "Headless assertion through 14_vscode.sh."
