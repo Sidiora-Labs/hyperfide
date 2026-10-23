@@ -1,4 +1,6 @@
 import fs from "node:fs/promises";
+import type { Server } from "node:http";
+import { attachLanguageServerRelay } from "./language-server-relay.js";
 import { serve } from "@hono/node-server";
 import {
   buildLocalAppOrigins,
@@ -14,6 +16,7 @@ import {
 import { assignIfDefined } from "@hyperfide/config/objects";
 import {
   healthResponseSchema,
+  languageServerQuerySchema,
   HOST_DAEMON_PROTOCOL_VERSION,
   openInTargetRequestSchema,
   typedRoutes,
@@ -163,7 +166,7 @@ async function resolveOpenPathInTargetArgs({
   if (sshAuthority === null) {
     throw new WorkspaceOpenTargetError({
       code: "remote_mapping_missing",
-      message: `No SSH target configured for host ${request.context.hostId} on ${serverOrigin}. Run: bb-app client ssh-target set ${serverOrigin} <ssh-target> --host-id ${request.context.hostId}`,
+      message: `No SSH target configured for host ${request.context.hostId} on ${serverOrigin}. Run: hyperfide-platform client ssh-target set ${serverOrigin} <ssh-target> --host-id ${request.context.hostId}`,
     });
   }
 
@@ -247,7 +250,7 @@ export async function startLocalApiServer(
       !(await isAllowedAppOrigin(origin, c.req.url))
     ) {
       return c.json(
-        { error: `origin "${origin}" is not a local BB app origin` },
+        { error: `origin "${origin}" is not a local Hyperfide app origin` },
         403,
       );
     }
@@ -340,10 +343,28 @@ export async function startLocalApiServer(
 
   const { server, port: boundPort } = boundServer;
 
+  const languageServers = attachLanguageServerRelay(server as Server, {
+    allowOrigin: isAllowedAppOrigin,
+  });
+  get(
+    "/language-server/status",
+    languageServerQuerySchema,
+    async (c, { repository }) => {
+      try {
+        return c.json({
+          status: languageServers.status(await fs.realpath(repository)),
+        });
+      } catch {
+        return c.json({ status: "stopped" });
+      }
+    },
+  );
+
   return {
     bindHost: options.localApiConfig.bindHost,
     port: boundPort,
     async close(): Promise<void> {
+      languageServers.close();
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
           if (error) {

@@ -27,6 +27,16 @@ const fileSchema = z
   .strict();
 
 export const rpcContract = defineRpcContract({
+  languageServer: {
+    input: fileSchema,
+    output: z
+      .object({
+        port: z.number().int().positive(),
+        rootPath: z.string(),
+        hostId: z.string(),
+      })
+      .nullable(),
+  },
   assets: {
     input: z.null(),
     output: z.object({ baseUrl: z.string(), expiresAtMs: z.number() }),
@@ -123,7 +133,7 @@ async function ensureMonacoBundleDir(
   return staged;
 }
 
-export default async function plugin(bb: BbPluginApi) {
+export default async function plugin(api: BbPluginApi) {
   let assetLease: { baseUrl: string; expiresAtMs: number } | null = null;
 
   async function assets() {
@@ -133,9 +143,9 @@ export default async function plugin(bb: BbPluginApi) {
       assetLease.expiresAtMs - now < ASSET_LEASE_REFRESH_MARGIN_MS
     ) {
       const bundleDir = await ensureMonacoBundleDir((message) =>
-        bb.log.info(message),
+        api.log.info(message),
       );
-      assetLease = await bb.sdk.files.createPreview({
+      assetLease = await api.sdk.files.createPreview({
         rootPath: bundleDir,
         ttlMs: ASSET_LEASE_TTL_MS,
       });
@@ -151,9 +161,11 @@ export default async function plugin(bb: BbPluginApi) {
       if (source.threadId === null) {
         throw new Error("This thread-storage file has no thread");
       }
-      const { hostId, storageRootPath } = await bb.sdk.threads.storageLocation({
-        threadId: source.threadId,
-      });
+      const { hostId, storageRootPath } = await api.sdk.threads.storageLocation(
+        {
+          threadId: source.threadId,
+        },
+      );
       return {
         path: hostPathApi(storageRootPath).join(storageRootPath, filePath),
         rootPath: storageRootPath,
@@ -164,7 +176,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (source.projectId === null) {
         throw new Error("This file has no environment or project");
       }
-      const project = await bb.sdk.projects.get({
+      const project = await api.sdk.projects.get({
         projectId: source.projectId,
       });
       const sources = project.sources;
@@ -186,7 +198,7 @@ export default async function plugin(bb: BbPluginApi) {
     if (source.environmentId === null) {
       throw new Error("This file has no environment to resolve it against");
     }
-    const environment = await bb.sdk.environments.get({
+    const environment = await api.sdk.environments.get({
       environmentId: source.environmentId,
     });
 
@@ -214,12 +226,25 @@ export default async function plugin(bb: BbPluginApi) {
     return api.relative(root, target) || api.basename(target);
   }
 
-  bb.rpc.register(rpcContract, {
+  api.rpc.register(rpcContract, {
     assets: () => assets(),
+    async languageServer({ path: filePath, source }) {
+      const port = Number(process.env.HYPERFIDE_HOST_DAEMON_PORT);
+      if (
+        !Number.isInteger(port) ||
+        port < 1 ||
+        port > 65535 ||
+        source.kind !== "workspace"
+      )
+        return null;
+      const target = await resolveTarget(source, filePath);
+      if (!target.hostId) return null;
+      return { port, rootPath: target.rootPath, hostId: target.hostId };
+    },
 
     async read({ path: filePath, source }) {
       const target = await resolveTarget(source, filePath);
-      const file = await bb.sdk.files.read(target);
+      const file = await api.sdk.files.read(target);
 
       if (file.contentEncoding !== "utf8") {
         return {
@@ -244,7 +269,7 @@ export default async function plugin(bb: BbPluginApi) {
 
     async tree({ source }) {
       const target = await resolveTarget(source, ".");
-      const result = await bb.sdk.files.listPaths({
+      const result = await api.sdk.files.listPaths({
         path: target.rootPath,
         includeFiles: true,
         includeDirectories: true,
@@ -264,7 +289,7 @@ export default async function plugin(bb: BbPluginApi) {
 
     async write({ path: filePath, source, content, expectedSha256 }) {
       const target = await resolveTarget(source, filePath);
-      const result = await bb.sdk.files.write({
+      const result = await api.sdk.files.write({
         ...target,
         content,
         contentEncoding: "utf8",

@@ -8,3 +8,4 @@ export { typedRoutes } from "@hyperfide/hono-typed-routes";
 
 export * from "./desktop-browser.js";
 export * from "./desktop-browser-import.js";
+export * from "./language-server.js";

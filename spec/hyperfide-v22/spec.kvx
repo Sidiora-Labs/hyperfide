@@ -281,7 +281,7 @@ owner = "graph"
 
 [task.1.5]
 title = "Editor language server from the binary"
-status = "pending"
+status = "implemented"
 wave = 1
 requires = ["1.3"]
 touches = ["platform/plugins/monaco-editor/**", "platform/plugins/hyperfide-graph/**", "platform/apps/host-daemon/src/**", "platform/packages/host-daemon-contract/src/**", "tests/hyperfide/cases/v22/1_5.sh"]

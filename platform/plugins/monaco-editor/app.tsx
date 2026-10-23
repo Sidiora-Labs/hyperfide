@@ -1,3 +1,4 @@
+import { connectLanguageClient } from "./lib/language-client.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   definePluginApp,
@@ -67,6 +68,7 @@ function MonacoFileOpener({
   experimental_lineRange,
 }: PluginFileOpenerProps) {
   const rpc = useRpc<typeof rpcContract>();
+  const languageClientRef = useRef<{ dispose(): void } | null>(null);
   const codeTheme = experimental_useCodeTheme();
   const codeThemeRef = useRef(codeTheme);
   codeThemeRef.current = codeTheme;
@@ -307,6 +309,29 @@ function MonacoFileOpener({
           overflowWidgetsDomNode: overflowWidgetsNode(),
         });
         editorRef.current = editor;
+        void rpc
+          .call("languageServer", { path: activePath, source })
+          .then(async (target) => {
+            if (!target || disposed) return;
+            const status = await fetch(
+              `http://127.0.0.1:${target.port}/status`,
+            ).then((response) => response.json());
+            if (disposed || status.hostId !== target.hostId) return;
+            const model = editor.getModel();
+            if (!model) return;
+            const endpoint = new URL(
+              `ws://127.0.0.1:${target.port}/language-server`,
+            );
+            endpoint.searchParams.set("repository", target.rootPath);
+            languageClientRef.current = connectLanguageClient(
+              monaco,
+              model,
+              endpoint.href,
+              monaco.Uri.file(target.rootPath).toString(),
+              monaco.Uri.file(file.absolutePath).toString(),
+            );
+          })
+          .catch(() => {});
         if (activePath === navigationRef.current.path) {
           revealLineRange(editor, navigationRef.current.lineRange);
         }
@@ -343,6 +368,8 @@ function MonacoFileOpener({
 
     return () => {
       disposed = true;
+      languageClientRef.current?.dispose();
+      languageClientRef.current = null;
       if (editorRef.current) forgetEditor(editorRef.current);
       editorRef.current?.getModel()?.dispose();
       editorRef.current?.dispose();
