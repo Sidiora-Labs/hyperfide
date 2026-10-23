@@ -13,6 +13,7 @@
     "test:provider-corpus": "vitest run --config vitest.config.ts test/provider-corpus"
   },
   "dependencies": {
+    "@hyperfide/authority": "workspace:*",
     "@hyperfide/config": "workspace:*",
     "@hyperfide/core-ui": "workspace:*",
     "@hyperfide/db": "workspace:*",

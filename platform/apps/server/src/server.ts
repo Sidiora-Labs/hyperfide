@@ -1,3 +1,4 @@
+import { createAuthorityBridge, registerAuthorityBridge } from "./authority-bridge.js";
 import { createPluginUpdateJobs } from "./services/plugins/plugin-update-jobs.js";
 import { registerPluginUpdateJobRoutes } from "./routes/plugin-update-jobs.js";
 import { recheckEnvironmentProvisioning } from "./services/threads/thread-environment-providers.js";
@@ -861,6 +862,7 @@ export function createApp(
   ]) {
     app.use(path, serverMoveWriteFreezeMiddleware(daemonWriteFreezeState));
   }
+  const authorityBridge = createAuthorityBridge();
   const publicApi = new Hono();
   publicApi.use("*", async (context, next) => {
     if (PLUGIN_WIRE_HTTP_PATH.test(context.req.path)) {
@@ -881,6 +883,7 @@ export function createApp(
     notifyCatalogChanged: () => deps.hub.notifySystem(["plugins-changed"]),
     warn: (message) => deps.logger.warn(message),
   });
+  registerAuthorityBridge(publicApi, authorityBridge);
   registerProjectRoutes(publicApi, deps);
   registerPromptHistoryRoutes(publicApi, deps);
   registerThreadSectionRoutes(publicApi, deps);
@@ -891,7 +894,7 @@ export function createApp(
   registerEnvironmentRoutes(publicApi, deps);
   registerThreadRoutes(publicApi, deps);
   registerQueueRoutes(publicApi, deps);
-  registerSystemRoutes(publicApi, deps, pluginService);
+  registerSystemRoutes(publicApi, deps, pluginService, authorityBridge);
   registerUiPreferenceRoutes(publicApi, deps);
   const pluginInstallJobs = createPluginInstallJobs({
     notifyChanged: () => deps.hub.notifySystem(["plugin-install-jobs-changed"]),

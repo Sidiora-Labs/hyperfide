@@ -629,7 +629,7 @@ owner = "authority"
 
 [task.6.2]
 title = "Authority client: operators, receipts, transactions"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["6.1", "1.2"]
 touches = ["platform/packages/hyperfide-authority/**", "platform/apps/server/src/**", "services/hyperfide/src/**", "deploy/hyperfide/env/control.env.example", "tests/hyperfide/cases/v22/6_2.sh"]

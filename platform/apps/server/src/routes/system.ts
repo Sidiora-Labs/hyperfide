@@ -1,4 +1,5 @@
 import { createMobileAppReleaseService } from "../services/install/mobile-app-releases.js";
+import type { AuthorityBridge } from "../authority-bridge.js";
 import {
   setMachineEnvironmentVariable,
   deleteMachineEnvironmentVariable,
@@ -149,6 +150,7 @@ export function registerSystemRoutes(
   app: Hono,
   deps: ServerAppDeps,
   pluginService: PluginService,
+  authorityBridge?: AuthorityBridge,
 ): void {
   const { get, post, put, del } = typedRoutes<PublicApiSchema>(app, {
     onValidationError: (msg) => new ApiError(400, "invalid_request", msg),
@@ -210,6 +212,7 @@ export function registerSystemRoutes(
     return {
       generalSettings: compatibleGeneralSettings(),
       serverAccess: await serverAccessStatus(deps),
+      authority: await authorityBridge?.status() ?? { status: "disabled" },
       keybindings: applyAppKeybindingOverrides(
         DEFAULT_APP_KEYBINDINGS,
         keybindingOverrides,
