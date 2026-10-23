@@ -1,0 +1,25 @@
+{
+  "name": "@hyperfide/hyperfide-environment-slices",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "hyperfide": {
+    "name": "Snapshot slice",
+    "description": "Task snapshot slice environments",
+    "server": "./server.ts",
+    "host": "./host.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc6 -p tsconfig.json",
+    "test": "node --experimental-transform-types --test provider.test.ts",
+    "prepare:bundled": "node prepare.mjs"
+  },
+  "dependencies": {
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.28.0"
+  }
+}
