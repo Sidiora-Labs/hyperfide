@@ -9,7 +9,17 @@ import {
   installSlicesEnvironment,
   selectRepositoryEnvironment,
 } from "../../packages/bundled-plugins/environment-slices.ts";
-import type { TaskLifecycle } from "./projected-lifecycle.ts";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
+import { createSliceHandlers } from "./host.ts";
+import { sliceInputs } from "./contract.ts";
+type Registration = {
+  id: string;
+  inputs: typeof sliceInputs;
+  create(
+    context: unknown,
+  ): Promise<{ path: string; resource: { sliceId: string } }>;
+  remove(context: unknown): Promise<unknown>;
+};
 
 const binary = resolve(process.env.HYPERFIDE_BINARY ?? "./cg");
 test("real snapshots: create, isolated edit, thread finish, restart, discard and publication", async () => {
@@ -63,52 +73,72 @@ test("real snapshots: create, isolated edit, thread finish, restart, discard and
     // Preparation above uses the existing slice CLI. Every provider command below
     // runs with Git unavailable, including the binary's optional Git probes.
     const service = new SlicesProvider(binary, join(home, "data"));
-    let registration:
-      | Parameters<TaskLifecycle["experimental_environments"]["register"]>[0]
-      | undefined;
-    let finish: Parameters<TaskLifecycle["onThreadFinished"]>[0] | undefined;
-    let detail: Parameters<TaskLifecycle["registerTaskDetail"]>[1] | undefined;
-    let publish:
-      | Parameters<TaskLifecycle["registerPublication"]>[1]
-      | undefined;
+    let registration!: Registration;
+    let idle!: (event: { thread: { id: string } }) => Promise<void>;
+    let getDetail!: (input: {
+      threadId: string;
+    }) => Promise<{ sliceId: string; snapshotChain: string[] }>;
+    const handlers = createSliceHandlers(binary, join(home, "data"));
+    const storage = new Map();
+    const api = {
+      experimental_environments: {
+        register(value: Registration) {
+          registration = value;
+        },
+      },
+      hosts: {
+        experimental_client() {
+          return {
+            async call(method: keyof typeof handlers, input: never) {
+              return handlers[method](input);
+            },
+          };
+        },
+      },
+      storage: {
+        kv: {
+          async get(key: string) {
+            return storage.get(key);
+          },
+          async set(key: string, value: unknown) {
+            storage.set(key, value);
+          },
+          async delete(key: string) {
+            storage.delete(key);
+          },
+        },
+      },
+      events: {
+        on(name: string, handler: typeof idle) {
+          assert.equal(name, "thread.idle");
+          idle = handler;
+        },
+      },
+      rpc: {
+        register(_contract: unknown, methods: { detail: typeof getDetail }) {
+          getDetail = methods.detail;
+        },
+      },
+    };
+    installSlicesEnvironment(api as unknown as HyperfidePluginApi);
+    const finish = async (_id: string) => idle({ thread: { id: "thread-1" } });
+    const detail = async (_id: string) => getDetail({ threadId: "thread-1" });
     const worktree = join(home, "published");
     let publications = 0;
-    installSlicesEnvironment(
-      {
-        experimental_environments: {
-          register: (value) => {
-            registration = value;
-          },
+    const publish = (id: string, target: string) =>
+      service.publish(id, target, {
+        async publish(input) {
+          publications++;
+          assert.equal(input.worktree, worktree);
+          assert.match(input.snapshot, /^[a-f0-9]{64}$/);
+          git(repo, "worktree", "add", "-qb", "publication", worktree);
+          for (const file of input.deleted) await rm(join(worktree, file));
+          for (const file of input.paths) {
+            await mkdir(join(worktree, file, ".."), { recursive: true });
+            await cp(join(input.source, file), join(worktree, file));
+          }
         },
-        onThreadFinished: (value) => {
-          finish = value;
-        },
-        registerTaskDetail: (_id, value) => {
-          detail = value;
-        },
-        registerPublication: (_id, value) => {
-          publish = value;
-        },
-      },
-      {
-        binary,
-        dataDir: join(home, "data"),
-        publication: {
-          async publish(input) {
-            publications++;
-            assert.equal(input.worktree, worktree);
-            assert.match(input.snapshot, /^[a-f0-9]{64}$/);
-            git(repo, "worktree", "add", "-qb", "publication", worktree);
-            for (const file of input.deleted) await rm(join(worktree, file));
-            for (const file of input.paths) {
-              await mkdir(join(worktree, file, ".."), { recursive: true });
-              await cp(join(input.source, file), join(worktree, file));
-            }
-          },
-        },
-      },
-    );
-    assert(registration && finish && detail && publish);
+      });
     assert.equal(registration.id, providerId);
     assert("issues" in registration.inputs["~standard"].validate(null));
     assert(
@@ -127,6 +157,8 @@ test("real snapshots: create, isolated edit, thread finish, restart, discard and
       providerId,
     );
     const created = await registration.create({
+      host: { id: "fixture-host" },
+      signal: new AbortController().signal,
       projectCheckout: { path: repo },
       thread: { id: "thread-1" },
       pathKey: "attempt-1",
@@ -147,6 +179,8 @@ test("real snapshots: create, isolated edit, thread finish, restart, discard and
       "export const added = 3;\n",
     );
     await finish(id);
+    installSlicesEnvironment(api as unknown as HyperfidePluginApi);
+    await idle({ thread: { id: "unrelated-thread" } });
     const shown = await detail(id);
     assert.equal(shown.sliceId, id);
     assert.equal(shown.snapshotChain[0], base);
@@ -201,7 +235,12 @@ test("real snapshots: create, isolated edit, thread finish, restart, discard and
     );
     assert((await service.load(full.id)).manifest.fallback_reason);
     await service.discard(full.id);
-    await registration.remove({ resource: { sliceId: id } });
+    await registration.remove({
+      hostId: "fixture-host",
+      signal: new AbortController().signal,
+      resource: { sliceId: id, threadId: "thread-1" },
+    });
+    assert.equal(await getDetail({ threadId: "thread-1" }), null);
     await assert.rejects(service.load(id), /ENOENT/);
     await assert.rejects(service.discard("../repository"), /Invalid slice/);
     await assert.rejects(
