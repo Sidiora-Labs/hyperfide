@@ -1022,6 +1022,15 @@
       ]
     },
     {
+      "ref": "refs/evidence/16.3/2",
+      "task": "16.3",
+      "commit": "59838d60c388658c56c8068ad06173a7f620afef",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
       "ref": "refs/evidence/16.4/1",
       "task": "16.4",
       "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",

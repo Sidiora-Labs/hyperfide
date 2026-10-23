@@ -1694,7 +1694,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.16.3]
 title = "Record clause evidence and policy-limited independent review judgements"
-status = "pending"
+status = "done"
 wave = 19
 requires = ["16.2", "2.4"]
 touches = ["services/hyperfide/src/assurance/coverage.ts", "tests/hyperfide/manifests/tasks/16.3.json", "tests/hyperfide/cases/tasks/16_3.py", "tests/hyperfide/registrations/16.3.json", "services/hyperfide/components/16.3.json"]
