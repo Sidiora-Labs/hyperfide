@@ -1,9 +1,7 @@
 import type { PluginMachineProviderDefinition, PluginMachineProviderResource } from "@hyperfide/plugin-sdk/machine-provider";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { MachineProviderError, type CredentialsResolver, type SandboxMachineOps } from "./machine-ops.js";
-export interface AllocationStore {
-  get<T>(key: string): Promise<T | undefined>;
-  set(key: string, value: unknown): Promise<void>;
-}
+export type AllocationStore = Pick<HyperfidePluginApi["storage"]["kv"], "get" | "set">;
 interface Resource { id: string | null; checkpoint: string | null; key: string }
 function parse(value: PluginMachineProviderResource): Resource {
   if (typeof value !== "object" || Array.isArray(value) || !("key" in value) || typeof value.key !== "string" || !("id" in value) || (value.id !== null && typeof value.id !== "string") || !("checkpoint" in value) || (value.checkpoint !== null && typeof value.checkpoint !== "string")) throw new MachineProviderError("Invalid Railway machine resource.", "invalid-resource");
