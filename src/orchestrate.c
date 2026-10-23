@@ -460,6 +460,24 @@ static void orch_prompt_ahead(Cg *cg, const FleetNode *n, const char *feature,
     sb_free(&brs);
 }
 
+/* A worker cut as a sparse slice is told how to leave it: the one recorded
+ * widen step, never a hand edit of the sparse patterns (v21 3.20). */
+static void orch_prompt_slice(const char *path, const char *id) {
+    char *body = read_entire_file(path, NULL);
+    StrBuf b; sb_init(&b);
+    sb_puts(&b, body ? body : "");
+    sb_printf(&b, "\n\n## Your workspace is a slice\n\n"
+              "This worktree holds only the paths task %s touches, their build "
+              "roots and the spec. When you need a path outside it, run "
+              "`hyperfide slice %s --widen <path> --reason <CODE>`: it adds the "
+              "path to the checkout and records it in [task.%s] touches and "
+              "widened, which travels with your branch. Do not edit the sparse "
+              "patterns by hand.\n", id, id, id);
+    write_entire_file(path, b.p, b.len);
+    sb_free(&b);
+    free(body);
+}
+
 static int orch_write_prompt(const char *cgroot, const char *feature,
                              const char *id, char *path, size_t cap) {
     char dir[4600];
@@ -1545,6 +1563,12 @@ static int orch_manager_prompt(Cg *cg, const FleetNode *n, const char *path) {
     return rc;
 }
 
+/* The workspace rule for manager and wave worktrees (v21 3.20, req 6.1):
+ * always the full tree. A manager merges its workers' branches into the
+ * wave branch and runs the wave's gates, which read every path; the
+ * recorded reason is this code. Workers alone are sparse by default. */
+#define ORCH_MANAGER_WORKSPACE "full tree: MANAGER_INTEGRATES_WAVE"
+
 int orch_spawn_manager(Cg *cg, const char *feature, long wave,
                        const char *driver, const char *extra,
                        const char *cmd_tmpl, bool dry_run, FleetNode *n) {
@@ -1590,7 +1614,7 @@ int orch_spawn_manager(Cg *cg, const char *feature, long wave,
         else
             printf("  manager %s — %s on %s (from %s)\n", n->agent, feature,
                    n->branch, n->base);
-        printf("    worktree %s\n", n->worktree);
+        printf("    worktree %s (%s)\n", n->worktree, ORCH_MANAGER_WORKSPACE);
         char *av[ORCH_MAX_ARGV];
         int ac = orch_argv(driver, extra, cmd_tmpl, FLEET_FEATURE, n->worktree,
                            prompt, feature, n->agent, av, ORCH_MAX_ARGV);
@@ -1608,6 +1632,7 @@ int orch_spawn_manager(Cg *cg, const char *feature, long wave,
     if (slash) { *slash = 0; mkdirs(parent_dir); }
     StrBuf err; sb_init(&err);
     bool wt_created = false, br_created = false;
+    /* ORCH_MANAGER_WORKSPACE: never a slice, by rule */
     if (git_worktree_add(cg->shared, n->worktree, n->branch, n->base,
                          &wt_created, &br_created, &err) != 0) {
         char ex[300];
@@ -1746,6 +1771,12 @@ int orch_spawn_worker(Cg *cg, const char *feature, const char *id,
     orch_json_into(js, "branch", n->branch, sizeof n->branch);
     orch_json_into(js, "base", n->base, sizeof n->base);
     orch_json_into(js, "worktree", n->worktree, sizeof n->worktree);
+    char ws_mode[16] = "";
+    char *ws = json_get_object(js, "workspace");
+    if (ws) {
+        orch_json_into(ws, "mode", ws_mode, sizeof ws_mode);
+        free(ws);
+    }
     n->wave = json_get_int(js, "wave", wave);
     char *at = json_get_object(js, "attempt");
     if (at) {
@@ -1769,6 +1800,7 @@ int orch_spawn_worker(Cg *cg, const char *feature, const char *id,
     orch_env_restore(&saved);
     if (prc == 0) orch_prompt_steer(prompt, n->agent);
     if (prc == 0) orch_prompt_ahead(cg, n, feature, id, prompt);
+    if (prc == 0 && !strcmp(ws_mode, "SLICE")) orch_prompt_slice(prompt, id);
     if (prc == 0 && g_retry_attempt > 0)
         orch_prompt_retry(prompt, feature, id, g_retry_attempt);
     if (prc != 0) {
@@ -2483,6 +2515,7 @@ static int sup_forward_merge(Sup *s, long wave) {
         if (sl) { *sl = 0; mkdirs(dir); }
         StrBuf err; sb_init(&err);
         bool wc = false, bc = false;
+        /* the wave worktree a forward merge runs in: ORCH_MANAGER_WORKSPACE */
         int arc = git_worktree_add(g->shared, wt, br, s->mainbr, &wc, &bc, &err);
         sb_free(&err);
         if (arc != 0) return 1;

@@ -20,8 +20,9 @@ wait_for() {
 evk() { "$CG" events --kind "$1" --json -n 500; }
 count() { evk "$1" | python3 -c "import json,sys; print(sum(1 for l in sys.stdin if l.strip() and $2))"; }
 
-# A one-task feature whose worker, in "ask" mode, makes a change outside its
-# touches, so its merge-up raises a drift approval (approve = ["drift"]);
+# A one-task feature whose worker, in "ask" mode, adds a public symbol its
+# task does not declare (inside its touches: the worker is a sparse slice),
+# so its merge-up raises a drift approval (approve = ["drift"]);
 # it then stays alive and idle until a person answers, and merges up again.
 setup_repo() {
     rm -rf "$TMP/proj" "$TMP/go"
@@ -61,8 +62,7 @@ if [ "\$CG_ROLE" = worker ]; then
     echo \$\$ > "$TMP/go/pid-\$TASK"
     if [ -f "$TMP/go/idle-\$TASK" ]; then sleep 120; exit 0; fi
     "$CG" spec start "\$TASK" >/dev/null 2>&1
-    printf 'export function alpha(): number {\n  return 7;\n}\n' > src/a.ts
-    printf 'export function beta(): number {\n  return 8;\n}\n' > lib/b.ts
+    printf 'export function alpha(): number {\n  return 7;\n}\nexport function omega(): number {\n  return 8;\n}\n' > src/a.ts
     "$CG" spec done "\$TASK" >/dev/null 2>&1
     git add -A >/dev/null
     git commit -qm "\$TASK [spec:\$CG_FEATURE/\$TASK]" >/dev/null || exit 1

@@ -155,9 +155,10 @@ def env_checks():
 
     def ops_names_real():
         corpus = []
-        for base, pattern in ((SRC, '**/*.ts'), (ROOT / 'deploy/hyperfide', '*'), (ROOT / 'tests/hyperfide', '*.py'),
+        for base, pattern in ((SRC, '**/*.ts'), (ROOT / 'deploy/hyperfide', '**/*'), (ROOT / 'tests/hyperfide', '*.py'),
                               (ROOT / 'src', '**/*.[ch]'), (ROOT / 'scripts', '*')):
-            corpus += [p.read_text(errors='replace') for p in base.glob(pattern) if p.is_file()]
+            corpus += [p.read_text(errors='replace') for p in base.glob(pattern)
+                       if p.is_file() and 'node_modules' not in p.relative_to(ROOT).parts]
         text = '\n'.join(corpus)
         unknown = []
         for n in sorted(documented_names(OPS.read_text())):
@@ -199,6 +200,7 @@ def command_checks():
                    'migrate.mjs': 'deploy/hyperfide/migrate.mjs',
                    'install-service.mjs': 'deploy/hyperfide/install-service.mjs',
                    'qualify.py': 'tests/hyperfide/qualify.py',
+                   'publish-evidence.py': 'tests/hyperfide/publish-evidence.py',
                    'check-evidence.py': 'tests/hyperfide/check-evidence.py',
                    '29_5.py': 'tests/hyperfide/cases/tasks/29_5.py'}
         seen = 0

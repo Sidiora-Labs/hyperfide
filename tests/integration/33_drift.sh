@@ -139,7 +139,9 @@ branch  = "wave/{feature}/{wave}"
 approve = ["drift"]
 EOF
     git add -A >/dev/null; git commit -qm "hierarchy" >/dev/null
-    "$CG" fleet begin 2.1 >/dev/null
+    # drift is a write outside the declared touches, which a sparse slice
+    # cannot hold: this worker takes the whole tree with that reason recorded
+    "$CG" fleet begin 2.1 --full-tree DRIFT_UNDER_TEST >/dev/null
     cd "$proj/.codegraph/worktrees/wave-drift-1"
     CG_AGENT=w-drift-1 CG_ROLE=worker CG_PARENT=fm-drift CG_BASE=feature/drift \
         "$CG" spec start 2.1 >/dev/null
