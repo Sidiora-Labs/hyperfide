@@ -171,7 +171,7 @@
     },
     "@bb/bundled-plugins#build": {
       "dependsOn": [
-        "^prepare:bundled",
+        "^prepare:bundled"
       ],
       "inputs": [
         "$TURBO_DEFAULT$",
