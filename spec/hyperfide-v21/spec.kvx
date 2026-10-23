@@ -778,7 +778,7 @@ owner = "deployment"
 
 [task.3.23]
 title = "Provider resolution Asks live in the asks store"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["3.1", "3.2", "3.6"]
 touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/src/spec/import.ts", "services/hyperfide/migrations/0715-provider-asks-merge.sql", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/3_23.py", "tests/hyperfide/cases/v21/2_1.py", "tests/hyperfide/cases/v21/2_16.py"]
