@@ -1155,7 +1155,7 @@ owner = "console"
 
 [task.7.1]
 title = "Close the seventeen current hyperfide tasks"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["1.1", "1.2"]
 touches = ["tests/hyperfide/closure_check.py", "spec/hyperfide/spec.kvx"]
