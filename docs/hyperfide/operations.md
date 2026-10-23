@@ -460,6 +460,17 @@ Release evidence admission uses a deployment-owned protected schema_version 2 in
 
 ## Sandbox toolkit image steps and measured base build
 
+Platform CI runs `bash scripts/platform-ci.sh` on Node 24. It uses Corepack's
+pnpm version from `platform/package.json`, installs with `--frozen-lockfile`,
+then runs typecheck, build, unit tests, and the repository identity gate. Each
+failure stops the run. `--quick` uses existing dependencies and runs only
+typecheck and the identity gate; it is the task 0.9 qualification command.
+The GitHub workflow runs on push and pull request changes under `platform/`
+and `tests/hyperfide/cases/v22/`, as well as changes to the CI script or workflow.
+It caches the pnpm store using the platform lockfile hash and has read-only
+repository permission. It does not publish artifacts or update remote branches.
+The measured sandbox build timings below describe the base image, not a CI run.
+
 `deploy/hyperfide/sandbox/fleet.json` builds checkpoints in this order: clone the
 pinned commit, build cg, install and build the service, install platform, build
 platform, index, and report tools. Corepack activates pnpm 9.15.0, with a global

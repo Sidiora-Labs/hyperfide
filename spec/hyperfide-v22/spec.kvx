@@ -214,7 +214,7 @@ owner = "runner"
 
 [task.0.9]
 title = "Platform CI workflow"
-status = "pending"
+status = "blocked"
 wave = 0
 requires = ["0.7"]
 touches = [".github/workflows/platform.yml", "scripts/platform-ci.sh", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v22/0_9.sh"]
@@ -227,6 +227,7 @@ owner = "ci"
 
 # ── Wave 1: the binary and graph inside the platform ──────────────────────────
 
+blocked_ask = "6"
 [task.1.1]
 title = "hyperfide platform front door"
 status = "done"
