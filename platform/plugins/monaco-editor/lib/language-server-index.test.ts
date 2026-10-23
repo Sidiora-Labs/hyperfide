@@ -1,27 +1,24 @@
-// @vitest-environment jsdom
 import { expect, it, vi } from "vitest";
-import { createLanguageServerIndexStatus } from "../../hyperfide-graph/language-server-index-projection.js";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
+import plugin from "../../hyperfide-graph/server.js";
 
-it("shows the repository language-server state in an Index panel row", async () => {
-  const fetchStatus = vi.fn(async (_url: URL, _options: unknown) => ({
-    ok: true,
-    json: async () => ({ status: "running" }),
-  }));
+it("reads the relay state for the Index panel and falls back quietly", async () => {
+  const fake = createFakePluginHost({ pluginId: "hyperfide-graph" });
+  const api = Object.values(fake).find(value => "hosts" in value) as Parameters<typeof plugin>[0];
+  plugin(api);
+  const fetchStatus = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ hostId: "host-a", status: "running" }) });
   vi.stubGlobal("fetch", fetchStatus);
-  const row = createLanguageServerIndexStatus("http://localhost:1234", "/repo");
-  document.body.append(row.element);
+  vi.stubEnv("HYPERFIDE_HOST_DAEMON_PORT", "1234");
+  const scope = { hostId: "host-a", repository: "/repo" };
   try {
-    await row.refresh();
-    expect(row.element.textContent).toBe("Language server: running");
-    expect(String(fetchStatus.mock.calls[0]?.[0])).toContain(
-      "repository=%2Frepo",
-    );
+    expect(await fake.harness.callRpc("languageServerStatus", scope)).toBe("running");
+    expect(String(fetchStatus.mock.calls[1]?.[0])).toContain("repository=%2Frepo");
     fetchStatus.mockRejectedValueOnce(new Error("offline"));
-    await row.refresh();
-    expect(row.element.textContent).toBe("Language server: stopped");
+    expect(await fake.harness.callRpc("languageServerStatus", scope)).toBe("stopped");
+    fetchStatus.mockResolvedValueOnce({ ok: true, json: async () => ({ hostId: "other" }) });
+    expect(await fake.harness.callRpc("languageServerStatus", scope)).toBe("stopped");
   } finally {
-    row.dispose();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   }
-  expect(document.querySelector('[role="status"]')).toBeNull();
 });

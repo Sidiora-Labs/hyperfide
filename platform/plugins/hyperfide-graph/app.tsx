@@ -35,6 +35,7 @@ export function SurveyViewer({ data }: { data: Record<string, unknown> }) {
 }
 export function IndexPanel() {
   const rpc = useRpc<typeof graphRpcContract>();
+  const [languageServer, setLanguageServer] = useState("stopped");
   const [hostId, setHost] = useState("");
   const [repository, setRepo] = useState("");
   const [target, setTarget] = useState("");
@@ -68,6 +69,22 @@ export function IndexPanel() {
       active = false;
     };
   }, [rpc, hostId, repository]);
+  useEffect(() => {
+    let active = true;
+    setLanguageServer("stopped");
+    if (!hostId || !repository) return;
+    const refresh = async () => {
+      try {
+        const status = await rpc.call("languageServerStatus", { hostId, repository });
+        if (active) setLanguageServer(status);
+      } catch {
+        if (active) setLanguageServer("stopped");
+      }
+    };
+    void refresh();
+    const timer = setInterval(() => void refresh(), 5000);
+    return () => { active = false; clearInterval(timer); };
+  }, [rpc, hostId, repository]);
   async function load(command: "index-status" | "survey") {
     const requestedScope = currentScope;
     setError("");
@@ -88,6 +105,7 @@ export function IndexPanel() {
   return (
     <main>
       <h1>Index</h1>
+      <p role="status">Language server: {languageServer}</p>
       <label>
         Host
         <input value={hostId} onChange={(e) => setHost(e.target.value)} />
