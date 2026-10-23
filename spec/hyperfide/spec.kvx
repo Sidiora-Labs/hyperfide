@@ -1712,7 +1712,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.21.2]
 title = "Rank policy-permitted recovery actions from preserved failure packets"
-status = "pending"
+status = "done"
 wave = 27
 requires = ["20.4", "13.4", "16.2", "21.4", "25.3", "26.4"]
 touches = ["services/hyperfide/src/decisions/recovery.ts", "tests/hyperfide/manifests/tasks/21.2.json", "tests/hyperfide/cases/tasks/21_2.py", "tests/hyperfide/registrations/21.2.json", "services/hyperfide/components/21.2.json", "src/spec.c"]
@@ -2129,7 +2129,7 @@ do_6 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.19.3]
 title = "Evaluate task, wave and programme closure against required milestones"
-status = "pending"
+status = "done"
 wave = 27
 requires = ["19.2", "16.3", "18.4"]
 touches = ["services/hyperfide/src/integration/closure.ts", "tests/hyperfide/manifests/tasks/19.3.json", "tests/hyperfide/cases/tasks/19_3.py", "tests/hyperfide/registrations/19.3.json", "services/hyperfide/components/19.3.json"]
@@ -2199,7 +2199,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.25.2]
 title = "Rehearse single-authority cutover and separate rollback boundaries"
-status = "pending"
+status = "done"
 wave = 27
 requires = ["25.1", "7.4", "4.4", "24.3", "26.4", "25.4", "27.1"]
 touches = ["services/hyperfide/src/migration/cutover.ts", "tests/hyperfide/manifests/tasks/25.2.json", "tests/hyperfide/cases/tasks/25_2.py", "tests/hyperfide/registrations/25.2.json", "services/hyperfide/components/25.2.json", "services/hyperfide/src/migration/legacy.ts", "services/hyperfide/src/migration/sqlite.ts", "services/hyperfide/src/migration/parity.ts", "services/hyperfide/migrations/0252-migration-proof.sql"]
