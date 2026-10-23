@@ -1,3 +1,5 @@
+export { wavePullRequests } from "./wave-publication";
+
 import {
   experimental_runVcsProcess as runVcsProcess,
   type ExperimentalVcsProcessPriority as VcsProcessPriority,
