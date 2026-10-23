@@ -17,6 +17,10 @@ import unittest
 HERE = Path(__file__).resolve().parent
 RUNNER = HERE / "qualify.py"
 CHECKER = HERE / "check-evidence.py"
+# The proof and receipt regressions import sibling test modules; keep them
+# importable when the harness runs isolated (python3 -I).
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
 
 ASSERTIONS = [
     "harness.selector.missing", "harness.selector.unknown", "harness.selector.empty",
@@ -266,6 +270,9 @@ class HarnessTests(unittest.TestCase):
         isolated.mkdir()
         copied_runner = isolated / "qualify.py"
         copied_runner.write_bytes(RUNNER.read_bytes())
+        # qualify.py imports its sibling evidence_store module; the isolated copy
+        # carries it so the run reaches the absent-checker refusal under test.
+        (isolated / "evidence_store.py").write_bytes((HERE / "evidence_store.py").read_bytes())
         result = fixture.run("--case", "V-056", runner=copied_runner)
         self.rejected(result)
         self.assertIn("checker", (result.stdout + result.stderr).lower(), "failure did not identify the absent canonical checker")

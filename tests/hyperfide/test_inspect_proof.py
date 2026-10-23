@@ -267,7 +267,7 @@ class ProofInspectionTests(unittest.TestCase):
         root, mapping = self.portable()
         with tempfile.TemporaryDirectory(prefix="hyperfide-qualified-proof-assets-") as temporary:
             assets = Path(temporary)
-            for name in ("inspect-proof.py", "check-evidence.py", "proof_relocation.py", "registry.json"):
+            for name in ("inspect-proof.py", "check-evidence.py", "evidence_store.py", "proof_relocation.py", "registry.json"):
                 shutil.copyfile(HERE / name, assets / name)
             pins = {p.name: p.read_bytes() for p in assets.iterdir()}
             environment = dict(os.environ, LD_LIBRARY_PATH=str(root / "untrusted-loader"))
