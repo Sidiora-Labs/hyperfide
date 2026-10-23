@@ -34,7 +34,7 @@ export function resolveCliErrorLogLocation(
   env: NodeJS.ProcessEnv = process.env,
 ): CliErrorLogLocation {
   const homeDir = homedir();
-  const configured = env.BB_DATA_DIR;
+  const configured = env.HYPERFIDE_DATA_DIR;
   return {
     dataDir: resolve(
       configured === undefined || configured.trim().length === 0
@@ -51,7 +51,7 @@ export function formatCliErrorLogPath(location: CliErrorLogLocation): string {
 export function isCliErrorLogEnabled(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  const raw = env.BB_CLI_ERROR_LOG;
+  const raw = env.HYPERFIDE_CLI_ERROR_LOG;
   if (raw === undefined) return true;
   return !CLI_ERROR_LOG_DISABLE_VALUES.has(raw.trim().toLowerCase());
 }

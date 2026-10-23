@@ -49,7 +49,7 @@ const BOOT_TIMINGS = {
   ...TEST_SERVER_MOVE_TIMINGS,
   recoveryProbeIntervalMs: 20,
 };
-const ORIGINAL_CONFIG = '{"config":{"BB_LOG_LEVEL":"info"}}\n';
+const ORIGINAL_CONFIG = '{"config":{"HYPERFIDE_LOG_LEVEL":"info"}}\n';
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -154,7 +154,7 @@ async function writeMovedConfig(harness: TestAppHarness): Promise<string> {
   const path = join(harness.config.dataDir, "config.json");
   await writeFile(
     path,
-    `${JSON.stringify({ config: { BB_LOG_LEVEL: "info" }, serverUrl: DIRECT_URL })}\n`,
+    `${JSON.stringify({ config: { HYPERFIDE_LOG_LEVEL: "info" }, serverUrl: DIRECT_URL })}\n`,
   );
   return path;
 }
@@ -389,7 +389,7 @@ describe("server move boot reconciliation", () => {
         runFile(harness, "switching", ALL_THROUGH_SWITCH, {
           configBackup: {
             path: configPath,
-            originalText: '{"config":{"BB_LOG_LEVEL":"debug"}}\n',
+            originalText: '{"config":{"HYPERFIDE_LOG_LEVEL":"debug"}}\n',
           },
           movedAt: 5_000,
           activationRequestedAt: 5_100,

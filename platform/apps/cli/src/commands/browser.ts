@@ -132,7 +132,7 @@ export function registerBrowserCommands(
   scoped(
     browser
       .command("create")
-      .description("Create a tab in the BB browser profile"),
+      .description("Create a tab in the Hyperfide browser profile"),
   )
     .option("--url <url>", "Initial HTTP(S) URL; defaults to about:blank")
     .option("--reveal", "Show the new native tab")
@@ -298,11 +298,11 @@ export function registerBrowserCommands(
   )
     .requiredOption(
       "--from <source>",
-      "Source browser ID from `bb browser import-sources`",
+      "Source browser ID from `hyperfide-platform browser import-sources`",
     )
     .requiredOption(
       "--profile <directory>",
-      "Source profile directory as printed by `bb browser import-sources`",
+      "Source profile directory as printed by `hyperfide-platform browser import-sources`",
     )
     .action(
       action(

@@ -86,7 +86,7 @@ async function missingOptionHint(
       return "Pass --prompt <text>, or --prompt-file <path> (use - to read stdin).";
     case "--instance":
     case "--generation":
-      return "List desktop browser instances with `bb browser instances --host <id> --json`.";
+      return "List desktop browser instances with `hyperfide-platform browser instances --host <id> --json`.";
     default:
       return null;
   }
@@ -100,20 +100,20 @@ function missingArgumentHint(
   if (argumentName === "id" && group === "project") {
     const projectId = contextProjectId();
     return projectId === null
-      ? "List project IDs with `bb project list`."
+      ? "List project IDs with `hyperfide-platform project list`."
       : `This thread's project is ${projectId}.`;
   }
   if (argumentName === "id" && group === "thread") {
     const threadId = contextThreadId();
     return threadId === null
-      ? "List thread IDs with `bb thread list`."
+      ? "List thread IDs with `hyperfide-platform thread list`."
       : `The current thread is ${threadId}.`;
   }
   if (argumentName === "terminalId") {
     const threadId = contextThreadId();
     return threadId === null
-      ? "List terminal IDs with `bb terminal list --thread <id>`."
-      : `List this thread's terminal IDs with \`bb terminal list --thread ${threadId}\`.`;
+      ? "List terminal IDs with `hyperfide-platform terminal list --thread <id>`."
+      : `List this thread's terminal IDs with \`hyperfide-platform terminal list --thread ${threadId}\`.`;
   }
   return null;
 }
@@ -135,7 +135,7 @@ export async function summarizeCommanderError(args: {
       hintLines.push(`Commands: ${formatCommandList(invocation.command)}`);
       if (invocation.path.length === 0 && token !== null) {
         hintLines.push(
-          `Plugins add commands only while they are installed and enabled. If '${token}' is a plugin command, check \`bb plugin list\`.`,
+          `Plugins add commands only while they are installed and enabled. If '${token}' is a plugin command, check \`hyperfide-platform plugin list\`.`,
         );
       }
       break;

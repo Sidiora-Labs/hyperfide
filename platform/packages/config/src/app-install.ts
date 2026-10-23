@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-export const APP_INSTALL_KIND_ENV_NAME = "BB_APP_INSTALL_KIND";
-export const APP_SOURCE_ORIGIN_ENV_NAME = "BB_APP_SOURCE_ORIGIN";
-export const APP_SOURCE_COMMIT_ENV_NAME = "BB_APP_SOURCE_COMMIT";
+export const APP_INSTALL_KIND_ENV_NAME = "HYPERFIDE_APP_INSTALL_KIND";
+export const APP_SOURCE_ORIGIN_ENV_NAME = "HYPERFIDE_APP_SOURCE_ORIGIN";
+export const APP_SOURCE_COMMIT_ENV_NAME = "HYPERFIDE_APP_SOURCE_COMMIT";
 
 export const appInstallKindSchema = z.enum(["desktop", "npm", "source"]);
 export type AppInstallKind = z.infer<typeof appInstallKindSchema>;

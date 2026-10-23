@@ -439,7 +439,7 @@
    * toast in the stack.
    */
   :where(
-    [data-sonner-toast].bb-app-toast[data-expanded="false"][data-front="false"]
+    [data-sonner-toast].hyperfide-app-toast[data-expanded="false"][data-front="false"]
   ) {
     overflow: hidden;
     border-radius: var(--radius-md);
@@ -603,7 +603,7 @@
   }
 }
 
-.bb-search-flash {
+.hyperfide-search-flash {
   border-radius: var(--radius-lg, 0.5rem);
   background-color: var(--state-hover);
   animation: bb-search-flash 1.6s ease-out forwards;
@@ -621,13 +621,13 @@
   }
 }
 
-[data-settings-anchor].bb-search-flash {
+[data-settings-anchor].hyperfide-search-flash {
   box-shadow: 0 0 0 0.5rem var(--state-hover);
   animation-name: bb-settings-search-flash;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bb-search-flash {
+  .hyperfide-search-flash {
     animation: none;
   }
 }
@@ -654,24 +654,24 @@
   }
 }
 
-.bb-count-flash {
+.hyperfide-count-flash {
   animation: bb-count-flash 1.2s ease-out;
 }
 
-.bb-count-roll-in {
+.hyperfide-count-roll-in {
   animation: bb-count-roll-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.bb-count-roll-out {
+.hyperfide-count-roll-out {
   animation: bb-count-roll-out 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bb-count-roll-in {
+  .hyperfide-count-roll-in {
     animation: none;
   }
 
-  .bb-count-roll-out {
+  .hyperfide-count-roll-out {
     display: none;
   }
 }
@@ -691,7 +691,7 @@
   }
 }
 
-.bb-hero-chip {
+.hyperfide-hero-chip {
   animation: bb-hero-drift var(--bb-hero-drift-duration, 6s) ease-in-out
     infinite;
   animation-delay: var(--bb-hero-drift-delay, 0s);
@@ -709,23 +709,23 @@
   }
 }
 
-.bb-hero-progress-fill {
+.hyperfide-hero-progress-fill {
   transform-origin: left center;
   animation: bb-hero-progress var(--bb-hero-slide-duration, 5s) linear forwards;
 }
 
-.bb-hero-progress-fill[data-paused="true"] {
+.hyperfide-hero-progress-fill[data-paused="true"] {
   animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bb-hero-chip {
+  .hyperfide-hero-chip {
     animation: none;
   }
 
   /* No autoplay under reduced motion, so the segment shows a resting full
    * state instead of an animation frozen at zero width. */
-  .bb-hero-progress-fill {
+  .hyperfide-hero-progress-fill {
     animation: none;
     transform: scaleX(1);
   }

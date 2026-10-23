@@ -109,10 +109,10 @@ function createShellEnvSpawnResult(
 function createMarkedShellEnvOutput(pathValue: string): string {
   return [
     "shell startup noise",
-    "__BB_SHELL_ENV_START__",
+    "__HYPERFIDE_SHELL_ENV_START__",
     "USER=test-user",
     `PATH=${pathValue}`,
-    "__BB_SHELL_ENV_END__",
+    "__HYPERFIDE_SHELL_ENV_END__",
     "shell shutdown noise",
   ].join("\n");
 }
@@ -267,7 +267,7 @@ describe("createUserShellPathResolver", () => {
         command: "/usr/bin/bash",
         args: [
           "-ilc",
-          "printf '%s\\n' __BB_SHELL_ENV_START__; env; printf '%s\\n' __BB_SHELL_ENV_END__",
+          "printf '%s\\n' __HYPERFIDE_SHELL_ENV_START__; env; printf '%s\\n' __HYPERFIDE_SHELL_ENV_END__",
         ],
         env: { SHELL: "/usr/bin/bash", PATH: "/usr/bin" },
         timeoutMs: 1234,
@@ -451,7 +451,7 @@ describe("createUserShellPathResolver", () => {
 
 describe("prepareRuntimeShellEnv", () => {
   it("uses the daemon proxy URL without exporting its machine credential", () => {
-    vi.stubEnv("BB_CONNECT_MACHINE_CREDENTIAL", "bbcm_durable_secret");
+    vi.stubEnv("HYPERFIDE_CONNECT_MACHINE_CREDENTIAL", "bbcm_durable_secret");
 
     const env = prepareRuntimeShellEnv({
       bbExecutableDirectory: "/tmp/bb-bin",
@@ -459,11 +459,11 @@ describe("prepareRuntimeShellEnv", () => {
       serverUrl: "http://127.0.0.1:43123",
     });
 
-    expect(env.BB_SERVER_URL).toBe("http://127.0.0.1:43123");
-    expect(env).not.toHaveProperty("BB_CONNECT_MACHINE_CREDENTIAL");
+    expect(env.HYPERFIDE_SERVER_URL).toBe("http://127.0.0.1:43123");
+    expect(env).not.toHaveProperty("HYPERFIDE_CONNECT_MACHINE_CREDENTIAL");
   });
 
-  it("prepends the configured bb executable directory to PATH and sets BB_CLI", () => {
+  it("prepends the configured bb executable directory to PATH and sets HYPERFIDE_CLI", () => {
     expect(
       prepareRuntimeShellEnv({
         bbExecutableDirectory: "/tmp/bb-bin",
@@ -473,9 +473,9 @@ describe("prepareRuntimeShellEnv", () => {
       }),
     ).toEqual({
       PATH: `/tmp/bb-bin${delimiter}/usr/bin`,
-      BB_CLI: path.resolve("/tmp/bb-bin", "bb"),
-      BB_SERVER_URL: "http://127.0.0.1:3334",
-      BB_HOST_DAEMON_PORT: "3002",
+      HYPERFIDE_CLI: path.resolve("/tmp/bb-bin", "hyperfide-platform"),
+      HYPERFIDE_SERVER_URL: "http://127.0.0.1:3334",
+      HYPERFIDE_HOST_DAEMON_PORT: "3002",
     });
   });
 
@@ -500,7 +500,7 @@ describe("prepareRuntimeShellEnv", () => {
     );
   });
 
-  it("uses an explicit bbExecutablePath for BB_CLI", () => {
+  it("uses an explicit bbExecutablePath for HYPERFIDE_CLI", () => {
     expect(
       prepareRuntimeShellEnv({
         bbExecutableDirectory: "/tmp/bb-bin",
@@ -509,7 +509,7 @@ describe("prepareRuntimeShellEnv", () => {
         serverUrl: "http://127.0.0.1:3334",
       }),
     ).toMatchObject({
-      BB_CLI: "/opt/custom/bb",
+      HYPERFIDE_CLI: "/opt/custom/bb",
       PATH: `/tmp/bb-bin${delimiter}/usr/bin`,
     });
   });
@@ -525,9 +525,9 @@ describe("prepareRuntimeShellEnv", () => {
       }),
     ).toEqual({
       PATH: `/tmp/bb-bin${delimiter}/usr/local/bin:/usr/bin`,
-      BB_CLI: path.resolve("/tmp/bb-bin", "bb"),
-      BB_SERVER_URL: "http://127.0.0.1:3334",
-      BB_HOST_DAEMON_PORT: "3002",
+      HYPERFIDE_CLI: path.resolve("/tmp/bb-bin", "hyperfide-platform"),
+      HYPERFIDE_SERVER_URL: "http://127.0.0.1:3334",
+      HYPERFIDE_HOST_DAEMON_PORT: "3002",
     });
   });
 
@@ -540,8 +540,8 @@ describe("prepareRuntimeShellEnv", () => {
       }),
     ).toEqual({
       PATH: `/tmp/bb-bin${delimiter}/usr/bin`,
-      BB_CLI: path.resolve("/tmp/bb-bin", "bb"),
-      BB_SERVER_URL: "http://127.0.0.1:3334",
+      HYPERFIDE_CLI: path.resolve("/tmp/bb-bin", "hyperfide-platform"),
+      HYPERFIDE_SERVER_URL: "http://127.0.0.1:3334",
     });
   });
 });

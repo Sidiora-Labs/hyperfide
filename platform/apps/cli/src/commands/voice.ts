@@ -18,7 +18,9 @@ export function registerVoiceCommands(
   const voice = program.command("voice").description("Voice input utilities");
   voice
     .command("transcribe <file>")
-    .description("Transcribe an audio file with BB's configured voice service")
+    .description(
+      "Transcribe an audio file with Hyperfide's configured voice service",
+    )
     .option("--prompt <text>", "Optional transcription context")
     .option("--type <mime>", "Audio MIME type", "audio/webm")
     .option("--json", "Print machine-readable JSON output")

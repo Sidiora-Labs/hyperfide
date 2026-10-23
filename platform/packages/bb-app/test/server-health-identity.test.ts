@@ -60,11 +60,11 @@ const FAKE_SERVER_ENTRY_SOURCE = `
 import { createServer } from "node:http";
 const server = createServer((request, response) => {
   response.writeHead(200, { "content-type": "application/json" });
-  response.end(JSON.stringify({ ok: true, launchId: process.env.BB_SERVER_LAUNCH_ID }));
+  response.end(JSON.stringify({ ok: true, launchId: process.env.HYPERFIDE_SERVER_LAUNCH_ID }));
 });
 server.on("error", () => process.exit(1));
 setTimeout(() => {
-  server.listen(Number(process.env.BB_SERVER_PORT), "127.0.0.1");
+  server.listen(Number(process.env.HYPERFIDE_SERVER_PORT), "127.0.0.1");
 }, 300);
 `;
 
@@ -172,7 +172,7 @@ describe("startFullStackServerProcess", () => {
     const serverRun = await startFullStackServerProcess({
       context,
       env: {
-        BB_SERVER_PORT: String(context.serverPort),
+        HYPERFIDE_SERVER_PORT: String(context.serverPort),
         PATH: process.env.PATH,
       },
       processes,
@@ -210,7 +210,7 @@ describe("startFullStackServerProcess", () => {
         },
         context,
         env: {
-          BB_SERVER_PORT: String(context.serverPort),
+          HYPERFIDE_SERVER_PORT: String(context.serverPort),
           PATH: process.env.PATH,
         },
         processes,
@@ -237,7 +237,7 @@ describe("startFullStackServerProcess", () => {
         startFullStackServerProcess({
           context,
           env: {
-            BB_SERVER_PORT: String(context.serverPort),
+            HYPERFIDE_SERVER_PORT: String(context.serverPort),
             PATH: process.env.PATH,
           },
           processes,

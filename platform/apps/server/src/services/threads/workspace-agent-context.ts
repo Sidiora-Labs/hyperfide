@@ -45,7 +45,7 @@ export async function readWorkspaceAgentContext(
   });
   const skillsRootPath = joinHostPathSegments(
     args.workspacePath,
-    ".bb",
+    ".hyperfide",
     "skills",
   );
   if (result.projectSkillsTruncated) {

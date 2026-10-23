@@ -19,7 +19,10 @@ function manifest(plugins: unknown): string {
 }
 
 function parse(plugins: unknown) {
-  return parsePluginCollectionManifest(manifest(plugins), ".bb/plugins.json");
+  return parsePluginCollectionManifest(
+    manifest(plugins),
+    ".hyperfide/plugins.json",
+  );
 }
 
 describe("collection manifest schema", () => {
@@ -34,7 +37,7 @@ describe("collection manifest schema", () => {
           { name: "status", source: "./apps/status" },
         ],
       }),
-      ".bb/plugins.json",
+      ".hyperfide/plugins.json",
     );
 
     expect(parsed.plugins).toHaveLength(2);
@@ -87,11 +90,11 @@ describe("collection manifest schema", () => {
           name: "acme-plugins",
           plugins: [{ name: "a", source: "./a" }],
         }),
-        ".bb/plugins.json",
+        ".hyperfide/plugins.json",
       ),
     ).toThrowError(/invalid \.bb\/plugins\.json/);
     expect(() =>
-      parsePluginCollectionManifest("{ nope", ".bb/plugins.json"),
+      parsePluginCollectionManifest("{ nope", ".hyperfide/plugins.json"),
     ).toThrowError(/not valid JSON/);
     expect(() =>
       parsePluginCollectionManifest(
@@ -101,7 +104,7 @@ describe("collection manifest schema", () => {
           name: "acme-plugins",
           plugins: [{ name: "a", source: "./a" }],
         }),
-        ".bb/plugins.json",
+        ".hyperfide/plugins.json",
       ),
     ).toThrowError(/invalid \.bb\/plugins\.json/);
   });
@@ -124,7 +127,7 @@ describe("collection manifest in a checkout", () => {
   beforeEach(async () => {
     workDir = await mkdtemp(join(tmpdir(), "bb-collection-"));
     repoDir = join(workDir, "repo");
-    await mkdir(join(repoDir, ".bb"), { recursive: true });
+    await mkdir(join(repoDir, ".hyperfide"), { recursive: true });
   });
 
   afterEach(async () => {
@@ -132,7 +135,10 @@ describe("collection manifest in a checkout", () => {
   });
 
   async function writeCollection(plugins: unknown): Promise<void> {
-    await writeFile(join(repoDir, ".bb", "plugins.json"), manifest(plugins));
+    await writeFile(
+      join(repoDir, ".hyperfide", "plugins.json"),
+      manifest(plugins),
+    );
   }
 
   async function writeRootPackage(): Promise<void> {
@@ -153,14 +159,14 @@ describe("collection manifest in a checkout", () => {
   }
 
   it("returns null when the repository has no collection manifest", async () => {
-    await rm(join(repoDir, ".bb"), { recursive: true });
+    await rm(join(repoDir, ".hyperfide"), { recursive: true });
     expect(await readPluginCollectionManifest(repoDir)).toBeNull();
   });
 
   it("refuses a manifest symlinked out of the checkout", async () => {
     const outside = join(workDir, "outside.json");
     await writeFile(outside, manifest([{ name: "a", source: "./a" }]));
-    await symlink(outside, join(repoDir, ".bb", "plugins.json"));
+    await symlink(outside, join(repoDir, ".hyperfide", "plugins.json"));
 
     await expect(readPluginCollectionManifest(repoDir)).rejects.toThrowError(
       /resolves outside its root/,
@@ -205,7 +211,7 @@ describe("collection manifest in a checkout", () => {
       }),
     ).toBe("plugins/sidebar");
 
-    await rm(join(repoDir, ".bb"), { recursive: true });
+    await rm(join(repoDir, ".hyperfide"), { recursive: true });
     await expect(
       resolveSelectedSubdirectory({
         checkoutDir: repoDir,

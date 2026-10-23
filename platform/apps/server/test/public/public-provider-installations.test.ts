@@ -5,7 +5,7 @@ import type {
   ProviderCliStatusResponse,
 } from "@bb/host-daemon-contract";
 import { systemProviderInfoSchema } from "@bb/server-contract";
-import { DEFAULT_BB_REQUEST_TIMEOUT_MS } from "@bb/sdk";
+import { DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS } from "@bb/sdk";
 import {
   validatePluginProviderDeclaration,
   validatePluginMachineProviderDeclaration,
@@ -442,7 +442,7 @@ describe("public provider installation routes", () => {
 
     await expect(responsePromise).resolves.toEqual({});
     expect(now).toBe(PROVIDER_INSTALLATION_STATUS_TIMEOUT_MS);
-    expect(now).toBeLessThan(DEFAULT_BB_REQUEST_TIMEOUT_MS);
+    expect(now).toBeLessThan(DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS);
     expect(statusTimeouts).toHaveLength(expectedStatusRequestCount);
     expect(statusTimeouts.some((timeout) => timeout < COMMAND_TIMEOUT_MS)).toBe(
       true,

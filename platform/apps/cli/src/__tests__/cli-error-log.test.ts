@@ -42,7 +42,7 @@ describe("cli error log", () => {
   });
 
   it("appends one JSON line per failure under the data dir", () => {
-    const env = { BB_DATA_DIR: dataDir };
+    const env = { HYPERFIDE_DATA_DIR: dataDir };
     appendCliErrorLogEntry(entry({}), env);
     appendCliErrorLogEntry(entry({ token: "--tail" }), env);
 
@@ -57,8 +57,8 @@ describe("cli error log", () => {
 
   it("writes nothing when recording is switched off", () => {
     appendCliErrorLogEntry(entry({}), {
-      BB_DATA_DIR: dataDir,
-      BB_CLI_ERROR_LOG: "0",
+      HYPERFIDE_DATA_DIR: dataDir,
+      HYPERFIDE_CLI_ERROR_LOG: "0",
     });
     expect(readCliErrorLogEntries({ dataDir })).toEqual([]);
   });
@@ -72,7 +72,9 @@ describe("cli error log", () => {
       old.repeat(Math.ceil((2 * 1024 * 1024) / old.length)),
     );
 
-    appendCliErrorLogEntry(entry({ token: "--new" }), { BB_DATA_DIR: dataDir });
+    appendCliErrorLogEntry(entry({ token: "--new" }), {
+      HYPERFIDE_DATA_DIR: dataDir,
+    });
 
     expect(statSync(`${logPath}.1`).size).toBeGreaterThan(2 * 1024 * 1024 - 1);
     expect(readFileSync(logPath, "utf8").trim().split("\n")).toHaveLength(1);
@@ -101,7 +103,7 @@ describe("cli error log", () => {
     const blocked = join(dataDir, "file");
     writeFileSync(blocked, "");
     expect(() =>
-      appendCliErrorLogEntry(entry({}), { BB_DATA_DIR: blocked }),
+      appendCliErrorLogEntry(entry({}), { HYPERFIDE_DATA_DIR: blocked }),
     ).not.toThrow();
   });
 });

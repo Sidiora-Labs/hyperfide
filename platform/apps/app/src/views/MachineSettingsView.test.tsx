@@ -425,7 +425,7 @@ describe("MachineSettingsView", () => {
       mode: "connect",
       serverUrl: null,
       requiresServerUrl: false,
-      targetDataDir: "/home/sawyer/.bb-machines/workstation",
+      targetDataDir: "/home/sawyer/.hyperfide-machines/workstation",
       existingTargetServerData: null,
       items: [],
       canMove: true,

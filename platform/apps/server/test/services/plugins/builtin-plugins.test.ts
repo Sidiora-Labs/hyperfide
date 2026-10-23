@@ -282,12 +282,12 @@ describe("builtin plugin reconciliation", () => {
 
   it("enables the account pooler only when a parent bb server pool is present", () => {
     expect(accountPoolDefaultEnabled({})).toBe(false);
-    expect(accountPoolDefaultEnabled({ BB_ACCOUNT_POOL_PARENT_URL: "" })).toBe(
-      false,
-    );
+    expect(
+      accountPoolDefaultEnabled({ HYPERFIDE_ACCOUNT_POOL_PARENT_URL: "" }),
+    ).toBe(false);
     expect(
       accountPoolDefaultEnabled({
-        BB_ACCOUNT_POOL_PARENT_URL:
+        HYPERFIDE_ACCOUNT_POOL_PARENT_URL:
           "http://127.0.0.1:38886/api/v1/plugins/account-pool/http",
       }),
     ).toBe(true);

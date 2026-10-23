@@ -17,7 +17,7 @@ const REPO_ROOT = path.resolve(
   "..",
 );
 const STATE_DIR =
-  process.env.BB_CLOUD_DEV_STATE_DIR?.trim() ||
+  process.env.HYPERFIDE_CLOUD_DEV_STATE_DIR?.trim() ||
   path.join(REPO_ROOT, ".wrangler", "cloud-dev");
 const DEV_SECRET =
   "6c9e2f41a7d58b30c4e918f267bd5a0c3f1468e2d9a57b04c8f31a6d72e95b40";
@@ -249,8 +249,11 @@ const worker = spawnService([
   "CLOUD_DEV:true",
   "--var",
   `NEXT_BASE_DOMAIN:next.${DEV_BASE_DOMAIN}`,
-  ...(process.env.BB_CLOUD_DEV_GATE_SECRET?.trim()
-    ? ["--var", `GATE_SECRET:${process.env.BB_CLOUD_DEV_GATE_SECRET.trim()}`]
+  ...(process.env.HYPERFIDE_CLOUD_DEV_GATE_SECRET?.trim()
+    ? [
+        "--var",
+        `GATE_SECRET:${process.env.HYPERFIDE_CLOUD_DEV_GATE_SECRET.trim()}`,
+      ]
     : []),
   "--show-interactive-dev-session=false",
 ]);
@@ -269,10 +272,10 @@ const aiGateway = spawnService([
   String(aiGatewayInspectorPort),
   "--persist-to",
   STATE_DIR,
-  ...(process.env.BB_CLOUD_DEV_AI_UPSTREAM_BASE_URL
+  ...(process.env.HYPERFIDE_CLOUD_DEV_AI_UPSTREAM_BASE_URL
     ? [
         "--var",
-        `AI_UPSTREAM_BASE_URL:${process.env.BB_CLOUD_DEV_AI_UPSTREAM_BASE_URL}`,
+        `AI_UPSTREAM_BASE_URL:${process.env.HYPERFIDE_CLOUD_DEV_AI_UPSTREAM_BASE_URL}`,
       ]
     : []),
   "--show-interactive-dev-session=false",
@@ -291,9 +294,9 @@ const web = spawnService(
     String(webPort),
   ],
   {
-    BB_CLOUD_DEV_APP_URL: CLOUD_URL,
-    BB_CLOUD_DEV_SERVER_URL_TEMPLATE: `http://{label}.${DEV_BASE_DOMAIN}:${ports.cloudPort}`,
-    BB_CLOUD_DEV_STATE_PATH: STATE_DIR,
+    HYPERFIDE_CLOUD_DEV_APP_URL: CLOUD_URL,
+    HYPERFIDE_CLOUD_DEV_SERVER_URL_TEMPLATE: `http://{label}.${DEV_BASE_DOMAIN}:${ports.cloudPort}`,
+    HYPERFIDE_CLOUD_DEV_STATE_PATH: STATE_DIR,
     BETTER_AUTH_SECRET: DEV_SECRET,
     CLOUDFLARE_ENV: "production",
     CLOUDFLARE_INCLUDE_PROCESS_ENV: "true",

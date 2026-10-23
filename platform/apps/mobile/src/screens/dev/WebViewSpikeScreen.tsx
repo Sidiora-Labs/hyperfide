@@ -61,7 +61,8 @@ function appendSessionLine(event: SpikeEvent): void {
   } catch {}
 }
 
-const APEX_URL = process.env.EXPO_PUBLIC_BB_CONNECT_APEX ?? "https://getbb.app";
+const APEX_URL =
+  process.env.EXPO_PUBLIC_HYPERFIDE_CONNECT_APEX ?? "https://getbb.app";
 
 export function WebViewSpikeScreen() {
   const insets = useSafeAreaInsets();

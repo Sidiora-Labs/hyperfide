@@ -416,7 +416,7 @@ describe("injected skill source discovery", () => {
       description: "User copy.",
     });
     const projectSkillRoot = await writeSkill({
-      rootPath: path.join(workspacePath, ".bb", "skills"),
+      rootPath: path.join(workspacePath, ".hyperfide", "skills"),
       name: "bb-cli",
       description: "Project copy.",
     });

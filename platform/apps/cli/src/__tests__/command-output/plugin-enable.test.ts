@@ -38,7 +38,7 @@ const enableResponse = (status: string, statusDetail: string | null) =>
     },
   });
 
-describe("bb plugin enable", () => {
+describe("hyperfide-platform plugin enable", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>

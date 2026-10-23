@@ -56,9 +56,9 @@ describe("desktop launch environment", () => {
   it("isolates the worktree launch onto this checkout's data directory and ports", () => {
     const env = toDesktopLaunchProcessEnv({
       baseEnv: {
-        BB_DATA_DIR: "/Users/tester/.bb",
-        BB_DEV_APP_PORT: "5173",
-        BB_TELEMETRY: "true",
+        HYPERFIDE_DATA_DIR: "/Users/tester/.hyperfide",
+        HYPERFIDE_DEV_APP_PORT: "5173",
+        HYPERFIDE_TELEMETRY: "true",
         NODE_ENV: "development",
         OPENAI_API_KEY: "test-key",
       },
@@ -67,34 +67,34 @@ describe("desktop launch environment", () => {
     });
 
     expect(env).toMatchObject({
-      BB_DATA_DIR: config.dataDir,
-      BB_DESKTOP_DEV_ICON: "1",
-      BB_DESKTOP_OPEN_DEVTOOLS: "0",
-      BB_DESKTOP_USER_DATA_DIR: join(config.dataDir, "desktop"),
-      BB_HOST_DAEMON_PORT: String(config.ports.hostDaemonPort),
-      BB_SERVER_PORT: String(config.ports.serverPort),
-      BB_SKIP_ONBOARDING: "1",
-      BB_TELEMETRY: "false",
+      HYPERFIDE_DATA_DIR: config.dataDir,
+      HYPERFIDE_DESKTOP_DEV_ICON: "1",
+      HYPERFIDE_DESKTOP_OPEN_DEVTOOLS: "0",
+      HYPERFIDE_DESKTOP_USER_DATA_DIR: join(config.dataDir, "desktop"),
+      HYPERFIDE_HOST_DAEMON_PORT: String(config.ports.hostDaemonPort),
+      HYPERFIDE_SERVER_PORT: String(config.ports.serverPort),
+      HYPERFIDE_SKIP_ONBOARDING: "1",
+      HYPERFIDE_TELEMETRY: "false",
       NODE_ENV: "production",
       OPENAI_API_KEY: "test-key",
     });
-    expect(env.BB_DATA_DIR).not.toBe("/Users/tester/.bb");
-    expect(env.BB_SERVER_PORT).not.toBe("38886");
-    expect(env.BB_DEV_APP_PORT).toBeUndefined();
+    expect(env.HYPERFIDE_DATA_DIR).not.toBe("/Users/tester/.hyperfide");
+    expect(env.HYPERFIDE_SERVER_PORT).not.toBe("38886");
+    expect(env.HYPERFIDE_DEV_APP_PORT).toBeUndefined();
   });
 
   it("preserves an explicit Electron user data directory", () => {
     const userDataDir = "/tmp/bb-desktop-profile";
     const env = toDesktopLaunchProcessEnv({
-      baseEnv: { BB_DESKTOP_USER_DATA_DIR: ` ${userDataDir} ` },
+      baseEnv: { HYPERFIDE_DESKTOP_USER_DATA_DIR: ` ${userDataDir} ` },
       config,
       mode: "worktree",
     });
 
-    expect(env.BB_DESKTOP_USER_DATA_DIR).toBe(resolve(userDataDir));
+    expect(env.HYPERFIDE_DESKTOP_USER_DATA_DIR).toBe(resolve(userDataDir));
     expect(
       resolveDesktopUserDataDir(
-        { BB_DESKTOP_USER_DATA_DIR: "relative-profile" },
+        { HYPERFIDE_DESKTOP_USER_DATA_DIR: "relative-profile" },
         config,
       ),
     ).toBe(join(process.cwd(), "relative-profile"));
@@ -102,22 +102,22 @@ describe("desktop launch environment", () => {
 
   it("lets an explicit onboarding choice survive the worktree default", () => {
     const env = toDesktopLaunchProcessEnv({
-      baseEnv: { BB_SKIP_ONBOARDING: "0" },
+      baseEnv: { HYPERFIDE_SKIP_ONBOARDING: "0" },
       config,
       mode: "worktree",
     });
 
-    expect(env.BB_SKIP_ONBOARDING).toBe("0");
+    expect(env.HYPERFIDE_SKIP_ONBOARDING).toBe("0");
   });
 
   it("lets an explicit devtools choice survive the worktree default", () => {
     const env = toDesktopLaunchProcessEnv({
-      baseEnv: { BB_DESKTOP_OPEN_DEVTOOLS: "1" },
+      baseEnv: { HYPERFIDE_DESKTOP_OPEN_DEVTOOLS: "1" },
       config,
       mode: "worktree",
     });
 
-    expect(env.BB_DESKTOP_OPEN_DEVTOOLS).toBe("1");
+    expect(env.HYPERFIDE_DESKTOP_OPEN_DEVTOOLS).toBe("1");
   });
 
   it("leaves the installed data directory and ports alone without --worktree", () => {
@@ -127,13 +127,13 @@ describe("desktop launch environment", () => {
       mode: "prod",
     });
 
-    expect(env.BB_DATA_DIR).toBeUndefined();
-    expect(env.BB_SERVER_PORT).toBeUndefined();
-    expect(env.BB_HOST_DAEMON_PORT).toBeUndefined();
-    expect(env.BB_DESKTOP_USER_DATA_DIR).toBeUndefined();
-    expect(env.BB_SKIP_ONBOARDING).toBeUndefined();
+    expect(env.HYPERFIDE_DATA_DIR).toBeUndefined();
+    expect(env.HYPERFIDE_SERVER_PORT).toBeUndefined();
+    expect(env.HYPERFIDE_HOST_DAEMON_PORT).toBeUndefined();
+    expect(env.HYPERFIDE_DESKTOP_USER_DATA_DIR).toBeUndefined();
+    expect(env.HYPERFIDE_SKIP_ONBOARDING).toBeUndefined();
     expect(env).toMatchObject({
-      BB_DESKTOP_OPEN_DEVTOOLS: "0",
+      HYPERFIDE_DESKTOP_OPEN_DEVTOOLS: "0",
       NODE_ENV: "production",
       OPENAI_API_KEY: "test-key",
     });

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PLUGIN_SDK_VERSION } from "@bb/domain";
-import { RESERVED_BB_CLI_COMMANDS } from "@bb/domain/plugin-cli";
+import { RESERVED_HYPERFIDE_CLI_COMMANDS } from "@bb/domain/plugin-cli";
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -33,14 +33,14 @@ describe("resolveNewPluginTarget", () => {
     expect(resolveNewPluginTarget(name)).toBeNull();
   });
 
-  it.each(RESERVED_BB_CLI_COMMANDS)("rejects reserved id %s", (id) => {
+  it.each(RESERVED_HYPERFIDE_CLI_COMMANDS)("rejects reserved id %s", (id) => {
     expect(resolveNewPluginTarget(id)).toBeNull();
     expect(resolveNewPluginTarget(`bb-plugin-${id}`)).toBeNull();
     expect(resolveNewPluginTarget(`@acme/bb-plugin-${id}`)).toBeNull();
   });
 });
 
-describe.sequential("bb plugin new dependency install", () => {
+describe.sequential("hyperfide-platform plugin new dependency install", () => {
   const originalCwd = process.cwd();
   let workDir: string;
   let logged: string[];
@@ -100,7 +100,7 @@ describe.sequential("bb plugin new dependency install", () => {
       join(workDir, "package.json"),
       JSON.stringify({ name: "host", private: true, workspaces: ["*"] }),
     );
-    vi.stubEnv("BB_TEST_NPM_HOIST_TO", workDir);
+    vi.stubEnv("HYPERFIDE_TEST_NPM_HOIST_TO", workDir);
 
     await runPluginNew(["hoisted"]);
 
@@ -110,7 +110,7 @@ describe.sequential("bb plugin new dependency install", () => {
   });
 
   it("does not report success when npm exits 0 without installing the tree", async () => {
-    vi.stubEnv("BB_TEST_NPM_ALWAYS_OMIT_DEV", "1");
+    vi.stubEnv("HYPERFIDE_TEST_NPM_ALWAYS_OMIT_DEV", "1");
 
     await runPluginNew(["silent-omit"]);
 
@@ -140,7 +140,7 @@ describe.sequential("bb plugin new dependency install", () => {
   });
 
   it("warns, without failing, when this bb's SDK version is not on npm yet", async () => {
-    vi.stubEnv("BB_TEST_NPM_VIEW", "missing");
+    vi.stubEnv("HYPERFIDE_TEST_NPM_VIEW", "missing");
 
     await runPluginNew(["unpublished"]);
 
@@ -155,7 +155,7 @@ describe.sequential("bb plugin new dependency install", () => {
   });
 
   it("treats a 404 for the package itself as a positive miss", async () => {
-    vi.stubEnv("BB_TEST_NPM_VIEW", "e404");
+    vi.stubEnv("HYPERFIDE_TEST_NPM_VIEW", "e404");
 
     await runPluginNew(["missing-package"]);
 
@@ -165,7 +165,7 @@ describe.sequential("bb plugin new dependency install", () => {
   });
 
   it("warns rather than failing when the registry cannot be reached", async () => {
-    vi.stubEnv("BB_TEST_NPM_VIEW", "error");
+    vi.stubEnv("HYPERFIDE_TEST_NPM_VIEW", "error");
 
     await runPluginNew(["offline"]);
 
@@ -175,7 +175,7 @@ describe.sequential("bb plugin new dependency install", () => {
   });
 
   it("passes npm's own reason through when the install fails", async () => {
-    vi.stubEnv("BB_TEST_NPM_INSTALL", "fail");
+    vi.stubEnv("HYPERFIDE_TEST_NPM_INSTALL", "fail");
 
     await runPluginNew(["npm-broken"]);
 
@@ -186,7 +186,7 @@ describe.sequential("bb plugin new dependency install", () => {
   });
 
   it("keeps stderr details when a failed install also writes stdout", async () => {
-    vi.stubEnv("BB_TEST_NPM_INSTALL", "fail-noisy-stdout");
+    vi.stubEnv("HYPERFIDE_TEST_NPM_INSTALL", "fail-noisy-stdout");
 
     await runPluginNew(["npm-noisy"]);
 

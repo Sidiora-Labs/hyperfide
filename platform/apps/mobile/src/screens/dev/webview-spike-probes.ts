@@ -509,7 +509,7 @@ export const VIEWPORT_WATCH_PROBE = String.raw`
   var sample = function (reason) {
     var composer = document.querySelector("textarea, [contenteditable='true']");
     var composerRect = composer ? composer.getBoundingClientRect() : null;
-    var shell = document.querySelector(".bb-app-shell > div, #root > div");
+    var shell = document.querySelector(".hyperfide-app-shell > div, #root > div");
     post({
       kind: "viewport",
       reason: reason,

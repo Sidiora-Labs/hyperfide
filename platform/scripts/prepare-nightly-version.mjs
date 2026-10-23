@@ -51,7 +51,8 @@ export async function prepareNightlyVersion(options) {
 }
 
 async function main() {
-  const repoRoot = process.env.BB_NIGHTLY_VERSION_REPO_ROOT ?? defaultRepoRoot;
+  const repoRoot =
+    process.env.HYPERFIDE_NIGHTLY_VERSION_REPO_ROOT ?? defaultRepoRoot;
   const runId = process.env.GITHUB_RUN_ID ?? "";
   const runAttempt = process.env.GITHUB_RUN_ATTEMPT ?? "";
   const nightlyVersion = await prepareNightlyVersion({

@@ -11,7 +11,7 @@ import {
 } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";
 
-const HOST_DATA_DIR = "/home/agent/.bb";
+const HOST_DATA_DIR = "/home/agent/.hyperfide";
 
 describe("suppliedWorkspacePathRefusal", () => {
   it("still refuses a foreign managed workspace when the host data dir is unknown", async () => {

@@ -111,12 +111,12 @@ ready_row() {
 
 run_lifecycle() {
   case "$host_id" in *[!A-Za-z0-9_-]*|'') fail_step "Invalid machine host ID."; exit 2 ;; esac
-  lifecycle_data_dir=${requested_data_dir:-${BB_DATA_DIR:-}}
+  lifecycle_data_dir=${requested_data_dir:-${HYPERFIDE_DATA_DIR:-}}
   installation=$(node -e '
     const fs = require("node:fs");
     const path = require("node:path");
     const [home, requested, hostId, expectedServer] = process.argv.slice(1);
-    const root = path.join(home, ".bb-machines");
+    const root = path.join(home, ".hyperfide-machines");
     let candidates;
     if (requested) candidates = [path.resolve(requested)];
     else {
@@ -176,11 +176,11 @@ run_lifecycle() {
     system_service_file="$data_dir/systemd/$service_name"
   fi
   if [ ! -e "$service_file" ] && { [ -z "$system_service_file" ] || [ ! -e "$system_service_file" ]; }; then
-    discovered_service_file=$(BB_LIFECYCLE_DATA_DIR="$data_dir" node -e '
+    discovered_service_file=$(HYPERFIDE_LIFECYCLE_DATA_DIR="$data_dir" node -e '
       const fs = require("node:fs");
       const path = require("node:path");
       const [platform, home] = process.argv.slice(1);
-      const dataDir = process.env.BB_LIFECYCLE_DATA_DIR;
+      const dataDir = process.env.HYPERFIDE_LIFECYCLE_DATA_DIR;
       const escaped = dataDir.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;").replaceAll("'"'"'", "&apos;");
       const systemd = dataDir.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"").replaceAll("%", "%%");
       const directories = platform === "darwin"
@@ -196,7 +196,7 @@ run_lifecycle() {
           const candidate = path.join(directory, name);
           if (!fs.statSync(candidate, { throwIfNoEntry: false })?.isFile()) continue;
           const service = fs.readFileSync(candidate, "utf8");
-          if (service.includes(`<key>BB_DATA_DIR</key><string>${escaped}</string>`) || service.includes(`Environment="BB_DATA_DIR=${systemd}"`)) matches.push(candidate);
+          if (service.includes(`<key>HYPERFIDE_DATA_DIR</key><string>${escaped}</string>`) || service.includes(`Environment="HYPERFIDE_DATA_DIR=${systemd}"`)) matches.push(candidate);
         }
       }
       if (matches.length > 1) {
@@ -225,13 +225,13 @@ run_lifecycle() {
   fi
   if [ -e "$service_file" ]; then
     [ ! -L "$service_file" ] || { fail_step "Machine service belongs to another installation."; exit 1; }
-    BB_LIFECYCLE_DATA_DIR="$data_dir" node -e '
+    HYPERFIDE_LIFECYCLE_DATA_DIR="$data_dir" node -e '
       const fs = require("node:fs");
       const service = fs.readFileSync(process.argv[1], "utf8");
-      const dataDir = process.env.BB_LIFECYCLE_DATA_DIR;
+      const dataDir = process.env.HYPERFIDE_LIFECYCLE_DATA_DIR;
       const escaped = dataDir.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;").replaceAll("'"'"'", "&apos;");
       const systemd = dataDir.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"").replaceAll("%", "%%");
-      if (!service.includes(`<key>BB_DATA_DIR</key><string>${escaped}</string>`) && !service.includes(`Environment="BB_DATA_DIR=${systemd}"`)) {
+      if (!service.includes(`<key>HYPERFIDE_DATA_DIR</key><string>${escaped}</string>`) && !service.includes(`Environment="HYPERFIDE_DATA_DIR=${systemd}"`)) {
         process.stderr.write(`Machine service does not reference ${dataDir}.\n`);
         process.exit(1);
       }
@@ -271,7 +271,7 @@ run_lifecycle() {
         systemctl "$systemd_scope" start "$service_name"
       fi
     elif ! owned_pid; then
-      BB_APP_NPM_PREFIX="$data_dir/npm" BB_DATA_DIR="$data_dir" nohup "$data_dir/npm/bin/bb-app" host-daemon --auto-update --supervise --host-daemon-port "$host_daemon_port" --server-url "$server_url" >"$data_dir/install-daemon.log" 2>&1 &
+      HYPERFIDE_APP_NPM_PREFIX="$data_dir/npm" HYPERFIDE_DATA_DIR="$data_dir" nohup "$data_dir/npm/bin/bb-app" host-daemon --auto-update --supervise --host-daemon-port "$host_daemon_port" --server-url "$server_url" >"$data_dir/install-daemon.log" 2>&1 &
       daemon_pid=$!
       (umask 077 && printf '%s\n' "$daemon_pid" >"$pid_file")
     fi
@@ -429,7 +429,7 @@ systemd_scope=--user
 if [ "$systemd_host" = yes ] && [ "$(id -u)" = 0 ]; then
   systemd_scope=--system
 fi
-if [ "${BB_INSTALL_SKIP_SERVICE:-0}" != 1 ] && [ "$platform" = linux ] &&
+if [ "${HYPERFIDE_INSTALL_SKIP_SERVICE:-0}" != 1 ] && [ "$platform" = linux ] &&
    [ "$systemd_scope" = --user ] && ! systemctl --user show-environment >/dev/null 2>&1; then
   user_runtime_dir=$(loginctl show-user "$(id -u)" --property=RuntimePath --value 2>/dev/null || true)
   case "$user_runtime_dir" in
@@ -442,10 +442,10 @@ if [ "${BB_INSTALL_SKIP_SERVICE:-0}" != 1 ] && [ "$platform" = linux ] &&
   if ! systemctl --user show-environment >/dev/null 2>&1; then
     if [ "$systemd_host" = yes ]; then
       fail_step "The systemd user bus is unavailable; the bb host-daemon service was not installed."
-      detail "Run the installer from a systemd user session, then retry. To run without a persistent service, set BB_INSTALL_SKIP_SERVICE=1; the daemon will not start after a reboot." >&2
+      detail "Run the installer from a systemd user session, then retry. To run without a persistent service, set HYPERFIDE_INSTALL_SKIP_SERVICE=1; the daemon will not start after a reboot." >&2
       exit 1
     fi
-    BB_INSTALL_SKIP_SERVICE=1
+    HYPERFIDE_INSTALL_SKIP_SERVICE=1
   fi
 fi
 
@@ -481,9 +481,9 @@ if [ "$adopt" = yes ]; then
     fail_step "$adopted_identity"
     exit 1
   fi
-  host_id=$(BB_ADOPTED_IDENTITY="$adopted_identity" node -e 'process.stdout.write(JSON.parse(process.env.BB_ADOPTED_IDENTITY).hostId)')
-  server_url=$(BB_ADOPTED_IDENTITY="$adopted_identity" node -e 'process.stdout.write(JSON.parse(process.env.BB_ADOPTED_IDENTITY).serverUrl)')
-  adopted_data_dir=$(BB_ADOPTED_IDENTITY="$adopted_identity" node -e 'process.stdout.write(JSON.parse(process.env.BB_ADOPTED_IDENTITY).dataDir)')
+  host_id=$(HYPERFIDE_ADOPTED_IDENTITY="$adopted_identity" node -e 'process.stdout.write(JSON.parse(process.env.HYPERFIDE_ADOPTED_IDENTITY).hostId)')
+  server_url=$(HYPERFIDE_ADOPTED_IDENTITY="$adopted_identity" node -e 'process.stdout.write(JSON.parse(process.env.HYPERFIDE_ADOPTED_IDENTITY).serverUrl)')
+  adopted_data_dir=$(HYPERFIDE_ADOPTED_IDENTITY="$adopted_identity" node -e 'process.stdout.write(JSON.parse(process.env.HYPERFIDE_ADOPTED_IDENTITY).dataDir)')
   active_step "Setting up this machine as $host_id for $server_url"
 fi
 
@@ -506,11 +506,11 @@ service_slug=$(printf '%s-%s' "$server_host" "$host_slug" | tr '.' '-')
 legacy_service_slug=$(printf '%s' "$server_host" | tr '.' '-')
 
 # Each server gets its own data dir and daemon instance, so one machine can
-# serve several bb servers and a full local bb install keeps ~/.bb to itself.
+# serve several bb servers and a full local bb install keeps ~/.hyperfide to itself.
 if [ "$adopt" = yes ]; then
   data_dir=$adopted_data_dir
 else
-  data_dir=${BB_DATA_DIR:-${recorded_data_dir:-"$HOME/.bb-machines/$server_host"}}
+  data_dir=${HYPERFIDE_DATA_DIR:-${recorded_data_dir:-"$HOME/.hyperfide-machines/$server_host"}}
   installed_host_id=$(node -e '
     const fs = require("node:fs");
     const path = require("node:path");
@@ -530,7 +530,7 @@ else
     if [ "$reconnect" = yes ]; then
       detail "Run this command on the computer where machine $host_id runs." >&2
     else
-      detail "To add another machine on this computer, rerun the command with BB_DATA_DIR set to a new directory." >&2
+      detail "To add another machine on this computer, rerun the command with HYPERFIDE_DATA_DIR set to a new directory." >&2
     fi
     exit 1
   fi
@@ -542,25 +542,25 @@ else
 fi
 mkdir -p "$HOME/.local/bin"
 if [ ! -e "$HOME/.local/bin/bb" ] && [ ! -L "$HOME/.local/bin/bb" ]; then
-  shim_file=$(mktemp "$HOME/.local/bin/.bb-machine.XXXXXX")
+  shim_file=$(mktemp "$HOME/.local/bin/.hyperfide-machine.XXXXXX")
   node_path_quoted=$(printf '%s' "${node_bin%/*}" | sed "s/'/'\\''/g")
   printf '#!/bin/sh\nPATH=\047%s\047:"$PATH"\nexport PATH\n' "$node_path_quoted" > "$shim_file"
   cli_path_quoted=$(printf '%s' "$data_dir/npm/bin/bb" | sed "s/'/'\\''/g")
-  cat >> "$shim_file" <<'BB_MACHINE_EXPLICIT_DATA'
-if [ -n "${BB_DATA_DIR:-}" ] && [ -x "$BB_DATA_DIR/npm/bin/bb" ]; then
-  exec "$BB_DATA_DIR/npm/bin/bb" "$@"
+  cat >> "$shim_file" <<'HYPERFIDE_MACHINE_EXPLICIT_DATA'
+if [ -n "${HYPERFIDE_DATA_DIR:-}" ] && [ -x "$HYPERFIDE_DATA_DIR/npm/bin/bb" ]; then
+  exec "$HYPERFIDE_DATA_DIR/npm/bin/bb" "$@"
 fi
-BB_MACHINE_EXPLICIT_DATA
+HYPERFIDE_MACHINE_EXPLICIT_DATA
   printf 'if [ -x \047%s\047 ]; then exec \047%s\047 "$@"; fi\n' "$cli_path_quoted" "$cli_path_quoted" >> "$shim_file"
-  cat >> "$shim_file" <<'BB_MACHINE_CLI'
-unset BB_DATA_DIR
-for candidate in "$HOME"/.bb-machines/*/npm/bin/bb; do
+  cat >> "$shim_file" <<'HYPERFIDE_MACHINE_CLI'
+unset HYPERFIDE_DATA_DIR
+for candidate in "$HOME"/.hyperfide-machines/*/npm/bin/bb; do
   if [ -x "$candidate" ]; then exec "$candidate" "$@"; fi
 done
 if [ "${1:-}" = machine ] && [ "${2:-}" = uninstall ]; then exit 0; fi
 printf '%s\n' 'No installed bb machine CLI is available.' >&2
 exit 1
-BB_MACHINE_CLI
+HYPERFIDE_MACHINE_CLI
   chmod 755 "$shim_file"
   if ! ln "$shim_file" "$HOME/.local/bin/bb" 2>/dev/null; then
     if [ ! -e "$HOME/.local/bin/bb" ] && [ ! -L "$HOME/.local/bin/bb" ]; then
@@ -712,9 +712,9 @@ access_config="$package_dir/access.curl"
 : > "$access_config"
 chmod 600 "$access_config"
 if [ -n "$bootstrap_env" ]; then
-  BB_ENROLLMENT="$bootstrap_payload" node -e 'for (const [name,value] of Object.entries(JSON.parse(process.env.BB_ENROLLMENT).headers ?? {})) console.log("header = " + JSON.stringify(name + ": " + value))' > "$access_config"
+  HYPERFIDE_ENROLLMENT="$bootstrap_payload" node -e 'for (const [name,value] of Object.entries(JSON.parse(process.env.HYPERFIDE_ENROLLMENT).headers ?? {})) console.log("header = " + JSON.stringify(name + ": " + value))' > "$access_config"
 elif [ "$adopt" = yes ]; then
-  BB_ADOPTED_IDENTITY="$adopted_identity" node -e 'for (const [name,value] of Object.entries(JSON.parse(process.env.BB_ADOPTED_IDENTITY).headers)) console.log("header = " + JSON.stringify(name + ": " + value))' > "$access_config"
+  HYPERFIDE_ADOPTED_IDENTITY="$adopted_identity" node -e 'for (const [name,value] of Object.entries(JSON.parse(process.env.HYPERFIDE_ADOPTED_IDENTITY).headers)) console.log("header = " + JSON.stringify(name + ": " + value))' > "$access_config"
 fi
 package_headers="$package_dir/headers"
 host_artifact_digest_file="$data_dir/host-artifact.sha256"
@@ -874,7 +874,7 @@ if [ "$adopt" = no ]; then
     fail_step "The installed build does not provide the machine enrollment CLI."
     exit 1
   fi
-  BB_ENROLLMENT="$bootstrap_payload" BB_DATA_DIR="$data_dir" "$bb_cli" machine enroll --bootstrap-env BB_ENROLLMENT
+  HYPERFIDE_ENROLLMENT="$bootstrap_payload" HYPERFIDE_DATA_DIR="$data_dir" "$bb_cli" machine enroll --bootstrap-env HYPERFIDE_ENROLLMENT
   bootstrap_payload=
 fi
 
@@ -912,7 +912,7 @@ if [ "$already_joined" = no ]; then
   active_step "Joining $server_url as $host_id"
   detail "Join progress is logged to $join_log"
   # The daemon passes this prefix back to npm during protocol self-updates.
-  BB_APP_NPM_PREFIX="$bb_app_npm_prefix" BB_DATA_DIR="$data_dir" nohup "$bb_app" host-daemon join \
+  HYPERFIDE_APP_NPM_PREFIX="$bb_app_npm_prefix" HYPERFIDE_DATA_DIR="$data_dir" nohup "$bb_app" host-daemon join \
     --auto-update \
     --host-daemon-port "$host_daemon_port" \
     --host-id "$host_id" \
@@ -980,7 +980,7 @@ stop_recorded_daemon() {
   complete_step "Stopped the host daemon"
 }
 
-if [ "${BB_INSTALL_SKIP_SERVICE:-0}" = 1 ]; then
+if [ "${HYPERFIDE_INSTALL_SKIP_SERVICE:-0}" = 1 ]; then
   if [ "$reconnect" = yes ] && [ -z "$join_pid" ] && daemon_status_matches "$host_daemon_port" no; then
     stop_recorded_daemon
   fi
@@ -988,7 +988,7 @@ if [ "${BB_INSTALL_SKIP_SERVICE:-0}" = 1 ]; then
     daemon_log="$data_dir/install-daemon.log"
     active_step "Starting the host daemon"
     detail "Host daemon output is logged to $daemon_log"
-    BB_APP_NPM_PREFIX="$bb_app_npm_prefix" BB_DATA_DIR="$data_dir" nohup "$bb_app" host-daemon \
+    HYPERFIDE_APP_NPM_PREFIX="$bb_app_npm_prefix" HYPERFIDE_DATA_DIR="$data_dir" nohup "$bb_app" host-daemon \
       --auto-update \
       --supervise \
       --host-daemon-port "$host_daemon_port" \
@@ -1046,7 +1046,7 @@ if [ "$platform" = darwin ]; then
   for existing_service_file in "$service_dir"/app.getbb.host-daemon.*.plist; do
     [ -e "$existing_service_file" ] || continue
     [ "$existing_service_file" != "$service_file" ] || continue
-    if grep -F -- "<key>BB_DATA_DIR</key><string>$escaped_data_dir</string>" "$existing_service_file" >/dev/null 2>&1; then
+    if grep -F -- "<key>HYPERFIDE_DATA_DIR</key><string>$escaped_data_dir</string>" "$existing_service_file" >/dev/null 2>&1; then
       if [ -L "$existing_service_file" ]; then
         fail_step "Refusing to replace a symlinked bb launch agent: $existing_service_file"
         exit 1
@@ -1089,8 +1089,8 @@ if [ "$platform" = darwin ]; then
   </array>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>BB_APP_NPM_PREFIX</key><string>$escaped_bb_app_npm_prefix</string>
-    <key>BB_DATA_DIR</key><string>$escaped_data_dir</string>
+    <key>HYPERFIDE_APP_NPM_PREFIX</key><string>$escaped_bb_app_npm_prefix</string>
+    <key>HYPERFIDE_DATA_DIR</key><string>$escaped_data_dir</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -1148,7 +1148,7 @@ else
   legacy_service_file="$service_dir/$legacy_service_name.service"
   if [ -f "$legacy_service_file" ] && \
      grep -F -- "--host-daemon-port \"$host_daemon_port\"" "$legacy_service_file" >/dev/null 2>&1 && \
-     grep -F -- "Environment=\"BB_DATA_DIR=$escaped_data_dir\"" "$legacy_service_file" >/dev/null 2>&1; then
+     grep -F -- "Environment=\"HYPERFIDE_DATA_DIR=$escaped_data_dir\"" "$legacy_service_file" >/dev/null 2>&1; then
     systemctl "$systemd_scope" disable --now "$legacy_service_name.service" >/dev/null 2>&1 || true
     rm -f "$legacy_service_file"
   fi
@@ -1160,8 +1160,8 @@ Wants=network-online.target
 
 [Service]
 ExecStart="$escaped_node_bin" "$escaped_bb_app" host-daemon --auto-update --host-daemon-port "$host_daemon_port" --server-url "$escaped_server"
-Environment="BB_APP_NPM_PREFIX=$escaped_bb_app_npm_prefix"
-Environment="BB_DATA_DIR=$escaped_data_dir"
+Environment="HYPERFIDE_APP_NPM_PREFIX=$escaped_bb_app_npm_prefix"
+Environment="HYPERFIDE_DATA_DIR=$escaped_data_dir"
 Restart=always
 RestartSec=2
 

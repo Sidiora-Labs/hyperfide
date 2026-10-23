@@ -154,7 +154,7 @@ async function writeResolvedHostFile(
     if (command.expectedSha256 === undefined) {
       await fs.writeFile(target.writePath, contents, writeOptions);
     } else {
-      temporaryPath = `${target.writePath}.bb-write-${randomUUID()}`;
+      temporaryPath = `${target.writePath}.hyperfide-write-${randomUUID()}`;
       const handle = await fs.open(temporaryPath, "wx", writeOptions.mode);
       try {
         await handle.writeFile(contents);

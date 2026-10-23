@@ -42,7 +42,7 @@ interface RollbackMigratedEntriesArgs {
   targetDataDir: string;
 }
 
-const LEGACY_DEV_DATA_DIR_NAME = ".bb-dev";
+const LEGACY_DEV_DATA_DIR_NAME = ".hyperfide-dev";
 const LEGACY_DEV_SUPERVISOR_DIR_NAME = "dev-supervisors";
 const LEGACY_DEV_SUPERVISOR_PID_FILE_NAMES = [
   "host-daemon.pid",

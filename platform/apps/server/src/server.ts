@@ -812,7 +812,7 @@ export function createApp(
       requestQueuedMessageDispatch(deps, { kind: "plugin-recheck" });
     },
     watchBuiltinPluginSources:
-      process.env.BB_MANAGED_DEV_BUILTIN_PLUGIN_HOT_RELOAD === "1",
+      process.env.HYPERFIDE_MANAGED_DEV_BUILTIN_PLUGIN_HOT_RELOAD === "1",
   });
   // Messages queued while a thread awaited user interaction stop waiting once
   // that interaction settles (#1650); the idle drain then delivers them.

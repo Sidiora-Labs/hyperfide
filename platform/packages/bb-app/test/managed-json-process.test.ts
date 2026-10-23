@@ -75,11 +75,11 @@ function start(
       env: {
         PATH: process.env.PATH,
         HOME: dir,
-        BB_DATA_DIR: dir,
-        BB_SERVER_URL: "http://127.0.0.1:1",
-        BB_TEST_TARGET: target,
-        BB_TEST_PAUSE: controls.pause,
-        BB_TEST_FAIL: controls.fail,
+        HYPERFIDE_DATA_DIR: dir,
+        HYPERFIDE_SERVER_URL: "http://127.0.0.1:1",
+        HYPERFIDE_TEST_TARGET: target,
+        HYPERFIDE_TEST_PAUSE: controls.pause,
+        HYPERFIDE_TEST_FAIL: controls.fail,
         ...controls.env,
       },
       stdio: ["ignore", "pipe", "pipe", "ipc"],
@@ -181,8 +181,8 @@ const cases = [
   },
   {
     kind: "config",
-    a: "BB_LOG_LEVEL",
-    b: "BB_APP_URL",
+    a: "HYPERFIDE_LOG_LEVEL",
+    b: "HYPERFIDE_APP_URL",
     va: "debug",
     vb: "https://example.test",
   },
@@ -398,17 +398,27 @@ describe("managed JSON CLI process transactions", options, () => {
 
   it("rejects invalid input and malformed documents without rewriting them", async () => {
     const dir = directory();
-    const path = seed(dir, "config", { config: { BB_LOG_LEVEL: "info" } });
+    const path = seed(dir, "config", {
+      config: { HYPERFIDE_LOG_LEVEL: "info" },
+    });
     for (const value of ["", "invalid-level"]) {
-      const result = await start(dir, ["config", "set", "BB_LOG_LEVEL", value])
-        .done;
+      const result = await start(dir, [
+        "config",
+        "set",
+        "HYPERFIDE_LOG_LEVEL",
+        value,
+      ]).done;
       expect(result.code).toBe(1);
-      expect(read(path)).toEqual({ config: { BB_LOG_LEVEL: "info" } });
+      expect(read(path)).toEqual({ config: { HYPERFIDE_LOG_LEVEL: "info" } });
       expect(existsSync(join(dir, ".config.json.lock"))).toBe(false);
     }
     for (const value of ["{broken", '{"unknown":"synthetic"}']) {
       writeFileSync(path, value);
-      const result = await start(dir, ["config", "unset", "BB_LOG_LEVEL"]).done;
+      const result = await start(dir, [
+        "config",
+        "unset",
+        "HYPERFIDE_LOG_LEVEL",
+      ]).done;
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("Invalid bb-app config");
       expect(readFileSync(path, "utf8")).toBe(value);
@@ -476,18 +486,18 @@ describe("managed JSON CLI process transactions", options, () => {
   it("serializes machine enrollment with launcher config changes", async () => {
     const dir = directory();
     const path = seed(dir, "config", {
-      config: { BB_LOG_LEVEL: "debug" },
+      config: { HYPERFIDE_LOG_LEVEL: "debug" },
     });
     const launcher = start(
       dir,
-      ["config", "set", "BB_APP_URL", "https://app.example.test"],
+      ["config", "set", "HYPERFIDE_APP_URL", "https://app.example.test"],
       { pause: "read" },
     );
     await launcher.event("paused");
     const enrollment = start(dir, [], {
       entry: enrollmentEntry,
       env: {
-        BB_ENROLLMENT: JSON.stringify({
+        HYPERFIDE_ENROLLMENT: JSON.stringify({
           credential: "synthetic-bootstrap",
           expiresAt: Date.now() + 60_000,
           hostId: "host_synthetic",
@@ -501,8 +511,8 @@ describe("managed JSON CLI process transactions", options, () => {
     await Promise.all([success(launcher), success(enrollment)]);
     expect(read(path)).toEqual({
       config: {
-        BB_APP_URL: "https://app.example.test",
-        BB_LOG_LEVEL: "debug",
+        HYPERFIDE_APP_URL: "https://app.example.test",
+        HYPERFIDE_LOG_LEVEL: "debug",
       },
       serverUrl: "https://server.example.test",
     });

@@ -15,7 +15,7 @@ const GIT_PLUGIN = makePluginListItem({
   id: "prompt-shaper",
   source:
     "git:https://github.com/brsbl/bb-plugins.git@1c6bb2e8ad3551466981e7eb027cc4b1f3428cac",
-  rootDir: "/home/user/.bb/plugins/prompt-shaper",
+  rootDir: "/home/user/.hyperfide/plugins/prompt-shaper",
   description: "Enhance a rough composer draft before sending it.",
   name: "Prompt Improver",
   icon: "AiContentGenerator01",

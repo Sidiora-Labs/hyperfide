@@ -2,11 +2,11 @@ import { WebContentsView, ipcMain, type IpcMainEvent } from "electron";
 
 import type { z } from "zod";
 import {
-  BB_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL,
-  BB_DESKTOP_FIND_BAR_CLOSE_CHANNEL,
-  BB_DESKTOP_FIND_BAR_QUERY_CHANNEL,
-  BB_DESKTOP_FIND_BAR_RESULT_CHANNEL,
-  BB_DESKTOP_FIND_BAR_STEP_CHANNEL,
+  HYPERFIDE_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL,
+  HYPERFIDE_DESKTOP_FIND_BAR_CLOSE_CHANNEL,
+  HYPERFIDE_DESKTOP_FIND_BAR_QUERY_CHANNEL,
+  HYPERFIDE_DESKTOP_FIND_BAR_RESULT_CHANNEL,
+  HYPERFIDE_DESKTOP_FIND_BAR_STEP_CHANNEL,
   findBarQueryRequestSchema,
   findBarStepRequestSchema,
   type FindBarResult,
@@ -131,7 +131,7 @@ export function createDesktopFindViewManager({
       ) {
         return;
       }
-      entry.view.webContents.send(BB_DESKTOP_FIND_BAR_RESULT_CHANNEL, {
+      entry.view.webContents.send(HYPERFIDE_DESKTOP_FIND_BAR_RESULT_CHANNEL, {
         activeMatchOrdinal: Math.max(0, result.activeMatchOrdinal),
         matches: Math.max(0, result.matches),
       } satisfies FindBarResult);
@@ -220,7 +220,7 @@ export function createDesktopFindViewManager({
   }
 
   registerViewCommand(
-    BB_DESKTOP_FIND_BAR_QUERY_CHANNEL,
+    HYPERFIDE_DESKTOP_FIND_BAR_QUERY_CHANNEL,
     findBarQueryRequestSchema,
     ({ entry, request }) => {
       entry.query = request.text;
@@ -236,7 +236,7 @@ export function createDesktopFindViewManager({
   );
 
   registerViewCommand(
-    BB_DESKTOP_FIND_BAR_STEP_CHANNEL,
+    HYPERFIDE_DESKTOP_FIND_BAR_STEP_CHANNEL,
     findBarStepRequestSchema,
     ({ entry, request }) => {
       if (entry.query.length === 0) {
@@ -249,7 +249,7 @@ export function createDesktopFindViewManager({
     },
   );
 
-  ipcMain.on(BB_DESKTOP_FIND_BAR_CLOSE_CHANNEL, (event) => {
+  ipcMain.on(HYPERFIDE_DESKTOP_FIND_BAR_CLOSE_CHANNEL, (event) => {
     const entry = entryForEvent(event);
     if (entry === null) {
       return;
@@ -267,7 +267,7 @@ export function createDesktopFindViewManager({
       entry.visible = true;
       entry.view.setVisible(true);
       entry.view.webContents.focus();
-      entry.view.webContents.send(BB_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL);
+      entry.view.webContents.send(HYPERFIDE_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL);
     },
     close(hostWindow) {
       const entry = entriesByHostId.get(hostWindow.webContents.id);

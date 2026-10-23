@@ -1,4 +1,4 @@
-import { BB_DESKTOP_MAX_FIND_TEXT_LENGTH } from "@bb/desktop-contract";
+import { HYPERFIDE_DESKTOP_MAX_FIND_TEXT_LENGTH } from "@bb/desktop-contract";
 
 export const FIND_BAR_VIEW_WIDTH = 344;
 export const FIND_BAR_VIEW_HEIGHT = 48;
@@ -132,7 +132,7 @@ function renderFindBarView(): string {
         aria-label="Find in window"
         autocomplete="off"
         spellcheck="false"
-        maxlength="${BB_DESKTOP_MAX_FIND_TEXT_LENGTH}"
+        maxlength="${HYPERFIDE_DESKTOP_MAX_FIND_TEXT_LENGTH}"
       />
       <span id="bb-find-count" class="count" role="status" aria-live="polite"></span>
     </div>

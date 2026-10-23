@@ -101,8 +101,11 @@ export function applyBbAppManagedConfig(
 
   setOptionalAppUrl(
     args.targetConfig,
-    managedConfig.BB_APP_URL !== undefined
-      ? validateOptionalUrl("BB_APP_URL", managedConfig.BB_APP_URL)
+    managedConfig.HYPERFIDE_APP_URL !== undefined
+      ? validateOptionalUrl(
+          "HYPERFIDE_APP_URL",
+          managedConfig.HYPERFIDE_APP_URL,
+        )
       : args.baseConfig.appUrl,
   );
 }

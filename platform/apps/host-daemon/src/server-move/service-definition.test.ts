@@ -42,9 +42,9 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart="/opt/node 22/bin/node" "/home/me/.bb-machines/npm/bin/bb-app" host-daemon --auto-update --host-daemon-port "38887" --server-url "${args.serverUrl}"
-Environment="BB_APP_NPM_PREFIX=/home/me/.bb-machines/npm"
-Environment="BB_DATA_DIR=${args.dataDir.replaceAll("\\", "\\\\")}"
+ExecStart="/opt/node 22/bin/node" "/home/me/.hyperfide-machines/npm/bin/bb-app" host-daemon --auto-update --host-daemon-port "38887" --server-url "${args.serverUrl}"
+Environment="HYPERFIDE_APP_NPM_PREFIX=/home/me/.hyperfide-machines/npm"
+Environment="HYPERFIDE_DATA_DIR=${args.dataDir.replaceAll("\\", "\\\\")}"
 Restart=always
 RestartSec=2
 
@@ -62,7 +62,7 @@ function launchdPlist(args: { dataDir: string; serverUrl: string }): string {
   <key>ProgramArguments</key>
   <array>
     <string>/usr/local/bin/node</string>
-    <string>/Users/me/.bb-machines/npm/bin/bb-app</string>
+    <string>/Users/me/.hyperfide-machines/npm/bin/bb-app</string>
     <string>host-daemon</string>
     <string>--auto-update</string>
     <string>--host-daemon-port</string>
@@ -72,8 +72,8 @@ function launchdPlist(args: { dataDir: string; serverUrl: string }): string {
   </array>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>BB_APP_NPM_PREFIX</key><string>/Users/me/.bb-machines/npm</string>
-    <key>BB_DATA_DIR</key><string>${args.dataDir}</string>
+    <key>HYPERFIDE_APP_NPM_PREFIX</key><string>/Users/me/.hyperfide-machines/npm</string>
+    <key>HYPERFIDE_DATA_DIR</key><string>${args.dataDir}</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -85,10 +85,10 @@ function launchdPlist(args: { dataDir: string; serverUrl: string }): string {
 }
 
 describe("findServiceDefinition", () => {
-  it("finds the systemd user unit whose BB_DATA_DIR is this daemon's data dir", async () => {
+  it("finds the systemd user unit whose HYPERFIDE_DATA_DIR is this daemon's data dir", async () => {
     const homeDir = await createRoot();
-    const dataDir = join(homeDir, ".bb-machines", "old-server");
-    const otherDataDir = join(homeDir, ".bb-machines", "other-server");
+    const dataDir = join(homeDir, ".hyperfide-machines", "old-server");
+    const otherDataDir = join(homeDir, ".hyperfide-machines", "other-server");
     await mkdir(dataDir, { recursive: true });
     await mkdir(otherDataDir, { recursive: true });
     const unitDir = join(homeDir, ".config", "systemd", "user");
@@ -119,7 +119,7 @@ describe("findServiceDefinition", () => {
       unitName: "bb-host-daemon-old-server-me.service",
       programArguments: [
         "/opt/node 22/bin/node",
-        "/home/me/.bb-machines/npm/bin/bb-app",
+        "/home/me/.hyperfide-machines/npm/bin/bb-app",
         "host-daemon",
         "--auto-update",
         "--host-daemon-port",
@@ -128,8 +128,8 @@ describe("findServiceDefinition", () => {
         "http://old-server.local:38886",
       ],
       environment: {
-        BB_APP_NPM_PREFIX: "/home/me/.bb-machines/npm",
-        BB_DATA_DIR: dataDir,
+        HYPERFIDE_APP_NPM_PREFIX: "/home/me/.hyperfide-machines/npm",
+        HYPERFIDE_DATA_DIR: dataDir,
       },
     });
   });
@@ -178,14 +178,14 @@ describe("findServiceDefinition", () => {
     expect(definition).toMatchObject({
       manager: "launchd",
       unitName: "app.getbb.host-daemon.old-server-me",
-      environment: { BB_DATA_DIR: dataDir },
+      environment: { HYPERFIDE_DATA_DIR: dataDir },
     });
     expect(definition?.programArguments.at(-1)).toBe(
       "https://old.example.test/?a=1&b=2",
     );
   });
 
-  it("reports no definition when BB_SERVER_MOVE_SERVICE_MANAGER=none", async () => {
+  it("reports no definition when HYPERFIDE_SERVER_MOVE_SERVICE_MANAGER=none", async () => {
     const homeDir = await createRoot();
     const dataDir = join(homeDir, "data");
     const unitDir = join(homeDir, ".config", "systemd", "user");
@@ -201,7 +201,7 @@ describe("findServiceDefinition", () => {
         dataDir,
         homeDir,
         platform: "linux",
-        env: { BB_SERVER_MOVE_SERVICE_MANAGER: "none" },
+        env: { HYPERFIDE_SERVER_MOVE_SERVICE_MANAGER: "none" },
       }),
     ).resolves.toBeNull();
   });
@@ -243,10 +243,10 @@ describe("service definition rewrites", () => {
 
     const content = await readFile(unitPath, "utf8");
     expect(content).toContain(
-      'ExecStart="/opt/node 22/bin/node" "/home/me/.bb-machines/npm/bin/bb-app" "host-daemon" "--auto-update" "--host-daemon-port" "38887" "--server-url" "https://new.example.test"',
+      'ExecStart="/opt/node 22/bin/node" "/home/me/.hyperfide-machines/npm/bin/bb-app" "host-daemon" "--auto-update" "--host-daemon-port" "38887" "--server-url" "https://new.example.test"',
     );
     expect(content).toContain(
-      `Environment="BB_DATA_DIR=${dataDir.replace("%", "%%").replaceAll("\\", "\\\\")}"`,
+      `Environment="HYPERFIDE_DATA_DIR=${dataDir.replace("%", "%%").replaceAll("\\", "\\\\")}"`,
     );
     expect(content).toContain("Restart=always");
     expect(content).toContain("WantedBy=default.target");
@@ -255,7 +255,7 @@ describe("service definition rewrites", () => {
     }
     const reparsed = parseSystemdUnit(content, "bb-host-daemon-x.service");
     expect(reparsed?.programArguments.at(-1)).toBe("https://new.example.test");
-    expect(reparsed?.environment.BB_DATA_DIR).toBe(dataDir);
+    expect(reparsed?.environment.HYPERFIDE_DATA_DIR).toBe(dataDir);
   });
 
   it("swaps a launch agent to bb-app start with the same label and environment", async () => {
@@ -300,7 +300,7 @@ describe("service definition rewrites", () => {
       unitName: "app.getbb.host-daemon.old-server-me",
       programArguments: [
         "/usr/local/bin/node",
-        "/Users/me/.bb-machines/npm/bin/bb-app",
+        "/Users/me/.hyperfide-machines/npm/bin/bb-app",
         "start",
         "--data-dir",
         dataDir,
@@ -312,8 +312,8 @@ describe("service definition rewrites", () => {
         "0.0.0.0",
       ],
       environment: {
-        BB_APP_NPM_PREFIX: "/Users/me/.bb-machines/npm",
-        BB_DATA_DIR: dataDir,
+        HYPERFIDE_APP_NPM_PREFIX: "/Users/me/.hyperfide-machines/npm",
+        HYPERFIDE_DATA_DIR: dataDir,
       },
     });
     expect(isServerStartDefinition(updated)).toBe(true);
@@ -360,7 +360,7 @@ describe("service definition rewrites", () => {
     );
     expect(parseLaunchdPlist(content)?.programArguments).toEqual([
       "/usr/local/bin/node",
-      "/Users/me/.bb-machines/npm/bin/bb-app",
+      "/Users/me/.hyperfide-machines/npm/bin/bb-app",
       "host-daemon",
       "--auto-update",
       "--host-daemon-port",
@@ -369,7 +369,7 @@ describe("service definition rewrites", () => {
       "https://new.example.test/?a=1&b=2",
     ]);
     expect(content).toContain(
-      `<key>BB_DATA_DIR</key><string>${dataDir}</string>`,
+      `<key>HYPERFIDE_DATA_DIR</key><string>${dataDir}</string>`,
     );
   });
 

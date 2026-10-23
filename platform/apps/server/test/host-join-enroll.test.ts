@@ -59,7 +59,7 @@ async function requestHostEnrollKey(
 }
 
 describe("host enroll routes", () => {
-  it("creates local enroll-key material without BB_APP_URL", async () => {
+  it("creates local enroll-key material without HYPERFIDE_APP_URL", async () => {
     const harness = await createTestAppHarness({ appUrl: undefined });
     const app = createInternalHostRouteApp({
       deps: harness.deps,

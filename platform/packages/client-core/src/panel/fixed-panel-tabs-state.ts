@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
-  BB_DESKTOP_BROWSER_MAX_TITLE_LENGTH,
-  BB_DESKTOP_BROWSER_MAX_URL_LENGTH,
+  HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH,
+  HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH,
   bbDesktopBrowserTargetSchema,
   type BbDesktopBrowserTarget,
 } from "@bb/desktop-contract";
@@ -140,9 +140,9 @@ const browserFixedPanelTabSchema = z
     title: z
       .string()
       .min(1)
-      .max(BB_DESKTOP_BROWSER_MAX_TITLE_LENGTH)
+      .max(HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH)
       .nullable(),
-    url: z.string().max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    url: z.string().max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
   })
   .strict();
 const newTabFixedPanelTabSchema = z

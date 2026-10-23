@@ -75,7 +75,7 @@ describe("probeBbServer", () => {
       .mockResolvedValueOnce(Response.json({ ok: true }))
       .mockResolvedValueOnce(
         Response.json({
-          dataDir: "/Users/example/.bb",
+          dataDir: "/Users/example/.hyperfide",
           hostDaemonPort: 4_242,
           voiceTranscriptionEnabled: false,
         }),
@@ -88,7 +88,7 @@ describe("probeBbServer", () => {
         timeoutMs: 1_000,
       }),
     ).resolves.toEqual({
-      dataDir: "/Users/example/.bb",
+      dataDir: "/Users/example/.hyperfide",
       kind: "compatible",
       serverUrl: "https://studio.example",
     });

@@ -174,7 +174,7 @@ describe.skipIf(!available)("provider corpus row snapshots", () => {
 
         if (!fs.existsSync(filePath)) {
           throw new Error(
-            `No row snapshot for ${threadId} at ${filePath}; run the suite once with BB_PROVIDER_CORPUS_SNAPSHOT=write`,
+            `No row snapshot for ${threadId} at ${filePath}; run the suite once with HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT=write`,
           );
         }
         const expected = normalizeJson(

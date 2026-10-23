@@ -1245,9 +1245,9 @@ describe("plugin install flows", () => {
         await writePluginFixture(join(repoDir, "plugins", "beta"), {
           name: "bb-plugin-collection-beta",
         });
-        await mkdir(join(repoDir, ".bb"), { recursive: true });
+        await mkdir(join(repoDir, ".hyperfide"), { recursive: true });
         await writeFile(
-          join(repoDir, ".bb", "plugins.json"),
+          join(repoDir, ".hyperfide", "plugins.json"),
           JSON.stringify({
             schemaVersion: 1,
             name: "collection",
@@ -1315,9 +1315,9 @@ describe("plugin install flows", () => {
             name: "bb-plugin-collection-sibling",
           });
           await symlink("actual", join(repoDir, "plugins", "linked"));
-          await mkdir(join(repoDir, ".bb"), { recursive: true });
+          await mkdir(join(repoDir, ".hyperfide"), { recursive: true });
           await writeFile(
-            join(repoDir, ".bb", "plugins.json"),
+            join(repoDir, ".hyperfide", "plugins.json"),
             JSON.stringify({
               schemaVersion: 1,
               name: "collection",
@@ -1511,9 +1511,9 @@ describe("plugin install flows", () => {
         await writePluginFixture(outsideDir, { name: "bb-plugin-outside" });
         const repoDir = join(workDir, "repo-collection-symlink");
         await mkdir(join(repoDir, "plugins"), { recursive: true });
-        await mkdir(join(repoDir, ".bb"), { recursive: true });
+        await mkdir(join(repoDir, ".hyperfide"), { recursive: true });
         await writeFile(
-          join(repoDir, ".bb", "plugins.json"),
+          join(repoDir, ".hyperfide", "plugins.json"),
           JSON.stringify({
             schemaVersion: 1,
             name: "collection",
@@ -1533,9 +1533,9 @@ describe("plugin install flows", () => {
           name: "bb-plugin-collection-root-link",
         });
         await mkdir(join(repoDir, "plugins"), { recursive: true });
-        await mkdir(join(repoDir, ".bb"), { recursive: true });
+        await mkdir(join(repoDir, ".hyperfide"), { recursive: true });
         await writeFile(
-          join(repoDir, ".bb", "plugins.json"),
+          join(repoDir, ".hyperfide", "plugins.json"),
           JSON.stringify({
             schemaVersion: 1,
             name: "collection",

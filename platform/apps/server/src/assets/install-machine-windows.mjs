@@ -468,7 +468,11 @@ async function verifyNativeModules(root) {
 }
 
 function daemonEnvironment({ dataDir, npmPrefix }) {
-  return { ...process.env, BB_APP_NPM_PREFIX: npmPrefix, BB_DATA_DIR: dataDir };
+  return {
+    ...process.env,
+    HYPERFIDE_APP_NPM_PREFIX: npmPrefix,
+    HYPERFIDE_DATA_DIR: dataDir,
+  };
 }
 
 function spawnDaemon({ args, dataDir, logFile, npmPrefix, root }) {
@@ -683,7 +687,7 @@ function removeRetiredPackages(npmPrefix) {
     names = readdirSync(modulesDir);
   } catch {}
   for (const name of names) {
-    if (name.startsWith(".bb-app-")) {
+    if (name.startsWith(".hyperfide-app-")) {
       try {
         rmSync(join(modulesDir, name), { force: true, recursive: true });
       } catch {}
@@ -866,7 +870,7 @@ function findInstallation(hostId, requestedDataDir) {
     requestedDataDir !== null
       ? [requestedDataDir]
       : (() => {
-          const machinesDir = join(homedir(), ".bb-machines");
+          const machinesDir = join(homedir(), ".hyperfide-machines");
           try {
             return readdirSync(machinesDir).map((name) =>
               join(machinesDir, name),
@@ -931,14 +935,18 @@ async function runInstall(options) {
     );
   }
 
-  const configuredDataDir = process.env.BB_DATA_DIR?.trim();
+  const configuredDataDir = process.env.HYPERFIDE_DATA_DIR?.trim();
   const dataDir =
     configuredDataDir !== undefined && configuredDataDir.length > 0
       ? configuredDataDir
       : (bootstrap.dataDir ??
-        join(homedir(), ".bb-machines", serverHostSlug(bootstrap.serverUrl)));
+        join(
+          homedir(),
+          ".hyperfide-machines",
+          serverHostSlug(bootstrap.serverUrl),
+        ));
   if (!isAbsolute(dataDir)) {
-    throw new InstallError("BB_DATA_DIR must be an absolute path.");
+    throw new InstallError("HYPERFIDE_DATA_DIR must be an absolute path.");
   }
   const existingHostId = installedHostId(dataDir);
   if (existingHostId !== "" && existingHostId !== bootstrap.hostId) {
@@ -947,7 +955,7 @@ async function runInstall(options) {
       [
         bootstrap.reconnect
           ? `Run this command on the computer where machine ${bootstrap.hostId} runs.`
-          : "To add another machine on this computer, set BB_DATA_DIR to a new directory and run the command again.",
+          : "To add another machine on this computer, set HYPERFIDE_DATA_DIR to a new directory and run the command again.",
       ],
     );
   }
@@ -993,13 +1001,13 @@ async function runInstall(options) {
       "machine",
       "enroll",
       "--bootstrap-env",
-      "BB_ENROLLMENT",
+      "HYPERFIDE_ENROLLMENT",
     ],
     {
       env: {
         ...process.env,
-        BB_DATA_DIR: canonicalDataDir,
-        BB_ENROLLMENT: rawBootstrap,
+        HYPERFIDE_DATA_DIR: canonicalDataDir,
+        HYPERFIDE_ENROLLMENT: rawBootstrap,
       },
     },
   );

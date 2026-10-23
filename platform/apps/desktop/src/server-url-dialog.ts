@@ -6,8 +6,8 @@ import {
   showDesktopDialogHtml,
 } from "./desktop-dialog-window.js";
 import {
-  BB_DESKTOP_SERVER_URL_DIALOG_CANCEL_CHANNEL,
-  BB_DESKTOP_SERVER_URL_DIALOG_SUBMIT_CHANNEL,
+  HYPERFIDE_DESKTOP_SERVER_URL_DIALOG_CANCEL_CHANNEL,
+  HYPERFIDE_DESKTOP_SERVER_URL_DIALOG_SUBMIT_CHANNEL,
   serverUrlDialogSubmitRequestSchema,
   type ServerUrlDialogSubmitResponse,
 } from "./server-url-dialog-ipc.js";
@@ -141,9 +141,9 @@ export function openServerUrlDialog(
         return;
       }
       settled = true;
-      ipcMain.removeHandler(BB_DESKTOP_SERVER_URL_DIALOG_SUBMIT_CHANNEL);
+      ipcMain.removeHandler(HYPERFIDE_DESKTOP_SERVER_URL_DIALOG_SUBMIT_CHANNEL);
       ipcMain.removeListener(
-        BB_DESKTOP_SERVER_URL_DIALOG_CANCEL_CHANNEL,
+        HYPERFIDE_DESKTOP_SERVER_URL_DIALOG_CANCEL_CHANNEL,
         handleCancel,
       );
       openDialog = null;
@@ -160,7 +160,7 @@ export function openServerUrlDialog(
     }
 
     ipcMain.handle(
-      BB_DESKTOP_SERVER_URL_DIALOG_SUBMIT_CHANNEL,
+      HYPERFIDE_DESKTOP_SERVER_URL_DIALOG_SUBMIT_CHANNEL,
       (event, payload): ServerUrlDialogSubmitResponse => {
         if (event.sender.id !== dialogWindow.webContents.id) {
           return { ok: false, message: "Unexpected sender." };
@@ -193,7 +193,10 @@ export function openServerUrlDialog(
         return { ok: true };
       },
     );
-    ipcMain.on(BB_DESKTOP_SERVER_URL_DIALOG_CANCEL_CHANNEL, handleCancel);
+    ipcMain.on(
+      HYPERFIDE_DESKTOP_SERVER_URL_DIALOG_CANCEL_CHANNEL,
+      handleCancel,
+    );
     dialogWindow.on("closed", () => {
       finish({ kind: "cancelled" });
     });

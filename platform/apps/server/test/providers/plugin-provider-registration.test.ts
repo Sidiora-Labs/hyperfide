@@ -183,7 +183,7 @@ describe("buildPluginProviderRegistration", () => {
             },
           ],
         },
-        env: { passthrough: ["BB_MY_AGENT_EXECUTABLE"] },
+        env: { passthrough: ["HYPERFIDE_MY_AGENT_EXECUTABLE"] },
         deriveProviderOptions: (context) => ({
           memory: context.settings.memoryEnabled !== false,
           plan: context.promptMode === "plan",
@@ -203,7 +203,7 @@ describe("buildPluginProviderRegistration", () => {
       }),
     ).toStrictEqual({ memory: false, plan: true, thread: "thr_1" });
     expect(registration.envPassthrough).toStrictEqual([
-      "BB_MY_AGENT_EXECUTABLE",
+      "HYPERFIDE_MY_AGENT_EXECUTABLE",
     ]);
     expect(registration.fallbackModels).toStrictEqual([
       {

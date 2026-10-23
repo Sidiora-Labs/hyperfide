@@ -49,8 +49,8 @@ export type BbDesktopClipboardContent = z.infer<
 
 export const bbDesktopZoomCommandSchema = z.enum(["in", "out", "reset"]);
 export type BbDesktopZoomCommand = z.infer<typeof bbDesktopZoomCommandSchema>;
-export const BB_DESKTOP_MIN_ZOOM_PERCENT = 50;
-export const BB_DESKTOP_MAX_ZOOM_PERCENT = 300;
+export const HYPERFIDE_DESKTOP_MIN_ZOOM_PERCENT = 50;
+export const HYPERFIDE_DESKTOP_MAX_ZOOM_PERCENT = 300;
 
 export type BbDesktopInfoChangeHandler = (info: BbDesktopInfo) => void;
 export type BbDesktopInfoUnsubscribe = () => void;

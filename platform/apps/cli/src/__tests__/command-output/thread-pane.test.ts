@@ -8,14 +8,14 @@ import {
 } from "../helpers/command-output-harness.js";
 import { registerThreadCommands } from "../../commands/thread/index.js";
 
-describe("bb thread pane command output", () => {
+describe("hyperfide-platform thread pane command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerThreadCommands(program, () => "http://server");
 
   it("maximizes the current thread pane", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thr_current");
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thr_current");
     const paneAction = vi.fn(async () => ({ delivered: 2 }));
     stubServerApi({ "v1.threads.:id.pane-action.$post": paneAction });
 

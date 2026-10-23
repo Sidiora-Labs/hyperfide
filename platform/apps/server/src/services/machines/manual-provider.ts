@@ -57,7 +57,7 @@ export function createManualMachineProviderRecord(
       },
       async remove(context) {
         context.report.step(
-          `Uninstall the machine service with its original installer: install-machine.sh --uninstall --host-id ${context.hostId} (on Windows: node "%USERPROFILE%\\.bb-machines\\<server>\\install-machine-windows.mjs" --uninstall --host-id ${context.hostId})`,
+          `Uninstall the machine service with its original installer: install-machine.sh --uninstall --host-id ${context.hostId} (on Windows: node "%USERPROFILE%\\.hyperfide-machines\\<server>\\install-machine-windows.mjs" --uninstall --host-id ${context.hostId})`,
         );
         return { status: "removed" };
       },

@@ -4,17 +4,17 @@ import {
   resolveEnvLoader,
   type EnvLoaderArgs,
 } from "./env.js";
-import { BB_LOG_LEVEL_ENV } from "./env-vars.js";
+import { HYPERFIDE_LOG_LEVEL_ENV } from "./env-vars.js";
 import { resolveRuntimeDataDir, type BbRuntimeMode } from "./runtime.js";
 
 export interface LogLevelConfig {
-  BB_LOG_LEVEL: string;
+  HYPERFIDE_LOG_LEVEL: string;
 }
 
 type LoadLogLevelConfigArgs = EnvLoaderArgs;
 
 export interface CommonConfig extends LogLevelConfig {
-  BB_DATA_DIR: string;
+  HYPERFIDE_DATA_DIR: string;
 }
 
 export interface LoadCommonConfigArgs extends EnvLoaderArgs {
@@ -30,10 +30,10 @@ export function loadLogLevelConfig(
 ): LogLevelConfig {
   const loader = resolveEnvLoader(args);
   return {
-    BB_LOG_LEVEL: readEnvVarWithDefault({
+    HYPERFIDE_LOG_LEVEL: readEnvVarWithDefault({
       context: loader.context,
       defaultValue: resolveDefaultLogLevel(loader.mode),
-      definition: BB_LOG_LEVEL_ENV,
+      definition: HYPERFIDE_LOG_LEVEL_ENV,
       env: loader.env,
     }),
   };
@@ -51,7 +51,7 @@ export function loadCommonConfig(
 
   return {
     ...logLevelConfig,
-    BB_DATA_DIR: resolveRuntimeDataDir({
+    HYPERFIDE_DATA_DIR: resolveRuntimeDataDir({
       env: loader.env,
       homeDir: loader.context.homeDir,
       mode: loader.mode,

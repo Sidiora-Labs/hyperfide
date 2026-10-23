@@ -85,7 +85,7 @@ describe("ServerMoveService.prepare", () => {
       ),
     ).toBe("attachment");
     expect(await readJson(join(fixture.dataDir, "config.json"))).toEqual({
-      config: { BB_LOG_LEVEL: "info" },
+      config: { HYPERFIDE_LOG_LEVEL: "info" },
       serverUrl: "https://bb.example.test",
       serverHeaders: { "x-bb-connect-machine": "bbcm_target" },
       machineCredential: "bbcm_target",
@@ -96,7 +96,7 @@ describe("ServerMoveService.prepare", () => {
       kind: "move",
       moveId: MOVE_ID,
       activationToken: ACTIVATION_TOKEN,
-      sourceDataDir: "/Users/me/.bb",
+      sourceDataDir: "/Users/me/.hyperfide",
       sourceServerHostId: "host-source",
       targetHostId: "host-target",
       serverUrl: "https://bb.example.test",
@@ -117,7 +117,7 @@ describe("ServerMoveService.prepare", () => {
         serverPort: command.serverPort,
         bindHost: null,
         hostDaemonPort: 38_887,
-        env: expect.objectContaining({ BB_HOST_DAEMON_PORT: "38887" }),
+        env: expect.objectContaining({ HYPERFIDE_HOST_DAEMON_PORT: "38887" }),
         logPath: join(
           fixture.dataDir,
           "logs",
@@ -180,7 +180,7 @@ describe("ServerMoveService.prepare", () => {
   it("abort stops the pending server, restores config backups, and un-archives standalone data", async () => {
     const fixture = await createFixture();
     const originalConfig = {
-      config: { BB_LOG_LEVEL: "debug" },
+      config: { HYPERFIDE_LOG_LEVEL: "debug" },
       serverUrl: "https://bb.example.test",
       machineCredential: "bbcm_target",
     };
@@ -189,7 +189,7 @@ describe("ServerMoveService.prepare", () => {
       JSON.stringify(originalConfig),
     );
     await writeFileWithDirs(
-      join(fixture.homeDir, ".bb", "bb.db"),
+      join(fixture.homeDir, ".hyperfide", "bb.db"),
       "standalone server",
     );
     const command = await prepareCommand(fixture, {
@@ -197,10 +197,10 @@ describe("ServerMoveService.prepare", () => {
     });
 
     const result = await fixture.service.prepare(command);
-    expect(await exists(join(fixture.homeDir, ".bb"))).toBe(false);
+    expect(await exists(join(fixture.homeDir, ".hyperfide"))).toBe(false);
     expect(
       (await readdir(fixture.homeDir)).some((name) =>
-        name.startsWith(".bb.before-move-"),
+        name.startsWith(".hyperfide.before-move-"),
       ),
     ).toBe(true);
 
@@ -223,9 +223,9 @@ describe("ServerMoveService.prepare", () => {
     expect(await exists(join(fixture.dataDir, "server-move-incoming"))).toBe(
       false,
     );
-    expect(await readFile(join(fixture.homeDir, ".bb", "bb.db"), "utf8")).toBe(
-      "standalone server",
-    );
+    expect(
+      await readFile(join(fixture.homeDir, ".hyperfide", "bb.db"), "utf8"),
+    ).toBe("standalone server");
     await expect(
       fixture.service.abort({ type: "server_move.abort", moveId: MOVE_ID }),
     ).resolves.toEqual({ ok: true });
@@ -248,14 +248,14 @@ describe("ServerMoveService.prepare", () => {
     expect(await readServerConnectHoldFile(fixture.dataDir)).toBeNull();
   });
 
-  it("refuses to archive ~/.bb while bb is running from it", async () => {
+  it("refuses to archive ~/.hyperfide while bb is running from it", async () => {
     const fixture = await createFixture();
     await writeFileWithDirs(
-      join(fixture.homeDir, ".bb", "bb.db"),
+      join(fixture.homeDir, ".hyperfide", "bb.db"),
       "standalone server",
     );
     await writeBbAppRuntime({
-      dataDir: join(fixture.homeDir, ".bb"),
+      dataDir: join(fixture.homeDir, ".hyperfide"),
       serverPort: 38_886,
     });
     const command = await prepareCommand(fixture, {
@@ -264,12 +264,12 @@ describe("ServerMoveService.prepare", () => {
 
     await expect(fixture.service.prepare(command)).rejects.toMatchObject({
       code: "server_move_rejected",
-      message: `bb is running from ${join(fixture.homeDir, ".bb")} on this machine (pid ${process.pid}). Quit bb there first, then start the move again.`,
+      message: `bb is running from ${join(fixture.homeDir, ".hyperfide")} on this machine (pid ${process.pid}). Quit bb there first, then start the move again.`,
     });
     expect(fixture.source.archiveRequests).toEqual([]);
-    expect(await readFile(join(fixture.homeDir, ".bb", "bb.db"), "utf8")).toBe(
-      "standalone server",
-    );
+    expect(
+      await readFile(join(fixture.homeDir, ".hyperfide", "bb.db"), "utf8"),
+    ).toBe("standalone server");
 
     const stopped = await createFixture({
       processOps: {
@@ -281,11 +281,11 @@ describe("ServerMoveService.prepare", () => {
       },
     });
     await writeFileWithDirs(
-      join(stopped.homeDir, ".bb", "bb.db"),
+      join(stopped.homeDir, ".hyperfide", "bb.db"),
       "standalone server",
     );
     await writeBbAppRuntime({
-      dataDir: join(stopped.homeDir, ".bb"),
+      dataDir: join(stopped.homeDir, ".hyperfide"),
       serverPort: 38_886,
     });
     await expect(
@@ -293,7 +293,7 @@ describe("ServerMoveService.prepare", () => {
         await prepareCommand(stopped, { archiveExistingServerData: true }),
       ),
     ).resolves.toMatchObject({ pid: expect.any(Number) });
-    expect(await exists(join(stopped.homeDir, ".bb"))).toBe(false);
+    expect(await exists(join(stopped.homeDir, ".hyperfide"))).toBe(false);
   });
 });
 
@@ -487,7 +487,7 @@ describe("ServerMoveService own data dir guards", () => {
     const fixture = await createFixture();
     const { dataDir } = fixture;
     const originalConfig = {
-      config: { BB_LOG_LEVEL: "debug" },
+      config: { HYPERFIDE_LOG_LEVEL: "debug" },
       serverUrl: "https://bb.example.test",
       machineCredential: "bbcm_target",
     };
@@ -499,7 +499,7 @@ describe("ServerMoveService own data dir guards", () => {
     await writeFileWithDirs(
       join(dataDir, "config.json"),
       JSON.stringify({
-        config: { BB_LOG_LEVEL: "info" },
+        config: { HYPERFIDE_LOG_LEVEL: "info" },
         serverUrl: "http://127.0.0.1:39999",
       }),
     );
@@ -553,7 +553,7 @@ describe("ServerMoveService own data dir guards", () => {
       await readJson(join(dataDir, "server-import-backup", "config.json")),
     ).toEqual(originalConfig);
     expect(await readJson(join(dataDir, "config.json"))).toEqual({
-      config: { BB_LOG_LEVEL: "info" },
+      config: { HYPERFIDE_LOG_LEVEL: "info" },
       serverUrl: "https://bb.example.test",
       machineCredential: "bbcm_target",
     });
@@ -648,7 +648,7 @@ describe("ServerMoveService own data dir guards", () => {
       kind: "manual",
       moveId: null,
       activationToken: null,
-      sourceDataDir: "/Users/me/.bb",
+      sourceDataDir: "/Users/me/.hyperfide",
       sourceServerHostId: "host-source",
       targetHostId: null,
       serverUrl: null,
@@ -690,10 +690,10 @@ describe("ServerMoveService own data dir guards", () => {
     expect(fixture.launches).toEqual([]);
   });
 
-  it("hides ~/.bb when it is this daemon's data dir and refuses to archive it", async () => {
+  it("hides ~/.hyperfide when it is this daemon's data dir and refuses to archive it", async () => {
     const fixture = await createFixture();
     await writeFile(join(fixture.dataDir, "bb.db"), "old server");
-    await symlink(fixture.dataDir, join(fixture.homeDir, ".bb"));
+    await symlink(fixture.dataDir, join(fixture.homeDir, ".hyperfide"));
 
     const result = await fixture.service.inspect({
       type: "server_move.inspect",
@@ -716,7 +716,7 @@ describe("ServerMoveService own data dir guards", () => {
     );
     expect(
       (await readdir(fixture.homeDir)).filter((name) =>
-        name.startsWith(".bb.before-move-"),
+        name.startsWith(".hyperfide.before-move-"),
       ),
     ).toEqual([]);
     expect(await readFile(join(fixture.dataDir, "bb.db"), "utf8")).toBe(
@@ -805,9 +805,15 @@ describe("ServerMoveService.deleteOldCopy", () => {
 describe("ServerMoveService.inspect and probe", () => {
   it("reports the target machine's server-move readiness", async () => {
     const fixture = await createFixture({
-      env: { BB_SERVER_MOVE_SERVICE_MANAGER: "none", BB_APP_VERSION: "1.2.3" },
+      env: {
+        HYPERFIDE_SERVER_MOVE_SERVICE_MANAGER: "none",
+        HYPERFIDE_APP_VERSION: "1.2.3",
+      },
     });
-    await writeFileWithDirs(join(fixture.homeDir, ".bb", "bb.db"), "12345");
+    await writeFileWithDirs(
+      join(fixture.homeDir, ".hyperfide", "bb.db"),
+      "12345",
+    );
     await writeFileWithDirs(join(fixture.homeDir, ".codex", "auth.json"), "{}");
     await writeFileWithDirs(join(fixture.homeDir, "tools", "bin", "gh"), "");
 
@@ -830,7 +836,10 @@ describe("ServerMoveService.inspect and probe", () => {
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       bbAppVersion: "1.2.3",
       serverEntryAvailable: true,
-      existingServerData: { path: join(fixture.homeDir, ".bb"), sizeBytes: 5 },
+      existingServerData: {
+        path: join(fixture.homeDir, ".hyperfide"),
+        sizeBytes: 5,
+      },
       dataDirHasServerData: false,
       portAvailable: true,
       ghAuthenticated: null,

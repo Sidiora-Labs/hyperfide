@@ -57,8 +57,8 @@ function createScriptEnv(
 ): NodeJS.ProcessEnv {
   return {
     ...process.env,
-    BB_DATA_DIR: fixture.dataDir,
-    BB_ENROLLMENT: bootstrapBundle(),
+    HYPERFIDE_DATA_DIR: fixture.dataDir,
+    HYPERFIDE_ENROLLMENT: bootstrapBundle(),
     HOME: fixture.homeDir,
     PATH: [fixture.binDir, "/usr/bin", "/bin"].join(delimiter),
     ...env,
@@ -76,7 +76,7 @@ function runScript(
   });
 }
 
-const BOOTSTRAP_ARGS = ["--bootstrap-env", "BB_ENROLLMENT"];
+const BOOTSTRAP_ARGS = ["--bootstrap-env", "HYPERFIDE_ENROLLMENT"];
 
 function bootstrapBundle(serverUrl = "https://machine.getbb.app"): string {
   return JSON.stringify({
@@ -120,7 +120,7 @@ const option = (name) => {
   const index = cliArgs.indexOf(name);
   return index === -1 ? undefined : cliArgs[index + 1];
 };
-const dataDir = process.env.BB_DATA_DIR;
+const dataDir = process.env.HYPERFIDE_DATA_DIR;
 const hostId = ${JSON.stringify(args.hostId)};
 if (cliArgs[0] === "machine" && cliArgs[1] === "enroll") {
   const bundle = JSON.parse(process.env[option("--bootstrap-env")]);
@@ -370,11 +370,11 @@ exec '${process.execPath}' "$@"
 
   it("starts an owned daemon that has no service under launcher supervision", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".bb-machines", "owned"), {
+    mkdirSync(join(fixture.homeDir, ".hyperfide-machines", "owned"), {
       recursive: true,
     });
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".bb-machines", "owned"),
+      join(fixture.homeDir, ".hyperfide-machines", "owned"),
     );
     writeJoinedState({ ...fixture, dataDir });
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
@@ -411,11 +411,11 @@ exec '${process.execPath}' "$@"
 
   it("stops and uninstalls an owned Linux service through installer flags", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".bb-machines", "owned"), {
+    mkdirSync(join(fixture.homeDir, ".hyperfide-machines", "owned"), {
       recursive: true,
     });
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".bb-machines", "owned"),
+      join(fixture.homeDir, ".hyperfide-machines", "owned"),
     );
     writeJoinedState({ ...fixture, dataDir });
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
@@ -425,7 +425,7 @@ exec '${process.execPath}' "$@"
     mkdirSync(serviceDir, { recursive: true });
     writeFileSync(
       servicePath,
-      `[Service]\nEnvironment="BB_DATA_DIR=${dataDir}"\n`,
+      `[Service]\nEnvironment="HYPERFIDE_DATA_DIR=${dataDir}"\n`,
     );
     writeExecutable(
       join(fixture.binDir, "uname"),
@@ -458,11 +458,14 @@ exec '${process.execPath}' "$@"
 
   it("stops and uninstalls a Linux service after a server move rewrote its server URL", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".bb-machines", "machine.getbb.app"), {
-      recursive: true,
-    });
+    mkdirSync(
+      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
+      {
+        recursive: true,
+      },
+    );
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".bb-machines", "machine.getbb.app"),
+      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
     );
     writeJoinedState(
       { ...fixture, dataDir },
@@ -476,11 +479,11 @@ exec '${process.execPath}' "$@"
     mkdirSync(serviceDir, { recursive: true });
     writeFileSync(
       servicePath,
-      `[Service]\nExecStart="node" "bb-app" host-daemon --server-url "https://desk.tailnet.example:38886"\nEnvironment="BB_DATA_DIR=${dataDir}"\n`,
+      `[Service]\nExecStart="node" "bb-app" host-daemon --server-url "https://desk.tailnet.example:38886"\nEnvironment="HYPERFIDE_DATA_DIR=${dataDir}"\n`,
     );
     writeFileSync(
       join(serviceDir, otherServiceName),
-      `[Service]\nEnvironment="BB_DATA_DIR=${dataDir}-other"\n`,
+      `[Service]\nEnvironment="HYPERFIDE_DATA_DIR=${dataDir}-other"\n`,
     );
     writeExecutable(
       join(fixture.binDir, "uname"),
@@ -516,11 +519,14 @@ exec '${process.execPath}' "$@"
 
   it("boots out a macOS launch agent after a server move rewrote its server URL", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".bb-machines", "machine.getbb.app"), {
-      recursive: true,
-    });
+    mkdirSync(
+      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
+      {
+        recursive: true,
+      },
+    );
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".bb-machines", "machine.getbb.app"),
+      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
     );
     writeJoinedState({ ...fixture, dataDir }, "https://desk.tailnet.example");
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
@@ -532,7 +538,7 @@ exec '${process.execPath}' "$@"
     mkdirSync(agentDir, { recursive: true });
     writeFileSync(
       agentPath,
-      `<plist><dict><key>EnvironmentVariables</key><dict><key>BB_DATA_DIR</key><string>${dataDir}</string></dict></dict></plist>\n`,
+      `<plist><dict><key>EnvironmentVariables</key><dict><key>HYPERFIDE_DATA_DIR</key><string>${dataDir}</string></dict></dict></plist>\n`,
     );
     writeExecutable(join(fixture.binDir, "uname"), "#!/bin/sh\necho Darwin\n");
     const launchctlLog = join(fixture.homeDir, "launchctl.log");
@@ -554,11 +560,14 @@ exec '${process.execPath}' "$@"
 
   it("refuses lifecycle actions when several services reference the machine data directory", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".bb-machines", "machine.getbb.app"), {
-      recursive: true,
-    });
+    mkdirSync(
+      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
+      {
+        recursive: true,
+      },
+    );
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".bb-machines", "machine.getbb.app"),
+      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
     );
     writeJoinedState({ ...fixture, dataDir }, "https://desk.tailnet.example");
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
@@ -570,7 +579,7 @@ exec '${process.execPath}' "$@"
     ]) {
       writeFileSync(
         join(serviceDir, serviceName),
-        `[Service]\nEnvironment="BB_DATA_DIR=${dataDir}"\n`,
+        `[Service]\nEnvironment="HYPERFIDE_DATA_DIR=${dataDir}"\n`,
       );
     }
     writeExecutable(
@@ -612,7 +621,7 @@ exec '${process.execPath}' "$@"
   it("rejects a bootstrap bundle carrying an unusable server URL", () => {
     const fixture = createFixture();
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_ENROLLMENT: bootstrapBundle("not-a-url"),
+      HYPERFIDE_ENROLLMENT: bootstrapBundle("not-a-url"),
     });
 
     expect(result.status).toBe(2);
@@ -625,10 +634,10 @@ exec '${process.execPath}' "$@"
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
     writeExecutable(join(fixture.binDir, "npm"), "#!/bin/sh\nexit 19\n");
-    runScript(BOOTSTRAP_ARGS, fixture, { BB_INSTALL_SKIP_SERVICE: "1" });
+    runScript(BOOTSTRAP_ARGS, fixture, { HYPERFIDE_INSTALL_SKIP_SERVICE: "1" });
     const olderCli = join(
       fixture.homeDir,
-      ".bb-machines",
+      ".hyperfide-machines",
       "older",
       "npm",
       "bin",
@@ -638,7 +647,10 @@ exec '${process.execPath}' "$@"
     writeExecutable(olderCli, "#!/bin/sh\necho wrong-installation\n");
     const installedCli = join(fixture.dataDir, "npm", "bin", "bb");
     mkdirSync(dirname(installedCli), { recursive: true });
-    writeExecutable(installedCli, '#!/bin/sh\nprintf "%s" "$BB_DATA_DIR"\n');
+    writeExecutable(
+      installedCli,
+      '#!/bin/sh\nprintf "%s" "$HYPERFIDE_DATA_DIR"\n',
+    );
     const shim = join(fixture.homeDir, ".local", "bin", "bb");
     const explicit = spawnSync(
       shim,
@@ -649,7 +661,7 @@ exec '${process.execPath}' "$@"
     expect(explicit.stdout).toBe(fixture.dataDir);
     writeExecutable(installedCli, "#!/bin/sh\necho current-installation\n");
     const env = createScriptEnv(fixture, {});
-    delete env.BB_DATA_DIR;
+    delete env.HYPERFIDE_DATA_DIR;
     const selected = spawnSync(shim, ["machine", "enroll"], {
       env,
       encoding: "utf8",
@@ -663,7 +675,7 @@ exec '${process.execPath}' "$@"
     writeServerInstallTools(fixture, 200);
     writeExecutable(join(fixture.binDir, "npm"), "#!/bin/sh\nexit 19\n");
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Could not install bb-app");
@@ -694,10 +706,10 @@ exec '${process.execPath}' "$@"
         `#!/usr/bin/env node
 const fs = require("node:fs");
 const path = require("node:path");
-const bundle = JSON.parse(process.env.BB_ENROLLMENT);
-fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "enrollment-argv"), JSON.stringify(process.argv.slice(2)));
-fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "auth.json"), JSON.stringify({hostId: bundle.hostId, hostKey: "durable-test"}));
-fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringify({serverUrl: bundle.serverUrl}));
+const bundle = JSON.parse(process.env.HYPERFIDE_ENROLLMENT);
+fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "enrollment-argv"), JSON.stringify(process.argv.slice(2)));
+fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "auth.json"), JSON.stringify({hostId: bundle.hostId, hostKey: "durable-test"}));
+fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.stringify({serverUrl: bundle.serverUrl}));
 `,
       );
       if (container) {
@@ -720,7 +732,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
         );
       }
       const result = runScript(["--bootstrap-env", "TEST_BUNDLE"], fixture, {
-        BB_INSTALL_SKIP_SERVICE: container ? "0" : "1",
+        HYPERFIDE_INSTALL_SKIP_SERVICE: container ? "0" : "1",
         TEST_BUNDLE: JSON.stringify({
           hostId: "host-test",
           serverUrl: "https://machine.getbb.app",
@@ -735,7 +747,12 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
           JSON.parse(
             readFileSync(join(fixture.dataDir, "enrollment-argv"), "utf8"),
           ),
-        ).toEqual(["machine", "enroll", "--bootstrap-env", "BB_ENROLLMENT"]);
+        ).toEqual([
+          "machine",
+          "enroll",
+          "--bootstrap-env",
+          "HYPERFIDE_ENROLLMENT",
+        ]);
         expect(result.stdout + result.stderr).not.toContain(
           "private-bootstrap-test",
         );
@@ -768,7 +785,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeCurlArtifactMock(fixture, 404);
     writeEnrollingBbApp(fixture, invocationPath);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -780,7 +797,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
       JSON.parse(
         readFileSync(join(fixture.dataDir, "enrollment-argv"), "utf8"),
       ),
-    ).toEqual(["machine", "enroll", "--bootstrap-env", "BB_ENROLLMENT"]);
+    ).toEqual(["machine", "enroll", "--bootstrap-env", "HYPERFIDE_ENROLLMENT"]);
     expect(result.stdout + result.stderr).not.toContain("join-secret");
     expect(readFileSync(invocationPath, "utf8").trim().split("\n")).toEqual([
       "host-daemon",
@@ -809,7 +826,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeJoinedState(fixture);
 
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -839,9 +856,9 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeCurlArtifactMock(fixture, 404);
     writeEnrollingBbApp(fixture, invocationPath);
     const reconnectEnv = {
-      BB_DATA_DIR: "",
-      BB_INSTALL_SKIP_SERVICE: "1",
-      BB_ENROLLMENT: JSON.stringify({
+      HYPERFIDE_DATA_DIR: "",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_ENROLLMENT: JSON.stringify({
         ...JSON.parse(bootstrapBundle()),
         reconnect: true,
         dataDir: fixture.dataDir,
@@ -863,7 +880,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     };
     try {
       const installed = runScript(BOOTSTRAP_ARGS, fixture, {
-        BB_INSTALL_SKIP_SERVICE: "1",
+        HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
       });
       expect(installed.status, installed.stderr).toBe(0);
       const oldPid = readPid();
@@ -901,8 +918,8 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
       "http://127.0.0.1:20101",
     );
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_ENROLLMENT: bootstrapBundle("http://localhost:20101"),
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_ENROLLMENT: bootstrapBundle("http://localhost:20101"),
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -928,7 +945,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeServerInstallTools(fixture, 200);
     writeExecutable(join(fixture.binDir, "bb-app"), "#!/bin/sh\nexit 99\n");
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -949,7 +966,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -1003,7 +1020,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     const fixture = createFixture();
     writeServerInstallTools(fixture, 500, FIXTURE_ARTIFACT_DIGEST, 0, body);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("HTTP 500");
@@ -1017,7 +1034,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeServerInstallTools(fixture, 200, FIXTURE_ARTIFACT_DIGEST, 1);
 
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -1037,12 +1054,12 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
     const first = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
     expect(first.status, first.stderr).toBe(0);
 
     const second = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(second.status, second.stderr).toBe(0);
@@ -1069,7 +1086,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeServerInstallTools(fixture, 200, "a".repeat(64));
 
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status).toBe(1);
@@ -1084,7 +1101,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     const fixture = createFixture();
     writeServerInstallTools(fixture, 404);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -1101,7 +1118,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
       FAKE_NPM_SKIP_NATIVE_MODULES: "1",
     });
 
@@ -1115,18 +1132,18 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     expect(existsSync(join(fixture.dataDir, "install-daemon.pid"))).toBe(false);
   });
 
-  it("defaults the data dir to a per-server directory under ~/.bb-machines", () => {
+  it("defaults the data dir to a per-server directory under ~/.hyperfide-machines", () => {
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_DATA_DIR: "",
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_DATA_DIR: "",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
     const defaultDataDir = join(
       fixture.homeDir,
-      ".bb-machines/machine.getbb.app",
+      ".hyperfide-machines/machine.getbb.app",
     );
     expect(
       JSON.parse(readFileSync(join(defaultDataDir, "auth.json"), "utf8")),
@@ -1144,7 +1161,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeEnrollingBb(fixture);
     writeJoinedState(fixture, "https://machine.getbb.app", "host-other");
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status).toBe(1);
@@ -1160,8 +1177,8 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeServerInstallTools(fixture, 200);
     const missingDir = join(fixture.homeDir, "elsewhere");
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_DATA_DIR: "",
-      BB_ENROLLMENT: JSON.stringify({
+      HYPERFIDE_DATA_DIR: "",
+      HYPERFIDE_ENROLLMENT: JSON.stringify({
         ...JSON.parse(bootstrapBundle()),
         reconnect: true,
         dataDir: missingDir,
@@ -1196,7 +1213,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
       `#!/bin/sh
 if [ "$1" = bootstrap ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1205,7 +1222,7 @@ fi
     const result = runScript(
       ["--adopt", "--data-dir", fixture.dataDir],
       fixture,
-      { BB_DATA_DIR: undefined, BB_ENROLLMENT: undefined },
+      { HYPERFIDE_DATA_DIR: undefined, HYPERFIDE_ENROLLMENT: undefined },
     );
 
     expect(result.status, result.stderr).toBe(0);
@@ -1226,7 +1243,7 @@ fi
       "utf8",
     );
     expect(plist).toContain(
-      `<key>BB_DATA_DIR</key><string>${fixture.dataDir}</string>`,
+      `<key>HYPERFIDE_DATA_DIR</key><string>${fixture.dataDir}</string>`,
     );
     expect(plist).toContain("<string>--auto-update</string>");
     expect(plist).toContain("<string>https://machine.getbb.app</string>");
@@ -1250,7 +1267,7 @@ fi
     const result = runScript(
       ["--adopt", "--data-dir", fixture.dataDir],
       fixture,
-      { BB_ENROLLMENT: undefined, BB_INSTALL_SKIP_SERVICE: "1" },
+      { HYPERFIDE_ENROLLMENT: undefined, HYPERFIDE_INSTALL_SKIP_SERVICE: "1" },
     );
 
     expect(result.status, result.stderr).toBe(0);
@@ -1292,7 +1309,7 @@ fi
     const result = runScript(
       ["--adopt", "--data-dir", fixture.dataDir],
       fixture,
-      { BB_ENROLLMENT: undefined },
+      { HYPERFIDE_ENROLLMENT: undefined },
     );
 
     expect(result.status).toBe(1);
@@ -1329,7 +1346,7 @@ fi
 
     try {
       const result = runScript(BOOTSTRAP_ARGS, fixture, {
-        BB_INSTALL_SKIP_SERVICE: "1",
+        HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
       });
 
       expect(result.status, result.stderr).toBe(0);
@@ -1367,7 +1384,7 @@ setInterval(() => {}, 1000);
     writeExecutable(join(fixture.binDir, "sleep"), "#!/bin/sh\nexit 0\n");
 
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status).toBe(1);
@@ -1401,7 +1418,7 @@ if [ "$1" = bootout ] && [ -f "${join(fixture.dataDir, "service-daemon.pid")}" ]
 fi
 if [ "$1" = bootstrap ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
   printf 'start\n' >>"${join(fixture.dataDir, "launchctl-starts.log")}"
 fi
@@ -1458,7 +1475,7 @@ fi
     );
     expect(plist).toContain("<string>https://machine.getbb.app</string>");
     expect(plist).toContain(
-      `<key>BB_APP_NPM_PREFIX</key><string>${realpathSync(fixture.dataDir)}/npm</string>`,
+      `<key>HYPERFIDE_APP_NPM_PREFIX</key><string>${realpathSync(fixture.dataDir)}/npm</string>`,
     );
     const serviceFile = join(
       fixture.homeDir,
@@ -1491,14 +1508,14 @@ fi
     writeFileSync(join(fixture.dataDir, "host-daemon-port"), "45123\n");
     writeFileSync(
       unrelatedServiceFile,
-      "<plist><dict><key>BB_DATA_DIR</key><string>/other/machine</string></dict></plist>\n",
+      "<plist><dict><key>HYPERFIDE_DATA_DIR</key><string>/other/machine</string></dict></plist>\n",
     );
     writeFileSync(
       legacyServiceFile,
       `<plist><dict>
 <key>Label</key><string>app.getbb.host-daemon.machine-getbb-app</string>
 <key>ProgramArguments</key><array><string>host-daemon</string><string>--host-daemon-port</string><string>45122</string></array>
-<key>EnvironmentVariables</key><dict><key>BB_DATA_DIR</key><string>${fixture.dataDir}</string></dict>
+<key>EnvironmentVariables</key><dict><key>HYPERFIDE_DATA_DIR</key><string>${fixture.dataDir}</string></dict>
 </dict></plist>
 `,
     );
@@ -1508,7 +1525,7 @@ fi
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "launchctl.log")}"
 if [ "$1" = print ]; then exit 1; fi
 if [ "$1" = bootstrap ]; then
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.getbb.app >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1550,7 +1567,7 @@ fi
       existingServiceFile,
       `<plist><dict>
 <key>Label</key><string>app.getbb.host-daemon.machine-getbb-app</string>
-<key>EnvironmentVariables</key><dict><key>BB_DATA_DIR</key><string>${fixture.dataDir}</string></dict>
+<key>EnvironmentVariables</key><dict><key>HYPERFIDE_DATA_DIR</key><string>${fixture.dataDir}</string></dict>
 </dict></plist>
 `,
     );
@@ -1639,7 +1656,7 @@ printf '%s\n' "$*" >>"${join(fixture.dataDir, "launchctl.log")}"
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "systemctl.log")}"
 if [ "$*" = "--user restart bb-host-daemon-machine-getbb-app-host-test.service" ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1667,7 +1684,7 @@ fi
       `host-daemon --auto-update --host-daemon-port "${selectedPort}" --server-url "https://machine.getbb.app"`,
     );
     expect(unit).toContain(
-      `Environment="BB_APP_NPM_PREFIX=${realpathSync(fixture.dataDir)}/npm"`,
+      `Environment="HYPERFIDE_APP_NPM_PREFIX=${realpathSync(fixture.dataDir)}/npm"`,
     );
     expect(unit).toContain("After=network-online.target");
     expect(unit).toContain("Wants=network-online.target");
@@ -1700,7 +1717,7 @@ printf '%s %s\\n' "$*" "\${XDG_RUNTIME_DIR:-missing}" >>"${join(fixture.dataDir,
 if [ "$2" = show-environment ] && { [ "\${XDG_RUNTIME_DIR:-}" != '${runtimeDir}' ] || [ -n "\${DBUS_SESSION_BUS_ADDRESS:-}" ]; }; then exit 1; fi
 if [ "$2" = restart ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1813,7 +1830,7 @@ fi
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "systemctl.log")}"
 if [ "$*" = "${scope} restart bb-host-daemon-machine-getbb-app-host-test.service" ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1846,7 +1863,7 @@ fi
         `host-daemon --auto-update --host-daemon-port "${selectedPort}" --server-url "https://machine.getbb.app"`,
       );
       expect(unit).toContain(
-        `Environment="BB_APP_NPM_PREFIX=${realpathSync(fixture.dataDir)}/npm"`,
+        `Environment="HYPERFIDE_APP_NPM_PREFIX=${realpathSync(fixture.dataDir)}/npm"`,
       );
       expect(unit).toContain(
         container ? "WantedBy=default.target" : "WantedBy=multi-user.target",
@@ -1879,7 +1896,7 @@ fi
       legacyServiceFile,
       `[Service]
 ExecStart="node" "bb-app" host-daemon --auto-update --host-daemon-port "45123" --server-url "https://machine.getbb.app"
-Environment="BB_DATA_DIR=${fixture.dataDir}"
+Environment="HYPERFIDE_DATA_DIR=${fixture.dataDir}"
 `,
     );
     writeExecutable(
@@ -1887,7 +1904,7 @@ Environment="BB_DATA_DIR=${fixture.dataDir}"
       `#!/bin/sh
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "systemctl.log")}"
 if [ "$*" = "--user restart bb-host-daemon-machine-getbb-app-host-test.service" ]; then
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.getbb.app >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,

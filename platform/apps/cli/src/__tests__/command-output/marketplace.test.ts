@@ -47,7 +47,7 @@ function json(value: object, status = 200): Response {
   });
 }
 
-describe("bb marketplace", () => {
+describe("hyperfide-platform marketplace", () => {
   setupCommandOutputTestEnvironment();
   const register: CommandRegistrar = (program) =>
     registerMarketplaceCommands(program, () => "http://server");
@@ -71,7 +71,9 @@ describe("bb marketplace", () => {
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
     expect(output).toContain("Added marketplace acme-plugins");
     expect(output).toContain("Adding a marketplace installs nothing");
-    expect(output).toContain("bb plugin install <id>@acme-plugins");
+    expect(output).toContain(
+      "hyperfide-platform plugin install <id>@acme-plugins",
+    );
   });
 
   it("sends --subdirectory with a git source and prints the stored subdirectory", async () => {

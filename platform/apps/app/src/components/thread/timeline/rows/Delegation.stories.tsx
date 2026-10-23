@@ -79,7 +79,7 @@ const correctnessChild03: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01XfjG4aRkJFecL7GnEc3vLH",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
   cmd: null,
   completedAt: 1778174307811,
 };
@@ -96,7 +96,7 @@ const correctnessChild04: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_015zVQkMM47412gCpawWXUEP",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.ts",
   cmd: null,
   completedAt: 1778174307811,
 };
@@ -113,7 +113,7 @@ const correctnessChild05: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_019jw4CN4WEd6ERQZEgRN7Pm",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/domain/src/provider-types.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/domain/src/provider-types.ts",
   cmd: null,
   completedAt: 1778174307811,
 };
@@ -164,7 +164,7 @@ const correctnessChild07: TimelineRow = {
   callId: "toolu_01FrXbRuAHubcQSJfSP5xYAx",
   mode: "content",
   query: "getActiveTurnId",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src",
   cmd: null,
   completedAt: 1778174307811,
 };
@@ -181,7 +181,7 @@ const correctnessChild08: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01RzyDhxnqDW48wDAib6jNKg",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.ts",
   cmd: null,
   completedAt: 1778174307849,
 };
@@ -198,7 +198,7 @@ const correctnessChild09: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01R1yNfRG8iq6y6VFhZV5vuk",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-turn-state.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-turn-state.ts",
   cmd: null,
   completedAt: 1778174320113,
 };
@@ -215,7 +215,7 @@ const correctnessChild10: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01MzvBB9Xz6AYAUDuHK9ei9v",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.tool-calls.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.tool-calls.test.ts",
   cmd: null,
   completedAt: 1778174320120,
 };
@@ -266,7 +266,7 @@ const correctnessChild12: TimelineRow = {
   callId: "toolu_01TG4xEfDo7RCyJd5znxaxBU",
   mode: "content",
   query: "without a turn id",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src",
   cmd: null,
   completedAt: 1778174320120,
 };
@@ -283,7 +283,7 @@ const correctnessChild13: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01MXGm4YpNuPruFS8ypKHpgJ",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
   cmd: null,
   completedAt: 1778174320120,
 };
@@ -300,7 +300,7 @@ const correctnessChild14: TimelineRow = {
   workKind: "file-read",
   status: "error",
   callId: "toolu_011nVJrg2Fu5oQhZCPraot5z",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
   cmd: null,
   completedAt: 1778174320120,
 };
@@ -317,7 +317,7 @@ const correctnessChild15: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01RT7BtsquuXF1nZgsoAVpTh",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
   cmd: null,
   completedAt: 1778174321398,
 };
@@ -334,7 +334,7 @@ const correctnessChild16: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01Xh9vSHvDVNbbya5BwTNJnq",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
   cmd: null,
   completedAt: 1778174322765,
 };
@@ -351,7 +351,7 @@ const correctnessChild17: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01Pwrk89FbvmiHknCqNte62x",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/docs/CODE_REVIEW.md",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/docs/CODE_REVIEW.md",
   cmd: null,
   completedAt: 1778174324388,
 };
@@ -368,7 +368,7 @@ const correctnessChild18: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_017GFMs55ESo9nU3A2fAqP94",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.test.ts",
   cmd: null,
   completedAt: 1778174326400,
 };
@@ -449,7 +449,7 @@ const maintainabilityChild02: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01JWtVVgmGTPtFxDyL42Zcse",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/domain/src/provider-types.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/domain/src/provider-types.ts",
   cmd: null,
   completedAt: 1778174324519,
 };
@@ -610,7 +610,7 @@ const maintainabilityChild09: TimelineRow = {
   status: "error",
   callId: "toolu_01NJoEUxMguFeAjrnTZwj8GV",
   command:
-    'grep -r "getActiveTurnId\\|activeTurnId" /Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages --include="*.ts" --include="*.tsx" | grep -v test | grep -v node_modules | head -20',
+    'grep -r "getActiveTurnId\\|activeTurnId" /Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages --include="*.ts" --include="*.tsx" | grep -v test | grep -v node_modules | head -20',
   cwd: null,
   source: null,
   output:
@@ -622,9 +622,9 @@ const maintainabilityChild09: TimelineRow = {
     {
       type: "search",
       command:
-        'grep -r "getActiveTurnId\\|activeTurnId" /Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages --include="*.ts" --include="*.tsx" | grep -v test | grep -v node_modules | head -20',
+        'grep -r "getActiveTurnId\\|activeTurnId" /Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages --include="*.ts" --include="*.tsx" | grep -v test | grep -v node_modules | head -20',
       query: "getActiveTurnId|activeTurnId",
-      path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages",
+      path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages",
     },
   ],
 };
@@ -642,7 +642,7 @@ const maintainabilityChild10: TimelineRow = {
   status: "error",
   callId: "toolu_01Qh9ZSnXFXQz1Mcf9TVKpBP",
   command:
-    'grep -r "normalizeProviderRequestTurnId\\|resolveTurnId\\|turnId.*null\\|turnId.*undefined" /Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src --include="*.ts" | grep -v test | head -20',
+    'grep -r "normalizeProviderRequestTurnId\\|resolveTurnId\\|turnId.*null\\|turnId.*undefined" /Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src --include="*.ts" | grep -v test | head -20',
   cwd: null,
   source: null,
   output:
@@ -654,10 +654,10 @@ const maintainabilityChild10: TimelineRow = {
     {
       type: "search",
       command:
-        'grep -r "normalizeProviderRequestTurnId\\|resolveTurnId\\|turnId.*null\\|turnId.*undefined" /Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src --include="*.ts" | grep -v test | head -20',
+        'grep -r "normalizeProviderRequestTurnId\\|resolveTurnId\\|turnId.*null\\|turnId.*undefined" /Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src --include="*.ts" | grep -v test | head -20',
       query:
         "normalizeProviderRequestTurnId|resolveTurnId|turnId.*null|turnId.*undefined",
-      path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src",
+      path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src",
     },
   ],
 };
@@ -676,7 +676,7 @@ const maintainabilityChild11: TimelineRow = {
   callId: "toolu_0137uMvmuTBfBDNC6GTuFegF",
   mode: "content",
   query: "getActiveTurnId|activeTurnId",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages",
   cmd: null,
   completedAt: 1778174331743,
 };
@@ -693,7 +693,7 @@ const maintainabilityChild12: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01AewZ2V8UKq8x2zGUpmYTJc",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
   cmd: null,
   completedAt: 1778174331956,
 };
@@ -710,7 +710,7 @@ const maintainabilityChild13: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01RrkCGuMaJRJnq1UEaUhZra",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.ts",
   cmd: null,
   completedAt: 1778174332201,
 };
@@ -727,7 +727,7 @@ const maintainabilityChild14: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_018jZNMCkMxNfkUUKKTL83jg",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-turn-state.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-turn-state.ts",
   cmd: null,
   completedAt: 1778174334659,
 };
@@ -746,7 +746,7 @@ const maintainabilityChild15: TimelineRow = {
   callId: "toolu_01L2NPQTYQ1TPJ3V8BDiEMNM",
   mode: "content",
   query: "normalizeProviderRequestTurnId|normalizeDecodedTurnId",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages",
   cmd: null,
   completedAt: 1778174335009,
 };
@@ -763,7 +763,7 @@ const maintainabilityChild16: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_013HiJs8nJhPy9B8FK1qdvtR",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/docs/CODE_REVIEW.md",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/docs/CODE_REVIEW.md",
   cmd: null,
   completedAt: 1778174337233,
 };
@@ -780,7 +780,7 @@ const maintainabilityChild17: TimelineRow = {
   workKind: "file-read",
   status: "error",
   callId: "toolu_01DiyVs3dWcvgcadf3u5T5TD",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/docs/AGENTS.md",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/docs/AGENTS.md",
   cmd: null,
   completedAt: 1778174337304,
 };
@@ -816,7 +816,7 @@ const maintainabilityChild19: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01BKymQzXAXtFPNnCzgo9wgK",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.tool-calls.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.tool-calls.test.ts",
   cmd: null,
   completedAt: 1778174339267,
 };
@@ -833,7 +833,7 @@ const maintainabilityChild20: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01LdKey3EgtP3UvJSKba7xZD",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/AGENTS.md",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/AGENTS.md",
   cmd: null,
   completedAt: 1778174340928,
 };
@@ -850,7 +850,7 @@ const maintainabilityChild21: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01TVs6USWf18cG7TjeeCZePk",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/provider-adapter.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/provider-adapter.ts",
   cmd: null,
   completedAt: 1778174343741,
 };
@@ -868,7 +868,7 @@ const maintainabilityChild22: TimelineRow = {
   status: "error",
   callId: "toolu_01VobbeuPdbWkxhbn1t6dS9V",
   command:
-    'grep -n "normalizeDecodedTurnId\\|normalizeProviderRequestTurnId" /Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.ts /Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts',
+    'grep -n "normalizeDecodedTurnId\\|normalizeProviderRequestTurnId" /Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.ts /Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts',
   cwd: null,
   source: null,
   output:
@@ -880,9 +880,9 @@ const maintainabilityChild22: TimelineRow = {
     {
       type: "search",
       command:
-        'grep -n "normalizeDecodedTurnId\\|normalizeProviderRequestTurnId" /Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.ts /Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts',
+        'grep -n "normalizeDecodedTurnId\\|normalizeProviderRequestTurnId" /Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.ts /Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts',
       query: "normalizeDecodedTurnId|normalizeProviderRequestTurnId",
-      path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+      path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
     },
   ],
 };
@@ -1006,7 +1006,7 @@ const testQualityChild04: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_0126Lp4nhkfV2L27g1WRVDTK",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
   cmd: null,
   completedAt: 1778174320120,
 };
@@ -1023,7 +1023,7 @@ const testQualityChild05: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01S9M2AYPpp49BXjbJK1HP8s",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
   cmd: null,
   completedAt: 1778174320120,
 };
@@ -1041,7 +1041,7 @@ const testQualityChild06: TimelineRow = {
   status: "error",
   callId: "toolu_01RsbcAF3JqweDSdRyYwAgLr",
   command:
-    'grep -n "function resolveRuntimeProviderRequestTurnId" /Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts -A 25',
+    'grep -n "function resolveRuntimeProviderRequestTurnId" /Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts -A 25',
   cwd: null,
   source: null,
   output:
@@ -1053,9 +1053,9 @@ const testQualityChild06: TimelineRow = {
     {
       type: "search",
       command:
-        'grep -n "function resolveRuntimeProviderRequestTurnId" /Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts -A 25',
+        'grep -n "function resolveRuntimeProviderRequestTurnId" /Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts -A 25',
       query: "function resolveRuntimeProviderRequestTurnId",
-      path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+      path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
     },
   ],
 };
@@ -1072,7 +1072,7 @@ const testQualityChild07: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01Eiv3DJQp4wX5Sxm1iygUzs",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
   cmd: null,
   completedAt: 1778174320120,
 };
@@ -1089,7 +1089,7 @@ const testQualityChild08: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01MCxco7vLc7G3hF7ZiGD4qw",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
   cmd: null,
   completedAt: 1778174321234,
 };
@@ -1106,7 +1106,7 @@ const testQualityChild09: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01JchQ7TkFdQdGrBRWSbncWT",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.tool-calls.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.tool-calls.test.ts",
   cmd: null,
   completedAt: 1778174326775,
 };
@@ -1123,7 +1123,7 @@ const testQualityChild10: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01E2asMizztDz5CyN14dMhpN",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.tool-calls.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.tool-calls.test.ts",
   cmd: null,
   completedAt: 1778174328806,
 };
@@ -1140,7 +1140,7 @@ const testQualityChild11: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01J4gkAxEfdC64X11afYxem8",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/shared/provider-tool-call-contract.test.ts",
   cmd: null,
   completedAt: 1778174330819,
 };
@@ -1157,7 +1157,7 @@ const testQualityChild12: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_014pEj9Xye9WvvNVqGmvkmqu",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/apps/server/test/internal/internal-events-tool-calls.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/apps/server/test/internal/internal-events-tool-calls.test.ts",
   cmd: null,
   completedAt: 1778174333366,
 };
@@ -1174,7 +1174,7 @@ const testQualityChild13: TimelineRow = {
   workKind: "file-read",
   status: "error",
   callId: "toolu_01SKjRPqYQFmCEzaGSh6FfJa",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/apps/host-daemon/test/integration/daemon.integration.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/apps/host-daemon/test/integration/daemon.integration.test.ts",
   cmd: null,
   completedAt: 1778174335699,
 };
@@ -1191,7 +1191,7 @@ const testQualityChild14: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01C7q5NApoZD4cMZ7RRFHHDw",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/apps/host-daemon/test/integration/daemon.integration.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/apps/host-daemon/test/integration/daemon.integration.test.ts",
   cmd: null,
   completedAt: 1778174336890,
 };
@@ -1208,7 +1208,7 @@ const testQualityChild15: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01ArcrJfbandowa85ykUZhcq",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/apps/host-daemon/test/integration/daemon.integration.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/apps/host-daemon/test/integration/daemon.integration.test.ts",
   cmd: null,
   completedAt: 1778174339071,
 };
@@ -1225,7 +1225,7 @@ const testQualityChild16: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01HkrwxKJMBAw7578K5uBkMz",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/tests/integration/fake/smoke/tool-calls.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/tests/integration/fake/smoke/tool-calls.test.ts",
   cmd: null,
   completedAt: 1778174340950,
 };
@@ -1242,7 +1242,7 @@ const testQualityChild17: TimelineRow = {
   workKind: "file-read",
   status: "error",
   callId: "toolu_01Dr58Ys2UuPG5exzsGw6spz",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.interactive-requests.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.interactive-requests.test.ts",
   cmd: null,
   completedAt: 1778174342822,
 };
@@ -1259,7 +1259,7 @@ const testQualityChild18: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01K5G3ZkQ3niia6HV2kf3t2p",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.interactive-requests.test.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime.interactive-requests.test.ts",
   cmd: null,
   completedAt: 1778174344194,
 };
@@ -1278,7 +1278,7 @@ const testQualityChild19: TimelineRow = {
   callId: "toolu_01AjtqHb4fLvVQYx48h6NkMb",
   mode: "content",
   query: "resolveThreadId.*null|resolveThreadId.*return.*false",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src",
   cmd: null,
   completedAt: 1778174346469,
 };
@@ -1297,7 +1297,7 @@ const testQualityChild20: TimelineRow = {
   callId: "toolu_017wGU2FfUB77iS9G9E4LL6P",
   mode: "content",
   query: "normalizeProviderRequestTurnId|getActiveTurnId|sendJsonRpcError",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/packages/agent-runtime/src/runtime-provider-requests.ts",
   cmd: null,
   completedAt: 1778174348304,
 };
@@ -1333,7 +1333,7 @@ const testQualityChild22: TimelineRow = {
   workKind: "file-read",
   status: "completed",
   callId: "toolu_01T4hVAKKBqVzJ9kHS9pc93G",
-  path: "/Users/michael/.bb-dev/worktrees/env_stt3jzymfp/bb/docs/CODE_REVIEW.md",
+  path: "/Users/michael/.hyperfide-dev/worktrees/env_stt3jzymfp/bb/docs/CODE_REVIEW.md",
   cmd: null,
   completedAt: 1778174351117,
 };

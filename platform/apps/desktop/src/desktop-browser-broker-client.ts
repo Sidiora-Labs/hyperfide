@@ -71,7 +71,7 @@ async function readServerBrokerDescriptor(args: {
   );
   const dataDirs = new Set([
     args.dataDir,
-    join(args.homeDir, ".bb-machines", serverHost),
+    join(args.homeDir, ".hyperfide-machines", serverHost),
   ]);
   for (const dataDir of dataDirs) {
     const descriptor = await readBrokerDescriptor(dataDir).catch(() => null);
@@ -81,7 +81,7 @@ async function readServerBrokerDescriptor(args: {
     )
       return descriptor;
   }
-  const machinesDir = join(args.homeDir, ".bb-machines");
+  const machinesDir = join(args.homeDir, ".hyperfide-machines");
   const entries = await readdir(machinesDir, { withFileTypes: true }).catch(
     () => [],
   );

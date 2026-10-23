@@ -8,7 +8,9 @@ import { getPreferencesStorage, getProfileStore } from "@/lib/native";
 import { getPushStore } from "@/notifications/push-storage";
 import { getAppProfileClientRegistry } from "./client-registry";
 
-const env: E2eEnv = { EXPO_PUBLIC_BB_E2E: process.env.EXPO_PUBLIC_BB_E2E };
+const env: E2eEnv = {
+  EXPO_PUBLIC_HYPERFIDE_E2E: process.env.EXPO_PUBLIC_HYPERFIDE_E2E,
+};
 
 export const e2eModeEnabled = isE2eModeEnabled(env, __DEV__);
 

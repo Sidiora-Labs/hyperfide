@@ -15,10 +15,10 @@ describe("resolveBbAppVersion", () => {
     await rm(tempRoot, { recursive: true, force: true });
   });
 
-  it("trims whitespace around BB_APP_VERSION", () => {
+  it("trims whitespace around HYPERFIDE_APP_VERSION", () => {
     expect(
       resolveBbAppVersion({
-        env: { BB_APP_VERSION: "  4.5.6  " },
+        env: { HYPERFIDE_APP_VERSION: "  4.5.6  " },
         fromDir: tempRoot,
       }),
     ).toBe("4.5.6");

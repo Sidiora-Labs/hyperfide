@@ -33,7 +33,7 @@ export default defineWorkspaceTestConfig({
       exclude: [
         "dist/**",
         "node_modules/**",
-        ...(process.env.BB_SIDEBAR_BENCH === "1"
+        ...(process.env.HYPERFIDE_SIDEBAR_BENCH === "1"
           ? []
           : ["src/components/sidebar/sidebar.bench.test.tsx"]),
       ],

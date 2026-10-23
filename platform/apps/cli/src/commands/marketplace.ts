@@ -74,7 +74,7 @@ export function registerMarketplaceCommands(
           console.log(`Added marketplace ${added.name}:`);
           printMarketplace(added);
           console.log(
-            `Adding a marketplace installs nothing. Install an entry with \`bb plugin install <id>@${added.name}\`.`,
+            `Adding a marketplace installs nothing. Install an entry with \`hyperfide-platform plugin install <id>@${added.name}\`.`,
           );
         },
       ),

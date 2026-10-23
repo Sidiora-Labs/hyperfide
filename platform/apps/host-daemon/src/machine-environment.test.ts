@@ -56,7 +56,7 @@ it("makes machine settings available to arbitrary child commands and removes sta
 
 it("resolves server-relative entries and preserves explicitly empty values", () => {
   const target = {
-    BB_SERVER_URL: "https://server.example",
+    HYPERFIDE_SERVER_URL: "https://server.example",
     MACHINE_VALUE: "original",
   };
   const environment = new MachineEnvironment(target, {});

@@ -212,7 +212,7 @@ export function resolveLocalDataDir(dataDirOption: string | undefined): string {
       parseDataDirEnvValue({ homeDir, rawDataDir: dataDirOption }),
     );
   }
-  const configured = process.env.BB_DATA_DIR;
+  const configured = process.env.HYPERFIDE_DATA_DIR;
   return resolve(
     configured === undefined || configured.trim().length === 0
       ? resolveProdDataDir({ homeDir })
@@ -223,7 +223,7 @@ export function resolveLocalDataDir(dataDirOption: string | undefined): string {
 async function assertNoServerDatabase(dataDir: string): Promise<void> {
   if (await pathExists(join(dataDir, SERVER_DATABASE_FILE_NAME))) {
     throw new Error(
-      `${dataDir} already has a bb server database (${SERVER_DATABASE_FILE_NAME}). Import into a data directory without a server, such as --data-dir ~/.bb-imported.`,
+      `${dataDir} already has a hyperfide-platform server database (${SERVER_DATABASE_FILE_NAME}). Import into a data directory without a server, such as --data-dir ~/.hyperfide-imported.`,
     );
   }
 }
@@ -283,8 +283,8 @@ export async function importServerArchive(
   if (
     !(await args.confirm(
       interruptedImport
-        ? `Roll back the interrupted import in ${dataDir}, then import the bb server from ${archivePath}?`
-        : `Import the bb server from ${archivePath} into ${dataDir}?`,
+        ? `Roll back the interrupted import in ${dataDir}, then import the hyperfide-platform server from ${archivePath}?`
+        : `Import the hyperfide-platform server from ${archivePath} into ${dataDir}?`,
     ))
   ) {
     return null;
@@ -307,7 +307,7 @@ export async function importServerArchive(
     });
     if (!manifest.serverMoveExperiment) {
       throw new Error(
-        'This export came from a server with the "Server move" experiment off. Turn on the "Server move" experiment in Settings → Experiments, or run bb settings experiment serverMove true, on that server, then export again.',
+        'This export came from a server with the "Server move" experiment off. Turn on the "Server move" experiment in Settings → Experiments, or run hyperfide-platform settings experiment serverMove true, on that server, then export again.',
       );
     }
     if (isNewerBbVersion(manifest.bbVersion, args.cliVersion)) {

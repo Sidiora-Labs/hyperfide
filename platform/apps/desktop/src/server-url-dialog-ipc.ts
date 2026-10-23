@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-export const BB_DESKTOP_SERVER_URL_DIALOG_SUBMIT_CHANNEL =
+export const HYPERFIDE_DESKTOP_SERVER_URL_DIALOG_SUBMIT_CHANNEL =
   "bb-desktop:server-url-dialog:submit";
-export const BB_DESKTOP_SERVER_URL_DIALOG_CANCEL_CHANNEL =
+export const HYPERFIDE_DESKTOP_SERVER_URL_DIALOG_CANCEL_CHANNEL =
   "bb-desktop:server-url-dialog:cancel";
 
 export const serverUrlDialogSubmitRequestSchema = z

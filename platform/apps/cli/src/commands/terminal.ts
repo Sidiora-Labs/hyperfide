@@ -712,7 +712,7 @@ async function waitForTerminal(args: {
   if ([hasContains, hasRegex, hasExit].filter(Boolean).length !== 1) {
     throw new CliUsageError({
       code: "missing_required",
-      hint: `For example: bb terminal wait ${args.terminalId} --exit, or --contains "ready".`,
+      hint: `For example: hyperfide-platform terminal wait ${args.terminalId} --exit, or --contains "ready".`,
       message: "Provide exactly one of --contains, --regex, or --exit",
     });
   }
@@ -746,7 +746,7 @@ async function waitForTerminal(args: {
         TERMINAL_WAIT_TIMEOUT_EXIT_CODE,
         {
           code: "terminal_exited",
-          hint: `Match its existing output with --from-start, or read it with \`bb terminal output ${args.terminalId}\`.`,
+          hint: `Match its existing output with --from-start, or read it with \`hyperfide-platform terminal output ${args.terminalId}\`.`,
         },
       );
     }
@@ -805,7 +805,7 @@ async function waitForTerminal(args: {
           code: "terminal_exited",
           hint:
             tail.length === 0
-              ? `It printed nothing after this wait started. Read everything with \`bb terminal output ${args.terminalId}\`.`
+              ? `It printed nothing after this wait started. Read everything with \`hyperfide-platform terminal output ${args.terminalId}\`.`
               : `Last output:\n${tail}`,
         },
       );
@@ -817,7 +817,7 @@ async function waitForTerminal(args: {
     TERMINAL_WAIT_TIMEOUT_EXIT_CODE,
     {
       code: "timeout",
-      hint: `Read what it has printed so far with \`bb terminal output ${args.terminalId} --tail-bytes 4000\`.`,
+      hint: `Read what it has printed so far with \`hyperfide-platform terminal output ${args.terminalId} --tail-bytes 4000\`.`,
     },
   );
 }

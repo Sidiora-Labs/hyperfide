@@ -16,7 +16,7 @@ import {
   type DesktopWindowWebContents,
 } from "../src/desktop-window-factory.js";
 import type { DesktopContextMenuWebContents } from "../src/desktop-context-menu.js";
-import { BB_DESKTOP_ZOOM_CHANGED_CHANNEL } from "../src/desktop-update-ipc.js";
+import { HYPERFIDE_DESKTOP_ZOOM_CHANGED_CHANNEL } from "../src/desktop-update-ipc.js";
 import { readPersistedWindowStateFile } from "../src/window-state.js";
 import {
   MIN_WINDOW_HEIGHT,
@@ -330,7 +330,9 @@ describe("desktop window factory", () => {
     const window = createdWindows[0];
     if (!window) throw new Error("Expected a window");
     window.webContents.zoomFactor = zoomFactor;
-    window.webContents.ipcListeners.get(BB_DESKTOP_ZOOM_CHANGED_CHANNEL)?.();
+    window.webContents.ipcListeners.get(
+      HYPERFIDE_DESKTOP_ZOOM_CHANGED_CHANNEL,
+    )?.();
     expect(window.windowButtonPositions).toEqual([
       { x: MACOS_TRAFFIC_LIGHT_INSET_PX, y },
     ]);
@@ -344,7 +346,9 @@ describe("desktop window factory", () => {
     const window = createdWindows[0];
     if (!window) throw new Error("Expected a window");
     expect(
-      window.webContents.ipcListeners.has(BB_DESKTOP_ZOOM_CHANGED_CHANNEL),
+      window.webContents.ipcListeners.has(
+        HYPERFIDE_DESKTOP_ZOOM_CHANGED_CHANNEL,
+      ),
     ).toBe(false);
   });
 
@@ -631,7 +635,7 @@ describe("desktop window factory", () => {
 
     const results = [
       "https://example.com/from-markdown",
-      "devin://file/Users/me/.bb/artifacts/thr_1/review.diff",
+      "devin://file/Users/me/.hyperfide/artifacts/thr_1/review.diff",
       "javascript:alert(1)",
       "file:///System/Applications/Chess.app",
       "http://127.0.0.1:38886/threads/thr_1",

@@ -18,8 +18,8 @@ import {
 } from "./desktop-browser-cdp.js";
 import { createDesktopBrowserCdpAdapter } from "./desktop-browser-cdp-adapter.js";
 import {
-  BB_DESKTOP_BROWSER_CONTROL_CHANNEL,
-  BB_DESKTOP_BROWSER_REVEAL_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_CONTROL_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_REVEAL_CHANNEL,
 } from "./desktop-browser-ipc.js";
 import type {
   DesktopBrowserHostWindow,
@@ -121,11 +121,14 @@ export function createDesktopBrowserBroker(args: {
     if (isRawThreadId(threadId))
       for (const listener of listeners) listener(event);
     for (const tab of tabs) {
-      instance.window.webContents.send(BB_DESKTOP_BROWSER_CONTROL_CHANNEL, {
-        tabId: tab.tabId,
-        threadId,
-        control: tab.control,
-      });
+      instance.window.webContents.send(
+        HYPERFIDE_DESKTOP_BROWSER_CONTROL_CHANNEL,
+        {
+          tabId: tab.tabId,
+          threadId,
+          control: tab.control,
+        },
+      );
     }
   }
 
@@ -204,7 +207,7 @@ export function createDesktopBrowserBroker(args: {
     requireTab(instance, threadId, tabId);
     if (hostId === null)
       throw new Error("Desktop is not connected to its host daemon");
-    instance.window.webContents.send(BB_DESKTOP_BROWSER_REVEAL_CHANNEL, {
+    instance.window.webContents.send(HYPERFIDE_DESKTOP_BROWSER_REVEAL_CHANNEL, {
       tabId,
       threadId,
       desktopTarget: {

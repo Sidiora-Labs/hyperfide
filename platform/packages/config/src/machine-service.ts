@@ -1,7 +1,7 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-export const MACHINE_INSTALLER_ENV_NAME = "BB_MACHINE_INSTALLER";
+export const MACHINE_INSTALLER_ENV_NAME = "HYPERFIDE_MACHINE_INSTALLER";
 export const HOST_DAEMON_RESTART_EXIT_CODE = 75;
 
 const LAUNCHD_SERVICE_PREFIX = "app.getbb.host-daemon.";
@@ -9,9 +9,9 @@ const LAUNCHD_SERVICE_SUFFIX = ".plist";
 const SYSTEMD_SERVICE_PREFIX = "bb-host-daemon-";
 const SYSTEMD_SERVICE_SUFFIX = ".service";
 const LAUNCHD_DATA_DIR_PATTERN =
-  /<key>BB_DATA_DIR<\/key>\s*<string>([^<]*)<\/string>/u;
+  /<key>HYPERFIDE_DATA_DIR<\/key>\s*<string>([^<]*)<\/string>/u;
 const SYSTEMD_DATA_DIR_PATTERN =
-  /^Environment="BB_DATA_DIR=((?:[^"\\]|\\.)*)"\s*$/mu;
+  /^Environment="HYPERFIDE_DATA_DIR=((?:[^"\\]|\\.)*)"\s*$/mu;
 const XML_ENTITIES: Readonly<Record<string, string>> = {
   "&amp;": "&",
   "&apos;": "'",

@@ -8,13 +8,13 @@ import {
 import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import { registerProviderCommands } from "../../commands/provider.js";
 
-describe("bb provider command output", () => {
+describe("hyperfide-platform provider command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerProviderCommands(program, () => "http://server");
 
-  it("bb provider list renders the shared borderless table", async () => {
+  it("hyperfide-platform provider list renders the shared borderless table", async () => {
     const get = vi.fn(async () => [{ id: "openai", displayName: "OpenAI" }]);
     stubServerApi({ "v1.system.providers.$get": get });
 
@@ -27,7 +27,7 @@ describe("bb provider command output", () => {
     ]);
   });
 
-  it("bb provider list resolves a machine and preserves portable JSON output", async () => {
+  it("hyperfide-platform provider list resolves a machine and preserves portable JSON output", async () => {
     const getProviders = vi.fn(async () => [
       { id: "acp-remote", displayName: "Remote ACP" },
     ]);
@@ -63,7 +63,7 @@ describe("bb provider command output", () => {
     ]);
   });
 
-  it("bb provider models includes a matching selected-only model", async () => {
+  it("hyperfide-platform provider models includes a matching selected-only model", async () => {
     const get = vi.fn(async () => ({
       providers: [],
       models: [
@@ -108,7 +108,7 @@ describe("bb provider command output", () => {
     ]);
   });
 
-  it("bb provider models routes through an environment", async () => {
+  it("hyperfide-platform provider models routes through an environment", async () => {
     const get = vi.fn(async () => ({
       providers: [],
       models: [],
@@ -128,7 +128,7 @@ describe("bb provider command output", () => {
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual(["[]"]);
   });
 
-  it("bb provider models names the project whose checkout scopes the list", async () => {
+  it("hyperfide-platform provider models names the project whose checkout scopes the list", async () => {
     const get = vi.fn(async () => ({
       providers: [],
       models: [],
@@ -164,7 +164,7 @@ describe("bb provider command output", () => {
     );
   });
 
-  it("bb provider models reports a model-load failure and its detail on stderr", async () => {
+  it("hyperfide-platform provider models reports a model-load failure and its detail on stderr", async () => {
     const get = vi.fn(async () => ({
       providers: [],
       models: [],

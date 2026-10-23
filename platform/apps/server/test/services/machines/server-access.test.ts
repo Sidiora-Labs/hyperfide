@@ -69,7 +69,7 @@ describe("machine server access", () => {
 
   it("prefers the first registered provider and respects an explicit direct default", async () => {
     await withTestHarness(async ({ deps }) => {
-      vi.stubEnv("BB_EXTERNAL_URL", "https://direct.example.com");
+      vi.stubEnv("HYPERFIDE_EXTERNAL_URL", "https://direct.example.com");
       expect((await serverAccessStatus(deps)).defaultProviderId).toBe("direct");
       installProvider(provider());
       expect((await serverAccessStatus(deps)).defaultProviderId).toBe("relay");
@@ -96,7 +96,7 @@ describe("machine server access", () => {
 
   it("requires provider setup instead of silently falling back to a configured URL", async () => {
     await withTestHarness(async ({ deps }) => {
-      vi.stubEnv("BB_EXTERNAL_URL", "https://direct.example.com");
+      vi.stubEnv("HYPERFIDE_EXTERNAL_URL", "https://direct.example.com");
       const availability = vi.fn(() => ({
         status: "setup-required" as const,
         message: "Set up the relay",
@@ -130,7 +130,7 @@ describe("machine server access", () => {
 
   it("returns direct access without headers, including on repair", async () => {
     await withTestHarness(async ({ deps }) => {
-      vi.stubEnv("BB_EXTERNAL_URL", "https://direct.example.com");
+      vi.stubEnv("HYPERFIDE_EXTERNAL_URL", "https://direct.example.com");
       const host = upsertHost(deps.db, deps.hub, { name: "direct" })!;
       const args = { key: "direct", hostId: host.id, signal };
       const expected = {
@@ -272,7 +272,7 @@ describe("machine server access", () => {
   });
 
   it("uses the explicit machine URL before the environment fallback", async () => {
-    vi.stubEnv("BB_EXTERNAL_URL", "https://fallback.example.com");
+    vi.stubEnv("HYPERFIDE_EXTERNAL_URL", "https://fallback.example.com");
     await withTestHarness(async ({ deps }) => {
       setAppSettings(deps.db, {
         ...defaultAppSettings,
@@ -285,7 +285,7 @@ describe("machine server access", () => {
       setAppSettings(deps.db, defaultAppSettings);
       expect(await serverAccessStatus(deps)).toMatchObject({
         effectiveUrl: "https://fallback.example.com",
-        urlSource: "BB_EXTERNAL_URL",
+        urlSource: "HYPERFIDE_EXTERNAL_URL",
       });
     });
   });

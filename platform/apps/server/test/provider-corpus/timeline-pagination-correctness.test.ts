@@ -47,8 +47,8 @@ describe.skipIf(!corpusAvailable())(
       const results = [];
       for (const threadId of threadIds.filter(
         (id) =>
-          !process.env.BB_TIMELINE_PAGINATION_THREAD ||
-          id === process.env.BB_TIMELINE_PAGINATION_THREAD,
+          !process.env.HYPERFIDE_TIMELINE_PAGINATION_THREAD ||
+          id === process.env.HYPERFIDE_TIMELINE_PAGINATION_THREAD,
       )) {
         const harness = await createTestAppHarness();
         try {
@@ -160,7 +160,7 @@ describe.skipIf(!corpusAvailable())(
               index,
           );
           const same = isDeepStrictEqual(rows, expected);
-          if (process.env.BB_TIMELINE_PAGINATION_REPORT)
+          if (process.env.HYPERFIDE_TIMELINE_PAGINATION_REPORT)
             fs.writeFileSync(
               `/tmp/timeline-diff-${threadId}.json`,
               JSON.stringify({ expected, rows }, null, 2),
@@ -203,7 +203,7 @@ describe.skipIf(!corpusAvailable())(
           await harness.cleanup();
         }
       }
-      const output = process.env.BB_TIMELINE_PAGINATION_REPORT;
+      const output = process.env.HYPERFIDE_TIMELINE_PAGINATION_REPORT;
       if (output) fs.writeFileSync(output, JSON.stringify(results, null, 2));
       expect(results.filter((result) => !result.same)).toEqual([]);
     }, 300_000);

@@ -374,7 +374,7 @@ function readBaseline(baselinePath: string): PerfBaseline | null {
     baseline.gate.calibration !== CURRENT_GATE_SETTINGS.calibration
   ) {
     throw new Error(
-      `perf-baseline.json was written with ${JSON.stringify(baseline.gate)} but this suite measures with ${JSON.stringify(CURRENT_GATE_SETTINGS)}; rewrite the baseline with BB_PROVIDER_CORPUS_SNAPSHOT=write`,
+      `perf-baseline.json was written with ${JSON.stringify(baseline.gate)} but this suite measures with ${JSON.stringify(CURRENT_GATE_SETTINGS)}; rewrite the baseline with HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT=write`,
     );
   }
   return baseline;
@@ -420,7 +420,7 @@ describe.skipIf(!available)("provider corpus timeline perf baseline", () => {
       if (mode === "compare") {
         if (baseline === null) {
           throw new Error(
-            `No perf baseline at ${baselinePath}; run once with BB_PROVIDER_CORPUS_SNAPSHOT=write`,
+            `No perf baseline at ${baselinePath}; run once with HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT=write`,
           );
         }
         expected = baseline.threads[threadId] ?? null;

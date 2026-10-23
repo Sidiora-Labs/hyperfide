@@ -3,7 +3,7 @@ kind: prompt
 title: Commit Message Generator
 summary: Prompt for generating one conventional commit line from a git diff snapshot.
 intent: Produce a single concise conventional commit subject and nothing else.
-editingNotes: Callers expect plain text. bb strips think blocks, quotes, labels, and extra lines, then clamps the subject to 72 columns.
+editingNotes: Callers expect plain text. hyperfide-platform strips think blocks, quotes, labels, and extra lines, then clamps the subject to 72 columns.
 variables:
   diffDescription: Human-readable description of the diff snapshot being summarized.
   shortstat: Git shortstat summary for the diff.

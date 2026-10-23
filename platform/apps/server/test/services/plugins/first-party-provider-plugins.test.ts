@@ -345,7 +345,7 @@ describe("first-party provider plugins", () => {
           "fast",
         ]);
         expect(claude?.envPassthrough).toEqual([
-          "BB_CLAUDE_CODE_EXECUTABLE",
+          "HYPERFIDE_CLAUDE_CODE_EXECUTABLE",
           "CLAUDE_CODE_OAUTH_TOKEN",
         ]);
         expect(

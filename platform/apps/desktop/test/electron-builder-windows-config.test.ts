@@ -26,7 +26,7 @@ async function printConfig(args: string[], channel: string) {
     {
       cwd: desktopPackageRoot,
       env: {
-        BB_DESKTOP_RELEASE_CHANNEL: channel,
+        HYPERFIDE_DESKTOP_RELEASE_CHANNEL: channel,
         PATH: process.env.PATH,
       },
     },

@@ -52,8 +52,10 @@ import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugi
 import { PluginThreadList } from "./PluginThreadList";
 import { SidebarThreadEntriesTestProvider } from "@/test/sidebarThreadEntriesTestProvider";
 
-const BENCH_ENABLED = process.env.BB_SIDEBAR_BENCH === "1";
-const THREAD_COUNT = Number(process.env.BB_SIDEBAR_BENCH_THREADS ?? 3000);
+const BENCH_ENABLED = process.env.HYPERFIDE_SIDEBAR_BENCH === "1";
+const THREAD_COUNT = Number(
+  process.env.HYPERFIDE_SIDEBAR_BENCH_THREADS ?? 3000,
+);
 const PROJECT_COUNT = 40;
 const SECTION_COUNT = 8;
 const ITERATIONS = 5;
@@ -583,7 +585,7 @@ describe.skipIf(!BENCH_ENABLED)("sidebar thread list benchmark", () => {
   );
 
   it("writes the comparison", () => {
-    const out = process.env.BB_SIDEBAR_BENCH_OUT;
+    const out = process.env.HYPERFIDE_SIDEBAR_BENCH_OUT;
     if (out) writeFileSync(out, `${JSON.stringify(collected, null, 2)}\n`);
   });
 });

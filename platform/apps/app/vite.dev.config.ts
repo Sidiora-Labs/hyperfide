@@ -13,8 +13,10 @@ export default defineConfig({
     transformer: "lightningcss",
   },
   define: {
-    __BB_DEV_WS_BROWSER_HOST_PORT__: devWebSocketBrowserHostPortDefine,
-    __BB_DEV_APP_BROWSER_HOST_PORT__: JSON.stringify(viteDevConfig.appPort),
+    __HYPERFIDE_DEV_WS_BROWSER_HOST_PORT__: devWebSocketBrowserHostPortDefine,
+    __HYPERFIDE_DEV_APP_BROWSER_HOST_PORT__: JSON.stringify(
+      viteDevConfig.appPort,
+    ),
   },
   server: {
     allowedHosts: [".ts.net"],

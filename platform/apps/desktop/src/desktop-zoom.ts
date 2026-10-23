@@ -1,6 +1,6 @@
 import {
-  BB_DESKTOP_MAX_ZOOM_PERCENT,
-  BB_DESKTOP_MIN_ZOOM_PERCENT,
+  HYPERFIDE_DESKTOP_MAX_ZOOM_PERCENT,
+  HYPERFIDE_DESKTOP_MIN_ZOOM_PERCENT,
   type BbDesktopZoomCommand,
 } from "@bb/desktop-contract";
 
@@ -19,8 +19,8 @@ export function nextZoomFactor(
     ZOOM_STEP_PERCENT;
   return (
     Math.min(
-      BB_DESKTOP_MAX_ZOOM_PERCENT,
-      Math.max(BB_DESKTOP_MIN_ZOOM_PERCENT, percent),
+      HYPERFIDE_DESKTOP_MAX_ZOOM_PERCENT,
+      Math.max(HYPERFIDE_DESKTOP_MIN_ZOOM_PERCENT, percent),
     ) / 100
   );
 }

@@ -45,23 +45,23 @@ interface AiServiceSetOptions extends JsonOptions {
 
 function describeCliCommandStatus(status: SystemCliCommandStatus): string {
   if (!status.supported) {
-    return "The bb CLI can be installed for use outside bb only by an installed bb. Start bb with npx bb-app or the desktop app.";
+    return "The hyperfide-platform CLI can be installed for use outside Hyperfide only by an installed bb. Start bb with npx bb-app or the desktop app.";
   }
   if (status.installedPath !== null) {
     return status.onPath
-      ? `The bb CLI is installed at ${status.installedPath} for use outside bb.`
-      : `The bb CLI is installed at ${status.installedPath}, but its folder is not on your PATH. Add the folder to your PATH to use bb outside bb.`;
+      ? `The hyperfide-platform CLI is installed at ${status.installedPath} for use outside Hyperfide.`
+      : `The hyperfide-platform CLI is installed at ${status.installedPath}, but its folder is not on your PATH. Add the folder to your PATH to use hyperfide-platform outside Hyperfide.`;
   }
   if (status.shadowedBy === null) {
-    return "The bb CLI is not installed for use outside bb. Run bb settings cli-command install to add it.";
+    return "The hyperfide-platform CLI is not installed for use outside Hyperfide. Run hyperfide-platform settings cli-command install to add it.";
   }
   if (status.shadowedBy.source === "npm") {
-    return `bb is already on your PATH at ${status.shadowedBy.path}, installed by npm.`;
+    return `hyperfide-platform is already on your PATH at ${status.shadowedBy.path}, installed by npm.`;
   }
   if (status.shadowedBy.source === "machine") {
-    return `bb is already on your PATH at ${status.shadowedBy.path}, installed with the bb machine on this computer.`;
+    return `hyperfide-platform is already on your PATH at ${status.shadowedBy.path}, installed with the hyperfide-platform machine on this computer.`;
   }
-  return `The bb CLI is not installed for use outside bb. Another bb at ${status.shadowedBy.path} comes first on your PATH.`;
+  return `The hyperfide-platform CLI is not installed for use outside Hyperfide. Another hyperfide-platform at ${status.shadowedBy.path} comes first on your PATH.`;
 }
 
 function requireAiTask(input: string): AiTask {
@@ -386,7 +386,7 @@ export function registerSettingsCommands(
 ): void {
   const settings = program
     .command("settings")
-    .description("Inspect and update BB settings");
+    .description("Inspect and update Hyperfide settings");
 
   settings
     .command("show")
@@ -834,7 +834,7 @@ export function registerSettingsCommands(
 
   settings
     .command("version")
-    .description("Check the running and latest BB versions")
+    .description("Check the running and latest Hyperfide versions")
     .option("--force", "Bypass the latest-version cache")
     .option("--json", "Print machine-readable JSON output")
     .action(
@@ -850,11 +850,13 @@ export function registerSettingsCommands(
   const cliCommand = settings
     .command("cli-command")
     .description(
-      "Install the bb CLI for use outside bb, on the computer that runs the bb server",
+      "Install the hyperfide-platform CLI for use outside Hyperfide, on the computer that runs the hyperfide-platform server",
     );
   cliCommand
     .command("show", { isDefault: true })
-    .description("Show whether the bb CLI is installed for use outside bb")
+    .description(
+      "Show whether the hyperfide-platform CLI is installed for use outside Hyperfide",
+    )
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: JsonOptions) => {
@@ -866,7 +868,7 @@ export function registerSettingsCommands(
     );
   cliCommand
     .command("install")
-    .description("Link the bb CLI into a folder on PATH")
+    .description("Link the hyperfide-platform CLI into a folder on PATH")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: JsonOptions) => {
@@ -880,7 +882,7 @@ export function registerSettingsCommands(
     );
   cliCommand
     .command("remove")
-    .description("Take the bb CLI that bb installed off PATH")
+    .description("Take the hyperfide-platform CLI that Hyperfide installed off PATH")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: JsonOptions) => {
@@ -889,7 +891,7 @@ export function registerSettingsCommands(
         if (outputJson(opts, status)) return;
         console.log(
           status.installedPath === null
-            ? "Removed the bb CLI from your PATH."
+            ? "Removed the hyperfide-platform CLI from your PATH."
             : describeCliCommandStatus(status),
         );
       }),
@@ -897,7 +899,7 @@ export function registerSettingsCommands(
 
   settings
     .command("reload")
-    .description("Reload BB's managed configuration")
+    .description("Reload Hyperfide's managed configuration")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: JsonOptions) => {

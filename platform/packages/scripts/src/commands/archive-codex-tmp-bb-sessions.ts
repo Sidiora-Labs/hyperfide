@@ -16,7 +16,7 @@ import {
   log,
 } from "../lib/script-helpers.js";
 
-const DEFAULT_TMP_BB_PATTERNS: readonly string[] = [
+const DEFAULT_TMP_HYPERFIDE_PATTERNS: readonly string[] = [
   "*/bb-standalone-*",
   "*/bb-integration-*",
   "*/bb-integ-*",
@@ -239,7 +239,7 @@ export function parseArchiveTmpBbSessionsArgs(
     ),
     concurrency: DEFAULT_ARCHIVE_CONCURRENCY,
     dryRun: false,
-    patterns: [...DEFAULT_TMP_BB_PATTERNS],
+    patterns: [...DEFAULT_TMP_HYPERFIDE_PATTERNS],
     yes: false,
   };
 
@@ -310,7 +310,7 @@ export function parseArchiveTmpBbSessionsArgs(
 }
 
 function renderHelpText(): string {
-  const defaultPatterns = DEFAULT_TMP_BB_PATTERNS.join(", ");
+  const defaultPatterns = DEFAULT_TMP_HYPERFIDE_PATTERNS.join(", ");
   return `
   ${bold("codex archive tmp bb sessions")}
 

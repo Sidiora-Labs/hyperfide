@@ -56,15 +56,15 @@ async function runHostDaemonEntrypoint(): Promise<void> {
   }
   const hostDaemonModule = await import("./start-host-daemon.js");
   const daemon = await hostDaemonModule.startHostDaemon({
-    bbExecutableDirectory: hostDaemonEntrypointConfig.BB_CLI_DIR,
+    bbExecutableDirectory: hostDaemonEntrypointConfig.HYPERFIDE_CLI_DIR,
     bridgeBundleDir:
-      hostDaemonEntrypointConfig.BB_BRIDGE_DIR ??
+      hostDaemonEntrypointConfig.HYPERFIDE_BRIDGE_DIR ??
       resolveEntrypointBridgeBundleDir(),
-    serverHeaders: hostDaemonEntrypointConfig.BB_SERVER_HEADERS,
-    autoUpdate: hostDaemonEntrypointConfig.BB_HOST_DAEMON_AUTO_UPDATE,
-    supervised: hostDaemonEntrypointConfig.BB_HOST_DAEMON_SUPERVISED,
-    enrollKey: hostDaemonEntrypointConfig.BB_HOST_ENROLL_KEY,
-    hostId: hostDaemonEntrypointConfig.BB_HOST_ID,
+    serverHeaders: hostDaemonEntrypointConfig.HYPERFIDE_SERVER_HEADERS,
+    autoUpdate: hostDaemonEntrypointConfig.HYPERFIDE_HOST_DAEMON_AUTO_UPDATE,
+    supervised: hostDaemonEntrypointConfig.HYPERFIDE_HOST_DAEMON_SUPERVISED,
+    enrollKey: hostDaemonEntrypointConfig.HYPERFIDE_HOST_ENROLL_KEY,
+    hostId: hostDaemonEntrypointConfig.HYPERFIDE_HOST_ID,
   });
   await daemon.waitUntilStopped();
 }

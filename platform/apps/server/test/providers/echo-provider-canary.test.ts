@@ -46,7 +46,7 @@ const PROVIDER_ID = "echo-agent";
 const RECEIPT_KIND = `${PLUGIN_ID}/receipt`;
 const MOOD_KIND = `${PLUGIN_ID}/mood`;
 const RECEIPT_ICON_GLYPH = `${PLUGIN_ID}/receipt`;
-const GREETING_ENV = "BB_ECHO_PROVIDER_GREETING";
+const GREETING_ENV = "HYPERFIDE_ECHO_PROVIDER_GREETING";
 const STAMP_PRESENTATION = {
   label: { pending: "Stamping receipt", completed: "Stamped receipt" },
   icon: { glyph: "Check" },
@@ -631,7 +631,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
     const toolCalls: ToolCallRequest[] = [];
     const runtimeInstance = createAgentRuntime({
       workspacePath: workspaceDir,
-      env: { BB_PROVIDER_BRIDGE_RECORD_DIR: recordDir },
+      env: { HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR: recordDir },
       skillRoots,
       onEvent: (event) => {
         runtimeEvents.push(event);

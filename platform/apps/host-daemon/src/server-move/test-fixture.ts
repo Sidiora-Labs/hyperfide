@@ -201,7 +201,7 @@ async function createSourceServer(root: string): Promise<SourceServer> {
   await writeFileWithDirs(
     join(sourceDir, "config.json"),
     JSON.stringify({
-      config: { BB_LOG_LEVEL: "info" },
+      config: { HYPERFIDE_LOG_LEVEL: "info" },
       serverUrl: "https://bb.example.test",
       serverHeaders: { "x-bb-connect-machine": "bbcm_source" },
     }),
@@ -231,7 +231,7 @@ async function createSourceServer(root: string): Promise<SourceServer> {
       bbVersion: "1.0.0",
       protocolVersion: 209,
       migrationCount: 10,
-      sourceDataDir: "/Users/me/.bb",
+      sourceDataDir: "/Users/me/.hyperfide",
       sourceServerHostId: "host-source",
       serverMoveExperiment: true,
     },
@@ -354,8 +354,8 @@ export async function writeSystemdUnit(args: {
     [
       "[Service]",
       `ExecStart=${args.execStart}`,
-      'Environment="BB_APP_NPM_PREFIX=/opt/npm"',
-      `Environment="BB_DATA_DIR=${args.dataDir.replaceAll("\\", "\\\\")}"`,
+      'Environment="HYPERFIDE_APP_NPM_PREFIX=/opt/npm"',
+      `Environment="HYPERFIDE_DATA_DIR=${args.dataDir.replaceAll("\\", "\\\\")}"`,
       "Restart=always",
       "",
     ].join("\n"),
@@ -378,7 +378,7 @@ export interface FixtureArgs {
 export async function createFixture(args: FixtureArgs = {}) {
   const root = await createRoot();
   const homeDir = join(root, "home");
-  const dataDir = join(homeDir, ".bb-machines", "old-server");
+  const dataDir = join(homeDir, ".hyperfide-machines", "old-server");
   await mkdir(dataDir, { recursive: true });
   const packageRoot = await createPackageRoot(root);
   const stubPath = join(root, "pending-server.mjs");
@@ -414,7 +414,7 @@ export async function createFixture(args: FixtureArgs = {}) {
       args.hostDaemonPort === undefined ? 38_887 : args.hostDaemonPort,
     autoUpdate: args.autoUpdate ?? false,
     supervised: args.supervised ?? false,
-    env: args.env ?? { BB_SERVER_MOVE_SERVICE_MANAGER: "none" },
+    env: args.env ?? { HYPERFIDE_SERVER_MOVE_SERVICE_MANAGER: "none" },
     platform: "linux",
     uid: 1000,
     parentPid: PARENT_PID,
@@ -574,7 +574,7 @@ export async function prepareCommand(
     bbApp: null,
     serverPort: overrides.serverPort ?? (await fixture.reserveServerPort()),
     bindHost: null,
-    sourceDataDir: "/Users/me/.bb",
+    sourceDataDir: "/Users/me/.hyperfide",
     sourceServerHostId: "host-source",
     serverUrl: "https://bb.example.test",
     archiveExistingServerData: false,
