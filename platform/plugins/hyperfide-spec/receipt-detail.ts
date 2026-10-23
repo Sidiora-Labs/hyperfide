@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
-import { runBinary, type Runner } from "./src/execution";
+import { runBinary, type Runner } from "./src/execution.js";
 
 export interface TaskReceipt {
   digest: string; warnings: string[]; log: string; bundle: string;
