@@ -1,4 +1,4 @@
-import { statuses, type BoardModel, type BoardRpc, type Task, type BoardAction } from './read-model-projection';
+import { statuses, type BoardModel, type BoardRpc, type Task, type BoardAction } from './model.js';
 
 const escape = (value: unknown) => String(value).replace(/[&<>"']/g,
   character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);

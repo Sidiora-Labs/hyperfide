@@ -10,9 +10,24 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.1",
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "jsdom": "^29.0.1",
+    "@types/jsdom": "^27.0.0"
   },
   "dependencies": {
-    "@hyperfide/authority": "workspace:*"
+    "@hyperfide/authority": "workspace:*",
+    "react": "^19.0.0",
+    "zod": "^4.6.5"
+  },
+  "hyperfide": {
+    "name": "Spec",
+    "description": "Repository task board",
+    "app": "./src/board/plugin-app.ts",
+    "server": "./src/board/plugin-server.ts",
+    "host": "./src/board/host.ts"
   }
 }

@@ -1,13 +1,13 @@
 import { expect, test, vi } from 'vitest';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BoardController, renderBoard, renderDetail, requiresSatisfied } from './app';
-import { createBoardServer } from './server';
-import type { BoardAction, BoardModel, Task } from './read-model-projection';
+import { createBoardServer, latestReceipt } from './server';
+import type { BoardAction, BoardModel, Task } from './model.js';
 
 const task = (id: string, overrides: Partial<Task> = {}): Task => ({
-  id, title: `Task ${id}`, status: 'pending', wave: 1, owner: 'spec', requires: [],
+  id, feature: 'hyperfide-v22', title: `Task ${id}`, status: 'pending', wave: 1, owner: 'spec', requires: [],
   touches: ['src/**'], verify_cmd: 'pnpm test', do: ['Build board'], reqs: ['3.2'],
   criteria: [{ id: '3.2', text: 'Show tasks by wave and status' }], ...overrides,
 });
@@ -65,5 +65,20 @@ test('server executes a process without a shell and retains its failure message'
     await writeFile(binary, '#!/bin/sh\n[ "$1 $2 $3 $4 $5" = "spec start 2 -f hyperfide-v22" ] || exit 3\necho "requires 1 is not done" >&2\nexit 1\n', { mode: 0o755 });
     const rpc = createBoardServer(directory, async () => model.tasks, binary);
     await expect(rpc.action(model.feature, '2', 'start')).rejects.toThrow('requires 1 is not done');
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+test('finds the latest real task receipt and omits the link when absent', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'hyperfide-receipts-'));
+  try {
+    expect(await latestReceipt(directory, '2.2')).toBeUndefined();
+    for (const [run, time] of [['older', 100], ['latest', 200]] as const) {
+      const folder = join(directory, 'artifacts/hyperfide/tasks/2.2', run);
+      await mkdir(folder, { recursive: true });
+      const receipt = join(folder, 'receipt.json');
+      await writeFile(receipt, '{}');
+      await utimes(receipt, time, time);
+    }
+    expect(await latestReceipt(directory, '2.2')).toBe('./artifacts/hyperfide/tasks/2.2/latest/receipt.json');
+    expect(await latestReceipt(directory, '..')).toBeUndefined();
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
