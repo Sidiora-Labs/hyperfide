@@ -26,12 +26,14 @@
       ["clone", "rm -rf {W} && git clone -q /work/in/main.bundle {W} && cd {W} && git checkout -q -B main {commit} && git remote remove origin && rm -f /work/in/main.bundle && git rev-parse HEAD", 1800],
       ["cg", "cd {W} && make -j\"$(nproc)\" cg >/work/logs/make.log 2>&1 && ./cg --version", 1800],
       ["service", "cd {W}/services/hyperfide && npm ci --ignore-scripts >/work/logs/npm-ci.log 2>&1 && npm run build >/work/logs/npm-build.log 2>&1 && ls dist | head -1", 1800],
+      ["platform", "cd {W}/platform && ((corepack enable --install-directory /usr/local/bin && corepack prepare pnpm@9.15.0 --activate) >/work/logs/pnpm-g.log 2>&1 || (npm i -g pnpm@9.15.0 && mise reshim) >>/work/logs/pnpm-g.log 2>&1) && pnpm -v && pnpm install --frozen-lockfile >/work/logs/pnpm-install.log 2>&1 && tail -3 /work/logs/pnpm-install.log && du -sh node_modules | cut -f1", 5400],
+      ["platform-build", "cd {W}/platform && (pnpm build >/work/logs/pnpm-build.log 2>&1 && echo build_ok || (echo build_failed; tail -30 /work/logs/pnpm-build.log))", 5400],
       ["index", "cd {W} && ./cg init >/work/logs/init.log 2>&1 && tail -2 /work/logs/init.log", 3600],
-      ["tools", "codex --version && /usr/lib/postgresql/18/bin/initdb --version && node -v && python3 --version && git --version", 300]
+      ["tools", "codex --version && /usr/lib/postgresql/18/bin/initdb --version && node -v && python3 --version && git --version && pnpm -v && df -h /work | tail -1", 300]
     ]
   },
-  "probe": "cd {W} && ./cg --version && ls services/hyperfide/dist | head -1",
-  "prepare": "make -j\"$(nproc)\" cg >/work/out/{S}.prepare.log 2>&1 && (git diff --quiet {checkpointCommit} HEAD -- services/hyperfide/package-lock.json || npm --prefix services/hyperfide ci --ignore-scripts >>/work/out/{S}.prepare.log 2>&1) && npm --prefix services/hyperfide run build >>/work/out/{S}.prepare.log 2>&1",
+  "probe": "pnpm --version && cd {W} && ./cg --version && ls services/hyperfide/dist | head -1",
+  "prepare": "make -j\"$(nproc)\" cg >/work/out/{S}.prepare.log 2>&1 && (git diff --quiet {checkpointCommit} HEAD -- services/hyperfide/package-lock.json || npm --prefix services/hyperfide ci --ignore-scripts >>/work/out/{S}.prepare.log 2>&1) && npm --prefix services/hyperfide run build >>/work/out/{S}.prepare.log 2>&1 && (git diff --quiet {checkpointCommit} HEAD -- platform/pnpm-lock.yaml platform/pnpm-workspace.yaml || (cd platform && (pnpm install --frozen-lockfile >>/work/out/{S}.prepare.log 2>&1 || pnpm install --no-frozen-lockfile >>/work/out/{S}.prepare.log 2>&1)))",
   "qualify": {
     "cmd": "(./cg spec start -f {feature} {task} >/dev/null 2>&1 || true); HYPERFIDE_PG_BIN=/usr/lib/postgresql/18/bin CG_BUSY_TIMEOUT_MS=300000 python3 tests/hyperfide/support/withpg.py -- ./cg spec done -f {feature} {task}",
     "timeoutSec": 3600

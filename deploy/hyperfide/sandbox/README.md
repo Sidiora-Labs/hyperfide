@@ -35,7 +35,7 @@ W=/path/to/with-fleet-env.sh                # exports the five HF_* variables; p
 # 1. base checkpoint: clone local main into a sandbox booted from the earlier fleet's image, build cg and the service,
 #    index, checkpoint as hf-base-<main10>, record checkpoint + commit in fleet.json
 $W node provision.mjs base --from-checkpoint paxeer-base-1bc4285614
-#    prints one "[Ns] <step> ok" line per step (clone, cg, service, index, tools), then
+#    prints one "[Ns] <step> ok" line per step (clone, cg, service, platform, platform-build, index, tools), then
 #    "checkpoint hf-base-<sha10> commit <sha> (recorded in fleet.json)" and "base sandbox destroyed".
 #    If the base was built some other way:  node provision.mjs use hf-base-<sha10> <full sha>
 
@@ -45,11 +45,11 @@ $W node provision.mjs list                  # "<count> {"RUNNING":N}" and one "<
 
 # 3. jobs: each prints one {"job":...} line per job and "<n> job(s) at base <sha12>"
 python3 gen-jobs.py --requalify hyperfide 7.1 7.2 7.3 7.4   # qualify jobs, chained by requires
-python3 gen-jobs.py --v21 4.11 4.12 ...                     # one Codex job per v21 task, packet in state/packets/
+python3 gen-jobs.py --codex hyperfide-v22 0.8               # one Codex job per task, packet in state/packets/
 
 # 4. dispatch: --dry prints the plan as one JSON line; the real run stays in the foreground until every job has settled
 $W node dispatch.mjs --dry
-nohup $W node dispatch.mjs > state/logs/dispatch.out 2>&1 &
+nohup $W node dispatch.mjs --watch > state/logs/dispatch.out 2>&1 &
 python3 status.py                           # pool: {...} busy: b idle: i / jobs: queued=… running=… done=… review=… failed=…
 
 # 5. collect: one "READY|NOT-QUALIFIED <id> ..." line per job, then {"ready":n,"notQualified":m,"errors":[]}
@@ -86,3 +86,25 @@ that also appears in your own command line (stop runners by pid). Redact every t
 
 ## Test
 `CG=$PWD/cg bash tests/integration/96_sandbox_toolkit.sh` runs the whole sequence against a stub SDK and a stub `codex`.
+
+## Platform image and continuous dispatch
+
+The platform step runs between service and index: Corepack activates pnpm 9.15.0,
+`pnpm install --frozen-lockfile` must succeed, and `pnpm build` is best effort.
+Logs remain in `/work/logs/pnpm-install.log` and `/work/logs/pnpm-build.log`.
+The pool probe reports the pnpm version. Job preparation reinstalls platform
+packages when `platform/pnpm-lock.yaml` or `platform/pnpm-workspace.yaml` differs
+from the checkpoint commit, trying a frozen install before `--no-frozen-lockfile`.
+`make platform-install`, `make platform-build`, and `make platform-test` run pnpm
+in `platform/`.
+
+`--codex <feature> <task...>` generates Codex jobs with ids such as `v22-0.8`.
+`--v21 <task...>` remains an alias for `--codex hyperfide-v21 <task...>`.
+Set `HF_PACKET_PREAMBLE` to a readable file to append its contents to every Codex
+packet. Relative file paths resolve from the generator's working directory.
+
+`dispatch.mjs --watch` rescans jobs every tick, including while runners are busy,
+and stays alive when the queue empties or workers are unavailable. Each tick
+atomically writes `state/dispatch-loop.json` with queued ids, running ids,
+settled outcomes, and backoff timing. Create `state/STOP` to stop admitting jobs
+and exit after active runners finish; remove it before restarting dispatch.

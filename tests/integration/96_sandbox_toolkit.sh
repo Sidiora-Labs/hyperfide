@@ -11,6 +11,9 @@ REPO_SRC="$(cd "$(dirname "$0")/../.." && pwd)"
 SRC="$REPO_SRC/deploy/hyperfide/sandbox"
 KIT="$TMP/kit"; STUB="$TMP/railway"; PROJ="$TMP/proj"
 mkdir -p "$KIT" "$STUB/bin"
+# Keep the host binary outside the stub SDK's translated /work namespace.
+cp "$CG" "$TMP/cg-host"
+CG="$TMP/cg-host"
 cp "$SRC"/*.mjs "$SRC"/*.py "$SRC/fleet.json" "$SRC/package.json" "$KIT/"
 
 # --- stub SDK: same surface as railway@3.16.0 Sandbox (create/connect/list/exec/files/checkpoint/destroy) ---
@@ -56,6 +59,10 @@ export class Sandbox {
   async destroy() { const m = JSON.parse(fs.readFileSync(meta(this.id))); m.status = 'DESTROYED'; fs.writeFileSync(meta(this.id), JSON.stringify(m)); fs.rmSync(this.fsRoot, {recursive: true, force: true}); }
 }
 EOF
+
+# Sandbox process cleanup must not signal host processes from the local SDK stub.
+printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB/bin/pkill"
+chmod +x "$STUB/bin/pkill"
 
 # --- stub codex: proves the packet, the config (gateway provider, approval never, codify MCP) and the key in its environment,
 # echoes the key into its transcript (redaction must catch it), edits a file and exits 0. With CODEX_STUB_FAIL_ONCE its first
@@ -122,6 +129,7 @@ steps = {s[0]: s for s in c['base']['steps']}
 c['base']['steps'] = [steps['clone'], ['cg', f'cd {{W}} && cp {cg} ./cg && ./cg --version', 120],
                       ['service', 'mkdir -p {W}/services/hyperfide/dist && echo index.js > {W}/services/hyperfide/dist/index.js && ls {W}/services/hyperfide/dist | head -1', 60],
                       ['index', 'cd {W} && ./cg init >/work/logs/init.log 2>&1', 300], ['tools', 'codex --version && git --version', 60]]
+c['probe'] = 'cd {W} && ./cg --version && ls services/hyperfide/dist | head -1'
 c['prepare'] = 'true'
 c['qualify']['cmd'] = '(./cg spec start -f {feature} {task} >/dev/null 2>&1 || true); ./cg spec done -f {feature} {task}'
 c['staggerMs'] = 0
@@ -184,6 +192,11 @@ for s in ('Write b.txt.', 'test -f b.txt', '[spec:hyperfide-v21/4.1]', 'implemen
     assert s in pk, s
 EOF
 
+# Generic codex mode preserves the alias job id and appends the packet preamble.
+printf 'Hyperfide packet preamble marker\n' > "$TMP/preamble.md"
+HF_PACKET_PREAMBLE="$TMP/preamble.md" python3 gen-jobs.py --codex hyperfide-v21 4.1 > "$TMP/generic.out" || fail "gen-jobs codex"
+grep -q 'Hyperfide packet preamble marker' state/packets/v21-4.1.md || fail "packet preamble"
+
 # dispatch --dry plans without running
 node dispatch.mjs --dry > "$TMP/dry.out" || fail "dry"
 grep -q '"id":"hyperfide-2.1"' "$TMP/dry.out" && grep -q '"idleWorkers":2' "$TMP/dry.out" || fail "dry plan: $(cat "$TMP/dry.out")"
@@ -217,7 +230,7 @@ grep -q 'model = "cx/gpt-6.1-sol"' "$STUB/sandboxes/$(python3 -c "import json;pr
 # collect: sandbox/<id> branches in the project, evidence unpacked, READY; main untouched and still checked out
 MAIN_BEFORE="$(git -C "$PROJ" rev-parse main)"
 node collect-all.mjs > "$TMP/collect.out" 2>&1 || fail "collect-all: $(cat "$TMP/collect.out")"
-grep -q '"ready":3,"notQualified":0' "$TMP/collect.out" || fail "collect summary: $(cat "$TMP/collect.out")"
+grep -q '"ready":3,"notQualified":0' "$TMP/collect.out" || fail "collect summary: $(cat "$TMP/collect.out") $(cat "$KIT"/state/ledger/*.txt)"
 [ "$(git -C "$PROJ" rev-parse main)" = "$MAIN_BEFORE" ] && [ "$(git -C "$PROJ" rev-parse --abbrev-ref HEAD)" = main ] || fail "collect moved main"
 git -C "$PROJ" show sandbox/v21-4.1:b.txt | grep -q 'done by codex stub' || fail "codex branch content"
 git -C "$PROJ" show sandbox/hyperfide-2.2:spec/hyperfide/spec.kvx | awk '/^\[task.2.1\]/{t=1} /^\[task.2.2\]/{t=2} t&&/^status/{print t, $3}' > "$TMP/st.out"
@@ -244,6 +257,31 @@ grep -q "pool: {'ready': 2} busy: 0 idle: 2" "$TMP/status.out" || fail "status p
 grep -q 'jobs: queued=0 running=0 done=3 review=0 failed=1' "$TMP/status.out" || fail "status jobs: $(cat "$TMP/status.out")"
 grep -q "collected: {'READY': 3, 'NOT-QUALIFIED': 1}" "$TMP/status.out" || fail "status verdicts: $(cat "$TMP/status.out")"
 grep -q 'worker hf-w002 .*last=' "$TMP/status.out" || fail "status workers: $(cat "$TMP/status.out")"
+
+# Watch starts empty, discovers a newly generated job, and drains on STOP.
+node dispatch.mjs --watch --cap 1 > "$TMP/watch.out" 2>&1 &
+WATCH_PID=$!
+for i in {1..100}; do [ -f state/dispatch-loop.json ] && break; sleep 0.1; done
+cd "$PROJ"
+"$CG" spec add 2.4 --title "Watch task" --wave 5 --reqs 1.1 --verify "true" >/dev/null
+git add -A; git commit -qm "watch task"
+cd "$KIT"
+python3 gen-jobs.py --requalify hyperfide 2.4 >/dev/null || fail "watch gen-jobs"
+for i in {1..300}; do
+  if [ -f state/ledger/jobs/hyperfide-2.4.json ] && grep -q '"state": "done"' state/ledger/jobs/hyperfide-2.4.json; then break; fi
+  kill -0 "$WATCH_PID" 2>/dev/null || fail "watch exited early: $(cat "$TMP/watch.out")"
+  sleep 0.1
+done
+touch state/STOP
+for i in {1..100}; do kill -0 "$WATCH_PID" 2>/dev/null || break; sleep 0.1; done
+if kill -0 "$WATCH_PID" 2>/dev/null; then kill "$WATCH_PID"; fail "watch ignored STOP"; fi
+wait "$WATCH_PID" || fail "watch failed: $(cat "$TMP/watch.out")"
+python3 - <<'EOF' || fail "watch snapshot"
+import json
+s = json.load(open('state/dispatch-loop.json'))
+assert not s['running'] and 'queued' in s and 'backoff' in s, s
+assert {'id': 'hyperfide-2.4', 'state': 'done'} in s['settled'], s
+EOF
 
 # teardown destroys the pool and records it
 node provision.mjs teardown > "$TMP/td.out" 2>&1 || fail "teardown: $(cat "$TMP/td.out")"

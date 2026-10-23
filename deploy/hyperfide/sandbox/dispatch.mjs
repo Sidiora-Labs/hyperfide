@@ -1,5 +1,5 @@
 // Run the queued jobs (state/jobs/<id>.json) on free pool workers, one run-job.mjs child per job, and stay until all have settled.
-// usage: node dispatch.mjs [--dry] [--cap N] [--stagger-ms N] [--only id,id] [--kind qualify|codex] [--workers hf-w001,...]
+// usage: node dispatch.mjs [--dry] [--watch] [--cap N] [--stagger-ms N] [--only id,id] [--kind qualify|codex] [--workers hf-w001,...]
 //   queued: a job file with no ledger, or whose ledger failed once (the retry, on a different worker than the failed attempt).
 //   done and review ledgers are terminal; a second failure moves the ledger to state/ledger/failed/<id>.json.
 //   A job with `after` waits until those jobs are done. Wave then id order; at most --cap (fleet.json cap) jobs in flight,
@@ -7,13 +7,14 @@
 import {cfg, P, requireEnv, load, save, now, sleep, opts, safe, poolWorkers, updateWorker, ledgerPath, failedPath, baseBundle, git, repoRoot, here} from './lib.mjs';
 import fs from 'node:fs'; import path from 'node:path'; import {spawn} from 'node:child_process';
 
-const o = opts(process.argv.slice(2), ['dry']);
+const o = opts(process.argv.slice(2), ['dry', 'watch']);
 if (!o.dry) requireEnv();
 const cap = Number(o.cap || cfg.cap), stagger = Number(o['stagger-ms'] ?? cfg.staggerMs);
 const only = o.only ? new Set(o.only.split(',').filter(Boolean)) : null;
 const onlyWorkers = o.workers ? new Set(o.workers.split(',')) : null;
 const idKey = id => String(id).split(/[.-]/).map(x => (/^\d+$/.test(x) ? x.padStart(6, '0') : x)).join('.');
-const jobs = fs.existsSync(P.jobs) ? fs.readdirSync(P.jobs).filter(f => f.endsWith('.json')).map(f => ({file: path.join(P.jobs, f), ...load(path.join(P.jobs, f))})) : [];
+const readJobs = () => fs.existsSync(P.jobs) ? fs.readdirSync(P.jobs).filter(f => f.endsWith('.json')).map(f => ({file: path.join(P.jobs, f), ...load(path.join(P.jobs, f))})) : [];
+const jobs = readJobs();
 const ledger = id => (fs.existsSync(ledgerPath(id)) ? load(ledgerPath(id)) : null);
 const alive = pid => { if (!pid) return false; try { process.kill(pid, 0); return true; } catch { return false; } };
 const isDone = id => ['done', 'review'].includes(ledger(id)?.state);
@@ -37,7 +38,7 @@ const free = () => poolWorkers().filter(w => w.state === 'ready' && !w.job && (!
 console.log(JSON.stringify({cap, staggerMs: stagger, idleWorkers: free().length, queued: queue.map(j => ({id: j.id, kind: j.kind, wave: j.wave, after: j.after || [], retry: !!j.avoid})), skipped}));
 if (o.dry) process.exit(0);
 
-// Build each base bundle here, once, before any runner starts (runners racing on one bundle was the Paxeer fleet's round-1 loss).
+// Build base bundles before starting runners to avoid concurrent writes.
 for (const b of new Set(queue.map(j => git(repoRoot, 'rev-parse', '--verify', `${j.base}^{commit}`)))) baseBundle(b);
 
 const running = new Map(); let pausedUntil = 0, backoff = cfg.backoff.initialMs; const settled = [];
@@ -67,12 +68,36 @@ function start(job, worker) {
   });
 }
 
-while (queue.length || running.size) {
+const stateDir = path.dirname(P.jobs);
+const stopFile = path.join(stateDir, 'STOP');
+function snapshot() {
+  save(path.join(stateDir, 'dispatch-loop.json'), {at: now(), queued: queue.map(j => j.id),
+    running: [...running.keys()], settled, backoff: {pausedUntil, nextMs: backoff}});
+}
+function rescan() {
+  for (const j of readJobs().sort((a, b) => (a.wave ?? 99) - (b.wave ?? 99) || idKey(a.id).localeCompare(idKey(b.id)))) {
+    if ((only && !only.has(j.id)) || (o.kind && j.kind !== o.kind) || running.has(j.id) ||
+        queue.some(q => q.id === j.id) || settled.some(q => q.id === j.id) || fs.existsSync(failedPath(j.id))) continue;
+    const l = ledger(j.id);
+    if (l && (!l.finishedAt || ['done', 'review'].includes(l.state))) continue;
+    baseBundle(git(repoRoot, 'rev-parse', '--verify', `${j.base}^{commit}`));
+    queue.push({...j, avoid: l?.worker || null});
+  }
+}
+while (o.watch || queue.length || running.size) {
+  const stopping = fs.existsSync(stopFile);
+  if (o.watch && !stopping) rescan();
+  snapshot();
+  if (stopping) {
+    if (!running.size) break;
+    await new Promise(r => { wake = r; setTimeout(r, 1000); });
+    continue;
+  }
   if (Date.now() >= pausedUntil) {
     for (const job of [...queue]) {
-      if (running.size >= cap) break;
+      if (running.size >= cap || fs.existsSync(stopFile)) break;
       const after = job.after || [];
-      if (after.some(a => fs.existsSync(failedPath(a)) || (!isDone(a) && !running.has(a) && !queue.some(q => q.id === a)))) {
+      if (after.some(a => fs.existsSync(failedPath(a)) || (!o.watch && !isDone(a) && !running.has(a) && !queue.some(q => q.id === a)))) {
         queue.splice(queue.indexOf(job), 1); settled.push({id: job.id, state: 'blocked'});
         console.log(JSON.stringify({settled: job.id, state: 'blocked', after})); continue;
       }
@@ -87,13 +112,16 @@ while (queue.length || running.size) {
     if (Date.now() < pausedUntil) { await sleep(Math.min(5000, pausedUntil - Date.now())); continue; }
     const idle = free();
     if (!idle.length || queue.every(j => idle.every(w => w.name === j.avoid))) {
+      if (o.watch) { await sleep(1000); continue; }
       for (const j of queue) settled.push({id: j.id, state: 'no-worker'});
       console.log(JSON.stringify({stalled: queue.map(j => j.id), reason: 'no free worker other than the failed attempt\'s'})); break;
     }
+    if (o.watch) await sleep(1000);
     continue;
   }
   await new Promise(r => { wake = r; setTimeout(r, 5000); });
 }
+snapshot();
 const count = {}; for (const s of settled) count[s.state] = (count[s.state] || 0) + 1;
 save(path.join(P.ledger, `dispatch-${Date.now()}.json`), {at: now(), cap, staggerMs: stagger, settled});
 console.log(JSON.stringify({dispatched: settled.length, ...count}));

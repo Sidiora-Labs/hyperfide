@@ -121,3 +121,13 @@ hyperfide-native:
 .PHONY: print-link-libs
 print-link-libs:
 	@printf '%s\n' '$(LDLIBS) $(NATIVE_LIBRARIES)'
+
+.PHONY: platform-install platform-build platform-test
+platform-install:
+	pnpm -C platform install --frozen-lockfile
+
+platform-build:
+	pnpm -C platform run build
+
+platform-test:
+	pnpm -C platform run test
