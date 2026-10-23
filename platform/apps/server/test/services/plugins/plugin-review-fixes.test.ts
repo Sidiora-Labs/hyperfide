@@ -12,7 +12,7 @@ const EVIL_ORIGIN = "https://evil.example";
 const PLUGIN_ID = "review-fixes";
 
 const FIXTURE_SOURCE = `
-  import { defineRpcContract } from "@get-bb/plugin-sdk";
+  import { defineRpcContract } from "@hyperfide/plugin-sdk";
   import { z } from "zod";
   const rpcContract = defineRpcContract({
     slowKv: {

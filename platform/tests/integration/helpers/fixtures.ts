@@ -1,8 +1,8 @@
-import type { Environment, Thread } from "@bb/domain";
+import type { Environment, Thread } from "@hyperfide/domain";
 import type {
   CreateThreadRequest,
   UnmanagedBranchSpec,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   createHostThread,
   createProject,

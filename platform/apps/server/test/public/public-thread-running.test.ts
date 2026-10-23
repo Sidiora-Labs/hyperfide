@@ -1,5 +1,5 @@
-import { archiveThread } from "@bb/db";
-import { threadRunningResponseSchema } from "@bb/server-contract";
+import { archiveThread } from "@hyperfide/db";
+import { threadRunningResponseSchema } from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import { readJson } from "../helpers/json.js";
 import {

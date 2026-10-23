@@ -1,11 +1,11 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { threadsQueryKey } from "@/hooks/queries/query-keys";
-import type { ThreadQueuedMessage } from "@bb/domain";
+import type { ThreadQueuedMessage } from "@hyperfide/domain";
 import {
   makeThreadListEntry,
   makeThreadQueuedMessage,
-} from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/test-helpers/domain-fixtures";
 import {
   applyQueuedMessageReorder,
   type QueuedMessageReorderRequest,
@@ -106,7 +106,7 @@ const multipleMessages: readonly ThreadQueuedMessage[] = [
   }),
   makeQueuedMessage({
     id: "q_c",
-    text: "And run the tests for @bb/thread-view.",
+    text: "And run the tests for @hyperfide/thread-view.",
     waitingOn: threadBusy,
   }),
 ];
@@ -195,7 +195,7 @@ const mixedMessages: readonly ThreadQueuedMessage[] = [
   }),
   makeQueuedMessage({
     id: "mix_plain_2",
-    text: "And run the tests for @bb/thread-view.",
+    text: "And run the tests for @hyperfide/thread-view.",
   }),
   makeQueuedMessage({
     id: "mix_quote_2",

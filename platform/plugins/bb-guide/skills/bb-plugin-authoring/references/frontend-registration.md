@@ -2,7 +2,7 @@
 
 ## Frontend (`bb.app` entry)
 
-`app.tsx` default-exports `definePluginApp` from `@get-bb/plugin-sdk/app`.
+`app.tsx` default-exports `definePluginApp` from `@hyperfide/plugin-sdk/app`.
 React and the SDK are **never bundled** — `bb plugin build` shims them to
 the host's shared runtime, so the bundle only works inside bb.
 
@@ -18,7 +18,7 @@ import {
   experimental_FileLink as FileLink,
   UrlLink as UrlLink,
   useComposer,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { toast } from "sonner"; // shimmed to the host toaster
 import { Button } from "@/components/ui/button"; // vendored source YOU own
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -431,7 +431,7 @@ Archive and delete go through bb's thread menu (below), which owns the
 confirmations: archiving a thread with children asks first and counts them,
 and deletion always asks.
 
-Unit-test a list with `renderSlot(...)` from `@get-bb/plugin-sdk/testing/app`:
+Unit-test a list with `renderSlot(...)` from `@hyperfide/plugin-sdk/testing/app`:
 seed rows with the `sidebarThreads` option (plus `sidebarDraftThreadIds`,
 `sidebarRowStatuses`, and `sidebarShortcuts` for the per-row hooks) and assert against
 `inspection.navigateCalls` and `inspection.sdkCalls`.

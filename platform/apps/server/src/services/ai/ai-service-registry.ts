@@ -2,9 +2,9 @@ import {
   aiServiceStatusSchema,
   type AiServiceStatus,
   type AiTask,
-} from "@bb/domain";
-import type { NormalizedPluginAiService } from "@get-bb/plugin-sdk/internal/host-policy";
-import { aiServiceAlreadyRegisteredMessage } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/domain";
+import type { NormalizedPluginAiService } from "@hyperfide/plugin-sdk/internal/host-policy";
+import { aiServiceAlreadyRegisteredMessage } from "@hyperfide/plugin-sdk/internal/host-policy";
 
 const STATUS_TTL_MS = 10_000;
 const STATUS_TIMEOUT_MS = 2_000;

@@ -22,14 +22,14 @@ import type {
   PluginSidebarThreadRowStatus,
   PluginProvidersState,
   PluginThreadActionEntry,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   installTestPluginRuntime,
   renderSlot,
   type PluginSdkTestFakes,
   type RenderedSlot,
   type TestThreadActionsResolver,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 import { NO_COLLAPSED_CHILD_ACTIVITY } from "../model/thread-activity.js";
 import {
   makeSidebarEnvironment,

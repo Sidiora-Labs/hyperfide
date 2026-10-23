@@ -7,7 +7,7 @@ import {
 import { useUploadPromptAttachment } from "@/hooks/mutations/project-mutations";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";
 import { BbHttpError } from "@/lib/sdk";
-import type { PromptDraftAttachment } from "@bb/client-core";
+import type { PromptDraftAttachment } from "@hyperfide/client-core";
 import type { InlineComposerDraftSession } from "./useActiveComposerDraft";
 
 interface UseComposerAttachmentUploadsArgs {

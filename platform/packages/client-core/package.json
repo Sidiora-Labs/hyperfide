@@ -1,5 +1,5 @@
 {
-  "name": "@bb/client-core",
+  "name": "@hyperfide/client-core",
   "version": "0.0.1",
   "type": "module",
   "sideEffects": false,
@@ -17,18 +17,18 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@bb/core-ui": "workspace:*",
-    "@bb/desktop-contract": "workspace:*",
-    "@bb/domain": "workspace:*",
-    "@bb/fuzzy-match": "workspace:*",
-    "@bb/server-contract": "workspace:*",
-    "@bb/text-utils": "workspace:*",
-    "@bb/thread-view": "workspace:*",
+    "@hyperfide/core-ui": "workspace:*",
+    "@hyperfide/desktop-contract": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/fuzzy-match": "workspace:*",
+    "@hyperfide/server-contract": "workspace:*",
+    "@hyperfide/text-utils": "workspace:*",
+    "@hyperfide/thread-view": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/test-helpers": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/test-helpers": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2"

@@ -2,7 +2,7 @@ import { appToast, AppToastContent, type AppToastTone } from "./app-toast";
 import { AppToastCommitDescription } from "./app-toast-descriptions";
 import { ArchivedThreadToastDescription } from "../thread/ArchivedThreadToastDescription";
 import { pluginNotificationDescription } from "../plugin/PluginNotificationDescription";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";
 import { useState, type ReactNode } from "react";
 import { toast as sonnerToast } from "sonner";

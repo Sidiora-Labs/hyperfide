@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
 import { COMPACT_VIEWPORT_QUERY } from "@/components/ui/hooks/use-compact-viewport";
 import type { Task } from "../../shared/contract.js";
 import { makeTask } from "../../test-fixtures.js";

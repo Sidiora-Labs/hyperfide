@@ -7,7 +7,7 @@ import {
   type PendingInteraction,
   type PendingInteractionApprovalSubject,
   type PendingInteractionUserQuestionQuestion,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 export type InteractionRequestView =
   | {

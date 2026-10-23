@@ -1,7 +1,7 @@
 import {
   createFakePluginHost,
   type ExperimentalFakeHostRpcCall,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import { registerCodexAiService } from "./ai-service.js";
 import type { CodexAiTextResult } from "./ai/host-contract.js";

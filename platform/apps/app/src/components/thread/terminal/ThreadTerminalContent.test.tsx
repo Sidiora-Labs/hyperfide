@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { TerminalSession } from "@bb/server-contract";
+import type { TerminalSession } from "@hyperfide/server-contract";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThreadTerminalContent } from "./ThreadTerminalContent";

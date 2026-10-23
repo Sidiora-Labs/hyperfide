@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import type { Host } from "@bb/domain";
-import type { CliSkillMachineStatus } from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
-import { Checkbox } from "@bb/shared-ui/checkbox";
+import type { Host } from "@hyperfide/domain";
+import type { CliSkillMachineStatus } from "@hyperfide/server-contract";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Checkbox } from "@hyperfide/shared-ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
+} from "@hyperfide/shared-ui/dialog";
 import { MachineStatusDot } from "@/components/machines/MachineStatusDot";
 
 interface InstallCliSkillsDialogContentProps {

@@ -1,5 +1,5 @@
 {
-  "name": "@bb/query-tags",
+  "name": "@hyperfide/query-tags",
   "version": "0.0.1",
   "type": "module",
   "sideEffects": false,
@@ -27,7 +27,7 @@
     "react": "^19.0.0"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "@types/react": "^19.0.0",
     "react": "^19.0.0",

@@ -4,7 +4,7 @@ import {
   defineRpcContract,
   type BbPluginApi,
   type MarkdownProps,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 export const MAX_PREVIEW_BYTES = 5 * 1024 * 1024;

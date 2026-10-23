@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 export async function readThreads(bb: BbPluginApi, signal?: AbortSignal) {
   const rows: Awaited<ReturnType<typeof bb.sdk.threads.list>> = [];
   for (let offset = 0; ; offset += 500) {

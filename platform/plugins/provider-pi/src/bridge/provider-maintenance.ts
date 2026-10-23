@@ -18,7 +18,7 @@ import {
   experimental_probeNpmGlobalPackage as probeNpmGlobalPackage,
   experimental_resolveExecutablePath as resolveExecutablePath,
   experimental_versionFrom as versionFrom,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { resolvePiLaunch, resolvePiProcessLaunch } from "./rpc-child.js";
 
 const execFileAsync = promisify(execFile);

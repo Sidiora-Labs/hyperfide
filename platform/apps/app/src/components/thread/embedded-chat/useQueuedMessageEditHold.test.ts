@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BbHttpError } from "@bb/sdk/browser";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { BbHttpError } from "@hyperfide/sdk/browser";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { startQueuedMessageEditHold } from "./useQueuedMessageEditHold";
 
 const mocks = vi.hoisted(() => ({
@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/sdk", async () => ({
-  BbHttpError: (await import("@bb/sdk/browser")).BbHttpError,
+  BbHttpError: (await import("@hyperfide/sdk/browser")).BbHttpError,
   sdk: {
     threads: {
       queuedMessages: {

@@ -2,15 +2,15 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { hostDaemonSessions } from "@bb/db";
+import { hostDaemonSessions } from "@hyperfide/db";
 import {
   hostDaemonCommandSchema,
   hostDaemonOnlineRpcResponseMessageSchema,
   hostDaemonRpcCommandSchema,
   hostDaemonServerWsMessageSchema,
   parseHostDaemonRpcResultForCommand,
-} from "@bb/host-daemon-contract";
-import { type ThreadEvent } from "@bb/domain";
+} from "@hyperfide/host-daemon-contract";
+import { type ThreadEvent } from "@hyperfide/domain";
 import type {
   HostDaemonCommand,
   HostDaemonEventEnvelope,
@@ -18,7 +18,7 @@ import type {
   HostDaemonOnlineRpcRequestMessage,
   HostDaemonRpcCommand,
   HostDaemonRpcResultForCommand,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type { TestAppHarness } from "./test-app.js";
 import { availableModelFixture } from "./available-models.js";
 import { createTestDaemonHostKey } from "./test-app.js";

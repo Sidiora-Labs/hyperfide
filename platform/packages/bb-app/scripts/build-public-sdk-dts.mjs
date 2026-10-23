@@ -9,7 +9,7 @@ const packageRoot = path.resolve(here, "..");
 const packagesRoot = path.resolve(packageRoot, "..");
 
 function resolveWorkspaceSource(id) {
-  const match = /^@bb\/([^/]+)(\/.*)?$/u.exec(id);
+  const match = /^@hyperfide\/([^/]+)(\/.*)?$/u.exec(id);
   if (!match) return null;
   const packageDirectory = path.join(packagesRoot, match[1]);
   const manifestPath = path.join(packageDirectory, "package.json");
@@ -41,7 +41,7 @@ const build = await rollup({
       compilerOptions: {
         baseUrl: packagesRoot,
         paths: {
-          "@bb/hono-typed-routes": ["hono-typed-routes/src/index.ts"],
+          "@hyperfide/hono-typed-routes": ["hono-typed-routes/src/index.ts"],
         },
       },
     }),

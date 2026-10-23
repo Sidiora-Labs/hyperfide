@@ -14,16 +14,16 @@ import {
   listRunningThreads,
   setAppSettings,
   type DbConnection,
-} from "@bb/db";
-import { defaultFeatureFlags } from "@bb/domain";
-import { createMigratedConnection } from "@bb/db/testing";
+} from "@hyperfide/db";
+import { defaultFeatureFlags } from "@hyperfide/domain";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { createApp } from "../../src/server.js";
 import { PendingInteractionLifecycle } from "../../src/services/interactions/pending-interactions.js";
 import { createMachineAuthService } from "../../src/services/machine-auth.js";
 import { createProviderRegistryService } from "../../src/services/providers/provider-registry.js";
 import { registerFirstPartyProviders } from "./provider-registry.js";
-import { validatePluginProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
-import type { PluginProviderDeclaration } from "@get-bb/plugin-sdk";
+import { validatePluginProviderDeclaration } from "@hyperfide/plugin-sdk/internal/host-policy";
+import type { PluginProviderDeclaration } from "@hyperfide/plugin-sdk";
 import { buildPluginProviderRegistration } from "../../src/services/providers/plugin-provider-registration.js";
 import { SkillTreeRegistry } from "../../src/services/skills/injected-skills.js";
 import { PluginHostArtifactRegistry } from "../../src/services/plugins/plugin-host-artifact-registry.js";

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { TimelineRow } from "@bb/server-contract";
-import { Switch } from "@bb/shared-ui/switch";
+import type { TimelineRow } from "@hyperfide/server-contract";
+import { Switch } from "@hyperfide/shared-ui/switch";
 import { FollowUpPromptBox } from "@/components/promptbox/FollowUpPromptBox";
 import type { ExecutionPermissionConfig } from "@/components/promptbox/ExecutionControls";
 import { ThreadTimelinePane } from "@/views/thread-detail/ThreadTimelinePane";

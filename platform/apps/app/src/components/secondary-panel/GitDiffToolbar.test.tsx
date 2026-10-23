@@ -4,7 +4,7 @@ import { DEFAULT_DIFF_FILE_FILTERS } from "./git-diff/diff-file-filters";
 import type { ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { GitDiffToolbar } from "./GitDiffToolbar";
 
 afterEach(cleanup);

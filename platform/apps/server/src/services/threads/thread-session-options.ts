@@ -1,5 +1,5 @@
-import { listLatestThreadStateEventRowsByThreadIds } from "@bb/db";
-import type { DbConnection } from "@bb/db";
+import { listLatestThreadStateEventRowsByThreadIds } from "@hyperfide/db";
+import type { DbConnection } from "@hyperfide/db";
 import {
   THREAD_SESSION_OPTIONS_STATE_KIND,
   THREAD_SESSION_OPTION_SELECTIONS_STATE_KIND,
@@ -12,7 +12,7 @@ import {
   type SessionOptionSelections,
   type Thread,
   type ThreadSessionOption,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { ApiError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";
 import { decodeStoredEventRowCached } from "./stored-event-decode-cache.js";

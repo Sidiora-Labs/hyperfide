@@ -9,7 +9,7 @@ import {
   type ClientMessage,
   type RealtimeSubscriptionTarget,
   type ThreadOpenSignal,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   SOCKET_OPEN,
   defaultRealtimeSocketFactory,

@@ -7,7 +7,7 @@ import { basename, join } from "node:path";
 import {
   readBbAppRuntimeFile,
   writeBbAppRuntimeFile,
-} from "@bb/config/app-runtime-file";
+} from "@hyperfide/config/app-runtime-file";
 import { expect, it, vi } from "vitest";
 import { runBbApp } from "../src/launcher.js";
 

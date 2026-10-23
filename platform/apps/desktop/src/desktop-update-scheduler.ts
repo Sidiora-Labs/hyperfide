@@ -2,7 +2,7 @@ import type {
   BbDesktopInfo,
   BbDesktopInfoChangeHandler,
   BbDesktopInfoUnsubscribe,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 
 const DESKTOP_UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 export const DESKTOP_UPDATE_ACTIVE_MIN_INTERVAL_MS = 15 * 60 * 1000;

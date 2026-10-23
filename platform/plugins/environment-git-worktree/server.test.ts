@@ -2,13 +2,13 @@ import type {
   PluginEnvironmentProviderCreateContext,
   PluginEnvironmentProviderProgress,
   PluginEnvironmentProviderRestoreContext,
-} from "@get-bb/plugin-sdk/environment-provider";
+} from "@hyperfide/plugin-sdk/environment-provider";
 import {
   createFakePluginHost,
   makeHostResponse,
   makeThreadResponse,
   type FakePluginHarness,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import { worktreeHostContract } from "./contract.js";
 import { GIT_WORKTREE_ENVIRONMENT_PROVIDER_ID } from "./provider-id.js";

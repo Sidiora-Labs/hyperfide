@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { KeyboardCommandId } from "@bb/domain";
+import type { KeyboardCommandId } from "@hyperfide/domain";
 import { useAppCommandHandler } from "@/components/commands/AppCommandProvider";
 
 type OwnsCommandTarget = (target: EventTarget | null) => boolean;

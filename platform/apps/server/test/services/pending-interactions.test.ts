@@ -4,8 +4,8 @@ import {
   events as eventTable,
   listPendingInteractionsByThread,
   pendingInteractions as pendingInteractionTable,
-} from "@bb/db";
-import type { PendingInteractionCreate } from "@bb/domain";
+} from "@hyperfide/db";
+import type { PendingInteractionCreate } from "@hyperfide/domain";
 import { handleHostSessionOpened } from "../../src/internal/session-owner-side-effects.js";
 import { toPendingInteraction } from "../../src/services/interactions/pending-interaction-serialization.js";
 import { PendingInteractionLifecycle } from "../../src/services/interactions/pending-interactions.js";

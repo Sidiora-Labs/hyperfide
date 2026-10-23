@@ -3,7 +3,7 @@ import { PLUGIN_SDK_PACKAGE_NAME } from "./plugin-sdk-install.js";
 
 const ZOD_FILTER = /^zod($|\/)/;
 const RESOLVED_MARK = "bb-zod-resolution-resolved";
-const SDK_IMPORTER = /[\\/]@get-bb[\\/]plugin-sdk[\\/]/;
+const SDK_IMPORTER = /[\\/]@hyperfide[\\/]plugin-sdk[\\/]/;
 
 export function describeUnresolvedZod(args: {
   specifier: string;

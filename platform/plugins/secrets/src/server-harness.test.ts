@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import plugin from "./server.js";
 
 describe("secrets plugin server", () => {

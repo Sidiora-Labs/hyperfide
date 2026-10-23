@@ -1,4 +1,4 @@
-import type { ProviderErrorCategory } from "@bb/domain";
+import type { ProviderErrorCategory } from "@hyperfide/domain";
 import type { EventProjectionErrorMessage } from "./event-projection-types.js";
 
 interface TimelineErrorDisplay {

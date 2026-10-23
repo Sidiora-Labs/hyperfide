@@ -6,7 +6,7 @@ import {
   threadScope,
   turnScope,
   type PromptInput,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { createConnection } from "../../src/connection.js";
 import { noopNotifier } from "../../src/notifier.js";
 import {

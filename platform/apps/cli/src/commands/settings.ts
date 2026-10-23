@@ -22,13 +22,13 @@ import {
   type ExperimentUpdates,
   type UiPreferenceKey,
   type UiPreferenceValue,
-} from "@bb/domain";
-import { BbHttpError } from "@bb/sdk";
+} from "@hyperfide/domain";
+import { BbHttpError } from "@hyperfide/sdk";
 import type {
   SystemAiServicesResponse,
   SystemCliCommandStatus,
   SystemProviderInfo,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { action } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { columnWidths, printBorderlessTable } from "../table.js";

@@ -14,4 +14,4 @@ export const DIFF_FILE_TOO_LARGE_CHANGED_LINES = 20_000;
 export const DIFF_FILE_PATCH_MAX_BYTES = 512 * 1024;
 export const DIFF_FILES_INLINE_PATCH_MAX_FILES = 10;
 
-export { ARCHIVE_UNDO_GRACE_MS } from "@bb/domain";
+export { ARCHIVE_UNDO_GRACE_MS } from "@hyperfide/domain";

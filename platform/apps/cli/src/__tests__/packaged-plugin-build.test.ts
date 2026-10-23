@@ -74,7 +74,7 @@ describe("packaged CLI plugin build", () => {
     await writeFile(
       join(pluginRoot, "app.ts"),
       [
-        'import { definePluginApp, experimental_useBranches, experimental_useCheckoutState, useComposerView } from "@get-bb/plugin-sdk/app";',
+        'import { definePluginApp, experimental_useBranches, experimental_useCheckoutState, useComposerView } from "@hyperfide/plugin-sdk/app";',
         "function ComposerProbe() {",
         '  const branches = experimental_useBranches({ hostId: "host_fixture", projectId: "proj_fixture" });',
         '  const checkout = experimental_useCheckoutState({ hostId: "host_fixture", projectId: "proj_fixture" });',

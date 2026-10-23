@@ -1,4 +1,4 @@
-import type { AvailableModel } from "@bb/domain";
+import type { AvailableModel } from "@hyperfide/domain";
 import { vi } from "vitest";
 import {
   createProviderModelCatalogStore,

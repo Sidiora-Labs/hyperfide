@@ -2,7 +2,7 @@ import {
   createStandaloneBuiltinCompactCommandInput,
   type PromptInput,
   type ThreadRuntimeDisplayStatus,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import {
   buildAutoFollowUpRequest,

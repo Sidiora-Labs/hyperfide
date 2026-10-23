@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import type { ModalAllocations } from "./allocations.js";
 import type { ModalSandboxClient } from "./providers/modal/client.js";
 import { readModalMachineResource } from "./providers/modal/resource.js";

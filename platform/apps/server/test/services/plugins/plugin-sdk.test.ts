@@ -9,10 +9,10 @@ import {
   getThread,
   insertThreadPluginMetadata,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import type { Logger } from "@bb/logger";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import type { Logger } from "@hyperfide/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
@@ -33,7 +33,7 @@ import {
 } from "../../helpers/commands.js";
 import { PluginHostArtifactRegistry } from "../../../src/services/plugins/plugin-host-artifact-registry.js";
 import { startTestServer, testLogger } from "../../helpers/test-app.js";
-import { defineRpcContract } from "@get-bb/plugin-sdk";
+import { defineRpcContract } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
 
@@ -532,7 +532,7 @@ describe("plugin bb.sdk bind gate", () => {
     const rootDir = await writePlugin(workDir, {
       name: "bb-plugin-eager-host-client",
       serverSource: `
-        import { defineRpcContract } from "@get-bb/plugin-sdk";
+        import { defineRpcContract } from "@hyperfide/plugin-sdk";
         const schema = { "~standard": { validate(value: unknown) { return { value }; } } };
         const contract = defineRpcContract({ ping: { input: schema, output: schema } });
         export default async function plugin(bb: any) {

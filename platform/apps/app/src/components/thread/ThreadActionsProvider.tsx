@@ -15,7 +15,7 @@ import {
   closePanesForThreadsAtom,
   type ClosePanesForThreadsResult,
 } from "@/lib/split-layout/atoms";
-import type { Thread } from "@bb/domain";
+import type { Thread } from "@hyperfide/domain";
 import {
   ArchiveThreadConfirmationRequired,
   useArchiveThreadAndChildren,
@@ -31,7 +31,7 @@ import { sdk } from "@/lib/sdk";
 import { getPluginBoundSdk } from "@/lib/plugin-bound-sdk";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { useRouteState } from "@/hooks/useRouteState";
-import { useDialogState } from "@bb/shared-ui/use-dialog-state";
+import { useDialogState } from "@hyperfide/shared-ui/use-dialog-state";
 import { showMutationErrorToast } from "@/lib/mutation-errors";
 import { getThreadDisplayTitle } from "@/lib/thread-title";
 import {
@@ -49,7 +49,7 @@ import {
 } from "@/components/dialogs/ThreadArchiveDialog";
 import { ArchivedThreadToastDescription } from "@/components/thread/ArchivedThreadToastDescription";
 import { destroyPersistedBrowserViewsForThread } from "@/components/secondary-panel/browserViewVisibilityCoordinator";
-import { getThreadReadToggleAction } from "@bb/client-core";
+import { getThreadReadToggleAction } from "@hyperfide/client-core";
 import { getRootComposeRoutePath, getThreadRoutePath } from "@/lib/route-paths";
 import { getDesktopBrowserApi } from "@/lib/bb-desktop";
 import { useRouteNavigate } from "@/components/ui/app-route-anchor";

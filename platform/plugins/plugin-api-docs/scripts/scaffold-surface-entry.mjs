@@ -154,7 +154,7 @@ export function renderSurfaceEntryScaffold(input) {
 
 function usage() {
   return `Usage:
-  pnpm exec turbo run scaffold:surface-entry --filter=bb-plugin-plugin-api-docs -- \\
+  pnpm exec turbo run scaffold:surface-entry --filter=hyperfide-plugin-plugin-api-docs -- \\
     --id <surface-id> --title <title> --group <group-id> \\
     --source <repo-path> --api-symbol <SDK-symbol> \\
     [--transient] [--outcome] [--replacement] [--no-spatial-owner]

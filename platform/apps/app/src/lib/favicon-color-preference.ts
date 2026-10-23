@@ -5,12 +5,12 @@ import {
   faviconColorPreferenceSchema,
   type FaviconColor,
   type FaviconColorPreference,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   DARK_COLOR_SCHEME_QUERY,
   getMediaQuerySnapshot,
   subscribeMediaQuery,
-} from "@bb/shared-ui/hooks/use-media-query";
+} from "@hyperfide/shared-ui/hooks/use-media-query";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 
 export const FAVICON_COLOR_STORAGE_KEY = "bb.faviconColor";

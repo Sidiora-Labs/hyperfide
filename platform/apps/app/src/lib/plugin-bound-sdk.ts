@@ -10,9 +10,9 @@ import type {
   ThreadPluginMetadataArgs,
   ThreadPluginMetadataUpdateArgs,
   ThreadSpawnArgs,
-} from "@bb/sdk";
+} from "@hyperfide/sdk";
 import type { QueryClient } from "@tanstack/react-query";
-import type { PluginBrowserBbSdk } from "@get-bb/plugin-sdk";
+import type { PluginBrowserBbSdk } from "@hyperfide/plugin-sdk";
 import {
   beginEnvironmentNameUpdateTransaction,
   completeEnvironmentNameUpdateTransaction,

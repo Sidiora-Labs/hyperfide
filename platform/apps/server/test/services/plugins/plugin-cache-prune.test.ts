@@ -11,9 +11,9 @@ import {
   listPluginArtifacts,
   upsertInstalledPlugin,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import type { Logger } from "@bb/logger";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import type { Logger } from "@hyperfide/logger";
 import {
   garbageCollectPluginArtifacts,
   prunePluginCache,

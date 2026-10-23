@@ -1,4 +1,4 @@
-import type { ThreadEventRow } from "@bb/domain";
+import type { ThreadEventRow } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import { buildThreadTimelineTurnDetailsFromEvents } from "../src/build-thread-timeline.js";
 import { assertTimelineSourceOwnership } from "./timeline-source-ownership.js";

@@ -1,8 +1,8 @@
-import { APP_SURFACE_HEADER_NAME } from "@bb/config/app-surface";
+import { APP_SURFACE_HEADER_NAME } from "@hyperfide/config/app-surface";
 import {
   buildBridgeInjectionScript,
   type NativeShellHandshake,
-} from "@bb/mobile-bridge";
+} from "@hyperfide/mobile-bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
 import { resetNativeShellForTests } from "@/lib/native-shell";

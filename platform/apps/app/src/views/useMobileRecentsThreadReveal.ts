@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useSetAtom } from "jotai";
-import type { ThreadListEntry } from "@bb/domain";
-import { isThreadRead } from "@bb/client-core";
+import type { ThreadListEntry } from "@hyperfide/domain";
+import { isThreadRead } from "@hyperfide/client-core";
 import { useRouteState } from "@/hooks/useRouteState";
 import { useSidebarNavigation } from "@/hooks/queries/sidebar-navigation-query";
 import { listSidebarNavigationThreads } from "@/hooks/cache-owners/query-cache";

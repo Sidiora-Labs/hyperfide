@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { useRealtime, useRpc } from "@hyperfide/plugin-sdk/app";
 import type { z } from "zod";
 import {
   TASK_STATUSES,

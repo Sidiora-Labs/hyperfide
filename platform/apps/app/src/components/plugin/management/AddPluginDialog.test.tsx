@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
-import type { PluginInstallJob } from "@bb/server-contract";
+import type { PluginInstallJob } from "@hyperfide/server-contract";
 import { pluginInstallJobsQueryKey } from "@/hooks/queries/query-keys";
 import { AddPluginDialog } from "./AddPluginDialog";
 

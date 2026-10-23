@@ -5,7 +5,7 @@ import {
   experimental_promptMentionClipboardAttributes as promptMentionClipboardAttributes,
   experimental_PromptMentionIcon as PromptMentionIcon,
   experimental_useThreadTitleDisplayText as useThreadTitleDisplayText,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { cn } from "@/lib/utils";
 import { PromptMentionLinkContext } from "./prompt-mention-link";
 import { parsePromptEditorMentionAttrs } from "./prompt-editor-serialization";

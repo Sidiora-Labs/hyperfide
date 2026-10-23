@@ -1,4 +1,4 @@
-import type { SystemConfigResponse } from "@bb/server-contract";
+import type { SystemConfigResponse } from "@hyperfide/server-contract";
 import { useQuery } from "@tanstack/react-query";
 import { useProfileClient } from "@/app-shell/ProfilesProvider";
 import { systemConfigQueryKey } from "@/lib/query/query-keys";

@@ -1,5 +1,5 @@
 import { availableParallelism } from "node:os";
-import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
+import { experimental_createHostEntryHarness } from "@hyperfide/plugin-sdk/testing/host";
 import { describe, expect, it } from "vitest";
 import hostEntry from "./host.js";
 

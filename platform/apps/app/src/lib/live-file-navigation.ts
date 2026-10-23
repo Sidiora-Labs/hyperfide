@@ -1,9 +1,9 @@
-import type { ExperimentalFileLocation } from "@get-bb/plugin-sdk";
+import type { ExperimentalFileLocation } from "@hyperfide/plugin-sdk";
 export {
   normalizeExperimentalFileOpenOptions,
   normalizeExperimentalLiveFileTarget,
-} from "@get-bb/plugin-sdk/internal/file-navigation-validation";
-import type { FilePreviewLineRange } from "@bb/client-core";
+} from "@hyperfide/plugin-sdk/internal/file-navigation-validation";
+import type { FilePreviewLineRange } from "@hyperfide/client-core";
 
 export function getExperimentalFileLocationStart(
   location: ExperimentalFileLocation | null,

@@ -18,9 +18,9 @@ import {
   permissionModeSchema,
   pluginThemeMetaSchema,
   providerInfoSchema,
-} from "@bb/domain";
-import { providerHealthSchema as providerHealthSchema } from "@bb/provider-bridge-protocol/provider-maintenance";
-import { hostPlatformSchema } from "@bb/host-daemon-contract/local";
+} from "@hyperfide/domain";
+import { providerHealthSchema as providerHealthSchema } from "@hyperfide/provider-bridge-protocol/provider-maintenance";
+import { hostPlatformSchema } from "@hyperfide/host-daemon-contract/local";
 import { machineEnvironmentSetSchema } from "./machine-environment.js";
 import { systemVoiceTranscriptionResponseSchema } from "./system-voice.js";
 import {
@@ -137,8 +137,8 @@ export interface SystemVoiceTranscriptionForm {
   [key: string]: string | Blob;
 }
 
-export { providerInfoSchema as systemProviderInfoSchema } from "@bb/domain";
-export type { ProviderInfo as SystemProviderInfo } from "@bb/domain";
+export { providerInfoSchema as systemProviderInfoSchema } from "@hyperfide/domain";
+export type { ProviderInfo as SystemProviderInfo } from "@hyperfide/domain";
 
 export type SystemVoiceTranscriptionResponse = z.infer<
   typeof systemVoiceTranscriptionResponseSchema

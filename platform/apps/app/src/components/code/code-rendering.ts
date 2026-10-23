@@ -3,7 +3,7 @@ import type {
   DiffViewMode,
   ExperimentalDiffFullFileContents,
   SourceCodeLineRange,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type { ParsedGitDiffFile } from "@/components/git-diff/git-diff-parsing";
 
 export const DEFAULT_CODE_OVERFLOW: CodeOverflowMode = "scroll";

@@ -9,7 +9,7 @@ import type {
   RuntimePermissionPolicy,
   ServiceTier,
   SessionOptionSelections,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   AgentRuntimeBridgeLaunch,
   AgentRuntimeSkillRoot,

@@ -1,5 +1,5 @@
-import type { WorkspaceFileStatusKind } from "@bb/domain";
-import type { IconName } from "@bb/shared-ui/icon";
+import type { WorkspaceFileStatusKind } from "@hyperfide/domain";
+import type { IconName } from "@hyperfide/shared-ui/icon";
 
 export interface FileStatusGlyph {
   icon: IconName;

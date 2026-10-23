@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { threadScope, type ContextSnapshot } from "@bb/domain";
+import { threadScope, type ContextSnapshot } from "@hyperfide/domain";
 import type { ThreadEventWithMeta } from "../src/build-event-projection.js";
 import { extractThreadContextWindowUsage } from "../src/thread-context-window-usage.js";
 

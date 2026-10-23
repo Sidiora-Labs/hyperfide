@@ -8,8 +8,8 @@ import {
 import {
   COARSE_POINTER_HEADER_ICON_BUTTON_CLASS,
   COARSE_POINTER_HEADER_REDUCED_GLYPH_ICON_BUTTON_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+} from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   CHROME_ROW_CLASS,
   CHROME_ROW_HEIGHT_CLASS,
@@ -26,7 +26,7 @@ import {
   shouldUseMacosDesktopChrome,
 } from "@/lib/bb-desktop";
 import { useDesktopWindowState } from "@/hooks/useDesktopWindowState";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { scrollPageToTop } from "@/lib/page-scroll-to-top";
 import { resolveWindowTopLeftReserveClassName } from "./windowTopLeftReserve";
 

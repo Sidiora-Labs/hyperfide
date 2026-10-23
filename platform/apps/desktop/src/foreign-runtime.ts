@@ -3,9 +3,9 @@ import {
   clearOwnBbAppRuntimeFile,
   readBbAppRuntimeFile,
   type BbAppRuntimeFile,
-} from "@bb/config/app-runtime-file";
-import { stopVerifiedProcess } from "@bb/config/verified-process-stop";
-import type { VerifiedProcessOps } from "@bb/config/verified-process-stop";
+} from "@hyperfide/config/app-runtime-file";
+import { stopVerifiedProcess } from "@hyperfide/config/verified-process-stop";
+import type { VerifiedProcessOps } from "@hyperfide/config/verified-process-stop";
 
 export interface ForeignRuntimeDetails {
   dataDir: string;

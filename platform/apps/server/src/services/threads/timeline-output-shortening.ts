@@ -2,8 +2,8 @@ import {
   mapTimelineRowTree,
   type ThreadTimelineResponse,
   type TimelineRow,
-} from "@bb/server-contract";
-import { sliceUtf16HeadAndTail } from "@bb/text-utils";
+} from "@hyperfide/server-contract";
+import { sliceUtf16HeadAndTail } from "@hyperfide/text-utils";
 
 export const DEFAULT_MAX_INLINE_OUTPUT_CHARS = 32_000;
 

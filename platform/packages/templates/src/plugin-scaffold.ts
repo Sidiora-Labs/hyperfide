@@ -13,7 +13,7 @@ import {
 import { dirname, isAbsolute, join, relative } from "node:path";
 import semverCompare from "semver/functions/compare.js";
 import minVersion from "semver/ranges/min-version.js";
-import { derivePluginId, PLUGIN_SDK_VERSION } from "@bb/domain";
+import { derivePluginId, PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import {
   PLUGIN_SHIMMED_TYPE_DEPENDENCIES,
   PLUGIN_STARTER_DEPENDENCIES,
@@ -45,7 +45,7 @@ export async function resolvePluginSdkLayout(
   };
 }
 
-const SDK_PATH_MAP_PREFIXES = ["@get-bb/plugin-sdk", "@bb/plugin-sdk"] as const;
+const SDK_PATH_MAP_PREFIXES = ["@hyperfide/plugin-sdk", "@hyperfide/plugin-sdk"] as const;
 
 const VENDORED_DECLARATIONS = [
   "bb-plugin-sdk.d.ts",
@@ -53,7 +53,7 @@ const VENDORED_DECLARATIONS = [
 ] as const;
 
 const LEGACY_SDK_SPECIFIER_PATTERN =
-  /(["'])@bb\/plugin-sdk((?:\/[^"'\n]*)?)\1/g;
+  /(["'])@hyperfide\/plugin-sdk((?:\/[^"'\n]*)?)\1/g;
 
 const PLUGIN_SOURCE_EXTENSIONS = [".ts", ".tsx"] as const;
 const UNSCANNED_DIRECTORIES = new Set([
@@ -177,7 +177,7 @@ function rewriteLegacySdkSpecifiers(content: string): {
     LEGACY_SDK_SPECIFIER_PATTERN,
     (_match, quote: string, subpath: string) => {
       imports += 1;
-      return `${quote}@get-bb/plugin-sdk${subpath}${quote}`;
+      return `${quote}@hyperfide/plugin-sdk${subpath}${quote}`;
     },
   );
   return { text, imports };
@@ -326,7 +326,7 @@ async function planManifest(
   if (pin !== null || movedFromDependencies) {
     if (movedFromDependencies) {
       const deps = asRecord(manifest.dependencies);
-      delete deps["@get-bb/plugin-sdk"];
+      delete deps["@hyperfide/plugin-sdk"];
       if (Object.keys(deps).length === 0) {
         delete manifest.dependencies;
       } else {
@@ -335,7 +335,7 @@ async function planManifest(
     }
     manifest.devDependencies = insertDependency(
       asRecord(manifest.devDependencies),
-      "@get-bb/plugin-sdk",
+      "@hyperfide/plugin-sdk",
       sdkVersion,
     );
   }
@@ -431,9 +431,9 @@ function readSdkPinFrom(manifest: Record<string, unknown>): {
   version: string | null;
 } {
   const inDependencies =
-    typeof asRecord(manifest.dependencies)["@get-bb/plugin-sdk"] === "string";
+    typeof asRecord(manifest.dependencies)["@hyperfide/plugin-sdk"] === "string";
   for (const field of ["devDependencies", "dependencies"] as const) {
-    const declared = asRecord(manifest[field])["@get-bb/plugin-sdk"];
+    const declared = asRecord(manifest[field])["@hyperfide/plugin-sdk"];
     if (typeof declared === "string")
       return { inDependencies, version: declared };
   }
@@ -517,7 +517,7 @@ async function planTsconfig(
     tsconfig = parsed as Record<string, unknown>;
   } catch {
     throw new Error(
-      "tsconfig.json is not valid JSON — remove the @get-bb/plugin-sdk paths entry by hand",
+      "tsconfig.json is not valid JSON — remove the @hyperfide/plugin-sdk paths entry by hand",
     );
   }
 
@@ -621,7 +621,7 @@ async function tsconfigMapsSdk(rootDir: string): Promise<boolean> {
       return false;
     }
     return (
-      raw.includes('"@get-bb/plugin-sdk') || raw.includes('"@bb/plugin-sdk')
+      raw.includes('"@hyperfide/plugin-sdk') || raw.includes('"@hyperfide/plugin-sdk')
     );
   }
   const compilerOptions = tsconfig.compilerOptions;
@@ -737,7 +737,7 @@ function componentsJsonSource(bbVersion: string): string {
         hooks: "@/hooks",
       },
       registries: {
-        "@bb": `https://raw.githubusercontent.com/get-bb/bb/${registryRef(bbVersion)}/packages/plugin-registry/r/{name}.json`,
+        "@hyperfide": `https://raw.githubusercontent.com/get-bb/bb/${registryRef(bbVersion)}/packages/plugin-registry/r/{name}.json`,
       },
     },
     null,
@@ -759,7 +759,7 @@ function serverEntrySource(packageName: string): string {
 // agents how to use that command. A write from any surface publishes a realtime signal so
 // every open page refetches.
 import { randomUUID } from "node:crypto";
-import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 const todoSchema = z.object({
@@ -981,17 +981,17 @@ function appEntrySource(packageName: string): string {
   return `// ${packageName} — a BB plugin frontend entry.
 //
 // Compiled by \`bb plugin build\` into dist/app.js + dist/app.css. React and
-// @get-bb/plugin-sdk/app are provided by the BB app at load time (never bundled),
+// @hyperfide/plugin-sdk/app are provided by the BB app at load time (never bundled),
 // so this file must be loaded by BB, not imported directly.
 //
 // The components under components/ui/ are YOURS: vendored source (shadcn
 // model), edit freely. Add more from the BB registry with
-// \`npx shadcn add @bb/<name>\` (see components.json) — dropdowns, tables,
+// \`npx shadcn add @hyperfide/<name>\` (see components.json) — dropdowns, tables,
 // the full shadcn set, version-matched to this BB install. Run
 // \`npm install\` once before \`bb plugin build\`.
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { definePluginApp, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useRealtime, useRpc } from "@hyperfide/plugin-sdk/app";
 import type { rpcContract, Todo } from "./server";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1302,7 +1302,7 @@ component registry (the full shadcn set, version-matched to your BB install
 via the pinned ref in \`components.json\`):
 
 \`\`\`
-npx shadcn add @bb/select @bb/table
+npx shadcn add @hyperfide/select @hyperfide/table
 \`\`\`
 
 Run \`npm install\` once before \`bb plugin build\` — the vendored components'
@@ -1338,7 +1338,7 @@ git installs) so people installing your plugin never need npm.
   list alone, so a build-required package here rather than in
   \`devDependencies\` is what keeps your plugin installable. \`devDependencies\`
   is for types and tooling only (BB shims React, the portal primitives, and
-  \`@get-bb/plugin-sdk\` at runtime — never bundle them).
+  \`@hyperfide/plugin-sdk\` at runtime — never bundle them).
 
 Run \`bb plugin build\` before publishing git/npm installs. It writes
 \`dist/server.js\` + \`server.meta.json\` and \`app.js\` / \`app.css\` /
@@ -1390,17 +1390,17 @@ bb plugin reload ${id}
 
 ## Types & API reference
 
-The plugin API ships as the npm package \`@get-bb/plugin-sdk\`, pinned to an
+The plugin API ships as the npm package \`@hyperfide/plugin-sdk\`, pinned to an
 exact version in \`devDependencies\` (\`${PLUGIN_SDK_VERSION}\` — the SDK of the BB
 that scaffolded this plugin). After \`npm install\`, the full surface is on disk
 at:
 
 \`\`\`
-node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts      # backend
-node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk-app.d.ts  # frontend
+node_modules/@hyperfide/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts      # backend
+node_modules/@hyperfide/plugin-sdk/bundled-types/bb-plugin-sdk-app.d.ts  # frontend
 \`\`\`
 
-Your editor and \`tsc\` resolve \`@get-bb/plugin-sdk\` there through ordinary node
+Your editor and \`tsc\` resolve \`@hyperfide/plugin-sdk\` there through ordinary node
 resolution — no path mapping. These are readable declarations: open them for an
 exact signature.
 
@@ -1453,7 +1453,7 @@ export async function scaffoldPlugin(args: ScaffoldPluginArgs): Promise<void> {
           zod: "^4.6.5",
         },
         devDependencies: {
-          "@get-bb/plugin-sdk": PLUGIN_SDK_VERSION,
+          "@hyperfide/plugin-sdk": PLUGIN_SDK_VERSION,
           "@types/better-sqlite3": "^7.6.12",
           "@types/node": "^22.0.0",
           "@types/react": "^19.0.0",

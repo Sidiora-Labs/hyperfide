@@ -7,7 +7,7 @@ import {
   terminalRowsSchema,
   terminalSessionCloseReasonSchema,
   terminalSessionStatusSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 export const terminalSessionIdSchema = z
   .string()

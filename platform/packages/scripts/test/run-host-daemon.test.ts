@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   HOST_AUTH_FILE_NAME,
   HOST_ID_FILE_NAME,
-} from "@bb/host-daemon-contract";
-import { makeTempDir } from "@bb/test-helpers";
+} from "@hyperfide/host-daemon-contract";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import {
   expectedDevDataDir,
   expectedDevServerUrl,

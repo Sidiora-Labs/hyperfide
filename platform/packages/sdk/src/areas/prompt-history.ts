@@ -1,7 +1,7 @@
 import type {
   PromptHistoryListQuery,
   PromptHistoryListResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { signalRequestArgs, type CreateSdkAreaArgs } from "./common.js";
 
 export type ExperimentalPromptHistoryListArgs = PromptHistoryListQuery & {

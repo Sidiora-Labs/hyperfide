@@ -4,7 +4,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getActiveSecondaryPanelTab } from "@bb/client-core";
+import { getActiveSecondaryPanelTab } from "@hyperfide/client-core";
 import { useFixedPanelTabsState } from "@/lib/fixed-panel-tabs";
 import {
   createEmptyFixedPanelTabsState,

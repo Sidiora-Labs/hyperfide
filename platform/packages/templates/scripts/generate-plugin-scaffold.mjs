@@ -3,8 +3,8 @@
 // plus the npm deps a scaffold needs to build and typecheck them.
 //
 // The output is not committed. turbo runs this as
-// `@bb/templates#generate:plugin-scaffold` before any task that resolves
-// @bb/templates sources (see the `@bb/templates#topo` task in turbo.json).
+// `@hyperfide/templates#generate:plugin-scaffold` before any task that resolves
+// @hyperfide/templates sources (see the `@hyperfide/templates#topo` task in turbo.json).
 //
 //   node packages/templates/scripts/generate-plugin-scaffold.mjs
 import { readFile } from "node:fs/promises";
@@ -36,8 +36,8 @@ const STARTER_ITEMS = ["button", "card", "input", "checkbox", "dialog"];
 // Shimmed packages are runtime-provided (devDependencies for types only);
 // everything else a starter component imports must be a real dependency for
 // esbuild to bundle. Both lists come from the build's own shim table,
-// read by file path like the registry (@bb/templates cannot depend on
-// @bb/plugin-build without a workspace cycle).
+// read by file path like the registry (@hyperfide/templates cannot depend on
+// @hyperfide/plugin-build without a workspace cycle).
 const SHIMMED_SPECIFIERS = new Set(Object.keys(RUNTIME_SLOT_BY_SPECIFIER));
 const registryDir = path.join(packageRoot, "..", "plugin-registry", "r");
 const appPackageJson = JSON.parse(
@@ -79,7 +79,7 @@ const shimmedTypeDeps = new Set(SHIMMED_TYPE_PACKAGES);
     }
     itemQueue.push(
       ...(item.registryDependencies ?? []).map((name) =>
-        name.replace(/^@bb\//, ""),
+        name.replace(/^@hyperfide\//, ""),
       ),
     );
   }

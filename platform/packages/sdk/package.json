@@ -1,5 +1,5 @@
 {
-  "name": "@bb/sdk",
+  "name": "@hyperfide/sdk",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -44,17 +44,17 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@bb/config": "workspace:*",
-    "@bb/core-ui": "workspace:*",
-    "@bb/domain": "workspace:*",
-    "@bb/host-daemon-contract": "workspace:*",
-    "@bb/server-contract": "workspace:*",
-    "@bb/templates": "workspace:*",
+    "@hyperfide/config": "workspace:*",
+    "@hyperfide/core-ui": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/host-daemon-contract": "workspace:*",
+    "@hyperfide/server-contract": "workspace:*",
+    "@hyperfide/templates": "workspace:*",
     "ws": "^8.19.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",

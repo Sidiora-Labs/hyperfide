@@ -6,8 +6,8 @@ import type {
   ProjectWithThreadsResponse,
   PromptHistoryResponse,
   WorkspacePathListResponse,
-} from "@bb/server-contract";
-import type { FilePreview } from "@bb/client-core";
+} from "@hyperfide/server-contract";
+import type { FilePreview } from "@hyperfide/client-core";
 import { loadFilePreview } from "@/lib/api";
 import {
   buildProjectAttachmentContentUrl,

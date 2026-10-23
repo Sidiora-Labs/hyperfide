@@ -1,5 +1,5 @@
-import type { Host, MachineLifecycle } from "@bb/domain";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+import type { Host, MachineLifecycle } from "@hyperfide/domain";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import { MachineSettingsHeader } from "./MachineSettingsView";
 import {
   MANUAL_MACHINE_PROVIDER,

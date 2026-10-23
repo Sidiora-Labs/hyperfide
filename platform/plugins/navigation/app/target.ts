@@ -1,5 +1,5 @@
 import type { MouseEvent } from "react";
-import type { ExperimentalSidebarNavigationTarget } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalSidebarNavigationTarget } from "@hyperfide/plugin-sdk/app";
 
 export function isNewViewClick(event: MouseEvent): boolean {
   return event.metaKey || event.ctrlKey;

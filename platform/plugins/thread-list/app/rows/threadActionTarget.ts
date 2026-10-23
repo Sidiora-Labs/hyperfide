@@ -1,4 +1,4 @@
-import type { PluginThreadActionTarget } from "@get-bb/plugin-sdk/app";
+import type { PluginThreadActionTarget } from "@hyperfide/plugin-sdk/app";
 import type { SidebarThread } from "../model/sidebar-thread.js";
 
 export function toThreadActionTarget(

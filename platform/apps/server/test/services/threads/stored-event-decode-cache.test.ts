@@ -3,7 +3,7 @@ import {
   THREAD_CONTEXT_CLEAR_OPERATION,
   threadScope,
   turnScope,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   createProject,
   createThread,
@@ -13,8 +13,8 @@ import {
   upsertHost,
   type DbConnection,
   type StoredEventRow,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import {
   clearStoredEventDecodeCache,
   decodeStoredEventRowCached,

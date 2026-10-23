@@ -2,7 +2,7 @@ import type {
   FeatureFlags,
   ThreadCreateOrigin,
   ThreadTurnInitiator,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { TelemetryInitiator } from "../system/telemetry.js";
 
 const AUTOMATIONS_PLUGIN_ID = "automations";

@@ -18,7 +18,7 @@ import {
   providerMaintenanceParamsSchema,
   providerInstallationRunParamsSchema,
   providerInstallationStatusParamsSchema,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { z } from "zod";
 import { claudePermissionModeSchema } from "../interactive-contract.js";
 

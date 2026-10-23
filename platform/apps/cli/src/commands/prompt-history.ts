@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import type { PromptHistoryListEntry } from "@bb/domain";
+import type { PromptHistoryListEntry } from "@hyperfide/domain";
 import { action } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { columnWidths, printBorderlessTable, truncateCell } from "../table.js";

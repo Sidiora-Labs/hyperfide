@@ -1,6 +1,6 @@
 import { useState, type ReactNode, type RefObject } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { PromptStackCollapseRow } from "@bb/shared-ui/prompt-stack-disclosure";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { PromptStackCollapseRow } from "@hyperfide/shared-ui/prompt-stack-disclosure";
 
 interface AnimatedBodyProps {
   id: string;

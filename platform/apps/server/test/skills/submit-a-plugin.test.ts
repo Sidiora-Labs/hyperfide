@@ -4,8 +4,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { derivePluginId } from "@bb/domain";
-import { makeTempDir } from "@bb/test-helpers";
+import { derivePluginId } from "@hyperfide/domain";
+import { makeTempDir } from "@hyperfide/test-helpers";
 
 const skillRoot = fileURLToPath(
   new URL(

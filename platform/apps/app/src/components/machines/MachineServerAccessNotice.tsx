@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { useSystemMachineProviders } from "@/hooks/queries/machine-provider-queries";
 import { getSettingsRoutePath } from "@/lib/route-paths";

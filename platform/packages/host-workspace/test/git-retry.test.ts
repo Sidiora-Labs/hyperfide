@@ -3,8 +3,8 @@ import { runGit, WorkspaceError } from "../src/git.js";
 
 const execPortableFileMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@bb/process-utils", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@bb/process-utils")>();
+vi.mock("@hyperfide/process-utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@hyperfide/process-utils")>();
   return { ...actual, execPortableFile: execPortableFileMock };
 });
 

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { Host } from "@bb/domain";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+import type { Host } from "@hyperfide/domain";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MachinePickerUI } from "./MachinePicker";
 import type { MachineProviderPresentation } from "@/components/plugin/MachineProviderIcon";

@@ -11,12 +11,12 @@ import type {
   ExperimentalComposerMentionSearch,
   ExperimentalComposerSearchQuery,
   PluginMentionTrigger,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   composerMentionGroupsFromOrdered,
   groupCommandSuggestions,
   orderCommandSuggestions,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import { useCommandSuggestions } from "@/hooks/useCommandSuggestions";
 import { usePromptMentions } from "@/hooks/usePromptMentions";
 import type { TypeaheadConfig } from "./ComposerBox";

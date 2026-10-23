@@ -1,5 +1,5 @@
 import { registerUsageSource } from "./src/usage-source.js";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { CLAUDE_NATIVE_ROOTS_DECLARATION } from "./src/native-roots.js";
 
 export default function plugin(bb: BbPluginApi) {
@@ -104,7 +104,7 @@ export default function plugin(bb: BbPluginApi) {
     composerActions: ["plan"],
     completedTurnDisplay: "flat",
     env: {
-      passthrough: ["BB_CLAUDE_CODE_EXECUTABLE", "CLAUDE_CODE_OAUTH_TOKEN"],
+      passthrough: ["HYPERFIDE_CLAUDE_CODE_EXECUTABLE", "CLAUDE_CODE_OAUTH_TOKEN"],
     },
     models: { scope: "host" },
     deriveProviderOptions(context) {

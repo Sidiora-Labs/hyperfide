@@ -8,8 +8,8 @@ import type {
   PendingInteractionPayload,
   PendingInteractionResolution,
   ToolCallRequest,
-} from "@bb/domain";
-import { isApprovalPendingInteractionPayload } from "@bb/domain";
+} from "@hyperfide/domain";
+import { isApprovalPendingInteractionPayload } from "@hyperfide/domain";
 import type { BridgeProtocolAdapter } from "./bridge-protocol-adapter.js";
 import {
   type JsonRpcMessage,
@@ -17,8 +17,8 @@ import {
   sendJsonRpcError,
   sendJsonRpcResult,
   sendProviderResponseEncodeErrorIfKnown,
-} from "@bb/provider-bridge-protocol/bridge-kit";
-import { shouldAutoDenyInteractiveRequest } from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
+import { shouldAutoDenyInteractiveRequest } from "@hyperfide/provider-bridge-protocol/bridge-kit";
 
 export class RuntimeToolCalls {
   private readonly pending = new Map<

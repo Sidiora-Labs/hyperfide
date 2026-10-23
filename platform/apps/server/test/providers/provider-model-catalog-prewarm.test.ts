@@ -1,10 +1,10 @@
-import { openSession, updateHost } from "@bb/db";
-import type { JsonValue } from "@bb/domain";
+import { openSession, updateHost } from "@hyperfide/db";
+import type { JsonValue } from "@hyperfide/domain";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   type HostDaemonOnlineRpcRequestMessage,
-} from "@bb/host-daemon-contract";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@hyperfide/host-daemon-contract";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import { handleDaemonSocketClosed } from "../../src/internal/session-owner-side-effects.js";
 import { installProviderModelCatalogPrewarm } from "../../src/services/providers/provider-model-catalog-prewarm.js";

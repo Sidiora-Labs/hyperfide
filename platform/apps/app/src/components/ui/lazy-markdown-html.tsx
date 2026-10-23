@@ -1,6 +1,6 @@
 import ReactMarkdown, { type Options } from "react-markdown";
 import { defineSplit, SplitLoadFailure } from "@/lib/define-split";
-import { Skeleton } from "@bb/shared-ui/skeleton";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 
 export const LazyMarkdownHtml = defineSplit<Options>({
   id: "markdown-html",

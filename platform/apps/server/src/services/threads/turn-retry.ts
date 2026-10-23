@@ -1,16 +1,16 @@
-import { hasQueuedRetryOfTurnRequest } from "@bb/db";
-import { permissionModeSchema } from "@bb/domain";
+import { hasQueuedRetryOfTurnRequest } from "@hyperfide/db";
+import { permissionModeSchema } from "@hyperfide/domain";
 import type {
   ClientTurnRequestId,
   PermissionMode,
   PromptInput,
   Thread,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   RetryTurnRequest,
   RetryTurnResponse,
   SendMessageRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { ApiError } from "../../errors.js";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { attemptDispatch } from "./dispatch-attempt.js";

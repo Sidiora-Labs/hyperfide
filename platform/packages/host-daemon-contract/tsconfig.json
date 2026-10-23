@@ -1,7 +1,7 @@
 {
   "extends": [
-    "@bb/tsconfig/base.json",
-    "@bb/tsconfig/typecheck-overrides.json"
+    "@hyperfide/tsconfig/base.json",
+    "@hyperfide/tsconfig/typecheck-overrides.json"
   ],
   "compilerOptions": {
     "rootDir": ".",

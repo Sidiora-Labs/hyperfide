@@ -1,9 +1,9 @@
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import {
   normalizeThreadLifecycleFilter,
   type ThreadArchiveFilter,
 } from "@/lib/thread-lifecycle-filter";
-import { DropdownMenuItem } from "@bb/shared-ui/dropdown-menu";
+import { DropdownMenuItem } from "@hyperfide/shared-ui/dropdown-menu";
 
 export const THREAD_LIFECYCLE_OPTIONS = [
   { value: "active", label: "Active" },

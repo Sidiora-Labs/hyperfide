@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   useRpc,
   experimental_ProviderIcon as ProviderIcon,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import {

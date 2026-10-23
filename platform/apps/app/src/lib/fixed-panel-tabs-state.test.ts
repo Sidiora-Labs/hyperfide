@@ -1,6 +1,6 @@
-import { createMemoryStorage } from "@bb/test-helpers";
+import { createMemoryStorage } from "@hyperfide/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { threadTabsSchema } from "@bb/server-contract";
+import { threadTabsSchema } from "@hyperfide/server-contract";
 import {
   EMPTY_FIXED_PANEL_TABS_STATE,
   areFixedPanelTabsEquivalent,

@@ -3,7 +3,7 @@ import type {
   PendingInteractionToolUseApprovalSubject,
   ThreadEventItemPresentationIcon,
   ThreadEventItemPresentationTint,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 export interface PendingInteractionToolUseAsk {
   title: string;

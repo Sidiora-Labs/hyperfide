@@ -7,8 +7,8 @@ import {
   getEnvironment,
   getHost,
   updateHost,
-} from "@bb/db";
-import { validatePluginEnvironmentProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/db";
+import { validatePluginEnvironmentProviderDeclaration } from "@hyperfide/plugin-sdk/internal/host-policy";
 import {
   forceMachineRemoval,
   requestMachineRemoval,

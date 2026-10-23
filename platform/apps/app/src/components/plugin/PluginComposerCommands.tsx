@@ -1,5 +1,5 @@
-import { pluginCommandId } from "@bb/domain";
-import type { PluginComposerApi } from "@get-bb/plugin-sdk";
+import { pluginCommandId } from "@hyperfide/domain";
+import type { PluginComposerApi } from "@hyperfide/plugin-sdk";
 import { useComposerCommand } from "@/components/promptbox/composer-commands";
 import { useComposer } from "@/lib/plugin-sdk-hooks";
 import {

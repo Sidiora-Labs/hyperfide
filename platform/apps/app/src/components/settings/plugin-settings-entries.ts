@@ -1,4 +1,4 @@
-import type { InstalledPlugin } from "@bb/server-contract";
+import type { InstalledPlugin } from "@hyperfide/server-contract";
 import { arePluginSettingsAvailable } from "@/lib/plugin-settings-availability";
 
 export interface PluginSettingsCandidate {

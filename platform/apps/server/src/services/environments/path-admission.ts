@@ -6,8 +6,8 @@ import {
   getPreparingEnvironment,
   getThread,
   type EnvironmentRow,
-} from "@bb/db";
-import { canonicalizeHostPath } from "@bb/domain";
+} from "@hyperfide/db";
+import { canonicalizeHostPath } from "@hyperfide/domain";
 import { eq } from "drizzle-orm";
 import type { WorkSessionDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";

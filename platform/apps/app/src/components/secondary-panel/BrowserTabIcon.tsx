@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Icon } from "@bb/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { getDesktopBrowserApi } from "@/lib/bb-desktop";
 
 const imageSizes = new Map<string, number>();

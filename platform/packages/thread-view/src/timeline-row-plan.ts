@@ -1,5 +1,5 @@
-import type { CompletedTurnDisplay } from "@bb/domain";
-import type { TimelineTurnRow } from "@bb/server-contract";
+import type { CompletedTurnDisplay } from "@hyperfide/domain";
+import type { TimelineTurnRow } from "@hyperfide/server-contract";
 import { groupCompletedTurnMessages } from "./completed-turn-grouping.js";
 import type {
   EventProjection,

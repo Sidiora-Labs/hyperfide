@@ -14,7 +14,7 @@ import type {
   ThreadEvent,
   ToolCallRequest,
   ToolCallResponse,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ProviderHealthResult,
   CommandListResult,
@@ -22,7 +22,7 @@ import type {
   ProviderInstallationStatus,
   ProviderUsageResult,
   SkillsConfigureRoot,
-} from "@bb/provider-bridge-protocol";
+} from "@hyperfide/provider-bridge-protocol";
 
 export type AgentRuntimeShellEnvironment = Record<string, string>;
 

@@ -3,13 +3,13 @@ import type {
   DbNotifier,
   DbQueryConnection,
   DbTransaction,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   applyEnvironmentLifecycleEvent,
   applyEnvironmentLifecycleEventInTransaction,
   type ApplyEnvironmentLifecycleEventArgs,
   type ApplyEnvironmentLifecycleEventOutcome,
-} from "@bb/db/internal-environment-lifecycle";
+} from "@hyperfide/db/internal-environment-lifecycle";
 import type { ServerLogger } from "../../types.js";
 
 interface ApplyLoggedEnvironmentLifecycleEventDeps {

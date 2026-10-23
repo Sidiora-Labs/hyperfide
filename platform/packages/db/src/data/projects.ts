@@ -1,7 +1,7 @@
 import { prepareCachedQuery } from "../connection.js";
 import { hostPathEquals } from "./host-path-sql.js";
 import { and, asc, desc, eq, isNull, placeholder } from "drizzle-orm";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import type {
   DbConnection,
   DbQueryConnection,

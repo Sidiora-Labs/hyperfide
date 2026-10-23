@@ -10,12 +10,12 @@ import {
   listThreadEnvironmentAssignmentsOnHost,
   MissingStoredTurnStartedError,
   events as storedEvents,
-} from "@bb/db";
+} from "@hyperfide/db";
 import type {
   AcceptedDaemonEvent,
   AppendDaemonEventInput,
   AppendDaemonEventsResult,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   hostDaemonEventBatchRequestSchema,
   ungroupHostDaemonEvents,
@@ -24,7 +24,7 @@ import {
   type HostDaemonEventEnvelope,
   type HostDaemonInternalSchema,
   type HostDaemonRejectedEvent,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   THREAD_SESSION_OPTIONS_STATE_KIND,
   requireThreadEventScopeTurnId,
@@ -32,7 +32,7 @@ import {
   type ChildThreadOutcome,
   type ThreadEventType,
   type ThreadEventTurnStatus,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { Hono } from "hono";
 import { ApiError } from "../errors.js";
 import type {

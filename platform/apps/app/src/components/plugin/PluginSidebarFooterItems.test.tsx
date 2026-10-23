@@ -19,9 +19,9 @@ import type { ReactNode } from "react";
 import type {
   ExperimentalSidebarFooterActionContext,
   ExperimentalSidebarFooterDisclosureController,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { MemoryRouter } from "react-router-dom";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SidebarMenu, SidebarProvider } from "@/components/ui/sidebar.js";
 import {

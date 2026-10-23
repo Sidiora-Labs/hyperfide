@@ -7,11 +7,11 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
-import { QuestionForm } from "@bb/shared-ui/question-form";
+import { QuestionForm } from "@hyperfide/shared-ui/question-form";
 import type {
   Question,
   QuestionAnswer,
-} from "@bb/shared-ui/question-form-state";
+} from "@hyperfide/shared-ui/question-form-state";
 import { ThreadQuestionFormHost } from "./ThreadQuestionFormHost";
 import { AppCommandProvider } from "@/components/commands/AppCommandProvider";
 type InteractionPayload = { questions: Question[] };

@@ -2,7 +2,7 @@ import type {
   ComposerCustomization,
   PluginComposerScope,
   PluginComposerThreadRowStatus,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 
 export const PLUGIN_SLOT_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const PLUGIN_MESSAGE_DIRECTIVE_ID_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;

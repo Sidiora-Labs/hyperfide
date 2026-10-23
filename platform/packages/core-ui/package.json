@@ -1,5 +1,5 @@
 {
-  "name": "@bb/core-ui",
+  "name": "@hyperfide/core-ui",
   "version": "0.0.1",
   "type": "module",
   "sideEffects": false,
@@ -17,10 +17,10 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@bb/domain": "workspace:*"
+    "@hyperfide/domain": "workspace:*"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2"

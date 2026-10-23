@@ -3,7 +3,7 @@ import {
   defaultResolvedCodeTheme,
   type JsonObject,
   type ResolvedCodeTheme,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 const CODE_THEME_DARK_DATASET = "bbCodeThemeDark";
 const CODE_THEME_LIGHT_DATASET = "bbCodeThemeLight";

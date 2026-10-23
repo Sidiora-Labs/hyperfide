@@ -1,4 +1,4 @@
-import type { HostDaemonOnlineRpcResult } from "@bb/host-daemon-contract";
+import type { HostDaemonOnlineRpcResult } from "@hyperfide/host-daemon-contract";
 import {
   COMMAND_TIMEOUT_MS,
   WORKSPACE_STATUS_MAX_FILES,

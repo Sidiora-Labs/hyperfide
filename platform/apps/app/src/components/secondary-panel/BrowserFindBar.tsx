@@ -1,12 +1,12 @@
 import type { KeyboardEvent, RefObject } from "react";
-import { HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH } from "@bb/desktop-contract";
+import { HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH } from "@hyperfide/desktop-contract";
 import {
   COARSE_POINTER_HEADER_ICON_BUTTON_CLASS,
   COARSE_POINTER_TEXT_SM_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@bb/shared-ui/chrome-style-tokens";
+} from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@hyperfide/shared-ui/chrome-style-tokens";
 import type { AppShortcutPresentation } from "@/lib/app-keybindings";
 import { SECONDARY_PANEL_TOP_CHROME_BACKGROUND_CLASS } from "./panelChromeClasses";
 

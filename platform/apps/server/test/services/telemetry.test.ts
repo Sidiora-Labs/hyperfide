@@ -1,11 +1,11 @@
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getAppSettings, setAppSettings } from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import { defaultAppSettings } from "@bb/domain";
+import { getAppSettings, setAppSettings } from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import { defaultAppSettings } from "@hyperfide/domain";
 import { withTestHarness } from "../helpers/test-app.js";
-import { DEFAULTS } from "@bb/config/defaults";
+import { DEFAULTS } from "@hyperfide/config/defaults";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   appInstallFromServerConfig,

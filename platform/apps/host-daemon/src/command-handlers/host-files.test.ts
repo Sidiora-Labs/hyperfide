@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { initRepo, makeTempDir } from "@bb/test-helpers";
+import { initRepo, makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
 import {
   CommandDispatchError,

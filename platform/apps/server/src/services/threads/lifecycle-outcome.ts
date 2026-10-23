@@ -6,7 +6,7 @@ import {
   type ApplyThreadLifecycleEventOutcome,
   type DbConnection,
   type DbTransaction,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { recordFinishedTurn } from "../system/turn-telemetry.js";
 import type { ServerLogger } from "../../types.js";
 import type { NotificationHub } from "../../ws/hub.js";

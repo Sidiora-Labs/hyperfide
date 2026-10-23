@@ -3,7 +3,7 @@ import { createPushRegistrationController } from "./push-registration-controller
 import type { PushNotificationsModule } from "./push-registration";
 import { createMemoryPushStorage, createPushStore } from "./push-store";
 import type { PushSubscriptionsApi } from "./push-subscriptions-api";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 
 function setup() {
   const store = createPushStore(createMemoryPushStorage());

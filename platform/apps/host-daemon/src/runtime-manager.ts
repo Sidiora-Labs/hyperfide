@@ -7,32 +7,32 @@ import {
   type AgentRuntimeSkillRoot,
   type AgentRuntimeProcessExitInfo,
   type ReapedIdleProviderSession,
-} from "@bb/agent-runtime";
-import type { Logger } from "@bb/logger";
-import { sliceUtf16Tail } from "@bb/text-utils";
+} from "@hyperfide/agent-runtime";
+import type { Logger } from "@hyperfide/logger";
+import { sliceUtf16Tail } from "@hyperfide/text-utils";
 import type {
   PendingInteractionCreate,
   PendingInteractionResolution,
   ThreadEvent,
-} from "@bb/domain";
-import { threadScope, turnScope } from "@bb/domain";
+} from "@hyperfide/domain";
+import { threadScope, turnScope } from "@hyperfide/domain";
 import type {
   HostDaemonActiveThread,
   HostDaemonContributedEnvEntry,
   HostDaemonLoadedEnvironment,
   HostDaemonInjectedSkillSource,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type {
   DataDirSkillsWatchError,
   HostWatcher,
   InjectedSkillsObservedChange,
-} from "@bb/host-watcher";
+} from "@hyperfide/host-watcher";
 import {
   provisionWorkspace,
   WorkspaceError,
   type HostWorkspace,
   type ProvisionWorkspaceArgs,
-} from "@bb/host-workspace";
+} from "@hyperfide/host-workspace";
 import {
   cleanupInjectedSkillStagingDirs,
   EMPTY_SKILL_CATALOG_HASH,

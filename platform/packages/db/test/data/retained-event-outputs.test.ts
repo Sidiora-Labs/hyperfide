@@ -1,4 +1,4 @@
-import { turnScope } from "@bb/domain";
+import { turnScope } from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   copyStoredThreadEventsInTransaction,

@@ -5,7 +5,7 @@ import {
   type BaseWindow,
   type MenuItemConstructorOptions,
 } from "electron";
-import type { BbDesktopZoomCommand } from "@bb/desktop-contract";
+import type { BbDesktopZoomCommand } from "@hyperfide/desktop-contract";
 import type { ApplicationMenuAccelerators } from "./desktop-menu-shortcuts.js";
 import { builtinServerName } from "./server-target.js";
 

@@ -10,12 +10,12 @@ import {
   type ServiceTier,
   threadParentNotificationsSchema,
   type ThreadParentNotifications,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   DEFAULT_THREAD_WAIT_POLL_INTERVAL_MS,
   DEFAULT_THREAD_WAIT_TIMEOUT_MS,
-} from "@bb/sdk";
-import type { BbSdk } from "@bb/sdk/node";
+} from "@hyperfide/sdk";
+import type { BbSdk } from "@hyperfide/sdk/node";
 import { parseDurationMs } from "../../duration.js";
 
 export const THREAD_WAIT_EXIT_CODE_TIMEOUT = 2;

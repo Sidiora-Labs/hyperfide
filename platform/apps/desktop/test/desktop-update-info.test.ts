@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { BbDesktopInfo } from "@bb/desktop-contract";
+import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
 import { mergeDesktopUpdateInfo } from "../src/desktop-update-info.js";
 
 function info(overrides: Partial<BbDesktopInfo> = {}): BbDesktopInfo {

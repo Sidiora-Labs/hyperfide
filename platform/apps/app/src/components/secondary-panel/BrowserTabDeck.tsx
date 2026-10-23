@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import type { BbDesktopBrowserTarget } from "@bb/desktop-contract";
-import { COARSE_POINTER_TEXT_SM_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { BbDesktopBrowserTarget } from "@hyperfide/desktop-contract";
+import { COARSE_POINTER_TEXT_SM_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import type { BrowserFixedPanelTab } from "@/lib/fixed-panel-tabs-state";
 import { getDesktopBrowserApi } from "@/lib/bb-desktop";
 import { copyToClipboardWithToast } from "@/lib/clipboard";

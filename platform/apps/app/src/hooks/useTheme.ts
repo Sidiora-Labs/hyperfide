@@ -5,7 +5,7 @@ import {
   DARK_COLOR_SCHEME_QUERY,
   getMediaQuerySnapshot,
   subscribeMediaQuery,
-} from "@bb/shared-ui/hooks/use-media-query";
+} from "@hyperfide/shared-ui/hooks/use-media-query";
 import { createLocalStorageEnumStorage } from "@/lib/browser-storage";
 
 export const THEME_STORAGE_KEY = "bb.theme";

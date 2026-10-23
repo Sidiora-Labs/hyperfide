@@ -38,7 +38,7 @@ function fixture() {
   put("pnpm-workspace.yaml", "packages:\n  - apps/*\n  - packages/*\n");
   put(
     "pnpm-lock.yaml",
-    "lockfileVersion: '9.0'\nimporters:\n  .: {}\n  apps/app:\n    dependencies:\n      '@bb/config':\n        specifier: workspace:*\n        version: link:../../packages/config\n  packages/config: {}\n  packages/text-utils: {}\n  apps/mobile: {}\n",
+    "lockfileVersion: '9.0'\nimporters:\n  .: {}\n  apps/app:\n    dependencies:\n      '@hyperfide/config':\n        specifier: workspace:*\n        version: link:../../packages/config\n  packages/config: {}\n  packages/text-utils: {}\n  apps/mobile: {}\n",
   );
   put(
     "turbo.json",
@@ -53,10 +53,10 @@ function fixture() {
     }),
   );
   for (const [path, name, dependencies] of [
-    ["apps/app", "@bb/app", { "@bb/config": "workspace:*" }],
-    ["packages/config", "@bb/config", {}],
-    ["packages/text-utils", "@bb/text-utils", {}],
-    ["apps/mobile", "@bb/mobile", {}],
+    ["apps/app", "@hyperfide/app", { "@hyperfide/config": "workspace:*" }],
+    ["packages/config", "@hyperfide/config", {}],
+    ["packages/text-utils", "@hyperfide/text-utils", {}],
+    ["apps/mobile", "@hyperfide/mobile", {}],
   ]) {
     put(
       `${path}/package.json`,
@@ -154,8 +154,8 @@ it("selects app checks without provisioning unrelated Windows or package smoke j
   expect(plan.packaging).toBe(false);
   expect(plan.foundation).toBe(false);
   expect(plan.forks).toBe(false);
-  expect(plan.staticFilters).toContain("--filter=@bb/app");
-  expect(plan.staticFilters).not.toContain("@bb/text-utils");
+  expect(plan.staticFilters).toContain("--filter=@hyperfide/app");
+  expect(plan.staticFilters).not.toContain("@hyperfide/text-utils");
 }, 30_000);
 
 it("omits mobile installs only when the selected tests do not include mobile", () => {
@@ -194,18 +194,18 @@ it("keeps dependent app tests and Windows foundation checks for shared configura
   const plan = fixture().plan("packages/config/src/index.ts");
   expect(
     plan.tests.include.some((entry) =>
-      entry.filter.includes("--filter=@bb/app"),
+      entry.filter.includes("--filter=@hyperfide/app"),
     ),
   ).toBe(true);
   expect(
     plan["windows-tests"].include.some((entry) =>
-      entry.filter.includes("--filter=@bb/app"),
+      entry.filter.includes("--filter=@hyperfide/app"),
     ),
   ).toBe(true);
   expect(plan.foundation).toBe(true);
-  expect(plan.staticFilters).toContain("--filter=@bb/config");
-  expect(plan.staticFilters).toContain("--filter=@bb/app");
-  expect(plan.staticFilters).not.toContain("@bb/text-utils");
+  expect(plan.staticFilters).toContain("--filter=@hyperfide/config");
+  expect(plan.staticFilters).toContain("--filter=@hyperfide/app");
+  expect(plan.staticFilters).not.toContain("@hyperfide/text-utils");
 }, 30_000);
 
 it("retains Windows and package smokes for frontend build configuration", () => {
@@ -378,7 +378,7 @@ it("compares a refreshed PR merge against its actual base without treating unrel
   expect(selected["windows-tests"].include).toEqual([]);
   expect(
     selected.tests.include.every(
-      (entry) => entry.filter === "--filter=@bb/app",
+      (entry) => entry.filter === "--filter=@hyperfide/app",
     ),
   ).toBe(true);
 }, 60_000);

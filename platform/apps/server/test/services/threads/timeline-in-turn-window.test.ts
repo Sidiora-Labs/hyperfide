@@ -1,11 +1,11 @@
-import { prependOlderTimelineRows } from "@bb/client-core";
+import { prependOlderTimelineRows } from "@hyperfide/client-core";
 import { describe, expect, it } from "vitest";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
-} from "@bb/domain";
-import type { ClientTurnRequestId, Thread } from "@bb/domain";
+} from "@hyperfide/domain";
+import type { ClientTurnRequestId, Thread } from "@hyperfide/domain";
 import {
   createProject,
   createThread,
@@ -14,14 +14,14 @@ import {
   migrateNextLegacyImageGenerationOutput,
   noopNotifier,
   upsertHost,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import { LOCAL_WORKFLOW_TASK_TYPE } from "@bb/domain";
-import type { DbConnection } from "@bb/db";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import { LOCAL_WORKFLOW_TASK_TYPE } from "@hyperfide/domain";
+import type { DbConnection } from "@hyperfide/db";
 import type {
   TimelinePaginationCursor,
   TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   buildTimelineTurnSummaryDetails as buildTurnDetailsPage,
   buildThreadTimelineWithProfile,

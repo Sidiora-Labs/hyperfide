@@ -46,7 +46,7 @@ import {
   type ProviderRuntimeEvent,
   experimental_defineProviderBridge,
   type ProviderRecoveryHint,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { z } from "zod";
 import {
   CODEX_MACOS_PERMISSION_EXTENSION_KIND,
@@ -279,8 +279,8 @@ function sendRuntimeRequest(
   return responsePromise;
 }
 
-const CODEX_APP_SERVER_COMMAND_ENV = "BB_CODEX_BRIDGE_APP_SERVER_COMMAND";
-const CODEX_APP_SERVER_ARGS_ENV = "BB_CODEX_BRIDGE_APP_SERVER_ARGS";
+const CODEX_APP_SERVER_COMMAND_ENV = "HYPERFIDE_CODEX_BRIDGE_APP_SERVER_COMMAND";
+const CODEX_APP_SERVER_ARGS_ENV = "HYPERFIDE_CODEX_BRIDGE_APP_SERVER_ARGS";
 const CODEX_POOL_BASE_URL_ENV = "CODEX_OPENAI_BASE_URL";
 const CODEX_POOL_AUTH_TOKEN_ENV = "CODEX_POOL_AUTH_TOKEN";
 

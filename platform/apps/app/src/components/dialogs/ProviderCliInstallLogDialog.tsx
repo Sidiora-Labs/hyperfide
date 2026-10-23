@@ -5,7 +5,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
+} from "@hyperfide/shared-ui/dialog";
 import { CopyButton } from "@/components/ui/copy-button";
 
 export interface ProviderCliInstallLogDialogState {

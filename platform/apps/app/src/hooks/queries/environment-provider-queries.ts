@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type {
   SystemEnvironmentProvider,
   SystemEnvironmentProvidersQuery,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { sdk } from "@/lib/sdk";
 import {
   environmentProviderListCacheKey,

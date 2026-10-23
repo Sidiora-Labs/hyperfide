@@ -7,7 +7,7 @@ import {
   experimental_ComposerRoot as ComposerRoot,
   experimental_useComposerRenderer as useComposerRenderer,
   type ExperimentalComposerEditor,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { ComposerRendererTestHost } from "@/test/fixtures/composer-renderer";
 import {
   composerSearchQueries,

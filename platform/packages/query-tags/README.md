@@ -77,5 +77,5 @@ older pending ones on the same row. Rows that load while a write is pending
 show its prediction. A row leaves the store when no view holds it.
 `writeKeyedEntity` changes a stored row directly, beneath pending predictions.
 
-`@bb/query-tags/testing` exports `keyedStoreContract`, the cases every keyed
+`@hyperfide/query-tags/testing` exports `keyedStoreContract`, the cases every keyed
 surface runs through a `KeyedStoreSubject`.

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import {
   mimeTypeFromExtension,
   type PromptInput,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import type { ImageContent } from "@earendil-works/pi-ai";
 
 interface ExtractedPiPromptInput {

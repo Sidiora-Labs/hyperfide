@@ -1,18 +1,18 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { resolveDataDirSkillsRootPath } from "@bb/config/skill-storage-paths";
+import { resolveDataDirSkillsRootPath } from "@hyperfide/config/skill-storage-paths";
 import {
   EMPTY_PROVIDER_NATIVE_ROOTS,
   EMPTY_PROVIDER_RESOLVED_NATIVE_ROOTS,
   providerNativeRootsAreEmpty,
   type ProviderNativeRoots,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   DiscoveredSkill,
   HostDaemonOnlineRpcResult,
   SkillRootKind,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   CommandDispatchError,
   type CommandOf,

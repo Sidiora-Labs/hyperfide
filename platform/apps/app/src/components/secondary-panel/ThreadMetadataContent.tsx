@@ -29,7 +29,7 @@ import {
   experimental_THREAD_INFO_ROW_GROUPS,
   experimental_THREAD_INFO_SECTION_GROUPS,
   type ExperimentalThreadInfoProps,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { Link } from "react-router-dom";
 import type {
   Environment,
@@ -38,13 +38,13 @@ import type {
   ThreadListEntry,
   ThreadParentNotifications,
   WorkspaceStatus,
-} from "@bb/domain";
-import type { WorkspaceResolutionFailure } from "@bb/host-daemon-contract";
+} from "@hyperfide/domain";
+import type { WorkspaceResolutionFailure } from "@hyperfide/host-daemon-contract";
 import {
   formatEnvironmentDisplay,
   type EnvironmentDisplayHostContext,
-} from "@bb/core-ui";
-import { cn, formatHomePathForDisplay } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/core-ui";
+import { cn, formatHomePathForDisplay } from "@hyperfide/shared-ui/lib/utils";
 import {
   findEnvironmentDisplayProvider,
   getEnvironmentWorkspaceInfoDisplay,
@@ -55,8 +55,8 @@ import { useHosts } from "@/hooks/queries/host-queries";
 import { useProjectDisplayName } from "@/hooks/queries/sidebar-navigation-query";
 import { MachineIcon } from "@/components/machines/MachineLabel";
 import { formatWorkspaceCheckoutDisplay } from "@/lib/workspace-checkout-display";
-import { Button } from "@bb/shared-ui/button";
-import { COARSE_POINTER_TEXT_SM_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+import { Button } from "@hyperfide/shared-ui/button";
+import { COARSE_POINTER_TEXT_SM_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import { CopyableInlineLabel } from "@/components/ui/copy-button.js";
 import { useFittedPathMiddle } from "@/components/ui/truncate-path-middle";
 import {
@@ -65,8 +65,8 @@ import {
   DETAIL_ROW_ICON_CLASS,
 } from "@/components/ui/detail-card.js";
 import { useCreateThreadInEnvironment } from "@/hooks/useCreateThreadInEnvironment";
-import { Icon } from "@bb/shared-ui/icon";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@hyperfide/shared-ui/tooltip";
 import {
   BranchPicker,
   getMergeBaseBranchCandidateGroups,

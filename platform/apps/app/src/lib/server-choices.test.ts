@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, renderHook } from "@testing-library/react";
-import type { BbDesktopServerChoice } from "@bb/desktop-contract";
+import type { BbDesktopServerChoice } from "@hyperfide/desktop-contract";
 import { createBbDesktopApi } from "../test/bb-desktop-test-utils";
 import { getServerChoices } from "./server-choices";
 import { useServerChoices } from "../hooks/useServerChoices";

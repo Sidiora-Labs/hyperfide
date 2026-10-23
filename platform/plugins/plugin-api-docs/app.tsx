@@ -5,7 +5,7 @@ import {
   useBbNavigate,
   useSdk,
   type PluginBrowserBbSdk,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { copyPluginSurfaceAgentReference } from "./src/agent-reference";
 import { firstPartyPluginId } from "./src/plugin-icons";
 import { ProductMap } from "./src/product-map";

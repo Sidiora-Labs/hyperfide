@@ -5,13 +5,13 @@
   "title": "resource-toolbar",
   "description": "BB ui \"resource-toolbar\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/dropdown-menu",
-    "@bb/icon",
-    "@bb/input",
-    "@bb/tooltip",
-    "@bb/use-compact-viewport",
-    "@bb/utils"
+    "@hyperfide/button",
+    "@hyperfide/dropdown-menu",
+    "@hyperfide/icon",
+    "@hyperfide/input",
+    "@hyperfide/tooltip",
+    "@hyperfide/use-compact-viewport",
+    "@hyperfide/utils"
   ],
   "files": [
     {

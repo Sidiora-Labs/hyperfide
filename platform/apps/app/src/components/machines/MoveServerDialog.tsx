@@ -1,12 +1,12 @@
 import { useEffect, useId, useState } from "react";
-import { formatServerDataSize, type Host } from "@bb/domain";
+import { formatServerDataSize, type Host } from "@hyperfide/domain";
 import type {
   ServerMoveCheckItem,
   ServerMoveCheckResponse,
   ServerMoveCheckSeverity,
-} from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
-import { Checkbox } from "@bb/shared-ui/checkbox";
+} from "@hyperfide/server-contract";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Checkbox } from "@hyperfide/shared-ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +14,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/dialog";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
+import { Input } from "@hyperfide/shared-ui/input";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   useCheckServerMove,
   useStartServerMove,

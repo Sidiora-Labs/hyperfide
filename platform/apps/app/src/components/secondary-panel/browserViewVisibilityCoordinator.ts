@@ -1,7 +1,7 @@
 import type {
   BbDesktopBrowserApi,
   BbDesktopBrowserTarget,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 
 export interface BrowserViewVisibilityCoordinator {
   show(

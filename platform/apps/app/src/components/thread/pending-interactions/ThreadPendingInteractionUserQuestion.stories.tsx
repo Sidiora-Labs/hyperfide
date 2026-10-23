@@ -1,7 +1,7 @@
 import type {
   PendingInteraction,
   ProviderPendingInteraction,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { ThreadPendingInteractionBanners } from "@/components/thread/pending-interactions/ThreadPendingInteractionBanner";
 import { StoryCard, StoryRow } from "../../../../.ladle/story-card";
 

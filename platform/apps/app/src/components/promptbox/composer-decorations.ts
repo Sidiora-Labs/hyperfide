@@ -3,8 +3,8 @@ import type {
   ComposerStructuredDraft,
   ComposerView,
   ExperimentalComposerDecorationSource,
-} from "@get-bb/plugin-sdk";
-import type { PromptTextMention } from "@bb/domain";
+} from "@hyperfide/plugin-sdk";
+import type { PromptTextMention } from "@hyperfide/domain";
 import { composerScopeIdentity } from "@/components/plugin/plugin-composer-host";
 import type { ComposerTextEffectSource } from "@/lib/composer-text-effects";
 

@@ -1,5 +1,5 @@
-import { markThreadDeleted } from "@bb/db";
-import { threadAncestorsListResponseSchema } from "@bb/server-contract";
+import { markThreadDeleted } from "@hyperfide/db";
+import { threadAncestorsListResponseSchema } from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import { archiveThreadAndReleaseChildren } from "../../src/services/threads/thread-ownership.js";
 import { readJson } from "../helpers/json.js";

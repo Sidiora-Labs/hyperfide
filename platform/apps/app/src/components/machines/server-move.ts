@@ -1,12 +1,12 @@
-import { toRecord } from "@bb/core-ui";
-import type { Host, LastServerMove, ServerMoveStepId } from "@bb/domain";
+import { toRecord } from "@hyperfide/core-ui";
+import type { Host, LastServerMove, ServerMoveStepId } from "@hyperfide/domain";
 import {
   SERVER_MOVED_ERROR_CODE,
   serverMovedErrorDetailsSchema,
   type ServerMoveHealth,
   type ServerMoveHealthState,
-} from "@bb/host-daemon-contract";
-import { BbHttpError } from "@bb/sdk/browser";
+} from "@hyperfide/host-daemon-contract";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import {
   serverMoveCheckItemSchema,
   type ServerMoveCheckItem,
@@ -14,7 +14,7 @@ import {
   type ServerMoveCheckSeverity,
   type ServerMoveStatus,
   type ServerMoveStatusResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 
 export const SERVER_MOVE_POLL_INTERVAL_MS = 1_000;
 export const SERVER_MOVE_ARRIVAL_PARAM = "bbServerMove";

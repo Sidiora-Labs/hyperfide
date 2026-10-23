@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { InstalledPlugin } from "@bb/server-contract";
+import type { InstalledPlugin } from "@hyperfide/server-contract";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { systemMachineProvidersQueryKey } from "@/hooks/queries/query-keys";
 import {
@@ -27,7 +27,7 @@ import {
   makePluginListItem,
   makePluginRegistrationSet,
 } from "@/test/fixtures/plugins";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 
 interface RecordedRequest {
   url: string;

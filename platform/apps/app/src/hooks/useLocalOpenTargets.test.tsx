@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, renderHook } from "@testing-library/react";
-import type { OpenInTargetContext } from "@bb/host-daemon-contract";
+import type { OpenInTargetContext } from "@hyperfide/host-daemon-contract";
 import { afterEach, describe, expect, it } from "vitest";
 import { useLocalOpenTargets } from "./useLocalOpenTargets";
 

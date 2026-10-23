@@ -8,7 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PluginMessageDirectiveProps } from "@get-bb/plugin-sdk";
+import type { PluginMessageDirectiveProps } from "@hyperfide/plugin-sdk";
 import { MemoryRouter } from "react-router-dom";
 import { RouteNavigationProvider } from "@/components/ui/app-route-anchor";
 import {
@@ -16,7 +16,7 @@ import {
   MessageDirectiveRegistryProvider,
 } from "@/components/ui/markdown-message-directives";
 import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import type { ThreadTimelineLocalFileLinkHandler } from "./types";
 import { ConversationMessageContent } from "./ConversationMessageContent";
 

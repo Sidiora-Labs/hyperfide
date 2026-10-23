@@ -1,5 +1,5 @@
-import { archiveThread, getThread, updateThread } from "@bb/db";
-import type { ThreadParentNotifications } from "@bb/domain";
+import { archiveThread, getThread, updateThread } from "@hyperfide/db";
+import type { ThreadParentNotifications } from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { queueParentSystemMessage } from "../../src/services/threads/parent-system-messages.js";
 import { handleThreadOwnershipChange } from "../../src/services/threads/thread-ownership.js";

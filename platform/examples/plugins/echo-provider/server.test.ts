@@ -1,4 +1,4 @@
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import echoPlugin from "./server.js";
 import { ECHO_PROJECT_SKILL_ROOT, ECHO_PROVIDER_ID } from "./src/vocabulary.js";

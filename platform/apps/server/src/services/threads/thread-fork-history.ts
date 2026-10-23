@@ -8,8 +8,8 @@ import {
   listStoredEventRows,
   listStoredTurnCompletedRowsByTurnIds,
   type StoredEventRow,
-} from "@bb/db";
-import type { Thread, ThreadEvent, ThreadEventType } from "@bb/domain";
+} from "@hyperfide/db";
+import type { Thread, ThreadEvent, ThreadEventType } from "@hyperfide/domain";
 import type { AppDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
 import { parseStoredEvent } from "./thread-data.js";

@@ -1,6 +1,6 @@
 import { useId } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
-import type { TimelineWorkflowWorkRow } from "@bb/server-contract";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import type { TimelineWorkflowWorkRow } from "@hyperfide/server-contract";
 import {
   PROMPT_STACK_CARD_HEADER_BUTTON_CLASS,
   PROMPT_STACK_CARD_ROW_HEIGHT,
@@ -16,7 +16,7 @@ import {
   PromptStackCountSlot,
   PromptStackPeekLayers,
   useDisclosureFocusHandoff,
-} from "@bb/shared-ui/prompt-stack-disclosure";
+} from "@hyperfide/shared-ui/prompt-stack-disclosure";
 
 interface ThreadWorkflowStackProps {
   workflows: readonly TimelineWorkflowWorkRow[];

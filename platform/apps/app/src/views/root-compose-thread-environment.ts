@@ -1,8 +1,8 @@
-import type { EnvironmentMachineSelection, JsonValue } from "@bb/domain";
+import type { EnvironmentMachineSelection, JsonValue } from "@hyperfide/domain";
 import type {
   CreateThreadRequest,
   SystemEnvironmentProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { parseEnvironmentValue } from "@/components/pickers/environment-picker-value";
 
 interface ResolveRootComposeThreadEnvironmentArgs {

@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
-import { loadHostDaemonStartConfig } from "@bb/config/host-daemon";
+import { loadHostDaemonStartConfig } from "@hyperfide/config/host-daemon";
 import {
   createHostWatcher,
   createSubprocessParcelWatcherBackend,
   setParcelWatcherBackend,
-} from "@bb/host-watcher";
-import { createLogger } from "@bb/logger";
+} from "@hyperfide/host-watcher";
+import { createLogger } from "@hyperfide/logger";
 import { createHostDaemonApp } from "./app.js";
 import {
   readHostAuthState,

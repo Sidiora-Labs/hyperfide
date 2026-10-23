@@ -5,8 +5,8 @@
   "title": "option-display",
   "description": "BB ui \"option-display\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/tooltip",
-    "@bb/utils"
+    "@hyperfide/tooltip",
+    "@hyperfide/utils"
   ],
   "files": [
     {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   CreateThreadEnvironmentArgs,
   SystemEnvironmentProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { resolveRootComposeThreadEnvironment } from "@/views/root-compose-thread-environment";
 import { newThreadEnvironmentArgsToSeed } from "./new-thread-environment-seed";
 

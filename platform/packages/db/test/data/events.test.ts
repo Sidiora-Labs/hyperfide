@@ -11,7 +11,7 @@ import {
   turnScope,
   type PromptInput,
   type ThreadEventType,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { noopNotifier } from "../../src/notifier.js";
 import type { DbNotifier } from "../../src/notifier.js";
 import {

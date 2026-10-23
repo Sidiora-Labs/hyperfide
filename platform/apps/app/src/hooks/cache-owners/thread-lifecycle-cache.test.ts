@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import {
   makeProjectWithThreadsResponse,
   makeSidebarBootstrapResponse,

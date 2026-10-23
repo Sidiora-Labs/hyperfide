@@ -1,12 +1,12 @@
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/tooltip";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import type { ActivePluginInstallJob } from "@/hooks/queries/plugin-install-job-queries";
 import {
   NEW_TEXT_STYLE,

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { isBackgroundAgentTaskType } from "@bb/domain";
-import type { TimelineWorkflowWorkRow } from "@bb/server-contract";
+import { isBackgroundAgentTaskType } from "@hyperfide/domain";
+import type { TimelineWorkflowWorkRow } from "@hyperfide/server-contract";
 import { useResizeObserver } from "usehooks-ts";
 import { AnimatedDisclosureBody } from "@/components/promptbox/banner/AnimatedBody";
 import {
@@ -9,21 +9,21 @@ import {
   PromptStackCard,
 } from "@/components/promptbox/banner/PromptStackCard";
 import { LiveDurationText } from "@/components/thread/timeline/LiveDurationText";
-import { Icon } from "@bb/shared-ui/icon";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   activityIconClass,
   activityMetaClass,
   activityRowClass,
   activityTextClass,
-} from "@bb/shared-ui/activity-row-styles";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/activity-row-styles";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   PROMPT_STACK_DISCLOSURE_TRIGGER_CLASS,
   PromptStackCountSlot,
   PromptStackHoverChevron,
   useDisclosureFocusHandoff,
-} from "@bb/shared-ui/prompt-stack-disclosure";
+} from "@hyperfide/shared-ui/prompt-stack-disclosure";
 
 const BODY_ID = "thread-background-commands-card-body";
 const TOGGLE_ID = "thread-background-commands-card-toggle";

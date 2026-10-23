@@ -4,11 +4,11 @@ import type {
   ThreadSectionMutationResponse,
   ThreadSectionResponse,
   UpdateThreadSectionRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   threadSectionMutationResponseSchema,
   threadSectionSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { signalRequestArgs, type CreateSdkAreaArgs } from "./common.js";
 
 export type ThreadSectionCreateResult = ThreadSectionResponse;

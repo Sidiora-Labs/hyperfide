@@ -1,5 +1,5 @@
 import type { ChildProcess, StdioOptions } from "node:child_process";
-import { spawnPortableProcess } from "@bb/process-utils";
+import { spawnPortableProcess } from "@hyperfide/process-utils";
 
 export type ForwardedSignal = "SIGINT" | "SIGTERM";
 

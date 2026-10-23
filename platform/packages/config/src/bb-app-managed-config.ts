@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { providerNativeSkillRootsSchema } from "@bb/domain";
+import { providerNativeSkillRootsSchema } from "@hyperfide/domain";
 import { z } from "zod";
 
 const BUNDLED_PROVIDER_IDS = [

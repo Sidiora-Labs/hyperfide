@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-bb--mcp",
+  "name": "hyperfide-plugin-bb--mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -35,8 +35,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
     "@modelcontextprotocol/client": "^2.3.1",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.0.0",

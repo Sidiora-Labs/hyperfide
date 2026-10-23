@@ -42,7 +42,7 @@ async function installSdk(
   options?: { omitZod?: boolean },
 ): Promise<void> {
   const sdkSource = resolve(import.meta.dirname, "../../plugin-sdk");
-  const target = join(pluginDir, "node_modules", "@get-bb", "plugin-sdk");
+  const target = join(pluginDir, "node_modules", "@hyperfide", "plugin-sdk");
   await mkdir(target, { recursive: true });
   for (const entry of ["dist", "bundled-types", "package.json"]) {
     await cp(join(sdkSource, entry), join(target, entry), { recursive: true });
@@ -85,7 +85,7 @@ it("bundles SDK-owned Zod without requiring the plugin to declare it", async () 
       "import {",
       "  experimental_defineHostEntry,",
       "  experimental_nativeRootsHostContract,",
-      '} from "@get-bb/plugin-sdk/host";',
+      '} from "@hyperfide/plugin-sdk/host";',
       "export default experimental_defineHostEntry({",
       "  contract: experimental_nativeRootsHostContract,",
       "  handlers: { resolveNativeRoots: async () => ({ skills: [], commands: [] }) },",
@@ -130,7 +130,7 @@ it("reports a broken SDK installation separately from plugin dependencies", asyn
   );
   await writeFile(
     join(dir, "host.ts"),
-    'import { experimental_nativeRootsHostContract } from "@get-bb/plugin-sdk/host";\nexport default experimental_nativeRootsHostContract;\n',
+    'import { experimental_nativeRootsHostContract } from "@hyperfide/plugin-sdk/host";\nexport default experimental_nativeRootsHostContract;\n',
   );
   await installSdk(dir, { omitZod: true });
 
@@ -138,7 +138,7 @@ it("reports a broken SDK installation separately from plugin dependencies", asyn
     join(process.cwd(), ".unused-toolchain"),
   );
   await expect(buildPluginHost(dir, "0.0.0-test", toolchain)).rejects.toThrow(
-    /reinstall @get-bb\/plugin-sdk/,
+    /reinstall @hyperfide\/plugin-sdk/,
   );
 }, 30_000);
 

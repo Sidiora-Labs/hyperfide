@@ -9,8 +9,8 @@ import {
   readAppUpdateState,
   type InstalledNpmAppRevision,
   type NpmAppRevision,
-} from "@bb/config/app-update";
-import type { ChildProcessExitResult } from "@bb/config/child-process-exit";
+} from "@hyperfide/config/app-update";
+import type { ChildProcessExitResult } from "@hyperfide/config/child-process-exit";
 import { runNpmShim, selectNpmRevision } from "../src/app-update/npm-shim.js";
 import type {
   LauncherRun,

@@ -1,12 +1,12 @@
 import { usePluginCollectionParams } from "./usePluginCollectionParams";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import {
   ResourceCollectionViewport,
   ResourceListState,
-} from "@bb/shared-ui/resource-list";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/resource-list";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { TOOLS_PAGE_BAND_CLASSES } from "@/components/tools/tools-navigation";
 import {
   type PluginCatalogSearchEntry,

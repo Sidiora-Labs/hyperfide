@@ -6,7 +6,7 @@ import {
   getLatestSessionForHost,
   getSessionById,
   getThread,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { randomUUID } from "node:crypto";
 import {
   hostDaemonSupportsEnvironmentCleanupInspection,
@@ -16,7 +16,7 @@ import {
   parseHostDaemonRpcResultForCommand,
   type HostDaemonRpcCommand,
   type HostDaemonRpcResultForCommand,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { ApiError } from "../../errors.js";
 import type { WorkSessionDeps } from "../../types.js";
 import {

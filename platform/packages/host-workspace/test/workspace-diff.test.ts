@@ -1,10 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { initRepo, makeTempDir } from "@bb/test-helpers";
+import { initRepo, makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import { Workspace } from "../src/workspace.js";
 import { runGit } from "../src/git.js";
-import type { RawDiffFileStat, WorkspaceDiffTarget } from "@bb/domain";
+import type { RawDiffFileStat, WorkspaceDiffTarget } from "@hyperfide/domain";
 
 async function write(
   repoPath: string,

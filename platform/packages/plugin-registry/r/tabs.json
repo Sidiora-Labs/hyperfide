@@ -8,7 +8,7 @@
     "@radix-ui/react-tabs"
   ],
   "registryDependencies": [
-    "@bb/utils"
+    "@hyperfide/utils"
   ],
   "files": [
     {

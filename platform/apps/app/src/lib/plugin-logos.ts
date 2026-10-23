@@ -1,5 +1,5 @@
 import { useCallback, useSyncExternalStore } from "react";
-import { parseNamespacedGlyph } from "@bb/domain";
+import { parseNamespacedGlyph } from "@hyperfide/domain";
 
 export interface PluginLogoUrls {
   displayName: string | null;

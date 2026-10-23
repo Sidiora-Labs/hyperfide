@@ -2,8 +2,8 @@ import {
   createAsyncTtlMemo,
   type AsyncTtlMemo,
 } from "../lib/async-ttl-memo.js";
-import type { EnvironmentChangeKind } from "@bb/domain";
-import type { HostDaemonOnlineRpcResult } from "@bb/host-daemon-contract";
+import type { EnvironmentChangeKind } from "@hyperfide/domain";
+import type { HostDaemonOnlineRpcResult } from "@hyperfide/host-daemon-contract";
 import type { ServerChangedMessage } from "../../ws/hub.js";
 
 const IGNORED_ENVIRONMENT_CHANGES: ReadonlySet<EnvironmentChangeKind> = new Set(

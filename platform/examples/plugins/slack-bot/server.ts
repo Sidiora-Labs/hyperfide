@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 
 const SIGNATURE_VERSION = "v0";
 const SIGNATURE_MAX_AGE_SECONDS = 5 * 60;

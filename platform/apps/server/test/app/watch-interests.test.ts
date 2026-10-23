@@ -7,13 +7,13 @@ import {
   noopNotifier,
   updateThread,
   upsertHost,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { eq } from "drizzle-orm";
 import {
   hostDaemonServerWsMessageSchema,
   type HostDaemonServerWsMessage,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { describe, expect, it } from "vitest";
 import { NotificationHub } from "../../src/ws/hub.js";
 import { WatchInterestCoordinator } from "../../src/ws/watch-interests.js";

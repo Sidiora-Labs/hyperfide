@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
-import type { HostPlatform } from "@bb/host-daemon-contract";
+import type { HostPlatform } from "@hyperfide/host-daemon-contract";
 import {
   canonicalPath,
   isFileNotFoundError,

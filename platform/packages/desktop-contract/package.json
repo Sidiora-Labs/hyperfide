@@ -1,5 +1,5 @@
 {
-  "name": "@bb/desktop-contract",
+  "name": "@hyperfide/desktop-contract",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -16,12 +16,12 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@bb/domain": "workspace:*",
-    "@bb/host-daemon-contract": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/host-daemon-contract": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   }

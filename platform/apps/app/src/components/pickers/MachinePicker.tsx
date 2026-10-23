@@ -1,25 +1,25 @@
 import { useMemo, useRef, useState } from "react";
-import type { Host } from "@bb/domain";
-import { Icon } from "@bb/shared-ui/icon";
-import { Button } from "@bb/shared-ui/button";
+import type { Host } from "@hyperfide/domain";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   Command,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-} from "@bb/shared-ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@bb/shared-ui/popover";
+} from "@hyperfide/shared-ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@hyperfide/shared-ui/popover";
 import {
   COARSE_POINTER_COMPACT_ICON_SIZE_CLASS,
   COARSE_POINTER_COMPACT_ICON_SIZE_SHRINK_CLASS,
   COARSE_POINTER_ICON_SIZE_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
-import { LIST_HOVER_TRANSITION } from "@bb/shared-ui/motion";
+} from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { LIST_HOVER_TRANSITION } from "@hyperfide/shared-ui/motion";
 import { MachineStatusDot } from "@/components/machines/MachineStatusDot";
 import { selectHosts, selectPrimaryHost } from "@/hooks/queries/host-queries";
 import { formatRelativeTime } from "@/lib/relative-time";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { formatHostUpdateStatus } from "@/lib/host-update-status";
 import {
   MachineLabel,
@@ -31,7 +31,7 @@ import {
   OPTION_INTERACTIVE_CLASS_NAME,
   OPTION_MUTED_CLASS_NAME,
   OPTION_TRIGGER_CONTENT_CLASS_NAME,
-} from "@bb/shared-ui/option-display";
+} from "@hyperfide/shared-ui/option-display";
 import {
   MACHINE_SEARCH_MIN_OPTIONS,
   searchMachineHosts,

@@ -2,7 +2,7 @@ import type {
   ThreadTimelinePendingTodoItem,
   ThreadTimelinePendingTodoItemStatus,
   ThreadTimelinePendingTodos,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { AnimatedDisclosureBody } from "@/components/promptbox/banner/AnimatedBody";
 import {
   PROMPT_STACK_CARD_HEADER_BUTTON_CLASS,
@@ -14,14 +14,14 @@ import {
   activityRowClass,
   activityTextClass,
   type ActivityRowState,
-} from "@bb/shared-ui/activity-row-styles";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/activity-row-styles";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   PROMPT_STACK_DISCLOSURE_TRIGGER_CLASS,
   PromptStackHoverChevron,
   useDisclosureFocusHandoff,
-} from "@bb/shared-ui/prompt-stack-disclosure";
+} from "@hyperfide/shared-ui/prompt-stack-disclosure";
 
 const STATUS_SORT_RANK: Record<ThreadTimelinePendingTodoItemStatus, number> = {
   in_progress: 0,

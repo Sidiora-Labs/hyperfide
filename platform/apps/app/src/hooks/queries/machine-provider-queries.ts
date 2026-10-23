@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { SystemMachineProvider } from "@bb/server-contract";
+import type { SystemMachineProvider } from "@hyperfide/server-contract";
 import { sdk } from "@/lib/sdk";
 import { SERVER_SESSION_QUERY_POLICY } from "./query-policies";
 import { systemMachineProvidersQueryKey } from "./query-keys";

@@ -1,16 +1,16 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Link } from "react-router-dom";
-import type { PromptMentionResource, PromptTextMention } from "@bb/domain";
+import type { PromptMentionResource, PromptTextMention } from "@hyperfide/domain";
 import { RouteAnchor } from "@/components/ui/app-route-anchor.js";
 import { getProjectComposeRoutePath } from "@/lib/route-paths";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   PROMPT_MENTION_PILL_CLASS,
   promptMentionTooltipLabel,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import { PromptMentionIcon } from "@/components/promptbox/mentions/PromptMentionIcon";
-import { promptMentionClipboardDataAttributes } from "@bb/client-core";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
+import { promptMentionClipboardDataAttributes } from "@hyperfide/client-core";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
 import { useThreadRoutePath } from "@/components/thread/ThreadTitleMentions";
 
 interface PromptMentionPillProps {

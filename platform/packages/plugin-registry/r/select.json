@@ -8,14 +8,14 @@
     "@radix-ui/react-select"
   ],
   "registryDependencies": [
-    "@bb/coarse-pointer-sizing",
-    "@bb/icon",
-    "@bb/motion",
-    "@bb/overlay-anchor",
-    "@bb/overlay-trigger",
-    "@bb/portal-scope",
-    "@bb/responsive-overlay",
-    "@bb/utils"
+    "@hyperfide/coarse-pointer-sizing",
+    "@hyperfide/icon",
+    "@hyperfide/motion",
+    "@hyperfide/overlay-anchor",
+    "@hyperfide/overlay-trigger",
+    "@hyperfide/portal-scope",
+    "@hyperfide/responsive-overlay",
+    "@hyperfide/utils"
   ],
   "files": [
     {

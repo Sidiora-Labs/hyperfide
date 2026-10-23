@@ -6,14 +6,14 @@ import {
   recoverLoadedTimelineAfterStaleCursor,
   resolveLoadedTimelineSurfaceKey,
   type LoadedTimelineState,
-} from "@bb/client-core";
-import { updateThread } from "@bb/db";
+} from "@hyperfide/client-core";
+import { updateThread } from "@hyperfide/db";
 import {
   defaultFeatureFlags,
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   applyTimelineDelta,
   threadTimelineResponseSchema,
@@ -21,7 +21,7 @@ import {
   type ThreadTimelineResponse,
   type TimelinePaginationCursor,
   type TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import { createMockHubSocket } from "../helpers/mock-hub-socket.js";
 import { seedEvent, seedThreadFixture } from "../helpers/seed.js";

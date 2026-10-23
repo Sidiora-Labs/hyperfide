@@ -2,12 +2,12 @@
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { UsageProvider } from "./usage-schema.js";
-import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
+import type { PluginSidebarThread } from "@hyperfide/plugin-sdk/app";
 import {
   loadPluginApp,
   mountPluginContentScripts,
   renderSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 
 afterEach(() => {
   cleanup();

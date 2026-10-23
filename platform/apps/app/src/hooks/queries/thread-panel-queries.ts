@@ -1,4 +1,4 @@
-import { prependOlderTimelineRows } from "@bb/client-core";
+import { prependOlderTimelineRows } from "@hyperfide/client-core";
 import {
   infiniteQueryOptions,
   queryOptions,
@@ -10,8 +10,8 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { COMPACT_VIEWPORT_QUERY } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { useMediaQuery } from "@bb/shared-ui/hooks/use-media-query";
+import { COMPACT_VIEWPORT_QUERY } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { useMediaQuery } from "@hyperfide/shared-ui/hooks/use-media-query";
 import type {
   PromptHistoryResponse,
   ThreadQueuedMessageListResponse,
@@ -22,8 +22,8 @@ import type {
   ThreadTimelineResponse,
   TimelineRow,
   TimelineTurnSummaryDetailsResponse,
-} from "@bb/server-contract";
-import type { FilePreview } from "@bb/client-core";
+} from "@hyperfide/server-contract";
+import type { FilePreview } from "@hyperfide/client-core";
 import type { PathListOptions } from "@/lib/path-list-options";
 import type { ThreadStorageFileListOptions } from "@/lib/thread-storage-files";
 import * as api from "@/lib/api";

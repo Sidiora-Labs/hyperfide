@@ -1,4 +1,4 @@
-import { clientMessageSchema, type PongMessage } from "@bb/domain";
+import { clientMessageSchema, type PongMessage } from "@hyperfide/domain";
 import { parseSocketMessage } from "./decode-payload.js";
 import type { NotificationHub } from "./hub.js";
 

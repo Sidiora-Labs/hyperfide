@@ -3,7 +3,7 @@ import { createAppQueryClient } from "@/lib/query-client";
 import {
   makeEnvironment,
   makeThreadListEntry,
-} from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/test-helpers/domain-fixtures";
 import {
   makeProjectWithThreadsResponse,
   makeSidebarBootstrapResponse,

@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-workflows",
+  "name": "hyperfide-plugin-workflows",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -30,7 +30,7 @@
     "prepare:bundled": "bb-plugin-build prepare-bundled"
   },
   "dependencies": {
-    "@bb/shared-ui": "workspace:*",
+    "@hyperfide/shared-ui": "workspace:*",
     "@jitl/quickjs-singlefile-cjs-release-sync": "^0.32.0",
     "acorn": "8.16.0",
     "acorn-walk": "^8.3.5",
@@ -39,8 +39,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/better-sqlite3": "^7.6.12",

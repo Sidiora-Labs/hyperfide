@@ -9,14 +9,14 @@ import type { Readable } from "node:stream";
 import type {
   HostDaemonOnlineRpcCommand,
   HostDaemonOnlineRpcResult,
-} from "@bb/host-daemon-contract";
-import type { HostPathWatchChange, HostWatcher } from "@bb/host-watcher";
-import { jsonValueSchema, type JsonValue } from "@bb/domain";
+} from "@hyperfide/host-daemon-contract";
+import type { HostPathWatchChange, HostWatcher } from "@hyperfide/host-watcher";
+import { jsonValueSchema, type JsonValue } from "@hyperfide/domain";
 import {
   createPluginProcessTempDir,
   ensurePluginProcessDataDir,
   sanitizeInheritedChildProcessEnv,
-} from "@bb/process-utils";
+} from "@hyperfide/process-utils";
 import type { HostDaemonLogger } from "./logger.js";
 import { ensureCachedPluginHostArtifact } from "./plugin-host-artifact-cache.js";
 import { runInSerialLane } from "./serial-lane.js";

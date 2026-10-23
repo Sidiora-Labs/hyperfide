@@ -1,4 +1,4 @@
-import { lastServerMoveSchema, serverMoveStepIdSchema } from "@bb/domain";
+import { lastServerMoveSchema, serverMoveStepIdSchema } from "@hyperfide/domain";
 import { z } from "zod";
 import { hostPlatformSchema } from "./local.js";
 

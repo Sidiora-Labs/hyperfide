@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import type { Db } from "./data.js";
 import {
   automationOriginSchema,

@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   ExperimentalSidebarFooterDisclosureController,
   PluginSidebarFooterActionContext,
-} from "@get-bb/plugin-sdk";
-import { getCollectedSidebarFooterItems } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
-import { loadPluginApp } from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk";
+import { getCollectedSidebarFooterItems } from "@hyperfide/plugin-sdk/internal/plugin-app-collector";
+import { loadPluginApp } from "@hyperfide/plugin-sdk/testing/app";
 import {
   collectPluginAppRegistrations,
   definePluginApp,

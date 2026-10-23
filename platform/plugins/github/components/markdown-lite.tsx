@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { UrlLink } from "@hyperfide/plugin-sdk/app";
 import { parseTable, type TableAlignment } from "./markdown-table";
 
 const INLINE_PATTERN =

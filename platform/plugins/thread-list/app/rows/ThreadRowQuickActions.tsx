@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   experimental_Icon as RegisteredIcon,
   type PluginThreadActionEntry,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   DropdownMenu,
   DropdownMenuContent,

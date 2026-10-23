@@ -6,7 +6,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("@bb/sdk/node entry", () => {
+describe("@hyperfide/sdk/node entry", () => {
   it(
     "imports and builds explicit SDKs without BB server configuration",
     async () => {

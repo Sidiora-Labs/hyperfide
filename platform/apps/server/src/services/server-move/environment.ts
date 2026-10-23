@@ -1,6 +1,6 @@
 import { statfs } from "node:fs/promises";
-import type { AppSurface } from "@bb/config/app-surface";
-import type { ServerBindHost } from "@bb/config/server";
+import type { AppSurface } from "@hyperfide/config/app-surface";
+import type { ServerBindHost } from "@hyperfide/config/server";
 import type {
   AppDeps,
   LoggedPendingInteractionWorkSessionDeps,

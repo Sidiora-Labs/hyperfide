@@ -3,8 +3,8 @@ import type {
   ProviderCapabilities,
   ProviderFork,
   ThreadEvent,
-} from "@bb/domain";
-import { PROVIDER_FORK_VALUES } from "@bb/domain";
+} from "@hyperfide/domain";
+import { PROVIDER_FORK_VALUES } from "@hyperfide/domain";
 import {
   BRIDGE_INBOUND_REQUEST_METHODS,
   BRIDGE_NOTIFICATION_METHODS,
@@ -21,11 +21,11 @@ import {
   threadDeltaNotificationParamsSchema,
   threadIdentityNotificationSchema,
   type BridgeCapabilities,
-} from "@bb/provider-bridge-protocol";
+} from "@hyperfide/provider-bridge-protocol";
 import {
   ASSEMBLER_GRAMMAR_VERSIONS,
   createDeltaAssembler,
-} from "@bb/provider-bridge-protocol/assembler";
+} from "@hyperfide/provider-bridge-protocol/assembler";
 import { z } from "zod";
 import type {
   AdapterCommand,
@@ -40,8 +40,8 @@ import type {
   ProviderPostInitializeRequest,
   ProviderRuntimeEvent,
   BuildInteractiveResponseArgs,
-} from "@bb/provider-bridge-protocol/bridge-kit";
-import { decodeNormalizedProviderToolCallRequest } from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
+import { decodeNormalizedProviderToolCallRequest } from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import { parseAvailableModelList } from "./shared/available-models.js";
 import type { AgentRuntimeProviderRecoveryHint } from "./types.js";
 

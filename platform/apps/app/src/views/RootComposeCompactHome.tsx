@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { OverflowFade } from "@bb/shared-ui/overflow-fade";
+import { OverflowFade } from "@hyperfide/shared-ui/overflow-fade";
 import { ComposerMaxHeightContext } from "@/components/promptbox/composer-max-height";
 import { composerRootWithin } from "@/lib/pane-composer-focus";
 import {

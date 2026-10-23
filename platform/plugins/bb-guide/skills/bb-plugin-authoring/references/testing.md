@@ -2,13 +2,13 @@
 
 ## Testing a plugin
 
-### Unit tests with `@get-bb/plugin-sdk/testing`
+### Unit tests with `@hyperfide/plugin-sdk/testing`
 
-`@get-bb/plugin-sdk/testing` is the official framework-independent harness for
+`@hyperfide/plugin-sdk/testing` is the official framework-independent harness for
 workspace and standalone plugins. The examples use Vitest. The packed package
 ships runtime JavaScript and portable
 declarations for all three testing entrypoints. A current scaffold already declares
-`@get-bb/plugin-sdk` as an exact devDependency, so the harness is on disk after
+`@hyperfide/plugin-sdk` as an exact devDependency, so the harness is on disk after
 `npm install`; an older plugin that still vendors `types/` must add that
 devDependency (or run `bb plugin migrate`) before tests can import the harness.
 Either way, install its optional peers too: `better-sqlite3` for backend tests,
@@ -29,7 +29,7 @@ import {
   createFakePluginHost,
   makePluginAgentConfigurationContext,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import plugin from "./server";
 
 const { bb, harness } = createFakePluginHost({
@@ -127,14 +127,14 @@ invalid fixture metadata.
 Run `experimental_scanPublicSdkOnly(packageRoot, { allow })` in a package
 test. Assert that `violations` and `privateDependencies` are empty. The scanner
 checks source and test imports, dynamic import names, relative paths that leave
-the package, and private `@bb/*` dependencies. It permits public SDK paths,
+the package, and private `@hyperfide/*` dependencies. It permits public SDK paths,
 Zod, Node modules, package-local files, and declared extra patterns. It skips
 `node_modules` and `dist`.
 
-Host entry (`host.ts`) — `@get-bb/plugin-sdk/testing/host`:
+Host entry (`host.ts`) — `@hyperfide/plugin-sdk/testing/host`:
 
 ```ts
-import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
+import { experimental_createHostEntryHarness } from "@hyperfide/plugin-sdk/testing/host";
 import hostEntry from "./host.js";
 
 const harness = experimental_createHostEntryHarness(hostEntry);
@@ -151,7 +151,7 @@ lifecycle signal. Disposal aborts calls and watches before it runs the entry
 dispose hook. Worker startup, crashes, artifact verification, and reconnect
 behavior belong in daemon integration tests, not this in-process harness.
 
-Frontend (`app.tsx`) — `@get-bb/plugin-sdk/testing/app` (vitest + jsdom):
+Frontend (`app.tsx`) — `@hyperfide/plugin-sdk/testing/app` (vitest + jsdom):
 
 ```tsx
 // @vitest-environment jsdom
@@ -159,7 +159,7 @@ import {
   loadPluginApp,
   mountPluginContentScripts,
   renderSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 
 // loadPluginApp and renderSlot install the test runtime. The SDK looks it up
 // when a hook runs, so a static `import app from "./app"` works as well.
@@ -239,7 +239,7 @@ BB Official plugins in `plugins/` (a bb checkout):
 - `github` — a gh-CLI-backed issue/PR browser in a single navPanel (with
   `headerContent`), subPath-based sub-navigation, shared-ui
   Tabs/Select/DropdownMenu/Badge/Skeleton + sonner toast throughout (in-repo
-  plugins import `@bb/shared-ui`; out-of-repo authors vendor the same
+  plugins import `@hyperfide/shared-ui`; out-of-repo authors vendor the same
   components from the registry), background sync service, rpc + realtime,
   project setting, a `bb github` CLI command, and agent-spawn buttons.
 - `docs` (stable plugin id `simple-notes`) — multi-host Docs vaults over

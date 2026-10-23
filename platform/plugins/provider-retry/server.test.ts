@@ -8,8 +8,8 @@ import {
   makeQueueEntry,
   makeTurnFailedEvent,
   type CreateFakePluginHostOptions,
-} from "@get-bb/plugin-sdk/testing";
-import type { PluginTurnFailedEvent } from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk/testing";
+import type { PluginTurnFailedEvent } from "@hyperfide/plugin-sdk";
 import plugin from "./server.js";
 import {
   MAX_RETRY_ATTEMPTS,

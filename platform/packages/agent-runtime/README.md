@@ -1,4 +1,4 @@
-# @bb/agent-runtime
+# @hyperfide/agent-runtime
 
 Manages provider bridge processes and exposes a clean session interface. Handles process spawning, stdio framing, JSON-RPC dispatch, event assembly, tool call routing, crash detection, and shutdown.
 
@@ -7,7 +7,7 @@ Consumers say "start a thread, run a turn, give me events" — they never touch 
 ## Public API
 
 ```typescript
-import { createAgentRuntime } from "@bb/agent-runtime";
+import { createAgentRuntime } from "@hyperfide/agent-runtime";
 
 // There is no provider discovery here: providers are declared server-side by
 // plugins, and every command that reaches a bridge carries its `bridgeLaunch`
@@ -20,7 +20,7 @@ const runtime = createAgentRuntime({
   bridgeBundleDir: "/path/to/bundled-bridges", // optional; used when bridges are packaged outside src/dist
   onEvent: (event) => {
     // Every event has event.threadId (bb ID) and event.providerThreadId (provider's internal ID)
-    // See ThreadEvent in @bb/domain for the full type
+    // See ThreadEvent in @hyperfide/domain for the full type
   },
   onToolCall: async (req) => { /* ToolCallRequest → ToolCallResponse */ },
   onStderr: (line) => { /* provider stderr */ },
@@ -86,10 +86,10 @@ A single runtime can manage multiple threads across multiple providers simultane
 
 ```bash
 # Unit tests (no credentials needed, uses fake provider process; excludes integration suites)
-pnpm --filter @bb/agent-runtime test
+pnpm --filter @hyperfide/agent-runtime test
 
 # Integration tests (requires real provider credentials)
-pnpm --filter @bb/agent-runtime test:integration
+pnpm --filter @hyperfide/agent-runtime test:integration
 ```
 
 ### Integration test requirements
@@ -105,14 +105,14 @@ Integration tests hit real provider APIs and take 30-60 seconds. Some lessons le
 **Save output to a file, then read it.** Tests are slow — if you pipe output through `grep` and it doesn't match, you've wasted a full test run. Instead:
 
 ```bash
-pnpm --filter @bb/agent-runtime test:integration -- --reporter=verbose > /tmp/integ-out.txt 2>&1
+pnpm --filter @hyperfide/agent-runtime test:integration -- --reporter=verbose > /tmp/integ-out.txt 2>&1
 # Then inspect:
 grep -E "(✓|×|Test Files|Tests )" /tmp/integ-out.txt
 ```
 
 **Tests run concurrently within each scenario file.** All 3 provider variants in a file run in parallel via `describe.concurrent`. Scenario files run serially because Pi and other real providers share local auth state and external provider limits; running every scenario file at once has caused real-provider flakes where a turn completes without the expected tool execution.
 
-The root `test:integration --force` run also schedules `@bb/integration-tests#test:integration` after `@bb/agent-runtime#test:integration`. Those two package-level suites both exercise real providers and can share local subscription auth/session state, so only the cross-package real-provider suites are ordered. Concurrency inside each suite remains covered, including multi-provider runtime tests and `real/provider-concurrency.test.ts`.
+The root `test:integration --force` run also schedules `@hyperfide/integration-tests#test:integration` after `@hyperfide/agent-runtime#test:integration`. Those two package-level suites both exercise real providers and can share local subscription auth/session state, so only the cross-package real-provider suites are ordered. Concurrency inside each suite remains covered, including multi-provider runtime tests and `real/provider-concurrency.test.ts`.
 
 **When a test hangs**, the provider is likely not responding to a JSON-RPC request. Common causes:
 
@@ -122,7 +122,7 @@ The root `test:integration --force` run also schedules `@bb/integration-tests#te
 
 ### Building
 
-`@bb/agent-runtime` is source-only inside this workspace and builds no bridges.
+`@hyperfide/agent-runtime` is source-only inside this workspace and builds no bridges.
 A bridge is a provider plugin's build artifact; the host daemon resolves it to a
 verified local path and names it in every command's `bridgeLaunch`.
 
@@ -155,7 +155,7 @@ Consumer (host-daemon)
 
 Every provider — first-party plugin bridges, third-party plugin bridges, the
 test harness's scripted echo bridge — speaks the Provider Bridge Protocol
-(`@bb/provider-bridge-protocol`), so there is one adapter and no
+(`@hyperfide/provider-bridge-protocol`), so there is one adapter and no
 provider-specific implementation behind an interface. The runtime never
 interprets provider-specific wire content: each bridge owns its provider's
 quirks and emits parsed semantic deltas that the shared assembler turns into
@@ -165,7 +165,7 @@ local path); the provider id is an opaque label here.
 
 ## Dependencies
 
-- `@bb/domain` — shared types (ThreadEvent, PromptInput, ToolCallRequest, etc.)
-- `@bb/provider-bridge-protocol` — the bridge wire contract, the `thread/delta` assembler, and the bridge kit
-- `@bb/process-utils` — child-process helpers
+- `@hyperfide/domain` — shared types (ThreadEvent, PromptInput, ToolCallRequest, etc.)
+- `@hyperfide/provider-bridge-protocol` — the bridge wire contract, the `thread/delta` assembler, and the bridge kit
+- `@hyperfide/process-utils` — child-process helpers
 - `zod` — schema validation at provider boundaries

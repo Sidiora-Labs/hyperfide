@@ -1,11 +1,11 @@
 import { Command } from "commander";
-import { updateThreadTabsRequestSchema } from "@bb/server-contract";
+import { updateThreadTabsRequestSchema } from "@hyperfide/server-contract";
 import {
   queuedMessageWaitHolderSchema,
   type PromptInput,
   type QueuedMessageWaitHolder,
-} from "@bb/domain";
-import type { ThreadQueuedMessagesResult } from "@bb/sdk";
+} from "@hyperfide/domain";
+import type { ThreadQueuedMessagesResult } from "@hyperfide/sdk";
 import {
   columnWidths,
   printBorderlessTable,

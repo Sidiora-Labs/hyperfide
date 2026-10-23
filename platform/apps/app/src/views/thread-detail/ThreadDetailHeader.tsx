@@ -8,10 +8,10 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import { useAtomValue } from "jotai";
-import { COARSE_POINTER_TOOLBAR_ACTION_BUTTON_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { Icon } from "@bb/shared-ui/icon";
+import { COARSE_POINTER_TOOLBAR_ACTION_BUTTON_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { SplitButton } from "@/components/ui/split-button.js";
 import {
   AppPageHeader,
@@ -26,7 +26,7 @@ import {
   shouldUseMacosDesktopChrome,
 } from "@/lib/bb-desktop";
 import { useIsSidebarFramed } from "@/components/ui/sidebar.js";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   useAppCommandHandler,
   useAppCommandShortcut,
@@ -41,14 +41,14 @@ import {
   RIGHT_PANEL_TOGGLE_SHORTCUT_HINT_CLASS,
 } from "@/components/secondary-panel/panelToggleControlState";
 import { AppCommandShortcutHint } from "@/components/commands/AppCommandShortcutHint";
-import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@bb/shared-ui/chrome-style-tokens";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@hyperfide/shared-ui/chrome-style-tokens";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { usePointerCoarse } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
 import { dimInactiveSplitsAtom } from "@/lib/split-layout/atoms";
 import {
   CONTEXT_INACTIVE_TEXT_CLASS,
   CONTEXT_SELECTION_SURFACE_CLASS,
-} from "@bb/shared-ui/context-selection";
+} from "@hyperfide/shared-ui/context-selection";
 import { usePaneContext } from "./PaneContext";
 import { PaneMaximizeButton } from "./PaneMaximizeButton";
 import type { ThreadHeaderGitAction } from "./useThreadGitActions";

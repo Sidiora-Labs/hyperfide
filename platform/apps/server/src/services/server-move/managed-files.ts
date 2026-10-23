@@ -1,14 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
-import { isLoopbackHostname } from "@bb/config/loopback";
+import { isLoopbackHostname } from "@hyperfide/config/loopback";
 import {
   bbAppManagedEnvFileSchema,
   formatBbAppConfigPath,
   formatBbAppEnvPath,
   parseBbAppManagedConfig,
-} from "@bb/config/bb-app-managed-config";
-import { mutateManagedJsonFile } from "@bb/config/managed-json-file";
-import { getAppSettings, type DbConnection } from "@bb/db";
+} from "@hyperfide/config/bb-app-managed-config";
+import { mutateManagedJsonFile } from "@hyperfide/config/managed-json-file";
+import { getAppSettings, type DbConnection } from "@hyperfide/db";
 import { z } from "zod";
 
 const managedObjectSchema = z.record(z.string(), z.unknown());

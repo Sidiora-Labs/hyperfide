@@ -1,5 +1,5 @@
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import type { Host } from "@bb/domain";
+import type { Host } from "@hyperfide/domain";
 import {
   collectLogPayloads,
   runCommand,

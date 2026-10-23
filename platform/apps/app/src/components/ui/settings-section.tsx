@@ -1,5 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 interface SettingsSectionProps {
   action?: ReactNode;

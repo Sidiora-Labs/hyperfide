@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { PluginMarketplace } from "@bb/server-contract";
-import { Badge } from "@bb/shared-ui/badge";
-import { Button } from "@bb/shared-ui/button";
-import { Input } from "@bb/shared-ui/input";
+import type { PluginMarketplace } from "@hyperfide/server-contract";
+import { Badge } from "@hyperfide/shared-ui/badge";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Input } from "@hyperfide/shared-ui/input";
 import { SettingsSection } from "@/components/ui/settings-section";
 import { appToast } from "@/components/ui/app-toast";
 import {
   ConfirmDeleteDialog,
   ConfirmDeleteDialogContent,
-} from "@bb/shared-ui/confirm-delete-dialog";
+} from "@hyperfide/shared-ui/confirm-delete-dialog";
 import { pluginAdminErrorMessage } from "@/lib/plugin-admin-error";
 import { invalidatePluginMarketplaces } from "@/hooks/cache-owners/plugin-cache-owner";
 import {

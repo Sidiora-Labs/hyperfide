@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defaultAppSettings, defaultExperiments } from "@bb/domain";
+import { defaultAppSettings, defaultExperiments } from "@hyperfide/domain";
 import {
   collectLogLines,
   collectLogPayloads,

@@ -1,4 +1,4 @@
-import type { InstalledPlugin } from "@bb/server-contract";
+import type { InstalledPlugin } from "@hyperfide/server-contract";
 
 const PLUGIN_STATUSES_WITH_SETTINGS: readonly InstalledPlugin["status"][] = [
   "running",

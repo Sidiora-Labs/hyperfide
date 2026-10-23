@@ -1,11 +1,11 @@
 import { usePluginEnabledMutation } from "@/components/plugin/usePluginEnabledMutation";
 import { useState } from "react";
-import { EmptyState } from "@bb/shared-ui/empty-state";
-import { Switch } from "@bb/shared-ui/switch";
-import { ResourceIconFrame } from "@bb/shared-ui/resource-list";
+import { EmptyState } from "@hyperfide/shared-ui/empty-state";
+import { Switch } from "@hyperfide/shared-ui/switch";
+import { ResourceIconFrame } from "@hyperfide/shared-ui/resource-list";
 import type { PluginListItem } from "@/hooks/queries/plugin-settings-queries";
 import { pluginNeedsAttention } from "@/hooks/usePluginAttention";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   pluginRowSignal,
   pluginRuntimeStatusPresentation,

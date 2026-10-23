@@ -1,4 +1,4 @@
-import { isClosedProcessStdinError } from "@bb/process-utils";
+import { isClosedProcessStdinError } from "@hyperfide/process-utils";
 import type { ChildProcess } from "node:child_process";
 import type { Writable } from "node:stream";
 import { z } from "zod";

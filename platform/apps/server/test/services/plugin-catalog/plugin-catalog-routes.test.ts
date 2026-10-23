@@ -1,8 +1,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type DbConnection } from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+import { type DbConnection } from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { registerPluginCatalogRoutes } from "../../../src/routes/plugin-catalog.js";
@@ -10,11 +10,6 @@ import { createPluginInstallJobs } from "../../../src/services/plugins/plugin-in
 import { createPluginCatalogService } from "../../../src/services/plugin-catalog/plugin-catalog-service.js";
 import { refreshCuratedMarketplace } from "../../helpers/plugin-catalog.js";
 import { BUNDLED_CURATED_MARKETPLACE } from "../../../src/services/plugin-catalog/curated-marketplace.js";
-import {
-  BUILTIN_PLUGINS,
-  BUNDLED_PLUGINS,
-  OFFICIAL_PLUGINS,
-} from "../../../src/services/plugins/builtin-registry.js";
 
 const MANIFEST_URL = "https://marketplace.test/marketplace.json";
 const SEED_ENTRY_COUNT = BUNDLED_CURATED_MARKETPLACE.plugins.length;
@@ -74,17 +69,15 @@ describe("plugin catalog routes", () => {
     const status = await app.request("/plugin-catalog");
     await expect(status.json()).resolves.toMatchObject({
       catalog: {
-        pluginCount: BUNDLED_PLUGINS.length + SEED_ENTRY_COUNT,
-        includedPluginCount: BUILTIN_PLUGINS.length,
-        optionalPluginCount: OFFICIAL_PLUGINS.length + SEED_ENTRY_COUNT,
+        pluginCount: SEED_ENTRY_COUNT,
+        includedPluginCount: 0,
+        optionalPluginCount: SEED_ENTRY_COUNT,
       },
     });
-    const search = await app.request(
-      "/plugin-catalog/search?q=durable%20memory",
-    );
+    const search = await app.request("/plugin-catalog/search?q=thread%20hover");
     await expect(search.json()).resolves.toMatchObject({
-      results: [{ entryId: "memory", installed: false }],
-      collections: [{ id: "bb-official", displayName: "BB Official" }],
+      results: [{ entryId: "thread-hover-cards", installed: false }],
+      collections: [],
     });
 
     const refresh = await app.request("/plugin-catalog/refresh", {
@@ -97,45 +90,47 @@ describe("plugin catalog routes", () => {
     const install = await app.request("/plugin-catalog/install", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ entryId: "memory" }),
+      body: JSON.stringify({ entryId: "thread-hover-cards" }),
     });
     expect(install.status).toBe(422);
     await expect(install.json()).resolves.toMatchObject({
-      error: expect.stringContaining("unexpected install"),
+      error: expect.stringContaining("unexpected catalog install"),
     });
 
     const versionOverride = await app.request("/plugin-catalog/install", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ entryId: "memory", version: "0.2.0" }),
+      body: JSON.stringify({ entryId: "thread-hover-cards", version: "0.2.0" }),
     });
     expect(versionOverride.status).toBe(422);
   });
 
   it("identifies background installs with the same entry ID as catalog search", async () => {
     const { app } = catalogApp();
-    const search = await app.request("/plugin-catalog/search?q=docs");
+    const search = await app.request(
+      "/plugin-catalog/search?q=thread-hover-cards",
+    );
     await expect(search.json()).resolves.toMatchObject({
       results: expect.arrayContaining([
-        expect.objectContaining({ entryId: "docs" }),
+        expect.objectContaining({ entryId: "thread-hover-cards" }),
       ]),
     });
-    for (const entryId of ["docs", "simple-notes"]) {
+    for (const entryId of ["thread-hover-cards"]) {
       const install = await app.request("/plugin-catalog/install", {
         method: "POST",
         headers: {
           "content-type": "application/json",
           prefer: "respond-async",
         },
-        body: JSON.stringify({ entryId, marketplace: "bb-official" }),
+        body: JSON.stringify({ entryId, marketplace: "bb-community" }),
       });
       expect(install.status).toBe(202);
       await expect(install.json()).resolves.toMatchObject({
         job: {
           target: {
             kind: "catalog",
-            entryId: "docs",
-            marketplace: "bb-official",
+            entryId: "thread-hover-cards",
+            marketplace: "bb-community",
           },
         },
       });
@@ -251,11 +246,7 @@ describe("plugin catalog routes", () => {
 
       const listed = await app.request("/marketplaces");
       await expect(listed.json()).resolves.toMatchObject({
-        marketplaces: [
-          { name: "bb-official", official: true, sourceKind: "path" },
-          { name: "bb-community" },
-          { name: "acme-plugins" },
-        ],
+        marketplaces: [{ name: "bb-community" }, { name: "acme-plugins" }],
       });
 
       const refreshed = await postJson(app, "/marketplaces/refresh", {

@@ -68,9 +68,9 @@ import type {
   PromptInput,
   PromptTextMention,
   ThreadQueuedMessage,
-} from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
+} from "@hyperfide/domain";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import {
   PROMPT_STACK_CARD_HEADER_BUTTON_CLASS,
   PromptStackCard,
@@ -78,10 +78,10 @@ import {
 import {
   PromptStackCollapseRow,
   useDisclosureFocusHandoff,
-} from "@bb/shared-ui/prompt-stack-disclosure";
+} from "@hyperfide/shared-ui/prompt-stack-disclosure";
 import { PROMPT_STACK_ROW_ACTION_TAKEOVER_CLASS } from "@/components/promptbox/banner/prompt-banner-actions";
 import { useScrollOverflowState } from "@/components/thread/timeline/useScrollOverflowState";
-import { OverflowFade } from "@bb/shared-ui/overflow-fade";
+import { OverflowFade } from "@hyperfide/shared-ui/overflow-fade";
 import { InlineMessageEditorFrame } from "@/components/promptbox/InlineMessageEditorFrame";
 import { useBottomAnchoredScroll } from "@/components/ui/bottom-anchored-scroll-body";
 import {
@@ -89,18 +89,18 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/tooltip";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   countQueuedMessageAttachments,
   formatQueuedMessagePreview,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   collectLeadQueuedMessageGroupIds,
   preserveLeadQueuedMessageGroupAfterReorder,
   type QueuedMessageReorderRequest,
 } from "@/lib/queued-message-reorder";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
 import {
   PromptMentionPill,
   shiftMentionsToTextRange,

@@ -8,7 +8,7 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { experimental_nativeRootsResolveOutputSchema } from "@get-bb/plugin-sdk/host";
+import { experimental_nativeRootsResolveOutputSchema } from "@hyperfide/plugin-sdk/host";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   readCodexEnabledPluginSettingsFromToml,

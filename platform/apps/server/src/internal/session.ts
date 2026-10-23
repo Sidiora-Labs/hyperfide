@@ -6,7 +6,7 @@ import {
   openSession,
   upsertHost,
   updateHost,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   hostDaemonProjectAttachmentContentQuerySchema,
@@ -16,7 +16,7 @@ import {
   typedRoutes,
   type HostDaemonInternalSchema,
   type ServerMovedErrorDetails,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type { Hono } from "hono";
 import { z } from "zod";
 import type { AppDeps } from "../types.js";

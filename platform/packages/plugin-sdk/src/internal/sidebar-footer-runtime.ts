@@ -3,7 +3,7 @@ import type {
   ExperimentalSidebarFooterDisclosureController,
   ExperimentalSidebarFooterItemRegistration,
   PluginSidebarFooterActionRegistration,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 
 export type ExperimentalSidebarFooterCommandKind = "open" | "close" | "toggle";
 

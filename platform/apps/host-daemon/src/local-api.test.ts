@@ -8,11 +8,11 @@ import {
   HOST_DAEMON_PROTOCOL_VERSION,
   createHostDaemonLocalClient,
   type WorkspaceOpenTarget,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { startLocalApiServer, type LocalApiServer } from "./local-api.js";
 import { resolveHostPlatform } from "./host-platform.js";
 import type { HostDaemonLocalApiConfig } from "./local-api-config.js";
-import { WorkspaceOpenTargetError } from "@bb/local-open-targets";
+import { WorkspaceOpenTargetError } from "@hyperfide/local-open-targets";
 
 describe("local API server", () => {
   let server: LocalApiServer | null = null;

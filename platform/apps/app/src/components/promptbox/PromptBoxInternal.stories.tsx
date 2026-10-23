@@ -1,13 +1,13 @@
 import "../../../.ladle/composer-plugin";
 import { useState, type ReactNode } from "react";
-import type { PromptMentionResource, PromptTextMention } from "@bb/domain";
-import type { UploadedPromptAttachment } from "@bb/server-contract";
+import type { PromptMentionResource, PromptTextMention } from "@hyperfide/domain";
+import type { UploadedPromptAttachment } from "@hyperfide/server-contract";
 import { CompactBeforeSendChip } from "@/components/promptbox/CompactBeforeSendChip";
 import { ExecutionControls } from "@/components/promptbox/ExecutionControls";
 import type {
   PromptMentionSuggestion,
   ProviderCommandSuggestion,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   ComposerBox,
   type HistoryConfig,
@@ -25,9 +25,9 @@ import {
   composerMentionGroupsFromOrdered,
   groupCommandSuggestions,
   orderCommandSuggestions,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import { orderPromptMentionSuggestions } from "@/hooks/promptMentionCandidates";
-import type { ExperimentalComposerCommandSearch } from "@get-bb/plugin-sdk";
+import type { ExperimentalComposerCommandSearch } from "@hyperfide/plugin-sdk";
 import { StoryComposerSearchProvider } from "../../../.ladle/composer-search-story";
 
 export default {

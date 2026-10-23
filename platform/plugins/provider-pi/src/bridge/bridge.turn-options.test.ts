@@ -5,7 +5,7 @@ import { z } from "zod";
 import type {
   BridgeJsonRpcObject,
   BridgeJsonRpcOutputMessage,
-} from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@hyperfide/plugin-sdk/provider-bridge/testing";
 import {
   FULL_PERMISSION_OPTIONS,
   type FakePiBridgeHarness,

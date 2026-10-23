@@ -1,5 +1,5 @@
 import { resolveNativeApplicationIconDataUrl } from "./native-application-icon.js";
-import type { DecodedInteractiveRequest } from "@get-bb/plugin-sdk/provider-bridge";
+import type { DecodedInteractiveRequest } from "@hyperfide/plugin-sdk/provider-bridge";
 import {
   CODEX_MCP_ELICITATION_KIND,
   codexMcpElicitationSchema,

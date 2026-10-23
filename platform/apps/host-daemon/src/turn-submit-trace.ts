@@ -4,8 +4,8 @@ import type {
   HostDaemonRpcCommand,
   TurnSubmitTrace,
   TurnSubmitTraceSpanName,
-} from "@bb/host-daemon-contract";
-import { roundDurationMs } from "@bb/process-utils";
+} from "@hyperfide/host-daemon-contract";
+import { roundDurationMs } from "@hyperfide/process-utils";
 
 interface TurnSubmitTraceRecorder {
   receivedAt: number;

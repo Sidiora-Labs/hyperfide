@@ -30,7 +30,7 @@ import {
 import { resetFixedPanelTabsStateForTest } from "@/lib/fixed-panel-tabs";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router-dom";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import {
   createEmptyFixedPanelTabsState,
   createPluginPanelFixedPanelTab,
@@ -62,7 +62,7 @@ interface TestFixedTabRegistration {
   icon: string;
   component: (props: { subPath: string }) => ReactNode;
   experimental_target?: {
-    validate(value: import("@get-bb/plugin-sdk").JsonValue): boolean;
+    validate(value: import("@hyperfide/plugin-sdk").JsonValue): boolean;
   };
   layout?: "padded" | "flush";
 }
@@ -81,7 +81,7 @@ interface TestNewThreadPanelActionRegistration {
   title: string;
   component: (props: {
     projectId: string | null;
-    params: import("@get-bb/plugin-sdk").JsonValue | null;
+    params: import("@hyperfide/plugin-sdk").JsonValue | null;
   }) => ReactNode;
   layout?: "padded" | "flush";
   pluginId: string;
@@ -227,7 +227,7 @@ vi.mock("@/lib/sdk", async (importOriginal) => {
   };
 });
 
-vi.mock("@bb/shared-ui/hooks/use-compact-viewport", () => ({
+vi.mock("@hyperfide/shared-ui/hooks/use-compact-viewport", () => ({
   useIsCompactViewport: () => viewportState.isCompactViewport,
 }));
 

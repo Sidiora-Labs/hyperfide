@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { useLocation } from "react-router-dom";
-import { parseMessageLink } from "@bb/client-core";
+import { parseMessageLink } from "@hyperfide/client-core";
 import { appToast } from "@/components/ui/app-toast";
 import { useBottomAnchoredScroll } from "@/components/ui/bottom-anchored-scroll-body.js";
 import { revealTimelineRow } from "./reveal-timeline-row.js";

@@ -4,7 +4,7 @@ import type {
   WorkflowAgentState,
   WorkflowPhaseSnapshot,
   WorkflowProgressSnapshot,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { ThreadWorkflowCard } from "./ThreadWorkflowCard";
 import { ThreadWorkflowStack } from "./ThreadWorkflowStack";
 import { workflowRow } from "@/test/fixtures/thread-timeline-rows";

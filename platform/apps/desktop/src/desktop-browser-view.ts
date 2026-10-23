@@ -42,12 +42,12 @@ import {
   type BbDesktopBrowserStopFindInPageRequest,
   type BbDesktopBrowserViewportBounds,
   type BbDesktopBrowserViewBounds,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import {
   PANE_DIRECTION_APP_COMMAND_IDS,
   type AppCommandId,
   type AppShortcutInput,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   HYPERFIDE_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
   HYPERFIDE_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL,

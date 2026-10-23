@@ -13,13 +13,13 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@bb/domain";
-import { scaffoldPlugin } from "@bb/templates/plugin-scaffold";
+import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@hyperfide/domain";
+import { scaffoldPlugin } from "@hyperfide/templates/plugin-scaffold";
 import {
   buildPluginApp,
   resolvePluginBuildToolchain,
   type PluginBuildToolchain,
-} from "@bb/plugin-build";
+} from "@hyperfide/plugin-build";
 function testToolchain() {
   return resolvePluginBuildToolchain(join(tmpdir(), "bb-toolchain-unused"));
 }
@@ -76,7 +76,7 @@ const FIXTURE_PACKAGE_JSON = JSON.stringify(
 const FIXTURE_APP_TSX = `
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { definePluginApp } from "@get-bb/plugin-sdk/app";
+import { definePluginApp } from "@hyperfide/plugin-sdk/app";
 
 void createRoot;
 

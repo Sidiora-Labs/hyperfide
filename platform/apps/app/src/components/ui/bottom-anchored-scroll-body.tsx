@@ -11,8 +11,8 @@ import {
 import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { useStore } from "jotai";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { usePointerCoarse } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
 import { PAGE_SHELL_CONTENT_STYLE } from "./page-shell-content-style.js";
 import { PAGE_SCROLL_TO_TOP_EVENT } from "@/lib/page-scroll-to-top";
 import { isIOSWebKit } from "@/lib/ios-webkit";

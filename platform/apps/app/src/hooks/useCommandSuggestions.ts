@@ -1,13 +1,13 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
-import type { PromptMentionCommandTrigger } from "@bb/domain";
-import type { ProviderCommand } from "@bb/server-contract";
-import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import type { PromptMentionCommandTrigger } from "@hyperfide/domain";
+import type { ProviderCommand } from "@hyperfide/server-contract";
+import { usePointerCoarse } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
 import {
   filterCommandSuggestions,
   toProviderCommandSuggestion,
   type ProviderCommandSuggestion,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   projectCommandsQueryOptions,
   useProjectCommands,

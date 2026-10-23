@@ -1,8 +1,8 @@
-import { Skeleton } from "@bb/shared-ui/skeleton";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 import { useRef } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { SidebarFooterCustomizeHeader } from "./SidebarFooterCustomizeHeader";
-import { SIDEBAR_FOOTER_ACTION_CLASS } from "@bb/shared-ui/sidebar-row-classes";
+import { SIDEBAR_FOOTER_ACTION_CLASS } from "@hyperfide/shared-ui/sidebar-row-classes";
 import {
   useMeasureSidebarFooterCapacity,
   useSidebarFooterPreferences,

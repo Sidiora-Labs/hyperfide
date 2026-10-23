@@ -2,14 +2,14 @@ import type {
   ThreadParentNotifications,
   ThreadStatus,
   ThreadTimelinePendingTodos,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ProjectResponse,
   ThreadListResponse,
   ThreadResponse,
   ThreadTimelineResponse,
   ThreadWithIncludesResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { signalRequestArgs, type CreateSdkAreaArgs } from "./common.js";
 
 export interface StatusGetArgs {

@@ -19,7 +19,7 @@ export function derivePluginId(packageName: string): string {
     ? (packageName.split("/").at(-1) ?? packageName)
     : packageName;
   const id = base
-    .replace(/^bb-plugin-/, "")
+    .replace(/^(?:hyperfide|bb)-plugin-/, "")
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, "-")
     .replace(/^-+|-+$/g, "");

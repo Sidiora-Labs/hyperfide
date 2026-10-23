@@ -1,9 +1,9 @@
-import type { PermissionMode } from "@bb/domain";
-import type { IconName } from "@bb/shared-ui/icon";
+import type { PermissionMode } from "@hyperfide/domain";
+import type { IconName } from "@hyperfide/shared-ui/icon";
 import {
   PERMISSION_MODE_OPTIONS as CORE_PERMISSION_MODE_OPTIONS,
   type PermissionModeOption as CorePermissionModeOption,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 
 export interface PermissionModeOption extends CorePermissionModeOption {
   iconName: IconName;

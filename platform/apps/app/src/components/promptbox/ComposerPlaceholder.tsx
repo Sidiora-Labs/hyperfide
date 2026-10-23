@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
-import { Button } from "@bb/shared-ui/button";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Skeleton } from "@bb/shared-ui/skeleton";
+import { Button } from "@hyperfide/shared-ui/button";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 
 export type ComposerLoadingShape = "thread" | "thread-compact" | "new-thread";
 

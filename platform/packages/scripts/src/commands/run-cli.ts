@@ -1,4 +1,4 @@
-import { resolveCurrentDevProcessEnv } from "@bb/config/runtime";
+import { resolveCurrentDevProcessEnv } from "@hyperfide/config/runtime";
 import { runScriptProcess } from "../lib/process-helpers.js";
 import { repoRoot, runMainIfEntrypoint } from "../lib/script-entry.js";
 

@@ -2,7 +2,7 @@ import path from "node:path";
 import {
   calculateExponentialBackoffDelay,
   createDebouncedCallbackScheduler,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   RootSubscription,
   type ParcelWatcherEventBatch,

@@ -10,7 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { formatAppUpdateVersionsDir } from "@bb/config/app-update";
+import { formatAppUpdateVersionsDir } from "@hyperfide/config/app-update";
 import {
   formatNpmRevisionPackageRoot,
   installNpmRevision,

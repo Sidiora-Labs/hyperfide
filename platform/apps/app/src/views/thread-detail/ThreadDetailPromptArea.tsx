@@ -17,13 +17,13 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useImmediateRouteNavigate } from "@/components/ui/app-route-anchor";
-import type { IconName } from "@bb/shared-ui/icon";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
+import type { IconName } from "@hyperfide/shared-ui/icon";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
 import {
   getFollowUpPromptPlaceholder,
   getCompactFollowUpPromptPlaceholder,
 } from "@/components/promptbox/follow-up-placeholder";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import type {
   PermissionMode,
   ReasoningLevel,
@@ -36,16 +36,16 @@ import type {
   ThreadTimelineModelFallback,
   ThreadTimelinePendingTodos,
   ThreadWithRuntime,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ProviderCommand,
   ThreadTimelineSessionOption,
   SendMessageRequest,
   ThreadTimelineResponse,
   TimelineWorkflowWorkRow,
-} from "@bb/server-contract";
-import type { ExperimentalComposerSelection } from "@get-bb/plugin-sdk";
-import type { ComposerSubmitExtras } from "@get-bb/plugin-sdk/internal/composer-handle";
+} from "@hyperfide/server-contract";
+import type { ExperimentalComposerSelection } from "@hyperfide/plugin-sdk";
+import type { ComposerSubmitExtras } from "@hyperfide/plugin-sdk/internal/composer-handle";
 import {
   readExecutionSelection,
   resolveComposerSelectionDeadline,
@@ -144,13 +144,13 @@ import {
   buildThreadHandoffFollowUpDraft,
   stripThreadHandoffPrefix,
   type ThreadHandoffCreateSeed,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   emptyPromptDraftState,
   promptDraftToInput,
   type PromptDraftAttachment,
   type PromptDraftState,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   FollowUpPromptBox,
   type FollowUpComposerProps,
@@ -169,7 +169,7 @@ import {
   resolveDefaultExecutionOptionsState,
   shouldQueueFollowUpMessage,
   type FollowUpExecutionSelection,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 
 const ignorePromptBannerFileClick = () => {};
 const ignoreReportedSubmitError = () => {};

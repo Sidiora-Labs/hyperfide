@@ -1,4 +1,4 @@
-import type { BbDesktopServerChoice } from "@bb/desktop-contract";
+import type { BbDesktopServerChoice } from "@hyperfide/desktop-contract";
 
 export type ServerChoice = BbDesktopServerChoice;
 

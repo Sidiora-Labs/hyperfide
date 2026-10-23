@@ -1,4 +1,4 @@
-import { defineRpcContract } from "@get-bb/plugin-sdk";
+import { defineRpcContract } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { idSchema } from "../shared/contract";
 

@@ -1,9 +1,9 @@
-import { getThread } from "@bb/db";
-import type { ThreadEvent, ThreadEventWithItem } from "@bb/domain";
-import { isThreadEventWithItem, parseNamespacedGlyph } from "@bb/domain";
-import type { HostDaemonEventEnvelope } from "@bb/host-daemon-contract";
+import { getThread } from "@hyperfide/db";
+import type { ThreadEvent, ThreadEventWithItem } from "@hyperfide/domain";
+import { isThreadEventWithItem, parseNamespacedGlyph } from "@hyperfide/domain";
+import type { HostDaemonEventEnvelope } from "@hyperfide/host-daemon-contract";
 import { findPluginAgentTool } from "../services/plugins/plugin-agent-contributions.js";
-import { undeclaredIconProblem } from "@get-bb/plugin-sdk/internal/host-policy";
+import { undeclaredIconProblem } from "@hyperfide/plugin-sdk/internal/host-policy";
 import type { AppDeps } from "../types.js";
 
 export type PresentationIconValidationDeps = Pick<

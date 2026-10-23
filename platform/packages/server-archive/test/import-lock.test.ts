@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { withFileLock } from "@bb/config/file-lock";
-import { makeTempDir } from "@bb/test-helpers";
+import { withFileLock } from "@hyperfide/config/file-lock";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import {
   extractServerArchive,
@@ -25,8 +25,8 @@ const lockAttempts = vi.hoisted(() => {
   };
 });
 
-vi.mock("@bb/config/file-lock", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@bb/config/file-lock")>();
+vi.mock("@hyperfide/config/file-lock", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@hyperfide/config/file-lock")>();
   return {
     ...actual,
     withFileLock<T>(args: {

@@ -4,15 +4,15 @@ import {
   hostDaemonSessions,
   listEvents,
   listQueuedThreadMessages,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { eq } from "drizzle-orm";
 import { HOST_RECONNECT_GRACE_MS } from "../../src/constants.js";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   groupHostDaemonEvents,
   hostDaemonServerWsMessageSchema,
-} from "@bb/host-daemon-contract";
-import { threadScope, turnRequestEventDataSchema, turnScope } from "@bb/domain";
+} from "@hyperfide/host-daemon-contract";
+import { threadScope, turnRequestEventDataSchema, turnScope } from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { settleDanglingBackgroundTasks } from "../../src/services/threads/background-task-reconciliation.js";
 import { handleDaemonSocketClosed } from "../../src/internal/session-owner-side-effects.js";

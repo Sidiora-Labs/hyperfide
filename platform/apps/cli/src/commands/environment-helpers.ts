@@ -2,8 +2,8 @@ import {
   type EnvironmentDisplayInfo,
   type EnvironmentDisplayProviderLookup,
   formatEnvironmentDisplay,
-} from "@bb/core-ui";
-import type { BbSdk } from "@bb/sdk";
+} from "@hyperfide/core-ui";
+import type { BbSdk } from "@hyperfide/sdk";
 
 export interface ThreadEnvironmentInfo {
   display: EnvironmentDisplayInfo;

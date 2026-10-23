@@ -1,4 +1,4 @@
-import type { TimelineRow, TimelineTurnRow } from "@bb/server-contract";
+import type { TimelineRow, TimelineTurnRow } from "@hyperfide/server-contract";
 import { ThreadTimelineRows } from "@/components/thread/timeline";
 import {
   commandRow,

@@ -11,7 +11,7 @@ import {
 import { delimiter, dirname, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import Database from "better-sqlite3";
-import type { PluginCliRegistration } from "@get-bb/plugin-sdk";
+import type { PluginCliRegistration } from "@hyperfide/plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
 import {
   claimAutomationScheduledRun,
@@ -2025,11 +2025,11 @@ describe("bb CLI injection for script runs", () => {
   it("prefers the env pointers over PATH and macOS install locations", () => {
     expect(
       bbBinaryCandidates({
-        BB_CLI: "/daemon/bundle/bb",
-        BB_CLI_DIR: "/other/dir",
+        HYPERFIDE_CLI: "/daemon/bundle/bb",
+        HYPERFIDE_CLI_DIR: "/other/dir",
       })[0],
     ).toBe("/daemon/bundle/bb");
-    expect(bbBinaryCandidates({ BB_CLI_DIR: "/daemon/bundle" })[0]).toBe(
+    expect(bbBinaryCandidates({ HYPERFIDE_CLI_DIR: "/daemon/bundle" })[0]).toBe(
       join("/daemon/bundle", "bb"),
     );
   });
@@ -2058,10 +2058,10 @@ describe("bb CLI injection for script runs", () => {
       "/usr/local/bin/bb",
     ]);
     expect(
-      bbBinaryCandidates({ BB_CLI: "  ", BB_CLI_DIR: "", PATH: "" }),
+      bbBinaryCandidates({ HYPERFIDE_CLI: "  ", HYPERFIDE_CLI_DIR: "", PATH: "" }),
     ).toEqual(["/opt/homebrew/bin/bb", "/usr/local/bin/bb"]);
     expect(
-      bbBinaryCandidates({ BB_CLI: "./bb", BB_CLI_DIR: "rel/dir", PATH: "" }),
+      bbBinaryCandidates({ HYPERFIDE_CLI: "./bb", HYPERFIDE_CLI_DIR: "rel/dir", PATH: "" }),
     ).toEqual(["/opt/homebrew/bin/bb", "/usr/local/bin/bb"]);
   });
 

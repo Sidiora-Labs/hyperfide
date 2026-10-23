@@ -1,4 +1,4 @@
-import { createDeferredPromise, type DeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise, type DeferredPromise } from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
 import type { ServerChangedMessage } from "../../ws/hub.js";
 import {

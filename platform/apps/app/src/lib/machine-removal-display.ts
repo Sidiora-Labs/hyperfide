@@ -1,4 +1,4 @@
-import type { EnvironmentHostLifecycle } from "@bb/domain";
+import type { EnvironmentHostLifecycle } from "@hyperfide/domain";
 
 export type MachineRemovalStatus = Exclude<EnvironmentHostLifecycle, "active">;
 

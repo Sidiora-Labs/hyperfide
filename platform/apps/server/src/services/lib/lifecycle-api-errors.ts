@@ -1,4 +1,4 @@
-import type { Environment, Host, Thread, ThreadStatus } from "@bb/domain";
+import type { Environment, Host, Thread, ThreadStatus } from "@hyperfide/domain";
 import type {
   EnvironmentNotReadyErrorDetails,
   HostUnavailableErrorDetails,
@@ -9,8 +9,8 @@ import type {
   ThreadEnvironmentUnavailableErrorDetails,
   ThreadNotWritableErrorDetails,
   ThreadNotWritableReason,
-} from "@bb/server-contract";
-import { hostUnavailableErrorDetailsSchema } from "@bb/server-contract";
+} from "@hyperfide/server-contract";
+import { hostUnavailableErrorDetailsSchema } from "@hyperfide/server-contract";
 import { ApiError } from "../../errors.js";
 
 type EnvironmentReadinessFields = Pick<Environment, "path" | "status">;

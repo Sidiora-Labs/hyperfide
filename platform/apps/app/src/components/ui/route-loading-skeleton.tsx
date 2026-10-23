@@ -8,10 +8,10 @@ import {
   MACOS_TITLE_BAR_BAND_CLASS,
   MACOS_TITLE_BAR_COLLAPSED_SIDEBAR_RESERVE_CLASS,
 } from "@/lib/bb-desktop";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { Skeleton } from "@bb/shared-ui/skeleton";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 import { ComposerLoadingSkeleton } from "@/components/promptbox/ComposerPlaceholder";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { useEffect, type ReactNode } from "react";
 
 interface RouteLoadingSkeletonProps {

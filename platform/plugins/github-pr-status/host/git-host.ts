@@ -3,7 +3,7 @@ import {
   experimental_sanitizeInheritedChildProcessEnv as sanitizeInheritedChildProcessEnv,
   experimental_spawnPortableOutputProcess as spawnPortableOutputProcess,
   type ExperimentalVcsProcessPriority,
-} from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/plugin-sdk/host";
 import { runGit, type GitCommandResult } from "bb-environment-provider-host/git";
 import {
   gitHubPullRequestViewSchema,

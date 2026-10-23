@@ -3,14 +3,14 @@ import {
   type HostDaemonCommand,
   type HostDaemonOnlineRpcRequestMessage,
   type HostDaemonOnlineRpcResponseMessage,
-} from "@bb/host-daemon-contract";
-import { WorkspaceError } from "@bb/host-workspace";
+} from "@hyperfide/host-daemon-contract";
+import { WorkspaceError } from "@hyperfide/host-workspace";
 import {
   encodeClientTurnRequestIdNumber,
   type ClientTurnRequestId,
   type PromptInput,
-} from "@bb/domain";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@hyperfide/domain";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";

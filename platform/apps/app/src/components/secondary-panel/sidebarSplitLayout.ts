@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { arrayMove } from "@bb/client-core";
+import { arrayMove } from "@hyperfide/client-core";
 import {
   MAX_PANES,
   countPanes,

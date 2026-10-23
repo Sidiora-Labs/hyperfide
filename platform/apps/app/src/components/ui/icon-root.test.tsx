@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, relative, sep } from "node:path";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Icon } from "@bb/shared-ui/icon";
-import { setAppIcons } from "@bb/shared-ui/icon-registry";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { setAppIcons } from "@hyperfide/shared-ui/icon-registry";
 import { PluginCompactIconMask } from "@/components/plugin/PluginIcon";
 
 function repoRoot(): string {

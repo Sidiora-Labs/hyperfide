@@ -1,4 +1,4 @@
-import type { FeatureFlags } from "@bb/domain";
+import type { FeatureFlags } from "@hyperfide/domain";
 import type { AppInstallKind, AppSourceOrigin } from "./app-install.js";
 import type { AppSurface } from "./app-surface.js";
 import type { AppUpdateMode } from "./app-update.js";

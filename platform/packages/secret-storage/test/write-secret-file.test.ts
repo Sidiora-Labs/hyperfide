@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
 import { deleteSecretFile, writeSecretFile } from "../src/index.js";
 

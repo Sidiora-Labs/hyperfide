@@ -17,7 +17,7 @@ import {
   type PendingInteractionRow,
   type DbNotifier,
   type DbTransaction,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   isApprovalPendingInteractionPayload,
   isPluginPendingInteractionPayload,
@@ -33,8 +33,8 @@ import {
   type PendingInteractionCreate,
   type PendingInteractionResolution,
   type ThreadChangeMetadata,
-} from "@bb/domain";
-import type { HostDaemonCommand } from "@bb/host-daemon-contract";
+} from "@hyperfide/domain";
+import type { HostDaemonCommand } from "@hyperfide/host-daemon-contract";
 import type { CommandResultReportForType } from "../../internal/command-result-side-effects.js";
 import { ApiError } from "../../errors.js";
 import type {
@@ -42,7 +42,7 @@ import type {
   LoggedWorkSessionDeps,
   ServerLogger,
 } from "../../types.js";
-import type { PluginInteractionRequest } from "@get-bb/plugin-sdk";
+import type { PluginInteractionRequest } from "@hyperfide/plugin-sdk";
 import { productionErrorLogFields } from "../lib/error-log-fields.js";
 import {
   threadEnvironmentUnavailableDetails,

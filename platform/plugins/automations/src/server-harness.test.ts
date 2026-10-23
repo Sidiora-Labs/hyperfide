@@ -6,7 +6,7 @@ import {
   makeThreadResponse,
   PluginContextStaleError,
   type FakePluginHost,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import plugin from "./server.js";
 import { createAutomationService } from "./service.js";
 import {

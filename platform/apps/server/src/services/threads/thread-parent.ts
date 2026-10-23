@@ -1,5 +1,5 @@
-import { getThread, listNonDeletedChildThreads } from "@bb/db";
-import type { Thread, ThreadEventTurnStatus } from "@bb/domain";
+import { getThread, listNonDeletedChildThreads } from "@hyperfide/db";
+import type { Thread, ThreadEventTurnStatus } from "@hyperfide/domain";
 import type { AppDeps } from "../../types.js";
 import { throwParentThreadInvalid } from "../lib/lifecycle-api-errors.js";
 

@@ -5,8 +5,8 @@
   "title": "plugin-icon",
   "description": "BB ui \"plugin-icon\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/utils"
+    "@hyperfide/icon",
+    "@hyperfide/utils"
   ],
   "files": [
     {

@@ -8,7 +8,7 @@ import type {} from "mdast-util-to-hast";
 import type {
   BbNavigate,
   PluginMessageDirectiveProps,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { SKIP, visit } from "unist-util-visit";
 import type {} from "remark-parse";
 import { directive as directiveSyntax } from "micromark-extension-directive";

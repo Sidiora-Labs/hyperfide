@@ -1,6 +1,6 @@
-import type { Thread, ThreadListEntry } from "@bb/domain";
-import { isThreadRead } from "@bb/client-core";
-import type { PluginThreadActionTarget } from "@get-bb/plugin-sdk";
+import type { Thread, ThreadListEntry } from "@hyperfide/domain";
+import { isThreadRead } from "@hyperfide/client-core";
+import type { PluginThreadActionTarget } from "@hyperfide/plugin-sdk";
 
 export function toThreadActionTarget(
   thread: Thread,

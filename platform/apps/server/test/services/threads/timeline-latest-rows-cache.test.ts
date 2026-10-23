@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { TimelineRow } from "@bb/server-contract";
+import type { TimelineRow } from "@hyperfide/server-contract";
 import { createTimelineLatestRowsCache } from "../../../src/services/threads/timeline-latest-rows-cache.js";
 
 function rows(label: string): TimelineRow[] {

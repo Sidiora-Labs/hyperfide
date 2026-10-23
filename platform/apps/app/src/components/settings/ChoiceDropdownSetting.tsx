@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { COARSE_POINTER_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { Button } from "@bb/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { COARSE_POINTER_ICON_SIZE_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
+} from "@hyperfide/shared-ui/dropdown-menu";
 import { SettingsWithControl } from "@/components/ui/settings-section";
 
 export interface ChoiceDropdownOption {

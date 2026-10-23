@@ -4,7 +4,7 @@ import { StringDecoder } from "node:string_decoder";
 import type { Readable, Writable } from "node:stream";
 import { MAX_JSON_RPC_LINE_BYTES } from "./bounded-line-reader.js";
 
-export const PROVIDER_BRIDGE_RECORD_DIR_ENV = "BB_PROVIDER_BRIDGE_RECORD_DIR";
+export const PROVIDER_BRIDGE_RECORD_DIR_ENV = "HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR";
 
 export const BRIDGE_RECORDING_DIRECTIONS = [
   "runtime→bridge",

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { reconcileReasoningLevel } from "@bb/domain";
+import { reconcileReasoningLevel } from "@hyperfide/domain";
 import type {
   Host,
   ProjectSource,
@@ -8,22 +8,22 @@ import type {
   ReasoningLevel,
   Thread,
   WorkspaceStatus,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ProviderCliKey,
   ProviderCliStatus,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type {
   ProjectResponse,
   SystemEnvironmentProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   makeEnvironment as makeEnvironmentFixture,
   makeHost as makeHostFixture,
   makeProviderInfo,
   makeThread as makeThreadFixture,
   makeThreadListEntry as makeThreadListEntryFixture,
-} from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/test-helpers/domain-fixtures";
 import { makeProjectResponse } from "../src/test/fixtures/projects";
 import { getProviderIconInfo } from "../src/lib/provider-icon";
 import type { PickerOption } from "../src/components/pickers/OptionPicker";

@@ -6,7 +6,7 @@ import type {
   PendingInteractionGrantablePermissionProfile,
   UserQuestionPendingInteractionPayload,
   UserQuestionPendingInteractionResolution,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 type PendingInteractionFileChangeWriteScope = string;
 

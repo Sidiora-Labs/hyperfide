@@ -1,23 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { getTimelineGroupingContext } from "../../../src/services/threads/timeline-context-order.js";
-import { prependOlderTimelineRows } from "@bb/client-core";
+import { prependOlderTimelineRows } from "@hyperfide/client-core";
 import {
   applyTimelineDelta,
   threadTimelineResponseSchema,
   type TimelineRow,
-} from "@bb/server-contract";
-import { defaultFeatureFlags } from "@bb/domain";
+} from "@hyperfide/server-contract";
+import { defaultFeatureFlags } from "@hyperfide/domain";
 import { createTestAppHarness } from "../../helpers/test-app.js";
 import {
   mergeLoadedTimelineWithLatest,
   buildLoadedTimelineState,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
-} from "@bb/domain";
-import type { ClientTurnRequestId, Thread } from "@bb/domain";
+} from "@hyperfide/domain";
+import type { ClientTurnRequestId, Thread } from "@hyperfide/domain";
 import {
   createConnection,
   createProject,
@@ -25,13 +25,13 @@ import {
   insertEvents,
   noopNotifier,
   upsertHost,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import type { DbConnection } from "@bb/db";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import type { DbConnection } from "@hyperfide/db";
 import type {
   ThreadTimelineResponse,
   TimelinePaginationCursor,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { buildThreadTimelineWithProfile } from "../../../src/services/threads/timeline.js";
 
 const LARGE_BUDGET = 1_000_000;

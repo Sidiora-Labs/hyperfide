@@ -5,7 +5,7 @@ import {
   createNodeVerifiedProcessOps,
   stopVerifiedProcess,
   type VerifiedProcessOps,
-} from "@bb/config/verified-process-stop";
+} from "@hyperfide/config/verified-process-stop";
 import { z } from "zod";
 
 const OWNED_RUNTIME_PID_FILE_NAME = "owned-runtime.json";

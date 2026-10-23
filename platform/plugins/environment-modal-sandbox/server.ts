@@ -4,7 +4,7 @@ import { debugSandbox } from "./debug-sandbox.js";
 import { imageDefinition } from "./image-definition.js";
 import { registerRpcAndCli } from "./account.js";
 import { z } from "zod";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { resolveSettings, SETTING_DESCRIPTORS } from "./configuration.js";
 import {
   createModalSandboxClient,

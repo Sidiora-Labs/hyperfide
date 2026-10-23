@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
 import { createAgentRuntime } from "./runtime.js";
 import {
   createScriptedEchoLaunch,

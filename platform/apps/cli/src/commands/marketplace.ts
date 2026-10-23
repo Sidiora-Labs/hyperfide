@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { Command } from "commander";
-import type { PluginMarketplace } from "@bb/server-contract";
+import type { PluginMarketplace } from "@hyperfide/server-contract";
 import { action } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { renderBorderlessTable } from "../table.js";

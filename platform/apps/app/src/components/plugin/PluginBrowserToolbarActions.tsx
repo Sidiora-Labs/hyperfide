@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { ExperimentalPluginBrowserPage } from "@get-bb/plugin-sdk";
-import type { BbDesktopBrowserApi } from "@bb/desktop-contract";
+import type { ExperimentalPluginBrowserPage } from "@hyperfide/plugin-sdk";
+import type { BbDesktopBrowserApi } from "@hyperfide/desktop-contract";
 import { getDesktopBrowserApi } from "@/lib/bb-desktop";
 import {
   usePluginSlots,

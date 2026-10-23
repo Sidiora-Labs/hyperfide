@@ -8,12 +8,12 @@
     "@radix-ui/react-popover"
   ],
   "registryDependencies": [
-    "@bb/overlay-anchor",
-    "@bb/overlay-trigger",
-    "@bb/portal-scope",
-    "@bb/responsive-overlay",
-    "@bb/use-pointer-coarse",
-    "@bb/utils"
+    "@hyperfide/overlay-anchor",
+    "@hyperfide/overlay-trigger",
+    "@hyperfide/portal-scope",
+    "@hyperfide/responsive-overlay",
+    "@hyperfide/use-pointer-coarse",
+    "@hyperfide/utils"
   ],
   "files": [
     {

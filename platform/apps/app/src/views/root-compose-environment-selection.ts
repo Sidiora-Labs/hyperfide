@@ -2,12 +2,12 @@ import {
   findLocalPathProjectSourceForHost,
   type ProjectSource,
   type ThreadListEntry,
-} from "@bb/domain";
-import type { SystemEnvironmentProvider } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { SystemEnvironmentProvider } from "@hyperfide/server-contract";
 import {
   PERSONAL_WORKSPACE_ENVIRONMENT_PROVIDER_ID,
   PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   encodeProviderValue,
   parseEnvironmentValue,

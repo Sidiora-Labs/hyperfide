@@ -4,7 +4,7 @@ import type {
   ExperimentalSidebarNavigationIcon,
   ExperimentalSidebarNavigationItem,
   ExperimentalSidebarNavigationShortcut,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type { PluginNavPanelChromeEntry } from "@/lib/plugin-nav-panel-chrome";
 import {
   AUTOMATIONS_PLUGIN_ID,

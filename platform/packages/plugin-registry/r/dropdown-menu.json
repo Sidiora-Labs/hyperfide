@@ -8,15 +8,15 @@
     "@radix-ui/react-dropdown-menu"
   ],
   "registryDependencies": [
-    "@bb/coarse-pointer-sizing",
-    "@bb/icon",
-    "@bb/menu-item-hover",
-    "@bb/motion",
-    "@bb/overlay-anchor",
-    "@bb/overlay-trigger",
-    "@bb/portal-scope",
-    "@bb/responsive-overlay",
-    "@bb/utils"
+    "@hyperfide/coarse-pointer-sizing",
+    "@hyperfide/icon",
+    "@hyperfide/menu-item-hover",
+    "@hyperfide/motion",
+    "@hyperfide/overlay-anchor",
+    "@hyperfide/overlay-trigger",
+    "@hyperfide/portal-scope",
+    "@hyperfide/responsive-overlay",
+    "@hyperfide/utils"
   ],
   "files": [
     {

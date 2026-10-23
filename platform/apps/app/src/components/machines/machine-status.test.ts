@@ -1,4 +1,4 @@
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import { describe, expect, it } from "vitest";
 import {
   machinePhaseLabel,

@@ -3,7 +3,7 @@ import type {
   ThreadEvent,
   ThreadEventBackgroundTaskItem,
   ThreadEventItem,
-} from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@hyperfide/plugin-sdk/provider-bridge/testing";
 import {
   TURN_1,
   TURN_2,

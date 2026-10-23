@@ -1,5 +1,5 @@
 import { useCallback, useSyncExternalStore } from "react";
-import type { PluginComposerThreadRowStatus } from "@get-bb/plugin-sdk";
+import type { PluginComposerThreadRowStatus } from "@hyperfide/plugin-sdk";
 import { createKeyedListeners } from "./keyed-listeners";
 
 type ThreadRowStatusListener = () => void;

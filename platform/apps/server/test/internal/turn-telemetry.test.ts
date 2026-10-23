@@ -1,11 +1,11 @@
 import { reportedProviderId } from "../../src/services/system/provider-telemetry.js";
-import { appSettingsValues, getThread } from "@bb/db";
+import { appSettingsValues, getThread } from "@hyperfide/db";
 import { eq } from "drizzle-orm";
-import { threadScope, turnScope, type ThreadStatus } from "@bb/domain";
+import { threadScope, turnScope, type ThreadStatus } from "@hyperfide/domain";
 import {
   groupHostDaemonEvents,
   type HostDaemonEventEnvelope,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TelemetryService } from "../../src/services/system/telemetry.js";
 import {

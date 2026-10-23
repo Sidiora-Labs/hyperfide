@@ -17,7 +17,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { threadQueryKey } from "@/hooks/queries/query-keys";
 import { useThread } from "@/hooks/queries/thread-queries";

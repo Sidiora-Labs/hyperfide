@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { SystemVersionResponse } from "@bb/server-contract";
+import type { SystemVersionResponse } from "@hyperfide/server-contract";
 import { systemVersionQueryKey } from "../queries/query-keys";
 
 interface HydrateSystemVersionCacheArgs {

@@ -1,4 +1,4 @@
-import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 export const REPLY_SEED_PREFIX =

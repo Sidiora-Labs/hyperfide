@@ -62,7 +62,7 @@ describe("collection manifest schema", () => {
       "./plugins\\sidebar",
     ]) {
       expect(() => parse([{ name: "sidebar", source }])).toThrowError(
-        /invalid \.bb\/plugins\.json/,
+        /invalid \.hyperfide\/plugins\.json/,
       );
     }
   });
@@ -76,12 +76,12 @@ describe("collection manifest schema", () => {
     ).toThrowError(/duplicate plugin name "sidebar"/);
     expect(() =>
       parse([{ name: "sidebar", source: "./a", subdir: "./b" }]),
-    ).toThrowError(/invalid \.bb\/plugins\.json/);
+    ).toThrowError(/invalid \.hyperfide\/plugins\.json/);
     expect(() =>
       parse([{ name: "sidebar", source: "./a", description: "Sidebar" }]),
-    ).toThrowError(/invalid \.bb\/plugins\.json/);
+    ).toThrowError(/invalid \.hyperfide\/plugins\.json/);
     expect(() => parse([{ name: "Sidebar", source: "./a" }])).toThrowError(
-      /invalid \.bb\/plugins\.json/,
+      /invalid \.hyperfide\/plugins\.json/,
     );
     expect(() =>
       parsePluginCollectionManifest(
@@ -92,7 +92,7 @@ describe("collection manifest schema", () => {
         }),
         ".hyperfide/plugins.json",
       ),
-    ).toThrowError(/invalid \.bb\/plugins\.json/);
+    ).toThrowError(/invalid \.hyperfide\/plugins\.json/);
     expect(() =>
       parsePluginCollectionManifest("{ nope", ".hyperfide/plugins.json"),
     ).toThrowError(/not valid JSON/);
@@ -106,7 +106,7 @@ describe("collection manifest schema", () => {
         }),
         ".hyperfide/plugins.json",
       ),
-    ).toThrowError(/invalid \.bb\/plugins\.json/);
+    ).toThrowError(/invalid \.hyperfide\/plugins\.json/);
   });
 
   it("names the available entries when a name is unknown", () => {
@@ -218,7 +218,7 @@ describe("collection manifest in a checkout", () => {
         selection: { kind: "entry", name: "sidebar" },
         sourceLabel: "repo",
       }),
-    ).rejects.toThrowError(/no \.bb\/plugins\.json collection manifest/);
+    ).rejects.toThrowError(/no \.hyperfide\/plugins\.json collection manifest/);
   });
 
   it("rejects a --subdirectory that escapes the checkout", async () => {

@@ -1,5 +1,5 @@
-const PLUGIN_SDK_PACKAGE = "@get-bb/plugin-sdk";
-const SHARED_UI_PACKAGE = "@bb/shared-ui";
+const PLUGIN_SDK_PACKAGE = "@hyperfide/plugin-sdk";
+const SHARED_UI_PACKAGE = "@hyperfide/shared-ui";
 const DEPENDENCY_FIELDS = [
   "dependencies",
   "devDependencies",
@@ -54,7 +54,7 @@ export function registryItemsForImports(specifiers, registryItems) {
     if (closure.has(item.name)) continue;
     closure.set(item.name, item);
     for (const dependency of item.registryDependencies ?? []) {
-      const name = dependency.replace(/^@bb\//u, "");
+      const name = dependency.replace(/^@hyperfide\//u, "");
       const dependencyItem = itemByName.get(name);
       if (dependencyItem === undefined) {
         throw new Error(

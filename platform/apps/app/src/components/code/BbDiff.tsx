@@ -14,7 +14,7 @@ import {
 import { enrichGitDiffFileForContext } from "@/components/git-diff/git-diff-parsing";
 import { useResolvedCodeThemePair } from "@/lib/code-theme";
 import { usePreferredTheme } from "@/hooks/useTheme";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import type { BbDiffProps } from "./code-rendering";
 
 const DIFF_VIEW_STYLE = {

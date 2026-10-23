@@ -1,8 +1,8 @@
-import { rpcResponseTags } from "@get-bb/plugin-sdk/internal/rpc-tags";
+import { rpcResponseTags } from "@hyperfide/plugin-sdk/internal/rpc-tags";
 import type {
   PluginRpcDiscoveryQuery,
   PublishedPluginRpcMethod,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { watch } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -21,7 +21,7 @@ import {
   type SystemChangeKind,
   type ThreadEventItemPresentation,
   type ToolCallResponse,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   type ExperimentalPluginWebSocketContext,
   type ExperimentalPluginWebSocketHandlers,
@@ -30,7 +30,7 @@ import {
   type ExperimentalPluginProviderEnvHealthContext,
   type PluginRpcError,
   type ExperimentalPluginRpcCaller,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   enforcePluginCliOutputLimit,
   normalizePluginAgentConfiguration,
@@ -41,15 +41,15 @@ import {
   validatePluginProviderEnvEntries,
   validateRpcValue,
   validateSettingsUpdate,
-} from "@get-bb/plugin-sdk/internal/host-policy";
-import { buildPluginApp, createPluginDevLoop } from "@bb/plugin-build";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
+import { buildPluginApp, createPluginDevLoop } from "@hyperfide/plugin-build";
 import { getPluginBuildToolchain } from "./build-toolchain.js";
 import { buildMutablePluginHost } from "./mutable-plugin-artifacts.js";
 import {
   marketplacePublisherLabel,
   pluginPublisherLabel,
 } from "../plugin-catalog/marketplace-publishers.js";
-import { deleteSecretFile, readOrCreateSecretFile } from "@bb/secret-storage";
+import { deleteSecretFile, readOrCreateSecretFile } from "@hyperfide/secret-storage";
 import {
   pluginUpdateCheckEntrySchema,
   ROOT_PLUGIN_SOURCE_SELECTION,
@@ -60,7 +60,7 @@ import {
   type PluginSourceDetail,
   type PluginSourceSelection,
   type PluginUpdateCheckEntry,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   claimPluginScheduledRun,
   deleteAllPluginKvValues,
@@ -90,7 +90,7 @@ import {
   setPluginSafeMode,
   type InstalledPluginRow,
   type PluginMarketplaceRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { toHostRecord } from "../lib/entity-lookup.js";
 import {
   catalogEntryMetadata,

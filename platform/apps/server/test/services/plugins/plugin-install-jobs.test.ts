@@ -4,7 +4,7 @@ import {
   pluginInstallJobStartResponseSchema,
   type InstalledPlugin,
   type PluginInstallJob,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   commitInstall,
   PluginInstallCancelledError,
@@ -16,7 +16,7 @@ import {
   withTestHarness,
   type TestAppHarness,
 } from "../../helpers/test-app.js";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 
 const BASE = "http://127.0.0.1:3334";
 let PLUGIN: InstalledPlugin;

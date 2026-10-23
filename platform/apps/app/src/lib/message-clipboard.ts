@@ -1,5 +1,5 @@
-import { PROMPT_ATTACHMENT_MAX_BYTES } from "@bb/domain";
-import { escapeHtmlText } from "@bb/text-utils";
+import { PROMPT_ATTACHMENT_MAX_BYTES } from "@hyperfide/domain";
+import { escapeHtmlText } from "@hyperfide/text-utils";
 import { z } from "zod";
 
 const messageClipboardSchema = z

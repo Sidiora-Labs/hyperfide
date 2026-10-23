@@ -2,7 +2,7 @@ import { Command } from "commander";
 import type {
   ThreadParentNotifications,
   ThreadTimelinePendingTodos,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { action } from "../action.js";
 import {
   resolveContextSnapshot,

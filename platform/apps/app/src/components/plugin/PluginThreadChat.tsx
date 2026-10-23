@@ -1,17 +1,17 @@
 import { useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import type {
   ThreadChatMessageAction,
   ThreadChatProps,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   formatEnvironmentDisplay,
   type EnvironmentDisplayHostContext,
-} from "@bb/core-ui";
-import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
-import { cn } from "@bb/shared-ui/lib/utils";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
+} from "@hyperfide/core-ui";
+import { EmptyStatePanel } from "@hyperfide/shared-ui/empty-state";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
 import { ThreadEnvironmentSummary } from "@/components/promptbox/ThreadEnvironmentSummary";
 import { EmbeddedThreadChat } from "@/components/thread/embedded-chat";
 import {

@@ -1,13 +1,13 @@
-import { getAppSettings, updateHost } from "@bb/db";
-import { defaultAppSettings } from "@bb/domain";
+import { getAppSettings, updateHost } from "@hyperfide/db";
+import { defaultAppSettings } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { HostDaemonOnlineRpcRequestMessage } from "@bb/host-daemon-contract";
+import type { HostDaemonOnlineRpcRequestMessage } from "@hyperfide/host-daemon-contract";
 import {
   systemConfigResponseSchema,
   systemExecutionOptionsResponseSchema,
   systemProviderInfoSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { availableModelFixture } from "../helpers/available-models.js";
 import { readJson } from "../helpers/json.js";
 import { registerHostRpcResponder } from "../helpers/host-rpc.js";

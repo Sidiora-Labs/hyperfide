@@ -2,7 +2,7 @@ import {
   isBuiltInThemeId,
   type AppTheme,
   type BuiltInThemeId,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { catppuccinThemeCss } from "./catppuccin";
 import { draculaThemeCss } from "./dracula";
 import { gruvboxThemeCss } from "./gruvbox";

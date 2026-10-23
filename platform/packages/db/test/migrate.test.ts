@@ -12,7 +12,7 @@ import {
   dropQueuedMessageEditHeldUntilColumn,
   rewindQueuedMessageStateMigration,
 } from "./helpers/rewind.js";
-import { defaultAppSettings } from "@bb/domain";
+import { defaultAppSettings } from "@hyperfide/domain";
 import {
   createQueuedThreadMessage,
   createThread,

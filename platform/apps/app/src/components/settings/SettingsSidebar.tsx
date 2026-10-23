@@ -9,21 +9,21 @@ import {
   type RefObject,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   COARSE_POINTER_COMPACT_ICON_BUTTON_CLASS,
   COARSE_POINTER_ICON_SIZE_CLASS,
   COARSE_POINTER_ROW_HEIGHT_CLASS,
   COARSE_POINTER_TEXT_BASE_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   SIDEBAR_ROW_BASE_CLASS,
   SIDEBAR_ROW_INTERACTIVE_STATE_CLASS,
   SIDEBAR_STANDARD_ROW_PADDING_CLASS,
-} from "@bb/shared-ui/sidebar-row-classes";
-import { ShortcutPill } from "@bb/shared-ui/shortcut-pill";
+} from "@hyperfide/shared-ui/sidebar-row-classes";
+import { ShortcutPill } from "@hyperfide/shared-ui/shortcut-pill";
 import { PluginIcon } from "@/components/plugin/PluginIcon";
 import {
   SectionSidebar,

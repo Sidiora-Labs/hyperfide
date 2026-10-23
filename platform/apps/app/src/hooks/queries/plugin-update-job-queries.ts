@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { PluginUpdateJob } from "@bb/server-contract";
+import type { PluginUpdateJob } from "@hyperfide/server-contract";
 import { createPluginsClient } from "./plugin-client";
 import { pluginUpdateJobsQueryKey } from "./query-keys";
 

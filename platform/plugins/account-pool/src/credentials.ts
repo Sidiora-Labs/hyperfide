@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import type { JsonValue } from "@get-bb/plugin-sdk";
+import type { JsonValue } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 const execFileAsync = promisify(execFile);

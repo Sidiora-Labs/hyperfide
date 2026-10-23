@@ -13,7 +13,7 @@ of these:
 
 - No product data dependencies: no queries, atoms, routing, server calls, or BB
   lifecycle concepts.
-- No `@bb/domain` types in its public API.
+- No `@hyperfide/domain` types in its public API.
 - Generic local interaction state is okay. Browser persistence, app preferences,
   and product policy belong in app wrappers.
 - Replacing it would feel like a design-system change, not a feature change.

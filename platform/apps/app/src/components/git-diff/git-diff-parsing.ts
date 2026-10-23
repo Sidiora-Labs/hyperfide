@@ -1,5 +1,5 @@
 import { parsePatchFiles, processFile, type FileContents } from "@pierre/diffs";
-import type { GitDiffFileChangeKind } from "@bb/server-contract";
+import type { GitDiffFileChangeKind } from "@hyperfide/server-contract";
 
 export type ParsedGitDiffFile = ReturnType<
   typeof parsePatchFiles

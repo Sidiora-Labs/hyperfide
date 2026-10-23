@@ -308,7 +308,7 @@ Authoring a plugin
   hyperfide-platform plugin types [path] [--check]  Sync the plugin's SDK and shimmed-package
                                  type pins to this bb; --check only reports
   hyperfide-platform plugin migrate [path] [--yes]  Move a plugin that vendors types/ to the
-                                 @get-bb/plugin-sdk npm package
+                                 @hyperfide/plugin-sdk npm package
 
 The full authoring reference (manifest, every API surface, build and release,
 testing, and marketplace publishing) is the built-in `bb-plugin-authoring`

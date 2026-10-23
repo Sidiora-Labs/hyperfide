@@ -12,7 +12,7 @@ import {
   type PluginCliContext,
   type PluginCliResult,
   type PluginRpcHandlers,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 const DEFAULT_DIR = "~/Notes";

@@ -10,7 +10,7 @@ import {
   experimental_webSearchPresentation as webSearchPresentation,
   toOptionalRecord,
   toOptionalString,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { z } from "zod";
 import {
   builtinToolPresentation,
@@ -38,9 +38,9 @@ export interface ClaudeInjectedTool {
   presentation?: DeltaPresentation;
 }
 
-export const BB_BRIDGE_MCP_SERVER_NAME = "bb-bridge";
+export const HYPERFIDE_BRIDGE_MCP_SERVER_NAME = "bb-bridge";
 
-const BB_TOOL_SERVER = "bb";
+const HYPERFIDE_TOOL_SERVER = "bb";
 
 const claudeBackgroundFlagSchema = z
   .object({ run_in_background: z.boolean().optional() })
@@ -334,7 +334,7 @@ function bbTool(
     shape: {
       type: "tool",
       tool,
-      server: BB_TOOL_SERVER,
+      server: HYPERFIDE_TOOL_SERVER,
       ...(toolArguments ? { args: toolArguments } : {}),
     },
     presentation: injected?.presentation ?? toolPresentation(tool),
@@ -454,7 +454,7 @@ export function classifyClaudeToolUse(args: {
       if (mcp === null) {
         return genericTool(toolName, input);
       }
-      if (mcp.server === BB_BRIDGE_MCP_SERVER_NAME) {
+      if (mcp.server === HYPERFIDE_BRIDGE_MCP_SERVER_NAME) {
         return bbTool(mcp.tool, input, args.injectedTools.get(mcp.tool));
       }
       return mcpTool(mcp.server, mcp.tool, input);

@@ -22,7 +22,7 @@ import {
   experimental_useProviders,
   useBbNavigate,
   useSdk,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   SidebarRenameProvider,
   useSidebarRename,

@@ -1,6 +1,6 @@
-import { type LocalPathProjectSource, PERSONAL_PROJECT_ID } from "@bb/domain";
-import type { EnvironmentRow } from "@bb/db";
-import type { EnvironmentArgs } from "@bb/server-contract";
+import { type LocalPathProjectSource, PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import type { EnvironmentRow } from "@hyperfide/db";
+import type { EnvironmentArgs } from "@hyperfide/server-contract";
 import { ApiError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";
 import { assertEnvironmentPathAvailable } from "../environments/path-admission.js";

@@ -2,7 +2,7 @@ import {
   DEFAULT_HOST_DAEMON_LOCAL_BIND_HOST,
   DEFAULT_HOST_DAEMON_LOCAL_HEALTH_PATH,
   DEFAULT_HOST_DAEMON_LOCAL_HEALTH_VALUE,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 
 export interface HostDaemonLocalApiConfig {
   bindHost: string;

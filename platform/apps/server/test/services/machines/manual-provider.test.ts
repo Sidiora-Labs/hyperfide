@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
-import { defaultAppSettings } from "@bb/domain";
-import { getHost, openSession, setAppSettings } from "@bb/db";
+import { defaultAppSettings } from "@hyperfide/domain";
+import { getHost, openSession, setAppSettings } from "@hyperfide/db";
 import { withTestHarness } from "../../helpers/test-app.js";
 import { seedHost, seedPrimaryHost } from "../../helpers/seed.js";
 

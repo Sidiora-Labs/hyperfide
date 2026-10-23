@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { serverMovedFileSchema } from "@bb/server-archive";
+import { serverMovedFileSchema } from "@hyperfide/server-archive";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   listOldCopyEntries,

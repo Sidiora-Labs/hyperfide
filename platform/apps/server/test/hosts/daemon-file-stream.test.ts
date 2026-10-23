@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { describe, expect, it, vi } from "vitest";
-import { HOST_FILE_CHUNK_MAX_BYTES } from "@bb/host-daemon-contract";
+import { HOST_FILE_CHUNK_MAX_BYTES } from "@hyperfide/host-daemon-contract";
 import { createDaemonFileStreamResponse } from "../../src/services/hosts/daemon-file-stream.js";
 
 const metadata = {

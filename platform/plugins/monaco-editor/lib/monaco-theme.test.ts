@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PluginCodeThemeData } from "@get-bb/plugin-sdk/app";
+import type { PluginCodeThemeData } from "@hyperfide/plugin-sdk/app";
 import {
   applyCodeTheme,
   editorBackground,

@@ -4,8 +4,8 @@ import {
   readAppUpdateStateFile,
   type AppUpdatePending,
   type SourceAppRevision,
-} from "@bb/config/app-update";
-import type { ChildProcessExitResult } from "@bb/config/child-process-exit";
+} from "@hyperfide/config/app-update";
+import type { ChildProcessExitResult } from "@hyperfide/config/child-process-exit";
 import type { RunCommand } from "./run-command.js";
 import { fastForwardSource } from "./source-checkout.js";
 import {

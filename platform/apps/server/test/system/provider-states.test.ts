@@ -1,5 +1,5 @@
-import type { ProviderHealth } from "@bb/host-daemon-contract";
-import { updateHost } from "@bb/db";
+import type { ProviderHealth } from "@hyperfide/host-daemon-contract";
+import { updateHost } from "@hyperfide/db";
 import { describe, expect, it, vi } from "vitest";
 import { getProviderStates } from "../../src/services/system/provider-states.js";
 import { setPluginAgentContributions } from "../../src/services/plugins/plugin-agent-contributions.js";

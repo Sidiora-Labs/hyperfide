@@ -4,7 +4,7 @@ import {
   APP_SURFACE_HEADER_NAME,
   parseRequestAppSurface,
   type RequestAppSurface,
-} from "@bb/config/app-surface";
+} from "@hyperfide/config/app-surface";
 import type { Context } from "hono";
 
 export const TRUSTED_REMOTE_ADDRESS_CONTEXT_KEY = "bbTrustedRemoteAddress";

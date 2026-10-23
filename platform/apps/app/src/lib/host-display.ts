@@ -1,3 +1,3 @@
-import type { IconName } from "@bb/shared-ui/icon";
+import type { IconName } from "@hyperfide/shared-ui/icon";
 
 export const PersistentHostIconName: IconName = "Laptop";

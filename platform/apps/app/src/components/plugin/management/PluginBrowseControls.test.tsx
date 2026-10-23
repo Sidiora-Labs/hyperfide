@@ -18,7 +18,7 @@ import {
 import type { PluginBrowseCategoryOption } from "./plugin-browse-discovery";
 
 const viewport = vi.hoisted(() => ({ compact: false }));
-vi.mock("@bb/shared-ui/hooks/use-compact-viewport", () => ({
+vi.mock("@hyperfide/shared-ui/hooks/use-compact-viewport", () => ({
   useIsCompactViewport: () => viewport.compact,
 }));
 

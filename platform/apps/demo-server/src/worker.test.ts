@@ -7,7 +7,7 @@ import {
   sidebarBootstrapResponseSchema,
   systemAppUpdateStatusSchema,
   threadTimelineResponseSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { PROVIDERS } from "./fixtures/providers.js";
 import { afterAll, beforeAll, expect, it } from "vitest";
 

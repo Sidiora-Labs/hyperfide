@@ -5,11 +5,11 @@ import {
   listActiveHostThreads,
   listHostThreadIds,
   type HostDaemonSessionRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 import type {
   HostDaemonActiveThread,
   HostDaemonSessionCloseReason,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { HOST_RECONNECT_GRACE_MS, LEASE_TIMEOUT_MS } from "../constants.js";
 import type {
   AppDeps,

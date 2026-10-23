@@ -18,10 +18,10 @@ import {
   experimental_THREAD_ACTION_GROUPS,
   type PluginThreadActionRegistration,
   type PluginThreadActionsInlineItem,
-} from "@get-bb/plugin-sdk";
-import type { ThreadListEntry } from "@bb/domain";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+} from "@hyperfide/plugin-sdk";
+import type { ThreadListEntry } from "@hyperfide/domain";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { threadQueryKey } from "@/hooks/queries/query-keys";
 import {
   resetPluginSlotStoreForTest,

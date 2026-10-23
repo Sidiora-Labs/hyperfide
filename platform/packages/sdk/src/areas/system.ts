@@ -1,9 +1,9 @@
-import { mobileAppDownloads } from "@bb/domain";
+import { mobileAppDownloads } from "@hyperfide/domain";
 import type {
   MachineEnvironmentReplace,
   MachineEnvironmentSet,
   MachineEnvironmentList,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   AppKeybindingOverrides,
   AppSettings,
@@ -12,8 +12,8 @@ import type {
   Experiments,
   UiPreferenceKey,
   UiPreferenceValue,
-} from "@bb/domain";
-import type { ProviderUsageResponse } from "@bb/host-daemon-contract";
+} from "@hyperfide/domain";
+import type { ProviderUsageResponse } from "@hyperfide/host-daemon-contract";
 import type {
   SetAiServiceSelectionRequest,
   SystemAiServicesResponse,
@@ -42,8 +42,8 @@ import type {
   TestAiServiceResponse,
   UiPreferenceResponse,
   UiPreferencesResponse,
-} from "@bb/server-contract";
-import { systemVoiceTranscriptionResponseSchema } from "@bb/server-contract";
+} from "@hyperfide/server-contract";
+import { systemVoiceTranscriptionResponseSchema } from "@hyperfide/server-contract";
 import {
   readExecutionOptions,
   signalRequestArgs,

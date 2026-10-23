@@ -17,7 +17,7 @@ enrolled machines and provider-managed machines intended to persist are never
 removed automatically.
 
 ```ts
-import type { BbPluginApi, MachineExecutor } from "@get-bb/plugin-sdk";
+import type { BbPluginApi, MachineExecutor } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 export function registerMachine(
@@ -234,7 +234,7 @@ Machines settings select the default provider. Without a saved selection,
 core uses the first registered provider, or direct when none are registered,
 and it keeps the selected provider for later enrollment of the same machine.
 The direct provider reads `machineServerUrl`, falling back to
-`BB_EXTERNAL_URL`. Declaring a URL does not prove reachability from a sandbox.
+`HYPERFIDE_EXTERNAL_URL`. Declaring a URL does not prove reachability from a sandbox.
 
 Call `recheck()` when access is gained or lost. Clients then reload
 configuration, which checks provider availability in parallel with a

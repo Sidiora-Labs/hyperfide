@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { delimiter } from "node:path";
-import { defaultFeatureFlags } from "@bb/domain";
+import { defaultFeatureFlags } from "@hyperfide/domain";
 import { DEFAULTS } from "./defaults.js";
 import {
   APP_UPDATE_MODE_ENV_NAME,

@@ -5,7 +5,7 @@ import {
   getQueuedThreadMessage,
   projectSources,
   threads,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { describe, expect, it } from "vitest";
 import { readJson } from "../helpers/json.js";
 import { textInput } from "../helpers/prompt-input.js";

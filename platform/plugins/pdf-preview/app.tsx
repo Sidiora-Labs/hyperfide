@@ -3,7 +3,7 @@ import {
   definePluginApp,
   experimental_Icon as Icon,
   type PluginFileOpenerProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { loadPdfBlob, resolvePdfUrl } from "./pdf-source.js";
 
 type PreviewState =

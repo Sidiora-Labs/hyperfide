@@ -5,7 +5,7 @@ import {
   buildBridgeEventScript,
   parsePageToShellMessage,
   type NativeShellHandshake,
-} from "@bb/mobile-bridge";
+} from "@hyperfide/mobile-bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import { createElement } from "react";

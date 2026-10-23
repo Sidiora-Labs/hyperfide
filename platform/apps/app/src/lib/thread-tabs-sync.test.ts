@@ -1,5 +1,5 @@
-import { openSecondaryPanelTabInState } from "@bb/client-core";
-import type { ThreadTab } from "@bb/server-contract";
+import { openSecondaryPanelTabInState } from "@hyperfide/client-core";
+import type { ThreadTab } from "@hyperfide/server-contract";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import { setCachedThreadTabs } from "@/hooks/cache-owners/thread-tabs-cache-owner";

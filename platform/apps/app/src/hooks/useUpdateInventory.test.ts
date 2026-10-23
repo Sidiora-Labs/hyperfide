@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import type {
   ProviderCliStatus,
   ProviderCliStatusResponse,
-} from "@bb/host-daemon-contract";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/host-daemon-contract";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import type {
   SystemAppUpdateStatus,
   SystemVersionResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   buildUpdateInventoryProviderIssues,
   resolveAppUpdateAvailable,

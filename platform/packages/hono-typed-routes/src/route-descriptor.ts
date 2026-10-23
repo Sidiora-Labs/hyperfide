@@ -1,4 +1,4 @@
-import type { ContractTagDeclarations } from "@bb/domain";
+import type { ContractTagDeclarations } from "@hyperfide/domain";
 import type {
   ContentfulStatusCode,
   SuccessStatusCode,

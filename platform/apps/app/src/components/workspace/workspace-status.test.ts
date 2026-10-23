@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { WorkspaceStatus } from "@bb/domain";
+import type { WorkspaceStatus } from "@hyperfide/domain";
 import {
   makeWorkspaceMergeBase,
   makeWorkspaceStatus,
   makeWorkspaceWorkingTree,
-} from "@bb/test-helpers";
-import { BbHttpError } from "@bb/sdk/browser";
+} from "@hyperfide/test-helpers";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import { getGitStatusDisplay } from "./workspace-status";
 
 interface MakeStatusOptions {

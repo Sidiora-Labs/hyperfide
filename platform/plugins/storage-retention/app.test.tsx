@@ -8,8 +8,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { Toaster, toast } from "sonner";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import { makeHostResponse } from "@get-bb/plugin-sdk/testing";
+import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
+import { makeHostResponse } from "@hyperfide/plugin-sdk/testing";
 import { z } from "zod";
 import { policySchema, storageRpc } from "./src/contract.js";
 import { makeSystemConfig } from "../../apps/app/src/test/fixtures/system-config.js";

@@ -1,4 +1,4 @@
-import type { ChangedMessage } from "@bb/domain";
+import type { ChangedMessage } from "@hyperfide/domain";
 
 export type BbRealtimeUnsubscribe = () => void;
 

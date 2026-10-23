@@ -1,4 +1,4 @@
-import type { PluginEnvironmentProvider } from "@get-bb/plugin-sdk/app";
+import type { PluginEnvironmentProvider } from "@hyperfide/plugin-sdk/app";
 import type { IconName } from "@/components/ui/icon";
 
 export type EnvironmentWorkspaceDisplayProviderLookup =

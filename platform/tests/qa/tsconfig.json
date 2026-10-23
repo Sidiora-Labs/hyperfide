@@ -1,5 +1,5 @@
 {
-  "extends": "@bb/tsconfig/base.json",
+  "extends": "@hyperfide/tsconfig/base.json",
   "compilerOptions": {
     "composite": false,
     "declaration": false,

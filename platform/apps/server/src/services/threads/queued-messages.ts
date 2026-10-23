@@ -18,25 +18,25 @@ import {
   type DbQueryConnection,
   type QueuedThreadMessageGroupClaimPolicy,
   type QueuedThreadMessageGroupEligibility,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   flattenPromptInputGroups,
   isQueuedMessageFailedState,
   queuedMessageSystemNoticeSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   PromptInput,
   QueuedMessageWaitingOn,
   Thread,
   ThreadQueuedMessage,
   ThreadTurnInitiator,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   CreateQueuedMessageRequest,
   QueuedMessageEditHoldResponse,
   SendMessageRequest,
   SendQueuedMessageMode,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   AppDeps,
   LoggedPendingInteractionWorkSessionDeps,

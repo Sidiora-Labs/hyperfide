@@ -1,7 +1,7 @@
-import type { CustomProviderModel } from "@bb/config/bb-app-managed-config";
-import type { DbConnection } from "@bb/db";
-import type { FeatureFlags, ProviderNativeSkillRoots } from "@bb/domain";
-import type { Logger } from "@bb/logger";
+import type { CustomProviderModel } from "@hyperfide/config/bb-app-managed-config";
+import type { DbConnection } from "@hyperfide/db";
+import type { FeatureFlags, ProviderNativeSkillRoots } from "@hyperfide/domain";
+import type { Logger } from "@hyperfide/logger";
 import type { PendingInteractionLifecycle } from "./services/interactions/pending-interactions.js";
 import type { MachineAuthService } from "./services/machine-auth.js";
 import type { AppUpdateService } from "./services/system/app-update.js";

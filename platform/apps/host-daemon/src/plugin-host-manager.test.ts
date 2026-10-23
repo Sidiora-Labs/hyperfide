@@ -10,8 +10,8 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HostDaemonOnlineRpcCommand } from "@bb/host-daemon-contract";
-import type { WatchPathRootArgs } from "@bb/host-watcher";
+import type { HostDaemonOnlineRpcCommand } from "@hyperfide/host-daemon-contract";
+import type { WatchPathRootArgs } from "@hyperfide/host-watcher";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PluginHostManager } from "./plugin-host-manager.js";
 

@@ -3,17 +3,17 @@ import {
   type TestEnvironmentProviderContext,
   type TestProviderDecision,
 } from "./provider-decisions.js";
-import { gitBranchSelectionSchema } from "@bb/domain";
-import type { PluginEnvironmentValidateDecision } from "@get-bb/plugin-sdk";
+import { gitBranchSelectionSchema } from "@hyperfide/domain";
+import type { PluginEnvironmentValidateDecision } from "@hyperfide/plugin-sdk";
 import type {
   PluginEnvironmentProviderAvailability,
   PluginEnvironmentProviderValidateContext,
-} from "@get-bb/plugin-sdk/environment-provider";
+} from "@hyperfide/plugin-sdk/environment-provider";
 import { expect, onTestFinished, vi } from "vitest";
 import {
   validatePluginEnvironmentProviderDeclaration,
   type NormalizedPluginEnvironmentProvider,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
 import { z } from "zod";
 import {
   setPluginEnvironmentProviderBridge,

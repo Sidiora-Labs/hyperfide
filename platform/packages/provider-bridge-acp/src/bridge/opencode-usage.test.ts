@@ -3,8 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { providerUsageResultSchema } from "@bb/provider-bridge-protocol";
-import { captureBridgeJsonRpcOutput } from "@bb/provider-bridge-protocol/testing";
+import { providerUsageResultSchema } from "@hyperfide/provider-bridge-protocol";
+import { captureBridgeJsonRpcOutput } from "@hyperfide/provider-bridge-protocol/testing";
 import { readOpenCodeGoUsage } from "./opencode-usage.js";
 
 const reportedUsage = {

@@ -1,5 +1,5 @@
-import type { PluginAppDefinition, PluginAppSetup } from "@get-bb/plugin-sdk";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
+import type { PluginAppDefinition, PluginAppSetup } from "@hyperfide/plugin-sdk";
+import { collectPluginAppRegistrations } from "@hyperfide/plugin-sdk/internal/plugin-app-collector";
 
 export { collectPluginAppRegistrations };
 

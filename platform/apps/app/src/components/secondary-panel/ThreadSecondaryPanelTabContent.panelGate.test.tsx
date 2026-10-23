@@ -2,8 +2,8 @@
 
 import { DEFAULT_DIFF_FILE_FILTERS } from "./git-diff/diff-file-filters";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
-import type { WorkspaceDiffTarget } from "@bb/domain";
-import type { EnvironmentDiffFilesResponse } from "@bb/server-contract";
+import type { WorkspaceDiffTarget } from "@hyperfide/domain";
+import type { EnvironmentDiffFilesResponse } from "@hyperfide/server-contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   environmentDiffFilesQueryKeyPrefix,

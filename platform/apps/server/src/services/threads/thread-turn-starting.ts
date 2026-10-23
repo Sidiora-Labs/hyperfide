@@ -1,5 +1,5 @@
-import { getThread, type ClaimedQueuedThreadMessageRow } from "@bb/db";
-import type { Thread, ThreadQueuedMessage } from "@bb/domain";
+import { getThread, type ClaimedQueuedThreadMessageRow } from "@hyperfide/db";
+import type { Thread, ThreadQueuedMessage } from "@hyperfide/domain";
 import type { AppDeps } from "../../types.js";
 import { NotificationBuffer } from "../lib/notification-buffer.js";
 import {

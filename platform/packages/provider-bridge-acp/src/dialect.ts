@@ -1,4 +1,4 @@
-import type { DeltaItemShape } from "@bb/provider-bridge-protocol";
+import type { DeltaItemShape } from "@hyperfide/provider-bridge-protocol";
 import { basename } from "node:path";
 import { z } from "zod";
 import {

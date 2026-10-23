@@ -1,4 +1,4 @@
-import { THREAD_EVENT_ITEM_PRESENTATION_DETAIL_MAX_LENGTH } from "@bb/domain";
+import { THREAD_EVENT_ITEM_PRESENTATION_DETAIL_MAX_LENGTH } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import {
   PRESENTATION_TITLE_MAX_LENGTH,

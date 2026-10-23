@@ -4,7 +4,7 @@ import path from "node:path";
 import {
   experimental_resolveVendorPluginRoots,
   type ExperimentalVendorPlugin,
-} from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/plugin-sdk/host";
 import { z } from "zod";
 import type { AcpNativeRootsResolver } from "./resolver.js";
 import { readJsonFile } from "./shared.js";

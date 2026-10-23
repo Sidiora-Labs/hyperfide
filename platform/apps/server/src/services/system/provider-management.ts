@@ -3,8 +3,8 @@ import {
   getDisabledProviderIds,
   setAppSettings,
   setDisabledProviderIds,
-} from "@bb/db";
-import type { SystemProviderCatalogEntry } from "@bb/server-contract";
+} from "@hyperfide/db";
+import type { SystemProviderCatalogEntry } from "@hyperfide/server-contract";
 import type { ServerAppDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
 import type { PluginService } from "../plugins/plugin-service.js";

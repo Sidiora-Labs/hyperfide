@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { arrayMove } from "@dnd-kit/sortable";
-import type { Host } from "@bb/domain";
-import type { ProjectWithThreadsResponse } from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
-import "@bb/shared-ui/icon-extended";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { Host } from "@hyperfide/domain";
+import type { ProjectWithThreadsResponse } from "@hyperfide/server-contract";
+import { Button } from "@hyperfide/shared-ui/button";
+import "@hyperfide/shared-ui/icon-extended";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   ResourceOverflowMenu,
   ResourceRowDetailChevron,
   targetsResourceAction,
-} from "@bb/shared-ui/resource-list";
+} from "@hyperfide/shared-ui/resource-list";
 import { ProjectPathDialog } from "@/components/dialogs/ProjectPathDialog";
 import {
   ProjectDeleteDialog,

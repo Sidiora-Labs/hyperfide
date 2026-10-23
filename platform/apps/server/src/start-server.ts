@@ -5,16 +5,16 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ServerConfig } from "@bb/config/server";
-import { isLoopbackHostname } from "@bb/config/loopback";
-import { toOptionalString } from "@bb/config/strings";
-import { createLogger } from "@bb/logger";
+import type { ServerConfig } from "@hyperfide/config/server";
+import { isLoopbackHostname } from "@hyperfide/config/loopback";
+import { toOptionalString } from "@hyperfide/config/strings";
+import { createLogger } from "@hyperfide/logger";
 import {
   getAppSettings,
   getDisabledProviderIds,
   listRunningThreads,
   setAppSettings,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { initDb } from "./db.js";
 import { createApp } from "./server.js";
 import { PendingInteractionLifecycle } from "./services/interactions/pending-interactions.js";

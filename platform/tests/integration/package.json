@@ -1,5 +1,5 @@
 {
-  "name": "@bb/integration-tests",
+  "name": "@hyperfide/integration-tests",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -11,20 +11,20 @@
     "e2e:mobile-connect-stub": "node --import tsx mobile-e2e/connect-stub.ts"
   },
   "dependencies": {
-    "@bb/config": "workspace:*",
-    "@bb/db": "workspace:*",
-    "@bb/domain": "workspace:*",
-    "@bb/host-daemon": "workspace:*",
-    "@bb/host-daemon-contract": "workspace:*",
-    "@bb/server": "workspace:*",
-    "@bb/server-contract": "workspace:*",
-    "@bb/test-helpers": "workspace:*",
+    "@hyperfide/config": "workspace:*",
+    "@hyperfide/db": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/host-daemon": "workspace:*",
+    "@hyperfide/host-daemon-contract": "workspace:*",
+    "@hyperfide/server": "workspace:*",
+    "@hyperfide/server-contract": "workspace:*",
+    "@hyperfide/test-helpers": "workspace:*",
     "@hono/node-server": "^1.19.11",
     "drizzle-orm": "^0.38.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "better-sqlite3": "12.10.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",

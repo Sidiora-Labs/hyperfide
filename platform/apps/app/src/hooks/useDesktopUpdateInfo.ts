@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { BbDesktopApi, BbDesktopInfo } from "@bb/desktop-contract";
+import type { BbDesktopApi, BbDesktopInfo } from "@hyperfide/desktop-contract";
 import { getBbDesktopInfo } from "@/lib/bb-desktop";
 
 interface DesktopUpdateInfo {

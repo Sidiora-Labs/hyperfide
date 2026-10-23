@@ -1,4 +1,4 @@
-import type { PromptMentionResource } from "@bb/domain";
+import type { PromptMentionResource } from "@hyperfide/domain";
 import {
   composerMentionTargetFromResource,
   parsePromptMentionClipboardElement,
@@ -8,7 +8,7 @@ import {
   promptMentionResourceFromComposerMention,
   promptMentionTooltipLabel,
   type ComposerMentionTargetShape,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 
 export interface PromptMentionPresentation {
   className: string;

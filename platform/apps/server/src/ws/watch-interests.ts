@@ -1,16 +1,16 @@
-import { environments, threads, type DbConnection } from "@bb/db";
+import { environments, threads, type DbConnection } from "@hyperfide/db";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   realtimeSubscriptionTargetKey,
   type EnvironmentChangeKind,
   type ThreadChangeKind,
   type ThreadEventType,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   HostDaemonWatchSet,
   HostDaemonWatchSetThreadStorageTarget,
   HostDaemonWatchSetWorkspaceTarget,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { workspaceContextFromPath } from "../services/environments/workspace-command-target.js";
 import type { NotificationHub, ServerChangedMessage } from "./hub.js";
 import type { WatchedTarget, WatchedTargetChange } from "./watched-targets.js";

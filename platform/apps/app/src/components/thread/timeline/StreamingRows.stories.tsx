@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import type { TimelineRow } from "@bb/server-contract";
+import type { TimelineRow } from "@hyperfide/server-contract";
 import {
   ThreadTimelineRows,
   TimelineWorkingIndicator,

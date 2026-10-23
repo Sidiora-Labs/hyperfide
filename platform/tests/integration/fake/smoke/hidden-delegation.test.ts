@@ -1,5 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises";
-import type { ThreadEventRow } from "@bb/domain";
+import type { ThreadEventRow } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import {
   createReuseThread,

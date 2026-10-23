@@ -1,9 +1,9 @@
-import { PLUGIN_INTERACTION_MAX_PAYLOAD_BYTES } from "@bb/domain";
+import { PLUGIN_INTERACTION_MAX_PAYLOAD_BYTES } from "@hyperfide/domain";
 import {
   publicApiRoutes,
   typedRoutes,
   type PublicApiSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { Hono } from "hono";
 import { z } from "zod";
 import type { AppDeps } from "../../types.js";

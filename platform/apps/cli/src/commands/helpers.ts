@@ -3,7 +3,7 @@ import {
   reasoningLevelSchema,
   reasoningLevelValues,
   type ReasoningLevel,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { noteJsonPayloadWritten } from "../cli-error-output.js";
 import type { ResolvedId } from "../context-env.js";
 

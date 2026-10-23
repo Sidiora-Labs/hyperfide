@@ -4,7 +4,7 @@ import { isDeepStrictEqual } from "node:util";
 import {
   PLUGIN_CATALOG_CATEGORIES as BUILTIN_DISCOVERY_CATEGORIES,
   type PluginMarketplaceCategory,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   deletePluginMarketplace,
   getInstalledPlugin,
@@ -20,7 +20,7 @@ import {
   type DbConnection,
   type InstalledPluginRow,
   type PluginMarketplaceRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   CURATED_PLUGIN_MARKETPLACE_NAME,
   type InstalledPlugin,
@@ -33,7 +33,7 @@ import {
   type PluginCatalogStatus,
   type PluginMarketplace,
   type PluginMarketplaceRefreshResult,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { brandingAssetHash } from "../plugins/app-bundle.js";
 import {
   builtinPluginSource,
@@ -955,12 +955,8 @@ export function createPluginCatalogService(deps: {
       );
       return {
         pluginCount: marketplaceEntryCount,
-        includedPluginCount: bundledPlugins.filter(
-          (plugin) => plugin.autoInstall,
-        ).length,
-        optionalPluginCount:
-          marketplaceEntryCount -
-          bundledPlugins.filter((plugin) => plugin.autoInstall).length,
+        includedPluginCount: 0,
+        optionalPluginCount: marketplaceEntryCount,
       };
     },
 

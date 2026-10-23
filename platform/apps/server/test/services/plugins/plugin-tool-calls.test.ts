@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ToolCallResponse } from "@bb/domain";
+import type { ToolCallResponse } from "@hyperfide/domain";
 import {
   PLUGIN_TOOL_CALL_AWAITING_USER_RESULT_TEXT,
   PluginToolCallRegistry,
   detachActivePluginToolCallForUserInput,
 } from "../../../src/services/plugins/plugin-tool-calls.js";
 import { testLogger } from "../../helpers/test-app.js";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 
 function textResponse(text: string, success = true): ToolCallResponse {
   return { success, contentItems: [{ type: "inputText", text }] };

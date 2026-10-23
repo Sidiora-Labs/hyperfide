@@ -1,4 +1,4 @@
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
 import type { EventMeta } from "./event-decode.js";
 import { messageId } from "./format-helpers.js";
 import type { EventProjectionErrorMessage } from "./event-projection-types.js";

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   PluginMessageDirectiveProps,
   ExperimentalThreadActionTabProps,
-} from "@get-bb/plugin-sdk";
-import { useBbNavigate, useRealtime } from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk";
+import { useBbNavigate, useRealtime } from "@hyperfide/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";

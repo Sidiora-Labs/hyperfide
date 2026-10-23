@@ -1,14 +1,14 @@
 import { watch as watchDirectory } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { readBbAppRuntimeFile } from "@bb/config/app-runtime-file";
-import { isProcessRunning } from "@bb/config/verified-process-stop";
-import { SERVER_MOVED_ERROR_CODE } from "@bb/host-daemon-contract";
+import { readBbAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
+import { isProcessRunning } from "@hyperfide/config/verified-process-stop";
+import { SERVER_MOVED_ERROR_CODE } from "@hyperfide/host-daemon-contract";
 import {
   readServerMovedFile,
   SERVER_MOVED_FILE_NAME,
   type ServerMovedFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import { z } from "zod";
 import type { ServerProbeFetch } from "./server-probe.js";
 import {

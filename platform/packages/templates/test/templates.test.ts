@@ -6,7 +6,7 @@ import {
 } from "../src/index.js";
 import { templateDefinitions } from "../src/generated/templates.generated.js";
 
-describe("@bb/templates", () => {
+describe("@hyperfide/templates", () => {
   it("documents project creation machine routing", () => {
     const guide = renderTemplate("bbGuideProjects", {});
 

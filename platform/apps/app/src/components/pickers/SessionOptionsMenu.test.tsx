@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { ThreadSessionOption } from "@bb/domain";
-import type { ThreadTimelineSessionOption } from "@bb/server-contract";
+import type { ThreadSessionOption } from "@hyperfide/domain";
+import type { ThreadTimelineSessionOption } from "@hyperfide/server-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SessionOptionsMenu,

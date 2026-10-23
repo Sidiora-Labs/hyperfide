@@ -3,7 +3,7 @@
 import {
   buildBridgeInjectionScript,
   type NativeShellHandshake,
-} from "@bb/mobile-bridge";
+} from "@hyperfide/mobile-bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetNativeShellForTests } from "@/lib/native-shell/native-shell";
 import { canSaveFileNatively, saveFile } from "./save-file";

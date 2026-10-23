@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { lastServerMoveSchema } from "@bb/domain";
-import { serverMoveBindHostSchema } from "@bb/host-daemon-contract";
+import { lastServerMoveSchema } from "@hyperfide/domain";
+import { serverMoveBindHostSchema } from "@hyperfide/host-daemon-contract";
 import { z } from "zod";
 import { ExpectedCommandDispatchError } from "../command-dispatch-support.js";
 import { isFileNotFoundError, writeFileAtomically } from "./fs.js";

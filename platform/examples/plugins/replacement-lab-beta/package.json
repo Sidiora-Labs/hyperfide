@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-replacement-lab-beta",
+  "name": "hyperfide-plugin-replacement-lab-beta",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,7 +19,7 @@
     "typecheck": "tsrs --noEmit"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
     "@types/react": "^19.0.0",
     "react": "^19.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",

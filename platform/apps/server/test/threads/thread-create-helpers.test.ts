@@ -6,9 +6,9 @@ import {
   deleteThreadSection,
   noopNotifier,
   upsertHost,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import { DEFAULT_MANAGED_BRANCH_PREFIX } from "@bb/domain";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import { DEFAULT_MANAGED_BRANCH_PREFIX } from "@hyperfide/domain";
 import { ApiError } from "../../src/errors.js";
 import {
   buildSuggestedBranchName,

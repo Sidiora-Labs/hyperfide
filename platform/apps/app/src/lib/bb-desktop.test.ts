@@ -5,7 +5,7 @@ import {
   RAIL_PADDING_PX,
   WINDOW_CARD_RADIUS_PX,
   type BbDesktopInfo,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
 import {
   DEFAULT_WINDOW_FIND_TOP_OFFSET,

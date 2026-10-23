@@ -1,11 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { release } from "node:os";
-import type { AppInstall } from "@bb/config/app-install";
-import { DEFAULTS } from "@bb/config/defaults";
-import type { ServerConfig } from "@bb/config/server";
-import { readOrCreateSecretFile } from "@bb/secret-storage";
-import type { AppSurface, RequestAppSurface } from "@bb/config/app-surface";
-import type { RecordTelemetryEventRequest } from "@bb/server-contract";
+import type { AppInstall } from "@hyperfide/config/app-install";
+import { DEFAULTS } from "@hyperfide/config/defaults";
+import type { ServerConfig } from "@hyperfide/config/server";
+import { readOrCreateSecretFile } from "@hyperfide/secret-storage";
+import type { AppSurface, RequestAppSurface } from "@hyperfide/config/app-surface";
+import type { RecordTelemetryEventRequest } from "@hyperfide/server-contract";
 import type { ServerLogger } from "../../types.js";
 
 const POSTHOG_INGESTION_URL = "https://us.i.posthog.com/capture/";

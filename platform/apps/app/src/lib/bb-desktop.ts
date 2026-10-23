@@ -14,7 +14,7 @@ import {
   type BbDesktopApi,
   type BbDesktopBrowserApi,
   type BbDesktopWindowState,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 
 export const MACOS_TRAFFIC_LIGHT_RESERVE_OFFSET_CLASS =
   "left-(--bb-macos-traffic-light-reserve)";

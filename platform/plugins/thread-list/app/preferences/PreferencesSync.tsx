@@ -4,7 +4,7 @@ import {
   experimental_usePluginId,
   useRealtime,
   useRpc,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import type { threadListRpcContract } from "../../server.js";
 import { PREFERENCES_CHANGED_CHANNEL } from "../../shared/preferences.js";
 import {

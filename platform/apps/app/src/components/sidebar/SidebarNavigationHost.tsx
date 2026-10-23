@@ -6,9 +6,9 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import type { ExperimentalSidebarNavigationPlacement } from "@get-bb/plugin-sdk";
-import { Button } from "@bb/shared-ui/button";
-import { Popover, PopoverAnchor } from "@bb/shared-ui/popover";
+import type { ExperimentalSidebarNavigationPlacement } from "@hyperfide/plugin-sdk";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Popover, PopoverAnchor } from "@hyperfide/shared-ui/popover";
 import { PluginReplacementSlot } from "@/components/plugin/PluginReplacementSlot";
 import { appToast } from "@/components/ui/app-toast";
 import { schedulePluginFrontendReconcile } from "@/lib/plugin-frontend-lazy";

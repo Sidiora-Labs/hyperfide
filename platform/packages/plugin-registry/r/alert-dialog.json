@@ -8,9 +8,9 @@
     "@radix-ui/react-alert-dialog"
   ],
   "registryDependencies": [
-    "@bb/button",
-    "@bb/portal-scope",
-    "@bb/utils"
+    "@hyperfide/button",
+    "@hyperfide/portal-scope",
+    "@hyperfide/utils"
   ],
   "files": [
     {

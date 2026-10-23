@@ -1,5 +1,5 @@
-import type { PromptMentionResource, PromptTextMention } from "@bb/domain";
-import type { TimelineConversationTurnRequest } from "@bb/server-contract";
+import type { PromptMentionResource, PromptTextMention } from "@hyperfide/domain";
+import type { TimelineConversationTurnRequest } from "@hyperfide/server-contract";
 import type { ReactNode } from "react";
 import { ConversationMessageContent } from "@/components/thread/timeline/ConversationMessageContent";
 import {

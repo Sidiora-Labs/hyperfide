@@ -1,4 +1,4 @@
-import { createBrowserBbSdk } from "@bb/sdk/browser";
+import { createBrowserBbSdk } from "@hyperfide/sdk/browser";
 import { appSurfaceRequestInit } from "@/lib/app-surface";
 
 type FetchLike = typeof fetch;

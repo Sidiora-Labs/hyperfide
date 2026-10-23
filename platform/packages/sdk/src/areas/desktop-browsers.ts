@@ -15,7 +15,7 @@ import type {
   ExperimentalDesktopBrowserImportCookiesInput,
   ExperimentalDesktopBrowserImportSources,
   ExperimentalDesktopBrowserImportOutcome,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { CreateSdkAreaArgs } from "./common.js";
 
 export type {
@@ -35,7 +35,7 @@ export type {
   ExperimentalDesktopBrowserImportCookiesInput,
   ExperimentalDesktopBrowserImportSources,
   ExperimentalDesktopBrowserImportOutcome,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 
 export interface ExperimentalDesktopBrowsersArea {
   listInstances(

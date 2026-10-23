@@ -1,23 +1,23 @@
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import {
   ActionMenuItem,
   ActionMenuSeparator,
-} from "@bb/shared-ui/action-menu-items";
-import { findLocalPathProjectSourceForHost } from "@bb/domain";
-import type { ProjectResponse } from "@bb/server-contract";
+} from "@hyperfide/shared-ui/action-menu-items";
+import { findLocalPathProjectSourceForHost } from "@hyperfide/domain";
+import type { ProjectResponse } from "@hyperfide/server-contract";
 import type { MouseEvent, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 
-import { COARSE_POINTER_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+import { COARSE_POINTER_ICON_SIZE_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
+} from "@hyperfide/shared-ui/dropdown-menu";
 import { usePathPickerHost } from "@/hooks/useLocalPathPicker";
 import { getSettingsProjectRoutePath } from "@/lib/route-paths";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { useProjectActions } from "./ProjectActionsProvider";
 
 interface ProjectActionsMenuBaseProps {

@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ExperimentalComposerMentionSuggestion } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalComposerMentionSuggestion } from "@hyperfide/plugin-sdk/app";
 import { MentionMenu } from "./MentionMenu";
 
 afterEach(cleanup);

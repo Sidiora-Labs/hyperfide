@@ -3,7 +3,7 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type {
   PluginInstallJob,
   PluginInstallJobState,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { appToast } from "@/components/ui/app-toast";
 import { usePluginNotificationAction } from "@/components/plugin/PluginNotificationDescription";
 import {

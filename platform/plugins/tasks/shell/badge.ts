@@ -3,7 +3,7 @@ import {
   useRealtime,
   useRealtimeConnectionState,
   type ExperimentalBadge,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { useTasksRpc } from "./data.js";
 
 export function useTasksBadge(): ExperimentalBadge | null {

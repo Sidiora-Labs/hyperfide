@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { BbDesktopBrowserApi } from "./browser.js";
 import type { BbDesktopWindowFindRequest } from "./find.js";
 import { bbDesktopVersionFeedPlatformSchema } from "./version-feed.js";
-import type { AppCommandId } from "@bb/domain";
+import type { AppCommandId } from "@hyperfide/domain";
 
 const isoUtcDateTimeSchema = z.iso.datetime();
 

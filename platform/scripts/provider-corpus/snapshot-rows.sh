@@ -43,7 +43,7 @@ fi
 
 export HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT="${mode}"
 cd "${repo_root}"
-pnpm exec turbo run test:provider-corpus --filter=@bb/server
+pnpm exec turbo run test:provider-corpus --filter=@hyperfide/server
 
 snapshots_dir="${HYPERFIDE_PROVIDER_CORPUS_DIR}/snapshots"
 if [[ -f "${snapshots_dir}/rows-last-run.json" ]]; then

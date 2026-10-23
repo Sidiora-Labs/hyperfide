@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import { experimental_copyToClipboard } from "@get-bb/plugin-sdk/app";
+import { experimental_copyToClipboard } from "@hyperfide/plugin-sdk/app";
 import type * as MonacoNs from "monaco-editor";
 
 type Editor = MonacoNs.editor.IStandaloneCodeEditor;

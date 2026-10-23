@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { WorkspaceFile } from "@bb/server-contract";
+import type { WorkspaceFile } from "@hyperfide/server-contract";
 import {
   ThreadMetadataContent,
   type ThreadMetadataContentProps,

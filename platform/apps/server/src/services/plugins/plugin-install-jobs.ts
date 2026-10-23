@@ -3,7 +3,7 @@ import type {
   InstalledPlugin,
   PluginInstallJob,
   PluginInstallJobTarget,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { runCancellableInstall } from "./install-cancellation.js";
 
 const FINISHED_JOB_RETENTION_MS = 10 * 60_000;

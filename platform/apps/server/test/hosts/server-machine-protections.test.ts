@@ -1,4 +1,4 @@
-import { createHostId, getHost, hosts } from "@bb/db";
+import { createHostId, getHost, hosts } from "@hyperfide/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sweepMachineLifecycles } from "../../src/services/machines/provider-orchestration.js";
 import { setPluginMachineProviderBridge } from "../../src/services/plugins/plugin-machine-provider-registry.js";

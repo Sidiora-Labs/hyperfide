@@ -1,12 +1,12 @@
-import type { Environment, Host, Project } from "@bb/domain";
-import type { ThreadResponse } from "@bb/server-contract";
+import type { Environment, Host, Project } from "@hyperfide/domain";
+import type { ThreadResponse } from "@hyperfide/server-contract";
 import type {
   JsonValue,
   PluginEnvironmentProviderRequirements,
   PluginEnvironmentValidateDecision,
   StandardSchemaV1,
   StandardSchemaV1InferOutput,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 
 export type PluginEnvironmentProviderInputsSchema =
   | StandardSchemaV1

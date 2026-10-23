@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-plugin-api-docs",
+  "name": "hyperfide-plugin-plugin-api-docs",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -32,13 +32,13 @@
     "scaffold:surface-entry": "node scripts/scaffold-surface-entry.mjs"
   },
   "dependencies": {
-    "@bb/shared-ui": "workspace:*",
+    "@hyperfide/shared-ui": "workspace:*",
     "@hugeicons/core-free-icons": "^4.3.4",
     "@hugeicons/react": "^1.1.6"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.0.0",

@@ -5,9 +5,9 @@
   "title": "video-thumbnail",
   "description": "BB ui \"video-thumbnail\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/utils",
-    "@bb/video"
+    "@hyperfide/icon",
+    "@hyperfide/utils",
+    "@hyperfide/video"
   ],
   "files": [
     {

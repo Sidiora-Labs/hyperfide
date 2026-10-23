@@ -4,7 +4,7 @@ import {
 } from "../lib/async-ttl-memo.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { HostDaemonContributedEnvEntry } from "@bb/host-daemon-contract";
+import type { HostDaemonContributedEnvEntry } from "@hyperfide/host-daemon-contract";
 import { z } from "zod";
 
 const exec = promisify(execFile);

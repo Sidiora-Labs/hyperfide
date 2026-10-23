@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { piProviderDeclaration } from "./src/declaration.js";
 
 export default function plugin(bb: BbPluginApi): void {

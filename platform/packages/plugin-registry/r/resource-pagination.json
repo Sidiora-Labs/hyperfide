@@ -5,8 +5,8 @@
   "title": "resource-pagination",
   "description": "BB ui \"resource-pagination\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/icon"
+    "@hyperfide/button",
+    "@hyperfide/icon"
   ],
   "files": [
     {

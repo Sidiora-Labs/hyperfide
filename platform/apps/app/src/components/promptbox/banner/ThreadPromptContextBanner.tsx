@@ -2,7 +2,7 @@ import type {
   PullRequest,
   PullRequestMergeMethod,
 } from "bb-plugin-bb--github-pr-status/contract";
-import { CONTEXT_CARD_TOGGLE_CLASS } from "@bb/shared-ui/chrome-style-tokens";
+import { CONTEXT_CARD_TOGGLE_CLASS } from "@hyperfide/shared-ui/chrome-style-tokens";
 import {
   machineRemovalDescriptions,
   machineRemovalLabels,
@@ -26,7 +26,7 @@ import type {
   PendingInteraction,
   GitBranchRefClassification,
   ThreadRuntimeDisplayStatus,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   BranchPicker,
   getMergeBaseBranchCandidateGroups,
@@ -43,9 +43,9 @@ import {
   activityIconClass,
   activityRowClass,
   activityTextClass,
-} from "@bb/shared-ui/activity-row-styles";
+} from "@hyperfide/shared-ui/activity-row-styles";
 import { WorkspaceChangesList } from "@/components/thread/WorkspaceChangesList";
-import { formatPendingInteractionSummary } from "@bb/core-ui";
+import { formatPendingInteractionSummary } from "@hyperfide/core-ui";
 import { InlinePendingInteractionContext } from "@/components/thread/pending-interactions/PendingInteractionShell";
 import { ThreadPendingInteractionBanners } from "@/components/thread/pending-interactions/ThreadPendingInteractionBanner";
 import {
@@ -55,8 +55,8 @@ import {
   type WorkspaceChangedFileSelection,
   type WorkspaceChangedFilesSection,
 } from "@/components/workspace/workspace-change-summary";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
 import {
   describePullRequestStatus,
   getPullRequestNextStep,
@@ -76,7 +76,7 @@ import {
   PromptStackCountSlot,
   PromptStackHoverChevron,
   useDisclosureFocusHandoff,
-} from "@bb/shared-ui/prompt-stack-disclosure";
+} from "@hyperfide/shared-ui/prompt-stack-disclosure";
 import {
   BannerActionSlot,
   PROMPT_BANNER_ACTION_FILL_CLASS,
@@ -89,14 +89,14 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
+} from "@hyperfide/shared-ui/dropdown-menu";
 import { useUrlAnchorClickHandler } from "@/lib/url-open-routing";
 import {
   ThreadTitle,
   useThreadTitleDisplayText,
 } from "@/components/thread/ThreadTitleMentions";
 import { childThreadNoun } from "@/lib/child-thread-copy";
-import { SIDEBAR_WORKING_STATUS_COLOR_CLASS } from "@bb/shared-ui/sidebar-row-classes";
+import { SIDEBAR_WORKING_STATUS_COLOR_CLASS } from "@hyperfide/shared-ui/sidebar-row-classes";
 
 export interface ContextBannerMergeBaseConfig {
   branch: string;

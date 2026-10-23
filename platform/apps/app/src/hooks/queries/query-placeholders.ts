@@ -6,7 +6,7 @@ import type {
   ProjectBranchesResponse,
   ThreadResponse,
   ThreadTimelineResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   ENVIRONMENT_DIFF_FILES_QUERY_KEY,
   ENVIRONMENT_MERGE_BASE_BRANCHES_QUERY_KEY,

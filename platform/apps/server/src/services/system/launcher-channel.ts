@@ -4,7 +4,7 @@ import {
   type AppUpdateLauncherRequest,
   type LauncherAppUpdateStatus,
   type ServerToLauncherMessage,
-} from "@bb/config/app-update";
+} from "@hyperfide/config/app-update";
 
 const SOURCE_CHECK_TIMEOUT_MS = 3 * 60 * 1000;
 const LAUNCHER_REQUEST_TIMEOUT_MS = 15 * 1000;

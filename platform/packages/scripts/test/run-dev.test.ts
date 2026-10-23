@@ -2,8 +2,8 @@ import {
   resolveDevInstanceConfig,
   resolveInheritedDevSkillsRootPaths,
   toDevProcessEnv,
-} from "@bb/config/runtime";
-import { makeTempDir } from "@bb/test-helpers";
+} from "@hyperfide/config/runtime";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";

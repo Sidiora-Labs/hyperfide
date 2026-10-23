@@ -2,7 +2,7 @@ import type {
   EnvironmentActionRequest,
   EditMessageRequest,
   SendMessageRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 
 export type RequestEnvironmentActionMutationRequest = {
   id: string;

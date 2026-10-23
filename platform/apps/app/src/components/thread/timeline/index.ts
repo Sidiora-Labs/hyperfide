@@ -1,4 +1,4 @@
-export { isRunningThreadRuntimeDisplayStatus } from "@bb/client-core";
+export { isRunningThreadRuntimeDisplayStatus } from "@hyperfide/client-core";
 export { ThreadTimelineRows } from "./ThreadTimelineRows.js";
 export type { ThreadTimelineRowsProps } from "./ThreadTimelineRows.js";
 export { ThreadTimelinePanelContent } from "./ThreadTimelinePanelContent.js";

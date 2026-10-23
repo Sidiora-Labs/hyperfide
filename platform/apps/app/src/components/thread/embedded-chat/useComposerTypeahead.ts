@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import type { TypeaheadConfig } from "@/components/promptbox/ComposerBox";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
 import type { PromptBoxAction } from "@/components/promptbox/ComposerBox";
-import type { ProviderComposerAction } from "@bb/domain";
-import type { ProviderCommand } from "@bb/server-contract";
-import { buildProviderPromptActionProps } from "@bb/client-core";
+import type { ProviderComposerAction } from "@hyperfide/domain";
+import type { ProviderCommand } from "@hyperfide/server-contract";
+import { buildProviderPromptActionProps } from "@hyperfide/client-core";
 import { usePromptMentionTriggers } from "@/hooks/usePromptMentions";
 
 interface UseComposerTypeaheadArgs {

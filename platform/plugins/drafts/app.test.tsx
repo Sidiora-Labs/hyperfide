@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { loadPluginApp } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp } from "@hyperfide/plugin-sdk/testing/app";
 import type {
   ComposerSubmitOptions,
   PluginComposerApi,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 const app = await loadPluginApp(() => import("./app"));
 const customization = app.composerCustomizations[0]!;

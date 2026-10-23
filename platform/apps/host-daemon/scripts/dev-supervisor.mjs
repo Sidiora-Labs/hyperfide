@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import {
   DEFAULT_UNEXPECTED_RESTART_BACKOFF,
   runDevSupervisor,
-} from "@bb/scripts/lib/run-dev-supervisor";
+} from "@hyperfide/scripts/lib/run-dev-supervisor";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");

@@ -4,7 +4,7 @@ import {
   useStoryComposerMentionSearch,
 } from "./composer-search-story";
 
-export type * from "@get-bb/plugin-sdk";
+export type * from "@hyperfide/plugin-sdk";
 
 export const {
   experimental_ThreadStatusGlyph,

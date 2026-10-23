@@ -2,11 +2,11 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import {
   buildPluginServer,
   resolvePluginBuildToolchain,
-} from "@bb/plugin-build";
+} from "@hyperfide/plugin-build";
 function testToolchain() {
   return resolvePluginBuildToolchain(join(tmpdir(), "bb-toolchain-unused"));
 }
@@ -31,7 +31,7 @@ const FIXTURE_PACKAGE_JSON = JSON.stringify(
 
 const FIXTURE_LIB_TS = `export const greeting = "PREBUILT_LIB_MARKER";\n`;
 const FIXTURE_SERVER_TS = `
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { greeting } from "./lib.ts";
 
 export default function plugin(bb: BbPluginApi): void {
@@ -68,7 +68,7 @@ describe("buildPluginServer", () => {
     const js = await readFile(result.jsPath, "utf8");
     expect(js).toMatch(/export\s*\{|export default/);
     expect(js).toContain("PREBUILT_LIB_MARKER");
-    expect(js).not.toContain("@get-bb/plugin-sdk");
+    expect(js).not.toContain("@hyperfide/plugin-sdk");
     expect(js).toContain("createRequire");
 
     const map = await readFile(result.mapPath, "utf8");
@@ -88,13 +88,13 @@ describe("buildPluginServer", () => {
     });
   });
 
-  it("keeps a runtime @get-bb/plugin-sdk import external (bare specifier survives)", async () => {
+  it("keeps a runtime @hyperfide/plugin-sdk import external (bare specifier survives)", async () => {
     await writeFixture();
     await writeFile(
       join(root, "server.ts"),
       `
       import { greeting } from "./lib.ts";
-      import * as sdk from "@get-bb/plugin-sdk";
+      import * as sdk from "@hyperfide/plugin-sdk";
 
       export default function plugin(bb: { log: { info(msg: string): void } }): void {
         bb.log.info(greeting + Object.keys(sdk).length);
@@ -107,7 +107,7 @@ describe("buildPluginServer", () => {
       await testToolchain(),
     );
     const js = await readFile(result.jsPath, "utf8");
-    expect(js).toMatch(/from\s*"@get-bb\/plugin-sdk"/);
+    expect(js).toMatch(/from\s*"@hyperfide\/plugin-sdk"/);
   });
 
   it("errors clearly when package.json has no bb.server entry", async () => {

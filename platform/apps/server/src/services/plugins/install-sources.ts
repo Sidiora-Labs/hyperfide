@@ -15,14 +15,14 @@ import {
 } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import semver from "semver";
-import { resolveBundledNpmCli } from "@bb/plugin-build";
+import { resolveBundledNpmCli } from "@hyperfide/plugin-build";
 import {
   killPortableProcess,
   killProcessGroup,
   omitNpmScriptPolicyEnv,
   spawnPortableOutputProcess,
   supportsProcessGroups,
-} from "@bb/process-utils";
+} from "@hyperfide/process-utils";
 import {
   installCancellationSignal,
   PluginInstallCancelledError,

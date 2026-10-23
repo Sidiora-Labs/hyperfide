@@ -1,4 +1,4 @@
-import type { ServerAccessStatus } from "@bb/server-contract";
+import type { ServerAccessStatus } from "@hyperfide/server-contract";
 import { isLocalOnlyUrl } from "@/lib/loopback-hostname";
 
 export const MACHINE_SERVER_ACCESS_TITLE = "Machines cannot reach this bb yet";

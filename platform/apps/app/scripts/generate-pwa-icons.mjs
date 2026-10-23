@@ -194,7 +194,7 @@ if (mismatches.length > 0) {
     [
       "Generated PWA icon assets are out of date:",
       ...mismatches.map((fileName) => `  ${fileName}`),
-      "Run `pnpm --filter @bb/app generate:pwa-icons`.",
+      "Run `pnpm --filter @hyperfide/app generate:pwa-icons`.",
     ].join("\n"),
   );
   process.exitCode = 1;

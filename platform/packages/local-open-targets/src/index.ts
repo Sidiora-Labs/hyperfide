@@ -9,12 +9,12 @@ import {
   type WorkspaceOpenTarget,
   type WorkspaceOpenTargetIcon,
   type WorkspaceOpenTargetId,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   execPortableFile,
   pathExists,
   sanitizeInheritedChildProcessEnv,
-} from "@bb/process-utils";
+} from "@hyperfide/process-utils";
 import {
   BASIC_FILE_OPEN_CAPABILITIES,
   FILE_MANAGER_OPEN_CAPABILITIES,

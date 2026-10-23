@@ -1,7 +1,7 @@
-import type { PluginCliExecutionResult } from "@get-bb/plugin-sdk";
+import type { PluginCliExecutionResult } from "@hyperfide/plugin-sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pluginCliResponse } from "../../src/routes/plugins.js";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 
 const RESULT: PluginCliExecutionResult = {
   exitCode: 0,

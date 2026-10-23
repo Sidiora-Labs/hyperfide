@@ -1,10 +1,10 @@
-import { createConnection, ensurePersonalProject, migrate } from "@bb/db";
+import { createConnection, ensurePersonalProject, migrate } from "@hyperfide/db";
 import type {
   DbConnection,
   MigrationWarningLogger,
   SlowDbQueryLogger,
-} from "@bb/db";
-import type { Logger } from "@bb/logger";
+} from "@hyperfide/db";
+import type { Logger } from "@hyperfide/logger";
 import {
   exportLegacyAutomationsForPluginImport,
   hasLegacyAutomationsToExport,

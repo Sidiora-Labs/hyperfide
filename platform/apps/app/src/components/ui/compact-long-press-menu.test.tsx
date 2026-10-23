@@ -8,9 +8,9 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { DropdownMenuItem } from "@bb/shared-ui/dropdown-menu";
-import { CompactLongPressMenu } from "@bb/shared-ui/compact-long-press-menu";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { DropdownMenuItem } from "@hyperfide/shared-ui/dropdown-menu";
+import { CompactLongPressMenu } from "@hyperfide/shared-ui/compact-long-press-menu";
 
 const LONG_PRESS_MS = 700;
 

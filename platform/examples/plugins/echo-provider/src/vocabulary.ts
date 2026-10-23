@@ -1,9 +1,9 @@
-import type { PluginProviderFallbackModel } from "@get-bb/plugin-sdk";
+import type { PluginProviderFallbackModel } from "@hyperfide/plugin-sdk";
 import {
   type DeltaPresentation,
   experimental_presentationTitle as presentationTitle,
   experimental_withTitle as withTitle,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { z } from "zod";
 
 export const ECHO_PLUGIN_ID = "echo-provider";
@@ -54,7 +54,7 @@ export const echoProviderOptionsSchema = z.object({
 });
 export type EchoProviderOptions = z.infer<typeof echoProviderOptionsSchema>;
 
-export const ECHO_GREETING_ENV = "BB_ECHO_PROVIDER_GREETING";
+export const ECHO_GREETING_ENV = "HYPERFIDE_ECHO_PROVIDER_GREETING";
 
 export const ECHO_PROJECT_SKILL_ROOT = ".echo/skills";
 

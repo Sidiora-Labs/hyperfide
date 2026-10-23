@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { setAppSettings } from "@bb/db";
-import { defaultAppSettings, turnScope } from "@bb/domain";
+import { setAppSettings } from "@hyperfide/db";
+import { defaultAppSettings, turnScope } from "@hyperfide/domain";
 import {
   threadTimelineResponseSchema,
   timelineTurnSummaryDetailsResponseSchema,
   type TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import { seedEvent, seedThreadFixture } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";

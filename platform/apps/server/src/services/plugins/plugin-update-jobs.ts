@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type {
   PluginApplyUpdateResult,
   PluginUpdateJob,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { withPluginUpdateProgress } from "./plugin-update-progress.js";
 
 interface JobEntry {

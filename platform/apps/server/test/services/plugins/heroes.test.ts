@@ -2,8 +2,8 @@ import { createHmac } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getLatestThreadSequence, getThread } from "@bb/db";
-import { turnScope } from "@bb/domain";
+import { getLatestThreadSequence, getThread } from "@hyperfide/db";
+import { turnScope } from "@hyperfide/domain";
 import { applyLoggedThreadLifecycleEvent } from "../../../src/services/threads/lifecycle-outcome.js";
 import {
   seedEvent,

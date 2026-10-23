@@ -1,7 +1,7 @@
 import type { ThreadTimelineLocalFileLink } from "@/components/thread/timeline";
-import type { FilePreviewLineRange } from "@bb/client-core";
-import { areHostPathsEqual, getRelativeHostPath } from "@bb/domain";
-import type { WorkspaceOpenTargetId } from "@bb/host-daemon-contract";
+import type { FilePreviewLineRange } from "@hyperfide/client-core";
+import { areHostPathsEqual, getRelativeHostPath } from "@hyperfide/domain";
+import type { WorkspaceOpenTargetId } from "@hyperfide/host-daemon-contract";
 import {
   isAbsoluteFilePathWithinRoot,
   normalizeAbsoluteFilePath,

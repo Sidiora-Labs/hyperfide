@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
-import { RESERVED_HYPERFIDE_CLI_COMMANDS } from "@bb/domain/plugin-cli";
+import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
+import { RESERVED_HYPERFIDE_CLI_COMMANDS } from "@hyperfide/domain/plugin-cli";
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -130,10 +130,10 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
     const manifest: { devDependencies: Record<string, string> } = JSON.parse(
       await readFile(join(workDir, "bb-plugin-pinned", "package.json"), "utf8"),
     );
-    expect(manifest.devDependencies["@get-bb/plugin-sdk"]).toBe(
+    expect(manifest.devDependencies["@hyperfide/plugin-sdk"]).toBe(
       PLUGIN_SDK_VERSION,
     );
-    expect(await isInstalled("bb-plugin-pinned", "@get-bb/plugin-sdk")).toBe(
+    expect(await isInstalled("bb-plugin-pinned", "@hyperfide/plugin-sdk")).toBe(
       true,
     );
     expect(warned).toEqual([]);
@@ -149,7 +149,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
     );
     const warnings = warned.join("\n");
     expect(warnings).toContain(
-      `@get-bb/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — was not found on npm`,
+      `@hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — was not found on npm`,
     );
     expect(warnings).toContain("npm pack");
   });
@@ -160,7 +160,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
     await runPluginNew(["missing-package"]);
 
     expect(warned.join("\n")).toContain(
-      `@get-bb/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — was not found on npm`,
+      `@hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — was not found on npm`,
     );
   });
 

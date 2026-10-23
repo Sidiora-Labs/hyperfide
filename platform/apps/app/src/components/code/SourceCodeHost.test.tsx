@@ -4,7 +4,7 @@ import { getDefaultStore } from "jotai";
 import { AUTOMATIC_REPLACEMENT_PROVIDER } from "@/lib/plugin-replacement-preference";
 import { sourceCodeRendererProviderAtom } from "./codeRendererProvider";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PluginSourceCodeRendererProps } from "@get-bb/plugin-sdk";
+import type { PluginSourceCodeRendererProps } from "@hyperfide/plugin-sdk";
 import {
   resetPluginSlotStoreForTest,
   setPluginSlotRegistrations,

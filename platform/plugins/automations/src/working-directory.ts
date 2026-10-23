@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import type { AutomationScriptWorkingDirectory } from "./rpc-types.js";
 import { scriptsRoot } from "./script-files.js";

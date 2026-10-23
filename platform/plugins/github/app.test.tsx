@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { act } from "react";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app"));
 

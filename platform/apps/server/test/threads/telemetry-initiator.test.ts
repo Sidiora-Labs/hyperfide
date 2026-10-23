@@ -1,4 +1,4 @@
-import { defaultFeatureFlags } from "@bb/domain";
+import { defaultFeatureFlags } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import {
   resolveTelemetryInitiator,

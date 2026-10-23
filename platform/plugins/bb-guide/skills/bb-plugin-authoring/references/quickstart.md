@@ -10,7 +10,7 @@ bb plugin dev                  # rebuild app/host bundles + reload on every save
 ```
 
 `bb plugin new` needs no running server. It installs the scaffold's npm
-dependencies, including `@get-bb/plugin-sdk` pinned to this bb's exact SDK
+dependencies, including `@hyperfide/plugin-sdk` pinned to this bb's exact SDK
 version, and warns when that SDK version is not on npm yet. When npm leaves a
 package out, it prints the manual `npm install --include=dev` step to run
 before `bb plugin build`.
@@ -183,7 +183,7 @@ Backend API imports normally stay type-only. The root runtime exports are
 `defineRpcContract`, `experimental_defineHostEntry`, the numeric
 `PLUGIN_CLI_OUTPUT_MAX_BYTES` ceiling, and the CLI helpers `defineCli`,
 `cliCommand`, and `PluginCliError`:
-`import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk"`.
+`import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk"`.
 The scaffold tsconfig typechecks both `server.ts` and `app.tsx`.
 
 ## On-disk state

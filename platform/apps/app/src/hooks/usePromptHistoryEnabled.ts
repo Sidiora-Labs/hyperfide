@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import { usePointerCoarse } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
 
 let keyboardSeen = false;
 const listeners = new Set<() => void>();

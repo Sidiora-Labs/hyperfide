@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { upsertInstalledPlugin, type DbConnection } from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+import { upsertInstalledPlugin, type DbConnection } from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { gitSelectorForRow } from "../../../src/services/plugins/git-source-intent.js";
 
 describe("persisted git source intent", () => {

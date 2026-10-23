@@ -1,5 +1,5 @@
 import ReconnectingWebSocket from "partysocket/ws";
-import { realtimeSubscriptionTargetSchema } from "@bb/domain";
+import { realtimeSubscriptionTargetSchema } from "@hyperfide/domain";
 import {
   changedMessageLenientSchema,
   pluginSignalLenientSchema,
@@ -8,7 +8,7 @@ import {
   threadOpenSignalLenientSchema,
   threadPaneActionSignalLenientSchema,
   threadTimelineSignalLenientSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   ClientMessage,
   ChangedMessage,
@@ -18,7 +18,7 @@ import type {
   ThreadOpenSignal,
   ThreadPaneActionSignal,
   ThreadTimelineSignal,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { buildBrowserWebSocketUrl } from "./dev-websocket-url";
 import {
   isDocumentVisible,

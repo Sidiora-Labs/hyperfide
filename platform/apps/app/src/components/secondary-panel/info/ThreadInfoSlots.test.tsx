@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Provider as JotaiProvider, createStore } from "jotai";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ExperimentalThreadInfoProps } from "@get-bb/plugin-sdk";
+import type { ExperimentalThreadInfoProps } from "@hyperfide/plugin-sdk";
 import { resetAllCrashedPluginSlotsForTest } from "@/components/plugin/PluginSlotMount";
 import { DetailRow } from "@/components/ui/detail-card";
 import {

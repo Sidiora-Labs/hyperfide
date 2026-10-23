@@ -1,4 +1,4 @@
-import { turnScope } from "@bb/domain";
+import { turnScope } from "@hyperfide/domain";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createConnection, type DbConnection } from "../../src/connection.js";

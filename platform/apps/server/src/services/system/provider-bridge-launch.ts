@@ -1,4 +1,4 @@
-import { type HostDaemonBridgeLaunch } from "@bb/host-daemon-contract";
+import { type HostDaemonBridgeLaunch } from "@hyperfide/host-daemon-contract";
 import { ApiError } from "../../errors.js";
 import type { ProviderRegistration } from "../providers/provider-registry.js";
 import type { AppDeps } from "../../types.js";

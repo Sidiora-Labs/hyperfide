@@ -9,8 +9,8 @@ import {
   BRIDGE_JSON_RPC_ERRORS,
   interactionRequestPayloadSchema,
   type JsonValue,
-} from "@get-bb/plugin-sdk/provider-bridge";
-import { experimental_createBridgeJsonRpcTestHarness as createBridgeJsonRpcTestHarness } from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@hyperfide/plugin-sdk/provider-bridge";
+import { experimental_createBridgeJsonRpcTestHarness as createBridgeJsonRpcTestHarness } from "@hyperfide/plugin-sdk/provider-bridge/testing";
 import computerUseElicitation from "../fixtures/computer-use-elicitation.json";
 import mcpToolApprovalElicitation from "../fixtures/mcp-tool-approval-elicitation.json";
 import { CODEX_MCP_ELICITATION_KIND } from "../mcp-elicitation.js";
@@ -216,9 +216,9 @@ async function runElicitation(args: {
       turns: [[{ kind: "request", ...args.request }]],
     }),
   );
-  vi.stubEnv("BB_CODEX_BRIDGE_APP_SERVER_COMMAND", process.execPath);
+  vi.stubEnv("HYPERFIDE_CODEX_BRIDGE_APP_SERVER_COMMAND", process.execPath);
   vi.stubEnv(
-    "BB_CODEX_BRIDGE_APP_SERVER_ARGS",
+    "HYPERFIDE_CODEX_BRIDGE_APP_SERVER_ARGS",
     JSON.stringify([fakeAppServerPath, scriptPath]),
   );
   const harness = createBridgeJsonRpcTestHarness(handleLine);

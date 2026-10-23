@@ -5,7 +5,7 @@ import {
   useRealtime,
   useRpc,
   useSettings,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   CLIENT_NOTIFICATION_CHANNEL,
   type pushNotificationsRpcContract,

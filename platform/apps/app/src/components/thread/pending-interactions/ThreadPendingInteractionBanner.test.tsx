@@ -10,8 +10,8 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import type { PendingInteraction, PluginPendingInteraction } from "@bb/domain";
-import type { PluginPendingInteractionProps } from "@get-bb/plugin-sdk";
+import type { PendingInteraction, PluginPendingInteraction } from "@hyperfide/domain";
+import type { PluginPendingInteractionProps } from "@hyperfide/plugin-sdk";
 import {
   resetPluginSlotStoreForTest,
   setPluginSlotRegistrations,
@@ -168,7 +168,7 @@ const commandApproval: PendingInteraction = {
 };
 
 const chainedCommand =
-  "cd apps/app && pnpm install && pnpm exec turbo run typecheck && pnpm exec turbo run test --filter=@bb/app && git status --short";
+  "cd apps/app && pnpm install && pnpm exec turbo run typecheck && pnpm exec turbo run test --filter=@hyperfide/app && git status --short";
 
 const chainedCommandApproval: PendingInteraction = {
   ...planReview,
@@ -586,11 +586,11 @@ describe("ThreadPendingInteractionBanner collapsed strip", () => {
     renderBanner(chainedCommandApproval);
     const preview = screen.getByTestId("command-preview");
     expect(preview.querySelector("pre")?.textContent).toBe(
-      "$ cd apps/app &&\n  pnpm install &&\n  pnpm exec turbo run typecheck &&\n  pnpm exec turbo run test --filter=@bb/app &&",
+      "$ cd apps/app &&\n  pnpm install &&\n  pnpm exec turbo run typecheck &&\n  pnpm exec turbo run test --filter=@hyperfide/app &&",
     );
     fireEvent.click(screen.getByRole("button", { name: "Show 1 more line" }));
     expect(preview.querySelector("pre")?.textContent).toBe(
-      "$ cd apps/app &&\n  pnpm install &&\n  pnpm exec turbo run typecheck &&\n  pnpm exec turbo run test --filter=@bb/app &&\n  git status --short",
+      "$ cd apps/app &&\n  pnpm install &&\n  pnpm exec turbo run typecheck &&\n  pnpm exec turbo run test --filter=@hyperfide/app &&\n  git status --short",
     );
   });
 

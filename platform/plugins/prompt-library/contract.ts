@@ -1,7 +1,7 @@
 import {
   defineRpcContract,
   type ComposerDraftReplacement,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 const mentionSchema = z.intersection(

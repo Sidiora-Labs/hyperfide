@@ -1,4 +1,4 @@
-import { environments, hasStoredSpawnAgentToolCall, threads } from "@bb/db";
+import { environments, hasStoredSpawnAgentToolCall, threads } from "@hyperfide/db";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   PromptInput,
@@ -11,12 +11,12 @@ import {
   ClientTurnRequestId,
   EnvironmentStatus,
   promptInputHasCommandMention,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   type HostDaemonCommand,
   type ThreadStopIntent,
   type TurnSubmitTarget,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type { AppDeps, LoggedWorkSessionDeps } from "../../types.js";
 import type { CommandResultSideEffectsDeps } from "../../internal/command-result-side-effects.js";
 import { ApiError } from "../../errors.js";

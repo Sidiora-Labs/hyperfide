@@ -1,10 +1,10 @@
 import { cancelOptimisticQueries } from "./optimistic-query-cancellation";
-import type { Host } from "@bb/domain";
+import type { Host } from "@hyperfide/domain";
 import type {
   ProjectResponse,
   SidebarBootstrapResponse,
   ThreadSectionResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   allThreadQueryKeyPrefix,

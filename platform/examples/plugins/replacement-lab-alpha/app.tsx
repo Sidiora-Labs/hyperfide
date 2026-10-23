@@ -3,7 +3,7 @@ import {
   definePluginApp,
   type PluginFileOpenerProps,
   type PluginThreadListProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 const LABEL = "Alpha";
 

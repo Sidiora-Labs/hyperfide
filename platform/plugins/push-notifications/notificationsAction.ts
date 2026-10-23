@@ -6,7 +6,7 @@ import {
   useSettings,
   type PluginThreadActionDataInput,
   type PluginThreadActionRegistration,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { pushNotificationsRpcContract } from "./contract.js";
 import {
   NOTIFICATION_LEVEL_LABELS,

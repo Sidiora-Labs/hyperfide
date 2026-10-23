@@ -1,5 +1,5 @@
 {
-  "name": "@bb/server-archive",
+  "name": "@hyperfide/server-archive",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -16,14 +16,14 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@bb/config": "workspace:*",
-    "@bb/domain": "workspace:*",
+    "@hyperfide/config": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
     "tar": "7.5.22",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/test-helpers": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/test-helpers": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",

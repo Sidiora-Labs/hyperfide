@@ -1,6 +1,6 @@
 # Watch-interest refresh benchmark
 
-Run from the repository root after `pnpm install --frozen-lockfile` and `pnpm exec turbo run build --filter=@bb/server`:
+Run from the repository root after `pnpm install --frozen-lockfile` and `pnpm exec turbo run build --filter=@hyperfide/server`:
 
 ```sh
 node --conditions=source --import tsx apps/server/scripts/watch-interest-benchmark.mjs 20 2 100

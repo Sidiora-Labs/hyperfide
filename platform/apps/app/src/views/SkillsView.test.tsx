@@ -17,11 +17,11 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { focusManager } from "@tanstack/react-query";
-import type { ProviderInfo } from "@bb/domain";
-import type { SkillSummary } from "@bb/server-contract";
+import type { ProviderInfo } from "@hyperfide/domain";
+import type { SkillSummary } from "@hyperfide/server-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
-import { makeProviderInfo } from "@bb/test-helpers/domain-fixtures";
+import { makeProviderInfo } from "@hyperfide/test-helpers/domain-fixtures";
 import { sdk } from "@/lib/sdk";
 import {
   buildRegistrySkillReferencePrompt,

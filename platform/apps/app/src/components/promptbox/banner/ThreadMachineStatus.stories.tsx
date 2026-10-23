@@ -1,4 +1,4 @@
-import type { SystemMachineProvider } from "@bb/server-contract";
+import type { SystemMachineProvider } from "@hyperfide/server-contract";
 import modalLogoUrl from "../../../../../../plugins/environment-modal-sandbox/modal-logo.svg?url";
 import { StoryCard, StoryRow } from "../../../../.ladle/story-card";
 import { ResponsiveStage } from "./banner-story-stages";

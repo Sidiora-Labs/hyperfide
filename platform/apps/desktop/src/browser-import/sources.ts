@@ -5,7 +5,7 @@ import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import type {
   DesktopBrowserImportSourceId,
   DesktopBrowserImportSourceProfile,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { countRows } from "./cookie-database.js";
 
 export type BrowserImportEngine = "chromium" | "firefox" | "safari";

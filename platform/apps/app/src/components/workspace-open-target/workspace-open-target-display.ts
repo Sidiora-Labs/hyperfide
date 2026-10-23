@@ -1,7 +1,7 @@
 import type {
   WorkspaceOpenTargetIcon,
   WorkspaceOpenTargetId,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 
 const WORKSPACE_OPEN_TARGET_FALLBACK_LABELS: Record<
   string,

@@ -1,10 +1,10 @@
-import type { ThreadListEntry } from "@bb/domain";
+import type { ThreadListEntry } from "@hyperfide/domain";
 import {
   keyedStoreContract,
   type KeyedStoreSubject,
-} from "@bb/query-tags/testing";
-import type { SidebarBootstrapResponse } from "@bb/server-contract";
-import { makeThreadListEntry as makeEntry } from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/query-tags/testing";
+import type { SidebarBootstrapResponse } from "@hyperfide/server-contract";
+import { makeThreadListEntry as makeEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import { describe, expect, it } from "vitest";
 import {
   makeProjectWithThreadsResponse,

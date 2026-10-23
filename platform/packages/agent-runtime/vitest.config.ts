@@ -10,7 +10,7 @@ export default defineWorkspaceTestConfig({
     hookTimeout: 15_000,
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "@bb/agent-runtime",
+      name: "@hyperfide/agent-runtime",
       include: ["src/**/*.test.ts"],
       exclude: ["dist/**", "node_modules/**", "src/integration*.test.ts"],
     }),

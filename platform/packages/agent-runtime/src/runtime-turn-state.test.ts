@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ThreadEvent } from "@bb/domain";
-import { turnScope } from "@bb/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
+import { turnScope } from "@hyperfide/domain";
 import { RuntimeTurnState } from "./runtime-turn-state.js";
 
 function turnStarted(

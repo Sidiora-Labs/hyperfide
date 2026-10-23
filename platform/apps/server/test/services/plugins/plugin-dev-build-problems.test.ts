@@ -3,11 +3,11 @@ import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-reg
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { Logger } from "@bb/logger";
+import type { Logger } from "@hyperfide/logger";
 import { createPluginRuntime } from "../../../src/services/plugins/plugin-runtime.js";
 import { testLogger } from "../../helpers/test-app.js";
 import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
-import { createMigratedConnection } from "@bb/db/testing";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 
 async function createRuntime() {
   const db = createMigratedConnection();

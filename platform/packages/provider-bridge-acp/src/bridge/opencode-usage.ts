@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { ProviderUsageResult } from "@bb/provider-bridge-protocol";
+import type { ProviderUsageResult } from "@hyperfide/provider-bridge-protocol";
 import { z } from "zod";
 
 const apiCredentialSchema = z.object({

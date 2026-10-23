@@ -8,7 +8,7 @@ import {
   resolveCodeTheme,
   type AppTheme,
   type FaviconColorPreference,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { readCustomThemeCodeTheme } from "./code-themes.js";
 
 const THEME_DIR_NAME = "theme";

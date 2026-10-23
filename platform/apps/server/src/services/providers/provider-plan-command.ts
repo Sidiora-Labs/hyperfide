@@ -1,4 +1,4 @@
-import type { ProviderComposerCommand } from "@bb/domain";
+import type { ProviderComposerCommand } from "@hyperfide/domain";
 import type { ProviderRegistryService } from "./provider-registry.js";
 
 export function resolveProviderPlanCommand(

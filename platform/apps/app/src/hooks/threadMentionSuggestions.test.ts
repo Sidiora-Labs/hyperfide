@@ -1,5 +1,5 @@
-import { PERSONAL_PROJECT_ID, type Thread } from "@bb/domain";
-import { makeThread as makeThreadFixture } from "@bb/test-helpers/domain-fixtures";
+import { PERSONAL_PROJECT_ID, type Thread } from "@hyperfide/domain";
+import { makeThread as makeThreadFixture } from "@hyperfide/test-helpers/domain-fixtures";
 import { describe, expect, it } from "vitest";
 import { buildThreadMentionSuggestions } from "./threadMentionSuggestions";
 

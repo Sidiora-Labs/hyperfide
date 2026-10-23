@@ -1,8 +1,8 @@
 import { PluginMobileSettingsSections } from "@/components/plugin/PluginSettingsSections";
 import { MobilePlatformIcon } from "./MobilePlatformIcon";
 import { MachineAccessSettings } from "./MachineAccessSettings";
-import { mobileAppDownloads } from "@bb/domain";
-import { buttonVariants } from "@bb/shared-ui/button";
+import { mobileAppDownloads } from "@hyperfide/domain";
+import { buttonVariants } from "@hyperfide/shared-ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { SettingsSection } from "@/components/ui/settings-section";
 import { sdk } from "@/lib/sdk";

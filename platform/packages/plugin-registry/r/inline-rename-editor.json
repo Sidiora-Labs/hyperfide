@@ -5,11 +5,11 @@
   "title": "inline-rename-editor",
   "description": "BB ui \"inline-rename-editor\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/coarse-pointer-sizing",
-    "@bb/icon",
-    "@bb/inline-rename",
-    "@bb/sidebar-row-classes",
-    "@bb/utils"
+    "@hyperfide/coarse-pointer-sizing",
+    "@hyperfide/icon",
+    "@hyperfide/inline-rename",
+    "@hyperfide/sidebar-row-classes",
+    "@hyperfide/utils"
   ],
   "files": [
     {

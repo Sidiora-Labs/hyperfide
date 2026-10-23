@@ -7,12 +7,12 @@ import {
   pluginMarketplaceCollectionSchema,
   type PluginMarketplaceCategory,
   type PluginMarketplaceCollection,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   pluginMarketplaceNameSchema,
   ROOT_PLUGIN_SOURCE_SELECTION,
   type PluginSourceSelection,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import semver from "semver";
 import { z } from "zod";
 import {

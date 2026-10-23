@@ -1,9 +1,9 @@
-import type { Host } from "@bb/domain";
-import type { SystemAppUpdateStatus } from "@bb/server-contract";
+import type { Host } from "@hyperfide/domain";
+import type { SystemAppUpdateStatus } from "@hyperfide/server-contract";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   type ProviderCliKey,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type { ProviderCliIssue } from "@/components/provider-cli/provider-cli-install";
 import type { ProviderCliInstallFailure } from "@/components/provider-cli/provider-cli-install-store";
 import type { UpdateInventoryMachine } from "@/hooks/useUpdateInventory";

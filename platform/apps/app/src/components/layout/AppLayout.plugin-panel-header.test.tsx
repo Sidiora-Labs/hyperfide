@@ -36,7 +36,7 @@ const viewportState = vi.hoisted(
   }),
 );
 
-vi.mock("@bb/shared-ui/hooks/use-compact-viewport", () => ({
+vi.mock("@hyperfide/shared-ui/hooks/use-compact-viewport", () => ({
   useIsCompactViewport: () => viewportState.compact,
   CompactViewportOverrideProvider: ({ children }: { children: ReactNode }) => (
     <>{children}</>

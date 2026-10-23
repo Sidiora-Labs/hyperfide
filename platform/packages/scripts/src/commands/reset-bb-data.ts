@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
-import { resolveContainedPath } from "@bb/process-utils";
+import { resolveContainedPath } from "@hyperfide/process-utils";
 import {
   bold,
   confirmTypedWord,
@@ -18,7 +18,7 @@ import {
   resolveRuntimeDataDir,
   resolveRuntimeMode,
   type BbRuntimeMode,
-} from "@bb/config/runtime";
+} from "@hyperfide/config/runtime";
 
 function resolveResetDataDir(mode: BbRuntimeMode): string {
   if (mode === "dev") {

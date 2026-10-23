@@ -2,8 +2,8 @@
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PluginComposerScope } from "@get-bb/plugin-sdk";
-import type { PromptDraftState } from "@bb/client-core";
+import type { PluginComposerScope } from "@hyperfide/plugin-sdk";
+import type { PromptDraftState } from "@hyperfide/client-core";
 import { PluginContext } from "@/components/plugin/plugin-context";
 import type { PluginComposerHost } from "@/components/plugin/plugin-composer-host";
 import {

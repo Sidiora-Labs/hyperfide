@@ -3,13 +3,13 @@ import { matchPath } from "react-router-dom";
 import type {
   ExperimentalPageTitle,
   PluginNavPanelProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { usePluginList } from "@/hooks/queries/plugin-settings-queries";
 import { usePluginCatalogSearch } from "@/hooks/queries/plugin-catalog-queries";
 import { projectSkillsQueryKey } from "@/hooks/queries/query-keys";
 import { sdk } from "@/lib/sdk";
 import { fetchRegistrySkillEntry } from "@/lib/skills-registry";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import {
   PLUGIN_DETAIL_ROUTE_PATH,
   SKILL_DETAIL_ROUTE_PATH,

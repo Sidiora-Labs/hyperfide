@@ -8,7 +8,7 @@ import {
   threadSearchSegments,
   threads,
   type DbConnection,
-} from "@bb/db";
+} from "@hyperfide/db";
 
 export interface SeedPerfFixtureOptions {
   hostId: string;

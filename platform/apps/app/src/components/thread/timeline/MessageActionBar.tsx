@@ -1,24 +1,24 @@
 import { createContext, useCallback, useRef, useState } from "react";
 import { CopyButton } from "../../ui/copy-button.js";
-import { Icon } from "@bb/shared-ui/icon";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { usePointerCoarse } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
 import { copyToClipboardWithToast } from "@/lib/clipboard";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
+} from "@hyperfide/shared-ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
-import { HOVER_REVEAL_NO_HOVER_VISIBLE_CLASS } from "@bb/shared-ui/hover-reveal";
-import { cn } from "@bb/shared-ui/lib/utils";
-import type { PromptDraftAttachment } from "@bb/client-core";
+} from "@hyperfide/shared-ui/tooltip";
+import { HOVER_REVEAL_NO_HOVER_VISIBLE_CLASS } from "@hyperfide/shared-ui/hover-reveal";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import type { PromptDraftAttachment } from "@hyperfide/client-core";
 import { PluginItemIcon, pluginIconName } from "@/components/plugin/PluginIcon";
 import type { ThreadTimelinePluginMessageAction } from "./types.js";
 

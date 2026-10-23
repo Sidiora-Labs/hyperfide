@@ -1,4 +1,4 @@
-import { getThreadEventScopeTurnId } from "@bb/domain";
+import { getThreadEventScopeTurnId } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import { getThreadEvents, sendTextMessage } from "../../helpers/api.js";
 import {

@@ -8,7 +8,7 @@ import {
   PERSONAL_PROJECT_ID,
   type ThreadListEntry,
   type ThreadSessionOption,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   act,
   cleanup,
@@ -27,11 +27,11 @@ import type {
   ExperimentalComposerSelection,
   NewThreadRequest,
   PluginEnvironmentProviderInputsProps,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type {
   SystemEnvironmentProvider,
   SystemMachineProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   NewThreadComposer,
   type NewThreadComposerState,
@@ -45,9 +45,9 @@ import {
 import { encodeReuseValue } from "@/components/pickers/environment-picker-value";
 import { useRootComposeReuseEnvironment } from "@/lib/root-compose-selection";
 import { getPromptDraftAccessor } from "@/hooks/usePromptDraftStorage";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
-import { createDeferredPromise } from "@bb/test-helpers";
-import type { PromptDraftAttachment } from "@bb/client-core";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
+import type { PromptDraftAttachment } from "@hyperfide/client-core";
 import { makeProjectWithThreadsResponse } from "@/test/fixtures/projects";
 import { RootComposeView } from "@/views/RootComposeView";
 import { DefaultPaneContextProvider } from "@/views/thread-detail/PaneContext";

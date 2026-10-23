@@ -1,7 +1,7 @@
 import type {
   EnvironmentActionResponse,
   SendMessageResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   RequestEnvironmentActionMutationRequest,
   SendThreadMessageMutationRequest,

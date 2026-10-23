@@ -16,7 +16,7 @@ describe("bundled plugin task graph", () => {
       expect(manifest.scripts["prepare:bundled"]).toBe(
         "bb-plugin-build prepare-bundled",
       );
-      expect(manifest.devDependencies["@bb/plugin-build"]).toBe("workspace:*");
+      expect(manifest.devDependencies["@hyperfide/plugin-build"]).toBe("workspace:*");
       return manifest.name;
     });
     const bundle = JSON.parse(
@@ -26,10 +26,10 @@ describe("bundled plugin task graph", () => {
       ),
     );
     expect(Object.keys(bundle.dependencies).sort()).toEqual(expected.sort());
-    const assembly = turbo.tasks["@bb/bundled-plugins#build"];
+    const assembly = turbo.tasks["@hyperfide/bundled-plugins#build"];
     expect(assembly.dependsOn).toEqual([
       "^prepare:bundled",
-      "@bb/server#generate:bb-official-marketplace",
+      "@hyperfide/server#generate:bb-official-marketplace",
     ]);
     expect(assembly.outputs).toEqual(["dist/**"]);
     const plugin = turbo.tasks["prepare:bundled"];

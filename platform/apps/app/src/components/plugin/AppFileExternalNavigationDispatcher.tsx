@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { ExperimentalFileOpenOptions } from "@get-bb/plugin-sdk";
+import type { ExperimentalFileOpenOptions } from "@hyperfide/plugin-sdk";
 import { appToast } from "@/components/ui/app-toast";
 import { useLocalOpenTargets } from "@/hooks/useLocalOpenTargets";
 import { useResolvedLiveFileTarget } from "@/hooks/useResolvedLiveFileTarget";

@@ -3,8 +3,8 @@ import {
   getQueuedThreadMessage,
   listEvents,
   setQueuedThreadMessageFailureReason,
-} from "@bb/db";
-import type { PluginHookName } from "@get-bb/plugin-sdk";
+} from "@hyperfide/db";
+import type { PluginHookName } from "@hyperfide/plugin-sdk";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../src/errors.js";
 import {

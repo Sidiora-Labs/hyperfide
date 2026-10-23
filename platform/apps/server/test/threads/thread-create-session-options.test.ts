@@ -1,5 +1,5 @@
-import { upsertProjectExecutionDefaults } from "@bb/db";
-import { threadSchema } from "@bb/domain";
+import { upsertProjectExecutionDefaults } from "@hyperfide/db";
+import { threadSchema } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import { waitForQueuedCommand } from "../helpers/commands.js";
 import { readJson } from "../helpers/json.js";

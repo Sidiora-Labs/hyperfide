@@ -1,6 +1,6 @@
 import { Fragment, useRef, useState } from "react";
-import type { TimelineToolArgs } from "@bb/server-contract";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { TimelineToolArgs } from "@hyperfide/server-contract";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   ConversationMessageInlineOverflowToggle,
   useIsOverflowing,

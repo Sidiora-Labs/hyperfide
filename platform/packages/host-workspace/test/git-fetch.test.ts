@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
-import { initRepo, makeTempDir } from "@bb/test-helpers";
+import { initRepo, makeTempDir } from "@hyperfide/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchRemoteBranches, runGit } from "../src/git.js";
 

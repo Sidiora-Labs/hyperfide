@@ -3,13 +3,13 @@ import {
   MACOS_TRAFFIC_LIGHT_INSET_PX,
   MACOS_TRAFFIC_LIGHT_TOP_INSET_PX,
   type BbDesktopServerChoice,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import { contextBridge, ipcRenderer, webFrame } from "electron";
-import { appCommandIdSchema, type AppCommandId } from "@bb/domain";
+import { appCommandIdSchema, type AppCommandId } from "@hyperfide/domain";
 import {
   desktopBrowserImportOutcomeSchema,
   desktopBrowserImportSourceSchema,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { z } from "zod";
 import {
   bbDesktopBrowserEvaluateResultSchema,
@@ -51,7 +51,7 @@ import {
   type BbDesktopWindowState,
   type BbDesktopWindowStateChangeHandler,
   type BbDesktopZoomChangeHandler,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import {
   HYPERFIDE_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
   HYPERFIDE_DESKTOP_GET_INFO_CHANNEL,

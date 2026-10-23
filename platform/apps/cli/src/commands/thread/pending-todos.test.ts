@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ThreadTimelinePendingTodos } from "@bb/domain";
-import type { ThreadTimelineResponse } from "@bb/server-contract";
+import type { ThreadTimelinePendingTodos } from "@hyperfide/domain";
+import type { ThreadTimelineResponse } from "@hyperfide/server-contract";
 import {
   createNodeBbSdk,
   type BbSdk,
   type FetchImplementation,
-} from "@bb/sdk/node";
+} from "@hyperfide/sdk/node";
 
 import { fetchThreadPendingTodos, printPendingTodos } from "./pending-todos.js";
 

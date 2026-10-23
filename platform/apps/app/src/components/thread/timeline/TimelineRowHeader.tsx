@@ -5,8 +5,8 @@ import {
   COLLAPSIBLE_HEADER_STATIC_TONE_CLASS,
   CollapsibleHeader,
 } from "../../ui/disclosure.js";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { PluginCompactIconMask } from "../../plugin/PluginIcon.js";
 
 export type TimelineRowHorizontalPadding = "default" | "flush";

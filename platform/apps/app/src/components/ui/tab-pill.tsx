@@ -1,10 +1,10 @@
-import { Icon } from "@bb/shared-ui/icon";
-import { COARSE_POINTER_TEXT_SM_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { LIST_HOVER_TRANSITION } from "@bb/shared-ui/motion";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { COARSE_POINTER_TEXT_SM_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { LIST_HOVER_TRANSITION } from "@hyperfide/shared-ui/motion";
 import type { ReactNode } from "react";
-import { CONTEXT_SELECTION_SURFACE_CLASS } from "@bb/shared-ui/context-selection";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
+import { CONTEXT_SELECTION_SURFACE_CLASS } from "@hyperfide/shared-ui/context-selection";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@hyperfide/shared-ui/tooltip";
 
 const TAB_PILL_DEFAULT_LABEL_MAX_WIDTH_CLASS = "max-w-[180px]";
 const TAB_PILL_AFFORDANCE_BUTTON_BASE_CLASS =

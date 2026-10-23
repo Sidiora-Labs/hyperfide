@@ -4,7 +4,7 @@ import {
   type MouseEvent,
   type RefObject,
 } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { useBottomAnchoredScroll } from "@/components/ui/bottom-anchored-scroll-body";
 
 interface UseOverflowMeasurementArgs {

@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import {
   formatBbAppConfigPath,
   parseBbAppManagedConfig,
-} from "@bb/config/bb-app-managed-config";
-import { mutateManagedJsonFile } from "@bb/config/managed-json-file";
+} from "@hyperfide/config/bb-app-managed-config";
+import { mutateManagedJsonFile } from "@hyperfide/config/managed-json-file";
 import { isFileNotFoundError } from "./fs.js";
 
 const MACHINE_CONNECTION_KEYS = [

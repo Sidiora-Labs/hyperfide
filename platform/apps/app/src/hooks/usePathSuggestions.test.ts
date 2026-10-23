@@ -1,4 +1,4 @@
-import type { WorkspacePathEntry } from "@bb/server-contract";
+import type { WorkspacePathEntry } from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import { buildPathSuggestions } from "./usePathSuggestions";
 

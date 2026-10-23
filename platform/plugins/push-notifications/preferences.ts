@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 export const notificationLevelSchema = z.enum(["all", "input-only", "muted"]);

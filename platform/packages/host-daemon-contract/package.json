@@ -1,5 +1,5 @@
 {
-  "name": "@bb/host-daemon-contract",
+  "name": "@hyperfide/host-daemon-contract",
   "version": "0.0.1",
   "type": "module",
   "sideEffects": false,
@@ -32,15 +32,15 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@bb/domain": "workspace:*",
-    "@bb/hono-typed-routes": "workspace:*",
-    "@bb/provider-bridge-protocol": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/hono-typed-routes": "workspace:*",
+    "@hyperfide/provider-bridge-protocol": "workspace:*",
     "hono": "^4.7.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/test-helpers": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/test-helpers": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2"

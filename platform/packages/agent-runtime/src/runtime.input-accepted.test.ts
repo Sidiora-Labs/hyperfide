@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ThreadEvent } from "@bb/domain";
-import { getThreadEventScopeTurnId } from "@bb/domain";
-import { BRIDGE_JSON_RPC_ERRORS } from "@bb/provider-bridge-protocol";
+import type { ThreadEvent } from "@hyperfide/domain";
+import { getThreadEventScopeTurnId } from "@hyperfide/domain";
+import { BRIDGE_JSON_RPC_ERRORS } from "@hyperfide/provider-bridge-protocol";
 import {
   createScriptedEchoRequestRecord,
   createScriptedEchoRuntime,

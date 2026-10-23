@@ -1,11 +1,11 @@
 import { ProviderIcon } from "@/components/plugin/ProviderIcon";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { useCallback, useMemo } from "react";
 import type {
   ExperimentalInfoListRowProps,
   MarkdownProps,
   PluginSdkApp,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { PluginDiff } from "@/components/plugin/PluginDiff";
 import { PluginBranchPicker } from "@/components/plugin/PluginBranchPicker";
 import {
@@ -54,7 +54,7 @@ import { buildMarkdownMessageLinkRouting } from "@/components/ui/markdown-messag
 import type { MarkdownPreviewLinkHandler } from "@/components/ui/markdown-link";
 import { useThreadTimelineNavigation } from "@/components/thread/timeline/ThreadTimelineNavigationContext";
 import { usePluginId } from "@/components/plugin/plugin-context";
-import { useQuestionFormHost } from "@bb/shared-ui/question-form-host";
+import { useQuestionFormHost } from "@hyperfide/shared-ui/question-form-host";
 import { definePluginApp } from "./plugin-app-definition";
 import {
   useBbContext,
@@ -96,7 +96,7 @@ import {
   experimental_THREAD_ACTION_GROUPS,
   experimental_THREAD_INFO_ROW_GROUPS,
   experimental_THREAD_INFO_SECTION_GROUPS,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   ThreadActionsContextMenu,
   ThreadActionsMenu,

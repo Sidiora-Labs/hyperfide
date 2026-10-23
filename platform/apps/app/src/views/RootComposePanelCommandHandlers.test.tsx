@@ -2,7 +2,7 @@
 
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BbDesktopCloseWindowRequestHandler } from "@bb/desktop-contract";
+import type { BbDesktopCloseWindowRequestHandler } from "@hyperfide/desktop-contract";
 import { AppCommandProvider } from "@/components/commands/AppCommandProvider";
 import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
 import { RootComposePanelCommandHandlers } from "./RootComposePanelCommandHandlers";

@@ -1,5 +1,5 @@
 {
-  "name": "@get-bb/plugin-sdk",
+  "name": "@hyperfide/plugin-sdk",
   "version": "0.6.73",
   "homepage": "https://github.com/get-bb/bb#readme",
   "bugs": {
@@ -157,13 +157,13 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@bb/domain": "workspace:*",
-    "@bb/process-utils": "workspace:*",
-    "@bb/provider-bridge-acp": "workspace:*",
-    "@bb/provider-bridge-protocol": "workspace:*",
-    "@bb/sdk": "workspace:*",
-    "@bb/server-contract": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/process-utils": "workspace:*",
+    "@hyperfide/provider-bridge-acp": "workspace:*",
+    "@hyperfide/provider-bridge-protocol": "workspace:*",
+    "@hyperfide/sdk": "workspace:*",
+    "@hyperfide/server-contract": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@testing-library/react": "^16.3.2",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.0.0",
@@ -180,7 +180,7 @@
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^4.1.1",
-    "@bb/query-tags": "workspace:*"
+    "@hyperfide/query-tags": "workspace:*"
   },
   "peerDependencies": {
     "@testing-library/react": "^16.3.2",

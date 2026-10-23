@@ -1,6 +1,6 @@
 import { posix as path } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import plugin, {
   MAX_PREVIEW_BYTES,
   requireRelativePreviewFile,

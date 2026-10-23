@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createThread } from "@bb/db";
-import { encodeClientTurnRequestIdNumber, type JsonObject } from "@bb/domain";
+import { createThread } from "@hyperfide/db";
+import { encodeClientTurnRequestIdNumber, type JsonObject } from "@hyperfide/domain";
 import {
   buildExecutionOptions,
   buildThreadStartCommand,

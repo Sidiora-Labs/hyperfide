@@ -1,4 +1,4 @@
-import type { BbPluginApi, PluginMentionItem } from "@get-bb/plugin-sdk";
+import type { BbPluginApi, PluginMentionItem } from "@hyperfide/plugin-sdk";
 
 import type { TasksApiStore } from "../api";
 import {

@@ -17,7 +17,7 @@ import type {
   PluginComposerMention,
   PluginComposerScope,
   PluginComposerTextEffect,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { createComposerDraftActions } from "./composer-draft-actions.js";
 
 export { createComposerDraftActions } from "./composer-draft-actions.js";

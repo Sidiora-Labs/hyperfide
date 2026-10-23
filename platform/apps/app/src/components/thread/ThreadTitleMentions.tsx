@@ -17,20 +17,20 @@ import {
   type PromptMentionResource,
   type PromptTextMention,
   type ThreadListEntry,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { QueryClientContext } from "@tanstack/react-query";
 import {
   THREAD_MENTION_RESOLVE_MAX_IDS,
   type ThreadResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { PromptMentionPill } from "@/components/thread/timeline/ConversationMessageMentions";
 import { useThread } from "@/hooks/queries/thread-queries";
 import { threadQueryKey } from "@/hooks/queries/query-keys";
 import { sdk } from "@/lib/sdk";
 import { getThreadRoutePath } from "@/lib/route-paths";
-import { getMessageLinkPath } from "@bb/client-core";
+import { getMessageLinkPath } from "@hyperfide/client-core";
 import { getThreadDisplayTitle } from "@/lib/thread-title";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 type ThreadTitleMentionThread = Pick<
   ThreadListEntry,

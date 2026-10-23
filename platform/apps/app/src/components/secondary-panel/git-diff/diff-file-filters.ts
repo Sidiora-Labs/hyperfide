@@ -1,4 +1,4 @@
-import type { DiffFileEntry } from "@bb/server-contract";
+import type { DiffFileEntry } from "@hyperfide/server-contract";
 import { filterDiffFilesByPath } from "./filter-diff-files";
 
 export interface DiffFileFilters {

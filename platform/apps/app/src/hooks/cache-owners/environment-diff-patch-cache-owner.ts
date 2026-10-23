@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { DiffPatchEntry } from "@bb/server-contract";
+import type { DiffPatchEntry } from "@hyperfide/server-contract";
 import { HEAVY_PAYLOAD_GC_TIME_MS } from "../queries/query-policies";
 import {
   environmentDiffPatchQueryKey,

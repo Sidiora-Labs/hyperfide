@@ -7,14 +7,14 @@ import {
   listPendingInteractionsByThread,
   updateTerminalSession,
   type DbConnection,
-} from "@bb/db";
-import { threadScope } from "@bb/domain";
+} from "@hyperfide/db";
+import { threadScope } from "@hyperfide/domain";
 import {
   groupHostDaemonEvents,
   hostDaemonServerWsMessageSchema,
   type HostDaemonServerWsMessage,
-} from "@bb/host-daemon-contract";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@hyperfide/host-daemon-contract";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { describe, expect, it, vi, type Mock } from "vitest";
 import { callHostOnlineRpc } from "../../src/services/hosts/online-rpc.js";
 import { createServerMoveCoordinator } from "../../src/services/server-move/coordinator.js";

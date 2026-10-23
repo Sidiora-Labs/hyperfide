@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import type { WorkspaceFile } from "@bb/server-contract";
+import type { WorkspaceFile } from "@hyperfide/server-contract";
 import { DetailCard } from "@/components/ui/detail-card.js";
 import { ThreadStorageSection } from "./info/ThreadStorageSection";
 import { useThreadStorageBrowser } from "./useThreadStorageBrowser";

@@ -3,7 +3,7 @@ import {
   makePluginAgentConfigurationContext,
   makeHostResponse,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import plugin from "./server.js";
 import { rpcContract } from "./contracts.js";

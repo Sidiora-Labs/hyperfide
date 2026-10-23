@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   validatePluginProviderDeclaration,
   type NormalizedPluginProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
-import type { PluginProviderDeclaration } from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
+import type { PluginProviderDeclaration } from "@hyperfide/plugin-sdk";
 import { buildPluginProviderRegistration } from "../../src/services/providers/plugin-provider-registration.js";
 import { loadFirstPartyProviderDeclarations } from "../helpers/provider-registry.js";
 

@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { PluginUpdatePhase } from "@bb/server-contract";
+import type { PluginUpdatePhase } from "@hyperfide/server-contract";
 
 const progress = new AsyncLocalStorage<(phase: PluginUpdatePhase) => void>();
 

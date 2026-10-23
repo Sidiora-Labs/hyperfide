@@ -3,7 +3,7 @@ import type {
   HostFileTabState,
   ThreadStorageFileTabState,
   WorkspaceFileTabState,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import type { ThreadSecondaryPanel } from "@/lib/thread-secondary-panel";
 import type { FileOpenerOverride } from "@/lib/plugin-slot-resolvers";
 

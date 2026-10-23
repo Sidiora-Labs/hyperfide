@@ -8,8 +8,8 @@ import {
   type Thread,
   type ThreadParentNotifications,
   type JsonValue,
-} from "@bb/domain";
-import type { CreateThreadEnvironmentArgs } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { CreateThreadEnvironmentArgs } from "@hyperfide/server-contract";
 import { action, CliUsageError } from "../../action.js";
 import { createCliBbSdk } from "../../client.js";
 import { missingProjectHint } from "../../context-hints.js";

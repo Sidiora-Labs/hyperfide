@@ -1,5 +1,5 @@
 {
-  "extends": "@bb/tsconfig/base.json",
+  "extends": "@hyperfide/tsconfig/base.json",
   "compilerOptions": {
     "lib": ["DOM", "ES2022"],
     "noEmit": true

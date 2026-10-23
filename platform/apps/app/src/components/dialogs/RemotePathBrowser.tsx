@@ -7,24 +7,24 @@ import {
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { normalizeProjectPathInput } from "@bb/domain";
-import type { HostDirectoryListing } from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
+import { normalizeProjectPathInput } from "@hyperfide/domain";
+import type { HostDirectoryListing } from "@hyperfide/server-contract";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { EmptyState } from "@bb/shared-ui/empty-state";
-import { Icon } from "@bb/shared-ui/icon";
-import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
-import { Input } from "@bb/shared-ui/input";
+} from "@hyperfide/shared-ui/dropdown-menu";
+import { EmptyState } from "@hyperfide/shared-ui/empty-state";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { usePointerCoarse } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
+import { Input } from "@hyperfide/shared-ui/input";
 import { invalidateHostDirectoryListing } from "@/hooks/cache-owners/host-directory-cache-owner";
 import { useHostDirectory } from "@/hooks/queries/host-queries";
 import { sdk } from "@/lib/sdk";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 interface Crumb {
   label: string;

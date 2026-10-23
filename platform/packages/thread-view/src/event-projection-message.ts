@@ -18,8 +18,8 @@ import type {
   ThreadEventSearchMode,
   ThreadTurnInitiator,
   WorkflowProgressSnapshot,
-} from "@bb/domain";
-import type { TimelineConversationAttachments } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { TimelineConversationAttachments } from "@hyperfide/server-contract";
 import type { EventProjection } from "./event-projection.js";
 
 const eventProjectionMessageStatusValues = [

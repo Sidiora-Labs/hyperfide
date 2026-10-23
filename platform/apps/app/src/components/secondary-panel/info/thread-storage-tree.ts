@@ -1,4 +1,4 @@
-import type { WorkspaceFile } from "@bb/server-contract";
+import type { WorkspaceFile } from "@hyperfide/server-contract";
 
 export interface ThreadStorageFolderNode {
   kind: "folder";

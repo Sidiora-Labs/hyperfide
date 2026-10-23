@@ -1,7 +1,7 @@
-import type { WorkspaceFileStatus, WorkspaceStatus } from "@bb/domain";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { directoryFromPath } from "@bb/thread-view";
+import type { WorkspaceFileStatus, WorkspaceStatus } from "@hyperfide/domain";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { directoryFromPath } from "@hyperfide/thread-view";
 import {
   DiffSizeBar,
   DiffStatsTally,

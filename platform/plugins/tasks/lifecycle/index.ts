@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { publishCommentsChanged, type TasksApiStore } from "../api";
 import type { TaskThread, TaskThreadLiveStatus } from "../db";
 import { createSystemComment, publishThreadsChanged } from "../delegate";

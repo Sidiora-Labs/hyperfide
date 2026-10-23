@@ -1,5 +1,5 @@
 import { createContext, type ReactNode } from "react";
-import type { WorkspaceOpenTarget } from "@bb/host-daemon-contract";
+import type { WorkspaceOpenTarget } from "@hyperfide/host-daemon-contract";
 import type { MarkdownPreviewLinkHandler } from "./markdown-link.js";
 import type {
   MarkdownAbsoluteLocalFileLinkRouting,

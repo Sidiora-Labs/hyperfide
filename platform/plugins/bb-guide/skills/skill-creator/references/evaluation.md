@@ -6,7 +6,7 @@ prompt. Include near-miss prompts when you tune the description.
 Spawn a fresh thread for every test:
 
 ```sh
-bb thread spawn --project "$BB_PROJECT_ID" --prompt "<test prompt>" --json
+bb thread spawn --project "$HYPERFIDE_PROJECT_ID" --prompt "<test prompt>" --json
 bb thread wait <thread-id>
 bb thread output <thread-id>
 bb thread log <thread-id>

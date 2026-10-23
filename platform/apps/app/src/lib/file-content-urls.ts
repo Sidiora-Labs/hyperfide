@@ -1,4 +1,4 @@
-import type { EnvironmentFilePreviewSource } from "@bb/client-core";
+import type { EnvironmentFilePreviewSource } from "@hyperfide/client-core";
 import { apiClient, toRelativeUrl } from "./api-server";
 
 function encodePathSegments(path: string): string {

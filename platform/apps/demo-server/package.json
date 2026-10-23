@@ -1,5 +1,5 @@
 {
-  "name": "@bb/demo-server",
+  "name": "@hyperfide/demo-server",
   "version": "0.0.1",
   "type": "module",
   "private": true,
@@ -11,13 +11,13 @@
     "build": "tsx scripts/build-assets.ts"
   },
   "dependencies": {
-    "@bb/domain": "workspace:*",
-    "@bb/server-contract": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/server-contract": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/app": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/app": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@cloudflare/workers-types": "^4.20260610.0",
     "@types/node": "^22.0.0",
     "bb-plugin-navigation": "workspace:*",

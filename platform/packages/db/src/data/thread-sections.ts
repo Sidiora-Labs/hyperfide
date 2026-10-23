@@ -1,5 +1,5 @@
 import { asc, eq } from "drizzle-orm";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import type {
   DbConnection,
   DbQueryConnection,

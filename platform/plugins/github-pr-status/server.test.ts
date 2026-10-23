@@ -1,9 +1,9 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import {
   createFakePluginHost,
   makeHostResponse,
   type ExperimentalFakeHostRpcCall,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import type { GitHubPullRequestView } from "./contract.js";
 import plugin, { environmentChangeEffect } from "./server.js";

@@ -4,14 +4,14 @@ import {
   getLatestStoredThreadEventOfTypes,
   getThread,
   type DbQueryConnection,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   systemErrorEventDataSchema,
   systemThreadInterruptedEventDataSchema,
   type ProviderErrorCategory,
   type ThreadLifecycleEvent,
   type ThreadStatus,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { AppDeps } from "../../types.js";
 import { buildTurnFailedEvent } from "../threads/turn-failed.js";
 import type { TurnErrorCategory, TurnFinishedOutcome } from "./telemetry.js";

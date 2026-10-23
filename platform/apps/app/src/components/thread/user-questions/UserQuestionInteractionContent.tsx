@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { PendingInteractionUserQuestionQuestion } from "@bb/domain";
-import { QuestionForm } from "@bb/shared-ui/question-form";
+import type { PendingInteractionUserQuestionQuestion } from "@hyperfide/domain";
+import { QuestionForm } from "@hyperfide/shared-ui/question-form";
 import { useResolveThreadPendingInteraction } from "@/hooks/mutations/thread-interaction-mutations";
 import { useStopThread } from "@/hooks/mutations/thread-runtime-mutations";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";

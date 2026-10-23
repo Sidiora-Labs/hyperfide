@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   DesktopAppUpdateInfo,
   DesktopAppUpdateRequest,
-} from "@bb/config/desktop-app-update";
+} from "@hyperfide/config/desktop-app-update";
 import { createDesktopAppUpdateService } from "../../src/services/system/desktop-app-update.js";
 import type { DesktopUpdateChannel } from "../../src/services/system/desktop-update-channel.js";
 import type { AppUpdateService } from "../../src/services/system/app-update.js";

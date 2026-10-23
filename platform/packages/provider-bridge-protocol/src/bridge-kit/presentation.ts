@@ -1,5 +1,5 @@
-import { THREAD_EVENT_ITEM_PRESENTATION_DETAIL_MAX_LENGTH } from "@bb/domain";
-import { sliceUtf16Head } from "@bb/text-utils";
+import { THREAD_EVENT_ITEM_PRESENTATION_DETAIL_MAX_LENGTH } from "@hyperfide/domain";
+import { sliceUtf16Head } from "@hyperfide/text-utils";
 import type { DeltaPresentation } from "../thread-delta.js";
 
 export const PRESENTATION_TITLE_MAX_LENGTH = 160;

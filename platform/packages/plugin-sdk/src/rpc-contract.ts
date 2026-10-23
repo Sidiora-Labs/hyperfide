@@ -1,4 +1,4 @@
-import type { ContractTagDeclarations } from "@bb/domain";
+import type { ContractTagDeclarations } from "@hyperfide/domain";
 
 /** A JSON-safe path segment reported by a Standard Schema validation issue. */
 export type PluginRpcIssuePathSegment = string | number;
@@ -28,7 +28,7 @@ const rpcErrorCodes = [
 /** RPC categories may grow. Handle unknown_error as a fallback for newer server codes. */
 export type PluginRpcErrorCode = (typeof rpcErrorCodes)[number];
 
-const callErrorBrand = Symbol.for("@get-bb/plugin-sdk/rpc-call-error");
+const callErrorBrand = Symbol.for("@hyperfide/plugin-sdk/rpc-call-error");
 
 /** A client RPC failure. Unknown server codes become unknown_error and remain in serverCode. */
 export class experimental_PluginRpcCallError extends Error {
@@ -118,7 +118,7 @@ export interface PluginRpcError {
   issues?: PluginRpcValidationIssue[];
 }
 
-const refusalBrand = Symbol.for("@get-bb/plugin-sdk/rpc-refusal");
+const refusalBrand = Symbol.for("@hyperfide/plugin-sdk/rpc-refusal");
 
 /** Expected handler refusal; reaches callers without recording a plugin crash. */
 export class experimental_PluginRpcRefusal extends Error {

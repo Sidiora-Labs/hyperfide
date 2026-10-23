@@ -134,7 +134,7 @@ describe("child thread notifications", () => {
 
     expect(message).toContain(
       [
-        "[bb system]",
+        "[hyperfide-platform system]",
         "",
         "Child thread updates:",
         "",

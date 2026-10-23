@@ -6,25 +6,25 @@ import {
   bbAppRuntimeVerifyTokens,
   clearOwnBbAppRuntimeFile,
   readBbAppRuntimeFile,
-} from "@bb/config/app-runtime-file";
+} from "@hyperfide/config/app-runtime-file";
 import {
   formatBbAppConfigPath,
   parseBbAppManagedConfig,
-} from "@bb/config/bb-app-managed-config";
-import { waitForProcessExit } from "@bb/config/child-process-exit";
+} from "@hyperfide/config/bb-app-managed-config";
+import { waitForProcessExit } from "@hyperfide/config/child-process-exit";
 import {
   findMachineServiceFile,
   MACHINE_INSTALLER_ENV_NAME,
-} from "@bb/config/machine-service";
-import { stopVerifiedProcess } from "@bb/config/verified-process-stop";
-import { readServerMovedFile } from "@bb/server-archive";
+} from "@hyperfide/config/machine-service";
+import { stopVerifiedProcess } from "@hyperfide/config/verified-process-stop";
+import { readServerMovedFile } from "@hyperfide/server-archive";
 
 const NODE_REQUIREMENT = "Node.js 22.19 or newer";
 const NODE_VERSION_TIMEOUT_MS = 10_000;
 const RUNTIME_STOP_TIMEOUT_MS = 15_000;
 const RUNTIME_STOP_KILL_TIMEOUT_MS = 3_000;
 const INSTALL_COMMAND =
-  "npx -y --package bb-app hyperfide-platform server install-machine-service";
+  "npx -y --package hyperfide-app hyperfide-platform server install-machine-service";
 
 export interface InstallMachineServiceArgs {
   confirm(message: string): Promise<boolean>;

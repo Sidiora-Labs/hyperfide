@@ -1,4 +1,4 @@
-import type { TimelineRow } from "@bb/server-contract";
+import type { TimelineRow } from "@hyperfide/server-contract";
 import { fileChangeRow } from "@/test/fixtures/thread-timeline-rows";
 
 export const fileChangeAssistantStream: TimelineRow = fileChangeRow({

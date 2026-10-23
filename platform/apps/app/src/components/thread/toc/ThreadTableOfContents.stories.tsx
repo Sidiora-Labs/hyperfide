@@ -1,7 +1,7 @@
 import type {
   TimelineConversationAttachments,
   TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { ThreadTimelineSurface } from "@/components/thread/timeline/ThreadTimelineSurface";
 import { ThreadTableOfContents } from "@/components/thread/toc/ThreadTableOfContents";
 import { BottomAnchoredScrollBody } from "@/components/ui/bottom-anchored-scroll-body";

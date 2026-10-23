@@ -10,8 +10,8 @@ import {
   openSession,
   upsertHost,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import {
   changedMessageSchema,
   formatClientTurnRequestIdSuffix,
@@ -20,7 +20,7 @@ import {
   type PromptInput,
   type ThreadChangedMessage,
   type ThreadStatus,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { applyLoggedThreadLifecycleEvent } from "../../../src/services/threads/lifecycle-outcome.js";
 import { NotificationHub } from "../../../src/ws/hub.js";
 import { createMockHubSocket } from "../../helpers/mock-hub-socket.js";

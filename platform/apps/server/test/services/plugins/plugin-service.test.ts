@@ -21,11 +21,11 @@ import {
   upsertInstalledPlugin,
   upsertPluginMarketplace,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import { PLUGIN_SDK_VERSION, type SystemChangeKind } from "@bb/domain";
-import type { Logger } from "@bb/logger";
-import { pluginListResponseSchema } from "@bb/server-contract";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import { PLUGIN_SDK_VERSION, type SystemChangeKind } from "@hyperfide/domain";
+import type { Logger } from "@hyperfide/logger";
+import { pluginListResponseSchema } from "@hyperfide/server-contract";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
@@ -762,7 +762,7 @@ describe("plugin service", () => {
       devDependencies: Record<string, string>;
     };
     expect(manifest.engines.bbPluginSdk).toBe(">=0.4.8");
-    expect(manifest.devDependencies["@get-bb/plugin-sdk"]).toBe("0.4.8");
+    expect(manifest.devDependencies["@hyperfide/plugin-sdk"]).toBe("0.4.8");
     expect(semver.gt(PLUGIN_SDK_VERSION, "0.4.8")).toBe(true);
 
     upsertInstalledPlugin(db, {
@@ -930,7 +930,7 @@ describe("plugin service", () => {
         { kind: "catalog", marketplace: "bb-community", entryId: "tasks" },
         {
           kind: "npm",
-          packageName: "@get-bb/tasks",
+          packageName: "@hyperfide/tasks",
           registry: "https://registry.npmjs.org",
           requestedSpec: "^1",
           specKind: "range",

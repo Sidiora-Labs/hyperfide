@@ -3,8 +3,8 @@ import {
   usePluginSlots,
   type PluginMachineProviderInputsSlot,
 } from "@/lib/plugin-slots";
-import type { JsonValue } from "@bb/domain";
-import type { PluginMachineProviderInputsChange } from "@get-bb/plugin-sdk";
+import type { JsonValue } from "@hyperfide/domain";
+import type { PluginMachineProviderInputsChange } from "@hyperfide/plugin-sdk";
 import { useCallback, useState, type ReactNode } from "react";
 
 export interface MachineProviderInputsDescriptor {

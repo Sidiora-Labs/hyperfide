@@ -9,8 +9,8 @@ import {
   within,
 } from "@testing-library/react";
 import { useSyncExternalStore } from "react";
-import type { ExperimentalBadge } from "@get-bb/plugin-sdk";
-import { experimental_useSidebarNavigation } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalBadge } from "@hyperfide/plugin-sdk";
+import { experimental_useSidebarNavigation } from "@hyperfide/plugin-sdk/app";
 import { createStore, Provider } from "jotai";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import {
@@ -22,8 +22,8 @@ import {
   it,
   vi,
 } from "vitest";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import {
   SidebarProvider,
   SidebarTrigger,

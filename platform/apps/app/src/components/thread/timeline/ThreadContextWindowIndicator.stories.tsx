@@ -1,5 +1,5 @@
-import type { ContextSnapshot } from "@bb/domain";
-import type { ThreadContextWindowUsage } from "@bb/server-contract";
+import type { ContextSnapshot } from "@hyperfide/domain";
+import type { ThreadContextWindowUsage } from "@hyperfide/server-contract";
 import { StoryCard, StoryRow } from "../../../../.ladle/story-card";
 import {
   ThreadContextWindowCard,

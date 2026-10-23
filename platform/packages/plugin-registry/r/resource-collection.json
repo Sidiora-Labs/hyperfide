@@ -5,13 +5,13 @@
   "title": "resource-collection",
   "description": "BB ui \"resource-collection\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/expandable-text",
-    "@bb/resource-detail-shell",
-    "@bb/resource-row",
-    "@bb/resource-toolbar",
-    "@bb/scroll-area",
-    "@bb/utils"
+    "@hyperfide/button",
+    "@hyperfide/expandable-text",
+    "@hyperfide/resource-detail-shell",
+    "@hyperfide/resource-row",
+    "@hyperfide/resource-toolbar",
+    "@hyperfide/scroll-area",
+    "@hyperfide/utils"
   ],
   "files": [
     {

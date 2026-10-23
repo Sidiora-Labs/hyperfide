@@ -1,7 +1,7 @@
 import {
   bbDesktopServerChoiceSchema,
   type BbDesktopServerChoice,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import { ipcMain } from "electron";
 import {
   HYPERFIDE_DESKTOP_GET_SERVER_CHOICES_CHANNEL,

@@ -6,7 +6,7 @@ import {
 } from "react";
 import { useStore } from "jotai";
 import { useNavigate } from "react-router-dom";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   getPluginPanelRoutePath,
   getRootComposeRoutePath,

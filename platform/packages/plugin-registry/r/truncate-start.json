@@ -5,7 +5,7 @@
   "title": "truncate-start",
   "description": "BB ui \"truncate-start\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/utils"
+    "@hyperfide/utils"
   ],
   "files": [
     {

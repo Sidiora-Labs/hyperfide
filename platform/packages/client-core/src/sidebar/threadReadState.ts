@@ -1,4 +1,4 @@
-import type { Thread } from "@bb/domain";
+import type { Thread } from "@hyperfide/domain";
 import { isThreadRead } from "../thread/thread-read-state.js";
 
 type ThreadReadToggleAction = "mark_read" | "mark_unread";

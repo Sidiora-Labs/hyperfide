@@ -7,10 +7,10 @@ import {
   getInstalledPluginRegistration,
   upsertInstalledPlugin,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import type { Logger } from "@bb/logger";
-import { derivePluginId } from "@bb/domain";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import type { Logger } from "@hyperfide/logger";
+import { derivePluginId } from "@hyperfide/domain";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,

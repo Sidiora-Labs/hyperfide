@@ -1,5 +1,5 @@
 import { createStorage } from "./storage.js";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { storageRpc } from "./contract.js";
 import { createService } from "./service.js";
 import { registerCli } from "./cli.js";

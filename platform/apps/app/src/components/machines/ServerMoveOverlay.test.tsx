@@ -12,13 +12,13 @@ import {
   SERVER_MOVE_STEP_IDS,
   type LastServerMove,
   type ServerMoveStepId,
-} from "@bb/domain";
-import { BbHttpError } from "@bb/sdk/browser";
+} from "@hyperfide/domain";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import type {
   ServerMoveStatus,
   ServerMoveStep,
   ServerMoveStepStatus,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appToast } from "@/components/ui/app-toast";

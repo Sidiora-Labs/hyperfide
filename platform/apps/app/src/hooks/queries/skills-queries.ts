@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DeleteSkillRequest, SkillSummary } from "@bb/server-contract";
+import type { DeleteSkillRequest, SkillSummary } from "@hyperfide/server-contract";
 import { sdk } from "@/lib/sdk";
 import {
   projectSkillsQueryKey,

@@ -1,4 +1,4 @@
-import type { ProjectSource } from "@bb/domain";
+import type { ProjectSource } from "@hyperfide/domain";
 import { useSidebarNavigation } from "@/hooks/queries/sidebar-navigation-query";
 import { useCallback, useMemo } from "react";
 import { useProjectSourceBranches } from "@/hooks/queries/project-queries";
@@ -7,7 +7,7 @@ import type {
   CheckoutState,
   UseBranchesArgs,
   UseCheckoutStateArgs,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 
 export function resolvePluginBranchHostId(
   hostId: string | null,

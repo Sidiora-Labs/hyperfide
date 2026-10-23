@@ -3,7 +3,7 @@ import { useIsSidebarFramed } from "./sidebar.js";
 import {
   OverflowFade,
   type OverflowFadeTone,
-} from "@bb/shared-ui/overflow-fade";
+} from "@hyperfide/shared-ui/overflow-fade";
 
 export function TitleBarScrollFade({ tone }: { tone: OverflowFadeTone }) {
   const isFramed = useIsSidebarFramed();

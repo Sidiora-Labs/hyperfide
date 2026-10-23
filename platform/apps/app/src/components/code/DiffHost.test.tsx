@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ExperimentalDiffFullFileContents,
   PluginDiffRendererProps,
-} from "@get-bb/plugin-sdk";
-import { defaultResolvedCodeTheme } from "@bb/domain";
+} from "@hyperfide/plugin-sdk";
+import { defaultResolvedCodeTheme } from "@hyperfide/domain";
 import { applyResolvedCodeTheme } from "@/lib/code-theme";
 import {
   resetPluginSlotStoreForTest,

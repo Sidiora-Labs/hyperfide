@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { sdk } from "@/lib/sdk";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { makeSystemConfig } from "@/test/fixtures/system-config";
-import type { PluginMentionTrigger } from "@bb/client-core";
+import type { PluginMentionTrigger } from "@hyperfide/client-core";
 import {
   usePromptMentions,
   usePromptMentionTriggers,

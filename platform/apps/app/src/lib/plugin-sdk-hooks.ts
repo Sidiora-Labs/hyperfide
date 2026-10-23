@@ -1,5 +1,5 @@
-import { experimental_PluginRpcCallError } from "@get-bb/plugin-sdk";
-import { createRpcQueryHooks } from "@get-bb/plugin-sdk/internal/rpc-query-host";
+import { experimental_PluginRpcCallError } from "@hyperfide/plugin-sdk";
+import { createRpcQueryHooks } from "@hyperfide/plugin-sdk/internal/rpc-query-host";
 import { subscribeComposerSubmitted } from "./composer-submissions";
 import {
   useCallback,
@@ -28,7 +28,7 @@ import type {
   ExperimentalFixedTabTargetState,
   ExperimentalPluginFixedTabReference,
   JsonValue,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   PluginContext,
   PluginSlotOwnershipContext,
@@ -45,7 +45,7 @@ import {
   subscribeComposerEditorBridges,
   useComposerEditorBridge,
 } from "@/lib/composer-editor-registry";
-import { createComposerHandleBinding } from "@get-bb/plugin-sdk/internal/composer-handle";
+import { createComposerHandleBinding } from "@hyperfide/plugin-sdk/internal/composer-handle";
 import {
   composerHandleController,
   listedComposerHandles,
@@ -62,7 +62,7 @@ import {
   type PromptDraftController,
   type PromptDraftScope,
 } from "@/hooks/usePromptDraftStorage";
-import { emptyPromptDraftState, isPromptDraftEmpty } from "@bb/client-core";
+import { emptyPromptDraftState, isPromptDraftEmpty } from "@hyperfide/client-core";
 import { useRouteState } from "@/hooks/useRouteState";
 import { useServerConnectionState } from "@/hooks/useServerConnectionState";
 import { wsManager } from "@/lib/ws";
@@ -384,7 +384,7 @@ function useExperimentalAppPanel(): ExperimentalAppPanel {
 
 function useExperimentalFixedTabTarget<Target extends JsonValue>(
   tab:
-    | import("@get-bb/plugin-sdk").ExperimentalTabTargetReference<Target>
+    | import("@hyperfide/plugin-sdk").ExperimentalTabTargetReference<Target>
     | ExperimentalPluginFixedTabReference<Target>,
 ): ExperimentalFixedTabTargetState<Target> | null {
   const pluginId = usePluginId();
@@ -833,12 +833,12 @@ export const {
       call: (
         id: string,
         method: string,
-        input: import("@bb/domain").JsonValue,
+        input: import("@hyperfide/domain").JsonValue,
       ) => callPluginRpc(fetch, id, method, input),
       watch: (
         id: string,
         method: string,
-        read: { input: import("@bb/domain").JsonValue } | { key: string },
+        read: { input: import("@hyperfide/domain").JsonValue } | { key: string },
       ) => {
         const target = {
           kind: "plugin-read",

@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { JsonValue } from "@get-bb/plugin-sdk";
-import type { JsonObject } from "@get-bb/plugin-sdk/provider-bridge";
+import type { JsonValue } from "@hyperfide/plugin-sdk";
+import type { JsonObject } from "@hyperfide/plugin-sdk/provider-bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   completeCodexInference,

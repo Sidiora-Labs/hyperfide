@@ -14,7 +14,7 @@ export default defineWorkspaceTestConfig({
     },
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "@bb/cli",
+      name: "@hyperfide/cli",
       include: ["src/**/*.test.ts"],
     }),
   },

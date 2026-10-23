@@ -1,5 +1,5 @@
 {
-  "name": "@bb/db",
+  "name": "@hyperfide/db",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -31,15 +31,15 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@bb/config": "workspace:*",
-    "@bb/domain": "workspace:*",
-    "@bb/text-utils": "workspace:*",
+    "@hyperfide/config": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/text-utils": "workspace:*",
     "better-sqlite3": "12.10.0",
     "drizzle-orm": "^0.38.0",
     "nanoid": "^5.0.9"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.0.0",
     "drizzle-kit": "^0.30.0",

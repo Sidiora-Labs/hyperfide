@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { experimental_nativeRootsResolveOutputSchema } from "@get-bb/plugin-sdk/host";
+import { experimental_nativeRootsResolveOutputSchema } from "@hyperfide/plugin-sdk/host";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resolveGrokNativeRoots } from "./grok.js";
 import { resolveHermesNativeRoots } from "./hermes.js";

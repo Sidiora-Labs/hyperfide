@@ -12,7 +12,7 @@ import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CompactViewportOverrideProvider } from "@/components/ui/hooks/use-compact-viewport";
-import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+import { installTestPluginRuntime } from "@hyperfide/plugin-sdk/testing/app";
 import { SIDEBAR_CONTROL_STATE_CLASS } from "@/components/ui/sidebar-row-classes";
 import {
   sidebarThreadLifecyclesAtom,

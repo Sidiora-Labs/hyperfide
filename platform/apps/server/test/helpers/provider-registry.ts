@@ -5,12 +5,12 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HostDaemonBridgeLaunch } from "@bb/host-daemon-contract";
-import { buildPluginHost, resolvePluginBuildToolchain } from "@bb/plugin-build";
+import type { HostDaemonBridgeLaunch } from "@hyperfide/host-daemon-contract";
+import { buildPluginHost, resolvePluginBuildToolchain } from "@hyperfide/plugin-build";
 import {
   validatePluginProviderDeclaration,
   type NormalizedPluginProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
 import {
   EMPTY_PROVIDER_NATIVE_ROOTS,
   EMPTY_PROVIDER_RESOLVED_NATIVE_ROOTS,
@@ -19,12 +19,12 @@ import {
   pluginPackageJsonSchema,
   type ProviderInfo,
   type ProviderNativeRootSet,
-} from "@bb/domain";
-import type { PluginProviderDeclaration } from "@get-bb/plugin-sdk";
+} from "@hyperfide/domain";
+import type { PluginProviderDeclaration } from "@hyperfide/plugin-sdk";
 import {
   captureFirstPartyProviderDeclarations,
   firstPartyPluginRootDir,
-} from "@bb/agent-runtime/test";
+} from "@hyperfide/agent-runtime/test";
 import { buildPluginProviderRegistration } from "../../src/services/providers/plugin-provider-registration.js";
 import { readPluginProviderIcon } from "../../src/services/plugins/plugin-runtime.js";
 import {

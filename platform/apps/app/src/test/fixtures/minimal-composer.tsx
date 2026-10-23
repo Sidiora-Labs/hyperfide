@@ -8,7 +8,7 @@ import {
   type ComposerMention,
   type ExperimentalComposerEditor,
   type ExperimentalDroppedThreadMention,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { setPluginSlotRegistrations } from "@/lib/plugin-slots";
 import { makePluginRegistrationSet } from "./plugins";
 

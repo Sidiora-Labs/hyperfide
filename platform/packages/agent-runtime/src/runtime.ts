@@ -4,8 +4,8 @@ import { z } from "zod";
 import {
   normalizeProviderThreadNameEvent,
   toProviderExternalThreadName,
-} from "@bb/domain";
-import type { DynamicTool, InstructionMode, ThreadEvent } from "@bb/domain";
+} from "@hyperfide/domain";
+import type { DynamicTool, InstructionMode, ThreadEvent } from "@hyperfide/domain";
 import type { AdapterCommand } from "./provider-adapter.js";
 import {
   BRIDGE_JSON_RPC_ERRORS,
@@ -16,7 +16,7 @@ import {
   providerUsageResultSchema,
   ThreadEventGrammar,
   threadIdentityResultSchema,
-} from "@bb/provider-bridge-protocol";
+} from "@hyperfide/provider-bridge-protocol";
 import {
   JsonRpcResponseError,
   PROVIDER_TOOL_CALL_CANCELLED_METHOD,
@@ -27,13 +27,13 @@ import {
   sendJsonRpcError,
   sendJsonRpcRequest,
   settleJsonRpcResponse,
-} from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import type {
   JsonRpcObject,
   ProviderCommandPlan,
   ProviderRequestCommandPlan,
   SendJsonRpcRequestArgs,
-} from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import {
   assertProviderSupportsExecutionOptions,
   toProviderExecutionContext,

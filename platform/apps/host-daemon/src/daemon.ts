@@ -1,4 +1,4 @@
-import { HOST_DAEMON_RESTART_EXIT_CODE } from "@bb/config/machine-service";
+import { HOST_DAEMON_RESTART_EXIT_CODE } from "@hyperfide/config/machine-service";
 import type { HostDaemonLogger } from "./logger.js";
 import { normalizeCaughtError } from "./error-utils.js";
 

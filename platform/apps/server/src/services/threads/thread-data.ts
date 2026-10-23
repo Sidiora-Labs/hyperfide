@@ -5,17 +5,17 @@ import {
   getLatestThreadSystemErrorEventRow,
   hydrateRetainedEventOutputRows,
   listStoredEventRows as listStoredEventRowRecords,
-} from "@bb/db";
-import type { DbConnection, StoredEventRow } from "@bb/db";
-import { toRecord } from "@bb/core-ui";
-import { buildThreadEventRow, parseStoredThreadEvent } from "@bb/domain";
-import { threadScope, turnScope } from "@bb/domain";
+} from "@hyperfide/db";
+import type { DbConnection, StoredEventRow } from "@hyperfide/db";
+import { toRecord } from "@hyperfide/core-ui";
+import { buildThreadEventRow, parseStoredThreadEvent } from "@hyperfide/domain";
+import { threadScope, turnScope } from "@hyperfide/domain";
 import type {
   ThreadEvent,
   ThreadEventRow,
   ThreadEventScope,
   ThreadEventType,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { ApiError } from "../../errors.js";
 
 const THREAD_EVENT_RESPONSE_DATA_BYTE_LIMIT = 8 * 1024 * 1024;

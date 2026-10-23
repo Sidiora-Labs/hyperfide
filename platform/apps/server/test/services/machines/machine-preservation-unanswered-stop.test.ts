@@ -6,7 +6,7 @@ import {
   getThread,
   listQueuedThreadMessagesWaitingOnKind,
   updateHost,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { maintainMachine } from "../../../src/services/machines/lifecycle.js";
 import { requestMachineSuspension } from "../../../src/services/machines/provider-orchestration.js";
 import { setPluginMachineProviderBridge } from "../../../src/services/plugins/plugin-machine-provider-registry.js";

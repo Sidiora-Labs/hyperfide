@@ -1,4 +1,4 @@
-import type { TimelineRow } from "@bb/server-contract";
+import type { TimelineRow } from "@hyperfide/server-contract";
 import { ConversationMessageContent } from "@/components/thread/timeline/ConversationMessageContent";
 import { ThreadTimelineRows } from "@/components/thread/timeline/ThreadTimelineRows";
 import { PAGE_SHELL_CONTENT_STYLE } from "@/components/ui/page-shell-content-style";
@@ -60,7 +60,7 @@ const longMessage = `# Merge-readiness report
 
 | Area | Change |
 |---|---|
-| **\`@bb/ui-core\` primitive (new)** | \`FilePathLink\` — clickable filename with hover-underline, optional \`external-link\` icon variant, integrates \`TruncateStart\` for path text. |
+| **\`@hyperfide/ui-core\` primitive (new)** | \`FilePathLink\` — clickable filename with hover-underline, optional \`external-link\` icon variant, integrates \`TruncateStart\` for path text. |
 | **\`apps/app\` Info tab** | \`WorkspaceChangesList\` files open the diff panel via \`onChangedFileClick\`, gated on \`canUseGitUi\`. |
 | **\`apps/app\` diff banner header** | \`GitDiffFileCard\` renders \`FilePathLink\` with \`variant="external"\` and a \`MoreHorizontal\` kebab → "Copy path". |
 | **Docs** | \`plans/tab-split-layout.md\` — Phase 2a (this branch) + Phase 2b (file tabs, blocked). |
@@ -109,7 +109,7 @@ export function FilePathLink({
 | \`WorkspaceChangesList\` migration | ✅ Preserved. Single \`onFileClick\` API. |
 | Info tab \`onChangedFileClick\` → opens diff panel | ✅ Preserved, gated on \`canUseGitUi\`. |
 | **DelegationRow "Working…" empty-state** | ✅ **Reimplemented** in \`WorkRowBody\`'s \`delegation\` case. Same trigger, same shimmer. |
-| **Click filename → open diff** | ❌ Dropped — needs a \`TimelineTitle\` contract change in \`@bb/thread-view\`. Outside scope. |
+| **Click filename → open diff** | ❌ Dropped — needs a \`TimelineTitle\` contract change in \`@hyperfide/thread-view\`. Outside scope. |
 
 ## Validation
 

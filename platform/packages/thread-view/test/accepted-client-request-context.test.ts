@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { turnScope } from "@bb/domain";
+import { turnScope } from "@hyperfide/domain";
 import {
   buildAcceptedClientRequestById,
   type AcceptedClientRequestContext,

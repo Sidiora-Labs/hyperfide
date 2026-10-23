@@ -2,9 +2,9 @@ import {
   pluginUpdateJobResponseSchema,
   pluginUpdateJobListResponseSchema,
   type PluginUpdateJob,
-} from "@bb/server-contract";
-export type { PluginUpdateJob } from "@bb/server-contract";
-import { jsonValueSchema, type JsonValue } from "@bb/domain";
+} from "@hyperfide/server-contract";
+export type { PluginUpdateJob } from "@hyperfide/server-contract";
+import { jsonValueSchema, type JsonValue } from "@hyperfide/domain";
 import {
   installedPluginSchema,
   pluginRpcDiscoveryQuerySchema,
@@ -62,7 +62,7 @@ import {
   type PluginSourceSelection,
   type PluginTokenResponse,
   type PluginUpdateCheckEntry,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { z } from "zod";
 import type { CreateSdkAreaArgs } from "./common.js";
 

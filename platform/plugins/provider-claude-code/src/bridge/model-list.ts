@@ -1,4 +1,4 @@
-import { type AvailableModel } from "@get-bb/plugin-sdk/provider-bridge";
+import { type AvailableModel } from "@hyperfide/plugin-sdk/provider-bridge";
 import { buildClaudeCodeModels } from "../model-list.js";
 import { probeClaudeInitialization } from "./initialization-probe.js";
 

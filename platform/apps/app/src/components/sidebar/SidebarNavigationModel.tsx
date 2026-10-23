@@ -16,8 +16,8 @@ import type {
   ExperimentalSidebarNavigationIcon,
   ExperimentalSidebarNavigationItem,
   ExperimentalSidebarNavigationState,
-} from "@get-bb/plugin-sdk";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
+} from "@hyperfide/plugin-sdk";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
 import {
   useAppCommandRunner,
   useAppCommandShortcut,

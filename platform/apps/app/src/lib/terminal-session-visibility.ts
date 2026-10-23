@@ -1,5 +1,5 @@
-import { isActiveTerminalSessionStatus } from "@bb/domain";
-import type { TerminalSession } from "@bb/server-contract";
+import { isActiveTerminalSessionStatus } from "@hyperfide/domain";
+import type { TerminalSession } from "@hyperfide/server-contract";
 
 export function isVisibleTerminalSession(session: TerminalSession): boolean {
   return (

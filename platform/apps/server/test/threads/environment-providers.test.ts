@@ -5,7 +5,7 @@ import {
 import { cancelProviderEnvironmentCreation } from "../../src/services/environments/environment-engine.js";
 import { sweepProviderMachine } from "../../src/services/machines/provider-orchestration.js";
 import { stopThreadForCurrentState } from "../../src/services/threads/thread-lifecycle.js";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { resolveGitCheckoutAvailability } from "../../src/services/environments/provider-availability.js";
 import { invalidateEnvironmentProviderMachineAvailability } from "../../src/services/environments/provider-machine-availability.js";
 import {
@@ -28,20 +28,20 @@ import {
   listProjectSourcesByProjectIds,
   setProjectGitRemoteUrlIfMissing,
   updateHost,
-} from "@bb/db";
-import { PERSONAL_PROJECT_ID, type JsonValue } from "@bb/domain";
+} from "@hyperfide/db";
+import { PERSONAL_PROJECT_ID, type JsonValue } from "@hyperfide/domain";
 import type {
   PluginDispatchEnvironmentIntent,
   PluginEnvironmentProviderDeclaration,
   PluginEnvironmentValidateDecision,
   PluginHookName,
-} from "@get-bb/plugin-sdk";
-import type { PluginEnvironmentProviderValidateContext } from "@get-bb/plugin-sdk/environment-provider";
-import type { PluginMachineProviderCreateContext } from "@get-bb/plugin-sdk/machine-provider";
+} from "@hyperfide/plugin-sdk";
+import type { PluginEnvironmentProviderValidateContext } from "@hyperfide/plugin-sdk/environment-provider";
+import type { PluginMachineProviderCreateContext } from "@hyperfide/plugin-sdk/machine-provider";
 import {
   validatePluginEnvironmentProviderDeclaration,
   validatePluginMachineProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { ApiError } from "../../src/errors.js";

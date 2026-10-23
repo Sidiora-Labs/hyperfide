@@ -1,7 +1,7 @@
 import { useCallback } from "react";
-import { normalizeProjectPathInput, type Host } from "@bb/domain";
-import type { HostPlatform } from "@bb/host-daemon-contract";
-import { useDialogState } from "@bb/shared-ui/use-dialog-state";
+import { normalizeProjectPathInput, type Host } from "@hyperfide/domain";
+import type { HostPlatform } from "@hyperfide/host-daemon-contract";
+import { useDialogState } from "@hyperfide/shared-ui/use-dialog-state";
 import { useHostDaemon } from "@/hooks/useHostDaemon";
 import {
   selectHosts,

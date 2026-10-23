@@ -4,8 +4,8 @@ import { useLayoutEffect } from "react";
 import type {
   PluginThreadAction,
   PluginThreadActionTarget,
-} from "@get-bb/plugin-sdk/app";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/app";
+import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { pushNotificationsRpcContract } from "./contract.js";
 import type { ThreadNotificationInputs } from "./preferences.js";
@@ -58,7 +58,7 @@ describe("device notification settings", () => {
   });
 });
 
-const { useBbNavigate, useSdk } = await import("@get-bb/plugin-sdk/app");
+const { useBbNavigate, useSdk } = await import("@hyperfide/plugin-sdk/app");
 const { notificationsThreadAction } = await import("./notificationsAction.js");
 
 function makeTarget(

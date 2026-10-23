@@ -1,4 +1,4 @@
-import type { TimelineUserConversationRow } from "@bb/server-contract";
+import type { TimelineUserConversationRow } from "@hyperfide/server-contract";
 
 export function computeMutedPrefixLength(
   initiator: TimelineUserConversationRow["initiator"],

@@ -1,5 +1,5 @@
-import { toRecord } from "@bb/core-ui";
-import { BbHttpError } from "@bb/sdk/browser";
+import { toRecord } from "@hyperfide/core-ui";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 
 export type AuthErrorKind = "auth-required" | "network" | "http" | "unknown";
 

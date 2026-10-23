@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PromptDraftAttachment } from "@bb/client-core";
-import { BbHttpError } from "@bb/sdk/browser";
+import type { PromptDraftAttachment } from "@hyperfide/client-core";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import { uploadDraftAttachments } from "./useComposerAttachmentUploads";
 
 const uploaded: PromptDraftAttachment = {

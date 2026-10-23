@@ -1,23 +1,23 @@
-import type { DiscoveredWorkspaceProperties } from "@bb/domain";
+import type { DiscoveredWorkspaceProperties } from "@hyperfide/domain";
 import {
   provisionWorkspace,
   type HostWorkspace,
   type LocalStateSnapshot,
   type SharedGitRefsSnapshot,
   type ProvisionWorkspaceArgs,
-} from "@bb/host-workspace";
+} from "@hyperfide/host-workspace";
 import type {
   HostDaemonEnvironmentChange,
   HostDaemonWatchSet,
   HostDaemonWatchSetThreadStorageTarget,
   HostDaemonWatchSetWorkspaceTarget,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type {
   HostWatcher,
   ThreadStorageWatchError,
   WorkspaceStatusWatchChangeKind,
   WorkspaceWatchError,
-} from "@bb/host-watcher";
+} from "@hyperfide/host-watcher";
 import { userExecutableProcessOptions } from "./user-executable-env.js";
 
 type StopWatching = () => void | Promise<void>;

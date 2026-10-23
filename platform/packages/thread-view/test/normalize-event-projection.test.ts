@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { threadScope } from "@bb/domain";
+import { threadScope } from "@hyperfide/domain";
 import { normalizeEventProjection } from "../src/normalize-event-projection.js";
 import { getProjectionEntryMessages } from "../src/event-projection-flatten.js";
 import type {

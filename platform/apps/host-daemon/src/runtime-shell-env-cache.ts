@@ -1,4 +1,4 @@
-import type { AgentRuntimeOptions } from "@bb/agent-runtime";
+import type { AgentRuntimeOptions } from "@hyperfide/agent-runtime";
 
 export type RuntimeShellEnv = NonNullable<AgentRuntimeOptions["shellEnv"]>;
 

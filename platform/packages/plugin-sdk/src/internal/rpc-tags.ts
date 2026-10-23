@@ -1,4 +1,4 @@
-import type { ContractTagDeclarations } from "@bb/domain";
+import type { ContractTagDeclarations } from "@hyperfide/domain";
 import { z } from "zod";
 
 export const rpcInvalidationTags = z.array(z.string().min(1)).min(1);

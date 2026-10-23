@@ -1,4 +1,4 @@
-import type { ThreadQueuedMessage } from "@bb/domain";
+import type { ThreadQueuedMessage } from "@hyperfide/domain";
 import { queuedMessageHasWaitLine } from "@/lib/queued-message-wait";
 
 export const QUEUED_MESSAGES_COLLAPSED_HEIGHT = 44;

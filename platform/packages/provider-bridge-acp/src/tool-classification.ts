@@ -2,7 +2,7 @@ import type {
   DeltaFileChange,
   DeltaItemShape,
   DeltaPresentation,
-} from "@bb/provider-bridge-protocol";
+} from "@hyperfide/provider-bridge-protocol";
 import {
   REASONING_PRESENTATION,
   extractResultText,
@@ -11,7 +11,7 @@ import {
   toOptionalString,
   toolPresentation,
   webFetchPresentation,
-} from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import { z } from "zod";
 import {
   commandPresentation,

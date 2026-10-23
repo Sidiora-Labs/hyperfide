@@ -1,6 +1,6 @@
-import type { ThreadTimelineGoal } from "@bb/domain";
+import type { ThreadTimelineGoal } from "@hyperfide/domain";
 import { CollapsibleActiveStackCard } from "@/components/promptbox/banner/CollapsibleActiveStackCard";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) {

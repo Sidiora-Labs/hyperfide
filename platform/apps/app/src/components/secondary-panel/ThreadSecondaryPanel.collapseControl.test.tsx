@@ -18,7 +18,7 @@ import {
 import type { AppShortcutPresentation } from "@/lib/app-keybindings";
 import { SecondaryPanelHostLayoutContext } from "./SecondaryPanelHostLayoutContext";
 import { Panel, PanelGroup } from "react-resizable-panels";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import {
   createGitDiffFixedPanelTab,

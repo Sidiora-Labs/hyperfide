@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Icon } from "@bb/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { WaveformVisualizer } from "./WaveformVisualizer";
 import { useAudioInputDevices } from "@/hooks/useAudioInputDevices";
 import { useMicrophoneSignal } from "@/hooks/useMicrophoneSignal";

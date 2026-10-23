@@ -5,7 +5,7 @@
 # assumes it.
 #
 # Needs the harness backend started with HYPERFIDE_MOBILE_E2E_SERVE_APP=1 and a built
-# apps/app (`pnpm exec turbo run build --filter=@bb/app`); without them the
+# apps/app (`pnpm exec turbo run build --filter=@hyperfide/app`); without them the
 # server answers API routes only and the WebView shows the native error state.
 appId: app.getbb.mobile
 env:

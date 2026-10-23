@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import type { JsonValue } from "@bb/domain";
-import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+import type { JsonValue } from "@hyperfide/domain";
+import { installTestPluginRuntime } from "@hyperfide/plugin-sdk/testing/app";
 import { collectPluginAppRegistrations } from "@/lib/plugin-app-definition";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
 import {

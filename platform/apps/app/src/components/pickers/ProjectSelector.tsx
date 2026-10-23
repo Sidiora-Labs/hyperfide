@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useComposedRefs } from "@radix-ui/react-compose-refs";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   Command,
   CommandGroup,
@@ -8,16 +8,16 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "@bb/shared-ui/command";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/command";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   OPTION_BASE_CLASS_NAME,
   OPTION_INTERACTIVE_CLASS_NAME,
   OPTION_MUTED_CLASS_NAME,
   OPTION_TRIGGER_CONTENT_CLASS_NAME,
-} from "@bb/shared-ui/option-display";
-import { Popover, PopoverContent, PopoverTrigger } from "@bb/shared-ui/popover";
+} from "@hyperfide/shared-ui/option-display";
+import { Popover, PopoverContent, PopoverTrigger } from "@hyperfide/shared-ui/popover";
 import { useScrollOverflowState } from "../thread/timeline/useScrollOverflowState";
 import { searchPickerOptions } from "./picker-search";
 import { useResetPickerScroll } from "./useResetPickerScroll";
