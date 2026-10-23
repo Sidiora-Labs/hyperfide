@@ -1,3 +1,4 @@
+import { inspectHyperfide } from "./hyperfide-status.js";
 import { Buffer } from "node:buffer";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
@@ -368,7 +369,7 @@ export class ServerConnection {
         const moved = error.serverMoved;
         this.options.logger.info(
           { serverUrl: moved.serverUrl, toHostName: moved.toHostName },
-          "The bb server moved; switching this daemon to the new address",
+          "The hyperfide-platform server moved; switching this daemon to the new address",
         );
         const switched = await this.options
           .onServerMoved({
@@ -383,7 +384,7 @@ export class ServerConnection {
             (handlerError: unknown) => {
               this.options.logger.error(
                 { ...runtimeErrorLogFields(handlerError) },
-                "Failed to switch this daemon to the moved bb server",
+                "Failed to switch this daemon to the moved hyperfide-platform server",
               );
               return false;
             },
@@ -513,6 +514,9 @@ export class ServerConnection {
           );
           await this.options.onSessionOpened?.(session);
           this.flushPendingRecoverableMessages();
+          void inspectHyperfide().then((status) => {
+            if (this.session === session) this.sendMessage({ type: "hyperfide.status", status });
+          });
           if (!settled) {
             settled = true;
             resolve(session);
@@ -649,7 +653,7 @@ export class ServerConnection {
       ).catch((error) => {
         this.options.logger.error(
           { ...runtimeErrorLogFields(error), serverUrl: move.serverUrl },
-          "Failed to switch this daemon to the moved bb server",
+          "Failed to switch this daemon to the moved hyperfide-platform server",
         );
       });
       return;
@@ -809,6 +813,8 @@ export class ServerConnection {
     });
   }
 
+  private statusProbeRunning = false;
+
   private resetHeartbeat(): void {
     this.clearHeartbeat();
 
@@ -885,6 +891,12 @@ export class ServerConnection {
       }
 
       this.sendMessage({ type: "heartbeat" });
+      if (!this.statusProbeRunning) {
+        this.statusProbeRunning = true;
+        void inspectHyperfide().then((status) => {
+          if (this.session === session) this.sendMessage({ type: "hyperfide.status", status });
+        }).finally(() => { this.statusProbeRunning = false; });
+      }
     }, this.session.heartbeatIntervalMs);
   }
 

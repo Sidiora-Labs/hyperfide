@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
 import type { Host } from "@hyperfide/domain";
 import type {
+  HostWithHyperfideStatus,
   HostDirectoryListing,
   HostDiscoveredReposResponse,
 } from "@hyperfide/server-contract";
@@ -23,10 +24,11 @@ export function useHosts(
   const includeCreating = options?.includeCreating ?? false;
   useHostListRealtimeSubscription({ enabled });
 
-  return useQuery<Host[]>({
+  return useQuery<HostWithHyperfideStatus[]>({
     queryKey: hostsQueryKey(includeCreating),
     queryFn: ({ signal }) => sdk.hosts.list({ signal, includeCreating }),
     enabled,
+    refetchInterval: 30_000,
     staleTime: 60_000,
   });
 }

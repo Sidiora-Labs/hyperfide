@@ -1,3 +1,4 @@
+import { hyperfideStatusMessageSchema } from "./hyperfide-status.js";
 import { hostDaemonContributedEnvEntrySchema } from "./commands.js";
 import { desktopBrowserChangedSchema } from "./desktop-browser.js";
 import {
@@ -35,7 +36,7 @@ import {
 } from "./commands.js";
 import { hostPlatformSchema } from "./local.js";
 
-const HOST_DAEMON_WEBSOCKET_PROTOCOL = "bb-host-daemon.v1";
+const HOST_DAEMON_WEBSOCKET_PROTOCOL = "hyperfide-host-daemon.v1";
 
 export const hostDaemonActiveThreadSchema = z.object({
   threadId: z.string().min(1),
@@ -881,6 +882,7 @@ const hostDaemonTerminalErrorMessageSchema = z
   .strict();
 
 export const hostDaemonDaemonWsMessageSchema = z.union([
+  hyperfideStatusMessageSchema,
   desktopBrowserChangedSchema,
   hostDaemonMachineShutdownAckMessageSchema,
   hostDaemonHeartbeatMessageSchema,

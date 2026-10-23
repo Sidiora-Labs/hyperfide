@@ -1,3 +1,4 @@
+import { getHyperfideStatus } from "../services/hosts/hyperfide-status.js";
 import { joinHostPathSegments } from "../services/lib/host-path.js";
 import { serverAccess } from "../services/machines/server-access.js";
 import {
@@ -135,7 +136,7 @@ export function registerHostRoutes(
       listPublicHostsWithStatus(deps, {
         includeCreating: query.includeCreating === "true",
         type: query.type,
-      }),
+      }).map((host) => ({ ...host, hyperfide: getHyperfideStatus(deps.db, host.id) })),
     ),
   );
 
@@ -145,6 +146,7 @@ export function registerHostRoutes(
     const session = getLatestSessionForHost(deps.db, { hostId });
     return context.json({
       ...host,
+      hyperfide: getHyperfideStatus(deps.db, host.id),
       connectMachineId: requireMutableHost(deps, hostId).connectMachineId,
       threadStorageRootPath:
         session === null

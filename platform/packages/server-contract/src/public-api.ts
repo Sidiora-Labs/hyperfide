@@ -1,3 +1,7 @@
+import type { HyperfideStatus } from "@hyperfide/host-daemon-contract";
+
+export type HostWithHyperfideStatus = Host & { hyperfide?: HyperfideStatus | null };
+
 import {
   uiPreferencesRoute,
   updateUiPreferenceRoute,
@@ -892,7 +896,7 @@ export const publicApiRoutes = {
       request: optionalQueryRequest<EmptyInput, HostListQuery>(
         hostListQuerySchema,
       ),
-      response: jsonResponse<Host[]>(),
+      response: jsonResponse<HostWithHyperfideStatus[]>(),
     }),
     get: defineRoute({
       path: "/hosts/:id",
@@ -900,6 +904,7 @@ export const publicApiRoutes = {
       request: noRequest<PathId>(),
       response: jsonResponse<
         Host & {
+          hyperfide?: HyperfideStatus | null;
           connectMachineId: string | null;
           threadStorageRootPath: string | null;
         }
@@ -1885,7 +1890,7 @@ export const publicApiRoutes = {
     /**
      * Every live queued row, optionally narrowed to one thread or one
      * wait holder. Cross-thread because "what is queued right now" is a
-     * whole-workspace question (`bb thread queue list` with no thread, a
+     * whole-workspace question (`hyperfide-platform thread queue list` with no thread, a
      * limiter plugin's own bookkeeping, a router recovering its rows after a
      * restart) that no single thread's list can answer.
      */
@@ -2017,7 +2022,7 @@ export const publicApiRoutes = {
     /**
      * Resolve a built-in, custom, or plugin theme exactly as activating it
      * would, without persisting anything. The Settings palette hover preview
-     * and `bb theme show <id>` read it; `faviconColor` echoes the stored
+     * and `hyperfide-platform theme show <id>` read it; `faviconColor` echoes the stored
      * appearance because the response is a full `AppTheme`.
      */
     resolveTheme: defineRoute({
