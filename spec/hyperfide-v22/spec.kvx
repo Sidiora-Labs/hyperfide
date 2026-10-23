@@ -549,7 +549,7 @@ owner = "fleet"
 
 [task.5.3]
 title = "Image builder"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["5.1"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "platform/plugins/machine-railway/**", "deploy/hyperfide/sandbox/fleet.json", "tests/hyperfide/cases/v22/5_3.sh"]
