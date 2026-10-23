@@ -6,6 +6,7 @@
   "hyperfide": {
     "name": "Snapshot slice",
     "description": "Task snapshot slice environments",
+    "branding": { "icon": "Layers" },
     "server": "./server.ts",
     "host": "./host.ts"
   },
