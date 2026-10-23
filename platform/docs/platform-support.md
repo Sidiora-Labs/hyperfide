@@ -9,19 +9,9 @@
 - Windows via Ubuntu on WSL2
 - Windows 11 x64 native host (alpha)
 
-Minimum runtime: Node.js 22.19, enforced by `install-machine.sh` and the root
-`engines` field. Lowering the floor needs its own test pass.
-
-Tested npm package runtimes:
-
-- Node.js 22.19 or newer in the Node.js 22 release line
-- Node.js 24 LTS
-- Node.js 26 Current
-
-Newer release lines are not blocked. `install-machine.sh` gates on the 22.19
-floor only, so a release line we have not tested yet still installs rather than
-failing hard on the day it ships. The `hyperfide-app` npm `engines` field lists the
-tested lines, which npm surfaces as a warning rather than an install failure.
+This repository uses Node 24 and pnpm 9.15. Source validation runs from the
+repository root with `pnpm -C platform`. Test packaged artifacts on each target
+operating system before treating them as supported.
 
 Windows has two host paths. Inside WSL2 the Linux stack runs unchanged:
 
@@ -54,10 +44,8 @@ Android APK; see [configuration.md](configuration.md)).
   unauthenticated, the same trust model as a browser on a LAN; iOS allows
   plain `http://` only for LAN IPs and `.local` names, so Tailscale hosts need
   Serve HTTPS.
-- **hyperfide platform connect** mode pairs the phone as a connect machine; see
-  [multiple-devices.md](multiple-devices.md#use-the-hyperfide-mobile-app).
-- Push notifications need the server to reach `exp.host` and a hyperfide platform connect or
-  HTTPS profile; a plain-HTTP direct profile cannot register.
+- Push registration requires an HTTPS profile and server access to the push
+  delivery service. A plain HTTP profile cannot register.
 - Phones have no host daemon, so local editor integration, "Open in …", and
   the native folder picker are unavailable; the remote path browser works.
   Provider sign-in still needs a terminal on the host.
@@ -195,29 +183,9 @@ rebuild the native dependency, for example `npm rebuild better-sqlite3`.
 - A native Windows checkout of this repository must keep those LF rules; the
   Windows CI jobs build and package from such a checkout.
 
-## CI And Validation
+## CI and validation
 
-- GitHub Actions uses Ubuntu as the required support gate for build,
-  typecheck, lint, test, and Linux smoke coverage.
-- Full build, typecheck, lint, and test checks run on Ubuntu with Node.js 22
-  only.
-- Pull requests run the `hyperfide-app` tarball smoke on Ubuntu and macOS with Node.js
-  22, validating the packed npm artifact through `npx --package`.
-- Pushes to `main` and manually dispatched CI runs also run the `hyperfide-app` tarball
-  smoke on Ubuntu and macOS with Node.js 24 and 26.
-- Branch protection should require `Checks (ubuntu-latest, Node 22.x)`,
-  `Package Smoke (ubuntu-latest, Node 22.x)`, and
-  `Package Smoke (macos-latest, Node 22.x)`. The Node.js 24 and 26 compatibility
-  smoke jobs do not run on pull requests and should not be configured as
-  required PR checks.
-- Native Windows CI runs on every pull request, described in
-  [windows-ci.md](windows-ci.md): the host package tests with lint and
-  typecheck, the remaining test suites in seven shards, and an app smoke that
-  boots `hyperfide-app`, runs the `hyperfide-app` tarball smoke, packages the desktop app, and
-  smoke tests the packaged app.
-- `apps/mobile` typecheck, lint, and unit tests run inside the Ubuntu
-  `Checks` and the `Tests (packages-*)` jobs like every other workspace package. The
-  iOS simulator Maestro flows run in `Mobile E2E`
-  (`.github/workflows/mobile-e2e.yml`) on the macOS runner only when a pull
-  request carries the `mobile-e2e` label, nightly on `main`, or on manual
-  dispatch; they are not a required check.
+Use the repository's Node 24 pin and pnpm workspace scripts. Run package checks
+with directory filters, and use the feature's qualification cases for integration
+proof. See [testing](testing.md) for commands and evidence boundaries and the
+[release process](hyperfide-release-process.md) for publication ownership.

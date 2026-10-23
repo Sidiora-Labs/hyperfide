@@ -32,5 +32,5 @@ workflows.
   understandable. Performance, operational simplicity, and low cognitive
   overhead are part of the product.
 - **Easy to trust and adopt**: hyperfide platform should remain easy to evaluate and adopt in a
-  local mode, especially for teams with security and trust constraints. Hosted
-  features can extend hyperfide platform later, but they should not replace the core product.
+  local mode, especially for teams with security and trust constraints. Operators
+  control the server, enrolled hosts and credentials.
