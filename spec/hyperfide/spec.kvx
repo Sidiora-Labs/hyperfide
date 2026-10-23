@@ -931,7 +931,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.11.3]
 title = "Probe actual environment readiness before assignment"
-status = "pending"
+status = "done"
 wave = 10
 requires = ["11.2", "14.2"]
 touches = ["src/hyperfide/readiness.c", "tests/hyperfide/manifests/tasks/11.3.json", "tests/hyperfide/cases/tasks/11_3.py", "tests/hyperfide/registrations/11.3.json", "src/hyperfide/components/11.3.kvx"]
@@ -1019,7 +1019,7 @@ do_6 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.7.3]
 title = "Publish complete graph generations atomically"
-status = "pending"
+status = "done"
 wave = 10
 requires = ["7.2"]
 touches = ["services/hyperfide/src/graph/publication.ts", "tests/hyperfide/manifests/tasks/7.3.json", "tests/hyperfide/cases/tasks/7_3.py", "tests/hyperfide/registrations/7.3.json", "services/hyperfide/components/7.3.json"]
@@ -1174,7 +1174,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.20.4]
 title = "Run decision jobs asynchronously with deadlines and safe fallback"
-status = "pending"
+status = "done"
 wave = 10
 requires = ["20.2", "20.3", "6.2"]
 touches = ["services/hyperfide/src/decisions/jobs.ts", "tests/hyperfide/manifests/tasks/20.4.json", "tests/hyperfide/cases/tasks/20_4.py", "tests/hyperfide/registrations/20.4.json", "services/hyperfide/components/20.4.json", "services/hyperfide/migrations/0020-decision-jobs.sql"]
