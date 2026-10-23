@@ -17,7 +17,7 @@ import {
   VERSION,
   type ExtensionFactory,
 } from "@earendil-works/pi-coding-agent";
-import { HYPERFIDE_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
+import { HYPERFIDE_PI_EXTENSION_SOURCE } from "./hyperfide-pi-extension.js";
 import { createPiDeltaTranslator } from "../delta-translation.js";
 import { PiRpcSession, type PiRpcEvent } from "./rpc-session.js";
 
@@ -349,12 +349,12 @@ it("ignores duplicate authoritative settlement without duplicate delivery", asyn
   expect(h.kill).not.toHaveBeenCalled();
 });
 
-it.each(["bb-first", "bb-last"])(
+it.each(["hyperfide-first", "hyperfide-last"])(
   "real Pi 0.84 starts B inside an async settlement handler before A stdout (%s)",
   async (order) => {
     expect(VERSION).toBe("0.84.0");
     const h = harness();
-    const dir = mkdtempSync(join(tmpdir(), "bb-pi-real-settlement-"));
+    const dir = mkdtempSync(join(tmpdir(), "hyperfide-pi-real-settlement-"));
     const settingsManager = SettingsManager.inMemory({
       compaction: { enabled: false },
       retry: { enabled: false },
@@ -362,11 +362,11 @@ it.each(["bb-first", "bb-last"])(
     const sessionManager = SessionManager.inMemory(dir);
     const wireOrder: string[] = [];
     const source = HYPERFIDE_PI_EXTENSION_SOURCE.replace(/^import .*;$/gm, "").replace(
-      "export default function bbExtension",
-      "function bbExtension",
+      "export default function hyperfideExtension",
+      "function hyperfideExtension",
     );
-    const bbFactory: ExtensionFactory = runInNewContext(
-      `${source}; bbExtension`,
+    const hyperfideFactory: ExtensionFactory = runInNewContext(
+      `${source}; hyperfideExtension`,
       {
         PiRuntime: { VERSION, SessionManager },
         Buffer,
@@ -420,7 +420,7 @@ it.each(["bb-first", "bb-last"])(
       noThemes: true,
       agentsFilesOverride: () => ({ agentsFiles: [] }),
       extensionFactories:
-        order === "bb-first" ? [bbFactory, startB] : [startB, bbFactory],
+        order === "hyperfide-first" ? [hyperfideFactory, startB] : [startB, hyperfideFactory],
     });
     let session:
       | Awaited<ReturnType<typeof createAgentSession>>["session"]
@@ -492,7 +492,7 @@ it.each(["bb-first", "bb-last"])(
         "B started inside A extension settlement",
         "agent_settled",
       ]);
-      if (order === "bb-last") {
+      if (order === "hyperfide-last") {
         expect((await a.settled)?.error).toEqual(
           new Error("Pi extension settlement identity is missing or invalid"),
         );

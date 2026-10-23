@@ -39,7 +39,7 @@ it("creates, enrolls, and removes a manual machine by host id", async () => {
       expiresAt: number;
     };
     const credential = enrollment.command.match(
-      /X-BB-Enrollment: ([^']+)/u,
+      /X-HYPERFIDE-Enrollment: ([^']+)/u,
     )?.[1];
     expect(credential).toBeTruthy();
     expect(JSON.stringify(getHost(harness.db, created.id))).not.toContain(

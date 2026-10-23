@@ -45,7 +45,7 @@ export interface ExperimentalServerArea {
 }
 
 const EXPORT_FILE_NAME_PATTERN = /filename="([^"]+)"/u;
-const EXPORT_SHA256_HEADER = "x-bb-archive-sha256";
+const EXPORT_SHA256_HEADER = "x-hyperfide-archive-sha256";
 const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/u;
 
 function exportFileName(contentDisposition: string | null): string {
@@ -53,7 +53,7 @@ function exportFileName(contentDisposition: string | null): string {
     contentDisposition === null
       ? null
       : EXPORT_FILE_NAME_PATTERN.exec(contentDisposition);
-  return match?.[1] ?? "bb-server-export";
+  return match?.[1] ?? "hyperfide-server-export";
 }
 
 export function createServerArea(

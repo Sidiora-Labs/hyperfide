@@ -54,7 +54,7 @@ function npmPersistence(packageName: string, version: string) {
   };
 }
 
-const SERVER_SOURCE = `export default function plugin(bb: any) { bb.log.info("loaded"); }`;
+const SERVER_SOURCE = `export default function plugin(hyperfide: any) { hyperfide.log.info("loaded"); }`;
 const APP_SOURCE = `export default function App() {\n  return <div className="line-clamp-2">hi</div>;\n}\n`;
 const COMPRESSIBLE_APP_SOURCE = `const payload = ${JSON.stringify(
   "compressible plugin bundle payload ".repeat(200),
@@ -75,7 +75,7 @@ async function writeAppPluginFixture(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "App bundle fixture",
         description: "Plugin app bundle fixture.",
         branding: { icon: "Zap" },
@@ -138,7 +138,7 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
       "public, max-age=31536000, immutable",
     );
     const jsText = await js.text();
-    expect(jsText).toContain("__bbPluginRuntime");
+    expect(jsText).toContain("__hyperfidePluginRuntime");
     expect(js.headers.get("content-encoding")).toBeNull();
     expect(js.headers.get("content-length")).toBe(
       String(Buffer.byteLength(jsText)),
@@ -184,7 +184,7 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
     const cssText = await css.text();
     expect(cssText).toContain("line-clamp-2");
     const scope =
-      ":where([data-bb-plugin=appy],[data-hyperfide-plugin-root]:not([data-bb-plugin]))";
+      ":where([data-hyperfide-plugin=appy],[data-hyperfide-plugin-root]:not([data-hyperfide-plugin]))";
     expect(cssText).toContain(`${scope} .line-clamp-2`);
     expect(cssText).toContain(`${scope}.line-clamp-2`);
     expect(cssText).not.toMatch(/@layer utilities\{\./);
@@ -260,9 +260,9 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
             output: z.object({ value: z.string() }),
           },
         });
-        export default function plugin(bb: any) {
+        export default function plugin(hyperfide: any) {
           void BACKEND_ONLY_SENTINEL;
-          bb.rpc.register(rpcContract, { echo: (input: any) => input });
+          hyperfide.rpc.register(rpcContract, { echo: (input: any) => input });
         }
       `,
       appSource: `
@@ -361,7 +361,7 @@ describe("plugin app bundles (build policy, inventory, asset routes)", () => {
     expect(js.status).toBe(200);
   });
 
-  it("refreshes the served bundle hash on reload-by-id after dist changes (bb plugin dev cycle)", async () => {
+  it("refreshes the served bundle hash on reload-by-id after dist changes (hyperfide plugin dev cycle)", async () => {
     const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-devy");
     await writeAppPluginFixture(rootDir, { name: "hyperfide-plugin-devy" });
     await mkdir(join(rootDir, "dist"), { recursive: true });

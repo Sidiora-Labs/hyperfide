@@ -2,9 +2,9 @@ import { PluginBrandIcon } from "@/components/ui/plugin-icon";
 import { useCallback, useEffect, useState } from "react";
 import {
   definePluginApp,
-  useBbNavigate,
+  useHyperfideNavigate,
   useSdk,
-  type PluginBrowserBbSdk,
+  type PluginBrowserHyperfideSdk,
 } from "@hyperfide/plugin-sdk/app";
 import { copyPluginSurfaceAgentReference } from "./src/agent-reference";
 import { firstPartyPluginId } from "./src/plugin-icons";
@@ -18,7 +18,7 @@ export interface PluginReference {
 }
 
 export async function loadPluginReferences(
-  sdk: Pick<PluginBrowserBbSdk, "plugins">,
+  sdk: Pick<PluginBrowserHyperfideSdk, "plugins">,
   signal: AbortSignal,
 ): Promise<ReadonlyMap<string, PluginReference>> {
   const [installed, catalog] = await Promise.all([
@@ -67,7 +67,7 @@ function usePluginReferences(): ReadonlyMap<string, PluginReference> {
 
 function PluginApiMapPage({ subPath }: { subPath: string }) {
   const plugins = usePluginReferences();
-  const bbNavigate = useBbNavigate();
+  const hyperfideNavigate = useHyperfideNavigate();
   const pluginPageHref = useCallback(
     (displayName: string) => {
       const id = firstPartyPluginId(displayName);
@@ -94,12 +94,12 @@ function PluginApiMapPage({ subPath }: { subPath: string }) {
   );
   const onSlideChange = useCallback(
     (slideId: string) => {
-      bbNavigate.toPluginPanel("plugin-api", {
+      hyperfideNavigate.toPluginPanel("plugin-api", {
         subPath: slideId,
         replace: true,
       });
     },
-    [bbNavigate],
+    [hyperfideNavigate],
   );
   return (
     <div className="@container/guide-page flex h-full min-h-0 min-w-0 flex-1">

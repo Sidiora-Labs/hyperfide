@@ -3,7 +3,7 @@ import {
   createRealtimeSocketAdapter,
   wrapStandardWebsocket,
 } from "./realtime-client.js";
-import type { BbRealtimeSocket, BbRealtimeSocketFactory } from "./transport.js";
+import type { HyperfideRealtimeSocket, HyperfideRealtimeSocketFactory } from "./transport.js";
 
 function decodeWsMessageData(data: RawData): string {
   if (typeof data === "string") {
@@ -18,7 +18,7 @@ function decodeWsMessageData(data: RawData): string {
   return Buffer.from(new Uint8Array(data)).toString("utf8");
 }
 
-export function wrapNodeWsWebsocket(url: string): BbRealtimeSocket {
+export function wrapNodeWsWebsocket(url: string): HyperfideRealtimeSocket {
   const socket = new NodeWsWebSocket(url);
   const adapter = createRealtimeSocketAdapter(socket);
   socket.on("open", () => adapter.onopen?.());
@@ -30,7 +30,7 @@ export function wrapNodeWsWebsocket(url: string): BbRealtimeSocket {
   return adapter;
 }
 
-export function createNodeWebsocketFactory(): BbRealtimeSocketFactory {
+export function createNodeWebsocketFactory(): HyperfideRealtimeSocketFactory {
   return (url) => {
     if (typeof WebSocket !== "undefined") {
       return wrapStandardWebsocket(new WebSocket(url));

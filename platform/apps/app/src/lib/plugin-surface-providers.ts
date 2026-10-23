@@ -13,13 +13,13 @@ const PLUGIN_SURFACES = [
 export type PluginSurface = (typeof PLUGIN_SURFACES)[number];
 
 const DEFAULT_SURFACE_PROVIDERS: Record<PluginSurface, string> = {
-  composer: "bb--composer",
+  composer: "hyperfide--composer",
   "thread-list": "thread-list",
   "sidebar-navigation": "navigation",
 };
 
 const surfaceProviderCache = createLastKnownCache({
-  prefix: "bb.plugin-surface-provider",
+  prefix: "hyperfide.plugin-surface-provider",
   version: "2",
   schema: z.object({ pluginId: z.string().min(1).nullable() }),
 });

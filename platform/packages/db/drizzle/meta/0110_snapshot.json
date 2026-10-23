@@ -2315,8 +2315,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "rollback_bb_version": {
-          "name": "rollback_bb_version",
+        "rollback_hyperfide_version": {
+          "name": "rollback_hyperfide_version",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

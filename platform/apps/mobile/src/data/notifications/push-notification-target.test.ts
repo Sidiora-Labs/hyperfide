@@ -26,12 +26,12 @@ describe("parsePushNotificationData", () => {
     expect(
       parsePushNotificationData({
         threadId: "thr_1",
-        serverUrl: "https://home.example.com/bb/",
+        serverUrl: "https://home.example.com/hyperfide/",
       }),
     ).toEqual({
       threadId: "thr_1",
       projectId: null,
-      serverUrl: "https://home.example.com/bb",
+      serverUrl: "https://home.example.com/hyperfide",
     });
   });
 
@@ -59,12 +59,12 @@ describe("resolvePushTargetProfile", () => {
   it("matches a server hint with a saved path prefix", async () => {
     const prefixed = {
       id: "p3",
-      serverUrl: "https://home.example.com/bb",
+      serverUrl: "https://home.example.com/hyperfide",
     };
     const hasThread = vi.fn(async () => false);
     expect(
       await resolvePushTargetProfile(
-        { ...target, serverUrl: "https://home.example.com/bb" },
+        { ...target, serverUrl: "https://home.example.com/hyperfide" },
         { profiles: [sawyer, prefixed], activeProfileId: "p1", hasThread },
       ),
     ).toBe(prefixed);

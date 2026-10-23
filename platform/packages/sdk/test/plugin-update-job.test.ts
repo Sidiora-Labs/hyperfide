@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createBbSdk } from "../src/core.js";
+import { createHyperfideSdk } from "../src/core.js";
 import { createHttpTransport } from "../src/transport-http.js";
 
 const base = { id: "update-1", pluginId: "notes", displayName: "Notes" };
@@ -12,9 +12,9 @@ const result = {
 
 function server(final: object) {
   const requests: Request[] = [];
-  const sdk = createBbSdk({
+  const sdk = createHyperfideSdk({
     transport: createHttpTransport({
-      baseUrl: "http://bb.test",
+      baseUrl: "http://hyperfide.test",
       runtime: "node",
       fetch: async (input, init) => {
         const request = new Request(input, init);
@@ -86,9 +86,9 @@ describe("background plugin updates", () => {
   });
 
   it("retains compatibility with servers returning the completed result", async () => {
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         runtime: "node",
         fetch: async () => new Response(JSON.stringify(result)),
       }),

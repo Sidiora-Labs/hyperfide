@@ -24,7 +24,7 @@ describe("plugin catalog routes", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    dataDir = await mkdtemp(join(tmpdir(), "bb-catalog-routes-"));
+    dataDir = await mkdtemp(join(tmpdir(), "hyperfide-catalog-routes-"));
   });
 
   afterEach(async () => {
@@ -122,7 +122,7 @@ describe("plugin catalog routes", () => {
           "content-type": "application/json",
           prefer: "respond-async",
         },
-        body: JSON.stringify({ entryId, marketplace: "bb-community" }),
+        body: JSON.stringify({ entryId, marketplace: "hyperfide-community" }),
       });
       expect(install.status).toBe(202);
       await expect(install.json()).resolves.toMatchObject({
@@ -130,7 +130,7 @@ describe("plugin catalog routes", () => {
           target: {
             kind: "catalog",
             entryId: "thread-hover-cards",
-            marketplace: "bb-community",
+            marketplace: "hyperfide-community",
           },
         },
       });
@@ -143,8 +143,8 @@ describe("plugin catalog routes", () => {
         ? new Response(
             JSON.stringify({
               schemaVersion: 1,
-              name: "bb-community",
-              displayName: "BB Community",
+              name: "hyperfide-community",
+              displayName: "HYPERFIDE Community",
               plugins: [
                 {
                   id: "widgets",
@@ -166,11 +166,11 @@ describe("plugin catalog routes", () => {
         : new Response(VALID_SVG, { status: 200 }),
     );
     await refreshCuratedMarketplace(catalog, 1_000);
-    const hash = (await catalog.icon("bb-community", "widgets"))?.hash;
+    const hash = (await catalog.icon("hyperfide-community", "widgets"))?.hash;
     expect(hash).toBeDefined();
 
     const hashed = await app.request(
-      `/plugin-catalog/icons/bb-community/widgets?h=${hash}`,
+      `/plugin-catalog/icons/hyperfide-community/widgets?h=${hash}`,
     );
     expect(hashed.status).toBe(200);
     expect(hashed.headers.get("content-type")).toBe("image/svg+xml");
@@ -178,12 +178,12 @@ describe("plugin catalog routes", () => {
     expect(await hashed.text()).toBe(VALID_SVG.toString());
 
     const stale = await app.request(
-      "/plugin-catalog/icons/bb-community/widgets?h=stale",
+      "/plugin-catalog/icons/hyperfide-community/widgets?h=stale",
     );
     expect(stale.headers.get("cache-control")).toBe("no-store");
 
     const missing = await app.request(
-      "/plugin-catalog/icons/bb-community/nothing",
+      "/plugin-catalog/icons/hyperfide-community/nothing",
     );
     expect(missing.status).toBe(404);
   });
@@ -246,7 +246,7 @@ describe("plugin catalog routes", () => {
 
       const listed = await app.request("/marketplaces");
       await expect(listed.json()).resolves.toMatchObject({
-        marketplaces: [{ name: "bb-community" }, { name: "acme-plugins" }],
+        marketplaces: [{ name: "hyperfide-community" }, { name: "acme-plugins" }],
       });
 
       const refreshed = await postJson(app, "/marketplaces/refresh", {
@@ -280,7 +280,7 @@ describe("plugin catalog routes", () => {
 
       const misplacedSubdirectory = await postJson(app, "/marketplaces", {
         source: ACME_URL,
-        subdirectory: "bb",
+        subdirectory: "hyperfide",
       });
       expect(misplacedSubdirectory.status).toBe(422);
       await expect(misplacedSubdirectory.json()).resolves.toMatchObject({
@@ -310,7 +310,7 @@ describe("plugin catalog routes", () => {
       );
       expect(longPlan.status).toBe(422);
 
-      const reserved = await app.request("/marketplaces/bb-community", {
+      const reserved = await app.request("/marketplaces/hyperfide-community", {
         method: "DELETE",
       });
       expect(reserved.status).toBe(422);

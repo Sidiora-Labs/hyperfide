@@ -6,7 +6,7 @@ import { ModelLoadErrorMessage } from "../pickers/model-load-error-message";
 export default { title: "Readability/Expandable text" };
 
 const description =
-  "Let BB control the in-app browser and browsers on connected machines, with inline previews for headless sessions. Navigate pages, inspect elements, fill forms, and verify changes with screenshots. Sessions remain available between agent turns so you can follow progress and resume work without losing your place. Use the browser preview to check the result before continuing with the next step.";
+  "Let HYPERFIDE control the in-app browser and browsers on connected machines, with inline previews for headless sessions. Navigate pages, inspect elements, fill forms, and verify changes with screenshots. Sessions remain available between agent turns so you can follow progress and resume work without losing your place. Use the browser preview to check the result before continuing with the next step.";
 const error =
   "The package registry could not be reached. Check your network connection and proxy settings, then try again. The request timed out while downloading the provider package from the registry. If your network requires a proxy, configure it for the host running this agent. Your existing projects and conversations have not been changed.";
 

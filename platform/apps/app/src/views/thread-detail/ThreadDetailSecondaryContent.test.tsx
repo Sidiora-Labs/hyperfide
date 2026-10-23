@@ -42,10 +42,10 @@ const secondaryPanelMockState = vi.hoisted(() => ({
     | undefined,
 }));
 
-vi.mock("@/lib/bb-desktop", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/bb-desktop")>()),
+vi.mock("@/lib/hyperfide-desktop", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/hyperfide-desktop")>()),
   DEFAULT_DESKTOP_WINDOW_STATE: { isFullScreen: false },
-  getBbDesktopInfo: () => null,
+  getHyperfideDesktopInfo: () => null,
   shouldReserveMacosTrafficLights: () => false,
   shouldUseMacosDesktopChrome: () => false,
 }));

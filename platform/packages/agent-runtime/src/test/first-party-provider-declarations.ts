@@ -21,7 +21,7 @@ async function declaredIconNames(pluginId: string): Promise<string[]> {
       ),
     ),
   );
-  return Object.keys(manifest.bb.branding.experimental_icons ?? {});
+  return Object.keys(manifest.hyperfide.branding.experimental_icons ?? {});
 }
 
 export interface CaptureFirstPartyProviderDeclarationsOptions {
@@ -48,7 +48,7 @@ export async function captureFirstPartyProviderDeclarations(
     ...(options.settings === undefined ? {} : { settings: options.settings }),
   });
   try {
-    await entry(host.bb);
+    await entry(host.hyperfide);
     const captured = [...host.harness.registrations.providerRegistrations];
     if (captured.length === 0) {
       throw new Error(`${pluginId} registered no provider declaration`);

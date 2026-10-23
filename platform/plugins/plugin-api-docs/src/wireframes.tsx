@@ -499,7 +499,7 @@ function SidebarRail() {
   return (
     <RegionMark
       id="sidebar-navigation"
-      label="The sidebar navigation, drawn by bb or one plugin"
+      label="The sidebar navigation, drawn by hyperfide or one plugin"
       className="flex shrink-0"
       showChip={false}
     >
@@ -656,14 +656,14 @@ function RightPanelTabLaneBadges({ mobile }: { mobile: boolean }) {
     <>
       <MeasuredBadge
         id="thread-info"
-        label="Plugin rows and sections in bb's Info tab"
+        label="Plugin rows and sections in hyperfide's Info tab"
         anchor='[data-guide-region="thread-info"]'
         clipTo={clipTo}
         at="lane"
       />
       <MeasuredBadge
         id="code-renderers"
-        label="Plugin code and diff renderers on bb's Diff tab"
+        label="Plugin code and diff renderers on hyperfide's Diff tab"
         anchor='[data-guide-region="code-renderers"]'
         clipTo={clipTo}
         at="lane"
@@ -933,7 +933,7 @@ export function CommandPaletteWireframe({
                 {mobile ? null : (
                   <MeasuredBadge
                     id="command-palette-actions"
-                    label="Plugin actions in bb's quick command palette"
+                    label="Plugin actions in hyperfide's quick command palette"
                     anchor='[data-guide-region="command-palette-actions"]'
                     at="start"
                     flush
@@ -947,7 +947,7 @@ export function CommandPaletteWireframe({
       {mobile && paletteOpen ? (
         <MeasuredBadge
           id="command-palette-actions"
-          label="Plugin actions in bb's quick command palette"
+          label="Plugin actions in hyperfide's quick command palette"
           anchor='[data-guide-region="command-palette-actions"]'
           at="start"
         />
@@ -995,7 +995,7 @@ export function AppShellWireframe({
         <>
           <MeasuredBadge
             id="sidebar-navigation"
-            label="The sidebar navigation, drawn by bb or one plugin"
+            label="The sidebar navigation, drawn by hyperfide or one plugin"
             anchor='[data-guide-region="sidebar-navigation"]'
             at="start"
             align="start"
@@ -1397,7 +1397,7 @@ function ThreadInfoFixture() {
         ))}
         <Mark
           id="thread-info"
-          label="Plugin rows and sections in bb's Info tab"
+          label="Plugin rows and sections in hyperfide's Info tab"
           className="block rounded-md"
           showChip={false}
         >
@@ -1411,7 +1411,7 @@ function ThreadInfoFixture() {
       </div>
       <Mark
         id="thread-info"
-        label="Plugin rows and sections in bb's Info tab"
+        label="Plugin rows and sections in hyperfide's Info tab"
         className="mt-3 block rounded-md border-t border-border-hairline pt-3"
         showChip={false}
       >
@@ -1500,7 +1500,7 @@ export function AppShellRightPanel({
         >
           <Mark
             id="thread-info"
-            label="Plugin rows and sections in bb's Info tab"
+            label="Plugin rows and sections in hyperfide's Info tab"
             className={cn(tabClass("thread-info"), "px-1.5")}
             showChip={false}
             onActivate={() => onTabSelect("thread-info")}
@@ -1511,7 +1511,7 @@ export function AppShellRightPanel({
           </Mark>
           <Mark
             id="code-renderers"
-            label="Plugin code and diff renderers on bb's Diff tab"
+            label="Plugin code and diff renderers on hyperfide's Diff tab"
             className={cn(
               tabClass("code-renderers"),
               "gap-1.5 whitespace-nowrap pl-1.5 pr-2",
@@ -2192,7 +2192,7 @@ export function SettingsWireframe({ mobile = false }: { mobile?: boolean }) {
           <span className="block text-subtle-foreground">Configuration</span>
           <Mark
             id="declarative-settings"
-            label="The form bb generates from the fields you declare"
+            label="The form hyperfide generates from the fields you declare"
             className="block bg-surface-recessed-solid p-3"
           >
             <span
@@ -2335,7 +2335,7 @@ export function ExtensionsPluginPageWireframe({
       >
         <Mark
           id="plugin-status"
-          label="The needs-configuration banner bb shows for a plugin that reports it"
+          label="The needs-configuration banner hyperfide shows for a plugin that reports it"
           className="flex items-center gap-2 border-b border-border bg-surface-recessed/55 px-5 py-1.5 text-xs"
           chip="corner-inset"
         >
@@ -2354,7 +2354,7 @@ export function ExtensionsPluginPageWireframe({
             <PluginGlyph className="size-4" />
             <span className="text-sm font-semibold text-foreground">Hello</span>
             <span className="rounded border border-border px-1.5 py-0.5 text-xs">
-              BB Official
+              HYPERFIDE Official
             </span>
             <span className="flex-1" />
             <MiniIcon icon="Settings" className="size-3.5" />
@@ -2367,7 +2367,7 @@ export function ExtensionsPluginPageWireframe({
             <MiniIcon icon="MoreHorizontal" className="size-3.5" />
           </div>
           <span className="block font-mono text-xs text-subtle-foreground">
-            ~/.bb/plugins/hello
+            ~/.hyperfide/plugins/hello
           </span>
 
           <div className="space-y-1.5 border-t border-border-hairline pt-3">
@@ -2380,7 +2380,7 @@ export function ExtensionsPluginPageWireframe({
             <span className="block text-subtle-foreground">Details</span>
             <span className="block divide-y divide-border-hairline rounded-md border border-border-hairline">
               {[
-                ["Delivery", "Updates with bb"],
+                ["Delivery", "Updates with hyperfide"],
                 ["Version", "0.1.0"],
               ].map(([label, value]) => (
                 <span
@@ -2402,7 +2402,7 @@ export function ExtensionsPluginPageWireframe({
             >
               {[
                 ["Settings", "API key, Case-sensitive search"],
-                ["bb hello", "Say hello from the terminal"],
+                ["hyperfide hello", "Say hello from the terminal"],
               ].map(([name, what]) => (
                 <span
                   key={name}

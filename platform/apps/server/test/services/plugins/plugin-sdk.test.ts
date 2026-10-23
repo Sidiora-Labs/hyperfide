@@ -19,7 +19,7 @@ import {
   type PluginServiceDeps,
   type PluginService,
 } from "../../../src/services/plugins/plugin-service.js";
-import type { BbPluginApi } from "../../../src/services/plugins/plugin-api.js";
+import type { HyperfidePluginApi } from "../../../src/services/plugins/plugin-api.js";
 import {
   seedHostSession,
   seedEnvironment,
@@ -50,7 +50,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "SDK fixture",
         description: "Plugin SDK fixture.",
         branding: { icon: "Zap" },
@@ -66,7 +66,7 @@ async function writePlugin(
   return rootDir;
 }
 
-function requireApi(service: PluginService, pluginId: string): BbPluginApi {
+function requireApi(service: PluginService, pluginId: string): HyperfidePluginApi {
   const api = service.getApi(pluginId);
   if (!api) throw new Error(`plugin ${pluginId} is not running`);
   return api;
@@ -105,7 +105,7 @@ function agentConfigurationContext(
   };
 }
 
-describe("plugin bb.sdk bind gate", () => {
+describe("plugin hyperfide.sdk bind gate", () => {
   let db: DbConnection;
   let workDir: string;
   let service: PluginService;
@@ -198,7 +198,7 @@ describe("plugin bb.sdk bind gate", () => {
     ensureSharedPortTunnel.mockClear();
     callPluginHost.mockClear();
     disposePluginHost.mockClear();
-    appUrl = "https://bb.example.test";
+    appUrl = "https://hyperfide.example.test";
     pluginHostArtifacts = new PluginHostArtifactRegistry();
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
@@ -239,7 +239,7 @@ describe("plugin bb.sdk bind gate", () => {
     const api = requireApi(service, "gate");
 
     expect(() => api.sdk).toThrow(
-      /bb\.sdk is not available until the server is listening/,
+      /hyperfide\.sdk is not available until the server is listening/,
     );
 
     service.bindSdk({ baseUrl: "http://127.0.0.1:9" });
@@ -302,7 +302,7 @@ describe("plugin bb.sdk bind gate", () => {
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
-    service.bindSdk({ baseUrl: "https://bb.example.test" });
+    service.bindSdk({ baseUrl: "https://hyperfide.example.test" });
     const api = requireApi(service, "metadata-attribution");
     const requests: unknown[] = [];
     vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
@@ -363,7 +363,7 @@ describe("plugin bb.sdk bind gate", () => {
     await service.installPath(rootDir);
     const api = requireApi(service, "app-url");
 
-    expect(api.server.experimental_appUrl).toBe("https://bb.example.test");
+    expect(api.server.experimental_appUrl).toBe("https://hyperfide.example.test");
     appUrl = null;
     expect(api.server.experimental_appUrl).toBeNull();
   });
@@ -535,8 +535,8 @@ describe("plugin bb.sdk bind gate", () => {
         import { defineRpcContract } from "@hyperfide/plugin-sdk";
         const schema = { "~standard": { validate(value: unknown) { return { value }; } } };
         const contract = defineRpcContract({ ping: { input: schema, output: schema } });
-        export default async function plugin(bb: any) {
-          await bb.hosts.experimental_client({ contract }).call(
+        export default async function plugin(hyperfide: any) {
+          await hyperfide.hosts.experimental_client({ contract }).call(
             "ping",
             {},
             { hostId: "host-1" },
@@ -565,8 +565,8 @@ describe("plugin bb.sdk bind gate", () => {
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-atomic-shares",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.hosts.declareSharedPorts("host-1", [3000]);
+        export default function plugin(hyperfide: any) {
+          hyperfide.hosts.declareSharedPorts("host-1", [3000]);
         }
       `,
     });
@@ -581,8 +581,8 @@ describe("plugin bb.sdk bind gate", () => {
     await writeFile(
       join(rootDir, "server.ts"),
       `
-        export default function plugin(bb: any) {
-          bb.hosts.declareSharedPorts("host-1", [4000]);
+        export default function plugin(hyperfide: any) {
+          hyperfide.hosts.declareSharedPorts("host-1", [4000]);
           throw new Error("candidate failed");
         }
       `,
@@ -594,7 +594,7 @@ describe("plugin bb.sdk bind gate", () => {
   });
 });
 
-describe("plugin bb.sdk against a running server", () => {
+describe("plugin hyperfide.sdk against a running server", () => {
   it("returns the server-side Standard Schema output after the host JSON wire", async () => {
     const server = await startTestServer();
     const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-host-transform-"));
@@ -775,7 +775,7 @@ describe("plugin bb.sdk against a running server", () => {
           remove: ["x"],
         }),
       ).rejects.toMatchObject({
-        name: "BbHttpError",
+        name: "HyperfideHttpError",
         status: 400,
         code: "invalid_request",
         message: expect.stringContaining("set and remove overlap"),
@@ -822,11 +822,11 @@ describe("plugin bb.sdk against a running server", () => {
       join(tmpdir(), "hyperfide-plugin-metadata-configure-"),
     );
     const observationGlobal = globalThis as typeof globalThis & {
-      __bbMetadataSeen?: Record<string, unknown>[];
+      __hyperfideMetadataSeen?: Record<string, unknown>[];
     };
     const takeObservations = () => {
-      const observations = observationGlobal.__bbMetadataSeen ?? [];
-      delete observationGlobal.__bbMetadataSeen;
+      const observations = observationGlobal.__hyperfideMetadataSeen ?? [];
+      delete observationGlobal.__hyperfideMetadataSeen;
       return observations;
     };
     try {
@@ -853,10 +853,10 @@ describe("plugin bb.sdk against a running server", () => {
             function deepFrozen(value) {
               return value === null || typeof value !== "object" || (Object.isFrozen(value) && Object.values(value).every(deepFrozen));
             }
-            export default function plugin(bb) {
-              bb.agents.configure((context) => {
-                globalThis.__bbMetadataSeen = globalThis.__bbMetadataSeen || [];
-                globalThis.__bbMetadataSeen.push({ plugin: "${name}", metadata: context.pluginMetadata, deepFrozen: deepFrozen(context.pluginMetadata) });
+            export default function plugin(hyperfide) {
+              hyperfide.agents.configure((context) => {
+                globalThis.__hyperfideMetadataSeen = globalThis.__hyperfideMetadataSeen || [];
+                globalThis.__hyperfideMetadataSeen.push({ plugin: "${name}", metadata: context.pluginMetadata, deepFrozen: deepFrozen(context.pluginMetadata) });
                 return { tools: [], skills: [] };
               });
             }
@@ -911,7 +911,7 @@ describe("plugin bb.sdk against a running server", () => {
           set: { alpha: { own: false }, updated: true },
         }),
       ).resolves.toEqual({ alpha: { own: false }, updated: true });
-      expect(observationGlobal.__bbMetadataSeen).toBeUndefined();
+      expect(observationGlobal.__hyperfideMetadataSeen).toBeUndefined();
       expect(getThread(server.db, thread.id)?.status).toBe("active");
       expect(activeTurnSnapshot).toEqual(alphaMetadata);
 
@@ -973,7 +973,7 @@ describe("plugin bb.sdk against a running server", () => {
         }),
       ).resolves.toEqual({ repaired: true });
     } finally {
-      delete observationGlobal.__bbMetadataSeen;
+      delete observationGlobal.__hyperfideMetadataSeen;
       await server.pluginService.stop();
       await rm(workDir, { recursive: true, force: true });
       await server.close();
@@ -986,8 +986,8 @@ describe("plugin bb.sdk against a running server", () => {
       join(tmpdir(), "hyperfide-plugin-metadata-late-configure-"),
     );
     const lateGlobal = globalThis as typeof globalThis & {
-      __bbLateConfigureSeen?: unknown[];
-      __bbRegisterLateConfigure?: () => void;
+      __hyperfideLateConfigureSeen?: unknown[];
+      __hyperfideRegisterLateConfigure?: () => void;
     };
     try {
       const { host } = seedHostSession(server.deps);
@@ -1008,9 +1008,9 @@ describe("plugin bb.sdk against a running server", () => {
         await writePlugin(workDir, {
           name: "hyperfide-plugin-aaa-trigger",
           serverSource: `
-            export default function plugin(bb) {
-              bb.agents.configure(() => {
-                Promise.resolve().then(() => globalThis.__bbRegisterLateConfigure?.());
+            export default function plugin(hyperfide) {
+              hyperfide.agents.configure(() => {
+                Promise.resolve().then(() => globalThis.__hyperfideRegisterLateConfigure?.());
                 return { tools: [], skills: [] };
               });
             }
@@ -1021,12 +1021,12 @@ describe("plugin bb.sdk against a running server", () => {
         await writePlugin(workDir, {
           name: "hyperfide-plugin-bbb-late",
           serverSource: `
-            export default function plugin(bb) {
-              globalThis.__bbRegisterLateConfigure = () => {
-                delete globalThis.__bbRegisterLateConfigure;
-                bb.agents.configure((context) => {
-                  globalThis.__bbLateConfigureSeen = globalThis.__bbLateConfigureSeen || [];
-                  globalThis.__bbLateConfigureSeen.push(context.pluginMetadata);
+            export default function plugin(hyperfide) {
+              globalThis.__hyperfideRegisterLateConfigure = () => {
+                delete globalThis.__hyperfideRegisterLateConfigure;
+                hyperfide.agents.configure((context) => {
+                  globalThis.__hyperfideLateConfigureSeen = globalThis.__hyperfideLateConfigureSeen || [];
+                  globalThis.__hyperfideLateConfigureSeen.push(context.pluginMetadata);
                   return { tools: [], skills: [] };
                 });
               };
@@ -1045,17 +1045,17 @@ describe("plugin bb.sdk against a running server", () => {
         context,
         skillIdsByPlugin: new Map(),
       });
-      expect(lateGlobal.__bbRegisterLateConfigure).toBeUndefined();
-      expect(lateGlobal.__bbLateConfigureSeen).toBeUndefined();
+      expect(lateGlobal.__hyperfideRegisterLateConfigure).toBeUndefined();
+      expect(lateGlobal.__hyperfideLateConfigureSeen).toBeUndefined();
 
       await server.pluginService.resolveAgentConfiguration({
         context,
         skillIdsByPlugin: new Map(),
       });
-      expect(lateGlobal.__bbLateConfigureSeen).toEqual([{ own: true }]);
+      expect(lateGlobal.__hyperfideLateConfigureSeen).toEqual([{ own: true }]);
     } finally {
-      delete lateGlobal.__bbLateConfigureSeen;
-      delete lateGlobal.__bbRegisterLateConfigure;
+      delete lateGlobal.__hyperfideLateConfigureSeen;
+      delete lateGlobal.__hyperfideRegisterLateConfigure;
       await server.pluginService.stop();
       await rm(workDir, { recursive: true, force: true });
       await server.close();

@@ -6,7 +6,7 @@ import {
   type TaskStatus,
 } from "../../shared/contract.js";
 
-export const NEW_TASK_DRAFT_STORAGE_KEY = "bb-tasks:new-task-draft";
+export const NEW_TASK_DRAFT_STORAGE_KEY = "hyperfide-tasks:new-task-draft";
 const NEW_TASK_DRAFT_VERSION = 1;
 
 export interface NewTaskDraft {

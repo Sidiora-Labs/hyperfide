@@ -33,10 +33,10 @@ const MOVE: DesktopServerMove = {
 const FAKE_INSTALLER = `#!/bin/sh
 printf 'args %s\\n' "$*"
 if [ "\${FAKE_INSTALLER_FAIL:-}" = 1 ]; then
-  printf '  %s  %s\\n' '✗' 'Node.js 20.18.1 is too old; bb-app requires Node.js 22.19 or newer.' >&2
+  printf '  %s  %s\\n' '✗' 'Node.js 20.18.1 is too old; hyperfide-app requires Node.js 22.19 or newer.' >&2
   exit 1
 fi
-printf '  %s  %s\\n' '●' 'bb machine is ready'
+printf '  %s  %s\\n' '●' 'hyperfide machine is ready'
 `;
 
 afterEach(async () => {
@@ -46,7 +46,7 @@ afterEach(async () => {
 });
 
 async function createTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "bb-desktop-machine-service-"));
+  const dir = await mkdtemp(join(tmpdir(), "hyperfide-desktop-machine-service-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -105,7 +105,7 @@ posixDescribe("runMachineInstaller", () => {
     ).resolves.toEqual({ ok: true });
 
     expect(await readFile(logPath, "utf8")).toBe(
-      `args --adopt --data-dir ${join(dir, "data")}\n  ●  bb machine is ready\n`,
+      `args --adopt --data-dir ${join(dir, "data")}\n  ●  hyperfide machine is ready\n`,
     );
   });
 
@@ -124,7 +124,7 @@ posixDescribe("runMachineInstaller", () => {
     ).resolves.toEqual({
       ok: false,
       reason:
-        "Node.js 20.18.1 is too old; bb-app requires Node.js 22.19 or newer.",
+        "Node.js 20.18.1 is too old; hyperfide-app requires Node.js 22.19 or newer.",
     });
   });
 
@@ -156,7 +156,7 @@ describe("keepMovedMachineConnected", () => {
     const harness = createHarness({
       dir,
       install: async () => ({ ok: true }),
-      service: "/Users/me/Library/LaunchAgents/app.getbb.host-daemon.me.plist",
+      service: "/Users/me/Library/LaunchAgents/app.hyperfide.host-daemon.me.plist",
     });
 
     await expect(harness.keep()).resolves.toBe("existing-service");
@@ -193,9 +193,9 @@ describe("keepMovedMachineConnected", () => {
     expect(harness.events).toEqual(["stop", "install", "stop", "install"]);
     expect(harness.notices).toEqual([
       {
-        detail: `bb couldn't install the background service that keeps this computer connected and up to date: Node.js 20.18.1 is too old. bb tries again the next time it opens. The installer log is ${join(dir, "install-machine-service.log")}.`,
+        detail: `hyperfide couldn't install the background service that keeps this computer connected and up to date: Node.js 20.18.1 is too old. hyperfide tries again the next time it opens. The installer log is ${join(dir, "install-machine-service.log")}.`,
         message:
-          "This computer stays connected to Studio desktop only while bb is open",
+          "This computer stays connected to Studio desktop only while hyperfide is open",
       },
     ]);
   });

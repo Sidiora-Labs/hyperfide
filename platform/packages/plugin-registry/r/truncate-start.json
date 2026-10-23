@@ -3,7 +3,7 @@
   "name": "truncate-start",
   "type": "registry:ui",
   "title": "truncate-start",
-  "description": "BB ui \"truncate-start\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"truncate-start\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/utils"
   ],

@@ -111,7 +111,7 @@ const MENTIONS: PromptTextMention[] = [
       kind: "plugin",
       pluginId: "github",
       icon: null,
-      itemId: "pr:get-bb/bb#1",
+      itemId: "pr:hyperfide/hyperfide#1",
       label: "PR #1",
     },
   },
@@ -180,7 +180,7 @@ describe("composer handle", () => {
     expect(mentions[3]).toMatchObject({
       pluginId: "github",
       provider: "pr",
-      id: "get-bb/bb#1",
+      id: "hyperfide/hyperfide#1",
     });
 
     const destination = makeTarget(emptyDraft);

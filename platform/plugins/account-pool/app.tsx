@@ -26,7 +26,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   definePluginApp,
   experimental_copyToClipboard,
-  useBbNavigate,
+  useHyperfideNavigate,
   useRealtime,
   useRpc,
 } from "@hyperfide/plugin-sdk/app";
@@ -859,7 +859,7 @@ function ConfigFieldRow({
 
 function AccountPoolSettings() {
   const rpc = useRpc<typeof accountPoolRpcContract>();
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const [status, setStatus] = useState<PoolStatus | null>(readCachedStatus);
   const [statusIsCached, setStatusIsCached] = useState(status !== null);
   const [config, setConfig] = useState<AccountPoolConfig | null>(null);

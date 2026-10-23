@@ -1,6 +1,6 @@
 import { errorMessage } from "./error-message.js";
 import { createHash } from "node:crypto";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import type {
   ModalSandboxClient,
@@ -23,25 +23,25 @@ const allocationSchema = z.object({
 export type ModalAllocation = z.infer<typeof allocationSchema>;
 
 export function modalAllocations(
-  bb: Pick<BbPluginApi, "storage" | "log">,
+  hyperfide: Pick<HyperfidePluginApi, "storage" | "log">,
   now: () => number,
 ) {
   const allocating = new Set<string>();
   const keyForId = (id: string) => `${prefix}sandbox/${id}`;
   async function remember(allocation: ModalAllocation & { sandboxId: string }) {
     const key = keyForId(allocation.sandboxId);
-    await bb.storage.kv.set(key, allocation);
+    await hyperfide.storage.kv.set(key, allocation);
     return key;
   }
   async function remove(key: string) {
-    await bb.storage.kv.delete(key);
-    await bb.storage.kv.delete(retryKey(key));
+    await hyperfide.storage.kv.delete(key);
+    await hyperfide.storage.kv.delete(retryKey(key));
   }
   async function forget(sandboxId: string) {
     await remove(keyForId(sandboxId));
   }
   async function readRetry(key: string) {
-    const value = await bb.storage.kv.get<unknown>(retryKey(key));
+    const value = await hyperfide.storage.kv.get<unknown>(retryKey(key));
     return value === undefined
       ? { failures: 0, nextAttemptAt: 0 }
       : retrySchema.parse(value);
@@ -49,9 +49,9 @@ export function modalAllocations(
   return {
     remember,
     forget,
-    keys: () => bb.storage.kv.list(prefix),
+    keys: () => hyperfide.storage.kv.list(prefix),
     read: async (key: string) => {
-      const value = await bb.storage.kv.get<unknown>(key);
+      const value = await hyperfide.storage.kv.get<unknown>(key);
       return value === undefined ? null : allocationSchema.parse(value);
     },
     remove,
@@ -60,7 +60,7 @@ export function modalAllocations(
     },
     async failed(key: string, at: number) {
       const retry = await readRetry(key);
-      await bb.storage.kv.set(retryKey(key), {
+      await hyperfide.storage.kv.set(retryKey(key), {
         failures: Math.min(retry.failures + 1, 7),
         nextAttemptAt:
           at + Math.min(3_600_000, 60_000 * 2 ** Math.min(retry.failures, 6)),
@@ -68,7 +68,7 @@ export function modalAllocations(
     },
     async succeeded(key: string) {
       if ((await readRetry(key)).failures > 0)
-        await bb.storage.kv.delete(retryKey(key));
+        await hyperfide.storage.kv.delete(retryKey(key));
     },
     isAllocating: (key: string) => allocating.has(key),
     wrap(client: ModalSandboxClient): ModalSandboxClient {
@@ -81,7 +81,7 @@ export function modalAllocations(
               if ((await client.fromId(sandbox.sandboxId)) === null)
                 await forget(sandbox.sandboxId);
             } catch (error) {
-              bb.log.warn(
+              hyperfide.log.warn(
                 `Modal stopped ${sandbox.sandboxId}; allocation tracking will retry: ${errorMessage(error)}`,
               );
             }
@@ -91,7 +91,7 @@ export function modalAllocations(
       return {
         ...client,
         async create(request) {
-          if (!request.tags.bbMachineKey || request.tags.bbDebug === "true")
+          if (!request.tags.hyperfideMachineKey || request.tags.hyperfideDebug === "true")
             return client.create(request);
           const accountIdentity = await client.accountIdentity();
           const key = `${prefix}pending/${createHash("sha256")
@@ -108,7 +108,7 @@ export function modalAllocations(
           };
           allocating.add(key);
           try {
-            await bb.storage.kv.set(key, allocation);
+            await hyperfide.storage.kv.set(key, allocation);
             const sandbox = await client.create(request);
             await remember({ ...allocation, sandboxId: sandbox.sandboxId });
             await remove(key);

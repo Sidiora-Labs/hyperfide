@@ -10,7 +10,7 @@ interface QuestionDraft {
   currentIndex: number;
 }
 
-const CHANGE_EVENT = "bb.question-draft.changed";
+const CHANGE_EVENT = "hyperfide.question-draft.changed";
 const drafts = new Map<
   string,
   { raw: string | null; signature: string; draft: QuestionDraft }
@@ -70,7 +70,7 @@ export function useQuestionFormDraft(
   draftKey: string | undefined,
   questions: readonly Question[],
 ) {
-  const storageKey = draftKey ? `bb.question-draft.v1:${draftKey}` : null;
+  const storageKey = draftKey ? `hyperfide.question-draft.v1:${draftKey}` : null;
   const signature = JSON.stringify(questions);
   const initialDraft = useMemo(
     () => ({ formState: createInitialFormState(questions), currentIndex: 0 }),

@@ -78,7 +78,7 @@ describe("workflow parser", () => {
   });
 
   it("rejects hidden controls and oversized UTF-8 source", () => {
-    expect(() => parseWorkflowSource(`${META}\nreturn "a\u200Bb";`)).toThrow(
+    expect(() => parseWorkflowSource(`${META}\nreturn "a\u200b\u0062";`)).toThrow(
       "hidden control character U+200B",
     );
     expect(() =>

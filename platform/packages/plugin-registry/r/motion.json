@@ -3,7 +3,7 @@
   "name": "motion",
   "type": "registry:ui",
   "title": "motion",
-  "description": "BB ui \"motion\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"motion\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/motion.ts",

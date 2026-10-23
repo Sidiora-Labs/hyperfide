@@ -1,10 +1,10 @@
-import type { BbPluginApi, ComposerMention } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi, ComposerMention } from "@hyperfide/plugin-sdk";
 
 import { z } from "zod";
 import { attachmentSchema, promptSchema } from "./contract.js";
 
 export type HistoryEntry = Awaited<
-  ReturnType<BbPluginApi["sdk"]["experimental_promptHistory"]["list"]>
+  ReturnType<HyperfidePluginApi["sdk"]["experimental_promptHistory"]["list"]>
 >["entries"][number];
 type HistoryInput = HistoryEntry["input"][number];
 type HistoryMention = Extract<

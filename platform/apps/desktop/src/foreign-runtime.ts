@@ -1,8 +1,8 @@
 import {
-  bbAppRuntimeVerifyTokens,
-  clearOwnBbAppRuntimeFile,
-  readBbAppRuntimeFile,
-  type BbAppRuntimeFile,
+  hyperfideAppRuntimeVerifyTokens,
+  clearOwnHyperfideAppRuntimeFile,
+  readHyperfideAppRuntimeFile,
+  type HyperfideAppRuntimeFile,
 } from "@hyperfide/config/app-runtime-file";
 import { stopVerifiedProcess } from "@hyperfide/config/verified-process-stop";
 import type { VerifiedProcessOps } from "@hyperfide/config/verified-process-stop";
@@ -36,7 +36,7 @@ type StopForeignRuntimeResult =
   | { kind: "unverified"; pid: number };
 
 function matchesProbedServer(
-  runtimeFile: BbAppRuntimeFile,
+  runtimeFile: HyperfideAppRuntimeFile,
   serverUrl: string,
 ): boolean {
   try {
@@ -53,7 +53,7 @@ export async function readForeignRuntimeDetails(
     return null;
   }
 
-  const runtimeFile = await readBbAppRuntimeFile(args.dataDir);
+  const runtimeFile = await readHyperfideAppRuntimeFile(args.dataDir);
   if (runtimeFile === null) {
     return null;
   }
@@ -74,7 +74,7 @@ export async function readForeignRuntimeDetails(
 export async function stopForeignRuntime(
   args: StopForeignRuntimeArgs,
 ): Promise<StopForeignRuntimeResult> {
-  const current = await readBbAppRuntimeFile(args.details.dataDir);
+  const current = await readHyperfideAppRuntimeFile(args.details.dataDir);
   if (
     current !== null &&
     (current.pid !== args.details.pid ||
@@ -90,7 +90,7 @@ export async function stopForeignRuntime(
     signal: "SIGTERM",
     startedAt: args.details.startedAt,
     timeoutMs: args.timeoutMs,
-    verifyTokens: bbAppRuntimeVerifyTokens(args.details.entryPath),
+    verifyTokens: hyperfideAppRuntimeVerifyTokens(args.details.entryPath),
   });
 
   if (stopResult.kind === "unverified") {
@@ -102,7 +102,7 @@ export async function stopForeignRuntime(
   if (stopResult.kind === "not-running") {
     return { kind: "not-running" };
   }
-  await clearOwnBbAppRuntimeFile({
+  await clearOwnHyperfideAppRuntimeFile({
     dataDir: args.details.dataDir,
     pid: args.details.pid,
   });

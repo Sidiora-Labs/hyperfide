@@ -25,8 +25,8 @@ import {
 import { act, render, type RenderResult } from "@testing-library/react";
 import {
   type ExperimentalPageTitle,
-  type BbContext,
-  type BbNavigate,
+  type HyperfideContext,
+  type HyperfideNavigate,
   type BranchesState,
   type ComposerCustomization,
   type ComposerAttachment,
@@ -93,7 +93,7 @@ import {
   type PluginSettingsState,
   type PluginSidebarFooterActionRegistration,
   type PluginSidebarThreadActions,
-  type PluginBrowserBbSdk,
+  type PluginBrowserHyperfideSdk,
   type PluginEnvironmentProvidersState,
   type PluginSidebarSplitLayout,
   type PluginSidebarThreadDraftState,
@@ -167,18 +167,18 @@ import {
 
 /**
  * `@hyperfide/plugin-sdk/testing/app` — the frontend plugin test harness. Tests a
- * plugin's `app.tsx` source directly under vitest + jsdom, without the bb
+ * plugin's `app.tsx` source directly under vitest + jsdom, without the hyperfide
  * host or the esbuild bundle:
  *
- * - {@link installTestPluginRuntime} fills `globalThis.__bbPluginRuntime.
+ * - {@link installTestPluginRuntime} fills `globalThis.__hyperfidePluginRuntime.
  *   pluginSdkApp` with a test implementation of the `@hyperfide/plugin-sdk/app`
- *   surface (the same seam `bb plugin build` shims to the real app). The
+ *   surface (the same seam `hyperfide-platform plugin build` shims to the real app). The
  *   `@hyperfide/plugin-sdk/app` exports look the runtime up when they are called
  *   or rendered, so import order does not matter: install the runtime any time
  *   before the first hook runs ({@link loadPluginApp} and {@link renderSlot}
  *   install it for you).
  * - {@link loadPluginApp} runs the definition's setup against a validating
- *   collector (ported from the BB app's interpreter, same error messages)
+ *   collector (ported from the HYPERFIDE app's interpreter, same error messages)
  *   and returns the typed slot registrations.
  * - {@link renderSlot} mounts one registration's component with mock hook
  *   backends: rpc as a method→handler map with a call log, realtime as a
@@ -215,12 +215,12 @@ type PluginSdkFakeTree<T> = {
  * methods the slot calls; a call to anything else throws with the missing
  * dot-path so the test fails loudly instead of returning undefined.
  */
-export type PluginSdkTestFakes = PluginSdkFakeTree<PluginBrowserBbSdk>;
+export type PluginSdkTestFakes = PluginSdkFakeTree<PluginBrowserHyperfideSdk>;
 export type NavigateCall =
   | {
       method: "toThread";
       threadId: string;
-      options?: Parameters<BbNavigate["toThread"]>[1];
+      options?: Parameters<HyperfideNavigate["toThread"]>[1];
     }
   | { method: "toProject"; projectId: string }
   | {
@@ -230,11 +230,11 @@ export type NavigateCall =
     }
   | {
       method: "toCompose";
-      options?: Parameters<BbNavigate["toCompose"]>[0];
+      options?: Parameters<HyperfideNavigate["toCompose"]>[0];
     }
   | {
       method: "openThreadPanel";
-      options: Parameters<BbNavigate["openThreadPanel"]>[0];
+      options: Parameters<HyperfideNavigate["openThreadPanel"]>[0];
     }
   | { method: "openUrl"; url: string }
   | {
@@ -247,7 +247,7 @@ export type NavigateCall =
     }
   | {
       method: "experimental_openTerminal";
-      options: Parameters<BbNavigate["experimental_openTerminal"]>[0];
+      options: Parameters<HyperfideNavigate["experimental_openTerminal"]>[0];
     };
 
 export interface ExperimentalFixedTabOpenCall {
@@ -317,10 +317,10 @@ interface SlotEnv {
   realtimeHandlers: Map<string, Set<(payload: unknown) => void>>;
   realtimeConnection: TestRealtimeConnectionStore;
   settingsState: PluginSettingsState;
-  bbContext: BbContext;
+  hyperfideContext: HyperfideContext;
   pluginId: string;
   questionFormHost: ExperimentalQuestionFormHost;
-  navigate: BbNavigate;
+  navigate: HyperfideNavigate;
   navigateCalls: NavigateCall[];
   appPanel: ExperimentalAppPanel;
   experimental_fixedTabOpenCalls: ExperimentalFixedTabOpenCall[];
@@ -342,7 +342,7 @@ interface SlotEnv {
   sidebarSplitLayout: PluginSidebarSplitLayout | null;
   composerRenderer: ExperimentalComposerRendererApi | null;
   environmentProviders: PluginEnvironmentProvidersState;
-  sdk: PluginBrowserBbSdk;
+  sdk: PluginBrowserHyperfideSdk;
   sdkCalls: SdkCall[];
   providers: PluginProvidersState;
   codeTheme: PluginCodeThemeState;
@@ -484,8 +484,8 @@ function createSdkFakeNode(
 function createSdkFake(
   fakes: PluginSdkTestFakes,
   calls: SdkCall[],
-): PluginBrowserBbSdk {
-  return createSdkFakeNode(fakes, "", calls) as PluginBrowserBbSdk;
+): PluginBrowserHyperfideSdk {
+  return createSdkFakeNode(fakes, "", calls) as PluginBrowserHyperfideSdk;
 }
 
 function TestThreadTitle({ threadId }: { threadId: string }) {
@@ -630,7 +630,7 @@ function useTestMenuOpenState({
   };
 }
 
-const TEST_TRIGGER_HOST_CLASS = "bb-test-thread-actions-trigger";
+const TEST_TRIGGER_HOST_CLASS = "hyperfide-test-thread-actions-trigger";
 
 function TestThreadActionsMenu({
   thread,
@@ -656,7 +656,7 @@ function TestThreadActionsMenu({
     }
   });
   return (
-    <span data-testid="bb-thread-actions-menu" data-thread-id={thread.id}>
+    <span data-testid="hyperfide-thread-actions-menu" data-thread-id={thread.id}>
       {trigger({
         ref: triggerElement,
         type: "button",
@@ -691,7 +691,7 @@ function TestThreadActionsContextMenu({
   const menu = useTestMenuOpenState({ onOpenChange, onCloseAutoFocus });
   return (
     <div
-      data-testid="bb-thread-actions-context-menu"
+      data-testid="hyperfide-thread-actions-context-menu"
       data-thread-id={thread.id}
       data-disabled={disabled === true ? "true" : "false"}
       data-dragging={dragging === true ? "true" : "false"}
@@ -730,19 +730,19 @@ function useSlotEnv(hook: string): SlotEnv {
 // The fake @hyperfide/plugin-sdk/app runtime.
 // ---------------------------------------------------------------------------
 
-/** Same shape (and checks) as the BB app's real definePluginApp. */
+/** Same shape (and checks) as the HYPERFIDE app's real definePluginApp. */
 function definePluginApp(setup: PluginAppSetup): PluginAppDefinition {
   if (typeof setup !== "function") {
     throw new Error("definePluginApp expects a setup function");
   }
-  return Object.freeze({ __bbPluginApp: true as const, setup });
+  return Object.freeze({ __hyperfidePluginApp: true as const, setup });
 }
 
 function isPluginAppDefinition(value: unknown): value is PluginAppDefinition {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as { __bbPluginApp?: unknown }).__bbPluginApp === true &&
+    (value as { __hyperfidePluginApp?: unknown }).__hyperfidePluginApp === true &&
     typeof (value as { setup?: unknown }).setup === "function"
   );
 }
@@ -752,7 +752,7 @@ function isPluginAppDefinition(value: unknown): value is PluginAppDefinition {
  * records every public prop as a data attribute so plugin tests can assert
  * what their slot component passed without the real chat engine.
  * `leadingContent` renders inside the stub; each `messageActions` entry
- * renders as a button (`data-testid="bb-thread-chat-action-<id>"`) that
+ * renders as a button (`data-testid="hyperfide-thread-chat-action-<id>"`) that
  * invokes its `run` with a synthetic assistant message reference, so plugin
  * tests can drive the action without the real timeline.
  */
@@ -768,7 +768,7 @@ function TestThreadChat({
 }: ThreadChatProps) {
   return (
     <div
-      data-testid="bb-thread-chat"
+      data-testid="hyperfide-thread-chat"
       data-thread-id={threadId}
       data-variant={variant}
       data-layout={layout}
@@ -780,14 +780,14 @@ function TestThreadChat({
       className={className}
     >
       {leadingContent === undefined ? null : (
-        <div data-testid="bb-thread-chat-leading-content">{leadingContent}</div>
+        <div data-testid="hyperfide-thread-chat-leading-content">{leadingContent}</div>
       )}
       ThreadChat stub ({threadId})
       {(messageActions ?? []).map((action) => (
         <button
           key={action.id}
           type="button"
-          data-testid={`bb-thread-chat-action-${action.id}`}
+          data-testid={`hyperfide-thread-chat-action-${action.id}`}
           data-roles={action.roles === undefined ? "" : action.roles.join(" ")}
           onClick={() => {
             void action.run({
@@ -814,7 +814,7 @@ function TestThreadChat({
  */
 function TestMarkdown({ content, className }: MarkdownProps) {
   return (
-    <div data-testid="bb-markdown" className={className}>
+    <div data-testid="hyperfide-markdown" className={className}>
       {content}
     </div>
   );
@@ -935,7 +935,7 @@ function TestNewThreadComposer({
   const [text, setText] = useState(initialPrompt ?? "");
   return (
     <div
-      data-testid="bb-new-thread-composer"
+      data-testid="hyperfide-new-thread-composer"
       data-default-project-id={defaultProjectId ?? ""}
       data-default-provider-id={defaultProviderId ?? ""}
       data-default-model={defaultModel ?? ""}
@@ -953,14 +953,14 @@ function TestNewThreadComposer({
       className={className}
     >
       <textarea
-        data-testid="bb-new-thread-composer-input"
+        data-testid="hyperfide-new-thread-composer-input"
         placeholder={placeholder}
         value={text}
         onChange={(event) => setText(event.target.value)}
       />
       <button
         type="button"
-        data-testid="bb-new-thread-composer-submit"
+        data-testid="hyperfide-new-thread-composer-submit"
         onClick={() => {
           // Untouched submits echo the `default*` seeds back, mirroring the
           // real composer's round-trip guarantee so plugin tests can cover
@@ -1020,7 +1020,7 @@ function TestProviderModelPicker({
 
   return (
     <div
-      data-testid="bb-provider-model-picker"
+      data-testid="hyperfide-provider-model-picker"
       data-routing-kind={routing?.kind ?? "primary"}
       data-routing-id={
         routing === undefined
@@ -1103,7 +1103,7 @@ function TestBranchPicker({
   const inert = hostId === null || projectId === null || disabled === true;
   return (
     <div
-      data-testid="bb-branch-picker"
+      data-testid="hyperfide-branch-picker"
       data-host-id={hostId ?? ""}
       data-project-id={projectId ?? ""}
       data-disabled={inert ? "true" : "false"}
@@ -1140,7 +1140,7 @@ function TestPermissionModePicker({
       aria-label="Permission mode"
       value={value}
       disabled={disabled}
-      data-testid="bb-permission-mode-picker"
+      data-testid="hyperfide-permission-mode-picker"
       data-provider-id={providerId}
       data-align={align}
       data-routing-kind={routing?.kind ?? "primary"}
@@ -1339,7 +1339,7 @@ function TestSourceCode({
 }: SourceCodeProps) {
   return (
     <pre
-      data-testid="bb-source-code"
+      data-testid="hyperfide-source-code"
       data-path={path}
       data-overflow={overflow}
       data-highlighted-lines={
@@ -1369,7 +1369,7 @@ function TestDiff({
 }: DiffProps) {
   return (
     <pre
-      data-testid="bb-diff"
+      data-testid="hyperfide-diff"
       data-path={path}
       data-view={view}
       data-overflow={overflow}
@@ -1393,7 +1393,7 @@ function TestInfoSection({
   children,
 }: ExperimentalInfoSectionProps) {
   return (
-    <section aria-label={label} data-testid="bb-info-section">
+    <section aria-label={label} data-testid="hyperfide-info-section">
       <h3>
         {label}
         {count === undefined ? null : <span>{count}</span>}
@@ -1408,7 +1408,7 @@ function TestInfoSection({
 /** Stand-in for the Info tab label and value row. */
 function TestDetailRow({ label, icon, children }: ExperimentalDetailRowProps) {
   return (
-    <div data-testid="bb-detail-row" data-icon={icon}>
+    <div data-testid="hyperfide-detail-row" data-icon={icon}>
       <dt>{label}</dt>
       <dd>{children}</dd>
     </div>
@@ -1514,8 +1514,8 @@ const testPluginSdkApp = {
   useSettings(): PluginSettingsState {
     return useSlotEnv("useSettings").settingsState;
   },
-  useBbContext(): BbContext {
-    return useSlotEnv("useBbContext").bbContext;
+  useHyperfideContext(): HyperfideContext {
+    return useSlotEnv("useHyperfideContext").hyperfideContext;
   },
   experimental_usePluginId(): string {
     return useSlotEnv("experimental_usePluginId").pluginId;
@@ -1523,8 +1523,8 @@ const testPluginSdkApp = {
   experimental_useQuestionFormHost(): ExperimentalQuestionFormHost {
     return useSlotEnv("experimental_useQuestionFormHost").questionFormHost;
   },
-  useBbNavigate(): BbNavigate {
-    return useSlotEnv("useBbNavigate").navigate;
+  useHyperfideNavigate(): HyperfideNavigate {
+    return useSlotEnv("useHyperfideNavigate").navigate;
   },
   experimental_useAppPanel(): ExperimentalAppPanel {
     return useSlotEnv("experimental_useAppPanel").appPanel;
@@ -1780,7 +1780,7 @@ const testPluginSdkApp = {
   useEnvironmentProviders(): PluginEnvironmentProvidersState {
     return useSlotEnv("useEnvironmentProviders").environmentProviders;
   },
-  useSdk(): PluginBrowserBbSdk {
+  useSdk(): PluginBrowserHyperfideSdk {
     return useSlotEnv("useSdk").sdk;
   },
   experimental_useComposerRenderer(): ExperimentalComposerRendererApi {
@@ -1836,11 +1836,11 @@ const testPluginSdkApp = {
 } satisfies PluginSdkApp;
 
 interface PluginRuntimeHost {
-  __bbPluginRuntime?: { pluginSdkApp?: unknown; react?: unknown };
+  __hyperfidePluginRuntime?: { pluginSdkApp?: unknown; react?: unknown };
 }
 
 /**
- * Install the test runtime at `globalThis.__bbPluginRuntime.pluginSdkApp`,
+ * Install the test runtime at `globalThis.__hyperfidePluginRuntime.pluginSdkApp`,
  * plus the React the `@hyperfide/plugin-sdk/app` components render through.
  * Idempotent per module instance. Call it before the first SDK hook runs or
  * SDK component renders; when the plugin's modules are imported does not
@@ -1848,9 +1848,9 @@ interface PluginRuntimeHost {
  */
 export function installTestPluginRuntime(): void {
   const host = globalThis as PluginRuntimeHost;
-  host.__bbPluginRuntime = {
-    ...host.__bbPluginRuntime,
-    react: host.__bbPluginRuntime?.react ?? React,
+  host.__hyperfidePluginRuntime = {
+    ...host.__hyperfidePluginRuntime,
+    react: host.__hyperfidePluginRuntime?.react ?? React,
     pluginSdkApp: testPluginSdkApp,
   };
 }
@@ -1985,13 +1985,13 @@ export async function mountPluginContentScripts(
     if (controller.signal.aborted) return;
     if (typeof threadId !== "string" || threadId.trim().length === 0) {
       console.warn(
-        `bb plugin "${options.pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
+        `hyperfide-platform plugin "${options.pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
       );
       return;
     }
     const normalizedThreadId = threadId.trim();
     const normalizedStatus = normalizePluginThreadRowStatus(status, (reason) =>
-      console.warn(`bb plugin "${options.pluginId}": ${reason}`),
+      console.warn(`hyperfide-platform plugin "${options.pluginId}": ${reason}`),
     );
     if (normalizedStatus === undefined) return;
     const recordedStatus =
@@ -2096,7 +2096,7 @@ export interface RenderSlotOptions<
   experimental_rpcContract?: NoInfer<Contract>;
   /** `useSettings()` values; omitted → `{ values: undefined, isLoading: false }`. */
   settings?: Record<string, string | number | boolean>;
-  /** `useBbContext()` selection; both default to null. */
+  /** `useHyperfideContext()` selection; both default to null. */
   context?: { projectId?: string | null; threadId?: string | null };
   /** `experimental_usePluginId()` value; defaults to `test-plugin`. */
   pluginId?: string;
@@ -2203,9 +2203,9 @@ export interface RenderSlotOptions<
    * in `inspection.sdkCalls`; a call to a method you did not provide throws.
    */
   sdk?: PluginSdkTestFakes;
-  /** Host acceptance for `useBbNavigate().openThreadPanel`. */
+  /** Host acceptance for `useHyperfideNavigate().openThreadPanel`. */
   openThreadPanel?: (
-    options: Parameters<BbNavigate["openThreadPanel"]>[0],
+    options: Parameters<HyperfideNavigate["openThreadPanel"]>[0],
   ) => boolean;
   /** Host acceptance for URL intents from the hook or `UrlLink`. */
   openUrl?: (url: string) => boolean;
@@ -2213,9 +2213,9 @@ export interface RenderSlotOptions<
   openFilePreview?: (options: ExperimentalFileOpenOptions) => boolean;
   /** Host acceptance for preferred-external file intents. */
   openFileExternally?: (options: ExperimentalFileOpenOptions) => boolean;
-  /** Host acceptance for `useBbNavigate().experimental_openTerminal`. */
+  /** Host acceptance for `useHyperfideNavigate().experimental_openTerminal`. */
   openTerminal?: (
-    options: Parameters<BbNavigate["experimental_openTerminal"]>[0],
+    options: Parameters<HyperfideNavigate["experimental_openTerminal"]>[0],
   ) => boolean;
   /** Host acceptance for an owner-scoped fixed-tab selection. */
   experimental_openFixedTab?: (call: ExperimentalFixedTabOpenCall) => boolean;
@@ -2234,7 +2234,7 @@ export interface RenderSlotOptions<
 export interface RenderedSlotBehaviorDrivers {
   /**
    * Push a realtime event to `useRealtime(channel, …)` subscribers, wrapped
-   * in act. The payload is JSON-round-tripped like `bb.realtime.publish`.
+   * in act. The payload is JSON-round-tripped like `hyperfide.realtime.publish`.
    */
   experimental_invalidateRpc(
     tags: readonly string[] | null,
@@ -2257,7 +2257,7 @@ export interface RenderedSlotInspectionState {
   readonly experimental_pageTitle: ExperimentalPageTitle | null;
   /** Every `useRpc().call`, in order. */
   readonly rpcCalls: RpcCall[];
-  /** Every `useBbNavigate()` call, in order. */
+  /** Every `useHyperfideNavigate()` call, in order. */
   readonly navigateCalls: NavigateCall[];
   /** Every validated `experimental_useAppPanel().openFixedTab` call. */
   readonly experimental_fixedTabOpenCalls: ExperimentalFixedTabOpenCall[];
@@ -2289,7 +2289,7 @@ export interface RenderedSlotLifecycleControls {
 }
 
 /**
- * Testing Library result plus BB-specific helpers. Direct members are
+ * Testing Library result plus HYPERFIDE-specific helpers. Direct members are
  * retained for compatibility; named views make intent explicit in new tests.
  */
 export interface RenderedSlot
@@ -2684,7 +2684,7 @@ export function renderSlot<
       sidebarActionCalls.push({ method: "requestDelete", threadId });
     },
   };
-  const navigate: BbNavigate = {
+  const navigate: HyperfideNavigate = {
     toThread(threadId, threadOptions) {
       navigateCalls.push({
         method: "toThread",
@@ -3018,7 +3018,7 @@ export function renderSlot<
     realtimeHandlers,
     realtimeConnection,
     settingsState: { values: options.settings, isLoading: false },
-    bbContext: { projectId, threadId },
+    hyperfideContext: { projectId, threadId },
     pluginId: options.pluginId ?? "test-plugin",
     questionFormHost: {
       shortcuts: new Map(),

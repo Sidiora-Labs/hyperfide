@@ -3,7 +3,7 @@
   "name": "delayed-loading",
   "type": "registry:ui",
   "title": "delayed-loading",
-  "description": "BB ui \"delayed-loading\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"delayed-loading\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/delayed-loading.tsx",

@@ -5,7 +5,7 @@ import claudeCodePlugin from "../server.js";
 
 function loadClaudeCodePlugin() {
   const host = createFakePluginHost({ pluginId: "provider-claude-code" });
-  claudeCodePlugin(host.bb);
+  claudeCodePlugin(host.hyperfide);
   const declaration = host.harness.registrations.providerRegistrations.find(
     (entry) => entry.id === "claude-code",
   );

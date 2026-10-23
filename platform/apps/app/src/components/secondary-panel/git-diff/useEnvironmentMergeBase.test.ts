@@ -15,7 +15,7 @@ function makeMergeBaseEnvironment(
 ): Environment {
   return makeEnvironment({
     baseBranch: null,
-    branchName: "bb/thread",
+    branchName: "hyperfide/thread",
     createdAt: 1,
     hostId: "host-1",
     id: "env-1",
@@ -30,8 +30,8 @@ function makeWorkspaceStatus(
   overrides: Partial<WorkspaceStatus> = {},
 ): WorkspaceStatus {
   return makeSharedWorkspaceStatus({
-    branch: { currentBranch: "bb/thread", defaultBranch: "main" },
-    checkout: { kind: "branch", branchName: "bb/thread", headSha: null },
+    branch: { currentBranch: "hyperfide/thread", defaultBranch: "main" },
+    checkout: { kind: "branch", branchName: "hyperfide/thread", headSha: null },
     ...overrides,
   });
 }
@@ -106,7 +106,7 @@ describe("resolveEffectiveMergeBaseBranch", () => {
         environment: makeMergeBaseEnvironment({ baseBranch: "release" }),
         workspaceStatus: makeWorkspaceStatus({
           branch: {
-            currentBranch: "bb/thread",
+            currentBranch: "hyperfide/thread",
             defaultBranch: "main",
           },
         }),
@@ -120,7 +120,7 @@ describe("resolveEffectiveMergeBaseBranch", () => {
         environment: makeMergeBaseEnvironment({ defaultBranch: "master" }),
         workspaceStatus: makeWorkspaceStatus({
           branch: {
-            currentBranch: "bb/thread",
+            currentBranch: "hyperfide/thread",
             defaultBranch: "main",
           },
         }),

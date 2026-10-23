@@ -29,7 +29,7 @@ import { RootComposeMobileRecents } from "./RootComposeMobileRecents";
 import { ThreadActionsProvider } from "@/components/thread/ThreadActionsProvider";
 
 export const projectNamesById = new Map<string, string>([
-  [PROJECT_IDS.bb, PROJECT_NAMES.bb],
+  [PROJECT_IDS.hyperfide, PROJECT_NAMES.hyperfide],
   [PROJECT_IDS.pierre, PROJECT_NAMES.pierre],
 ]);
 
@@ -107,7 +107,7 @@ export const HOME_THREADS: ThreadListEntry[] = [
   }),
 ];
 
-export const MOBILE_RECENTS_VISIBILITY_CLASS = "bb-mobile-story-stage";
+export const MOBILE_RECENTS_VISIBILITY_CLASS = "hyperfide-mobile-story-stage";
 
 const noop = () => {};
 
@@ -126,7 +126,7 @@ const storyWorktree: NewThreadWorktreeConfig = {
 
 const storyProject: NewThreadProjectConfig = {
   projects: STORY_PROJECTS,
-  value: PROJECT_IDS.bb,
+  value: PROJECT_IDS.hyperfide,
   onChange: noop,
 };
 

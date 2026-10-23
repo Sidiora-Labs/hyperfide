@@ -66,7 +66,7 @@ async function main() {
   await copyFile(titleCommandPath, outputTitleCommandPath);
   await chmod(outputTitleCommandPath, 0o755);
   await writeFile(
-    resolve(packageRoot, "dist", "bb.cmd"),
+    resolve(packageRoot, "dist", "hyperfide.cmd"),
     '@echo off\r\nnode "%~dp0bb" %*\r\n',
   );
 }

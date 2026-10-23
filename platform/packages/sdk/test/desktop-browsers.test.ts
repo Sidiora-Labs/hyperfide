@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createBbSdk } from "../src/core.js";
+import { createHyperfideSdk } from "../src/core.js";
 import { createHttpTransport } from "../src/transport-http.js";
 
 const scope = {
@@ -13,9 +13,9 @@ afterEach(() => vi.useRealTimers());
 describe("desktop browser SDK", () => {
   it("leaves default policy at the server and keeps scope explicit", async () => {
     const requests: object[] = [];
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         runtime: "node",
         fetch: async (_url, init) => {
           requests.push(JSON.parse(String(init?.body)));
@@ -46,9 +46,9 @@ describe("desktop browser SDK", () => {
           resolve = done;
         }),
     );
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         runtime: "node",
         fetch,
       }),

@@ -70,10 +70,11 @@ const EXCLUDED_SEGMENTS = new Set([
  * ratchet exists to keep provider ids out of CORE. `plugins/provider-*` is
  * one such implementation, and so is the published ACP bridge kit — the same
  * code, moved into `packages/` so the plugin SDK can re-export it
- * (`@hyperfide/plugin-sdk/provider-bridge/acp`). It carries no bb provider id
+ * (`@hyperfide/plugin-sdk/provider-bridge/acp`). It carries no hyperfide provider id
  * today: it selects behavior by the agent's dialect, never by a provider id.
  */
 const EXCLUDED_PREFIXES = [
+  join("plugins", ".bundled-stage-"),
   join("apps", "cli", ".packaged-plugin-build-"),
   join("packages", "plugin-sdk", ".runtime-test-"),
   join("plugins", "provider-"),

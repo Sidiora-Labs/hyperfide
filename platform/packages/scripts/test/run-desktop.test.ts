@@ -12,7 +12,7 @@ import {
 
 const config = resolveDevInstanceConfig({
   homeDir: "/Users/tester",
-  repoRoot: "/Users/tester/checkouts/bb",
+  repoRoot: "/Users/tester/checkouts/hyperfide",
 });
 
 describe("desktop launch mode", () => {
@@ -82,7 +82,7 @@ describe("desktop launch environment", () => {
   });
 
   it("preserves an explicit Electron user data directory", () => {
-    const userDataDir = "/tmp/bb-desktop-profile";
+    const userDataDir = "/tmp/hyperfide-desktop-profile";
     const env = toDesktopLaunchProcessEnv({
       baseEnv: { HYPERFIDE_DESKTOP_USER_DATA_DIR: ` ${userDataDir} ` },
       config,

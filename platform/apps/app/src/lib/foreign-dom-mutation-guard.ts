@@ -84,7 +84,7 @@ function recordSuppression(
   if (loggedCount >= MAX_LOGGED_SUPPRESSIONS) return;
   loggedCount += 1;
   console.warn(
-    `[bb] ${operation}: ${describeNode(node)} is no longer a child of ${describeNode(
+    `[hyperfide] ${operation}: ${describeNode(node)} is no longer a child of ${describeNode(
       expectedParent,
     )}. Something outside React moved or removed it (a browser extension, ` +
       `plugin content script, or page translation is the usual cause); the ` +
@@ -102,7 +102,7 @@ function recordRefusedMove(node: Node, attemptedParent: Node): void {
       ? "a plugin content script"
       : `plugin "${isolationLabel}"`;
   console.warn(
-    `[bb] ${owner} tried to move ${describeNode(node)} out of React's tree. The ` +
+    `[hyperfide] ${owner} tried to move ${describeNode(node)} out of React's tree. The ` +
       `move was blocked so the app does not crash when that node is later ` +
       `removed or reordered.`,
     { node, attemptedParent, actualParent: node.parentNode },

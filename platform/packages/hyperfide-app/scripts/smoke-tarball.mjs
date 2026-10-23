@@ -1,0 +1,1300 @@
+import { fork, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { mkdirSync, readdirSync } from "node:fs";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { basename, dirname, extname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createManagedProcessStop } from "./managed-process.mjs";
+
+const HTTP_WAIT_TIMEOUT_MS = 60_000;
+const HTTP_WAIT_INTERVAL_MS = 250;
+const PLUGIN_LOAD_TIMEOUT_MS = 60_000;
+const PLUGIN_LOAD_INTERVAL_MS = 1_000;
+const HOST_PLUGIN_WORKER_TIMEOUT_MS = 60_000;
+// Auto-installed, default-enabled builtins (apps/server/src/services/plugins/
+// builtin-registry.ts). Each must reach "running" in the packed tarball —
+// bundles that pass health checks can still fail to load (0.0.31 shipped with
+// every builtin unable to resolve @hyperfide/plugin-sdk at import time).
+const EXPECTED_RUNNING_BUILTIN_PLUGINS = [
+  "automations",
+  "concurrency-limit",
+  // Providers whose bridge ships as a plugin artifact: if the plugin does not
+  // load, its provider disappears from the install entirely.
+  "provider-acp",
+  "provider-claude-code",
+  "provider-codex",
+  "push-notifications",
+  "connect",
+  "custom-instructions",
+  "inline-vis",
+  "keep-awake",
+  "pdf-preview",
+  "provider-retry",
+  "scheduled-send",
+  "secrets",
+];
+// The smoke drives every bridge as a canonical Provider Bridge Protocol
+// client, which is the only dialect the bridges still speak. Mirrors
+// PROVIDER_BRIDGE_PROTOCOL_VERSION (packages/provider-bridge-protocol/src/
+// version.ts); this script imports nothing from the workspace so it can run
+// against a packed tarball.
+const PROVIDER_BRIDGE_PROTOCOL_VERSION = 2;
+const BRIDGE_WAIT_TIMEOUT_MS = 10_000;
+const PROCESS_STOP_TIMEOUT_MS = 5_000;
+const PORT_COLLISION_MAX_ATTEMPTS = 3;
+const DEFAULT_HOST_DAEMON_LOCAL_BIND_HOST = "127.0.0.1";
+const PORT_COLLISION_PATTERN =
+  /(?:EADDRINUSE|Host daemon local API port \d+ is already in use)/u;
+
+const scriptsDir = dirname(fileURLToPath(import.meta.url));
+const packageRoot = resolve(scriptsDir, "..");
+const tempRoot = await mkdtemp(join(tmpdir(), "hyperfide-app-tarball-"));
+const smokeProcessEnv = {};
+const stopManagedProcess = createManagedProcessStop(PROCESS_STOP_TIMEOUT_MS);
+
+function formatElapsed(startedAt) {
+  return `${((performance.now() - startedAt) / 1000).toFixed(1)}s`;
+}
+
+async function timed(label, run) {
+  const startedAt = performance.now();
+  try {
+    return await run();
+  } finally {
+    process.stdout.write(
+      `hyperfide-app tarball smoke: ${label} ${formatElapsed(startedAt)}\n`,
+    );
+  }
+}
+
+function delay(ms) {
+  return new Promise((resolvePromise) => {
+    setTimeout(resolvePromise, ms);
+  });
+}
+
+function formatProcessOutput(output) {
+  const sections = [];
+  if (output.stdout.trim()) {
+    sections.push(`stdout:\n${output.stdout}`);
+  }
+  if (output.stderr.trim()) {
+    sections.push(`stderr:\n${output.stderr}`);
+  }
+  return sections.join("\n\n");
+}
+
+function collectProcessOutput(childProcess) {
+  const output = {
+    stderr: "",
+    stdout: "",
+  };
+  childProcess.stdout?.on("data", (chunk) => {
+    output.stdout += chunk.toString("utf8");
+  });
+  childProcess.stderr?.on("data", (chunk) => {
+    output.stderr += chunk.toString("utf8");
+  });
+  return output;
+}
+
+function isRecord(value) {
+  return typeof value === "object" && value !== null;
+}
+
+function waitForProcessExit(childProcess) {
+  return new Promise((resolvePromise) => {
+    childProcess.once("exit", (code, signal) => {
+      resolvePromise({ code, signal });
+    });
+  });
+}
+
+function resolveLaunch(command, args) {
+  if (
+    process.platform === "win32" &&
+    (command === "npm" || command === "npx")
+  ) {
+    return {
+      command: process.execPath,
+      args: [
+        join(
+          dirname(process.execPath),
+          "node_modules",
+          "npm",
+          "bin",
+          `${command}-cli.js`,
+        ),
+        ...args,
+      ],
+    };
+  }
+  if (
+    process.platform === "win32" &&
+    basename(dirname(command)) === ".bin" &&
+    extname(command) === ""
+  ) {
+    const commandLine = [`${command}.cmd`, ...args]
+      .map((part) => `"${part}"`)
+      .join(" ");
+    return {
+      command: process.env.ComSpec ?? "cmd.exe",
+      args: ["/d", "/s", "/c", `"${commandLine}"`],
+      windowsVerbatimArguments: true,
+    };
+  }
+  return { command, args };
+}
+
+async function runCommand({ args, command, cwd = tempRoot, env = {}, label }) {
+  const launch = resolveLaunch(command, args);
+  const childProcess = spawn(launch.command, launch.args, {
+    windowsVerbatimArguments: launch.windowsVerbatimArguments === true,
+    cwd,
+    env: {
+      ...process.env,
+      ...env,
+      ...smokeProcessEnv,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const output = collectProcessOutput(childProcess);
+  const result = await waitForProcessExit(childProcess);
+  if (result.code !== 0) {
+    throw new Error(
+      `${label} failed with ${result.code ?? result.signal}\n${formatProcessOutput(output)}`,
+    );
+  }
+  return output.stdout;
+}
+
+function spawnManagedProcess({ args, command, env = {}, label }) {
+  const detached = process.platform !== "win32";
+  const launch = resolveLaunch(command, args);
+  const childProcess = spawn(launch.command, launch.args, {
+    windowsVerbatimArguments: launch.windowsVerbatimArguments === true,
+    cwd: tempRoot,
+    detached,
+    env: {
+      ...process.env,
+      ...env,
+      ...smokeProcessEnv,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const output = collectProcessOutput(childProcess);
+  return {
+    childProcess,
+    detached,
+    label,
+    output,
+  };
+}
+
+class PortCollisionError extends Error {}
+
+function reserveFreePort() {
+  return new Promise((resolvePromise, reject) => {
+    const server = createServer((socket) => socket.destroy());
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        server.close();
+        reject(new Error("Expected TCP server address with a port"));
+        return;
+      }
+      resolvePromise({ port: address.port, server });
+    });
+  });
+}
+
+async function closePortReservation(reservation) {
+  if (!reservation.server.listening) {
+    return;
+  }
+  await new Promise((resolvePromise, reject) => {
+    reservation.server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolvePromise();
+    });
+  });
+}
+
+async function waitForAllCleanup(promises) {
+  const results = await Promise.allSettled(promises);
+  const failures = results.flatMap((result) =>
+    result.status === "rejected" ? [result.reason] : [],
+  );
+  if (failures.length > 0) {
+    throw new AggregateError(failures, "Smoke cleanup failed");
+  }
+}
+
+async function closePortReservations(reservations) {
+  await waitForAllCleanup(reservations.map(closePortReservation));
+}
+
+async function reserveFreePorts(count) {
+  const reservations = [];
+  try {
+    for (let index = 0; index < count; index += 1) {
+      reservations.push(await reserveFreePort());
+    }
+    return reservations;
+  } catch (error) {
+    await closePortReservations(reservations);
+    throw error;
+  }
+}
+
+async function readPortCollisionDetails(processRef, logPaths) {
+  const sections = [formatProcessOutput(processRef.output)];
+  for (const logPath of logPaths) {
+    try {
+      const contents = await readFile(logPath, "utf8");
+      if (contents.trim()) {
+        sections.push(`${logPath}:\n${contents}`);
+      }
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+  }
+  const details = sections.filter(Boolean).join("\n\n");
+  return PORT_COLLISION_PATTERN.test(details) ? details : null;
+}
+
+async function retryPortCollisions(label, run) {
+  for (let attempt = 1; attempt <= PORT_COLLISION_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await run(attempt);
+    } catch (error) {
+      if (
+        !(error instanceof PortCollisionError) ||
+        attempt === PORT_COLLISION_MAX_ATTEMPTS
+      ) {
+        throw error;
+      }
+      process.stdout.write(
+        `hyperfide-app tarball smoke: ${label} port collision on attempt ${attempt}; retrying with fresh reservations\n`,
+      );
+    }
+  }
+}
+
+async function waitForHttp({
+  acceptResponse = () => true,
+  label,
+  portCollisionLogPaths = [],
+  processRef,
+  url,
+}) {
+  const deadline = Date.now() + HTTP_WAIT_TIMEOUT_MS;
+  while (Date.now() <= deadline) {
+    const portCollisionDetails = await readPortCollisionDetails(
+      processRef,
+      portCollisionLogPaths,
+    );
+    if (portCollisionDetails !== null) {
+      throw new PortCollisionError(
+        `${label} encountered a selected-port collision\n${portCollisionDetails}`,
+      );
+    }
+    if (
+      processRef.childProcess.exitCode !== null ||
+      processRef.childProcess.signalCode !== null
+    ) {
+      throw new Error(
+        `${label} exited before ${url} became healthy\n${formatProcessOutput(processRef.output)}`,
+      );
+    }
+    try {
+      const response = await fetch(url);
+      if (response.ok && (await acceptResponse(response))) {
+        return;
+      }
+    } catch {
+      // Retry until timeout.
+    }
+    await delay(HTTP_WAIT_INTERVAL_MS);
+  }
+  throw new Error(
+    `Timed out waiting for ${label} at ${url}\n${formatProcessOutput(processRef.output)}`,
+  );
+}
+
+async function acceptServerHealthResponse(response, expectedLaunchId) {
+  const body = await response.json();
+  return (
+    isRecord(body) &&
+    body.ok === true &&
+    (expectedLaunchId === undefined || body.launchId === expectedLaunchId)
+  );
+}
+
+async function acceptHostDaemonStatusResponse(response, expectedServerUrl) {
+  const body = await response.json();
+  return (
+    isRecord(body) &&
+    body.connected === true &&
+    body.serverUrl === expectedServerUrl
+  );
+}
+
+async function readHostDaemonLogs(logDir) {
+  let entries;
+  try {
+    entries = await readdir(logDir);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    return "";
+  }
+  const contents = await Promise.all(
+    entries
+      .filter((name) => /^host-daemon\.\d+\.log$/u.test(name))
+      .map((name) => readFile(join(logDir, name), "utf8")),
+  );
+  return contents.join("");
+}
+
+async function waitForHostPluginWorker({ dataDir, pluginId, processRef }) {
+  const logDir = join(dataDir, "logs");
+  let daemonOutput = "";
+  const deadline = Date.now() + HOST_PLUGIN_WORKER_TIMEOUT_MS;
+  while (Date.now() <= deadline) {
+    daemonOutput = await readHostDaemonLogs(logDir);
+    if (
+      daemonOutput
+        .split("\n")
+        .some(
+          (line) =>
+            line.includes("Host plugin worker ready") &&
+            line.includes(pluginId),
+        )
+    ) {
+      return;
+    }
+    if (
+      processRef.childProcess.exitCode !== null ||
+      processRef.childProcess.signalCode !== null
+    ) {
+      throw new Error(
+        `${processRef.label} exited before host plugin ${pluginId} started\n${formatProcessOutput(processRef.output)}\n${logDir}/host-daemon.N.log:\n${daemonOutput}`,
+      );
+    }
+    await delay(HTTP_WAIT_INTERVAL_MS);
+  }
+  throw new Error(
+    `Timed out waiting for host plugin ${pluginId} on ${processRef.label}\n${formatProcessOutput(processRef.output)}\n${logDir}/host-daemon.N.log:\n${daemonOutput}`,
+  );
+}
+
+function createInstalledBinInvocation(binDir, bin, args) {
+  // The tarball is installed once below. Run its npm-created bin links
+  // directly so package resolution and installation cannot consume a
+  // managed process's readiness budget before that process even starts.
+  return {
+    args,
+    command: join(binDir, bin),
+  };
+}
+
+async function smokeNpxEntrypoint(tarballPath) {
+  // Keep one real invocation through the package's advertised npx path. Once
+  // npx dispatches the bin, the installed-package smokes below cover the same
+  // launcher without repeatedly charging npm startup to readiness budgets.
+  await timed("npx install and help", () =>
+    runCommand({
+      args: [
+        "--yes",
+        "--no-audit",
+        "--no-fund",
+        "--package",
+        tarballPath,
+        "--",
+        "hyperfide-app",
+        "--help",
+      ],
+      command: "npx",
+      label: "hyperfide-app npx help",
+    }),
+  );
+}
+
+async function packTarball() {
+  const chunkDir = join(packageRoot, "host-daemon", "dist", "hyperfide-chunks");
+  const liveChunk = readdirSync(chunkDir).find((name) => name.endsWith(".js"));
+  if (liveChunk === undefined) {
+    throw new Error("Built hyperfide-app has no CLI chunk to exercise");
+  }
+  // Model a Turbo cache restore over existing output: a dead hashed chunk can
+  // remain beside the current generation immediately before source npm pack.
+  const staleChunkName = "chunk-SLOP-CACHE-STALE.js";
+  const staleChunk = join(chunkDir, staleChunkName);
+  await copyFile(join(chunkDir, liveChunk), staleChunk);
+  try {
+    const stdout = await runCommand({
+      args: ["pack", packageRoot, "--pack-destination", tempRoot, "--json"],
+      command: "npm",
+      label: "npm pack",
+    });
+    const packed = JSON.parse(stdout);
+    if (!Array.isArray(packed) || packed.length !== 1) {
+      throw new Error(`Unexpected npm pack output: ${stdout}`);
+    }
+    const [entry] = packed;
+    if (
+      typeof entry !== "object" ||
+      entry === null ||
+      !("filename" in entry) ||
+      typeof entry.filename !== "string" ||
+      !Array.isArray(entry.files)
+    ) {
+      throw new Error(`Unexpected npm pack entry: ${stdout}`);
+    }
+    const staleChunkPath = `host-daemon/dist/hyperfide-chunks/${staleChunkName}`;
+    if (entry.files.some((file) => file.path === staleChunkPath)) {
+      throw new Error(`npm pack included stale CLI chunk ${staleChunkPath}`);
+    }
+    return join(tempRoot, entry.filename);
+  } finally {
+    await rm(staleChunk, { force: true });
+  }
+}
+
+function waitForJsonRpcResponse({ childProcess, id, label, output }) {
+  return new Promise((resolvePromise, reject) => {
+    let buffer = "";
+    let settled = false;
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      childProcess.stdout?.off("data", onData);
+      childProcess.off("exit", onExit);
+    };
+    const settle = (callback, value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      callback(value);
+    };
+    const parseLine = (line) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch (error) {
+        settle(
+          reject,
+          new Error(
+            `${label} emitted invalid JSON-RPC output: ${trimmed}\n${formatProcessOutput(output)}`,
+          ),
+        );
+        return;
+      }
+
+      if (isRecord(parsed) && parsed.id === id) {
+        settle(resolvePromise, parsed);
+      }
+    };
+    const onData = (chunk) => {
+      buffer += chunk.toString("utf8");
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (settled) {
+          return;
+        }
+        parseLine(line);
+      }
+    };
+    const onExit = (code, signal) => {
+      settle(
+        reject,
+        new Error(
+          `${label} exited before response ${id} with ${code ?? signal}\n${formatProcessOutput(output)}`,
+        ),
+      );
+    };
+    const timeout = setTimeout(() => {
+      settle(
+        reject,
+        new Error(
+          `${label} timed out waiting for response ${id}\n${formatProcessOutput(output)}`,
+        ),
+      );
+    }, BRIDGE_WAIT_TIMEOUT_MS);
+
+    childProcess.stdout?.on("data", onData);
+    childProcess.once("exit", onExit);
+  });
+}
+
+/**
+ * Bridges are never spawned directly: the runtime runs the packed bootstrap
+ * and hands it the bridge module plus the plugin scope. Driving it the same
+ * way here is what makes this a smoke of the real launch path.
+ */
+function spawnPackedBridge({ bridgePath, packageDir, pluginId }) {
+  const dataDir = join(tempRoot, "bridge-data", pluginId);
+  mkdirSync(dataDir, { recursive: true });
+  return spawn(
+    process.execPath,
+    [
+      join(packageDir, "host-daemon", "dist", "hyperfide-provider-bridge-worker.mjs"),
+      bridgePath,
+      pluginId,
+      dataDir,
+    ],
+    { cwd: tempRoot, stdio: ["pipe", "pipe", "pipe"] },
+  );
+}
+
+async function smokeBridgeModelList({
+  allowUnavailableProvider = false,
+  bridgePath,
+  packageDir,
+  pluginId,
+  label,
+}) {
+  const childProcess = spawnPackedBridge({ bridgePath, packageDir, pluginId });
+  const output = collectProcessOutput(childProcess);
+  const modelListResponsePromise = waitForJsonRpcResponse({
+    childProcess,
+    id: 2,
+    label,
+    output,
+  });
+  childProcess.stdin.write(
+    `${JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: PROVIDER_BRIDGE_PROTOCOL_VERSION,
+        client: { name: "hyperfide-app-smoke", version: "0.0.0" },
+      },
+    })}\n`,
+  );
+  childProcess.stdin.write(
+    `${JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "model/list",
+      params: {},
+    })}\n`,
+  );
+  const modelListResponse = await modelListResponsePromise;
+  childProcess.stdin.end();
+  const result = await waitForProcessExit(childProcess);
+  if (result.code !== 0) {
+    throw new Error(
+      `${label} failed with ${result.code ?? result.signal}\n${formatProcessOutput(output)}`,
+    );
+  }
+
+  if (
+    "result" in modelListResponse &&
+    isRecord(modelListResponse.result) &&
+    Array.isArray(modelListResponse.result.models)
+  ) {
+    return;
+  }
+
+  const unavailableProviderMessage =
+    "error" in modelListResponse &&
+    isRecord(modelListResponse.error) &&
+    typeof modelListResponse.error.message === "string" &&
+    /(?:Native CLI binary|Claude Code executable).*not found|could not find the (?:Claude Code|Codex|pi) CLI/iu.test(
+      modelListResponse.error.message,
+    );
+  if (!allowUnavailableProvider || !unavailableProviderMessage) {
+    throw new Error(
+      `${label} did not return a model/list response\n${formatProcessOutput(output)}`,
+    );
+  }
+}
+
+async function smokeProviderBridgeBundles(packageDir) {
+  await smokeBridgeModelList({
+    // Claude Code ships its bridge as a plugin artifact (graduation wave 5),
+    // so the packed bundle to smoke is the one `hyperfide-platform plugin build` produced for
+    // the builtin plugin, not a daemon-side file. The bridge intentionally
+    // relies on the host's Claude CLI for account-scoped discovery; CI does
+    // not install that binary, so its explicit unavailable-provider response
+    // is a valid smoke outcome.
+    allowUnavailableProvider: true,
+    bridgePath: join(
+      packageDir,
+      "server",
+      "dist",
+      "builtin-plugins",
+      "provider-claude-code",
+      "dist",
+      "host.js",
+    ),
+    packageDir,
+    pluginId: "provider-claude-code",
+    label: "Claude Code host-artifact bridge model/list",
+  });
+  await smokeBridgeModelList({
+    // Pi ships its bridge as a plugin artifact too (WS4 L6); the `pi` CLI is
+    // user-installed, so its explicit unavailable-provider response is a
+    // valid smoke outcome on a runner without it.
+    allowUnavailableProvider: true,
+    bridgePath: join(
+      packageDir,
+      "server",
+      "dist",
+      "builtin-plugins",
+      "provider-pi",
+      "dist",
+      "host.js",
+    ),
+    packageDir,
+    pluginId: "provider-pi",
+    label: "Pi host-artifact bridge model/list",
+  });
+  await smokeBridgeModelList({
+    // ACP ships its bridge as a plugin artifact (graduation wave 5). With no
+    // launch spec in the provider options it serves its synthetic "Agent
+    // default" model rather than spawning an agent, which is the whole point
+    // of the smoke: the packed artifact runs standalone.
+    bridgePath: join(
+      packageDir,
+      "server",
+      "dist",
+      "builtin-plugins",
+      "provider-acp",
+      "dist",
+      "host.js",
+    ),
+    packageDir,
+    pluginId: "provider-acp",
+    label: "ACP host-artifact bridge model/list",
+  });
+  await smokeBridgeModelList({
+    // Codex ships its bridge as a plugin artifact (graduation wave 5), so the
+    // packed bundle to smoke is the one `hyperfide-platform plugin build` produced for the
+    // builtin plugin, not a daemon-side file. The bridge spawns the host's
+    // `codex app-server` for model discovery; CI does not install the Codex
+    // CLI, so its explicit missing-CLI response is a valid smoke outcome.
+    allowUnavailableProvider: true,
+    bridgePath: join(
+      packageDir,
+      "server",
+      "dist",
+      "builtin-plugins",
+      "provider-codex",
+      "dist",
+      "host.js",
+    ),
+    packageDir,
+    pluginId: "provider-codex",
+    label: "Codex provider-bridge artifact model/list",
+  });
+}
+
+// The daemon forks hyperfide-plugin-host-worker.mjs (a sibling of daemon-bundle.mjs)
+// for every plugin `hyperfide.host` entry. The published package must ship it, and
+// it must load a packed builtin host artifact and report ready over IPC;
+// otherwise every host plugin call fails with "host plugin worker exited (1)".
+async function smokePluginHostWorkerBundle(packageDir) {
+  const workerPath = join(
+    packageDir,
+    "host-daemon",
+    "dist",
+    "hyperfide-plugin-host-worker.mjs",
+  );
+  const artifactPath = join(
+    packageDir,
+    "server",
+    "dist",
+    "builtin-plugins",
+    "keep-awake",
+    "dist",
+    "host.js",
+  );
+  const dataDir = join(tempRoot, "plugin-host-worker", "data");
+  const workerTempDir = join(tempRoot, "plugin-host-worker", "tmp");
+  mkdirSync(dataDir, { recursive: true });
+  mkdirSync(workerTempDir, { recursive: true });
+  const generation = "smoke-generation";
+  const childProcess = fork(
+    workerPath,
+    [artifactPath, "keep-awake", generation, dataDir, workerTempDir],
+    { cwd: tempRoot, stdio: ["ignore", "ignore", "pipe", "ipc"] },
+  );
+  const output = collectProcessOutput(childProcess);
+  const exited = waitForProcessExit(childProcess);
+  const ready = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("plugin host worker did not report ready in time"));
+    }, BRIDGE_WAIT_TIMEOUT_MS);
+    childProcess.on("message", (message) => {
+      if (!isRecord(message)) return;
+      if (message.type === "ready") {
+        clearTimeout(timer);
+        resolve(message);
+      } else if (message.type === "startup-error") {
+        clearTimeout(timer);
+        reject(new Error(`plugin host worker startup error: ${message.error}`));
+      }
+    });
+    void exited.then((result) => {
+      clearTimeout(timer);
+      reject(
+        new Error(
+          `plugin host worker exited before ready (${result.code ?? result.signal})`,
+        ),
+      );
+    });
+  });
+  try {
+    const message = await ready;
+    if (
+      !isRecord(message) ||
+      message.pluginId !== "keep-awake" ||
+      message.generation !== generation
+    ) {
+      throw new Error(
+        `plugin host worker reported an unexpected identity: ${JSON.stringify(message)}`,
+      );
+    }
+    childProcess.disconnect();
+    const result = await exited;
+    if (result.code !== 0) {
+      throw new Error(
+        `plugin host worker exited with ${result.code ?? result.signal} after disconnect`,
+      );
+    }
+    process.stdout.write("hyperfide-app tarball smoke: plugin host worker ready\n");
+  } catch (error) {
+    if (childProcess.exitCode === null) childProcess.kill("SIGKILL");
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)}\n${formatProcessOutput(output)}`,
+    );
+  }
+}
+
+async function smokeHelpCommands(binDir) {
+  await runCommand({
+    ...createInstalledBinInvocation(binDir, "hyperfide-app", ["--help"]),
+    label: "hyperfide-app help",
+  });
+  await runCommand({
+    ...createInstalledBinInvocation(binDir, "hyperfide", ["--help"]),
+    label: "hyperfide cli help",
+  });
+  await runCommand({
+    ...createInstalledBinInvocation(binDir, "hyperfide-server", ["--help"]),
+    label: "hyperfide-server help",
+  });
+  await runCommand({
+    ...createInstalledBinInvocation(binDir, "hyperfide-host-daemon", ["--help"]),
+    label: "hyperfide-host-daemon help",
+  });
+}
+
+async function smokeConfigCommand(binDir) {
+  const dataDir = join(tempRoot, "config-command-data");
+  await runCommand({
+    ...createInstalledBinInvocation(binDir, "hyperfide-app", [
+      "--data-dir",
+      dataDir,
+      "env",
+      "set",
+      "OPENAI_API_KEY",
+      "test-openai-key",
+    ]),
+    label: "hyperfide-app env OPENAI_API_KEY",
+  });
+  await runCommand({
+    ...createInstalledBinInvocation(binDir, "hyperfide-app", [
+      "--data-dir",
+      dataDir,
+      "config",
+      "set",
+      "HYPERFIDE_APP_URL",
+      "https://hyperfide.example.test",
+    ]),
+    label: "hyperfide-app config HYPERFIDE_APP_URL",
+  });
+
+  const configJson = JSON.parse(
+    await readFile(join(dataDir, "config.json"), "utf8"),
+  );
+  const envJson = JSON.parse(await readFile(join(dataDir, "env.json"), "utf8"));
+  if (envJson.env?.OPENAI_API_KEY !== "test-openai-key") {
+    throw new Error("Expected hyperfide-app env to persist OPENAI_API_KEY");
+  }
+  if (configJson.config?.HYPERFIDE_APP_URL !== "https://hyperfide.example.test") {
+    throw new Error("Expected hyperfide-app config to persist HYPERFIDE_APP_URL");
+  }
+}
+
+async function smokeSdkPackage(tarballPath) {
+  const sdkDir = join(tempRoot, "sdk-import");
+  await mkdir(sdkDir, { recursive: true });
+  await writeFile(
+    join(sdkDir, "package.json"),
+    JSON.stringify({ type: "module", private: true }, null, 2),
+  );
+  await timed("npm install tarball", () =>
+    runCommand({
+      args: [
+        "install",
+        "--ignore-scripts=false",
+        "--no-audit",
+        "--no-fund",
+        tarballPath,
+      ],
+      command: "npm",
+      cwd: sdkDir,
+      label: "install hyperfide-app SDK smoke package",
+    }),
+  );
+  await runCommand({
+    args: [
+      "--input-type=module",
+      "-e",
+      'import { HyperfideSdk } from "hyperfide-app"; if (typeof HyperfideSdk !== "function" || typeof new HyperfideSdk().experimental_desktopBrowsers?.listInstances !== "function") process.exit(1);',
+    ],
+    command: "node",
+    cwd: sdkDir,
+    label: "hyperfide-app SDK JavaScript import",
+  });
+  await runCommand({
+    command: process.execPath,
+    args: [
+      "--input-type=module",
+      "-e",
+      [
+        'import { createRequire } from "node:module";',
+        'import { dirname, join } from "node:path";',
+        'import { execFileSync } from "node:child_process";',
+        "const require = createRequire(import.meta.url);",
+        'const hyperfideRequire = createRequire(require.resolve("hyperfide-app"));',
+        'const npmRoot = dirname(hyperfideRequire.resolve("npm/package.json"));',
+        'const version = execFileSync(process.execPath, [join(npmRoot, "bin/npm-cli.js"), "--version"], { encoding: "utf8", env: { ...process.env, PATH: "" } }).trim();',
+        'if (version !== hyperfideRequire("npm/package.json").version) process.exit(1);',
+      ].join("\n"),
+    ],
+    cwd: sdkDir,
+    label: "shipped npm without Node or npm on PATH",
+  });
+  await writeFile(
+    join(sdkDir, "sdk-smoke.ts"),
+    [
+      'import { HyperfideSdk, HyperfideHttpError } from "hyperfide-app";',
+      "",
+      'const hyperfide = new HyperfideSdk({ baseUrl: "http://127.0.0.1:38886" });',
+      "const error: typeof HyperfideHttpError = HyperfideHttpError;",
+      "void hyperfide.status.get();",
+      'void hyperfide.experimental_desktopBrowsers.listInstances({ hostId: "smoke-host" });',
+      "void error;",
+      "",
+    ].join("\n"),
+  );
+  await timed("npx typescript check", () =>
+    runCommand({
+      args: [
+        "--yes",
+        "--no-audit",
+        "--no-fund",
+        "--package",
+        "typescript",
+        "--",
+        "tsc",
+        "--module",
+        "NodeNext",
+        "--moduleResolution",
+        "NodeNext",
+        "--target",
+        "ES2022",
+        "--noEmit",
+        "sdk-smoke.ts",
+      ],
+      command: "npx",
+      cwd: sdkDir,
+      label: "hyperfide-app SDK TypeScript import",
+    }),
+  );
+  return sdkDir;
+}
+
+async function smokeInstalledRepack(installedPackageDir) {
+  const stdout = await runCommand({
+    args: ["pack", "--dry-run", "--json"],
+    command: "npm",
+    cwd: installedPackageDir,
+    label: "repack installed hyperfide-app",
+  });
+  const [packed] = JSON.parse(stdout);
+  if (!Array.isArray(packed?.files)) throw new Error("Invalid npm pack output");
+  const chunkPrefix = "host-daemon/dist/hyperfide-chunks/";
+  const liveChunks = readdirSync(join(installedPackageDir, chunkPrefix))
+    .filter((name) => name.endsWith(".js"))
+    .map((name) => `${chunkPrefix}${name}`)
+    .sort();
+  const repackedChunks = packed?.files
+    ?.map((file) => file.path)
+    .filter((path) => typeof path === "string" && path.startsWith(chunkPrefix))
+    .sort();
+  if (
+    liveChunks.length === 0 ||
+    JSON.stringify(repackedChunks) !== JSON.stringify(liveChunks)
+  ) {
+    throw new Error("Installed hyperfide-app repack did not preserve its live chunks");
+  }
+}
+
+async function smokeBuiltinPluginsRunning({ binDir, cliEnv }) {
+  const deadline = Date.now() + PLUGIN_LOAD_TIMEOUT_MS;
+  let lastSummary = "no plugin list output yet";
+  // Plugins load after the HTTP server starts listening, so poll until every
+  // expected builtin settles into "running".
+  while (Date.now() <= deadline) {
+    const stdout = await runCommand({
+      ...createInstalledBinInvocation(binDir, "hyperfide", [
+        "plugin",
+        "list",
+        "--json",
+      ]),
+      env: cliEnv,
+      label: "hyperfide-platform plugin list",
+    });
+    const plugins = JSON.parse(stdout).plugins ?? [];
+    const byId = new Map(plugins.map((plugin) => [plugin.id, plugin]));
+    // The server reports an enabled plugin that `loadAll` has not reached yet
+    // as status "error" with the detail "not loaded" (it has no runtime
+    // status at all). Plugins load one at a time after the server starts
+    // listening, so a poll that lands mid-load sees that transient state for
+    // every plugin still queued; only a plugin whose load actually failed
+    // carries the failure as its detail.
+    const errored = plugins.filter(
+      (plugin) =>
+        plugin.status === "error" && plugin.statusDetail !== "not loaded",
+    );
+    if (errored.length > 0) {
+      throw new Error(
+        `Builtin plugins failed to load:\n${errored
+          .map((plugin) => `- ${plugin.id}: ${plugin.statusDetail}`)
+          .join("\n")}`,
+      );
+    }
+    const pending = EXPECTED_RUNNING_BUILTIN_PLUGINS.filter(
+      (id) => byId.get(id)?.status !== "running",
+    );
+    if (pending.length === 0) {
+      return;
+    }
+    lastSummary = pending
+      .map((id) => `${id}=${byId.get(id)?.status ?? "missing"}`)
+      .join(", ");
+    await delay(PLUGIN_LOAD_INTERVAL_MS);
+  }
+  throw new Error(
+    `Timed out waiting for builtin plugins to run: ${lastSummary}`,
+  );
+}
+
+async function smokeFullStackAttempt(binDir, sdkDir, attempt) {
+  const dataDir = join(tempRoot, `full-stack-data-${attempt}`);
+  const reservations = await reserveFreePorts(2);
+  const [serverReservation, daemonReservation] = reservations;
+  const serverPort = serverReservation.port;
+  const daemonPort = daemonReservation.port;
+  const serverUrl = `http://127.0.0.1:${serverPort}`;
+  let stack = null;
+
+  try {
+    await closePortReservations(reservations);
+    stack = spawnManagedProcess({
+      ...createInstalledBinInvocation(binDir, "hyperfide-app", [
+        "--data-dir",
+        dataDir,
+        "--server-port",
+        String(serverPort),
+        "--host-daemon-port",
+        String(daemonPort),
+      ]),
+      env: {
+        HYPERFIDE_LOG_LEVEL: "info",
+      },
+      label: "hyperfide-app full stack",
+    });
+    await waitForHttp({
+      acceptResponse: (response) => acceptServerHealthResponse(response),
+      label: stack.label,
+      portCollisionLogPaths: [
+        join(dataDir, "logs", "server-stdio.log"),
+        join(dataDir, "logs", "host-daemon-stdio.log"),
+      ],
+      processRef: stack,
+      url: `${serverUrl}/health`,
+    });
+    await waitForHttp({
+      label: stack.label,
+      portCollisionLogPaths: [
+        join(dataDir, "logs", "server-stdio.log"),
+        join(dataDir, "logs", "host-daemon-stdio.log"),
+      ],
+      processRef: stack,
+      url: `http://${DEFAULT_HOST_DAEMON_LOCAL_BIND_HOST}:${daemonPort}/health`,
+    });
+    await waitForHttp({
+      acceptResponse: (response) =>
+        acceptHostDaemonStatusResponse(response, serverUrl),
+      label: stack.label,
+      portCollisionLogPaths: [
+        join(dataDir, "logs", "server-stdio.log"),
+        join(dataDir, "logs", "host-daemon-stdio.log"),
+      ],
+      processRef: stack,
+      url: `http://${DEFAULT_HOST_DAEMON_LOCAL_BIND_HOST}:${daemonPort}/status`,
+    });
+    const cliEnv = {
+      HYPERFIDE_DATA_DIR: dataDir,
+      HYPERFIDE_HOST_DAEMON_PORT: String(daemonPort),
+      HYPERFIDE_SERVER_URL: serverUrl,
+    };
+    await runCommand({
+      ...createInstalledBinInvocation(binDir, "hyperfide", ["status"]),
+      env: cliEnv,
+      label: "hyperfide cli status",
+    });
+    await smokeBuiltinPluginsRunning({ binDir, cliEnv });
+    // Keep Awake reconciles even its default disabled state, so reaching this
+    // log proves the packed daemon found its companion worker, downloaded the
+    // plugin artifact, and started the worker for a host RPC call.
+    await waitForHostPluginWorker({
+      dataDir,
+      pluginId: "keep-awake",
+      processRef: stack,
+    });
+    await runCommand({
+      args: [
+        "--input-type=module",
+        "-e",
+        [
+          'import { HyperfideSdk } from "hyperfide-app";',
+          "const hyperfide = new HyperfideSdk({ baseUrl: process.env.HYPERFIDE_SERVER_URL });",
+          "await hyperfide.status.get();",
+        ].join("\n"),
+      ],
+      command: "node",
+      cwd: sdkDir,
+      env: {
+        HYPERFIDE_SERVER_URL: serverUrl,
+      },
+      label: "hyperfide-app SDK status",
+    });
+  } finally {
+    await waitForAllCleanup([
+      stack === null ? undefined : stopManagedProcess(stack),
+      closePortReservations(reservations),
+    ]);
+  }
+}
+
+async function smokeFullStack(binDir, sdkDir) {
+  await retryPortCollisions("full stack", (attempt) =>
+    smokeFullStackAttempt(binDir, sdkDir, attempt),
+  );
+}
+
+async function smokeDaemonJoinAttempt(binDir, attempt) {
+  const serverDataDir = join(tempRoot, `join-server-data-${attempt}`);
+  const reservations = await reserveFreePorts(4);
+  const [
+    serverReservation,
+    firstDaemonReservation,
+    secondDaemonReservation,
+    staleEnvReservation,
+  ] = reservations;
+  const serverPort = serverReservation.port;
+  const staleEnvPort = staleEnvReservation.port;
+  const serverLaunchId = randomUUID();
+  const serverUrl = `http://127.0.0.1:${serverPort}`;
+  const staleEnvServerUrl = `http://127.0.0.1:${staleEnvPort}`;
+  const daemonSpecs = [
+    {
+      dataDir: join(tempRoot, `join-daemon-data-${attempt}-1`),
+      label: "hyperfide-app host-daemon join 1",
+      reservation: firstDaemonReservation,
+    },
+    {
+      dataDir: join(tempRoot, `join-daemon-data-${attempt}-2`),
+      label: "hyperfide-app host-daemon join 2",
+      reservation: secondDaemonReservation,
+    },
+  ];
+  let server = null;
+  const daemons = [];
+  try {
+    await closePortReservation(serverReservation);
+    server = spawnManagedProcess({
+      ...createInstalledBinInvocation(binDir, "hyperfide-server", [
+        "--data-dir",
+        serverDataDir,
+        "--server-port",
+        String(serverPort),
+        "--host-daemon-port",
+        String(firstDaemonReservation.port),
+      ]),
+      env: {
+        HYPERFIDE_LOG_LEVEL: "warn",
+        HYPERFIDE_SERVER_LAUNCH_ID: serverLaunchId,
+      },
+      label: "hyperfide-server",
+    });
+    await waitForHttp({
+      acceptResponse: (response) =>
+        acceptServerHealthResponse(response, serverLaunchId),
+      label: server.label,
+      portCollisionLogPaths: [join(serverDataDir, "logs", "server-stdio.log")],
+      processRef: server,
+      url: `${serverUrl}/health`,
+    });
+    for (const spec of daemonSpecs) {
+      await closePortReservation(spec.reservation);
+      const daemon = spawnManagedProcess({
+        ...createInstalledBinInvocation(binDir, "hyperfide-app", [
+          "host-daemon",
+          "join",
+          "--data-dir",
+          spec.dataDir,
+          "--server-url",
+          serverUrl,
+          "--host-daemon-port",
+          String(spec.reservation.port),
+        ]),
+        env: {
+          HYPERFIDE_LOG_LEVEL: "info",
+          HYPERFIDE_SERVER_URL: staleEnvServerUrl,
+        },
+        label: spec.label,
+      });
+      daemons.push(daemon);
+      await waitForHttp({
+        label: daemon.label,
+        portCollisionLogPaths: [
+          join(spec.dataDir, "logs", "host-daemon-stdio.log"),
+        ],
+        processRef: daemon,
+        url: `http://${DEFAULT_HOST_DAEMON_LOCAL_BIND_HOST}:${spec.reservation.port}/health`,
+      });
+      await waitForHttp({
+        acceptResponse: (response) =>
+          acceptHostDaemonStatusResponse(response, serverUrl),
+        label: daemon.label,
+        portCollisionLogPaths: [
+          join(spec.dataDir, "logs", "host-daemon-stdio.log"),
+        ],
+        processRef: daemon,
+        url: `http://${DEFAULT_HOST_DAEMON_LOCAL_BIND_HOST}:${spec.reservation.port}/status`,
+      });
+      const configJson = JSON.parse(
+        await readFile(join(spec.dataDir, "config.json"), "utf8"),
+      );
+      if (configJson.serverUrl !== serverUrl) {
+        throw new Error(
+          `Expected persisted server URL ${serverUrl}, received ${configJson.serverUrl}`,
+        );
+      }
+    }
+    const cliEnv = {
+      HYPERFIDE_DATA_DIR: serverDataDir,
+      HYPERFIDE_HOST_DAEMON_PORT: String(firstDaemonReservation.port),
+      HYPERFIDE_SERVER_URL: serverUrl,
+    };
+    await smokeBuiltinPluginsRunning({ binDir, cliEnv });
+    // Both daemons joined a server in a different process and data directory.
+    // Ready workers on both prove host-plugin artifacts and calls fan out to
+    // enrolled machines instead of assuming server-local paths.
+    await Promise.all(
+      daemons.map((daemon, index) =>
+        waitForHostPluginWorker({
+          dataDir: daemonSpecs[index].dataDir,
+          pluginId: "keep-awake",
+          processRef: daemon,
+        }),
+      ),
+    );
+  } finally {
+    await waitForAllCleanup([
+      ...daemons.map((daemon) => stopManagedProcess(daemon)),
+      server === null ? undefined : stopManagedProcess(server),
+      closePortReservations(reservations),
+    ]);
+  }
+}
+
+async function smokeDaemonJoin(binDir) {
+  await retryPortCollisions("daemon join", (attempt) =>
+    smokeDaemonJoinAttempt(binDir, attempt),
+  );
+}
+
+try {
+  const smokeStartedAt = performance.now();
+  const tarballPath = await timed("npm pack", () => packTarball());
+  let sdkDir;
+  if (process.platform === "win32") {
+    const [npxResult, sdkResult] = await Promise.allSettled([
+      timed("npx entrypoint", () => smokeNpxEntrypoint(tarballPath)),
+      timed("sdk package", () => smokeSdkPackage(tarballPath)),
+    ]);
+    if (npxResult.status === "rejected") throw npxResult.reason;
+    if (sdkResult.status === "rejected") throw sdkResult.reason;
+    sdkDir = sdkResult.value;
+  } else {
+    await timed("npx entrypoint", () => smokeNpxEntrypoint(tarballPath));
+    sdkDir = await timed("sdk package", () => smokeSdkPackage(tarballPath));
+  }
+  const installedBinDir = join(sdkDir, "node_modules", ".bin");
+  const installedPackageDir = join(sdkDir, "node_modules", "hyperfide-app");
+  await timed("help commands", () => smokeHelpCommands(installedBinDir));
+  await timed("config command", () => smokeConfigCommand(installedBinDir));
+  await timed("installed repack", () =>
+    smokeInstalledRepack(installedPackageDir),
+  );
+  await timed("provider bridge bundles", () =>
+    smokeProviderBridgeBundles(installedPackageDir),
+  );
+  await timed("plugin host worker bundle", () =>
+    smokePluginHostWorkerBundle(installedPackageDir),
+  );
+  await timed("full stack", () => smokeFullStack(installedBinDir, sdkDir));
+  await timed("daemon join", () => smokeDaemonJoin(installedBinDir));
+  process.stdout.write(
+    `hyperfide-app tarball smoke passed in ${formatElapsed(smokeStartedAt)}\n`,
+  );
+} finally {
+  await rm(tempRoot, {
+    force: true,
+    maxRetries: 20,
+    recursive: true,
+    retryDelay: 250,
+  });
+}

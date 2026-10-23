@@ -1,4 +1,4 @@
-// The one list of modules `bb plugin build` swaps for host-runtime shims.
+// The one list of modules `hyperfide-platform plugin build` swaps for host-runtime shims.
 //
 // Plain ESM on purpose: the build engine (build-plugin-app.ts) imports it as
 // a module, and two generator scripts that run under bare `node` before any
@@ -35,7 +35,7 @@ export const SHARED_UI_VOICE_INPUT_TEXTAREA_SPECIFIER =
   "@hyperfide/shared-ui/voice-input-textarea";
 
 /**
- * Runtime slot on `globalThis.__bbPluginRuntime` per shimmed specifier.
+ * Runtime slot on `globalThis.__hyperfidePluginRuntime` per shimmed specifier.
  * Shim policy (plugin design §5.5), two admission rules:
  *
  * 1. Singleton/global behavior — one React, the portaling radix families
@@ -131,7 +131,7 @@ export const RUNTIME_SHIM_NPM_SPECIFIERS = Object.freeze(
  * The npm packages a plugin must declare as type-only devDependencies (at the
  * host's version) for its shimmed imports to typecheck: every shimmed npm
  * package except React, whose declarations ship separately as `@types/react`
- * and `@types/react-dom` and which the scaffold pins on its own. `bb plugin
+ * and `@types/react-dom` and which the scaffold pins on its own. `hyperfide-platform plugin
  * build` never bundles any of these, so none belongs in `dependencies`.
  */
 export const SHIMMED_TYPE_PACKAGES = Object.freeze(

@@ -53,7 +53,7 @@ describe("desktop clipboard writes", () => {
 
   it("rejects writes from other web contents", async () => {
     await expect(request(99, { text: "plain" })).rejects.toThrow(
-      "Clipboard writes are limited to bb windows",
+      "Clipboard writes are limited to hyperfide windows",
     );
     expect(mock.writeText).not.toHaveBeenCalled();
   });

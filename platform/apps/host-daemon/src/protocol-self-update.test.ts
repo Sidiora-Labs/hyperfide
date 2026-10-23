@@ -32,7 +32,7 @@ async function createFixture(
     useDefaultInstaller?: boolean;
   } = {},
 ) {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-self-update-test-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-self-update-test-"));
   roots.push(dataDir);
   const installTarball = vi.fn(async () => {
     if (args.installFailure) throw args.installFailure;
@@ -47,7 +47,7 @@ async function createFixture(
           args.protocolVersion ?? HOST_DAEMON_PROTOCOL_VERSION + 1,
       });
     }
-    if (url.endsWith("/install/bb-app.tgz")) {
+    if (url.endsWith("/install/hyperfide-app.tgz")) {
       return new Response("tarball");
     }
     throw new Error(`Unexpected URL: ${url}`);
@@ -101,7 +101,7 @@ describe("protocol self-update", () => {
         });
       }
       return new Response(bytes, {
-        headers: { "x-bb-artifact-sha256": digest },
+        headers: { "x-hyperfide-artifact-sha256": digest },
       });
     });
 
@@ -124,7 +124,7 @@ describe("protocol self-update", () => {
         });
       }
       return new Response("tampered", {
-        headers: { "x-bb-artifact-sha256": "a".repeat(64) },
+        headers: { "x-hyperfide-artifact-sha256": "a".repeat(64) },
       });
     });
 
@@ -152,7 +152,7 @@ describe("protocol self-update", () => {
           "if-none-match": `"sha256-${digest}"`,
         });
         return new Response(null, {
-          headers: { "x-bb-artifact-sha256": digest },
+          headers: { "x-hyperfide-artifact-sha256": digest },
           status: 304,
         });
       },
@@ -183,7 +183,7 @@ describe("protocol self-update", () => {
         "install",
         "-g",
         "--allow-scripts=better-sqlite3,node-pty,@parcel/watcher",
-        expect.stringContaining("bb-app-update-"),
+        expect.stringContaining("hyperfide-app-update-"),
       ],
       {
         env: expect.objectContaining({
@@ -193,7 +193,7 @@ describe("protocol self-update", () => {
     );
   });
 
-  it("updates an installer-managed bb-app inside its machine-specific prefix", async () => {
+  it("updates an installer-managed hyperfide-app inside its machine-specific prefix", async () => {
     vi.stubEnv("HYPERFIDE_APP_NPM_PREFIX", "/machine-data/npm");
     const test = await createFixture({ useDefaultInstaller: true });
 
@@ -209,7 +209,7 @@ describe("protocol self-update", () => {
         "--allow-scripts=better-sqlite3,node-pty,@parcel/watcher",
         "--prefix",
         "/machine-data/npm",
-        expect.stringContaining("bb-app-update-"),
+        expect.stringContaining("hyperfide-app-update-"),
       ],
       expect.any(Object),
     );
@@ -229,7 +229,7 @@ describe("protocol self-update", () => {
         "install",
         "-g",
         "--allow-scripts=better-sqlite3,node-pty,@parcel/watcher",
-        expect.stringContaining("bb-app-update-"),
+        expect.stringContaining("hyperfide-app-update-"),
       ],
       expect.any(Object),
     );

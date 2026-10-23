@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import type { ProviderCliInstallEvent } from "@hyperfide/host-daemon-contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import { sdk } from "@/lib/sdk";
 import { appToast } from "@/components/ui/app-toast";
 import {
@@ -131,7 +131,7 @@ afterEach(() => {
 });
 
 describe("buildProviderCliIssue", () => {
-  it("keeps an external update visible when bb cannot apply it", () => {
+  it("keeps an external update visible when hyperfide cannot apply it", () => {
     const actionable = issueForProvider("claude-code");
     const issue = buildProviderCliIssue({
       provider: "claude-code",
@@ -341,7 +341,7 @@ describe("provider CLI install store", () => {
     await settle();
     await vi.waitFor(() => expect(pendingInstalls).toHaveLength(2));
     installAt(1).reject(
-      new BbHttpError({
+      new HyperfideHttpError({
         status: 409,
         code: "provider_bridge_unavailable",
         message: "Provider bridge unavailable",

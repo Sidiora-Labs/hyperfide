@@ -92,8 +92,8 @@ interface PluginCardAuthorProps {
 }
 
 function pluginCardAuthorName(entry: PluginCardAuthorProps["entry"]): string {
-  return entry.marketplace === "bb-official"
-    ? "BB Official"
+  return entry.marketplace === "hyperfide-official"
+    ? "HYPERFIDE Official"
     : (entry.author?.name ?? entry.publisherLabel);
 }
 
@@ -102,7 +102,7 @@ export function PluginCardAuthorAvatar({ entry }: PluginCardAuthorProps) {
     <PluginAuthorAvatar
       name={pluginCardAuthorName(entry)}
       github={pluginAuthorGithub(entry.author)}
-      official={entry.marketplace === "bb-official"}
+      official={entry.marketplace === "hyperfide-official"}
       size="detail"
     />
   );
@@ -127,7 +127,7 @@ export function PluginCardAuthor({ entry }: PluginCardAuthorProps) {
     <PluginAuthorByline
       name={pluginCardAuthorName(entry)}
       github={pluginAuthorGithub(entry.author)}
-      official={entry.marketplace === "bb-official"}
+      official={entry.marketplace === "hyperfide-official"}
     >
       <PluginCardAuthorName entry={entry} />
     </PluginAuthorByline>

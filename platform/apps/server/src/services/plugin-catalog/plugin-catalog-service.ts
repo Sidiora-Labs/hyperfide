@@ -359,11 +359,11 @@ export function createPluginCatalogService(deps: {
   }
 
   function compatibilityProblem(ranges: {
-    bbRange: string | undefined;
+    hyperfideRange: string | undefined;
     sdkRange: string | undefined;
   }): string | null {
     const compatibility = evaluateCompatibility({
-      bbRange: ranges.bbRange,
+      hyperfideRange: ranges.hyperfideRange,
       sdkRange: ranges.sdkRange,
       appVersion: deps.appVersion,
     });
@@ -397,8 +397,8 @@ export function createPluginCatalogService(deps: {
     return {
       manifest,
       problem: compatibilityProblem({
-        bbRange: manifest.bbEngineRange,
-        sdkRange: manifest.bbPluginSdkRange,
+        hyperfideRange: manifest.hyperfideEngineRange,
+        sdkRange: manifest.hyperfidePluginSdkRange,
       }),
     };
   }
@@ -477,8 +477,8 @@ export function createPluginCatalogService(deps: {
       manifest === null
         ? null
         : compatibilityProblem({
-            bbRange: manifest.bbEngineRange,
-            sdkRange: manifest.bbPluginSdkRange,
+            hyperfideRange: manifest.hyperfideEngineRange,
+            sdkRange: manifest.hyperfidePluginSdkRange,
           });
     const metadata = catalogEntryMetadata({
       manifest: catalog,
@@ -1018,7 +1018,7 @@ export function createPluginCatalogService(deps: {
           const name = materialized.catalog.name;
           if (isReservedMarketplace(name)) {
             throw new Error(
-              `marketplace name "${name}" is reserved for a marketplace that ships with bb`,
+              `marketplace name "${name}" is reserved for a marketplace that ships with hyperfide`,
             );
           }
           if (getPluginMarketplace(deps.db, name) !== undefined) {

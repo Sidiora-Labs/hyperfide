@@ -1,4 +1,4 @@
-import { createBbSdk } from "@hyperfide/sdk/core";
+import { createHyperfideSdk } from "@hyperfide/sdk/core";
 import { createHttpTransport } from "@hyperfide/sdk/node";
 import { appendThreadProvisioningEvent } from "../../../src/services/threads/thread-events.js";
 import { requestThreadStopForCurrentState } from "../../../src/services/threads/thread-lifecycle.js";
@@ -23,7 +23,7 @@ import {
   createThreadStartup,
 } from "../../../src/services/threads/thread-startup-store.js";
 import { z } from "zod";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import { handleUpdateEnvironmentDirectoryToolCall } from "../../../src/services/threads/thread-environment-directory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -125,7 +125,7 @@ function setup(
     projectCheckout: null,
     gitRemote: null,
     inputs: null,
-    suggestedBranchName: "bb/test",
+    suggestedBranchName: "hyperfide/test",
     environment: null,
   };
   let lastEnvironmentId: string | null = null;
@@ -811,7 +811,7 @@ describe("core environment orchestration", () => {
       });
       const module = z
         .object({
-          default: z.custom<(bb: BbPluginApi) => Promise<void>>(
+          default: z.custom<(hyperfide: HyperfidePluginApi) => Promise<void>>(
             (value) => typeof value === "function",
           ),
         })
@@ -823,7 +823,7 @@ describe("core environment orchestration", () => {
             ).href
           ),
         );
-      await module.default(fake.bb);
+      await module.default(fake.hyperfide);
       const provider =
         fake.harness.registrations.environmentProviders.get("project-checkout");
       if (provider?.validate === null || provider === undefined)
@@ -874,7 +874,7 @@ describe("core environment orchestration", () => {
       });
       const module = z
         .object({
-          default: z.custom<(bb: BbPluginApi) => Promise<void>>(
+          default: z.custom<(hyperfide: HyperfidePluginApi) => Promise<void>>(
             (value) => typeof value === "function",
           ),
         })
@@ -886,7 +886,7 @@ describe("core environment orchestration", () => {
             ).href
           ),
         );
-      await module.default(fake.bb);
+      await module.default(fake.hyperfide);
       const provider =
         fake.harness.registrations.environmentProviders.get("project-checkout");
       if (provider === undefined) throw new Error("Missing checkout provider");
@@ -1441,7 +1441,7 @@ describe("core environment orchestration", () => {
             .set({ archivedAt: Date.now() })
             .where(eq(threads.id, fixture.thread.id))
             .run();
-          const sdk = createBbSdk({
+          const sdk = createHyperfideSdk({
             transport: createHttpTransport({
               baseUrl: "http://localhost",
               runtime: "node",
@@ -1499,7 +1499,7 @@ describe("core environment orchestration", () => {
       });
       const module = z
         .object({
-          default: z.custom<(bb: BbPluginApi) => Promise<void>>(
+          default: z.custom<(hyperfide: HyperfidePluginApi) => Promise<void>>(
             (value) => typeof value === "function",
           ),
         })
@@ -1511,7 +1511,7 @@ describe("core environment orchestration", () => {
             ).href
           ),
         );
-      await module.default(fake.bb);
+      await module.default(fake.hyperfide);
       const provider =
         fake.harness.registrations.environmentProviders.get("project-checkout");
       if (provider === undefined) throw new Error("Missing checkout provider");
@@ -2085,7 +2085,7 @@ it("serializes concurrent branchless checkout attaches until the first thread is
     try {
       const module = z
         .object({
-          default: z.custom<(bb: BbPluginApi) => Promise<void>>(
+          default: z.custom<(hyperfide: HyperfidePluginApi) => Promise<void>>(
             (value) => typeof value === "function",
           ),
         })
@@ -2097,7 +2097,7 @@ it("serializes concurrent branchless checkout attaches until the first thread is
             ).href
           ),
         );
-      await module.default(fake.bb);
+      await module.default(fake.hyperfide);
       const provider =
         fake.harness.registrations.environmentProviders.get("project-checkout");
       if (!provider) throw new Error("Missing checkout provider");
@@ -2529,7 +2529,7 @@ describe("worktree adoption cleanup", () => {
         });
         const module = z
           .object({
-            default: z.custom<(bb: BbPluginApi) => Promise<void>>(
+            default: z.custom<(hyperfide: HyperfidePluginApi) => Promise<void>>(
               (value) => typeof value === "function",
             ),
           })
@@ -2541,7 +2541,7 @@ describe("worktree adoption cleanup", () => {
               ).href
             ),
           );
-        await module.default(fake.bb);
+        await module.default(fake.hyperfide);
         const provider =
           fake.harness.registrations.environmentProviders.get("git-worktree");
         if (provider === undefined)

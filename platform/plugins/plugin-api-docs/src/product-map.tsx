@@ -625,7 +625,7 @@ function SlideTitle({
       {parts.map((part, index) => (
         <Fragment key={index}>
           {index > 0
-            ? (brandMark ?? <span className="font-bold italic">bb</span>)
+            ? (brandMark ?? <span className="font-bold italic">hyperfide</span>)
             : null}
           {part}
         </Fragment>
@@ -938,7 +938,7 @@ export function ProductMap({
     const container = containerRef.current;
     if (container === null) return;
     const scope =
-      container.closest<HTMLElement>("[data-bb-plugin]") ?? container;
+      container.closest<HTMLElement>("[data-hyperfide-plugin]") ?? container;
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
@@ -958,7 +958,7 @@ export function ProductMap({
         <div data-map-column className="mx-auto w-full max-w-[100rem]">
           <section
             aria-roledescription="carousel"
-            aria-label="bb surfaces a plugin can extend"
+            aria-label="hyperfide surfaces a plugin can extend"
             onKeyDown={onKeyDown}
             className="mt-2"
           >

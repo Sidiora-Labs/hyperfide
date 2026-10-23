@@ -71,10 +71,10 @@ function createFakeWorkspaceHost() {
 
 async function setup() {
   const host = createFakeWorkspaceHost();
-  const { bb, harness } = createFakePluginHost({
+  const { hyperfide, harness } = createFakePluginHost({
     experimental_callHostRpc: (call) => host.call(call),
   });
-  await plugin(bb);
+  await plugin(hyperfide);
   const provider = harness.registrations.environmentProviders.get(
     PERSONAL_WORKSPACE_ENVIRONMENT_PROVIDER_ID,
   );
@@ -92,7 +92,7 @@ async function setup() {
     projectCheckout: null,
     gitRemote: null,
     inputs: null,
-    suggestedBranchName: "bb/test",
+    suggestedBranchName: "hyperfide/test",
     attempt: 1,
     pathKey: THREAD_ID,
     experimental_claimPath: async () => true,

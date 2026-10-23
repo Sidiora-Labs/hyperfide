@@ -92,8 +92,8 @@ export function PluginAuthorPage({
   const author = useMemo(() => authorForEntries(entries), [entries]);
   const official =
     entries.length > 0 &&
-    entries.every((entry) => entry.marketplace === "bb-official");
-  const authorName = official ? "BB Official" : author?.name;
+    entries.every((entry) => entry.marketplace === "hyperfide-official");
+  const authorName = official ? "HYPERFIDE Official" : author?.name;
   const installsKnown = entries.some((entry) => entry.installs !== null);
   const sort =
     requestedSort === "most-installed" && !installsKnown ? null : requestedSort;

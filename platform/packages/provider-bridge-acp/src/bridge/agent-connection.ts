@@ -388,7 +388,7 @@ export async function requestAcpInitialize(
     method: "initialize",
     params: {
       protocolVersion: ACP_CLIENT_PROTOCOL_VERSION,
-      clientInfo: { name: "bb", version: "1.0.0" },
+      clientInfo: { name: "hyperfide", version: "1.0.0" },
       clientCapabilities: acpClientCapabilities(
         parameterizedModelPicker,
         fsAccess,

@@ -91,14 +91,14 @@ describe("workflow settings policy", () => {
   );
 
   it("registers descriptors and returns parsed fake-host values", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "workflows",
       settings: {
         maxActiveRuns: " 6 ",
         maxAgentCalls: "250",
       },
     });
-    const settings = registerWorkflowSettings(bb);
+    const settings = registerWorkflowSettings(hyperfide);
 
     expect(harness.registrations.settingsDescriptors).toEqual(
       WORKFLOW_SETTING_DESCRIPTORS,
@@ -122,19 +122,19 @@ describe("workflow settings policy", () => {
   });
 
   it("falls back from a nonnumeric legacy stored string", async () => {
-    const { bb } = createFakePluginHost({
+    const { hyperfide } = createFakePluginHost({
       pluginId: "workflows",
       settings: { retentionDays: "forever" },
     });
 
-    await expect(registerWorkflowSettings(bb).get()).resolves.toMatchObject({
+    await expect(registerWorkflowSettings(hyperfide).get()).resolves.toMatchObject({
       retentionDays: 7,
     });
   });
 
   it("rejects string and out-of-range updates", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "workflows" });
-    const settings = registerWorkflowSettings(bb);
+    const { hyperfide, harness } = createFakePluginHost({ pluginId: "workflows" });
+    const settings = registerWorkflowSettings(hyperfide);
     const changes: WorkflowSettings[] = [];
     const errors: string[] = [];
     settings.onChange(

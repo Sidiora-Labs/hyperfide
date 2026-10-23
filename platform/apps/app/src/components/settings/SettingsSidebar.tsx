@@ -35,7 +35,7 @@ import {
 import { useSidebarHeaderControlAxisClass } from "@/components/sidebar/SidebarChrome";
 import { useCloseMobileSidebar, useSidebar } from "@/components/ui/sidebar.js";
 import { isEditableKeyboardTarget } from "@/lib/app-keybindings";
-import { MACOS_APP_REGION_NO_DRAG_CLASS } from "@/lib/bb-desktop";
+import { MACOS_APP_REGION_NO_DRAG_CLASS } from "@/lib/hyperfide-desktop";
 import { canOpenNativeScreen, shellOpenNative } from "@/lib/native-shell";
 import { getPluginConfigurationRoutePath } from "@/lib/route-paths";
 import { useSettingsNavState } from "./settings-nav";

@@ -15,17 +15,17 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
     cwd,
     env: {
       ...process.env,
-      GIT_AUTHOR_NAME: "bb",
-      GIT_AUTHOR_EMAIL: "bb@example.com",
-      GIT_COMMITTER_NAME: "bb",
-      GIT_COMMITTER_EMAIL: "bb@example.com",
+      GIT_AUTHOR_NAME: "hyperfide",
+      GIT_AUTHOR_EMAIL: "hyperfide@example.com",
+      GIT_COMMITTER_NAME: "hyperfide",
+      GIT_COMMITTER_EMAIL: "hyperfide@example.com",
     },
   });
   return result.stdout;
 }
 
 async function createRepository(): Promise<{ repo: string; dataDir: string }> {
-  const root = await mkdtemp(join(tmpdir(), "bb-checkout-plugin-"));
+  const root = await mkdtemp(join(tmpdir(), "hyperfide-checkout-plugin-"));
   temporaryRoots.push(root);
   const repo = join(root, "repo");
   const dataDir = join(root, "plugin-data");
@@ -101,17 +101,17 @@ describe("checkout host entry", () => {
     const created = await harness.experimental_call("attach", {
       operationId: "new",
       path: repo,
-      branch: { kind: "new", name: "bb/feature-thr_1", baseBranch: "main" },
+      branch: { kind: "new", name: "hyperfide/feature-thr_1", baseBranch: "main" },
     });
     expect(created).toMatchObject({
       status: "attached",
-      branchName: "bb/feature-thr_1",
+      branchName: "hyperfide/feature-thr_1",
       mergeBaseBranch: "main",
     });
     expect((await git(repo, "rev-parse", "--abbrev-ref", "HEAD")).trim()).toBe(
-      "bb/feature-thr_1",
+      "hyperfide/feature-thr_1",
     );
-    expect(progressText(harness)).toContain("Created branch bb/feature-thr_1");
+    expect(progressText(harness)).toContain("Created branch hyperfide/feature-thr_1");
     await harness.experimental_dispose();
   });
 
@@ -130,11 +130,11 @@ describe("checkout host entry", () => {
     const created = await harness.experimental_call("attach", {
       operationId: "new-from-origin",
       path: clone,
-      branch: { kind: "new", name: "bb/feature-thr_2", baseBranch: "dev" },
+      branch: { kind: "new", name: "hyperfide/feature-thr_2", baseBranch: "dev" },
     });
     expect(created).toMatchObject({
       status: "attached",
-      branchName: "bb/feature-thr_2",
+      branchName: "hyperfide/feature-thr_2",
       mergeBaseBranch: "origin/dev",
     });
     await expect(git(clone, "rev-parse", "--verify", "dev")).rejects.toThrow();
@@ -142,7 +142,7 @@ describe("checkout host entry", () => {
       (await git(clone, "rev-parse", "origin/dev")).trim(),
     );
     await expect(
-      git(clone, "rev-parse", "--abbrev-ref", "bb/feature-thr_2@{upstream}"),
+      git(clone, "rev-parse", "--abbrev-ref", "hyperfide/feature-thr_2@{upstream}"),
     ).rejects.toThrow();
 
     const existing = await harness.experimental_call("attach", {

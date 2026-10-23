@@ -10,10 +10,10 @@ import {
 } from "@hyperfide/domain";
 import { threadEnvironmentUnavailableApiErrorSchema } from "@hyperfide/server-contract";
 import { action, CliExitError } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliHyperfideSdk } from "../../client.js";
 import { requireTextInput, TEXT_FILE_HELP_SUFFIX } from "../../text-input.js";
 import {
-  BbHttpError,
+  HyperfideHttpError,
   type ThreadRetryResult,
   type ThreadSendResult,
 } from "@hyperfide/sdk";
@@ -250,7 +250,7 @@ export function registerActionsCommands(
             body.parentNotifications = parentNotifications;
           }
 
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const thread = await sdk.threads.update({ threadId, ...body });
           if (outputJson(opts, thread)) return;
           console.log(`Thread ${thread.id} updated`);
@@ -294,7 +294,7 @@ export function registerActionsCommands(
       action(
         async (id: string | undefined, opts: ThreadArchiveCommandOptions) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           let archivedThreadIds: string[] = [threadId];
           try {
             const result = await sdk.threads.archive({ threadId });
@@ -337,7 +337,7 @@ export function registerActionsCommands(
       action(
         async (id: string | undefined, opts: ThreadUnarchiveCommandOptions) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           await sdk.threads.unarchive({ threadId });
           if (outputJson(opts, { ok: true, threadId })) return;
           console.log(`Thread ${threadId} unarchived`);
@@ -359,7 +359,7 @@ export function registerActionsCommands(
           opts: ThreadRestoreEnvironmentCommandOptions,
         ) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           let thread;
           try {
             thread = await sdk.threads.restoreEnvironment({ threadId });
@@ -390,7 +390,7 @@ export function registerActionsCommands(
         action(
           async (id: string | undefined, opts: ThreadPinCommandOptions) => {
             const threadId = requireThreadIdOrSelf(id, opts);
-            const sdk = createCliBbSdk(getUrl());
+            const sdk = createCliHyperfideSdk(getUrl());
             const thread = await sdk.threads[name]({ threadId });
             if (outputJson(opts, thread)) return;
             console.log(`Thread ${thread.id} ${done}`);
@@ -410,7 +410,7 @@ export function registerActionsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (id: string, opts: ThreadDeleteCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         try {
           const thread = await sdk.threads.get({ threadId: id });
 
@@ -463,7 +463,7 @@ export function registerActionsCommands(
             inline: opts.message,
             inlineLabel: "--message <text>",
           });
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const expectedRequestSequence =
             opts.expectedRequestSequence === undefined
               ? undefined
@@ -594,7 +594,7 @@ export function registerActionsCommands(
       action(
         async (id: string | undefined, opts: ThreadRetryCommandOptions) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const response = await sdk.threads.retry({
             threadId,
             ...(opts.turn === undefined ? {} : { turnRequestId: opts.turn }),
@@ -649,7 +649,7 @@ export function registerActionsCommands(
       .action(
         action(async (id: string | undefined, opts: ThreadActionOptions) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           await sdk.threads[method]({ threadId });
           if (outputJson(opts, { ok: true, threadId })) return;
           console.log(`Thread ${threadId} ${done}`);
@@ -661,7 +661,7 @@ export function registerActionsCommands(
 async function postThreadMessage(
   args: PostThreadMessageArgs,
 ): Promise<PostThreadMessageResult> {
-  const sdk = createCliBbSdk(args.getUrl());
+  const sdk = createCliHyperfideSdk(args.getUrl());
   const input = await uploadClientAttachmentInputs({
     input: buildPromptInputs({
       message: args.message,
@@ -699,11 +699,11 @@ async function postThreadMessage(
 }
 
 async function withRestoreEnvironmentHint(
-  sdk: ReturnType<typeof createCliBbSdk>,
+  sdk: ReturnType<typeof createCliHyperfideSdk>,
   threadId: string,
   error: unknown,
 ): Promise<unknown> {
-  if (!(error instanceof BbHttpError)) return error;
+  if (!(error instanceof HyperfideHttpError)) return error;
   const parsed = threadEnvironmentUnavailableApiErrorSchema.safeParse(
     error.body,
   );

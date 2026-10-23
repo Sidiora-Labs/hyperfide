@@ -323,7 +323,7 @@ describe("completed turn summary rendering", () => {
       }),
       event.commandCompleted({
         itemId: "tool-after-steer",
-        command: "sqlite3 ~/.bb-dev/bb.db '.tables'",
+        command: "sqlite3 ~/.hyperfide-dev/hyperfide.db '.tables'",
       }),
       event.assistantCompleted({
         itemId: "assistant-1",
@@ -538,7 +538,7 @@ describe("completed turn summary rendering", () => {
     {
       initiator: "system",
       senderThreadId: null,
-      text: "[bb system] Continue after reconnect.",
+      text: "[hyperfide system] Continue after reconnect.",
     },
   ] as const)(
     "does not split completed turn summaries around accepted $initiator steers",
@@ -564,7 +564,7 @@ describe("completed turn summary rendering", () => {
         }),
         event.commandCompleted({
           itemId: "tool-after-steer",
-          command: "sqlite3 ~/.bb-dev/bb.db '.tables'",
+          command: "sqlite3 ~/.hyperfide-dev/hyperfide.db '.tables'",
         }),
         event.assistantCompleted({
           itemId: "assistant-1",

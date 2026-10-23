@@ -422,7 +422,7 @@ export const pluginStateSnapshots = sqliteTable(
     }).notNull(),
     rollbackCandidateVersion: text("rollback_candidate_version"),
     rollbackSourceFingerprint: text("rollback_source_fingerprint"),
-    rollbackBbVersion: text("rollback_bb_version"),
+    rollbackHyperfideVersion: text("rollback_hyperfide_version"),
     rollbackSdkVersion: text("rollback_sdk_version"),
     rollbackDetail: text("rollback_detail"),
     createdAt: integer("created_at").notNull(),

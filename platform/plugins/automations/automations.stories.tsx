@@ -114,27 +114,27 @@ const OVERVIEW_ENTRIES: AutomationsOverviewResponse["automations"] = [
   },
   {
     automation: automation("release", "Release readiness", {
-      projectId: "proj_bb",
+      projectId: "proj_hyperfide",
       lastRunStatus: "running",
       nextRunAt: now + 3_600_000,
     }),
-    project: { id: "proj_bb", name: "bb" },
+    project: { id: "proj_hyperfide", name: "hyperfide" },
   },
   {
     automation: automation("pending-reminder", "A pending launch reminder", {
-      projectId: "proj_bb",
+      projectId: "proj_hyperfide",
       trigger: { triggerType: "once", runAt: now + 86_400_000 },
       nextRunAt: now + 86_400_000,
     }),
-    project: { id: "proj_bb", name: "bb" },
+    project: { id: "proj_hyperfide", name: "hyperfide" },
   },
   {
     automation: automation("dependencies", "Dependency drift", {
-      projectId: "proj_bb",
+      projectId: "proj_hyperfide",
       enabled: false,
       nextRunAt: null,
     }),
-    project: { id: "proj_bb", name: "bb" },
+    project: { id: "proj_hyperfide", name: "hyperfide" },
   },
   {
     automation: automation("one-shot", "Prepare launch notes", {
@@ -190,7 +190,7 @@ const DETAIL_AUTOMATION = automation("nightly-digest", "Nightly digest", {
 
 const PROJECT_AUTOMATION: AutomationResponse = {
   ...DETAIL_AUTOMATION,
-  projectId: "proj_bb",
+  projectId: "proj_hyperfide",
   lastRunAt: now,
   runCount: 3,
   lastRunStatus: "running",
@@ -206,7 +206,7 @@ const PROJECT_AUTOMATION: AutomationResponse = {
 
       workspace: {
         type: "unmanaged",
-        path: "/Users/you/Code/bb",
+        path: "/Users/you/Code/hyperfide",
         branch: { kind: "existing", name: "agent/tools-hub-schedules" },
       },
     },
@@ -235,13 +235,13 @@ mkdir -p "$output_dir"
 for repository in api app docs integrations; do
   echo "Collecting $repository activity for $report_date"
   gh pr list \\
-    --repo "bb/$repository" \\
+    --repo "hyperfide/$repository" \\
     --state all \\
     --json number,title,state,updatedAt \\
     > "$output_dir/$repository-$report_date.json"
 
   gh issue list \\
-    --repo "bb/$repository" \\
+    --repo "hyperfide/$repository" \\
     --state all \\
     --json number,title,state,updatedAt \\
     > "$output_dir/$repository-issues-$report_date.json"
@@ -256,7 +256,7 @@ echo "Reports written to $output_dir"`,
     interpreter: "bash",
     timeoutMs: 60_000,
     env: {
-      REPORT_OUTPUT: "/tmp/bb-reports",
+      REPORT_OUTPUT: "/tmp/hyperfide-reports",
       GH_HOST: "github.com",
     },
   },
@@ -322,7 +322,7 @@ function PromptVariant({
         personalProject={value.projectId === "proj_personal"}
         projectContextLabel={
           projectLabel ??
-          (value.projectId === "proj_personal" ? "Personal" : "bb")
+          (value.projectId === "proj_personal" ? "Personal" : "hyperfide")
         }
         pending={false}
         onCancel={() => setEditing(false)}
@@ -367,7 +367,7 @@ export function OverviewRows() {
     },
     "triage-sweep": {
       label: "Paused by a failure",
-      hint: "bb paused the automation because its target thread was archived. The row ends with that reason.",
+      hint: "hyperfide paused the automation because its target thread was archived. The row ends with that reason.",
     },
   };
   return (
@@ -635,7 +635,7 @@ export function DetailStates() {
             execution={{
               mode: "script",
               workingDirectory: { type: "project" },
-              resolvedWorkingDirectory: "/srv/projects/bb",
+              resolvedWorkingDirectory: "/srv/projects/hyperfide",
               script: 'echo "Preparing report"',
               interpreter: "bash",
               timeoutMs: 60000,
@@ -682,7 +682,7 @@ export function RunStates() {
 
 const FAILED_AUTOMATION: AutomationDetailResponse = {
   ...automation("triage-sweep", "Triage sweep", {
-    projectId: "proj_bb",
+    projectId: "proj_hyperfide",
     enabled: false,
     nextRunAt: null,
     lastRunAt: now,
@@ -746,7 +746,7 @@ export function FailureStates() {
         <div className="w-full max-w-3xl">
           <AutomationDetailView
             automation={FAILED_AUTOMATION}
-            projectLabel="bb"
+            projectLabel="hyperfide"
             runsState={{
               runs: failedAutomationRuns(),
               nextCursor: null,

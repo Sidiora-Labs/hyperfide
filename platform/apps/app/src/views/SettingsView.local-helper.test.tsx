@@ -82,7 +82,7 @@ describe("LocalOpenTargetSettingsSection", () => {
     fireEvent.click(screen.getByRole("link", { name: "Setup guide" }));
 
     expect(openWindow).toHaveBeenCalledExactlyOnceWith(
-      "https://github.com/get-bb/bb/blob/main/docs/multiple-devices.md#open-bb-from-another-browser",
+      "https://github.com/hyperfide/hyperfide/blob/main/docs/multiple-devices.md#open-hyperfide-from-another-browser",
       "_blank",
       "noopener,noreferrer",
     );

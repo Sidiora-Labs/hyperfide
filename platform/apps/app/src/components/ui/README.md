@@ -11,7 +11,7 @@ or adding a component here, answer the relevant checks below.
 Use `components/ui` for generic UI building blocks. A primitive must satisfy all
 of these:
 
-- No product data dependencies: no queries, atoms, routing, server calls, or BB
+- No product data dependencies: no queries, atoms, routing, server calls, or HYPERFIDE
   lifecycle concepts.
 - No `@hyperfide/domain` types in its public API.
 - Generic local interaction state is okay. Browser persistence, app preferences,
@@ -23,7 +23,7 @@ Examples: `Button`, `Dialog`, `DropdownMenu`, `Pill`, `DetailCard`,
 
 ## Domain Presentation
 
-Use named feature folders for canonical rendering of BB domain concepts. These
+Use named feature folders for canonical rendering of HYPERFIDE domain concepts. These
 components are still pure presentation:
 
 - Props in, JSX out.
@@ -51,7 +51,7 @@ injects the preferred theme.
 Before adding code to `components/ui`, ask:
 
 1. Is it a generic design-system primitive?
-2. If not, is it a pure BB domain renderer used by multiple consumers?
+2. If not, is it a pure HYPERFIDE domain renderer used by multiple consumers?
 
 If both answers are no, keep it in the app.
 

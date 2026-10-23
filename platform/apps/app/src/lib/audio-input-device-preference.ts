@@ -2,7 +2,7 @@ import { useAtom, useAtomValue } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { createLocalStorageSyncStorage } from "./browser-storage";
 
-const AUDIO_INPUT_DEVICE_STORAGE_KEY = "bb.voiceInput.audioInputDeviceId";
+const AUDIO_INPUT_DEVICE_STORAGE_KEY = "hyperfide.voiceInput.audioInputDeviceId";
 
 export type PreferredAudioInputDeviceId = string | null;
 

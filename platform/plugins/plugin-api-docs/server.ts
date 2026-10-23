@@ -1,11 +1,11 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import {
   PLUGIN_GUIDE_SURFACE_PROVIDER_ID,
   pluginSurfaceAgentContext,
 } from "./src/agent-reference";
 
-export default function plugin(bb: BbPluginApi) {
-  bb.ui.registerMentionProvider({
+export default function plugin(hyperfide: HyperfidePluginApi) {
+  hyperfide.ui.registerMentionProvider({
     id: PLUGIN_GUIDE_SURFACE_PROVIDER_ID,
     label: "Plugin Guide",
     search: () => [],
@@ -17,5 +17,5 @@ export default function plugin(bb: BbPluginApi) {
       return { context };
     },
   });
-  bb.log.debug("plugin API docs loaded");
+  hyperfide.log.debug("plugin API docs loaded");
 }

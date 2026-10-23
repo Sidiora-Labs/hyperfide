@@ -32,7 +32,7 @@ export function createDesktopAppUpdateService(args: {
   notifyChanged: () => void;
   logger: ServerLogger;
 }): AppUpdateService {
-  const path = join(args.dataDir, "bb-desktop-app-update.json");
+  const path = join(args.dataDir, "hyperfide-desktop-app-update.json");
   let info: DesktopAppUpdateInfo | null = null;
   let updaterUnavailable = false;
   let activity: SystemAppUpdateActivity = { phase: "idle" };
@@ -67,7 +67,7 @@ export function createDesktopAppUpdateService(args: {
           finishedAt: new Date().toISOString(),
           message: updated
             ? null
-            : `bb started ${args.currentVersion} instead of ${state.pending.to.version}.`,
+            : `hyperfide started ${args.currentVersion} instead of ${state.pending.to.version}.`,
           outcome: updated ? ("updated" as const) : ("failed" as const),
           phase: updated ? null : ("startup" as const),
         },
@@ -126,7 +126,7 @@ export function createDesktopAppUpdateService(args: {
         info?.supported === true && (updaterUnavailable || version === null)
           ? {
               reason: "fetch-failed",
-              message: "Couldn't check for a newer bb release.",
+              message: "Couldn't check for a newer hyperfide release.",
             }
           : null,
       activity,
@@ -193,7 +193,7 @@ export function createDesktopAppUpdateService(args: {
       const count = args.countRunningThreads();
       if (count > 0 && !confirmed) {
         throw new Error(
-          `${String(count)} thread${count === 1 ? "" : "s"} started while bb was downloading the update. Update again to restart.`,
+          `${String(count)} thread${count === 1 ? "" : "s"} started while hyperfide was downloading the update. Update again to restart.`,
         );
       }
       abort.signal.throwIfAborted();
@@ -255,14 +255,14 @@ export function createDesktopAppUpdateService(args: {
           throw new ApiError(
             409,
             "app_update_unavailable",
-            "bb is already up to date.",
+            "hyperfide is already up to date.",
           );
         if (status.runningThreadCount > 0 && !confirmInterruptingThreads) {
           const count = status.runningThreadCount;
           throw new ApiError(
             409,
             "threads_running",
-            `${String(count)} thread${count === 1 ? " is" : "s are"} running. Updating restarts bb and interrupts ${count === 1 ? "it" : "them"}.`,
+            `${String(count)} thread${count === 1 ? " is" : "s are"} running. Updating restarts hyperfide and interrupts ${count === 1 ? "it" : "them"}.`,
             { details: { runningThreadCount: count } },
           );
         }
@@ -270,7 +270,7 @@ export function createDesktopAppUpdateService(args: {
           phase: "preparing",
           output: [],
           startedAt: new Date().toISOString(),
-          step: `Downloading bb-app ${status.available.version}`,
+          step: `Downloading hyperfide-app ${status.available.version}`,
           targetVersion: status.available.version,
         };
         args.notifyChanged();

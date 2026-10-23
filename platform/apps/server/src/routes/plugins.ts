@@ -235,7 +235,7 @@ async function tokenAuthProblem(
       status: 401,
       error:
         'missing or invalid plugin token — send it as the "x-hyperfide-plugin-token" header ' +
-        "or ?token=; print it with `bb plugin token " +
+        "or ?token=; print it with `hyperfide plugin token " +
         `${id}\``,
     };
   }

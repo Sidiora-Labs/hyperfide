@@ -19,14 +19,14 @@
       "interrupted": 0
     }
   },
-  "bb-workflow-run.ndjson": {
+  "hyperfide-workflow-run.ndjson": {
     "items": {
       "commandExecution": 7,
       "fileChange": 2,
       "toolCall": 3
     },
     "tools": {
-      "bb:bb_workflow_run": 1,
+      "hyperfide:hyperfide_workflow_run": 1,
       "Skill": 1,
       "ToolSearch": 1
     },

@@ -41,7 +41,7 @@ async function captureWriteError(
 
 describe("writeHostFile", () => {
   it("writes a new file unconditionally and returns its hash", async () => {
-    const dir = await makeTempDir("bb-file-write-");
+    const dir = await makeTempDir("hyperfide-file-write-");
     const target = path.join(dir, "note.md");
 
     const result = await writeHostFile(
@@ -57,7 +57,7 @@ describe("writeHostFile", () => {
   });
 
   it("overwrites an existing file when the expected hash matches", async () => {
-    const dir = await makeTempDir("bb-file-write-");
+    const dir = await makeTempDir("hyperfide-file-write-");
     const target = path.join(dir, "note.md");
     await fs.writeFile(target, "old");
 
@@ -78,7 +78,7 @@ describe("writeHostFile", () => {
   });
 
   it("allows only one concurrent write for the same expected hash", async () => {
-    const dir = await makeTempDir("bb-file-write-");
+    const dir = await makeTempDir("hyperfide-file-write-");
     const target = path.join(dir, "note.md");
     await fs.writeFile(target, "old");
     const expectedSha256 = sha256("old");
@@ -110,7 +110,7 @@ describe("writeHostFile", () => {
   });
 
   it("returns a conflict with the current hash when the expected hash is stale", async () => {
-    const dir = await makeTempDir("bb-file-write-");
+    const dir = await makeTempDir("hyperfide-file-write-");
     const target = path.join(dir, "note.md");
     await fs.writeFile(target, "current");
 
@@ -130,7 +130,7 @@ describe("writeHostFile", () => {
   });
 
   it("returns a null-hash conflict when the expected file is missing", async () => {
-    const dir = await makeTempDir("bb-file-write-");
+    const dir = await makeTempDir("hyperfide-file-write-");
 
     const result = await writeHostFile(
       writeCommand({
@@ -143,7 +143,7 @@ describe("writeHostFile", () => {
   });
 
   it("treats expectedSha256 null as create-only", async () => {
-    const dir = await makeTempDir("bb-file-write-");
+    const dir = await makeTempDir("hyperfide-file-write-");
     const target = path.join(dir, "note.md");
 
     const created = await writeHostFile(
@@ -161,7 +161,7 @@ describe("writeHostFile", () => {
   });
 
   it("decodes base64 content", async () => {
-    const dir = await makeTempDir("bb-file-write-");
+    const dir = await makeTempDir("hyperfide-file-write-");
     const target = path.join(dir, "logo.bin");
 
     const result = await writeHostFile(
@@ -179,7 +179,7 @@ describe("writeHostFile", () => {
   });
 
   it("fails with ENOENT when the parent is missing and createParents is false", async () => {
-    const dir = await makeTempDir("bb-file-write-");
+    const dir = await makeTempDir("hyperfide-file-write-");
 
     const error = await captureWriteError(
       writeCommand({ path: path.join(dir, "nested", "note.md") }),
@@ -190,7 +190,7 @@ describe("writeHostFile", () => {
   });
 
   it("creates missing parents when createParents is true", async () => {
-    const dir = await makeTempDir("bb-file-write-");
+    const dir = await makeTempDir("hyperfide-file-write-");
     const target = path.join(dir, "a", "b", "note.md");
 
     const result = await writeHostFile(
@@ -202,8 +202,8 @@ describe("writeHostFile", () => {
   });
 
   it("rejects writes that escape the declared root via symlinks", async () => {
-    const rootDir = await makeTempDir("bb-file-write-root-");
-    const outsideDir = await makeTempDir("bb-file-write-outside-");
+    const rootDir = await makeTempDir("hyperfide-file-write-root-");
+    const outsideDir = await makeTempDir("hyperfide-file-write-outside-");
     await fs.symlink(outsideDir, path.join(rootDir, "link"), "dir");
 
     const error = await captureWriteError(
@@ -221,8 +221,8 @@ describe("writeHostFile", () => {
   });
 
   it("rejects lexical escapes from the declared root", async () => {
-    const rootDir = await makeTempDir("bb-file-write-root-");
-    const outsideDir = await makeTempDir("bb-file-write-outside-");
+    const rootDir = await makeTempDir("hyperfide-file-write-root-");
+    const outsideDir = await makeTempDir("hyperfide-file-write-outside-");
 
     const error = await captureWriteError(
       writeCommand({
@@ -236,7 +236,7 @@ describe("writeHostFile", () => {
   });
 
   it("allows contained writes under the declared root", async () => {
-    const rootDir = await makeTempDir("bb-file-write-root-");
+    const rootDir = await makeTempDir("hyperfide-file-write-root-");
 
     const result = await writeHostFile(
       writeCommand({
@@ -252,7 +252,7 @@ describe("writeHostFile", () => {
   it.skipIf(process.platform === "win32")(
     "uses mode for creation without chmodding an existing file",
     async () => {
-      const dir = await makeTempDir("bb-file-write-mode-");
+      const dir = await makeTempDir("hyperfide-file-write-mode-");
       const created = path.join(dir, "created.env");
       await writeHostFile(writeCommand({ path: created, mode: 0o600 }));
       expect((await fs.stat(created)).mode & 0o777).toBe(0o600);
@@ -266,7 +266,7 @@ describe("writeHostFile", () => {
   );
 
   it("rejects directory targets", async () => {
-    const dir = await makeTempDir("bb-file-write-");
+    const dir = await makeTempDir("hyperfide-file-write-");
 
     const error = await captureWriteError(writeCommand({ path: dir }));
 
@@ -284,7 +284,7 @@ describe("writeHostFile", () => {
   });
 
   it("round-trips with readHostFile for compare-and-swap saves", async () => {
-    const dir = await makeTempDir("bb-file-write-");
+    const dir = await makeTempDir("hyperfide-file-write-");
     const target = path.join(dir, "note.md");
     await fs.writeFile(target, "v1");
 

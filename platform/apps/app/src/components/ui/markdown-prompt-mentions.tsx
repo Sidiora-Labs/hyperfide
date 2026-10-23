@@ -15,7 +15,7 @@ const PROMPT_MENTION_PATTERN = new RegExp(
   "gu",
 );
 
-const PROMPT_MENTION_HAST_NAME = "bb-prompt-mention";
+const PROMPT_MENTION_HAST_NAME = "hyperfide-prompt-mention";
 const PROMPT_MENTION_INDEX_PROPERTY = "dataMentionIndex";
 
 function promptMentionSentinel(index: number): string {
@@ -111,7 +111,7 @@ interface PromptMentionElementProps {
 declare module "react" {
   namespace JSX {
     interface IntrinsicElements {
-      "bb-prompt-mention": PromptMentionElementProps;
+      "hyperfide-prompt-mention": PromptMentionElementProps;
     }
   }
 }

@@ -172,7 +172,7 @@ describe("hyperfide-platform provider command output", () => {
       modelLoadError: {
         providerId: "codex",
         code: "failed",
-        detail: "bb could not find the Codex CLI on this machine.",
+        detail: "hyperfide could not find the Codex CLI on this machine.",
       },
     }));
     stubServerApi({ "v1.system.execution-options.$get": get });
@@ -181,7 +181,7 @@ describe("hyperfide-platform provider command output", () => {
 
     expect(vi.mocked(console.error).mock.calls).toEqual([
       ["Could not load models for codex (failed)"],
-      ["  bb could not find the Codex CLI on this machine."],
+      ["  hyperfide could not find the Codex CLI on this machine."],
     ]);
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
       "No models available",

@@ -67,8 +67,8 @@ vi.mock("@/hooks/queries/system-queries", () => ({
   }),
 }));
 
-vi.mock("@/lib/bb-desktop", () => ({
-  getBbDesktopInfo: () => null,
+vi.mock("@/lib/hyperfide-desktop", () => ({
+  getHyperfideDesktopInfo: () => null,
 }));
 
 vi.mock("@/components/ui/sidebar.js", () => ({

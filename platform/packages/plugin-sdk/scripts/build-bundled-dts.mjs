@@ -1,10 +1,10 @@
-// Generates the self-contained `.d.ts` bundles that `bb plugin new` ships into
-// a scaffolded plugin's `types/` directory, so authors get real BbPluginApi /
+// Generates the self-contained `.d.ts` bundles that `hyperfide-platform plugin new` ships into
+// a scaffolded plugin's `types/` directory, so authors get real HyperfidePluginApi /
 // @hyperfide/plugin-sdk/app types WITHOUT the (unpublished) @hyperfide/* workspace packages
 // on disk.
 //
 // rollup-plugin-dts flattens @hyperfide/plugin-sdk's own contracts plus every @hyperfide/*
-// type it references (BbSdk, PromptInput, ThreadResponse, …) into the root
+// type it references (HyperfideSdk, PromptInput, ThreadResponse, …) into the root
 // file. Testing subpaths reuse that already-portable root declaration through
 // the package's own public name instead of flattening the same contracts a
 // second time. Genuine npm packages remain external imports and resolve from
@@ -75,7 +75,7 @@ const EXTERNAL = [
 ];
 
 /** Resolve any `@hyperfide/<pkg>[/<sub>]` to its `source` export target on disk. */
-function resolveBbSource(id) {
+function resolveHyperfideSource(id) {
   const match = /^@hyperfide\/([^/]+)(\/.*)?$/.exec(id);
   if (!match) return null;
   const pkgDir = path.join(pkgsDir, match[1]);
@@ -92,7 +92,7 @@ function resolveBbSource(id) {
 }
 
 const inlineWorkspace = {
-  name: "inline-bb-workspace",
+  name: "inline-hyperfide-workspace",
   resolveId(id, importer) {
     // Redirect server-contract's non-portable modules to their loose stubs,
     // whether imported by bare specifier or by a sibling's relative path.
@@ -106,7 +106,7 @@ const inlineWorkspace = {
     }
     const stub = STUBBED_MODULES.get(id);
     if (stub) return stub;
-    return resolveBbSource(id);
+    return resolveHyperfideSource(id);
   },
 };
 
@@ -145,12 +145,12 @@ async function bundle(input) {
 }
 
 const HEADER = [
-  "// Portable type declarations for `@hyperfide/plugin-sdk`. Unpublished BB",
+  "// Portable type declarations for `@hyperfide/plugin-sdk`. Unpublished HYPERFIDE",
   "// workspace contracts are flattened; public subpaths may reuse the",
   "// package root without requiring any other @hyperfide/* package.",
   "//",
-  "// Confused by the API, or need a symbol that isn't here? Clone the BB repo",
-  "// and read the real source: https://github.com/get-bb/bb",
+  "// Confused by the API, or need a symbol that isn't here? Clone the HYPERFIDE repo",
+  "// and read the real source: https://github.com/hyperfide/hyperfide",
 ].join("\n");
 
 function generateBundle(entry) {

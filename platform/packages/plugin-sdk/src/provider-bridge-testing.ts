@@ -3,7 +3,7 @@
  * for provider bridges.
  *
  * A bridge author needs three things to prove a bridge before shipping it,
- * none of which should require bb's private workspace packages:
+ * none of which should require hyperfide's private workspace packages:
  *
  * - the **conformance kit**: drive the bridge through the canonical protocol
  *   scenarios (JSON-RPC hygiene, the initialize handshake, a full session
@@ -14,7 +14,7 @@
  * - the **JSON-RPC harness** (capture stdout, send requests, await responses)
  *   and the **calibration normalizer** that makes whole-session goldens
  *   comparable across runs by interning minted ids;
- * - the **recorded-replay harness**: replay a recording bb made of the
+ * - the **recorded-replay harness**: replay a recording hyperfide made of the
  *   bridge (record mode, `HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR`) through the bridge
  *   again — the recorded runtime lane driven in, the recorded provider lanes
  *   played by the replay child the bridge spawns in place of its provider —
@@ -22,7 +22,7 @@
  *   judge it with the recorded-cell conformance rules, or write the bridge's
  *   current output beside the recording (`experimental_rerecordCurrentBridgeLane`).
  *   Keyed by the caller's provider id and bridge module, never by a list of
- *   the providers bb ships.
+ *   the providers hyperfide ships.
  *
  * Framework-agnostic: nothing here imports a test runner. Curated by hand —
  * named exports only, never `export *`. Value exports carry the
@@ -127,7 +127,7 @@ export type {
 // (the assembler does), but a bridge's tests assert on what the assembler
 // built — `ThreadEvent` is what every collector, replay and parity function
 // here returns, and the item and presentation types are what an assertion
-// narrows to. Re-exported from bb's domain package and inlined into the
+// narrows to. Re-exported from hyperfide's domain package and inlined into the
 // published declarations, like `PromptInput` on the root entry.
 export type {
   ThreadEvent,

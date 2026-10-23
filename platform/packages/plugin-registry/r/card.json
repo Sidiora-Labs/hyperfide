@@ -3,7 +3,7 @@
   "name": "card",
   "type": "registry:ui",
   "title": "card",
-  "description": "BB ui \"card\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"card\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/utils"
   ],

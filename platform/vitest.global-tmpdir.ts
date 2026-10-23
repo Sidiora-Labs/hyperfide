@@ -18,7 +18,7 @@ export default function setup(): () => void {
   if (sandbox === undefined) {
     const previous = process.env.TMPDIR;
     sandbox = {
-      root: mkdtempSync(join(tmpdir(), "bb-vt-")),
+      root: mkdtempSync(join(tmpdir(), "hyperfide-vt-")),
       previous,
       references: 0,
     };

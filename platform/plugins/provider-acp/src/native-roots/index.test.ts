@@ -16,7 +16,7 @@ import { resolveAcpNativeRoots } from "./index.js";
 let tempRoot: string;
 
 beforeEach(async () => {
-  tempRoot = await mkdtemp(path.join(tmpdir(), "bb-acp-native-roots-index-"));
+  tempRoot = await mkdtemp(path.join(tmpdir(), "hyperfide-acp-native-roots-index-"));
 });
 
 afterEach(async () => {

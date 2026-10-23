@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import ts from "typescript";
 import * as pluginSdkApp from "@hyperfide/plugin-sdk/app";
 import {
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type ExperimentalAppOverlayProps,
   type PluginAppBuilder,
   type PluginAppSlots,
@@ -55,7 +55,7 @@ const REPO_ROOT = fileURLToPath(new URL("../../../../../", import.meta.url));
 
 const SKILL_ROOT = fileURLToPath(
   new URL(
-    "../../../../../plugins/bb-guide/skills/hyperfide-plugin-authoring/",
+    "../../../../../plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/",
     import.meta.url,
   ),
 );
@@ -184,10 +184,10 @@ const HYPERFIDE_PLUGIN_API_KEYS = [
   "sdk",
   "onDispose",
   "onInstall",
-] as const satisfies readonly (keyof BbPluginApi)[];
+] as const satisfies readonly (keyof HyperfidePluginApi)[];
 
 type MissingApiKey = Exclude<
-  keyof BbPluginApi,
+  keyof HyperfidePluginApi,
   (typeof HYPERFIDE_PLUGIN_API_KEYS)[number]
 >;
 const _assertAllApiKeysListed: MissingApiKey extends never ? true : never =
@@ -656,10 +656,10 @@ describe("hyperfide-plugin-authoring skill", () => {
     expect(skillEntry).toMatch(/^---\nname: hyperfide-plugin-authoring\n/);
   });
 
-  it("documents every BbPluginApi property", () => {
+  it("documents every HyperfidePluginApi property", () => {
     for (const key of HYPERFIDE_PLUGIN_API_KEYS) {
-      expect(skill, `bb.${key} is not documented in the skill`).toContain(
-        `bb.${key}`,
+      expect(skill, `hyperfide.${key} is not documented in the skill`).toContain(
+        `hyperfide.${key}`,
       );
     }
   });

@@ -41,7 +41,7 @@ export const MOVE_ID = "move-0001";
 export const ACTIVATION_TOKEN = "activation-token-0123456789";
 export const HOST_KEY = "host-key-target";
 export const PARENT_PID = 424_242;
-export const LAUNCHER_ENTRY_PATH = "/opt/npm/bin/bb-app";
+export const LAUNCHER_ENTRY_PATH = "/opt/npm/bin/hyperfide-app";
 
 export const lastMove = {
   moveId: MOVE_ID,
@@ -66,7 +66,7 @@ const server = createServer((request, response) => {
     return;
   }
   if (request.url === "/internal/server-move/pending") {
-    response.end(JSON.stringify({ moveId: importFile.moveId, verified: existsSync(join(dataDir, "bb.db")), message: null }));
+    response.end(JSON.stringify({ moveId: importFile.moveId, verified: existsSync(join(dataDir, "hyperfide.db")), message: null }));
     return;
   }
   response.statusCode = 404;
@@ -138,7 +138,7 @@ export function registerServerMoveFixtureCleanup(): void {
 }
 
 export async function createRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "bb-server-move-test-"));
+  const root = await mkdtemp(join(tmpdir(), "hyperfide-server-move-test-"));
   roots.push(root);
   return root;
 }
@@ -189,21 +189,21 @@ export async function readJson(path: string): Promise<unknown> {
 interface SourceServer {
   archiveSha256: string;
   archiveSizeBytes: number;
-  bbAppSha256: string;
-  bbAppSizeBytes: number;
+  hyperfideAppSha256: string;
+  hyperfideAppSizeBytes: number;
   archiveRequests: IncomingMessage[];
   url: string;
 }
 
 async function createSourceServer(root: string): Promise<SourceServer> {
   const sourceDir = join(root, "source-data");
-  await writeFileWithDirs(join(sourceDir, "bb.db"), "sqlite database bytes");
+  await writeFileWithDirs(join(sourceDir, "hyperfide.db"), "sqlite database bytes");
   await writeFileWithDirs(
     join(sourceDir, "config.json"),
     JSON.stringify({
       config: { HYPERFIDE_LOG_LEVEL: "info" },
-      serverUrl: "https://bb.example.test",
-      serverHeaders: { "x-bb-connect-machine": "bbcm_source" },
+      serverUrl: "https://hyperfide.example.test",
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_source" },
     }),
   );
   await writeFileWithDirs(
@@ -218,7 +218,7 @@ async function createSourceServer(root: string): Promise<SourceServer> {
   const archive = await writeServerArchive({
     outPath: archivePath,
     files: [
-      "bb.db",
+      "hyperfide.db",
       "config.json",
       "attachments/project/a.txt",
       "plugins/tasks/data.db",
@@ -228,7 +228,7 @@ async function createSourceServer(root: string): Promise<SourceServer> {
     })),
     manifest: {
       createdAt: 1_700_000_000_000,
-      bbVersion: "1.0.0",
+      hyperfideVersion: "1.0.0",
       protocolVersion: 209,
       migrationCount: 10,
       sourceDataDir: "/Users/me/.hyperfide",
@@ -236,9 +236,9 @@ async function createSourceServer(root: string): Promise<SourceServer> {
       serverMoveExperiment: true,
     },
   });
-  const bbAppPath = join(root, "bb-app.tgz");
-  await writeFile(bbAppPath, "full bb-app package");
-  const bbAppBytes = await readFile(bbAppPath);
+  const hyperfideAppPath = join(root, "hyperfide-app.tgz");
+  await writeFile(hyperfideAppPath, "full hyperfide-app package");
+  const hyperfideAppBytes = await readFile(hyperfideAppPath);
   const archiveRequests: IncomingMessage[] = [];
   const { url } = await listen((request, response) => {
     if (request.headers.authorization !== `Bearer ${HOST_KEY}`) {
@@ -252,8 +252,8 @@ async function createSourceServer(root: string): Promise<SourceServer> {
       createReadStream(archivePath).pipe(response);
       return;
     }
-    if (request.url === `/internal/server-move/${MOVE_ID}/bb-app.tgz`) {
-      response.write(bbAppBytes);
+    if (request.url === `/internal/server-move/${MOVE_ID}/hyperfide-app.tgz`) {
+      response.write(hyperfideAppBytes);
       response.end();
       return;
     }
@@ -263,8 +263,8 @@ async function createSourceServer(root: string): Promise<SourceServer> {
   return {
     archiveSha256: archive.sha256,
     archiveSizeBytes: archive.sizeBytes,
-    bbAppSha256: createHash("sha256").update(bbAppBytes).digest("hex"),
-    bbAppSizeBytes: bbAppBytes.byteLength,
+    hyperfideAppSha256: createHash("sha256").update(hyperfideAppBytes).digest("hex"),
+    hyperfideAppSizeBytes: hyperfideAppBytes.byteLength,
     archiveRequests,
     url,
   };
@@ -278,8 +278,8 @@ async function createPackageRoot(root: string): Promise<string> {
   );
   for (const file of [
     "host-daemon/dist/daemon-bundle.mjs",
-    "dist/bb-app.js",
-    "dist/bb-server.js",
+    "dist/hyperfide-app.js",
+    "dist/hyperfide-server.js",
     "server/dist/index.js",
     "app/dist/index.html",
   ]) {
@@ -314,18 +314,18 @@ export async function writeLauncherMovedMode(args: {
     connectHandle: null,
     oldCopyEntries: args.oldCopyEntries ?? [],
   });
-  await writeBbAppRuntime({
+  await writeHyperfideAppRuntime({
     dataDir: args.dataDir,
     serverPort: args.serverPort,
   });
 }
 
-export async function writeBbAppRuntime(args: {
+export async function writeHyperfideAppRuntime(args: {
   dataDir: string;
   serverPort: number;
 }): Promise<void> {
   await writeFileWithDirs(
-    join(args.dataDir, "bb-app-runtime.json"),
+    join(args.dataDir, "hyperfide-app-runtime.json"),
     JSON.stringify({
       entryPath: LAUNCHER_ENTRY_PATH,
       pid: process.pid,
@@ -347,7 +347,7 @@ export async function writeSystemdUnit(args: {
     ".config",
     "systemd",
     "user",
-    "bb-host-daemon-old-server-studio.service",
+    "hyperfide-host-daemon-old-server-studio.service",
   );
   await writeFileWithDirs(
     unitPath,
@@ -369,7 +369,7 @@ export interface FixtureArgs {
   autoUpdate?: boolean;
   supervised?: boolean;
   hostDaemonPort?: number | null;
-  installBbApp?: ServerMoveServiceOptions["installBbApp"];
+  installHyperfideApp?: ServerMoveServiceOptions["installHyperfideApp"];
   checkPortAvailable?: ServerMoveServiceOptions["checkPortAvailable"];
   processOps?: ServerMoveServiceOptions["processOps"];
   portReleaseTimeoutMs?: number;
@@ -510,7 +510,7 @@ export async function createFixture(args: FixtureArgs = {}) {
       spawnedPids.push(pid);
       return pid;
     },
-    installBbApp: args.installBbApp ?? (async () => undefined),
+    installHyperfideApp: args.installHyperfideApp ?? (async () => undefined),
     checkGhAuthenticated: async () => null,
     checkPortAvailable: args.checkPortAvailable ?? (async () => true),
     processOps: args.processOps ?? launcherProcessOps,
@@ -571,12 +571,12 @@ export async function prepareCommand(
       sha256: fixture.source.archiveSha256,
       sizeBytes: fixture.source.archiveSizeBytes,
     },
-    bbApp: null,
+    hyperfideApp: null,
     serverPort: overrides.serverPort ?? (await fixture.reserveServerPort()),
     bindHost: null,
     sourceDataDir: "/Users/me/.hyperfide",
     sourceServerHostId: "host-source",
-    serverUrl: "https://bb.example.test",
+    serverUrl: "https://hyperfide.example.test",
     archiveExistingServerData: false,
     ...overrides,
   };

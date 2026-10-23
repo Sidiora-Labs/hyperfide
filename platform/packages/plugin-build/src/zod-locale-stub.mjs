@@ -1,8 +1,8 @@
 import { dirname, join } from "node:path";
 
-export const ZOD_LOCALE_STUB_NAMESPACE = "bb-zod-locale-stub";
+export const ZOD_LOCALE_STUB_NAMESPACE = "hyperfide-zod-locale-stub";
 const NAMESPACE = ZOD_LOCALE_STUB_NAMESPACE;
-const RESOLVED_MARK = "bb-zod-locale-stub-resolved";
+const RESOLVED_MARK = "hyperfide-zod-locale-stub-resolved";
 const LOCALE_BARREL_FILTER = /locales[\\/]index\.js$/;
 const ZOD_PACKAGE_SEGMENT = /[\\/]zod[\\/]/;
 

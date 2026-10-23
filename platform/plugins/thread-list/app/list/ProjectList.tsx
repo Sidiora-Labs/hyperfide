@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import type { SidebarThread } from "../model/sidebar-thread.js";
 import {
   experimental_useProviders,
-  useBbNavigate,
+  useHyperfideNavigate,
   useSdk,
 } from "@hyperfide/plugin-sdk/app";
 import {
@@ -1306,7 +1306,7 @@ function ProjectListComponent({
   onProjectSelect,
 }: ProjectListProps) {
   const sdk = useSdk();
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const { providers } = experimental_useProviders();
   const { status, sections, projects, personalProject, archived } =
     useSidebarData();

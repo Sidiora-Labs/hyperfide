@@ -15,7 +15,7 @@
  *      MAX_STRING_CHARS keeps its head and tail around a marker;
  *   2. textually: absolute paths under the home directory become
  *      `/home/user`, emails become `user@example.com`, and token shapes
- *      (bbde_, GitHub gh[pousr]_/github_pat_, sk-, sk-ant-, xox?-, JWTs,
+ *      (hyperfide_de_, GitHub gh[pousr]_/github_pat_, sk-, sk-ant-, xox?-, JWTs,
  *      bearer values, Authorization headers) are replaced by
  *      `<prefix>REDACTED`.
  *
@@ -45,15 +45,15 @@ const REDACTED_EMAIL = "user@example.com";
 /** Token shapes. Each match is replaced by its prefix (up to the first `_` or
  * `-` run) plus `REDACTED`, so a reader still sees what kind of secret it was. */
 const TOKEN_PATTERNS = [
-  /bbde_[A-Za-z0-9]{16,}/g,
+  /hyperfide_de_[A-Za-z0-9]{16,}/g,
   /gh[pousr]_[A-Za-z0-9._-]{20,}/g,
   /github_pat_[A-Za-z0-9_]{20,}/g,
   /sk-ant-[A-Za-z0-9_-]{20,}/g,
   /(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}/g,
   /xox[abprs]-[A-Za-z0-9-]{20,}/g,
-  /bbcm_[A-Za-z0-9_-]{16,}/g,
+  /hyperfide_cm_[A-Za-z0-9_-]{16,}/g,
   /eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g,
-  /(?<=[Bb]earer\s+)[A-Za-z0-9._~+/-]{20,}=*/g,
+  /(?<=[B\x62]earer\s+)[A-Za-z0-9._~+/-]{20,}=*/g,
 ];
 /** `"Authorization": "<value>"` in JSON, with or without JSON escaping. */
 const AUTHORIZATION_PATTERN =

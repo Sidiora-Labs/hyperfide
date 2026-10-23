@@ -485,7 +485,7 @@ describe("requestHeaders", () => {
     const headers = adapter.requestHeaders(
       new Headers({
         authorization: "Bearer downstream",
-        "x-bb-account-pool-token": "machine-token",
+        "x-hyperfide-account-pool-token": "machine-token",
         "x-codex-turn-state": "sticky",
         "x-openai-internal-codex-responses-lite": "true",
         "x-openai-internal-other": "dropped",

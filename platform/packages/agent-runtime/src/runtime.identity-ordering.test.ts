@@ -12,7 +12,7 @@ import { promptTextInput } from "./test/prompt-input.js";
 
 describe("runtime identity ordering", () => {
   it("preserves resolved fork sessions when native identity deltas arrive in reverse registration order", async () => {
-    const workspacePath = mkdtempSync(join(tmpdir(), "bb-identity-reverse-"));
+    const workspacePath = mkdtempSync(join(tmpdir(), "hyperfide-identity-reverse-"));
     const events: ThreadEvent[] = [];
     const runtime = createScriptedEchoRuntime({
       runtime: { workspacePath, onEvent: (event) => events.push(event) },
@@ -62,7 +62,7 @@ describe("runtime identity ordering", () => {
     "preserves source/fork ownership with identityAfterResponse=%s and duplicate or unknown notifications",
     async (identityAfterResponse) => {
       const workspacePath = mkdtempSync(
-        join(tmpdir(), "bb-identity-ordering-"),
+        join(tmpdir(), "hyperfide-identity-ordering-"),
       );
       const events: ThreadEvent[] = [];
       const runtime = createScriptedEchoRuntime({
@@ -131,7 +131,7 @@ describe("runtime identity ordering", () => {
   );
 
   it("does not assign a retired thread's late identity to the only remaining thread", async () => {
-    const workspacePath = mkdtempSync(join(tmpdir(), "bb-identity-late-"));
+    const workspacePath = mkdtempSync(join(tmpdir(), "hyperfide-identity-late-"));
     const events: ThreadEvent[] = [];
     const runtime = createScriptedEchoRuntime({
       runtime: { workspacePath, onEvent: (event) => events.push(event) },
@@ -181,7 +181,7 @@ describe("runtime identity ordering", () => {
   });
 
   it("stamps a completion before applying the following scoped replacement identity in the same batch", async () => {
-    const workspacePath = mkdtempSync(join(tmpdir(), "bb-identity-batch-"));
+    const workspacePath = mkdtempSync(join(tmpdir(), "hyperfide-identity-batch-"));
     const events: ThreadEvent[] = [];
     const runtime = createScriptedEchoRuntime({
       runtime: { workspacePath, onEvent: (event) => events.push(event) },

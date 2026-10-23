@@ -9,7 +9,7 @@ import { createTestAppHarness } from "../helpers/test-app.js";
 
 describe("production static cache headers", () => {
   it("revalidates index.html on every navigation while allowing immutable hashed assets", async () => {
-    const staticDir = await mkdtemp(join(tmpdir(), "bb-server-static-"));
+    const staticDir = await mkdtemp(join(tmpdir(), "hyperfide-server-static-"));
     await mkdir(join(staticDir, "assets"), { recursive: true });
     await writeFile(
       join(staticDir, "index.html"),
@@ -28,7 +28,7 @@ describe("production static cache headers", () => {
     );
     await writeFile(
       join(staticDir, "manifest.webmanifest"),
-      JSON.stringify({ name: "bb", icons: [] }),
+      JSON.stringify({ name: "hyperfide", icons: [] }),
     );
     await writeFile(
       join(staticDir, "favicon-32x32.png"),

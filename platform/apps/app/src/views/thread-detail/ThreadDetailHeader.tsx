@@ -20,11 +20,11 @@ import {
 } from "@/components/layout/AppPageHeader";
 import type { ThreadGitActionDialogTarget } from "@/components/dialogs/ThreadGitActionDialog";
 import {
-  getBbDesktopInfo,
+  getHyperfideDesktopInfo,
   MACOS_TITLE_BAR_TRAILING_TOGGLE_CLASS,
   MACOS_WINDOW_NO_DRAG_CLASS,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { useIsSidebarFramed } from "@/components/ui/sidebar.js";
 import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
@@ -121,7 +121,7 @@ export function ThreadDetailHeader({
     event.preventDefault();
     startEditing();
   };
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getHyperfideDesktopInfo);
   const dimsInactiveSplits = useAtomValue(dimInactiveSplitsAtom);
   const panelShortcut = useAppCommandShortcut("panel.toggle");
   const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);

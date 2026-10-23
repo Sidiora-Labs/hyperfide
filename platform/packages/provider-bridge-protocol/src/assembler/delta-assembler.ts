@@ -72,7 +72,7 @@ const MAX_ID_MAP_ENTRIES = 1024;
 const MAX_SETTLED_ITEM_KEYS = 512;
 
 interface OpenItemState {
-  bbItemId: string;
+  hyperfideItemId: string;
   key: DeltaItemKey;
   item: ThreadEventItem;
   threadAttached: boolean;
@@ -130,10 +130,10 @@ interface ThreadAssemblyState {
   pendingAccepted: ClientTurnRequestId[];
   openItemsByKey: Map<string, OpenItemState>;
   commandSnapshotsByKey: Map<string, string>;
-  bbItemIdByProviderItemId: Map<string, string>;
-  providerItemIdByBbItemId: Map<string, string>;
-  bbTurnIdByProviderTurnId: Map<string, string>;
-  providerTurnIdByBbTurnId: Map<string, string>;
+  hyperfideItemIdByProviderItemId: Map<string, string>;
+  providerItemIdByHyperfideItemId: Map<string, string>;
+  hyperfideTurnIdByProviderTurnId: Map<string, string>;
+  providerTurnIdByHyperfideTurnId: Map<string, string>;
   settledItemKeys: Set<string>;
   progressLastEmitByKey: Map<string, number>;
   pendingProgressByKey: Map<string, PendingProgressState>;
@@ -159,10 +159,10 @@ export interface AssembleDeltasArgs {
 
 export interface DeltaAssembler {
   assemble(args: AssembleDeltasArgs): ThreadEvent[];
-  getBbItemId(threadId: string, providerItemId: string): string | undefined;
-  getProviderItemId(threadId: string, bbItemId: string): string | undefined;
-  getBbTurnId(threadId: string, providerTurnId: string): string | undefined;
-  getProviderTurnId(threadId: string, bbTurnId: string): string | undefined;
+  getHyperfideItemId(threadId: string, providerItemId: string): string | undefined;
+  getProviderItemId(threadId: string, hyperfideItemId: string): string | undefined;
+  getHyperfideTurnId(threadId: string, providerTurnId: string): string | undefined;
+  getProviderTurnId(threadId: string, hyperfideTurnId: string): string | undefined;
   getOpenTurnId(threadId: string): string | undefined;
 }
 
@@ -239,10 +239,10 @@ export function createDeltaAssembler(
       pendingAccepted: [],
       openItemsByKey: new Map(),
       commandSnapshotsByKey: new Map(),
-      bbItemIdByProviderItemId: new Map(),
-      providerItemIdByBbItemId: new Map(),
-      bbTurnIdByProviderTurnId: new Map(),
-      providerTurnIdByBbTurnId: new Map(),
+      hyperfideItemIdByProviderItemId: new Map(),
+      providerItemIdByHyperfideItemId: new Map(),
+      hyperfideTurnIdByProviderTurnId: new Map(),
+      providerTurnIdByHyperfideTurnId: new Map(),
       settledItemKeys: new Set(),
       progressLastEmitByKey: new Map(),
       pendingProgressByKey: new Map(),
@@ -279,28 +279,28 @@ export function createDeltaAssembler(
   function registerItemId(
     state: ThreadAssemblyState,
     providerItemId: string,
-    bbItemId: string,
+    hyperfideItemId: string,
   ): void {
-    state.bbItemIdByProviderItemId.set(providerItemId, bbItemId);
-    state.providerItemIdByBbItemId.set(bbItemId, providerItemId);
-    trimOldestEntries(state.bbItemIdByProviderItemId, MAX_ID_MAP_ENTRIES);
-    trimOldestEntries(state.providerItemIdByBbItemId, MAX_ID_MAP_ENTRIES);
+    state.hyperfideItemIdByProviderItemId.set(providerItemId, hyperfideItemId);
+    state.providerItemIdByHyperfideItemId.set(hyperfideItemId, providerItemId);
+    trimOldestEntries(state.hyperfideItemIdByProviderItemId, MAX_ID_MAP_ENTRIES);
+    trimOldestEntries(state.providerItemIdByHyperfideItemId, MAX_ID_MAP_ENTRIES);
   }
 
   function resolveVouchedTurnId(
     state: ThreadAssemblyState,
     providerTurnId: string,
   ): string {
-    const existing = state.bbTurnIdByProviderTurnId.get(providerTurnId);
+    const existing = state.hyperfideTurnIdByProviderTurnId.get(providerTurnId);
     if (existing !== undefined) {
       return existing;
     }
-    const bbTurnId = mintTurnId();
-    state.bbTurnIdByProviderTurnId.set(providerTurnId, bbTurnId);
-    state.providerTurnIdByBbTurnId.set(bbTurnId, providerTurnId);
-    trimOldestEntries(state.bbTurnIdByProviderTurnId, MAX_ID_MAP_ENTRIES);
-    trimOldestEntries(state.providerTurnIdByBbTurnId, MAX_ID_MAP_ENTRIES);
-    return bbTurnId;
+    const hyperfideTurnId = mintTurnId();
+    state.hyperfideTurnIdByProviderTurnId.set(providerTurnId, hyperfideTurnId);
+    state.providerTurnIdByHyperfideTurnId.set(hyperfideTurnId, providerTurnId);
+    trimOldestEntries(state.hyperfideTurnIdByProviderTurnId, MAX_ID_MAP_ENTRIES);
+    trimOldestEntries(state.providerTurnIdByHyperfideTurnId, MAX_ID_MAP_ENTRIES);
+    return hyperfideTurnId;
   }
 
   function rememberProgressEmit(state: ThreadAssemblyState, key: string): void {
@@ -435,13 +435,13 @@ export function createDeltaAssembler(
     if (parentRef === undefined) {
       return undefined;
     }
-    const existing = state.bbItemIdByProviderItemId.get(parentRef);
+    const existing = state.hyperfideItemIdByProviderItemId.get(parentRef);
     if (existing !== undefined) {
       return existing;
     }
-    const bbItemId = mintItemId();
-    registerItemId(state, parentRef, bbItemId);
-    return bbItemId;
+    const hyperfideItemId = mintItemId();
+    registerItemId(state, parentRef, hyperfideItemId);
+    return hyperfideItemId;
   }
 
   function ensureTurnOpen(
@@ -545,14 +545,14 @@ export function createDeltaAssembler(
   }
 
   function buildBackgroundTaskItem(
-    bbItemId: string,
+    hyperfideItemId: string,
     shape: Extract<DeltaItemShape, { type: "backgroundTask" }>,
     parentToolCallId: string | undefined,
   ): Extract<ThreadEventItem, { type: "backgroundTask" }> {
     return withParentToolCallId(
       {
         type: "backgroundTask",
-        id: bbItemId,
+        id: hyperfideItemId,
         familyId: shape.familyId,
         taskType: shape.taskType,
         description: shape.description,
@@ -576,7 +576,7 @@ export function createDeltaAssembler(
   }
 
   function buildFileReadItem(
-    bbItemId: string,
+    hyperfideItemId: string,
     shape: Extract<DeltaItemShape, { type: "fileRead" }>,
     status: ThreadEventItemStatus,
     parentToolCallId: string | undefined,
@@ -584,7 +584,7 @@ export function createDeltaAssembler(
     return withParentToolCallId(
       {
         type: "fileRead",
-        id: bbItemId,
+        id: hyperfideItemId,
         path: shape.path,
         ...(shape.cmd === undefined ? {} : { cmd: shape.cmd }),
         status,
@@ -594,7 +594,7 @@ export function createDeltaAssembler(
   }
 
   function buildSearchItem(
-    bbItemId: string,
+    hyperfideItemId: string,
     shape: Extract<DeltaItemShape, { type: "search" }>,
     status: ThreadEventItemStatus,
     parentToolCallId: string | undefined,
@@ -602,7 +602,7 @@ export function createDeltaAssembler(
     return withParentToolCallId(
       {
         type: "search",
-        id: bbItemId,
+        id: hyperfideItemId,
         mode: shape.mode,
         query: shape.query,
         ...(shape.path === undefined ? {} : { path: shape.path }),
@@ -614,7 +614,7 @@ export function createDeltaAssembler(
   }
 
   function buildDelegationItem(
-    bbItemId: string,
+    hyperfideItemId: string,
     shape: Extract<DeltaItemShape, { type: "delegation" }>,
     status: ThreadEventItemStatus,
     parentToolCallId: string | undefined,
@@ -624,7 +624,7 @@ export function createDeltaAssembler(
     return withParentToolCallId(
       {
         type: "delegation",
-        id: bbItemId,
+        id: hyperfideItemId,
         childRef: shape.childRef,
         label: shape.label,
         status,
@@ -636,7 +636,7 @@ export function createDeltaAssembler(
   }
 
   function buildExtensionItem(
-    bbItemId: string,
+    hyperfideItemId: string,
     shape: Extract<DeltaItemShape, { type: "extension" }>,
     status: ThreadEventItemStatus,
     parentToolCallId: string | undefined,
@@ -650,7 +650,7 @@ export function createDeltaAssembler(
     return withParentToolCallId(
       {
         type: "extension",
-        id: bbItemId,
+        id: hyperfideItemId,
         kind: shape.kind,
         payload: shape.payload,
         status,
@@ -661,7 +661,7 @@ export function createDeltaAssembler(
   }
 
   function buildPlanStepsItem(
-    bbItemId: string,
+    hyperfideItemId: string,
     shape: Extract<DeltaItemShape, { type: "planSteps" }>,
     status: ThreadEventItemStatus,
     parentToolCallId: string | undefined,
@@ -669,7 +669,7 @@ export function createDeltaAssembler(
     return withParentToolCallId(
       {
         type: "planSteps",
-        id: bbItemId,
+        id: hyperfideItemId,
         steps: shape.steps,
         ...(shape.explanation === undefined
           ? {}
@@ -706,19 +706,19 @@ export function createDeltaAssembler(
   }
 
   function buildOpenedItem(
-    bbItemId: string,
+    hyperfideItemId: string,
     shape: DeltaItemShape,
     parentToolCallId: string | undefined,
     presentation: ThreadEventItemPresentation | undefined,
   ): ThreadEventItem {
     return withPresentation(
-      buildOpenedItemShape(bbItemId, shape, parentToolCallId, presentation),
+      buildOpenedItemShape(hyperfideItemId, shape, parentToolCallId, presentation),
       presentation,
     );
   }
 
   function buildOpenedItemShape(
-    bbItemId: string,
+    hyperfideItemId: string,
     shape: DeltaItemShape,
     parentToolCallId: string | undefined,
     presentation: ThreadEventItemPresentation | undefined,
@@ -728,7 +728,7 @@ export function createDeltaAssembler(
         return withParentToolCallId(
           {
             type: "commandExecution",
-            id: bbItemId,
+            id: hyperfideItemId,
             command: shape.command,
             cwd: shape.cwd,
             ...(shape.aggregatedOutput === undefined
@@ -749,7 +749,7 @@ export function createDeltaAssembler(
         return withParentToolCallId(
           {
             type: "fileChange",
-            id: bbItemId,
+            id: hyperfideItemId,
             changes: buildFileChanges(shape),
             status: "pending",
             approvalStatus: null,
@@ -761,7 +761,7 @@ export function createDeltaAssembler(
         return withParentToolCallId(
           {
             type: "toolCall",
-            id: bbItemId,
+            id: hyperfideItemId,
             ...(shape.server === undefined ? {} : { server: shape.server }),
             tool: shape.tool,
             ...(toolArguments ? { arguments: toolArguments } : {}),
@@ -777,19 +777,19 @@ export function createDeltaAssembler(
       }
       case "compaction":
         return withParentToolCallId(
-          { type: "contextCompaction", id: bbItemId },
+          { type: "contextCompaction", id: hyperfideItemId },
           parentToolCallId,
         );
       case "agentMessage":
         return withParentToolCallId(
-          { type: "agentMessage", id: bbItemId, text: shape.text },
+          { type: "agentMessage", id: hyperfideItemId, text: shape.text },
           parentToolCallId,
         );
       case "reasoning":
         return withParentToolCallId(
           {
             type: "reasoning",
-            id: bbItemId,
+            id: hyperfideItemId,
             summary: shape.summary,
             content: shape.content,
           },
@@ -797,14 +797,14 @@ export function createDeltaAssembler(
         );
       case "plan":
         return withParentToolCallId(
-          { type: "plan", id: bbItemId, text: shape.text },
+          { type: "plan", id: hyperfideItemId, text: shape.text },
           parentToolCallId,
         );
       case "webSearch":
         return withParentToolCallId(
           {
             type: "webSearch",
-            id: bbItemId,
+            id: hyperfideItemId,
             queries: shape.queries,
             resultText: null,
           },
@@ -814,7 +814,7 @@ export function createDeltaAssembler(
         return withParentToolCallId(
           {
             type: "webFetch",
-            id: bbItemId,
+            id: hyperfideItemId,
             url: shape.url,
             prompt: shape.prompt ?? null,
             pattern: shape.pattern,
@@ -824,14 +824,14 @@ export function createDeltaAssembler(
         );
       case "imageView":
         return withParentToolCallId(
-          { type: "imageView", id: bbItemId, path: shape.path },
+          { type: "imageView", id: hyperfideItemId, path: shape.path },
           parentToolCallId,
         );
       case "imageGeneration":
         return withParentToolCallId(
           {
             type: "imageGeneration",
-            id: bbItemId,
+            id: hyperfideItemId,
             status: "pending",
             prompt: shape.prompt,
             path: shape.path,
@@ -842,23 +842,23 @@ export function createDeltaAssembler(
           parentToolCallId,
         );
       case "backgroundTask":
-        return buildBackgroundTaskItem(bbItemId, shape, parentToolCallId);
+        return buildBackgroundTaskItem(hyperfideItemId, shape, parentToolCallId);
       case "fileRead":
-        return buildFileReadItem(bbItemId, shape, "pending", parentToolCallId);
+        return buildFileReadItem(hyperfideItemId, shape, "pending", parentToolCallId);
       case "search":
-        return buildSearchItem(bbItemId, shape, "pending", parentToolCallId);
+        return buildSearchItem(hyperfideItemId, shape, "pending", parentToolCallId);
       case "delegation":
         return buildDelegationItem(
-          bbItemId,
+          hyperfideItemId,
           shape,
           "pending",
           parentToolCallId,
         );
       case "planSteps":
-        return buildPlanStepsItem(bbItemId, shape, "pending", parentToolCallId);
+        return buildPlanStepsItem(hyperfideItemId, shape, "pending", parentToolCallId);
       case "extension":
         return buildExtensionItem(
-          bbItemId,
+          hyperfideItemId,
           shape,
           "pending",
           parentToolCallId,
@@ -970,7 +970,7 @@ export function createDeltaAssembler(
   }
 
   function buildClosedItemFromShape(
-    bbItemId: string,
+    hyperfideItemId: string,
     shape: DeltaItemShape,
     close: CloseFields,
     parentToolCallId: string | undefined,
@@ -978,7 +978,7 @@ export function createDeltaAssembler(
   ): ThreadEventItem {
     return withPresentation(
       buildClosedItemShape(
-        bbItemId,
+        hyperfideItemId,
         shape,
         close,
         parentToolCallId,
@@ -989,7 +989,7 @@ export function createDeltaAssembler(
   }
 
   function buildClosedItemShape(
-    bbItemId: string,
+    hyperfideItemId: string,
     shape: DeltaItemShape,
     close: CloseFields,
     parentToolCallId: string | undefined,
@@ -1003,7 +1003,7 @@ export function createDeltaAssembler(
         return withParentToolCallId(
           {
             type: "commandExecution",
-            id: bbItemId,
+            id: hyperfideItemId,
             command: shape.command,
             cwd: shape.cwd,
             ...(aggregatedOutput === undefined ? {} : { aggregatedOutput }),
@@ -1021,7 +1021,7 @@ export function createDeltaAssembler(
         return withParentToolCallId(
           {
             type: "fileChange",
-            id: bbItemId,
+            id: hyperfideItemId,
             changes: buildFileChanges(shape),
             status: close.status,
             approvalStatus: close.approvalStatus ?? null,
@@ -1035,7 +1035,7 @@ export function createDeltaAssembler(
         return withParentToolCallId(
           {
             type: "toolCall",
-            id: bbItemId,
+            id: hyperfideItemId,
             ...(shape.server === undefined ? {} : { server: shape.server }),
             tool: shape.tool,
             ...(toolArguments ? { arguments: toolArguments } : {}),
@@ -1051,14 +1051,14 @@ export function createDeltaAssembler(
       }
       case "compaction":
         return withParentToolCallId(
-          { type: "contextCompaction", id: bbItemId },
+          { type: "contextCompaction", id: hyperfideItemId },
           parentToolCallId,
         );
       case "webSearch":
         return withParentToolCallId(
           {
             type: "webSearch",
-            id: bbItemId,
+            id: hyperfideItemId,
             queries: shape.queries,
             resultText: close.resultText ?? null,
           },
@@ -1068,7 +1068,7 @@ export function createDeltaAssembler(
         return withParentToolCallId(
           {
             type: "webFetch",
-            id: bbItemId,
+            id: hyperfideItemId,
             url: shape.url,
             prompt: shape.prompt ?? null,
             pattern: shape.pattern,
@@ -1080,7 +1080,7 @@ export function createDeltaAssembler(
         return withParentToolCallId(
           {
             type: "imageGeneration",
-            id: bbItemId,
+            id: hyperfideItemId,
             status: close.status,
             prompt: shape.prompt,
             path: shape.path,
@@ -1091,19 +1091,19 @@ export function createDeltaAssembler(
           parentToolCallId,
         );
       case "backgroundTask":
-        return buildBackgroundTaskItem(bbItemId, shape, parentToolCallId);
+        return buildBackgroundTaskItem(hyperfideItemId, shape, parentToolCallId);
       case "fileRead":
         return buildFileReadItem(
-          bbItemId,
+          hyperfideItemId,
           shape,
           close.status,
           parentToolCallId,
         );
       case "search":
-        return buildSearchItem(bbItemId, shape, close.status, parentToolCallId);
+        return buildSearchItem(hyperfideItemId, shape, close.status, parentToolCallId);
       case "delegation":
         return buildDelegationItem(
-          bbItemId,
+          hyperfideItemId,
           shape,
           close.status,
           parentToolCallId,
@@ -1111,14 +1111,14 @@ export function createDeltaAssembler(
         );
       case "planSteps":
         return buildPlanStepsItem(
-          bbItemId,
+          hyperfideItemId,
           shape,
           close.status,
           parentToolCallId,
         );
       case "extension":
         return buildExtensionItem(
-          bbItemId,
+          hyperfideItemId,
           shape,
           close.status,
           parentToolCallId,
@@ -1129,7 +1129,7 @@ export function createDeltaAssembler(
       case "plan":
       case "imageView":
         return buildOpenedItemShape(
-          bbItemId,
+          hyperfideItemId,
           shape,
           parentToolCallId,
           presentation,
@@ -1189,7 +1189,7 @@ export function createDeltaAssembler(
       case "agentMessage":
         return withPresentation(
           withParentToolCallId(
-            { type: "agentMessage", id: open.bbItemId, text },
+            { type: "agentMessage", id: open.hyperfideItemId, text },
             open.item.parentToolCallId,
           ),
           open.item.presentation,
@@ -1197,7 +1197,7 @@ export function createDeltaAssembler(
       case "plan":
         return withPresentation(
           withParentToolCallId(
-            { type: "plan", id: open.bbItemId, text },
+            { type: "plan", id: open.hyperfideItemId, text },
             open.item.parentToolCallId,
           ),
           open.item.presentation,
@@ -1207,7 +1207,7 @@ export function createDeltaAssembler(
           withParentToolCallId(
             {
               type: "reasoning",
-              id: open.bbItemId,
+              id: open.hyperfideItemId,
               summary: summaryText.length === 0 ? [] : [summaryText],
               content: text.length === 0 ? [] : [text],
             },
@@ -1221,7 +1221,7 @@ export function createDeltaAssembler(
   }
 
   function buildTextItemForChannel(
-    bbItemId: string,
+    hyperfideItemId: string,
     channel: DeltaTextChannel,
     text: string,
     parentToolCallId: string | undefined,
@@ -1229,22 +1229,22 @@ export function createDeltaAssembler(
     switch (channel) {
       case "agentMessage":
         return withParentToolCallId(
-          { type: "agentMessage", id: bbItemId, text },
+          { type: "agentMessage", id: hyperfideItemId, text },
           parentToolCallId,
         );
       case "plan":
         return withParentToolCallId(
-          { type: "plan", id: bbItemId, text },
+          { type: "plan", id: hyperfideItemId, text },
           parentToolCallId,
         );
       case "reasoningText":
         return withParentToolCallId(
-          { type: "reasoning", id: bbItemId, summary: [], content: [text] },
+          { type: "reasoning", id: hyperfideItemId, summary: [], content: [text] },
           parentToolCallId,
         );
       case "reasoningSummary":
         return withParentToolCallId(
-          { type: "reasoning", id: bbItemId, summary: [text], content: [] },
+          { type: "reasoning", id: hyperfideItemId, summary: [text], content: [] },
           parentToolCallId,
         );
     }
@@ -1376,22 +1376,22 @@ export function createDeltaAssembler(
         if (delta.item.type !== "compaction") {
           detachAssistantStreams(state, delta.key.parentRef);
         }
-        const bbItemId =
+        const hyperfideItemId =
           (delta.key.providerItemId !== undefined
-            ? state.bbItemIdByProviderItemId.get(delta.key.providerItemId)
+            ? state.hyperfideItemIdByProviderItemId.get(delta.key.providerItemId)
             : undefined) ?? mintItemId();
         if (delta.key.providerItemId !== undefined) {
-          registerItemId(state, delta.key.providerItemId, bbItemId);
+          registerItemId(state, delta.key.providerItemId, hyperfideItemId);
         }
         const parentToolCallId = mapParentRef(state, delta.key.parentRef);
         const item = buildOpenedItem(
-          bbItemId,
+          hyperfideItemId,
           delta.item,
           parentToolCallId,
           delta.presentation,
         );
         state.openItemsByKey.set(keyStr, {
-          bbItemId,
+          hyperfideItemId,
           key: delta.key,
           item,
           threadAttached: isThreadAttachedShape(delta.item),
@@ -1468,18 +1468,18 @@ export function createDeltaAssembler(
             ),
           });
         }
-        const bbItemId =
-          open?.bbItemId ??
+        const hyperfideItemId =
+          open?.hyperfideItemId ??
           (delta.key.providerItemId !== undefined
-            ? state.bbItemIdByProviderItemId.get(delta.key.providerItemId)
+            ? state.hyperfideItemIdByProviderItemId.get(delta.key.providerItemId)
             : undefined) ??
           mintItemId();
         if (delta.key.providerItemId !== undefined) {
-          registerItemId(state, delta.key.providerItemId, bbItemId);
+          registerItemId(state, delta.key.providerItemId, hyperfideItemId);
         }
         const presentation = delta.presentation ?? presentationOf(open?.item);
         const item = buildClosedItemFromShape(
-          bbItemId,
+          hyperfideItemId,
           delta.item,
           closeFields,
           parentToolCallId ?? open?.item.parentToolCallId,
@@ -1527,10 +1527,10 @@ export function createDeltaAssembler(
       case "item.progress": {
         const keyStr = itemKeyString(delta.key);
         const open = state.openItemsByKey.get(keyStr);
-        const bbItemId =
-          open?.bbItemId ??
+        const hyperfideItemId =
+          open?.hyperfideItemId ??
           (delta.key.providerItemId !== undefined
-            ? state.bbItemIdByProviderItemId.get(delta.key.providerItemId)
+            ? state.hyperfideItemIdByProviderItemId.get(delta.key.providerItemId)
             : undefined) ??
           delta.key.providerItemId ??
           mintItemId();
@@ -1544,7 +1544,7 @@ export function createDeltaAssembler(
             scope: threadScope(),
             item: withPresentation(
               buildDelegationItem(
-                bbItemId,
+                hyperfideItemId,
                 delta.snapshot,
                 "pending",
                 parentToolCallId ?? open?.item.parentToolCallId,
@@ -1562,7 +1562,7 @@ export function createDeltaAssembler(
             providerThreadId: "",
             scope: threadScope(),
             item: buildBackgroundTaskItem(
-              bbItemId,
+              hyperfideItemId,
               delta.snapshot,
               parentToolCallId,
             ),
@@ -1586,7 +1586,7 @@ export function createDeltaAssembler(
             threadId: UNSTAMPED_THREAD_ID,
             providerThreadId: "",
             scope: turnScope(turnId),
-            itemId: bbItemId,
+            itemId: hyperfideItemId,
             ...(delta.message === undefined ? {} : { message: delta.message }),
             ...(parentToolCallId === undefined ? {} : { parentToolCallId }),
           };
@@ -1626,15 +1626,15 @@ export function createDeltaAssembler(
         const keyStr = itemKeyString(delta.key);
         const open = state.openItemsByKey.get(keyStr);
         const parentToolCallId = mapParentRef(state, delta.key.parentRef);
-        let bbItemId =
-          open?.bbItemId ??
+        let hyperfideItemId =
+          open?.hyperfideItemId ??
           (delta.key.providerItemId !== undefined
-            ? state.bbItemIdByProviderItemId.get(delta.key.providerItemId)
+            ? state.hyperfideItemIdByProviderItemId.get(delta.key.providerItemId)
             : undefined);
-        if (bbItemId === undefined) {
-          bbItemId = mintItemId();
+        if (hyperfideItemId === undefined) {
+          hyperfideItemId = mintItemId();
           if (delta.key.providerItemId !== undefined) {
-            registerItemId(state, delta.key.providerItemId, bbItemId);
+            registerItemId(state, delta.key.providerItemId, hyperfideItemId);
           }
           const shape: DeltaItemShape =
             delta.channel === "agentMessage"
@@ -1643,13 +1643,13 @@ export function createDeltaAssembler(
                 ? { type: "plan", text: "" }
                 : { type: "reasoning", summary: [], content: [] };
           const item = buildOpenedItem(
-            bbItemId,
+            hyperfideItemId,
             shape,
             parentToolCallId,
             undefined,
           );
           state.openItemsByKey.set(keyStr, {
-            bbItemId,
+            hyperfideItemId,
             key: delta.key,
             item,
             threadAttached: false,
@@ -1685,7 +1685,7 @@ export function createDeltaAssembler(
           threadId: UNSTAMPED_THREAD_ID,
           providerThreadId: "",
           scope: turnScope(turnId),
-          itemId: bbItemId,
+          itemId: hyperfideItemId,
           delta: delta.text,
           ...(parentToolCallId === undefined ? {} : { parentToolCallId }),
         });
@@ -1733,23 +1733,23 @@ export function createDeltaAssembler(
           open === undefined
             ? undefined
             : settleTextItem(open, delta.text, delta.channel);
-        let bbItemId = open?.bbItemId;
+        let hyperfideItemId = open?.hyperfideItemId;
         if (item === undefined) {
-          bbItemId =
-            bbItemId ??
+          hyperfideItemId =
+            hyperfideItemId ??
             (delta.key.providerItemId !== undefined
-              ? state.bbItemIdByProviderItemId.get(delta.key.providerItemId)
+              ? state.hyperfideItemIdByProviderItemId.get(delta.key.providerItemId)
               : undefined) ??
             mintItemId();
           item = buildTextItemForChannel(
-            bbItemId,
+            hyperfideItemId,
             delta.channel,
             finalText,
             parentToolCallId ?? open?.item.parentToolCallId,
           );
         }
-        if (delta.key.providerItemId !== undefined && bbItemId !== undefined) {
-          registerItemId(state, delta.key.providerItemId, bbItemId);
+        if (delta.key.providerItemId !== undefined && hyperfideItemId !== undefined) {
+          registerItemId(state, delta.key.providerItemId, hyperfideItemId);
           rememberSettledKey(state, keyStr);
         }
         events.push({
@@ -1777,15 +1777,15 @@ export function createDeltaAssembler(
           return;
         }
         const open = state.openItemsByKey.get(itemKeyString(delta.key));
-        let bbItemId =
-          open?.bbItemId ??
+        let hyperfideItemId =
+          open?.hyperfideItemId ??
           (delta.key.providerItemId !== undefined
-            ? state.bbItemIdByProviderItemId.get(delta.key.providerItemId)
+            ? state.hyperfideItemIdByProviderItemId.get(delta.key.providerItemId)
             : undefined);
-        if (bbItemId === undefined) {
-          bbItemId = mintItemId();
+        if (hyperfideItemId === undefined) {
+          hyperfideItemId = mintItemId();
           if (delta.key.providerItemId !== undefined) {
-            registerItemId(state, delta.key.providerItemId, bbItemId);
+            registerItemId(state, delta.key.providerItemId, hyperfideItemId);
           }
         }
         const parentToolCallId = mapParentRef(state, delta.key.parentRef);
@@ -1797,7 +1797,7 @@ export function createDeltaAssembler(
           threadId: UNSTAMPED_THREAD_ID,
           providerThreadId: "",
           scope: turnScope(turnId),
-          itemId: bbItemId,
+          itemId: hyperfideItemId,
           delta: delta.text,
           ...(parentToolCallId === undefined ? {} : { parentToolCallId }),
         });
@@ -1833,7 +1833,7 @@ export function createDeltaAssembler(
           threadId: UNSTAMPED_THREAD_ID,
           providerThreadId: "",
           scope: turnScope(state.currentTurnId),
-          itemId: open.bbItemId,
+          itemId: open.hyperfideItemId,
           delta: diffed.delta,
           ...(diffed.reset ? { reset: true } : {}),
           ...(parentToolCallId === undefined ? {} : { parentToolCallId }),
@@ -2199,20 +2199,20 @@ export function createDeltaAssembler(
       return events;
     },
 
-    getBbItemId(threadId, providerItemId) {
-      return states.get(threadId)?.bbItemIdByProviderItemId.get(providerItemId);
+    getHyperfideItemId(threadId, providerItemId) {
+      return states.get(threadId)?.hyperfideItemIdByProviderItemId.get(providerItemId);
     },
 
-    getProviderItemId(threadId, bbItemId) {
-      return states.get(threadId)?.providerItemIdByBbItemId.get(bbItemId);
+    getProviderItemId(threadId, hyperfideItemId) {
+      return states.get(threadId)?.providerItemIdByHyperfideItemId.get(hyperfideItemId);
     },
 
-    getBbTurnId(threadId, providerTurnId) {
-      return states.get(threadId)?.bbTurnIdByProviderTurnId.get(providerTurnId);
+    getHyperfideTurnId(threadId, providerTurnId) {
+      return states.get(threadId)?.hyperfideTurnIdByProviderTurnId.get(providerTurnId);
     },
 
-    getProviderTurnId(threadId, bbTurnId) {
-      return states.get(threadId)?.providerTurnIdByBbTurnId.get(bbTurnId);
+    getProviderTurnId(threadId, hyperfideTurnId) {
+      return states.get(threadId)?.providerTurnIdByHyperfideTurnId.get(hyperfideTurnId);
     },
 
     getOpenTurnId(threadId) {

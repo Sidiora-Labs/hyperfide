@@ -3,7 +3,7 @@
   "name": "overlay-trigger",
   "type": "registry:ui",
   "title": "overlay-trigger",
-  "description": "BB ui \"overlay-trigger\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"overlay-trigger\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/utils"
   ],

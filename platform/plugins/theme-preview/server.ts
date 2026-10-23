@@ -1,7 +1,7 @@
 import { watch, type FSWatcher } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
-import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
+import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 const swatchSchema = z
@@ -396,14 +396,14 @@ async function pluginThemeCssPath(
       signal,
     }),
   ) as {
-    bb?: { themes?: Array<{ id?: string; css?: string }> };
+    hyperfide?: { themes?: Array<{ id?: string; css?: string }> };
   };
-  const entry = manifest.bb?.themes?.find((theme) => theme.id === localId);
+  const entry = manifest.hyperfide?.themes?.find((theme) => theme.id === localId);
   return entry?.css ? resolve(rootDir, entry.css) : null;
 }
 
 async function readPluginThemeCss(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   themeId: string,
   rootDirs: Map<string, string>,
   signal?: AbortSignal,
@@ -420,7 +420,7 @@ async function readPluginThemeCss(
       : null;
   } catch (error) {
     signal?.throwIfAborted();
-    bb.log.warn(`theme-preview: could not read ${themeId}: ${String(error)}`);
+    hyperfide.log.warn(`theme-preview: could not read ${themeId}: ${String(error)}`);
     return null;
   }
 }
@@ -456,7 +456,7 @@ async function activeThemePath(
   return null;
 }
 
-export function createCatalogLoader(bb: BbPluginApi) {
+export function createCatalogLoader(hyperfide: HyperfidePluginApi) {
   const slowWarningMs = 5_000;
   const catalogOperationTimeoutMs = 15_000;
   const stamps = new Map<string, string>();
@@ -474,7 +474,7 @@ export function createCatalogLoader(bb: BbPluginApi) {
     operation: () => Promise<T>,
   ): Promise<T> => {
     const warning = setTimeout(() => {
-      bb.log.warn(
+      hyperfide.log.warn(
         `theme-preview: ${label} still pending after ${slowWarningMs}ms`,
       );
     }, slowWarningMs);
@@ -511,7 +511,7 @@ export function createCatalogLoader(bb: BbPluginApi) {
 
   const loadCatalog = async (selectionAtStart: number) => {
     const raw = (await observeCatalogOperation("theme catalog", (signal) =>
-      bb.sdk.theme.catalog({ signal }),
+      hyperfide.sdk.theme.catalog({ signal }),
     )) as {
       dir?: unknown;
     };
@@ -519,7 +519,7 @@ export function createCatalogLoader(bb: BbPluginApi) {
     const rootDirs = new Map<string, string>();
     try {
       const listed = (await observeCatalogOperation("plugin list", (signal) =>
-        bb.sdk.plugins.list({ signal }),
+        hyperfide.sdk.plugins.list({ signal }),
       )) as {
         plugins?: Array<{ id?: string; rootDir?: string }>;
       };
@@ -528,14 +528,14 @@ export function createCatalogLoader(bb: BbPluginApi) {
           rootDirs.set(entry.id, entry.rootDir);
       }
     } catch (error) {
-      bb.log.warn(`theme-preview: plugin list unavailable: ${String(error)}`);
+      hyperfide.log.warn(`theme-preview: plugin list unavailable: ${String(error)}`);
     }
     const built = await observeCatalogOperation(
       "catalog enrichment",
       (signal) =>
         buildCatalog(raw, async (id) =>
           id.startsWith("plugin:")
-            ? readPluginThemeCss(bb, id, rootDirs, signal)
+            ? readPluginThemeCss(hyperfide, id, rootDirs, signal)
             : dir
               ? readCustomThemeCss(dir, id, signal)
               : null,
@@ -564,7 +564,7 @@ export function createCatalogLoader(bb: BbPluginApi) {
           if (previousStamp !== undefined && stamp !== previousStamp) {
             const current = (await observeCatalogOperation(
               "active theme confirmation",
-              (signal) => bb.sdk.theme.catalog({ signal }),
+              (signal) => hyperfide.sdk.theme.catalog({ signal }),
             )) as { active?: { themeId?: unknown } };
             const currentThemeId =
               typeof current.active?.themeId === "string"
@@ -575,16 +575,16 @@ export function createCatalogLoader(bb: BbPluginApi) {
               currentThemeId === built.activeThemeId
             ) {
               await warnIfSlow(`theme re-apply (${built.activeThemeId})`, () =>
-                bb.sdk.theme.set(built.activeThemeId!),
+                hyperfide.sdk.theme.set(built.activeThemeId!),
               );
               revision += 1;
-              bb.log.info(
+              hyperfide.log.info(
                 `theme-preview: ${built.activeThemeId} changed on disk — re-applied (rev ${revision})`,
               );
             }
           }
         } catch (error) {
-          bb.log.warn(
+          hyperfide.log.warn(
             `theme-preview: could not stat ${path}: ${String(error)}`,
           );
         }
@@ -612,7 +612,7 @@ export function createCatalogLoader(bb: BbPluginApi) {
     const generation = selectionGeneration;
     const apply = selectionQueue.then(async () => {
       await warnIfSlow(`theme apply (${themeId})`, () =>
-        bb.sdk.theme.set(themeId),
+        hyperfide.sdk.theme.set(themeId),
       );
     });
     selectionQueue = apply.catch(() => undefined);
@@ -627,16 +627,16 @@ export function createCatalogLoader(bb: BbPluginApi) {
   return { catalog, setTheme };
 }
 
-export default async function plugin(bb: BbPluginApi) {
-  const catalogLoader = createCatalogLoader(bb);
+export default async function plugin(hyperfide: HyperfidePluginApi) {
+  const catalogLoader = createCatalogLoader(hyperfide);
   const catalog = catalogLoader.catalog;
 
-  bb.background.service("theme-watch", {
+  hyperfide.background.service("theme-watch", {
     async start(signal) {
       let watcher: FSWatcher | null = null;
       let timer: ReturnType<typeof setTimeout> | null = null;
       try {
-        const raw = (await bb.sdk.theme.catalog({ signal })) as {
+        const raw = (await hyperfide.sdk.theme.catalog({ signal })) as {
           dir?: unknown;
         };
         if (signal.aborted) return;
@@ -647,12 +647,12 @@ export default async function plugin(bb: BbPluginApi) {
           timer = setTimeout(async () => {
             try {
               const next = await catalog();
-              bb.realtime.publish("theme-preview:changed", {
+              hyperfide.realtime.publish("theme-preview:changed", {
                 revision: next.revision,
                 at: Date.now(),
               });
             } catch (error) {
-              bb.log.warn(
+              hyperfide.log.warn(
                 `theme-preview: watch refresh failed: ${String(error)}`,
               );
             }
@@ -661,11 +661,11 @@ export default async function plugin(bb: BbPluginApi) {
         try {
           watcher = watch(dir, { recursive: true }, onChange);
           watcher.on("error", (error) =>
-            bb.log.warn(`theme-preview: watcher error: ${String(error)}`),
+            hyperfide.log.warn(`theme-preview: watcher error: ${String(error)}`),
           );
-          bb.log.info(`theme-preview: watching ${dir}`);
+          hyperfide.log.info(`theme-preview: watching ${dir}`);
         } catch (error) {
-          bb.log.warn(`theme-preview: cannot watch ${dir}: ${String(error)}`);
+          hyperfide.log.warn(`theme-preview: cannot watch ${dir}: ${String(error)}`);
           return;
         }
         await new Promise<void>((resolve) => {
@@ -682,7 +682,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.rpc.register(rpcContract, {
+  hyperfide.rpc.register(rpcContract, {
     async themeCatalog() {
       return catalog();
     },
@@ -691,5 +691,5 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.log.info("theme-preview ready");
+  hyperfide.log.info("theme-preview ready");
 }

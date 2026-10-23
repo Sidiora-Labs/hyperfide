@@ -32,7 +32,7 @@ export function makeSystemConfig(
     primaryHostId: null,
     primaryHostPlatform: null,
     voiceTranscriptionEnabled: false,
-    dataDir: "/tmp/bb-test",
+    dataDir: "/tmp/hyperfide-test",
     ...overrides,
   };
 }

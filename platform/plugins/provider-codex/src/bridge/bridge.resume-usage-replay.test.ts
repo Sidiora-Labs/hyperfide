@@ -21,7 +21,7 @@ let harness: ReturnType<typeof createBridgeJsonRpcTestHarness>;
 let workspaceDir: string;
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-1727-ws-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-1727-ws-"));
   stubFakeCodexAppServer();
   harness = createBridgeJsonRpcTestHarness(handleLine);
 });

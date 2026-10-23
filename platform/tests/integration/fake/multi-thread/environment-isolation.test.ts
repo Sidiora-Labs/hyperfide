@@ -242,7 +242,7 @@ describe.sequential("fake provider environment-isolation multi-thread integratio
             cwd: harness.repoDir,
           })
         ).trim(),
-      ).toBe("bb: automated commit");
+      ).toBe("hyperfide: automated commit");
       expect(
         (
           await runGit({
@@ -250,6 +250,6 @@ describe.sequential("fake provider environment-isolation multi-thread integratio
             cwd: secondRepoDir,
           })
         ).trim(),
-      ).toBe("bb: automated commit");
+      ).toBe("hyperfide: automated commit");
     }));
 });

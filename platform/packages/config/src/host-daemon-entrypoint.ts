@@ -70,7 +70,7 @@ export function loadHostDaemonEntrypointConfig(
     }) ??
     (machineCredential === undefined
       ? undefined
-      : { "x-bb-connect-machine": machineCredential });
+      : { "x-hyperfide-connect-machine": machineCredential });
   const hostId = readOptionalEnvVar({
     context: loader.context,
     definition: HYPERFIDE_HOST_ID_ENV,

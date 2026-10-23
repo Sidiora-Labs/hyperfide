@@ -3,7 +3,7 @@
   "name": "switch",
   "type": "registry:ui",
   "title": "switch",
-  "description": "BB ui \"switch\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"switch\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/motion",
     "@hyperfide/utils"

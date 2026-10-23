@@ -3,7 +3,7 @@
   "name": "inline-rename",
   "type": "registry:ui",
   "title": "inline-rename",
-  "description": "BB ui \"inline-rename\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"inline-rename\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/use-compact-viewport",
     "@hyperfide/use-pointer-coarse"

@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH,
-  bbDesktopBrowserAttachRequestSchema,
-  bbDesktopBrowserSetBoundsRequestSchema,
-  bbDesktopBrowserStateSchema,
-  clampBbDesktopBrowserViewBounds,
-  type BbDesktopBrowserViewBounds,
-  type BbDesktopBrowserViewportBounds,
+  hyperfideDesktopBrowserAttachRequestSchema,
+  hyperfideDesktopBrowserSetBoundsRequestSchema,
+  hyperfideDesktopBrowserStateSchema,
+  clampHyperfideDesktopBrowserViewBounds,
+  type HyperfideDesktopBrowserViewBounds,
+  type HyperfideDesktopBrowserViewportBounds,
 } from "../src/index.js";
 
 interface BrowserBoundsClampTestCase {
-  bounds: BbDesktopBrowserViewBounds;
-  expected: BbDesktopBrowserViewBounds;
+  bounds: HyperfideDesktopBrowserViewBounds;
+  expected: HyperfideDesktopBrowserViewBounds;
   label: string;
-  viewport: BbDesktopBrowserViewportBounds;
+  viewport: HyperfideDesktopBrowserViewportBounds;
 }
 
 const browserBoundsClampTestCases: BrowserBoundsClampTestCase[] = [
@@ -46,7 +46,7 @@ const browserBoundsClampTestCases: BrowserBoundsClampTestCase[] = [
 describe("desktop browser bounds containment", () => {
   it.each(browserBoundsClampTestCases)("$label", (testCase) => {
     expect(
-      clampBbDesktopBrowserViewBounds({
+      clampHyperfideDesktopBrowserViewBounds({
         bounds: testCase.bounds,
         viewport: testCase.viewport,
       }),
@@ -59,7 +59,7 @@ describe("desktop browser IPC schemas", () => {
     "rejects invalid attach ownership: %s",
     (threadId) => {
       expect(
-        bbDesktopBrowserAttachRequestSchema.safeParse({
+        hyperfideDesktopBrowserAttachRequestSchema.safeParse({
           tabId: "browser:abc",
           threadId,
           url: "",
@@ -72,7 +72,7 @@ describe("desktop browser IPC schemas", () => {
 
   it("accepts a well-formed attach request and rejects bad shapes", () => {
     expect(
-      bbDesktopBrowserAttachRequestSchema.safeParse({
+      hyperfideDesktopBrowserAttachRequestSchema.safeParse({
         threadId: "thread-1",
         tabId: "browser:abc",
         url: "",
@@ -82,7 +82,7 @@ describe("desktop browser IPC schemas", () => {
     ).toBe(true);
 
     expect(
-      bbDesktopBrowserAttachRequestSchema.safeParse({
+      hyperfideDesktopBrowserAttachRequestSchema.safeParse({
         threadId: "thread-1",
         tabId: "",
         url: "",
@@ -91,13 +91,13 @@ describe("desktop browser IPC schemas", () => {
       }).success,
     ).toBe(false);
     expect(
-      bbDesktopBrowserSetBoundsRequestSchema.safeParse({
+      hyperfideDesktopBrowserSetBoundsRequestSchema.safeParse({
         tabId: "browser:abc",
         bounds: { x: 0, y: 0, width: -1, height: 600 },
       }).success,
     ).toBe(false);
     expect(
-      bbDesktopBrowserAttachRequestSchema.safeParse({
+      hyperfideDesktopBrowserAttachRequestSchema.safeParse({
         threadId: "thread-1",
         tabId: "browser:abc",
         url: "",
@@ -110,7 +110,7 @@ describe("desktop browser IPC schemas", () => {
 
   it("accepts a well-formed state push and rejects non-integer bounds", () => {
     expect(
-      bbDesktopBrowserStateSchema.safeParse({
+      hyperfideDesktopBrowserStateSchema.safeParse({
         tabId: "browser:abc",
         url: "https://example.com",
         title: "Example",
@@ -122,7 +122,7 @@ describe("desktop browser IPC schemas", () => {
     ).toBe(true);
 
     expect(
-      bbDesktopBrowserSetBoundsRequestSchema.safeParse({
+      hyperfideDesktopBrowserSetBoundsRequestSchema.safeParse({
         tabId: "browser:abc",
         bounds: { x: 0.5, y: 0, width: 800, height: 600 },
       }).success,
@@ -134,7 +134,7 @@ describe("desktop browser IPC schemas", () => {
       HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH,
     )}`;
     expect(
-      bbDesktopBrowserAttachRequestSchema.safeParse({
+      hyperfideDesktopBrowserAttachRequestSchema.safeParse({
         threadId: "thread-1",
         tabId: "browser:abc",
         url: longUrl,

@@ -337,7 +337,7 @@ describe("thread-list plugin", () => {
     await screen.findByText("Pinned thread");
     expect(
       JSON.parse(
-        window.localStorage.getItem("bb.thread-list.preferences.v1") ?? "{}",
+        window.localStorage.getItem("hyperfide.thread-list.preferences.v1") ?? "{}",
       ).organizationMode,
     ).toBe("machine");
     window.localStorage.clear();

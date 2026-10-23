@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 import { Command, CommanderError } from "commander";
-import { maybeReexecViaBbCli } from "./bb-cli-reexec.js";
+import { maybeReexecViaHyperfideCli } from "./hyperfide-cli-reexec.js";
 import {
   CORE_COMMAND_GROUPS,
   type CommandGroupDeps,
   pluginProxyCandidate,
   selectCommandGroups,
 } from "./command-groups.js";
-import { resolveBbCliVersion } from "./version.js";
+import { resolveHyperfideCliVersion } from "./version.js";
 import type { CliRuntimeContext } from "./context-env.js";
 
 if (process.env.FORCE_COLOR !== undefined) {
   delete process.env.NO_COLOR;
 }
 
-maybeReexecViaBbCli();
+maybeReexecViaHyperfideCli();
 
 const program = new Command();
 
@@ -24,7 +24,7 @@ program
   .enablePositionalOptions()
   .exitOverride()
   .showSuggestionAfterError(false)
-  .version(resolveBbCliVersion());
+  .version(resolveHyperfideCliVersion());
 
 const KNOWN_COMMAND_NAMES: ReadonlySet<string> = new Set([
   ...CORE_COMMAND_GROUPS.map((group) => group.name),
@@ -123,7 +123,7 @@ async function logCliError(args: {
   ]);
   appendCliErrorLogEntry({
     at: new Date().toISOString(),
-    cliVersion: resolveBbCliVersion(),
+    cliVersion: resolveHyperfideCliVersion(),
     code: args.code,
     command: args.command ?? commandPathLabel(program, process.argv),
     exitCode: args.exitCode,
@@ -195,7 +195,7 @@ async function addJsonShapeHelp(): Promise<void> {
   for (const commandPath of Object.keys(JSON_SHAPE_BY_COMMAND_PATH)) {
     const invocation = resolution.resolveInvocation(program, [
       "node",
-      "bb",
+      "hyperfide",
       ...commandPath.split(" "),
     ]);
     const help = jsonShapeHelp(commandPath);

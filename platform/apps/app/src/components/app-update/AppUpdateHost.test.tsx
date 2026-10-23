@@ -101,7 +101,7 @@ describe("AppUpdateHost", () => {
     renderHost();
 
     await waitFor(() => {
-      expect(appToast.success).toHaveBeenCalledWith("Updated bb to 1.1.0");
+      expect(appToast.success).toHaveBeenCalledWith("Updated hyperfide to 1.1.0");
     });
     await waitFor(() => {
       expect(sdk.system.acknowledgeAppUpdate).toHaveBeenCalledWith({
@@ -152,7 +152,7 @@ describe("AppUpdateHost", () => {
     });
   });
 
-  it("covers the app while bb restarts into the new version", async () => {
+  it("covers the app while hyperfide restarts into the new version", async () => {
     vi.mocked(sdk.system.appUpdate).mockResolvedValue(
       status({
         activity: {
@@ -166,7 +166,7 @@ describe("AppUpdateHost", () => {
 
     renderHost();
 
-    expect(await screen.findByText("Updating bb to 1.2.0")).toBeDefined();
+    expect(await screen.findByText("Updating Hyperfide to 1.2.0")).toBeDefined();
     expect(
       document.querySelector("[data-app-update-overlay]")?.getAttribute("role"),
     ).toBe("dialog");
@@ -201,8 +201,8 @@ describe("AppUpdateHost", () => {
 
     renderHost();
 
-    expect(await screen.findByText("Updating bb to 9f4ee4d")).toBeDefined();
-    expect(screen.queryByText("Updating bb to 0.45.0")).toBeNull();
+    expect(await screen.findByText("Updating Hyperfide to 9f4ee4d")).toBeDefined();
+    expect(screen.queryByText("Updating Hyperfide to 0.45.0")).toBeNull();
   });
 
   it("reloads the page once the server comes back on a new revision", async () => {
@@ -252,7 +252,7 @@ describe("AppUpdateHost", () => {
       status({ lastResult: failed }),
     );
     vi.mocked(sdk.system.acknowledgeAppUpdate).mockRejectedValue(
-      new Error("The bb-app launcher did not respond."),
+      new Error("The hyperfide-app launcher did not respond."),
     );
     renderHost();
     await waitFor(() => expect(appToast.error).toHaveBeenCalled());
@@ -264,7 +264,7 @@ describe("AppUpdateHost", () => {
       expect(appToast.error).toHaveBeenCalledWith(
         "Couldn't dismiss the update result",
         expect.objectContaining({
-          description: "The bb-app launcher did not respond.",
+          description: "The hyperfide-app launcher did not respond.",
         }),
       );
     });

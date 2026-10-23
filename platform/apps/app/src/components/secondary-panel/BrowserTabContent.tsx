@@ -11,24 +11,24 @@ import {
   type ReactNode,
 } from "react";
 import type {
-  BbDesktopBrowserApi,
-  BbDesktopBrowserControl,
-  BbDesktopBrowserFindInPageRequest,
-  BbDesktopBrowserState,
-  BbDesktopBrowserTarget,
-  BbDesktopBrowserViewportBounds,
-  BbDesktopBrowserViewBounds,
+  HyperfideDesktopBrowserApi,
+  HyperfideDesktopBrowserControl,
+  HyperfideDesktopBrowserFindInPageRequest,
+  HyperfideDesktopBrowserState,
+  HyperfideDesktopBrowserTarget,
+  HyperfideDesktopBrowserViewportBounds,
+  HyperfideDesktopBrowserViewBounds,
 } from "@hyperfide/desktop-contract";
 import {
   HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH,
-  clampBbDesktopBrowserViewBounds,
+  clampHyperfideDesktopBrowserViewBounds,
 } from "@hyperfide/desktop-contract";
 import {
   COARSE_POINTER_COMPACT_ICON_SIZE_SHRINK_CLASS,
   COARSE_POINTER_TEXT_SM_CLASS,
 } from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import { Icon } from "@hyperfide/shared-ui/icon";
-import { getBbDesktopInfo, getDesktopBrowserApi } from "@/lib/bb-desktop";
+import { getHyperfideDesktopInfo, getDesktopBrowserApi } from "@/lib/hyperfide-desktop";
 import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   getBrowserUrlSecurity,
@@ -68,7 +68,7 @@ import { PluginBrowserToolbarActions } from "@/components/plugin/PluginBrowserTo
 
 interface BrowserTabContentProps {
   tabId: string;
-  desktopTarget?: BbDesktopBrowserTarget;
+  desktopTarget?: HyperfideDesktopBrowserTarget;
   existingOnly?: true;
   initialUrl: string;
   addressFocusRequest: BrowserAddressFocusRequest | null;
@@ -91,7 +91,7 @@ export interface BrowserAddressFocusRequest {
 interface BrowserChromeProps {
   addressDraft: string;
   isEditing: boolean;
-  state: BbDesktopBrowserState | null;
+  state: HyperfideDesktopBrowserState | null;
   currentUrl: string;
   addressInputRef: RefObject<HTMLInputElement | null>;
   onAddressChange: (value: string) => void;
@@ -113,8 +113,8 @@ interface BrowserViewBoundsFromElementArgs {
 }
 
 interface BrowserViewBoundsEqualArgs {
-  a: BbDesktopBrowserViewBounds;
-  b: BbDesktopBrowserViewBounds;
+  a: HyperfideDesktopBrowserViewBounds;
+  b: HyperfideDesktopBrowserViewBounds;
 }
 
 interface SyncBrowserViewPlacementArgs {
@@ -134,14 +134,14 @@ interface BrowserPageLoadErrorProps {
   url: string;
 }
 
-const EMPTY_BROWSER_VIEW_BOUNDS: BbDesktopBrowserViewBounds = {
+const EMPTY_BROWSER_VIEW_BOUNDS: HyperfideDesktopBrowserViewBounds = {
   x: 0,
   y: 0,
   width: 0,
   height: 0,
 };
 
-function roundedBoundsFromRect(rect: DOMRect): BbDesktopBrowserViewBounds {
+function roundedBoundsFromRect(rect: DOMRect): HyperfideDesktopBrowserViewBounds {
   return {
     x: Math.round(rect.left),
     y: Math.round(rect.top),
@@ -150,7 +150,7 @@ function roundedBoundsFromRect(rect: DOMRect): BbDesktopBrowserViewBounds {
   };
 }
 
-function browserViewportBounds(): BbDesktopBrowserViewportBounds {
+function browserViewportBounds(): HyperfideDesktopBrowserViewportBounds {
   return {
     width: window.innerWidth,
     height: window.innerHeight,
@@ -159,8 +159,8 @@ function browserViewportBounds(): BbDesktopBrowserViewportBounds {
 
 function browserViewBoundsFromElement(
   args: BrowserViewBoundsFromElementArgs,
-): BbDesktopBrowserViewBounds {
-  return clampBbDesktopBrowserViewBounds({
+): HyperfideDesktopBrowserViewBounds {
+  return clampHyperfideDesktopBrowserViewBounds({
     bounds: roundedBoundsFromRect(args.element.getBoundingClientRect()),
     viewport: browserViewportBounds(),
   });
@@ -329,7 +329,7 @@ function BrowserUnavailable() {
           COARSE_POINTER_TEXT_SM_CLASS,
         )}
       >
-        The in-app web browser runs in the bb desktop app. Open this thread
+        The in-app web browser runs in the hyperfide desktop app. Open this thread
         there to browse the web.
       </p>
     </div>
@@ -410,7 +410,7 @@ export function BrowserTabContent({
   const locationShortcut = useAppCommandShortcut("browser.focusLocation");
   const reloadShortcut = useAppCommandShortcut("browser.reload");
   const findShortcut = useAppCommandShortcut("browser.find");
-  const desktopBrowser = useMemo<BbDesktopBrowserApi | null>(
+  const desktopBrowser = useMemo<HyperfideDesktopBrowserApi | null>(
     () => getDesktopBrowserApi(),
     [],
   );
@@ -425,8 +425,8 @@ export function BrowserTabContent({
     clear: clearRecent,
   } = useBrowserHistory(threadId);
 
-  const [state, setState] = useState<BbDesktopBrowserState | null>(null);
-  const [control, setControl] = useState<BbDesktopBrowserControl | null>(null);
+  const [state, setState] = useState<HyperfideDesktopBrowserState | null>(null);
+  const [control, setControl] = useState<HyperfideDesktopBrowserControl | null>(null);
   useEffect(() => {
     let current = true;
     let receivedEvent = false;
@@ -434,7 +434,7 @@ export function BrowserTabContent({
     const accept = (next: {
       tabId: string;
       threadId: string;
-      control: BbDesktopBrowserControl | null;
+      control: HyperfideDesktopBrowserControl | null;
     }) => {
       if (current && next.tabId === tabId && next.threadId === threadId)
         setControl(next.control);
@@ -493,7 +493,7 @@ export function BrowserTabContent({
   const pageLoadErrorText = state?.errorText ?? null;
   const hasPageLoadError = pageLoadErrorText !== null && hasPage;
   const isBrowserDimmingModalOpen = useIsBrowserDimmingModalOpen();
-  const lastSentBoundsRef = useRef<BbDesktopBrowserViewBounds | null>(null);
+  const lastSentBoundsRef = useRef<HyperfideDesktopBrowserViewBounds | null>(null);
 
   const readBounds = useCallback(() => {
     const element = contentRef.current;
@@ -504,7 +504,7 @@ export function BrowserTabContent({
   }, []);
 
   const sendBounds = useCallback(
-    (bounds: BbDesktopBrowserViewBounds) => {
+    (bounds: HyperfideDesktopBrowserViewBounds) => {
       if (desktopBrowser === null) {
         return;
       }
@@ -568,7 +568,7 @@ export function BrowserTabContent({
     });
     setAttachedBrowserViewIdentity({ environmentId, tabId, threadId });
 
-    let lastSeenState: BbDesktopBrowserState | null = null;
+    let lastSeenState: HyperfideDesktopBrowserState | null = null;
     const unsubscribe = desktopBrowser.onState((nextState) => {
       if (nextState.tabId !== tabId) {
         return;
@@ -869,7 +869,7 @@ export function BrowserTabContent({
     hasPage;
 
   const runFind = useCallback(
-    (args: Omit<BbDesktopBrowserFindInPageRequest, "tabId">) => {
+    (args: Omit<HyperfideDesktopBrowserFindInPageRequest, "tabId">) => {
       desktopBrowser?.findInPage?.({ tabId, ...args });
     },
     [desktopBrowser, tabId],
@@ -950,7 +950,7 @@ export function BrowserTabContent({
   );
 
   const handleOpenExternal = useCallback(() => {
-    getBbDesktopInfo()?.openExternalUrl(currentUrl);
+    getHyperfideDesktopInfo()?.openExternalUrl(currentUrl);
   }, [currentUrl]);
 
   if (desktopBrowser === null) {

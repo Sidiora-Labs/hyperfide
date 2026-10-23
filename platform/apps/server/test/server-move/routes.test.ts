@@ -145,7 +145,7 @@ describe("server move routes", () => {
               return {
                 ok: true,
                 result: inspectResult({
-                  bbAppVersion: harness.config.appVersion,
+                  hyperfideAppVersion: harness.config.appVersion,
                 }),
               };
             case "server_move.prepare":
@@ -256,7 +256,7 @@ describe("server move routes", () => {
       expect(
         (
           await harness.app.request(
-            `/internal/server-move/${started.moveId}/bb-app.tgz`,
+            `/internal/server-move/${started.moveId}/hyperfide-app.tgz`,
             { headers: daemonHeaders(NEW) },
           )
         ).status,
@@ -279,7 +279,7 @@ describe("server move routes", () => {
         archivePath: downloaded,
         destinationDir: await makeTempDir(),
       });
-      expect(manifest.entries.map((entry) => entry.path)).toContain("bb.db");
+      expect(manifest.entries.map((entry) => entry.path)).toContain("hyperfide.db");
 
       releasePrepare.resolve();
       await expect
@@ -363,7 +363,7 @@ describe("server move routes", () => {
   it("refuses machine credentials on every server move route", () =>
     withTestHarness(async (harness) => {
       seedTopology(harness);
-      const machine = { "x-bb-gate-auth": "machine" };
+      const machine = { "x-hyperfide-gate-auth": "machine" };
       const responses = await Promise.all([
         postJson(
           harness,
@@ -467,10 +467,10 @@ describe("server move routes", () => {
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toBe("application/gzip");
       expect(response.headers.get("content-disposition")).toMatch(
-        /^attachment; filename="bb-server-\d{4}-\d{2}-\d{2}\.tar\.gz"$/u,
+        /^attachment; filename="hyperfide-server-\d{4}-\d{2}-\d{2}\.tar\.gz"$/u,
       );
       const bytes = Buffer.from(await response.arrayBuffer());
-      expect(response.headers.get("x-bb-archive-sha256")).toBe(
+      expect(response.headers.get("x-hyperfide-archive-sha256")).toBe(
         createHash("sha256").update(bytes).digest("hex"),
       );
       const exportPath = join(await makeTempDir(), "export.tar.gz");
@@ -483,7 +483,7 @@ describe("server move routes", () => {
         sourceDataDir: harness.config.dataDir,
         sourceServerHostId: OLD,
       });
-      expect(manifest.entries.map((entry) => entry.path)).toContain("bb.db");
+      expect(manifest.entries.map((entry) => entry.path)).toContain("hyperfide.db");
       await expect
         .poll(
           async () =>

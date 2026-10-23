@@ -60,7 +60,7 @@ export function registerDiagnosticsCommands(program: Command): void {
   diagnostics
     .command("cli-errors")
     .description(
-      "Tally failed bb invocations recorded on this machine, most frequent first (records the command path, error code, and the unknown command or flag; never argument values)",
+      "Tally failed hyperfide invocations recorded on this machine, most frequent first (records the command path, error code, and the unknown command or flag; never argument values)",
     )
     .option(
       "--since <duration>",
@@ -109,7 +109,7 @@ export function registerDiagnosticsCommands(program: Command): void {
           console.log("Recording is off (HYPERFIDE_CLI_ERROR_LOG=0).");
         }
         if (rows.length === 0) {
-          console.log(`No failed bb invocations recorded in ${logPath}`);
+          console.log(`No failed hyperfide invocations recorded in ${logPath}`);
           return;
         }
         const tableRows = rows.map((row) => [

@@ -11,7 +11,7 @@ const INLINE_OUTPUT_JSON_PATHS = Array.from(
   ),
 );
 
-const NOOP_JSON_PATH = "$.__bb_timeline_truncation_noop__";
+const NOOP_JSON_PATH = "$.__hyperfide_timeline_truncation_noop__";
 
 function truncationMarkerSql(originalLength: SQL, max: number): SQL {
   return sql`char(10) || '…[' || printf('%,d', ${originalLength} - ${max}) || ' more characters truncated]'`;

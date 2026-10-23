@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import {
   actionSchema,
   fleetRpcContract,
@@ -68,7 +68,7 @@ export function createFleetHandlers(backend: FleetBackend) {
 }
 
 export function registerFleetRpc(
-  api: Pick<BbPluginApi, "rpc">,
+  api: Pick<HyperfidePluginApi, "rpc">,
   backend: FleetBackend,
 ) {
   api.rpc.register(fleetRpcContract, createFleetHandlers(backend));

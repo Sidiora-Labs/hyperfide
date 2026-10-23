@@ -4,26 +4,26 @@ import plugin, { MAX_CUSTOM_INSTRUCTIONS_LENGTH } from "./server";
 
 describe("custom instructions plugin", () => {
   it("migrates persisted instructions into declarative settings", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "custom-instructions",
     });
-    await bb.storage.kv.set("customInstructions", "Use concise answers.");
+    await hyperfide.storage.kv.set("customInstructions", "Use concise answers.");
 
-    await plugin(bb);
+    await plugin(hyperfide);
 
     expect(harness.registrations.settingsDescriptors).toEqual({
       instructions: {
         type: "string",
         label: "Custom instructions",
         description:
-          "Give agents extra instructions and context for tasks on this bb host.",
+          "Give agents extra instructions and context for tasks on this hyperfide-platform host.",
         experimental_multiline: true,
         experimental_schema: expect.any(Object),
         default: "",
       },
     });
     await expect(
-      bb.storage.kv.get("customInstructions"),
+      hyperfide.storage.kv.get("customInstructions"),
     ).resolves.toBeUndefined();
     expect(
       harness.registrations.instructionProvider?.({
@@ -34,10 +34,10 @@ describe("custom instructions plugin", () => {
   });
 
   it("applies declarative settings updates immediately", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "custom-instructions",
     });
-    await plugin(bb);
+    await plugin(hyperfide);
 
     await harness.setSettings({ instructions: "Always run focused tests." });
 
@@ -50,10 +50,10 @@ describe("custom instructions plugin", () => {
   });
 
   it("provides CLI parity through the declarative setting", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "custom-instructions",
     });
-    await plugin(bb);
+    await plugin(hyperfide);
 
     await expect(
       harness.runCli(["set", "Prefer", "small", "commits.", "--json"]),
@@ -71,10 +71,10 @@ describe("custom instructions plugin", () => {
   });
 
   it("contributes nothing for blank text and rejects oversized CLI updates", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "custom-instructions",
     });
-    await plugin(bb);
+    await plugin(hyperfide);
 
     expect(
       harness.registrations.instructionProvider?.({
@@ -91,13 +91,13 @@ describe("custom instructions plugin", () => {
   });
 
   it("documents set in help, requires its text, accepts dashed text, and reports errors as JSON", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "custom-instructions",
     });
-    await plugin(bb);
+    await plugin(hyperfide);
 
     const help = (await harness.runCli(["set", "--help"])).stdout;
-    expect(help).toContain("bb instructions set");
+    expect(help).toContain("hyperfide-platform instructions set");
     expect(help).toContain("at most 4096 characters");
 
     const dashed = await harness.runCli(["set", "--", "-n", "no flags here"]);

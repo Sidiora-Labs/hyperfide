@@ -62,7 +62,7 @@ export const TYPE_SPECIMENS = [
 export const RHYTHM_SPECIMENS = [
   { id: "density", title: "Density", token: "spacing", unit: "px" },
   { id: "tracking", title: "Tracking", token: "tracking-normal", unit: "em" },
-  { id: "row-height", title: "Sidebar row", token: "bb-sidebar-row-height", unit: "px" },
+  { id: "row-height", title: "Sidebar row", token: "hyperfide-sidebar-row-height", unit: "px" },
   { id: "icon-stroke", title: "Icon stroke", token: "icon-stroke-width", unit: "" },
 ] as const;
 

@@ -45,24 +45,24 @@ const WIRE_SOURCE = `
       invalidates: (input: any) => ["item:" + input.id],
     },
   });
-  export default function plugin(bb: any) {
-    bb.http.route("GET", "/hello", (c: any) => c.json({ message: "hello v1" }));
-    bb.http.route("POST", "/echo", async (c: any) =>
+  export default function plugin(hyperfide: any) {
+    hyperfide.http.route("GET", "/hello", (c: any) => c.json({ message: "hello v1" }));
+    hyperfide.http.route("POST", "/echo", async (c: any) =>
       c.json({ echoed: await c.req.json() }));
-    bb.http.route("POST", "/socket", async (c: any) =>
+    hyperfide.http.route("POST", "/socket", async (c: any) =>
       c.json({ http: await c.req.json() }));
-    bb.http.route("GET", "/guarded", (c: any) => c.json({ guarded: true }), {
+    hyperfide.http.route("GET", "/guarded", (c: any) => c.json({ guarded: true }), {
       auth: "token",
     });
-    bb.http.route("GET", "/open", (c: any) => c.json({ open: true }), {
+    hyperfide.http.route("GET", "/open", (c: any) => c.json({ open: true }), {
       auth: "none",
     });
-    bb.http.route("GET", "/boom", () => {
+    hyperfide.http.route("GET", "/boom", () => {
       throw new Error("route boom");
     });
     // A structurally valid Response whose prototype is not this realm's
     // Response, as a handler running in another realm would return (#1661).
-    bb.http.route("GET", "/foreign", () => {
+    hyperfide.http.route("GET", "/foreign", () => {
       const real = new Response(JSON.stringify({ foreign: true }), {
         status: 201,
         statusText: "Created",
@@ -79,7 +79,7 @@ const WIRE_SOURCE = `
     });
     // Streams two chunks; the second is only produced after the test releases
     // it, so buffering the whole body would hang the first read.
-    bb.http.route("GET", "/foreign-stream", () => {
+    hyperfide.http.route("GET", "/foreign-stream", () => {
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
@@ -99,8 +99,8 @@ const WIRE_SOURCE = `
         clone: () => real.clone(),
       };
     });
-    bb.http.route("GET", "/not-a-response", () => ({ status: 200 }));
-    bb.http.experimental_websocket("/socket", (context: any) => ({
+    hyperfide.http.route("GET", "/not-a-response", () => ({ status: 200 }));
+    hyperfide.http.experimental_websocket("/socket", (context: any) => ({
       onOpen(socket: any) {
         socket.send(JSON.stringify({
           marker: context.headers.get("x-test-marker"),
@@ -111,26 +111,26 @@ const WIRE_SOURCE = `
         socket.send(data);
       },
     }));
-    bb.http.experimental_websocket("/guarded-socket", () => ({
+    hyperfide.http.experimental_websocket("/guarded-socket", () => ({
       onOpen(socket: any) {
         socket.send("guarded");
       },
     }), { auth: "token" });
-    bb.http.experimental_websocket("/open-socket", () => ({
+    hyperfide.http.experimental_websocket("/open-socket", () => ({
       onOpen(socket: any) {
         socket.send("open");
       },
     }), { auth: "none" });
-    bb.http.experimental_websocket("/boom-socket", () => {
+    hyperfide.http.experimental_websocket("/boom-socket", () => {
       throw new Error("socket factory boom");
     }, { auth: "none" });
-    bb.http.experimental_websocket("/event-boom", () => ({
+    hyperfide.http.experimental_websocket("/event-boom", () => ({
       onMessage(socket: any, data: any) {
         if (data === "boom") throw new Error("socket message boom");
         socket.send(data);
       },
     }), { auth: "none" });
-    bb.rpc.register(rpcContract, {
+    hyperfide.rpc.register(rpcContract, {
       refuse: async (code: any) => {
         throw new experimental_PluginRpcRefusal({ code, message: "Cannot change this item", issues: [{ path: ["id"], message: "Unavailable" }] });
       },
@@ -140,11 +140,11 @@ const WIRE_SOURCE = `
         throw new Error("rpc boom");
       },
       publish: async (input: any) => {
-        bb.realtime.publish(input.channel, input.payload);
+        hyperfide.realtime.publish(input.channel, input.payload);
         return "published";
       },
       publishBad: async () => {
-        bb.realtime.publish("bad", { n: BigInt(1) });
+        hyperfide.realtime.publish("bad", { n: BigInt(1) });
       },
       invalidOutput: () => 42,
       bigintResult: () => BigInt(1),
@@ -173,7 +173,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Wire fixture",
         description: "Plugin wire fixture.",
         branding: { icon: "Zap" },
@@ -240,7 +240,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
 
     const appOrigin = await harness.app.request(
       `${BASE}/api/v1/plugins/wire/http/hello`,
-      { headers: { origin: "https://bb.example.test" } },
+      { headers: { origin: "https://hyperfide.example.test" } },
     );
     expect(appOrigin.status).toBe(200);
   });
@@ -253,7 +253,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     expect(foreignOrigin.status).toBe(403);
     expect(await foreignOrigin.json()).toMatchObject({
       ok: false,
-      error: expect.stringContaining("not a local BB app origin"),
+      error: expect.stringContaining("not a local HYPERFIDE app origin"),
     });
 
     const copiedPort = await harness.app.request(
@@ -269,8 +269,8 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     expect(sameOriginLan.status).toBe(200);
 
     const sameOriginReverseProxy = await harness.app.request(
-      "https://bb.example.test/api/v1/plugins/wire/http/hello",
-      { headers: { origin: "https://bb.example.test" } },
+      "https://hyperfide.example.test/api/v1/plugins/wire/http/hello",
+      { headers: { origin: "https://hyperfide.example.test" } },
     );
     expect(sameOriginReverseProxy.status).toBe(200);
 
@@ -529,8 +529,8 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     await writeFile(
       join(rootDir, "server.ts"),
       `
-        export default function plugin(bb: any) {
-          bb.http.route("GET", "/hello", (c: any) => c.json({ message: "hello v2" }));
+        export default function plugin(hyperfide: any) {
+          hyperfide.http.route("GET", "/hello", (c: any) => c.json({ message: "hello v2" }));
         }
       `,
     );
@@ -550,10 +550,10 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     await writeFile(
       join(rootDir, "server.ts"),
       `
-        export default function plugin(bb: any) {
+        export default function plugin(hyperfide: any) {
           const schema = { "~standard": { version: 1, vendor: "test", validate: (value: any) => ({ value }) } };
-          bb.http.route("GET", "/candidate", (c: any) => c.json({ candidate: true }));
-          bb.rpc.register({ candidate: { input: schema, output: schema } }, { candidate: () => ({ candidate: true }) });
+          hyperfide.http.route("GET", "/candidate", (c: any) => c.json({ candidate: true }));
+          hyperfide.rpc.register({ candidate: { input: schema, output: schema } }, { candidate: () => ({ candidate: true }) });
           throw new Error("candidate failed");
         }
       `,
@@ -725,7 +725,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     });
   });
 
-  it("bb.realtime.publish broadcasts a plugin-signal WS frame to connected clients", async () => {
+  it("hyperfide.realtime.publish broadcasts a plugin-signal WS frame to connected clients", async () => {
     const systemSocket = createMockHubSocket();
     const threadSocket = createMockHubSocket();
     harness.hub.subscribe(systemSocket, { kind: "system" });
@@ -755,7 +755,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     }
   });
 
-  it("bb.realtime.publish rejects payloads that do not survive JSON", async () => {
+  it("hyperfide.realtime.publish rejects payloads that do not survive JSON", async () => {
     const response = await rpc(harness, "publishBad", {});
     expect(response.status).toBe(500);
     expect(await response.json()).toMatchObject({
@@ -774,11 +774,11 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
         import { defineRpcContract } from "@hyperfide/plugin-sdk";
         import { z } from "zod";
         const rpcContract = defineRpcContract({ gen: { input: z.record(z.string(), z.unknown()), output: z.object({ gen: z.number() }) } });
-        export default function plugin(bb: any) {
+        export default function plugin(hyperfide: any) {
           const g = globalThis as any;
           g.__wireGen = (g.__wireGen ?? 0) + 1;
           const gen = g.__wireGen;
-          bb.rpc.register(rpcContract, { gen: async () => ({ gen }) });
+          hyperfide.rpc.register(rpcContract, { gen: async () => ({ gen }) });
         }
       `,
     });

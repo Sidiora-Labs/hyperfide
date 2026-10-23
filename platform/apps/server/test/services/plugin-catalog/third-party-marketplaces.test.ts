@@ -84,7 +84,7 @@ describe("third-party marketplaces", () => {
   beforeEach(async () => {
     db = createMigratedConnection();
     installedCatalogEntries = [];
-    dataDir = await mkdtemp(join(tmpdir(), "bb-marketplace-data-"));
+    dataDir = await mkdtemp(join(tmpdir(), "hyperfide-marketplace-data-"));
     cleanup.push(dataDir);
   });
 
@@ -164,7 +164,7 @@ describe("third-party marketplaces", () => {
     icon?: Buffer;
     subdirectory?: string;
   }): Promise<string> {
-    const repo = await mkdtemp(join(tmpdir(), "bb-marketplace-repo-"));
+    const repo = await mkdtemp(join(tmpdir(), "hyperfide-marketplace-repo-"));
     cleanup.push(repo);
     await run("git", ["init", "-q", "-b", "main"], { cwd: repo });
     await run("git", ["config", "user.email", "test@example.com"], {
@@ -313,7 +313,7 @@ describe("third-party marketplaces", () => {
         getPluginMarketplaceIcon(db, "acme-plugins", "notes"),
       ).toBeUndefined();
       expect(catalog.listMarketplaces().map((row) => row.name)).toEqual([
-        "bb-community",
+        "hyperfide-community",
       ]);
 
       const readded = await catalog.addMarketplace({
@@ -339,7 +339,7 @@ describe("third-party marketplaces", () => {
         name: "acme-plugins",
         plugins: [entry({ icon: { url: "./icons/notes.svg" } })],
         icon: VALID_SVG,
-        subdirectory: "tools/bb",
+        subdirectory: "tools/hyperfide",
       });
       await writeFile(
         join(repo, "marketplace.json"),
@@ -358,14 +358,14 @@ describe("third-party marketplaces", () => {
 
       const added = await catalog.addMarketplace({
         source: `git:${repo}@main`,
-        subdirectory: "./tools/bb",
+        subdirectory: "./tools/hyperfide",
       });
 
       expect(added).toMatchObject({
         name: "acme-plugins",
         sourceKind: "git",
         source: `git:${repo}@main`,
-        subdirectory: "tools/bb",
+        subdirectory: "tools/hyperfide",
         entryCount: 1,
       });
       expect(
@@ -374,7 +374,7 @@ describe("third-party marketplaces", () => {
       expect(await stagedCheckouts()).toEqual([]);
 
       await writeFile(
-        join(repo, "tools", "bb", "marketplace.json"),
+        join(repo, "tools", "hyperfide", "marketplace.json"),
         JSON.stringify(
           manifest("acme-plugins", [
             entry({ icon: { url: "./icons/notes.svg" } }),
@@ -390,19 +390,19 @@ describe("third-party marketplaces", () => {
       expect(refreshed).toMatchObject({
         name: "acme-plugins",
         ok: true,
-        marketplace: { subdirectory: "tools/bb", entryCount: 2 },
+        marketplace: { subdirectory: "tools/hyperfide", entryCount: 2 },
       });
       expect(getPluginMarketplace(db, "acme-plugins")).toMatchObject({
         sourceGitRef: "main",
-        sourceGitSubdirectory: "tools/bb",
+        sourceGitSubdirectory: "tools/hyperfide",
       });
       expect(
         catalog
           .listMarketplaces()
           .map((marketplace) => [marketplace.name, marketplace.subdirectory]),
       ).toEqual([
-        ["bb-community", null],
-        ["acme-plugins", "tools/bb"],
+        ["hyperfide-community", null],
+        ["acme-plugins", "tools/hyperfide"],
       ]);
     });
 
@@ -422,14 +422,14 @@ describe("third-party marketplaces", () => {
       ["/etc", /invalid marketplace subdirectory/u],
       ["tools/../..", /invalid marketplace subdirectory/u],
       [".git", /invalid marketplace subdirectory/u],
-      ["tools\\bb", /invalid marketplace subdirectory/u],
+      ["tools\\hyperfide", /invalid marketplace subdirectory/u],
       [
         "tools/missing",
         /"tools\/missing" is not a directory in the repository/u,
       ],
       [
-        "tools/bb/marketplace.json",
-        /"tools\/bb\/marketplace.json" is not a directory in the repository/u,
+        "tools/hyperfide/marketplace.json",
+        /"tools\/hyperfide\/marketplace.json" is not a directory in the repository/u,
       ],
     ])("refuses the subdirectory %s", async (subdirectory, message) => {
       const catalog = service({ fetch: marketplaceFetch({}) });
@@ -445,7 +445,7 @@ describe("third-party marketplaces", () => {
     it.skipIf(process.platform === "win32")(
       "refuses a subdirectory that is a symlink out of the checkout",
       async () => {
-        const outside = await mkdtemp(join(tmpdir(), "bb-marketplace-out-"));
+        const outside = await mkdtemp(join(tmpdir(), "hyperfide-marketplace-out-"));
         cleanup.push(outside);
         await writeFile(
           join(outside, "marketplace.json"),
@@ -480,7 +480,7 @@ describe("third-party marketplaces", () => {
         });
 
         await expect(
-          catalog.addMarketplace({ source, subdirectory: "bb" }),
+          catalog.addMarketplace({ source, subdirectory: "hyperfide" }),
         ).rejects.toThrow(/a subdirectory applies to git: sources only/u);
       },
     );
@@ -510,7 +510,7 @@ describe("third-party marketplaces", () => {
   });
 
   it("reads a path marketplace and its icons in place", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "bb-marketplace-dir-"));
+    const directory = await mkdtemp(join(tmpdir(), "hyperfide-marketplace-dir-"));
     cleanup.push(directory);
     await mkdir(join(directory, "icons"), { recursive: true });
     await writeFile(join(directory, "icons", "notes.svg"), VALID_SVG);
@@ -560,7 +560,7 @@ describe("third-party marketplaces", () => {
     const catalog = service({
       fetch: marketplaceFetch({
         [ACME_URL]: manifest("acme-plugins", [entry()]),
-        "https://impostor.test/marketplace.json": manifest("bb-community", [
+        "https://impostor.test/marketplace.json": manifest("hyperfide-community", [
           entry(),
         ]),
         "https://official-impostor.test/marketplace.json": manifest(
@@ -585,21 +585,21 @@ describe("third-party marketplaces", () => {
         source: "https://impostor.test/marketplace.json",
         subdirectory: null,
       }),
-    ).rejects.toThrow(/"bb-community" is reserved/);
+    ).rejects.toThrow(/"hyperfide-community" is reserved/);
     await expect(
       catalog.addMarketplace({
         source: "https://official-impostor.test/marketplace.json",
         subdirectory: null,
       }),
-    ).rejects.toThrow(/"bb-official" is reserved/);
-    await expect(catalog.removeMarketplace("bb-community")).rejects.toThrow(
+    ).rejects.toThrow(/"hyperfide-official" is reserved/);
+    await expect(catalog.removeMarketplace("hyperfide-community")).rejects.toThrow(
       /cannot be removed/,
     );
-    await expect(catalog.removeMarketplace("bb-official")).rejects.toThrow(
+    await expect(catalog.removeMarketplace("hyperfide-official")).rejects.toThrow(
       /cannot be removed/,
     );
     expect(catalog.listMarketplaces().map((row) => row.name)).toEqual([
-      "bb-community",
+      "hyperfide-community",
       "acme-plugins",
     ]);
   });
@@ -607,7 +607,7 @@ describe("third-party marketplaces", () => {
   it("refuses an ambiguous bare install and installs the qualified one", async () => {
     const catalog = service({
       fetch: marketplaceFetch({
-        [OFFICIAL_URL]: manifest("bb-community", [
+        [OFFICIAL_URL]: manifest("hyperfide-community", [
           entry({
             id: "notes",
             displayName: "Official Notes",
@@ -623,7 +623,7 @@ describe("third-party marketplaces", () => {
     await catalog.addMarketplace({ source: ACME_URL, subdirectory: null });
 
     await expect(catalog.install({ entryId: "notes" })).rejects.toThrow(
-      "notes@bb-community, notes@acme-plugins",
+      "notes@hyperfide-community, notes@acme-plugins",
     );
     expect(installedCatalogEntries).toEqual([]);
 
@@ -671,11 +671,11 @@ describe("third-party marketplaces", () => {
           detail: "no registry in this test",
         }),
       },
-      fetch: marketplaceFetch({ [OFFICIAL_URL]: manifest("bb-community", []) }),
+      fetch: marketplaceFetch({ [OFFICIAL_URL]: manifest("hyperfide-community", []) }),
     });
 
     await expect(
-      catalog.install({ entryId: "docs", marketplace: "bb-official" }),
+      catalog.install({ entryId: "docs", marketplace: "hyperfide-official" }),
     ).rejects.toThrow(/unknown marketplace/u);
     expect(installedCatalogEntries).toEqual([]);
     await expect(
@@ -686,7 +686,7 @@ describe("third-party marketplaces", () => {
   it("installs a single marketplace match from a bare entry id", async () => {
     const catalog = service({
       fetch: marketplaceFetch({
-        [OFFICIAL_URL]: manifest("bb-community", []),
+        [OFFICIAL_URL]: manifest("hyperfide-community", []),
         [ACME_URL]: manifest("acme-plugins", [
           entry({ source: { npm: { package: "hyperfide-plugin-notes" } } }),
         ]),
@@ -808,7 +808,7 @@ describe("third-party marketplaces", () => {
     const catalog = service({
       fetch: marketplaceFetch(
         {
-          [OFFICIAL_URL]: manifest("bb-community", [
+          [OFFICIAL_URL]: manifest("hyperfide-community", [
             entry({
               id: "official-notes",
               icon: { url: "https://marketplace.test/marketplace/v1/a.svg" },
@@ -829,13 +829,13 @@ describe("third-party marketplaces", () => {
 
     const official = getPluginMarketplaceIcon(
       db,
-      "bb-community",
+      "hyperfide-community",
       "official-notes",
     );
     const acme = getPluginMarketplaceIcon(db, "acme-plugins", "notes");
     expect(official?.contentHash).not.toBe(acme?.contentHash);
     expect(
-      getPluginMarketplaceIcon(db, "bb-community", "notes"),
+      getPluginMarketplaceIcon(db, "hyperfide-community", "notes"),
     ).toBeUndefined();
     expect(
       getPluginMarketplaceIcon(db, "acme-plugins", "official-notes"),
@@ -843,14 +843,14 @@ describe("third-party marketplaces", () => {
 
     await catalog.removeMarketplace("acme-plugins");
     expect(
-      getPluginMarketplaceIcon(db, "bb-community", "official-notes"),
+      getPluginMarketplaceIcon(db, "hyperfide-community", "official-notes"),
     ).toBeDefined();
     expect(
       getPluginMarketplaceIcon(db, "acme-plugins", "notes"),
     ).toBeUndefined();
   });
 
-  it("leaves bb-community serving when a third-party refresh fails", async () => {
+  it("leaves hyperfide-community serving when a third-party refresh fails", async () => {
     const warnings: string[] = [];
     let acmeFails = false;
     const catalog = service({
@@ -858,7 +858,7 @@ describe("third-party marketplaces", () => {
       fetch: async (url) => {
         if (url === OFFICIAL_URL) {
           return Response.json(
-            manifest("bb-community", [entry({ id: "official-notes" })]),
+            manifest("hyperfide-community", [entry({ id: "official-notes" })]),
           );
         }
         if (url === ACME_URL) {
@@ -874,7 +874,7 @@ describe("third-party marketplaces", () => {
 
     const results = await catalog.refreshMarketplaces({ attemptedAt: 2_000 });
     expect(results).toMatchObject([
-      { name: "bb-community", ok: true },
+      { name: "hyperfide-community", ok: true },
       { name: "acme-plugins", ok: false },
     ]);
     expect(results[1]?.error).toContain("503");
@@ -882,7 +882,7 @@ describe("third-party marketplaces", () => {
     const marketplaces = catalog.listMarketplaces();
     expect(marketplaces).toHaveLength(2);
     expect(marketplaces[0]).toMatchObject({
-      name: "bb-community",
+      name: "hyperfide-community",
       lastRefreshAt: 2_000,
       lastError: null,
     });
@@ -901,7 +901,7 @@ describe("third-party marketplaces", () => {
   it("groups search results by marketplace with the official one first", async () => {
     const catalog = service({
       fetch: marketplaceFetch({
-        [OFFICIAL_URL]: manifest("bb-community", [
+        [OFFICIAL_URL]: manifest("hyperfide-community", [
           entry({ id: "official-notes", tags: ["interface"] }),
         ]),
         [ACME_URL]: manifest("acme-plugins", [
@@ -921,7 +921,7 @@ describe("third-party marketplaces", () => {
         result.entryId,
       ]),
     ).toEqual([
-      ["bb-community", "Interface", "official-notes"],
+      ["hyperfide-community", "Interface", "official-notes"],
       ["acme-plugins", "Git Tools", "notes"],
       ["acme-plugins", "Git Tools", "zebra"],
     ]);
@@ -953,7 +953,7 @@ describe("third-party marketplaces", () => {
       const expected = (
         await run("git", ["rev-parse", "notes/v1.2.0"], { cwd: repo })
       ).stdout.trim();
-      const listedUrl = "https://acme.test/bb-plugins.git";
+      const listedUrl = "https://acme.test/hyperfide-plugins.git";
       await useGitUrlRewrite(listedUrl, repo);
 
       const catalog = service({
@@ -1069,12 +1069,12 @@ describe("third-party marketplaces", () => {
     it("names the official catalog without a network round trip", async () => {
       const catalog = service({
         fetch: marketplaceFetch({
-          [OFFICIAL_URL]: manifest("bb-community", [
+          [OFFICIAL_URL]: manifest("hyperfide-community", [
             entry({
               id: "official-notes",
               source: {
                 git: {
-                  url: "https://github.invalid/bb/plugins.git",
+                  url: "https://github.invalid/hyperfide/plugins.git",
                   range: "^1.0.0",
                 },
               },
@@ -1087,11 +1087,11 @@ describe("third-party marketplaces", () => {
       const plan = await catalog.installPlan({ entryId: "official-notes" });
       expect(plan).toMatchObject({
         kind: "marketplace",
-        marketplace: "bb-community",
+        marketplace: "hyperfide-community",
         official: true,
         resolvedSource: {
           kind: "git",
-          url: "https://github.invalid/bb/plugins.git",
+          url: "https://github.invalid/hyperfide/plugins.git",
           range: "^1.0.0",
         },
       });
@@ -1105,7 +1105,7 @@ describe("third-party marketplaces", () => {
   });
 
   it("adds a local manifest larger than 1 MiB", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "bb-marketplace-big-"));
+    const directory = await mkdtemp(join(tmpdir(), "hyperfide-marketplace-big-"));
     cleanup.push(directory);
     const padded = manifest("acme-plugins", [
       entry({ description: "x".repeat(1_100_000) }),
@@ -1133,7 +1133,7 @@ describe("third-party marketplaces", () => {
     let resolvedVersion = "1.4.2";
     const catalog = service({
       fetch: marketplaceFetch({
-        [OFFICIAL_URL]: manifest("bb-community", []),
+        [OFFICIAL_URL]: manifest("hyperfide-community", []),
         [ACME_URL]: manifest("acme-plugins", [npmEntry]),
       }),
       resolveNpm: async () => ({
@@ -1201,7 +1201,7 @@ describe("third-party marketplaces", () => {
     let resolveCalls = 0;
     const catalog = service({
       fetch: marketplaceFetch({
-        [OFFICIAL_URL]: manifest("bb-community", []),
+        [OFFICIAL_URL]: manifest("hyperfide-community", []),
         [ACME_URL]: manifest("acme-plugins", [
           entry({
             source: { npm: { package: "hyperfide-plugin-notes", range: "^1.0.0" } },
@@ -1255,7 +1255,7 @@ describe("third-party marketplaces", () => {
   it("refuses a manifest name that later routes cannot address", async () => {
     const catalog = service({
       fetch: marketplaceFetch({
-        [OFFICIAL_URL]: manifest("bb-community", []),
+        [OFFICIAL_URL]: manifest("hyperfide-community", []),
         [ACME_URL]: manifest("a".repeat(65), [entry()]),
       }),
     });
@@ -1266,7 +1266,7 @@ describe("third-party marketplaces", () => {
     expect(getPluginMarketplace(db, "a".repeat(65))).toBeUndefined();
   });
 
-  it("refuses a marketplace source bb cannot interpret", async () => {
+  it("refuses a marketplace source hyperfide cannot interpret", async () => {
     const catalog = service({ fetch: marketplaceFetch({}) });
     await expect(
       catalog.addMarketplace({

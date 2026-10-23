@@ -6,7 +6,7 @@ import {
   type ServerMoveHealth,
   type ServerMoveHealthState,
 } from "@hyperfide/host-daemon-contract";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import {
   serverMoveCheckItemSchema,
   type ServerMoveCheckItem,
@@ -17,7 +17,7 @@ import {
 } from "@hyperfide/server-contract";
 
 export const SERVER_MOVE_POLL_INTERVAL_MS = 1_000;
-export const SERVER_MOVE_ARRIVAL_PARAM = "bbServerMove";
+export const SERVER_MOVE_ARRIVAL_PARAM = "hyperfideServerMove";
 
 const SERVER_MOVE_BLOCKED_ERROR_CODE = "server_move_blocked";
 
@@ -68,7 +68,7 @@ export function serverMoveStepLabel(
     case "stop-work":
       return "Stopping running work";
     case "update-target":
-      return `Updating bb on ${targetHostName}`;
+      return `Updating Hyperfide on ${targetHostName}`;
     case "export":
       return "Exporting server data";
     case "transfer":
@@ -134,7 +134,7 @@ export function serverMoveBlockedItems(
   error: unknown,
 ): ServerMoveCheckItem[] | null {
   if (
-    !(error instanceof BbHttpError) ||
+    !(error instanceof HyperfideHttpError) ||
     error.code !== SERVER_MOVE_BLOCKED_ERROR_CODE
   ) {
     return null;
@@ -146,7 +146,7 @@ export function serverMoveBlockedItems(
 
 export function movedServerUrlFromError(error: unknown): string | null {
   if (
-    !(error instanceof BbHttpError) ||
+    !(error instanceof HyperfideHttpError) ||
     error.status !== 410 ||
     error.code !== SERVER_MOVED_ERROR_CODE
   ) {

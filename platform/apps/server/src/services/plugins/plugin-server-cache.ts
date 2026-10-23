@@ -23,7 +23,7 @@ export function pluginServerCacheDirectory(args: {
   rootDir: string;
   artifactDigest: string;
   sdkVersion: string;
-  bbVersion: string;
+  hyperfideVersion: string;
   nodeVersion?: string;
 }): string {
   const key = createHash("sha256")
@@ -32,7 +32,7 @@ export function pluginServerCacheDirectory(args: {
         artifactDigest: args.artifactDigest,
         rootDir: args.rootDir,
         sdkVersion: args.sdkVersion,
-        bbVersion: args.bbVersion,
+        hyperfideVersion: args.hyperfideVersion,
         nodeVersion: args.nodeVersion ?? process.versions.node,
         formatVersion: PLUGIN_SERVER_RUNTIME_FORMAT_VERSION,
         toolchain: PLUGIN_TOOLCHAIN_PINS,
@@ -86,7 +86,7 @@ export async function buildCachedPluginServer(args: {
   dataDir: string;
   pluginId: string;
   sdkVersion: string;
-  bbVersion: string;
+  hyperfideVersion: string;
   validatedConfig: {
     serverEntry: string;
     packageName: string;
@@ -103,7 +103,7 @@ export async function buildCachedPluginServer(args: {
       rootDir: args.rootDir,
       artifactDigest: "pending",
       sdkVersion: args.sdkVersion,
-      bbVersion: args.bbVersion,
+      hyperfideVersion: args.hyperfideVersion,
     }),
   );
   await mkdir(pluginCacheDir, { recursive: true });
@@ -111,7 +111,7 @@ export async function buildCachedPluginServer(args: {
   try {
     const built = await buildPluginServer(
       args.rootDir,
-      args.bbVersion,
+      args.hyperfideVersion,
       await args.toolchain(),
       {
         outDir: stageDir,
@@ -130,7 +130,7 @@ export async function buildCachedPluginServer(args: {
       rootDir: args.rootDir,
       artifactDigest: digest,
       sdkVersion: args.sdkVersion,
-      bbVersion: args.bbVersion,
+      hyperfideVersion: args.hyperfideVersion,
     });
     if (await isCompleteCacheEntry(cacheDir)) {
       await prunePluginServerCache(pluginCacheDir, cacheDir);

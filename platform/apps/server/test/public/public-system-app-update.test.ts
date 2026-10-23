@@ -4,10 +4,10 @@ import { readJson } from "../helpers/json.js";
 import { withTestHarness } from "../helpers/test-app.js";
 
 const API = "/api/v1/system/app-update";
-const MACHINE_HEADERS = { "x-bb-gate-auth": "machine" };
+const MACHINE_HEADERS = { "x-hyperfide-gate-auth": "machine" };
 
 describe("/api/v1/system/app-update", () => {
-  it("reports in-app updates as unavailable when bb runs without the launcher shim", () =>
+  it("reports in-app updates as unavailable when hyperfide runs without the launcher shim", () =>
     withTestHarness({ isDevelopment: false }, async (harness) => {
       const response = await harness.app.request(API);
 

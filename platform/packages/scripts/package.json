@@ -4,9 +4,9 @@
   "type": "module",
   "private": true,
   "bin": {
-    "bb-script-archive-codex-tmp-bb-sessions": "./dist/commands/archive-codex-tmp-bb-sessions.js",
-    "bb-script-reset-bb-data": "./dist/commands/reset-bb-data.js",
-    "bb-script-run-cli": "./dist/commands/run-cli.js"
+    "hyperfide-script-archive-codex-tmp-hyperfide-sessions": "./dist/commands/archive-codex-tmp-hyperfide-sessions.js",
+    "hyperfide-script-reset-hyperfide-data": "./dist/commands/reset-hyperfide-data.js",
+    "hyperfide-script-run-cli": "./dist/commands/run-cli.js"
   },
   "exports": {
     "./lib/run-dev-supervisor": {
@@ -38,7 +38,6 @@
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "vitest": "^4.1.1",
-    "yaml": "^2.9.0"
+    "vitest": "^4.1.1"
   }
 }

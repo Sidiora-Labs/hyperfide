@@ -3,7 +3,7 @@
   "name": "use-sidebar-reorder-dnd",
   "type": "registry:ui",
   "title": "use-sidebar-reorder-dnd",
-  "description": "BB ui \"use-sidebar-reorder-dnd\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"use-sidebar-reorder-dnd\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "@dnd-kit/core"
   ],

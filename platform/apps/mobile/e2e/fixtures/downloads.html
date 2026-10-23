@@ -36,7 +36,7 @@
   >
   <button id="reload">Reload page</button>
   <script>
-    window.bb?.native?.post({ type: "ready", path: location.pathname });
+    window.hyperfide?.native?.post({ type: "ready", path: location.pathname });
     document.getElementById("reload").onclick = () => location.reload();
     document.getElementById("blob").onclick = () => {
       const bytes = new Uint8Array(1_536_000);

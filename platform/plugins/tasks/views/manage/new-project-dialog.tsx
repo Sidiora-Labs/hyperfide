@@ -34,7 +34,7 @@ import {
   derivePrefix,
   Field,
 } from "./shared.js";
-import { BbProjectLinkPicker } from "./bb-project-link.js";
+import { HyperfideProjectLinkPicker } from "./hyperfide-project-link.js";
 
 const NO_FOLDER = "__none__";
 const NEW_FOLDER = "__new__";
@@ -60,17 +60,17 @@ export function NewProjectDialog({
   const [folderId, setFolderId] = useState<string | null>(null);
   const [newFolderMode, setNewFolderMode] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
-  const [linkedBbProjectId, setLinkedBbProjectId] = useState<string | null>(
+  const [linkedHyperfideProjectId, setLinkedHyperfideProjectId] = useState<string | null>(
     null,
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const bbProjects = useTasksQuery(
-    async (rpc) => (await rpc.call("listBbProjects")).bbProjects,
+  const hyperfideProjects = useTasksQuery(
+    async (rpc) => (await rpc.call("listHyperfideProjects")).hyperfideProjects,
     [],
   );
-  const bbProjectList = bbProjects.data ?? [];
+  const hyperfideProjectList = hyperfideProjects.data ?? [];
 
   useEffect(() => {
     if (!open) return;
@@ -81,7 +81,7 @@ export function NewProjectDialog({
     setFolderId(null);
     setNewFolderMode(false);
     setNewFolderName("");
-    setLinkedBbProjectId(null);
+    setLinkedHyperfideProjectId(null);
     setError(null);
   }, [open]);
 
@@ -139,7 +139,7 @@ export function NewProjectDialog({
         prefix,
         color,
         folderId,
-        linkedBbProjectId,
+        linkedHyperfideProjectId,
       });
       onOpenChange(false);
       navigation.go({ kind: "project", projectId: project.id, view: null });
@@ -266,13 +266,13 @@ export function NewProjectDialog({
             ) : null}
           </Field>
           <Field
-            label="Linked bb project"
-            hint="Optional. Linking a bb project enables dispatching to agents."
+            label="Linked hyperfide-platform project"
+            hint="Optional. Linking a hyperfide-platform project enables dispatching to agents."
           >
-            <BbProjectLinkPicker
-              value={linkedBbProjectId}
-              onChange={setLinkedBbProjectId}
-              bbProjects={bbProjectList}
+            <HyperfideProjectLinkPicker
+              value={linkedHyperfideProjectId}
+              onChange={setLinkedHyperfideProjectId}
+              hyperfideProjects={hyperfideProjectList}
             />
           </Field>
         </div>

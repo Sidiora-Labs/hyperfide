@@ -10,7 +10,7 @@
     "duration_ms": 21
   },
   "last_tool_name": "bravo",
-  "summary": "Tiny fixture workflow for BB capture",
+  "summary": "Tiny fixture workflow for HYPERFIDE capture",
   "workflow_progress": [
     {
       "type": "workflow_phase",

@@ -5,10 +5,10 @@
   "type": "module",
   "description": "Reply to messages in hidden side-chat forks rendered in a thread panel.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.6.73"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.73"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Side chat",
     "description": "Reply to messages in hidden side-chat forks rendered in a thread panel.",
     "branding": {
@@ -18,7 +18,7 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

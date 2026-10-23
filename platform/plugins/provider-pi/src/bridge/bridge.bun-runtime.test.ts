@@ -14,7 +14,7 @@ let nextId = 2000;
 
 beforeEach(async () => {
   harness = await startFakePiBridge({
-    prefix: "bb-pi-bun-",
+    prefix: "hyperfide-pi-bun-",
     initialize: true,
   });
 });
@@ -48,8 +48,8 @@ it.skipIf(bunBinary() === null)(
       options: FULL_PERMISSION_OPTIONS,
       dynamicTools: [
         {
-          name: "bb_probe",
-          description: "A bb tool.",
+          name: "hyperfide_probe",
+          description: "A hyperfide tool.",
           inputSchema: {
             type: "object",
             properties: { value: { type: "string" } },
@@ -75,7 +75,7 @@ it.skipIf(bunBinary() === null)(
           input: [
             {
               type: "text",
-              text: `/tool bb_probe ${JSON.stringify({ value: "hi" })}`,
+              text: `/tool hyperfide_probe ${JSON.stringify({ value: "hi" })}`,
               mentions: [],
             },
           ],

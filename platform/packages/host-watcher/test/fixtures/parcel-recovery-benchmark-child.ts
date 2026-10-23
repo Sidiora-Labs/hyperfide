@@ -9,8 +9,8 @@ import { RESCAN_REQUIRED_MESSAGE } from "../../src/watch-recovery.js";
 import type { ParentToChildMessage } from "../../src/parcel-subprocess/messages.js";
 import { createParcelChildHandler } from "../../src/parcel-subprocess/parcel-child-handler.js";
 
-const faultRoot = process.env.BB_WATCHER_BENCHMARK_FAULT_ROOT;
-const triggerPath = process.env.BB_WATCHER_BENCHMARK_TRIGGER_PATH;
+const faultRoot = process.env.HYPERFIDE_WATCHER_BENCHMARK_FAULT_ROOT;
+const triggerPath = process.env.HYPERFIDE_WATCHER_BENCHMARK_TRIGGER_PATH;
 
 if (!faultRoot || !triggerPath) {
   throw new Error("Watcher recovery benchmark fault paths are required");

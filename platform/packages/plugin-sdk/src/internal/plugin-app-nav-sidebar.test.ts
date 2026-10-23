@@ -7,7 +7,7 @@ const Sidebar = () => null;
 describe("route-scoped navigation sidebar", () => {
   it("preserves a component only on the declaring panel and keeps legacy panels unchanged", () => {
     const captured = collectPluginAppRegistrations({
-      __bbPluginApp: true,
+      __hyperfidePluginApp: true,
       setup(app) {
         app.slots.navPanel({
           id: "home",
@@ -32,7 +32,7 @@ describe("route-scoped navigation sidebar", () => {
   it("rejects malformed untyped components at registration", () => {
     expect(() =>
       collectPluginAppRegistrations({
-        __bbPluginApp: true,
+        __hyperfidePluginApp: true,
         setup(app) {
           app.slots.navPanel({
             id: "home",
@@ -55,7 +55,7 @@ describe("page title registration", () => {
     (hook) => {
       const collect = () =>
         collectPluginAppRegistrations({
-          __bbPluginApp: true,
+          __hyperfidePluginApp: true,
           setup(app) {
             app.slots.navPanel({
               id: "main",

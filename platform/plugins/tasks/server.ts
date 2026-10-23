@@ -1,4 +1,4 @@
-import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
+import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 import { createStore, registerTasksApi } from "./api";
@@ -22,18 +22,18 @@ function statusPayload() {
   return { name: TASKS_PLUGIN_NAME, version: TASKS_PLUGIN_VERSION };
 }
 
-export default async function plugin(bb: BbPluginApi) {
-  bb.log.info(`${TASKS_PLUGIN_NAME} ${TASKS_PLUGIN_VERSION} loaded`);
+export default async function plugin(hyperfide: HyperfidePluginApi) {
+  hyperfide.log.info(`${TASKS_PLUGIN_NAME} ${TASKS_PLUGIN_VERSION} loaded`);
 
-  const store = createStore(bb);
-  registerTasksApi(bb, store);
-  registerAttachments(bb, store.tasks);
-  registerTasksCli(bb, store, statusPayload());
-  registerDelegation(bb, store);
-  registerMentions(bb, store);
-  await registerLifecycle(bb, store);
+  const store = createStore(hyperfide);
+  registerTasksApi(hyperfide, store);
+  registerAttachments(hyperfide, store.tasks);
+  registerTasksCli(hyperfide, store, statusPayload());
+  registerDelegation(hyperfide, store);
+  registerMentions(hyperfide, store);
+  await registerLifecycle(hyperfide, store);
 
-  bb.rpc.register(tasksRpcContract, {
+  hyperfide.rpc.register(tasksRpcContract, {
     ping(): { ok: true; version: string } {
       return { ok: true, version: TASKS_PLUGIN_VERSION };
     },

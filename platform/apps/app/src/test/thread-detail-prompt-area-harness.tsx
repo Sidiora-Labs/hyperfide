@@ -44,7 +44,7 @@ export const promptAreaMocks = {
     restoreIfEmpty: vi.fn(),
     setDraft: vi.fn(),
     setTextAndMentions: vi.fn(),
-    storageKey: "bb.promptbox.contents-proj_1-thr_1-3",
+    storageKey: "hyperfide.promptbox.contents-proj_1-thr_1-3",
     subscribe: vi.fn(() => () => {}),
     text: "",
   },

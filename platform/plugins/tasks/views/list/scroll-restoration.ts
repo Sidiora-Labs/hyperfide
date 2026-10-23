@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import type { ListFilterState } from "./filter-bar.js";
 import type { TaskSort } from "../../shared/pagination.js";
 
-const STORAGE_PREFIX = "bb-tasks:list-scroll:";
+const STORAGE_PREFIX = "hyperfide-tasks:list-scroll:";
 
 const memoryFallback = new Map<string, number>();
 

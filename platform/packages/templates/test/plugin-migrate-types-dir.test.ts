@@ -57,7 +57,7 @@ describe("migratePluginToPackageLayout when types/ survives the rmdir", () => {
       `${JSON.stringify(
         {
           name: "hyperfide-plugin-legacy",
-          bb: { server: "./server.ts" },
+          hyperfide: { server: "./server.ts" },
         },
         null,
         2,

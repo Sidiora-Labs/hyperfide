@@ -32,7 +32,7 @@ let env: NodeJS.ProcessEnv;
 const fetchUsage = vi.fn<typeof fetch>();
 
 beforeEach(async () => {
-  directory = await fs.mkdtemp(path.join(os.tmpdir(), "bb-opencode-usage-"));
+  directory = await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-opencode-usage-"));
   env = { XDG_DATA_HOME: directory, HOME: directory };
   fetchUsage.mockReset();
   fetchUsage.mockImplementation(async () => Response.json(reportedUsage));

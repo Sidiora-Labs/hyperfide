@@ -45,7 +45,7 @@ async function writeSkill(filePath: string, name: string): Promise<void> {
 
 async function makeWorkspaceFixture(): Promise<WorkspaceFixture> {
   const cwd = path.join(tempRoot, "workspace");
-  const dataDir = path.join(tempRoot, "bb-data");
+  const dataDir = path.join(tempRoot, "hyperfide-data");
   const homeDir = path.join(tempRoot, "home");
   await mkdir(cwd, { recursive: true });
   await mkdir(dataDir, { recursive: true });
@@ -105,7 +105,7 @@ function byName(
 }
 
 beforeEach(async () => {
-  tempRoot = await mkdtemp(path.join(tmpdir(), "bb-list-skills-"));
+  tempRoot = await mkdtemp(path.join(tmpdir(), "hyperfide-list-skills-"));
 });
 
 afterEach(async () => {
@@ -113,17 +113,17 @@ afterEach(async () => {
 });
 
 describe("resolveSkillScanRoots + discoverSkills", () => {
-  it("classifies the host-owned bb project root and the declared provider roots only", async () => {
+  it("classifies the host-owned hyperfide-platform project root and the declared provider roots only", async () => {
     const fixture = await makeWorkspaceFixture();
     const files = {
-      "proj-bb": path.join(
+      "proj-hyperfide": path.join(
         fixture.cwd,
         ".hyperfide",
         "skills",
-        "proj-bb",
+        "proj-hyperfide",
         "SKILL.md",
       ),
-      "data-bb": path.join(fixture.dataDir, "skills", "data-bb", "SKILL.md"),
+      "data-hyperfide": path.join(fixture.dataDir, "skills", "data-hyperfide", "SKILL.md"),
       "proj-agent": path.join(
         fixture.cwd,
         ".agent",
@@ -145,15 +145,15 @@ describe("resolveSkillScanRoots + discoverSkills", () => {
 
     const skills = await listSkills(fixture, fixture.cwd, AGENT_SKILL_ROOTS);
 
-    expect(byName(skills, "proj-bb")).toEqual({
+    expect(byName(skills, "proj-hyperfide")).toEqual({
       id: expect.stringMatching(/^skill_[a-f0-9]{64}$/u),
-      name: "proj-bb",
-      description: "proj-bb skill",
-      filePath: files["proj-bb"],
-      rootKind: "bb-project",
+      name: "proj-hyperfide",
+      description: "proj-hyperfide skill",
+      filePath: files["proj-hyperfide"],
+      rootKind: "hyperfide-project",
       linked: false,
     });
-    expect(byName(skills, "data-bb")).toBeUndefined();
+    expect(byName(skills, "data-hyperfide")).toBeUndefined();
     expect(byName(skills, "proj-agent")?.rootKind).toBe("provider-project");
     expect(byName(skills, "user-agent")?.rootKind).toBe("provider-user");
     expect(byName(skills, "user-agent")?.filePath).toBe(files["user-agent"]);
@@ -182,8 +182,8 @@ describe("resolveSkillScanRoots + discoverSkills", () => {
   it("drops project roots when cwd is null", async () => {
     const fixture = await makeWorkspaceFixture();
     await writeSkill(
-      path.join(fixture.cwd, ".hyperfide", "skills", "proj-bb", "SKILL.md"),
-      "proj-bb",
+      path.join(fixture.cwd, ".hyperfide", "skills", "proj-hyperfide", "SKILL.md"),
+      "proj-hyperfide",
     );
     await writeSkill(
       path.join(fixture.cwd, ".agent", "skills", "proj-agent", "SKILL.md"),
@@ -309,17 +309,17 @@ describe("resolveSkillScanRoots + discoverSkills", () => {
     });
   });
 
-  it("classifies configured shared user and project roots without the bb project root", async () => {
+  it("classifies configured shared user and project roots without the hyperfide-platform project root", async () => {
     const fixture = await makeWorkspaceFixture();
     await writeSkill(
       path.join(
         fixture.cwd,
         ".hyperfide",
         "skills",
-        "bb-project-skill",
+        "hyperfide-project-skill",
         "SKILL.md",
       ),
-      "bb-project-skill",
+      "hyperfide-project-skill",
     );
     await writeSkill(
       path.join(
@@ -343,12 +343,12 @@ describe("resolveSkillScanRoots + discoverSkills", () => {
         user: [declared(".agents/skills")],
         project: [declared(".agents/skills")],
       }),
-      "bb-shared",
+      "hyperfide-shared",
     );
 
     expect(byName(skills, "project-shared")?.rootKind).toBe("shared-project");
     expect(byName(skills, "user-shared")?.rootKind).toBe("shared-user");
-    expect(byName(skills, "bb-project-skill")).toBeUndefined();
+    expect(byName(skills, "hyperfide-project-skill")).toBeUndefined();
   });
 
   it("discovers a project skill through a symlinked shared root", async () => {
@@ -368,7 +368,7 @@ describe("resolveSkillScanRoots + discoverSkills", () => {
       fixture,
       fixture.cwd,
       skillRoots({ project: [declared(".shared/skills")] }),
-      "bb-shared",
+      "hyperfide-shared",
     );
 
     expect(byName(skills, "linked-root")).toMatchObject({
@@ -575,7 +575,7 @@ describe("discoverSkills marks the linked flag per root shape", () => {
 });
 
 describe("deleteHostSkill", () => {
-  it("deletes a bb-user skill directory", async () => {
+  it("deletes a hyperfide-user skill directory", async () => {
     const fixture = await makeWorkspaceFixture();
     const skillDir = path.join(fixture.dataDir, "skills", "doomed");
     await writeSkill(path.join(skillDir, "SKILL.md"), "doomed");
@@ -583,7 +583,7 @@ describe("deleteHostSkill", () => {
     const result = await deleteHostSkill(
       {
         type: "host.delete_skill",
-        scope: "bb-user",
+        scope: "hyperfide-user",
         name: "doomed",
         cwd: null,
         rootPath: null,
@@ -595,7 +595,7 @@ describe("deleteHostSkill", () => {
     expect(result.deletedPath).toContain("doomed");
   });
 
-  it("deletes a bb-project skill directory under cwd/.hyperfide/skills", async () => {
+  it("deletes a hyperfide-project skill directory under cwd/.hyperfide/skills", async () => {
     const fixture = await makeWorkspaceFixture();
     const skillDir = path.join(
       fixture.cwd,
@@ -608,7 +608,7 @@ describe("deleteHostSkill", () => {
     await deleteHostSkill(
       {
         type: "host.delete_skill",
-        scope: "bb-project",
+        scope: "hyperfide-project",
         name: "proj-doomed",
         cwd: fixture.cwd,
         rootPath: null,
@@ -645,7 +645,7 @@ describe("deleteHostSkill", () => {
       deleteHostSkill(
         {
           type: "host.delete_skill",
-          scope: "bb-user",
+          scope: "hyperfide-user",
           name: "../evil",
           cwd: null,
           rootPath: null,
@@ -655,7 +655,7 @@ describe("deleteHostSkill", () => {
     ).rejects.toMatchObject({ code: "invalid_skill_name" });
   });
 
-  it("refuses a skill symlinked outside the bb root after realpath", async () => {
+  it("refuses a skill symlinked outside the hyperfide root after realpath", async () => {
     const fixture = await makeWorkspaceFixture();
     const outside = path.join(tempRoot, "outside", "secret");
     await writeSkill(path.join(outside, "SKILL.md"), "secret");
@@ -667,7 +667,7 @@ describe("deleteHostSkill", () => {
       deleteHostSkill(
         {
           type: "host.delete_skill",
-          scope: "bb-user",
+          scope: "hyperfide-user",
           name: "link",
           cwd: null,
           rootPath: null,
@@ -693,7 +693,7 @@ describe("deleteHostSkill", () => {
       deleteHostSkill(
         {
           type: "host.delete_skill",
-          scope: "bb-user",
+          scope: "hyperfide-user",
           name: "alias",
           cwd: null,
           rootPath: null,
@@ -713,7 +713,7 @@ describe("deleteHostSkill", () => {
       deleteHostSkill(
         {
           type: "host.delete_skill",
-          scope: "bb-user",
+          scope: "hyperfide-user",
           name: "ghost",
           cwd: null,
           rootPath: null,
@@ -733,7 +733,7 @@ describe("deleteHostSkill", () => {
       deleteHostSkill(
         {
           type: "host.delete_skill",
-          scope: "bb-user",
+          scope: "hyperfide-user",
           name: "plain",
           cwd: null,
           rootPath: null,
@@ -746,7 +746,7 @@ describe("deleteHostSkill", () => {
 });
 
 describe("writeHostSkill", () => {
-  it("atomically replaces a bb skill only at the expected revision", async () => {
+  it("atomically replaces a hyperfide skill only at the expected revision", async () => {
     const fixture = await makeWorkspaceFixture();
     const filePath = path.join(fixture.dataDir, "skills", "review", "SKILL.md");
     const original = "---\nname: review\ndescription: Review\n---\n";
@@ -757,7 +757,7 @@ describe("writeHostSkill", () => {
     const written = await writeHostSkill(
       {
         type: "host.write_skill",
-        scope: "bb-user",
+        scope: "hyperfide-user",
         name: "review",
         cwd: null,
         content: "# Updated",
@@ -776,7 +776,7 @@ describe("writeHostSkill", () => {
     const stale = await writeHostSkill(
       {
         type: "host.write_skill",
-        scope: "bb-user",
+        scope: "hyperfide-user",
         name: "review",
         cwd: null,
         content: "# Stale overwrite",

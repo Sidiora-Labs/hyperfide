@@ -53,7 +53,7 @@ export const serverMoveCommandSchemas = {
           sizeBytes: z.number().int().nonnegative(),
         })
         .strict(),
-      bbApp: z
+      hyperfideApp: z
         .object({
           downloadPath: z.string().min(1),
           sha256: sha256HexSchema,
@@ -104,7 +104,7 @@ export const serverMoveResultSchemas = {
       dataDir: z.string().min(1),
       platform: hostPlatformSchema,
       timeZone: z.string().min(1).nullable(),
-      bbAppVersion: z.string().min(1),
+      hyperfideAppVersion: z.string().min(1),
       serverEntryAvailable: z.boolean(),
       existingServerData: existingServerDataSchema.nullable(),
       dataDirHasServerData: z.boolean(),

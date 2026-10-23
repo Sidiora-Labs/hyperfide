@@ -13,7 +13,7 @@ import {
   type LastServerMove,
   type ServerMoveStepId,
 } from "@hyperfide/domain";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import type {
   ServerMoveStatus,
   ServerMoveStep,
@@ -199,7 +199,7 @@ describe("ServerMoveOverlay", () => {
     expect(overlay.className).toContain("fixed");
     expect(overlay.className).toContain("inset-0");
     expect(stepStatus(overlay, "Stopping running work")).toBe("done");
-    expect(stepStatus(overlay, "Updating bb on desk")).toBe("skipped");
+    expect(stepStatus(overlay, "Updating Hyperfide on desk")).toBe("skipped");
     expect(stepStatus(overlay, "Exporting server data")).toBe("running");
     expect(stepStatus(overlay, "Sending data to desk")).toBe("pending");
     expect(stepStatus(overlay, "Starting the new server")).toBe("pending");
@@ -279,12 +279,12 @@ describe("ServerMoveOverlay", () => {
     });
     expect(
       within(overlay).getByText(
-        "desk didn't confirm that it took over, so this server stays up but read-only. bb keeps checking and finishes the move as soon as desk answers.",
+        "desk didn't confirm that it took over, so this server stays up but read-only. hyperfide keeps checking and finishes the move as soon as desk answers.",
       ),
     ).toBeDefined();
     expect(
       within(overlay).getByText(
-        "If desk isn't running the server, abandon the move to keep the server here. If this server stops, run bb server unlock on this computer.",
+        "If desk isn't running the server, abandon the move to keep the server here. If this server stops, run hyperfide-platform server unlock on this computer.",
       ),
     ).toBeDefined();
     expect(stepStatus(overlay, "Switching machines over")).toBe("running");
@@ -384,7 +384,7 @@ describe("ServerMoveOverlay", () => {
       within(waiting).queryByRole("link", { name: "Open the new address" }),
     ).toBeNull();
     const destination =
-      "https://desk.example.com/projects/proj_1/threads/thr_1?panel=diff&bbServerMove=move_1#turn-3";
+      "https://desk.example.com/projects/proj_1/threads/thr_1?panel=diff&hyperfideServerMove=move_1#turn-3";
     await waitFor(() => {
       expect(navigateTo).toHaveBeenCalledWith(destination);
     });
@@ -406,7 +406,7 @@ describe("ServerMoveOverlay", () => {
     expect(navigateTo).toHaveBeenCalledTimes(1);
   });
 
-  it("waits for a bb connect move to answer on the same address, then dismisses with a toast", async () => {
+  it("waits for a hyperfide-platform connect move to answer on the same address, then dismisses with a toast", async () => {
     vi.mocked(sdk.experimental_server.moveStatus)
       .mockResolvedValueOnce({
         move: move({
@@ -539,13 +539,13 @@ describe("ServerMoveOverlay", () => {
         lastMove: null,
       })
       .mockRejectedValue(
-        new BbHttpError({
+        new HyperfideHttpError({
           status: 410,
           code: "server_moved",
-          message: "This bb server moved to desk",
+          message: "This hyperfide-platform server moved to desk",
           body: {
             code: "server_moved",
-            message: "This bb server moved to desk",
+            message: "This hyperfide-platform server moved to desk",
             details: {
               serverUrl: "https://desk.tailnet.example",
               toHostName: "desk",
@@ -558,7 +558,7 @@ describe("ServerMoveOverlay", () => {
 
     await waitFor(() => {
       expect(navigateTo).toHaveBeenCalledWith(
-        "https://desk.tailnet.example/settings/machines?tab=all&bbServerMove=move_1",
+        "https://desk.tailnet.example/settings/machines?tab=all&hyperfideServerMove=move_1",
       );
     });
   });
@@ -568,7 +568,7 @@ describe("ServerMoveOverlay", () => {
       move: null,
       lastMove: lastMove(),
     });
-    renderOverlay("/threads/thr_1?panel=diff&bbServerMove=move_1#turn-3");
+    renderOverlay("/threads/thr_1?panel=diff&hyperfideServerMove=move_1#turn-3");
 
     await waitFor(() => {
       expect(vi.mocked(appToast.success)).toHaveBeenCalledWith(

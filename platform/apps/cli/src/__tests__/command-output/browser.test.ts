@@ -24,7 +24,7 @@ const flags = [
 describe("browser credential output", () => {
   setupCommandOutputTestEnvironment();
   it("writes a new private file without printing the connection credential", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-browser-cli-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-browser-cli-"));
     const output = join(dir, "connection.json");
     const connection = {
       hostId: "host",

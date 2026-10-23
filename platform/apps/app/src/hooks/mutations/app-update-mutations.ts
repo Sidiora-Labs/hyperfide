@@ -8,7 +8,7 @@ import { showMutationErrorToast } from "@/lib/mutation-errors";
 import { sdk } from "@/lib/sdk";
 import { hydrateAppUpdateStatus } from "../cache-owners/app-update-cache-owner";
 
-const APPLY_APP_UPDATE_ERROR_MESSAGE = "Couldn't start the bb update.";
+const APPLY_APP_UPDATE_ERROR_MESSAGE = "Couldn't start the hyperfide-platform update.";
 
 export function useApplyAppUpdate() {
   const queryClient = useQueryClient();

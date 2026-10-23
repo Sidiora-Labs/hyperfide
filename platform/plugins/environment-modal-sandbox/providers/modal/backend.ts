@@ -274,7 +274,7 @@ export function createModalSandboxBackend(
             cpu: selection.preset?.cpu ?? DEFAULT_SANDBOX_SIZE.cpu,
             memoryMiB:
               selection.preset?.memoryMiB ?? DEFAULT_SANDBOX_SIZE.memoryMiB,
-            tags: { bbMachineKey: context.key },
+            tags: { hyperfideMachineKey: context.key },
           })
         );
       }, context.signal);
@@ -371,7 +371,7 @@ export function createModalSandboxBackend(
           timeoutMs: SANDBOX_LIFETIME_MS,
           cpu: resource.cpu,
           memoryMiB: resource.memoryMiB,
-          tags: { bbMachineKey: resource.key },
+          tags: { hyperfideMachineKey: resource.key },
         });
         context.report.log(
           `Restored Modal sandbox ${sandbox.sandboxId} from image ${snapshotImageId}\n`,

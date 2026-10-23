@@ -29,7 +29,7 @@ import type {
   CreateThreadEnvironmentArgs,
 } from "@hyperfide/server-contract";
 import type {
-  BbSdkAreas,
+  HyperfideSdkAreas,
   PluginThreadMetadataListArgs,
   PluginThreadMetadataListResult,
   ThreadPluginMetadataArgs,
@@ -48,7 +48,7 @@ import type {
 
 /**
  * The `@hyperfide/plugin-sdk/app` contract (plugin design §5.2) — pure types with no
- * side effects. The BB app imports these to keep its real implementation in
+ * side effects. The HYPERFIDE app imports these to keep its real implementation in
  * sync (`satisfies PluginSdkApp`). Plugin authors import the same shapes through
  * `@hyperfide/plugin-sdk/app`.
  *
@@ -98,7 +98,7 @@ export interface PluginNavPanelProps {
    * route is `/plugins/<pluginId>/<path>/*`, so a deep link like
    * `/plugins/notes/notes/work/ideas.md` renders the panel with
    * `subPath: "work/ideas.md"`. Navigate within the panel via
-   * `useBbNavigate().toPluginPanel(path, { subPath })` — browser
+   * `useHyperfideNavigate().toPluginPanel(path, { subPath })` — browser
    * back/forward then walks panel-internal history.
    */
   subPath: string;
@@ -154,7 +154,7 @@ export interface ExperimentalQuestionShortcut {
 }
 
 /**
- * The keyboard shortcuts bb binds while a pending interaction is open. The
+ * The keyboard shortcuts hyperfide binds while a pending interaction is open. The
  * host owns the bindings (users can remap them); a form shows them and decides
  * what choosing an option means.
  */
@@ -175,7 +175,7 @@ export interface ExperimentalQuestionFormHost {
 
 /**
  * Props of the host-owned `experimental_VoiceInputTextarea`: a controlled
- * textarea with bb's voice input. Other textarea attributes, including `ref`
+ * textarea with hyperfide's voice input. Other textarea attributes, including `ref`
  * and `className`, reach the underlying `<textarea>`; the caller styles it and
  * the host adds room for its microphone controls when voice input is
  * available.
@@ -229,7 +229,7 @@ export type ExperimentalSidebarNavigationAction =
 
 /**
  * Semantic icon identity for one sidebar navigation item. Render it with
- * {@link PluginSdkApp.experimental_SidebarNavigationIcon} to match bb's
+ * {@link PluginSdkApp.experimental_SidebarNavigationIcon} to match hyperfide's
  * artwork, including panel icons with plugin branding as their fallback.
  */
 export type ExperimentalSidebarNavigationIcon =
@@ -239,9 +239,9 @@ export type ExperimentalSidebarNavigationIcon =
 /** One host-owned destination or action a navigation provider arranges. */
 export interface ExperimentalSidebarNavigationItem {
   /**
-   * Arrangement key, stable across reloads: `__bb__/new-thread`,
-   * `__bb__/search-threads`, `__bb__/extensions`, `__bb__/skills`,
-   * `__bb__/automations`, or `<pluginId>/<panelId>`. The same keys appear in
+   * Arrangement key, stable across reloads: `__hyperfide__/new-thread`,
+   * `__hyperfide__/search-threads`, `__hyperfide__/extensions`, `__hyperfide__/skills`,
+   * `__hyperfide__/automations`, or `<pluginId>/<panelId>`. The same keys appear in
    * the `sidebar.pluginPanelOrder` and `sidebar.visiblePluginPanels`
    * settings.
    */
@@ -262,7 +262,7 @@ export interface ExperimentalSidebarNavigationItem {
    */
   isLoading: boolean;
   /**
-   * The plugin that contributed this panel; null for bb's own items. Gates
+   * The plugin that contributed this panel; null for hyperfide's own items. Gates
    * `openDetails` and `disablePlugin`.
    */
   pluginId: string | null;
@@ -327,7 +327,7 @@ export interface ExperimentalSidebarNavigationActions {
    */
   setOrder(itemIds: readonly string[]): void;
   /**
-   * Open bb's customize editor, which reorders and hides items, beside the
+   * Open Hyperfide's customize editor, which reorders and hides items, beside the
    * navigation. It waits for an open menu to close and returns focus to the
    * control that opened it.
    */
@@ -354,7 +354,7 @@ export interface ExperimentalSidebarNavigationState {
    */
   isHomeActive: boolean;
   /**
-   * True while the user holds the app command modifier, when bb's own
+   * True while the user holds the app command modifier, when hyperfide's own
    * navigation reveals its `shortcut` labels. Show yours at the same time.
    */
   isShortcutModifierHeld: boolean;
@@ -430,7 +430,7 @@ export interface ExperimentalSidebarNavigationProps {
 /**
  * Props passed to a navigation's `headerComponent`, rendered in the sidebar's
  * header row between the sidebar toggle (and the macOS window controls) and
- * bb's back and forward buttons.
+ * hyperfide's back and forward buttons.
  */
 export interface ExperimentalSidebarHeaderProps {
   /**
@@ -441,7 +441,7 @@ export interface ExperimentalSidebarHeaderProps {
   width: number;
   /**
    * Width and height in px of the header's own buttons, equal to the
-   * `--bb-sidebar-control-size` CSS variable. Size your controls to match.
+   * `--hyperfide-sidebar-control-size` CSS variable. Size your controls to match.
    */
   controlSize: number;
   isCompactViewport: boolean;
@@ -463,7 +463,7 @@ export interface PluginThreadListProps {
    */
   onNavigate: () => void;
   /**
-   * Compatibility value for the former sidebar search field. BB now searches
+   * Compatibility value for the former sidebar search field. HYPERFIDE now searches
    * threads in the quick palette, so the host always supplies "".
    *
    * @deprecated The quick palette owns thread search. Ignore this value.
@@ -497,9 +497,9 @@ export type ExperimentalPluginBrowserPageWorld = "isolated" | "main";
 
 export interface ExperimentalPluginBrowserPageEvaluateOptions {
   /**
-   * `isolated` (default) runs in a BB-owned world that shares the page DOM but
-   * not page globals, and binds `bb.postMessage(data)`. `main` runs beside the
-   * page's own scripts, where `bb` is `null`.
+   * `isolated` (default) runs in a HYPERFIDE-owned world that shares the page DOM but
+   * not page globals, and binds `hyperfide.postMessage(data)`. `main` runs beside the
+   * page's own scripts, where `hyperfide` is `null`.
    */
   world?: ExperimentalPluginBrowserPageWorld;
 }
@@ -512,7 +512,7 @@ export interface ExperimentalPluginBrowserPage {
   /**
    * Evaluate a JavaScript expression and resolve its JSON-serialized value.
    * Promises are awaited and `undefined` resolves to `null`. The expression
-   * can reference `bb`. Rejects when the tab is gone or the expression throws.
+   * can reference `hyperfide`. Rejects when the tab is gone or the expression throws.
    * Anything the expression installs is lost when the document navigates.
    */
   evaluate(
@@ -521,7 +521,7 @@ export interface ExperimentalPluginBrowserPage {
   ): Promise<JsonValue>;
   /**
    * Subscribe to values this plugin's isolated-world scripts in this tab send
-   * with `bb.postMessage(data)`. Returns the unsubscribe function.
+   * with `hyperfide.postMessage(data)`. Returns the unsubscribe function.
    */
   onMessage(listener: (data: JsonValue) => void): () => void;
 }
@@ -565,7 +565,7 @@ export interface PluginFileOpenerProps {
   source: PluginFileOpenerSource;
   /**
    * One-based, inclusive lines requested by the latest file open, or null when
-   * untargeted. BB supplies a new object for each targeted open, including an
+   * untargeted. HYPERFIDE supplies a new object for each targeted open, including an
    * identical target in the active tab. Observe object identity to navigate
    * again; keep the editor model intact. Older hosts may omit this prop.
    *
@@ -576,7 +576,7 @@ export interface PluginFileOpenerProps {
     endLineNumber: number;
   } | null;
   /**
-   * BB's file preview, bound to this file. Render it to delegate conditionally
+   * HYPERFIDE's file preview, bound to this file. Render it to delegate conditionally
    * without re-entering plugin replacement resolution.
    *
    * @experimental Audit before relying on this as a stable contract.
@@ -616,9 +616,9 @@ export interface ExperimentalDiffFullFileContents {
 }
 
 /**
- * Props of the host-owned `experimental_SourceCode` component — BB's source
+ * Props of the host-owned `experimental_SourceCode` component — HYPERFIDE's source
  * viewer. The host owns syntax highlighting, gutters, wrapping, line-selection
- * presentation, and the live BB code theme; the caller owns loading the text
+ * presentation, and the live HYPERFIDE code theme; the caller owns loading the text
  * and any surrounding chrome.
  */
 export interface SourceCodeProps {
@@ -638,11 +638,11 @@ export interface SourceCodeProps {
 }
 
 /**
- * Props of the host-owned `experimental_Diff` component — BB's diff viewer.
+ * Props of the host-owned `experimental_Diff` component — HYPERFIDE's diff viewer.
  * The host owns patch normalization (a patch without a `diff --git` header is
  * completed from `path`), syntax highlighting, unified/split presentation,
  * gutters, line-selection presentation, optional full-file context expansion,
- * and the live BB code theme. Content that cannot be parsed as a patch
+ * and the live HYPERFIDE code theme. Content that cannot be parsed as a patch
  * degrades to plain monospace text.
  */
 export interface DiffProps {
@@ -662,7 +662,7 @@ export interface DiffProps {
   showLineNumbers?: boolean;
   /**
    * Complete text for both file sides. When present and consistent with the
-   * patch, BB enables expand-context controls between hunks. The caller owns
+   * patch, HYPERFIDE enables expand-context controls between hunks. The caller owns
    * loading these contents; omit the field to render from the patch alone.
    */
   experimental_fullFileContents?: ExperimentalDiffFullFileContents;
@@ -680,7 +680,7 @@ export interface PluginSourceCodeRendererProps {
   overflow: CodeOverflowMode;
   highlightedLines: SourceCodeLineRange | null;
   /**
-   * BB's source renderer, bound to this request. Render it to delegate
+   * HYPERFIDE's source renderer, bound to this request. Render it to delegate
    * conditionally without re-entering plugin replacement resolution.
    *
    * @experimental Audit before relying on this as a stable contract.
@@ -703,12 +703,12 @@ export interface PluginDiffRendererProps {
    * Caller-resolved text for both sides, or `null` when the caller supplied
    * only the patch. A replacement can use this to implement context expansion,
    * but must verify that the paths and hunk lines agree with `patch` before
-   * treating the contents as complete. BB's original renderer performs that
+   * treating the contents as complete. HYPERFIDE's original renderer performs that
    * verification when it mounts.
    */
   experimental_fullFileContents: ExperimentalDiffFullFileContents | null;
   /**
-   * BB's diff renderer, bound to this request. Render it to delegate
+   * HYPERFIDE's diff renderer, bound to this request. Render it to delegate
    * conditionally without re-entering plugin replacement resolution.
    *
    * @experimental Audit before relying on this as a stable contract.
@@ -767,7 +767,7 @@ export type ExperimentalCodeFenceStatus = "streaming" | "closed" | "unclosed";
 /**
  * Props passed to an `experimental_codeFenceRenderer` component — one fenced
  * code block whose info-string language the plugin claimed, inside assistant
- * (or nested agent) message Markdown. BB mounts the component once per fence
+ * (or nested agent) message Markdown. HYPERFIDE mounts the component once per fence
  * and keeps that instance for as long as the message stays on screen, so
  * component state survives the whole stream, including the moment the fence
  * closes and the moment the reply finishes.
@@ -790,7 +790,7 @@ export interface ExperimentalCodeFenceRendererProps {
   index: number;
   message: PluginMessageDirectiveMessage;
   /**
-   * BB's own code block for this fence. Render it to show the source, for
+   * HYPERFIDE's own code block for this fence. Render it to show the source, for
    * example while `status` is `"streaming"` or when `code` does not parse.
    */
   Original: ComponentType;
@@ -823,12 +823,12 @@ export interface PluginSettingsSectionRegistration {
 }
 
 /**
- * Render app-wide plugin UI outside BB's layout regions.
+ * Render app-wide plugin UI outside HYPERFIDE's layout regions.
  *
  * The host mounts each registration once per app window through the ordinary
  * plugin React boundary. The component therefore keeps PluginContext, router,
  * query, realtime, and other app-level SDK contexts when it renders fixed UI
- * or creates a React portal. BB supplies no chrome, positioning, visibility,
+ * or creates a React portal. HYPERFIDE supplies no chrome, positioning, visibility,
  * or interaction policy; the plugin owns those details and responsive
  * behavior. Registrations are additive and a crash hides only that overlay.
  */
@@ -840,9 +840,9 @@ export interface ExperimentalAppOverlayRegistration {
 
 /**
  * A name the host resolves to a glyph, in this order: a name any plugin
- * registered with `app.experimental_icons.register()`, then a built-in BB icon
+ * registered with `app.experimental_icons.register()`, then a built-in HYPERFIDE icon
  * name (`"Zap"`), then a namespaced `"<pluginId>/<name>"` glyph naming an
- * entry of that plugin's manifest `bb.branding.experimental_icons` map. A
+ * entry of that plugin's manifest `hyperfide.branding.experimental_icons` map. A
  * registration therefore shadows a built-in, and either shadows a declared
  * icon of the same name. Names that resolve to none of the three fall back to
  * the surface's generic icon.
@@ -854,7 +854,7 @@ export interface ExperimentalAppOverlayRegistration {
  * registrations can be any React component but live only while the plugin's
  * app bundle is loaded.
  */
-type BbIconName = string;
+type HyperfideIconName = string;
 
 /**
  * Owner-defined validator for a fixed tab's transient target. The host first
@@ -884,7 +884,7 @@ export type ExperimentalPluginFixedTabReference<
     });
 
 /**
- * How urgent an {@link ExperimentalBadge} is. bb picks the colors: `neutral`
+ * How urgent an {@link ExperimentalBadge} is. hyperfide picks the colors: `neutral`
  * (the default) for counts and new items, `warning` for something due or
  * degraded, and `critical` for something failing or waiting on the user.
  *
@@ -894,7 +894,7 @@ export type ExperimentalBadgeTone = "neutral" | "warning" | "critical";
 
 /**
  * A live value the host draws on a nav panel's navigation entry. Set at most
- * one of `count` and `text`; with neither, bb draws a dot.
+ * one of `count` and `text`; with neither, hyperfide draws a dot.
  *
  * Experimental: see docs/api_to_audit.md.
  */
@@ -925,13 +925,13 @@ export interface PluginNavPanelRegistration {
   id: string;
   title: string;
   /** Resolved names take precedence over plugin branding in navigation and the header; unknown names fall back to branding. */
-  icon: BbIconName;
+  icon: HyperfideIconName;
   /** URL segment under `/plugins/<pluginId>/`; letters, digits, `-`, `_`. */
   path: string;
   component: ComponentType<PluginNavPanelProps>;
   /**
    * Sidebar shown instead of the thread list while this panel's route is
-   * active, in the same section sidebar as Settings, Plugins and Skills. BB
+   * active, in the same section sidebar as Settings, Plugins and Skills. HYPERFIDE
    * keeps the navigation rail, top chrome and resize handle; in the top-list
    * layout it adds a "Back to app" row and the panel title, and Back to app
    * (Escape) returns to the last app page. Receives the page's current
@@ -955,7 +955,7 @@ export interface PluginNavPanelRegistration {
    * for none. The host calls it once in your plugin's scope for every
    * registered panel, including ones hidden under More, so it can own an RPC
    * query and realtime subscription through the ordinary SDK hooks. The value
-   * reaches every navigation provider as the item's `badge`; bb's draw a
+   * reaches every navigation provider as the item's `badge`; hyperfide's draw a
    * count or a dot on the entry, a dot on More while the panel is hidden
    * there, and `label` in the tooltip and accessible name. A hook that throws
    * or returns an invalid badge is treated as a crashed slot and shows no
@@ -1010,7 +1010,7 @@ export interface ExperimentalThreadTabActionContext {
    * Returns true when the host accepted the open; false when it declined —
    * from this launcher, only a `params` that is not a JSON value. The true /
    * false contract is shared with `messageAction`'s `openPanel` and
-   * `useBbNavigate().openThreadPanel` (which decline for more reasons) so one
+   * `useHyperfideNavigate().openThreadPanel` (which decline for more reasons) so one
    * open routine can serve every action kind. A decline is never thrown: the
    * host logs it and reports it here.
    */
@@ -1030,7 +1030,7 @@ export interface ExperimentalTabReference {
 
 type ExperimentalTabCommon = ExperimentalTabReference & {
   title: string;
-  icon: BbIconName;
+  icon: HyperfideIconName;
   tooltip?: string;
   layout?: "padded" | "flush";
 };
@@ -1066,7 +1066,7 @@ type ExperimentalTabInput<
 > = {
   id: string;
   title: string;
-  icon: BbIconName;
+  icon: HyperfideIconName;
   tooltip?: string;
   layout?: "padded" | "flush";
   context: C;
@@ -1142,7 +1142,7 @@ export interface PluginNewThreadPanelActionRegistration {
   /** Label of the action row in the panel's new-tab launcher. */
   title: string;
   /** Resolved names take precedence over plugin branding; omitted or unknown names fall back to branding. */
-  icon?: BbIconName;
+  icon?: HyperfideIconName;
   /** Rendered inside every panel tab this action opens. */
   component: ComponentType<PluginNewThreadPanelProps>;
   /** Host framing; matches thread action tabs. */
@@ -1157,11 +1157,11 @@ export interface PluginNewThreadPanelActionRegistration {
 export interface PluginPendingInteractionRegistration {
   /**
    * The renderer's plugin-local name. Two addresses resolve to it: the
-   * `rendererId` a backend passes to `bb.ui.requestInput`, and the `<name>`
+   * `rendererId` a backend passes to `hyperfide.ui.requestInput`, and the `<name>`
    * half of a provider bridge's `interaction/request` kind
    * `"<pluginId>/<name>"` (docs/provider-plugin-api.md §4), which the client
    * splits on the slash to find this registration under its plugin.
-   * `bb.ui.requestInput` validates `rendererId` against `/^[a-zA-Z0-9_-]+$/`;
+   * `hyperfide.ui.requestInput` validates `rendererId` against `/^[a-zA-Z0-9_-]+$/`;
    * an extension kind must match `/^[a-z0-9-]+\/[a-z0-9-]+$/`
    * (`EXTENSION_KIND_PATTERN` in @hyperfide/domain), so an id addressable both ways
    * uses lowercase letters, digits, and "-" only.
@@ -1190,7 +1190,7 @@ export interface PluginSidebarFooterActionRegistration {
   /** Tooltip and accessible label for the icon button. */
   title: string;
   /** Resolved names take precedence over plugin branding; omitted or unknown names fall back to branding. */
-  icon: BbIconName;
+  icon: HyperfideIconName;
   /**
    * Runs when the user activates the action (e.g. call `openSettings()`,
    * open a panel via other surfaces, toast). Errors (sync or async) are
@@ -1211,7 +1211,7 @@ export interface ExperimentalSidebarFooterItemBase {
   id: string;
   /** Tooltip and accessible label for the host-rendered icon button. */
   label: string;
-  icon: BbIconName;
+  icon: HyperfideIconName;
 }
 
 /** A sidebar-footer item that runs a callback when activated. */
@@ -1256,18 +1256,18 @@ export interface ExperimentalSidebarFooter {
 // ---------------------------------------------------------------------------
 
 /**
- * The one status bb would paint for a thread, already resolved through the
+ * The one status hyperfide would paint for a thread, already resolved through the
  * host's precedence (attention before work; plan and goal before the generic
  * spinner). Draw your own glyph for it — the SDK ships no status component.
  *
- * Treat an unrecognized value as "none": bb adds kinds over time, and an
+ * Treat an unrecognized value as "none": hyperfide adds kinds over time, and an
  * older plugin must degrade to drawing nothing rather than throwing.
  *
  * "draft" and "working-draft" are never reported here: an unsubmitted composer
  * draft is per-client state the host reads per row, which an array-wide view
  * cannot. A thread holding a draft reports whatever it would report without
  * one. "queued-failed" and "queued-waiting" are reported, with the same
- * precedence bb's list uses (a failed send outranks the unread dot; a waiting
+ * precedence hyperfide's list uses (a failed send outranks the unread dot; a waiting
  * message ranks just below it).
  */
 export type PluginSidebarThreadIndicator =
@@ -1309,7 +1309,7 @@ export interface PluginSidebarThread {
   title: string | null;
   titleFallback: string | null;
   /**
-   * What bb shows for this thread as plain text: `title`, else
+   * What hyperfide shows for this thread as plain text: `title`, else
    * `titleFallback`, else a short id, with any `@project:`, `@section:`, and
    * `@thread:` mentions in it resolved to their names. Sort on it and use it
    * for accessible names; render {@link PluginSdkApp.ThreadTitle} for the
@@ -1335,7 +1335,7 @@ export interface PluginSidebarThread {
   providerId: string;
 
   /**
-   * The thread's execution status. bb's list sorts busy threads ("starting",
+   * The thread's execution status. hyperfide's list sorts busy threads ("starting",
    * "active", "stopping") above idle ones. Treat an unknown value as "idle".
    */
   status: ThreadStatus;
@@ -1368,23 +1368,23 @@ export interface PluginSidebarThread {
   /**
    * The user's manual order among pinned threads (lexicographic, ascending);
    * null for an unpinned thread or a pin that has never been reordered, which
-   * bb's list sorts after keyed pins by `pinnedAt`.
+   * hyperfide's list sorts after keyed pins by `pinnedAt`.
    */
   pinSortKey: string | null;
   isArchived: boolean;
   /** When the thread was archived (epoch ms); null when not archived. */
   archivedAt: number | null;
   /**
-   * The app-relative URL bb opens for this thread, e.g.
+   * The app-relative URL hyperfide opens for this thread, e.g.
    * `/projects/<projectId>/threads/<id>`. Put it on your row's anchor: the
    * host routes a plain click in place, and middle-click, copy-link, and
    * open-in-new-window work without further code.
    */
   href: string;
   /**
-   * True for threads bb keeps out of its own list (internal helper threads a
+   * True for threads hyperfide keeps out of its own list (internal helper threads a
    * plugin spawned with `visibility: "hidden"`). The array includes them so a
-   * list that wants them can show them; bb's list filters them out.
+   * list that wants them can show them; hyperfide's list filters them out.
    */
   isHidden: boolean;
 
@@ -1395,7 +1395,7 @@ export interface PluginSidebarThread {
     /** The checkout's absolute path on its host; null when unknown. */
     path: string | null;
     /**
-     * True when the environment is a git worktree, which is what bb's
+     * True when the environment is a git worktree, which is what hyperfide's
      * "group by environment" clusters; false for a plain checkout; null when
      * unknown.
      */
@@ -1440,7 +1440,7 @@ export interface PluginSidebarProject {
  * view. A thread belongs to at most one section via `sectionId`; a null
  * `sectionId` means the loose "Threads" bucket. Sections are created,
  * renamed, and deleted through the public API (`threadSections` in the SDK,
- * `bb thread section` in the CLI); this state is the read side.
+ * `hyperfide-platform thread section` in the CLI); this state is the read side.
  */
 export interface PluginSidebarSection {
   id: string;
@@ -1496,13 +1496,13 @@ export interface PluginCodeThemeTokenRule {
 }
 
 /**
- * The active code theme as a VS Code theme file: the same document BB's own
+ * The active code theme as a VS Code theme file: the same document HYPERFIDE's own
  * highlighter renders from, so a plugin that embeds a third-party editor can
  * translate it into that editor's theme format rather than guessing colors
  * from CSS variables.
  */
 export interface PluginCodeThemeData {
-  /** Registered theme name — a bundled Shiki name or a BB-registered id. */
+  /** Registered theme name — a bundled Shiki name or a HYPERFIDE-registered id. */
   name: string;
   type: "light" | "dark";
   /** Default editor foreground, as `#rrggbb[aa]`. */
@@ -1515,7 +1515,7 @@ export interface PluginCodeThemeData {
 }
 
 /**
- * The code theme BB is currently rendering with (see
+ * The code theme HYPERFIDE is currently rendering with (see
  * {@link PluginSdkApp.experimental_useCodeTheme}). `mode` and `name` change
  * the moment the user switches palette or light/dark; `theme` follows once
  * the theme file resolves, and keeps the previous document until then so a
@@ -1540,7 +1540,7 @@ export interface ExperimentalClipboardContent {
 }
 
 /**
- * What {@link PluginSdkApp.experimental_saveFile} saves: a URL on the bb
+ * What {@link PluginSdkApp.experimental_saveFile} saves: a URL on the hyperfide
  * server (such as one of the plugin's own HTTP routes), or bytes already in
  * the page, plus the file name the user sees.
  */
@@ -1552,19 +1552,19 @@ export type ExperimentalSaveFileRequest =
  * How {@link PluginSdkApp.experimental_saveFile} started. `started` means
  * the browser or native shell took over the download; completion and share
  * cancellation are not reported to the page. `failed` means the download
- * could not start; bb already showed an error toast.
+ * could not start; hyperfide already showed an error toast.
  */
 export type ExperimentalSaveFileOutcome = "started" | "failed";
 
 /**
- * The `threads` area of {@link PluginBrowserBbSdk}: bb's public thread API
+ * The `threads` area of {@link PluginBrowserHyperfideSdk}: hyperfide's public thread API
  * with the calling plugin's identity filled in. `spawn` and `fork` stamp
  * `origin: "plugin"` and `originPluginId` unless the call names another
  * origin, and the plugin-metadata calls default `pluginId`. The same
- * narrowing the backend `bb.sdk` applies.
+ * narrowing the backend `hyperfide.sdk` applies.
  */
 export type PluginBoundThreadsArea = Omit<
-  BbSdkAreas["threads"],
+  HyperfideSdkAreas["threads"],
   | "getPluginMetadata"
   | "updatePluginMetadata"
   | "experimental_listPluginMetadata"
@@ -1585,14 +1585,14 @@ export type PluginBoundThreadsArea = Omit<
 };
 
 /**
- * bb's public API client, bound to the calling plugin, for plugin frontends
- * (see {@link PluginSdkApp.useSdk}). The same areas the `bb` CLI and the
- * backend `bb.sdk` expose: threads, thread sections, projects, environments,
+ * hyperfide's public API client, bound to the calling plugin, for plugin frontends
+ * (see {@link PluginSdkApp.useSdk}). The same areas the `hyperfide` CLI and the
+ * backend `hyperfide.sdk` expose: threads, thread sections, projects, environments,
  * hosts, files, and the rest. Requests carry the signed-in user's session on
  * the app origin, so every call runs with the user's own authority; there
  * is no narrower plugin scope.
  */
-export type PluginBrowserBbSdk = Omit<BbSdkAreas, "threads"> & {
+export type PluginBrowserHyperfideSdk = Omit<HyperfideSdkAreas, "threads"> & {
   threads: PluginBoundThreadsArea;
 };
 
@@ -1603,7 +1603,7 @@ export interface PluginThreadTitleProps {
 }
 
 /**
- * Props for {@link PluginSdkApp.experimental_ThreadStatusGlyph}: bb's thread
+ * Props for {@link PluginSdkApp.experimental_ThreadStatusGlyph}: hyperfide's thread
  * status glyph, the one its own lists draw. The caller resolves the
  * indicator, so a row can fold in state the host does not know about, such
  * as collapsed children or a client-local draft.
@@ -1621,12 +1621,12 @@ export interface PluginThreadStatusGlyphProps {
   rowStatus?: PluginSidebarThreadRowStatus | null;
   /** Hides the idle draft glyph from assistive technology. */
   hideIdleDraftLabel?: boolean;
-  /** "compact" draws a 14 px glyph; "default" matches bb's sidebar rows. */
+  /** "compact" draws a 14 px glyph; "default" matches hyperfide's sidebar rows. */
   size?: "default" | "compact";
 }
 
 /**
- * One environment provider from bb's catalog (see
+ * One environment provider from hyperfide's catalog (see
  * {@link PluginSdkApp.useEnvironmentProviders}): what a sidebar needs to
  * name and draw the environment a thread runs in. `icon` and `logoUrl` are
  * what `experimental_ProviderIcon` reads with `providerKind: "environment"`.
@@ -1651,7 +1651,7 @@ export interface PluginEnvironmentProvidersState {
 /**
  * Whether the composer holds unsent text for a thread (see
  * {@link PluginSdkApp.useSidebarThreadDraft}). This is per-client state, so
- * it lives beside `indicator` rather than in it: bb's row paints a pencil for
+ * it lives beside `indicator` rather than in it: hyperfide's row paints a pencil for
  * an idle thread with a draft and a "working-draft" glyph for a busy one.
  */
 export interface PluginSidebarThreadDraftState {
@@ -1661,7 +1661,7 @@ export interface PluginSidebarThreadDraftState {
 /**
  * The status another plugin's app-wide script set on a thread's row through
  * the content-script context's `experimental_setThreadRowStatus` (see
- * {@link PluginSdkApp.useSidebarThreadRowStatus}). bb's row draws it in
+ * {@link PluginSdkApp.useSidebarThreadRowStatus}). hyperfide's row draws it in
  * place of the draft glyph while it is set; a replaced list should do the
  * same so a status set by, say, the drafts or workflows plugin does not
  * vanish when the list changes hands.
@@ -1669,7 +1669,7 @@ export interface PluginSidebarThreadDraftState {
 export type PluginSidebarThreadRowStatus = PluginComposerThreadRowStatus;
 
 /**
- * The jump-to-thread shortcut bb assigned to a row while the app command
+ * The jump-to-thread shortcut hyperfide assigned to a row while the app command
  * modifier is held (see {@link PluginSdkApp.useSidebarThreadShortcut}).
  */
 export interface PluginSidebarThreadShortcut {
@@ -1687,16 +1687,16 @@ export interface PluginSidebarThreadShortcut {
  *
  * @internal Superseded by `app.slots.experimental_threadAction` and
  * `experimental_ThreadActionsMenu`, `useSdk().threads` for data writes, and
- * `useBbNavigate().toThread` / `toCompose` for navigation; kept for plugins
+ * `useHyperfideNavigate().toThread` / `toCompose` for navigation; kept for plugins
  * built against older SDKs.
  */
 export interface PluginSidebarThreadActions {
   /**
-   * Navigate to a thread. `split: true` applies bb's split placement rules —
+   * Navigate to a thread. `split: true` applies hyperfide's split placement rules —
    * a right split by default, focus when the thread is already open, replace
    * at the pane cap — and falls back to plain navigation where splits are off.
    * Opening also expands the thread's conversation if the secondary panel had
-   * collapsed it, as bb's own row does.
+   * collapsed it, as hyperfide's own row does.
    */
   open(threadId: string, options?: { split?: boolean }): void;
   /**
@@ -1704,7 +1704,7 @@ export interface PluginSidebarThreadActions {
    * the composer's selection, so the thread is created where you asked.
    * `sectionId` files the new thread under that section, and
    * `environmentId` reuses that environment (the "New thread in
-   * environment" affordance), both exactly as bb's own list does.
+   * environment" affordance), both exactly as hyperfide's own list does.
    * `experimental_placement` explicitly selects the section and pin state,
    * overriding `sectionId`. Omitting placement starts unpinned, outside sections
    * unless `sectionId` is supplied; previous composer placement is cleared.
@@ -1726,10 +1726,10 @@ export interface PluginSidebarThreadActions {
   rename(threadId: string, title: string): Promise<void>;
   /** Confirms before including child threads unless archive confirmation is disabled in Settings → General. */
   archive(threadId: string): void;
-  /** Archives an environment's active thread trees with bb's optimistic updates, pane cleanup, and one Undo toast. Rejects after bb shows an error toast on failure. */
+  /** Archives an environment's active thread trees with hyperfide's optimistic updates, pane cleanup, and one Undo toast. Rejects after hyperfide shows an error toast on failure. */
   experimental_archiveEnvironmentThreads(environmentId: string): Promise<void>;
   /**
-   * Opens bb's delete confirmation, which counts child threads first. Deletion
+   * Opens hyperfide's delete confirmation, which counts child threads first. Deletion
    * is destructive and recursive, so the host owns the confirmation: there is
    * deliberately no silent `delete`.
    */
@@ -1739,7 +1739,7 @@ export interface PluginSidebarThreadActions {
 /**
  * Render a plugin component in the thread header's action row.
  *
- * The frontend sibling of the backend `bb.ui.registerThreadAction`, which
+ * The frontend sibling of the backend `hyperfide.ui.registerThreadAction`, which
  * renders a host-owned button and runs server-side. Use that one for "do a
  * thing"; use this one when the control must draw live state.
  *
@@ -1775,7 +1775,7 @@ export interface ExperimentalThreadInfoProps {
 }
 
 /**
- * A row in the thread Info tab's details block, beside bb's own rows. Render
+ * A row in the thread Info tab's details block, beside hyperfide's own rows. Render
  * one or more `experimental_DetailRow` elements, or null to show nothing for
  * this thread. A crash removes only this row for that thread.
  */
@@ -1784,8 +1784,8 @@ export interface ExperimentalThreadInfoRowRegistration {
   id: string;
   /**
    * Rows sort by `group` (string compare), then by `order` within a group
-   * (unset sorts last), then by registration order, with bb's own rows first
-   * on a tie. bb's groups are
+   * (unset sorts last), then by registration order, with hyperfide's own rows first
+   * on a tie. hyperfide's groups are
    * {@link PluginSdkApp.experimental_THREAD_INFO_ROW_GROUPS}; any other
    * string is a group of its own, placed where it sorts. Groups only order
    * rows; the details block draws no separator between them.
@@ -1806,8 +1806,8 @@ export interface ExperimentalThreadInfoSectionRegistration {
   id: string;
   /**
    * Sections sort by `group` (string compare), then by `order` within a group
-   * (unset sorts last), then by registration order, with bb's own sections
-   * first on a tie. bb's groups are
+   * (unset sorts last), then by registration order, with hyperfide's own sections
+   * first on a tie. hyperfide's groups are
    * {@link PluginSdkApp.experimental_THREAD_INFO_SECTION_GROUPS}; any other
    * string is a group of its own, placed where it sorts.
    */
@@ -1838,7 +1838,7 @@ export interface ExperimentalInfoSectionProps {
 export interface ExperimentalDetailRowProps {
   label: ReactNode;
   /** Icon drawn before the label, any name `experimental_Icon` accepts. */
-  icon?: BbIconName;
+  icon?: HyperfideIconName;
   /** Vertical alignment of label and value; defaults to `center`. */
   align?: "center" | "start";
   children: ReactNode;
@@ -1887,7 +1887,7 @@ export interface ExperimentalPluginBrowserToolbarActionRegistration {
 }
 
 /**
- * The thread a thread action is evaluated for: the fields bb's own actions
+ * The thread a thread action is evaluated for: the fields hyperfide's own actions
  * read, copied from the thread payload by the surface that shows the menu.
  */
 export interface PluginThreadActionTarget {
@@ -1910,7 +1910,7 @@ export interface PluginThreadActionTarget {
 export interface PluginThreadActionChoice {
   id: string;
   label: string;
-  icon?: BbIconName;
+  icon?: HyperfideIconName;
   selected?: boolean;
   disabled?: boolean;
 }
@@ -1937,7 +1937,7 @@ export interface PluginThreadActionRunInput {
   value?: string;
   /**
    * Start renaming a thread with the editor of the surface that showed the
-   * menu: inline in the sidebar row or thread header, bb's rename dialog
+   * menu: inline in the sidebar row or thread header, hyperfide's rename dialog
    * elsewhere.
    */
   requestRename(threadId: string): void;
@@ -1952,7 +1952,7 @@ export interface PluginThreadAction {
    * where only tooltips and screen readers include it.
    */
   detail?: string;
-  icon: BbIconName;
+  icon: HyperfideIconName;
   variant?: "default" | "destructive";
   disabled?: boolean;
   choices?: PluginThreadActionChoices;
@@ -1982,19 +1982,19 @@ export interface PluginThreadActionItemInput<Data> {
   /** What `useData` last returned; undefined when the registration has none. */
   data: Data;
   /** The registering plugin's `useSdk()` client. */
-  sdk: PluginBrowserBbSdk;
+  sdk: PluginBrowserHyperfideSdk;
   /**
-   * The registering plugin's `useBbNavigate()`. Thread menus are not inside a
+   * The registering plugin's `useHyperfideNavigate()`. Thread menus are not inside a
    * side panel, so `openThreadPanel` opens in the focused thread view, as
    * plugin commands do, and returns false when no thread view is open.
    */
-  navigate: BbNavigate;
+  navigate: HyperfideNavigate;
 }
 
 /**
  * Add an action to every thread actions menu: the thread header's menu, the
  * sidebar row's menu and right-click menu, the compact long-press drawer, and,
- * when the user picks it, a sidebar row's quick-action buttons. bb's own
+ * when the user picks it, a sidebar row's quick-action buttons. hyperfide's own
  * actions (Open in split, Copy link, Mark read, Pin, Rename, Archive,
  * Delete, …) are registrations of this same shape.
  *
@@ -2012,11 +2012,11 @@ export interface PluginThreadActionRegistration<Data = undefined> {
   /** Static name, shown where the user picks a row's quick actions. */
   title: string;
   /** Static icon for that picker; the evaluated action's `icon` wins in menus. */
-  icon: BbIconName;
+  icon: HyperfideIconName;
   /**
    * Menus and the quick-action picker sort by `group` (string compare) with a
    * separator between groups, then by `order` within a group (unset sorts
-   * last), then by registration order. bb's groups are
+   * last), then by registration order. hyperfide's groups are
    * {@link PluginSdkApp.experimental_THREAD_ACTION_GROUPS}; any other string
    * is a group of its own, placed where it sorts.
    */
@@ -2028,7 +2028,7 @@ export interface PluginThreadActionRegistration<Data = undefined> {
 
 /**
  * A thread action as {@link PluginSdkApp.experimental_useThreadActions}
- * returns it: `run` is bound to the caller's `requestRename` (or bb's rename
+ * returns it: `run` is bound to the caller's `requestRename` (or hyperfide's rename
  * dialog), contains errors, and resolves when the action settles.
  */
 export interface PluginBoundThreadAction extends Omit<
@@ -2042,7 +2042,7 @@ export interface PluginBoundThreadAction extends Omit<
 /**
  * One row of {@link PluginSdkApp.experimental_useThreadActions}: `key` is
  * `<owner>/<id>`, where the owner is the registering plugin's id or
- * `bb--core` for bb's own actions.
+ * `hyperfide--core` for hyperfide's own actions.
  */
 export interface PluginThreadActionEntry {
   key: string;
@@ -2057,7 +2057,7 @@ export interface PluginThreadActionRegistrationInfo {
   key: string;
   pluginId: string;
   title: string;
-  icon: BbIconName;
+  icon: HyperfideIconName;
 }
 
 /** Options for {@link PluginSdkApp.experimental_useThreadActions}. */
@@ -2066,7 +2066,7 @@ export interface PluginThreadActionsOptions {
   keys?: readonly string[];
   /**
    * The surface's own rename editor, passed to `run` as `requestRename`.
-   * Omit to use bb's rename dialog.
+   * Omit to use hyperfide's rename dialog.
    */
   requestRename?(threadId: string): void;
 }
@@ -2101,7 +2101,7 @@ interface PluginThreadActionsMenuBaseProps {
 }
 
 /**
- * Props of the host-owned `experimental_ThreadActionsMenu`: bb's thread menu
+ * Props of the host-owned `experimental_ThreadActionsMenu`: hyperfide's thread menu
  * opened from the button `trigger` renders (see
  * {@link PluginThreadActionsTriggerProps}), a drawer at compact width.
  */
@@ -2113,7 +2113,7 @@ export interface PluginThreadActionsMenuProps extends PluginThreadActionsMenuBas
 }
 
 /**
- * Props of the host-owned `experimental_ThreadActionsContextMenu`: bb's thread
+ * Props of the host-owned `experimental_ThreadActionsContextMenu`: hyperfide's thread
  * menu on right-click of `children`, or on touch long-press at compact width.
  */
 export interface PluginThreadActionsContextMenuProps extends PluginThreadActionsMenuBaseProps {
@@ -2186,7 +2186,7 @@ export interface PluginSidebarThreadSplit {
  * Replace the sidebar's thread list with a plugin component.
  *
  * Unlike every other slot, this one is EXCLUSIVE: two lists cannot share one
- * scroll area. bb ships its own list as the bundled Thread list plugin
+ * scroll area. hyperfide ships its own list as the bundled Thread list plugin
  * (`thread-list/thread-list`). Registering activates the replacement while the
  * plugin is enabled: by default the first registered list other than the
  * bundled one, in deterministic slot order, is active, falling back to the
@@ -2213,7 +2213,7 @@ export interface PluginThreadListRegistration {
 /**
  * Draw the sidebar's navigation: New thread, Plugins, Skills, Automations,
  * plugin panels, and More, plus optional controls in the sidebar header.
- * Exclusive: bb's bundled Navigation plugin registers Rail
+ * Exclusive: hyperfide's bundled Navigation plugin registers Rail
  * (`navigation/rail`, the default) and Top list (`navigation/top-list`)
  * through this slot. By default the first provider from another plugin is
  * active, falling back to Rail; the user can pin one provider under Settings →
@@ -2221,18 +2221,18 @@ export interface PluginThreadListRegistration {
  * back the same way, and a crashing provider is replaced by the Navigation
  * plugin's provider for the same placement.
  *
- * `placement` decides the layout around the component, so bb can lay out the
+ * `placement` decides the layout around the component, so hyperfide can lay out the
  * sidebar before the plugin loads:
  *
  * - `rail`: a fixed-width column on the sidebar's left edge that stays when
- *   the sidebar collapses. bb draws Settings at the bottom of the column;
+ *   the sidebar collapses. hyperfide draws Settings at the bottom of the column;
  *   draw Home with `actions.goHome({ target })`. On macOS, wide windows
  *   frame the sidebar and page below a title bar.
  * - `list` (the default): the area above the thread list. Settings is a
  *   footer action, the Settings, Plugins, and Skills lists start with a Back
  *   to app row, and collapsing hides the whole sidebar.
  *
- * Draw New thread yourself, in `component` or `headerComponent`. bb's Rail
+ * Draw New thread yourself, in `component` or `headerComponent`. hyperfide's Rail
  * puts it in its header; Top list draws it as a row.
  */
 export interface ExperimentalSidebarNavigationRegistration {
@@ -2246,8 +2246,8 @@ export interface ExperimentalSidebarNavigationRegistration {
   component: ComponentType<ExperimentalSidebarNavigationProps>;
   /**
    * Rendered in the sidebar's header row while this navigation is active,
-   * between the sidebar toggle and bb's back and forward buttons. Content is
-   * clipped to the row, so it cannot move the thread list or bb's controls.
+   * between the sidebar toggle and hyperfide's back and forward buttons. Content is
+   * clipped to the row, so it cannot move the thread list or hyperfide's controls.
    * On macOS the empty space keeps dragging the window; buttons, links, and
    * inputs do not. A crashing header is replaced by the header of the
    * bundled Navigation plugin's provider for the same placement.
@@ -2258,12 +2258,12 @@ export interface ExperimentalSidebarNavigationRegistration {
 /**
  * Register this plugin as a viewer/editor for file extensions. By default,
  * matching files render the first applicable opener in deterministic slot
- * order. The user can pin BB's preview or a specific opener per extension
+ * order. The user can pin HYPERFIDE's preview or a specific opener per extension
  * under Settings → Files. The file tab's "Open with" menu can override that
  * choice for one open. A plugin can also use its own setting and render
  * `Original` conditionally. Applies to working-tree, host, and
  * thread-storage files — never to git-ref snapshots (diff views always use
- * BB's preview).
+ * HYPERFIDE's preview).
  */
 export interface PluginFileOpenerRegistration {
   /** Unique within the plugin; letters, digits, `-`, `_`. */
@@ -2276,13 +2276,13 @@ export interface PluginFileOpenerRegistration {
 }
 
 /**
- * Replace BB's source-code renderer everywhere it renders supplied source
+ * Replace HYPERFIDE's source-code renderer everywhere it renders supplied source
  * text — the native file preview and every plugin that calls
  * `experimental_SourceCode`. Like `experimental_threadList` this slot is
  * **exclusive**: one renderer at a time. Registering activates it while the
  * plugin is enabled; if several are registered, one from a plugin the user
- * installed wins over one bundled with bb, then the first in deterministic
- * slot order. A missing, disabled, or crashing replacement falls back to BB's
+ * installed wins over one bundled with hyperfide, then the first in deterministic
+ * slot order. A missing, disabled, or crashing replacement falls back to HYPERFIDE's
  * renderer, and a replacement can render `Original` to delegate
  * per call (behind its own setting, by language, by size — whatever it needs).
  */
@@ -2297,7 +2297,7 @@ export interface PluginSourceCodeRendererRegistration {
 }
 
 /**
- * Replace BB's diff renderer everywhere it renders supplied diff content — the
+ * Replace HYPERFIDE's diff renderer everywhere it renders supplied diff content — the
  * timeline file diffs, the environment diff panel's text bodies, and every
  * plugin that calls `experimental_Diff`. Exclusive, with the same activation,
  * fallback, and `Original` delegation rules as
@@ -2321,16 +2321,16 @@ export interface PluginDiffRendererRegistration {
 export interface ExperimentalComposerProps {}
 
 /**
- * Draw bb's composer input box: the editor, its @-mention and slash-command
+ * Draw hyperfide's composer input box: the editor, its @-mention and slash-command
  * menus, attachments, voice input, the `+` and send menus and the send and
- * stop controls. It renders everywhere bb shows a composer (a thread's
+ * stop controls. It renders everywhere hyperfide shows a composer (a thread's
  * composer, the New thread screen, queued and sent message editors). The
- * banners, approval cards and queued messages above the box stay bb's.
+ * banners, approval cards and queued messages above the box stay hyperfide's.
  *
  * Exclusive, like `experimental_threadList`: a composer from a plugin the
  * user installed wins over the bundled one, then the first in slot order.
  * Users choose under Settings → Appearance → Composer (`composer.provider`).
- * bb ships its own composer as the bundled Composer plugin; with no composer
+ * hyperfide ships its own composer as the bundled Composer plugin; with no composer
  * plugin enabled, no composer is shown.
  *
  * The host keeps the draft, uploads, history, pickers and submission; the
@@ -2365,7 +2365,7 @@ export interface ExperimentalComposerAction {
   shortcut: ExperimentalShortcutPresentation;
   /**
    * Run it without the checks `useComposer().submit()` applies: the box has
-   * already decided it may. A failed send shows bb's error toast and restores
+   * already decided it may. A failed send shows hyperfide's error toast and restores
    * the draft.
    */
   run(): void;
@@ -2377,7 +2377,7 @@ export interface ExperimentalComposerSubmission {
   disabled?: boolean;
   disabledReason?: string;
   label?: string;
-  icon?: BbIconName;
+  icon?: HyperfideIconName;
   title?: string;
   isRunning?: boolean;
   onStop?: () => void;
@@ -2505,7 +2505,7 @@ export interface ExperimentalComposerPendingUpload {
   file: File;
 }
 
-/** The draft's attachments and bb's upload pipeline for them. */
+/** The draft's attachments and hyperfide's upload pipeline for them. */
 export interface ExperimentalComposerAttachments {
   items?: readonly ComposerAttachment[];
   pendingUploads?: readonly ExperimentalComposerPendingUpload[];
@@ -2543,7 +2543,7 @@ export interface ExperimentalFailedVoiceRecording {
   retrying: boolean;
 }
 
-/** bb's voice input for the composer. */
+/** hyperfide's voice input for the composer. */
 export interface ExperimentalComposerVoice {
   state: "idle" | "recording" | "transcribing" | "error";
   delivery: ExperimentalVoiceDelivery;
@@ -2578,7 +2578,7 @@ export interface ExperimentalComposerPromptAction {
  * Everything the host passes to a composer box for one surface. Read and
  * write the draft with `useComposer().draft` and `replace`, and submit with
  * `useComposer().submit()`; inside a composer box they are bound to this box.
- * The box decides where bb's controls (`executionControls`, `handoff`,
+ * The box decides where hyperfide's controls (`executionControls`, `handoff`,
  * `compactBeforeSend`) go, or whether to show them.
  */
 export interface ExperimentalComposerInput {
@@ -2591,11 +2591,11 @@ export interface ExperimentalComposerInput {
   onEscape?(): void;
   placeholder?: string;
   autoFocus?: boolean;
-  /** bb's model, reasoning effort and mode controls for this composer. */
+  /** hyperfide's model, reasoning effort and mode controls for this composer. */
   executionControls?: ReactNode;
   /** The "Handoff to new thread" banner, while a handoff is active. */
   handoff?: ReactNode;
-  /** bb's chip offering to compact the context before sending. */
+  /** hyperfide's chip offering to compact the context before sending. */
   compactBeforeSend?: ReactNode;
   submission: ExperimentalComposerSubmission;
   /** The editor's minimum height, from the space the host leaves above the box. */
@@ -2628,7 +2628,7 @@ export interface ExperimentalComposerInput {
    * When to show the box's one-line compact form, with `placeholder`;
    * absent, never. `"always"`: the host collapsed the box, on compact
    * viewports or after `onCollapse`. `"narrow"`: only while the thread pane
-   * is short or its column narrow, which bb signals in CSS so it applies
+   * is short or its column narrow, which hyperfide signals in CSS so it applies
    * without a render; style that form under
    * `@container follow-up-composer style(--follow-up-composer-container-compact: true)`.
    * Report the form the box shows in `editor.state.layout`.
@@ -2668,7 +2668,7 @@ export interface ExperimentalComposerPopupContribution extends ExperimentalCompo
 }
 
 /**
- * Highlight rules to paint over the draft: bb's built-in highlights, other
+ * Highlight rules to paint over the draft: hyperfide's built-in highlights, other
  * plugins' `richText.effects` and `useComposer().setTextEffect` effects, in
  * paint order.
  */
@@ -2694,7 +2694,7 @@ export interface ExperimentalComposerEditorState {
  * What only the composer's editor can do, handed to
  * `experimental_ComposerRoot`: report its state, insert at its caret, take
  * focus, accept a dropped thread, run other plugins' popups and take voice
- * input. bb reaches the composer only through this.
+ * input. hyperfide reaches the composer only through this.
  */
 export interface ExperimentalComposerEditor {
   state: ExperimentalComposerEditorState;
@@ -2715,11 +2715,11 @@ export interface ExperimentalComposerEditor {
   openPopup(pluginId: string, popupId: string): boolean;
   closePopup(pluginId: string): boolean;
   isPopupOpen(): boolean;
-  /** How the composer takes bb's voice input; omit when it has none. */
+  /** How the composer takes hyperfide's voice input; omit when it has none. */
   voice?: ExperimentalComposerEditorVoice;
 }
 
-/** What a composer does with bb's voice input; recording and transcription stay bb's. */
+/** What a composer does with hyperfide's voice input; recording and transcription stay hyperfide's. */
 export interface ExperimentalComposerEditorVoice {
   /** The draft before the caret, sent with a recording to help transcription; null when empty. */
   textBeforeCursor(): string | null;
@@ -2742,13 +2742,13 @@ export interface ExperimentalComposerRootProps {
   menuOpen?: boolean;
 }
 
-/** The thread a bb thread link names, before it is resolved. */
+/** The thread a hyperfide-platform thread link names, before it is resolved. */
 export interface ExperimentalComposerThreadLinkTarget {
   threadId: string;
   projectId: string;
 }
 
-/** A thread a pasted bb thread link resolved to. */
+/** A thread a pasted hyperfide-platform thread link resolved to. */
 export interface ExperimentalComposerThreadLink extends ExperimentalComposerThreadLinkTarget {
   label: string;
 }
@@ -2765,21 +2765,21 @@ export interface ExperimentalShortcutPresentation {
   label: string;
 }
 
-/** A bb message copied to the clipboard, read back on paste. */
+/** A hyperfide message copied to the clipboard, read back on paste. */
 export interface ExperimentalMessageClipboardPayload {
   text: string;
   imageUrl: string;
 }
 
-/** bb thread links in the composer, from `experimental_useComposerRenderer().threadLinks`. */
+/** hyperfide-platform thread links in the composer, from `experimental_useComposerRenderer().threadLinks`. */
 export interface ExperimentalComposerThreadLinks {
   /**
-   * The thread `url` links to when it is a thread link of this bb, or null.
+   * The thread `url` links to when it is a thread link of this hyperfide, or null.
    * `projectId` is the project the link names, or the personal project for
    * a link without one; a thread outside that project is not this link.
    */
   parse(url: string): ExperimentalComposerThreadLinkTarget | null;
-  /** A linked thread from bb's caches, without a request. */
+  /** A linked thread from hyperfide's caches, without a request. */
   cached(threadId: string): ExperimentalComposerThreadLink | null;
   /**
    * Fetch linked threads in batches, calling `onBatch` as each batch lands
@@ -2793,11 +2793,11 @@ export interface ExperimentalComposerThreadLinks {
   ): Promise<void>;
 }
 
-/** bb messages copied to the clipboard, from `experimental_useComposerRenderer().clipboard`. */
+/** hyperfide messages copied to the clipboard, from `experimental_useComposerRenderer().clipboard`. */
 export interface ExperimentalComposerClipboard {
-  /** Read a bb message copied as HTML, or null. */
+  /** Read a hyperfide message copied as HTML, or null. */
   readMessage(html: string): ExperimentalMessageClipboardPayload | null;
-  /** Fetch a copied bb message's image as a file; rejects when it is unavailable. */
+  /** Fetch a copied hyperfide message's image as a file; rejects when it is unavailable. */
   readMessageImage(imageUrl: string, signal: AbortSignal): Promise<File>;
 }
 
@@ -2813,7 +2813,7 @@ export interface ExperimentalComposerRendererApi {
   readonly key: string;
   /** A plugin locked editing through `useComposer().setInputLock(true)`. */
   readonly inputLocked: boolean;
-  /** The shortcut of bb's "Focus composer" command, or null when unbound. */
+  /** The shortcut of hyperfide's "Focus composer" command, or null when unbound. */
   readonly focusComposerShortcut: ExperimentalShortcutPresentation | null;
   /**
    * Every highlight rule to paint over the draft, in paint order. The host
@@ -2823,9 +2823,9 @@ export interface ExperimentalComposerRendererApi {
   readonly threadLinks: ExperimentalComposerThreadLinks;
   readonly clipboard: ExperimentalComposerClipboard;
   /**
-   * Run bb's app keyboard command for `event`, if any; returns whether one
+   * Run hyperfide's app keyboard command for `event`, if any; returns whether one
    * ran. Call it from the editor's key handler before handling the key
-   * itself, skipping IME composition: editors swallow keys before bb's
+   * itself, skipping IME composition: editors swallow keys before hyperfide's
    * window-level shortcuts see them.
    */
   dispatchAppCommandKey(event: KeyboardEvent): boolean;
@@ -2834,7 +2834,7 @@ export interface ExperimentalComposerRendererApi {
   /**
    * Image URL for an attachment: the local preview while it is still
    * uploading, else the uploaded file, resolved through the project when
-   * given. bb releases local previews when attachments leave the draft.
+   * given. hyperfide releases local previews when attachments leave the draft.
    */
   attachmentSrc(path: string, projectId?: string): string;
 }
@@ -2883,7 +2883,7 @@ export type ExperimentalComposerMenuEntryProps =
       onSelected?(selection: ExperimentalComposerMenuSelection): void;
     };
 
-/** Props of `experimental_VoiceInputButton`: bb's button with a microphone warning tooltip. */
+/** Props of `experimental_VoiceInputButton`: hyperfide's button with a microphone warning tooltip. */
 export interface ExperimentalVoiceInputButtonProps extends ComponentPropsWithRef<"button"> {
   warning: string | null;
   variant?:
@@ -2905,7 +2905,7 @@ export interface ExperimentalVoiceRecordingBarProps {
   delivery: ExperimentalVoiceDelivery;
   stream: MediaStream | null;
   microphoneWarning: string | null;
-  submitIcon: BbIconName;
+  submitIcon: HyperfideIconName;
   onConfirm(): void;
   onSend(): void;
   onCancel(): void;
@@ -2943,9 +2943,9 @@ export interface ExperimentalImageLightboxProps {
   title: string;
 }
 
-/** How bb draws an @-mention pill, from `experimental_describePromptMention`. */
+/** How hyperfide draws an @-mention pill, from `experimental_describePromptMention`. */
 export interface ExperimentalPromptMentionPresentation {
-  /** bb's pill classes; add your own after them. */
+  /** hyperfide's pill classes; add your own after them. */
   className: string;
   /** The pill's tooltip, such as `src/app.ts` or `/review <files>`. */
   title: string;
@@ -2996,11 +2996,11 @@ export interface PluginMessageDirectiveRegistration {
  * Render fenced code blocks of chosen languages inside assistant (and nested
  * agent) message Markdown. ` ```ui ` matches a registration whose `languages`
  * include `"ui"`. Fences elsewhere (user messages, file previews, plugin
- * Markdown) keep BB's code block.
+ * Markdown) keep HYPERFIDE's code block.
  *
- * BB's code block also renders when two plugins claim the same language (BB
+ * HYPERFIDE's code block also renders when two plugins claim the same language (HYPERFIDE
  * logs a warning naming them), when the plugin is disabled, and for a fence
- * whose component throws. A throw affects that fence only, and BB tries the
+ * whose component throws. A throw affects that fence only, and HYPERFIDE tries the
  * component again when the fence's `code` or `status` changes.
  *
  * @experimental Audit before relying on this as a stable contract.
@@ -3032,7 +3032,7 @@ export interface ThreadChatMessageReference {
   /**
    * The event sequence that recorded this message: the `msg` value of a
    * message link and the seq that `sdk.threads.message` and
-   * `bb thread log --message` read. For a steer this is its request sequence,
+   * `hyperfide-platform thread log --message` read. For a steer this is its request sequence,
    * which can differ from the acceptance sequence in `sourceSeqEnd`.
    */
   experimental_messageSeq: number;
@@ -3040,7 +3040,7 @@ export interface ThreadChatMessageReference {
 
 /**
  * What a caller that is *not* itself a panel action passes to open one — a
- * `messageAction`'s `run`, or any component via `useBbNavigate()`. A panel
+ * `messageAction`'s `run`, or any component via `useHyperfideNavigate()`. A panel
  * action opening its own tab is already the target, so it passes the bare
  * {@link PluginPanelActionOpenOptions} instead.
  */
@@ -3062,7 +3062,7 @@ export interface PluginMessageActionContext {
   /**
    * Open one of this plugin's thread action tab components in the current
    * thread's side panel — the registration-callback equivalent of
-   * `useBbNavigate().openThreadPanel`.
+   * `useHyperfideNavigate().openThreadPanel`.
    *
    * Returns true when the host accepted the open; false when it declined —
    * `params` was not a JSON value, the action id names no thread action tab
@@ -3092,7 +3092,7 @@ export interface PluginMessageActionRegistration {
   id: string;
   /** Tooltip / menu label for the action. */
   title: string;
-  icon?: BbIconName;
+  icon?: HyperfideIconName;
   /**
    * Runs when the user activates the action. Errors (sync or async) are
    * contained and logged; they never break the timeline.
@@ -3131,9 +3131,9 @@ export interface PluginCommandShortcut {
 }
 
 /**
- * A command registered with `app.commands.register`, listed in bb's quick
+ * A command registered with `app.commands.register`, listed in hyperfide's quick
  * palette (Mod+Shift+P) under the plugin's name
- * beside bb's own commands. Host-rendered: the plugin supplies a title and
+ * beside hyperfide's own commands. Host-rendered: the plugin supplies a title and
  * `run`, and the host owns matching, ordering, and recency.
  */
 export interface PluginCommandRegistration {
@@ -3157,10 +3157,10 @@ export interface PluginCommandRegistration {
 }
 
 /**
- * A command handled by a composer through the same path as bb's own "Focus
+ * A command handled by a composer through the same path as hyperfide's own "Focus
  * composer" command. Listed, rebindable and namespaced like any other plugin
  * command. The composer holding the caret runs it; with the caret outside every
- * composer, the focused pane's primary composer does. Like bb's composer
+ * composer, the focused pane's primary composer does. Like hyperfide's composer
  * commands, its shortcut is inactive while a terminal, browser tab or modal has
  * focus, and the palette lists it only when some composer would run it.
  */
@@ -3178,7 +3178,7 @@ export interface ExperimentalComposerCommandRegistration {
   run(context: { composer: PluginComposerApi }): void | Promise<void>;
 }
 
-/** Registers commands for bb's command palette. */
+/** Registers commands for hyperfide's command palette. */
 export interface PluginAppCommands {
   /** Register a command. IDs are unique within this plugin, including legacy slot registrations. */
   register(registration: PluginCommandRegistration): void;
@@ -3201,7 +3201,7 @@ export interface PluginAppCommands {
 export interface PluginProviderIconRegistration {
   providerKind: "agent" | "machine" | "environment";
   /**
-   * The provider this mark is for — the id bb knows the provider by (the
+   * The provider this mark is for — the id hyperfide knows the provider by (the
    * provider declaration's id, e.g. `codex` or `acp-cursor`), not the plugin
    * id. Letters, digits, `-`, `_`.
    */
@@ -3327,7 +3327,7 @@ export type PluginEnvironmentProviderInputsChange =
 /**
  * Supply the control for one of this plugin's environment providers that
  * declared `inputs` (registered server-side via
- * `bb.experimental_environments.register`). The New Thread environment picker
+ * `hyperfide.experimental_environments.register`). The New Thread environment picker
  * renders the component beside the picker while that provider is selected and
  * submits the component's latest `onChange` value as the selection's `inputs`.
  * A provider whose schema rejects empty inputs cannot be submitted without a
@@ -3358,7 +3358,7 @@ export type PluginMachineProviderInputsChange =
 
 /**
  * Supply the inputs control for one machine provider registered server-side
- * through `bb.experimental_machines.register`.
+ * through `hyperfide.experimental_machines.register`.
  */
 export interface PluginMachineProviderInputsRegistration {
   /** The machine provider id this control supplies inputs for. */
@@ -3449,7 +3449,7 @@ export interface PluginAppSlots {
   ): void;
   fileOpener(registration: PluginFileOpenerRegistration): void;
   /**
-   * Replace BB's source-code renderer (see
+   * Replace HYPERFIDE's source-code renderer (see
    * {@link PluginSourceCodeRendererRegistration}). Experimental: see
    * docs/api_to_audit.md.
    */
@@ -3457,13 +3457,13 @@ export interface PluginAppSlots {
     registration: PluginSourceCodeRendererRegistration,
   ): void;
   /**
-   * Replace BB's diff renderer (see
+   * Replace HYPERFIDE's diff renderer (see
    * {@link PluginDiffRendererRegistration}). Experimental: see
    * docs/api_to_audit.md.
    */
   experimental_diffRenderer(registration: PluginDiffRendererRegistration): void;
   /**
-   * Replace the input box of bb's thread composer (see
+   * Replace the input box of hyperfide's thread composer (see
    * {@link ExperimentalComposerRegistration}). Experimental: see
    * docs/api_to_audit.md.
    */
@@ -3526,7 +3526,7 @@ export interface PluginAppComposer {
   ): void;
 }
 
-/** Stable lifecycle values for one content-script instance in one bb client. */
+/** Stable lifecycle values for one content-script instance in one hyperfide client. */
 export interface PluginContentScriptContext {
   /** The id of the plugin that owns this script. */
   readonly pluginId: string;
@@ -3556,13 +3556,13 @@ export type PluginContentScriptDisposer = () => void | Promise<void>;
 
 /**
  * Trusted same-origin JavaScript/TypeScript mounted once per active frontend
- * generation in each bb app window or browser tab.
+ * generation in each hyperfide app window or browser tab.
  */
 export interface PluginContentScriptRegistration {
   /** Unique within the plugin; letters, digits, `-`, `_`. */
   id: string;
   /**
-   * Install behavior into the bb app shell. The host awaits a returned
+   * Install behavior into the hyperfide app shell. The host awaits a returned
    * promise, retains the plugin's imported frontend stylesheet for this
    * generation, contains failures, and calls the returned disposer exactly
    * once. Styling or decorating existing app-shell DOM belongs here rather
@@ -3616,7 +3616,7 @@ export interface ExperimentalProviderIconProps {
 
 /**
  * An app icon registered by a plugin. The registry is app-wide: a registered
- * name is usable wherever a `BbIconName` is — `experimental_Icon`, and every
+ * name is usable wherever a `HyperfideIconName` is — `experimental_Icon`, and every
  * host-rendered surface that takes one — by this plugin or any other.
  */
 export interface ExperimentalIconRegistration {
@@ -3656,7 +3656,7 @@ export type PluginAppSetup = (app: PluginAppBuilder) => void;
  */
 export interface PluginAppDefinition {
   /** Brand the host checks before interpreting a bundle's default export. */
-  readonly __bbPluginApp: true;
+  readonly __hyperfidePluginApp: true;
   readonly setup: PluginAppSetup;
 }
 
@@ -3668,7 +3668,7 @@ export interface PluginRpcClient<
   Contract extends PluginRpcContract = PluginRpcContract,
 > {
   /**
-   * Invoke one of the plugin's `bb.rpc` methods (POST
+   * Invoke one of the plugin's `hyperfide.rpc` methods (POST
    * /api/v1/plugins/&lt;id&gt;/rpc/&lt;method&gt;). Resolves with the method's
    * inferred output; rejects with an `Error` carrying the server's message,
    * stable `code`, and validation `issues` when present.
@@ -3688,7 +3688,7 @@ export interface PluginSettingsState {
   isLoading: boolean;
 }
 
-/** State of the app's shared realtime connection to the bb server. */
+/** State of the app's shared realtime connection to the hyperfide-platform server. */
 export type PluginRealtimeConnectionState =
   | "connecting"
   | "connected"
@@ -3743,8 +3743,8 @@ export interface ExperimentalComposerPopupRegistration {
 export interface ComposerPlusMenuItem {
   id: string;
   label: string;
-  /** Takes precedence over the plugin's `bb.branding.icon`, which is drawn when this is omitted. */
-  icon?: BbIconName;
+  /** Takes precedence over the plugin's `hyperfide.branding.icon`, which is drawn when this is omitted. */
+  icon?: HyperfideIconName;
   /** Accessible description for the host-rendered row. */
   description?: string;
   disabled?: boolean | ((composer: PluginComposerApi) => boolean);
@@ -3759,8 +3759,8 @@ export interface ComposerPlusMenuItem {
 export interface ComposerSendMenuItem {
   id: string;
   label: string;
-  /** Takes precedence over the plugin's `bb.branding.icon`, which is drawn when this is omitted. */
-  icon?: BbIconName;
+  /** Takes precedence over the plugin's `hyperfide.branding.icon`, which is drawn when this is omitted. */
+  icon?: HyperfideIconName;
   /** Accessible description for the host-rendered row. */
   description?: string;
   disabled?: boolean | ((composer: PluginComposerApi) => boolean);
@@ -3825,7 +3825,7 @@ export type ComposerAttachment = {
   path: string;
   name: string;
   mimeType?: string;
-  /** Exact size in bytes; omit when unknown. Zero is treated as unknown. A wrong nonzero size can make the send fail when bb stages a file. */
+  /** Exact size in bytes; omit when unknown. Zero is treated as unknown. A wrong nonzero size can make the send fail when hyperfide stages a file. */
   sizeBytes?: number;
 } & (
   | {
@@ -3933,9 +3933,9 @@ export interface PluginComposerTextEffect {
 export interface PluginComposerThreadRowStatus {
   /**
    * Always drawn as given: unlike the plugin-badged surfaces, this one has no
-   * preference for the plugin's own `bb.branding.icon`.
+   * preference for the plugin's own `hyperfide.branding.icon`.
    */
-  icon: BbIconName;
+  icon: HyperfideIconName;
   /** Accessible label for the status glyph. */
   label: string;
   /**
@@ -3948,7 +3948,7 @@ export interface PluginComposerThreadRowStatus {
 
 /** An @-mention pill bound to one of the calling plugin's mention providers. */
 export interface PluginComposerMention {
-  /** Mention provider id registered by THIS plugin via `bb.ui.registerMentionProvider`. */
+  /** Mention provider id registered by THIS plugin via `hyperfide.ui.registerMentionProvider`. */
   provider: string;
   /** Item id your provider's `resolve` will receive at send time. */
   id: string;
@@ -4110,7 +4110,7 @@ export interface PluginComposerApi {
    * and sent-message editors reject.
    *
    * Every option combines with the others. `experimental_mode` uses the
-   * names `bb.sdk.threads.send` uses. Without it, submit does what Enter
+   * names `hyperfide.sdk.threads.send` uses. Without it, submit does what Enter
    * does for this user, which may be to queue or to steer.
    * `"queue-if-active"` queues behind the running turn, or starts a turn.
    * `"steer-if-active"` adds the message to the running turn. Where nothing
@@ -4124,7 +4124,7 @@ export interface PluginComposerApi {
    * opaque data.
    *
    * Resolves once the composer has accepted the submission and cleared the
-   * draft. Failures of the underlying request show bb's usual error toast
+   * draft. Failures of the underlying request show hyperfide's usual error toast
    * and restore the draft, exactly as an interactive failure does, and then
    * reject with the toast's message.
    */
@@ -4192,10 +4192,10 @@ export interface PluginComposerApi {
 /**
  * Current picker values in `selection`, input for `setSelection`, and the shape it resolves with. Field names match `NewThreadRequest` and the `default*` props of
  * `experimental_NewThreadComposer`, so one routed decision can feed the
- * composer, the embedded composer and `bb.sdk.threads.spawn` alike.
+ * composer, the embedded composer and `hyperfide.sdk.threads.spawn` alike.
  */
 export interface ComposerSelection {
-  /** New-thread composers only. BB's personal-project id means "Don't work in a project". */
+  /** New-thread composers only. HYPERFIDE's personal-project id means "Don't work in a project". */
   projectId?: string;
   /**
    * New-thread composers only. `{ type: "project-default" }` and a `host`
@@ -4257,7 +4257,7 @@ export interface ThreadChatMessageAction {
   id: string;
   /** Tooltip / menu label for the action. */
   title: string;
-  icon?: BbIconName;
+  icon?: HyperfideIconName;
   /**
    * Message roles the action applies to. Omitted = both user and assistant
    * messages.
@@ -4273,7 +4273,7 @@ export interface ThreadChatMessageAction {
 /**
  * Props of the host-owned `ThreadChat` component — one thread's chat
  * (timeline, and for the composer variants the full send/queue/draft
- * engine), rendered by the BB app inside a plugin slot. This is the
+ * engine), rendered by the HYPERFIDE app inside a plugin slot. This is the
  * deliberate exception to the no-host-components rule (§5.5): a stable
  * product capability, not a UI kit. Versioned additive like slot props;
  * internal timeline rows, query hooks, and prompt-box configuration are
@@ -4321,7 +4321,7 @@ export interface ThreadChatProps {
  * The controlled execution selection resolved by the picker.
  *
  * Deliberately a single concrete shape, not a union: this value exists to be
- * forwarded verbatim to `bb.sdk.threads.spawn`, so it must name a real
+ * forwarded verbatim to `hyperfide.sdk.threads.spawn`, so it must name a real
  * provider and model.
  */
 export interface ExperimentalProviderModelPickerValue {
@@ -4344,7 +4344,7 @@ export type ExperimentalProviderModelPickerRouting =
  * Props of the host-owned `experimental_ProviderModelPicker` component.
  * Provider switches emit one coherent value after the live catalog resolves
  * its default model, reasoning level, and service-tier capability. Failed or
- * empty catalogs leave `value` unchanged. Omit `routing` to use bb's
+ * empty catalogs leave `value` unchanged. Omit `routing` to use hyperfide's
  * primary-machine routing. Environment routing is required when a provider's
  * model catalog depends on the selected workspace.
  */
@@ -4363,7 +4363,7 @@ export interface ExperimentalProviderModelPickerProps {
 }
 
 /**
- * Props of the host-owned `experimental_BranchPicker` component — bb's branch
+ * Props of the host-owned `experimental_BranchPicker` component — hyperfide's branch
  * picker bundled with its branch-options loading for the given host and
  * project. The host owns fetching, searching, and refreshing the branch list;
  * the caller owns the selection and its meaning.
@@ -4425,7 +4425,7 @@ export interface CheckoutState {
   operation: WorkspaceGitOperation;
 }
 
-/** Props of BB's controlled, host-resolved permission-mode picker. */
+/** Props of HYPERFIDE's controlled, host-resolved permission-mode picker. */
 export interface ExperimentalPermissionModePickerProps {
   /** Provider whose supported modes determine the available choices. */
   providerId: string;
@@ -4447,10 +4447,10 @@ export interface ExperimentalPermissionModePickerProps {
 /**
  * Every selection the composer resolved, JSON-serializable so a plugin can
  * forward it to its own backend rpc verbatim and hand it straight to
- * `bb.sdk.threads.spawn`.
+ * `hyperfide.sdk.threads.spawn`.
  *
  * The split is deliberate: the composer owns *user selections*, the plugin
- * owns *filing and attribution*. `bb.sdk.threads.spawn` auto-fills
+ * owns *filing and attribution*. `hyperfide.sdk.threads.spawn` auto-fills
  * `origin: "plugin"` and `originPluginId`, so a thread created this way stays
  * attributed to the plugin — which it would not be if the component created
  * the thread itself. The plugin adds `sectionId`, `parentThreadId`, `title`,
@@ -4459,11 +4459,11 @@ export interface ExperimentalPermissionModePickerProps {
  */
 export interface NewThreadRequest {
   /**
-   * The selected project id. Choosing "Don't work in a project" submits BB's
+   * The selected project id. Choosing "Don't work in a project" submits HYPERFIDE's
    * personal-project id (not `null`) together with a `personal` workspace
    * environment. Forward those fields unchanged to `threads.spawn`; if the
    * plugin needs project metadata, request it from the plugin backend with
-   * `bb.sdk.projects.list({ includePersonal: true })`.
+   * `hyperfide.sdk.projects.list({ includePersonal: true })`.
    */
   projectId: string;
   providerId: string;
@@ -4497,11 +4497,11 @@ export interface NewThreadRequest {
 }
 
 /**
- * Props of the host-owned `experimental_NewThreadComposer` component — bb's
+ * Props of the host-owned `experimental_NewThreadComposer` component — hyperfide's
  * full new-thread compose surface (prompt editor with @-mentions and expand,
  * attachments, provider/model/reasoning picker, voice, submit, and the row
  * beneath with project, environment, branch-from, and permission mode),
- * rendered by the BB app inside a plugin slot.
+ * rendered by the HYPERFIDE app inside a plugin slot.
  *
  * It is the create-side counterpart to `ThreadChat`: same deliberate
  * exception to the no-host-components rule (§5.5), same additive versioning.
@@ -4608,7 +4608,7 @@ export interface NewThreadComposerProps {
 }
 
 /**
- * Props of the host-owned `Markdown` component — bb's chat message renderer
+ * Props of the host-owned `Markdown` component — hyperfide's chat message renderer
  * (the same typography, spacing, and code styling as timeline messages).
  * Use it wherever plugin UI quotes or previews message content so it reads
  * like the rest of the chat. Like `ThreadChat`, this is a stable product
@@ -4627,7 +4627,7 @@ export interface MarkdownProps {
 }
 
 /**
- * Props for BB's semantic URL link. The host owns ordinary activation while
+ * Props for HYPERFIDE's semantic URL link. The host owns ordinary activation while
  * retaining browser-owned anchor behavior for app routes, modifiers, explicit
  * targets, copying, and unsupported schemes. New top-level targets preserve
  * supplied `rel` tokens and receive safe defaults unless `opener` is explicit.
@@ -4651,14 +4651,14 @@ export type ExperimentalFileLocation =
   | { kind: "line"; line: number; column: number | null }
   | { kind: "range"; startLine: number; endLine: number };
 
-/** Options shared by BB's preview and preferred-external file intents. */
+/** Options shared by HYPERFIDE's preview and preferred-external file intents. */
 export interface ExperimentalFileOpenOptions {
   target: ExperimentalLiveFileTarget;
   location: ExperimentalFileLocation | null;
 }
 
 /**
- * Props for BB's host-rendered semantic file link. Valid targets receive a
+ * Props for HYPERFIDE's host-rendered semantic file link. Valid targets receive a
  * scheme-safe anchor href; traversal paths, ill-formed Unicode, and other
  * malformed runtime targets remain inert.
  */
@@ -4744,14 +4744,14 @@ export interface ExperimentalAppPanel {
 }
 
 /** Current app selection, derived from the route. */
-export interface BbContext {
+export interface HyperfideContext {
   projectId: string | null;
   threadId: string | null;
 }
 
-export interface BbNavigate {
+export interface HyperfideNavigate {
   /**
-   * Open a thread. `split: true` applies bb's split placement rules (a right
+   * Open a thread. `split: true` applies hyperfide's split placement rules (a right
    * split by default, focus when already open, replace at the pane cap) and
    * falls back to plain navigation where splits are off. Opening also expands
    * the thread's conversation if the side panel had collapsed it.
@@ -4796,19 +4796,19 @@ export interface BbNavigate {
    */
   openThreadPanel(options: PluginTargetedPanelActionOpenOptions): boolean;
   /**
-   * Open an HTTP(S) URL using this client's BB browser preference. Returns
+   * Open an HTTP(S) URL using this client's HYPERFIDE browser preference. Returns
    * false for schemes the host does not own. Experimental: see
    * docs/api_to_audit.md.
    */
   openUrl(url: string): boolean;
-  /** Open a live file in this surface's shared BB preview panel. */
+  /** Open a live file in this surface's shared HYPERFIDE preview panel. */
   experimental_openFilePreview(options: ExperimentalFileOpenOptions): boolean;
   /** Open a live file in this client's preferred external file target. */
   experimental_openFileExternally(
     options: ExperimentalFileOpenOptions,
   ): boolean;
   /**
-   * Show a terminal session in this surface's BB terminal panel: select its
+   * Show a terminal session in this surface's HYPERFIDE terminal panel: select its
    * tab, adding one when needed, and reveal the panel. Create the session
    * first with `useSdk().terminals.create`, whose scope chooses the thread,
    * environment, or host directory it runs in. A thread surface accepts only
@@ -4827,7 +4827,7 @@ export interface BbNavigate {
 //
 // Components are deliberately NOT part of this surface (removed 2026-07-03,
 // plugin design §5.5): plugins vendor shadcn-style component source from the
-// BB registry (`npx shadcn add @hyperfide/<name>`) and own it. `bb plugin build`
+// HYPERFIDE registry (`npx shadcn add @hyperfide/<name>`) and own it. `hyperfide-platform plugin build`
 // shims react, the shared-singleton packages (portal radix families,
 // sonner, vaul, @pierre/diffs) and the host-resident libraries every plugin
 // would otherwise duplicate (clsx, tailwind-merge, class-variance-authority,
@@ -4837,9 +4837,9 @@ export interface BbNavigate {
 // ---------------------------------------------------------------------------
 
 /**
- * BB live reads are fresh for two seconds, with no polling when freshness expires.
- * Focus does not refetch while BB's realtime connection is healthy. While
- * disconnected, focus/browser-online events recheck stale active reads; BB
+ * HYPERFIDE live reads are fresh for two seconds, with no polling when freshness expires.
+ * Focus does not refetch while HYPERFIDE's realtime connection is healthy. While
+ * disconnected, focus/browser-online events recheck stale active reads; HYPERFIDE
  * reconnect invalidates all plugin reads regardless of freshness. Page hiding
  * cancels active attempts; resuming restarts those cancelled reads.
  * Invalidations refresh immediately. Network/abort failures retry twice at
@@ -4942,21 +4942,21 @@ export interface ExperimentalRpcMutationState<
 }
 
 /**
- * Everything `@hyperfide/plugin-sdk/app` resolves to at runtime. The BB app builds
- * the real implementation and `satisfies` this interface; `bb plugin build`
- * shims the specifier to that object on `globalThis.__bbPluginRuntime`.
+ * Everything `@hyperfide/plugin-sdk/app` resolves to at runtime. The HYPERFIDE app builds
+ * the real implementation and `satisfies` this interface; `hyperfide-platform plugin build`
+ * shims the specifier to that object on `globalThis.__hyperfidePluginRuntime`.
  */
 export interface PluginSdkApp {
   experimental_PluginRpcCallError: typeof experimental_PluginRpcCallError;
   experimental_useRpcRefresh(): { refresh(): void; isRefreshing: boolean };
-  /** Read tagged plugin data through BB's shared query cache and realtime lifecycle. */
+  /** Read tagged plugin data through HYPERFIDE's shared query cache and realtime lifecycle. */
   experimental_useRpcQuery<
     Contract extends PluginRpcContract,
     Method extends keyof Contract & string,
   >(
     options: ExperimentalRpcQueryOptions<Contract, Method>,
   ): ExperimentalRpcQueryState<PluginRpcResult<Contract[Method]>>;
-  /** Call a mutating RPC through BB's query client; pending until the server acknowledges the write; matched reads refresh in the background. */
+  /** Call a mutating RPC through HYPERFIDE's query client; pending until the server acknowledges the write; matched reads refresh in the background. */
   experimental_useRpcMutation<
     Contract extends PluginRpcContract,
     Method extends keyof Contract & string,
@@ -5005,24 +5005,24 @@ export interface PluginSdkApp {
    */
   useRealtimeConnectionState(): PluginRealtimeConnectionState;
   useSettings(): PluginSettingsState;
-  useBbContext(): BbContext;
+  useHyperfideContext(): HyperfideContext;
   /**
    * The id of the plugin that owns the calling component: the same id
-   * `bb.pluginId` reports on the server, derived from the package name. Key
-   * state the plugin keeps outside bb's per-plugin storage with it, such as
+   * `hyperfide.pluginId` reports on the server, derived from the package name. Key
+   * state the plugin keeps outside hyperfide's per-plugin storage with it, such as
    * localStorage entries and log prefixes, so a copy of the plugin published
    * under another name does not collide with the original. Experimental: see
    * docs/api_to_audit.md.
    */
   experimental_usePluginId(): string;
   /**
-   * The answer shortcuts bb binds while a pending interaction is open. Inside
+   * The answer shortcuts hyperfide binds while a pending interaction is open. Inside
    * a `pendingInteraction` component the form shows each option's shortcut and
    * registers a handler that chooses the option; outside one, the map is empty
    * and handlers never run. Experimental: see docs/api_to_audit.md.
    */
   experimental_useQuestionFormHost(): ExperimentalQuestionFormHost;
-  useBbNavigate(): BbNavigate;
+  useHyperfideNavigate(): HyperfideNavigate;
   /** Select one of this plugin's eligible fixed tabs on the current surface. */
   experimental_useAppPanel(): ExperimentalAppPanel;
   /** Read or clear the owning tab's validated, session-scoped target. */
@@ -5071,15 +5071,15 @@ export interface PluginSdkApp {
    * docs/api_to_audit.md.
    *
    * @internal Superseded by `experimental_useThreadActions`, the thread
-   * action components, `useSdk().threads`, and `useBbNavigate()`; kept for
+   * action components, `useSdk().threads`, and `useHyperfideNavigate()`; kept for
    * plugins built against older SDKs.
    */
   experimental_useSidebarThreadActions(): PluginSidebarThreadActions;
   /**
-   * Archive an environment's active thread trees the way bb's own list does:
+   * Archive an environment's active thread trees the way hyperfide's own list does:
    * optimistic removal, closing their split panes, leaving a route that shows
    * one of them, and one Undo toast that restores them and the route. The
-   * promise rejects after bb has shown an error toast. Experimental: see
+   * promise rejects after hyperfide has shown an error toast. Experimental: see
    * docs/api_to_audit.md.
    */
   experimental_useArchiveEnvironmentThreads(): (
@@ -5087,7 +5087,7 @@ export interface PluginSdkApp {
   ) => Promise<void>;
   /**
    * Every thread action for one thread, in menu order (see
-   * {@link PluginThreadAction} for grouping): bb's own registrations first,
+   * {@link PluginThreadAction} for grouping): hyperfide's own registrations first,
    * then plugins' in registration order. Registrations' `useData` hooks run
    * once for the app, so calling this per sidebar row costs one store
    * subscription and a pure `item` call per registration. Pass `keys` for a
@@ -5104,20 +5104,20 @@ export interface PluginSdkApp {
    */
   experimental_useThreadActionRegistrations(): readonly PluginThreadActionRegistrationInfo[];
   /**
-   * bb's thread menu behind a trigger (see
+   * hyperfide's thread menu behind a trigger (see
    * {@link PluginThreadActionsMenuProps}): the same items, order, choice
    * submenus and compact drawer as the thread header's menu. Experimental: see
    * docs/api_to_audit.md.
    */
   experimental_ThreadActionsMenu: ComponentType<PluginThreadActionsMenuProps>;
   /**
-   * bb's thread menu on right-click or long-press (see
+   * hyperfide's thread menu on right-click or long-press (see
    * {@link PluginThreadActionsContextMenuProps}). Experimental: see
    * docs/api_to_audit.md.
    */
   experimental_ThreadActionsContextMenu: ComponentType<PluginThreadActionsContextMenuProps>;
   /**
-   * bb's thread menu groups, for a registration that joins one:
+   * hyperfide's thread menu groups, for a registration that joins one:
    * `open` (split, copy link, new thread in environment), `state` (pin,
    * read, notifications), `organize` (rename, move), `settings`, and
    * `lifecycle` (archive, delete). Experimental: see docs/api_to_audit.md.
@@ -5130,7 +5130,7 @@ export interface PluginSdkApp {
     readonly lifecycle: "4_lifecycle";
   };
   /**
-   * bb's thread Info row groups, for an `experimental_threadInfoRow` that
+   * hyperfide's thread Info row groups, for an `experimental_threadInfoRow` that
    * joins one: `thread` (Parent, Notify parent, Project), `environment`
    * (Environment, Machine, provisioning failure, Directory), `git` (Branch,
    * Merge base, Git status), `pullRequest`, and `lifecycle` (Archived).
@@ -5144,7 +5144,7 @@ export interface PluginSdkApp {
     readonly lifecycle: "5_lifecycle";
   };
   /**
-   * bb's thread Info section groups, for an `experimental_threadInfoSection`
+   * hyperfide's thread Info section groups, for an `experimental_threadInfoSection`
    * that joins one: `related` (Child threads, Forks), `changes` (Commits,
    * Uncommitted files), and `storage` (Thread storage). Experimental: see
    * docs/api_to_audit.md.
@@ -5166,7 +5166,7 @@ export interface PluginSdkApp {
    * The sidebar navigation items in the user's saved order, the active item,
    * and the host actions that activate, hide, reorder, and customize them
    * (see {@link ExperimentalSidebarNavigationState}). One model shared by
-   * every navigation provider, bb's included. Items keep their identity while
+   * every navigation provider, hyperfide's included. Items keep their identity while
    * unchanged. Outside the sidebar it returns no items and actions that do
    * nothing. Experimental: see docs/api_to_audit.md.
    */
@@ -5181,7 +5181,7 @@ export interface PluginSdkApp {
     options?: ExperimentalSidebarNavigationSplitOptions,
   ): ExperimentalSidebarNavigationSplit;
   /**
-   * bb's artwork for a navigation item's icon: bb's glyphs for its own items,
+   * hyperfide's artwork for a navigation item's icon: hyperfide's glyphs for its own items,
    * and the panel's explicit icon, falling back to plugin branding, for
    * plugin panels. Experimental: see docs/api_to_audit.md.
    */
@@ -5201,7 +5201,7 @@ export interface PluginSdkApp {
   useSidebarThreadDraftIds(): ReadonlySet<string>;
   /**
    * The row status another plugin set on this thread (see
-   * {@link PluginSidebarThreadRowStatus}), or null. Draw it where bb's row
+   * {@link PluginSidebarThreadRowStatus}), or null. Draw it where hyperfide's row
    * would: in place of the draft glyph, with its `tone`.
    */
   useSidebarThreadRowStatus(
@@ -5224,7 +5224,7 @@ export interface PluginSdkApp {
   /**
    * The jump shortcut assigned to this row while the app command modifier is
    * held (see {@link PluginSidebarThreadShortcut}), or null the rest of the
-   * time. bb assigns keys in DOM order to rows carrying the
+   * time. hyperfide assigns keys in DOM order to rows carrying the
    * `data-sidebar-thread-shortcut-target` attribute, so a row that omits it
    * always reads null.
    */
@@ -5233,46 +5233,46 @@ export interface PluginSdkApp {
   ): PluginSidebarThreadShortcut | null;
   /**
    * A thread's display title with `@project:`, `@section:`, and `@thread:`
-   * mentions rendered as bb's chips (see {@link PluginThreadTitleProps}).
+   * mentions rendered as hyperfide's chips (see {@link PluginThreadTitleProps}).
    * Inline content; wrap it in your own truncating container. The plain-text
    * form is `displayTitle` on the thread.
    */
   ThreadTitle: ComponentType<PluginThreadTitleProps>;
   /**
-   * bb's thread status glyph (see {@link PluginThreadStatusGlyphProps}): the
-   * same icons, colors, and accessible labels as bb's own thread lists.
+   * hyperfide's thread status glyph (see {@link PluginThreadStatusGlyphProps}): the
+   * same icons, colors, and accessible labels as hyperfide's own thread lists.
    * Experimental: see docs/api_to_audit.md.
    */
   experimental_ThreadStatusGlyph: ComponentType<PluginThreadStatusGlyphProps>;
   /**
-   * bb's environment provider catalog (see
+   * hyperfide's environment provider catalog (see
    * {@link PluginEnvironmentProvidersState}), the directory a thread's
    * `environment.providerId` points into. Reads the host's own cached
    * catalog, so it costs no extra request.
    */
   useEnvironmentProviders(): PluginEnvironmentProvidersState;
   /**
-   * bb's public API client bound to this plugin (see
-   * {@link PluginBrowserBbSdk}). The first choice for reading and mutating
-   * bb state from a frontend: creating or renaming thread sections, moving a
+   * hyperfide's public API client bound to this plugin (see
+   * {@link PluginBrowserHyperfideSdk}). The first choice for reading and mutating
+   * hyperfide state from a frontend: creating or renaming thread sections, moving a
    * thread into one, pinning, unarchiving, spawning a thread. The host's own
-   * caches refresh over realtime, so a mutation made here shows up in bb's
+   * caches refresh over realtime, so a mutation made here shows up in hyperfide's
    * surfaces without further work. Reserve `useRpc` for work that needs your
    * server: secrets, host files, or your plugin's own storage.
    *
    * Thread title, section, parent, pin, and unpin writes are optimistic in
-   * bb's surfaces. Synchronous calls share one cache transaction; writes to
+   * hyperfide's surfaces. Synchronous calls share one cache transaction; writes to
    * the same thread execute in order, so unpin and move can be submitted
    * together. Unarchive, environment-group archive, project/machine/environment
    * renames, and project/section removal are also optimistic and roll back on
    * failure. Created sections enter the cache when the server assigns their id.
-   * Navigation belongs to `useBbNavigate()`; archive and delete
+   * Navigation belongs to `useHyperfideNavigate()`; archive and delete
    * confirmation to the thread action menus.
    *
    * The client is stable for the plugin's lifetime, so it is safe in effect
    * and callback dependency lists.
    */
-  useSdk(): PluginBrowserBbSdk;
+  useSdk(): PluginBrowserHyperfideSdk;
   /**
    * The provider directory (see {@link PluginProvidersState}). Reads the
    * host's own cached provider roster, so a plugin that shows a thread's
@@ -5283,14 +5283,14 @@ export interface PluginSdkApp {
   /**
    * The active code theme as a VS Code theme file (see
    * {@link PluginCodeThemeState}), for a plugin that renders code with an
-   * engine of its own and needs BB's palette to reach it. Experimental: see
+   * engine of its own and needs HYPERFIDE's palette to reach it. Experimental: see
    * docs/api_to_audit.md.
    */
   experimental_useCodeTheme(): PluginCodeThemeState;
   /**
-   * Writes content to the system clipboard through bb's own clipboard writer,
-   * the one bb's copy actions use. A plain function, callable from
-   * components, content scripts, and command callbacks. bb Desktop writes
+   * Writes content to the system clipboard through hyperfide's own clipboard writer,
+   * the one hyperfide's copy actions use. A plain function, callable from
+   * components, content scripts, and command callbacks. hyperfide Desktop writes
    * through the native clipboard, so copies work without window focus or a
    * secure origin; browsers use the Clipboard API, then the copy command.
    * Resolves true once the clipboard holds the content and false when every
@@ -5301,15 +5301,15 @@ export interface PluginSdkApp {
     content: ExperimentalClipboardContent,
   ): Promise<boolean>;
   /**
-   * Saves a file through bb's own download path, the one bb's file preview
-   * and attachment downloads use. Browsers and bb Desktop start an ordinary
-   * download. In the bb iOS app, where a download link would otherwise
+   * Saves a file through hyperfide's own download path, the one hyperfide's file preview
+   * and attachment downloads use. Browsers and hyperfide Desktop start an ordinary
+   * download. In the hyperfide iOS app, where a download link would otherwise
    * replace the app, the file goes to the system share sheet (Save to Files,
    * AirDrop, other apps). A plain function: call it from a click handler and
    * keep a real `href` on the link for copy-link and accessibility. Resolves
    * with `started` or `failed` and never rejects. Completion and share-sheet
    * cancellation are not reported. The native shell shows download errors;
-   * bb shows an error toast when the download cannot start.
+   * hyperfide shows an error toast when the download cannot start.
    * Experimental: see docs/api_to_audit.md.
    */
   experimental_saveFile(
@@ -5327,7 +5327,7 @@ export interface PluginSdkApp {
    */
   Markdown: ComponentType<MarkdownProps>;
   /**
-   * A real anchor whose ordinary HTTP(S) activation uses BB's URL preference.
+   * A real anchor whose ordinary HTTP(S) activation uses HYPERFIDE's URL preference.
    * Experimental: see docs/api_to_audit.md.
    */
   UrlLink: ComponentType<UrlLinkProps>;
@@ -5340,27 +5340,27 @@ export interface PluginSdkApp {
    */
   experimental_NewThreadComposer: ComponentType<NewThreadComposerProps>;
   /**
-   * BB's textarea with voice input (see
+   * HYPERFIDE's textarea with voice input (see
    * {@link ExperimentalVoiceInputTextareaProps}): the same microphone
    * preference, transcription service, and error handling as the prompt box.
    * Experimental: see docs/api_to_audit.md.
    */
   experimental_VoiceInputTextarea: ComponentType<ExperimentalVoiceInputTextareaProps>;
   /**
-   * BB's controlled provider/model/reasoning picker. Provider changes emit
+   * HYPERFIDE's controlled provider/model/reasoning picker. Provider changes emit
    * only after the new provider's verified defaults and capabilities resolve,
    * so `onChange` always receives one coherent value. Experimental: see
    * docs/api_to_audit.md.
    */
   experimental_ProviderModelPicker: ComponentType<ExperimentalProviderModelPickerProps>;
   /**
-   * BB's controlled permission-mode picker. The host resolves provider
+   * HYPERFIDE's controlled permission-mode picker. The host resolves provider
    * capabilities and the routed machine's permission ceiling. Experimental:
    * see docs/api_to_audit.md.
    */
   experimental_PermissionModePicker: ComponentType<ExperimentalPermissionModePickerProps>;
   /**
-   * BB's branch picker with its branch-options loading for one host and
+   * HYPERFIDE's branch picker with its branch-options loading for one host and
    * project (see {@link BranchPickerProps}) — the same control
    * the New Thread composer renders as "Branch from". Experimental: see
    * docs/api_to_audit.md.
@@ -5380,14 +5380,14 @@ export interface PluginSdkApp {
   experimental_useCheckoutState(args: UseCheckoutStateArgs): CheckoutState;
   /**
    * The host-owned source viewer (see {@link SourceCodeProps}). Renders
-   * supplied source text with BB's syntax highlighting, gutters, and live code
+   * supplied source text with HYPERFIDE's syntax highlighting, gutters, and live code
    * theme, and honours an active `experimental_sourceCodeRenderer`
    * replacement. Experimental: see docs/api_to_audit.md.
    */
   experimental_SourceCode: ComponentType<SourceCodeProps>;
   /**
    * The host-owned diff viewer (see {@link DiffProps}). Renders supplied patch
-   * content with BB's normalization, optional full-file context expansion,
+   * content with HYPERFIDE's normalization, optional full-file context expansion,
    * syntax highlighting, unified/split presentation, and live code theme, and
    * honours an active
    * `experimental_diffRenderer` replacement. Experimental: see
@@ -5396,27 +5396,27 @@ export interface PluginSdkApp {
   experimental_Diff: ComponentType<DiffProps>;
   /**
    * The thread Info tab's section frame (see
-   * {@link ExperimentalInfoSectionProps}), the one bb's own sections use.
+   * {@link ExperimentalInfoSectionProps}), the one hyperfide's own sections use.
    * Inside an `experimental_threadInfoSection` it collapses, and the host
    * remembers that per registration. Experimental: see docs/api_to_audit.md.
    */
   experimental_InfoSection: ComponentType<ExperimentalInfoSectionProps>;
   /**
    * The thread Info tab's label and value row (see
-   * {@link ExperimentalDetailRowProps}), the one bb's own rows use.
+   * {@link ExperimentalDetailRowProps}), the one hyperfide's own rows use.
    * Experimental: see docs/api_to_audit.md.
    */
   experimental_DetailRow: ComponentType<ExperimentalDetailRowProps>;
   /**
    * The thread Info tab's list (see {@link ExperimentalInfoListProps}), the
-   * one bb's own sections use. Experimental: see docs/api_to_audit.md.
+   * one hyperfide's own sections use. Experimental: see docs/api_to_audit.md.
    */
   experimental_InfoList<Item>(
     props: ExperimentalInfoListProps<Item>,
   ): ReactNode;
   /**
    * One row of `experimental_InfoList` (see
-   * {@link ExperimentalInfoListRowProps}), the row bb's own sections use.
+   * {@link ExperimentalInfoListRowProps}), the row hyperfide's own sections use.
    * Experimental: see docs/api_to_audit.md.
    */
   experimental_InfoListRow: ComponentType<ExperimentalInfoListRowProps>;
@@ -5438,7 +5438,7 @@ export interface PluginSdkApp {
    */
   experimental_useComposerContributions(): ExperimentalComposerContributions;
   /**
-   * Search bb's @-mention sources for this composer: files, threads,
+   * Search hyperfide's @-mention sources for this composer: files, threads,
    * projects, sections and plugin mention providers. Report the open menu's
    * query with `search()`; the results are for the last query reported, and a
    * composer has one mention search. Throws outside an
@@ -5454,8 +5454,8 @@ export interface PluginSdkApp {
    */
   experimental_useComposerCommandSearch(): ExperimentalComposerCommandSearch;
   /**
-   * Connect a composer to bb: render it inside the composer's root element.
-   * It publishes `editor` to other plugins' `useComposer()`, routes bb's and
+   * Connect a composer to hyperfide: render it inside the composer's root element.
+   * It publishes `editor` to other plugins' `useComposer()`, routes hyperfide's and
    * other plugins' composer commands to keys inside `rootRef`, and makes the
    * root the target of pane focus and thread drops. Renders no DOM.
    * Experimental: see docs/api_to_audit.md.
@@ -5469,8 +5469,8 @@ export interface PluginSdkApp {
   experimental_ImageLightbox: ComponentType<ExperimentalImageLightboxProps>;
   experimental_PromptMentionIcon: ComponentType<ExperimentalPromptMentionIconProps>;
   /**
-   * The classes, tooltip and text bb gives a pill for `mention`, so pills look
-   * the same in a composer and in bb's messages. Experimental: see
+   * The classes, tooltip and text hyperfide gives a pill for `mention`, so pills look
+   * the same in a composer and in hyperfide's messages. Experimental: see
    * docs/api_to_audit.md.
    */
   experimental_describePromptMention(
@@ -5478,7 +5478,7 @@ export interface PluginSdkApp {
   ): ExperimentalPromptMentionPresentation;
   /**
    * Attributes to spread onto a pill element so that copying it and pasting
-   * into any bb composer recreates the pill; `text` is the draft text the pill
+   * into any hyperfide composer recreates the pill; `text` is the draft text the pill
    * covers. Experimental: see docs/api_to_audit.md.
    */
   experimental_promptMentionClipboardAttributes(
@@ -5486,7 +5486,7 @@ export interface PluginSdkApp {
     text: string,
   ): Readonly<Record<string, string>>;
   /**
-   * The pill a pasted element stands for, when it was copied from a bb
+   * The pill a pasted element stands for, when it was copied from a hyperfide
    * composer or message; null for any other element. Experimental: see
    * docs/api_to_audit.md.
    */

@@ -232,7 +232,7 @@ export function PluginSlotMount({
         {wrapRoot ? (
           <div
             data-hyperfide-plugin-root=""
-            data-bb-plugin={pluginId}
+            data-hyperfide-plugin={pluginId}
             className="contents"
             onClick={onRouteAnchorClick}
           >

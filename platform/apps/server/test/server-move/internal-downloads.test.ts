@@ -25,15 +25,15 @@ type PrepareCommand = Extract<
 >;
 
 describe("server move downloads", () => {
-  it("streams the archive and the full bb-app package with exact content lengths", () =>
+  it("streams the archive and the full hyperfide-app package with exact content lengths", () =>
     withTestHarness(async (harness) => {
       seedHost(harness.deps, { id: "host-old", name: "Laptop" });
       seedPrimaryHost(harness.deps, "host-old");
       seedHost(harness.deps, { id: "host-new", name: "Desktop" });
-      const artifactDir = await mkdtemp(join(tmpdir(), "bb-app-artifact-"));
+      const artifactDir = await mkdtemp(join(tmpdir(), "hyperfide-app-artifact-"));
       try {
-        const artifactPath = join(artifactDir, "bb-app-full.tgz");
-        const artifactBytes = Buffer.from("full bb-app package bytes");
+        const artifactPath = join(artifactDir, "hyperfide-app-full.tgz");
+        const artifactBytes = Buffer.from("full hyperfide-app package bytes");
         await writeFile(artifactPath, artifactBytes);
         const { environment, events } = createTestServerMoveEnvironment(
           harness,
@@ -77,7 +77,7 @@ describe("server move downloads", () => {
               case "server_move.inspect":
                 return {
                   ok: true,
-                  result: inspectResult({ bbAppVersion: "0.0.0-alpha.1" }),
+                  result: inspectResult({ hyperfideAppVersion: "0.0.0-alpha.1" }),
                 };
               case "server_move.prepare":
                 received.prepare = request.command;
@@ -111,19 +111,19 @@ describe("server move downloads", () => {
         });
         await expect.poll(() => received.prepare !== null).toBe(true);
         const prepare = received.prepare;
-        if (prepare === null || prepare.bbApp === null) {
-          throw new Error("The target never received a bb-app download");
+        if (prepare === null || prepare.hyperfideApp === null) {
+          throw new Error("The target never received a hyperfide-app download");
         }
 
-        const bbApp = await app.request(prepare.bbApp.downloadPath, {
+        const hyperfideApp = await app.request(prepare.hyperfideApp.downloadPath, {
           headers: { "x-test-host": "host-new" },
         });
-        expect(bbApp.status).toBe(200);
-        expect(bbApp.headers.get("content-length")).toBe(
+        expect(hyperfideApp.status).toBe(200);
+        expect(hyperfideApp.headers.get("content-length")).toBe(
           String(artifactBytes.byteLength),
         );
-        expect(Buffer.from(await bbApp.arrayBuffer())).toEqual(artifactBytes);
-        expect(prepare.bbApp.sizeBytes).toBe(artifactBytes.byteLength);
+        expect(Buffer.from(await hyperfideApp.arrayBuffer())).toEqual(artifactBytes);
+        expect(prepare.hyperfideApp.sizeBytes).toBe(artifactBytes.byteLength);
 
         const archive = await app.request(prepare.archive.downloadPath, {
           headers: { "x-test-host": "host-new" },
@@ -136,7 +136,7 @@ describe("server move downloads", () => {
           prepare.archive.sizeBytes,
         );
 
-        const forbidden = await app.request(prepare.bbApp.downloadPath, {
+        const forbidden = await app.request(prepare.hyperfideApp.downloadPath, {
           headers: { "x-test-host": "host-old" },
         });
         expect(forbidden.status).toBe(403);

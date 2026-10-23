@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { BbPluginApi, ComposerDraft } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi, ComposerDraft } from "@hyperfide/plugin-sdk";
 import { promptSchema } from "./contract.js";
 
-type PluginDatabase = ReturnType<BbPluginApi["storage"]["database"]>;
+type PluginDatabase = ReturnType<HyperfidePluginApi["storage"]["database"]>;
 
 export const STARRED_PROMPT_MIGRATIONS = [
   `CREATE TABLE starred_prompts (

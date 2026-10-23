@@ -41,7 +41,7 @@ import {
   createAppVersionService,
   type AppVersionService,
 } from "../../src/services/system/app-version.js";
-import { createBbAppManagedConfigReloader } from "../../src/services/system/bb-app-managed-config.js";
+import { createHyperfideAppManagedConfigReloader } from "../../src/services/system/hyperfide-app-managed-config.js";
 import { createNoopTelemetryService } from "../../src/services/system/telemetry.js";
 import { TerminalSessionLifecycle } from "../../src/services/terminals/terminal-session-lifecycle.js";
 import { createLifecycleDedupers } from "../../src/lifecycle-dedupers.js";
@@ -168,7 +168,7 @@ export async function createTestAppHarness(
     ...configOverrides
   } = overrides;
   const logger = createTestLogger();
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-server-test-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-server-test-"));
   const db = createTestDb();
   setAppSettings(db, {
     ...getAppSettings(db),
@@ -243,7 +243,7 @@ export async function createTestAppHarness(
     isDevelopment: true,
     serverPort: 3334,
     sharedSkillRoots: { user: [], project: [] },
-    appUrl: "https://bb.example.test",
+    appUrl: "https://hyperfide.example.test",
     ...configOverrides,
   };
   const terminalSessions = new TerminalSessionLifecycle({
@@ -257,7 +257,7 @@ export async function createTestAppHarness(
     logger,
     openTimeoutMs: terminalOpenTimeoutMs,
   });
-  const bbAppManagedConfig = await createBbAppManagedConfigReloader({
+  const hyperfideAppManagedConfig = await createHyperfideAppManagedConfigReloader({
     config,
     hub,
     logger,
@@ -305,7 +305,7 @@ export async function createTestAppHarness(
   const deps: ServerAppDeps = {
     appUpdate,
     appVersion,
-    bbAppManagedConfig,
+    hyperfideAppManagedConfig,
     cliCommand:
       cliCommandService ??
       createCliCommandService({

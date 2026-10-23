@@ -1,16 +1,16 @@
 import type { ThreadEvent } from "./provider-event.js";
 
-const BB_THREAD_NAME_PREFIX = "[bb] ";
+const HYPERFIDE_THREAD_NAME_PREFIX = "[hyperfide] ";
 
 export function toProviderExternalThreadName(title: string): string {
-  return `${BB_THREAD_NAME_PREFIX}${title}`;
+  return `${HYPERFIDE_THREAD_NAME_PREFIX}${title}`;
 }
 
 export function fromProviderExternalThreadName(name: string): string {
-  if (!name.startsWith(BB_THREAD_NAME_PREFIX)) {
+  if (!name.startsWith(HYPERFIDE_THREAD_NAME_PREFIX)) {
     return name;
   }
-  return name.slice(BB_THREAD_NAME_PREFIX.length);
+  return name.slice(HYPERFIDE_THREAD_NAME_PREFIX.length);
 }
 
 export function normalizeProviderThreadNameEvent(

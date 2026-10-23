@@ -9,7 +9,7 @@ import { makeTempDir } from "@hyperfide/test-helpers";
 
 const skillRoot = fileURLToPath(
   new URL(
-    "../../../../plugins/bb-guide/skills/submit-a-plugin/",
+    "../../../../plugins/hyperfide-guide/skills/submit-a-plugin/",
     import.meta.url,
   ),
 );
@@ -47,7 +47,7 @@ describe("submit-a-plugin skill", () => {
     for (const packageName of [
       "@acme/hyperfide-plugin-release.notes",
       "@acme/hyperfide-plugin-release_notes",
-      "bb_plugin_notes",
+      "hyperfide_plugin_notes",
     ]) {
       await expect(deriveWithSkill(packageName)).resolves.toBe(
         derivePluginId(packageName),

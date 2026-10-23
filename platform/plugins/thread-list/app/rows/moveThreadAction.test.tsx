@@ -5,8 +5,8 @@ import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
-  BbNavigate,
-  PluginBrowserBbSdk,
+  HyperfideNavigate,
+  PluginBrowserHyperfideSdk,
   PluginThreadAction,
   PluginThreadActionTarget,
 } from "@hyperfide/plugin-sdk/app";
@@ -21,7 +21,7 @@ import {
 } from "../preferences/preferences-sync.js";
 
 installTestPluginRuntime();
-const { useBbNavigate, useSdk } = await import("@hyperfide/plugin-sdk/app");
+const { useHyperfideNavigate, useSdk } = await import("@hyperfide/plugin-sdk/app");
 const { moveThreadAction } = await import("./moveThreadAction.js");
 
 afterEach(() => {
@@ -58,8 +58,8 @@ function Probe({ collected }: { collected: { current: Collected | null } }) {
   const useData = moveThreadAction.useData;
   if (useData === undefined) throw new Error("Move reads its destinations");
   const data = useData({ threadIds: [] });
-  const sdk: PluginBrowserBbSdk = useSdk();
-  const navigate: BbNavigate = useBbNavigate();
+  const sdk: PluginBrowserHyperfideSdk = useSdk();
+  const navigate: HyperfideNavigate = useHyperfideNavigate();
   collected.current = {
     item: (thread) => moveThreadAction.item({ thread, data, sdk, navigate }),
   };

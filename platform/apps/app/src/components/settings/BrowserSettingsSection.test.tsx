@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import type { BbDesktopBrowserApi } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopBrowserApi } from "@hyperfide/desktop-contract";
 import type { DesktopBrowserImportSource } from "@hyperfide/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BrowserSettingsSectionContent } from "./BrowserSettingsSection";
@@ -45,8 +45,8 @@ const sources: DesktopBrowserImportSource[] = [
 ];
 
 function makeDesktopBrowser(
-  overrides: Partial<BbDesktopBrowserApi> = {},
-): BbDesktopBrowserApi {
+  overrides: Partial<HyperfideDesktopBrowserApi> = {},
+): HyperfideDesktopBrowserApi {
   const noop = () => undefined;
   return {
     attach: noop,
@@ -88,7 +88,7 @@ describe("BrowserSettingsSectionContent", () => {
   it("explains that import is desktop only outside the desktop app", () => {
     render(<BrowserSettingsSectionContent desktopBrowser={null} />);
     expect(
-      screen.getByText("Only available in the BB desktop app."),
+      screen.getByText("Only available in the HYPERFIDE desktop app."),
     ).toBeDefined();
   });
 

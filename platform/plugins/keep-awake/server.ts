@@ -3,7 +3,7 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type HyperfidePluginApi,
 } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { keepAwakeHostContract } from "./contract.js";
@@ -82,8 +82,8 @@ function normalizeConfiguration(
   };
 }
 
-export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
-  const host = bb.hosts.experimental_client({
+export default async function keepAwakePlugin(hyperfide: HyperfidePluginApi): Promise<void> {
+  const host = hyperfide.hosts.experimental_client({
     contract: keepAwakeHostContract,
   });
 
@@ -91,7 +91,7 @@ export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
   let retryRequested = false;
   let wakeWaiter: (() => void) | null = null;
   const storedConfiguration = keepAwakeConfigurationSchema.safeParse(
-    await bb.storage.kv.get<unknown>(CONFIGURATION_KEY),
+    await hyperfide.storage.kv.get<unknown>(CONFIGURATION_KEY),
   );
   let configuration: KeepAwakeConfiguration = storedConfiguration.success
     ? normalizeConfiguration(storedConfiguration.data)
@@ -108,7 +108,7 @@ export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
   }
 
   async function readHostConfiguration() {
-    const availableHosts = await bb.sdk.hosts.list();
+    const availableHosts = await hyperfide.sdk.hosts.list();
     return {
       ...configuration,
       hosts: availableHosts.map(({ id, name, status }) => ({
@@ -123,12 +123,12 @@ export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
     next: KeepAwakeConfiguration,
   ): Promise<void> {
     const normalized = normalizeConfiguration(next);
-    await bb.storage.kv.set(CONFIGURATION_KEY, normalized);
+    await hyperfide.storage.kv.set(CONFIGURATION_KEY, normalized);
     configuration = normalized;
     requestReconcile();
   }
 
-  bb.rpc.register(keepAwakeRpcContract, {
+  hyperfide.rpc.register(keepAwakeRpcContract, {
     getConfiguration: readHostConfiguration,
     async setConfiguration(next) {
       await saveConfiguration(next);
@@ -149,12 +149,12 @@ export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
     };
   }
 
-  bb.cli.register(
+  hyperfide.cli.register(
     defineCli({
       name: "keep-awake",
       summary: "Configure idle-sleep prevention",
       description:
-        "Keep Awake keeps every selected macOS or Windows host from idle-sleeping while bb runs.",
+        "Keep Awake keeps every selected macOS or Windows host from idle-sleeping while hyperfide runs.",
       commands: {
         status: cliCommand({
           summary: "Show whether Keep Awake is enabled and which hosts it uses",
@@ -198,7 +198,7 @@ export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
                   '"all" cannot be combined with individual host ids',
                   {
                     code: "invalid_host_selection",
-                    hint: "Run `bb keep-awake hosts all`, or list only host ids.",
+                    hint: "Run `hyperfide-platform keep-awake hosts all`, or list only host ids.",
                   },
                 );
               }
@@ -238,7 +238,7 @@ export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
   );
 
   host.experimental_onWorkerExit(({ hostId }) => {
-    bb.log.warn(
+    hyperfide.log.warn(
       `Keep Awake host worker exited unexpectedly on host ${hostId}; retrying`,
     );
     requestRetry();
@@ -247,7 +247,7 @@ export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
   async function reconcile(signal: AbortSignal): Promise<ReconcileOutcome> {
     try {
       const desiredConfiguration = configuration;
-      const availableHosts = await bb.sdk.hosts.list();
+      const availableHosts = await hyperfide.sdk.hosts.list();
       const selectedHostIds = new Set(
         desiredConfiguration.selection.mode === "selected"
           ? desiredConfiguration.selection.hostIds
@@ -269,14 +269,14 @@ export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
               );
               if (!actual.supported) {
                 if (desired) {
-                  bb.log.warn(
+                  hyperfide.log.warn(
                     `Keep Awake is enabled but host ${availableHost.id} is not macOS or Windows`,
                   );
                 }
                 return "settled";
               }
               if (actual.enabled !== desired) {
-                bb.log.warn(
+                hyperfide.log.warn(
                   `Keep Awake did not reach its configured state on host ${availableHost.id}; retrying`,
                 );
                 return "retry";
@@ -284,7 +284,7 @@ export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
               return "settled";
             } catch (error) {
               if (signal.aborted) return "settled";
-              bb.log.warn(
+              hyperfide.log.warn(
                 `Could not reconcile Keep Awake on host ${availableHost.id}: ${errorMessage(error)}`,
               );
               return "retry";
@@ -294,7 +294,7 @@ export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
       return outcomes.includes("retry") ? "retry" : "settled";
     } catch (error) {
       if (signal.aborted) return "settled";
-      bb.log.warn(`Could not load Keep Awake state: ${errorMessage(error)}`);
+      hyperfide.log.warn(`Could not load Keep Awake state: ${errorMessage(error)}`);
       return "retry";
     }
   }
@@ -333,15 +333,15 @@ export default async function keepAwakePlugin(bb: BbPluginApi): Promise<void> {
     });
   }
 
-  bb.background.service("desired-state-reconciler", {
+  hyperfide.background.service("desired-state-reconciler", {
     async start(signal) {
-      const unsubscribeHost = bb.sdk.subscribe({
+      const unsubscribeHost = hyperfide.sdk.subscribe({
         event: "host:changed",
         callback: (event) => {
           if (event.changes.includes("host-connected")) requestReconcile();
         },
       });
-      const unsubscribeRealtime = bb.sdk.subscribe({
+      const unsubscribeRealtime = hyperfide.sdk.subscribe({
         event: "realtime:connection",
         callback: (event) => {
           if (event.state === "connected" && event.reconnected) {

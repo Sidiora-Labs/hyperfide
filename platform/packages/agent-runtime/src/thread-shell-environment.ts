@@ -19,12 +19,12 @@ export function buildThreadShellEnvironment(
 ): Record<string, string> {
   return {
     ...(args.baseShellEnv ?? {}),
-    ...(args.projectId ? { BB_PROJECT_ID: args.projectId } : {}),
+    ...(args.projectId ? { HYPERFIDE_PROJECT_ID: args.projectId } : {}),
     ...(args.threadStoragePath
-      ? { BB_THREAD_STORAGE: args.threadStoragePath }
+      ? { HYPERFIDE_THREAD_STORAGE: args.threadStoragePath }
       : {}),
-    BB_THREAD_ID: args.threadId,
-    BB_ENVIRONMENT_ID: args.environmentId,
+    HYPERFIDE_THREAD_ID: args.threadId,
+    HYPERFIDE_ENVIRONMENT_ID: args.environmentId,
   };
 }
 
@@ -33,7 +33,7 @@ function resolveContributedEnvValue(
   baseShellEnv: AgentRuntimeShellEnvironment | undefined,
 ): string | null {
   if (typeof contribution.value === "string") return contribution.value;
-  const serverUrl = baseShellEnv?.BB_SERVER_URL;
+  const serverUrl = baseShellEnv?.HYPERFIDE_SERVER_URL;
   return serverUrl === undefined
     ? null
     : `${serverUrl}${contribution.value.serverPath}`;
@@ -88,7 +88,7 @@ export function resolveThreadEnvironment(args: ResolveThreadEnvironmentArgs): {
         name: contribution.name,
         source: contribution.source,
         value: { masked: true },
-        reason: `${contribution.reason} (dropped: no BB_SERVER_URL)`,
+        reason: `${contribution.reason} (dropped: no HYPERFIDE_SERVER_URL)`,
       });
       droppedContributions.push({
         name: contribution.name,

@@ -36,7 +36,7 @@ const longMessage = `# Merge-readiness report
 
 ## Branch / main / merge base
 
-- **Branch:** \`bb/investigate-file-list-inconsistency-thr_3vw9r8igrb\`
+- **Branch:** \`hyperfide/investigate-file-list-inconsistency-thr_3vw9r8igrb\`
 - **Branch HEAD:** \`d61c0cf8\` — \`chore: drop dead onOpenFileDiff prop in ThreadDetailView after rebase\`
 - **Local main:** \`f49ae132\` — \`Classify provider status noise events\`
 - **Merge-base of branch and main:** \`f49ae132\` (branch is now linear on top of current main)

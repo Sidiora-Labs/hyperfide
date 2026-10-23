@@ -326,7 +326,7 @@ export async function refuseInterruptedServerImport(
   if (status.kind !== "interrupted") {
     return;
   }
-  const message = `bb server import into ${args.dataDir} was interrupted, so this server won't start on partial data. Run bb server import <file> --data-dir ${args.dataDir} again; it rolls back the interrupted import first.`;
+  const message = `hyperfide-platform server import into ${args.dataDir} was interrupted, so this server won't start on partial data. Run hyperfide-platform server import <file> --data-dir ${args.dataDir} again; it rolls back the interrupted import first.`;
   args.logger.error({ dataDir: args.dataDir }, message);
   throw new Error(message);
 }

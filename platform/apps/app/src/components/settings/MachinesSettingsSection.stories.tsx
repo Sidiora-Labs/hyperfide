@@ -82,7 +82,7 @@ export function Rows() {
     <StoryCard labelWidth="220px" className="max-w-4xl">
       <StoryRow
         label="this machine"
-        hint="the machine bb itself runs on, labeled by a laptop icon and its name"
+        hint="the machine hyperfide itself runs on, labeled by a laptop icon and its name"
       >
         <Row
           host={makeHost({

@@ -85,7 +85,7 @@ export async function resolveSharedSkills(
     timeoutMs: COMMAND_TIMEOUT_MS,
     command: {
       type: "host.list_skills",
-      providerId: "bb-shared",
+      providerId: "hyperfide-shared",
       cwd: args.cwd,
       nativeRoots: {
         skills: roots,

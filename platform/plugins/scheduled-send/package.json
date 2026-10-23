@@ -5,10 +5,10 @@
   "type": "module",
   "description": "Schedule the current composer draft to send at a later time.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.6.0"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.0"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Send later",
     "description": "Schedule the current composer draft to send at a later time.",
     "branding": {
@@ -18,7 +18,7 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

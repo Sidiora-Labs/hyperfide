@@ -159,7 +159,7 @@ let workspaceDir: string;
 beforeEach(() => {
   vi.clearAllMocks();
   scriptedTurnCounter = 0;
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-claude-conformance-ws-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-claude-conformance-ws-"));
   queryMock.mockImplementation((call: ScriptedClaudeQueryCall) =>
     createScriptedClaudeQuery(call),
   );

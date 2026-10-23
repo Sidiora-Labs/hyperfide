@@ -11,7 +11,7 @@ import {
 const roots: string[] = [];
 
 async function createDataDir(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "bb-managed-config-test-"));
+  const root = await mkdtemp(join(tmpdir(), "hyperfide-managed-config-test-"));
   roots.push(root);
   return root;
 }
@@ -31,8 +31,8 @@ describe("rewriteManagedConfigServer", () => {
         config: { HYPERFIDE_LOG_LEVEL: "debug" },
         customModels: [{ providerId: "codex", model: "gpt-custom" }],
         serverUrl: "https://old.example.test",
-        serverHeaders: { "x-bb-connect-machine": "bbcm_old" },
-        machineCredential: "bbcm_old",
+        serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_old" },
+        machineCredential: "hyperfide_cm_old",
         connectMachineId: "machine-1",
       }),
       { mode: 0o644 },
@@ -41,7 +41,7 @@ describe("rewriteManagedConfigServer", () => {
     await rewriteManagedConfigServer({
       dataDir,
       serverUrl: "https://new.example.test",
-      headers: { "x-bb-connect-machine": "bbcm_new" },
+      headers: { "x-hyperfide-connect-machine": "hyperfide_cm_new" },
     });
 
     expect(
@@ -50,7 +50,7 @@ describe("rewriteManagedConfigServer", () => {
       config: { HYPERFIDE_LOG_LEVEL: "debug" },
       customModels: [{ providerId: "codex", model: "gpt-custom" }],
       serverUrl: "https://new.example.test",
-      serverHeaders: { "x-bb-connect-machine": "bbcm_new" },
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_new" },
     });
     if (process.platform !== "win32") {
       expect((await stat(join(dataDir, "config.json"))).mode & 0o777).toBe(
@@ -98,8 +98,8 @@ describe("move import config handling", () => {
       JSON.stringify({
         config: { HYPERFIDE_LOG_LEVEL: "debug" },
         serverUrl: "https://old.example.test",
-        serverHeaders: { "x-bb-connect-machine": "bbcm_target" },
-        machineCredential: "bbcm_target",
+        serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_target" },
+        machineCredential: "hyperfide_cm_target",
       }),
     );
 
@@ -113,8 +113,8 @@ describe("move import config handling", () => {
     ).toEqual({
       config: { HYPERFIDE_LOG_LEVEL: "info" },
       serverUrl: "https://old.example.test",
-      serverHeaders: { "x-bb-connect-machine": "bbcm_target" },
-      machineCredential: "bbcm_target",
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_target" },
+      machineCredential: "hyperfide_cm_target",
     });
 
     await switchConfigToLocalServer({

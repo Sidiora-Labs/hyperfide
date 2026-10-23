@@ -3,7 +3,7 @@
   "name": "shortcut-pill",
   "type": "registry:ui",
   "title": "shortcut-pill",
-  "description": "BB ui \"shortcut-pill\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"shortcut-pill\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/utils"
   ],

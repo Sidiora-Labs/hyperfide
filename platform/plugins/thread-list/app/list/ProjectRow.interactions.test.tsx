@@ -437,7 +437,7 @@ describe("ProjectRow interactions", () => {
     const trigger = screen.getByRole("button", {
       name: /^Test project actions(?:;|$)/,
     });
-    const actions = trigger.closest(".bb-sidebar-hover-actions");
+    const actions = trigger.closest(".hyperfide-sidebar-hover-actions");
     expect(actions?.getAttribute("data-sidebar-hover-actions-mobile")).toBe(
       "always",
     );
@@ -546,7 +546,7 @@ describe("ProjectRow interactions", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
     expect(
-      threadLink?.closest<HTMLElement>(".bb-sidebar-hover-actions-row")?.style
+      threadLink?.closest<HTMLElement>(".hyperfide-sidebar-hover-actions-row")?.style
         .paddingLeft,
     ).toBe("8px");
     expect(projectGroup?.getAttribute("data-sidebar-project-id")).toBe(
@@ -583,7 +583,7 @@ describe("ProjectRow interactions", () => {
       .getByRole("button", { name: "Collapse Nested workspace threads" })
       .closest("[data-sidebar-sticky-group]");
     const header = group?.querySelector<HTMLElement>(
-      ".bb-sidebar-hover-actions-row",
+      ".hyperfide-sidebar-hover-actions-row",
     );
     const child = group?.querySelector<HTMLElement>(
       '[data-sidebar-thread-id="thr_child_a"]',
@@ -598,7 +598,7 @@ describe("ProjectRow interactions", () => {
     expect(header?.style.paddingLeft).toBe("32px");
     expect(guide?.style.left).toBe("40px");
     expect(
-      child?.closest<HTMLElement>(".bb-sidebar-hover-actions-row")?.style
+      child?.closest<HTMLElement>(".hyperfide-sidebar-hover-actions-row")?.style
         .paddingLeft,
     ).toBe("56px");
   });
@@ -682,7 +682,7 @@ describe("ProjectRow interactions", () => {
       const toggle = screen.getByRole("button", {
         name: `${isCollapsed ? "Expand" : "Collapse"} Disclosure workspace threads`,
       });
-      expect(toggle.classList.contains("bb-sidebar-hover-actions")).toBe(
+      expect(toggle.classList.contains("hyperfide-sidebar-hover-actions")).toBe(
         expectedHoverReveal,
       );
     },
@@ -1037,7 +1037,7 @@ describe("ProjectRow interactions", () => {
       const createButton = screen.getByRole("button", {
         name: "New thread in environment",
       });
-      const actions = createButton.closest(".bb-sidebar-hover-actions");
+      const actions = createButton.closest(".hyperfide-sidebar-hover-actions");
       expect(actions?.getAttribute("data-sidebar-hover-actions-mobile")).toBe(
         "always",
       );

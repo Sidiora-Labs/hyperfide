@@ -21,7 +21,7 @@ import { RUNTIME_EXPORT_MANIFEST } from "./generated/runtime-export-manifest.gen
 import { resolvePluginBuildToolchain } from "./toolchain.js";
 
 function testToolchain() {
-  return resolvePluginBuildToolchain(join(tmpdir(), "bb-toolchain-unused"));
+  return resolvePluginBuildToolchain(join(tmpdir(), "hyperfide-toolchain-unused"));
 }
 
 describe("plugin app runtime shim", () => {
@@ -98,7 +98,7 @@ describe("plugin app runtime shim", () => {
         pluginName: "hyperfide-plugin-runtime-shims",
         location: expect.objectContaining({ line: 4 }),
         text: expect.stringMatching(
-          /^experimental_useSidebarThreadPullRequest is retired from @hyperfide\/plugin-sdk\/app\. Existing plugins remain supported\. Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery\(\{ pluginId: "bb--github-pr-status"/,
+          /^experimental_useSidebarThreadPullRequest is retired from @hyperfide\/plugin-sdk\/app\. Existing plugins remain supported\. Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery\(\{ pluginId: "hyperfide--github-pr-status"/,
         ),
       },
     ]);
@@ -150,7 +150,7 @@ describe("plugin app runtime shim", () => {
     const cvaFn = () => "cva";
     const IconComponent = () => null;
     const useQuestionFormHost = () => null;
-    (globalThis as { __bbPluginRuntime?: unknown }).__bbPluginRuntime = {
+    (globalThis as { __hyperfidePluginRuntime?: unknown }).__hyperfidePluginRuntime = {
       clsx: { default: clsxFn, clsx: clsxFn },
       tailwindMerge: { twMerge: twMergeFn },
       classVarianceAuthority: { cva: cvaFn },
@@ -170,7 +170,7 @@ describe("plugin app runtime shim", () => {
       expect(loaded.Icon).toBe(IconComponent);
       expect(loaded.useQuestionFormHost).toBe(useQuestionFormHost);
     } finally {
-      delete (globalThis as { __bbPluginRuntime?: unknown }).__bbPluginRuntime;
+      delete (globalThis as { __hyperfidePluginRuntime?: unknown }).__hyperfidePluginRuntime;
     }
   });
 
@@ -306,7 +306,7 @@ describe("plugin app runtime shim", () => {
       JSON.stringify({
         name: "hyperfide-plugin-css-fixture",
         version: "0.0.0",
-        bb: {
+        hyperfide: {
           name: "CSS fixture",
           description: "Verifies plugin CSS emission.",
           branding: { icon: "Paintbrush" },
@@ -339,7 +339,7 @@ describe("plugin app runtime shim", () => {
     const css = await readFile(result.cssPath, "utf8");
 
     const scope =
-      ":where([data-bb-plugin=css-fixture],[data-hyperfide-plugin-root]:not([data-bb-plugin]))";
+      ":where([data-hyperfide-plugin=css-fixture],[data-hyperfide-plugin-root]:not([data-hyperfide-plugin]))";
     expect(css).toContain(`${scope} .flex-col`);
     expect(css).toContain(`${scope}.flex-col`);
     const sibling = String.raw`.\[\&\~\*\]\:hidden`;
@@ -380,7 +380,7 @@ describe("plugin app runtime shim", () => {
       JSON.stringify({
         name: "hyperfide-plugin-legacy-tabs-fixture",
         version: "0.0.0",
-        bb: {
+        hyperfide: {
           name: "Legacy tabs",
           description: "Published API compatibility",
           branding: { icon: "Info" },
@@ -434,7 +434,7 @@ describe("plugin app runtime shim", () => {
       JSON.stringify({
         name: "hyperfide-plugin-minify-fixture",
         version: "0.0.0",
-        bb: {
+        hyperfide: {
           name: "Minify fixture",
           description: "Verifies artifact minification.",
           branding: { icon: "Zap" },
@@ -456,7 +456,7 @@ describe("plugin app runtime shim", () => {
         '  const fixtureLocalResult = [fixtureInputValue, "flex-col"].join(" ");',
         "  return fixtureLocalResult;",
         "}",
-        'export default computeFixtureLabel("bb-minify");',
+        'export default computeFixtureLabel("hyperfide-minify");',
         "",
       ].join("\n"),
     );
@@ -471,7 +471,7 @@ describe("plugin app runtime shim", () => {
     const minifiedCss = await readFile(minified.cssPath, "utf8");
     expect(minifiedJs).not.toContain("fixtureLocalResult");
     expect(minifiedJs).not.toContain("fixture-legal-comment");
-    expect(minifiedJs).toContain("bb-minify");
+    expect(minifiedJs).toContain("hyperfide-minify");
     expect(minifiedCss).toContain(".flex-col{flex-direction:column}");
     expect(minifiedCss).toContain(".bb71-authored{color:#ff69b4;margin:0}");
     expect(minifiedCss).not.toContain("\n  ");
@@ -500,7 +500,7 @@ describe("plugin app runtime shim", () => {
         name: "fixture-ui",
         version: "0.0.0",
         type: "module",
-        bb: { pluginTailwindContent: ["src/**/*", "!src/excluded/**/*"] },
+        hyperfide: { pluginTailwindContent: ["src/**/*", "!src/excluded/**/*"] },
       }),
     );
     await writeFile(
@@ -528,7 +528,7 @@ describe("plugin app runtime shim", () => {
         name: "hyperfide-plugin-scan-fixture",
         version: "0.0.0",
         type: "module",
-        bb: {
+        hyperfide: {
           name: "Scan fixture",
           description: "Verifies dependency content scanning.",
           branding: { icon: "Zap" },
@@ -595,7 +595,7 @@ describe("plugin app runtime shim", () => {
         JSON.stringify({
           name: "hyperfide-plugin-icon-fixture",
           version: "0.0.0",
-          bb: {
+          hyperfide: {
             name: "Icon fixture",
             description: "Verifies compact icon validation.",
             branding: { icon: "./icon.svg" },

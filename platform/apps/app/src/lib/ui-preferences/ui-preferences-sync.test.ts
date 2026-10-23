@@ -1,7 +1,7 @@
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { createStore } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import {
   defaultUiPreferences,
   type UiPreferenceKey,
@@ -27,7 +27,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/sdk", async () => {
   const actual = await import("@hyperfide/sdk/browser");
   return {
-    BbHttpError: actual.BbHttpError,
+    HyperfideHttpError: actual.HyperfideHttpError,
     sdk: {
       system: {
         uiPreferences: {
@@ -72,8 +72,8 @@ function getCachedUiPreferences(
   return client.getQueryData(uiPreferencesQueryOptions(client).queryKey);
 }
 
-function conflict(currentRevision: number): BbHttpError {
-  return new BbHttpError({
+function conflict(currentRevision: number): HyperfideHttpError {
+  return new HyperfideHttpError({
     body: { code: "ui_preference_conflict", details: { currentRevision } },
     code: "ui_preference_conflict",
     message: "UI preference changed on another client",

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
-  BbDesktopBrowserControlState,
-  BbDesktopBrowserTarget,
+  HyperfideDesktopBrowserControlState,
+  HyperfideDesktopBrowserTarget,
 } from "@hyperfide/desktop-contract";
 import { isRawThreadId } from "@hyperfide/domain";
 import type {
@@ -301,7 +301,7 @@ export function createDesktopBrowserBroker(args: {
       const descriptor = {
         instanceId: randomUUID(),
         generation: randomUUID(),
-        label: `BB window ${window.webContents.id}`,
+        label: `HYPERFIDE window ${window.webContents.id}`,
       };
       instances.set(descriptor.instanceId, {
         window,
@@ -344,7 +344,7 @@ export function createDesktopBrowserBroker(args: {
       snapshots.clear();
       args.manager.setServerOrigin(value);
     },
-    getTarget(webContentsId: number): BbDesktopBrowserTarget | null {
+    getTarget(webContentsId: number): HyperfideDesktopBrowserTarget | null {
       const instance = instanceForWindow(webContentsId);
       return instance && hostId !== null
         ? {
@@ -357,7 +357,7 @@ export function createDesktopBrowserBroker(args: {
     getControl(
       webContentsId: number,
       tabId: string,
-    ): BbDesktopBrowserControlState | null {
+    ): HyperfideDesktopBrowserControlState | null {
       const instance = instanceForWindow(webContentsId);
       const tab =
         instance &&

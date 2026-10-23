@@ -3,7 +3,7 @@ import { z } from "zod";
 export const HYPERFIDE_DESKTOP_MAX_FIND_TEXT_LENGTH = 1024;
 export const HYPERFIDE_DESKTOP_MAX_FIND_TOP_OFFSET = 400;
 
-export const bbDesktopWindowFindRequestSchema = z
+export const hyperfideDesktopWindowFindRequestSchema = z
   .object({
     topOffset: z
       .number()
@@ -12,6 +12,6 @@ export const bbDesktopWindowFindRequestSchema = z
       .max(HYPERFIDE_DESKTOP_MAX_FIND_TOP_OFFSET),
   })
   .strict();
-export type BbDesktopWindowFindRequest = z.infer<
-  typeof bbDesktopWindowFindRequestSchema
+export type HyperfideDesktopWindowFindRequest = z.infer<
+  typeof hyperfideDesktopWindowFindRequestSchema
 >;

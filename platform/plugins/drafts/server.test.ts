@@ -8,7 +8,7 @@ import plugin from "./server.js";
 
 function setup() {
   const fake = createFakePluginHost({ pluginId: "drafts" });
-  plugin(fake.bb);
+  plugin(fake.hyperfide);
   const hook = fake.harness.registrations.hooks["message.dispatch"];
   if (hook === null) throw new Error("message.dispatch was not registered");
   return hook;

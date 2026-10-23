@@ -3,7 +3,7 @@
   "name": "rename-dialog",
   "type": "registry:ui",
   "title": "rename-dialog",
-  "description": "BB ui \"rename-dialog\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"rename-dialog\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/dialog",
     "@hyperfide/use-pointer-coarse"

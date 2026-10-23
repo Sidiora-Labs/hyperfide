@@ -374,7 +374,7 @@ function FooterPreview({ scenario }: { scenario: ScenarioName }) {
   return (
     <div className="w-[303px] overflow-hidden rounded-xl border border-sidebar-border bg-sidebar text-sidebar-foreground">
       <ProviderUsageStatusContent
-        pluginId="bb--provider-usage"
+        pluginId="hyperfide--provider-usage"
         dismiss={() => {}}
         snapshot={storySnapshot(scenario)}
         threadMachineId={null}
@@ -386,7 +386,7 @@ function FooterPreview({ scenario }: { scenario: ScenarioName }) {
 
 const descriptions: Record<ScenarioName, string> = {
   healthy: "Multiple pooled accounts with provider grouping and quota badges.",
-  live: "Usage captured from a real bb server, with emails anonymized.",
+  live: "Usage captured from a real hyperfide-platform server, with emails anonymized.",
   mixedPool:
     "Six pooled accounts across providers with two windows and sign-in states.",
   emptyPool: "Account Pooler is enabled and selectable but has no accounts.",
@@ -493,7 +493,7 @@ function LivePreview({ machine }: { machine: UsageMachine }) {
   return (
     <div className="w-[303px] overflow-hidden rounded-xl border border-sidebar-border bg-sidebar text-sidebar-foreground">
       <ProviderUsageStatusContent
-        pluginId="bb--provider-usage"
+        pluginId="hyperfide--provider-usage"
         dismiss={() => {}}
         snapshot={{
           data: { machines: [machine] },

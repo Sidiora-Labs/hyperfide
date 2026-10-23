@@ -120,7 +120,7 @@ beforeAll(async () => {
     "text-sm--line-height": "20px",
     spacing: "4px",
     "tracking-normal": "0em",
-    "bb-sidebar-row-height": "28px",
+    "hyperfide-sidebar-row-height": "28px",
     "icon-stroke-width": "1.75",
     radius: "8px",
     "shadow-x": "0px",
@@ -143,7 +143,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
   document.documentElement.classList.remove("dark");
-  localStorage.removeItem("bb.theme");
+  localStorage.removeItem("hyperfide.theme");
 });
 
 function renderPreview(
@@ -183,7 +183,7 @@ async function chooseEndlessDark(): Promise<void> {
 
 describe("Theme Preview", () => {
   it.each([390, 700, 807, 808, 1280])(
-    "offers supported views in bb's tabs and themes in bb's select at %ipx",
+    "offers supported views in hyperfide's tabs and themes in hyperfide's select at %ipx",
     async (panelWidth) => {
       const width = vi
         .spyOn(HTMLElement.prototype, "clientWidth", "get")
@@ -288,7 +288,7 @@ describe("Theme Preview", () => {
     }
   });
 
-  it("projects every mock view from its current BB screen anatomy", async () => {
+  it("projects every mock view from its current HYPERFIDE screen anatomy", async () => {
     const width = vi
       .spyOn(HTMLElement.prototype, "clientWidth", "get")
       .mockReturnValue(1280);
@@ -434,7 +434,7 @@ describe("Theme Preview", () => {
     expect(dark.getAttribute("aria-pressed")).toBe("true");
     expect(light.getAttribute("aria-pressed")).toBe("false");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
-    expect(localStorage.getItem("bb.theme")).toBe("dark");
+    expect(localStorage.getItem("hyperfide.theme")).toBe("dark");
     expect(document.documentElement.style.colorScheme).toBe("");
 
     light.focus();
@@ -559,7 +559,7 @@ describe("Theme Preview", () => {
       });
 
       await waitFor(() =>
-        expect(screen.queryByText("bb-plugins")).not.toBeNull(),
+        expect(screen.queryByText("hyperfide-plugins")).not.toBeNull(),
       );
       expect(screen.getByText("Pull request")).toBeDefined();
       expect(
@@ -578,7 +578,7 @@ describe("Theme Preview", () => {
     }
   });
 
-  it("keeps the transient bb surfaces deliberately inspectable in the overlays block", async () => {
+  it("keeps the transient hyperfide surfaces deliberately inspectable in the overlays block", async () => {
     renderPreview({
       themeCatalog: () => DEFAULT_CATALOG,
       setTheme: () => DEFAULT_CATALOG,

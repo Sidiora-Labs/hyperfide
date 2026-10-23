@@ -729,7 +729,7 @@ function toolStatusFields(status: CodexItemStatus): {
 
 const PLAN_STEPS_CHANNEL = "planSteps";
 
-const HYPERFIDE_TOOL_SERVER = "bb";
+const HYPERFIDE_TOOL_SERVER = "hyperfide";
 
 function isTerminalCodexItemStatus(status: CodexItemStatus): boolean {
   return status !== "inProgress";

@@ -13,7 +13,7 @@ import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-vie
 import {
   CHROME_ROW_CLASS,
   CHROME_ROW_HEIGHT_CLASS,
-  getBbDesktopInfo,
+  getHyperfideDesktopInfo,
   MACOS_CHROME_CONTROL_AXIS_CLASS,
   MACOS_TITLE_BAR_BAND_CLASS,
   MACOS_TITLE_BAR_COLLAPSED_SIDEBAR_RESERVE_CLASS,
@@ -24,7 +24,7 @@ import {
   MACOS_WINDOW_NO_DRAG_CLASS,
   shouldReserveMacosTrafficLights,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { useDesktopWindowState } from "@/hooks/useDesktopWindowState";
 import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { scrollPageToTop } from "@/lib/page-scroll-to-top";
@@ -65,7 +65,7 @@ export function AppPageHeader({
   const handleScrollToTop = () => {
     if (localHeaderRef.current) scrollPageToTop(localHeaderRef.current);
   };
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getHyperfideDesktopInfo);
   const desktopWindowState = useDesktopWindowState();
   const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
   const reserveMacosTrafficLights = shouldReserveMacosTrafficLights({

@@ -69,7 +69,7 @@ const OPTIONAL_SERVER_FIELD_GROUPS: readonly OptionalServerFieldGroup[] = [
   },
   {
     reason:
-      "A submitted plugin form leaves on its row only what the plugin's describeSubmission returned, and the whole description is absent when the plugin declares no describeSubmission or when that call throws or times out. Within one, an absent title means the presentation's completed label stands, an absent detail means the title is the whole row, and an absent payload means the row renders without handing anything to the plugin's own timeline renderer. bb never stores the form's payload or the submitted value, so these fields are the entire record of what happened.",
+      "A submitted plugin form leaves on its row only what the plugin's describeSubmission returned, and the whole description is absent when the plugin declares no describeSubmission or when that call throws or times out. Within one, an absent title means the presentation's completed label stands, an absent detail means the title is the whole row, and an absent payload means the row renders without handing anything to the plugin's own timeline renderer. hyperfide never stores the form's payload or the submitted value, so these fields are the entire record of what happened.",
     fields: [
       "threadPendingInteractionsResponseSchema.resolution.description",
       "threadPendingInteractionsResponseSchema.resolution.description.detail",
@@ -125,7 +125,7 @@ const OPTIONAL_SERVER_FIELD_GROUPS: readonly OptionalServerFieldGroup[] = [
   },
   {
     reason:
-      "A row carries a declarative presentation only when a bridge or plugin attached one; rows persisted before grammar v2, and rows from a bridge that declares none, have no presentation and clients fall back to bb's own rendering for the row kind.",
+      "A row carries a declarative presentation only when a bridge or plugin attached one; rows persisted before grammar v2, and rows from a bridge that declares none, have no presentation and clients fall back to hyperfide's own rendering for the row kind.",
     fields: [
       "threadPendingInteractionsResponseSchema.payload.presentation",
       "threadTimelineResponseSchema.activeBackgroundCommands.presentation",
@@ -318,7 +318,7 @@ const OPTIONAL_SERVER_FIELD_GROUPS: readonly OptionalServerFieldGroup[] = [
   },
   {
     reason:
-      "A provider interaction carries an explicit origin only since bb began recording which provider raised it; absence means an older row whose provider is still readable from the providerId, providerThreadId, and providerRequestId beside it.",
+      "A provider interaction carries an explicit origin only since hyperfide began recording which provider raised it; absence means an older row whose provider is still readable from the providerId, providerThreadId, and providerRequestId beside it.",
     fields: ["threadPendingInteractionsResponseSchema.origin"],
   },
   {
@@ -771,7 +771,7 @@ describe("git branch name contract", () => {
       "release/1.2",
       "feature.foo",
       "user_name",
-      "bb/thread-123",
+      "hyperfide/thread-123",
     ];
 
     for (const name of validNames) {
@@ -1305,7 +1305,7 @@ describe("server-contract canonical schemas", () => {
           hasPendingInteraction: true,
           environmentHostId: "host_123",
           environmentName: null,
-          environmentBranchName: "bb/test",
+          environmentBranchName: "hyperfide/test",
           environmentPath: null,
           environmentProviderId: "git-worktree",
           environmentIsWorktree: true,
@@ -1320,7 +1320,7 @@ describe("server-contract canonical schemas", () => {
         hasPendingInteraction: true,
         environmentHostId: "host_123",
         environmentName: null,
-        environmentBranchName: "bb/test",
+        environmentBranchName: "hyperfide/test",
         environmentPath: null,
         environmentProviderId: "git-worktree",
         environmentIsWorktree: true,
@@ -1464,14 +1464,14 @@ describe("server-contract canonical schemas", () => {
     expect(
       contract.updateProjectSourceRequestSchema.parse({
         type: "local_path",
-        path: " c:/Users/michael/bb/ ",
+        path: " c:/Users/michael/hyperfide/ ",
       }),
-    ).toMatchObject({ path: "C:\\Users\\michael\\bb" });
+    ).toMatchObject({ path: "C:\\Users\\michael\\hyperfide" });
 
     expect(() =>
       contract.updateProjectSourceRequestSchema.parse({
         type: "local_path",
-        path: "\\\\server\\share\\bb",
+        path: "\\\\server\\share\\hyperfide",
       }),
     ).toThrow("Windows network paths are not supported");
 

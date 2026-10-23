@@ -1458,7 +1458,7 @@ describe("session option selection dispatch", () => {
       scope: threadScope(),
       data: {
         providerThreadId: `provider-send-dispatch-${value}`,
-        kind: "bb/session-options",
+        kind: "hyperfide/session-options",
         payload: {
           options: [
             {

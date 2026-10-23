@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import type { MachineEnvironmentList } from "@hyperfide/server-contract";
 import { action } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliHyperfideSdk } from "../client.js";
 import { outputJson } from "./helpers.js";
 
 function printEnvironment(
@@ -53,7 +53,7 @@ export function registerMachineEnvironmentCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (options: { project?: string; json?: boolean }) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const result = options.project
           ? await sdk.projects.machineEnvironment({
               projectId: options.project,
@@ -87,7 +87,7 @@ export function registerMachineEnvironmentCommands(
           name: string,
           options: { project?: string; note?: string; json?: boolean },
         ) => {
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const input = {
             name,
             value: await readValue(),
@@ -115,7 +115,7 @@ export function registerMachineEnvironmentCommands(
     .action(
       action(
         async (name: string, options: { project?: string; json?: boolean }) => {
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           printEnvironment(
             options.project
               ? await sdk.projects.deleteMachineEnvironmentVariable({

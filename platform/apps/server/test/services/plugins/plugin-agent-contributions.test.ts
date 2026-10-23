@@ -60,7 +60,7 @@ async function writePlugin(
   options: {
     name: string;
     serverSource?: string;
-    bbSkills?: string[];
+    hyperfideSkills?: string[];
     skillNames?: string[];
     skillsDirName?: string;
   },
@@ -72,12 +72,12 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Agent contributions fixture",
         description: "Agent contributions plugin fixture.",
         branding: { icon: "Zap" },
         server: "./server.ts",
-        ...(options.bbSkills ? { skills: options.bbSkills } : {}),
+        ...(options.hyperfideSkills ? { skills: options.hyperfideSkills } : {}),
       },
     }),
   );
@@ -180,10 +180,10 @@ describe("plugin skills tier", () => {
     expect(sources).toHaveLength(byName.size);
   });
 
-  it("manifest bb.skills relocates the convention root and the experiment gates the tier", async () => {
+  it("manifest hyperfide.skills relocates the convention root and the experiment gates the tier", async () => {
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-relocated",
-      bbSkills: ["./custom/*"],
+      hyperfideSkills: ["./custom/*"],
       skillNames: ["relocated-skill"],
       skillsDirName: "custom",
     });
@@ -233,11 +233,11 @@ describe("plugin agent contributions reach thread runtime config", () => {
       const root = await writePlugin(pluginsDir, {
         name: "hyperfide-plugin-env-failures",
         serverSource: `
-          export default function plugin(bb) {
-            bb.providers.experimental_contributeEnv("codex", () => {
+          export default function plugin(hyperfide) {
+            hyperfide.providers.experimental_contributeEnv("codex", () => {
               throw new Error("resolver exploded");
             });
-            bb.providers.experimental_contributeEnv("claude-code", () => new Promise(() => {}));
+            hyperfide.providers.experimental_contributeEnv("claude-code", () => new Promise(() => {}));
           }
         `,
       });
@@ -331,8 +331,8 @@ describe("plugin agent contributions reach thread runtime config", () => {
     const firstRoot = await writePlugin(pluginsDir, {
       name: "hyperfide-plugin-env-first",
       serverSource: `
-        export default function plugin(bb) {
-          bb.providers.experimental_contributeEnv("codex", (context) => [
+        export default function plugin(hyperfide) {
+          hyperfide.providers.experimental_contributeEnv("codex", (context) => [
             {
               name: "PLUGIN_CONTEXT",
               value: context.threadId + ":" + context.projectId + ":" + context.hostId,
@@ -350,8 +350,8 @@ describe("plugin agent contributions reach thread runtime config", () => {
     const secondRoot = await writePlugin(pluginsDir, {
       name: "hyperfide-plugin-env-second",
       serverSource: `
-        export default function plugin(bb) {
-          bb.providers.experimental_contributeEnv("codex", () => [
+        export default function plugin(hyperfide) {
+          hyperfide.providers.experimental_contributeEnv("codex", () => [
             {
               name: "SHARED_TOKEN",
               value: "second",

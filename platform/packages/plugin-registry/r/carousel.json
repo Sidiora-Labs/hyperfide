@@ -3,7 +3,7 @@
   "name": "carousel",
   "type": "registry:ui",
   "title": "carousel",
-  "description": "BB ui \"carousel\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"carousel\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "embla-carousel-react"
   ],

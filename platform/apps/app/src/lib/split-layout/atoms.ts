@@ -28,7 +28,7 @@ export const splitLayoutAtom = atomWithStorage<SplitLayout | null>(
   { getOnInit: true },
 );
 
-export const MAXIMIZED_PANE_STORAGE_KEY = "bb.splitLayout.maximizedPaneId";
+export const MAXIMIZED_PANE_STORAGE_KEY = "hyperfide.splitLayout.maximizedPaneId";
 
 export const maximizedPaneIdAtom = atomWithStorage<string | null>(
   MAXIMIZED_PANE_STORAGE_KEY,
@@ -44,7 +44,7 @@ export const maximizedPaneIdAtom = atomWithStorage<string | null>(
 );
 
 export const DIM_INACTIVE_SPLITS_STORAGE_KEY =
-  "bb.splitLayout.dimInactiveSplits";
+  "hyperfide.splitLayout.dimInactiveSplits";
 
 export const dimInactiveSplitsAtom = createBooleanPreferenceAtom(
   DIM_INACTIVE_SPLITS_STORAGE_KEY,

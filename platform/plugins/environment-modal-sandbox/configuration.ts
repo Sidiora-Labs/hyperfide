@@ -16,7 +16,7 @@ export const SETTING_DESCRIPTORS = {
     type: "string",
     label: "Modal app name",
     description: "The Modal app the sandboxes are created in.",
-    default: "bb-sandboxes",
+    default: "hyperfide-sandboxes",
   },
   idleMinutes: {
     type: "number",

@@ -4,9 +4,9 @@ import plugin, { TASKS_PLUGIN_VERSION } from "./server";
 
 describe("Tasks plugin scaffold", () => {
   it("registers the CLI and RPC surfaces after opening plugin storage", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
+    const { hyperfide, harness } = createFakePluginHost({ pluginId: "tasks" });
 
-    await plugin(bb);
+    await plugin(hyperfide);
 
     expect(harness.logEntries).toEqual([
       {

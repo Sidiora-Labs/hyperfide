@@ -21,7 +21,7 @@ import {
   type PluginBuildToolchain,
 } from "@hyperfide/plugin-build";
 function testToolchain() {
-  return resolvePluginBuildToolchain(join(tmpdir(), "bb-toolchain-unused"));
+  return resolvePluginBuildToolchain(join(tmpdir(), "hyperfide-toolchain-unused"));
 }
 
 const TEST_HYPERFIDE_VERSION = "0.9.0-test";
@@ -61,7 +61,7 @@ const FIXTURE_PACKAGE_JSON = JSON.stringify(
     name: "hyperfide-plugin-fixture",
     version: "0.1.0",
     type: "module",
-    bb: {
+    hyperfide: {
       name: "Build fixture",
       description: "Plugin app build fixture.",
       branding: { icon: "Zap" },
@@ -119,7 +119,7 @@ describe("buildPluginApp", () => {
 
     const js = await readFile(result.jsPath, "utf8");
     expect(js).toMatch(/export\s*\{/);
-    expect(js).toContain("globalThis.__bbPluginRuntime");
+    expect(js).toContain("globalThis.__hyperfidePluginRuntime");
     for (const slot of [
       "react",
       "reactDomClient",
@@ -145,7 +145,7 @@ describe("buildPluginApp", () => {
     expect(css).toContain(".animate-in");
     expect(css).toContain(".fade-in-0");
     const scope =
-      ":where([data-bb-plugin=fixture],[data-hyperfide-plugin-root]:not([data-bb-plugin]))";
+      ":where([data-hyperfide-plugin=fixture],[data-hyperfide-plugin-root]:not([data-hyperfide-plugin]))";
     expect(css).toContain(`${scope} .animate-in`);
     expect(css).toContain(`${scope}.animate-in`);
     expect(css).not.toContain("@scope");
@@ -158,13 +158,13 @@ describe("buildPluginApp", () => {
       pluginId: "fixture",
       pluginVersion: "0.1.0",
       builtWith: {
-        bbVersion: TEST_HYPERFIDE_VERSION,
+        hyperfideVersion: TEST_HYPERFIDE_VERSION,
         pluginSdkVersion: PLUGIN_SDK_VERSION,
       },
     });
   });
 
-  it("throws at import time without the BB runtime and loads once slots are set", async () => {
+  it("throws at import time without the HYPERFIDE runtime and loads once slots are set", async () => {
     await writeFixture();
     const { jsPath } = await buildPluginApp(
       root,
@@ -174,10 +174,10 @@ describe("buildPluginApp", () => {
     const url = pathToFileURL(jsPath).href;
 
     await expect(import(/* @vite-ignore */ url)).rejects.toThrow(
-      /must be loaded by the BB app/,
+      /must be loaded by the HYPERFIDE app/,
     );
 
-    (globalThis as { __bbPluginRuntime?: unknown }).__bbPluginRuntime = {
+    (globalThis as { __hyperfidePluginRuntime?: unknown }).__hyperfidePluginRuntime = {
       react: { useState: () => [0, () => {}] },
       reactDomClient: { createRoot: () => ({}) },
       jsxRuntime: { jsx: () => ({}), jsxs: () => ({}), Fragment: {} },
@@ -187,7 +187,7 @@ describe("buildPluginApp", () => {
       const mod = await import(/* @vite-ignore */ `${url}?with-runtime`);
       expect(mod.default).toBeDefined();
     } finally {
-      delete (globalThis as { __bbPluginRuntime?: unknown }).__bbPluginRuntime;
+      delete (globalThis as { __hyperfidePluginRuntime?: unknown }).__hyperfidePluginRuntime;
     }
   });
 
@@ -277,13 +277,13 @@ describe("buildPluginApp", () => {
     ]);
   });
 
-  it("errors clearly when the plugin has no bb.app entry", async () => {
+  it("errors clearly when the plugin has no hyperfide.app entry", async () => {
     await writeFile(
       join(root, "package.json"),
       JSON.stringify({
         name: "hyperfide-plugin-headless",
         version: "0.1.0",
-        bb: {
+        hyperfide: {
           name: "Headless fixture",
           description: "Headless plugin build fixture.",
           branding: { icon: "Zap" },
@@ -296,7 +296,7 @@ describe("buildPluginApp", () => {
     ).rejects.toThrow(/no frontend entry/);
   });
 
-  it("errors when bb.app points at a missing file", async () => {
+  it("errors when hyperfide.dev points at a missing file", async () => {
     await writeFile(join(root, "package.json"), FIXTURE_PACKAGE_JSON);
     await expect(
       buildPluginApp(root, TEST_HYPERFIDE_VERSION, await testToolchain()),
@@ -306,9 +306,9 @@ describe("buildPluginApp", () => {
   it("validates a path-shaped branding.icon before building", async () => {
     await writeFixture();
     const packageJson = JSON.parse(FIXTURE_PACKAGE_JSON) as {
-      bb: { branding: { icon: string } };
+      hyperfide: { branding: { icon: string } };
     };
-    packageJson.bb.branding.icon = "./assets/icon.svg";
+    packageJson.hyperfide.branding.icon = "./assets/icon.svg";
     await writeFile(
       join(root, "package.json"),
       JSON.stringify(packageJson, null, 2),
@@ -316,7 +316,7 @@ describe("buildPluginApp", () => {
 
     await expect(
       buildPluginApp(root, TEST_HYPERFIDE_VERSION, await testToolchain()),
-    ).rejects.toThrow(/bb\.branding\.icon points at a missing file/);
+    ).rejects.toThrow(/hyperfide\.branding\.icon points at a missing file/);
 
     await mkdir(join(root, "assets"));
     await writeFile(join(root, "assets", "icon.svg"), "<svg/>");
@@ -333,7 +333,7 @@ describe("buildPluginApp", () => {
     await scaffoldPlugin({
       targetDir,
       packageName: "hyperfide-plugin-scaffolded",
-      bbVersion: "0.9.0",
+      hyperfideVersion: "0.9.0",
     });
     await linkScaffoldDeps(targetDir, [
       "@radix-ui/react-checkbox",
@@ -345,11 +345,11 @@ describe("buildPluginApp", () => {
       await metafileRejectingToolchain(root),
     );
     const js = await readFile(result.jsPath, "utf8");
-    expect(js).toContain("globalThis.__bbPluginRuntime");
+    expect(js).toContain("globalThis.__hyperfidePluginRuntime");
     const css = await readFile(result.cssPath, "utf8");
     expect(css).toContain(".rounded-md");
 
-    (globalThis as { __bbPluginRuntime?: unknown }).__bbPluginRuntime = {
+    (globalThis as { __hyperfidePluginRuntime?: unknown }).__hyperfidePluginRuntime = {
       react: createRequire(
         new URL("../../../app/package.json", import.meta.url),
       )("react"),
@@ -360,20 +360,20 @@ describe("buildPluginApp", () => {
       tailwindMerge: { twMerge: (value: string) => value },
       pluginSdkApp: {
         definePluginApp: (setup: unknown) => ({
-          __bbPluginApp: true,
+          __hyperfidePluginApp: true,
           setup,
         }),
-        useBbContext: () => ({ projectId: null, threadId: null }),
+        useHyperfideContext: () => ({ projectId: null, threadId: null }),
       },
     };
     try {
       const mod = (await import(
         /* @vite-ignore */ pathToFileURL(result.jsPath).href
-      )) as { default?: { __bbPluginApp?: unknown; setup?: unknown } };
-      expect(mod.default?.__bbPluginApp).toBe(true);
+      )) as { default?: { __hyperfidePluginApp?: unknown; setup?: unknown } };
+      expect(mod.default?.__hyperfidePluginApp).toBe(true);
       expect(typeof mod.default?.setup).toBe("function");
     } finally {
-      delete (globalThis as { __bbPluginRuntime?: unknown }).__bbPluginRuntime;
+      delete (globalThis as { __hyperfidePluginRuntime?: unknown }).__hyperfidePluginRuntime;
     }
   });
 });

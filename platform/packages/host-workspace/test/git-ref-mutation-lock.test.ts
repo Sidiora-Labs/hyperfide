@@ -39,14 +39,14 @@ async function expectPathsShareLock(
 
 describe("git ref mutation lock", () => {
   it("serializes mutations for the same resolved common directory", async () => {
-    const commonDir = await makeTempDir("bb-git-ref-lock-");
+    const commonDir = await makeTempDir("hyperfide-git-ref-lock-");
     await expectPathsShareLock(commonDir, `${commonDir}${path.sep}.`);
   });
 
   it.runIf(process.platform !== "win32")(
     "serializes symbolic-link aliases of one common directory",
     async () => {
-      const parentDir = await makeTempDir("bb-git-ref-lock-symlink-");
+      const parentDir = await makeTempDir("hyperfide-git-ref-lock-symlink-");
       const commonDir = path.join(parentDir, "common");
       const aliasDir = path.join(parentDir, "alias");
       await fs.mkdir(commonDir);
@@ -76,7 +76,7 @@ describe("git ref mutation lock", () => {
   );
 
   it("allows callers to bound how long they wait for the lock", async () => {
-    const commonDir = await makeTempDir("bb-git-ref-lock-timeout-");
+    const commonDir = await makeTempDir("hyperfide-git-ref-lock-timeout-");
     const firstEntered = createDeferredPromise<void>();
     const releaseFirst = createDeferredPromise<void>();
     const first = withGitRefMutationLock(commonDir, async () => {
@@ -100,8 +100,8 @@ describe("git ref mutation lock", () => {
 
 describe("withGitRefMutationLock across processes", () => {
   it("waits for a lock directory another process holds and takes over a stale one", async () => {
-    const commonDir = await makeTempDir("bb-ref-lock-");
-    const lockPath = path.join(commonDir, "bb-ref-mutation.lock");
+    const commonDir = await makeTempDir("hyperfide-ref-lock-");
+    const lockPath = path.join(commonDir, "hyperfide-ref-mutation.lock");
     await fs.mkdir(lockPath);
     let entered = false;
     const run = withGitRefMutationLock(commonDir, async () => {

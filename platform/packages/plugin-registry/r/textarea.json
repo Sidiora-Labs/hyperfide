@@ -3,7 +3,7 @@
   "name": "textarea",
   "type": "registry:ui",
   "title": "textarea",
-  "description": "BB ui \"textarea\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"textarea\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/coarse-pointer-sizing",
     "@hyperfide/motion",

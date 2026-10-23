@@ -6,7 +6,7 @@ import {
   createUserShellPathResolver,
   prepareRuntimeShellEnv,
   resolvePowerShellExecutionPolicyDefault,
-  resolveLocalBbExecutablePath,
+  resolveLocalHyperfideExecutablePath,
   type SpawnUserShellEnv,
   type SpawnUserShellEnvArgs,
   type UserShellEnvSpawnResult,
@@ -68,8 +68,8 @@ async function withPlatform<T>(
 async function createFakeCliPackage(
   options: FakeCliPackageOptions = {},
 ): Promise<FakeCliPackage> {
-  const cliPackageRoot = await makeTempDir("bb-cli-package-");
-  const executablePath = options.executablePath ?? "./dist/bin/bb";
+  const cliPackageRoot = await makeTempDir("hyperfide-cli-package-");
+  const executablePath = options.executablePath ?? "./dist/bin/hyperfide";
   const cliEntryPath = path.resolve(cliPackageRoot, executablePath);
   const cliRuntimePath = path.resolve(cliPackageRoot, "dist/index.js");
 
@@ -77,7 +77,7 @@ async function createFakeCliPackage(
     await fs.mkdir(path.dirname(cliEntryPath), { recursive: true });
     await fs.writeFile(
       cliEntryPath,
-      "#!/usr/bin/env node\nprocess.stdout.write('bb')\n",
+      "#!/usr/bin/env node\nprocess.stdout.write('hyperfide')\n",
       { mode: options.executable ? 0o755 : 0o644 },
     );
     await fs.chmod(cliEntryPath, options.executable ? 0o755 : 0o644);
@@ -85,7 +85,7 @@ async function createFakeCliPackage(
 
   if (options.writeRuntime) {
     await fs.mkdir(path.dirname(cliRuntimePath), { recursive: true });
-    await fs.writeFile(cliRuntimePath, "process.stdout.write('bb')\n", "utf8");
+    await fs.writeFile(cliRuntimePath, "process.stdout.write('hyperfide')\n", "utf8");
   }
 
   return {
@@ -139,7 +139,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("resolveLocalBbExecutablePath", () => {
+describe("resolveLocalHyperfideExecutablePath", () => {
   it("returns the built CLI executable path", async () => {
     const { cliEntryPath, cliRuntimePath } = await createFakeCliPackage({
       executable: true,
@@ -147,7 +147,7 @@ describe("resolveLocalBbExecutablePath", () => {
     });
 
     await expect(
-      resolveLocalBbExecutablePath({
+      resolveLocalHyperfideExecutablePath({
         cliExecutablePath: cliEntryPath,
         cliRuntimePath,
       }),
@@ -160,12 +160,12 @@ describe("resolveLocalBbExecutablePath", () => {
     });
 
     await expect(
-      resolveLocalBbExecutablePath({
+      resolveLocalHyperfideExecutablePath({
         cliExecutablePath: cliEntryPath,
         cliRuntimePath,
       }),
     ).rejects.toThrow(
-      `Missing built bb CLI runtime at ${cliRuntimePath}. Build @hyperfide/cli before starting the host daemon.`,
+      `Missing built hyperfide CLI runtime at ${cliRuntimePath}. Build @hyperfide/cli before starting the host daemon.`,
     );
   });
 
@@ -175,11 +175,11 @@ describe("resolveLocalBbExecutablePath", () => {
     });
 
     await expect(
-      resolveLocalBbExecutablePath({
+      resolveLocalHyperfideExecutablePath({
         cliExecutablePath: cliEntryPath,
       }),
     ).rejects.toThrow(
-      `Missing built bb CLI entry at ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
+      `Missing built hyperfide CLI entry at ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
     );
   });
 
@@ -191,11 +191,11 @@ describe("resolveLocalBbExecutablePath", () => {
       });
 
       await expect(
-        resolveLocalBbExecutablePath({
+        resolveLocalHyperfideExecutablePath({
           cliExecutablePath: cliEntryPath,
         }),
       ).rejects.toThrow(
-        `Resolved bb CLI entry is not executable: ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
+        `Resolved hyperfide CLI entry is not executable: ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
       );
     },
   );
@@ -207,7 +207,7 @@ describe("resolveLocalBbExecutablePath", () => {
 
     await expect(
       withPlatform("win32", () =>
-        resolveLocalBbExecutablePath({
+        resolveLocalHyperfideExecutablePath({
           cliExecutablePath: cliEntryPath,
         }),
       ),
@@ -217,7 +217,7 @@ describe("resolveLocalBbExecutablePath", () => {
 
 describe("createUserShellPathResolver", () => {
   it("settles when the shell env probe times out even if the shell ignores SIGTERM", async () => {
-    const shellDir = await makeTempDir("bb-shell-timeout-");
+    const shellDir = await makeTempDir("hyperfide-shell-timeout-");
     const shellPath = path.join(shellDir, "ignore-term-shell");
     await fs.writeFile(
       shellPath,
@@ -451,10 +451,10 @@ describe("createUserShellPathResolver", () => {
 
 describe("prepareRuntimeShellEnv", () => {
   it("uses the daemon proxy URL without exporting its machine credential", () => {
-    vi.stubEnv("HYPERFIDE_CONNECT_MACHINE_CREDENTIAL", "bbcm_durable_secret");
+    vi.stubEnv("HYPERFIDE_CONNECT_MACHINE_CREDENTIAL", "hyperfide_cm_durable_secret");
 
     const env = prepareRuntimeShellEnv({
-      bbExecutableDirectory: "/tmp/bb-bin",
+      hyperfideExecutableDirectory: "/tmp/hyperfide-bin",
       inheritedPath: "/usr/bin",
       serverUrl: "http://127.0.0.1:43123",
     });
@@ -463,17 +463,17 @@ describe("prepareRuntimeShellEnv", () => {
     expect(env).not.toHaveProperty("HYPERFIDE_CONNECT_MACHINE_CREDENTIAL");
   });
 
-  it("prepends the configured bb executable directory to PATH and sets HYPERFIDE_CLI", () => {
+  it("prepends the configured hyperfide executable directory to PATH and sets HYPERFIDE_CLI", () => {
     expect(
       prepareRuntimeShellEnv({
-        bbExecutableDirectory: "/tmp/bb-bin",
+        hyperfideExecutableDirectory: "/tmp/hyperfide-bin",
         hostDaemonPort: 3002,
         inheritedPath: "/usr/bin",
         serverUrl: "http://127.0.0.1:3334",
       }),
     ).toEqual({
-      PATH: `/tmp/bb-bin${delimiter}/usr/bin`,
-      HYPERFIDE_CLI: path.resolve("/tmp/bb-bin", "hyperfide-platform"),
+      PATH: `/tmp/hyperfide-bin${delimiter}/usr/bin`,
+      HYPERFIDE_CLI: path.resolve("/tmp/hyperfide-bin", "hyperfide-platform"),
       HYPERFIDE_SERVER_URL: "http://127.0.0.1:3334",
       HYPERFIDE_HOST_DAEMON_PORT: "3002",
     });
@@ -481,7 +481,7 @@ describe("prepareRuntimeShellEnv", () => {
 
   it("sets the PowerShell execution policy it is given and none otherwise", () => {
     const options = {
-      bbExecutableDirectory: "C:\\bb",
+      hyperfideExecutableDirectory: "C:\\hyperfide",
       inheritedPath: "C:\\Windows",
       serverUrl: "http://127.0.0.1:43123",
     };
@@ -500,17 +500,17 @@ describe("prepareRuntimeShellEnv", () => {
     );
   });
 
-  it("uses an explicit bbExecutablePath for HYPERFIDE_CLI", () => {
+  it("uses an explicit hyperfideExecutablePath for HYPERFIDE_CLI", () => {
     expect(
       prepareRuntimeShellEnv({
-        bbExecutableDirectory: "/tmp/bb-bin",
-        bbExecutablePath: "/opt/custom/bb",
+        hyperfideExecutableDirectory: "/tmp/hyperfide-bin",
+        hyperfideExecutablePath: "/opt/custom/hyperfide",
         inheritedPath: "/usr/bin",
         serverUrl: "http://127.0.0.1:3334",
       }),
     ).toMatchObject({
-      HYPERFIDE_CLI: "/opt/custom/bb",
-      PATH: `/tmp/bb-bin${delimiter}/usr/bin`,
+      HYPERFIDE_CLI: "/opt/custom/hyperfide",
+      PATH: `/tmp/hyperfide-bin${delimiter}/usr/bin`,
     });
   });
 
@@ -519,13 +519,13 @@ describe("prepareRuntimeShellEnv", () => {
 
     expect(
       prepareRuntimeShellEnv({
-        bbExecutableDirectory: "/tmp/bb-bin",
+        hyperfideExecutableDirectory: "/tmp/hyperfide-bin",
         hostDaemonPort: 3002,
         serverUrl: "http://127.0.0.1:3334",
       }),
     ).toEqual({
-      PATH: `/tmp/bb-bin${delimiter}/usr/local/bin:/usr/bin`,
-      HYPERFIDE_CLI: path.resolve("/tmp/bb-bin", "hyperfide-platform"),
+      PATH: `/tmp/hyperfide-bin${delimiter}/usr/local/bin:/usr/bin`,
+      HYPERFIDE_CLI: path.resolve("/tmp/hyperfide-bin", "hyperfide-platform"),
       HYPERFIDE_SERVER_URL: "http://127.0.0.1:3334",
       HYPERFIDE_HOST_DAEMON_PORT: "3002",
     });
@@ -534,13 +534,13 @@ describe("prepareRuntimeShellEnv", () => {
   it("omits the host daemon port when the local API is disabled", () => {
     expect(
       prepareRuntimeShellEnv({
-        bbExecutableDirectory: "/tmp/bb-bin",
+        hyperfideExecutableDirectory: "/tmp/hyperfide-bin",
         inheritedPath: "/usr/bin",
         serverUrl: "http://127.0.0.1:3334",
       }),
     ).toEqual({
-      PATH: `/tmp/bb-bin${delimiter}/usr/bin`,
-      HYPERFIDE_CLI: path.resolve("/tmp/bb-bin", "hyperfide-platform"),
+      PATH: `/tmp/hyperfide-bin${delimiter}/usr/bin`,
+      HYPERFIDE_CLI: path.resolve("/tmp/hyperfide-bin", "hyperfide-platform"),
       HYPERFIDE_SERVER_URL: "http://127.0.0.1:3334",
     });
   });

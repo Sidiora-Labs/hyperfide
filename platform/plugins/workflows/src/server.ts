@@ -1,4 +1,4 @@
-import type { BbPluginApi, PluginAgentToolResult } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi, PluginAgentToolResult } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { registerWorkflowCli } from "./cli.js";
 import { migrations } from "./data.js";
@@ -37,7 +37,7 @@ const sourceInputFields = {
     .string()
     .min(1)
     .describe(
-      "Name of a saved workflow from the current workspace's .bb/workflows/ directory. Resolves to a self-contained script.",
+      "Name of a saved workflow from the current workspace's .hyperfide/workflows/ directory. Resolves to a self-contained script.",
     )
     .optional(),
 } as const;
@@ -56,7 +56,7 @@ const runInputSchema = z
       .min(1)
       .nullable()
       .describe(
-        "Run ID of a prior BB workflow to resume from. Calls in the causally safe, longest unchanged prefix return cached results; the first edited, new, or concurrent call and everything after it run live. The prior run must be terminal and from the same project and environment.",
+        "Run ID of a prior HYPERFIDE workflow to resume from. Calls in the causally safe, longest unchanged prefix return cached results; the first edited, new, or concurrent call and everything after it run live. The prior run must be terminal and from the same project and environment.",
       )
       .default(null),
   })
@@ -77,27 +77,27 @@ function errorResult(error: string): PluginAgentToolResult {
   return { content: [{ type: "text", text: error }], isError: true };
 }
 
-export default async function plugin(bb: BbPluginApi) {
-  const settings = registerWorkflowSettings(bb);
-  const db = bb.storage.database();
-  bb.storage.migrate(db, migrations);
+export default async function plugin(hyperfide: HyperfidePluginApi) {
+  const settings = registerWorkflowSettings(hyperfide);
+  const db = hyperfide.storage.database();
+  hyperfide.storage.migrate(db, migrations);
   let initialSettings = DEFAULT_WORKFLOW_SETTINGS;
   try {
     initialSettings = await settings.get();
   } catch (error) {
-    bb.status.needsConfiguration(
+    hyperfide.status.needsConfiguration(
       `Workflow settings are invalid; defaults are active until the settings are corrected: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-  const service = createWorkflowService(bb, db, initialSettings);
+  const service = createWorkflowService(hyperfide, db, initialSettings);
   settings.onChange(
     (next) => service.updateSettings(next),
     (error) =>
-      bb.status.needsConfiguration(
+      hyperfide.status.needsConfiguration(
         `Workflow settings are invalid; the last valid values remain active: ${error.message}`,
       ),
   );
-  registerWorkflowCli(bb, service);
+  registerWorkflowCli(hyperfide, service);
 
   function workflowForThread(threadId: string, runId: string | null) {
     const run =
@@ -111,7 +111,7 @@ export default async function plugin(bb: BbPluginApi) {
     return run;
   }
 
-  bb.rpc.register(workflowUiRpcContract, {
+  hyperfide.rpc.register(workflowUiRpcContract, {
     workflowActiveRuns({ threadId }) {
       return {
         runs: service
@@ -133,18 +133,18 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.agents.registerTool({
-    name: "bb_workflow_run",
+  hyperfide.agents.registerTool({
+    name: "hyperfide_workflow_run",
     presentation: {
       label: { pending: "Starting workflow", completed: "Started workflow" },
       icon: { glyph: "Workflow" },
     },
     description:
-      "Execute a workflow script that orchestrates multiple subagents deterministically. Workflows run in the background — this tool returns immediately with a run ID and a `previewDirective`. After a successful call, emit that directive exactly once on its own line (not in a code fence) so BB renders live progress in chat. A completion notification is sent to the origin thread. Use `bb workflows status <run-id>` for a compact summary. For detailed history, redirect a bounded JSONL page from `bb workflows history <run-id> --cursor <call-index> --limit <1-100>` into `$HYPERFIDE_THREAD_STORAGE`, then inspect the file with normal filesystem tools.",
+      "Execute a workflow script that orchestrates multiple subagents deterministically. Workflows run in the background — this tool returns immediately with a run ID and a `previewDirective`. After a successful call, emit that directive exactly once on its own line (not in a code fence) so HYPERFIDE renders live progress in chat. A completion notification is sent to the origin thread. Use `hyperfide-platform workflows status <run-id>` for a compact summary. For detailed history, redirect a bounded JSONL page from `hyperfide-platform workflows history <run-id> --cursor <call-index> --limit <1-100>` into `$HYPERFIDE_THREAD_STORAGE`, then inspect the file with normal filesystem tools.",
     parameters: runInputSchema,
     async execute(input, ctx) {
       try {
-        const prepared = await prepareWorkflowSource(bb, ctx, input);
+        const prepared = await prepareWorkflowSource(hyperfide, ctx, input);
         const run = await service.start({
           projectId: ctx.projectId,
           originThreadId: ctx.threadId,
@@ -167,8 +167,8 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.agents.registerTool({
-    name: "bb_workflow_result",
+  hyperfide.agents.registerTool({
+    name: "hyperfide_workflow_result",
     presentation: {
       label: {
         pending: "Returning structured result",
@@ -195,7 +195,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.agents.configure((context) => {
+  hyperfide.agents.configure((context) => {
     const worker = service.agentConfiguration(context.thread.id);
     if (worker !== null) {
       return {
@@ -204,7 +204,7 @@ export default async function plugin(bb: BbPluginApi) {
             ? []
             : [
                 {
-                  name: "bb_workflow_result",
+                  name: "hyperfide_workflow_result",
                   parameters: worker.resultParameters,
                 },
               ],
@@ -214,38 +214,38 @@ export default async function plugin(bb: BbPluginApi) {
           : { instructions: worker.instructions }),
       };
     }
-    if (context.origin.pluginId === bb.pluginId) {
+    if (context.origin.pluginId === hyperfide.pluginId) {
       return {
-        tools: ["bb_workflow_result"],
+        tools: ["hyperfide_workflow_result"],
         skills: [],
         instructions:
-          "You are starting as a BB workflow worker. Follow the workflow prompt. Your final text IS the return value, not a human-facing message. If the prompt requests structured output, call bb_workflow_result exactly once at the end of your response.",
+          "You are starting as a HYPERFIDE workflow worker. Follow the workflow prompt. Your final text IS the return value, not a human-facing message. If the prompt requests structured output, call hyperfide_workflow_result exactly once at the end of your response.",
       };
     }
     return {
-      tools: ["bb_workflow_run"],
+      tools: ["hyperfide_workflow_run"],
       skills: ["workflows"],
       instructions:
-        "When bb_workflow_run succeeds, copy its previewDirective into your response exactly once as a standalone line. Do not wrap it in backticks or a code fence, and do not invent or edit the run ID. The directive renders live workflow progress in BB chat. `bb workflows status <run-id>` returns a compact summary. For detailed history, redirect `bb workflows history <run-id> --cursor <call-index> --limit <1-100>` into a file under `$HYPERFIDE_THREAD_STORAGE`, then inspect that JSONL file with normal filesystem tools. Use each page record's `nextCursor` to continue.",
+        "When hyperfide_workflow_run succeeds, copy its previewDirective into your response exactly once as a standalone line. Do not wrap it in backticks or a code fence, and do not invent or edit the run ID. The directive renders live workflow progress in HYPERFIDE chat. `hyperfide-platform workflows status <run-id>` returns a compact summary. For detailed history, redirect `hyperfide-platform workflows history <run-id> --cursor <call-index> --limit <1-100>` into a file under `$HYPERFIDE_THREAD_STORAGE`, then inspect that JSONL file with normal filesystem tools. Use each page record's `nextCursor` to continue.",
     };
   });
 
-  bb.events.on("thread.idle", ({ thread, lastAssistantText }) => {
+  hyperfide.events.on("thread.idle", ({ thread, lastAssistantText }) => {
     service.onThreadIdle(thread.id, lastAssistantText);
   });
-  bb.events.on("thread.failed", ({ thread, error }) => {
+  hyperfide.events.on("thread.failed", ({ thread, error }) => {
     service.onThreadFailed(thread.id, error);
   });
-  bb.events.on("thread.archived", ({ thread }) => {
+  hyperfide.events.on("thread.archived", ({ thread }) => {
     service.onThreadArchived(thread.id);
     return service.onOriginUnavailable(thread.id);
   });
-  bb.events.on("thread.deleted", async ({ thread }) => {
+  hyperfide.events.on("thread.deleted", async ({ thread }) => {
     service.onThreadDeleted(thread.id);
     await service.onOriginUnavailable(thread.id);
   });
 
-  bb.background.service("workflow-worker", {
+  hyperfide.background.service("workflow-worker", {
     start(signal) {
       return service.runWorker(signal);
     },

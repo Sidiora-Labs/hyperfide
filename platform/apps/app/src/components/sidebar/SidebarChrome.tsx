@@ -10,13 +10,13 @@ import {
 } from "@/components/ui/sidebar.js";
 import {
   CHROME_ROW_CLASS,
-  getBbDesktopInfo,
+  getHyperfideDesktopInfo,
   MACOS_CHROME_CONTROL_AXIS_CLASS,
   MACOS_CHROME_CONTROL_NO_DRAG_CLASS,
   MACOS_WINDOW_DRAG_CLASS,
   shouldReserveMacosTrafficLights,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { useDesktopWindowState } from "@/hooks/useDesktopWindowState";
 import { SidebarHistoryNavigationControls } from "./SidebarHistoryNavigationControls";
 import { useSidebarNavigationPlacement } from "./sidebarNavigationProvider";
@@ -25,19 +25,19 @@ const FRAMED_CARD_TOP_BORDER_OFFSET_CLASS = "-mt-px";
 
 export function useSidebarHeaderControlAxisClass(): string | undefined {
   const isFramed = useIsSidebarFramed();
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getHyperfideDesktopInfo);
   return shouldUseMacosDesktopChrome(desktopInfo) && !isFramed
     ? MACOS_CHROME_CONTROL_AXIS_CLASS
     : undefined;
 }
 
 const BROWSER_HEADER_SLOT_START_CLASS =
-  "pl-[calc(env(safe-area-inset-left)_+_12px_+_var(--bb-sidebar-control-size)_-_4px)]";
+  "pl-[calc(env(safe-area-inset-left)_+_12px_+_var(--hyperfide-sidebar-control-size)_-_4px)]";
 const MACOS_TRAFFIC_LIGHT_HEADER_SLOT_START_CLASS =
-  "pl-[calc(84px_+_var(--bb-sidebar-control-size)_-_4px)]";
+  "pl-[calc(84px_+_var(--hyperfide-sidebar-control-size)_-_4px)]";
 
 export const MACOS_DRAWER_HEADER_RESERVE_CLASS =
-  "pl-[calc(var(--bb-macos-traffic-light-reserve,84px)_+_32px_-_var(--bb-sidebar-control-size)_-_2_*_var(--bb-sidebar-rail-padding))]";
+  "pl-[calc(var(--hyperfide-macos-traffic-light-reserve,84px)_+_32px_-_var(--hyperfide-sidebar-control-size)_-_2_*_var(--hyperfide-sidebar-rail-padding))]";
 
 export function SidebarTopReserveRow({
   testId,
@@ -48,7 +48,7 @@ export function SidebarTopReserveRow({
 }) {
   const closeOnMobile = useCloseMobileSidebar();
   const isFramed = useIsSidebarFramed();
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getHyperfideDesktopInfo);
   const desktopWindowState = useDesktopWindowState();
   const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
   const reserveMacosTrafficLights = shouldReserveMacosTrafficLights({

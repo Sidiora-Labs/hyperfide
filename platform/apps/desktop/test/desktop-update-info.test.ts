@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopInfo } from "@hyperfide/desktop-contract";
 import { mergeDesktopUpdateInfo } from "../src/desktop-update-info.js";
 
-function info(overrides: Partial<BbDesktopInfo> = {}): BbDesktopInfo {
+function info(overrides: Partial<HyperfideDesktopInfo> = {}): HyperfideDesktopInfo {
   return {
     lastCheckedAt: "2026-07-19T00:00:00.000Z",
     latestVersion: "0.0.32",

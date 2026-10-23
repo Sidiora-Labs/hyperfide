@@ -1,6 +1,6 @@
 import { defineConfig } from "drizzle-kit";
 import {
-  type BbRuntimeMode,
+  type HyperfideRuntimeMode,
   resolveCurrentDevInstanceConfig,
   resolveDataDirDatabasePath,
   resolveRuntimeDataDir,
@@ -14,7 +14,7 @@ const packageRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(packageRoot, "..", "..");
 const runtimeMode = resolveRuntimeMode();
 
-export function resolveDrizzleDataDir(mode: BbRuntimeMode): string {
+export function resolveDrizzleDataDir(mode: HyperfideRuntimeMode): string {
   if (mode === "dev") {
     return resolveCurrentDevInstanceConfig(repoRoot).dataDir;
   }

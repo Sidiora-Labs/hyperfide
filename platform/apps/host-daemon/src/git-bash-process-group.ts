@@ -50,7 +50,7 @@ async function runGitBashHelper(
   try {
     const result = await execPortableFile(
       runtime.bashPath,
-      ["-c", script, "bb", String(argument)],
+      ["-c", script, "hyperfide", String(argument)],
       {
         cwd: process.cwd(),
         env: runtime.env,

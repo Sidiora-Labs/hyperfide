@@ -78,10 +78,10 @@
       "types": "./src/public-url.ts",
       "default": "./src/public-url.ts"
     },
-    "./bb-app-managed-config": {
-      "source": "./src/bb-app-managed-config.ts",
-      "types": "./src/bb-app-managed-config.ts",
-      "default": "./src/bb-app-managed-config.ts"
+    "./hyperfide-app-managed-config": {
+      "source": "./src/hyperfide-app-managed-config.ts",
+      "types": "./src/hyperfide-app-managed-config.ts",
+      "default": "./src/hyperfide-app-managed-config.ts"
     },
     "./managed-json-file": {
       "source": "./src/managed-json-file.ts",

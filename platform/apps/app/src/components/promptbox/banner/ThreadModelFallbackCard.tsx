@@ -10,7 +10,7 @@ interface ThreadModelFallbackCardProps {
 }
 
 function dismissalStorageKey(threadId: string): string {
-  return `bb.thread.model-fallback-dismissed.${threadId}`;
+  return `hyperfide.thread.model-fallback-dismissed.${threadId}`;
 }
 
 function modelLabel(model: string): string {

@@ -4,7 +4,7 @@ import type * as serverContract from "@hyperfide/server-contract";
 import type {
   EnvironmentPullRequest,
   PullRequest,
-} from "hyperfide-plugin-bb--github-pr-status/contract";
+} from "hyperfide-plugin-hyperfide--github-pr-status/contract";
 import {
   setupCommandOutputTestEnvironment,
   collectLogLines,
@@ -44,9 +44,9 @@ describe("hyperfide-platform thread show command output", () => {
       number: 42,
       title: "Review thread show",
       state: "open",
-      url: "https://github.com/example/bb/pull/42",
+      url: "https://github.com/example/hyperfide/pull/42",
       baseRefName: "main",
-      headRefName: "bb/thread-show-pr",
+      headRefName: "hyperfide/thread-show-pr",
       updatedAt: "2026-06-24T12:00:00.000Z",
       autoMerge: false,
       inMergeQueue: false,
@@ -333,7 +333,7 @@ describe("hyperfide-platform thread show command output", () => {
       id: "env-show-pr",
       projectId: "proj-1",
       hostId: "host-1",
-      branchName: "bb/thread-show-pr",
+      branchName: "hyperfide/thread-show-pr",
       createdAt: 1,
       updatedAt: 2,
     });
@@ -357,7 +357,7 @@ describe("hyperfide-platform thread show command output", () => {
     await runCommand(["thread", "show", "thread-show-pr"], register);
 
     expect(rpc.urls).toEqual([
-      "http://server/api/v1/plugins/bb--github-pr-status/rpc/pullRequests",
+      "http://server/api/v1/plugins/hyperfide--github-pr-status/rpc/pullRequests",
     ]);
     expect(rpc.bodies).toEqual([{ keys: ["env-show-pr"] }]);
     const output = collectLogLines(vi.mocked(console.log)).join("\n");
@@ -368,8 +368,8 @@ describe("hyperfide-platform thread show command output", () => {
       "Pull request: #42 open - Show pull requests in thread show",
     );
     expect(output).toContain("#42 open - Show pull requests in thread show");
-    expect(output).toContain("https://github.com/example/bb/pull/42");
-    expect(output).toContain("Branch:       bb/thread-show-pr -> main");
+    expect(output).toContain("https://github.com/example/hyperfide/pull/42");
+    expect(output).toContain("Branch:       hyperfide/thread-show-pr -> main");
     expect(output).toContain(
       "Checks:       passing (3 passed, 0 failed, 0 pending, 3 total)",
     );

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { deferredTimelineContentItemId } from "@hyperfide/client-core";
 import type { ThreadTimelineViewRow } from "@hyperfide/thread-view";
-import { BbDiffSplit } from "@/components/code/BbDiffSplit";
+import { HyperfideDiffSplit } from "@/components/code/HyperfideDiffSplit";
 import type { ThreadTimelineTurnSummaryDetailsQueryIdentity } from "@/hooks/queries/query-keys";
 import { prefetchThreadTimelineTurnSummaryDetails } from "@/hooks/queries/thread-panel-queries";
 import {
@@ -20,7 +20,7 @@ interface PreloadableSplit {
 
 const FILE_CHANGE_SPLITS: readonly PreloadableSplit[] = [
   LazyTimelineFileDiffBlock,
-  BbDiffSplit,
+  HyperfideDiffSplit,
 ];
 const COMMAND_SPLITS: readonly PreloadableSplit[] = [LazyTerminalOutputBlock];
 const NO_SPLITS: readonly PreloadableSplit[] = [];

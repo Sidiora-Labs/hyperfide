@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { BbDesktopServerChoice } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopServerChoice } from "@hyperfide/desktop-contract";
 import {
   BUILTIN_SERVER_NAME,
   type ConnectServerRef,
@@ -13,7 +13,7 @@ export function customServerId(url: string): string {
 export function buildDesktopServerChoices(
   store: ServerTargetStore | null,
   connectServers: readonly ConnectServerRef[],
-): BbDesktopServerChoice[] {
+): HyperfideDesktopServerChoice[] {
   const target = store?.getTarget() ?? { kind: "builtin" };
   const customUrls = store?.getCustomServerUrls() ?? [];
   const showBuiltin =

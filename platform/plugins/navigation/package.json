@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "bb's sidebar navigation: the Rail and Top list layouts for New thread, Plugins, Skills, Automations, and plugin panels.",
+  "description": "hyperfide's sidebar navigation: the Rail and Top list layouts for New thread, Plugins, Skills, Automations, and plugin panels.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.6.53"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.53"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Navigation",
-    "description": "bb's sidebar navigation: the Rail and Top list layouts for New thread, Plugins, Skills, Automations, and plugin panels.",
+    "description": "hyperfide's sidebar navigation: the Rail and Top list layouts for New thread, Plugins, Skills, Automations, and plugin panels.",
     "branding": {
       "icon": "PanelLeft"
     },
@@ -18,7 +18,7 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

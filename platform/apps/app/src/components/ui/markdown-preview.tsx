@@ -849,7 +849,7 @@ function MarkdownCodeBlock({
       </div>
       <pre
         className={cn(
-          "bb-code-highlight px-3 pb-3 pt-1",
+          "hyperfide-code-highlight px-3 pb-3 pt-1",
           softWrap
             ? "whitespace-pre-wrap [overflow-wrap:anywhere]"
             : "overflow-x-auto",
@@ -1512,20 +1512,20 @@ function buildMarkdownComponents({
   };
 
   if (threadMentions !== undefined) {
-    components["bb-thread-mention"] = buildThreadMentionComponent({
+    components["hyperfide-thread-mention"] = buildThreadMentionComponent({
       mentions: threadMentions.mentions,
     });
   }
 
   if (promptMentions !== undefined) {
-    components["bb-prompt-mention"] = buildPromptMentionComponent({
+    components["hyperfide-prompt-mention"] = buildPromptMentionComponent({
       mentions: promptMentions.mentions,
       resolveMentionLink: promptMentions.resolveMentionLink,
     });
   }
 
   if (hasMessageDirectives) {
-    components["bb-message-directive"] = MessageDirectiveElement;
+    components["hyperfide-message-directive"] = MessageDirectiveElement;
   }
 
   return components;

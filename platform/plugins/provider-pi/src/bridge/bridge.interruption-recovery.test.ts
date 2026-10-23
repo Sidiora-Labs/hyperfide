@@ -24,7 +24,7 @@ async function start(
   } = {},
 ) {
   const harness = await startFakePiBridge({
-    prefix: "bb-pi-settlement-",
+    prefix: "hyperfide-pi-settlement-",
     initialize: true,
     processLog: true,
   });

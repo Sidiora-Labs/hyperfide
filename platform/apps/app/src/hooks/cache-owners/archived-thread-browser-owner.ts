@@ -1,8 +1,8 @@
 import type { ChangedMessage } from "@hyperfide/domain";
-import type { BbDesktopBrowserApi } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopBrowserApi } from "@hyperfide/desktop-contract";
 
 interface ArchivedThreadBrowserOwnerArgs {
-  desktopBrowser: BbDesktopBrowserApi | null;
+  desktopBrowser: HyperfideDesktopBrowserApi | null;
   readArchivedAt: (threadId: string) => Promise<number | null>;
 }
 

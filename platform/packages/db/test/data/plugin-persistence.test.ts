@@ -31,7 +31,7 @@ describe("normalized plugin persistence", () => {
       source: "npm:hyperfide-plugin-linear@1.2.3",
       provenance: {
         kind: "catalog",
-        marketplace: "bb-community",
+        marketplace: "hyperfide-community",
         entryId: "linear",
       },
       sourceIntent: {
@@ -80,7 +80,7 @@ describe("normalized plugin persistence", () => {
     expect(getInstalledPluginRegistration(db, "linear")).toMatchObject({
       provenance: "catalog",
       catalogEntryId: "linear",
-      catalogMarketplaceName: "bb-community",
+      catalogMarketplaceName: "hyperfide-community",
       sourceKind: "npm",
       sourceNpmRequestedSpec: "^1.2.0",
       sourceNpmSpecKind: "range",

@@ -150,9 +150,9 @@ it("registers store RPCs beside the inbox and cleans up its watches", async () =
     await import("@hyperfide/plugin-sdk/testing");
   const { default: plugin } = await import("./server.js");
   const host = createFakePluginHost({ pluginId: "hyperfide-asks" });
-  await host.bb.storage.kv.set("inbox.repositories", [root]);
-  await host.bb.storage.kv.set("graph.binaryPath", join(root, "hyperfide"));
-  await plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+  await host.hyperfide.storage.kv.set("inbox.repositories", [root]);
+  await host.hyperfide.storage.kv.set("graph.binaryPath", join(root, "hyperfide"));
+  await plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
   try {
     const call = host.harness.behavior.callRpc;
     expect(await call("list", { repository: root })).toMatchObject({

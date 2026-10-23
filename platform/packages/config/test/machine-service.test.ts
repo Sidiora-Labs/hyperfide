@@ -7,7 +7,7 @@ import { findMachineServiceFile } from "../src/machine-service.js";
 const tempDirs: string[] = [];
 
 async function createRoot(): Promise<{ dataDir: string; homeDir: string }> {
-  const root = await mkdtemp(join(tmpdir(), "bb-machine-service-"));
+  const root = await mkdtemp(join(tmpdir(), "hyperfide-machine-service-"));
   tempDirs.push(root);
   const homeDir = join(root, "home");
   const dataDir = join(root, "data & more");
@@ -66,7 +66,7 @@ async function writeSystemdUnit(args: {
   await writeFile(
     path,
     `[Service]
-ExecStart="/usr/bin/node" "/opt/bb-app" host-daemon --auto-update
+ExecStart="/usr/bin/node" "/opt/hyperfide-app" host-daemon --auto-update
 Environment="HYPERFIDE_APP_NPM_PREFIX=${systemdEscape(args.dataDir)}/npm"
 Environment="HYPERFIDE_DATA_DIR=${systemdEscape(args.dataDir)}"
 `,
@@ -86,12 +86,12 @@ describe("findMachineServiceFile", () => {
     await writeLaunchAgent({
       dataDir: join(dataDir, "..", "other"),
       homeDir,
-      name: "app.getbb.host-daemon.a-other.plist",
+      name: "app.hyperfide.host-daemon.a-other.plist",
     });
     const expected = await writeLaunchAgent({
       dataDir,
       homeDir,
-      name: "app.getbb.host-daemon.b-machine.plist",
+      name: "app.hyperfide.host-daemon.b-machine.plist",
     });
     await writeLaunchAgent({
       dataDir,
@@ -111,7 +111,7 @@ describe("findMachineServiceFile", () => {
     const expected = await writeLaunchAgent({
       dataDir: linkedDataDir,
       homeDir,
-      name: "app.getbb.host-daemon.machine.plist",
+      name: "app.hyperfide.host-daemon.machine.plist",
     });
 
     await expect(
@@ -131,12 +131,12 @@ describe("findMachineServiceFile", () => {
     const userUnit = await writeSystemdUnit({
       dataDir: escapedDataDir,
       directory: join(homeDir, ".config", "systemd", "user"),
-      name: "bb-host-daemon-machine.service",
+      name: "hyperfide-host-daemon-machine.service",
     });
     const systemUnit = await writeSystemdUnit({
       dataDir,
       directory: join(dataDir, "systemd"),
-      name: "bb-host-daemon-machine.service",
+      name: "hyperfide-host-daemon-machine.service",
     });
 
     await expect(
@@ -160,7 +160,7 @@ describe("findMachineServiceFile", () => {
     await writeLaunchAgent({
       dataDir: join(homeDir, "elsewhere"),
       homeDir,
-      name: "app.getbb.host-daemon.elsewhere.plist",
+      name: "app.hyperfide.host-daemon.elsewhere.plist",
     });
     await expect(
       findMachineServiceFile({ dataDir, homeDir, platform: "darwin" }),

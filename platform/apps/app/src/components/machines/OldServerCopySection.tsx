@@ -32,7 +32,7 @@ export function oldServerCopyDescription(
   host: Host,
   lastMove: LastServerMove,
 ): string {
-  const base = `The server moved from ${host.name} to ${lastMove.toHostName}. The old server data is still on ${host.name}, locked so bb won't start a server from it. Keep it as a backup, or delete it once the new server works.`;
+  const base = `The server moved from ${host.name} to ${lastMove.toHostName}. The old server data is still on ${host.name}, locked so hyperfide won't start a server from it. Keep it as a backup, or delete it once the new server works.`;
   return host.status === "connected"
     ? base
     : `${base} ${host.name} has to be online to delete it.`;

@@ -1,16 +1,16 @@
 {
-  "name": "hyperfide-plugin-bb--mcp",
+  "name": "hyperfide-plugin-hyperfide--mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Control bb from ChatGPT, Claude and other MCP clients.",
+  "description": "Control hyperfide from ChatGPT, Claude and other MCP clients.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.102"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.102"
   },
-  "bb": {
+  "hyperfide": {
     "name": "MCP server",
-    "description": "Control bb from ChatGPT, Claude and other MCP clients.",
+    "description": "Control hyperfide from ChatGPT, Claude and other MCP clients.",
     "branding": {
       "icon": "Cloud"
     },
@@ -20,7 +20,7 @@
     ]
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

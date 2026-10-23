@@ -3,7 +3,7 @@
   "name": "popover",
   "type": "registry:ui",
   "title": "popover",
-  "description": "BB ui \"popover\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"popover\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "@radix-ui/react-popover"
   ],

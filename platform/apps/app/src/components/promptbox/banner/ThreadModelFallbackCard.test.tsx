@@ -39,7 +39,7 @@ describe("ThreadModelFallbackCard", () => {
 
   it("shows a later fallback occurrence after an earlier one was dismissed", () => {
     window.localStorage.setItem(
-      "bb.thread.model-fallback-dismissed.thread-1",
+      "hyperfide.thread.model-fallback-dismissed.thread-1",
       "42",
     );
 

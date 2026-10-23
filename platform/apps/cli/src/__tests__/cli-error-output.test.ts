@@ -11,7 +11,7 @@ describe("isJsonInvocation", () => {
     [["thread", "tell", "thr_1", "please use --json"], false],
   ];
   it.each(cases)("%j → %s", (args, expected) => {
-    expect(isJsonInvocation(["node", "bb", ...args])).toBe(expected);
+    expect(isJsonInvocation(["node", "hyperfide", ...args])).toBe(expected);
   });
 });
 

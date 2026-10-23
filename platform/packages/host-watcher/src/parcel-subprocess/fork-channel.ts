@@ -8,7 +8,7 @@ import type { ChildChannel } from "./parcel-watcher-proxy.js";
 function resolveChildEntry(): string {
   const moduleDir = dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    "bb-parcel-watcher-child.mjs",
+    "hyperfide-parcel-watcher-child.mjs",
     "parcel-child-entry.js",
     "parcel-child-entry.ts",
   ];

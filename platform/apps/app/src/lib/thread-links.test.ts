@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import { parseThreadLink } from "./thread-links";
 
-const origin = "https://bb.test";
+const origin = "https://hyperfide.test";
 const threadId = "thr_86mb5jjzi9";
 const projectId = "proj_khiw2za95v";
 const projectLink = `${origin}/projects/${projectId}/threads/${threadId}`;
@@ -20,13 +20,13 @@ describe("parseThreadLink", () => {
   });
 
   it.each([
-    `https://bb.test.example/threads/${threadId}`,
-    `https://other.bb.test/threads/${threadId}`,
-    `http://bb.test/threads/${threadId}`,
-    `https://bb.test:444/threads/${threadId}`,
-    `https://user:password@bb.test/threads/${threadId}`,
-    `https://@bb.test/threads/${threadId}`,
-    `ftp://bb.test/threads/${threadId}`,
+    `https://hyperfide.test.example/threads/${threadId}`,
+    `https://other.hyperfide.test/threads/${threadId}`,
+    `http://hyperfide.test/threads/${threadId}`,
+    `https://hyperfide.test:444/threads/${threadId}`,
+    `https://user:password@hyperfide.test/threads/${threadId}`,
+    `https://@hyperfide.test/threads/${threadId}`,
+    `ftp://hyperfide.test/threads/${threadId}`,
     `/projects/${projectId}/threads/${threadId}`,
     `${projectLink}?view=detail`,
     `${projectLink}?`,
@@ -42,7 +42,7 @@ describe("parseThreadLink", () => {
     `${origin}/projects/proj_0123456789/threads/${threadId}`,
     `${origin}/projects/../threads/${threadId}`,
     `${origin}/threads/./${threadId}`,
-  ])("is not a thread link of this bb: %s", (url) => {
+  ])("is not a thread link of this hyperfide: %s", (url) => {
     expect(parseThreadLink(url, origin)).toBeNull();
   });
 

@@ -576,7 +576,7 @@ export async function installRuntime(
         join(staging, "package.json"),
         JSON.stringify(
           {
-            name: "bb-dev-browser-runtime",
+            name: "hyperfide-dev-browser-runtime",
             private: true,
             dependencies: { [release.package]: release.version },
           },

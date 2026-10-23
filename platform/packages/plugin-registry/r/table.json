@@ -3,7 +3,7 @@
   "name": "table",
   "type": "registry:ui",
   "title": "table",
-  "description": "BB ui \"table\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"table\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/utils"
   ],

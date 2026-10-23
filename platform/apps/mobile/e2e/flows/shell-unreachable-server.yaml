@@ -9,7 +9,7 @@
 # demand, which the mobile e2e backend cannot do yet.
 #
 # Deliberately does not use the harness backend.
-appId: app.getbb.mobile
+appId: app.hyperfide.mobile
 env:
   METRO_URL: "http://127.0.0.1:8082"
   # Reachable host, closed port: the load fails fast instead of hanging.
@@ -17,7 +17,7 @@ env:
 ---
 - runFlow: ../subflows/launch-app.yaml
 - extendedWaitUntil:
-    visible: "Connect to a bb server"
+    visible: "Connect to a hyperfide-platform server"
     timeout: 30000
 - tapOn:
     id: "server-url-input"
@@ -29,6 +29,6 @@ env:
 # The add-server probe refuses a server it cannot reach, which is itself the
 # first line of defence.
 - extendedWaitUntil:
-    visible: ".*(could not|cannot|failed|unreachable|Connect to a bb server).*"
+    visible: ".*(could not|cannot|failed|unreachable|Connect to a hyperfide-platform server).*"
     timeout: 30000
 - takeScreenshot: shell-offline-add-server

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { Icon } from "@hyperfide/shared-ui/icon";
-import { getDesktopBrowserApi } from "@/lib/bb-desktop";
+import { getDesktopBrowserApi } from "@/lib/hyperfide-desktop";
 
 const imageSizes = new Map<string, number>();
 

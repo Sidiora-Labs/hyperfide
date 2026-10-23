@@ -6,7 +6,7 @@ import type {
 } from "@hyperfide/host-daemon-contract";
 import type { ProviderCliInstallLogDialogState } from "@/components/dialogs/ProviderCliInstallLogDialog";
 import type { ProviderCliActionableIssue } from "@/components/provider-cli/provider-cli-install";
-import { BbRequestTimeoutError } from "@hyperfide/sdk/browser";
+import { HyperfideRequestTimeoutError } from "@hyperfide/sdk/browser";
 import { appToast } from "@/components/ui/app-toast";
 import { invalidateHostProviderCliStatus } from "@/hooks/cache-owners/provider-cli-status-cache-owner";
 import { invalidateSystemExecutionOptions } from "@/hooks/cache-owners/system-cache-effects";
@@ -158,7 +158,7 @@ function describeInstallRequestFailure(error: unknown): {
   const httpError = asHttpError(error);
   const connectionLost =
     httpError === null
-      ? error instanceof TypeError || error instanceof BbRequestTimeoutError
+      ? error instanceof TypeError || error instanceof HyperfideRequestTimeoutError
       : CONNECTION_LOST_HTTP_STATUSES.has(httpError.status);
   if (connectionLost) {
     return {

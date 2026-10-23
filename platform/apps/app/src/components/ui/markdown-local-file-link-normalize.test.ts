@@ -5,7 +5,7 @@ describe("normalizeLocalFileMarkdownLinks", () => {
   it("wraps absolute local link destinations that contain literal spaces", () => {
     const content = [
       "[Candidate Changelog \u2014 Since 0.9.1](",
-      "/Users/brsbl/Moss/Notes/Agent Workspaces/bb Workspace/workstreams/",
+      "/Users/brsbl/Moss/Notes/Agent Workspaces/hyperfide Workspace/workstreams/",
       "moss-skills-distribution-discovery/",
       "Candidate%20Changelog%20%E2%80%94%20Since%200.9.1/",
       "Candidate%20Changelog%20%E2%80%94%20Since%200.9.1.md)",
@@ -14,7 +14,7 @@ describe("normalizeLocalFileMarkdownLinks", () => {
     expect(normalizeLocalFileMarkdownLinks(content)).toBe(
       [
         "[Candidate Changelog \u2014 Since 0.9.1](",
-        "</Users/brsbl/Moss/Notes/Agent Workspaces/bb Workspace/workstreams/",
+        "</Users/brsbl/Moss/Notes/Agent Workspaces/hyperfide Workspace/workstreams/",
         "moss-skills-distribution-discovery/",
         "Candidate%20Changelog%20%E2%80%94%20Since%200.9.1/",
         "Candidate%20Changelog%20%E2%80%94%20Since%200.9.1.md>)",

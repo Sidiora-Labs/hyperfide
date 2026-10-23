@@ -24,7 +24,7 @@ describe("GET /api/v1/system/version", () => {
           source: "npm",
           updateAvailable: false,
           isDevelopment: true,
-          upgradeCommand: "npx bb-app@latest",
+          upgradeCommand: "npx hyperfide-app@latest",
         }),
         isDevelopment: true,
       },

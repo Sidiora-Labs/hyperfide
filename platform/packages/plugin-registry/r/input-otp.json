@@ -3,7 +3,7 @@
   "name": "input-otp",
   "type": "registry:ui",
   "title": "input-otp",
-  "description": "BB ui \"input-otp\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"input-otp\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "input-otp"
   ],

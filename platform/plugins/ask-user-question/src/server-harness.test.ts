@@ -30,7 +30,7 @@ function createHost(): FakePluginHost {
   createAskUserQuestionPlugin({
     command: async (_repository, argv) =>
       argv[1] === "raise" ? JSON.stringify({ id: ++nextId }) : "",
-  })(host.bb);
+  })(host.hyperfide);
   return host;
 }
 
@@ -324,7 +324,7 @@ describe("asking a question", () => {
 
   it("returns the reason when the question cannot be shown", async () => {
     const host = createHost();
-    host.bb.ui.requestInput = () =>
+    host.hyperfide.ui.requestInput = () =>
       Promise.reject(new Error("Thread does not exist"));
     const result = await host.harness.callAgentTool(TOOL_NAME, { questions });
 

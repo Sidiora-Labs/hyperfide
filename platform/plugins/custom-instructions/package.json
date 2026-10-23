@@ -3,21 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Add persistent custom instructions to agent tasks on this bb host.",
+  "description": "Add persistent custom instructions to agent tasks on this hyperfide-platform host.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.102"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.102"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Custom instructions",
-    "description": "Add persistent custom instructions to agent tasks on this bb host.",
+    "description": "Add persistent custom instructions to agent tasks on this hyperfide-platform host.",
     "branding": {
       "icon": "EditFile"
     },
     "server": "./server.ts"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

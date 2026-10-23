@@ -84,7 +84,7 @@ export function MissingCli() {
         providerId: "codex",
         code: "missing_executable",
         detail:
-          "bb could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.",
+          "hyperfide could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.",
       }}
     />
   );

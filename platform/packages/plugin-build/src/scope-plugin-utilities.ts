@@ -13,7 +13,7 @@ interface Statement {
 }
 
 export function pluginScopeRoots(pluginId: string): string {
-  return `[data-bb-plugin="${pluginId}"], [data-hyperfide-plugin-root]:not([data-bb-plugin])`;
+  return `[data-hyperfide-plugin="${pluginId}"], [data-hyperfide-plugin-root]:not([data-hyperfide-plugin])`;
 }
 
 export function scopePluginUtilities(css: string, scopeRoots: string): string {

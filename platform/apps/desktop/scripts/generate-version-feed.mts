@@ -3,9 +3,9 @@ import { resolve } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
 import {
-  bbDesktopVersionFeedSchema,
-  createBbDesktopVersionFeedFileName,
-  type BbDesktopVersionFeed,
+  hyperfideDesktopVersionFeedSchema,
+  createHyperfideDesktopVersionFeedFileName,
+  type HyperfideDesktopVersionFeed,
 } from "@hyperfide/desktop-contract";
 import {
   createDesktopReleaseConfig,
@@ -28,7 +28,7 @@ const updateMetadataPath = resolve(
 const desktopVersionFeedPath = resolve(
   packageRoot,
   "release",
-  createBbDesktopVersionFeedFileName(buildPlatform),
+  createHyperfideDesktopVersionFeedFileName(buildPlatform),
 );
 
 const packageJsonSchema = z.object({
@@ -70,7 +70,7 @@ if (updateMetadata.version !== packageJson.version) {
   );
 }
 
-const desktopVersionFeed: BbDesktopVersionFeed = {
+const desktopVersionFeed: HyperfideDesktopVersionFeed = {
   channel: releaseChannel,
   files: updateMetadata.files,
   minimumSystemVersion: buildPlatform === "macos" ? "22.0.0" : null,
@@ -85,7 +85,7 @@ const desktopVersionFeed: BbDesktopVersionFeed = {
   version: packageJson.version,
 };
 
-const validatedFeed = bbDesktopVersionFeedSchema.parse(desktopVersionFeed);
+const validatedFeed = hyperfideDesktopVersionFeedSchema.parse(desktopVersionFeed);
 if (validatedFeed.minimumSystemVersion !== null) {
   await writeFile(
     updateMetadataPath,

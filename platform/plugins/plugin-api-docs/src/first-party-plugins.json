@@ -15,13 +15,13 @@
     "icon": "Repeat"
   },
   {
-    "id": "bb--composer",
+    "id": "hyperfide--composer",
     "name": "Composer",
     "icon": "MessageSquare"
   },
   {
-    "id": "bb-ai",
-    "name": "bb cloud AI",
+    "id": "hyperfide-ai",
+    "name": "hyperfide cloud AI",
     "icon": "AiBrain01"
   },
   {
@@ -60,7 +60,7 @@
     "icon": "Github"
   },
   {
-    "id": "bb--github-pr-status",
+    "id": "hyperfide--github-pr-status",
     "name": "GitHub PR Status",
     "icon": "GitPullRequest"
   },
@@ -100,7 +100,7 @@
     "icon": "Laptop"
   },
   {
-    "id": "bb--provider-usage",
+    "id": "hyperfide--provider-usage",
     "name": "Provider usage",
     "icon": "ChartColumn"
   },
@@ -130,7 +130,7 @@
     "icon": "SideChat"
   },
   {
-    "id": "bb--storage-retention",
+    "id": "hyperfide--storage-retention",
     "name": "Storage & retention [Experimental]",
     "icon": null
   },
@@ -175,8 +175,8 @@
     "icon": "MessageSquarePlus"
   },
   {
-    "id": "bb-guide",
-    "name": "BB guide",
+    "id": "hyperfide-guide",
+    "name": "HYPERFIDE guide",
     "icon": "Explore"
   },
   {

@@ -3,7 +3,7 @@
   "name": "resource-detail-shell",
   "type": "registry:ui",
   "title": "resource-detail-shell",
-  "description": "BB ui \"resource-detail-shell\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"resource-detail-shell\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/icon",
     "@hyperfide/utils"

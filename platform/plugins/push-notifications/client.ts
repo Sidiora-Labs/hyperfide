@@ -6,12 +6,12 @@ import {
 export type ClientChannel = "web" | "desktop";
 
 export function clientChannel(): ClientChannel | null {
-  if ("bbDesktop" in window) return "desktop";
+  if ("hyperfideDesktop" in window) return "desktop";
   if (
-    "bb" in window &&
-    typeof window.bb === "object" &&
-    window.bb !== null &&
-    "native" in window.bb
+    "hyperfide" in window &&
+    typeof window.hyperfide === "object" &&
+    window.hyperfide !== null &&
+    "native" in window.hyperfide
   )
     return null;
   return "web";
@@ -32,17 +32,17 @@ export function createClientDelivery(navigate: (threadId: string) => void) {
   function display(message: ClientNotification): void {
     if (disposed || notificationPermission() !== "granted") return;
     const isMacDesktop =
-      "bbDesktop" in window &&
-      typeof window.bbDesktop === "object" &&
-      window.bbDesktop !== null &&
-      "platform" in window.bbDesktop &&
-      window.bbDesktop.platform === "macos";
+      "hyperfideDesktop" in window &&
+      typeof window.hyperfideDesktop === "object" &&
+      window.hyperfideDesktop !== null &&
+      "platform" in window.hyperfideDesktop &&
+      window.hyperfideDesktop.platform === "macos";
     const notification = new Notification(message.title, {
       body: message.body,
       ...(isMacDesktop
         ? {}
         : { icon: new URL("/icon-192.png", window.location.origin).href }),
-      tag: `bb-${message.threadId ?? message.id}`,
+      tag: `hyperfide-${message.threadId ?? message.id}`,
     });
     active.add(notification);
     notification.onclose = () => active.delete(notification);
@@ -50,15 +50,15 @@ export function createClientDelivery(navigate: (threadId: string) => void) {
       if (disposed) return;
       window.focus();
       if (
-        "bbDesktop" in window &&
-        typeof window.bbDesktop === "object" &&
-        window.bbDesktop !== null &&
-        "platform" in window.bbDesktop &&
-        window.bbDesktop.platform === "linux" &&
-        "focusWindow" in window.bbDesktop &&
-        typeof window.bbDesktop.focusWindow === "function"
+        "hyperfideDesktop" in window &&
+        typeof window.hyperfideDesktop === "object" &&
+        window.hyperfideDesktop !== null &&
+        "platform" in window.hyperfideDesktop &&
+        window.hyperfideDesktop.platform === "linux" &&
+        "focusWindow" in window.hyperfideDesktop &&
+        typeof window.hyperfideDesktop.focusWindow === "function"
       ) {
-        window.bbDesktop.focusWindow();
+        window.hyperfideDesktop.focusWindow();
       }
       if (message.threadId !== null) navigate(message.threadId);
       notification.close();
@@ -81,7 +81,7 @@ export function createClientDelivery(navigate: (threadId: string) => void) {
     const message = parsed.data;
     const claim = () => {
       if (disposed) return;
-      const key = `bb.push-notifications.seen.${channel}`;
+      const key = `hyperfide.push-notifications.seen.${channel}`;
       let ids: string[] = [];
       try {
         const stored: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
@@ -103,7 +103,7 @@ export function createClientDelivery(navigate: (threadId: string) => void) {
       }
     };
     if (navigator.locks)
-      await navigator.locks.request(`bb-notifications-${channel}`, claim);
+      await navigator.locks.request(`hyperfide-notifications-${channel}`, claim);
     else claim();
   }
 

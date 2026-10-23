@@ -164,7 +164,7 @@ export async function smokePackagedNpm(appBinary) {
       ? resolve(dirname(appBinary), "..", "Resources")
       : join(dirname(appBinary), "resources");
   const fixture = await realpath(
-    await mkdtemp(join(tmpdir(), "bb-packaged-npm-smoke-")),
+    await mkdtemp(join(tmpdir(), "hyperfide-packaged-npm-smoke-")),
   );
   try {
     const resourcesBefore = await hashPackagedResources(resources);
@@ -210,7 +210,7 @@ export async function smokePackagedNpm(appBinary) {
       await writeFile(
         join(dependency, "package.json"),
         JSON.stringify({
-          name: "bb-smoke-dependency",
+          name: "hyperfide-smoke-dependency",
           version,
           type: "module",
           exports: "./index.js",
@@ -234,21 +234,21 @@ export async function smokePackagedNpm(appBinary) {
           name: "hyperfide-plugin-packaged-npm-smoke",
           version,
           type: "module",
-          bb: {
+          hyperfide: {
             name: "Packaged npm smoke",
             description: "Disposable desktop dependency install fixture",
             branding: { icon: "Zap" },
             server: "./server.js",
           },
           dependencies: {
-            "bb-smoke-dependency": `file:../bb-smoke-dependency-${version}.tgz`,
+            "hyperfide-smoke-dependency": `file:../hyperfide-smoke-dependency-${version}.tgz`,
           },
           scripts: { preinstall: "exit 42", postinstall: "exit 42" },
         }),
       );
       await writeFile(
         join(plugin, "server.js"),
-        'export { default as dependencyVersion } from "bb-smoke-dependency";\nexport default function plugin() {}\n',
+        'export { default as dependencyVersion } from "hyperfide-smoke-dependency";\nexport default function plugin() {}\n',
       );
       await npm(
         "install",
@@ -274,11 +274,11 @@ export async function smokePackagedNpm(appBinary) {
         await readFile(join(plugin, "package-lock.json"), "utf8"),
       );
       assert.ok(
-        lock.packages["node_modules/bb-smoke-dependency"],
+        lock.packages["node_modules/hyperfide-smoke-dependency"],
         JSON.stringify(lock),
       );
       assert.equal(
-        lock.packages["node_modules/bb-smoke-dependency"].version,
+        lock.packages["node_modules/hyperfide-smoke-dependency"].version,
         version,
       );
     }

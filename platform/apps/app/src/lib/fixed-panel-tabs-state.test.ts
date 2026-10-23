@@ -306,7 +306,7 @@ describe("fixed-panel-tabs-state", () => {
     ).toBe(true);
     expect(
       isFixedPanelTabsStateStorageKey(
-        "bb.thread.fixedPanelTabsState-thr_old-0",
+        "hyperfide.thread.fixedPanelTabsState-thr_old-0",
       ),
     ).toBe(true);
   });

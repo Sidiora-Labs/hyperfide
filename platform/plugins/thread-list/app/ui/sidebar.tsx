@@ -54,7 +54,7 @@ interface SidebarStickyTierProps extends React.ComponentProps<"div"> {
 }
 
 type SidebarStickyParentLevelStyle = React.CSSProperties & {
-  "--bb-sidebar-sticky-parent-level": number;
+  "--hyperfide-sidebar-sticky-parent-level": number;
 };
 
 export const SidebarStickyStack = React.forwardRef<
@@ -81,7 +81,7 @@ export const SidebarStickyTier = React.forwardRef<
     tier === "parent" && level !== undefined
       ? ({
           ...style,
-          "--bb-sidebar-sticky-parent-level": level,
+          "--hyperfide-sidebar-sticky-parent-level": level,
         } satisfies SidebarStickyParentLevelStyle)
       : style;
   return (

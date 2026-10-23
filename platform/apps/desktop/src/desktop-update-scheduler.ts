@@ -1,36 +1,36 @@
 import type {
-  BbDesktopInfo,
-  BbDesktopInfoChangeHandler,
-  BbDesktopInfoUnsubscribe,
+  HyperfideDesktopInfo,
+  HyperfideDesktopInfoChangeHandler,
+  HyperfideDesktopInfoUnsubscribe,
 } from "@hyperfide/desktop-contract";
 
 const DESKTOP_UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 export const DESKTOP_UPDATE_ACTIVE_MIN_INTERVAL_MS = 15 * 60 * 1000;
 
 export interface DesktopUpdateService {
-  checkAfterActive(): Promise<BbDesktopInfo | null>;
-  checkForUpdates(): Promise<BbDesktopInfo>;
-  getInfo(): BbDesktopInfo;
+  checkAfterActive(): Promise<HyperfideDesktopInfo | null>;
+  checkForUpdates(): Promise<HyperfideDesktopInfo>;
+  getInfo(): HyperfideDesktopInfo;
   start(): void;
   stop(): void;
-  subscribe(listener: BbDesktopInfoChangeHandler): BbDesktopInfoUnsubscribe;
+  subscribe(listener: HyperfideDesktopInfoChangeHandler): HyperfideDesktopInfoUnsubscribe;
 }
 
 interface DesktopUpdateScheduler extends DesktopUpdateService {
-  updateInfo(nextInfo: BbDesktopInfo): void;
+  updateInfo(nextInfo: HyperfideDesktopInfo): void;
 }
 
 interface CreateDesktopUpdateSchedulerArgs {
   enabled: boolean;
-  initialInfo: BbDesktopInfo;
+  initialInfo: HyperfideDesktopInfo;
   now: () => number;
   runCheck(checkedAt: string): Promise<void>;
   shouldSkipCheck?: () => boolean;
 }
 
 function areDesktopInfoValuesEqual(
-  left: BbDesktopInfo,
-  right: BbDesktopInfo,
+  left: HyperfideDesktopInfo,
+  right: HyperfideDesktopInfo,
 ): boolean {
   return (
     left.lastCheckedAt === right.lastCheckedAt &&
@@ -48,12 +48,12 @@ export function createDesktopUpdateScheduler(
   args: CreateDesktopUpdateSchedulerArgs,
 ): DesktopUpdateScheduler {
   let currentInfo = args.initialInfo;
-  let inflight: Promise<BbDesktopInfo> | null = null;
+  let inflight: Promise<HyperfideDesktopInfo> | null = null;
   let intervalHandle: ReturnType<typeof setInterval> | null = null;
   let lastAttemptedAt: number | null = null;
-  const listeners = new Set<BbDesktopInfoChangeHandler>();
+  const listeners = new Set<HyperfideDesktopInfoChangeHandler>();
 
-  function updateInfo(nextInfo: BbDesktopInfo): void {
+  function updateInfo(nextInfo: HyperfideDesktopInfo): void {
     if (areDesktopInfoValuesEqual(currentInfo, nextInfo)) {
       return;
     }
@@ -63,7 +63,7 @@ export function createDesktopUpdateScheduler(
     }
   }
 
-  async function checkForUpdates(): Promise<BbDesktopInfo> {
+  async function checkForUpdates(): Promise<HyperfideDesktopInfo> {
     if (!args.enabled) {
       return currentInfo;
     }
@@ -91,7 +91,7 @@ export function createDesktopUpdateScheduler(
   }
 
   return {
-    async checkAfterActive(): Promise<BbDesktopInfo | null> {
+    async checkAfterActive(): Promise<HyperfideDesktopInfo | null> {
       if (!args.enabled) {
         return null;
       }
@@ -105,7 +105,7 @@ export function createDesktopUpdateScheduler(
       return checkForUpdates();
     },
     checkForUpdates,
-    getInfo(): BbDesktopInfo {
+    getInfo(): HyperfideDesktopInfo {
       return currentInfo;
     },
     start(): void {
@@ -124,7 +124,7 @@ export function createDesktopUpdateScheduler(
       clearInterval(intervalHandle);
       intervalHandle = null;
     },
-    subscribe(listener: BbDesktopInfoChangeHandler): BbDesktopInfoUnsubscribe {
+    subscribe(listener: HyperfideDesktopInfoChangeHandler): HyperfideDesktopInfoUnsubscribe {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);

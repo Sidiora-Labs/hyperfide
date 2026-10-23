@@ -38,9 +38,9 @@ export interface ClaudeInjectedTool {
   presentation?: DeltaPresentation;
 }
 
-export const HYPERFIDE_BRIDGE_MCP_SERVER_NAME = "bb-bridge";
+export const HYPERFIDE_BRIDGE_MCP_SERVER_NAME = "hyperfide-bridge";
 
-const HYPERFIDE_TOOL_SERVER = "bb";
+const HYPERFIDE_TOOL_SERVER = "hyperfide";
 
 const claudeBackgroundFlagSchema = z
   .object({ run_in_background: z.boolean().optional() })
@@ -324,7 +324,7 @@ function classifyDelegation(
   };
 }
 
-function bbTool(
+function hyperfideTool(
   tool: string,
   args: unknown,
   injected: ClaudeInjectedTool | undefined,
@@ -455,7 +455,7 @@ export function classifyClaudeToolUse(args: {
         return genericTool(toolName, input);
       }
       if (mcp.server === HYPERFIDE_BRIDGE_MCP_SERVER_NAME) {
-        return bbTool(mcp.tool, input, args.injectedTools.get(mcp.tool));
+        return hyperfideTool(mcp.tool, input, args.injectedTools.get(mcp.tool));
       }
       return mcpTool(mcp.server, mcp.tool, input);
     }

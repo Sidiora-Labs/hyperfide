@@ -14,7 +14,7 @@ import { reportPluginInstallJobs } from "./PluginInstallJobsHost";
 
 const BASE = {
   id: "job-1",
-  target: { kind: "catalog", entryId: "notes", marketplace: "bb-community" },
+  target: { kind: "catalog", entryId: "notes", marketplace: "hyperfide-community" },
   displayName: "Notes",
 } as const;
 

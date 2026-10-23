@@ -161,7 +161,7 @@ export function useUpdateKeyboardSettings() {
 export function useInstallCliSkills() {
   return useMutation({
     meta: {
-      errorMessage: "Failed to install the bb CLI skills.",
+      errorMessage: "Failed to install the hyperfide CLI skills.",
     },
     mutationFn: (args: SystemInstallCliSkillsRequest) =>
       sdk.system.installCliSkills(args),
@@ -171,7 +171,7 @@ export function useInstallCliSkills() {
 export function useChangeCliCommand() {
   return useMutation({
     meta: {
-      errorMessage: "Failed to change the bb CLI install.",
+      errorMessage: "Failed to change the hyperfide CLI install.",
     },
     mutationFn: (change: "install" | "remove") =>
       change === "install"

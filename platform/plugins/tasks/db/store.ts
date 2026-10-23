@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { initializeTasksSchema } from "./schema";
 import {
@@ -48,7 +48,7 @@ import type {
   UpsertTaskThreadInput,
 } from "./types";
 
-type PluginDatabase = ReturnType<BbPluginApi["storage"]["database"]>;
+type PluginDatabase = ReturnType<HyperfidePluginApi["storage"]["database"]>;
 type SqlParameter = string | number;
 
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -69,7 +69,7 @@ interface ProjectRow {
   next_task_number: number;
   color: string;
   folder_id: string | null;
-  linked_bb_project_id: string | null;
+  linked_hyperfide_project_id: string | null;
   created_at: string;
 }
 
@@ -296,9 +296,9 @@ function validateDueDate(dueDate: string | null): string | null {
   return dueDate;
 }
 
-function validateLinkedBbProjectId(id: string | null): string | null {
+function validateLinkedHyperfideProjectId(id: string | null): string | null {
   if (id !== null && !id.startsWith("proj_")) {
-    throw new Error("linkedBbProjectId must be a bb proj_* id");
+    throw new Error("linkedHyperfideProjectId must be a hyperfide proj_* id");
   }
   return id;
 }
@@ -308,7 +308,7 @@ function validateThreadId(id: null): null;
 function validateThreadId(id: string | null): string | null;
 function validateThreadId(id: string | null): string | null {
   if (id !== null && !id.startsWith("thr_")) {
-    throw new Error("threadId must be a bb thr_* id");
+    throw new Error("threadId must be a hyperfide thr_* id");
   }
   return id;
 }
@@ -346,7 +346,7 @@ function projectFromRow(row: ProjectRow): Project {
     nextTaskNumber: row.next_task_number,
     color: row.color,
     folderId: row.folder_id,
-    linkedBbProjectId: row.linked_bb_project_id,
+    linkedHyperfideProjectId: row.linked_hyperfide_project_id,
     createdAt: row.created_at,
   };
 }
@@ -632,7 +632,7 @@ export function createTasksStore(db: PluginDatabase) {
     >(
       `
       INSERT INTO projects
-        (id, name, prefix, next_task_number, color, folder_id, linked_bb_project_id, created_at)
+        (id, name, prefix, next_task_number, color, folder_id, linked_hyperfide_project_id, created_at)
       VALUES (?, ?, ?, 1, ?, ?, ?, ?)
     `,
     ).run(
@@ -641,7 +641,7 @@ export function createTasksStore(db: PluginDatabase) {
       validatePrefix(input.prefix),
       requireNonEmpty(input.color, "Project color"),
       folderId,
-      validateLinkedBbProjectId(input.linkedBbProjectId ?? null),
+      validateLinkedHyperfideProjectId(input.linkedHyperfideProjectId ?? null),
       nowIso(),
     );
     return requireProject(id);
@@ -679,7 +679,7 @@ export function createTasksStore(db: PluginDatabase) {
     db.prepare<[string, string, string, string | null, string | null, string]>(
       `
       UPDATE projects
-      SET name = ?, prefix = ?, color = ?, folder_id = ?, linked_bb_project_id = ?
+      SET name = ?, prefix = ?, color = ?, folder_id = ?, linked_hyperfide_project_id = ?
       WHERE id = ?
     `,
     ).run(
@@ -693,9 +693,9 @@ export function createTasksStore(db: PluginDatabase) {
         ? current.color
         : requireNonEmpty(input.color, "Project color"),
       folderId,
-      input.linkedBbProjectId === undefined
-        ? current.linkedBbProjectId
-        : validateLinkedBbProjectId(input.linkedBbProjectId),
+      input.linkedHyperfideProjectId === undefined
+        ? current.linkedHyperfideProjectId
+        : validateLinkedHyperfideProjectId(input.linkedHyperfideProjectId),
       id,
     );
     return requireProject(id);

@@ -17,7 +17,7 @@ export interface ScriptedEchoRecord {
 }
 
 export async function recordScriptedEchoRequests(): Promise<ScriptedEchoRecord> {
-  const dir = await mkdtemp(path.join(tmpdir(), "bb-scripted-echo-record-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "hyperfide-scripted-echo-record-"));
   const recordPath = path.join(dir, "requests.jsonl");
   const previous = process.env[SCRIPTED_ECHO_RECORD_PATH_ENV];
   process.env[SCRIPTED_ECHO_RECORD_PATH_ENV] = recordPath;

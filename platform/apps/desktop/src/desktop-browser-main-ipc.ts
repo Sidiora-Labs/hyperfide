@@ -1,16 +1,16 @@
 import { BrowserWindow, ipcMain, type IpcMainEvent } from "electron";
 import type { z } from "zod";
 import {
-  bbDesktopBrowserAttachRequestSchema,
-  bbDesktopBrowserEvaluateRequestSchema,
-  bbDesktopBrowserFindInPageRequestSchema,
-  bbDesktopBrowserNavigateRequestSchema,
-  bbDesktopBrowserSetBoundsRequestSchema,
-  bbDesktopBrowserSetThreadDiscardedRequestSchema,
-  bbDesktopBrowserSetVisibleRequestSchema,
-  bbDesktopBrowserStopFindInPageRequestSchema,
-  bbDesktopBrowserTabRefSchema,
-  type BbDesktopBrowserEvaluateResult,
+  hyperfideDesktopBrowserAttachRequestSchema,
+  hyperfideDesktopBrowserEvaluateRequestSchema,
+  hyperfideDesktopBrowserFindInPageRequestSchema,
+  hyperfideDesktopBrowserNavigateRequestSchema,
+  hyperfideDesktopBrowserSetBoundsRequestSchema,
+  hyperfideDesktopBrowserSetThreadDiscardedRequestSchema,
+  hyperfideDesktopBrowserSetVisibleRequestSchema,
+  hyperfideDesktopBrowserStopFindInPageRequestSchema,
+  hyperfideDesktopBrowserTabRefSchema,
+  type HyperfideDesktopBrowserEvaluateResult,
 } from "@hyperfide/desktop-contract";
 import {
   HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
@@ -61,48 +61,48 @@ export function registerDesktopBrowserIpc(
 ): void {
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
-    bbDesktopBrowserAttachRequestSchema,
+    hyperfideDesktopBrowserAttachRequestSchema,
     (args) => manager.attach(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
-    bbDesktopBrowserNavigateRequestSchema,
+    hyperfideDesktopBrowserNavigateRequestSchema,
     (args) => manager.navigate(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
-    bbDesktopBrowserSetBoundsRequestSchema,
+    hyperfideDesktopBrowserSetBoundsRequestSchema,
     (args) => manager.setBounds(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
-    bbDesktopBrowserSetVisibleRequestSchema,
+    hyperfideDesktopBrowserSetVisibleRequestSchema,
     (args) => manager.setVisible(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
-    bbDesktopBrowserSetVisibleRequestSchema,
+    hyperfideDesktopBrowserSetVisibleRequestSchema,
     (args) => manager.setVisibleWithoutFocus(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
-    bbDesktopBrowserFindInPageRequestSchema,
+    hyperfideDesktopBrowserFindInPageRequestSchema,
     (args) => manager.findInPage(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
-    bbDesktopBrowserStopFindInPageRequestSchema,
+    hyperfideDesktopBrowserStopFindInPageRequestSchema,
     (args) => manager.stopFindInPage(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_DETACH_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    hyperfideDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.detach({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL,
-    bbDesktopBrowserSetThreadDiscardedRequestSchema,
+    hyperfideDesktopBrowserSetThreadDiscardedRequestSchema,
     (args) => manager.setThreadDiscarded(args),
   );
   ipcMain.handle(
@@ -118,31 +118,31 @@ export function registerDesktopBrowserIpc(
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_FOCUS_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    hyperfideDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.focus({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_GO_BACK_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    hyperfideDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.goBack({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    hyperfideDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.goForward({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_RELOAD_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    hyperfideDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.reload({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_STOP_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    hyperfideDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.stop({ hostWindow, tabId: request.tabId }),
   );
@@ -151,12 +151,12 @@ export function registerDesktopBrowserIpc(
     async (
       event,
       payload: unknown,
-    ): Promise<BbDesktopBrowserEvaluateResult> => {
+    ): Promise<HyperfideDesktopBrowserEvaluateResult> => {
       const hostWindow = BrowserWindow.fromWebContents(event.sender);
       if (hostWindow === null) {
         return { ok: false, error: "Browser host window is not available" };
       }
-      const parsed = bbDesktopBrowserEvaluateRequestSchema.safeParse(payload);
+      const parsed = hyperfideDesktopBrowserEvaluateRequestSchema.safeParse(payload);
       if (!parsed.success) {
         return { ok: false, error: "Invalid browser page evaluation request" };
       }

@@ -46,7 +46,7 @@ describe("startMachineAuthProxy", () => {
       const upstreamConnected = once(upstream, "connection");
       const upstreamPort = await listen(upstream);
       const proxy = await startMachineAuthProxy({
-        serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
+        serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_machine" },
         serverUrl: `http://127.0.0.1:${upstreamPort}`,
       });
       proxies.push(proxy);
@@ -114,7 +114,7 @@ describe("startMachineAuthProxy", () => {
     const upstream = http.createServer((request, response) => {
       expect(request.method).toBe("POST");
       expect(request.url).toBe("/api/v1/threads?state=open");
-      expect(request.headers["x-bb-connect-machine"]).toBe("bbcm_machine");
+      expect(request.headers["x-hyperfide-connect-machine"]).toBe("hyperfide_cm_machine");
       expect(request.headers["x-request-id"]).toBe("request-1");
       let body = "";
       request.setEncoding("utf8");
@@ -126,7 +126,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
-      serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
     proxies.push(proxy);
@@ -136,7 +136,7 @@ describe("startMachineAuthProxy", () => {
       {
         method: "POST",
         headers: {
-          "x-bb-connect-machine": "caller-must-not-override",
+          "x-hyperfide-connect-machine": "caller-must-not-override",
           "x-request-id": "request-1",
         },
         body: "payload",
@@ -161,8 +161,8 @@ describe("startMachineAuthProxy", () => {
       request.on("data", (chunk: Buffer) => chunks.push(chunk));
       request.on("end", () => {
         void (async () => {
-          expect(request.headers["x-bb-connect-machine"]).toBe(
-            "bbcm_attachment_machine",
+          expect(request.headers["x-hyperfide-connect-machine"]).toBe(
+            "hyperfide_cm_attachment_machine",
           );
           const contentType = request.headers["content-type"];
           expect(contentType).toMatch(/^multipart\/form-data; boundary=/u);
@@ -175,7 +175,7 @@ describe("startMachineAuthProxy", () => {
             throw new Error("Expected proxied multipart file");
           }
           expect(file.name).toBe("payload.bin");
-          expect(file.type).toBe("application/x-bb-test");
+          expect(file.type).toBe("application/x-hyperfide-test");
           expect(new Uint8Array(await file.arrayBuffer())).toEqual(binary);
           response.writeHead(201).end();
           resolveReceived?.();
@@ -187,14 +187,14 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
-      serverHeaders: { "x-bb-connect-machine": "bbcm_attachment_machine" },
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_attachment_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
     proxies.push(proxy);
     const form = new FormData();
     form.set(
       "file",
-      new Blob([binary], { type: "application/x-bb-test" }),
+      new Blob([binary], { type: "application/x-hyperfide-test" }),
       "payload.bin",
     );
 
@@ -211,7 +211,7 @@ describe("startMachineAuthProxy", () => {
     const upstream = http.createServer();
     const websocketServer = new WebSocketServer({ noServer: true });
     upstream.on("upgrade", (request, socket, head) => {
-      expect(request.headers["x-bb-connect-machine"]).toBe("bbcm_machine");
+      expect(request.headers["x-hyperfide-connect-machine"]).toBe("hyperfide_cm_machine");
       websocketServer.handleUpgrade(request, socket, head, (websocket) => {
         websocketServer.emit("connection", websocket, request);
       });
@@ -223,7 +223,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
-      serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
     proxies.push(proxy);
@@ -252,7 +252,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
-      serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
     proxies.push(proxy);
@@ -300,7 +300,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
-      serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
     proxies.push(proxy);
@@ -336,7 +336,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
-      serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
     proxies.push(proxy);
@@ -369,7 +369,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
-      serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
     proxies.push(proxy);
@@ -411,7 +411,7 @@ describe("startMachineAuthProxy", () => {
 
     await expect(
       startMachineAuthProxy({
-        serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
+        serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_machine" },
         port,
         serverUrl: "http://server.test",
       }),

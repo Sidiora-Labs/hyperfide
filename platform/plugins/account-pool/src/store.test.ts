@@ -32,13 +32,13 @@ function delayedAccountReads(kv: PluginKvStorage): PluginKvStorage {
 
 describe("AccountStore", () => {
   it("loads account metadata written before account UUIDs were stored", async () => {
-    const dataDir = await mkdtemp(path.join(tmpdir(), "bb-account-store-"));
+    const dataDir = await mkdtemp(path.join(tmpdir(), "hyperfide-account-store-"));
     const host = createFakePluginHost({ pluginId: "account-pool", dataDir });
     const store = new AccountStore(
-      host.bb.storage.kv,
+      host.hyperfide.storage.kv,
       path.join(dataDir, "secrets"),
     );
-    await host.bb.storage.kv.set("accounts:v1", [
+    await host.hyperfide.storage.kv.set("accounts:v1", [
       {
         id: "11111111-1111-4111-8111-111111111111",
         provider: "claude",
@@ -63,11 +63,11 @@ describe("AccountStore", () => {
   });
 
   it("preserves both accounts added concurrently", async () => {
-    const dataDir = await mkdtemp(path.join(tmpdir(), "bb-account-store-"));
+    const dataDir = await mkdtemp(path.join(tmpdir(), "hyperfide-account-store-"));
     const host = createFakePluginHost({ pluginId: "account-pool", dataDir });
     const secretsDir = path.join(dataDir, "secrets");
     const store = new AccountStore(
-      delayedAccountReads(host.bb.storage.kv),
+      delayedAccountReads(host.hyperfide.storage.kv),
       secretsDir,
     );
     await store.initialize();

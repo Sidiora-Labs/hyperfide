@@ -1,8 +1,8 @@
 import {
-  bbDesktopServerChoicesSchema,
+  hyperfideDesktopServerChoicesSchema,
   MACOS_TRAFFIC_LIGHT_INSET_PX,
   MACOS_TRAFFIC_LIGHT_TOP_INSET_PX,
-  type BbDesktopServerChoice,
+  type HyperfideDesktopServerChoice,
 } from "@hyperfide/desktop-contract";
 import { contextBridge, ipcRenderer, webFrame } from "electron";
 import { appCommandIdSchema, type AppCommandId } from "@hyperfide/domain";
@@ -12,45 +12,45 @@ import {
 } from "@hyperfide/host-daemon-contract";
 import { z } from "zod";
 import {
-  bbDesktopBrowserEvaluateResultSchema,
-  bbDesktopBrowserFindResultSchema,
-  bbDesktopBrowserOpenTabRequestSchema,
-  bbDesktopBrowserPageMessageSchema,
-  bbDesktopBrowserScopedOpenTabRequestSchema,
-  bbDesktopBrowserTabRefSchema,
-  bbDesktopBrowserSnapshotSchema,
-  bbDesktopBrowserStateSchema,
-  bbDesktopBrowserTargetSchema,
-  bbDesktopBrowserControlStateSchema,
-  bbDesktopBrowserRevealRequestSchema,
-  type BbDesktopBrowserControlState,
-  type BbDesktopClipboardContent,
-  type BbDesktopBrowserRevealRequest,
-  bbDesktopInfoSchema,
-  bbDesktopWindowStateSchema,
-  type BbDesktopApi,
-  type BbDesktopAppCommandHandler,
-  type BbDesktopBrowserApi,
-  type BbDesktopBrowserFindResultHandler,
-  type BbDesktopWindowFindRequest,
-  type BbDesktopBrowserPageMessageHandler,
-  type BbDesktopBrowserOpenTabHandler,
-  type BbDesktopBrowserScopedOpenTabHandler,
-  type BbDesktopBrowserFocusHandler,
-  type BbDesktopBrowserSnapshotHandler,
-  type BbDesktopBrowserStateHandler,
-  type BbDesktopBrowserState,
-  type BbDesktopBrowserUnsubscribe,
-  type BbDesktopBrowserViewBounds,
-  type BbDesktopCloseWindowRequestHandler,
-  type BbDesktopInfo,
-  type BbDesktopInfoChangeHandler,
-  type BbDesktopInfoUnsubscribe,
-  type BbDesktopOpenNewTabHandler,
-  type BbDesktopTheme,
-  type BbDesktopWindowState,
-  type BbDesktopWindowStateChangeHandler,
-  type BbDesktopZoomChangeHandler,
+  hyperfideDesktopBrowserEvaluateResultSchema,
+  hyperfideDesktopBrowserFindResultSchema,
+  hyperfideDesktopBrowserOpenTabRequestSchema,
+  hyperfideDesktopBrowserPageMessageSchema,
+  hyperfideDesktopBrowserScopedOpenTabRequestSchema,
+  hyperfideDesktopBrowserTabRefSchema,
+  hyperfideDesktopBrowserSnapshotSchema,
+  hyperfideDesktopBrowserStateSchema,
+  hyperfideDesktopBrowserTargetSchema,
+  hyperfideDesktopBrowserControlStateSchema,
+  hyperfideDesktopBrowserRevealRequestSchema,
+  type HyperfideDesktopBrowserControlState,
+  type HyperfideDesktopClipboardContent,
+  type HyperfideDesktopBrowserRevealRequest,
+  hyperfideDesktopInfoSchema,
+  hyperfideDesktopWindowStateSchema,
+  type HyperfideDesktopApi,
+  type HyperfideDesktopAppCommandHandler,
+  type HyperfideDesktopBrowserApi,
+  type HyperfideDesktopBrowserFindResultHandler,
+  type HyperfideDesktopWindowFindRequest,
+  type HyperfideDesktopBrowserPageMessageHandler,
+  type HyperfideDesktopBrowserOpenTabHandler,
+  type HyperfideDesktopBrowserScopedOpenTabHandler,
+  type HyperfideDesktopBrowserFocusHandler,
+  type HyperfideDesktopBrowserSnapshotHandler,
+  type HyperfideDesktopBrowserStateHandler,
+  type HyperfideDesktopBrowserState,
+  type HyperfideDesktopBrowserUnsubscribe,
+  type HyperfideDesktopBrowserViewBounds,
+  type HyperfideDesktopCloseWindowRequestHandler,
+  type HyperfideDesktopInfo,
+  type HyperfideDesktopInfoChangeHandler,
+  type HyperfideDesktopInfoUnsubscribe,
+  type HyperfideDesktopOpenNewTabHandler,
+  type HyperfideDesktopTheme,
+  type HyperfideDesktopWindowState,
+  type HyperfideDesktopWindowStateChangeHandler,
+  type HyperfideDesktopZoomChangeHandler,
 } from "@hyperfide/desktop-contract";
 import {
   HYPERFIDE_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
@@ -115,35 +115,35 @@ import {
 } from "./desktop-window-command-ipc.js";
 import {
   getDesktopVersion,
-  resolveBbDesktopPlatform,
+  resolveHyperfideDesktopPlatform,
 } from "./desktop-platform.js";
 import { STARTUP_ACTION_CHANNEL } from "./local-view.js";
 
-function createInitialDesktopInfo(): BbDesktopInfo {
+function createInitialDesktopInfo(): HyperfideDesktopInfo {
   return {
     downloadState: "idle",
     lastCheckedAt: null,
     latestVersion: null,
     pendingVersion: null,
-    platform: resolveBbDesktopPlatform(process.platform),
+    platform: resolveHyperfideDesktopPlatform(process.platform),
     updateAvailable: false,
     updateDownloaded: false,
     version: getDesktopVersion(process.env.HYPERFIDE_DESKTOP_VERSION),
   };
 }
 
-function createInitialDesktopWindowState(): BbDesktopWindowState {
+function createInitialDesktopWindowState(): HyperfideDesktopWindowState {
   return {
     isFullScreen: false,
   };
 }
 
 const serverChoiceListeners = new Set<
-  (choices: BbDesktopServerChoice[]) => void
+  (choices: HyperfideDesktopServerChoice[]) => void
 >();
-const listeners = new Set<BbDesktopInfoChangeHandler>();
-const appCommandListeners = new Set<BbDesktopAppCommandHandler>();
-const windowStateListeners = new Set<BbDesktopWindowStateChangeHandler>();
+const listeners = new Set<HyperfideDesktopInfoChangeHandler>();
+const appCommandListeners = new Set<HyperfideDesktopAppCommandHandler>();
+const windowStateListeners = new Set<HyperfideDesktopWindowStateChangeHandler>();
 let currentInfo = createInitialDesktopInfo();
 let currentWindowState = createInitialDesktopWindowState();
 
@@ -159,8 +159,8 @@ function notifyWindowStateListeners(): void {
   }
 }
 
-function applyDesktopInfoPayload(payload: unknown): BbDesktopInfo | null {
-  const parsed = bbDesktopInfoSchema.safeParse(payload);
+function applyDesktopInfoPayload(payload: unknown): HyperfideDesktopInfo | null {
+  const parsed = hyperfideDesktopInfoSchema.safeParse(payload);
   if (!parsed.success) {
     return null;
   }
@@ -171,8 +171,8 @@ function applyDesktopInfoPayload(payload: unknown): BbDesktopInfo | null {
 
 function applyDesktopWindowStatePayload(
   payload: unknown,
-): BbDesktopWindowState | null {
-  const parsed = bbDesktopWindowStateSchema.safeParse(payload);
+): HyperfideDesktopWindowState | null {
+  const parsed = hyperfideDesktopWindowStateSchema.safeParse(payload);
   if (!parsed.success) {
     return null;
   }
@@ -181,7 +181,7 @@ function applyDesktopWindowStatePayload(
   return currentWindowState;
 }
 
-async function invokeDesktopInfo(channel: string): Promise<BbDesktopInfo> {
+async function invokeDesktopInfo(channel: string): Promise<HyperfideDesktopInfo> {
   try {
     const payload: unknown = await ipcRenderer.invoke(channel);
     return applyDesktopInfoPayload(payload) ?? currentInfo;
@@ -190,7 +190,7 @@ async function invokeDesktopInfo(channel: string): Promise<BbDesktopInfo> {
   }
 }
 
-async function invokeDesktopWindowState(): Promise<BbDesktopWindowState> {
+async function invokeDesktopWindowState(): Promise<HyperfideDesktopWindowState> {
   try {
     const payload: unknown = await ipcRenderer.invoke(
       HYPERFIDE_DESKTOP_GET_WINDOW_STATE_CHANNEL,
@@ -209,8 +209,8 @@ async function invokeInstallUpdate(): Promise<void> {
   }
 }
 
-const browserStateListeners = new Set<BbDesktopBrowserStateHandler>();
-const browserStates = new Map<string, BbDesktopBrowserState>();
+const browserStateListeners = new Set<HyperfideDesktopBrowserStateHandler>();
+const browserStates = new Map<string, HyperfideDesktopBrowserState>();
 browserStateListeners.add((state) => {
   browserStates.delete(state.tabId);
   browserStates.set(state.tabId, state);
@@ -220,27 +220,27 @@ browserStateListeners.add((state) => {
   }
 });
 const browserControlListeners = new Set<
-  (state: BbDesktopBrowserControlState) => void
+  (state: HyperfideDesktopBrowserControlState) => void
 >();
 const browserRevealListeners = new Set<
-  (request: BbDesktopBrowserRevealRequest) => void
+  (request: HyperfideDesktopBrowserRevealRequest) => void
 >();
-const browserOpenTabListeners = new Set<BbDesktopBrowserOpenTabHandler>();
+const browserOpenTabListeners = new Set<HyperfideDesktopBrowserOpenTabHandler>();
 const browserScopedOpenTabListeners =
-  new Set<BbDesktopBrowserScopedOpenTabHandler>();
-const browserFocusListeners = new Set<BbDesktopBrowserFocusHandler>();
+  new Set<HyperfideDesktopBrowserScopedOpenTabHandler>();
+const browserFocusListeners = new Set<HyperfideDesktopBrowserFocusHandler>();
 const browserPageMessageListeners =
-  new Set<BbDesktopBrowserPageMessageHandler>();
-const browserSnapshotListeners = new Set<BbDesktopBrowserSnapshotHandler>();
-const browserFindResultListeners = new Set<BbDesktopBrowserFindResultHandler>();
+  new Set<HyperfideDesktopBrowserPageMessageHandler>();
+const browserSnapshotListeners = new Set<HyperfideDesktopBrowserSnapshotHandler>();
+const browserFindResultListeners = new Set<HyperfideDesktopBrowserFindResultHandler>();
 const closeWindowRequestListeners =
-  new Set<BbDesktopCloseWindowRequestHandler>();
-const openNewTabListeners = new Set<BbDesktopOpenNewTabHandler>();
-const zoomListeners = new Set<BbDesktopZoomChangeHandler>();
+  new Set<HyperfideDesktopCloseWindowRequestHandler>();
+const openNewTabListeners = new Set<HyperfideDesktopOpenNewTabHandler>();
+const zoomListeners = new Set<HyperfideDesktopZoomChangeHandler>();
 let lastZoomFactor = webFrame.getZoomFactor();
 
 function publishZoomFactor(factor: number): void {
-  document.documentElement.style.setProperty("--bb-zoom", String(factor));
+  document.documentElement.style.setProperty("--hyperfide-zoom", String(factor));
   ipcRenderer.send(HYPERFIDE_DESKTOP_ZOOM_CHANGED_CHANNEL);
 }
 
@@ -280,8 +280,8 @@ function forwardParsed<T>(
 }
 
 function browserViewBoundsAtWindowScale(
-  bounds: BbDesktopBrowserViewBounds,
-): BbDesktopBrowserViewBounds {
+  bounds: HyperfideDesktopBrowserViewBounds,
+): HyperfideDesktopBrowserViewBounds {
   const zoomFactor = webFrame.getZoomFactor();
   if (zoomFactor === 1) {
     return bounds;
@@ -299,16 +299,16 @@ function browserViewBoundsAtWindowScale(
   };
 }
 
-const bbBrowserApi: BbDesktopBrowserApi = {
+const hyperfideBrowserApi: HyperfideDesktopBrowserApi = {
   async getTarget() {
-    return bbDesktopBrowserTargetSchema
+    return hyperfideDesktopBrowserTargetSchema
       .nullable()
       .parse(
         await ipcRenderer.invoke(HYPERFIDE_DESKTOP_BROWSER_TARGET_CHANNEL),
       );
   },
   async getControl(tabId) {
-    return bbDesktopBrowserControlStateSchema.nullable().parse(
+    return hyperfideDesktopBrowserControlStateSchema.nullable().parse(
       await ipcRenderer.invoke(HYPERFIDE_DESKTOP_BROWSER_GET_CONTROL_CHANNEL, {
         tabId,
       }),
@@ -326,7 +326,7 @@ const bbBrowserApi: BbDesktopBrowserApi = {
     return addListener(browserRevealListeners, listener);
   },
   async evaluate(request) {
-    return bbDesktopBrowserEvaluateResultSchema.parse(
+    return hyperfideDesktopBrowserEvaluateResultSchema.parse(
       await ipcRenderer.invoke(
         HYPERFIDE_DESKTOP_BROWSER_EVALUATE_CHANNEL,
         request,
@@ -393,21 +393,21 @@ const bbBrowserApi: BbDesktopBrowserApi = {
       request,
     );
   },
-  onState(listener): BbDesktopBrowserUnsubscribe {
+  onState(listener): HyperfideDesktopBrowserUnsubscribe {
     const unsubscribe = addListener(browserStateListeners, listener);
     for (const state of browserStates.values()) listener(state);
     return unsubscribe;
   },
-  onOpenTab(listener): BbDesktopBrowserUnsubscribe {
+  onOpenTab(listener): HyperfideDesktopBrowserUnsubscribe {
     return addListener(browserOpenTabListeners, listener);
   },
-  onScopedOpenTab(listener): BbDesktopBrowserUnsubscribe {
+  onScopedOpenTab(listener): HyperfideDesktopBrowserUnsubscribe {
     return addListener(browserScopedOpenTabListeners, listener);
   },
-  onFocus(listener): BbDesktopBrowserUnsubscribe {
+  onFocus(listener): HyperfideDesktopBrowserUnsubscribe {
     return addListener(browserFocusListeners, listener);
   },
-  onSnapshot(listener): BbDesktopBrowserUnsubscribe {
+  onSnapshot(listener): HyperfideDesktopBrowserUnsubscribe {
     return addListener(browserSnapshotListeners, listener);
   },
   findInPage(request): void {
@@ -419,7 +419,7 @@ const bbBrowserApi: BbDesktopBrowserApi = {
       request,
     );
   },
-  onFindResult(listener): BbDesktopBrowserUnsubscribe {
+  onFindResult(listener): HyperfideDesktopBrowserUnsubscribe {
     return addListener(browserFindResultListeners, listener);
   },
   async listImportSources() {
@@ -444,10 +444,10 @@ const bbBrowserApi: BbDesktopBrowserApi = {
   },
 };
 
-const bbDesktopApi: BbDesktopApi = {
-  browser: bbBrowserApi,
+const hyperfideDesktopApi: HyperfideDesktopApi = {
+  browser: hyperfideBrowserApi,
   async getServerChoices() {
-    return bbDesktopServerChoicesSchema.parse(
+    return hyperfideDesktopServerChoicesSchema.parse(
       await ipcRenderer.invoke(HYPERFIDE_DESKTOP_GET_SERVER_CHOICES_CHANNEL),
     );
   },
@@ -468,7 +468,7 @@ const bbDesktopApi: BbDesktopApi = {
   },
   macosTrafficLightInset: MACOS_TRAFFIC_LIGHT_INSET_PX,
   macosTrafficLightTopInset: MACOS_TRAFFIC_LIGHT_TOP_INSET_PX,
-  platform: resolveBbDesktopPlatform(process.platform),
+  platform: resolveHyperfideDesktopPlatform(process.platform),
   get serverDaemonLogsAvailable() {
     return currentInfo.serverDaemonLogsAvailable;
   },
@@ -494,33 +494,33 @@ const bbDesktopApi: BbDesktopApi = {
   installUpdate() {
     return invokeInstallUpdate();
   },
-  onChange(listener: BbDesktopInfoChangeHandler): BbDesktopInfoUnsubscribe {
+  onChange(listener: HyperfideDesktopInfoChangeHandler): HyperfideDesktopInfoUnsubscribe {
     return addListener(listeners, listener);
   },
   onWindowStateChange(
-    listener: BbDesktopWindowStateChangeHandler,
-  ): BbDesktopInfoUnsubscribe {
+    listener: HyperfideDesktopWindowStateChangeHandler,
+  ): HyperfideDesktopInfoUnsubscribe {
     return addListener(windowStateListeners, listener);
   },
-  onZoomChange(listener): BbDesktopInfoUnsubscribe {
+  onZoomChange(listener): HyperfideDesktopInfoUnsubscribe {
     return addListener(zoomListeners, listener);
   },
   zoom(command): void {
     ipcRenderer.send(HYPERFIDE_DESKTOP_ZOOM_COMMAND_CHANNEL, command);
   },
-  onOpenNewTab(listener): BbDesktopInfoUnsubscribe {
+  onOpenNewTab(listener): HyperfideDesktopInfoUnsubscribe {
     return addListener(openNewTabListeners, listener);
   },
-  onAppCommand(listener): BbDesktopInfoUnsubscribe {
+  onAppCommand(listener): HyperfideDesktopInfoUnsubscribe {
     return addListener(appCommandListeners, listener);
   },
-  onCloseWindowRequest(listener): BbDesktopInfoUnsubscribe {
+  onCloseWindowRequest(listener): HyperfideDesktopInfoUnsubscribe {
     return addListener(closeWindowRequestListeners, listener);
   },
   openWindowFind(request): void {
     ipcRenderer.send(HYPERFIDE_DESKTOP_OPEN_WINDOW_FIND_CHANNEL, {
       topOffset: Math.round(request.topOffset * webFrame.getZoomFactor()),
-    } satisfies BbDesktopWindowFindRequest);
+    } satisfies HyperfideDesktopWindowFindRequest);
   },
   async openDataDirectory(): Promise<void> {
     await ipcRenderer.invoke(HYPERFIDE_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL);
@@ -544,10 +544,10 @@ const bbDesktopApi: BbDesktopApi = {
       directionalCommands,
     );
   },
-  setTheme(theme: BbDesktopTheme): void {
+  setTheme(theme: HyperfideDesktopTheme): void {
     ipcRenderer.send(HYPERFIDE_DESKTOP_SET_THEME_CHANNEL, theme);
   },
-  async writeClipboard(content: BbDesktopClipboardContent): Promise<void> {
+  async writeClipboard(content: HyperfideDesktopClipboardContent): Promise<void> {
     await ipcRenderer.invoke(
       HYPERFIDE_DESKTOP_WRITE_CLIPBOARD_CHANNEL,
       content,
@@ -557,7 +557,7 @@ const bbDesktopApi: BbDesktopApi = {
 
 forwardParsed(
   HYPERFIDE_DESKTOP_SERVER_CHOICES_CHANGED_CHANNEL,
-  bbDesktopServerChoicesSchema,
+  hyperfideDesktopServerChoicesSchema,
   serverChoiceListeners,
 );
 
@@ -597,26 +597,26 @@ ipcRenderer.on(HYPERFIDE_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL, () => {
 
 forwardParsed(
   HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL,
-  bbDesktopBrowserStateSchema,
+  hyperfideDesktopBrowserStateSchema,
   browserStateListeners,
 );
 
 forwardParsed(
   HYPERFIDE_DESKTOP_BROWSER_CONTROL_CHANNEL,
-  bbDesktopBrowserControlStateSchema,
+  hyperfideDesktopBrowserControlStateSchema,
   browserControlListeners,
 );
 
 forwardParsed(
   HYPERFIDE_DESKTOP_BROWSER_REVEAL_CHANNEL,
-  bbDesktopBrowserRevealRequestSchema,
+  hyperfideDesktopBrowserRevealRequestSchema,
   browserRevealListeners,
 );
 
 ipcRenderer.on(
   HYPERFIDE_DESKTOP_BROWSER_FOCUSED_CHANNEL,
   (_event, payload: unknown) => {
-    const parsed = bbDesktopBrowserTabRefSchema.safeParse(payload);
+    const parsed = hyperfideDesktopBrowserTabRefSchema.safeParse(payload);
     if (!parsed.success) {
       return;
     }
@@ -628,31 +628,31 @@ ipcRenderer.on(
 
 forwardParsed(
   HYPERFIDE_DESKTOP_BROWSER_OPEN_TAB_CHANNEL,
-  bbDesktopBrowserOpenTabRequestSchema,
+  hyperfideDesktopBrowserOpenTabRequestSchema,
   browserOpenTabListeners,
 );
 
 forwardParsed(
   HYPERFIDE_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL,
-  bbDesktopBrowserScopedOpenTabRequestSchema,
+  hyperfideDesktopBrowserScopedOpenTabRequestSchema,
   browserScopedOpenTabListeners,
 );
 
 forwardParsed(
   HYPERFIDE_DESKTOP_BROWSER_SNAPSHOT_CHANNEL,
-  bbDesktopBrowserSnapshotSchema,
+  hyperfideDesktopBrowserSnapshotSchema,
   browserSnapshotListeners,
 );
 
 forwardParsed(
   HYPERFIDE_DESKTOP_BROWSER_PAGE_MESSAGE_CHANNEL,
-  bbDesktopBrowserPageMessageSchema,
+  hyperfideDesktopBrowserPageMessageSchema,
   browserPageMessageListeners,
 );
 
 forwardParsed(
   HYPERFIDE_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
-  bbDesktopBrowserFindResultSchema,
+  hyperfideDesktopBrowserFindResultSchema,
   browserFindResultListeners,
 );
 
@@ -673,4 +673,4 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
 void invokeDesktopInfo(HYPERFIDE_DESKTOP_GET_INFO_CHANNEL);
 void invokeDesktopWindowState();
 
-contextBridge.exposeInMainWorld("bbDesktop", bbDesktopApi);
+contextBridge.exposeInMainWorld("hyperfideDesktop", hyperfideDesktopApi);

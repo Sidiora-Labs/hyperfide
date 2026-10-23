@@ -19,7 +19,7 @@ describe("plugin HTTP disconnect cleanup", () => {
         JSON.stringify({
           name: "hyperfide-plugin-disconnect",
           version: "0.1.0",
-          bb: {
+          hyperfide: {
             name: "Disconnect fixture",
             description: "Exercises HTTP disconnect cleanup.",
             branding: { icon: "Zap" },
@@ -29,11 +29,11 @@ describe("plugin HTTP disconnect cleanup", () => {
       );
       await writeFile(
         join(root, "server.ts"),
-        `export default function plugin(bb) {
+        `export default function plugin(hyperfide) {
           const state = { entered: false, returned: false, aborted: null, cancelled: false };
           let finish;
           const pending = new Promise(resolve => { finish = resolve; });
-          bb.http.route("GET", "/stream", async context => {
+          hyperfide.http.route("GET", "/stream", async context => {
             state.entered = true;
             if (context.req.query("access") === "before") void context.req.raw.signal;
             await pending;
@@ -44,8 +44,8 @@ describe("plugin HTTP disconnect cleanup", () => {
               cancel() { state.cancelled = true; },
             }), { headers: { "content-type": "text/event-stream" } });
           });
-          bb.http.route("GET", "/state", context => context.json(state));
-          bb.http.route("GET", "/finish", context => {
+          hyperfide.http.route("GET", "/state", context => context.json(state));
+          hyperfide.http.route("GET", "/finish", context => {
             finish();
             return context.text("released");
           });

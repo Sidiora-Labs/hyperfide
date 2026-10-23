@@ -76,7 +76,7 @@ function openDaemonSession(harness: TestAppHarness, hostId: string): string {
     hostId,
     instanceId: `instance-${hostId}`,
     hostName: "Test Host",
-    dataDir: `/tmp/bb-host-data/${hostId}`,
+    dataDir: `/tmp/hyperfide-host-data/${hostId}`,
     protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
     heartbeatIntervalMs: 5_000,
     leaseTimeoutMs: 30_000,

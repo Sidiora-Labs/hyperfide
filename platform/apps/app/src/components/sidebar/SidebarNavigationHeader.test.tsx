@@ -88,7 +88,7 @@ afterEach(() => {
 });
 
 describe("SidebarNavigationHeader", () => {
-  it("leaves the header to bb when the navigation has no header", () => {
+  it("leaves the header to hyperfide when the navigation has no header", () => {
     renderHeader(navigationSlot());
 
     expect(screen.queryByTestId("sidebar-header-slot")).toBeNull();
@@ -152,7 +152,7 @@ describe("SidebarNavigationHeader", () => {
     expect(getNotifications()).toEqual([
       expect.objectContaining({
         description:
-          "Garden icons (garden) stopped working, so bb drew the Rail header instead.",
+          "Garden icons (garden) stopped working, so hyperfide drew the Rail header instead.",
       }),
     ]);
   });

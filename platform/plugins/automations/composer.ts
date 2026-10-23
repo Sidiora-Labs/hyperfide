@@ -4,7 +4,7 @@ import type {
   ComposerDraftSnapshot,
 } from "@hyperfide/plugin-sdk/app";
 
-export const CREATE_AUTOMATION_PROMPT = "Create a new bb automation to ";
+export const CREATE_AUTOMATION_PROMPT = "Create a new hyperfide automation to ";
 
 export function withCreateAutomationPrompt(
   draft: ComposerDraftSnapshot,

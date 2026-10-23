@@ -29,7 +29,7 @@ async function writeIconPluginFixture(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Icons fixture",
         description: "Declares icons.",
         branding: {
@@ -61,8 +61,8 @@ async function writeIconPluginFixture(
 }
 
 const PROVIDER_SOURCE = (icon: string): string => `
-  export default function plugin(bb: any) {
-    bb.providers.register({
+  export default function plugin(hyperfide: any) {
+    hyperfide.providers.register({
       id: "marked-agent",
       displayName: "Marked Agent",
       icon: ${JSON.stringify(icon)},
@@ -234,7 +234,7 @@ describe("plugin-declared icons", () => {
     },
   );
 
-  it("fails the load when bb.branding.icon is a namespaced glyph, even the plugin's own", async () => {
+  it("fails the load when hyperfide.branding.icon is a namespaced glyph, even the plugin's own", async () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
@@ -249,7 +249,7 @@ describe("plugin-declared icons", () => {
     await expect(
       harness.pluginService.installPath(rootDir),
     ).rejects.toThrowError(
-      /\(bb\.branding\.icon\): "branded\/logo" is a namespaced glyph/,
+      /\(hyperfide\.branding\.icon\): "branded\/logo" is a namespaced glyph/,
     );
     expect(harness.pluginService.getApi("branded")).toBeUndefined();
   });

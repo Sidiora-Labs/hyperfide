@@ -194,7 +194,7 @@ index 0000000..ef1e4d8
 +        try {
 +            if (!sameOrigin(new URI(webView.getUrl()), new URI(sourceUrl))) throw new IOException("Copy must be on the current server");
 +            ClipboardManager clipboard = (ClipboardManager) webView.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-+            clipboard.setPrimaryClip(ClipData.newHtmlText("BB message", text, html));
++            clipboard.setPrimaryClip(ClipData.newHtmlText("HYPERFIDE message", text, html));
 +            respond(id, true, "");
 +        } catch (Exception error) {
 +            respond(id, false, error.getMessage());
@@ -212,7 +212,7 @@ index 0000000..ef1e4d8
 +            if (!busy.compareAndSet(false, true)) throw new IOException("An image copy is already running");
 +            String cookie = CookieManager.getInstance().getCookie(imageUrl);
 +            long deadline = SystemClock.elapsedRealtime() + 25000;
-+            new Thread(() -> download(id, text, imageUrl, cookie, deadline), "BBClipboard").start();
++            new Thread(() -> download(id, text, imageUrl, cookie, deadline), "HyperfideClipboard").start();
 +        } catch (Exception error) {
 +            respond(id, false, error.getMessage());
 +        }
@@ -249,7 +249,7 @@ index 0000000..ef1e4d8
 +            if (http.getContentLengthLong() > MAX_BYTES) throw new IOException("Image exceeds 35 MB");
 +            String extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(type);
 +            if (extension == null) throw new IOException("Unsupported image type");
-+            File directory = new File(webView.getContext().getCacheDir(), "bb-clipboard");
++            File directory = new File(webView.getContext().getCacheDir(), "hyperfide-clipboard");
 +            if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Image cache unavailable");
 +            File[] oldFiles = directory.listFiles();
 +            if (oldFiles != null) {
@@ -289,7 +289,7 @@ index 0000000..ef1e4d8
 +                            ? new String[]{mimeType}
 +                            : new String[]{mimeType, "text/plain"};
 +                    ClipData.Item item = new ClipData.Item(text.isEmpty() ? null : text, null, uri);
-+                    ClipData clip = new ClipData("BB message", mimeTypes, item);
++                    ClipData clip = new ClipData("HYPERFIDE message", mimeTypes, item);
 +                    ClipboardManager clipboard = (ClipboardManager) webView.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
 +                    clipboard.setPrimaryClip(clip);
 +                    respond(id, true, "");
@@ -303,7 +303,7 @@ index 0000000..ef1e4d8
 +            });
 +            file = null;
 +        } catch (Exception error) {
-+            Log.w("BBClipboard", "Could not copy message image", error);
++            Log.w("HyperfideClipboard", "Could not copy message image", error);
 +            respond(id, false, error.getMessage());
 +            busy.set(false);
 +        } finally {
@@ -327,7 +327,7 @@ index 0000000..ef1e4d8
 +            if (destroyed) return;
 +            String response = copied ? "{ok:true,result:{copied:true}}"
 +                    : "{ok:false,error:" + JSONObject.quote(error == null ? "Image copy failed" : error) + "}";
-+            webView.evaluateJavascript("(function(){var n=window.bb&&window.bb.native;if(n&&n.__receive)n.__receive({type:'response',id:"
++            webView.evaluateJavascript("(function(){var n=window.hyperfide&&window.hyperfide.native;if(n&&n.__receive)n.__receive({type:'response',id:"
 +                    + JSONObject.quote(id) + ",response:" + response + "});})()", null);
 +        });
 +    }
@@ -366,7 +366,7 @@ index 919b3ad..dfaa44a 100644
 -  // This class intentionally left blank.
 +  @Override
 +  public String[] getStreamTypes(Uri uri, String filter) {
-+    if (uri.getPath() != null && uri.getPath().startsWith("/bb_clipboard/")
++    if (uri.getPath() != null && uri.getPath().startsWith("/hyperfide_clipboard/")
 +        && filter.startsWith("text/") && ClipDescription.compareMimeTypes("text/plain", filter)) {
 +      try (ParcelFileDescriptor descriptor = super.openFile(textUri(uri), "r")) {
 +        return new String[]{"text/plain"};
@@ -380,7 +380,7 @@ index 919b3ad..dfaa44a 100644
 +  @Override
 +  public AssetFileDescriptor openTypedAssetFile(Uri uri, String filter, Bundle options)
 +      throws FileNotFoundException {
-+    if (uri.getPath() != null && uri.getPath().startsWith("/bb_clipboard/")
++    if (uri.getPath() != null && uri.getPath().startsWith("/hyperfide_clipboard/")
 +        && filter.startsWith("text/") && ClipDescription.compareMimeTypes("text/plain", filter)) {
 +      return new AssetFileDescriptor(super.openFile(textUri(uri), "r"), 0,
 +          AssetFileDescriptor.UNKNOWN_LENGTH);
@@ -438,7 +438,7 @@ index 0000000..19400bf
 +
 +final class RNCWebViewImagePaste {
 +    private static final int MAX_BYTES = 35 * 1024 * 1024;
-+    private static final String PATH = "/__bb_keyboard_image/";
++    private static final String PATH = "/__hyperfide_keyboard_image/";
 +    private final RNCWebView webView;
 +    private volatile boolean destroyed;
 +    private final Map<String, Transfer> transfers = new ConcurrentHashMap<>();
@@ -465,7 +465,7 @@ index 0000000..19400bf
 +                }
 +                return true;
 +            } catch (Exception error) {
-+                Log.w("BBImagePaste", "Could not receive keyboard image", error);
++                Log.w("HyperfideImagePaste", "Could not receive keyboard image", error);
 +                if (granted) content.releasePermission();
 +                return false;
 +            }
@@ -488,7 +488,7 @@ index 0000000..19400bf
 +        Transfer transfer = new Transfer(id, url, content, granted);
 +        transfers.put(url, transfer);
 +        webView.postDelayed(transfer.expire, 30000);
-+        String begin = "(function(){var n=window.bb&&window.bb.native;return !!(n&&n.__beginImagePaste&&n.__beginImagePaste("
++        String begin = "(function(){var n=window.hyperfide&&window.hyperfide.native;return !!(n&&n.__beginImagePaste&&n.__beginImagePaste("
 +                + JSONObject.quote(id) + "," + JSONObject.quote(url) + "));})()";
 +        webView.evaluateJavascript(begin, accepted -> {
 +            if (!"true".equals(accepted)) transfer.complete(null);
@@ -521,7 +521,7 @@ index 0000000..19400bf
 +                    if (!candidate.trim().isEmpty()) name = candidate;
 +                }
 +            } catch (Exception error) {
-+                Log.w("BBImagePaste", "Could not read image filename", error);
++                Log.w("HyperfideImagePaste", "Could not read image filename", error);
 +            }
 +            transfer.cancellation.throwIfCanceled();
 +            AssetFileDescriptor descriptor = resolver.openAssetFileDescriptor(uri, "r", transfer.cancellation);
@@ -589,7 +589,7 @@ index 0000000..19400bf
 +            return new WebResourceResponse(type, null, 200, "OK",
 +                    Collections.singletonMap("Cache-Control", "no-store"), bounded);
 +        } catch (Exception error) {
-+            Log.w("BBImagePaste", "Could not stream keyboard image", error);
++            Log.w("HyperfideImagePaste", "Could not stream keyboard image", error);
 +            transfer.complete(null);
 +            return unavailable();
 +        }
@@ -635,14 +635,14 @@ index 0000000..19400bf
 +            InputStream input = stream.getAndSet(null);
 +            if (input != null) {
 +                try { input.close(); } catch (IOException error) {
-+                    Log.w("BBImagePaste", "Could not close keyboard image", error);
++                    Log.w("HyperfideImagePaste", "Could not close keyboard image", error);
 +                }
 +            }
 +            if (granted) content.releasePermission();
 +            String payload = image == null ? "null" : image.toString();
 +            webView.post(() -> {
 +                if (!destroyed) webView.evaluateJavascript(
-+                        "(function(){var n=window.bb&&window.bb.native;if(n&&n.__finishImagePaste)n.__finishImagePaste("
++                        "(function(){var n=window.hyperfide&&window.hyperfide.native;if(n&&n.__finishImagePaste)n.__finishImagePaste("
 +                                + JSONObject.quote(id) + "," + payload + ");})()", null);
 +            });
 +        }
@@ -655,7 +655,7 @@ index aba5f56..7ee0a5e 100644
 @@ -1,5 +1,6 @@
  <?xml version="1.0" encoding="utf-8"?>
  <paths>
-+  <cache-path name="bb_clipboard" path="bb-clipboard/" />
++  <cache-path name="hyperfide_clipboard" path="hyperfide-clipboard/" />
    <external-path
      name="shared"
      path="." />
@@ -808,7 +808,7 @@ index 7f5c24d..6dbad89 100644
 +- (void)attachFileDownload:(WKDownload *)download API_AVAILABLE(ios(14.5))
 +{
 +  if (self.fileDownloads == nil) self.fileDownloads = [NSMapTable strongToStrongObjectsMapTable];
-+  NSURL *root = [[[NSFileManager defaultManager] URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject URLByAppendingPathComponent:@"bb-webkit-downloads" isDirectory:YES];
++  NSURL *root = [[[NSFileManager defaultManager] URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject URLByAppendingPathComponent:@"hyperfide-webkit-downloads" isDirectory:YES];
 +  static dispatch_once_t cleanDownloads;
 +  dispatch_once(&cleanDownloads, ^{
 +    [[NSFileManager defaultManager] removeItemAtURL:root error:nil];

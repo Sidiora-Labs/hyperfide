@@ -5,7 +5,7 @@ import { ECHO_PROJECT_SKILL_ROOT, ECHO_PROVIDER_ID } from "./src/vocabulary.js";
 
 function registeredDeclaration() {
   const host = createFakePluginHost({ pluginId: "echo-provider" });
-  echoPlugin(host.bb);
+  echoPlugin(host.hyperfide);
   const declaration = host.harness.registrations.providerRegistrations.find(
     (entry) => entry.id === ECHO_PROVIDER_ID,
   );

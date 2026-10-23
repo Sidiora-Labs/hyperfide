@@ -8,8 +8,8 @@ import {
 
 const BASE = "http://127.0.0.1:3334";
 
-const HEALTHY_SOURCE = `export default function plugin(bb: any) {
-  bb.cli.register({ name: "keeper", summary: "keeper", run() { return { exitCode: 0, stdout: "ok" }; } });
+const HEALTHY_SOURCE = `export default function plugin(hyperfide: any) {
+  hyperfide.cli.register({ name: "keeper", summary: "keeper", run() { return { exitCode: 0, stdout: "ok" }; } });
 }
 `;
 const BROKEN_SOURCE = `export default function plugin() { throw new Error("boom on load"); }
@@ -28,7 +28,7 @@ describe("POST /plugins/reload outcome", () => {
       JSON.stringify({
         name: "hyperfide-plugin-keeper",
         version: "0.1.0",
-        bb: {
+        hyperfide: {
           name: "Keeper",
           description: "Reload outcome fixture.",
           branding: { icon: "Zap" },

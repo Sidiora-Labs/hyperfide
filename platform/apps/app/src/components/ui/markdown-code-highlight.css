@@ -5,7 +5,7 @@
  * code block. Intentionally NOT in theme.css/app.css: this is a self-contained,
  * code-only palette, not part of the shared neutral ramp guarded by theme.test.
  *
- * Restrained and achromatic-leaning to match bb's calm chroma - identifiers ride
+ * Restrained and achromatic-leaning to match hyperfide's calm chroma - identifiers ride
  * the neutral foreground and punctuation/comments ride the existing muted/subtle
  * tiers; only keywords, strings, types/numbers, and entities carry a low-chroma
  * hue, lifted in dark mode the same way the app's neutral ramp is.

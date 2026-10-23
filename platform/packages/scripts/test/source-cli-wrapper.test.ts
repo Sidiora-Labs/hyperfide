@@ -29,7 +29,7 @@ function buildCleanEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
-function runSourceBb(args: string[]): Promise<SourceCliResult> {
+function runSourceHyperfide(args: string[]): Promise<SourceCliResult> {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn("pnpm", ["--silent", "hyperfide-platform", ...args], {
       cwd: repoRoot,
@@ -71,7 +71,7 @@ afterEach(() => {
 
 describe("source CLI wrapper", () => {
   it("keeps --json stdout parseable when the prepare build writes progress", async () => {
-    const result = await runSourceBb(["status", "--json"]);
+    const result = await runSourceHyperfide(["status", "--json"]);
 
     if (result.code !== 0 || result.signal !== null) {
       throw new Error(

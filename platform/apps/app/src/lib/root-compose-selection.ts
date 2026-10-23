@@ -10,7 +10,7 @@ import { atomWithStorage } from "jotai/utils";
 import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import { createTabScopedStorage } from "./browser-storage";
 
-const ROOT_COMPOSE_PROJECT_ID_STORAGE_KEY = "bb.root-compose.project-id";
+const ROOT_COMPOSE_PROJECT_ID_STORAGE_KEY = "hyperfide.root-compose.project-id";
 
 function parseStoredProjectId(
   storedValue: string | null,
@@ -61,7 +61,7 @@ export function useImportedProjectDefault() {
 }
 
 const rootComposeReuseEnvironmentAtom = atomWithStorage<string | null>(
-  "bb.root-compose.reuse-environment",
+  "hyperfide.root-compose.reuse-environment",
   null,
   createTabScopedStorage<string | null>({
     parse: (storedValue) =>
@@ -75,7 +75,7 @@ const rootComposeReuseEnvironmentAtom = atomWithStorage<string | null>(
 );
 
 const rootComposeStoredPlacementAtom = atomWithStorage<ThreadCreationPlacement>(
-  "bb.root-compose.placement",
+  "hyperfide.root-compose.placement",
   DEFAULT_THREAD_CREATION_PLACEMENT,
   createTabScopedStorage<ThreadCreationPlacement>({
     parse: (storedValue, initialValue) => {

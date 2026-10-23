@@ -62,7 +62,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
-  Reflect.deleteProperty(window, "bb");
+  Reflect.deleteProperty(window, "hyperfide");
   Reflect.deleteProperty(window, "ReactNativeWebView");
   resetNativeShellForTests();
 });

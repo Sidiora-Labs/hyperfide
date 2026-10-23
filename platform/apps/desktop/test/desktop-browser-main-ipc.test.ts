@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH,
-  type BbDesktopBrowserAttachRequest,
-  type BbDesktopBrowserFindInPageRequest,
-  type BbDesktopBrowserNavigateRequest,
-  type BbDesktopBrowserSetBoundsRequest,
-  type BbDesktopBrowserSetVisibleRequest,
-  type BbDesktopBrowserStopFindInPageRequest,
-  type BbDesktopBrowserEvaluateRequest,
-  type BbDesktopBrowserEvaluateResult,
+  type HyperfideDesktopBrowserAttachRequest,
+  type HyperfideDesktopBrowserFindInPageRequest,
+  type HyperfideDesktopBrowserNavigateRequest,
+  type HyperfideDesktopBrowserSetBoundsRequest,
+  type HyperfideDesktopBrowserSetVisibleRequest,
+  type HyperfideDesktopBrowserStopFindInPageRequest,
+  type HyperfideDesktopBrowserEvaluateRequest,
+  type HyperfideDesktopBrowserEvaluateResult,
 } from "@hyperfide/desktop-contract";
 import {
   HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
@@ -170,7 +170,7 @@ class RecordingDesktopBrowserViewManager implements DesktopBrowserViewManager {
   public readonly setVisibleCalls: SetVisibleCall[] = [];
   public readonly evaluateCalls: EvaluateCall[] = [];
 
-  async evaluate(call: EvaluateCall): Promise<BbDesktopBrowserEvaluateResult> {
+  async evaluate(call: EvaluateCall): Promise<HyperfideDesktopBrowserEvaluateResult> {
     this.evaluateCalls.push(call);
     return { ok: true, value: "evaluated" };
   }
@@ -293,7 +293,7 @@ describe("registerDesktopBrowserIpc", () => {
     if (handler === undefined) {
       throw new Error("Expected an evaluate handler.");
     }
-    const request: BbDesktopBrowserEvaluateRequest = {
+    const request: HyperfideDesktopBrowserEvaluateRequest = {
       tabId: "browser:a",
       expression: "document.title",
       world: "isolated",
@@ -325,14 +325,14 @@ describe("registerDesktopBrowserIpc", () => {
     registerDesktopBrowserIpc(manager);
     const renderer = createTrustedRenderer("main-window");
     const untrustedSender = createUntrustedSender();
-    const attachRequest: BbDesktopBrowserAttachRequest = {
+    const attachRequest: HyperfideDesktopBrowserAttachRequest = {
       threadId: "thread-1",
       tabId: "browser:a",
       url: "http://localhost:5173/",
       bounds: { x: 0, y: 0, width: 800, height: 600 },
       visible: true,
     };
-    const navigateRequest: BbDesktopBrowserNavigateRequest = {
+    const navigateRequest: HyperfideDesktopBrowserNavigateRequest = {
       tabId: "browser:a",
       url: "https://example.com/",
     };
@@ -455,13 +455,13 @@ describe("registerDesktopBrowserIpc", () => {
     registerDesktopBrowserIpc(manager);
     const renderer = createTrustedRenderer("main-window");
     const untrustedSender = createUntrustedSender();
-    const findRequest: BbDesktopBrowserFindInPageRequest = {
+    const findRequest: HyperfideDesktopBrowserFindInPageRequest = {
       tabId: "browser:a",
       text: "WebContents",
       forward: true,
       newSession: true,
     };
-    const stopRequest: BbDesktopBrowserStopFindInPageRequest = {
+    const stopRequest: HyperfideDesktopBrowserStopFindInPageRequest = {
       tabId: "browser:a",
       action: "clearSelection",
     };
@@ -512,7 +512,7 @@ describe("registerDesktopBrowserIpc", () => {
     const manager = new RecordingDesktopBrowserViewManager();
     registerDesktopBrowserIpc(manager);
     const renderer = createTrustedRenderer("main-window");
-    const validAttachRequest: BbDesktopBrowserAttachRequest = {
+    const validAttachRequest: HyperfideDesktopBrowserAttachRequest = {
       threadId: "thread-1",
       tabId: "browser:a",
       url: "",
@@ -553,11 +553,11 @@ describe("registerDesktopBrowserIpc", () => {
     const manager = new RecordingDesktopBrowserViewManager();
     registerDesktopBrowserIpc(manager);
     const renderer = createTrustedRenderer("main-window");
-    const boundsRequest: BbDesktopBrowserSetBoundsRequest = {
+    const boundsRequest: HyperfideDesktopBrowserSetBoundsRequest = {
       tabId: "browser:a",
       bounds: { x: 0, y: 0, width: 800, height: 600 },
     };
-    const visibleRequest: BbDesktopBrowserSetVisibleRequest = {
+    const visibleRequest: HyperfideDesktopBrowserSetVisibleRequest = {
       tabId: "browser:a",
       visible: true,
     };

@@ -631,7 +631,7 @@ const THREAD_TELL_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
 ]);
 
 const THREAD_TELL_HINT = /\bthread\s+(?:tell|message)\b/u;
-const BB_CLI_TOKEN = /^\$\{?BB_CLI(?::-[^}]*)?\}?$/u;
+const HYPERFIDE_CLI_TOKEN = /^\$\{?HYPERFIDE_CLI(?::-[^}]*)?\}?$/u;
 const SHELL_VARIABLE_TOKEN = /^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$/u;
 const SHELL_EXPANSION = /[$`]/u;
 const HEREDOC_ASSIGNMENT =
@@ -719,7 +719,8 @@ function parseThreadTellSegment(
   const [cli, group, verb, ...argTokens] = tokens.slice(commandIndex);
   if (
     cli === undefined ||
-    (baseExecutableName(cli.value) !== "bb" && !BB_CLI_TOKEN.test(cli.value)) ||
+    (baseExecutableName(cli.value) !== "hyperfide-platform" &&
+      !HYPERFIDE_CLI_TOKEN.test(cli.value)) ||
     group?.value !== "thread" ||
     (verb?.value !== "tell" && verb?.value !== "message")
   ) {

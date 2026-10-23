@@ -1,7 +1,7 @@
 export type ThemeMode = "light" | "dark";
 export type ThemeModePreference = ThemeMode | "system";
 
-export const THEME_PREFERENCE_STORAGE_KEY = "bb.theme";
+export const THEME_PREFERENCE_STORAGE_KEY = "hyperfide.theme";
 const DEFAULT_THEME_PREFERENCE: ThemeModePreference = "system";
 
 export interface ThemePreferenceStorage {

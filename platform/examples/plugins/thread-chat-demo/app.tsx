@@ -4,8 +4,8 @@ import {
   experimental_useAppPanel,
   experimental_useFixedTabTarget,
   ThreadChat,
-  useBbContext,
-  useBbNavigate,
+  useHyperfideContext,
+  useHyperfideNavigate,
   type ExperimentalTabRegistration,
   type JsonValue,
 } from "@hyperfide/plugin-sdk/app";
@@ -25,12 +25,12 @@ function isDemoThreadTarget(value: JsonValue): value is DemoThreadTarget {
 }
 
 function ThreadChatDemoPanel({ subPath }: { subPath: string }) {
-  const { threadId: routeThreadId } = useBbContext();
+  const { threadId: routeThreadId } = useHyperfideContext();
   const [threadId, setThreadId] = useState(subPath);
   const [focusRequest, setFocusRequest] = useState(0);
   const activeThreadId = threadId || routeThreadId || "";
   const panel = experimental_useAppPanel();
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b p-2">
@@ -66,7 +66,7 @@ function ThreadChatDemoPanel({ subPath }: { subPath: string }) {
           className="h-8 cursor-pointer rounded-md border px-2 text-sm hover:bg-surface-recessed"
           onClick={() =>
             navigate.openUrl(
-              "https://github.com/get-bb/bb/tree/main/examples/plugins/thread-chat-demo",
+              "https://github.com/hyperfide/hyperfide/tree/main/examples/plugins/thread-chat-demo",
             )
           }
         >

@@ -1,13 +1,13 @@
 {
-  "name": "hyperfide-plugin-bb--github-pr-status",
+  "name": "hyperfide-plugin-hyperfide--github-pr-status",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "GitHub pull request status and actions for each environment's branch",
   "engines": {
-    "bb": ">=0.0"
+    "hyperfide": ">=0.0"
   },
-  "bb": {
+  "hyperfide": {
     "name": "GitHub PR Status",
     "description": "GitHub pull request status and actions for each environment's branch",
     "branding": {
@@ -20,7 +20,7 @@
     "./contract": "./contract.ts"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

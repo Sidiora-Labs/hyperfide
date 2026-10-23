@@ -1,6 +1,6 @@
 ---
 name: provider-retry
-description: "Diagnose automatic retries of BB turns after provider overloads, server or connection errors, and subscription-window limits."
+description: "Diagnose automatic retries of HYPERFIDE turns after provider overloads, server or connection errors, and subscription-window limits."
 ---
 
 # Provider retry
@@ -28,16 +28,16 @@ authentication failures, and unavailable pool sources do not schedule retries.
 A turn gets at most four automatic retries. The `maximumWait` setting
 (`6 hours` by default, or `24 hours` or `No limit`) skips a subscription-limit
 retry whose reset is farther away:
-`bb plugin config provider-retry set maximumWait "24 hours"`.
+`hyperfide-platform plugin config provider-retry set maximumWait "24 hours"`.
 
 A pending retry is an ordinary durable queued row, shown on the thread's queue
 card with its reason and time, and survives restart.
 
 ```sh
-bb provider-retry status [thread-id] [--json]
-bb provider-retry explain [thread-id] [--json]
-bb provider-retry retry <thread-id> [--json]
-bb provider-retry cancel <thread-id> [--json]
+Hyperfide provider-retry status [thread-id] [--json]
+Hyperfide provider-retry explain [thread-id] [--json]
+Hyperfide provider-retry retry <thread-id> [--json]
+Hyperfide provider-retry cancel <thread-id> [--json]
 ```
 
 `status` defaults to the current thread and lists every thread outside one.
@@ -48,5 +48,5 @@ backfilled. The plugin RPC `decision.get` accepts `{ threadId }` and returns
 the same nullable diagnostic.
 `retry` sends the pending row now; `cancel` deletes it. Inspect the failed turn
 before retrying manually, and avoid duplicating an existing queued retry. Use
-the core `bb thread retry` command for an intentional manual retry of a turn
+the core `hyperfide-platform thread retry` command for an intentional manual retry of a turn
 with no pending row; follow its live help for selection and scheduling flags.

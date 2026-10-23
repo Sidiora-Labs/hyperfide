@@ -27,7 +27,7 @@ const handshake: NativeShellHandshake = {
 interface FakeWindow {
   location: { href: string };
   ReactNativeWebView: { postMessage(raw: string): void };
-  bb?: { native?: NativeShellApi };
+  hyperfide?: { native?: NativeShellApi };
 }
 
 function installBridge(
@@ -61,7 +61,7 @@ function installBridge(
     );
   };
   run(buildBridgeInjectionScript({ ...handshake, ...overrides }));
-  const native = fakeWindow.bb?.native;
+  const native = fakeWindow.hyperfide?.native;
   if (native === undefined) throw new Error("bridge did not install");
   return { native, posted, run, fakeWindow };
 }
@@ -215,7 +215,7 @@ describe("buildBridgeInjectionScript", () => {
         safeArea: { top: 10, right: 0, bottom: 0, left: 0 },
       }),
     );
-    expect(fakeWindow.bb?.native).toBe(native);
+    expect(fakeWindow.hyperfide?.native).toBe(native);
     expect(native.appVersion).toBe("0.40.0");
     run(buildBridgeEventScript({ type: "resume" }));
     expect(seen).toHaveLength(1);
@@ -233,7 +233,7 @@ describe("buildBridgeInjectionScript", () => {
     const fakeWindow: Record<string, unknown> = {};
     // eslint-disable-next-line no-new-func
     new Function("window", buildBridgeInjectionScript(handshake))(fakeWindow);
-    const native = (fakeWindow.bb as { native: NativeShellApi }).native;
+    const native = (fakeWindow.hyperfide as { native: NativeShellApi }).native;
     expect(() => native.post({ type: "ready", path: "/" })).not.toThrow();
   });
 });
@@ -248,7 +248,7 @@ interface ImagePasteApi extends NativeShellApi {
 
 const image = { name: "screenshot.png", type: "image/png" };
 const imageBytes = new Uint8Array([0, 1, 2, 3, 255]);
-const imageUrl = "https://test/__bb_keyboard_image/image";
+const imageUrl = "https://test/__hyperfide_keyboard_image/image";
 
 function installImageBridge(
   fetch = vi

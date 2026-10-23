@@ -3,7 +3,7 @@
   "name": "confirm-delete-dialog",
   "type": "registry:ui",
   "title": "confirm-delete-dialog",
-  "description": "BB ui \"confirm-delete-dialog\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"confirm-delete-dialog\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/button",
     "@hyperfide/dialog"

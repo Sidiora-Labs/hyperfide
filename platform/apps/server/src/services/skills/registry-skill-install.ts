@@ -288,7 +288,7 @@ function installConflict(skillId: string): ApiError {
   return new ApiError(
     409,
     "skill_install_conflict",
-    `Skill "${skillId}" already exists with different or unsafe contents; bb left it unchanged`,
+    `Skill "${skillId}" already exists with different or unsafe contents; hyperfide left it unchanged`,
   );
 }
 
@@ -306,7 +306,7 @@ export async function installServerRegistrySkill(args: {
     );
   }
   const extractionRoot = await fs.mkdtemp(
-    path.join(os.tmpdir(), "bb-registry-skill-"),
+    path.join(os.tmpdir(), "hyperfide-registry-skill-"),
   );
   const skillsRootPath = resolveDataDirSkillsRootPath(args.dataDir);
   await fs.mkdir(skillsRootPath, { recursive: true });
@@ -334,7 +334,7 @@ export async function installServerRegistrySkill(args: {
       throw new ApiError(
         409,
         "skill_already_installed",
-        `Skill "${args.skillId}" is already installed in bb`,
+        `Skill "${args.skillId}" is already installed in hyperfide`,
       );
     }
     const result = await runRegistrySkillsCli({
@@ -409,7 +409,7 @@ export async function installServerRegistrySkill(args: {
         throw new ApiError(
           409,
           "skill_already_installed",
-          `Skill "${args.skillId}" is already installed in bb`,
+          `Skill "${args.skillId}" is already installed in hyperfide`,
         );
       }
       throw error;

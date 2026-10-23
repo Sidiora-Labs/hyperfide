@@ -5,8 +5,8 @@ import {
   type ResolvedCodeTheme,
 } from "@hyperfide/domain";
 
-const CODE_THEME_DARK_DATASET = "bbCodeThemeDark";
-const CODE_THEME_LIGHT_DATASET = "bbCodeThemeLight";
+const CODE_THEME_DARK_DATASET = "hyperfideCodeThemeDark";
+const CODE_THEME_LIGHT_DATASET = "hyperfideCodeThemeLight";
 
 let currentResolvedCodeTheme: ResolvedCodeTheme = defaultResolvedCodeTheme;
 const subscribers = new Set<() => void>();

@@ -1,6 +1,6 @@
 # Reviewer demo server
 
-This Worker serves the current bb web app and fixed sample conversations for
+This Worker serves the current Hyperfide web app and fixed sample conversations for
 Google Play and App Store review. The native mobile app opens the server root
 in a WebView, so an API-only deployment cannot load it.
 
@@ -54,13 +54,13 @@ Play testing build for the final submission rehearsal.
 Copy this into Google Play app access instructions or App Store review notes:
 
 ```text
-bb is a client for a bb server that a developer runs on their own computer.
+Hyperfide is a client for a hyperfide-platform server that a developer runs on their own computer.
 For review, use our demo server. It serves sample conversations and scripted
 replies and does not run a real coding agent. No sign-in, credentials, pairing
 code, or subscription is needed.
 
-1. Open the app. It shows "Connect to a bb server".
-2. In "Server URL", enter https://bb-demo-server.sawyer-7bb.workers.dev
+1. Open the app. It shows "Connect to a hyperfide-platform server".
+2. In "Server URL", enter https://hyperfide-demo-server.sawyer-7bb.workers.dev
    Leave the optional label empty.
 3. Tap "Connect". The web app loads and shows sample conversations.
 4. Open "Add a dark mode toggle" to read the sample messages and code.

@@ -5,7 +5,7 @@ import {
 import { describe, expect, it } from "vitest";
 import type { CliRunner } from "./cli-runner.js";
 import { parseCommandIndex } from "./command-index.js";
-import { createBbMcpHttpHandler } from "./mcp-handler.js";
+import { createHyperfideMcpHttpHandler } from "./mcp-handler.js";
 
 const COMMAND_INDEX = parseCommandIndex(
   JSON.stringify({
@@ -77,7 +77,7 @@ function harness() {
     };
   };
   const errors: Error[] = [];
-  const handler = createBbMcpHttpHandler(
+  const handler = createHyperfideMcpHttpHandler(
     { runCli, loadCommandIndex: async () => COMMAND_INDEX },
     "0.0.0-test",
     (error) => errors.push(error),
@@ -88,7 +88,7 @@ function harness() {
       { versionNegotiation: { mode } },
     );
     await client.connect(
-      new StreamableHTTPClientTransport(new URL("http://bb.test/mcp"), {
+      new StreamableHTTPClientTransport(new URL("http://hyperfide.test/mcp"), {
         fetch: (input, init) => handler.fetch(new Request(input, init)),
       }),
     );
@@ -105,7 +105,7 @@ function textOf(result: { content?: unknown }): string {
 describe.each([
   ["2025-era client", "legacy" as const],
   ["2026-07-28 client", { pin: "2026-07-28" }],
-])("bb MCP handler with a %s", (_label, mode) => {
+])("hyperfide MCP handler with a %s", (_label, mode) => {
   it("lists exactly the three tools with their read-only annotations", async () => {
     const { connect } = harness();
     const client = await connect(mode);
@@ -131,7 +131,7 @@ describe.each([
     const result = await client.callTool({
       name: "read",
       arguments: {
-        code: `const threads = await bb.json(["thread", "list"]); return threads.filter((t) => t.status === "running").map((t) => t.id);`,
+        code: `const threads = await hyperfide.json(["thread", "list"]); return threads.filter((t) => t.status === "running").map((t) => t.id);`,
       },
     });
     expect(result.isError).toBeFalsy();
@@ -148,7 +148,7 @@ describe.each([
     const result = await client.callTool({
       name: "read",
       arguments: {
-        code: `return await bb.cli(["thread", "tell", "thr_1", "hi"]);`,
+        code: `return await hyperfide.cli(["thread", "tell", "thr_1", "hi"]);`,
       },
     });
     expect(result.isError).toBe(true);
@@ -163,7 +163,7 @@ describe.each([
     const result = await client.callTool({
       name: "run",
       arguments: {
-        code: `return await bb.json(["thread", "tell", "thr_1", "--message-file", "-"], { stdin: "please continue" });`,
+        code: `return await hyperfide.json(["thread", "tell", "thr_1", "--message-file", "-"], { stdin: "please continue" });`,
       },
     });
     expect(result.isError).toBeFalsy();
@@ -177,12 +177,12 @@ describe.each([
     await client.close();
   });
 
-  it("reports a failed command as a tool error with bb's message", async () => {
+  it("reports a failed command as a tool error with hyperfide's message", async () => {
     const { connect } = harness();
     const client = await connect(mode);
     const result = await client.callTool({
       name: "run",
-      arguments: { code: `return await bb.json(["nonsense"]);` },
+      arguments: { code: `return await hyperfide.json(["nonsense"]);` },
     });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toContain("unknown command");
@@ -191,7 +191,7 @@ describe.each([
 
   it("keeps run working and explains the failure when the CLI has no command index", async () => {
     const calls: string[][] = [];
-    const handler = createBbMcpHttpHandler(
+    const handler = createHyperfideMcpHttpHandler(
       {
         runCli: async (argv) => {
           calls.push([...argv]);
@@ -213,18 +213,18 @@ describe.each([
       { versionNegotiation: { mode } },
     );
     await client.connect(
-      new StreamableHTTPClientTransport(new URL("http://bb.test/mcp"), {
+      new StreamableHTTPClientTransport(new URL("http://hyperfide.test/mcp"), {
         fetch: (input, init) => handler.fetch(new Request(input, init)),
       }),
     );
     const run = await client.callTool({
       name: "run",
-      arguments: { code: `return await bb.json(["thread", "list"]);` },
+      arguments: { code: `return await hyperfide.json(["thread", "list"]);` },
     });
     expect(run.isError).toBeFalsy();
     const read = await client.callTool({
       name: "read",
-      arguments: { code: `return await bb.json(["thread", "list"]);` },
+      arguments: { code: `return await hyperfide.json(["thread", "list"]);` },
     });
     expect(read.isError).toBe(true);
     expect(textOf(read)).toContain("did not return its command index");
@@ -235,7 +235,7 @@ describe.each([
   it("runs at most four CLI calls of one script at a time", async () => {
     let active = 0;
     let peak = 0;
-    const handler = createBbMcpHttpHandler(
+    const handler = createHyperfideMcpHttpHandler(
       {
         runCli: async () => {
           active += 1;
@@ -260,14 +260,14 @@ describe.each([
       { versionNegotiation: { mode } },
     );
     await client.connect(
-      new StreamableHTTPClientTransport(new URL("http://bb.test/mcp"), {
+      new StreamableHTTPClientTransport(new URL("http://hyperfide.test/mcp"), {
         fetch: (input, init) => handler.fetch(new Request(input, init)),
       }),
     );
     const result = await client.callTool({
       name: "read",
       arguments: {
-        code: `const all = await Promise.all(Array.from({ length: 30 }, () => bb.cli(["thread", "list"]))); return all.length;`,
+        code: `const all = await Promise.all(Array.from({ length: 30 }, () => hyperfide.cli(["thread", "list"]))); return all.length;`,
       },
     });
     expect(result.isError).toBeFalsy();
@@ -287,11 +287,11 @@ describe.each([
       commands: { usage: string; readOnly: boolean }[];
     };
     expect(parsed.commands[0]).toMatchObject({
-      usage: "bb thread tell <id> [message]",
+      usage: "hyperfide-platform thread tell <id> [message]",
       readOnly: false,
     });
     expect(
-      parsed.commands.find((command) => command.usage === "bb thread list"),
+      parsed.commands.find((command) => command.usage === "hyperfide-platform thread list"),
     ).toMatchObject({ readOnly: true });
     await client.close();
   });

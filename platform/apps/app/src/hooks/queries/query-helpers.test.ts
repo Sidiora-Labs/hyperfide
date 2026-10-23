@@ -43,7 +43,7 @@ import {
 } from "./query-placeholders";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { HttpError } from "@/lib/api";
-import { BbHttpError } from "@/lib/sdk";
+import { HyperfideHttpError } from "@/lib/sdk";
 import { isTransientReadError, requireEnabledQueryArg } from "./query-helpers";
 
 describe("requireEnabledQueryArg", () => {
@@ -92,7 +92,7 @@ describe("isTransientReadError", () => {
     ).toBe(false);
     expect(
       isTransientReadError(
-        new BbHttpError({
+        new HyperfideHttpError({
           status: 404,
           message: "Not found",
           body: { error: "Not found" },

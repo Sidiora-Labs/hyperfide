@@ -2,7 +2,7 @@ import { open } from "node:fs/promises";
 import { ServerArchiveError } from "./errors.js";
 
 const GZIP_MAGIC = Buffer.from([0x1f, 0x8b]);
-const OLD_ENCRYPTED_ARCHIVE_MAGIC = Buffer.from("BBSA", "ascii");
+const OLD_ENCRYPTED_ARCHIVE_MAGIC = Buffer.from("HFSA", "ascii");
 
 async function readArchivePrefix(archivePath: string): Promise<Buffer> {
   const handle = await open(archivePath, "r");
@@ -22,13 +22,13 @@ export async function assertServerArchiveFormat(
   if (prefix.equals(OLD_ENCRYPTED_ARCHIVE_MAGIC)) {
     throw new ServerArchiveError(
       "unsupported_version",
-      "This export was encrypted by an older bb; re-export it with bb server export",
+      "This export was encrypted by an older hyperfide; re-export it with hyperfide-platform server export",
     );
   }
   if (
     prefix.length < GZIP_MAGIC.length ||
     !prefix.subarray(0, GZIP_MAGIC.length).equals(GZIP_MAGIC)
   ) {
-    throw new ServerArchiveError("corrupt", "File is not a bb server archive");
+    throw new ServerArchiveError("corrupt", "File is not a hyperfide-platform server archive");
   }
 }

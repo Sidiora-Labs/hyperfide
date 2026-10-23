@@ -121,7 +121,7 @@ async function readServerBrokerDescriptor(args: {
         );
         signal.throwIfAborted();
         const expected = createHmac("sha256", descriptor.token)
-          .update(`bb-desktop-broker:${challenge}`)
+          .update(`hyperfide-desktop-broker:${challenge}`)
           .digest();
         if (!timingSafeEqual(expected, Buffer.from(proof, "hex")))
           throw new Error("Invalid desktop broker proof");

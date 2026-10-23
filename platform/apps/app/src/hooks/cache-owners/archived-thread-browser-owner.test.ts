@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChangedMessage, ThreadChangeKind } from "@hyperfide/domain";
 import type {
-  BbDesktopBrowserApi,
-  BbDesktopBrowserSetThreadDiscardedRequest,
+  HyperfideDesktopBrowserApi,
+  HyperfideDesktopBrowserSetThreadDiscardedRequest,
 } from "@hyperfide/desktop-contract";
 import { createArchivedThreadBrowserOwner } from "./archived-thread-browser-owner";
 
@@ -15,13 +15,13 @@ function threadChanged(
 
 function createDesktopBrowser(threadIdsWithTabs: string[] = []) {
   const setThreadDiscarded =
-    vi.fn<(request: BbDesktopBrowserSetThreadDiscardedRequest) => void>();
+    vi.fn<(request: HyperfideDesktopBrowserSetThreadDiscardedRequest) => void>();
   const listThreadIdsWithTabs = vi.fn(async () => threadIdsWithTabs);
   return {
     desktopBrowser: {
       setThreadDiscarded,
       listThreadIdsWithTabs,
-    } as Partial<BbDesktopBrowserApi> as BbDesktopBrowserApi,
+    } as Partial<HyperfideDesktopBrowserApi> as HyperfideDesktopBrowserApi,
     listThreadIdsWithTabs,
     setThreadDiscarded,
   };
@@ -104,7 +104,7 @@ describe("createArchivedThreadBrowserOwner", () => {
     expect(setThreadDiscarded).not.toHaveBeenCalled();
 
     const olderReadArchivedAt = vi.fn(async () => 1_000);
-    for (const shell of [{} as BbDesktopBrowserApi, null]) {
+    for (const shell of [{} as HyperfideDesktopBrowserApi, null]) {
       const owner = createArchivedThreadBrowserOwner({
         desktopBrowser: shell,
         readArchivedAt: olderReadArchivedAt,

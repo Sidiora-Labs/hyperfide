@@ -31,7 +31,7 @@ const walkerOptions: DiskUsageOptions = {
 
 async function makeTempDir(): Promise<string> {
   const dir = await fs.realpath(
-    await fs.mkdtemp(path.join(os.tmpdir(), "bb-disk-usage-test-")),
+    await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-disk-usage-test-")),
   );
   tempDirs.push(dir);
   return dir;
@@ -104,7 +104,7 @@ describe.each([
   },
   {
     strategy: "walker after du is not found",
-    options: { ...duOptions, duCommand: "/nonexistent/bb-test/du" },
+    options: { ...duOptions, duCommand: "/nonexistent/hyperfide-test/du" },
     enabled: isPosix,
     hardLinksSpanChildren: true,
   },

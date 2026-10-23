@@ -20,16 +20,16 @@ type HostRpcCall = FakePluginHarness["experimental_hostRpcCalls"][number];
 const HOST_ID = "host-a";
 const PROJECT_ID = "project-1";
 const THREAD_ID = "thr_1";
-const SOURCE_PATH = "/checkouts/bb";
+const SOURCE_PATH = "/checkouts/hyperfide";
 const WORKTREE_PATH =
-  "/data/plugins/environment-git-worktree/worktrees/thr_1/bb";
+  "/data/plugins/environment-git-worktree/worktrees/thr_1/hyperfide";
 
 const PROVISION_HOST = makeHostResponse({ id: HOST_ID, name: "Fake machine" });
 
 const PROJECT: Project = {
   id: PROJECT_ID,
   kind: "standard",
-  name: "bb",
+  name: "hyperfide",
   gitRemoteUrl: null,
   createdAt: 1,
   updatedAt: 1,
@@ -48,10 +48,10 @@ async function setup(
     throw new Error(`unexpected host method ${call.method}`);
   },
 ) {
-  const { bb, harness } = createFakePluginHost({
+  const { hyperfide, harness } = createFakePluginHost({
     experimental_callHostRpc: callHost,
   });
-  await plugin(bb);
+  await plugin(hyperfide);
   const provider = harness.registrations.environmentProviders.get(
     GIT_WORKTREE_ENVIRONMENT_PROVIDER_ID,
   );
@@ -70,7 +70,7 @@ async function setup(
     projectCheckout: { experimental_ownsPath: false, path: SOURCE_PATH },
     gitRemote: null,
     inputs: { branch: { kind: "default" } },
-    suggestedBranchName: "bb/test",
+    suggestedBranchName: "hyperfide/test",
     attempt: 1,
     pathKey: THREAD_ID,
     experimental_claimPath: async () => true,
@@ -146,7 +146,7 @@ describe("worktree resource operations", () => {
       hostId: HOST_ID,
       input: {
         operationId: `create#${THREAD_ID}#1`,
-        branchName: "bb/test",
+        branchName: "hyperfide/test",
         pathKey: THREAD_ID,
         baseBranch: { kind: "default" },
         branchMode: "reset",
@@ -158,11 +158,11 @@ describe("worktree resource operations", () => {
   it("restores on the destroyed environment's branch, keeping its commits", async () => {
     const fixture = await setup();
     await fixture.restore({
-      ...restoreContext(fixture.context, "bb/original-thread"),
+      ...restoreContext(fixture.context, "hyperfide/original-thread"),
       inputs: { branch: { kind: "named", name: "release" } },
     });
     expect(fixture.harness.experimental_hostRpcCalls[0]?.input).toMatchObject({
-      branchName: "bb/original-thread",
+      branchName: "hyperfide/original-thread",
       baseBranch: { kind: "named", name: "release" },
       branchMode: "reuse-existing",
       pathKey: "replacement",
@@ -250,7 +250,7 @@ describe("worktree resource operations", () => {
 });
 
 describe("adopting an existing worktree", () => {
-  const EXISTING_PATH = "/code/bb-feature";
+  const EXISTING_PATH = "/code/hyperfide-feature";
 
   async function setupAdoption(
     overrides: {
@@ -401,7 +401,7 @@ describe("default branch label routing", () => {
   ])(
     "uses the selected source for $hostId",
     async ({ hostId, expectedHost, expectedPath }) => {
-      const { bb, harness } = createFakePluginHost({
+      const { hyperfide, harness } = createFakePluginHost({
         sdk: {
           projects: {
             get: () => ({
@@ -424,7 +424,7 @@ describe("default branch label routing", () => {
         },
         experimental_callHostRpc: () => ({ branch: "origin/main" }),
       });
-      await plugin(bb);
+      await plugin(hyperfide);
       expect(
         await harness.callRpc("defaultBaseBranch", {
           projectId: PROJECT_ID,

@@ -14,20 +14,20 @@ export interface GuideArea {
 }
 
 const guideChapters: Record<string, TemplateId> = {
-  threads: "bbGuideThreads",
-  "thread-inspection": "bbGuideThreadInspection",
-  "thread-messaging": "bbGuideThreadMessaging",
-  "thread-lifecycle": "bbGuideThreadLifecycle",
-  environments: "bbGuideEnvironments",
-  "agent-configuration": "bbGuideAgentConfiguration",
-  providers: "bbGuideProviders",
-  projects: "bbGuideProjects",
-  machines: "bbGuideMachines",
-  terminals: "bbGuideTerminals",
-  browser: "bbGuideBrowser",
-  customization: "bbGuideCustomization",
-  plugins: "bbGuidePlugins",
-  json: "bbGuideJson",
+  threads: "hyperfideGuideThreads",
+  "thread-inspection": "hyperfideGuideThreadInspection",
+  "thread-messaging": "hyperfideGuideThreadMessaging",
+  "thread-lifecycle": "hyperfideGuideThreadLifecycle",
+  environments: "hyperfideGuideEnvironments",
+  "agent-configuration": "hyperfideGuideAgentConfiguration",
+  providers: "hyperfideGuideProviders",
+  projects: "hyperfideGuideProjects",
+  machines: "hyperfideGuideMachines",
+  terminals: "hyperfideGuideTerminals",
+  browser: "hyperfideGuideBrowser",
+  customization: "hyperfideGuideCustomization",
+  plugins: "hyperfideGuidePlugins",
+  json: "hyperfideGuideJson",
 };
 
 const guideChapterAliases: Record<string, string> = {
@@ -100,14 +100,14 @@ export function createGuideArea(): GuideArea {
   return {
     render(input = {}) {
       if (!input.chapter) {
-        return { content: renderStaticTemplate("bbGuideOverview") };
+        return { content: renderStaticTemplate("hyperfideGuideOverview") };
       }
       const chapter = resolveGuideChapter(input.chapter);
       const templateId = guideChapters[chapter];
       if (!templateId) {
         const available = Object.keys(guideChapters).join(", ");
         throw new Error(
-          `Unknown guide chapter '${input.chapter}'. Available: ${available}. Commands contributed by plugins document themselves: run \`bb <command> --help\`.`,
+          `Unknown guide chapter '${input.chapter}'. Available: ${available}. Commands contributed by plugins document themselves: run \`hyperfide <command> --help\`.`,
         );
       }
       return {

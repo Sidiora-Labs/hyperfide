@@ -32,7 +32,7 @@ import {
   type UserQuestionPendingInteractionPayload,
 } from "@hyperfide/domain";
 import { action } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliHyperfideSdk } from "../../client.js";
 import { printBorderlessTable } from "../../table.js";
 import {
   collectOption,
@@ -345,7 +345,7 @@ function printPluginRequestInteraction(
 async function fetchInteraction(
   args: FetchInteractionArgs,
 ): Promise<PendingInteraction> {
-  const sdk = createCliBbSdk(args.getUrl());
+  const sdk = createCliHyperfideSdk(args.getUrl());
   return sdk.threads.interactions.get({
     interactionId: args.interactionId,
     threadId: args.threadId,
@@ -559,7 +559,7 @@ async function resolveInteraction(args: ResolveInteractionArgs): Promise<void> {
     threadId: args.threadId,
   });
   const resolution = args.buildResolution(interaction);
-  const sdk = createCliBbSdk(args.getUrl());
+  const sdk = createCliHyperfideSdk(args.getUrl());
   const updated = await sdk.threads.interactions
     .resolve({
       interactionId: args.interactionId,
@@ -733,7 +733,7 @@ export function registerInteractionCommands(
           opts: ThreadInteractionTargetOptions,
         ) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
 
           const items = await sdk.threads.interactions.list({
             threadId,
@@ -890,7 +890,7 @@ export function registerInteractionCommands(
         ) => {
           const threadId = requireThreadIdOrSelf(id, opts);
           const value = parseRespondValue(opts.value);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const updated = await sdk.threads.interactions
             .respond({ interactionId, threadId, value })
             .catch((error: unknown) => {

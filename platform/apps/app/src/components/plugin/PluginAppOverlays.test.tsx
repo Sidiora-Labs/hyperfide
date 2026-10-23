@@ -20,8 +20,8 @@ import {
 } from "@/lib/plugin-slots";
 import { pluginSdkAppImplementation } from "@/lib/plugin-sdk-app-impl";
 import {
-  useBbContext,
-  useBbNavigate,
+  useHyperfideContext,
+  useHyperfideNavigate,
   useRpc,
   useSettings,
 } from "@/lib/plugin-sdk-hooks";
@@ -76,8 +76,8 @@ vi.mock("@/hooks/queries/sidebar-navigation-query", () => ({
 }));
 
 function PortaledProbe() {
-  const context = useBbContext();
-  const navigate = useBbNavigate();
+  const context = useHyperfideContext();
+  const navigate = useHyperfideNavigate();
   const rpc = useRpc();
   const settings = useSettings();
   const sidebarThreadActions =

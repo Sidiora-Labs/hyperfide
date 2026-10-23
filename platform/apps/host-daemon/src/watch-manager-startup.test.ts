@@ -15,7 +15,7 @@ const execFileAsync = promisify(execFile);
 
 it("reconciles content and branch changed between ignore discovery and root watch readiness", async () => {
   const root = await fs.realpath(
-    await initRepo(await makeTempDir("bb-watch-startup-")),
+    await initRepo(await makeTempDir("hyperfide-watch-startup-")),
   );
   const workspace = await provisionWorkspace({ path: root });
   const rootSubscriptionStarted = createDeferredPromise<void>();

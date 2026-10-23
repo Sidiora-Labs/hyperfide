@@ -11,8 +11,8 @@ import {
 } from "./find-bar-ipc.js";
 
 window.addEventListener("DOMContentLoaded", () => {
-  const input = document.querySelector<HTMLInputElement>("#bb-find-input");
-  const count = document.querySelector<HTMLElement>("#bb-find-count");
+  const input = document.querySelector<HTMLInputElement>("#hyperfide-find-input");
+  const count = document.querySelector<HTMLElement>("#hyperfide-find-count");
   const previousButton = document.querySelector<HTMLButtonElement>(
     'button[data-step="previous"]',
   );

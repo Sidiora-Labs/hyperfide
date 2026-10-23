@@ -12,7 +12,7 @@ describe("resource edit thread prompts", () => {
         path: "/Users/me/plugins/pattern-atlas",
       }),
     ).toBe(
-      'Edit the bb plugin "Pattern Atlas" at /Users/me/plugins/pattern-atlas. I want to ',
+      'Edit the hyperfide-platform plugin "Pattern Atlas" at /Users/me/plugins/pattern-atlas. I want to ',
     );
     expect(
       buildSkillEditThreadPrompt({
@@ -21,7 +21,7 @@ describe("resource edit thread prompts", () => {
         path: "/Users/me/.hyperfide/skills/review-pr/SKILL.md",
       }),
     ).toBe(
-      'Edit the bb skill "Review PR" (ID skill_abc123) at /Users/me/.hyperfide/skills/review-pr/SKILL.md. Inspect it with bb skill show skill_abc123 --json and pass that revision to bb skill update when saving. I want to ',
+      'Edit the hyperfide skill "Review PR" (ID skill_abc123) at /Users/me/.hyperfide/skills/review-pr/SKILL.md. Inspect it with hyperfide skill show skill_abc123 --json and pass that revision to hyperfide skill update when saving. I want to ',
     );
   });
 });

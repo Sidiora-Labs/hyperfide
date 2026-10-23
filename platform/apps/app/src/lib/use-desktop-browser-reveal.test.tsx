@@ -2,16 +2,16 @@
 
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BbDesktopBrowserRevealRequest } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopBrowserRevealRequest } from "@hyperfide/desktop-contract";
 import { useDesktopBrowserReveal } from "./use-desktop-browser-reveal";
 
 const listeners = vi.hoisted(
-  () => new Set<(request: BbDesktopBrowserRevealRequest) => void>(),
+  () => new Set<(request: HyperfideDesktopBrowserRevealRequest) => void>(),
 );
 
-vi.mock("./bb-desktop", () => ({
+vi.mock("./hyperfide-desktop", () => ({
   getDesktopBrowserApi: () => ({
-    onReveal: (listener: (request: BbDesktopBrowserRevealRequest) => void) => {
+    onReveal: (listener: (request: HyperfideDesktopBrowserRevealRequest) => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },

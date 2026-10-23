@@ -57,7 +57,7 @@ export const COARSE_POINTER_COMPACT_ROW_HEIGHT_CLASS =
   "h-7 max-md:pointer-coarse:h-9";
 
 export const COARSE_POINTER_ROW_HEIGHT_CLASS =
-  "h-[var(--bb-sidebar-row-height)] max-md:pointer-coarse:h-[var(--bb-sidebar-row-height-coarse)]";
+  "h-[var(--hyperfide-sidebar-row-height)] max-md:pointer-coarse:h-[var(--hyperfide-sidebar-row-height-coarse)]";
 
 export const COARSE_POINTER_PROVIDER_TAB_SIZE_CLASS =
   "h-7 w-6 max-md:pointer-coarse:h-9 max-md:pointer-coarse:w-9";

@@ -38,8 +38,8 @@ function entry(overrides: Record<string, unknown> = {}): unknown {
 function manifest(plugins: unknown[]): unknown {
   return {
     schemaVersion: 1,
-    name: "bb-community",
-    displayName: "BB Community",
+    name: "hyperfide-community",
+    displayName: "HYPERFIDE Community",
     plugins,
   };
 }
@@ -50,8 +50,8 @@ function manifestV2(
 ): unknown {
   return {
     schemaVersion: 2,
-    name: "bb-community",
-    displayName: "BB Community",
+    name: "hyperfide-community",
+    displayName: "HYPERFIDE Community",
     plugins,
     ...overrides,
   };
@@ -289,7 +289,7 @@ describe("marketplace manifest schema", () => {
       const bundled = {
         schemaVersion: 2,
         name: BUNDLED_MARKETPLACE_NAME,
-        displayName: "BB Official",
+        displayName: "HYPERFIDE Official",
         plugins: [entry({ source: { bundled: { plugin: "docs" } } })],
       };
       expect(() =>
@@ -650,9 +650,9 @@ describe("marketplace manifest schema", () => {
   describe("engines policy", () => {
     it("refuses an entry that declares engine ranges", () => {
       for (const engines of [
-        { bb: ">=1.0.0" },
-        { bbPluginSdk: "^0.5.0" },
-        { bb: ">=1.0.0", bbPluginSdk: "^0.5.0" },
+        { hyperfide: ">=1.0.0" },
+        { hyperfidePluginSdk: "^0.5.0" },
+        { hyperfide: ">=1.0.0", hyperfidePluginSdk: "^0.5.0" },
       ]) {
         expect(() => parse([entry({ engines })])).toThrow(/engines/u);
       }

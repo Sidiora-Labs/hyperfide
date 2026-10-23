@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createBbSdk } from "../src/core.js";
+import { createHyperfideSdk } from "../src/core.js";
 import type { FetchImplementation } from "../src/response.js";
 import { createHttpTransport } from "../src/transport-http.js";
 
@@ -36,7 +36,7 @@ const legacyInstalledPlugin = {
 };
 
 function createLegacyServerSdk(): {
-  sdk: ReturnType<typeof createBbSdk>;
+  sdk: ReturnType<typeof createHyperfideSdk>;
   bodies: unknown[];
 } {
   const bodies: unknown[] = [];
@@ -56,9 +56,9 @@ function createLegacyServerSdk(): {
       },
     );
   };
-  const sdk = createBbSdk({
+  const sdk = createHyperfideSdk({
     transport: createHttpTransport({
-      baseUrl: "http://bb.test",
+      baseUrl: "http://hyperfide.test",
       fetch,
       runtime: "node",
     }),

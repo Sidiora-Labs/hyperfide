@@ -76,7 +76,7 @@ export function Header() {
     <StoryCard labelWidth="220px" className="max-w-4xl">
       <StoryRow
         label="this machine"
-        hint="the machine bb itself runs on: no provider, so no tag and no lifecycle actions"
+        hint="the machine hyperfide itself runs on: no provider, so no tag and no lifecycle actions"
       >
         <Row
           host={makeHost({

@@ -383,7 +383,7 @@ describe("legacy tool-item adapter", () => {
       "Task",
       "spawnAgent",
       "resumeAgent",
-      "bb:spawnAgent",
+      "hyperfide:spawnAgent",
     ]) {
       expect(isLegacyDelegationToolCall({ tool }), tool).toBe(true);
     }

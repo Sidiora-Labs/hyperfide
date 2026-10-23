@@ -1,4 +1,4 @@
-import type { BbPluginApi, PluginAgentToolResult } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi, PluginAgentToolResult } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { createAskBridge } from "../../hyperfide-asks/bridge-projection.js";
 import { askWithInbox, type AskCommand } from "./ask-sync.js";
@@ -44,17 +44,17 @@ function errorResult(message: string): PluginAgentToolResult {
 export function createAskUserQuestionPlugin(
   options: { command?: AskCommand; pollMs?: number } = {},
 ) {
-  return function plugin(bb: BbPluginApi) {
+  return function plugin(hyperfide: HyperfidePluginApi) {
     const bridge = createAskBridge(
       <T>(method: string, input: Record<string, string>) =>
-        bb.sdk.plugins.callRpc({
+        hyperfide.sdk.plugins.callRpc({
           pluginId: "hyperfide-asks",
           method,
           input,
           outputSchema: z.custom<T>(),
         }),
     );
-    const settings = bb.settings.define({
+    const settings = hyperfide.settings.define({
       questionTimeout: {
         type: "select",
         label: "Question timeout",
@@ -65,7 +65,7 @@ export function createAskUserQuestionPlugin(
       },
     });
 
-    bb.agents.registerTool({
+    hyperfide.agents.registerTool({
       name: TOOL_NAME,
       description: TOOL_DESCRIPTION,
       presentation: {
@@ -109,9 +109,9 @@ export function createAskUserQuestionPlugin(
               ]),
             ),
             save: (mapping) =>
-              bb.storage.kv.set(`question:${mapping.requestId}`, mapping),
+              hyperfide.storage.kv.set(`question:${mapping.requestId}`, mapping),
             submit: async (requestId, value) => {
-              const interactions = await bb.sdk.threads.interactions.list({
+              const interactions = await hyperfide.sdk.threads.interactions.list({
                 threadId: ctx.threadId,
               });
               const interaction = interactions.find((entry) => {
@@ -129,7 +129,7 @@ export function createAskUserQuestionPlugin(
                 );
               });
               if (!interaction) return false;
-              await bb.sdk.threads.interactions.respond({
+              await hyperfide.sdk.threads.interactions.respond({
                 threadId: ctx.threadId,
                 interactionId: interaction.id,
                 value,
@@ -137,7 +137,7 @@ export function createAskUserQuestionPlugin(
               return true;
             },
             display: (requestId, signal) =>
-              bb.ui.requestInput(
+              hyperfide.ui.requestInput(
                 {
                   threadId: ctx.threadId,
                   rendererId: ASK_USER_QUESTION_RENDERER_ID,
@@ -190,7 +190,7 @@ export function createAskUserQuestionPlugin(
       },
     });
 
-    bb.agents.configure((context) => {
+    hyperfide.agents.configure((context) => {
       if (context.provider.capabilities.supportsNativeUserQuestion) {
         return { tools: [], skills: [] };
       }

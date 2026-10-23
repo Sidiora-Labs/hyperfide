@@ -269,7 +269,7 @@ export function createLogViewerViewUrl(
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>bb - Local Logs</title>
+  <title>hyperfide - Local Logs</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -400,7 +400,7 @@ export function createLogViewerViewUrl(
   </main>
   <script>
     const maxLines = ${LOG_VIEWER_VISIBLE_LINE_LIMIT};
-    const api = window.bbLogViewer;
+    const api = window.hyperfideLogViewer;
     const autoscroll = document.getElementById("autoscroll");
     const clearButton = document.getElementById("clear");
     const copyButton = document.getElementById("copy");

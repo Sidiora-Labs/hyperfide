@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@hyperfide/shared-ui/avatar";
 import { cn } from "@hyperfide/shared-ui/lib/utils";
-import { BbLogo } from "@/components/ui/bb-logo";
+import { HyperfideLogo } from "@/components/ui/hyperfide-logo";
 
 function authorInitials(name: string): string {
   const initials = name
@@ -23,7 +23,7 @@ export function PluginAuthorAvatar({
   size: "detail" | "page";
   official?: boolean;
 }) {
-  const githubUsername = github ?? (official ? "get-bb" : null);
+  const githubUsername = github ?? (official ? "hyperfide" : null);
   return (
     <Avatar
       role="img"
@@ -50,7 +50,7 @@ export function PluginAuthorAvatar({
           size === "detail" ? "text-2xs" : "text-xs",
         )}
       >
-        {official ? <BbLogo className="size-4/5" /> : authorInitials(name)}
+        {official ? <HyperfideLogo className="size-4/5" /> : authorInitials(name)}
       </AvatarFallback>
     </Avatar>
   );

@@ -8,7 +8,7 @@ import { templateDefinitions } from "../src/generated/templates.generated.js";
 
 describe("@hyperfide/templates", () => {
   it("documents project creation machine routing", () => {
-    const guide = renderTemplate("bbGuideProjects", {});
+    const guide = renderTemplate("hyperfideGuideProjects", {});
 
     expect(guide).toContain("hyperfide-platform project create --name");
     expect(guide).toContain("--machine <id-or-name>");
@@ -17,7 +17,7 @@ describe("@hyperfide/templates", () => {
   });
 
   it("documents project-aware thread references", () => {
-    const guide = renderTemplate("bbGuideThreadInspection", {});
+    const guide = renderTemplate("hyperfideGuideThreadInspection", {});
 
     expect(guide).toContain("@thread:thr_abc123");
     expect(guide).toContain("do not construct thread URLs manually");

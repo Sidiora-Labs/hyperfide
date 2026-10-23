@@ -216,7 +216,7 @@ type MermaidDiagramContainerProps = ComponentPropsWithoutRef<"div"> & {
 type MermaidDiagramPointerHandler = PointerEventHandler<HTMLDivElement>;
 
 const MERMAID_THEME: MermaidTheme = "base";
-const MERMAID_RENDER_ID_PREFIX = "bb-mermaid";
+const MERMAID_RENDER_ID_PREFIX = "hyperfide-mermaid";
 const MERMAID_RENDER_ID_SAFE_CHARACTER_PATTERN = /[^a-zA-Z0-9_-]/gu;
 const MERMAID_DIAGRAM_MIN_SCALE = 0.5;
 const MERMAID_DIAGRAM_MAX_SCALE = 4;

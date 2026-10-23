@@ -19,13 +19,13 @@ interface AccountBehaviour {
 async function load(account: AccountBehaviour) {
   const calls: RpcCall[] = [];
   const host = createFakePluginHost({
-    pluginId: "bb--mcp",
+    pluginId: "hyperfide--mcp",
     loopbackBaseUrl: "http://127.0.0.1:4000",
     sdk: {
       plugins: {
         callRpc: async (args: RpcCall) => {
           calls.push(args);
-          if (args.method === "bb-account.v1.status") {
+          if (args.method === "hyperfide-account.v1.status") {
             return account.serverUrl === null
               ? { state: "signed-out", account: null }
               : {
@@ -40,7 +40,7 @@ async function load(account: AccountBehaviour) {
       },
     },
   });
-  await plugin(host.bb);
+  await plugin(host.hyperfide);
   return { host, calls };
 }
 
@@ -72,11 +72,11 @@ function mcpRequest(headers: Record<string, string>): RequestInit {
 }
 
 describe("MCP route", () => {
-  it("answers a local caller and a gate caller holding an OAuth token for bb", async () => {
+  it("answers a local caller and a gate caller holding an OAuth token for hyperfide", async () => {
     const { host } = await load(SIGNED_OUT);
     const accepted: Record<string, string>[] = [
       {},
-      { "x-bb-gate-auth": "oauth", "x-bb-gate-oauth-scope": "bb" },
+      { "x-hyperfide-gate-auth": "oauth", "x-hyperfide-gate-oauth-scope": "hyperfide" },
     ];
     for (const headers of accepted) {
       const response = await host.harness.fetchHttp(
@@ -85,7 +85,7 @@ describe("MCP route", () => {
         mcpRequest(headers),
       );
       expect(response.status).toBe(200);
-      expect(await response.text()).toContain('"name":"bb"');
+      expect(await response.text()).toContain('"name":"hyperfide"');
     }
   });
 
@@ -93,9 +93,9 @@ describe("MCP route", () => {
     const { host } = await load(SIGNED_OUT);
     const refused: Record<string, string>[] = [
       { origin: "https://evil.example" },
-      { "x-bb-gate-auth": "session" },
-      { "x-bb-gate-auth": "machine" },
-      { "x-bb-gate-auth": "oauth", "x-bb-gate-oauth-scope": "openid" },
+      { "x-hyperfide-gate-auth": "session" },
+      { "x-hyperfide-gate-auth": "machine" },
+      { "x-hyperfide-gate-auth": "oauth", "x-hyperfide-gate-oauth-scope": "openid" },
     ];
     for (const headers of refused) {
       const response = await host.harness.fetchHttp(
@@ -109,7 +109,7 @@ describe("MCP route", () => {
   });
 });
 
-describe("bb mcp", () => {
+describe("hyperfide mcp", () => {
   it("prints the local address, and the remote one only when signed in", async () => {
     const signedOut = await load(SIGNED_OUT);
     expect(
@@ -118,7 +118,7 @@ describe("bb mcp", () => {
       ),
     ).toEqual({
       remoteUrl: null,
-      localUrl: "http://127.0.0.1:4000/api/v1/plugins/bb--mcp/http/mcp",
+      localUrl: "http://127.0.0.1:4000/api/v1/plugins/hyperfide--mcp/http/mcp",
       accountError: null,
     });
 
@@ -146,7 +146,7 @@ describe("bb mcp", () => {
               clientName: "Claude",
               serverId: "srv_1",
               serverHandle: "sawyer",
-              scope: "bb",
+              scope: "hyperfide",
               createdAt: Date.UTC(2026, 9, 11),
               lastUsedAt: null,
             },
@@ -160,8 +160,8 @@ describe("bb mcp", () => {
       "grant_1  Claude  connected 2026-10-11T00:00:00.000Z  never used",
     );
     expect(calls.at(-1)).toMatchObject({
-      pluginId: "bb-account",
-      method: "bb-account.v1.fetch",
+      pluginId: "hyperfide-account",
+      method: "hyperfide-account.v1.fetch",
       input: {
         target: "api",
         method: "GET",
@@ -195,7 +195,7 @@ describe("bb mcp", () => {
     expect(revoked).toEqual([{ grantId: "grant_1" }, { grantId: "grant_x" }]);
   });
 
-  it("tells a signed-out bb to sign in instead of failing obscurely", async () => {
+  it("tells a signed-out hyperfide to sign in instead of failing obscurely", async () => {
     const { host } = await load(SIGNED_OUT);
     const result = await host.harness.runCli(["clients", "--json"]);
     expect(result.exitCode).not.toBe(0);

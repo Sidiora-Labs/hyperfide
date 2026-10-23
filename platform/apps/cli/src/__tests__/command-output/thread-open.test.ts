@@ -140,7 +140,7 @@ describe("hyperfide-platform thread open command output", () => {
     vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-storage");
     vi.stubEnv(
       "HYPERFIDE_THREAD_STORAGE",
-      "/tmp/bb-thread-storage/thread-storage",
+      "/tmp/hyperfide-thread-storage/thread-storage",
     );
     const { getEnvironment, getThread, openThread } = stubThreadOpenApi({
       open: async () => ({ delivered: 1 }),
@@ -150,7 +150,7 @@ describe("hyperfide-platform thread open command output", () => {
       [
         "thread",
         "open",
-        "/tmp/bb-thread-storage/thread-storage/reports/preview.html",
+        "/tmp/hyperfide-thread-storage/thread-storage/reports/preview.html",
       ],
       register,
     );
@@ -176,7 +176,7 @@ describe("hyperfide-platform thread open command output", () => {
     ]);
   });
 
-  it("requires an explicit thread id outside a BB thread", async () => {
+  it("requires an explicit thread id outside a HYPERFIDE thread", async () => {
     stubThreadOpenApi({});
 
     await expect(runCommand(["thread", "open"], register)).rejects.toThrow(
@@ -241,7 +241,7 @@ describe("hyperfide-platform thread open command output", () => {
     ]);
   });
 
-  it("opens another thread from a lone thread id inside a BB thread", async () => {
+  it("opens another thread from a lone thread id inside a HYPERFIDE thread", async () => {
     vi.stubEnv("HYPERFIDE_THREAD_ID", "thr_currentabc");
     const { openThread } = stubThreadOpenApi({});
 
@@ -267,7 +267,7 @@ describe("hyperfide-platform thread open command output", () => {
     });
   });
 
-  it("opens a file in another thread inside a BB thread", async () => {
+  it("opens a file in another thread inside a HYPERFIDE thread", async () => {
     vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-current");
     const { openThread } = stubThreadOpenApi({});
 

@@ -1,9 +1,9 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { piProviderDeclaration } from "./src/declaration.js";
 
-export default function plugin(bb: BbPluginApi): void {
-  const registered = bb.providers.register(piProviderDeclaration());
-  bb.onDispose(() => {
+export default function plugin(hyperfide: HyperfidePluginApi): void {
+  const registered = hyperfide.providers.register(piProviderDeclaration());
+  hyperfide.onDispose(() => {
     registered.dispose();
   });
 }

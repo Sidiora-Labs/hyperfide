@@ -4,7 +4,7 @@ import {
   type AgentSessionEvent,
 } from "@earendil-works/pi-coding-agent";
 import { expect, it } from "vitest";
-import { HYPERFIDE_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
+import { HYPERFIDE_PI_EXTENSION_SOURCE } from "./hyperfide-pi-extension.js";
 import { runSettlementError } from "./run-settlement.js";
 
 it.each([{}, { aborted: false }])(

@@ -161,7 +161,7 @@ describe("buildAcpSessionParams", () => {
         options: {
           ...BASE_OPTIONS,
           envVars: {
-            BB_THREAD_ID: "thread-1",
+            HYPERFIDE_THREAD_ID: "thread-1",
             CUSTOM_AGENT_TOKEN: "contributed-token",
           },
         },
@@ -186,7 +186,7 @@ describe("buildAcpSessionParams", () => {
       agent: { command: "custom-agent", args: ["serve"] },
       envVars: {
         CUSTOM_AGENT_TOKEN: "contributed-token",
-        BB_THREAD_ID: "thread-1",
+        HYPERFIDE_THREAD_ID: "thread-1",
       },
       workspaceWriteRoots: ["/agent-home", "/extra-root"],
     });
@@ -387,7 +387,7 @@ gemini-3.5-flash claude-sonnet-4 gpt-5-mini gemini-2.5-flash kimi-k3 kimi-k2.7-c
 
 describe("buildAcpSessionParams skill instructions", () => {
   const SKILLS_PREAMBLE =
-    "bb skills are reusable instruction folders. When the current task matches a listed skill description, read that skill's SKILL.md at the absolute path before proceeding; you may read supporting files in the same skill directory that SKILL.md references. If a listed path does not exist, the list is stale and should be ignored.";
+    "hyperfide skills are reusable instruction folders. When the current task matches a listed skill description, read that skill's SKILL.md at the absolute path before proceeding; you may read supporting files in the same skill directory that SKILL.md references. If a listed path does not exist, the list is stale and should be ignored.";
 
   function paramsWithOptions(
     options: Partial<AcpSessionExecutionOptions>,
@@ -416,7 +416,7 @@ describe("buildAcpSessionParams skill instructions", () => {
           {
             id: "global-skills:abc123:acp",
             skillDirectoryRootPath:
-              "/tmp/bb/runtime/global-skills/abc123/skills",
+              "/tmp/hyperfide/runtime/global-skills/abc123/skills",
             skills: [
               {
                 name: "release-notes",
@@ -437,9 +437,9 @@ describe("buildAcpSessionParams skill instructions", () => {
         "",
         SKILLS_PREAMBLE,
         "",
-        "Available bb skills:",
-        `- release-notes: Use release-notes when /system_instructions tests run. (SKILL.md: ${path.normalize("/tmp/bb/runtime/global-skills/abc123/skills/release-notes/SKILL.md")})`,
-        `- copywriting: Use when writing customer copy. (SKILL.md: ${path.normalize("/tmp/bb/runtime/global-skills/abc123/skills/copywriting/SKILL.md")})`,
+        "Available hyperfide skills:",
+        `- release-notes: Use release-notes when /system_instructions tests run. (SKILL.md: ${path.normalize("/tmp/hyperfide/runtime/global-skills/abc123/skills/release-notes/SKILL.md")})`,
+        `- copywriting: Use when writing customer copy. (SKILL.md: ${path.normalize("/tmp/hyperfide/runtime/global-skills/abc123/skills/copywriting/SKILL.md")})`,
       ].join("\n"),
     });
   });
@@ -451,7 +451,7 @@ describe("buildAcpSessionParams skill instructions", () => {
           {
             id: "global-skills:def456:acp",
             skillDirectoryRootPath:
-              "/tmp/bb/runtime/global-skills/def456/skills",
+              "/tmp/hyperfide/runtime/global-skills/def456/skills",
             skills: [
               {
                 name: "debugging",
@@ -465,8 +465,8 @@ describe("buildAcpSessionParams skill instructions", () => {
       instructions: [
         SKILLS_PREAMBLE,
         "",
-        "Available bb skills:",
-        `- debugging: Use when debugging runtime state. (SKILL.md: ${path.normalize("/tmp/bb/runtime/global-skills/def456/skills/debugging/SKILL.md")})`,
+        "Available hyperfide skills:",
+        `- debugging: Use when debugging runtime state. (SKILL.md: ${path.normalize("/tmp/hyperfide/runtime/global-skills/def456/skills/debugging/SKILL.md")})`,
       ].join("\n"),
     });
   });

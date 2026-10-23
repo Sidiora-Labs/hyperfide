@@ -32,7 +32,7 @@ const USAGE =
   "the monorepo the way a fork would: the component registry items its @/\n" +
   "imports name are written into the copy, and it installs published packages\n" +
   "plus a packed @hyperfide/plugin-sdk. Then it runs the copy's typecheck, tests,\n" +
-  "and `bb plugin build`. Plugins run --concurrency at a time (default: up to\n" +
+  "and `hyperfide-platform plugin build`. Plugins run --concurrency at a time (default: up to\n" +
   "4), and every failure is reported at the end. --changed-from selects changed\n" +
   "plugins only when every changed file belongs to a forkable plugin; shared or\n" +
   "unknown changes run all plugins. --shard partitions the selection across\n" +
@@ -299,7 +299,7 @@ async function checkPlugin(pluginDir, workDir, sdkTarball, log) {
   await step(log, "test", "npm", ["test"], { cwd: target });
   await step(
     log,
-    "bb plugin build",
+    "hyperfide-platform plugin build",
     process.execPath,
     [
       join(repoRoot, "apps", "cli", "dist", "index.js"),
@@ -307,9 +307,9 @@ async function checkPlugin(pluginDir, workDir, sdkTarball, log) {
       "build",
       target,
     ],
-    { cwd: target, env: cliEnv(join(workDir, "bb-data")) },
+    { cwd: target, env: cliEnv(join(workDir, "hyperfide-data")) },
   );
-  for (const artifact of manifest.bb?.app === undefined
+  for (const artifact of manifest.hyperfide?.app === undefined
     ? ["server.js"]
     : ["server.js", "app.js", "app.css"]) {
     await stat(join(target, "dist", artifact));
@@ -331,7 +331,7 @@ try {
   const printLog = { push: (line) => console.log(line) };
   await step(
     printLog,
-    "Build @hyperfide/plugin-sdk and the bb CLI",
+    "Build @hyperfide/plugin-sdk and the hyperfide CLI",
     "pnpm",
     [
       "exec",

@@ -13,7 +13,7 @@ import {
 } from "@hyperfide/shared-ui/hooks/use-media-query";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 
-export const FAVICON_COLOR_STORAGE_KEY = "bb.faviconColor";
+export const FAVICON_COLOR_STORAGE_KEY = "hyperfide.faviconColor";
 
 const FAVICON_BADGES = ["none", "unread"] as const;
 type FaviconBadge = (typeof FAVICON_BADGES)[number];

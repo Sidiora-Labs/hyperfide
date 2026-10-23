@@ -1,3 +1,3 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 
-export default function plugin(_bb: BbPluginApi) {}
+export default function plugin(_hyperfide: HyperfidePluginApi) {}

@@ -35,7 +35,7 @@ function wireCapabilities(
 }
 
 export async function setup(): Promise<void> {
-  const bridgeDataRoot = join(tmpdir(), "bb-agent-runtime-integration-daemon");
+  const bridgeDataRoot = join(tmpdir(), "hyperfide-agent-runtime-integration-daemon");
   const toolchain = await resolvePluginBuildToolchain(
     join(tmpdir(), "hyperfide-plugin-build-toolchain"),
   );

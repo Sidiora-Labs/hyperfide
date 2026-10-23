@@ -8,11 +8,11 @@ const cachedModelCatalogSchema = z.object({
 });
 
 const modelCatalogCache = createLastKnownCache({
-  prefix: "bb.model-catalog",
+  prefix: "hyperfide.model-catalog",
   version: "1",
   schema: cachedModelCatalogSchema,
   maxEntries: 8,
-  obsoletePrefixes: ["bb.claude-model-catalog"],
+  obsoletePrefixes: ["hyperfide.claude-model-catalog"],
 });
 
 export function modelCatalogCacheKey({

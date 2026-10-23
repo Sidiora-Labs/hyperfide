@@ -77,7 +77,7 @@ export function orderedAiServices(
     .list()
     .sort(
       (a, b) =>
-        Number(b.pluginId === "bb-ai") - Number(a.pluginId === "bb-ai") ||
+        Number(b.pluginId === "hyperfide-ai") - Number(a.pluginId === "hyperfide-ai") ||
         compareIds(a.pluginId, b.pluginId) ||
         compareIds(a.id, b.id),
     );

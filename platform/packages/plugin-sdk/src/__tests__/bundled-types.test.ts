@@ -48,7 +48,7 @@ describe("bundled plugin SDK declarations", () => {
       "utf8",
     );
     expect(appDeclarations).not.toMatch(/from ['"]@hyperfide\//u);
-    expect(appDeclarations).toContain("useSdk(): PluginBrowserBbSdk;");
+    expect(appDeclarations).toContain("useSdk(): PluginBrowserHyperfideSdk;");
     expect(appDeclarations).toContain("interface ThreadSectionsArea");
     expect(appDeclarations).toContain("threadSections: ThreadSectionsArea;");
     expect(appDeclarations).toContain("interface PluginCatalogArea");
@@ -93,10 +93,10 @@ describe("bundled plugin SDK declarations", () => {
       expect(content).not.toMatch(/import\(['"]@hyperfide\//u);
     }
     for (const content of declarations.slice(3)) {
-      const bbImports = [
+      const hyperfideImports = [
         ...content.matchAll(/from ['"](@hyperfide\/[^'"]+)['"]/gu),
       ].map((match) => match[1]);
-      expect(new Set(bbImports)).toEqual(new Set(["@hyperfide/plugin-sdk"]));
+      expect(new Set(hyperfideImports)).toEqual(new Set(["@hyperfide/plugin-sdk"]));
       expect(content).not.toContain("@hyperfide/sdk");
       expect(content).not.toContain("@hyperfide/server-contract");
     }

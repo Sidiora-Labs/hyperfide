@@ -4,7 +4,7 @@ import {
   DEFAULT_HOST_DAEMON_LOCAL_BIND_HOST,
 } from "@hyperfide/host-daemon-contract";
 import { createGuideArea } from "./areas/guide.js";
-import { createBbSdk, type BbSdk, type BbSdkAreas } from "./core.js";
+import { createHyperfideSdk, type HyperfideSdk, type HyperfideSdkAreas } from "./core.js";
 import { createNodeWebsocketFactory } from "./node-websocket.js";
 import {
   createRequestTimeoutFetch,
@@ -13,9 +13,9 @@ import {
 } from "./response.js";
 import { createHttpTransport } from "./transport-http.js";
 import type {
-  BbRealtimeSocketFactory,
-  BbSdkContext,
-  BbSdkTransport,
+  HyperfideRealtimeSocketFactory,
+  HyperfideSdkContext,
+  HyperfideSdkTransport,
 } from "./transport.js";
 
 export interface CreateNodeTransportArgs {
@@ -24,11 +24,11 @@ export interface CreateNodeTransportArgs {
   fetch?: FetchImplementation;
   realtimeUrl?: string;
   timeoutMs?: number;
-  websocket?: BbRealtimeSocketFactory;
+  websocket?: HyperfideRealtimeSocketFactory;
 }
 
-export interface CreateNodeBbSdkArgs extends CreateNodeTransportArgs {
-  context?: BbSdkContext;
+export interface CreateNodeHyperfideSdkArgs extends CreateNodeTransportArgs {
+  context?: HyperfideSdkContext;
 }
 
 export interface FetchLocalHostIdArgs {
@@ -47,7 +47,7 @@ function resolveHostDaemonUrl(cliConfig?: CliConfig): string {
 
 export function createNodeTransport(
   args: CreateNodeTransportArgs = {},
-): BbSdkTransport {
+): HyperfideSdkTransport {
   return createHttpTransport({
     baseUrl:
       args.baseUrl ?? resolveCliConfig(args.cliConfig).HYPERFIDE_SERVER_URL,
@@ -62,8 +62,8 @@ export function createNodeTransport(
   });
 }
 
-export function createNodeBbSdk(args: CreateNodeBbSdkArgs = {}): BbSdk {
-  return createBbSdk({
+export function createNodeHyperfideSdk(args: CreateNodeHyperfideSdkArgs = {}): HyperfideSdk {
+  return createHyperfideSdk({
     context: args.context,
     guide: createGuideArea(),
     transport: createNodeTransport(args),
@@ -89,12 +89,12 @@ export async function fetchLocalHostId(
 }
 
 export {
-  createBbSdk,
+  createHyperfideSdk,
   createHttpTransport,
   createRequestTimeoutFetch,
   DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS,
 };
-export { BbHttpError, BbRequestTimeoutError } from "./response.js";
+export { HyperfideHttpError, HyperfideRequestTimeoutError } from "./response.js";
 export {
   pluginMutationResponseSchema,
   type PluginMutationResponse,
@@ -108,17 +108,17 @@ export {
   ThreadWaitUnreachableError,
 } from "./areas/threads.js";
 export type {
-  BbSdk,
-  BbSdkAreas,
-  BbSdkContext,
-  BbSdkTransport,
+  HyperfideSdk,
+  HyperfideSdkAreas,
+  HyperfideSdkContext,
+  HyperfideSdkTransport,
   FetchImplementation,
 };
 export type * from "./areas/skills.js";
 export type {
-  BbRealtimeSocket,
-  BbRealtimeSocketFactory,
-  BbRealtimeSocketMessageEvent,
+  HyperfideRealtimeSocket,
+  HyperfideRealtimeSocketFactory,
+  HyperfideRealtimeSocketMessageEvent,
 } from "./transport.js";
-export type { BbHttpErrorArgs } from "./response.js";
+export type { HyperfideHttpErrorArgs } from "./response.js";
 export type * from "./public-types.js";

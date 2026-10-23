@@ -388,7 +388,7 @@ function fetchDashboard(
       "Content-Type": "application/json",
       "Connect-Protocol-Version": "1",
       "x-cursor-client-type": "cli",
-      "x-cursor-client-version": "cli-bb-provider-acp",
+      "x-cursor-client-version": "cli-hyperfide-provider-acp",
     },
     body: "{}",
     signal: AbortSignal.timeout(USAGE_FETCH_TIMEOUT_MS),

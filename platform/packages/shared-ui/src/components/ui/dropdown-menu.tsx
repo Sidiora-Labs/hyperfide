@@ -34,7 +34,7 @@ const MENU_ITEM_DESTRUCTIVE_STATE_CLASS =
 const MENU_ITEM_DESTRUCTIVE_TOUCH_CLASS =
   "text-destructive focus:bg-destructive/15 focus:text-destructive active:bg-destructive/20 active:text-destructive";
 
-const RESPONSIVE_MENU_CONTEXT_KEY = Symbol.for("bb.responsive-menu-context.v1");
+const RESPONSIVE_MENU_CONTEXT_KEY = Symbol.for("hyperfide.responsive-menu-context.v1");
 
 function isReactContext(
   value: unknown,

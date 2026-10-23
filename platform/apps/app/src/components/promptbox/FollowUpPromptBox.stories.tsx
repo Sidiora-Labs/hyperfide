@@ -72,7 +72,7 @@ export default {
 };
 
 const noop = () => {};
-const STORY_BRANCH_NAME = "bb/design-system-polish";
+const STORY_BRANCH_NAME = "hyperfide/design-system-polish";
 
 const baseExecution = makeExecutionControlsProps({
   provider: {
@@ -128,7 +128,7 @@ interface EnvironmentSummaryArgs {
 function makeEnvironmentSummary({
   environment,
   host,
-  projectName = PROJECT_NAMES.bb,
+  projectName = PROJECT_NAMES.hyperfide,
   machineName,
   hasMultipleMachines = false,
   hostType = "persistent",

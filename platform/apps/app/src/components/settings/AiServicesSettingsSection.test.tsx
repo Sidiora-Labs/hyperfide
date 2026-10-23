@@ -29,9 +29,9 @@ const VIEW: SystemAiServicesResponse = {
       status: { ready: false, message: "Run `codex login` to sign in" },
     },
     {
-      id: "bb",
-      displayName: "bb cloud",
-      pluginId: "bb-ai",
+      id: "hyperfide",
+      displayName: "hyperfide cloud",
+      pluginId: "hyperfide-ai",
       tasks: ["thread-title", "commit-message"],
       automaticRank: 0,
       status: { ready: true },
@@ -56,9 +56,9 @@ interface RecordedRequest {
 const TEST_SUCCESS = (): Response =>
   Response.json({
     ok: true,
-    pluginId: "bb-ai",
-    serviceId: "bb",
-    displayName: "bb cloud",
+    pluginId: "hyperfide-ai",
+    serviceId: "hyperfide",
+    displayName: "hyperfide cloud",
     text: "Add a dark mode toggle",
     durationMs: 412,
   });
@@ -73,7 +73,7 @@ function stubFetch(
       const request =
         input instanceof Request
           ? input
-          : new Request(new URL(String(input), "http://bb.test"), init);
+          : new Request(new URL(String(input), "http://hyperfide.test"), init);
       const url = new URL(request.url).pathname;
       const text = await request.text();
       requests.push({ url, method: request.method, body: text });
@@ -101,7 +101,7 @@ afterEach(() => {
 
 describe("AiServicesSettingsSection", () => {
   it("resolves Automatic to the first ready compatible service", () => {
-    expect(automaticServiceFor(VIEW, "thread-title")?.id).toBe("bb");
+    expect(automaticServiceFor(VIEW, "thread-title")?.id).toBe("hyperfide");
     expect(automaticServiceFor(VIEW, "voice")).toBeNull();
   });
 
@@ -118,7 +118,7 @@ describe("AiServicesSettingsSection", () => {
     expect(
       screen.getByRole("button", { name: "Voice input" }).textContent,
     ).toContain("Unavailable plugin");
-    expect(screen.getByText(/Using bb cloud\./u)).toBeTruthy();
+    expect(screen.getByText(/Using hyperfide cloud\./u)).toBeTruthy();
   });
 
   it("offers only services that handle the task and saves the choice", async () => {
@@ -134,7 +134,7 @@ describe("AiServicesSettingsSection", () => {
     expect(
       await screen.findByRole("menuitem", { name: /^Codex/u }),
     ).toBeTruthy();
-    expect(screen.queryByRole("menuitem", { name: /^bb cloud/u })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /^hyperfide cloud/u })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: /^OpenRouter/u })).toBeNull();
     fireEvent.click(screen.getByRole("menuitem", { name: /^Off/u }));
 
@@ -160,7 +160,7 @@ describe("AiServicesSettingsSection", () => {
     );
     expect(
       await screen.findByText(
-        /Test: “Add a dark mode toggle” from bb cloud in 412 ms\./u,
+        /Test: “Add a dark mode toggle” from hyperfide cloud in 412 ms\./u,
       ),
     ).toBeTruthy();
   });

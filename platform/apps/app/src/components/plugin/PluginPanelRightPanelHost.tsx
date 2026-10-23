@@ -78,7 +78,7 @@ import { useSystemConfig } from "@/hooks/queries/system-queries";
 import {
   isDesktopBrowserAvailable,
   MACOS_TITLE_BAR_TRAILING_TOGGLE_CLASS,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { useIsSidebarFramed } from "@/components/ui/sidebar.js";
 import { getBrowserUrlHost } from "@/lib/browser-url";
 import { UrlOpenRoutingProvider } from "@/lib/url-open-routing";

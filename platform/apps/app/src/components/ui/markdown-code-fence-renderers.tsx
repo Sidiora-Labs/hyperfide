@@ -54,7 +54,7 @@ export function buildCodeFenceRendererRegistry(
   for (const [language, resolved] of resolveCodeFenceRendererRegistry(slots)) {
     if (resolved.status === "collision") {
       warn(
-        `[plugin] code fence language "${language}" claimed by multiple plugins (${resolved.pluginIds.join(", ")}); rendering BB's code block`,
+        `[plugin] code fence language "${language}" claimed by multiple plugins (${resolved.pluginIds.join(", ")}); rendering HYPERFIDE's code block`,
       );
       continue;
     }

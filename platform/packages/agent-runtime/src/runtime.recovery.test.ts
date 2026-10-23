@@ -41,7 +41,7 @@ describe("runtime recovery hints", () => {
   const runtimes: AgentRuntime[] = [];
 
   beforeEach(() => {
-    workspacePath = mkdtempSync(join(tmpdir(), "bb-runtime-recovery-"));
+    workspacePath = mkdtempSync(join(tmpdir(), "hyperfide-runtime-recovery-"));
   });
 
   afterEach(async () => {

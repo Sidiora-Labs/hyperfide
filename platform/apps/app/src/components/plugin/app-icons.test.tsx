@@ -35,7 +35,7 @@ function OtherMark() {
 
 function registrations(...icons: ExperimentalIconRegistration[]) {
   return collectPluginAppRegistrations({
-    __bbPluginApp: true,
+    __hyperfidePluginApp: true,
     setup(app) {
       for (const icon of icons) app.experimental_icons.register(icon);
     },

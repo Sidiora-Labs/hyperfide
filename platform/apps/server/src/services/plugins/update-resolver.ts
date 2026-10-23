@@ -17,7 +17,7 @@ export type NpmSpecKind = "default" | "exact" | "tag" | "range";
 export type GitRefKind = "branch" | "tag" | "commit";
 
 export interface CompatibilityProblem {
-  engine: "bb" | "bbPluginSdk";
+  engine: "hyperfide" | "hyperfidePluginSdk";
   required: string;
   actual: string;
   message: string;
@@ -70,8 +70,8 @@ export interface NpmSourceIntentForResolution {
 export interface NpmResolvedCandidate extends PluginResolvedUpdateVersion {
   integrity: string;
   engines: {
-    bb: string | undefined;
-    bbPluginSdk: string | undefined;
+    hyperfide: string | undefined;
+    hyperfidePluginSdk: string | undefined;
   };
 }
 
@@ -79,8 +79,8 @@ const packumentVersionSchema = z.object({
   version: z.string(),
   engines: z
     .object({
-      bb: z.string().optional(),
-      bbPluginSdk: z.string().optional(),
+      hyperfide: z.string().optional(),
+      hyperfidePluginSdk: z.string().optional(),
     })
     .optional(),
   dist: z
@@ -204,7 +204,7 @@ function allowedNpmVersions(
 }
 
 export function evaluateCompatibility(args: {
-  bbRange: string | undefined;
+  hyperfideRange: string | undefined;
   sdkRange: string | undefined;
   appVersion: string;
 }): {
@@ -214,24 +214,24 @@ export function evaluateCompatibility(args: {
 } {
   const appVersion = semver.coerce(args.appVersion);
   if (!appVersion) {
-    throw new Error(`cannot parse running bb version "${args.appVersion}"`);
+    throw new Error(`cannot parse running hyperfide-platform version "${args.appVersion}"`);
   }
   const devMode = appVersion.version === "0.0.0";
-  const bbProblems: CompatibilityProblem[] = [];
-  if (args.bbRange !== undefined) {
-    if (semver.validRange(args.bbRange) === null) {
-      bbProblems.push({
-        engine: "bb",
-        required: args.bbRange,
+  const hyperfideProblems: CompatibilityProblem[] = [];
+  if (args.hyperfideRange !== undefined) {
+    if (semver.validRange(args.hyperfideRange) === null) {
+      hyperfideProblems.push({
+        engine: "hyperfide",
+        required: args.hyperfideRange,
         actual: appVersion.version,
-        message: `declares invalid engines.bb range ${JSON.stringify(args.bbRange)}`,
+        message: `declares invalid engines.hyperfide range ${JSON.stringify(args.hyperfideRange)}`,
       });
-    } else if (!semver.satisfies(appVersion, args.bbRange)) {
-      bbProblems.push({
-        engine: "bb",
-        required: args.bbRange,
+    } else if (!semver.satisfies(appVersion, args.hyperfideRange)) {
+      hyperfideProblems.push({
+        engine: "hyperfide",
+        required: args.hyperfideRange,
         actual: appVersion.version,
-        message: `requires bb ${args.bbRange}, running bb is ${appVersion.version}`,
+        message: `requires hyperfide ${args.hyperfideRange}, running hyperfide is ${appVersion.version}`,
       });
     }
   }
@@ -239,14 +239,14 @@ export function evaluateCompatibility(args: {
   if (args.sdkRange !== undefined) {
     if (semver.validRange(args.sdkRange) === null) {
       sdkProblems.push({
-        engine: "bbPluginSdk",
+        engine: "hyperfidePluginSdk",
         required: args.sdkRange,
         actual: PLUGIN_SDK_VERSION,
-        message: `declares invalid engines.bbPluginSdk range ${JSON.stringify(args.sdkRange)}`,
+        message: `declares invalid engines.hyperfidePluginSdk range ${JSON.stringify(args.sdkRange)}`,
       });
     } else if (!isPluginSdkRangeSatisfied(args.sdkRange)) {
       sdkProblems.push({
-        engine: "bbPluginSdk",
+        engine: "hyperfidePluginSdk",
         required: args.sdkRange,
         actual: PLUGIN_SDK_VERSION,
         message: pluginSdkRangeProblem(args.sdkRange),
@@ -254,8 +254,8 @@ export function evaluateCompatibility(args: {
     }
   }
   return {
-    effective: devMode ? sdkProblems : [...bbProblems, ...sdkProblems],
-    packaged: bbProblems,
+    effective: devMode ? sdkProblems : [...hyperfideProblems, ...sdkProblems],
+    packaged: hyperfideProblems,
     devMode,
   };
 }
@@ -326,13 +326,13 @@ export async function selectNpmCandidate(args: {
       display: npmDisplay(args.intent.packageName, version),
       integrity: metadata.dist?.integrity ?? "",
       engines: {
-        bb: metadata.engines?.bb,
-        bbPluginSdk: metadata.engines?.bbPluginSdk,
+        hyperfide: metadata.engines?.hyperfide,
+        hyperfidePluginSdk: metadata.engines?.hyperfidePluginSdk,
       },
     };
     const problems = evaluateCompatibility({
-      bbRange: candidate.engines.bb,
-      sdkRange: candidate.engines.bbPluginSdk,
+      hyperfideRange: candidate.engines.hyperfide,
+      sdkRange: candidate.engines.hyperfidePluginSdk,
       appVersion: args.appVersion,
     });
     newestCandidate ??= candidate;
@@ -577,7 +577,7 @@ function movedGitTagDetail(args: {
   if (args.currentCommit === args.recordedCommit) return null;
   return (
     `security check failed: git tag "${args.tag}" in ${args.url} moved from ` +
-    `${args.recordedCommit} to ${args.currentCommit}; bb will not re-resolve a ` +
+    `${args.recordedCommit} to ${args.currentCommit}; hyperfide will not re-resolve a ` +
     `tag that changed. Remove the plugin and install it again to accept the new commit`
   );
 }
@@ -627,7 +627,7 @@ async function resolveGitRangeUpdate(args: {
       outcome: "unavailable",
       detail:
         `security check failed: recorded git tag "${args.intent.resolvedTag}" no longer exists in ${args.url}; ` +
-        "bb will not re-resolve a missing release tag. Restore the tag, or remove and install the plugin again",
+        "hyperfide will not re-resolve a missing release tag. Restore the tag, or remove and install the plugin again",
     };
   }
   const moved = movedGitTagDetail({
@@ -666,7 +666,7 @@ async function resolveGitRangeUpdate(args: {
     if (probes >= MAX_GIT_CANDIDATE_PROBES) {
       return {
         outcome: "unavailable",
-        detail: `no release of ${args.url} matching ${args.intent.range} runs on this bb within the newest ${MAX_GIT_CANDIDATE_PROBES} releases`,
+        detail: `no release of ${args.url} matching ${args.intent.range} runs on this hyperfide within the newest ${MAX_GIT_CANDIDATE_PROBES} releases`,
       };
     }
     probes += 1;
@@ -779,7 +779,7 @@ export async function resolveGitRange(args: {
     if (probes >= MAX_GIT_CANDIDATE_PROBES) {
       return {
         outcome: "unavailable",
-        detail: `no release of ${args.url} matching ${args.range} runs on this bb within the newest ${MAX_GIT_CANDIDATE_PROBES} releases`,
+        detail: `no release of ${args.url} matching ${args.range} runs on this hyperfide within the newest ${MAX_GIT_CANDIDATE_PROBES} releases`,
       };
     }
     probes += 1;
@@ -794,6 +794,6 @@ export async function resolveGitRange(args: {
     outcome: "unavailable",
     detail:
       firstProblem ??
-      `no release of ${args.url} matching ${args.range} runs on this bb`,
+      `no release of ${args.url} matching ${args.range} runs on this hyperfide`,
   };
 }

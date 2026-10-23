@@ -45,13 +45,13 @@ import {
   PANEL_RESIZE_HIT_TARGET_CLASS,
 } from "@/components/secondary-panel/panelTransitionTokens";
 import {
-  getBbDesktopInfo,
+  getHyperfideDesktopInfo,
   MACOS_APP_REGION_NO_DRAG_CLASS,
   MACOS_CHROME_CONTROL_AXIS_CLASS,
   MACOS_TITLE_BAR_CONTROL_SIZE_CLASS,
   MACOS_TITLE_BAR_PINNED_TOGGLE_CLASS,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { useIsSidebarFramed } from "@/components/ui/sidebar.js";
 import { PluginComposerHostProvider } from "@/components/plugin/plugin-composer-host";
 import { usePanelResizeSnap } from "@/components/secondary-panel/usePanelResizeSnap";
@@ -157,7 +157,7 @@ export function SplitWorkspaceSecondaryPanelHost({
     toggleWindowPanel();
     return true;
   });
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getHyperfideDesktopInfo);
   const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
   const isSidebarFramed = useIsSidebarFramed();
 

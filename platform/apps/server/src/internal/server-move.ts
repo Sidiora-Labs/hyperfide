@@ -67,7 +67,7 @@ async function serverMoveDownloadResponse(
       "cache-control": "no-store",
       "content-length": String(stats.size),
       "content-type": DOWNLOAD_CONTENT_TYPES[kind],
-      "x-bb-artifact-sha256": lookup.download.sha256,
+      "x-hyperfide-artifact-sha256": lookup.download.sha256,
     },
   });
 }
@@ -100,7 +100,7 @@ export function registerInternalServerMoveRoutes(
     serverMoveDownloadResponse(context, args.serverMove, "archive"),
   );
 
-  app.get("/server-move/:moveId/bb-app.tgz", (context) =>
+  app.get("/server-move/:moveId/hyperfide-app.tgz", (context) =>
     serverMoveDownloadResponse(context, args.serverMove, "hyperfide-app"),
   );
 }

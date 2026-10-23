@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Run bb threads with Pi.",
+  "description": "Run hyperfide-platform threads with Pi.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.5.22"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.5.22"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Pi provider",
-    "description": "Run bb threads with Pi.",
+    "description": "Run hyperfide-platform threads with Pi.",
     "branding": {
       "icon": "./icons/pi.svg"
     },
@@ -26,7 +26,7 @@
     ]
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

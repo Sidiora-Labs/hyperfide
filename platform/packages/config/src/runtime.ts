@@ -3,7 +3,7 @@ import { existsSync, renameSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, isAbsolute, join, relative, resolve } from "node:path";
 
-export type BbRuntimeMode = "dev" | "prod";
+export type HyperfideRuntimeMode = "dev" | "prod";
 
 interface DevPortSet {
   appPort: number;
@@ -55,7 +55,7 @@ interface ResolveProdDataDirArgs {
 interface ResolveRuntimeDataDirArgs {
   env: NodeJS.ProcessEnv;
   homeDir: string;
-  mode: BbRuntimeMode;
+  mode: HyperfideRuntimeMode;
   repoRoot?: string;
 }
 
@@ -84,7 +84,7 @@ const HYPERFIDE_DEV_DATA_ROOT_DIR = ".hyperfide-dev";
 export const HYPERFIDE_PROD_SERVER_PORT = 38886;
 export const HYPERFIDE_PROD_HOST_DAEMON_PORT = 38887;
 export const HYPERFIDE_LOOPBACK_HOST = "127.0.0.1";
-const HYPERFIDE_SQLITE_DATABASE_FILE_NAME = "bb.db";
+const HYPERFIDE_SQLITE_DATABASE_FILE_NAME = "hyperfide.db";
 
 const DEV_HASH_LENGTH = 12;
 const DEV_PORT_BUCKETS = 8_000;
@@ -173,7 +173,7 @@ function expandHomeDirectory(pathValue: string, homeDir: string): string {
 
 export function resolveRuntimeMode(
   nodeEnv: string | undefined = process.env.NODE_ENV,
-): BbRuntimeMode {
+): HyperfideRuntimeMode {
   return nodeEnv === "production" ? "prod" : "dev";
 }
 
@@ -340,7 +340,7 @@ export function toDevProcessEnv(args: DevProcessEnvArgs): NodeJS.ProcessEnv {
     ...env,
     HYPERFIDE_DATA_DIR: args.config.dataDir,
     HYPERFIDE_DEV_APP_PORT: String(args.config.ports.appPort),
-    HYPERFIDE_DEV_CONNECT_BASE_URL: `http://bb.localhost:${args.config.ports.cloudPort}`,
+    HYPERFIDE_DEV_CONNECT_BASE_URL: `http://hyperfide.localhost:${args.config.ports.cloudPort}`,
     HYPERFIDE_HOST_DAEMON_PORT: String(args.config.ports.hostDaemonPort),
     HYPERFIDE_INHERITED_SKILLS_ROOTS: inheritedSkillsRootPaths.join(delimiter),
     HYPERFIDE_SERVER_PORT: String(args.config.ports.serverPort),

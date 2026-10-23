@@ -21,7 +21,7 @@ module.exports = ({ config }) => {
   }
   return {
     ...config,
-    extra: { ...config.extra, bbMobileVariant: variant },
+    extra: { ...config.extra, hyperfideMobileVariant: variant },
     ...(isDev
       ? {
           name: "Hyperfide dev",

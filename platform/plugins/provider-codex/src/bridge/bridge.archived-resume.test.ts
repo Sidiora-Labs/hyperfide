@@ -19,7 +19,7 @@ let workspaceDir: string;
 let processLogPath: string;
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-archived-ws-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-archived-ws-"));
   processLogPath = join(workspaceDir, "app-server-processes.log");
   const scriptPath = join(workspaceDir, "fake-codex-script.json");
   writeFileSync(

@@ -35,7 +35,7 @@ function provider(): ServerAccessProviderDeclaration {
     availability: () => ({ status: "available" }),
     acquire: async ({ hostId }) => ({
       id: hostId,
-      serverUrl: "https://bb.example.com",
+      serverUrl: "https://hyperfide.example.com",
       headers: { "x-access-token": "secret-header" },
     }),
     release: async () => {},
@@ -190,7 +190,7 @@ describe("machine server access", () => {
         });
         return {
           id: "replacement",
-          serverUrl: "https://bb.example.com",
+          serverUrl: "https://hyperfide.example.com",
           headers: { "x-access-token": "new" },
         };
       });
@@ -438,7 +438,7 @@ it.each([
       if (!real) throw new Error("Test plugin did not load");
       const fake = createFakePluginHost();
       try {
-        for (const api of [real, fake.bb])
+        for (const api of [real, fake.hyperfide])
           expect(() =>
             api.experimental_serverAccess.register({
               ...provider(),
@@ -459,7 +459,7 @@ it("rejects duplicate server-access registrations in real and fake hosts", async
     if (!real) throw new Error("Test plugin did not load");
     const fake = createFakePluginHost();
     try {
-      for (const api of [real, fake.bb]) {
+      for (const api of [real, fake.hyperfide]) {
         api.experimental_serverAccess.register(provider());
         expect(() =>
           api.experimental_serverAccess.register(provider()),

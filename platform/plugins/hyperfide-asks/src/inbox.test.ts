@@ -33,7 +33,7 @@ describe("Inbox RPC", () => {
       { ...row("question", 3), status: "answered" },
     ];
     const host = createFakePluginHost({ pluginId: "hyperfide-asks" });
-    registerInbox(host.bb as unknown as Parameters<typeof registerInbox>[0], {
+    registerInbox(host.hyperfide as unknown as Parameters<typeof registerInbox>[0], {
       list: async () => rows,
       answer: async () => {},
     });
@@ -67,7 +67,7 @@ describe("Inbox RPC", () => {
         },
       },
     });
-    registerInbox(host.bb as unknown as Parameters<typeof registerInbox>[0], {
+    registerInbox(host.hyperfide as unknown as Parameters<typeof registerInbox>[0], {
       list: async () => [row("secret")],
       answer: async (_ask, value, note) => {
         writes.push(value, note);

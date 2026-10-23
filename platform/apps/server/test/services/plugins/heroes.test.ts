@@ -138,7 +138,7 @@ describe("hero plugin: slack-bot", () => {
       );
       expect(entry.id).toBe("slack-bot");
       expect(entry.status).toBe("needs-configuration");
-      expect(entry.statusDetail).toContain("bb plugin config slack-bot");
+      expect(entry.statusDetail).toContain("hyperfide-platform plugin config slack-bot");
 
       const signingSecret = "test-signing-secret";
       await server.pluginService.updateSettings("slack-bot", {

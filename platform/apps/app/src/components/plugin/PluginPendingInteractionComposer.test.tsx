@@ -42,7 +42,7 @@ vi.mock(
   "@/hooks/queries/system-queries",
   () => import("@/test/question-shortcuts-system-queries-mock"),
 );
-vi.mock("@/lib/bb-desktop", () => ({ getBbDesktopInfo: () => null }));
+vi.mock("@/lib/hyperfide-desktop", () => ({ getHyperfideDesktopInfo: () => null }));
 const pane = vi.hoisted(() => ({ isFocused: true }));
 vi.mock("@/views/thread-detail/PaneContext", () => ({
   useOptionalPaneContext: () => pane,

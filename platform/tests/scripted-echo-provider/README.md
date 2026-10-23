@@ -1,6 +1,6 @@
 # Scripted echo provider (test harness)
 
-The scripted echo bridge is the provider bb's runtime and integration suites
+The scripted echo bridge is the provider Hyperfide's runtime and integration suites
 drive. It is the echo example bridge (`examples/plugins/echo-provider`) plus
 the scripted directives a test needs, and it runs through the real
 bridge-protocol adapter and delta assembler — there is no test-only adapter

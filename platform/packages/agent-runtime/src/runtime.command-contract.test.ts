@@ -68,7 +68,7 @@ describe("createAgentRuntime command contracts", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "bb-runtime-test-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "hyperfide-runtime-test-"));
   });
 
   afterEach(() => {
@@ -135,7 +135,7 @@ describe("createAgentRuntime command contracts", () => {
 
   it("expands contributed provider environment for model list against the server URL", async () => {
     const { record, runtime } = createContractRuntime({
-      shellEnv: { BB_SERVER_URL: "http://server.test" },
+      shellEnv: { HYPERFIDE_SERVER_URL: "http://server.test" },
     });
 
     try {
@@ -338,11 +338,11 @@ describe("createAgentRuntime command contracts", () => {
       expect(record.last("thread/name/set")?.params).toEqual({
         threadId: "t1",
         providerThreadId: "prov-1",
-        title: "[bb] New Title",
+        title: "[hyperfide] New Title",
       });
       expect(events).not.toContainEqual(
         expect.objectContaining({
-          threadName: "[bb] New Title",
+          threadName: "[hyperfide] New Title",
           type: "thread/name/updated",
         }),
       );

@@ -3,7 +3,7 @@
   "name": "empty-state",
   "type": "registry:ui",
   "title": "empty-state",
-  "description": "BB ui \"empty-state\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"empty-state\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/icon",
     "@hyperfide/utils"

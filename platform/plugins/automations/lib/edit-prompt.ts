@@ -7,5 +7,5 @@ export function buildAutomationEditThreadPrompt({
   projectId: string;
   automationId: string;
 }): string {
-  return `Edit the bb automation ${JSON.stringify(name)} (ID ${automationId}) in project ${projectId}. I want to `;
+  return `Edit the hyperfide-platform automation ${JSON.stringify(name)} (ID ${automationId}) in project ${projectId}. I want to `;
 }

@@ -38,7 +38,7 @@ it("reuses one initialized app-server across model catalog requests", async () =
 });
 
 it("launches the catalog app-server on the requested pool route", async () => {
-  const workDir = await mkdtemp(join(tmpdir(), "bb-codex-model-route-"));
+  const workDir = await mkdtemp(join(tmpdir(), "hyperfide-codex-model-route-"));
   temporaryDirectories.push(workDir);
   const scriptPath = join(workDir, "script.json");
   const launchLogPath = join(workDir, "launches.jsonl");
@@ -71,12 +71,12 @@ it("launches the catalog app-server on the requested pool route", async () => {
         JSON.parse(line) as { args: string[]; poolToken: string | null },
     );
   expect(launches).toHaveLength(2);
-  expect(launches[0]?.args).toContain('model_provider="bb-account-pool"');
+  expect(launches[0]?.args).toContain('model_provider="hyperfide-account-pool"');
   expect(launches[0]?.args).toContain(
     'openai_base_url="http://127.0.0.1:1/pool/v1"',
   );
   expect(launches[0]?.poolToken).toBe("machine-token");
-  expect(launches[1]?.args).not.toContain('model_provider="bb-account-pool"');
+  expect(launches[1]?.args).not.toContain('model_provider="hyperfide-account-pool"');
   expect(launches[1]?.poolToken).toBeNull();
 });
 
@@ -112,7 +112,7 @@ it.each([
     expectedDefaults: [true, false],
   },
 ])("resolves catalog defaults with $name", async (scenario) => {
-  const workDir = await mkdtemp(join(tmpdir(), "bb-codex-model-default-"));
+  const workDir = await mkdtemp(join(tmpdir(), "hyperfide-codex-model-default-"));
   temporaryDirectories.push(workDir);
   const scriptPath = join(workDir, "script.json");
   const catalog = [
@@ -145,7 +145,7 @@ it.each([
 });
 
 it("replaces the cached app-server after a model catalog failure", async () => {
-  const workDir = await mkdtemp(join(tmpdir(), "bb-codex-model-list-"));
+  const workDir = await mkdtemp(join(tmpdir(), "hyperfide-codex-model-list-"));
   temporaryDirectories.push(workDir);
   const scriptPath = join(workDir, "script.json");
   await writeFile(
@@ -178,7 +178,7 @@ it("replaces the cached app-server after a model catalog failure", async () => {
 it("rejects a model catalog request with the missing-executable code when codex cannot be spawned", async () => {
   vi.stubEnv(
     "HYPERFIDE_CODEX_BRIDGE_APP_SERVER_COMMAND",
-    join(tmpdir(), "bb-codex-does-not-exist"),
+    join(tmpdir(), "hyperfide-codex-does-not-exist"),
   );
   vi.stubEnv("HYPERFIDE_CODEX_BRIDGE_APP_SERVER_ARGS", "[]");
 

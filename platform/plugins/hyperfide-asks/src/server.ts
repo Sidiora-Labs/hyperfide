@@ -2,7 +2,7 @@ import { AskBridge as StoreBridge } from "./bridge.js";
 import { localGraphHost } from "./graph-host-projection.js";
 import { bridgeContract } from "./bridge-contract.js";
 import { z } from "zod";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { BinaryAskBridge, type AskBridge } from "./bridge-projection.js";
 import { InboxService } from "./inbox.js";
 import { inboxContract } from "./contract.js";
@@ -14,7 +14,7 @@ import type {
   TaskThreads,
 } from "./task-3-2-projection.js";
 
-export function registerInbox(api: BbPluginApi, bridge: AskBridge) {
+export function registerInbox(api: HyperfidePluginApi, bridge: AskBridge) {
   const inbox = new InboxService(bridge, async (value) => {
     const result = await api.sdk.plugins.callRpc({
       pluginId: "hyperfide-secrets",
@@ -31,7 +31,7 @@ export function registerInbox(api: BbPluginApi, bridge: AskBridge) {
     inboxAnswer: (input) => inbox.answer(input),
   });
 }
-export default async function plugin(api: BbPluginApi) {
+export default async function plugin(api: HyperfidePluginApi) {
   const repositories =
     (await api.storage.kv.get<string[]>("inbox.repositories")) ??
     (await api.sdk.projects.list()).flatMap((project) =>

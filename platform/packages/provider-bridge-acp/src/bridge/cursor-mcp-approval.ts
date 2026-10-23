@@ -14,7 +14,7 @@ const CURSOR_APPROVAL_LOCK_TIMEOUT_MS = 5_000;
 
 export interface CursorMcpApproval {
   approval: string;
-  installedByBb: boolean;
+  installedByHyperfide: boolean;
   path: string;
 }
 
@@ -115,7 +115,7 @@ async function readApprovals(path: string): Promise<string[]> {
 
 async function writeApprovals(path: string, approvals: readonly string[]) {
   await mkdir(dirname(path), { recursive: true });
-  const tempPath = `${path}.bb-${process.pid}-${randomBytes(6).toString("hex")}.tmp`;
+  const tempPath = `${path}.hyperfide-${process.pid}-${randomBytes(6).toString("hex")}.tmp`;
   try {
     await writeFile(tempPath, `${JSON.stringify(approvals, null, 2)}\n`, {
       encoding: "utf8",
@@ -129,7 +129,7 @@ async function writeApprovals(path: string, approvals: readonly string[]) {
 }
 
 async function acquireApprovalLock(path: string): Promise<() => Promise<void>> {
-  const lockPath = `${path}.bb-lock`;
+  const lockPath = `${path}.hyperfide-lock`;
   const deadline = Date.now() + CURSOR_APPROVAL_LOCK_TIMEOUT_MS;
   await mkdir(dirname(path), { recursive: true });
   for (;;) {
@@ -211,21 +211,21 @@ export async function approveCursorSessionMcpServer(args: {
     config: args.config,
     projectRoot,
   });
-  let installedByBb = false;
+  let installedByHyperfide = false;
   await mutateApprovals(path, (approvals) => {
     if (approvals.includes(approval)) {
       return approvals;
     }
-    installedByBb = true;
+    installedByHyperfide = true;
     return [...approvals, approval];
   });
-  return { approval, installedByBb, path };
+  return { approval, installedByHyperfide, path };
 }
 
 export async function revokeCursorSessionMcpServer(
   approval: CursorMcpApproval,
 ): Promise<void> {
-  if (!approval.installedByBb) {
+  if (!approval.installedByHyperfide) {
     return;
   }
   await mutateApprovals(approval.path, (approvals) =>

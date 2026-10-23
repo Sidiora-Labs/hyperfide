@@ -5,7 +5,7 @@ import { isNightlyAppVersion } from "@hyperfide/config/app-update";
 import type { SystemVersionResponse } from "@hyperfide/server-contract";
 import type { ServerLogger, ServerRuntimeConfig } from "../../types.js";
 
-const NPM_REGISTRY_PACKAGE_URL = "https://registry.npmjs.org/bb-app";
+const NPM_REGISTRY_PACKAGE_URL = "https://registry.npmjs.org/hyperfide-app";
 const NPM_LATEST_TIMEOUT_MS = 5_000;
 const NPM_LATEST_CACHE_TTL_MS = 60 * 60 * 1000;
 
@@ -80,7 +80,7 @@ export function createAppVersionService(
       if (!response.ok) {
         logger.warn(
           { status: response.status, url: npmDistTagUrl },
-          "Failed to fetch latest bb-app version from npm",
+          "Failed to fetch latest hyperfide-app version from npm",
         );
         return null;
       }
@@ -170,7 +170,7 @@ export function createAppVersionService(
         source: "npm",
         updateAvailable: false,
         isDevelopment: config.isDevelopment,
-        upgradeCommand: `npx bb-app@${distTag}`,
+        upgradeCommand: `npx hyperfide-app@${distTag}`,
       };
 
       if (config.isDevelopment || installKind === "source") {
@@ -187,7 +187,7 @@ export function createAppVersionService(
       const releaseResponse: SystemVersionResponse = {
         ...baseResponse,
         latestVersion,
-        upgradeCommand: `npx bb-app@${release.distTag}`,
+        upgradeCommand: `npx hyperfide-app@${release.distTag}`,
       };
 
       const parsedCurrent = semver.parse(config.appVersion);

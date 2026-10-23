@@ -10,7 +10,7 @@ import { expect, it } from "vitest";
 it.each(["", "1"])(
   "keeps provider notifications gated while the cursor contains %j during an update",
   async (incompleteCursor) => {
-    const dir = mkdtempSync(join(tmpdir(), "bb-replay-cursor-"));
+    const dir = mkdtempSync(join(tmpdir(), "hyperfide-replay-cursor-"));
     const cursorPath = join(dir, "cursor");
     const notification = {
       jsonrpc: "2.0",
@@ -87,7 +87,7 @@ it.each(["", "1"])(
 );
 
 it("keeps Claude diagnostic forks from consuming a recorded conversation segment", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "bb-replay-diagnostic-"));
+  const dir = mkdtempSync(join(tmpdir(), "hyperfide-replay-diagnostic-"));
   for (const [direction, seq, message] of [
     [
       "bridge→provider",

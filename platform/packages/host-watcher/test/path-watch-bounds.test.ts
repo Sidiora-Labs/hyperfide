@@ -30,7 +30,7 @@ async function buildThreadStorageFixture(): Promise<{
   root: string;
 }> {
   const root = fsSync.realpathSync(
-    await fs.mkdtemp(path.join(os.tmpdir(), "bb-path-watch-bounds-")),
+    await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-path-watch-bounds-")),
   );
   tempDirs.push(root);
   const heavyDirectories = [

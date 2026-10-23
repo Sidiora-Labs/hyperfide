@@ -6,7 +6,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { useBbNavigate } from "@hyperfide/plugin-sdk/app";
+import { useHyperfideNavigate } from "@hyperfide/plugin-sdk/app";
 
 const OpenThreadInSplitContext = createContext<
   ((threadId: string) => void) | null
@@ -17,7 +17,7 @@ export function ThreadRowNavigationProvider({
 }: {
   children: ReactNode;
 }) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const latest = useRef(navigate);
   useLayoutEffect(() => {
     latest.current = navigate;

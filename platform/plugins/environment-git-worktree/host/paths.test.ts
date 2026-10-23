@@ -84,13 +84,13 @@ describe("managed worktree paths", () => {
   it("keeps derived targets inside their validated attempt root", () => {
     expect(
       resolveWorktreeTargetPath({
-        dataDir: "/Users/me/.bb/plugin-data",
+        dataDir: "/Users/me/.hyperfide/plugin-data",
         pathKey: "thr_123-2",
         sourcePath: "/Users/me/code/Repo With Space",
       }),
     ).toBe(
       join(
-        "/Users/me/.bb/plugin-data",
+        "/Users/me/.hyperfide/plugin-data",
         "worktrees",
         "thr_123-2",
         "Repo-With-Space-7373994537587106",

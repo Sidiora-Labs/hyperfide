@@ -298,7 +298,7 @@ export class PiRpcSession {
       cwd: this.options.cwd,
       env: buildPiChildEnv({
         ...(this.options.shellEnvOverrides ?? {}),
-        PI_BB_TOOLS_FILE: toolsFilePath,
+        PI_HYPERFIDE_TOOLS_FILE: toolsFilePath,
       }),
       args,
       onEvent: (event) => {

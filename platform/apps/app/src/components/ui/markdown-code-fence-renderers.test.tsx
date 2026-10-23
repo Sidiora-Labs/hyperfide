@@ -189,7 +189,7 @@ describe("code fence renderers in assistant messages", () => {
     ).toBeTruthy();
   });
 
-  it("keeps BB's code block in user messages", () => {
+  it("keeps HYPERFIDE's code block in user messages", () => {
     const registry = buildCodeFenceRendererRegistry([slot(UiFence)]);
     const view = render(
       <MemoryRouter>
@@ -379,7 +379,7 @@ describe("code fence renderers in assistant messages", () => {
     ).toHaveLength(0);
   });
 
-  it("renders BB's code block for a language two plugins claim, from the slot store", () => {
+  it("renders HYPERFIDE's code block for a language two plugins claim, from the slot store", () => {
     function ZetaFence() {
       return <div data-testid="zeta-fence" />;
     }
@@ -424,7 +424,7 @@ describe("code fence renderers in assistant messages", () => {
     expect(screen.getAllByTestId("zeta-fence")).toHaveLength(1);
     expect(view.container.textContent).toContain("{ contested }");
     expect(console.warn).toHaveBeenCalledWith(
-      '[plugin] code fence language "ui" claimed by multiple plugins (alpha, zeta); rendering BB\'s code block',
+      '[plugin] code fence language "ui" claimed by multiple plugins (alpha, zeta); rendering HYPERFIDE\'s code block',
     );
   });
 });
@@ -459,7 +459,7 @@ describe("MarkdownPreview inside a code fence host", () => {
     );
   });
 
-  it("renders BB's original code block through Original", () => {
+  it("renders HYPERFIDE's original code block through Original", () => {
     function DelegatingFence({ Original }: ExperimentalCodeFenceRendererProps) {
       return (
         <section data-testid="delegating-fence">
@@ -480,7 +480,7 @@ describe("MarkdownPreview inside a code fence host", () => {
     ).not.toBeNull();
   });
 
-  it("leaves fences on BB's code block outside a host", () => {
+  it("leaves fences on HYPERFIDE's code block outside a host", () => {
     const view = render(<MarkdownPreview content={"```ui\n{ plain }\n```"} />);
     expect(screen.queryByTestId("ui-fence")).toBeNull();
     expect(view.container.textContent).toContain("{ plain }");
@@ -501,7 +501,7 @@ describe("buildCodeFenceRendererRegistry", () => {
     expect(registry.get("app")).toBe(alpha);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
-      '[plugin] code fence language "ui" claimed by multiple plugins (alpha, zeta); rendering BB\'s code block',
+      '[plugin] code fence language "ui" claimed by multiple plugins (alpha, zeta); rendering HYPERFIDE\'s code block',
     );
   });
 });

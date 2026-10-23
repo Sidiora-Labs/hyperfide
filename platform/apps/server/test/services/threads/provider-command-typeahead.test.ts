@@ -118,8 +118,8 @@ describe("buildCommandListResponse", () => {
   it("keeps the first user-origin skill when global roots provide the same name", () => {
     const response = buildCommandListResponse({
       commands: [
-        skill("bb-cli", { description: "Data-dir override" }),
-        skill("bb-cli", { description: "Built-in default" }),
+        skill("hyperfide-cli", { description: "Data-dir override" }),
+        skill("hyperfide-cli", { description: "Built-in default" }),
       ],
       liveCommands: [],
       includeBuiltinCompact: true,
@@ -127,10 +127,10 @@ describe("buildCommandListResponse", () => {
     });
 
     expect(
-      response.commands.filter((command) => command.name === "bb-cli"),
+      response.commands.filter((command) => command.name === "hyperfide-cli"),
     ).toEqual([
       {
-        name: "bb-cli",
+        name: "hyperfide-cli",
         source: "skill",
         origin: "user",
         description: "Data-dir override",

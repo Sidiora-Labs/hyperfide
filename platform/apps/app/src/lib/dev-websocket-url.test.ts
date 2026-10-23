@@ -28,7 +28,7 @@ describe("buildDevWebSocketUrl", () => {
     );
   });
 
-  it("uses the proxied app origin for HTTPS bb connect shares", () => {
+  it("uses the proxied app origin for HTTPS hyperfide-platform connect shares", () => {
     vi.stubGlobal("__HYPERFIDE_DEV_WS_BROWSER_HOST_PORT__", 23_802);
     vi.stubGlobal("__HYPERFIDE_DEV_APP_BROWSER_HOST_PORT__", 15_802);
     installWindowLocation(

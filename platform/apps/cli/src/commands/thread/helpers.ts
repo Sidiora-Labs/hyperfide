@@ -15,7 +15,7 @@ import {
   DEFAULT_THREAD_WAIT_POLL_INTERVAL_MS,
   DEFAULT_THREAD_WAIT_TIMEOUT_MS,
 } from "@hyperfide/sdk";
-import type { BbSdk } from "@hyperfide/sdk/node";
+import type { HyperfideSdk } from "@hyperfide/sdk/node";
 import { parseDurationMs } from "../../duration.js";
 
 export const THREAD_WAIT_EXIT_CODE_TIMEOUT = 2;
@@ -114,7 +114,7 @@ async function clientAttachmentMimeType(
 export async function uploadClientAttachmentInputs(args: {
   input: PromptInput[];
   resolveProjectId: () => Promise<string>;
-  sdk: BbSdk;
+  sdk: HyperfideSdk;
 }): Promise<PromptInput[]> {
   const clientPaths = args.input.map((item) =>
     item.type === "localImage" || item.type === "localFile"

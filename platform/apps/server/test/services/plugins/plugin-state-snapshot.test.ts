@@ -190,7 +190,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       source: "npm:hyperfide-plugin-legacy@^1.0.0",
       provenance: {
         kind: "catalog",
-        marketplace: "bb-community",
+        marketplace: "hyperfide-community",
         entryId: "legacy-entry",
       },
       sourceIntent: {
@@ -260,7 +260,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       JSON.stringify({
         ...legacyRegistration,
         provenance: "marketplace",
-        marketplaceId: "bb-community",
+        marketplaceId: "hyperfide-community",
         marketplaceEntryId: "legacy-entry",
       }),
     );
@@ -301,7 +301,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       JSON.stringify({
         ...legacyRegistration,
         provenance: "marketplace",
-        marketplaceId: "bb-community",
+        marketplaceId: "hyperfide-community",
         marketplaceEntryId: "legacy-entry",
       }),
     );
@@ -633,7 +633,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       status: "rollback-pending",
       rollbackCandidateVersion: "candidate",
       rollbackSourceFingerprint: "source",
-      rollbackBbVersion: "1.0.0",
+      rollbackHyperfideVersion: "1.0.0",
       rollbackSdkVersion: "0.2.0",
       rollbackDetail: "failed",
       createdAt: 1,

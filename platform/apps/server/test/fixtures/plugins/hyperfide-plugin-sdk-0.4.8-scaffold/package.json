@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "bb": ">=0.39",
-    "bbPluginSdk": ">=0.4.8"
+    "hyperfide": ">=0.39",
+    "hyperfidePluginSdk": ">=0.4.8"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Sdk Upgrade Fixture",
-    "description": "A BB plugin.",
+    "description": "A HYPERFIDE plugin.",
     "branding": {
       "icon": "Zap"
     },

@@ -27,7 +27,7 @@ async function installPlugin(harness: TestAppHarness, id: string) {
       name: `hyperfide-plugin-${id}`,
       version: "0.1.0",
       type: "module",
-      bb: {
+      hyperfide: {
         name: id,
         description: "Machine enrollment regression fixture",
         branding: { icon: "Zap" },
@@ -37,8 +37,8 @@ async function installPlugin(harness: TestAppHarness, id: string) {
   );
   await writeFile(
     join(root, "server.js"),
-    `export default function(bb) {
-    bb.experimental_machines.register({
+    `export default function(hyperfide) {
+    hyperfide.experimental_machines.register({
       id: "${id}-machine", displayName: "Runtime machine",
       description: "Provision a runtime test machine.", icon: "Terminal",
 

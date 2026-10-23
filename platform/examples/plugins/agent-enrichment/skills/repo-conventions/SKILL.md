@@ -8,9 +8,9 @@ description: "Repository conventions for commits, pull requests, and tests in th
 Search the bundled docs before guessing:
 
 ```
-bb docs search "conventional commits"
+Hyperfide docs search "conventional commits"
 ```
 
 - Commits follow conventional-commit style (`feat(scope): summary`).
-- Branches are named `bb/<topic>`.
+- Branches are named `hyperfide/<topic>`.
 - Every bug fix ships with a regression test.

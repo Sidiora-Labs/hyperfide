@@ -28,7 +28,7 @@ describe("createAgentRuntime input accepted events", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "bb-runtime-test-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "hyperfide-runtime-test-"));
   });
 
   afterEach(() => {

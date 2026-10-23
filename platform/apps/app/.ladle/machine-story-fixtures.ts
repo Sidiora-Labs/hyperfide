@@ -13,12 +13,12 @@ export const CONNECT_UNPAIRED: ServerAccessStatus = {
   providers: [
     {
       id: "connect",
-      displayName: "bb connect",
+      displayName: "hyperfide-platform connect",
       description: "Use a private hyperfide.example address.",
       pluginId: "connect",
       availability: {
         status: "setup-required",
-        message: "Pair with bb connect",
+        message: "Pair with hyperfide-platform connect",
       },
     },
     {
@@ -42,7 +42,7 @@ export const CONNECT_PAIRED: ServerAccessStatus = {
           ...provider,
           availability: {
             status: "available",
-            serverUrl: "https://bb.example.com",
+            serverUrl: "https://hyperfide.example.com",
           },
         }
       : provider,

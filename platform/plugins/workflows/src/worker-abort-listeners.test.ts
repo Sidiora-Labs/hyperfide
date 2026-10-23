@@ -18,10 +18,10 @@ async function eventually(assertion: () => void): Promise<void> {
 }
 
 it("does not retain abort listeners from completed worker polls", async () => {
-  const { bb, harness } = createFakePluginHost({ pluginId: "workflows" });
-  const db = bb.storage.database();
-  bb.storage.migrate(db, migrations);
-  const service = createWorkflowService(bb, db);
+  const { hyperfide, harness } = createFakePluginHost({ pluginId: "workflows" });
+  const db = hyperfide.storage.database();
+  hyperfide.storage.migrate(db, migrations);
+  const service = createWorkflowService(hyperfide, db);
   const controller = new AbortController();
   const worker = service.runWorker(controller.signal);
 
@@ -36,7 +36,7 @@ it("does not retain abort listeners from completed worker polls", async () => {
 });
 
 it("removes the worker abort listener after a run finishes", async () => {
-  const { bb, harness } = createFakePluginHost({
+  const { hyperfide, harness } = createFakePluginHost({
     pluginId: "workflows",
     sdk: {
       threads: {
@@ -58,9 +58,9 @@ it("removes the worker abort listener after a run finishes", async () => {
       },
     },
   });
-  const db = bb.storage.database();
-  bb.storage.migrate(db, migrations);
-  const service = createWorkflowService(bb, db);
+  const db = hyperfide.storage.database();
+  hyperfide.storage.migrate(db, migrations);
+  const service = createWorkflowService(hyperfide, db);
   const run = await service.start({
     projectId: "project-test",
     originThreadId: "origin",

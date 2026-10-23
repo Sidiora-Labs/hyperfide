@@ -1,6 +1,6 @@
 import { registerUsageSource } from "./src/usage-source.js";
 import type {
-  BbPluginApi,
+  HyperfidePluginApi,
   PluginProviderDeclaration,
 } from "@hyperfide/plugin-sdk";
 import type { AcpAgentProbe } from "@hyperfide/plugin-sdk/provider-bridge/acp";
@@ -44,11 +44,11 @@ async function sleepUntilAbort(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 export default async function acpProvidersPlugin(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
 ): Promise<void> {
-  registerUsageSource(bb);
-  const host = bb.hosts.experimental_client({ contract: acpHostContract });
-  const settings = bb.settings.define({
+  registerUsageSource(hyperfide);
+  const host = hyperfide.hosts.experimental_client({ contract: acpHostContract });
+  const settings = hyperfide.settings.define({
     customAgents: {
       type: "string",
       label: "Custom agents",
@@ -78,7 +78,7 @@ export default async function acpProvidersPlugin(
   });
 
   registerAcpRegistry({
-    bb,
+    hyperfide,
     readCustomAgents: async () => (await settings.get()).customAgents,
     writeCustomAgents: async (value) => {
       await settings.experimental_set({ customAgents: value });
@@ -106,13 +106,13 @@ export default async function acpProvidersPlugin(
 
   function register(declaration: PluginProviderDeclaration): void {
     try {
-      const { dispose } = bb.providers.register(declaration);
+      const { dispose } = hyperfide.providers.register(declaration);
       registered.set(declaration.id, {
         key: JSON.stringify(declaration),
         dispose,
       });
     } catch (error) {
-      bb.log.error(
+      hyperfide.log.error(
         `Could not register ACP provider "${declaration.id}": ${String(error)}`,
       );
     }
@@ -145,12 +145,12 @@ export default async function acpProvidersPlugin(
       shippedAgents: KNOWN_ACP_AGENTS,
     });
     for (const warning of resolved.warnings) {
-      bb.log.warn(warning);
+      hyperfide.log.warn(warning);
     }
     configuredAgents = resolved.agents;
     reconcile(desiredAgents());
     if (resolved.agents.length > 0) {
-      bb.log.info(
+      hyperfide.log.info(
         `Registered ${resolved.agents.length} configured ACP agent(s).`,
       );
     }
@@ -169,7 +169,7 @@ export default async function acpProvidersPlugin(
     signal: AbortSignal,
   ): Promise<void> {
     const disabledIds = new Set(
-      (await bb.sdk.providers.catalog())
+      (await hyperfide.sdk.providers.catalog())
         .filter((provider) => !provider.enabled)
         .map((provider) => provider.id),
     );
@@ -192,7 +192,7 @@ export default async function acpProvidersPlugin(
           { hostId, signal },
         );
       } catch (error) {
-        bb.log.debug(
+        hyperfide.log.debug(
           `Could not probe ${agent.id} on host ${hostId}: ${String(error)}`,
         );
         continue;
@@ -201,7 +201,7 @@ export default async function acpProvidersPlugin(
       if (applied === null) {
         continue;
       }
-      bb.log.info(
+      hyperfide.log.info(
         `${agent.id} on host ${hostId}: ${applied.reason}; re-registering.`,
       );
       narrowed.set(agent.id, applied.agent);
@@ -217,17 +217,17 @@ export default async function acpProvidersPlugin(
   await queueReconcile(initial.customAgents);
   settings.onChange((next) => {
     void queueReconcile(next.customAgents).catch((error: unknown) => {
-      bb.log.error(
+      hyperfide.log.error(
         `Could not re-register the configured ACP agents: ${String(error)}`,
       );
     });
   });
 
-  bb.background.service("acp-capability-probe", {
+  hyperfide.background.service("acp-capability-probe", {
     async start(signal: AbortSignal): Promise<void> {
       const probed = new Set<string>();
       while (!signal.aborted) {
-        const hosts = await bb.sdk.hosts.list();
+        const hosts = await hyperfide.sdk.hosts.list();
         const connected = new Set(
           hosts
             .filter((available) => available.status === "connected")
@@ -247,7 +247,7 @@ export default async function acpProvidersPlugin(
     },
   });
 
-  bb.onDispose(() => {
+  hyperfide.onDispose(() => {
     for (const [, entry] of registered) {
       entry.dispose();
     }

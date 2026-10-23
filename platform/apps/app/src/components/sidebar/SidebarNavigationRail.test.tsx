@@ -146,10 +146,10 @@ const THREAD_PATH = getThreadRoutePath({
   threadId: "thr_one",
 });
 const ALL_KEYS = [
-  "__bb__/new-thread",
-  "__bb__/search-threads",
-  "__bb__/extensions",
-  "__bb__/skills",
+  "__hyperfide__/new-thread",
+  "__hyperfide__/search-threads",
+  "__hyperfide__/extensions",
+  "__hyperfide__/skills",
   "garden/docs",
   "garden/alerts",
 ];
@@ -541,7 +541,7 @@ describe("Rail", () => {
     fireEvent.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
     act(() => vi.advanceTimersByTime(250));
 
-    fireEvent.click(screen.getByRole("link", { name: "bb update available" }));
+    fireEvent.click(screen.getByRole("link", { name: "hyperfide-platform update available" }));
     expect(pathname()).toBe(`${SETTINGS_ROUTE_PATH}/updates`);
     act(() => vi.advanceTimersByTime(250));
 
@@ -608,7 +608,7 @@ describe("Rail", () => {
     registerDocsBadge({ count: 2, label: "2 open pages" });
 
     renderRail(THREAD_PATH, {
-      visibleKeys: ["__bb__/new-thread", "__bb__/extensions"],
+      visibleKeys: ["__hyperfide__/new-thread", "__hyperfide__/extensions"],
     });
 
     const more = railButton("More, Docs: 2 open pages");
@@ -695,7 +695,7 @@ describe("Rail", () => {
       }),
     );
 
-    renderRail(THREAD_PATH, { visibleKeys: ["__bb__/extensions"] });
+    renderRail(THREAD_PATH, { visibleKeys: ["__hyperfide__/extensions"] });
 
     const more = railButton("More, Docs: 2 drafts, Alerts: 1 due today");
     expect(
@@ -707,7 +707,7 @@ describe("Rail", () => {
 
   it("keeps hidden destinations out of the rail", () => {
     renderRail(THREAD_PATH, {
-      visibleKeys: ["__bb__/new-thread", "__bb__/extensions"],
+      visibleKeys: ["__hyperfide__/new-thread", "__hyperfide__/extensions"],
     });
 
     expect(railLabels()).toEqual(["Home", "Plugins", "More", "Settings"]);
@@ -755,7 +755,7 @@ describe("Rail", () => {
     "toggles $name visibility from its customization row (compact: $isCompactViewport) without activating it",
     async ({ name, isCompactViewport }) => {
       renderRail(THREAD_PATH, {
-        visibleKeys: ["__bb__/skills"],
+        visibleKeys: ["__hyperfide__/skills"],
         isCompactViewport,
       });
       if (isCompactViewport) fireEvent.click(railButton("More"));
@@ -894,7 +894,7 @@ describe("Rail", () => {
   });
 
   it("keeps the header New thread button when stored preferences leave New thread out", () => {
-    renderRail(THREAD_PATH, { visibleKeys: ["__bb__/extensions"] });
+    renderRail(THREAD_PATH, { visibleKeys: ["__hyperfide__/extensions"] });
 
     fireEvent.click(screen.getByRole("button", { name: "New thread" }));
     expect(mocks.onNewChat).toHaveBeenCalledTimes(1);

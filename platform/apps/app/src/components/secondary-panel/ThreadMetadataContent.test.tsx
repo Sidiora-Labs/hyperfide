@@ -388,7 +388,7 @@ describe("GitStatusRow", () => {
         </TooltipProvider>,
       );
 
-    const stale = render(new Error("bb connect hit a temporary problem"));
+    const stale = render(new Error("hyperfide-platform connect hit a temporary problem"));
     expect(stale).toContain("3 ahead of main");
     expect(stale).toContain(
       "Couldn&#x27;t refresh: Workspace status unavailable. Showing the last known status.",
@@ -402,7 +402,7 @@ describe("GitStatusRow", () => {
         thread={makeThread()}
         environment={null}
         workspaceStatus={undefined}
-        workspaceStatusError={new Error("bb connect hit a temporary problem")}
+        workspaceStatusError={new Error("hyperfide-platform connect hit a temporary problem")}
       />,
     );
 

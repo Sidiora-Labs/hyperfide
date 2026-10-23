@@ -4,24 +4,24 @@ import { SourceLoadingSkeleton } from "./code-loading-skeletons";
 import { useSourceCodeRendererReplacement } from "./codeRendererProvider";
 import {
   DEFAULT_CODE_OVERFLOW,
-  type BbSourceCodeProps,
+  type HyperfideSourceCodeProps,
 } from "./code-rendering";
 
 const SOURCE_CODE_RENDERER_SLOT_KIND = "sourceCodeRenderer";
 
-export const BbSourceCodeSplit = defineSplit<BbSourceCodeProps>({
-  id: "bb-source-code",
-  load: () => import("./BbSourceCode").then((module) => module.default),
+export const HyperfideSourceCodeSplit = defineSplit<HyperfideSourceCodeProps>({
+  id: "hyperfide-source-code",
+  load: () => import("./HyperfideSourceCode").then((module) => module.default),
   loading: () => <SourceLoadingSkeleton />,
   tier: "intent",
 });
 
 interface SourceCodeHostProps extends Omit<
-  BbSourceCodeProps,
+  HyperfideSourceCodeProps,
   "overflow" | "highlightedLines"
 > {
-  overflow?: BbSourceCodeProps["overflow"];
-  highlightedLines?: BbSourceCodeProps["highlightedLines"];
+  overflow?: HyperfideSourceCodeProps["overflow"];
+  highlightedLines?: HyperfideSourceCodeProps["highlightedLines"];
 }
 
 export function SourceCodeHost({
@@ -37,7 +37,7 @@ export function SourceCodeHost({
   const replacement = useSourceCodeRendererReplacement();
 
   const original = (
-    <BbSourceCodeSplit
+    <HyperfideSourceCodeSplit
       content={content}
       path={path}
       cacheKey={cacheKey}

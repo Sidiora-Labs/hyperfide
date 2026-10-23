@@ -7,7 +7,7 @@ import {
   CHROME_ROW_HEIGHT_CLASS,
   MACOS_COLLAPSED_TOP_LEFT_RESERVE_CLASS,
   MACOS_TITLE_BAR_COLLAPSED_SIDEBAR_RESERVE_CLASS,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 
 describe("getSecondaryPanelChromeStackClassName", () => {
   it("reserves the combined navigation and active Diff toolbar height", () => {

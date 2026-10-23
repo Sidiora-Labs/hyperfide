@@ -107,7 +107,7 @@ async function fixture() {
       },
     },
   });
-  createAskUserQuestionPlugin({ command, pollMs: 5 })(host.bb);
+  createAskUserQuestionPlugin({ command, pollMs: 5 })(host.hyperfide);
   cleanups.push(() => host.harness.lifecycle.dispose());
   return {
     host,
@@ -151,8 +151,8 @@ describe("real Ask CLI round trips with a fake plugin host", () => {
       recommended: "SQLite",
     });
     expect(rows[0]?.options).toEqual(["SQLite", "Postgres", "Other"]);
-    const keys = await host.bb.storage.kv.list("question:");
-    const mapping = await host.bb.storage.kv.get<QuestionMapping>(keys[0]!);
+    const keys = await host.hyperfide.storage.kv.list("question:");
+    const mapping = await host.hyperfide.storage.kv.get<QuestionMapping>(keys[0]!);
     expect(mapping?.asks).toEqual({ q0: rows[0]?.id });
     host.harness.submitInteraction(host.harness.pendingInteractions[0]!.id, {
       answers: {

@@ -53,11 +53,11 @@ function fixture(taskCount: number, mappingCount: number) {
       },
     },
   });
-  const bb = host.bb;
-  const db = bb.storage.database();
+  const hyperfide = host.hyperfide;
+  const db = hyperfide.storage.database();
   db.pragma("synchronous = OFF");
   recordStatements(db, queries);
-  const store = createStore(bb);
+  const store = createStore(hyperfide);
   const project = store.tasks.createProject({
     name: "Query counts",
     prefix: "QUERY",
@@ -77,7 +77,7 @@ function fixture(taskCount: number, mappingCount: number) {
   );
   return {
     ...host,
-    bb,
+    hyperfide,
     db,
     store,
     tasks,
@@ -114,7 +114,7 @@ describe("lifecycle SQL scope", () => {
     async (tasks, mappings) => {
       const f = fixture(tasks, mappings);
       try {
-        await registerLifecycle(f.bb, f.store);
+        await registerLifecycle(f.hyperfide, f.store);
         f.queries.length = 0;
         await emitAllEvents(f, "thr_unrelated");
         expect(f.harness.realtimeSignals).toEqual([]);
@@ -142,7 +142,7 @@ describe("lifecycle SQL scope", () => {
             liveStatus: "working",
           });
         }
-        await registerLifecycle(f.bb, f.store);
+        await registerLifecycle(f.hyperfide, f.store);
         const transition = async (
           status: "active" | "idle" | "error" | "deleted",
           expected: string,
@@ -231,7 +231,7 @@ describe("lifecycle SQL scope", () => {
     async (status, deletedAt, expected, statements) => {
       const f = fixture(1, 1);
       try {
-        await registerLifecycle(f.bb, f.store);
+        await registerLifecycle(f.hyperfide, f.store);
         f.queries.length = 0;
         await f.harness.emitThreadEvent("thread.created", {
           thread: makeThreadResponse({ id: "thr_worker_0", status, deletedAt }),
@@ -249,7 +249,7 @@ describe("lifecycle SQL scope", () => {
   it("tracks workers across task status changes without changing task status", async () => {
     const f = fixture(1, 1);
     try {
-      await registerLifecycle(f.bb, f.store);
+      await registerLifecycle(f.hyperfide, f.store);
       for (const status of [
         "todo",
         "in_progress",
@@ -292,7 +292,7 @@ describe("lifecycle SQL scope", () => {
       ).toBe(true);
       f.store.tasks.deleteTask(f.tasks[0]!.id);
       expect(f.store.tasks.getTaskThread(f.mappings[0]!.id)).toBeUndefined();
-      await registerLifecycle(f.bb, f.store);
+      await registerLifecycle(f.hyperfide, f.store);
       f.queries.length = 0;
       await emitAllEvents(f, "thr_worker_0");
       expect(f.queries).toHaveLength(5);

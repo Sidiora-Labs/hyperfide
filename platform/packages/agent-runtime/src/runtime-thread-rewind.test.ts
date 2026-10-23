@@ -23,7 +23,7 @@ function createRewindRuntime(args: {
   onStderr?: (line: string) => void;
   scripted?: ScriptedEchoLaunchScript;
 }) {
-  const workspacePath = mkdtempSync(join(tmpdir(), "bb-runtime-rewind-"));
+  const workspacePath = mkdtempSync(join(tmpdir(), "hyperfide-runtime-rewind-"));
   temporaryDirectories.push(workspacePath);
   const record = createScriptedEchoRequestRecord();
   const runtime = createScriptedEchoRuntime({

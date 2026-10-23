@@ -55,10 +55,10 @@ import { SIDEBAR_FOOTER_MORE_ID } from "./sidebarFooterPreferences";
 import { LazySidebarFooterCustomize } from "./LazySidebarFooterCustomize";
 import {
   CHROME_ROW_HEIGHT_CLASS,
-  getBbDesktopInfo,
+  getHyperfideDesktopInfo,
   MACOS_WINDOW_DRAG_CLASS,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { NavRailSettingsButton } from "./NavRailSettingsButton";
 import { SidebarNavigationHeader } from "./SidebarNavigationHeader";
 import {
@@ -73,7 +73,7 @@ import {
 
 import { NAV_RAIL_WIDTH_CLASS } from "./navRailWidth";
 
-const BUG_REPORT_NEW_ISSUE_URL = "https://github.com/get-bb/bb/issues/new";
+const BUG_REPORT_NEW_ISSUE_URL = "https://github.com/hyperfide/hyperfide/issues/new";
 
 interface AppSidebarProps {
   onResizeMouseDown: (event: React.MouseEvent<HTMLDivElement>) => void;
@@ -95,7 +95,7 @@ export function AppSidebar({
   alternateBody,
 }: AppSidebarProps) {
   const placement = sidebarNavigationPlacement(navigation);
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getHyperfideDesktopInfo);
   const isFramed = useIsSidebarFramed();
   const threadListReplacement = useThreadListReplacement();
   const { threadId: activeThreadId } = useRouteState();
@@ -255,13 +255,13 @@ export function AppSidebar({
   const footer = (
     <SidebarFooter
       className={cn(
-        "w-full justify-center pl-(--bb-frame-footer-inset) pointer-fine:pl-[calc(var(--bb-frame-footer-inset)_+_(2rem_-_var(--bb-title-bar-control-size))/2)] pointer-fine:[&_[data-sidebar=menu-button]]:size-(--bb-title-bar-control-size) [&_[data-sidebar=menu-button]]:ring-inset pointer-fine:[&_[data-sidebar=menu]]:gap-0.5",
+        "w-full justify-center pl-(--hyperfide-frame-footer-inset) pointer-fine:pl-[calc(var(--hyperfide-frame-footer-inset)_+_(2rem_-_var(--hyperfide-title-bar-control-size))/2)] pointer-fine:[&_[data-sidebar=menu-button]]:size-(--hyperfide-title-bar-control-size) [&_[data-sidebar=menu-button]]:ring-inset pointer-fine:[&_[data-sidebar=menu]]:gap-0.5",
         isFramed
           ? cn(
-              "h-(--bb-app-chrome-row-height) py-0",
+              "h-(--hyperfide-app-chrome-row-height) py-0",
               placement === "rail" && "-mb-px",
             )
-          : "pb-(--bb-frame-footer-inset)",
+          : "pb-(--hyperfide-frame-footer-inset)",
       )}
     >
       <SidebarMenu
@@ -404,7 +404,7 @@ export function AppSidebar({
                 isFramed &&
                   !isBodyHidden &&
                   placement === "rail" &&
-                  "rounded-bl-none border-b-0 [clip-path:inset(0_-6px_0_0_round_var(--bb-frame-card-radius)_0_0_0)]",
+                  "rounded-bl-none border-b-0 [clip-path:inset(0_-6px_0_0_round_var(--hyperfide-frame-card-radius)_0_0_0)]",
               )}
             >
               <div
@@ -422,8 +422,8 @@ export function AppSidebar({
                   "col-start-1 row-start-2 flex shrink-0 items-center justify-center",
                   NAV_RAIL_WIDTH_CLASS,
                   isFramed
-                    ? "h-(--bb-app-chrome-row-height)"
-                    : "bg-surface-recessed -mb-[env(safe-area-inset-bottom)] pt-2 pb-[calc(var(--bb-frame-footer-inset)_+_env(safe-area-inset-bottom))]",
+                    ? "h-(--hyperfide-app-chrome-row-height)"
+                    : "bg-surface-recessed -mb-[env(safe-area-inset-bottom)] pt-2 pb-[calc(var(--hyperfide-frame-footer-inset)_+_env(safe-area-inset-bottom))]",
                 )}
               >
                 <NavRailSettingsButton
@@ -440,7 +440,7 @@ export function AppSidebar({
                 className={cn(
                   "col-start-2 row-start-2",
                   isFramed &&
-                    "rounded-tl-none border-t-0 [clip-path:inset(0_-6px_0_0_round_0_0_0_var(--bb-frame-card-radius))]",
+                    "rounded-tl-none border-t-0 [clip-path:inset(0_-6px_0_0_round_0_0_0_var(--hyperfide-frame-card-radius))]",
                 )}
               >
                 {footer}

@@ -25,11 +25,11 @@ describe("local Cloud readiness", () => {
 
     await waitForCloudService({
       url: `http://127.0.0.1:${address.port}/dashboard`,
-      host: "bb.localhost:42745",
+      host: "hyperfide.localhost:42745",
       serviceExited: () => false,
     });
 
-    expect(receivedHost).toBe("bb.localhost:42745");
+    expect(receivedHost).toBe("hyperfide.localhost:42745");
   });
 
   it("backs off after a 500 response", async () => {
@@ -41,7 +41,7 @@ describe("local Cloud readiness", () => {
 
     const ready = waitForCloudService({
       url: "http://127.0.0.1:42745/dashboard",
-      host: "bb.localhost:42745",
+      host: "hyperfide.localhost:42745",
       serviceExited: () => false,
       timeoutMs: 1_000,
       retryDelayMs: 250,

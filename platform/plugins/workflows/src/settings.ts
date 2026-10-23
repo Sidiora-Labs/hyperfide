@@ -1,5 +1,5 @@
 import type {
-  BbPluginApi,
+  HyperfidePluginApi,
   PluginSettingDescriptors,
   PluginSettingsValues,
 } from "@hyperfide/plugin-sdk";
@@ -173,9 +173,9 @@ interface WorkflowSettingsHandle {
 }
 
 export function registerWorkflowSettings(
-  bb: Pick<BbPluginApi, "settings">,
+  hyperfide: Pick<HyperfidePluginApi, "settings">,
 ): WorkflowSettingsHandle {
-  const handle = bb.settings.define(WORKFLOW_SETTING_DESCRIPTORS);
+  const handle = hyperfide.settings.define(WORKFLOW_SETTING_DESCRIPTORS);
   let lastValid = DEFAULT_WORKFLOW_SETTINGS;
   return {
     async get() {

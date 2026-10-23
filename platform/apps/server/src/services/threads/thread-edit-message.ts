@@ -325,7 +325,7 @@ function resolveEditableTurnCandidate(
     })
   ) {
     conflict(
-      "Editing this message would erase provider session ownership shared with another thread. Clear context (/clear or bb thread clear) for a new session; history is kept.",
+      "Editing this message would erase provider session ownership shared with another thread. Clear context (/clear or hyperfide-platform thread clear) for a new session; history is kept.",
     );
   }
   return {

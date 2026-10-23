@@ -12,14 +12,14 @@ import {
 import { createTabScopedStorage } from "@/lib/browser-storage";
 import { getProjectScopedStorageKey } from "@/lib/project-scoped-storage";
 
-const MODEL_STORAGE_KEY = "bb.promptbox.model";
-const SERVICE_TIER_STORAGE_KEY = "bb.promptbox.service-tier";
-const REASONING_STORAGE_KEY = "bb.promptbox.reasoning";
-const PERMISSION_MODE_STORAGE_KEY = "bb.promptbox.permission-mode";
-const ENVIRONMENT_STORAGE_KEY = "bb.promptbox.environment";
-const MACHINE_STORAGE_KEY = "bb.promptbox.machine";
-const PROVIDER_STORAGE_KEY = "bb.promptbox.provider";
-const SESSION_OPTIONS_STORAGE_KEY = "bb.promptbox.session-options";
+const MODEL_STORAGE_KEY = "hyperfide.promptbox.model";
+const SERVICE_TIER_STORAGE_KEY = "hyperfide.promptbox.service-tier";
+const REASONING_STORAGE_KEY = "hyperfide.promptbox.reasoning";
+const PERMISSION_MODE_STORAGE_KEY = "hyperfide.promptbox.permission-mode";
+const ENVIRONMENT_STORAGE_KEY = "hyperfide.promptbox.environment";
+const MACHINE_STORAGE_KEY = "hyperfide.promptbox.machine";
+const PROVIDER_STORAGE_KEY = "hyperfide.promptbox.provider";
+const SESSION_OPTIONS_STORAGE_KEY = "hyperfide.promptbox.session-options";
 const PROVIDER_SELECTION_STORAGE_VERSION = "1";
 
 export type StoredServiceTier = "" | ServiceTier;

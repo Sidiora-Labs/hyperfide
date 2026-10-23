@@ -45,15 +45,15 @@ const MEMORY_ENTRY: PluginCatalogSearchEntry = {
   publishedAt: "2026-08-20T00:00:00Z",
   source: "builtin:memory",
   repositoryUrl: null,
-  marketplace: "bb-official",
-  marketplaceDisplayName: "BB Official",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  marketplace: "hyperfide-official",
+  marketplaceDisplayName: "HYPERFIDE Official",
+  publisherKey: "hyperfide-official",
+  publisherLabel: "HYPERFIDE Official",
   official: true,
   author: {
-    name: "BB",
-    github: "get-bb",
-    url: "https://github.com/get-bb",
+    name: "HYPERFIDE",
+    github: "hyperfide",
+    url: "https://github.com/hyperfide",
   },
   installed: false,
   conflictingInstallSource: null,
@@ -218,7 +218,7 @@ describe("BrowsePluginsTab", () => {
       "Tasks & Workflows",
     ]);
     expect(screen.getAllByText("Memory")).toHaveLength(2);
-    expect(screen.queryByText("BB Official plugins")).toBeNull();
+    expect(screen.queryByText("HYPERFIDE Official plugins")).toBeNull();
   });
 
   it("keeps the shelves mounted while a search is active", async () => {
@@ -282,9 +282,9 @@ describe("BrowsePluginsTab", () => {
       onOpenPlugin,
     );
 
-    fireEvent.click(await screen.findByRole("link", { name: "BB Official" }));
+    fireEvent.click(await screen.findByRole("link", { name: "HYPERFIDE Official" }));
     expect(screen.getByTestId("location").textContent).toBe(
-      "/plugins?category=memory-and-context&sort=recently-added&author=11%3Abb-official%3Agithub%3Aget-bb",
+      "/plugins?category=memory-and-context&sort=recently-added&author=18%3Ahyperfide-official%3Agithub%3Ahyperfide",
     );
     expect(onOpenPlugin).not.toHaveBeenCalled();
   });
@@ -673,7 +673,7 @@ describe("BrowsePluginsTab", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "New plugin" }));
     expect((await screen.findByTestId("inline-composer")).textContent).toBe(
-      "Create a new bb plugin that ",
+      "Create a new hyperfide-platform plugin that ",
     );
     fireEvent.click(
       screen.getByText(
@@ -708,8 +708,8 @@ describe("BrowsePluginsTab", () => {
       expect.objectContaining({
         entryId: "memory",
         pluginId: "memory",
-        marketplace: "bb-official",
-        publisherLabel: "BB Official",
+        marketplace: "hyperfide-official",
+        publisherLabel: "HYPERFIDE Official",
         displayName: "Memory",
         icon: "Brain",
         iconUrl: null,

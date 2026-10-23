@@ -5,7 +5,7 @@ import type {
   UpdateDownloadedEvent,
   UpdateInfo,
 } from "electron-updater";
-import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopInfo } from "@hyperfide/desktop-contract";
 import {
   DESKTOP_AUTO_UPDATE_FEED_CONFIG,
   type DesktopAutoUpdateFeedConfig,
@@ -57,7 +57,7 @@ interface CreateDesktopAutoUpdateServiceArgs {
   forceDevUpdateConfig: boolean;
   logger: DesktopAutoUpdateLogger;
   now?: () => number;
-  platform: BbDesktopInfo["platform"];
+  platform: HyperfideDesktopInfo["platform"];
   updater: DesktopAutoUpdaterAdapter;
 }
 
@@ -87,8 +87,8 @@ export interface DesktopAutoUpdateService extends DesktopUpdateService {
 
 function createBaseInfo(
   currentVersion: string,
-  platform: BbDesktopInfo["platform"],
-): BbDesktopInfo {
+  platform: HyperfideDesktopInfo["platform"],
+): HyperfideDesktopInfo {
   return {
     downloadState: "idle",
     lastCheckedAt: null,

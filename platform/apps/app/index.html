@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="bb-app-shell-root">
+<html lang="en" class="hyperfide-app-shell-root">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -63,7 +63,7 @@
           });
         function getFaviconColorSuffix() {
           try {
-            var color = localStorage.getItem("bb.faviconColor");
+            var color = localStorage.getItem("hyperfide.faviconColor");
             return /^(red|orange|yellow|green|teal|blue|purple|pink)$/.test(
               color,
             )
@@ -80,11 +80,11 @@
           "/apple-touch-icon" + faviconColorSuffix + ".png";
         // Pre-paint browser-chrome color so PWA/status-bar chrome doesn't
         // flash the wrong shade before the app boots; useTheme.ts owns the
-        // meta tag afterwards. Mirrors the bb.theme preference resolution and
+        // meta tag afterwards. Mirrors the hyperfide.theme preference resolution and
         // the --canvas values in theme.css (#151515 = oklch(0.195 0 0)).
         var theme = null;
         try {
-          theme = localStorage.getItem("bb.theme");
+          theme = localStorage.getItem("hyperfide.theme");
         } catch {}
         var darkTheme = theme === "dark" || (theme !== "light" && mq.matches);
         document.getElementById("theme-color").content = darkTheme
@@ -99,7 +99,7 @@
       })();
     </script>
   </head>
-  <body class="bb-app-shell">
+  <body class="hyperfide-app-shell">
     <div id="root"></div>
     <script>
       // Pre-paint the palette (Nord, Dracula, a custom theme, ...) cached by
@@ -112,11 +112,11 @@
       (function () {
         var css = null;
         try {
-          css = localStorage.getItem("bb.appThemeCss");
+          css = localStorage.getItem("hyperfide.appThemeCss");
         } catch {}
         if (!css) return;
         var style = document.createElement("style");
-        style.id = "bb-app-theme";
+        style.id = "hyperfide-app-theme";
         style.textContent = css;
         document.head.appendChild(style);
       })();

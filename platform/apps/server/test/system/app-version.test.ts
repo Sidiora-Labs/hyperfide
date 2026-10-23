@@ -91,7 +91,7 @@ describe("createAppVersionService", () => {
       installKind: "npm",
       source: "npm",
       updateAvailable: false,
-      upgradeCommand: "npx bb-app@latest",
+      upgradeCommand: "npx hyperfide-app@latest",
     });
     expect(calls).toEqual([]);
   });
@@ -109,7 +109,7 @@ describe("createAppVersionService", () => {
     expect(response.latestVersion).toBe("0.0.6");
     expect(response.updateAvailable).toBe(true);
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.url).toBe("https://registry.npmjs.org/bb-app/latest");
+    expect(calls[0]?.url).toBe("https://registry.npmjs.org/hyperfide-app/latest");
   });
 
   it("checks the nightly dist-tag when running a nightly build", async () => {
@@ -125,9 +125,9 @@ describe("createAppVersionService", () => {
       logger: testLogger,
     });
     const response = await service.getSystemVersion();
-    expect(calls[0]?.url).toBe("https://registry.npmjs.org/bb-app/nightly");
+    expect(calls[0]?.url).toBe("https://registry.npmjs.org/hyperfide-app/nightly");
     expect(response.updateAvailable).toBe(true);
-    expect(response.upgradeCommand).toBe("npx bb-app@nightly");
+    expect(response.upgradeCommand).toBe("npx hyperfide-app@nightly");
   });
 
   it("offers a newer stable release to a nightly build when nightly lags behind", async () => {
@@ -154,11 +154,11 @@ describe("createAppVersionService", () => {
     const response = await service.getSystemVersion();
 
     expect(calls.map((call) => call.url).sort()).toEqual([
-      "https://registry.npmjs.org/bb-app/latest",
-      "https://registry.npmjs.org/bb-app/nightly",
+      "https://registry.npmjs.org/hyperfide-app/latest",
+      "https://registry.npmjs.org/hyperfide-app/nightly",
     ]);
     expect(response.latestVersion).toBe("0.44.0");
-    expect(response.upgradeCommand).toBe("npx bb-app@latest");
+    expect(response.upgradeCommand).toBe("npx hyperfide-app@latest");
   });
 
   it("reports updateAvailable=false when versions are equal", async () => {
@@ -208,7 +208,7 @@ describe("createAppVersionService", () => {
       installKind: "npm",
       source: "npm",
       updateAvailable: false,
-      upgradeCommand: "npx bb-app@latest",
+      upgradeCommand: "npx hyperfide-app@latest",
     });
     expect(warn).toHaveBeenCalled();
   });

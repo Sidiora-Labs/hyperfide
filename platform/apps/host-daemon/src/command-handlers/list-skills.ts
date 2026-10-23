@@ -32,24 +32,24 @@ import { writeHostFile } from "./file-write.js";
 
 type SkillRootResolution = DeclaredScanRootResolution;
 
-const SHARED_SKILLS_PROVIDER_ID = "bb-shared";
+const SHARED_SKILLS_PROVIDER_ID = "hyperfide-shared";
 
-function createBbSkillScanRoot(
+function createHyperfideSkillScanRoot(
   rootPath: string,
-  rootKind: Extract<SkillRootKind, `bb-${string}`>,
+  rootKind: Extract<SkillRootKind, `hyperfide-${string}`>,
 ): SkillScanRoot {
   return {
     rootPath,
     shape: "skill",
     namePrefix: "",
     source: "skill",
-    origin: rootKind === "bb-project" ? "project" : "user",
+    origin: rootKind === "hyperfide-project" ? "project" : "user",
     identitySeed: rootKind,
     rootKind,
   };
 }
 
-function resolveBbSkillScanRoots(
+function resolveHyperfideSkillScanRoots(
   resolution: SkillRootResolution,
 ): SkillScanRoot[] {
   const roots: SkillScanRoot[] = [];
@@ -58,9 +58,9 @@ function resolveBbSkillScanRoots(
     resolution.providerId !== SHARED_SKILLS_PROVIDER_ID
   ) {
     roots.push(
-      createBbSkillScanRoot(
+      createHyperfideSkillScanRoot(
         path.join(resolution.cwd, ".hyperfide", "skills"),
-        "bb-project",
+        "hyperfide-project",
       ),
     );
   }
@@ -100,7 +100,7 @@ function classifySkillRoot(
 export async function resolveSkillScanRoots(
   resolution: SkillRootResolution,
 ): Promise<SkillScanRoot[]> {
-  const skillRoots = resolveBbSkillScanRoots(resolution);
+  const skillRoots = resolveHyperfideSkillScanRoots(resolution);
   const providerRoots = await resolveDeclaredScanRoots(resolution);
   for (const root of providerRoots) {
     const classification = classifySkillRoot(root, resolution);
@@ -168,15 +168,15 @@ function resolveDeletableSkillRoot(
   },
   dataDir: string,
 ): string {
-  if (args.scope === "bb-user") {
+  if (args.scope === "hyperfide-user") {
     return resolveDataDirSkillsRootPath(dataDir);
   }
-  if (args.scope === "bb-project") {
+  if (args.scope === "hyperfide-project") {
     const cwd = args.cwd;
     if (cwd === null) {
       throw new CommandDispatchError(
         "invalid_path",
-        "cwd is required for a bb-project skill",
+        "cwd is required for a hyperfide-project skill",
       );
     }
     if (!path.isAbsolute(cwd)) {
@@ -282,7 +282,7 @@ export async function writeHostSkill(
   if (realTarget !== path.join(realRoot, command.name)) {
     throw new CommandDispatchError(
       "skill_outside_root",
-      "Refusing to edit a skill that resolves outside its bb root",
+      "Refusing to edit a skill that resolves outside its hyperfide root",
     );
   }
   const skillFilePath = path.join(realTarget, SKILL_FILE_NAME);

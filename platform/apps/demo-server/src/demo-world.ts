@@ -117,7 +117,7 @@ function notImplemented(method: string, path: string): Response {
     {
       error: {
         code: "not_implemented",
-        message: `The bb demo server does not implement ${method} ${path}. This server exists for App Store review and product demos; it serves fixed data and runs nothing.`,
+        message: `The hyperfide demo server does not implement ${method} ${path}. This server exists for App Store review and product demos; it serves fixed data and runs nothing.`,
       },
     },
     501,

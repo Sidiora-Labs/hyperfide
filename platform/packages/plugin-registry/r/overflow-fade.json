@@ -3,7 +3,7 @@
   "name": "overflow-fade",
   "type": "registry:ui",
   "title": "overflow-fade",
-  "description": "BB ui \"overflow-fade\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"overflow-fade\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/utils"
   ],

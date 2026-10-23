@@ -71,7 +71,7 @@ async function start(count: number) {
     sdk: { projects: { list: async () => [] } },
   });
   hosts.push(host);
-  await plugin(host.bb);
+  await plugin(host.hyperfide);
   const service = host.harness.runService("sync");
   await vi.advanceTimersByTimeAsync(0);
   return { ...host, ...service };
@@ -162,7 +162,7 @@ it("finishes an in-flight sweep on abort without scheduling another", async () =
 
 it("preserves all-repository failure backoff and resets it after recovery", async () => {
   fake.failedRepos.add("owner/repo-0");
-  const { bb } = await start(1);
+  const { hyperfide } = await start(1);
   let count = 1;
   for (const delay of [30, 60, 120, 240, 300, 300]) {
     await vi.advanceTimersByTimeAsync(delay * 1000 - 1);
@@ -171,11 +171,11 @@ it("preserves all-repository failure backoff and resets it after recovery", asyn
     count += 1;
     expect(lists()).toHaveLength(count);
   }
-  expect(await bb.storage.kv.get("sync-cursor")).toBeUndefined();
+  expect(await hyperfide.storage.kv.get("sync-cursor")).toBeUndefined();
   fake.failedRepos.clear();
   await vi.advanceTimersByTimeAsync(300_000);
   count += 1;
-  expect(await bb.storage.kv.get("sync-cursor")).toBeDefined();
+  expect(await hyperfide.storage.kv.get("sync-cursor")).toBeDefined();
   fake.failedRepos.add("owner/repo-0");
   await vi.advanceTimersByTimeAsync(15 * 60_000);
   count += 1;
@@ -186,8 +186,8 @@ it("preserves all-repository failure backoff and resets it after recovery", asyn
 
 it("uses the normal background wait after a partial repository failure", async () => {
   fake.failedRepos.add("owner/repo-0");
-  const { bb } = await start(2);
-  expect(await bb.storage.kv.get("sync-cursor")).toBeDefined();
+  const { hyperfide } = await start(2);
+  expect(await hyperfide.storage.kv.get("sync-cursor")).toBeDefined();
   await vi.advanceTimersByTimeAsync(15 * 60_000 - 1);
   expect(lists()).toHaveLength(2);
   await vi.advanceTimersByTimeAsync(1);

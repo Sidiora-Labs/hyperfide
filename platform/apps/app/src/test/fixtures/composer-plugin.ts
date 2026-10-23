@@ -15,7 +15,7 @@ const COMPOSER_APP_MODULE = resolve(
   "../../../../../plugins/composer/app.tsx",
 );
 
-export const COMPOSER_PLUGIN_ID = "bb--composer";
+export const COMPOSER_PLUGIN_ID = "hyperfide--composer";
 
 type ComposerRegistrations = ReturnType<
   typeof collectPluginAppRegistrations

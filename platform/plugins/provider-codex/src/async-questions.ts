@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import {
   CODEX_ASYNC_QUESTION_EXTENSION_KIND,
   codexAsyncQuestionStateSchema,
@@ -22,14 +22,14 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function registerAsyncQuestions(bb: BbPluginApi): void {
+export function registerAsyncQuestions(hyperfide: HyperfidePluginApi): void {
   const threadWork = new Map<string, Promise<void>>();
 
   function enqueue(threadId: string, work: () => Promise<void>): void {
     const next = (threadWork.get(threadId) ?? Promise.resolve())
       .then(work)
       .catch((error: unknown) => {
-        bb.log.warn(
+        hyperfide.log.warn(
           `async question handling failed for thread ${threadId}: ${errorMessage(error)}`,
         );
       });
@@ -42,10 +42,10 @@ export function registerAsyncQuestions(bb: BbPluginApi): void {
   async function readNewQuestions(
     threadId: string,
   ): Promise<CodexAsyncQuestionState[]> {
-    let cursor = (await bb.storage.kv.get<number>(cursorKey(threadId))) ?? 0;
+    let cursor = (await hyperfide.storage.kv.get<number>(cursorKey(threadId))) ?? 0;
     const questions: CodexAsyncQuestionState[] = [];
     for (;;) {
-      const page = await bb.sdk.threads.events.list({
+      const page = await hyperfide.sdk.threads.events.list({
         threadId,
         afterSeq: String(cursor),
         order: "asc",
@@ -64,7 +64,7 @@ export function registerAsyncQuestions(bb: BbPluginApi): void {
       }
       if (page.length < EVENT_PAGE_SIZE) break;
     }
-    await bb.storage.kv.set(cursorKey(threadId), cursor);
+    await hyperfide.storage.kv.set(cursorKey(threadId), cursor);
     return questions;
   }
 
@@ -72,7 +72,7 @@ export function registerAsyncQuestions(bb: BbPluginApi): void {
     threadId: string,
     state: CodexAsyncQuestionState,
   ): Promise<void> {
-    const result = await bb.ui.requestInput({
+    const result = await hyperfide.ui.requestInput({
       threadId,
       rendererId: CODEX_ASYNC_QUESTION_RENDERER_ID,
       title:
@@ -89,7 +89,7 @@ export function registerAsyncQuestions(bb: BbPluginApi): void {
     });
     if (result.outcome !== "submitted") return;
     const response = asyncQuestionResponseSchema.parse(result.value);
-    await bb.sdk.threads.send({
+    await hyperfide.sdk.threads.send({
       threadId,
       mode: "auto",
       input: [
@@ -102,12 +102,12 @@ export function registerAsyncQuestions(bb: BbPluginApi): void {
     });
   }
 
-  bb.events.on("experimental_thread.events", ({ thread }) => {
+  hyperfide.events.on("experimental_thread.events", ({ thread }) => {
     if (thread.providerId !== CODEX_PROVIDER_ID) return;
     enqueue(thread.id, async () => {
       for (const state of await readNewQuestions(thread.id)) {
         void ask(thread.id, state).catch((error: unknown) => {
-          bb.log.warn(
+          hyperfide.log.warn(
             `async question handling failed for thread ${thread.id}: ${errorMessage(error)}`,
           );
         });
@@ -115,7 +115,7 @@ export function registerAsyncQuestions(bb: BbPluginApi): void {
     });
   });
 
-  bb.events.on("thread.deleted", ({ thread }) => {
-    void bb.storage.kv.delete(cursorKey(thread.id));
+  hyperfide.events.on("thread.deleted", ({ thread }) => {
+    void hyperfide.storage.kv.delete(cursorKey(thread.id));
   });
 }

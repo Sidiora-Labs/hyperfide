@@ -447,7 +447,7 @@ export class PluginHostManager {
     });
     const tempDir = await createPluginProcessTempDir({
       pluginId: command.pluginId,
-      prefix: "bb-host",
+      prefix: "hyperfide-host",
     });
     const shellPath = this.options.shellEnv?.().PATH;
     const startedAtMs = performance.now();

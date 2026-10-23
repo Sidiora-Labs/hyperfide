@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.6.73"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.73"
   },
-  "bb": {
+  "hyperfide": {
     "name": "ThreadChat demo",
     "description": "Demonstrate the SDK ThreadChat component and the messageAction slot.",
     "branding": {
@@ -17,7 +17,7 @@
     "server": "./server.ts"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "devDependencies": {
     "@hyperfide/plugin-sdk": "workspace:*",

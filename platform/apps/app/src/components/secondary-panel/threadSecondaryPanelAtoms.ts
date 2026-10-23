@@ -27,14 +27,14 @@ const secondaryPanelWidthStorage = createLocalStorageSyncStorage<number>({
   serialize: (value) => String(value),
 });
 export const secondaryPanelWidthPercentAtom = atomWithStorage<number>(
-  "bb.thread.secondaryPanel.widthPercent",
+  "hyperfide.thread.secondaryPanel.widthPercent",
   DEFAULT_SECONDARY_PANEL_WIDTH_PERCENT,
   secondaryPanelWidthStorage,
   { getOnInit: true },
 );
 
 const THREAD_CONVERSATION_COLLAPSED_STORAGE_PREFIX =
-  "bb.thread.conversation.collapsed";
+  "hyperfide.thread.conversation.collapsed";
 
 const threadConversationCollapsedAtomFamily = atomFamily(
   (threadId: ResolvedThreadSecondaryPanelThreadId) =>

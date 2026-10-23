@@ -107,7 +107,7 @@ const toolUseApproval: PendingInteraction = {
       presentation: {
         label: { pending: "Creating issue", completed: "Created issue" },
         icon: { glyph: "Globe" },
-        title: "get-bb/bb#42",
+        title: "hyperfide/hyperfide#42",
         detail: "Opens a **bug** issue",
         tint: { light: "#123456", dark: "#abcdef" },
       },
@@ -225,7 +225,7 @@ describe("ThreadPendingInteractionBanner tool-use approval", () => {
     renderBanner(toolUseApproval);
     expect(screen.getAllByText("Creating issue").length).toBeGreaterThan(0);
     const ask = screen.getByTestId("tool-use-ask");
-    expect(ask.textContent).toContain("get-bb/bb#42");
+    expect(ask.textContent).toContain("hyperfide/hyperfide#42");
     expect(ask.textContent).toContain("Tool: mcp__github__create_issue");
     expect(ask.querySelector("strong")?.textContent).toBe("bug");
     expect(ask.querySelector("svg")?.getAttribute("style")).toMatch(

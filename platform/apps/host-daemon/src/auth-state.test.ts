@@ -35,17 +35,17 @@ describe("auth state", () => {
   });
 
   it("writes auth state without server URL and reads it back", async () => {
-    const dataDir = await makeTempDir("bb-host-daemon-auth-state-");
+    const dataDir = await makeTempDir("hyperfide-host-daemon-auth-state-");
 
     await writeHostAuthState(dataDir, {
       hostId: "host_auth_state",
-      hostKey: "bbdh_test_key",
+      hostKey: "hyperfide_dh_test_key",
     });
 
     const authState = await readHostAuthState(dataDir);
     expect(authState).toEqual({
       hostId: "host_auth_state",
-      hostKey: "bbdh_test_key",
+      hostKey: "hyperfide_dh_test_key",
     });
 
     const authStatePath = path.join(dataDir, HOST_AUTH_FILE_NAME);
@@ -59,14 +59,14 @@ describe("auth state", () => {
   });
 
   it("reads legacy auth state that still contains server URL", async () => {
-    const dataDir = await makeTempDir("bb-host-daemon-legacy-auth-state-");
+    const dataDir = await makeTempDir("hyperfide-host-daemon-legacy-auth-state-");
     await fs.mkdir(dataDir, { recursive: true });
     await fs.writeFile(
       path.join(dataDir, HOST_AUTH_FILE_NAME),
       JSON.stringify(
         {
           hostId: "host_auth_state",
-          hostKey: "bbdh_test_key",
+          hostKey: "hyperfide_dh_test_key",
           serverUrl: "https://server.example.test/",
         },
         null,
@@ -77,7 +77,7 @@ describe("auth state", () => {
 
     await expect(readHostAuthState(dataDir)).resolves.toEqual({
       hostId: "host_auth_state",
-      hostKey: "bbdh_test_key",
+      hostKey: "hyperfide_dh_test_key",
     });
   });
 });

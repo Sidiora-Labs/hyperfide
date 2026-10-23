@@ -300,7 +300,7 @@ describe("prompt library popup", () => {
       };
       const attachment = {
         type: "localFile" as const,
-        path: ".bb/attachments/notes.txt",
+        path: ".hyperfide/attachments/notes.txt",
         name: "notes.txt",
         sizeBytes: 42,
       };

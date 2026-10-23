@@ -31,7 +31,7 @@ afterEach(async () => {
 });
 
 function packumentFetch(
-  versions: Record<string, { bb?: string; sdk?: string; integrity?: string }>,
+  versions: Record<string, { hyperfide?: string; sdk?: string; integrity?: string }>,
   tags: Record<string, string> = {},
 ): typeof fetch {
   return async () =>
@@ -43,8 +43,8 @@ function packumentFetch(
             {
               version,
               engines: {
-                ...(metadata.bb ? { bb: metadata.bb } : {}),
-                ...(metadata.sdk ? { bbPluginSdk: metadata.sdk } : {}),
+                ...(metadata.hyperfide ? { hyperfide: metadata.hyperfide } : {}),
+                ...(metadata.sdk ? { hyperfidePluginSdk: metadata.sdk } : {}),
               },
               dist: {
                 integrity: metadata.integrity ?? `sha512-${version}`,
@@ -78,10 +78,10 @@ describe("npm update candidate selection", () => {
       appVersion: "1.5.0",
       run: createNpmResolverRun({
         fetch: packumentFetch({
-          "1.3.0": { bb: ">=2" },
-          "1.2.0": { bb: ">=1" },
-          "1.1.0-beta.1": { bb: ">=1" },
-          "1.0.0": { bb: ">=1" },
+          "1.3.0": { hyperfide: ">=2" },
+          "1.2.0": { hyperfide: ">=1" },
+          "1.1.0-beta.1": { hyperfide: ">=1" },
+          "1.0.0": { hyperfide: ">=1" },
         }),
       }),
     });
@@ -91,7 +91,7 @@ describe("npm update candidate selection", () => {
       candidate: { version: "1.2.0" },
       blocked: {
         version: { version: "1.3.0" },
-        reasons: [{ engine: "bb", required: ">=2" }],
+        reasons: [{ engine: "hyperfide", required: ">=2" }],
       },
     });
   });
@@ -114,7 +114,7 @@ describe("npm update candidate selection", () => {
       newest: { version: "2.0.0" },
       reasons: [
         {
-          engine: "bbPluginSdk",
+          engine: "hyperfidePluginSdk",
           actual: PLUGIN_SDK_VERSION,
         },
       ],
@@ -153,15 +153,15 @@ describe("npm update candidate selection", () => {
     });
   });
 
-  it("labels dev mode, ignores engines.bb for selection, and still enforces SDK", async () => {
+  it("labels dev mode, ignores engines.hyperfide for selection, and still enforces SDK", async () => {
     const resolution = await resolveNpmUpdate({
       intent: npmIntent("", "default"),
       current: { version: "1.0.0", display: "hyperfide-plugin-matrix@1.0.0" },
       appVersion: "0.0.0",
       run: createNpmResolverRun({
         fetch: packumentFetch({
-          "3.0.0": { bb: ">=99", sdk: ">=99" },
-          "2.0.0": { bb: ">=99", sdk: `^${PLUGIN_SDK_VERSION}` },
+          "3.0.0": { hyperfide: ">=99", sdk: ">=99" },
+          "2.0.0": { hyperfide: ">=99", sdk: `^${PLUGIN_SDK_VERSION}` },
           "1.0.0": {},
         }),
       }),
@@ -172,7 +172,7 @@ describe("npm update candidate selection", () => {
       devMode: true,
       candidate: { version: "2.0.0" },
       blocked: { version: { version: "3.0.0" } },
-      packagedBuildProblems: [{ engine: "bb", required: ">=99" }],
+      packagedBuildProblems: [{ engine: "hyperfide", required: ">=99" }],
     });
   });
 
@@ -227,7 +227,7 @@ describe("npm update candidate selection", () => {
 
 describe("git update resolution", () => {
   it("classifies tags and branches, detects a moved branch, and reports current", async () => {
-    const repo = await mkdtemp(join(tmpdir(), "bb-update-resolver-git-"));
+    const repo = await mkdtemp(join(tmpdir(), "hyperfide-update-resolver-git-"));
     cleanup.push(repo);
     await mkdir(repo, { recursive: true });
     await run("git", ["init", "-q", "-b", "main"], { cwd: repo });
@@ -307,7 +307,7 @@ describe("git semver tag resolution", () => {
     repo: string;
     commitOf: Map<string, string>;
   }> {
-    const repo = await mkdtemp(join(tmpdir(), "bb-git-tags-"));
+    const repo = await mkdtemp(join(tmpdir(), "hyperfide-git-tags-"));
     cleanup.push(repo);
     await run("git", ["init", "-q", "-b", "main"], { cwd: repo });
     await run("git", ["config", "user.email", "test@example.com"], {
@@ -378,7 +378,7 @@ describe("git semver tag resolution", () => {
   });
 
   it("asks the remote for release tags only, so unrelated tags cost nothing", async () => {
-    const repo = await mkdtemp(join(tmpdir(), "bb-git-many-tags-"));
+    const repo = await mkdtemp(join(tmpdir(), "hyperfide-git-many-tags-"));
     cleanup.push(repo);
     await run("git", ["init", "-q", "-b", "main"], { cwd: repo });
     await run("git", ["config", "user.email", "test@example.com"], {
@@ -518,7 +518,7 @@ describe("git semver tag resolution", () => {
     }
   });
 
-  it("walks down to the newest release this bb can run", async () => {
+  it("walks down to the newest release this hyperfide can run", async () => {
     const { repo, commitOf } = await tagRepo();
     const probed: string[] = [];
 
@@ -539,10 +539,10 @@ describe("git semver tag resolution", () => {
               devMode: false,
               reasons: [
                 {
-                  engine: "bb",
+                  engine: "hyperfide",
                   required: ">=99.0.0",
                   actual: "1.0.0",
-                  message: "requires bb >=99.0.0, running bb is 1.0.0",
+                  message: "requires hyperfide >=99.0.0, running hyperfide is 1.0.0",
                 },
               ],
             }
@@ -561,7 +561,7 @@ describe("git semver tag resolution", () => {
       candidate: { version: commitOf.get("v1.1.0") },
       blocked: {
         version: { version: commitOf.get("v2.0.0") },
-        reasons: [{ engine: "bb" }],
+        reasons: [{ engine: "hyperfide" }],
       },
     });
   });
@@ -584,10 +584,10 @@ describe("git semver tag resolution", () => {
           devMode: false,
           reasons: [
             {
-              engine: "bb",
+              engine: "hyperfide",
               required: ">=99.0.0",
               actual: "1.0.0",
-              message: "requires bb >=99.0.0, running bb is 1.0.0",
+              message: "requires hyperfide >=99.0.0, running hyperfide is 1.0.0",
             },
           ],
         }),
@@ -596,7 +596,7 @@ describe("git semver tag resolution", () => {
       outcome: "current",
       blocked: {
         version: { version: commitOf.get("v1.1.0") },
-        reasons: [{ engine: "bb" }],
+        reasons: [{ engine: "hyperfide" }],
       },
     });
   });

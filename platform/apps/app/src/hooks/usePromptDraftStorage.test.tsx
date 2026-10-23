@@ -13,8 +13,8 @@ import {
   usePromptDraftStorage,
 } from "./usePromptDraftStorage";
 
-const NEW_THREAD_DRAFT_KEY = "bb.promptbox.contents-draft-3";
-const LEGACY_PROJECT_DRAFT_KEY = "bb.promptbox.contents-proj_prompt-draft-3";
+const NEW_THREAD_DRAFT_KEY = "hyperfide.promptbox.contents-draft-3";
+const LEGACY_PROJECT_DRAFT_KEY = "hyperfide.promptbox.contents-proj_prompt-draft-3";
 
 function storedDraft(text: string): string {
   return JSON.stringify({ text, attachments: [] });
@@ -258,7 +258,7 @@ describe("usePromptDraftStorage", () => {
     );
 
     expect(result.current.storageKey).toBe(
-      "bb.promptbox.contents-proj_prompt-thr_followup-3",
+      "hyperfide.promptbox.contents-proj_prompt-thr_followup-3",
     );
   });
 
@@ -271,7 +271,7 @@ describe("usePromptDraftStorage", () => {
     );
 
     expect(result.current.storageKey).toBe(
-      "bb.promptbox.contents-automation-edit-auto_watchdog-3",
+      "hyperfide.promptbox.contents-automation-edit-auto_watchdog-3",
     );
   });
 });

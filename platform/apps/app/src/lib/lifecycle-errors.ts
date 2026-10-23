@@ -1,5 +1,5 @@
 import { assertNever } from "@hyperfide/core-ui";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import {
   lifecycleApiErrorSchema,
   type LifecycleApiError,
@@ -431,7 +431,7 @@ function describeDispatchHookFailed({
 }
 
 export function parseLifecycleError(error: unknown): LifecycleApiError | null {
-  if (!(error instanceof HttpError) && !(error instanceof BbHttpError)) {
+  if (!(error instanceof HttpError) && !(error instanceof HyperfideHttpError)) {
     return null;
   }
 

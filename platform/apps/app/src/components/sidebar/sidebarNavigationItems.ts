@@ -86,7 +86,7 @@ export function createSidebarNavigationRows(
       const { chrome } = entry;
       const isAutomations = chrome.pluginId === AUTOMATIONS_PLUGIN_ID;
       return {
-        pluginId: isAutomations ? "__bb__" : chrome.pluginId,
+        pluginId: isAutomations ? "__hyperfide__" : chrome.pluginId,
         id: isAutomations ? "automations" : chrome.id,
         label: chrome.title,
         icon: { kind: "plugin", pluginId: chrome.pluginId, icon: chrome.icon },

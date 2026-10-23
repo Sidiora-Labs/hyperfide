@@ -41,7 +41,7 @@ export default {
   title: "right-panel/New tab",
 };
 
-const PROJECT_ID = "proj_bb";
+const PROJECT_ID = "proj_hyperfide";
 const ENVIRONMENT_ID = "env_open_file_story";
 const STORY_SOURCE_LIMIT = 40;
 const BLANK_THREAD_ID = "thr_new_tab_blank_story";
@@ -505,7 +505,7 @@ function NewTabPanelStory({
       </div>
     ) : outcome.kind === "terminal" ? (
       <div className="flex min-h-full flex-col justify-center bg-neutral-950 px-4 font-mono text-xs text-emerald-100">
-        <p>$ bb terminal start</p>
+        <p>$ hyperfide terminal start</p>
         <p className="pt-1 text-emerald-300">
           Terminal tab opened from the New tab page
           {outcome.hostName === null ? "." : ` on ${outcome.hostName}.`}

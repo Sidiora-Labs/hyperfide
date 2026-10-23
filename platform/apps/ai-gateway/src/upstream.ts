@@ -70,7 +70,7 @@ function upstreamHeaders(apiKey: string): Record<string, string> {
   return {
     authorization: `Bearer ${apiKey}`,
     "content-type": "application/json",
-    "X-Title": "bb",
+    "X-Title": "hyperfide",
   };
 }
 

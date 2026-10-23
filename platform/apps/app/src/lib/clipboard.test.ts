@@ -62,7 +62,7 @@ afterEach(() => {
 describe("copyToClipboard", () => {
   it("writes through the desktop clipboard before the browser APIs", async () => {
     const writeClipboard = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("bbDesktop", { writeClipboard });
+    vi.stubGlobal("hyperfideDesktop", { writeClipboard });
     const write = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -84,8 +84,8 @@ describe("copyToClipboard", () => {
   });
 
   it("falls back to the Clipboard API when the desktop clipboard rejects", async () => {
-    vi.stubGlobal("bbDesktop", {
-      writeClipboard: vi.fn().mockRejectedValue(new Error("not a bb window")),
+    vi.stubGlobal("hyperfideDesktop", {
+      writeClipboard: vi.fn().mockRejectedValue(new Error("not a hyperfide window")),
     });
     const writeText = vi.fn().mockResolvedValue(undefined);
     installClipboard(writeText);

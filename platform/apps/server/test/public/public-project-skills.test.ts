@@ -198,7 +198,7 @@ async function writePluginSkillFixture(rootPath: string): Promise<{
     JSON.stringify({
       name: "hyperfide-plugin-skill-catalog-fixture",
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Skill catalog fixture",
         description: "Contributes one readable skill.",
         branding: { icon: "Zap" },
@@ -260,16 +260,16 @@ describe("public project skills route", () => {
           hostId: host.id,
           sessionId: session.id,
           skillsByProvider: {
-            "bb-shared": [
+            "hyperfide-shared": [
               discovered(
                 "portable-review",
                 "shared-project",
                 "/tmp/shared-skill-list/.agents/skills/portable-review/SKILL.md",
               ),
               discovered(
-                "repo-bb-skill",
-                "bb-project",
-                "/tmp/shared-skill-list/.hyperfide/skills/repo-bb-skill/SKILL.md",
+                "repo-hyperfide-skill",
+                "hyperfide-project",
+                "/tmp/shared-skill-list/.hyperfide/skills/repo-hyperfide-skill/SKILL.md",
               ),
             ],
           },
@@ -297,7 +297,7 @@ describe("public project skills route", () => {
           registrySkillId: null,
         });
         expect(body.skills.map((skill) => skill.name)).not.toContain(
-          "repo-bb-skill",
+          "repo-hyperfide-skill",
         );
         expect(warn).not.toHaveBeenCalledWith(
           expect.anything(),
@@ -928,7 +928,7 @@ describe("public project skills route", () => {
     });
   });
 
-  it("imports a registry package into server-owned bb user storage", async () => {
+  it("imports a registry package into server-owned hyperfide user storage", async () => {
     await withTestHarness(async (harness) => {
       const filePath = "/data/skills/find-skills/SKILL.md";
       installServerRegistrySkillMock.mockResolvedValueOnce({ filePath });
@@ -1056,7 +1056,7 @@ describe("public project skills route", () => {
     });
   });
 
-  it("maps scope, de-dupes shared bb skills, and sorts the listing", async () => {
+  it("maps scope, de-dupes shared hyperfide skills, and sorts the listing", async () => {
     await withTestHarness(async (harness) => {
       const { host, session } = seedHostSession(harness.deps, {
         id: "host-skills",
@@ -1070,17 +1070,17 @@ describe("public project skills route", () => {
         projectId: project.id,
         path: "/tmp/skills-env",
       });
-      const bbSkill = discovered(
-        "bb-helper",
-        "bb-data-dir",
-        "/data/skills/bb-helper/SKILL.md",
+      const hyperfideSkill = discovered(
+        "hyperfide-helper",
+        "hyperfide-data-dir",
+        "/data/skills/hyperfide-helper/SKILL.md",
       );
       const stub = registerSkillRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         skillsByProvider: {
           "claude-code": [
-            bbSkill,
+            hyperfideSkill,
             discovered(
               "cp",
               "provider-project",
@@ -1093,7 +1093,7 @@ describe("public project skills route", () => {
             ),
           ],
           codex: [
-            bbSkill,
+            hyperfideSkill,
             discovered(
               "cx",
               "provider-user",
@@ -1121,13 +1121,13 @@ describe("public project skills route", () => {
       const body = skillListResponseSchema.parse(await readJson(response));
       expect(body.skills).toEqual([
         {
-          id: skillId("/data/skills/bb-helper/SKILL.md"),
-          name: "bb-helper",
-          description: "bb-helper skill",
+          id: skillId("/data/skills/hyperfide-helper/SKILL.md"),
+          name: "hyperfide-helper",
+          description: "hyperfide-helper skill",
           provider: null,
-          scope: "bb-user",
+          scope: "hyperfide-user",
           pluginId: null,
-          filePath: "/data/skills/bb-helper/SKILL.md",
+          filePath: "/data/skills/hyperfide-helper/SKILL.md",
           manageable: true,
           registrySkillId: null,
         },
@@ -1278,17 +1278,17 @@ describe("public project skills route", () => {
           {
             filePath: join(registrySkillDirectory, "SKILL.md"),
             registrySkillId: "github.com/vercel-labs/skills/find-skills",
-            scope: "bb-user",
+            scope: "hyperfide-user",
           },
         ]),
       );
       expect(
         listed.skills.find((skill) => skill.name === "manual-skill"),
-      ).toMatchObject({ scope: "bb-user", registrySkillId: null });
+      ).toMatchObject({ scope: "hyperfide-user", registrySkillId: null });
     });
   });
 
-  it("lists and reads a bb plugin skill from the authoritative runtime catalog", async () => {
+  it("lists and reads a hyperfide plugin skill from the authoritative runtime catalog", async () => {
     const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-skill-route-"));
     try {
       await withTestHarness(async (harness) => {
@@ -1358,7 +1358,7 @@ describe("public project skills route", () => {
     }
   });
 
-  it("deletes a bb skill via the confined daemon primitive", async () => {
+  it("deletes a hyperfide skill via the confined daemon primitive", async () => {
     await withTestHarness(async (harness) => {
       const { host, session } = seedHostSession(harness.deps, {
         id: "host-skill-delete",
@@ -1378,13 +1378,13 @@ describe("public project skills route", () => {
         skillsByProvider: {
           "claude-code": [
             discovered(
-              "bb-helper",
-              "bb-data-dir",
-              "/data/skills/bb-helper/SKILL.md",
+              "hyperfide-helper",
+              "hyperfide-data-dir",
+              "/data/skills/hyperfide-helper/SKILL.md",
             ),
           ],
         },
-        deletedPath: "/data/skills/bb-helper",
+        deletedPath: "/data/skills/hyperfide-helper",
       });
 
       const response = await harness.app.request(
@@ -1393,7 +1393,7 @@ describe("public project skills route", () => {
           method: "DELETE",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            skillId: skillId("/data/skills/bb-helper/SKILL.md"),
+            skillId: skillId("/data/skills/hyperfide-helper/SKILL.md"),
             environmentId: environment.id,
           }),
         },
@@ -1401,15 +1401,15 @@ describe("public project skills route", () => {
 
       expect(response.status).toBe(200);
       expect(await readJson(response)).toEqual({
-        deletedPath: "/data/skills/bb-helper",
+        deletedPath: "/data/skills/hyperfide-helper",
       });
       const deleteCommand = stub.requests
         .map((request) => request.command)
         .find((command) => command.type === "host.delete_skill");
       expect(deleteCommand).toEqual({
         type: "host.delete_skill",
-        scope: "bb-user",
-        name: "bb-helper",
+        scope: "hyperfide-user",
+        name: "hyperfide-helper",
         cwd: "/tmp/skill-delete-env",
         rootPath: null,
       });
@@ -1647,7 +1647,7 @@ describe("public project skills route", () => {
     });
   });
 
-  it("returns 409 for stale bb and provider skill revisions", async () => {
+  it("returns 409 for stale hyperfide and provider skill revisions", async () => {
     await withTestHarness(async (harness) => {
       const { host, session } = seedHostSession(harness.deps, {
         id: "host-stale-skill-edit",
@@ -1657,21 +1657,21 @@ describe("public project skills route", () => {
         hostId: host.id,
         path: "/tmp/stale-skill-edit-project",
       });
-      const bbPath = "/data/skills/review/SKILL.md";
+      const hyperfidePath = "/data/skills/review/SKILL.md";
       const providerPath = "/home/.claude/skills/review/SKILL.md";
       const stub = registerSkillRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
         skillsByProvider: {
           "claude-code": [
-            discovered("review", "bb-data-dir", bbPath),
+            discovered("review", "hyperfide-data-dir", hyperfidePath),
             discovered("review", "provider-user", providerPath),
           ],
         },
         writeConflicts: true,
       });
 
-      for (const id of [skillId(bbPath), skillId(providerPath)]) {
+      for (const id of [skillId(hyperfidePath), skillId(providerPath)]) {
         const response = await harness.app.request(
           `/api/v1/projects/${project.id}/skills/content`,
           {
@@ -1690,7 +1690,7 @@ describe("public project skills route", () => {
 
       expect(stub.requests.map((request) => request.command)).toContainEqual({
         type: "host.write_skill",
-        scope: "bb-user",
+        scope: "hyperfide-user",
         name: "review",
         cwd: "/tmp/stale-skill-edit-project",
         content: "# Stale",
@@ -1708,7 +1708,7 @@ describe("public project skills route", () => {
     });
   });
 
-  it("rejects a bb-project delete when no workspace resolves", async () => {
+  it("rejects a hyperfide-project delete when no workspace resolves", async () => {
     await withTestHarness(async (harness) => {
       const { host: hostA, session } = seedHostSession(harness.deps, {
         id: "host-primary",
@@ -1725,9 +1725,9 @@ describe("public project skills route", () => {
         skillsByProvider: {
           "claude-code": [
             discovered(
-              "bb-helper",
-              "bb-project",
-              "/missing/.hyperfide/skills/bb-helper/SKILL.md",
+              "hyperfide-helper",
+              "hyperfide-project",
+              "/missing/.hyperfide/skills/hyperfide-helper/SKILL.md",
             ),
           ],
         },
@@ -1739,7 +1739,7 @@ describe("public project skills route", () => {
           method: "DELETE",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            skillId: skillId("/missing/.hyperfide/skills/bb-helper/SKILL.md"),
+            skillId: skillId("/missing/.hyperfide/skills/hyperfide-helper/SKILL.md"),
             environmentId: null,
           }),
         },

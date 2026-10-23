@@ -81,7 +81,7 @@ async function startSession(): Promise<string> {
 }
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-zero-work-ws-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-zero-work-ws-"));
   stubFakeCodexAppServer();
   harness = createBridgeJsonRpcTestHarness(handleLine);
 });

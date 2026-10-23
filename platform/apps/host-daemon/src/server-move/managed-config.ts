@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import {
-  formatBbAppConfigPath,
-  parseBbAppManagedConfig,
-} from "@hyperfide/config/bb-app-managed-config";
+  formatHyperfideAppConfigPath,
+  parseHyperfideAppManagedConfig,
+} from "@hyperfide/config/hyperfide-app-managed-config";
 import { mutateManagedJsonFile } from "@hyperfide/config/managed-json-file";
 import { isFileNotFoundError } from "./fs.js";
 
@@ -42,9 +42,9 @@ async function readManagedConfigObject(
     throw error;
   }
   const parsed: unknown = JSON.parse(raw);
-  parseBbAppManagedConfig(parsed);
+  parseHyperfideAppManagedConfig(parsed);
   if (!isJsonObject(parsed)) {
-    throw new Error(`Invalid bb-app config at ${path}`);
+    throw new Error(`Invalid hyperfide-app config at ${path}`);
   }
   return parsed;
 }
@@ -53,13 +53,13 @@ async function updateManagedConfig(
   dataDir: string,
   update: (current: Record<string, unknown>) => Record<string, unknown>,
 ): Promise<void> {
-  const path = formatBbAppConfigPath(dataDir);
+  const path = formatHyperfideAppConfigPath(dataDir);
   await mutateManagedJsonFile({
     path,
     read: () => readManagedConfigObject(path),
     mutate: (current) => {
       const next = update(current);
-      parseBbAppManagedConfig(next);
+      parseHyperfideAppManagedConfig(next);
       return next;
     },
   });

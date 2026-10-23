@@ -1,7 +1,7 @@
 import { findProviderEnvironmentContainingPath } from "@hyperfide/db";
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
-import { isBbManagedWorkspacePath } from "../threads/workspace-paths.js";
+import { isHyperfideManagedWorkspacePath } from "../threads/workspace-paths.js";
 import {
   getInstalledPlugin,
   getInstalledPluginRegistration,
@@ -132,7 +132,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
     if (bundledName === undefined) {
       if (!pluginId.startsWith(BUILTIN_PLUGIN_ID_PREFIX)) return;
       throw new Error(
-        `install refused: plugin ids starting with "${BUILTIN_PLUGIN_ID_PREFIX}" are reserved for plugins bundled with bb; rename the package so its id "${pluginId}" does not start with "${BUILTIN_PLUGIN_ID_PREFIX}"`,
+        `install refused: plugin ids starting with "${BUILTIN_PLUGIN_ID_PREFIX}" are reserved for plugins bundled with hyperfide; rename the package so its id "${pluginId}" does not start with "${BUILTIN_PLUGIN_ID_PREFIX}"`,
       );
     }
     throw new Error(
@@ -317,7 +317,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
       identity.sourceIntent.kind === "git"
     ) {
       throw new Error(
-        `plugin "${pluginId}" is already installed; use \`bb plugin update ${pluginId}\` or remove it before reinstalling`,
+        `plugin "${pluginId}" is already installed; use \`hyperfide-platform plugin update ${pluginId}\` or remove it before reinstalling`,
       );
     }
   }
@@ -448,11 +448,11 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
             "plugin subdirectory",
           );
     if (
-      isBbManagedWorkspacePath({ dataDir: deps.dataDir, path: rootDir }) ||
+      isHyperfideManagedWorkspacePath({ dataDir: deps.dataDir, path: rootDir }) ||
       findProviderEnvironmentContainingPath(deps.db, rootDir) !== null
     ) {
       logger.warn(
-        `plugin "${rootDir}" is installed from inside a bb-managed workspace; ` +
+        `plugin "${rootDir}" is installed from inside a hyperfide-managed workspace; ` +
           "its source will be deleted when that environment is destroyed (e.g. when the owning thread is archived). " +
           "Reinstall from a stable path outside the managed workspace to avoid losing it.",
       );

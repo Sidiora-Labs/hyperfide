@@ -18,7 +18,7 @@ import type { ThreadStartParams } from "./generated/codex-app-server/schema/v2/T
 import type { UserInput as CodexUserInput } from "./generated/codex-app-server/schema/v2/UserInput.js";
 import type { AskForApproval } from "./generated/codex-app-server/schema/v2/AskForApproval.js";
 import type { ApprovalsReviewer } from "./generated/codex-app-server/schema/v2/ApprovalsReviewer.js";
-import { mapBbReasoningLevelToCodex } from "./models.js";
+import { mapHyperfideReasoningLevelToCodex } from "./models.js";
 
 export type CodexSessionOptions = {
   model?: string;
@@ -43,13 +43,13 @@ export interface CodexThreadPermissionSettings {
   sandbox: CodexSandboxMode;
 }
 
-export type BbThreadStartParams = ThreadStartParams & {
+export type HyperfideThreadStartParams = ThreadStartParams & {
   experimentalRawEvents?: boolean;
   dynamicTools?: DynamicToolSpec[];
   daybreakEnabled?: boolean;
 };
 
-export type BbThreadForkParams = {
+export type HyperfideThreadForkParams = {
   threadId: string;
   lastTurnId?: string | null;
   model?: string | null;
@@ -552,7 +552,7 @@ export function toCodexServiceTier(
 function toCodexReasoningEffort(
   reasoningLevel: ReasoningLevel,
 ): CodexReasoningEffort {
-  const codexEffort = mapBbReasoningLevelToCodex(reasoningLevel);
+  const codexEffort = mapHyperfideReasoningLevelToCodex(reasoningLevel);
   if (codexEffort == null) {
     throw new Error(
       `Codex does not support the ${reasoningLevel} reasoning level.`,

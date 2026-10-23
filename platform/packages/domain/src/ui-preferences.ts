@@ -152,7 +152,7 @@ export const uiPreferenceDefinitions = {
   "composer.provider": defineUiPreference(
     uiPreferenceStringSchema,
     "__automatic__",
-    "Plugin that draws the composer's input box: a plugin key such as bb--composer/composer, or __automatic__ for the first composer from a plugin you installed, then the bundled Composer plugin. With no composer plugin enabled, no composer is shown.",
+    "Plugin that draws the composer's input box: a plugin key such as hyperfide--composer/composer, or __automatic__ for the first composer from a plugin you installed, then the bundled Composer plugin. With no composer plugin enabled, no composer is shown.",
   ),
   "infoPanel.collapsedSections": defineUiPreference(
     uiPreferenceStringListSchema,

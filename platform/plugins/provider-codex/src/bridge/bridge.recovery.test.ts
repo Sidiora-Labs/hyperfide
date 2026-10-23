@@ -94,7 +94,7 @@ function threadDeltas(): unknown[] {
 }
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-recovery-ws-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-recovery-ws-"));
 });
 
 afterEach(async () => {

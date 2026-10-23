@@ -189,7 +189,7 @@ function runEchoTurn(args: {
       item: {
         type: "tool",
         tool: ECHO_STAMP_TOOL_NAME,
-        server: "bb",
+        server: "hyperfide",
         args: { text: prompt },
       },
       ...(stampTool.presentation === undefined
@@ -415,7 +415,7 @@ function finishEchoTurn(
       item: {
         type: "tool",
         tool: ECHO_STAMP_TOOL_NAME,
-        server: "bb",
+        server: "hyperfide",
         args: { text: turn.prompt },
         ...(stamp === null
           ? { error: "no reply" }

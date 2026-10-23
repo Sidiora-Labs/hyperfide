@@ -46,7 +46,7 @@ function assertServerManagementAllowed(context: GateAuthHeaderReader): void {
 }
 
 export const SERVER_MOVE_EXPERIMENT_DISABLED_MESSAGE =
-  'Moving the server is off. Turn on the "Server move" experiment in Settings → Experiments, or run bb settings experiment serverMove true, then try again.';
+  'Moving the server is off. Turn on the "Server move" experiment in Settings → Experiments, or run hyperfide settings experiment serverMove true, then try again.';
 
 function assertServerMoveExperimentEnabled(deps: AppDeps): void {
   if (!getExperiments(deps.db).serverMove) {
@@ -70,7 +70,7 @@ export async function readLastServerMove(
 }
 
 function serverExportFileName(now: Date): string {
-  return `bb-server-${now.toISOString().slice(0, 10)}.tar.gz`;
+  return `hyperfide-server-${now.toISOString().slice(0, 10)}.tar.gz`;
 }
 
 export function registerServerMoveRoutes(
@@ -162,7 +162,7 @@ export function registerServerMoveRoutes(
         "content-disposition": `attachment; filename="${fileName}"`,
         "content-length": String(archive.sizeBytes),
         "content-type": "application/gzip",
-        "x-bb-archive-sha256": archive.sha256,
+        "x-hyperfide-archive-sha256": archive.sha256,
       },
     });
   });

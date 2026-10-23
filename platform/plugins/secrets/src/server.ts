@@ -5,7 +5,7 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type PluginCliContext,
   type PluginCliResult,
 } from "@hyperfide/plugin-sdk";
@@ -184,7 +184,7 @@ function httpStatus(error: unknown): number | null {
 }
 
 async function readSnapshot(
-  api: BbPluginApi,
+  api: HyperfidePluginApi,
   args: { hostId: string; path: string },
 ): Promise<FileSnapshot> {
   try {
@@ -199,7 +199,7 @@ async function readSnapshot(
 }
 
 async function runRequest(
-  api: BbPluginApi,
+  api: HyperfidePluginApi,
   parsed: ParsedRequest,
   ctx: PluginCliContext,
 ): Promise<PluginCliResult> {
@@ -325,7 +325,7 @@ export const namedSecretContract = defineRpcContract({
   },
 });
 
-export default function plugin(api: BbPluginApi) {
+export default function plugin(api: HyperfidePluginApi) {
   const namedStore = new NamedSecretStore();
   api.rpc.register(namedSecretContract, {
     storeReference: async ({ value }) => ({

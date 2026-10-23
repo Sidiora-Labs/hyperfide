@@ -5,7 +5,7 @@ import {
   type BaseWindow,
   type MenuItemConstructorOptions,
 } from "electron";
-import type { BbDesktopZoomCommand } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopZoomCommand } from "@hyperfide/desktop-contract";
 import type { ApplicationMenuAccelerators } from "./desktop-menu-shortcuts.js";
 import { builtinServerName } from "./server-target.js";
 
@@ -17,15 +17,15 @@ const NEW_WINDOW_MENU_LABEL = "New Window";
 const CLOSE_WINDOW_MENU_LABEL = "Close Window";
 const OPEN_SETTINGS_MENU_LABEL = "Settings…";
 const VIEW_LICENSE_MENU_LABEL = "View License";
-const LICENSE_URL = "https://github.com/get-bb/bb/blob/main/LICENSE";
+const LICENSE_URL = "https://github.com/hyperfide/hyperfide/blob/main/LICENSE";
 const TOGGLE_DEVELOPER_TOOLS_MENU_LABEL = "Toggle Developer Tools";
 const TOGGLE_DEVELOPER_TOOLS_ACCELERATOR = "Command+Option+I";
 const RELOAD_ACCELERATOR = "CommandOrControl+R";
 const FORCE_RELOAD_ACCELERATOR = "CommandOrControl+Shift+R";
 const DESKTOP_SETTINGS_MENU_LABEL = "Desktop Settings";
 const SERVER_MENU_LABEL = "Server";
-const DESKTOP_SETTINGS_SERVER_MENU_ITEM_ID = "bb-desktop-settings-server-menu";
-const WINDOW_SERVER_MENU_ITEM_ID = "bb-server-menu";
+const DESKTOP_SETTINGS_SERVER_MENU_ITEM_ID = "hyperfide-desktop-settings-server-menu";
+const WINDOW_SERVER_MENU_ITEM_ID = "hyperfide-server-menu";
 const SERVER_MENU_ITEM_IDS = [
   DESKTOP_SETTINGS_SERVER_MENU_ITEM_ID,
   WINDOW_SERVER_MENU_ITEM_ID,
@@ -51,7 +51,7 @@ export interface InstallApplicationMenuArgs {
     browserWindow: BaseWindow | undefined,
     ignoreCache: boolean,
   ): void;
-  zoomFocusedPage(command: BbDesktopZoomCommand): void;
+  zoomFocusedPage(command: HyperfideDesktopZoomCommand): void;
   closeWindowOrSideTab(browserWindow: BaseWindow | undefined): void;
   createNewWindow(): void;
   openLocalLogs(): void;

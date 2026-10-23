@@ -7,9 +7,9 @@ import {
 } from "@hyperfide/config/app-surface";
 import type { Context } from "hono";
 
-export const TRUSTED_REMOTE_ADDRESS_CONTEXT_KEY = "bbTrustedRemoteAddress";
-const GATE_AUTH_HEADER_NAME = "x-bb-gate-auth";
-const GATE_MACHINE_ID_HEADER_NAME = "x-bb-gate-machine-id";
+export const TRUSTED_REMOTE_ADDRESS_CONTEXT_KEY = "hyperfideTrustedRemoteAddress";
+const GATE_AUTH_HEADER_NAME = "x-hyperfide-gate-auth";
+const GATE_MACHINE_ID_HEADER_NAME = "x-hyperfide-gate-machine-id";
 type GateAuthKind = "machine" | "session";
 
 export interface GateAuthHeaderReader {

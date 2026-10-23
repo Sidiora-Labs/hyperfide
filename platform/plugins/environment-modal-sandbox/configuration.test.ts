@@ -5,7 +5,7 @@ function settings(overrides: Partial<RawSettings> = {}): RawSettings {
   return {
     tokenId: "token-id",
     tokenSecret: "token-secret",
-    appName: "bb-sandboxes",
+    appName: "hyperfide-sandboxes",
     idleMinutes: 15,
     ...overrides,
   };

@@ -1,4 +1,4 @@
-# bb-plugin-thread-chat-demo
+# Hyperfide-plugin-thread-chat-demo
 
 Demonstrates the SDK's host-owned `ThreadChat` component and the
 `messageAction` slot:
@@ -11,7 +11,7 @@ Demonstrates the SDK's host-owned `ThreadChat` component and the
   page-owned registration and a typed thread target. The tab validates and
   renders that session target across panel and route remounts without putting
   it in the URL or persisted panel state. "View source" also demonstrates
-  imperative URL opening through BB's preference router.
+  imperative URL opening through HYPERFIDE's preference router.
 - **Message action "Open in demo panel"** — appears on every chat message's
   action bar and in the assistant-message text-selection menu. It opens this
   plugin's own thread panel via `context.openPanel({ actionId, params })`,
@@ -22,7 +22,7 @@ Demonstrates the SDK's host-owned `ThreadChat` component and the
 ## Install
 
 ```
-bb plugin install ./examples/plugins/thread-chat-demo
+hyperfide-platform plugin install ./examples/plugins/thread-chat-demo
 ```
 
 ## Try it
