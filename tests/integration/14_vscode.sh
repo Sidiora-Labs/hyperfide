@@ -2306,7 +2306,10 @@ JS
     printf '\n[hierarchy]\nmain = "main"\n' >> spec/workflow.kvx
     git add -A >/dev/null; git commit -qm base >/dev/null
     "$CG" fleet begin 2.1 >/dev/null
-    "$CG" fleet begin 2.2 >/dev/null
+    # 2.2 writes src/a.ts outside its touches (src/b.ts) so the projection
+    # has a cross-branch finding; a sparse slice cannot hold that write, so
+    # this worker takes the whole tree with that reason recorded
+    "$CG" fleet begin 2.2 --full-tree DRIFT_UNDER_TEST >/dev/null
     pwt="$(pwd -P)/.codegraph/worktrees"
     (cd "$pwt/task-fleet-2.1" && sed -i 's/x + 1;/x + 10;/' src/a.ts &&
      git commit -qam head && "$CG" sync >/dev/null)
