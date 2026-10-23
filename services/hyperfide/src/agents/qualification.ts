@@ -42,9 +42,6 @@ export interface ConnectorQualificationAuthority {
  receipt(profileId:string):SignedConnectorReceipt|null;
  publicKey():string;
 }
-export function isConnectorQualificationAuthority(v:unknown):v is ConnectorQualificationAuthority{
- return object(v)&&v.schema_version===1&&typeof v.record==='function'&&typeof v.inspect==='function'&&typeof v.qualification==='function'&&typeof v.receipt==='function'&&typeof v.publicKey==='function';
-}
 /* Structural subset of the 14.3 identity.native-auth authority; kept local so this module does not load its runtime. */
 interface NativeAuthView {resolve(profileId:string):AuthProfileSnapshot;probe(i:InvocationContext,profileId:string):Promise<unknown>}
 function isNativeAuthView(v:unknown):v is NativeAuthView{return object(v)&&typeof v.resolve==='function'&&typeof v.probe==='function';}

@@ -102,9 +102,6 @@ export function isGateway(value:unknown):value is TransactionGateway{return obje
 export function gateway(context:ComponentContext):TransactionGateway {
  return context.dependencies.require('4.2','storage.transactions.v1',isGateway);
 }
-export function isHierarchyAuthority(value:unknown):value is HierarchyAuthority {
- return object(value)&&typeof value.leadership==='function'&&typeof value.requireAuthority==='function';
-}
 export async function leadership(tx:PrimaryTransaction,scope:Scope):Promise<Leadership> {
  assertPrimaryTransaction(tx);await ready(tx);
  const result=await tx.query('SELECT authority_epoch,leader_session_id,generation::text AS leader_generation FROM hyperfide.hierarchy_leaders WHERE organisation_id=$1 AND run_id=$2 FOR SHARE',[uuid(scope.organisation_id),uuid(scope.run_id)]);

@@ -583,10 +583,10 @@ export interface ProviderReadinessCapability {
 export function isProviderReadinessCapability(value:unknown):value is ProviderReadinessCapability {
  return !!value&&typeof value==='object'&&['registerPublicationVerifier','registerArtifactReferenceReader','readRuntimeReadiness','publishVerifiedRuntimeReadiness'].every(k=>typeof (value as Record<string,unknown>)[k]==='function');
 }
-/** Private transaction-bound producer API. The actual12 retained-receipt
+/** Private transaction-bound producer API. The actual retained-receipt
  * publisher must first verify the signed/root-sealed result, stored artifact
  * bytes and independently measured source. No JSON action exposes this method.
- * Lower08 revalidates its own authority, immutable profile/source identities,
+ * Lower revalidates its own authority, immutable profile/source identities,
  * retained metadata and current physical binding in the caller's transaction. */
 export async function publishVerifiedRuntimeReadiness(tx:PrimaryTransaction,invocation:InvocationContext,
  raw:VerifiedRuntimeReadinessPublication,producerProof:unknown,reader:ProviderArtifactReferenceReader,verifier:RuntimeReadinessPublicationVerifier):Promise<{created:boolean;id:string;readiness_digest:string;state:string;authority:'OBSERVATION_ONLY'}>{

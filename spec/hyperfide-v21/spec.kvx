@@ -1272,7 +1272,7 @@ owner = "qualification"
 
 [task.7.10]
 title = "Remove dead modules and tables"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.6"]
 touches = ["services/hyperfide/src/preparation/checkpoint.ts", "services/hyperfide/src/transport/writer_observation.ts", "services/hyperfide/migrations", "scripts/index.html"]

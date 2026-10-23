@@ -368,7 +368,7 @@ export class RailwaySessionSpool {
     return receipt;
   }
   /** Seal terminal verified bytes in bounded segments. This method must receive the
-   * original authenticated15 invocation and08's actual resource/boot binding. */
+   * original authenticated invocation and its actual resource/boot binding. */
   async sealStreams(operationId:string,invoke:RailwayArtifactInvoke,binding:RailwayArchiveBinding,maxSegmentChunks=2048):Promise<{
     index:RailwayStreamIndex;reference:RailwayArchiveReference;segment_references:RailwayArchiveReference[];complete:true;authority:'NONE'
   }> {

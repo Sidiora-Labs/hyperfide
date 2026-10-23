@@ -202,12 +202,14 @@ def validators(service):
 def schema_checks(service):
     tables=set("""organisations projects repositories source_objects spec_revisions runs run_spec_revisions
 run_repositories feature_packages tasks task_dependencies environment_profiles provider_pools capacity_accounts
-reservations sandboxes sandbox_boots worker_slots attempts compute_leases slot_allocations agent_sessions preparation_references
-workspaces branch_observations branch_authorities artifacts artifact_dependencies checkpoints evidence evidence_artifacts submission_custodies
+reservations sandboxes sandbox_boots worker_slots attempts compute_leases slot_allocations agent_sessions
+workspaces branch_authorities artifacts artifact_dependencies checkpoints evidence evidence_artifacts submission_custodies
 submission_evidence qualification_jobs requalification_operations integration_candidates candidate_custodies candidate_evidence
-publication_intents publication_operations contracts findings finding_observations review_coverage review_coverage_inputs
+publication_intents publication_operations contracts findings finding_observations review_coverage
 graph_builds graph_manifests graph_channels parse_blobs graph_files graph_symbols graph_references graph_edges
 command_inbox event_consumers outbox_events event_deliveries""".split())
+    # 0001 still creates these; migration 0716 (v21 7.10) drops them, and this gate installs 0001 alone.
+    retired={"preparation_references","branch_observations","review_coverage_inputs"}
     checksum="sha256:"+hashlib.sha256((ROOT/"services/hyperfide/migrations/0001-authority.sql").read_bytes()).hexdigest()
     def describe():
         result=service.ok("authority.schema.describe")
@@ -237,10 +239,10 @@ command_inbox event_consumers outbox_events event_deliveries""".split())
     def inspect():
         result=service.ok("authority.database.inspect")
         observed=set(sql("SELECT table_name FROM information_schema.tables WHERE table_schema='hyperfide' AND table_type='BASE TABLE';").stdout.split())
-        expect(observed==tables|{"schema_migrations"},"database does not contain the declared entity inventory")
+        expect(observed==tables|retired|{"schema_migrations"},"database does not contain the declared entity inventory")
         foreign_keys=int(sql("SELECT count(*) FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE n.nspname='hyperfide' AND c.contype='f';").stdout.strip())
         indexes=int(sql("SELECT count(*) FROM pg_indexes WHERE schemaname='hyperfide';").stdout.strip())
-        expect(set(result["tables"])==tables and result["checksum"]==checksum and result["schema_version"]==1,
+        expect(set(result["tables"])==tables|retired and result["checksum"]==checksum and result["schema_version"]==1,
                "inspection does not describe the exact applied schema")
         expect(result["foreign_key_count"]==foreign_keys and foreign_keys>30 and result["index_count"]==indexes and indexes>30,
                "inspection constraint/index counts differ from PostgreSQL catalogue")

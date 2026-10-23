@@ -366,7 +366,7 @@ export function createBlaxelAdapter(scope:ProviderScope,hooks:BlaxelPersistenceH
     }
     await bound(op,parent);attempted=true;await read(()=>instance.process.stop(stop.parameters.process_ref),op,parent);
     // Stopping the API parent is not independent proof that its complete job
-    // tree is gone. Native12 cancellation or physical sandbox isolation supplies
+    // tree is gone. Native cancellation or physical sandbox isolation supplies
     // that proof; keep resource ownership and require reconciliation meanwhile.
     return save(op,outcome(op,'UNKNOWN',null));
    }
@@ -440,7 +440,7 @@ async function readPrivateBlaxelPolicy(ctx:ComponentContext,scope:ProviderScope,
   fail('BLAXEL_POLICY_UNAVAILABLE','Provider policy body differs from durable configuration digest');
  validateBlaxelLifetimePolicy(body.lifecycle);object(body.network);object(body.runtime_extra_args);
  const refs=object(body.runtime_env_refs);
- // Current14 deliberately refuses preboot secret resolution. Preview runtime
+ // Current deliberately refuses preboot secret resolution. Preview runtime
  // updates remain gated; process references are injected only after RUNNING.
  if(Object.keys(refs).length)fail('BLAXEL_RUNTIME_ENV_UNSUPPORTED','Preboot worker credentials and unqualified runtime updates are disabled; use post-enrollment process references');
  if(!Array.isArray(body.volumes)||body.volumes.length>16)fail('BLAXEL_POLICY_UNAVAILABLE','Bounded volume policy required');

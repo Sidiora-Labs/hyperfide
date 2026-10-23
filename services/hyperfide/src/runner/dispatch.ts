@@ -37,7 +37,7 @@ export async function launchEnvReferences(tx:Pick<PrimaryTransaction,'query'>,or
 export function startInstructionBody(selected:RunnerLaunchPlan,slot_id:string,env_refs:Readonly<Record<string,string>>):Record<string,unknown>{
  return {launch_id:selected.launch_id,slot_id,agent_session_id:selected.agent_session_id,connector_plan_digest:selected.connector_plan_digest,...(Object.keys(env_refs).length?{env_refs:{...env_refs}}:{})};
 }
-/** Trusted13 startup code supplies the qualified model/connector plan. Models
+/** Trusted startup code supplies the qualified model/connector plan. Models
  * cannot submit a callback or turn their own launch labels into authority. */
 export type RunnerPlanReader=(tx:PrimaryTransaction,input:RunnerSpawnInput,invocation:InvocationContext)=>Promise<RunnerLaunchPlan|null>;
 export interface RunnerDispatch {

@@ -274,7 +274,6 @@ async function append(tx:Tx,scope:Scope,id:string,aggregate:string,version:numbe
 }
 /** Launch admission seam: a 13.x launcher consumes only a durable, non-terminal 1.3 selection. */
 export interface FrontierRouteAuthority {selectedRoute(tx:Tx,scope:Scope,selection_id:string):Promise<Record<string,unknown>>}
-export function isFrontierRouteAuthority(v:unknown):v is FrontierRouteAuthority{return object(v)&&typeof v.selectedRoute==='function';}
 async function selectedRoute(tx:Tx,scope:Scope,selection_id:string):Promise<Record<string,unknown>>{
   const {selection,outcomes}=await storedEvents(tx,scope,uuid(selection_id));
   if(!selection)refuse('FRONTIER_SELECTION_UNKNOWN','No recorded frontier selection in this run');
