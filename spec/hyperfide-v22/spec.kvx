@@ -642,7 +642,7 @@ owner = "authority"
 
 [task.6.3]
 title = "Plugin state on the authority"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["6.2", "5.5", "4.4", "3.5"]
 touches = ["platform/plugins/hyperfide-spec/**", "platform/plugins/hyperfide-asks/**", "platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-dispatch/**", "platform/packages/hyperfide-authority/**", "services/hyperfide/src/**", "services/hyperfide/migrations/**", "tests/hyperfide/cases/v22/6_3.sh"]

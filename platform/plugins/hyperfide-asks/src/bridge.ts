@@ -1,3 +1,5 @@
+import type { PluginStorage } from '@hyperfide/authority';
+import { openAskStorage } from './storage.js';
 import { join } from "node:path";
 import type { GraphHost } from "./graph-host-projection.js";
 export type Policy = Record<string, "block" | "proceed-and-flag">;
@@ -74,6 +76,7 @@ export class AskBridge {
   constructor(
     private graph: GraphHost,
     private publish: (channel: string, payload: unknown) => void,
+    private storage?: PluginStorage,
   ) {}
   private async command(repository: string, args: string[]) {
     const { root, hostId } = await this.graph.resolveRepository(repository);
@@ -90,7 +93,11 @@ export class AskBridge {
       await this.command(repository, ["ask", "list", "--all", "--json"]),
     );
     if (!Array.isArray(data.asks)) throw new Error("Invalid ask list");
-    return data.asks.map(mirror);
+    const asks: Ask[] = data.asks.map(mirror);
+    const storage = this.storage ?? await openAskStorage(repository);
+    try { await storage.put('mirror', asks); }
+    finally { if (!this.storage) storage.close(); }
+    return asks;
   }
   async get(repository: string, id: string) {
     return (

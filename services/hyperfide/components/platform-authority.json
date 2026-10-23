@@ -6,6 +6,6 @@
   "module": "platform/authority.js",
   "entry": "createComponent",
   "api_version": 1,
-  "actions": ["authority.operator", "authority.health", "authority.receipt.read", "authority.evidence.read", "authority.transaction"],
+  "actions": ["authority.operator", "authority.health", "authority.receipt.read", "authority.evidence.read", "authority.transaction", "authority.plugin-state"],
   "requires": ["14.1"]
 }

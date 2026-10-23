@@ -10,5 +10,8 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "vitest": "^4.1.1"
+  },
+  "dependencies": {
+    "@hyperfide/authority": "workspace:*"
   }
 }
