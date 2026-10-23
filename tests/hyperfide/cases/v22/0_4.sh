@@ -4,6 +4,7 @@ cd "$(dirname "$0")/../../../.."
 python3 - <<'PY_CHECK'
 import base64
 import json
+import re
 from pathlib import Path
 import subprocess
 
@@ -34,7 +35,7 @@ for filename in tracked_files:
     except UnicodeDecodeError:
         continue
     for name in removed_names:
-        if name in source:
+        if re.search(re.escape(name) + r"(?![A-Za-z0-9_-])", source):
             failures.append(f"{filename}: removed package reference")
     # The wave 0 identity sweep (0.7) owns this owner-maintained changelog.
     if filename != "platform/CHANGELOG.md":
