@@ -335,7 +335,7 @@ owner = "spec"
 
 [task.2.3]
 title = "Run task: worker thread with packet"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["2.1", "1.4"]
 touches = ["platform/plugins/hyperfide-spec/**", "platform/apps/server/src/**", "tests/hyperfide/cases/v22/2_3.sh"]
