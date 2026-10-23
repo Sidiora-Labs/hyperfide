@@ -1,4 +1,4 @@
-// Task 3.1 has not landed. Reconcile this narrow RPC adapter with its bridge.
+// UI compatibility adapter for the Ask store RPCs; context is supplied by the thread binding.
 export interface Ask {
   id: string;
   repository: string;
@@ -23,13 +23,30 @@ export type BridgeCall = <T>(
 
 export function createAskBridge(call: BridgeCall) {
   return {
-    list: () => call<{ asks: Ask[] }>("list", {}),
+    list: async () => {
+      const result = await call<{
+        asks: (Omit<Ask, "id" | "task"> & {
+          id: string | number;
+          task: string | null;
+        })[];
+      }>("list", {});
+      return {
+        asks: result.asks.map((row) => ({
+          ...row,
+          id: String(row.id),
+          task: row.task ?? "",
+        })),
+      };
+    },
     policy: () =>
       call<Record<string, "block" | "proceed-and-flag">>("policy", {}),
     context: (threadId: string, projectId: string) =>
       call<QuestionContext>("context", { threadId, projectId }),
-    get: (repository: string, id: string) =>
-      call<Ask>("get", { repository, id }),
+    get: async (repository: string, id: string) => {
+      const row = await call<Ask | null>("get", { repository, id });
+      if (!row) throw new Error("Unknown Ask");
+      return { ...row, repository, id: String(row.id), task: row.task ?? "" };
+    },
   };
 }
 

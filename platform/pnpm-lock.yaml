@@ -1528,6 +1528,9 @@ importers:
 
   packages/bundled-plugins:
     dependencies:
+      '@hyperfide/plugin-asks':
+        specifier: workspace:*
+        version: link:../../plugins/hyperfide-asks
       hyperfide-plugin-machine-railway:
         specifier: workspace:*
         version: link:../../plugins/machine-railway
