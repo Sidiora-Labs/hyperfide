@@ -31,6 +31,7 @@ export interface TaskRunner {
 }
 export interface DispatcherOptions {
   directory: string;
+  storage?: import("@hyperfide/authority").PluginStorage;
   machines: SandboxMachineOps;
   spec: SpecReadModel;
   runner: TaskRunner;

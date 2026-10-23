@@ -15,6 +15,7 @@
     "esbuild": "^0.28.0"
   },
   "dependencies": {
+    "@hyperfide/authority": "workspace:*",
     "@hyperfide/plugin-sdk": "workspace:*",
     "zod": "^4.3.6"
   },

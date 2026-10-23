@@ -15,7 +15,8 @@
   "dependencies": {
     "@hyperfide/plugin-sdk": "workspace:*",
     "zod": "^4.3.6",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "@hyperfide/authority": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",

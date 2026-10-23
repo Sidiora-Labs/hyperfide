@@ -1,5 +1,5 @@
 {
   "extends": ["@hyperfide/tsconfig/base.json", "@hyperfide/tsconfig/typecheck-overrides.json"],
   "compilerOptions": {"rootDir": ".", "types": ["node"]},
-  "include": ["src", "test"]
+  "include": ["src", "test", "bin"]
 }
