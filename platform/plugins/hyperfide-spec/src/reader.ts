@@ -93,8 +93,10 @@ export class SpecReader implements SpecRpc {
     if (!found) throw new Error(`Unknown task ${feature}/${id}`);
     const recalledDecisions: DurableMemory[] = [];
     for (const type of ['decision', 'constraint']) {
-      const result = await this.command(['recall', '--task', `${feature}/${id}`, '--type', type, '-n', '1000', '--json'], this.repository);
-      // Recall is an enrichment: a binary without durable memory, or a stubbed command, yields no decisions, not a failure.
+      // Recall is an enrichment: a binary without durable memory, a repository that is not a Hyperfide project,
+      // or a stubbed command yields no decisions, not a failure.
+      const result = await this.command(['recall', '--task', `${feature}/${id}`, '--type', type, '-n', '1000', '--json'], this.repository)
+        .catch((): Record<string, unknown> => ({}));
       const memories = Array.isArray(result.memories) ? result.memories : [];
       recalledDecisions.push(...memories.map(value => durableMemorySchema.parse(value))
         .filter(memory => memory.task === `${feature}/${id}` && memory.type === type));
