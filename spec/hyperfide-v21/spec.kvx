@@ -674,10 +674,10 @@ owner = "ask"
 
 [task.3.15]
 title = "Launch references have a producer"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.10", "2.17"]
-touches = ["services/hyperfide/src/agents/dispatch.ts", "services/hyperfide/src/agents/env_refs.ts", "services/hyperfide/src/agents/admission.ts", "services/hyperfide/migrations/0713-launch-plan-env-refs.sql", "src/hyperfide/launch.c", "tests/hyperfide/cases/v21/3_15.py"]
+touches = ["services/hyperfide/src/agents/dispatch.ts", "services/hyperfide/src/agents/env_refs.ts", "services/hyperfide/src/agents/admission.ts", "services/hyperfide/migrations/0713-launch-plan-env-refs.sql", "src/hyperfide/launch.c", "tests/hyperfide/cases/v21/3_15.py", "services/hyperfide/src/policy/human_interface.ts", "spec/hyperfide-v21/spec.kvx"]
 verify_cmd = "npm --prefix services/hyperfide run check && make -j2 cg && python3 tests/hyperfide/cases/v21/3_15.py"
 do_1 = "An agent launch's declared secret references live on the admission selection: the pool profile's task declaration (taskEnvReferences) is copied into hyperfide.native_launch_plans (new env_refs column, migration 0713) by the admission path that creates the plan, through a helper in agents/env_refs.ts called once from admission.ts, and agents/dispatch.ts launchPlan() returns them, so every coordinator-issued START carries env_refs without a hand-built request; under launch.serve, launch.c resolves references per START from the provider-resolved environment of the exec that started the serve process, re-read at each START, and refuses a START whose references it cannot resolve with a named error instead of launching without them."
 do_2 = "3_15.py proves a plan created from a pool profile with declared references stores them, launchPlan() returns them, the START carries exactly the declared names and never a value, a serve-mode launch resolves them per START, and a START naming an undeclared reference is refused."
@@ -867,7 +867,7 @@ owner = "ask"
 
 [task.4.5]
 title = "Notification producers and the operator target"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["3.2"]
 touches = ["services/hyperfide/src/observability/notifications.ts", "services/hyperfide/components/4.5-operator.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "tests/fixtures/route_contract/server_only.txt", "tests/hyperfide/cases/v21/4_5.py"]
@@ -906,7 +906,7 @@ owner = "ask"
 
 [task.4.8]
 title = "The integrator merge queue"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["3.8"]
 touches = ["services/hyperfide/src/integration/candidates.ts", "services/hyperfide/src/integration/closure.ts", "services/hyperfide/src/integration/queue.ts", "services/hyperfide/components/19.1-queue.json", "deploy/hyperfide/policies/control.example.json", "tests/fixtures/route_contract/server_only.txt", "tests/hyperfide/cases/v21/4_8.py"]
@@ -932,7 +932,7 @@ owner = "source"
 
 [task.4.10]
 title = "Railway sandbox fleet toolkit"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["1.1", "1.2"]
 touches = ["deploy/hyperfide/sandbox/package.json", "deploy/hyperfide/sandbox/fleet.json", "deploy/hyperfide/sandbox/lib.mjs", "deploy/hyperfide/sandbox/provision.mjs", "deploy/hyperfide/sandbox/run-job.mjs", "deploy/hyperfide/sandbox/dispatch.mjs", "deploy/hyperfide/sandbox/collect.mjs", "deploy/hyperfide/sandbox/collect-all.mjs", "deploy/hyperfide/sandbox/gen-jobs.py", "deploy/hyperfide/sandbox/status.py", "deploy/hyperfide/sandbox/README.md", "deploy/hyperfide/sandbox/.gitignore", "tests/integration/96_sandbox_toolkit.sh", "docs/hyperfide/operations.md"]
@@ -1010,7 +1010,7 @@ owner = "source"
 
 [task.5.6]
 title = "Storage engine bake-off"
-status = "pending"
+status = "done"
 wave = 5
 requires = ["1.11", "4.8"]
 touches = ["docs/hyperfide/source-engine-evaluation.md"]
@@ -1049,7 +1049,7 @@ owner = "editor"
 
 [task.6.2]
 title = "Needs view"
-status = "pending"
+status = "done"
 wave = 6
 requires = ["6.1", "5.3"]
 touches = ["editors/vscode/package.json", "editors/vscode/extension.js", "editors/vscode/serve.js", "editors/vscode/needs.js"]
@@ -1101,7 +1101,7 @@ owner = "editor"
 
 [task.6.6]
 title = "Reconnect snapshot, unique agent names, wave transcripts"
-status = "implemented"
+status = "done"
 wave = 6
 requires = []
 touches = ["editors/vscode/serve.js", "editors/vscode/extension.js", "editors/vscode/acp.js", "editors/vscode/agents.js", "editors/vscode/fleet.js", "tests/integration/14_vscode.sh"]
@@ -1153,10 +1153,10 @@ owner = "editor"
 
 [task.6.10]
 title = "Console base per the evaluation"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["1.10", "5.3"]
-touches = ["docs/hyperfide/console-evaluation.md", "console"]
+touches = ["docs/hyperfide/console-evaluation.md"]
 verify_cmd = "test -s docs/hyperfide/console-evaluation.md && grep -q '^## Decision' docs/hyperfide/console-evaluation.md"
 do_1 = "Consume the 1.10 answer: either bring up an OpenHands fork under console/ wired to console.needs, console.issues, console.sandboxes and console.leaders with the first panel usable, or record that the expanded extension is the console; write the Decision section with the answer and who gave it."
 do_2 = "No second console surface is started without the recorded answer."
@@ -1305,6 +1305,20 @@ do_1 = "Write full-case registrations for the 67 V-cases that have only componen
 do_2 = "The long pole to programme closure; fan out by owner area."
 do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
 reqs = ["7.3"]
+owner = "qualification"
+
+[task.7.12]
+title = "Campaign capture records pinned executables by digest, not by copy"
+status = "done"
+wave = 7
+requires = ["3.19"]
+touches = ["tests/hyperfide/qualify.py", "tests/hyperfide/check-evidence.py", "tests/hyperfide/evidence_store.py", "tests/hyperfide/cases/v21/7_12.py"]
+verify_cmd = "python3 tests/hyperfide/cases/v21/7_12.py && make -j2 cg && CG=$PWD/cg bash tests/integration/80_qualification_inputs.sh"
+do_1 = "snapshot() in qualify.py records a manifest input or source whose original path lies outside the workspace root (the pinned node and python interpreters are the case in point: the requalified 14.1 campaign carries a 119 MB node and a 7.6 MB python3.12 twice, 253 MB of 280 MB) as a reference record with original_path, sha256, size and kind = \"reference\", without copying its bytes under campaigns/<id>/inputs or sources; inputs inside the workspace are copied as before."
+do_2 = "check-evidence.py accepts both record kinds: a copied record is verified from the campaign bytes as today; a reference record is re-digested from original_path when that file exists and refused on a digest or size mismatch, and reported as unverifiable, not failed, when the path is absent on the checking host. Existing campaigns stay valid, evidence_store.bundle and the fold tooling carry references through unchanged, and qualify.py --list-cases output does not change."
+do_3 = "7_12.py qualifies a fixture manifest that pins the running python3 executable and a 2 MB file outside the workspace, proves the campaign holds no copy of either and is under 1 MB, that the receipt and check-evidence PASS, that a tampered reference digest is refused, and that an input inside the workspace is still copied."
+do_4 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.1"]
 owner = "qualification"
 
 [task.8.1]

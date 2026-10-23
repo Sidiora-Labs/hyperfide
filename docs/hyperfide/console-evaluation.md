@@ -81,6 +81,20 @@ Revisit A, or a thin unforked Canvas extension instead of a fork, if any of thes
 
 In that case, build a read-only web view over the same read models first. Separately, any individual may run unmodified Agent Canvas as an ACP chat client, which needs no fork and no decision.
 
+## Decision
+
+**Answer: Option B. The expanded VS Code extension is the console base. OpenHands is not forked.**
+
+- **Who and when:** the programme owner (the user) answered the 1.10 decision Ask on 2026-10-22. The answer is recorded as decision D6 in `spec/hyperfide-v21/spec.kvx` (`d_6`), and task 6.10 records it here.
+- **`console/` stays absent.** No fork is created, no OpenHands code is vendored, and no second console surface is started (task 6.10, do_2). The `console` path in task 6.10's touches is intentionally unused.
+- **Where the four surfaces live:** all four are in `editors/vscode`:
+  - **Needs:** task 6.2
+  - **Issues:** task 6.3
+  - **Sandboxes:** task 6.4
+  - **Leaders:** task 6.5 (a webview)
+- **What they read:** each surface reads the console read model of task 5.1 (the `23.1-console` component exposing `console.needs`, `console.issues`, `console.sandboxes` and `console.leaders`). The read goes through the console verbs of task 5.3, `hyperfide console <needs|issues|sandboxes|leaders>` (with `--json` and `--watch`). Each human therefore reads and answers as their own enrolled credential, and no new principal, backend-for-frontend or shared key is introduced.
+- **Revisiting:** only on one of the triggers listed under Recommendation, and only through a new decision Ask. Even then, the first step is a read-only web view over the same read models, not a fork.
+
 ## Sources
 
 - GitHub API, `repos/OpenHands/OpenHands` (licence, releases, tree) and `orgs/OpenHands/repos` (sibling repo licences), read 2026-10-22.

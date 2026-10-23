@@ -98,6 +98,12 @@
           "visibility": "collapsed"
         },
         {
+          "id": "codifyNeeds",
+          "name": "Needs",
+          "contextualTitle": "Hyperfide Needs",
+          "visibility": "collapsed"
+        },
+        {
           "id": "codifyIssues",
           "name": "Issues",
           "contextualTitle": "Hyperfide Issues",
@@ -121,6 +127,10 @@
       {
         "view": "codifySandboxes",
         "contents": "No sandboxes to show.\nThis view reads the console.sandboxes inventory from the Hyperfide control service (hyperfide console sandboxes). It lists sandboxes once the workspace is in distributed authority mode and the organisation has some.\n[Refresh](command:codify.sandboxes.refresh)"
+      },
+      {
+        "view": "codifyNeeds",
+        "contents": "Nothing needs you.\nAsks (secrets, variables, permissions, decisions, questions), human intents and admission escalations appear here from the Hyperfide console, or this project's local Asks.\n[Refresh](command:codify.needs.refresh)"
       },
       {
         "view": "codifyIssues",
@@ -473,6 +483,16 @@
         "command": "codify.sandboxes.attach",
         "title": "Hyperfide: Attach to Sandbox Worker Session",
         "icon": "$(plug)"
+      },
+      {
+        "command": "codify.needs.refresh",
+        "title": "Hyperfide: Refresh Needs",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "codify.needs.answer",
+        "title": "Hyperfide: Answer",
+        "icon": "$(reply)"
       }
     ],
     "menus": {
@@ -653,6 +673,11 @@
           "group": "navigation"
         },
         {
+          "command": "codify.needs.refresh",
+          "when": "view == codifyNeeds",
+          "group": "navigation@0"
+        },
+        {
           "command": "codify.issues.refresh",
           "when": "view == codifyIssues",
           "group": "navigation@0"
@@ -825,6 +850,11 @@
           "group": "inline@0"
         },
         {
+          "command": "codify.needs.answer",
+          "when": "view == codifyNeeds && viewItem == needs-row-answerable",
+          "group": "inline"
+        },
+        {
           "command": "codify.issues.open",
           "when": "view == codifyIssues && viewItem =~ /^issues-row/",
           "group": "inline"
@@ -861,6 +891,10 @@
         },
         {
           "command": "codify.forget",
+          "when": "false"
+        },
+        {
+          "command": "codify.needs.answer",
           "when": "false"
         },
         {

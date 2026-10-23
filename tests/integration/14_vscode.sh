@@ -21,6 +21,9 @@
 #   pushed   — (v21 1.12) an approval the real cg raises reaches the chat
 #              as a card through cg serve, once, and again after a reconnect
 #   sandboxes — (v21 6.4) the console.sandboxes view and its attach
+#   needs    — (v21 6.2) the Needs view: Asks from the real cg and
+#              console.needs rows, the answer inputs, answers settled through
+#              the real cg, the ask policy at the deadline, the offline notice
 #   issues   — (v21 6.3) the Issues view: console.issues rows, drift.*
 #              from the real cg log and routed live, diagnostics, blocked
 #              cleared on resolution
@@ -738,6 +741,7 @@ const src = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'tasks.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'sandboxes.js'), 'utf8') +
+    fs.readFileSync(path.join(dir, 'needs.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'issues.js'), 'utf8');
 
 if (pkg.publisher !== 'SidioraLabs' || pkg.name !== 'codify-workflow') {
@@ -2751,171 +2755,219 @@ JS
     [ $? -eq 0 ] || fail "reconnect snapshot, agent names, transcripts"
 fi
 
-if want sandboxes; then
-# ---- sandboxes (hyperfide-v21 6.4): the codifySandboxes view over the
-#      console.sandboxes read model: provider, pool, task, heartbeat, slice
-#      size, snapshot state and queue position per row, attach opening the
-#      worker's session, and a refusal shown as a refusal, never as rows
-    rm -rf "$TMP/sbx"; mkdir -p "$TMP/sbx"; cd "$TMP/sbx"
-    "$CG" init >/dev/null 2>&1
-    node - "$EXT" "$CG" "$(cd "$EXT/../.." && pwd)" <<'JS'
-const fs = require('fs'), path = require('path'), cp = require('child_process'), Module = require('module');
-const [dir, CG, src] = process.argv.slice(2);
-const eq = (a, b, m) => { if (a !== b) throw new Error(`${m}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`); };
-const ok = (c, m) => { if (!c) throw new Error(m); };
-
-// manifest: the view and its commands are declared, registered and wired
-const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
-const sbxSrc = fs.readFileSync(path.join(dir, 'sandboxes.js'), 'utf8');
-const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
-ok(pkg.contributes.views.codify.some((v) => v.id === 'codifySandboxes'), 'codifySandboxes view not declared');
-ok(/createTreeView\('codifySandboxes'/.test(sbxSrc), 'codifySandboxes declared but never populated');
-const declared = pkg.contributes.commands.map((c) => c.command);
-for (const c of ['codify.sandboxes.refresh', 'codify.sandboxes.attach']) {
-    ok(declared.includes(c), `${c} not declared`);
-    ok(sbxSrc.includes(`'${c}':`), `${c} not registered`);
-}
-ok(pkg.contributes.menus['view/item/context'].some((m) => m.command === 'codify.sandboxes.attach' &&
-    /viewItem == sandbox-worker-session/.test(m.when)), 'attach is not offered on a worker with a session');
-ok(/sandboxes\.register\(ctx,/.test(ext) && /await sandboxesApi\.refresh\(\)/.test(ext), 'extension.js does not wire the view into the one scheduler');
-ok(!/setInterval|createFileSystemWatcher/.test(sbxSrc), 'sandboxes.js runs a clock of its own');
-
-// every field the view reads is one console.ts declares (the read model of 5.2)
-const consoleTs = fs.readFileSync(path.join(src, 'services/hyperfide/src/observability/console.ts'), 'utf8');
-for (const f of ['view:\'console.sandboxes\'', 'heartbeat_max_age_seconds', 'liveness', 'pool_id', 'provider', 'heartbeat_age_seconds',
-                 'native_sandbox_id', 'workers', 'slot_key', 'task_id', 'session_id', 'included_paths', 'closure_files',
-                 'snapshot:{state:\'NO_ATTEMPT\'|\'NONE\'|\'CAPTURED\'', 'as_of', 'counts', 'truncated'])
-    ok(consoleTs.includes(f), `console.ts no longer declares ${f}`);
-
-const { sandboxNodes, parseAnswer, summary, queuePositions, COMMAND } = require(path.join(dir, 'sandboxes.js'));
-eq(COMMAND.join(' '), 'console sandboxes --json', 'the view reads the console verb');
-const worker = (slot, task, session, paths, closure, snap) => ({
-    slot_id: `slot-${slot}`, slot_key: slot, capacity_kind: 'TASK', state: task ? 'BUSY' : 'IDLE', boot_generation: '1',
-    attempt: task ? { run_id: 'run-1', id: `att-${task}`, task_id: task, generation: '1', kind: 'TASK', execution_state: 'RUNNING', compute_authority: 'CURRENT', lease_expires_at: null } : null,
-    runner: session ? { run_id: 'run-1', session_id: session, credential_id: 'c', state: 'CURRENT', observed_at: '2026-10-22T10:00:00.000Z', heartbeat_at: '2026-10-22T10:00:00.000Z' } : null,
-    slice: paths === null ? null : { state: 'MATERIALISED', run_id: 'run-1', digest: 'd', materialisation_id: 'm', mode: 'SPARSE', fallback_reason: null, included_paths: paths, closure_files: closure, verified_head: null, at: '2026-10-22T10:00:00.000Z' },
-    snapshot: task ? (snap ? { state: 'CAPTURED', id: 'snap-1', result_tree: 't', files_changed: '3', checkpoint_digest: null, at: 'x' } : { state: 'NONE', id: null, result_tree: null, files_changed: null, checkpoint_digest: null, at: null })
-        : { state: 'NO_ATTEMPT', id: null, result_tree: null, files_changed: null, checkpoint_digest: null, at: null },
-});
-const row = (o) => Object.assign({ kind: 'SANDBOX', reasons: [], region: 'us-west', native_sandbox_id: null, desired_state: 'RUNNING', observed_state: 'RUNNING',
-    boot_generation: '1', work_admitted: true, heartbeat_at: null, heartbeat_age_seconds: null, intent: null, quarantined_intents: [], orphan: null, attempts: 0, workers: [] }, o);
-const inv = { view: 'console.sandboxes', scope: { organisation_id: 'org' }, as_of: '2026-10-22T10:00:05.000Z', heartbeat_max_age_seconds: 90,
-    counts: { LIVE: 1, LOST: 1, QUARANTINED: 0, ORPHANED: 1, PENDING: 2, RETIRED: 0 }, truncated: false, authority: 'PRIMARY_OBSERVATION', activity_is_qualified_progress: false,
-    rows: [
-        row({ liveness: 'LIVE', sandbox_id: 'sb-live', pool_id: 'pool-a', provider: 'railway', native_sandbox_id: 'rw-1', heartbeat_age_seconds: 5,
-              workers: [worker('w0', '6.4', 'sess-1', 12, 40, true), worker('w1', null, null, null, null, false)] }),
-        row({ liveness: 'PENDING', sandbox_id: 'sb-p1', pool_id: 'pool-a', provider: 'railway', observed_state: null }),
-        row({ liveness: 'LOST', sandbox_id: 'sb-lost', pool_id: 'pool-b', provider: 'local', heartbeat_age_seconds: 600, reasons: ['HEARTBEAT_STALE'],
-              workers: [worker('w0', '6.9', 'sess-2', 1, null, false)] }),
-        row({ liveness: 'PENDING', sandbox_id: 'sb-p2', pool_id: 'pool-b', provider: 'local', observed_state: null }),
-        row({ kind: 'ORPHAN', liveness: 'ORPHANED', sandbox_id: null, pool_id: 'pool-a', provider: 'railway', native_sandbox_id: 'rw-9',
-              orphan: { state: 'UNVERIFIED', suspected_intent_id: null, first_observed_at: 'x', last_observed_at: 'x' } }),
-    ] };
-const m = sandboxNodes(inv);
-eq(m.ok, true, 'a console.sandboxes inventory is accepted');
-eq(m.nodes.length, 5, 'one row per sandbox and orphan');
-const [live, p1, lost, p2, orphan] = m.nodes;
-eq(live.provider, 'railway', 'provider'); eq(live.pool, 'pool-a', 'pool');
-eq(live.heartbeat, 'just now', 'heartbeat of a live sandbox'); eq(live.stale, false, 'a fresh heartbeat is not stale');
-eq(lost.heartbeat, '10m ago', 'heartbeat of a lost sandbox'); eq(lost.stale, true, 'past heartbeat_max_age_seconds is stale');
-eq(p1.heartbeat, 'no heartbeat', 'a pending sandbox has none');
-eq(p1.queue, 1, 'first pending sandbox is queue #1'); eq(p2.queue, 2, 'second pending sandbox is queue #2');
-eq(live.queue, null, 'a live sandbox is not queued'); eq(orphan.kind, 'orphan', 'orphan row kept');
-ok(/PENDING · railway\/pool-a · no heartbeat · queue #1/.test(p1.description), `pending row description: ${p1.description}`);
-eq(queuePositions([{ liveness: 'PENDING', queue_position: 7 }, { liveness: 'PENDING' }]).get(0), 7, 'the read model\'s own queue position wins');
-const [w0, w1] = live.workers;
-eq(w0.task, '6.4', 'worker task'); eq(w0.session, 'sess-1', 'worker session');
-eq(w0.slice.paths, 12, 'slice size in paths'); eq(w0.slice.text, '12 paths · closure 40 files', 'slice text');
-eq(w0.snapshot, 'CAPTURED', 'snapshot state'); eq(lost.workers[0].snapshot, 'NONE', 'no snapshot yet');
-eq(w1.task, null, 'idle worker'); eq(w1.snapshot, 'NO_ATTEMPT', 'idle worker snapshot'); eq(w1.slice.text, 'no slice', 'no slice is not zero');
-eq(lost.workers[0].slice.text, '1 path', 'singular slice');
-eq(live.tasks.join(), '6.4', 'tasks of a sandbox');
-ok(summary(m).startsWith('as of 2026-10-22T10:00:05.000Z · 1 live · 2 pending · 1 lost · 1 orphaned'), `summary: ${summary(m)}`);
-
-// negatives: a refusal, a foreign answer, a timeout and garbage are errors, never rows
-const refused = sandboxNodes(parseAnswer({ code: 1, stdout: '', stderr: '{"ok":false,"error":{"code":"CONSOLE_FORBIDDEN","message":"The console is for operators"}}' }));
-eq(refused.ok, false, 'a refusal is not an inventory'); ok(/CONSOLE_FORBIDDEN/.test(refused.error), 'the refusal code is shown');
-eq(refused.nodes.length, 0, 'a refusal draws no rows');
-eq(sandboxNodes({ view: 'console.needs', rows: [] }).ok, false, 'another console view is refused');
-eq(sandboxNodes(parseAnswer(null)).error, 'TIMEOUT: no answer in 20s', 'a wedged call is a timeout');
-ok(/EXIT_2: boom/.test(sandboxNodes(parseAnswer({ code: 2, stdout: 'boom\n', stderr: '' })).error), 'non-JSON output is an exit error');
-
-// the real cg: whatever it answers in this throwaway project (no distributed
-// authority) is either a real inventory or an error the view states
-const real = cp.spawnSync(CG, COMMAND, { encoding: 'utf8' });
-const rm = sandboxNodes(parseAnswer({ code: real.status, stdout: real.stdout, stderr: real.stderr }));
-ok(rm.ok ? Array.isArray(rm.nodes) : (typeof rm.error === 'string' && rm.error.length > 0 && rm.nodes.length === 0),
-   `real cg answer not handled: ${JSON.stringify(rm)}`);
-
-// the view against a stub vscode: hidden it asks nothing, visible it draws
-// the rows, and attach opens the worker's session document
+# ---- needs (hyperfide-v21 6.2): the Needs view. Asks the real cg raised in
+#      a project of its own, read back through `cg ask list`; console.needs
+#      rows in the exact console.ts shape (a fixture: the service is not on
+#      this host); the input each kind gets; answers settled through the real
+#      cg, a raw secret refused by both; the 3.6 policy at the deadline; the
+#      real cg's answer to the console verb in a local project
+if want needs; then
+    rm -rf "$TMP/nd"; mkdir -p "$TMP/nd"; cd "$TMP/nd"
+    "$CG" init >/dev/null 2>&1 || fail "needs: cg init"
+    node - "$EXT" "$CG" "$TMP/nd" "$(cd "$EXT/../.." && pwd)" <<'JS'
+const path = require('path'), fs = require('fs'), cp = require('child_process');
+const Module = require('module');
+const [, , dir, CG, repo, src] = process.argv;
+const eq = (got, want, what) => {
+    if (got !== want) throw new Error(`${what}: ${JSON.stringify(got)} != ${JSON.stringify(want)}`);
+};
 class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
-class EventEmitter { constructor() { this.fns = []; this.event = (f) => { this.fns.push(f); return { dispose() {} }; }; } fire(x) { this.fns.forEach((f) => f(x)); } }
-const commands = {}, opened = [];
-let providerOf = null, tv = null;
 const stub = {
-    TreeItem, EventEmitter, ThemeIcon: class { constructor(id, c) { this.id = id; this.color = c; } }, ThemeColor: class { constructor(id) { this.id = id; } },
+    EventEmitter: class { constructor() { this.n = 0; this.event = () => ({ dispose() {} }); } fire() { this.n++; } },
+    TreeItem,
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-    window: {
-        createTreeView: (id, o) => { eq(id, 'codifySandboxes', 'tree view id'); tv = { visible: false, message: '', provider: o.treeDataProvider,
-            onDidChangeVisibility: (f) => { tv.fire = f; return { dispose() {} }; }, dispose() {} }; return tv; },
-        showInformationMessage: () => {}, showQuickPick: async (items) => items[0], showTextDocument: async (d) => { opened.push(d); },
-    },
-    workspace: { registerTextDocumentContentProvider: (s, p) => { eq(s, 'hyperfide-session', 'session scheme'); providerOf = p; return { dispose() {} }; },
-                 openTextDocument: async (uri) => ({ uri, text: providerOf.provideTextDocumentContent(uri) }) },
-    commands: { registerCommand: (n, f) => { commands[n] = f; return { dispose() {} }; } },
-    Uri: { parse: (u) => ({ toString: () => u }) },
+    ThemeIcon: class { constructor(id, color) { this.id = id; this.color = color; } },
+    ThemeColor: class { constructor(id) { this.id = id; } },
+    commands: { executeCommand: () => {}, registerCommand: () => ({ dispose() {} }) },
+    window: {},
 };
 const load = Module._load;
 Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
-delete require.cache[require.resolve(path.join(dir, 'sandboxes.js'))];
-const sbx = require(path.join(dir, 'sandboxes.js'));
-const calls = [];
-const events = [
-    { seq: 1, kind: 'agent.text', session: 'sess-1', payload: { text: 'working on 6.4' } },
-    { seq: 2, kind: 'agent.text', session: 'sess-2', payload: { text: 'not mine' } },
-    { seq: 3, kind: 'agent.tool', payload: { session_id: 'sess-1', tool: 'Edit' } },
-];
-const api = sbx.register({ subscriptions: [] }, { cg: async (args) => { calls.push(args.join(' '));
-    if (args[0] === 'console') return { code: 0, stdout: JSON.stringify(inv), stderr: '' };
-    if (args[0] === 'events') return { code: 0, stdout: events.map((e) => JSON.stringify(e)).join('\n') + '\n', stderr: '' };
-    return { code: 1, stdout: '', stderr: '' }; } });
+const { NeedsView, needsModel, answerPlan, answerCommand, consolePanel, CONSOLE_ARGS, LOCAL_ARGS } =
+    require(path.join(dir, 'needs.js'));
+const run = (args) => cp.spawnSync(CG, args, { cwd: repo, encoding: 'utf8' });
+const ok = (args, what) => { const r = run(args); if (r.status !== 0) throw new Error(`${what}: ${r.stderr}`); return r; };
+const json = (args) => JSON.parse(ok([...args, '--json'], args.join(' ')).stdout);
+const raised = (args) => json(['ask', 'raise', ...args]).id;
+
+// ---- the real cg raises one Ask of every kind
+const dec = raised(['decision', 'Pick the store', '--option', 'sqlite', '--option', 'pg',
+                    '--recommend', 'pg', '--deadline', '2h', '--task', '2.1', '--body', 'Both fit']);
+const vari = raised(['variable', 'Deploy region', '--deadline', '@1000', '--task', '2.2']);
+const que = raised(['question', 'Keep the cache?', '--recommend', 'yes', '--deadline', '1d']);
+const sec = raised(['secret', 'Registry token', '--task', '2.1']);
+const per = raised(['permission', 'Drop the old table']);
+const late = raised(['decision', 'Retry policy', '--option', 'once', '--option', 'never',
+                     '--recommend', 'once', '--deadline', '@1000']);
+
+// ---- the local model from the real `cg ask list --json`
+eq(LOCAL_ARGS.join(' '), 'ask list', 'local verb');
+eq(CONSOLE_ARGS.join(' '), 'console needs', 'console verb (5.3)');
+let m = needsModel(null, json(LOCAL_ARGS));
+eq(m.available, false, 'no console in a local project');
+eq(m.counts.asks, 6, 'six open Asks');
+const row = (id) => m.sections[0].rows.find((r) => r.id === String(id));
+const d = row(dec);
+eq(d.kind, 'decision', 'row kind'); eq(d.task, '2.1', 'row task'); eq(d.recommended, 'pg', 'row recommended');
+eq(typeof d.deadline === 'string' && Date.parse(d.deadline) > Date.now(), true, 'row deadline in the future');
+eq(d.policy, 'proceed-and-flag', 'decision policy'); eq(d.overdue, false, 'not overdue');
+eq(row(vari).overdue, true, 'past-deadline variable overdue');
+eq(row(vari).policy, 'block', 'variable blocks');
+eq(m.sections[0].rows[0].deadline <= m.sections[0].rows[1].deadline, true, 'nearest deadline first');
+eq(m.sections[0].rows.slice(-1)[0].deadline, null, 'no deadline last');
+eq(m.overdue, 2, 'two overdue');
+
+// ---- the input each kind gets
+let plan = answerPlan(d);
+eq(plan.input, 'quickpick', 'decision: QuickPick');
+eq(plan.items[0].value, 'pg', 'recommended option first');
+eq(plan.items[0].description, 'recommended', 'and labelled');
+eq(answerPlan(row(que)).input, 'quickpick', 'question with options: QuickPick');
+eq(answerPlan(row(per)).items.map((i) => i.value).join(), 'approve,reject', 'permission options');
+plan = answerPlan(row(sec));
+eq(plan.input, 'password', 'secret: password input');
+eq(plan.validate('hunter2') !== null, true, 'a raw secret value is refused by the input');
+eq(plan.validate('secret-ref:registry-token'), null, 'a secret-ref is accepted');
+plan = answerPlan(row(vari));
+eq(plan.input, 'text', 'variable: free text');
+eq(plan.validate('') !== null, true, 'an empty answer is refused');
+// a free-text question: the console row of a question offered without options
+eq(answerPlan({ answerable: true, kind: 'question', options: [], recommended: null }).input, 'text', 'question: free text');
+
+// ---- negatives: refused before cg sees them, and refused by cg too
+eq(answerCommand(row(sec), 'hunter2'), null, 'raw secret never becomes a command');
+eq(answerCommand(d, 'mysql'), null, 'an answer outside the options');
+eq(run(['ask', 'answer', String(sec), 'hunter2']).status !== 0, true, 'the real cg refuses a raw secret');
+eq(run(['ask', 'answer', String(dec), 'mysql']).status !== 0, true, 'the real cg refuses a non-option');
+
+// ---- positives: answers settle through the real cg
+const settle = (r, answer) => {
+    const c = answerCommand(r, answer);
+    eq(c.file, null, 'a local answer needs no input file');
+    eq(c.args.slice(0, 3).join(' '), `ask answer ${r.id}`, 'local answer verb');
+    ok(c.args, `answer ${r.id}`);
+};
+settle(d, 'pg');
+settle(row(sec), 'secret-ref:registry-token');
+settle(row(vari), 'eu-west-1');   // expired but blocking: still answerable
+const after = json(['ask', 'list', '--all']).asks;
+const st = (id) => after.find((a) => a.id === id);
+eq(st(dec).state, 'answered', 'decision answered'); eq(st(dec).answer, 'pg', 'with pg');
+eq(st(sec).answer, 'secret-ref:registry-token', 'secret answered with its reference');
+eq(st(vari).state, 'answered', 'blocking variable answered past its deadline');
+m = needsModel(null, json(LOCAL_ARGS));
+eq(m.counts.asks, 3, 'answered rows leave the view');
+eq(row(dec), undefined, 'decision gone');
+
+// ---- the 3.6 policy at the deadline: proceed-and-flag takes the default and leaves;
+//      block stays waiting, overdue and answerable
+const blk = raised(['variable', 'Bucket name', '--deadline', '@1000']);
+ok(['ask', 'expire'], 'ask expire');
+m = needsModel(null, json(LOCAL_ARGS));
+eq(row(late), undefined, 'proceed-and-flag past its deadline decided by default');
+eq(json(['ask', 'list', '--all']).asks.find((a) => a.id === late).decided_by_default, true, 'recorded as a default');
+eq(row(blk).state, 'expired', 'a blocking Ask expires');
+eq(row(blk).answerable && row(blk).overdue, true, 'and still waits for a person');
+
+// ---- console.needs rows, in the shape console.ts builds them
+const cts = fs.readFileSync(path.join(src, 'services/hyperfide/src/observability/console.ts'), 'utf8');
+for (const k of ["view:'console.needs'", "'asks'|'human_intents'|'admission_escalations'",
+                 'detail:{ask_kind:a.kind,body:a.body,options:a.options,recommended:a.recommended',
+                 'deadline:iso(a.deadline)', 'state_version:String(a.state_version)', 'task_key:a.task_key']) {
+    if (!cts.includes(k)) throw new Error('console.ts no longer has ' + k);
+}
+const hi = fs.readFileSync(path.join(src, 'services/hyperfide/src/policy/human_interface.ts'), 'utf8');
+if (!hi.includes("exact(input,['ask_id','expected_state_version','answer'])")) {
+    throw new Error('human.ask.answer input moved');
+}
+const asOf = new Date().toISOString(), soon = new Date(Date.now() + 3600e3).toISOString();
+const fr = { observed_at: asOf, age_seconds: 0, source: 'hyperfide.asks' };
+const ASK = '7d1e0c3a-0000-4000-8000-0000000000a1', RUN = '7d1e0c3a-0000-4000-8000-0000000000f1';
+const panel = {
+    view: 'console.needs', scope: { organisation_id: 'o', run_id: RUN }, as_of: asOf,
+    counts: { asks: 1, human_intents: 1, admission_escalations: 0 },
+    authority: 'PRIMARY_OBSERVATION', activity_is_qualified_progress: false,
+    sections: {
+        asks: { truncated: true, rows: [{ kind: 'ASK', id: ASK, state: 'OPEN', title: 'Pick a queue', since: asOf, freshness: fr,
+            references: { ask_id: ASK, run_id: RUN, task_id: 't-1', task_key: 'hf/3.2' },
+            detail: { ask_kind: 'decision', body: 'b', options: ['sqs', 'pg'], recommended: 'pg', default_policy: 'proceed-and-flag',
+                      deadline: soon, seconds_to_deadline: 3600, overdue: false, blocking: false, state_version: '4' } }] },
+        human_intents: { truncated: false, rows: [{ kind: 'HUMAN_INTENT', id: 'ev-1', state: 'PENDING', title: 'PAUSE r-1',
+            since: asOf, freshness: fr, references: { root_event_id: 'ev-1' }, detail: {} }] },
+        admission_escalations: { truncated: false, rows: [] },
+    },
+};
+eq(consolePanel({ ok: true, result: panel }).view, 'console.needs', 'enveloped panel');
+eq(consolePanel({ view: 'console.issues', sections: {} }), null, 'issues is not needs');
+eq(consolePanel({ ok: false, error: { code: 'X', message: 'no' } }), null, 'an error is no panel');
+m = needsModel(panel, json(LOCAL_ARGS));
+eq(m.available, true, 'console available');
+eq(m.counts.asks, 1, 'the console wins over the local table');
+eq(m.counts.human_intents, 1, 'human intents shown');
+eq(m.sections[0].truncated, true, 'truncation kept');
+const c = m.sections[0].rows[0];
+eq(c.kind, 'decision', 'console kind'); eq(c.task, 'hf/3.2', 'console task'); eq(c.deadline, soon, 'console deadline');
+eq(c.recommended, 'pg', 'console recommended');
+eq(m.sections[1].rows[0].answerable, false, 'an intent is not answered here');
+const routed = answerCommand(c, 'pg', repo);
+eq(routed.args[0] + ' ' + routed.args[1], 'ask answer', 'routed verb');
+for (const f of ['--input-file', '--run-id', '--operation-id', '--idempotency-key', '--correlation-id']) {
+    if (!routed.args.includes(f)) throw new Error('routed answer lacks ' + f);
+}
+eq(routed.args[routed.args.indexOf('--run-id') + 1], RUN, 'routed run');
+eq(JSON.stringify(routed.input), JSON.stringify({ ask_id: ASK, expected_state_version: '4', answer: 'pg' }), 'human.ask.answer input');
+eq(answerCommand(c, 'mysql', repo), null, 'routed non-option refused');
+eq(answerCommand({ ...c, kind: 'secret', options: [] }, 'hunter2', repo), null, 'routed raw secret refused');
+
+// ---- the view against the real cg: the console verb, the offline notice, the local Asks
+const cgJson = async (args) => { try { return JSON.parse(run([...args, '--json']).stdout); } catch { return null; } };
+const cv = run([...CONSOLE_ARGS, '--json']);
+eq(cv.status !== 0, true, 'the console verb fails in a local project');
+eq(consolePanel((() => { try { return JSON.parse(cv.stdout); } catch { return null; } })()), null, 'and prints no panel');
+let errJson = null; try { errJson = JSON.parse(cv.stderr.trim().split('\n').pop()); } catch { /* an older cg: plain text */ }
+if (errJson) { eq(errJson.ok, false, 'console error envelope'); eq(typeof errJson.error.code, 'string', 'with a code'); }
 (async () => {
-    await api.refresh();               // the first pass always loads
-    eq(calls.length, 1, 'first refresh loads once');
-    await api.refresh();
-    eq(calls.length, 1, 'a hidden view asks nothing');
-    tv.fire({ visible: true }); await new Promise((r) => setImmediate(r));
-    eq(calls.length, 2, 'becoming visible loads');
-    const roots = tv.provider.getChildren();
-    eq(roots.length, 5, 'five roots');
-    const item = tv.provider.getTreeItem(roots[0]);
-    ok(/LIVE · railway\/pool-a · just now/.test(item.description), `sandbox item: ${item.description}`);
-    const kids = tv.provider.getChildren(roots[0]);
-    const wi = tv.provider.getTreeItem(kids[0]);
-    eq(wi.description, 'task 6.4 · slice 12 paths · closure 40 files · snapshot CAPTURED', 'worker item');
-    eq(wi.contextValue, 'sandbox-worker-session', 'a worker with a session offers attach');
-    eq(wi.command.command, 'codify.sandboxes.attach', 'clicking a worker attaches');
-    eq(tv.provider.getTreeItem(kids[1]).contextValue, 'sandbox-worker', 'an idle worker offers no attach');
-    ok(tv.message.startsWith('as of '), 'the view states its freshness');
-    await commands['codify.sandboxes.attach'](wi.command.arguments[0]);
-    eq(opened.length, 1, 'attach opens one document');
-    const text = opened[0].text;
-    ok(text.startsWith('# session sess-1'), 'the document is the worker\'s session');
-    ok(/task      6\.4/.test(text) && /working on 6\.4/.test(text) && /agent\.tool  Edit/.test(text), 'the session\'s events are in it');
-    ok(!/not mine/.test(text), 'another session\'s events are not');
-    await commands['codify.sandboxes.attach']();   // from the palette: a pick
-    eq(opened.length, 2, 'attach from the palette picks a worker');
-    // a refusal empties the view and says why
-    const api2 = sbx.register({ subscriptions: [] }, { cg: async () => ({ code: 1, stdout: '', stderr: '{"ok":false,"error":{"code":"OFFLINE_AUTHORITY_UNAVAILABLE","message":"offline"}}' }) });
-    await api2.refresh();
-    eq(tv.provider.getChildren().length, 0, 'a refusal draws no rows');
-    ok(/OFFLINE_AUTHORITY_UNAVAILABLE/.test(tv.message), 'the refusal is stated');
-    console.log('sandboxes ok');
-})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+    const v = new NeedsView({ cgJson, cg: async (a) => { const r = run(a); return { code: r.status, stdout: r.stdout, stderr: r.stderr }; } });
+    await v.refresh();
+    eq(v.model.available, false, 'view: console offline');
+    const top = v.getChildren();
+    eq(top[0].id, 'needs:offline', 'offline notice first');
+    eq(top[0].command.command, 'codify.needs.refresh', 'notice retries');
+    eq(top.length, 2, 'notice and Asks only');
+    const kids = v.getChildren(top[1]);
+    eq(kids.length, v.model.counts.asks, 'one item per Ask');
+    const it = kids.find((k) => k.row.id === String(blk));
+    eq(it.contextValue, 'needs-row-answerable', 'answerable row');
+    eq(it.command.command, 'codify.needs.answer', 'click answers');
+    eq(/variable/.test(it.description) && /overdue/.test(it.description), true, 'description: kind and deadline');
+    const q = kids.find((k) => k.row.id === String(que));
+    eq(/→ yes/.test(q.description), true, 'description: recommended option');
+    const fired0 = v._em.n;
+    v.visible = false;
+    eq(v.route({ kind: 'ask.answered', subject: '1' }), true, 'ask.* routed');
+    eq(v.route({ kind: 'ask.raised', subject: '2' }), true, 'a burst is routed too');
+    eq(v.route({ kind: 'memory.add' }), false, 'others are not');
+    await new Promise((r) => setTimeout(r, 2500));
+    eq(v._em.n - fired0, 1, 'a routed burst redraws the hidden view once, by itself');
+    const ext0 = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+    eq(/applied\.view === 'needs'\) \{ needsApi\.route\(ev\); return; \}/.test(ext0), true,
+       'ask events do not queue the full catch-up refresh');
+    const { applyEvent, liveModel } = require(path.join(dir, 'serve.js'));
+    eq(applyEvent(liveModel(), { kind: 'ask.raised', subject: '9', payload: {} }).view, 'needs', 'serve classifies ask.*');
+    const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+    if (!/require\('\.\/needs'\)/.test(ext) || !/needs\.register\(ctx/.test(ext) || !/applied\.view === 'needs'/.test(ext)) {
+        throw new Error('extension.js does not wire the Needs view');
+    }
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    const views = Object.values(pkg.contributes.views).flat().map((x) => x.id);
+    if (!views.includes('codifyNeeds')) throw new Error('codifyNeeds not declared');
+    if (!/createTreeView\('codifyNeeds'/.test(fs.readFileSync(path.join(dir, 'needs.js'), 'utf8'))) {
+        throw new Error('codifyNeeds declared but never provided');
+    }
+})().catch((e) => { console.error(e); process.exitCode = 1; });
 JS
-    [ $? -eq 0 ] || fail "sandboxes view"
-    cd "$TMP"
+    [ $? -eq 0 ] || fail "needs view"
+    cd "$EXT"
 fi
 
 # ---- ask registry (hyperfide-v21 6.1): ACP permission asks, fleet approvals
@@ -3192,6 +3244,173 @@ check(/function watchFleetEvents\(\) \{[^}]*askApi\.reload\(\)/.test(acp), 'a (r
 console.log('ask registry wiring ok');
 JS
     [ $? -eq 0 ] || fail "ask registry wiring"
+fi
+
+if want sandboxes; then
+# ---- sandboxes (hyperfide-v21 6.4): the codifySandboxes view over the
+#      console.sandboxes read model: provider, pool, task, heartbeat, slice
+#      size, snapshot state and queue position per row, attach opening the
+#      worker's session, and a refusal shown as a refusal, never as rows
+    rm -rf "$TMP/sbx"; mkdir -p "$TMP/sbx"; cd "$TMP/sbx"
+    "$CG" init >/dev/null 2>&1
+    node - "$EXT" "$CG" "$(cd "$EXT/../.." && pwd)" <<'JS'
+const fs = require('fs'), path = require('path'), cp = require('child_process'), Module = require('module');
+const [dir, CG, src] = process.argv.slice(2);
+const eq = (a, b, m) => { if (a !== b) throw new Error(`${m}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`); };
+const ok = (c, m) => { if (!c) throw new Error(m); };
+
+// manifest: the view and its commands are declared, registered and wired
+const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+const sbxSrc = fs.readFileSync(path.join(dir, 'sandboxes.js'), 'utf8');
+const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+ok(pkg.contributes.views.codify.some((v) => v.id === 'codifySandboxes'), 'codifySandboxes view not declared');
+ok(/createTreeView\('codifySandboxes'/.test(sbxSrc), 'codifySandboxes declared but never populated');
+const declared = pkg.contributes.commands.map((c) => c.command);
+for (const c of ['codify.sandboxes.refresh', 'codify.sandboxes.attach']) {
+    ok(declared.includes(c), `${c} not declared`);
+    ok(sbxSrc.includes(`'${c}':`), `${c} not registered`);
+}
+ok(pkg.contributes.menus['view/item/context'].some((m) => m.command === 'codify.sandboxes.attach' &&
+    /viewItem == sandbox-worker-session/.test(m.when)), 'attach is not offered on a worker with a session');
+ok(/sandboxes\.register\(ctx,/.test(ext) && /await sandboxesApi\.refresh\(\)/.test(ext), 'extension.js does not wire the view into the one scheduler');
+ok(!/setInterval|createFileSystemWatcher/.test(sbxSrc), 'sandboxes.js runs a clock of its own');
+
+// every field the view reads is one console.ts declares (the read model of 5.2)
+const consoleTs = fs.readFileSync(path.join(src, 'services/hyperfide/src/observability/console.ts'), 'utf8');
+for (const f of ['view:\'console.sandboxes\'', 'heartbeat_max_age_seconds', 'liveness', 'pool_id', 'provider', 'heartbeat_age_seconds',
+                 'native_sandbox_id', 'workers', 'slot_key', 'task_id', 'session_id', 'included_paths', 'closure_files',
+                 'snapshot:{state:\'NO_ATTEMPT\'|\'NONE\'|\'CAPTURED\'', 'as_of', 'counts', 'truncated'])
+    ok(consoleTs.includes(f), `console.ts no longer declares ${f}`);
+
+const { sandboxNodes, parseAnswer, summary, queuePositions, COMMAND } = require(path.join(dir, 'sandboxes.js'));
+eq(COMMAND.join(' '), 'console sandboxes --json', 'the view reads the console verb');
+const worker = (slot, task, session, paths, closure, snap) => ({
+    slot_id: `slot-${slot}`, slot_key: slot, capacity_kind: 'TASK', state: task ? 'BUSY' : 'IDLE', boot_generation: '1',
+    attempt: task ? { run_id: 'run-1', id: `att-${task}`, task_id: task, generation: '1', kind: 'TASK', execution_state: 'RUNNING', compute_authority: 'CURRENT', lease_expires_at: null } : null,
+    runner: session ? { run_id: 'run-1', session_id: session, credential_id: 'c', state: 'CURRENT', observed_at: '2026-10-22T10:00:00.000Z', heartbeat_at: '2026-10-22T10:00:00.000Z' } : null,
+    slice: paths === null ? null : { state: 'MATERIALISED', run_id: 'run-1', digest: 'd', materialisation_id: 'm', mode: 'SPARSE', fallback_reason: null, included_paths: paths, closure_files: closure, verified_head: null, at: '2026-10-22T10:00:00.000Z' },
+    snapshot: task ? (snap ? { state: 'CAPTURED', id: 'snap-1', result_tree: 't', files_changed: '3', checkpoint_digest: null, at: 'x' } : { state: 'NONE', id: null, result_tree: null, files_changed: null, checkpoint_digest: null, at: null })
+        : { state: 'NO_ATTEMPT', id: null, result_tree: null, files_changed: null, checkpoint_digest: null, at: null },
+});
+const row = (o) => Object.assign({ kind: 'SANDBOX', reasons: [], region: 'us-west', native_sandbox_id: null, desired_state: 'RUNNING', observed_state: 'RUNNING',
+    boot_generation: '1', work_admitted: true, heartbeat_at: null, heartbeat_age_seconds: null, intent: null, quarantined_intents: [], orphan: null, attempts: 0, workers: [] }, o);
+const inv = { view: 'console.sandboxes', scope: { organisation_id: 'org' }, as_of: '2026-10-22T10:00:05.000Z', heartbeat_max_age_seconds: 90,
+    counts: { LIVE: 1, LOST: 1, QUARANTINED: 0, ORPHANED: 1, PENDING: 2, RETIRED: 0 }, truncated: false, authority: 'PRIMARY_OBSERVATION', activity_is_qualified_progress: false,
+    rows: [
+        row({ liveness: 'LIVE', sandbox_id: 'sb-live', pool_id: 'pool-a', provider: 'railway', native_sandbox_id: 'rw-1', heartbeat_age_seconds: 5,
+              workers: [worker('w0', '6.4', 'sess-1', 12, 40, true), worker('w1', null, null, null, null, false)] }),
+        row({ liveness: 'PENDING', sandbox_id: 'sb-p1', pool_id: 'pool-a', provider: 'railway', observed_state: null }),
+        row({ liveness: 'LOST', sandbox_id: 'sb-lost', pool_id: 'pool-b', provider: 'local', heartbeat_age_seconds: 600, reasons: ['HEARTBEAT_STALE'],
+              workers: [worker('w0', '6.9', 'sess-2', 1, null, false)] }),
+        row({ liveness: 'PENDING', sandbox_id: 'sb-p2', pool_id: 'pool-b', provider: 'local', observed_state: null }),
+        row({ kind: 'ORPHAN', liveness: 'ORPHANED', sandbox_id: null, pool_id: 'pool-a', provider: 'railway', native_sandbox_id: 'rw-9',
+              orphan: { state: 'UNVERIFIED', suspected_intent_id: null, first_observed_at: 'x', last_observed_at: 'x' } }),
+    ] };
+const m = sandboxNodes(inv);
+eq(m.ok, true, 'a console.sandboxes inventory is accepted');
+eq(m.nodes.length, 5, 'one row per sandbox and orphan');
+const [live, p1, lost, p2, orphan] = m.nodes;
+eq(live.provider, 'railway', 'provider'); eq(live.pool, 'pool-a', 'pool');
+eq(live.heartbeat, 'just now', 'heartbeat of a live sandbox'); eq(live.stale, false, 'a fresh heartbeat is not stale');
+eq(lost.heartbeat, '10m ago', 'heartbeat of a lost sandbox'); eq(lost.stale, true, 'past heartbeat_max_age_seconds is stale');
+eq(p1.heartbeat, 'no heartbeat', 'a pending sandbox has none');
+eq(p1.queue, 1, 'first pending sandbox is queue #1'); eq(p2.queue, 2, 'second pending sandbox is queue #2');
+eq(live.queue, null, 'a live sandbox is not queued'); eq(orphan.kind, 'orphan', 'orphan row kept');
+ok(/PENDING · railway\/pool-a · no heartbeat · queue #1/.test(p1.description), `pending row description: ${p1.description}`);
+eq(queuePositions([{ liveness: 'PENDING', queue_position: 7 }, { liveness: 'PENDING' }]).get(0), 7, 'the read model\'s own queue position wins');
+const [w0, w1] = live.workers;
+eq(w0.task, '6.4', 'worker task'); eq(w0.session, 'sess-1', 'worker session');
+eq(w0.slice.paths, 12, 'slice size in paths'); eq(w0.slice.text, '12 paths · closure 40 files', 'slice text');
+eq(w0.snapshot, 'CAPTURED', 'snapshot state'); eq(lost.workers[0].snapshot, 'NONE', 'no snapshot yet');
+eq(w1.task, null, 'idle worker'); eq(w1.snapshot, 'NO_ATTEMPT', 'idle worker snapshot'); eq(w1.slice.text, 'no slice', 'no slice is not zero');
+eq(lost.workers[0].slice.text, '1 path', 'singular slice');
+eq(live.tasks.join(), '6.4', 'tasks of a sandbox');
+ok(summary(m).startsWith('as of 2026-10-22T10:00:05.000Z · 1 live · 2 pending · 1 lost · 1 orphaned'), `summary: ${summary(m)}`);
+
+// negatives: a refusal, a foreign answer, a timeout and garbage are errors, never rows
+const refused = sandboxNodes(parseAnswer({ code: 1, stdout: '', stderr: '{"ok":false,"error":{"code":"CONSOLE_FORBIDDEN","message":"The console is for operators"}}' }));
+eq(refused.ok, false, 'a refusal is not an inventory'); ok(/CONSOLE_FORBIDDEN/.test(refused.error), 'the refusal code is shown');
+eq(refused.nodes.length, 0, 'a refusal draws no rows');
+eq(sandboxNodes({ view: 'console.needs', rows: [] }).ok, false, 'another console view is refused');
+eq(sandboxNodes(parseAnswer(null)).error, 'TIMEOUT: no answer in 20s', 'a wedged call is a timeout');
+ok(/EXIT_2: boom/.test(sandboxNodes(parseAnswer({ code: 2, stdout: 'boom\n', stderr: '' })).error), 'non-JSON output is an exit error');
+
+// the real cg: whatever it answers in this throwaway project (no distributed
+// authority) is either a real inventory or an error the view states
+const real = cp.spawnSync(CG, COMMAND, { encoding: 'utf8' });
+const rm = sandboxNodes(parseAnswer({ code: real.status, stdout: real.stdout, stderr: real.stderr }));
+ok(rm.ok ? Array.isArray(rm.nodes) : (typeof rm.error === 'string' && rm.error.length > 0 && rm.nodes.length === 0),
+   `real cg answer not handled: ${JSON.stringify(rm)}`);
+
+// the view against a stub vscode: hidden it asks nothing, visible it draws
+// the rows, and attach opens the worker's session document
+class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
+class EventEmitter { constructor() { this.fns = []; this.event = (f) => { this.fns.push(f); return { dispose() {} }; }; } fire(x) { this.fns.forEach((f) => f(x)); } }
+const commands = {}, opened = [];
+let providerOf = null, tv = null;
+const stub = {
+    TreeItem, EventEmitter, ThemeIcon: class { constructor(id, c) { this.id = id; this.color = c; } }, ThemeColor: class { constructor(id) { this.id = id; } },
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    window: {
+        createTreeView: (id, o) => { eq(id, 'codifySandboxes', 'tree view id'); tv = { visible: false, message: '', provider: o.treeDataProvider,
+            onDidChangeVisibility: (f) => { tv.fire = f; return { dispose() {} }; }, dispose() {} }; return tv; },
+        showInformationMessage: () => {}, showQuickPick: async (items) => items[0], showTextDocument: async (d) => { opened.push(d); },
+    },
+    workspace: { registerTextDocumentContentProvider: (s, p) => { eq(s, 'hyperfide-session', 'session scheme'); providerOf = p; return { dispose() {} }; },
+                 openTextDocument: async (uri) => ({ uri, text: providerOf.provideTextDocumentContent(uri) }) },
+    commands: { registerCommand: (n, f) => { commands[n] = f; return { dispose() {} }; } },
+    Uri: { parse: (u) => ({ toString: () => u }) },
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+delete require.cache[require.resolve(path.join(dir, 'sandboxes.js'))];
+const sbx = require(path.join(dir, 'sandboxes.js'));
+const calls = [];
+const events = [
+    { seq: 1, kind: 'agent.text', session: 'sess-1', payload: { text: 'working on 6.4' } },
+    { seq: 2, kind: 'agent.text', session: 'sess-2', payload: { text: 'not mine' } },
+    { seq: 3, kind: 'agent.tool', payload: { session_id: 'sess-1', tool: 'Edit' } },
+];
+const api = sbx.register({ subscriptions: [] }, { cg: async (args) => { calls.push(args.join(' '));
+    if (args[0] === 'console') return { code: 0, stdout: JSON.stringify(inv), stderr: '' };
+    if (args[0] === 'events') return { code: 0, stdout: events.map((e) => JSON.stringify(e)).join('\n') + '\n', stderr: '' };
+    return { code: 1, stdout: '', stderr: '' }; } });
+(async () => {
+    await api.refresh();               // the first pass always loads
+    eq(calls.length, 1, 'first refresh loads once');
+    await api.refresh();
+    eq(calls.length, 1, 'a hidden view asks nothing');
+    tv.fire({ visible: true }); await new Promise((r) => setImmediate(r));
+    eq(calls.length, 2, 'becoming visible loads');
+    const roots = tv.provider.getChildren();
+    eq(roots.length, 5, 'five roots');
+    const item = tv.provider.getTreeItem(roots[0]);
+    ok(/LIVE · railway\/pool-a · just now/.test(item.description), `sandbox item: ${item.description}`);
+    const kids = tv.provider.getChildren(roots[0]);
+    const wi = tv.provider.getTreeItem(kids[0]);
+    eq(wi.description, 'task 6.4 · slice 12 paths · closure 40 files · snapshot CAPTURED', 'worker item');
+    eq(wi.contextValue, 'sandbox-worker-session', 'a worker with a session offers attach');
+    eq(wi.command.command, 'codify.sandboxes.attach', 'clicking a worker attaches');
+    eq(tv.provider.getTreeItem(kids[1]).contextValue, 'sandbox-worker', 'an idle worker offers no attach');
+    ok(tv.message.startsWith('as of '), 'the view states its freshness');
+    await commands['codify.sandboxes.attach'](wi.command.arguments[0]);
+    eq(opened.length, 1, 'attach opens one document');
+    const text = opened[0].text;
+    ok(text.startsWith('# session sess-1'), 'the document is the worker\'s session');
+    ok(/task      6\.4/.test(text) && /working on 6\.4/.test(text) && /agent\.tool  Edit/.test(text), 'the session\'s events are in it');
+    ok(!/not mine/.test(text), 'another session\'s events are not');
+    await commands['codify.sandboxes.attach']();   // from the palette: a pick
+    eq(opened.length, 2, 'attach from the palette picks a worker');
+    // a refusal empties the view and says why
+    const api2 = sbx.register({ subscriptions: [] }, { cg: async () => ({ code: 1, stdout: '', stderr: '{"ok":false,"error":{"code":"OFFLINE_AUTHORITY_UNAVAILABLE","message":"offline"}}' }) });
+    await api2.refresh();
+    eq(tv.provider.getChildren().length, 0, 'a refusal draws no rows');
+    ok(/OFFLINE_AUTHORITY_UNAVAILABLE/.test(tv.message), 'the refusal is stated');
+    console.log('sandboxes ok');
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "sandboxes view"
+    cd "$TMP"
 fi
 
 # ---- issues (hyperfide-v21 6.3): the Issues view. console.issues rows in
