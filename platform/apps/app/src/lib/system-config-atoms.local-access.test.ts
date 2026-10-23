@@ -88,8 +88,8 @@ beforeEach(() => {
   mocks.fetchSystemConfig.mockClear();
   vi.stubGlobal("window", {
     location: {
-      hostname: "remote.getbb.app",
-      origin: "https://remote.getbb.app",
+      hostname: "remote.hyperfide.example",
+      origin: "https://remote.hyperfide.example",
     },
   });
   vi.stubGlobal("navigator", {
@@ -289,7 +289,7 @@ describe("local host daemon access atoms", () => {
     mocks.fetchHostStatus.mockResolvedValue({
       connected: true,
       hostId: "host-local",
-      serverUrl: "https://remote.getbb.app",
+      serverUrl: "https://remote.hyperfide.example",
     });
     const store = createStore();
     const unsubscribe = store.sub(localHostStatusAtom, () => {});
@@ -316,7 +316,7 @@ describe("local host daemon access atoms", () => {
     mocks.fetchHostStatus.mockResolvedValue({
       connected: true,
       hostId: "host-local",
-      serverUrl: "https://remote.getbb.app",
+      serverUrl: "https://remote.hyperfide.example",
     });
     const store = createStore();
     const unsubscribe = store.sub(localHostStatusAtom, () => {});
@@ -344,7 +344,7 @@ describe("local host daemon access atoms", () => {
     mocks.fetchHostStatus.mockResolvedValue({
       connected: true,
       hostId: "host-local",
-      serverUrl: "https://remote.getbb.app",
+      serverUrl: "https://remote.hyperfide.example",
     });
     const store = createStore();
     const unsubscribe = store.sub(localHostStatusAtom, () => {});
@@ -426,7 +426,7 @@ describe("local host daemon access atoms", () => {
     mocks.fetchHostStatus.mockResolvedValue({
       connected: true,
       hostId: "host-local",
-      serverUrl: "https://remote.getbb.app",
+      serverUrl: "https://remote.hyperfide.example",
     });
     const store = createStore();
 
@@ -446,7 +446,7 @@ describe("local host daemon access atoms", () => {
       connected: true,
       hostId: port === 38_888 ? "host-browser-machine" : "host-primary",
       serverUrl:
-        port === 38_888 ? "https://remote.getbb.app" : "http://127.0.0.1:38886",
+        port === 38_888 ? "https://remote.hyperfide.example" : "http://127.0.0.1:38886",
     }));
     const store = createStore();
 

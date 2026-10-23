@@ -21,7 +21,7 @@ function move(overrides: Partial<ServerMoveStatus> = {}): ServerMoveStatus {
     mode: "connect",
     targetHostId: "host_desk",
     targetHostName: "desk",
-    serverUrl: "https://sawyer.getbb.app",
+    serverUrl: "https://sawyer.hyperfide.example",
     destinationStatusUrl: null,
     startedAt: 1,
     finishedAt: null,

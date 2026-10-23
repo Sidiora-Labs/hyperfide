@@ -169,7 +169,7 @@ function preparingMove(): ServerMoveStatus {
     mode: "connect",
     targetHostId: "host_desk",
     targetHostName: "desk",
-    serverUrl: "https://sawyer.getbb.app",
+    serverUrl: "https://sawyer.hyperfide.example",
     destinationStatusUrl: null,
     startedAt: NOW,
     finishedAt: null,

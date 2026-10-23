@@ -38,7 +38,6 @@ export default defineConfig({
     },
   },
   server: {
-    allowedHosts: [".getbb.app"],
     proxy: {
       "/api": {
         target: devInstance.serverUrl,

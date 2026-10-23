@@ -20,10 +20,6 @@ local desktop, server, and daemon files in the selected data directory.
 
 ## Desktop Browser Tab Recovery
 
-When the desktop app connects to a HYPERFIDE Connect server, it installs and renews
-the Connect desktop session in both the app and embedded browser cookie stores.
-This also authenticates shared-port links under the same Connect domain. The
-browser keeps its separate profile; unrelated site cookies are not copied.
 
 Desktop browser registration first uses a private local broker descriptor whose
 recorded server URL matches the selected server's origin. Otherwise it discovers
@@ -110,13 +106,6 @@ favicon event. Renderer image-size measurements are also bounded and reused
 so remounts retain the appropriate Retina candidate. Image bytes still load
 through the renderer's browser cache; authenticated icon fetching through the
 embedded browser session is not implemented by this cache.
-
-## Log Fields
-
-Query with the Analytics Engine SQL API and an Account Analytics Read token,
-for example `SELECT timestamp, blob1, blob2, blob5, double2 FROM
-hyperfide_connect_gate_events WHERE blob4 = '<handle>.hyperfide.app' ORDER BY timestamp
-DESC`.
 
 ## Reproducing Test Order Failures
 

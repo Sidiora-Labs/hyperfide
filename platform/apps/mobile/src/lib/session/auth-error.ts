@@ -1,4 +1,3 @@
-import { ConnectListError } from "@bb/connect-client";
 import { toRecord } from "@bb/core-ui";
 import { BbHttpError } from "@bb/sdk/browser";
 
@@ -21,9 +20,6 @@ function isAuthStatus(status: number): boolean {
 }
 
 export function mapAuthError(input: unknown): AuthErrorKind {
-  if (input instanceof ConnectListError) {
-    return input.code === "unauthorized" ? "auth-required" : "network";
-  }
   if (input instanceof BbHttpError) {
     return isAuthStatus(input.status) ? "auth-required" : "http";
   }

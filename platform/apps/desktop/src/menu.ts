@@ -8,7 +8,6 @@ import {
 import type { BbDesktopZoomCommand } from "@bb/desktop-contract";
 import type { ApplicationMenuAccelerators } from "./desktop-menu-shortcuts.js";
 import { builtinServerName } from "./server-target.js";
-import type { ConnectServerSyncSkipReason } from "./connect-server-sync.js";
 
 const LOCAL_LOGS_MENU_LABEL = "Local Logs";
 const OPEN_NEW_TAB_MENU_LABEL = "New Tab";
@@ -19,8 +18,6 @@ const CLOSE_WINDOW_MENU_LABEL = "Close Window";
 const OPEN_SETTINGS_MENU_LABEL = "Settings…";
 const VIEW_LICENSE_MENU_LABEL = "View License";
 const LICENSE_URL = "https://github.com/get-bb/bb/blob/main/LICENSE";
-const UNINSTALL_MENU_LABEL = "How to Uninstall bb";
-const UNINSTALL_URL = "https://getbb.app/uninstall";
 const TOGGLE_DEVELOPER_TOOLS_MENU_LABEL = "Toggle Developer Tools";
 const TOGGLE_DEVELOPER_TOOLS_ACCELERATOR = "Command+Option+I";
 const RELOAD_ACCELERATOR = "CommandOrControl+R";
@@ -34,13 +31,6 @@ const SERVER_MENU_ITEM_IDS = [
   WINDOW_SERVER_MENU_ITEM_ID,
 ];
 export const SET_SERVER_URL_MENU_LABEL = "Edit Server…";
-const CONNECT_SIGN_IN_MENU_LABELS: Partial<
-  Record<ConnectServerSyncSkipReason, string>
-> = {
-  "no-credential": "Sign in to bb Connect…",
-  unauthorized: "Sign in to bb Connect again…",
-};
-
 interface ApplicationMenuServerItem {
   checked: boolean;
   id: string;
@@ -67,11 +57,9 @@ export interface InstallApplicationMenuArgs {
   openLocalLogs(): void;
   selectServer(serverId: string): void;
   setServerUrl(): void;
-  signInToConnect(): void;
   addServer(): void;
   onServerMenuWillShow?: () => void;
   servers: ApplicationMenuServerItem[];
-  connectServersSkipReason: ConnectServerSyncSkipReason | null;
 }
 
 function createLocalLogsMenuItems(
@@ -94,11 +82,9 @@ export type ServerMenuArgs = Pick<
   | "showBuiltinServer"
   | "toggleBuiltinServer"
   | "addServer"
-  | "connectServersSkipReason"
   | "selectServer"
   | "servers"
   | "setServerUrl"
-  | "signInToConnect"
 >;
 
 export function createServerMenuItems(
@@ -114,23 +100,9 @@ export function createServerMenuItems(
       type: "radio" as const,
     }),
   );
-  const signInLabel =
-    args.connectServersSkipReason === null
-      ? undefined
-      : CONNECT_SIGN_IN_MENU_LABELS[args.connectServersSkipReason];
   return [
     ...serverItems,
     { type: "separator" },
-    ...(signInLabel === undefined
-      ? []
-      : [
-          {
-            label: signInLabel,
-            click() {
-              args.signInToConnect();
-            },
-          },
-        ]),
     {
       label: "Add Server…",
       click() {
@@ -343,12 +315,6 @@ export function buildApplicationMenuTemplate(
           label: VIEW_LICENSE_MENU_LABEL,
           click: () => {
             void shell.openExternal(LICENSE_URL);
-          },
-        },
-        {
-          label: UNINSTALL_MENU_LABEL,
-          click: () => {
-            void shell.openExternal(UNINSTALL_URL);
           },
         },
       ],

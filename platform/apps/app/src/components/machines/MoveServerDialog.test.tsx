@@ -56,7 +56,7 @@ function startedMove(): ServerMoveStatus {
     mode: "connect",
     targetHostId: TARGET.id,
     targetHostName: TARGET.name,
-    serverUrl: "https://sawyer.getbb.app",
+    serverUrl: "https://sawyer.hyperfide.example",
     destinationStatusUrl: null,
     startedAt: 1,
     finishedAt: null,

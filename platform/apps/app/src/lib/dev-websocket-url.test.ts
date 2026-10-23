@@ -32,11 +32,11 @@ describe("buildDevWebSocketUrl", () => {
     vi.stubGlobal("__HYPERFIDE_DEV_WS_BROWSER_HOST_PORT__", 23_802);
     vi.stubGlobal("__HYPERFIDE_DEV_APP_BROWSER_HOST_PORT__", 15_802);
     installWindowLocation(
-      "https://sawyer--15802.getbb.app/threads/thr_jew2ruik89",
+      "https://sawyer--15802.hyperfide.example/threads/thr_jew2ruik89",
     );
 
     expect(buildDevWebSocketUrl({ path: "/ws" })).toBe(
-      "wss://sawyer--15802.getbb.app/ws",
+      "wss://sawyer--15802.hyperfide.example/ws",
     );
   });
 

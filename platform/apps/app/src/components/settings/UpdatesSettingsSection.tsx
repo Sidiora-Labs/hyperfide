@@ -105,7 +105,6 @@ import {
 import { sdk } from "@/lib/sdk";
 import { rawStringLocalStorage } from "@/lib/browser-storage";
 
-const CHANGELOG_URL = "https://getbb.app/changelog";
 const CHANGELOG_STALE_TIME_MS = 5 * 60_000;
 const CHANGELOG_DISMISSED_VERSION_STORAGE_KEY =
   "bb.settings.updates.dismissed-changelog-version";
@@ -724,25 +723,6 @@ export function ChangelogPreviewCard() {
                 {moreBelow ? <OverflowFade placement="below" inset /> : null}
               </div>
             </article>
-            <div
-              data-changelog-footer
-              className="flex items-center justify-end border-t border-foreground bg-foreground px-4 py-2.5 text-background sm:px-5"
-            >
-              <button
-                type="button"
-                disabled={!releaseVisible}
-                aria-label={`Open the full bb ${entry.version} changelog`}
-                onClick={() =>
-                  openUrlInExternalBrowser(
-                    `${CHANGELOG_URL}#${entry.version.replaceAll(".", "-")}`,
-                  )
-                }
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm text-xs font-semibold text-background underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-background"
-              >
-                Full changelog
-                <Icon aria-hidden name="ExternalLink" className="size-3.5" />
-              </button>
-            </div>
           </div>
         </div>
         <div
@@ -2147,7 +2127,9 @@ export function UpdatesSettingsSection({
     <BbAppUpdateRows
       name="Server"
       systemVersion={inventory.systemVersion}
-      appUpdate={useServerUpdate || desktopInfo === null ? appUpdate : undefined}
+      appUpdate={
+        useServerUpdate || desktopInfo === null ? appUpdate : undefined
+      }
       applyPending={applyAppUpdate.isPending}
       desktopInfo={useServerUpdate ? null : desktopInfo}
       isDesktop={!useServerUpdate && isDesktop}

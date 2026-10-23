@@ -316,29 +316,11 @@ describe("consumer-specific config", () => {
     expect(serverConfig.HYPERFIDE_APP_SURFACE).toBe("web");
     expect(serverConfig.HYPERFIDE_APP_VERSION).toBe("0.0.0-dev");
     expect(serverConfig.HYPERFIDE_EXTERNAL_URL).toBe("");
-    expect(serverConfig.HYPERFIDE_CONNECT_GATE_KEYS_URL).toBe(
-      "https://getbb.app/.well-known/bb-connect-gate-keys.json",
-    );
     expect(serverConfig.featureFlags).toEqual({
       placeholder: false,
       initiatorTelemetry: true,
       timelineWindowEventBudget: 1_500,
     });
-  });
-
-  it("reads and validates the connect gate keys URL override", () => {
-    expect(
-      loadServerConfig({
-        env: createServerRuntimeEnv({
-          HYPERFIDE_CONNECT_GATE_KEYS_URL: "http://127.0.0.1:9999/keys.json",
-        }),
-      }).HYPERFIDE_CONNECT_GATE_KEYS_URL,
-    ).toBe("http://127.0.0.1:9999/keys.json");
-    expect(() =>
-      loadServerConfig({
-        env: createServerRuntimeEnv({ HYPERFIDE_CONNECT_GATE_KEYS_URL: "" }),
-      }),
-    ).toThrow("HYPERFIDE_CONNECT_GATE_KEYS_URL");
   });
 
   it("validates the opt-in performance diagnostics setting", () => {

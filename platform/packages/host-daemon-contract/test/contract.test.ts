@@ -245,7 +245,7 @@ const ONLINE_RPC_RESPONSE_RESULT_FIXTURES: OnlineRpcResponseResultFixtures = {
   "plugin.host.dispose": { disposed: true },
   "connect-tunnel.ensure-identity": {
     label: "sawyer-air",
-    baseDomain: "getbb.app",
+    baseDomain: "hyperfide.example",
   },
   "host.list_files": {
     files: [
@@ -1269,8 +1269,8 @@ describe("host-daemon command schemas", () => {
 
   it("parses connect next config and status messages strictly", () => {
     const config = {
-      domain: "next.getbb.app",
-      server: { protocol: "wss", host: "tunnel.next.getbb.app", port: 443 },
+      domain: "next.hyperfide.example",
+      server: { protocol: "wss", host: "tunnel.next.hyperfide.example", port: 443 },
     };
     expect(
       hostDaemonServerWsMessageSchema.parse({
@@ -3585,7 +3585,7 @@ describe("host-daemon session schemas", () => {
         ports: [3000],
         tunnel: {
           label: "sawyer-air",
-          baseDomain: "getbb.app",
+          baseDomain: "hyperfide.example",
         },
       }).success,
     ).toBe(false);
@@ -3593,11 +3593,11 @@ describe("host-daemon session schemas", () => {
     expect(
       hostDaemonDaemonWsMessageSchema.parse({
         type: "connect-tunnel.identity",
-        identity: { label: "sawyer-air", baseDomain: "getbb.app" },
+        identity: { label: "sawyer-air", baseDomain: "hyperfide.example" },
       }),
     ).toEqual({
       type: "connect-tunnel.identity",
-      identity: { label: "sawyer-air", baseDomain: "getbb.app" },
+      identity: { label: "sawyer-air", baseDomain: "hyperfide.example" },
     });
 
     expect(

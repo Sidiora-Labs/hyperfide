@@ -6,7 +6,6 @@ import {
   countAppliedMigrations,
   getAppSettings,
   getHost,
-  getPluginKvValue,
   hostDaemonSessions,
   rerootServerOwnedPluginPaths,
   setAppSettings,
@@ -39,12 +38,6 @@ import {
 const PLUGIN_SNAPSHOTS_RELATIVE_PATH = ["plugins", "snapshots"] as const;
 const PREVIOUS_REGISTRATION_FILE_NAME = "previous-registration.json";
 const REGISTRATION_PATH_KEYS = ["rootDir", "sourcePath"] as const;
-const CONNECT_CREDENTIAL_KEY = "credential";
-const CONNECT_CREDENTIAL_PLUGIN_IDS = ["bb-account", "connect"] as const;
-
-const connectCredentialUrlSchema = z
-  .object({ serverUrl: z.string().min(1) })
-  .passthrough();
 const registrationObjectSchema = z.record(z.string(), z.unknown());
 
 export interface PendingServerMove {
@@ -213,36 +206,11 @@ function normalizeUrl(value: string): string {
   return value.replace(/\/+$/u, "");
 }
 
-function storedConnectServerUrl(
-  db: DbConnection,
-  pluginId: (typeof CONNECT_CREDENTIAL_PLUGIN_IDS)[number],
-): string | null {
-  const raw = getPluginKvValue(db, pluginId, CONNECT_CREDENTIAL_KEY);
-  if (raw === undefined) {
-    return null;
-  }
-  let credential: unknown;
-  try {
-    credential = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  const parsed = connectCredentialUrlSchema.safeParse(credential);
-  return parsed.success ? normalizeUrl(parsed.data.serverUrl) : null;
-}
-
-function isConnectServerUrl(db: DbConnection, serverUrl: string): boolean {
-  const target = normalizeUrl(serverUrl);
-  return CONNECT_CREDENTIAL_PLUGIN_IDS.some(
-    (pluginId) => storedConnectServerUrl(db, pluginId) === target,
-  );
-}
-
 function directMoveServerUrl(
-  db: DbConnection,
+  _db: DbConnection,
   serverUrl: string | null,
 ): string | null {
-  if (serverUrl === null || isConnectServerUrl(db, serverUrl)) {
+  if (serverUrl === null) {
     return null;
   }
   const parsed = appSettingsSchema.shape.machineServerUrl.safeParse(

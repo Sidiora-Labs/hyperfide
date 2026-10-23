@@ -9,11 +9,6 @@ import {
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import {
-  ACCOUNT_PLUGIN_ID,
-  accountFetchMethod,
-  accountFetchOutputSchema,
-  accountStatusMethod,
-  accountStatusSchema,
   type Account,
   type AccountFetchInput,
   type AccountFetchOutput,
@@ -31,7 +26,7 @@ export const TRANSCRIBE_MAX_BYTES = 10 * 1024 * 1024;
 const ENABLED_KEY = "enabled";
 const BB_CLOUD_OFF_MESSAGE = "bb cloud is off. Turn it on with `bb ai on`.";
 const SIGN_IN_MESSAGE = "Sign in to your bb account";
-const ACCOUNT_DOWN_MESSAGE = "The bb account plugin is not running";
+const ACCOUNT_DOWN_MESSAGE = "Hosted accounts are disabled";
 
 const JSON_OPTION = {
   type: "boolean",
@@ -128,7 +123,7 @@ export const bbAiRpcContract = defineRpcContract({
   overview: { input: z.null(), output: overviewSchema },
   setEnabled: {
     experimental_description:
-      "Turn bb cloud on or off. While off, bb cloud reports not ready and sends nothing to getbb.app.",
+      "Turn bb cloud on or off. While off, bb cloud reports not ready and sends nothing to the retired hosted service.",
     input: z.object({ enabled: z.boolean() }).strict(),
     output: overviewSchema,
   },
@@ -183,16 +178,7 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
   let exhaustion: Exhaustion | null = null;
 
   async function accountStatus(): Promise<AccountStatus | null> {
-    try {
-      return await bb.sdk.plugins.callRpc({
-        pluginId: ACCOUNT_PLUGIN_ID,
-        method: accountStatusMethod,
-        input: {},
-        outputSchema: accountStatusSchema,
-      });
-    } catch {
-      return null;
-    }
+    return null;
   }
 
   async function currentAccountKey(): Promise<string | null> {
@@ -201,16 +187,10 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
   }
 
   function accountFetch(
-    input: AccountFetchInput,
-    signal?: AbortSignal,
+    _input: AccountFetchInput,
+    _signal?: AbortSignal,
   ): Promise<AccountFetchOutput> {
-    return bb.sdk.plugins.callRpc({
-      pluginId: ACCOUNT_PLUGIN_ID,
-      method: accountFetchMethod,
-      input,
-      outputSchema: accountFetchOutputSchema,
-      ...(signal === undefined ? {} : { signal }),
-    });
+    return Promise.reject(new Error("Hosted accounts are disabled"));
   }
 
   function exhaustedUntil(key: string): number | null {
@@ -436,7 +416,8 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
           },
         }),
         off: cliCommand({
-          summary: "Turn bb cloud off; bb sends nothing to getbb.app",
+          summary:
+            "Turn bb cloud off; bb sends nothing to the retired hosted service",
           options: { json: JSON_OPTION },
           async run(input) {
             const view = await setEnabled(false);
@@ -444,7 +425,7 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
               exitCode: 0,
               stdout: input.options.json
                 ? JSON.stringify(view)
-                : "bb cloud is off. bb no longer sends prompts or diffs to getbb.app. Run `bb ai on` to turn it back on.",
+                : "bb cloud is off. bb no longer sends prompts or diffs to the retired hosted service. Run `bb ai on` to turn it back on.",
             };
           },
         }),

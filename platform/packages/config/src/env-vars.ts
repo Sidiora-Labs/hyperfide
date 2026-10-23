@@ -277,12 +277,6 @@ export const HYPERFIDE_MARKETPLACE_URL_ENV = defineEnvVar<string>({
   parse: parseOptionalUrlEnvValue,
 });
 
-export const HYPERFIDE_CONNECT_GATE_KEYS_URL_ENV = defineEnvVar<string>({
-  description:
-    "URL of the bb connect next gate public key set the server's tunnel ingress verifies gate assertions with. Point it at a local file server to test the ingress.",
-  name: "HYPERFIDE_CONNECT_GATE_KEYS_URL",
-  parse: parseRequiredUrlEnvValue,
-});
 
 export const HYPERFIDE_POSTHOG_API_KEY_ENV = defineEnvVar<string>({
   description:
@@ -431,10 +425,7 @@ export const DEFAULT_HYPERFIDE_POSTHOG_API_KEY =
   "phc_tejoYoNLV6vG8QAd5eYXXvcsENFYnP4brpZDGqG7zvpy";
 export const DEFAULT_HYPERFIDE_TELEMETRY = true;
 export const DEFAULT_HYPERFIDE_DEV_APP_HOST = "";
-export const DEFAULT_HYPERFIDE_MARKETPLACE_URL =
-  "https://getbb.app/marketplace/v2/marketplace.json";
-export const DEFAULT_HYPERFIDE_CONNECT_GATE_KEYS_URL =
-  "https://getbb.app/.well-known/bb-connect-gate-keys.json";
+export const DEFAULT_HYPERFIDE_MARKETPLACE_URL = "";
 export const DEFAULT_HYPERFIDE_FF_PLACEHOLDER = defaultFeatureFlags.placeholder;
 export const DEFAULT_HYPERFIDE_FF_INITIATOR_TELEMETRY =
   defaultFeatureFlags.initiatorTelemetry;

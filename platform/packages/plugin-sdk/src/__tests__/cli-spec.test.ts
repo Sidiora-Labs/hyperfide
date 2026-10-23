@@ -638,7 +638,7 @@ describe("defineCli parsing", () => {
     const cli = defineCli({
       name: "connect",
       summary: "Remote access",
-      description: "Pair from https://getbb.app",
+      description: "Pair from https://hyperfide.example",
       root: cliCommand({
         summary: "Pair this bb",
         options: {
@@ -662,7 +662,7 @@ describe("defineCli parsing", () => {
     });
     const bare = await run(cli, []);
     expect(bare.exitCode).toBe(0);
-    expect(bare.stdout).toContain("Pair from https://getbb.app");
+    expect(bare.stdout).toContain("Pair from https://hyperfide.example");
     expect(bare.stdout).toContain("bb connect status");
     expect(bare.stdout).toContain("--code <value>");
 

@@ -95,17 +95,7 @@ Keep each plugin in its own directory with its own `package.json`, then index
 the directories in a `.bb/plugins.json` collection manifest at the repository
 root:
 
-```json
-{
-  "$schema": "https://getbb.app/schemas/plugins.schema.json",
-  "schemaVersion": 1,
-  "name": "acme-plugins",
-  "plugins": [
-    { "name": "notes", "source": "./plugins/notes" },
-    { "name": "status", "source": "./plugins/status" }
-  ]
-}
-```
+
 
 Each `source` is a repository-relative directory that starts with `./`. The
 file is an index only — it never overrides a plugin's identity, branding,
@@ -127,33 +117,7 @@ A marketplace is one `marketplace.json` file. It lists plugins with their
 store branding and their npm or git source; it never hosts plugin code, and
 installing an entry runs the same install pipeline a direct install runs.
 
-```json
-{
-  "$schema": "https://getbb.app/schemas/marketplace.schema.json",
-  "schemaVersion": 1,
-  "name": "acme-plugins",
-  "displayName": "Acme Plugins",
-  "description": "Plugins the Acme team maintains.",
-  "plugins": [
-    {
-      "id": "notes",
-      "displayName": "Notes",
-      "description": "Keep notes beside a thread.",
-      "icon": { "url": "./icons/notes.svg" },
-      "tags": ["notes", "interface"],
-      "author": { "name": "Acme", "github": "acme", "url": "https://acme.dev" },
-      "source": {
-        "git": {
-          "url": "https://github.com/acme/bb-plugins.git",
-          "subdir": "plugins/notes",
-          "range": "^1.0.0",
-          "tagPrefix": "notes/"
-        }
-      }
-    }
-  ]
-}
-```
+
 
 Schema version 1 is strict: an unknown field rejects the whole document.
 Version 2 ignores unknown fields except inside npm and git source objects,
@@ -204,11 +168,7 @@ package.json is the one-sentence hook. It appears on every browse card and as
 the lead paragraph on the detail page. Keep it under about 140 characters.
 State the outcome the user gets.
 
-`PLUGIN_OVERVIEW.md` beside package.json holds the long-form description. The
-detail page shows it in an Overview section under the lead paragraph, in the
-app and on the public getbb.app marketplace. `bb plugin new` scaffolds one, the
-BB Community marketplace requires one, and a plugin that is only installed from
-a local path or a private source still reads better with one.
+
 
 The file is the same claim as `bb.description` at length: the same outcome, the
 same surfaces, no capability the short text does not imply. Treat the two as

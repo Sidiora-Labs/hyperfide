@@ -100,7 +100,6 @@ export type TestAppHarnessConfigOverrides = Partial<ServerRuntimeConfig> & {
   terminalOpenTimeoutMs?: number;
   nativeRootsClock?: () => number;
   seedFirstPartyProviders?: boolean;
-  tunnelIngressNow?: () => number;
   extraProviders?: readonly {
     declaration: PluginProviderDeclaration;
     pluginId: string;
@@ -166,7 +165,6 @@ export async function createTestAppHarness(
     terminalOpenTimeoutMs = TEST_TERMINAL_RPC_TIMEOUT_MS,
     nativeRootsClock,
     seedFirstPartyProviders = true,
-    tunnelIngressNow: _tunnelIngressNow,
     ...configOverrides
   } = overrides;
   const logger = createTestLogger();
@@ -241,7 +239,6 @@ export async function createTestAppHarness(
     performanceDiagnosticsAvailable: false,
     hostDaemonPort: 3001,
     marketplaceUrl: "https://marketplace.invalid/marketplace.json",
-    connectGateKeysUrl: "https://gate-keys.invalid/bb-connect-gate-keys.json",
     inheritedSkillsRootPaths: [],
     isDevelopment: true,
     serverPort: 3334,
@@ -400,19 +397,8 @@ export async function startTestServer(
 ): Promise<RunningTestServer> {
   const harness = await createTestAppHarness(overrides);
   let addressInfo: AddressInfo | null = null;
-  const {
-    app,
-    closeWebSockets,
-    injectWebSocket,
-    pluginService,
-    serverMove,
-    tunnelIngress,
-  } = createApp(
-    harness.deps,
-    overrides.tunnelIngressNow === undefined
-      ? undefined
-      : { tunnelIngressNow: overrides.tunnelIngressNow },
-  );
+  const { app, closeWebSockets, injectWebSocket, pluginService, serverMove } =
+    createApp(harness.deps);
   const server = serve(
     {
       hostname: TEST_SERVER_HOST,
@@ -447,7 +433,6 @@ export async function startTestServer(
           resolve();
         });
       });
-      await tunnelIngress.closeAll();
       await closeWebSockets();
       await closeServer;
       await harness.cleanup();

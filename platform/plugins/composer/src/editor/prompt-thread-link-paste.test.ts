@@ -19,7 +19,7 @@ import {
 } from "./prompt-thread-link-paste";
 
 const PERSONAL_PROJECT_ID = "proj_personal";
-const origin = "https://brsbl.getbb.app";
+const origin = "https://brsbl.hyperfide.example";
 const projectId = "proj_khiw2za95v";
 const threadId = "thr_86mb5jjzi9";
 const secondId = "thr_2222222222";
@@ -44,7 +44,7 @@ function createDeferredPromise<T>() {
 
 function parseLink(url: string): ExperimentalComposerThreadLinkTarget | null {
   const match =
-    /^https:\/\/brsbl\.getbb\.app\/(?:projects\/(proj_\w+)\/)?threads\/(thr_\w+)\/?$/u.exec(
+    /^https:\/\/brsbl\.hyperfide\.example\/(?:projects\/(proj_\w+)\/)?threads\/(thr_\w+)\/?$/u.exec(
       url,
     );
   return match === null

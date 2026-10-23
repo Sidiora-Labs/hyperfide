@@ -774,7 +774,7 @@ describe("plugin install flows", () => {
 
     it("refuses a git plugin that shadows a builtin after materialization", async () => {
       const repoDir = join(workDir, "repo-connect");
-      await writePluginFixture(repoDir, { name: "bb-plugin-connect" });
+      await writePluginFixture(repoDir, { name: "@hyperfide/sdk" });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "init");
 
@@ -1768,14 +1768,14 @@ describe("plugin install flows", () => {
 
   it("refuses an npm package whose derived id shadows a builtin before install", async () => {
     await expect(
-      service.install("npm:bb-plugin-connect@1.2.3", { kind: "root" }),
+      service.install("npm:@hyperfide/sdk@1.2.3", { kind: "root" }),
     ).rejects.toThrowError(/reserved by the bundled plugin.*builtin:connect/);
     expect(getInstalledPluginRegistration(db, "connect")).toBeUndefined();
   });
 
   it("refuses a path plugin whose manifest id shadows a builtin", async () => {
-    const rootDir = join(workDir, "bb-plugin-connect");
-    await writePluginFixture(rootDir, { name: "bb-plugin-connect" });
+    const rootDir = join(workDir, "@hyperfide/sdk");
+    await writePluginFixture(rootDir, { name: "@hyperfide/sdk" });
     await expect(service.installPath(rootDir)).rejects.toThrowError(
       /reserved by the bundled plugin.*builtin:connect/,
     );

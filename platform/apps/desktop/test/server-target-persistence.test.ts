@@ -29,7 +29,7 @@ const thirdUrl = "http://localhost:4003";
 const connectServer = {
   handle: "laptop",
   name: "Laptop",
-  url: "https://laptop.getbb.app",
+  url: "https://laptop.hyperfide.example",
 };
 
 it.each([

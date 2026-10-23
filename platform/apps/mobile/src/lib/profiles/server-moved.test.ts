@@ -23,7 +23,7 @@ async function setup() {
   });
   const connect = await store.addProfile({
     mode: "connect",
-    serverUrl: "https://laptop.getbb.app",
+    serverUrl: "https://laptop.hyperfide.example",
     label: "laptop",
     handle: "laptop",
     credential: "bbcm_secret",
