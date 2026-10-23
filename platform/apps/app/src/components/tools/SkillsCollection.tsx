@@ -18,7 +18,7 @@ import {
   ResourceSortMenu,
   ResourceToolbar,
 } from "@hyperfide/shared-ui/resource-list";
-import { BbLogo } from "@/components/ui/bb-logo";
+import { HyperfideLogo } from "@/components/ui/hyperfide-logo";
 import {
   ConfirmDeleteDialog,
   ConfirmDeleteDialogContent,
@@ -33,15 +33,15 @@ import { ProviderIconMark } from "@/components/settings/ProviderIconMark";
 import { getProviderIconInfo } from "@/lib/provider-icon";
 import type { MarkdownLinkRouting } from "@/components/ui/markdown-link-routing";
 
-type ResourceProviderFilter = "bb" | SkillProvider;
+type ResourceProviderFilter = "hyperfide" | SkillProvider;
 export type ProviderRoster = ReadonlyMap<string, ProviderInfo>;
-type ResourceSkillSourceFilter = "included" | "bb-official" | "user";
+type ResourceSkillSourceFilter = "included" | "hyperfide-official" | "user";
 type ResourceSortMode = "provider" | "alpha";
 type ResourceSortDirection = "asc" | "desc";
 
 const RESOURCE_SKILL_SOURCE_FILTERS: readonly ResourceSkillSourceFilter[] = [
   "included",
-  "bb-official",
+  "hyperfide-official",
   "user",
 ];
 
@@ -54,31 +54,31 @@ function providerLabel(
   provider: SkillProvider | null,
   providerRoster: ProviderRoster,
 ): string {
-  if (provider === null) return "bb";
+  if (provider === null) return "hyperfide";
   return providerRoster.get(provider)?.displayName ?? provider;
 }
 
 function skillProviderFilterId(skill: SkillSummary): ResourceProviderFilter {
-  return skill.provider ?? "bb";
+  return skill.provider ?? "hyperfide";
 }
 
 function providerFilterLabel(
   provider: ResourceProviderFilter,
   providerRoster: ProviderRoster,
 ): string {
-  return provider === "bb" ? "bb" : providerLabel(provider, providerRoster);
+  return provider === "hyperfide" ? "hyperfide" : providerLabel(provider, providerRoster);
 }
 
 function skillSourceFilterId(skill: SkillSummary): ResourceSkillSourceFilter {
-  if (skill.scope === "bb-builtin") return "bb-official";
+  if (skill.scope === "hyperfide-builtin") return "hyperfide-official";
   if (skill.scope === "plugin") return "included";
   return "user";
 }
 
 function skillSourceFilterLabel(source: ResourceSkillSourceFilter): string {
   switch (source) {
-    case "bb-official":
-      return "BB Official";
+    case "hyperfide-official":
+      return "HYPERFIDE Official";
     case "included":
       return "Included in plugin";
     case "user":
@@ -89,7 +89,7 @@ function skillSourceFilterLabel(source: ResourceSkillSourceFilter): string {
 function isResourceSkillSourceFilter(
   value: string,
 ): value is ResourceSkillSourceFilter {
-  return value === "included" || value === "bb-official" || value === "user";
+  return value === "included" || value === "hyperfide-official" || value === "user";
 }
 
 function isResourceProviderFilter(
@@ -139,12 +139,12 @@ export function SkillProvenanceTooltip({
     <span className="inline-flex items-center gap-1.5">
       <span>{prefix}</span>
       <span
-        data-provider-icon={providerId ?? "bb"}
+        data-provider-icon={providerId ?? "hyperfide"}
         aria-hidden="true"
         className="flex size-3.5 shrink-0 items-center justify-center"
       >
         {providerId === null ? (
-          <BbLogo className="size-3.5 brightness-0 invert" />
+          <HyperfideLogo className="size-3.5 brightness-0 invert" />
         ) : (
           <ProviderLogo
             providerId={providerId}
@@ -174,7 +174,7 @@ function SkillLeading({
       />
     );
   }
-  return <BbLogo className="size-6" />;
+  return <HyperfideLogo className="size-6" />;
 }
 
 function skillDescription(
@@ -218,7 +218,7 @@ function skillMutationDisabledReason(
   skill: SkillSummary,
   providerRoster: ProviderRoster,
 ): string {
-  if (skill.scope === "bb-builtin") return "Built-in skill";
+  if (skill.scope === "hyperfide-builtin") return "Built-in skill";
   if (skill.scope === "plugin") return "Bundled with plugin";
   return `Bundled with ${providerLabel(skill.provider, providerRoster)}`;
 }
@@ -234,11 +234,11 @@ const SKILLS_BROWSE_DESCRIPTION = (
     >
       skills.sh
     </a>
-    . Install one and every agent you use in bb can run it.
+    . Install one and every agent you use in hyperfide can run it.
   </>
 );
 const SKILLS_LIBRARY_DESCRIPTION =
-  "The skills on this bb host — yours, your providers', and those bundled with plugins. They work with every agent you use in bb.";
+  "The skills on this hyperfide-platform host — yours, your providers', and those bundled with plugins. They work with every agent you use in hyperfide.";
 
 const PREFETCH_HOVER_INTENT_MS = 150;
 
@@ -279,8 +279,8 @@ function SkillRow({
         leading={<SkillLeading skill={skill} providerRoster={providerRoster} />}
         title={skill.name}
         titleMeta={
-          skill.scope === "bb-builtin" ? (
-            <ProvenancePill label="BB Official" />
+          skill.scope === "hyperfide-builtin" ? (
+            <ProvenancePill label="HYPERFIDE Official" />
           ) : skill.scope === "plugin" ? (
             <ProvenancePill
               label="Included"
@@ -373,13 +373,13 @@ export function SkillsOverview({
   const providerBucketCount = providerCounts.size;
   const providerOptions = useMemo(() => {
     const present = new Set<ResourceProviderFilter>([
-      "bb",
+      "hyperfide",
       ...providerCounts.keys(),
       ...providerFilters,
     ]);
     const ordered = [...present].sort((left, right) =>
-      left === "bb" || right === "bb"
-        ? Number(left !== "bb") - Number(right !== "bb")
+      left === "hyperfide" || right === "hyperfide"
+        ? Number(left !== "hyperfide") - Number(right !== "hyperfide")
         : providerFilterLabel(left, providerRoster).localeCompare(
             providerFilterLabel(right, providerRoster),
           ),
@@ -388,8 +388,8 @@ export function SkillsOverview({
       id: provider,
       label: providerFilterLabel(provider, providerRoster),
       leading:
-        provider === "bb" ? (
-          <BbLogo className="size-4" />
+        provider === "hyperfide" ? (
+          <HyperfideLogo className="size-4" />
         ) : (
           <ProviderLogo
             providerId={provider}
@@ -434,8 +434,8 @@ export function SkillsOverview({
     });
     return [...filtered].sort((left, right) => {
       const officialResult =
-        Number(left.scope !== "bb-builtin") -
-        Number(right.scope !== "bb-builtin");
+        Number(left.scope !== "hyperfide-builtin") -
+        Number(right.scope !== "hyperfide-builtin");
       if (officialResult !== 0) return officialResult;
       const base =
         sortMode === "provider"
@@ -498,7 +498,7 @@ export function SkillsOverview({
       <ResourceListPanel>
         {libraryList.items.map((skill) => (
           <SkillRow
-            key={`${skill.scope}-${skill.provider ?? "bb"}-${skill.name}-${skill.filePath}`}
+            key={`${skill.scope}-${skill.provider ?? "hyperfide"}-${skill.name}-${skill.filePath}`}
             skill={skill}
             providerRoster={providerRoster}
             onSelect={() => onSelectSkill(skill)}
@@ -539,7 +539,7 @@ export function SkillsOverview({
               action={
                 <CreateWithTemplatesButton
                   kind="skill"
-                  label="New bb skill"
+                  label="New hyperfide skill"
                   onCreate={onCreateSkill}
                 />
               }
@@ -691,11 +691,11 @@ export function SkillDetailDialogView({
       title={skill.name}
       path={skill.filePath}
       titleBadge={
-        skill.scope === "bb-builtin"
+        skill.scope === "hyperfide-builtin"
           ? {
-              label: "BB Official",
-              tooltip: "Ships with bb",
-              accessibleLabel: `${skill.name} is BB Official`,
+              label: "HYPERFIDE Official",
+              tooltip: "Ships with hyperfide",
+              accessibleLabel: `${skill.name} is HYPERFIDE Official`,
             }
           : bundledPluginName !== null
             ? {

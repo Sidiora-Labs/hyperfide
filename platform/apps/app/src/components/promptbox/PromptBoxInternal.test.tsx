@@ -5561,8 +5561,8 @@ describe("ComposerBox prompt actions", () => {
       }
       pill.textContent = serializedText;
       return {
-        text: `Build a plugin capability like ${serializedText} using bb's Plugin Guide. `,
-        html: `Build a plugin capability like ${pill.outerHTML} using bb's Plugin Guide. `,
+        text: `Build a plugin capability like ${serializedText} using hyperfide's Plugin Guide. `,
+        html: `Build a plugin capability like ${pill.outerHTML} using hyperfide's Plugin Guide. `,
       };
     };
 
@@ -5589,8 +5589,8 @@ describe("ComposerBox prompt actions", () => {
       getPromptEditorElement().querySelectorAll(".prompt-mention-pill"),
     ).toHaveLength(2);
     expect(latestValue(changes)).toBe(
-      "Build a plugin capability like @Inline actions using bb's Plugin Guide. " +
-        "Build a plugin capability like @Thread side-panel tabs using bb's Plugin Guide. ",
+      "Build a plugin capability like @Inline actions using hyperfide's Plugin Guide. " +
+        "Build a plugin capability like @Thread side-panel tabs using hyperfide's Plugin Guide. ",
     );
   });
 
@@ -5675,7 +5675,7 @@ describe("ComposerBox prompt actions", () => {
     await selectPromptAction("Automation");
 
     await waitFor(() =>
-      expect(latestValue(changes)).toBe("Create a new bb automation to "),
+      expect(latestValue(changes)).toBe("Create a new hyperfide automation to "),
     );
     expect(latestChange(changes)?.mentions).toEqual([]);
   });
@@ -5684,10 +5684,10 @@ describe("ComposerBox prompt actions", () => {
     const project = {
       kind: "project",
       projectId: "proj_1",
-      label: "bb",
+      label: "hyperfide",
     } as const;
     const { changes, promptBoxRef } = renderPromptBox("fix @hyperfide", {
-      initialMentionRanges: [{ start: 4, end: 7, resource: project }],
+      initialMentionRanges: [{ start: 4, end: "fix @hyperfide".length, resource: project }],
     });
 
     await focusPromptEnd(promptBoxRef);
@@ -5730,13 +5730,13 @@ describe("ComposerBox prompt actions", () => {
 
     await selectPromptAction("Plugin");
     await waitFor(() =>
-      expect(latestValue(changes)).toBe("Create a new bb plugin that wraps CI"),
+      expect(latestValue(changes)).toBe("Create a new hyperfide-platform plugin that wraps CI"),
     );
     expect(latestChange(changes)?.mentions).toEqual([]);
 
     await selectPromptAction("Plugin");
 
-    expect(latestValue(changes)).toBe("Create a new bb plugin that wraps CI");
+    expect(latestValue(changes)).toBe("Create a new hyperfide-platform plugin that wraps CI");
   });
 
   it("pastes prompt action command tokens as plan and goal pills", async () => {

@@ -34,7 +34,7 @@ function pluginDirectoryName(root: ClaudeSkillPluginRoot): string {
     .slice(0, 16);
 }
 
-export const CLAUDE_SKILL_PLUGIN_NAME = "bb-global-skills";
+export const CLAUDE_SKILL_PLUGIN_NAME = "hyperfide-global-skills";
 
 const SUFFIXED_SKILL_PLUGIN_NAME = new RegExp(
   `^${CLAUDE_SKILL_PLUGIN_NAME}-[0-9a-f]{8}$`,
@@ -73,8 +73,8 @@ export function ensureClaudeSkillPlugin(args: {
     $schema: MANIFEST_SCHEMA,
     name,
     version: "0.1.0",
-    description: `Skills injected by bb (${args.root.id}).`,
-    author: { name: "bb" },
+    description: `Skills injected by hyperfide (${args.root.id}).`,
+    author: { name: "hyperfide" },
     skills: "./skills",
   };
   writeFileSync(
@@ -100,5 +100,5 @@ export function ensureClaudeSkillPlugin(args: {
 
 export function createClaudeSkillPluginsRoot(baseDir = tmpdir()): string {
   mkdirSync(baseDir, { recursive: true });
-  return mkdtempSync(join(baseDir, "bb-claude-skill-plugins-"));
+  return mkdtempSync(join(baseDir, "hyperfide-claude-skill-plugins-"));
 }

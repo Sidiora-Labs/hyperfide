@@ -13,7 +13,7 @@ let nextId = 1000;
 
 beforeEach(async () => {
   harness = await startFakePiBridge({
-    prefix: "bb-pi-round2-",
+    prefix: "hyperfide-pi-round2-",
     initialize: true,
     processLog: true,
   });

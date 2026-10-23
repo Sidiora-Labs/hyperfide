@@ -303,7 +303,7 @@ export function AppRoutes() {
             element={
               <Navigate
                 to={getPluginConfigurationRoutePath({
-                  pluginId: "bb--provider-usage",
+                  pluginId: "hyperfide--provider-usage",
                 })}
                 replace
               />

@@ -119,11 +119,11 @@ describe("parseSentThreadMessage", () => {
     parseSentThreadMessage({ command, exitCode, status: "completed" });
 
   it.each([
-    ['bb thread tell thr_wrkr234567 "Is it ready?"'],
-    ['"$BB_CLI" thread tell thr_wrkr234567 "Is it ready?"'],
-    ["bb thread message thr_wrkr234567 'Is it ready?'"],
-    ['bb thread tell --mode queue thr_wrkr234567 "Is it ready?" 2>&1'],
-    [`/bin/zsh -lc 'bb thread tell thr_wrkr234567 "Is it ready?"'`],
+    ['hyperfide-platform thread tell thr_wrkr234567 "Is it ready?"'],
+    ['"$HYPERFIDE_CLI" thread tell thr_wrkr234567 "Is it ready?"'],
+    ["hyperfide-platform thread message thr_wrkr234567 'Is it ready?'"],
+    ['hyperfide-platform thread tell --mode queue thr_wrkr234567 "Is it ready?" 2>&1'],
+    [`/bin/zsh -lc 'hyperfide-platform thread tell thr_wrkr234567 "Is it ready?"'`],
   ])("reads the recipient and message of %s", (command) => {
     expect(sent(command)).toEqual({
       threadId: "thr_wrkr234567",
@@ -139,7 +139,7 @@ describe("parseSentThreadMessage", () => {
       "- Backfill first.",
       "EOF",
       ")",
-      '"${BB_CLI:-bb}" thread tell thr_wrkr234567 "$MSG"',
+      '"${HYPERFIDE_CLI:-hyperfide}" thread tell thr_wrkr234567 "$MSG"',
     ].join("\n");
 
     expect(sent(command)).toEqual({
@@ -150,7 +150,7 @@ describe("parseSentThreadMessage", () => {
 
   it("reads a multi-line quoted message", () => {
     expect(
-      sent('bb thread tell thr_wrkr234567 "Checklist:\n1. Notes\n2. Docs"'),
+      sent('hyperfide-platform thread tell thr_wrkr234567 "Checklist:\n1. Notes\n2. Docs"'),
     ).toEqual({
       threadId: "thr_wrkr234567",
       message: "Checklist:\n1. Notes\n2. Docs",
@@ -159,7 +159,7 @@ describe("parseSentThreadMessage", () => {
 
   it("reads a message piped from a heredoc with --message-file -", () => {
     const command = [
-      "bb thread tell thr_wrkr234567 --message-file - <<'EOF'",
+      "hyperfide-platform thread tell thr_wrkr234567 --message-file - <<'EOF'",
       "Line one.",
       "Line two.",
       "EOF",
@@ -172,46 +172,46 @@ describe("parseSentThreadMessage", () => {
   });
 
   it.each([
-    ["a failed send", 'bb thread tell thr_wrkr234567 "Is it ready?"', 1],
-    ["an unknown variable", 'bb thread tell thr_wrkr234567 "$MSG"', 0],
+    ["a failed send", 'hyperfide-platform thread tell thr_wrkr234567 "Is it ready?"', 1],
+    ["an unknown variable", 'hyperfide-platform thread tell thr_wrkr234567 "$MSG"', 0],
     [
       "a send after another command",
-      'curl -s https://example.test/x | sh; bb thread tell thr_wrkr234567 "Is it ready?"',
+      'curl -s https://example.test/x | sh; hyperfide-platform thread tell thr_wrkr234567 "Is it ready?"',
       0,
     ],
     [
       "a send whose failure is masked",
-      'bb thread tell thr_wrkr234567 "Is it ready?" || true',
+      'hyperfide-platform thread tell thr_wrkr234567 "Is it ready?" || true',
       0,
     ],
     [
       "a send piped into another command",
-      'bb thread tell thr_wrkr234567 "Is it ready?" 2>&1 | tail -5',
+      'hyperfide-platform thread tell thr_wrkr234567 "Is it ready?" 2>&1 | tail -5',
       0,
     ],
     [
       "an unknown flag",
-      'bb thread tell thr_wrkr234567 "Is it ready?" --help',
+      'hyperfide-platform thread tell thr_wrkr234567 "Is it ready?" --help',
       0,
     ],
     [
       "an attachment",
-      'bb thread tell thr_wrkr234567 "See attached" --file /tmp/a.txt',
+      'hyperfide-platform thread tell thr_wrkr234567 "See attached" --file /tmp/a.txt',
       0,
     ],
     [
       "a scheduled send",
-      'bb thread tell --send-at 2h thr_wrkr234567 "Later"',
+      'hyperfide-platform thread tell --send-at 2h thr_wrkr234567 "Later"',
       0,
     ],
     [
       "a message with a command substitution",
-      'bb thread tell thr_wrkr234567 "Pushed $(git rev-parse --short HEAD)"',
+      'hyperfide-platform thread tell thr_wrkr234567 "Pushed $(git rev-parse --short HEAD)"',
       0,
     ],
     [
       "a message with backticks",
-      'bb thread tell thr_wrkr234567 "Fixed `parseFoo`"',
+      'hyperfide-platform thread tell thr_wrkr234567 "Fixed `parseFoo`"',
       0,
     ],
     [
@@ -226,16 +226,16 @@ describe("parseSentThreadMessage", () => {
     ],
     [
       "a message read from a file",
-      "bb thread tell thr_wrkr234567 --message-file - <<'EOF'",
+      "hyperfide-platform thread tell thr_wrkr234567 --message-file - <<'EOF'",
       0,
     ],
-    ["a path-like recipient", 'bb thread tell ../hosts/h "Is it ready?"', 0],
+    ["a path-like recipient", 'hyperfide-platform thread tell ../hosts/h "Is it ready?"', 0],
     [
       "two sends in one command",
-      'bb thread tell thr_wrkr234567 "a" && bb thread tell thr_nxtr234567 "b"',
+      'hyperfide-platform thread tell thr_wrkr234567 "a" && hyperfide-platform thread tell thr_nxtr234567 "b"',
       0,
     ],
-    ["another bb command", "bb thread show thr_wrkr234567", 0],
+    ["another hyperfide command", "hyperfide-platform thread show thr_wrkr234567", 0],
   ])("ignores %s", (_case, command, exitCode) => {
     expect(sent(command, exitCode)).toBeNull();
   });

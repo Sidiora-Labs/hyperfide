@@ -19,12 +19,12 @@ function makeTempDir(prefix: string): string {
 
 function mcpConfig(threadId = "thread-1"): AcpMcpServerConfig {
   return {
-    name: "bb-bridge",
+    name: "hyperfide-bridge",
     command: "/usr/local/bin/node",
     args: ["/app/bridge.js", "--mcp-stdio"],
     env: [
-      { name: "BB_TOKEN", value: "secret" },
-      { name: "BB_THREAD", value: threadId },
+      { name: "HYPERFIDE_TOKEN", value: "secret" },
+      { name: "HYPERFIDE_THREAD", value: threadId },
     ],
   };
 }
@@ -42,12 +42,12 @@ describe("Cursor ACP session MCP approvals", () => {
         config: mcpConfig(),
         projectRoot: "/workspace/project",
       }),
-    ).toBe("bb-bridge-d4709a3db84ddb48");
+    ).toBe("hyperfide-bridge-c174e70877d1f631");
   });
 
   it("does not touch Cursor data for other ACP agents", async () => {
-    const cursorDataDir = makeTempDir("bb-cursor-data-");
-    const workspace = makeTempDir("bb-cursor-workspace-");
+    const cursorDataDir = makeTempDir("hyperfide-cursor-data-");
+    const workspace = makeTempDir("hyperfide-cursor-workspace-");
 
     await expect(
       approveCursorSessionMcpServer({
@@ -61,8 +61,8 @@ describe("Cursor ACP session MCP approvals", () => {
   });
 
   it("preserves unrelated approvals and removes its session approval on release", async () => {
-    const cursorDataDir = makeTempDir("bb-cursor-data-");
-    const workspace = makeTempDir("bb-cursor-workspace-");
+    const cursorDataDir = makeTempDir("hyperfide-cursor-data-");
+    const workspace = makeTempDir("hyperfide-cursor-workspace-");
     const env = { CURSOR_DATA_DIR: cursorDataDir };
     const first = await approveCursorSessionMcpServer({
       agentCommand: "/opt/cursor/cursor-agent",
@@ -104,12 +104,12 @@ describe("Cursor ACP session MCP approvals", () => {
     expect(JSON.parse(readFileSync(first.path, "utf8")) as unknown).toEqual([
       "user-approved-server",
     ]);
-    expect(() => readFileSync(`${first.path}.bb-lock`)).toThrow();
+    expect(() => readFileSync(`${first.path}.hyperfide-lock`)).toThrow();
   });
 
   it("does not remove an approval Cursor already had", async () => {
-    const cursorDataDir = makeTempDir("bb-cursor-data-");
-    const workspace = makeTempDir("bb-cursor-workspace-");
+    const cursorDataDir = makeTempDir("hyperfide-cursor-data-");
+    const workspace = makeTempDir("hyperfide-cursor-workspace-");
     const env = { CURSOR_DATA_DIR: cursorDataDir };
     const installed = await approveCursorSessionMcpServer({
       agentCommand: "cursor-agent",
@@ -129,7 +129,7 @@ describe("Cursor ACP session MCP approvals", () => {
       cwd: workspace,
       env,
     });
-    expect(existing?.installedByBb).toBe(false);
+    expect(existing?.installedByHyperfide).toBe(false);
     if (existing) {
       await revokeCursorSessionMcpServer(existing);
     }

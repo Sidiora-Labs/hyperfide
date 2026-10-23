@@ -39,11 +39,11 @@ async function writeRuntimePackageJson(args: {
     `${JSON.stringify(
       {
         ...packageJson,
-        bb: {
-          ...packageJson.bb,
+        hyperfide: {
+          ...packageJson.hyperfide,
           server: "./dist/server.js",
-          ...(packageJson.bb.app === undefined ? {} : { app: "./dist/app.js" }),
-          ...(packageJson.bb.host === undefined
+          ...(packageJson.hyperfide.app === undefined ? {} : { app: "./dist/app.js" }),
+          ...(packageJson.hyperfide.host === undefined
             ? {}
             : { host: "./dist/host.js" }),
         },
@@ -83,12 +83,12 @@ export async function copyPluginRuntime(args: {
       await readFile(path.join(args.sourceRoot, "package.json"), "utf8"),
     ),
   );
-  const logo = packageJson.bb.branding.logo;
-  const compactIcon = isPluginOwnedIconPath(packageJson.bb.branding.icon ?? "")
-    ? packageJson.bb.branding.icon
+  const logo = packageJson.hyperfide.branding.logo;
+  const compactIcon = isPluginOwnedIconPath(packageJson.hyperfide.branding.icon ?? "")
+    ? packageJson.hyperfide.branding.icon
     : undefined;
   const declaredIcons = Object.values(
-    packageJson.bb.branding.experimental_icons ?? {},
+    packageJson.hyperfide.branding.experimental_icons ?? {},
   );
   for (const asset of [
     compactIcon,
@@ -116,7 +116,7 @@ export async function copyPluginRuntime(args: {
 export async function preparePluginRuntime(args: {
   sourceRoot: string;
   targetDir: string;
-  bbVersion: string;
+  hyperfideVersion: string;
   toolchain: PluginBuildToolchain;
 }): Promise<void> {
   const buildRoot = await mkdtemp(
@@ -141,13 +141,13 @@ export async function preparePluginRuntime(args: {
     const manifest = pluginPackageJsonSchema.parse(
       JSON.parse(await readFile(path.join(buildRoot, "package.json"), "utf8")),
     );
-    await buildPluginServer(buildRoot, args.bbVersion, args.toolchain, {
+    await buildPluginServer(buildRoot, args.hyperfideVersion, args.toolchain, {
       hostProvidedZod: true,
     });
-    if (manifest.bb.app !== undefined)
-      await buildPluginApp(buildRoot, args.bbVersion, args.toolchain);
-    if (manifest.bb.host !== undefined)
-      await buildPluginHost(buildRoot, args.bbVersion, args.toolchain);
+    if (manifest.hyperfide.app !== undefined)
+      await buildPluginApp(buildRoot, args.hyperfideVersion, args.toolchain);
+    if (manifest.hyperfide.host !== undefined)
+      await buildPluginHost(buildRoot, args.hyperfideVersion, args.toolchain);
     await runStageAssets(buildRoot);
     await copyPluginRuntime({
       sourceRoot: buildRoot,

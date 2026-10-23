@@ -15,7 +15,7 @@ const defaultRepoRoot = resolve(dirname(scriptPath), "..");
 const packageTargets = [
   {
     label: "hyperfide-app",
-    path: "packages/bb-app/package.json",
+    path: "packages/hyperfide-app/package.json",
   },
   {
     label: "@hyperfide/desktop",
@@ -120,7 +120,7 @@ export async function bumpVersion(options) {
       `${update.target.label.replaceAll("/", "-")}.json`,
     updates,
   });
-  log(`Bumped: bb-app + @hyperfide/desktop → ${newVersion}`);
+  log(`Bumped: hyperfide-app + @hyperfide/desktop → ${newVersion}`);
 }
 
 async function main() {

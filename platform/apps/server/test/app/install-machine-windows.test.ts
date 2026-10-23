@@ -77,24 +77,24 @@ describe("Windows machine installer", () => {
       parseBootstrap(
         JSON.stringify({
           hostId: "host_1",
-          serverUrl: "https://bb.example.com/",
+          serverUrl: "https://hyperfide.example.com/",
           headers: { "x-access": "token", ignored: 1 },
           reconnect: true,
-          dataDir: "C:\\Users\\me\\.bb-machines\\bb.example.com",
+          dataDir: "C:\\Users\\me\\.hyperfide-machines\\hyperfide.example.com",
         }),
       ),
     ).toEqual({
-      dataDir: "C:\\Users\\me\\.bb-machines\\bb.example.com",
+      dataDir: "C:\\Users\\me\\.hyperfide-machines\\hyperfide.example.com",
       headers: { "x-access": "token" },
       hostId: "host_1",
       reconnect: true,
-      serverUrl: "https://bb.example.com",
+      serverUrl: "https://hyperfide.example.com",
     });
     expect(() =>
       parseBootstrap(
         JSON.stringify({
           hostId: "host_1",
-          serverUrl: "https://user:secret@bb.example.com",
+          serverUrl: "https://user:secret@hyperfide.example.com",
         }),
       ),
     ).toThrow("invalid server URL");
@@ -104,14 +104,14 @@ describe("Windows machine installer", () => {
   it("names the startup entry after the server and machine", async () => {
     const { serviceName } = await loadInstaller();
     expect(serviceName("http://127.0.0.1:38886", "host_a/b")).toBe(
-      "bb-host-daemon-127-0-0-1-38886-host_a-b",
+      "hyperfide-host-daemon-127-0-0-1-38886-host_a-b",
     );
   });
 
   it("starts the daemon at sign-in through a hidden PowerShell with quoted paths", async () => {
     const { startupCommand } = await loadInstaller();
     const command = startupCommand({
-      dataDir: "C:\\Users\\O'Brien\\.bb-machines\\bb",
+      dataDir: "C:\\Users\\O'Brien\\.hyperfide-machines\\hyperfide",
       hostId: "host_1",
       nodePath: "C:\\Program Files\\nodejs\\node.exe",
     });
@@ -133,7 +133,7 @@ describe("Windows machine installer", () => {
       expect(await anonymous.text()).toMatch(/^throw 'This installer needs/u);
 
       const unknown = await harness.app.request("/install.ps1", {
-        headers: { "X-BB-Enrollment": "bbde_unknown" },
+        headers: { "X-HYPERFIDE-Enrollment": "hyperfide_de_unknown" },
       });
       expect(unknown.status).toBe(200);
       expect(await unknown.text()).toMatch(

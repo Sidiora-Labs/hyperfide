@@ -1,0 +1,117 @@
+---
+name: hyperfide-plugin-authoring
+description: "Create or change HYPERFIDE plugins and Plugin SDK extensions, including CLI commands, agent tools, providers, and UI surfaces."
+---
+
+# Author HYPERFIDE plugins
+
+A HYPERFIDE plugin is a TypeScript package that can add server behavior, agent
+capabilities, host-rendered UI, or a frontend bundle.
+
+Use the current SDK types and repository source as the contract. This skill
+routes to detailed references, but the installed HYPERFIDE version decides the exact
+API.
+
+## Implement and verify
+
+Inspect the affected package and current SDK declarations to select backend,
+frontend, or both. Build the plugin and verify the affected contracts and user
+workflow. Install or reload when a live check is needed for the requested work.
+
+
+
+Use hyperfide-platform plugin new <name> for a new plugin. The scaffold includes frontend files.
+Remove `hyperfide.dev` and those files when the plugin is headless.
+
+Every new public Plugin SDK surface starts with an experimental\_ prefix and an
+entry in docs/api_to_audit.md. Add its Plugin Guide card and API inventory in
+the same change.
+
+## Read only the relevant reference
+
+### Start, package, and release
+
+- Read references/quickstart.md for the first plugin, manifest fields,
+  branding, plugin ids, builds, installs, and dependencies.
+- Read references/distribution.md for exact API lookup, updates, Git or npm
+  release, multi-plugin repositories, custom marketplaces, and store text.
+
+### Backend
+
+- Read references/backend-foundation.md for the factory (and which reference
+  covers each `hyperfide.*` member), logging, settings, storage, server information,
+  and host entries.
+- Read references/backend-sdk.md for the `hyperfide.sdk` area map, threads, plugin
+  metadata, files, terminals, attachments, and calls to another plugin's RPC.
+- Read references/backend-api-index.md to check every public backend, host,
+  AI-service, and test export.
+- Read references/backend-events.md for lifecycle events, the dispatch hook,
+  environment providers, HTTP, RPC, realtime, background services, and
+  schedules.
+- Read references/backend-machines.md for machine providers, core project source
+  setup, enrollment/bootstrap helpers, and server access.
+- Read references/backend-cli-agents.md for CLI commands, input forms, agent
+  tools, agent configuration, and helper AI services.
+- Read references/providers.md only when the plugin registers an agent
+  provider or contributes provider environment variables. Its contract lives
+  in docs/provider-plugin-api.md and docs/provider-bridge-protocol.md in the
+  Hyperfide repository.
+- Read references/provider-bridge-api-index.md to check every public provider
+  bridge, bridge-test, and ACP export.
+- Read references/backend-ui-lifecycle.md for host-rendered UI, status, cleanup,
+  and reload behavior.
+
+### Frontend
+
+- Read references/frontend-registration.md for definePluginApp, thread header
+  and Browser toolbar controls, and sidebar replacement.
+- Read references/frontend-sidebar-navigation.md for navigation providers
+  (rail or list placement) and controls beside the sidebar toggle.
+- Read references/frontend-pull-requests.md to show a thread's GitHub pull
+  request on a row, or to migrate off
+  `experimental_useSidebarThreadPullRequest`.
+- Read references/frontend-api-index.md to check every public frontend
+  runtime value and type export.
+- Read references/frontend-core-slots.md for trusted content scripts, homepage,
+  settings, navigation, thread panels, environment and machine provider
+  inputs, interactions, sidebar actions, file openers, the provider directory,
+  and tab API migration.
+- Read references/frontend-renderer-slots.md for source, diff, message,
+  timeline, palette, and provider-icon renderers or actions.
+- Read references/frontend-components.md for ThreadChat, provider controls,
+  source and diff viewers, links, panels, the new-thread composer, and shared
+  icons.
+- Read references/frontend-hooks-and-ui.md for hooks, composer customization,
+  vendored components, runtime shims, crash isolation, and styling.
+
+### Testing
+
+- Read references/frontend-testing-api-index.md to check every frontend test
+  runtime value and type export.
+- Read references/testing.md before you add tests or run a live plugin loop,
+  and for reference plugins to copy from.
+
+## Contract rules
+
+- Parse freeform input at the boundary and pass typed values internally.
+- Declare only manifest fields and settings that the plugin implements.
+- Keep secret settings on the server.
+- Treat frontend parameters and persisted values as untrusted input.
+- Return bounded CLI and agent-tool output.
+- Document plugin commands, settings, and operating constraints in the plugin's
+  own `skills/` directory. The core CLI skill owns generic plugin management,
+  not individual plugin behavior.
+- Dispose every service, schedule, listener, content script, and resource.
+- Use SDK host components and navigation for host-owned behavior.
+- Use vendored UI source for plugin-owned controls.
+- Keep experimental names until the public API audit stabilizes them.
+- Use current names. Compatibility aliases can warn and can expire after one
+  release. Removed APIs can throw.
+- Run hyperfide-platform plugin types when SDK declaration versions can drift.
+- Run hyperfide-platform plugin build before install, release, or marketplace submission.
+
+## Verification
+
+Confirm the backend contract, frontend contract, manifest, generated bundle,
+and live behavior that the change affects. Use focused tests for failure-prone
+policy and lifecycle behavior.

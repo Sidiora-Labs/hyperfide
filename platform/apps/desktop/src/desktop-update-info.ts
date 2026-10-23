@@ -1,8 +1,8 @@
-import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopInfo } from "@hyperfide/desktop-contract";
 
 interface MergeDesktopUpdateInfoArgs {
-  autoInfo: BbDesktopInfo | null;
-  feedInfo: BbDesktopInfo | null;
+  autoInfo: HyperfideDesktopInfo | null;
+  feedInfo: HyperfideDesktopInfo | null;
 }
 
 function latestCheckedAt(
@@ -20,7 +20,7 @@ function latestCheckedAt(
 
 export function mergeDesktopUpdateInfo(
   args: MergeDesktopUpdateInfoArgs,
-): BbDesktopInfo | null {
+): HyperfideDesktopInfo | null {
   const baseInfo = args.feedInfo ?? args.autoInfo;
   if (baseInfo === null) {
     return null;

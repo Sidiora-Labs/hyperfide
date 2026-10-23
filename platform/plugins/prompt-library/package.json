@@ -1,14 +1,14 @@
 {
-  "name": "hyperfide-plugin-bb--prompt-library",
+  "name": "hyperfide-plugin-hyperfide--prompt-library",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Search previous prompts, star favorites, and insert them into the composer.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.6.15"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.15"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Prompt Library",
     "description": "Search previous prompts, star favorites, and insert them into the composer.",
     "branding": {
@@ -18,7 +18,7 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

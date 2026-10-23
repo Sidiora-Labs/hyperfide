@@ -1,7 +1,7 @@
 import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
-const LEGACY_AUTOMATION_PARTITION_PREFIX = "bb-browser-automation-";
+const LEGACY_AUTOMATION_PARTITION_PREFIX = "hyperfide-browser-automation-";
 
 export async function removeLegacyAutomationPartitions(
   userDataPath: string,

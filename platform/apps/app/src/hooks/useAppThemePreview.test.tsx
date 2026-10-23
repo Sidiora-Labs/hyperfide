@@ -26,7 +26,7 @@ function customTheme(themeId: string, customCss: string): AppTheme {
 }
 
 function styleText(): string | null {
-  return document.getElementById("bb-app-theme")?.textContent ?? null;
+  return document.getElementById("hyperfide-app-theme")?.textContent ?? null;
 }
 
 function renderPreviewHook() {

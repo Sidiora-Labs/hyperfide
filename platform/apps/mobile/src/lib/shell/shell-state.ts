@@ -44,7 +44,7 @@ export function resolveShellScreenState(
         kind: "error",
         title: "Could not sign in",
         detail:
-          "bb connect could not renew this phone’s sign-in. Pair again to reconnect.",
+          "hyperfide-platform connect could not renew this phone’s sign-in. Pair again to reconnect.",
         action: "re-pair",
       };
     case "error":

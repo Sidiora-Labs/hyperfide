@@ -28,8 +28,8 @@ export function createContextHostIdResolver(
     const environmentId = contextEnvironmentId();
     if (environmentId === null) return null;
     try {
-      const { createCliBbSdk } = await import("./client.js");
-      const lookup = createCliBbSdk(getUrl())
+      const { createCliHyperfideSdk } = await import("./client.js");
+      const lookup = createCliHyperfideSdk(getUrl())
         .environments.get({ environmentId })
         .then((environment) => environment.hostId);
       const timeout = new Promise<null>((resolve) => {

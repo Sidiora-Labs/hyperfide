@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import {
   defineRpcContract,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type MarkdownProps,
 } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
@@ -154,20 +154,20 @@ export const inlineVisRpcContract = defineRpcContract({
   },
 });
 
-export default async function plugin(bb: BbPluginApi) {
-  bb.rpc.register(inlineVisRpcContract, {
+export default async function plugin(hyperfide: HyperfidePluginApi) {
+  hyperfide.rpc.register(inlineVisRpcContract, {
     async preparePreview({ threadId, file, source }) {
       let rootPath: string;
       let hostId: string;
       let target: NonNullable<MarkdownProps["experimental_document"]>["target"];
 
       if (source === "thread-storage") {
-        const storage = await bb.sdk.threads.storageLocation({ threadId });
+        const storage = await hyperfide.sdk.threads.storageLocation({ threadId });
         rootPath = storage.storageRootPath;
         hostId = storage.hostId;
         target = { kind: source, threadId, path: file };
       } else {
-        const thread = await bb.sdk.threads.get({
+        const thread = await hyperfide.sdk.threads.get({
           threadId,
           include: "environment",
         });
@@ -202,7 +202,7 @@ export default async function plugin(bb: BbPluginApi) {
 
       let result;
       try {
-        result = await bb.sdk.files.read({
+        result = await hyperfide.sdk.files.read({
           path: absolutePath,
           rootPath,
           hostId,

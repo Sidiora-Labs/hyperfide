@@ -119,11 +119,11 @@ export function PluginCatalogInstallControl(
     ? included || props.onUninstall === undefined
     : props.disabled;
   const tooltip = included
-    ? "Included with BB"
+    ? "Included with HYPERFIDE"
     : installed
       ? "Installed"
       : disabled
-        ? (props.unavailableReason ?? "Unavailable for this version of BB.")
+        ? (props.unavailableReason ?? "Unavailable for this version of HYPERFIDE.")
         : `Install ${displayName}`;
   const stateIcon = installed
     ? "Check"

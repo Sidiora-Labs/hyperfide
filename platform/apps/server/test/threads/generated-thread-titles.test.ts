@@ -335,11 +335,11 @@ describe("generated thread titles", () => {
     completeTitle.mockResolvedValueOnce("Recovered Managed Metadata");
     await withTestHarness(async (harness) => {
       const cloud = registerFakeAiService(harness.deps.aiServices, {
-        id: "bb",
-        pluginId: "bb-ai",
+        id: "hyperfide",
+        pluginId: "hyperfide-ai",
         builtin: true,
         complete: async () => {
-          throw new Error("bb cloud is overloaded");
+          throw new Error("hyperfide cloud is overloaded");
         },
       });
       const provider = installFakeGitWorktreeProvider();

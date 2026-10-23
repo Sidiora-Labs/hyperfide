@@ -100,7 +100,7 @@ const projectSchema = z
     nextTaskNumber: z.number().int().positive(),
     color: z.string(),
     folderId: idSchema.nullable(),
-    linkedBbProjectId: z.string().startsWith("proj_").nullable(),
+    linkedHyperfideProjectId: z.string().startsWith("proj_").nullable(),
     createdAt: z.string(),
   })
   .strict();
@@ -313,7 +313,7 @@ const updateProjectInputSchema = z
     name: nonBlankStringSchema.optional(),
     color: nonBlankStringSchema.optional(),
     folderId: idSchema.nullable().optional(),
-    linkedBbProjectId: z.string().startsWith("proj_").nullable().optional(),
+    linkedHyperfideProjectId: z.string().startsWith("proj_").nullable().optional(),
   })
   .strict()
   .refine(
@@ -321,7 +321,7 @@ const updateProjectInputSchema = z
       input.name !== undefined ||
       input.color !== undefined ||
       input.folderId !== undefined ||
-      input.linkedBbProjectId !== undefined,
+      input.linkedHyperfideProjectId !== undefined,
     { message: "at least one project field must be updated" },
   );
 
@@ -433,7 +433,7 @@ export const tasksRpcContract = defineRpcContract({
         prefix: projectPrefixSchema,
         color: nonBlankStringSchema,
         folderId: idSchema.nullable().default(null),
-        linkedBbProjectId: z
+        linkedHyperfideProjectId: z
           .string()
           .startsWith("proj_")
           .nullable()
@@ -695,11 +695,11 @@ export const tasksRpcContract = defineRpcContract({
       })
       .strict(),
   },
-  listBbProjects: {
+  listHyperfideProjects: {
     input: z.null(),
     output: z
       .object({
-        bbProjects: z.array(
+        hyperfideProjects: z.array(
           z
             .object({ id: z.string().startsWith("proj_"), name: z.string() })
             .strict(),
@@ -747,9 +747,9 @@ export type TaskPullRequest = z.infer<typeof taskPullRequestSchema>;
 export type Preset = z.infer<typeof presetSchema>;
 export type TasksDomainError = z.infer<typeof tasksDomainErrorSchema>;
 export type TaskMutationResult = z.infer<typeof taskMutationResultSchema>;
-export type BbProjectOption = z.infer<
-  (typeof tasksRpcContract)["listBbProjects"]["output"]
->["bbProjects"][number];
+export type HyperfideProjectOption = z.infer<
+  (typeof tasksRpcContract)["listHyperfideProjects"]["output"]
+>["hyperfideProjects"][number];
 export type SidebarProjectSummary = z.infer<
   (typeof tasksRpcContract)["sidebarSummary"]["output"]
 >["projects"][number];

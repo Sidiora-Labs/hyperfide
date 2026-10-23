@@ -120,7 +120,7 @@ export function seedSession(
     hostId,
     instanceId: options.instanceId ?? "instance-1",
     hostName: "Test Host",
-    dataDir: `/tmp/bb-host-data/${hostId}`,
+    dataDir: `/tmp/hyperfide-host-data/${hostId}`,
     protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
     heartbeatIntervalMs: 5_000,
     leaseTimeoutMs: 30_000,
@@ -190,7 +190,7 @@ export function seedEnvironment(
           },
         }
       : {}),
-    branchName: args.branchName !== undefined ? args.branchName : "bb/test",
+    branchName: args.branchName !== undefined ? args.branchName : "hyperfide/test",
     baseBranch: args.baseBranch !== undefined ? args.baseBranch : null,
     defaultBranch:
       args.defaultBranch !== undefined ? args.defaultBranch : "main",

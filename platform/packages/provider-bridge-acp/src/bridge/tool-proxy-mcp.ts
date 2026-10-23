@@ -9,14 +9,14 @@ import { createConnection } from "node:net";
 import { createInterface } from "node:readline";
 import { z } from "zod";
 
-export const ACP_BRIDGE_MCP_SERVER_NAME = "bb-bridge";
+export const ACP_BRIDGE_MCP_SERVER_NAME = "hyperfide-bridge";
 
-const ENV_HOST = "BB_ACP_DYNAMIC_TOOL_HOST";
-const ENV_PORT = "BB_ACP_DYNAMIC_TOOL_PORT";
-const ENV_TOKEN = "BB_ACP_DYNAMIC_TOOL_TOKEN";
-const ENV_THREAD_ID = "BB_ACP_DYNAMIC_TOOL_THREAD_ID";
-const ENV_TOOLS = "BB_ACP_DYNAMIC_TOOLS";
-const ENV_PROGRESS_INTERVAL_MS = "BB_ACP_DYNAMIC_TOOL_PROGRESS_INTERVAL_MS";
+const ENV_HOST = "HYPERFIDE_ACP_DYNAMIC_TOOL_HOST";
+const ENV_PORT = "HYPERFIDE_ACP_DYNAMIC_TOOL_PORT";
+const ENV_TOKEN = "HYPERFIDE_ACP_DYNAMIC_TOOL_TOKEN";
+const ENV_THREAD_ID = "HYPERFIDE_ACP_DYNAMIC_TOOL_THREAD_ID";
+const ENV_TOOLS = "HYPERFIDE_ACP_DYNAMIC_TOOLS";
+const ENV_PROGRESS_INTERVAL_MS = "HYPERFIDE_ACP_DYNAMIC_TOOL_PROGRESS_INTERVAL_MS";
 
 export interface AcpMcpServerConfig {
   name: string;
@@ -275,7 +275,7 @@ async function handleRequest(
         toolCount: env.tools.length,
       }).catch((error) => {
         process.stderr.write(
-          `bb-bridge MCP: failed to report initialize: ${
+          `hyperfide-bridge MCP: failed to report initialize: ${
             error instanceof Error ? error.message : String(error)
           }\n`,
         );

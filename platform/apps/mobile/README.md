@@ -1,6 +1,6 @@
 # @hyperfide/mobile
 
-Native iOS/Android client for bb (Expo SDK 57, React Native 0.86, Expo
+Native iOS/Android client for Hyperfide (Expo SDK 57, React Native 0.86, Expo
 Router, NativeWind v5).
 
 Status: a native shell around the web interface (#2515). `app/webview.tsx`
@@ -8,7 +8,7 @@ loads the active server's web app in `react-native-webview` and talks to it
 over `@hyperfide/mobile-bridge` (handshake, haptics, app-icon badge, share, open
 external links, open native screens, save files on iOS). Threads, projects, plugins and server
 settings run in the page. The native screens cover what the page cannot
-own: first-run pairing (Direct URL and bb connect QR / code enrollment),
+own: first-run pairing (Direct URL and hyperfide-platform connect QR / code enrollment),
 saved servers, This device settings (appearance, haptics, notifications,
 reload the page, clear website data), push registration and notification
 taps, deep links, quick actions, share intents and the connection banner.
@@ -28,15 +28,15 @@ app/                     Expo Router routes (thin: each file re-exports a screen
                          PushNotificationsHost, Toaster
   index.tsx              redirects to Add server (no profiles) or the shell
   webview.tsx            the WebView shell (`?profileId=&path=`)
-  connect/index.tsx      bb connect enrollment (QR / code) — also the re-pair
-                         target (`?profileId=`) and the `bb://connect?code=…` link
+  connect/index.tsx      hyperfide-platform connect enrollment (QR / code) — also the re-pair
+                         target (`?profileId=`) and the `Hyperfide://connect?code=…` link
   settings/              device (This device), appearance, notifications,
-                         servers/index (saved servers), servers/add (bb connect
+                         servers/index (saved servers), servers/add (hyperfide-platform connect
                          entry + Direct URL form)
   dev/webview-spike.tsx  Phase 0 WebView diagnostics (dev / EXPO_PUBLIC_HYPERFIDE_E2E=1
                          only: release bundles redirect home)
-  e2e/reset.tsx          bb://e2e/reset — wipes local state (dev / EXPO_PUBLIC_HYPERFIDE_E2E=1)
-  +native-intent.tsx     redirectSystemPath: every incoming URL (bb:// scheme,
+  e2e/reset.tsx          Hyperfide://e2e/reset — wipes local state (dev / EXPO_PUBLIC_HYPERFIDE_E2E=1)
+  +native-intent.tsx     redirectSystemPath: every incoming URL (Hyperfide:// scheme,
                          universal links, dev-client URLs) → src/lib/shell link
                          resolution → profile switch + shell route / add-server prompt
   +not-found.tsx         unknown native route fallback
@@ -70,7 +70,7 @@ src/
     realtime/            WebSocketManager-shaped realtime on RN WebSocket
     sdk/                 createMobileSdk (@hyperfide/sdk/browser + app-surface header),
                          per-profile client registry
-    session/             bb connect desktop-session cookie scheduler
+    session/             hyperfide-platform connect desktop-session cookie scheduler
     share/               inbound share intent → shell composer seed
     shell/               shell URL and navigation rules, screen state, last-path
                          preferences, share payloads, link resolution, shell
@@ -99,13 +99,13 @@ e2e/subflows/            shared steps (launch-app.yaml: cold start through the
                          dev client + Metro, or `launchApp` of the embedded
                          Release bundle with `-e HYPERFIDE_E2E_EMBEDDED_BUNDLE=1`;
                          pair-direct-server.yaml: add the harness server and
-                         wait for the shell; open-bb-link.yaml /
+                         wait for the shell; open-hyperfide-link.yaml /
                          clear-open-confirmation.yaml: accept or cancel the
-                         native `bb://` confirmation), called with
+                         native `Hyperfide://` confirmation), called with
                          `runFlow: ../subflows/<name>.yaml`
 e2e/scripts/             ci-run-flows.sh (the CI flow set against a Release
                          build; see "CI"), connect-stub-control.js (drives the
-                         bb connect stub), pick-simulator.mjs (newest iPhone
+                         hyperfide-platform connect stub), pick-simulator.mjs (newest iPhone
                          17 Pro/17/16 Pro runtime)
 eas.json                 EAS Build profiles (development / development-device /
                          preview / production); see "Release"
@@ -126,15 +126,15 @@ debugging enabled.
 
 ### Android local APK and verification
 
-For development threads, build the standalone **bb dev** app from the repo root:
+For development threads, build the standalone **hyperfide-platform dev** app from the repo root:
 
 ```bash
 pnpm mobile:apk:dev
-adb install -r apps/mobile/build-output/bb-dev.apk
+adb install -r apps/mobile/build-output/hyperfide-dev.apk
 ```
 
-The APK is `apps/mobile/build-output/bb-dev.apk`. It has an orange bb launcher
-icon, favicon, and splash logo, the name **bb dev**, and package `app.getbb.mobile.dev`, so it
+The APK is `apps/mobile/build-output/hyperfide-dev.apk`. It has an orange Hyperfide launcher
+icon, favicon, and splash logo, the name **hyperfide-platform dev**, and package `app.hyperfide.mobile.dev`, so it
 installs alongside the regular app with separate saved servers and data. It
 embeds the Release JS bundle and runs without Metro, EAS, Firebase, or production
 signing credentials. Pair it with the development server through Add server or
@@ -169,7 +169,7 @@ The existing local build retains the regular app identity for smoke tests:
 
 ```bash
 pnpm exec turbo run build:android:local --filter=@hyperfide/mobile
-adb install -r apps/mobile/build-output/bb-android-local.apk
+adb install -r apps/mobile/build-output/hyperfide-android-local.apk
 ```
 
 This builds an ARM64 APK with an embedded Release JS bundle and the generated
@@ -251,7 +251,7 @@ Local EAS Submit reads the gitignored `google-play-service-account.json` in
 `apps/mobile`. Register the **Play app-signing certificate**, not only the
 upload certificate, in `ASSETLINKS_SHA256_FINGERPRINTS` on the apex and connect
 gate. Verify real HTTPS app links after installing the Play-signed build.
-The native `bb://` scheme works without those certificates.
+The native `Hyperfide://` scheme works without those certificates.
 
 Pending credentials do not establish push delivery or verified HTTPS app-link
 coverage. Test those separately once Firebase/signing are configured.
@@ -275,7 +275,7 @@ EXPO_PUBLIC_HYPERFIDE_SERVER_URL=http://127.0.0.1:<port> pnpm dev   # Metro (dev
 
 The iOS Simulator shares the Mac loopback, so `pnpm dev` (repo root) or
 `pnpm dev` gives a server URL that works as-is. Physical
-phones need a Tailscale Serve URL, bb connect, or a temporary
+phones need a Tailscale Serve URL, hyperfide-platform connect, or a temporary
 `HYPERFIDE_SERVER_BIND_HOST=0.0.0.0`.
 
 ## E2E (Maestro)
@@ -297,17 +297,17 @@ The deterministic backend marks web onboarding complete before seeding threads,
 so Android and iOS shell flows start with the thread list available.
 `shell-launch.yaml` pairs a Direct server from first run and lands in the
 shell with the page rendered; the other shell flows assume it works.
-`shell-deep-link.yaml` opens a `bb://` scheme link and a web link for the
+`shell-deep-link.yaml` opens a `Hyperfide://` scheme link and a web link for the
 saved server: both resolve to the shell route carrying a page path, and
-`bb://settings/notifications` still opens the native screen.
+`Hyperfide://settings/notifications` still opens the native screen.
 `shell-send.yaml` sends a message through the page and reaches the native
 device settings from it.
 `shell-unreachable-server.yaml` checks that the add-server probe refuses a
 server the phone cannot reach, so the shell never loads a dead origin; it
 does not use the harness backend.
-`shell-connect.yaml` drives bb connect end to end against the stub apex +
+`shell-connect.yaml` drives hyperfide-platform connect end to end against the stub apex +
 gate (`pnpm --filter @hyperfide/integration-tests e2e:mobile-connect-stub`, see
-"bb connect" below): manual code entry with the handle and the self-hosted
+"hyperfide-platform connect" below): manual code entry with the handle and the self-hosted
 apex → enrolled screen (session signed in, account servers listed) → Done →
 the shell through the gate (cookie on fetch and on `/ws`) → the stub expires
 the session (the app re-mints and reconnects by itself) → the stub revokes
@@ -316,14 +316,14 @@ the same profile with a new code. The flow needs the stub started with
 `HYPERFIDE_MOBILE_E2E_SIMULATOR=<udid>` once (it installs its root certificate in
 that simulator) and drives the stub through `e2e/scripts/connect-stub-control.js`
 (plain-HTTP control port 42997).
-Flows open `bb://` links through `subflows/open-bb-link.yaml` and pair through
+Flows open `Hyperfide://` links through `subflows/open-hyperfide-link.yaml` and pair through
 `subflows/pair-direct-server.yaml`; `src/lib/e2e/mobile-e2e-flows.test.ts`
 enforces both.
 Flows dismiss the keyboard by tapping a static label ("Server URL",
 "Pairing code"): Maestro's `hideKeyboard` looks for a Return/Done key and the
 Add server and connect fields use "next".
 Flows cold-start the dev client (`stopApp`) because a warm reload keeps the
-last deep link as the initial URL. Without `EXPO_PUBLIC_HYPERFIDE_E2E=1`, open `bb://e2e/reset`
+last deep link as the initial URL. Without `EXPO_PUBLIC_HYPERFIDE_E2E=1`, open `Hyperfide://e2e/reset`
 (dev builds) to return the simulator to first run.
 
 ### Flows against a Release build (no Metro)
@@ -341,7 +341,7 @@ lives in every flow's header.
 `e2e/scripts/ci-run-flows.sh <udid> <artifacts dir> [flow…]` is what CI runs:
 `shell-launch`, `shell-deep-link`, `shell-send`, `shell-unreachable-server`,
 one `maestro test` at a time with `--test-output-dir` per flow (screenshots,
-logs, JUnit); after a failure it clears the native `bb://` confirmation
+logs, JUnit); after a failure it clears the native `Hyperfide://` confirmation
 before the next flow, and it exits non-zero if any flow failed.
 `shell-connect` needs the connect stub, so it runs on its own. `--dev-client`
 as the first argument drives a dev client through Metro instead.
@@ -355,7 +355,7 @@ as the first argument drives a dev client through Metro instead.
   after relaunch, and native settings. It uses the isolated backend and needs
   no Firebase, EAS, or Play credentials. The `mobile-e2e-android` artifact
   contains screenshots, JUnit results, Maestro output, logcat, and backend logs.
-  Keyboard animation, push delivery, and bb connect are outside this basic job.
+  Keyboard animation, push delivery, and hyperfide-platform connect are outside this basic job.
 
 - Typecheck, lint, and unit tests run on Linux in the regular `CI` workflow
   (`pnpm exec turbo run build typecheck lint` in `Checks`, the `packages`
@@ -383,7 +383,7 @@ direct URL.
 
 ## Server moves
 
-- After `bb server move`, the old computer answers its old address with
+- After `hyperfide-platform server move`, the old computer answers its old address with
   `410 {code:"server_moved", details:{serverUrl, toHostName}}`.
   `createMobileFetch` reads that body from `response.clone()` and validates
   `details.serverUrl` with the Direct URL rules. The registry passes the
@@ -411,7 +411,7 @@ iOS keeps its existing APNs registration behavior.
 
 ## Share sheet and haptics
 
-- Inbound "Send to bb" is wired for `expo-share-intent` but the native module
+- Inbound "Send to Hyperfide" is wired for `expo-share-intent` but the native module
   is **not** in the current dev client: `src/lib/share/share-intent.ts` loads
   it optionally and `src/app-shell/ShareIntentHandler.tsx` renders nothing
   when it is absent. To enable it: `npx expo install expo-share-intent`, add
@@ -427,7 +427,7 @@ iOS keeps its existing APNs registration behavior.
   URLs for recordings and other browser-created blobs. The iOS WebView patch
   turns `shouldPerformDownload` actions and attachment/non-displayable
   responses into `WKDownload`s. WebKit writes the file in the WebView's
-  request context; bb does not copy cookies, refetch through native HTTP, or
+  request context; Hyperfide does not copy cookies, refetch through native HTTP, or
   transfer bytes through the JavaScript bridge. The patched `onFileDownload`
   event includes `filePath` for a completed local file or `error` for a
   failure, alongside the original `downloadUrl`. React Native presents the
@@ -435,7 +435,7 @@ iOS keeps its existing APNs registration behavior.
   or failure. Partial downloads are cancelled and removed on WebView teardown
   or page reload. Previous-process cache files are cleared on the first
   download. There are at most four active WebKit downloads. Files live under
-  `Paths.cache/bb-webkit-downloads/<uuid>/`.
+  `Paths.cache/hyperfide-webkit-downloads/<uuid>/`.
   The shell queries the installed binary through `nativeDownloadsSupported()`
   before enabling the new handlers, so an OTA update on an older binary keeps
   its existing behavior. The handshake advertises `nativeDownloads: true` separately from the strict
@@ -450,7 +450,7 @@ iOS keeps its existing APNs registration behavior.
 - Haptics: `src/lib/haptics/` — `haptic(kind)` maps semantic kinds
   (`selection`, `impact-light|medium|heavy`, `success`, `warning`, `error`)
   onto expo-haptics and honors the Settings → This device → Haptics toggle
-  (MMKV `bb.haptics.enabled`, default on). Call sites: bridge `haptic`
+  (MMKV `hyperfide.haptics.enabled`, default on). Call sites: bridge `haptic`
   messages handled in `useShellBridge` (the web app sends none yet), the
   segmented appearance picker (selection), destructive ActionSheet rows and
   confirmations (warning), the servers long-press menu (heavy), and the
@@ -466,9 +466,9 @@ fixture proxy with its printed backend URL and an unused local port:
 node apps/mobile/e2e/scripts/download-fixture.mjs http://127.0.0.1:<backend-port> <proxy-port>
 ```
 
-Save both `http://127.0.0.1:<proxy-port>` and the same URL with `/bb` as
-native server profiles. With each active, open `bb://api/v1/download-fixture`.
-The proxy forwards normal app traffic, strips `/bb`, and also forwards root
+Save both `http://127.0.0.1:<proxy-port>` and the same URL with `/hyperfide` as
+native server profiles. With each active, open `Hyperfide://api/v1/download-fixture`.
+The proxy forwards normal app traffic, strips `/hyperfide`, and also forwards root
 paths, matching the web app's current root-relative API URLs.
 
 - Authenticated file requires an HttpOnly cookie installed by the fixture
@@ -477,7 +477,7 @@ paths, matching the web app's current root-relative API URLs.
 - Download blob generates the same 1,536,000 bytes in the page. Both files
   must match the SHA-256 printed by the fixture server and retain their names.
 - Save to Files and share-sheet dismissal must leave the page intact and
-  remove the corresponding `Library/Caches/bb-webkit-downloads/<uuid>/` file.
+  remove the corresponding `Library/Caches/hyperfide-webkit-downloads/<uuid>/` file.
 - Missing file must show a 404 toast. Redirect download must finish with the
   same bytes. Open attachment tab must open the share sheet.
 - Start Slow download, then Reload page before it finishes. The proxy must
@@ -489,10 +489,10 @@ Cold-launch the development client for native verification.
 
 ## Release (EAS)
 
-The app lives in the EAS project `@bb-team/bb-app` (id in
-`app.json` → `extra.eas.projectId`; the Expo slug `bb-app` also names the
-dev-client scheme `exp+bb-app://`). Apple team `9QCU24SXK5`, bundle id
-`app.getbb.mobile`, App Store Connect app `6803559210`. EAS holds the iOS
+The app lives in the EAS project `@hyperfide-team/hyperfide-app` (id in
+`app.json` → `extra.eas.projectId`; the Expo slug `hyperfide-app` also names the
+dev-client scheme `exp+hyperfide-app://`). Apple team `9QCU24SXK5`, bundle id
+`app.hyperfide.mobile`, App Store Connect app `6803559210`. EAS holds the iOS
 credentials (distribution certificate, App Store provisioning profile, APNs
 push key); nobody needs a local Xcode signing setup to ship.
 
@@ -502,7 +502,7 @@ push key); nobody needs a local Xcode signing setup to ship.
 
 **Internal testers** need no Apple review. A build reaches the group as soon as
 App Store Connect finishes processing it, usually within 30 minutes. The group
-`bb team` exists and the nightly feeds it.
+`Hyperfide team` exists and the nightly feeds it.
 
 **External testers** need a Beta App Review on the first build of each
 marketing version, and Apple usually auto-approves later builds of that
@@ -518,13 +518,13 @@ Review notes template — keep it literal, and assume the reviewer knows nothing
 about coding agents:
 
 ```text
-bb is a client for a bb server that a developer runs on their own computer.
+Hyperfide is a client for a hyperfide-platform server that a developer runs on their own computer.
 The app has no accounts of its own, so we have prepared a demo server for
 you. It serves sample conversations and scripted replies; it does not run a
 real coding agent.
 
-1. Open the app. It shows "Connect to a bb server".
-2. In "Server URL", enter: https://bb-demo-server.sawyer-7bb.workers.dev
+1. Open the app. It shows "Connect to a hyperfide-platform server".
+2. In "Server URL", enter: https://hyperfide-demo-server.sawyer-7bb.workers.dev
 3. Tap "Connect".
 4. The app shows a list of conversations. Open any of them to read it.
 5. Browse the sample conversations. No credentials or pairing code are needed.
@@ -538,7 +538,7 @@ instructions. No sign-in or pairing code is needed. See
 and deployment steps. Verify the deployed shell with the actual store build
 before submitting either platform.
 
-Rehearse it before submitting: hand a colleague a phone that has never run bb,
+Rehearse it before submitting: hand a colleague a phone that has never run Hyperfide,
 give them only these notes, and check that they reach a thread.
 
 The nightly keeps the marketing version in `app.json` and lets the EAS build
@@ -548,17 +548,17 @@ Beta App Review and another build of the same version usually does not.
 ## Local state
 
 - Server profiles: `expo-secure-store`, one key per profile
-  (`bb.profile.<id>`) plus `bb.profiles.index`.
+  (`hyperfide.profile.<id>`) plus `hyperfide.profiles.index`.
 - Connect sessions: `expo-secure-store`, one key per profile
-  (`bb.connectSession.<profileId>`) holding the last minted desktop-session
+  (`hyperfide.connectSession.<profileId>`) holding the last minted desktop-session
   cookie and its server URL.
-- Preferences (theme mode `bb.theme`, haptics `bb.haptics.enabled`): MMKV
-  store `bb.preferences`, one shared instance from
+- Preferences (theme mode `hyperfide.theme`, haptics `hyperfide.haptics.enabled`): MMKV
+  store `hyperfide.preferences`, one shared instance from
   `src/lib/native/preferences-storage.ts`. Push state shares it:
-  `bb.push.enabled.<profileId>` (+ `bb.push.enabledProfiles` index),
-  `bb.push.registration.<profileId>` (+ `bb.push.registrations` index: the
+  `hyperfide.push.enabled.<profileId>` (+ `hyperfide.push.enabledProfiles` index),
+  `hyperfide.push.registration.<profileId>` (+ `hyperfide.push.registrations` index: the
   token / server row the phone registered, so a removed profile can still be
-  unregistered), `bb.push.prompted`.
+  unregistered), `hyperfide.push.prompted`.
 - Each profile owns one SDK client, one realtime socket, and one TanStack
   QueryClient (`src/lib/sdk/client-registry.ts`, instantiated once by
   `src/app-shell/client-registry.ts`); the active profile's socket/session
@@ -594,12 +594,12 @@ palette, run `pnpm --filter @hyperfide/mobile theme:generate` and commit the res
 
 Mobile app downloads are always available in Settings → Mobile (`/settings/mobile`).
 **Join iOS TestFlight** opens https://testflight.apple.com/join/T9MayTMb.
-**Download Android APK** downloads directly from the public `get-bb/bb` GitHub
-`android-testing` release's `bb-android.apk` asset. The APK does not pass through
-the bb server or bb connect. No experiment or Android developer tools are needed.
+**Download Android APK** downloads directly from the public `hyperfide/hyperfide` GitHub
+`android-testing` release's `hyperfide-android.apk` asset. The APK does not pass through
+the hyperfide-platform server or hyperfide-platform connect. No experiment or Android developer tools are needed.
 Pair either app through Settings → Mobile → **Add mobile device**.
 
-Use `bb settings mobile-app --json` or SDK `system.mobileAppDownloads()` to get
+Use `Hyperfide settings mobile-app --json` or SDK `system.mobileAppDownloads()` to get
 both public links. Add `--details --json` or call `system.mobileAppReleases()`
 (GET `/api/v1/system/mobile-app-releases`) for Android version/build, size, and
 upload date. The server fetches only public metadata, caches it for five minutes,
@@ -617,7 +617,7 @@ nightly publication following a stable release. Successful builds replace the
 APK and version metadata used by Settings → Mobile. These builds do not submit
 to Google Play.
 
-The Android version name matches the published bb-app nightly version, including
+The Android version name matches the published hyperfide-app nightly version, including
 its full `-nightly.RUN.ATTEMPT` suffix. EAS continues to increment the integer
 Android build number independently. The APK's version name and build number
 are also used in the Settings → Mobile download metadata.
@@ -639,7 +639,7 @@ security scanning; reduced size does not guarantee a fix for scanning hangs.
 ## Android keyboard image paste
 
 The `react-native-webview` patch receives keyboard image content through
-AndroidX `InputConnectionCompat`. It is enabled only for WebViews with BB's
+AndroidX `InputConnectionCompat`. It is enabled only for WebViews with HYPERFIDE's
 injected mobile bridge. The bridge captures the focused prompt editor, then
 replays the image as a clipboard file through the existing web paste handler.
 The WebView serves a temporary, single-use URL from the keyboard's content
@@ -674,8 +674,8 @@ Bridge regression tests run with
 
 For messages containing text and an image, Android Copy uses the shell's
 `copyRichText` method to publish `text/plain` plus `text/html`. The HTML carries
-hidden, versioned BB metadata with the exact message text and an image URL.
-BB's regular Paste handler validates that metadata, inserts the text and
+hidden, versioned HYPERFIDE metadata with the exact message text and an image URL.
+HYPERFIDE's regular Paste handler validates that metadata, inserts the text and
 fetches the image from the same server with the current session. Downloads
 reject redirects and non-image responses, enforce the 35 MB attachment limit,
 and time out after 30 seconds. A failed download preserves the pasted text and
@@ -684,7 +684,7 @@ pages that navigated away are discarded.
 
 Android WebView's long-press Paste delivers the HTML. Gboard's text suggestion
 and clipboard-history text entries insert plain text without a rich paste
-event, so those paths paste text only. BB does not compare inserted text with
+event, so those paths paste text only. HYPERFIDE does not compare inserted text with
 previous messages or retain a copied-message cache. HTML-aware destinations
 can also render the text and image reference; plain text destinations receive
 only the text. The image reference requires access to the original server and
@@ -695,7 +695,7 @@ cache and expose its URI through the WebView FileProvider. Downloads are
 limited to 35 MB, reject redirects, and expire after 25 seconds with 10-second
 network timeouts. Old cache files are removed on the next copy after 24 hours.
 
-Both the APK and served BB web app need this change. Older APKs retain the
+Both the APK and served HYPERFIDE web app need this change. Older APKs retain the
 previous combined image/text item behavior. Verify mixed-message Copy followed
 by long-press Paste, Gboard text insertion, image-only Copy/Paste, ordinary text,
 and a missing image. Remove test drafts without sending them.

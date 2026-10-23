@@ -28,22 +28,22 @@ import { z } from "zod";
 
 const execFile = promisify(execFileCallback);
 
-export const STANDALONE_INSTANCE_ENV = "BB_STANDALONE_INSTANCE";
-export const STANDALONE_PARENT_PID_ENV = "BB_STANDALONE_PARENT_PID";
-export const STANDALONE_OPENAI_API_KEY_ENV = "BB_QA_OPENAI_API_KEY";
-const STANDALONE_TMP_PREFIX = "bb-standalone-";
+export const STANDALONE_INSTANCE_ENV = "HYPERFIDE_STANDALONE_INSTANCE";
+export const STANDALONE_PARENT_PID_ENV = "HYPERFIDE_STANDALONE_PARENT_PID";
+export const STANDALONE_OPENAI_API_KEY_ENV = "HYPERFIDE_QA_OPENAI_API_KEY";
+const STANDALONE_TMP_PREFIX = "hyperfide-standalone-";
 const PROCESS_SCAN_MAX_BUFFER = 10 * 1024 * 1024;
 
 type EnvironmentMap = Record<string, string>;
 const STANDALONE_THREAD_CONTEXT_ENV = [
-  "BB_THREAD_ID",
-  "BB_ENVIRONMENT_ID",
-  "BB_THREAD_STORAGE",
+  "HYPERFIDE_THREAD_ID",
+  "HYPERFIDE_ENVIRONMENT_ID",
+  "HYPERFIDE_THREAD_STORAGE",
 ];
-const RESTART_DAEMON_ENTRYPOINT_ENV = "BB_RESTART_DAEMON_ENTRYPOINT";
-const RESTART_DAEMON_CWD_ENV = "BB_RESTART_DAEMON_CWD";
-const RESTART_DAEMON_LOG_PATH_ENV = "BB_RESTART_DAEMON_LOG_PATH";
-const RESTART_DAEMON_PID_PATH_ENV = "BB_RESTART_DAEMON_PID_PATH";
+const RESTART_DAEMON_ENTRYPOINT_ENV = "HYPERFIDE_RESTART_DAEMON_ENTRYPOINT";
+const RESTART_DAEMON_CWD_ENV = "HYPERFIDE_RESTART_DAEMON_CWD";
+const RESTART_DAEMON_LOG_PATH_ENV = "HYPERFIDE_RESTART_DAEMON_LOG_PATH";
+const RESTART_DAEMON_PID_PATH_ENV = "HYPERFIDE_RESTART_DAEMON_PID_PATH";
 const DETACHED_DAEMON_LAUNCHER_SCRIPT = [
   'const { spawn } = require("node:child_process");',
   'const { closeSync, openSync, writeFileSync } = require("node:fs");',
@@ -279,7 +279,7 @@ export async function createTestGitRepo(repoDir: string): Promise<string> {
   await fs.mkdir(repoDir, { recursive: true });
   await runGit(repoDir, ["init", "--initial-branch", "main"]);
   await runGit(repoDir, ["config", "user.email", "standalone-qa@example.com"]);
-  await runGit(repoDir, ["config", "user.name", "BB Standalone QA"]);
+  await runGit(repoDir, ["config", "user.name", "HYPERFIDE Standalone QA"]);
   await fs.writeFile(path.join(repoDir, "alpha.txt"), "alpha\n", "utf8");
   await fs.writeFile(
     path.join(repoDir, "beta.md"),
@@ -461,11 +461,11 @@ export async function startQaServer(
 
   const serverEnv: NodeJS.ProcessEnv = {
     ...(args.env ?? process.env),
-    BB_DATA_DIR: args.dataDir,
-    BB_SERVER_PORT: String(args.port),
+    HYPERFIDE_DATA_DIR: args.dataDir,
+    HYPERFIDE_SERVER_PORT: String(args.port),
   };
-  delete serverEnv.BB_APP_URL;
-  delete serverEnv.BB_EXTERNAL_URL;
+  delete serverEnv.HYPERFIDE_APP_URL;
+  delete serverEnv.HYPERFIDE_EXTERNAL_URL;
 
   const serverProcess = spawnLoggedProcess({
     command: process.execPath,
@@ -730,11 +730,11 @@ export function buildDaemonRestartCommand(
     `OPENAI_API_KEY="$${STANDALONE_OPENAI_API_KEY_ENV}"; export OPENAI_API_KEY ;; ` +
     "*) unset OPENAI_API_KEY ;; esac";
   const daemonEnv = [
-    `BB_DATA_DIR=${shellSingleQuote(args.dataDir)}`,
-    `BB_HOST_DAEMON_PORT=${shellSingleQuote(String(args.daemonPort))}`,
-    `BB_SERVER_URL=${shellSingleQuote(args.serverUrl)}`,
+    `HYPERFIDE_DATA_DIR=${shellSingleQuote(args.dataDir)}`,
+    `HYPERFIDE_HOST_DAEMON_PORT=${shellSingleQuote(String(args.daemonPort))}`,
+    `HYPERFIDE_SERVER_URL=${shellSingleQuote(args.serverUrl)}`,
     `${STANDALONE_INSTANCE_ENV}=${shellSingleQuote(args.instanceId)}`,
-    `BB_STANDALONE_PARENT_PID=${shellSingleQuote(String(args.parentPid))}`,
+    `HYPERFIDE_STANDALONE_PARENT_PID=${shellSingleQuote(String(args.parentPid))}`,
   ].join(" ");
   const launcherEnv = [
     `${RESTART_DAEMON_ENTRYPOINT_ENV}=${shellSingleQuote(args.entrypoint)}`,

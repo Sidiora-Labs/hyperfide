@@ -1,4 +1,4 @@
-const SEARCH_FLASH_CLASS = "bb-search-flash";
+const SEARCH_FLASH_CLASS = "hyperfide-search-flash";
 const SEARCH_FLASH_DURATION_MS = 1700;
 
 const flashTimers = new WeakMap<HTMLElement, number>();

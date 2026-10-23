@@ -11,7 +11,7 @@
 # server answers API routes only and the WebView shows the native error state.
 #
 # Run: pnpm --filter @hyperfide/mobile e2e:ios   (Metro on 8082, backend on 41999)
-appId: app.getbb.mobile
+appId: app.hyperfide.mobile
 env:
   METRO_URL: "http://127.0.0.1:8082"
   SERVER_URL: "http://127.0.0.1:41999"
@@ -21,9 +21,9 @@ env:
 # Pairing lands in the shell, which loads the page the server serves. The
 # composer is page content.
 - runFlow:
-    file: ../subflows/open-bb-link.yaml
+    file: ../subflows/open-hyperfide-link.yaml
     env:
-      LINK: "bb://"
+      LINK: "hyperfide://"
 - assertVisible:
     id: "shell-webview"
 - extendedWaitUntil:
@@ -34,9 +34,9 @@ env:
 # A deep link resolves to one shell route carrying a web path; the page's own
 # router takes it from there.
 - runFlow:
-    file: ../subflows/open-bb-link.yaml
+    file: ../subflows/open-hyperfide-link.yaml
     env:
-      LINK: "bb://threads"
+      LINK: "hyperfide://threads"
 - extendedWaitUntil:
     visible:
       id: "shell-webview"
@@ -45,9 +45,9 @@ env:
 # Reach a thread and send a message, the plan's acceptance test. The seeded
 # "Idle thread" echoes through the fake provider adapter.
 - runFlow:
-    file: ../subflows/open-bb-link.yaml
+    file: ../subflows/open-hyperfide-link.yaml
     env:
-      LINK: "bb://"
+      LINK: "hyperfide://"
 - extendedWaitUntil:
     visible: ".*Idle thread.*"
     timeout: 60000
@@ -78,9 +78,9 @@ env:
 # the two that still work when the page will not load. Match on the row's text:
 # a WebView exposes no test ids to the accessibility tree.
 - runFlow:
-    file: ../subflows/open-bb-link.yaml
+    file: ../subflows/open-hyperfide-link.yaml
     env:
-      LINK: "bb://settings"
+      LINK: "hyperfide://settings"
 - extendedWaitUntil:
     visible:
       id: "shell-webview"

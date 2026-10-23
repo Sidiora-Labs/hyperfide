@@ -1,13 +1,13 @@
 {
   "name": "@hyperfide/plugin-sdk",
   "version": "0.6.73",
-  "homepage": "https://github.com/get-bb/bb#readme",
+  "homepage": "https://github.com/hyperfide/hyperfide#readme",
   "bugs": {
-    "url": "https://github.com/get-bb/bb/issues"
+    "url": "https://github.com/hyperfide/hyperfide/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/get-bb/bb.git",
+    "url": "git+https://github.com/hyperfide/hyperfide.git",
     "directory": "packages/plugin-sdk"
   },
   "type": "module",

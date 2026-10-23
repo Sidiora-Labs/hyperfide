@@ -10,7 +10,7 @@ import { createPersonalWorkspaceHostEntry } from "./host.js";
 const temporaryRoots: string[] = [];
 
 async function createDataDir(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "bb-personal-workspace-plugin-"));
+  const root = await mkdtemp(join(tmpdir(), "hyperfide-personal-workspace-plugin-"));
   temporaryRoots.push(root);
   return join(root, "plugin-data");
 }
@@ -150,7 +150,7 @@ describe("personal workspace host entry", () => {
   it("refuses a path outside the personal workspace roots", async () => {
     const dataDir = await createDataDir();
     const harness = createHarness(dataDir);
-    const outside = join(dataDir, "..", "checkouts", "bb");
+    const outside = join(dataDir, "..", "checkouts", "hyperfide");
 
     await expect(
       harness.experimental_call("removeWorkspace", {

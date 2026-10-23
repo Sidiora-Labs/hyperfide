@@ -4,7 +4,7 @@ import {
 } from "@/hooks/mutations/thread-state-mutations";
 import { createThreadMutationBatcher } from "@/hooks/mutations/thread-mutation-batcher";
 import type {
-  BbSdkAreas,
+  HyperfideSdkAreas,
   ThreadForkArgs,
   PluginThreadMetadataListArgs,
   ThreadPluginMetadataArgs,
@@ -12,7 +12,7 @@ import type {
   ThreadSpawnArgs,
 } from "@hyperfide/sdk";
 import type { QueryClient } from "@tanstack/react-query";
-import type { PluginBrowserBbSdk } from "@hyperfide/plugin-sdk";
+import type { PluginBrowserHyperfideSdk } from "@hyperfide/plugin-sdk";
 import {
   beginEnvironmentNameUpdateTransaction,
   completeEnvironmentNameUpdateTransaction,
@@ -47,10 +47,10 @@ function withPluginThreadAttribution<
 }
 
 export function bindSdkToPlugin(
-  sdk: BbSdkAreas,
+  sdk: HyperfideSdkAreas,
   pluginId: string,
   queryClient: QueryClient,
-): PluginBrowserBbSdk {
+): PluginBrowserHyperfideSdk {
   const threadMutations = createThreadMutationBatcher(sdk.threads, queryClient);
   return {
     ...sdk,
@@ -289,14 +289,14 @@ export function bindSdkToPlugin(
 
 const boundSdkByQueryClient = new WeakMap<
   QueryClient,
-  WeakMap<BbSdkAreas, Map<string, PluginBrowserBbSdk>>
+  WeakMap<HyperfideSdkAreas, Map<string, PluginBrowserHyperfideSdk>>
 >();
 
 export function getPluginBoundSdk(
-  sdk: BbSdkAreas,
+  sdk: HyperfideSdkAreas,
   pluginId: string,
   queryClient: QueryClient,
-): PluginBrowserBbSdk {
+): PluginBrowserHyperfideSdk {
   let bySdk = boundSdkByQueryClient.get(queryClient);
   if (bySdk === undefined) {
     bySdk = new WeakMap();

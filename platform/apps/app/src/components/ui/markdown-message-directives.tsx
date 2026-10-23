@@ -6,7 +6,7 @@ import {
 import type { Nodes, Paragraph, Parent, RootContent } from "mdast";
 import type {} from "mdast-util-to-hast";
 import type {
-  BbNavigate,
+  HyperfideNavigate,
   PluginMessageDirectiveProps,
 } from "@hyperfide/plugin-sdk";
 import { SKIP, visit } from "unist-util-visit";
@@ -24,7 +24,7 @@ import type { PluginMessageDirectiveSlot } from "@/lib/plugin-slots.js";
 
 export const MESSAGE_DIRECTIVE_MOUNT_LIMIT = 32;
 
-const MESSAGE_DIRECTIVE_HAST_NAME = "bb-message-directive";
+const MESSAGE_DIRECTIVE_HAST_NAME = "hyperfide-message-directive";
 const MESSAGE_DIRECTIVE_INDEX_PROPERTY = "dataDirectiveIndex";
 
 type MessageDirectiveRegistryEntry = ResolvedMessageDirective;
@@ -49,7 +49,7 @@ export interface MarkdownMessageDirectives {
 }
 
 export type MarkdownMessageDirectiveOpenThreadPanel = (
-  options: Parameters<BbNavigate["openThreadPanel"]>[0] & {
+  options: Parameters<HyperfideNavigate["openThreadPanel"]>[0] & {
     pluginId: string;
   },
 ) => boolean;
@@ -83,7 +83,7 @@ interface MessageDirectiveElementProps {
 declare module "react" {
   namespace JSX {
     interface IntrinsicElements {
-      "bb-message-directive": MessageDirectiveElementProps;
+      "hyperfide-message-directive": MessageDirectiveElementProps;
     }
   }
 }

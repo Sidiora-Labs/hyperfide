@@ -169,7 +169,7 @@ export function connectAcpClient(options: AcpClientOptions): AcpClient {
     },
   });
 
-  const app = client({ name: "bb" });
+  const app = client({ name: "hyperfide" });
   for (const [method, handler] of Object.entries(handlers.requests ?? {})) {
     app.onRequest(
       method,

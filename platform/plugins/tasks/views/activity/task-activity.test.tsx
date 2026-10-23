@@ -31,7 +31,7 @@ vi.mock("../../shell/data.js", () => ({
 
 vi.mock("@hyperfide/plugin-sdk/app", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@hyperfide/plugin-sdk/app")>()),
-  useBbNavigate: () => ({ toThread: vi.fn() }),
+  useHyperfideNavigate: () => ({ toThread: vi.fn() }),
 }));
 
 vi.mock("../../editor/tasks-editor.js", () => ({
@@ -276,7 +276,7 @@ async function renderComposerWithTask(options?: {
   if (!options?.holdSend) {
     releaseSend = () => {};
   }
-  const { bb, harness } = createFakePluginHost({
+  const { hyperfide, harness } = createFakePluginHost({
     pluginId: "tasks",
     sdk: {
       threads: {
@@ -286,7 +286,7 @@ async function renderComposerWithTask(options?: {
       },
     },
   });
-  const store = createStore(bb);
+  const store = createStore(hyperfide);
   const project = store.tasks.createProject({
     name: "Composer",
     prefix: "CMP",
@@ -313,7 +313,7 @@ async function renderComposerWithTask(options?: {
       notify: boolean;
     };
     return {
-      comment: await createComment(bb, store, {
+      comment: await createComment(hyperfide, store, {
         taskId: request.taskId,
         kind: "user",
         authorName: "You",

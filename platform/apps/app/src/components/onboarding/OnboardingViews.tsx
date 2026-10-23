@@ -17,14 +17,14 @@ import {
   MACOS_APP_REGION_NO_DRAG_CLASS,
   MACOS_TRAFFIC_LIGHT_RESERVE_PADDING_CLASS,
   MACOS_WINDOW_DRAG_CLASS,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import {
   ONBOARDING_STEPS,
   type AgentSetupState,
   type OnboardingStepId,
   type SignInGuide,
 } from "./onboarding-model";
-import bbLogoUrl from "../../../../../assets/bb-logo.svg";
+import hyperfideLogoUrl from "../../../../../assets/hyperfide-logo.svg";
 
 const CONTENT_COLUMN_CLASS =
   "mx-auto w-full max-w-[600px] px-4 @min-[36rem]/onboarding:px-6";
@@ -84,8 +84,8 @@ export function OnboardingLayout({
         )}
       >
         <img
-          src={bbLogoUrl}
-          alt="bb"
+          src={hyperfideLogoUrl}
+          alt="hyperfide"
           draggable={false}
           className="h-5 w-6 shrink-0 select-none object-contain dark:invert"
         />
@@ -402,7 +402,7 @@ export function AgentStep({
         </ul>
       )}
       <p className="text-xs text-muted-foreground">
-        Don't see your agent? bb picks up other ACP agents, such as opencode,
+        Don't see your agent? hyperfide picks up other ACP agents, such as opencode,
         once they are installed.
       </p>
     </div>
@@ -541,7 +541,7 @@ export function AgentSignInGuide({
         <span className="min-w-0 flex-1">
           {codeSubmitted
             ? "Finishing sign-in…"
-            : "bb continues on its own as soon as you're signed in."}
+            : "hyperfide continues on its own as soon as you're signed in."}
         </span>
         {alternateLabel === null ? null : (
           <button
@@ -632,7 +632,7 @@ export function ProjectsStep({
         <p className="text-sm text-muted-foreground">
           {status.kind === "error"
             ? status.message
-            : "bb didn't find a git repo you've worked in over the last 30 days."}
+            : "hyperfide didn't find a git repo you've worked in over the last 30 days."}
         </p>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={onRetry}>
@@ -799,8 +799,8 @@ export function OnboardingPluginCard({
       descriptionLines="expandable"
       disabled={disabled}
       byline={
-        <PluginAuthorByline name="BB Official" github={null} official>
-          BB Official
+        <PluginAuthorByline name="HYPERFIDE Official" github={null} official>
+          HYPERFIDE Official
         </PluginAuthorByline>
       }
       footerAction={

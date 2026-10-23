@@ -53,8 +53,8 @@ function readMigratedImage(): Buffer {
 }
 
 export function withTestThread(run: (testThread: TestThread) => void): void {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bb-timeline-cache-"));
-  const file = path.join(dir, "bb.db");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperfide-timeline-cache-"));
+  const file = path.join(dir, "hyperfide.db");
   fs.writeFileSync(file, readMigratedImage());
   const db = createConnection(file);
   const coldDb = createConnection(file);

@@ -5,7 +5,7 @@ import { expect, it, onTestFinished } from "vitest";
 import { partitionTestFiles } from "../../../vitest.shared.ts";
 
 it("isolates clock and process mutations in tests and imported helpers", () => {
-  const root = mkdtempSync(join(tmpdir(), "bb-vitest-isolation-"));
+  const root = mkdtempSync(join(tmpdir(), "hyperfide-vitest-isolation-"));
   onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, "test"));
   const fixtures = {

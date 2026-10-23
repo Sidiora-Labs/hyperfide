@@ -97,7 +97,7 @@ export function SidebarHistoryNavigationControls({
     <TooltipProvider delayDuration={300}>
       <div
         className={cn(
-          "flex items-center gap-(--bb-chrome-control-gap)",
+          "flex items-center gap-(--hyperfide-chrome-control-gap)",
           className,
         )}
       >

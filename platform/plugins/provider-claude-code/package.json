@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Run bb threads with Claude Code.",
+  "description": "Run hyperfide-platform threads with Claude Code.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.90"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.90"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Claude Code provider",
-    "description": "Run bb threads with Claude Code.",
+    "description": "Run hyperfide-platform threads with Claude Code.",
     "branding": {
       "icon": "./icons/claude-code.svg"
     },
@@ -25,7 +25,7 @@
     ]
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

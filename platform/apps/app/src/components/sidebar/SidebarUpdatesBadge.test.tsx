@@ -113,7 +113,7 @@ function missingInstallIssue(
     },
     action: null,
     title: `${displayName} CLI not installed`,
-    description: `Install ${displayName} so bb can start ${displayName} sessions.`,
+    description: `Install ${displayName} so hyperfide can start ${displayName} sessions.`,
     fingerprint: `${provider}:missing:1.1.0`,
   };
 }
@@ -173,10 +173,10 @@ describe("SidebarUpdatesBadge", () => {
     expect(result.container.innerHTML).toBe("");
   });
 
-  it("shows only the bb chip for a bb-only update", () => {
+  it("shows only the hyperfide chip for a hyperfide-only update", () => {
     renderBadge({ appUpdateAvailable: true });
 
-    expect(screen.getByTestId("sidebar-updates-badge-bb")).toBeTruthy();
+    expect(screen.getByTestId("sidebar-updates-badge-hyperfide")).toBeTruthy();
     expect(screen.queryByTestId("sidebar-updates-badge-providers")).toBeNull();
   });
 
@@ -192,7 +192,7 @@ describe("SidebarUpdatesBadge", () => {
       canRetryDaemonUpdate: true,
     });
     renderBadge({ machines: [offline] });
-    expect(screen.queryByTestId("sidebar-updates-badge-bb")).toBeNull();
+    expect(screen.queryByTestId("sidebar-updates-badge-hyperfide")).toBeNull();
     const warning = screen.getByRole("link", {
       name: "Work laptop is offline",
     });
@@ -214,7 +214,7 @@ describe("SidebarUpdatesBadge", () => {
     });
     reloaded.rerender(<BadgeHarness />);
     expect(screen.queryByTestId("sidebar-machines-attention-badge")).toBeNull();
-    expect(screen.getByTestId("sidebar-updates-badge-bb")).toBeTruthy();
+    expect(screen.getByTestId("sidebar-updates-badge-hyperfide")).toBeTruthy();
     cleanup();
 
     renderBadge({
@@ -269,14 +269,14 @@ describe("SidebarUpdatesBadge", () => {
     expect(screen.queryByTestId("sidebar-machines-attention-badge")).toBeNull();
   });
 
-  it("shows only the provider chip when bb itself is current", () => {
+  it("shows only the provider chip when hyperfide itself is current", () => {
     renderBadge({
       machines: [
         machine({ issues: [providerIssue("claude-code", "Claude Code")] }),
       ],
     });
 
-    expect(screen.queryByTestId("sidebar-updates-badge-bb")).toBeNull();
+    expect(screen.queryByTestId("sidebar-updates-badge-hyperfide")).toBeNull();
     expect(
       screen
         .getByTestId("sidebar-updates-badge-providers")
@@ -315,10 +315,10 @@ describe("SidebarUpdatesBadge", () => {
     });
 
     expect(screen.queryByTestId("sidebar-updates-badge-providers")).toBeNull();
-    expect(screen.queryByTestId("sidebar-updates-badge-bb")).toBeNull();
+    expect(screen.queryByTestId("sidebar-updates-badge-hyperfide")).toBeNull();
   });
 
-  it("still shows the bb chip when the only provider issue is a missing CLI", () => {
+  it("still shows the hyperfide chip when the only provider issue is a missing CLI", () => {
     renderBadge({
       appUpdateAvailable: true,
       machines: [
@@ -328,7 +328,7 @@ describe("SidebarUpdatesBadge", () => {
       ],
     });
 
-    expect(screen.getByTestId("sidebar-updates-badge-bb")).toBeTruthy();
+    expect(screen.getByTestId("sidebar-updates-badge-hyperfide")).toBeTruthy();
     expect(screen.queryByTestId("sidebar-updates-badge-providers")).toBeNull();
   });
 
@@ -371,6 +371,6 @@ describe("SidebarUpdatesBadge", () => {
         node.classList.contains("flex"),
       ),
     ).toBe(true);
-    expect(screen.getByTestId("sidebar-updates-badge-bb")).toBeTruthy();
+    expect(screen.getByTestId("sidebar-updates-badge-hyperfide")).toBeTruthy();
   });
 });

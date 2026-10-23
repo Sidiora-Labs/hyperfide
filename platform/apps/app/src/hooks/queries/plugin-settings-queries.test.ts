@@ -35,7 +35,7 @@ function receiverSensitiveFetch(body: unknown): typeof fetch {
 
 const ROW = {
   id: "linear",
-  source: "npm:@bb-plugins/linear@^1",
+  source: "npm:@hyperfide-plugins/linear@^1",
   rootDir: "/tmp/linear",
   version: "1.6.2",
   enabled: true,
@@ -44,7 +44,7 @@ const ROW = {
   provenance: "direct",
   publisherLabel: null,
   isOrphanedBuiltin: false,
-  sourceDisplay: "npm · @bb-plugins/linear · pinned",
+  sourceDisplay: "npm · @hyperfide-plugins/linear · pinned",
   updateState: {
     availableVersion: "1.7.0",
     lastCheckAt: 1752300000000,

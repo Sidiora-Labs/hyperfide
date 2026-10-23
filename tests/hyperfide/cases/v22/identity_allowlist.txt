@@ -1,0 +1,10 @@
+# Path glob<TAB>exception regex<TAB>reason; exceptions remove only matching spans.
+deploy/hyperfide/sandbox/run-job.mjs	\b\x62\x62\b	Local base-bundle variable, unrelated to platform identity.
+services/hyperfide/package-lock.json	sha512-[A-Za-z0-9+/=]+	Registry integrity digests are immutable binary encodings.
+platform/pnpm-lock.yaml	sha512-[A-Za-z0-9+/=]+	Registry integrity digests are immutable binary encodings.
+spec/hyperfide-v22/spec.kvx	licenses/\x62\x62(?:/LICENSE)?	Specification references the sole permitted attribution directory.
+tests/hyperfide/cases/v22/identity_gate.py	licenses/\x62\x62/	The gate must identify the permitted attribution directory.
+src/vcs.c	aa/\x62\x62\.	Content-addressed object path example, unrelated to platform identity.
+tests/integration/39_memory_port.sh	\b\x62\x62\b	Local memory-record dictionary variable, unrelated to platform identity.
+platform/plugins/provider-codex/src/computer-use-icon.ts	iVBOR[A-Za-z0-9+/=]+	Immutable PNG bytes encoded as base64, unrelated to platform identity.
+platform/packages/provider-bridge-protocol/recordings/codex/web-search/*	gAAAAA[A-Za-z0-9_+/=-]+	Opaque encrypted provider reasoning payload, unrelated to platform identity.

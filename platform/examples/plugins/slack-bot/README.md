@@ -1,7 +1,7 @@
-# bb-plugin-slack-bot
+# Hyperfide-plugin-slack-bot
 
 The headless "Slack bot" hero plugin — no frontend entry, no dependencies.
-Mention the bot in Slack and it spawns a BB thread in your configured project;
+Mention the bot in Slack and it spawns a HYPERFIDE thread in your configured project;
 when the thread goes idle, the agent's last message is posted back into the
 Slack thread.
 
@@ -9,20 +9,20 @@ What it demonstrates:
 
 - **Settings** — `botToken` and `signingSecret` as `secret: true` (stored in
   0600 files, never sent to the frontend), a plain string `channelId`, and a
-  `project` picker (stores the BB project id).
-- **`bb.http.route("POST", "/events", ..., { auth: "none" })`** — a Slack
+  `project` picker (stores the HYPERFIDE project id).
+- **`hyperfide.http.route("POST", "/events", ..., { auth: "none" })`** — a Slack
   Events API webhook. `auth: "none"` is safe here because the handler
   verifies Slack's `x-slack-signature` (HMAC-SHA256 of
   `v0:<timestamp>:<raw body>` with the signing secret, with a 5-minute replay
   window) before touching any event.
-- **`bb.sdk.threads.spawn`** — project-default environment; BB fills in
+- **`hyperfide.sdk.threads.spawn`** — project-default environment; HYPERFIDE fills in
   `origin: "plugin"` and `originPluginId: "slack-bot"` automatically, so
   spawned threads are attributed in the thread list.
-- **`bb.storage.kv`** — maps Slack `thread_ts` → BB thread id (and back), so
-  follow-up mentions land in the same BB thread.
-- **`bb.events.on("thread.idle")`** — posts `lastAssistantText` to Slack via
+- **`hyperfide.storage.kv`** — maps Slack `thread_ts` → HYPERFIDE thread id (and back), so
+  follow-up mentions land in the same HYPERFIDE thread.
+- **`hyperfide.events.on("thread.idle")`** — posts `lastAssistantText` to Slack via
   `chat.postMessage`.
-- **`bb.status.needsConfiguration`** — the plugin loads without tokens and
+- **`hyperfide.status.needsConfiguration`** — the plugin loads without tokens and
   reports "needs configuration" instead of crash-looping.
 
 Socket Mode is intentionally out of scope: it needs a WebSocket client
@@ -34,7 +34,7 @@ shows where it would go; webhook mode covers the same flow.
 1. Install the plugin:
 
    ```
-   bb plugin install ./examples/plugins/slack-bot
+   hyperfide-platform plugin install ./examples/plugins/slack-bot
    ```
 
 2. Create a Slack app (https://api.slack.com/apps → "From scratch"):
@@ -46,10 +46,10 @@ shows where it would go; webhook mode covers the same flow.
      event, and set the request URL to
 
      ```
-     https://<your-bb-server>/api/v1/plugins/slack-bot/http/events
+     https://<your-hyperfide-server>/api/v1/plugins/slack-bot/http/events
      ```
 
-     Slack must be able to reach your BB server (use a tunnel such as
+     Slack must be able to reach your HYPERFIDE server (use a tunnel such as
      `cloudflared` or `ngrok` for a local server). Slack sends a
      `url_verification` challenge when you save the URL; the plugin answers
      it automatically once configured.
@@ -57,12 +57,12 @@ shows where it would go; webhook mode covers the same flow.
 3. Configure and reload:
 
    ```
-   bb plugin config slack-bot set botToken xoxb-...
-   bb plugin config slack-bot set signingSecret ...
-   bb plugin config slack-bot set project proj_...
-   bb plugin reload slack-bot
-   bb plugin list        # slack-bot should show "running"
+   hyperfide-platform plugin config slack-bot set botToken xoxb-...
+   hyperfide-platform plugin config slack-bot set signingSecret ...
+   hyperfide-platform plugin config slack-bot set project proj_...
+   hyperfide-platform plugin reload slack-bot
+   hyperfide-platform plugin list        # slack-bot should show "running"
    ```
 
-4. Mention the bot in a channel it has been invited to. `bb plugin logs
+4. Mention the bot in a channel it has been invited to. `hyperfide-platform plugin logs
 slack-bot` shows what it is doing.

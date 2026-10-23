@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -34,7 +34,7 @@ afterEach(async () => {
 });
 async function directory() {
   const dir = await fs.realpath(
-    await fs.mkdtemp(path.join(os.tmpdir(), "bb-storage-plugin-")),
+    await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-storage-plugin-")),
   );
   directories.push(dir);
   return dir;
@@ -110,7 +110,7 @@ it("clears different threads concurrently, excludes overlapping maintenance and 
     },
   });
   try {
-    plugin(host.bb);
+    plugin(host.hyperfide);
     await host.harness.callRpc("scanHost", { hostId: "host_test" });
     await expect
       .poll(
@@ -230,7 +230,7 @@ it.each([
         await host.harness.callRpc("host", { hostId: "host_test" }),
       );
     try {
-      plugin(host.bb);
+      plugin(host.hyperfide);
       await host.harness.callRpc("scanHost", { hostId: "host_test" });
       await expect
         .poll(async () =>
@@ -346,28 +346,28 @@ it.each([false, true])(
     const root = await directory();
     const fakeHome = await directory();
     if (!detached) {
-      await fs.mkdir(path.join(fakeHome, ".bb-dev", "checkout-a"), {
+      await fs.mkdir(path.join(fakeHome, ".hyperfide-dev", "checkout-a"), {
         recursive: true,
       });
       await fs.writeFile(
-        path.join(fakeHome, ".bb-dev", "checkout-a", "bb.db"),
+        path.join(fakeHome, ".hyperfide-dev", "checkout-a", "hyperfide.db"),
         Buffer.alloc(32768),
       );
     }
     if (!detached)
       await fs.writeFile(
-        path.join(fakeHome, ".bb-dev", "checkout-a", "bb-dev-instance.json"),
+        path.join(fakeHome, ".hyperfide-dev", "checkout-a", "hyperfide-dev-instance.json"),
         JSON.stringify({
-          repoRoot: path.join(fakeHome, "worktrees", "thr_live-1", "bb"),
+          repoRoot: path.join(fakeHome, "worktrees", "thr_live-1", "hyperfide"),
         }),
       );
     const size = 11 * 1024 * 1024;
     await fs.mkdir(path.join(root, "thr_live"));
     await fs.writeFile(path.join(root, "thr_live", "data"), Buffer.alloc(size));
     await fs.writeFile(path.join(root, "thr_live", "small.txt"), "keep me");
-    await fs.mkdir(path.join(root, ".bb-trash-orphan"));
+    await fs.mkdir(path.join(root, ".hyperfide-trash-orphan"));
     await fs.writeFile(
-      path.join(root, ".bb-trash-orphan", "data"),
+      path.join(root, ".hyperfide-trash-orphan", "data"),
       Buffer.alloc(32768),
     );
     const worker = experimental_createHostEntryHarness(hostEntry);
@@ -439,7 +439,7 @@ it.each([false, true])(
       },
     });
     try {
-      plugin(host.bb);
+      plugin(host.hyperfide);
       expect(
         await host.harness.callRpc("host", { hostId: "host_test" }),
       ).toEqual({
@@ -483,13 +483,13 @@ it.each([false, true])(
       if (detached) expect(scanned.report!.developerStorage).toBeNull();
       else {
         expect(path.normalize(scanned.report!.developerStorage!.path)).toBe(
-          path.join(fakeHome, ".bb-dev"),
+          path.join(fakeHome, ".hyperfide-dev"),
         );
         expect(scanned.report!.developerStorage).toMatchObject({
           entries: [
             {
               name: "checkout-a",
-              sourcePath: path.join(fakeHome, "worktrees", "thr_live-1", "bb"),
+              sourcePath: path.join(fakeHome, "worktrees", "thr_live-1", "hyperfide"),
               sourcePathState: "missing",
               threads: [{ threadId: "thr_live", archived: true }],
             },
@@ -509,7 +509,7 @@ it.each([false, true])(
       await host.harness.callRpc("removeOrphans", { hostId: "host_test" });
       await expect
         .poll(async () =>
-          fs.stat(path.join(root, ".bb-trash-orphan")).catch(() => null),
+          fs.stat(path.join(root, ".hyperfide-trash-orphan")).catch(() => null),
         )
         .toBeNull();
       expect((await fs.stat(path.join(root, "thr_live", "data"))).size).toBe(
@@ -576,7 +576,7 @@ it("builds every machine's report from one thread listing", async () => {
     },
   });
   try {
-    plugin(host.bb);
+    plugin(host.hyperfide);
     await host.harness.callRpc("scanAll", null);
     await expect
       .poll(
@@ -673,7 +673,7 @@ it("deletes only large files from archived threads on scanned online machines, k
     },
   });
   try {
-    plugin(host.bb);
+    plugin(host.hyperfide);
     await expect(
       host.harness.callRpc("clearArchivedFiles", { hostId: "host_test" }),
     ).rejects.toThrow("Scan the machine");
@@ -982,7 +982,7 @@ it("keeps cleanup available during a scan and leaves cleared storage out of its 
       await host.harness.callRpc("host", { hostId: "host_test" }),
     );
   try {
-    plugin(host.bb);
+    plugin(host.hyperfide);
     await host.harness.callRpc("scanHost", { hostId: "host_test" });
     await expect
       .poll(async () => (await status()).report?.threadsWithStorageCount)
@@ -1044,7 +1044,7 @@ it("fails a scan visibly so it can be retried", async () => {
     },
   });
   try {
-    plugin(host.bb);
+    plugin(host.hyperfide);
     await host.harness.callRpc("scanHost", { hostId: "host_test" });
     await expect
       .poll(
@@ -1087,7 +1087,7 @@ it("fails a scan visibly so it can be retried", async () => {
 it("counts distinct live managed worktrees for machine projects, including empty projects and pending cleanup", async () => {
   type Environment = Awaited<
     ReturnType<
-      import("@hyperfide/plugin-sdk").BbPluginApi["sdk"]["environments"]["list"]
+      import("@hyperfide/plugin-sdk").HyperfidePluginApi["sdk"]["environments"]["list"]
     >
   >[number];
   const base: Environment = {
@@ -1103,7 +1103,7 @@ it("counts distinct live managed worktrees for machine projects, including empty
     defaultBranch: "main",
     mergeBaseBranch: "main",
     status: "ready",
-    environmentProviderId: "bb--environment-git-worktree",
+    environmentProviderId: "hyperfide--environment-git-worktree",
     environmentProviderSelection: null,
     environmentProviderInstanceKey: null,
     lifecycle: { phase: "active", retireAt: null, teardown: null },
@@ -1191,7 +1191,7 @@ it("counts distinct live managed worktrees for machine projects, including empty
     },
   });
   try {
-    plugin(host.bb);
+    plugin(host.hyperfide);
     await host.harness.callRpc("scanHost", { hostId: "host_test" });
     await expect
       .poll(
@@ -1221,18 +1221,18 @@ it("counts distinct live managed worktrees for machine projects, including empty
 
 it("recovers developer checkout paths from launch records, old runtime records, known paths and verified managed names", async () => {
   const homeDir = await directory();
-  const rootPath = path.join(homeDir, ".bb-dev");
+  const rootPath = path.join(homeDir, ".hyperfide-dev");
   const managed = path.join(
     homeDir,
-    ".bb",
+    ".hyperfide",
     "plugins",
     "environment-git-worktree",
     "host-data",
     "worktrees",
     "thr_gone-1",
-    "bb",
+    "hyperfide",
   );
-  const known = path.join(homeDir, "Mixed Case", "bb");
+  const known = path.join(homeDir, "Mixed Case", "hyperfide");
   const existing = path.join(homeDir, "checkout");
   await fs.mkdir(existing);
   await fs.mkdir(known, { recursive: true });
@@ -1255,17 +1255,17 @@ it("recovers developer checkout paths from launch records, old runtime records, 
   for (const name of names)
     await fs.mkdir(path.join(rootPath, name), { recursive: true });
   await fs.writeFile(
-    path.join(rootPath, "launch", "bb-dev-instance.json"),
+    path.join(rootPath, "launch", "hyperfide-dev-instance.json"),
     JSON.stringify({ repoRoot: existing }),
   );
   await fs.writeFile(
-    path.join(rootPath, "runtime", "bb-app-runtime.json"),
+    path.join(rootPath, "runtime", "hyperfide-app-runtime.json"),
     JSON.stringify({
-      entryPath: path.join(existing, "scripts", "start-bb.mjs"),
+      entryPath: path.join(existing, "scripts", "start-hyperfide.mjs"),
     }),
   );
   await fs.writeFile(
-    path.join(rootPath, "unidentified", "bb-dev-instance.json"),
+    path.join(rootPath, "unidentified", "hyperfide-dev-instance.json"),
     "{bad json",
   );
   const staleLock = path.join(rootPath, "launch", "daemon.lock.lock");
@@ -1333,14 +1333,14 @@ it.skipIf(process.platform === "win32")(
   "does not signal a recorded launcher PID that now belongs to another process",
   async () => {
     const fakeHome = await directory();
-    const rootPath = path.join(fakeHome, ".bb-dev");
-    const checkout = path.join(fakeHome, "checkout", "bb");
+    const rootPath = path.join(fakeHome, ".hyperfide-dev");
+    const checkout = path.join(fakeHome, "checkout", "hyperfide");
     await fs.mkdir(checkout, { recursive: true });
     await fs.mkdir(path.join(rootPath, "reused", "daemon.lock.lock"), {
       recursive: true,
     });
     await fs.writeFile(
-      path.join(rootPath, "reused", "bb-dev-instance.json"),
+      path.join(rootPath, "reused", "hyperfide-dev-instance.json"),
       JSON.stringify({ repoRoot: checkout }),
     );
     const unrelated = spawn(
@@ -1349,10 +1349,10 @@ it.skipIf(process.platform === "win32")(
       { stdio: "ignore" },
     );
     await fs.writeFile(
-      path.join(rootPath, "reused", "bb-app-runtime.json"),
+      path.join(rootPath, "reused", "hyperfide-app-runtime.json"),
       JSON.stringify({
         pid: unrelated.pid,
-        entryPath: path.join(fakeHome, "bb-app-launcher.mjs"),
+        entryPath: path.join(fakeHome, "hyperfide-app-launcher.mjs"),
         startedAt: new Date().toISOString(),
       }),
     );
@@ -1379,15 +1379,15 @@ it.skipIf(process.platform === "win32")(
   "removes development instances whose checkout is gone, stopping their servers and keeping revived or existing checkouts",
   async () => {
     const fakeHome = await directory();
-    const rootPath = path.join(fakeHome, ".bb-dev");
+    const rootPath = path.join(fakeHome, ".hyperfide-dev");
     const checkouts = {
-      gone: path.join(fakeHome, "gone", "bb"),
-      revived: path.join(fakeHome, "revived", "bb"),
-      kept: path.join(fakeHome, "kept", "bb"),
-      spare: path.join(fakeHome, "spare", "bb"),
-      extra: path.join(fakeHome, "extra", "bb"),
-      idle: path.join(fakeHome, "idle", "bb"),
-      busy: path.join(fakeHome, "busy", "bb"),
+      gone: path.join(fakeHome, "gone", "hyperfide"),
+      revived: path.join(fakeHome, "revived", "hyperfide"),
+      kept: path.join(fakeHome, "kept", "hyperfide"),
+      spare: path.join(fakeHome, "spare", "hyperfide"),
+      extra: path.join(fakeHome, "extra", "hyperfide"),
+      idle: path.join(fakeHome, "idle", "hyperfide"),
+      busy: path.join(fakeHome, "busy", "hyperfide"),
     };
     await fs.mkdir(checkouts.gone, { recursive: true });
     await fs.mkdir(checkouts.kept, { recursive: true });
@@ -1396,17 +1396,17 @@ it.skipIf(process.platform === "win32")(
     for (const [name, repoRoot] of Object.entries(checkouts)) {
       await fs.mkdir(path.join(rootPath, name), { recursive: true });
       await fs.writeFile(
-        path.join(rootPath, name, "bb-dev-instance.json"),
+        path.join(rootPath, name, "hyperfide-dev-instance.json"),
         JSON.stringify({ repoRoot }),
       );
       await fs.writeFile(
-        path.join(rootPath, name, "bb.db"),
+        path.join(rootPath, name, "hyperfide.db"),
         Buffer.alloc(32768),
       );
     }
-    await fs.mkdir(path.join(rootPath, ".bb-trash-stale"));
+    await fs.mkdir(path.join(rootPath, ".hyperfide-trash-stale"));
     await fs.mkdir(path.join(rootPath, "busy", "daemon.lock.lock"));
-    const launcherPath = path.join(fakeHome, "bb-app-launcher.mjs");
+    const launcherPath = path.join(fakeHome, "hyperfide-app-launcher.mjs");
     await fs.writeFile(launcherPath, "setInterval(() => {}, 1000);\n");
     const server = (checkout: string) => {
       const child = spawn(process.execPath, [launcherPath], {
@@ -1424,7 +1424,7 @@ it.skipIf(process.platform === "win32")(
     const keptServer = server(checkouts.kept);
     const busyServer = server(checkouts.busy);
     await fs.writeFile(
-      path.join(rootPath, "busy", "bb-app-runtime.json"),
+      path.join(rootPath, "busy", "hyperfide-app-runtime.json"),
       JSON.stringify({
         pid: busyServer.child.pid,
         entryPath: launcherPath,
@@ -1470,7 +1470,7 @@ it.skipIf(process.platform === "win32")(
       },
     });
     try {
-      plugin(host.bb);
+      plugin(host.hyperfide);
       await host.harness.callRpc("scanHost", { hostId: "host_test" });
       await expect
         .poll(
@@ -1603,17 +1603,17 @@ it.skipIf(process.platform === "win32")(
   "removes a symlinked development instance as a link and keeps its target",
   async () => {
     const fakeHome = await directory();
-    const rootPath = path.join(fakeHome, ".bb-dev");
+    const rootPath = path.join(fakeHome, ".hyperfide-dev");
     const target = path.join(fakeHome, "elsewhere", "data");
     await fs.mkdir(target, { recursive: true });
     await fs.writeFile(
-      path.join(target, "bb-dev-instance.json"),
-      JSON.stringify({ repoRoot: path.join(fakeHome, "linked", "bb") }),
+      path.join(target, "hyperfide-dev-instance.json"),
+      JSON.stringify({ repoRoot: path.join(fakeHome, "linked", "hyperfide") }),
     );
     await fs.mkdir(path.join(rootPath, "plain"), { recursive: true });
     await fs.writeFile(
-      path.join(rootPath, "plain", "bb-dev-instance.json"),
-      JSON.stringify({ repoRoot: path.join(fakeHome, "plain", "bb") }),
+      path.join(rootPath, "plain", "hyperfide-dev-instance.json"),
+      JSON.stringify({ repoRoot: path.join(fakeHome, "plain", "hyperfide") }),
     );
     await fs.symlink(target, path.join(rootPath, "linked"));
     const worker = experimental_createHostEntryHarness(hostEntry);
@@ -1633,7 +1633,7 @@ it.skipIf(process.platform === "win32")(
       await expect
         .poll(async () => (await fs.readdir(rootPath)).sort())
         .toEqual([]);
-      expect(await fs.readdir(target)).toEqual(["bb-dev-instance.json"]);
+      expect(await fs.readdir(target)).toEqual(["hyperfide-dev-instance.json"]);
     } finally {
       await worker.experimental_dispose();
     }
@@ -1701,11 +1701,11 @@ it("only clears opted-in archives, retries stopped and offline threads after rel
     },
   });
   try {
-    await host.bb.storage.kv.set("policy", {
+    await host.hyperfide.storage.kv.set("policy", {
       archiveAfterDays: null,
       deleteAfterDays: null,
     });
-    plugin(host.bb);
+    plugin(host.hyperfide);
     await host.harness.behavior.emitThreadEvent("thread.archived", {
       thread: threads.get("thr_default")!,
     });
@@ -1818,20 +1818,20 @@ it("waits for storage inventory for detached archives and persists backoff for f
     },
   });
   try {
-    await host.bb.storage.kv.set("policy", {
+    await host.hyperfide.storage.kv.set("policy", {
       archiveAfterDays: null,
       deleteAfterDays: null,
       deleteStorageOnArchive: true,
       deleteDevDataOnCheckoutRemoval: false,
     });
-    plugin(host.bb);
+    plugin(host.hyperfide);
     await host.harness.behavior.emitThreadEvent("thread.archived", { thread });
     const calls = host.harness.inspection.sdk.callsTo("threads.get").length;
     await host.harness.behavior.runSchedule("archive-storage-cleanup");
     expect(host.harness.inspection.sdk.callsTo("threads.get")).toHaveLength(
       calls,
     );
-    host.bb.storage
+    host.hyperfide.storage
       .database()
       .prepare("INSERT INTO scans (host_id, result_json) VALUES (?, ?)")
       .run(
@@ -1894,13 +1894,13 @@ it("stops retrying archive storage cleanup once its thread no longer exists", as
     },
   });
   try {
-    await host.bb.storage.kv.set("policy", {
+    await host.hyperfide.storage.kv.set("policy", {
       archiveAfterDays: null,
       deleteAfterDays: null,
       deleteStorageOnArchive: true,
       deleteDevDataOnCheckoutRemoval: false,
     });
-    plugin(host.bb);
+    plugin(host.hyperfide);
     await host.harness.behavior.emitThreadEvent("thread.archived", { thread });
     exists = false;
     await host.harness.behavior.runSchedule("archive-storage-cleanup");
@@ -1917,7 +1917,7 @@ it("stops retrying archive storage cleanup once its thread no longer exists", as
 it("never clears thread storage that holds a workspace an environment still uses", async () => {
   type Environment = Awaited<
     ReturnType<
-      import("@hyperfide/plugin-sdk").BbPluginApi["sdk"]["environments"]["list"]
+      import("@hyperfide/plugin-sdk").HyperfidePluginApi["sdk"]["environments"]["list"]
     >
   >[number];
   const root = await directory();
@@ -2042,13 +2042,13 @@ it("never clears thread storage that holds a workspace an environment still uses
     path.join("repair", "src.ts"),
   ];
   try {
-    await host.bb.storage.kv.set("policy", {
+    await host.hyperfide.storage.kv.set("policy", {
       archiveAfterDays: null,
       deleteAfterDays: null,
       deleteStorageOnArchive: true,
       deleteDevDataOnCheckoutRemoval: false,
     });
-    plugin(host.bb);
+    plugin(host.hyperfide);
     for (const thread of threads.values())
       await host.harness.behavior.emitThreadEvent("thread.archived", {
         thread,
@@ -2100,15 +2100,15 @@ it("never clears thread storage that holds a workspace an environment still uses
 
 it("automatically removes missing-checkout data only when enabled and online, retrying failures and keeping existing or unidentified sources", async () => {
   const fakeHome = await directory();
-  const root = path.join(fakeHome, ".bb-dev");
+  const root = path.join(fakeHome, ".hyperfide-dev");
   const checkout = path.join(fakeHome, "checkout");
   await fs.mkdir(checkout);
   for (const name of ["gone", "kept", "unknown"]) {
     await fs.mkdir(path.join(root, name), { recursive: true });
-    await fs.writeFile(path.join(root, name, "bb.db"), "development data");
+    await fs.writeFile(path.join(root, name, "hyperfide.db"), "development data");
     if (name !== "unknown")
       await fs.writeFile(
-        path.join(root, name, "bb-dev-instance.json"),
+        path.join(root, name, "hyperfide-dev-instance.json"),
         JSON.stringify({
           repoRoot: name === "kept" ? checkout : path.join(fakeHome, "missing"),
         }),
@@ -2116,7 +2116,7 @@ it("automatically removes missing-checkout data only when enabled and online, re
   }
   const worker = experimental_createHostEntryHarness(hostEntry);
   const subscriptions = new Set<
-    Parameters<BbPluginApi["sdk"]["subscribe"]>[0]
+    Parameters<HyperfidePluginApi["sdk"]["subscribe"]>[0]
   >();
   let online = false;
   let hostCalls = 0;
@@ -2180,7 +2180,7 @@ it("automatically removes missing-checkout data only when enabled and online, re
     },
   });
   try {
-    plugin(host.bb);
+    plugin(host.hyperfide);
     await host.harness.behavior.runSchedule("development-storage-cleanup");
     expect(host.harness.inspection.sdk.callsTo("hosts.list")).toHaveLength(0);
     const saved = await host.harness.behavior.runCli([
@@ -2214,7 +2214,7 @@ it("automatically removes missing-checkout data only when enabled and online, re
         ),
       )
       .toBe(true);
-    expect(await fs.readFile(path.join(root, "gone", "bb.db"), "utf8")).toBe(
+    expect(await fs.readFile(path.join(root, "gone", "hyperfide.db"), "utf8")).toBe(
       "development data",
     );
     failRemoval = false;
@@ -2222,14 +2222,14 @@ it("automatically removes missing-checkout data only when enabled and online, re
     await expect
       .poll(async () =>
         (await fs.readdir(root))
-          .filter((name) => !name.startsWith(".bb-trash-"))
+          .filter((name) => !name.startsWith(".hyperfide-trash-"))
           .sort(),
       )
       .toEqual(["kept", "unknown"]);
     const recreateMissing = async () => {
       await fs.mkdir(path.join(root, "gone"), { recursive: true });
       await fs.writeFile(
-        path.join(root, "gone", "bb-dev-instance.json"),
+        path.join(root, "gone", "hyperfide-dev-instance.json"),
         JSON.stringify({ repoRoot: path.join(fakeHome, "missing") }),
       );
     };
@@ -2287,7 +2287,7 @@ it("automatically removes missing-checkout data only when enabled and online, re
         });
     await expectCleaned();
     for (const name of ["kept", "unknown"])
-      expect(await fs.readFile(path.join(root, name, "bb.db"), "utf8")).toBe(
+      expect(await fs.readFile(path.join(root, name, "hyperfide.db"), "utf8")).toBe(
         "development data",
       );
     expect(
@@ -2303,7 +2303,7 @@ it("automatically removes missing-checkout data only when enabled and online, re
     ).toBe(0);
     await fs.rm(checkout, { recursive: true });
     await host.harness.behavior.runSchedule("development-storage-cleanup");
-    expect(await fs.readFile(path.join(root, "kept", "bb.db"), "utf8")).toBe(
+    expect(await fs.readFile(path.join(root, "kept", "hyperfide.db"), "utf8")).toBe(
       "development data",
     );
   } finally {

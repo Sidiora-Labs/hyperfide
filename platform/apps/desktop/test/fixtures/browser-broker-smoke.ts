@@ -34,7 +34,7 @@ async function main() {
     pagePreloadPath: null,
     resolveAppCommand: () => null,
   });
-  const broker = createDesktopBrowserBroker({ manager, product: "BB smoke" });
+  const broker = createDesktopBrowserBroker({ manager, product: "HYPERFIDE smoke" });
   broker.registerWindow(window);
   const client = createDesktopBrowserBrokerClient({
     broker,

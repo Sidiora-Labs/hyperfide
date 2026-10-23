@@ -13,7 +13,7 @@ export const desktopAppUpdateInfoSchema = z.object({
 export type DesktopAppUpdateInfo = z.infer<typeof desktopAppUpdateInfoSchema>;
 
 export const desktopAppUpdateRequestSchema = z.object({
-  channel: z.literal("bb-desktop-update/request"),
+  channel: z.literal("hyperfide-desktop-update/request"),
   requestId: z.string().min(1),
   action: z.enum(["status", "check", "install"]),
 });
@@ -23,16 +23,16 @@ export type DesktopAppUpdateRequest = z.infer<
 
 export const desktopAppUpdateMessageSchema = z.discriminatedUnion("channel", [
   z.object({
-    channel: z.literal("bb-desktop-update/status"),
+    channel: z.literal("hyperfide-desktop-update/status"),
     info: desktopAppUpdateInfoSchema,
   }),
   z.object({
-    channel: z.literal("bb-desktop-update/response"),
+    channel: z.literal("hyperfide-desktop-update/response"),
     requestId: z.string().min(1),
     error: z.string().nullable(),
     info: desktopAppUpdateInfoSchema.nullable(),
   }),
-  z.object({ channel: z.literal("bb-desktop-update/disconnected") }),
+  z.object({ channel: z.literal("hyperfide-desktop-update/disconnected") }),
 ]);
 export type DesktopAppUpdateMessage = z.infer<
   typeof desktopAppUpdateMessageSchema
@@ -52,7 +52,7 @@ export function relayDesktopAppUpdates(child: ChildProcess): void {
     }
   };
   const disconnect = (): void => {
-    forwardMessage({ channel: "bb-desktop-update/disconnected" });
+    forwardMessage({ channel: "hyperfide-desktop-update/disconnected" });
   };
   child.on("message", forwardRequest);
   process.on("message", forwardMessage);

@@ -40,7 +40,7 @@ let processLogPath = "";
 let writerLockPath = "";
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-writer-lock-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-writer-lock-"));
   processLogPath = join(workspaceDir, "app-server-processes.log");
   writerLockPath = join(workspaceDir, "writer.lock");
   const scriptPath = join(workspaceDir, "fake-codex-script.json");

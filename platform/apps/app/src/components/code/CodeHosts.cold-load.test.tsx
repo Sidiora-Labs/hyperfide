@@ -16,11 +16,11 @@ const downloads = await vi.hoisted(async () => {
   };
 });
 
-vi.mock("./BbDiff", async () => {
+vi.mock("./HyperfideDiff", async () => {
   await downloads.diff.promise;
   return { default: () => <p>Diff ready</p> };
 });
-vi.mock("./BbSourceCode", async () => {
+vi.mock("./HyperfideSourceCode", async () => {
   await downloads.source.promise;
   return { default: () => <p>Source ready</p> };
 });

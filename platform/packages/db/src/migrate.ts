@@ -762,7 +762,7 @@ function validatePendingInteractionsSchema(db: DbConnection): void {
         missingOrMismatchedIndexes.length > 0
           ? `Missing or mismatched indexes: ${missingOrMismatchedIndexes.join("; ")}.`
           : null,
-        "This usually means the local DB was created by an incompatible prelaunch migration history. Restart BB so migrations can run; if this persists in development, back up the DB and run pnpm reset:dev.",
+        "This usually means the local DB was created by an incompatible prelaunch migration history. Restart HYPERFIDE so migrations can run; if this persists in development, back up the DB and run pnpm reset:dev.",
       ]
         .filter((line): line is string => line !== null)
         .join(" "),
@@ -1172,9 +1172,9 @@ function stageQueuedMessageGroups(
 ): void {
   const sqlite = db.$client;
   sqlite.exec(
-    "CREATE TEMP TABLE IF NOT EXISTS bb_migration_queued_message_groups (id TEXT PRIMARY KEY, group_with_next INTEGER NOT NULL)",
+    "CREATE TEMP TABLE IF NOT EXISTS hyperfide_migration_queued_message_groups (id TEXT PRIMARY KEY, group_with_next INTEGER NOT NULL)",
   );
-  sqlite.exec("DELETE FROM bb_migration_queued_message_groups");
+  sqlite.exec("DELETE FROM hyperfide_migration_queued_message_groups");
   if (
     !tableExists(db, "__drizzle_migrations") ||
     !tableExists(db, "queued_thread_messages") ||
@@ -1190,13 +1190,13 @@ function stageQueuedMessageGroups(
     return;
   }
   sqlite.exec(
-    "INSERT INTO bb_migration_queued_message_groups (id, group_with_next) SELECT id, group_with_next FROM queued_thread_messages",
+    "INSERT INTO hyperfide_migration_queued_message_groups (id, group_with_next) SELECT id, group_with_next FROM queued_thread_messages",
   );
 }
 
-const STAGED_CONNECT_MACHINE_ID_COLUMN = "_bb_connect_machine_id_pending";
+const STAGED_CONNECT_MACHINE_ID_COLUMN = "_hyperfide_connect_machine_id_pending";
 const STAGED_THREAD_STORAGE_DELETED_AT_COLUMN =
-  "_bb_thread_storage_deleted_at_pending";
+  "_hyperfide_thread_storage_deleted_at_pending";
 
 function stageExistingConnectMachineIdColumn(
   db: DbConnection,
@@ -1418,26 +1418,26 @@ export function migrate(db: DbConnection, options: MigrateOptions = {}): void {
     db.$client.prepare("SELECT 1 FROM __drizzle_migrations LIMIT 1").get() !==
       undefined;
   sqlite.exec(
-    "CREATE TEMP TABLE IF NOT EXISTS bb_migration_existing_installation (existing INTEGER NOT NULL)",
+    "CREATE TEMP TABLE IF NOT EXISTS hyperfide_migration_existing_installation (existing INTEGER NOT NULL)",
   );
-  sqlite.exec("DELETE FROM bb_migration_existing_installation");
+  sqlite.exec("DELETE FROM hyperfide_migration_existing_installation");
   sqlite
     .prepare(
-      "INSERT INTO bb_migration_existing_installation (existing) VALUES (?)",
+      "INSERT INTO hyperfide_migration_existing_installation (existing) VALUES (?)",
     )
     .run(existingInstallation ? 1 : 0);
 
   sqlite.exec(
-    "CREATE TEMP TABLE IF NOT EXISTS bb_migration_local_host (id TEXT PRIMARY KEY)",
+    "CREATE TEMP TABLE IF NOT EXISTS hyperfide_migration_local_host (id TEXT PRIMARY KEY)",
   );
-  sqlite.exec("DELETE FROM bb_migration_local_host");
+  sqlite.exec("DELETE FROM hyperfide_migration_local_host");
   if (sqlite.name !== ":memory:") {
     const identityPath = join(dirname(sqlite.name), "host-id");
     if (existsSync(identityPath)) {
       const hostId = readFileSync(identityPath, "utf8").trim();
       if (hostId)
         sqlite
-          .prepare("INSERT INTO bb_migration_local_host (id) VALUES (?)")
+          .prepare("INSERT INTO hyperfide_migration_local_host (id) VALUES (?)")
           .run(hostId);
     }
   }

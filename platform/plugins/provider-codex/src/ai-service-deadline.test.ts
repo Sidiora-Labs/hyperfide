@@ -44,7 +44,7 @@ it("returns a transcript when the endpoint responds after 64 seconds", async () 
       });
     }),
   );
-  const { bb, harness } = createFakePluginHost({
+  const { hyperfide, harness } = createFakePluginHost({
     sdk: { system: { config: async () => ({ primaryHostId: "host-1" }) } },
     experimental_callHostRpc: async (call) => ({
       ok: true,
@@ -54,7 +54,7 @@ it("returns a transcript when the endpoint responds after 64 seconds", async () 
       ),
     }),
   });
-  registerCodexAiService(bb);
+  registerCodexAiService(hyperfide);
   const [service] = harness.registrations.aiServiceRegistrations;
   if (!service?.transcribe) throw new Error("Missing voice service");
 

@@ -9,9 +9,9 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
-import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopInfo } from "@hyperfide/desktop-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
+import { createHyperfideDesktopApi } from "@/test/hyperfide-desktop-test-utils";
 import { focusWithKeyboard } from "@/test/keyboard-focus";
 import { useIsBrowserDimmingModalOpen } from "@/hooks/useBrowserDimmingModal";
 import { PaneContext, type PaneContextValue } from "./PaneContext";
@@ -70,7 +70,7 @@ function renderButton(
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
-  delete window.bbDesktop;
+  delete window.hyperfideDesktop;
 });
 
 describe("PaneMaximizeButton", () => {
@@ -112,7 +112,7 @@ describe("PaneMaximizeButton", () => {
     expect(onToggle).toHaveBeenCalledOnce();
   });
 
-  it("shows only BB's supported split arrangement actions on hover", () => {
+  it("shows only HYPERFIDE's supported split arrangement actions on hover", () => {
     vi.useFakeTimers();
     const onMoveToSide = vi.fn();
     renderButton(false, noop, onMoveToSide);
@@ -187,7 +187,7 @@ describe("PaneMaximizeButton", () => {
   });
 
   it("preserves full-screen copy in every desktop app context", async () => {
-    const desktopInfo: BbDesktopInfo = {
+    const desktopInfo: HyperfideDesktopInfo = {
       lastCheckedAt: null,
       latestVersion: null,
       pendingVersion: null,
@@ -196,7 +196,7 @@ describe("PaneMaximizeButton", () => {
       updateDownloaded: false,
       version: "0.0.0-test",
     };
-    window.bbDesktop = createBbDesktopApi(desktopInfo);
+    window.hyperfideDesktop = createHyperfideDesktopApi(desktopInfo);
     renderButton(false);
 
     const button = screen.getByRole("button", {
@@ -212,7 +212,7 @@ describe("PaneMaximizeButton", () => {
 
   it("hides the native desktop browser while the arrangement menu can cover it", () => {
     vi.useFakeTimers();
-    const desktopInfo: BbDesktopInfo = {
+    const desktopInfo: HyperfideDesktopInfo = {
       lastCheckedAt: null,
       latestVersion: null,
       pendingVersion: null,
@@ -221,7 +221,7 @@ describe("PaneMaximizeButton", () => {
       updateDownloaded: false,
       version: "0.0.0-test",
     };
-    window.bbDesktop = createBbDesktopApi(desktopInfo);
+    window.hyperfideDesktop = createHyperfideDesktopApi(desktopInfo);
     renderButton(false);
     expect(screen.getByTestId("browser-overlay-state").textContent).toBe(
       "visible",

@@ -18,7 +18,7 @@ import {
 } from "./RemotePathBrowser";
 
 vi.mock("@/lib/sdk", () => ({
-  BbHttpError: class BbHttpError extends Error {},
+  HyperfideHttpError: class HyperfideHttpError extends Error {},
   sdk: {
     files: { mkdir: vi.fn() },
     hosts: { directory: vi.fn() },

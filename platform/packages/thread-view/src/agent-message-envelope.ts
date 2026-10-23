@@ -1,5 +1,5 @@
 const AGENT_MESSAGE_ENVELOPE_PATTERN =
-  /^\[bb message from thread:([^;\]\s]+)(?:;[^\]]*)?\]\s*/;
+  /^\[hyperfide message from thread:([^;\]\s]+)(?:;[^\]]*)?\]\s*/;
 
 export interface AgentMessageEnvelope {
   bodyStart: number;

@@ -22,7 +22,7 @@ function installerCommand(bootstrap: EnrollmentBootstrap) {
       "sh",
       "-c",
       installerScript,
-      "bb-machine-install",
+      "hyperfide-machine-install",
       new URL("/install.sh", bootstrap.serverUrl).href,
     ],
     stdin: JSON.stringify(bootstrap),

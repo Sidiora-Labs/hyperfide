@@ -63,14 +63,14 @@ async function installSdk(
 }
 
 it("bundles SDK-owned Zod without requiring the plugin to declare it", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "bb-host-zod-"));
+  const dir = await mkdtemp(join(tmpdir(), "hyperfide-host-zod-"));
   tempDirs.push(dir);
   await writeFile(
     join(dir, "package.json"),
     JSON.stringify({
       name: "hyperfide-plugin-zodless",
       version: "0.0.0",
-      bb: {
+      hyperfide: {
         name: "Zodless",
         description: "Host entry whose plugin never installed zod.",
         branding: { icon: "Zap" },
@@ -112,14 +112,14 @@ it("bundles SDK-owned Zod without requiring the plugin to declare it", async () 
 }, 30_000);
 
 it("reports a broken SDK installation separately from plugin dependencies", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "bb-host-sdk-zodless-"));
+  const dir = await mkdtemp(join(tmpdir(), "hyperfide-host-sdk-zodless-"));
   tempDirs.push(dir);
   await writeFile(
     join(dir, "package.json"),
     JSON.stringify({
       name: "hyperfide-plugin-broken-sdk",
       version: "0.0.0",
-      bb: {
+      hyperfide: {
         name: "Broken SDK",
         description: "Host entry using an incomplete SDK installation.",
         branding: { icon: "Zap" },
@@ -143,14 +143,14 @@ it("reports a broken SDK installation separately from plugin dependencies", asyn
 }, 30_000);
 
 it("requires Zod when the plugin imports it directly", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "bb-host-direct-zod-"));
+  const dir = await mkdtemp(join(tmpdir(), "hyperfide-host-direct-zod-"));
   tempDirs.push(dir);
   await writeFile(
     join(dir, "package.json"),
     JSON.stringify({
       name: "hyperfide-plugin-direct-zod",
       version: "0.0.0",
-      bb: {
+      hyperfide: {
         name: "Direct Zod",
         description: "Host entry importing Zod directly.",
         branding: { icon: "Zap" },

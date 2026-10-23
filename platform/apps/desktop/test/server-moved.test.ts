@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeBbAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
+import { writeHyperfideAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
 import {
   SERVER_MOVED_FILE_NAME,
   writeServerMovedFile,
@@ -14,7 +14,7 @@ import {
   createServerMovedWatcher,
   createServerMoveNoticeStore,
   ensureServerMovedRuntime,
-  hasLiveBbAppLauncher,
+  hasLiveHyperfideAppLauncher,
   probeLocalServerMove,
   readServerMovedLock,
   waitForCommittedServerMove,
@@ -38,7 +38,7 @@ afterEach(async () => {
 });
 
 async function createTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "bb-desktop-server-moved-"));
+  const dir = await mkdtemp(join(tmpdir(), "hyperfide-desktop-server-moved-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -50,7 +50,7 @@ function movedFile(overrides: Partial<ServerMovedFile> = {}): ServerMovedFile {
     mode: "connect",
     moveId: "move-1",
     movedAt: 1_750_000_000_000,
-    oldCopyEntries: ["bb.db", "attachments"],
+    oldCopyEntries: ["hyperfide.db", "attachments"],
     serverUrl: "https://laptop.hyperfide.example/",
     toHostId: "host-desktop",
     toHostName: "Studio desktop",
@@ -137,7 +137,7 @@ describe("readServerMovedLock", () => {
     expect(logWarning).not.toHaveBeenCalled();
   });
 
-  it("selects the bb Connect handle for a connect move", async () => {
+  it("selects the hyperfide Connect handle for a connect move", async () => {
     const dataDir = await createTempDir();
     await writeServerMovedFile(dataDir, movedFile());
 
@@ -245,8 +245,8 @@ describe("applyServerMove", () => {
     });
     expect(stores.notices).toEqual([
       {
-        detail: "bb now opens there. This computer stays connected.",
-        message: "Your bb server moved to Studio desktop",
+        detail: "hyperfide now opens there. This computer stays connected.",
+        message: "Your hyperfide-platform server moved to Studio desktop",
       },
     ]);
 
@@ -378,7 +378,7 @@ describe("ensureServerMovedRuntime", () => {
     expect(startLocalRuntime).not.toHaveBeenCalled();
   });
 
-  it("does not start a second launcher when another bb answers the address", async () => {
+  it("does not start a second launcher when another hyperfide answers the address", async () => {
     const { args, logInfo, startLocalRuntime } = runtimeArgs({
       isLocalAddressFree: false,
     });
@@ -512,7 +512,7 @@ describe("createServerMovedWatcher", () => {
       harness.watcher.start();
       harness.timers.flush();
 
-      harness.fakeWatch.emit("bb.db-wal");
+      harness.fakeWatch.emit("hyperfide.db-wal");
       expect(harness.timers.pendingCount()).toBe(0);
       await writeServerMovedFile(harness.dataDir, movedFile());
       harness.fakeWatch.emit(`${SERVER_MOVED_FILE_NAME}.abc123.tmp`);
@@ -731,7 +731,7 @@ describe("createServerMovedWatcher", () => {
     });
     watcher.start();
 
-    await writeFile(join(dataDir, "bb.db-wal"), "noise");
+    await writeFile(join(dataDir, "hyperfide.db-wal"), "noise");
     await writeServerMovedFile(
       dataDir,
       movedFile({
@@ -939,7 +939,7 @@ describe("probeLocalServerMove", () => {
           serverUrl: "https://laptop.hyperfide.example",
           toHostName: "Studio desktop",
         },
-        message: "This bb server moved",
+        message: "This hyperfide-platform server moved",
       });
     });
 
@@ -1006,11 +1006,11 @@ describe("probeLocalServerMove", () => {
   });
 });
 
-describe("hasLiveBbAppLauncher", () => {
+describe("hasLiveHyperfideAppLauncher", () => {
   async function writeRuntimeFile(dataDir: string, pid: number) {
-    await writeBbAppRuntimeFile({
+    await writeHyperfideAppRuntimeFile({
       dataDir,
-      entryPath: "/opt/bb/bb-app.js",
+      entryPath: "/opt/hyperfide/hyperfide-app.js",
       pid,
       serverUrl: "http://127.0.0.1:38886",
       startedAt: new Date().toISOString(),
@@ -1021,7 +1021,7 @@ describe("hasLiveBbAppLauncher", () => {
 
   it("is false without a runtime file", async () => {
     await expect(
-      hasLiveBbAppLauncher({ dataDir: await createTempDir() }),
+      hasLiveHyperfideAppLauncher({ dataDir: await createTempDir() }),
     ).resolves.toBe(false);
   });
 
@@ -1029,9 +1029,9 @@ describe("hasLiveBbAppLauncher", () => {
     const dataDir = await createTempDir();
     await writeRuntimeFile(dataDir, process.pid);
 
-    await expect(hasLiveBbAppLauncher({ dataDir })).resolves.toBe(true);
+    await expect(hasLiveHyperfideAppLauncher({ dataDir })).resolves.toBe(true);
     await expect(
-      hasLiveBbAppLauncher({ dataDir, isRunning: () => false }),
+      hasLiveHyperfideAppLauncher({ dataDir, isRunning: () => false }),
     ).resolves.toBe(false);
   });
 });

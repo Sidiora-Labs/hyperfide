@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   definePluginApp,
   Markdown,
-  useBbNavigate,
+  useHyperfideNavigate,
   useRpc,
   type ExperimentalCodeFenceRendererProps,
   type PluginMessageDirectiveProps,
@@ -465,7 +465,7 @@ function InlineVisDirective({
   previewCache,
 }: PluginMessageDirectiveProps & { previewCache: PreviewCache }) {
   const rpc = useRpc<typeof inlineVisRpcContract>();
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const fileAttr = attributes.file?.trim() ?? "";
   const sourceAttr = attributes.source;
   const heightAttr = attributes.height;

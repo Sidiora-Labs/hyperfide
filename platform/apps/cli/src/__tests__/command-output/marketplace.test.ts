@@ -24,8 +24,8 @@ const acme = {
 
 const official = {
   ...acme,
-  name: "bb-community",
-  displayName: "BB Community",
+  name: "hyperfide-community",
+  displayName: "HYPERFIDE Community",
   official: true,
   source: "https://hyperfide.example/marketplace/v1/marketplace.json",
   entryCount: 5,
@@ -33,8 +33,8 @@ const official = {
 
 const bundled = {
   ...official,
-  name: "bb-official",
-  displayName: "BB Official",
+  name: "hyperfide-official",
+  displayName: "HYPERFIDE Official",
   sourceKind: "path" as const,
   source: "/app/builtin-plugins",
   entryCount: 25,
@@ -84,7 +84,7 @@ describe("hyperfide-platform marketplace", () => {
           ...acme,
           sourceKind: "git",
           source: "git:https://github.com/acme/agent-plugins.git@main",
-          subdirectory: "bb",
+          subdirectory: "hyperfide",
           resolvedCommit: "0123456789abcdef0123456789abcdef01234567",
         },
       }),
@@ -96,7 +96,7 @@ describe("hyperfide-platform marketplace", () => {
         "add",
         "git:https://github.com/acme/agent-plugins.git@main",
         "--subdirectory",
-        "bb",
+        "hyperfide",
       ],
       register,
     );
@@ -105,13 +105,13 @@ describe("hyperfide-platform marketplace", () => {
       JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body)),
     ).toEqual({
       source: "git:https://github.com/acme/agent-plugins.git@main",
-      subdirectory: "bb",
+      subdirectory: "hyperfide",
     });
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
     expect(output).toContain(
       "source: git:https://github.com/acme/agent-plugins.git@main",
     );
-    expect(output).toContain("subdirectory: bb");
+    expect(output).toContain("subdirectory: hyperfide");
   });
 
   it("resolves a relative path: source on the invoking machine", async () => {
@@ -137,8 +137,8 @@ describe("hyperfide-platform marketplace", () => {
     await runCommand(["marketplace", "list"], register);
 
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(output).toContain("bb-official (official)");
-    expect(output).toContain("bb-community (official)");
+    expect(output).toContain("hyperfide-official (official)");
+    expect(output).toContain("hyperfide-community (official)");
     expect(output).toContain("acme-plugins");
     expect(output).toContain("https://acme.test/marketplace.json");
     expect(output).not.toContain("Subdirectory");
@@ -152,7 +152,7 @@ describe("hyperfide-platform marketplace", () => {
             ...acme,
             sourceKind: "git",
             source: "git:https://acme.test/repo.git@main",
-            subdirectory: "bb",
+            subdirectory: "hyperfide",
           },
         ],
       }),
@@ -163,7 +163,7 @@ describe("hyperfide-platform marketplace", () => {
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
     expect(output).toMatch(/Source\s+Subdirectory\s+Entries/u);
     expect(output).toMatch(
-      /git:https:\/\/acme\.test\/repo\.git@main\s+bb\s+2\s/u,
+      /git:https:\/\/acme\.test\/repo\.git@main\s+hyperfide\s+2\s/u,
     );
   });
 
@@ -172,7 +172,7 @@ describe("hyperfide-platform marketplace", () => {
       json({
         results: [
           {
-            name: "bb-community",
+            name: "hyperfide-community",
             ok: true,
             error: null,
             marketplace: official,
@@ -192,7 +192,7 @@ describe("hyperfide-platform marketplace", () => {
     ).rejects.toThrow("process.exit:1");
 
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(output).toContain("bb-community: 5 entries");
+    expect(output).toContain("hyperfide-community: 5 entries");
     expect(output).toContain("acme-plugins: refresh failed");
     expect(output).toContain("keeping the last catalog");
   });

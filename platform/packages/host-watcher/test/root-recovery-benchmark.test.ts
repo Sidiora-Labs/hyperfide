@@ -23,7 +23,7 @@ import {
 } from "../src/parcel-subprocess/parcel-watcher-proxy.js";
 
 const BENCHMARK_ENABLED =
-  process.env.BB_WATCHER_ROOT_RECOVERY_BENCHMARK === "1";
+  process.env.HYPERFIDE_WATCHER_ROOT_RECOVERY_BENCHMARK === "1";
 const ROOT_COUNTS: readonly number[] = [57, 100];
 const DIRECTORY_COUNT_PER_ROOT = 8;
 const FILE_COUNT_PER_DIRECTORY = 16;
@@ -439,7 +439,7 @@ function parsePositiveInteger(name: string, fallback: number): number {
 
 async function createFixture(rootCount: number): Promise<Fixture> {
   const baseDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), `bb-watcher-root-recovery-${rootCount}-`),
+    path.join(os.tmpdir(), `hyperfide-watcher-root-recovery-${rootCount}-`),
   );
   const roots: string[] = [];
   for (let rootIndex = 0; rootIndex < rootCount; rootIndex += 1) {
@@ -532,8 +532,8 @@ function createInstrumentedChannel(
   const child = fork(benchmarkChildPath, [], {
     env: {
       ...process.env,
-      BB_WATCHER_BENCHMARK_FAULT_ROOT: faultRoot,
-      BB_WATCHER_BENCHMARK_TRIGGER_PATH: triggerPath,
+      HYPERFIDE_WATCHER_BENCHMARK_FAULT_ROOT: faultRoot,
+      HYPERFIDE_WATCHER_BENCHMARK_TRIGGER_PATH: triggerPath,
     },
     execArgv: ["--import", "tsx"],
     stdio: ["ignore", "inherit", "inherit", "ipc"],
@@ -858,11 +858,11 @@ describe.runIf(BENCHMARK_ENABLED)("root watcher recovery benchmark", () => {
     "measures settled recovery through real subprocess and filesystem work",
     async () => {
       const iterations = parsePositiveInteger(
-        "BB_WATCHER_BENCHMARK_ITERATIONS",
+        "HYPERFIDE_WATCHER_BENCHMARK_ITERATIONS",
         DEFAULT_ITERATIONS,
       );
       const warmupIterations = parsePositiveInteger(
-        "BB_WATCHER_BENCHMARK_WARMUPS",
+        "HYPERFIDE_WATCHER_BENCHMARK_WARMUPS",
         DEFAULT_WARMUP_ITERATIONS,
       );
       const raw: IterationResult[] = [];
@@ -926,7 +926,7 @@ describe.runIf(BENCHMARK_ENABLED)("root watcher recovery benchmark", () => {
         summary,
         warmupIterations,
       };
-      const outputPath = process.env.BB_WATCHER_BENCHMARK_OUTPUT;
+      const outputPath = process.env.HYPERFIDE_WATCHER_BENCHMARK_OUTPUT;
       if (outputPath) {
         await fs.writeFile(
           outputPath,

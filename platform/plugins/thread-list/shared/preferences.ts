@@ -35,13 +35,13 @@ export const environmentGroupingSchema = z.union([
 
 export const THREAD_ROW_ACTION_LIMIT = 3;
 const LEGACY_THREAD_ROW_ACTION_KEYS = {
-  split: "bb--core/split",
-  copyLink: "bb--core/copyLink",
-  read: "bb--core/read",
-  pin: "bb--core/pin",
+  split: "hyperfide--core/split",
+  copyLink: "hyperfide--core/copyLink",
+  read: "hyperfide--core/read",
+  pin: "hyperfide--core/pin",
   move: "thread-list/move",
-  rename: "bb--core/rename",
-  archive: "bb--core/archive",
+  rename: "hyperfide--core/rename",
+  archive: "hyperfide--core/archive",
 } as const;
 type LegacyThreadRowActionId = keyof typeof LEGACY_THREAD_ROW_ACTION_KEYS;
 const LEGACY_CORE_KEY_PREFIX = "core/";
@@ -56,7 +56,7 @@ function migrateThreadRowActionKey(value: string): string {
   if (isLegacyThreadRowActionId(value)) {
     return LEGACY_THREAD_ROW_ACTION_KEYS[value];
   }
-  return value.startsWith(LEGACY_CORE_KEY_PREFIX) ? `bb--${value}` : value;
+  return value.startsWith(LEGACY_CORE_KEY_PREFIX) ? `hyperfide--${value}` : value;
 }
 
 export const threadRowActionKeySchema = z
@@ -168,8 +168,8 @@ export const preferenceDefinitions = {
       .refine((value) => value.length <= THREAD_ROW_ACTION_LIMIT, {
         message: `Choose at most ${THREAD_ROW_ACTION_LIMIT} row actions`,
       }),
-    ["bb--core/archive"],
-    `Up to ${THREAD_ROW_ACTION_LIMIT} quick actions shown on a thread row's hover, left to right before its actions menu, as thread action keys: bb--core/split, bb--core/copyLink, bb--core/read, bb--core/pin, thread-list/move, bb--core/rename, bb--core/archive, or a plugin's <pluginId>/<actionId>. Bare legacy ids such as archive and core/<id> keys are accepted. An empty list shows only the menu.`,
+    ["hyperfide--core/archive"],
+    `Up to ${THREAD_ROW_ACTION_LIMIT} quick actions shown on a thread row's hover, left to right before its actions menu, as thread action keys: hyperfide--core/split, hyperfide--core/copyLink, hyperfide--core/read, hyperfide--core/pin, thread-list/move, hyperfide--core/rename, hyperfide--core/archive, or a plugin's <pluginId>/<actionId>. Bare legacy ids such as archive and core/<id> keys are accepted. An empty list shows only the menu.`,
     null,
   ),
   collapsedSections: definePreference(

@@ -16,7 +16,7 @@ let output: CapturedBridgeJsonRpcOutput;
 let workspaceDir: string;
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-echo-conformance-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-echo-conformance-"));
   output = captureBridgeJsonRpcOutput();
 });
 

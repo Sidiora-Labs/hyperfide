@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { BbDesktopBrowserApi } from "@hyperfide/desktop-contract";
-import { getDesktopBrowserApi } from "@/lib/bb-desktop";
+import type { HyperfideDesktopBrowserApi } from "@hyperfide/desktop-contract";
+import { getDesktopBrowserApi } from "@/lib/hyperfide-desktop";
 import {
   openUrlByPreference,
   useOpenLinksInAppBrowserPreference,
@@ -30,7 +30,7 @@ export interface PanelBrowser {
 }
 
 export function subscribeDesktopOpenRequests(
-  browserApi: Pick<BbDesktopBrowserApi, "onOpenTab" | "onScopedOpenTab"> | null,
+  browserApi: Pick<HyperfideDesktopBrowserApi, "onOpenTab" | "onScopedOpenTab"> | null,
   {
     browserTabIds,
     isFocused,

@@ -148,7 +148,7 @@ export function SectionSidebar({
           className={cn(
             "min-w-0 px-2 pb-2.5 max-md:pointer-coarse:pb-1.5",
             isFramed &&
-              "pb-[max(0px,calc(var(--bb-app-chrome-row-height)/2_-_1px_-_var(--bb-sidebar-row-height)/2))]",
+              "pb-[max(0px,calc(var(--hyperfide-app-chrome-row-height)/2_-_1px_-_var(--hyperfide-sidebar-row-height)/2))]",
           )}
         >
           {backTo === null ? null : (

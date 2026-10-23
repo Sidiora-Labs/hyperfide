@@ -26,7 +26,7 @@ vi.mock("../../src/environment-lifecycle-script.js", async (importOriginal) => {
 });
 
 it("answers unknown when a cancelled hook's processes could not be confirmed stopped", async () => {
-  const path = await makeTempDir("bb-hook-unverified-");
+  const path = await makeTempDir("hyperfide-hook-unverified-");
   await writeFile(join(path, ".hyperfide-env-setup.sh"), "sleep 120\n");
   const options = createHarness().dispatchOptions({ dataDir: path });
   const run = dispatchOnlineRpcCommand(

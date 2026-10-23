@@ -3,7 +3,7 @@
 Attachment upload uses a raw request body at
 `POST /api/v1/plugins/tasks/http/attachments/upload`. Raw bytes are the
 simplest supported format, but local-auth non-GET plugin routes require JSON,
-so upload uses plugin-token auth. Pass the token in `x-bb-plugin-token` (or the
+so upload uses plugin-token auth. Pass the token in `x-hyperfide-plugin-token` (or the
 `token` query parameter).
 
 Upload metadata may use query parameters (`taskId` or `commentId`, `fileName`,

@@ -23,7 +23,7 @@ import {
   useHostPathExistence,
 } from "@/hooks/queries/host-path-queries";
 import { useHostCloneDefaultPath } from "@/hooks/queries/host-queries";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";
 
 export interface ProjectMachineSetupDialogTarget {
@@ -193,7 +193,7 @@ function ProjectMachineSetupDialogContent({
       })
     : null;
   const isTargetNotEmptyError =
-    addSource.error instanceof BbHttpError &&
+    addSource.error instanceof HyperfideHttpError &&
     addSource.error.code === "target_not_empty";
 
   const submitDisabled =

@@ -20,8 +20,8 @@ describe("native plugin server loading", () => {
     );
   });
 
-  it("resolves BB-provided externals in a native Node import", async () => {
-    const workDir = await mkdtemp(join(tmpdir(), "bb-native-plugin-load-"));
+  it("resolves HYPERFIDE-provided externals in a native Node import", async () => {
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-native-plugin-load-"));
     tempDirs.push(workDir);
     const rootDir = join(workDir, "plugin");
     await mkdir(join(rootDir, "dist"), { recursive: true });
@@ -30,7 +30,7 @@ describe("native plugin server loading", () => {
       JSON.stringify({
         name: "hyperfide-plugin-native-externals",
         version: "0.1.0",
-        bb: {
+        hyperfide: {
           name: "Native externals fixture",
           description: "Exercises native plugin server loading.",
           branding: { icon: "Zap" },
@@ -151,7 +151,7 @@ process.stdout.write(JSON.stringify(result));
   });
 
   it("loads a TypeScript source plugin through the cache in native Node", async () => {
-    const workDir = await mkdtemp(join(tmpdir(), "bb-native-source-load-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-native-source-load-"));
     tempDirs.push(workDir);
     const rootDir = join(workDir, "plugin");
     await mkdir(rootDir, { recursive: true });
@@ -160,7 +160,7 @@ process.stdout.write(JSON.stringify(result));
       JSON.stringify({
         name: "hyperfide-plugin-native-source",
         version: "0.1.0",
-        bb: {
+        hyperfide: {
           name: "Native source fixture",
           description: "Exercises cached source plugin loading.",
           branding: { icon: "Zap" },
@@ -170,10 +170,10 @@ process.stdout.write(JSON.stringify(result));
     );
     await writeFile(
       join(rootDir, "server.ts"),
-      `import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
+      `import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 const value: string = "loaded";
-export default function plugin(bb: BbPluginApi) {
-  void bb;
+export default function plugin(hyperfide: HyperfidePluginApi) {
+  void hyperfide;
   globalThis.__nativeSourceResult = [value, typeof defineRpcContract];
 }
 `,
@@ -248,7 +248,7 @@ process.stdout.write(JSON.stringify(result));
   });
 
   it("preserves cross-plugin dynamic imports across source reloads", async () => {
-    const workDir = await mkdtemp(join(tmpdir(), "bb-native-source-reload-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-native-source-reload-"));
     tempDirs.push(workDir);
     const importedDir = join(workDir, "hyperfide-plugin-imported");
     const importerDir = join(workDir, "hyperfide-plugin-importer");
@@ -263,7 +263,7 @@ process.stdout.write(JSON.stringify(result));
         name,
         version: "0.1.0",
         type: "module",
-        bb: {
+        hyperfide: {
           name,
           description: "Native reload fixture.",
           branding: { icon: "Zap" },

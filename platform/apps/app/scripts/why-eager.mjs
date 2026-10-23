@@ -50,7 +50,7 @@ const graph = new Map();
 let entryId = null;
 
 const dumpGraph = {
-  name: "bb:dump-module-graph",
+  name: "hyperfide:dump-module-graph",
   buildEnd() {
     for (const id of this.getModuleIds()) {
       const info = this.getModuleInfo(id);

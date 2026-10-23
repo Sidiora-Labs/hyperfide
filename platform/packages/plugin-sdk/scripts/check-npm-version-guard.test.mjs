@@ -18,7 +18,7 @@ const manifest = {
   peerDependencies: { react: "^19.0.0" },
   peerDependenciesMeta: { react: { optional: true } },
   publishConfig: { access: "public" },
-  repository: { type: "git", url: "git+https://example.invalid/bb.git" },
+  repository: { type: "git", url: "git+https://example.invalid/hyperfide.git" },
   types: "./bundled-types/hyperfide-plugin-sdk.d.ts",
 };
 
@@ -67,7 +67,7 @@ describe("decideNpmVersionGuard", () => {
         },
         manifest: {
           repository: {
-            url: "git+https://example.invalid/bb.git",
+            url: "git+https://example.invalid/hyperfide.git",
             type: "git",
           },
         },

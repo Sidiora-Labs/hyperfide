@@ -8,7 +8,7 @@ import {
   resolvePluginBuildToolchain,
 } from "@hyperfide/plugin-build";
 function testToolchain() {
-  return resolvePluginBuildToolchain(join(tmpdir(), "bb-toolchain-unused"));
+  return resolvePluginBuildToolchain(join(tmpdir(), "hyperfide-toolchain-unused"));
 }
 
 const TEST_HYPERFIDE_VERSION = "0.9.0-test";
@@ -18,7 +18,7 @@ const FIXTURE_PACKAGE_JSON = JSON.stringify(
     name: "hyperfide-plugin-server-fixture",
     version: "0.1.0",
     type: "module",
-    bb: {
+    hyperfide: {
       name: "Server fixture",
       description: "Plugin server build fixture.",
       branding: { icon: "Zap" },
@@ -31,11 +31,11 @@ const FIXTURE_PACKAGE_JSON = JSON.stringify(
 
 const FIXTURE_LIB_TS = `export const greeting = "PREBUILT_LIB_MARKER";\n`;
 const FIXTURE_SERVER_TS = `
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { greeting } from "./lib.ts";
 
-export default function plugin(bb: BbPluginApi): void {
-  bb.log.info(greeting);
+export default function plugin(hyperfide: HyperfidePluginApi): void {
+  hyperfide.log.info(greeting);
 }
 `;
 
@@ -82,7 +82,7 @@ describe("buildPluginServer", () => {
       pluginId: "server-fixture",
       pluginVersion: "0.1.0",
       builtWith: {
-        bbVersion: TEST_HYPERFIDE_VERSION,
+        hyperfideVersion: TEST_HYPERFIDE_VERSION,
         pluginSdkVersion: PLUGIN_SDK_VERSION,
       },
     });
@@ -96,8 +96,8 @@ describe("buildPluginServer", () => {
       import { greeting } from "./lib.ts";
       import * as sdk from "@hyperfide/plugin-sdk";
 
-      export default function plugin(bb: { log: { info(msg: string): void } }): void {
-        bb.log.info(greeting + Object.keys(sdk).length);
+      export default function plugin(hyperfide: { log: { info(msg: string): void } }): void {
+        hyperfide.log.info(greeting + Object.keys(sdk).length);
       }
       `,
     );
@@ -110,7 +110,7 @@ describe("buildPluginServer", () => {
     expect(js).toMatch(/from\s*"@hyperfide\/plugin-sdk"/);
   });
 
-  it("errors clearly when package.json has no bb.server entry", async () => {
+  it("errors clearly when package.json has no hyperfide.server entry", async () => {
     await writeFile(
       join(root, "package.json"),
       JSON.stringify({ name: "hyperfide-plugin-headless", version: "0.1.0" }),
@@ -127,12 +127,12 @@ describe("buildPluginServer", () => {
       JSON.stringify({
         name: "hyperfide-plugin-legacy",
         version: "0.1.0",
-        bb: { server: "./server.ts" },
+        hyperfide: { server: "./server.ts" },
       }),
     );
     await expect(
       buildPluginServer(root, TEST_HYPERFIDE_VERSION, await testToolchain()),
-    ).rejects.toThrowError(/bb\.name/);
+    ).rejects.toThrowError(/hyperfide\.name/);
   });
 
   it("preserves the previous dist/server.js when a rebuild fails", async () => {

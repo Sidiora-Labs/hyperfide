@@ -14,14 +14,14 @@ interface CliResult {
   stdout: string;
 }
 
-describe.skipIf(process.platform === "win32")("bb entrypoint errors", () => {
+describe.skipIf(process.platform === "win32")("hyperfide entrypoint errors", () => {
   let server: Server;
   let serverUrl: string;
   let dataDir: string;
   const pluginRuns: string[] = [];
 
   beforeAll(async () => {
-    dataDir = mkdtempSync(join(tmpdir(), "bb-cli-entry-"));
+    dataDir = mkdtempSync(join(tmpdir(), "hyperfide-cli-entry-"));
     server = createServer((request, response) => {
       response.setHeader("content-type", "application/json");
       if (request.url === "/api/v1/plugins/contributions") {
@@ -51,7 +51,7 @@ describe.skipIf(process.platform === "win32")("bb entrypoint errors", () => {
           JSON.stringify({
             exitCode: 0,
             stdout:
-              "Usage: bb spec add --name NAME\n  --name NAME  at most 80 characters\n",
+              "Usage: hyperfide spec add --name NAME\n  --name NAME  at most 80 characters\n",
             stderr: "",
           }),
         );

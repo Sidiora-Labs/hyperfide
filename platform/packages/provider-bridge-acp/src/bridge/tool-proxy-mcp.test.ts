@@ -131,7 +131,7 @@ async function connectLikeOpenCode(port: number): Promise<Client> {
     if (value !== undefined) env[key] = value;
   }
   for (const { name, value } of config.env) env[name] = value;
-  env.BB_ACP_DYNAMIC_TOOL_PROGRESS_INTERVAL_MS = "200";
+  env.HYPERFIDE_ACP_DYNAMIC_TOOL_PROGRESS_INTERVAL_MS = "200";
   const transport = new StdioClientTransport({
     command: config.command,
     args: config.args,
@@ -141,13 +141,13 @@ async function connectLikeOpenCode(port: number): Promise<Client> {
   const client = new Client({ name: "opencode-like", version: "0" });
   await client.connect(transport);
   transport.stderr?.on("data", (chunk: Buffer) => {
-    process.stderr.write(`[bb-bridge mcp] ${chunk.toString()}`);
+    process.stderr.write(`[hyperfide-bridge mcp] ${chunk.toString()}`);
   });
   cleanups.push(() => client.close());
   return client;
 }
 
-describe("bb-bridge MCP server keeps long tool calls alive", () => {
+describe("hyperfide-bridge MCP server keeps long tool calls alive", () => {
   it("sends progress notifications so an OpenCode-style client does not time out while the user answers", async () => {
     const fakeBridge = await listenFakeBridge({ responseDelayMs: 2_500 });
     const client = await connectLikeOpenCode(fakeBridge.port);
@@ -203,7 +203,7 @@ describe("bb-bridge MCP server keeps long tool calls alive", () => {
   }, 20_000);
 });
 
-describe("bb-bridge MCP cancellation", () => {
+describe("hyperfide-bridge MCP cancellation", () => {
   it.each(["timeout", "abort", "disconnect"] as const)(
     "closes the bridge call on %s without a late MCP reply",
     async (kind) => {

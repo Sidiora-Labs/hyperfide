@@ -3,9 +3,9 @@ import { basename, join } from "node:path";
 import { z } from "zod";
 import { isProcessRunning } from "./verified-process-stop.js";
 
-const HYPERFIDE_APP_RUNTIME_FILE_NAME = "bb-app-runtime.json";
+const HYPERFIDE_APP_RUNTIME_FILE_NAME = "hyperfide-app-runtime.json";
 
-const bbAppRuntimeFileSchema = z.object({
+const hyperfideAppRuntimeFileSchema = z.object({
   entryPath: z.string().min(1),
   pid: z.number().int().positive(),
   surface: z.string().min(1),
@@ -14,9 +14,9 @@ const bbAppRuntimeFileSchema = z.object({
   version: z.string().min(1),
 });
 
-export type BbAppRuntimeFile = z.infer<typeof bbAppRuntimeFileSchema>;
+export type HyperfideAppRuntimeFile = z.infer<typeof hyperfideAppRuntimeFileSchema>;
 
-interface WriteBbAppRuntimeFileArgs {
+interface WriteHyperfideAppRuntimeFileArgs {
   dataDir: string;
   entryPath: string;
   pid: number;
@@ -26,14 +26,14 @@ interface WriteBbAppRuntimeFileArgs {
   version: string;
 }
 
-export function formatBbAppRuntimeFilePath(dataDir: string): string {
+export function formatHyperfideAppRuntimeFilePath(dataDir: string): string {
   return join(dataDir, HYPERFIDE_APP_RUNTIME_FILE_NAME);
 }
 
-export async function writeBbAppRuntimeFile(
-  args: WriteBbAppRuntimeFileArgs,
+export async function writeHyperfideAppRuntimeFile(
+  args: WriteHyperfideAppRuntimeFileArgs,
 ): Promise<void> {
-  const runtimeFile: BbAppRuntimeFile = {
+  const runtimeFile: HyperfideAppRuntimeFile = {
     entryPath: args.entryPath,
     pid: args.pid,
     serverUrl: args.serverUrl,
@@ -43,17 +43,17 @@ export async function writeBbAppRuntimeFile(
   };
   await mkdir(args.dataDir, { recursive: true });
   await writeFile(
-    formatBbAppRuntimeFilePath(args.dataDir),
+    formatHyperfideAppRuntimeFilePath(args.dataDir),
     `${JSON.stringify(runtimeFile, null, 2)}\n`,
     "utf8",
   );
 }
 
-export async function claimBbAppRuntimeFile(
-  args: WriteBbAppRuntimeFileArgs & { isRunning?: (pid: number) => boolean },
+export async function claimHyperfideAppRuntimeFile(
+  args: WriteHyperfideAppRuntimeFileArgs & { isRunning?: (pid: number) => boolean },
 ): Promise<boolean> {
   const isRunning = args.isRunning ?? isProcessRunning;
-  const existing = await readBbAppRuntimeFile(args.dataDir);
+  const existing = await readHyperfideAppRuntimeFile(args.dataDir);
   if (
     existing !== null &&
     existing.pid !== args.pid &&
@@ -61,42 +61,42 @@ export async function claimBbAppRuntimeFile(
   ) {
     return false;
   }
-  await writeBbAppRuntimeFile(args);
+  await writeHyperfideAppRuntimeFile(args);
   return true;
 }
 
-async function clearBbAppRuntimeFile(dataDir: string): Promise<void> {
-  await rm(formatBbAppRuntimeFilePath(dataDir), { force: true });
+async function clearHyperfideAppRuntimeFile(dataDir: string): Promise<void> {
+  await rm(formatHyperfideAppRuntimeFilePath(dataDir), { force: true });
 }
 
-export async function clearOwnBbAppRuntimeFile(args: {
+export async function clearOwnHyperfideAppRuntimeFile(args: {
   dataDir: string;
   pid: number;
 }): Promise<boolean> {
-  const runtimeFile = await readBbAppRuntimeFile(args.dataDir);
+  const runtimeFile = await readHyperfideAppRuntimeFile(args.dataDir);
   if (runtimeFile === null || runtimeFile.pid !== args.pid) {
     return false;
   }
-  await clearBbAppRuntimeFile(args.dataDir);
+  await clearHyperfideAppRuntimeFile(args.dataDir);
   return true;
 }
 
-export function bbAppRuntimeVerifyTokens(entryPath: string): string[] {
+export function hyperfideAppRuntimeVerifyTokens(entryPath: string): string[] {
   return [entryPath, basename(entryPath)];
 }
 
-export async function readBbAppRuntimeFile(
+export async function readHyperfideAppRuntimeFile(
   dataDir: string,
-): Promise<BbAppRuntimeFile | null> {
+): Promise<HyperfideAppRuntimeFile | null> {
   let rawContents: string;
   try {
-    rawContents = await readFile(formatBbAppRuntimeFilePath(dataDir), "utf8");
+    rawContents = await readFile(formatHyperfideAppRuntimeFilePath(dataDir), "utf8");
   } catch {
     return null;
   }
 
   try {
-    const parsed = bbAppRuntimeFileSchema.safeParse(JSON.parse(rawContents));
+    const parsed = hyperfideAppRuntimeFileSchema.safeParse(JSON.parse(rawContents));
     return parsed.success ? parsed.data : null;
   } catch {
     return null;

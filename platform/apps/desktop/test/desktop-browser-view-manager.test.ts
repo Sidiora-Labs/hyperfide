@@ -17,7 +17,7 @@ import {
   desktopBrowserChangedSchema,
 } from "@hyperfide/host-daemon-contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { BbDesktopBrowserViewBounds } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopBrowserViewBounds } from "@hyperfide/desktop-contract";
 import { resolveDesktopBrowserAppCommand } from "../src/desktop-browser-shortcuts.js";
 import { createDesktopBrowserCdpAdapter } from "../src/desktop-browser-cdp-adapter.js";
 import { createDesktopBrowserBroker } from "../src/desktop-browser-broker.js";
@@ -751,7 +751,7 @@ const electronMock = vi.hoisted(() => {
   let nextWebContentsId = 1;
 
   class FakeWebContentsView {
-    public readonly boundsCalls: BbDesktopBrowserViewBounds[] = [];
+    public readonly boundsCalls: HyperfideDesktopBrowserViewBounds[] = [];
     public readonly webContents: FakeWebContents;
     public visible = false;
 
@@ -771,7 +771,7 @@ const electronMock = vi.hoisted(() => {
       nextWebContentsId += 1;
     }
 
-    setBounds(bounds: BbDesktopBrowserViewBounds): void {
+    setBounds(bounds: HyperfideDesktopBrowserViewBounds): void {
       this.boundsCalls.push(bounds);
     }
 
@@ -1111,10 +1111,10 @@ describe("browser page scripts", () => {
         world: "isolated",
         channel: "agent-annotations",
         expression:
-          "(bb.postMessage({ step: 1 }), Promise.resolve({ title: 'ok', skipped: undefined })) // trailing comment",
+          "(hyperfide.postMessage({ step: 1 }), Promise.resolve({ title: 'ok', skipped: undefined })) // trailing comment",
       }),
       {
-        __bbBrowserPage: {
+        __hyperfideBrowserPage: {
           postMessage: (channel: string, data: unknown) => {
             posted.push({ channel, data });
           },
@@ -1131,7 +1131,7 @@ describe("browser page scripts", () => {
         tabId: "browser:a",
         world: "main",
         channel: "agent-annotations",
-        expression: "bb === null ? missingPageValue.read : 1",
+        expression: "hyperfide === null ? missingPageValue.read : 1",
       }),
       {},
     );
@@ -1872,7 +1872,7 @@ describe("DesktopBrowserCdpAdapter", () => {
     if (page === undefined) throw new Error("Expected a native CDP page");
     const focusedPushes = () =>
       hostWindow.webContents.sentChannels.filter(
-        (channel) => channel === "bb-desktop:browser:focused",
+        (channel) => channel === "hyperfide-desktop:browser:focused",
       ).length;
     try {
       page.attach();
@@ -1940,7 +1940,7 @@ describe("DesktopBrowserCdpAdapter", () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(focusHostWebContents).toHaveBeenCalledExactlyOnceWith(92);
       expect(hostWindow.webContents.sentChannels).not.toContain(
-        "bb-desktop:browser:focused",
+        "hyperfide-desktop:browser:focused",
       );
     } finally {
       manager.destroyAll();
@@ -2143,7 +2143,7 @@ describe("DesktopBrowserViewManager", () => {
       const address = server.address();
       if (typeof address === "string" || address === null)
         throw new Error("Expected TCP address");
-      const dataDir = await mkdtemp(join(tmpdir(), "bb-native-origin-"));
+      const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-native-origin-"));
       const frameSchema = z.union([
         desktopBrowserRegistrationSchema,
         desktopBrowserChangedSchema,
@@ -3661,7 +3661,7 @@ describe("DesktopBrowserViewManager", () => {
       frame: false,
       height: 4_000,
       show: false,
-      title: "bb sign in",
+      title: "hyperfide sign in",
       transparent: true,
       width: 10,
       webContents: childContents,
@@ -3699,14 +3699,14 @@ describe("DesktopBrowserViewManager", () => {
         webSecurity: true,
       },
     });
-    expect(popupWindow.titleCalls).toEqual(["bb browser popup"]);
+    expect(popupWindow.titleCalls).toEqual(["hyperfide browser popup"]);
     childContents.emitDidNavigate("https://accounts.google.com/oauth2/auth");
     expect(popupWindow.titleCalls.at(-1)).toBe(
-      "bb browser — https://accounts.google.com",
+      "hyperfide browser — https://accounts.google.com",
     );
     expect(childContents.emitPageTitleUpdated("Google Sign In")).toBe(true);
     expect(popupWindow.titleCalls.at(-1)).toBe(
-      "bb browser — https://accounts.google.com",
+      "hyperfide browser — https://accounts.google.com",
     );
     expect(popupContents.emitWindowOpen("https://example.com/nested")).toEqual({
       action: "deny",
@@ -4093,17 +4093,17 @@ describe("DesktopBrowserViewManager", () => {
     });
     const view = requireFakeView(0);
     expect(hostWindow.webContents.sentChannels).not.toContain(
-      "bb-desktop:browser:focused",
+      "hyperfide-desktop:browser:focused",
     );
 
     manager.focus({ hostWindow, tabId: "browser:a" });
     expect(hostWindow.webContents.sentChannels).not.toContain(
-      "bb-desktop:browser:focused",
+      "hyperfide-desktop:browser:focused",
     );
 
     view.webContents.emitFocus();
     expect(hostWindow.webContents.sentChannels).toContain(
-      "bb-desktop:browser:focused",
+      "hyperfide-desktop:browser:focused",
     );
     expect(hostWindow.webContents.sentPayloads.at(-1)).toEqual({
       tabId: "browser:a",

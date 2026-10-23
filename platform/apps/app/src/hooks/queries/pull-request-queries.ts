@@ -4,7 +4,7 @@ import {
   githubPrStatusRpcContract,
   type EnvironmentPullRequest,
   type PullRequest,
-} from "hyperfide-plugin-bb--github-pr-status/contract";
+} from "hyperfide-plugin-hyperfide--github-pr-status/contract";
 import {
   experimental_useRpcKeyedQuery as useRpcKeyedQuery,
   experimental_useRpcMutation as useRpcMutation,

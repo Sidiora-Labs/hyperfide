@@ -8,7 +8,7 @@ import { resolveRuntime, runtimeRelease } from "./runtime-pin.js";
 import { createRuntime } from "./runtime.js";
 
 const chrome = z.string().min(1).parse(process.env.DEV_BROWSER_SMOKE_CHROME);
-const root = await mkdtemp(join(tmpdir(), "bb-dev-browser-install-smoke-"));
+const root = await mkdtemp(join(tmpdir(), "hyperfide-dev-browser-install-smoke-"));
 const dataDir = join(root, "data");
 await mkdir(join(dataDir, "runtime"), { recursive: true });
 await symlink(resolve(chrome), join(dataDir, "runtime", "chrome"));

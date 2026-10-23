@@ -1,7 +1,7 @@
 import { watch as watchDirectory } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { readBbAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
+import { readHyperfideAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
 import { isProcessRunning } from "@hyperfide/config/verified-process-stop";
 import { SERVER_MOVED_ERROR_CODE } from "@hyperfide/host-daemon-contract";
 import {
@@ -135,7 +135,7 @@ interface ProbeLocalServerMoveArgs {
   timeoutMs: number;
 }
 
-interface HasLiveBbAppLauncherArgs {
+interface HasLiveHyperfideAppLauncherArgs {
   dataDir: string;
   isRunning?: (pid: number) => boolean;
 }
@@ -247,7 +247,7 @@ export function resolveServerMovedTarget(
     return { ok: true, target: { kind: "custom", url } };
   }
   if (file.connectHandle === null) {
-    return { ok: false, reason: "a bb Connect move has no connectHandle" };
+    return { ok: false, reason: "a hyperfide Connect move has no connectHandle" };
   }
   return {
     ok: true,
@@ -289,8 +289,8 @@ export function formatServerMovedNotice(
   move: DesktopServerMove,
 ): ServerMovedNotice {
   return {
-    detail: "bb now opens there. This computer stays connected.",
-    message: `Your bb server moved to ${move.toHostName}`,
+    detail: "hyperfide now opens there. This computer stays connected.",
+    message: `Your hyperfide-platform server moved to ${move.toHostName}`,
   };
 }
 
@@ -371,7 +371,7 @@ export async function ensureServerMovedRuntime(
   }
   if (!(await args.isLocalAddressFree())) {
     args.logInfo(
-      `[desktop] another bb process answers at ${args.localServerUrl}; not starting a machine runtime from this app`,
+      `[desktop] another hyperfide process answers at ${args.localServerUrl}; not starting a machine runtime from this app`,
     );
     return "external";
   }
@@ -546,10 +546,10 @@ export async function probeLocalServerMove(
   }
 }
 
-export async function hasLiveBbAppLauncher(
-  args: HasLiveBbAppLauncherArgs,
+export async function hasLiveHyperfideAppLauncher(
+  args: HasLiveHyperfideAppLauncherArgs,
 ): Promise<boolean> {
-  const runtimeFile = await readBbAppRuntimeFile(args.dataDir);
+  const runtimeFile = await readHyperfideAppRuntimeFile(args.dataDir);
   const isRunning = args.isRunning ?? isProcessRunning;
   return runtimeFile !== null && isRunning(runtimeFile.pid);
 }

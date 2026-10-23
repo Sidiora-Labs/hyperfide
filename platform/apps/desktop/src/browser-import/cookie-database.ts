@@ -65,7 +65,7 @@ export async function withCookieDatabaseSnapshot<T>(
   cookiePath: string,
   use: (database: DatabaseSync) => T | Promise<T>,
 ): Promise<T> {
-  const directory = await mkdtemp(join(tmpdir(), "bb-cookie-import-"));
+  const directory = await mkdtemp(join(tmpdir(), "hyperfide-cookie-import-"));
   const snapshotPath = join(directory, basename(cookiePath));
   try {
     const source = openReadOnlyDatabase(cookiePath);

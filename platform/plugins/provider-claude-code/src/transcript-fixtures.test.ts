@@ -11,7 +11,7 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TRANSCRIPTS = resolve(__dirname, "./__fixtures__/transcripts");
 const EXPECTED_PATH = resolve(TRANSCRIPTS, "expected.json");
-const THREAD_ID = "bb-thread-transcript";
+const THREAD_ID = "hyperfide-thread-transcript";
 
 interface FixtureExpectation {
   items: Record<string, number>;

@@ -6,7 +6,7 @@ import {
 } from "@/components/promptbox/usePendingAttachmentUploads";
 import { useUploadPromptAttachment } from "@/hooks/mutations/project-mutations";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";
-import { BbHttpError } from "@/lib/sdk";
+import { HyperfideHttpError } from "@/lib/sdk";
 import type { PromptDraftAttachment } from "@hyperfide/client-core";
 import type { InlineComposerDraftSession } from "./useActiveComposerDraft";
 
@@ -55,7 +55,7 @@ interface UseDraftAttachmentUploadsResult {
 }
 
 function uploadRejectionReason(error: unknown): string | null {
-  return error instanceof BbHttpError
+  return error instanceof HyperfideHttpError
     ? getMutationErrorMessage({ error, fallbackMessage: "Request failed" })
     : null;
 }

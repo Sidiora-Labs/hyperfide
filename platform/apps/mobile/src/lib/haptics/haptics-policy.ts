@@ -12,7 +12,7 @@ export type HapticCall =
   | { method: "impact"; style: "light" | "medium" | "heavy" }
   | { method: "notification"; type: "success" | "warning" | "error" };
 
-export const HAPTICS_ENABLED_STORAGE_KEY = "bb.haptics.enabled";
+export const HAPTICS_ENABLED_STORAGE_KEY = "hyperfide.haptics.enabled";
 const HAPTICS_ENABLED_DEFAULT = true;
 
 export function parseHapticsEnabled(stored: string | undefined): boolean {

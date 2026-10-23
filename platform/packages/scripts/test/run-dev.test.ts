@@ -39,7 +39,7 @@ afterEach(() => {
 describe("run-dev", () => {
   it("derives stable data and ports from a managed checkout", () => {
     const homeDir = "/Users/tester";
-    const repoRoot = "/Users/tester/.hyperfide-dev/projects/env_q7e5i54kxt/bb";
+    const repoRoot = "/Users/tester/.hyperfide-dev/projects/env_q7e5i54kxt/hyperfide";
     const config = resolveDevInstanceConfig({ homeDir, repoRoot });
 
     expect(config.instanceId).toBe(
@@ -89,7 +89,7 @@ describe("run-dev", () => {
 
   it("uses the home-relative checkout path for non-managed checkout paths", () => {
     const homeDir = "/Users/tester";
-    const repoRoot = "/Users/tester/src/work/bb-feature-copy";
+    const repoRoot = "/Users/tester/src/work/hyperfide-feature-copy";
 
     const config = resolveDevInstanceConfig({ homeDir, repoRoot });
 
@@ -101,7 +101,7 @@ describe("run-dev", () => {
   it("overrides instance selectors while preserving unrelated environment", () => {
     const config = resolveDevInstanceConfig({
       homeDir: "/Users/tester",
-      repoRoot: "/Users/tester/.hyperfide-dev/projects/env_q7e5i54kxt/bb",
+      repoRoot: "/Users/tester/.hyperfide-dev/projects/env_q7e5i54kxt/hyperfide",
     });
     const baseEnv: NodeJS.ProcessEnv = {
       HYPERFIDE_DATA_DIR: "/Users/tester/.hyperfide-dev",
@@ -122,15 +122,15 @@ describe("run-dev", () => {
     );
     expect(env.HYPERFIDE_DEV_APP_PORT).toBe(String(config.ports.appPort));
     expect(env.HYPERFIDE_DEV_CONNECT_BASE_URL).toBe(
-      `http://bb.localhost:${config.ports.cloudPort}`,
+      `http://hyperfide.localhost:${config.ports.cloudPort}`,
     );
   });
 
-  it("inherits parent bb skills for managed worktree dev apps", () => {
+  it("inherits parent hyperfide skills for managed worktree dev apps", () => {
     const homeDir = path.resolve("/Users/tester");
     const repoRoot = path.join(
       homeDir,
-      ".hyperfide-dev/code-bb-abc123/worktrees/env_feature/bb",
+      ".hyperfide-dev/code-hyperfide-abc123/worktrees/env_feature/hyperfide",
     );
     const config = resolveDevInstanceConfig({
       homeDir,
@@ -138,7 +138,7 @@ describe("run-dev", () => {
     });
 
     const inheritedSkillsRootPaths = [
-      path.join(homeDir, ".hyperfide-dev", "code-bb-abc123", "skills"),
+      path.join(homeDir, ".hyperfide-dev", "code-hyperfide-abc123", "skills"),
       path.join(homeDir, ".hyperfide", "skills"),
     ];
     expect(resolveInheritedDevSkillsRootPaths({ homeDir, repoRoot })).toEqual(
@@ -151,9 +151,9 @@ describe("run-dev", () => {
     });
   });
 
-  it("dedupes inherited bb skills for prod-managed worktree dev apps", () => {
+  it("dedupes inherited hyperfide skills for prod-managed worktree dev apps", () => {
     const homeDir = path.resolve("/Users/tester");
-    const repoRoot = path.join(homeDir, ".hyperfide/worktrees/env_feature/bb");
+    const repoRoot = path.join(homeDir, ".hyperfide/worktrees/env_feature/hyperfide");
     const config = resolveDevInstanceConfig({
       homeDir,
       repoRoot,
@@ -171,9 +171,9 @@ describe("run-dev", () => {
     });
   });
 
-  it("inherits prod bb skills for ordinary checkout dev apps", () => {
+  it("inherits prod hyperfide skills for ordinary checkout dev apps", () => {
     const homeDir = path.resolve("/Users/tester");
-    const repoRoot = path.join(homeDir, "src", "bb");
+    const repoRoot = path.join(homeDir, "src", "hyperfide");
     const config = resolveDevInstanceConfig({
       homeDir,
       repoRoot,
@@ -194,7 +194,7 @@ describe("run-dev", () => {
   it("strips parent thread context from dev child processes", () => {
     const config = resolveDevInstanceConfig({
       homeDir: "/Users/tester",
-      repoRoot: "/Users/tester/src/bb",
+      repoRoot: "/Users/tester/src/hyperfide",
     });
     const baseEnv: NodeJS.ProcessEnv = {
       HYPERFIDE_ENVIRONMENT_ID: "env_parent",
@@ -215,7 +215,7 @@ describe("run-dev", () => {
   it("passes the account pool marker to a nested dev server", () => {
     const config = resolveDevInstanceConfig({
       homeDir: "/Users/tester",
-      repoRoot: "/Users/tester/src/bb",
+      repoRoot: "/Users/tester/src/hyperfide",
     });
     const baseEnv: NodeJS.ProcessEnv = {
       HYPERFIDE_ACCOUNT_POOL_PARENT_URL:
@@ -247,7 +247,7 @@ describe("run-dev", () => {
       "--conditions=source",
       "--import",
       "tsx",
-      path.resolve(import.meta.dirname, "../../..", "scripts/start-bb.mjs"),
+      path.resolve(import.meta.dirname, "../../..", "scripts/start-hyperfide.mjs"),
       "--worktree-runtime-policy",
     ]);
   });
@@ -265,7 +265,7 @@ describe("run-dev", () => {
     (mode) => {
       const config = resolveDevInstanceConfig({
         homeDir: "/Users/tester",
-        repoRoot: "/Users/tester/src/bb",
+        repoRoot: "/Users/tester/src/hyperfide",
       });
       const env = toDevLaunchProcessEnv({
         baseEnv: { HYPERFIDE_SKIP_ONBOARDING: "0" },
@@ -281,7 +281,7 @@ describe("run-dev", () => {
   it("uses production serving with checkout-specific dev selectors", () => {
     const config = resolveDevInstanceConfig({
       homeDir: "/Users/tester",
-      repoRoot: "/Users/tester/src/bb",
+      repoRoot: "/Users/tester/src/hyperfide",
     });
 
     const env = toDevLaunchProcessEnv({
@@ -309,25 +309,25 @@ describe("run-dev", () => {
   });
 
   it("migrates legacy flat dev data into the checkout instance", async () => {
-    const homeDir = await makeTempDir("bb-dev-home-");
+    const homeDir = await makeTempDir("hyperfide-dev-home-");
     const legacyDataDir = path.join(homeDir, ".hyperfide-dev");
     const config = resolveDevInstanceConfig({
       homeDir,
-      repoRoot: path.join(homeDir, "src", "bb"),
+      repoRoot: path.join(homeDir, "src", "hyperfide"),
     });
     await fs.mkdir(path.join(legacyDataDir, "logs"), { recursive: true });
     await fs.mkdir(path.join(legacyDataDir, "attachments", "proj_test"), {
       recursive: true,
     });
-    await fs.mkdir(path.join(legacyDataDir, "worktrees", "env_old", "bb"), {
+    await fs.mkdir(path.join(legacyDataDir, "worktrees", "env_old", "hyperfide"), {
       recursive: true,
     });
     await fs.mkdir(path.join(legacyDataDir, "dev-supervisors"), {
       recursive: true,
     });
-    await fs.writeFile(path.join(legacyDataDir, "bb.db"), "db", "utf8");
+    await fs.writeFile(path.join(legacyDataDir, "hyperfide.db"), "db", "utf8");
     await fs.writeFile(
-      path.join(legacyDataDir, "bb.db.backup-20260515-160305"),
+      path.join(legacyDataDir, "hyperfide.db.backup-20260515-160305"),
       "backup",
       "utf8",
     );
@@ -355,13 +355,13 @@ describe("run-dev", () => {
       migratedEntries: [
         "attachments",
         "auth-secret",
-        "bb.db",
-        "bb.db.backup-20260515-160305",
+        "hyperfide.db",
+        "hyperfide.db.backup-20260515-160305",
         "logs",
       ],
     });
     await expect(
-      fs.readFile(path.join(config.dataDir, "bb.db"), "utf8"),
+      fs.readFile(path.join(config.dataDir, "hyperfide.db"), "utf8"),
     ).resolves.toBe("db");
     await expect(
       fs.readFile(path.join(config.dataDir, "auth-secret"), "utf8"),
@@ -373,7 +373,7 @@ describe("run-dev", () => {
       ),
     ).resolves.toBe("image");
     await expect(
-      fs.access(path.join(legacyDataDir, "worktrees", "env_old", "bb")),
+      fs.access(path.join(legacyDataDir, "worktrees", "env_old", "hyperfide")),
     ).resolves.toBeUndefined();
     await expect(
       fs.access(path.join(legacyDataDir, "dev-supervisors", "server.pid")),
@@ -389,34 +389,34 @@ describe("run-dev", () => {
   });
 
   it("skips migration when the target instance already has data", async () => {
-    const homeDir = await makeTempDir("bb-dev-home-");
+    const homeDir = await makeTempDir("hyperfide-dev-home-");
     const legacyDataDir = path.join(homeDir, ".hyperfide-dev");
     const config = resolveDevInstanceConfig({
       homeDir,
-      repoRoot: path.join(homeDir, "src", "bb"),
+      repoRoot: path.join(homeDir, "src", "hyperfide"),
     });
     await fs.mkdir(legacyDataDir, { recursive: true });
     await fs.mkdir(config.dataDir, { recursive: true });
-    await fs.writeFile(path.join(legacyDataDir, "bb.db"), "legacy", "utf8");
-    await fs.writeFile(path.join(config.dataDir, "bb.db"), "target", "utf8");
+    await fs.writeFile(path.join(legacyDataDir, "hyperfide.db"), "legacy", "utf8");
+    await fs.writeFile(path.join(config.dataDir, "hyperfide.db"), "target", "utf8");
 
     await expect(migrateLegacyDevData({ config })).resolves.toEqual({
       migratedEntries: [],
       skippedReason: "target-exists",
     });
     await expect(
-      fs.readFile(path.join(legacyDataDir, "bb.db"), "utf8"),
+      fs.readFile(path.join(legacyDataDir, "hyperfide.db"), "utf8"),
     ).resolves.toBe("legacy");
     await expect(
-      fs.readFile(path.join(config.dataDir, "bb.db"), "utf8"),
+      fs.readFile(path.join(config.dataDir, "hyperfide.db"), "utf8"),
     ).resolves.toBe("target");
   });
 
   it("skips migration when legacy dev data is absent", async () => {
-    const homeDir = await makeTempDir("bb-dev-home-");
+    const homeDir = await makeTempDir("hyperfide-dev-home-");
     const config = resolveDevInstanceConfig({
       homeDir,
-      repoRoot: path.join(homeDir, "src", "bb"),
+      repoRoot: path.join(homeDir, "src", "hyperfide"),
     });
 
     await expect(migrateLegacyDevData({ config })).resolves.toEqual({
@@ -427,11 +427,11 @@ describe("run-dev", () => {
   });
 
   it("skips migration when legacy dev data has no migratable entries", async () => {
-    const homeDir = await makeTempDir("bb-dev-home-");
+    const homeDir = await makeTempDir("hyperfide-dev-home-");
     const legacyDataDir = path.join(homeDir, ".hyperfide-dev");
     const config = resolveDevInstanceConfig({
       homeDir,
-      repoRoot: path.join(homeDir, "src", "bb"),
+      repoRoot: path.join(homeDir, "src", "hyperfide"),
     });
     await fs.mkdir(legacyDataDir, { recursive: true });
     await fs.writeFile(path.join(legacyDataDir, "daemon.lock"), "lock", "utf8");
@@ -444,11 +444,11 @@ describe("run-dev", () => {
   });
 
   it("rolls back already moved entries when migration rename fails", async () => {
-    const homeDir = await makeTempDir("bb-dev-home-");
+    const homeDir = await makeTempDir("hyperfide-dev-home-");
     const legacyDataDir = path.join(homeDir, ".hyperfide-dev");
     const config = resolveDevInstanceConfig({
       homeDir,
-      repoRoot: path.join(homeDir, "src", "bb"),
+      repoRoot: path.join(homeDir, "src", "hyperfide"),
     });
     await fs.mkdir(legacyDataDir, { recursive: true });
     await fs.writeFile(
@@ -456,7 +456,7 @@ describe("run-dev", () => {
       "secret",
       "utf8",
     );
-    await fs.writeFile(path.join(legacyDataDir, "bb.db"), "db", "utf8");
+    await fs.writeFile(path.join(legacyDataDir, "hyperfide.db"), "db", "utf8");
     const renameCalls: string[] = [];
     const renameWithInjectedFailure = vi.fn(
       async (sourcePath: string, targetPath: string): Promise<void> => {
@@ -479,27 +479,27 @@ describe("run-dev", () => {
       }),
     ).rejects.toThrow("injected rename failure");
 
-    expect(renameCalls).toEqual(["auth-secret", "bb.db"]);
+    expect(renameCalls).toEqual(["auth-secret", "hyperfide.db"]);
     await expect(
       fs.readFile(path.join(legacyDataDir, "auth-secret"), "utf8"),
     ).resolves.toBe("secret");
     await expect(
-      fs.readFile(path.join(legacyDataDir, "bb.db"), "utf8"),
+      fs.readFile(path.join(legacyDataDir, "hyperfide.db"), "utf8"),
     ).resolves.toBe("db");
     expect(await pathExists(config.dataDir)).toBe(false);
   });
 
   it("does not migrate legacy data while a legacy dev supervisor is running", async () => {
-    const homeDir = await makeTempDir("bb-dev-home-");
+    const homeDir = await makeTempDir("hyperfide-dev-home-");
     const legacyDataDir = path.join(homeDir, ".hyperfide-dev");
     const config = resolveDevInstanceConfig({
       homeDir,
-      repoRoot: path.join(homeDir, "src", "bb"),
+      repoRoot: path.join(homeDir, "src", "hyperfide"),
     });
     await fs.mkdir(path.join(legacyDataDir, "dev-supervisors"), {
       recursive: true,
     });
-    await fs.writeFile(path.join(legacyDataDir, "bb.db"), "db", "utf8");
+    await fs.writeFile(path.join(legacyDataDir, "hyperfide.db"), "db", "utf8");
     await fs.writeFile(
       path.join(legacyDataDir, "dev-supervisors", "server.pid"),
       `${process.pid}\n`,
@@ -511,7 +511,7 @@ describe("run-dev", () => {
       skippedReason: "legacy-dev-process-running",
     });
     await expect(
-      fs.readFile(path.join(legacyDataDir, "bb.db"), "utf8"),
+      fs.readFile(path.join(legacyDataDir, "hyperfide.db"), "utf8"),
     ).resolves.toBe("db");
     expect(await pathExists(config.dataDir)).toBe(false);
   });

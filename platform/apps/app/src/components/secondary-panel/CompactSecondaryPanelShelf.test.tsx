@@ -68,7 +68,7 @@ describe("CompactSecondaryPanelShelf", () => {
     expect(shelf.className).toContain("pt-[env(safe-area-inset-top)]");
     expect(shelf.className).toContain("pr-[env(safe-area-inset-right)]");
     expect(shelf.className).toContain(
-      "pb-[var(--bb-safe-area-bottom,env(safe-area-inset-bottom))]",
+      "pb-[var(--hyperfide-safe-area-bottom,env(safe-area-inset-bottom))]",
     );
     expect(shelf.className).toContain("pl-[env(safe-area-inset-left)]");
   });
@@ -405,7 +405,7 @@ describe("CompactSecondaryPanelShelf", () => {
     );
 
     const nestedAction = document.createElement("button");
-    nestedAction.setAttribute("data-bb-portaled-overlay", "");
+    nestedAction.setAttribute("data-hyperfide-portaled-overlay", "");
     nestedAction.addEventListener("keydown", (event) => {
       if (event.key === "Escape") event.preventDefault();
     });

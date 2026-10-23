@@ -29,7 +29,7 @@ interface PluginSourceDetail {
   resolved: string;
   integrity: string | null;
   registry: string | null;
-  engines: { bb: string | null; bbPluginSdk: string | null };
+  engines: { hyperfide: string | null; hyperfidePluginSdk: string | null };
   installedAt: number | null;
   history: { version: string; activatedAt: number | null }[];
 }
@@ -43,8 +43,8 @@ function toPluginSourceDetail(
     integrity: source.integrity ?? null,
     registry: source.registry ?? null,
     engines: {
-      bb: source.engines.bb ?? null,
-      bbPluginSdk: source.engines.bbPluginSdk ?? null,
+      hyperfide: source.engines.hyperfide ?? null,
+      hyperfidePluginSdk: source.engines.hyperfidePluginSdk ?? null,
     },
     installedAt: toEpochMs(source.installedAt),
     history: source.history.map((entry) => ({

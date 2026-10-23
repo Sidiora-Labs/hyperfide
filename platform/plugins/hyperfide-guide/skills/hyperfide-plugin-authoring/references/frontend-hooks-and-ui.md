@@ -1,0 +1,361 @@
+# Frontend hooks, composer, and UI
+
+Hooks:
+
+- `useSdk()` → Hyperfide's public API client bound to your plugin: the same areas
+  the `Hyperfide` CLI and the backend `hyperfide.sdk` expose (`threads`, `threadSections`,
+  `projects`, `environments`, `hosts`, `files`, …), running with the
+  signed-in user's session on the app origin. The first choice for reading
+  and mutating Hyperfide state from a frontend: `sdk.threadSections.create({ name })`,
+  `sdk.threads.update({ id, sectionId })`, `sdk.threads.pin({ id })`,
+  `sdk.threads.spawn(request)`. `spawn` and `fork` stamp your plugin as the
+  origin and the plugin-metadata calls default `pluginId`, exactly like the
+  backend client. Thread title, section, and parent updates are optimistic in
+  Hyperfide's own surfaces, and synchronous calls are applied in one cache transaction;
+  other writes refresh over realtime, and pin, unpin, mark read, and mark
+  unread are optimistic too. For Hyperfide's archive and delete flows (child
+  confirmation, pane cleanup, Undo) render Hyperfide's thread menu or run its
+  thread actions; see "An action in every thread menu". The client is stable,
+  so it is safe in dependency lists. Test with `renderSlot({ sdk: { threads: { update: async () => ({ … }) }
+} } })` and read `inspection.sdkCalls`.
+- `useRpc<typeof rpcContract>()` → `{ call(method, input?) }` — exact method,
+  input, and result inference from a type-only backend contract import.
+  Reach for it when the work needs your server: secrets, host files, or your
+  plugin's own storage.
+- `useRealtime(channel, handler)` — fires for this plugin's
+  `hyperfide.realtime.publish(channel, …)` signals while mounted.
+- `useRealtimeConnectionState()` — returns `"connecting"`, `"connected"`, or
+  `"reconnecting"` for the same shared socket used by `useRealtime`. Reconcile
+  durable server state on subsequent transitions to `connected` (not the first
+  connection) because plugin signals are ephemeral and are not replayed.
+- `useSettings()` → `{ values, isLoading }` — effective non-secret values
+  (secret settings are excluded; read them server-side only).
+- `useHyperfideContext()` → `{ projectId, threadId }` from the current route.
+- `experimental_usePluginId()` → this plugin's id, the same value as the
+  server's `hyperfide.pluginId`. Key anything kept outside Hyperfide's plugin storage with
+  it (localStorage entries, log prefixes) so a copy published under another
+  package name does not share the original's state. `renderSlot` returns its
+  `pluginId` option, `test-plugin` by default.
+- `experimental_useQuestionFormHost()` → `{ shortcuts, registerChoiceHandler }`
+  inside a `pendingInteraction` component: the host-owned answer shortcuts by
+  zero-based option index, and a way to act when the person presses one. The
+  registry's `question-form` item uses it. Empty outside a pending interaction
+  and in `renderSlot`.
+- `useHyperfideNavigate()` → `{ toThread(id), toProject(id), toPluginPanel(path,
+{ subPath?, replace? }?), toCompose({ initialPrompt?, focusPrompt? }?),
+openThreadPanel({ actionId, title?, params? }), openUrl(url),
+experimental_openFilePreview(options), experimental_openFileExternally(options),
+experimental_openTerminal({ terminalId }) }`.
+  `toCompose` opens the root compose screen; pass `initialPrompt` to seed the
+  composer draft and `focusPrompt: true` to focus it. The panel
+  opener opens one of the current plugin's registered `experimental_tab` with thread context and action availability tabs
+  in a thread, or its `experimental_newThreadPanelAction` tabs on the New
+  thread screen, and returns whether the host accepted it; it returns false on
+  plugin pages, which have no panel actions.
+  `openUrl` owns HTTP(S) only and returns false for schemes HYPERFIDE
+  leaves to normal anchor behavior. The two file methods accept an
+  `ExperimentalFileOpenOptions` live-file target.
+  `experimental_openTerminal` shows a terminal the plugin created with
+  `useSdk().terminals.create` in the current surface's terminal panel; the
+  create scope (thread, environment, or host path) picks its directory. It
+  resolves false for unknown or exited terminals, for a thread surface when
+  the terminal belongs to another thread, and for the New thread screen when
+  it is outside that screen's terminal scope. Plugin pages accept any
+  terminal. Closing the tab closes the terminal.
+- `useComposer()` → one stable handle for the composer the calling surface
+  belongs to: inside a composer slot, that composer; in a thread's panels,
+  that thread's composer; elsewhere, the current route's draft. The same
+  composer returns the same object across renders and its methods always act
+  on the current draft, so keep it in effects, callbacks and async work
+  directly (no `useRef` copy). Its reactive fields re-render the component
+  when they change; depend on those fields, not on the handle, in memo
+  dependency lists.
+  - State: `scope` (`thread`, `queued-message`, or `new-thread`, with that
+    surface's identifiers), `key` (stable identity for the composer's draft:
+    the same across remounts and reloads, per editing session for queued and
+    sent-message editors), `layout`
+    (`"expanded" | "compact"`), `isRunning`, `isSubmitting`,
+    `isSubmittingBlocked` and `submittingBlockedReason` (the same decision
+    and message Hyperfide's send button shows: empty draft, uploads in progress,
+    loading, a missing selection or setup, a pending interaction, voice
+    input), `isEmpty`, and `attachmentCount`.
+  - Content: `text` is the plain text; `draft` is an immutable `{ text, mentions, attachments }` snapshot where
+    each `ComposerMention` carries its range and everything needed to
+    recreate the pill (`kind` thread, project, section, path, command, or
+    plugin with `pluginId`, `provider` and `id`).
+  - Selection: `selection` is the current picker snapshot and updates reactively
+    when the user or `setSelection` changes it. It contains the provider, model,
+    reasoning level, service tier, and permission mode where available, plus
+    project and environment in a new-thread composer. Queued-message and
+    sent-message editors report their read-only pickers: the thread's provider
+    with the queued message's or the thread composer's settings. Missing keys
+    mean the corresponding picker has no selected value; `null` means this
+    composer has no pickers. Use `isSubmittingBlocked` for submission readiness.
+  - Editing: `insert(parts, { at?, block? })` inserts text and pills at the
+    current selection (default) or at `"end"`; `block: true` places the content
+    on its own paragraph. `replace(next)` atomically sets text and mentions;
+    `replace(current => next)` transforms the latest complete draft. Mention
+    ranges must explicitly match the result: replacement does not reconcile
+    them automatically. Omit attachments to preserve them, or provide a list
+    (including `[]`) to replace them. The updater is synchronous; invalid
+    results and throws leave the draft unchanged. Returning `current` is a no-op.
+    Replacement preserves source-project attachment references; core copies
+    those files into the destination project on submission.
+  - `focus()` focuses the caret. `setTextEffect({ className })` paints the
+    draft (`null` clears); `setInputLock(locked)` makes the editor read-only
+    and auto-releases when the slot unmounts or changes scope.
+  - Save `composer.draft`, then restore it with `composer.replace(saved)`.
+    For an LLM rewrite, map preserved mention placeholders to explicit ranges
+    in the resulting text and replace text and mentions together.
+  - `submit({ experimental_mode?, sendAt?, experimental_data? })` submits the
+    draft through the on-screen composer's own queue or steer handler. Omit
+    `experimental_mode` to do what Enter does for this user; pass
+    `"queue-if-active"` or `"steer-if-active"`, the `hyperfide.sdk.threads.send`
+    modes, to queue behind or add to the running turn (both start a turn when
+    none is running). `sendAt` makes that action wait until the given time,
+    and `experimental_data` reaches dispatch hooks on the initial attempt,
+    namespaced with your plugin id. The options combine freely. It rejects an
+    empty draft, waits for uploads in progress, then rejects with the reason
+    when the shortcut could not run; it rejects when the send fails, after Hyperfide
+    shows its usual error toast. The queued-message and sent-message editors
+    reject.
+  - `setSelection({ projectId?, environment?, providerId?, model?,
+reasoningLevel?, serviceTier?, permissionMode? })` sets the pickers as if
+    picked by hand and resolves with the settled selection; omitted fields keep
+    their current values. It rejects in a
+    queued-message editor. `onSubmitted(listener)` observes successful local
+    submissions.
+  - Lifetime: a handle writes to its own composer's draft. Thread and
+    new-thread drafts persist, so writes after the composer leaves the screen
+    still land there. Once a queued-message or sent-message editor closes,
+    `insert`, `replace`, `submit` and `setSelection` throw and the older
+    text methods warn and do nothing.
+  - Older names still work at runtime but are absent from the published
+    types: `useComposerView()` (use `useComposer()`); the handle's `setText`,
+    `updateText`, `clear`, `addQuote`, `insertMention`, and `removeMention`
+    (use `insert` or `replace`); the `experimental_submit`,
+    `experimental_setSelection`, `experimental_onSubmitted`, and
+    `experimental_removeMention` names; and `richText.onDraftChange` (read
+    `draft` instead).
+- `useComposers()` → a handle for every composer on screen that composer
+  customizations mount in (thread page, `ThreadChat`, new-thread, open
+  queued-message editors), oldest first. Use it from a panel or page that
+  writes into a composer the user picks: label each by `scope`, then call
+  `insert`, `focus` or `submit` on the chosen one. Handles are the same
+  `PluginComposerApi` with the same lifetime rule; `setTextEffect` and
+  `setInputLock` have no effect here. Re-renders when the list or a listed
+  draft or selection changes.
+- `experimental_useCodeTheme()` → `{ mode, name, theme }` — the code theme Hyperfide
+  is currently rendering with. `mode` is `"light" | "dark"`, `name` is the
+  registered theme name for that mode, and `theme` is the resolved **VS Code
+  theme document** behind it: `{ name, type, fg, bg, colors, tokenColors }`,
+  the same document Hyperfide's own highlighter paints from. Reach for it ONLY when
+  your plugin renders code with an engine of its own (Monaco, CodeMirror) and
+  has to build that engine's theme; for ordinary code and diffs use
+  `experimental_SourceCode` / `experimental_Diff`, which are already themed.
+  `theme` is null only before the first document resolves, and keeps the
+  previous document while a palette switch is in flight — compare `theme.name`
+  with `name` to tell a settled state from one still resolving — so a consumer
+  that repaints on every change never paints an unthemed frame. Do NOT
+  approximate the palette by reading Hyperfide's CSS variables: `--canvas` / `--ink`
+  carry the app chrome, not the syntax colors, and a custom palette that
+  declares its own code theme would not follow.
+- `experimental_copyToClipboard({ text, html? })` → `Promise<boolean>` — writes
+  the system clipboard through the same writer Hyperfide's own copy actions use. A
+  plain function, not a hook: call it from components, content scripts, and
+  command callbacks alike. Hyperfide Desktop writes through the native clipboard, so
+  copies work without window focus or a secure origin; browsers use the
+  Clipboard API, then the copy command. Pass `html` to add a rich-text
+  representation next to the plain text. Resolves true once the clipboard holds
+  the content and false when every path failed; it never rejects. Show your own
+  success or failure feedback. Never call `navigator.clipboard` directly.
+- `experimental_saveFile({ fileName, url } | { fileName, blob })` →
+  `Promise<"started" | "failed">` — saves a file
+  through Hyperfide's own download path. Browsers and Hyperfide Desktop start an ordinary
+  download; the Hyperfide iOS app, where a download link would replace the app,
+  opens the share sheet instead. Pass a URL on the hyperfide-platform server (your plugin's
+  HTTP route works) or bytes you already hold. Keep `href` and `download` on
+  your link and call it from `onClick` after `event.preventDefault()`. It
+  never rejects; Hyperfide shows the error toast on `failed`. `started` means the
+  browser or shell took over; completion and share cancellation are not
+  reported to the page.
+
+```tsx
+const composer = useComposer();
+composer.insert("Please summarize this.", { at: "end", block: true });
+```
+
+Composer customizations:
+
+- Register with `app.composer.customize({ id, scopes?, actions?, experimental_popups?, plusMenu?,
+sendMenu?, banners?, richText? })`. Omitted `scopes` means all thread,
+  queued-message, and new-thread composers.
+- `actions` and `banners` are plugin React components. `useComposer()` inside
+  them is bound to the composer that mounted the component. Actions render
+  before native voice/submit and are unavailable in compact layout; banners
+  render above the composer. A banner's `chrome` is `"card"` by default or
+  `"bare"`.
+- `plusMenu` rows (the `+` menu) and `sendMenu` rows (the menu beside the send
+  button, shown only while the composer can submit) are host-rendered so
+  keyboard navigation, focus restoration, and mobile layout remain correct.
+  Each item supplies `id`, `label`, optional `icon` (drawn instead of the
+  plugin's branding icon), `description`, and `disabled` (a boolean or a
+  function of the composer, re-evaluated when the draft or selection changes),
+  plus `run({ composer })`. `plusMenu` rows also appear in the sent-message
+  editor (scope `thread`), where the other customizations do not mount.
+- `richText.effects` rules return plain-text `{ from, to }` ranges and a class
+  name from plugin CSS. Decorations are paint-only and never mutate the draft.
+- A `messageAction`'s `run` receives `context.composer`: the composer of the
+  message's thread, or null.
+- Composer popups register `[{ id, label, component }]` through `experimental_popups`.
+  Popup ids must be unique across the plugin's composer customizations.
+  Open by popup id with `composer.experimental_openPopup(id)`, from a
+  `plusMenu` row's `composer`, or from a composer command (for example Ctrl+R):
+  `app.composer.experimental_registerCommand({ id, title, defaultShortcut?, run })`.
+  A composer command is listed and rebindable like any plugin command and shares
+  the `app.commands` ID namespace, but `run` receives `{ composer }` for the
+  composer that handles it, through the same path as Hyperfide's own "Focus composer"
+  command: the composer holding the caret, or with the caret outside every
+  composer, the focused pane's primary composer. Its shortcut is inactive while
+  a terminal, browser tab or modal has focus, and the palette lists it only when
+  some composer would run it. The host
+  shares mention-menu placement and dismissal, and uses a persistent responsive
+  drawer for compact interactive popups. Inside the component, `useComposer()`
+  is bound to the opening composer; its `experimental_closePopup()` closes only
+  that plugin's popup and restores editor focus. Components own their search
+  input and result navigation. Opening returns false when the target or scoped
+  registration is unavailable; closing returns false if that plugin has no open
+  popup.
+- Use a vendored HYPERFIDE prompt icon-button recipe for native-matching action chrome
+  and provide an accessible label. Each component/callback is isolated so one
+  failing customization does not degrade the native composer. Complete
+  reference: `examples/plugins/composer-customization`.
+
+UI components use vendored shadcn source that you own. The app module exports
+only focused HYPERFIDE capability components (frontend-components.md): `ThreadChat`,
+`Markdown`, file links, pickers, source and diff viewers, and the new-thread
+composer.
+
+- Most builtin plugins in this repo import shared UI from `@hyperfide/shared-ui`
+  (the single source of truth the app also consumes and the registry
+  generates from). Forkable builtins (`scripts/forkable-plugins.json`) import
+  the same components through the `@/` alias, which their tsconfig maps onto
+  that source; a fork vendors them from the registry. External and example
+  plugins vendor source through the registry.
+- `hyperfide-platform plugin new` pre-vendors button, card, input, checkbox, dialog (plus
+  their support files: `lib/utils`, `lib/portal-scope`, icon,
+  responsive-overlay, drawer, hooks) into `components/ui/` etc., and writes a `components.json`
+  whose `@hyperfide` registry is pinned to the release tag matching the running
+  HYPERFIDE. Import via the `@/*` alias: `import { Button } from
+"@/components/ui/button"` (tsconfig maps it; `hyperfide-platform plugin build` reads it).
+- Add more with stock shadcn tooling: `npx shadcn add @hyperfide/select
+@hyperfide/table` — the HYPERFIDE registry carries the full stock set (~46 items:
+  accordion, alert-dialog, calendar, chart, command, form, sheet, table,
+  …), generated from the HYPERFIDE app's own component source, so vendored code is
+  version-matched to your HYPERFIDE by construction. Edit the copies freely; they
+  never change out from under you. Re-running `shadcn add` is the manual
+  update path.
+- The registry's `icon` is a thin wrapper over `experimental_Icon`: vendored
+  components draw Hyperfide's glyphs, including icons other plugins register, from
+  the host at runtime instead of bundling an icon set. Draw your own icons
+  through it too. Plugins scaffolded before SDK 0.5.16 vendored an older
+  `icon.tsx` (plus `icon-extended.tsx` and `icon-registry.ts`) that imports
+  `@hugeicons/*`: rerun `npx shadcn add @hyperfide/icon`, delete the other two
+  files, and drop `@hugeicons/core-free-icons` and `@hugeicons/react` from
+  `dependencies`. A git install keeps every version's `node_modules` on the
+  user's disk, and the full hugeicons set is over 100 MB per copy.
+- `toast`: `import { toast } from "sonner"` — runtime-shimmed to the host's
+  Toaster (`toast.success("Saved")` just works; never mount your own
+  `<Toaster>`).
+- Never bundled (runtime-shimmed, import freely): react, the portaling
+  radix families (`@radix-ui/react-dialog`, `-alert-dialog`, `-popover`,
+  `-select`, `-dropdown-menu`, `-context-menu`, `-menubar`, `-hover-card`,
+  `-tooltip`, `-navigation-menu`), `sonner`, `vaul`, `@pierre/diffs` (+
+  `/react`). Your vendored overlays therefore share the host's
+  dismissable-layer/focus/scroll-lock world — stacking against host
+  overlays behaves correctly. Each shimmed package you import is a type-only
+  `devDependencies` entry at the host's version, never a dependency (see
+  "Builds, installs, and dependencies" in quickstart.md).
+- Also never bundled, for size rather than singleton reasons: `clsx`,
+  `tailwind-merge`, and `class-variance-authority`. Your app bundle uses the
+  host's installed copies (tailwind-merge ^3, clsx ^2, cva ^0.7), so keep
+  your declared ranges inside those majors. `zod` is NOT shimmed (exposing
+  its namespace would bloat the host's boot payload) — it bundles from your
+  `node_modules` in both `app.tsx` and `server.ts`, so keep it in
+  `dependencies`.
+- Source and diffs: use the host components
+  `experimental_SourceCode` / `experimental_Diff` (frontend-components.md),
+  NOT a direct
+  `@pierre/diffs` import. The shim stays for compatibility, but hand-rolled
+  Pierre usage means owning patch normalization and the code theme yourself,
+  and it opts you out of any installed renderer replacement.
+- Everything else bundles from YOUR `node_modules` (lucide,
+  non-portal radix, zod, form/calendar/chart libs): run `npm install`
+  after adding components (`hyperfide-platform plugin new` runs the first one; `shadcn add`
+  installs each item's declared deps). Users of your prebuilt artifact need no
+  npm. Managed source installs run Hyperfide's bundled npm.
+- `EmptyState` ships as `npx shadcn add @hyperfide/empty-state`. There is no
+  `PageBody` or `Spinner`; write your own (each is a few lines; see
+  `plugins/github/components/` for reference implementations).
+
+One deviation from stock shadcn: `Dialog` renders as a bottom drawer on
+compact viewports (the host's responsive behavior) — same API.
+
+Crash isolation stays local to the slot. Additive slots can show a crash chip
+or nothing. Replacement slots fall back to the native list or renderer.
+`messageDirective` falls back to the original source text.
+`experimental_codeFenceRenderer` falls back to HYPERFIDE's code block (`Original`).
+
+Styling: Tailwind classes compile against the host theme's live CSS
+variables — use host token classes (`bg-card`, `text-foreground`,
+`text-muted-foreground`, `border-border`, `text-destructive`, …). Never
+define custom `@theme` colors and never hand-set `oklch(...)`/gray
+literals: the build's Tailwind pass emits default-theme utilities only, and
+hardcoded colors break custom palettes. `tw-animate-css` utilities also
+compile in plugin builds.
+
+## Optimistic RPC updates
+
+`experimental_useRpcMutation({ contract, method, optimistic(input, cache) { ... } })`
+predicts loaded reads before sending the write. `cache.update(method, readInput,
+updater)` targets a plain read; `cache.updateKey(method, key, updater)` targets
+one keyed row. Failed writes remove their own prediction.
+
+The updater callbacks must be pure and synchronous: they may run many times
+as pending predictions replay over new confirmed data or after another write
+rolls back. Return a new value without mutating cached data or captured inputs,
+performing side effects, or generating IDs, timestamps, or random values.
+Generate any such values once before calling `mutate` and include them in the
+mutation input so every replay uses the same values.
+
+## Live RPC reads and write acknowledgement
+
+All live hooks take `{ contract, method, ... }` and infer their types without
+explicit generic arguments. Plain queries add `input`; mutations add optional
+`optimistic`. Use `experimental_useRpcKeyedQuery({ contract, method, keys, select? })` for
+contract-inferred rows and selection results. Keyed methods accept `{ keys }`
+and return a record containing every requested key. Tags are plain strings;
+reads and writes use matching strings to declare their dependencies.
+
+`data` retains the last successful value and optimistic predictions during
+refreshes and refresh errors. Plain reads start undefined; keyed selections
+receive loaded rows, initially an empty record. `isLoading` means an enabled
+read is fetching never-loaded requested data. `isFetching` includes background
+attempts; keyed views share method activity. `error` is the last completed
+failure, cleared on success; retrying a first load clears its old error while
+loading. `refetch` forces an attempt, waits through retries, and records any
+failure in `error` without rejecting or discarding existing data.
+
+Reads stay fresh for two seconds without polling. Focus does not refetch while
+HYPERFIDE's realtime connection is healthy. While disconnected, focus/browser-online
+events recheck stale active reads; HYPERFIDE reconnect invalidates all plugin reads
+regardless of freshness. Page hiding cancels active attempts and resume restarts
+those cancelled reads. Invalidations refresh immediately. Network/abort failures
+retry twice at 250 ms; HTTP failures do not retry. Writes never retry automatically. `mutate`, `isPending`, and `pendingInputs` finish at write
+acknowledgement, while confirmed reads replace shared predictions later.
+
+Live hook errors and rejected mutations use `experimental_PluginRpcCallError`.
+Its `code` is required; use a fallback when switching because error codes may
+grow. Unknown server codes become `unknown_error` with the original `serverCode`.
+Client failures use `transport_error` or `invalid_response`. The CLI preserves
+unrecognized codes in text and JSON output.

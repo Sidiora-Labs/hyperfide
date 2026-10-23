@@ -25,12 +25,12 @@ import {
 } from "@hyperfide/db";
 import type { ThreadEventItemPresentation } from "@hyperfide/domain";
 import type {
-  BbPluginApi,
+  HyperfidePluginApi,
   PluginAgentConfiguration,
   PluginAgentConfigurationContext,
   PluginAgentToolContext,
   PluginRowPresentation,
-  PluginBbSdk,
+  PluginHyperfideSdk,
   PluginAgentToolResult,
   PluginAgents,
   PluginBackground,
@@ -116,7 +116,7 @@ import type {
   NormalizedPluginProviderDeclaration,
 } from "@hyperfide/plugin-sdk/internal/host-policy";
 import type {
-  BbSdk,
+  HyperfideSdk,
   ThreadForkArgs,
   PluginThreadMetadataListArgs,
   ThreadPluginMetadataArgs,
@@ -138,7 +138,7 @@ import {
 } from "./plugin-settings.js";
 
 export type {
-  BbPluginApi,
+  HyperfidePluginApi,
   PluginAgentConfigurationContext,
   PluginAgentToolContext,
   PluginCliCommandInfo,
@@ -172,7 +172,7 @@ export type PluginHookRecords = {
   [K in PluginHookName]: PluginHookHandler<K> | null;
 };
 
-/** Per-event handler lists recorded by `bb.events.on`; dropped with the handle. */
+/** Per-event handler lists recorded by `hyperfide.events.on`; dropped with the handle. */
 type PluginThreadEventHandlers = {
   [E in PluginThreadEventName]: Array<PluginThreadEventHandler<E>>;
 };
@@ -257,9 +257,9 @@ type PluginSettingsListener = (
 ) => void;
 
 export interface PluginApiHandle {
-  api: BbPluginApi;
+  api: HyperfidePluginApi;
   disposeHooks: Array<() => void | Promise<void>>;
-  /** Handlers recorded by `bb.onInstall`; run once after a fresh install. */
+  /** Handlers recorded by `hyperfide.onInstall`; run once after a fresh install. */
   installHandlers: Array<() => void | Promise<void>>;
   settings: {
     descriptors: PluginSettingDescriptors;
@@ -267,7 +267,7 @@ export interface PluginApiHandle {
   };
   databaseHandles: Database.Database[];
   threadEventHandlers: PluginThreadEventHandlers;
-  /** Hook handlers recorded by `bb.experimental_hooks.on`. */
+  /** Hook handlers recorded by `hyperfide.experimental_hooks.on`. */
   hooks: PluginHookRecords;
   environmentCompositions: Map<string, NormalizedPluginEnvironmentComposition>;
   environmentProviders: Map<string, NormalizedPluginEnvironmentProvider>;
@@ -276,7 +276,7 @@ export interface PluginApiHandle {
     string,
     import("@hyperfide/plugin-sdk").ServerAccessProviderDeclaration
   >;
-  /** HTTP routes recorded by `bb.http.route`; dropped with the handle. */
+  /** HTTP routes recorded by `hyperfide.http.route`; dropped with the handle. */
   httpRoutes: PluginHttpRouteRecord[];
   websocketRoutes: PluginWebSocketRouteRecord[];
   rpcHandlers: Map<string, PluginRpcHandler>;
@@ -348,10 +348,10 @@ function withPluginThreadAttribution<
 }
 
 function wrapSdkForPlugin(
-  sdk: BbSdk,
+  sdk: HyperfideSdk,
   pluginId: string,
-  rpcCallerSdk: BbSdk,
-): PluginBbSdk {
+  rpcCallerSdk: HyperfideSdk,
+): PluginHyperfideSdk {
   return {
     ...sdk,
     plugins: {
@@ -489,13 +489,13 @@ export function createPluginApi(options: {
   logger: ServerLogger;
   db: DbConnection;
   dataDir: string;
-  getSdk: () => BbSdk | undefined;
+  getSdk: () => HyperfideSdk | undefined;
   getMachineEnrollments: () => MachineEnrollments;
   getAppUrl: () => string | null;
   getLoopbackBaseUrl: () => string | undefined;
   /**
    * This load's rpc caller token, attached to the plugin's
-   * `bb.sdk.plugins.callRpc` requests so handlers see it as the caller.
+   * `hyperfide.sdk.plugins.callRpc` requests so handlers see it as the caller.
    * Revoked when the handle is invalidated.
    */
   rpcCaller: PluginRpcCallerCredential;
@@ -513,13 +513,13 @@ export function createPluginApi(options: {
   reportAgentToolProblem: (message: string) => void;
   /**
    * Schedules a re-attempt of every plugin-queued row
-   * (`bb.experimental_hooks.recheck`). Coalescing, pacing and the walk
+   * (`hyperfide.experimental_hooks.recheck`). Coalescing, pacing and the walk
    * itself belong to the queue; this only asks for it.
    */
   requestQueueDrain: () => void;
   /**
    * The names this plugin's manifest declares under
-   * `bb.branding.experimental_icons`: what a namespaced glyph
+   * `hyperfide.branding.experimental_icons`: what a namespaced glyph
    * (`"<pluginId>/<name>"`) in a tool presentation or a provider icon must
    * name. Empty when the manifest declares none.
    */
@@ -597,7 +597,7 @@ export function createPluginApi(options: {
   } = options;
   let invalidated = false;
   let activated = false;
-  let wrappedSdk: PluginBbSdk | undefined;
+  let wrappedSdk: PluginHyperfideSdk | undefined;
   let pendingNeedsConfiguration: string | null = null;
   const pendingAgentToolProblems: string[] = [];
   const pendingSharedPorts = new Map<string, readonly number[]>();
@@ -1050,7 +1050,7 @@ export function createPluginApi(options: {
       const baseUrl = getLoopbackBaseUrl();
       if (baseUrl === undefined) {
         throw new Error(
-          "bb.server.loopbackBaseUrl is not available until the server is listening — " +
+          "hyperfide.server.loopbackBaseUrl is not available until the server is listening — " +
             "use it inside handlers, services, or timers, not at factory load time",
         );
       }
@@ -1377,7 +1377,7 @@ export function createPluginApi(options: {
     register: aiServiceRegistrations.register,
   };
 
-  const api: BbPluginApi = {
+  const api: HyperfidePluginApi = {
     pluginId,
     log,
     settings,
@@ -1399,13 +1399,13 @@ export function createPluginApi(options: {
     server,
     hosts,
     experimental_aiServices,
-    get sdk(): PluginBbSdk {
+    get sdk(): PluginHyperfideSdk {
       assertLive();
       const sdk = getSdk();
       const loopbackBaseUrl = getLoopbackBaseUrl();
       if (!sdk || loopbackBaseUrl === undefined) {
         throw new Error(
-          "bb.sdk is not available until the server is listening — " +
+          "hyperfide.sdk is not available until the server is listening — " +
             "use it inside handlers, services, or timers, not at factory load time",
         );
       }

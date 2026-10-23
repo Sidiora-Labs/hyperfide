@@ -9,7 +9,7 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type HyperfidePluginApi,
 } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import {
@@ -121,9 +121,9 @@ export function createPushNotificationsPlugin(
   options: PushNotificationsPluginOptions = {},
 ) {
   return async function pushNotificationsPlugin(
-    bb: BbPluginApi,
+    hyperfide: HyperfidePluginApi,
   ): Promise<void> {
-    const settings = bb.settings.define({
+    const settings = hyperfide.settings.define({
       askDigest: {
         type: "select",
         label: "Flagged Ask digest",
@@ -143,14 +143,14 @@ export function createPushNotificationsPlugin(
         type: "boolean",
         label: "Web notifications",
         description:
-          "Show system notifications while bb is open in a browser. Each browser needs notification permission.",
+          "Show system notifications while hyperfide is open in a browser. Each browser needs notification permission.",
         default: true,
       },
       desktopEnabled: {
         type: "boolean",
         label: "Desktop notifications",
         description:
-          "Show system notifications while the bb desktop app is running.",
+          "Show system notifications while the hyperfide desktop app is running.",
         default: true,
       },
       defaultLevel: {
@@ -191,7 +191,7 @@ export function createPushNotificationsPlugin(
       },
     });
     const preferences = createNotificationPreferences({
-      bb,
+      hyperfide,
       getDefaults: async () => {
         const { defaultLevel, childLevel } = await settings.get();
         return {
@@ -200,14 +200,14 @@ export function createPushNotificationsPlugin(
         };
       },
       publish: (threadIds) =>
-        bb.rpc.experimental_invalidate(threadIds.map((id) => `thread:${id}`)),
+        hyperfide.rpc.experimental_invalidate(threadIds.map((id) => `thread:${id}`)),
     });
-    const subscriptions = createPushSubscriptionStore(bb, {
+    const subscriptions = createPushSubscriptionStore(hyperfide, {
       ...(options.now === undefined ? {} : { now: options.now }),
       ...(options.createId === undefined ? {} : { createId: options.createId }),
     });
     const sender = createPushSender({
-      bb,
+      hyperfide,
       subscriptions,
       getDeliverySettings: () => settings.get(),
       getExpoPushUrl: async () => (await settings.get()).expoPushUrl,
@@ -249,9 +249,9 @@ export function createPushNotificationsPlugin(
       if (!(channel === "web" ? config.webEnabled : config.desktopEnabled)) {
         throw new Error(`${channel} notifications are disabled`);
       }
-      bb.realtime.publish(CLIENT_NOTIFICATION_CHANNEL, {
+      hyperfide.realtime.publish(CLIENT_NOTIFICATION_CHANNEL, {
         id: randomUUID(),
-        title: "bb notifications are working",
+        title: "hyperfide notifications are working",
         body: "You’ll be notified when a thread needs your attention.",
         threadId: null,
         channels: [channel],
@@ -259,7 +259,7 @@ export function createPushNotificationsPlugin(
       return { ok: true as const };
     }
 
-    bb.rpc.register(pushNotificationsRpcContract, {
+    hyperfide.rpc.register(pushNotificationsRpcContract, {
       "notifications.test": ({ channel }) => sendTest(channel),
       "pushSubscriptions.list": async () => ({
         subscriptions: await subscriptions.listSummaries(),
@@ -287,7 +287,7 @@ export function createPushNotificationsPlugin(
         preferences.set(threadId, level),
     });
 
-    bb.cli.register(
+    hyperfide.cli.register(
       defineCli({
         name: "push-notifications",
         summary: "Manage mobile, web, and desktop notifications",
@@ -322,7 +322,7 @@ export function createPushNotificationsPlugin(
                   error instanceof Error ? error.message : String(error),
                   {
                     code: "channel_disabled",
-                    hint: `Turn it on with \`bb plugin config push-notifications set ${channel.data}Enabled true\`.`,
+                    hint: `Turn it on with \`hyperfide-platform plugin config push-notifications set ${channel.data}Enabled true\`.`,
                   },
                 );
               }
@@ -400,7 +400,7 @@ export function createPushNotificationsPlugin(
               {
                 name: "id",
                 description:
-                  "Subscription id, as `bb push-notifications list` prints it",
+                  "Subscription id, as `hyperfide-platform push-notifications list` prints it",
                 required: true,
               },
             ],
@@ -410,7 +410,7 @@ export function createPushNotificationsPlugin(
               if (!(await subscriptions.remove(id))) {
                 throw new PluginCliError(`Push subscription not found: ${id}`, {
                   code: "subscription_not_found",
-                  hint: "Run `bb push-notifications list` for the registered ids.",
+                  hint: "Run `hyperfide-platform push-notifications list` for the registered ids.",
                 });
               }
               return {
@@ -480,22 +480,22 @@ export function createPushNotificationsPlugin(
       }),
     );
 
-    bb.events.on("interaction.pending", (payload) => {
+    hyperfide.events.on("interaction.pending", (payload) => {
       sender.onInteractionPending(payload);
     });
-    bb.events.on("thread.idle", (payload) => {
+    hyperfide.events.on("thread.idle", (payload) => {
       sender.onThreadIdle(payload);
     });
-    bb.events.on("thread.failed", (payload) => {
+    hyperfide.events.on("thread.failed", (payload) => {
       sender.onThreadFailed(payload);
     });
-    bb.events.on("experimental_thread.parentChanged", ({ thread }) =>
+    hyperfide.events.on("experimental_thread.parentChanged", ({ thread }) =>
       preferences.publishSubtree(thread.id),
     );
-    bb.events.on("thread.unarchived", ({ thread }) =>
+    hyperfide.events.on("thread.unarchived", ({ thread }) =>
       preferences.publishSubtree(thread.id),
     );
-    bb.background.service("push-sender", {
+    hyperfide.background.service("push-sender", {
       async start(signal) {
         await sender.start();
         try {

@@ -23,14 +23,14 @@ import {
   type UiPreferenceKey,
   type UiPreferenceValue,
 } from "@hyperfide/domain";
-import { BbHttpError } from "@hyperfide/sdk";
+import { HyperfideHttpError } from "@hyperfide/sdk";
 import type {
   SystemAiServicesResponse,
   SystemCliCommandStatus,
   SystemProviderInfo,
 } from "@hyperfide/server-contract";
 import { action } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliHyperfideSdk } from "../client.js";
 import { columnWidths, printBorderlessTable } from "../table.js";
 import { outputJson } from "./helpers.js";
 import { resolveMachineHostId, resolveMachineTargetOption } from "./machine.js";
@@ -45,7 +45,7 @@ interface AiServiceSetOptions extends JsonOptions {
 
 function describeCliCommandStatus(status: SystemCliCommandStatus): string {
   if (!status.supported) {
-    return "The hyperfide-platform CLI can be installed for use outside Hyperfide only by an installed bb. Start bb with npx bb-app or the desktop app.";
+    return "The hyperfide-platform CLI can be installed for use outside Hyperfide only by an installed hyperfide. Start hyperfide with npx hyperfide-app or the desktop app.";
   }
   if (status.installedPath !== null) {
     return status.onPath
@@ -377,7 +377,7 @@ function parseUiPreferenceInput<Key extends UiPreferenceKey>(
 }
 
 function isUiPreferenceConflict(error: unknown): boolean {
-  return error instanceof BbHttpError && error.status === 409;
+  return error instanceof HyperfideHttpError && error.status === 409;
 }
 
 export function registerSettingsCommands(
@@ -394,7 +394,7 @@ export function registerSettingsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: JsonOptions) => {
-        const result = await createCliBbSdk(getUrl()).system.config();
+        const result = await createCliHyperfideSdk(getUrl()).system.config();
         if (outputJson(opts, result)) return;
         console.log(JSON.stringify(result, null, 2));
       }),
@@ -411,7 +411,7 @@ export function registerSettingsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: JsonOptions) => {
-        const result = await createCliBbSdk(getUrl()).system.aiServices();
+        const result = await createCliHyperfideSdk(getUrl()).system.aiServices();
         if (outputJson(opts, result)) return;
         printAiServices(result);
       }),
@@ -434,7 +434,7 @@ export function registerSettingsCommands(
           opts: AiServiceSetOptions,
         ) => {
           const task = requireAiTask(taskInput);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const current = await sdk.system.aiServices();
           const result = await sdk.system.setAiServiceSelection({
             task,
@@ -465,7 +465,7 @@ export function registerSettingsCommands(
             `Unknown task '${taskInput}'. Testable tasks: ${AI_TEXT_TASKS.join(", ")}`,
           );
         }
-        const result = await createCliBbSdk(getUrl()).system.testAiService({
+        const result = await createCliHyperfideSdk(getUrl()).system.testAiService({
           task: task.data,
         });
         if (outputJson(opts, result)) return;
@@ -486,7 +486,7 @@ export function registerSettingsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (key: string, value: string, opts: JsonOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const config = await sdk.system.config();
         const result = await sdk.system.updateGeneralSettings(
           updateGeneralSetting(config.generalSettings, key, value),
@@ -502,7 +502,7 @@ export function registerSettingsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: JsonOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const config = await sdk.system.config();
         const result = await sdk.system.updateGeneralSettings({
           ...config.generalSettings,
@@ -526,7 +526,7 @@ export function registerSettingsCommands(
           display: string | undefined,
           opts: JsonOptions,
         ) => {
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const [config, providers] = await Promise.all([
             sdk.system.config(),
             sdk.providers.list(),
@@ -585,7 +585,7 @@ export function registerSettingsCommands(
     .action(
       action(async (opts: JsonOptions) => {
         const result =
-          await createCliBbSdk(getUrl()).system.uiPreferences.list();
+          await createCliHyperfideSdk(getUrl()).system.uiPreferences.list();
         if (outputJson(opts, result)) return;
         for (const key of UI_PREFERENCE_KEYS) {
           const entry = result.preferences[key];
@@ -603,7 +603,7 @@ export function registerSettingsCommands(
       action(async (keyInput: string, opts: JsonOptions) => {
         const key = requireUiPreferenceKey(keyInput);
         const { preferences } =
-          await createCliBbSdk(getUrl()).system.uiPreferences.list();
+          await createCliHyperfideSdk(getUrl()).system.uiPreferences.list();
         const entry = preferences[key];
         if (outputJson(opts, { key, ...entry })) return;
         console.log(JSON.stringify(entry.value));
@@ -616,7 +616,7 @@ export function registerSettingsCommands(
       action(async (keyInput: string, value: string, opts: JsonOptions) => {
         const key = requireUiPreferenceKey(keyInput);
         const parsedValue = parseUiPreferenceInput(key, value);
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const write = async () => {
           const { preferences } = await sdk.system.uiPreferences.list();
           return sdk.system.uiPreferences.set({
@@ -642,7 +642,7 @@ export function registerSettingsCommands(
     .action(
       action(async (keyInput: string, opts: JsonOptions) => {
         const key = requireUiPreferenceKey(keyInput);
-        const result = await createCliBbSdk(
+        const result = await createCliHyperfideSdk(
           getUrl(),
         ).system.uiPreferences.reset({ key });
         if (outputJson(opts, result)) return;
@@ -657,7 +657,7 @@ export function registerSettingsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: JsonOptions & { details?: boolean }) => {
-        const system = createCliBbSdk(getUrl()).system;
+        const system = createCliHyperfideSdk(getUrl()).system;
         const links = system.mobileAppDownloads();
         if (opts.details) {
           const releases = await system.mobileAppReleases();
@@ -686,7 +686,7 @@ export function registerSettingsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (key: string, value: string, opts: JsonOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const result = await sdk.system.updateExperiments(
           experimentUpdate(key, value),
         );
@@ -704,7 +704,7 @@ export function registerSettingsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (value: string, opts: JsonOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const config = await sdk.system.config();
         const result = await sdk.system.updateGeneralSettings(
           updateGeneralSetting(
@@ -723,7 +723,7 @@ export function registerSettingsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: JsonOptions) => {
-        const config = await createCliBbSdk(getUrl()).system.config();
+        const config = await createCliHyperfideSdk(getUrl()).system.config();
         const result = {
           bindings: config.keybindings,
           overrides: config.keybindingOverrides,
@@ -749,7 +749,7 @@ export function registerSettingsCommands(
           opts: JsonOptions & { platform?: "mac" | "windows" | "linux" },
         ) => {
           const command = keyboardCommandIdSchema.parse(commandInput);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const config = await sdk.system.config();
           const next = config.keybindingOverrides.filter(
             (item) =>
@@ -781,7 +781,7 @@ export function registerSettingsCommands(
           commandInput: string | undefined,
           opts: JsonOptions & { platform?: "mac" | "windows" | "linux" },
         ) => {
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const config = await sdk.system.config();
           const command =
             commandInput === undefined
@@ -823,7 +823,7 @@ export function registerSettingsCommands(
                 serverUrl: getUrl(),
                 target,
               });
-        const result = await createCliBbSdk(getUrl()).system.usageLimits({
+        const result = await createCliHyperfideSdk(getUrl()).system.usageLimits({
           hostId,
           refresh: opts.refresh,
         });
@@ -839,7 +839,7 @@ export function registerSettingsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: JsonOptions & { force?: boolean }) => {
-        const result = await createCliBbSdk(getUrl()).system.version({
+        const result = await createCliHyperfideSdk(getUrl()).system.version({
           force: opts.force,
         });
         if (outputJson(opts, result)) return;
@@ -861,7 +861,7 @@ export function registerSettingsCommands(
     .action(
       action(async (opts: JsonOptions) => {
         const status =
-          await createCliBbSdk(getUrl()).system.experimental_cliCommand();
+          await createCliHyperfideSdk(getUrl()).system.experimental_cliCommand();
         if (outputJson(opts, status)) return;
         console.log(describeCliCommandStatus(status));
       }),
@@ -873,7 +873,7 @@ export function registerSettingsCommands(
     .action(
       action(async (opts: JsonOptions) => {
         const status =
-          await createCliBbSdk(
+          await createCliHyperfideSdk(
             getUrl(),
           ).system.experimental_installCliCommand();
         if (outputJson(opts, status)) return;
@@ -887,7 +887,7 @@ export function registerSettingsCommands(
     .action(
       action(async (opts: JsonOptions) => {
         const status =
-          await createCliBbSdk(getUrl()).system.experimental_removeCliCommand();
+          await createCliHyperfideSdk(getUrl()).system.experimental_removeCliCommand();
         if (outputJson(opts, status)) return;
         console.log(
           status.installedPath === null
@@ -903,7 +903,7 @@ export function registerSettingsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: JsonOptions) => {
-        const result = await createCliBbSdk(getUrl()).system.reloadConfig();
+        const result = await createCliHyperfideSdk(getUrl()).system.reloadConfig();
         if (outputJson(opts, result)) return;
         console.log("Configuration reloaded");
       }),

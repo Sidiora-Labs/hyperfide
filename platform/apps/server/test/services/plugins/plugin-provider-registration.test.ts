@@ -25,7 +25,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Provider fixture",
         description: "Provider registration plugin fixture.",
         branding: {
@@ -51,8 +51,8 @@ async function writePlugin(
 }
 
 const REGISTER_PROVIDER_SOURCE = (id: string): string => `
-  export default function plugin(bb: any) {
-    bb.providers.register({
+  export default function plugin(hyperfide: any) {
+    hyperfide.providers.register({
       id: ${JSON.stringify(id)},
       displayName: "My Remote Agent",
       icon: "./icons/agent.svg",
@@ -72,7 +72,7 @@ const REGISTER_PROVIDER_SOURCE = (id: string): string => `
   }
 `;
 
-describe("bb.providers.register (server)", () => {
+describe("hyperfide.providers.register (server)", () => {
   let workDir: string;
 
   beforeEach(async () => {
@@ -229,17 +229,17 @@ describe("bb.providers.register (server)", () => {
         const rootDir = await writePlugin(workDir, {
           name: "hyperfide-plugin-legacy-environments",
           withBridge: false,
-          serverSource: `export default function(bb) {
-          bb.experimental_machines.register({
+          serverSource: `export default function(hyperfide) {
+          hyperfide.experimental_machines.register({
             id: "legacy-machine", displayName: "Legacy machine", description: "Create a test machine.", icon: ${JSON.stringify(icon)},
             create: async () => ({ status: "failed", message: "unused" }),
             reconcileCleanup: async () => ({ status: "removed" }), remove: async () => ({ status: "removed" })
           });
-          bb.experimental_environments.register({
+          hyperfide.experimental_environments.register({
             id: "legacy-workspace", displayName: "Legacy workspace",
             create: async () => ({ status: "failed", message: "unused" }), remove: async () => ({ status: "removed" })
           });
-          bb.experimental_environments.register({
+          hyperfide.experimental_environments.register({
             id: "legacy-composition", displayName: "Legacy composition",
             machineProviderId: "legacy-machine", environmentProviderId: "legacy-workspace"
           });
@@ -284,7 +284,7 @@ describe("bb.providers.register (server)", () => {
           name: "hyperfide-plugin-marked-environment",
           withBridge: false,
           icons: { mark: "./icons/agent.svg" },
-          serverSource: `export default function plugin(bb) { bb.experimental_environments.register({ id: "marked-environment", displayName: "Marked", description: "Prepare a marked workspace.", icon: ${JSON.stringify(icon)}, create: async () => ({ status: "failed", message: "waiting" }), remove: async () => ({ status: "removed" }) }); }`,
+          serverSource: `export default function plugin(hyperfide) { hyperfide.experimental_environments.register({ id: "marked-environment", displayName: "Marked", description: "Prepare a marked workspace.", icon: ${JSON.stringify(icon)}, create: async () => ({ status: "failed", message: "waiting" }), remove: async () => ({ status: "removed" }) }); }`,
         });
         const svg =
           '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path d="M0 0h4v4z"/></svg>';

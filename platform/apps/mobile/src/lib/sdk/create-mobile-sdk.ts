@@ -1,4 +1,4 @@
-import { createBrowserBbSdk, type BrowserBbSdk } from "@hyperfide/sdk/browser";
+import { createBrowserHyperfideSdk, type BrowserHyperfideSdk } from "@hyperfide/sdk/browser";
 import type { ServerProfile } from "../profiles/profile";
 import {
   createMobileRealtime,
@@ -9,7 +9,7 @@ import { realtimeUrlForServer } from "../realtime/realtime-url";
 import { createMobileFetch, type MobileFetchOptions } from "./mobile-fetch";
 
 export interface MobileSdk {
-  sdk: BrowserBbSdk;
+  sdk: BrowserHyperfideSdk;
   realtime: MobileRealtime;
   fetch: typeof fetch;
 }
@@ -30,7 +30,7 @@ export function createMobileSdk(
     onAuthFailure: options.onAuthFailure,
     onServerMoved: options.onServerMoved,
   });
-  const sdk = createBrowserBbSdk({
+  const sdk = createBrowserHyperfideSdk({
     baseUrl: profile.serverUrl,
     fetch: mobileFetch,
   });

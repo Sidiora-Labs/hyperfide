@@ -7,7 +7,7 @@ import { experimental_scanPublicSdkOnly as scanPublicSdkOnly } from "../index.js
 let packageRoot: string;
 
 function plant(files: Record<string, string>, manifest: object = {}): void {
-  packageRoot = mkdtempSync(join(tmpdir(), "bb-public-sdk-only-"));
+  packageRoot = mkdtempSync(join(tmpdir(), "hyperfide-public-sdk-only-"));
   writeFileSync(
     join(packageRoot, "package.json"),
     JSON.stringify({ name: "planted", ...manifest }),
@@ -25,7 +25,7 @@ afterEach(() => {
 describe("experimental_scanPublicSdkOnly", () => {
   it("walks the package, skipping node_modules and dist, and accepts the published SDK surface", () => {
     plant({
-      "server.ts": `import { z } from "zod";\nimport type { BbPluginApi } from "@hyperfide/plugin-sdk";\nimport { join } from "node:path";\nimport { helper } from "./src/helper.js";\n`,
+      "server.ts": `import { z } from "zod";\nimport type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";\nimport { join } from "node:path";\nimport { helper } from "./src/helper.js";\n`,
       "src/helper.ts": `import "@hyperfide/plugin-sdk/provider-bridge";\nimport "@hyperfide/plugin-sdk/provider-bridge/acp";\nimport "@hyperfide/plugin-sdk/host";\nexport const helper = 1;\n`,
       "app.tsx": `import "@hyperfide/plugin-sdk/app";\n`,
       "server.test.ts": `import { it } from "vitest";\nimport "@hyperfide/plugin-sdk/testing";\nimport "@hyperfide/plugin-sdk/provider-bridge/testing";\n`,

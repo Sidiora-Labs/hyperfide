@@ -3,7 +3,7 @@ import type {
   PluginMessageDirectiveProps,
   ExperimentalThreadActionTabProps,
 } from "@hyperfide/plugin-sdk";
-import { useBbNavigate, useRealtime } from "@hyperfide/plugin-sdk/app";
+import { useHyperfideNavigate, useRealtime } from "@hyperfide/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,7 +89,7 @@ function OpenInTasksButton({
   label: string;
   subPath?: string;
 }) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   return (
     <Button
       className="relative z-10 size-8 shrink-0"
@@ -142,7 +142,7 @@ function embedAriaLabel(task: Task): string {
 }
 
 export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const taskKey = attributes.key?.trim() ?? "";
   const fallbackTitle = attributes.title?.trim() || null;
   const validKey = TASK_KEY_PATTERN.test(taskKey);

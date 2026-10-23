@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { RouteNavigationProvider } from "@/components/ui/app-route-anchor";
 import { resetAppRouteHistoryForTest } from "@/lib/app-route-history";
-import { useBbNavigate } from "@/lib/plugin-sdk-hooks";
+import { useHyperfideNavigate } from "@/lib/plugin-sdk-hooks";
 import type { PluginNavPanelSlot } from "@/lib/plugin-slots";
 import { usePluginId } from "@/components/plugin/plugin-context";
 import { resetAllCrashedPluginSlotsForTest } from "@/components/plugin/PluginSlotMount";
@@ -410,7 +410,7 @@ function CurrentPath() {
   return <output data-testid="current-path">{useLocation().pathname}</output>;
 }
 function NavigatingHomeNavigation() {
-  const navigation = useBbNavigate();
+  const navigation = useHyperfideNavigate();
   const [count, setCount] = useState(0);
   return (
     <nav aria-label="Home navigation">

@@ -45,15 +45,15 @@ function exportResponse(
     status: 200,
     headers: {
       "content-disposition":
-        'attachment; filename="bb-server-2026-09-15.tar.gz"',
+        'attachment; filename="hyperfide-server-2026-09-15.tar.gz"',
       "content-type": "application/gzip",
-      ...(sha256 === null ? {} : { "x-bb-archive-sha256": sha256 }),
+      ...(sha256 === null ? {} : { "x-hyperfide-archive-sha256": sha256 }),
     },
   });
 }
 
 const UNENCRYPTED_EXPORT_WARNING =
-  "This export is not encrypted and holds the server's credentials and plugin secrets. Keep it private; bb wrote it with mode 0600.";
+  "This export is not encrypted and holds the server's credentials and plugin secrets. Keep it private; hyperfide wrote it with mode 0600.";
 
 describe("hyperfide-platform server export", () => {
   setupCommandOutputTestEnvironment();

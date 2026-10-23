@@ -194,7 +194,7 @@ export const SYSTEM_VERSION: SystemVersionResponse = {
   source: "npm",
   updateAvailable: false,
   isDevelopment: false,
-  upgradeCommand: "npx bb-app@latest",
+  upgradeCommand: "npx hyperfide-app@latest",
 };
 
 export const PLUGIN_CONTRIBUTIONS = { cliCommands: [], mentionProviders: [] };

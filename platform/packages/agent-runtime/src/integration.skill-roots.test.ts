@@ -21,9 +21,9 @@ const providers: readonly SkillRootProviderId[] = [
   "claude-code",
   "pi",
 ];
-const skillName = "bb-runtime-skill-integration";
+const skillName = "hyperfide-runtime-skill-integration";
 const skillDescription =
-  "Use when asked for the BB runtime dynamic skill integration token.";
+  "Use when asked for the HYPERFIDE runtime dynamic skill integration token.";
 
 interface CreateSkillRootArgs {
   token: string;
@@ -37,7 +37,7 @@ function createSkillMarkdown(token: string): string {
     `description: ${skillDescription}`,
     "---",
     "",
-    "# BB Runtime Skill Integration",
+    "# HYPERFIDE Runtime Skill Integration",
     "",
     "When asked for the runtime skill integration token, reply with exactly:",
     token,
@@ -64,9 +64,9 @@ for (const providerId of providers) {
   describe.concurrent(`${providerId} provider skill roots`, () => {
     it("uses a runtime-injected skill root", async () => {
       const workspacePath = mkdtempSync(
-        join(tmpdir(), `bb-integ-skill-${providerId}-`),
+        join(tmpdir(), `hyperfide-integ-skill-${providerId}-`),
       );
-      const token = `BB_SKILL_TOKEN_${randomUUID()
+      const token = `HYPERFIDE_SKILL_TOKEN_${randomUUID()
         .replaceAll("-", "")
         .toUpperCase()}`;
       const skillRoot = createSkillRoot({ token, workspacePath });

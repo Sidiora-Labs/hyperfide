@@ -60,7 +60,7 @@ async function writePlugin(
 }
 
 beforeEach(async () => {
-  tempRoot = await mkdtemp(path.join(tmpdir(), "bb-claude-native-roots-"));
+  tempRoot = await mkdtemp(path.join(tmpdir(), "hyperfide-claude-native-roots-"));
 });
 
 afterEach(async () => {

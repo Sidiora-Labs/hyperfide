@@ -11,8 +11,8 @@ const MIB = 1024 * 1024;
 
 const PRELUDE = `
 globalThis.host = async (name, ...args) =>
-  JSON.parse(await __bbHost(name, JSON.stringify(args)));
-globalThis.print = (line) => __bbLog(String(line));
+  JSON.parse(await __hyperfideHost(name, JSON.stringify(args)));
+globalThis.print = (line) => __hyperfideLog(String(line));
 `;
 
 function run(code: string, overrides: Partial<SandboxRunArgs> = {}) {
@@ -140,7 +140,7 @@ describe("runSandboxedScript", () => {
     expect(failure(result)).toContain("computed for too long");
   });
 
-  it("charges computation across bb calls to one total budget", async () => {
+  it("charges computation across hyperfide calls to one total budget", async () => {
     let calls = 0;
     const result = await run(
       `for (;;) { const until = Date.now() + 60; while (Date.now() < until) {} await host("tick"); }`,
@@ -162,7 +162,7 @@ describe("runSandboxedScript", () => {
     expect(calls).toBeLessThan(12);
   });
 
-  it("does not charge time spent waiting on a bb call", async () => {
+  it("does not charge time spent waiting on a hyperfide call", async () => {
     const result = await run(`await host("slow"); return "done";`, {
       limits: { synchronousDeadlineMs: 50, cpuBudgetMs: 100 },
       hostFunctions: {

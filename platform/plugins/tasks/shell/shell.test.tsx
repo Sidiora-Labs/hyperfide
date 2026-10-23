@@ -47,13 +47,13 @@ const project = {
   nextTaskNumber: 5,
   color: "blue",
   folderId: FOLDER_ID,
-  linkedBbProjectId: null,
+  linkedHyperfideProjectId: null,
   createdAt: "2026-07-15T00:00:00.000Z",
 };
 
 const folder = {
   id: FOLDER_ID,
-  name: "bb",
+  name: "hyperfide",
   parentFolderId: null,
   createdAt: "2026-07-15T00:00:00.000Z",
 };
@@ -689,7 +689,7 @@ describe("tasks app shell", () => {
     it("prunes snapshots written under an older storage version", async () => {
       resetQuerySnapshotStateForTest();
       window.localStorage.setItem(
-        "bb-tasks:query-snapshot:v0:projects",
+        "hyperfide-tasks:query-snapshot:v0:projects",
         JSON.stringify([]),
       );
       const slot = renderSlot(
@@ -699,7 +699,7 @@ describe("tasks app shell", () => {
       );
       await slot.findByText(project.name);
       expect(
-        window.localStorage.getItem("bb-tasks:query-snapshot:v0:projects"),
+        window.localStorage.getItem("hyperfide-tasks:query-snapshot:v0:projects"),
       ).toBeNull();
       expect(window.localStorage.getItem(projectsKey)).not.toBeNull();
     });
@@ -930,26 +930,26 @@ describe("tasks app shell", () => {
   });
 
   it("does not mount New project queries until the dialog opens", async () => {
-    let bbProjectCalls = 0;
+    let hyperfideProjectCalls = 0;
     const slot = renderSlot(
       navigationRegistration,
       { subPath: "all" },
       {
         rpc: seededRpc({
-          listBbProjects: () => {
-            bbProjectCalls += 1;
-            return { bbProjects: [] };
+          listHyperfideProjects: () => {
+            hyperfideProjectCalls += 1;
+            return { hyperfideProjects: [] };
           },
         }),
       },
     );
     await slot.findByRole("button", { name: "New project" });
-    expect(bbProjectCalls).toBe(0);
+    expect(hyperfideProjectCalls).toBe(0);
 
     fireEvent.click(slot.getByRole("button", { name: "New project" }));
 
     await slot.findByText("Projects group tasks under a shared key prefix.");
-    expect(bbProjectCalls).toBeGreaterThan(0);
+    expect(hyperfideProjectCalls).toBeGreaterThan(0);
   });
 
   it("routes 'manage' to the manage panel from right-panel navigation", async () => {

@@ -23,7 +23,7 @@ let cwd: string;
 let claudeDir: string;
 
 beforeEach(async () => {
-  tempRoot = await mkdtemp(path.join(tmpdir(), "bb-vendor-plugin-roots-"));
+  tempRoot = await mkdtemp(path.join(tmpdir(), "hyperfide-vendor-plugin-roots-"));
   homeDir = path.join(tempRoot, "home");
   cwd = path.join(tempRoot, "workspace");
   claudeDir = path.join(homeDir, ".claude");

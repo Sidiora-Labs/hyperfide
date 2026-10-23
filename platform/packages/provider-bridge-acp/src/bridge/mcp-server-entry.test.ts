@@ -237,7 +237,7 @@ async function runMcpInitialize(config: AdvertisedMcpServer): Promise<{
       params: {
         protocolVersion: "2024-11-05",
         capabilities: {},
-        clientInfo: { name: "bb-test", version: "0" },
+        clientInfo: { name: "hyperfide-test", version: "0" },
       },
     })}\n`,
   );
@@ -267,10 +267,10 @@ afterEach(async () => {
   bridgeStderr = "";
 });
 
-describe("bb-bridge MCP server entry point (#1918)", () => {
+describe("hyperfide-bridge MCP server entry point (#1918)", () => {
   it("advertises an MCP server command that answers MCP initialize when the bridge runs under the bootstrap", async () => {
-    const dataDir = makeTempDir("bb-acp-mcp-entry-data-");
-    const workspaceDir = makeTempDir("bb-acp-mcp-entry-ws-");
+    const dataDir = makeTempDir("hyperfide-acp-mcp-entry-data-");
+    const workspaceDir = makeTempDir("hyperfide-acp-mcp-entry-ws-");
     const bridge = spawnBridgeLikeTheAgentRuntime(dataDir);
 
     const config = await readAdvertisedMcpServer(bridge, workspaceDir);

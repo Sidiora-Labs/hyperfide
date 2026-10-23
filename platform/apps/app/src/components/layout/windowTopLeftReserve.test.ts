@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BROWSER_COLLAPSED_HEADER_RESERVE_CLASS,
   MACOS_COLLAPSED_TOP_LEFT_RESERVE_CLASS,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { resolveWindowTopLeftReserveClassName } from "./windowTopLeftReserve";
 
 const desktopHidden = {

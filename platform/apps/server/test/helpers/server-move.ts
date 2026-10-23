@@ -56,7 +56,7 @@ export function inspectResult(
     dataDir: "/home/me/.hyperfide-machines/laptop",
     platform: "linux",
     timeZone: "UTC",
-    bbAppVersion: "0.0.0-test",
+    hyperfideAppVersion: "0.0.0-test",
     serverEntryAvailable: true,
     existingServerData: null,
     dataDirHasServerData: false,
@@ -180,10 +180,10 @@ export function createTestServerMoveEnvironment(
     fullArtifact: {
       availability: async () => ({
         available: false,
-        reason: "The test server has no packaged bb-app.",
+        reason: "The test server has no packaged hyperfide-app.",
       }),
       build: async () => {
-        throw new Error("The test server has no packaged bb-app.");
+        throw new Error("The test server has no packaged hyperfide-app.");
       },
     },
     now: Date.now,

@@ -1,6 +1,6 @@
 import { ExpandableText } from "@hyperfide/shared-ui/expandable-text";
 import { useCallback, useEffect, useState } from "react";
-import type { BbDesktopBrowserApi } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopBrowserApi } from "@hyperfide/desktop-contract";
 import {
   DESKTOP_BROWSER_IMPORT_FAILURE_COPY,
   type DesktopBrowserImportOutcome,
@@ -15,7 +15,7 @@ import {
   SettingsRowList,
   SettingsSection,
 } from "@/components/ui/settings-section";
-import { getDesktopBrowserApi } from "@/lib/bb-desktop";
+import { getDesktopBrowserApi } from "@/lib/hyperfide-desktop";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { BrowserImportDialog } from "./BrowserImportDialog";
 import { BrowserSourceIcon } from "./BrowserSourceIcon";
@@ -128,7 +128,7 @@ function BrowserRow({
 }
 
 export interface BrowserSettingsSectionContentProps {
-  desktopBrowser: BbDesktopBrowserApi | null;
+  desktopBrowser: HyperfideDesktopBrowserApi | null;
 }
 
 export function BrowserSettingsSectionContent({
@@ -238,7 +238,7 @@ export function BrowserSettingsSectionContent({
     <>
       <SettingsSection
         title="Browsers"
-        description="Bring signed-in sessions from a browser on this machine into the BB browser, so previews and agent tabs open already logged in."
+        description="Bring signed-in sessions from a browser on this machine into the HYPERFIDE browser, so previews and agent tabs open already logged in."
         action={
           supported ? (
             <Button
@@ -254,7 +254,7 @@ export function BrowserSettingsSectionContent({
       >
         {!supported ? (
           <p className="text-sm text-subtle-foreground">
-            Only available in the BB desktop app.
+            Only available in the HYPERFIDE desktop app.
           </p>
         ) : state.status === "loading" ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
@@ -287,8 +287,8 @@ export function BrowserSettingsSectionContent({
       </SettingsSection>
       {supported ? (
         <p className="mt-4 text-xs text-subtle-foreground/75">
-          Also from the CLI: <code>bb browser import-sources</code> and{" "}
-          <code>bb browser import-cookies</code>.
+          Also from the CLI: <code>hyperfide browser import-sources</code> and{" "}
+          <code>hyperfide browser import-cookies</code>.
         </p>
       ) : null}
       {dialogSource && desktopBrowser ? (

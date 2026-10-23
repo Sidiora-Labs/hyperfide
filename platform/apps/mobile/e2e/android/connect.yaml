@@ -1,4 +1,4 @@
-appId: app.getbb.mobile
+appId: app.hyperfide.mobile
 ---
 - evalScript: ${output.androidMessage = "Android authenticated " + Date.now()}
 - runScript:
@@ -12,9 +12,9 @@ appId: app.getbb.mobile
       id: "add-server-screen"
     timeout: 30000
 - runFlow:
-    file: ../subflows/open-bb-link.yaml
+    file: ../subflows/open-hyperfide-link.yaml
     env:
-      LINK: "bb://connect?code=EXPIRED-CODE&serverUrl=https%3A%2F%2Fstub.localhost%3A42998&apex=https%3A%2F%2Flocalhost%3A42998"
+      LINK: "hyperfide://connect?code=EXPIRED-CODE&serverUrl=https%3A%2F%2Fstub.localhost%3A42998&apex=https%3A%2F%2Flocalhost%3A42998"
 - scrollUntilVisible:
     element:
       id: "connect-submit"
@@ -40,7 +40,7 @@ appId: app.getbb.mobile
 - tapOn:
     id: "connect-submit"
 - extendedWaitUntil:
-    visible: ".*(Paired with bb connect|Not now).*"
+    visible: ".*(Paired with hyperfide-platform connect|Not now).*"
     timeout: 30000
 - runFlow:
     when:

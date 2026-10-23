@@ -1,6 +1,6 @@
 ---
 name: inline-vis
-description: "Show an HTML chart, table, diagram, mockup, demo, or report inline in BB chat: write a small page directly in the reply as an inline-vis fenced block, or show a workspace or thread-storage HTML or Markdown file with the inline-vis directive."
+description: "Show an HTML chart, table, diagram, mockup, demo, or report inline in HYPERFIDE chat: write a small page directly in the reply as an inline-vis fenced block, or show a workspace or thread-storage HTML or Markdown file with the inline-vis directive."
 ---
 
 # Inline previews
@@ -114,7 +114,7 @@ lines up with your reply text.
 
 ## Theme
 
-bb injects its active theme as CSS custom properties on `:root`. They follow
+Hyperfide injects its active theme as CSS custom properties on `:root`. They follow
 the user's theme and light/dark mode live, so style with them instead of
 fixed colours:
 
@@ -145,10 +145,10 @@ scrollbar. Your own CSS overrides it.
 - Relative assets next to a file shown with the directive load from the same
   source. A fenced block has no sibling files.
 - Scripts run in a sandboxed frame with an opaque origin and cannot access the
-  bb page, cookies, or storage. Forms work; pop-ups and downloads do not.
+  Hyperfide page, cookies, or storage. Forms work; pop-ups and downloads do not.
 - A link to another site opens in a new browser tab when the reader clicks
   it. A link to an anchor (`#section`) moves within the page.
-- Markdown uses BB's renderer with sanitized HTML support.
+- Markdown uses HYPERFIDE's renderer with sanitized HTML support.
 
 If the plugin is disabled, users see the original directive source or an
 ordinary code block. If a directive's path is invalid, they see an inline

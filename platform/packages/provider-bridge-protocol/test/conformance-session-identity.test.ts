@@ -254,7 +254,7 @@ async function runStub(
     transport: bridge.transport,
     providerId: "stub",
     session: {
-      cwd: "/tmp/bb-conformance-identity",
+      cwd: "/tmp/hyperfide-conformance-identity",
       promptInput: [{ type: "text", text: "hello", mentions: [] }],
     },
     timeoutMs: 500,
@@ -278,7 +278,7 @@ describe("conformance session/start-identity", () => {
       transport: startWithoutIdentityTransport(),
       providerId: "stub",
       session: {
-        cwd: "/tmp/bb-conformance-identity",
+        cwd: "/tmp/hyperfide-conformance-identity",
         promptInput: [{ type: "text", text: "hello", mentions: [] }],
         interruptiblePromptInput: [
           { type: "text", text: "hold", mentions: [] },

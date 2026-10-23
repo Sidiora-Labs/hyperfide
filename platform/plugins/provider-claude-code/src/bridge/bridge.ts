@@ -1307,7 +1307,7 @@ function buildSessionTrackingHooks(
             hookEventName: "PreToolUse",
             permissionDecision: "deny",
             permissionDecisionReason:
-              "bb has disabled Claude Code native subagents; use bb delegation instead.",
+              "hyperfide has disabled Claude Code native subagents; use hyperfide delegation instead.",
           },
         };
       }
@@ -1321,7 +1321,7 @@ function buildSessionTrackingHooks(
             hookEventName: "PreToolUse",
             permissionDecision: "deny",
             permissionDecisionReason:
-              "bb has disabled the Claude Code Workflow tool.",
+              "hyperfide has disabled the Claude Code Workflow tool.",
           },
         };
       }

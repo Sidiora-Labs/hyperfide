@@ -2,15 +2,15 @@ import { z } from "zod";
 import { HYPERFIDE_DESKTOP_MAX_FIND_TEXT_LENGTH } from "@hyperfide/desktop-contract";
 
 export const HYPERFIDE_DESKTOP_FIND_BAR_QUERY_CHANNEL =
-  "bb-desktop:find-bar:query";
+  "hyperfide-desktop:find-bar:query";
 export const HYPERFIDE_DESKTOP_FIND_BAR_STEP_CHANNEL =
-  "bb-desktop:find-bar:step";
+  "hyperfide-desktop:find-bar:step";
 export const HYPERFIDE_DESKTOP_FIND_BAR_CLOSE_CHANNEL =
-  "bb-desktop:find-bar:close";
+  "hyperfide-desktop:find-bar:close";
 export const HYPERFIDE_DESKTOP_FIND_BAR_RESULT_CHANNEL =
-  "bb-desktop:find-bar:result";
+  "hyperfide-desktop:find-bar:result";
 export const HYPERFIDE_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL =
-  "bb-desktop:find-bar:activate";
+  "hyperfide-desktop:find-bar:activate";
 
 export const findBarQueryRequestSchema = z
   .object({

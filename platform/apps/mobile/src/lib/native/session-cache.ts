@@ -5,7 +5,7 @@ import {
 import { expoSecureStorage } from "./expo-secure-storage";
 
 function key(profileId: string): string {
-  return `bb.connectSession.${profileId}`;
+  return `hyperfide.connectSession.${profileId}`;
 }
 
 function parse(raw: string): unknown {

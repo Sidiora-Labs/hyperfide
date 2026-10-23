@@ -11,7 +11,7 @@ import { HostEnvironmentSync } from "./host-environment-sync.js";
 
 it("synchronizes configured variables to every connected host", async () => {
   const db = createMigratedConnection();
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-machine-env-sync-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-machine-env-sync-"));
   const hub = new NotificationHub();
   try {
     setAppSettings(db, {

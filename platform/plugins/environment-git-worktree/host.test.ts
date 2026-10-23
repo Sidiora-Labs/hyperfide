@@ -34,10 +34,10 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
     cwd,
     env: {
       ...process.env,
-      GIT_AUTHOR_NAME: "bb",
-      GIT_AUTHOR_EMAIL: "bb@example.com",
-      GIT_COMMITTER_NAME: "bb",
-      GIT_COMMITTER_EMAIL: "bb@example.com",
+      GIT_AUTHOR_NAME: "hyperfide",
+      GIT_AUTHOR_EMAIL: "hyperfide@example.com",
+      GIT_COMMITTER_NAME: "hyperfide",
+      GIT_COMMITTER_EMAIL: "hyperfide@example.com",
     },
   });
   return result.stdout;
@@ -48,7 +48,7 @@ async function createSourceRepository(repositoryName = "repo"): Promise<{
   sourcePath: string;
   dataDir: string;
 }> {
-  const root = await mkdtemp(join(tmpdir(), "bb-worktree-plugin-"));
+  const root = await mkdtemp(join(tmpdir(), "hyperfide-worktree-plugin-"));
   temporaryRoots.push(root);
   const sourcePath = join(root, repositoryName);
   const dataDir = join(root, "plugin-data");
@@ -66,7 +66,7 @@ async function createDetachedSingleBranchRepository(): Promise<{
   sourcePath: string;
   dataDir: string;
 }> {
-  const root = await mkdtemp(join(tmpdir(), "bb-worktree-plugin-detached-"));
+  const root = await mkdtemp(join(tmpdir(), "hyperfide-worktree-plugin-detached-"));
   temporaryRoots.push(root);
   const originPath = join(root, "origin");
   const sourcePath = join(root, "repo");
@@ -138,7 +138,7 @@ describe("worktree host entry", () => {
       await git(sourcePath, "fetch", "origin");
       await git(sourcePath, "config", "branch.autoSetupMerge", "always");
       await git(sourcePath, "config", "core.autocrlf", "true");
-      const branchName = "bb/config-lock";
+      const branchName = "hyperfide/config-lock";
       if (existingBranch) {
         await git(
           sourcePath,
@@ -311,7 +311,7 @@ describe("worktree host entry", () => {
           operationId: "create-special",
           sourcePath,
           pathKey,
-          branchName: "bb/special-name",
+          branchName: "hyperfide/special-name",
         }),
       );
       expect(result).toMatchObject({
@@ -349,7 +349,7 @@ describe("worktree host entry", () => {
         operationId: "long-name",
         sourcePath,
         pathKey: "long-name",
-        branchName: "bb/long-name",
+        branchName: "hyperfide/long-name",
       }),
     );
     expect(result.status).toBe("created");
@@ -371,7 +371,7 @@ describe("worktree host entry", () => {
           operationId: "concurrent-first",
           sourcePath,
           pathKey: "concurrent-1",
-          branchName: "bb/concurrent-1",
+          branchName: "hyperfide/concurrent-1",
         }),
       ),
       harness.experimental_call(
@@ -380,7 +380,7 @@ describe("worktree host entry", () => {
           operationId: "concurrent-second",
           sourcePath,
           pathKey: "concurrent-2",
-          branchName: "bb/concurrent-2",
+          branchName: "hyperfide/concurrent-2",
         }),
       ),
     ]);
@@ -415,7 +415,7 @@ describe("worktree host entry", () => {
             operationId: "cancelled-create",
             sourcePath,
             pathKey: "cancelled",
-            branchName: "bb/cancelled",
+            branchName: "hyperfide/cancelled",
           }),
           { signal: controller.signal },
         )
@@ -446,7 +446,7 @@ describe("worktree host entry", () => {
       operationId: "named",
       sourcePath,
       pathKey: "thr_1",
-      branchName: "bb/named-thr_1",
+      branchName: "hyperfide/named-thr_1",
       baseBranch: { kind: "named", name: "release" },
       branchMode: "reset",
     });
@@ -459,7 +459,7 @@ describe("worktree host entry", () => {
     expect(existsSync(join(result.path, "release.txt"))).toBe(true);
     expect(
       (await git(result.path, "rev-parse", "--abbrev-ref", "HEAD")).trim(),
-    ).toBe("bb/named-thr_1");
+    ).toBe("hyperfide/named-thr_1");
     await harness.experimental_dispose();
   });
 
@@ -471,7 +471,7 @@ describe("worktree host entry", () => {
       operationId: "detached",
       sourcePath,
       pathKey: "thr_detached",
-      branchName: "bb/detached-thr",
+      branchName: "hyperfide/detached-thr",
       baseBranch: { kind: "named", name: "v1.0" },
       branchMode: "reset",
     });
@@ -492,7 +492,7 @@ describe("worktree host entry", () => {
       operationId: "first",
       sourcePath,
       pathKey: "same-path-key",
-      branchName: "bb/restart",
+      branchName: "hyperfide/restart",
     });
     const firstHarness = createHarness(dataDir);
     const first = await firstHarness.experimental_call("create", input);
@@ -514,13 +514,13 @@ describe("worktree host entry", () => {
     const { root, sourcePath, dataDir } = await createSourceRepository();
     const setupMarker = join(root, "setup.marker");
     await writeFile(
-      join(sourcePath, ".bb-env-setup.sh"),
+      join(sourcePath, ".hyperfide-env-setup.sh"),
       `#!/usr/bin/env bash\necho resumed > ${setupMarker}\n`,
     );
     await git(sourcePath, "add", ".");
     await git(sourcePath, "commit", "-m", "add setup script");
     const pathKey = "interrupted";
-    const branchName = "bb/interrupted";
+    const branchName = "hyperfide/interrupted";
     const targetPath = join(dataDir, "worktrees", pathKey, "repo");
     await mkdir(join(dataDir, "worktrees", pathKey), { recursive: true });
     await git(
@@ -546,7 +546,7 @@ describe("worktree host entry", () => {
 
     expect(resumed).toMatchObject({ status: "created", path: targetPath });
     expect(existsSync(setupMarker)).toBe(false);
-    expect(progressText(harness)).not.toContain("Running .bb-env-setup.sh");
+    expect(progressText(harness)).not.toContain("Running .hyperfide-env-setup.sh");
     await harness.experimental_dispose();
   });
 
@@ -557,7 +557,7 @@ describe("worktree host entry", () => {
       operationId: "first",
       sourcePath,
       pathKey: "replace",
-      branchName: "bb/expected",
+      branchName: "hyperfide/expected",
     });
     const first = await harness.experimental_call("create", input);
     if (first.status !== "created") throw new Error(first.message);
@@ -569,14 +569,14 @@ describe("worktree host entry", () => {
     expect(replaced.status).toBe("created");
     expect(
       (await git(first.path, "rev-parse", "--abbrev-ref", "HEAD")).trim(),
-    ).toBe("bb/expected");
+    ).toBe("hyperfide/expected");
     await harness.experimental_dispose();
   });
 
   it("leaves setup execution to core", async () => {
     const { sourcePath, dataDir } = await createSourceRepository();
     await writeFile(
-      join(sourcePath, ".bb-env-setup.sh"),
+      join(sourcePath, ".hyperfide-env-setup.sh"),
       "#!/usr/bin/env bash\necho setup-line-one\necho setup-line-two\n",
     );
     await git(sourcePath, "add", ".");
@@ -589,11 +589,11 @@ describe("worktree host entry", () => {
           operationId: "setup",
           sourcePath,
           pathKey: "thr_3",
-          branchName: "bb/setup-thr_3",
+          branchName: "hyperfide/setup-thr_3",
         }),
       ),
     ).toMatchObject({ status: "created" });
-    expect(progressText(harness)).not.toContain("Running .bb-env-setup.sh");
+    expect(progressText(harness)).not.toContain("Running .hyperfide-env-setup.sh");
     expect(progressText(harness)).not.toContain("setup-line-one");
     expect(progressText(harness)).not.toContain("setup-line-two");
     expect(
@@ -613,7 +613,7 @@ describe("worktree host entry", () => {
         operationId: "first",
         sourcePath,
         pathKey: "thr_7",
-        branchName: "bb/dirty-thr_7",
+        branchName: "hyperfide/dirty-thr_7",
       }),
     );
     if (first.status !== "created") throw new Error(first.message);
@@ -624,7 +624,7 @@ describe("worktree host entry", () => {
         operationId: "retry",
         sourcePath,
         pathKey: "thr_7-2",
-        branchName: "bb/dirty-thr_7",
+        branchName: "hyperfide/dirty-thr_7",
       }),
     );
     expect(retry).toMatchObject({
@@ -644,7 +644,7 @@ describe("worktree host entry", () => {
     );
     const { root, sourcePath, dataDir } = await createSourceRepository();
     await writeFile(
-      join(sourcePath, ".bb-env-teardown.sh"),
+      join(sourcePath, ".hyperfide-env-teardown.sh"),
       `#!/usr/bin/env bash\necho teardown-ran > ${join(root, "teardown.marker")}\necho tearing-down\n`,
     );
     await git(sourcePath, "add", ".");
@@ -656,7 +656,7 @@ describe("worktree host entry", () => {
         operationId: "create",
         sourcePath,
         pathKey: "thr_6",
-        branchName: "bb/teardown-thr_6",
+        branchName: "hyperfide/teardown-thr_6",
       }),
     );
     if (created.status !== "created") throw new Error(created.message);

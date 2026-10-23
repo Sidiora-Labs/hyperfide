@@ -48,7 +48,7 @@ describe("composerDecorationSources", () => {
     expect(findUltracodeRanges("ultracodes myultracode supercode")).toEqual([]);
   });
 
-  it("paints bb's highlight first, then plugin rules, then text effects", () => {
+  it("paints hyperfide's highlight first, then plugin rules, then text effects", () => {
     const sources = composerDecorationSources(
       [
         {

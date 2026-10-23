@@ -1,4 +1,4 @@
 export const MOBILE_APP_SURFACE_HEADER = {
-  name: "x-bb-app-surface",
+  name: "x-hyperfide-app-surface",
   value: "mobile",
 } as const;

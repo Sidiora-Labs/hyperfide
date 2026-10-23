@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { BbDesktopVersionFeed } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopVersionFeed } from "@hyperfide/desktop-contract";
 import {
   createDesktopUpdateService,
   DESKTOP_UPDATE_CHECK_TIMEOUT_MS,
@@ -9,21 +9,21 @@ import { DESKTOP_UPDATE_ACTIVE_MIN_INTERVAL_MS } from "../src/desktop-update-sch
 
 const checkedAt = "2026-05-21T00:00:00.000Z";
 
-function createFeed(version: string): BbDesktopVersionFeed {
+function createFeed(version: string): HyperfideDesktopVersionFeed {
   return {
     channel: "latest",
     files: [
       {
         sha512: "BASE64_SHA512_FROM_ELECTRON_BUILDER",
         size: 123456789,
-        url: `bb-${version}-universal.zip`,
+        url: `hyperfide-${version}-universal.zip`,
       },
     ],
     minimumSystemVersion: null,
-    path: `bb-${version}-universal.zip`,
+    path: `hyperfide-${version}-universal.zip`,
     platform: "macos",
     releaseDate: checkedAt,
-    releaseName: `bb desktop ${version}`,
+    releaseName: `hyperfide desktop ${version}`,
     releaseNotes: null,
     schemaVersion: 1,
     sha512: "BASE64_SHA512_FROM_ELECTRON_BUILDER",
@@ -70,14 +70,14 @@ describe("desktop update feed parsing", () => {
         {
           sha512: "BASE64_SHA512_FROM_ELECTRON_BUILDER",
           size: 123456789,
-          url: "bb-0.0.2-universal.zip",
+          url: "hyperfide-0.0.2-universal.zip",
         },
       ],
       minimumSystemVersion: null,
-      path: "bb-0.0.2-universal.zip",
+      path: "hyperfide-0.0.2-universal.zip",
       platform: "macos",
       releaseDate: checkedAt,
-      releaseName: "bb desktop 0.0.2",
+      releaseName: "hyperfide desktop 0.0.2",
       releaseNotes: null,
       schemaVersion: 1,
       sha512: "BASE64_SHA512_FROM_ELECTRON_BUILDER",

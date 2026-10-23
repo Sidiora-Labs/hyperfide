@@ -1,15 +1,15 @@
-declare const __BB_PLUGIN_ID__: string | undefined;
+declare const __HYPERFIDE_PLUGIN_ID__: string | undefined;
 
 export function usePortalScopeProps(): {
-  "data-bb-portaled-overlay": "";
+  "data-hyperfide-portaled-overlay": "";
   "data-hyperfide-plugin-root"?: "";
-  "data-bb-plugin"?: string;
+  "data-hyperfide-plugin"?: string;
 } {
   const pluginId =
-    typeof __BB_PLUGIN_ID__ === "string" ? __BB_PLUGIN_ID__ : undefined;
+    typeof __HYPERFIDE_PLUGIN_ID__ === "string" ? __HYPERFIDE_PLUGIN_ID__ : undefined;
   return {
-    "data-bb-portaled-overlay": "",
+    "data-hyperfide-portaled-overlay": "",
     "data-hyperfide-plugin-root": "",
-    ...(pluginId !== undefined ? { "data-bb-plugin": pluginId } : {}),
+    ...(pluginId !== undefined ? { "data-hyperfide-plugin": pluginId } : {}),
   };
 }

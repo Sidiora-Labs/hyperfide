@@ -1,11 +1,11 @@
-// bb demo server — the mock bb server an App Store reviewer connects to.
+// hyperfide demo server — the mock hyperfide-platform server an App Store reviewer connects to.
 //
 // Deploy: .github/workflows/deploy-demo-server.yml on every push to main that
 // touches apps/demo-server, or by hand:
 //   pnpm --filter @hyperfide/demo-server exec wrangler deploy
 //
 // No route is declared, so the worker serves from
-// https://bb-demo-server.<account-subdomain>.workers.dev. That is deliberate:
+// https://hyperfide-demo-server.<account-subdomain>.workers.dev. That is deliberate:
 // serverUrl the fixtures advertise) resolves to the tunnel gate and is refused
 // as an unknown handle. Moving there needs a custom-domain route on this
 // worker, which takes precedence over the wildcard, plus a DNS record; the CI
@@ -18,10 +18,10 @@
 //
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "bb-demo-server",
+  "name": "hyperfide-demo-server",
   "main": "./src/worker.ts",
   // Pinned so a CI token that can see more than one account never stops to
-  // ask which one; same account as bb-connect and bb-web.
+  // ask which one; same account as hyperfide-connect and hyperfide-web.
   "account_id": "7bb84c630057dafa53e2aacbe6bd094f",
   "compatibility_date": "2026-06-11",
   "compatibility_flags": ["nodejs_compat"],

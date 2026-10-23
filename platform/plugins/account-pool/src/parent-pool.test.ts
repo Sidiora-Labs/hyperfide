@@ -59,13 +59,13 @@ describe("parentRequestHeaders", () => {
       new Headers({
         authorization: "Bearer child-token",
         "x-api-key": "child-key",
-        "x-bb-account-pool-token": "child-hub-token",
+        "x-hyperfide-account-pool-token": "child-hub-token",
         "content-type": "application/json",
         "anthropic-version": "2023-06-01",
       }),
       TOKEN,
     );
-    expect(headers.get("x-bb-account-pool-token")).toBe(TOKEN);
+    expect(headers.get("x-hyperfide-account-pool-token")).toBe(TOKEN);
     expect(headers.get("authorization")).toBeNull();
     expect(headers.get("x-api-key")).toBeNull();
     expect(headers.get("content-type")).toBe("application/json");
@@ -99,7 +99,7 @@ describe("ParentAvailability", () => {
     );
     const init = vi.mocked(fetchImpl).mock.calls[0]?.[1];
     expect(
-      (init?.headers as Record<string, string>)["x-bb-account-pool-token"],
+      (init?.headers as Record<string, string>)["x-hyperfide-account-pool-token"],
     ).toBe(TOKEN);
   });
 

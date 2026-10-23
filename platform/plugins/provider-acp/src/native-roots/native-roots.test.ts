@@ -19,7 +19,7 @@ let homeDir: string;
 let cwd: string;
 
 beforeEach(async () => {
-  tempRoot = await mkdtemp(path.join(tmpdir(), "bb-acp-native-roots-"));
+  tempRoot = await mkdtemp(path.join(tmpdir(), "hyperfide-acp-native-roots-"));
   homeDir = path.join(tempRoot, "home");
   cwd = path.join(tempRoot, "workspace");
   await mkdir(homeDir, { recursive: true });
@@ -183,6 +183,7 @@ describe("omp", () => {
   });
 
   it("reads PI_CONFIG_FILES relative to the workspace and expands $VARS", async () => {
+    await mkdir(path.join(cwd, ".git"), { recursive: true });
     const extraConfig = path.join(tempRoot, "extra", "config.yml");
     await writeFileEnsuringDir(
       extraConfig,

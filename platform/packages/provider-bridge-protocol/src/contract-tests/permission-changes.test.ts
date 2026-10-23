@@ -184,7 +184,7 @@ describe("cross-provider permission changes: Codex", () => {
   let workspaceDir: string;
   let requestLogPath: string;
   beforeEach(async () => {
-    workspaceDir = mkdtempSync(join(tmpdir(), "bb-permission-codex-"));
+    workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-permission-codex-"));
     requestLogPath = join(workspaceDir, "requests.jsonl");
     const scriptPath = join(workspaceDir, "script.json");
     writeFileSync(scriptPath, JSON.stringify({ requestLogPath }));

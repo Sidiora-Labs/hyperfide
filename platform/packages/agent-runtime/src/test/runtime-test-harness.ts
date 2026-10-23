@@ -94,7 +94,7 @@ export function createScriptedEchoLaunch(
   const pluginId = options.pluginId ?? "provider-scripted-echo";
   return {
     pluginId,
-    dataDir: mkdtempSync(join(tmpdir(), `bb-${pluginId}-data-`)),
+    dataDir: mkdtempSync(join(tmpdir(), `hyperfide-${pluginId}-data-`)),
     source: {
       kind: "artifact",
       digest: options.digest ?? "scripted-echo",
@@ -208,7 +208,7 @@ export interface ScriptedEchoProcessLog {
 
 export function createScriptedEchoProcessLog(): ScriptedEchoProcessLog {
   const path = join(
-    mkdtempSync(join(tmpdir(), "bb-scripted-echo-process-log-")),
+    mkdtempSync(join(tmpdir(), "hyperfide-scripted-echo-process-log-")),
     "process.log",
   );
   return {
@@ -240,7 +240,7 @@ export interface ScriptedEchoRequestRecord {
 
 export function createScriptedEchoRequestRecord(): ScriptedEchoRequestRecord {
   const path = join(
-    mkdtempSync(join(tmpdir(), "bb-scripted-echo-record-")),
+    mkdtempSync(join(tmpdir(), "hyperfide-scripted-echo-record-")),
     "requests.jsonl",
   );
   const read = (): RecordedBridgeRequest[] => {

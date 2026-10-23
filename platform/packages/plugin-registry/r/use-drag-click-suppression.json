@@ -3,7 +3,7 @@
   "name": "use-drag-click-suppression",
   "type": "registry:ui",
   "title": "use-drag-click-suppression",
-  "description": "BB ui \"use-drag-click-suppression\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"use-drag-click-suppression\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/use-drag-click-suppression.ts",

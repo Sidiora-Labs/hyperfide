@@ -321,7 +321,7 @@ const ONLINE_RPC_RESPONSE_RESULT_FIXTURES: OnlineRpcResponseResultFixtures = {
         name: "review",
         description: "Review the current diff",
         filePath: "/home/user/.hyperfide/skills/review/SKILL.md",
-        rootKind: "bb-data-dir",
+        rootKind: "hyperfide-data-dir",
         linked: false,
       },
     ],
@@ -351,15 +351,15 @@ const ONLINE_RPC_RESPONSE_RESULT_FIXTURES: OnlineRpcResponseResultFixtures = {
   "host.global_skills_status": {
     entries: [
       {
-        name: "bb-cli",
-        path: "/home/user/.agents/skills/bb-cli",
+        name: "hyperfide-cli",
+        path: "/home/user/.agents/skills/hyperfide-cli",
         treeHash: "c".repeat(64),
       },
     ],
   },
   "host.install_global_skills": {
     installations: [
-      { name: "bb-cli", path: "/home/user/.agents/skills/bb-cli" },
+      { name: "hyperfide-cli", path: "/home/user/.agents/skills/hyperfide-cli" },
     ],
   },
   "host.inspect_git_source": {
@@ -478,10 +478,10 @@ const ONLINE_RPC_RESPONSE_RESULT_FIXTURES: OnlineRpcResponseResultFixtures = {
   "host.discover_repos": {
     repos: [
       {
-        path: "/home/user/projects/bb",
-        name: "bb",
+        path: "/home/user/projects/hyperfide",
+        name: "hyperfide",
         lastActivityAt: "2026-08-05T00:00:00.000Z",
-        originUrl: "https://github.com/example/bb",
+        originUrl: "https://github.com/example/hyperfide",
       },
     ],
     truncated: false,
@@ -532,10 +532,10 @@ const ONLINE_RPC_RESPONSE_RESULT_FIXTURES: OnlineRpcResponseResultFixtures = {
   "workspace.diffFiles": WORKSPACE_UNAVAILABLE_RESULT,
   "workspace.diffPatch": WORKSPACE_UNAVAILABLE_RESULT,
   "server_move.inspect": {
-    dataDir: "/home/me/.hyperfide-machines/bb.example.com",
+    dataDir: "/home/me/.hyperfide-machines/hyperfide.example.com",
     platform: "linux",
     timeZone: "America/Los_Angeles",
-    bbAppVersion: "0.0.5",
+    hyperfideAppVersion: "0.0.5",
     serverEntryAvailable: false,
     existingServerData: null,
     dataDirHasServerData: false,
@@ -578,7 +578,7 @@ const SETTLED_RESPONSE_RESULT_FIXTURES: SettledResponseResultFixtures = {
     path: "/tmp/env",
     isGitRepo: true,
     isWorktree: false,
-    branchName: "bb/env-123",
+    branchName: "hyperfide/env-123",
     defaultBranch: "main",
   },
   "environment.attach.cancel": {
@@ -676,12 +676,12 @@ const ADDITIONAL_ONLINE_RPC_RESPONSE_ROUND_TRIP_CASES: OnlineRpcResponseRoundTri
             state: "clean",
           },
           branch: {
-            currentBranch: "bb/env-123",
+            currentBranch: "hyperfide/env-123",
             defaultBranch: "main",
           },
           checkout: {
             kind: "branch",
-            branchName: "bb/env-123",
+            branchName: "hyperfide/env-123",
             headSha: null,
           },
           mergeBase: null,
@@ -785,7 +785,7 @@ const INTENTIONAL_OPTIONAL_HOST_DAEMON_FIELDS: Record<string, string> = {
   "hostDaemonCommandSchema.resolution.description.title":
     "a described submission overrides the row title only when the plugin returned one; absence means the presentation's completed label stands.",
   "hostDaemonCommandSchema.dynamicTools.presentation":
-    "a dynamic tool declares a row presentation only when its plugin wrote one; absence means bb renders the call with the standard tool name and the plugin's branding glyph.",
+    "a dynamic tool declares a row presentation only when its plugin wrote one; absence means hyperfide renders the call with the standard tool name and the plugin's branding glyph.",
   "hostDaemonCommandSchema.dynamicTools.presentation.badge":
     "a dynamic tool's presentation carries a badge only when there is something to flag about how the call will run; absence means the ordinary case, not a blank badge.",
   "hostDaemonCommandSchema.dynamicTools.presentation.detail":
@@ -821,7 +821,7 @@ const INTENTIONAL_OPTIONAL_HOST_DAEMON_FIELDS: Record<string, string> = {
   "hostDaemonCommandSchema.inputGroups.visibility":
     "a prompt input declares visibility only to hide itself from the person: the single value agent-only marks an input the transcript does not show, so absence is the ordinary visible input.",
   "hostDaemonCommandSchema.resumeContext.dynamicTools.presentation":
-    "a dynamic tool declares a row presentation only when its plugin wrote one; absence means bb renders the call with the standard tool name and the plugin's branding glyph.",
+    "a dynamic tool declares a row presentation only when its plugin wrote one; absence means hyperfide renders the call with the standard tool name and the plugin's branding glyph.",
   "hostDaemonCommandSchema.resumeContext.dynamicTools.presentation.badge":
     "a dynamic tool's presentation carries a badge only when there is something to flag about how the call will run; absence means the ordinary case, not a blank badge.",
   "hostDaemonCommandSchema.resumeContext.dynamicTools.presentation.detail":
@@ -1073,7 +1073,7 @@ describe("host-daemon local schemas", () => {
       contract.openInTargetRequestSchema.parse({
         context: {
           kind: "remote-ssh",
-          serverOrigin: "https://bb.example.test",
+          serverOrigin: "https://hyperfide.example.test",
           hostId: "host_remote",
         },
         lineNumber: 12,
@@ -1083,7 +1083,7 @@ describe("host-daemon local schemas", () => {
     ).toEqual({
       context: {
         kind: "remote-ssh",
-        serverOrigin: "https://bb.example.test",
+        serverOrigin: "https://hyperfide.example.test",
         hostId: "host_remote",
       },
       columnNumber: null,
@@ -1439,7 +1439,7 @@ describe("host-daemon command schemas", () => {
     expect(
       hostDaemonEnrollResponseSchema.parse({
         hostId: "host_123",
-        hostKey: "bbdh_example",
+        hostKey: "hyperfide_dh_example",
       }),
     ).toMatchObject({
       hostId: "host_123",
@@ -1472,7 +1472,7 @@ describe("host-daemon command schemas", () => {
         workspaceProvisionType: "managed-worktree",
         sourcePath: "/tmp/project",
         targetPath: "/tmp/project/.hyperfide/env",
-        branchName: "bb/env-123",
+        branchName: "hyperfide/env-123",
         baseBranch: null,
         setupTimeoutMs: 900000,
       }),
@@ -1485,7 +1485,7 @@ describe("host-daemon command schemas", () => {
         environmentId: "env_personal",
         initiator: null,
         workspaceProvisionType: "personal",
-        targetPath: "/tmp/bb/personal-workspaces/env_personal",
+        targetPath: "/tmp/hyperfide/personal-workspaces/env_personal",
       }),
     ).toThrow();
 
@@ -1603,7 +1603,7 @@ describe("host-daemon command schemas", () => {
     expect(
       hostDaemonOnlineRpcCommandSchema.parse({
         type: "host.list_skills",
-        providerId: "bb-shared",
+        providerId: "hyperfide-shared",
         cwd: "/tmp/workspace",
         nativeRoots: {
           skills: { ...emptyRoots, user: [root(".agents/skills")] },
@@ -1693,8 +1693,8 @@ describe("host-daemon command schemas", () => {
     expect(
       hostDaemonOnlineRpcCommandSchema.parse({
         type: "host.read_file",
-        path: "/tmp/bb-data/thread-storage/thread-123/notes.md",
-        rootPath: "/tmp/bb-data/thread-storage/thread-123",
+        path: "/tmp/hyperfide-data/thread-storage/thread-123/notes.md",
+        rootPath: "/tmp/hyperfide-data/thread-storage/thread-123",
         ifNoneMatch: {
           kind: "sha256",
           values: ["a".repeat(64)],
@@ -1702,8 +1702,8 @@ describe("host-daemon command schemas", () => {
       }),
     ).toMatchObject({
       type: "host.read_file",
-      path: "/tmp/bb-data/thread-storage/thread-123/notes.md",
-      rootPath: "/tmp/bb-data/thread-storage/thread-123",
+      path: "/tmp/hyperfide-data/thread-storage/thread-123/notes.md",
+      rootPath: "/tmp/hyperfide-data/thread-storage/thread-123",
       ifNoneMatch: {
         kind: "sha256",
         values: ["a".repeat(64)],
@@ -1713,24 +1713,24 @@ describe("host-daemon command schemas", () => {
     expect(
       hostDaemonOnlineRpcCommandSchema.parse({
         type: "host.read_file",
-        path: "/tmp/bb-data/thread-storage/thread-123/notes.md",
+        path: "/tmp/hyperfide-data/thread-storage/thread-123/notes.md",
       }),
     ).toMatchObject({
       type: "host.read_file",
-      path: "/tmp/bb-data/thread-storage/thread-123/notes.md",
+      path: "/tmp/hyperfide-data/thread-storage/thread-123/notes.md",
     });
 
     expect(
       hostDaemonOnlineRpcCommandSchema.parse({
         type: "host.read_file",
-        path: "/tmp/bb-data/thread-storage/thread-123/notes.md",
-        rootPath: "/tmp/bb-data/thread-storage/thread-123",
+        path: "/tmp/hyperfide-data/thread-storage/thread-123/notes.md",
+        rootPath: "/tmp/hyperfide-data/thread-storage/thread-123",
         ref: "HEAD",
       }),
     ).toMatchObject({
       type: "host.read_file",
-      path: "/tmp/bb-data/thread-storage/thread-123/notes.md",
-      rootPath: "/tmp/bb-data/thread-storage/thread-123",
+      path: "/tmp/hyperfide-data/thread-storage/thread-123/notes.md",
+      rootPath: "/tmp/hyperfide-data/thread-storage/thread-123",
       ref: "HEAD",
     });
 
@@ -1738,14 +1738,14 @@ describe("host-daemon command schemas", () => {
       hostDaemonOnlineRpcCommandSchema.parse({
         type: "host.read_file_relative",
         followRootSymlink: false,
-        rootPath: "/tmp/bb-data/apps/demo/assets",
+        rootPath: "/tmp/hyperfide-data/apps/demo/assets",
         path: "logo.png",
         dotfiles: "deny",
       }),
     ).toMatchObject({
       type: "host.read_file_relative",
       followRootSymlink: false,
-      rootPath: "/tmp/bb-data/apps/demo/assets",
+      rootPath: "/tmp/hyperfide-data/apps/demo/assets",
       path: "logo.png",
       dotfiles: "deny",
     });
@@ -1892,7 +1892,7 @@ describe("host-daemon command schemas", () => {
         environmentId: "env_123",
         initiator: null,
         path: "/tmp/project",
-        checkout: { kind: "new", name: "bb/env-123" },
+        checkout: { kind: "new", name: "hyperfide/env-123" },
       }),
     ).toThrow();
 
@@ -1910,7 +1910,7 @@ describe("host-daemon command schemas", () => {
     expect(() =>
       hostDaemonOnlineRpcCommandSchema.parse({
         type: "host.read_file",
-        path: "/tmp/bb-data/thread-storage/thread-123/notes.md",
+        path: "/tmp/hyperfide-data/thread-storage/thread-123/notes.md",
         ref: "HEAD",
       }),
     ).toThrow();
@@ -1919,7 +1919,7 @@ describe("host-daemon command schemas", () => {
       hostDaemonOnlineRpcCommandSchema.parse({
         type: "host.read_file_relative",
         followRootSymlink: false,
-        rootPath: "/tmp/bb-data/apps/demo/assets",
+        rootPath: "/tmp/hyperfide-data/apps/demo/assets",
         path: "logo.png",
       }),
     ).toThrow();
@@ -2736,7 +2736,7 @@ describe("host-daemon command schemas", () => {
         workspaceProvisionType: "managed-worktree",
         sourcePath: "/tmp/project",
         targetPath: "/tmp/project/.hyperfide/env",
-        branchName: "bb/env-123",
+        branchName: "hyperfide/env-123",
         setupTimeoutMs: 900000,
       }),
     ).toThrow();
@@ -2786,7 +2786,7 @@ describe("host-daemon command schemas", () => {
     ).toBe(false);
   });
 
-  it("limits host.write_skill to daemon-derived bb roots", () => {
+  it("limits host.write_skill to daemon-derived hyperfide roots", () => {
     const base = {
       type: "host.write_skill",
       name: "review",
@@ -2797,7 +2797,7 @@ describe("host-daemon command schemas", () => {
     expect(
       hostDaemonOnlineRpcCommandSchema.safeParse({
         ...base,
-        scope: "bb-user",
+        scope: "hyperfide-user",
       }).success,
     ).toBe(true);
     expect(
@@ -2861,7 +2861,7 @@ describe("host-daemon command schemas", () => {
       hostDaemonOnlineRpcCommandSchema.parse({
         type: "host.list_files",
         followRootSymlink: false,
-        path: "/tmp/bb-data/thread-storage/thread-123",
+        path: "/tmp/hyperfide-data/thread-storage/thread-123",
         query: longQuery,
         limit: 100,
         includeHidden: true,
@@ -2874,7 +2874,7 @@ describe("host-daemon command schemas", () => {
       hostDaemonOnlineRpcCommandSchema.parse({
         type: "host.list_files",
         followRootSymlink: false,
-        path: "/tmp/bb-data/thread-storage/thread-123",
+        path: "/tmp/hyperfide-data/thread-storage/thread-123",
         limit: contract.FILE_LIST_LIMIT_MAX + 1,
         includeHidden: true,
         respectGitIgnore: false,
@@ -2963,19 +2963,19 @@ describe("host-daemon command schemas", () => {
         path: "/tmp/env",
         isGitRepo: true,
         isWorktree: true,
-        branchName: "bb/env-123",
+        branchName: "hyperfide/env-123",
         defaultBranch: "main",
       }),
     ).toMatchObject({
       isGitRepo: true,
       isWorktree: true,
-      branchName: "bb/env-123",
+      branchName: "hyperfide/env-123",
     });
     expect(() =>
       hostDaemonCommandResultSchemaByType["environment.attach"].parse({
         path: "/tmp/env",
         isGitRepo: true,
-        branchName: "bb/env-123",
+        branchName: "hyperfide/env-123",
         defaultBranch: "main",
       }),
     ).toThrow();
@@ -2999,7 +2999,7 @@ describe("host-daemon session schemas", () => {
         hostType: "persistent",
         hasMachineCredential: true,
         platform: "linux",
-        dataDir: "/tmp/bb-data",
+        dataDir: "/tmp/hyperfide-data",
         localApiPort: null,
         protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
         activeThreads: [],
@@ -3015,7 +3015,7 @@ describe("host-daemon session schemas", () => {
         hostName: "Michael's MacBook",
         hasMachineCredential: true,
         platform: "darwin",
-        dataDir: "/tmp/bb-data",
+        dataDir: "/tmp/hyperfide-data",
         localApiPort: 38_887,
         protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
         activeThreads: [
@@ -3037,7 +3037,7 @@ describe("host-daemon session schemas", () => {
         hostName: "Michael's MacBook",
         hasMachineCredential: false,
         platform: "darwin",
-        dataDir: "/tmp/bb-data",
+        dataDir: "/tmp/hyperfide-data",
         localApiPort: null,
         protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
         activeThreads: [],
@@ -3062,7 +3062,7 @@ describe("host-daemon session schemas", () => {
         hostName: "Michael's MacBook",
         hasMachineCredential: true,
         platform: "darwin",
-        dataDir: "/tmp/bb-data",
+        dataDir: "/tmp/hyperfide-data",
         localApiPort: 38_887,
         protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
         activeThreads: [
@@ -3080,7 +3080,7 @@ describe("host-daemon session schemas", () => {
         hostName: "Michael's MacBook",
         hasMachineCredential: true,
         platform: "darwin",
-        dataDir: "/tmp/bb-data",
+        dataDir: "/tmp/hyperfide-data",
         localApiPort: 38_887,
         protocolVersion: HOST_DAEMON_PROTOCOL_VERSION - 1,
         activeThreads: [],
@@ -3096,7 +3096,7 @@ describe("host-daemon session schemas", () => {
         hostName: "Michael's MacBook",
         hasMachineCredential: true,
         platform: "darwin",
-        dataDir: "/tmp/bb-data",
+        dataDir: "/tmp/hyperfide-data",
         localApiPort: 38_887,
         protocolVersion: 0,
         activeThreads: [],
@@ -3635,7 +3635,7 @@ describe("host-daemon session schemas", () => {
         commandType: "host.read_file",
         ok: true,
         result: {
-          path: "/tmp/bb-data/thread-storage/thread-123/notes.md",
+          path: "/tmp/hyperfide-data/thread-storage/thread-123/notes.md",
           content: "# Notes",
           contentEncoding: "utf8",
           mimeType: "text/markdown",
@@ -3650,7 +3650,7 @@ describe("host-daemon session schemas", () => {
       commandType: "host.read_file",
       ok: true,
       result: {
-        path: "/tmp/bb-data/thread-storage/thread-123/notes.md",
+        path: "/tmp/hyperfide-data/thread-storage/thread-123/notes.md",
         content: "# Notes",
         contentEncoding: "utf8",
         mimeType: "text/markdown",

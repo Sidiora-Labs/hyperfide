@@ -117,7 +117,7 @@ describe("substitutePromptMentions", () => {
 describe("remarkPromptMentions", () => {
   function mentionNodes(children: readonly PhrasingContent[]) {
     return children.filter(
-      (child) => child.data?.hName === "bb-prompt-mention",
+      (child) => child.data?.hName === "hyperfide-prompt-mention",
     );
   }
 

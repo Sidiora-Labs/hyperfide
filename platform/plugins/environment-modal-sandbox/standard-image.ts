@@ -33,6 +33,6 @@ export async function readStandardImage(override?: string) {
   return {
     reference: from[1]!,
     commands: lines.slice(1),
-    name: `bb-standard:${createHash("sha256").update(dockerfile).digest("hex")}`,
+    name: `hyperfide-standard:${createHash("sha256").update(dockerfile).digest("hex")}`,
   };
 }

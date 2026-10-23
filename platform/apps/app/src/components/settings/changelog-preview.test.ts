@@ -14,7 +14,7 @@ A much faster app on your phone, and a long list of fixes.
 
 ### Mobile is much faster
 
-Every tap used to make bb measure the whole page.
+Every tap used to make hyperfide measure the whole page.
 
 - Taps answer at once.
 - The sidebar keeps its scroll position.
@@ -26,7 +26,7 @@ Turn on **Edit messages** in Settings → Experiments.
 ## 0.36.0
 
 - Fixed a [crash](https://example.test) on launch.
-- Tidied \`bb status\` output.
+- Tidied \`hyperfide-platform status\` output.
 `;
 
 describe("parseChangelog", () => {
@@ -54,7 +54,7 @@ describe("parseChangelog", () => {
       blocks: [
         {
           kind: "paragraph",
-          text: "Every tap used to make bb measure the whole page.",
+          text: "Every tap used to make hyperfide measure the whole page.",
         },
         {
           kind: "list",
@@ -76,7 +76,7 @@ describe("parseChangelog", () => {
         kind: "list",
         items: [
           "Fixed a [crash](https://example.test) on launch.",
-          "Tidied `bb status` output.",
+          "Tidied `hyperfide-platform status` output.",
         ],
       },
     ]);
@@ -86,21 +86,21 @@ describe("parseChangelog", () => {
     const [entry] = parseChangelog(`## 0.0.30
 
 This release introduces multi-machine workflows.
-It also adds more ways to customize bb.
+It also adds more ways to customize hyperfide.
 
-- bb Connect lets you securely access bb from other devices
+- hyperfide Connect lets you securely access hyperfide from other devices
   and share previews from any enrolled machine.
 `);
 
     expect(entry.lede).toEqual([
       {
         kind: "paragraph",
-        text: "This release introduces multi-machine workflows. It also adds more ways to customize bb.",
+        text: "This release introduces multi-machine workflows. It also adds more ways to customize hyperfide.",
       },
       {
         kind: "list",
         items: [
-          "bb Connect lets you securely access bb from other devices and share previews from any enrolled machine.",
+          "hyperfide Connect lets you securely access hyperfide from other devices and share previews from any enrolled machine.",
         ],
       },
     ]);

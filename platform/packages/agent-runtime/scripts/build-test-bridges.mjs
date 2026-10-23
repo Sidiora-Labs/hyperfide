@@ -15,7 +15,7 @@ await Promise.all([
       workspaceRoot,
       "packages/provider-bridge-protocol/src/bridge-worker-entry.ts",
     ),
-    outfile: resolve(outputDir, "bb-provider-bridge-worker.mjs"),
+    outfile: resolve(outputDir, "hyperfide-provider-bridge-worker.mjs"),
     packageRoot,
     sourcemap: false,
   }),

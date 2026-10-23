@@ -34,8 +34,8 @@ import {
 } from "./checks.js";
 import type { ServerArchiveExport } from "./export.js";
 import type {
-  FullBbAppArtifact,
-  FullBbAppArtifactService,
+  FullHyperfideAppArtifact,
+  FullHyperfideAppArtifactService,
 } from "./full-artifact.js";
 import {
   setServerMoveFrozen,
@@ -100,7 +100,7 @@ export interface ServerMoveEnvironment {
   bindHost: ServerBindHost | null;
   deps: AppDeps;
   exportArchive(args: ServerMoveExportArgs): Promise<ServerArchiveExport>;
-  fullArtifact: FullBbAppArtifactService;
+  fullArtifact: FullHyperfideAppArtifactService;
   now(): number;
   plugins: ServerMovePluginControl;
   readServerDiskFreeBytes(): Promise<number | null>;
@@ -165,7 +165,7 @@ interface MoveRun {
   activationToken: string;
   archive: ServerArchiveExport | null;
   archiveExistingTargetServerData: boolean;
-  bbApp: FullBbAppArtifact | null;
+  hyperfideApp: FullHyperfideAppArtifact | null;
   configBackup: OldServerDaemonConfigBackup | null;
   connectHandle: string | null;
   finished: boolean;
@@ -201,9 +201,9 @@ const DAEMON_ERROR_SUMMARIES: Record<string, string> = {
   server_move_cancelled: "The machine cancelled the move",
   server_move_digest_mismatch: "The export was damaged in transit",
   server_move_download_failed: "The machine couldn't download the export",
-  server_move_install_failed: "Installing bb on the machine failed",
+  server_move_install_failed: "Installing hyperfide on the machine failed",
   server_move_rejected: "The machine rejected the move",
-  server_move_server_entry_unavailable: "The machine can't run the bb server",
+  server_move_server_entry_unavailable: "The machine can't run the hyperfide-platform server",
   server_move_start_failed: "The new server didn't start",
 };
 
@@ -218,8 +218,8 @@ export function serverMoveArchiveDownloadPath(moveId: string): string {
   return `/internal/server-move/${encodeURIComponent(moveId)}/archive`;
 }
 
-export function serverMoveBbAppDownloadPath(moveId: string): string {
-  return `/internal/server-move/${encodeURIComponent(moveId)}/bb-app.tgz`;
+export function serverMoveHyperfideAppDownloadPath(moveId: string): string {
+  return `/internal/server-move/${encodeURIComponent(moveId)}/hyperfide-app.tgz`;
 }
 
 export function serverMoveDestinationStatusUrl(serverUrl: string): string {
@@ -299,7 +299,7 @@ function moveFromRunFile(run: ServerMoveRunFile): MoveRun {
     activationToken: run.activationToken,
     archive: null,
     archiveExistingTargetServerData: run.archiveExistingTargetServerData,
-    bbApp: null,
+    hyperfideApp: null,
     configBackup: run.configBackup,
     connectHandle: run.connectHandle,
     finished: true,
@@ -595,7 +595,7 @@ export function createServerMoveCoordinator(
     );
     if (inspect.dataDirHasServerData) {
       throw new Error(
-        `${targetName} already has bb server data in ${inspect.dataDir}`,
+        `${targetName} already has hyperfide-platform server data in ${inspect.dataDir}`,
       );
     }
     if (!inspect.portAvailable) {
@@ -608,16 +608,16 @@ export function createServerMoveCoordinator(
       !move.archiveExistingTargetServerData
     ) {
       throw new Error(
-        `${targetName} has its own bb data at ${inspect.existingServerData.path}. Confirm archiving it, then start the move again.`,
+        `${targetName} has its own hyperfide data at ${inspect.existingServerData.path}. Confirm archiving it, then start the move again.`,
       );
     }
     const appVersion = deps.config.appVersion;
-    if (inspect.serverEntryAvailable && inspect.bbAppVersion === appVersion) {
+    if (inspect.serverEntryAvailable && inspect.hyperfideAppVersion === appVersion) {
       setStep(
         move,
         "update-target",
         "skipped",
-        `${targetName} already runs bb ${appVersion}`,
+        `${targetName} already runs hyperfide ${appVersion}`,
       );
       return;
     }
@@ -625,15 +625,15 @@ export function createServerMoveCoordinator(
       move,
       "update-target",
       "running",
-      `Packing bb ${appVersion} for ${targetName}`,
+      `Packing hyperfide ${appVersion} for ${targetName}`,
     );
-    const bbApp = await untilCancelled(move, environment.fullArtifact.build());
-    move.bbApp = bbApp;
+    const hyperfideApp = await untilCancelled(move, environment.fullArtifact.build());
+    move.hyperfideApp = hyperfideApp;
     setStep(
       move,
       "update-target",
       "done",
-      `bb ${bbApp.version} will be installed on ${targetName}`,
+      `hyperfide ${hyperfideApp.version} will be installed on ${targetName}`,
     );
   }
 
@@ -677,14 +677,14 @@ export function createServerMoveCoordinator(
             sha256: archive.sha256,
             sizeBytes: archive.sizeBytes,
           },
-          bbApp:
-            move.bbApp === null
+          hyperfideApp:
+            move.hyperfideApp === null
               ? null
               : {
-                  downloadPath: serverMoveBbAppDownloadPath(move.status.moveId),
-                  sha256: move.bbApp.sha256,
-                  sizeBytes: move.bbApp.sizeBytes,
-                  version: move.bbApp.version,
+                  downloadPath: serverMoveHyperfideAppDownloadPath(move.status.moveId),
+                  sha256: move.hyperfideApp.sha256,
+                  sizeBytes: move.hyperfideApp.sizeBytes,
+                  version: move.hyperfideApp.version,
                 },
           serverPort: environment.targetServerPort(),
           bindHost: environment.bindHost === "0.0.0.0" ? "0.0.0.0" : null,
@@ -1415,7 +1415,7 @@ export function createServerMoveCoordinator(
       if (move.status.targetHostId !== args.hostId) {
         return { outcome: "forbidden" };
       }
-      const artifact = args.kind === "archive" ? move.archive : move.bbApp;
+      const artifact = args.kind === "archive" ? move.archive : move.hyperfideApp;
       if (artifact === null) {
         return { outcome: "not_found" };
       }
@@ -1461,7 +1461,7 @@ export function createServerMoveCoordinator(
             blockers.push({
               id: "archive-existing-data-required",
               severity: "blocker",
-              title: `Confirm archiving the existing bb data on ${check.response.targetHostName}`,
+              title: `Confirm archiving the existing hyperfide data on ${check.response.targetHostName}`,
               detail: existingData.path,
             });
           }
@@ -1493,7 +1493,7 @@ export function createServerMoveCoordinator(
             archive: null,
             archiveExistingTargetServerData:
               request.archiveExistingTargetServerData,
-            bbApp: null,
+            hyperfideApp: null,
             configBackup: null,
             connectHandle: mode.mode === "connect" ? mode.connectHandle : null,
             finished: false,

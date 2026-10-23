@@ -1,5 +1,5 @@
 import { toRecord } from "@hyperfide/core-ui";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 
 export type AuthErrorKind = "auth-required" | "network" | "http" | "unknown";
 
@@ -20,7 +20,7 @@ function isAuthStatus(status: number): boolean {
 }
 
 export function mapAuthError(input: unknown): AuthErrorKind {
-  if (input instanceof BbHttpError) {
+  if (input instanceof HyperfideHttpError) {
     return isAuthStatus(input.status) ? "auth-required" : "http";
   }
   if (isResponseLike(input)) {

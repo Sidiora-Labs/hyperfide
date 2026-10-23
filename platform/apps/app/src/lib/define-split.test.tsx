@@ -20,7 +20,7 @@ afterEach(() => {
 
 it("downloads bytes without importing and shares an in-flight download with first use", async () => {
   const manifest = document.createElement("script");
-  manifest.id = "bb-prefetch-download-only";
+  manifest.id = "hyperfide-prefetch-download-only";
   manifest.textContent = JSON.stringify(["/assets/download-only.js"]);
   document.head.append(manifest);
   let finish!: () => void;
@@ -60,7 +60,7 @@ it("downloads bytes without importing and shares an in-flight download with firs
 
 it("does not start a speculative download after an import has started", async () => {
   const manifest = document.createElement("script");
-  manifest.id = "bb-prefetch-import-first";
+  manifest.id = "hyperfide-prefetch-import-first";
   manifest.textContent = JSON.stringify(["/assets/import-first.js"]);
   document.head.append(manifest);
   const fetch = vi.fn();

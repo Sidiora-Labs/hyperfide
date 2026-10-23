@@ -201,7 +201,7 @@ describe("ComposerBannersSlot", () => {
     expect(screen.getByText("thread:draft two:zen:true:true")).toBeDefined();
   });
 
-  it("preserves BB-owned rows on either side of plugin banners", () => {
+  it("preserves HYPERFIDE-owned rows on either side of plugin banners", () => {
     setPluginSlotRegistrations(
       "ordered-plugin",
       registrations([
@@ -214,16 +214,16 @@ describe("ComposerBannersSlot", () => {
 
     const view = render(
       <ComposerBannersSlot view={composerView("t1")} ownerPlacement="before">
-        <div>BB row</div>
+        <div>HYPERFIDE row</div>
       </ComposerBannersSlot>,
     );
-    expect(view.container.textContent).toBe("BB rowPlugin row");
+    expect(view.container.textContent).toBe("HYPERFIDE rowPlugin row");
 
     view.rerender(
       <ComposerBannersSlot view={composerView("t1")} ownerPlacement="after">
-        <div>BB row</div>
+        <div>HYPERFIDE row</div>
       </ComposerBannersSlot>,
     );
-    expect(view.container.textContent).toBe("Plugin rowBB row");
+    expect(view.container.textContent).toBe("Plugin rowHYPERFIDE row");
   });
 });

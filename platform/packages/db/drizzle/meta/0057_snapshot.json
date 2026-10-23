@@ -1933,8 +1933,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "bb_connect": {
-          "name": "bb_connect",
+        "hyperfide_connect": {
+          "name": "hyperfide_connect",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -2735,7 +2735,7 @@
     "schemas": {},
     "tables": {},
     "columns": {
-      "\"system_experiments\".\"multi_machine\"": "\"system_experiments\".\"bb_connect\""
+      "\"system_experiments\".\"multi_machine\"": "\"system_experiments\".\"hyperfide_connect\""
     }
   },
   "internal": {

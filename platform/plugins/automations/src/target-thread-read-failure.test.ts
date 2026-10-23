@@ -68,15 +68,15 @@ async function createHost(
       },
     },
   });
-  await plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+  await plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
   return host;
 }
 
 function createService(host: Awaited<ReturnType<typeof createHost>>) {
   return createAutomationService({
-    bb: host.bb as never,
-    db: host.bb.storage.database(),
-    pluginDataDir: "/tmp/bb-automations-read-failure-test",
+    hyperfide: host.hyperfide as never,
+    db: host.hyperfide.storage.database(),
+    pluginDataDir: "/tmp/hyperfide-automations-read-failure-test",
     serverUrl: "http://127.0.0.1:38886",
   });
 }

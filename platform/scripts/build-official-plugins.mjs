@@ -31,14 +31,14 @@ for (const plugin of selected) {
   }
 }
 
-const bbPackage = JSON.parse(
+const hyperfidePackage = JSON.parse(
   await readFile(
-    resolve(repositoryRoot, "packages/bb-app/package.json"),
+    resolve(repositoryRoot, "packages/hyperfide-app/package.json"),
     "utf8",
   ),
 );
-if (typeof bbPackage.version !== "string") {
-  throw new Error("packages/bb-app/package.json is missing a version");
+if (typeof hyperfidePackage.version !== "string") {
+  throw new Error("packages/hyperfide-app/package.json is missing a version");
 }
 
 for (const plugin of selected) {
@@ -50,14 +50,14 @@ for (const plugin of selected) {
 
   const server = await buildPluginServer(
     rootDirectory,
-    bbPackage.version,
+    hyperfidePackage.version,
     toolchain,
   );
-  const app = manifest.bb?.app
-    ? await buildPluginApp(rootDirectory, bbPackage.version, toolchain)
+  const app = manifest.hyperfide?.app
+    ? await buildPluginApp(rootDirectory, hyperfidePackage.version, toolchain)
     : null;
-  const host = manifest.bb?.host
-    ? await buildPluginHost(rootDirectory, bbPackage.version, toolchain)
+  const host = manifest.hyperfide?.host
+    ? await buildPluginHost(rootDirectory, hyperfidePackage.version, toolchain)
     : null;
   const outputs = [server.jsPath, server.metaPath];
   if (app !== null) {

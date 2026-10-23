@@ -53,7 +53,7 @@ export interface FixtureVariant {
 
 export async function createFixturePaths(): Promise<FixturePaths> {
   const root = await fs.realpath(
-    await fs.mkdtemp(path.join(os.tmpdir(), "bb-native-roots-golden-")),
+    await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-native-roots-golden-")),
   );
   const home = path.join(root, "home");
   const workspace = path.join(root, "ws");

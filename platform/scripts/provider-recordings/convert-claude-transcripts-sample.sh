@@ -6,7 +6,7 @@
 #
 #   scripts/provider-recordings/convert-claude-transcripts-sample.sh [<out-dir>]
 #
-# Every session below is one of the owner's own bb threads (the provider
+# Every session below is one of the owner's own hyperfide-platform threads (the provider
 # corpus, ~/.hyperfide/provider-corpus). The turn windows keep the committed set under
 # 2 MB after redaction while covering each tool family the bridge classifies.
 set -euo pipefail
@@ -23,7 +23,7 @@ samples=(
   "plan-mode-question|7a71324d-fcce-40f3-aca1-74b7ffc76696|"
   "web-search|b06abf67-b557-4cbc-bedf-cc6ae3ab2a01|"
   "background-agents|066f194c-e2fb-49d3-aedf-3521a8b2bcb5|"
-  "bb-workflow-run|2999e5c8-91ce-4f2e-b072-a1c50e090837|"
+  "hyperfide-workflow-run|2999e5c8-91ce-4f2e-b072-a1c50e090837|"
   "task-plan-model-fallback|323f2806-8588-459c-90fc-25dda27402dd|6-6"
   "foreground-agent-api-retry|84dab3b1-7106-42a9-b51f-3cb94441afa7|1-2"
   "compaction-workflow|d4e90804-c43a-4cce-ac69-867234e18ca9|45-46"

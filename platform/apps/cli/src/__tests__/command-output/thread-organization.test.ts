@@ -131,7 +131,7 @@ describe("hyperfide-platform thread organization commands", () => {
   ] as const)(
     "uploads CLI-local %s bytes to the thread project before queueing",
     async (flag, type, filename, mimeType) => {
-      const dir = await mkdtemp(join(tmpdir(), "bb-queue-attachment-"));
+      const dir = await mkdtemp(join(tmpdir(), "hyperfide-queue-attachment-"));
       try {
         const path = join(dir, filename);
         const bytes = new Uint8Array([137, 80, 78, 71]);
@@ -204,7 +204,7 @@ describe("hyperfide-platform thread organization commands", () => {
   );
 
   it("does not enqueue the text when an attachment upload fails", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-queue-rejected-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-queue-rejected-"));
     try {
       const path = join(dir, "blue.png");
       await writeFile(path, new Uint8Array([137, 80, 78, 71]));

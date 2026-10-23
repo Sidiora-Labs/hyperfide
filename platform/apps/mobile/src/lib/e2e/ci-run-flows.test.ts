@@ -17,7 +17,7 @@ const runner = fileURLToPath(
 );
 
 function runFixture({ cleanupFails }: { cleanupFails: boolean }) {
-  const root = mkdtempSync(join(tmpdir(), "bb-mobile-flow-runner-"));
+  const root = mkdtempSync(join(tmpdir(), "hyperfide-mobile-flow-runner-"));
   const bin = join(root, "bin");
   const artifacts = join(root, "artifacts");
   const trace = join(root, "trace.log");

@@ -1,6 +1,6 @@
 import type { TaskViewMode } from "./routes.js";
 
-export const VIEW_PREFERENCE_STORAGE_KEY = "bb-tasks:view-preferences";
+export const VIEW_PREFERENCE_STORAGE_KEY = "hyperfide-tasks:view-preferences";
 export const VIEW_PREFERENCE_VERSION = 1 as const;
 
 const DEFAULT_VIEW_MODE: TaskViewMode = "list";

@@ -59,7 +59,7 @@ export function AddServerScreen() {
       const where =
         probe.stage === "health"
           ? "Could not reach the server"
-          : "Reached the server, but it does not look like bb";
+          : "Reached the server, but it does not look like hyperfide";
       setSubmit({ phase: "failed", message: `${where}: ${probe.error}` });
       return;
     }
@@ -86,7 +86,7 @@ export function AddServerScreen() {
   return (
     <>
       <Stack.Screen
-        options={{ title: firstRun ? "Connect to a bb server" : "Add server" }}
+        options={{ title: firstRun ? "Connect to a hyperfide-platform server" : "Add server" }}
       />
       <GroupedScreen testID="add-server-screen">
         <SettingsSection
@@ -122,7 +122,7 @@ export function AddServerScreen() {
                 if (submit.phase === "failed") setSubmit({ phase: "idle" });
               }}
               onBlur={() => setUrlTouched(true)}
-              placeholder="https://bb.example.ts.net"
+              placeholder="https://hyperfide.example.ts.net"
               keyboardType="url"
               textContentType="URL"
               autoCapitalize="none"

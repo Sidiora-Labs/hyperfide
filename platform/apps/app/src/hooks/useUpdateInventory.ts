@@ -6,7 +6,7 @@ import type {
   SystemAppUpdateStatus,
   SystemVersionResponse,
 } from "@hyperfide/server-contract";
-import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopInfo } from "@hyperfide/desktop-contract";
 import {
   buildProviderCliIssue,
   isProviderCliIssue,
@@ -43,7 +43,7 @@ export interface UpdateInventoryMachine {
 export interface UpdateInventory {
   isLoading: boolean;
   systemVersion: SystemVersionResponse | undefined;
-  desktopInfo: BbDesktopInfo | null;
+  desktopInfo: HyperfideDesktopInfo | null;
   appUpdateAvailable: boolean;
   desktopUpdateReady: boolean;
   machines: UpdateInventoryMachine[];

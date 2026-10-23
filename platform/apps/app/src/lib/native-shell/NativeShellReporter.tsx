@@ -16,7 +16,7 @@ export function NativeShellReporter() {
     if (shell === null || !shell.has("safe-area")) return;
     const style = document.documentElement.style;
     const applyBottomInset = (bottom: number) => {
-      style.setProperty("--bb-safe-area-bottom", `${bottom}px`);
+      style.setProperty("--hyperfide-safe-area-bottom", `${bottom}px`);
     };
     applyBottomInset(shell.safeArea().bottom);
     const unsubscribe = shell.subscribe((event) => {
@@ -24,7 +24,7 @@ export function NativeShellReporter() {
     });
     return () => {
       unsubscribe();
-      style.removeProperty("--bb-safe-area-bottom");
+      style.removeProperty("--hyperfide-safe-area-bottom");
     };
   }, [shell]);
 

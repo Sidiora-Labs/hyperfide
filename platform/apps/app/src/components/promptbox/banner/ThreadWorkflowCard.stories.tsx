@@ -159,7 +159,7 @@ const manyPhasesWorkflow = workflowRow({
   id: "thr_fixture:workflow:many-phases:running",
   status: "pending",
   taskStatus: "running",
-  workflowName: "bb-repo-wide-audit",
+  workflowName: "hyperfide-repo-wide-audit",
   description: "Audit the entire repository across forty phases",
   startedAt: Date.now() - 1_472_000,
   workflow: buildManyPhasesSnapshot(40, 12),
@@ -170,7 +170,7 @@ const secondRunningWorkflow = workflowRow({
   id: "thr_fixture:workflow:balance:running",
   status: "pending",
   taskStatus: "running",
-  workflowName: "bb-balance-pass",
+  workflowName: "hyperfide-balance-pass",
   description: "Close the remaining balance defects",
   startedAt: Date.now() - 94_000,
   workflow: {
@@ -253,7 +253,7 @@ function AutoAdvancePreview() {
         id: "thr_fixture:workflow:auto-advance:running",
         status: "pending",
         taskStatus: "running",
-        workflowName: "bb-repo-wide-audit",
+        workflowName: "hyperfide-repo-wide-audit",
         description: "Audit the entire repository across forty phases",
         startedAt: Date.now() - 1_472_000,
         workflow: buildManyPhasesSnapshot(40, activePhase),
@@ -342,7 +342,7 @@ const concurrentWorkflows = [
   {
     ...secondRunningWorkflow,
     id: "thr_fixture:workflow:balance:running-2",
-    workflowName: "bb-balance-pass-2",
+    workflowName: "hyperfide-balance-pass-2",
   },
   {
     ...runningWorkflow,

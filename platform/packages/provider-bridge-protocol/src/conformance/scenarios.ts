@@ -41,7 +41,7 @@ interface ScenarioContext {
   fixture: ConformanceSessionFixture;
   resolveProviderTurnId: (
     threadId: string,
-    bbTurnId: string,
+    hyperfideTurnId: string,
   ) => string | undefined;
   fork: BridgeCapabilities["fork"];
   providerThreadId?: string;
@@ -111,7 +111,7 @@ async function checkIdentityAnnounced(
         named.length === 0
           ? ""
           : ` (thread/identity named ${named.map((id) => `"${id}"`).join(", ")})`
-      }; bb persists and resumes only sessions announced this way, so every later send would start a new session`,
+      }; hyperfide persists and resumes only sessions announced this way, so every later send would start a new session`,
     );
   }
   return pass(args.id, args.title);
@@ -214,7 +214,7 @@ export function checkPresentationIconsDeclared(
     if (!isThreadEventWithItem(event)) {
       continue;
     }
-    if (event.item.type === "toolCall" && event.item.server === "bb") {
+    if (event.item.type === "toolCall" && event.item.server === "hyperfide") {
       continue;
     }
     const glyph =
@@ -259,7 +259,7 @@ export async function runRpcHygieneScenarios(
 
   let unknownMethodsAnswered = false;
   {
-    const id = client.request("bb/conformance/definitely-unknown-method", {});
+    const id = client.request("hyperfide/conformance/definitely-unknown-method", {});
     const response = await client.waitForResponse(id);
     const title = "unknown method answers METHOD_NOT_FOUND";
     if (response === null) {
@@ -316,7 +316,7 @@ export async function runRpcHygieneScenarios(
       );
     } else {
       client.sendRaw("this is { not json");
-      const probe = client.request("bb/conformance/alive-probe", {});
+      const probe = client.request("hyperfide/conformance/alive-probe", {});
       const response = await client.waitForResponse(probe);
       results.push(
         response === null
@@ -340,7 +340,7 @@ export async function runRpcHygieneScenarios(
       client.sendRaw(
         JSON.stringify({ jsonrpc: "2.0", id: 999_999, result: {} }),
       );
-      const probe = client.request("bb/conformance/alive-probe", {});
+      const probe = client.request("hyperfide/conformance/alive-probe", {});
       const response = await client.waitForResponse(probe);
       const echoed = client
         .responsesFor(999_999)
@@ -377,7 +377,7 @@ export async function runHandshakeScenario(
 ): Promise<HandshakeScenarioOutcome> {
   const id = client.request(BRIDGE_REQUEST_METHODS.initialize, {
     protocolVersion: PROVIDER_BRIDGE_PROTOCOL_VERSION,
-    client: { name: "bb-conformance", version: "0.0.1" },
+    client: { name: "hyperfide-conformance", version: "0.0.1" },
     grammarVersions: ASSEMBLER_GRAMMAR_VERSIONS,
   });
   const response = await client.waitForResponse(id);
@@ -1059,9 +1059,9 @@ async function runInterruptStopScenario(
       ),
     ];
   }
-  const bbTurnId = started.scope.turnId;
+  const hyperfideTurnId = started.scope.turnId;
   const providerTurnId =
-    context.resolveProviderTurnId(threadId, bbTurnId) ?? bbTurnId;
+    context.resolveProviderTurnId(threadId, hyperfideTurnId) ?? hyperfideTurnId;
 
   const stopId = client.request(BRIDGE_REQUEST_METHODS.threadStop, {
     threadId,
@@ -1094,7 +1094,7 @@ async function runInterruptStopScenario(
       (entry) =>
         entry.threadId === threadId &&
         entry.event.type === "turn/completed" &&
-        getThreadEventScopeTurnId(entry.event.scope) === bbTurnId,
+        getThreadEventScopeTurnId(entry.event.scope) === hyperfideTurnId,
     )?.logIndex ?? -1;
   if (completedIndex === -1) {
     return [

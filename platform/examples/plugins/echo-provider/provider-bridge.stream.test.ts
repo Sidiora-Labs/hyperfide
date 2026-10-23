@@ -124,7 +124,7 @@ function answerToolCall(
   const call = harness.messages.find(
     (message) => message.method === "item/tool/call",
   );
-  expect(call, "the bridge called its bb tool").toBeDefined();
+  expect(call, "the bridge called its hyperfide tool").toBeDefined();
   const params = call?.params as Record<string, unknown>;
   handleLine(
     JSON.stringify({ jsonrpc: "2.0", id: call?.id, result: answer(params) }),
@@ -326,14 +326,14 @@ describe("the echo bridge's grammar v3 stream", () => {
     expect(tools[0]).not.toHaveProperty("server");
     expect(tools[1]).toMatchObject({
       tool: ECHO_STAMP_TOOL_NAME,
-      server: "bb",
+      server: "hyperfide",
       arguments: { text: PROMPT },
       result: `stamped: ${PROMPT}`,
       status: "completed",
       presentation: ECHO_STAMP_TOOL_PRESENTATION,
     });
     expect(
-      collector.assembler.getBbItemId(THREAD_ID, String(callParams.callId)),
+      collector.assembler.getHyperfideItemId(THREAD_ID, String(callParams.callId)),
     ).toBe(tools[1]?.id);
 
     expect(completedItem(events, "extension")).toMatchObject({

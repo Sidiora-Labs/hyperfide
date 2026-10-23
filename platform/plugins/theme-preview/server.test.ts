@@ -102,7 +102,7 @@ describe("createCatalogLoader", () => {
     const catalogBlocked = new Promise<void>((resolve) => {
       releaseCatalog = resolve;
     });
-    const { bb } = themeHost({
+    const { hyperfide } = themeHost({
       theme: {
         catalog: async () => {
           catalogCalls += 1;
@@ -113,7 +113,7 @@ describe("createCatalogLoader", () => {
       plugins: { list: async () => ({ plugins: [] }) },
     });
 
-    const catalogLoader = createCatalogLoader(bb);
+    const catalogLoader = createCatalogLoader(hyperfide);
     const first = catalogLoader.catalog();
     const second = catalogLoader.catalog();
 
@@ -127,7 +127,7 @@ describe("createCatalogLoader", () => {
     try {
       let catalogCalls = 0;
       let firstSignal: AbortSignal | undefined;
-      const { bb, harness } = themeHost({
+      const { hyperfide, harness } = themeHost({
         theme: {
           catalog: ({ signal }: { signal?: AbortSignal } = {}) => {
             catalogCalls += 1;
@@ -145,7 +145,7 @@ describe("createCatalogLoader", () => {
         plugins: { list: async () => ({ plugins: [] }) },
       });
 
-      const catalogLoader = createCatalogLoader(bb);
+      const catalogLoader = createCatalogLoader(hyperfide);
       const failed = catalogLoader.catalog().catch((error: unknown) => error);
       await vi.advanceTimersByTimeAsync(5_000);
 
@@ -174,7 +174,7 @@ describe("createCatalogLoader", () => {
     try {
       let pluginListCalls = 0;
       let firstSignal: AbortSignal | undefined;
-      const { bb, harness } = themeHost({
+      const { hyperfide, harness } = themeHost({
         theme: {
           catalog: async () => ({
             active: { themeId: "default" },
@@ -194,7 +194,7 @@ describe("createCatalogLoader", () => {
         },
       });
 
-      const catalogLoader = createCatalogLoader(bb);
+      const catalogLoader = createCatalogLoader(hyperfide);
       const degraded = catalogLoader.catalog();
       await vi.advanceTimersByTimeAsync(5_000);
       expect(warnings(harness)).toContain(
@@ -225,7 +225,7 @@ describe("createCatalogLoader", () => {
     const pluginListBlocked = new Promise<void>((resolve) => {
       releasePluginList = resolve;
     });
-    const { bb } = themeHost({
+    const { hyperfide } = themeHost({
       theme: {
         catalog: async () => ({
           active: { themeId: activeThemeId },
@@ -244,7 +244,7 @@ describe("createCatalogLoader", () => {
       },
     });
 
-    const catalogLoader = createCatalogLoader(bb);
+    const catalogLoader = createCatalogLoader(hyperfide);
     await catalogLoader.catalog();
     blockPluginList = true;
 
@@ -274,7 +274,7 @@ describe("createCatalogLoader", () => {
     const firstStarted = new Promise<void>((resolve) => {
       markFirstStarted = resolve;
     });
-    const { bb } = themeHost({
+    const { hyperfide } = themeHost({
       theme: {
         catalog: async () => ({
           active: { themeId: activeThemeId },
@@ -293,7 +293,7 @@ describe("createCatalogLoader", () => {
       plugins: { list: async () => ({ plugins: [] }) },
     });
 
-    const catalogLoader = createCatalogLoader(bb);
+    const catalogLoader = createCatalogLoader(hyperfide);
     const first = catalogLoader.setTheme("theme-a");
     await firstStarted;
     const second = catalogLoader.setTheme("theme-b");
@@ -323,7 +323,7 @@ describe("createCatalogLoader", () => {
       resumeFirstPluginList = resolve;
     });
     const setCalls: string[] = [];
-    const { bb } = themeHost({
+    const { hyperfide } = themeHost({
       theme: {
         catalog: async () => ({
           active: { themeId: activeThemeId },
@@ -344,7 +344,7 @@ describe("createCatalogLoader", () => {
       },
     });
 
-    const catalogLoader = createCatalogLoader(bb);
+    const catalogLoader = createCatalogLoader(hyperfide);
     const stale = catalogLoader.catalog();
     const latest = await catalogLoader.setTheme("theme-b");
     expect(latest.activeThemeId).toBe("theme-b");
@@ -364,7 +364,7 @@ describe("createCatalogLoader", () => {
     await mkdir(themeDirectory);
     await writeFile(filePath, ":root { --canvas: #ffffff; }");
     const setCalls: string[] = [];
-    const { bb } = themeHost({
+    const { hyperfide } = themeHost({
       theme: {
         catalog: async () => ({
           active: { themeId: "theme-a" },
@@ -379,7 +379,7 @@ describe("createCatalogLoader", () => {
     });
 
     try {
-      const loader = createCatalogLoader(bb);
+      const loader = createCatalogLoader(hyperfide);
       expect((await loader.catalog()).revision).toBe(0);
 
       await writeFile(
@@ -401,7 +401,7 @@ describe("theme watcher", () => {
       markCatalogStarted = resolve;
     });
     let catalogSignal: AbortSignal | undefined;
-    const { bb, harness } = themeHost({
+    const { hyperfide, harness } = themeHost({
       theme: {
         catalog: ({ signal }: { signal?: AbortSignal } = {}) => {
           catalogSignal = signal;
@@ -415,7 +415,7 @@ describe("theme watcher", () => {
       },
     });
 
-    await plugin(bb);
+    await plugin(hyperfide);
     const [service] = harness.registrations.services;
     const controller = new AbortController();
     const running = service!.start(controller.signal);

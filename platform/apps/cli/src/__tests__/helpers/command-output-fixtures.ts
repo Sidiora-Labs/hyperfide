@@ -138,7 +138,7 @@ export function makeEnvironment(overrides: MakeEnvironmentArgs): Environment {
     path: "/tmp/environment",
     isGitRepo: true,
     isWorktree: false,
-    branchName: "bb/thread",
+    branchName: "hyperfide/thread",
     defaultBranch: "main",
     baseBranch: null,
     mergeBaseBranch: null,

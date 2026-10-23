@@ -159,7 +159,7 @@ describe("thread creation on a path another project already uses", () => {
       const { host } = seedHostSession(harness.deps, {
         id: "host-managed-alias",
       });
-      const worktreePath = "/tmp/bb-worktrees/env_owner/repo";
+      const worktreePath = "/tmp/hyperfide-worktrees/env_owner/repo";
       const { project: owner } = seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "Owning Project",
@@ -191,7 +191,7 @@ describe("thread creation on a path another project already uses", () => {
           providerId: "codex",
           startedOnBehalfOf: null,
         }),
-      ).rejects.toThrow("bb-managed workspace owned by another project");
+      ).rejects.toThrow("hyperfide-managed workspace owned by another project");
 
       expect(
         listEnvironments(harness.deps.db, { projectId: project.id }),
@@ -239,7 +239,7 @@ describe("thread creation on a path another project already uses", () => {
           providerId: "codex",
           startedOnBehalfOf: null,
         }),
-      ).rejects.toThrow("inside bb-managed storage");
+      ).rejects.toThrow("inside hyperfide-managed storage");
 
       expect(
         listEnvironments(harness.deps.db, { projectId: project.id }),
@@ -305,7 +305,7 @@ describe("thread creation on a path another project already uses", () => {
 describe("attaching to a path that already has an environment", () => {
   const MANAGED_PATH = "/tmp/managed-worktree-repo";
 
-  it("keeps bb's ownership of a managed workspace a later thread attaches to", async () => {
+  it("keeps hyperfide's ownership of a managed workspace a later thread attaches to", async () => {
     await withTestHarness(async (harness) => {
       const { host } = seedHostSession(harness.deps, {
         id: "host-adopt-managed",

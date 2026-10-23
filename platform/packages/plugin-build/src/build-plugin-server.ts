@@ -38,10 +38,10 @@ export const PLUGIN_SERVER_EXTERNALS: readonly string[] = [
 
 const PLUGIN_SDK_ROOT_FILTER = /^@hyperfide\/plugin-sdk$|^@hyperfide\/plugin-sdk$/;
 const PLUGIN_SDK_SUBPATH_FILTER = /^@hyperfide\/plugin-sdk\//;
-const PLUGIN_SDK_SUBPATH_RESOLVE_MARK = "bb-server-sdk-subpath";
-const PLUGIN_RUNTIME_FALLBACK_RESOLVE_MARK = "bb-server-runtime-fallback";
-const PLUGIN_SOURCE_BOUNDARY_RESOLVE_MARK = "bb-server-source-boundary";
-const PLUGIN_BUNDLED_DEPENDENCY_MARK = "bb-server-bundled-dependency";
+const PLUGIN_SDK_SUBPATH_RESOLVE_MARK = "hyperfide-server-sdk-subpath";
+const PLUGIN_RUNTIME_FALLBACK_RESOLVE_MARK = "hyperfide-server-runtime-fallback";
+const PLUGIN_SOURCE_BOUNDARY_RESOLVE_MARK = "hyperfide-server-source-boundary";
+const PLUGIN_BUNDLED_DEPENDENCY_MARK = "hyperfide-server-bundled-dependency";
 const BARE_PACKAGE_FILTER = /^[^./]|^@[^/]+\/[^/]+/;
 const FILE_IMPORT_FILTER = /^(?:\.{1,2}\/|\/)/;
 
@@ -56,9 +56,9 @@ async function readPluginServerConfig(
 ): Promise<PluginServerConfig> {
   const packageJsonPath = join(rootDir, "package.json");
   const json = await readPluginPackageJsonFile(packageJsonPath);
-  if (!isRecord(json) || !isRecord(json.bb) || json.bb.server === undefined) {
+  if (!isRecord(json) || !isRecord(json.hyperfide) || json.hyperfide.server === undefined) {
     throw new Error(
-      `no server entry: ${packageJsonPath} has no "bb": { "server": "./server.ts" } field`,
+      `no server entry: ${packageJsonPath} has no "hyperfide": { "server": "./server.ts" } field`,
     );
   }
   const manifest = await validatePluginBuildManifest(
@@ -68,8 +68,8 @@ async function readPluginServerConfig(
   );
   const serverEntry = await resolveManifestEntryFile(
     rootDir,
-    manifest.bb.server,
-    "bb.server",
+    manifest.hyperfide.server,
+    "hyperfide.server",
   );
   return {
     serverEntry,
@@ -137,7 +137,7 @@ function loaderForSourcePath(path: string): "js" | "jsx" | "ts" | "tsx" {
 
 export async function buildPluginServer(
   rootDir: string,
-  bbVersion: string,
+  hyperfideVersion: string,
   toolchain: PluginBuildToolchain,
   options: PluginServerBuildOptions = {},
 ): Promise<PluginServerBuildResult> {
@@ -247,7 +247,7 @@ export async function buildPluginServer(
                       text: await describeUnresolvedSdkImport({
                         specifier: args.path,
                         resolveDir: args.resolveDir,
-                        need: `a server entry's "${args.path}" import is bundled from the plugin's own SDK install (bb serves only the bare "${PLUGIN_SDK_PACKAGE_NAME}" at load time), so the plugin needs`,
+                        need: `a server entry's "${args.path}" import is bundled from the plugin's own SDK install (hyperfide serves only the bare "${PLUGIN_SDK_PACKAGE_NAME}" at load time), so the plugin needs`,
                         esbuildErrors: installed.errors,
                       }),
                     },
@@ -347,7 +347,7 @@ export async function buildPluginServer(
     await writeFile(
       stagedMetaPath,
       JSON.stringify(
-        createPluginArtifactMeta({ packageName, pluginVersion, bbVersion }),
+        createPluginArtifactMeta({ packageName, pluginVersion, hyperfideVersion }),
         null,
         2,
       ) + "\n",

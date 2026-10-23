@@ -17,12 +17,12 @@ function manifestRows() {
     const path = `plugins/${entry.name}/package.json`;
     if (!entry.isDirectory() || !existsSync(resolve(root, path))) continue;
     const manifest = readJson(path);
-    if (manifest.bb === undefined) continue;
-    const icon = manifest.bb.branding?.icon ?? null;
+    if (manifest.hyperfide === undefined) continue;
+    const icon = manifest.hyperfide.branding?.icon ?? null;
     const id = manifest.name.replace(/^hyperfide-plugin-/u, "");
     rows.set(id, {
       id,
-      name: manifest.bb.name,
+      name: manifest.hyperfide.name,
       icon: icon === null || icon.startsWith("./") ? null : icon,
     });
   }
@@ -35,7 +35,7 @@ describe("Plugin Guide first-party plugins", () => {
     for (const row of readJson(tablePath)) {
       expect(
         row,
-        `${tablePath} row for ${row.id} must match plugins/*/package.json (id from the package name, bb.name, and a non-asset bb.branding.icon)`,
+        `${tablePath} row for ${row.id} must match plugins/*/package.json (id from the package name, hyperfide.name, and a non-asset hyperfide.branding.icon)`,
       ).toEqual(manifests.get(row.id));
     }
   });

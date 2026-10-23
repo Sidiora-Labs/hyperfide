@@ -55,7 +55,7 @@ afterEach(async () => {
 
 describeOnPosix("Pi provider maintenance with a Bun-managed executable", () => {
   it("updates through Bun when the resolved Pi command is a wrapper around Bun's global binary", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "bb-pi-bun-update-"));
+    const root = await mkdtemp(path.join(os.tmpdir(), "hyperfide-pi-bun-update-"));
     temporaryDirectories.push(root);
     probeState.bunBin = path.join(root, ".bun", "bin");
     const bunPi = path.join(probeState.bunBin, "pi");

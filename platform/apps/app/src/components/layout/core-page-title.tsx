@@ -33,7 +33,7 @@ function routeParameter(pattern: string, key: string, pathname: string) {
 export function useCorePageTitle({
   subPath,
 }: PluginNavPanelProps): ExperimentalPageTitle | null {
-  const { pathname, search } = new URL(subPath, "http://bb.local");
+  const { pathname, search } = new URL(subPath, "http://hyperfide.local");
   const pluginId = routeParameter(
     PLUGIN_DETAIL_ROUTE_PATH,
     "pluginId",
@@ -90,7 +90,7 @@ export function useCorePageTitle({
       : null;
   const trail = breadcrumbs.slice(1);
   if (shelf && trail.length === 1) trail.push({ label: shelf.label });
-  const sectionLabel = breadcrumbs[0]?.label ?? "BB";
+  const sectionLabel = breadcrumbs[0]?.label ?? "HYPERFIDE";
   const leaf = trail.at(-1)?.label ?? sectionLabel;
   return {
     ...(trail.length === 1 ? { title: leaf } : { breadcrumbs: trail }),

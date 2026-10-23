@@ -241,7 +241,7 @@
           "path": "apps/app/src/components/tools/PluginDetail.tsx",
           "anchors": [
             "label=\"Details\"",
-            "label={updatesWithBb ? \"Delivery\" : \"Installed\"}",
+            "label={updatesWithHyperfide ? \"Delivery\" : \"Installed\"}",
             "<PluginIncludes plugin={plugin} configurationPath={configurationPath} />"
           ]
         }

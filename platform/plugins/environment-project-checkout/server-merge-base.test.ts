@@ -18,7 +18,7 @@ import plugin from "./server.js";
 const execFileAsync = promisify(execFile);
 
 it("keeps inherited commits out of a new checkout branch's diff", async () => {
-  const root = await mkdtemp(join(tmpdir(), "bb-checkout-merge-base-"));
+  const root = await mkdtemp(join(tmpdir(), "hyperfide-checkout-merge-base-"));
   const repo = join(root, "repo");
   const dataDir = join(root, "plugin-data");
   async function git(...args: string[]): Promise<string> {
@@ -26,10 +26,10 @@ it("keeps inherited commits out of a new checkout branch's diff", async () => {
       cwd: repo,
       env: {
         ...process.env,
-        GIT_AUTHOR_NAME: "bb",
-        GIT_AUTHOR_EMAIL: "bb@example.com",
-        GIT_COMMITTER_NAME: "bb",
-        GIT_COMMITTER_EMAIL: "bb@example.com",
+        GIT_AUTHOR_NAME: "hyperfide",
+        GIT_AUTHOR_EMAIL: "hyperfide@example.com",
+        GIT_COMMITTER_NAME: "hyperfide",
+        GIT_COMMITTER_EMAIL: "hyperfide@example.com",
       },
     });
     return result.stdout;
@@ -37,7 +37,7 @@ it("keeps inherited commits out of a new checkout branch's diff", async () => {
   const host = experimental_createHostEntryHarness(createCheckoutHostEntry(), {
     experimental_paths: { dataDir, tempDir: join(root, "tmp") },
   });
-  const { bb, harness } = createFakePluginHost({
+  const { hyperfide, harness } = createFakePluginHost({
     pluginId: "environment-project-checkout",
     experimental_callHostRpc: (call) => {
       if (call.method !== "attach") throw new Error("Unexpected host method");
@@ -59,7 +59,7 @@ it("keeps inherited commits out of a new checkout branch's diff", async () => {
     await git("commit", "-m", "base change");
     await git("update-ref", "refs/remotes/origin/topic-base", "HEAD");
     await git("switch", "main");
-    await plugin(bb);
+    await plugin(hyperfide);
     const provider = harness.registrations.environmentProviders.get(
       PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID,
     );
@@ -78,7 +78,7 @@ it("keeps inherited commits out of a new checkout branch's diff", async () => {
       gitRemote: null,
       inputs: { branch: { kind: "new", baseBranch: "origin/topic-base" } },
       thread: makeThreadResponse(),
-      suggestedBranchName: "bb/checkout-regression",
+      suggestedBranchName: "hyperfide/checkout-regression",
       attempt: 1,
       pathKey: "merge-base-regression",
       experimental_claimPath: async () => true,
@@ -88,7 +88,7 @@ it("keeps inherited commits out of a new checkout branch's diff", async () => {
     expect(result.status).toBe("created");
     if (result.status !== "created") throw new Error("Checkout failed");
     expect((await git("branch", "--show-current")).trim()).toBe(
-      "bb/checkout-regression",
+      "hyperfide/checkout-regression",
     );
     expect(await git("diff", "--name-only", "main...HEAD")).toBe(
       "base-only.txt\n",

@@ -157,7 +157,7 @@ function createConnection(
   const browserInfo: CdpObject = {
     targetId: browserTargetId,
     type: "browser",
-    title: "BB",
+    title: "HYPERFIDE",
     url: "",
     attached: true,
     canAccessOpener: false,

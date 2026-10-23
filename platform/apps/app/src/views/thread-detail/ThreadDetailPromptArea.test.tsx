@@ -43,7 +43,7 @@ import {
 import { LazyQueuedMessagesList } from "@/components/promptbox/banner/LazyQueuedMessagesList";
 import { workflowRow } from "@/test/fixtures/thread-timeline-rows";
 import type { PromptDraftAttachment } from "@hyperfide/client-core";
-import { BbHttpError } from "@/lib/sdk";
+import { HyperfideHttpError } from "@/lib/sdk";
 import type { ExperimentalComposerSelection } from "@hyperfide/plugin-sdk";
 import { setComposerTextEffect } from "@/lib/composer-text-effects";
 import {
@@ -1248,7 +1248,7 @@ describe("ThreadDetailPromptArea", () => {
   it("dismisses a missing queued message but keeps a stale edit recoverable", async () => {
     mocks.queuedMessages = [makeQueuedMessage()];
     mocks.updateQueuedMessageMutateAsync.mockRejectedValueOnce(
-      new BbHttpError({
+      new HyperfideHttpError({
         body: null,
         code: "invalid_request",
         status: 409,
@@ -1279,7 +1279,7 @@ describe("ThreadDetailPromptArea", () => {
     ).toBeTruthy();
 
     mocks.updateQueuedMessageMutateAsync.mockRejectedValueOnce(
-      new BbHttpError({
+      new HyperfideHttpError({
         body: null,
         code: "invalid_request",
         status: 404,

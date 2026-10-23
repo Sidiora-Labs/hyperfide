@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { PluginContext } from "@/components/plugin/plugin-context";
 import { SidebarHistoryNavigationControls } from "@/components/sidebar/SidebarHistoryNavigationControls";
-import { useBbNavigate } from "./plugin-sdk-hooks";
+import { useHyperfideNavigate } from "./plugin-sdk-hooks";
 import {
   AUTOMATIONS_PLUGIN_ID,
   getAutomationDetailRoutePath,
@@ -69,7 +69,7 @@ const AUTOMATION_ROUTE = {
 function PluginNavigationHarness() {
   const location = useLocation();
   const navigate = useNavigate();
-  const pluginNavigate = useBbNavigate();
+  const pluginNavigate = useHyperfideNavigate();
   const detailPath = getAutomationDetailRoutePath(AUTOMATION_ROUTE);
   const editSubPath = `${AUTOMATION_ROUTE.projectId}/${AUTOMATION_ROUTE.automationId}/edit`;
   const detailSubPath = `${AUTOMATION_ROUTE.projectId}/${AUTOMATION_ROUTE.automationId}`;

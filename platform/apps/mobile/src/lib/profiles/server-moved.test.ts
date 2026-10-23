@@ -26,7 +26,7 @@ async function setup() {
     serverUrl: "https://laptop.hyperfide.example",
     label: "laptop",
     handle: "laptop",
-    credential: "bbcm_secret",
+    credential: "hyperfide_cm_secret",
   });
   const notify = vi.fn<(message: string) => void>();
   const handler = createServerMovedProfileHandler({ store, notify });

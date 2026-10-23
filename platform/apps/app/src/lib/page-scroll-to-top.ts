@@ -1,4 +1,4 @@
-export const PAGE_SCROLL_TO_TOP_EVENT = "bb:page-scroll-to-top";
+export const PAGE_SCROLL_TO_TOP_EVENT = "hyperfide:page-scroll-to-top";
 
 export function scrollPageToTop(header: HTMLElement) {
   let scope = header.parentElement;

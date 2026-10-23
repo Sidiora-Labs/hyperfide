@@ -184,7 +184,7 @@ describe("planAcpElicitation", () => {
       planAcpElicitation({ mode: "url", url: "https://example.com" }),
     ).toEqual({
       kind: "unsupported",
-      reason: 'bb does not offer the "url" elicitation mode',
+      reason: 'hyperfide does not offer the "url" elicitation mode',
     });
     expect(
       planAcpElicitation(
@@ -196,11 +196,11 @@ describe("planAcpElicitation", () => {
       ),
     ).toEqual({
       kind: "unsupported",
-      reason: "the form has 5 fields and bb shows at most 4",
+      reason: "the form has 5 fields and hyperfide shows at most 4",
     });
     expect(planAcpElicitation(form({ nested: { type: "object" } }))).toEqual({
       kind: "unsupported",
-      reason: 'bb cannot show the field "nested"',
+      reason: 'hyperfide cannot show the field "nested"',
     });
   });
 });

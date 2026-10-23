@@ -48,7 +48,7 @@ it("selects and tests a microphone directly, then releases it on exit", async ()
   expect(screen.getByTitle("Display microphone").textContent).toBe(
     "Display microphone",
   );
-  expect(window.localStorage.getItem("bb.voiceInput.audioInputDeviceId")).toBe(
+  expect(window.localStorage.getItem("hyperfide.voiceInput.audioInputDeviceId")).toBe(
     "display",
   );
   unmount();
@@ -56,7 +56,7 @@ it("selects and tests a microphone directly, then releases it on exit", async ()
 });
 
 it("shows missing preferences as fallback information and restores them on reconnect", async () => {
-  window.localStorage.setItem("bb.voiceInput.audioInputDeviceId", "display");
+  window.localStorage.setItem("hyperfide.voiceInput.audioInputDeviceId", "display");
   const enumerateDevices = vi.fn().mockResolvedValue([devices[0]]);
   const mediaDevices = Object.assign(new EventTarget(), {
     getUserMedia: vi

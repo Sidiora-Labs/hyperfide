@@ -1,4 +1,4 @@
-import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
+import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 export const REPLY_SEED_PREFIX =
@@ -78,9 +78,9 @@ export const sideChatRpcContract = defineRpcContract({
   },
 });
 
-export default async function plugin(bb: BbPluginApi) {
-  const db = bb.storage.database();
-  bb.storage.migrate(db, [
+export default async function plugin(hyperfide: HyperfidePluginApi) {
+  const db = hyperfide.storage.database();
+  hyperfide.storage.migrate(db, [
     `CREATE TABLE cleanup_candidates (thread_id TEXT PRIMARY KEY, created_at INTEGER NOT NULL, due_at INTEGER NOT NULL);
      CREATE INDEX cleanup_candidates_due_idx ON cleanup_candidates(due_at);
      CREATE TABLE cleanup_discovery (id INTEGER PRIMARY KEY);`,
@@ -91,20 +91,20 @@ export default async function plugin(bb: BbPluginApi) {
     ).run(threadId, createdAt, createdAt + EMPTY_FORK_MAX_AGE_MS + 1);
   };
   for (const event of ["thread.archived", "thread.deleted"] as const)
-    bb.events.on(event, async ({ thread }) => {
+    hyperfide.events.on(event, async ({ thread }) => {
       db.prepare("DELETE FROM cleanup_candidates WHERE thread_id=?").run(
         thread.id,
       );
-      await bb.storage.kv.delete(`${KEPT_FORK_KEY_PREFIX}${thread.id}`);
+      await hyperfide.storage.kv.delete(`${KEPT_FORK_KEY_PREFIX}${thread.id}`);
     });
 
-  bb.events.on("thread.unarchived", ({ thread }) => {
-    if (isOwnLiveHiddenFork(thread, bb.pluginId)) {
+  hyperfide.events.on("thread.unarchived", ({ thread }) => {
+    if (isOwnLiveHiddenFork(thread, hyperfide.pluginId)) {
       enqueue(thread.id, thread.createdAt);
     }
   });
 
-  bb.rpc.register(sideChatRpcContract, {
+  hyperfide.rpc.register(sideChatRpcContract, {
     async createSideChat({ sourceThreadId, sourceSeqEnd, anchorText }) {
       const seedText = resolveReplySeedText(anchorText);
       const forkArgs = {
@@ -125,7 +125,7 @@ export default async function plugin(bb: BbPluginApi) {
           : {}),
       };
       try {
-        const fork = await bb.sdk.threads.fork({
+        const fork = await hyperfide.sdk.threads.fork({
           ...forkArgs,
           ...(sourceSeqEnd !== undefined ? { sourceSeqEnd } : {}),
         });
@@ -135,14 +135,14 @@ export default async function plugin(bb: BbPluginApi) {
         if (sourceSeqEnd === undefined || !isSessionUnavailableError(error)) {
           throw error;
         }
-        const fork = await bb.sdk.threads.fork(forkArgs);
+        const fork = await hyperfide.sdk.threads.fork(forkArgs);
         enqueue(fork.id, fork.createdAt);
         return { threadId: fork.id };
       }
     },
   });
 
-  bb.background.schedule("empty-fork-cleanup", "13 * * * *", async () => {
+  hyperfide.background.schedule("empty-fork-cleanup", "13 * * * *", async () => {
     const now = Date.now();
     if (db.prepare("SELECT id FROM cleanup_discovery WHERE id=1").get()) {
       const candidates = z
@@ -170,14 +170,14 @@ export default async function plugin(bb: BbPluginApi) {
       }
       return;
     }
-    const keptKeys = new Set(await bb.storage.kv.list(KEPT_FORK_KEY_PREFIX));
+    const keptKeys = new Set(await hyperfide.storage.kv.list(KEPT_FORK_KEY_PREFIX));
     const stillLive = new Set<string>();
     let offset = 0;
     for (;;) {
-      const page = await bb.sdk.threads.list({
+      const page = await hyperfide.sdk.threads.list({
         includeHidden: true,
         originKind: "fork",
-        originPluginId: bb.pluginId,
+        originPluginId: hyperfide.pluginId,
         archived: false,
         limit: EMPTY_FORK_SWEEP_PAGE_SIZE,
         offset,
@@ -185,7 +185,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (page.length === 0) break;
       let retained = 0;
       for (const thread of page) {
-        if (!isOwnLiveHiddenFork(thread, bb.pluginId)) {
+        if (!isOwnLiveHiddenFork(thread, hyperfide.pluginId)) {
           retained += 1;
           continue;
         }
@@ -203,7 +203,7 @@ export default async function plugin(bb: BbPluginApi) {
         const outcome = await sweepEmptyFork(thread.id, thread.createdAt);
         if (outcome === "archived") continue;
         if (outcome === "kept") {
-          await bb.storage.kv.set(keptKey, true);
+          await hyperfide.storage.kv.set(keptKey, true);
           stillLive.add(keptKey);
         }
         if (outcome === "skipped") enqueue(thread.id, thread.createdAt);
@@ -213,7 +213,7 @@ export default async function plugin(bb: BbPluginApi) {
       offset += retained;
     }
     for (const key of keptKeys) {
-      if (!stillLive.has(key)) await bb.storage.kv.delete(key);
+      if (!stillLive.has(key)) await hyperfide.storage.kv.delete(key);
     }
     db.prepare("INSERT INTO cleanup_discovery VALUES (1)").run();
   });
@@ -223,15 +223,15 @@ export default async function plugin(bb: BbPluginApi) {
     createdAt: number,
   ): Promise<"archived" | "kept" | "skipped"> {
     try {
-      const thread = await bb.sdk.threads.get({ threadId });
-      if (!isOwnLiveHiddenFork(thread, bb.pluginId)) return "kept";
-      const timeline = await bb.sdk.threads.timeline({
+      const thread = await hyperfide.sdk.threads.get({ threadId });
+      if (!isOwnLiveHiddenFork(thread, hyperfide.pluginId)) return "kept";
+      const timeline = await hyperfide.sdk.threads.timeline({
         threadId,
         includeNestedRows: "true",
       });
       if (timelineRowsContainUserMessage(timeline.rows)) return "kept";
     } catch (error) {
-      bb.log.warn(
+      hyperfide.log.warn(
         `empty-fork sweep skipped ${threadId} (thread or timeline read failed: ${
           error instanceof Error ? error.message : String(error)
         })`,
@@ -239,10 +239,10 @@ export default async function plugin(bb: BbPluginApi) {
       return "skipped";
     }
     try {
-      const queued = await bb.sdk.threads.queuedMessages.list({ threadId });
+      const queued = await hyperfide.sdk.threads.queuedMessages.list({ threadId });
       if (queued.length > 0) return "kept";
     } catch (error) {
-      bb.log.warn(
+      hyperfide.log.warn(
         `empty-fork sweep skipped ${threadId} (queued-message read failed: ${
           error instanceof Error ? error.message : String(error)
         })`,
@@ -250,14 +250,14 @@ export default async function plugin(bb: BbPluginApi) {
       return "skipped";
     }
     try {
-      await bb.sdk.threads.archive({ threadId });
-      bb.log.info(
+      await hyperfide.sdk.threads.archive({ threadId });
+      hyperfide.log.info(
         `empty-fork sweep archived ${threadId} (no user messages, ` +
           `created ${new Date(createdAt).toISOString()})`,
       );
       return "archived";
     } catch (error) {
-      bb.log.warn(
+      hyperfide.log.warn(
         `empty-fork sweep failed to archive ${threadId}: ${
           error instanceof Error ? error.message : String(error)
         }`,

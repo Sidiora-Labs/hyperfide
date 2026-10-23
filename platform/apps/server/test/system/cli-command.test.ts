@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 function scratchDir(): string {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), "bb-cli-command-")));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "hyperfide-cli-command-")));
   scratchDirs.push(dir);
   return dir;
 }
@@ -88,7 +88,7 @@ const NOT_INSTALLED = {
   supported: true,
 };
 
-describe("bb command on PATH", () => {
+describe("hyperfide command on PATH", () => {
   posixIt(
     "links the launcher into a PATH folder and removes it again",
     async () => {
@@ -121,7 +121,7 @@ describe("bb command on PATH", () => {
     });
   });
 
-  posixIt("refuses to install behind another bb that runs first", async () => {
+  posixIt("refuses to install behind another hyperfide that runs first", async () => {
     const fixture = createUnixFixture({
       pathDirectories: (home) => [
         join(home, "tools"),
@@ -138,7 +138,7 @@ describe("bb command on PATH", () => {
     await expect(fixture.service.install()).rejects.toMatchObject({
       body: {
         code: "cli_command_blocked",
-        message: `Another bb at ${foreign} comes first on your PATH. Remove it, or run bb's command directly at ${fixture.launcherPath}.`,
+        message: `Another hyperfide at ${foreign} comes first on your PATH. Remove it, or run hyperfide's command directly at ${fixture.launcherPath}.`,
       },
       status: 409,
     });
@@ -146,19 +146,19 @@ describe("bb command on PATH", () => {
     expect(readFileSync(foreign, "utf8")).toBe("#!/bin/sh\necho babashka\n");
   });
 
-  posixIt("recognises a bb that npm already put on PATH", async () => {
+  posixIt("recognises a hyperfide that npm already put on PATH", async () => {
     const fixture = createUnixFixture({
       pathDirectories: (home) => [join(home, "npm", "bin")],
     });
     const packageRoot = join(fixture.home, "npm", "lib", "hyperfide-app");
-    writeExecutable(join(packageRoot, "dist", "bb.js"), "");
+    writeExecutable(join(packageRoot, "dist", "hyperfide.js"), "");
     writeFileSync(
       join(packageRoot, "package.json"),
       JSON.stringify({ name: "hyperfide-app" }),
     );
     const npmBin = join(fixture.home, "npm", "bin", "hyperfide-platform");
     mkdirSync(dirname(npmBin));
-    symlinkSync(join(packageRoot, "dist", "bb.js"), npmBin);
+    symlinkSync(join(packageRoot, "dist", "hyperfide.js"), npmBin);
 
     await expect(fixture.service.getStatus()).resolves.toEqual({
       ...NOT_INSTALLED,
@@ -166,13 +166,13 @@ describe("bb command on PATH", () => {
     });
     await expect(fixture.service.install()).rejects.toMatchObject({
       body: {
-        message: `bb is already on your PATH at ${npmBin}, installed by npm.`,
+        message: `hyperfide is already on your PATH at ${npmBin}, installed by npm.`,
       },
     });
   });
 
   posixIt(
-    "recognises the command a bb machine install added and leaves it",
+    "recognises the command a hyperfide machine install added and leaves it",
     async () => {
       const fixture = createUnixFixture();
       const machineShim = join(fixture.localBin, "hyperfide-platform");
@@ -201,7 +201,7 @@ describe("bb command on PATH", () => {
     },
   );
 
-  posixIt("ignores the bb that npx puts on PATH for the run", async () => {
+  posixIt("ignores the hyperfide that npx puts on PATH for the run", async () => {
     const fixture = createUnixFixture({
       pathDirectories: (home) => [
         join(home, ".npm", "_npx", "abc", "node_modules", ".bin"),
@@ -220,7 +220,7 @@ describe("bb command on PATH", () => {
   });
 
   posixIt(
-    "repoints a link left by a bb that used another data directory",
+    "repoints a link left by a hyperfide that used another data directory",
     async () => {
       const fixture = createUnixFixture();
       const otherLauncher = join(fixture.home, "other-data", "bin", "hyperfide-platform");
@@ -242,13 +242,13 @@ describe("bb command on PATH", () => {
 
     await expect(fixture.service.install()).rejects.toMatchObject({
       body: {
-        message: `The bb command launcher at ${fixture.launcherPath} is missing. Restart bb, then try again.`,
+        message: `The hyperfide command launcher at ${fixture.launcherPath} is missing. Restart Hyperfide, then try again.`,
       },
     });
     expect(existsSync(join(fixture.localBin, "hyperfide-platform"))).toBe(false);
   });
 
-  it("is unavailable when bb runs without a launcher, such as a source checkout", async () => {
+  it("is unavailable when hyperfide runs without a launcher, such as a source checkout", async () => {
     const service = createCliCommandService({
       env: {},
       homeDir: scratchDir(),
@@ -268,7 +268,7 @@ describe("bb command on PATH", () => {
   });
 });
 
-describe("bb command on the Windows PATH", () => {
+describe("hyperfide command on the Windows PATH", () => {
   function createWindowsFixture(initialPath: string | Error): {
     service: CliCommandService;
     userPath: () => string;

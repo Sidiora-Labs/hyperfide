@@ -450,7 +450,7 @@ export function createHarness(
         ...unexpectedProviderMaintenance,
         runtimeManager: manager,
         threadStorageRootPath:
-          overrides.threadStorageRootPath ?? "/tmp/bb-test-thread-storage",
+          overrides.threadStorageRootPath ?? "/tmp/hyperfide-test-thread-storage",
       };
     },
   };
@@ -467,7 +467,7 @@ export function makeDispatchOptions(
     fetchProjectAttachment: unexpectedProjectAttachmentFetch,
     fetchPluginHostArtifact: fetchDispatchTestArtifact,
     ...unexpectedProviderMaintenance,
-    threadStorageRootPath: "/tmp/bb-test-thread-storage",
+    threadStorageRootPath: "/tmp/hyperfide-test-thread-storage",
     ...overrides,
   };
 }
@@ -485,7 +485,7 @@ export const DISPATCH_TEST_ARTIFACT_BYTES = Buffer.from(
 const DISPATCH_TEST_ARTIFACT_DIGEST = createHash("sha256")
   .update(DISPATCH_TEST_ARTIFACT_BYTES)
   .digest("hex");
-const DISPATCH_TEST_DATA_DIR = "/tmp/bb-test-data";
+const DISPATCH_TEST_DATA_DIR = "/tmp/hyperfide-test-data";
 
 export const fetchDispatchTestArtifact = async (): Promise<Uint8Array> =>
   new Uint8Array(DISPATCH_TEST_ARTIFACT_BYTES);

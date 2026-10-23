@@ -14,7 +14,7 @@ The plugin exposes `update` through its typed `agentAnnotationsRpcContract` and 
 ```
 
 ```sh
-bb plugin rpc call agent-annotations update --input-file annotation-update.json --json
+hyperfide-platform plugin rpc call agent-annotations update --input-file annotation-update.json --json
 ```
 
 An unknown ID or invalid comment fails without creating a record. RPC updates change saved context; an already-open page pin keeps its local comment until it is edited again.

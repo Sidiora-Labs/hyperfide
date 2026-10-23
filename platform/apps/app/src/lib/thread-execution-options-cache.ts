@@ -2,7 +2,7 @@ import { resolvedThreadExecutionOptionsSchema } from "@hyperfide/domain";
 import { createLastKnownCache } from "@/lib/last-known-cache";
 
 const threadExecutionOptionsCache = createLastKnownCache({
-  prefix: "bb.thread-execution-options",
+  prefix: "hyperfide.thread-execution-options",
   version: "1",
   schema: resolvedThreadExecutionOptionsSchema,
 });

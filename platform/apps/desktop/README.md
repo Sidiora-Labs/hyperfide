@@ -1,7 +1,7 @@
 # @hyperfide/desktop
 
-macOS, Linux, and Windows Electron shell for bb. The desktop app loads the existing bb
-web UI and uses the packaged `bb-app` launcher for server and host-daemon
+macOS, Linux, and Windows Electron shell for hyperfide. The desktop app loads the existing Hyperfide
+web UI and uses the packaged `hyperfide-app` launcher for server and host-daemon
 lifecycle.
 
 ## Browser address interaction checks
@@ -12,7 +12,7 @@ The smoke test mounts the production address input beside a real Electron
 `WebContentsView`, checks repeated focus transfers, first and second clicks,
 drag selection, keyboard focus, and replacing the selected URL by typing.
 It uses a temporary profile and removes it when finished. It needs no running
-BB server or user data. CI runs it alongside the desktop tests.
+HYPERFIDE server or user data. CI runs it alongside the desktop tests.
 
 ## Development
 
@@ -23,14 +23,14 @@ live UI updates. In a second terminal, start the Electron shell:
 pnpm exec turbo run dev --filter=@hyperfide/desktop
 ```
 
-The dev script builds `bb-app`, compiles the Electron main/preload files, and
+The dev script builds `hyperfide-app`, compiles the Electron main/preload files, and
 opens Electron directly. By default it uses the same checkout-scoped
-`~/.bb-dev/<checkout-instance>` data directory and deterministic high ports as
+`~/.hyperfide-dev/<checkout-instance>` data directory and deterministic high ports as
 `pnpm dev`; it prints the resolved data dir, server URL, and
 Electron user-data dir at startup. It intentionally overwrites inherited
-`BB_DATA_DIR`, `BB_SERVER_PORT`, `BB_SERVER_URL`, and `BB_HOST_DAEMON_PORT` so a
-desktop dev run launched from an existing bb session still targets the current
-checkout. Set `BB_DESKTOP_USER_DATA_DIR` to override only Electron's user-data
+`HYPERFIDE_DATA_DIR`, `HYPERFIDE_SERVER_PORT`, `HYPERFIDE_SERVER_URL`, and `HYPERFIDE_HOST_DAEMON_PORT` so a
+desktop dev run launched from an existing Hyperfide session still targets the current
+checkout. Set `HYPERFIDE_DESKTOP_USER_DATA_DIR` to override only Electron's user-data
 directory.
 
 The launcher probes the checkout's Vite app port at startup and adapts:
@@ -40,11 +40,11 @@ The launcher probes the checkout's Vite app port at startup and adapts:
   needed. It still attaches to the same running server/daemon for all API/WS
   traffic. The launcher prints `app <url> (Vite dev server — live reload)`. This
   is the fast loop for iterating on the desktop UI.
-- **`pnpm dev` is not running**: the shell starts its own `bb-app` runtime and
+- **`pnpm dev` is not running**: the shell starts its own `hyperfide-app` runtime and
   loads the built UI it serves, so you must rebuild (re-run this task) to pick up
-  source changes. The launcher prints `app (own bb-app runtime — …)`.
+  source changes. The launcher prints `app (own hyperfide-app runtime — …)`.
 
-The override is plumbed via `BB_DESKTOP_APP_URL`, which the launcher only sets
+The override is plumbed via `HYPERFIDE_DESKTOP_APP_URL`, which the launcher only sets
 when Vite is confirmed reachable; it is never set in packaged builds, so
 production always loads the server's own built UI.
 
@@ -57,7 +57,7 @@ pnpm exec turbo run start --filter=@hyperfide/desktop
 ```
 
 Electron is pinned to `44.3.0`. macOS builds require macOS 13 (Ventura) or
-newer. The bundled `bb-app` runtime uses `better-sqlite3@13.0.3`, whose N-API
+newer. The bundled `hyperfide-app` runtime uses `better-sqlite3@13.0.3`, whose N-API
 binaries work with Electron without an ABI-specific rebuild. The packaging
 hook opens an in-memory database with Electron before accepting the packaged
 SQLite module; older ABI-specific modules still use the prebuild fallback.
@@ -149,11 +149,11 @@ verification without opening a desktop window:
 
 ```bash
 pnpm exec turbo run smoke:packaged-npm --filter=@hyperfide/desktop
-pnpm exec turbo run smoke:packaged-npm --filter=@hyperfide/desktop -- /absolute/path/to/bb.app/Contents/MacOS/bb
+pnpm exec turbo run smoke:packaged-npm --filter=@hyperfide/desktop -- /absolute/path/to/hyperfide.dev/Contents/MacOS/hyperfide
 ```
 
 On Linux, the optional argument is the executable inside `linux-unpacked/` or
-an extracted AppImage. The check resolves npm from packaged `bb-app`, audits
+an extracted AppImage. The check resolves npm from packaged `hyperfide-app`, audits
 required dependency edges and version ranges in npm's entire bundled tree using
 both CJS and ESM resolution, rejects paths outside packaged resources, imports npm's ESM display
 dependencies, and verifies its version. It then uses bundled Electron and npm
@@ -164,7 +164,7 @@ HOME/cache/config, and disabled lifecycle scripts. No system Node/npm or user
 store is used by the child processes. It also hashes ASAR and unpacked resources
 before and after to reject bundle mutations. Fixtures are removed afterward.
 
-The bb-app tarball smoke covers a different packaging pipeline and cannot
+The hyperfide-app tarball smoke covers a different packaging pipeline and cannot
 detect Electron artifact omissions. A source build or `npm --version` alone
 does not verify a desktop plugin dependency install.
 
@@ -181,8 +181,8 @@ pnpm exec turbo run desktop:build:win --filter=@hyperfide/desktop
 pnpm exec turbo run smoke:packaged --filter=@hyperfide/desktop
 ```
 
-`desktop:build:win` writes `release/bb-<version>-x64.exe`, a one-click per-user
-NSIS installer that installs to `%LOCALAPPDATA%\Programs\bb` (`bb-nightly` on
+`desktop:build:win` writes `release/hyperfide-<version>-x64.exe`, a one-click per-user
+NSIS installer that installs to `%LOCALAPPDATA%\Programs\Hyperfide` (`hyperfide-nightly` on
 the nightly channel) without elevation, plus `latest.yml` for electron-updater.
 Without a signing certificate the installer is unsigned, so Windows SmartScreen
 warns before running it. electron-builder signs it when `WIN_CSC_LINK` (a
@@ -221,7 +221,7 @@ Linux users whose window manager supplies all window controls can remove the
 native Electron title bar with `--no-window-frame`:
 
 ```bash
-./bb-x86_64.AppImage --no-window-frame
+./hyperfide-x86_64.AppImage --no-window-frame
 ```
 
 The native frame remains the default. Changing this startup option requires a
@@ -231,7 +231,7 @@ Linux users can opt into a transparent Electron window with
 `--transparent-window`:
 
 ```bash
-./bb-x86_64.AppImage --transparent-window
+./hyperfide-x86_64.AppImage --transparent-window
 ```
 
 The window remains opaque by default. Transparency also requires a compositor
@@ -267,9 +267,9 @@ push code to Linux clients. Treat the release token accordingly.
 
 ## Releasing
 
-`bb-app` and `@hyperfide/desktop` versions are LOCKED in lockstep. The desktop package
-depends on `bb-app: workspace:*`, and the displayed release version string must
-match `packages/bb-app/package.json`.
+`hyperfide-app` and `@hyperfide/desktop` versions are LOCKED in lockstep. The desktop package
+depends on `hyperfide-app: workspace:*`, and the displayed release version string must
+match `packages/hyperfide-app/package.json`.
 
 To bump for a release:
 
@@ -281,7 +281,7 @@ Then commit and ship through the normal `sawyer-next` → `main` flow. You can a
 use `--patch`, `--minor`, or `--major` instead of an explicit version.
 
 CI enforces this lockstep. Direct edits that leave
-`packages/bb-app/package.json` and `apps/desktop/package.json` with different
+`packages/hyperfide-app/package.json` and `apps/desktop/package.json` with different
 versions fail the build. Never edit either package version directly for a
 release; use `scripts/bump-version.mjs` so both files move together.
 
@@ -307,10 +307,10 @@ wait on the Apple signing secrets.
 
 ## Nightly channel
 
-The scheduled `publish-bb-app.yml` workflow runs from `main` every day at
+The scheduled `publish-hyperfide-app.yml` workflow runs from `main` every day at
 3:00 AM Pacific (`America/Los_Angeles`, including daylight-saving changes). It
 derives a unique version such as `0.34.1-nightly.<run-id>.<attempt>` without
-committing that version, publishes `bb-app` with the npm `nightly` dist-tag,
+committing that version, publishes `hyperfide-app` with the npm `nightly` dist-tag,
 and builds the desktop app from that same lockstep version.
 
 To publish or dry-run the channel manually from `main`, dispatch the same
@@ -324,11 +324,11 @@ nightly channel stays below `latest` until the next scheduled run.
 
 The nightly desktop is a separate installation:
 
-- product name: `bb Nightly`
-- bundle identifier: `dev.bb.desktop.nightly`
-- Linux binary name: `bb-nightly`, so it never shadows stable `bb` on PATH
+- product name: `Hyperfide Nightly`
+- bundle identifier: `dev.hyperfide.desktop.nightly`
+- Linux binary name: `hyperfide-nightly`, so it never shadows stable `Hyperfide` on PATH
 - app/update release: `desktop-nightly`
-- Windows install directory: `%LOCALAPPDATA%\Programs\bb-nightly`
+- Windows install directory: `%LOCALAPPDATA%\Programs\hyperfide-nightly`
 - update metadata: `nightly-mac.yml`, `nightly-linux.yml`, and `nightly.yml`
   (Windows)
 - version feeds: `desktop-version.json` (macOS),
@@ -337,20 +337,20 @@ The nightly desktop is a separate installation:
 - icon: `assets/icon-nightly.icns` and `assets/icon-nightly.png`
 
 Download it from
-[`desktop-nightly`](https://github.com/get-bb/bb/releases/tag/desktop-nightly)
+[`desktop-nightly`](https://github.com/hyperfide/hyperfide/releases/tag/desktop-nightly)
 or run the CLI build with:
 
 ```bash
-npx bb-app@nightly
+npx hyperfide-app@nightly
 ```
 
 Stable and nightly desktop bundles can coexist. Electron-owned preferences,
 window state, and process supervision use separate application data
-directories; the embedded bb runtime still uses the normal `~/.bb` data and
+directories; the embedded Hyperfide runtime still uses the normal `~/.hyperfide` data and
 default server port unless the corresponding environment variables are
 overridden.
 
-Nightly builds set `BB_DESKTOP_RELEASE_CHANNEL=nightly` at build time. The value
+Nightly builds set `HYPERFIDE_DESKTOP_RELEASE_CHANNEL=nightly` at build time. The value
 is baked into the Electron main/preload bundles and selects the nightly product
 identity, yellow icon, and update URLs. Omit the variable (or set it to
 `latest`) for stable and local builds.
@@ -369,8 +369,8 @@ the facts into the bundles:
 
 | Variable                | Default when unset                                    |
 | ----------------------- | ----------------------------------------------------- |
-| `BB_DESKTOP_COMMIT`     | `GITHUB_SHA`, else `git rev-parse HEAD`, else unknown |
-| `BB_DESKTOP_BUILD_DATE` | The build's own timestamp, ISO 8601                   |
+| `HYPERFIDE_DESKTOP_COMMIT`     | `GITHUB_SHA`, else `git rev-parse HEAD`, else unknown |
+| `HYPERFIDE_DESKTOP_BUILD_DATE` | The build's own timestamp, ISO 8601                   |
 
 The plugin SDK version is read from `packages/plugin-sdk/package.json` at build
 time. A checkout with no git metadata reports `Commit: unknown` rather than
@@ -410,9 +410,9 @@ checks run in parallel on launch, hourly, and when the app becomes active: the
 JSON feed can show "update available" even when CI has published metadata only,
 while the Electron updater only flips the toast to "ready to install" after a
 signed update has actually downloaded. Local dev builds skip Electron auto-update
-unless `BB_DESKTOP_AUTO_UPDATE=1` is set.
+unless `HYPERFIDE_DESKTOP_AUTO_UPDATE=1` is set.
 
-`bb Nightly` follows the equivalent isolated `desktop-nightly` release and
+`Hyperfide Nightly` follows the equivalent isolated `desktop-nightly` release and
 `nightly-mac.yml`; it never reads or moves the stable feed. The scheduled
 workflow requires the complete signing/notarization secret set before
 publishing nightly desktop assets.
@@ -420,28 +420,28 @@ publishing nightly desktop assets.
 To verify a downloaded or unpacked build:
 
 ```bash
-spctl --assess --verbose /path/to/bb.app
-codesign --verify --deep --strict --verbose=2 /path/to/bb.app
+spctl --assess --verbose /path/to/hyperfide.dev
+codesign --verify --deep --strict --verbose=2 /path/to/hyperfide.dev
 ```
 
 ## Debugging
 
 Use the View menu to toggle DevTools. To open them automatically on launch, set
-`BB_DESKTOP_OPEN_DEVTOOLS=1`:
+`HYPERFIDE_DESKTOP_OPEN_DEVTOOLS=1`:
 
 ```bash
-BB_DESKTOP_OPEN_DEVTOOLS=1 apps/desktop/release/mac-arm64/bb.app/Contents/MacOS/bb
+HYPERFIDE_DESKTOP_OPEN_DEVTOOLS=1 apps/desktop/release/mac-arm64/hyperfide.dev/Contents/MacOS/hyperfide
 ```
 
 Unpackaged runs use `assets/icon-dev.png` for the Dock and window icon. Set
-`BB_DESKTOP_DEV_ICON=1` to use it in a packaged build too; `pnpm
+`HYPERFIDE_DESKTOP_DEV_ICON=1` to use it in a packaged build too; `pnpm
 desktop:worktree` sets it. The bundle's own icon in Finder is unchanged.
 
 Desktop main-process logs are written immediately to `desktop.log` under
-`~/.bb/logs/` or `$BB_DATA_DIR/logs/` when `BB_DATA_DIR` is set, including
+`~/.hyperfide/logs/` or `$HYPERFIDE_DATA_DIR/logs/` when `HYPERFIDE_DATA_DIR` is set, including
 updater, Connect, and startup failures from launches without a terminal.
 Logs append across launches and rotate at 10 MiB into `desktop.1.log` through
-`desktop.4.log`. When bb-app exits, its captured output is saved
+`desktop.4.log`. When hyperfide-app exits, its captured output is saved
 with the error. Logging failures fall back to stderr without interrupting
 startup.
 
@@ -452,24 +452,24 @@ remote server does not fetch its logs. Use **Open Logs Folder** to inspect
 rotated files. Scripts and agents can read the same files from the data
 directory.
 
-To verify attach-if-found manually, start a compatible bb first, then launch the
+To verify attach-if-found manually, start a compatible Hyperfide first, then launch the
 desktop app:
 
 ```bash
-npx bb-app@latest
+npx hyperfide-app@latest
 pnpm exec turbo run dev --filter=@hyperfide/desktop
 ```
 
 The desktop supervisor handles normal quits plus `SIGINT` and `SIGTERM`, and it
-writes a PID file so the next launch can reap a stale Electron-owned `bb-app`
+writes a PID file so the next launch can reap a stale Electron-owned `hyperfide-app`
 launcher. Hard crashes such as process aborts, segfaults, or kernel-level kills
 cannot run cleanup in the crashing process; the startup PID-file reap is the
 recovery path for those cases.
 
 ### Saved servers
 
-Use **bb → Desktop Settings → Server → Add Server…** to save and switch to
-another machine's HTTP(S) bb server URL. **Window → Server** opens the same
+Use **Hyperfide → Desktop Settings → Server → Add Server…** to save and switch to
+another machine's HTTP(S) hyperfide-platform server URL. **Window → Server** opens the same
 menu. Both native dialogs accept an optional friendly name (up to 64 characters).
 The menu shows that name, or the URL hostname and port when unnamed. Saved URLs
 remain in the menu across restarts; adding an existing URL
@@ -479,7 +479,7 @@ saved entries.
 
 **Edit Server…** edits the currently selected custom or Connect server and is
 disabled for **This Mac** / **This Computer**. For a Connect server it changes
-only the name; the address comes from the bb account and is read-only. For a
+only the name; the address comes from the Hyperfide account and is read-only. For a
 custom server, clearing its URL removes
 that entry and, with Show This Mac/Computer checked, switches an active custom
 target to the built-in server. Other
@@ -502,7 +502,7 @@ builds with strict parsing can reject the added field on rollback. Invalid names
 do not discard saved URLs, and names for absent URLs are ignored and pruned on
 the next save.
 
-Connect servers owned by your bb account appear in the menu by name, or by
+Connect servers owned by your Hyperfide account appear in the menu by name, or by
 URL hostname when unnamed, like custom servers. Their names are stored in `server-target.json` as
 `connectServerNames`, keyed by handle, and are kept while discovery is
 unavailable. A saved custom URL that is an account server's address is replaced
@@ -516,7 +516,7 @@ reloads its windows once.
 The app command palette lists **Switch to <server>** for each inactive choice
 from this same Server menu, including Connect discovery. Palette list requests
 use the menu's discovery refresh policy (at most once per minute, with the
-existing ten-minute background refresh). The optional `window.bbDesktop`
+existing ten-minute background refresh). The optional `window.hyperfideDesktop`
 `getServerChoices`, `onServerChoicesChange`, and `selectServer` methods expose
 only `{id, name, active}`; custom server IDs are opaque hashes. Selection is
 validated against native choices and runs the menu's existing authentication,
@@ -545,8 +545,8 @@ The native menus, renderer Server popup, and app palette use the same choices.
 
 ### Server moves
 
-After `bb server move`, the old computer's data dir (`~/.bb` or
-`$BB_DATA_DIR`) contains `server-moved.json`. The desktop app reads it at
+After `hyperfide-platform server move`, the old computer's data dir (`~/.hyperfide` or
+`$HYPERFIDE_DATA_DIR`) contains `server-moved.json`. The desktop app reads it at
 startup, whenever the built-in server target loads, and while that target is active.
 While the target is active, the app watches the data dir. If `fs.watch` fails,
 for example with `ENOSPC`, the app checks the file every 2 seconds instead
@@ -564,30 +564,30 @@ sees a committed lock for a `moveId`, it switches the server target once:
   the app is open, the app waits up to 60 seconds for the new `/health`
   endpoint before it switches the window.
 
-The app shows "Your bb server moved to <toHostName>" once for each `moveId`
-(`<userData>/server-move-notice.json`). It still starts its own `bb-app`
-launcher unless another bb process answers the local server port. The launcher
+The app shows "Your hyperfide-platform server moved to <toHostName>" once for each `moveId`
+(`<userData>/server-move-notice.json`). It still starts its own `hyperfide-app`
+launcher unless another Hyperfide process answers the local server port. The launcher
 runs this computer as a regular machine, and quitting the app stops it. If the
-app has no stored bb Connect credential, it signs in to a connect target with
-the `x-bb-connect-machine` header that the move wrote to the data dir's
+app has no stored Hyperfide Connect credential, it signs in to a connect target with
+the `x-hyperfide-connect-machine` header that the move wrote to the data dir's
 `config.json`. The app logs a warning and ignores an invalid lock.
 
 On startup, a saved built-in server choice also switches to the moved server;
 it never starts the old copy automatically. A different saved remote server
 choice remains selected. Explicitly picking the built-in server while the move
-lock exists shows "bb moved to <toHostName>" with **Open <toHostName>** and
+lock exists shows "Hyperfide moved to <toHostName>" with **Open <toHostName>** and
 **Choose server…**. The screen explains whether the old copy is locked or was
 deleted. Selecting the built-in server does not unlock the old copy or remove
 its background machine service.
 
 Startup error screens list their actions as buttons. Any screen where
 retrying can help shows **Try again**. **Choose server…** opens the Server menu,
-where the user can select the built-in server if needed. A bb Connect
+where the user can select the built-in server if needed. A Hyperfide Connect
 `unauthorized` error has no **Try again**, because the same credential fails
 the same way. **Reconnect** opens account sign-in in a desktop
 window. The app clears its old account sign-in, waits for a new session, then
 retries the selected server. A valid account session can mint and renew the
 desktop session when a machine credential is rejected. Closing the sign-in
 window leaves the error screen available. Fatal errors have no buttons. The renderer sends the chosen
-action on `bb-desktop:startup-action`. The main process accepts only actions
+action on `hyperfide-desktop:startup-action`. The main process accepts only actions
 from the error page that is currently loaded in an app window's main frame.

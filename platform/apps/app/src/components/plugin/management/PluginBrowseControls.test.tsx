@@ -233,7 +233,7 @@ function ToolbarHarness({
             ? {
                 options: [
                   { id: "user", label: "Local" },
-                  { id: "official", label: "BB Official" },
+                  { id: "official", label: "HYPERFIDE Official" },
                 ],
                 selectedValues: params.getAll("source"),
                 onChange: (values) =>

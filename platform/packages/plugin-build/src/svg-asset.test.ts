@@ -9,8 +9,8 @@ import {
   assertValidPluginLogoSvg,
 } from "./svg-asset.js";
 
-const LABEL = 'bb.branding.experimental_icons["receipt"]';
-const LOGO = 'manifest bb.branding.logo.light ("./logo.svg")';
+const LABEL = 'hyperfide.branding.experimental_icons["receipt"]';
+const LOGO = 'manifest hyperfide.branding.logo.light ("./logo.svg")';
 const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 
@@ -105,7 +105,7 @@ const TOOL_EXPORTS: Array<[string, Uint8Array]> = [
   ["Latin-1 bytes", LATIN1_SVG],
 ];
 
-describe("assertValidPluginCompactIconSvg (bb.branding.icon, marketplace icons)", () => {
+describe("assertValidPluginCompactIconSvg (hyperfide.branding.icon, marketplace icons)", () => {
   it("checks the document shape only: markup the response headers keep inert is accepted", () => {
     for (const svg of [
       '<svg xmlns="http://www.w3.org/2000/svg"><script>1</script></svg>',
@@ -145,9 +145,9 @@ describe("assertValidPluginCompactIconSvg (bb.branding.icon, marketplace icons)"
     );
   });
 
-  it("rejects bytes that are not UTF-8, naming bb.branding.icon by default", () => {
+  it("rejects bytes that are not UTF-8, naming hyperfide.branding.icon by default", () => {
     expect(() => assertValidPluginCompactIconSvg(LATIN1_SVG)).toThrow(
-      "manifest bb.branding.icon must contain valid UTF-8 SVG bytes",
+      "manifest hyperfide.branding.icon must contain valid UTF-8 SVG bytes",
     );
   });
 });

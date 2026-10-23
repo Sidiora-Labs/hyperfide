@@ -1,13 +1,13 @@
 import { z } from "zod";
 
-export const bbDesktopServerChoiceSchema = z
+export const hyperfideDesktopServerChoiceSchema = z
   .object({
     id: z.string().min(1).max(256),
     name: z.string().min(1),
     active: z.boolean(),
   })
   .strict();
-export const bbDesktopServerChoicesSchema = z.array(
-  bbDesktopServerChoiceSchema,
+export const hyperfideDesktopServerChoicesSchema = z.array(
+  hyperfideDesktopServerChoiceSchema,
 );
-export type BbDesktopServerChoice = z.infer<typeof bbDesktopServerChoiceSchema>;
+export type HyperfideDesktopServerChoice = z.infer<typeof hyperfideDesktopServerChoiceSchema>;

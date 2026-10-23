@@ -115,7 +115,7 @@ export async function cachedReactCompiler(cacheDirectory?: string): Promise<
           encoding: "utf8",
         },
       );
-      directory = resolve(stdout.trim(), "bb-cache/react-compiler");
+      directory = resolve(stdout.trim(), "hyperfide-cache/react-compiler");
     } catch {
       directory = resolve(config.cacheDir, "react-compiler");
     }

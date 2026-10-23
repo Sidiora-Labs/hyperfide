@@ -79,7 +79,7 @@ describe("searchCommands", () => {
 
   it("ranks by the words in the query and respects the limit", () => {
     expect(searchCommands(index, "send message", 5)[0]?.usage).toBe(
-      "bb thread tell <id>",
+      "hyperfide-platform thread tell <id>",
     );
     expect(searchCommands(index, "thread", 1)).toHaveLength(1);
     expect(searchCommands(index, "nothing matches this", 5)).toEqual([]);
@@ -87,8 +87,8 @@ describe("searchCommands", () => {
 
   it("lists commands for an empty query", () => {
     expect(searchCommands(index, "", 10).map((match) => match.usage)).toEqual([
-      "bb thread list",
-      "bb thread tell <id>",
+      "hyperfide-platform thread list",
+      "hyperfide-platform thread tell <id>",
     ]);
   });
 });

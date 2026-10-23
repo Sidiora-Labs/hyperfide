@@ -7,7 +7,7 @@ export function definePluginApp(setup: PluginAppSetup): PluginAppDefinition {
   if (typeof setup !== "function") {
     throw new Error("definePluginApp expects a setup function");
   }
-  return Object.freeze({ __bbPluginApp: true as const, setup });
+  return Object.freeze({ __hyperfidePluginApp: true as const, setup });
 }
 export function isPluginAppDefinition(
   value: unknown,
@@ -15,7 +15,7 @@ export function isPluginAppDefinition(
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as { __bbPluginApp?: unknown }).__bbPluginApp === true &&
+    (value as { __hyperfidePluginApp?: unknown }).__hyperfidePluginApp === true &&
     typeof (value as { setup?: unknown }).setup === "function"
   );
 }

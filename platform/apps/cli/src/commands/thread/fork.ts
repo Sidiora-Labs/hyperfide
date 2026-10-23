@@ -6,7 +6,7 @@ import {
 } from "@hyperfide/domain";
 import type { EnvironmentArgs } from "@hyperfide/server-contract";
 import { action } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliHyperfideSdk } from "../../client.js";
 import { resolveExplicitIdFlag } from "../../context-env.js";
 import { resolveTextInput, TEXT_FILE_HELP_SUFFIX } from "../../text-input.js";
 import { collectOption, outputJson, prependErrorContext } from "../helpers.js";
@@ -72,7 +72,7 @@ async function buildForkInput(
 }
 
 async function resolveForkSourceHostId(
-  sdk: ReturnType<typeof createCliBbSdk>,
+  sdk: ReturnType<typeof createCliHyperfideSdk>,
   sourceThreadId: string,
 ): Promise<string> {
   const sourceThread = await sdk.threads.get({ threadId: sourceThreadId });
@@ -131,7 +131,7 @@ export function registerForkCommand(
     )
     .option(
       "--base-branch <branch>",
-      "Exact Git ref; omit for bb's project default (use origin/<branch> for a remote ref)",
+      "Exact Git ref; omit for hyperfide's project default (use origin/<branch> for a remote ref)",
     )
     .option("--permission-mode <mode>", PERMISSION_MODE_HELP)
     .option("--visibility <visibility>", "Thread visibility: visible or hidden")
@@ -176,7 +176,7 @@ export function registerForkCommand(
           let thread: Thread;
           let environment: EnvironmentArgs | undefined;
           try {
-            const sdk = createCliBbSdk(getUrl());
+            const sdk = createCliHyperfideSdk(getUrl());
             const input =
               requestedInput === undefined
                 ? undefined

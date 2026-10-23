@@ -114,7 +114,7 @@ it("preserves argument boundary whitespace", () => {
 });
 
 it("preserves text chunks, local files, and local images", () => {
-  const workspaceDir = mkdtempSync(join(tmpdir(), "bb-pi-turn-input-"));
+  const workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-pi-turn-input-"));
   try {
     const imagePath = join(workspaceDir, "screenshot.png");
     const filePath = join(workspaceDir, "context.txt");
@@ -146,7 +146,7 @@ it("preserves text chunks, local files, and local images", () => {
 });
 
 it("distinguishes an image-only prompt from empty input", () => {
-  const workspaceDir = mkdtempSync(join(tmpdir(), "bb-pi-image-input-"));
+  const workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-pi-image-input-"));
   try {
     const imagePath = join(workspaceDir, "screenshot.png");
     writeFileSync(imagePath, Buffer.from("fake png data"));

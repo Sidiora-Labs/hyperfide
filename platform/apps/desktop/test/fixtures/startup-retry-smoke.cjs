@@ -10,12 +10,12 @@ const {
 const { join } = require("node:path");
 const { app, BrowserWindow, ipcMain, Menu, shell } = require("electron");
 
-app.setName("bb-dev");
+app.setName("hyperfide-dev");
 
 const desktopRoot = process.env.HYPERFIDE_STARTUP_SMOKE_APP_PATH;
 app.setVersion(require(join(desktopRoot, "package.json")).version);
 const scenario = process.env.HYPERFIDE_STARTUP_SMOKE_SCENARIO ?? "custom";
-const channel = "bb-desktop:startup-action";
+const channel = "hyperfide-desktop:startup-action";
 const loads = [];
 let contents;
 let recovered = false;
@@ -59,7 +59,7 @@ async function run() {
               cookie: {
                 domain: "127.0.0.1",
                 expiresAt: Date.now() + 3600_000,
-                name: "bb_session",
+                name: "hyperfide_session",
                 value: "synthetic-retry-cookie",
               },
             },
@@ -81,10 +81,10 @@ async function run() {
     await new Promise((resolve) => server.close(resolve));
   }
   if (scenario === "crashed") {
-    const crashingRuntime = join(app.getPath("userData"), "crashing-bb-app");
+    const crashingRuntime = join(app.getPath("userData"), "crashing-hyperfide-app");
     await writeFile(
       crashingRuntime,
-      '#!/bin/sh\necho "bb-app native module failed to load" >&2\nexit 3\n',
+      '#!/bin/sh\necho "hyperfide-app native module failed to load" >&2\nexit 3\n',
     );
     await chmod(crashingRuntime, 0o755);
     process.env.HYPERFIDE_DESKTOP_NODE_EXEC_PATH = crashingRuntime;
@@ -129,11 +129,11 @@ async function run() {
     );
     assert.equal(
       await contents.executeJavaScript(
-        "window.bbDesktop.getInfo().then((info) => info.serverDaemonLogsAvailable)",
+        "window.hyperfideDesktop.getInfo().then((info) => info.serverDaemonLogsAvailable)",
       ),
       true,
     );
-    await contents.executeJavaScript("window.bbDesktop.openServerDaemonLogs()");
+    await contents.executeJavaScript("window.hyperfideDesktop.openServerDaemonLogs()");
     await verifyLocalLogs();
     server.close();
     console.log("STARTUP_RETRY_SMOKE_OK");
@@ -147,12 +147,12 @@ async function run() {
       "desktop.log",
     );
     await until(async () =>
-      (await readFile(desktopLog, "utf8")).includes("Could not start bb"),
+      (await readFile(desktopLog, "utf8")).includes("Could not start hyperfide"),
     );
     const savedLogs = await readFile(desktopLog, "utf8");
     assert.ok(
-      savedLogs.includes("bb-app native module failed to load"),
-      "bb-app output from a failed startup must be persisted",
+      savedLogs.includes("hyperfide-app native module failed to load"),
+      "hyperfide-app output from a failed startup must be persisted",
     );
     console.log("STARTUP_RETRY_SMOKE_OK");
     app.exit(0);
@@ -162,8 +162,8 @@ async function run() {
     scenario === "fatal"
       ? "Port conflict"
       : scenario === "connect"
-        ? "Could not authenticate with bb Connect"
-        : "Could not reach this bb server";
+        ? "Could not authenticate with hyperfide Connect"
+        : "Could not reach this hyperfide-platform server";
   const hasError = () =>
     contents?.getURL().startsWith("data:") &&
     contents.executeJavaScript(
@@ -208,7 +208,7 @@ async function run() {
     return;
   }
   assert.equal(
-    await contents.executeJavaScript("typeof window.bbDesktop"),
+    await contents.executeJavaScript("typeof window.hyperfideDesktop"),
     "object",
   );
   assert.deepEqual(
@@ -295,7 +295,7 @@ async function run() {
     );
     const cookies = await contents.session.cookies.get({
       url: serverUrl,
-      name: "bb_session",
+      name: "hyperfide_session",
     });
     assert.equal(cookies[0]?.value, "synthetic-retry-cookie");
   }
@@ -325,7 +325,7 @@ async function run() {
 async function verifyLocalLogs() {
   await until(() => {
     logsWindow = BrowserWindow.getAllWindows().find(
-      (window) => window.getTitle() === "bb - Local Logs",
+      (window) => window.getTitle() === "hyperfide - Local Logs",
     );
     return logsWindow && !logsWindow.webContents.isLoading();
   });
@@ -338,7 +338,7 @@ async function verifyLocalLogs() {
   };
   try {
     const result = await logsWindow.webContents.executeJavaScript(
-      "window.bbLogViewer.openLogsFolder()",
+      "window.hyperfideLogViewer.openLogsFolder()",
     );
     assert.equal(result.path, logDir);
     assert.equal(openedPath, logDir);

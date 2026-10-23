@@ -52,7 +52,7 @@ pnpm exec turbo run typecheck --filter=hyperfide-plugin-provider-codex
 ```
 
 TypeScript reports any over-deletion as a missing-module error; a green
-typecheck plus `pnpm exec turbo run test --filter=bb-plugin-provider-codex` confirms
+typecheck plus `pnpm exec turbo run test --filter=hyperfide-plugin-provider-codex` confirms
 the kept subset is complete. Keep it pruned to avoid re-vendoring dead types.
 
 ## Source of truth
@@ -60,4 +60,4 @@ the kept subset is complete. Keep it pruned to avoid re-vendoring dead types.
 - Upstream reference: [openai/codex app-server README](https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md).
 - `schema/*.ts`: generated from Codex app-server, pruned to the reachable subset (see above).
 - `index.ts` / barrels: intentionally **not** committed; the adapter imports concrete `schema/**` files directly.
-- `plugins/provider-codex/src/delta-translation.ts`: translates Codex app-server events into bb thread deltas.
+- `plugins/provider-codex/src/delta-translation.ts`: translates Codex app-server events into hyperfide-platform thread deltas.

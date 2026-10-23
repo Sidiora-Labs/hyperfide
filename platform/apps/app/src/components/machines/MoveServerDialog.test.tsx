@@ -9,7 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { SERVER_MOVE_STEP_IDS } from "@hyperfide/domain";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import type {
   ServerMoveCheckResponse,
   ServerMoveStatus,
@@ -89,7 +89,7 @@ afterEach(() => {
 });
 
 describe("MoveServerDialog", () => {
-  it("checks the machine, groups the results by severity, and starts a bb connect move", async () => {
+  it("checks the machine, groups the results by severity, and starts a hyperfide-platform connect move", async () => {
     vi.mocked(sdk.experimental_server.checkMove).mockResolvedValue(
       checkResponse({
         items: [
@@ -150,7 +150,7 @@ describe("MoveServerDialog", () => {
     });
   });
 
-  it("asks for the new address when the server has no bb connect handle and re-checks with it", async () => {
+  it("asks for the new address when the server has no hyperfide-platform connect handle and re-checks with it", async () => {
     vi.mocked(sdk.experimental_server.checkMove)
       .mockResolvedValueOnce(
         checkResponse({
@@ -276,7 +276,7 @@ describe("MoveServerDialog", () => {
     ).toHaveBeenLastCalledWith({ targetHostId: TARGET.id, serverUrl: null });
   });
 
-  it("requires confirming that the existing bb data on the machine gets archived", async () => {
+  it("requires confirming that the existing hyperfide data on the machine gets archived", async () => {
     vi.mocked(sdk.experimental_server.checkMove).mockResolvedValue(
       checkResponse({
         existingTargetServerData: {
@@ -287,7 +287,7 @@ describe("MoveServerDialog", () => {
           {
             id: "existing-server-data",
             severity: "warning",
-            title: "desk already has bb server data",
+            title: "desk already has hyperfide-platform server data",
             detail: null,
           },
         ],
@@ -299,7 +299,7 @@ describe("MoveServerDialog", () => {
     renderDialog();
 
     const confirmation = await screen.findByRole("checkbox", {
-      name: /Archive the existing bb data at \/Users\/sawyer\/\.hyperfide/u,
+      name: /Archive the existing hyperfide data at \/Users\/sawyer\/\.hyperfide/u,
     });
     expect(screen.getByText(/^5\.0 MB\./u)).toBeDefined();
     expect(startButton().hasAttribute("disabled")).toBe(true);
@@ -323,7 +323,7 @@ describe("MoveServerDialog", () => {
   it("surfaces a failed check inline and lets the user check again", async () => {
     vi.mocked(sdk.experimental_server.checkMove)
       .mockRejectedValueOnce(
-        new BbHttpError({
+        new HyperfideHttpError({
           status: 500,
           code: "host_rpc_timeout",
           message: "desk did not answer in time",
@@ -357,7 +357,7 @@ describe("MoveServerDialog", () => {
       checkResponse(),
     );
     vi.mocked(sdk.experimental_server.startMove).mockRejectedValue(
-      new BbHttpError({
+      new HyperfideHttpError({
         status: 400,
         code: "server_move_blocked",
         message: "The move is blocked",

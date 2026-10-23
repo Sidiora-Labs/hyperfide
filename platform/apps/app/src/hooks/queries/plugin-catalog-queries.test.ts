@@ -40,7 +40,7 @@ const UPDATES_RESULTS = [
     outcome: "incompatible",
     devMode: true,
     installed: { version: "1.8.3", display: "1.8.3" },
-    blocked: { version: "1.9.0", reasons: ["requires bb >= 0.15"] },
+    blocked: { version: "1.9.0", reasons: ["requires hyperfide >= 0.15"] },
   },
 ];
 
@@ -56,7 +56,7 @@ describe("checkPluginUpdates", () => {
       "incompatible",
     ]);
     expect(entries[1]?.candidate?.version).toBe("1.7.0");
-    expect(entries[2]?.blocked?.reasons).toEqual(["requires bb >= 0.15"]);
+    expect(entries[2]?.blocked?.reasons).toEqual(["requires hyperfide >= 0.15"]);
   });
 
   it("throws on a malformed 2xx body", async () => {
@@ -104,7 +104,7 @@ describe("plugin catalog queries", () => {
             description: "Personal task capture",
             icon: "CheckList",
             iconUrl: null,
-            source: "npm:@bb-plugins/todoist",
+            source: "npm:@hyperfide-plugins/todoist",
             marketplace: "acme-plugins",
             marketplaceDisplayName: "Acme Plugins",
             publisherKey: "acme-plugins",
@@ -115,7 +115,7 @@ describe("plugin catalog queries", () => {
             installed: false,
             conflictingInstallSource: null,
             compatible: false,
-            incompatibleReason: "requires bb >= 0.15",
+            incompatibleReason: "requires hyperfide >= 0.15",
           },
         ],
         collections: [
@@ -141,7 +141,7 @@ describe("plugin catalog queries", () => {
           screenshots: [],
           overview: "# Todoist\n\nLong-form text.\n",
           collections: [],
-          source: "npm:@bb-plugins/todoist",
+          source: "npm:@hyperfide-plugins/todoist",
           repositoryUrl: null,
           marketplace: "acme-plugins",
           marketplaceDisplayName: "Acme Plugins",
@@ -158,7 +158,7 @@ describe("plugin catalog queries", () => {
           installedByDefault: false,
           installs: null,
           compatible: false,
-          incompatibleReason: "requires bb >= 0.15",
+          incompatibleReason: "requires hyperfide >= 0.15",
         },
       ],
       collections: [

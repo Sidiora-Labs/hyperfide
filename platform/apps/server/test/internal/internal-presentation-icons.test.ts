@@ -408,7 +408,7 @@ async function writeToolPluginFixture(rootDir: string): Promise<void> {
     JSON.stringify({
       name: `hyperfide-plugin-${TOOL_PLUGIN_ID}`,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Tooled",
         description: "Registers a tool with a declared icon.",
         branding: {
@@ -426,7 +426,7 @@ async function writeToolPluginFixture(rootDir: string): Promise<void> {
   await writeFile(join(rootDir, "icons", "stamp.svg"), STAMP_SVG);
 }
 
-function bbToolItem(
+function hyperfideToolItem(
   threadId: string,
   id: string,
   tool: string,
@@ -443,7 +443,7 @@ function bbToolItem(
         type: "toolCall",
         id,
         tool,
-        server: "bb",
+        server: "hyperfide",
         status: "completed",
         presentation: {
           label: { pending: "Stamping", completed: "Stamped" },
@@ -459,8 +459,8 @@ function storedGlyph(row: { data: unknown }): string | undefined {
     .item?.presentation?.icon.glyph;
 }
 
-describe("presentation icon ingest validation for bb-injected tool rows", () => {
-  it("keeps the tool plugin's declared icon on a thread of another provider plugin, and refuses any other glyph on a bb tool row", async () => {
+describe("presentation icon ingest validation for hyperfide-injected tool rows", () => {
+  it("keeps the tool plugin's declared icon on a thread of another provider plugin, and refuses any other glyph on a hyperfide tool row", async () => {
     const { harness, session, thread } = await setup();
     try {
       const rootDir = join(
@@ -481,9 +481,9 @@ describe("presentation icon ingest validation for bb-injected tool rows", () => 
 
       const response = await post(harness, session.id, [
         turnStarted(thread.id),
-        bbToolItem(thread.id, "item-1", "stamp_tool", TOOL_ICON_GLYPH),
-        bbToolItem(thread.id, "item-2", "stamp_tool", "other-plugin/stamp"),
-        bbToolItem(thread.id, "item-3", "no_such_tool", TOOL_ICON_GLYPH),
+        hyperfideToolItem(thread.id, "item-1", "stamp_tool", TOOL_ICON_GLYPH),
+        hyperfideToolItem(thread.id, "item-2", "stamp_tool", "other-plugin/stamp"),
+        hyperfideToolItem(thread.id, "item-3", "no_such_tool", TOOL_ICON_GLYPH),
         toolItem(thread.id, "item-4", TOOL_ICON_GLYPH),
       ]);
       expect(response.status).toBe(200);

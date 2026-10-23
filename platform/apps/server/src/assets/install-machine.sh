@@ -10,7 +10,7 @@ Usage: install.sh --bootstrap-env <NAME> [--host-daemon-port <port>]
 
 Machines enroll from a private bootstrap bundle. Get the one-line command that
 carries it from Settings -> Machines -> Add a machine, or from
-`bb machine create --provider manual`. That command works through bb connect,
+`hyperfide machine create --provider manual`. That command works through hyperfide-platform connect,
 Tailscale, and any other address machines can reach.
 --adopt installs the service for a data directory that is already enrolled,
 such as the one a server move leaves behind, reading its machine ID from
@@ -167,11 +167,11 @@ run_lifecycle() {
   lifecycle_slug=$(printf '%s-%s' "$lifecycle_server_host" "$host_id" | tr '.' '-')
   systemd_scope=--user
   if [ "$platform" = darwin ]; then
-    service_name="app.getbb.host-daemon.$lifecycle_slug"
+    service_name="app.hyperfide.host-daemon.$lifecycle_slug"
     service_file="$HOME/Library/LaunchAgents/$service_name.plist"
     system_service_file=
   else
-    service_name="bb-host-daemon-$lifecycle_slug.service"
+    service_name="hyperfide-host-daemon-$lifecycle_slug.service"
     service_file="$HOME/.config/systemd/user/$service_name"
     system_service_file="$data_dir/systemd/$service_name"
   fi
@@ -184,8 +184,8 @@ run_lifecycle() {
       const escaped = dataDir.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;").replaceAll("'"'"'", "&apos;");
       const systemd = dataDir.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"").replaceAll("%", "%%");
       const directories = platform === "darwin"
-        ? [[path.join(home, "Library", "LaunchAgents"), "app.getbb.host-daemon.", ".plist"]]
-        : [[path.join(home, ".config", "systemd", "user"), "bb-host-daemon-", ".service"], [path.join(dataDir, "systemd"), "bb-host-daemon-", ".service"]];
+        ? [[path.join(home, "Library", "LaunchAgents"), "app.hyperfide.host-daemon.", ".plist"]]
+        : [[path.join(home, ".config", "systemd", "user"), "hyperfide-host-daemon-", ".service"], [path.join(dataDir, "systemd"), "hyperfide-host-daemon-", ".service"]];
       const matches = [];
       for (const [directory, prefix, suffix] of directories) {
         let names;
@@ -255,7 +255,7 @@ run_lifecycle() {
     [ -n "$daemon_pid" ] || return 1
     case "$daemon_pid" in *[!0-9]*|'0'|'1') fail_step "Invalid installed daemon PID."; exit 1 ;; esac
     daemon_command=$(ps -p "$daemon_pid" -o command= 2>/dev/null) || return 1
-    launcher="$data_dir/npm/bin/bb-app"
+    launcher="$data_dir/npm/bin/hyperfide-app"
     case " $daemon_command " in *" $launcher "*" host-daemon "*" --host-daemon-port $host_daemon_port "*" --server-url $server_url "*) return 0 ;; esac
     fail_step "Recorded daemon PID belongs to another process."
     exit 1
@@ -271,7 +271,7 @@ run_lifecycle() {
         systemctl "$systemd_scope" start "$service_name"
       fi
     elif ! owned_pid; then
-      HYPERFIDE_APP_NPM_PREFIX="$data_dir/npm" HYPERFIDE_DATA_DIR="$data_dir" nohup "$data_dir/npm/bin/bb-app" host-daemon --auto-update --supervise --host-daemon-port "$host_daemon_port" --server-url "$server_url" >"$data_dir/install-daemon.log" 2>&1 &
+      HYPERFIDE_APP_NPM_PREFIX="$data_dir/npm" HYPERFIDE_DATA_DIR="$data_dir" nohup "$data_dir/npm/bin/hyperfide-app" host-daemon --auto-update --supervise --host-daemon-port "$host_daemon_port" --server-url "$server_url" >"$data_dir/install-daemon.log" 2>&1 &
       daemon_pid=$!
       (umask 077 && printf '%s\n' "$daemon_pid" >"$pid_file")
     fi
@@ -376,7 +376,7 @@ if [ "$adopt" = no ]; then
   [ -n "$host_id" ] || usage
   if [ -z "$lifecycle_action" ]; then [ -n "$server_url" ] || usage; fi
 fi
-printf '\n  %s\n\n' "$(bold "bb machine setup")"
+printf '\n  %s\n\n' "$(bold "hyperfide machine setup")"
 if [ "$adopt" = no ]; then
   active_step "Setting up this machine as $host_id for $server_url"
 fi
@@ -385,13 +385,13 @@ case "$(uname -s)" in
   Darwin) platform=darwin ;;
   Linux) platform=linux ;;
   *)
-    fail_step "bb machine installation supports macOS and Linux only."
+    fail_step "hyperfide machine installation supports macOS and Linux only."
     exit 1
     ;;
 esac
 
 if ! command -v node >/dev/null 2>&1; then
-  fail_step "bb-app requires Node.js 22.19 or newer (22.19, 24, and 26 are tested), but node is not on PATH."
+  fail_step "hyperfide-app requires Node.js 22.19 or newer (22.19, 24, and 26 are tested), but node is not on PATH."
   exit 1
 fi
 node_version=$(node -p 'process.versions.node')
@@ -404,7 +404,7 @@ node_supported=$(node -e '
   process.exit(supported ? 0 : 1);
 ' && echo yes || echo no)
 if [ "$node_supported" != yes ]; then
-  fail_step "Node.js $node_version is too old; bb-app requires Node.js 22.19 or newer (22.19, 24, and 26 are tested)."
+  fail_step "Node.js $node_version is too old; hyperfide-app requires Node.js 22.19 or newer (22.19, 24, and 26 are tested)."
   exit 1
 fi
 node_bin=$(command -v node)
@@ -441,7 +441,7 @@ if [ "${HYPERFIDE_INSTALL_SKIP_SERVICE:-0}" != 1 ] && [ "$platform" = linux ] &&
   esac
   if ! systemctl --user show-environment >/dev/null 2>&1; then
     if [ "$systemd_host" = yes ]; then
-      fail_step "The systemd user bus is unavailable; the bb host-daemon service was not installed."
+      fail_step "The systemd user bus is unavailable; the hyperfide-platform host-daemon service was not installed."
       detail "Run the installer from a systemd user session, then retry. To run without a persistent service, set HYPERFIDE_INSTALL_SKIP_SERVICE=1; the daemon will not start after a reboot." >&2
       exit 1
     fi
@@ -474,7 +474,7 @@ if [ "$adopt" = yes ]; then
     try { url = new URL(config?.serverUrl); }
     catch { fail(`${configFile} has no server address.`); }
     if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) fail(`${configFile} has an unusable server address.`);
-    const headers = config.serverHeaders ?? (typeof config.machineCredential === "string" ? { "x-bb-connect-machine": config.machineCredential } : {});
+    const headers = config.serverHeaders ?? (typeof config.machineCredential === "string" ? { "x-hyperfide-connect-machine": config.machineCredential } : {});
     if (typeof headers !== "object" || headers === null || Array.isArray(headers) || !Object.values(headers).every((value) => typeof value === "string")) fail(`${configFile} has invalid server headers.`);
     process.stdout.write(JSON.stringify({ dataDir, hostId: auth.hostId, serverUrl: url.href.replace(/\/$/u, ""), headers }));
   ' "$requested_data_dir"); then
@@ -489,7 +489,7 @@ fi
 
 require_npm() {
   if ! command -v npm >/dev/null 2>&1; then
-    fail_step "bb-app installation requires npm."
+    fail_step "hyperfide-app installation requires npm."
     exit 1
   fi
 }
@@ -506,7 +506,7 @@ service_slug=$(printf '%s-%s' "$server_host" "$host_slug" | tr '.' '-')
 legacy_service_slug=$(printf '%s' "$server_host" | tr '.' '-')
 
 # Each server gets its own data dir and daemon instance, so one machine can
-# serve several bb servers and a full local bb install keeps ~/.hyperfide to itself.
+# serve several hyperfide servers and a full local hyperfide-platform install keeps ~/.hyperfide to itself.
 if [ "$adopt" = yes ]; then
   data_dir=$adopted_data_dir
 else
@@ -541,29 +541,29 @@ else
   fi
 fi
 mkdir -p "$HOME/.local/bin"
-if [ ! -e "$HOME/.local/bin/bb" ] && [ ! -L "$HOME/.local/bin/bb" ]; then
+if [ ! -e "$HOME/.local/bin/hyperfide" ] && [ ! -L "$HOME/.local/bin/hyperfide" ]; then
   shim_file=$(mktemp "$HOME/.local/bin/.hyperfide-machine.XXXXXX")
   node_path_quoted=$(printf '%s' "${node_bin%/*}" | sed "s/'/'\\''/g")
   printf '#!/bin/sh\nPATH=\047%s\047:"$PATH"\nexport PATH\n' "$node_path_quoted" > "$shim_file"
-  cli_path_quoted=$(printf '%s' "$data_dir/npm/bin/bb" | sed "s/'/'\\''/g")
+  cli_path_quoted=$(printf '%s' "$data_dir/npm/bin/hyperfide" | sed "s/'/'\\''/g")
   cat >> "$shim_file" <<'HYPERFIDE_MACHINE_EXPLICIT_DATA'
-if [ -n "${HYPERFIDE_DATA_DIR:-}" ] && [ -x "$HYPERFIDE_DATA_DIR/npm/bin/bb" ]; then
-  exec "$HYPERFIDE_DATA_DIR/npm/bin/bb" "$@"
+if [ -n "${HYPERFIDE_DATA_DIR:-}" ] && [ -x "$HYPERFIDE_DATA_DIR/npm/bin/hyperfide" ]; then
+  exec "$HYPERFIDE_DATA_DIR/npm/bin/hyperfide" "$@"
 fi
 HYPERFIDE_MACHINE_EXPLICIT_DATA
   printf 'if [ -x \047%s\047 ]; then exec \047%s\047 "$@"; fi\n' "$cli_path_quoted" "$cli_path_quoted" >> "$shim_file"
   cat >> "$shim_file" <<'HYPERFIDE_MACHINE_CLI'
 unset HYPERFIDE_DATA_DIR
-for candidate in "$HOME"/.hyperfide-machines/*/npm/bin/bb; do
+for candidate in "$HOME"/.hyperfide-machines/*/npm/bin/hyperfide; do
   if [ -x "$candidate" ]; then exec "$candidate" "$@"; fi
 done
 if [ "${1:-}" = machine ] && [ "${2:-}" = uninstall ]; then exit 0; fi
-printf '%s\n' 'No installed bb machine CLI is available.' >&2
+printf '%s\n' 'No installed hyperfide machine CLI is available.' >&2
 exit 1
 HYPERFIDE_MACHINE_CLI
   chmod 755 "$shim_file"
-  if ! ln "$shim_file" "$HOME/.local/bin/bb" 2>/dev/null; then
-    if [ ! -e "$HOME/.local/bin/bb" ] && [ ! -L "$HOME/.local/bin/bb" ]; then
+  if ! ln "$shim_file" "$HOME/.local/bin/hyperfide" 2>/dev/null; then
+    if [ ! -e "$HOME/.local/bin/hyperfide" ] && [ ! -L "$HOME/.local/bin/hyperfide" ]; then
       rm -f "$shim_file"
       fail_step "Could not publish the machine CLI shim."
       exit 1
@@ -582,13 +582,13 @@ canonical_data_dir=$(node -e '
 # Keep the package private to this enrollment. Besides avoiding system-prefix
 # permissions, this lets one machine follow servers running different builds.
 machine_npm_prefix="$canonical_data_dir/npm"
-# bb-app depends on native add-ons whose binaries are fetched or built by npm
+# Hyperfide-app depends on native add-ons whose binaries are fetched or built by npm
 # lifecycle scripts. npm >= 12 blocks dependency install scripts by default
 # for global installs unless they are named in --allow-scripts (the installed
 # package's own package.json#allowScripts is not consulted for -g / npx).
 # npm 10 ignores the unknown flag; npm 11 accepts it.
-bb_app_native_modules="better-sqlite3,node-pty,@parcel/watcher"
-bb_app_allow_scripts="--allow-scripts=$bb_app_native_modules"
+hyperfide_app_native_modules="better-sqlite3,node-pty,@parcel/watcher"
+hyperfide_app_allow_scripts="--allow-scripts=$hyperfide_app_native_modules"
 
 valid_port() {
   node -e '
@@ -703,11 +703,11 @@ mv "$host_daemon_port_temp" "$host_daemon_port_file"
 complete_step "Using local host-daemon port $host_daemon_port"
 
 # The server's own build is always installed when it offers one: version
-# strings cannot distinguish unpublished builds, so an existing bb-app is
+# strings cannot distinguish unpublished builds, so an existing hyperfide-app is
 # trusted only when the server provides no package (404) or is unreachable.
-package_url="${server_url%/}/install/bb-app.tgz"
-package_dir=$(mktemp -d "${TMPDIR:-/tmp}/bb-app.XXXXXX")
-package_file="$package_dir/bb-app.tgz"
+package_url="${server_url%/}/install/hyperfide-app.tgz"
+package_dir=$(mktemp -d "${TMPDIR:-/tmp}/hyperfide-app.XXXXXX")
+package_file="$package_dir/hyperfide-app.tgz"
 access_config="$package_dir/access.curl"
 : > "$access_config"
 chmod 600 "$access_config"
@@ -719,9 +719,9 @@ fi
 package_headers="$package_dir/headers"
 host_artifact_digest_file="$data_dir/host-artifact.sha256"
 installed_artifact_digest=
-if [ -x "$machine_npm_prefix/bin/bb-app" ] && \
-   [ -x "$machine_npm_prefix/bin/bb" ] && \
-   [ -f "$machine_npm_prefix/lib/node_modules/bb-app/host-daemon/dist/daemon-bundle.mjs" ]; then
+if [ -x "$machine_npm_prefix/bin/hyperfide-app" ] && \
+   [ -x "$machine_npm_prefix/bin/hyperfide" ] && \
+   [ -f "$machine_npm_prefix/lib/node_modules/hyperfide-app/host-daemon/dist/daemon-bundle.mjs" ]; then
   installed_artifact_digest=$(node -e '
     const fs = require("node:fs");
     try {
@@ -736,7 +736,7 @@ curl_output_mode=--progress-meter
 if [ ! -t 2 ]; then
   curl_output_mode=--silent
 fi
-active_step "Downloading the server's bb-app package (timeout: 5 minutes)"
+active_step "Downloading the server's hyperfide-app package (timeout: 5 minutes)"
 if [ -n "$installed_artifact_digest" ]; then
   package_status=$(curl --config "$access_config" "$curl_output_mode" --show-error --location \
     --connect-timeout "$CURL_CONNECT_TIMEOUT_SECONDS" \
@@ -762,7 +762,7 @@ package_digest=$(node -e '
   const fs = require("node:fs");
   try {
     const headers = fs.readFileSync(process.argv[1], "utf8");
-    const matches = [...headers.matchAll(/^x-bb-artifact-sha256:\s*([a-f0-9]{64})\s*$/gimu)];
+    const matches = [...headers.matchAll(/^x-hyperfide-artifact-sha256:\s*([a-f0-9]{64})\s*$/gimu)];
     const digest = matches.at(-1)?.[1];
     if (digest) process.stdout.write(digest);
   } catch {}
@@ -784,10 +784,10 @@ if [ "$package_status" -ge 400 ] && [ "$package_status" -le 599 ]; then
   fi
 fi
 
-bb_app=
-bb_app_npm_prefix=
+hyperfide_app=
+hyperfide_app_npm_prefix=
 if [ "$package_status" = 304 ] && [ -n "$installed_artifact_digest" ]; then
-  bb_app_npm_prefix=$machine_npm_prefix
+  hyperfide_app_npm_prefix=$machine_npm_prefix
   complete_step "The identical server host artifact is already installed"
 elif [ "$package_status" -ge 200 ] && [ "$package_status" -lt 300 ]; then
   if [ -n "$package_digest" ]; then
@@ -798,66 +798,66 @@ elif [ "$package_status" -ge 200 ] && [ "$package_status" -lt 300 ]; then
     ' "$package_file")
     if [ "$downloaded_digest" != "$package_digest" ]; then
       rm -rf "$package_dir"
-      fail_step "The downloaded bb host artifact failed SHA-256 verification."
+      fail_step "The downloaded hyperfide-platform host artifact failed SHA-256 verification."
       detail "Expected $package_digest but received $downloaded_digest." >&2
       exit 1
     fi
   fi
   require_npm
-  complete_step "Downloaded the server's bb-app package"
-  active_step "Installing the server's bb-app build"
+  complete_step "Downloaded the server's hyperfide-app package"
+  active_step "Installing the server's hyperfide-app build"
   rm -f "$host_artifact_digest_file"
-  if ! npm install -g "$bb_app_allow_scripts" --prefix "$machine_npm_prefix" "$package_file"; then
+  if ! npm install -g "$hyperfide_app_allow_scripts" --prefix "$machine_npm_prefix" "$package_file"; then
     rm -rf "$package_dir"
-    fail_step "Could not install bb-app for this machine. Check the npm error above, then rerun this command."
+    fail_step "Could not install hyperfide-app for this machine. Check the npm error above, then rerun this command."
     exit 1
   fi
-  bb_app_npm_prefix=$machine_npm_prefix
-  complete_step "Installed the server's bb-app build"
-elif command -v bb-app >/dev/null 2>&1; then
+  hyperfide_app_npm_prefix=$machine_npm_prefix
+  complete_step "Installed the server's hyperfide-app build"
+elif command -v hyperfide-app >/dev/null 2>&1; then
   rm -f "$host_artifact_digest_file"
-  bb_app=$(command -v bb-app)
+  hyperfide_app=$(command -v hyperfide-app)
   if [ "$package_status" = 404 ]; then
-    warning_step "The server does not provide its bb-app package; using bb-app at $bb_app"
+    warning_step "The server does not provide its hyperfide-app package; using hyperfide-app at $hyperfide_app"
   else
-    warning_step "Could not download the server's bb-app package (HTTP $package_status); using bb-app at $bb_app"
+    warning_step "Could not download the server's hyperfide-app package (HTTP $package_status); using hyperfide-app at $hyperfide_app"
   fi
 elif [ "$package_status" = 404 ]; then
   require_npm
   rm -f "$host_artifact_digest_file"
-  warning_step "The server does not provide its bb-app package"
-  active_step "Installing bb-app from the npm registry"
-  if ! npm install -g "$bb_app_allow_scripts" --prefix "$machine_npm_prefix" bb-app; then
+  warning_step "The server does not provide its hyperfide-app package"
+  active_step "Installing hyperfide-app from the npm registry"
+  if ! npm install -g "$hyperfide_app_allow_scripts" --prefix "$machine_npm_prefix" hyperfide-app; then
     rm -rf "$package_dir"
-    fail_step "Could not install bb-app for this machine. Check the npm error above, then rerun this command."
+    fail_step "Could not install hyperfide-app for this machine. Check the npm error above, then rerun this command."
     exit 1
   fi
-  bb_app_npm_prefix=$machine_npm_prefix
-  complete_step "Installed bb-app from the npm registry"
+  hyperfide_app_npm_prefix=$machine_npm_prefix
+  complete_step "Installed hyperfide-app from the npm registry"
 else
   rm -rf "$package_dir"
-  fail_step "Could not download the server's bb-app package from $package_url (HTTP $package_status)."
+  fail_step "Could not download the server's hyperfide-app package from $package_url (HTTP $package_status)."
   exit 1
 fi
 rm -rf "$package_dir"
 
-if [ -n "$bb_app_npm_prefix" ]; then
-  bb_app="$bb_app_npm_prefix/bin/bb-app"
-  if [ ! -x "$bb_app" ]; then
-    fail_step "npm installed bb-app, but did not create the expected executable at $bb_app."
+if [ -n "$hyperfide_app_npm_prefix" ]; then
+  hyperfide_app="$hyperfide_app_npm_prefix/bin/hyperfide-app"
+  if [ ! -x "$hyperfide_app" ]; then
+    fail_step "npm installed hyperfide-app, but did not create the expected executable at $hyperfide_app."
     exit 1
   fi
   # Fail loudly if npm skipped the native add-on install scripts (npm >= 12
   # allowScripts policy, or ignore-scripts=true in an npmrc). Without this
   # check the join only fails later, in the daemon, with a raw stack trace.
-  bb_app_root="$bb_app_npm_prefix/lib/node_modules/bb-app"
+  hyperfide_app_root="$hyperfide_app_npm_prefix/lib/node_modules/hyperfide-app"
   if ! node -e '
     const root = process.argv[1];
     require(root + "/node_modules/node-pty");
     require(root + "/node_modules/@parcel/watcher");
-  ' "$bb_app_root" >/dev/null 2>&1; then
-    fail_step "npm installed bb-app, but its host native add-ons (node-pty, @parcel/watcher) did not load."
-    detail "npm did not run their install scripts. Check the npm warnings above. If they mention allowScripts or ignore-scripts, rerun this command with: npm_config_allow_scripts=$bb_app_native_modules npm_config_ignore_scripts=false" >&2
+  ' "$hyperfide_app_root" >/dev/null 2>&1; then
+    fail_step "npm installed hyperfide-app, but its host native add-ons (node-pty, @parcel/watcher) did not load."
+    detail "npm did not run their install scripts. Check the npm warnings above. If they mention allowScripts or ignore-scripts, rerun this command with: npm_config_allow_scripts=$hyperfide_app_native_modules npm_config_ignore_scripts=false" >&2
     exit 1
   fi
   if [ "$package_status" -ge 200 ] && [ "$package_status" -lt 300 ] && [ -n "$package_digest" ]; then
@@ -868,13 +868,13 @@ if [ -n "$bb_app_npm_prefix" ]; then
 fi
 
 if [ "$adopt" = no ]; then
-  bb_cli="${bb_app%/*}/bb"
-  if [ ! -x "$bb_cli" ]; then bb_cli=$(command -v bb || true); fi
-  if [ -z "$bb_cli" ]; then
+  hyperfide_cli="${hyperfide_app%/*}/hyperfide"
+  if [ ! -x "$hyperfide_cli" ]; then hyperfide_cli=$(command -v hyperfide || true); fi
+  if [ -z "$hyperfide_cli" ]; then
     fail_step "The installed build does not provide the machine enrollment CLI."
     exit 1
   fi
-  HYPERFIDE_ENROLLMENT="$bootstrap_payload" HYPERFIDE_DATA_DIR="$data_dir" "$bb_cli" machine enroll --bootstrap-env HYPERFIDE_ENROLLMENT
+  HYPERFIDE_ENROLLMENT="$bootstrap_payload" HYPERFIDE_DATA_DIR="$data_dir" "$hyperfide_cli" machine enroll --bootstrap-env HYPERFIDE_ENROLLMENT
   bootstrap_payload=
 fi
 
@@ -912,7 +912,7 @@ if [ "$already_joined" = no ]; then
   active_step "Joining $server_url as $host_id"
   detail "Join progress is logged to $join_log"
   # The daemon passes this prefix back to npm during protocol self-updates.
-  HYPERFIDE_APP_NPM_PREFIX="$bb_app_npm_prefix" HYPERFIDE_DATA_DIR="$data_dir" nohup "$bb_app" host-daemon join \
+  HYPERFIDE_APP_NPM_PREFIX="$hyperfide_app_npm_prefix" HYPERFIDE_DATA_DIR="$data_dir" nohup "$hyperfide_app" host-daemon join \
     --auto-update \
     --host-daemon-port "$host_daemon_port" \
     --host-id "$host_id" \
@@ -931,7 +931,7 @@ if [ "$already_joined" = no ]; then
     fi
     if ! kill -0 "$join_pid" 2>/dev/null; then
       wait "$join_pid" || true
-      fail_step "bb host daemon exited before it connected to $server_url."
+      fail_step "hyperfide-platform host daemon exited before it connected to $server_url."
       detail "See $join_log" >&2
       exit 1
     fi
@@ -960,7 +960,7 @@ stop_recorded_daemon() {
   case " $recorded_command " in
     *" host-daemon "*" --host-daemon-port $host_daemon_port "*) ;;
     *)
-      fail_step "A bb host daemon that this installer did not start is running on port $host_daemon_port."
+      fail_step "A hyperfide-platform host daemon that this installer did not start is running on port $host_daemon_port."
       detail "Stop it, then run this command again so the daemon uses the new credentials." >&2
       exit 1
       ;;
@@ -971,7 +971,7 @@ stop_recorded_daemon() {
   while kill -0 "$recorded_pid" 2>/dev/null || daemon_status_matches "$host_daemon_port" no; do
     stop_attempts=$((stop_attempts + 1))
     if [ "$stop_attempts" -ge "$DAEMON_WAIT_ATTEMPTS" ]; then
-      fail_step "The bb host daemon did not stop."
+      fail_step "The hyperfide-platform host daemon did not stop."
       exit 1
     fi
     sleep 1
@@ -988,7 +988,7 @@ if [ "${HYPERFIDE_INSTALL_SKIP_SERVICE:-0}" = 1 ]; then
     daemon_log="$data_dir/install-daemon.log"
     active_step "Starting the host daemon"
     detail "Host daemon output is logged to $daemon_log"
-    HYPERFIDE_APP_NPM_PREFIX="$bb_app_npm_prefix" HYPERFIDE_DATA_DIR="$data_dir" nohup "$bb_app" host-daemon \
+    HYPERFIDE_APP_NPM_PREFIX="$hyperfide_app_npm_prefix" HYPERFIDE_DATA_DIR="$data_dir" nohup "$hyperfide_app" host-daemon \
       --auto-update \
       --supervise \
       --host-daemon-port "$host_daemon_port" \
@@ -998,7 +998,7 @@ if [ "${HYPERFIDE_INSTALL_SKIP_SERVICE:-0}" = 1 ]; then
     if ! wait_for_daemon_connection "the host daemon"; then
       kill "$join_pid" 2>/dev/null || true
       wait "$join_pid" 2>/dev/null || true
-      fail_step "The bb host daemon did not connect to $server_url."
+      fail_step "The hyperfide-platform host daemon did not connect to $server_url."
       detail "See $daemon_log" >&2
       exit 1
     fi
@@ -1018,7 +1018,7 @@ if [ -n "$join_pid" ]; then
 fi
 rm -f "$data_dir/install-daemon.pid"
 
-active_step "Installing the persistent bb host daemon service"
+active_step "Installing the persistent hyperfide-platform host daemon service"
 
 xml_escape() {
   printf '%s' "$1" | sed \
@@ -1035,31 +1035,31 @@ systemd_escape() {
 
 if [ "$platform" = darwin ]; then
   service_dir="$HOME/Library/LaunchAgents"
-  service_label="app.getbb.host-daemon.$service_slug"
+  service_label="app.hyperfide.host-daemon.$service_slug"
   service_file="$service_dir/$service_label.plist"
   mkdir -p "$service_dir"
   escaped_node_bin=$(xml_escape "$node_bin")
-  escaped_bb_app=$(xml_escape "$bb_app")
-  escaped_bb_app_npm_prefix=$(xml_escape "$bb_app_npm_prefix")
+  escaped_hyperfide_app=$(xml_escape "$hyperfide_app")
+  escaped_hyperfide_app_npm_prefix=$(xml_escape "$hyperfide_app_npm_prefix")
   escaped_server=$(xml_escape "$server_url")
   escaped_data_dir=$(xml_escape "$data_dir")
-  for existing_service_file in "$service_dir"/app.getbb.host-daemon.*.plist; do
+  for existing_service_file in "$service_dir"/app.hyperfide.host-daemon.*.plist; do
     [ -e "$existing_service_file" ] || continue
     [ "$existing_service_file" != "$service_file" ] || continue
     if grep -F -- "<key>HYPERFIDE_DATA_DIR</key><string>$escaped_data_dir</string>" "$existing_service_file" >/dev/null 2>&1; then
       if [ -L "$existing_service_file" ]; then
-        fail_step "Refusing to replace a symlinked bb launch agent: $existing_service_file"
+        fail_step "Refusing to replace a symlinked hyperfide launch agent: $existing_service_file"
         exit 1
       fi
       existing_service_label=${existing_service_file##*/}
       existing_service_label=${existing_service_label%.plist}
       if ! grep -F -- "<key>Label</key><string>$existing_service_label</string>" "$existing_service_file" >/dev/null 2>&1; then
-        fail_step "Refusing to replace a bb launch agent with an unexpected label: $existing_service_file"
+        fail_step "Refusing to replace a hyperfide launch agent with an unexpected label: $existing_service_file"
         exit 1
       fi
       launchctl bootout "gui/$(id -u)" "$existing_service_file" >/dev/null 2>&1 || true
       if launchctl print "gui/$(id -u)/$existing_service_label" >/dev/null 2>&1; then
-        fail_step "Could not stop the existing bb launch agent $existing_service_label."
+        fail_step "Could not stop the existing hyperfide launch agent $existing_service_label."
         detail "The agent file was kept at $existing_service_file." >&2
         exit 1
       fi
@@ -1067,7 +1067,7 @@ if [ "$platform" = darwin ]; then
     fi
   done
   if [ -L "$service_file" ]; then
-    fail_step "Refusing to replace a symlinked bb launch agent: $service_file"
+    fail_step "Refusing to replace a symlinked hyperfide launch agent: $service_file"
     exit 1
   fi
   cat >"$service_file" <<EOF
@@ -1079,7 +1079,7 @@ if [ "$platform" = darwin ]; then
   <key>ProgramArguments</key>
   <array>
     <string>$escaped_node_bin</string>
-    <string>$escaped_bb_app</string>
+    <string>$escaped_hyperfide_app</string>
     <string>host-daemon</string>
     <string>--auto-update</string>
     <string>--host-daemon-port</string>
@@ -1089,7 +1089,7 @@ if [ "$platform" = darwin ]; then
   </array>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>HYPERFIDE_APP_NPM_PREFIX</key><string>$escaped_bb_app_npm_prefix</string>
+    <key>HYPERFIDE_APP_NPM_PREFIX</key><string>$escaped_hyperfide_app_npm_prefix</string>
     <key>HYPERFIDE_DATA_DIR</key><string>$escaped_data_dir</string>
   </dict>
   <key>RunAtLoad</key><true/>
@@ -1101,21 +1101,21 @@ if [ "$platform" = darwin ]; then
 EOF
   launchctl bootout "gui/$(id -u)" "$service_file" >/dev/null 2>&1 || true
   if ! launchctl_error=$(launchctl bootstrap "gui/$(id -u)" "$service_file" 2>&1); then
-    fail_step "Could not register the bb host-daemon launch agent $service_label."
+    fail_step "Could not register the hyperfide-platform host-daemon launch agent $service_label."
     [ -z "$launchctl_error" ] || detail "launchctl: $launchctl_error" >&2
     exit 1
   fi
   if ! wait_for_daemon_connection "the launch agent"; then
-    fail_step "The bb host-daemon launch agent started but did not connect to $server_url."
+    fail_step "The hyperfide-platform host-daemon launch agent started but did not connect to $server_url."
     if [ -d "$data_dir/daemon.lock.lock" ]; then
-      detail "Another daemon may be using $data_dir. Check for another bb launch agent using this data directory." >&2
+      detail "Another daemon may be using $data_dir. Check for another hyperfide launch agent using this data directory." >&2
     fi
     detail "See $data_dir/logs/host-daemon-stdio.log for the startup error and $data_dir/logs/launchd.log for launch agent output." >&2
     exit 1
   fi
   complete_step "Installed and started the launch agent"
   printf '\n'
-  log "$(green "●")" "$(bold "bb machine is ready")"
+  log "$(green "●")" "$(bold "hyperfide machine is ready")"
   printf '\n'
   ready_row "server" "$(cyan "$server_url")"
   ready_row "daemon" "http://127.0.0.1:$host_daemon_port"
@@ -1129,22 +1129,22 @@ else
   if [ "$systemd_scope" = --system ]; then
     service_dir="$canonical_data_dir/systemd"
     service_target=multi-user.target
-    owned_launcher="$canonical_data_dir/npm/bin/bb-app"
-    if [ "$bb_app" != "$owned_launcher" ]; then
+    owned_launcher="$canonical_data_dir/npm/bin/hyperfide-app"
+    if [ "$hyperfide_app" != "$owned_launcher" ]; then
       mkdir -p "$data_dir/npm/bin"
-      ln -sf "$bb_app" "$owned_launcher"
-      bb_app="$owned_launcher"
+      ln -sf "$hyperfide_app" "$owned_launcher"
+      hyperfide_app="$owned_launcher"
     fi
   fi
-  service_name="bb-host-daemon-$service_slug"
+  service_name="hyperfide-host-daemon-$service_slug"
   service_file="$service_dir/$service_name.service"
   mkdir -p "$service_dir"
   escaped_node_bin=$(systemd_escape "$node_bin")
-  escaped_bb_app=$(systemd_escape "$bb_app")
-  escaped_bb_app_npm_prefix=$(systemd_escape "$bb_app_npm_prefix")
+  escaped_hyperfide_app=$(systemd_escape "$hyperfide_app")
+  escaped_hyperfide_app_npm_prefix=$(systemd_escape "$hyperfide_app_npm_prefix")
   escaped_server=$(systemd_escape "$server_url")
   escaped_data_dir=$(systemd_escape "$data_dir")
-  legacy_service_name="bb-host-daemon-$legacy_service_slug"
+  legacy_service_name="hyperfide-host-daemon-$legacy_service_slug"
   legacy_service_file="$service_dir/$legacy_service_name.service"
   if [ -f "$legacy_service_file" ] && \
      grep -F -- "--host-daemon-port \"$host_daemon_port\"" "$legacy_service_file" >/dev/null 2>&1 && \
@@ -1154,13 +1154,13 @@ else
   fi
   cat >"$service_file" <<EOF
 [Unit]
-Description=bb host daemon for $server_host
+Description=hyperfide-platform host daemon for $server_host
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart="$escaped_node_bin" "$escaped_bb_app" host-daemon --auto-update --host-daemon-port "$host_daemon_port" --server-url "$escaped_server"
-Environment="HYPERFIDE_APP_NPM_PREFIX=$escaped_bb_app_npm_prefix"
+ExecStart="$escaped_node_bin" "$escaped_hyperfide_app" host-daemon --auto-update --host-daemon-port "$host_daemon_port" --server-url "$escaped_server"
+Environment="HYPERFIDE_APP_NPM_PREFIX=$escaped_hyperfide_app_npm_prefix"
 Environment="HYPERFIDE_DATA_DIR=$escaped_data_dir"
 Restart=always
 RestartSec=2
@@ -1172,25 +1172,25 @@ EOF
   enable_unit="$service_name.service"
   if [ "$systemd_scope" = --system ]; then enable_unit="$service_file"; fi
   if ! systemctl_error=$(systemctl "$systemd_scope" enable "$enable_unit" 2>&1); then
-    fail_step "The bb host-daemon systemd service could not be enabled."
+    fail_step "The hyperfide-platform host-daemon systemd service could not be enabled."
     [ -z "$systemctl_error" ] || detail "systemctl: $systemctl_error" >&2
     detail "Inspect it with: journalctl $systemd_scope -u $service_name.service" >&2
     exit 1
   fi
   if ! systemctl_error=$(systemctl "$systemd_scope" restart "$service_name.service" 2>&1); then
-    fail_step "The bb host-daemon systemd service was enabled, but it could not be restarted."
+    fail_step "The hyperfide-platform host-daemon systemd service was enabled, but it could not be restarted."
     [ -z "$systemctl_error" ] || detail "systemctl: $systemctl_error" >&2
     detail "Inspect it with: journalctl $systemd_scope -u $service_name.service" >&2
     exit 1
   fi
   if ! wait_for_daemon_connection "the systemd service"; then
-    fail_step "The bb host-daemon systemd service started but did not connect to $server_url."
+    fail_step "The hyperfide-platform host-daemon systemd service started but did not connect to $server_url."
     detail "Inspect it with: journalctl $systemd_scope -u $service_name.service" >&2
     exit 1
   fi
   complete_step "Installed and started the systemd service ($systemd_scope)"
   printf '\n'
-  log "$(green "●")" "$(bold "bb machine is ready")"
+  log "$(green "●")" "$(bold "hyperfide machine is ready")"
   printf '\n'
   ready_row "server" "$(cyan "$server_url")"
   ready_row "daemon" "http://127.0.0.1:$host_daemon_port"

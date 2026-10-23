@@ -319,7 +319,7 @@ export function decodeCodexInteractiveRequest(
       }
       if (parsed.data.questions.some((question) => question.isSecret)) {
         throw new ProviderRequestDecodeErrorValue(
-          "Codex secret user input is not supported by the BB question form",
+          "Codex secret user input is not supported by the HYPERFIDE question form",
         );
       }
       return {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["BB_BUILD_TOOLCHAIN"],
+  "globalEnv": ["HYPERFIDE_BUILD_TOOLCHAIN"],
   "globalPassThroughEnv": ["npm_config_store_dir", "pnpm_config_store_dir"],
   "tasks": {
     "@hyperfide/hyperfide-graph#typecheck": { "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"] },
@@ -26,13 +26,13 @@
       "passThroughEnv": ["DISPLAY"]
     },
     // Mirrors "build" but also caches bundle-stats.json, which the
-    // bb:bundle-stats Vite plugin writes beside dist for the boot-payload
+    // hyperfide:bundle-stats Vite plugin writes beside dist for the boot-payload
     // budget check. Without it a cache hit would leave CI checking a stale
     // file, or none at all.
     // The docs' UI-anatomy manifest is the contract this test checks the real
     // app components against, so a manifest edit must re-run it.
     "@hyperfide/app#test": {
-      "env": ["BB_CI_TEST_SHARD", "VITEST_MAX_WORKERS"],
+      "env": ["HYPERFIDE_CI_TEST_SHARD", "VITEST_MAX_WORKERS"],
       "dependsOn": ["//#ensure-native-modules", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
@@ -137,7 +137,7 @@
       "outputs": ["dist/**"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/plugins/bb-guide/skills/**",
+        "$TURBO_ROOT$/plugins/hyperfide-guide/skills/**",
         "$TURBO_ROOT$/package.json",
         "$TURBO_ROOT$/packages/tsconfig/*.json",
         "$TURBO_ROOT$/pnpm-lock.yaml",
@@ -156,7 +156,7 @@
         "$TURBO_ROOT$/scripts/build-utils.mjs",
         "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs",
         "$TURBO_ROOT$/scripts/build-node-entry.mjs",
-        "$TURBO_ROOT$/packages/bb-app/package.json"
+        "$TURBO_ROOT$/packages/hyperfide-app/package.json"
       ],
       "outputs": ["dist/**"]
     },
@@ -193,10 +193,10 @@
       ],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/packages/bb-app/package.json",
-        "$TURBO_ROOT$/packages/bb-app/scripts/**",
-        "$TURBO_ROOT$/packages/bb-app/src/**",
-        "$TURBO_ROOT$/packages/bb-app/tsconfig.json",
+        "$TURBO_ROOT$/packages/hyperfide-app/package.json",
+        "$TURBO_ROOT$/packages/hyperfide-app/scripts/**",
+        "$TURBO_ROOT$/packages/hyperfide-app/src/**",
+        "$TURBO_ROOT$/packages/hyperfide-app/tsconfig.json",
         "$TURBO_ROOT$/packages/sdk/package.json",
         "$TURBO_ROOT$/packages/sdk/src/**",
         "$TURBO_ROOT$/packages/sdk/tsconfig.json",
@@ -213,10 +213,10 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/host-daemon/dist/**",
-        "$TURBO_ROOT$/packages/bb-app/package.json",
-        "$TURBO_ROOT$/packages/bb-app/scripts/build-host.mjs",
-        "$TURBO_ROOT$/packages/bb-app/src/**",
-        "$TURBO_ROOT$/packages/bb-app/tsconfig.json",
+        "$TURBO_ROOT$/packages/hyperfide-app/package.json",
+        "$TURBO_ROOT$/packages/hyperfide-app/scripts/build-host.mjs",
+        "$TURBO_ROOT$/packages/hyperfide-app/src/**",
+        "$TURBO_ROOT$/packages/hyperfide-app/tsconfig.json",
         "$TURBO_ROOT$/packages/config/package.json",
         "$TURBO_ROOT$/packages/config/src/**",
         "$TURBO_ROOT$/packages/config/tsconfig.json",
@@ -233,15 +233,15 @@
     },
     "@hyperfide/desktop#build": {
       "dependsOn": ["hyperfide-app#build"],
-      "env": ["BB_DESKTOP_RELEASE_CHANNEL"],
+      "env": ["HYPERFIDE_DESKTOP_RELEASE_CHANNEL"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/desktop/**",
-        "$TURBO_ROOT$/packages/bb-app/app/**",
-        "$TURBO_ROOT$/packages/bb-app/dist/**",
-        "$TURBO_ROOT$/packages/bb-app/host-daemon/**",
-        "$TURBO_ROOT$/packages/bb-app/package.json",
-        "$TURBO_ROOT$/packages/bb-app/server/**",
+        "$TURBO_ROOT$/packages/hyperfide-app/app/**",
+        "$TURBO_ROOT$/packages/hyperfide-app/dist/**",
+        "$TURBO_ROOT$/packages/hyperfide-app/host-daemon/**",
+        "$TURBO_ROOT$/packages/hyperfide-app/package.json",
+        "$TURBO_ROOT$/packages/hyperfide-app/server/**",
         "$TURBO_ROOT$/pnpm-lock.yaml",
         "$TURBO_ROOT$/pnpm-workspace.yaml",
         "$TURBO_ROOT$/turbo.json"
@@ -274,7 +274,7 @@
     "@hyperfide/desktop#smoke:packaged-npm": {
       "cache": false,
       "outputs": [],
-      "passThroughEnv": ["BB_DESKTOP_RELEASE_CHANNEL"]
+      "passThroughEnv": ["HYPERFIDE_DESKTOP_RELEASE_CHANNEL"]
     },
     "@hyperfide/desktop#package": {
       "dependsOn": ["hyperfide-app#build", "@hyperfide/desktop#build"],
@@ -356,9 +356,9 @@
       "passThroughEnv": ["*"]
     },
     "@hyperfide/host-daemon#dev": {
-      // The source daemon injects apps/cli/bin/bb into agent shells. Build its
+      // The source daemon injects apps/cli/bin/hyperfide into agent shells. Build its
       // gitignored runtime before the daemon starts so a sandboxed thread never
-      // has to write back into the daemon's checkout to bootstrap `bb`.
+      // has to write back into the daemon's checkout to bootstrap `hyperfide`.
       "dependsOn": [
         "@hyperfide/cli#build",
         "@hyperfide/templates#generate:templates",
@@ -461,7 +461,7 @@
       ],
       "outputs": ["src/generated/templates.generated.ts"]
     },
-    // The `bb plugin new` starter files from the (committed) component
+    // The `hyperfide-platform plugin new` starter files from the (committed) component
     // registry.
     "@hyperfide/templates#generate:plugin-scaffold": {
       "dependsOn": [],
@@ -523,7 +523,7 @@
       "dependsOn": ["//#ensure-native-modules", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/plugins/bb-guide/skills/bb-cli/**",
+        "$TURBO_ROOT$/plugins/hyperfide-guide/skills/hyperfide-cli/**",
         "$TURBO_ROOT$/vitest*.ts"
       ]
     },
@@ -543,7 +543,7 @@
         "$TURBO_ROOT$/vitest*.ts"
       ]
     },
-    // The source-wrapper test invokes the root `pnpm bb` script, which builds
+    // The source-wrapper test invokes the root `pnpm hyperfide` script, which builds
     // and executes @hyperfide/cli. Model that cross-package dependency so CLI changes
     // cannot leave this test hidden behind a stale Turbo cache entry.
     "@hyperfide/scripts#test": {
@@ -648,7 +648,7 @@
     // condition that lets vitest read `src/` does not apply inside that
     // bundling step — so the SDK dist must exist before the suite runs.
     "@hyperfide/server#test": {
-      "env": ["BB_CI_TEST_SHARD", "VITEST_MAX_WORKERS"],
+      "env": ["HYPERFIDE_CI_TEST_SHARD", "VITEST_MAX_WORKERS"],
       "dependsOn": [
         "@hyperfide/plugin-sdk#test",
         "@hyperfide/agent-runtime#generate:test-bridges",
@@ -693,25 +693,25 @@
       "dependsOn": ["//#ensure-native-modules", "topo"],
       "cache": false,
       "passThroughEnv": [
-        "BB_SIDEBAR_BENCH_OUT",
-        "BB_SIDEBAR_BENCH_THREADS",
-        "BB_WATCHER_BENCHMARK_OUTPUT",
+        "HYPERFIDE_SIDEBAR_BENCH_OUT",
+        "HYPERFIDE_SIDEBAR_BENCH_THREADS",
+        "HYPERFIDE_WATCHER_BENCHMARK_OUTPUT",
         "PROMPTBOX_PERF_FIXTURE_OUT"
       ]
     },
     // The provider-corpus gates read a private corpus through
-    // BB_PROVIDER_CORPUS_DIR and write snapshots next to it, so the task is
+    // HYPERFIDE_PROVIDER_CORPUS_DIR and write snapshots next to it, so the task is
     // uncacheable and must see those two variables (strict env mode strips
     // everything undeclared). Without the variable the suites skip.
     "@hyperfide/server#test:provider-corpus": {
       "dependsOn": ["//#ensure-native-modules", "topo"],
       "cache": false,
       "passThroughEnv": [
-        "BB_PROVIDER_CORPUS_DIR",
-        "BB_PROVIDER_CORPUS_SNAPSHOT",
-        "BB_PROVIDER_CORPUS_SNAPSHOT_DIR",
-        "BB_PROVIDER_CORPUS_ALLOWLIST",
-        "BB_PROVIDER_CORPUS_ROW_CLASSES"
+        "HYPERFIDE_PROVIDER_CORPUS_DIR",
+        "HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT",
+        "HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT_DIR",
+        "HYPERFIDE_PROVIDER_CORPUS_ALLOWLIST",
+        "HYPERFIDE_PROVIDER_CORPUS_ROW_CLASSES"
       ]
     },
     // Builds real plugin host artifacts (the builtin artifacts suite, plus the
@@ -774,7 +774,7 @@
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"],
       // The live-CLI suites spawn real provider CLIs. Turbo strips undeclared
       // variables, so without these they start unauthenticated.
-      "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "BB_CLAUDE_CODE_EXECUTABLE"]
+      "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "HYPERFIDE_CLAUDE_CODE_EXECUTABLE"]
     },
     "smoke:tarball": {
       "dependsOn": ["build"],
@@ -829,7 +829,7 @@
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"],
       // The live-CLI suites spawn real provider CLIs. Turbo strips undeclared
       // variables, so without these they start unauthenticated.
-      "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "BB_CLAUDE_CODE_EXECUTABLE"]
+      "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "HYPERFIDE_CLAUDE_CODE_EXECUTABLE"]
     },
     "@hyperfide/integration-tests#test:integration": {
       "dependsOn": [
@@ -848,7 +848,7 @@
         "$TURBO_ROOT$/packages/templates/src/**",
         "$TURBO_ROOT$/vitest*.ts"
       ],
-      "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "BB_CLAUDE_CODE_EXECUTABLE"]
+      "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "HYPERFIDE_CLAUDE_CODE_EXECUTABLE"]
     },
     // bundled-types/*.d.ts: the package's published `types` surface and the
     // in-repo plugins' typecheck surface. ~20s (rollup-plugin-dts), so only
@@ -897,21 +897,21 @@
     // ---- In-repo plugins typecheck against the SDK's bundled .d.ts ----------
     // Either through a tsconfig `paths` map or through the workspace symlink's
     // package `types` field; both land on bundled-types/, a build output.
-    "hyperfide-plugin-bb--storage-retention#typecheck": {
+    "hyperfide-plugin-hyperfide--storage-retention#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
       ]
     },
-    "hyperfide-plugin-bb--composer#typecheck": {
+    "hyperfide-plugin-hyperfide--composer#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
       ]
     },
-    "hyperfide-plugin-bb--composer#test": {
+    "hyperfide-plugin-hyperfide--composer#test": {
       "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": ["@hyperfide/plugin-sdk#build", "topo"],
       "inputs": [
@@ -1041,10 +1041,10 @@
     "hyperfide-plugin-environment-git-worktree#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
-    "hyperfide-plugin-bb--github-pr-status#typecheck": {
+    "hyperfide-plugin-hyperfide--github-pr-status#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
-    "hyperfide-plugin-bb--github-pr-status#test": {
+    "hyperfide-plugin-hyperfide--github-pr-status#test": {
       "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": ["@hyperfide/plugin-sdk#build", "topo"]
     },
@@ -1078,13 +1078,13 @@
         "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
       ]
     },
-    "hyperfide-plugin-bb-ai#typecheck": {
+    "hyperfide-plugin-hyperfide-ai#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
-    "hyperfide-plugin-bb-guide#typecheck": {
+    "hyperfide-plugin-hyperfide-guide#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
-    "hyperfide-plugin-bb-guide#test": {
+    "hyperfide-plugin-hyperfide-guide#test": {
       "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
@@ -1345,20 +1345,20 @@
         "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
       ]
     },
-    "hyperfide-plugin-bb--mcp#typecheck": {
+    "hyperfide-plugin-hyperfide--mcp#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
-    "hyperfide-plugin-bb--mcp#test": {
+    "hyperfide-plugin-hyperfide--mcp#test": {
       "dependsOn": [
         "//#ensure-native-modules",
         "@hyperfide/plugin-sdk#build",
         "topo"
       ]
     },
-    "hyperfide-plugin-bb--prompt-library#typecheck": {
+    "hyperfide-plugin-hyperfide--prompt-library#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
-    "hyperfide-plugin-bb--prompt-library#test": {
+    "hyperfide-plugin-hyperfide--prompt-library#test": {
       "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
@@ -1366,14 +1366,14 @@
         "topo"
       ]
     },
-    "hyperfide-plugin-bb--provider-usage#typecheck": {
+    "hyperfide-plugin-hyperfide--provider-usage#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
       ]
     },
-    "hyperfide-plugin-bb--provider-usage#test": {
+    "hyperfide-plugin-hyperfide--provider-usage#test": {
       "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",

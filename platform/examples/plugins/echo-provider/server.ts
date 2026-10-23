@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import {
   ECHO_GREETING_ENV,
   ECHO_MODEL,
@@ -11,8 +11,8 @@ import {
   type EchoProviderOptions,
 } from "./src/vocabulary.js";
 
-export default function plugin(bb: BbPluginApi) {
-  bb.settings.define({
+export default function plugin(hyperfide: HyperfidePluginApi) {
+  hyperfide.settings.define({
     shout: {
       type: "boolean",
       label: "Shout",
@@ -21,7 +21,7 @@ export default function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.agents.registerTool({
+  hyperfide.agents.registerTool({
     name: ECHO_STAMP_TOOL_NAME,
     description: "Stamp a piece of text with the echo provider's seal.",
     parameters: echoStampToolParametersSchema,
@@ -29,7 +29,7 @@ export default function plugin(bb: BbPluginApi) {
     execute: ({ text }) => `stamped: ${text}`,
   });
 
-  bb.providers.register({
+  hyperfide.providers.register({
     id: ECHO_PROVIDER_ID,
     displayName: "Echo",
     icon: "Zap",
@@ -37,7 +37,7 @@ export default function plugin(bb: BbPluginApi) {
       signInHint: "Nothing to sign in to: the echo agent runs offline.",
       expiredHint: "Echo sessions never expire.",
       installUrl:
-        "https://github.com/get-bb/bb/tree/main/examples/plugins/echo-provider",
+        "https://github.com/hyperfide/hyperfide/tree/main/examples/plugins/echo-provider",
       brandPrefix: "Echo ",
       planModeCopy: "Echo will repeat your plan without running anything.",
       iconTint: { light: "#b45309", dark: "#fcd34d" },

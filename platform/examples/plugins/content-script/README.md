@@ -1,10 +1,10 @@
 # Content script example
 
-This frontend-only enhancement adds a theme-aware focus ring to editable bb
+This frontend-only enhancement adds a theme-aware focus ring to editable Hyperfide
 surfaces without rendering a React slot. Install it from this directory and
-use `bb plugin dev` to exercise reloads.
+use `hyperfide-platform plugin dev` to exercise reloads.
 
-The static rule lives in `app.css`, which is bb's preferred path for plugin
+The static rule lives in `app.css`, which is Hyperfide's preferred path for plugin
 styles. The host keeps that imported stylesheet active for the content-script
 generation, even though the plugin renders no React slot. The script owns only
 listeners and class names: it observes the generation `AbortSignal`, returns

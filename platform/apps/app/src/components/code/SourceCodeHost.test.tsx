@@ -14,19 +14,19 @@ import { PluginSourceCode } from "@/components/plugin/PluginSourceCode";
 import { SourceCodeHost } from "./SourceCodeHost";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
 
-const bbSourceCode = vi.hoisted(() => ({
+const hyperfideSourceCode = vi.hoisted(() => ({
   lastProps: null as Record<string, unknown> | null,
 }));
 
-vi.mock("./BbSourceCode", async () => {
+vi.mock("./HyperfideSourceCode", async () => {
   const React = await import("react");
   return {
     default: (props: Record<string, unknown>) => {
-      bbSourceCode.lastProps = props;
+      hyperfideSourceCode.lastProps = props;
       return React.createElement(
         "div",
-        { "data-testid": "bb-source-code" },
-        "bb source",
+        { "data-testid": "hyperfide-source-code" },
+        "hyperfide source",
       );
     },
   };
@@ -52,7 +52,7 @@ beforeEach(() => {
     sourceCodeRendererProviderAtom,
     AUTOMATIC_REPLACEMENT_PROVIDER,
   );
-  bbSourceCode.lastProps = null;
+  hyperfideSourceCode.lastProps = null;
   received.length = 0;
   resetPluginSlotStoreForTest();
 });
@@ -65,7 +65,7 @@ afterEach(() => {
 });
 
 describe("SourceCodeHost", () => {
-  it("hands the replacement resolved semantic props, not BB's host-only inputs", async () => {
+  it("hands the replacement resolved semantic props, not HYPERFIDE's host-only inputs", async () => {
     registerSourceCodeRenderer((props) => {
       received.push(props);
       return <div data-testid="plugin-source">plugin source</div>;
@@ -94,7 +94,7 @@ describe("SourceCodeHost", () => {
     expect(Object.keys(props ?? {})).not.toContain("scrollToHighlightedLines");
   });
 
-  it("loads BB's renderer only when the replacement delegates", async () => {
+  it("loads HYPERFIDE's renderer only when the replacement delegates", async () => {
     registerSourceCodeRenderer(({ path, Original }) =>
       path.endsWith(".md") ? <div>plugin source</div> : <Original />,
     );
@@ -108,22 +108,22 @@ describe("SourceCodeHost", () => {
       />,
     );
 
-    expect(await screen.findByTestId("bb-source-code")).toBeDefined();
-    expect(bbSourceCode.lastProps?.cacheKey).toBe("rev-2:src/app.ts");
-    expect(bbSourceCode.lastProps?.scrollToHighlightedLines).toBe(true);
+    expect(await screen.findByTestId("hyperfide-source-code")).toBeDefined();
+    expect(hyperfideSourceCode.lastProps?.cacheKey).toBe("rev-2:src/app.ts");
+    expect(hyperfideSourceCode.lastProps?.scrollToHighlightedLines).toBe(true);
   });
 
-  it("resolves presentation defaults for BB's renderer", async () => {
+  it("resolves presentation defaults for HYPERFIDE's renderer", async () => {
     render(<SourceCodeHost content={CONTENT} path="src/app.ts" />);
 
-    await screen.findByTestId("bb-source-code");
-    expect(bbSourceCode.lastProps?.overflow).toBe("scroll");
-    expect(bbSourceCode.lastProps?.highlightedLines).toBeNull();
+    await screen.findByTestId("hyperfide-source-code");
+    expect(hyperfideSourceCode.lastProps?.overflow).toBe("scroll");
+    expect(hyperfideSourceCode.lastProps?.highlightedLines).toBeNull();
   });
 });
 
 describe("experimental_SourceCode", () => {
-  it("shares the replacement with BB's own surfaces", async () => {
+  it("shares the replacement with HYPERFIDE's own surfaces", async () => {
     registerSourceCodeRenderer((props) => {
       received.push(props);
       return <div data-testid="plugin-source">plugin source</div>;
@@ -134,6 +134,6 @@ describe("experimental_SourceCode", () => {
     await screen.findByTestId("plugin-source");
     expect(received.at(-1)?.content).toBe(CONTENT);
     expect(received.at(-1)?.highlightedLines).toBeNull();
-    expect(bbSourceCode.lastProps).toBeNull();
+    expect(hyperfideSourceCode.lastProps).toBeNull();
   });
 });

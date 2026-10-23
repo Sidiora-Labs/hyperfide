@@ -8,7 +8,7 @@ import {
   experimental_InfoListRow as InfoListRow,
   experimental_InfoSection as InfoSection,
   experimental_THREAD_INFO_SECTION_GROUPS,
-  useBbNavigate,
+  useHyperfideNavigate,
   useRealtime,
   useRpc,
   type ExperimentalThreadInfoProps,
@@ -257,7 +257,7 @@ function AutomationThreadInfoRow({
 }: {
   automation: AutomationReadResult;
 }) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const problem = "problem" in automation;
   const repairable = problem && automation.problem === "missing-agent-prompt";
   const status = problem
@@ -513,7 +513,7 @@ function OverviewView({
   activeMode: AutomationCollectionMode;
   onModeChange: (mode: AutomationCollectionMode) => void;
 }) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const { entries, error, refetch } = useOverview();
   const mutations = useMutations();
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -615,7 +615,7 @@ function DetailView({
   initialEditing: boolean;
   onBack: () => void;
 }) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const { automation, error, refetch } = useAutomation(route);
   const [editingRequested, setEditingRequested] = useState(initialEditing);
   const overviewState = useOverview();
@@ -823,7 +823,7 @@ function AutomationsPageFrame({
 }
 
 function AutomationsPanel({ subPath }: PluginNavPanelProps) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const parsedRoute = useMemo(() => parseSubPath(subPath), [subPath]);
   const collectionMode: AutomationCollectionMode =
     subPath === "browse" ? "browse" : "installed";

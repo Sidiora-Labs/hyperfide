@@ -9,7 +9,7 @@ const LOGGER_IMPORT_SPECIFIER = "@hyperfide/logger";
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "bb-logger-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperfide-logger-"));
   tempDirs.push(tempDir);
   return tempDir;
 }
@@ -51,7 +51,7 @@ async function runLoggerInSubprocess(args: {
 
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    BB_DATA_DIR: args.dataDir,
+    HYPERFIDE_DATA_DIR: args.dataDir,
     TZ: args.timezone,
   };
   delete childEnv.VITEST;
@@ -153,7 +153,7 @@ describe("createLogger", () => {
   it("rotates files when the active log exceeds the configured size", async () => {
     const dataDir = createTempDir();
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("BB_DATA_DIR", dataDir);
+    vi.stubEnv("HYPERFIDE_DATA_DIR", dataDir);
 
     const { createLogger } = await importFreshLogger();
     const logger = createLogger({ component: "server" });
@@ -194,7 +194,7 @@ describe("createLogger", () => {
     fs.writeFileSync(path.join(logDir, "server-stdio.log"), "capture");
     fs.writeFileSync(path.join(logDir, "host-daemon.1.log"), "");
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("BB_DATA_DIR", dataDir);
+    vi.stubEnv("HYPERFIDE_DATA_DIR", dataDir);
 
     const { createLogger } = await importFreshLogger();
     createLogger({ component: "server" });
@@ -271,7 +271,7 @@ describe("createLogger", () => {
     const envDataDir = createTempDir();
     const explicitDataDir = createTempDir();
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("BB_DATA_DIR", envDataDir);
+    vi.stubEnv("HYPERFIDE_DATA_DIR", envDataDir);
 
     const { createLogger } = await importFreshLogger();
     const logger = createLogger({
@@ -301,7 +301,7 @@ describe("createLogger", () => {
   it("serializes nested error causes", async () => {
     const dataDir = createTempDir();
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("BB_DATA_DIR", dataDir);
+    vi.stubEnv("HYPERFIDE_DATA_DIR", dataDir);
 
     const { createLogger } = await importFreshLogger();
     const logger = createLogger({ component: "server" });

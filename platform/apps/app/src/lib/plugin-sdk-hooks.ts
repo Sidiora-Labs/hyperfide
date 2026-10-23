@@ -12,7 +12,7 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  BbContext,
+  HyperfideContext,
   ComposerView,
   PluginComposerApi,
   PluginComposerScope,
@@ -76,7 +76,7 @@ import {
 export {
   isAutomationEditRoutePath,
   useSdk,
-  useBbNavigate,
+  useHyperfideNavigate,
 } from "./plugin-navigation-hooks";
 type FetchLike = (
   input: string,
@@ -314,7 +314,7 @@ export function useEnvironmentProviders(): PluginEnvironmentProvidersState {
   );
 }
 
-export function useBbContext(): BbContext {
+export function useHyperfideContext(): HyperfideContext {
   const { projectId, threadId } = useRouteState();
   return useMemo(
     () => ({ projectId: projectId ?? null, threadId: threadId ?? null }),

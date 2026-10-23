@@ -1,5 +1,5 @@
 {
-  "$comment": "BB plugin component registry index. Install via: npx shadcn add @hyperfide/<name> (see the hyperfide-plugin-authoring skill).",
+  "$comment": "HYPERFIDE plugin component registry index. Install via: npx shadcn add @hyperfide/<name> (see the hyperfide-plugin-authoring skill).",
   "items": [
     {
       "name": "accordion",

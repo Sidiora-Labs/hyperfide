@@ -1,8 +1,8 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import type { Policy } from "./contract.js";
 
 type Thread = Awaited<
-  ReturnType<BbPluginApi["sdk"]["threads"]["list"]>
+  ReturnType<HyperfidePluginApi["sdk"]["threads"]["list"]>
 >[number];
 export type RetentionThread = Pick<
   Thread,

@@ -5,7 +5,7 @@ import {
   type EnvLoaderArgs,
 } from "./env.js";
 import { HYPERFIDE_LOG_LEVEL_ENV } from "./env-vars.js";
-import { resolveRuntimeDataDir, type BbRuntimeMode } from "./runtime.js";
+import { resolveRuntimeDataDir, type HyperfideRuntimeMode } from "./runtime.js";
 
 export interface LogLevelConfig {
   HYPERFIDE_LOG_LEVEL: string;
@@ -21,7 +21,7 @@ export interface LoadCommonConfigArgs extends EnvLoaderArgs {
   repoRoot?: string;
 }
 
-function resolveDefaultLogLevel(mode: BbRuntimeMode): string {
+function resolveDefaultLogLevel(mode: HyperfideRuntimeMode): string {
   return mode === "prod" ? DEFAULTS.logLevel.prod : DEFAULTS.logLevel.dev;
 }
 

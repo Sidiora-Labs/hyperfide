@@ -7,7 +7,7 @@ import memoryPlugin from "./server";
 
 async function loadPlugin(): Promise<FakePluginHost> {
   const host = createFakePluginHost({ pluginId: "memory" });
-  await memoryPlugin(host.bb);
+  await memoryPlugin(host.hyperfide);
   return host;
 }
 
@@ -122,7 +122,7 @@ describe("hyperfide-plugin-memory", () => {
     });
     expect(instructions?.length).toBeLessThanOrEqual(3_900);
     expect(instructions).toContain("Showing");
-    expect(instructions).toContain("bb memory catalog --scope all --json");
+    expect(instructions).toContain("hyperfide-platform memory catalog --scope all --json");
     expect(instructions).not.toContain("Private details");
   }, 20_000);
 
@@ -200,7 +200,7 @@ describe("hyperfide-plugin-memory", () => {
       "reason",
     ]);
     expect(missingProject.exitCode).toBe(1);
-    expect(missingProject.stderr).toContain("requires a BB project context");
+    expect(missingProject.stderr).toContain("requires a HYPERFIDE project context");
   });
 
   it("reports every missing write flag at once instead of one per run", async () => {

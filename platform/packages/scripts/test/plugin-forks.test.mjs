@@ -211,7 +211,7 @@ describe("forkPluginPackageJson", () => {
   });
 });
 
-describe("bb/forkable-plugin-imports", () => {
+describe("hyperfide/forkable-plugin-imports", () => {
   const pluginFile = join(
     ROOT,
     "plugins",
@@ -221,7 +221,7 @@ describe("bb/forkable-plugin-imports", () => {
     "x.ts",
   );
 
-  it("rejects bb workspace packages in every module position", () => {
+  it("rejects hyperfide workspace packages in every module position", () => {
     const reports = lint(pluginFile, (visitors) => {
       visitors.ImportDeclaration({ source: literal("@hyperfide/shared-ui/button") });
       visitors.ExportAllDeclaration({ source: literal("@hyperfide/client-core") });
@@ -239,7 +239,7 @@ describe("bb/forkable-plugin-imports", () => {
 
     expect(reports).toHaveLength(5);
     expect(reports[0]).toContain(
-      "@hyperfide/shared-ui/button is a bb workspace package",
+      "@hyperfide/shared-ui/button is a hyperfide workspace package",
     );
   });
 
@@ -257,9 +257,9 @@ describe("bb/forkable-plugin-imports", () => {
 
     expect(reports).toEqual([
       expect.stringContaining(
-        "hyperfide-environment-provider-host/git is a bb workspace package",
+        "hyperfide-environment-provider-host/git is a hyperfide workspace package",
       ),
-      expect.stringContaining("hyperfide-plugin-tasks is a bb workspace package"),
+      expect.stringContaining("hyperfide-plugin-tasks is a hyperfide workspace package"),
     ]);
   });
 

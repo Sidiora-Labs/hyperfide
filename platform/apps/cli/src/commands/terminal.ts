@@ -8,7 +8,7 @@ import {
   type TerminalSession,
 } from "@hyperfide/server-contract";
 import { action, CliExitError, CliUsageError } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliHyperfideSdk } from "../client.js";
 import { terminalScopeHint } from "../context-hints.js";
 import { durationHelp, parseDurationMs } from "../duration.js";
 import { columnWidths, printBorderlessTable } from "../table.js";
@@ -96,7 +96,7 @@ export function registerTerminalCommands(
       .option("--json", "Print machine-readable JSON output"),
   ).action(
     action(async (opts: TerminalListOptions) => {
-      const sdk = createCliBbSdk(getUrl());
+      const sdk = createCliHyperfideSdk(getUrl());
       const result = await sdk.terminals.list({
         scope: await resolveTerminalListScope(opts, getUrl()),
       });
@@ -125,7 +125,7 @@ export function registerTerminalCommands(
       .option("--json", "Print machine-readable JSON output"),
   ).action(
     action(async (commandParts: string[], opts: TerminalStartOptions) => {
-      const sdk = createCliBbSdk(getUrl());
+      const sdk = createCliHyperfideSdk(getUrl());
       const resolvedStart = resolveTerminalStart({
         commandOption: opts.command,
         commandParts,
@@ -155,7 +155,7 @@ export function registerTerminalCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalJsonOptions) => {
-        const session = await createCliBbSdk(getUrl()).terminals.get({
+        const session = await createCliHyperfideSdk(getUrl()).terminals.get({
           terminalId,
         });
         if (outputJson(opts, session)) return;
@@ -170,7 +170,7 @@ export function registerTerminalCommands(
     .action(
       action(async (terminalId: string, opts: TerminalJsonOptions) => {
         if (opts.json) {
-          const session = await createCliBbSdk(getUrl()).terminals.get({
+          const session = await createCliHyperfideSdk(getUrl()).terminals.get({
             terminalId,
           });
           outputJson(opts, session);
@@ -193,7 +193,7 @@ export function registerTerminalCommands(
     .action(
       action(async (terminalId: string, opts: TerminalSendOptions) => {
         const data = await resolveSendData(opts);
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         let session: TerminalSession | null = null;
         for (const chunk of chunkTerminalInput(data)) {
           session = await sdk.terminals.input({
@@ -217,7 +217,7 @@ export function registerTerminalCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalResizeOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const session = await sdk.terminals.resize({
           terminalId,
           cols: parseRequiredPositiveInteger(opts.cols, "--cols"),
@@ -240,7 +240,7 @@ export function registerTerminalCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalOutputOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const output = await sdk.terminals.output({
           terminalId,
           ...terminalOutputQuery(opts),
@@ -299,7 +299,7 @@ export function registerTerminalCommands(
           title: string,
           opts: TerminalJsonOptions,
         ) => {
-          const session = await createCliBbSdk(getUrl()).terminals.rename({
+          const session = await createCliHyperfideSdk(getUrl()).terminals.rename({
             terminalId,
             title,
           });
@@ -315,7 +315,7 @@ export function registerTerminalCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalJsonOptions) => {
-        const session = await createCliBbSdk(getUrl()).terminals.restart({
+        const session = await createCliHyperfideSdk(getUrl()).terminals.restart({
           terminalId,
         });
         if (outputJson(opts, session)) return;
@@ -331,7 +331,7 @@ export function registerTerminalCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalCloseOptions) => {
-        const session = await createCliBbSdk(getUrl()).terminals.close({
+        const session = await createCliHyperfideSdk(getUrl()).terminals.close({
           terminalId,
           mode: opts.ifClean ? "if-clean" : "force",
         });
@@ -716,7 +716,7 @@ async function waitForTerminal(args: {
       message: "Provide exactly one of --contains, --regex, or --exit",
     });
   }
-  const sdk = createCliBbSdk(args.baseUrl);
+  const sdk = createCliHyperfideSdk(args.baseUrl);
   const timeoutMs = parseDurationMs({
     allowZero: false,
     defaultUnit: "s",

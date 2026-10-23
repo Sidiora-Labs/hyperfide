@@ -22,7 +22,6 @@ function repoRoot(): string {
 const ROOT = repoRoot();
 const SCANNED_TREES = [
   "apps/app/src",
-  "apps/web/src",
   "packages/shared-ui/src",
 ];
 

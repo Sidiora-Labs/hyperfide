@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ThreadLinkParser } from "./pasted-thread-link-candidates";
 import { findPastedThreadLinks } from "./pasted-thread-links";
 
-const origin = "https://bb.test";
+const origin = "https://hyperfide.test";
 const threadId = "thr_86mb5jjzi9";
 const projectId = "proj_khiw2za95v";
 const personalProjectId = "proj_personal";
@@ -79,7 +79,7 @@ describe("findPastedThreadLinks", () => {
     ]);
   });
 
-  it("asks bb about whole URL tokens only", () => {
+  it("asks hyperfide about whole URL tokens only", () => {
     const text = [
       `x${projectLink}`,
       `ftp:${projectLink}`,

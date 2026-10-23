@@ -22,7 +22,7 @@ function isInsideDataDirChild(args: {
   );
 }
 
-export function isBbManagedWorkspacePath(args: {
+export function isHyperfideManagedWorkspacePath(args: {
   dataDir: string;
   path: string;
 }): boolean {

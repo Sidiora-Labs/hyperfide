@@ -87,7 +87,7 @@ async function writePackagedBuiltinSource(
           name: `hyperfide-plugin-${name}`,
           version: "0.1.0",
           type: "module",
-          bb: {
+          hyperfide: {
             name,
             description: `${name} builtin plugin fixture.`,
             branding: {
@@ -260,7 +260,7 @@ describe("builtin plugin reconciliation", () => {
     delete globals.__packagedBuiltinLoads;
     delete globals.__hotBuiltinServerVersion;
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-builtin-plugins-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-builtin-plugins-"));
   });
 
   it("keeps official plugins bundled but out of the auto-install builtins", () => {
@@ -280,7 +280,7 @@ describe("builtin plugin reconciliation", () => {
     expect(OFFICIAL_PLUGINS.every((plugin) => !plugin.autoInstall)).toBe(true);
   });
 
-  it("enables the account pooler only when a parent bb server pool is present", () => {
+  it("enables the account pooler only when a parent hyperfide-platform server pool is present", () => {
     expect(accountPoolDefaultEnabled({})).toBe(false);
     expect(
       accountPoolDefaultEnabled({ HYPERFIDE_ACCOUNT_POOL_PARENT_URL: "" }),
@@ -329,7 +329,7 @@ describe("builtin plugin reconciliation", () => {
     );
   });
 
-  it("removes a builtin and its data once bb no longer bundles it", async () => {
+  it("removes a builtin and its data once hyperfide no longer bundles it", async () => {
     const dataDir = join(workDir, "data");
     const secretsDir = join(dataDir, "plugins", "builtin-fixture", "secrets");
     service = createService({ db, dataDir });
@@ -618,7 +618,7 @@ describe("builtin plugin reconciliation", () => {
   });
 
   it.each([
-    ["provider-usage", "bb--provider-usage"],
+    ["provider-usage", "hyperfide--provider-usage"],
     ["provider-retry", "provider-retry"],
   ])(
     "runs the real %s builtin on a fresh database",
@@ -697,7 +697,7 @@ describe("builtin plugin reconciliation", () => {
         name: "hyperfide-plugin-builtin-fixture",
         version: "0.2.0",
         type: "module",
-        bb: {
+        hyperfide: {
           name: "Builtin fixture",
           description: "Builtin plugin fixture.",
           branding: { icon: "Zap" },
@@ -754,7 +754,7 @@ describe("builtin plugin reconciliation", () => {
         name: "hyperfide-plugin-hot-server-builtin",
         version: "0.1.0",
         type: "module",
-        bb: {
+        hyperfide: {
           name: "Hot server builtin",
           description: "Hot server builtin plugin fixture.",
           branding: { icon: "Zap" },
@@ -810,7 +810,7 @@ describe("builtin plugin reconciliation", () => {
         name: "hyperfide-plugin-stale-app-builtin",
         version: "0.1.0",
         type: "module",
-        bb: {
+        hyperfide: {
           name: "Stale app builtin",
           description: "Stale app builtin plugin fixture.",
           branding: { icon: "Zap" },
@@ -875,7 +875,7 @@ describe("builtin plugin reconciliation", () => {
         name: "hyperfide-plugin-hot-app-builtin",
         version: "0.1.0",
         type: "module",
-        bb: {
+        hyperfide: {
           name: "Hot app builtin",
           description: "Hot app builtin plugin fixture.",
           branding: { icon: "Zap" },
@@ -1011,7 +1011,7 @@ describe("builtin plugin reconciliation", () => {
         version: "0.1.0",
         enabled: true,
         status: "incompatible",
-        statusDetail: `server artifact for plugin "automations" was built for SDK major ${incompatibleMajor}, running SDK major is ${PLUGIN_SDK_MAJOR}; rebuild the server artifact with this bb version`,
+        statusDetail: `server artifact for plugin "automations" was built for SDK major ${incompatibleMajor}, running SDK major is ${PLUGIN_SDK_MAJOR}; rebuild the server artifact with this hyperfide-platform version`,
       },
     ]);
     expect(packagedLoadCount()).toBe(before);
@@ -1046,7 +1046,7 @@ describe("builtin plugin packaging", () => {
   let workDir: string;
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-builtin-plugin-copy-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-builtin-plugin-copy-"));
   });
 
   afterEach(async () => {
@@ -1065,7 +1065,7 @@ describe("builtin plugin packaging", () => {
       await readFile(join(copiedRoot, "package.json"), "utf8"),
     );
     expect(packageJson).toMatchObject({
-      bb: {
+      hyperfide: {
         server: "./dist/server.js",
         app: "./dist/app.js",
         skills: ["skills"],

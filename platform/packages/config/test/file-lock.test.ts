@@ -7,7 +7,7 @@ import { expect, it, onTestFinished } from "vitest";
 import { FileLockTimeoutError, withFileLock } from "../src/file-lock.js";
 
 it("excludes another process and releases a native lock when its owner dies", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "bb-lock 日本語 "));
+  const directory = await mkdtemp(join(tmpdir(), "hyperfide-lock 日本語 "));
   const path = join(directory, "config.lock");
   const moduleUrl = new URL("../src/file-lock.ts", import.meta.url).href;
   const child = spawn(

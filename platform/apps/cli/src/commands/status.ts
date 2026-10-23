@@ -8,7 +8,7 @@ import {
   resolveContextSnapshot,
   type ContextSnapshot,
 } from "../context-env.js";
-import { cliFetch, createCliBbSdk } from "../client.js";
+import { cliFetch, createCliHyperfideSdk } from "../client.js";
 import { outputJson } from "./helpers.js";
 import {
   type ThreadEnvironmentInfo,
@@ -81,7 +81,7 @@ export function registerStatusCommand(
         } catch {}
 
         if (serverAvailable) {
-          const { plugins } = await createCliBbSdk(getUrl()).plugins.list();
+          const { plugins } = await createCliHyperfideSdk(getUrl()).plugins.list();
           payload.pluginsNeedingAttention = plugins
             .filter(
               (p) =>
@@ -92,7 +92,7 @@ export function registerStatusCommand(
         }
 
         if (context.projectId || context.threadId) {
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const status = await sdk.status.get({
             projectId: context.projectId,
             threadId: context.threadId,

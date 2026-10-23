@@ -41,7 +41,7 @@ function makeRecentThread({
   overrides = {},
 }: MakeRecentThreadArgs = {}): ThreadListEntry {
   return makeThreadListEntry({
-    projectId: PROJECT_IDS.bb,
+    projectId: PROJECT_IDS.hyperfide,
     ...overrides,
   });
 }
@@ -137,7 +137,7 @@ const metadataThreads: ThreadListEntry[] = [
       title: "Anchor the mobile prompt box",
       titleFallback: "Anchor the mobile prompt box",
       environmentName: "mobile-home",
-      environmentBranchName: "bb/mobile-home",
+      environmentBranchName: "hyperfide/mobile-home",
       environmentProviderId: "git-worktree",
       createdAt: 700,
       latestAttentionAt: 700,
@@ -161,7 +161,7 @@ const metadataThreads: ThreadListEntry[] = [
       title:
         "A deliberately long thread title that has to truncate on a narrow mobile row",
       titleFallback: "A deliberately long thread title",
-      environmentBranchName: "bb/very-long-branch-name-for-truncation",
+      environmentBranchName: "hyperfide/very-long-branch-name-for-truncation",
       environmentProviderId: "git-worktree",
       createdAt: 600,
       latestAttentionAt: 600,
@@ -228,7 +228,7 @@ const hierarchyThreads: ThreadListEntry[] = [
 ];
 
 const projectNamesById = new Map<string, string>([
-  [PROJECT_IDS.bb, PROJECT_NAMES.bb],
+  [PROJECT_IDS.hyperfide, PROJECT_NAMES.hyperfide],
   [PROJECT_IDS.pierre, PROJECT_NAMES.pierre],
 ]);
 

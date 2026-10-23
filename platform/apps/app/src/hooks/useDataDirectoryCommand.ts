@@ -1,8 +1,8 @@
 import { useAppCommandHandler } from "@/components/commands/AppCommandProvider";
-import { getBbDesktopInfo } from "@/lib/bb-desktop";
+import { getHyperfideDesktopInfo } from "@/lib/hyperfide-desktop";
 
 export function useDataDirectoryCommand(): void {
-  const desktopApi = getBbDesktopInfo();
+  const desktopApi = getHyperfideDesktopInfo();
   const openDataDirectory = desktopApi?.openDataDirectory;
 
   useAppCommandHandler(

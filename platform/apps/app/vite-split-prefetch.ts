@@ -3,7 +3,7 @@ import type { Plugin } from "vite";
 export function splitPrefetch(entries: Record<string, string>): Plugin {
   let base = "/";
   return {
-    name: "bb:split-prefetch",
+    name: "hyperfide:split-prefetch",
     apply: "build",
     configResolved(config) {
       base = config.base;
@@ -32,7 +32,7 @@ export function splitPrefetch(entries: Record<string, string>): Plugin {
           visit(entry.fileName);
           return {
             tag: "script",
-            attrs: { type: "application/json", id: `bb-prefetch-${id}` },
+            attrs: { type: "application/json", id: `hyperfide-prefetch-${id}` },
             children: JSON.stringify(
               [...files].map((file) => `${base}${file}`),
             ).replaceAll("<", "\\u003c"),

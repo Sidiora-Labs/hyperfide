@@ -202,7 +202,7 @@ async function runElicitation(args: {
   request: ScriptedElicitationRequest;
   runtimeError?: string;
 }) {
-  const tempDir = mkdtempSync(join(tmpdir(), "bb-codex-elicitation-"));
+  const tempDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-elicitation-"));
   const scriptPath = join(tempDir, "script.json");
   const responseLogPath = join(tempDir, "outbound-responses.jsonl");
   const threadId = `thr_codex_elicitation_${Date.now()}`;
@@ -340,7 +340,7 @@ it.sequential("round-trips a validated generic form response", async () => {
     request: formElicitation,
     answer: {
       action: "accept",
-      content: { project: "bb", retries: 4, notify: false },
+      content: { project: "hyperfide", retries: 4, notify: false },
     },
   });
   expect(interaction.payload).toEqual({
@@ -388,7 +388,7 @@ it.sequential("round-trips a validated generic form response", async () => {
     id: "fx-req-1",
     result: {
       action: "accept",
-      content: { project: "bb", retries: 4, notify: false },
+      content: { project: "hyperfide", retries: 4, notify: false },
       _meta: null,
     },
   });

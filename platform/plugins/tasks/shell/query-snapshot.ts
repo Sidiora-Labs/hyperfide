@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-const QUERY_SNAPSHOT_STORAGE_ROOT = "bb-tasks:query-snapshot:";
+const QUERY_SNAPSHOT_STORAGE_ROOT = "hyperfide-tasks:query-snapshot:";
 const QUERY_SNAPSHOT_STORAGE_VERSION = "v1";
 const QUERY_SNAPSHOT_STORAGE_PREFIX = `${QUERY_SNAPSHOT_STORAGE_ROOT}${QUERY_SNAPSHOT_STORAGE_VERSION}:`;
 

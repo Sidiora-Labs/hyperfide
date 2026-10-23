@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import type { PromptHistoryListEntry } from "@hyperfide/domain";
 import { action } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliHyperfideSdk } from "../client.js";
 import { columnWidths, printBorderlessTable, truncateCell } from "../table.js";
 import { outputJson } from "./helpers.js";
 
@@ -61,7 +61,7 @@ export function registerPromptHistoryCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: PromptHistoryListOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const result = await sdk.experimental_promptHistory.list({
           cursor: opts.cursor,
           limit: opts.limit,

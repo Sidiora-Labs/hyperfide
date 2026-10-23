@@ -33,7 +33,7 @@ describe("plugin host build", () => {
   });
 
   it("builds a self-contained Node artifact with identity and digest metadata", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-host-build-test-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-host-build-test-"));
     tempDirs.push(dir);
     await mkdir(join(dir, "dist"), { recursive: true });
     await writeFile(
@@ -41,8 +41,8 @@ describe("plugin host build", () => {
       JSON.stringify({
         name: "hyperfide-plugin-host-build-fixture",
         version: "1.2.3",
-        engines: { bb: ">=0.0" },
-        bb: {
+        engines: { hyperfide: ">=0.0" },
+        hyperfide: {
           name: "Host fixture",
           description: "Exercises the host artifact builder.",
           branding: { icon: "Cpu" },
@@ -85,7 +85,7 @@ describe("plugin host build", () => {
     const metadata = JSON.parse(await readFile(result.metaPath, "utf8")) as {
       pluginId: string;
       pluginVersion: string;
-      builtWith: { bbVersion: string };
+      builtWith: { hyperfideVersion: string };
       artifactDigest: string;
     };
 
@@ -93,7 +93,7 @@ describe("plugin host build", () => {
     expect(metadata).toMatchObject({
       pluginId: "host-build-fixture",
       pluginVersion: "1.2.3",
-      builtWith: { bbVersion: "0.9.0-test" },
+      builtWith: { hyperfideVersion: "0.9.0-test" },
       artifactDigest: result.artifactDigest,
     });
     expect(result.artifactDigest).toBe(
@@ -115,7 +115,7 @@ describe("plugin host build", () => {
   });
 
   it("removes old host staging directories without deleting an active concurrent build", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-host-stage-cleanup-test-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-host-stage-cleanup-test-"));
     tempDirs.push(dir);
     const distDir = join(dir, "dist");
     await mkdir(join(distDir, ".host-stage-abandoned"), { recursive: true });
@@ -140,8 +140,8 @@ describe("plugin host build", () => {
       JSON.stringify({
         name: "hyperfide-plugin-host-stage-cleanup-fixture",
         version: "1.0.0",
-        engines: { bb: ">=0.0" },
-        bb: {
+        engines: { hyperfide: ">=0.0" },
+        hyperfide: {
           name: "Host stage cleanup fixture",
           description: "Exercises stale host staging directory cleanup.",
           branding: { icon: "Cpu" },
@@ -178,8 +178,8 @@ describe("plugin host build", () => {
       JSON.stringify({
         name: "hyperfide-plugin-host-escape-fixture",
         version: "1.0.0",
-        engines: { bb: ">=0.0" },
-        bb: {
+        engines: { hyperfide: ">=0.0" },
+        hyperfide: {
           name: "Escape fixture",
           description: "Invalid host path.",
           branding: { icon: "Cpu" },
@@ -198,7 +198,7 @@ describe("plugin host build", () => {
     ).rejects.toThrow(/escapes the plugin directory/u);
   });
 
-  it("rejects private BB workspace imports from host entries", async () => {
+  it("rejects private HYPERFIDE workspace imports from host entries", async () => {
     const dir = await mkdtemp(join(process.cwd(), ".host-build-private-test-"));
     tempDirs.push(dir);
     await writeFile(
@@ -206,8 +206,8 @@ describe("plugin host build", () => {
       JSON.stringify({
         name: "hyperfide-plugin-host-private-fixture",
         version: "1.0.0",
-        engines: { bb: ">=0.0" },
-        bb: {
+        engines: { hyperfide: ">=0.0" },
+        hyperfide: {
           name: "Private import fixture",
           description: "Invalid host dependency.",
           branding: { icon: "Cpu" },
@@ -231,7 +231,7 @@ describe("plugin host build", () => {
 
     await expect(
       buildPluginHost(dir, "0.9.0-test", await testToolchain()),
-    ).rejects.toThrow(/cannot import private BB workspace package/u);
+    ).rejects.toThrow(/cannot import private HYPERFIDE workspace package/u);
   });
 
   it("bundles the published bridge surface without stubbing it", async () => {
@@ -243,8 +243,8 @@ describe("plugin host build", () => {
         name: "hyperfide-plugin-host-bridge-fixture",
         version: "1.0.0",
         type: "module",
-        engines: { bb: ">=0.0" },
-        bb: {
+        engines: { hyperfide: ">=0.0" },
+        hyperfide: {
           name: "Bridge surface fixture",
           description: "Imports the published bridge surface.",
           branding: { icon: "Cpu" },
@@ -296,8 +296,8 @@ describe("plugin host build", () => {
     const manifest = {
       name: "hyperfide-plugin-host-contract-fixture",
       version: "1.0.0",
-      engines: { bb: ">=0.0" },
-      bb: {
+      engines: { hyperfide: ">=0.0" },
+      hyperfide: {
         name: "Host contract fixture",
         description: "Imports a host contract from the SDK.",
         branding: { icon: "Cpu" },
@@ -328,7 +328,7 @@ describe("plugin host build", () => {
     }
 
     it("names the missing SDK dependency when the plugin has no node_modules", async () => {
-      const dir = await mkdtemp(join(tmpdir(), "bb-host-no-sdk-test-"));
+      const dir = await mkdtemp(join(tmpdir(), "hyperfide-host-no-sdk-test-"));
       tempDirs.push(dir);
       await writeFixture(dir);
 
@@ -340,7 +340,7 @@ describe("plugin host build", () => {
     });
 
     it("names the unbuilt SDK dist when the package is installed without it", async () => {
-      const dir = await mkdtemp(join(tmpdir(), "bb-host-unbuilt-sdk-test-"));
+      const dir = await mkdtemp(join(tmpdir(), "hyperfide-host-unbuilt-sdk-test-"));
       tempDirs.push(dir);
       await writeFixture(dir);
       const sdkDir = join(dir, "node_modules", "@hyperfide", "plugin-sdk");
@@ -410,7 +410,7 @@ describe("plugin host build", () => {
     ["alias", 'import { value } from "private-alias"; export default value;'],
     ["transitive", 'export { default } from "./helper.js";'],
   ])("rejects private packages reached by %s", async (_name, source) => {
-    const parent = await mkdtemp(join(tmpdir(), "bb-host-private-graph-"));
+    const parent = await mkdtemp(join(tmpdir(), "hyperfide-host-private-graph-"));
     tempDirs.push(parent);
     const dir = join(parent, "plugin");
     const privatePackage = join(parent, "private-package");
@@ -439,8 +439,8 @@ describe("plugin host build", () => {
       JSON.stringify({
         name: "hyperfide-plugin-private-graph",
         version: "1.0.0",
-        engines: { bb: ">=0.0" },
-        bb: {
+        engines: { hyperfide: ">=0.0" },
+        hyperfide: {
           name: "Private graph",
           description: "Private graph fixture",
           branding: { icon: "Cpu" },
@@ -470,15 +470,15 @@ describe("plugin host build", () => {
   });
 
   it("allows unresolved relative type imports without replacing runtime validation", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-host-erased-missing-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-host-erased-missing-"));
     tempDirs.push(dir);
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
         name: "hyperfide-plugin-erased-missing",
         version: "1.0.0",
-        engines: { bb: ">=0.0" },
-        bb: {
+        engines: { hyperfide: ">=0.0" },
+        hyperfide: {
           name: "Erased missing",
           description: "Erased missing fixture",
           branding: { icon: "Cpu" },
@@ -505,8 +505,8 @@ describe("plugin host build", () => {
       JSON.stringify({
         name: "hyperfide-plugin-host-prose-fixture",
         version: "1.0.0",
-        engines: { bb: ">=0.0" },
-        bb: {
+        engines: { hyperfide: ">=0.0" },
+        hyperfide: {
           name: "Prose fixture",
           description: "Valid host source.",
           branding: { icon: "Cpu" },

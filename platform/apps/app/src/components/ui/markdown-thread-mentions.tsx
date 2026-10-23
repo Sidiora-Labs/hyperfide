@@ -34,7 +34,7 @@ const CHARACTER_REFERENCE_PATTERN = /&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);/iu;
 const THREAD_MENTION_PREFIX = "@thread";
 const THREAD_MENTION_ID_PATTERN = /^[A-Za-z0-9_-]+$/u;
 
-const THREAD_MENTION_HAST_NAME = "bb-thread-mention";
+const THREAD_MENTION_HAST_NAME = "hyperfide-thread-mention";
 const THREAD_MENTION_THREAD_ID_PROPERTY = "dataThreadId";
 const RAW_THREAD_ID_PROPERTY = "dataRawThreadId";
 const RAW_THREAD_INLINE_CODE_PROPERTY = "dataRawThreadInlineCode";
@@ -412,7 +412,7 @@ interface ThreadMentionElementProps {
 declare module "react" {
   namespace JSX {
     interface IntrinsicElements {
-      "bb-thread-mention": ThreadMentionElementProps;
+      "hyperfide-thread-mention": ThreadMentionElementProps;
     }
   }
 }

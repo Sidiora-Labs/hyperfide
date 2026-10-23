@@ -3,7 +3,7 @@
   "name": "sidebar-customize-panel",
   "type": "registry:ui",
   "title": "sidebar-customize-panel",
-  "description": "BB ui \"sidebar-customize-panel\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"sidebar-customize-panel\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/button",
     "@hyperfide/chrome-style-tokens",

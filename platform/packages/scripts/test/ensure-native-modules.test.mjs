@@ -137,7 +137,7 @@ describe("ensure-native-modules", () => {
   });
 
   it("detaches a hardlinked native binary before verification", () => {
-    const tempRoot = mkdtempSync(join(tmpdir(), "bb-native-repair-"));
+    const tempRoot = mkdtempSync(join(tmpdir(), "hyperfide-native-repair-"));
     try {
       const packageJsonPath = join(tempRoot, "better-sqlite3", "package.json");
       const binaryPath = join(
@@ -188,7 +188,7 @@ describe("ensure-native-modules", () => {
   });
 
   it("detaches a matching native binary without a repair", () => {
-    const tempRoot = mkdtempSync(join(tmpdir(), "bb-native-verify-"));
+    const tempRoot = mkdtempSync(join(tmpdir(), "hyperfide-native-verify-"));
     try {
       const packageJsonPath = join(tempRoot, "better-sqlite3", "package.json");
       const binaryPath = join(
@@ -434,7 +434,7 @@ describe("ensure-native-modules", () => {
 
 it("validates a broken native binding without installing, rebuilding, or detaching it", async () => {
   const { createRequire } = await import("node:module");
-  const root = mkdtempSync(join(tmpdir(), "bb-native-check-only-"));
+  const root = mkdtempSync(join(tmpdir(), "hyperfide-native-check-only-"));
   try {
     const packageDir = join(root, "node_modules", "broken-native-fixture");
     mkdirSync(packageDir, { recursive: true });

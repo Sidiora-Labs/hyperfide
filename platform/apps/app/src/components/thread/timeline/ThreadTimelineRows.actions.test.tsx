@@ -1068,7 +1068,7 @@ describe("ThreadTimelineRows actions", () => {
     expect(
       container
         .querySelector('[data-timeline-row-id="side_chat_message"]')
-        ?.classList.contains("bb-search-flash"),
+        ?.classList.contains("hyperfide-search-flash"),
     ).toBe(false);
   });
 
@@ -1129,9 +1129,9 @@ describe("ThreadTimelineRows actions", () => {
     });
 
     await waitFor(() =>
-      expect(nestedRow.classList.contains("bb-search-flash")).toBe(true),
+      expect(nestedRow.classList.contains("hyperfide-search-flash")).toBe(true),
     );
-    expect(parentRow?.classList.contains("bb-search-flash")).toBe(false);
+    expect(parentRow?.classList.contains("hyperfide-search-flash")).toBe(false);
     await waitFor(() => {
       expect(
         container.querySelector<HTMLElement>(
@@ -1232,7 +1232,7 @@ describe("ThreadTimelineRows actions", () => {
     );
     expect(target).not.toBeNull();
     expect(list?.style.visibility).toBe("hidden");
-    expect(target?.classList.contains("bb-search-flash")).toBe(false);
+    expect(target?.classList.contains("hyperfide-search-flash")).toBe(false);
     if (target === null) throw new Error("Expected linked message");
     let targetTop = 100;
     vi.spyOn(target, "getBoundingClientRect").mockImplementation(
@@ -1250,12 +1250,12 @@ describe("ThreadTimelineRows actions", () => {
     targetTop = 150;
     runFrame();
     expect(list?.style.visibility).toBe("hidden");
-    expect(target.classList.contains("bb-search-flash")).toBe(false);
+    expect(target.classList.contains("hyperfide-search-flash")).toBe(false);
     for (let index = 0; index < 5; index += 1) {
       runFrame();
     }
     expect(list?.style.visibility).not.toBe("hidden");
-    expect(target?.classList.contains("bb-search-flash")).toBe(true);
+    expect(target?.classList.contains("hyperfide-search-flash")).toBe(true);
     expect(target?.scrollIntoView).toHaveBeenCalledWith({
       block: "start",
       inline: "nearest",
@@ -1296,7 +1296,7 @@ describe("ThreadTimelineRows actions", () => {
     });
 
     await waitFor(() =>
-      expect(olderRow.classList.contains("bb-search-flash")).toBe(true),
+      expect(olderRow.classList.contains("hyperfide-search-flash")).toBe(true),
     );
   });
 
@@ -1787,7 +1787,7 @@ describe("ThreadTimelineRows actions", () => {
     });
 
     await waitFor(() =>
-      expect(nestedRow.classList.contains("bb-search-flash")).toBe(true),
+      expect(nestedRow.classList.contains("hyperfide-search-flash")).toBe(true),
     );
   });
 });

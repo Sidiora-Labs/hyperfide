@@ -10,7 +10,7 @@ import {
   serializePromptDraftStorage,
 } from "@hyperfide/client-core";
 
-const PROMPT_DRAFT_STORAGE_PREFIX = "bb.promptbox.contents";
+const PROMPT_DRAFT_STORAGE_PREFIX = "hyperfide.promptbox.contents";
 const PROMPT_DRAFT_STORAGE_VERSION = "3";
 const PROMPT_DRAFT_PERSIST_DEBOUNCE_MS = 250;
 

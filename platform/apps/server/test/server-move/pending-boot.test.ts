@@ -49,7 +49,7 @@ const DIRECT_URL = "https://desktop.example.test";
 const tempDirs: string[] = [];
 
 async function makeDataDir(): Promise<string> {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-server-import-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-server-import-"));
   tempDirs.push(dataDir);
   return dataDir;
 }
@@ -72,7 +72,7 @@ function moveMarker(
     sourceServerHostId: "host-old",
     targetHostId: "host-new",
     serverUrl: DIRECT_URL,
-    importedEntries: ["bb.db", "plugins/npm"],
+    importedEntries: ["hyperfide.db", "plugins/npm"],
     createdAt: 1_000,
     fixupsAppliedAt: null,
     ...overrides,
@@ -81,7 +81,7 @@ function moveMarker(
 
 async function openImportedDataDir() {
   const dataDir = await makeDataDir();
-  const db = initDb(join(dataDir, "bb.db"));
+  const db = initDb(join(dataDir, "hyperfide.db"));
   upsertHost(db, noopNotifier, { id: "host-old", name: "Laptop" });
   upsertHost(db, noopNotifier, { id: "host-new", name: "Desktop" });
   updateHost(db, noopNotifier, "host-new", {
@@ -557,17 +557,17 @@ describe("interrupted server import at boot", () => {
 
   it("refuses to boot on an import that server-import.json never recorded and logs how to roll it back", async () => {
     const dataDir = await makeDataDir();
-    await writeFile(join(dataDir, "bb.db"), "partial database");
-    await writeJournal(dataDir, ["plugins/npm", "bb.db"]);
+    await writeFile(join(dataDir, "hyperfide.db"), "partial database");
+    await writeJournal(dataDir, ["plugins/npm", "hyperfide.db"]);
     const logger = { error: vi.fn() };
-    const message = `bb server import into ${dataDir} was interrupted, so this server won't start on partial data. Run bb server import <file> --data-dir ${dataDir} again; it rolls back the interrupted import first.`;
+    const message = `hyperfide-platform server import into ${dataDir} was interrupted, so this server won't start on partial data. Run hyperfide-platform server import <file> --data-dir ${dataDir} again; it rolls back the interrupted import first.`;
 
     await expect(
       refuseInterruptedServerImport({ dataDir, logger }),
     ).rejects.toThrow(message);
 
     expect(logger.error).toHaveBeenCalledWith({ dataDir }, message);
-    expect(await readFile(join(dataDir, "bb.db"), "utf8")).toBe(
+    expect(await readFile(join(dataDir, "hyperfide.db"), "utf8")).toBe(
       "partial database",
     );
   });
@@ -579,7 +579,7 @@ describe("interrupted server import at boot", () => {
     await expect(
       refuseInterruptedServerImport({ dataDir, logger }),
     ).resolves.toBeUndefined();
-    await writeJournal(dataDir, ["plugins/npm", "bb.db"]);
+    await writeJournal(dataDir, ["plugins/npm", "hyperfide.db"]);
     await writeServerImportFile(dataDir, manualMarker());
     await expect(
       refuseInterruptedServerImport({ dataDir, logger }),

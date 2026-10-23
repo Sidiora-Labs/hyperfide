@@ -211,7 +211,7 @@ describe("system cache effects", () => {
       source: "npm",
       updateAvailable: true,
       isDevelopment: false,
-      upgradeCommand: "npx bb-app@latest",
+      upgradeCommand: "npx hyperfide-app@latest",
     });
 
     invalidateRealtimeQueriesAfterServerReconnect({

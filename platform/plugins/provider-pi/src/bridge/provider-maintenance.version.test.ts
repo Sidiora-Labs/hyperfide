@@ -70,7 +70,7 @@ describe("Pi version probe", () => {
   }, 25_000);
 
   it("reports a missing executable", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "bb-pi-missing-"));
+    const root = await mkdtemp(path.join(os.tmpdir(), "hyperfide-pi-missing-"));
     temporaryDirectories.push(root);
     vi.stubEnv(PI_BRIDGE_COMMAND_ENV, path.join(root, "missing-pi"));
     vi.stubEnv(PI_BRIDGE_ARGS_ENV, "[]");
@@ -83,7 +83,7 @@ describe("Pi version probe", () => {
   it.skipIf(process.platform !== "win32")(
     "probes a Pi .cmd shim on PATH and passes the install gate",
     async () => {
-      const root = await mkdtemp(path.join(os.tmpdir(), "bb pi version-"));
+      const root = await mkdtemp(path.join(os.tmpdir(), "hyperfide pi version-"));
       temporaryDirectories.push(root);
       const pkg = path.join(
         root,

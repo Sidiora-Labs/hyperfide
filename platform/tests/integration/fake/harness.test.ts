@@ -48,11 +48,11 @@ describe("integration harness", () => {
     });
   });
 
-  it("reloads bb-app managed config through the integration server", async () => {
+  it("reloads hyperfide-app managed config through the integration server", async () => {
     await withHarness(async (harness) => {
       await fs.writeFile(
         path.join(harness.server.config.dataDir, "config.json"),
-        `${JSON.stringify({ config: { BB_APP_URL: "https://stored.example.test" } })}\n`,
+        `${JSON.stringify({ config: { HYPERFIDE_APP_URL: "https://stored.example.test" } })}\n`,
         "utf8",
       );
 

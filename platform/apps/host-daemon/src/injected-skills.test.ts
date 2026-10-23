@@ -114,7 +114,7 @@ function createTreePayload(
     left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
   );
   const hash = createHash("sha256");
-  hash.update("bb-skill-tree-v1");
+  hash.update("hyperfide-skill-tree-v1");
   for (const entry of entries) {
     const bytes = Buffer.from(entry.contentBase64, "base64");
     hash.update("\0file\0");
@@ -479,7 +479,7 @@ describe("injected skill staging", () => {
       ).toString("base64"),
     });
     const hash = createHash("sha256");
-    hash.update("bb-skill-tree-v1");
+    hash.update("hyperfide-skill-tree-v1");
     for (const entry of [...entries].sort((left, right) =>
       left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
     )) {

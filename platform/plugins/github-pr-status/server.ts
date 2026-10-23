@@ -3,7 +3,7 @@ import {
   defineCli,
   experimental_PluginRpcRefusal,
   PluginCliError,
-  type BbPluginApi,
+  type HyperfidePluginApi,
 } from "@hyperfide/plugin-sdk";
 import { assemblePullRequest } from "./assemble.js";
 import {
@@ -46,7 +46,7 @@ export function environmentChangeEffect(
 }
 
 type Environment = Awaited<
-  ReturnType<BbPluginApi["sdk"]["environments"]["get"]>
+  ReturnType<HyperfidePluginApi["sdk"]["environments"]["get"]>
 >;
 
 function errorMessage(error: unknown): string {
@@ -116,8 +116,8 @@ function describeEnvironmentPullRequest(
   }
 }
 
-export default function githubPrStatusPlugin(bb: BbPluginApi): void {
-  const host = bb.hosts.experimental_client({
+export default function githubPrStatusPlugin(hyperfide: HyperfidePluginApi): void {
+  const host = hyperfide.hosts.experimental_client({
     contract: githubPrStatusHostContract,
   });
 
@@ -125,7 +125,7 @@ export default function githubPrStatusPlugin(bb: BbPluginApi): void {
     environmentId: string,
   ): Promise<Environment | null> {
     try {
-      return await bb.sdk.environments.get({ environmentId });
+      return await hyperfide.sdk.environments.get({ environmentId });
     } catch (error) {
       if (httpStatusOf(error) === 404) return null;
       throw error;
@@ -145,7 +145,7 @@ export default function githubPrStatusPlugin(bb: BbPluginApi): void {
         store.refresh(environmentId);
       }
     } catch (error) {
-      bb.log.debug(
+      hyperfide.log.debug(
         `Failed to read environment ${environmentId}: ${errorMessage(error)}`,
       );
     }
@@ -192,12 +192,12 @@ export default function githubPrStatusPlugin(bb: BbPluginApi): void {
   const store = createPullRequestStore({
     load: loadPullRequest,
     publish: (environmentIds) => {
-      bb.rpc.experimental_invalidate(
+      hyperfide.rpc.experimental_invalidate(
         environmentIds.map(environmentPullRequestTag),
       );
     },
     onCheckFailed: (environmentId, error) => {
-      bb.log.debug(
+      hyperfide.log.debug(
         `Failed to check watched pull request for ${environmentId}: ${errorMessage(error)}`,
       );
     },
@@ -207,7 +207,7 @@ export default function githubPrStatusPlugin(bb: BbPluginApi): void {
   let stopEnvironmentEvents: (() => void) | null = null;
   function retainEnvironmentEvents(): () => void {
     watchedCount += 1;
-    stopEnvironmentEvents ??= bb.sdk.subscribe({
+    stopEnvironmentEvents ??= hyperfide.sdk.subscribe({
       event: "environment:changed",
       callback: (event) => {
         const environmentId = event.id;
@@ -256,7 +256,7 @@ export default function githubPrStatusPlugin(bb: BbPluginApi): void {
     if (environment.status !== "ready" || environment.path === null) {
       refuse("Environment is not ready");
     }
-    const machine = await bb.sdk.hosts.get({ hostId: environment.hostId });
+    const machine = await hyperfide.sdk.hosts.get({ hostId: environment.hostId });
     if (
       machine.status !== "connected" ||
       machine.lifecycle.phase !== "active"
@@ -327,7 +327,7 @@ export default function githubPrStatusPlugin(bb: BbPluginApi): void {
     return { message: "Pull request merge started" };
   }
 
-  bb.rpc.register(
+  hyperfide.rpc.register(
     githubPrStatusRpcContract,
     {
       async pullRequests({ keys }, context) {
@@ -346,11 +346,11 @@ export default function githubPrStatusPlugin(bb: BbPluginApi): void {
     {
       experimental_discoverable: true,
       experimental_description:
-        "GitHub pull request status and actions for bb environments.",
+        "GitHub pull request status and actions for hyperfide environments.",
     },
   );
 
-  bb.rpc.experimental_whileWatched("pullRequests", (read, signal) => {
+  hyperfide.rpc.experimental_whileWatched("pullRequests", (read, signal) => {
     if (!("key" in read)) return;
     store.watch(read.key, signal);
     const release = retainEnvironmentEvents();
@@ -358,17 +358,17 @@ export default function githubPrStatusPlugin(bb: BbPluginApi): void {
   });
 
   for (const event of ["thread.idle", "thread.failed"] as const) {
-    bb.events.on(event, ({ thread }) => {
+    hyperfide.events.on(event, ({ thread }) => {
       if (thread.environmentId !== null) store.recheck(thread.environmentId);
     });
   }
 
-  bb.cli.register(
+  hyperfide.cli.register(
     defineCli({
       name: "pull-request",
       summary: "Inspect and manage an environment's GitHub pull request",
       description:
-        "Runs gh on the environment's machine against its current branch. The machine must be online; bb does not wake it.",
+        "Runs gh on the environment's machine against its current branch. The machine must be online; hyperfide does not wake it.",
       commands: {
         show: cliCommand({
           summary: "Show an environment's pull request",

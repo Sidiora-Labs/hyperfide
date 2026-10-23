@@ -75,7 +75,7 @@ function setup(
   const workers = new Map<string, WorkerState>();
   const archived: string[] = [];
   const archiveFailures = new Set<string>();
-  const { bb, harness } = createFakePluginHost({
+  const { hyperfide, harness } = createFakePluginHost({
     pluginId: "workflows",
     sdk: {
       threads: {
@@ -185,9 +185,9 @@ function setup(
       },
     },
   });
-  const db = bb.storage.database();
-  bb.storage.migrate(db, migrations);
-  const service = createWorkflowService(bb, db, settings);
+  const db = hyperfide.storage.database();
+  hyperfide.storage.migrate(db, migrations);
+  const service = createWorkflowService(hyperfide, db, settings);
 
   async function start(workflowSource: string) {
     return service.start({
@@ -200,7 +200,7 @@ function setup(
   }
 
   return {
-    bb,
+    hyperfide,
     db,
     harness,
     service,
@@ -281,7 +281,7 @@ describe("workflow service policy integration", () => {
       retentionDays: 7,
       maxNotificationBytes: 2048,
     };
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "workflows",
       agentSkillIds: ["workflows"],
       settings: initial,
@@ -304,11 +304,11 @@ describe("workflow service policy integration", () => {
       },
     });
     harnesses.push(harness);
-    await plugin(bb);
+    await plugin(hyperfide);
     expect(harness.registrations.settingsDescriptors).not.toEqual({});
 
     const first = JSON.parse(
-      (await harness.callAgentTool("bb_workflow_run", {
+      (await harness.callAgentTool("hyperfide_workflow_run", {
         script: source("return null;", "settings-one"),
       })) as string,
     ) as { runId: string };
@@ -322,7 +322,7 @@ describe("workflow service policy integration", () => {
     };
     await harness.setSettings(next);
     const second = JSON.parse(
-      (await harness.callAgentTool("bb_workflow_run", {
+      (await harness.callAgentTool("hyperfide_workflow_run", {
         script: source("return null;", "settings-two"),
       })) as string,
     ) as { runId: string };
@@ -355,7 +355,7 @@ describe("workflow service policy integration", () => {
     const named = source("return { kind: 'named', args };", "named-child");
     const path = source("return { kind: 'path', args };", "path-child");
     const test = setup(DEFAULT_WORKFLOW_SETTINGS, {
-      "/workspace/.bb/workflows/named-child.js": named,
+      "/workspace/.hyperfide/workflows/named-child.js": named,
       "/workspace/child.js": path,
     });
     harnesses.push(test.harness);
@@ -381,7 +381,7 @@ describe("workflow service policy integration", () => {
       [
         {
           hostId: "host-1",
-          path: "/workspace/.bb/workflows/named-child.js",
+          path: "/workspace/.hyperfide/workflows/named-child.js",
           rootPath: "/workspace",
         },
       ],
@@ -427,11 +427,11 @@ describe("workflow service policy integration", () => {
       releaseFirst = resolve;
     });
     const children: Record<string, string> = {
-      "/workspace/.bb/workflows/first.js": source(
+      "/workspace/.hyperfide/workflows/first.js": source(
         `return await agent("first-agent");`,
         "first",
       ),
-      "/workspace/.bb/workflows/second.js": source(
+      "/workspace/.hyperfide/workflows/second.js": source(
         `return await agent("second-agent");`,
         "second",
       ),
@@ -1235,7 +1235,7 @@ describe("workflow service policy integration", () => {
     expect(getRunRequired(test.db, run.id).status).toBe("queued");
     expect(test.harness.sdk.callsTo("threads.send")).toHaveLength(0);
 
-    const restarted = createWorkflowService(test.bb, test.db);
+    const restarted = createWorkflowService(test.hyperfide, test.db);
     test.harness.sdk.stub("threads.stop", (async () => ({
       ok: true,
     })) as never);
@@ -1281,7 +1281,7 @@ describe("workflow service policy integration", () => {
     test.harness.sdk.stub("threads.send", (async () => ({
       ok: true,
     })) as never);
-    const restarted = createWorkflowService(test.bb, test.db);
+    const restarted = createWorkflowService(test.hyperfide, test.db);
     test.db
       .prepare(
         `UPDATE workflow_runs SET notification_next_attempt_at = 0 WHERE id = ?`,
@@ -1511,7 +1511,7 @@ describe("workflow service policy integration", () => {
       await worker;
     }
     test.harness.sdk.stub("threads.stop", async () => ({ ok: true }));
-    const restarted = createWorkflowService(test.bb, test.db);
+    const restarted = createWorkflowService(test.hyperfide, test.db);
     const restartController = new AbortController();
     const restartWorker = restarted.runWorker(restartController.signal);
     try {
@@ -1586,11 +1586,11 @@ describe("workflow service policy integration", () => {
       release = resolve;
     });
     let metadata: NonNullable<
-      Parameters<typeof test.bb.sdk.threads.spawn>[0]["pluginMetadata"]
+      Parameters<typeof test.hyperfide.sdk.threads.spawn>[0]["pluginMetadata"]
     > = {};
     test.harness.sdk.stub(
       "threads.spawn",
-      async (args: Parameters<typeof test.bb.sdk.threads.spawn>[0]) => {
+      async (args: Parameters<typeof test.hyperfide.sdk.threads.spawn>[0]) => {
         metadata = args.pluginMetadata!;
         await gate;
         return { id: "spawning-worker" } as never;
@@ -1642,11 +1642,11 @@ describe("workflow service policy integration", () => {
       releaseStop = resolve;
     });
     let metadata: NonNullable<
-      Parameters<typeof test.bb.sdk.threads.spawn>[0]["pluginMetadata"]
+      Parameters<typeof test.hyperfide.sdk.threads.spawn>[0]["pluginMetadata"]
     > = {};
     test.harness.sdk.stub(
       "threads.spawn",
-      async (args: Parameters<typeof test.bb.sdk.threads.spawn>[0]) => {
+      async (args: Parameters<typeof test.hyperfide.sdk.threads.spawn>[0]) => {
         metadata = args.pluginMetadata!;
         await spawnGate;
         return { id: "zz-live-worker" } as never;
@@ -1790,12 +1790,12 @@ describe("workflow service policy integration", () => {
     const metadata = new Map<
       string,
       NonNullable<
-        Parameters<typeof test.bb.sdk.threads.spawn>[0]["pluginMetadata"]
+        Parameters<typeof test.hyperfide.sdk.threads.spawn>[0]["pluginMetadata"]
       >
     >();
     test.harness.sdk.stub(
       "threads.spawn",
-      async (args: Parameters<typeof test.bb.sdk.threads.spawn>[0]) => {
+      async (args: Parameters<typeof test.hyperfide.sdk.threads.spawn>[0]) => {
         metadata.set("lost-worker", args.pluginMetadata!);
         throw new Error("Spawn response lost");
       },
@@ -1822,7 +1822,7 @@ describe("workflow service policy integration", () => {
       "threads.getPluginMetadata",
       async ({ threadId }: { threadId: string }) => metadata.get(threadId)!,
     );
-    const restarted = createWorkflowService(test.bb, test.db);
+    const restarted = createWorkflowService(test.hyperfide, test.db);
     const restartController = new AbortController();
     const restartWorker = restarted.runWorker(restartController.signal);
     try {
@@ -1943,7 +1943,7 @@ describe("workflow service policy integration", () => {
         .all(),
     ).toEqual([{ thread_id: "worker-broken" }]);
     test.allowArchive("worker-broken");
-    const restarted = createWorkflowService(test.bb, test.db);
+    const restarted = createWorkflowService(test.hyperfide, test.db);
     const restartController = new AbortController();
     const restartWorker = restarted.runWorker(restartController.signal);
     try {
@@ -2030,7 +2030,7 @@ describe("workflow service policy integration", () => {
     expect(text).toContain(run.id);
     expect(text).toContain("failed");
     expect(text).toContain("[truncated]");
-    expect(text).toContain(`bb workflows status ${run.id}`);
+    expect(text).toContain(`hyperfide-platform workflows status ${run.id}`);
     expect(text).not.toContain("�");
   });
 });

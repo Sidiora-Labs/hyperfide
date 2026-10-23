@@ -106,7 +106,7 @@ function registerPlugin(setup: (app: PluginAppBuilder) => void) {
   act(() =>
     setPluginSlotRegistrations(
       "compact",
-      collectPluginAppRegistrations({ __bbPluginApp: true, setup }),
+      collectPluginAppRegistrations({ __hyperfidePluginApp: true, setup }),
     ),
   );
 }
@@ -115,7 +115,7 @@ function registerDocsPanel() {
   setPluginSlotRegistrations(
     "garden",
     collectPluginAppRegistrations({
-      __bbPluginApp: true,
+      __hyperfidePluginApp: true,
       setup(app) {
         app.slots.navPanel({
           id: "docs",
@@ -510,7 +510,7 @@ describe("sidebar navigation providers", () => {
     expect(screen.getByTestId("sidebar-navigation-list")).toBeDefined();
   });
 
-  it("opens bb's customize editor beside a plugin's navigation", async () => {
+  it("opens hyperfide's customize editor beside a plugin's navigation", async () => {
     registerPlugin((app) =>
       app.slots.experimental_sidebarNavigation({
         id: "nav",
@@ -546,7 +546,7 @@ describe("sidebar navigation providers", () => {
       "Sidebar navigation plugin crashed",
       {
         description:
-          "Broken rail (compact) stopped working, so bb drew Rail instead.",
+          "Broken rail (compact) stopped working, so hyperfide drew Rail instead.",
       },
     );
   });

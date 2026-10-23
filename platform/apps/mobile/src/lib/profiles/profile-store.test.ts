@@ -26,7 +26,7 @@ const connect = {
   serverUrl: "https://bee.hyperfide.example",
   label: "bee",
   handle: "bee",
-  credential: "bbcm_secret",
+  credential: "hyperfide_cm_secret",
 };
 
 describe("profile store", () => {
@@ -98,15 +98,15 @@ describe("profile store", () => {
     const renamed = await store.updateProfile(a.id, { label: "Mac" });
     expect(renamed).toEqual({ ...a, label: "Mac" });
     await expect(
-      store.updateProfile(a.id, { credential: "bbcm_x" }),
+      store.updateProfile(a.id, { credential: "hyperfide_cm_x" }),
     ).rejects.toThrow(/Direct profiles/);
     await expect(store.updateProfile(a.id, { label: "" })).rejects.toThrow();
 
     const rotated = await store.updateProfile(c.id, {
-      credential: "bbcm_new",
+      credential: "hyperfide_cm_new",
       label: undefined,
     });
-    expect(rotated).toEqual({ ...c, credential: "bbcm_new" });
+    expect(rotated).toEqual({ ...c, credential: "hyperfide_cm_new" });
     await expect(store.updateProfile("nope", { label: "x" })).rejects.toThrow(
       /Unknown/,
     );

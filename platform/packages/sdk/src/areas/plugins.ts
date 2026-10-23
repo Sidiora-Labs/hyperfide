@@ -67,7 +67,7 @@ import { z } from "zod";
 import type { CreateSdkAreaArgs } from "./common.js";
 
 /**
- * A server older than `providerIds` (bb-app < 0.39) or `icons` answers with
+ * A server older than `providerIds` (hyperfide-app < 0.39) or `icons` answers with
  * the installed-plugin shape minus those fields. The contract keeps them
  * required — the server fills them once at its boundary — so the tolerance
  * lives here, on the response side only: the SDK never sends this shape, and a
@@ -450,7 +450,7 @@ export function createPluginsArea(args: CreateSdkAreaArgs): PluginsArea {
     const response = await requestInstall(path, body);
     if ("job" in response) return response.job;
     throw new Error(
-      `installed "${response.plugin.id}" without an install job; this BB server predates background installs`,
+      `installed "${response.plugin.id}" without an install job; this HYPERFIDE server predates background installs`,
     );
   }
 
@@ -597,7 +597,7 @@ export function createPluginsArea(args: CreateSdkAreaArgs): PluginsArea {
       const response = await requestUpdate(input);
       if ("job" in response) return response.job;
       throw new Error(
-        "Update completed without a job; this BB server predates background updates",
+        "Update completed without a job; this HYPERFIDE server predates background updates",
       );
     },
     experimental_updateJobs: updateJobs,

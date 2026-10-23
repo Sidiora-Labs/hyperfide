@@ -55,9 +55,9 @@ function PortaledThreadLinkDelegate({
 }) {
   const onRouteAnchorClick = useRouteAnchorDelegate();
   return (
-    <div data-bb-plugin="thread-list" onClick={onRouteAnchorClick}>
+    <div data-hyperfide-plugin="thread-list" onClick={onRouteAnchorClick}>
       {createPortal(
-        <div data-bb-portaled-overlay="" data-bb-plugin={overlayPluginId}>
+        <div data-hyperfide-portaled-overlay="" data-hyperfide-plugin={overlayPluginId}>
           <a href="/threads/thr-next">Open next thread</a>
         </div>,
         document.body,

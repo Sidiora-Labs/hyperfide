@@ -3,7 +3,7 @@
   "name": "activity-row-styles",
   "type": "registry:ui",
   "title": "activity-row-styles",
-  "description": "BB ui \"activity-row-styles\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"activity-row-styles\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/utils"
   ],

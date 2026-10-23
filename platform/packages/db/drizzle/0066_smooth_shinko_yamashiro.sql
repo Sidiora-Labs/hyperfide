@@ -43,7 +43,7 @@ CREATE TABLE `plugin_state_snapshots` (
 	`status` text NOT NULL,
 	`rollback_candidate_version` text,
 	`rollback_source_fingerprint` text,
-	`rollback_bb_version` text,
+	`rollback_hyperfide_version` text,
 	`rollback_sdk_version` text,
 	`rollback_detail` text,
 	`created_at` integer NOT NULL,

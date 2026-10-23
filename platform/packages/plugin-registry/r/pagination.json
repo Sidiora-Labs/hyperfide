@@ -3,7 +3,7 @@
   "name": "pagination",
   "type": "registry:ui",
   "title": "pagination",
-  "description": "BB ui \"pagination\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"pagination\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/button",
     "@hyperfide/icon",

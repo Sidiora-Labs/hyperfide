@@ -13,8 +13,8 @@ import {
 } from "../../../.ladle/story-fixtures";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";
 import {
-  BbAppUpdateRows,
-  BbUpdatesCard,
+  HyperfideAppUpdateRows,
+  HyperfideUpdatesCard,
   ChangelogPreviewCard,
   MachineUpdateRow,
   ProviderCliUpdatesSection,
@@ -37,7 +37,7 @@ const NPM_VERSION = {
   source: "npm" as const,
   updateAvailable: false,
   isDevelopment: false,
-  upgradeCommand: "npx bb-app@latest",
+  upgradeCommand: "npx hyperfide-app@latest",
 };
 
 const IN_APP_UPDATE: SystemAppUpdateStatus = {
@@ -157,7 +157,7 @@ function failedProviderFailures(
           message:
             index === 0
               ? "Command exited with code 1"
-              : "HTTP 504: bb connect: timed out waiting for the tunnel client",
+              : "HTTP 504: hyperfide-platform connect: timed out waiting for the tunnel client",
           title: `${issue.status.displayName} update log`,
         },
       },
@@ -317,15 +317,15 @@ export function RowVariations() {
           hint="Nothing to do. The settled state stays visually quiet."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={NPM_VERSION}
                 desktopInfo={null}
                 isDesktop={false}
                 onRelaunchDesktop={null}
                 onRetryDesktop={null}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -334,15 +334,15 @@ export function RowVariations() {
           hint="The app version check is still in progress."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={undefined}
                 desktopInfo={null}
                 isDesktop={false}
                 onRelaunchDesktop={null}
                 onRetryDesktop={null}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -351,8 +351,8 @@ export function RowVariations() {
           hint="A web install cannot replace itself, so its action copies the upgrade command."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{
                   ...NPM_VERSION,
                   latestVersion: "0.39.0",
@@ -363,17 +363,17 @@ export function RowVariations() {
                 onRelaunchDesktop={null}
                 onRetryDesktop={null}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
         <StoryRow
           label="In-app update available"
-          hint="bb runs under the update shim, so it can download the update and restart itself."
+          hint="hyperfide runs under the update shim, so it can download the update and restart itself."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={NPM_VERSION}
                 appUpdate={IN_APP_UPDATE}
                 desktopInfo={null}
@@ -383,17 +383,17 @@ export function RowVariations() {
                 onRetryDesktop={null}
                 onShowAppUpdateResult={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
         <StoryRow
           label="In-app update downloading"
-          hint="The launcher is installing the new version while bb keeps running."
+          hint="The launcher is installing the new version while hyperfide keeps running."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={NPM_VERSION}
                 appUpdate={{
                   ...IN_APP_UPDATE,
@@ -401,7 +401,7 @@ export function RowVariations() {
                     output: [],
                     phase: "preparing",
                     startedAt: "2026-09-23T00:00:00.000Z",
-                    step: "Downloading bb-app 0.39.0",
+                    step: "Downloading hyperfide-app 0.39.0",
                     targetVersion: "0.39.0",
                   },
                 }}
@@ -412,17 +412,17 @@ export function RowVariations() {
                 onRetryDesktop={null}
                 onShowAppUpdateResult={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
         <StoryRow
           label="In-app update failed"
-          hint="The download failed, bb kept running the current version, and the row keeps the details until dismissed."
+          hint="The download failed, hyperfide kept running the current version, and the row keeps the details until dismissed."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={NPM_VERSION}
                 appUpdate={{
                   ...IN_APP_UPDATE,
@@ -445,7 +445,7 @@ export function RowVariations() {
                 onRetryDesktop={null}
                 onShowAppUpdateResult={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -454,8 +454,8 @@ export function RowVariations() {
           hint="Runs from a checkout without an update shim. No comparison with npm or origin/main has been made."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{
                   ...NPM_VERSION,
                   installKind: "source",
@@ -467,7 +467,7 @@ export function RowVariations() {
                 onRelaunchDesktop={null}
                 onRetryDesktop={null}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -476,8 +476,8 @@ export function RowVariations() {
           hint="A source tree with no detected Git revision shows its declared build version without claiming freshness."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{
                   ...NPM_VERSION,
                   installKind: "source",
@@ -489,7 +489,7 @@ export function RowVariations() {
                 onRelaunchDesktop={null}
                 onRetryDesktop={null}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -498,8 +498,8 @@ export function RowVariations() {
           hint="The npm lookup failed. Retry forces another lookup without upgrading the app."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{ ...NPM_VERSION, latestVersion: null }}
                 desktopInfo={null}
                 isDesktop={false}
@@ -507,7 +507,7 @@ export function RowVariations() {
                 onRetryDesktop={null}
                 onRetryAppCheck={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -516,8 +516,8 @@ export function RowVariations() {
           hint="The managed checkout has successfully checked origin/main and has no incoming commits."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{
                   ...NPM_VERSION,
                   installKind: "source",
@@ -537,7 +537,7 @@ export function RowVariations() {
                 onRelaunchDesktop={null}
                 onRetryDesktop={null}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -546,8 +546,8 @@ export function RowVariations() {
           hint="The managed checkout could not fetch origin/main."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{
                   ...NPM_VERSION,
                   installKind: "source",
@@ -570,7 +570,7 @@ export function RowVariations() {
                 onRelaunchDesktop={null}
                 onRetryDesktop={null}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -579,8 +579,8 @@ export function RowVariations() {
           hint="This branch cannot use automatic updates; no incoming update is shown."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{
                   ...NPM_VERSION,
                   installKind: "source",
@@ -604,7 +604,7 @@ export function RowVariations() {
                 onRelaunchDesktop={null}
                 onRetryDesktop={null}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -613,8 +613,8 @@ export function RowVariations() {
           hint="A clean pnpm start checkout on main shows commits instead of a release version and offers to fast-forward."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{
                   ...NPM_VERSION,
                   currentCommit: "a".repeat(40),
@@ -642,7 +642,7 @@ export function RowVariations() {
                 onRetryDesktop={null}
                 onShowAppUpdateResult={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -651,8 +651,8 @@ export function RowVariations() {
           hint="The launcher rechecks origin/main before accepting the update target. The spinner and step replace the Update button."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{
                   ...NPM_VERSION,
                   installKind: "source",
@@ -684,7 +684,7 @@ export function RowVariations() {
                 onRelaunchDesktop={null}
                 onRetryDesktop={null}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -693,8 +693,8 @@ export function RowVariations() {
           hint="Validation succeeded. The launcher is waiting for the server to approve the restart."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{
                   ...NPM_VERSION,
                   installKind: "source",
@@ -726,7 +726,7 @@ export function RowVariations() {
                 onRelaunchDesktop={null}
                 onRetryDesktop={null}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -735,8 +735,8 @@ export function RowVariations() {
           hint="The last row before shutdown. Git fast-forward, dependency installation, and rebuilding happen while the server is offline; there are no live rows during those steps."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{
                   ...NPM_VERSION,
                   installKind: "source",
@@ -767,7 +767,7 @@ export function RowVariations() {
                 onRelaunchDesktop={null}
                 onRetryDesktop={null}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -776,8 +776,8 @@ export function RowVariations() {
           hint="Incoming commits stay visible, but there is no update button until the working tree is clean."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={{
                   ...NPM_VERSION,
                   currentCommit: "a".repeat(40),
@@ -810,7 +810,7 @@ export function RowVariations() {
                 onRetryDesktop={null}
                 onShowAppUpdateResult={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -819,8 +819,8 @@ export function RowVariations() {
           hint="The desktop shell is fetching the update automatically."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={undefined}
                 desktopInfo={{
                   ...DESKTOP_UPDATE,
@@ -832,7 +832,7 @@ export function RowVariations() {
                 onRelaunchDesktop={noop}
                 onRetryDesktop={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -841,8 +841,8 @@ export function RowVariations() {
           hint="No check has completed yet. Check starts a lookup without claiming the installed version is current."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={undefined}
                 desktopInfo={{
                   ...DESKTOP_UPDATE,
@@ -857,7 +857,7 @@ export function RowVariations() {
                 onRelaunchDesktop={noop}
                 onRetryDesktop={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -866,8 +866,8 @@ export function RowVariations() {
           hint="The check is running. The action is disabled until it completes."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={undefined}
                 desktopInfo={{
                   ...DESKTOP_UPDATE,
@@ -883,7 +883,7 @@ export function RowVariations() {
                 onRelaunchDesktop={noop}
                 onRetryDesktop={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -892,8 +892,8 @@ export function RowVariations() {
           hint="A check completed without establishing the latest release. The installed version stays visible with an explanation and Retry."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={undefined}
                 desktopInfo={{
                   ...DESKTOP_UPDATE,
@@ -907,7 +907,7 @@ export function RowVariations() {
                 onRelaunchDesktop={noop}
                 onRetryDesktop={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -916,15 +916,15 @@ export function RowVariations() {
           hint="The update is ready and needs one explicit relaunch."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={undefined}
                 desktopInfo={DESKTOP_UPDATE}
                 isDesktop
                 onRelaunchDesktop={noop}
                 onRetryDesktop={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
 
@@ -933,8 +933,8 @@ export function RowVariations() {
           hint="The red caption states the failure; the neutral Retry button is the recovery."
         >
           <div className="w-full">
-            <BbUpdatesCard>
-              <BbAppUpdateRows
+            <HyperfideUpdatesCard>
+              <HyperfideAppUpdateRows
                 systemVersion={undefined}
                 desktopInfo={{
                   ...DESKTOP_UPDATE,
@@ -946,7 +946,7 @@ export function RowVariations() {
                 onRelaunchDesktop={noop}
                 onRetryDesktop={noop}
               />
-            </BbUpdatesCard>
+            </HyperfideUpdatesCard>
           </div>
         </StoryRow>
       </StoryCard>
@@ -961,7 +961,7 @@ export function RowVariations() {
 
         <StoryRow
           label="Expanded"
-          hint="Each installed CLI with its versions and the updater bb will run."
+          hint="Each installed CLI with its versions and the updater hyperfide will run."
         >
           <StoryMachineRow machine={providerUpdate} expanded />
         </StoryRow>
@@ -993,7 +993,7 @@ export function RowVariations() {
 
         <StoryRow
           label="Update in terminal"
-          hint="bb cannot run this update, so the avatar is dashed and Update all skips it."
+          hint="hyperfide cannot run this update, so the avatar is dashed and Update all skips it."
         >
           <StoryMachineRow machine={providerManual} expanded />
         </StoryRow>
@@ -1006,7 +1006,7 @@ export function RowVariations() {
         </StoryRow>
 
         <StoryRow
-          label="Machine updating bb"
+          label="Machine updating hyperfide"
           hint="The enrolled daemon is applying its required update automatically."
         >
           <StoryMachineRow machine={daemonUpdating} />
@@ -1021,7 +1021,7 @@ export function RowVariations() {
 
         <StoryRow
           label="Machine offline"
-          hint="Shown only after Show all; bb cannot currently reach this machine."
+          hint="Shown only after Show all; hyperfide cannot currently reach this machine."
         >
           <StoryMachineRow machine={daemonOffline} />
         </StoryRow>
@@ -1076,7 +1076,7 @@ export function SectionVariations() {
   });
   const failed = failedProviderMachine("section-failed");
   const serverRow = (
-    <BbAppUpdateRows
+    <HyperfideAppUpdateRows
       systemVersion={NPM_VERSION}
       desktopInfo={null}
       isDesktop={false}
@@ -1085,7 +1085,7 @@ export function SectionVariations() {
     />
   );
   const serverUpdateRow = (
-    <BbAppUpdateRows
+    <HyperfideAppUpdateRows
       systemVersion={NPM_VERSION}
       appUpdate={IN_APP_UPDATE}
       desktopInfo={null}
@@ -1097,7 +1097,7 @@ export function SectionVariations() {
     />
   );
   const desktopRow = (
-    <BbAppUpdateRows
+    <HyperfideAppUpdateRows
       name="Desktop"
       systemVersion={undefined}
       desktopInfo={DESKTOP_UPDATE}
@@ -1114,7 +1114,7 @@ export function SectionVariations() {
         hint="One Server row and one quiet line for the fleet."
       >
         <div className="w-full space-y-6">
-          <BbUpdatesCard>{serverRow}</BbUpdatesCard>
+          <HyperfideUpdatesCard>{serverRow}</HyperfideUpdatesCard>
           <StoryProviderClis machines={[current, offline]} />
         </div>
       </StoryRow>
@@ -1123,7 +1123,7 @@ export function SectionVariations() {
         hint="Update all sits beside the Provider CLIs heading."
       >
         <div className="w-full space-y-6">
-          <BbUpdatesCard>{serverRow}</BbUpdatesCard>
+          <HyperfideUpdatesCard>{serverRow}</HyperfideUpdatesCard>
           <StoryProviderClis
             machines={[workstation]}
             serverHostId={workstation.host.id}
@@ -1135,10 +1135,10 @@ export function SectionVariations() {
         hint="Server and desktop updates, provider updates, a manual update, a failed install, and a stalled daemon; quiet machines fold into the footer."
       >
         <div className="w-full space-y-6">
-          <BbUpdatesCard>
+          <HyperfideUpdatesCard>
             {serverUpdateRow}
             {desktopRow}
-          </BbUpdatesCard>
+          </HyperfideUpdatesCard>
           <StoryProviderClis
             machines={[
               workstation,
@@ -1160,7 +1160,7 @@ export function SectionVariations() {
         hint="Update all gives way to progress while the queue drains."
       >
         <div className="w-full space-y-6">
-          <BbUpdatesCard>{serverRow}</BbUpdatesCard>
+          <HyperfideUpdatesCard>{serverRow}</HyperfideUpdatesCard>
           <StoryProviderClis
             machines={[workstation, studioMac]}
             runningJobKey={`${workstation.host.id}:codex`}
@@ -1180,7 +1180,7 @@ export function SectionVariations() {
       >
         <div className="w-full space-y-6">
           <ChangelogPreviewCard />
-          <BbUpdatesCard>{serverRow}</BbUpdatesCard>
+          <HyperfideUpdatesCard>{serverRow}</HyperfideUpdatesCard>
           <StoryProviderClis machines={[workstation]} />
         </div>
       </StoryRow>

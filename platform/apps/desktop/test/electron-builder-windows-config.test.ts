@@ -41,14 +41,14 @@ describe("electron-builder Windows config", () => {
     expect(config.win.target).toEqual([{ arch: ["x64"], target: "nsis" }]);
     expect(config.win.icon).toBe("assets/icon.png");
     expect(config.nsis).toEqual({ oneClick: true, perMachine: false });
-    expect(config.extraMetadata).toEqual({ name: "bb" });
+    expect(config.extraMetadata).toEqual({ name: "hyperfide" });
   });
 
   it("keeps the nightly install apart from the stable one", async () => {
     const config = await printConfig(["--win", "--x64"], "nightly");
 
     expect(config.win.icon).toBe("assets/icon-nightly.png");
-    expect(config.extraMetadata).toEqual({ name: "bb-nightly" });
+    expect(config.extraMetadata).toEqual({ name: "hyperfide-nightly" });
   });
 
   it("leaves the package name alone for other platforms", async () => {

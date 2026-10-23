@@ -179,7 +179,7 @@ export class AccountPoolHub {
 
   async authenticate(request: Request): Promise<string | null> {
     const token =
-      request.headers.get("x-bb-account-pool-token") ??
+      request.headers.get("x-hyperfide-account-pool-token") ??
       readBearer(request.headers.get("authorization"));
     return this.options.hubTokens.authenticate(token);
   }

@@ -20,7 +20,7 @@ function systemTitle({
 }: SystemTitleArgs) {
   return generatedConversationTitle({
     sourceKind: "system",
-    sourceName: "BB",
+    sourceName: "HYPERFIDE",
     sourceThreadId: null,
     sourceIsPluginSideChat: false,
     systemMessageKind,

@@ -118,7 +118,7 @@ const BUTTON_PATH = "apps/app/src/components/ui/button.tsx";
 const DELETED_BUTTON_PATH = "apps/app/src/components/ui/legacy-button.tsx";
 const METRICS_PATH = "reports/customers.csv";
 const SCREENSHOT_PATH = "docs/screenshots/right-panel.svg";
-const STORY_WORKSPACE_ROOT = "/Users/alex/Code/bb";
+const STORY_WORKSPACE_ROOT = "/Users/alex/Code/hyperfide";
 
 function copyPathFor(path: string) {
   return `${STORY_WORKSPACE_ROOT}/${path}`;

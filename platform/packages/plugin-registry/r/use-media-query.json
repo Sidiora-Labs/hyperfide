@@ -3,7 +3,7 @@
   "name": "use-media-query",
   "type": "registry:hook",
   "title": "use-media-query",
-  "description": "BB hook \"use-media-query\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE hook \"use-media-query\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/hooks/use-media-query.ts",

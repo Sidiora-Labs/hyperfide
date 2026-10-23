@@ -44,7 +44,7 @@ import {
  *   may be shut, asleep, or off the network. It carries the host's display
  *   name for the same reason the `plugin` arm carries its reason — the
  *   renderers that word this wait (the timeline projection in `thread-view`,
- *   `bb thread queue`) have no database to resolve an id against.
+ *   `hyperfide-platform thread queue`) have no database to resolve an id against.
  * - `interaction` — the thread has a pending interaction the user has not
  *   settled.
  * - `plugin` — a plugin's dispatch gate returned `wait(reason)`. This is the
@@ -76,7 +76,7 @@ export type QueuedMessageWaitingOnKind = z.infer<
 export const queuedMessageWaitHostNameSchema = z.string().min(1).max(200);
 
 /**
- * A plugin's wait reason renders on the queued card and in `bb thread queue`,
+ * A plugin's wait reason renders on the queued card and in `hyperfide-platform thread queue`,
  * so it stays short enough for a couple of wrapped lines.
  */
 export const QUEUED_MESSAGE_WAIT_REASON_MAX_LENGTH = 200;
@@ -178,7 +178,7 @@ export const queuedMessagePayloadSchema = z.discriminatedUnion("kind", [
     attempt: z.number().int().min(2),
     /**
      * Why this turn is being retried, in the retrier's words ("Rate limited"),
-     * as the row's card and `bb thread queue list` render it.
+     * as the row's card and `hyperfide-platform thread queue list` render it.
      *
      * It lives on the payload rather than on `waitingOn` because a retry can
      * wait on the clock, on a limiter, or on nothing at all, and the reason

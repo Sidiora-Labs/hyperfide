@@ -71,7 +71,7 @@ describe("probeServer", () => {
     });
   });
 
-  it("rejects a non-bb server that answers /health with something else", async () => {
+  it("rejects a non-hyperfide-platform server that answers /health with something else", async () => {
     const fetchImpl = fakeFetch({ "/health": { body: "<html>" } });
     expect(await probeServer("https://example.com", fetchImpl)).toMatchObject({
       ok: false,

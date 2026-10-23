@@ -36,9 +36,9 @@ const SERVER_SKILL_FILE_LIMIT = 200;
 const SERVER_SKILL_CONTENT_LIMIT_BYTES = 25 * 1024 * 1024;
 
 const SKILL_SCOPE_ORDER: readonly SkillScope[] = [
-  "bb-project",
-  "bb-user",
-  "bb-builtin",
+  "hyperfide-project",
+  "hyperfide-user",
+  "hyperfide-builtin",
   "shared-project",
   "shared-user",
   "provider-project",
@@ -68,12 +68,12 @@ export function mapSkillScope(
   filePath: string,
 ): MappedScope {
   switch (rootKind) {
-    case "bb-project":
-      return { scope: "bb-project", provider: null, manageable: true };
-    case "bb-data-dir":
-      return { scope: "bb-user", provider: null, manageable: true };
-    case "bb-builtin":
-      return { scope: "bb-builtin", provider: null, manageable: false };
+    case "hyperfide-project":
+      return { scope: "hyperfide-project", provider: null, manageable: true };
+    case "hyperfide-data-dir":
+      return { scope: "hyperfide-user", provider: null, manageable: true };
+    case "hyperfide-builtin":
+      return { scope: "hyperfide-builtin", provider: null, manageable: false };
     case "provider-project":
       return { scope: "provider-project", provider, manageable: true };
     case "provider-user":
@@ -169,11 +169,11 @@ function listServerOwnedSkills(deps: AppDeps): SkillSummary[] {
       );
       const logicalPath = `${runtimeSource.name}/${runtimeSource.entryPath}`;
       return {
-        id: skillId("bb-data-dir", logicalPath),
+        id: skillId("hyperfide-data-dir", logicalPath),
         name: runtimeSource.name,
         description: runtimeSource.description,
         provider: null,
-        scope: "bb-user",
+        scope: "hyperfide-user",
         pluginId: null,
         filePath: path.join(rootPath, runtimeSource.entryPath),
         manageable: true,
@@ -184,7 +184,7 @@ function listServerOwnedSkills(deps: AppDeps): SkillSummary[] {
     .sort(compareSkillSummaries);
 }
 
-function listBbPluginSkills(deps: AppDeps): SkillSummary[] {
+function listHyperfidePluginSkills(deps: AppDeps): SkillSummary[] {
   return resolveSkillCatalog(deps)
     .map(({ provenance, runtimeSource }): SkillSummary | null => {
       if (provenance.kind !== "plugin" || runtimeSource.kind !== "tree") {
@@ -194,7 +194,7 @@ function listBbPluginSkills(deps: AppDeps): SkillSummary[] {
       if (rootPath === undefined) return null;
       const logicalPath = `${runtimeSource.name}/${runtimeSource.entryPath}`;
       return {
-        id: skillId(`bb-plugin:${provenance.pluginId}`, logicalPath),
+        id: skillId(`hyperfide-plugin:${provenance.pluginId}`, logicalPath),
         name: runtimeSource.name,
         description: runtimeSource.description,
         provider: null,
@@ -239,7 +239,7 @@ export async function listProjectSkills(
     ...assembleSkillList(perProvider),
     ...sharedSkills.summaries,
     ...listServerOwnedSkills(deps),
-    ...listBbPluginSkills(deps),
+    ...listHyperfidePluginSkills(deps),
   ].sort(compareSkillSummaries);
 }
 
@@ -252,14 +252,14 @@ function isServerOwnedSkill(deps: AppDeps, skill: SkillSummary): boolean {
   ) {
     return true;
   }
-  if (skill.scope === "bb-user") {
+  if (skill.scope === "hyperfide-user") {
     return (
       path.dirname(skillDirectoryPath) ===
       resolveDataDirSkillsRootPath(deps.config.dataDir)
     );
   }
   return (
-    skill.scope === "bb-builtin" &&
+    skill.scope === "hyperfide-builtin" &&
     path.dirname(skillDirectoryPath) === deps.config.builtinSkillsRootPath
   );
 }
@@ -465,17 +465,17 @@ export async function writeProjectSkill(
     throw new ApiError(
       403,
       "forbidden",
-      "Bundled skills cannot be edited in bb",
+      "Bundled skills cannot be edited in hyperfide",
     );
   }
-  if (editableScope.data === "bb-project" && args.workspace.cwd === null) {
+  if (editableScope.data === "hyperfide-project" && args.workspace.cwd === null) {
     throw new ApiError(
       409,
       "invalid_request",
       "No workspace resolved for this project's skills",
     );
   }
-  if (editableScope.data === "bb-user" && isServerOwnedSkill(deps, skill)) {
+  if (editableScope.data === "hyperfide-user" && isServerOwnedSkill(deps, skill)) {
     const skillFilePath = await resolveServerSkillFile(skill, SKILL_FILE_NAME);
     const currentContents = await fs.readFile(skillFilePath);
     const currentRevision = createHash("sha256")
@@ -512,7 +512,7 @@ export async function writeProjectSkill(
     const revision = createHash("sha256").update(args.content).digest("hex");
     return { filePath: skillFilePath, revision };
   }
-  if (editableScope.data !== "bb-user" && editableScope.data !== "bb-project") {
+  if (editableScope.data !== "hyperfide-user" && editableScope.data !== "hyperfide-project") {
     const result = await callHostOnlineRpcForWork(deps, {
       hostId: args.workspace.hostId,
       timeoutMs: COMMAND_TIMEOUT_MS,
@@ -562,17 +562,17 @@ export async function deleteProjectSkill(
     throw new ApiError(
       403,
       "forbidden",
-      "Bundled skills cannot be deleted in bb",
+      "Bundled skills cannot be deleted in hyperfide",
     );
   }
-  if (editableScope.data === "bb-project" && args.workspace.cwd === null) {
+  if (editableScope.data === "hyperfide-project" && args.workspace.cwd === null) {
     throw new ApiError(
       409,
       "invalid_request",
       "No workspace resolved for this project's skills",
     );
   }
-  if (editableScope.data === "bb-user" && isServerOwnedSkill(deps, skill)) {
+  if (editableScope.data === "hyperfide-user" && isServerOwnedSkill(deps, skill)) {
     const skillsRootPath = resolveDataDirSkillsRootPath(deps.config.dataDir);
     const skillDirectoryPath = path.dirname(skill.filePath);
     const [realRootPath, realSkillPath] = await Promise.all([
@@ -602,7 +602,7 @@ export async function deleteProjectSkill(
   }
   let daemonName = skill.name;
   let rootPath: string | null = null;
-  if (editableScope.data !== "bb-user" && editableScope.data !== "bb-project") {
+  if (editableScope.data !== "hyperfide-user" && editableScope.data !== "hyperfide-project") {
     const skillDirPath = hostPathDirname(skill.filePath);
     daemonName = hostPathBasename(skillDirPath);
     rootPath = hostPathDirname(skillDirPath);

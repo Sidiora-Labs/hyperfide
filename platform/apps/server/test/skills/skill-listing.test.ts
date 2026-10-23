@@ -18,22 +18,22 @@ describe("mapSkillScope", () => {
   }> = [
     {
       provider: "claude-code",
-      rootKind: "bb-project",
-      scope: "bb-project",
+      rootKind: "hyperfide-project",
+      scope: "hyperfide-project",
       listedProvider: null,
       manageable: true,
     },
     {
       provider: "claude-code",
-      rootKind: "bb-data-dir",
-      scope: "bb-user",
+      rootKind: "hyperfide-data-dir",
+      scope: "hyperfide-user",
       listedProvider: null,
       manageable: true,
     },
     {
       provider: "claude-code",
-      rootKind: "bb-builtin",
-      scope: "bb-builtin",
+      rootKind: "hyperfide-builtin",
+      scope: "hyperfide-builtin",
       listedProvider: null,
       manageable: false,
     },
@@ -110,21 +110,21 @@ describe("assembleSkillList", () => {
     };
   }
 
-  it("de-dupes a bb skill discovered under both providers", () => {
-    const bb = discovered(
+  it("de-dupes a hyperfide skill discovered under both providers", () => {
+    const hyperfide = discovered(
       "shared",
-      "bb-data-dir",
+      "hyperfide-data-dir",
       "/data/skills/shared/SKILL.md",
     );
     const result = assembleSkillList([
-      { provider: "claude-code", skills: [bb] },
-      { provider: "codex", skills: [bb] },
+      { provider: "claude-code", skills: [hyperfide] },
+      { provider: "codex", skills: [hyperfide] },
     ]);
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       name: "shared",
       provider: null,
-      scope: "bb-user",
+      scope: "hyperfide-user",
     });
   });
 
@@ -140,7 +140,7 @@ describe("assembleSkillList", () => {
           ),
           discovered(
             "alpha",
-            "bb-project",
+            "hyperfide-project",
             "/cwd/.hyperfide/skills/alpha/SKILL.md",
           ),
         ],
@@ -157,7 +157,7 @@ describe("assembleSkillList", () => {
       },
     ]);
     expect(result.map((skill) => [skill.scope, skill.name])).toEqual([
-      ["bb-project", "alpha"],
+      ["hyperfide-project", "alpha"],
       ["provider-user", "zed"],
       ["provider-user", "zed"],
     ]);

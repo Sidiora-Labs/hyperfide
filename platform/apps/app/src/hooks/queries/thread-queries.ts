@@ -890,7 +890,7 @@ export async function fetchThreadTimeline({
   const timeline =
     pushed !== undefined && pushed.maxSeq > merged.maxSeq ? pushed : merged;
   clearThreadTimelineUnseenEvents(queryClient, threadId, timeline.maxSeq);
-  markStreamTrace("bb:timeline-applied", {
+  markStreamTrace("hyperfide:timeline-applied", {
     threadId,
     maxSeq: timeline.maxSeq,
     source: response.delta === undefined ? "fetch" : "fetch-delta",

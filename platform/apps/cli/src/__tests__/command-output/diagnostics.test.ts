@@ -28,7 +28,7 @@ describe("hyperfide-platform diagnostics cli-errors", () => {
   let dataDir: string;
 
   beforeEach(() => {
-    dataDir = mkdtempSync(join(tmpdir(), "bb-diagnostics-"));
+    dataDir = mkdtempSync(join(tmpdir(), "hyperfide-diagnostics-"));
     mkdirSync(join(dataDir, "logs"), { recursive: true });
     vi.stubEnv("HYPERFIDE_DATA_DIR", dataDir);
     vi.stubEnv("HYPERFIDE_CLI_ERROR_LOG", "1");
@@ -72,7 +72,7 @@ describe("hyperfide-platform diagnostics cli-errors", () => {
     );
 
     expect(collectLogLines(vi.mocked(console.log))).toEqual([
-      `No failed bb invocations recorded in ${join(dataDir, "logs", "cli-errors.jsonl")}`,
+      `No failed hyperfide invocations recorded in ${join(dataDir, "logs", "cli-errors.jsonl")}`,
     ]);
   });
 

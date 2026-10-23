@@ -1,4 +1,4 @@
-import type { BbPluginApi, PluginAgentToolResult } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi, PluginAgentToolResult } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { createAskBridge } from "../../hyperfide-asks/bridge-projection.js";
 import { askWithInbox, type AskCommand } from "./ask-sync.js";
@@ -44,17 +44,17 @@ function errorResult(message: string): PluginAgentToolResult {
 export function createAskUserQuestionPlugin(
   options: { command?: AskCommand; pollMs?: number } = {},
 ) {
-  return function plugin(bb: BbPluginApi) {
+  return function plugin(hyperfide: HyperfidePluginApi) {
     const bridge = createAskBridge(
       <T>(method: string, input: Record<string, string>) =>
-        bb.sdk.plugins.callRpc({
+        hyperfide.sdk.plugins.callRpc({
           pluginId: "hyperfide-asks",
           method,
           input,
           outputSchema: z.custom<T>(),
         }),
     );
-    const settings = bb.settings.define({
+    const settings = hyperfide.settings.define({
       questionTimeout: {
         type: "select",
         label: "Question timeout",
@@ -65,7 +65,7 @@ export function createAskUserQuestionPlugin(
       },
     });
 
-    bb.agents.registerTool({
+    hyperfide.agents.registerTool({
       name: TOOL_NAME,
       description: TOOL_DESCRIPTION,
       presentation: {
@@ -190,7 +190,7 @@ export function createAskUserQuestionPlugin(
       },
     });
 
-    bb.agents.configure((context) => {
+    hyperfide.agents.configure((context) => {
       if (context.provider.capabilities.supportsNativeUserQuestion) {
         return { tools: [], skills: [] };
       }

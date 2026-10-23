@@ -46,8 +46,8 @@ describe("AI services routes", () => {
     await withTestHarness({}, async (harness) => {
       registerServices(harness);
       registerFakeAiService(harness.deps.aiServices, {
-        pluginId: "bb-ai",
-        id: "bb",
+        pluginId: "hyperfide-ai",
+        id: "hyperfide",
         builtin: true,
       });
       const response = await harness.app.request("/api/v1/system/ai-services");
@@ -62,7 +62,7 @@ describe("AI services routes", () => {
           automaticRank,
         })),
       ).toEqual([
-        { pluginId: "bb-ai", id: "bb", automaticRank: 0 },
+        { pluginId: "hyperfide-ai", id: "hyperfide", automaticRank: 0 },
         { pluginId: "helper-plugin", id: "helper", automaticRank: 1 },
         { pluginId: "listener-plugin", id: "listener", automaticRank: 2 },
       ]);
@@ -71,8 +71,8 @@ describe("AI services routes", () => {
         testAiServiceResponseSchema.parse(await readJson(test)),
       ).toMatchObject({
         ok: true,
-        pluginId: "bb-ai",
-        serviceId: "bb",
+        pluginId: "hyperfide-ai",
+        serviceId: "hyperfide",
       });
     });
   });

@@ -226,8 +226,8 @@ describe("CLI boundaries", () => {
     const { registration, invoke, execute } = cli();
     const top = await invoke(["--help"]);
     expect(top.exitCode).toBe(0);
-    expect(top.stdout).toContain("bb browser-automation open");
-    expect(top.stdout).toContain("bb browser-automation screenshot");
+    expect(top.stdout).toContain("hyperfide-platform browser-automation open");
+    expect(top.stdout).toContain("hyperfide-platform browser-automation screenshot");
     expect(top.stdout).toContain(
       "run, pages, and screenshot renew expiry to 30 minutes",
     );
@@ -271,7 +271,7 @@ describe("CLI boundaries", () => {
       error: {
         code: "session_unavailable",
         message: "Session stopped or expired; open a new session",
-        hint: expect.stringContaining("bb browser-automation open"),
+        hint: expect.stringContaining("hyperfide-platform browser-automation open"),
       },
     });
     expect(json.stderr).toContain("Session stopped or expired");

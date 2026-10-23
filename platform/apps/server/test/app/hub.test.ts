@@ -157,7 +157,7 @@ describe("NotificationHub", () => {
     } as const;
     const pullRequest = {
       kind: "plugin-read",
-      pluginId: "bb--github-pr-status",
+      pluginId: "hyperfide--github-pr-status",
       method: "pullRequests",
       read: { key: "environment-1" },
     } as const;

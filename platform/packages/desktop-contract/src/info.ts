@@ -1,93 +1,93 @@
-import type { BbDesktopServerChoice } from "./servers.js";
+import type { HyperfideDesktopServerChoice } from "./servers.js";
 import { z } from "zod";
-import type { BbDesktopBrowserApi } from "./browser.js";
-import type { BbDesktopWindowFindRequest } from "./find.js";
-import { bbDesktopVersionFeedPlatformSchema } from "./version-feed.js";
+import type { HyperfideDesktopBrowserApi } from "./browser.js";
+import type { HyperfideDesktopWindowFindRequest } from "./find.js";
+import { hyperfideDesktopVersionFeedPlatformSchema } from "./version-feed.js";
 import type { AppCommandId } from "@hyperfide/domain";
 
 const isoUtcDateTimeSchema = z.iso.datetime();
 
-const bbDesktopDownloadStateSchema = z.enum([
+const hyperfideDesktopDownloadStateSchema = z.enum([
   "idle",
   "downloading",
   "downloaded",
   "failed",
 ]);
 
-export const bbDesktopInfoSchema = z.object({
-  downloadState: bbDesktopDownloadStateSchema.optional(),
+export const hyperfideDesktopInfoSchema = z.object({
+  downloadState: hyperfideDesktopDownloadStateSchema.optional(),
   lastCheckedAt: isoUtcDateTimeSchema.nullable(),
   latestVersion: z.string().min(1).nullable(),
   pendingVersion: z.string().min(1).nullable(),
-  platform: bbDesktopVersionFeedPlatformSchema,
+  platform: hyperfideDesktopVersionFeedPlatformSchema,
   serverDaemonLogsAvailable: z.boolean().optional(),
   updateAvailable: z.boolean(),
   updateDownloaded: z.boolean(),
   version: z.string().min(1),
 });
-export type BbDesktopInfo = z.infer<typeof bbDesktopInfoSchema>;
+export type HyperfideDesktopInfo = z.infer<typeof hyperfideDesktopInfoSchema>;
 
-export const bbDesktopWindowStateSchema = z
+export const hyperfideDesktopWindowStateSchema = z
   .object({
     isFullScreen: z.boolean(),
   })
   .strict();
-export type BbDesktopWindowState = z.infer<typeof bbDesktopWindowStateSchema>;
+export type HyperfideDesktopWindowState = z.infer<typeof hyperfideDesktopWindowStateSchema>;
 
-export const bbDesktopThemeSchema = z.enum(["system", "light", "dark"]);
-export type BbDesktopTheme = z.infer<typeof bbDesktopThemeSchema>;
+export const hyperfideDesktopThemeSchema = z.enum(["system", "light", "dark"]);
+export type HyperfideDesktopTheme = z.infer<typeof hyperfideDesktopThemeSchema>;
 
-export const bbDesktopClipboardContentSchema = z
+export const hyperfideDesktopClipboardContentSchema = z
   .object({
     text: z.string(),
     html: z.string().optional(),
   })
   .strict();
-export type BbDesktopClipboardContent = z.infer<
-  typeof bbDesktopClipboardContentSchema
+export type HyperfideDesktopClipboardContent = z.infer<
+  typeof hyperfideDesktopClipboardContentSchema
 >;
 
-export const bbDesktopZoomCommandSchema = z.enum(["in", "out", "reset"]);
-export type BbDesktopZoomCommand = z.infer<typeof bbDesktopZoomCommandSchema>;
+export const hyperfideDesktopZoomCommandSchema = z.enum(["in", "out", "reset"]);
+export type HyperfideDesktopZoomCommand = z.infer<typeof hyperfideDesktopZoomCommandSchema>;
 export const HYPERFIDE_DESKTOP_MIN_ZOOM_PERCENT = 50;
 export const HYPERFIDE_DESKTOP_MAX_ZOOM_PERCENT = 300;
 
-export type BbDesktopInfoChangeHandler = (info: BbDesktopInfo) => void;
-export type BbDesktopInfoUnsubscribe = () => void;
-export type BbDesktopWindowStateChangeHandler = (
-  state: BbDesktopWindowState,
+export type HyperfideDesktopInfoChangeHandler = (info: HyperfideDesktopInfo) => void;
+export type HyperfideDesktopInfoUnsubscribe = () => void;
+export type HyperfideDesktopWindowStateChangeHandler = (
+  state: HyperfideDesktopWindowState,
 ) => void;
-export type BbDesktopZoomChangeHandler = (zoomFactor: number) => void;
-export type BbDesktopOpenNewTabHandler = () => void;
-export type BbDesktopAppCommandHandler = (command: AppCommandId) => void;
-export type BbDesktopCloseWindowRequestHandler = () => boolean;
+export type HyperfideDesktopZoomChangeHandler = (zoomFactor: number) => void;
+export type HyperfideDesktopOpenNewTabHandler = () => void;
+export type HyperfideDesktopAppCommandHandler = (command: AppCommandId) => void;
+export type HyperfideDesktopCloseWindowRequestHandler = () => boolean;
 
-export interface BbDesktopApi extends BbDesktopInfo {
-  browser: BbDesktopBrowserApi;
-  getServerChoices?(): Promise<BbDesktopServerChoice[]>;
+export interface HyperfideDesktopApi extends HyperfideDesktopInfo {
+  browser: HyperfideDesktopBrowserApi;
+  getServerChoices?(): Promise<HyperfideDesktopServerChoice[]>;
   onServerChoicesChange?(
-    listener: (choices: BbDesktopServerChoice[]) => void,
+    listener: (choices: HyperfideDesktopServerChoice[]) => void,
   ): () => void;
   selectServer?(id: string): void;
-  checkForUpdates(): Promise<BbDesktopInfo>;
-  getInfo(): Promise<BbDesktopInfo>;
+  checkForUpdates(): Promise<HyperfideDesktopInfo>;
+  getInfo(): Promise<HyperfideDesktopInfo>;
   focusWindow?(): void;
-  getWindowState?(): Promise<BbDesktopWindowState>;
+  getWindowState?(): Promise<HyperfideDesktopWindowState>;
   installUpdate(): Promise<void>;
   macosTrafficLightInset?: number;
   macosTrafficLightTopInset?: number;
-  onChange(listener: BbDesktopInfoChangeHandler): BbDesktopInfoUnsubscribe;
+  onChange(listener: HyperfideDesktopInfoChangeHandler): HyperfideDesktopInfoUnsubscribe;
   onWindowStateChange?(
-    listener: BbDesktopWindowStateChangeHandler,
-  ): BbDesktopInfoUnsubscribe;
-  onZoomChange?(listener: BbDesktopZoomChangeHandler): BbDesktopInfoUnsubscribe;
-  zoom?(command: BbDesktopZoomCommand): void;
-  onOpenNewTab?(listener: BbDesktopOpenNewTabHandler): BbDesktopInfoUnsubscribe;
-  onAppCommand?(listener: BbDesktopAppCommandHandler): BbDesktopInfoUnsubscribe;
+    listener: HyperfideDesktopWindowStateChangeHandler,
+  ): HyperfideDesktopInfoUnsubscribe;
+  onZoomChange?(listener: HyperfideDesktopZoomChangeHandler): HyperfideDesktopInfoUnsubscribe;
+  zoom?(command: HyperfideDesktopZoomCommand): void;
+  onOpenNewTab?(listener: HyperfideDesktopOpenNewTabHandler): HyperfideDesktopInfoUnsubscribe;
+  onAppCommand?(listener: HyperfideDesktopAppCommandHandler): HyperfideDesktopInfoUnsubscribe;
   onCloseWindowRequest?(
-    listener: BbDesktopCloseWindowRequestHandler,
-  ): BbDesktopInfoUnsubscribe;
-  openWindowFind?(request: BbDesktopWindowFindRequest): void;
+    listener: HyperfideDesktopCloseWindowRequestHandler,
+  ): HyperfideDesktopInfoUnsubscribe;
+  openWindowFind?(request: HyperfideDesktopWindowFindRequest): void;
   openDataDirectory?(): Promise<void>;
   openExternalUrl(url: string): void;
   openServerDaemonLogs?(): Promise<void>;
@@ -96,6 +96,6 @@ export interface BbDesktopApi extends BbDesktopInfo {
     enabled: boolean,
     directionalCommands?: readonly AppCommandId[],
   ): void;
-  setTheme(theme: BbDesktopTheme): void;
-  writeClipboard?(content: BbDesktopClipboardContent): Promise<void>;
+  setTheme(theme: HyperfideDesktopTheme): void;
+  writeClipboard?(content: HyperfideDesktopClipboardContent): Promise<void>;
 }

@@ -593,7 +593,7 @@ provider pipe belongs to an SDK checks
 `experimental_isProviderBridgeRecording()` and takes the spawn over (the
 Claude bridge does this through the Agent SDK's `spawnClaudeCodeProcess`
 seam). Extra provider channels may be recorded on the same two provider
-lanes, each message wrapped as `{ "bbChannel": <message> }`, so a replay can
+lanes, each message wrapped as `{ "hyperfideChannel": <message> }`, so a replay can
 route it back (the pi bridge does this for its extension fds).
 
 Layout: `<dir>/<providerId>/<threadId>/<direction>.ndjson`, with `_process`

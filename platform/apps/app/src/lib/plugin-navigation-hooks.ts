@@ -1,10 +1,10 @@
 import { useCallback, useContext, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
-import type { BbNavigate, PluginBrowserBbSdk } from "@hyperfide/plugin-sdk";
+import type { HyperfideNavigate, PluginBrowserHyperfideSdk } from "@hyperfide/plugin-sdk";
 import { usePluginId } from "@/components/plugin/plugin-context";
 import { usePluginThreadPanelOpenHandler } from "@/components/plugin/plugin-thread-panel-navigation";
-import { BbHttpError, sdk } from "@/lib/sdk";
+import { HyperfideHttpError, sdk } from "@/lib/sdk";
 import { getPluginBoundSdk } from "@/lib/plugin-bound-sdk";
 import {
   AUTOMATIONS_PLUGIN_ID,
@@ -31,13 +31,13 @@ export function isAutomationEditRoutePath(pathname: string): boolean {
   );
 }
 
-export function useSdk(): PluginBrowserBbSdk {
+export function useSdk(): PluginBrowserHyperfideSdk {
   const pluginId = usePluginId();
   const queryClient = useQueryClient();
   return getPluginBoundSdk(sdk, pluginId, queryClient);
 }
 
-export function useBbNavigate(): BbNavigate {
+export function useHyperfideNavigate(): HyperfideNavigate {
   const pluginId = usePluginId();
   const onNavigate = useContext(RouteNavigationCallbackContext);
   const location = useLocation();
@@ -48,7 +48,7 @@ export function useBbNavigate(): BbNavigate {
   const queryClient = useQueryClient();
   const isCompact = useIsCompactViewport();
   const setRootComposeProjectId = useSetRootComposeProjectId();
-  const toThread = useCallback<BbNavigate["toThread"]>(
+  const toThread = useCallback<HyperfideNavigate["toThread"]>(
     (threadId, options) => {
       onNavigate?.();
       const open = (projectId: string) => {
@@ -96,7 +96,7 @@ export function useBbNavigate(): BbNavigate {
     },
     [navigate, onNavigate, pluginId],
   );
-  const toCompose = useCallback<BbNavigate["toCompose"]>(
+  const toCompose = useCallback<HyperfideNavigate["toCompose"]>(
     (options) => {
       const replacesAutomationEditRoute =
         pluginId === AUTOMATIONS_PLUGIN_ID &&
@@ -132,16 +132,16 @@ export function useBbNavigate(): BbNavigate {
       setRootComposeProjectId,
     ],
   );
-  const openThreadPanel = useCallback<BbNavigate["openThreadPanel"]>(
+  const openThreadPanel = useCallback<HyperfideNavigate["openThreadPanel"]>(
     (options) => openThreadPanelHandler?.({ ...options, pluginId }) ?? false,
     [openThreadPanelHandler, pluginId],
   );
-  const openUrl = useCallback<BbNavigate["openUrl"]>(
+  const openUrl = useCallback<HyperfideNavigate["openUrl"]>(
     (url) => appNavigation.openUrl({ url }),
     [appNavigation],
   );
   const experimental_openFilePreview = useCallback<
-    BbNavigate["experimental_openFilePreview"]
+    HyperfideNavigate["experimental_openFilePreview"]
   >(
     (options) => {
       const normalized = normalizeExperimentalFileOpenOptions(options);
@@ -150,7 +150,7 @@ export function useBbNavigate(): BbNavigate {
     [appNavigation],
   );
   const experimental_openFileExternally = useCallback<
-    BbNavigate["experimental_openFileExternally"]
+    HyperfideNavigate["experimental_openFileExternally"]
   >(
     (options) => {
       const normalized = normalizeExperimentalFileOpenOptions(options);
@@ -161,20 +161,20 @@ export function useBbNavigate(): BbNavigate {
     [appNavigation],
   );
   const experimental_openTerminal = useCallback<
-    BbNavigate["experimental_openTerminal"]
+    HyperfideNavigate["experimental_openTerminal"]
   >(
     async ({ terminalId }) => {
       const session = await sdk.terminals
         .get({ terminalId })
         .catch((error: unknown) => {
-          if (error instanceof BbHttpError && error.status === 404) return null;
+          if (error instanceof HyperfideHttpError && error.status === 404) return null;
           throw error;
         });
       return session !== null && appNavigation.openTerminal(session);
     },
     [appNavigation],
   );
-  return useMemo<BbNavigate>(
+  return useMemo<HyperfideNavigate>(
     () => ({
       toThread,
       toProject,

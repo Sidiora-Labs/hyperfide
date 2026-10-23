@@ -195,63 +195,63 @@ export const HYPERFIDE_HOST_DAEMON_PORT_ENV = defineEnvVar<number>({
 });
 
 export const HYPERFIDE_SERVER_URL_ENV = defineEnvVar<string>({
-  description: "URL of the bb server",
+  description: "URL of the hyperfide-platform server",
   name: "HYPERFIDE_SERVER_URL",
   parse: parseRequiredUrlEnvValue,
 });
 
 export const HYPERFIDE_APP_VERSION_ENV = defineEnvVar<string>({
   description:
-    "Version of the running bb-app package. The bb-app launcher sets this from packages/bb-app/package.json; defaults to a sentinel for dev/source runs.",
+    "Version of the running hyperfide-app package. The hyperfide-app launcher sets this from packages/hyperfide-app/package.json; defaults to a sentinel for dev/source runs.",
   name: "HYPERFIDE_APP_VERSION",
   parse: parseNonEmptyStringEnvValue,
 });
 
 export const HYPERFIDE_SERVER_LAUNCH_ID_ENV = defineEnvVar<string>({
   description:
-    "Internal per-spawn identity the bb-app launcher hands its server child. The server echoes it on /health so the launcher can tell its own child apart from another bb server that already owns the port.",
+    "Internal per-spawn identity the hyperfide-app launcher hands its server child. The server echoes it on /health so the launcher can tell its own child apart from another hyperfide-platform server that already owns the port.",
   name: "HYPERFIDE_SERVER_LAUNCH_ID",
   parse: parseNonEmptyStringEnvValue,
 });
 
 export const HYPERFIDE_APP_UPDATE_MODE_ENV = defineEnvVar<AppUpdateMode>({
   description:
-    "Internal marker the bb-app launcher hands its server child when it runs under the in-app update shim: npm for package installs, source for pnpm start checkouts. The server offers in-app updates only when it is set.",
+    "Internal marker the hyperfide-app launcher hands its server child when it runs under the in-app update shim: npm for package installs, source for pnpm start checkouts. The server offers in-app updates only when it is set.",
   name: APP_UPDATE_MODE_ENV_NAME,
   parse: parseAppUpdateModeEnvValue,
 });
 
 export const HYPERFIDE_CLI_LAUNCHER_ENV = defineEnvVar<string>({
   description:
-    "Internal path the bb-app launcher hands its server child: the bb command launcher it wrote in the data directory for this install. The server offers to put the bb command on PATH only when it is set.",
+    "Internal path the hyperfide-app launcher hands its server child: the hyperfide command launcher it wrote in the data directory for this install. The server offers to put the hyperfide command on PATH only when it is set.",
   name: CLI_LAUNCHER_ENV_NAME,
   parse: parseNonEmptyStringEnvValue,
 });
 
 export const HYPERFIDE_APP_INSTALL_KIND_ENV = defineEnvVar<AppInstallKind>({
   description:
-    "Internal marker the bb-app launcher hands its server child for local installation metadata: desktop for the desktop app, npm for package installs, source for pnpm start checkouts. Absent when the server runs without the launcher.",
+    "Internal marker the hyperfide-app launcher hands its server child for local installation metadata: desktop for the desktop app, npm for package installs, source for pnpm start checkouts. Absent when the server runs without the launcher.",
   name: APP_INSTALL_KIND_ENV_NAME,
   parse: parseAppInstallKindEnvValue,
 });
 
 export const HYPERFIDE_APP_SOURCE_ORIGIN_ENV = defineEnvVar<AppSourceOrigin>({
   description:
-    "Internal marker the bb-app launcher hands its server child for source checkouts: official when the origin remote is github.com/get-bb/bb or github.com/ymichael/bb, fork for any other origin, none without one.",
+    "Internal marker the hyperfide-app launcher hands its server child for source checkouts: official when the origin remote is github.com/hyperfide/hyperfide or github.com/ymichael/hyperfide, fork for any other origin, none without one.",
   name: APP_SOURCE_ORIGIN_ENV_NAME,
   parse: parseAppSourceOriginEnvValue,
 });
 
 export const HYPERFIDE_APP_SOURCE_COMMIT_ENV = defineEnvVar<string>({
   description:
-    "Internal marker the bb-app launcher hands its server child with the HEAD commit of an official source checkout. Never set for forks.",
+    "Internal marker the hyperfide-app launcher hands its server child with the HEAD commit of an official source checkout. Never set for forks.",
   name: APP_SOURCE_COMMIT_ENV_NAME,
   parse: parseNonEmptyStringEnvValue,
 });
 
 export const HYPERFIDE_APP_SURFACE_ENV = defineEnvVar<AppSurface>({
   description:
-    "Internal launcher marker for local installation metadata. Set by bb-app and desktop launchers.",
+    "Internal launcher marker for local installation metadata. Set by hyperfide-app and desktop launchers.",
   name: APP_SURFACE_ENV_NAME,
   parse: parseAppSurfaceEnvValue,
 });
@@ -272,7 +272,7 @@ export const HYPERFIDE_EXTERNAL_URL_ENV = defineEnvVar<string>({
 
 export const HYPERFIDE_MARKETPLACE_URL_ENV = defineEnvVar<string>({
   description:
-    "Manifest URL of the reserved bb-community plugin marketplace, which lists as BB Community. Point it at a local file server to test catalog refreshes.",
+    "Manifest URL of the reserved hyperfide-community plugin marketplace, which lists as HYPERFIDE Community. Point it at a local file server to test catalog refreshes.",
   name: "HYPERFIDE_MARKETPLACE_URL",
   parse: parseOptionalUrlEnvValue,
 });
@@ -322,14 +322,14 @@ export const HYPERFIDE_DEV_APP_PORT_ENV = defineEnvVar<number | undefined>({
 
 export const HYPERFIDE_CLI_DIR_ENV = defineEnvVar<string | undefined>({
   description:
-    "Directory containing the bb CLI executable to inject into runtime shells",
+    "Directory containing the hyperfide CLI executable to inject into runtime shells",
   name: "HYPERFIDE_CLI_DIR",
   parse: parseOptionalTrimmedStringEnvValue,
 });
 
 export const HYPERFIDE_INHERITED_SKILLS_ROOTS_ENV = defineEnvVar<string[]>({
   description:
-    "Development-only path list of lower-priority inherited bb skill roots",
+    "Development-only path list of lower-priority inherited hyperfide skill roots",
   name: "HYPERFIDE_INHERITED_SKILLS_ROOTS",
   parse: parsePathListEnvValue,
 });
@@ -361,28 +361,28 @@ export const HYPERFIDE_CONNECT_MACHINE_CREDENTIAL_ENV = defineEnvVar<
   string | undefined
 >({
   description:
-    "Daemon-managed bb connect credential for traversing the public machine gate",
+    "Daemon-managed hyperfide-platform connect credential for traversing the public machine gate",
   name: "HYPERFIDE_CONNECT_MACHINE_CREDENTIAL",
   parse: parseOptionalTrimmedStringEnvValue,
 });
 
 export const HYPERFIDE_HOST_ENROLL_KEY_ENV = defineEnvVar<string | undefined>({
   description:
-    "One-time enrollment token used to bootstrap a host daemon with the bb server",
+    "One-time enrollment token used to bootstrap a host daemon with the hyperfide-platform server",
   name: "HYPERFIDE_HOST_ENROLL_KEY",
   parse: parseOptionalTrimmedStringEnvValue,
 });
 
 export const HYPERFIDE_HOST_DAEMON_AUTO_UPDATE_ENV = defineEnvVar<boolean>({
   description:
-    "Allow a remote host daemon to install the exact bb-app package served by its server on a newer protocol mismatch",
+    "Allow a remote host daemon to install the exact hyperfide-app package served by its server on a newer protocol mismatch",
   name: "HYPERFIDE_HOST_DAEMON_AUTO_UPDATE",
   parse: parseBooleanEnvValue,
 });
 
 export const HYPERFIDE_HOST_DAEMON_SUPERVISED_ENV = defineEnvVar<boolean>({
   description:
-    "Set by bb-app host-daemon --supervise so a daemon that relaunches itself after a server move keeps its launcher restarting it",
+    "Set by hyperfide-app host-daemon --supervise so a daemon that relaunches itself after a server move keeps its launcher restarting it",
   name: "HYPERFIDE_HOST_DAEMON_SUPERVISED",
   parse: parseBooleanEnvValue,
 });

@@ -20,7 +20,7 @@ export interface DiffPresentation {
   showLineNumbers: boolean;
 }
 
-export interface BbSourceCodeProps extends SourceCodePresentation {
+export interface HyperfideSourceCodeProps extends SourceCodePresentation {
   content: string;
   path: string;
   cacheKey?: string;
@@ -29,7 +29,7 @@ export interface BbSourceCodeProps extends SourceCodePresentation {
   onSelectionAddToChat?: (text: string) => void;
 }
 
-export interface BbDiffProps extends DiffPresentation {
+export interface HyperfideDiffProps extends DiffPresentation {
   file: ParsedGitDiffFile;
   patchText?: string;
   fullFileContents: ExperimentalDiffFullFileContents | null;

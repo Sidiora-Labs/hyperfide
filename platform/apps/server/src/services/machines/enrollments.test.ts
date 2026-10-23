@@ -17,7 +17,7 @@ afterEach(async () => {
 });
 
 async function harness() {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-enrollments-test-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-enrollments-test-"));
   const db = createMigratedConnection();
   cleanup.push(async () => {
     db.$client.close();

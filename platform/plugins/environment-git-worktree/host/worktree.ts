@@ -720,7 +720,7 @@ export async function resolveAdoptableWorktree(args: {
   if (entry === null) {
     return {
       status: "failed",
-      message: `${args.path} is not a worktree of this repository that bb can adopt.`,
+      message: `${args.path} is not a worktree of this repository that hyperfide can adopt.`,
     };
   }
   if (entry.prunable) {

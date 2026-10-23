@@ -11,12 +11,12 @@ import {
 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { readBbAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
+import { readHyperfideAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
 import {
-  type BbAppManagedConfig,
-  formatBbAppConfigPath,
-  parseBbAppManagedConfig,
-} from "@hyperfide/config/bb-app-managed-config";
+  type HyperfideAppManagedConfig,
+  formatHyperfideAppConfigPath,
+  parseHyperfideAppManagedConfig,
+} from "@hyperfide/config/hyperfide-app-managed-config";
 import { parseDataDirEnvValue, resolveProdDataDir } from "@hyperfide/config/runtime";
 import { isProcessRunning } from "@hyperfide/config/verified-process-stop";
 import {
@@ -38,7 +38,7 @@ import {
 } from "@hyperfide/server-archive";
 import { z } from "zod";
 
-const SERVER_DATABASE_FILE_NAME = "bb.db";
+const SERVER_DATABASE_FILE_NAME = "hyperfide.db";
 const MOVED_DAEMON_CONFIG_KEYS: readonly string[] = [
   "serverUrl",
   "serverHeaders",
@@ -100,7 +100,7 @@ function comparePrerelease(left: string[], right: string[]): number {
   return 0;
 }
 
-export function isNewerBbVersion(candidate: string, current: string): boolean {
+export function isNewerHyperfideVersion(candidate: string, current: string): boolean {
   const a = parseVersion(candidate);
   const b = parseVersion(current);
   if (a === null || b === null) return false;
@@ -137,7 +137,7 @@ async function isHealthyServer(serverUrl: string): Promise<boolean> {
 async function readMovedServerHeaders(
   dataDir: string,
 ): Promise<Record<string, string> | null> {
-  const configPath = formatBbAppConfigPath(dataDir);
+  const configPath = formatHyperfideAppConfigPath(dataDir);
   const text = await readOptionalText(configPath);
   if (text === null) return null;
   const headers = parseManagedConfigText(configPath, text).config.serverHeaders;
@@ -177,7 +177,7 @@ export async function probeMovedServer(
 export interface ServerImportResult {
   dataDir: string;
   archivePath: string;
-  bbVersion: string;
+  hyperfideVersion: string;
   sourceDataDir: string;
   sourceServerHostId: string | null;
   importedEntries: string[];
@@ -228,11 +228,11 @@ async function assertNoServerDatabase(dataDir: string): Promise<void> {
   }
 }
 
-async function assertNoRunningBb(dataDir: string): Promise<void> {
-  const runtime = await readBbAppRuntimeFile(dataDir);
+async function assertNoRunningHyperfide(dataDir: string): Promise<void> {
+  const runtime = await readHyperfideAppRuntimeFile(dataDir);
   if (runtime !== null && isProcessRunning(runtime.pid)) {
     throw new Error(
-      `bb is running from ${dataDir} (pid ${String(runtime.pid)}). Stop it with bb-app stop or quit the desktop app, then try again.`,
+      `hyperfide is running from ${dataDir} (pid ${String(runtime.pid)}). Stop it with hyperfide-app stop or quit the desktop app, then try again.`,
     );
   }
 }
@@ -278,7 +278,7 @@ export async function importServerArchive(
   if (!interruptedImport) {
     await assertNoServerDatabase(dataDir);
   }
-  await assertNoRunningBb(dataDir);
+  await assertNoRunningHyperfide(dataDir);
   await assertServerArchiveFormat(archivePath);
   if (
     !(await args.confirm(
@@ -310,9 +310,9 @@ export async function importServerArchive(
         'This export came from a server with the "Server move" experiment off. Turn on the "Server move" experiment in Settings → Experiments, or run hyperfide-platform settings experiment serverMove true, on that server, then export again.',
       );
     }
-    if (isNewerBbVersion(manifest.bbVersion, args.cliVersion)) {
+    if (isNewerHyperfideVersion(manifest.hyperfideVersion, args.cliVersion)) {
       throw new Error(
-        `This export came from bb ${manifest.bbVersion}; install that version or newer before importing.`,
+        `This export came from hyperfide ${manifest.hyperfideVersion}; install that version or newer before importing.`,
       );
     }
     const installed = await installImportedServerFiles({
@@ -352,7 +352,7 @@ export async function importServerArchive(
     return {
       dataDir,
       archivePath,
-      bbVersion: manifest.bbVersion,
+      hyperfideVersion: manifest.hyperfideVersion,
       sourceDataDir: manifest.sourceDataDir,
       sourceServerHostId: manifest.sourceServerHostId,
       importedEntries: installed.importedEntries,
@@ -385,7 +385,7 @@ async function writeTextAtomically(path: string, text: string): Promise<void> {
 
 interface ParsedManagedConfig {
   raw: Record<string, unknown>;
-  config: BbAppManagedConfig;
+  config: HyperfideAppManagedConfig;
 }
 
 function parseManagedConfigText(
@@ -400,14 +400,14 @@ function parseManagedConfigText(
       cause: error,
     });
   }
-  let config: BbAppManagedConfig;
+  let config: HyperfideAppManagedConfig;
   try {
-    config = parseBbAppManagedConfig(raw);
+    config = parseHyperfideAppManagedConfig(raw);
   } catch (error) {
     const detail =
       error instanceof z.ZodError ? z.prettifyError(error) : String(error);
     throw new Error(
-      `${path} is not a valid bb-app config. Fix it, then unlock again.\n${detail}`,
+      `${path} is not a valid hyperfide-app config. Fix it, then unlock again.\n${detail}`,
     );
   }
   return { raw: managedConfigObjectSchema.parse(raw), config };
@@ -415,7 +415,7 @@ function parseManagedConfigText(
 
 export async function unlockServerCopy(dataDir: string): Promise<string[]> {
   const lockPath = join(dataDir, SERVER_MOVED_FILE_NAME);
-  const configPath = formatBbAppConfigPath(dataDir);
+  const configPath = formatHyperfideAppConfigPath(dataDir);
   const originalText = await readOptionalText(configPath);
   if (originalText === null) {
     await rm(lockPath, { force: true });
@@ -434,7 +434,7 @@ export async function unlockServerCopy(dataDir: string): Promise<string[]> {
       ([key]) => !MOVED_DAEMON_CONFIG_KEYS.includes(key),
     ),
   );
-  parseBbAppManagedConfig(next);
+  parseHyperfideAppManagedConfig(next);
   await writeTextAtomically(configPath, `${JSON.stringify(next, null, 2)}\n`);
   try {
     await rm(lockPath, { force: true });

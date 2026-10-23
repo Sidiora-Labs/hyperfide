@@ -1,4 +1,4 @@
-export const REWRITE_LOCALHOST_LINKS_STORAGE_KEY = "bb.rewriteLocalhostLinks";
+export const REWRITE_LOCALHOST_LINKS_STORAGE_KEY = "hyperfide.rewriteLocalhostLinks";
 
 export const REWRITE_LOCALHOST_LINKS_DEFAULT = true;
 

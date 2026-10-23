@@ -136,7 +136,7 @@ describe("plugin cache pruning", () => {
       status,
       rollbackCandidateVersion: status === "ready" ? null : "candidate",
       rollbackSourceFingerprint: status === "ready" ? null : "source",
-      rollbackBbVersion: status === "ready" ? null : "1.0.0",
+      rollbackHyperfideVersion: status === "ready" ? null : "1.0.0",
       rollbackSdkVersion: status === "ready" ? null : "0.6.0",
       rollbackDetail: status === "ready" ? null : "failed",
       createdAt: Date.now(),
@@ -363,7 +363,7 @@ describe("git plugin cache lifecycle", () => {
         name: "hyperfide-plugin-cached",
         version,
         type: "module",
-        bb: {
+        hyperfide: {
           name: "Cached fixture",
           description: "Plugin cache fixture.",
           branding: { icon: "Zap" },
@@ -373,7 +373,7 @@ describe("git plugin cache lifecycle", () => {
     );
     await writeFile(
       join(repo, "server.ts"),
-      `export default function plugin(bb: any) { bb.log.info(${JSON.stringify(version)}); }`,
+      `export default function plugin(hyperfide: any) { hyperfide.log.info(${JSON.stringify(version)}); }`,
     );
     await git(["add", "-A"]);
     await git(["commit", "-qm", version]);

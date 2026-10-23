@@ -67,8 +67,8 @@ const AUTOMATIONS_PLUGIN = {
   logoDarkUrl: null,
   hasSettings: false,
   provenance: "builtin",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  publisherKey: "hyperfide-official",
+  publisherLabel: "HYPERFIDE Official",
   isOrphanedBuiltin: false,
   sourceDisplay: "builtin · automations",
   updateState: {},
@@ -83,16 +83,16 @@ const GITHUB_CATALOG_ENTRY = {
   entryId: "github",
   pluginId: "github",
   displayName: "GitHub",
-  description: "Browse GitHub issues and pull requests in BB.",
+  description: "Browse GitHub issues and pull requests in HYPERFIDE.",
   icon: "Github",
   iconUrl: null,
   categoryId: "code-and-reviews",
   category: "Developer tools",
   source: "builtin:github",
-  marketplace: "bb-official",
-  marketplaceDisplayName: "BB Official",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  marketplace: "hyperfide-official",
+  marketplaceDisplayName: "HYPERFIDE Official",
+  publisherKey: "hyperfide-official",
+  publisherLabel: "HYPERFIDE Official",
   official: true,
   author: null,
   installed: false,
@@ -224,7 +224,7 @@ describe("PluginsOverview", () => {
       name: "1 plugin isn’t running",
     });
     expect(
-      within(banner).getByText("This version is incompatible with bb."),
+      within(banner).getByText("This version is incompatible with hyperfide."),
     ).toBeTruthy();
 
     expect(banner.textContent).not.toContain(
@@ -298,7 +298,7 @@ describe("PluginsOverview", () => {
     render(
       <MemoryRouter
         initialEntries={[
-          "/plugins?view=installed&source=publisher%3ABB%20Official&query=Automations&category=tasks-and-workflows&sort=name&direction=desc",
+          "/plugins?view=installed&source=publisher%3AHYPERFIDE%20Official&query=Automations&category=tasks-and-workflows&sort=name&direction=desc",
         ]}
       >
         <QueryClientWrapper>
@@ -420,8 +420,8 @@ describe("PluginsOverview", () => {
         description: DOCS_CATALOG_ENTRY.description,
         icon: DOCS_CATALOG_ENTRY.icon,
         provenance: "catalog",
-        publisherKey: "bb-official",
-        publisherLabel: "BB Official",
+        publisherKey: "hyperfide-official",
+        publisherLabel: "HYPERFIDE Official",
         catalogEntryId: "docs",
       },
     ]);
@@ -538,7 +538,7 @@ describe("PluginsOverview", () => {
     expect(toolbar.contains(sort)).toBe(true);
     const heroHeading = screen.getByRole("heading", {
       level: 2,
-      name: /^Turn bb into/,
+      name: /^Turn hyperfide into/,
     });
     expect(
       heroHeading.compareDocumentPosition(toolbar) &
@@ -745,8 +745,8 @@ describe("PluginsOverview", () => {
         enabled: false,
         status: "disabled",
         provenance: "catalog",
-        publisherKey: "bb-community",
-        publisherLabel: "BB Community",
+        publisherKey: "hyperfide-community",
+        publisherLabel: "HYPERFIDE Community",
         catalogEntryId: "inactive-official",
       },
       {
@@ -796,9 +796,9 @@ describe("PluginsOverview", () => {
       "plugin-row-enabled-local-alpha",
       "plugin-row-inactive-local",
     ]);
-    const officialPills = screen.getAllByText("BB Official");
+    const officialPills = screen.getAllByText("HYPERFIDE Official");
     expect(officialPills).toHaveLength(2);
-    expect(screen.getAllByText("BB Community")).toHaveLength(1);
+    expect(screen.getAllByText("HYPERFIDE Community")).toHaveLength(1);
 
     const sortTrigger = screen.getByRole("button", { name: "Sort: Default" });
     fireEvent.pointerDown(sortTrigger);
@@ -927,8 +927,8 @@ describe("PluginsOverview", () => {
         enabled: false,
         status: "disabled",
         provenance: "catalog",
-        publisherKey: "bb-community",
-        publisherLabel: "BB Community",
+        publisherKey: "hyperfide-community",
+        publisherLabel: "HYPERFIDE Community",
         catalogEntryId: "inactive-catalog",
       },
       {
@@ -970,11 +970,11 @@ describe("PluginsOverview", () => {
         name: "GitHub",
         source: GITHUB_CATALOG_ENTRY.source,
         provenance: "catalog",
-        publisherKey: "bb-community",
-        publisherLabel: "BB Community",
+        publisherKey: "hyperfide-community",
+        publisherLabel: "HYPERFIDE Community",
         catalogEntryId: GITHUB_CATALOG_ENTRY.entryId,
-        catalogMarketplaceName: "bb-community",
-        sourceDisplay: "BB Official · GitHub",
+        catalogMarketplaceName: "hyperfide-community",
+        sourceDisplay: "HYPERFIDE Official · GitHub",
       },
     ]);
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
@@ -988,9 +988,9 @@ describe("PluginsOverview", () => {
       </MemoryRouter>,
     );
 
-    const official = await screen.findAllByText("BB Official");
+    const official = await screen.findAllByText("HYPERFIDE Official");
     expect(official).toHaveLength(1);
-    const community = screen.getAllByText("BB Community");
+    const community = screen.getAllByText("HYPERFIDE Community");
     expect(community).toHaveLength(1);
     expect(official[0]?.parentElement?.className).toBe(
       community[0]?.parentElement?.className,

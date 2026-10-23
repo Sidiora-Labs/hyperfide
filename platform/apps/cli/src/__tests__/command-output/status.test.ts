@@ -95,7 +95,7 @@ function stubServer(plugins: Array<{ id: string; status: string }>): void {
   vi.mocked(fetch).mockImplementation(async (input) => {
     const url = String(input instanceof Request ? input.url : input);
     const body = url.endsWith("/api/v1/system/config")
-      ? { dataDir: "/data/bb" }
+      ? { dataDir: "/data/hyperfide" }
       : {
           plugins: plugins.map(({ id, status }) => ({
             id,

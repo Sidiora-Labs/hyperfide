@@ -12,7 +12,7 @@
 # Called with `runFlow: ../subflows/launch-app.yaml` (flows) or
 # `runFlow: ./launch-app.yaml` (sibling subflows). Flow-file `env:` values
 # beat `-e`, so the switch is a variable no flow defines in its header.
-appId: app.getbb.mobile
+appId: app.hyperfide.mobile
 ---
 - stopApp
 - runFlow:
@@ -31,7 +31,7 @@ appId: app.getbb.mobile
     when:
       true: ${typeof HYPERFIDE_E2E_EMBEDDED_BUNDLE === "undefined" || HYPERFIDE_E2E_EMBEDDED_BUNDLE !== "1"}
     commands:
-      - openLink: "exp+bb-app://expo-development-client/?url=${METRO_URL}"
+      - openLink: "exp+hyperfide-app://expo-development-client/?url=${METRO_URL}"
       # A fresh simulator confirms the first custom-scheme link.
       - runFlow:
           when:
@@ -41,7 +41,7 @@ appId: app.getbb.mobile
       # First launch of a dev client shows the developer-menu onboarding
       # sheet once the bundle is loaded; dismiss it if it appears.
       - extendedWaitUntil:
-          visible: ".*(Continue|Close|Connect to a bb server|Threads).*"
+          visible: ".*(Continue|Close|Connect to a hyperfide-platform server|Threads).*"
           timeout: 120000
       - runFlow:
           when:

@@ -34,6 +34,6 @@ SELECT 'keybindingOverrides', (
     SELECT value FROM missing
   )
 ), CAST(unixepoch('subsec') * 1000 AS INTEGER)
-WHERE EXISTS (SELECT 1 FROM bb_migration_existing_installation WHERE existing = 1)
+WHERE EXISTS (SELECT 1 FROM hyperfide_migration_existing_installation WHERE existing = 1)
   AND EXISTS (SELECT 1 FROM missing)
 ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;

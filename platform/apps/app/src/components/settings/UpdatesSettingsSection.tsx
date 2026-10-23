@@ -7,7 +7,7 @@ import {
 } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopInfo } from "@hyperfide/desktop-contract";
 import type { ProviderInfo } from "@hyperfide/domain";
 import type {
   SystemAppUpdateResult,
@@ -75,7 +75,7 @@ import {
   ConfirmDeleteDialogContent,
 } from "@hyperfide/shared-ui/confirm-delete-dialog";
 import { appToast } from "@/components/ui/app-toast";
-import { BbLogo } from "@/components/ui/bb-logo";
+import { HyperfideLogo } from "@/components/ui/hyperfide-logo";
 import { OverflowFade } from "@hyperfide/shared-ui/overflow-fade";
 import { SettingsSection } from "@/components/ui/settings-section";
 import { invalidateHostProviderCliStatus } from "@/hooks/cache-owners/provider-cli-status-cache-owner";
@@ -107,7 +107,7 @@ import { rawStringLocalStorage } from "@/lib/browser-storage";
 
 const CHANGELOG_STALE_TIME_MS = 5 * 60_000;
 const CHANGELOG_DISMISSED_VERSION_STORAGE_KEY =
-  "bb.settings.updates.dismissed-changelog-version";
+  "hyperfide.settings.updates.dismissed-changelog-version";
 const CHANGELOG_DISMISS_CONFIRMATION_MS = 2_000;
 const CHANGELOG_DISMISS_EXIT_MS = 180;
 
@@ -658,7 +658,7 @@ export function ChangelogPreviewCard() {
                         variant="ghost"
                         size="icon"
                         className="size-7 text-muted-foreground hover:text-foreground"
-                        aria-label={`Dismiss bb ${entry.version} changelog preview`}
+                        aria-label={`Dismiss hyperfide ${entry.version} changelog preview`}
                         onClick={() => {
                           rawStringLocalStorage.setItem(
                             CHANGELOG_DISMISSED_VERSION_STORAGE_KEY,
@@ -754,7 +754,7 @@ export function ChangelogPreviewCard() {
                   You're all caught up
                 </h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  We'll show the next bb release here.
+                  We'll show the next hyperfide release here.
                 </p>
               </div>
             </div>
@@ -765,12 +765,12 @@ export function ChangelogPreviewCard() {
   );
 }
 
-interface BbAppUpdateRowsProps {
+interface HyperfideAppUpdateRowsProps {
   name?: string;
   systemVersion: SystemVersionResponse | undefined;
   appUpdate?: SystemAppUpdateStatus | undefined;
   applyPending?: boolean;
-  desktopInfo: BbDesktopInfo | null;
+  desktopInfo: HyperfideDesktopInfo | null;
   isDesktop: boolean;
   onApplyAppUpdate?: (() => void) | null;
   onRetryAppCheck?: (() => void) | null;
@@ -780,7 +780,7 @@ interface BbAppUpdateRowsProps {
   isChecking?: boolean;
 }
 
-export function BbAppUpdateRows({
+export function HyperfideAppUpdateRows({
   name: rowName = "Server",
   systemVersion,
   appUpdate,
@@ -793,7 +793,7 @@ export function BbAppUpdateRows({
   onRetryDesktop,
   onShowAppUpdateResult = null,
   isChecking = false,
-}: BbAppUpdateRowsProps) {
+}: HyperfideAppUpdateRowsProps) {
   const settledStatus = isChecking ? (
     <RowStateControl live state="in-progress" />
   ) : (
@@ -809,11 +809,11 @@ export function BbAppUpdateRows({
         onClick={onRetryAppCheck}
       />
     );
-  const row: BbAppRowRenderer = (name, indicator, caption, description) => (
+  const row: HyperfideAppRowRenderer = (name, indicator, caption, description) => (
     <UpdatesRow
       leading={
-        <span data-bb-update-role="app" aria-hidden>
-          <BbLogo className="size-4 -translate-y-px" />
+        <span data-hyperfide-update-role="app" aria-hidden>
+          <HyperfideLogo className="size-4 -translate-y-px" />
         </span>
       }
       actions={<RowActions>{indicator}</RowActions>}
@@ -851,9 +851,9 @@ export function BbAppUpdateRows({
         name,
         <RowStateControl
           state="restart-required"
-          buttonLeading={<BbLogo className="size-3" />}
+          buttonLeading={<HyperfideLogo className="size-3" />}
           buttonLabel="Relaunch"
-          actionLabel="Relaunch bb to finish updating"
+          actionLabel="Relaunch hyperfide to finish updating"
           onClick={() => onRelaunchDesktop?.()}
         />,
       );
@@ -1011,7 +1011,7 @@ export function BbAppUpdateRows({
   return row(name, settledStatus);
 }
 
-type BbAppRowRenderer = (
+type HyperfideAppRowRenderer = (
   name: ReactNode,
   indicator: ReactNode,
   caption?: ReactNode,
@@ -1035,7 +1035,7 @@ function InAppUpdateRow({
   applyPending: boolean;
   settledStatus: ReactNode;
   unavailableCheckControl: ReactNode;
-  row: BbAppRowRenderer;
+  row: HyperfideAppRowRenderer;
   onApply: (() => void) | null;
   onShowResult: ((result: SystemAppUpdateResult) => void) | null;
 }) {
@@ -1084,7 +1084,7 @@ function InAppUpdateRow({
           failure === null ? undefined : (RETRY_ACTION_ICON as IconName)
         }
         actionTooltip={failure === null ? undefined : "Retry"}
-        actionLabel="Download the update and restart bb"
+        actionLabel="Download the update and restart hyperfide"
         loading={applyPending}
         onClick={onApply}
       />
@@ -1095,7 +1095,7 @@ function InAppUpdateRow({
       updateButton,
       <FailureIndicator
         reason="Last update failed"
-        openLabel="View the failed bb update"
+        openLabel="View the failed hyperfide-platform update"
         openTooltip="View details"
         onOpen={onShowResult === null ? undefined : () => onShowResult(failure)}
       />,
@@ -1470,7 +1470,7 @@ function MachineRowNote({
   if (daemon === "updating") {
     return (
       <>
-        <RowStateCaption state="in-progress">Updating bb</RowStateCaption>
+        <RowStateCaption state="in-progress">Updating Hyperfide</RowStateCaption>
         <RowStateControl live state="in-progress" />
       </>
     );
@@ -1700,9 +1700,9 @@ export function MachineUpdateRow({
   );
 }
 
-export function BbUpdatesCard({ children }: { children: ReactNode }) {
+export function HyperfideUpdatesCard({ children }: { children: ReactNode }) {
   return (
-    <section aria-label="bb" data-updates-domain="bb">
+    <section aria-label="hyperfide" data-updates-domain="hyperfide">
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="divide-y divide-border">{children}</div>
       </div>
@@ -1957,7 +1957,7 @@ export function ProviderCliUpdatesSection({
   );
 }
 
-function desktopRowNeedsAttention(desktopInfo: BbDesktopInfo | null): boolean {
+function desktopRowNeedsAttention(desktopInfo: HyperfideDesktopInfo | null): boolean {
   if (desktopInfo === null) {
     return false;
   }
@@ -2098,11 +2098,11 @@ export function UpdatesSettingsSection({
   const hasUpdateWork =
     appUpdateVisible || hasProviderUpdates || hasStalledMachine;
   const fleetIsHealthy = relevantFleetMachines.length === 0;
-  const showFallbackBbStatus =
+  const showFallbackHyperfideStatus =
     !hasUpdateWork && !fleetIsHealthy && isDesktop && desktopInfo === null;
 
   const relaunchDesktop =
-    desktopApi === null || showFallbackBbStatus
+    desktopApi === null || showFallbackHyperfideStatus
       ? null
       : () => {
           void desktopApi.installUpdate().catch((error) => {
@@ -2112,7 +2112,7 @@ export function UpdatesSettingsSection({
           });
         };
   const retryDesktop =
-    desktopApi === null || showFallbackBbStatus
+    desktopApi === null || showFallbackHyperfideStatus
       ? null
       : () => {
           void desktopApi.checkForUpdates().catch((error) => {
@@ -2124,7 +2124,7 @@ export function UpdatesSettingsSection({
   const useServerUpdate =
     serverRunsSeparately || appUpdate?.desktopUpdateSupported === true;
   const serverAppRow = (
-    <BbAppUpdateRows
+    <HyperfideAppUpdateRows
       name="Server"
       systemVersion={inventory.systemVersion}
       appUpdate={
@@ -2142,7 +2142,7 @@ export function UpdatesSettingsSection({
     />
   );
   const desktopClientRow = (
-    <BbAppUpdateRows
+    <HyperfideAppUpdateRows
       name="Desktop"
       systemVersion={undefined}
       desktopInfo={desktopInfo}
@@ -2178,12 +2178,12 @@ export function UpdatesSettingsSection({
     <div className="space-y-6">
       {showChangelogPreview ? <ChangelogPreviewCard /> : null}
 
-      <BbUpdatesCard>
+      <HyperfideUpdatesCard>
         {serverAppRow}
         {serverRunsSeparately && desktopRowNeedsAttention(desktopInfo)
           ? desktopClientRow
           : null}
-      </BbUpdatesCard>
+      </HyperfideUpdatesCard>
 
       <ProviderCliUpdatesSection
         machines={inventory.machines}
@@ -2210,7 +2210,7 @@ export function UpdatesSettingsSection({
         }}
       >
         <ConfirmDeleteDialogContent
-          title="Update bb now?"
+          title="Update hyperfide now?"
           description={runningThreadsWarning(confirmingAppUpdateThreads ?? 0)}
           confirmLabel="Update and restart"
           pending={applyAppUpdate.isPending}

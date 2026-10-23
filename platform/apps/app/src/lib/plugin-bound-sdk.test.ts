@@ -1,4 +1,4 @@
-import type { BbSdkAreas } from "@hyperfide/sdk";
+import type { HyperfideSdkAreas } from "@hyperfide/sdk";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -105,7 +105,7 @@ function makeSdk() {
       threadSections,
       projects,
       hosts,
-    } as unknown as BbSdkAreas,
+    } as unknown as HyperfideSdkAreas,
     environments,
     projects,
     hosts,

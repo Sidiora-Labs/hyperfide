@@ -231,7 +231,7 @@ export async function readOpenCodeGoUsage(
         headers: {
           Authorization: `Bearer ${apiKey}`,
           Accept: "application/json",
-          "User-Agent": "bb-provider-acp",
+          "User-Agent": "hyperfide-provider-acp",
           ...(account?.active_org_id
             ? { "x-opencode-org-id": account.active_org_id }
             : {}),

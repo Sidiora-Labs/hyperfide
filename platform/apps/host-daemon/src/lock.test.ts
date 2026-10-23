@@ -39,7 +39,7 @@ describe("acquireDaemonLock compromise handling", () => {
   let dataDir: string;
 
   beforeEach(async () => {
-    dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "bb-daemon-lock-"));
+    dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-daemon-lock-"));
   });
 
   afterEach(async () => {

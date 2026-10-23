@@ -2,7 +2,7 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type PluginCliContext,
   type PluginCliResult,
 } from "@hyperfide/plugin-sdk";
@@ -57,7 +57,7 @@ function requireContext(ctx: PluginCliContext): {
   threadId: string;
 } {
   if (ctx.projectId === undefined || ctx.threadId === undefined) {
-    throw new Error("This command must run inside a BB project thread");
+    throw new Error("This command must run inside a HYPERFIDE project thread");
   }
   return { projectId: ctx.projectId, threadId: ctx.threadId };
 }
@@ -200,8 +200,8 @@ function statusSummary(page: WorkflowRunInspectionPage) {
     finishedAt: run.finishedAt,
     history: {
       format: "jsonl",
-      pageUsage: `bb workflows history ${run.id} --cursor 0 --limit ${DEFAULT_HISTORY_LIMIT}`,
-      fileUsage: `mkdir -p "$HYPERFIDE_THREAD_STORAGE/workflows" && bb workflows history ${run.id} --cursor 0 --limit ${DEFAULT_HISTORY_LIMIT} > "$HYPERFIDE_THREAD_STORAGE/workflows/${run.id}.jsonl"`,
+      pageUsage: `hyperfide-platform workflows history ${run.id} --cursor 0 --limit ${DEFAULT_HISTORY_LIMIT}`,
+      fileUsage: `mkdir -p "$HYPERFIDE_THREAD_STORAGE/workflows" && hyperfide-platform workflows history ${run.id} --cursor 0 --limit ${DEFAULT_HISTORY_LIMIT} > "$HYPERFIDE_THREAD_STORAGE/workflows/${run.id}.jsonl"`,
     },
   };
 }
@@ -283,7 +283,7 @@ const JSON_OPTION_DESCRIPTION =
   "Report failures as a JSON envelope on stdout; command output is always JSON";
 const RUN_ID_POSITIONAL = {
   name: "run-id",
-  description: "Workflow run ID returned by bb workflows run",
+  description: "Workflow run ID returned by hyperfide-platform workflows run",
   required: true,
 } as const;
 const SOURCE_OPTIONS = {
@@ -306,7 +306,7 @@ const SOURCE_OPTIONS = {
     placeholder: "name",
     aliases: ["workflow"],
     description:
-      "Named workflow under .bb/workflows/<name>.js; lowercase kebab-case, at most 64 characters",
+      "Named workflow under .hyperfide/workflows/<name>.js; lowercase kebab-case, at most 64 characters",
   },
 } as const;
 const SOURCE_CONSTRAINT = {
@@ -315,13 +315,13 @@ const SOURCE_CONSTRAINT = {
 } as const;
 
 export function registerWorkflowCli(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   service: WorkflowService,
 ): void {
-  bb.cli.register(
+  hyperfide.cli.register(
     defineCli({
       name: "workflows",
-      summary: "Run and inspect durable BB workflows",
+      summary: "Run and inspect durable HYPERFIDE workflows",
       description:
         "Workflows run in the background: start one, then poll the compact status summary and read bounded JSONL history pages.",
       commands: {
@@ -348,7 +348,7 @@ export function registerWorkflowCli(
             return guarded(async () => {
               const context = requireContext(ctx);
               const prepared = await prepareWorkflowSource(
-                bb,
+                hyperfide,
                 context,
                 sourceInput(input.options, ctx.cwd),
               );
@@ -378,7 +378,7 @@ export function registerWorkflowCli(
             return guarded(async () => {
               const context = requireContext(ctx);
               const prepared = await prepareWorkflowSource(
-                bb,
+                hyperfide,
                 context,
                 sourceInput(input.options, ctx.cwd),
               );

@@ -74,7 +74,7 @@ import type {
 /**
  * Shared registration policy for the real plugin host and the in-process fake.
  *
- * These rules decide whether `bb.*.register()` throws. The fake host must
+ * These rules decide whether `hyperfide.*.register()` throws. The fake host must
  * accept and reject the same names, schemas, and caps as production so plugin
  * unit tests are not lying about load-time behavior.
  */
@@ -86,7 +86,7 @@ export function pluginCliCollisionWarning(
   commandName: string,
 ): string | null {
   if (!RESERVED_HYPERFIDE_CLI_COMMANDS.includes(commandName)) return null;
-  return `CLI command "${commandName}" collides with core command "bb ${commandName}"; core keeps the short form. Use "bb plugin run ${pluginId}" to invoke this plugin.`;
+  return `CLI command "${commandName}" collides with core command "hyperfide-platform ${commandName}"; core keeps the short form. Use "hyperfide-platform plugin run ${pluginId}" to invoke this plugin.`;
 }
 
 /**
@@ -118,7 +118,7 @@ const RPC_METHOD_PATTERN = /^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/;
 // Service/schedule names appear in status text and plugin_schedules rows.
 const BACKGROUND_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
-// CLI command names become `bb <name>` invocations.
+// CLI command names become `hyperfide <name>` invocations.
 const CLI_COMMAND_NAME_PATTERN = /^[a-z0-9-]+$/;
 
 // Agent tool names are shown to (and called by) the model.
@@ -957,7 +957,7 @@ const PROVIDER_MODEL_CATALOG_SCOPES = [
 
 /**
  * How far one `model/list` answer travels. Absent means `"workspace"`: a
- * bridge bb knows nothing about may read the workspace path, and probing per
+ * bridge hyperfide knows nothing about may read the workspace path, and probing per
  * workspace is the answer that can only cost a redundant probe.
  */
 function validateProviderModelCatalogScope(
@@ -1142,7 +1142,7 @@ function validateProviderFallbackModels(
 }
 
 /**
- * A validated `bb.experimental_aiServices.register` declaration. Absent
+ * A validated `hyperfide.experimental_aiServices.register` declaration. Absent
  * functions are `null` so hosts never have to distinguish missing from
  * undefined.
  */
@@ -1174,7 +1174,7 @@ function optionalAiServiceFunction<T>(
 }
 
 /**
- * Validate one `bb.experimental_aiServices.register` declaration the same
+ * Validate one `hyperfide.experimental_aiServices.register` declaration the same
  * way in the production host and the fake host. Throws on the first problem;
  * returns a normalized, frozen copy carrying only contract fields.
  */
@@ -1192,7 +1192,7 @@ export function validatePluginAiServiceDeclaration(
   }
   if (RESERVED_AI_SERVICE_IDS.has(id)) {
     throw new Error(
-      `AI service id "${id}" is reserved: bb uses "automatic" and "off" as selection modes. Choose another id.`,
+      `AI service id "${id}" is reserved: hyperfide uses "automatic" and "off" as selection modes. Choose another id.`,
     );
   }
   const displayName =
@@ -1232,7 +1232,7 @@ export function providerAlreadyRegisteredMessage(id: string): string {
 }
 
 /**
- * Validate one `bb.providers.register` declaration. Plugin
+ * Validate one `hyperfide.providers.register` declaration. Plugin
  * sources are untyped at runtime, so every field is checked; the production
  * host and the fake host both call this, so they accept and reject provider
  * declarations identically. Throws a descriptive error on the first problem;
@@ -1397,11 +1397,11 @@ export function validatePluginProviderDeclaration(
         `provider "${id}" icon must be a non-blank string — a named host glyph ("Zap"), a plugin-relative path ("./icons/agent.svg"), or a declared icon ("<pluginId>/<name>")`,
       );
     }
-    // The `bb.branding.icon` forms plus one: a leading "./" means a
+    // The `hyperfide.branding.icon` forms plus one: a leading "./" means a
     // plugin-owned file and gets the escape rules; "<pluginId>/<name>" names
-    // an entry of the plugin's `bb.branding.experimental_icons` map (the host
+    // an entry of the plugin's `hyperfide.branding.experimental_icons` map (the host
     // checks the plugin id and the name at registration, since only it holds
-    // the manifest; `bb.branding.icon` itself refuses this form); anything
+    // the manifest; `hyperfide.branding.icon` itself refuses this form); anything
     // else names a host glyph. A path-shaped value that is neither would
     // otherwise be read as a glyph name that resolves to nothing.
     if (isPluginOwnedIconPath(declaration.icon)) {
@@ -1430,7 +1430,7 @@ export function validatePluginProviderDeclaration(
   });
   // Maintenance support: an omitted object or key means the bridge does not
   // implement that request. Filled here once, then an explicit boolean
-  // everywhere inside bb.
+  // everywhere inside hyperfide.
   const maintenance = declaration.maintenance ?? {};
   if (typeof maintenance !== "object" || maintenance === null) {
     throw new Error(`provider "${id}" maintenance must be an object`);
@@ -2015,7 +2015,7 @@ const RENAMED_AGENT_TOOL_FIELDS: ReadonlyMap<string, string> = new Map([
  * rule configure() output follows in the plugin service). The production
  * host and the fake host both call this before parsing `presentation`, so
  * a registration built against an older SDK fails a plugin's own unit test
- * with the message bb would give it.
+ * with the message hyperfide would give it.
  */
 function rejectStaleAgentToolFields(toolName: string, tool: object): void {
   const unknownKeys: string[] = [];
@@ -2040,7 +2040,7 @@ function rejectStaleAgentToolFields(toolName: string, tool: object): void {
  * a plugin's object cannot smuggle prototypes or extra markup into the
  * persisted row. Labels share the status-label length cap. The production
  * host and the fake host both call this, so a presentation that registers
- * in a plugin unit test registers in bb, and one bb rejects is rejected
+ * in a plugin unit test registers in hyperfide, and one hyperfide rejects is rejected
  * with the same message.
  */
 export function parsePluginRowPresentation(
@@ -2276,9 +2276,9 @@ function isResponseLike(value: unknown): value is Response {
 /**
  * The one rule for a namespaced glyph (`"<pluginId>/<name>"`) wherever a
  * plugin may reference its own declared icons — a tool presentation at
- * `bb.agents.registerTool`, a provider icon at `bb.providers.register`, and a
+ * `hyperfide.agents.registerTool`, a provider icon at `hyperfide.providers.register`, and a
  * row presentation at ingest: the plugin id must be the emitting plugin's
- * and the name must be in its `bb.branding.experimental_icons` map. The
+ * and the name must be in its `hyperfide.branding.experimental_icons` map. The
  * server and the fake plugin host apply it from here, so a registration the
  * fake accepts is one the server accepts.
  *
@@ -2301,7 +2301,7 @@ export function undeclaredIconProblem(
   return null;
 }
 
-/** `bb.providers.register` refusal for an icon {@link undeclaredIconProblem} rejects. */
+/** `hyperfide.providers.register` refusal for an icon {@link undeclaredIconProblem} rejects. */
 export function providerIconRefusalMessage(
   providerId: string,
   problem: string,
@@ -2309,7 +2309,7 @@ export function providerIconRefusalMessage(
   return `provider "${providerId}" icon ${problem}`;
 }
 
-/** `bb.agents.registerTool` refusal for a glyph {@link undeclaredIconProblem} rejects. */
+/** `hyperfide.agents.registerTool` refusal for a glyph {@link undeclaredIconProblem} rejects. */
 function agentToolIconRefusalMessage(
   toolName: string,
   problem: string,
@@ -2318,12 +2318,12 @@ function agentToolIconRefusalMessage(
 }
 
 /**
- * `bb.providers.register` refusal for a plugin whose manifest declares no
- * `bb.host` entry: a declaration is metadata, and the bridge it runs on is
+ * `hyperfide.providers.register` refusal for a plugin whose manifest declares no
+ * `hyperfide.host` entry: a declaration is metadata, and the bridge it runs on is
  * that entry.
  */
 export function providerWithoutBridgeMessage(providerId: string): string {
-  return `provider "${providerId}" has no bridge to run on: this plugin declares no "bb.host" entry in its manifest`;
+  return `provider "${providerId}" has no bridge to run on: this plugin declares no "hyperfide.host" entry in its manifest`;
 }
 
 /**
@@ -2765,17 +2765,19 @@ export function runPluginStorageMigrations(
   statements: string[],
 ): void {
   database.exec(
-    "CREATE TABLE IF NOT EXISTS _bb_migrations (id INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL, statement_hash TEXT)",
+    "CREATE TABLE IF NOT EXISTS _hyperfide_migrations (id INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL, statement_hash TEXT)",
   );
   const migrationColumns = database
-    .prepare<[], { name: string }>("PRAGMA table_info(_bb_migrations)")
+    .prepare<[], { name: string }>("PRAGMA table_info(_hyperfide_migrations)")
     .all();
   if (!migrationColumns.some((column) => column.name === "statement_hash")) {
-    database.exec("ALTER TABLE _bb_migrations ADD COLUMN statement_hash TEXT");
+    database.exec(
+      "ALTER TABLE _hyperfide_migrations ADD COLUMN statement_hash TEXT",
+    );
   }
   const rows = database
     .prepare<[], { id: number; statement_hash: string | null }>(
-      "SELECT id, statement_hash FROM _bb_migrations ORDER BY id",
+      "SELECT id, statement_hash FROM _hyperfide_migrations ORDER BY id",
     )
     .all();
   const applied = new Map<number, string | null>();
@@ -2794,10 +2796,10 @@ export function runPluginStorageMigrations(
     }
   });
   const adopt = database.prepare(
-    "UPDATE _bb_migrations SET statement_hash = ? WHERE id = ? AND statement_hash IS NULL",
+    "UPDATE _hyperfide_migrations SET statement_hash = ? WHERE id = ? AND statement_hash IS NULL",
   );
   const record = database.prepare(
-    "INSERT INTO _bb_migrations (id, applied_at, statement_hash) VALUES (?, ?, ?)",
+    "INSERT INTO _hyperfide_migrations (id, applied_at, statement_hash) VALUES (?, ?, ?)",
   );
   database.transaction(() => {
     for (const row of rows) {
@@ -3126,7 +3128,7 @@ export function normalizeAgentToolRegistration(args: {
   }
   if (RESERVED_AGENT_TOOL_NAMES.includes(name)) {
     throw new Error(
-      `tool name "${name}" is a built-in bb tool — pick another name`,
+      `tool name "${name}" is a built-in hyperfide tool — pick another name`,
     );
   }
   rejectStaleAgentToolFields(name, tool);

@@ -9,18 +9,18 @@ import {
 } from "@testing-library/react";
 import { HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH } from "@hyperfide/desktop-contract";
 import type {
-  BbDesktopBrowserApi,
-  BbDesktopBrowserFindInPageRequest,
-  BbDesktopBrowserFindResult,
-  BbDesktopBrowserState,
-  BbDesktopBrowserStopFindInPageRequest,
+  HyperfideDesktopBrowserApi,
+  HyperfideDesktopBrowserFindInPageRequest,
+  HyperfideDesktopBrowserFindResult,
+  HyperfideDesktopBrowserState,
+  HyperfideDesktopBrowserStopFindInPageRequest,
 } from "@hyperfide/desktop-contract";
 import { defaultAppSettings } from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  createBbDesktopApi,
+  createHyperfideDesktopApi,
   createNoopDesktopBrowserApi,
-} from "@/test/bb-desktop-test-utils";
+} from "@/test/hyperfide-desktop-test-utils";
 import { AppCommandProvider } from "@/components/commands/AppCommandProvider";
 import { BrowserTabContent } from "./BrowserTabContent";
 
@@ -61,24 +61,24 @@ const desktopInfo = {
 };
 
 interface FindHarness {
-  api: BbDesktopBrowserApi;
-  emitFindResult: (result: BbDesktopBrowserFindResult) => void;
-  emitState: (state: BbDesktopBrowserState) => void;
+  api: HyperfideDesktopBrowserApi;
+  emitFindResult: (result: HyperfideDesktopBrowserFindResult) => void;
+  emitState: (state: HyperfideDesktopBrowserState) => void;
   findInPage: ReturnType<
-    typeof vi.fn<(r: BbDesktopBrowserFindInPageRequest) => void>
+    typeof vi.fn<(r: HyperfideDesktopBrowserFindInPageRequest) => void>
   >;
   stopFindInPage: ReturnType<
-    typeof vi.fn<(r: BbDesktopBrowserStopFindInPageRequest) => void>
+    typeof vi.fn<(r: HyperfideDesktopBrowserStopFindInPageRequest) => void>
   >;
 }
 
 function createFindHarness(): FindHarness {
-  const stateListeners = new Set<(state: BbDesktopBrowserState) => void>();
-  const findListeners = new Set<(result: BbDesktopBrowserFindResult) => void>();
-  const findInPage = vi.fn<(r: BbDesktopBrowserFindInPageRequest) => void>();
+  const stateListeners = new Set<(state: HyperfideDesktopBrowserState) => void>();
+  const findListeners = new Set<(result: HyperfideDesktopBrowserFindResult) => void>();
+  const findInPage = vi.fn<(r: HyperfideDesktopBrowserFindInPageRequest) => void>();
   const stopFindInPage =
-    vi.fn<(r: BbDesktopBrowserStopFindInPageRequest) => void>();
-  const api: BbDesktopBrowserApi = {
+    vi.fn<(r: HyperfideDesktopBrowserStopFindInPageRequest) => void>();
+  const api: HyperfideDesktopBrowserApi = {
     ...createNoopDesktopBrowserApi(),
     onState(listener) {
       stateListeners.add(listener);
@@ -105,8 +105,8 @@ function createFindHarness(): FindHarness {
 }
 
 function findResult(
-  overrides: Partial<BbDesktopBrowserFindResult> = {},
-): BbDesktopBrowserFindResult {
+  overrides: Partial<HyperfideDesktopBrowserFindResult> = {},
+): HyperfideDesktopBrowserFindResult {
   return {
     tabId: "browser:test",
     requestId: 1,
@@ -118,8 +118,8 @@ function findResult(
 }
 
 function browserState(
-  overrides: Partial<BbDesktopBrowserState> = {},
-): BbDesktopBrowserState {
+  overrides: Partial<HyperfideDesktopBrowserState> = {},
+): HyperfideDesktopBrowserState {
   return {
     tabId: "browser:test",
     url: "https://example.com/docs",
@@ -133,7 +133,7 @@ function browserState(
 }
 
 function renderBrowser(harness: FindHarness, initialUrl: string) {
-  window.bbDesktop = createBbDesktopApi(desktopInfo, harness.api);
+  window.hyperfideDesktop = createHyperfideDesktopApi(desktopInfo, harness.api);
   return render(
     <AppCommandProvider>
       <BrowserTabContent
@@ -165,7 +165,7 @@ describe("BrowserTabContent find in page", () => {
     cleanup();
     vi.restoreAllMocks();
     window.localStorage.clear();
-    delete window.bbDesktop;
+    delete window.hyperfideDesktop;
   });
 
   it("opens the find bar from the chord only while the browser pane has focus", () => {

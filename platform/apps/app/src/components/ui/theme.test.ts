@@ -154,10 +154,10 @@ describe("theme.css neutral ramp", () => {
     expect(rule).toContain("top: 0");
     expect(rule).toContain("background-color: var(--sidebar)");
     expect(rule).toContain(
-      "height: var(--bb-sidebar-sticky-stack-padding-top)",
+      "height: var(--hyperfide-sidebar-sticky-stack-padding-top)",
     );
     expect(rule).toContain(
-      "margin-top: calc(-1 * var(--bb-sidebar-sticky-stack-padding-top))",
+      "margin-top: calc(-1 * var(--hyperfide-sidebar-sticky-stack-padding-top))",
     );
   });
 
@@ -171,7 +171,7 @@ describe("theme.css neutral ramp", () => {
       Number(
         css.match(
           new RegExp(
-            `\\[data-sidebar-sticky-tier="${name}"\\]\\s*\\{[^}]*--bb-sidebar-sticky-tier-z-index:\\s*(\\d+)`,
+            `\\[data-sidebar-sticky-tier="${name}"\\]\\s*\\{[^}]*--hyperfide-sidebar-sticky-tier-z-index:\\s*(\\d+)`,
           ),
         )?.[1],
       );
@@ -190,14 +190,14 @@ describe("theme.css neutral ramp", () => {
         '\\[data-sidebar-sticky-stack\\] \\[data-sidebar-sticky-header="false"\\]',
       ),
     ).toContain(
-      "--bb-sidebar-sticky-project-top: var(--bb-sidebar-sticky-stack-padding-top)",
+      "--hyperfide-sidebar-sticky-project-top: var(--hyperfide-sidebar-sticky-stack-padding-top)",
     );
     expect(
       declarations(
         "\\[data-sidebar-sticky-stack\\] \\[data-sidebar-sticky-section\\]",
       ),
     ).toContain(
-      "--bb-sidebar-sticky-parent-base-top: var(--bb-sidebar-sticky-project-top)",
+      "--hyperfide-sidebar-sticky-parent-base-top: var(--hyperfide-sidebar-sticky-project-top)",
     );
   });
 
@@ -217,7 +217,7 @@ describe("theme.css neutral ramp", () => {
     )?.[1];
     expect(stickyRule).toContain("background-image: linear-gradient(");
     expect(
-      stickyRule?.match(/var\(--bb-sidebar-open-in-split-background\)/g),
+      stickyRule?.match(/var\(--hyperfide-sidebar-open-in-split-background\)/g),
     ).toHaveLength(2);
   });
 
@@ -355,7 +355,7 @@ describe("theme.css semantic update surfaces", () => {
 
 describe("theme.css desktop portal hit testing", () => {
   it("carves portaled overlays out of native window drag regions", () => {
-    const rule = css.match(/\[data-bb-portaled-overlay\]\s*\{([^}]*)\}/)?.[1];
+    const rule = css.match(/\[data-hyperfide-portaled-overlay\]\s*\{([^}]*)\}/)?.[1];
 
     expect(rule).toBeDefined();
     expect(rule).toMatch(/(?:^|\s)app-region:\s*no-drag;/);

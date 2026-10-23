@@ -198,7 +198,7 @@ export const REORDER_PLACEMENT_CLASS: Record<SidebarReorderPlacement, string> =
 
 function getHoverActionsInsetStyle(actionCount: number): CSSProperties {
   return {
-    "--bb-sidebar-hover-actions-inset": `calc(var(--spacing) * ${7.5 * actionCount})`,
+    "--hyperfide-sidebar-hover-actions-inset": `calc(var(--spacing) * ${7.5 * actionCount})`,
   } as CSSProperties;
 }
 
@@ -319,7 +319,7 @@ function ThreadTrailingIndicator({
   );
 }
 
-const ARCHIVED_ROW_ACTION_KEYS = ["bb--core/archive"];
+const ARCHIVED_ROW_ACTION_KEYS = ["hyperfide--core/archive"];
 const CUSTOMIZE_ROW_ACTIONS_KEY = "thread-list/customizeRowActions";
 
 function renderThreadActionsTrigger(props: PluginThreadActionsTriggerProps) {
@@ -612,7 +612,7 @@ function ThreadRowComponent({
             !isEditing &&
             !isCustomizingActions &&
             (reserveActionSpace
-              ? "pr-(--bb-sidebar-hover-actions-inset) [@media(hover:none)]:pr-0"
+              ? "pr-(--hyperfide-sidebar-hover-actions-inset) [@media(hover:none)]:pr-0"
               : SIDEBAR_HOVER_ACTIONS_INSET_CLASS),
         )}
         style={getHoverActionsInsetStyle(quickActions.length)}
@@ -689,7 +689,7 @@ function ThreadRowComponent({
           ) : (
             <span
               className={cn(
-                "bb-thread-title",
+                "hyperfide-thread-title",
                 crossProjectLabel !== null && "min-w-0 truncate",
               )}
               title={labelTitle}

@@ -8,8 +8,8 @@ export const APP_UPDATE_SHIM_PROTOCOL_ENV_NAME =
 export const APP_UPDATE_SHIM_PROTOCOL_VERSION = 1;
 export const APP_UPDATE_MODE_ENV_NAME = "HYPERFIDE_APP_UPDATE_MODE";
 export const APP_UPDATE_RESTART_EXIT_CODE = 75;
-export const APP_UPDATE_STATE_FILE_NAME = "bb-app-update.json";
-export const APP_UPDATE_SHIM_LOCK_FILE_NAME = "bb-app-update-shim.json";
+export const APP_UPDATE_STATE_FILE_NAME = "hyperfide-app-update.json";
+export const APP_UPDATE_SHIM_LOCK_FILE_NAME = "hyperfide-app-update-shim.json";
 export const APP_UPDATE_VERSIONS_DIR_NAME = "app-versions";
 export const APP_UPDATE_PASSIVE_MODE = "passive";
 export const APP_UPDATE_STATE_SCHEMA_VERSION = 1;
@@ -116,7 +116,7 @@ export function formatAppUpdateShimLockPath(dataDir: string): string {
 export class AppUpdateStateUnreadableError extends Error {
   constructor(path: string) {
     super(
-      `${path} was written by a newer or incompatible bb; in-app updates are paused until a matching bb-app runs.`,
+      `${path} was written by a newer or incompatible hyperfide; in-app updates are paused until a matching hyperfide-app runs.`,
     );
   }
 }
@@ -256,11 +256,11 @@ export type AppUpdateLauncherRequest = z.infer<
 
 export const serverToLauncherMessageSchema = z.discriminatedUnion("channel", [
   z.object({
-    channel: z.literal("bb-app-update/request"),
+    channel: z.literal("hyperfide-app-update/request"),
     request: appUpdateLauncherRequestSchema,
     requestId: z.string().min(1),
   }),
-  z.object({ channel: z.literal("bb-app-update/hello") }),
+  z.object({ channel: z.literal("hyperfide-app-update/hello") }),
 ]);
 export type ServerToLauncherMessage = z.infer<
   typeof serverToLauncherMessageSchema
@@ -268,13 +268,13 @@ export type ServerToLauncherMessage = z.infer<
 
 export const launcherToServerMessageSchema = z.discriminatedUnion("channel", [
   z.object({
-    channel: z.literal("bb-app-update/response"),
+    channel: z.literal("hyperfide-app-update/response"),
     error: z.string().nullable(),
     requestId: z.string().min(1),
     result: z.unknown(),
   }),
   z.object({
-    channel: z.literal("bb-app-update/status"),
+    channel: z.literal("hyperfide-app-update/status"),
     status: launcherAppUpdateStatusSchema,
   }),
 ]);

@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import {
   createFakePluginHost,
   makeHostResponse,
@@ -9,7 +9,7 @@ import type { GitHubPullRequestView } from "./contract.js";
 import plugin, { environmentChangeEffect } from "./server.js";
 
 type Environment = Awaited<
-  ReturnType<BbPluginApi["sdk"]["environments"]["get"]>
+  ReturnType<HyperfidePluginApi["sdk"]["environments"]["get"]>
 >;
 
 function environment(overrides: Partial<Environment> = {}): Environment {
@@ -21,7 +21,7 @@ function environment(overrides: Partial<Environment> = {}): Environment {
     path: "/work/env-1",
     isGitRepo: true,
     isWorktree: true,
-    branchName: "bb/pr",
+    branchName: "hyperfide/pr",
     baseBranch: null,
     defaultBranch: "main",
     mergeBaseBranch: null,
@@ -44,12 +44,12 @@ function view(
     number: 7,
     title: "Ship it",
     state: "OPEN",
-    url: "https://github.com/acme/bb/pull/7",
+    url: "https://github.com/acme/hyperfide/pull/7",
     isDraft: false,
     autoMerge: false,
     inMergeQueue: false,
     baseRefName: "main",
-    headRefName: "bb/pr",
+    headRefName: "hyperfide/pr",
     updatedAt: "2026-10-01T00:00:00Z",
     checks: [],
     reviewDecision: null,
@@ -67,7 +67,7 @@ async function setup(options: {
 }) {
   const environments = options.environments ?? { "env-1": environment() };
   const fake = createFakePluginHost({
-    pluginId: "bb--github-pr-status",
+    pluginId: "hyperfide--github-pr-status",
     sdk: {
       environments: {
         get: async ({ environmentId }: { environmentId: string }) => {
@@ -89,7 +89,7 @@ async function setup(options: {
           ? { outcome: "found", pullRequest: view() }
           : { ok: true }),
   });
-  await plugin(fake.bb);
+  await plugin(fake.hyperfide);
   return fake;
 }
 

@@ -113,7 +113,7 @@ const UNAVAILABLE_COPY: Readonly<
   keychainItemMissing:
     "No matching encryption key was found in your Keychain. Open and sign in to the source browser, then try again. Browsers with custom key names may need additional support.",
   needsFullDiskAccess:
-    "Give BB Full Disk Access in System Settings → Privacy & Security, then try again.",
+    "Give HYPERFIDE Full Disk Access in System Settings → Privacy & Security, then try again.",
   browserRunning: "Quit the browser first so its cookie database can be read.",
   unsupportedPlatform:
     "Importing from this browser isn't possible on this platform.",

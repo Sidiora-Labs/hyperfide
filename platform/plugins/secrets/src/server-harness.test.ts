@@ -30,7 +30,7 @@ describe("secrets plugin server", () => {
         },
       },
     });
-    plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+    plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
 
     const command = host.harness.runCli(
       [
@@ -103,7 +103,7 @@ describe("secrets plugin server", () => {
         },
       },
     });
-    plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+    plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
 
     const command = host.harness.runCli(
       ["request", "API_KEY", "--write-env", "/var/plugin/.env"],
@@ -146,7 +146,7 @@ describe("secrets plugin server", () => {
         },
       },
     });
-    plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+    plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
 
     const command = host.harness.runCli(
       ["request", "API_KEY", "--write-env", ".env.local"],
@@ -191,7 +191,7 @@ describe("secrets plugin server", () => {
         },
       },
     });
-    plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+    plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
 
     const command = host.harness.runCli(
       ["request", ...names, "--write-env", ".env"],
@@ -255,7 +255,7 @@ describe("secrets plugin server", () => {
     "reports a usage error for malformed invocation $argv",
     async ({ argv, message }) => {
       const host = createFakePluginHost({ pluginId: "secrets" });
-      plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+      plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
 
       const result = await host.harness.runCli(argv, {
         threadId: "thr-test",
@@ -270,7 +270,7 @@ describe("secrets plugin server", () => {
 
   it("accepts --describe NAME=TEXT and reports failures as JSON with --json", async () => {
     const host = createFakePluginHost({ pluginId: "secrets" });
-    plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+    plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
 
     const result = await host.harness.runCli(
       [
@@ -303,7 +303,7 @@ describe("secrets plugin server", () => {
     "documents %s without running the command",
     async (...argv) => {
       const host = createFakePluginHost({ pluginId: "secrets" });
-      plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+      plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
 
       const result = await host.harness.runCli(argv, {
         threadId: "thr-test",

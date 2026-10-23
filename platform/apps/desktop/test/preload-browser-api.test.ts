@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppCommandId } from "@hyperfide/domain";
 import type {
-  BbDesktopApi,
-  BbDesktopBrowserFindResult,
-  BbDesktopBrowserOpenTabRequest,
-  BbDesktopBrowserScopedOpenTabRequest,
-  BbDesktopBrowserSnapshot,
-  BbDesktopBrowserState,
-  BbDesktopInfo,
-  BbDesktopWindowState,
+  HyperfideDesktopApi,
+  HyperfideDesktopBrowserFindResult,
+  HyperfideDesktopBrowserOpenTabRequest,
+  HyperfideDesktopBrowserScopedOpenTabRequest,
+  HyperfideDesktopBrowserSnapshot,
+  HyperfideDesktopBrowserState,
+  HyperfideDesktopInfo,
+  HyperfideDesktopWindowState,
 } from "@hyperfide/desktop-contract";
 import {
   HYPERFIDE_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
@@ -62,7 +62,7 @@ const electronMock = vi.hoisted(() => {
     payload: unknown,
   ) => void;
 
-  const desktopInfo: BbDesktopInfo = {
+  const desktopInfo: HyperfideDesktopInfo = {
     lastCheckedAt: null,
     latestVersion: null,
     pendingVersion: null,
@@ -71,13 +71,13 @@ const electronMock = vi.hoisted(() => {
     updateDownloaded: false,
     version: "0.0.0-test",
   };
-  const desktopWindowState: BbDesktopWindowState = {
+  const desktopWindowState: HyperfideDesktopWindowState = {
     isFullScreen: false,
   };
   const invokeCalls: string[] = [];
   const listeners = new Map<string, IpcRendererListener>();
   const sendCalls: SendCall[] = [];
-  let exposedApi: BbDesktopApi | null = null;
+  let exposedApi: HyperfideDesktopApi | null = null;
   let exposedName: string | null = null;
   let zoomFactor = 1;
 
@@ -104,23 +104,23 @@ const electronMock = vi.hoisted(() => {
     },
     contextBridge: {
       exposeInMainWorld(name: string, api: unknown): void {
-        if (name === "bbDesktop") {
+        if (name === "hyperfideDesktop") {
           exposedName = name;
-          exposedApi = api as BbDesktopApi;
+          exposedApi = api as HyperfideDesktopApi;
         }
       },
     },
     ipcRenderer: {
       invoke(channel: string): Promise<unknown> {
         invokeCalls.push(channel);
-        if (channel === "bb-desktop:get-server-choices")
+        if (channel === "hyperfide-desktop:get-server-choices")
           return Promise.resolve([
             { id: "builtin", name: "Local", active: true },
           ]);
-        if (channel === "bb-desktop:browser:list-threads-with-tabs") {
+        if (channel === "hyperfide-desktop:browser:list-threads-with-tabs") {
           return Promise.resolve(["thread-1", "thread-2"]);
         }
-        if (channel === "bb-desktop:get-window-state") {
+        if (channel === "hyperfide-desktop:get-window-state") {
           return Promise.resolve(desktopWindowState);
         }
         return Promise.resolve(desktopInfo);
@@ -151,16 +151,16 @@ interface EmitIpcPayloadArgs {
   payload: unknown;
 }
 
-async function loadPreload(): Promise<BbDesktopApi> {
+async function loadPreload(): Promise<HyperfideDesktopApi> {
   electronMock.reset();
   vi.resetModules();
   process.env.HYPERFIDE_DESKTOP_VERSION = "0.0.0-test";
   await import("../src/preload.js");
   const api = electronMock.exposedApi;
-  expect(electronMock.exposedName).toBe("bbDesktop");
+  expect(electronMock.exposedName).toBe("hyperfideDesktop");
   expect(api).not.toBeNull();
   if (api === null) {
-    throw new Error("Expected preload to expose window.bbDesktop.");
+    throw new Error("Expected preload to expose window.hyperfideDesktop.");
   }
   return api;
 }
@@ -175,7 +175,7 @@ function emitIpcPayload(args: EmitIpcPayloadArgs): void {
 }
 
 describe("desktop preload browser API", () => {
-  let api: BbDesktopApi;
+  let api: HyperfideDesktopApi;
 
   beforeEach(async () => {
     api = await loadPreload();
@@ -188,14 +188,14 @@ describe("desktop preload browser API", () => {
     const updates = vi.fn();
     const stop = api.onServerChoicesChange?.(updates);
     emitIpcPayload({
-      channel: "bb-desktop:server-choices-changed",
+      channel: "hyperfide-desktop:server-choices-changed",
       payload: [
         { id: "remote", name: "Remote", active: false, url: "private" },
       ],
     });
     expect(updates).not.toHaveBeenCalled();
     emitIpcPayload({
-      channel: "bb-desktop:server-choices-changed",
+      channel: "hyperfide-desktop:server-choices-changed",
       payload: [{ id: "remote", name: "Remote", active: false }],
     });
     expect(updates).toHaveBeenCalledWith([
@@ -203,13 +203,13 @@ describe("desktop preload browser API", () => {
     ]);
     stop?.();
     emitIpcPayload({
-      channel: "bb-desktop:server-choices-changed",
+      channel: "hyperfide-desktop:server-choices-changed",
       payload: [],
     });
     expect(updates).toHaveBeenCalledTimes(1);
     api.selectServer?.("remote");
     expect(electronMock.sendCalls).toContainEqual({
-      channel: "bb-desktop:select-server",
+      channel: "hyperfide-desktop:select-server",
       payload: "remote",
     });
   });
@@ -420,7 +420,7 @@ describe("desktop preload browser API", () => {
   });
 
   it("replays the latest validated tab state after listeners remount and bounds retained tabs", () => {
-    const state: BbDesktopBrowserState = {
+    const state: HyperfideDesktopBrowserState = {
       tabId: "browser:0",
       url: "https://example.com",
       title: null,
@@ -459,7 +459,7 @@ describe("desktop preload browser API", () => {
         payload: { ...state, tabId: `browser:${index}` },
       });
     }
-    const retained: BbDesktopBrowserState[] = [];
+    const retained: HyperfideDesktopBrowserState[] = [];
     api.browser.onState((value) => retained.push(value))();
     expect(retained).toHaveLength(100);
     expect(retained.some((value) => value.tabId === "browser:0")).toBe(false);
@@ -467,17 +467,17 @@ describe("desktop preload browser API", () => {
   });
 
   it("validates browser event payloads before notifying renderer listeners", () => {
-    const states: BbDesktopBrowserState[] = [];
-    const openTabs: BbDesktopBrowserOpenTabRequest[] = [];
-    const scopedOpenTabs: BbDesktopBrowserScopedOpenTabRequest[] = [];
+    const states: HyperfideDesktopBrowserState[] = [];
+    const openTabs: HyperfideDesktopBrowserOpenTabRequest[] = [];
+    const scopedOpenTabs: HyperfideDesktopBrowserScopedOpenTabRequest[] = [];
     const focusedTabs: string[] = [];
-    const snapshots: BbDesktopBrowserSnapshot[] = [];
-    const findResults: BbDesktopBrowserFindResult[] = [];
+    const snapshots: HyperfideDesktopBrowserSnapshot[] = [];
+    const findResults: HyperfideDesktopBrowserFindResult[] = [];
     let closeWindowRequestCount = 0;
     let openNewTabCount = 0;
     const appCommands: AppCommandId[] = [];
-    const windowStates: BbDesktopWindowState[] = [];
-    const state: BbDesktopBrowserState = {
+    const windowStates: HyperfideDesktopWindowState[] = [];
+    const state: HyperfideDesktopBrowserState = {
       tabId: "browser:a",
       url: "https://example.com/",
       title: "Example",
@@ -486,18 +486,18 @@ describe("desktop preload browser API", () => {
       canGoForward: true,
       errorText: null,
     };
-    const openTab: BbDesktopBrowserOpenTabRequest = {
+    const openTab: HyperfideDesktopBrowserOpenTabRequest = {
       url: "https://example.com/popup",
     };
-    const scopedOpenTab: BbDesktopBrowserScopedOpenTabRequest = {
+    const scopedOpenTab: HyperfideDesktopBrowserScopedOpenTabRequest = {
       tabId: "browser:a",
       url: "https://example.com/scoped-popup",
     };
-    const snapshot: BbDesktopBrowserSnapshot = {
+    const snapshot: HyperfideDesktopBrowserSnapshot = {
       tabId: "browser:a",
       dataUrl: null,
     };
-    const findResult: BbDesktopBrowserFindResult = {
+    const findResult: HyperfideDesktopBrowserFindResult = {
       tabId: "browser:a",
       requestId: 3,
       activeMatchOrdinal: 1,

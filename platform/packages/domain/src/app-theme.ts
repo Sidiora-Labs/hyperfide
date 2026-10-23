@@ -21,7 +21,7 @@ interface BuiltInThemeMeta {
 }
 
 export const builtInThemes: readonly BuiltInThemeMeta[] = [
-  { id: "default", name: "Default", description: "The standard bb look" },
+  { id: "default", name: "Default", description: "The standard hyperfide look" },
   { id: "nord", name: "Nord", description: "Cool, muted arctic blues" },
   {
     id: "dracula",

@@ -495,7 +495,7 @@ let workspaceDir: string;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-claude-calibration-ws-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-claude-calibration-ws-"));
 });
 
 afterEach(() => {

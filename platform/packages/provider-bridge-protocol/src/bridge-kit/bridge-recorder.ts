@@ -277,7 +277,7 @@ export function createBridgeRecorder(args: { dir: string }): BridgeRecorder {
   };
 }
 
-const RECORDER_GLOBAL_KEY = Symbol.for("bb.providerBridgeRecorder");
+const RECORDER_GLOBAL_KEY = Symbol.for("hyperfide.providerBridgeRecorder");
 
 interface RecorderGlobalSlot {
   recorder: BridgeRecorder | null;

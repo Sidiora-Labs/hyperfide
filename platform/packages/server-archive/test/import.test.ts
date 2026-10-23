@@ -68,7 +68,10 @@ async function expectArchiveError(
 }
 
 const SOURCE_CONFIG = {
-  config: { HYPERFIDE_INFERENCE: "codex/gpt-5.4-mini", HYPERFIDE_LOG_LEVEL: "info" },
+  config: {
+    HYPERFIDE_INFERENCE: "codex/gpt-5.4-mini",
+    HYPERFIDE_LOG_LEVEL: "info",
+  },
   customModels: [{ providerId: "codex", model: "gpt-5.4" }],
   customAcpAgents: [
     { id: "grok", displayName: "Grok", command: "grok", unknownField: true },
@@ -77,9 +80,12 @@ const SOURCE_CONFIG = {
 };
 
 const TARGET_CONFIG = {
-  config: { HYPERFIDE_LOG_LEVEL: "debug", HYPERFIDE_APP_URL: "https://target.example" },
+  config: {
+    HYPERFIDE_LOG_LEVEL: "debug",
+    HYPERFIDE_APP_URL: "https://target.example",
+  },
   serverUrl: "https://old-server.example",
-  serverHeaders: { "x-bb-connect-machine": "credential" },
+  serverHeaders: { "x-hyperfide-connect-machine": "credential" },
   machineCredential: "credential",
   connectMachineId: "machine-1",
 };
@@ -89,7 +95,7 @@ async function stageImport(): Promise<{
   manifest: ServerArchiveManifest;
 }> {
   const sourceDataDir = await makeTempDir();
-  await writeDataFile(sourceDataDir, "bb.db", "server database");
+  await writeDataFile(sourceDataDir, "hyperfide.db", "server database");
   await writeDataFile(
     sourceDataDir,
     "config.json",
@@ -128,7 +134,7 @@ async function stageImport(): Promise<{
       })),
     manifest: {
       createdAt: 1,
-      bbVersion: "0.43.1",
+      hyperfideVersion: "0.43.1",
       protocolVersion: 209,
       migrationCount: 142,
       sourceDataDir,
@@ -169,9 +175,12 @@ describe("mergeImportedManagedConfig", () => {
         machineCredential: "source-credential",
       },
       existingConfig: {
-        config: { HYPERFIDE_LOG_LEVEL: "debug", HYPERFIDE_APP_URL: "https://target.example" },
+        config: {
+          HYPERFIDE_LOG_LEVEL: "debug",
+          HYPERFIDE_APP_URL: "https://target.example",
+        },
         customModels: [{ providerId: "codex", model: "gpt-5.4" }],
-        serverHeaders: { "x-bb-connect-machine": "target-credential" },
+        serverHeaders: { "x-hyperfide-connect-machine": "target-credential" },
         machineCredential: "target-credential",
         connectMachineId: "machine-1",
       },
@@ -179,7 +188,10 @@ describe("mergeImportedManagedConfig", () => {
     });
 
     expect(merged).toEqual({
-      config: { HYPERFIDE_LOG_LEVEL: "info", HYPERFIDE_APP_URL: "https://target.example" },
+      config: {
+        HYPERFIDE_LOG_LEVEL: "info",
+        HYPERFIDE_APP_URL: "https://target.example",
+      },
       serverUrl: "http://127.0.0.1:39886",
     });
   });
@@ -228,20 +240,20 @@ describe("installImportedServerFiles and removeImportedServerFiles", () => {
     expect([...result.importedEntries].sort()).toEqual([
       "attachments/thr_1/image.png",
       "auth-secret",
-      "bb.db",
       "config.json",
       "env.json",
+      "hyperfide.db",
       "plugins/docs/data.db",
       "plugins/docs/secrets/token",
       "skills/review/SKILL.md",
     ]);
-    expect(result.importedEntries.at(-1)).toBe("bb.db");
+    expect(result.importedEntries.at(-1)).toBe("hyperfide.db");
     expect([...result.backups].sort()).toEqual([
       "config.json",
       "env.json",
       "skills/review/SKILL.md",
     ]);
-    expect(await readDataFile(dataDir, "bb.db")).toBe("server database");
+    expect(await readDataFile(dataDir, "hyperfide.db")).toBe("server database");
     expect(await readDataFile(dataDir, "skills/review/SKILL.md")).toBe(
       "imported skill",
     );
@@ -279,7 +291,7 @@ describe("installImportedServerFiles and removeImportedServerFiles", () => {
       ),
     ).toBe(originalConfig);
 
-    await writeDataFile(dataDir, "bb.db-wal", "pending server wal");
+    await writeDataFile(dataDir, "hyperfide.db-wal", "pending server wal");
     await removeImportedServerFiles({
       dataDir,
       importedEntries: result.importedEntries,
@@ -309,8 +321,8 @@ describe("installImportedServerFiles and removeImportedServerFiles", () => {
   it("refuses to import over existing server data without touching the target", async () => {
     const { stagingDir, manifest } = await stageImport();
     for (const existing of [
-      "bb.db",
-      "bb.db-wal",
+      "hyperfide.db",
+      "hyperfide.db-wal",
       SERVER_IMPORT_BACKUP_DIR_NAME,
     ]) {
       const dataDir = await createTargetDataDir();
@@ -356,7 +368,7 @@ describe("installImportedServerFiles and removeImportedServerFiles", () => {
     );
 
     expect(await readdir(outside)).toEqual([]);
-    expect(await readdir(dataDir)).not.toContain("bb.db");
+    expect(await readdir(dataDir)).not.toContain("hyperfide.db");
   });
 
   it("rejects an invalid imported config before changing the target", async () => {
@@ -411,13 +423,13 @@ async function stageManifestEntries(paths: readonly string[]): Promise<{
     });
   }
   const manifest = serverArchiveManifestSchema.parse({
-    format: "bb-server-archive",
+    format: "hyperfide-server-archive",
     version: SERVER_ARCHIVE_VERSION,
     createdAt: 1,
-    bbVersion: "0.43.1",
+    hyperfideVersion: "0.43.1",
     protocolVersion: 209,
     migrationCount: 142,
-    sourceDataDir: "/home/old/.bb",
+    sourceDataDir: "/home/old/.hyperfide",
     sourceServerHostId: "host-old",
     serverMoveExperiment: true,
     entries,
@@ -447,7 +459,7 @@ describe("server-owned allowlist on import", () => {
         })),
       manifest: {
         createdAt: 1,
-        bbVersion: "0.43.1",
+        hyperfideVersion: "0.43.1",
         protocolVersion: 209,
         migrationCount: 142,
         sourceDataDir,
@@ -476,7 +488,7 @@ describe("server-owned allowlist on import", () => {
 
   it.each([
     ...HOST_OWNED_FIXTURE_PATHS,
-    "bb.db/nested",
+    "hyperfide.db/nested",
     "plugins/docs",
     "plugins/docs/host-data",
   ])(
@@ -521,17 +533,19 @@ describe("server-owned allowlist on import", () => {
 
   it("refuses to remove host-owned entries", async () => {
     const dataDir = await createTargetDataDir();
-    await writeDataFile(dataDir, "bb.db", "imported database");
+    await writeDataFile(dataDir, "hyperfide.db", "imported database");
 
     await expectArchiveError(
       removeImportedServerFiles({
         dataDir,
-        importedEntries: ["bb.db", "auth.json"],
+        importedEntries: ["hyperfide.db", "auth.json"],
       }),
       "unsafe_entry",
     );
 
-    expect(await readDataFile(dataDir, "bb.db")).toBe("imported database");
+    expect(await readDataFile(dataDir, "hyperfide.db")).toBe(
+      "imported database",
+    );
     expect(await readDataFile(dataDir, "auth.json")).toBe("{}");
   });
 });
@@ -594,15 +608,15 @@ describe("discardImportBackups", () => {
       localServerUrl: null,
     });
 
-    expect(result.importedEntries).toContain("bb.db");
+    expect(result.importedEntries).toContain("hyperfide.db");
   });
 });
 
 describe("archiveExistingServerData", () => {
   it("renames the data directory with a local timestamp suffix and avoids collisions", async () => {
     const parent = await makeTempDir();
-    const dataDir = path.join(parent, ".bb");
-    await writeDataFile(dataDir, "bb.db", "standalone");
+    const dataDir = path.join(parent, ".hyperfide");
+    await writeDataFile(dataDir, "hyperfide.db", "standalone");
     const now = new Date(2026, 8, 15, 9, 5, 7).getTime();
 
     const archivedPath = await archiveExistingServerData({
@@ -611,19 +625,21 @@ describe("archiveExistingServerData", () => {
     });
 
     expect(archivedPath).toBe(`${dataDir}.before-move-20260915-090507`);
-    expect(await readDataFile(archivedPath, "bb.db")).toBe("standalone");
-    expect(await readdir(parent)).toEqual([".bb.before-move-20260915-090507"]);
+    expect(await readDataFile(archivedPath, "hyperfide.db")).toBe("standalone");
+    expect(await readdir(parent)).toEqual([
+      ".hyperfide.before-move-20260915-090507",
+    ]);
 
-    await writeDataFile(dataDir, "bb.db", "second standalone");
+    await writeDataFile(dataDir, "hyperfide.db", "second standalone");
     const secondArchivedPath = await archiveExistingServerData({
       dataDir,
       now,
     });
 
     expect(secondArchivedPath).toBe(`${dataDir}.before-move-20260915-090507-2`);
-    expect(await readDataFile(secondArchivedPath, "bb.db")).toBe(
+    expect(await readDataFile(secondArchivedPath, "hyperfide.db")).toBe(
       "second standalone",
     );
-    expect(await readDataFile(archivedPath, "bb.db")).toBe("standalone");
+    expect(await readDataFile(archivedPath, "hyperfide.db")).toBe("standalone");
   });
 });

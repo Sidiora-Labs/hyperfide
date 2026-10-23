@@ -3,7 +3,7 @@
   "name": "expandable-text",
   "type": "registry:ui",
   "title": "expandable-text",
-  "description": "BB ui \"expandable-text\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"expandable-text\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/utils"
   ],

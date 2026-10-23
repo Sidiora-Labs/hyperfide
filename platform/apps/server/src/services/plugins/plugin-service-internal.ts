@@ -87,7 +87,7 @@ export interface PluginServiceDeps {
    */
   onPluginUnregistered?: (pluginId: string) => void;
   /**
-   * Backs `bb.experimental_hooks.recheck()`: schedules a re-attempt of
+   * Backs `hyperfide.experimental_hooks.recheck()`: schedules a re-attempt of
    * every plugin-queued row. Omitted only by isolated plugin tests, which have
    * no thread queue — the call is then a no-op, exactly as it was when core
    * drove this signal itself and no app had registered a listener.
@@ -118,7 +118,7 @@ export interface PluginServiceDeps {
   retiredBundledPlugins?: readonly RetiredBundledPlugin[];
   watchBuiltinPluginSources?: boolean;
   loadTimeoutMs?: number;
-  /** How long an install waits for `bb.onInstall` handlers. Defaults to 30s. */
+  /** How long an install waits for `hyperfide.onInstall` handlers. Defaults to 30s. */
   installHandlerTimeoutMs?: number;
   serviceStopTimeoutMs?: number;
   serviceRestartBaseMs?: number;

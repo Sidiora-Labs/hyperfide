@@ -24,7 +24,7 @@ import {
 import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
 
 const PROVIDER_ID = "test-worktree";
-const BRANCH_NAME = "bb/important-work";
+const BRANCH_NAME = "hyperfide/important-work";
 
 function registerProvider(
   options: { pluginId?: string; restorable?: boolean } = {},

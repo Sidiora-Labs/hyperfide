@@ -34,7 +34,7 @@ const SURFACE_ICONS: Record<string, IconSvgElement> = {
   storage: DatabaseIcon,
   "thread-events": Activity03Icon,
   "host-workers": ComputerIcon,
-  "bb-sdk": SourceCodeIcon,
+  "hyperfide-sdk": SourceCodeIcon,
   "host-components": Layers01Icon,
   testing: TestTubeIcon,
 };

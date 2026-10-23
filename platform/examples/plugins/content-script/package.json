@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "engines": {
-    "bbPluginSdk": ">=0.4.3"
+    "hyperfidePluginSdk": ">=0.4.3"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Content Script Example",
     "description": "Adds a cleanup-safe focus ring to editable app surfaces.",
     "branding": {

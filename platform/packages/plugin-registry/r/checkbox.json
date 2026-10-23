@@ -3,7 +3,7 @@
   "name": "checkbox",
   "type": "registry:ui",
   "title": "checkbox",
-  "description": "BB ui \"checkbox\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"checkbox\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "@radix-ui/react-checkbox"
   ],

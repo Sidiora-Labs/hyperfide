@@ -59,7 +59,7 @@ async function waitForDelegationDeltas(
 }
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-child-exit-ws-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-child-exit-ws-"));
   stubFakeCodexAppServer();
   harness = createBridgeJsonRpcTestHarness(handleLine);
 });

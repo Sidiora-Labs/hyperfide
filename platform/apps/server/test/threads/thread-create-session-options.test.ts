@@ -182,7 +182,7 @@ describe("session options chosen when a thread is created", () => {
     });
   });
 
-  it("starts on a model that fits the chosen options when the caller left the model to bb, keeping a remembered model that fits", async () => {
+  it("starts on a model that fits the chosen options when the caller left the model to hyperfide, keeping a remembered model that fits", async () => {
     await withTestHarness(async (harness) => {
       const { host, session, project } = seedWorkspace(
         harness,

@@ -29,7 +29,6 @@ describe("bundled plugin task graph", () => {
     const assembly = turbo.tasks["@hyperfide/bundled-plugins#build"];
     expect(assembly.dependsOn).toEqual([
       "^prepare:bundled",
-      "@hyperfide/server#generate:bb-official-marketplace",
     ]);
     expect(assembly.outputs).toEqual(["dist/**"]);
     const plugin = turbo.tasks["prepare:bundled"];

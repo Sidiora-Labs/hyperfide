@@ -68,12 +68,12 @@ export function getSidebarThreadGroupLineLeft(depth: number): number {
 export const SIDEBAR_ROW_INTERACTIVE_STATE_CLASS = `cursor-pointer ${SIDEBAR_ROW_TEXT_CLASS} hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`;
 
 export const SIDEBAR_ROW_ACCENT_STATE_CLASS =
-  "bb-sidebar-accent-row has-[[data-state=open]]:bg-sidebar-accent has-[[data-sidebar-rename-anchor]:focus-visible]:bg-sidebar-accent";
+  "hyperfide-sidebar-accent-row has-[[data-state=open]]:bg-sidebar-accent has-[[data-sidebar-rename-anchor]:focus-visible]:bg-sidebar-accent";
 
-export const SIDEBAR_ROW_SELECTED_STATE_CLASS = `${CONTEXT_SELECTION_SURFACE_CLASS} bb-sidebar-selected-row ${SIDEBAR_ROW_TEXT_CLASS}`;
+export const SIDEBAR_ROW_SELECTED_STATE_CLASS = `${CONTEXT_SELECTION_SURFACE_CLASS} hyperfide-sidebar-selected-row ${SIDEBAR_ROW_TEXT_CLASS}`;
 
 export const SIDEBAR_ROW_OPEN_IN_SPLIT_STATE_CLASS =
-  "bb-sidebar-open-in-split-row";
+  "hyperfide-sidebar-open-in-split-row";
 
 const SIDEBAR_SECTION_DROP_TARGET_BASE_CLASS =
   "pointer-events-none absolute -inset-x-1 -inset-y-0.5 z-[70] rounded-md ring-1 ring-inset";
@@ -92,11 +92,11 @@ export const PROJECT_LIST_ACTION_BUTTON_CLASS = cn(
 );
 
 export const SIDEBAR_RAIL_BUTTON_CLASS = cn(
-  "relative size-(--bb-sidebar-control-size) shrink-0 rounded-md p-0 text-muted-foreground ring-sidebar-ring",
+  "relative size-(--hyperfide-sidebar-control-size) shrink-0 rounded-md p-0 text-muted-foreground ring-sidebar-ring",
   "hover:bg-state-hover hover:text-sidebar-foreground focus-visible:ring-2",
   "aria-[current=page]:bg-state-active aria-[current=page]:text-sidebar-foreground",
   "data-[state=open]:bg-state-active data-[state=open]:text-sidebar-foreground",
-  "[&_[data-icon-root]]:size-(--bb-sidebar-control-icon-size)",
+  "[&_[data-icon-root]]:size-(--hyperfide-sidebar-control-icon-size)",
 );
 
 export const SIDEBAR_FOOTER_ACTION_CLASS = cn(

@@ -4,19 +4,19 @@
   "private": true,
   "type": "module",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.3"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.3"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Slack bot",
-    "description": "Demonstrate a signed webhook bot backed by BB agent threads.",
+    "description": "Demonstrate a signed webhook bot backed by HYPERFIDE agent threads.",
     "branding": {
       "icon": "Zap"
     },
     "server": "./server.ts"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts"

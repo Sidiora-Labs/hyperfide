@@ -13,7 +13,7 @@ import {
   type Mock,
 } from "vitest";
 import type { PluginMessageDirectiveProps } from "@hyperfide/plugin-sdk";
-import { useBbNavigate } from "@/lib/plugin-sdk-hooks";
+import { useHyperfideNavigate } from "@/lib/plugin-sdk-hooks";
 import { MarkdownPreview } from "./markdown-preview";
 import {
   buildMessageDirectiveRegistry,
@@ -76,7 +76,7 @@ function WorkspaceFileVis(props: PluginMessageDirectiveProps) {
 }
 
 function ThreadPanelVis(_props: PluginMessageDirectiveProps) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   return (
     <button
       type="button"

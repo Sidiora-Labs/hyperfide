@@ -504,7 +504,7 @@ describe("ConversationMessageContent automation messages", () => {
             systemMessageKind="unlabeled"
             systemMessageSubject={null}
             text={
-              "[bb automation due:auto_zto0dtbcxme]\n\nWeekday unread digest.\n\nSearch Gmail for AUTOMATION_PROMPT_TAIL."
+              "[hyperfide automation due:auto_zto0dtbcxme]\n\nWeekday unread digest.\n\nSearch Gmail for AUTOMATION_PROMPT_TAIL."
             }
             projectId="proj_automation"
             timestamp={0}
@@ -519,7 +519,7 @@ describe("ConversationMessageContent automation messages", () => {
       </MemoryRouter>,
     );
 
-    expect(container.textContent).not.toContain("[bb automation due:");
+    expect(container.textContent).not.toContain("[hyperfide automation due:");
     expect(
       screen.getByRole("link", { name: "Automation" }).getAttribute("href"),
     ).toBe("/plugins/automations/automations/proj_automation/auto_zto0dtbcxme");
@@ -532,7 +532,7 @@ describe("ConversationMessageContent automation messages", () => {
     fireEvent.click(screen.getByRole("button", { name: /Automation/u }));
 
     expect(container.textContent).toContain("AUTOMATION_PROMPT_TAIL");
-    expect(container.textContent).not.toContain("[bb automation due:");
+    expect(container.textContent).not.toContain("[hyperfide automation due:");
   });
 });
 
@@ -552,7 +552,7 @@ describe("ConversationMessageContent undelivered automation messages", () => {
             systemMessageKind="unlabeled"
             systemMessageSubject={null}
             text={
-              "[bb automation due:auto_zto0dtbcxme]\n\nWeekday unread digest."
+              "[hyperfide automation due:auto_zto0dtbcxme]\n\nWeekday unread digest."
             }
             timestamp={0}
             threadId="thr_automation"

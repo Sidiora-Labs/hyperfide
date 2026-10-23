@@ -3,7 +3,7 @@
   "name": "question-form-host",
   "type": "registry:ui",
   "title": "question-form-host",
-  "description": "BB ui \"question-form-host\" — the plugin version of the BB app's question-form-host, drawing on the host app at runtime (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"question-form-host\" — the plugin version of the HYPERFIDE app's question-form-host, drawing on the host app at runtime (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/question-form-host.tsx",

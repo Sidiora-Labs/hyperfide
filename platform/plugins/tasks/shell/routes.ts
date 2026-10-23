@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useBbNavigate } from "@hyperfide/plugin-sdk/app";
+import { useHyperfideNavigate } from "@hyperfide/plugin-sdk/app";
 
 export const PANEL_PATH = "tasks";
 
@@ -69,7 +69,7 @@ export interface TasksNavigation {
 }
 
 export function useTasksNavigation(): TasksNavigation {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   return useMemo(
     () => ({
       go: (route, options) => {

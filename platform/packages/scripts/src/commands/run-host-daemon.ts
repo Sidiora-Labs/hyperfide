@@ -6,7 +6,7 @@ import {
   resolvePortFromEnv,
   resolveRuntimeDataDir,
   resolveRuntimeMode,
-  type BbRuntimeMode,
+  type HyperfideRuntimeMode,
 } from "@hyperfide/config/runtime";
 import { loadServerUrlValue } from "@hyperfide/config/server-url";
 import {
@@ -34,7 +34,7 @@ interface CreateAutoJoinRequestArgs {
 }
 
 interface ResolveHostDaemonPortArgs {
-  mode: BbRuntimeMode;
+  mode: HyperfideRuntimeMode;
   requiresExplicitPort: boolean;
 }
 
@@ -58,7 +58,7 @@ function resolveHostDaemonPort(args: ResolveHostDaemonPortArgs): number {
   });
 }
 
-function ensureDevOverridePair(mode: BbRuntimeMode): void {
+function ensureDevOverridePair(mode: HyperfideRuntimeMode): void {
   if (mode !== "dev") {
     return;
   }
@@ -73,7 +73,7 @@ function ensureDevOverridePair(mode: BbRuntimeMode): void {
 }
 
 export function resolveHostDaemonRuntimeEnvironment(
-  mode: BbRuntimeMode,
+  mode: HyperfideRuntimeMode,
 ): HostDaemonRuntimeEnvironment {
   ensureDevOverridePair(mode);
   const usesDefaultDevExtraHost =
@@ -109,7 +109,7 @@ export function resolveHostDaemonRuntimeEnvironment(
 }
 
 export function resolveHostDaemonProcessCommand(
-  mode: BbRuntimeMode,
+  mode: HyperfideRuntimeMode,
 ): HostDaemonProcessCommand {
   if (mode === "dev") {
     return {

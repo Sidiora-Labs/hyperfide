@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { Command } from "commander";
 import { action } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliHyperfideSdk } from "../client.js";
 import { outputJson } from "./helpers.js";
 
 interface VoiceTranscribeOptions {
@@ -30,7 +30,7 @@ export function registerVoiceCommands(
         const blob = new File([bytes], basename(path), {
           type: opts.type ?? "audio/webm",
         });
-        const result = await createCliBbSdk(getUrl()).system.transcribeVoice({
+        const result = await createCliHyperfideSdk(getUrl()).system.transcribeVoice({
           file: blob,
           ...(opts.prompt ? { prompt: opts.prompt } : {}),
         });

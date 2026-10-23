@@ -137,10 +137,10 @@ async function shimModuleSource(
 ): Promise<string> {
   const names = await shimExportsOf(specifier, pluginSdkAppModuleUrl);
   return [
-    `const runtime = globalThis.__bbPluginRuntime;`,
+    `const runtime = globalThis.__hyperfidePluginRuntime;`,
     `if (runtime == null || runtime.${slot} == null) {`,
     `  throw new Error(${JSON.stringify(
-      `Cannot load "${specifier}": this bundle must be loaded by the BB app, which provides the shared plugin runtime (globalThis.__bbPluginRuntime).`,
+      `Cannot load "${specifier}": this bundle must be loaded by the HYPERFIDE app, which provides the shared plugin runtime (globalThis.__hyperfidePluginRuntime).`,
     )});`,
     `}`,
     `const mod = runtime.${slot};`,
@@ -156,7 +156,7 @@ const SHIM_NAMESPACE = "hyperfide-plugin-runtime-shim";
 
 const RETIRED_PLUGIN_SDK_APP_EXPORTS: Readonly<Record<string, string>> = {
   experimental_useSidebarThreadPullRequest:
-    'Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery({ pluginId: "bb--github-pr-status", contract, method: "pullRequests", keys: [thread.environment.id] }). See "Migrating from experimental_useSidebarThreadPullRequest" in the hyperfide-plugin-authoring skill.',
+    'Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery({ pluginId: "hyperfide--github-pr-status", contract, method: "pullRequests", keys: [thread.environment.id] }). See "Migrating from experimental_useSidebarThreadPullRequest" in the hyperfide-plugin-authoring skill.',
 };
 
 const NAMED_IMPORT_PATTERN =
@@ -316,17 +316,17 @@ function readTailwindContentPatterns(
   pkg: Record<string, unknown>,
   packageJsonPath: string,
 ): string[] {
-  const bb = pkg.bb;
-  if (!isRecord(bb) || bb.pluginTailwindContent === undefined) {
+  const hyperfide = pkg.hyperfide;
+  if (!isRecord(hyperfide) || hyperfide.pluginTailwindContent === undefined) {
     return [];
   }
-  const patterns = bb.pluginTailwindContent;
+  const patterns = hyperfide.pluginTailwindContent;
   if (
     !Array.isArray(patterns) ||
     !patterns.every((pattern) => typeof pattern === "string")
   ) {
     throw new Error(
-      `bb.pluginTailwindContent must be an array of strings in ${packageJsonPath}`,
+      `hyperfide.pluginTailwindContent must be an array of strings in ${packageJsonPath}`,
     );
   }
   return patterns;
@@ -386,13 +386,13 @@ async function readPluginAppConfig(rootDir: string): Promise<PluginAppConfig> {
     rootDir,
     packageJsonPath,
   );
-  const app = manifest.bb.app;
+  const app = manifest.hyperfide.app;
   if (app === undefined) {
     throw new Error(
-      `no frontend entry: ${packageJsonPath} has no "bb": { "app": "./app.tsx" } field (only plugins with an app entry can be built)`,
+      `no frontend entry: ${packageJsonPath} has no "hyperfide": { "app": "./app.tsx" } field (only plugins with an app entry can be built)`,
     );
   }
-  const appEntry = await resolveManifestEntryFile(rootDir, app, "bb.app");
+  const appEntry = await resolveManifestEntryFile(rootDir, app, "hyperfide.app");
   return {
     appEntry,
     packageName: manifest.name,
@@ -507,7 +507,7 @@ interface PluginAppBuildOptions {
 
 export async function buildPluginApp(
   rootDir: string,
-  bbVersion: string,
+  hyperfideVersion: string,
   toolchain: PluginBuildToolchain,
   options: PluginAppBuildOptions = { minify: true },
 ): Promise<PluginAppBuildResult> {
@@ -546,7 +546,7 @@ export async function buildPluginApp(
       jsxDev: false,
       define: {
         "process.env.NODE_ENV": '"production"',
-        __BB_PLUGIN_ID__: JSON.stringify(pluginId),
+        __HYPERFIDE_PLUGIN_ID__: JSON.stringify(pluginId),
       },
       logLevel: "error",
       plugins: [zodLocaleStubPlugin(), runtimeShimPlugin()],
@@ -594,7 +594,7 @@ export async function buildPluginApp(
     await writeFile(
       stagedMetaPath,
       JSON.stringify(
-        createPluginArtifactMeta({ packageName, pluginVersion, bbVersion }),
+        createPluginArtifactMeta({ packageName, pluginVersion, hyperfideVersion }),
         null,
         2,
       ) + "\n",

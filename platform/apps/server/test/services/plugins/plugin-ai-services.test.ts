@@ -17,8 +17,8 @@ const HOST_SOURCE = `
 `;
 
 const REGISTER_AI_SERVICE_SOURCE = (id: string): string => `
-  export default function plugin(bb: any) {
-    bb.experimental_aiServices.register({
+  export default function plugin(hyperfide: any) {
+    hyperfide.experimental_aiServices.register({
       id: ${JSON.stringify(id)},
       displayName: "Acme AI",
       complete: async (prompt) => prompt.toUpperCase(),
@@ -33,13 +33,13 @@ const REGISTER_AI_SERVICE_AND_PROVIDER_SOURCE = (
   order: "service-first" | "provider-first",
 ): string => {
   const service = `
-    bb.experimental_aiServices.register({
+    hyperfide.experimental_aiServices.register({
       id: ${JSON.stringify(id)},
       displayName: "Acme AI",
       complete: async () => "reply",
     });`;
   const provider = `
-    bb.providers.register({
+    hyperfide.providers.register({
       id: ${JSON.stringify(id)},
       displayName: "Acme Agent",
       icon: "./icons/agent.svg",
@@ -57,7 +57,7 @@ const REGISTER_AI_SERVICE_AND_PROVIDER_SOURCE = (
       composerActions: ["plan"],
     });`;
   return `
-  export default function plugin(bb: any) {
+  export default function plugin(hyperfide: any) {
     ${order === "service-first" ? service + provider : provider + service}
   }
 `;
@@ -75,7 +75,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "AI service fixture",
         description: "AI service registration fixture.",
         branding: { icon: "Zap" },
@@ -104,7 +104,7 @@ async function withPluginHarness(
   }
 }
 
-describe("bb.experimental_aiServices.register (server)", () => {
+describe("hyperfide.experimental_aiServices.register (server)", () => {
   it("lands the service when the load commits and removes it when the plugin is disabled", async () => {
     await withPluginHarness(async (harness, workDir) => {
       const rootDir = await writePlugin(workDir, {
@@ -143,8 +143,8 @@ describe("bb.experimental_aiServices.register (server)", () => {
       const rootDir = await writePlugin(workDir, {
         name: "hyperfide-plugin-empty-ai",
         serverSource: `
-          export default function plugin(bb: any) {
-            bb.experimental_aiServices.register({ id: "empty-ai", displayName: "Empty" });
+          export default function plugin(hyperfide: any) {
+            hyperfide.experimental_aiServices.register({ id: "empty-ai", displayName: "Empty" });
           }
         `,
         withHost: false,
@@ -288,10 +288,10 @@ describe("bb.experimental_aiServices.register (server)", () => {
         await writePlugin(workDir, {
           name: "hyperfide-plugin-twice-ai",
           serverSource: `
-            export default function plugin(bb: any) {
+            export default function plugin(hyperfide: any) {
               const complete = async () => "reply";
-              bb.experimental_aiServices.register({ id: "twice", displayName: "Twice", complete });
-              bb.experimental_aiServices.register({ id: "twice", displayName: "Twice again", complete });
+              hyperfide.experimental_aiServices.register({ id: "twice", displayName: "Twice", complete });
+              hyperfide.experimental_aiServices.register({ id: "twice", displayName: "Twice again", complete });
             }
           `,
           withHost: false,

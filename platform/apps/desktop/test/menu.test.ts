@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { BaseWindow, MenuItemConstructorOptions } from "electron";
 
 vi.mock("electron", () => ({
-  app: { name: "bb" },
+  app: { name: "hyperfide" },
   Menu: { sendActionToFirstResponder: vi.fn() },
 }));
 

@@ -38,7 +38,7 @@ export interface BrowserCliRequest {
 
 const SESSION_POSITIONAL = {
   name: "session-id",
-  description: "Session id returned by `bb browser-automation open`",
+  description: "Session id returned by `hyperfide-platform browser-automation open`",
   required: true,
 } as const;
 
@@ -55,7 +55,7 @@ const JSON_OPTION = {
 } as const;
 
 const REOPEN_HINT =
-  "Open a new session with `bb browser-automation open --backend <desktop|local> --machine <host-id>`.";
+  "Open a new session with `hyperfide-platform browser-automation open --backend <desktop|local> --machine <host-id>`.";
 
 function resolveThreadId(
   option: string | undefined,
@@ -63,7 +63,7 @@ function resolveThreadId(
 ): string {
   const threadId = option ?? ctx.threadId;
   if (threadId === undefined || threadId === "") {
-    throw new PluginCliError("Run from a BB thread or pass --thread <id>", {
+    throw new PluginCliError("Run from a HYPERFIDE thread or pass --thread <id>", {
       code: "thread_required",
     });
   }

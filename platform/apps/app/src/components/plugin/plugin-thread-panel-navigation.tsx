@@ -6,10 +6,10 @@ import {
   type ReactNode,
   useContext,
 } from "react";
-import type { BbNavigate } from "@hyperfide/plugin-sdk";
+import type { HyperfideNavigate } from "@hyperfide/plugin-sdk";
 
 export type PluginThreadPanelOpenHandler = (
-  options: Parameters<BbNavigate["openThreadPanel"]>[0] & {
+  options: Parameters<HyperfideNavigate["openThreadPanel"]>[0] & {
     pluginId: string;
   },
 ) => boolean;

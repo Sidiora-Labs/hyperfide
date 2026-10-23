@@ -13,7 +13,7 @@ import {
   experimental_useSidebarThreads,
   experimental_usePluginId,
   type ExperimentalSidebarFooterDisclosureProps,
-  useBbContext,
+  useHyperfideContext,
 } from "@hyperfide/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
@@ -921,7 +921,7 @@ function ProviderUsageStatus(props: ExperimentalSidebarFooterDisclosureProps) {
     getStoreSnapshot,
     getStoreSnapshot,
   );
-  const { threadId } = useBbContext();
+  const { threadId } = useHyperfideContext();
   const sidebarThreads = experimental_useSidebarThreads();
   const threadMachineId = useMemo(
     () =>
@@ -935,7 +935,7 @@ function ProviderUsageStatus(props: ExperimentalSidebarFooterDisclosureProps) {
       pluginId={pluginId}
       snapshot={snapshot}
       threadMachineId={threadMachineId}
-      machineSelectionStorageKey={`bb.${pluginId}.selected-machine.v1`}
+      machineSelectionStorageKey={`hyperfide.${pluginId}.selected-machine.v1`}
     />
   );
 }

@@ -58,13 +58,13 @@ describe("createServerClient", () => {
       getSessionId: () => "session-1",
       hostKey: "host-key",
       logger: createLogger(),
-      serverUrl: "https://bb.example.test",
+      serverUrl: "https://hyperfide.example.test",
     });
 
     const result = client.openSession({
       hostId: "host-1",
       hostName: "Host",
-      dataDir: "/tmp/bb",
+      dataDir: "/tmp/hyperfide",
       instanceId: "instance-1",
       localApiPort: null,
       activeThreads: [],
@@ -85,13 +85,13 @@ describe("createServerClient", () => {
         serverUrl: "https://studio.example.test",
         toHostName: "studio",
         movedAt: 1_700_000_000_000,
-        headers: { "x-bb-connect-machine": "bbcm_new" },
+        headers: { "x-hyperfide-connect-machine": "hyperfide_cm_new" },
       },
       expected: {
         serverUrl: "https://studio.example.test",
         toHostName: "studio",
         movedAt: 1_700_000_000_000,
-        headers: { "x-bb-connect-machine": "bbcm_new" },
+        headers: { "x-hyperfide-connect-machine": "hyperfide_cm_new" },
       },
     },
     {
@@ -119,7 +119,7 @@ describe("createServerClient", () => {
         Response.json(
           {
             code: "server_moved",
-            message: "This bb server moved to studio",
+            message: "This hyperfide-platform server moved to studio",
             details,
           },
           { status: 410 },
@@ -137,7 +137,7 @@ describe("createServerClient", () => {
         client.openSession({
           hostId: "host-1",
           hostName: "Host",
-          dataDir: "/tmp/bb",
+          dataDir: "/tmp/hyperfide",
           instanceId: "instance-1",
           localApiPort: null,
           activeThreads: [],
@@ -155,7 +155,7 @@ describe("createServerClient", () => {
 
   it.each([
     {
-      serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_machine" },
       hasMachineCredential: true,
     },
     { serverHeaders: undefined, hasMachineCredential: false },
@@ -184,13 +184,13 @@ describe("createServerClient", () => {
         hostKey: "host-key",
         logger: createLogger(),
         ...(serverHeaders !== undefined ? { serverHeaders } : {}),
-        serverUrl: "https://bb.example.test",
+        serverUrl: "https://hyperfide.example.test",
       });
 
       await client.openSession({
         hostId: "host-1",
         hostName: "Host",
-        dataDir: "/tmp/bb",
+        dataDir: "/tmp/hyperfide",
         instanceId: "instance-1",
         localApiPort: 38_888,
         activeThreads: [],
@@ -208,7 +208,7 @@ describe("createServerClient", () => {
       getSessionId: () => "session-1",
       hostKey: "host-key",
       logger: createLogger(),
-      serverUrl: "http://bb.example.test",
+      serverUrl: "http://hyperfide.example.test",
     });
 
     await expect(
@@ -263,7 +263,7 @@ describe("createServerClient", () => {
       getSessionId: () => "session-1",
       hostKey: "host-key",
       logger: createLogger(),
-      serverUrl: "https://bb.example.test",
+      serverUrl: "https://hyperfide.example.test",
     });
 
     const attachment = await client.fetchProjectAttachment({
@@ -288,7 +288,7 @@ describe("createServerClient", () => {
       expect(new Headers(init?.headers).get("authorization")).toBe(
         "Bearer host-key",
       );
-      expect(new Headers(init?.headers).get("x-bb-connect-machine")).toBeNull();
+      expect(new Headers(init?.headers).get("x-hyperfide-connect-machine")).toBeNull();
       return new Response(
         JSON.stringify({
           treeHash,
@@ -320,7 +320,7 @@ describe("createServerClient", () => {
       getSessionId: () => "session-1",
       hostKey: "host-key",
       logger: createLogger(),
-      serverUrl: "https://bb.example.test",
+      serverUrl: "https://hyperfide.example.test",
     });
 
     await expect(
@@ -362,7 +362,7 @@ describe("createServerClient", () => {
     const fetchFn = vi.fn<FetchFn>(async (_input, init) => {
       const headers = new Headers(init?.headers);
       expect(headers.get("authorization")).toBe("Bearer host-key");
-      expect(headers.get("x-bb-connect-machine")).toBe("bbcm_machine");
+      expect(headers.get("x-hyperfide-connect-machine")).toBe("hyperfide_cm_machine");
       return new Response(JSON.stringify({ treeHash, entries: [] }), {
         status: 200,
       });
@@ -372,8 +372,8 @@ describe("createServerClient", () => {
       getSessionId: () => "session-1",
       hostKey: "host-key",
       logger: createLogger(),
-      serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
-      serverUrl: "https://bb.example.test",
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_machine" },
+      serverUrl: "https://hyperfide.example.test",
     });
 
     await client.fetchSkillTree(treeHash);
@@ -392,7 +392,7 @@ describe("createServerClient", () => {
       getSessionId: () => "session-1",
       hostKey: "host-key",
       logger: createLogger(),
-      serverUrl: "https://bb.example.test",
+      serverUrl: "https://hyperfide.example.test",
     });
 
     await expect(
@@ -478,7 +478,7 @@ describe("createServerClient", () => {
       getSessionId: () => "session-1",
       hostKey: "host-key",
       logger: createLogger(),
-      serverUrl: "https://bb.example.test",
+      serverUrl: "https://hyperfide.example.test",
     });
 
     await expect(
@@ -548,7 +548,7 @@ describe("createServerClient", () => {
       getSessionId: () => "session-1",
       hostKey: "host-key",
       logger,
-      serverUrl: "https://bb.example.test",
+      serverUrl: "https://hyperfide.example.test",
     });
 
     await expect(
@@ -592,7 +592,7 @@ describe("createServerClient", () => {
       getSessionId: () => "session-1",
       hostKey: "host-key",
       logger,
-      serverUrl: "https://bb.example.test",
+      serverUrl: "https://hyperfide.example.test",
     });
 
     const result = client.registerInteractiveRequest(

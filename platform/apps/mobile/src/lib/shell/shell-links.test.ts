@@ -4,7 +4,7 @@ import { resolveShellIncomingLink } from "./shell-links";
 const profiles = [
   { id: "p_bee", serverUrl: "https://bee.hyperfide.example" },
   { id: "p_lan", serverUrl: "http://10.0.0.7:38886" },
-  { id: "p_prefix", serverUrl: "https://box.example.ts.net/bb" },
+  { id: "p_prefix", serverUrl: "https://box.example.ts.net/hyperfide" },
 ];
 
 const context = {
@@ -15,15 +15,15 @@ const context = {
 
 describe("resolveShellIncomingLink", () => {
   it.each([
-    ["bb://", "/webview"],
-    ["bb://threads/thr_1", "/webview?path=%2Fthreads%2Fthr_1"],
-    ["bb://connect?code=ABCD-EFGH", "/connect?code=ABCD-EFGH"],
-    ["bb://settings/servers/add", "/settings/servers/add"],
-    ["bb://settings/device", "/settings/device"],
-    ["bb://settings/notifications", "/settings/notifications"],
-    ["bb://settings", "/webview?path=%2Fsettings"],
-    ["bb://settings/general", "/webview?path=%2Fsettings%2Fgeneral"],
-    ["bb://connections", "/webview?path=%2Fconnections"],
+    ["hyperfide://", "/webview"],
+    ["hyperfide://threads/thr_1", "/webview?path=%2Fthreads%2Fthr_1"],
+    ["hyperfide://connect?code=ABCD-EFGH", "/connect?code=ABCD-EFGH"],
+    ["hyperfide://settings/servers/add", "/settings/servers/add"],
+    ["hyperfide://settings/device", "/settings/device"],
+    ["hyperfide://settings/notifications", "/settings/notifications"],
+    ["hyperfide://settings", "/webview?path=%2Fsettings"],
+    ["hyperfide://settings/general", "/webview?path=%2Fsettings%2Fgeneral"],
+    ["hyperfide://connections", "/webview?path=%2Fconnections"],
   ])("routes the scheme link %s to %s", (url, path) => {
     expect(resolveShellIncomingLink(url, context)).toEqual({
       kind: "navigate",
@@ -33,11 +33,11 @@ describe("resolveShellIncomingLink", () => {
   });
 
   it("hides developer routes in a release bundle", () => {
-    expect(resolveShellIncomingLink("bb://dev/webview-spike", context)).toEqual(
+    expect(resolveShellIncomingLink("hyperfide://dev/webview-spike", context)).toEqual(
       { kind: "navigate", path: "/", profileId: null },
     );
     expect(
-      resolveShellIncomingLink("bb://dev/webview-spike", {
+      resolveShellIncomingLink("hyperfide://dev/webview-spike", {
         ...context,
         developerRoutesEnabled: true,
       }),
@@ -82,7 +82,7 @@ describe("resolveShellIncomingLink", () => {
 
   it("strips a profile's mount prefix from the page path", () => {
     const resolution = resolveShellIncomingLink(
-      "https://box.example.ts.net/bb/threads/x",
+      "https://box.example.ts.net/hyperfide/threads/x",
       context,
     );
     expect(resolution).toEqual({
@@ -105,7 +105,7 @@ describe("resolveShellIncomingLink", () => {
 
   it("leaves a foreign scheme alone", () => {
     expect(
-      resolveShellIncomingLink("exp+bb-app://expo-development-client", context),
+      resolveShellIncomingLink("exp+hyperfide-app://expo-development-client", context),
     ).toEqual({ kind: "passthrough" });
   });
 });

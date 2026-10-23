@@ -144,7 +144,7 @@ async function bootAutomationsPlugin(
       },
     },
   });
-  await plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+  await plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
   return host;
 }
 
@@ -521,17 +521,17 @@ describe("automations server plugin harness", () => {
 
     const topLevel = await harness.runCli(["--help"]);
     expect(topLevel.exitCode, topLevel.stderr).toBe(0);
-    expect(topLevel.stdout).toContain("bb automation list");
-    expect(topLevel.stdout).toContain("bb automation delete");
+    expect(topLevel.stdout).toContain("hyperfide-platform automation list");
+    expect(topLevel.stdout).toContain("hyperfide-platform automation delete");
 
     const perCommand = await harness.runCli(["runs", "--help"]);
     expect(perCommand.exitCode, perCommand.stderr).toBe(0);
-    expect(perCommand.stdout).toContain("bb automation runs <automationId>");
+    expect(perCommand.stdout).toContain("hyperfide-platform automation runs <automationId>");
     expect(perCommand.stdout).toContain("--limit <1-200>");
 
     const bare = await harness.runCli([]);
     expect(bare.exitCode, bare.stderr).toBe(0);
-    expect(bare.stdout).toContain("bb automation <command> [options]");
+    expect(bare.stdout).toContain("hyperfide-platform automation <command> [options]");
 
     await harness.dispose();
   });
@@ -567,7 +567,7 @@ describe("automations server plugin harness", () => {
     const noContext = await harness.runCli(["list"]);
     expect(noContext.exitCode).toBe(1);
     expect(noContext.stderr).toContain("missing required option --project");
-    expect(noContext.stderr).toContain("bb project list");
+    expect(noContext.stderr).toContain("hyperfide-platform project list");
 
     const withContext = await harness.runCli(["list"], {
       projectId: PROJECT_ID,
@@ -945,7 +945,7 @@ describe("automations server plugin harness", () => {
     await createAgentAutomation(harness, { name: "Hidden legacy row" });
     await createAgentAutomation(harness, { name: "Invalid stored row" });
     const healthy = await createAgentAutomation(harness, { name: "Healthy" });
-    const database = host.bb.storage.database();
+    const database = host.hyperfide.storage.database();
     database
       .prepare("UPDATE automations SET execution = ? WHERE name = ?")
       .run(
@@ -1129,9 +1129,9 @@ describe("automations server plugin harness", () => {
     expect(fullResult.exitCode).toBe(1);
 
     const service = createAutomationService({
-      bb: host.bb as never,
-      db: host.bb.storage.database(),
-      pluginDataDir: "/tmp/bb-automations-test",
+      hyperfide: host.hyperfide as never,
+      db: host.hyperfide.storage.database(),
+      pluginDataDir: "/tmp/hyperfide-automations-test",
       serverUrl: "http://127.0.0.1:38886",
     });
     await expect(
@@ -1401,7 +1401,7 @@ describe("automations server plugin harness", () => {
     const host = await bootAutomationsPlugin();
     const { harness } = host;
     const source = project();
-    source.sources[0]!.path = dirname(host.bb.storage.database().name);
+    source.sources[0]!.path = dirname(host.hyperfide.storage.database().name);
     harness.sdk.stub("projects.get", async () => source);
     const created = await harness.runCli([
       "create",
@@ -1480,7 +1480,7 @@ describe("automations server plugin harness", () => {
     expect(harness.sdk.callsTo("threads.spawn")).toHaveLength(1);
     expect(harness.sdk.callsTo("threads.spawn")[0]?.[0]).toMatchObject({
       projectId: PROJECT_ID,
-      prompt: `[bb automation due:${automation.id}]\n\nsummarize the inbox`,
+      prompt: `[hyperfide-platform automation due:${automation.id}]\n\nsummarize the inbox`,
       title: "Sweep",
       origin: "plugin",
       originPluginId: "automations",
@@ -1553,13 +1553,13 @@ describe("automations server plugin harness", () => {
     await harness.dispose();
   });
 
-  it("dispose aborts the sweep service and poisons stale bb handles", async () => {
-    const { bb, harness } = await bootAutomationsPlugin();
+  it("dispose aborts the sweep service and poisons stale hyperfide handles", async () => {
+    const { hyperfide, harness } = await bootAutomationsPlugin();
     const service = harness.runService("automation-sweep");
 
     await harness.dispose();
     await service.done;
-    await expect(bb.storage.kv.get("after-dispose")).rejects.toThrow(
+    await expect(hyperfide.storage.kv.get("after-dispose")).rejects.toThrow(
       PluginContextStaleError,
     );
   });

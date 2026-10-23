@@ -541,7 +541,7 @@ describe("v3 item projection", () => {
         event.toolCallCompleted({
           turnId: "turn-1",
           itemId: "plugin-1",
-          tool: "bb_task_update",
+          tool: "hyperfide_task_update",
           presentation: {
             label: { pending: "Updating task", completed: "Updated task" },
             icon: { glyph: "ListTodo" },

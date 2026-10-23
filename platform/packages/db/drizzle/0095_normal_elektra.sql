@@ -25,5 +25,5 @@ CREATE TABLE `plugin_marketplaces` (
 --> statement-breakpoint
 ALTER TABLE `plugins` ADD `catalog_marketplace_name` text;--> statement-breakpoint
 UPDATE `plugins`
-SET `catalog_marketplace_name` = 'bb-official'
+SET `catalog_marketplace_name` = 'hyperfide-official'
 WHERE `provenance` = 'catalog';

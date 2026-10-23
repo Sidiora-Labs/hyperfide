@@ -7,18 +7,18 @@ import {
 describe("splitPathForMiddleTruncation", () => {
   it.each([
     [
-      "~/.hyperfide/plugins/environment-git-worktree/host-data/worktrees/thr_abc-1/bb",
+      "~/.hyperfide/plugins/environment-git-worktree/host-data/worktrees/thr_abc-1/hyperfide",
       "~/.hyperfide/plugins/environment-git-worktree/host-data/worktrees",
-      "/thr_abc-1/bb",
+      "/thr_abc-1/hyperfide",
     ],
-    ["~/Code/bb", "~", "/Code/bb"],
+    ["~/Code/hyperfide", "~", "/Code/hyperfide"],
     ["/tmp/qa/external-root", "/tmp", "/qa/external-root"],
-    ["C:\\Users\\me\\Code\\bb", "C:\\Users\\me", "\\Code\\bb"],
+    ["C:\\Users\\me\\Code\\hyperfide", "C:\\Users\\me", "\\Code\\hyperfide"],
   ])("keeps the last two segments of %s", (path, head, tail) => {
     expect(splitPathForMiddleTruncation(path)).toEqual({ head, tail });
   });
 
-  it.each(["/workspace", "/repo/bb", "bb", "~"])(
+  it.each(["/workspace", "/repo/hyperfide", "hyperfide", "~"])(
     "keeps %s whole when it has no head to shorten",
     (path) => {
       expect(splitPathForMiddleTruncation(path)).toEqual({
@@ -31,23 +31,23 @@ describe("splitPathForMiddleTruncation", () => {
 
 describe("fitPathMiddle", () => {
   const measure = (text: string) => text.length;
-  const path = "~/.hyperfide/plugins/worktrees/thr_abc-1/bb";
+  const path = "~/.hyperfide/plugins/worktrees/thr_abc-1/hyperfide";
 
   it("keeps a path that fits", () => {
     expect(fitPathMiddle(path, path.length, measure)).toBe(path);
   });
 
   it("replaces whole middle segments with an ellipsis segment", () => {
-    expect(fitPathMiddle(path, 28, measure)).toBe(
-      "~/.hyperfide/plugins/…/thr_abc-1/bb",
+    expect(fitPathMiddle(path, "~/.hyperfide/plugins/…/thr_abc-1/hyperfide".length, measure)).toBe(
+      "~/.hyperfide/plugins/…/thr_abc-1/hyperfide",
     );
-    expect(fitPathMiddle(path, 22, measure)).toBe(
-      "~/.hyperfide/…/thr_abc-1/bb",
+    expect(fitPathMiddle(path, "~/.hyperfide/…/thr_abc-1/hyperfide".length, measure)).toBe(
+      "~/.hyperfide/…/thr_abc-1/hyperfide",
     );
   });
 
   it("keeps only the last segment once only the root is left", () => {
-    expect(fitPathMiddle(path, 10, measure)).toBe("~/…/bb");
+    expect(fitPathMiddle(path, "~/…/hyperfide".length, measure)).toBe("~/…/hyperfide");
   });
 
   it("cuts the start of the last segment as a final fallback", () => {
@@ -61,8 +61,8 @@ describe("fitPathMiddle", () => {
     expect(fitPathMiddle("/tmp/qa/run/external-root", 20, measure)).toBe(
       "/tmp/…/external-root",
     );
-    expect(fitPathMiddle("C:\\Users\\me\\Code\\bb", 12, measure)).toBe(
-      "C:\\…\\Code\\bb",
+    expect(fitPathMiddle("C:\\Users\\me\\Code\\hyperfide", "C:\\…\\Code\\hyperfide".length, measure)).toBe(
+      "C:\\…\\Code\\hyperfide",
     );
   });
 

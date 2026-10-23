@@ -8,7 +8,7 @@ import type {
   UpdateProjectSourceRequest,
 } from "@hyperfide/server-contract";
 import { action } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliHyperfideSdk } from "../client.js";
 import { resolveLocalHostId } from "../daemon.js";
 import { columnWidths, printBorderlessTable } from "../table.js";
 import { confirmDestructiveAction, outputJson } from "./helpers.js";
@@ -276,7 +276,7 @@ export function registerProjectCommands(
             throw new Error("Attachment filename must not be empty.");
           }
           const bytes = await readFile(opts.clientFile);
-          const uploaded = await createCliBbSdk(
+          const uploaded = await createCliHyperfideSdk(
             getUrl(),
           ).projects.attachments.upload({
             clientFile: bytes,
@@ -309,7 +309,7 @@ export function registerProjectCommands(
           attachmentPath: string,
           opts: ProjectAttachmentDownloadCommandOptions,
         ) => {
-          const downloaded = await createCliBbSdk(
+          const downloaded = await createCliHyperfideSdk(
             getUrl(),
           ).projects.attachments.read({
             path: attachmentPath,
@@ -335,7 +335,7 @@ export function registerProjectCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: ProjectListCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const projects = await sdk.projects.list({
           includePersonal: opts.includePersonal,
         });
@@ -357,7 +357,7 @@ export function registerProjectCommands(
     .action(
       action(async (opts: ProjectDiscoverCommandOptions) => {
         const serverUrl = getUrl();
-        const sdk = createCliBbSdk(serverUrl);
+        const sdk = createCliHyperfideSdk(serverUrl);
         const hostId = await resolveProjectSourceHostId(opts, serverUrl);
         const result = await sdk.hosts.experimental_discoverRepos({ hostId });
         if (outputJson(opts, result)) return;
@@ -382,7 +382,7 @@ export function registerProjectCommands(
         if (opts.limit !== undefined && !/^\d+$/u.test(opts.limit)) {
           throw new Error("--limit must be a positive integer.");
         }
-        const result = await createCliBbSdk(getUrl()).projects.promptHistory({
+        const result = await createCliHyperfideSdk(getUrl()).projects.promptHistory({
           projectId: id,
           ...(opts.limit ? { limit: opts.limit } : {}),
         });
@@ -399,7 +399,7 @@ export function registerProjectCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (id: string, opts: ProjectReorderCommandOptions) => {
-        const result = await createCliBbSdk(getUrl()).projects.reorder({
+        const result = await createCliHyperfideSdk(getUrl()).projects.reorder({
           projectId: id,
           previousProjectId: opts.after ?? null,
           nextProjectId: opts.before ?? null,
@@ -418,7 +418,7 @@ export function registerProjectCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (id: string, opts: ProjectDiscoveryCommandOptions) => {
-        const result = await createCliBbSdk(getUrl()).projects.branches({
+        const result = await createCliHyperfideSdk(getUrl()).projects.branches({
           projectId: id,
           hostId: opts.host ?? "",
           ...(opts.query ? { query: opts.query } : {}),
@@ -437,7 +437,7 @@ export function registerProjectCommands(
     .action(
       action(async (id: string, opts: ProjectDiscoveryCommandOptions) => {
         const serverUrl = getUrl();
-        const result = await createCliBbSdk(getUrl()).projects.paths({
+        const result = await createCliHyperfideSdk(getUrl()).projects.paths({
           projectId: id,
           ...(await resolveMachineEnvironmentRouting(opts, serverUrl)),
           includeFiles: "true",
@@ -457,7 +457,7 @@ export function registerProjectCommands(
     .action(
       action(async (id: string, opts: ProjectDiscoveryCommandOptions) => {
         const serverUrl = getUrl();
-        const result = await createCliBbSdk(getUrl()).projects.commands({
+        const result = await createCliHyperfideSdk(getUrl()).projects.commands({
           projectId: id,
           provider: opts.provider ?? "",
           ...(await resolveMachineEnvironmentRouting(opts, serverUrl)),
@@ -475,7 +475,7 @@ export function registerProjectCommands(
     .action(
       action(async (id: string, opts: ProjectDiscoveryCommandOptions) => {
         const serverUrl = getUrl();
-        const result = await createCliBbSdk(serverUrl).projects.files({
+        const result = await createCliHyperfideSdk(serverUrl).projects.files({
           projectId: id,
           ...(await resolveMachineEnvironmentRouting(opts, serverUrl)),
           ...(opts.query ? { query: opts.query } : {}),
@@ -497,7 +497,7 @@ export function registerProjectCommands(
           opts: ProjectDiscoveryCommandOptions,
         ) => {
           const serverUrl = getUrl();
-          const result = await createCliBbSdk(serverUrl).projects.fileContent({
+          const result = await createCliHyperfideSdk(serverUrl).projects.fileContent({
             projectId: id,
             path,
             ...(await resolveMachineEnvironmentRouting(opts, serverUrl)),
@@ -522,7 +522,7 @@ export function registerProjectCommands(
     .action(
       action(async (opts: ProjectCreateCommandOptions) => {
         const serverUrl = getUrl();
-        const sdk = createCliBbSdk(serverUrl);
+        const sdk = createCliHyperfideSdk(serverUrl);
         const hostId = await resolveProjectSourceHostId(opts, serverUrl);
         const source = buildProjectSourceFromOptions({
           hostId,
@@ -544,7 +544,7 @@ export function registerProjectCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (id: string, opts: ProjectShowCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const found = await sdk.projects.get({ projectId: id });
         if (outputJson(opts, found)) return;
         printProject(found);
@@ -561,7 +561,7 @@ export function registerProjectCommands(
         if (!opts.name) {
           throw new Error("No changes requested. Provide --name.");
         }
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const updated = await sdk.projects.update({
           projectId: id,
           name: opts.name,
@@ -588,7 +588,7 @@ export function registerProjectCommands(
             return;
           }
         }
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         await sdk.projects.delete({ projectId: id });
         if (outputJson(opts, { ok: true, id })) return;
         console.log(`Project ${id} deleted`);
@@ -613,7 +613,7 @@ export function registerProjectCommands(
       action(
         async (projectId: string, opts: ProjectSourceAddCommandOptions) => {
           const serverUrl = getUrl();
-          const sdk = createCliBbSdk(serverUrl);
+          const sdk = createCliHyperfideSdk(serverUrl);
           validateProjectSourceAddOptions(opts);
           const hostId = await resolveProjectSourceHostId(opts, serverUrl);
           const createPayload = buildProjectSourceAddRequest({
@@ -654,7 +654,7 @@ export function registerProjectCommands(
           sourceId: string,
           opts: ProjectSourceUpdateCommandOptions,
         ) => {
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const project = await sdk.projects.get({ projectId });
           const existingSource = requireProjectSource(project, sourceId);
           const updatePayload = buildProjectSourceUpdateRequest(
@@ -696,7 +696,7 @@ export function registerProjectCommands(
             }
           }
 
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           await sdk.projects.sources.delete({ projectId, sourceId });
           const result = { ok: true, projectId, sourceId };
           if (outputJson(opts, result)) return;

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { BbDesktopBrowserState } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopBrowserState } from "@hyperfide/desktop-contract";
 import {
   getBrowserHistoryStorageKey,
   type BrowserHistoryEntry,
@@ -39,7 +39,7 @@ const LOADING_TAB: BrowserFixedPanelTab = {
   title: "Example Docs",
   url: "https://example.com/docs",
 };
-const LOADING_BROWSER_STATE: BbDesktopBrowserState = {
+const LOADING_BROWSER_STATE: HyperfideDesktopBrowserState = {
   tabId: LOADING_TAB.id,
   url: LOADING_TAB.url,
   title: LOADING_TAB.title,

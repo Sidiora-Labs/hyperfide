@@ -3,10 +3,10 @@ import type {
   ThreadTimelinePendingTodoItem,
   ThreadTimelinePendingTodoItemStatus,
 } from "@hyperfide/domain";
-import type { BbSdk } from "@hyperfide/sdk";
+import type { HyperfideSdk } from "@hyperfide/sdk";
 
 interface FetchThreadPendingTodosArgs {
-  sdk: Pick<BbSdk, "threads">;
+  sdk: Pick<HyperfideSdk, "threads">;
   threadId: string;
 }
 

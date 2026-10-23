@@ -3,7 +3,7 @@
   "name": "slider",
   "type": "registry:ui",
   "title": "slider",
-  "description": "BB ui \"slider\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"slider\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "@radix-ui/react-slider"
   ],

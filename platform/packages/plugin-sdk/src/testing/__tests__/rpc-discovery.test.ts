@@ -18,9 +18,9 @@ const exported = defineRpcContract({
 
 describe("discoverable RPC registration", () => {
   it("publishes descriptions and wire schemas while leaving other methods private", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     try {
-      bb.rpc.register(
+      hyperfide.rpc.register(
         exported,
         { "usage.v1.get": () => ({ percent: 42 }) },
         {
@@ -28,7 +28,7 @@ describe("discoverable RPC registration", () => {
           experimental_description: "Shared accounts",
         },
       );
-      bb.rpc.register(
+      hyperfide.rpc.register(
         { private: { input: z.null(), output: z.null() } },
         { private: () => null },
         {
@@ -66,7 +66,7 @@ describe("discoverable RPC registration", () => {
   });
 
   it("rejects unexportable methods atomically but accepts them without publication", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const validator: StandardSchemaV1 = {
       "~standard": {
         version: 1,
@@ -80,7 +80,7 @@ describe("discoverable RPC registration", () => {
     });
     try {
       expect(() =>
-        bb.rpc.register(
+        hyperfide.rpc.register(
           contract,
           { first: () => null, second: () => null },
           { experimental_discoverable: true },
@@ -90,7 +90,7 @@ describe("discoverable RPC registration", () => {
       expect(harness.registrations.experimental_publishedRpcMethods).toEqual(
         [],
       );
-      bb.rpc.register(contract, { first: () => null, second: () => null });
+      hyperfide.rpc.register(contract, { first: () => null, second: () => null });
       await expect(
         harness.behavior.callRpc("second", null),
       ).resolves.toBeNull();
@@ -102,8 +102,8 @@ describe("discoverable RPC registration", () => {
   it("replaces descriptors on reload and keeps null descriptions explicit", async () => {
     let host = createFakePluginHost();
     try {
-      host = await host.harness.lifecycle.reload((bb) => {
-        bb.rpc.register(
+      host = await host.harness.lifecycle.reload((hyperfide) => {
+        hyperfide.rpc.register(
           exported,
           { "usage.v1.get": () => ({ percent: 42 }) },
           { experimental_discoverable: true },
@@ -113,8 +113,8 @@ describe("discoverable RPC registration", () => {
         host.harness.registrations.experimental_publishedRpcMethods[0]
           ?.registrationDescription,
       ).toBeNull();
-      host = await host.harness.lifecycle.reload((bb) => {
-        bb.rpc.register(
+      host = await host.harness.lifecycle.reload((hyperfide) => {
+        hyperfide.rpc.register(
           { "usage.v2.get": { input: z.null(), output: z.null() } },
           { "usage.v2.get": () => null },
           { experimental_discoverable: true },

@@ -12,7 +12,7 @@ import {
 
 registerServerMoveFixtureCleanup();
 
-const PAYLOAD = Buffer.from("bb-app package bytes");
+const PAYLOAD = Buffer.from("hyperfide-app package bytes");
 const PAYLOAD_SHA256 = createHash("sha256").update(PAYLOAD).digest("hex");
 
 async function serve(args: {
@@ -25,7 +25,7 @@ async function serve(args: {
     }
     response.end(args.body ?? PAYLOAD);
   });
-  return `${url}/internal/server-move/move-1/bb-app.tgz`;
+  return `${url}/internal/server-move/move-1/hyperfide-app.tgz`;
 }
 
 async function download(args: {
@@ -33,7 +33,7 @@ async function download(args: {
   expectedSizeBytes: number | null;
   maxSizeBytes: number;
 }): Promise<string> {
-  const destinationPath = join(await createRoot(), "bb-app.tgz");
+  const destinationPath = join(await createRoot(), "hyperfide-app.tgz");
   await downloadVerifiedFile({
     fetchFn: fetch,
     url: args.url,
@@ -69,20 +69,20 @@ describe("downloadVerifiedFile", () => {
 
     await expect(
       download({
-        url: `${baseUrl}/internal/server-move/move-1/bb-app.tgz`,
+        url: `${baseUrl}/internal/server-move/move-1/hyperfide-app.tgz`,
         expectedSizeBytes: null,
         maxSizeBytes: 1024,
       }),
     ).rejects.toMatchObject({
       code: "server_move_download_failed",
       message:
-        "Download of /internal/server-move/move-1/bb-app.tgz did not report its size",
+        "Download of /internal/server-move/move-1/hyperfide-app.tgz did not report its size",
     });
   });
 
   it("refuses a download over the size cap before reading it", async () => {
     const url = await serve({ contentLength: String(PAYLOAD.byteLength) });
-    const destinationPath = join(await createRoot(), "bb-app.tgz");
+    const destinationPath = join(await createRoot(), "hyperfide-app.tgz");
 
     await expect(
       downloadVerifiedFile({

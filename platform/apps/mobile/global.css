@@ -5,7 +5,7 @@
 @import "nativewind/theme";
 
 /*
- * Tailwind class vocabulary for the bb mobile app.
+ * Tailwind class vocabulary for the hyperfide mobile app.
  *
  * Every `--color-*` below points at a CSS variable (`--background`, `--border`,
  * …) that `src/theme/ThemeProvider.tsx` supplies at runtime through

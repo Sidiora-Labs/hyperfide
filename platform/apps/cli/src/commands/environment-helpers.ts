@@ -3,7 +3,7 @@ import {
   type EnvironmentDisplayProviderLookup,
   formatEnvironmentDisplay,
 } from "@hyperfide/core-ui";
-import type { BbSdk } from "@hyperfide/sdk";
+import type { HyperfideSdk } from "@hyperfide/sdk";
 
 export interface ThreadEnvironmentInfo {
   display: EnvironmentDisplayInfo;
@@ -12,7 +12,7 @@ export interface ThreadEnvironmentInfo {
 
 async function resolveEnvironmentProvider(args: {
   environmentProviderId: string | null;
-  sdk: BbSdk;
+  sdk: HyperfideSdk;
 }): Promise<EnvironmentDisplayProviderLookup> {
   if (args.environmentProviderId === null) {
     return { status: "loaded", provider: null };
@@ -36,7 +36,7 @@ async function resolveEnvironmentProvider(args: {
 
 export async function fetchEnvironmentInfo(args: {
   environmentId: string;
-  sdk: BbSdk;
+  sdk: HyperfideSdk;
 }): Promise<ThreadEnvironmentInfo | null> {
   try {
     const env = await args.sdk.environments.get({

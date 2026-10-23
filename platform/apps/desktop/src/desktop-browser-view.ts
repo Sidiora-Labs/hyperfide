@@ -19,29 +19,29 @@ import {
 import {
   HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH,
   HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH,
-  bbDesktopBrowserEvaluateResultSchema,
-  bbDesktopBrowserPageMessageSchema,
-  clampBbDesktopBrowserViewBounds,
-  type BbDesktopBrowserEvaluateRequest,
-  type BbDesktopBrowserEvaluateResult,
-  type BbDesktopBrowserPageMessage,
-  type BbDesktopBrowserAttachRequest,
-  type BbDesktopBrowserFindInPageRequest,
-  type BbDesktopBrowserFindResult,
-  type BbDesktopBrowserNavigateRequest,
-  type BbDesktopBrowserOpenTabRequest,
-  type BbDesktopBrowserScopedOpenTabRequest,
-  type BbDesktopBrowserSetBoundsRequest,
-  type BbDesktopBrowserSetThreadDiscardedRequest,
-  type BbDesktopBrowserSetVisibleRequest,
-  type BbDesktopBrowserSnapshot,
-  type BbDesktopBrowserState,
-  type BbDesktopBrowserControlState,
-  type BbDesktopBrowserRevealRequest,
-  type BbDesktopBrowserTabRef,
-  type BbDesktopBrowserStopFindInPageRequest,
-  type BbDesktopBrowserViewportBounds,
-  type BbDesktopBrowserViewBounds,
+  hyperfideDesktopBrowserEvaluateResultSchema,
+  hyperfideDesktopBrowserPageMessageSchema,
+  clampHyperfideDesktopBrowserViewBounds,
+  type HyperfideDesktopBrowserEvaluateRequest,
+  type HyperfideDesktopBrowserEvaluateResult,
+  type HyperfideDesktopBrowserPageMessage,
+  type HyperfideDesktopBrowserAttachRequest,
+  type HyperfideDesktopBrowserFindInPageRequest,
+  type HyperfideDesktopBrowserFindResult,
+  type HyperfideDesktopBrowserNavigateRequest,
+  type HyperfideDesktopBrowserOpenTabRequest,
+  type HyperfideDesktopBrowserScopedOpenTabRequest,
+  type HyperfideDesktopBrowserSetBoundsRequest,
+  type HyperfideDesktopBrowserSetThreadDiscardedRequest,
+  type HyperfideDesktopBrowserSetVisibleRequest,
+  type HyperfideDesktopBrowserSnapshot,
+  type HyperfideDesktopBrowserState,
+  type HyperfideDesktopBrowserControlState,
+  type HyperfideDesktopBrowserRevealRequest,
+  type HyperfideDesktopBrowserTabRef,
+  type HyperfideDesktopBrowserStopFindInPageRequest,
+  type HyperfideDesktopBrowserViewportBounds,
+  type HyperfideDesktopBrowserViewBounds,
 } from "@hyperfide/desktop-contract";
 import {
   PANE_DIRECTION_APP_COMMAND_IDS,
@@ -128,12 +128,12 @@ function isAllowedPopupNavigationUrl(url: string): boolean {
 
 function popupWindowTitle(url: string | null): string {
   if (url === null || url === "about:blank" || url.length === 0) {
-    return "bb browser popup";
+    return "hyperfide browser popup";
   }
   try {
-    return `bb browser — ${new URL(url).origin}`;
+    return `hyperfide browser — ${new URL(url).origin}`;
   } catch {
-    return "bb browser popup";
+    return "hyperfide browser popup";
   }
 }
 
@@ -157,11 +157,11 @@ function guardMainFrameNavigation(
   });
 }
 
-export const HYPERFIDE_BROWSER_PARTITION = "persist:bb-browser";
+export const HYPERFIDE_BROWSER_PARTITION = "persist:hyperfide-browser";
 
 const ERR_ABORTED = -3;
 
-export interface DesktopBrowserNativeTab extends BbDesktopBrowserState {
+export interface DesktopBrowserNativeTab extends HyperfideDesktopBrowserState {
   threadId: string;
   generation: string;
   presentation: "hidden" | "reveal";
@@ -189,7 +189,7 @@ interface BrowserViewEntry {
   pendingNavigationUrl: string | null;
   faviconUrl: string | null;
   faviconUrls: string[];
-  desiredBounds: BbDesktopBrowserViewBounds;
+  desiredBounds: HyperfideDesktopBrowserViewBounds;
   popupTimestamps: number[];
   popupWindows: Set<BrowserWindow>;
   rendererRecoveryAttempts: number;
@@ -208,8 +208,8 @@ interface ColdBrowserTab {
   hostWindow: DesktopBrowserHostWindow;
   threadId: string;
   generation: string;
-  desiredBounds: BbDesktopBrowserViewBounds;
-  state: BbDesktopBrowserState;
+  desiredBounds: HyperfideDesktopBrowserViewBounds;
+  state: HyperfideDesktopBrowserState;
   faviconUrl: string | null;
   faviconUrls: string[];
   history: NavigationEntry[];
@@ -218,15 +218,15 @@ interface ColdBrowserTab {
 }
 
 export type DesktopBrowserHostWebContentsPayload =
-  | BbDesktopBrowserControlState
-  | BbDesktopBrowserRevealRequest
-  | BbDesktopBrowserState
-  | BbDesktopBrowserOpenTabRequest
-  | BbDesktopBrowserScopedOpenTabRequest
-  | BbDesktopBrowserSnapshot
-  | BbDesktopBrowserTabRef
-  | BbDesktopBrowserFindResult
-  | BbDesktopBrowserPageMessage;
+  | HyperfideDesktopBrowserControlState
+  | HyperfideDesktopBrowserRevealRequest
+  | HyperfideDesktopBrowserState
+  | HyperfideDesktopBrowserOpenTabRequest
+  | HyperfideDesktopBrowserScopedOpenTabRequest
+  | HyperfideDesktopBrowserSnapshot
+  | HyperfideDesktopBrowserTabRef
+  | HyperfideDesktopBrowserFindResult
+  | HyperfideDesktopBrowserPageMessage;
 
 export interface DesktopBrowserHostContentBounds {
   height: number;
@@ -280,7 +280,7 @@ interface HostScopedTabArgs {
 }
 
 interface CreateEntryArgs {
-  desiredBounds: BbDesktopBrowserViewBounds;
+  desiredBounds: HyperfideDesktopBrowserViewBounds;
   hostWindow: DesktopBrowserHostWindow;
   tabId: string;
   threadId: string;
@@ -292,7 +292,7 @@ interface HostWindowViewportBoundsArgs {
 }
 
 interface SetEntryDesiredBoundsArgs {
-  bounds: BbDesktopBrowserViewBounds;
+  bounds: HyperfideDesktopBrowserViewBounds;
   entry: BrowserViewEntry;
   hostWindow: DesktopBrowserHostWindow;
 }
@@ -304,7 +304,7 @@ export interface DesktopBrowserViewManager {
     tabId: string;
     threadId: string;
     url: string;
-    viewport: BbDesktopBrowserViewportBounds;
+    viewport: HyperfideDesktopBrowserViewportBounds;
   }): DesktopBrowserNativeTab;
   listTabs(args: NativeTabScope): DesktopBrowserNativeTab[];
   closeTab(args: NativeTabRef): void;
@@ -323,35 +323,35 @@ export interface DesktopBrowserViewManager {
   setAutomationControlled(webContents: WebContents, controlled: boolean): void;
   setTabLeased(ref: NativeTabRef, leased: boolean): void;
   session(): Session;
-  attach(args: HostScopedRequestArgs<BbDesktopBrowserAttachRequest>): void;
+  attach(args: HostScopedRequestArgs<HyperfideDesktopBrowserAttachRequest>): void;
   detach(args: HostScopedTabArgs): void;
   setThreadDiscarded(
-    args: HostScopedRequestArgs<BbDesktopBrowserSetThreadDiscardedRequest>,
+    args: HostScopedRequestArgs<HyperfideDesktopBrowserSetThreadDiscardedRequest>,
   ): void;
   focus(args: HostScopedTabArgs): void;
-  navigate(args: HostScopedRequestArgs<BbDesktopBrowserNavigateRequest>): void;
+  navigate(args: HostScopedRequestArgs<HyperfideDesktopBrowserNavigateRequest>): void;
   goBack(args: HostScopedTabArgs): void;
   goForward(args: HostScopedTabArgs): void;
   reload(args: HostScopedTabArgs): void;
   stop(args: HostScopedTabArgs): void;
   setBounds(
-    args: HostScopedRequestArgs<BbDesktopBrowserSetBoundsRequest>,
+    args: HostScopedRequestArgs<HyperfideDesktopBrowserSetBoundsRequest>,
   ): void;
   setVisible(
-    args: HostScopedRequestArgs<BbDesktopBrowserSetVisibleRequest>,
+    args: HostScopedRequestArgs<HyperfideDesktopBrowserSetVisibleRequest>,
   ): void;
   setVisibleWithoutFocus(
-    args: HostScopedRequestArgs<BbDesktopBrowserSetVisibleRequest>,
+    args: HostScopedRequestArgs<HyperfideDesktopBrowserSetVisibleRequest>,
   ): void;
   findInPage(
-    args: HostScopedRequestArgs<BbDesktopBrowserFindInPageRequest>,
+    args: HostScopedRequestArgs<HyperfideDesktopBrowserFindInPageRequest>,
   ): void;
   stopFindInPage(
-    args: HostScopedRequestArgs<BbDesktopBrowserStopFindInPageRequest>,
+    args: HostScopedRequestArgs<HyperfideDesktopBrowserStopFindInPageRequest>,
   ): void;
   evaluate(
-    args: HostScopedRequestArgs<BbDesktopBrowserEvaluateRequest>,
-  ): Promise<BbDesktopBrowserEvaluateResult>;
+    args: HostScopedRequestArgs<HyperfideDesktopBrowserEvaluateRequest>,
+  ): Promise<HyperfideDesktopBrowserEvaluateResult>;
   beginWindowResize(hostWindow: DesktopBrowserHostWindow): void;
   endWindowResize(hostWindow: DesktopBrowserHostWindow): void;
   prepareWindowReload(hostWindow: DesktopBrowserHostWindow): void;
@@ -368,19 +368,19 @@ function browserViewKey(
 
 const HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_MESSAGE_LENGTH = 1_000_000;
 
-const guestPageMessageSchema = bbDesktopBrowserPageMessageSchema.omit({
+const guestPageMessageSchema = hyperfideDesktopBrowserPageMessageSchema.omit({
   tabId: true,
 });
 
 export function browserPageEvaluationSource(
-  request: BbDesktopBrowserEvaluateRequest,
+  request: HyperfideDesktopBrowserEvaluateRequest,
 ): string {
   const bridge =
     request.world === "isolated"
       ? `{ postMessage: (data) => globalThis[${JSON.stringify(HYPERFIDE_DESKTOP_BROWSER_PAGE_BRIDGE_KEY)}].postMessage(${JSON.stringify(request.channel)}, data) }`
       : "null";
   return [
-    "(async (bb) => {",
+    "(async (hyperfide) => {",
     "  try {",
     `    const json = JSON.stringify(await (${request.expression}\n));`,
     "    return { ok: true, value: json === undefined ? null : JSON.parse(json) };",
@@ -404,7 +404,7 @@ function send(
 
 function hostWindowViewportBounds(
   args: HostWindowViewportBoundsArgs,
-): BbDesktopBrowserViewportBounds {
+): HyperfideDesktopBrowserViewportBounds {
   const contentBounds = args.hostWindow.getContentBounds();
   return {
     width: contentBounds.width,
@@ -417,7 +417,7 @@ function applyEntryDesiredBounds(
   hostWindow: DesktopBrowserHostWindow,
 ): void {
   entry.view.setBounds(
-    clampBbDesktopBrowserViewBounds({
+    clampHyperfideDesktopBrowserViewBounds({
       bounds: entry.desiredBounds,
       viewport: hostWindowViewportBounds({ hostWindow }),
     }),
@@ -432,7 +432,7 @@ function setEntryDesiredBounds(args: SetEntryDesiredBoundsArgs): void {
 function buildBrowserState(
   tabId: string,
   entry: BrowserViewEntry,
-): BbDesktopBrowserState {
+): HyperfideDesktopBrowserState {
   const webContents = entry.webContents;
   const url = entry.pendingNavigationUrl ?? webContents.getURL();
   const rawTitle = webContents.getTitle();
@@ -1471,7 +1471,7 @@ export function createDesktopBrowserViewManager(
     {
       hostWindow,
       request,
-    }: HostScopedRequestArgs<BbDesktopBrowserSetVisibleRequest>,
+    }: HostScopedRequestArgs<HyperfideDesktopBrowserSetVisibleRequest>,
     focusOnShow: boolean,
   ): void {
     if (request.visible) warmEntry(browserViewKey(hostWindow, request.tabId));
@@ -1751,7 +1751,7 @@ export function createDesktopBrowserViewManager(
                 [{ code: source }],
               ),
         );
-        const parsed = bbDesktopBrowserEvaluateResultSchema.safeParse(result);
+        const parsed = hyperfideDesktopBrowserEvaluateResultSchema.safeParse(result);
         return parsed.success
           ? parsed.data
           : { ok: false, error: "Browser page script returned no result" };

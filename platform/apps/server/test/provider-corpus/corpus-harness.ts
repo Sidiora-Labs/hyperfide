@@ -344,7 +344,7 @@ export function unifiedJsonDiff(
   label: string,
   maxLines = 200,
 ): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bb-corpus-diff-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperfide-corpus-diff-"));
   try {
     const expectedPath = path.join(dir, "expected.json");
     const actualPath = path.join(dir, "actual.json");

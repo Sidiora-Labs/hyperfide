@@ -5,7 +5,7 @@ import { createConnection } from "./connection.js";
 import type { CreateConnectionOptions, DbConnection } from "./connection.js";
 import { migrate } from "./migrate.js";
 
-const TEMPLATE_PATH_ENV = "BB_TEST_MIGRATED_DB_TEMPLATE";
+const TEMPLATE_PATH_ENV = "HYPERFIDE_TEST_MIGRATED_DB_TEMPLATE";
 
 let migratedTemplate: Buffer | null = null;
 
@@ -44,7 +44,7 @@ export function createMigratedConnection(
 export function setupMigratedConnectionTemplate(): () => void {
   const templatePath = join(
     tmpdir(),
-    `bb-migrated-db-template-${process.pid}.sqlite`,
+    `hyperfide-migrated-db-template-${process.pid}.sqlite`,
   );
   writeFileSync(templatePath, buildMigratedTemplate());
   process.env[TEMPLATE_PATH_ENV] = templatePath;

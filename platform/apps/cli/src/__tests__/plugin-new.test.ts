@@ -72,7 +72,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
     const program = new Command();
     program.exitOverride();
     registerPluginCommands(program, () => "http://localhost");
-    await program.parseAsync(["node", "bb", "plugin", "new", ...args]);
+    await program.parseAsync(["node", "hyperfide", "plugin", "new", ...args]);
   }
 
   async function isInstalled(
@@ -124,7 +124,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
     expect(logged).toContain("  npm install --include=dev");
   });
 
-  it("pins the scaffold to this bb's SDK version", async () => {
+  it("pins the scaffold to this hyperfide's SDK version", async () => {
     await runPluginNew(["pinned"]);
 
     const manifest: { devDependencies: Record<string, string> } = JSON.parse(
@@ -139,7 +139,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
     expect(warned).toEqual([]);
   });
 
-  it("warns, without failing, when this bb's SDK version is not on npm yet", async () => {
+  it("warns, without failing, when this hyperfide's SDK version is not on npm yet", async () => {
     vi.stubEnv("HYPERFIDE_TEST_NPM_VIEW", "missing");
 
     await runPluginNew(["unpublished"]);
@@ -149,7 +149,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
     );
     const warnings = warned.join("\n");
     expect(warnings).toContain(
-      `@hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — was not found on npm`,
+      `@hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this hyperfide's SDK version — was not found on npm`,
     );
     expect(warnings).toContain("npm pack");
   });
@@ -160,7 +160,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
     await runPluginNew(["missing-package"]);
 
     expect(warned.join("\n")).toContain(
-      `@hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — was not found on npm`,
+      `@hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this hyperfide's SDK version — was not found on npm`,
     );
   });
 

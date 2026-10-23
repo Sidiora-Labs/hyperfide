@@ -5,9 +5,9 @@
   "type": "module",
   "description": "Run a thread in a fresh git worktree on an enrolled machine",
   "engines": {
-    "bb": ">=0.0"
+    "hyperfide": ">=0.0"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Worktree",
     "description": "Run a thread in a fresh git worktree on an enrolled machine",
     "branding": {
@@ -18,7 +18,7 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

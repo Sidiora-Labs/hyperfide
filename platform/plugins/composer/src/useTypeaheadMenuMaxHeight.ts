@@ -46,7 +46,7 @@ function measureMaxHeight(menu: HTMLElement): string | null {
       shell.getBoundingClientRect().top +
       Number.parseFloat(getComputedStyle(shell).paddingTop);
     limits.push(
-      `calc(${menuBottom - shellContentTop - TYPEAHEAD_MENU_EDGE_GAP_PX}px - var(--bb-app-chrome-row-height))`,
+      `calc(${menuBottom - shellContentTop - TYPEAHEAD_MENU_EDGE_GAP_PX}px - var(--hyperfide-app-chrome-row-height))`,
     );
   }
   return limits.length === 0

@@ -2,18 +2,18 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type JsonValue,
 } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { mcpAccessProblem } from "./access.js";
 import { createCliRunner } from "./cli-runner.js";
 import { createCommandIndexLoader } from "./command-index.js";
-import { createBbMcpHttpHandler } from "./mcp-handler.js";
+import { createHyperfideMcpHttpHandler } from "./mcp-handler.js";
 
 const MCP_SERVER_VERSION = "0.1.0";
 const MCP_ROUTE_PATH = "/mcp";
-const ACCOUNT_PLUGIN_ID = "bb-account";
+const ACCOUNT_PLUGIN_ID = "hyperfide-account";
 const GRANTS_PATH = "/api/mcp/grants";
 const GRANTS_REVOKE_PATH = "/api/mcp/grants/revoke";
 
@@ -57,14 +57,14 @@ const revokeBodySchema = z.object({ revoked: z.boolean() });
 
 type Grant = z.infer<typeof grantSchema>;
 
-function localMcpUrl(bb: BbPluginApi): string {
-  return `${bb.server.loopbackBaseUrl}/api/v1/plugins/${bb.pluginId}/http${MCP_ROUTE_PATH}`;
+function localMcpUrl(hyperfide: HyperfidePluginApi): string {
+  return `${hyperfide.server.loopbackBaseUrl}/api/v1/plugins/${hyperfide.pluginId}/http${MCP_ROUTE_PATH}`;
 }
 
 function notSignedIn(): PluginCliError {
-  return new PluginCliError("This bb is not signed in to a bb account.", {
+  return new PluginCliError("This hyperfide is not signed in to a hyperfide account.", {
     code: "not_signed_in",
-    hint: "Run `bb account login`, then try again. Remote MCP access goes through bb connect.",
+    hint: "Run `hyperfide account login`, then try again. Remote MCP access goes through hyperfide-platform connect.",
   });
 }
 
@@ -76,20 +76,20 @@ function formatGrant(grant: Grant): string {
   return `${grant.id}  ${grant.clientName}  connected ${new Date(grant.createdAt).toISOString()}  ${lastUsed}`;
 }
 
-export default async function mcpPlugin(bb: BbPluginApi): Promise<void> {
+export default async function mcpPlugin(hyperfide: HyperfidePluginApi): Promise<void> {
   const runCli = createCliRunner({
     env: process.env,
-    serverUrl: () => bb.server.loopbackBaseUrl,
+    serverUrl: () => hyperfide.server.loopbackBaseUrl,
   });
-  const handler = createBbMcpHttpHandler(
+  const handler = createHyperfideMcpHttpHandler(
     { runCli, loadCommandIndex: createCommandIndexLoader(runCli) },
     MCP_SERVER_VERSION,
-    (error) => bb.log.warn(`MCP request failed: ${error.message}`),
+    (error) => hyperfide.log.warn(`MCP request failed: ${error.message}`),
   );
-  bb.onDispose(() => handler.close());
+  hyperfide.onDispose(() => handler.close());
 
   for (const method of ["POST", "GET", "DELETE"]) {
-    bb.http.route(
+    hyperfide.http.route(
       method,
       MCP_ROUTE_PATH,
       async (context) => {
@@ -107,9 +107,9 @@ export default async function mcpPlugin(bb: BbPluginApi): Promise<void> {
   }
 
   async function remoteMcpUrl(): Promise<string | null> {
-    const status = await bb.sdk.plugins.callRpc({
+    const status = await hyperfide.sdk.plugins.callRpc({
       pluginId: ACCOUNT_PLUGIN_ID,
-      method: "bb-account.v1.status",
+      method: "hyperfide-account.v1.status",
       input: {},
       outputSchema: accountStatusSchema,
     });
@@ -126,34 +126,34 @@ export default async function mcpPlugin(bb: BbPluginApi): Promise<void> {
     },
     schema: z.ZodType<T>,
   ): Promise<T> {
-    const result = await bb.sdk.plugins.callRpc({
+    const result = await hyperfide.sdk.plugins.callRpc({
       pluginId: ACCOUNT_PLUGIN_ID,
-      method: "bb-account.v1.fetch",
+      method: "hyperfide-account.v1.fetch",
       input: { target: "api", ...request },
       outputSchema: accountFetchResultSchema,
     });
     if (result.status === 401) throw notSignedIn();
     if (result.status !== 200) {
       throw new PluginCliError(
-        `The bb account service answered ${result.status}.`,
+        `The hyperfide account service answered ${result.status}.`,
         { code: "account_request_failed" },
       );
     }
     return schema.parse(result.body);
   }
 
-  bb.cli.register(
+  hyperfide.cli.register(
     defineCli({
       name: "mcp",
-      summary: "Let ChatGPT, Claude and other MCP clients control this bb",
+      summary: "Let ChatGPT, Claude and other MCP clients control this hyperfide",
       description:
-        "While this plugin is enabled, bb serves a Model Context Protocol endpoint. Remote apps sign in through your bb account and reach it at your bb connect address; apps on this machine can use the local address directly.",
+        "While this plugin is enabled, hyperfide serves a Model Context Protocol endpoint. Remote apps sign in through your Hyperfide account and reach it at your hyperfide-platform connect address; apps on this machine can use the local address directly.",
       commands: {
         status: cliCommand({
-          summary: "Show the MCP addresses for this bb",
+          summary: "Show the MCP addresses for this hyperfide",
           options: { json: JSON_OPTION },
           async run(input) {
-            const localUrl = localMcpUrl(bb);
+            const localUrl = localMcpUrl(hyperfide);
             let remoteUrl: string | null = null;
             let accountError: string | null = null;
             try {
@@ -172,16 +172,16 @@ export default async function mcpPlugin(bb: BbPluginApi): Promise<void> {
               exitCode: 0,
               stdout: [
                 remoteUrl === null
-                  ? `Remote: unavailable (${accountError ?? "sign in with `bb account login` and turn on bb connect"})`
+                  ? `Remote: unavailable (${accountError ?? "sign in with `hyperfide account login` and turn on hyperfide-platform connect"})`
                   : `Remote: ${remoteUrl}`,
                 `Local:  ${localUrl}`,
-                "Add the remote address as a custom connector in ChatGPT or Claude; you approve access on a bb account page.",
+                "Add the remote address as a custom connector in ChatGPT or Claude; you approve access on a hyperfide account page.",
               ].join("\n"),
             };
           },
         }),
         clients: cliCommand({
-          summary: "List the remote apps that can reach this bb over MCP",
+          summary: "List the remote apps that can reach this hyperfide over MCP",
           options: { json: JSON_OPTION },
           async run(input) {
             const { grants } = await accountFetch(
@@ -203,7 +203,7 @@ export default async function mcpPlugin(bb: BbPluginApi): Promise<void> {
           positionals: [
             {
               name: "grant-id",
-              description: "The id `bb mcp clients` prints",
+              description: "The id `hyperfide mcp clients` prints",
               required: true,
             },
           ],
@@ -217,7 +217,7 @@ export default async function mcpPlugin(bb: BbPluginApi): Promise<void> {
             if (!revoked) {
               throw new PluginCliError(`No connected app has id ${grantId}.`, {
                 code: "unknown_grant",
-                hint: "Run `bb mcp clients` for the ids.",
+                hint: "Run `hyperfide mcp clients` for the ids.",
               });
             }
             return {

@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import { formatBbAppConfigPath } from "@hyperfide/config/bb-app-managed-config";
+import { formatHyperfideAppConfigPath } from "@hyperfide/config/hyperfide-app-managed-config";
 import { describe, expect, it } from "vitest";
 import { getAvailableModels } from "../../helpers/api.js";
 import { waitForHostConnected } from "../../helpers/assertions.js";
@@ -12,7 +12,7 @@ describe.sequential("custom provider models integration", () => {
       await waitForHostConnected(harness.api, DEFAULT_TIMEOUT_MS);
 
       await fs.writeFile(
-        formatBbAppConfigPath(harness.server.config.dataDir),
+        formatHyperfideAppConfigPath(harness.server.config.dataDir),
         `${JSON.stringify({
           customModels: [
             {

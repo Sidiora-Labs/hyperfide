@@ -66,22 +66,22 @@ const GITHUB_PLUGIN = makePluginListItem({
   id: "github",
   source: "builtin:github",
   rootDir: "/Users/you/.hyperfide/plugins/github",
-  description: "Browse GitHub issues and pull requests in BB.",
+  description: "Browse GitHub issues and pull requests in HYPERFIDE.",
   name: "GitHub",
   icon: "Github",
   app: { hasApp: true, bundle: null },
   provenance: "catalog",
   catalogEntryId: "github",
-  publisherLabel: "BB Official",
-  sourceDisplay: "BB Official · GitHub",
+  publisherLabel: "HYPERFIDE Official",
+  sourceDisplay: "HYPERFIDE Official · GitHub",
 });
 
 const GITHUB_CATALOG_ENTRY = {
   entryId: "github",
-  marketplace: "bb-official",
+  marketplace: "hyperfide-official",
   pluginId: "github",
   displayName: "GitHub",
-  description: "Browse GitHub issues and pull requests in BB.",
+  description: "Browse GitHub issues and pull requests in HYPERFIDE.",
   icon: "Github",
   iconUrl: null,
   iconTinted: false,
@@ -90,9 +90,9 @@ const GITHUB_CATALOG_ENTRY = {
   collections: [],
   source: "builtin:github",
   repositoryUrl: null,
-  marketplaceDisplayName: "BB Official",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  marketplaceDisplayName: "HYPERFIDE Official",
+  publisherKey: "hyperfide-official",
+  publisherLabel: "HYPERFIDE Official",
   official: true,
   author: null,
   installed: false,
@@ -143,14 +143,14 @@ function renderWithQueryClient(ui: ReactNode) {
 
 afterEach(() => {
   cleanup();
-  window.localStorage.removeItem("bb.plugins.workspace.tabs");
+  window.localStorage.removeItem("hyperfide.plugins.workspace.tabs");
   resetPluginSlotStoreForTest();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 describe("PluginDetail official catalog lifecycle", () => {
-  it("offers Install from an unowned BB Official plugin detail page", () => {
+  it("offers Install from an unowned HYPERFIDE Official plugin detail page", () => {
     const onInstall = vi.fn();
     const { container } = renderWithQueryClient(
       <CatalogPluginDetail
@@ -162,10 +162,10 @@ describe("PluginDetail official catalog lifecycle", () => {
     );
 
     expect(screen.getByRole("heading", { name: "GitHub" })).toBeTruthy();
-    expect(screen.getAllByText("BB Official").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("HYPERFIDE Official").length).toBeGreaterThan(0);
     expect(screen.queryByText("Developer tools")).toBeNull();
     expect(
-      screen.getByText("Browse GitHub issues and pull requests in BB."),
+      screen.getByText("Browse GitHub issues and pull requests in HYPERFIDE."),
     ).toBeTruthy();
     expect(screen.queryByText("Capabilities")).toBeNull();
     expect(container.querySelector('[data-icon="Github"]')).not.toBeNull();
@@ -179,7 +179,7 @@ describe("PluginDetail official catalog lifecycle", () => {
       <CatalogPluginDetail
         entry={{
           ...GITHUB_CATALOG_ENTRY,
-          repositoryUrl: "https://github.com/acme/bb-github",
+          repositoryUrl: "https://github.com/acme/hyperfide-github",
         }}
         onInstall={() => {}}
         catalogEntries={[]}
@@ -188,9 +188,9 @@ describe("PluginDetail official catalog lifecycle", () => {
     );
 
     const link = screen.getByRole("link", {
-      name: /github\.com\/acme\/bb-github/u,
+      name: /github\.com\/acme\/hyperfide-github/u,
     });
-    expect(link.getAttribute("href")).toBe("https://github.com/acme/bb-github");
+    expect(link.getAttribute("href")).toBe("https://github.com/acme/hyperfide-github");
     expect(link.getAttribute("target")).toBe("_blank");
   });
 
@@ -250,7 +250,7 @@ describe("PluginDetail official catalog lifecycle", () => {
     const incompatibleEntry = {
       ...GITHUB_CATALOG_ENTRY,
       compatible: false,
-      incompatibleReason: "Requires bb 0.20 or newer.",
+      incompatibleReason: "Requires hyperfide 0.20 or newer.",
     };
     renderWithQueryClient(
       <>
@@ -269,15 +269,15 @@ describe("PluginDetail official catalog lifecycle", () => {
 
     expect(screen.queryByRole("alert")).toBeNull();
     const compatibilityStatus = screen
-      .getByText("Update bb to install this plugin")
+      .getByText("Update hyperfide to install this plugin")
       .closest("div[class*='bg-surface-recessed']");
     expect(compatibilityStatus).not.toBeNull();
     if (compatibilityStatus === null) return;
     expect(compatibilityStatus.textContent).toContain(
-      "Update bb to install this plugin",
+      "Update hyperfide to install this plugin",
     );
     expect(compatibilityStatus.textContent).toContain(
-      "Requires bb 0.20 or newer.",
+      "Requires hyperfide 0.20 or newer.",
     );
     expect(
       screen
@@ -309,7 +309,7 @@ describe("PluginDetail official catalog lifecycle", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getAllByText("BB Official").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("HYPERFIDE Official").length).toBeGreaterThan(0);
     expect(screen.queryByText("Developer tools")).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Uninstall GitHub" }),
@@ -317,7 +317,7 @@ describe("PluginDetail official catalog lifecycle", () => {
 
     expect(screen.getByRole("heading", { name: "Details" })).toBeTruthy();
     expect(
-      screen.getByText("Browse GitHub issues and pull requests in BB."),
+      screen.getByText("Browse GitHub issues and pull requests in HYPERFIDE."),
     ).toBeTruthy();
     const meta = screen.getByText("0.1.0");
     expect(
@@ -329,7 +329,7 @@ describe("PluginDetail official catalog lifecycle", () => {
     expect(
       screen.queryByRole("button", { name: /Copy plugin path/u }),
     ).toBeNull();
-    expect(screen.getByText("Updates with bb")).toBeTruthy();
+    expect(screen.getByText("Updates with hyperfide")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Check now" })).toBeNull();
 
     expect(container.querySelector('[data-icon="Github"]')).not.toBeNull();
@@ -436,7 +436,7 @@ describe("PluginDetail official catalog lifecycle", () => {
 
     expect(screen.getByText("Installed", { selector: "dt" })).toBeTruthy();
     expect(screen.getByText("Install date unavailable")).toBeTruthy();
-    expect(screen.queryByText("Updates with bb")).toBeNull();
+    expect(screen.queryByText("Updates with hyperfide")).toBeNull();
   });
 
   it("loads the install date for a local plugin", async () => {
@@ -509,7 +509,7 @@ describe("PluginDetail official catalog lifecycle", () => {
       updateState: {
         ...EMPTY_PLUGIN_UPDATE_STATE,
         blockedVersion: "2.0.0",
-        blockedReasons: ["Requires bb 0.20 or newer."],
+        blockedReasons: ["Requires hyperfide 0.20 or newer."],
       },
       expected: "Update blocked",
       actionName: null,
@@ -608,8 +608,8 @@ describe("PluginDetail official catalog lifecycle", () => {
       source: "builtin:automations",
       provenance: "builtin" as const,
       catalogEntryId: null,
-      publisherKey: "bb-official",
-      publisherLabel: "BB Official",
+      publisherKey: "hyperfide-official",
+      publisherLabel: "HYPERFIDE Official",
     };
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
     render(
@@ -631,7 +631,7 @@ describe("PluginDetail official catalog lifecycle", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getAllByText("BB Official").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("HYPERFIDE Official").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("switch", { name: "Disable Automations" }),
     ).toBeTruthy();
@@ -648,7 +648,7 @@ describe("PluginDetail official catalog lifecycle", () => {
     fireEvent.pointerMove(uninstall);
     expect(
       await screen.findAllByText(
-        "Included with BB; disable this plugin instead.",
+        "Included with HYPERFIDE; disable this plugin instead.",
       ),
     ).not.toHaveLength(0);
   });
@@ -660,8 +660,8 @@ describe("PluginDetail official catalog lifecycle", () => {
       ...GITHUB_CATALOG_ENTRY,
       entryId: "acme github",
       pluginId: "acme-github",
-      marketplace: "bb-community",
-      marketplaceDisplayName: "BB Community",
+      marketplace: "hyperfide-community",
+      marketplaceDisplayName: "HYPERFIDE Community",
       official: false,
     } satisfies PluginCatalogSearchEntry;
     renderWithQueryClient(
@@ -691,9 +691,9 @@ describe("PluginDetail official catalog lifecycle", () => {
             isLoading={false}
             plugin={{
               ...GITHUB_PLUGIN,
-              source: "github:acme/bb-github",
+              source: "github:acme/hyperfide-github",
               catalogEntryId: "acme-github",
-              catalogMarketplaceName: "bb-community",
+              catalogMarketplaceName: "hyperfide-community",
             }}
             pending={false}
             openSourceDisabled
@@ -718,7 +718,7 @@ describe("PluginDetail official catalog lifecycle", () => {
     expect(writeText).not.toHaveBeenCalled();
   });
 
-  it("offers no marketplace link for plugins outside BB Community", async () => {
+  it("offers no marketplace link for plugins outside HYPERFIDE Community", async () => {
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
     render(
       <MemoryRouter>
@@ -750,14 +750,14 @@ describe("PluginDetail official catalog lifecycle", () => {
   });
 });
 
-describe("BB Official plugin detail routing", () => {
+describe("HYPERFIDE Official plugin detail routing", () => {
   it.each([false, true])(
     "keeps official attribution and tabs through collection navigation (compact: %s)",
     async (compact) => {
       const author = {
-        name: "BB",
-        github: "get-bb",
-        url: "https://github.com/get-bb",
+        name: "HYPERFIDE",
+        github: "hyperfide",
+        url: "https://github.com/hyperfide",
       };
       const entries = [
         { ...GITHUB_CATALOG_ENTRY, author, installed: true },
@@ -784,7 +784,7 @@ describe("BB Official plugin detail routing", () => {
                     name: "GitHub",
                     source: "builtin:github",
                     provenance: "builtin",
-                    publisherLabel: "BB Official",
+                    publisherLabel: "HYPERFIDE Official",
                   }),
                 ],
               }),
@@ -818,18 +818,18 @@ describe("BB Official plugin detail routing", () => {
       expect(header).not.toBeNull();
       if (!header) throw new Error("Plugin header missing");
       const authorLink = await within(header).findByRole("link", {
-        name: "BB Official",
+        name: "HYPERFIDE Official",
       });
       expect(within(header).queryByText(/^By/u)).toBeNull();
-      expect(within(header).getAllByText("BB Official")).toHaveLength(1);
+      expect(within(header).getAllByText("HYPERFIDE Official")).toHaveLength(1);
       expect(
         within(header).getByRole("img", {
-          name: "BB Official's GitHub avatar",
+          name: "HYPERFIDE Official's GitHub avatar",
         }),
       ).toBeTruthy();
       fireEvent.click(authorLink);
       expect(
-        await screen.findByRole("heading", { name: /^BB Official/u, level: 1 }),
+        await screen.findByRole("heading", { name: /^HYPERFIDE Official/u, level: 1 }),
       ).toBeTruthy();
       if (compact) {
         await waitFor(() =>
@@ -839,7 +839,7 @@ describe("BB Official plugin detail routing", () => {
         );
         expect(
           JSON.parse(
-            window.localStorage.getItem("bb.plugins.workspace.tabs") ?? "{}",
+            window.localStorage.getItem("hyperfide.plugins.workspace.tabs") ?? "{}",
           ).tabs,
         ).toContain("github");
         fireEvent.click(
@@ -910,10 +910,10 @@ describe("BB Official plugin detail routing", () => {
       displayName: "Canvas",
       description: "Draw diagrams on a shared tldraw canvas.",
       source: "git:https://github.com/example/canvas.git@main",
-      marketplace: "bb-community",
-      marketplaceDisplayName: "BB Community",
-      publisherKey: "bb-community",
-      publisherLabel: "BB Community",
+      marketplace: "hyperfide-community",
+      marketplaceDisplayName: "HYPERFIDE Community",
+      publisherKey: "hyperfide-community",
+      publisherLabel: "HYPERFIDE Community",
       official: false,
       conflictingInstallSource: "path:/Users/you/git/canvas",
     } satisfies PluginCatalogSearchEntry;
@@ -968,7 +968,7 @@ describe("BB Official plugin detail routing", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("location").textContent).toBe(
-        "/plugins/canvas?q=canvas&listing=bb-community",
+        "/plugins/canvas?q=canvas&listing=hyperfide-community",
       );
     });
     await waitFor(() => {
@@ -996,12 +996,12 @@ describe("BB Official plugin detail routing", () => {
         "Edit .mdx files beside the chat.",
       );
     });
-    expect(screen.getByText("Also published in BB Community")).toBeTruthy();
+    expect(screen.getByText("Also published in HYPERFIDE Community")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "View listing" }));
     await waitFor(() => {
       expect(screen.getByTestId("location").textContent).toBe(
-        "/plugins/canvas?q=canvas&listing=bb-community",
+        "/plugins/canvas?q=canvas&listing=hyperfide-community",
       );
     });
   });
@@ -1009,10 +1009,10 @@ describe("BB Official plugin detail routing", () => {
   it("uses the installed catalog identity when plugin ids collide", async () => {
     const firstCatalogEntry = {
       ...GITHUB_CATALOG_ENTRY,
-      marketplace: "bb-community",
-      marketplaceDisplayName: "BB Community",
-      publisherKey: "bb-community:example",
-      publisherLabel: "BB Community",
+      marketplace: "hyperfide-community",
+      marketplaceDisplayName: "HYPERFIDE Community",
+      publisherKey: "hyperfide-community:example",
+      publisherLabel: "HYPERFIDE Community",
       description: "Description from the first catalog.",
       repositoryUrl: "https://github.com/example/first-catalog-plugin",
       author: {
@@ -1109,10 +1109,10 @@ describe("BB Official plugin detail routing", () => {
   it("uses installed metadata when its catalog entry is unavailable", async () => {
     const unrelatedCatalogEntry = {
       ...GITHUB_CATALOG_ENTRY,
-      marketplace: "bb-community",
-      marketplaceDisplayName: "BB Community",
-      publisherKey: "bb-community:example",
-      publisherLabel: "BB Community",
+      marketplace: "hyperfide-community",
+      marketplaceDisplayName: "HYPERFIDE Community",
+      publisherKey: "hyperfide-community:example",
+      publisherLabel: "HYPERFIDE Community",
       description: "Description from an unrelated catalog entry.",
       repositoryUrl: "https://github.com/example/unrelated-catalog-plugin",
       author: {
@@ -1246,9 +1246,9 @@ describe("BB Official plugin detail routing", () => {
         categoryId: "code-and-reviews",
         category: "Code & Reviews",
         author: {
-          name: "BB",
-          github: "get-bb",
-          url: "https://github.com/get-bb",
+          name: "HYPERFIDE",
+          github: "hyperfide",
+          url: "https://github.com/hyperfide",
         },
       };
       vi.stubGlobal(
@@ -1355,9 +1355,9 @@ describe("BB Official plugin detail routing", () => {
     "/plugins?view=installed",
   ])("opens installed plugin settings from %s", async (path) => {
     const author = {
-      name: "BB",
-      github: "get-bb",
-      url: "https://github.com/get-bb",
+      name: "HYPERFIDE",
+      github: "hyperfide",
+      url: "https://github.com/hyperfide",
     };
     const catalogEntries = [
       { ...GITHUB_CATALOG_ENTRY, author, installed: true },
@@ -1380,7 +1380,7 @@ describe("BB Official plugin detail routing", () => {
               plugins: [
                 {
                   ...GITHUB_PLUGIN,
-                  catalogMarketplaceName: "bb-official",
+                  catalogMarketplaceName: "hyperfide-official",
                   iconUrl: null,
                   screenshots: [],
                   collections: [],
@@ -1448,9 +1448,9 @@ describe("BB Official plugin detail routing", () => {
 
   it("opens an author from a card and returns to the prior Browse filters", async () => {
     const author = {
-      name: "BB",
-      github: "get-bb",
-      url: "https://github.com/get-bb",
+      name: "HYPERFIDE",
+      github: "hyperfide",
+      url: "https://github.com/hyperfide",
     };
     const catalogEntries = [
       {
@@ -1507,23 +1507,23 @@ describe("BB Official plugin detail routing", () => {
     );
 
     fireEvent.click(
-      (await screen.findAllByRole("link", { name: "BB Official" }))[0]!,
+      (await screen.findAllByRole("link", { name: "HYPERFIDE Official" }))[0]!,
     );
-    expect(await screen.findByRole("heading", { name: /^BB/u })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: /^HYPERFIDE/u })).toBeTruthy();
     expect(screen.getByTestId("location").textContent).toBe(
-      "/plugins?category=code-and-reviews&sort=recently-added&author=11%3Abb-official%3Agithub%3Aget-bb",
+      "/plugins?category=code-and-reviews&sort=recently-added&author=18%3Ahyperfide-official%3Agithub%3Ahyperfide",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Browser back" }));
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: /^BB/u })).toBeNull();
+      expect(screen.queryByRole("heading", { name: /^HYPERFIDE/u })).toBeNull();
     });
     expect(screen.getByTestId("location").textContent).toBe(
       "/plugins?category=code-and-reviews&sort=recently-added",
     );
 
     fireEvent.click(
-      (await screen.findAllByRole("link", { name: "BB Official" }))[0]!,
+      (await screen.findAllByRole("link", { name: "HYPERFIDE Official" }))[0]!,
     );
     const card = await screen.findByRole("button", {
       name: "Open GitHub details",
@@ -1539,9 +1539,9 @@ describe("BB Official plugin detail routing", () => {
 
   it("routes the detail author link to the restored author page", async () => {
     const author = {
-      name: "BB",
-      github: "get-bb",
-      url: "https://github.com/get-bb",
+      name: "HYPERFIDE",
+      github: "hyperfide",
+      url: "https://github.com/hyperfide",
     };
     const catalogEntries = [
       { ...GITHUB_CATALOG_ENTRY, author },
@@ -1588,14 +1588,14 @@ describe("BB Official plugin detail routing", () => {
     expect(
       await screen.findByRole("heading", { name: "More from this author" }),
     ).toBeTruthy();
-    const authorLinks = screen.getAllByRole("link", { name: "BB Official" });
+    const authorLinks = screen.getAllByRole("link", { name: "HYPERFIDE Official" });
     fireEvent.click(authorLinks.at(-1)!);
     await waitFor(() => {
       expect(screen.getByTestId("location").textContent).toBe(
-        "/plugins?author=11%3Abb-official%3Agithub%3Aget-bb",
+        "/plugins?author=18%3Ahyperfide-official%3Agithub%3Ahyperfide",
       );
     });
-    expect(await screen.findByRole("heading", { name: /^BB/u })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: /^HYPERFIDE/u })).toBeTruthy();
   });
 });
 
@@ -1612,7 +1612,7 @@ describe("plugin removal confirmation", () => {
       sourceDisplay: "path · /Users/you/src/hyperfide-plugin-github",
       updateState: {},
       enabled: true,
-      description: "Browse GitHub issues and pull requests in BB.",
+      description: "Browse GitHub issues and pull requests in HYPERFIDE.",
       name: "GitHub",
       icon: "Github",
       iconUrl: null,
@@ -1666,13 +1666,13 @@ describe("plugin removal confirmation", () => {
       screen.getByRole("button", { name: "GitHub actions" }),
     );
     fireEvent.click(
-      await screen.findByRole("menuitem", { name: "Remove from bb" }),
+      await screen.findByRole("menuitem", { name: "Remove from hyperfide" }),
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Remove plugin from bb?" }),
+      await screen.findByRole("heading", { name: "Remove plugin from hyperfide?" }),
     ).toBeTruthy();
-    const description = screen.getByText(/Remove "github" from bb/);
+    const description = screen.getByText(/Remove "github" from hyperfide/);
     expect(description.textContent).toContain(
       "delete its settings, secrets, and schedules",
     );
@@ -1701,7 +1701,7 @@ describe("PluginDetail banner precedence", () => {
       ...EMPTY_PLUGIN_UPDATE_STATE,
       availableVersion: "1.5.0",
       blockedVersion: "2.0.0",
-      blockedReasons: ["Requires a newer bb."],
+      blockedReasons: ["Requires a newer hyperfide."],
       lastFailure: {
         version: "1.4.5",
         at: null,
@@ -1801,8 +1801,8 @@ describe("PluginDetail runtime health", () => {
       source: "builtin:github",
       provenance: "builtin" as const,
       catalogEntryId: null,
-      publisherKey: "bb-official",
-      publisherLabel: "BB Official",
+      publisherKey: "hyperfide-official",
+      publisherLabel: "HYPERFIDE Official",
       status,
       statusDetail: "The runtime reported a problem.",
       ...overrides,
@@ -1878,13 +1878,13 @@ describe("PluginDetail runtime health", () => {
     expect(alertText).toContain("Wait, then reload.");
     expect(alertText).not.toContain("issue-sync");
     expect(alertText).not.toContain("handler");
-    expect(alertText).not.toContain("Restart bb");
+    expect(alertText).not.toContain("Restart Hyperfide");
     expect(screen.getByRole("button", { name: "Reload" })).toBeTruthy();
   });
 
   it.each([
-    ["incompatible", "This version is incompatible with bb.", "Update bb."],
-    ["missing", "Plugin files are missing.", "Update or reinstall bb."],
+    ["incompatible", "This version is incompatible with hyperfide.", "Update hyperfide."],
+    ["missing", "Plugin files are missing.", "Update or reinstall hyperfide."],
   ] as const)(
     "explains the %s condition and a supported recovery without offering Reload",
     (status, condition, recovery) => {
@@ -2509,7 +2509,7 @@ describe("plugin detail source and settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "GitHub settings" }));
     expect(await screen.findByLabelText("Repository")).toHaveProperty(
       "value",
-      "get-bb/bb",
+      "hyperfide/hyperfide",
     );
     expect(screen.getByTestId("location").textContent).toBe(
       "/plugins/github?view=installed&configure=github",
@@ -2526,7 +2526,7 @@ describe("plugin detail source and settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Browser back" }));
     expect(await screen.findByLabelText("Repository")).toHaveProperty(
       "value",
-      "get-bb/bb",
+      "hyperfide/hyperfide",
     );
   });
 
@@ -2555,7 +2555,7 @@ describe("plugin detail source and settings", () => {
           return Response.json({
             ok: true,
             schema: { repository: { type: "string", label: "Repository" } },
-            values: { repository: "get-bb/bb" },
+            values: { repository: "hyperfide/hyperfide" },
           });
         }
         return Response.json({ error: "not found" }, { status: 404 });
@@ -2600,7 +2600,7 @@ describe("plugin detail source and settings", () => {
 
     expect(await screen.findByLabelText("Repository")).toHaveProperty(
       "value",
-      "get-bb/bb",
+      "hyperfide/hyperfide",
     );
     expect(screen.getByTestId("location").textContent).toBe(
       "/plugins/github?view=installed&configure=github",
@@ -2626,7 +2626,7 @@ describe("plugin detail source and settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "GitHub settings" }));
     expect(await screen.findByLabelText("Repository")).toHaveProperty(
       "value",
-      "get-bb/bb",
+      "hyperfide/hyperfide",
     );
     expect(screen.getByTestId("location").textContent).toBe(
       "/threads/thr_1?panel=files",

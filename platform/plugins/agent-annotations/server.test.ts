@@ -24,10 +24,10 @@ const record: AnnotationRecord = {
 };
 
 async function setup() {
-  const { bb, harness } = createFakePluginHost({
+  const { hyperfide, harness } = createFakePluginHost({
     pluginId: "agent-annotations",
   });
-  await plugin(bb);
+  await plugin(hyperfide);
   const provider = harness.registrations.mentionProviders.find(
     (candidate) => candidate.id === "annotation",
   );

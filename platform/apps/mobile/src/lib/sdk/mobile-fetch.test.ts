@@ -6,7 +6,7 @@ import { createMobileFetch, type ServerMovedResponse } from "./mobile-fetch";
 
 const MOVED_BODY = {
   code: "server_moved",
-  message: "This bb server moved to studio",
+  message: "This hyperfide-platform server moved to studio",
   details: {
     serverUrl: "https://studio.tailnet.ts.net/",
     toHostName: "studio",

@@ -269,7 +269,7 @@ export function MachineEnvironmentSettingsContent({
   return (
     <SettingsSection
       title="Environment variables"
-      description="Global variables are available to BB-managed processes on every connected machine. Project variables override them for work in that project."
+      description="Global variables are available to HYPERFIDE-managed processes on every connected machine. Project variables override them for work in that project."
       bodyClassName="space-y-8"
     >
       <div className="space-y-5">

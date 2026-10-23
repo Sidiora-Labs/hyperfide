@@ -99,7 +99,7 @@ describe("file content routes", () => {
   it("streams thread storage with ranges and sandboxed HTML", async () => {
     await withTestHarness(async (harness) => {
       const { host, session, thread } = seedThreadFixture(harness);
-      const storageRoot = `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`;
+      const storageRoot = `/tmp/hyperfide-host-data/${host.id}/thread-storage/${thread.id}`;
       const commands = serveFiles(harness, {
         hostId: host.id,
         sessionId: session.id,
@@ -195,7 +195,7 @@ describe("file content routes", () => {
   it("serves HTML larger than the preview render limit as sandboxed bytes", async () => {
     await withTestHarness(async (harness) => {
       const { host, session, thread } = seedThreadFixture(harness);
-      const storageRoot = `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`;
+      const storageRoot = `/tmp/hyperfide-host-data/${host.id}/thread-storage/${thread.id}`;
       const html = Buffer.alloc(6 * 1024 * 1024, "a");
       serveFiles(harness, {
         hostId: host.id,

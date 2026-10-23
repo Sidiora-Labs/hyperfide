@@ -16,7 +16,7 @@ import { buildPluginServer } from "./build-plugin-server.js";
 import { resolvePluginBuildToolchain } from "./toolchain.js";
 
 function testToolchain() {
-  return resolvePluginBuildToolchain(join(tmpdir(), "bb-toolchain-unused"));
+  return resolvePluginBuildToolchain(join(tmpdir(), "hyperfide-toolchain-unused"));
 }
 
 describe("plugin server build", () => {
@@ -39,7 +39,7 @@ describe("plugin server build", () => {
       JSON.stringify({
         name: "hyperfide-plugin-legacy-sdk-fixture",
         version: "0.0.0",
-        bb: {
+        hyperfide: {
           name: "Legacy SDK fixture",
           description: "Verifies the pre-rename SDK specifier stays external.",
           branding: { icon: "Zap" },
@@ -50,11 +50,11 @@ describe("plugin server build", () => {
     await writeFile(
       join(dir, "server.ts"),
       [
-        'import type { BbPluginApi } from "@hyperfide/plugin-sdk";',
+        'import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";',
         'import { defineRpcContract } from "@hyperfide/plugin-sdk";',
-        "export default function plugin(bb: BbPluginApi) {",
+        "export default function plugin(hyperfide: HyperfidePluginApi) {",
         "  void defineRpcContract;",
-        "  void bb;",
+        "  void hyperfide;",
         "}",
         "",
       ].join("\n"),
@@ -74,7 +74,7 @@ describe("plugin server build", () => {
     const manifest = {
       name: "hyperfide-plugin-zod-host",
       version: "0.0.0",
-      bb: {
+      hyperfide: {
         name: "Zod host fixture",
         description: "Server entry importing zod and zod/mini.",
         branding: { icon: "Zap" },
@@ -136,7 +136,7 @@ describe("plugin server build", () => {
         JSON.stringify({
           name: "hyperfide-plugin-runtime-resolution",
           version: "0.0.0",
-          bb: {
+          hyperfide: {
             name: "Runtime resolution",
             description: "Exercises runtime dependency resolution.",
             branding: { icon: "Zap" },
@@ -233,7 +233,7 @@ export default () => [z.string().parse("full"), mini.string().parse("mini")];
       JSON.stringify({
         name: "hyperfide-plugin-runtime-fixture",
         version: "1.0.0",
-        bb: {
+        hyperfide: {
           name: "Runtime fixture",
           description: "Uses runtime branding validation.",
           branding: { logo: { light: "./logo.svg" } },
@@ -274,7 +274,7 @@ export default () => [z.string().parse("full"), mini.string().parse("mini")];
         name: "hyperfide-plugin-commonjs-fixture",
         version: "1.0.0",
         type: "commonjs",
-        bb: {
+        hyperfide: {
           name: "CommonJS fixture",
           description: "Builds an ESM server inside a CommonJS package.",
           branding: { icon: "Zap" },
@@ -548,8 +548,8 @@ export default () => ({
     const manifest = {
       name: "hyperfide-plugin-server-subpath-fixture",
       version: "1.0.0",
-      engines: { bb: ">=0.0" },
-      bb: {
+      engines: { hyperfide: ">=0.0" },
+      hyperfide: {
         name: "Server subpath fixture",
         description: "Imports a host contract from the SDK in server code.",
         branding: { icon: "Cpu" },
@@ -557,11 +557,11 @@ export default () => ({
       },
     };
     const serverSource = [
-      'import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";',
+      'import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";',
       'import { experimental_nativeRootsHostContract } from "@hyperfide/plugin-sdk/host";',
       "export const contract = defineRpcContract(experimental_nativeRootsHostContract);",
-      "export default function plugin(bb: BbPluginApi) {",
-      "  void bb;",
+      "export default function plugin(hyperfide: HyperfidePluginApi) {",
+      "  void hyperfide;",
       "}",
       "",
     ].join("\n");
@@ -603,7 +603,7 @@ export default () => ({
       await expect(
         buildPluginServer(dir, "0.0.0-test", await testToolchain()),
       ).rejects.toThrow(
-        '"@hyperfide/plugin-sdk/host" is not installed for this plugin (no node_modules/@hyperfide/plugin-sdk); a server entry\'s "@hyperfide/plugin-sdk/host" import is bundled from the plugin\'s own SDK install (bb serves only the bare "@hyperfide/plugin-sdk" at load time), so the plugin needs the SDK as a dependency',
+        '"@hyperfide/plugin-sdk/host" is not installed for this plugin (no node_modules/@hyperfide/plugin-sdk); a server entry\'s "@hyperfide/plugin-sdk/host" import is bundled from the plugin\'s own SDK install (hyperfide serves only the bare "@hyperfide/plugin-sdk" at load time), so the plugin needs the SDK as a dependency',
       );
     });
 

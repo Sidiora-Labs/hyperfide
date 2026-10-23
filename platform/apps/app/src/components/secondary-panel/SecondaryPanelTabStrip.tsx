@@ -48,7 +48,7 @@ import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   MACOS_APP_REGION_NO_DRAG_CLASS,
   MACOS_WINDOW_NO_DRAG_CLASS,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import {
   PANEL_TAB_DRAG_DISTANCE_PX,
   type SecondaryPanelRenderableTab,

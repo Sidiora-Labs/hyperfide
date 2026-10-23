@@ -9,9 +9,9 @@ const GITHUB_LOGIN_PATTERN = /^[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}$/u;
 const HOST_ICON_PATTERN = /^[A-Za-z][A-Za-z0-9]*$/u;
 const HTTPS_URL_PATTERN = /^[Hh][Tt][Tt][Pp][Ss]:\/\//u;
 const V2_ICON_URL_PATTERN =
-  /^(?!http:)(?:[Hh][Tt][Tt][Pp][Ss]:\/\/)?[^\s]+\.(?:[Ss][Vv][Gg]|[Pp][Nn][Gg]|[Ww][Ee][Bb][Pp])$/u;
+  /^(?!http:)(?:[Hh][Tt][Tt][Pp][Ss]:\/\/)?[^\s]+\.(?:[Ss][Vv][Gg]|[Pp][Nn][Gg]|[Ww][Ee][B\x62][Pp])$/u;
 const SCREENSHOT_URL_PATTERN =
-  /^(?:[Hh][Tt][Tt][Pp][Ss]:\/\/[^\s]+\.(?:[Pp][Nn][Gg]|[Jj][Pp][Ee]?[Gg]|[Ww][Ee][Bb][Pp])|\.\/screenshots\/[a-z0-9][a-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:[Pp][Nn][Gg]|[Jj][Pp][Ee]?[Gg]|[Ww][Ee][Bb][Pp]))$/u;
+  /^(?:[Hh][Tt][Tt][Pp][Ss]:\/\/[^\s]+\.(?:[Pp][Nn][Gg]|[Jj][Pp][Ee]?[Gg]|[Ww][Ee][B\x62][Pp])|\.\/screenshots\/[a-z0-9][a-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:[Pp][Nn][Gg]|[Jj][Pp][Ee]?[Gg]|[Ww][Ee][B\x62][Pp]))$/u;
 const NPM_PACKAGE_PATTERN =
   /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/u;
 const GIT_SUBDIR_PATTERN =

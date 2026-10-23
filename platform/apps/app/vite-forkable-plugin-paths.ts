@@ -50,7 +50,7 @@ export function forkablePluginPaths(appSourceDir: string): Plugin {
   const plugins = readForkablePluginPaths();
   const appSourcePrefix = `${normalizePath(appSourceDir)}/`;
   return {
-    name: "bb:forkable-plugin-paths",
+    name: "hyperfide:forkable-plugin-paths",
     enforce: "pre",
     resolveId(source, importer, options) {
       if (importer === undefined) return null;

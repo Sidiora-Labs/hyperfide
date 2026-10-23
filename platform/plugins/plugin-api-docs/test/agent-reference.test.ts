@@ -52,7 +52,7 @@ describe("Plugin Guide agent references", () => {
     expect(context).toContain("Newer server codes become unknown_error");
   });
 
-  it("serializes one surface as bb's existing structured composer pill", () => {
+  it("serializes one surface as hyperfide's existing structured composer pill", () => {
     const surface = SURFACES_BY_ID.get("composer-actions");
     if (!surface) throw new Error("composer-actions surface missing");
 

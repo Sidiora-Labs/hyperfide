@@ -26,10 +26,10 @@ import {
 
 const MANIFEST_INPUT: ServerArchiveManifestInput = {
   createdAt: Date.UTC(2026, 8, 15, 12, 0, 0),
-  bbVersion: "0.43.1",
+  hyperfideVersion: "0.43.1",
   protocolVersion: 209,
   migrationCount: 142,
-  sourceDataDir: "/home/old/.bb",
+  sourceDataDir: "/home/old/.hyperfide",
   sourceServerHostId: "host-old",
   serverMoveExperiment: true,
 };
@@ -44,10 +44,10 @@ async function createSourceTree(): Promise<SourceTree> {
   const root = await makeTempDir();
   const longSegment = "a-very-long-directory-name-that-forces-pax-headers";
   const sources: Array<{ archivePath: string; body: Buffer; mode: number }> = [
-    { archivePath: "bb.db", body: randomBytes(300 * 1024), mode: 0o644 },
+    { archivePath: "hyperfide.db", body: randomBytes(300 * 1024), mode: 0o644 },
     {
       archivePath: "config.json",
-      body: Buffer.from(JSON.stringify({ config: { BB_LOG_LEVEL: "debug" } })),
+      body: Buffer.from(JSON.stringify({ config: { HYPERFIDE_LOG_LEVEL: "debug" } })),
       mode: 0o600,
     },
     { archivePath: "telemetry-id", body: Buffer.alloc(0), mode: 0o644 },
@@ -167,7 +167,7 @@ function craftArchive(entries: CraftedEntry[]): Buffer {
 function craftedManifest(files: Array<{ path: string; body: Buffer }>): Buffer {
   return Buffer.from(
     JSON.stringify({
-      format: "bb-server-archive",
+      format: "hyperfide-server-archive",
       version: SERVER_ARCHIVE_VERSION,
       ...MANIFEST_INPUT,
       entries: files.map((file) => ({
@@ -256,7 +256,7 @@ describe("writeServerArchive and extractServerArchive", () => {
     const sourcePath = tree.files[0]?.sourcePath ?? "";
 
     await expectArchiveError(
-      write([{ sourcePath: linkPath, archivePath: "bb.db" }]),
+      write([{ sourcePath: linkPath, archivePath: "hyperfide.db" }]),
       ["unsafe_entry"],
     );
     for (const archivePath of [
@@ -266,7 +266,7 @@ describe("writeServerArchive and extractServerArchive", () => {
       "attachments//b",
       "attachments\\b",
       "auth.json",
-      "systemd/bb-host-daemon.service",
+      "systemd/hyperfide-host-daemon.service",
       "plugins/docs/host-data/vault.md",
     ]) {
       await expectArchiveError(write([{ sourcePath, archivePath }]), [
@@ -326,13 +326,13 @@ describe("writeServerArchive and extractServerArchive", () => {
 });
 
 describe("archive format sniffing", () => {
-  it("tells the user to re-export an archive encrypted by an older bb", async () => {
+  it("tells the user to re-export an archive encrypted by an older hyperfide", async () => {
     const root = await makeTempDir();
-    const archivePath = path.join(root, "old-export.bbsa");
+    const archivePath = path.join(root, "old-export.hyperfide-archive");
     await writeFile(
       archivePath,
       Buffer.concat([
-        Buffer.from("BBSA", "ascii"),
+        Buffer.from("HFSA", "ascii"),
         Buffer.from([0x01, 0x00, 0x00, 0x00, 0x02]),
         Buffer.from("{}"),
         randomBytes(128),
@@ -346,17 +346,17 @@ describe("archive format sniffing", () => {
     );
 
     expect(error.message).toBe(
-      "This export was encrypted by an older bb; re-export it with bb server export",
+      "This export was encrypted by an older hyperfide; re-export it with hyperfide-platform server export",
     );
     await expect(readdir(destinationDir)).rejects.toThrow(/ENOENT/u);
   });
 
-  it("says a file that is neither gzip nor an old encrypted archive is not a bb server archive", async () => {
+  it("says a file that is neither gzip nor an old encrypted archive is not a hyperfide-platform server archive", async () => {
     const root = await makeTempDir();
     for (const [name, bytes] of [
       ["junk.bin", Buffer.from("not an archive at all")],
       ["empty.bin", Buffer.alloc(0)],
-      ["short.bin", Buffer.from("BB")],
+      ["short.bin", Buffer.from("HYPERFIDE")],
     ] as const) {
       const archivePath = path.join(root, name);
       await writeFile(archivePath, bytes);
@@ -367,7 +367,7 @@ describe("archive format sniffing", () => {
         ["corrupt"],
       );
 
-      expect(error.message).toBe("File is not a bb server archive");
+      expect(error.message).toBe("File is not a hyperfide-platform server archive");
       await expect(readdir(destinationDir)).rejects.toThrow(/ENOENT/u);
     }
   });
@@ -380,9 +380,9 @@ describe("extracting crafted archives", () => {
     const { result, destinationDir } = await extractCrafted([
       {
         path: "manifest.json",
-        body: craftedManifest([{ path: "bb.db", body }]),
+        body: craftedManifest([{ path: "hyperfide.db", body }]),
       },
-      { path: "files/bb.db", body: Buffer.from("SERVER DATA") },
+      { path: "files/hyperfide.db", body: Buffer.from("SERVER DATA") },
     ]);
     await expectArchiveError(result, ["digest_mismatch"]);
     expect(await readdir(destinationDir)).toEqual([]);
@@ -392,9 +392,9 @@ describe("extracting crafted archives", () => {
     const { result, destinationDir } = await extractCrafted([
       {
         path: "manifest.json",
-        body: craftedManifest([{ path: "bb.db", body }]),
+        body: craftedManifest([{ path: "hyperfide.db", body }]),
       },
-      { path: "files/bb.db", body: Buffer.alloc(4 * 1024 * 1024) },
+      { path: "files/hyperfide.db", body: Buffer.alloc(4 * 1024 * 1024) },
     ]);
     const error = await expectArchiveError(result, ["digest_mismatch"]);
     expect(error.message).toMatch(/manifest lists 11/u);
@@ -403,7 +403,7 @@ describe("extracting crafted archives", () => {
 
   it.each([
     ["a parent-directory path", "files/../../escape"],
-    ["an absolute path", "/tmp/bb-server-archive-escape"],
+    ["an absolute path", "/tmp/hyperfide-server-archive-escape"],
     ["a path outside files/", "escape"],
   ])(
     "rejects %s without writing outside the destination",
@@ -445,9 +445,9 @@ describe("extracting crafted archives", () => {
     const extra = await extractCrafted([
       {
         path: "manifest.json",
-        body: craftedManifest([{ path: "bb.db", body }]),
+        body: craftedManifest([{ path: "hyperfide.db", body }]),
       },
-      { path: "files/bb.db", body },
+      { path: "files/hyperfide.db", body },
       { path: "files/extra", body },
     ]);
     await expectArchiveError(extra.result, ["unsafe_entry"]);
@@ -455,10 +455,10 @@ describe("extracting crafted archives", () => {
     const duplicate = await extractCrafted([
       {
         path: "manifest.json",
-        body: craftedManifest([{ path: "bb.db", body }]),
+        body: craftedManifest([{ path: "hyperfide.db", body }]),
       },
-      { path: "files/bb.db", body },
-      { path: "files/bb.db", body },
+      { path: "files/hyperfide.db", body },
+      { path: "files/hyperfide.db", body },
     ]);
     await expectArchiveError(duplicate.result, ["unsafe_entry"]);
 
@@ -466,11 +466,11 @@ describe("extracting crafted archives", () => {
       {
         path: "manifest.json",
         body: craftedManifest([
-          { path: "bb.db", body },
+          { path: "hyperfide.db", body },
           { path: "env.json", body },
         ]),
       },
-      { path: "files/bb.db", body },
+      { path: "files/hyperfide.db", body },
     ]);
     await expectArchiveError(missing.result, ["corrupt"]);
   });
@@ -482,10 +482,10 @@ describe("extracting crafted archives", () => {
     await expectArchiveError(misplacedManifest.result, ["corrupt"]);
 
     const notFirst = await extractCrafted([
-      { path: "files/bb.db", body },
+      { path: "files/hyperfide.db", body },
       {
         path: "manifest.json",
-        body: craftedManifest([{ path: "bb.db", body }]),
+        body: craftedManifest([{ path: "hyperfide.db", body }]),
       },
     ]);
     await expectArchiveError(notFirst.result, ["corrupt"]);
@@ -493,7 +493,7 @@ describe("extracting crafted archives", () => {
     const traversingManifest = await extractCrafted([
       {
         path: "manifest.json",
-        body: craftedManifest([{ path: "../bb.db", body }]),
+        body: craftedManifest([{ path: "../hyperfide.db", body }]),
       },
     ]);
     await expectArchiveError(traversingManifest.result, ["corrupt"]);
@@ -503,7 +503,7 @@ describe("extracting crafted archives", () => {
         path: "manifest.json",
         body: Buffer.from(
           JSON.stringify({
-            format: "bb-server-archive",
+            format: "hyperfide-server-archive",
             version: SERVER_ARCHIVE_VERSION + 1,
           }),
         ),
@@ -512,30 +512,30 @@ describe("extracting crafted archives", () => {
     await expectArchiveError(futureManifest.result, ["unsupported_version"]);
   });
 
-  it("reports an archive from a bb that didn't record the serverMove experiment as an unsupported version", async () => {
+  it("reports an archive from a hyperfide that didn't record the serverMove experiment as an unsupported version", async () => {
     const olderManifest = Buffer.from(
       JSON.stringify({
-        format: "bb-server-archive",
+        format: "hyperfide-server-archive",
         version: 1,
         createdAt: MANIFEST_INPUT.createdAt,
-        bbVersion: MANIFEST_INPUT.bbVersion,
+        hyperfideVersion: MANIFEST_INPUT.hyperfideVersion,
         protocolVersion: MANIFEST_INPUT.protocolVersion,
         migrationCount: MANIFEST_INPUT.migrationCount,
         sourceDataDir: MANIFEST_INPUT.sourceDataDir,
         sourceServerHostId: MANIFEST_INPUT.sourceServerHostId,
-        entries: [{ path: "bb.db", size: body.length, sha256: sha256(body) }],
+        entries: [{ path: "hyperfide.db", size: body.length, sha256: sha256(body) }],
       }),
     );
     const older = await extractCrafted([
       { path: "manifest.json", body: olderManifest },
-      { path: "files/bb.db", body },
+      { path: "files/hyperfide.db", body },
     ]);
 
     const error = await expectArchiveError(older.result, [
       "unsupported_version",
     ]);
 
-    expect(error.message).toBe("Unsupported bb server archive version 1");
+    expect(error.message).toBe("Unsupported hyperfide-platform server archive version 1");
     expect(await readdir(older.destinationDir)).toEqual([]);
   });
 });

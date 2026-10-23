@@ -22,9 +22,9 @@ const CONNECTED_HOST = makeHost({
   status: "connected",
 });
 const WINDOWS_ENROLLMENT_COMMAND =
-  "irm -Headers @{ 'X-BB-Enrollment' = 'bbde_TZpKWsJpWiPulVIRKNENmEVtvNwnEwDobjPFlnlsyCUUzorssgdxmgxUblRIWAUA' } 'https://bb.example.com/install.ps1' | iex";
+  "irm -Headers @{ 'X-HYPERFIDE-Enrollment' = 'hyperfide_de_TZpKWsJpWiPulVIRKNENmEVtvNwnEwDobjPFlnlsyCUUzorssgdxmgxUblRIWAUA' } 'https://hyperfide.example.com/install.ps1' | iex";
 const ENROLLMENT_COMMAND =
-  "curl -fsSL -H 'X-BB-Enrollment: bbde_TZpKWsJpWiPulVIRKNENmEVtvNwnEwDobjPFlnlsyCUUzorssgdxmgxUblRIWAUA' 'https://bb.example.com/install.sh' | sh";
+  "curl -fsSL -H 'X-HYPERFIDE-Enrollment: hyperfide_de_TZpKWsJpWiPulVIRKNENmEVtvNwnEwDobjPFlnlsyCUUzorssgdxmgxUblRIWAUA' 'https://hyperfide.example.com/install.sh' | sh";
 
 export function AccessGate() {
   return (
@@ -40,7 +40,7 @@ export function AccessGate() {
         </DialogStage>
       </StoryRow>
       <StoryRow
-        label="bb connect unpaired"
+        label="hyperfide-platform connect unpaired"
         hint="default provider is setup-required — the primary action leaves for plugin settings"
       >
         <DialogStage>
@@ -52,7 +52,7 @@ export function AccessGate() {
         </DialogStage>
       </StoryRow>
       <StoryRow
-        label="bb connect unavailable"
+        label="hyperfide-platform connect unavailable"
         hint="paired once, now refused — a status line appears because there is a verdict to report"
       >
         <DialogStage>
@@ -216,7 +216,7 @@ export function EnrollmentCommandState() {
         <DialogStage>
           <ManualMachineSetupView
             command={null}
-            errorMessage="The gate rejected this bb's credential (HTTP 401)"
+            errorMessage="The gate rejected this hyperfide's credential (HTTP 401)"
             onRetry={noop}
             onRegenerate={noop}
             connectedHost={null}

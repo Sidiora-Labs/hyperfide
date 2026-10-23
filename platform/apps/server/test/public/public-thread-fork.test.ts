@@ -1620,7 +1620,7 @@ describe("fork branch point and inherited history", () => {
       expect(await readJson(tip)).toMatchObject({
         code: "fork_source_session_unavailable",
         message:
-          "Cannot fork: another thread announced the source thread's provider session at the same moment, so bb cannot tell whose it is",
+          "Cannot fork: another thread announced the source thread's provider session at the same moment, so hyperfide cannot tell whose it is",
       });
       expect(listQueuedCommands(harness, "thread.start")).toHaveLength(0);
     });

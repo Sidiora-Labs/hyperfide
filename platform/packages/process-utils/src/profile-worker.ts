@@ -85,7 +85,7 @@ async function runProfileWorker(): Promise<void> {
     session.connectToMainThread();
     await session.post("Profiler.enable");
     await session.post("Profiler.setSamplingInterval", { interval: 1_000 });
-    title = `bb-performance-${randomUUID()}`;
+    title = `hyperfide-performance-${randomUUID()}`;
     await begin(title);
     startedAt = new Date().toISOString();
     respond(
@@ -102,7 +102,7 @@ async function runProfileWorker(): Promise<void> {
   };
   const capture = async (restart: boolean, stalls: StallWindowBatch) => {
     const beginning = startedAt;
-    const nextTitle = `bb-performance-${randomUUID()}`;
+    const nextTitle = `hyperfide-performance-${randomUUID()}`;
     if (restart) {
       await begin(nextTitle);
       startedAt = new Date().toISOString();

@@ -11,7 +11,7 @@ const roots: string[] = [];
 const largeTreeTimeoutMs = process.platform === "win32" ? 240_000 : 60_000;
 
 async function createRoot() {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bb-workspace-paths-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-workspace-paths-"));
   roots.push(root);
   return root;
 }

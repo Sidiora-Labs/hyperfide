@@ -68,7 +68,7 @@ PROVIDER_SETUP_REQUIRED.providers[0]!.availability = {
 const PROVIDER_READY = access();
 PROVIDER_READY.providers[0]!.availability = {
   status: "available",
-  serverUrl: "https://bb.example.com",
+  serverUrl: "https://hyperfide.example.com",
 };
 const PROVIDER_READY_WITHOUT_URL = access();
 const PROVIDER_UNAVAILABLE = access();
@@ -79,7 +79,7 @@ PROVIDER_UNAVAILABLE.providers[0]!.availability = {
 const DIRECT_WITH_URL = {
   ...PROVIDER_SETUP_REQUIRED,
   defaultProviderId: "direct",
-  effectiveUrl: "https://bb.example.com",
+  effectiveUrl: "https://hyperfide.example.com",
   urlSource: "setting" as const,
 };
 const METHOD_NOT_INSTALLED = {
@@ -156,7 +156,7 @@ export function Section() {
       >
         <MachineAccessSettingsContent
           machineAccess={machineAccessState(DIRECT_WITH_URL, {
-            draft: "https://bb.example.com/",
+            draft: "https://hyperfide.example.com/",
             disabled: true,
             saving: true,
           })}

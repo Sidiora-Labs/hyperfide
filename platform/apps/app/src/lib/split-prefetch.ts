@@ -1,7 +1,7 @@
 const requested = new Set<string>();
 
 async function downloadSplitAssets(id: string): Promise<void> {
-  const data = document.getElementById(`bb-prefetch-${id}`)?.textContent;
+  const data = document.getElementById(`hyperfide-prefetch-${id}`)?.textContent;
   if (!data) return;
   const urls: unknown = JSON.parse(data);
   if (!Array.isArray(urls) || !urls.every((url) => typeof url === "string"))

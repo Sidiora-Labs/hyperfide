@@ -42,8 +42,8 @@ const useThreadDetailBootstrapMock = vi.hoisted(() =>
   ),
 );
 
-const SIDEBAR_WIDTH_STORAGE_KEY = "bb.sidebar.width";
-const SIDEBAR_OPEN_STORAGE_KEY = "bb.sidebar.open";
+const SIDEBAR_WIDTH_STORAGE_KEY = "hyperfide.sidebar.width";
+const SIDEBAR_OPEN_STORAGE_KEY = "hyperfide.sidebar.open";
 const APP_ROUTE = "/projects/proj_one/threads/thr_one?message=12#event-12";
 const SETTINGS_ROUTE = "/settings/providers/codex?tab=models#preferred";
 const PLUGINS_ROUTE = "/plugins/ui-patterns?tab=settings#source";
@@ -123,7 +123,7 @@ vi.mock("./AppPageHeader", () => ({
   AppPageHeader: () => <header />,
 }));
 
-vi.mock("@/lib/bb-desktop", () => ({
+vi.mock("@/lib/hyperfide-desktop", () => ({
   BROWSER_SIDEBAR_TRIGGER_INSET_CLASS: "",
   CHROME_ROW_CLASS: "",
   DEFAULT_DESKTOP_WINDOW_STATE: { isFullScreen: false },
@@ -136,7 +136,7 @@ vi.mock("@/lib/bb-desktop", () => ({
   MACOS_TRAFFIC_LIGHT_RESERVE_PADDING_CLASS: "",
   MACOS_WINDOW_DRAG_CLASS: "",
   MACOS_WINDOW_NO_DRAG_CLASS: "",
-  getBbDesktopInfo: () => null,
+  getHyperfideDesktopInfo: () => null,
   shouldReserveMacosTrafficLights: () => false,
   shouldUseMacosDesktopChrome: () => false,
 }));

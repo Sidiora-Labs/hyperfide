@@ -40,10 +40,10 @@ export function fixtureResponsiveStrategy(
 export const SURFACE_GROUPS: SurfaceGroup[] = [
   {
     id: "app-shell",
-    title: "The bb app window",
+    title: "The hyperfide app window",
     fixtureKind: "spatial",
     blurb:
-      "The main bb window, containing the sidebar, the conversation, and the side panel. A plugin can add rows, controls, panel tabs, and message content to the numbered regions.",
+      "The main hyperfide window, containing the sidebar, the conversation, and the side panel. A plugin can add rows, controls, panel tabs, and message content to the numbered regions.",
     surfaces: [
       {
         id: "sidebar-navigation",
@@ -52,7 +52,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Replace the sidebar's navigation, as a rail or as rows above the thread list. With this, a plugin can:",
         bullets: [
           "Arrange New thread, Search, Plugins, Skills, and plugin pages in any layout",
-          "Choose the rail or list placement, and get bb's layout around it",
+          "Choose the rail or list placement, and get hyperfide's layout around it",
           "Keep saved order and badges; Cmd/Ctrl-click splits supported pages or opens Plugins/Skills in tabs",
           "Add controls to the header row beside the sidebar toggle",
         ],
@@ -104,10 +104,10 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "PluginNavPanelRegistration.experimental_usePageTitle",
           "ExperimentalPageTitle",
           "ExperimentalPageBreadcrumb",
-          "useBbContext",
-          "useBbNavigate",
-          "BbNavigate.toPluginPanel",
-          "BbNavigate.experimental_openTerminal",
+          "useHyperfideContext",
+          "useHyperfideNavigate",
+          "HyperfideNavigate.toPluginPanel",
+          "HyperfideNavigate.experimental_openTerminal",
         ],
         firstParty: ["Automations", "Docs", "GitHub", "Tasks", "Theme Preview"],
       },
@@ -119,7 +119,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         bullets: [
           "Show that the plugin is working on a thread, with a shimmering icon",
           "Settle the icon to succeeded or failed when the work ends",
-          "Set it from an [app-wide script](content-scripts), which bb cleans up after",
+          "Set it from an [app-wide script](content-scripts), which hyperfide cleans up after",
         ],
         apiSymbols: [
           "PluginComposerThreadRowStatus",
@@ -135,8 +135,8 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         bullets: [
           "Group, sort, and draw every row your own way",
           "Read live threads, sections, projects, and run status",
-          "Use optimistic SDK writes and bb's actions to move, pin, rename, restore, archive, and split threads",
-          "Keep bb's New thread button, search, and footer around it",
+          "Use SDK writes and Hyperfide actions to move, pin, rename, restore, archive, and split threads",
+          "Keep hyperfide's New thread button, search, and footer around it",
         ],
         apiSymbols: [
           "PluginThreadListRegistration",
@@ -148,8 +148,8 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "PluginSidebarThread",
           "PluginSidebarSection",
           "experimental_useArchiveEnvironmentThreads",
-          "BbNavigate.toThread",
-          "BbNavigate.toCompose",
+          "HyperfideNavigate.toThread",
+          "HyperfideNavigate.toCompose",
           "experimental_useSidebarThreadSplit",
           "PluginSidebarThreadSplit",
           "useSidebarThreadDraft",
@@ -169,7 +169,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "useEnvironmentProviders",
           "PluginEnvironmentProvidersState",
           "useSdk",
-          "PluginBrowserBbSdk",
+          "PluginBrowserHyperfideSdk",
           "experimental_usePluginId",
         ],
         firstParty: ["Thread list"],
@@ -179,7 +179,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         id: "sidebar-footer",
         title: "Sidebar footer items",
         summary:
-          "Add an icon to the bottom of bb's sidebar. With this, a plugin can:",
+          "Add an icon to the bottom of hyperfide's sidebar. With this, a plugin can:",
         bullets: [
           "Run an action, or open a small panel above the footer",
           "Show quick status, such as usage limits, without leaving the thread",
@@ -207,7 +207,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Add a control to the header of an open thread. With this, a plugin can:",
         bullets: [
           "Show live state for the thread on screen, not just a static button",
-          "Sit in the same row as bb's own header controls",
+          "Sit in the same row as hyperfide's own header controls",
         ],
         apiSymbols: [
           "PluginThreadHeaderActionRegistration",
@@ -222,9 +222,9 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Add an action to every thread menu and the sidebar row's quick actions. With this, a plugin can:",
         bullets: [
           "Appear in the header menu, the row menu, the right-click menu, and the long-press drawer",
-          "Offer a list of choices that bb renders as a submenu, a drawer step, or a popover",
+          "Offer a list of choices that hyperfide renders as a submenu, a drawer step, or a popover",
           "Read app-wide data once and derive each thread's entry from it",
-          "Render bb's own thread menus in a replacement thread list",
+          "Render hyperfide's own thread menus in a replacement thread list",
         ],
         apiSymbols: [
           "PluginThreadActionRegistration",
@@ -250,8 +250,8 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         summary:
           "Add rich detail to the timeline entries your plugin creates. With this, a plugin can:",
         bullets: [
-          "Draw custom content under each entry while bb keeps its header and controls",
-          "Fall back to bb's default view if the plugin is off or crashes",
+          "Draw custom content under each entry while hyperfide keeps its header and controls",
+          "Fall back to hyperfide's default view if the plugin is off or crashes",
         ],
         apiSymbols: [
           "PluginTimelineRendererRegistration",
@@ -291,7 +291,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Let an agent write a fenced ```ui block that your component renders live as the reply streams",
           "Keep one component, with its state, per block for the whole reply",
           "Tell a block that is still streaming from one that closed or was cut off",
-          "Fall back to BB's code block when the plugin is off or a block's component throws",
+          "Fall back to HYPERFIDE's code block when the plugin is off or a block's component throws",
         ],
         apiSymbols: [
           "ExperimentalCodeFenceRendererRegistration",
@@ -325,7 +325,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         bullets: [
           "Replace the prompt box with your form, even after the turn has ended",
           "Return the answer or cancellation to the agent and keep a record in the thread",
-          "Show bb's answer shortcuts and respond when the person presses one",
+          "Show hyperfide's answer shortcuts and respond when the person presses one",
           "Dictate editable answers and wait for voice input before navigating or submitting",
         ],
         apiSymbols: [
@@ -347,8 +347,8 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Add a row to a thread's Info tab details, or a section below them. With this, a plugin can:",
         bullets: [
           "Show plugin state for the thread beside Project, Environment, Branch, and Pull request",
-          'List related items in a section with bb\'s heading, count, collapse, and "N more" list',
-          "Sit at any position among bb's own rows and sections, which use the same slots",
+          'List related items in a section with hyperfide\'s heading, count, collapse, and "N more" list',
+          "Sit at any position among hyperfide's own rows and sections, which use the same slots",
         ],
         apiSymbols: [
           "ExperimentalThreadInfoRowRegistration",
@@ -372,11 +372,11 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         id: "code-renderers",
         title: "Code & diff renderers",
         summary:
-          "Replace bb's code or diff viewer everywhere it appears. With this, a plugin can:",
+          "Replace hyperfide's code or diff viewer everywhere it appears. With this, a plugin can:",
         bullets: [
           "Restyle file previews, timeline diffs, and plugin pages in one place",
           "Replace code and diffs independently",
-          "Hand any render back to bb, which also takes over if the plugin crashes",
+          "Hand any render back to hyperfide, which also takes over if the plugin crashes",
         ],
         apiSymbols: [
           "PluginSourceCodeRendererRegistration",
@@ -420,7 +420,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Register tabs with app.slots.experimental_tab({ id, title, icon, tooltip?, layout?, context, availability, useVisible?, component }). context is { kind: 'thread' } or { kind: 'nav-panel', panelId }; the component receives threadId or subPath. Core Info and Diff use thread + fixed registrations. tooltip defaults to title; layout is padded (default) or flush.",
           "availability: 'fixed' creates one pinned, non-closable destination per owner and tab id. availability: 'action' adds a launcher for closable instances; only actions accept run, default params and persisted instance params. Identical params focus the existing instance; different params open siblings. useVisible controls the fixed tab or launcher, never existing action instances. Hooks and components run in plugin scope with crash isolation.",
           "Open through experimental_useAppPanel().experimental_openTab({ surface: { kind: 'current' }, tab: { id, context, availability }, params?, title?, target? }). Actions accept JSON params and an optional title. Navigation-page fixed tabs may declare experimental_target and receive validated session targets through experimental_useFixedTabTarget; thread fixed tabs reject targets. Unknown, hidden or wrong-context destinations return false. Existing openFixedTab, openThreadPanel and action openPanel calls delegate to the same opening path.",
-          "Identity and order survive hiding, disabling and reload. Thread fixed tabs persist as { id, kind: 'plugin-fixed', pluginId, tabId }; navigation-page fixed tabs and action instances keep their existing storage identities. SDK threads.tabs.get/update and CLI bb thread tabs show/set support thread tab entries with revision checks. Selection stays client-local. See the authoring skill's Tab API migration section for upgrading source registrations.",
+          "Identity and order survive hiding, disabling and reload. Thread fixed tabs persist as { id, kind: 'plugin-fixed', pluginId, tabId }; navigation-page fixed tabs and action instances keep their existing storage identities. SDK threads.tabs.get/update and CLI hyperfide-platform thread tabs show/set support thread tab entries with revision checks. Selection stays client-local. See the authoring skill's Tab API migration section for upgrading source registrations.",
         ],
         apiSymbols: [
           "PluginAppSlots.experimental_tab",
@@ -433,7 +433,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "ExperimentalTabOpenOptions",
           "ExperimentalTabTargetReference",
           "ExperimentalThreadActionTabProps",
-          "BbNavigate.openThreadPanel",
+          "HyperfideNavigate.openThreadPanel",
           "ExperimentalThreadTabActionContext",
         ],
         firstParty: ["Docs", "GitHub", "Side chat", "Tasks", "Workflows"],
@@ -447,7 +447,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Open files such as `.csv` or `.excalidraw` in your own view",
           "Use lowercase alphanumeric extension names with single `_` or `-` separators between segments",
           "Jump to the linked lines when someone opens a file reference",
-          "Hand individual files back to bb's built-in preview",
+          "Hand individual files back to hyperfide's built-in preview",
         ],
         apiSymbols: [
           "PluginFileOpenerRegistration",
@@ -460,7 +460,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         id: "app-overlay",
         title: "App-wide overlays",
         summary:
-          "Add a floating widget that stays on screen across bb. With this, a plugin can:",
+          "Add a floating widget that stays on screen across hyperfide. With this, a plugin can:",
         bullets: [
           "Show persistent UI, such as a timer or a status badge, on every page",
           "Control its own position and visibility",
@@ -477,7 +477,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         id: "content-scripts",
         title: "App-wide scripts",
         summary:
-          "Run code in every bb window, without a UI of its own. With this, a plugin can:",
+          "Run code in every hyperfide window, without a UI of its own. With this, a plugin can:",
         bullets: [
           "Add app-wide behavior, such as a keyboard shortcut",
           "Set a [thread row status](thread-row-status) on any thread",
@@ -496,13 +496,13 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
     title: "Command palette",
     fixtureKind: "spatial",
     blurb:
-      "bb's searchable command menu. A plugin can add actions that match, rank, and run alongside bb's own commands.",
+      "hyperfide's searchable command menu. A plugin can add actions that match, rank, and run alongside hyperfide's own commands.",
     surfaces: [
       {
         id: "command-palette-actions",
         title: "Command palette actions",
         summary:
-          "Add commands to bb's command palette. With this, a plugin can:",
+          "Add commands to hyperfide's command palette. With this, a plugin can:",
         bullets: [
           "Run plugin actions from the palette or a keyboard shortcut",
           "Suggest a default shortcut that people can rebind",
@@ -531,11 +531,11 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         id: "composer-replacement",
         title: "The composer box",
         summary:
-          "Replace the prompt box with one your plugin draws, everywhere bb shows a composer. With this, a plugin can:",
+          "Replace the prompt box with one your plugin draws, everywhere hyperfide shows a composer. With this, a plugin can:",
         bullets: [
           "Bring its own editor, from a plain textarea to a code editor",
-          "Search bb's @-mentions and commands, and keep bb's pills, attachments, history and voice input",
-          "Place bb's model, mode and handoff controls where it wants them",
+          "Search Hyperfide mentions and commands; keep pills, attachments, history and voice input",
+          "Place hyperfide's model, mode and handoff controls where it wants them",
           "Keep other plugins' actions, popups and menu entries working inside it",
         ],
         apiSymbols: [
@@ -651,15 +651,15 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "ComposerSendMenuItem",
           "ComposerSubmitOptions",
         ],
-        firstParty: ["Automations", "BB guide", "Drafts", "Send later"],
+        firstParty: ["Automations", "HYPERFIDE guide", "Drafts", "Send later"],
       },
       {
         id: "provider-picker",
         title: "Agent providers",
         summary:
-          "Provide an agent people can pick in bb's model picker. With this, a plugin can:",
+          "Provide an agent people can pick in hyperfide's model picker. With this, a plugin can:",
         bullets: [
-          "Bring any CLI agent into bb, with its own models and icon",
+          "Bring any CLI agent into hyperfide, with its own models and icon",
           "Run every thread started with it through a bridge the plugin ships",
           "Report context usage, service tiers, and install status",
         ],
@@ -725,12 +725,13 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
     title: "Home page",
     fixtureKind: "spatial",
     blurb:
-      "The screen bb opens on, holding the new-thread composer and a side panel. A plugin can add a section below the composer, and an action in that panel that opens its own tab.",
+      "The screen hyperfide opens on, holding the new-thread composer and a side panel. A plugin can add a section below the composer, and an action in that panel that opens its own tab.",
     surfaces: [
       {
         id: "homepage-section",
         title: "Home-screen sections",
-        summary: "Add a section to bb's home page. With this, a plugin can:",
+        summary:
+          "Add a section to hyperfide's home page. With this, a plugin can:",
         bullets: [
           "Show shortcuts, pinned work, or recent activity before any thread exists",
           "Span the full width below the composer on desktop",
@@ -762,7 +763,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
     title: "Plugin settings page",
     fixtureKind: "spatial",
     blurb:
-      "The settings page bb creates for every installed plugin. A plugin can declare fields for bb to render and add its own section below them.",
+      "The settings page hyperfide creates for every installed plugin. A plugin can declare fields for hyperfide to render and add its own section below them.",
     surfaces: [
       {
         id: "declarative-settings",
@@ -785,7 +786,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         ],
         firstParty: [
           "ACP providers",
-          "BB guide",
+          "HYPERFIDE guide",
           "Claude Code provider",
           "Codex provider",
           "Custom instructions",
@@ -803,7 +804,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Add your own section to the plugin's settings page. With this, a plugin can:",
         bullets: [
           "Show anything that isn't a form field, such as a connect-account button",
-          "Sit below the [generated fields](declarative-settings) under a heading bb renders",
+          "Sit below the [generated fields](declarative-settings) under a heading hyperfide renders",
         ],
         apiSymbols: [
           "PluginSettingsSectionRegistration.experimental_page",
@@ -812,7 +813,6 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         ],
         firstParty: [
           "Account Pooler [Experimental]",
-          "bb account",
           "Concurrency limit",
           "Keep Awake",
           "Memory",
@@ -828,7 +828,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
     title: "Plugin page",
     fixtureKind: "spatial",
     blurb:
-      "The page bb shows for an installed plugin under Plugins: what it is, what it registers, and whether it is healthy. A plugin can report that it needs configuring, and bb says so at the top of this page.",
+      "The page hyperfide shows for an installed plugin under Plugins: what it is, what it registers, and whether it is healthy. A plugin can report that it needs configuring, and hyperfide says so at the top of this page.",
     surfaces: [
       {
         id: "plugin-status",
@@ -877,7 +877,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         title: "Data & platform",
         surfaceIds: [
           "storage",
-          "bb-sdk",
+          "hyperfide-sdk",
           "thread-plugin-metadata",
           "desktop-browsers",
           "ai-services",
@@ -892,10 +892,10 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
     surfaces: [
       {
         id: "cli",
-        tagline: "Your own `bb <name>` command",
-        title: "bb CLI commands",
+        tagline: "Your own `hyperfide <name>` command",
+        title: "hyperfide CLI commands",
         summary:
-          "Add a `bb <name>` command for people and agents. With this, a plugin can:",
+          "Add a `hyperfide <name>` command for people and agents. With this, a plugin can:",
         bullets: [
           "Run the same command from a terminal, a script, or an agent mid-task",
           "Get argument parsing, `--help`, and JSON errors from one declaration",
@@ -915,8 +915,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         firstParty: [
           "Account Pooler [Experimental]",
           "Automations",
-          "bb account",
-          "bb cloud AI",
+          "hyperfide cloud AI",
           "Browser Automation",
           "Concurrency limit",
           "Custom instructions",
@@ -940,7 +939,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         summary:
           "Add tools, skills, and instructions to every agent session. With this, a plugin can:",
         bullets: [
-          "Give agents native tools that work like bb's built-in ones",
+          "Give agents native tools that work like hyperfide's built-in ones",
           "Choose per thread which tools and skills are available",
           "Add instructions to the system prompt when a session starts",
         ],
@@ -956,9 +955,8 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Agent Annotations",
           "Ask User Question",
           "Automations",
-          "bb account",
-          "bb cloud AI",
-          "BB guide",
+          "hyperfide cloud AI",
+          "HYPERFIDE guide",
           "Browser Automation",
           "Claude Code provider",
           "Codex provider",
@@ -982,18 +980,17 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         tagline: "Supervised services and cron schedules",
         title: "Background work",
         summary:
-          "Run code on the bb server when no window is open. With this, a plugin can:",
+          "Run code on the hyperfide-platform server when no window is open. With this, a plugin can:",
         bullets: [
           "Keep services running, with automatic restarts after a failure",
           "Run jobs on a cron schedule",
           "Set things up once, right after install",
         ],
-        apiSymbols: ["PluginBackground", "BbPluginApi.onInstall"],
+        apiSymbols: ["PluginBackground", "HyperfidePluginApi.onInstall"],
         firstParty: [
           "Account Pooler [Experimental]",
           "ACP providers",
           "Automations",
-          "bb account",
           "Concurrency limit",
           "Docs",
           "GitHub",
@@ -1022,7 +1019,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Data retains successful values and shared predictions during refresh errors. Plain reads start undefined; keyed reads expose loaded rows, initially an empty record, through select",
           "isLoading means an enabled read is fetching never-loaded data, including missing requested keys. isFetching includes background attempts; keyed views share their method's activity",
           "error is an experimental_PluginRpcCallError or null. Success clears it; retrying a first load clears its previous error while loading. refetch forces a read, waits through retries, and records failures in error without rejecting",
-          "Reads stay fresh for two seconds without polling. Focus does not refetch while BB's realtime connection is healthy; while disconnected, focus/browser-online events recheck stale active reads. BB reconnect invalidates all plugin reads. Page hiding cancels active attempts and resume restarts those cancelled reads",
+          "Reads stay fresh for two seconds without polling. Focus does not refetch while HYPERFIDE's realtime connection is healthy; while disconnected, focus/browser-online events recheck stale active reads. HYPERFIDE reconnect invalidates all plugin reads. Page hiding cancels active attempts and resume restarts those cancelled reads",
           "Invalidations refresh immediately. Network/abort failures retry twice at 250 ms, HTTP failures never retry, and writes never retry automatically. Tags are plain strings shared between read dependencies and write invalidations",
           "mutate, isPending and pendingInputs settle at write acknowledgement; matched reads refresh in the background. Shared predictions stay until confirmed reads arrive, or roll back on write failure",
           "Optimistic updaters must be pure and replayable; generate IDs and timestamps before mutate",
@@ -1034,7 +1031,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "ExperimentalPluginRpcHandlersWithContext",
           "ExperimentalPluginRpcHandlerContext",
           "ExperimentalPluginRpcCaller",
-          "PluginBbSdk.plugins.experimental_discoverRpc",
+          "PluginHyperfideSdk.plugins.experimental_discoverRpc",
           "PluginHttp",
           "PluginRealtime",
           "useRpc",
@@ -1074,8 +1071,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "ACP providers",
           "Agent Annotations",
           "Automations",
-          "bb account",
-          "bb cloud AI",
+          "hyperfide cloud AI",
           "Browser Automation",
           "Claude Code provider",
           "Codex provider",
@@ -1203,7 +1199,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         tagline: "Create and own execution machines",
         title: "Machine providers",
         summary:
-          "Provide machines that bb creates and manages, such as cloud sandboxes. With this, a plugin can:",
+          "Provide machines that hyperfide creates and manages, such as cloud sandboxes. With this, a plugin can:",
         bullets: [
           "Create, suspend, resume, and remove machines on demand",
           "Pair them with an [environment provider](environment-providers) for one-step threads",
@@ -1211,14 +1207,14 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         ],
         apiSymbols: [
           "PluginMachines",
-          "PluginBbSdk.hosts.experimental_create",
-          "PluginBbSdk.hosts.experimental_getEnrollmentCommand",
-          "PluginBbSdk.hosts.experimental_listProviders",
-          "PluginBbSdk.hosts.experimental_suspend",
-          "PluginBbSdk.hosts.experimental_reconcile",
-          "PluginBbSdk.hosts.experimental_resume",
-          "PluginBbSdk.hosts.experimental_retryCleanup",
-          "PluginBbSdk.hosts.delete",
+          "PluginHyperfideSdk.hosts.experimental_create",
+          "PluginHyperfideSdk.hosts.experimental_getEnrollmentCommand",
+          "PluginHyperfideSdk.hosts.experimental_listProviders",
+          "PluginHyperfideSdk.hosts.experimental_suspend",
+          "PluginHyperfideSdk.hosts.experimental_reconcile",
+          "PluginHyperfideSdk.hosts.experimental_resume",
+          "PluginHyperfideSdk.hosts.experimental_retryCleanup",
+          "PluginHyperfideSdk.hosts.delete",
           "PluginMachines.getResource",
           "MachineExecutorRequest",
           "MachineExecutor",
@@ -1249,7 +1245,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         tagline: "Connect machines to their server",
         title: "Machine server access",
         summary:
-          "Provide the connection machines use to reach their bb server. With this, a plugin can:",
+          "Provide the connection machines use to reach their hyperfide-platform server. With this, a plugin can:",
         bullets: [
           "Give new machines what they need to enroll, such as a tunnel URL",
           "Appear as a choice in Machines settings and manual setup",
@@ -1317,14 +1313,14 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
       {
         id: "provider-bridges",
         title: "Provider bridges",
-        tagline: "Bring any agent's runtime into bb",
+        tagline: "Bring any agent's runtime into hyperfide",
         summary:
           "Run an agent's sessions through a bridge your plugin ships to each machine. With this, a plugin can:",
         bullets: [
-          "Translate an agent CLI or SDK into bb's timeline, tool calls, approvals, and usage",
+          "Translate an agent CLI or SDK into hyperfide's timeline, tool calls, approvals, and usage",
           "Run any Agent Client Protocol agent through the bundled ACP bridge, with no bridge code",
-          "Show the agent's own skills, slash commands, and plugins inside bb",
-          "Test it against bb's conformance suite and recorded sessions, without a running bb",
+          "Show the agent's own skills, slash commands, and plugins inside hyperfide",
+          "Test it against hyperfide's conformance suite and recorded sessions, without a running hyperfide",
         ],
         apiSymbols: [
           "experimental_defineProviderBridge",
@@ -1367,7 +1363,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         tagline: "Namespaced KV plus your own SQLite",
         title: "Storage",
         summary:
-          "Use storage on the bb server that only your plugin can see. With this, a plugin can:",
+          "Use storage on the hyperfide-platform server that only your plugin can see. With this, a plugin can:",
         bullets: [
           "Keep small values such as flags and cursors in a key-value store",
           "Get its own SQLite database with migrations",
@@ -1378,8 +1374,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Account Pooler [Experimental]",
           "Agent Annotations",
           "Automations",
-          "bb account",
-          "bb cloud AI",
+          "hyperfide cloud AI",
           "Browser Automation",
           "Concurrency limit",
           "Custom instructions",
@@ -1396,11 +1391,11 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         ],
       },
       {
-        id: "bb-sdk",
+        id: "hyperfide-sdk",
         tagline: "Create threads and projects from plugin code",
-        title: "The bb SDK",
+        title: "The hyperfide SDK",
         summary:
-          "Use bb's own API from plugin server code. With this, a plugin can:",
+          "Use hyperfide's own API from plugin server code. With this, a plugin can:",
         bullets: [
           "Create threads attributed to the plugin, send messages, and manage projects and machines",
           "Start plugin updates in the background and follow their progress or rollback",
@@ -1408,29 +1403,29 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Retry failed environment cleanup with recover: true after inspecting processes using the workspace",
         ],
         apiSymbols: [
-          "BbPluginApi",
+          "HyperfidePluginApi",
           "PluginServerApi",
-          "PluginBbSdk.hosts.get",
-          "PluginBbSdk.hosts.experimental_discoverRepos",
-          "PluginBbSdk.experimental_promptHistory.list",
-          "PluginBbSdk.environments.experimental_cleanup",
-          "PluginBbSdk.environments.experimental_diffViewed",
-          "PluginBbSdk.environments.experimental_markDiffViewed",
-          "PluginBbSdk.environments.experimental_clearDiffViewed",
-          "PluginBbSdk.plugins.experimental_getSafeMode",
-          "PluginBbSdk.plugins.experimental_setSafeMode",
-          "PluginBbSdk.plugins.experimental_pruneCache",
-          "PluginBbSdk.plugins.experimental_startUpdate",
-          "PluginBbSdk.plugins.experimental_updateJobs",
-          "PluginBbSdk.threads.queuedMessages.experimental_holdForEdit",
-          "PluginBbSdk.threads.queuedMessages.experimental_releaseEditHold",
-          "PluginBbSdk.threads.experimental_listDescendants",
+          "PluginHyperfideSdk.hosts.get",
+          "PluginHyperfideSdk.hosts.experimental_discoverRepos",
+          "PluginHyperfideSdk.experimental_promptHistory.list",
+          "PluginHyperfideSdk.environments.experimental_cleanup",
+          "PluginHyperfideSdk.environments.experimental_diffViewed",
+          "PluginHyperfideSdk.environments.experimental_markDiffViewed",
+          "PluginHyperfideSdk.environments.experimental_clearDiffViewed",
+          "PluginHyperfideSdk.plugins.experimental_getSafeMode",
+          "PluginHyperfideSdk.plugins.experimental_setSafeMode",
+          "PluginHyperfideSdk.plugins.experimental_pruneCache",
+          "PluginHyperfideSdk.plugins.experimental_startUpdate",
+          "PluginHyperfideSdk.plugins.experimental_updateJobs",
+          "PluginHyperfideSdk.threads.queuedMessages.experimental_holdForEdit",
+          "PluginHyperfideSdk.threads.queuedMessages.experimental_releaseEditHold",
+          "PluginHyperfideSdk.threads.experimental_listDescendants",
         ],
         firstParty: [
           "Account Pooler [Experimental]",
           "ACP providers",
           "Automations",
-          "bb cloud AI",
+          "hyperfide cloud AI",
           "Browser Automation",
           "Claude Code provider",
           "Codex provider",
@@ -1468,19 +1463,19 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Read it for many threads at once, along with each thread's ancestors",
         ],
         apiSymbols: [
-          "PluginBbSdk",
+          "PluginHyperfideSdk",
           "PluginAgentConfigurationContext",
           "ReadonlyJsonValue",
-          "BbPluginApi",
+          "HyperfidePluginApi",
         ],
         firstParty: ["Push notifications", "Workflows"],
       },
       {
         id: "desktop-browsers",
         title: "Desktop browser control",
-        tagline: "Use your automation tool on BB-owned tabs",
+        tagline: "Use your automation tool on HYPERFIDE-owned tabs",
         summary:
-          "Use bb's desktop browser tabs from plugin code. With this, a plugin can:",
+          "Use hyperfide's desktop browser tabs from plugin code. With this, a plugin can:",
         bullets: [
           "Open signed-in tabs that belong to a thread",
           "Give an automation tool private control of a tab",
@@ -1500,10 +1495,10 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
       },
       {
         id: "ai-services",
-        tagline: "Write bb's titles, commit messages, and transcripts",
+        tagline: "Write hyperfide's titles, commit messages, and transcripts",
         title: "AI services",
         summary:
-          "Provide the models that write bb's titles, commit messages, and transcripts. With this, a plugin can:",
+          "Provide the models that write hyperfide's titles, commit messages, and transcripts. With this, a plugin can:",
         bullets: [
           "Write thread titles and commit messages with any model",
           "Transcribe voice input from the microphone button",
@@ -1514,20 +1509,20 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "PluginAiServiceDeclaration",
           "PluginAiServiceStatus",
         ],
-        firstParty: ["bb cloud AI", "Codex provider"],
+        firstParty: ["hyperfide cloud AI", "Codex provider"],
         experimental: true,
       },
       {
         id: "host-components",
-        tagline: "Embed bb's chat and prompt box",
+        tagline: "Embed hyperfide's chat and prompt box",
         title: "Host components",
         summary:
-          "Use bb's own chat, prompt box, and pickers inside plugin pages. With this, a plugin can:",
+          "Use hyperfide's own chat, prompt box, and pickers inside plugin pages. With this, a plugin can:",
         bullets: [
           "Embed a thread, a new-thread prompt box, or a textarea with editable voice input",
-          "Render Markdown, code, diffs, and file links, and copy text and save files, the way bb does",
+          "Render Markdown, code, diffs, and file links, and copy text and save files, the way hyperfide does",
           "Add or override app icons",
-          "Match bb's styling with no extra work",
+          "Match hyperfide's styling with no extra work",
         ],
         apiSymbols: [
           "experimental_Icon",
@@ -1565,14 +1560,13 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "ExperimentalLiveFileTarget",
           "ExperimentalFileLocation",
           "ExperimentalFileOpenOptions",
-          "BbNavigate.openUrl",
-          "BbNavigate.experimental_openFilePreview",
-          "BbNavigate.experimental_openFileExternally",
+          "HyperfideNavigate.openUrl",
+          "HyperfideNavigate.experimental_openFilePreview",
+          "HyperfideNavigate.experimental_openFileExternally",
         ],
         firstParty: [
           "Account Pooler [Experimental]",
           "Automations",
-          "bb account",
           "Docs",
           "File Editor",
           "GitHub",
@@ -1585,12 +1579,12 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
       },
       {
         id: "testing",
-        tagline: "Unit-test every surface without a running bb",
+        tagline: "Unit-test every surface without a running hyperfide",
         title: "Testing harnesses",
         summary:
-          "Use test harnesses that run without bb. With this, a plugin can:",
+          "Use test harnesses that run without hyperfide. With this, a plugin can:",
         bullets: [
-          "Test server code against an in-process fake bb server",
+          "Test server code against an in-process fake hyperfide-platform server",
           "Render UI slots under vitest",
           "Drive host workers without a machine",
         ],
@@ -1611,9 +1605,8 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Agent Annotations",
           "Ask User Question",
           "Automations",
-          "bb account",
-          "bb cloud AI",
-          "BB guide",
+          "hyperfide cloud AI",
+          "HYPERFIDE guide",
           "Browser Automation",
           "Claude Code provider",
           "Codex provider",

@@ -124,7 +124,7 @@ export function buildSurfaceEntryScaffold(input) {
     surface: {
       id: input.id,
       title: input.title.trim(),
-      summary: `TODO: Describe where ${input.title.trim()} appears in bb. With this, a plugin can:`,
+      summary: `TODO: Describe where ${input.title.trim()} appears in hyperfide. With this, a plugin can:`,
       bullets: [
         "TODO: Describe the first user-visible capability",
         "TODO: Describe the second user-visible capability",

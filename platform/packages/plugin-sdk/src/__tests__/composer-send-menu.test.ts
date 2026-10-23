@@ -34,7 +34,7 @@ describe("composer popup registration", () => {
     const rejected = vi.fn();
     const collected = collectPluginAppRegistrations(
       {
-        __bbPluginApp: true,
+        __hyperfidePluginApp: true,
         setup(app) {
           app.composer.customize({
             id: "library",

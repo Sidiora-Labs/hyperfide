@@ -27,24 +27,24 @@
    * variable is the single switch both they and the shell root read.
    */
   :root {
-    --bb-app-chrome-row-height: 3rem;
-    --bb-chrome-control-gap: 0.25rem;
-    --bb-panel-chrome-padding: 1rem;
-    --bb-shell-height: 100dvh;
-    --bb-window-frame-top: 0px;
-    --bb-window-frame-lip: 0px;
-    --bb-window-frame-leading-lip: 0px;
+    --hyperfide-app-chrome-row-height: 3rem;
+    --hyperfide-chrome-control-gap: 0.25rem;
+    --hyperfide-panel-chrome-padding: 1rem;
+    --hyperfide-shell-height: 100dvh;
+    --hyperfide-window-frame-top: 0px;
+    --hyperfide-window-frame-lip: 0px;
+    --hyperfide-window-frame-leading-lip: 0px;
     --secondary-panel-width-mobile: min(76vw, 320px);
-    --bb-sidebar-rail-padding: var(--bb-frame-rail-padding);
-    --bb-sidebar-control-size: var(--bb-frame-rail-control-size);
-    --bb-sidebar-control-icon-size: 16px;
+    --hyperfide-sidebar-rail-padding: var(--hyperfide-frame-rail-padding);
+    --hyperfide-sidebar-control-size: var(--hyperfide-frame-rail-control-size);
+    --hyperfide-sidebar-control-icon-size: 16px;
   }
 
   @media (width < 48rem) and (pointer: coarse) {
     :root {
-      --bb-sidebar-rail-padding: 12px;
-      --bb-sidebar-control-size: 36px;
-      --bb-sidebar-control-icon-size: 20px;
+      --hyperfide-sidebar-rail-padding: 12px;
+      --hyperfide-sidebar-control-size: 36px;
+      --hyperfide-sidebar-control-icon-size: 20px;
     }
   }
 
@@ -63,23 +63,23 @@
     app-region: no-drag;
   }
 
-  html.bb-app-shell-root {
-    height: var(--bb-shell-height);
+  html.hyperfide-app-shell-root {
+    height: var(--hyperfide-shell-height);
   }
 
-  body.bb-app-shell,
-  body.bb-app-shell #root {
+  body.hyperfide-app-shell,
+  body.hyperfide-app-shell #root {
     height: 100%;
   }
 
   @media (display-mode: standalone) {
     :root {
-      --bb-shell-height: 100lvh;
+      --hyperfide-shell-height: 100lvh;
     }
   }
 
-  html.bb-app-shell-root,
-  body.bb-app-shell {
+  html.hyperfide-app-shell-root,
+  body.hyperfide-app-shell {
     overflow: hidden;
     /*
      * Suppress vertical rubber-banding without blocking the native horizontal
@@ -593,7 +593,7 @@
   }
 }
 
-@keyframes bb-search-flash {
+@keyframes hyperfide-search-flash {
   0%,
   25% {
     background-color: var(--state-hover);
@@ -606,10 +606,10 @@
 .hyperfide-search-flash {
   border-radius: var(--radius-lg, 0.5rem);
   background-color: var(--state-hover);
-  animation: bb-search-flash 1.6s ease-out forwards;
+  animation: hyperfide-search-flash 1.6s ease-out forwards;
 }
 
-@keyframes bb-settings-search-flash {
+@keyframes hyperfide-settings-search-flash {
   0%,
   25% {
     background-color: var(--state-hover);
@@ -623,7 +623,7 @@
 
 [data-settings-anchor].hyperfide-search-flash {
   box-shadow: 0 0 0 0.5rem var(--state-hover);
-  animation-name: bb-settings-search-flash;
+  animation-name: hyperfide-settings-search-flash;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -632,7 +632,7 @@
   }
 }
 
-@keyframes bb-count-flash {
+@keyframes hyperfide-count-flash {
   0%,
   35% {
     background-color: var(--foreground);
@@ -640,14 +640,14 @@
   }
 }
 
-@keyframes bb-count-roll-in {
+@keyframes hyperfide-count-roll-in {
   from {
     opacity: 0;
     transform: translateY(100%);
   }
 }
 
-@keyframes bb-count-roll-out {
+@keyframes hyperfide-count-roll-out {
   to {
     opacity: 0;
     transform: translateY(-100%);
@@ -655,15 +655,15 @@
 }
 
 .hyperfide-count-flash {
-  animation: bb-count-flash 1.2s ease-out;
+  animation: hyperfide-count-flash 1.2s ease-out;
 }
 
 .hyperfide-count-roll-in {
-  animation: bb-count-roll-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: hyperfide-count-roll-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hyperfide-count-roll-out {
-  animation: bb-count-roll-out 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: hyperfide-count-roll-out 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -676,12 +676,12 @@
   }
 }
 
-/* Browse hero (Plugins → Browse plugins): the archetype chips orbiting the mini bb
+/* Browse hero (Plugins → Browse plugins): the archetype chips orbiting the mini hyperfide
  * window drift slowly so the hero reads as alive without competing with the
  * composer sitting in the middle of it. Duration and delay are per-chip custom
  * properties so each chip drifts out of phase with its neighbours from one
  * shared rule. */
-@keyframes bb-hero-drift {
+@keyframes hyperfide-hero-drift {
   0%,
   100% {
     transform: translate3d(0, 0, 0);
@@ -692,15 +692,15 @@
 }
 
 .hyperfide-hero-chip {
-  animation: bb-hero-drift var(--bb-hero-drift-duration, 6s) ease-in-out
+  animation: hyperfide-hero-drift var(--hyperfide-hero-drift-duration, 6s) ease-in-out
     infinite;
-  animation-delay: var(--bb-hero-drift-delay, 0s);
+  animation-delay: var(--hyperfide-hero-drift-delay, 0s);
 }
 
 /* Autoplay progress for the active slide segment. The element is keyed by slide
  * in React, so a slide change remounts it and restarts the animation from zero
  * rather than needing an imperative reset. */
-@keyframes bb-hero-progress {
+@keyframes hyperfide-hero-progress {
   from {
     transform: scaleX(0);
   }
@@ -711,7 +711,7 @@
 
 .hyperfide-hero-progress-fill {
   transform-origin: left center;
-  animation: bb-hero-progress var(--bb-hero-slide-duration, 5s) linear forwards;
+  animation: hyperfide-hero-progress var(--hyperfide-hero-slide-duration, 5s) linear forwards;
 }
 
 .hyperfide-hero-progress-fill[data-paused="true"] {

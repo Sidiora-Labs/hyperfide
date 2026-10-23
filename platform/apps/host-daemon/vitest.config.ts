@@ -7,9 +7,9 @@ export default defineWorkspaceTestConfig({
   test: {
     silent: "passed-only",
     env: {
-      BB_DATA_DIR: "/tmp/bb-host-daemon-test",
-      BB_SERVER_URL: "http://127.0.0.1:49161",
-      BB_HOST_DAEMON_PORT: "49162",
+      HYPERFIDE_DATA_DIR: "/tmp/hyperfide-host-daemon-test",
+      HYPERFIDE_SERVER_URL: "http://127.0.0.1:49161",
+      HYPERFIDE_HOST_DAEMON_PORT: "49162",
     },
     testTimeout: 15_000,
     projects: sharedWorkerProjects({

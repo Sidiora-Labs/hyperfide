@@ -7,7 +7,7 @@ import { localProcessCapacities } from "../src/vcs-process-scheduler.js";
 
 it("admits only the background share of git children while a foreground status can still start", async () => {
   const background = localProcessCapacities(availableParallelism())[2]!;
-  const directory = await mkdtemp(path.join(tmpdir(), "bb-vcs-admission-"));
+  const directory = await mkdtemp(path.join(tmpdir(), "hyperfide-vcs-admission-"));
   const script = path.join(directory, "hold.cjs");
   const finished = path.join(directory, "release");
   await writeFile(
@@ -18,7 +18,7 @@ it("admits only the background share of git children while a foreground status c
   const tasks = Array.from({ length: 12 }, (_, i) =>
     execPortableFile(
       "git",
-      ["-c", `alias.bb-admission=${alias}`, "bb-admission", String(i)],
+      ["-c", `alias.hyperfide-admission=${alias}`, "hyperfide-admission", String(i)],
       {
         cwd: directory,
         env: process.env,
@@ -57,17 +57,17 @@ it("admits only the background share of git children while a foreground status c
 }, 20000);
 
 it("releases admission after real git exit, spawn, and timeout failures", async () => {
-  const cwd = await mkdtemp(path.join(tmpdir(), "bb-vcs-failure-"));
+  const cwd = await mkdtemp(path.join(tmpdir(), "hyperfide-vcs-failure-"));
   const options = { cwd, env: process.env, maxBuffer: 1024, timeout: 100 };
   const alias = `!"${process.execPath.replaceAll("\\", "/")}" -e "setTimeout(() => {}, 30000)"`;
   try {
     const results = await Promise.allSettled([
-      execPortableFile("git", ["bb-no-such-command"], options),
+      execPortableFile("git", ["hyperfide-no-such-command"], options),
       execPortableFile(path.join(cwd, "git"), ["--version"], options),
       ...Array.from({ length: 6 }, () =>
         execPortableFile(
           "git",
-          ["-c", `alias.bb-delay=${alias}`, "bb-delay"],
+          ["-c", `alias.hyperfide-delay=${alias}`, "hyperfide-delay"],
           options,
         ),
       ),

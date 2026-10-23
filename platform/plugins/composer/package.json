@@ -1,16 +1,16 @@
 {
-  "name": "hyperfide-plugin-bb--composer",
+  "name": "hyperfide-plugin-hyperfide--composer",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "bb's composer: the prompt box with rich text, @-mentions, slash commands, voice and attachments.",
+  "description": "hyperfide's composer: the prompt box with rich text, @-mentions, slash commands, voice and attachments.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.6.66"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.66"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Composer",
-    "description": "bb's composer: the prompt box with rich text, @-mentions, slash commands, voice and attachments.",
+    "description": "hyperfide's composer: the prompt box with rich text, @-mentions, slash commands, voice and attachments.",
     "branding": {
       "icon": "MessageSquare"
     },
@@ -18,7 +18,7 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

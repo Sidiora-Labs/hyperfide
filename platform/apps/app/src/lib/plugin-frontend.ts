@@ -24,7 +24,7 @@ import * as tailwindMerge from "tailwind-merge";
 import * as classVarianceAuthority from "class-variance-authority";
 import * as sharedUiIcon from "@hyperfide/shared-ui/icon";
 import { createDebouncedCallbackScheduler } from "@hyperfide/domain";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import type { QueryClient } from "@tanstack/react-query";
 import { markEnabledPluginListStale } from "@/hooks/cache-owners/plugin-cache-owner";
 import { pluginListQueryOptions } from "@/hooks/queries/plugin-settings-queries";
@@ -175,7 +175,7 @@ export async function loadPluginFrontend(
   }
 }
 
-interface BbPluginRuntime {
+interface HyperfidePluginRuntime {
   react: unknown;
   reactDom: unknown;
   reactDomClient: unknown;
@@ -204,12 +204,12 @@ interface BbPluginRuntime {
   voiceInputTextarea: typeof voiceInputTextarea;
 }
 
-type RuntimeHost = typeof globalThis & { __bbPluginRuntime?: BbPluginRuntime };
+type RuntimeHost = typeof globalThis & { __hyperfidePluginRuntime?: HyperfidePluginRuntime };
 
 export function installPluginRuntime(): void {
   const host = globalThis as RuntimeHost;
-  if (host.__bbPluginRuntime !== undefined) return;
-  host.__bbPluginRuntime = {
+  if (host.__hyperfidePluginRuntime !== undefined) return;
+  host.__hyperfidePluginRuntime = {
     react,
     reactDom,
     reactDomClient,
@@ -253,7 +253,7 @@ export async function fetchFrontendCandidates(
   } catch (error) {
     setServerPluginsStarting(false);
     if (
-      error instanceof BbHttpError &&
+      error instanceof HyperfideHttpError &&
       (error.status === 401 || error.status === 403)
     ) {
       setPluginLogoUrls(new Map());
@@ -341,7 +341,7 @@ async function runWithConcurrencyLimit<T>(
 }
 
 function appendPluginImportRetry(url: string, retryCount: number): string {
-  return `${url}${url.includes("?") ? "&" : "?"}bb_retry=${retryCount}`;
+  return `${url}${url.includes("?") ? "&" : "?"}hyperfide_retry=${retryCount}`;
 }
 
 interface PluginFrontendReconcileState {
@@ -520,20 +520,20 @@ async function mountWithTimeout(
             if (controller.signal.aborted) return;
             if (typeof threadId !== "string") {
               deps.warn(
-                `bb plugin "${pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
+                `hyperfide-platform plugin "${pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
               );
               return;
             }
             const normalizedThreadId = threadId.trim();
             if (normalizedThreadId.length === 0) {
               deps.warn(
-                `bb plugin "${pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
+                `hyperfide-platform plugin "${pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
               );
               return;
             }
             const normalizedStatus = normalizePluginThreadRowStatus(
               status,
-              (reason) => deps.warn(`bb plugin "${pluginId}": ${reason}`),
+              (reason) => deps.warn(`hyperfide-platform plugin "${pluginId}": ${reason}`),
             );
             if (normalizedStatus === undefined) return;
             setPluginThreadRowStatus(

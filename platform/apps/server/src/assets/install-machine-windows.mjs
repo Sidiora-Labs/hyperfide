@@ -166,7 +166,7 @@ export function serverHostSlug(serverUrl) {
 
 export function serviceName(serverUrl, hostId) {
   const hostSlug = hostId.replace(/[^a-zA-Z0-9_.-]/gu, "-");
-  return `bb-host-daemon-${`${serverHostSlug(serverUrl)}-${hostSlug}`.replaceAll(".", "-")}`;
+  return `hyperfide-host-daemon-${`${serverHostSlug(serverUrl)}-${hostSlug}`.replaceAll(".", "-")}`;
 }
 
 function quotePowerShell(value) {
@@ -356,7 +356,7 @@ async function installPackage({ dataDir, npmPrefix, source }) {
   });
   if (code !== 0) {
     throw new InstallError(
-      "Could not install bb-app for this machine. Check the npm error above, then run this command again.",
+      "Could not install hyperfide-app for this machine. Check the npm error above, then run this command again.",
     );
   }
 }
@@ -369,15 +369,15 @@ async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
   const root = packageRoot(npmPrefix);
   const digestFile = join(dataDir, "host-artifact.sha256");
   const installedDigest =
-    existsSync(join(root, "dist", "bb-app.js")) &&
+    existsSync(join(root, "dist", "hyperfide-app.js")) &&
     existsSync(join(root, "host-daemon", "dist", "daemon-bundle.mjs"))
       ? readText(digestFile).trim()
       : "";
   const knownDigest = /^[a-f0-9]{64}$/u.test(installedDigest)
     ? installedDigest
     : "";
-  const packageUrl = `${bootstrap.serverUrl}/install/bb-app.tgz`;
-  step("Downloading the server's bb-app package (timeout: 5 minutes)");
+  const packageUrl = `${bootstrap.serverUrl}/install/hyperfide-app.tgz`;
+  step("Downloading the server's hyperfide-app package (timeout: 5 minutes)");
   let response;
   try {
     response = await fetch(packageUrl, {
@@ -391,7 +391,7 @@ async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
     });
   } catch (error) {
     throw new InstallError(
-      `Could not download the server's bb-app package from ${packageUrl}.`,
+      `Could not download the server's hyperfide-app package from ${packageUrl}.`,
       [error instanceof Error ? error.message : String(error)],
     );
   }
@@ -400,10 +400,10 @@ async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
     return;
   }
   if (response.status === 404) {
-    warn("The server does not provide its bb-app package");
-    step("Installing bb-app from the npm registry");
+    warn("The server does not provide its hyperfide-app package");
+    step("Installing hyperfide-app from the npm registry");
     await installPackage({ dataDir, npmPrefix, source: "hyperfide-app" });
-    done("Installed bb-app from the npm registry");
+    done("Installed hyperfide-app from the npm registry");
     return;
   }
   if (!response.ok) {
@@ -417,28 +417,28 @@ async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
       }
     } catch {}
     throw new InstallError(
-      `Could not download the server's bb-app package from ${packageUrl} (HTTP ${response.status}).`,
+      `Could not download the server's hyperfide-app package from ${packageUrl} (HTTP ${response.status}).`,
       details,
     );
   }
   const tarball = Buffer.from(await response.arrayBuffer());
-  const expectedDigest = response.headers.get("x-bb-artifact-sha256") ?? "";
+  const expectedDigest = response.headers.get("x-hyperfide-artifact-sha256") ?? "";
   const downloadedDigest = createHash("sha256").update(tarball).digest("hex");
   if (
     /^[a-f0-9]{64}$/u.test(expectedDigest) &&
     expectedDigest !== downloadedDigest
   ) {
     throw new InstallError(
-      "The downloaded bb host artifact failed SHA-256 verification.",
+      "The downloaded hyperfide-platform host artifact failed SHA-256 verification.",
       [`Expected ${expectedDigest} but received ${downloadedDigest}.`],
     );
   }
-  done("Downloaded the server's bb-app package");
-  const packageDir = mkdtempSync(join(tmpdir(), "bb-app-"));
-  const packageFile = join(packageDir, "bb-app.tgz");
+  done("Downloaded the server's hyperfide-app package");
+  const packageDir = mkdtempSync(join(tmpdir(), "hyperfide-app-"));
+  const packageFile = join(packageDir, "hyperfide-app.tgz");
   try {
     writeFileSync(packageFile, tarball);
-    step("Installing the server's bb-app build");
+    step("Installing the server's hyperfide-app build");
     await installPackage({ dataDir, npmPrefix, source: packageFile });
   } finally {
     rmSync(packageDir, { force: true, recursive: true });
@@ -446,7 +446,7 @@ async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
   if (/^[a-f0-9]{64}$/u.test(expectedDigest)) {
     writeFileAtomic(digestFile, `${expectedDigest}\n`);
   }
-  done("Installed the server's bb-app build");
+  done("Installed the server's hyperfide-app build");
 }
 
 async function verifyNativeModules(root) {
@@ -458,7 +458,7 @@ async function verifyNativeModules(root) {
     ]);
   } catch {
     throw new InstallError(
-      "npm installed bb-app, but its host native add-ons (node-pty, @parcel/watcher) did not load.",
+      "npm installed hyperfide-app, but its host native add-ons (node-pty, @parcel/watcher) did not load.",
       [
         "npm did not run their install scripts. Check the npm warnings above. If they mention allowScripts or ignore-scripts, set npm_config_allow_scripts and run this command again.",
         `npm_config_allow_scripts=${NATIVE_MODULES}`,
@@ -480,7 +480,7 @@ function spawnDaemon({ args, dataDir, logFile, npmPrefix, root }) {
   try {
     const child = spawn(
       process.execPath,
-      [join(root, "dist", "bb-app.js"), "host-daemon", ...args],
+      [join(root, "dist", "hyperfide-app.js"), "host-daemon", ...args],
       {
         cwd: dataDir,
         detached: true,
@@ -634,7 +634,7 @@ async function joinServer({ bootstrap, dataDir, npmPrefix, port, root }) {
     }
     if (exited) {
       throw new InstallError(
-        `bb host daemon exited before it connected to ${bootstrap.serverUrl}.`,
+        `hyperfide-platform host daemon exited before it connected to ${bootstrap.serverUrl}.`,
         [`See ${joinLog}`],
       );
     }
@@ -713,7 +713,7 @@ function runDaemon(dataDir, service) {
     root: packageRoot(service.npmPrefix),
   });
   if (child.pid === undefined) {
-    throw new InstallError("Could not start the bb host daemon.");
+    throw new InstallError("Could not start the hyperfide-platform host daemon.");
   }
   writeFileAtomic(join(dataDir, PID_FILE_NAME), `${child.pid}\n`);
 }
@@ -778,13 +778,13 @@ async function startService(dataDir, service) {
       },
     );
   } catch {
-    throw new InstallError("Could not start the bb host daemon.", [
+    throw new InstallError("Could not start the hyperfide-platform host daemon.", [
       "Windows refused to create the daemon process through WMI.",
     ]);
   }
   if (!(await waitForConnection({ ...status, subject: "the host daemon" }))) {
     throw new InstallError(
-      `The bb host daemon did not connect to ${service.serverUrl}.`,
+      `The hyperfide-platform host daemon did not connect to ${service.serverUrl}.`,
       [`See ${join(dataDir, "logs", "machine-service.log")}`],
     );
   }
@@ -822,7 +822,7 @@ async function stopService(dataDir, service) {
     await delay(500);
   }
   throw new InstallError(
-    "A bb host daemon that this installer did not start is still running on this machine's port.",
+    "A hyperfide-platform host daemon that this installer did not start is still running on this machine's port.",
     [
       `Stop the process listening on port ${service.hostDaemonPort}, then run this command again.`,
     ],
@@ -923,7 +923,7 @@ async function runInstall(options) {
     throw new InstallError(`${options.bootstrapEnv} is not set.`);
   }
   const bootstrap = parseBootstrap(rawBootstrap);
-  process.stdout.write("\n  bb machine setup\n\n");
+  process.stdout.write("\n  hyperfide machine setup\n\n");
   step(
     `Setting up this machine as ${bootstrap.hostId} for ${bootstrap.serverUrl}`,
   );
@@ -931,7 +931,7 @@ async function runInstall(options) {
   const [major, minor] = process.versions.node.split(".").map(Number);
   if (major < 22 || (major === 22 && minor < 19)) {
     throw new InstallError(
-      `Node.js ${process.versions.node} is too old; bb-app requires Node.js 22.19 or newer (22.19, 24, and 26 are tested).`,
+      `Node.js ${process.versions.node} is too old; hyperfide-app requires Node.js 22.19 or newer (22.19, 24, and 26 are tested).`,
     );
   }
 
@@ -987,9 +987,9 @@ async function runInstall(options) {
     serverUrl: bootstrap.serverUrl,
   });
   await downloadPackage({ bootstrap, dataDir: canonicalDataDir, npmPrefix });
-  if (!existsSync(join(root, "dist", "bb-app.js"))) {
+  if (!existsSync(join(root, "dist", "hyperfide-app.js"))) {
     throw new InstallError(
-      `npm installed bb-app, but did not create the expected package at ${root}.`,
+      `npm installed hyperfide-app, but did not create the expected package at ${root}.`,
     );
   }
   await verifyNativeModules(root);
@@ -997,7 +997,7 @@ async function runInstall(options) {
   const enrollCode = await runInherited(
     process.execPath,
     [
-      join(root, "dist", "bb.js"),
+      join(root, "dist", "hyperfide.js"),
       "machine",
       "enroll",
       "--bootstrap-env",
@@ -1042,7 +1042,7 @@ async function runInstall(options) {
   await startService(canonicalDataDir, service);
   await registerStartup(canonicalDataDir, service);
   done("The host daemon starts when you sign in to Windows");
-  detail(`bb CLI for this machine: ${join(npmPrefix, "bb.cmd")}`);
+  detail(`hyperfide CLI for this machine: ${join(npmPrefix, "hyperfide.cmd")}`);
   detail(
     `To remove this machine: node "${installerCopy}" --uninstall --host-id ${bootstrap.hostId}`,
   );

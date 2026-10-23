@@ -3,7 +3,7 @@
   "name": "calendar",
   "type": "registry:ui",
   "title": "calendar",
-  "description": "BB ui \"calendar\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"calendar\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "react-day-picker"
   ],

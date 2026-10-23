@@ -248,7 +248,7 @@ async function prepareParcelWatcherPackageDirectory(packageDirectory, options) {
   if (!(await isDirectory(packagedPlatformDirectory))) {
     const workspaceWatcherDirectory = resolveWorkspaceParcelWatcherDirectory(
       PARCEL_WATCHER_PACKAGE_NAME,
-      path.join(desktopPackageRoot, NODE_MODULES_DIRECTORY, "bb-app"),
+      path.join(desktopPackageRoot, NODE_MODULES_DIRECTORY, "hyperfide-app"),
     );
     await cp(
       resolveWorkspaceParcelWatcherDirectory(

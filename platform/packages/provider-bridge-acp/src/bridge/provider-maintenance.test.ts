@@ -45,7 +45,7 @@ describe("ACP provider maintenance", () => {
   ])(
     "reports installed and health versions for %s",
     async (output, version) => {
-      const directory = await mkdtemp(path.join(tmpdir(), "bb-acp-version-"));
+      const directory = await mkdtemp(path.join(tmpdir(), "hyperfide-acp-version-"));
       try {
         const script = path.join(directory, "version.cjs");
         await writeFile(

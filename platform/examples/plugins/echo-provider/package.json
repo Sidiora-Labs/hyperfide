@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.3"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.3"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Echo provider",
     "description": "The third-party canary: a complete agent provider that exercises every provider-plugin capability through the public SDK alone.",
     "branding": {
@@ -20,7 +20,7 @@
     "host": "./host.ts"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

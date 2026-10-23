@@ -1,8 +1,8 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type {
-  BbRealtime as RootBbRealtime,
-  BbSdk as RootBbSdk,
-  BbRealtimeConnectionEvent as RootRealtimeConnection,
+  HyperfideRealtime as RootHyperfideRealtime,
+  HyperfideSdk as RootHyperfideSdk,
+  HyperfideRealtimeConnectionEvent as RootRealtimeConnection,
   EnvironmentStatusResult as RootEnvironmentStatus,
   FileReadResult as RootFileRead,
   GuideRenderResult as RootGuideRender,
@@ -29,9 +29,9 @@ import type {
   ThreadSpawnResult as RootThreadSpawn,
 } from "@hyperfide/sdk";
 import type {
-  BbSdk as BrowserBbSdk,
-  BrowserBbSdk as BrowserRuntimeBbSdk,
-  BbRealtimeConnectionEvent as BrowserRealtimeConnection,
+  HyperfideSdk as BrowserHyperfideSdk,
+  BrowserHyperfideSdk as BrowserRuntimeHyperfideSdk,
+  HyperfideRealtimeConnectionEvent as BrowserRealtimeConnection,
   EnvironmentStatusResult as BrowserEnvironmentStatus,
   FileReadResult as BrowserFileRead,
   GuideRenderResult as BrowserGuideRender,
@@ -57,8 +57,8 @@ import type {
   ThreadSpawnResult as BrowserThreadSpawn,
 } from "@hyperfide/sdk/browser";
 import type {
-  BbSdk as CoreBbSdk,
-  BbRealtimeConnectionEvent as CoreRealtimeConnection,
+  HyperfideSdk as CoreHyperfideSdk,
+  HyperfideRealtimeConnectionEvent as CoreRealtimeConnection,
   EnvironmentStatusResult as CoreEnvironmentStatus,
   FileReadResult as CoreFileRead,
   GuideRenderResult as CoreGuideRender,
@@ -84,8 +84,8 @@ import type {
   ThreadSpawnResult as CoreThreadSpawn,
 } from "@hyperfide/sdk/core";
 import type {
-  BbSdk as NodeBbSdk,
-  BbRealtimeConnectionEvent as NodeRealtimeConnection,
+  HyperfideSdk as NodeHyperfideSdk,
+  HyperfideRealtimeConnectionEvent as NodeRealtimeConnection,
   EnvironmentStatusResult as NodeEnvironmentStatus,
   FileReadResult as NodeFileRead,
   GuideRenderResult as NodeGuideRender,
@@ -110,7 +110,7 @@ import type {
   ThreadSectionListResult as NodeThreadSectionList,
   ThreadSpawnResult as NodeThreadSpawn,
 } from "@hyperfide/sdk/node";
-import type { createBrowserBbSdk } from "@hyperfide/sdk/browser";
+import type { createBrowserHyperfideSdk } from "@hyperfide/sdk/browser";
 
 interface RootSurface {
   environmentStatus: RootEnvironmentStatus;
@@ -220,7 +220,7 @@ interface NodeSurface {
   threadSpawn: NodeThreadSpawn;
 }
 
-type ExpectedBbSdkKey =
+type ExpectedHyperfideSdkKey =
   | "experimental_desktopBrowsers"
   | "experimental_promptHistory"
   | "experimental_server"
@@ -500,19 +500,19 @@ describe("SDK public type entrypoints", () => {
   });
 
   it("preserves the complete SDK surface at every entrypoint", () => {
-    expectTypeOf<keyof RootBbSdk>().toEqualTypeOf<ExpectedBbSdkKey>();
-    expectTypeOf<BrowserBbSdk>().toEqualTypeOf<RootBbSdk>();
-    expectTypeOf<CoreBbSdk>().toEqualTypeOf<RootBbSdk>();
-    expectTypeOf<NodeBbSdk>().toEqualTypeOf<RootBbSdk>();
+    expectTypeOf<keyof RootHyperfideSdk>().toEqualTypeOf<ExpectedHyperfideSdkKey>();
+    expectTypeOf<BrowserHyperfideSdk>().toEqualTypeOf<RootHyperfideSdk>();
+    expectTypeOf<CoreHyperfideSdk>().toEqualTypeOf<RootHyperfideSdk>();
+    expectTypeOf<NodeHyperfideSdk>().toEqualTypeOf<RootHyperfideSdk>();
   });
 
   it("keeps the local guide area off the browser SDK instance", () => {
-    expectTypeOf<keyof BrowserRuntimeBbSdk>().toEqualTypeOf<
-      Exclude<ExpectedBbSdkKey, "guide">
+    expectTypeOf<keyof BrowserRuntimeHyperfideSdk>().toEqualTypeOf<
+      Exclude<ExpectedHyperfideSdkKey, "guide">
     >();
     expectTypeOf<
-      ReturnType<typeof createBrowserBbSdk>
-    >().toEqualTypeOf<BrowserRuntimeBbSdk>();
+      ReturnType<typeof createBrowserHyperfideSdk>
+    >().toEqualTypeOf<BrowserRuntimeHyperfideSdk>();
   });
 
   it("exports only the public permission presets", () => {
@@ -568,73 +568,73 @@ describe("SDK public type entrypoints", () => {
   });
 
   it("snapshots every SDK area and nested method group", () => {
-    expectTypeOf<keyof RootBbRealtime>().toEqualTypeOf<ExpectedRealtimeKey>();
+    expectTypeOf<keyof RootHyperfideRealtime>().toEqualTypeOf<ExpectedRealtimeKey>();
     expectTypeOf<
-      keyof RootBbSdk["environments"]
+      keyof RootHyperfideSdk["environments"]
     >().toEqualTypeOf<ExpectedEnvironmentsKey>();
-    expectTypeOf<keyof RootBbSdk["files"]>().toEqualTypeOf<ExpectedFilesKey>();
-    expectTypeOf<keyof RootBbSdk["guide"]>().toEqualTypeOf<ExpectedGuideKey>();
-    expectTypeOf<keyof RootBbSdk["hosts"]>().toEqualTypeOf<ExpectedHostsKey>();
+    expectTypeOf<keyof RootHyperfideSdk["files"]>().toEqualTypeOf<ExpectedFilesKey>();
+    expectTypeOf<keyof RootHyperfideSdk["guide"]>().toEqualTypeOf<ExpectedGuideKey>();
+    expectTypeOf<keyof RootHyperfideSdk["hosts"]>().toEqualTypeOf<ExpectedHostsKey>();
     expectTypeOf<
-      keyof RootBbSdk["plugins"]
+      keyof RootHyperfideSdk["plugins"]
     >().toEqualTypeOf<ExpectedPluginsKey>();
     expectTypeOf<
-      keyof RootBbSdk["plugins"]["catalog"]
+      keyof RootHyperfideSdk["plugins"]["catalog"]
     >().toEqualTypeOf<ExpectedPluginCatalogKey>();
     expectTypeOf<
-      keyof RootBbSdk["plugins"]["marketplaces"]
+      keyof RootHyperfideSdk["plugins"]["marketplaces"]
     >().toEqualTypeOf<ExpectedPluginMarketplacesKey>();
     expectTypeOf<
-      keyof RootBbSdk["plugins"]["installJobs"]
+      keyof RootHyperfideSdk["plugins"]["installJobs"]
     >().toEqualTypeOf<ExpectedPluginInstallJobsKey>();
     expectTypeOf<
-      keyof RootBbSdk["projects"]
+      keyof RootHyperfideSdk["projects"]
     >().toEqualTypeOf<ExpectedProjectsKey>();
     expectTypeOf<
-      keyof RootBbSdk["projects"]["attachments"]
+      keyof RootHyperfideSdk["projects"]["attachments"]
     >().toEqualTypeOf<ExpectedProjectAttachmentsKey>();
     expectTypeOf<
-      keyof RootBbSdk["projects"]["sources"]
+      keyof RootHyperfideSdk["projects"]["sources"]
     >().toEqualTypeOf<ExpectedProjectSourcesKey>();
     expectTypeOf<
-      keyof RootBbSdk["experimental_promptHistory"]
+      keyof RootHyperfideSdk["experimental_promptHistory"]
     >().toEqualTypeOf<ExpectedExperimentalPromptHistoryKey>();
     expectTypeOf<
-      keyof RootBbSdk["providers"]
+      keyof RootHyperfideSdk["providers"]
     >().toEqualTypeOf<ExpectedProvidersKey>();
     expectTypeOf<
-      keyof RootBbSdk["status"]
+      keyof RootHyperfideSdk["status"]
     >().toEqualTypeOf<ExpectedStatusKey>();
     expectTypeOf<
-      keyof RootBbSdk["system"]
+      keyof RootHyperfideSdk["system"]
     >().toEqualTypeOf<ExpectedSystemKey>();
     expectTypeOf<
-      keyof RootBbSdk["system"]["uiPreferences"]
+      keyof RootHyperfideSdk["system"]["uiPreferences"]
     >().toEqualTypeOf<ExpectedSystemUiPreferencesKey>();
     expectTypeOf<
-      keyof RootBbSdk["terminals"]
+      keyof RootHyperfideSdk["terminals"]
     >().toEqualTypeOf<ExpectedTerminalsKey>();
-    expectTypeOf<keyof RootBbSdk["theme"]>().toEqualTypeOf<ExpectedThemeKey>();
+    expectTypeOf<keyof RootHyperfideSdk["theme"]>().toEqualTypeOf<ExpectedThemeKey>();
     expectTypeOf<
-      keyof RootBbSdk["threadSections"]
+      keyof RootHyperfideSdk["threadSections"]
     >().toEqualTypeOf<ExpectedThreadSectionsKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]
+      keyof RootHyperfideSdk["threads"]
     >().toEqualTypeOf<ExpectedThreadsKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]["events"]
+      keyof RootHyperfideSdk["threads"]["events"]
     >().toEqualTypeOf<ExpectedThreadEventsKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]["queue"]
+      keyof RootHyperfideSdk["threads"]["queue"]
     >().toEqualTypeOf<ExpectedThreadQueueKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]["interactions"]
+      keyof RootHyperfideSdk["threads"]["interactions"]
     >().toEqualTypeOf<ExpectedThreadInteractionsKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]["queuedMessages"]
+      keyof RootHyperfideSdk["threads"]["queuedMessages"]
     >().toEqualTypeOf<ExpectedThreadQueuedMessagesKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]["tabs"]
+      keyof RootHyperfideSdk["threads"]["tabs"]
     >().toEqualTypeOf<ExpectedThreadTabsKey>();
   });
 });

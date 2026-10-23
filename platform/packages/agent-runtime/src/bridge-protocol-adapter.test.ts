@@ -556,17 +556,17 @@ describe("provider-native id translation", () => {
     const [started] = feedDeltas(adapter, "t_1", [
       { kind: "turn.open", providerTurnId: "codex-turn-1" },
     ]);
-    const bbTurnId =
+    const hyperfideTurnId =
       started?.type === "turn/started" && started.scope.kind === "turn"
         ? started.scope.turnId
         : "";
-    expect(bbTurnId).not.toBe("");
+    expect(hyperfideTurnId).not.toBe("");
 
     const steer = adapter.buildCommandPlan({
       type: "turn/steer",
       threadId: "t_1",
       providerThreadId: "p_1",
-      expectedTurnId: bbTurnId,
+      expectedTurnId: hyperfideTurnId,
       input: [],
       clientRequestId: "creq_abcdefghjk",
       options: fullModeOptions,
@@ -579,7 +579,7 @@ describe("provider-native id translation", () => {
       type: "thread/stop",
       threadId: "t_1",
       providerThreadId: "p_1",
-      activeTurnId: bbTurnId,
+      activeTurnId: hyperfideTurnId,
     });
     expect(stop).toMatchObject({
       params: { intent: "interrupt", activeTurnId: "codex-turn-1" },
@@ -610,9 +610,9 @@ describe("provider-native id translation", () => {
         providerTurnId: "codex-turn-1",
       },
     ]);
-    const bbItemId =
+    const hyperfideItemId =
       events[1]?.type === "item/started" ? events[1].item.id : "";
-    const bbTurnId =
+    const hyperfideTurnId =
       events[0]?.type === "turn/started" && events[0].scope.kind === "turn"
         ? events[0].scope.turnId
         : "";
@@ -642,8 +642,8 @@ describe("provider-native id translation", () => {
       params,
     });
     expect(decoded).toMatchObject({
-      turnId: bbTurnId,
-      payload: { subject: { itemId: bbItemId } },
+      turnId: hyperfideTurnId,
+      payload: { subject: { itemId: hyperfideItemId } },
     });
 
     const unmarked = adapter.decodeInteractiveRequest?.({
@@ -664,13 +664,13 @@ describe("provider-native id translation", () => {
       {
         kind: "item.open",
         key: { providerItemId: "dyn-1" },
-        item: { type: "tool", tool: "bb_test_ping" },
+        item: { type: "tool", tool: "hyperfide_test_ping" },
         providerTurnId: "codex-turn-1",
       },
     ]);
-    const bbItemId =
+    const hyperfideItemId =
       events[1]?.type === "item/started" ? events[1].item.id : "";
-    const bbTurnId =
+    const hyperfideTurnId =
       events[0]?.type === "turn/started" && events[0].scope.kind === "turn"
         ? events[0].scope.turnId
         : "";
@@ -683,12 +683,12 @@ describe("provider-native id translation", () => {
         threadId: "t_1",
         turnId: "codex-turn-1",
         callId: "dyn-1",
-        tool: "bb_test_ping",
+        tool: "hyperfide_test_ping",
         arguments: {},
         providerNativeIds: true,
       },
     });
-    expect(decoded).toMatchObject({ turnId: bbTurnId, callId: bbItemId });
+    expect(decoded).toMatchObject({ turnId: hyperfideTurnId, callId: hyperfideItemId });
   });
 });
 

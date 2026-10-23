@@ -140,8 +140,8 @@ function recovering(): ServerMoveStatus {
 }
 
 const RECOVERY_GUIDANCE = [
-  "bb couldn't confirm that desktop took over (desktop disconnected before confirming).",
-  "This server stays up but read-only, and bb finishes the move on its own as soon as desktop answers.",
+  "hyperfide couldn't confirm that desktop took over (desktop disconnected before confirming).",
+  "This server stays up but read-only, and hyperfide finishes the move on its own as soon as desktop answers.",
   "If desktop isn't running the server, run hyperfide-platform server move cancel --yes to abandon the move and keep the server here.",
   "If this server stops, run hyperfide-platform server unlock on this computer.",
 ];
@@ -188,7 +188,7 @@ describe("hyperfide-platform server move", () => {
     });
     expect(startMove).not.toHaveBeenCalled();
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "Moving the hyperfide-platform server to desktop (bb connect)",
+      "Moving the hyperfide-platform server to desktop (hyperfide-platform connect)",
       "Target data directory: /home/me/.hyperfide-machines/laptop",
       "",
       "Warnings",
@@ -267,7 +267,7 @@ describe("hyperfide-platform server move", () => {
 
     expect(startMove).not.toHaveBeenCalled();
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: This hyperfide-platform server uses a direct address, so the new server needs one too. Re-run with --address <url>: the URL every machine and app will use to reach bb on desktop, such as a Tailscale Serve URL.",
+      "Error: This hyperfide-platform server uses a direct address, so the new server needs one too. Re-run with --address <url>: the URL every machine and app will use to reach hyperfide on desktop, such as a Tailscale Serve URL.",
     ]);
   });
 
@@ -404,7 +404,7 @@ describe("hyperfide-platform server move", () => {
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
       "[running] Stop running work",
       "[done] Stop running work",
-      "[skipped] Update bb on desktop",
+      "[skipped] Update hyperfide on desktop",
       "[done] Export server data",
       "[running] Send data to desktop: Sent 212 MB of 480 MB",
       "[done] Send data to desktop",
@@ -755,7 +755,7 @@ describe("hyperfide-platform server move status and cancel", () => {
         statusResponse(
           moveStatus("preparing", {
             "stop-work": step("stop-work", "done"),
-            export: step("export", "running", "Snapshotting bb.db"),
+            export: step("export", "running", "Snapshotting hyperfide.db"),
           }),
         ),
       ),
@@ -769,7 +769,7 @@ describe("hyperfide-platform server move status and cancel", () => {
     );
     expect(payloads).toContain("  done     Stop running work");
     expect(payloads).toContain(
-      "  running  Export server data: Snapshotting bb.db",
+      "  running  Export server data: Snapshotting hyperfide.db",
     );
     expect(payloads).toContain("  pending  Switch machines over");
     expect(payloads.at(-1)).toBe(
@@ -888,7 +888,7 @@ describe("hyperfide-platform server move status and cancel", () => {
     );
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
       "The move to desktop wasn't confirmed. Abandoning rolls back the switch and keeps the server on this computer.",
-      "If desktop already took over, two servers will run with the same data and bb connect credential. Stop the server on desktop first.",
+      "If desktop already took over, two servers will run with the same data and hyperfide-platform connect credential. Stop the server on desktop first.",
     ]);
   });
 

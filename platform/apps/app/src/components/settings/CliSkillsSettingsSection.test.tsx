@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 function installButton(): HTMLButtonElement {
-  const button = screen.getByRole("button", { name: "Install bb CLI skills" });
+  const button = screen.getByRole("button", { name: "Install hyperfide CLI skills" });
   if (!(button instanceof HTMLButtonElement)) {
     throw new Error("Install control is not a button");
   }

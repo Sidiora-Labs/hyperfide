@@ -18,7 +18,7 @@ interface MenuHoverContextValue {
   clearLastHovered: () => void;
 }
 
-const MENU_HOVER_CONTEXT_KEY = Symbol.for("bb.menu-hover-context.v1");
+const MENU_HOVER_CONTEXT_KEY = Symbol.for("hyperfide.menu-hover-context.v1");
 
 function isMenuHoverContext(
   value: unknown,

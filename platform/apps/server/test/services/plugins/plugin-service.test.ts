@@ -46,7 +46,7 @@ async function writePlugin(
     version?: string;
     engines?: string;
     serverSource: string;
-    bb?: Record<string, unknown>;
+    hyperfide?: Record<string, unknown>;
   },
 ): Promise<string> {
   const rootDir = join(dir, options.name);
@@ -56,13 +56,13 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: options.version ?? "0.1.0",
-      ...(options.engines ? { engines: { bb: options.engines } } : {}),
-      bb: {
+      ...(options.engines ? { engines: { hyperfide: options.engines } } : {}),
+      hyperfide: {
         name: "Service fixture",
         description: "Plugin service fixture.",
         branding: { icon: "Zap" },
         server: "./server.ts",
-        ...options.bb,
+        ...options.hyperfide,
       },
     }),
   );
@@ -78,7 +78,7 @@ async function writeEsmPlugin(rootDir: string, id: string): Promise<void> {
       name: `hyperfide-plugin-${id}`,
       version: "0.1.0",
       type: "module",
-      bb: {
+      hyperfide: {
         name: `${id} fixture`,
         description: "ESM reload fixture.",
         branding: { icon: "Zap" },
@@ -243,7 +243,7 @@ describe("plugin service", () => {
     await writeFile(join(rootDir, "midnight.css"), ":root { --canvas: #000; }");
     await writePlugin(workDir, {
       name: "hyperfide-plugin-capabilities",
-      bb: {
+      hyperfide: {
         themes: [
           {
             id: "midnight",
@@ -254,14 +254,14 @@ describe("plugin service", () => {
         ],
       },
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.registerTool({
             name: "capabilities_probe",
             description: "Probe capabilities",
             parameters: { type: "object" },
             execute: async () => ({ content: "ok" }),
           });
-          bb.ui.registerMentionProvider({
+          hyperfide.ui.registerMentionProvider({
             id: "issues",
             label: "Issues",
             triggers: ["#"],
@@ -340,12 +340,12 @@ describe("plugin service", () => {
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-cycler",
       serverSource: `
-        export default function plugin(bb: any) {
+        export default function plugin(hyperfide: any) {
           const g = globalThis as any;
           g.__cyclerVersion = "v1";
           g.__cyclerDisposals = g.__cyclerDisposals ?? [];
-          bb.onDispose(() => g.__cyclerDisposals.push("first"));
-          bb.onDispose(() => g.__cyclerDisposals.push("second"));
+          hyperfide.onDispose(() => g.__cyclerDisposals.push("first"));
+          hyperfide.onDispose(() => g.__cyclerDisposals.push("second"));
         }
       `,
     });
@@ -385,7 +385,7 @@ describe("plugin service", () => {
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-cjs-factory",
       serverSource: "",
-      bb: { server: "./server.cjs" },
+      hyperfide: { server: "./server.cjs" },
     });
     await writeFile(
       join(rootDir, "server.cjs"),
@@ -555,8 +555,8 @@ describe("plugin service", () => {
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-staler",
       serverSource: `
-        export default function plugin(bb: any) {
-          (globalThis as any).__stalerApi = bb;
+        export default function plugin(hyperfide: any) {
+          (globalThis as any).__stalerApi = hyperfide;
         }
       `,
     });
@@ -740,10 +740,10 @@ describe("plugin service", () => {
     const entry = after.list().find((p) => p.id === "notify");
     expect(entry?.status).toBe("incompatible");
     expect(entry?.statusDetail).toBe(
-      "requires bb >=0.38.0 <0.39.0, this is 0.39.0",
+      "requires hyperfide >=0.38.0 <0.39.0, this is 0.39.0",
     );
     expect(lines).toContain(
-      "warn plugin notify not loaded (incompatible): requires bb >=0.38.0 <0.39.0, this is 0.39.0",
+      "warn plugin notify not loaded (incompatible): requires hyperfide >=0.38.0 <0.39.0, this is 0.39.0",
     );
     await after.stop();
   });
@@ -758,10 +758,10 @@ describe("plugin service", () => {
     const manifest = JSON.parse(
       await readFile(join(rootDir, "package.json"), "utf8"),
     ) as {
-      engines: { bbPluginSdk: string };
+      engines: { hyperfidePluginSdk: string };
       devDependencies: Record<string, string>;
     };
-    expect(manifest.engines.bbPluginSdk).toBe(">=0.4.8");
+    expect(manifest.engines.hyperfidePluginSdk).toBe(">=0.4.8");
     expect(manifest.devDependencies["@hyperfide/plugin-sdk"]).toBe("0.4.8");
     expect(semver.gt(PLUGIN_SDK_VERSION, "0.4.8")).toBe(true);
 
@@ -927,7 +927,7 @@ describe("plugin service", () => {
     expect(
       pluginInstalledTelemetryEvent(
         "tasks",
-        { kind: "catalog", marketplace: "bb-community", entryId: "tasks" },
+        { kind: "catalog", marketplace: "hyperfide-community", entryId: "tasks" },
         {
           kind: "npm",
           packageName: "@hyperfide/tasks",
@@ -939,7 +939,7 @@ describe("plugin service", () => {
     ).toEqual({
       plugin_id: "tasks",
       provenance: "catalog",
-      marketplace: "bb-community",
+      marketplace: "hyperfide-community",
       source_kind: "npm",
     });
   });
@@ -1109,10 +1109,10 @@ describe("plugin service", () => {
       });
       const heldRoot = await writePlugin(workDir, {
         name: "hyperfide-plugin-held-tunnel",
-        serverSource: `export default function plugin(bb: any) {
+        serverSource: `export default function plugin(hyperfide: any) {
           const g = globalThis as any;
           g.__heldFactoryRuns = (g.__heldFactoryRuns ?? 0) + 1;
-          bb.background.service("tunnel", {
+          hyperfide.background.service("tunnel", {
             start(signal: any) {
               g.__heldServiceStarts = (g.__heldServiceStarts ?? 0) + 1;
               return new Promise<void>((resolve) => {
@@ -1282,8 +1282,8 @@ describe("plugin service", () => {
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-observed",
       serverSource: `
-        export default function plugin(bb) {
-          const settings = bb.settings.define({
+        export default function plugin(hyperfide) {
+          const settings = hyperfide.settings.define({
             floor: { type: "string", label: "Floor", default: "60" },
           });
           settings.onChange((next) => {
@@ -1328,12 +1328,12 @@ describe("plugin service", () => {
 
   it("re-points a path plugin at a new checkout and keeps its settings, secrets, and schedules", async () => {
     const serverSource = (marker: string) => `
-      export default function plugin(bb) {
-        bb.settings.define({
+      export default function plugin(hyperfide) {
+        hyperfide.settings.define({
           floor: { type: "string", label: "Floor", default: "60" },
           token: { type: "string", label: "Token", secret: true },
         });
-        bb.background.schedule("sweep", "0 * * * *", async () => {});
+        hyperfide.background.schedule("sweep", "0 * * * *", async () => {});
         globalThis.__movedCheckout = "${marker}";
       }`;
     const checkoutA = await writePlugin(join(workDir, "a"), {
@@ -1440,8 +1440,8 @@ describe("plugin service", () => {
       name: "hyperfide-plugin-brittle",
       version: "0.2.0",
       serverSource: `
-        export default function plugin(bb) {
-          bb.settings.define({
+        export default function plugin(hyperfide) {
+          hyperfide.settings.define({
             token: { type: "string", label: "Token", secret: true },
           });
           globalThis.__brittleCheckout = "a";
@@ -1499,7 +1499,7 @@ describe("plugin service", () => {
 
     await service.installPath(managedRoot);
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("bb-managed workspace"),
+      expect.stringContaining("hyperfide-managed workspace"),
     );
   });
 
@@ -1518,7 +1518,7 @@ describe("plugin service", () => {
 
     await service.installPath(checkoutRoot);
     expect(warnSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining("bb-managed workspace"),
+      expect.stringContaining("hyperfide-managed workspace"),
     );
   });
 
@@ -1537,7 +1537,7 @@ describe("plugin service", () => {
 
     await service.installPath(ownedRoot);
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("bb-managed workspace"),
+      expect.stringContaining("hyperfide-managed workspace"),
     );
   });
 });

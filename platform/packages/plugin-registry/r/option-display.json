@@ -3,7 +3,7 @@
   "name": "option-display",
   "type": "registry:ui",
   "title": "option-display",
-  "description": "BB ui \"option-display\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"option-display\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/tooltip",
     "@hyperfide/utils"

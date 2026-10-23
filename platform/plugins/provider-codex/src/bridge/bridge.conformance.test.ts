@@ -16,7 +16,7 @@ let output: CapturedBridgeJsonRpcOutput;
 let workspaceDir: string;
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-conformance-ws-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-conformance-ws-"));
   const fakeScriptPath = join(workspaceDir, "fake-codex-script.json");
   writeFileSync(
     fakeScriptPath,

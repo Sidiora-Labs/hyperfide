@@ -109,7 +109,7 @@ describe("AnnotateAction", () => {
     });
     expect(
       fake.evaluate.mock.calls.some(([expression]) =>
-        expression.includes("__bbAgentAnnotations.activate()"),
+        expression.includes("__hyperfideAgentAnnotations.activate()"),
       ),
     ).toBe(true);
 

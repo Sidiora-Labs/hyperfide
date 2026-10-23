@@ -32,7 +32,7 @@ let harness: FakePiBridgeHarness;
 
 beforeEach(async () => {
   harness = await startFakePiBridge({
-    prefix: "bb-pi-turn-options-",
+    prefix: "hyperfide-pi-turn-options-",
     initialize: true,
   });
 }, 30_000);

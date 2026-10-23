@@ -14,8 +14,8 @@ import { PaneContext, type PaneContextValue } from "./PaneContext";
 import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
 import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import { sdk } from "@/lib/sdk";
-import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
-import { MACOS_TITLE_BAR_TRAILING_TOGGLE_CLASS } from "@/lib/bb-desktop";
+import { createHyperfideDesktopApi } from "@/test/hyperfide-desktop-test-utils";
+import { MACOS_TITLE_BAR_TRAILING_TOGGLE_CLASS } from "@/lib/hyperfide-desktop";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { MemoryRouter } from "react-router-dom";
 import { AppCommandProvider } from "@/components/commands/AppCommandProvider";
@@ -116,7 +116,7 @@ afterEach(() => {
   mocks.renameThreadAsync.mockReset();
   vi.restoreAllMocks();
   window.localStorage.clear();
-  delete window.bbDesktop;
+  delete window.hyperfideDesktop;
 });
 
 describe("ThreadDetailHeader", () => {
@@ -573,7 +573,7 @@ describe("ThreadDetailHeader", () => {
   });
 
   it("keeps the header title out of the macOS window-drag region so double click renames", async () => {
-    window.bbDesktop = createBbDesktopApi({
+    window.hyperfideDesktop = createHyperfideDesktopApi({
       lastCheckedAt: null,
       latestVersion: null,
       pendingVersion: null,
@@ -607,7 +607,7 @@ describe("ThreadDetailHeader", () => {
   });
 
   it("places the window toggle's reserved slot over the title-bar toggle so its whole box stays clickable", () => {
-    window.bbDesktop = createBbDesktopApi({
+    window.hyperfideDesktop = createHyperfideDesktopApi({
       lastCheckedAt: null,
       latestVersion: null,
       pendingVersion: null,

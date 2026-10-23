@@ -11,7 +11,7 @@ const PLUGIN_ID = "provider-acp";
 const DECLARED_ICON_NAMES = Object.keys(
   z
     .object({
-      bb: z.object({
+      hyperfide: z.object({
         branding: z.object({
           experimental_icons: z.record(z.string(), z.string()),
         }),
@@ -21,7 +21,7 @@ const DECLARED_ICON_NAMES = Object.keys(
       JSON.parse(
         readFileSync(new URL("./package.json", import.meta.url), "utf8"),
       ),
-    ).bb.branding.experimental_icons,
+    ).hyperfide.branding.experimental_icons,
 );
 
 function customAgents(...agents: unknown[]): string {
@@ -69,7 +69,7 @@ async function loadPlugin(options: {
     Promise.resolve(options.hosts ?? []),
   );
   host.harness.sdk.stub("providers.catalog", () => Promise.resolve([]));
-  await acpProvidersPlugin(host.bb);
+  await acpProvidersPlugin(host.hyperfide);
   return host;
 }
 
@@ -130,7 +130,7 @@ describe("the ACP plugin's registration bookkeeping", () => {
     });
     host.harness.sdk.stub("hosts.list", () => Promise.resolve([]));
 
-    const loading = acpProvidersPlugin(host.bb);
+    const loading = acpProvidersPlugin(host.hyperfide);
     expect(registeredIds(host)).toContain("acp-cursor");
     await loading;
   });
@@ -486,7 +486,7 @@ describe("the ACP registry", () => {
 
     await expect(
       host.harness.callRpc("addRegistryAgent", { id: "cursor" }),
-    ).rejects.toThrow("already built into bb");
+    ).rejects.toThrow("already built into hyperfide");
     await expect(
       host.harness.callRpc("addRegistryAgent", { id: "native-only" }),
     ).rejects.toThrow("only as a downloadable binary");

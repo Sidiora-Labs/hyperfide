@@ -2,15 +2,15 @@
  * `@hyperfide/plugin-sdk/provider-bridge` — the published authoring surface for a provider
  * bridge.
  *
- * A provider bridge ships inside its plugin's `bb.host` artifact, and a host
+ * A provider bridge ships inside its plugin's `hyperfide.host` artifact, and a host
  * artifact may not import private `@hyperfide/*` workspace packages: an external
  * plugin cannot resolve them. Everything a bridge needs therefore has to be
  * reachable through this package, which is why this module exists — it is the
  * bridge half of the same facade the root export already is for
- * `BbPluginApi`/`@hyperfide/domain` types.
+ * `HyperfidePluginApi`/`@hyperfide/domain` types.
  *
- * Curated by hand, never `export *`. The list below is the surface bb promises
- * bridge authors; a name that is not here is bb-internal and may move. It is
+ * Curated by hand, never `export *`. The list below is the surface hyperfide promises
+ * bridge authors; a name that is not here is hyperfide-internal and may move. It is
  * grouped the way a bridge consumes it:
  *
  *   1. the bridge entry contract (how a module declares itself a bridge),
@@ -27,7 +27,7 @@
  * (PromptInput, permission/interaction payloads, dynamic tools, rate limits,
  * reasoning levels) plus the enum/status types the delta shapes reference
  * (item status, turn status, plan steps, usage breakdowns). Those live in
- * `@hyperfide/domain` — bb's persisted vocabulary shared by the server, the app and
+ * `@hyperfide/domain` — hyperfide's persisted vocabulary shared by the server, the app and
  * the runtime — so the SDK names them here and the published bundle inlines
  * them, exactly as the root export already does for `PromptInput` and
  * friends.

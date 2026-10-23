@@ -5,7 +5,7 @@ import type {
   SystemProviderInfo,
 } from "@hyperfide/server-contract";
 import { action } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliHyperfideSdk } from "../client.js";
 import { columnWidths, printBorderlessTable } from "../table.js";
 import { outputJson } from "./helpers.js";
 import { resolveMachineEnvironmentRouting } from "./machine.js";
@@ -61,7 +61,7 @@ export function registerProviderCommands(
     .action(
       action(async (opts: ProviderListCommandOptions) => {
         const serverUrl = getUrl();
-        const sdk = createCliBbSdk(serverUrl);
+        const sdk = createCliHyperfideSdk(serverUrl);
         if (opts.all) {
           if (opts.machine || opts.host || opts.environment)
             throw new Error(
@@ -112,7 +112,7 @@ export function registerProviderCommands(
       .option("--json", "Print machine-readable JSON output")
       .action(
         action(async (providerId: string, opts: { json?: boolean }) => {
-          const catalog = await createCliBbSdk(getUrl()).providers.setEnabled({
+          const catalog = await createCliHyperfideSdk(getUrl()).providers.setEnabled({
             providerId,
             enabled,
           });
@@ -145,7 +145,7 @@ export function registerProviderCommands(
             );
           }
           const serverUrl = getUrl();
-          const sdk = createCliBbSdk(serverUrl);
+          const sdk = createCliHyperfideSdk(serverUrl);
           const routing = await resolveMachineEnvironmentRouting(
             opts,
             serverUrl,

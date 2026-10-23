@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "engines": {
-    "bbPluginSdk": ">=0.4.3"
+    "hyperfidePluginSdk": ">=0.4.3"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Replacement Lab Beta",
     "description": "A second provider for precedence and fallback testing.",
     "branding": {

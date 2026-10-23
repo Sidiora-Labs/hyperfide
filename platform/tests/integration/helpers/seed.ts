@@ -65,7 +65,7 @@ export async function createTestGitRepo(
   });
   await runGit({
     cwd: options.repoDir,
-    args: ["config", "user.name", "BB Integration Tests"],
+    args: ["config", "user.name", "HYPERFIDE Integration Tests"],
   });
 
   for (const file of options.files ?? DEFAULT_REPO_FILES) {

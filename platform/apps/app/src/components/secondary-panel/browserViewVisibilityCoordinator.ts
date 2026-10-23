@@ -1,6 +1,6 @@
 import type {
-  BbDesktopBrowserApi,
-  BbDesktopBrowserTarget,
+  HyperfideDesktopBrowserApi,
+  HyperfideDesktopBrowserTarget,
 } from "@hyperfide/desktop-contract";
 
 export interface BrowserViewVisibilityCoordinator {
@@ -26,33 +26,33 @@ interface RegisterBrowserViewArgs {
 }
 
 interface DestroyPersistedBrowserViewArgs {
-  desktopBrowser: BbDesktopBrowserApi;
+  desktopBrowser: HyperfideDesktopBrowserApi;
   tabId: string;
 }
 
 interface DestroyPersistedBrowserViewsForThreadArgs {
-  desktopBrowser: BbDesktopBrowserApi | null;
+  desktopBrowser: HyperfideDesktopBrowserApi | null;
   threadId: string;
 }
 
 interface DestroyPersistedBrowserViewsForEnvironmentArgs {
-  desktopBrowser: BbDesktopBrowserApi | null;
+  desktopBrowser: HyperfideDesktopBrowserApi | null;
   environmentId: string;
 }
 
 const browserViewRecords = new Map<string, BrowserViewRecord>();
-const browserViewRecreationTargets = new Map<string, BbDesktopBrowserTarget>();
+const browserViewRecreationTargets = new Map<string, HyperfideDesktopBrowserTarget>();
 
 export function allowBrowserViewRecreation(
   tabId: string,
-  target: BbDesktopBrowserTarget,
+  target: HyperfideDesktopBrowserTarget,
 ): void {
   browserViewRecreationTargets.set(tabId, target);
 }
 
 export function takeBrowserViewRecreation(
   tabId: string,
-  target: BbDesktopBrowserTarget,
+  target: HyperfideDesktopBrowserTarget,
 ): boolean {
   const allowedTarget = browserViewRecreationTargets.get(tabId);
   if (
@@ -67,7 +67,7 @@ export function takeBrowserViewRecreation(
 }
 
 export function createBrowserViewVisibilityCoordinator(
-  desktopBrowser: BbDesktopBrowserApi,
+  desktopBrowser: HyperfideDesktopBrowserApi,
 ): BrowserViewVisibilityCoordinator {
   let visibleTabId: string | null = null;
   return {

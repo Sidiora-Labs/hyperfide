@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 const require = createRequire(import.meta.url);
-const directory = await mkdtemp(join(tmpdir(), "bb-browser-address-"));
+const directory = await mkdtemp(join(tmpdir(), "hyperfide-browser-address-"));
 try {
   await build({
     stdin: {

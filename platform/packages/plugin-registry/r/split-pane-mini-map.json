@@ -3,7 +3,7 @@
   "name": "split-pane-mini-map",
   "type": "registry:ui",
   "title": "split-pane-mini-map",
-  "description": "BB ui \"split-pane-mini-map\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"split-pane-mini-map\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/utils"
   ],

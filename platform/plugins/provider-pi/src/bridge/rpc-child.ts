@@ -15,7 +15,7 @@ import { resolveWindowsPiProcessLaunch } from "./windows-pi-launch.js";
 export const PI_BRIDGE_COMMAND_ENV = "HYPERFIDE_PI_BRIDGE_COMMAND";
 export const PI_BRIDGE_ARGS_ENV = "HYPERFIDE_PI_BRIDGE_ARGS";
 
-export const PI_CHANNEL_RECORDING_KEY = "bbChannel";
+export const PI_CHANNEL_RECORDING_KEY = "hyperfideChannel";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 export const NO_REQUEST_TIMEOUT = 0;
@@ -103,7 +103,7 @@ export function buildPiChildEnv(
   const inheritedEnv = withoutBridgeRuntimeEnv(
     sanitizeInheritedChildProcessEnv({ env: process.env }),
   );
-  delete inheritedEnv.PI_BB_TOOLS_FILE;
+  delete inheritedEnv.PI_HYPERFIDE_TOOLS_FILE;
   return {
     ...inheritedEnv,
     ...overrides,
@@ -221,7 +221,7 @@ export class PiRpcChild {
       return Promise.reject(new PiRpcChildExitedError(this.exitInfo));
     }
     this.nextRequestId += 1;
-    const id = `bb-${this.nextRequestId}`;
+    const id = `hyperfide-${this.nextRequestId}`;
     return new Promise<PiRpcResponse>((resolve, reject) => {
       const timer =
         timeoutMs === NO_REQUEST_TIMEOUT

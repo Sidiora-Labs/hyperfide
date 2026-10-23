@@ -103,13 +103,13 @@ describe("Modal bootstrap executor", () => {
     await expect(
       transport.exec({
         onOutput: vi.fn(),
-        command: ["bb", "machine", "enroll"],
+        command: ["hyperfide", "machine", "enroll"],
         timeoutMs: 1234,
         signal: new AbortController().signal,
         stdin: "credential-secret",
       }),
     ).resolves.toEqual({ exitCode: 7 });
-    expect(vendor.exec).toHaveBeenCalledWith(["bb", "machine", "enroll"], {
+    expect(vendor.exec).toHaveBeenCalledWith(["hyperfide", "machine", "enroll"], {
       mode: "text",
       stdout: "pipe",
       stderr: "pipe",
@@ -207,7 +207,7 @@ it("uses the vendor start and timeout for expiry and scopes inventory to the own
     expect.objectContaining({
       appId: "app-owned",
       includeFinished: false,
-      tags: [{ tagName: "bbMachineKey", tagValue: "owned-key" }],
+      tags: [{ tagName: "hyperfideMachineKey", tagValue: "owned-key" }],
     }),
   );
   expect(
@@ -274,6 +274,6 @@ it("lists every tagged sandbox across apps and propagates enumeration failures",
   expect(ids).toEqual(["first-app-sandbox", "second-app-sandbox"]);
   expect(terminate).toHaveBeenCalledTimes(2);
   expect(vendor.tagged).toHaveBeenCalledExactlyOnceWith({
-    tags: { bbMachineKey: "owned-key" },
+    tags: { hyperfideMachineKey: "owned-key" },
   });
 });

@@ -34,11 +34,13 @@ const workspacePackageNames = new Set(
 
 function isWorkspacePackage(specifier) {
   const segments = specifier.split("/");
+  const packageName = specifier.startsWith("@")
+    ? segments.slice(0, 2).join("/")
+    : segments[0];
   return (
-    specifier.startsWith("@hyperfide/") ||
-    workspacePackageNames.has(
-      specifier.startsWith("@") ? segments.slice(0, 2).join("/") : segments[0],
-    )
+    packageName !== "@hyperfide/plugin-sdk" &&
+    (specifier.startsWith("@hyperfide/") ||
+      workspacePackageNames.has(packageName))
   );
 }
 
@@ -147,14 +149,14 @@ const forkablePluginImports = {
       if (isWorkspacePackage(specifier)) {
         context.report({
           node,
-          message: `${specifier} is a bb workspace package, which a copy of this plugin cannot install. Forkable plugins import only @hyperfide/plugin-sdk, npm packages, their own files, and registry components through @/ (for example @/components/ui/button) (scripts/forkable-plugins.json).`,
+          message: `${specifier} is a hyperfide workspace package, which a copy of this plugin cannot install. Forkable plugins import only @hyperfide/plugin-sdk, npm packages, their own files, and registry components through @/ (for example @/components/ui/button) (scripts/forkable-plugins.json).`,
         });
         return;
       }
       if (specifier.startsWith("@hyperfide/plugin-sdk/internal/")) {
         context.report({
           node,
-          message: `${specifier} is an internal SDK module that bb can change in any release. Forkable plugins import only the SDK's public entry points (scripts/forkable-plugins.json).`,
+          message: `${specifier} is an internal SDK module that hyperfide can change in any release. Forkable plugins import only the SDK's public entry points (scripts/forkable-plugins.json).`,
         });
         return;
       }
@@ -261,7 +263,7 @@ export const rules = {
 
 export default {
   meta: {
-    name: "bb",
+    name: "hyperfide",
   },
   rules,
 };

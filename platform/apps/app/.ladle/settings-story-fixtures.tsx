@@ -33,8 +33,8 @@ import {
 } from "./machine-story-fixtures";
 import { makeProviderInfo } from "@hyperfide/test-helpers/domain-fixtures";
 import {
-  BbAppUpdateRows,
-  BbUpdatesCard,
+  HyperfideAppUpdateRows,
+  HyperfideUpdatesCard,
   ProviderCliUpdatesSection,
 } from "../src/components/settings/UpdatesSettingsSection";
 import {
@@ -76,9 +76,9 @@ const STORY_AI_SERVICES: SystemAiServicesResponse = {
   },
   services: [
     {
-      id: "bb",
-      displayName: "bb cloud",
-      pluginId: "bb-ai",
+      id: "hyperfide",
+      displayName: "hyperfide cloud",
+      pluginId: "hyperfide-ai",
       tasks: ["thread-title", "commit-message", "voice"],
       automaticRank: 0,
       status: { ready: true },
@@ -158,14 +158,14 @@ const remoteProviderStatus = {
 } satisfies ProviderCliStatusResponse;
 
 const project = makeProject({
-  id: PROJECT_IDS.bb,
-  gitRemoteUrl: "git@github.com:get-bb/bb.git",
+  id: PROJECT_IDS.hyperfide,
+  gitRemoteUrl: "git@github.com:hyperfide/hyperfide.git",
   sources: [...STORY_PROJECT_SOURCES],
 });
 const pierreProject = makeProject({
   id: PROJECT_IDS.pierre,
   name: PROJECT_NAMES.pierre,
-  gitRemoteUrl: "https://github.com/get-bb/pierre.git",
+  gitRemoteUrl: "https://github.com/hyperfide/pierre.git",
   sources: [
     {
       id: "src_pierre_remote",
@@ -199,9 +199,9 @@ const sidebarNavigation = {
       ...project,
       defaultExecutionOptions: null,
       threads: [
-        makeThreadListEntry({ id: "thr_bb_1", projectId: PROJECT_IDS.bb }),
-        makeThreadListEntry({ id: "thr_bb_2", projectId: PROJECT_IDS.bb }),
-        makeThreadListEntry({ id: "thr_bb_3", projectId: PROJECT_IDS.bb }),
+        makeThreadListEntry({ id: "thr_hyperfide_1", projectId: PROJECT_IDS.hyperfide }),
+        makeThreadListEntry({ id: "thr_hyperfide_2", projectId: PROJECT_IDS.hyperfide }),
+        makeThreadListEntry({ id: "thr_hyperfide_3", projectId: PROJECT_IDS.hyperfide }),
       ],
     },
     {
@@ -227,7 +227,7 @@ const systemConfig = makeSystemConfig({
   primaryHostId: HOST_IDS.local,
   primaryHostPlatform: "darwin",
   voiceTranscriptionEnabled: true,
-  dataDir: "/Users/michael/.bb",
+  dataDir: "/Users/michael/.hyperfide",
 });
 
 const systemVersion = {
@@ -238,7 +238,7 @@ const systemVersion = {
   source: "npm",
   updateAvailable: false,
   isDevelopment: false,
-  upgradeCommand: "npx bb-app@latest",
+  upgradeCommand: "npx hyperfide-app@latest",
 } satisfies SystemVersionResponse;
 
 const systemProviders = [
@@ -277,15 +277,15 @@ const noop = () => {};
 export function SettingsUpdatesStory() {
   return (
     <div className="space-y-6">
-      <BbUpdatesCard>
-        <BbAppUpdateRows
+      <HyperfideUpdatesCard>
+        <HyperfideAppUpdateRows
           systemVersion={systemVersion}
           desktopInfo={null}
           isDesktop={false}
           onRelaunchDesktop={null}
           onRetryDesktop={null}
         />
-      </BbUpdatesCard>
+      </HyperfideUpdatesCard>
       <ProviderCliUpdatesSection
         machines={[settingsUpdateMachine]}
         now={0}
@@ -329,14 +329,14 @@ function createSettingsStoryQueryClient(hosts: Host[] = SETTINGS_STORY_HOSTS) {
     variables: STORY_GLOBAL_VARIABLES,
     inheritedVariables: [],
   });
-  queryClient.setQueryData(machineEnvironmentQueryKey(PROJECT_IDS.bb), {
+  queryClient.setQueryData(machineEnvironmentQueryKey(PROJECT_IDS.hyperfide), {
     builtInGit: STORY_GIT_HEALTH,
     variables: [
       {
         name: "DATABASE_URL",
         value: null,
         secret: true,
-        note: "Points at the bb sandbox.",
+        note: "Points at the hyperfide sandbox.",
       },
     ],
     inheritedVariables: STORY_GLOBAL_VARIABLES,

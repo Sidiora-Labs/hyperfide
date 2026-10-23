@@ -193,7 +193,7 @@ describe("plugin SDK navigation components", () => {
     const openUrl = vi.fn(() => true);
     const results: boolean[] = [];
     function Probe() {
-      const navigate = pluginSdkAppImplementation.useBbNavigate();
+      const navigate = pluginSdkAppImplementation.useHyperfideNavigate();
       return (
         <button
           type="button"

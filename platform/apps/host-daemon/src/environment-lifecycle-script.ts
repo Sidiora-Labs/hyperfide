@@ -69,7 +69,7 @@ export function buildLifecycleScriptCommand(
     if (args.windowsBashPath === null) {
       throw new WorkspaceError(
         "setup_script_failed",
-        `${args.scriptName} needs Git for Windows: bb runs ${args.kind} scripts with the bash that Git installs, and it could not find one.`,
+        `${args.scriptName} needs Git for Windows: hyperfide runs ${args.kind} scripts with the bash that Git installs, and it could not find one.`,
       );
     }
     return {
@@ -91,7 +91,7 @@ export function buildLifecycleScriptCommand(
 export class LifecycleScriptTerminationUnverifiedError extends Error {
   constructor(scriptName: string) {
     super(
-      `${scriptName} was stopped, but bb could not confirm that all of its processes exited`,
+      `${scriptName} was stopped, but hyperfide could not confirm that all of its processes exited`,
     );
     this.name = "LifecycleScriptTerminationUnverifiedError";
   }

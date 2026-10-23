@@ -25,7 +25,7 @@ async function writeHookPlugin(
     JSON.stringify({
       name: options.name,
       version: options.version ?? "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Install hook fixture",
         description: "Records install handler runs.",
         branding: { icon: "Zap" },
@@ -36,8 +36,8 @@ async function writeHookPlugin(
   await writeFile(
     join(rootDir, "server.ts"),
     `import { appendFileSync } from "node:fs";
-export default function plugin(bb: any) {
-  bb.onInstall(async () => {
+export default function plugin(hyperfide: any) {
+  hyperfide.onInstall(async () => {
     ${options.handlerBody}
   });
 }
@@ -53,7 +53,7 @@ async function readRuns(markerPath: string): Promise<string[]> {
   }
 }
 
-describe("bb.onInstall", () => {
+describe("hyperfide.onInstall", () => {
   let db: DbConnection;
   let workDir: string;
   let service: PluginService;

@@ -100,7 +100,7 @@ export function resolveProviderBridgeLaunch(
   const bootstrapPath =
     options.bootstrapPath ?? resolveProviderBridgeBootstrapPath();
   const dataDir =
-    options.dataDir ?? mkdtempSync(join(tmpdir(), "bb-parity-data-"));
+    options.dataDir ?? mkdtempSync(join(tmpdir(), "hyperfide-parity-data-"));
   return {
     command: process.execPath,
     args: [
@@ -378,9 +378,9 @@ async function replayRecordingAttempt(
   const profile = options.profile ?? DEFAULT_REPLAY_PROFILE;
   const recording = readBridgeRecording(options.recordingDir);
 
-  const stateDir = mkdtempSync(join(tmpdir(), "bb-parity-replay-"));
+  const stateDir = mkdtempSync(join(tmpdir(), "hyperfide-parity-replay-"));
   const workspaceDir = realpathSync(
-    mkdtempSync(join(tmpdir(), "bb-parity-ws-")),
+    mkdtempSync(join(tmpdir(), "hyperfide-parity-ws-")),
   );
   const replayCommand = [
     process.execPath,
@@ -643,7 +643,7 @@ async function replayRecordingAttempt(
         method: "initialize",
         params: {
           protocolVersion: PROVIDER_BRIDGE_PROTOCOL_VERSION,
-          client: { name: "bb-parity", version: "0" },
+          client: { name: "hyperfide-parity", version: "0" },
         },
       }),
     );

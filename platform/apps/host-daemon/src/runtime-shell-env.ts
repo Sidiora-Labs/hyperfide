@@ -6,14 +6,14 @@ import { fileURLToPath } from "node:url";
 import type { AgentRuntimeOptions } from "@hyperfide/agent-runtime";
 import { assignIfDefined } from "@hyperfide/config/objects";
 
-interface ResolveLocalBbExecutablePathOptions {
+interface ResolveLocalHyperfideExecutablePathOptions {
   cliExecutablePath?: string;
   cliRuntimePath?: string;
 }
 
 interface PrepareRuntimeShellEnvOptions {
-  bbExecutableDirectory: string;
-  bbExecutablePath?: string;
+  hyperfideExecutableDirectory: string;
+  hyperfideExecutablePath?: string;
   hostDaemonPort?: number;
   serverUrl: string;
   inheritedPath?: string;
@@ -101,7 +101,7 @@ async function resolveCliEntryPath(cliExecutablePath: string): Promise<string> {
   try {
     const stats = await fs.stat(cliEntryPath);
     if (!stats.isFile()) {
-      throw new Error(`Resolved bb CLI entry is not a file: ${cliEntryPath}`);
+      throw new Error(`Resolved hyperfide CLI entry is not a file: ${cliEntryPath}`);
     }
     if (process.platform !== "win32") {
       try {
@@ -109,7 +109,7 @@ async function resolveCliEntryPath(cliExecutablePath: string): Promise<string> {
       } catch (error) {
         if (getErrorCode(error) === "EACCES") {
           throw new Error(
-            `Resolved bb CLI entry is not executable: ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
+            `Resolved hyperfide CLI entry is not executable: ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
           );
         }
         throw error;
@@ -118,7 +118,7 @@ async function resolveCliEntryPath(cliExecutablePath: string): Promise<string> {
   } catch (error) {
     if (getErrorCode(error) === "ENOENT") {
       throw new Error(
-        `Missing built bb CLI entry at ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
+        `Missing built hyperfide CLI entry at ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
       );
     }
     throw error;
@@ -134,13 +134,13 @@ async function requireCliRuntimePath(cliRuntimePath: string): Promise<void> {
     const stats = await fs.stat(resolvedCliRuntimePath);
     if (!stats.isFile()) {
       throw new Error(
-        `Resolved bb CLI runtime is not a file: ${resolvedCliRuntimePath}`,
+        `Resolved hyperfide CLI runtime is not a file: ${resolvedCliRuntimePath}`,
       );
     }
   } catch (error) {
     if (getErrorCode(error) === "ENOENT") {
       throw new Error(
-        `Missing built bb CLI runtime at ${resolvedCliRuntimePath}. Build @hyperfide/cli before starting the host daemon.`,
+        `Missing built hyperfide CLI runtime at ${resolvedCliRuntimePath}. Build @hyperfide/cli before starting the host daemon.`,
       );
     }
     throw error;
@@ -592,8 +592,8 @@ export function createUserShellPathResolver(
   };
 }
 
-export async function resolveLocalBbExecutablePath(
-  options: ResolveLocalBbExecutablePathOptions = {},
+export async function resolveLocalHyperfideExecutablePath(
+  options: ResolveLocalHyperfideExecutablePathOptions = {},
 ): Promise<string> {
   const resolvedCliExecutablePath =
     options.cliExecutablePath ?? getDefaultCliExecutablePath();
@@ -609,24 +609,24 @@ export async function resolveLocalBbExecutablePath(
   return cliEntryPath;
 }
 
-export function resolveBbExecutablePathInDirectory(
-  bbExecutableDirectory: string,
+export function resolveHyperfideExecutablePathInDirectory(
+  hyperfideExecutableDirectory: string,
 ): string {
-  return resolve(bbExecutableDirectory, "hyperfide-platform");
+  return resolve(hyperfideExecutableDirectory, "hyperfide-platform");
 }
 
 export function prepareRuntimeShellEnv(
   options: PrepareRuntimeShellEnvOptions,
 ): NonNullable<AgentRuntimeOptions["shellEnv"]> {
-  const bbExecutablePath =
-    options.bbExecutablePath ??
-    resolveBbExecutablePathInDirectory(options.bbExecutableDirectory);
+  const hyperfideExecutablePath =
+    options.hyperfideExecutablePath ??
+    resolveHyperfideExecutablePathInDirectory(options.hyperfideExecutableDirectory);
   const shellEnv: NonNullable<AgentRuntimeOptions["shellEnv"]> = {
     PATH: prependPath(
-      options.bbExecutableDirectory,
+      options.hyperfideExecutableDirectory,
       options.inheritedPath ?? process.env.PATH,
     ),
-    HYPERFIDE_CLI: bbExecutablePath,
+    HYPERFIDE_CLI: hyperfideExecutablePath,
     HYPERFIDE_SERVER_URL: options.serverUrl,
   };
   assignIfDefined({

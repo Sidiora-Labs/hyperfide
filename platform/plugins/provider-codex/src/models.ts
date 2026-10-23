@@ -42,7 +42,7 @@ const codexModelIdentitySchema = z
   })
   .passthrough();
 
-function mapCodexReasoningLevelToBb(value: unknown): ReasoningLevel | null {
+function mapCodexReasoningLevelToHyperfide(value: unknown): ReasoningLevel | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -50,7 +50,7 @@ function mapCodexReasoningLevelToBb(value: unknown): ReasoningLevel | null {
   return parsed.success ? parsed.data : null;
 }
 
-export function mapBbReasoningLevelToCodex(
+export function mapHyperfideReasoningLevelToCodex(
   level: ReasoningLevel,
 ): string | null {
   return level === "ultracode" ? null : level;
@@ -65,7 +65,7 @@ function parseReasoningEffortOption(raw: unknown): ModelReasoningEffort | null {
     return null;
   }
   const record = raw as Record<string, unknown>;
-  const level = mapCodexReasoningLevelToBb(record.reasoningEffort);
+  const level = mapCodexReasoningLevelToHyperfide(record.reasoningEffort);
   if (!level) {
     return null;
   }
@@ -98,13 +98,13 @@ function parseSupportedReasoningEfforts(raw: unknown): ModelReasoningEffort[] {
   return efforts.length > 0 ? efforts : cloneDefaultReasoningEfforts();
 }
 
-function mapCodexServiceTierToBb(id: string): string {
+function mapCodexServiceTierToHyperfide(id: string): string {
   return id === CODEX_FAST_SERVICE_TIER ? HYPERFIDE_FAST_SERVICE_TIER : id;
 }
 
 function parseServiceTierOption(raw: unknown): ModelServiceTier | null {
   if (typeof raw === "string") {
-    return raw.length > 0 ? { id: mapCodexServiceTierToBb(raw) } : null;
+    return raw.length > 0 ? { id: mapCodexServiceTierToHyperfide(raw) } : null;
   }
   if (raw == null || typeof raw !== "object") {
     return null;
@@ -114,7 +114,7 @@ function parseServiceTierOption(raw: unknown): ModelServiceTier | null {
     return null;
   }
   return {
-    id: mapCodexServiceTierToBb(record.id),
+    id: mapCodexServiceTierToHyperfide(record.id),
     ...(typeof record.name === "string" && record.name.length > 0
       ? { label: record.name }
       : {}),
@@ -152,7 +152,7 @@ function toAvailableModel(
   raw: z.infer<typeof codexModelIdentitySchema>,
 ): AvailableModel {
   const efforts = parseSupportedReasoningEfforts(raw.supportedReasoningEfforts);
-  const mappedDefault = mapCodexReasoningLevelToBb(raw.defaultReasoningEffort);
+  const mappedDefault = mapCodexReasoningLevelToHyperfide(raw.defaultReasoningEffort);
   const defaultReasoningEffort =
     mappedDefault &&
     efforts.some((effort) => effort.reasoningEffort === mappedDefault)

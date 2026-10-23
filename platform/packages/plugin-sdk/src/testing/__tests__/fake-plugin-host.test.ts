@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   PLUGIN_CLI_OUTPUT_MAX_BYTES,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type PluginAgentConfigurationContext,
 } from "../../backend-contract.js";
 import {
@@ -94,21 +94,21 @@ describe("fixtures", () => {
 describe("server", () => {
   it("serves the configured public app URL and defaults to null", () => {
     const configured = createFakePluginHost({
-      appUrl: "https://bb.example.test",
+      appUrl: "https://hyperfide.example.test",
     });
     const unset = createFakePluginHost();
 
-    expect(configured.bb.server.experimental_appUrl).toBe(
-      "https://bb.example.test",
+    expect(configured.hyperfide.server.experimental_appUrl).toBe(
+      "https://hyperfide.example.test",
     );
-    expect(unset.bb.server.experimental_appUrl).toBeNull();
+    expect(unset.hyperfide.server.experimental_appUrl).toBeNull();
   });
 });
 
 describe("ui.requestInput", () => {
   it("settles a blocking request through the harness", async () => {
-    const { bb, harness } = createFakePluginHost();
-    const pending = bb.ui.requestInput({
+    const { hyperfide, harness } = createFakePluginHost();
+    const pending = hyperfide.ui.requestInput({
       threadId: "thread-test",
       rendererId: "secret-request",
       title: "Add secrets",
@@ -130,7 +130,7 @@ describe("ui.requestInput", () => {
   it("settles requests on abort and plugin disposal", async () => {
     const first = createFakePluginHost();
     const controller = new AbortController();
-    const aborted = first.bb.ui.requestInput(
+    const aborted = first.hyperfide.ui.requestInput(
       {
         threadId: "thread-test",
         rendererId: "form",
@@ -146,7 +146,7 @@ describe("ui.requestInput", () => {
     });
 
     const second = createFakePluginHost();
-    const disposed = second.bb.ui.requestInput({
+    const disposed = second.hyperfide.ui.requestInput({
       threadId: "thread-test",
       rendererId: "form",
       title: "Form",
@@ -160,9 +160,9 @@ describe("ui.requestInput", () => {
   });
 
   it("uses the production validation and error names", () => {
-    const { bb } = createFakePluginHost();
+    const { hyperfide } = createFakePluginHost();
     expect(() =>
-      bb.ui.requestInput({
+      hyperfide.ui.requestInput({
         threadId: "",
         rendererId: "form",
         title: "Form",
@@ -185,12 +185,12 @@ describe("host control plane", () => {
         payload: z.object({ sequence: z.number().int() }).strict(),
       },
     };
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       experimental_callHostRpc: ({ input }) => ({
         pong: String(Reflect.get(Object(input), "value")),
       }),
     });
-    const client = bb.hosts.experimental_client({
+    const client = hyperfide.hosts.experimental_client({
       contract,
       experimental_signals,
     });
@@ -229,25 +229,27 @@ describe("host control plane", () => {
   });
 
   it("uses validated current-state replacements and read-only tunnel identity", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       sharedPortTunnelIdentities: {
         "host-1": { label: "sawyer-air", baseDomain: "hyperfide.example" },
       },
     });
 
-    await expect(bb.hosts.ensureSharedPortTunnel("host-1")).resolves.toEqual({
+    await expect(
+      hyperfide.hosts.ensureSharedPortTunnel("host-1"),
+    ).resolves.toEqual({
       label: "sawyer-air",
       baseDomain: "hyperfide.example",
     });
-    bb.hosts.declareSharedPorts("host-1", [8080, 3000, 8080]);
-    bb.hosts.declareSharedPorts("host-2", [4173]);
-    bb.hosts.declareSharedPorts("host-1", [3000]);
+    hyperfide.hosts.declareSharedPorts("host-1", [8080, 3000, 8080]);
+    hyperfide.hosts.declareSharedPorts("host-2", [4173]);
+    hyperfide.hosts.declareSharedPorts("host-1", [3000]);
 
     expect(harness.sharedPortDeclarations).toEqual([
       { hostId: "host-1", ports: [3000] },
       { hostId: "host-2", ports: [4173] },
     ]);
-    expect(() => bb.hosts.declareSharedPorts("host-3", [0])).toThrow(
+    expect(() => hyperfide.hosts.declareSharedPorts("host-3", [0])).toThrow(
       /between 1 and 65535/,
     );
 
@@ -258,63 +260,76 @@ describe("host control plane", () => {
 
 describe("storage", () => {
   it("kv round-trips JSON, lists by prefix sorted, and enforces the 256KB cap", async () => {
-    const { bb } = createFakePluginHost();
-    await bb.storage.kv.set("slack:b", { channel: "C1" });
-    await bb.storage.kv.set("slack:a", 42);
-    await bb.storage.kv.set("other", "x");
-    expect(await bb.storage.kv.get("slack:b")).toEqual({ channel: "C1" });
-    expect(await bb.storage.kv.list("slack:")).toEqual(["slack:a", "slack:b"]);
-    expect(await bb.storage.kv.list()).toEqual(["other", "slack:a", "slack:b"]);
-    await bb.storage.kv.delete("slack:a");
-    expect(await bb.storage.kv.get("slack:a")).toBeUndefined();
+    const { hyperfide } = createFakePluginHost();
+    await hyperfide.storage.kv.set("slack:b", { channel: "C1" });
+    await hyperfide.storage.kv.set("slack:a", 42);
+    await hyperfide.storage.kv.set("other", "x");
+    expect(await hyperfide.storage.kv.get("slack:b")).toEqual({
+      channel: "C1",
+    });
+    expect(await hyperfide.storage.kv.list("slack:")).toEqual([
+      "slack:a",
+      "slack:b",
+    ]);
+    expect(await hyperfide.storage.kv.list()).toEqual([
+      "other",
+      "slack:a",
+      "slack:b",
+    ]);
+    await hyperfide.storage.kv.delete("slack:a");
+    expect(await hyperfide.storage.kv.get("slack:a")).toBeUndefined();
 
     await expect(
-      bb.storage.kv.set("big", "x".repeat(256 * 1024)),
+      hyperfide.storage.kv.set("big", "x".repeat(256 * 1024)),
     ).rejects.toThrow(/limit is 262144 \(256KB\)/);
   });
 
   it("database() returns one shared database and migrate() is append-only by index", () => {
-    const { bb } = createFakePluginHost();
-    const db = bb.storage.database();
-    bb.storage.migrate(db, [
+    const { hyperfide } = createFakePluginHost();
+    const db = hyperfide.storage.database();
+    hyperfide.storage.migrate(db, [
       "CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)",
     ]);
     db.prepare("INSERT INTO notes (body) VALUES (?)").run("hello");
 
-    const again = bb.storage.database();
+    const again = hyperfide.storage.database();
     expect(again).toBe(db);
-    bb.storage.migrate(again, [
+    hyperfide.storage.migrate(again, [
       "CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)",
       "ALTER TABLE notes ADD COLUMN starred INTEGER NOT NULL DEFAULT 0",
     ]);
     const rows = again.prepare("SELECT body, starred FROM notes").all();
     expect(rows).toEqual([{ body: "hello", starred: 0 }]);
     expect(() =>
-      bb.storage.migrate(again, [
+      hyperfide.storage.migrate(again, [
         "CREATE TABLE replacements (id INTEGER PRIMARY KEY)",
       ]),
     ).toThrow(/migration 0 does not match the recorded statement/);
   });
 
   it("reserves unknown legacy migration indexes", () => {
-    const { bb } = createFakePluginHost();
-    const db = bb.storage.database();
+    const { hyperfide } = createFakePluginHost();
+    const db = hyperfide.storage.database();
     db.exec(
-      "CREATE TABLE notes (id INTEGER PRIMARY KEY); CREATE TABLE _bb_migrations (id INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL); INSERT INTO _bb_migrations VALUES (0, 1), (2, 1)",
+      "CREATE TABLE notes (id INTEGER PRIMARY KEY); CREATE TABLE _hyperfide_migrations (id INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL); INSERT INTO _hyperfide_migrations VALUES (0, 1), (2, 1)",
     );
 
-    bb.storage.migrate(db, ["CREATE TABLE notes (id INTEGER PRIMARY KEY)"]);
+    hyperfide.storage.migrate(db, [
+      "CREATE TABLE notes (id INTEGER PRIMARY KEY)",
+    ]);
 
     expect(
       db
-        .prepare("SELECT id, statement_hash FROM _bb_migrations ORDER BY id")
+        .prepare(
+          "SELECT id, statement_hash FROM _hyperfide_migrations ORDER BY id",
+        )
         .all(),
     ).toEqual([
       { id: 0, statement_hash: expect.stringMatching(/^[a-f0-9]{64}$/) },
       { id: 2, statement_hash: "legacy-unknown" },
     ]);
     expect(() =>
-      bb.storage.migrate(db, [
+      hyperfide.storage.migrate(db, [
         "CREATE TABLE notes (id INTEGER PRIMARY KEY)",
         "SELECT 1",
         "SELECT 2",
@@ -323,25 +338,25 @@ describe("storage", () => {
   });
 
   it("database() replaces a handle the plugin closed itself, like the host", () => {
-    const { bb } = createFakePluginHost();
-    const db = bb.storage.database();
+    const { hyperfide } = createFakePluginHost();
+    const db = hyperfide.storage.database();
     db.exec("CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)");
     db.prepare("INSERT INTO notes (body) VALUES (?)").run("hello");
     db.close();
 
-    const reopened = bb.storage.database();
+    const reopened = hyperfide.storage.database();
     expect(reopened).not.toBe(db);
     expect(reopened.open).toBe(true);
     expect(reopened.prepare("SELECT body FROM notes").all()).toEqual([
       { body: "hello" },
     ]);
-    expect(bb.storage.database()).toBe(reopened);
+    expect(hyperfide.storage.database()).toBe(reopened);
   });
 });
 
 describe("settings", () => {
-  function defineSettings(bb: BbPluginApi) {
-    return bb.settings.define({
+  function defineSettings(hyperfide: HyperfidePluginApi) {
+    return hyperfide.settings.define({
       token: { type: "string", label: "Token", secret: true },
       mode: {
         type: "select",
@@ -360,10 +375,10 @@ describe("settings", () => {
   }
 
   it("resolves pre-seeded values, defaults, and type mismatches like the host", async () => {
-    const { bb } = createFakePluginHost({
+    const { hyperfide } = createFakePluginHost({
       settings: { token: "xoxb-1", enabled: false },
     });
-    const handle = defineSettings(bb);
+    const handle = defineSettings(hyperfide);
     expect(await handle.get()).toEqual({
       token: "xoxb-1",
       mode: "fast",
@@ -373,8 +388,8 @@ describe("settings", () => {
   });
 
   it("setSettings validates, fires onChange with next/prev, and skips no-op updates", async () => {
-    const { bb, harness } = createFakePluginHost();
-    const handle = defineSettings(bb);
+    const { hyperfide, harness } = createFakePluginHost();
+    const handle = defineSettings(hyperfide);
     const changes: Array<{ next: unknown; prev: unknown }> = [];
     handle.onChange((next, prev) => changes.push({ next, prev }));
 
@@ -411,8 +426,8 @@ describe("settings", () => {
   });
 
   it("validates strings and lets plugin server code persist its own settings", async () => {
-    const { bb, harness } = createFakePluginHost();
-    const handle = bb.settings.define({
+    const { hyperfide, harness } = createFakePluginHost();
+    const handle = hyperfide.settings.define({
       notes: {
         type: "string",
         label: "Notes",
@@ -460,18 +475,18 @@ describe("settings", () => {
   });
 
   it("rejects duplicate and invalid descriptors at define time", () => {
-    const { bb } = createFakePluginHost();
-    defineSettings(bb);
+    const { hyperfide } = createFakePluginHost();
+    defineSettings(hyperfide);
     expect(() =>
-      bb.settings.define({ token: { type: "string", label: "Again" } }),
+      hyperfide.settings.define({ token: { type: "string", label: "Again" } }),
     ).toThrow('setting "token" is already defined');
     expect(() =>
-      bb.settings.define({
+      hyperfide.settings.define({
         broken: { type: "select", label: "B", options: ["a"], default: "z" },
       }),
     ).toThrow('default for setting "broken" must be one of its options');
     expect(() =>
-      bb.settings.define({
+      hyperfide.settings.define({
         labelled: {
           type: "select",
           label: "L",
@@ -483,7 +498,7 @@ describe("settings", () => {
       'label for setting "labelled" names "z", which is not one of its options',
     );
     expect(() =>
-      bb.settings.define({
+      hyperfide.settings.define({
         pem: {
           type: "string",
           label: "Key",
@@ -495,12 +510,12 @@ describe("settings", () => {
       'invalid descriptor for setting "pem" (experimental_multiline): a secret setting cannot be experimental_multiline',
     );
     expect(() =>
-      bb.settings.define({
+      hyperfide.settings.define({
         notes: { type: "string", label: "Notes", experimental_multiline: true },
       }),
     ).not.toThrow();
     expect(() =>
-      bb.settings.define({
+      hyperfide.settings.define({
         invalidRetries: {
           type: "number",
           label: "Retries",
@@ -509,7 +524,7 @@ describe("settings", () => {
       }),
     ).toThrow('invalid descriptor for setting "invalidRetries"');
     expect(() =>
-      bb.settings.define({
+      hyperfide.settings.define({
         payload: {
           type: "string",
           label: "Payload",
@@ -523,7 +538,7 @@ describe("settings", () => {
       'invalid default for setting "payload": Payload must be a JSON object',
     );
     expect(() =>
-      bb.settings.define({
+      hyperfide.settings.define({
         normalized: {
           type: "string",
           label: "Normalized",
@@ -533,7 +548,7 @@ describe("settings", () => {
       }),
     ).toThrow('schema for setting "normalized" must not transform its value');
     expect(() =>
-      bb.settings.define({
+      hyperfide.settings.define({
         remote: {
           type: "string",
           label: "Remote",
@@ -547,14 +562,14 @@ describe("settings", () => {
 
 describe("rpc", () => {
   it("callRpc validates and JSON-normalizes input and output", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "notes" });
+    const { hyperfide, harness } = createFakePluginHost({ pluginId: "notes" });
     const contract = defineRpcContract({
       echo: {
         input: z.object({ when: z.string() }),
         output: z.object({ got: z.object({ when: z.string() }) }),
       },
     });
-    bb.rpc.register(contract, {
+    hyperfide.rpc.register(contract, {
       echo: (input) => ({ got: input }),
     });
     const result = await harness.callRpc("echo", {
@@ -571,7 +586,7 @@ describe("rpc", () => {
   });
 
   it("matches production validation, handler, and serialization failures", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     let calls = 0;
     const contract = defineRpcContract({
       checked: {
@@ -586,7 +601,7 @@ describe("rpc", () => {
       cyclic: { input: z.null(), output: z.any() },
       nonFinite: { input: z.null(), output: z.any() },
     });
-    bb.rpc.register(contract, {
+    hyperfide.rpc.register(contract, {
       checked(input) {
         calls += 1;
         return input;
@@ -626,7 +641,7 @@ describe("rpc", () => {
   });
 
   it("preserves typed refusals and does not invalidate refused writes", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const contract = defineRpcContract({
       save: {
         input: z.null(),
@@ -634,7 +649,7 @@ describe("rpc", () => {
         invalidates: () => ["private"],
       },
     });
-    bb.rpc.register(contract, {
+    hyperfide.rpc.register(contract, {
       save: () => {
         throw new experimental_PluginRpcRefusal({
           code: "forbidden",
@@ -652,33 +667,33 @@ describe("rpc", () => {
   });
 
   it("rejects invalid and duplicate registrations", () => {
-    const { bb } = createFakePluginHost();
+    const { hyperfide } = createFakePluginHost();
     const listContract = defineRpcContract({
       list: { input: z.null(), output: z.array(z.string()) },
     });
-    bb.rpc.register(listContract, { list: () => [] });
-    expect(() => bb.rpc.register(listContract, { list: () => [] })).toThrow(
-      'rpc method "list" is already registered',
-    );
+    hyperfide.rpc.register(listContract, { list: () => [] });
+    expect(() =>
+      hyperfide.rpc.register(listContract, { list: () => [] }),
+    ).toThrow('rpc method "list" is already registered');
     const dottedContract = defineRpcContract({
       "items.list": { input: z.null(), output: z.array(z.string()) },
     });
     expect(() =>
-      bb.rpc.register(dottedContract, { "items.list": () => [] }),
+      hyperfide.rpc.register(dottedContract, { "items.list": () => [] }),
     ).not.toThrow();
     const badContract = defineRpcContract({
       "bad name": { input: z.null(), output: z.array(z.string()) },
     });
     expect(() =>
-      bb.rpc.register(badContract, { "bad name": () => [] }),
+      hyperfide.rpc.register(badContract, { "bad name": () => [] }),
     ).toThrow('invalid rpc method name "bad name"');
   });
 });
 
 describe("http", () => {
   it("dispatches to the exact-match route with a real Hono context", async () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.http.route(
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.http.route(
       "POST",
       "/events",
       async (context) => {
@@ -700,8 +715,8 @@ describe("http", () => {
   });
 
   it("maps a throwing handler to the host's 500 shape", async () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.http.route("GET", "/boom", () => {
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.http.route("GET", "/boom", () => {
       throw new Error("nope");
     });
     const response = await harness.fetchHttp("GET", "/boom");
@@ -713,8 +728,8 @@ describe("http", () => {
   });
 
   it("adopts a structurally valid Response from another realm like the host (#1661)", async () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.http.route("GET", "/foreign", () => {
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.http.route("GET", "/foreign", () => {
       const real = new Response(JSON.stringify({ foreign: true }), {
         status: 201,
         headers: { "content-type": "application/json", "x-foreign": "yes" },
@@ -728,7 +743,7 @@ describe("http", () => {
         clone: () => real.clone(),
       } as unknown as Response;
     });
-    bb.http.route(
+    hyperfide.http.route(
       "GET",
       "/not-a-response",
       () => ({ status: 200 }) as Response,
@@ -748,9 +763,9 @@ describe("http", () => {
   });
 
   it("drives WebSocket lifecycle events and captures text and binary sends", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const events: string[] = [];
-    bb.http.experimental_websocket(
+    hyperfide.http.experimental_websocket(
       "/socket",
       (context) => ({
         onOpen(socket) {
@@ -799,9 +814,9 @@ describe("http", () => {
   });
 
   it("isolates WebSocket event failures and closes sessions on reload", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const closed: string[] = [];
-    bb.http.experimental_websocket("/socket", () => ({
+    hyperfide.http.experimental_websocket("/socket", () => ({
       onMessage() {
         throw new Error("message boom");
       },
@@ -825,7 +840,7 @@ describe("http", () => {
 
   it("rejects a throwing WebSocket factory", async () => {
     const throwing = createFakePluginHost();
-    throwing.bb.http.experimental_websocket("/boom", () => {
+    throwing.hyperfide.http.experimental_websocket("/boom", () => {
       throw new Error("factory boom");
     });
     await expect(
@@ -839,8 +854,8 @@ describe("http", () => {
 
 describe("cli", () => {
   it("normalizes results and maps throws like the host", async () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.cli.register({
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.cli.register({
       name: "docs",
       summary: "Docs tools",
       run(argv) {
@@ -856,13 +871,13 @@ describe("cli", () => {
     expect(await harness.runCli(["crash"])).toEqual({
       exitCode: 1,
       stdout: "",
-      stderr: "bb docs failed: bad flag",
+      stderr: "hyperfide docs failed: bad flag",
     });
   });
 
   it("mirrors production output-limit errors without truncating", async () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.cli.register({
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.cli.register({
       name: "exporter",
       summary: "Export data",
       run: () => ({
@@ -892,7 +907,7 @@ describe("cli", () => {
     for (const name of RESERVED_HYPERFIDE_CLI_COMMANDS) {
       const reservedHost = createFakePluginHost();
       expect(() =>
-        reservedHost.bb.cli.register({
+        reservedHost.hyperfide.cli.register({
           name,
           summary: "nope",
           run: () => ({ exitCode: 0 }),
@@ -901,14 +916,14 @@ describe("cli", () => {
       expect(reservedHost.harness.logEntries).toEqual([
         {
           level: "warn",
-          message: `CLI command "${name}" collides with core command "bb ${name}"; core keeps the short form. Use "bb plugin run test-plugin" to invoke this plugin.`,
+          message: `CLI command "${name}" collides with core command "hyperfide-platform ${name}"; core keeps the short form. Use "hyperfide-platform plugin run test-plugin" to invoke this plugin.`,
         },
       ]);
     }
 
     const availableHost = createFakePluginHost();
     expect(() =>
-      availableHost.bb.cli.register({
+      availableHost.hyperfide.cli.register({
         name: "ui",
         summary: "UI tools",
         run: () => ({ exitCode: 0 }),
@@ -918,14 +933,14 @@ describe("cli", () => {
   });
 
   it("rejects a duplicate registration like the production host", () => {
-    const { bb } = createFakePluginHost();
+    const { hyperfide } = createFakePluginHost();
     const registration = {
       name: "docs",
       summary: "Docs tools",
       run: () => ({ exitCode: 0 }),
     };
-    bb.cli.register(registration);
-    expect(() => bb.cli.register(registration)).toThrow(
+    hyperfide.cli.register(registration);
+    expect(() => hyperfide.cli.register(registration)).toThrow(
       "cli command is already registered",
     );
   });
@@ -933,9 +948,9 @@ describe("cli", () => {
 
 describe("background", () => {
   it("runService starts once, exposes the AbortController, and resolves on abort", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     let sawAbort = false;
-    bb.background.service("watcher", {
+    hyperfide.background.service("watcher", {
       start(signal) {
         return new Promise<void>((resolve) => {
           signal.addEventListener("abort", () => {
@@ -952,8 +967,8 @@ describe("background", () => {
   });
 
   it("treats NeedsConfigurationError (by name) as needs-configuration, not a crash", async () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.background.service("socket", {
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.background.service("socket", {
       start() {
         throw Object.assign(new Error("set the token first"), {
           name: "NeedsConfigurationError",
@@ -965,13 +980,13 @@ describe("background", () => {
   });
 
   it("validates cron expressions at registration and runs schedules on demand", async () => {
-    const { bb, harness } = createFakePluginHost();
-    expect(() => bb.background.schedule("sync", "not-cron", () => {})).toThrow(
-      'invalid cron "not-cron" for schedule "sync"',
-    );
+    const { hyperfide, harness } = createFakePluginHost();
+    expect(() =>
+      hyperfide.background.schedule("sync", "not-cron", () => {}),
+    ).toThrow('invalid cron "not-cron" for schedule "sync"');
 
     let runs = 0;
-    bb.background.schedule("sync", "*/5 * * * *", () => {
+    hyperfide.background.schedule("sync", "*/5 * * * *", () => {
       runs += 1;
     });
     await harness.runSchedule("sync");
@@ -981,9 +996,9 @@ describe("background", () => {
 
 describe("thread events", () => {
   it("emits a typed thread.active payload", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const seen: string[] = [];
-    bb.events.on("thread.active", ({ thread }) => {
+    hyperfide.events.on("thread.active", ({ thread }) => {
       seen.push(`${thread.id}:${thread.status}`);
     });
 
@@ -996,12 +1011,12 @@ describe("thread events", () => {
   });
 
   it("emitThreadEvent delivers typed payloads and captures handler errors", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const seen: Array<string | null> = [];
-    bb.events.on("thread.idle", ({ thread, lastAssistantText }) => {
+    hyperfide.events.on("thread.idle", ({ thread, lastAssistantText }) => {
       seen.push(`${thread.id}:${lastAssistantText}`);
     });
-    bb.events.on("thread.idle", () => {
+    hyperfide.events.on("thread.idle", () => {
       throw new Error("handler exploded");
     });
     const { errors } = await harness.emitThreadEvent("thread.idle", {
@@ -1017,22 +1032,22 @@ describe("thread events", () => {
   });
 
   it("rejects unknown events at registration", () => {
-    const { bb } = createFakePluginHost();
+    const { hyperfide } = createFakePluginHost();
     expect(() =>
-      bb.events.on("thread.unknown" as "thread.idle", () => {}),
+      hyperfide.events.on("thread.unknown" as "thread.idle", () => {}),
     ).toThrow('unknown event "thread.unknown"');
   });
 });
 
 describe("sdk", () => {
   it("records calls with plugin spawn attribution and runs stubs", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "slack-bot",
       sdk: {
         threads: { spawn: async () => ({ id: "th_1" }) },
       },
     });
-    const thread = await bb.sdk.threads.spawn({
+    const thread = await hyperfide.sdk.threads.spawn({
       projectId: "p1",
       prompt: "hi",
       environment: { type: "project-default" },
@@ -1053,7 +1068,7 @@ describe("sdk", () => {
 
   it("normalizes metadata-bearing spawn and fork calls with plugin attribution", async () => {
     const seen: unknown[] = [];
-    const { bb } = createFakePluginHost({
+    const { hyperfide } = createFakePluginHost({
       pluginId: "active-plugin",
       sdk: {
         threads: {
@@ -1069,13 +1084,13 @@ describe("sdk", () => {
       },
     });
     const metadata = { source: "test", nested: { ok: true } };
-    await bb.sdk.threads.spawn({
+    await hyperfide.sdk.threads.spawn({
       projectId: "p1",
       environment: { type: "reuse", environmentId: "environment-1" },
       prompt: "hi",
       pluginMetadata: metadata,
     });
-    await bb.sdk.threads.fork({
+    await hyperfide.sdk.threads.fork({
       sourceThreadId: "source",
       input: [{ type: "text", text: "fork", mentions: [] }],
       origin: "sdk",
@@ -1098,7 +1113,7 @@ describe("sdk", () => {
 
   it("defaults metadata targets, preserves explicit targets, and validates set before stubs", async () => {
     const invoked: unknown[] = [];
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "active-plugin",
       sdk: {
         threads: {
@@ -1114,8 +1129,8 @@ describe("sdk", () => {
       },
     });
 
-    await bb.sdk.threads.getPluginMetadata({ threadId: "thread-1" });
-    await bb.sdk.threads.updatePluginMetadata({
+    await hyperfide.sdk.threads.getPluginMetadata({ threadId: "thread-1" });
+    await hyperfide.sdk.threads.updatePluginMetadata({
       threadId: "thread-1",
       pluginId: "other-plugin",
       set: { nested: { ok: true } },
@@ -1133,7 +1148,7 @@ describe("sdk", () => {
     const cyclic: Record<string, unknown> = {};
     cyclic.self = cyclic;
     await expect(
-      bb.sdk.threads.updatePluginMetadata({
+      hyperfide.sdk.threads.updatePluginMetadata({
         threadId: "thread-1",
         set: cyclic as never,
       }),
@@ -1144,7 +1159,7 @@ describe("sdk", () => {
 
   it("rejects invalid spawn and fork metadata seeds without recording or sending them", async () => {
     const invoked: unknown[] = [];
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "active-plugin",
       sdk: {
         threads: {
@@ -1163,7 +1178,7 @@ describe("sdk", () => {
     cyclic.self = cyclic;
 
     await expect(
-      bb.sdk.threads.spawn({
+      hyperfide.sdk.threads.spawn({
         projectId: "p1",
         environment: { type: "project-default" },
         prompt: "hi",
@@ -1171,7 +1186,7 @@ describe("sdk", () => {
       }),
     ).rejects.toThrow(/cycle/);
     await expect(
-      bb.sdk.threads.fork({
+      hyperfide.sdk.threads.fork({
         sourceThreadId: "source",
         pluginMetadata: { blob: "x".repeat(256 * 1024) },
       }),
@@ -1182,17 +1197,17 @@ describe("sdk", () => {
   });
 
   it("applies production fork attribution defaults when no metadata is seeded", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "active-plugin",
       sdk: { threads: { fork: async () => ({ id: "forked" }) } },
     });
 
-    await bb.sdk.threads.fork({ sourceThreadId: "default" });
-    await bb.sdk.threads.fork({
+    await hyperfide.sdk.threads.fork({ sourceThreadId: "default" });
+    await hyperfide.sdk.threads.fork({
       sourceThreadId: "legacy",
       originPluginId: "legacy-plugin",
     });
-    await bb.sdk.threads.fork({ sourceThreadId: "sdk", origin: "sdk" });
+    await hyperfide.sdk.threads.fork({ sourceThreadId: "sdk", origin: "sdk" });
 
     expect(harness.sdk.callsTo("threads.fork")).toEqual([
       [
@@ -1215,7 +1230,7 @@ describe("sdk", () => {
 
   it("keeps nested plugin administration available through the backend SDK", async () => {
     const catalog = { pluginCount: 1 };
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       sdk: {
         plugins: {
           catalog: {
@@ -1225,17 +1240,19 @@ describe("sdk", () => {
       },
     });
 
-    await expect(bb.sdk.plugins.catalog.status()).resolves.toEqual(catalog);
+    await expect(hyperfide.sdk.plugins.catalog.status()).resolves.toEqual(
+      catalog,
+    );
     expect(harness.sdk.callsTo("plugins.catalog.status")).toEqual([[]]);
   });
 
   it("throws a stub-naming error for unstubbed methods and accepts late stubs", async () => {
-    const { bb, harness } = createFakePluginHost();
-    expect(() => bb.sdk.projects.list({})).toThrow(
-      "bb.sdk.projects.list is not stubbed",
+    const { hyperfide, harness } = createFakePluginHost();
+    expect(() => hyperfide.sdk.projects.list({})).toThrow(
+      "hyperfide.sdk.projects.list is not stubbed",
     );
     harness.sdk.stub("projects.list", async () => []);
-    await expect(bb.sdk.projects.list({})).resolves.toEqual([]);
+    await expect(hyperfide.sdk.projects.list({})).resolves.toEqual([]);
     expect(harness.sdk.callsTo("projects.list")).toHaveLength(2);
   });
 });
@@ -1250,8 +1267,8 @@ describe("agent tools", () => {
   });
 
   it("validates zod parameters per call and executes with a default context", async () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.agents.registerTool({
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.agents.registerTool({
       name: "lookup_doc",
       description: "Look up a doc",
       parameters: z.object({ query: z.string().min(1) }),
@@ -1270,21 +1287,21 @@ describe("agent tools", () => {
   });
 
   it("records a tool's presentation and hands it to the provider-facing tool set", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const presentation = {
       label: { pending: "Looking up a doc", completed: "Looked up a doc" },
       icon: { glyph: "Book" },
       suppress: false,
       tint: { light: "#123456", dark: "#abcdef" },
     };
-    bb.agents.registerTool({
+    hyperfide.agents.registerTool({
       name: "lookup_doc",
       description: "Look up a doc",
       presentation,
       parameters: { type: "object" },
       execute: () => "ok",
     });
-    bb.agents.registerTool({
+    hyperfide.agents.registerTool({
       name: "plain_tool",
       description: "No presentation",
       parameters: { type: "object" },
@@ -1303,7 +1320,7 @@ describe("agent tools", () => {
   });
 
   it("lets a tool presentation name one of the plugin's own declared icons and nothing else, like production", () => {
-    const { bb } = createFakePluginHost({
+    const { hyperfide } = createFakePluginHost({
       pluginId: "tooled",
       experimental_declaredIconNames: ["stamp"],
     });
@@ -1315,31 +1332,31 @@ describe("agent tools", () => {
       execute: () => "ok",
     });
     expect(() =>
-      bb.agents.registerTool(tool("stamp_tool", "tooled/stamp")),
+      hyperfide.agents.registerTool(tool("stamp_tool", "tooled/stamp")),
     ).not.toThrow();
     expect(() =>
-      bb.agents.registerTool(tool("undeclared_tool", "tooled/seal")),
+      hyperfide.agents.registerTool(tool("undeclared_tool", "tooled/seal")),
     ).toThrow(
       'tool "undeclared_tool" presentation.icon "tooled/seal" is not an icon declared by plugin "tooled"',
     );
     expect(() =>
-      bb.agents.registerTool(tool("foreign_tool", "other-plugin/stamp")),
+      hyperfide.agents.registerTool(tool("foreign_tool", "other-plugin/stamp")),
     ).toThrow(
       'tool "foreign_tool" presentation.icon "other-plugin/stamp" is not an icon declared by plugin "tooled"',
     );
     expect(() =>
-      bb.agents.registerTool(tool("host_tool", "Zap")),
+      hyperfide.agents.registerTool(tool("host_tool", "Zap")),
     ).not.toThrow();
   });
 
   it("records a valid presentation normalized the way the production host stores it", () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const declared = {
       label: { pending: "Looking up a doc", completed: "Looked up a doc" },
       icon: { glyph: "Book" },
       extra: { markup: "<b>" },
     };
-    bb.agents.registerTool({
+    hyperfide.agents.registerTool({
       name: "lookup_doc",
       description: "Look up a doc",
       presentation: declared,
@@ -1371,9 +1388,9 @@ describe("agent tools", () => {
   ])(
     "rejects a registration built against SDK <0.4.16 that carries %s with the production host's message",
     (field, message) => {
-      const { bb, harness } = createFakePluginHost();
+      const { hyperfide, harness } = createFakePluginHost();
       expect(() =>
-        bb.agents.registerTool({
+        hyperfide.agents.registerTool({
           name: "stale_tool",
           description: "Built against an SDK before 0.4.16",
           [field]: { pending: "Working", completed: "Worked" },
@@ -1386,10 +1403,10 @@ describe("agent tools", () => {
   );
 
   it("rejects recursive schemas at registration and configuration", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
 
     expect(() =>
-      bb.agents.registerTool({
+      hyperfide.agents.registerTool({
         name: "recursive_zod",
         description: "Recursive zod schema",
         parameters: z.object({ value: z.json() }),
@@ -1397,7 +1414,7 @@ describe("agent tools", () => {
       }),
     ).toThrow(/recursive JSON Schema \$ref/);
 
-    bb.agents.registerTool({
+    hyperfide.agents.registerTool({
       name: "acyclic_ref",
       description: "Acyclic local reference",
       parameters: {
@@ -1407,7 +1424,7 @@ describe("agent tools", () => {
       },
       execute: () => "ok",
     });
-    bb.agents.configure(() => ({
+    hyperfide.agents.configure(() => ({
       tools: [
         {
           name: "acyclic_ref",
@@ -1429,24 +1446,24 @@ describe("agent tools", () => {
   });
 
   it("rejects duplicate keyed registrations like the production host", () => {
-    const { bb } = createFakePluginHost();
+    const { hyperfide } = createFakePluginHost();
     const tool = {
       name: "lookup_doc",
       description: "Look up a doc",
       parameters: { type: "object" },
       execute: () => "ok",
     };
-    bb.agents.registerTool(tool);
-    expect(() => bb.agents.registerTool(tool)).toThrow(
+    hyperfide.agents.registerTool(tool);
+    expect(() => hyperfide.agents.registerTool(tool)).toThrow(
       'tool "lookup_doc" is already registered',
     );
-    bb.agents.contributeInstructions(() => "first");
-    expect(() => bb.agents.contributeInstructions(() => "second")).toThrow(
-      "agent instructions are already registered",
-    );
-    bb.agents.configure(() => ({ tools: [], skills: [] }));
+    hyperfide.agents.contributeInstructions(() => "first");
     expect(() =>
-      bb.agents.configure(() => ({ tools: [], skills: [] })),
+      hyperfide.agents.contributeInstructions(() => "second"),
+    ).toThrow("agent instructions are already registered");
+    hyperfide.agents.configure(() => ({ tools: [], skills: [] }));
+    expect(() =>
+      hyperfide.agents.configure(() => ({ tools: [], skills: [] })),
     ).toThrow("agent configuration is already registered");
   });
 
@@ -1454,8 +1471,8 @@ describe("agent tools", () => {
     type NestedMetadata = {
       level1: { level2: { items: Array<{ count: number }> } };
     };
-    const { bb, harness } = createFakePluginHost();
-    bb.agents.registerTool({
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.agents.registerTool({
       name: "metadata_tool",
       description: "metadata_tool",
       parameters: { type: "object" },
@@ -1463,7 +1480,7 @@ describe("agent tools", () => {
     });
     let received: PluginAgentConfigurationContext | undefined;
     let mutationError: unknown;
-    bb.agents.configure((context) => {
+    hyperfide.agents.configure((context) => {
       received = context;
       try {
         (
@@ -1513,9 +1530,9 @@ describe("agent tools", () => {
   });
 
   it("rejects invalid fixture metadata before configure and defaults absent metadata to {}", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const seen: unknown[] = [];
-    bb.agents.configure((context) => {
+    hyperfide.agents.configure((context) => {
       seen.push(context.pluginMetadata);
       return { tools: [], skills: [] };
     });
@@ -1540,12 +1557,12 @@ describe("agent tools", () => {
   });
 
   it("resolves conditional tools, skills, context, and capped instructions without rebuilding registrations", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "conditional",
       agentSkillIds: ["alpha-skill", "beta-skill"],
     });
     for (const name of ["alpha_tool", "beta_tool"]) {
-      bb.agents.registerTool({
+      hyperfide.agents.registerTool({
         name,
         description: name,
         parameters: { type: "object" },
@@ -1553,7 +1570,7 @@ describe("agent tools", () => {
       });
     }
     const contexts: PluginAgentConfigurationContext[] = [];
-    bb.agents.configure((context) => {
+    hyperfide.agents.configure((context) => {
       contexts.push(context);
       const alpha = context.host.id === "host-test";
       return {
@@ -1589,7 +1606,7 @@ describe("agent tools", () => {
 
   it("fails closed for unknown and duplicate configure ids", async () => {
     const unknown = createFakePluginHost({ agentSkillIds: ["known-skill"] });
-    unknown.bb.agents.configure(() => ({
+    unknown.hyperfide.agents.configure(() => ({
       tools: ["missing-tool"],
       skills: ["known-skill"],
     }));
@@ -1601,7 +1618,7 @@ describe("agent tools", () => {
     );
 
     const duplicate = createFakePluginHost({ agentSkillIds: ["known-skill"] });
-    duplicate.bb.agents.configure(() => ({
+    duplicate.hyperfide.agents.configure(() => ({
       tools: [],
       skills: ["known-skill", "known-skill"],
     }));
@@ -1618,9 +1635,9 @@ describe("dispose", () => {
     const oldContract = defineRpcContract({
       version: { input: z.null(), output: z.literal("old") },
     });
-    host.bb.rpc.register(oldContract, { version: () => "old" as const });
-    await host.bb.storage.kv.set("cursor", { page: 2 });
-    const oldDatabase = host.bb.storage.database();
+    host.hyperfide.rpc.register(oldContract, { version: () => "old" as const });
+    await host.hyperfide.storage.kv.set("cursor", { page: 2 });
+    const oldDatabase = host.hyperfide.storage.database();
     oldDatabase.exec("CREATE TABLE state (value TEXT NOT NULL)");
     oldDatabase.prepare("INSERT INTO state (value) VALUES (?)").run("kept");
 
@@ -1631,30 +1648,34 @@ describe("dispose", () => {
     expect(host.harness.lifecycle.dispose).toBe(host.harness.dispose);
 
     await expect(
-      host.harness.lifecycle.reload((bb) => {
-        bb.rpc.register(oldContract, { version: () => "old" as const });
-        bb.rpc.register(oldContract, { version: () => "old" as const });
+      host.harness.lifecycle.reload((hyperfide) => {
+        hyperfide.rpc.register(oldContract, { version: () => "old" as const });
+        hyperfide.rpc.register(oldContract, { version: () => "old" as const });
       }),
     ).rejects.toThrow('rpc method "version" is already registered');
 
     await expect(host.harness.callRpc("version")).resolves.toBe("old");
-    await expect(host.bb.storage.kv.get("cursor")).resolves.toEqual({
+    await expect(host.hyperfide.storage.kv.get("cursor")).resolves.toEqual({
       page: 2,
     });
 
     const nextContract = defineRpcContract({
       version: { input: z.null(), output: z.literal("new") },
     });
-    const replacement = await host.harness.lifecycle.reload(async (bb) => {
-      await expect(bb.storage.kv.get("cursor")).resolves.toEqual({ page: 2 });
-      expect(
-        bb.storage.database().prepare("SELECT value FROM state").get(),
-      ).toEqual({ value: "kept" });
-      bb.rpc.register(nextContract, { version: () => "new" as const });
-    });
+    const replacement = await host.harness.lifecycle.reload(
+      async (hyperfide) => {
+        await expect(hyperfide.storage.kv.get("cursor")).resolves.toEqual({
+          page: 2,
+        });
+        expect(
+          hyperfide.storage.database().prepare("SELECT value FROM state").get(),
+        ).toEqual({ value: "kept" });
+        hyperfide.rpc.register(nextContract, { version: () => "new" as const });
+      },
+    );
 
     await expect(replacement.harness.callRpc("version")).resolves.toBe("new");
-    await expect(host.bb.storage.kv.get("cursor")).rejects.toThrow(
+    await expect(host.hyperfide.storage.kv.get("cursor")).rejects.toThrow(
       "used a stale API handle",
     );
     expect(oldDatabase.open).toBe(false);
@@ -1662,13 +1683,13 @@ describe("dispose", () => {
   });
 
   it("runs install handlers in order and isolates a throwing one", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const order: string[] = [];
-    bb.onInstall(() => {
+    hyperfide.onInstall(() => {
       order.push("first");
       throw new Error("install exploded");
     });
-    bb.onInstall(async () => {
+    hyperfide.onInstall(async () => {
       order.push("second");
     });
 
@@ -1685,16 +1706,16 @@ describe("dispose", () => {
   });
 
   it("aborts services, runs hooks LIFO, closes the database, and poisons the handle", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const order: string[] = [];
-    bb.onDispose(() => {
+    hyperfide.onDispose(() => {
       order.push("first");
     });
-    bb.onDispose(() => {
+    hyperfide.onDispose(() => {
       order.push("second");
       throw new Error("hook exploded");
     });
-    bb.background.service("svc", {
+    hyperfide.background.service("svc", {
       start(signal) {
         return new Promise<void>((resolve) => {
           signal.addEventListener("abort", () => {
@@ -1704,26 +1725,26 @@ describe("dispose", () => {
         });
       },
     });
-    const db = bb.storage.database();
+    const db = hyperfide.storage.database();
     const { done } = harness.runService("svc");
 
     await harness.dispose();
     await done;
     expect(order).toEqual(["aborted", "second", "first"]);
     expect(db.open).toBe(false);
-    await expect(bb.storage.kv.get("x")).rejects.toThrow(
+    await expect(hyperfide.storage.kv.get("x")).rejects.toThrow(
       "used a stale API handle",
     );
-    expect(() => bb.sdk).toThrow("stale");
+    expect(() => hyperfide.sdk).toThrow("stale");
     await harness.dispose();
   });
 });
 
 describe("realtime and status", () => {
   it("normalizes published payloads and records needs-configuration", () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.realtime.publish("notes-changed", undefined);
-    bb.realtime.publish("notes-changed", { at: new Date(0) });
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.realtime.publish("notes-changed", undefined);
+    hyperfide.realtime.publish("notes-changed", { at: new Date(0) });
     expect(harness.realtimeSignals).toEqual([
       { channel: "notes-changed", payload: null },
       {
@@ -1731,12 +1752,12 @@ describe("realtime and status", () => {
         payload: { at: "1970-01-01T00:00:00.000Z" },
       },
     ]);
-    expect(() => bb.realtime.publish("bad", { boom: 1n })).toThrow(
+    expect(() => hyperfide.realtime.publish("bad", { boom: 1n })).toThrow(
       "not JSON-serializable",
     );
 
-    bb.status.needsConfiguration("");
-    bb.status.needsConfiguration("set a token");
+    hyperfide.status.needsConfiguration("");
+    hyperfide.status.needsConfiguration("set a token");
     expect(harness.needsConfigurationMessages).toEqual([
       "needs configuration",
       "set a token",
@@ -1747,7 +1768,7 @@ describe("realtime and status", () => {
 describe("providers.register", () => {
   function agentDeclaration(
     overrides: Record<string, unknown> = {},
-  ): Parameters<BbPluginApi["providers"]["register"]>[0] {
+  ): Parameters<HyperfidePluginApi["providers"]["register"]>[0] {
     return {
       id: "my-agent",
       displayName: "My Agent",
@@ -1765,12 +1786,12 @@ describe("providers.register", () => {
       },
       composerActions: ["plan"],
       ...overrides,
-    } as Parameters<BbPluginApi["providers"]["register"]>[0];
+    } as Parameters<HyperfidePluginApi["providers"]["register"]>[0];
   }
 
   it("rejects malformed declarations with the shared host policy", () => {
-    const { bb } = createFakePluginHost();
-    const register = bb.providers.register;
+    const { hyperfide } = createFakePluginHost();
+    const register = hyperfide.providers.register;
 
     expect(() => register(agentDeclaration({ id: "Bad_Id!" }))).toThrow(
       /invalid provider id/,
@@ -1849,40 +1870,42 @@ describe("providers.register", () => {
   });
 
   it("refuses a provider icon naming an undeclared or foreign icon, like production", () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "tooled",
       experimental_declaredIconNames: ["stamp"],
     });
     expect(() =>
-      bb.providers.register(agentDeclaration({ icon: "tooled/seal" })),
+      hyperfide.providers.register(agentDeclaration({ icon: "tooled/seal" })),
     ).toThrow(
       'provider "my-agent" icon "tooled/seal" is not an icon declared by plugin "tooled"',
     );
     expect(() =>
-      bb.providers.register(agentDeclaration({ icon: "other-plugin/stamp" })),
+      hyperfide.providers.register(
+        agentDeclaration({ icon: "other-plugin/stamp" }),
+      ),
     ).toThrow(
       'provider "my-agent" icon "other-plugin/stamp" is not an icon declared by plugin "tooled"',
     );
     expect(harness.registrations.providerRegistrations).toEqual([]);
-    bb.providers.register(agentDeclaration({ icon: "tooled/stamp" }));
+    hyperfide.providers.register(agentDeclaration({ icon: "tooled/stamp" }));
     expect(harness.registrations.providerRegistrations[0]?.icon).toBe(
       "tooled/stamp",
     );
   });
 
-  it("refuses a plugin that declares no bb.host entry, like production", () => {
-    const { bb, harness } = createFakePluginHost({
+  it("refuses a plugin that declares no hyperfide.host entry, like production", () => {
+    const { hyperfide, harness } = createFakePluginHost({
       experimental_hostEntry: false,
     });
-    expect(() => bb.providers.register(agentDeclaration())).toThrow(
-      'provider "my-agent" has no bridge to run on: this plugin declares no "bb.host" entry in its manifest',
+    expect(() => hyperfide.providers.register(agentDeclaration())).toThrow(
+      'provider "my-agent" has no bridge to run on: this plugin declares no "hyperfide.host" entry in its manifest',
     );
     expect(harness.registrations.providerRegistrations).toEqual([]);
   });
 
   it("round-trips a registration through the harness and dispose", () => {
-    const { bb, harness } = createFakePluginHost();
-    const handle = bb.providers.register(
+    const { hyperfide, harness } = createFakePluginHost();
+    const handle = hyperfide.providers.register(
       agentDeclaration({ displayName: "  My Agent  " }),
     );
 
@@ -1893,7 +1916,7 @@ describe("providers.register", () => {
     expect(Object.isFrozen(registered.capabilities)).toBe(true);
     expect(registered.experimental_visibility).toBe("always");
 
-    expect(() => bb.providers.register(agentDeclaration())).toThrow(
+    expect(() => hyperfide.providers.register(agentDeclaration())).toThrow(
       /already registered/,
     );
 
@@ -1901,7 +1924,7 @@ describe("providers.register", () => {
     handle.dispose();
     expect(harness.registrations.providerRegistrations).toEqual([]);
 
-    bb.providers.register(
+    hyperfide.providers.register(
       agentDeclaration({ displayName: "Second Declaration" }),
     );
     expect(
@@ -1912,8 +1935,8 @@ describe("providers.register", () => {
   });
 
   it("normalizes and deeply freezes opaque provider bridge options", () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.providers.register(
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.providers.register(
       agentDeclaration({
         experimental_visibility: "installed",
         experimental_bridgeOptions: {
@@ -1934,11 +1957,11 @@ describe("providers.register", () => {
   });
 
   it("defaults maintenance support a plugin does not declare to false", () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const declaration = agentDeclaration();
     Reflect.deleteProperty(declaration, "maintenance");
 
-    bb.providers.register(declaration);
+    hyperfide.providers.register(declaration);
 
     expect(harness.registrations.providerRegistrations[0]?.maintenance).toEqual(
       { health: false, usage: false, installation: false },
@@ -1946,15 +1969,15 @@ describe("providers.register", () => {
   });
 
   it("clears registrations on dispose", async () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.providers.register(agentDeclaration({ id: "my-second-agent" }));
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.providers.register(agentDeclaration({ id: "my-second-agent" }));
     expect(
       harness.registrations.providerRegistrations.map((entry) => entry.id),
     ).toEqual(["my-second-agent"]);
 
     await harness.dispose();
     expect(harness.registrations.providerRegistrations).toEqual([]);
-    expect(() => bb.providers.register(agentDeclaration())).toThrow(
+    expect(() => hyperfide.providers.register(agentDeclaration())).toThrow(
       "used a stale API handle",
     );
   });
@@ -1962,9 +1985,11 @@ describe("providers.register", () => {
 
 describe("providers.experimental_contributeEnv", () => {
   it("round trips validated entries with the provider context", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "auth-proxy" });
+    const { hyperfide, harness } = createFakePluginHost({
+      pluginId: "auth-proxy",
+    });
     const contexts: unknown[] = [];
-    bb.providers.experimental_contributeEnv("claude-code", (context) => {
+    hyperfide.providers.experimental_contributeEnv("claude-code", (context) => {
       contexts.push(context);
       return [
         {
@@ -1999,10 +2024,13 @@ describe("providers.experimental_contributeEnv", () => {
 
   it("resolves environment-backed provider health only beside an env resolver", async () => {
     const first = createFakePluginHost();
-    first.bb.providers.experimental_contributeEnvHealth("claude-code", () => ({
-      label: "Proxied",
-      statusMessage: "Credentials are provided by a proxy.",
-    }));
+    first.hyperfide.providers.experimental_contributeEnvHealth(
+      "claude-code",
+      () => ({
+        label: "Proxied",
+        statusMessage: "Credentials are provided by a proxy.",
+      }),
+    );
     await expect(
       first.harness.behavior.resolveProviderEnvHealth("claude-code", {
         hostId: "host-one",
@@ -2010,8 +2038,11 @@ describe("providers.experimental_contributeEnv", () => {
     ).resolves.toBeNull();
 
     const second = createFakePluginHost();
-    second.bb.providers.experimental_contributeEnv("claude-code", () => []);
-    second.bb.providers.experimental_contributeEnvHealth(
+    second.hyperfide.providers.experimental_contributeEnv(
+      "claude-code",
+      () => [],
+    );
+    second.hyperfide.providers.experimental_contributeEnvHealth(
       "claude-code",
       ({ hostId }) =>
         hostId === "host-one"
@@ -2032,8 +2063,8 @@ describe("providers.experimental_contributeEnv", () => {
   });
 
   it("fails a malformed resolver closed and rejects duplicate registration", async () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.providers.experimental_contributeEnv("codex", () => [
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.providers.experimental_contributeEnv("codex", () => [
       {
         name: "lowercase",
         value: "hidden",
@@ -2041,7 +2072,7 @@ describe("providers.experimental_contributeEnv", () => {
       },
     ]);
     expect(() =>
-      bb.providers.experimental_contributeEnv("codex", () => []),
+      hyperfide.providers.experimental_contributeEnv("codex", () => []),
     ).toThrow("already registered");
 
     await expect(
@@ -2064,10 +2095,10 @@ describe("experimental_aiServices.register", () => {
   const complete = async (prompt: string) => `echo: ${prompt}`;
 
   it("records the validated service and removes it on dispose", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       experimental_hostEntry: false,
     });
-    const registration = bb.experimental_aiServices.register({
+    const registration = hyperfide.experimental_aiServices.register({
       id: "acme-ai",
       displayName: "  Acme AI  ",
       complete,
@@ -2083,14 +2114,14 @@ describe("experimental_aiServices.register", () => {
   });
 
   it("refuses a second service with the same id", () => {
-    const { bb } = createFakePluginHost();
-    bb.experimental_aiServices.register({
+    const { hyperfide } = createFakePluginHost();
+    hyperfide.experimental_aiServices.register({
       id: "acme-ai",
       displayName: "Acme AI",
       complete,
     });
     expect(() =>
-      bb.experimental_aiServices.register({
+      hyperfide.experimental_aiServices.register({
         id: "acme-ai",
         displayName: "Acme AI again",
         complete,
@@ -2101,8 +2132,8 @@ describe("experimental_aiServices.register", () => {
 
 describe("environment targets", () => {
   it("accepts legacy environment declarations without presentation fields", () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.experimental_environments.register(
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.experimental_environments.register(
       // @ts-expect-error legacy plugin declaration
       {
         id: "legacy-workspace",
@@ -2115,7 +2146,7 @@ describe("environment targets", () => {
         remove: async () => ({ status: "removed" }),
       },
     );
-    bb.experimental_environments.register(
+    hyperfide.experimental_environments.register(
       // @ts-expect-error legacy plugin declaration
       {
         id: "legacy-composition",
@@ -2143,7 +2174,7 @@ describe("environment targets", () => {
   ])(
     "rejects invalid %s (%j) for concrete and composed environments",
     (field, value) => {
-      const { bb, harness } = createFakePluginHost();
+      const { hyperfide, harness } = createFakePluginHost();
       const presentation = {
         id: "workspace",
         displayName: "Workspace",
@@ -2168,7 +2199,7 @@ describe("environment targets", () => {
       ]) {
         Reflect.set(declaration, field, value);
         expect(() =>
-          bb.experimental_environments.register(declaration),
+          hyperfide.experimental_environments.register(declaration),
         ).toThrow();
         expect(harness.registrations.environmentProviders.size).toBe(0);
         expect(harness.registrations.environmentCompositions.size).toBe(0);
@@ -2177,8 +2208,8 @@ describe("environment targets", () => {
   );
 
   it("keeps compositions separate from concrete lifecycle providers", () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.experimental_environments.register({
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.experimental_environments.register({
       id: "sandbox",
       displayName: "Sandbox",
       description: "Prepare a workspace for this thread.",
@@ -2196,7 +2227,7 @@ describe("environment targets", () => {
       environmentProviderId: "project-checkout",
     });
     expect(() =>
-      bb.experimental_environments.register({
+      hyperfide.experimental_environments.register({
         id: "sandbox",
         displayName: "Conflicting concrete provider",
         description: "Prepare a workspace for this thread.",
@@ -2212,14 +2243,14 @@ describe("environment targets", () => {
   });
 
   it("normalizes a registration and exposes it to the harness", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const create = async () => ({
       status: "failed" as const,
       failure: "transient" as const,
       message: "waiting",
     });
     const inputs = z.object({ image: z.string(), cpus: z.number().default(2) });
-    bb.experimental_environments.register({
+    hyperfide.experimental_environments.register({
       id: "container",
       displayName: "  Docker container  ",
       description: "Prepare a workspace for this thread.",
@@ -2252,17 +2283,17 @@ describe("environment targets", () => {
     });
     expect(target?.inputs).toBe(inputs);
     expect(target?.create).toBe(create);
-    await bb.experimental_environments.recheck();
+    await hyperfide.experimental_environments.recheck();
     expect(harness.recheckCount).toBe(1);
   });
 
   it("enforces environment icon ownership and rejects escaping asset paths", () => {
-    const { bb } = createFakePluginHost({
+    const { hyperfide } = createFakePluginHost({
       pluginId: "environment-test",
       experimental_declaredIconNames: ["mark"],
     });
     const register = (icon: string) =>
-      bb.experimental_environments.register({
+      hyperfide.experimental_environments.register({
         id: "env",
         displayName: "Environment",
         description: "Prepare a workspace for this thread.",
@@ -2284,8 +2315,8 @@ describe("environment targets", () => {
   });
 
   it("defaults every requirement to false", () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.experimental_environments.register({
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.experimental_environments.register({
       id: "plain",
       displayName: "Plain",
       description: "Prepare a workspace for this thread.",
@@ -2313,9 +2344,9 @@ describe("environment targets", () => {
   });
 
   it("refuses inputs that are not a Standard Schema validator", () => {
-    const { bb } = createFakePluginHost();
+    const { hyperfide } = createFakePluginHost();
     expect(() =>
-      bb.experimental_environments.register({
+      hyperfide.experimental_environments.register({
         id: "ok",
         displayName: "x",
         description: "Prepare a workspace for this thread.",
@@ -2333,9 +2364,9 @@ describe("environment targets", () => {
   });
 
   it("refuses a bad id or a declaration without create", () => {
-    const { bb } = createFakePluginHost();
+    const { hyperfide } = createFakePluginHost();
     expect(() =>
-      bb.experimental_environments.register({
+      hyperfide.experimental_environments.register({
         id: "bad id!",
         displayName: "x",
         description: "Prepare a workspace for this thread.",
@@ -2350,7 +2381,7 @@ describe("environment targets", () => {
     ).toThrow(/invalid environment provider id/);
     for (const id of ["x", "Uppercase", "under_score"]) {
       expect(() =>
-        bb.experimental_environments.register({
+        hyperfide.experimental_environments.register({
           id,
           displayName: "x",
           description: "Prepare a workspace for this thread.",
@@ -2365,7 +2396,7 @@ describe("environment targets", () => {
       ).toThrow(/invalid environment provider id/);
     }
     expect(() =>
-      bb.experimental_environments.register(
+      hyperfide.experimental_environments.register(
         // @ts-expect-error deliberately missing create
         {
           id: "ok",
@@ -2378,9 +2409,9 @@ describe("environment targets", () => {
   });
 
   it("refuses a non-boolean requirement", () => {
-    const { bb } = createFakePluginHost();
+    const { hyperfide } = createFakePluginHost();
     expect(() =>
-      bb.experimental_environments.register({
+      hyperfide.experimental_environments.register({
         id: "ok",
         displayName: "x",
         description: "Prepare a workspace for this thread.",
@@ -2398,9 +2429,9 @@ describe("environment targets", () => {
   });
 
   it("refuses projectless together with a project requirement", () => {
-    const { bb } = createFakePluginHost();
+    const { hyperfide } = createFakePluginHost();
     expect(() =>
-      bb.experimental_environments.register({
+      hyperfide.experimental_environments.register({
         id: "scratch",
         displayName: "Scratch",
         description: "Prepare a workspace for this thread.",
@@ -2417,9 +2448,9 @@ describe("environment targets", () => {
   });
 
   it("refuses projectless together with projectCheckout", () => {
-    const { bb } = createFakePluginHost();
+    const { hyperfide } = createFakePluginHost();
     expect(() =>
-      bb.experimental_environments.register({
+      hyperfide.experimental_environments.register({
         id: "scratch",
         displayName: "Scratch",
         description: "Prepare a workspace for this thread.",
@@ -2436,8 +2467,8 @@ describe("environment targets", () => {
   });
 
   it("normalizes a checkout provider that does not need git", () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.experimental_environments.register({
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.experimental_environments.register({
       id: "syncy",
       displayName: "Syncy",
       description: "Prepare a workspace for this thread.",
@@ -2463,8 +2494,8 @@ describe("environment targets", () => {
   });
 
   it("normalizes a host-scoped checkout provider", () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.experimental_environments.register({
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.experimental_environments.register({
       id: "branchy",
       displayName: "Branchy",
       description: "Prepare a workspace for this thread.",
@@ -2490,8 +2521,8 @@ describe("environment targets", () => {
   });
 
   it("accepts a machine provider without suspend and resume", () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.experimental_machines.register({
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.experimental_machines.register({
       description: "Provision a test machine.",
       icon: "Terminal",
       id: "test-machine",
@@ -2516,8 +2547,8 @@ describe("environment targets", () => {
   });
 
   it("normalizes ephemeral machine lifecycle policy", () => {
-    const { bb, harness } = createFakePluginHost();
-    bb.experimental_machines.register({
+    const { hyperfide, harness } = createFakePluginHost();
+    hyperfide.experimental_machines.register({
       description: "Provision temporary compute.",
       icon: "Terminal",
       id: "temporary-machine",
@@ -2540,9 +2571,9 @@ describe("environment targets", () => {
     { description: "", icon: "Terminal" },
     { description: "Provision a machine.", icon: " " },
   ])("rejects empty required machine metadata: %j", (metadata) => {
-    const { bb } = createFakePluginHost();
+    const { hyperfide } = createFakePluginHost();
     expect(() =>
-      bb.experimental_machines.register({
+      hyperfide.experimental_machines.register({
         id: "invalid-metadata",
         displayName: "Invalid metadata",
         ...metadata,
@@ -2566,7 +2597,7 @@ describe("environment targets", () => {
     const remove = async () => ({ status: "removed" as const });
     const lifecycle = async () => ({ resource: {} });
     expect(() =>
-      createFakePluginHost().bb.experimental_machines.register({
+      createFakePluginHost().hyperfide.experimental_machines.register({
         description: "Provision a test machine.",
         icon: "Terminal",
         id: "half-lifecycle",
@@ -2580,9 +2611,9 @@ describe("environment targets", () => {
   });
 
   it("delivers message.cancelled to a listener", async () => {
-    const { bb, harness } = createFakePluginHost();
+    const { hyperfide, harness } = createFakePluginHost();
     const seen: string[] = [];
-    bb.events.on("message.cancelled", ({ entry }) => {
+    hyperfide.events.on("message.cancelled", ({ entry }) => {
       seen.push(entry.id);
     });
     await harness.emitThreadEvent("message.cancelled", {

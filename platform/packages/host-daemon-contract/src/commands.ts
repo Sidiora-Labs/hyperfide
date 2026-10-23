@@ -730,9 +730,9 @@ const hostListCommandsCommandSchema = z
   .strict();
 
 const skillRootKindSchema = z.enum([
-  "bb-project",
-  "bb-data-dir",
-  "bb-builtin",
+  "hyperfide-project",
+  "hyperfide-data-dir",
+  "hyperfide-builtin",
   "provider-project",
   "provider-user",
   "shared-project",
@@ -804,8 +804,8 @@ export type WorkspaceProjectSkillFile = z.infer<
 >;
 
 export const deletableSkillScopeSchema = z.enum([
-  "bb-user",
-  "bb-project",
+  "hyperfide-user",
+  "hyperfide-project",
   "provider-user",
   "provider-project",
 ]);
@@ -820,23 +820,23 @@ const hostDeleteSkillCommandSchema = z
   })
   .strict()
   .superRefine((command, context) => {
-    if (command.scope === "bb-project" && command.cwd === null) {
+    if (command.scope === "hyperfide-project" && command.cwd === null) {
       context.addIssue({
         code: "custom",
         path: ["cwd"],
-        message: "cwd is required to delete a bb-project skill",
+        message: "cwd is required to delete a hyperfide-project skill",
       });
     }
-    const isBbScope =
-      command.scope === "bb-user" || command.scope === "bb-project";
-    if (isBbScope && command.rootPath !== null) {
+    const isHyperfideScope =
+      command.scope === "hyperfide-user" || command.scope === "hyperfide-project";
+    if (isHyperfideScope && command.rootPath !== null) {
       context.addIssue({
         code: "custom",
         path: ["rootPath"],
-        message: "rootPath must be null for a bb skill",
+        message: "rootPath must be null for a hyperfide skill",
       });
     }
-    if (!isBbScope && command.rootPath === null) {
+    if (!isHyperfideScope && command.rootPath === null) {
       context.addIssue({
         code: "custom",
         path: ["rootPath"],
@@ -845,12 +845,12 @@ const hostDeleteSkillCommandSchema = z
     }
   });
 
-const writableBbSkillScopeSchema = z.enum(["bb-user", "bb-project"]);
+const writableHyperfideSkillScopeSchema = z.enum(["hyperfide-user", "hyperfide-project"]);
 
 const hostWriteSkillCommandSchema = z
   .object({
     type: z.literal("host.write_skill"),
-    scope: writableBbSkillScopeSchema,
+    scope: writableHyperfideSkillScopeSchema,
     name: z.string().min(1),
     cwd: z.string().min(1).nullable(),
     content: z.string().min(1).max(1_000_000),
@@ -858,11 +858,11 @@ const hostWriteSkillCommandSchema = z
   })
   .strict()
   .superRefine((command, context) => {
-    if (command.scope === "bb-project" && command.cwd === null) {
+    if (command.scope === "hyperfide-project" && command.cwd === null) {
       context.addIssue({
         code: "custom",
         path: ["cwd"],
-        message: "cwd is required to edit a bb-project skill",
+        message: "cwd is required to edit a hyperfide-project skill",
       });
     }
   });

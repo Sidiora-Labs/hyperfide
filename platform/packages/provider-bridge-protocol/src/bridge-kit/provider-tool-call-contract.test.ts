@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { decodeNormalizedProviderToolCallRequest } from "./provider-tool-call-contract.js";
 
 describe("provider-tool-call-contract", () => {
-  it("preserves optional BB thread hints on normalized bridge tool calls", () => {
+  it("preserves optional HYPERFIDE thread hints on normalized bridge tool calls", () => {
     expect(
       decodeNormalizedProviderToolCallRequest("req-1", "item/tool/call", {
         providerThreadId: "provider-abc",
@@ -23,7 +23,7 @@ describe("provider-tool-call-contract", () => {
     });
   });
 
-  it("allows normalized bridge tool calls to omit a BB thread hint", () => {
+  it("allows normalized bridge tool calls to omit a HYPERFIDE thread hint", () => {
     expect(
       decodeNormalizedProviderToolCallRequest("req-2", "item/tool/call", {
         providerThreadId: "provider-abc",

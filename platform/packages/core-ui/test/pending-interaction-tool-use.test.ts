@@ -48,7 +48,7 @@ describe("describePendingInteractionToolUse", () => {
   it("reads the whole ask from the presentation, preferring the bridge's reason as the heading", () => {
     const interaction = toolUseInteraction({
       reason: "Not in allowlist: github",
-      title: "get-bb/bb#42",
+      title: "hyperfide/hyperfide#42",
       detail: "Opens a **bug** issue",
       tint: { light: "#123456", dark: "#abcdef" },
     });
@@ -64,7 +64,7 @@ describe("describePendingInteractionToolUse", () => {
     ).toEqual({
       title: "Not in allowlist: github",
       tool: "mcp__github__create_issue",
-      headline: "get-bb/bb#42",
+      headline: "hyperfide/hyperfide#42",
       detail: "Opens a **bug** issue",
       icon: { glyph: "Globe" },
       tint: { light: "#123456", dark: "#abcdef" },
@@ -95,12 +95,12 @@ describe("describePendingInteractionToolUse", () => {
   it("prints the headline and detail under the tool name on text surfaces", () => {
     const interaction = toolUseInteraction({
       reason: null,
-      title: "get-bb/bb#42",
+      title: "hyperfide/hyperfide#42",
       detail: "Opens a bug issue",
     });
     expect(formatPendingInteractionSubjectDetailLines(interaction)).toEqual([
       "Tool: mcp__github__create_issue",
-      "get-bb/bb#42",
+      "hyperfide/hyperfide#42",
       "Opens a bug issue",
     ]);
   });

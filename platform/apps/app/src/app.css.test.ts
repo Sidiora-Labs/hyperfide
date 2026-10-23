@@ -10,7 +10,7 @@ const css = readFileSync(
 
 describe("app.css chrome geometry", () => {
   it("owns the shared app chrome row height", () => {
-    expect(css).toMatch(/--bb-app-chrome-row-height:\s*3rem;/);
+    expect(css).toMatch(/--hyperfide-app-chrome-row-height:\s*3rem;/);
   });
 });
 
