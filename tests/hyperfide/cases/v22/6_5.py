@@ -26,6 +26,11 @@ def main():
         return subprocess.run([sys.executable, str(ROOT / "tests/hyperfide/support/withpg.py"), "--",
                                sys.executable, str(Path(__file__).resolve()), "--owned-cluster"], cwd=ROOT).returncode
     with AuthorityFixture() as fixture:
+        assert fixture.authority_url.startswith("https://")
+        assert fixture.ca.is_file()
+        assert request(fixture.platform_url + "/api/v1/authority/status", fixture.operator) == (200, {"status": "ready"})
+        status, operator = request(fixture.platform_url + "/api/v1/authority/operator", fixture.operator)
+        assert status == 200 and operator["credential_id"] == fixture.credential_id, operator
         first, second = fixture.hosts["host-1"], fixture.hosts["host-2"]
         assert first != second
         assert fixture.rows("SELECT name FROM hyperfide_platform_projection.operators") == [
@@ -33,7 +38,7 @@ def main():
         assert fixture.rows("SELECT id, capacity FROM hyperfide_platform_projection.hosts ORDER BY id") == [
             {"id": "host-1", "capacity": 1}, {"id": "host-2", "capacity": 1}]
         assert request(fixture.authority_url + "/enroll", "unknown-enrollment",
-                       {"host": "host-3", "url": first})[0] == 403
+                       {"host": "host-3", "url": first}, ca=fixture.ca)[0] == 403
         command = [sys.executable, "-c", "import os; assert os.environ['HYPERFIDE_TASK_HOST']=='host-2'; print('qualified on host-2')"]
         task = {"task": "authority-e2e", "host": "host-2", "command": command}
         before = fixture.rows("SELECT * FROM hyperfide_platform_projection.tasks")

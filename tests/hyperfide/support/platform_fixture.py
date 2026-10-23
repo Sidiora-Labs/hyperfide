@@ -9,13 +9,14 @@ ASKS_PROJECTION is the removable Ask plugin boundary for unmerged tasks 3.1-3.4
 persistence and events are real.
 
 AuthorityFixture (task 6.5) is the removable authority/multi-host projection for
-unmerged tasks 6.2-6.4: HTTP operator authentication, PostgreSQL plugin state,
+unmerged tasks 6.2-6.4: HTTPS operator authentication, PostgreSQL plugin state,
 enrollment, dispatch and qualification receipts. Replace it with the merged
 client/server APIs when those tasks land.
 """
 from __future__ import annotations
 
 import json
+import base64
 import os
 from pathlib import Path
 import selectors
@@ -25,8 +26,10 @@ import time
 import hashlib
 import secrets
 import socket
+import ssl
 import sys
 import threading
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -402,12 +405,13 @@ class PlatformFixture:
 BUILD = ROOT / "platform/apps/server/dist/index.js"
 
 
-def request(url, token, data=None):
+def request(url, token, data=None, *, ca=None):
     body = None if data is None else json.dumps(data).encode()
     req = Request(url, data=body, headers={"Authorization": "Bearer " + token,
                                          "Content-Type": "application/json"})
     try:
-        with urlopen(req, timeout=15) as response:
+        context = ssl.create_default_context(cafile=str(ca)) if ca else None
+        with urlopen(req, timeout=15, context=context) as response:
             return response.status, json.load(response)
     except HTTPError as error:
         return error.code, json.load(error)
@@ -432,8 +436,11 @@ class Handler(BaseHTTPRequestHandler):
     def handle_request(self):
         try:
             data = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
-            status, result = self.server.operation(
-                self.command, self.path, self.headers.get("Authorization", "").removeprefix("Bearer "), data)
+            if self.path == "/v1/invoke" and hasattr(self.server, "invoke"):
+                status, result = self.server.invoke(self.headers, data)
+            else:
+                status, result = self.server.operation(
+                    self.command, self.path, self.headers.get("Authorization", "").removeprefix("Bearer "), data)
         except Exception as error:
             status, result = 500, {"error": str(error)}
         body = json.dumps(result).encode()
@@ -444,11 +451,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-def serve(operation):
+def serve(operation, *, tls=None):
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    if tls:
+        server.socket = tls.wrap_socket(server.socket, server_side=True)
     server.operation = operation
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server, "http://127.0.0.1:" + str(server.server_port)
+    return server, ("https" if tls else "http") + "://127.0.0.1:" + str(server.server_port)
 
 
 class AuthorityFixture:
@@ -520,10 +529,44 @@ class AuthorityFixture:
                                    verdict text NOT NULL CHECK(verdict='pass'), digest text NOT NULL,
                                    output text NOT NULL);
             INSERT INTO operators VALUES (""" + self.literal(self.operator) + ", 'fixture-operator');")
-        authority, self.authority_url = serve(self.authority)
+        self.ca = self.path / "authority-ca.pem"
+        ca_key = self.path / "authority-ca.key"
+        key = self.path / "authority.key"
+        csr = self.path / "authority.csr"
+        cert = self.path / "authority.pem"
+        extensions = self.path / "authority.ext"
+        extensions.write_text("subjectAltName=IP:127.0.0.1\nextendedKeyUsage=serverAuth\n"
+                              "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\n")
+        commands = [
+            ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+             "-subj", "/CN=Hyperfide fixture CA", "-addext", "basicConstraints=critical,CA:TRUE",
+             "-addext", "keyUsage=critical,keyCertSign,cRLSign", "-keyout", str(ca_key), "-out", str(self.ca)],
+            ["req", "-newkey", "rsa:2048", "-nodes", "-subj", "/CN=127.0.0.1",
+             "-keyout", str(key), "-out", str(csr)],
+            ["x509", "-req", "-in", str(csr), "-CA", str(self.ca), "-CAkey", str(ca_key),
+             "-CAcreateserial", "-days", "1", "-extfile", str(extensions), "-out", str(cert)],
+        ]
+        for command in commands:
+            subprocess.run(["openssl", *command], check=True, capture_output=True, timeout=30)
+        tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        tls.minimum_version = ssl.TLSVersion.TLSv1_3
+        tls.load_cert_chain(cert, key)
+        authority, self.authority_url = serve(self.authority, tls=tls)
         self.servers.append(authority)
+        self.credential_id, self.run_id = str(uuid.uuid4()), str(uuid.uuid4())
+        operator_key = self.path / "operator.key"
+        subprocess.run(["openssl", "genpkey", "-algorithm", "Ed25519", "-out", str(operator_key)],
+                       check=True, capture_output=True, timeout=30)
+        operator_key.chmod(0o600)
+        self.operator_public = subprocess.check_output(
+            ["openssl", "pkey", "-in", str(operator_key), "-pubout"], timeout=30).decode()
+        authority.invoke = self.invoke
         env = {key: value for key, value in os.environ.items() if not key.startswith("HYPERFIDE_")}
         env.update(HYPERFIDE_AUTHORITY_URL=self.authority_url,
+                   HYPERFIDE_AUTHORITY_CA_FILE=str(self.ca),
+                   HYPERFIDE_AUTHORITY_KEY_FILE=str(operator_key),
+                   HYPERFIDE_AUTHORITY_CREDENTIAL_ID=self.credential_id,
+                   HYPERFIDE_AUTHORITY_RUN_ID=self.run_id,
                    HYPERFIDE_DATA_DIR=str(self.path / "platform"),
                    HYPERFIDE_SERVER_PORT=str(unused_port()), HYPERFIDE_SERVER_BIND_HOST="127.0.0.1",
                    HYPERFIDE_HOST_DAEMON_PORT=str(unused_port()),
@@ -540,6 +583,39 @@ class AuthorityFixture:
         self.wait(lambda: len(self.rows("SELECT * FROM hyperfide_platform_projection.hosts")) == 2,
                   "two host enrollments")
         self.hosts = {row["id"]: row["url"] for row in self.rows("SELECT * FROM hyperfide_platform_projection.hosts")}
+
+    def invoke(self, headers, envelope):
+        """Removable signed-client boundary for platform operator and health RPCs."""
+        body = json.dumps(envelope, separators=(",", ":")).encode()
+        signing = "\n".join(["HYPERFIDE-REQUEST-V1", "POST", "/v1/invoke", self.authority_url,
+                             headers.get("HF-Credential-Id", ""), headers.get("HF-Request-Time", ""),
+                             headers.get("HF-Request-Nonce", ""),
+                             "sha256:" + hashlib.sha256(body).hexdigest(), ""])
+        verify = subprocess.run(["node", "-e",
+            "const c=require('node:crypto'),fs=require('node:fs');"
+            "const x=JSON.parse(fs.readFileSync(0,'utf8'));"
+            "process.exit(c.verify(null,Buffer.from(x.message),x.key,Buffer.from(x.signature,'base64url'))?0:1)"],
+            input=json.dumps({"message": signing, "key": self.operator_public,
+                              "signature": headers.get("HF-Request-Signature", "")}),
+            capture_output=True, text=True, timeout=15)
+        payload_bytes = base64.urlsafe_b64decode(envelope["payload_b64"] + "===")
+        payload = json.loads(payload_bytes)
+        allowed = (verify.returncode == 0 and headers.get("HF-Credential-Id") == self.credential_id
+                   and abs(time.time() - int(headers.get("HF-Request-Time", "0"))) < 30
+                   and envelope["payload_digest"] == "sha256:" + hashlib.sha256(payload_bytes).hexdigest()
+                   and payload["run_id"] == self.run_id and payload["component"] == "platform-authority")
+        if not allowed:
+            return 403, {"protocol_version": 1, "ok": False, "error": {"code": "IDENTITY_DENIED"}}
+        if payload["action"] == "authority.health":
+            result = {"status": "ready"}
+        elif payload["action"] == "authority.operator":
+            result = {"credential_id": self.credential_id, "actor_id": "fixture-operator",
+                      "organisation_id": "fixture", "run_id": self.run_id, "role": "OPERATOR",
+                      "expires_at": "2099-01-01T00:00:00Z"}
+        else:
+            return 400, {"protocol_version": 1, "ok": False, "error": {"code": "UNKNOWN_ACTION"}}
+        return 200, {"protocol_version": 1, "ok": True, "id": envelope["operation_id"],
+                     "operation_id": envelope["operation_id"], "result": result}
 
     def authority(self, method, path, token, data):
         q = self.literal
@@ -594,6 +670,7 @@ class AuthorityFixture:
 def projection_host():
     name = os.environ["HYPERFIDE_FIXTURE_HOST"]
     authority = os.environ["HYPERFIDE_AUTHORITY_URL"]
+    ca = os.environ["HYPERFIDE_AUTHORITY_CA_FILE"]
 
     def operation(method, path, token, data):
         if path == "/execute" and method == "POST":
@@ -608,11 +685,11 @@ def projection_host():
             output = result.stdout
             return 200, {"task": data["task"], "host": name, "verdict": "pass", "output": output,
                          "digest": "sha256:" + hashlib.sha256(output.encode()).hexdigest()}
-        return request(authority + path, token, data if method == "POST" else None)
+        return request(authority + path, token, data if method == "POST" else None, ca=ca)
 
     server, url = serve(operation)
     status, _ = request(authority + "/enroll", os.environ["HYPERFIDE_FIXTURE_ENROLLMENT"],
-                        {"host": name, "url": url})
+                        {"host": name, "url": url}, ca=ca)
     assert status == 201, "host enrollment failed"
     try:
         threading.Event().wait()
