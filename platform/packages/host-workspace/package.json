@@ -19,7 +19,7 @@
   "dependencies": {
     "@hyperfide/domain": "workspace:*",
     "@hyperfide/process-utils": "workspace:*",
-    "bb-environment-provider-host": "workspace:*"
+    "hyperfide-environment-provider-host": "workspace:*"
   },
   "devDependencies": {
     "@hyperfide/test-helpers": "workspace:*",

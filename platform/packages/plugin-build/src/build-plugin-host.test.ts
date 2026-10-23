@@ -39,7 +39,7 @@ describe("plugin host build", () => {
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-host-build-fixture",
+        name: "hyperfide-plugin-host-build-fixture",
         version: "1.2.3",
         engines: { bb: ">=0.0" },
         bb: {
@@ -138,7 +138,7 @@ describe("plugin host build", () => {
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-host-stage-cleanup-fixture",
+        name: "hyperfide-plugin-host-stage-cleanup-fixture",
         version: "1.0.0",
         engines: { bb: ">=0.0" },
         bb: {
@@ -176,7 +176,7 @@ describe("plugin host build", () => {
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-host-escape-fixture",
+        name: "hyperfide-plugin-host-escape-fixture",
         version: "1.0.0",
         engines: { bb: ">=0.0" },
         bb: {
@@ -204,7 +204,7 @@ describe("plugin host build", () => {
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-host-private-fixture",
+        name: "hyperfide-plugin-host-private-fixture",
         version: "1.0.0",
         engines: { bb: ">=0.0" },
         bb: {
@@ -240,7 +240,7 @@ describe("plugin host build", () => {
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-host-bridge-fixture",
+        name: "hyperfide-plugin-host-bridge-fixture",
         version: "1.0.0",
         type: "module",
         engines: { bb: ">=0.0" },
@@ -294,7 +294,7 @@ describe("plugin host build", () => {
 
   describe("host contract imports without a usable SDK", () => {
     const manifest = {
-      name: "bb-plugin-host-contract-fixture",
+      name: "hyperfide-plugin-host-contract-fixture",
       version: "1.0.0",
       engines: { bb: ">=0.0" },
       bb: {
@@ -353,7 +353,7 @@ describe("plugin host build", () => {
           type: "module",
           exports: {
             "./host": {
-              types: "./bundled-types/bb-plugin-sdk-host.d.ts",
+              types: "./bundled-types/hyperfide-plugin-sdk-host.d.ts",
               import: "./dist/host.js",
               default: "./dist/host.js",
             },
@@ -437,7 +437,7 @@ describe("plugin host build", () => {
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-private-graph",
+        name: "hyperfide-plugin-private-graph",
         version: "1.0.0",
         engines: { bb: ">=0.0" },
         bb: {
@@ -475,7 +475,7 @@ describe("plugin host build", () => {
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-erased-missing",
+        name: "hyperfide-plugin-erased-missing",
         version: "1.0.0",
         engines: { bb: ">=0.0" },
         bb: {
@@ -503,7 +503,7 @@ describe("plugin host build", () => {
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-host-prose-fixture",
+        name: "hyperfide-plugin-host-prose-fixture",
         version: "1.0.0",
         engines: { bb: ">=0.0" },
         bb: {

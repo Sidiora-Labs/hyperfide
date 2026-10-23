@@ -1,6 +1,6 @@
 import { defineRpcContract } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
-import { environmentHostProgressSchema } from "bb-environment-provider-host/progress";
+import { environmentHostProgressSchema } from "hyperfide-environment-provider-host/progress";
 
 export const worktreeBaseBranchSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("named"), name: z.string().min(1) }).strict(),

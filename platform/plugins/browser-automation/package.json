@@ -28,7 +28,7 @@
     "test": "vitest run --config vitest.config.ts",
     "smoke": "tsx --tsconfig tsconfig.smoke.json smoke.ts",
     "smoke:install": "tsx --tsconfig tsconfig.smoke.json smoke-install.ts",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",

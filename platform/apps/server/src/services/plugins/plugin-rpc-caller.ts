@@ -7,7 +7,7 @@ import {
 } from "@hyperfide/sdk";
 import type { ExperimentalPluginRpcCaller } from "@hyperfide/plugin-sdk";
 
-export const PLUGIN_RPC_CALLER_HEADER = "x-bb-plugin-caller";
+export const PLUGIN_RPC_CALLER_HEADER = "x-hyperfide-plugin-caller";
 
 export interface PluginRpcCallerCredential {
   readonly token: string;

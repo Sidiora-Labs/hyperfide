@@ -18,7 +18,7 @@ vi.mock("node:fs", async (importOriginal) => {
     "bb",
     "bb-provider-bridge-worker.mjs",
     "bb-parcel-watcher-child.mjs",
-    "bb-plugin-host-worker.mjs",
+    "hyperfide-plugin-host-worker.mjs",
     "index.js",
     "index.html",
   ]);

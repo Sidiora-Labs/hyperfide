@@ -293,7 +293,7 @@ describe("reconcilePluginFrontends", () => {
           title: "Cold panel",
           component: ({ subPath }) => {
             const prepared = document.head.querySelector(
-              'link[data-bb-plugin-css-preload="hello"], link[data-bb-plugin-css="hello"]',
+              'link[data-hyperfide-plugin-css-preload="hello"], link[data-hyperfide-plugin-css="hello"]',
             );
             preparedDuringRender(prepared?.getAttribute("href") ?? null);
             return createElement("div", null, `cold panel body:${subPath}`);
@@ -334,7 +334,7 @@ describe("reconcilePluginFrontends", () => {
     );
     expect(container.textContent).toContain("cold panel body:notes/today.md");
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="hello"]'),
+      document.head.querySelector('link[data-hyperfide-plugin-css="hello"]'),
     ).not.toBeNull();
 
     act(() => root.unmount());
@@ -346,7 +346,7 @@ describe("reconcilePluginFrontends", () => {
     const deps = makeDeps([candidate("shell-owner", "v1")]);
     const events: string[] = [];
     const stylesheetIsActive = () =>
-      document.head.querySelector('link[data-bb-plugin-css="shell-owner"]') !==
+      document.head.querySelector('link[data-hyperfide-plugin-css="shell-owner"]') !==
       null;
     deps.applyCss = applyPluginCss;
     deps.retainCss = retainPluginCss;
@@ -396,7 +396,7 @@ describe("reconcilePluginFrontends", () => {
     });
     const links = () => [
       ...document.head.querySelectorAll<HTMLLinkElement>(
-        'link[data-bb-plugin-css="hello"]',
+        'link[data-hyperfide-plugin-css="hello"]',
       ),
     ];
     const container = document.createElement("div");
@@ -1228,7 +1228,7 @@ describe("applyPluginCss", () => {
   function links(pluginId: string): HTMLLinkElement[] {
     return [
       ...document.head.querySelectorAll<HTMLLinkElement>(
-        `link[data-bb-plugin-css="${pluginId}"]`,
+        `link[data-hyperfide-plugin-css="${pluginId}"]`,
       ),
     ];
   }
@@ -1236,7 +1236,7 @@ describe("applyPluginCss", () => {
   function preloads(pluginId: string): HTMLLinkElement[] {
     return [
       ...document.head.querySelectorAll<HTMLLinkElement>(
-        `link[data-bb-plugin-css-preload="${pluginId}"]`,
+        `link[data-hyperfide-plugin-css-preload="${pluginId}"]`,
       ),
     ];
   }

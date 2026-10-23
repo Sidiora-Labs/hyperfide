@@ -59,7 +59,7 @@ function stagePackage(args: {
   }
   writeFileSync(
     join(args.packageRoot, "package.json"),
-    JSON.stringify({ name: "bb-app", version: args.version }),
+    JSON.stringify({ name: "hyperfide-app", version: args.version }),
   );
   return { kind: "npm", packageRoot: args.packageRoot, version: args.version };
 }
@@ -139,7 +139,7 @@ function createController(args: {
 function setUp(args: { runner?: RunCommand; stageTarget?: boolean } = {}) {
   const dataDir = scratchDir();
   const current = stagePackage({
-    packageRoot: join(dataDir, "npx", "bb-app"),
+    packageRoot: join(dataDir, "npx", "hyperfide-app"),
     version: "1.0.0",
   });
   if (args.stageTarget !== false) {
@@ -392,7 +392,7 @@ describe("launcher app update controller", () => {
   it("records the update and prunes older installs once the new version is healthy", async () => {
     const dataDir = scratchDir();
     const from = stagePackage({
-      packageRoot: join(dataDir, "npx", "bb-app"),
+      packageRoot: join(dataDir, "npx", "hyperfide-app"),
       version: "1.0.0",
     });
     const stale = formatNpmRevisionPackageRoot(dataDir, "1.0.5");
@@ -457,7 +457,7 @@ describe("launcher app update controller", () => {
   it("records a failure when bb starts a different version than the pending update", async () => {
     const dataDir = scratchDir();
     const current = stagePackage({
-      packageRoot: join(dataDir, "npx", "bb-app"),
+      packageRoot: join(dataDir, "npx", "hyperfide-app"),
       version: "1.0.0",
     });
     const target = stagePackage({

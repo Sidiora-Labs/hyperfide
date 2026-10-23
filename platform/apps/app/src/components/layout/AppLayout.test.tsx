@@ -610,7 +610,7 @@ describe("AppLayout plugin overlay contexts", () => {
 
       expect(screen.getByRole("button", { name: "Page action" })).toBeDefined();
       const overlayHost = document.querySelector(
-        "[data-bb-plugin-app-overlays]",
+        "[data-hyperfide-plugin-app-overlays]",
       );
       expect(overlayHost).not.toBeNull();
       expect(overlayHost?.parentElement).toBe(getRoot().parentElement);

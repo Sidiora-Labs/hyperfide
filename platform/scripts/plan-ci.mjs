@@ -175,7 +175,7 @@ function select() {
       ),
     ),
     forks:
-      !appOnly && tasks.some((task) => task.package.startsWith("bb-plugin-")),
+      !appOnly && tasks.some((task) => task.package.startsWith("hyperfide-plugin-")),
     buildNeeded: buildPackages.length > 0,
     staticNeeded: staticPackages.length > 0,
     appBuild: tasks.some(

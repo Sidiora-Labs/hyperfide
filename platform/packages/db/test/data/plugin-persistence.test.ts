@@ -28,7 +28,7 @@ describe("normalized plugin persistence", () => {
   it("persists typed plugin intent and an active artifact reference", () => {
     const linearPlugin: UpsertInstalledPluginInput = {
       id: "linear",
-      source: "npm:bb-plugin-linear@1.2.3",
+      source: "npm:hyperfide-plugin-linear@1.2.3",
       provenance: {
         kind: "catalog",
         marketplace: "bb-community",
@@ -36,7 +36,7 @@ describe("normalized plugin persistence", () => {
       },
       sourceIntent: {
         kind: "npm",
-        packageName: "bb-plugin-linear",
+        packageName: "hyperfide-plugin-linear",
         registry: "https://registry.npmjs.org",
         requestedSpec: "^1.2.0",
         specKind: "range",

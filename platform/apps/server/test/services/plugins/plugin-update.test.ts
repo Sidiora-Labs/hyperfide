@@ -65,7 +65,7 @@ async function commitPlugin(
   await writeFile(
     join(repo, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-updater",
+      name: "hyperfide-plugin-updater",
       version,
       ...(engines ? { engines } : {}),
       bb: {
@@ -103,7 +103,7 @@ describe("plugin update scheduling", () => {
         notifySystem: () => {},
       },
       logger,
-      dataDir: join(tmpdir(), "bb-plugin-update-empty-test"),
+      dataDir: join(tmpdir(), "hyperfide-plugin-update-empty-test"),
       appVersion: "1.0.0",
       stabilizationWindowMs: 0,
       scheduleUpdateCheck: (delayMs) => {
@@ -138,7 +138,7 @@ describe("plugin update scheduling", () => {
         notifySystem,
       },
       logger,
-      dataDir: join(tmpdir(), "bb-plugin-update-frozen-test"),
+      dataDir: join(tmpdir(), "hyperfide-plugin-update-frozen-test"),
       appVersion: "1.0.0",
       stabilizationWindowMs: 0,
       scheduleUpdateCheck: (delayMs, onElapsed) => {
@@ -176,7 +176,7 @@ describe("plugin update scheduling", () => {
     const HOUR = 60 * 60 * 1_000;
     const schedulingDb = createMigratedConnection();
     const schedulingWorkDir = await mkdtemp(
-      join(tmpdir(), "bb-plugin-update-scheduling-"),
+      join(tmpdir(), "hyperfide-plugin-update-scheduling-"),
     );
     let clock = Date.now();
     let service: PluginService | undefined;
@@ -213,7 +213,7 @@ describe("plugin update scheduling", () => {
     });
 
     const upsertNpmRow = (id: string) => {
-      const packageName = `bb-plugin-${id}`;
+      const packageName = `hyperfide-plugin-${id}`;
       upsertInstalledPlugin(schedulingDb, {
         id,
         source: `npm:${packageName}`,
@@ -337,7 +337,7 @@ describe("plugin update service and routes", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-update-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-update-"));
     repo = join(workDir, "repo");
     await mkdir(repo, { recursive: true });
     await git(repo, ["init", "-q", "-b", "main"]);
@@ -395,10 +395,10 @@ describe("plugin update service and routes", () => {
       statusDetail: null,
     };
     for (const packageName of [
-      "bb-plugin-offline-registry",
-      "bb-plugin-healthy-registry",
+      "hyperfide-plugin-offline-registry",
+      "hyperfide-plugin-healthy-registry",
     ]) {
-      const id = packageName.replace("bb-plugin-", "");
+      const id = packageName.replace("hyperfide-plugin-", "");
       upsertInstalledPlugin(db, {
         id,
         source: `npm:${packageName}`,
@@ -484,7 +484,7 @@ describe("plugin update service and routes", () => {
   it("reports legacy retired-marketplace installs as unavailable without fetching", async () => {
     upsertInstalledPlugin(db, {
       id: "legacy-marketplace",
-      source: "npm:bb-plugin-legacy-marketplace@^0.2.0",
+      source: "npm:hyperfide-plugin-legacy-marketplace@^0.2.0",
       provenance: {
         kind: "catalog",
         marketplace: "bb-community",
@@ -492,9 +492,9 @@ describe("plugin update service and routes", () => {
       },
       sourceIntent: {
         kind: "npm",
-        packageName: "bb-plugin-legacy-marketplace",
+        packageName: "hyperfide-plugin-legacy-marketplace",
         registry:
-          "https://api.github.com/repos/ymichael/bb/releases?bb-source=github-release&tag-template=plugin-legacy-v%7Bversion%7D&asset-template=bb-plugin-legacy-%7Bversion%7D.tgz",
+          "https://api.github.com/repos/ymichael/bb/releases?bb-source=github-release&tag-template=plugin-legacy-v%7Bversion%7D&asset-template=hyperfide-plugin-legacy-%7Bversion%7D.tgz",
         requestedSpec: "^0.2.0",
         specKind: "range",
       },
@@ -1021,7 +1021,7 @@ describe("plugin update service and routes", () => {
       kind: "direct",
     },
   ): void {
-    const packageName = `bb-plugin-${id}`;
+    const packageName = `hyperfide-plugin-${id}`;
     upsertInstalledPlugin(db, {
       id,
       source: `npm:${packageName}`,
@@ -1219,7 +1219,7 @@ describe("plugin update service and routes", () => {
       await writeFile(
         join(nestedRoot, "package.json"),
         JSON.stringify({
-          name: "bb-plugin-nested-updater",
+          name: "hyperfide-plugin-nested-updater",
           version,
           bb: {
             name: "Nested updater fixture",
@@ -1357,7 +1357,7 @@ describe("plugin update service and routes", () => {
     await writeFile(
       join(tagged, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-tagged",
+        name: "hyperfide-plugin-tagged",
         version: "1.0.0",
         bb: {
           name: "Tagged fixture",
@@ -1535,7 +1535,7 @@ describe("plugin update service and routes", () => {
     await writeFile(
       join(tagged, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-tagged",
+        name: "hyperfide-plugin-tagged",
         version: "1.2.0",
         engines: { bb: ">=99.0.0" },
         bb: {
@@ -1579,7 +1579,7 @@ describe("plugin update service and routes", () => {
     await writeFile(
       join(tagged, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-tagged",
+        name: "hyperfide-plugin-tagged",
         version: "1.1.0",
         engines: { bb: ">=99.0.0" },
         bb: {

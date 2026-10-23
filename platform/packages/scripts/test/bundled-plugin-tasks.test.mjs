@@ -14,7 +14,7 @@ describe("bundled plugin task graph", () => {
         readFileSync(resolve(root, "plugins", name, "package.json"), "utf8"),
       );
       expect(manifest.scripts["prepare:bundled"]).toBe(
-        "bb-plugin-build prepare-bundled",
+        "hyperfide-plugin-build prepare-bundled",
       );
       expect(manifest.devDependencies["@hyperfide/plugin-build"]).toBe("workspace:*");
       return manifest.name;

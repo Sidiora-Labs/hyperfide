@@ -19,7 +19,7 @@ function manifestRows() {
     const manifest = readJson(path);
     if (manifest.bb === undefined) continue;
     const icon = manifest.bb.branding?.icon ?? null;
-    const id = manifest.name.replace(/^bb-plugin-/u, "");
+    const id = manifest.name.replace(/^hyperfide-plugin-/u, "");
     rows.set(id, {
       id,
       name: manifest.bb.name,

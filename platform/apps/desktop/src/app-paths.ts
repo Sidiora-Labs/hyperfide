@@ -44,7 +44,7 @@ export function resolveDesktopMachineInstallerPath(bridgePath: string): string {
   return join(
     dirname(dirname(bridgePath)),
     "node_modules",
-    "bb-app",
+    "hyperfide-app",
     "server",
     "dist",
     "assets",

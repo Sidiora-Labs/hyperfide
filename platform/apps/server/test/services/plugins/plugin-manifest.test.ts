@@ -8,7 +8,7 @@ describe("plugin manifest", () => {
   let rootDir: string;
 
   beforeEach(async () => {
-    rootDir = await mkdtemp(join(tmpdir(), "bb-plugin-manifest-"));
+    rootDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-manifest-"));
     await writeFile(join(rootDir, "server.ts"), "export default () => {};\n");
   });
 
@@ -30,7 +30,7 @@ describe("plugin manifest", () => {
     await writeFile(
       join(rootDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-contract",
+        name: "hyperfide-plugin-contract",
         version: "2.3.4",
         ...(bbPluginSdk === undefined ? {} : { engines: { bbPluginSdk } }),
         bb,
@@ -241,7 +241,7 @@ describe("plugin manifest", () => {
 
   it("rejects a branding asset symlink that escapes the plugin directory", async () => {
     const outsideDir = await mkdtemp(
-      join(tmpdir(), "bb-plugin-branding-outside-"),
+      join(tmpdir(), "hyperfide-plugin-branding-outside-"),
     );
     try {
       const outsideAsset = join(outsideDir, "outside.svg");

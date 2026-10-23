@@ -406,7 +406,7 @@ async function writeToolPluginFixture(rootDir: string): Promise<void> {
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: `bb-plugin-${TOOL_PLUGIN_ID}`,
+      name: `hyperfide-plugin-${TOOL_PLUGIN_ID}`,
       version: "0.1.0",
       bb: {
         name: "Tooled",
@@ -466,7 +466,7 @@ describe("presentation icon ingest validation for bb-injected tool rows", () => 
       const rootDir = join(
         harness.config.dataDir,
         "fixtures",
-        `bb-plugin-${TOOL_PLUGIN_ID}`,
+        `hyperfide-plugin-${TOOL_PLUGIN_ID}`,
       );
       await writeToolPluginFixture(rootDir);
       const entry = await harness.pluginService.installPath(rootDir);

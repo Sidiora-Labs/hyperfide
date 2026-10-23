@@ -3,7 +3,7 @@ import {
   withProcessLocalQueuedLocks,
   type ProcessLocalQueuedLockSpec,
   type ProcessLocalQueuedLockWork,
-} from "bb-environment-provider-host/process-local-lock";
+} from "hyperfide-environment-provider-host/process-local-lock";
 import { getAbsoluteGitDir, type GitProcessOptions } from "./git.js";
 
 type CheckoutMutationLockWork<T> = ProcessLocalQueuedLockWork<T>;

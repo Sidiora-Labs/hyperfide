@@ -68,7 +68,7 @@ it("bundles SDK-owned Zod without requiring the plugin to declare it", async () 
   await writeFile(
     join(dir, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-zodless",
+      name: "hyperfide-plugin-zodless",
       version: "0.0.0",
       bb: {
         name: "Zodless",
@@ -117,7 +117,7 @@ it("reports a broken SDK installation separately from plugin dependencies", asyn
   await writeFile(
     join(dir, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-broken-sdk",
+      name: "hyperfide-plugin-broken-sdk",
       version: "0.0.0",
       bb: {
         name: "Broken SDK",
@@ -148,7 +148,7 @@ it("requires Zod when the plugin imports it directly", async () => {
   await writeFile(
     join(dir, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-direct-zod",
+      name: "hyperfide-plugin-direct-zod",
       version: "0.0.0",
       bb: {
         name: "Direct Zod",

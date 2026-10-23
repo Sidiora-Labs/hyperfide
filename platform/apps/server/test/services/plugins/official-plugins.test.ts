@@ -33,7 +33,7 @@ const fixtureRoot = resolve(
   "..",
   "fixtures",
   "plugins",
-  "bb-plugin-builtin-fixture",
+  "hyperfide-plugin-builtin-fixture",
 );
 const globals = globalThis as Record<string, unknown>;
 

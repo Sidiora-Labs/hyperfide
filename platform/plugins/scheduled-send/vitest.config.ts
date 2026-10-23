@@ -4,7 +4,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     silent: "passed-only",
-    name: "bb-plugin-scheduled-send",
+    name: "hyperfide-plugin-scheduled-send",
     include: ["**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**"],
   },

@@ -127,16 +127,16 @@ describe("registry components at fork time", () => {
 
 describe("forkPluginPackageJson", () => {
   const workspaceBinsByPackage = new Map([
-    ["@hyperfide/plugin-build", ["bb-plugin-build"]],
+    ["@hyperfide/plugin-build", ["hyperfide-plugin-build"]],
   ]);
   const noRegistryPackages = { dependencies: {}, devDependencies: {} };
 
   it("installs the SDK from the given source and drops workspace build tooling with its scripts", () => {
     const manifest = {
-      name: "bb-plugin-thread-list",
+      name: "hyperfide-plugin-thread-list",
       scripts: {
         test: "vitest run",
-        "prepare:bundled": "bb-plugin-build prepare-bundled",
+        "prepare:bundled": "hyperfide-plugin-build prepare-bundled",
       },
       dependencies: { jotai: "^2.19.0" },
       devDependencies: {
@@ -147,17 +147,17 @@ describe("forkPluginPackageJson", () => {
     };
 
     const forked = forkPluginPackageJson(manifest, {
-      sdkSpecifier: "file:/tmp/get-bb-plugin-sdk.tgz",
+      sdkSpecifier: "file:/tmp/get-hyperfide-plugin-sdk.tgz",
       workspaceBinsByPackage,
       registryDependencies: noRegistryPackages,
     });
 
     expect(forked.manifest).toEqual({
-      name: "bb-plugin-thread-list",
+      name: "hyperfide-plugin-thread-list",
       scripts: { test: "vitest run" },
       dependencies: { jotai: "^2.19.0" },
       devDependencies: {
-        "@hyperfide/plugin-sdk": "file:/tmp/get-bb-plugin-sdk.tgz",
+        "@hyperfide/plugin-sdk": "file:/tmp/get-hyperfide-plugin-sdk.tgz",
         vitest: "^4.1.1",
       },
     });
@@ -246,9 +246,9 @@ describe("bb/forkable-plugin-imports", () => {
   it("rejects workspace packages published under other names", () => {
     const reports = lint(pluginFile, (visitors) => {
       visitors.ImportDeclaration({
-        source: literal("bb-environment-provider-host/git"),
+        source: literal("hyperfide-environment-provider-host/git"),
       });
-      visitors.ImportDeclaration({ source: literal("bb-plugin-tasks") });
+      visitors.ImportDeclaration({ source: literal("hyperfide-plugin-tasks") });
       visitors.ImportDeclaration({
         source: literal("@hyperfide/plugin-sdk/host"),
       });
@@ -257,9 +257,9 @@ describe("bb/forkable-plugin-imports", () => {
 
     expect(reports).toEqual([
       expect.stringContaining(
-        "bb-environment-provider-host/git is a bb workspace package",
+        "hyperfide-environment-provider-host/git is a bb workspace package",
       ),
-      expect.stringContaining("bb-plugin-tasks is a bb workspace package"),
+      expect.stringContaining("hyperfide-plugin-tasks is a bb workspace package"),
     ]);
   });
 

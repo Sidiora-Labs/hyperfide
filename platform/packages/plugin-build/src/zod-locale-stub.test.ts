@@ -37,7 +37,7 @@ async function buildFixture(): Promise<string> {
   await writeFile(
     join(dir, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-zod-locale-fixture",
+      name: "hyperfide-plugin-zod-locale-fixture",
       version: "0.0.0",
       bb: {
         name: "Zod locale fixture",

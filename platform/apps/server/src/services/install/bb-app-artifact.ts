@@ -33,7 +33,7 @@ const HOST_DAEMON_FILES = [
   "bb",
   "bb.cmd",
   "bb-parcel-watcher-child.mjs",
-  "bb-plugin-host-worker.mjs",
+  "hyperfide-plugin-host-worker.mjs",
   "bb-provider-bridge-worker.mjs",
   "daemon-bundle.mjs",
 ] as const;
@@ -63,7 +63,7 @@ interface CreateBbAppArtifactServiceOptions {
 interface BbAppPackageJson {
   dependencies: Record<string, string>;
   engines: { node: string };
-  name: "bb-app";
+  name: "hyperfide-app";
   os: string[];
   version: string;
 }
@@ -104,7 +104,7 @@ async function readBbAppPackageJson(
     parsed === null ||
     typeof parsed !== "object" ||
     !("name" in parsed) ||
-    parsed.name !== "bb-app" ||
+    parsed.name !== "hyperfide-app" ||
     !("version" in parsed) ||
     typeof parsed.version !== "string" ||
     !("dependencies" in parsed) ||
@@ -177,7 +177,7 @@ function hostPackageJson(packageJson: BbAppPackageJson): object {
     os: [...new Set([...packageJson.os, "win32"])],
     bin: {
       bb: "dist/bb.js",
-      "bb-app": "dist/bb-app.js",
+      "hyperfide-app": "dist/bb-app.js",
       "bb-host-daemon": "dist/bb-host-daemon.js",
     },
     files: ["dist", "host-daemon", "README.md"],

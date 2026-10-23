@@ -245,14 +245,14 @@ function appRowFromStatus(args: {
             ? `${UPDATE_STATE_PRESENTATION["update-available"].label} (blocked: ${appUpdate.blocked.message})`
             : `${UPDATE_STATE_PRESENTATION["update-available"].label} (run: hyperfide-platform updates app apply)`;
     return [
-      "bb-app",
+      "hyperfide-app",
       target === null ? current : `${current} -> ${target}`,
       state,
     ];
   }
   if (version.installKind === "source") {
     return [
-      "bb-app",
+      "hyperfide-app",
       `source checkout ${version.currentCommit === null ? `build ${version.currentVersion}` : version.currentCommit.slice(0, 10)}`,
       "Latest unknown (update this checkout with Git; automatic update checks are off)",
     ];
@@ -269,7 +269,7 @@ function appRowFromStatus(args: {
     version.latestVersion !== version.currentVersion
       ? `${version.currentVersion} -> ${version.latestVersion}`
       : version.currentVersion;
-  return ["bb-app", appVersionLabel, appState];
+  return ["hyperfide-app", appVersionLabel, appState];
 }
 
 function printAppUpdateStatus(status: SystemAppUpdateStatus): void {

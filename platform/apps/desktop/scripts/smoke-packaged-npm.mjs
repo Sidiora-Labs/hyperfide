@@ -59,7 +59,7 @@ async function auditDependencies(modulesRoot) {
     );
     return resolved;
   }
-  const fromApp = createRequire(join(root, "bb-app", "package.json"));
+  const fromApp = createRequire(join(root, "hyperfide-app", "package.json"));
   const manifestPath = await insideArtifact(
     fromApp.resolve("npm/package.json"),
   );
@@ -231,7 +231,7 @@ export async function smokePackagedNpm(appBinary) {
       await writeFile(
         join(plugin, "package.json"),
         JSON.stringify({
-          name: "bb-plugin-packaged-npm-smoke",
+          name: "hyperfide-plugin-packaged-npm-smoke",
           version,
           type: "module",
           bb: {

@@ -5,7 +5,7 @@ import { createDeferredPromise, makeTempDir } from "@hyperfide/test-helpers";
 import {
   ProcessLocalQueuedLockTimeoutError,
   withGitRefMutationLock,
-} from "bb-environment-provider-host/process-local-lock";
+} from "hyperfide-environment-provider-host/process-local-lock";
 
 function waitForLockContention(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 100));

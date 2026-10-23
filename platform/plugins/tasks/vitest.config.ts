@@ -9,7 +9,7 @@ export default defineConfig({
   },
   test: {
     silent: "passed-only",
-    name: "bb-plugin-tasks",
+    name: "hyperfide-plugin-tasks",
     include: ["**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**"],
     testTimeout: 20_000,

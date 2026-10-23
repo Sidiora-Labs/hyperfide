@@ -1403,7 +1403,7 @@ describe("loadPluginApp", () => {
         definePluginApp((builder) => {
           builder.slots.experimental_providerIcon({
             providerKind: "agent",
-            providerId: "bb-plugin-x/codex",
+            providerId: "hyperfide-plugin-x/codex",
             icon: () => null,
           });
         }),

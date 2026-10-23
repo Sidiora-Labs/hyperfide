@@ -23,11 +23,11 @@
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",
-    "bb-environment-provider-host": "workspace:*",
+    "hyperfide-environment-provider-host": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {

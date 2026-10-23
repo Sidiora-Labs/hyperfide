@@ -224,7 +224,7 @@ async function tokenAuthProblem(
   id: string,
 ): Promise<WireAuthProblem | null> {
   const presented =
-    context.req.header("x-bb-plugin-token") ?? context.req.query("token");
+    context.req.header("x-hyperfide-plugin-token") ?? context.req.query("token");
   const expected = await plugins.httpToken(id);
   if (
     expected === undefined ||
@@ -234,7 +234,7 @@ async function tokenAuthProblem(
     return {
       status: 401,
       error:
-        'missing or invalid plugin token — send it as the "x-bb-plugin-token" header ' +
+        'missing or invalid plugin token — send it as the "x-hyperfide-plugin-token" header ' +
         "or ?token=; print it with `bb plugin token " +
         `${id}\``,
     };

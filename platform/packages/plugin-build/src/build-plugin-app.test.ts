@@ -36,7 +36,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("re-derives @hyperfide/plugin-sdk/app exports for every rebuild", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-shim-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-shim-"));
     tempDirs.push(dir);
     const facadePath = join(dir, "app-facade.mjs");
     const facadeUrl = pathToFileURL(facadePath).href;
@@ -69,7 +69,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("still builds a plugin that imports a retired SDK hook and warns with the replacement", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-retired-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-retired-"));
     tempDirs.push(dir);
     const facadePath = join(dir, "app-facade.mjs");
     await writeFile(facadePath, "export const first = 1;\n");
@@ -95,7 +95,7 @@ describe("plugin app runtime shim", () => {
     );
     expect(result.warnings).toMatchObject([
       {
-        pluginName: "bb-plugin-runtime-shims",
+        pluginName: "hyperfide-plugin-runtime-shims",
         location: expect.objectContaining({ line: 4 }),
         text: expect.stringMatching(
           /^experimental_useSidebarThreadPullRequest is retired from @hyperfide\/plugin-sdk\/app\. Existing plugins remain supported\. Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery\(\{ pluginId: "bb--github-pr-status"/,
@@ -112,7 +112,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("routes host-resident libraries to runtime slots and forwards real default exports", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-libs-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-libs-"));
     tempDirs.push(dir);
     const result = await build({
       stdin: {
@@ -175,7 +175,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("shims shared-ui's relative ./icon import but bundles a plugin's own icon module", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-icon-rel-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-icon-rel-"));
     tempDirs.push(dir);
     const sharedUiDir = join(dir, "node_modules", "@hyperfide", "shared-ui");
     const files: Record<string, string> = {
@@ -219,7 +219,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("shims shared-ui's relative ./question-form-host import to the host's context", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-question-host-rel-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-question-host-rel-"));
     tempDirs.push(dir);
     const sharedUiDir = join(dir, "node_modules", "@hyperfide", "shared-ui");
     const files: Record<string, string> = {
@@ -299,12 +299,12 @@ describe("plugin app runtime shim", () => {
   });
 
   it("scopes Tailwind utilities while preserving imported CSS unscoped", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-css-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-css-"));
     tempDirs.push(dir);
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-css-fixture",
+        name: "hyperfide-plugin-css-fixture",
         version: "0.0.0",
         bb: {
           name: "CSS fixture",
@@ -339,7 +339,7 @@ describe("plugin app runtime shim", () => {
     const css = await readFile(result.cssPath, "utf8");
 
     const scope =
-      ":where([data-bb-plugin=css-fixture],[data-bb-plugin-root]:not([data-bb-plugin]))";
+      ":where([data-bb-plugin=css-fixture],[data-hyperfide-plugin-root]:not([data-bb-plugin]))";
     expect(css).toContain(`${scope} .flex-col`);
     expect(css).toContain(`${scope}.flex-col`);
     const sibling = String.raw`.\[\&\~\*\]\:hidden`;
@@ -373,12 +373,12 @@ describe("plugin app runtime shim", () => {
   });
 
   it("builds retired tab registrations alongside retired hooks and returns migration warnings", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-legacy-tabs-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-legacy-tabs-"));
     tempDirs.push(dir);
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-legacy-tabs-fixture",
+        name: "hyperfide-plugin-legacy-tabs-fixture",
         version: "0.0.0",
         bb: {
           name: "Legacy tabs",
@@ -427,12 +427,12 @@ describe("plugin app runtime shim", () => {
   });
 
   it("minifies app.js and app.css unless the caller asks for readable output", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-minify-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-minify-"));
     tempDirs.push(dir);
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-minify-fixture",
+        name: "hyperfide-plugin-minify-fixture",
         version: "0.0.0",
         bb: {
           name: "Minify fixture",
@@ -489,7 +489,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("scans bundled Tailwind content from a symlinked workspace dependency by filesystem identity", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-scan-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-scan-"));
     tempDirs.push(dir);
     const uiPackageDir = join(dir, "packages", "fixture-ui");
     await mkdir(join(uiPackageDir, "src", "excluded"), { recursive: true });
@@ -525,7 +525,7 @@ describe("plugin app runtime shim", () => {
     await writeFile(
       join(pluginDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-scan-fixture",
+        name: "hyperfide-plugin-scan-fixture",
         version: "0.0.0",
         type: "module",
         bb: {
@@ -557,7 +557,7 @@ describe("plugin app runtime shim", () => {
     );
 
     const aliasContainer = await mkdtemp(
-      join(tmpdir(), "bb-plugin-scan-alias-"),
+      join(tmpdir(), "hyperfide-plugin-scan-alias-"),
     );
     tempDirs.push(aliasContainer);
     const aliasedRoot = join(aliasContainer, "fixture");
@@ -588,12 +588,12 @@ describe("plugin app runtime shim", () => {
   ])(
     "rejects %s in a path-shaped branding.icon before building",
     async (_case, icon, expectedError) => {
-      const dir = await mkdtemp(join(tmpdir(), "bb-plugin-icon-"));
+      const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-icon-"));
       tempDirs.push(dir);
       await writeFile(
         join(dir, "package.json"),
         JSON.stringify({
-          name: "bb-plugin-icon-fixture",
+          name: "hyperfide-plugin-icon-fixture",
           version: "0.0.0",
           bb: {
             name: "Icon fixture",

@@ -149,7 +149,7 @@ describe("plugin bb.sdk bind gate", () => {
   it("discovers only published methods from live implementations and removes them on disable", async () => {
     for (const id of ["usage-a", "usage-b"]) {
       const rootDir = await writePlugin(workDir, {
-        name: `bb-plugin-${id}`,
+        name: `hyperfide-plugin-${id}`,
         serverSource: `export default function plugin() {}`,
       });
       await service.installPath(rootDir);
@@ -187,7 +187,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-sdk-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-sdk-test-"));
     sharedPorts.declareSharedPorts.mockClear();
     sharedPorts.validateSharedPortDeclaration.mockClear();
     sharedPorts.replaceDeclarationsForOwner.mockClear();
@@ -232,7 +232,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("throws a descriptive error before bindSdk and resolves after", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-gate",
+      name: "hyperfide-plugin-gate",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
@@ -249,7 +249,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("rejects unsafe plugin metadata before transport serialization", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-metadata-boundary",
+      name: "hyperfide-plugin-metadata-boundary",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
@@ -298,7 +298,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("preserves no-context spawn and fork attribution", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-metadata-attribution",
+      name: "hyperfide-plugin-metadata-attribution",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
@@ -357,7 +357,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("serves the current public app URL without the SDK bind gate", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-app-url",
+      name: "hyperfide-plugin-app-url",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
@@ -370,7 +370,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("delivers shared-port declarations through the server control plane", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-shares",
+      name: "hyperfide-plugin-shares",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
@@ -398,7 +398,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("keeps hosted machine tunnels disabled without querying the control plane", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-next",
+      name: "hyperfide-plugin-next",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
@@ -429,7 +429,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("binds typed host calls and ignores worker exits from stale generations", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-host-client",
+      name: "hyperfide-plugin-host-client",
       serverSource: `export default function plugin() {}`,
       hostSource: `
         const schema = { "~standard": { validate(value) { return { value }; } } };
@@ -530,7 +530,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("rejects host calls during candidate factory registration", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-eager-host-client",
+      name: "hyperfide-plugin-eager-host-client",
       serverSource: `
         import { defineRpcContract } from "@hyperfide/plugin-sdk";
         const schema = { "~standard": { validate(value: unknown) { return { value }; } } };
@@ -563,7 +563,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("does not publish candidate host declarations when reload fails", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-atomic-shares",
+      name: "hyperfide-plugin-atomic-shares",
       serverSource: `
         export default function plugin(bb: any) {
           bb.hosts.declareSharedPorts("host-1", [3000]);
@@ -597,13 +597,13 @@ describe("plugin bb.sdk bind gate", () => {
 describe("plugin bb.sdk against a running server", () => {
   it("returns the server-side Standard Schema output after the host JSON wire", async () => {
     const server = await startTestServer();
-    const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-host-transform-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-host-transform-"));
     try {
       const { host } = seedHostSession(server.deps, {
         id: "host-plugin-transform",
       });
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-host-transform",
+        name: "hyperfide-plugin-host-transform",
         serverSource: `export default function plugin() {}`,
         hostSource: `
           const schema = { "~standard": { validate(value) { return { value }; } } };
@@ -658,7 +658,7 @@ describe("plugin bb.sdk against a running server", () => {
 
   it("covers live plugin metadata routes, namespace validation, and lifecycle guards", async () => {
     const server = await startTestServer();
-    const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-metadata-live-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-metadata-live-"));
     try {
       const { host } = seedHostSession(server.deps);
       seedPrimaryHost(server.deps, host.id);
@@ -671,7 +671,7 @@ describe("plugin bb.sdk against a running server", () => {
       });
       server.pluginService.bindSdk({ baseUrl: server.baseUrl });
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-meta-owner",
+        name: "hyperfide-plugin-meta-owner",
         serverSource: `export default function plugin() {}`,
       });
       await server.pluginService.installPath(rootDir);
@@ -819,7 +819,7 @@ describe("plugin bb.sdk against a running server", () => {
   it("fans out frozen metadata without restarting an active turn", async () => {
     const server = await startTestServer();
     const workDir = await mkdtemp(
-      join(tmpdir(), "bb-plugin-metadata-configure-"),
+      join(tmpdir(), "hyperfide-plugin-metadata-configure-"),
     );
     const observationGlobal = globalThis as typeof globalThis & {
       __bbMetadataSeen?: Record<string, unknown>[];
@@ -848,7 +848,7 @@ describe("plugin bb.sdk against a running server", () => {
       const context = agentConfigurationContext(thread.id);
       const make = (name: string) =>
         writePlugin(workDir, {
-          name: `bb-plugin-${name}`,
+          name: `hyperfide-plugin-${name}`,
           serverSource: `
             function deepFrozen(value) {
               return value === null || typeof value !== "object" || (Object.isFrozen(value) && Object.values(value).every(deepFrozen));
@@ -867,7 +867,7 @@ describe("plugin bb.sdk against a running server", () => {
       await server.pluginService.installPath(await make("gamma"));
       await server.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-delta",
+          name: "hyperfide-plugin-delta",
           serverSource: `export default function plugin() {}`,
         }),
       );
@@ -983,7 +983,7 @@ describe("plugin bb.sdk against a running server", () => {
   it("defers a configure provider registered during a pass to the next pass with its stored metadata", async () => {
     const server = await startTestServer();
     const workDir = await mkdtemp(
-      join(tmpdir(), "bb-plugin-metadata-late-configure-"),
+      join(tmpdir(), "hyperfide-plugin-metadata-late-configure-"),
     );
     const lateGlobal = globalThis as typeof globalThis & {
       __bbLateConfigureSeen?: unknown[];
@@ -1006,7 +1006,7 @@ describe("plugin bb.sdk against a running server", () => {
       });
       await server.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-aaa-trigger",
+          name: "hyperfide-plugin-aaa-trigger",
           serverSource: `
             export default function plugin(bb) {
               bb.agents.configure(() => {
@@ -1019,7 +1019,7 @@ describe("plugin bb.sdk against a running server", () => {
       );
       await server.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-bbb-late",
+          name: "hyperfide-plugin-bbb-late",
           serverSource: `
             export default function plugin(bb) {
               globalThis.__bbRegisterLateConfigure = () => {
@@ -1064,12 +1064,12 @@ describe("plugin bb.sdk against a running server", () => {
 
   it("tells rpc handlers which plugin called them and treats every other caller as a client", async () => {
     const server = await startTestServer();
-    const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-rpc-caller-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-rpc-caller-"));
     try {
       server.pluginService.bindSdk({ baseUrl: server.baseUrl });
       for (const name of ["callee", "caller"]) {
         const rootDir = await writePlugin(workDir, {
-          name: `bb-plugin-${name}`,
+          name: `hyperfide-plugin-${name}`,
           serverSource: `export default function plugin() {}`,
         });
         expect((await server.pluginService.installPath(rootDir)).status).toBe(
@@ -1126,7 +1126,7 @@ describe("plugin bb.sdk against a running server", () => {
           method: "POST",
           headers: {
             "content-type": "application/json",
-            "x-bb-plugin-caller": "not-a-real-token",
+            "x-hyperfide-plugin-caller": "not-a-real-token",
           },
           body: "null",
         },
@@ -1154,7 +1154,7 @@ describe("plugin bb.sdk against a running server", () => {
 
   it("keeps hidden plugin threads attributed and directly operable by id", async () => {
     const server = await startTestServer();
-    const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-sdk-live-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-sdk-live-"));
     try {
       const { host } = seedHostSession(server.deps);
       seedPrimaryHost(server.deps, host.id);
@@ -1170,7 +1170,7 @@ describe("plugin bb.sdk against a running server", () => {
 
       server.pluginService.bindSdk({ baseUrl: server.baseUrl });
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-spawner",
+        name: "hyperfide-plugin-spawner",
         serverSource: `export default function plugin() {}`,
       });
       const entry = await server.pluginService.installPath(rootDir);

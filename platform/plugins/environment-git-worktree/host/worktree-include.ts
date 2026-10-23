@@ -1,8 +1,8 @@
-import { runGit } from "bb-environment-provider-host/git";
+import { runGit } from "hyperfide-environment-provider-host/git";
 import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { throwIfProvisionAborted } from "bb-environment-provider-host/transcript";
+import { throwIfProvisionAborted } from "hyperfide-environment-provider-host/transcript";
 
 export const WORKTREE_INCLUDE_FILE_NAME = ".worktreeinclude";
 

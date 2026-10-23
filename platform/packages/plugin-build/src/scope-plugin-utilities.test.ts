@@ -14,7 +14,7 @@ function scopeUtilities(utilities: string): string {
 describe("scopePluginUtilities", () => {
   it("preserves owned and anonymous portal roots", () => {
     expect(pluginScopeRoots("demo")).toBe(
-      '[data-bb-plugin="demo"], [data-bb-plugin-root]:not([data-bb-plugin])',
+      '[data-bb-plugin="demo"], [data-hyperfide-plugin-root]:not([data-bb-plugin])',
     );
   });
 

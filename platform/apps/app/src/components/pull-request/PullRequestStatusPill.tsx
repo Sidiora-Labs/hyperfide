@@ -1,4 +1,4 @@
-import type { PullRequest } from "bb-plugin-bb--github-pr-status/contract";
+import type { PullRequest } from "hyperfide-plugin-bb--github-pr-status/contract";
 import { Icon } from "@hyperfide/shared-ui/icon";
 import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {

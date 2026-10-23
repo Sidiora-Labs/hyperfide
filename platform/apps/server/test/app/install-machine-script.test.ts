@@ -263,7 +263,7 @@ function writeEnrollingBbApp(
   statusServerUrl?: string,
 ): void {
   writeExecutable(
-    join(fixture.binDir, "bb-app"),
+    join(fixture.binDir, "hyperfide-app"),
     createEnrollingBbAppScript({ hostId, invocationPath, statusServerUrl }),
   );
   writeEnrollingBb(fixture, hostId);
@@ -381,7 +381,7 @@ exec '${process.execPath}' "$@"
     const invocationPath = join(dataDir, "invocation");
     mkdirSync(join(dataDir, "npm", "bin"), { recursive: true });
     writeExecutable(
-      join(dataDir, "npm", "bin", "bb-app"),
+      join(dataDir, "npm", "bin", "hyperfide-app"),
       createEnrollingBbAppScript({ hostId: "host-test", invocationPath }),
     );
     const daemonPidPath = join(dataDir, "install-daemon.pid");
@@ -476,7 +476,7 @@ exec '${process.execPath}' "$@"
     mkdirSync(serviceDir, { recursive: true });
     writeFileSync(
       servicePath,
-      `[Service]\nExecStart="node" "bb-app" host-daemon --server-url "https://desk.tailnet.example:38886"\nEnvironment="HYPERFIDE_DATA_DIR=${dataDir}"\n`,
+      `[Service]\nExecStart="node" "hyperfide-app" host-daemon --server-url "https://desk.tailnet.example:38886"\nEnvironment="HYPERFIDE_DATA_DIR=${dataDir}"\n`,
     );
     writeFileSync(
       join(serviceDir, otherServiceName),
@@ -934,7 +934,7 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
   it("installs the server tarball even when a same-version bb-app is on PATH", () => {
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
-    writeExecutable(join(fixture.binDir, "bb-app"), "#!/bin/sh\nexit 99\n");
+    writeExecutable(join(fixture.binDir, "hyperfide-app"), "#!/bin/sh\nexit 99\n");
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
       HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
@@ -1148,7 +1148,7 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
   it("refuses a data dir enrolled for a different host instead of faking success", () => {
     const fixture = createFixture();
     writeCurlArtifactMock(fixture, 404);
-    writeExecutable(join(fixture.binDir, "bb-app"), "#!/bin/sh\nexit 99\n");
+    writeExecutable(join(fixture.binDir, "hyperfide-app"), "#!/bin/sh\nexit 99\n");
     writeEnrollingBb(fixture);
     writeJoinedState(fixture, "https://machine.hyperfide.example", "host-other");
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
@@ -1366,7 +1366,7 @@ fi
     const fixture = createFixture();
     writeCurlArtifactMock(fixture, 404);
     writeExecutable(
-      join(fixture.binDir, "bb-app"),
+      join(fixture.binDir, "hyperfide-app"),
       `#!/usr/bin/env node
 setInterval(() => {}, 1000);
 `,
@@ -1886,7 +1886,7 @@ fi
     writeFileSync(
       legacyServiceFile,
       `[Service]
-ExecStart="node" "bb-app" host-daemon --auto-update --host-daemon-port "45123" --server-url "https://machine.hyperfide.example"
+ExecStart="node" "hyperfide-app" host-daemon --auto-update --host-daemon-port "45123" --server-url "https://machine.hyperfide.example"
 Environment="HYPERFIDE_DATA_DIR=${fixture.dataDir}"
 `,
     );

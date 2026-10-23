@@ -5,7 +5,7 @@ import { resolvePluginBuildToolchain } from "./toolchain.js";
 
 if (process.argv.length !== 3 || process.argv[2] !== "prepare-bundled") {
   throw new Error(
-    "Usage: bb-plugin-build prepare-bundled (from a plugin directory)",
+    "Usage: hyperfide-plugin-build prepare-bundled (from a plugin directory)",
   );
 }
 const sourceRoot = process.cwd();

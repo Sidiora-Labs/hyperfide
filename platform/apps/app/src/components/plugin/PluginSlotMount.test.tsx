@@ -89,7 +89,7 @@ describe("PluginSlotMount", () => {
       </>,
     );
     const pluginSheets = () =>
-      document.head.querySelectorAll('link[data-bb-plugin-css="demo"]');
+      document.head.querySelectorAll('link[data-hyperfide-plugin-css="demo"]');
     expect(pluginSheets()).toHaveLength(1);
     expect(screen.getByText("portalled plugin content")).toBeDefined();
 

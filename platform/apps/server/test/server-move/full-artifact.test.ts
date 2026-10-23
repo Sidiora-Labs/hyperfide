@@ -25,7 +25,7 @@ async function writePackageFile(
 
 function packageJson(version: string): string {
   return JSON.stringify({
-    name: "bb-app",
+    name: "hyperfide-app",
     version,
     dependencies: {},
     engines: { node: ">=22" },
