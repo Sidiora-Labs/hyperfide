@@ -3736,6 +3736,11 @@ const vscode = stubbed({
     window: stubbed({
         registerWebviewViewProvider: (id, p) => { if (id === 'codifyLeaders') leadersProvider = p; return { dispose() {} }; },
         showInputBox: async (o) => { boxes.push(o); return boxAnswer; },
+        // a notification nobody clicks: an auto() stub would resolve to a
+        // truthy proxy, i.e. a click on its first button, and the Needs
+        // view would then answer a new Ask through the input box above
+        showInformationMessage: async () => undefined,
+        showWarningMessage: async () => undefined,
         state: { focused: false },
     }),
     workspace: stubbed({ workspaceFolders: [{ uri: { fsPath: cwd } }], getConfiguration: configuration }),
