@@ -1,0 +1,14 @@
+{
+  "name": "@hyperfide/plugin-spec",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsrs --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.10",
+    "vitest": "4.1.1"
+  }
+}
