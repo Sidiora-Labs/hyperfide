@@ -15,3 +15,11 @@ test("checks every spec independently and tolerates comments", () => {
     ]),
   ).not.toThrow();
 });
+
+test("uses KVX validation instead of accepting malformed spec values", () => {
+  expect(() =>
+    assertUniqueTaskHeaders([
+      { path: "spec/fixture/spec.kvx", text: '[task.1]\nstatus = invalid\n' },
+    ]),
+  ).toThrow("Invalid KVX value for status in spec/fixture/spec.kvx");
+});
