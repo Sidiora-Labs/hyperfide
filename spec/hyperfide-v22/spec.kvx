@@ -428,7 +428,7 @@ owner = "ask"
 
 [task.3.4]
 title = "Notifications and in-thread questions"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.3"]
 touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/push-notifications/**", "platform/plugins/ask-user-question/**", "tests/hyperfide/cases/v22/3_4.sh"]

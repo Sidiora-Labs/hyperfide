@@ -81,10 +81,11 @@ export const lastSendOutcomeSchema = z.discriminatedUnion("status", [
 export type LastSendOutcome = z.infer<typeof lastSendOutcomeSchema>;
 
 interface PushNotificationData {
-  kind: PushNotificationKind;
-  projectId: string;
+  kind: PushNotificationKind | "ask";
+  projectId?: string;
+  notificationId?: string;
   serverUrl?: string;
-  threadId: string;
+  threadId?: string;
 }
 
 export interface ExpoPushMessage {
@@ -125,6 +126,11 @@ interface BatchResult {
 }
 
 export interface PushSender {
+  sendAsk(notification: {
+    id: string;
+    title: string;
+    body: string;
+  }): Promise<void>;
   getLastOutcome(): LastSendOutcome;
   onInteractionPending(
     payload: PluginThreadEventPayloads["interaction.pending"],
@@ -495,6 +501,38 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
   }
 
   return {
+    async sendAsk(notification) {
+      const config = await args.getDeliverySettings();
+      const channels: ClientNotification["channels"] = [];
+      if (config.webEnabled) channels.push("web");
+      if (config.desktopEnabled) channels.push("desktop");
+      if (channels.length > 0) {
+        bb.realtime.publish(CLIENT_NOTIFICATION_CHANNEL, {
+          ...notification,
+          threadId: null,
+          channels,
+        } satisfies ClientNotification);
+      }
+      if (!config.mobileEnabled) return;
+      const deliveries: Delivery[] = (await subscriptions.list()).map(
+        (subscription) => ({
+          subscription,
+          message: {
+            to: subscription.expoPushToken,
+            title: notification.title,
+            body: notification.body,
+            data: { kind: "ask", notificationId: notification.id },
+            sound: "default",
+            channelId: "threads",
+            priority: "high",
+          },
+        }),
+      );
+      for (const batch of chunks(deliveries, EXPO_PUSH_BATCH_SIZE)) {
+        const result = await sendBatch(batch);
+        if (result.failure) throw new Error(result.failure);
+      }
+    },
     getLastOutcome: () => lastOutcome,
     onInteractionPending(payload) {
       schedule(
