@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import { createMachineOps, createRailwayClient, MachineProviderError, redact, type Credentials, type RailwayClient, type RailwayMachine } from "./machine-ops.js";
 import { createProvider } from "./provider.js";
 import { createRailwayPlugin } from "../server.js";
@@ -90,11 +91,21 @@ describe("SDK machine provider", () => {
     expect(await f.provider.availability!()).toMatchObject({ status: "setup-required" });
     expect(resolveSettings({})).toBeNull();
     expect(resolveSettings({ HYPERFIDE_RAILWAY_API_TOKEN: credentials.token, HYPERFIDE_RAILWAY_ENV_ID: credentials.environmentId })).toEqual(credentials);
-    const define = vi.fn(() => ({ get: async () => ({}) })); const register = vi.fn();
-    createRailwayPlugin(f.factory)({ settings: { define }, storage: { kv: f.store }, experimental_machines: { register } });
+    const { hyperfide, harness } = createFakePluginHost();
+    const define = vi.spyOn(hyperfide.settings, "define");
+    createRailwayPlugin(f.factory)(hyperfide);
     expect(define).toHaveBeenCalledWith(SETTING_DESCRIPTORS);
     expect(Object.values(SETTING_DESCRIPTORS).every((value) => value.secret)).toBe(true);
-    expect(register).toHaveBeenCalledOnce();
+    const registered = harness.registrations.machineProviders.get(f.ops.providerId);
+    expect(registered).toBeDefined();
+    expect(await registered!.availability!()).toMatchObject({ status: "setup-required" });
+    await define.mock.results[0]!.value.experimental_set({
+      HYPERFIDE_RAILWAY_API_TOKEN: credentials.token,
+      HYPERFIDE_RAILWAY_ENV_ID: credentials.environmentId,
+    });
+    expect(await registered!.availability!()).toEqual({ status: "available" });
+    expect(await registered!.create(f.context)).toMatchObject({ status: "created" });
+    expect(await hyperfide.storage.kv.get("railway/allocation/test-key")).toMatchObject({ id: "sandbox-test" });
   });
   it("creates, checkpoints, suspends, resumes and removes idempotently", async () => {
     const f = setup(); expect(await f.provider.availability!()).toEqual({ status: "available" });
