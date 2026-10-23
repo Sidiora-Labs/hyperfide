@@ -571,3 +571,27 @@ under platform/. `gen-jobs.py --codex hyperfide-v22 0.8` generates a packet;
 each packet. `node dispatch.mjs --watch` rescans jobs every tick and writes
 queued, running, settled and backoff state to `state/dispatch-loop.json`.
 Create `state/STOP` to stop admitting jobs, drain active runners, and exit.
+
+## Feature 2.2 measurement boundaries
+
+The table above is the measured image-build and index record retained in this
+repository from task 0.8. Its named ledger is runtime state, not tracked evidence
+in this checkout; the numbers are transcribed historical measurements. The
+record does not establish timings for the final merged branch. In particular,
+`platform-build` was best effort in that image recipe, so its elapsed time is
+not evidence of a successful platform build.
+
+| Measurement | Recorded result | Evidence boundary |
+| --- | --- | --- |
+| Image build | Approximately 457 s (7 min 37 s) | Base checkpoint ce200df474, 2026-10-23, table above |
+| Graph index | 109.3 s, 1,574 files, eight workers | Same 4 vCPU / 8 GB base build; not a full merged-tree benchmark |
+| Fleet boot, dispatch, collect and integrate | Not measured in tracked feature evidence on this branch | The 5.7 fixture checks sequencing with fake machines; no live timing ledger is tracked |
+| Authority and two-host qualification | Not measured in tracked feature evidence on this branch | The 6.5 two-host fixture checks receipts; no live timing ledger is tracked |
+
+Fleet cap 20, pool maximum 100, 1.5 s start staggering and 60-to-600 s backoff
+in fleet.json are configured limits, not measurements of achieved throughput.
+Capture builder step durations and dispatcher job ledgers with the source commit
+when measuring those integrations. Do not substitute fake-provider test durations
+for live service latency or sustained fleet capacity.
+
+See [the platform guide](platform.md) for the four layers and proof commands.

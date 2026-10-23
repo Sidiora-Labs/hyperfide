@@ -23,6 +23,19 @@ The local CLI is pure C11: one binary, one SQLite database, no telemetry.
 
 ---
 
+## Platform runtime
+
+The runtime under `platform/` adds browser, desktop and mobile surfaces, a
+server, host daemons and provider plugins to the C binary and control plane.
+Use Node 24 and pnpm 9.15: `pnpm -C platform install --frozen-lockfile`, then
+`pnpm -C platform dev`. The public command is `hyperfide platform --help`.
+
+The [platform guide](docs/hyperfide/platform.md) describes runtime
+capabilities, authority plugins, fleet, slices and memory integration boundaries,
+and names the qualification command for each. The
+[operations guide](docs/hyperfide/operations.md) records measured image and index
+costs. A worker finishing a thread does not mark its spec task qualified.
+
 ## Overview
 
 Run `hyperfide platform --help` for the Hyperfide platform runtime commands.

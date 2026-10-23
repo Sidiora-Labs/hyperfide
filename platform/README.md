@@ -27,3 +27,14 @@ See [repository overview](docs/repository-overview.md),
 Source: https://github.com/Sidiora-Labs/hyperfide
 
 Report bugs and request support at https://github.com/Sidiora-Labs/hyperfide/issues.
+
+## Task authority and proof
+
+Read the [platform integration guide](../docs/hyperfide/platform.md) for the four
+layers, authority integration, fleet, slices and memory bridge. Runtime threads
+execute work; the spec and qualification workflow determine implemented and done.
+The guide identifies projection adapters and the scope of each executable proof.
+
+From the repository root, run `bash tests/hyperfide/cases/v22/7_3.sh` for the
+documentation and whole-repository identity checks. Runtime package checks use
+`pnpm -C platform exec turbo run typecheck test --filter=./<package-directory>`.

@@ -14,7 +14,7 @@
 - Use the CLI to inspect state: `pnpm hyperfide platform thread show <id>`, `pnpm hyperfide platform project list`, `pnpm hyperfide platform status`. From source, use `pnpm hyperfide platform:dev`.
 
 The desktop main process also writes rotating `logs/desktop.log` immediately,
-including updater, Connect, and startup errors. View → Local Logs is available
+including updater and startup errors. View → Local Logs is available
 on every desktop platform and when attached to an existing server; it follows
 local desktop, server, and daemon files in the selected data directory.
 
@@ -347,21 +347,11 @@ the checkout-specific URLs, data directory, and logs directory. Stop it with
 Ctrl-C. For desktop-only changes, start
 `pnpm exec turbo run dev --filter=@hyperfide/desktop` in a second terminal.
 
-Use the Node version in `.nvmrc` (22.19.0). Desktop development requires
-Node 22.19 or newer in the Node 22 release line.
-
-A hyperfide platform connect shared-port URL is a different browser origin from localhost. If
-QA through that URL needs the browser-local host daemon, restart the dev app
-with the share origin configured after exposing its app port:
-
-```bash
-HYPERFIDE_APP_URL=https://<handle>--<app-port>.hyperfide.app pnpm dev
-```
-
-The port remains stable for the checkout, so the existing share continues to
-work after the restart. The host daemon intentionally rejects remote origins
-that are not configured; otherwise any webpage could drive its local editor
-API.
+Use Node 24 and pnpm 9.15 from the repository toolchain. Run development
+commands from the repository root with `pnpm -C platform`. For remote browser
+QA, set `HYPERFIDE_APP_URL` to the app origin you operate before restarting the
+dev app. The host daemon accepts only configured browser origins for local
+editor access.
 
 For CLI QA, `pnpm hyperfide platform:dev` derives this checkout's server and daemon endpoints.
 In the test shell, clear inherited endpoint and thread context overrides first
@@ -703,8 +693,6 @@ directory; check them when a server refuses to start or keeps redirecting:
 - `server-move-run.json`: the old server's durable move state, reconciled at
   boot.
 - `last-server-move.json`: the new server's record of the move.
-- `server-connect-hold.json`: an imported server starts without hyperfide platform connect
-  until `hyperfide platform server allow-connect`.
 
 During a move, `/health` on the new server reports
 `serverMove: { moveId, state }` with `pending`, `activating`, or `ready`.

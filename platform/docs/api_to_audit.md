@@ -1012,15 +1012,8 @@ The operator-configured public app URL from `HYPERFIDE_APP_URL`, or `null`.
 
 Docs: `backend-foundation.md`.
 
-**Audit before stabilizing.** Decide whether `HYPERFIDE_EXTERNAL_URL` or the hyperfide platform
-connect URL should supply this value when `HYPERFIDE_APP_URL` is empty. Confirm that
-one public URL has clear behavior when a server has several access paths.
-
-## `hyperfide platform.hosts.internal_DO_NOT_USE_setNextTunnels`, `internal_DO_NOT_USE_nextTunnelStatuses`, `internal_DO_NOT_USE_onNextTunnelStatusChange`
-
-Hosted tunnels are disabled. Setting a non-null tunnel configuration fails;
-status reads return an empty list, and status subscriptions do not contact a
-control plane or a remote service.
+**Audit before stabilizing.** Confirm that the operator-configured public URL
+has clear behavior when a server has several access paths.
 
 ## Bridge record mode (`experimental_recordProviderChildIo` and `experimental_isProviderBridgeRecording`)
 
@@ -2942,7 +2935,7 @@ Docs: `backend-machines.md`.
 Before stabilization, prove retry-safe acquire/release across process death,
 credential privacy and revocation, explicit and automatic defaults, expired
 codes, removal while a provider is unavailable, and both enrolment and runtime
-traffic with independent direct and Connect consumers. Availability does not
+traffic with independent direct-access consumers. Availability does not
 prove reachability from a remote machine.
 
 ## Machine enrollment and bootstrap
@@ -3123,7 +3116,7 @@ switch starts, and in `recovery_required` it rolls the switch back.
 copy. All of them refuse machine credentials. Everything except status and
 cancel requires the default-off `serverMove` experiment (403
 `server_move_experiment_disabled`). CLI:
-`hyperfide platform server move|export|import|unlock|allow-connect|delete-old-copy|install-machine-service`.
+`hyperfide platform server move|export|import|unlock|delete-old-copy|install-machine-service`.
 
 
 

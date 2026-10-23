@@ -21,6 +21,26 @@ C11 with GNU extensions (`-std=gnu11`) + POSIX. `src/cg.h` remains the shared
 core header; semantic, parser and inspection modules also have focused
 headers.
 
+## Platform layers
+
+The workspace under `platform/` adds four layers to the local graph and control
+plane. Surfaces are the web app, desktop, mobile and CLI. Execution comprises
+the server, host daemons, provider bridges, environments and machines. Authority
+comprises spec, Asks, qualification and dispatch integrations. Proof comprises
+the graph, receipts, independent checking and closure.
+
+The C front door delegates `hyperfide platform <args>` to the runtime CLI.
+Host daemons own filesystem and provider execution; server and daemon contracts
+preserve that boundary. The distributed authority remains `services/hyperfide`
+on PostgreSQL; local runtime storage alone grants no authority. The feature's
+authority client selects its endpoint separately from SQLite runtime storage;
+the planned runtime PostgreSQL dialect remains task 6.1.
+
+See [the platform guide](hyperfide/platform.md) for the actual plugin inventory,
+adapter boundaries, slices and memory contracts, and executable proof commands.
+See [runtime contracts](../platform/docs/system-overview.md) for thread,
+environment, host and transport relationships.
+
 ## Data flow
 
 ```mermaid

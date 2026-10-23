@@ -108,3 +108,18 @@ and stays alive when the queue empties or workers are unavailable. Each tick
 atomically writes `state/dispatch-loop.json` with queued ids, running ids,
 settled outcomes, and backoff timing. Create `state/STOP` to stop admitting jobs
 and exit after active runners finish; remove it before restarting dispatch.
+
+## Platform authority integration and measurements
+
+The toolkit remains an executable transport for local bundles. The platform
+image-builder and dispatch integration is owned by tasks 5.3 through 5.7; its
+qualification entry point is `python3 tests/hyperfide/cases/v22/5_7.py` using the fixture. Toolkit tests use `CG=$PWD/cg bash tests/integration/96_sandbox_toolkit.sh`
+from the repository root. These tests use fake external services.
+
+The [operations timing table](../../../docs/hyperfide/operations.md#sandbox-toolkit-image-steps-and-measured-base-build)
+records the historical base build: about 457 seconds total, including a
+109.3-second index of 1,574 files with eight workers on 4 vCPU / 8 GB. Those
+numbers describe that checkpoint, not the final merged platform. There is no
+measured end-to-end wave 5 fleet timing in tracked evidence.
+The [platform guide](../../../docs/hyperfide/platform.md) names the integration
+boundaries and proof commands.
