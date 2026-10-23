@@ -1157,7 +1157,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.15.3]
 title = "Adopt stale-attempt artifacts without restoring stale authority"
-status = "pending"
+status = "done"
 wave = 18
 requires = ["15.1", "15.2", "5.2", "13.2", "3.2"]
 touches = ["services/hyperfide/src/artifacts/adoption.ts", "tests/hyperfide/manifests/tasks/15.3.json", "tests/hyperfide/cases/tasks/15_3.py", "tests/hyperfide/registrations/15.3.json", "services/hyperfide/components/15.3.json", "services/hyperfide/migrations/0015-artifact-adoption.sql", "services/hyperfide/src/artifacts/checkpoint-recipes.ts", "services/hyperfide/src/artifacts/continuation.ts"]
@@ -1245,7 +1245,7 @@ do_7 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.8.4]
 title = "Implement authenticated cross-pool connectivity and compatible relocation"
-status = "pending"
+status = "done"
 wave = 18
 requires = ["8.2", "14.1", "11.4", "12.4"]
 touches = ["services/hyperfide/src/providers/placement.ts", "tests/hyperfide/manifests/tasks/8.4.json", "tests/hyperfide/cases/tasks/8_4.py", "tests/hyperfide/registrations/8.4.json", "services/hyperfide/components/8.4.json", "services/hyperfide/components/8.4-probe.json"]
@@ -1574,7 +1574,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.13.4]
 title = "Integrate native quotas, permission profiles and autonomous escalation"
-status = "pending"
+status = "done"
 wave = 18
 requires = ["13.1", "5.4", "13.2", "5.1", "1.1", "3.4"]
 touches = ["services/hyperfide/src/agents/admission.ts", "tests/hyperfide/manifests/tasks/13.4.json", "tests/hyperfide/cases/tasks/13_4.py", "tests/hyperfide/registrations/13.4.json", "services/hyperfide/components/13.4.json", "services/hyperfide/src/agents/supervision.ts", "services/hyperfide/components/13.4-supervision.json", "services/hyperfide/src/agents/dispatch.ts", "services/hyperfide/components/13.4-dispatch.json", "services/hyperfide/migrations/0134-native-launch-plans.sql"]
@@ -1608,7 +1608,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.17.1]
 title = "Discover every commit and enforce the full watcher obligation matrix"
-status = "pending"
+status = "done"
 wave = 18
 requires = ["16.1", "13.1", "14.1", "4.2"]
 touches = ["services/hyperfide/src/review/coverage.ts", "tests/hyperfide/manifests/tasks/17.1.json", "tests/hyperfide/cases/tasks/17_1.py", "tests/hyperfide/registrations/17.1.json", "services/hyperfide/components/17.1.json", "services/hyperfide/migrations/0017-review.sql"]
