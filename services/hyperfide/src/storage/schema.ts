@@ -11,11 +11,11 @@ export const AUTHORITY_TABLES=Object.freeze([
 'organisations','projects','repositories','source_objects','spec_revisions','runs','run_spec_revisions',
 'run_repositories','feature_packages','tasks','task_dependencies','environment_profiles','provider_pools',
 'capacity_accounts','reservations','sandboxes','sandbox_boots','worker_slots','attempts','compute_leases','slot_allocations',
-'agent_sessions','preparation_references','workspaces','branch_observations','branch_authorities',
+'agent_sessions','workspaces','branch_authorities',
 'artifacts','artifact_dependencies','checkpoints','evidence','evidence_artifacts','submission_custodies','submission_evidence',
 'qualification_jobs','requalification_operations','integration_candidates','candidate_evidence',
 'candidate_custodies','publication_intents','publication_operations','contracts','findings','finding_observations',
-'review_coverage','review_coverage_inputs','graph_builds','graph_manifests','graph_channels','parse_blobs',
+'review_coverage','graph_builds','graph_manifests','graph_channels','parse_blobs',
 'graph_files','graph_symbols','graph_references','graph_edges','command_inbox','event_consumers',
 'outbox_events','event_deliveries'] as const);
 export interface StorageConfig {

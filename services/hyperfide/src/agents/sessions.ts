@@ -140,9 +140,6 @@ export interface AgentSessionsCapability {
  readonly schema_version:1;
  resumeCheck(input:unknown,invocation:InvocationContext):Promise<unknown>;
 }
-export function isAgentSessionsCapability(value:unknown):value is AgentSessionsCapability{
- return object(value)&&value.schema_version===1&&typeof value.resumeCheck==='function';
-}
 export function createComponent(ctx:ComponentContext):Component{
  const guard=(fn:(value:RecordValue,invocation:InvocationContext)=>Promise<unknown>)=>async(input:unknown,requestContext:ComponentContext)=>{
  if(ctx.signal.aborted)agentError('AGENT_CLOSED');if(!object(input))agentError('AGENT_INPUT_INVALID');const invocation=requestContext.invocation;assertInvocation(invocation);return fn(input,invocation);

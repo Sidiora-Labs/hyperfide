@@ -219,10 +219,6 @@ export async function supersedeDelivery(tx:PrimaryTransaction,input:DeliverySupe
   return result;
 }
 export interface EventInboxCapability {receive:typeof receive;replay:typeof replay;bootstrapConsumer:typeof bootstrapConsumer;supersedeDelivery:typeof supersedeDelivery}
-export function isEventInboxCapability(value:unknown):value is EventInboxCapability {
-  const v=value as Partial<EventInboxCapability>|null;
-  return !!v&&typeof v.receive==='function'&&typeof v.replay==='function'&&typeof v.bootstrapConsumer==='function'&&typeof v.supersedeDelivery==='function';
-}
 export function createComponent(context:ComponentContext):Component {
   const g=gateway(context);
   const component={apiVersion:1 as const,capabilities:{'events.inbox.v1':Object.freeze({receive,replay,bootstrapConsumer,supersedeDelivery})},actions:{

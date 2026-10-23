@@ -277,7 +277,7 @@ const READINESS:[string,(db:DB,r:Readiness)=>Promise<void>][]=[
   if(typeof inspectFindings!=='function')fail('INTEGRATION_FINDINGS_UNAVAILABLE','Finding inspector unavailable');
   const findings=await inspectFindings(db,{...s,repository_id:m.repository_id,source_object_id:m.candidate_head});
   if(!object(findings)||findings.clear!==true||!Array.isArray(findings.blockers)||findings.blockers.length)fail('INTEGRATION_FINDING_BLOCKS','Applicable blocking findings remain');}],
- // The authoritative17 review inspector validates the actual graph source set/provenance for every required source. Candidate-manifest digests are not graph source-manifest identities.
+ // The authoritative review inspector validates the actual graph source set/provenance for every required source. Candidate-manifest digests are not graph source-manifest identities.
 ];
 export async function candidateReady(db:DB,s:Scope,id:string,admittedPublicationId?:string):Promise<{row:Record<string,any>;manifest:CandidateManifest}>{
  await semanticDisposition(db,s,'WRITE');

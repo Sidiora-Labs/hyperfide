@@ -67,8 +67,8 @@ function receiptOf(row:Record<string,any>):RunRebindReceipt {
  if(pin(body)!==receipt_digest||row.receipt_digest!==receipt_digest||row.input_digest!==receipt.input_digest||row.intent_digest!==receipt.intent_digest||row.evidence_scope!==receipt.evidence_scope)fail('RECOVERY_RECEIPT_INVALID','Immutable recovery receipt bytes do not match persisted pins');
  return frozen(structuredClone(receipt));
 }
-/** Local trusted deployment composition only. The prepared verifier reads actual24
- * retained physical evidence; its scheduler callback revokes actual5 authority.
+/** Local trusted deployment composition only. The prepared verifier reads actual
+ * retained physical evidence; its scheduler callback revokes actual authority.
  * Neither caller JSON nor an isolation permit may construct this recovery proof.
  */
 export async function rebindAcceptedRun(resources:ServiceResources,journal:ExternalAuthorityJournal,raw:AcceptedRunRebindInput,prepared:PreparedAcceptedRunRecovery,options:TransactionOptions={}):Promise<RunRebindReceipt>{
@@ -110,7 +110,7 @@ export async function rebindAcceptedRun(resources:ServiceResources,journal:Exter
   await fresh(tx,input,attestation);return receipt;
  });
 }
-/** Trusted26 issuer uses this in its own genuine primary transaction, after fresh
+/** Trusted issuer uses this in its own genuine primary transaction, after fresh
  * external journal verification. It does not accept a serialized receipt as proof.
  */
 export async function inspectRunRebindReceipt(tx:PrimaryTransaction,expected:RunRebindReceiptExpectation):Promise<RunRebindReceipt>{

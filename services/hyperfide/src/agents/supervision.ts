@@ -83,7 +83,7 @@ async function runtimeFiles(p:Profile,target?:{session_id:string;run_id:string})
  if(target&&(policy.target_session_id!==target.session_id||policy.run_id!==target.run_id)||!['LEADER','FEATURE_MANAGER'].includes(String(policy.target_role)))agentError('SUPERVISOR_BRIDGE_IDENTITY_MISMATCH');
  agentString(policy.target_session_id,'uuid');agentString(policy.run_id,'uuid');
  if(policy.schema_version!==1||policy.bootstrap_catalog!==true||!Array.isArray(policy.allowed_tools)||!policy.allowed_tools.length||policy.allowed_tools.some(t=>typeof t!=='string'||!allowedTools.has(t))||new Set(policy.allowed_tools).size!==policy.allowed_tools.length)agentError('SUPERVISOR_BRIDGE_INVALID');
- // Policy enforcement belongs to the actual25 bridge. No generic authority tool is admitted here.
+ // Policy enforcement belongs to the actual bridge. No generic authority tool is admitted here.
  return policy;
 }
 async function nativeAdapter(ctx:ComponentContext,p:Profile,native:MapValue,action:string,payload:MapValue):Promise<MapValue>{

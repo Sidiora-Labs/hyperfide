@@ -257,10 +257,6 @@ export interface ArtifactAdoptionCapability{
  importCheckpoint(input:unknown,context:ComponentContext|InvocationContext):Promise<unknown>;
  inspectCheckpoint(input:unknown,context:ComponentContext|InvocationContext):Promise<unknown>;
 }
-export function isArtifactAdoptionCapability(value:unknown):value is ArtifactAdoptionCapability{
- if(!value||typeof value!=='object')return false;const row=value as Record<string,unknown>;
- return ['adopt','validate','registerCheckpoint','importCheckpoint','inspectCheckpoint'].every(name=>typeof row[name]==='function');
-}
 export function createComponent(context:ComponentContext):Component{
  // The packet producer refuses continuation pins until the checkpoint service
  // installs its historical reader; without it no replacement can adopt.

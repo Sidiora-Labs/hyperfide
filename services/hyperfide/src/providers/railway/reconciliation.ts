@@ -410,8 +410,8 @@ export function createRailwayAdapter(client:RailwayClient,dependencies:RailwayAd
         throw new Error('Railway archive operation mismatch');
       await dependencies.sessions.uploadPending(record.operation_id,dependencies.artifactSink);
       const sealed=await dependencies.sessions.sealStreams(record.operation_id,dependencies.archive.invoke,await dependencies.archive.binding(operation));
-      // Verified provider bytes become cleanup-eligible only after08 pins every
-      // actual15 reference under the original terminal process/boot transaction.
+      // Verified provider bytes become cleanup-eligible only after pins every
+      // actual reference under the original terminal process/boot transaction.
       const custody=await dependencies.persistence.persistOutputArchive(operation,{
         index_reference:sealed.reference,segment_references:sealed.segment_references});
       return {...sealed,custody};
@@ -525,7 +525,7 @@ export function createComponent(context:ComponentContext):Component {
 
 
 /** This transport is reachable only through8.4's guarded isolation registry.
- * The caller supplies real14 isolation authority; no worker invocation is fabricated. */
+ * The caller supplies real isolation authority; no worker invocation is fabricated. */
 export interface RailwayIsolationTransport {
   destroy(operation:ProviderOperation<'destroy'>,signal?:AbortSignal):Promise<ProviderOutcome<'destroy'>>;
   observe(operation:ProviderOperation<'observe'>,signal?:AbortSignal):Promise<ProviderOutcome<'observe'>>;

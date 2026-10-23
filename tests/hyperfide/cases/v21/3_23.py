@@ -326,7 +326,9 @@ def migration_proof(cluster):
         [legacy, [ids['org'], ids['stray_ask'], 'orphan:' + ids['pool'] + ':stray', 'ORPHAN', ids['pool'], 'stray', None, 'Retain or delete stray', orphan_options, 'RETAIN', since, ids['stranger']]],
     ], replica=True)
     applied = node(MIGRATE_JS, {'HF_PG_URL': url})
-    expect(applied['applied'] == [715], ('only 0715 was pending', applied))
+    # Later releases (0716 onward) apply in the same run; nothing below 0715 may be pending.
+    later = [int(file.name[:4]) for file in sorted(MIGRATIONS.glob('*.sql')) if file.name >= '0715']
+    expect(applied['applied'] == later and later[0] == 715, ('only 0715 and later releases were pending', applied))
 
     def derived(old):
         return str(uuid.UUID(hashlib.md5(('hyperfide.provider-resolution-ask:' + ids['org'] + ':' + old).encode()).hexdigest()))

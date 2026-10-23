@@ -241,8 +241,8 @@ export interface ReproductionExpectedInputs {
  custody_id:string;custody_generation:string;source_attempt_id:string;source_attempt_generation:string;
  source_origin:'SUBMITTED_RESULT'|'INTEGRATED_PUBLICATION';publication_operation_id:string|null;
 }
-/** Expected authority only. The12 adapter must independently resolve retained11
- * preparation receipts and measured08 runtime facts; these semantic role pins
+/** Expected authority only. The adapter must independently resolve retained
+ * preparation receipts and measured runtime facts; these semantic role pins
  * must never be returned as VERIFIED measurements by themselves.
  */
 export async function readReproductionJobInputs(tx:PrimaryTransaction,invocation:InvocationContext,request:ReproductionJobInputRequest):Promise<ReproductionExpectedInputs>{
@@ -273,7 +273,7 @@ export async function readReproductionJobInputs(tx:PrimaryTransaction,invocation
 }
 async function measuredReproductionInputs(ctx:ComponentContext,db:ReviewDb,binding:ReviewScope,job:Data):Promise<Data>{
  // The registered REPRODUCTION adapter joins this exact semantic job to its
- // retained preparation proof before12 validates current physical facts. Missing
+ // retained preparation proof before validates current physical facts. Missing
  // or mismatched preparation remains unavailable; echoed labels are not proof.
  const reader=capability<Data>(ctx,'12.1','qualification.environment.v1',['verify']);
  const observed=await reader.verify(db,(ctx as Data).invocation,{job_namespace:'REPRODUCTION',job_id:job.id,lease_generation:String(job.lease_generation),reservation_id:job.reservation_id,input_manifest_digest:job.input_manifest_digest,environment_digest:job.snapshot.environment_digest});

@@ -10,7 +10,7 @@ import type {RunnerEnvironmentRequest,RunnerExpectedInputs,RunnerInputReader} fr
 export interface ReproductionJobInputRequest {
  job_id:string;lease_generation:string;reservation_id:string;input_manifest_digest:string;
 }
-/** This is semantic job authority, never physical readiness. The actual17 reader
+/** This is semantic job authority, never physical readiness. The actual reader
  * owns the lease, allocation, accepted registry and source-currentness checks. */
 export interface ReproductionExpectedAuthority {
  authority:'EXPECTED_AUTHORITY';namespace:'REPRODUCTION';organisation_id:string;run_id:string;
@@ -76,7 +76,7 @@ export function createReproductionJobInputReader(readAuthority:ReproductionAutho
  return async(tx,i,request)=>{
   assertPrimaryTransaction(tx);assertInvocation(i);
   const selected=reproductionJobRequest(request);
-  // The actual17 reader acquires the common04 fence before its14 guard.
+  // The actual reader acquires the common fence before its guard.
   const authority=await readAuthority(tx,i,selected);
   if(authority===null)return null;
   const prepared=await readPreparation(tx,i,authority);

@@ -364,7 +364,7 @@ export function createProviderIsolation(runtime:ProviderIsolationRuntime){
    assertInvocation(authority);const invocation=authority as InvocationContext;
    if(invocation.principal.organisation_id!==config.organisation_id||invocation.principal.run_id!==config.run_id||!['OPERATOR','COORDINATOR','PROVISIONER'].includes(invocation.principal.role))
     fail('ISOLATION_SCOPE_DENIED','Actual principal cannot isolate configured writers');
-   // Ordinary requests retain current-primary authority. The separate actual14
+   // Ordinary requests retain current-primary authority. The separate actual
    // permit path is the only outage mechanism and never grants a new epoch.
    if(!runtime.gateway)fail('ISOLATION_AUTHORITY_UNAVAILABLE','Normal authority requires actual primary gateway');
    revalidateAuthority=async()=>{await runtime.gateway!.withPrimaryTransaction({timeoutMs:5000,signal,guard:tx=>invocation.guard(tx)},async()=>{});};

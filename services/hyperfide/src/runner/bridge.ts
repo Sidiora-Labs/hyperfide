@@ -379,7 +379,7 @@ function validatePlan(plan:RunnerRemotePlan):void {
 export {validatePlan as validateRunnerPlan};
 export function runnerResultSigningBytes(org:string,run:string,op:string,plan:string,result:string):Buffer{return Buffer.from(`HYPERFIDE-RUNNER-RESULT-V1\n${org}\n${run}\n${op}\n${plan}\n${result}\n`);}
 
-/** Read immutable15 payloads only after the SQL observation transaction closes.
+/** Read immutable payloads only after the SQL observation transaction closes.
  * Every child and concatenated content digest is checked again at this boundary. */
 export async function resolveRunnerCapturedReference(store:ArtifactStoreCapability,i:InvocationContext,ref:unknown):Promise<CapturedBytes> {
  assertInvocation(i);

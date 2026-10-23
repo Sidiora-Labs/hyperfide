@@ -28,7 +28,7 @@ export function effectiveResultProjection(result:Data):EffectiveResultSource {
  return value as unknown as EffectiveResultSource;
 }
 /** This context permits preparation of an admitted result before semantic proof.
- * Parent profile ownership is established on primary state; the pure11 helper
+ * Parent profile ownership is established on primary state; the pure helper
  * cannot establish it from caller metadata. No new coding packet is created. */
 export async function loadResultPreparationContext(tx:PrimaryTransaction,
  scope:{organisation_id:string;run_id:string},query:{job_id:string}):Promise<ResultPreparationContext> {
@@ -104,7 +104,7 @@ export function rederiveResultProfile(context:ResultPreparationContext,
  });
 }
 
-/** Expected input authority only. The independently observed runner12 compares
+/** Expected input authority only. The independently observed runner compares
  * this immutable ledger to actual profile, preparation, source and workspace.
  * No caller digest or old baseline environment can substitute for a missing row. */
 export async function inspectEffectiveResultInputs(tx:PrimaryClient,
@@ -275,7 +275,7 @@ export async function buildResultPreparationControl(context:ResultPreparationCon
  if(bytes.length>256*1024)fail('QUALIFICATION_PREPARATION_POLICY_UNAVAILABLE','Preparation control body exceeds its actual retained object bound');
  return {body:control,bytes,raw_control_digest:rawDigest(bytes),semantic_input_manifest_digest:context_digest};
 }
-/** Publish declared control metadata through actual15 before constructing a
+/** Publish declared control metadata through actual before constructing a
  * preparation intent. Physical parent bytes and readiness still require native
  * validation; object receipts alone never grant either. No payload enters PG. */
 export async function retainResultPreparationControls(ctx:ComponentContext,context:ResultPreparationContext,
@@ -387,7 +387,7 @@ export async function planResultPreparation(ctx:ComponentContext,raw:unknown):Pr
    source:{repository_key:context.repository_binding.repository_key,source_object_id:context.result.source_object_id,
     source_tree_id:context.result.source_tree_id,source_manifest_digest:context.result.source_manifest_digest},
    staging:[...controls.staging,...sources]};
-  // Readiness/scanner context is injected by the protected12 recipe map. There
+  // Readiness/scanner context is injected by the protected recipe map. There
   // is no wire field through which this caller can choose that authority.
   const inserted=await tx.query("INSERT INTO hyperfide.assurance_preparation_intents(organisation_id,run_id,operation_id,job_id,job_lease_generation,custody_id,custody_generation,request_digest,context_digest,session_id,reservation_id,allocation_id,allocation_generation,derived_profile_id,plan) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *",
    [...s,v.request_id,v.job_id,String(job.lease_generation),context.custody_id,context.result.custody_generation,
@@ -435,7 +435,7 @@ export async function inspectResultPreparationIntent(tx:PrimaryClient,
   context_digest:context.context_digest,context,plan:row.plan,plan_digest:hash(row.plan),physical_readiness:'NOT_EVALUATED'};
 }
 
-/** Initial semantic reader for the lower12 retained-preparation publisher.
+/** Initial semantic reader for the lower retained-preparation publisher.
  * Values remain accepted baseline pins. Actual derived profile and prepared
  * roles are admitted only after independently retained native measurements. */
 export function qualificationPreparationAuthorityReader(ctx:ComponentContext) {

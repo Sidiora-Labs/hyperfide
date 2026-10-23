@@ -397,9 +397,6 @@ export interface WorkerRegistrationReceipt {
 export interface WorkerRegistrationAuthority {
  registerWorker:(tx:PrimaryTransaction,input:WorkerRegistrationInput,invocation:InvocationContext)=>Promise<WorkerRegistrationReceipt>;
 }
-export function isWorkerRegistrationAuthority(value:unknown):value is WorkerRegistrationAuthority {
- return object(value)&&typeof value.registerWorker==='function';
-}
 async function workerSchema(tx:PrimaryTransaction){
  await schema(tx);
  const table=await tx.query("SELECT to_regclass('hyperfide.hierarchy_worker_registrations') IS NOT NULL AS ready");

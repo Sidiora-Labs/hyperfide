@@ -214,9 +214,6 @@ async function trustedProfile(context:ComponentContext):Promise<PlacementProfile
   }catch{invalid('Trusted placement policy is unavailable');}
   return validatePlacementProfile(value,context);
 }
-export function isPlacementAuthority(value:unknown):value is PlacementAuthority {
-  return object(value)&&typeof value.authorize==='function'&&typeof value.admitRemote==='function'&&typeof value.authorizeSupervisor==='function';
-}
 function placementAuthority(context:ComponentContext):PlacementAuthority {
   const finish=(profile:PlacementProfile,host:HostBinding,input:{job_class:JobClass;tool:MainTool}):PlacementAuthorization=>({
     ...enforcePlacement(profile,host,input.job_class,input.tool),authorized:true,authority:'PLACEMENT_ONLY',tool:input.tool,

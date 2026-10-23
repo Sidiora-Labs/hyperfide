@@ -441,6 +441,3 @@ export interface EventOutboxCapability {
   sessionConsumerKey:typeof sessionConsumerKey;bindSessionConsumer:typeof bindSessionConsumer;resolveSessionConsumer:typeof resolveSessionConsumer;lookupConsumerBinding:typeof lookupConsumerBinding;lookupNativeLaunch:typeof lookupNativeLaunch;
   operatorConsumerKey:typeof operatorConsumerKey;resolveOperatorConsumer:typeof resolveOperatorConsumer;
 }
-export function isEventOutboxCapability(value:unknown):value is EventOutboxCapability {
-  return object(value)&&['enqueue','lockRun','registerConsumer','claimPending','acknowledge','retry','sessionConsumerKey','bindSessionConsumer','resolveSessionConsumer','lookupConsumerBinding','lookupNativeLaunch','operatorConsumerKey','resolveOperatorConsumer'].every(key=>typeof value[key]==='function');
-}
