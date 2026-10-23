@@ -511,19 +511,7 @@ Its name moves to the account server unless that server is already named. If
 the replaced URL was selected, the app switches to the account server and
 reloads its windows once.
 
-Connect discovery tries the built-in server, then a stored machine credential,
-then the bb account sign-in. When none of these load the servers and the app
-has no credential or account sign-in, the Server menu offers **Sign in to bb
-Connect…** above **Add Server…**. If bb Connect rejected the credentials, the
-item is **Sign in to bb Connect again…**. Other failures add no menu row; the
-menu keeps the servers from the last successful load, and the app logs the
-reason as `connect server sync skipped (<reason>)`. The sign-in item opens
-bb account sign-in in a desktop window, the same window as **Reconnect** below,
-from any selected server, including **This Mac** / **This Computer**. Once the
-new account session arrives, the window closes and the app reloads the
-account's servers into the menu. Without a known Connect server, the app signs
-in at `https://getbb.app`. Development builds use `BB_DEV_CONNECT_BASE_URL`
-when it is valid.
+
 
 The app command palette lists **Switch to <server>** for each inactive choice
 from this same Server menu, including Connect discovery. Palette list requests

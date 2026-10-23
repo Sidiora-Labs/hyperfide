@@ -36,7 +36,7 @@ function move(overrides: Partial<ServerMoveStatus> = {}): ServerMoveStatus {
     mode: "connect",
     targetHostId: "host_desk",
     targetHostName: "desk",
-    serverUrl: "https://michael.getbb.app",
+    serverUrl: "https://michael.hyperfide.example",
     destinationStatusUrl: null,
     startedAt: now - 90_000,
     finishedAt: null,

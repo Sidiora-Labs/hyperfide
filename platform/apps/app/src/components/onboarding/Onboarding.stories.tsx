@@ -25,7 +25,7 @@ export default {
 
 const noop = () => {};
 const MACHINE_NAME = "Sawyer's MacBook Pro";
-const CONNECT_URL = "https://sawyer.getbb.app";
+const CONNECT_URL = "https://sawyer.hyperfide.example";
 const MOBILE_LINKS = {
   ios: "https://testflight.apple.com/join/example",
   android: "https://example.com/bb-android.apk",

@@ -27,7 +27,7 @@ const official = {
   name: "bb-community",
   displayName: "BB Community",
   official: true,
-  source: "https://getbb.app/marketplace/v1/marketplace.json",
+  source: "https://hyperfide.example/marketplace/v1/marketplace.json",
   entryCount: 5,
 };
 

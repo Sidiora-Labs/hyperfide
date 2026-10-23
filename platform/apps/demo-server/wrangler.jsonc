@@ -6,7 +6,6 @@
 //
 // No route is declared, so the worker serves from
 // https://bb-demo-server.<account-subdomain>.workers.dev. That is deliberate:
-// connect owns the `*.getbb.app/*` zone route, so `demo.getbb.app` (the
 // serverUrl the fixtures advertise) resolves to the tunnel gate and is refused
 // as an unknown handle. Moving there needs a custom-domain route on this
 // worker, which takes precedence over the wildcard, plus a DNS record; the CI

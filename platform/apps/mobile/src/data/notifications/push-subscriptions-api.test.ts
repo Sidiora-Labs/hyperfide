@@ -21,14 +21,14 @@ describe("createPushSubscriptionsApi", () => {
     const api = createPushSubscriptionsApi(fetchImpl);
 
     await expect(
-      api.register("https://bee.getbb.app/", {
+      api.register("https://bee.hyperfide.example/", {
         expoPushToken: "ExponentPushToken[abc]",
         platform: "ios",
         deviceLabel: "Sawyer's iPhone",
       }),
     ).resolves.toEqual({ subscriptionId: "sub_1" });
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://bee.getbb.app/api/v1/plugins/push-notifications/rpc/pushSubscriptions.add",
+      "https://bee.hyperfide.example/api/v1/plugins/push-notifications/rpc/pushSubscriptions.add",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
@@ -56,7 +56,7 @@ describe("createPushSubscriptionsApi", () => {
     const api = createPushSubscriptionsApi(fetchImpl);
 
     await expect(
-      api.unregister("https://bee.getbb.app", subscriptionRef),
+      api.unregister("https://bee.hyperfide.example", subscriptionRef),
     ).resolves.toBeUndefined();
   });
 
@@ -81,7 +81,7 @@ describe("createPushSubscriptionsApi", () => {
       const api = createPushSubscriptionsApi(fetchImpl);
 
       await expect(
-        api.register("https://bee.getbb.app", {
+        api.register("https://bee.hyperfide.example", {
           expoPushToken: "ExponentPushToken[abc]",
           platform: "ios",
           deviceLabel: "Sawyer's iPhone",

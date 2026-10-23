@@ -123,19 +123,19 @@ describe("bb mcp", () => {
     });
 
     const signedIn = await load({
-      serverUrl: "https://sawyer.getbb.app/",
+      serverUrl: "https://sawyer.hyperfide.example/",
       fetch: () => ({ status: 200, body: { grants: [] } }),
     });
     expect(
       JSON.parse(
         (await signedIn.host.harness.runCli(["status", "--json"])).stdout,
       ).remoteUrl,
-    ).toBe("https://sawyer.getbb.app/mcp");
+    ).toBe("https://sawyer.hyperfide.example/mcp");
   });
 
   it("lists connected apps through the account service", async () => {
     const { host, calls } = await load({
-      serverUrl: "https://sawyer.getbb.app",
+      serverUrl: "https://sawyer.hyperfide.example",
       fetch: () => ({
         status: 200,
         body: {
@@ -174,7 +174,7 @@ describe("bb mcp", () => {
   it("revokes a grant and reports an unknown id as a failure", async () => {
     const revoked: unknown[] = [];
     const { host } = await load({
-      serverUrl: "https://sawyer.getbb.app",
+      serverUrl: "https://sawyer.hyperfide.example",
       fetch: (input) => {
         revoked.push(input.body);
         return {

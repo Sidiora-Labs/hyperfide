@@ -38,22 +38,6 @@ export function webViewShellHref(
   });
 }
 
-interface ConnectEnrollHrefParams {
-  code?: string;
-  serverUrl?: string;
-  apex?: string;
-  profileId?: string;
-}
-
-export function connectEnrollHref(params: ConnectEnrollHrefParams = {}): Href {
-  return untypedHref("/connect", {
-    code: params.code,
-    serverUrl: params.serverUrl,
-    apex: params.apex,
-    profileId: params.profileId,
-  });
-}
-
 type SettingsSectionRoute = "device" | "appearance" | "notifications";
 
 export function settingsSectionHref(section: SettingsSectionRoute): Href {

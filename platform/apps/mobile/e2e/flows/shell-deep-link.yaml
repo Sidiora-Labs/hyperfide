@@ -47,7 +47,7 @@ env:
 - takeScreenshot: shell-deep-link-notifications
 
 # There is deliberately no web-link step here. A universal link only reaches
-# the app for a domain in `associatedDomains` (`*.getbb.app`), and the harness
+# the app for a domain in `associatedDomains` (`*.hyperfide.example`), and the harness
 # serves a loopback origin, so iOS hands `http://127.0.0.1:.../` to Safari —
 # correctly. The web-link branch of the resolver is covered by unit tests in
 # src/lib/shell/shell-links.test.ts.

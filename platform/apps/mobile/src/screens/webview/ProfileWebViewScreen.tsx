@@ -287,15 +287,9 @@ export function ProfileWebViewScreen() {
             {screen.action === "re-pair" ? (
               <Button
                 testID="shell-repair"
-                onPress={() =>
-                  router.push(
-                    profile === null
-                      ? "/settings/servers"
-                      : `/connect?profileId=${encodeURIComponent(profile.id)}`,
-                  )
-                }
+                onPress={() => router.push("/settings/servers/add")}
               >
-                Pair again
+                Add server URL
               </Button>
             ) : null}
             <Button

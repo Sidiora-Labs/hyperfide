@@ -395,12 +395,12 @@ describe("HostSharedPortCoordinator", () => {
     expect(
       sharedPorts.recordTunnelIdentity(host.id, {
         label: "sawyer-air",
-        baseDomain: "getbb.app",
+        baseDomain: "hyperfide.example",
       }),
-    ).toEqual({ label: "sawyer-air", baseDomain: "getbb.app" });
+    ).toEqual({ label: "sawyer-air", baseDomain: "hyperfide.example" });
     expect(sharedPorts.getTunnelIdentity(host.id)).toEqual({
       label: "sawyer-air",
-      baseDomain: "getbb.app",
+      baseDomain: "hyperfide.example",
     });
   });
 });
@@ -515,12 +515,12 @@ describe("daemon session connect shares", () => {
         socket: daemonSocket,
         raw: JSON.stringify({
           type: "connect-tunnel.identity",
-          identity: { label: "sawyer-air", baseDomain: "getbb.app" },
+          identity: { label: "sawyer-air", baseDomain: "hyperfide.example" },
         }),
       });
       expect(harness.deps.sharedPorts.getTunnelIdentity("host-1")).toEqual({
         label: "sawyer-air",
-        baseDomain: "getbb.app",
+        baseDomain: "hyperfide.example",
       });
     });
   });
@@ -580,10 +580,10 @@ describe("daemon session connect shares", () => {
 });
 
 const NEXT_CONFIG = {
-  domain: "next.getbb.app",
+  domain: "next.hyperfide.example",
   server: {
     protocol: "wss" as const,
-    host: "tunnel.next.getbb.app",
+    host: "tunnel.next.hyperfide.example",
     port: 443,
   },
 };

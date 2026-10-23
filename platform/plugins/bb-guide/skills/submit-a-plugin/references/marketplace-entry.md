@@ -206,10 +206,7 @@ Reference each file from the entry with a relative path:
 "screenshots": ["./screenshots/notes/overview.png"]
 ```
 
-The marketplace build rejects a file in screenshots/ that no entry references.
-Delete a file you do not reference. The build changes each local path to a CDN
-URL. Do not write a CDN URL yourself. An absolute URL must use HTTPS on
-getbb.app, so use a local path for a submission.
+
 
 ## Add the overview file
 

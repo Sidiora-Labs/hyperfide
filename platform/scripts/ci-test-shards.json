@@ -121,13 +121,13 @@
     },
     {
       "shard": "plugins-1",
-      "filter": "--filter=bb-plugin-provider-* --filter=bb-plugin-tasks --filter=bb-plugin-connect --filter=bb-plugin-thread-list",
+      "filter": "--filter=bb-plugin-provider-* --filter=bb-plugin-tasks --filter=bb-plugin-thread-list",
       "concurrency": 2,
       "vitestShard": ""
     },
     {
       "shard": "plugins-2",
-      "filter": "--filter=bb-plugin-* --filter=!bb-plugin-provider-* --filter=!bb-plugin-tasks --filter=!bb-plugin-connect --filter=!bb-plugin-thread-list",
+      "filter": "--filter=bb-plugin-* --filter=!bb-plugin-provider-* --filter=!bb-plugin-tasks --filter=!bb-plugin-thread-list",
       "concurrency": 2,
       "vitestShard": ""
     },

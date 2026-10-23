@@ -77,7 +77,6 @@
         }
       ],
       "expo-quick-actions",
-      "expo-camera",
       [
         "expo-build-properties",
         {

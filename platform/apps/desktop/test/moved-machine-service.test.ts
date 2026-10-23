@@ -24,7 +24,7 @@ const MOVE: DesktopServerMove = {
     server: {
       handle: "desk",
       name: "Studio desktop",
-      url: "https://desk.getbb.app",
+      url: "https://desk.hyperfide.example",
     },
   },
   toHostName: "Studio desktop",
