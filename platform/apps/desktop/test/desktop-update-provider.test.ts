@@ -7,13 +7,13 @@ import {
 describe("desktop update feed url", () => {
   it("gives each platform its own feed file inside one release tag", () => {
     expect(createDesktopUpdateFeedUrl("macos")).toBe(
-      "https://github.com/hyperfide/hyperfide/releases/download/desktop-latest/desktop-version.json",
+      "https://github.com/Sidiora-Labs/hyperfide/releases/download/desktop-latest/desktop-version.json",
     );
     expect(createDesktopUpdateFeedUrl("linux")).toBe(
-      "https://github.com/hyperfide/hyperfide/releases/download/desktop-latest/desktop-version-linux.json",
+      "https://github.com/Sidiora-Labs/hyperfide/releases/download/desktop-latest/desktop-version-linux.json",
     );
     expect(createDesktopUpdateFeedUrl("windows")).toBe(
-      "https://github.com/hyperfide/hyperfide/releases/download/desktop-latest/desktop-version-windows.json",
+      "https://github.com/Sidiora-Labs/hyperfide/releases/download/desktop-latest/desktop-version-windows.json",
     );
   });
 });
