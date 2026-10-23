@@ -6,19 +6,19 @@ import {
   type AppSettings,
   type CompletedTurnDisplay,
   type ProviderInfo,
-} from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
-import { COARSE_POINTER_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+} from "@hyperfide/domain";
+import { Button } from "@hyperfide/shared-ui/button";
+import { COARSE_POINTER_ICON_SIZE_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Switch } from "@bb/shared-ui/switch";
+} from "@hyperfide/shared-ui/dropdown-menu";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { Switch } from "@hyperfide/shared-ui/switch";
 import {
   SettingsBadge,
   SettingsRow,

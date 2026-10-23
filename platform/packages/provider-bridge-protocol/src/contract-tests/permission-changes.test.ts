@@ -188,9 +188,9 @@ describe("cross-provider permission changes: Codex", () => {
     requestLogPath = join(workspaceDir, "requests.jsonl");
     const scriptPath = join(workspaceDir, "script.json");
     writeFileSync(scriptPath, JSON.stringify({ requestLogPath }));
-    vi.stubEnv("BB_CODEX_BRIDGE_APP_SERVER_COMMAND", process.execPath);
+    vi.stubEnv("HYPERFIDE_CODEX_BRIDGE_APP_SERVER_COMMAND", process.execPath);
     vi.stubEnv(
-      "BB_CODEX_BRIDGE_APP_SERVER_ARGS",
+      "HYPERFIDE_CODEX_BRIDGE_APP_SERVER_ARGS",
       JSON.stringify([
         join(
           checkout,
@@ -318,6 +318,21 @@ describe("cross-provider permission changes: Codex", () => {
 });
 
 describe("cross-provider permission changes: Claude", () => {
+  let restoreTestUid: (() => void) | undefined;
+
+  beforeEach(() => {
+    // This contract covers normal-user permission transitions.
+    if (process.getuid) {
+      const uidSpy = vi.spyOn(process, "getuid").mockReturnValue(1000);
+      restoreTestUid = () => uidSpy.mockRestore();
+    }
+  });
+
+  afterEach(() => {
+    restoreTestUid?.();
+    restoreTestUid = undefined;
+  });
+
   it.each(permissionChangeCases(["accept-edits", "auto", "full"]))(
     "permission contract: $before -> $after on $method",
     async (scenario) => {

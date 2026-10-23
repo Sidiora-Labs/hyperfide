@@ -5,8 +5,8 @@ import {
   experimental_THREAD_ACTION_GROUPS as GROUPS,
   type PluginThreadActionRegistration,
   type PluginThreadActionTarget,
-} from "@get-bb/plugin-sdk";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+} from "@hyperfide/plugin-sdk";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { useThreadActions } from "@/components/thread/ThreadActionsProvider";
 import { useRouteState } from "@/hooks/useRouteState";
 import { copyToClipboardWithToast } from "@/lib/clipboard";

@@ -6,18 +6,18 @@ import {
   type QueryObserverOptions,
 } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PendingInteraction, ThreadListEntry } from "@bb/domain";
+import type { PendingInteraction, ThreadListEntry } from "@hyperfide/domain";
 import type {
   SidebarBootstrapResponse,
   ThreadListResponse,
   ThreadTimelineResponse,
   ThreadWithIncludesResponse,
-} from "@bb/server-contract";
-import { COMPACT_VIEWPORT_QUERY } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { POINTER_COARSE_QUERY } from "@bb/shared-ui/hooks/use-pointer-coarse";
+} from "@hyperfide/server-contract";
+import { COMPACT_VIEWPORT_QUERY } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { POINTER_COARSE_QUERY } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
 import * as api from "@/lib/api";
 import { sdk } from "@/lib/sdk";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { ARCHIVED_THREADS_PAGE_SIZE } from "./archived-threads-page-size";
 import {

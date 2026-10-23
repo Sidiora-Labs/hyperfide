@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Host, PermissionMode } from "@bb/domain";
+import type { Host, PermissionMode } from "@hyperfide/domain";
 import { apiClient } from "@/lib/api-server";
 import { request } from "@/lib/api";
 import { sdk } from "@/lib/sdk";

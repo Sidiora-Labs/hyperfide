@@ -6,7 +6,7 @@ import {
   extractResultText,
   type PreparedProviderCommandDispatch,
   type ProviderRuntimeEvent,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { z } from "zod";
 import {
   applyCodexRateLimitUpdate,

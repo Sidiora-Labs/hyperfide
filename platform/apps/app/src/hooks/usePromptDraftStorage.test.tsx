@@ -1,4 +1,4 @@
-import { appendQuoteAndAttachmentsToDraft } from "@bb/client-core";
+import { appendQuoteAndAttachmentsToDraft } from "@hyperfide/client-core";
 // @vitest-environment jsdom
 
 import { createCoreComposerActions } from "@/lib/plugin-composer-handle";

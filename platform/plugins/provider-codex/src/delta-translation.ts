@@ -18,7 +18,7 @@ import {
   experimental_toolPresentation as toolPresentation,
   experimental_webFetchPresentation as webFetchPresentation,
   experimental_webSearchPresentation as webSearchPresentation,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import {
   codexAsyncQuestionItemSchema,
   codexBridgeEnvelopeSchema,
@@ -729,7 +729,7 @@ function toolStatusFields(status: CodexItemStatus): {
 
 const PLAN_STEPS_CHANNEL = "planSteps";
 
-const BB_TOOL_SERVER = "bb";
+const HYPERFIDE_TOOL_SERVER = "bb";
 
 function isTerminalCodexItemStatus(status: CodexItemStatus): boolean {
   return status !== "inProgress";
@@ -876,7 +876,7 @@ function translateCodexItemShape(
         kind: "translated",
         shape: {
           type: "tool",
-          ...(injected === undefined ? {} : { server: BB_TOOL_SERVER }),
+          ...(injected === undefined ? {} : { server: HYPERFIDE_TOOL_SERVER }),
           tool: parsedItem.tool,
           ...(parsedItem.arguments === undefined
             ? {}

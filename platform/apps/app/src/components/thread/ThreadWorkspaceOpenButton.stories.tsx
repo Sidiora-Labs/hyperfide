@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type {
   WorkspaceOpenTarget,
   WorkspaceOpenTargetId,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { ThreadWorkspaceOpenButton } from "./ThreadWorkspaceOpenButton";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";
 

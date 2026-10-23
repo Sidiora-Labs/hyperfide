@@ -3,10 +3,10 @@ import { join } from "node:path";
 import {
   formatBbAppConfigPath,
   parseBbAppManagedConfig,
-} from "@bb/config/bb-app-managed-config";
-import { mutateManagedJsonFile } from "@bb/config/managed-json-file";
-import type { ServerMoveMode } from "@bb/domain";
-import { SERVER_MOVED_FILE_NAME } from "@bb/server-archive";
+} from "@hyperfide/config/bb-app-managed-config";
+import { mutateManagedJsonFile } from "@hyperfide/config/managed-json-file";
+import type { ServerMoveMode } from "@hyperfide/domain";
+import { SERVER_MOVED_FILE_NAME } from "@hyperfide/server-archive";
 import { parseManagedConfigObject, readOptionalText } from "./managed-files.js";
 
 const OLD_SERVER_KEPT_ENTRIES: ReadonlySet<string> = new Set([

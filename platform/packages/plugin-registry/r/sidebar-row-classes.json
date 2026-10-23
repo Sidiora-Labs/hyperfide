@@ -5,11 +5,11 @@
   "title": "sidebar-row-classes",
   "description": "BB ui \"sidebar-row-classes\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/coarse-pointer-sizing",
-    "@bb/context-selection",
-    "@bb/motion",
-    "@bb/sidebar-hover-actions",
-    "@bb/utils"
+    "@hyperfide/coarse-pointer-sizing",
+    "@hyperfide/context-selection",
+    "@hyperfide/motion",
+    "@hyperfide/sidebar-hover-actions",
+    "@hyperfide/utils"
   ],
   "files": [
     {

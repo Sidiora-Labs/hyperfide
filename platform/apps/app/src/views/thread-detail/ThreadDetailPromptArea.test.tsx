@@ -11,7 +11,7 @@ import type {
   ThreadTimelineGoal,
   ThreadTimelineModelFallback,
   ThreadWithRuntime,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   cleanup,
   fireEvent,
@@ -24,12 +24,12 @@ import {
 import type {
   TimelineWorkflowWorkRow,
   ThreadTimelineSessionOption,
-} from "@bb/server-contract";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@hyperfide/server-contract";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import {
   makeThreadQueuedMessage as makeThreadQueuedMessageFixture,
   makeThreadWithRuntime as makeThreadWithRuntimeFixture,
-} from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/test-helpers/domain-fixtures";
 import type { ComponentProps } from "react";
 import {
   afterEach,
@@ -42,9 +42,9 @@ import {
 } from "vitest";
 import { LazyQueuedMessagesList } from "@/components/promptbox/banner/LazyQueuedMessagesList";
 import { workflowRow } from "@/test/fixtures/thread-timeline-rows";
-import type { PromptDraftAttachment } from "@bb/client-core";
+import type { PromptDraftAttachment } from "@hyperfide/client-core";
 import { BbHttpError } from "@/lib/sdk";
-import type { ExperimentalComposerSelection } from "@get-bb/plugin-sdk";
+import type { ExperimentalComposerSelection } from "@hyperfide/plugin-sdk";
 import { setComposerTextEffect } from "@/lib/composer-text-effects";
 import {
   resetPluginSlotStoreForTest,

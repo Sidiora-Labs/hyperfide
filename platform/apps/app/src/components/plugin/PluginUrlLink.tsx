@@ -1,5 +1,5 @@
 import { useCallback, type MouseEvent as ReactMouseEvent } from "react";
-import type { UrlLinkProps } from "@get-bb/plugin-sdk";
+import type { UrlLinkProps } from "@hyperfide/plugin-sdk";
 import { RouteAnchor } from "@/components/ui/app-route-anchor";
 import { useAppNavigationHost } from "@/lib/app-navigation-host";
 import { resolveRouteHref } from "@/lib/route-paths";

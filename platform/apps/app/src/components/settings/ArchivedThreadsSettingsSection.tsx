@@ -1,18 +1,18 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { ThreadListEntry } from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
+import type { ThreadListEntry } from "@hyperfide/domain";
+import { Button } from "@hyperfide/shared-ui/button";
 import { ProjectSelector } from "@/components/pickers/ProjectSelector";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
-import { Pill } from "@bb/shared-ui/pill";
+} from "@hyperfide/shared-ui/dropdown-menu";
+import { EmptyStatePanel } from "@hyperfide/shared-ui/empty-state";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
+import { Input } from "@hyperfide/shared-ui/input";
+import { Pill } from "@hyperfide/shared-ui/pill";
 import { ThreadUnarchiveButton } from "@/components/thread/ThreadUnarchiveButton";
 import { useUnarchiveThread } from "@/hooks/mutations/thread-state-mutations";
 import {

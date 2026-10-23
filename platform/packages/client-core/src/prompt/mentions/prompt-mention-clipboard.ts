@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   promptMentionResourceSchema,
   type PromptMentionResource,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { PLUGIN_MENTION_TRIGGER_VALUES } from "./plugin-mention-triggers.js";
 
 const PROMPT_MENTION_CLIPBOARD_RESOURCE_ATTR = "data-prompt-mention-resource";

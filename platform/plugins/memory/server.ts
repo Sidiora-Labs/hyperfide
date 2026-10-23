@@ -5,7 +5,7 @@ import {
   cliCommand,
   defineCli,
   type BbPluginApi,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { isMemoryKind, MEMORY_KINDS, type MemoryKind } from "./memory-kinds.js";
 

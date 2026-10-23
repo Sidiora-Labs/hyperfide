@@ -11,7 +11,6 @@ import type { ConnectionBannerKind } from "@/lib/connection";
 import { haptic } from "@/lib/haptics";
 import { useTheme } from "@/theme";
 import { Icon, Text, type IconName } from "@/ui";
-import { connectEnrollHref } from "./hrefs";
 
 interface BannerCopy {
   icon: IconName;
@@ -61,8 +60,8 @@ export function ConnectionBanner() {
   const copy = COPY[kind];
   const color = copy.destructive ? tokens.destructiveText : tokens.warningText;
   const reauth =
-    kind === "auth-required" && activeProfile.mode === "connect"
-      ? () => router.push(connectEnrollHref({ profileId: activeProfile.id }))
+    kind === "auth-required"
+      ? () => router.push("/settings/servers/add")
       : null;
   const message = copy.message(activeProfile.label);
   const cardStyle: ViewStyle = {

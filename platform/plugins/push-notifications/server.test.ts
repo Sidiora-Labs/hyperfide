@@ -1,8 +1,8 @@
-import type { PluginThreadEventPayloads } from "@get-bb/plugin-sdk";
+import type { PluginThreadEventPayloads } from "@hyperfide/plugin-sdk";
 import {
   createFakePluginHost,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { EnvHttpProxyAgent } from "undici";
 import { describe, expect, it, vi } from "vitest";
 import {

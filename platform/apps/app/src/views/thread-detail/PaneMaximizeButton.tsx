@@ -1,10 +1,10 @@
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { Popover, PopoverAnchor, PopoverContent } from "@bb/shared-ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { Popover, PopoverAnchor, PopoverContent } from "@hyperfide/shared-ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@hyperfide/shared-ui/tooltip";
 import { useAppCommandShortcut } from "@/components/commands/AppCommandProvider";
 import { HEADER_PANE_ACTION_ICON_BUTTON_CLASS } from "@/components/layout/AppPageHeader";
-import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@bb/shared-ui/chrome-style-tokens";
+import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@hyperfide/shared-ui/chrome-style-tokens";
 import { useHoverPopover } from "@/components/ui/hooks/use-hover-popover";
 import { useBrowserDimmingOverlay } from "@/hooks/useBrowserDimmingModal";
 import type { AppShortcutPresentation } from "@/lib/app-keybindings";
@@ -12,7 +12,7 @@ import { getBbDesktopInfo } from "@/lib/bb-desktop";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useRef } from "react";
 import type { SplitSide } from "@/lib/split-layout";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { usePaneContext } from "./PaneContext";
 
 const ARRANGEMENT_ACTIONS: ReadonlyArray<{

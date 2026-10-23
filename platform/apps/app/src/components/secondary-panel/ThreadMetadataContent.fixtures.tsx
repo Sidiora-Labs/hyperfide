@@ -4,8 +4,8 @@ import type {
   ThreadListEntry,
   WorkspaceMergeBase,
   WorkspaceWorkingTree,
-} from "@bb/domain";
-import type { EnvironmentDisplayHostContext } from "@bb/core-ui";
+} from "@hyperfide/domain";
+import type { EnvironmentDisplayHostContext } from "@hyperfide/core-ui";
 import {
   makeEnvironment,
   makeThread,

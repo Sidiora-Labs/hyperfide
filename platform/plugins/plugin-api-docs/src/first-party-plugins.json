@@ -115,11 +115,6 @@
     "icon": "BellDot"
   },
   {
-    "id": "connect",
-    "name": "bb connect",
-    "icon": "ComputerCloud"
-  },
-  {
     "id": "secrets",
     "name": "Secrets",
     "icon": "Lock"
@@ -178,11 +173,6 @@
     "id": "agent-annotations",
     "name": "Agent Annotations",
     "icon": "MessageSquarePlus"
-  },
-  {
-    "id": "bb-account",
-    "name": "bb account",
-    "icon": "UserRound"
   },
   {
     "id": "bb-guide",

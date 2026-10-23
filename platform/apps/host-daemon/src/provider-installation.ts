@@ -1,10 +1,10 @@
 import { PassThrough, type Readable } from "node:stream";
-import { resolvePortableCommand } from "@bb/process-utils";
-import type { ProviderInstallationCommand } from "@bb/provider-bridge-protocol";
+import { resolvePortableCommand } from "@hyperfide/process-utils";
+import type { ProviderInstallationCommand } from "@hyperfide/provider-bridge-protocol";
 import {
   providerCliInstallEventSchema,
   type ProviderCliInstallEvent,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { spawn as spawnPty } from "node-pty";
 import type { HostDaemonLogger } from "./logger.js";
 import { ensureNodePtySpawnHelperExecutable } from "./terminals/terminal-manager.js";

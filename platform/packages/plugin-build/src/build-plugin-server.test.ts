@@ -30,7 +30,7 @@ describe("plugin server build", () => {
     );
   });
 
-  it("builds a pre-rename source importing bare @bb/plugin-sdk", async () => {
+  it("builds a pre-rename source importing bare @hyperfide/plugin-sdk", async () => {
     const dir = await mkdtemp(join(tmpdir(), "bb-plugin-server-legacy-"));
     tempDirs.push(dir);
     await mkdir(join(dir, "dist"), { recursive: true });
@@ -50,8 +50,8 @@ describe("plugin server build", () => {
     await writeFile(
       join(dir, "server.ts"),
       [
-        'import type { BbPluginApi } from "@bb/plugin-sdk";',
-        'import { defineRpcContract } from "@bb/plugin-sdk";',
+        'import type { BbPluginApi } from "@hyperfide/plugin-sdk";',
+        'import { defineRpcContract } from "@hyperfide/plugin-sdk";',
         "export default function plugin(bb: BbPluginApi) {",
         "  void defineRpcContract;",
         "  void bb;",
@@ -67,7 +67,7 @@ describe("plugin server build", () => {
     );
 
     const bundle = await readFile(jsPath, "utf8");
-    expect(bundle).toMatch(/from\s*"@bb\/plugin-sdk"/);
+    expect(bundle).toMatch(/from\s*"@hyperfide\/plugin-sdk"/);
   });
 
   describe("host-provided zod", () => {
@@ -557,8 +557,8 @@ export default () => ({
       },
     };
     const serverSource = [
-      'import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";',
-      'import { experimental_nativeRootsHostContract } from "@get-bb/plugin-sdk/host";',
+      'import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";',
+      'import { experimental_nativeRootsHostContract } from "@hyperfide/plugin-sdk/host";',
       "export const contract = defineRpcContract(experimental_nativeRootsHostContract);",
       "export default function plugin(bb: BbPluginApi) {",
       "  void bb;",
@@ -575,10 +575,10 @@ export default () => ({
       const dir = await mkdtemp(join(tmpdir(), "bb-plugin-server-subpath-"));
       tempDirs.push(dir);
       await writeFixture(dir);
-      await mkdir(join(dir, "node_modules", "@get-bb"), { recursive: true });
+      await mkdir(join(dir, "node_modules", "@hyperfide"), { recursive: true });
       await symlink(
         resolve(import.meta.dirname, "../../plugin-sdk"),
-        join(dir, "node_modules", "@get-bb", "plugin-sdk"),
+        join(dir, "node_modules", "@hyperfide", "plugin-sdk"),
         "dir",
       );
 
@@ -590,8 +590,8 @@ export default () => ({
       );
 
       const bundle = await readFile(jsPath, "utf8");
-      expect(bundle).toMatch(/from\s*"@get-bb\/plugin-sdk"/);
-      expect(bundle).not.toContain('"@get-bb/plugin-sdk/host"');
+      expect(bundle).toMatch(/from\s*"@hyperfide\/plugin-sdk"/);
+      expect(bundle).not.toContain('"@hyperfide/plugin-sdk/host"');
       expect(bundle).toContain("resolveNativeRoots:");
     });
 
@@ -603,7 +603,7 @@ export default () => ({
       await expect(
         buildPluginServer(dir, "0.0.0-test", await testToolchain()),
       ).rejects.toThrow(
-        '"@get-bb/plugin-sdk/host" is not installed for this plugin (no node_modules/@get-bb/plugin-sdk); a server entry\'s "@get-bb/plugin-sdk/host" import is bundled from the plugin\'s own SDK install (bb serves only the bare "@get-bb/plugin-sdk" at load time), so the plugin needs the SDK as a dependency',
+        '"@hyperfide/plugin-sdk/host" is not installed for this plugin (no node_modules/@hyperfide/plugin-sdk); a server entry\'s "@hyperfide/plugin-sdk/host" import is bundled from the plugin\'s own SDK install (bb serves only the bare "@hyperfide/plugin-sdk" at load time), so the plugin needs the SDK as a dependency',
       );
     });
 
@@ -613,12 +613,12 @@ export default () => ({
       );
       tempDirs.push(dir);
       await writeFixture(dir);
-      const sdkDir = join(dir, "node_modules", "@get-bb", "plugin-sdk");
+      const sdkDir = join(dir, "node_modules", "@hyperfide", "plugin-sdk");
       await mkdir(sdkDir, { recursive: true });
       await writeFile(
         join(sdkDir, "package.json"),
         JSON.stringify({
-          name: "@get-bb/plugin-sdk",
+          name: "@hyperfide/plugin-sdk",
           version: "0.0.0-test",
           type: "module",
           exports: {
@@ -631,7 +631,7 @@ export default () => ({
       await expect(
         buildPluginServer(dir, "0.0.0-test", await testToolchain()),
       ).rejects.toThrow(
-        `"@get-bb/plugin-sdk/host" is installed for this plugin but its dist is not built: run the SDK build (${join(await realpath(sdkDir), "dist", "host.js")} is missing)`,
+        `"@hyperfide/plugin-sdk/host" is installed for this plugin but its dist is not built: run the SDK build (${join(await realpath(sdkDir), "dist", "host.js")} is missing)`,
       );
     });
   });

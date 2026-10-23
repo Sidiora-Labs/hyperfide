@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PromptDraftState } from "@bb/client-core";
+import type { PromptDraftState } from "@hyperfide/client-core";
 import type { PromptBoxHandle } from "./ComposerBox";
 import { deliverPromptVoiceTranscript } from "./prompt-voice-intent";
 

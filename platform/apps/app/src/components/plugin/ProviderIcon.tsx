@@ -5,10 +5,10 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import type { ExperimentalProviderIconProps } from "@get-bb/plugin-sdk/app";
-import { isPresentationTintColor } from "@bb/domain";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { ExperimentalProviderIconProps } from "@hyperfide/plugin-sdk/app";
+import { isPresentationTintColor } from "@hyperfide/domain";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   getPluginSlotSnapshot,
   subscribePluginSlots,

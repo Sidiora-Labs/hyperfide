@@ -1,4 +1,4 @@
-import { systemConfigResponseSchema } from "@bb/server-contract";
+import { systemConfigResponseSchema } from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import { createMockHubSocket } from "../helpers/mock-hub-socket.js";
 import { readJson } from "../helpers/json.js";

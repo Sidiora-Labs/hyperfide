@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PendingInteraction } from "@bb/domain";
+import type { PendingInteraction } from "@hyperfide/domain";
 import {
   ThreadPromptContextBanner,
   type ChildThreadQuestion,

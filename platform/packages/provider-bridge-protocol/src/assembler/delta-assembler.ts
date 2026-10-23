@@ -5,8 +5,8 @@ import type {
   ThreadEventItem,
   ThreadEventItemPresentation,
   ThreadEventItemStatus,
-} from "@bb/domain";
-import { threadScope, turnScope } from "@bb/domain";
+} from "@hyperfide/domain";
+import { threadScope, turnScope } from "@hyperfide/domain";
 import type { BridgeGrammarVersions } from "../handshake.js";
 import type {
   DeltaFileChange,

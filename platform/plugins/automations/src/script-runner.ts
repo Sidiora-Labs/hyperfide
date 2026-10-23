@@ -19,7 +19,7 @@ const SCRIPT_FAILURE_DETAIL_MAX_CHARS = 200;
 
 let resolvedBbPath: string | null = null;
 
-const BB_NOT_INJECTED_WARNING =
+const HYPERFIDE_NOT_INJECTED_WARNING =
   "[bb] warning: could not locate the bb CLI, so `bb` is not on PATH for this script.";
 
 async function commandWorks(command: string, args: string[]): Promise<boolean> {
@@ -38,11 +38,11 @@ export function bbBinaryCandidates(env: NodeJS.ProcessEnv): string[] {
       candidates.push(candidate);
     }
   };
-  const fromCli = env.BB_CLI?.trim();
+  const fromCli = env.HYPERFIDE_CLI?.trim();
   if (fromCli !== undefined && fromCli.length > 0) {
     pushIfAbsolute(fromCli);
   }
-  const fromCliDir = env.BB_CLI_DIR?.trim();
+  const fromCliDir = env.HYPERFIDE_CLI_DIR?.trim();
   if (fromCliDir !== undefined && fromCliDir.length > 0) {
     pushIfAbsolute(join(fromCliDir, "bb"));
   }
@@ -317,18 +317,18 @@ export async function executeStoredScript(args: {
   const interpreter =
     args.interpreter ?? resolveDefaultInterpreter(args.scriptFile);
   const bbPath = await resolveBbBinary();
-  const warning = bbPath === null ? `${BB_NOT_INJECTED_WARNING}\n` : "";
+  const warning = bbPath === null ? `${HYPERFIDE_NOT_INJECTED_WARNING}\n` : "";
   const scriptEnv: NodeJS.ProcessEnv = {
     ...process.env,
     ...(args.env ?? {}),
     PATH: scriptPathEnv(bbPath, process.env.PATH),
-    BB_SERVER_URL: args.serverUrl,
-    BB_PROJECT_ID: args.projectId,
-    BB_AUTOMATION_ID: args.automationId,
-    BB_AUTOMATION_RUN_ID: args.runId,
+    HYPERFIDE_SERVER_URL: args.serverUrl,
+    HYPERFIDE_PROJECT_ID: args.projectId,
+    HYPERFIDE_AUTOMATION_ID: args.automationId,
+    HYPERFIDE_AUTOMATION_RUN_ID: args.runId,
   };
   if (bbPath !== null) {
-    scriptEnv.BB_CLI = bbPath;
+    scriptEnv.HYPERFIDE_CLI = bbPath;
   }
   await mkdir(scriptsRoot(args.pluginDataDir), { recursive: true });
   if (!(await isDirectory(args.workingDir))) {

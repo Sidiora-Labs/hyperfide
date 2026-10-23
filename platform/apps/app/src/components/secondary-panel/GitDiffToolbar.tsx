@@ -5,13 +5,13 @@ import {
 } from "./git-diff/diff-file-filters";
 import { useEffect, useRef } from "react";
 import { useResizeObserver } from "usehooks-ts";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   COARSE_POINTER_COMPACT_ICON_BUTTON_CLASS,
   COARSE_POINTER_COMPACT_ICON_SIZE_CLASS,
   COARSE_POINTER_COMPACT_ICON_SIZE_SHRINK_CLASS,
   COARSE_POINTER_TEXT_SM_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
+} from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,17 +20,17 @@ import {
   DropdownMenuLabel,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { Icon } from "@bb/shared-ui/icon";
-import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
-import { Input } from "@bb/shared-ui/input";
-import { Skeleton } from "@bb/shared-ui/skeleton";
+} from "@hyperfide/shared-ui/dropdown-menu";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { usePointerCoarse } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
+import { Input } from "@hyperfide/shared-ui/input";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
+} from "@hyperfide/shared-ui/tooltip";
 import { DiffStatsTally } from "@/components/ui/diff-stats-tally.js";
 import {
   formatChangeSummary,
@@ -40,7 +40,7 @@ import {
   type CodeOverflowMode,
   type CodeOverflowModeChangeHandler,
 } from "@/lib/code-overflow-mode";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import type { GitDiffStats } from "../git-diff/git-diff-parsing";
 
 const GIT_DIFF_SELECTOR_MENU_MIN_WIDTH = "20rem";

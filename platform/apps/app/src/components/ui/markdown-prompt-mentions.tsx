@@ -1,11 +1,11 @@
-import { normalizePromptTextMentions } from "@bb/client-core";
+import { normalizePromptTextMentions } from "@hyperfide/client-core";
 import type { ComponentType } from "react";
 import type { Nodes, Parent, PhrasingContent, Text } from "mdast";
 import type {} from "mdast-util-to-hast";
 import { visit } from "unist-util-visit";
-import type { PromptTextMention } from "@bb/domain";
+import type { PromptTextMention } from "@hyperfide/domain";
 import { PromptMentionPill } from "@/components/thread/timeline/ConversationMessageMentions.js";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
 import { replaceTextMatches } from "./markdown-text-matches.js";
 
 const SENTINEL_OPEN = String.fromCharCode(0xe000);

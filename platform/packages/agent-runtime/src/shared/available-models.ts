@@ -1,4 +1,4 @@
-import { availableModelSchema, type AvailableModel } from "@bb/domain";
+import { availableModelSchema, type AvailableModel } from "@hyperfide/domain";
 import { z } from "zod";
 
 const modelListResultSchema = z.object({

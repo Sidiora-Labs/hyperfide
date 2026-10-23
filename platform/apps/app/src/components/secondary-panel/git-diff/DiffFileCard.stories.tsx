@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { DiffFileEntry } from "@bb/server-contract";
+import type { DiffFileEntry } from "@hyperfide/server-contract";
 import type { DiffPresentation } from "@/components/code/code-rendering";
 import type { RequestDiffFileContents } from "@/components/git-diff/GitDiffCardBody";
 import { DEFAULT_CODE_OVERFLOW_MODE } from "@/lib/code-overflow-mode";

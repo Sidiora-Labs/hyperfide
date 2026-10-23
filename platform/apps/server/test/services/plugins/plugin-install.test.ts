@@ -27,12 +27,12 @@ import {
   getInstalledPluginRegistration,
   listPluginArtifacts,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import { ROOT_PLUGIN_SOURCE_SELECTION } from "@bb/server-contract";
-import type { Logger } from "@bb/logger";
-import { scaffoldPlugin } from "@bb/templates/plugin-scaffold";
-import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@bb/domain";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import { ROOT_PLUGIN_SOURCE_SELECTION } from "@hyperfide/server-contract";
+import type { Logger } from "@hyperfide/logger";
+import { scaffoldPlugin } from "@hyperfide/templates/plugin-scaffold";
+import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import { validatePluginArtifactMeta } from "../../../src/services/plugins/app-bundle.js";
 import {
   gitArtifactCacheDir,
@@ -774,14 +774,14 @@ describe("plugin install flows", () => {
 
     it("refuses a git plugin that shadows a builtin after materialization", async () => {
       const repoDir = join(workDir, "repo-connect");
-      await writePluginFixture(repoDir, { name: "bb-plugin-connect" });
+      await writePluginFixture(repoDir, { name: "@hyperfide/automations" });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "init");
 
       await expect(
         service.install(`git:${repoDir}@main`, { kind: "root" }),
-      ).rejects.toThrowError(/reserved by the bundled plugin.*builtin:connect/);
-      expect(getInstalledPluginRegistration(db, "connect")).toBeUndefined();
+      ).rejects.toThrowError(/reserved by the bundled plugin.*builtin:automations/);
+      expect(getInstalledPluginRegistration(db, "automations")).toBeUndefined();
     });
 
     it("installs a pinned commit sha via clone + checkout", async () => {
@@ -1068,11 +1068,11 @@ describe("plugin install flows", () => {
         await writePluginFixture(repoDir, {
           name: "bb-plugin-host-with-dev-sdk-omitted",
           devDependencies: {
-            "@get-bb/plugin-sdk": "file:./sdk-type-fixture",
+            "@hyperfide/plugin-sdk": "file:./sdk-type-fixture",
           },
           hostSource: `
-            import { defineRpcContract } from "@get-bb/plugin-sdk";
-            import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
+            import { defineRpcContract } from "@hyperfide/plugin-sdk";
+            import { experimental_defineHostEntry } from "@hyperfide/plugin-sdk/host";
             const schema = { "~standard": { validate(value) { return { value }; } } };
             const contract = defineRpcContract({ echo: { input: schema, output: schema } });
             export default experimental_defineHostEntry({
@@ -1085,7 +1085,7 @@ describe("plugin install flows", () => {
         await writeFile(
           join(repoDir, "sdk-type-fixture", "package.json"),
           JSON.stringify({
-            name: "@get-bb/plugin-sdk",
+            name: "@hyperfide/plugin-sdk",
             version: "0.0.0-test",
             private: true,
           }),
@@ -1102,10 +1102,10 @@ describe("plugin install flows", () => {
           join(entry.rootDir, "dist", "host.js"),
           "utf8",
         );
-        expect(bundle).not.toMatch(/from\s+["']@get-bb\/plugin-sdk/u);
+        expect(bundle).not.toMatch(/from\s+["']@hyperfide\/plugin-sdk/u);
         await stat(join(entry.rootDir, "dist", "host.meta.json"));
         await expect(
-          stat(join(entry.rootDir, "node_modules", "@get-bb", "plugin-sdk")),
+          stat(join(entry.rootDir, "node_modules", "@hyperfide", "plugin-sdk")),
         ).rejects.toMatchObject({ code: "ENOENT" });
       },
     );
@@ -1768,18 +1768,18 @@ describe("plugin install flows", () => {
 
   it("refuses an npm package whose derived id shadows a builtin before install", async () => {
     await expect(
-      service.install("npm:bb-plugin-connect@1.2.3", { kind: "root" }),
-    ).rejects.toThrowError(/reserved by the bundled plugin.*builtin:connect/);
-    expect(getInstalledPluginRegistration(db, "connect")).toBeUndefined();
+      service.install("npm:@hyperfide/automations@1.2.3", { kind: "root" }),
+    ).rejects.toThrowError(/reserved by the bundled plugin.*builtin:automations/);
+    expect(getInstalledPluginRegistration(db, "automations")).toBeUndefined();
   });
 
   it("refuses a path plugin whose manifest id shadows a builtin", async () => {
-    const rootDir = join(workDir, "bb-plugin-connect");
-    await writePluginFixture(rootDir, { name: "bb-plugin-connect" });
+    const rootDir = join(workDir, "@hyperfide/automations");
+    await writePluginFixture(rootDir, { name: "@hyperfide/automations" });
     await expect(service.installPath(rootDir)).rejects.toThrowError(
-      /reserved by the bundled plugin.*builtin:connect/,
+      /reserved by the bundled plugin.*builtin:automations/,
     );
-    expect(getInstalledPluginRegistration(db, "connect")).toBeUndefined();
+    expect(getInstalledPluginRegistration(db, "automations")).toBeUndefined();
   });
 
   it("refuses a path plugin whose id uses the reserved bb-- prefix", async () => {

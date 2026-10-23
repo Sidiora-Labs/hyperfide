@@ -5,8 +5,8 @@ import {
   type HostDaemonOnlineRpcResponseMessage,
   type HostDaemonOnlineRpcResult,
   type HostDaemonRpcResultForCommand,
-} from "@bb/host-daemon-contract";
-import type { AvailableModel } from "@bb/domain";
+} from "@hyperfide/host-daemon-contract";
+import type { AvailableModel } from "@hyperfide/domain";
 import type { TestAppHarness } from "./test-app.js";
 import {
   registerTestHostRpcCapture,

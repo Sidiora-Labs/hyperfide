@@ -8,12 +8,12 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PluginThreadListProps } from "@get-bb/plugin-sdk/app";
+import type { PluginThreadListProps } from "@hyperfide/plugin-sdk/app";
 import {
   loadPluginApp,
   renderSlot,
   type RenderSlotOptions,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 import { makePluginProject, makeSidebarThread } from "./app/model/fixtures.js";
 import {
   resetPreferencesSyncForTest,

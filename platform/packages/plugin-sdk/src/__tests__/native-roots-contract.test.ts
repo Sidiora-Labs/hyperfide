@@ -1,7 +1,7 @@
 import {
   PROVIDER_RESOLVED_NATIVE_ROOTS_MAX,
   type ProviderResolvedNativeRootInput,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { describe, expect, it, vi } from "vitest";
 import {
   experimental_filterResolvedNativeRoots,

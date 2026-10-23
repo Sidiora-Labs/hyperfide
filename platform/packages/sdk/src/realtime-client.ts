@@ -2,9 +2,9 @@ import type {
   ChangedMessage,
   ClientMessage,
   RealtimeSubscriptionTarget,
-} from "@bb/domain";
-import { realtimeSubscriptionTargetKey } from "@bb/domain";
-import { serverMessageLenientSchema } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import { realtimeSubscriptionTargetKey } from "@hyperfide/domain";
+import { serverMessageLenientSchema } from "@hyperfide/server-contract";
 import { resolveRealtimeUrl } from "./realtime-url.js";
 import type {
   BbRealtime,

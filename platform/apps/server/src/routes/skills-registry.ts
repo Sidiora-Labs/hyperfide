@@ -3,7 +3,7 @@ import {
   registrySkillEntriesRequestSchema,
   registrySkillInstallRequestSchema,
   type RegistrySkill,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { ApiError } from "../errors.js";
 import {
   githubRepoForSource,

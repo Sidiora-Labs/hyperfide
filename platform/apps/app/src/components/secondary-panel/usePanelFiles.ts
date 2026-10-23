@@ -3,7 +3,7 @@ import type {
   HostFileTabState,
   ThreadStorageFileTabState,
   WorkspaceFileTabState,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import type { AppFilePreviewIntent } from "@/lib/app-navigation-host";
 import {
   normalizeExperimentalFileOpenOptions,

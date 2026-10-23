@@ -6,7 +6,7 @@ import {
   type ComposerAttachment,
   type ExperimentalComposerPendingUpload as PendingAttachmentUpload,
   type ExperimentalComposerRendererApi,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   isImageAttachment,
   isVideoAttachment,

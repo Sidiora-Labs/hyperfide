@@ -1,4 +1,4 @@
-import { PLUGIN_METADATA_MAX_BYTES } from "@bb/domain";
+import { PLUGIN_METADATA_MAX_BYTES } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 import {

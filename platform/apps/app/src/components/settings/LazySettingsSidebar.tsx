@@ -1,4 +1,4 @@
-import { Skeleton } from "@bb/shared-ui/skeleton";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 import { SectionSidebar } from "@/components/sidebar/SectionSidebar";
 import type { RouteSidebarProps } from "@/components/layout/routeSidebar";
 import { defineSplit, SplitLoadFailure } from "@/lib/define-split";

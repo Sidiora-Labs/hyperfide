@@ -1,4 +1,4 @@
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import type { MachineStatusTone } from "./machine-status";
 
 export function MachineStatusDot({

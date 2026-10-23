@@ -1,6 +1,6 @@
 import { experimental_PluginRpcCallError } from "../rpc-contract.js";
 import { rpcInvalidationTags, rpcResponseTags } from "../internal/rpc-tags.js";
-import type { ContractTagDeclarations } from "@bb/domain";
+import type { ContractTagDeclarations } from "@hyperfide/domain";
 import {
   environmentCompositionSchema,
   validateServerAccessProviderDeclaration,
@@ -13,7 +13,7 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { CronExpressionParser } from "cron-parser";
 import { Hono } from "hono";
-import { deepFreezePluginMetadata, validatePluginMetadata } from "@bb/domain";
+import { deepFreezePluginMetadata, validatePluginMetadata } from "@hyperfide/domain";
 import {
   adoptHttpRouteResponse,
   aiServiceAlreadyRegisteredMessage,
@@ -120,7 +120,7 @@ import type {
   ExperimentalPluginRpcHandlerContext,
   StandardSchemaV1,
   JsonValue,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   createFakeSdk,
   type FakeSdkHarness,
@@ -328,14 +328,6 @@ export interface FakePluginRegistrations {
   aiServiceRegistrations: PluginAiServiceDeclaration[];
 }
 
-/** One handle opened through `bb.server.internal_DO_NOT_USE_openTunnelIngress`. */
-export interface InternalDoNotUseFakeTunnelIngress {
-  readonly audience: string;
-  readonly baseUrl: string;
-  /** True once the plugin closed the handle or the host disposed it. */
-  readonly closed: boolean;
-}
-
 /** Read-only state for assertions after a plugin registers or handles work. */
 export interface FakePluginInspectionState {
   readonly pluginId: string;
@@ -356,8 +348,6 @@ export interface FakePluginInspectionState {
   /** Recorded `bb.sdk` calls + stub control. */
   readonly sdk: FakeSdkHarness;
   readonly registrations: FakePluginRegistrations;
-  /** Every `bb.server.internal_DO_NOT_USE_openTunnelIngress` handle, in order. */
-  readonly internal_DO_NOT_USE_tunnelIngresses: readonly InternalDoNotUseFakeTunnelIngress[];
   readonly sharedPortDeclarations: Array<{
     hostId: string;
     ports: number[];
@@ -656,8 +646,6 @@ interface FakePluginPersistentState {
   storageRoot: string;
   storedSettings: Map<string, PluginSettingValue>;
 }
-
-const FAKE_TUNNEL_INGRESS_FIRST_PORT = 41_000;
 
 const fakeHostDisposers = new WeakMap<
   FakePluginHarness,
@@ -1158,39 +1146,7 @@ function createFakePluginHostInternal(
       assertLive();
       return dataDir;
     },
-    async internal_DO_NOT_USE_openTunnelIngress(ingressOptions) {
-      assertLive();
-      const audience: unknown = ingressOptions?.audience;
-      if (typeof audience !== "string" || audience.length === 0) {
-        throw new Error(
-          "bb.server.internal_DO_NOT_USE_openTunnelIngress needs a non-empty audience",
-        );
-      }
-      const shared = tunnelIngresses.find(
-        (entry) => entry.audience === audience && !entry.closed,
-      );
-      const entry = {
-        audience,
-        baseUrl:
-          shared?.baseUrl ??
-          `http://127.0.0.1:${FAKE_TUNNEL_INGRESS_FIRST_PORT + tunnelIngresses.length}`,
-        closed: false,
-      };
-      tunnelIngresses.push(entry);
-      const close = async (): Promise<void> => {
-        entry.closed = true;
-        const index = disposeHooks.indexOf(close);
-        if (index !== -1) disposeHooks.splice(index, 1);
-      };
-      disposeHooks.push(close);
-      return { baseUrl: entry.baseUrl, close };
-    },
   };
-  const tunnelIngresses: Array<{
-    audience: string;
-    baseUrl: string;
-    closed: boolean;
-  }> = [];
 
   // --- sdk ---
   const { sdk, harness: sdkHarness } = createFakeSdk({
@@ -1528,7 +1484,7 @@ function createFakePluginHostInternal(
   const experimental_environments: PluginEnvironments = {
     register(
       declaration:
-        | import("@get-bb/plugin-sdk").PluginEnvironmentProviderDeclaration
+        | import("@hyperfide/plugin-sdk").PluginEnvironmentProviderDeclaration
         | NormalizedPluginEnvironmentComposition,
     ) {
       assertLive();
@@ -1710,7 +1666,6 @@ function createFakePluginHostInternal(
     get recheckCount() {
       return requestedDrains;
     },
-    internal_DO_NOT_USE_tunnelIngresses: tunnelIngresses,
     sharedPortDeclarations,
     get internal_DO_NOT_USE_nextTunnelConfig() {
       return nextTunnelConfig;

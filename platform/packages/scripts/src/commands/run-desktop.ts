@@ -5,7 +5,7 @@ import {
   resolveCurrentDevInstanceConfig,
   toDevProcessEnv,
   type DevInstanceConfig,
-} from "@bb/config/runtime";
+} from "@hyperfide/config/runtime";
 import { runScriptProcess } from "../lib/process-helpers.js";
 import { repoRoot, runMainIfEntrypoint } from "../lib/script-entry.js";
 
@@ -42,7 +42,7 @@ export function createDesktopPackageCommand(
       "turbo",
       "run",
       resolveDesktopPackageTask(platform),
-      "--filter=@bb/desktop",
+      "--filter=@hyperfide/desktop",
       "--output-logs=new-only",
     ],
     command: "pnpm",
@@ -110,7 +110,6 @@ export function toDesktopLaunchProcessEnv(args: {
     args.config,
   );
   env.HYPERFIDE_SKIP_ONBOARDING ??= "1";
-  env.HYPERFIDE_TELEMETRY = "false";
   env.NODE_ENV = "production";
   return env;
 }

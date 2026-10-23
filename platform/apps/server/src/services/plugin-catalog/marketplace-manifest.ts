@@ -7,12 +7,12 @@ import {
   pluginMarketplaceCollectionSchema,
   type PluginMarketplaceCategory,
   type PluginMarketplaceCollection,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   pluginMarketplaceNameSchema,
   ROOT_PLUGIN_SOURCE_SELECTION,
   type PluginSourceSelection,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import semver from "semver";
 import { z } from "zod";
 import {
@@ -29,15 +29,8 @@ import {
 import { BUNDLED_MARKETPLACE_NAME } from "./bundled-marketplace-paths.js";
 export { BUNDLED_MARKETPLACE_NAME } from "./bundled-marketplace-paths.js";
 
-export const MARKETPLACE_V1_SCHEMA_URL =
-  "https://getbb.app/schemas/marketplace.schema.json";
-export const MARKETPLACE_V2_SCHEMA_URL =
-  "https://getbb.app/schemas/marketplace-v2.schema.json";
-
-export const CURATED_MARKETPLACE_V1_URL =
-  "https://getbb.app/marketplace/v1/marketplace.json";
-export const CURATED_MARKETPLACE_V2_URL =
-  "https://getbb.app/marketplace/v2/marketplace.json";
+export const MARKETPLACE_V1_SCHEMA_URL = "/schemas/marketplace.schema.json";
+export const MARKETPLACE_V2_SCHEMA_URL = "/schemas/marketplace-v2.schema.json";
 
 export const BUILTIN_PUBLISHER_LABEL = "BB Official";
 
@@ -342,19 +335,8 @@ export function curatedMarketplaceManifestUrls(configuredUrl: string): {
   primary: string;
   fallback: string | null;
 } {
+  if (configuredUrl === "") return { primary: "", fallback: null };
   const url = new URL(configuredUrl);
-  if (url.toString() === CURATED_MARKETPLACE_V1_URL) {
-    return {
-      primary: CURATED_MARKETPLACE_V2_URL,
-      fallback: CURATED_MARKETPLACE_V1_URL,
-    };
-  }
-  if (url.toString() === CURATED_MARKETPLACE_V2_URL) {
-    return {
-      primary: CURATED_MARKETPLACE_V2_URL,
-      fallback: CURATED_MARKETPLACE_V1_URL,
-    };
-  }
   return { primary: url.toString(), fallback: null };
 }
 

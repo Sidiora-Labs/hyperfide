@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { resolvePluginBuildToolchain } from "@bb/plugin-build";
+import { resolvePluginBuildToolchain } from "@hyperfide/plugin-build";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   buildCachedPluginServer,

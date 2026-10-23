@@ -4,7 +4,7 @@ import {
   useRpc,
   type JsonValue,
   type PluginMachineProviderInputsProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/icon";

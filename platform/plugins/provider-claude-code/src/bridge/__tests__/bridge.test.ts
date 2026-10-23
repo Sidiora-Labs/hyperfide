@@ -21,7 +21,7 @@ import {
   type JsonValue,
   type RuntimePermissionPolicy,
   type RuntimePermissionScope,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 
 const { forkSessionMock, queryMock, contextQueryMock } = vi.hoisted(() => ({
   forkSessionMock: vi.fn(),
@@ -51,11 +51,11 @@ import { listClaudeCodeBridgeModels } from "../model-list.js";
 import {
   experimental_assembleCapturedThreadEvents as assembleCapturedThreadEvents,
   experimental_createBridgeJsonRpcTestHarness as createBridgeJsonRpcTestHarness,
-} from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@hyperfide/plugin-sdk/provider-bridge/testing";
 import type {
   BridgeJsonRpcOutputMessage,
   ThreadEvent,
-} from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@hyperfide/plugin-sdk/provider-bridge/testing";
 
 type BridgeSessionOptions = ReturnType<typeof buildSessionOptions>;
 type BridgeSessionHooks = NonNullable<BridgeSessionOptions["hooks"]>;
@@ -679,7 +679,14 @@ async function forwardAskUserQuestion({
 }
 
 describe("bridge", () => {
+  let restoreTestUid: (() => void) | undefined;
+
   beforeEach(() => {
+    // These fixtures model a normal user; root behavior has its own test.
+    if (process.getuid) {
+      const uidSpy = vi.spyOn(process, "getuid").mockReturnValue(1000);
+      restoreTestUid = () => uidSpy.mockRestore();
+    }
     vi.clearAllMocks();
     contextQueryMock.mockImplementation(() => createControlledClaudeQuery());
     forkSessionMock.mockResolvedValue({ sessionId: "forked-session-1" });
@@ -721,6 +728,8 @@ describe("bridge", () => {
   });
 
   afterEach(() => {
+    restoreTestUid?.();
+    restoreTestUid = undefined;
     vi.useRealTimers();
     for (const tempDir of tempDirs.splice(0)) {
       rmSync(tempDir, { recursive: true, force: true });
@@ -1595,7 +1604,7 @@ describe("bridge", () => {
         permissionScope: "workspace",
       },
       {
-        BB_CLAUDE_CODE_EXECUTABLE: `  ${executablePath}  `,
+        HYPERFIDE_CLAUDE_CODE_EXECUTABLE: `  ${executablePath}  `,
         PATH: "/usr/bin",
       },
     );
@@ -1624,11 +1633,11 @@ describe("bridge", () => {
           permissionScope: "workspace",
         },
         {
-          BB_CLAUDE_CODE_EXECUTABLE: executablePath,
+          HYPERFIDE_CLAUDE_CODE_EXECUTABLE: executablePath,
           PATH: "/usr/bin",
         },
       ),
-    ).toThrow("BB_CLAUDE_CODE_EXECUTABLE must point to an executable");
+    ).toThrow("HYPERFIDE_CLAUDE_CODE_EXECUTABLE must point to an executable");
   });
 
   it("configures acceptEdits and auto sessions with the same Claude sandbox", () => {

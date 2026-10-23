@@ -40,13 +40,13 @@ timeline projection (core)  ─►  renderers (core + optional plugin web render
 
 ## 1. Registration (plugin server code)
 
-A plugin registers one or more providers through `hyperfide platform.providers.register`. One
+A plugin registers one or more providers through `hyperfide.providers.register`. One
 plugin may own several providers (the ACP plugin owns Cursor and the
 user-configured agents); user-configured instances are rows in the plugin's
 own settings that produce registrations at runtime.
 
 ```ts
-hyperfide platform.providers.register({
+hyperfide.providers.register({
   id: "claude-code", // flat; first registration wins; no reservation
   displayName: "Claude Code",
   family: undefined, // optional grouping key (the ACP agents share one)
@@ -137,7 +137,7 @@ every session and turn command; its plain JSON result (at most 64 KiB) reaches
 the bridge as `options.providerOptions`, merged over
 `experimental_bridgeOptions` (a derived key replaces its static key), and core
 never reads it. `ctx.settings` holds the plugin's own non-secret
-`hyperfide platform.settings` values.
+`hyperfide.settings` values.
 
 A `workspace`-scoped provider's `model/list` carries `cwd`: the environment's
 directory for an existing thread or a reused environment, and the project's
@@ -146,7 +146,7 @@ neither is known (a thread without a project, or a project with no checkout on
 that machine). A `host`-scoped provider never receives it.
 
 Every `model/list` carries `envVars`: the provider environment plugins
-contribute for that machine through `hyperfide platform.providers.experimental_contributeEnv`,
+contribute for that machine through `hyperfide.providers.experimental_contributeEnv`,
 resolved with a `null` thread and project and expanded like a session's
 `options.envVars`. A bridge whose catalog depends on credentials or routing,
 such as Codex behind the Account Pooler, launches its listing process with
@@ -176,7 +176,7 @@ Still experimental on the declaration (see api_to_audit.md):
   within the workspace for a plain root and within the repository root for a
   root that walks ancestors or that the plugin resolved. Declared roots are
   relative to the host home (`user`) or the workspace (`project`) only.
-- `experimental_resolvesNativeRoots` — the plugin's `hyperfide platform.host` entry answers
+- `experimental_resolvesNativeRoots` — the plugin's `hyperfide.host` entry answers
   `resolveNativeRoots({ providerId, cwd })` with the roots only that host
   and workspace know: a moved config directory, installed vendor plugins,
   config-file entries. A host-absolute directory is always the resolver's
@@ -215,7 +215,7 @@ Rules:
 - Third-party ACP agents (for example Amp) register the same way, with a
   bridge built from the published ACP kit.
 
-## 2. Bridge (plugin `hyperfide platform.host` artifact, runs on the host)
+## 2. Bridge (plugin `hyperfide.host` artifact, runs on the host)
 
 ```ts
 export const experimental_providerBridge = experimental_defineProviderBridge({
@@ -345,7 +345,7 @@ presentation: {
 `icon.glyph` is a name, never bytes or a path: a host glyph (`"FileText"`)
 or one of the plugin's own declared icons by its namespaced glyph
 (`"<pluginId>/<name>"`, an entry of the manifest's
-`hyperfide platform.branding.experimental_icons`). The server rejects at ingest a namespaced
+`hyperfide.branding.experimental_icons`). The server rejects at ingest a namespaced
 glyph that is not the emitting plugin's declared icon (`provider/unhandled`,
 reason naming the glyph); for a `server: "hyperfide platform"` tool row the emitting plugin is
 the one that registered the tool, whose presentation the bridge stamps as
@@ -458,7 +458,7 @@ to every window whether or not the provider is selected. Mobile renders the
 declarative base for every kind.
 
 The provider directory is available to plugins through
-`app.experimental_useProviders()` (frontend) and `hyperfide platform.sdk.providers`
+`app.experimental_useProviders()` (frontend) and `hyperfide.sdk.providers`
 (backend); no plugin re-vendors provider names or icons. Every provider's
 mark is the icon its plugin declared — a path or declared icon served as
 `logoUrl` and drawn as a `currentColor` mask, or a host glyph name; core
@@ -479,5 +479,5 @@ plugin, and only on hosts its server instructs.
 ## 7. AI services
 
 Helper tasks (thread titles, commit messages, voice transcripts) are
-plugin-served through `hyperfide platform.experimental_aiServices`, documented in the
+plugin-served through `hyperfide.experimental_aiServices`, documented in the
 hyperfide-plugin-authoring skill's `backend-cli-agents.md`.

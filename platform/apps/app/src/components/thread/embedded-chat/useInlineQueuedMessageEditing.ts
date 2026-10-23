@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ThreadQueuedMessage } from "@bb/domain";
+import type { ThreadQueuedMessage } from "@hyperfide/domain";
 import type { QueuedMessageEditRequest } from "@/components/promptbox/banner/LazyQueuedMessagesList";
-import type { PromptDraftState } from "@bb/client-core";
-import { queuedInputToDraft } from "@bb/client-core";
+import type { PromptDraftState } from "@hyperfide/client-core";
+import { queuedInputToDraft } from "@hyperfide/client-core";
 import type { InlineComposerDraftSession } from "./useActiveComposerDraft";
 import { useQueuedMessageEditHold } from "./useQueuedMessageEditHold";
 

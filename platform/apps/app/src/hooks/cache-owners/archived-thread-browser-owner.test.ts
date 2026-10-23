@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChangedMessage, ThreadChangeKind } from "@bb/domain";
+import type { ChangedMessage, ThreadChangeKind } from "@hyperfide/domain";
 import type {
   BbDesktopBrowserApi,
   BbDesktopBrowserSetThreadDiscardedRequest,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import { createArchivedThreadBrowserOwner } from "./archived-thread-browser-owner";
 
 function threadChanged(

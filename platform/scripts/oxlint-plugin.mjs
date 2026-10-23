@@ -29,13 +29,13 @@ const workspacePackageNames = new Set(
     )
     .filter((manifestPath) => existsSync(manifestPath))
     .map((manifestPath) => JSON.parse(readFileSync(manifestPath, "utf8")).name)
-    .filter((name) => name !== "@get-bb/plugin-sdk"),
+    .filter((name) => name !== "@hyperfide/plugin-sdk"),
 );
 
 function isWorkspacePackage(specifier) {
   const segments = specifier.split("/");
   return (
-    specifier.startsWith("@bb/") ||
+    specifier.startsWith("@hyperfide/") ||
     workspacePackageNames.has(
       specifier.startsWith("@") ? segments.slice(0, 2).join("/") : segments[0],
     )
@@ -147,11 +147,11 @@ const forkablePluginImports = {
       if (isWorkspacePackage(specifier)) {
         context.report({
           node,
-          message: `${specifier} is a bb workspace package, which a copy of this plugin cannot install. Forkable plugins import only @get-bb/plugin-sdk, npm packages, their own files, and registry components through @/ (for example @/components/ui/button) (scripts/forkable-plugins.json).`,
+          message: `${specifier} is a bb workspace package, which a copy of this plugin cannot install. Forkable plugins import only @hyperfide/plugin-sdk, npm packages, their own files, and registry components through @/ (for example @/components/ui/button) (scripts/forkable-plugins.json).`,
         });
         return;
       }
-      if (specifier.startsWith("@get-bb/plugin-sdk/internal/")) {
+      if (specifier.startsWith("@hyperfide/plugin-sdk/internal/")) {
         context.report({
           node,
           message: `${specifier} is an internal SDK module that bb can change in any release. Forkable plugins import only the SDK's public entry points (scripts/forkable-plugins.json).`,

@@ -25,7 +25,7 @@ import {
   updateSecondaryPanelTabInState,
   reorderSecondaryPanelFileTabInState,
   replaceNewTabWithSecondaryPanelTabInState,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 
 function makeWorkspaceTab(environmentId: string) {
   return createWorkspaceFilePreviewFixedPanelTab({

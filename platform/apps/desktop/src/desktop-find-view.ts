@@ -16,7 +16,7 @@ import {
   FIND_BAR_VIEW_WIDTH,
   createFindBarViewUrl,
 } from "./find-bar-view.js";
-import type { BbDesktopWindowFindRequest } from "@bb/desktop-contract";
+import type { BbDesktopWindowFindRequest } from "@hyperfide/desktop-contract";
 
 export interface FindViewBounds {
   height: number;

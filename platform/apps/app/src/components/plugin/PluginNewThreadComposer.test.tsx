@@ -8,7 +8,7 @@ import {
   PERSONAL_PROJECT_ID,
   type ThreadListEntry,
   type ThreadSessionOption,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   act,
   cleanup,
@@ -27,11 +27,11 @@ import type {
   ExperimentalComposerSelection,
   NewThreadRequest,
   PluginEnvironmentProviderInputsProps,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type {
   SystemEnvironmentProvider,
   SystemMachineProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   NewThreadComposer,
   type NewThreadComposerState,
@@ -45,9 +45,9 @@ import {
 import { encodeReuseValue } from "@/components/pickers/environment-picker-value";
 import { useRootComposeReuseEnvironment } from "@/lib/root-compose-selection";
 import { getPromptDraftAccessor } from "@/hooks/usePromptDraftStorage";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
-import { createDeferredPromise } from "@bb/test-helpers";
-import type { PromptDraftAttachment } from "@bb/client-core";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
+import type { PromptDraftAttachment } from "@hyperfide/client-core";
 import { makeProjectWithThreadsResponse } from "@/test/fixtures/projects";
 import { RootComposeView } from "@/views/RootComposeView";
 import { DefaultPaneContextProvider } from "@/views/thread-detail/PaneContext";
@@ -168,11 +168,6 @@ vi.mock("@/hooks/queries/plugin-settings-queries", () => ({
 vi.mock("@/lib/sdk", () => ({
   sdk: {
     projects: { attachments: { copy: mocks.copyAttachments } },
-    system: {
-      experimental_recordTelemetryEvent: vi
-        .fn()
-        .mockRejectedValue(new Error("Telemetry unavailable")),
-    },
   },
 }));
 
@@ -280,15 +275,15 @@ vi.mock("@/hooks/queries/system-queries", () => ({
           {
             id: "connect",
             displayName: "bb connect",
-            description: "Use a private getbb.app address.",
+            description: "Use a private hyperfide.example address.",
             pluginId: "connect",
             availability: mocks.serverAccessReady
-              ? { status: "available", serverUrl: "https://sawyer.getbb.app" }
+              ? { status: "available", serverUrl: "https://sawyer.hyperfide.example" }
               : { status: "setup-required", message: "Pair with bb connect" },
           },
         ],
         defaultProviderId: "connect",
-        effectiveUrl: "https://sawyer.getbb.app",
+        effectiveUrl: "https://sawyer.hyperfide.example",
         urlSource: null,
       },
     },

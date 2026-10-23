@@ -5,7 +5,7 @@ import {
   pendingInteractionNetworkPermissionsSchema,
   type PendingInteractionCommandAction,
   jsonRpcEnvelopeSchema,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { z } from "zod";
 import { codexAsyncQuestionSchema } from "./extension-kinds.js";
 import type { CodexErrorInfo as GeneratedCodexErrorInfo } from "./generated/codex-app-server/schema/v2/CodexErrorInfo.js";

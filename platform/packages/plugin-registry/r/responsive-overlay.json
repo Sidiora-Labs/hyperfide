@@ -8,11 +8,11 @@
     "@radix-ui/react-slot"
   ],
   "registryDependencies": [
-    "@bb/overlay-trigger",
-    "@bb/portal-scope",
-    "@bb/use-compact-viewport",
-    "@bb/use-pointer-coarse",
-    "@bb/utils"
+    "@hyperfide/overlay-trigger",
+    "@hyperfide/portal-scope",
+    "@hyperfide/use-compact-viewport",
+    "@hyperfide/use-pointer-coarse",
+    "@hyperfide/utils"
   ],
   "files": [
     {

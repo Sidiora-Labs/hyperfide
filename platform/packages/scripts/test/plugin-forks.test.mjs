@@ -127,7 +127,7 @@ describe("registry components at fork time", () => {
 
 describe("forkPluginPackageJson", () => {
   const workspaceBinsByPackage = new Map([
-    ["@bb/plugin-build", ["bb-plugin-build"]],
+    ["@hyperfide/plugin-build", ["bb-plugin-build"]],
   ]);
   const noRegistryPackages = { dependencies: {}, devDependencies: {} };
 
@@ -140,8 +140,8 @@ describe("forkPluginPackageJson", () => {
       },
       dependencies: { jotai: "^2.19.0" },
       devDependencies: {
-        "@bb/plugin-build": "workspace:*",
-        "@get-bb/plugin-sdk": "workspace:*",
+        "@hyperfide/plugin-build": "workspace:*",
+        "@hyperfide/plugin-sdk": "workspace:*",
         vitest: "^4.1.1",
       },
     };
@@ -157,20 +157,20 @@ describe("forkPluginPackageJson", () => {
       scripts: { test: "vitest run" },
       dependencies: { jotai: "^2.19.0" },
       devDependencies: {
-        "@get-bb/plugin-sdk": "file:/tmp/get-bb-plugin-sdk.tgz",
+        "@hyperfide/plugin-sdk": "file:/tmp/get-bb-plugin-sdk.tgz",
         vitest: "^4.1.1",
       },
     });
-    expect(forked.droppedDevDependencies).toEqual(["@bb/plugin-build"]);
+    expect(forked.droppedDevDependencies).toEqual(["@hyperfide/plugin-build"]);
     expect(forked.droppedScripts).toEqual(["prepare:bundled"]);
-    expect(manifest.devDependencies["@bb/plugin-build"]).toBe("workspace:*");
+    expect(manifest.devDependencies["@hyperfide/plugin-build"]).toBe("workspace:*");
   });
 
-  it("replaces @bb/shared-ui with the vendored items' packages without overriding the plugin's own", () => {
+  it("replaces @hyperfide/shared-ui with the vendored items' packages without overriding the plugin's own", () => {
     const forked = forkPluginPackageJson(
       {
         dependencies: {
-          "@bb/shared-ui": "workspace:*",
+          "@hyperfide/shared-ui": "workspace:*",
           "@radix-ui/react-slot": "^1.3.0",
         },
         devDependencies: { react: "^19.0.0" },
@@ -200,14 +200,14 @@ describe("forkPluginPackageJson", () => {
   it("refuses a plugin that needs another workspace package at runtime", () => {
     expect(() =>
       forkPluginPackageJson(
-        { dependencies: { "@bb/client-core": "workspace:*" } },
+        { dependencies: { "@hyperfide/client-core": "workspace:*" } },
         {
           sdkSpecifier: "0.5.16",
           workspaceBinsByPackage,
           registryDependencies: noRegistryPackages,
         },
       ),
-    ).toThrow("dependencies.@bb/client-core is a workspace package");
+    ).toThrow("dependencies.@hyperfide/client-core is a workspace package");
   });
 });
 
@@ -223,23 +223,23 @@ describe("bb/forkable-plugin-imports", () => {
 
   it("rejects bb workspace packages in every module position", () => {
     const reports = lint(pluginFile, (visitors) => {
-      visitors.ImportDeclaration({ source: literal("@bb/shared-ui/button") });
-      visitors.ExportAllDeclaration({ source: literal("@bb/client-core") });
-      visitors.ImportExpression({ source: literal("@bb/shared-ui/icon") });
-      visitors.TSImportType({ source: literal("@bb/domain") });
+      visitors.ImportDeclaration({ source: literal("@hyperfide/shared-ui/button") });
+      visitors.ExportAllDeclaration({ source: literal("@hyperfide/client-core") });
+      visitors.ImportExpression({ source: literal("@hyperfide/shared-ui/icon") });
+      visitors.TSImportType({ source: literal("@hyperfide/domain") });
       visitors.CallExpression({
         callee: {
           type: "MemberExpression",
           object: { type: "Identifier", name: "vi" },
           property: { type: "Identifier", name: "mock" },
         },
-        arguments: [literal("@bb/client-core")],
+        arguments: [literal("@hyperfide/client-core")],
       });
     });
 
     expect(reports).toHaveLength(5);
     expect(reports[0]).toContain(
-      "@bb/shared-ui/button is a bb workspace package",
+      "@hyperfide/shared-ui/button is a bb workspace package",
     );
   });
 
@@ -250,7 +250,7 @@ describe("bb/forkable-plugin-imports", () => {
       });
       visitors.ImportDeclaration({ source: literal("bb-plugin-tasks") });
       visitors.ImportDeclaration({
-        source: literal("@get-bb/plugin-sdk/host"),
+        source: literal("@hyperfide/plugin-sdk/host"),
       });
       visitors.ImportDeclaration({ source: literal("cross-spawn") });
     });
@@ -266,16 +266,16 @@ describe("bb/forkable-plugin-imports", () => {
   it("rejects internal SDK modules and allows its public entry points", () => {
     const reports = lint(pluginFile, (visitors) => {
       visitors.ImportDeclaration({
-        source: literal("@get-bb/plugin-sdk/internal/plugin-app-collector"),
+        source: literal("@hyperfide/plugin-sdk/internal/plugin-app-collector"),
       });
       visitors.ImportDeclaration({
-        source: literal("@get-bb/plugin-sdk/testing/app"),
+        source: literal("@hyperfide/plugin-sdk/testing/app"),
       });
     });
 
     expect(reports).toEqual([
       expect.stringContaining(
-        "@get-bb/plugin-sdk/internal/plugin-app-collector is an internal SDK module",
+        "@hyperfide/plugin-sdk/internal/plugin-app-collector is an internal SDK module",
       ),
     ]);
   });
@@ -303,7 +303,7 @@ describe("bb/forkable-plugin-imports", () => {
         source: literal("../../../../packages/domain/src/index.js"),
       });
       visitors.ImportDeclaration({ source: literal("../model/fixtures.js") });
-      visitors.ImportDeclaration({ source: literal("@get-bb/plugin-sdk/app") });
+      visitors.ImportDeclaration({ source: literal("@hyperfide/plugin-sdk/app") });
       visitors.ImportDeclaration({ source: literal("@dnd-kit/core") });
       visitors.ExportNamedDeclaration({ source: null });
     });

@@ -1,4 +1,4 @@
-import type { TimelineRow } from "@bb/server-contract";
+import type { TimelineRow } from "@hyperfide/server-contract";
 
 const DEFAULT_MAX_ENTRIES = 64;
 const DEFAULT_RING_SIZE = 4;

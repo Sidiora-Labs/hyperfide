@@ -1,5 +1,5 @@
-import type { PromptInput } from "@bb/domain";
-import type { TimelineConversationAttachments } from "@bb/server-contract";
+import type { PromptInput } from "@hyperfide/domain";
+import type { TimelineConversationAttachments } from "@hyperfide/server-contract";
 
 interface PromptAttachmentCounts {
   webImages: number;

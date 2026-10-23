@@ -1,4 +1,4 @@
-import type { FeatureFlags } from "@bb/domain";
+import type { FeatureFlags } from "@hyperfide/domain";
 import {
   readEnvVarWithDefault,
   resolveEnvLoader,
@@ -7,10 +7,8 @@ import {
 import {
   HYPERFIDE_FF_PLACEHOLDER_ENV,
   HYPERFIDE_FF_TIMELINE_WINDOW_EVENT_BUDGET_ENV,
-  HYPERFIDE_FF_INITIATOR_TELEMETRY_ENV,
   DEFAULT_HYPERFIDE_FF_PLACEHOLDER,
   DEFAULT_HYPERFIDE_FF_TIMELINE_WINDOW_EVENT_BUDGET,
-  DEFAULT_HYPERFIDE_FF_INITIATOR_TELEMETRY,
 } from "./env-vars.js";
 
 type LoadFeatureFlagsArgs = EnvLoaderArgs;
@@ -24,12 +22,6 @@ export function loadFeatureFlags(
       context: loader.context,
       defaultValue: DEFAULT_HYPERFIDE_FF_PLACEHOLDER,
       definition: HYPERFIDE_FF_PLACEHOLDER_ENV,
-      env: loader.env,
-    }),
-    initiatorTelemetry: readEnvVarWithDefault({
-      context: loader.context,
-      defaultValue: DEFAULT_HYPERFIDE_FF_INITIATOR_TELEMETRY,
-      definition: HYPERFIDE_FF_INITIATOR_TELEMETRY_ENV,
       env: loader.env,
     }),
     timelineWindowEventBudget: readEnvVarWithDefault({

@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type {
   TerminalCreateTarget,
   TerminalSession,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   terminalQueryScopeForTarget,
   useRenameTerminal,

@@ -4,11 +4,11 @@ import type {
   ProviderOptionDescriptor,
   ReasoningLevel,
   ServiceTier,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   SystemExecutionOptionsModelLoadError,
   SystemProvidersQuery,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { formatModelLabel } from "@/hooks/useThreadCreationOptions";
 import {
   ModelReasoningPicker,

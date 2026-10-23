@@ -1,4 +1,4 @@
-import { findProviderEnvironmentContainingPath } from "@bb/db";
+import { findProviderEnvironmentContainingPath } from "@hyperfide/db";
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { isBbManagedWorkspacePath } from "../threads/workspace-paths.js";
@@ -15,7 +15,7 @@ import {
   type PluginExactResolution,
   type PluginProvenance,
   type PluginSourceIntent,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   BUILTIN_PLUGIN_ID_PREFIX,
   BUNDLED_PLUGINS,
@@ -28,7 +28,7 @@ import {
   type InstalledPlugin,
   type PluginRuntimeStatus,
   type PluginSourceSelection,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { TelemetryEvent } from "../system/telemetry.js";
 import { resolveSelectedSubdirectory } from "./collection-manifest.js";
 import {

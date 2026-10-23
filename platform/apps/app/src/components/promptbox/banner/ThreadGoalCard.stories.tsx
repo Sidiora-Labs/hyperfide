@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ThreadTimelineGoal } from "@bb/domain";
+import type { ThreadTimelineGoal } from "@hyperfide/domain";
 import { StoryCard, StoryRow } from "../../../../.ladle/story-card";
 import { ResponsiveStage } from "./banner-story-stages";
 import { ThreadGoalCard } from "./ThreadGoalCard";

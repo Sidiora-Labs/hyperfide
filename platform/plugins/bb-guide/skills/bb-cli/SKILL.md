@@ -108,12 +108,12 @@ A plugin's commands and settings are documented in that plugin's own skill.
 bb project list --json
 bb machine list --json
 bb environment providers --json
-bb provider list --environment "$BB_ENVIRONMENT_ID" --json
-bb thread show "$BB_THREAD_ID" --json
+bb provider list --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
+bb thread show "$HYPERFIDE_THREAD_ID" --json
 bb thread context --self --json
-bb environment status "$BB_ENVIRONMENT_ID" --json
+bb environment status "$HYPERFIDE_ENVIRONMENT_ID" --json
 bb plugin list --json
-bb skill list --environment "$BB_ENVIRONMENT_ID" --json
+bb skill list --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
 ```
 
 ## Completion

@@ -8,7 +8,7 @@ import {
   type ReasoningLevel,
   type ServiceTier,
   type SessionOptionSelections,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { createTabScopedStorage } from "@/lib/browser-storage";
 import { getProjectScopedStorageKey } from "@/lib/project-scoped-storage";
 

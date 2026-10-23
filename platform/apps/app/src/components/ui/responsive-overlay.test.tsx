@@ -9,35 +9,35 @@ import {
 } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { POINTER_COARSE_QUERY } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import { POINTER_COARSE_QUERY } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
 import {
   COMPACT_VIEWPORT_QUERY,
   CompactViewportOverrideProvider,
-} from "@bb/shared-ui/hooks/use-compact-viewport";
+} from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Popover, PopoverContent } from "@bb/shared-ui/popover";
+} from "@hyperfide/shared-ui/dialog";
+import { Popover, PopoverContent } from "@hyperfide/shared-ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@bb/shared-ui/dropdown-menu";
+} from "@hyperfide/shared-ui/dropdown-menu";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@bb/shared-ui/select";
+} from "@hyperfide/shared-ui/select";
 import {
   measureDrawerKeyboardOverlap,
   PersistentResponsiveDrawerShell,
   ResponsiveDrawerShell,
-} from "@bb/shared-ui/responsive-overlay";
+} from "@hyperfide/shared-ui/responsive-overlay";
 
 afterEach(() => {
   cleanup();
@@ -268,7 +268,7 @@ describe("responsive DropdownMenu", () => {
       dispatchEvent: () => false,
     }));
     vi.resetModules();
-    const pluginCopy = await import("@bb/shared-ui/dropdown-menu");
+    const pluginCopy = await import("@hyperfide/shared-ui/dropdown-menu");
     expect(pluginCopy.DropdownMenuItem).not.toBe(DropdownMenuItem);
     vi.useFakeTimers();
     const onSelect = vi.fn();
@@ -668,7 +668,7 @@ describe("PersistentResponsiveDrawerShell", () => {
   it("closes the top drawer first when it comes from a separately bundled copy", async () => {
     mockPointerCoarse(true);
     vi.resetModules();
-    const pluginCopy = await import("@bb/shared-ui/responsive-overlay");
+    const pluginCopy = await import("@hyperfide/shared-ui/responsive-overlay");
     const PluginDrawerShell = pluginCopy.PersistentResponsiveDrawerShell;
     expect(PluginDrawerShell).not.toBe(PersistentResponsiveDrawerShell);
 

@@ -35,10 +35,10 @@ JSONL page on the execution host, then use normal file-navigation tools:
 
 ```bash
 run=<run-id>
-mkdir -p "$BB_THREAD_STORAGE/workflows"
+mkdir -p "$HYPERFIDE_THREAD_STORAGE/workflows"
 bb workflows history "$run" --cursor 0 --limit 100 \
-  > "$BB_THREAD_STORAGE/workflows/$run.jsonl"
-jq -c 'select(.type == "page")' "$BB_THREAD_STORAGE/workflows/$run.jsonl"
+  > "$HYPERFIDE_THREAD_STORAGE/workflows/$run.jsonl"
+jq -c 'select(.type == "page")' "$HYPERFIDE_THREAD_STORAGE/workflows/$run.jsonl"
 ```
 
 The last `page` record supplies `nextCursor`; fetch that cursor and append the
@@ -83,8 +83,8 @@ bb workflows status <run-id>
 bb workflows history <run-id> --cursor 0 --limit 100
 bb workflows list --limit 20
 bb workflows stop <run-id>
-bb provider list --environment "$BB_ENVIRONMENT_ID" --json
-bb provider models <provider-id> --environment "$BB_ENVIRONMENT_ID" --json
+bb provider list --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
+bb provider models <provider-id> --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
 ```
 
 The CLI's `--file` maps to the agent tool's `scriptPath`, but a relative CLI

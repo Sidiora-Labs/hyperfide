@@ -6,7 +6,7 @@ import {
   permissionEscalationValues,
   permissionModeValues,
   runtimePermissionPolicySchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ApprovalPendingInteractionPayload,
   PendingInteractionApprovalDecision,
@@ -14,13 +14,13 @@ import type {
   PermissionEscalation,
   PermissionMode,
   RuntimePermissionPolicy,
-} from "@bb/domain";
-import { bridgeCapabilitiesSchema } from "@bb/provider-bridge-protocol";
+} from "@hyperfide/domain";
+import { bridgeCapabilitiesSchema } from "@hyperfide/provider-bridge-protocol";
 import {
   parseJsonRpcLine,
   shouldAutoDenyInteractiveRequest,
-} from "@bb/provider-bridge-protocol/bridge-kit";
-import type { JsonRpcMessage } from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
+import type { JsonRpcMessage } from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { BridgeProtocolAdapter } from "./bridge-protocol-adapter.js";

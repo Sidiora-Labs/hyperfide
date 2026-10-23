@@ -1,5 +1,5 @@
-import type { ChangedMessage } from "@bb/domain";
-import type { BbDesktopBrowserApi } from "@bb/desktop-contract";
+import type { ChangedMessage } from "@hyperfide/domain";
+import type { BbDesktopBrowserApi } from "@hyperfide/desktop-contract";
 
 interface ArchivedThreadBrowserOwnerArgs {
   desktopBrowser: BbDesktopBrowserApi | null;

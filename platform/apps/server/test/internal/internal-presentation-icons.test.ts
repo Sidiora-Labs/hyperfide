@@ -1,15 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import { events } from "@bb/db";
-import { threadScope, turnScope } from "@bb/domain";
+import { events } from "@hyperfide/db";
+import { threadScope, turnScope } from "@hyperfide/domain";
 import {
   groupHostDaemonEvents,
   type HostDaemonEventEnvelope,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { describe, expect, it } from "vitest";
 import { buildPluginProviderRegistration } from "../../src/services/providers/plugin-provider-registration.js";
-import { validatePluginProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+import { validatePluginProviderDeclaration } from "@hyperfide/plugin-sdk/internal/host-policy";
 import { internalAuthHeaders } from "../helpers/commands.js";
 import { readJson } from "../helpers/json.js";
 import {

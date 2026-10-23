@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { RenameDialog } from "@bb/shared-ui/rename-dialog";
+import { RenameDialog } from "@hyperfide/shared-ui/rename-dialog";
 import { RenameDialogContent } from "./RenameDialogContent";
 
 export interface ProjectRenameDialogTarget {

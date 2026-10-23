@@ -3,7 +3,7 @@ import {
   createFakePluginHost,
   makeThreadResponse,
   type FakePluginHost,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { registerAsyncQuestions } from "./async-questions.js";
 import { CODEX_ASYNC_QUESTION_RENDERER_ID } from "./async-question-form.js";
 

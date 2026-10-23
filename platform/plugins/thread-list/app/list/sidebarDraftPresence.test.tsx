@@ -22,7 +22,7 @@ const draftIds = vi.hoisted(() => {
   };
 });
 
-vi.mock("@get-bb/plugin-sdk/app", async () => {
+vi.mock("@hyperfide/plugin-sdk/app", async () => {
   const { useSyncExternalStore } = await import("react");
   return {
     useSidebarThreadDraftIds: () =>

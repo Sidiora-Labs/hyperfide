@@ -1,7 +1,7 @@
 import {
   normalizePluginMentionTriggers,
   type PluginMentionTrigger,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 
 interface PluginMentionProviderContribution {
   pluginId: string;

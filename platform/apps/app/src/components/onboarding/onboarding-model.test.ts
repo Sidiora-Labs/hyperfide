@@ -1,12 +1,10 @@
-import type { ProviderCliStatus } from "@bb/host-daemon-contract";
+import type { ProviderCliStatus } from "@hyperfide/host-daemon-contract";
 import type {
   HostDiscoveredRepo,
-  ServerAccessStatus,
   SystemProviderState,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import {
-  connectAccessUrl,
   defaultSelectedRepoPaths,
   hasReadyAgent,
   parseSignInOutput,
@@ -348,76 +346,6 @@ describe("shortRemoteName", () => {
     expect(shortRemoteName(null)).toBeNull();
     expect(shortRemoteName("/srv/git/repo.git")).toBeNull();
     expect(shortRemoteName("localhost:repo.git")).toBeNull();
-  });
-});
-
-describe("connectAccessUrl", () => {
-  function access(
-    providers: ServerAccessStatus["providers"],
-  ): ServerAccessStatus {
-    return {
-      providers,
-      defaultProviderId: "connect",
-      effectiveUrl: null,
-      urlSource: null,
-    };
-  }
-  const connect = {
-    id: "connect",
-    displayName: "bb connect",
-    description: "",
-    pluginId: "connect",
-  };
-
-  it("is on only when bb connect is available with an address", () => {
-    expect(
-      connectAccessUrl(
-        access([
-          {
-            ...connect,
-            availability: {
-              status: "available",
-              serverUrl: "https://sawyer.getbb.app",
-            },
-          },
-        ]),
-      ),
-    ).toEqual({ status: "on", url: "https://sawyer.getbb.app" });
-    expect(
-      connectAccessUrl(
-        access([{ ...connect, availability: { status: "available" } }]),
-      ),
-    ).toEqual({ status: "off" });
-    expect(
-      connectAccessUrl(
-        access([
-          {
-            ...connect,
-            availability: { status: "setup-required", message: "Sign in" },
-          },
-        ]),
-      ),
-    ).toEqual({ status: "off" });
-  });
-
-  it("is unavailable when the connect plugin provides no access method", () => {
-    expect(
-      connectAccessUrl(
-        access([
-          {
-            id: "direct",
-            displayName: "Direct",
-            description: "",
-            pluginId: null,
-            availability: {
-              status: "available",
-              serverUrl: "https://bb.example.com",
-            },
-          },
-        ]),
-      ),
-    ).toEqual({ status: "unavailable" });
-    expect(connectAccessUrl(undefined)).toEqual({ status: "unavailable" });
   });
 });
 

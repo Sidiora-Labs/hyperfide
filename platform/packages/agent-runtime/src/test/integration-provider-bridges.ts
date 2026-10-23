@@ -6,7 +6,7 @@ import {
   jsonObjectSchema,
   permissionModeSchema,
   providerForkSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { AgentRuntimeBridgeLaunch } from "../types.js";
 
 export function integrationProviderBridgeManifestPath(): string {

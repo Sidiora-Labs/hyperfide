@@ -203,27 +203,9 @@ instead of `--path` to clone the project's Git remote there; `--remote-url` and
 
 ## Server access
 
-Set Machines → Server URL reachable by machines, or run `hyperfide-platform settings general
-machineServerUrl https://bb.example.com`. An unset value uses HYPERFIDE_EXTERNAL_URL.
-Set Default machine access with
-`hyperfide-platform settings general defaultMachineAccess direct` or `connect`; `null` uses
-the first registered access provider, or direct when none is registered. An
-unpaired provider reports setup required. `hyperfide-platform settings show --json` includes
-fresh provider availability and the effective selection; failed or timed-out
-checks report unavailable. Machines use this access for ongoing runtime
-requests, including account-pool endpoints. A machine on hyperfide-platform connect access holds
-a getbb.app machine credential that `hyperfide-platform machine remove` revokes; if that
-revocation fails, revoke the machine in the getbb.app dashboard.
 
-Remote access through getbb.app comes from the bundled hyperfide-platform account and Connect
-plugins: `hyperfide-platform account login|status|logout` signs this server in (bb-account
-skill), and `hyperfide-platform connect status|on|off|expose|unexpose|unexpose-all|shares`
-serves it at `<handle>.getbb.app` and shares HTTP ports from any enrolled host
-(share-server-links skill). `hyperfide-platform connect servers` lists every hyperfide-platform on the account.
-`hyperfide-platform connect machine-code` mints a one-time, 10-minute code that pairs the hyperfide-platform
-mobile app (also shown under Settings → Mobile → Add mobile device); `--json`
-prints `{code, serverUrl, apex, expiresAt}`. Without an installed bb, pair a
-dashboard code with `npx -p bb-app@latest hyperfide-platform connect --code <code>`.
+
+
 
 ## Move the server
 

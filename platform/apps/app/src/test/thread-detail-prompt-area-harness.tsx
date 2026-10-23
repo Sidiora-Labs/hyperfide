@@ -1,4 +1,4 @@
-import type { ComposerSubmitExtras } from "@get-bb/plugin-sdk/internal/composer-handle";
+import type { ComposerSubmitExtras } from "@hyperfide/plugin-sdk/internal/composer-handle";
 import type {
   PendingInteraction,
   PermissionMode,
@@ -7,14 +7,14 @@ import type {
   ThreadQueuedMessage,
   ThreadTimelineActivePromptMode,
   ThreadTimelineGoal,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ExistingThreadExecutionInputSources,
   TimelineWorkflowWorkRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { ReactNode } from "react";
 import { vi } from "vitest";
-import type { PromptDraftAttachment } from "@bb/client-core";
+import type { PromptDraftAttachment } from "@hyperfide/client-core";
 import type { TypeaheadConfig } from "@/components/promptbox/ComposerBox";
 import type { PluginComposerHost } from "@/components/plugin/plugin-composer-host";
 

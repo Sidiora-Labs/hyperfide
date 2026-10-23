@@ -9,7 +9,8 @@ Find out where a plugin can add to hyperfide platform before you write one. The 
 
 ## How it works
 
-Open Plugin Guide from the sidebar, or read the public copy at [hyperfide.app/plugin-guide](https://github.com/Sidiora-Labs/hyperfide/issues) without installing hyperfide platform. Click a number on the wireframe to read its card. Each card names the exact types and methods from `@hyperfide/plugin-sdk` so you can search for them in your editor.
+Open Plugin Guide from the sidebar. Click a number on the wireframe to read
+its card and find the SDK types and methods for that surface.
 
 ## For agents
 

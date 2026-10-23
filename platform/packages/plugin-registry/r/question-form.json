@@ -5,14 +5,14 @@
   "title": "question-form",
   "description": "BB ui \"question-form\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/icon",
-    "@bb/question-form-draft",
-    "@bb/question-form-host",
-    "@bb/question-form-state",
-    "@bb/use-pointer-coarse",
-    "@bb/utils",
-    "@bb/voice-input-textarea"
+    "@hyperfide/button",
+    "@hyperfide/icon",
+    "@hyperfide/question-form-draft",
+    "@hyperfide/question-form-host",
+    "@hyperfide/question-form-state",
+    "@hyperfide/use-pointer-coarse",
+    "@hyperfide/utils",
+    "@hyperfide/voice-input-textarea"
   ],
   "files": [
     {

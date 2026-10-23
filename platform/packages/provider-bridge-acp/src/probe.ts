@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { withoutBridgeRuntimeEnv } from "@bb/provider-bridge-protocol/bridge-kit";
+import { withoutBridgeRuntimeEnv } from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import {
   AcpAgentExitedError,
   createAcpAgentConnection,

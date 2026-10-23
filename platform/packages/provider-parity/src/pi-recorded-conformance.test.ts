@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { runFirstPartyRecordedConformance } from "@bb/provider-bridge-protocol/testing";
+import { runFirstPartyRecordedConformance } from "@hyperfide/provider-bridge-protocol/testing";
 
 it("reproduces every recorded pi matrix cell through the provider-pi bridge", async () => {
   const run = await runFirstPartyRecordedConformance({

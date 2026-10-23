@@ -12,7 +12,7 @@ import {
   vi,
   type Mock,
 } from "vitest";
-import type { PluginMessageDirectiveProps } from "@get-bb/plugin-sdk";
+import type { PluginMessageDirectiveProps } from "@hyperfide/plugin-sdk";
 import { useBbNavigate } from "@/lib/plugin-sdk-hooks";
 import { MarkdownPreview } from "./markdown-preview";
 import {

@@ -8,9 +8,9 @@
     "react-day-picker"
   ],
   "registryDependencies": [
-    "@bb/button",
-    "@bb/icon",
-    "@bb/utils"
+    "@hyperfide/button",
+    "@hyperfide/icon",
+    "@hyperfide/utils"
   ],
   "files": [
     {

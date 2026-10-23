@@ -1,5 +1,5 @@
 {
-  "name": "@bb/templates",
+  "name": "@hyperfide/templates",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -28,13 +28,13 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@bb/domain": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
     "gray-matter": "^4.0.3",
     "handlebars": "^4.7.8",
     "semver": "^7.7.4"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "@types/semver": "^7.7.1",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",

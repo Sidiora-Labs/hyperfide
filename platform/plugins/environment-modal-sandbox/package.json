@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-environment-modal-sandbox",
+  "name": "hyperfide-plugin-environment-modal-sandbox",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -30,14 +30,14 @@
     "prepare:bundled": "bb-plugin-build prepare-bundled"
   },
   "dependencies": {
-    "@bb/shared-ui": "workspace:*",
+    "@hyperfide/shared-ui": "workspace:*",
     "modal": "0.10.0",
     "nice-grpc-common": "^2.0.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

@@ -27,7 +27,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 import type {
   VerifiedProcessOps,
   WaitForProcessExitArgs,
-} from "@bb/config/verified-process-stop";
+} from "@hyperfide/config/verified-process-stop";
 import {
   readOwnedRuntimePidFile,
   reapStaleOwnedRuntime,

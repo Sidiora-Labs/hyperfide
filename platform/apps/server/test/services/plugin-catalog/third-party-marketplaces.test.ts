@@ -17,10 +17,11 @@ import {
   getPluginMarketplaceIcon,
   upsertInstalledPlugin,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createPluginCatalogService } from "../../../src/services/plugin-catalog/plugin-catalog-service.js";
+import { BUNDLED_MARKETPLACE_NAME } from "../../../src/services/plugin-catalog/bundled-marketplace-paths.js";
 import { refreshCuratedMarketplace } from "../../helpers/plugin-catalog.js";
 import type { MarketplaceFetch } from "../../../src/services/plugin-catalog/marketplace-http.js";
 import type { PluginService } from "../../../src/services/plugins/plugin-service.js";
@@ -312,7 +313,6 @@ describe("third-party marketplaces", () => {
         getPluginMarketplaceIcon(db, "acme-plugins", "notes"),
       ).toBeUndefined();
       expect(catalog.listMarketplaces().map((row) => row.name)).toEqual([
-        "bb-official",
         "bb-community",
       ]);
 
@@ -401,7 +401,6 @@ describe("third-party marketplaces", () => {
           .listMarketplaces()
           .map((marketplace) => [marketplace.name, marketplace.subdirectory]),
       ).toEqual([
-        ["bb-official", null],
         ["bb-community", null],
         ["acme-plugins", "tools/bb"],
       ]);
@@ -565,7 +564,7 @@ describe("third-party marketplaces", () => {
           entry(),
         ]),
         "https://official-impostor.test/marketplace.json": manifest(
-          "bb-official",
+          BUNDLED_MARKETPLACE_NAME,
           [entry()],
         ),
         "https://other.test/marketplace.json": manifest("acme-plugins", [
@@ -600,7 +599,6 @@ describe("third-party marketplaces", () => {
       /cannot be removed/,
     );
     expect(catalog.listMarketplaces().map((row) => row.name)).toEqual([
-      "bb-official",
       "bb-community",
       "acme-plugins",
     ]);
@@ -654,7 +652,7 @@ describe("third-party marketplaces", () => {
     ]);
   });
 
-  it("names a bundled official plugin with <id>@bb-official", async () => {
+  it("rejects installation from the removed bundled marketplace", async () => {
     const catalog = createPluginCatalogService({
       db,
       appVersion: "1.0.0",
@@ -678,7 +676,8 @@ describe("third-party marketplaces", () => {
 
     await expect(
       catalog.install({ entryId: "docs", marketplace: "bb-official" }),
-    ).rejects.toThrow(/bundled installation stopped by test/u);
+    ).rejects.toThrow(/unknown marketplace/u);
+    expect(installedCatalogEntries).toEqual([]);
     await expect(
       catalog.install({ entryId: "docs", marketplace: "acme-plugins" }),
     ).rejects.toThrow('unknown marketplace "acme-plugins"');
@@ -875,24 +874,19 @@ describe("third-party marketplaces", () => {
 
     const results = await catalog.refreshMarketplaces({ attemptedAt: 2_000 });
     expect(results).toMatchObject([
-      { name: "bb-official", ok: true },
       { name: "bb-community", ok: true },
       { name: "acme-plugins", ok: false },
     ]);
-    expect(results[2]?.error).toContain("503");
+    expect(results[1]?.error).toContain("503");
 
     const marketplaces = catalog.listMarketplaces();
+    expect(marketplaces).toHaveLength(2);
     expect(marketplaces[0]).toMatchObject({
-      name: "bb-official",
-      lastRefreshAt: 2_000,
-      lastError: null,
-    });
-    expect(marketplaces[1]).toMatchObject({
       name: "bb-community",
       lastRefreshAt: 2_000,
       lastError: null,
     });
-    expect(marketplaces[2]).toMatchObject({
+    expect(marketplaces[1]).toMatchObject({
       name: "acme-plugins",
       entryCount: 1,
       lastAttemptAt: 2_000,

@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import {
   collectLogPayloads,
   readlineMocks,
@@ -65,7 +65,7 @@ async function writeVendoredPlugin(): Promise<void> {
     `${JSON.stringify(
       {
         compilerOptions: {
-          paths: { "@get-bb/plugin-sdk": ["./types/bb-plugin-sdk.d.ts"] },
+          paths: { "@hyperfide/plugin-sdk": ["./types/bb-plugin-sdk.d.ts"] },
         },
         include: ["server.ts", "types"],
       },
@@ -104,7 +104,7 @@ describe("hyperfide-platform plugin migrate", () => {
 
     const logged = collectLogPayloads(logSpy).join("\n");
     expect(logged).toContain(
-      `"@get-bb/plugin-sdk": (none) → ${PLUGIN_SDK_VERSION}`,
+      `"@hyperfide/plugin-sdk": (none) → ${PLUGIN_SDK_VERSION}`,
     );
     expect(logged).toContain("delete         types/bb-plugin-sdk.d.ts");
     expect(vi.mocked(console.error).mock.calls.flat().join("\n")).toContain(
@@ -125,14 +125,14 @@ describe("hyperfide-platform plugin migrate", () => {
     const manifest = await readManifest();
     expect(
       (manifest.devDependencies as Record<string, string>)[
-        "@get-bb/plugin-sdk"
+        "@hyperfide/plugin-sdk"
       ],
     ).toBe(PLUGIN_SDK_VERSION);
     await expect(
       stat(join(rootDir, "types", "bb-plugin-sdk.d.ts")),
     ).rejects.toThrow();
     const logged = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(logged).toContain("Migrated to the @get-bb/plugin-sdk npm package.");
+    expect(logged).toContain("Migrated to the @hyperfide/plugin-sdk npm package.");
     expect(logged).toContain("Run `npm install`");
   });
 
@@ -140,7 +140,7 @@ describe("hyperfide-platform plugin migrate", () => {
     await writeVendoredPlugin();
     await writeFile(
       join(rootDir, "server.ts"),
-      'import type { BbPluginApi } from "@bb/plugin-sdk";\nimport "@bb/plugin-sdk/testing";\n',
+      'import type { BbPluginApi } from "@hyperfide/plugin-sdk";\nimport "@hyperfide/plugin-sdk/testing";\n',
     );
     setTty(false);
 
@@ -148,10 +148,10 @@ describe("hyperfide-platform plugin migrate", () => {
 
     const logged = collectLogPayloads(vi.mocked(console.log)).join("\n");
     expect(logged).toContain(
-      'rewrite        server.ts (2 imports of "@bb/plugin-sdk" → "@get-bb/plugin-sdk")',
+      'rewrite        server.ts (2 imports of "@hyperfide/plugin-sdk" → "@hyperfide/plugin-sdk")',
     );
     expect(await readFile(join(rootDir, "server.ts"), "utf8")).toBe(
-      'import type { BbPluginApi } from "@get-bb/plugin-sdk";\nimport "@get-bb/plugin-sdk/testing";\n',
+      'import type { BbPluginApi } from "@hyperfide/plugin-sdk";\nimport "@hyperfide/plugin-sdk/testing";\n',
     );
   });
 
@@ -160,7 +160,7 @@ describe("hyperfide-platform plugin migrate", () => {
       name: "bb-plugin-modern",
       engines: { bbPluginSdk: `>=${PLUGIN_SDK_VERSION}` },
       bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": PLUGIN_SDK_VERSION },
+      devDependencies: { "@hyperfide/plugin-sdk": PLUGIN_SDK_VERSION },
     });
     const before = await readFile(join(rootDir, "package.json"), "utf8");
 
@@ -185,7 +185,7 @@ describe("hyperfide-platform plugin migrate", () => {
     const manifest = await readManifest();
     expect(
       (manifest.devDependencies as Record<string, string>)[
-        "@get-bb/plugin-sdk"
+        "@hyperfide/plugin-sdk"
       ],
     ).toBe(PLUGIN_SDK_VERSION);
     expect((manifest.engines as Record<string, string>).bbPluginSdk).toBe(
@@ -235,7 +235,7 @@ describe("hyperfide-platform plugin dev stale-pin warning", () => {
     await writeManifest({
       name: "bb-plugin-modern",
       bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": "0.2.0" },
+      devDependencies: { "@hyperfide/plugin-sdk": "0.2.0" },
     });
     stubEmptyPluginList();
 
@@ -244,7 +244,7 @@ describe("hyperfide-platform plugin dev stale-pin warning", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(vi.mocked(console.warn).mock.calls.flat().join("\n")).toContain(
-      `This plugin pins @get-bb/plugin-sdk 0.2.0; this bb's SDK is ${PLUGIN_SDK_VERSION}`,
+      `This plugin pins @hyperfide/plugin-sdk 0.2.0; this bb's SDK is ${PLUGIN_SDK_VERSION}`,
     );
   });
 
@@ -252,7 +252,7 @@ describe("hyperfide-platform plugin dev stale-pin warning", () => {
     await writeManifest({
       name: "bb-plugin-modern",
       bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": PLUGIN_SDK_VERSION },
+      devDependencies: { "@hyperfide/plugin-sdk": PLUGIN_SDK_VERSION },
     });
     stubEmptyPluginList();
     await expect(
@@ -262,7 +262,7 @@ describe("hyperfide-platform plugin dev stale-pin warning", () => {
     await writeManifest({
       name: "bb-plugin-modern",
       bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": "^0.2.0" },
+      devDependencies: { "@hyperfide/plugin-sdk": "^0.2.0" },
     });
     stubEmptyPluginList();
     await expect(
@@ -270,7 +270,7 @@ describe("hyperfide-platform plugin dev stale-pin warning", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(vi.mocked(console.warn).mock.calls.flat().join("\n")).not.toContain(
-      "This plugin pins @get-bb/plugin-sdk",
+      "This plugin pins @hyperfide/plugin-sdk",
     );
   });
 });
@@ -336,7 +336,7 @@ describe("hyperfide-platform plugin types on a package-layout plugin", () => {
       name: "bb-plugin-modern",
       engines: { bbPluginSdk: ">=0.2.0" },
       bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": "0.2.0" },
+      devDependencies: { "@hyperfide/plugin-sdk": "0.2.0" },
     });
 
     await runCommand(["plugin", "types", rootDir], register);
@@ -344,7 +344,7 @@ describe("hyperfide-platform plugin types on a package-layout plugin", () => {
     const manifest = await readManifest();
     expect(
       (manifest.devDependencies as Record<string, string>)[
-        "@get-bb/plugin-sdk"
+        "@hyperfide/plugin-sdk"
       ],
     ).toBe(PLUGIN_SDK_VERSION);
     expect((manifest.engines as Record<string, string>).bbPluginSdk).toBe(
@@ -359,7 +359,7 @@ describe("hyperfide-platform plugin types on a package-layout plugin", () => {
     await writeManifest({
       name: "bb-plugin-modern",
       bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": "0.2.0" },
+      devDependencies: { "@hyperfide/plugin-sdk": "0.2.0" },
     });
     const before = await readFile(join(rootDir, "package.json"), "utf8");
 
@@ -374,7 +374,7 @@ describe("hyperfide-platform plugin types on a package-layout plugin", () => {
     await writeManifest({
       name: "bb-plugin-modern",
       bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": PLUGIN_SDK_VERSION },
+      devDependencies: { "@hyperfide/plugin-sdk": PLUGIN_SDK_VERSION },
     });
     const before = await readFile(join(rootDir, "package.json"), "utf8");
 

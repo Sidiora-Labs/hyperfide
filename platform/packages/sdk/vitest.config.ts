@@ -4,6 +4,6 @@ export default defineWorkspaceTestConfig({
   test: {
     environment: "node",
     include: ["test/**/*.test.ts"],
-    name: "@bb/sdk",
+    name: "@hyperfide/sdk",
   },
 });

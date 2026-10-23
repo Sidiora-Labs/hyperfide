@@ -1,11 +1,11 @@
-import type { ThreadListEntry } from "@bb/domain";
-import type { PluginSidebarThread } from "@get-bb/plugin-sdk";
+import type { ThreadListEntry } from "@hyperfide/domain";
+import type { PluginSidebarThread } from "@hyperfide/plugin-sdk";
 import {
   getThreadListIndicatorLabel,
   resolveThreadListIndicator,
   threadListIndicatorStateForThread,
-} from "@bb/client-core";
-import { isThreadRead } from "@bb/client-core";
+} from "@hyperfide/client-core";
+import { isThreadRead } from "@hyperfide/client-core";
 import {
   EMPTY_TITLE_MENTION_RESOURCES,
   resolveThreadTitleDisplayText,

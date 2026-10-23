@@ -7,8 +7,8 @@ import {
   createFakePluginHost,
   makeHostResponse,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
-import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
+} from "@hyperfide/plugin-sdk/testing";
+import { experimental_createHostEntryHarness } from "@hyperfide/plugin-sdk/testing/host";
 import { expect, it } from "vitest";
 import { checkoutHostContract } from "./contract.js";
 import { createCheckoutHostEntry } from "./host.js";

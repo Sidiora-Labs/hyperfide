@@ -3,7 +3,7 @@
 // shared-runtime modules (react, the portaling radix families, sonner, vaul,
 // ...) as ESM re-exports over globalThis.__bbPluginRuntime, and ESM needs
 // static named-export lists — so we introspect the real modules once. The
-// output is not committed: turbo runs this as `@bb/plugin-build#generate`
+// output is not committed: turbo runs this as `@hyperfide/plugin-build#generate`
 // (see turbo.json) before every task that resolves this package's sources.
 //
 //   node packages/plugin-build/scripts/generate-runtime-export-manifest.mjs [--out <path>]
@@ -41,7 +41,7 @@ const RUNTIME_MODULE_IDS = RUNTIME_SHIM_NPM_SPECIFIERS;
  * export lists come from esbuild metadata like the SDK facade's.
  */
 const RUNTIME_SOURCE_MODULES = {
-  "@bb/shared-ui/question-form-host": path.join(
+  "@hyperfide/shared-ui/question-form-host": path.join(
     scriptDir,
     "..",
     "..",
@@ -51,7 +51,7 @@ const RUNTIME_SOURCE_MODULES = {
     "ui",
     "question-form-host.tsx",
   ),
-  "@bb/shared-ui/voice-input-textarea": path.join(
+  "@hyperfide/shared-ui/voice-input-textarea": path.join(
     scriptDir,
     "..",
     "..",
@@ -61,7 +61,7 @@ const RUNTIME_SOURCE_MODULES = {
     "ui",
     "voice-input-textarea.tsx",
   ),
-  "@bb/shared-ui/icon": path.join(
+  "@hyperfide/shared-ui/icon": path.join(
     scriptDir,
     "..",
     "..",
@@ -157,7 +157,7 @@ function pushEntry(id, names) {
   );
 }
 pushEntry(
-  "@get-bb/plugin-sdk/app",
+  "@hyperfide/plugin-sdk/app",
   await sourceModuleExports(
     path.join(scriptDir, "..", "..", "plugin-sdk", "src", "app.ts"),
   ),

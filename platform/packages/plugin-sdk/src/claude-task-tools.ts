@@ -1,5 +1,5 @@
 /**
- * The Claude Code task-tool vocabulary as `@get-bb/plugin-sdk/provider-bridge`
+ * The Claude Code task-tool vocabulary as `@hyperfide/plugin-sdk/provider-bridge`
  * published it through 0.4.15: the four tool names and the union of their
  * outputs. Core shared these with the claude-code runtime when that runtime
  * lived in bb; the claude-code plugin now owns its own task vocabulary and

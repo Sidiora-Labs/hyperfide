@@ -3,7 +3,7 @@ import type {
   TimelineRow,
   TimelineTurnRow,
   TimelineUserConversationRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { paginateTimelineRows } from "../../../src/services/threads/timeline-pagination.js";
 
 function userRow(args: {

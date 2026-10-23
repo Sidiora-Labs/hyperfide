@@ -7,8 +7,8 @@ import {
   threadGitDiffResponseSchema,
   workspaceDiffTargetSchema,
   workspaceStatusSchema,
-} from "@bb/domain";
-import { workspaceResolutionFailureSchema } from "@bb/host-daemon-contract/workspace";
+} from "@hyperfide/domain";
+import { workspaceResolutionFailureSchema } from "@hyperfide/host-daemon-contract/workspace";
 import { apiErrorSchema } from "../errors.js";
 import {
   branchListQuerySchema,

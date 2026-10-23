@@ -1,5 +1,5 @@
-import type { TimelineViewWorkflowWorkRow } from "@bb/thread-view";
-import { WorkflowProgress } from "@bb/shared-ui/workflow-progress";
+import type { TimelineViewWorkflowWorkRow } from "@hyperfide/thread-view";
+import { WorkflowProgress } from "@hyperfide/shared-ui/workflow-progress";
 import type { DetailScrollSize } from "../../ui/detail-scroll-size.js";
 import { TimelineDetailScroll } from "./TimelineDetailScroll.js";
 

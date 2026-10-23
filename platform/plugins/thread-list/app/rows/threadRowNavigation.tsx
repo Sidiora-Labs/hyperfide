@@ -6,7 +6,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { useBbNavigate } from "@get-bb/plugin-sdk/app";
+import { useBbNavigate } from "@hyperfide/plugin-sdk/app";
 
 const OpenThreadInSplitContext = createContext<
   ((threadId: string) => void) | null

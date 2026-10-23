@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

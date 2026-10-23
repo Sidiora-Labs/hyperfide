@@ -1,5 +1,5 @@
 {
-  "name": "@bb/secret-storage",
+  "name": "@hyperfide/secret-storage",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -16,8 +16,8 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {
-    "@bb/test-helpers": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/test-helpers": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",

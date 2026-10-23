@@ -1,9 +1,9 @@
-import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@bb/domain";
-import { fuzzyMatchText } from "@bb/fuzzy-match";
+import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@hyperfide/domain";
+import { fuzzyMatchText } from "@hyperfide/fuzzy-match";
 import type {
   ThreadSearchMatch,
   ThreadSearchResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { getThreadDisplayTitle } from "@/lib/thread-title";
 import {

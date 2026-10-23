@@ -15,7 +15,6 @@ import {
   useSheet,
   type ActionSheetAction,
 } from "@/ui";
-import { connectEnrollHref } from "../shell/hrefs";
 import { GroupedScreen } from "./GroupedScreen";
 import {
   HeaderIconButton,
@@ -60,7 +59,7 @@ export function ServersScreen() {
       title: `Remove ${profile.label}?`,
       message:
         profile.mode === "connect"
-          ? "The app forgets this server and its device credential. The phone stays listed under Machines in the getbb.app dashboard until you revoke it there."
+          ? "The app forgets this server and its device credential."
           : "The app forgets this server. Nothing on the server changes.",
       actionLabel: "Remove",
       onConfirm: () => remove(profile),
@@ -75,18 +74,6 @@ export function ServersScreen() {
             icon: "Check" as const,
             disabled: profile.id === activeProfile?.id,
             onPress: () => activate(profile),
-          },
-        ]
-      : []),
-    ...(profile.mode === "connect"
-      ? [
-          {
-            key: "reauth",
-            label: "Sign in again",
-            icon: "Lock" as const,
-            onPress: () => {
-              router.push(connectEnrollHref({ profileId: profile.id }));
-            },
           },
         ]
       : []),
@@ -135,7 +122,7 @@ export function ServersScreen() {
       )}
       <GroupedScreen testID="servers-screen">
         {profiles.length === 0 ? (
-          <SettingsSection footnote="No servers saved yet. Pair through getbb.app or enter a direct URL.">
+          <SettingsSection footnote="No servers saved yet. Enter a server URL.">
             <GroupedRow
               title="Add server"
               leading="Plus"
@@ -215,7 +202,7 @@ export function ServersScreen() {
         message={
           confirmingRemoval
             ? target?.mode === "connect"
-              ? "This removes the server and its device credential from this phone. Revoke the phone separately in getbb.app → Machines."
+              ? "This removes the server and its device credential from this phone."
               : "This removes the server from this phone. Nothing on the server changes."
             : target?.serverUrl
         }

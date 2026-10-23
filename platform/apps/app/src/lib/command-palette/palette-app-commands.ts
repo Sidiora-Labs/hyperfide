@@ -1,4 +1,4 @@
-import type { AppCommandId } from "@bb/domain";
+import type { AppCommandId } from "@hyperfide/domain";
 import { APP_COMMAND_GROUPS } from "@/lib/app-command-metadata";
 import type { AppShortcutPresentation } from "@/lib/app-keybindings";
 import type { PaletteAction } from "./palette-action";

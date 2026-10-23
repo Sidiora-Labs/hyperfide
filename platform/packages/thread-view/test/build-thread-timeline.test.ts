@@ -1,4 +1,4 @@
-import { threadScope, turnScope } from "@bb/domain";
+import { threadScope, turnScope } from "@hyperfide/domain";
 import type {
   ApprovalPendingInteractionResolution,
   JsonObject,
@@ -9,7 +9,7 @@ import type {
   ThreadEventFileChange,
   ThreadEventItemStatus,
   UserQuestionPendingInteractionResolution,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   TimelineApprovalWorkRow,
   ThreadContextWindowUsage,
@@ -21,7 +21,7 @@ import type {
   TimelineRow,
   TimelineSystemRow,
   TimelineToolWorkRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import {
   buildTimelineRowTitle,

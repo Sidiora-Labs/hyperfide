@@ -1,7 +1,7 @@
-import { getAppSettings, getHost } from "@bb/db";
+import { getAppSettings, getHost } from "@hyperfide/db";
 import { resolveUserMachineEnvironment } from "../machines/environment-settings.js";
 import type { AppDeps } from "../../types.js";
-import type { HostDaemonContributedEnvEntry } from "@bb/host-daemon-contract";
+import type { HostDaemonContributedEnvEntry } from "@hyperfide/host-daemon-contract";
 import {
   githubGitConfiguration,
   resolveGitCredentials,

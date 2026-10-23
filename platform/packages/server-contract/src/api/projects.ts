@@ -10,7 +10,7 @@ import {
   projectSourceSchema,
   promptHistoryEntrySchema,
   threadListEntrySchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   rejectMultipleWorkspaceSelectors,
   branchListQuerySchema,

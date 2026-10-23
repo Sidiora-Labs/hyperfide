@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 
 export default function draftsPlugin(bb: BbPluginApi): void {
   bb.experimental_hooks.on("message.dispatch", (context) => {

@@ -1,6 +1,6 @@
-import { ExpandableText } from "@bb/shared-ui/expandable-text";
+import { ExpandableText } from "@hyperfide/shared-ui/expandable-text";
 import type { ReactNode } from "react";
-import type { SystemExecutionOptionsModelLoadError } from "@bb/server-contract";
+import type { SystemExecutionOptionsModelLoadError } from "@hyperfide/server-contract";
 import { useUrlAnchorClickHandler } from "@/lib/url-open-routing";
 
 interface ModelLoadErrorMessageProps {

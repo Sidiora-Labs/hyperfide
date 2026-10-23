@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { PermissionMode, ReasoningLevel, ServiceTier } from "@bb/domain";
-import type { ExperimentalComposerSelection } from "@get-bb/plugin-sdk";
+import type { PermissionMode, ReasoningLevel, ServiceTier } from "@hyperfide/domain";
+import type { ExperimentalComposerSelection } from "@hyperfide/plugin-sdk";
 
 const COMPOSER_SELECTION_SETTLE_TIMEOUT_MS = 15_000;
 

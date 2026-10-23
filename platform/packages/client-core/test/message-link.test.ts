@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import { getMessageLinkPath, parseMessageLink } from "../src/index.js";
 
 describe("message links", () => {
@@ -16,7 +16,7 @@ describe("message links", () => {
           : "/projects/proj_abc/threads/thr_abc#msg=42",
       );
       expect(parseMessageLink(path)).toEqual({ threadId: "thr_abc", seq: 42 });
-      expect(parseMessageLink(`https://someone.getbb.app${path}`)).toEqual({
+      expect(parseMessageLink(`https://someone.hyperfide.example${path}`)).toEqual({
         threadId: "thr_abc",
         seq: 42,
       });

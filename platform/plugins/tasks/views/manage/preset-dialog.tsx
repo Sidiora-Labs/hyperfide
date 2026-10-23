@@ -3,7 +3,7 @@ import {
   experimental_PermissionModePicker as PermissionModePicker,
   experimental_ProviderModelPicker as ProviderModelPicker,
   type ExperimentalProviderModelPickerValue,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import type { Preset, PresetPermissionMode } from "../../shared/contract.js";
 import { PRESET_ENVIRONMENT_KINDS } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";

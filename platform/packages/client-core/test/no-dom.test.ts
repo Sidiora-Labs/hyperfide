@@ -37,7 +37,7 @@ const BROWSER_GLOBAL_PATTERN = new RegExp(
 const FORBIDDEN_IMPORT_PATTERN =
   /from\s+["'](?:react|react-dom|react-router|react-router-dom|jotai|@tanstack\/[\w-]+|@\/[^"']*)(?:\/[^"']*)?["']/u;
 
-describe("@bb/client-core stays DOM-free", () => {
+describe("@hyperfide/client-core stays DOM-free", () => {
   const files = listSourceFiles(SRC_DIR);
 
   it("has source files to check", () => {

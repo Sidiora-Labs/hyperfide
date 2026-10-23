@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { createStore, Provider } from "jotai";
 import { splitLayoutAtom, maximizedPaneIdAtom } from "@/lib/split-layout/atoms";
 import type { ReactNode } from "react";
@@ -26,7 +26,7 @@ import {
   type PluginListItem,
 } from "@/hooks/queries/plugin-settings-queries";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import {
   resetPluginSlotStoreForTest,
   setPluginSlotRegistrations,
@@ -653,7 +653,7 @@ describe("PluginDetail official catalog lifecycle", () => {
     ).not.toHaveLength(0);
   });
 
-  it("copies the public marketplace link for a BB Community catalog entry", async () => {
+  it("offers no retired public-site link for a community catalog entry", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     const entry = {
@@ -673,20 +673,14 @@ describe("PluginDetail official catalog lifecycle", () => {
       />,
     );
 
-    fireEvent.pointerDown(
-      screen.getByRole("button", { name: "GitHub actions" }),
-    );
-    fireEvent.click(
-      await screen.findByRole("menuitem", { name: "Copy marketplace link" }),
-    );
-    await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(
-        "https://getbb.app/marketplace/acme%20github",
-      ),
-    );
+    expect(screen.queryByRole("button", { name: "GitHub actions" })).toBeNull();
+    expect(
+      screen.queryByRole("menuitem", { name: "Copy marketplace link" }),
+    ).toBeNull();
+    expect(writeText).not.toHaveBeenCalled();
   });
 
-  it("copies the marketplace link for an installed BB Community plugin without a loaded catalog entry", async () => {
+  it("offers no retired public-site link for an installed community plugin", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
@@ -717,14 +711,11 @@ describe("PluginDetail official catalog lifecycle", () => {
     fireEvent.pointerDown(
       screen.getByRole("button", { name: "GitHub actions" }),
     );
-    fireEvent.click(
-      await screen.findByRole("menuitem", { name: "Copy marketplace link" }),
-    );
-    await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(
-        "https://getbb.app/marketplace/acme-github",
-      ),
-    );
+    await screen.findByRole("menu");
+    expect(
+      screen.queryByRole("menuitem", { name: "Copy marketplace link" }),
+    ).toBeNull();
+    expect(writeText).not.toHaveBeenCalled();
   });
 
   it("offers no marketplace link for plugins outside BB Community", async () => {
@@ -2183,7 +2174,7 @@ describe("PluginDetail capability inventory", () => {
       "Adds a page to the app sidebar.",
       "enhance-prompt",
       "Adds an action beside the thread composer.",
-      "bb capability",
+      "hyperfide-platform capability",
       "Inspect contributed capabilities.",
       "review",
       "Review repository changes.",

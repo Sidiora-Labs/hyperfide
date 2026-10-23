@@ -2,9 +2,9 @@ import type {
   Environment,
   WorkspaceFileStatus,
   WorkspaceFileStatusKind,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { WorkspaceChangedFilesSection } from "@/components/workspace/workspace-change-summary";
-import { makeEnvironment } from "@bb/test-helpers/domain-fixtures";
+import { makeEnvironment } from "@hyperfide/test-helpers/domain-fixtures";
 import { describe, expect, it } from "vitest";
 import {
   resolveWorkspaceChangedFileOpenTarget,

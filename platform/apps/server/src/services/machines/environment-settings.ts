@@ -1,10 +1,10 @@
 import { machineGitHealth } from "./git-credentials.js";
-import { getAppSettings, type DbConnection } from "@bb/db";
+import { getAppSettings, type DbConnection } from "@hyperfide/db";
 import {
   readMachineEnvironment,
   decryptMachineEnvironment,
 } from "./environment-storage.js";
-import type { HostDaemonContributedEnvEntry } from "@bb/host-daemon-contract";
+import type { HostDaemonContributedEnvEntry } from "@hyperfide/host-daemon-contract";
 
 export { replaceMachineEnvironment } from "./environment-storage.js";
 

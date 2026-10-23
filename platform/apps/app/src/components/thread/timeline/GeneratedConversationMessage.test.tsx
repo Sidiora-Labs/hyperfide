@@ -9,14 +9,14 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import type { PromptTextMention, ThreadListEntry } from "@bb/domain";
+import type { PromptTextMention, ThreadListEntry } from "@hyperfide/domain";
 import { ConversationMessageContent } from "./ConversationMessageContent";
 import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
 import { RouteNavigationProvider } from "@/components/ui/app-route-anchor";
 import type { TimelineTitleActionResolver } from "./TimelineTitleView";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
-import { makeThreadListEntry as makeThreadListEntryFixture } from "@bb/test-helpers/domain-fixtures";
-import { GENERATED_MESSAGE_COLLAPSED_PREVIEW_CHAR_CAP } from "@bb/client-core";
+import { makeThreadListEntry as makeThreadListEntryFixture } from "@hyperfide/test-helpers/domain-fixtures";
+import { GENERATED_MESSAGE_COLLAPSED_PREVIEW_CHAR_CAP } from "@hyperfide/client-core";
 import { generatedConversationCollapsedPreview } from "./GeneratedConversationMessage";
 
 const MARKDOWN_BODY = [

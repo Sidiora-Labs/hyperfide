@@ -2,13 +2,13 @@ import type {
   BbPluginApi,
   MessageDispatchHookContext,
   PluginDispatchAttemptKind,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   createFakePluginHost,
   makeHostResponse,
   makeMessageDispatchHookContext,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import plugin from "./server.js";
 

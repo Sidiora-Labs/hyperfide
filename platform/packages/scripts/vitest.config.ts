@@ -8,8 +8,18 @@ export default defineWorkspaceTestConfig({
     silent: "passed-only",
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "@bb/scripts",
+      name: "@hyperfide/scripts",
       include: ["test/**/*.test.ts", "test/**/*.test.mjs"],
+      // Inline projects need the command-line exclusions applied explicitly.
+      exclude: [
+        "dist/**",
+        "node_modules/**",
+        ...process.argv.flatMap((arg, index) =>
+          arg === "--exclude" && process.argv[index + 1]
+            ? [process.argv[index + 1]!]
+            : [],
+        ),
+      ],
     }),
   },
 });

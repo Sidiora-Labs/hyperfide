@@ -1,4 +1,4 @@
-import { openSecondaryPanelTabInState } from "@bb/client-core";
+import { openSecondaryPanelTabInState } from "@hyperfide/client-core";
 import { describe, expect, it } from "vitest";
 import {
   createEmptyFixedPanelTabsState,

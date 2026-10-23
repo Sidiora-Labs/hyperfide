@@ -4,8 +4,8 @@ import {
   isPluginOwnedIconPath,
   pluginPackageJsonSchema,
   type PluginPackageJson,
-} from "@bb/domain";
-import { isPathWithinDirectory } from "@bb/process-utils";
+} from "@hyperfide/domain";
+import { isPathWithinDirectory } from "@hyperfide/process-utils";
 import {
   assertValidPluginCompactIconSvg,
   assertValidPluginIconSvg,

@@ -209,8 +209,8 @@ describe("hyperfide-platform plugin update commands", () => {
     expect(output).toContain(
       'command: hyperfide-platform plugin run shadower — Shadow threads (core command "hyperfide-platform thread" takes precedence)',
     );
-    expect(output).toContain("command: bb notes — Take notes");
-    expect(output).not.toContain('core command "bb notes"');
+    expect(output).toContain("command: hyperfide-platform notes — Take notes");
+    expect(output).not.toContain('core command "hyperfide-platform notes"');
   });
 
   it("skips pinned plugins with manual reinstall guidance", async () => {

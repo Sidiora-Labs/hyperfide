@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { RETIRED_PLUGIN_SUCCESSORS } from "@bb/domain";
+import { RETIRED_PLUGIN_SUCCESSORS } from "@hyperfide/domain";
 
 export interface BundledPluginDefinition {
   name: string;
@@ -61,24 +61,9 @@ export const BUILTIN_PLUGINS = [
     defaultEnabled: true,
   },
   {
-    name: "bb-account",
-    pluginId: "bb-account",
-    defaultEnabled: true,
-  },
-  {
     name: "bb-ai",
     pluginId: "bb-ai",
     defaultEnabled: true,
-  },
-  {
-    name: "connect",
-    pluginId: "connect",
-    defaultEnabled: true,
-  },
-  {
-    name: "connect-next",
-    pluginId: "bb--connect-next",
-    defaultEnabled: false,
   },
   {
     name: "environment-project-checkout",

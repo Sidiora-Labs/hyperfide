@@ -27,7 +27,7 @@ import {
   isQueuedMessageFailedState,
   projectAttachmentPaths,
   queuedMessageStateFor,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   QueuedMessageLifecycleEventType,
   QueuedMessageLifecycleFrom,
@@ -41,7 +41,7 @@ import type {
   QueuedMessageWaitHolder,
   QueuedMessageWaitingOn,
   QueuedMessageWaitingOnKind,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   DbConnection,
   DbQueryConnection,

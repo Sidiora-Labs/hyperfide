@@ -10,12 +10,12 @@ import {
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { readBbAppRuntimeFile } from "@bb/config/app-runtime-file";
+import { readBbAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
 import {
   readServerMovedFile,
   type ServerMovedFile,
   writeServerMovedFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import {
   collectLogPayloads,
   readlineMocks,
@@ -65,7 +65,7 @@ function movedLock(): ServerMovedFile {
     fromHostId: "host-laptop",
     toHostId: "host-desktop",
     toHostName: "desktop",
-    serverUrl: "https://me.getbb.app",
+    serverUrl: "https://me.hyperfide.example",
     mode: "connect",
     connectHandle: "me",
     oldCopyEntries: ["bb.db"],
@@ -87,7 +87,7 @@ async function createFixture(): Promise<Fixture> {
   await writeFile(
     join(dataDir, "config.json"),
     JSON.stringify({
-      serverUrl: "https://me.getbb.app",
+      serverUrl: "https://me.hyperfide.example",
       serverHeaders: { "x-bb-connect-machine": "grant-secret" },
     }),
   );
@@ -165,7 +165,7 @@ describe("hyperfide-platform server install-machine-service", () => {
     const result = JSON.parse(collectLogPayloads(vi.mocked(console.log))[0]!);
     expect(result).toEqual({
       dataDir: fixture.dataDir,
-      serverUrl: "https://me.getbb.app",
+      serverUrl: "https://me.hyperfide.example",
       serviceFile: expect.stringContaining(fixture.homeDir),
       toHostName: "desktop",
     });

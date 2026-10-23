@@ -10,9 +10,9 @@ import {
   listPluginSchedules,
   pluginSchedules,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import type { Logger } from "@bb/logger";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import type { Logger } from "@hyperfide/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
@@ -100,7 +100,7 @@ describe("plugin background services", () => {
 
   it("starts services after load and aborts them on reload", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-connector",
+      name: "@hyperfide/connector",
       serverSource: `
         export default function plugin(bb: any) {
           const g = globalThis as any;

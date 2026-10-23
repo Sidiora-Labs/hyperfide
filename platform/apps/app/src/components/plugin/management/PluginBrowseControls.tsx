@@ -5,16 +5,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@bb/shared-ui/popover";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@hyperfide/shared-ui/popover";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   ResourceControlButton,
   ResourceMultiSelectMenu,
@@ -23,7 +23,7 @@ import {
   ResourceSortMenuItems,
   ResourceToolbar,
   type ResourceOption,
-} from "@bb/shared-ui/resource-list";
+} from "@hyperfide/shared-ui/resource-list";
 import { useScrollOverflowState } from "@/components/thread/timeline/useScrollOverflowState";
 import type {
   PluginBrowseSort,

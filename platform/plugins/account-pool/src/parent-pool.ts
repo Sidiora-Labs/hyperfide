@@ -5,8 +5,8 @@ import {
   type PoolAvailability,
 } from "./contracts.js";
 
-export const PARENT_URL_ENV = "BB_ACCOUNT_POOL_PARENT_URL";
-export const PARENT_TOKEN_ENV = "BB_ACCOUNT_POOL_PARENT_TOKEN";
+export const PARENT_URL_ENV = "HYPERFIDE_ACCOUNT_POOL_PARENT_URL";
+export const PARENT_TOKEN_ENV = "HYPERFIDE_ACCOUNT_POOL_PARENT_TOKEN";
 export const AVAILABILITY_PATH = "/availability";
 export const HUB_TOKEN_HEADER = "x-bb-account-pool-token";
 

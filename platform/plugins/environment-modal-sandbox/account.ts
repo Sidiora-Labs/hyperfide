@@ -14,7 +14,7 @@ import {
   type BbPluginApi,
   type PluginCliContext,
   type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import path from "node:path";
 import { z } from "zod";
 import { dockerfileSchema, type ImageDefinition } from "./image-definition.js";

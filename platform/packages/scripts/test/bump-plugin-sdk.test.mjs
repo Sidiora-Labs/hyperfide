@@ -47,7 +47,7 @@ function createTestRepo({ manifestVersion, moduleVersion }) {
     join(repoRoot, MANIFEST_PATH),
     `${JSON.stringify(
       {
-        name: "@get-bb/plugin-sdk",
+        name: "@hyperfide/plugin-sdk",
         version: manifestVersion,
         files: ["bundled-types", "dist", "README.md"],
       },
@@ -101,7 +101,7 @@ describe("bump-plugin-sdk", () => {
     const result = runScript(repoRoot, ["--patch"]);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain("@get-bb/plugin-sdk 0.4.3 → 0.4.4");
+    expect(result.stdout).toContain("@hyperfide/plugin-sdk 0.4.3 → 0.4.4");
     expect(readManifestVersion(repoRoot)).toBe("0.4.4");
     expect(readModuleVersion(repoRoot)).toBe("0.4.4");
   });

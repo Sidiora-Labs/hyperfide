@@ -7,21 +7,21 @@ import {
   CarouselNext,
   CarouselPrevious,
   type CarouselApi,
-} from "@bb/shared-ui/carousel";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/carousel";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   ResourceDefinitionSection,
   ResourceListPanel,
   ResourceRow,
   ResourceRowDetailChevron,
-} from "@bb/shared-ui/resource-list";
+} from "@hyperfide/shared-ui/resource-list";
 import type { PluginCatalogSearchEntry } from "@/hooks/queries/plugin-catalog-queries";
 import { PluginOverviewMarkdown } from "@/components/plugin/management/PluginOverviewMarkdown";
 import { getPluginsRoutePath } from "@/lib/route-paths";
 import { PluginCardAuthorName } from "./PluginCard";
 import { PluginNameTag } from "./PluginNameTag";
-import { splitPluginDisplayName } from "@bb/domain/plugin-display-name";
+import { splitPluginDisplayName } from "@hyperfide/domain/plugin-display-name";
 import { catalogEntryDetailKey } from "./installed-plugin-catalog";
 import {
   CatalogEntryIconChip,

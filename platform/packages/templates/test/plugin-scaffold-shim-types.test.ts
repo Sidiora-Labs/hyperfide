@@ -44,7 +44,7 @@ async function installDeclaredDependencies(targetDir: string): Promise<void> {
     const target = join(targetDir, "node_modules", name);
     await mkdir(dirname(target), { recursive: true });
     const source =
-      name === "@get-bb/plugin-sdk"
+      name === "@hyperfide/plugin-sdk"
         ? pluginSdkRoot
         : workspacePackageRoot(name);
     await symlink(source, target, "dir");

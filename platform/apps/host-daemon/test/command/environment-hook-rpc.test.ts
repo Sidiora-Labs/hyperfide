@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { expect, it, vi } from "vitest";
 import { CommandRouter } from "../../src/command-router.js";
 import { createHarness } from "./dispatch-helpers.js";
@@ -9,7 +9,7 @@ it.each([false, true])(
   "reports pre-dispatch hook cancellation without warnings (resumeOnly: %s)",
   async (resumeOnly) => {
     const path = await makeTempDir("bb-hook-rpc-cancel-");
-    await writeFile(join(path, ".bb-env-setup.sh"), "echo unsafe > marker\n");
+    await writeFile(join(path, ".hyperfide-env-setup.sh"), "echo unsafe > marker\n");
     const logger = { debug: vi.fn(), warn: vi.fn() };
     const router = new CommandRouter({
       ...createHarness().dispatchOptions({ dataDir: path }),

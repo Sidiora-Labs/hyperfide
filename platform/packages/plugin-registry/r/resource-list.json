@@ -5,13 +5,13 @@
   "title": "resource-list",
   "description": "BB ui \"resource-list\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/resource-atoms",
-    "@bb/resource-collection",
-    "@bb/resource-detail-controls",
-    "@bb/resource-detail-sections",
-    "@bb/resource-detail-shell",
-    "@bb/resource-row",
-    "@bb/resource-toolbar"
+    "@hyperfide/resource-atoms",
+    "@hyperfide/resource-collection",
+    "@hyperfide/resource-detail-controls",
+    "@hyperfide/resource-detail-sections",
+    "@hyperfide/resource-detail-shell",
+    "@hyperfide/resource-row",
+    "@hyperfide/resource-toolbar"
   ],
   "files": [
     {

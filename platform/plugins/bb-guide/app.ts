@@ -2,7 +2,7 @@ import {
   definePluginApp,
   type ComposerDraftReplacement,
   type ComposerDraftSnapshot,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 const CREATE_PLUGIN_PROMPT = "Create a new bb plugin that ";
 

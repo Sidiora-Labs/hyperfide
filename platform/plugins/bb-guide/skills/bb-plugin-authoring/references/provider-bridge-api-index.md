@@ -4,7 +4,7 @@ Use this index to check provider bridge imports.
 Read `providers.md` and the provider docs it links for behavior and examples.
 Read the installed declarations for exact current signatures.
 
-## `@get-bb/plugin-sdk/provider-bridge`
+## `@hyperfide/plugin-sdk/provider-bridge`
 
 - `contextSnapshotSchema`
 - `ContextSnapshot`
@@ -311,7 +311,7 @@ Read the installed declarations for exact current signatures.
 - `WorkflowPhaseSnapshot`
 - `WorkflowProgressSnapshot`
 
-## `@get-bb/plugin-sdk/provider-bridge/testing`
+## `@hyperfide/plugin-sdk/provider-bridge/testing`
 
 - `ASSEMBLER_GRAMMAR_VERSIONS`
 - `CONFORMANCE_ASSEMBLED_EVENT_METHOD`
@@ -395,7 +395,7 @@ Read the installed declarations for exact current signatures.
 - `ThreadEventWebFetchItem`
 - `ThreadEventWebSearchItem`
 
-## `@get-bb/plugin-sdk/provider-bridge/acp`
+## `@hyperfide/plugin-sdk/provider-bridge/acp`
 
 - `experimental_acpAgentProbeSchema`
 - `experimental_acpLaunchSpecSchema`
@@ -417,7 +417,7 @@ Read the installed declarations for exact current signatures.
 - `AcpToolIdentity`
 - `AcpToolKind`
 
-## `@get-bb/plugin-sdk/provider-bridge/acp-next`
+## `@hyperfide/plugin-sdk/provider-bridge/acp-next`
 
 Deprecated. The same exports as `provider-bridge/acp`, kept so plugins that
 imported the preview name keep building.

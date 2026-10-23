@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadEvent } from "@get-bb/plugin-sdk/provider-bridge/testing";
+import type { ThreadEvent } from "@hyperfide/plugin-sdk/provider-bridge/testing";
 import {
   ITEM_ID_PATTERN,
   TURN_1,

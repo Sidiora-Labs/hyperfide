@@ -8,7 +8,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BB_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
+import { HYPERFIDE_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
 import { closeAllPiCatalogs, getPiCatalog } from "./catalog.js";
 import { PI_BRIDGE_ARGS_ENV, PI_BRIDGE_COMMAND_ENV } from "./rpc-child.js";
 import { fakePiPath } from "./test-support.js";
@@ -31,7 +31,7 @@ describe("pi catalog child generations", () => {
     const extensionPath = join(workspace, "bb-extension.mjs");
     const spawnCounterPath = join(workspace, "spawns.txt");
     const processLogPath = join(workspace, "processes.txt");
-    writeFileSync(extensionPath, BB_PI_EXTENSION_SOURCE);
+    writeFileSync(extensionPath, HYPERFIDE_PI_EXTENSION_SOURCE);
 
     process.env[PI_BRIDGE_COMMAND_ENV] = process.execPath;
     process.env[PI_BRIDGE_ARGS_ENV] = JSON.stringify([fakePiPath]);
@@ -96,7 +96,7 @@ function setUpFakeCatalog(env: Record<string, string>): FakeCatalogPaths {
     spawnCounterPath: join(workspace, "spawns.txt"),
     processLogPath: join(workspace, "processes.txt"),
   };
-  writeFileSync(paths.extensionPath, BB_PI_EXTENSION_SOURCE);
+  writeFileSync(paths.extensionPath, HYPERFIDE_PI_EXTENSION_SOURCE);
   writeFileSync(paths.modelsPath, JSON.stringify([FAKE_MODEL]));
   process.env[PI_BRIDGE_COMMAND_ENV] = process.execPath;
   process.env[PI_BRIDGE_ARGS_ENV] = JSON.stringify([fakePiPath]);

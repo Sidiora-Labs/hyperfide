@@ -1,4 +1,4 @@
-import { experimental_copyToClipboard } from "@get-bb/plugin-sdk/app";
+import { experimental_copyToClipboard } from "@hyperfide/plugin-sdk/app";
 import { escapeHtmlText } from "./html-escape";
 import { SURFACES_BY_ID, type PluginSurface } from "./surfaces";
 
@@ -57,9 +57,9 @@ export function createPluginSurfaceAgentReference(
   };
   const context = [
     `Plugin Guide surface: ${surface.title} (${surface.id}).`,
-    `Relevant @get-bb/plugin-sdk symbols: ${surface.apiSymbols.join(", ")}.`,
+    `Relevant @hyperfide/plugin-sdk symbols: ${surface.apiSymbols.join(", ")}.`,
     ...(surface.reference ?? []),
-    "Use the bb-plugin-authoring skill and the authoritative @get-bb/plugin-sdk declarations to build a similar plugin capability.",
+    "Use the bb-plugin-authoring skill and the authoritative @hyperfide/plugin-sdk declarations to build a similar plugin capability.",
   ].join("\n");
   return { identity, resource, clipboard, context };
 }

@@ -5,7 +5,7 @@ import {
   type ProviderComposerCommand,
   type Thread,
   type ThreadTimelineActivePromptMode,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { ThreadEventWithMeta } from "./build-event-projection.js";
 import { parsePromptInput } from "./user-message-parsing.js";
 

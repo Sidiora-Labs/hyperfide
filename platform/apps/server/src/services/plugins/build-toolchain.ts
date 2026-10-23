@@ -2,7 +2,7 @@ import { join } from "node:path";
 import {
   resolvePluginBuildToolchain,
   type PluginBuildToolchain,
-} from "@bb/plugin-build";
+} from "@hyperfide/plugin-build";
 import type { PluginServiceDeps } from "./plugin-service-internal.js";
 
 const byDataDir = new Map<string, Promise<PluginBuildToolchain>>();

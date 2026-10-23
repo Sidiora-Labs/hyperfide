@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { expect, it, vi } from "vitest";
 import { dispatchOnlineRpcCommand } from "../../src/command-dispatch.js";
 import { createHarness } from "./dispatch-helpers.js";
@@ -17,7 +17,7 @@ vi.mock("../../src/environment-lifecycle-script.js", async (importOriginal) => {
         args.signal?.addEventListener("abort", () =>
           reject(
             new actual.LifecycleScriptTerminationUnverifiedError(
-              ".bb-env-setup.sh",
+              ".hyperfide-env-setup.sh",
             ),
           ),
         );
@@ -27,7 +27,7 @@ vi.mock("../../src/environment-lifecycle-script.js", async (importOriginal) => {
 
 it("answers unknown when a cancelled hook's processes could not be confirmed stopped", async () => {
   const path = await makeTempDir("bb-hook-unverified-");
-  await writeFile(join(path, ".bb-env-setup.sh"), "sleep 120\n");
+  await writeFile(join(path, ".hyperfide-env-setup.sh"), "sleep 120\n");
   const options = createHarness().dispatchOptions({ dataDir: path });
   const run = dispatchOnlineRpcCommand(
     {

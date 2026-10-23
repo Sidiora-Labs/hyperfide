@@ -6,7 +6,7 @@ import {
   buildPluginServer,
   PLUGIN_TOOLCHAIN_PINS,
   type PluginBuildToolchain,
-} from "@bb/plugin-build";
+} from "@hyperfide/plugin-build";
 
 const PLUGIN_SERVER_RUNTIME_FORMAT_VERSION = 4;
 const RETAINED_PLUGIN_SERVER_ARTIFACTS = 4;

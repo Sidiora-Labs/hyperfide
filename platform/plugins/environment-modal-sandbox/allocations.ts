@@ -1,6 +1,6 @@
 import { errorMessage } from "./error-message.js";
 import { createHash } from "node:crypto";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import type {
   ModalSandboxClient,

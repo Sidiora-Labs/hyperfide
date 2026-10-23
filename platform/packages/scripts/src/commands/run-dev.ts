@@ -5,7 +5,7 @@ import {
   resolveCurrentDevInstanceConfig,
   toDevProcessEnv,
   type DevInstanceConfig,
-} from "@bb/config/runtime";
+} from "@hyperfide/config/runtime";
 import { migrateLegacyDevData } from "../lib/legacy-dev-data-migration.js";
 import { runScriptProcess } from "../lib/process-helpers.js";
 import { repoRoot, runMainIfEntrypoint } from "../lib/script-entry.js";
@@ -24,8 +24,6 @@ export type DevLaunchMode = "vite" | "worktree";
 
 export type DevCloud = "local" | "staging";
 
-export const STAGING_CLOUD_URL = "https://vibecodethis.site";
-
 const LOOPBACK_HOST = "127.0.0.1";
 
 function createDevTurboCommand(): DevCommand {
@@ -35,9 +33,9 @@ function createDevTurboCommand(): DevCommand {
       "turbo",
       "run",
       "dev",
-      "--filter=@bb/app",
-      "--filter=@bb/server",
-      "--filter=@bb/host-daemon",
+      "--filter=@hyperfide/app",
+      "--filter=@hyperfide/server",
+      "--filter=@hyperfide/host-daemon",
       "--ui",
       "tui",
       "--concurrency",
@@ -88,7 +86,7 @@ export function resolveDevCloud(args: {
   if (args.mode !== "vite") {
     throw new Error("[dev] --staging is supported by pnpm dev only.");
   }
-  return "staging";
+  throw new Error("Hosted account development is disabled");
 }
 
 export function toDevLaunchProcessEnv(args: {
@@ -102,15 +100,11 @@ export function toDevLaunchProcessEnv(args: {
     config: args.config,
   });
   env.HYPERFIDE_SKIP_ONBOARDING ??= "1";
-  if (args.cloud === "staging") {
-    env.HYPERFIDE_DEV_CONNECT_BASE_URL = STAGING_CLOUD_URL;
-  }
   if (args.mode === "vite") {
     return env;
   }
 
   delete env.HYPERFIDE_DEV_APP_PORT;
-  env.HYPERFIDE_TELEMETRY = "false";
   env.NODE_ENV = "production";
   return env;
 }
@@ -118,7 +112,7 @@ export function toDevLaunchProcessEnv(args: {
 function formatConfig(
   config: DevInstanceConfig,
   mode: DevLaunchMode,
-  cloud: DevCloud,
+  _cloud: DevCloud,
 ): string {
   const prefix = mode === "worktree" ? "[start:worktree]" : "[dev]";
   const appUrl =
@@ -131,9 +125,6 @@ function formatConfig(
     `${prefix} App ${appUrl}`,
     `${prefix} Server ${config.serverUrl}`,
     `${prefix} Host daemon http://127.0.0.1:${config.ports.hostDaemonPort}`,
-    ...(cloud === "staging"
-      ? [`${prefix} bb account and Connect use ${STAGING_CLOUD_URL}`]
-      : []),
   ].join("\n");
 }
 

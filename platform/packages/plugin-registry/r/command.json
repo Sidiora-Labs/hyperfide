@@ -9,10 +9,10 @@
     "cmdk"
   ],
   "registryDependencies": [
-    "@bb/coarse-pointer-sizing",
-    "@bb/dialog",
-    "@bb/icon",
-    "@bb/utils"
+    "@hyperfide/coarse-pointer-sizing",
+    "@hyperfide/dialog",
+    "@hyperfide/icon",
+    "@hyperfide/utils"
   ],
   "files": [
     {

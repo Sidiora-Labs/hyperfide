@@ -1,7 +1,7 @@
 import { PluginTabScope } from "./PluginTabs";
 import { useMemo, type ReactNode } from "react";
-import type { PluginPanelActionOpenOptions } from "@get-bb/plugin-sdk";
-import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
+import type { PluginPanelActionOpenOptions } from "@hyperfide/plugin-sdk";
+import { EmptyStatePanel } from "@hyperfide/shared-ui/empty-state";
 import { usePluginFrontendsSettled } from "@/lib/plugin-frontend-boot-state";
 import {
   usePluginSlots,
@@ -55,7 +55,7 @@ interface PanelActionOpenPanelArgs {
     pluginId: string;
     id: string;
     title: string;
-    params?: import("@get-bb/plugin-sdk").JsonValue;
+    params?: import("@hyperfide/plugin-sdk").JsonValue;
   };
   slot: string;
   openPluginPanel: OpenPluginPanelHandler;

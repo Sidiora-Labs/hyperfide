@@ -36,7 +36,7 @@ For `acp-opencode` the list mirrors the OpenCode catalog, so add a model to
 the OpenCode config rather than bb's `customModels`:
 
 ```sh
-bb provider models acp-opencode --environment "$BB_ENVIRONMENT_ID"
+bb provider models acp-opencode --environment "$HYPERFIDE_ENVIRONMENT_ID"
 bb thread spawn --provider acp-opencode --model <provider/model>
 ```
 
@@ -48,7 +48,7 @@ otherwise. Custom agents from the OpenCode config directory and from the
 project's `.opencode/` directory therefore appear in the mode menu:
 
 ```sh
-bb provider models acp-opencode --project "$BB_PROJECT_ID"
+bb provider models acp-opencode --project "$HYPERFIDE_PROJECT_ID"
 bb thread spawn --provider acp-opencode --option mode=<agent>
 ```
 

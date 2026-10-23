@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
+import { experimental_createHostEntryHarness } from "@hyperfide/plugin-sdk/testing/host";
 import { afterEach, describe, expect, it } from "vitest";
 import { createPersonalWorkspaceHostEntry } from "./host.js";
 

@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Host } from "@bb/domain";
+import type { Host } from "@hyperfide/domain";
 import type {
   ServerMoveCheckResponse,
   ServerMoveStatus,
   ServerMoveStatusResponse,
   ServerMoveStep,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   collectLogPayloads,
   readlineMocks,
@@ -92,7 +92,7 @@ function moveStatus(
     mode: "connect",
     targetHostId: desktop.id,
     targetHostName: desktop.name,
-    serverUrl: "https://me.getbb.app",
+    serverUrl: "https://me.hyperfide.example",
     destinationStatusUrl: null,
     startedAt: 1_700_000_000_000,
     finishedAt: null,
@@ -513,7 +513,7 @@ describe("hyperfide-platform server move", () => {
     await runCommand(["server", "move", "--to", "desktop", "--yes"], register);
 
     expect(collectLogPayloads(vi.mocked(console.log)).at(-1)).toBe(
-      "The server moved to desktop: https://me.getbb.app",
+      "The server moved to desktop: https://me.hyperfide.example",
     );
   });
 
@@ -527,7 +527,7 @@ describe("hyperfide-platform server move", () => {
           code: "server_moved",
           message: "This hyperfide-platform server moved to desktop",
           details: {
-            serverUrl: "https://me.getbb.app",
+            serverUrl: "https://me.hyperfide.example",
             toHostName: "desktop",
             movedAt: 1_700_000_100_000,
           },
@@ -538,7 +538,7 @@ describe("hyperfide-platform server move", () => {
     await runCommand(["server", "move", "--to", "desktop", "--yes"], register);
 
     expect(collectLogPayloads(vi.mocked(console.log)).at(-1)).toBe(
-      "The server moved to desktop: https://me.getbb.app",
+      "The server moved to desktop: https://me.hyperfide.example",
     );
   });
 
@@ -569,7 +569,7 @@ describe("hyperfide-platform server move", () => {
       'Error: The server move failed at "Send data to desktop": Download digest mismatch',
     );
     expect(collectLogPayloads(vi.mocked(console.log))).not.toContain(
-      "The server moved to desktop: https://me.getbb.app",
+      "The server moved to desktop: https://me.hyperfide.example",
     );
   });
 

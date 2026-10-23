@@ -31,7 +31,7 @@ const USAGE =
   "Copies each forkable built-in plugin (scripts/forkable-plugins.json) out of\n" +
   "the monorepo the way a fork would: the component registry items its @/\n" +
   "imports name are written into the copy, and it installs published packages\n" +
-  "plus a packed @get-bb/plugin-sdk. Then it runs the copy's typecheck, tests,\n" +
+  "plus a packed @hyperfide/plugin-sdk. Then it runs the copy's typecheck, tests,\n" +
   "and `bb plugin build`. Plugins run --concurrency at a time (default: up to\n" +
   "4), and every failure is reported at the end. --changed-from selects changed\n" +
   "plugins only when every changed file belongs to a forkable plugin; shared or\n" +
@@ -263,7 +263,7 @@ async function checkPlugin(pluginDir, workDir, sdkTarball, log) {
     `${JSON.stringify(forked.manifest, null, 2)}\n`,
   );
   log.push(
-    `  package.json: @get-bb/plugin-sdk from the packed SDK, registry packages in place of @bb/shared-ui${
+    `  package.json: @hyperfide/plugin-sdk from the packed SDK, registry packages in place of @hyperfide/shared-ui${
       forked.droppedDevDependencies.length > 0
         ? `; dropped workspace tooling ${forked.droppedDevDependencies.join(", ")}`
         : ""
@@ -331,7 +331,7 @@ try {
   const printLog = { push: (line) => console.log(line) };
   await step(
     printLog,
-    "Build @get-bb/plugin-sdk and the bb CLI",
+    "Build @hyperfide/plugin-sdk and the bb CLI",
     "pnpm",
     [
       "exec",
@@ -339,8 +339,8 @@ try {
       "run",
       "build",
       "build:types",
-      "--filter=@get-bb/plugin-sdk",
-      "--filter=@bb/cli",
+      "--filter=@hyperfide/plugin-sdk",
+      "--filter=@hyperfide/cli",
       "--output-logs=errors-only",
     ],
     { cwd: repoRoot },
@@ -348,7 +348,7 @@ try {
   const packed = JSON.parse(
     await step(
       printLog,
-      "Pack @get-bb/plugin-sdk",
+      "Pack @hyperfide/plugin-sdk",
       "npm",
       ["pack", "--json", "--ignore-scripts", "--pack-destination", workDir],
       { cwd: join(repoRoot, "packages", "plugin-sdk") },

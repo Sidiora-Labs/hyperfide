@@ -1,11 +1,11 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { JsonValue } from "@get-bb/plugin-sdk";
+import type { JsonValue } from "@hyperfide/plugin-sdk";
 import {
   jsonValueSchema,
   type JsonObject,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { resolveCodexHome } from "../codex-home.js";
 import { AiServiceFailure } from "./failure.js";
 

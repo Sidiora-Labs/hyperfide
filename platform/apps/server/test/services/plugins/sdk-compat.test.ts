@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import semver from "semver";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import { isPluginSdkRangeSatisfied } from "../../../src/services/plugins/sdk-compat.js";
 
 const major = semver.major(PLUGIN_SDK_VERSION);

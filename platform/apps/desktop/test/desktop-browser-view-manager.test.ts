@@ -15,9 +15,9 @@ import {
   DESKTOP_BROWSER_BROKER_DESCRIPTOR_FILE,
   desktopBrowserRegistrationSchema,
   desktopBrowserChangedSchema,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { BbDesktopBrowserViewBounds } from "@bb/desktop-contract";
+import type { BbDesktopBrowserViewBounds } from "@hyperfide/desktop-contract";
 import { resolveDesktopBrowserAppCommand } from "../src/desktop-browser-shortcuts.js";
 import { createDesktopBrowserCdpAdapter } from "../src/desktop-browser-cdp-adapter.js";
 import { createDesktopBrowserBroker } from "../src/desktop-browser-broker.js";

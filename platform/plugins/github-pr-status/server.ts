@@ -4,7 +4,7 @@ import {
   experimental_PluginRpcRefusal,
   PluginCliError,
   type BbPluginApi,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { assemblePullRequest } from "./assemble.js";
 import {
   environmentPullRequestTag,

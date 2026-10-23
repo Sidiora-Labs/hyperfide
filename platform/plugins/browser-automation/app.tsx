@@ -26,7 +26,7 @@ import {
   definePluginApp,
   useRpc,
   type PluginMessageDirectiveProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import type { PreviewFrame, PreviewSize, rpcContract } from "./contracts.js";
 import {
   closeLightbox,

@@ -7,10 +7,10 @@ import {
   getThread,
   listPublicHosts,
   type HostDaemonSessionRow,
-} from "@bb/db";
-import type { EnvironmentRow, HostRow } from "@bb/db";
-import type { Host, HostType } from "@bb/domain";
-import type { DbConnection } from "@bb/db";
+} from "@hyperfide/db";
+import type { EnvironmentRow, HostRow } from "@hyperfide/db";
+import type { Host, HostType } from "@hyperfide/domain";
+import type { DbConnection } from "@hyperfide/db";
 import type { NotificationHub } from "../../ws/hub.js";
 import { ApiError } from "../../errors.js";
 import {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Question } from "@bb/shared-ui/question-form-state";
+import type { Question } from "@hyperfide/shared-ui/question-form-state";
 import {
   buildQuestionAnswers,
   createInitialFormState,
   isQuestionAnswered,
-} from "@bb/shared-ui/question-form-state";
+} from "@hyperfide/shared-ui/question-form-state";
 
 const singleSelect: Question = {
   id: "branch",

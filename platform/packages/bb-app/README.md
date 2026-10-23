@@ -140,7 +140,7 @@ other `bb` you already have in place.
 From a terminal, before `bb` is on your PATH:
 
 ```bash
-npx --package bb-app bb settings cli-command install
+npx --package hyperfide-app bb settings cli-command install
 ```
 
 ### Updating from the app
@@ -172,7 +172,7 @@ you want that thread to use.
 The package also exposes the `bb` CLI for an already-running bb server:
 
 ```bash
-npx --package bb-app bb --help
+npx --package hyperfide-app bb --help
 ```
 
 The CLI uses the same `BB_SERVER_URL` and bb config resolution as the SDK. When

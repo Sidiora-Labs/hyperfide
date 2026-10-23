@@ -7,7 +7,7 @@ does not cover:
 
 1. **`bb plugin types`**, run in the plugin directory (or given its path),
    syncs that plugin's SDK surface to the running bb — no server needed. It
-   repins the exact `@get-bb/plugin-sdk` devDependency to this bb's SDK
+   repins the exact `@hyperfide/plugin-sdk` devDependency to this bb's SDK
    version and brings the declared runtime-shimmed packages' type-only
    devDependencies to the versions this bb ships, moving them out of
    `dependencies` when needed (run `npm install` after). For an older plugin
@@ -19,19 +19,19 @@ does not cover:
    comments:
    - a plugin that depends on the npm package (every current scaffold) has
      them after `npm install` at
-     `node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts`
+     `node_modules/@hyperfide/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts`
      (`bb-plugin-sdk-app.d.ts` for frontend symbols and
      `bb-plugin-sdk-host.d.ts` for the host entry);
    - an older plugin carries `types/bb-plugin-sdk.d.ts` (plus
      `types/bb-plugin-sdk-app.d.ts` for an app), which its `tsconfig.json`
-     maps `@get-bb/plugin-sdk` onto. That layout lacks the `/host` and
+     maps `@hyperfide/plugin-sdk` onto. That layout lacks the `/host` and
      `/testing/host` subpaths, so migrate before adding `bb.host`.
      `bb plugin migrate` converts such a plugin to the npm package: it prints
      the plan and asks first (`--yes` when stdin is not a terminal), pins the
      SDK devDependency (moving it out of `dependencies` and raising an older
      `engines.bbPluginSdk` floor), drops the tsconfig path map, deletes the
      vendored declarations (keeping `types/` if it holds your own files), and
-     rewrites `@bb/plugin-sdk` imports; rerunning is a no-op, and you run
+     rewrites `@hyperfide/plugin-sdk` imports; rerunning is a no-op, and you run
      `npm install` after. Never migrate a plugin the user did not ask you to
      migrate.
 3. **`git clone --depth 1 https://github.com/get-bb/bb`** for host behavior or
@@ -95,17 +95,7 @@ Keep each plugin in its own directory with its own `package.json`, then index
 the directories in a `.bb/plugins.json` collection manifest at the repository
 root:
 
-```json
-{
-  "$schema": "https://getbb.app/schemas/plugins.schema.json",
-  "schemaVersion": 1,
-  "name": "acme-plugins",
-  "plugins": [
-    { "name": "notes", "source": "./plugins/notes" },
-    { "name": "status", "source": "./plugins/status" }
-  ]
-}
-```
+
 
 Each `source` is a repository-relative directory that starts with `./`. The
 file is an index only — it never overrides a plugin's identity, branding,
@@ -127,33 +117,7 @@ A marketplace is one `marketplace.json` file. It lists plugins with their
 store branding and their npm or git source; it never hosts plugin code, and
 installing an entry runs the same install pipeline a direct install runs.
 
-```json
-{
-  "$schema": "https://getbb.app/schemas/marketplace.schema.json",
-  "schemaVersion": 1,
-  "name": "acme-plugins",
-  "displayName": "Acme Plugins",
-  "description": "Plugins the Acme team maintains.",
-  "plugins": [
-    {
-      "id": "notes",
-      "displayName": "Notes",
-      "description": "Keep notes beside a thread.",
-      "icon": { "url": "./icons/notes.svg" },
-      "tags": ["notes", "interface"],
-      "author": { "name": "Acme", "github": "acme", "url": "https://acme.dev" },
-      "source": {
-        "git": {
-          "url": "https://github.com/acme/bb-plugins.git",
-          "subdir": "plugins/notes",
-          "range": "^1.0.0",
-          "tagPrefix": "notes/"
-        }
-      }
-    }
-  ]
-}
-```
+
 
 Schema version 1 is strict: an unknown field rejects the whole document.
 Version 2 ignores unknown fields except inside npm and git source objects,
@@ -204,11 +168,7 @@ package.json is the one-sentence hook. It appears on every browse card and as
 the lead paragraph on the detail page. Keep it under about 140 characters.
 State the outcome the user gets.
 
-`PLUGIN_OVERVIEW.md` beside package.json holds the long-form description. The
-detail page shows it in an Overview section under the lead paragraph, in the
-app and on the public getbb.app marketplace. `bb plugin new` scaffolds one, the
-BB Community marketplace requires one, and a plugin that is only installed from
-a local path or a private source still reads better with one.
+
 
 The file is the same claim as `bb.description` at length: the same outcome, the
 same surfaces, no capability the short text does not imply. Treat the two as

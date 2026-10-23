@@ -5,14 +5,14 @@ import {
   getNonDestroyedHost,
   getPublicProjectByLocalPathSource,
   updateHost,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   publicApiRoutes,
   typedRoutes,
   type PublicApiSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { Hono } from "hono";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract";
 import type { AppDeps } from "../types.js";
 import {
   getProviderInstallations,
@@ -95,36 +95,6 @@ function assertNotServerMachine(deps: AppDeps, hostId: string): void {
       400,
       "server_host_lifecycle_refused",
       "The server machine can't be suspended or resumed. Move the server to another machine first.",
-    );
-  }
-}
-
-async function revokeConnectMachineCredential(
-  deps: AppDeps,
-  plugins: PluginService,
-  machineId: string,
-): Promise<void> {
-  try {
-    const connectPlugin = plugins
-      .list()
-      .find((plugin) => plugin.source === "builtin:connect");
-    if (!connectPlugin) throw new Error("connect plugin is not installed");
-    const handler = plugins.getRpcHandler(connectPlugin.id, "revokeMachine");
-    if (handler.outcome !== "found") {
-      throw new Error(`connect plugin revoke handler is ${handler.outcome}`);
-    }
-    const result = await plugins.invokeRpcHandler(
-      connectPlugin.id,
-      "revokeMachine",
-      handler.value,
-      { machineId },
-      { kind: "client" },
-    );
-    if (!result.ok) throw new Error(result.error.message);
-  } catch (error) {
-    deps.logger.error(
-      { err: error, machineId },
-      "Host was removed locally, but its bb connect machine credential could not be revoked. Revoke this machine manually from the getbb.app dashboard.",
     );
   }
 }
@@ -329,13 +299,6 @@ export function registerHostRoutes(
     });
     deps.lifecycleDedupers.providerModelCatalogs.forgetHost(deps, hostId);
     if (destroyed !== null) emitPluginHostDeleted(destroyed);
-    if (host.connectMachineId !== null) {
-      await revokeConnectMachineCredential(
-        deps,
-        plugins,
-        host.connectMachineId,
-      );
-    }
     return context.json({ ok: true });
   });
 

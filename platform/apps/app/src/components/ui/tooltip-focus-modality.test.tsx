@@ -11,7 +11,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
+} from "@hyperfide/shared-ui/tooltip";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 function renderTooltip(onFocus?: () => void) {

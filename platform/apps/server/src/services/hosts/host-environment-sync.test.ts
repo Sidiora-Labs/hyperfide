@@ -1,6 +1,6 @@
-import { noopNotifier, setAppSettings, updateHost, upsertHost } from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import { defaultAppSettings } from "@bb/domain";
+import { noopNotifier, setAppSettings, updateHost, upsertHost } from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import { defaultAppSettings } from "@hyperfide/domain";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

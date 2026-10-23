@@ -8,7 +8,7 @@ import {
   ThreadStorageFilePreviewTabContent,
   WorkspaceFilePreviewTabContent,
 } from "./ThreadSecondaryPanelTabContent";
-import type { FilePreview } from "@bb/client-core";
+import type { FilePreview } from "@hyperfide/client-core";
 
 const projectPreviewQuery = vi.hoisted(() =>
   vi.fn<

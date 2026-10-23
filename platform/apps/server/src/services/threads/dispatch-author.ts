@@ -1,4 +1,4 @@
-import type { StartedOnBehalfOf, ThreadTurnInitiator } from "@bb/domain";
+import type { StartedOnBehalfOf, ThreadTurnInitiator } from "@hyperfide/domain";
 
 interface ResolveDispatchAuthorArgs {
   retrying: boolean;

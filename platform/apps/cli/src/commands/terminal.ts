@@ -1,12 +1,12 @@
 import { Buffer } from "node:buffer";
 import { Command, Option } from "commander";
-import { TERMINAL_DATA_MAX_BYTES } from "@bb/domain";
-import type { TerminalCreateScope, TerminalListScope } from "@bb/sdk";
-import { createNodeWebsocketFactory } from "@bb/sdk/node-websocket";
+import { TERMINAL_DATA_MAX_BYTES } from "@hyperfide/domain";
+import type { TerminalCreateScope, TerminalListScope } from "@hyperfide/sdk";
+import { createNodeWebsocketFactory } from "@hyperfide/sdk/node-websocket";
 import {
   terminalServerMessageSchema,
   type TerminalSession,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { action, CliExitError, CliUsageError } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { terminalScopeHint } from "../context-hints.js";

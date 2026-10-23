@@ -1,18 +1,18 @@
 import type {
   DiscoveredSkill,
   HostDaemonOnlineRpcRequestMessage,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { setExperiments } from "@bb/db";
-import { defaultExperiments } from "@bb/domain";
+import { setExperiments } from "@hyperfide/db";
+import { defaultExperiments } from "@hyperfide/domain";
 import {
   skillContentResponseSchema,
   skillFilesResponseSchema,
   skillListResponseSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { writeRegistrySkillProvenance } from "../../src/services/skills/registry-skill-provenance.js";
 import { providerHasNativeRootSurface } from "../../src/services/providers/native-roots.js";

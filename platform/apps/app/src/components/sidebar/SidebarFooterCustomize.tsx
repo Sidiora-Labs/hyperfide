@@ -6,19 +6,19 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@hyperfide/shared-ui/tooltip";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { FooterItemIcon } from "@/components/plugin/PluginSidebarFooterItems";
 import {
   type FooterItem,
   useMeasureSidebarFooterCapacity,
   useSidebarFooterPreferences,
 } from "./sidebarFooterPreferences";
-import { SIDEBAR_FOOTER_ACTION_CLASS } from "@bb/shared-ui/sidebar-row-classes";
-import { useSidebarReorderDnd } from "@bb/shared-ui/use-sidebar-reorder-dnd";
+import { SIDEBAR_FOOTER_ACTION_CLASS } from "@hyperfide/shared-ui/sidebar-row-classes";
+import { useSidebarReorderDnd } from "@hyperfide/shared-ui/use-sidebar-reorder-dnd";
 import { SidebarTouchSensor } from "./sidebarTouchSensor";
-import { useSidebarSortable } from "@bb/shared-ui/sortable-motion";
+import { useSidebarSortable } from "@hyperfide/shared-ui/sortable-motion";
 
 const BADGE_CLASS =
   "flex size-4 cursor-pointer items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-foreground outline-none after:absolute after:-inset-1.5 after:content-[''] hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring disabled:cursor-default disabled:opacity-40";

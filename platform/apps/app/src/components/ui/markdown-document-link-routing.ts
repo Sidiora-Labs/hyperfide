@@ -1,4 +1,4 @@
-import type { ExperimentalFileOpenOptions } from "@get-bb/plugin-sdk";
+import type { ExperimentalFileOpenOptions } from "@hyperfide/plugin-sdk";
 import { normalizeExperimentalLiveFileTarget } from "@/lib/live-file-navigation";
 import {
   buildAbsoluteFilePath,

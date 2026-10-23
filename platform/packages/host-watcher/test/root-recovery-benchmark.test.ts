@@ -6,7 +6,7 @@ import path from "node:path";
 import { monitorEventLoopDelay, performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { createDebouncedCallbackScheduler } from "@bb/domain";
+import { createDebouncedCallbackScheduler } from "@hyperfide/domain";
 import {
   disposeParcelWatcherBackend,
   setParcelWatcherBackend,

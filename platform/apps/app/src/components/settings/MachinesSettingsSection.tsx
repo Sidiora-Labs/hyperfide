@@ -1,16 +1,16 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { Host, PermissionMode } from "@bb/domain";
-import type { SystemMachineProvider } from "@bb/server-contract";
-import type { HostPlatform } from "@bb/host-daemon-contract";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { Host, PermissionMode } from "@hyperfide/domain";
+import type { SystemMachineProvider } from "@hyperfide/server-contract";
+import type { HostPlatform } from "@hyperfide/host-daemon-contract";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   ResourceOverflowMenu,
   ResourceRowDetailChevron,
   targetsResourceAction,
-} from "@bb/shared-ui/resource-list";
+} from "@hyperfide/shared-ui/resource-list";
 import { AddMachineDialog } from "@/components/dialogs/AddMachineDialog";
 import { AttentionBanner } from "@/components/ui/attention-banner";
 import { appToast } from "@/components/ui/app-toast";

@@ -5,8 +5,8 @@ import type {
   ThreadTimelinePendingTodoItem,
   ThreadTimelinePendingTodoItemStatus,
   ThreadTimelinePendingTodos,
-} from "@bb/domain";
-import { sliceUtf16Head } from "@bb/text-utils";
+} from "@hyperfide/domain";
+import { sliceUtf16Head } from "@hyperfide/text-utils";
 import type { ThreadEventWithMeta } from "./build-event-projection.js";
 import { getOrderedThreadEvents } from "./group-event-projection-turns.js";
 

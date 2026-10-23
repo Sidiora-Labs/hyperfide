@@ -5,8 +5,8 @@ import {
   PLUGIN_SERVER_EXTERNALS,
   RUNTIME_SLOT_BY_SPECIFIER,
   SHIMMED_TYPE_PACKAGES,
-} from "@bb/plugin-build";
-import { scaffoldPlugin } from "@bb/templates/plugin-scaffold";
+} from "@hyperfide/plugin-build";
+import { scaffoldPlugin } from "@hyperfide/templates/plugin-scaffold";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const DIRS_WITHOUT_BUNDLED_SOURCE = new Set([

@@ -12,8 +12,8 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
-import { createMigratedConnection } from "@bb/db/testing";
+import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,

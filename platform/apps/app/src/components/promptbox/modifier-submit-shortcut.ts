@@ -1,4 +1,4 @@
-import type { AppShortcut } from "@bb/domain";
+import type { AppShortcut } from "@hyperfide/domain";
 import {
   browserPlatform,
   formatAppShortcut,

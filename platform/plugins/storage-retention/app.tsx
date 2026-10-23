@@ -16,7 +16,7 @@ import {
   useRpc,
   useSdk,
   type PluginNavPanelProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { DatabaseRestoreIcon } from "./icons/database-restore.js";
 import { Button } from "@/components/ui/button";
 import { DelayedLoading } from "@/components/ui/delayed-loading";

@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import type { TasksStore } from "../db";
 import { errorMessage } from "../shared/errors";
 import { isSideChatShapedThread } from "../shared/side-chat";

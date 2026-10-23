@@ -1,4 +1,4 @@
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import { afterEach, expect, it, vi } from "vitest";
 import { registerCodexAiService } from "./ai-service.js";
 import { transcribeCodexVoice } from "./ai/chatgpt-client.js";

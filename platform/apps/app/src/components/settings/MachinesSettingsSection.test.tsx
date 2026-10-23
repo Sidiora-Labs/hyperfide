@@ -8,16 +8,16 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
-import { RETRY_ACTION_ICON } from "@bb/domain/update-state";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
+import { RETRY_ACTION_ICON } from "@hyperfide/domain/update-state";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract";
 import type {
   ServerMoveStatus,
   SystemConfigResponse,
   SystemMachineProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { MemoryRouter } from "react-router-dom";
-import { defaultExperiments, type Host } from "@bb/domain";
+import { defaultExperiments, type Host } from "@hyperfide/domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sdk } from "@/lib/sdk";
 import { serverMoveStatusQueryKey } from "@/hooks/queries/query-keys";
@@ -169,7 +169,7 @@ function preparingMove(): ServerMoveStatus {
     mode: "connect",
     targetHostId: "host_desk",
     targetHostName: "desk",
-    serverUrl: "https://sawyer.getbb.app",
+    serverUrl: "https://sawyer.hyperfide.example",
     destinationStatusUrl: null,
     startedAt: NOW,
     finishedAt: null,

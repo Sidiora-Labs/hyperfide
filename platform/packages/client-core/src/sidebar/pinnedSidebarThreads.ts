@@ -1,4 +1,4 @@
-import type { ThreadListEntry } from "@bb/domain";
+import type { ThreadListEntry } from "@hyperfide/domain";
 
 interface PinnedSidebarState {
   effectivePinnedThreadIds: Set<string>;

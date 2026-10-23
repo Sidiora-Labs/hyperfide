@@ -1,4 +1,4 @@
-import { experimental_PluginRpcCallError } from "@get-bb/plugin-sdk";
+import { experimental_PluginRpcCallError } from "@hyperfide/plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
 import {
   callPluginRpc,

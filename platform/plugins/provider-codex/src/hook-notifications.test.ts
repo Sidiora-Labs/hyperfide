@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { experimental_createDeltaAssembler as createDeltaAssembler } from "@get-bb/plugin-sdk/provider-bridge/testing";
+import { experimental_createDeltaAssembler as createDeltaAssembler } from "@hyperfide/plugin-sdk/provider-bridge/testing";
 import { createCodexEventTranslator } from "./translator.js";
 
 function createHarness() {

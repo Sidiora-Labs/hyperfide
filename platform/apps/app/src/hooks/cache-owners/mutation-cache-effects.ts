@@ -16,8 +16,8 @@ import {
   threadPendingInteractionsQueryKey,
 } from "../queries/query-keys";
 import { threadDefaultExecutionOptionsQueryKey } from "../queries/thread-default-execution-options-query";
-import type { PendingInteraction } from "@bb/domain";
-import type { ThreadPendingInteractionsResponse } from "@bb/server-contract";
+import type { PendingInteraction } from "@hyperfide/domain";
+import type { ThreadPendingInteractionsResponse } from "@hyperfide/server-contract";
 import type {
   ProjectArg,
   QueryClientArg,

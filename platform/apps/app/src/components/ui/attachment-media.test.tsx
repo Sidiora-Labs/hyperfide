@@ -8,7 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { VideoThumbnail } from "@bb/shared-ui/video-thumbnail";
+import { VideoThumbnail } from "@hyperfide/shared-ui/video-thumbnail";
 import { loadAttachmentPreview } from "@/test/fixtures/composer-plugin-modules";
 import { ComposerRendererTestHost } from "@/test/fixtures/composer-renderer";
 import {

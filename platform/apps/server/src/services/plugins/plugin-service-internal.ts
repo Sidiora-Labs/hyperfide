@@ -1,22 +1,21 @@
-import type { TunnelIngressLease } from "../connect-next/tunnel-ingress.js";
-import type { EnvironmentRemoval } from "@bb/domain";
+import type { EnvironmentRemoval } from "@hyperfide/domain";
 import type { MachineEnrollmentService } from "../machines/machine-services.js";
 import type { AiServiceRegistry } from "../ai/ai-service-registry.js";
-import type { DbConnection, HostRow } from "@bb/db";
+import type { DbConnection, HostRow } from "@hyperfide/db";
 import type {
   DynamicTool,
   PendingInteraction,
   Thread,
   ThreadQueuedMessage,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   HostDaemonConnectTunnelIdentity,
   HostDaemonContributedEnvEntry,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type {
   PluginApplyUpdateResult,
   PluginRuntimeStatus,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { ServerLogger } from "../../types.js";
 import type { TelemetryService } from "../system/telemetry.js";
 import type { NotificationHub } from "../../ws/hub.js";
@@ -149,7 +148,7 @@ export interface PluginServiceDeps {
   onArtifactMaterialize?: (args: { path: string }) => void;
   callPluginHost?: (args: {
     pluginId: string;
-    contract: import("@get-bb/plugin-sdk").PluginRpcContract;
+    contract: import("@hyperfide/plugin-sdk").PluginRpcContract;
     method: string;
     input: unknown;
     hostId: string;
@@ -161,7 +160,6 @@ export interface PluginServiceDeps {
     pluginId: string;
     generation: string;
   }) => Promise<void>;
-  openTunnelIngress?: (audience: string) => Promise<TunnelIngressLease>;
 }
 
 export interface PluginAgentToolContribution {
@@ -226,7 +224,7 @@ export interface PluginThreadEventEmitter {
   emitEnvironmentRemoved(removal: EnvironmentRemoval): void;
   emitThreadEvents(threadId: string): void;
   emitTerminalInput(
-    terminal: import("@bb/server-contract").TerminalSession,
+    terminal: import("@hyperfide/server-contract").TerminalSession,
   ): void;
   emitHostDeleted(host: HostRow): void;
   emitThreadCreated(thread: Thread): void;

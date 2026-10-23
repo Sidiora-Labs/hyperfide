@@ -2,13 +2,13 @@ import {
   PERSONAL_PROJECT_ID,
   type ProjectSource,
   type ThreadListEntry,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ProjectWithThreadsResponse,
   SidebarBootstrapResponse,
   SystemEnvironmentProvider,
   TerminalSession,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import type { ReuseThreadOption } from "@/components/pickers/ReuseEnvironmentPicker";
 import {
@@ -17,7 +17,7 @@ import {
   restorePromptDraftAfterOptionChange,
   type ResolveNewThreadSubmitDisabledReasonArgs,
 } from "@/components/promptbox/NewThreadComposer";
-import { getProjectStoredPromptAttachmentPaths } from "@bb/client-core";
+import { getProjectStoredPromptAttachmentPaths } from "@hyperfide/client-core";
 import {
   buildRootComposeTerminalSessions,
   isRootComposeTerminalSession,
@@ -32,7 +32,7 @@ import {
   shouldStartComposingFromLocationState,
 } from "./RootComposeView";
 import { resolveRootComposeProjectFileRouting } from "./RootComposePanelTabContent";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import {
   makeProjectWithThreadsResponse,
   makeSidebarBootstrapResponse,

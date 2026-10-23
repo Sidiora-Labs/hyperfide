@@ -1,4 +1,4 @@
-import { readProcessIdentity } from "@bb/process-utils";
+import { readProcessIdentity } from "@hyperfide/process-utils";
 
 /**
  * What the operating system reports about a running process. `command` is its

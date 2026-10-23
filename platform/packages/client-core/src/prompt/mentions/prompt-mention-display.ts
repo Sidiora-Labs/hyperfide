@@ -1,4 +1,4 @@
-import type { PromptMentionResource } from "@bb/domain";
+import type { PromptMentionResource } from "@hyperfide/domain";
 
 export type PromptMentionIconName =
   | "UserRound"

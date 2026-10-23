@@ -1,7 +1,7 @@
-import type { Host } from "@bb/domain";
-import type { SystemMachineProvider } from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
+import type { Host } from "@hyperfide/domain";
+import type { SystemMachineProvider } from "@hyperfide/server-contract";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
 
 export interface MachineLifecycleAction {
   icon: IconName;

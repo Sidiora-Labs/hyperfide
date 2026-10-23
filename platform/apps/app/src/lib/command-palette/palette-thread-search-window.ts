@@ -1,4 +1,4 @@
-import type { ThreadSearchMatch } from "@bb/server-contract";
+import type { ThreadSearchMatch } from "@hyperfide/server-contract";
 
 const THREAD_SEARCH_WINDOW_LEAD_CHARS = 16;
 const THREAD_SEARCH_WINDOW_TAIL_CHARS = 40;

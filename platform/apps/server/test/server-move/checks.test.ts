@@ -8,13 +8,13 @@ import {
   upsertHost,
   upsertInstalledPlugin,
   upsertPluginSchedule,
-} from "@bb/db";
-import type { ServerMoveInspectResult } from "@bb/host-daemon-contract";
+} from "@hyperfide/db";
+import type { ServerMoveInspectResult } from "@hyperfide/host-daemon-contract";
 import {
   listServerOwnedEntries,
   writeLastServerMoveFile,
-} from "@bb/server-archive";
-import type { ServerMoveCheckRequest } from "@bb/server-contract";
+} from "@hyperfide/server-archive";
+import type { ServerMoveCheckRequest } from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import {
   runServerMoveCheck,

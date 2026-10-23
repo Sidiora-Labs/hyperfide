@@ -1,7 +1,7 @@
 import path from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 const MAX_EDITABLE_BYTES = 8 * 1024 * 1024;
@@ -117,7 +117,7 @@ async function ensureMonacoBundleDir(
   );
   if (staged === undefined) {
     throw new Error(
-      "could not build the Monaco bundle; run `pnpm --filter bb-plugin-monaco-editor build:monaco`",
+      "could not build the Monaco bundle; run `pnpm --filter hyperfide-plugin-monaco-editor build:monaco`",
     );
   }
   return staged;

@@ -1,7 +1,7 @@
-import { SERVER_MOVE_STEP_IDS } from "@bb/domain";
-import { BbHttpError } from "@bb/sdk/browser";
-import type { ServerMoveStatus } from "@bb/server-contract";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+import { SERVER_MOVE_STEP_IDS } from "@hyperfide/domain";
+import { BbHttpError } from "@hyperfide/sdk/browser";
+import type { ServerMoveStatus } from "@hyperfide/server-contract";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import { describe, expect, it } from "vitest";
 import {
   canMoveServerHere,
@@ -21,7 +21,7 @@ function move(overrides: Partial<ServerMoveStatus> = {}): ServerMoveStatus {
     mode: "connect",
     targetHostId: "host_desk",
     targetHostName: "desk",
-    serverUrl: "https://sawyer.getbb.app",
+    serverUrl: "https://sawyer.hyperfide.example",
     destinationStatusUrl: null,
     startedAt: 1,
     finishedAt: null,

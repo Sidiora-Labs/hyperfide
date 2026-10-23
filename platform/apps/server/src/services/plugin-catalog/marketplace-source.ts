@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { PluginMarketplaceSourceKind } from "@bb/db";
+import type { PluginMarketplaceSourceKind } from "@hyperfide/db";
 import {
   normalizePluginSubdirectory,
   parsePluginSource,

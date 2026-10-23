@@ -1,4 +1,4 @@
-import type { ThreadListEntry } from "@bb/domain";
+import type { ThreadListEntry } from "@hyperfide/domain";
 import {
   getCollapsedChildActivity,
   type CollapsedChildActivity,

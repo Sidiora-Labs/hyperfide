@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { runInSerialLane } from "./serial-lane.js";
 
 describe("runInSerialLane", () => {

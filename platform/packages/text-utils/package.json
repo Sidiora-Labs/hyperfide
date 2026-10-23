@@ -1,5 +1,5 @@
 {
-  "name": "@bb/text-utils",
+  "name": "@hyperfide/text-utils",
   "version": "0.0.1",
   "type": "module",
   "sideEffects": false,
@@ -17,7 +17,7 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^4.1.1"

@@ -5,8 +5,8 @@ import {
 import {
   createFilePreviewLineRange,
   type FilePreviewLineRange,
-} from "@bb/client-core";
-import type { WorkspaceOpenTargetId } from "@bb/host-daemon-contract";
+} from "@hyperfide/client-core";
+import type { WorkspaceOpenTargetId } from "@hyperfide/host-daemon-contract";
 
 export interface MarkdownPreviewLocalFileLink {
   lineRange: FilePreviewLineRange | null;

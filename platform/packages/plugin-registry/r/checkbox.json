@@ -8,9 +8,9 @@
     "@radix-ui/react-checkbox"
   ],
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/motion",
-    "@bb/utils"
+    "@hyperfide/icon",
+    "@hyperfide/motion",
+    "@hyperfide/utils"
   ],
   "files": [
     {

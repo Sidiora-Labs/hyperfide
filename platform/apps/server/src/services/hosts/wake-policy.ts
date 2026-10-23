@@ -1,4 +1,4 @@
-import { type HostDaemonRpcCommand } from "@bb/host-daemon-contract";
+import { type HostDaemonRpcCommand } from "@hyperfide/host-daemon-contract";
 
 const hostCommandWakePolicy = {
   "desktop.broker.prove": "never",

@@ -5,8 +5,8 @@ import { z } from "zod";
 import {
   SERVER_MOVED_ERROR_CODE,
   serverMovedErrorDetailsSchema,
-} from "@bb/host-daemon-contract";
-import type { ServerMovedFile } from "@bb/server-archive";
+} from "@hyperfide/host-daemon-contract";
+import type { ServerMovedFile } from "@hyperfide/server-archive";
 import {
   startMovedResponder,
   type MovedResponder,

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { relayDesktopAppUpdates } from "@bb/config/desktop-app-update";
+import { relayDesktopAppUpdates } from "@hyperfide/config/desktop-app-update";
 import { spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { spawnLoggedProcess } from "./logged-process.js";
@@ -11,7 +11,7 @@ import {
   type MovedResponder,
   type StartMovedResponderArgs,
 } from "./moved-responder.js";
-import { mutateManagedJsonFile } from "@bb/config/managed-json-file";
+import { mutateManagedJsonFile } from "@hyperfide/config/managed-json-file";
 import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve, win32 } from "node:path";
@@ -24,26 +24,26 @@ import {
   clearOwnBbAppRuntimeFile,
   formatBbAppRuntimeFilePath,
   readBbAppRuntimeFile,
-} from "@bb/config/app-runtime-file";
-import { stopVerifiedProcess } from "@bb/config/verified-process-stop";
+} from "@hyperfide/config/app-runtime-file";
+import { stopVerifiedProcess } from "@hyperfide/config/verified-process-stop";
 import {
   findMachineServiceFile,
   HOST_DAEMON_RESTART_EXIT_CODE,
   MACHINE_INSTALLER_ENV_NAME,
-} from "@bb/config/machine-service";
+} from "@hyperfide/config/machine-service";
 import {
   hasProcessExited,
   waitForProcessExit,
   waitForProcessExitWithTimeout,
   type ChildProcessExitResult,
-} from "@bb/config/child-process-exit";
+} from "@hyperfide/config/child-process-exit";
 import {
   APP_SURFACE_DESKTOP,
   APP_SURFACE_ENV_NAME,
   APP_SURFACE_WEB,
   parseAppSurface,
   type AppSurface,
-} from "@bb/config/app-surface";
+} from "@hyperfide/config/app-surface";
 import {
   HYPERFIDE_APP_MANAGED_CONFIG_KEYS,
   bbAppManagedEnvFileSchema,
@@ -57,17 +57,17 @@ import {
   type BbAppManagedConfigValues,
   type BbAppManagedEnvConfig,
   type BbAppManagedEnvFile,
-} from "@bb/config/bb-app-managed-config";
+} from "@hyperfide/config/bb-app-managed-config";
 import {
   formatClientConfigPath,
   normalizeClientServerOrigin,
   parseClientConfig,
   type ClientConfig,
-} from "@bb/config/client-config";
-import { validateLogLevel } from "@bb/config/log-level";
-import { validateOptionalUrl } from "@bb/config/public-url";
-import { parseServerBindHost, type ServerBindHost } from "@bb/config/server";
-import { toOptionalString } from "@bb/config/strings";
+} from "@hyperfide/config/client-config";
+import { validateLogLevel } from "@hyperfide/config/log-level";
+import { validateOptionalUrl } from "@hyperfide/config/public-url";
+import { parseServerBindHost, type ServerBindHost } from "@hyperfide/config/server";
+import { toOptionalString } from "@hyperfide/config/strings";
 import {
   HYPERFIDE_PROD_HOST_DAEMON_PORT,
   HYPERFIDE_LOOPBACK_HOST,
@@ -79,12 +79,12 @@ import {
   resolvePortFromEnv,
   resolveProdDataDir,
   stripThreadContextEnv,
-} from "@bb/config/runtime";
+} from "@hyperfide/config/runtime";
 import {
   readServerImportFile,
   readServerMovedFile,
   type ServerMovedFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import {
   APP_UPDATE_MODE_ENV_NAME,
   APP_UPDATE_SHIM_PROTOCOL_ENV_NAME,
@@ -92,15 +92,15 @@ import {
   appUpdateModeSchema,
   type AppRevision,
   type AppUpdateMode,
-} from "@bb/config/app-update";
+} from "@hyperfide/config/app-update";
 import {
   APP_INSTALL_KIND_ENV_NAME,
   APP_SOURCE_COMMIT_ENV_NAME,
   APP_SOURCE_ORIGIN_ENV_NAME,
   appInstallEnv,
   type AppInstall,
-} from "@bb/config/app-install";
-import { CLI_LAUNCHER_ENV_NAME } from "@bb/config/cli-command";
+} from "@hyperfide/config/app-install";
+import { CLI_LAUNCHER_ENV_NAME } from "@hyperfide/config/cli-command";
 import { z } from "zod";
 import { resolveAppInstall } from "./app-install.js";
 import {
@@ -188,10 +188,8 @@ const STARTUP_ONLY_MANAGED_ENV_KEYS = new Set<string>([
   "HYPERFIDE_LOG_LEVEL",
   "HYPERFIDE_PERF_DIAGNOSTICS",
   "HYPERFIDE_MANAGED_DEV_BUILTIN_PLUGIN_HOT_RELOAD",
-  "HYPERFIDE_POSTHOG_API_KEY",
   "HYPERFIDE_SERVER_BIND_HOST",
   "HYPERFIDE_SERVER_PORT",
-  "HYPERFIDE_TELEMETRY",
 ]);
 const PORTABLE_ENV_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 const SECRET_SHAPED_ENV_NAME_PATTERN =
@@ -991,7 +989,6 @@ function applyWorktreeRuntimePolicy(
     HYPERFIDE_INHERITED_SKILLS_ROOTS: policy.inheritedSkillsRoots,
     HYPERFIDE_SERVER_BIND_HOST: policy.serverBindHost,
     HYPERFIDE_SERVER_PORT: String(policy.serverPort),
-    HYPERFIDE_TELEMETRY: "false",
   };
   delete nextEnv.HYPERFIDE_DEV_APP_PORT;
   return nextEnv;
@@ -1578,9 +1575,7 @@ Startup-only server and launcher keys:
   HYPERFIDE_APP_SURFACE, HYPERFIDE_APP_URL, HYPERFIDE_DATA_DIR, HYPERFIDE_DEV_APP_PORT,
   HYPERFIDE_EXTERNAL_URL, HYPERFIDE_HOST_DAEMON_PORT, HYPERFIDE_INHERITED_SKILLS_ROOTS,
   HYPERFIDE_LOG_LEVEL, HYPERFIDE_MANAGED_DEV_BUILTIN_PLUGIN_HOT_RELOAD, HYPERFIDE_PERF_DIAGNOSTICS,
-  HYPERFIDE_POSTHOG_API_KEY,
-  HYPERFIDE_SERVER_BIND_HOST, HYPERFIDE_SERVER_PORT, HYPERFIDE_TELEMETRY, and HYPERFIDE_FF_* feature
-  flags.
+  HYPERFIDE_SERVER_BIND_HOST, HYPERFIDE_SERVER_PORT, and HYPERFIDE_FF_* feature flags.
   Changes require a full bb-app restart with bb-app stop && bb-app start,
   or a desktop app restart. HYPERFIDE_APP_URL can instead be changed live with
   bb-app config.
@@ -3127,7 +3122,7 @@ Usage:
   that stops on purpose (exit 0) is not restarted.
 
 CLI:
-  npx --package bb-app bb <command>
+  npx --package hyperfide-app bb <command>
   Settings → General → bb CLI, or bb settings cli-command install,
   installs the bb CLI for use outside bb.
 `);

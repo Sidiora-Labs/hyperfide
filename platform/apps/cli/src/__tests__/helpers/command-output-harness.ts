@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, vi } from "vitest";
 import { Command } from "commander";
-import { createApiClient, type ApiClient } from "@bb/server-contract";
+import { createApiClient, type ApiClient } from "@hyperfide/server-contract";
 
 const readlineState = vi.hoisted(() => ({
   question: vi.fn(),
@@ -15,9 +15,9 @@ vi.mock("../../client.js", async () => {
   const { cliFetch } =
     await vi.importActual<typeof import("../../client.js")>("../../client.js");
   const { createBbSdk } =
-    await vi.importActual<typeof import("@bb/sdk/core")>("@bb/sdk/core");
+    await vi.importActual<typeof import("@hyperfide/sdk/core")>("@hyperfide/sdk/core");
   const { createHttpTransport } =
-    await vi.importActual<typeof import("@bb/sdk/node")>("@bb/sdk/node");
+    await vi.importActual<typeof import("@hyperfide/sdk/node")>("@hyperfide/sdk/node");
   const toResponse = (resolved: MockTransportResolved): Response =>
     resolved instanceof Response
       ? resolved

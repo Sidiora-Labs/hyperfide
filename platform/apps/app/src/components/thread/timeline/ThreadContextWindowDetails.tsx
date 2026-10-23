@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
-import type { ContextCategory, ContextSnapshot } from "@bb/domain";
+import type { ContextCategory, ContextSnapshot } from "@hyperfide/domain";
 
 type ContextWindowDetails = Pick<ContextSnapshot, "categories">;
 

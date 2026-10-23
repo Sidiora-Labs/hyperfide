@@ -1,7 +1,7 @@
 import {
   experimental_Icon,
   type ExperimentalIconProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 export type IconName = string;
 export type IconProps = ExperimentalIconProps;

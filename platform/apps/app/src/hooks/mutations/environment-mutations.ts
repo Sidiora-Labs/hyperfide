@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Environment, WorkspaceDiffTarget } from "@bb/domain";
+import type { Environment, WorkspaceDiffTarget } from "@hyperfide/domain";
 import type {
   EnvironmentActionResponse,
   UpdateEnvironmentRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   applyOptimisticDiffViewedChange,
   invalidateDiffViewedQuery,

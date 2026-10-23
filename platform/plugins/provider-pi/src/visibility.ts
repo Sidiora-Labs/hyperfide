@@ -4,12 +4,12 @@ import {
   getRecordProperty,
   getStringProperty,
   isRecord,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import type {
   JsonRpcMessage,
   ProviderRawEventDescription,
   ProviderVisibilityMetadata,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 type PiAssistantEventType =
   | "text_delta"
   | "text_end"

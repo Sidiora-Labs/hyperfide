@@ -2,8 +2,8 @@ import {
   createQueuedThreadMessage,
   getLastStoredProviderThreadId,
   listQueuedThreadMessages,
-} from "@bb/db";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@hyperfide/db";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as mentions from "../../src/services/plugins/plugin-mentions.js";
 import * as commands from "../../src/services/threads/thread-commands.js";

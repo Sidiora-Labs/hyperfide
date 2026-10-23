@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { PluginTimelineRendererProps } from "@get-bb/plugin-sdk";
+import type { PluginTimelineRendererProps } from "@hyperfide/plugin-sdk";
 import {
   commandRow,
   ECHO_RECEIPT_PRESENTATION,

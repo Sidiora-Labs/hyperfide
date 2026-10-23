@@ -1,13 +1,13 @@
 import type {
   PluginEnvironmentProviderCreateContext,
   PluginEnvironmentProviderProgress,
-} from "@get-bb/plugin-sdk/environment-provider";
+} from "@hyperfide/plugin-sdk/environment-provider";
 import {
   createFakePluginHost,
   makeHostResponse,
   makeThreadResponse,
   type FakePluginHarness,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import plugin from "./server.js";
 type Project = PluginEnvironmentProviderCreateContext["project"];

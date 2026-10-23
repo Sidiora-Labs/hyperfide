@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExpandableText } from "@bb/shared-ui/expandable-text";
+import { ExpandableText } from "@hyperfide/shared-ui/expandable-text";
 import { OnboardingPluginCard } from "../onboarding/OnboardingViews";
 import { ModelLoadErrorMessage } from "../pickers/model-load-error-message";
 

@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import { initRepo, makeTempDir } from "@bb/test-helpers";
+import { initRepo, makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
 import { provisionWorkspace } from "../src/index.js";
 import { runGit } from "../src/git.js";

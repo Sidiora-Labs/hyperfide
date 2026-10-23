@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
-import { CLI_LAUNCHER_MARKER } from "@bb/config/cli-command";
+import { CLI_LAUNCHER_MARKER } from "@hyperfide/config/cli-command";
 import {
   formatCliLauncherPath,
   renderCliLauncher,

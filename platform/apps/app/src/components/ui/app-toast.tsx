@@ -6,9 +6,9 @@ import {
   type ReactNode,
 } from "react";
 import type { Action, ExternalToast } from "sonner";
-import { Button } from "@bb/shared-ui/button";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   openNotificationCenter,
   recordNotification,

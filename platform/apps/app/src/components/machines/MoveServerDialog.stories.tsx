@@ -1,7 +1,7 @@
 import type {
   ServerMoveCheckItem,
   ServerMoveCheckResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   MoveServerDialogView,
   type MoveServerDialogViewProps,

@@ -14,8 +14,8 @@ import {
   defaultAppSettings,
   type AppDefaultKeybindings,
   type AppKeybindingOverrides,
-} from "@bb/domain";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
+} from "@hyperfide/domain";
+import { collectPluginAppRegistrations } from "@hyperfide/plugin-sdk/internal/plugin-app-collector";
 import {
   setPluginSlotRegistrations,
   removePluginSlotRegistrations,
@@ -176,8 +176,8 @@ vi.mock("@/hooks/mutations/settings-mutations", () => ({
   }),
 }));
 
-vi.mock("@bb/shared-ui/button", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@bb/shared-ui/button")>();
+vi.mock("@hyperfide/shared-ui/button", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@hyperfide/shared-ui/button")>();
   return {
     ...actual,
     Button: (props: ComponentProps<typeof actual.Button>) => {

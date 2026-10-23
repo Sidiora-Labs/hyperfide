@@ -9,7 +9,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
-import { HOST_ARTIFACT_MAX_BYTES } from "@bb/host-daemon-contract";
+import { HOST_ARTIFACT_MAX_BYTES } from "@hyperfide/host-daemon-contract";
 import type { HostDaemonLogger } from "./logger.js";
 import { sha256Hex } from "./sha256-hex.js";
 

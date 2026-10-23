@@ -8,7 +8,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+import { installTestPluginRuntime } from "@hyperfide/plugin-sdk/testing/app";
 import { AutomationOverviewView } from "../overview-view.js";
 import type {
   AutomationResponse,

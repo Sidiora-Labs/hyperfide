@@ -1,5 +1,5 @@
 import { useCallback, useSyncExternalStore } from "react";
-import type { PluginComposerTextEffect } from "@get-bb/plugin-sdk";
+import type { PluginComposerTextEffect } from "@hyperfide/plugin-sdk";
 import { createKeyedListeners } from "./keyed-listeners";
 
 type ComposerTextEffectListener = () => void;

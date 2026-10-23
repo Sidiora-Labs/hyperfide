@@ -5,9 +5,9 @@
   "title": "prompt-stack-disclosure",
   "description": "BB ui \"prompt-stack-disclosure\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/chrome-style-tokens",
-    "@bb/icon",
-    "@bb/utils"
+    "@hyperfide/chrome-style-tokens",
+    "@hyperfide/icon",
+    "@hyperfide/utils"
   ],
   "files": [
     {

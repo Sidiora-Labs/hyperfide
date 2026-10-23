@@ -1,6 +1,6 @@
 import { statfs } from "node:fs/promises";
-import type { AppSurface } from "@bb/config/app-surface";
-import type { ServerBindHost } from "@bb/config/server";
+import type { AppSurface } from "@hyperfide/config/app-surface";
+import type { ServerBindHost } from "@hyperfide/config/server";
 import type {
   AppDeps,
   LoggedPendingInteractionWorkSessionDeps,
@@ -15,7 +15,6 @@ import type {
 } from "./coordinator.js";
 import { exportServerArchive } from "./export.js";
 import { createFullBbAppArtifactService } from "./full-artifact.js";
-import { CONNECT_HOLD_SOURCES } from "./connect-hold.js";
 import { resolveServerMoveMode } from "./mode.js";
 import { stopRunningServerWork } from "./stop-work.js";
 
@@ -134,8 +133,7 @@ export function createDefaultServerMoveEnvironment(
       stop: () => pluginService.stop(),
       suspendAllButConnect: async () => {
         await pluginService.suspendPlugins({
-          keep: (plugin) =>
-            CONNECT_HOLD_SOURCES.some((source) => source === plugin.source),
+          keep: () => false,
         });
       },
     },

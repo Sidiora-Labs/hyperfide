@@ -20,7 +20,7 @@ import {
   type AppCommandContextKey,
   type KeyboardCommandId,
   type AppShortcut,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { usePluginCommandBindings } from "@/hooks/usePluginCommandBindings";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { getBbDesktopInfo } from "@/lib/bb-desktop";

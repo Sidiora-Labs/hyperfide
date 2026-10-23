@@ -1,5 +1,5 @@
 import type { MarketplaceManifest } from "./marketplace-manifest.js";
-import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@bb/server-contract";
+import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@hyperfide/server-contract";
 
 export const BUNDLED_CURATED_MARKETPLACE: MarketplaceManifest = {
   schemaVersion: 1,

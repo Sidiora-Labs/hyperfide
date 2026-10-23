@@ -10,8 +10,8 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginComposerScope } from "@get-bb/plugin-sdk/app";
+import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
+import type { PluginComposerScope } from "@hyperfide/plugin-sdk/app";
 import type {
   promptLibraryRpcContract,
   RecentPromptRow,

@@ -5,7 +5,7 @@
   "title": "resource-detail-sections",
   "description": "BB ui \"resource-detail-sections\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/utils"
+    "@hyperfide/utils"
   ],
   "files": [
     {

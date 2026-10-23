@@ -1,8 +1,8 @@
 import "../../../.ladle/composer-plugin";
 import { useEffect, useState, type ComponentType } from "react";
-import type { PluginComposerScope } from "@get-bb/plugin-sdk";
-import { Button } from "@bb/shared-ui/button";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
+import type { PluginComposerScope } from "@hyperfide/plugin-sdk";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";
 import {
   makeAttachmentsConfig,

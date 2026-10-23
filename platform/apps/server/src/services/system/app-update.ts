@@ -9,8 +9,8 @@ import {
   type AppUpdateTarget,
   type LauncherAppUpdateStatus,
   type SourceUpdateCheck,
-} from "@bb/config/app-update";
-import type { AppSurface } from "@bb/config/app-surface";
+} from "@hyperfide/config/app-update";
+import type { AppSurface } from "@hyperfide/config/app-surface";
 import type {
   SystemAppUpdateActivity,
   SystemAppUpdateAvailable,
@@ -18,7 +18,7 @@ import type {
   SystemAppUpdateRevision,
   SystemAppUpdateStatus,
   SystemAppUpdateSupport,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { ApiError } from "../../errors.js";
 import type { ServerLogger, ServerRuntimeConfig } from "../../types.js";
 import type { AppVersionService } from "./app-version.js";

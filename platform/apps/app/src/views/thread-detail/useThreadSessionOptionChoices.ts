@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { ThreadTimelineSessionOption } from "@bb/server-contract";
+import type { ThreadTimelineSessionOption } from "@hyperfide/server-contract";
 import type {
   SessionOptionChoice,
   SessionOptionChoices,

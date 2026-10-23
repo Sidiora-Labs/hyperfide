@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
 import { createAgentRuntime } from "./runtime.js";
 import {
   createScriptedEchoLaunch,
@@ -91,8 +91,8 @@ describe("codex process topology", () => {
         workspacePath: workspaceDir,
         env: {
           ...record.env,
-          BB_CODEX_BRIDGE_APP_SERVER_COMMAND: process.execPath,
-          BB_CODEX_BRIDGE_APP_SERVER_ARGS: JSON.stringify([
+          HYPERFIDE_CODEX_BRIDGE_APP_SERVER_COMMAND: process.execPath,
+          HYPERFIDE_CODEX_BRIDGE_APP_SERVER_ARGS: JSON.stringify([
             fakeAppServerPath,
             scriptPath,
           ]),

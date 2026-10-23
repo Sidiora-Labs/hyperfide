@@ -3,7 +3,7 @@ import type {
   AppUpdateBlockReason,
   SourceAppRevision,
   SourceUpdateCheck,
-} from "@bb/config/app-update";
+} from "@hyperfide/config/app-update";
 import { runCheckedCommand, type RunCommand } from "./run-command.js";
 
 const SOURCE_BRANCH = "main";

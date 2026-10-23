@@ -33,7 +33,6 @@ function menuArgs(
       reopenClosedTab: undefined,
     },
     closeWindowOrSideTab: () => {},
-    connectServersSkipReason: null,
     createNewWindow: () => {},
     isMac: true,
     showBuiltinServer: true,
@@ -49,7 +48,6 @@ function menuArgs(
     selectServer: () => {},
     servers: [{ checked: true, id: "builtin", name: BUILTIN_SERVER_NAME }],
     setServerUrl: () => {},
-    signInToConnect: () => {},
     addServer: () => {},
     ...overrides,
   };
@@ -335,74 +333,6 @@ describe("application menu", () => {
     expect(addServer).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    { reason: "no-credential", label: "Sign in to bb Connect…" },
-    { reason: "unauthorized", label: "Sign in to bb Connect again…" },
-  ] as const)(
-    "offers sign-in with the server actions when the sync needs it ($reason)",
-    ({ reason, label }) => {
-      const signInToConnect = vi.fn();
-      const template = buildApplicationMenuTemplate(
-        menuArgs(() => {}, {
-          connectServersSkipReason: reason,
-          servers: [
-            { checked: false, id: "builtin", name: BUILTIN_SERVER_NAME },
-            { checked: true, id: "connect:brsbl", name: "brsbl" },
-          ],
-          signInToConnect,
-        }),
-      );
-      const serverSubmenu = findServerSubmenu(template);
-
-      expect(
-        serverSubmenu.map((item) => item.label ?? `<${item.type}>`),
-      ).toEqual([
-        BUILTIN_SERVER_NAME,
-        "brsbl",
-        "<separator>",
-        label,
-        "Add Server…",
-        SET_SERVER_URL_MENU_LABEL,
-        "<separator>",
-        "Show This Mac",
-      ]);
-      const signIn = serverSubmenu[3];
-      expect(signIn?.enabled).toBeUndefined();
-      expect(signIn?.type).toBeUndefined();
-      signIn?.click?.({} as never, undefined, {} as never);
-      expect(signInToConnect).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  it.each(["unavailable", "not-paired", "plugin-disabled"] as const)(
-    "adds no Connect row when sign-in cannot fix the sync ($0)",
-    (reason) => {
-      const template = buildApplicationMenuTemplate(
-        menuArgs(() => {}, {
-          connectServersSkipReason: reason,
-          servers: [
-            { checked: false, id: "builtin", name: BUILTIN_SERVER_NAME },
-            { checked: true, id: "connect:brsbl", name: "brsbl" },
-          ],
-        }),
-      );
-
-      expect(
-        findServerSubmenu(template).map(
-          (item) => item.label ?? `<${item.type}>`,
-        ),
-      ).toEqual([
-        BUILTIN_SERVER_NAME,
-        "brsbl",
-        "<separator>",
-        "Add Server…",
-        SET_SERVER_URL_MENU_LABEL,
-        "<separator>",
-        "Show This Mac",
-      ]);
-    },
-  );
-
   it("builds a native Linux menu with the Linux DevTools accelerator", () => {
     vi.mocked(Menu.sendActionToFirstResponder).mockClear();
     const template = buildApplicationMenuTemplate(
@@ -492,7 +422,7 @@ it.each([
     const connect = {
       handle: "laptop",
       name: "Laptop",
-      url: "https://laptop.getbb.app",
+      url: "https://laptop.hyperfide.example",
     };
     if (alternatives) {
       if (custom) await store.setCustomServerUrl("https://custom.example");

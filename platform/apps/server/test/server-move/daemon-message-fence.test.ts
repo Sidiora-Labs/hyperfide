@@ -1,7 +1,7 @@
 import {
   hostDaemonDaemonWsMessageSchema,
   type HostDaemonDaemonWsMessage,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { describe, expect, it } from "vitest";
 import { SERVER_MOVE_FENCED_DAEMON_MESSAGE_TYPES } from "../../src/ws/daemon-protocol.js";
 

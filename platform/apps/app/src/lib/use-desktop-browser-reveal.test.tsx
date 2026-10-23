@@ -2,7 +2,7 @@
 
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BbDesktopBrowserRevealRequest } from "@bb/desktop-contract";
+import type { BbDesktopBrowserRevealRequest } from "@hyperfide/desktop-contract";
 import { useDesktopBrowserReveal } from "./use-desktop-browser-reveal";
 
 const listeners = vi.hoisted(

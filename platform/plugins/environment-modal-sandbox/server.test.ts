@@ -1,15 +1,15 @@
 import { join, resolve } from "node:path";
 import { modalAllocations } from "./allocations.js";
 import { sweepModalAllocations } from "./allocation-sweep.js";
-import type { BbPluginApi, JsonValue } from "@get-bb/plugin-sdk";
+import type { BbPluginApi, JsonValue } from "@hyperfide/plugin-sdk";
 import type {
   PluginMachineProviderCreateContext,
   PluginMachineProviderProgress,
-} from "@get-bb/plugin-sdk/machine-provider";
+} from "@hyperfide/plugin-sdk/machine-provider";
 import {
   createFakePluginHost,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import type {
   ModalSandboxClient,

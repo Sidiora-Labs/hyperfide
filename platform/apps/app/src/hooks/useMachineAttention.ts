@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import type { Host } from "@bb/domain";
+import type { Host } from "@hyperfide/domain";
 import { createJsonLocalStorage } from "@/lib/browser-storage";
 
 const acknowledgedIssuesAtom = atomWithStorage<string[]>(

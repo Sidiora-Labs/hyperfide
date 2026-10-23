@@ -10,8 +10,8 @@ import {
 } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { Dialog, DialogContent, DialogTitle } from "@bb/shared-ui/dialog";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { Dialog, DialogContent, DialogTitle } from "@hyperfide/shared-ui/dialog";
 import {
   Select,
   SelectContent,
@@ -21,7 +21,7 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from "@bb/shared-ui/select";
+} from "@hyperfide/shared-ui/select";
 
 const pendingFrames = new Map<number, FrameRequestCallback>();
 let nextFrameId = 0;

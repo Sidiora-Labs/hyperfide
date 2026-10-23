@@ -1,7 +1,7 @@
 import type {
   ServerAccessStatus,
   SystemMachineProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { machineServerAccessBlockedReason } from "../src/components/machines/machine-server-access";
 import type { MachineAccessState } from "../src/components/settings/MachineAccessSettings";
 import modalLogoUrl from "../../../plugins/environment-modal-sandbox/modal-logo.svg";
@@ -14,7 +14,7 @@ export const CONNECT_UNPAIRED: ServerAccessStatus = {
     {
       id: "connect",
       displayName: "bb connect",
-      description: "Use a private getbb.app address.",
+      description: "Use a private hyperfide.example address.",
       pluginId: "connect",
       availability: {
         status: "setup-required",

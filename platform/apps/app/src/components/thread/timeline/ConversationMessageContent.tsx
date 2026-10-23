@@ -9,10 +9,10 @@ import type {
   TimelineConversationAttachments,
   TimelineRowBase,
   TimelineUserConversationRow,
-} from "@bb/server-contract";
-import type { PromptTextMention } from "@bb/domain";
-import { fileNameFromPath } from "@bb/thread-view";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/server-contract";
+import type { PromptTextMention } from "@hyperfide/domain";
+import { fileNameFromPath } from "@hyperfide/thread-view";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   MarkdownPreview,
   type MarkdownThreadMentions,
@@ -22,11 +22,11 @@ import {
   parseLocalFileHref,
   resolveRelativeLocalFileHref,
 } from "@/components/ui/markdown-local-file-link.js";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
 import {
   computeMutedPrefixLength,
   parseAutomationDueMessage,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import type { TimelineTitleActionResolver } from "./TimelineTitleView.js";
 import type {
   ThreadTimelineAddToChatHandler,
@@ -60,8 +60,8 @@ import {
   boundedMarkdownPreview,
   closeUnterminatedMarkdownCodeSpan,
   USER_MESSAGE_CHAR_CAP,
-} from "@bb/client-core";
-import { turnRequestLabel } from "@bb/client-core";
+} from "@hyperfide/client-core";
+import { turnRequestLabel } from "@hyperfide/client-core";
 import { resolveStreamingMarkdown } from "./streaming-markdown-split.js";
 import { TurnRequestLabel } from "./TurnRequestLabel.js";
 import {
@@ -77,7 +77,7 @@ import {
   type MessageProseSelection,
 } from "./SelectableMessageProse.js";
 import type { ThreadTimelinePluginMessageAction } from "./types.js";
-import type { PromptDraftAttachment } from "@bb/client-core";
+import type { PromptDraftAttachment } from "@hyperfide/client-core";
 import { buildMarkdownMessageLinkRouting } from "@/components/ui/markdown-message-link-routing";
 import { markStreamTrace } from "@/lib/stream-trace";
 

@@ -11,8 +11,8 @@ import {
   type StoredEventRow,
   type ThreadClientTurnRequestKey,
   type ThreadWithPendingInteractionState,
-} from "@bb/db";
-import { LEGACY_CODEX_GOAL_EXTENSION_KIND } from "@bb/domain";
+} from "@hyperfide/db";
+import { LEGACY_CODEX_GOAL_EXTENSION_KIND } from "@hyperfide/domain";
 import type {
   Thread,
   ThreadActivityState,
@@ -22,18 +22,18 @@ import type {
   ThreadRuntimeState,
   ThreadStatus,
   ThreadWithRuntime,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   extractThreadTimelineActivePlanTurn,
   extractThreadTimelineGoal,
   type ThreadEventWithMeta,
-} from "@bb/thread-view";
-import type { ThreadResponse } from "@bb/server-contract";
+} from "@hyperfide/thread-view";
+import type { ThreadResponse } from "@hyperfide/server-contract";
 import type { NotificationHub } from "../../ws/hub.js";
 import { isHostDisconnectHidden } from "../hosts/host-disconnect-display.js";
 import { resolveProviderPlanCommand } from "../providers/provider-plan-command.js";
 import type { ProviderRegistryService } from "../providers/provider-registry.js";
-import { listQueuedThreadMessageCountsByThreadIds } from "@bb/db";
+import { listQueuedThreadMessageCountsByThreadIds } from "@hyperfide/db";
 import { resolveEnvironmentWorkspaceDisplayKind } from "../environments/environment-response.js";
 import { canThreadSpawnChild } from "./thread-parent.js";
 import { canRestoreThreadEnvironment } from "./thread-environment-restore.js";

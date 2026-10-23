@@ -1,7 +1,7 @@
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PLUGIN_CLI_OUTPUT_MAX_BYTES } from "@get-bb/plugin-sdk";
+import { PLUGIN_CLI_OUTPUT_MAX_BYTES } from "@hyperfide/plugin-sdk";
 import {
   generatedSkillsRootPath,
   pluginCommandsSkillDir,
@@ -22,7 +22,7 @@ const CLI_SOURCE = `
       name: "acme",
       summary: "Acme tools",
       commands: [
-        { name: "issues", summary: "List issues", usage: "bb acme issues [--json]" },
+        { name: "issues", summary: "List issues", usage: "hyperfide-platform acme issues [--json]" },
       ],
       async run(argv: string[], ctx: any) {
         if (argv[0] === "fail") return { exitCode: 3, stderr: "acme failed" };
@@ -123,7 +123,7 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
             {
               name: "issues",
               summary: "List issues",
-              usage: "bb acme issues [--json]",
+              usage: "hyperfide-platform acme issues [--json]",
             },
           ],
           rendersHelp: false,
@@ -301,7 +301,7 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
       join(pluginCommandsSkillDir(harness.config.dataDir), "SKILL.md"),
       "utf8",
     );
-    expect(skill).toContain("bb plugin run shadower inspect");
+    expect(skill).toContain("hyperfide-platform plugin run shadower inspect");
 
     const invalid = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
@@ -351,8 +351,8 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
     expect(content).toContain("name: plugin-commands");
     expect(content).toContain("capped at 1048576 UTF-8 bytes");
     expect(content).toContain("plugin_cli_output_too_large");
-    expect(content).toContain("## bb acme — Acme tools");
-    expect(content).toContain("bb acme issues [--json]");
+    expect(content).toContain("## hyperfide-platform acme — Acme tools");
+    expect(content).toContain("hyperfide-platform acme issues [--json]");
 
     const sources = resolveSkillCatalogEntries(testLogger, {
       additionalSkillsRootPaths: [
@@ -375,8 +375,8 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
     );
     await harness.pluginService.reload("acme");
     const reloaded = await readFile(skillFile, "utf8");
-    expect(reloaded).toContain("## bb acme2 — Acme v2");
-    expect(reloaded).not.toContain("## bb acme —");
+    expect(reloaded).toContain("## hyperfide-platform acme2 — Acme v2");
+    expect(reloaded).not.toContain("## hyperfide-platform acme —");
   });
 
   it("bb.log writes JSONL to the plugin log file and the tail endpoint serves it", async () => {

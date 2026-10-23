@@ -1,7 +1,7 @@
 import { ThreadDiffFixedTabContent } from "./git-diff/thread-diff-registration";
 import { ThreadInfoFixedTabContent } from "@/components/secondary-panel/thread-info-registration";
 import { useState, type ReactNode } from "react";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createGitDiffFixedPanelTab,

@@ -1,5 +1,5 @@
 {
-  "name": "@bb/mobile",
+  "name": "@hyperfide/mobile",
   "version": "0.0.1",
   "private": true,
   "main": "expo-router/entry",
@@ -18,13 +18,12 @@
     "e2e:android": "maestro test e2e/android/smoke.yaml"
   },
   "dependencies": {
-    "@bb/client-core": "workspace:*",
-    "@bb/connect-client": "workspace:*",
-    "@bb/core-ui": "workspace:*",
-    "@bb/domain": "workspace:*",
-    "@bb/mobile-bridge": "workspace:*",
-    "@bb/sdk": "workspace:*",
-    "@bb/server-contract": "workspace:*",
+    "@hyperfide/client-core": "workspace:*",
+    "@hyperfide/core-ui": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/mobile-bridge": "workspace:*",
+    "@hyperfide/sdk": "workspace:*",
+    "@hyperfide/server-contract": "workspace:*",
     "@expo/ui": "57.0.11",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@hugeicons/core-free-icons": "^4.3.4",
@@ -36,7 +35,6 @@
     "expo": "~57.0.14",
     "expo-application": "~57.0.2",
     "expo-build-properties": "~57.0.12",
-    "expo-camera": "~57.0.3",
     "expo-constants": "~57.0.12",
     "expo-crypto": "~57.0.1",
     "expo-dev-client": "~57.0.13",
@@ -69,8 +67,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/test-helpers": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/test-helpers": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/culori": "^4.0.1",
     "@types/node": "^22.0.0",

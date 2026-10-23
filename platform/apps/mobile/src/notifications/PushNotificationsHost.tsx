@@ -1,5 +1,5 @@
 import * as Notifications from "expo-notifications";
-import { getThreadRoutePath } from "@bb/client-core";
+import { getThreadRoutePath } from "@hyperfide/client-core";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";

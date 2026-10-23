@@ -1,10 +1,7 @@
-import type { RecordTelemetryEventRequest } from "@bb/server-contract";
-import { sdk } from "@/lib/sdk";
+import type { RecordTelemetryEventRequest } from "@hyperfide/server-contract";
 
 export type OnboardingEntry = "first_run" | "replay";
 
 export function recordTelemetryEvent(event: RecordTelemetryEventRequest): void {
-  void sdk.system
-    .experimental_recordTelemetryEvent(event)
-    .catch(() => undefined);
+  console.debug("Local event", event);
 }

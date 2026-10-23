@@ -5,7 +5,7 @@ import {
   type SetStateAction,
 } from "react";
 import { z } from "zod";
-import type { ExperimentalBadge } from "@get-bb/plugin-sdk";
+import type { ExperimentalBadge } from "@hyperfide/plugin-sdk";
 import { PluginSlotMount } from "@/components/plugin/PluginSlotMount";
 import type { PluginNavPanelSlot } from "@/lib/plugin-slots";
 

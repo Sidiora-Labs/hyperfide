@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import {
   experimental_defineHostEntry,
   type ExperimentalHostWorkerLease,
-} from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/plugin-sdk/host";
 import { keepAwakeHostContract } from "./contract.js";
 
 const CAFFEINATE_COMMAND = "/usr/bin/caffeinate";

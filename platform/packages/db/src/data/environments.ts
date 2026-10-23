@@ -7,8 +7,8 @@ import type {
   EnvironmentLifecycleNoopReason,
   EnvironmentProviderSelection,
   EnvironmentStatus,
-} from "@bb/domain";
-import { areHostPathsEqual, evaluateEnvironmentLifecycleEvent } from "@bb/domain";
+} from "@hyperfide/domain";
+import { areHostPathsEqual, evaluateEnvironmentLifecycleEvent } from "@hyperfide/domain";
 import type { DbConnection, DbTransaction, DbQueryConnection } from "../connection.js";
 import type { DbNotifier } from "../notifier.js";
 import { environments, threads } from "../schema.js";

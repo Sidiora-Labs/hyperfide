@@ -15,8 +15,8 @@ import {
   upsertHost,
   upsertInstalledPlugin,
   type DbConnection,
-} from "@bb/db";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+} from "@hyperfide/db";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract";
 import {
   readLastServerMoveFile,
   readServerImportFile,
@@ -25,7 +25,7 @@ import {
   writeLastServerMoveFile,
   writeServerImportFile,
   type ServerImportFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { initDb } from "../../src/db.js";
 import { createApp } from "../../src/server.js";
@@ -232,64 +232,31 @@ describe("imported server boot", () => {
     }
   });
 
-  it("leaves machineServerUrl alone for bb connect moves when bb account holds the pairing", async () => {
+  it("uses the imported direct URL even when retired plugin credentials remain", async () => {
     const { dataDir, db } = await openImportedDataDir();
     try {
       setPluginKvValue(
         db,
-        "bb-account",
+        "retired-host",
         "credential",
         JSON.stringify({
-          baseUrl: "https://getbb.test",
-          serverUrl: "https://laptop.getbb.test",
-          serverId: "srv_1",
-          credential: "bbcred_secret",
+          serverUrl: "https://laptop.hyperfide.example",
+          credential: "retired-secret",
         }),
       );
       await writeServerImportFile(
         dataDir,
-        moveMarker({ serverUrl: "https://laptop.getbb.test/" }),
+        moveMarker({ serverUrl: "https://laptop.hyperfide.example/" }),
       );
-
       await applyServerImportAtBoot({
         dataDir,
         db,
         logger: testLogger,
         now: 1,
       });
-
-      expect(getAppSettings(db).machineServerUrl).toBeNull();
-    } finally {
-      db.$client.close();
-    }
-  });
-
-  it("leaves machineServerUrl alone for bb connect moves", async () => {
-    const { dataDir, db } = await openImportedDataDir();
-    try {
-      setPluginKvValue(
-        db,
-        "connect",
-        "credential",
-        JSON.stringify({
-          serverUrl: "https://laptop.getbb.test",
-          handle: "laptop",
-          credential: "bbcs_secret",
-        }),
+      expect(getAppSettings(db).machineServerUrl).toBe(
+        "https://laptop.hyperfide.example",
       );
-      await writeServerImportFile(
-        dataDir,
-        moveMarker({ serverUrl: "https://laptop.getbb.test/" }),
-      );
-
-      await applyServerImportAtBoot({
-        dataDir,
-        db,
-        logger: testLogger,
-        now: 1,
-      });
-
-      expect(getAppSettings(db).machineServerUrl).toBeNull();
     } finally {
       db.$client.close();
     }

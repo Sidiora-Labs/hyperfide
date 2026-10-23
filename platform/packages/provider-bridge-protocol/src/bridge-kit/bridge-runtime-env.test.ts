@@ -19,7 +19,7 @@ describe("bridge runtime env", () => {
   it("keeps the record-mode directory out of provider children", () => {
     expect(
       withoutBridgeRuntimeEnv({
-        BB_PROVIDER_BRIDGE_RECORD_DIR: "/tmp/recordings/codex",
+        HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR: "/tmp/recordings/codex",
         BB_CLI: "/usr/local/bin/bb",
       }),
     ).toEqual({ BB_CLI: "/usr/local/bin/bb" });

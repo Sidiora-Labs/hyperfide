@@ -1,4 +1,4 @@
-import { defaultFeatureFlags } from "@bb/domain";
+import { defaultFeatureFlags } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import {
   resolveTelemetryInitiator,
@@ -33,14 +33,5 @@ describe("initiatorTelemetryProperty", () => {
     expect(
       initiatorTelemetryProperty(defaultFeatureFlags, "automation"),
     ).toEqual({ initiator: "automation" });
-  });
-
-  it("is empty when the flag is turned off", () => {
-    expect(
-      initiatorTelemetryProperty(
-        { ...defaultFeatureFlags, initiatorTelemetry: false },
-        "user",
-      ),
-    ).toEqual({});
   });
 });

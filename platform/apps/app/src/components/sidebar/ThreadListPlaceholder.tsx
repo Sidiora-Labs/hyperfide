@@ -1,6 +1,6 @@
-import { Button } from "@bb/shared-ui/button";
-import { Skeleton } from "@bb/shared-ui/skeleton";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 export type ThreadListPlaceholderState =
   | { kind: "loading" }

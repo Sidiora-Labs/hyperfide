@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ThreadEvent, ToolCallResponse } from "@bb/domain";
+import type { ThreadEvent, ToolCallResponse } from "@hyperfide/domain";
 import { createProviderForId } from "./provider-registry.js";
 import {
   handleRuntimeProviderRequest,
@@ -12,7 +12,7 @@ import {
 import {
   parseJsonRpcLine,
   type JsonRpcMessage,
-} from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import { promptTextInput } from "./test/prompt-input.js";
 import {
   createScriptedEchoLaunch,

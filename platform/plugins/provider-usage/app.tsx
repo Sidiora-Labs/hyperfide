@@ -14,7 +14,7 @@ import {
   experimental_usePluginId,
   type ExperimentalSidebarFooterDisclosureProps,
   useBbContext,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { HostDaemonOnlineRpcResult } from "@bb/host-daemon-contract";
+import type { HostDaemonOnlineRpcResult } from "@hyperfide/host-daemon-contract";
 import {
   CommandDispatchError,
   type CommandOf,

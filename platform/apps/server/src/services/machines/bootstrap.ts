@@ -1,5 +1,5 @@
-import type { MachineBootstrapApi } from "@get-bb/plugin-sdk";
-import type { PluginMachineProviderProgress } from "@get-bb/plugin-sdk/machine-provider";
+import type { MachineBootstrapApi } from "@hyperfide/plugin-sdk";
+import type { PluginMachineProviderProgress } from "@hyperfide/plugin-sdk/machine-provider";
 import type { EnrollmentBootstrap, MachineEnrollments } from "./enrollments.js";
 import { readFile } from "node:fs/promises";
 import { INSTALL_MACHINE_SCRIPT_PATH } from "../../install-machine-asset.js";

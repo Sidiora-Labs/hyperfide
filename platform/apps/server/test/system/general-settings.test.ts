@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { getAppSettings } from "@bb/db";
-import { appSettingsSchema, defaultAppSettings } from "@bb/domain";
-import { systemConfigResponseSchema } from "@bb/server-contract";
+import { getAppSettings } from "@hyperfide/db";
+import { appSettingsSchema, defaultAppSettings } from "@hyperfide/domain";
+import { systemConfigResponseSchema } from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import { withTestHarness } from "../helpers/test-app.js";
 import { seedHostSession, seedPrimaryHost } from "../helpers/seed.js";
@@ -255,31 +255,6 @@ it("persists terminal copy-on-select and preserves opt-out for older clients", a
       (await put({ ...defaultAppSettings, terminalCopyOnSelect: "false" }))
         .status,
     ).toBe(400);
-  });
-});
-
-it("preserves telemetry opt-out when older clients update other settings", async () => {
-  await withTestHarness(async (harness) => {
-    const put = (settings: object) =>
-      harness.app.request("/api/v1/settings/general", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(settings),
-      });
-    expect(
-      (await put({ ...defaultAppSettings, telemetryEnabled: false })).status,
-    ).toBe(200);
-    expect(getAppSettings(harness.db).telemetryEnabled).toBe(false);
-    const { telemetryEnabled, ...legacy } = defaultAppSettings;
-    expect(telemetryEnabled).toBe(true);
-    expect((await put({ ...legacy, showKeyboardHints: false })).status).toBe(
-      200,
-    );
-    const config = systemConfigResponseSchema.parse(
-      await readJson(await harness.app.request("/api/v1/system/config")),
-    );
-    expect(config.generalSettings.telemetryEnabled).toBe(false);
-    expect(config.generalSettings.showKeyboardHints).toBe(false);
   });
 });
 

@@ -12,7 +12,7 @@ import {
   type ExperimentalPluginBrowserPage,
   type ExperimentalPluginBrowserToolbarActionProps,
   type JsonValue,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   ANNOTATION_MENTION_PROVIDER_ID,
   annotationMentionLabel,

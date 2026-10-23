@@ -1,11 +1,11 @@
-import type { PluginUpdateJob } from "@bb/server-contract";
+import type { PluginUpdateJob } from "@hyperfide/server-contract";
 import { trackPluginUpdate } from "@/lib/plugin-update-tracking";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   pluginListQueryOptions,
   type PluginSettingsView,
 } from "../queries/plugin-settings-queries";
-import type { InstalledPlugin, PluginInstallJob } from "@bb/server-contract";
+import type { InstalledPlugin, PluginInstallJob } from "@hyperfide/server-contract";
 import {
   allPluginCatalogSearchQueryKeyPrefix,
   allPluginListQueryKeyPrefix,

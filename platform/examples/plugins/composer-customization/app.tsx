@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { definePluginApp, useComposer } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useComposer } from "@hyperfide/plugin-sdk/app";
 import "./app.css";
 
 function ComposerAction() {

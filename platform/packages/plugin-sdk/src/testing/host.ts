@@ -9,7 +9,7 @@ import type {
   StandardSchemaV1,
   StandardSchemaV1InferInput,
   StandardSchemaV1InferOutput,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 
 const RESULT_MAX_BYTES = 8 * 1024 * 1024;
 

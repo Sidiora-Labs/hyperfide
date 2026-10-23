@@ -50,7 +50,7 @@ describe("resolveBbAppVersion", () => {
     );
     await writeFile(
       join(repoRoot, "apps", "cli", "package.json"),
-      JSON.stringify({ name: "@bb/cli", version: "0.0.1" }),
+      JSON.stringify({ name: "@hyperfide/cli", version: "0.0.1" }),
     );
     const bbAppDir = join(repoRoot, "packages", "bb-app");
     await mkdir(bbAppDir, { recursive: true });

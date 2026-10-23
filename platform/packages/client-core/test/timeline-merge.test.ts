@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyTimelineDelta } from "@bb/server-contract";
+import { applyTimelineDelta } from "@hyperfide/server-contract";
 import { OPTIMISTIC_TIMELINE_ROW_ID_PREFIX } from "../src/timeline/optimistic-timeline-row.js";
 import type {
   ThreadTimelineResponse,
@@ -8,7 +8,7 @@ import type {
   TimelineRow,
   TimelineTurnRow,
   TimelineUserConversationRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   mergeLoadedTimelineWithLatest,
   prependOlderTimelineRows,

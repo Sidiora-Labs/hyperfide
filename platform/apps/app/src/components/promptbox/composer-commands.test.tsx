@@ -5,7 +5,7 @@ import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerComposerPlugin } from "@/test/fixtures/composer-plugin";
 import { ComposerTestProviders } from "@/test/fixtures/composer-test-providers";
-import { defaultAppSettings, pluginCommandId } from "@bb/domain";
+import { defaultAppSettings, pluginCommandId } from "@hyperfide/domain";
 import {
   AppCommandProvider,
   useAppCommandContext,

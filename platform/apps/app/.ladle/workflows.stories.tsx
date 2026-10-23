@@ -3,7 +3,7 @@ import { PluginSlotMount } from "../src/components/plugin/PluginSlotMount";
 import {
   installTestPluginRuntime,
   loadPluginApp,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 import type { WorkflowRunView } from "../../../plugins/workflows/src/ui-contract.js";
 
 installTestPluginRuntime();

@@ -1,5 +1,5 @@
-import { COARSE_POINTER_COMPACT_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { Icon } from "@bb/shared-ui/icon";
+import { COARSE_POINTER_COMPACT_ICON_SIZE_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { resolveRightPanelFileIconName } from "./rightPanelFileVisuals";
 
 interface RightPanelFileTabIconProps {

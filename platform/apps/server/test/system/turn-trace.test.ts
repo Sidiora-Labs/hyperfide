@@ -1,9 +1,9 @@
-import { setExperiments } from "@bb/db";
-import { turnScope, type Thread } from "@bb/domain";
+import { setExperiments } from "@hyperfide/db";
+import { turnScope, type Thread } from "@hyperfide/domain";
 import {
   groupHostDaemonEvents,
   type HostDaemonEventEnvelope,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { acceptThreadSendRequest } from "../../src/services/threads/thread-send-request.js";
 import {

@@ -5,16 +5,16 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ServerConfig } from "@bb/config/server";
-import { isLoopbackHostname } from "@bb/config/loopback";
-import { toOptionalString } from "@bb/config/strings";
-import { createLogger } from "@bb/logger";
+import type { ServerConfig } from "@hyperfide/config/server";
+import { isLoopbackHostname } from "@hyperfide/config/loopback";
+import { toOptionalString } from "@hyperfide/config/strings";
+import { createLogger } from "@hyperfide/logger";
 import {
   getAppSettings,
   getDisabledProviderIds,
   listRunningThreads,
   setAppSettings,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { initDb } from "./db.js";
 import { createApp } from "./server.js";
 import { PendingInteractionLifecycle } from "./services/interactions/pending-interactions.js";
@@ -44,10 +44,7 @@ import {
   type ProviderRegistryService,
 } from "./services/providers/provider-registry.js";
 import type { PluginService } from "./services/plugins/plugin-service.js";
-import {
-  appInstallFromServerConfig,
-  createTelemetryService,
-} from "./services/system/telemetry.js";
+import { createTelemetryService } from "./services/system/telemetry.js";
 import { TerminalSessionLifecycle } from "./services/terminals/terminal-session-lifecycle.js";
 import { createLifecycleDedupers } from "./lifecycle-dedupers.js";
 import type { ServerLogger, ServerRuntimeConfig } from "./types.js";
@@ -62,7 +59,6 @@ import {
   refuseInterruptedServerImport,
   repairLastServerMoveHostName,
 } from "./services/server-move/pending-boot.js";
-import { createConnectHold } from "./services/server-move/connect-hold.js";
 import { isServerMoveFrozen } from "./services/server-move/freeze-state.js";
 import { reconcileServerMoveRunAtBoot } from "./services/server-move/reconcile.js";
 import {
@@ -101,9 +97,7 @@ export function startServerPlugins(
   args: StartServerPluginsArgs,
 ): Promise<void> {
   return args.pluginService
-    .start({
-      hold: createConnectHold({ dataDir: args.dataDir, logger: args.logger }),
-    })
+    .start()
     .catch((error: unknown) => {
       args.logger.error({ err: error }, "Plugin startup failed");
     })
@@ -177,7 +171,6 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     appVersion: serverConfig.HYPERFIDE_APP_VERSION,
     builtinSkillsRootPath: resolveBuiltinSkillsRootPath(),
     marketplaceUrl: serverConfig.HYPERFIDE_MARKETPLACE_URL,
-    connectGateKeysUrl: serverConfig.HYPERFIDE_CONNECT_GATE_KEYS_URL,
     customModels: [],
     dataDir: serverConfig.HYPERFIDE_DATA_DIR,
     featureFlags: serverConfig.featureFlags,
@@ -222,19 +215,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     logger,
   });
 
-  const telemetry = await createTelemetryService({
-    apiKey: serverConfig.HYPERFIDE_POSTHOG_API_KEY,
-    appInstall: appInstallFromServerConfig(serverConfig),
-    appSurface: serverConfig.HYPERFIDE_APP_SURFACE,
-    appVersion: serverConfig.HYPERFIDE_APP_VERSION,
-    dataDir: serverConfig.HYPERFIDE_DATA_DIR,
-    enabled:
-      serverConfig.HYPERFIDE_TELEMETRY &&
-      isProduction &&
-      pendingServerMove === null,
-    telemetryEnabled: getAppSettings(db).telemetryEnabled,
-    logger,
-  });
+  const telemetry = await createTelemetryService({ logger });
 
   const machineAuth = await createMachineAuthService({
     dataDir: serverConfig.HYPERFIDE_DATA_DIR,
@@ -315,7 +296,6 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     pluginCatalogService,
     pluginService,
     serverMove,
-    tunnelIngress,
   } = createApp(
     {
       appUpdate,
@@ -515,7 +495,6 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
           resolve();
         });
       });
-      await tunnelIngress.closeAll();
       await closeWebSockets();
       await closeServer;
     })();

@@ -27,7 +27,7 @@ import type {
   ThemeSetInput as RootThemeSetInput,
   ThreadSectionListResult as RootThreadSectionList,
   ThreadSpawnResult as RootThreadSpawn,
-} from "@bb/sdk";
+} from "@hyperfide/sdk";
 import type {
   BbSdk as BrowserBbSdk,
   BrowserBbSdk as BrowserRuntimeBbSdk,
@@ -55,7 +55,7 @@ import type {
   ThemeSetInput as BrowserThemeSetInput,
   ThreadSectionListResult as BrowserThreadSectionList,
   ThreadSpawnResult as BrowserThreadSpawn,
-} from "@bb/sdk/browser";
+} from "@hyperfide/sdk/browser";
 import type {
   BbSdk as CoreBbSdk,
   BbRealtimeConnectionEvent as CoreRealtimeConnection,
@@ -82,7 +82,7 @@ import type {
   ThemeSetInput as CoreThemeSetInput,
   ThreadSectionListResult as CoreThreadSectionList,
   ThreadSpawnResult as CoreThreadSpawn,
-} from "@bb/sdk/core";
+} from "@hyperfide/sdk/core";
 import type {
   BbSdk as NodeBbSdk,
   BbRealtimeConnectionEvent as NodeRealtimeConnection,
@@ -109,8 +109,8 @@ import type {
   ThemeSetInput as NodeThemeSetInput,
   ThreadSectionListResult as NodeThreadSectionList,
   ThreadSpawnResult as NodeThreadSpawn,
-} from "@bb/sdk/node";
-import type { createBrowserBbSdk } from "@bb/sdk/browser";
+} from "@hyperfide/sdk/node";
+import type { createBrowserBbSdk } from "@hyperfide/sdk/browser";
 
 interface RootSurface {
   environmentStatus: RootEnvironmentStatus;
@@ -384,7 +384,6 @@ type ExpectedSystemKey =
   | "installCliSkills"
   | "experimental_cliCommand"
   | "experimental_installCliCommand"
-  | "experimental_recordTelemetryEvent"
   | "experimental_removeCliCommand"
   | "reloadConfig"
   | "setAiServiceSelection"

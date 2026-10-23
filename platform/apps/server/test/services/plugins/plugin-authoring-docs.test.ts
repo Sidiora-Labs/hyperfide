@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import ts from "typescript";
-import * as pluginSdkApp from "@get-bb/plugin-sdk/app";
+import * as pluginSdkApp from "@hyperfide/plugin-sdk/app";
 import {
   type BbPluginApi,
   type ExperimentalAppOverlayProps,
@@ -48,7 +48,7 @@ import {
   type ExperimentalThreadActionTabProps,
   type ThreadChatMessageAction,
   type ThreadChatProps,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 
 const FRONTEND_RUNTIME_EXPORT_NAMES = Object.keys(pluginSdkApp).sort();
 const REPO_ROOT = fileURLToPath(new URL("../../../../../", import.meta.url));
@@ -664,13 +664,13 @@ describe("bb-plugin-authoring skill", () => {
     }
   });
 
-  it("documents every @get-bb/plugin-sdk/app runtime export", () => {
+  it("documents every @hyperfide/plugin-sdk/app runtime export", () => {
     for (const name of FRONTEND_RUNTIME_EXPORT_NAMES) {
       expect(skill, `${name} is not documented in the skill`).toContain(name);
     }
   });
 
-  it("accounts for every @get-bb/plugin-sdk/app type export", () => {
+  it("accounts for every @hyperfide/plugin-sdk/app type export", () => {
     for (const name of FRONTEND_TYPE_EXPORT_NAMES) {
       expect(skill, `${name} is not documented in the skill`).toContain(name);
     }

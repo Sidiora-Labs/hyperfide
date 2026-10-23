@@ -1,4 +1,4 @@
-import type { IconName } from "@bb/shared-ui/icon";
+import type { IconName } from "@hyperfide/shared-ui/icon";
 import { getPluginConfigurationRoutePath } from "@/lib/route-paths";
 import type { PluginSettingsEntry } from "./plugin-settings-entries";
 import {
@@ -89,10 +89,6 @@ export const SETTINGS_SEARCH_INDEX: Record<
       {
         title: "Streamer mode",
         keywords: ["privacy", "screen share", "hide models"],
-      },
-      {
-        title: "Share anonymous usage data",
-        keywords: ["privacy", "telemetry", "analytics"],
       },
       {
         title: "Show diagnostic events",

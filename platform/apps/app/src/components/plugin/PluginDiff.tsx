@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import type { DiffProps } from "@get-bb/plugin-sdk";
+import type { DiffProps } from "@hyperfide/plugin-sdk";
 import { DiffHost } from "@/components/code/DiffHost";
 import { normalizeFilePatch } from "@/components/git-diff/git-diff-parsing";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 export function PluginDiff({
   patch,

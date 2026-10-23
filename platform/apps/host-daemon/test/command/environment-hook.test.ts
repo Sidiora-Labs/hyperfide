@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { expect, it } from "vitest";
 import { dispatchOnlineRpcCommand } from "../../src/command-dispatch.js";
 import { createHarness } from "./dispatch-helpers.js";
@@ -9,7 +9,7 @@ it("streams hook output and cancels the process before the run RPC settles", asy
   const harness = createHarness();
   const path = await makeTempDir("bb-hook-dispatch-");
   await writeFile(
-    join(path, ".bb-env-setup.sh"),
+    join(path, ".hyperfide-env-setup.sh"),
     "echo running-hook\nsleep 120\n",
   );
   const output: string[] = [];
@@ -42,13 +42,13 @@ it("streams hook output and cancels the process before the run RPC settles", asy
     ),
   ).rejects.toThrow("cancelled");
   expect(output).toContain("running-hook");
-  expect(output).toContain(".bb-env-setup.sh cancelled");
+  expect(output).toContain(".hyperfide-env-setup.sh cancelled");
 });
 
 it("reconciles running and completed hook IDs without executing a second shell", async () => {
   const path = await makeTempDir("bb-hook-resume-");
   await writeFile(
-    join(path, ".bb-env-setup.sh"),
+    join(path, ".hyperfide-env-setup.sh"),
     "echo once >> marker\nwhile [ ! -f proceed ]; do sleep 0.05; done\n",
   );
   const options = createHarness().dispatchOptions({ dataDir: path });
@@ -86,7 +86,7 @@ it("reconciles running and completed hook IDs without executing a second shell",
 
 it("rejects unknown recovery and cancels delayed dispatch within this daemon", async () => {
   const path = await makeTempDir("bb-hook-unknown-");
-  await writeFile(join(path, ".bb-env-setup.sh"), "echo unsafe > marker\n");
+  await writeFile(join(path, ".hyperfide-env-setup.sh"), "echo unsafe > marker\n");
   const options = createHarness().dispatchOptions({ dataDir: path });
   await expect(
     dispatchOnlineRpcCommand(
@@ -131,7 +131,7 @@ it("rejects unknown recovery and cancels delayed dispatch within this daemon", a
 it("reports unknown after daemon memory is lost without rerunning the script", async () => {
   const path = await makeTempDir("bb-hook-daemon-restart-");
   await writeFile(
-    join(path, ".bb-env-setup.sh"),
+    join(path, ".hyperfide-env-setup.sh"),
     "echo started > started\nsleep 120\necho unsafe > completed\n",
   );
   const firstOptions = createHarness().dispatchOptions({ dataDir: path });
@@ -186,7 +186,7 @@ it.each(["setup", "teardown"] as const)(
     const path = await makeTempDir("bb-hook-environment-");
     const secret = "hook-secret-fixture";
     await writeFile(
-      join(path, `.bb-env-${kind}.sh`),
+      join(path, `.hyperfide-env-${kind}.sh`),
       'test "$HOOK_PLAIN" = configured || exit 1\nprintf "%s" "$GH_TOKEN" > received\nprintf "%s\\n" "$GH_TOKEN"\nexit 1\n',
     );
     const options = createHarness().dispatchOptions({ dataDir: path });
@@ -240,7 +240,7 @@ it.each(["setup", "teardown"] as const)(
   async (kind) => {
     const path = await makeTempDir("bb-hook-multiline-");
     await writeFile(
-      join(path, `.bb-env-${kind}.sh`),
+      join(path, `.hyperfide-env-${kind}.sh`),
       'printf "%s\\n" "$MULTILINE" | while IFS= read -r line; do printf "%s\\n" "$line"; sleep 0.05; done\nprintf "%s\\n" "$MULTILINE" | while IFS= read -r line; do printf "%s\\n" "$line"; sleep 0.05; done >&2\n',
     );
     const output: string[] = [];
@@ -275,7 +275,7 @@ it.each(["setup", "teardown"] as const)(
 it("applies hook NODE_ENV and PATH contributions after sanitizing inherited state", async () => {
   const path = await makeTempDir("bb-hook-overrides-");
   await writeFile(
-    join(path, ".bb-env-setup.sh"),
+    join(path, ".hyperfide-env-setup.sh"),
     'printf "NODE_ENV=%s\\nPATH=%s\\n" "$NODE_ENV" "$PATH"; sleep 0.1\n',
   );
   const output: string[] = [];

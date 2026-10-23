@@ -5,16 +5,16 @@ import {
   markThreadDeleted,
   setExperiments,
   setThreadExecutionOverride,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   defaultExperiments,
   encodeClientTurnRequestIdNumber,
   normalizeProviderNativeRoots,
-} from "@bb/domain";
-import { validatePluginProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
-import type { PluginAgentConfigurationContext } from "@get-bb/plugin-sdk";
+} from "@hyperfide/domain";
+import { validatePluginProviderDeclaration } from "@hyperfide/plugin-sdk/internal/host-policy";
+import type { PluginAgentConfigurationContext } from "@hyperfide/plugin-sdk";
 import { buildPluginProviderRegistration } from "../../src/services/providers/plugin-provider-registration.js";
-import type { DiscoveredSkill } from "@bb/host-daemon-contract";
+import type { DiscoveredSkill } from "@hyperfide/host-daemon-contract";
 import { setPluginAgentContributions } from "../../src/services/plugins/plugin-agent-contributions.js";
 import { readSkillTreeManifest } from "../../src/services/skills/injected-skills.js";
 import type { PluginAgentToolContribution } from "../../src/services/plugins/plugin-service.js";
@@ -1225,7 +1225,7 @@ describe("thread runtime config", () => {
     });
   });
 
-  it("reads workspace .bb/AGENTS.md from a non-primary host", async () => {
+  it("reads workspace .hyperfide/AGENTS.md from a non-primary host", async () => {
     await withTestHarness(async (harness) => {
       const { host: primary } = seedHostSession(harness.deps, {
         id: "host-runtime-agents-primary",
@@ -1288,7 +1288,7 @@ describe("thread runtime config", () => {
     });
   });
 
-  it("treats a missing remote workspace .bb/AGENTS.md as null", async () => {
+  it("treats a missing remote workspace .hyperfide/AGENTS.md as null", async () => {
     await withTestHarness(async (harness) => {
       const { host: primary } = seedHostSession(harness.deps, {
         id: "host-runtime-missing-agents-primary",
@@ -1326,7 +1326,7 @@ describe("thread runtime config", () => {
       );
 
       expect(runtimeConfig.instructions).not.toContain(
-        "The following workspace instructions come from .bb/AGENTS.md:",
+        "The following workspace instructions come from .hyperfide/AGENTS.md:",
       );
     });
   });
@@ -1538,7 +1538,7 @@ describe("thread runtime config", () => {
       const userSource =
         "The following user instructions come from <dataDir>/AGENTS.md:";
       const workspaceSource =
-        "The following workspace instructions come from .bb/AGENTS.md:";
+        "The following workspace instructions come from .hyperfide/AGENTS.md:";
       expect(runtimeConfig.instructions).toContain(userSource);
       expect(runtimeConfig.instructions).toContain(
         "Prefer concise progress updates.",

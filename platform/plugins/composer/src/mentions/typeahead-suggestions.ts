@@ -4,7 +4,7 @@ import type {
   ExperimentalComposerCommandSuggestionGroup,
   ExperimentalComposerCommandTrigger,
   ExperimentalComposerMentionSuggestion,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { isImageAttachment } from "../attachments";
 import type { MentionTarget } from "../editor/composer-mentions";
 

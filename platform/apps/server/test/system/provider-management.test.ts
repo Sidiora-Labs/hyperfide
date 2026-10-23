@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { appSettingsUpdateSchema } from "@bb/domain";
-import { getDisabledProviderIds } from "@bb/db";
-import { systemProviderCatalogEntrySchema } from "@bb/server-contract";
+import { appSettingsUpdateSchema } from "@hyperfide/domain";
+import { getDisabledProviderIds } from "@hyperfide/db";
+import { systemProviderCatalogEntrySchema } from "@hyperfide/server-contract";
 import { requireBridgeLaunchForProviderId } from "../../src/services/system/provider-bridge-launch.js";
 import { listSystemProviderInfos } from "../../src/services/system/execution-options.js";
 import { resolveCreateThreadExecutionDefaults } from "../../src/services/threads/thread-default-policy.js";

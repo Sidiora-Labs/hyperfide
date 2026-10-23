@@ -1,5 +1,5 @@
 {
-  "name": "@bb/process-utils",
+  "name": "@hyperfide/process-utils",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -23,7 +23,7 @@
     "which-command": "0.1.0"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",

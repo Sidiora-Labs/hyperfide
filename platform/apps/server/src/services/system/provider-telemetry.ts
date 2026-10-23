@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { pluginPackageJsonSchema } from "@bb/domain";
+import { pluginPackageJsonSchema } from "@hyperfide/domain";
 import { listBundledPluginRegistrations } from "../plugins/builtin-registry.js";
 
 const shippedProviderIds = new Set<string>();

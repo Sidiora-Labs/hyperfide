@@ -6,11 +6,11 @@ import {
 } from "../src/index.js";
 import { templateDefinitions } from "../src/generated/templates.generated.js";
 
-describe("@bb/templates", () => {
+describe("@hyperfide/templates", () => {
   it("documents project creation machine routing", () => {
     const guide = renderTemplate("bbGuideProjects", {});
 
-    expect(guide).toContain("bb project create --name");
+    expect(guide).toContain("hyperfide-platform project create --name");
     expect(guide).toContain("--machine <id-or-name>");
     expect(guide).toContain("--host <id-or-name>");
     expect(guide).toContain("local CLI machine fallback");
@@ -31,7 +31,7 @@ describe("@bb/templates", () => {
 
     expect(rendered).toBe(
       [
-        "[bb message from thread:thr_sender]",
+        "[hyperfide-platform message from thread:thr_sender]",
         "",
         "Please check the failing test.",
       ].join("\n"),
@@ -49,7 +49,7 @@ describe("@bb/templates", () => {
 
     expect(rendered).toBe(
       [
-        "[bb system]",
+        "[hyperfide-platform system]",
         "",
         "@thread:thr_child needs help.",
         "Blocked on command approval:",
@@ -67,7 +67,7 @@ describe("@bb/templates", () => {
       }),
     ).toBe(
       [
-        "[bb system]",
+        "[hyperfide-platform system]",
         "",
         "@thread:thr_child is now a child of this thread.",
       ].join("\n"),
@@ -78,7 +78,7 @@ describe("@bb/templates", () => {
       }),
     ).toBe(
       [
-        "[bb system]",
+        "[hyperfide-platform system]",
         "",
         "@thread:thr_child is no longer a child of this thread.",
       ].join("\n"),

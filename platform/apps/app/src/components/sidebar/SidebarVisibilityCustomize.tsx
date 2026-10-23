@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { SidebarVisibilityCustomize as SharedSidebarVisibilityCustomize } from "@bb/shared-ui/sidebar-visibility-customize";
+import { SidebarVisibilityCustomize as SharedSidebarVisibilityCustomize } from "@hyperfide/shared-ui/sidebar-visibility-customize";
 import { SidebarTouchSensor } from "./sidebarTouchSensor";
 
 export function SidebarVisibilityCustomize(

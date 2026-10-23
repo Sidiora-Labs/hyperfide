@@ -18,9 +18,9 @@ import {
   getPluginSettingsValues,
   setPluginSettingsValues,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import type { Logger } from "@bb/logger";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import type { Logger } from "@hyperfide/logger";
 import { registerPluginRoutes } from "../../../src/routes/plugins.js";
 import { createPluginInstallJobs } from "../../../src/services/plugins/plugin-install-jobs.js";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";

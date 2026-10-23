@@ -21,7 +21,7 @@ export function resolveBridgeWorkerProcessArgs(args: {
     return [resolve(args.bridgeBundleDir, BRIDGE_WORKER_BUNDLE_FILE_NAME)];
   }
   const sourceEntry = fileURLToPath(
-    import.meta.resolve("@bb/provider-bridge-protocol/bridge-worker-entry"),
+    import.meta.resolve("@hyperfide/provider-bridge-protocol/bridge-worker-entry"),
   );
   return sourceEntry.endsWith(".ts")
     ? sourceTypeScriptProcessArgs(sourceEntry)

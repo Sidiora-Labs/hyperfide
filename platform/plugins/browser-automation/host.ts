@@ -2,7 +2,7 @@ import {
   experimental_defineHostEntry,
   type ExperimentalHostRpcContext,
   type ExperimentalHostWorkerLease,
-} from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/plugin-sdk/host";
 import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import { hostContract, type RuntimeState } from "./contracts.js";

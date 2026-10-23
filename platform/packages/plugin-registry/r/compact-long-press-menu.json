@@ -8,7 +8,7 @@
     "@radix-ui/react-slot"
   ],
   "registryDependencies": [
-    "@bb/dropdown-menu"
+    "@hyperfide/dropdown-menu"
   ],
   "files": [
     {

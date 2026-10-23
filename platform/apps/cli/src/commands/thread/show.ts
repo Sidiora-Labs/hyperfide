@@ -1,9 +1,9 @@
-import { prependOlderTimelineRows } from "@bb/client-core";
+import { prependOlderTimelineRows } from "@hyperfide/client-core";
 import { Command } from "commander";
 import {
   formatThreadTimelineText,
   type ThreadTimelineTextFormat,
-} from "@bb/thread-view";
+} from "@hyperfide/thread-view";
 import {
   resolveEnvironmentMergeBaseBranch,
   type Environment,
@@ -12,8 +12,8 @@ import {
   type ThreadGitDiffResponse,
   type ThreadTimelinePendingTodos,
   type WorkspaceStatus,
-} from "@bb/domain";
-import { BbHttpError, type BbSdk } from "@bb/sdk";
+} from "@hyperfide/domain";
+import { BbHttpError, type BbSdk } from "@hyperfide/sdk";
 import {
   environmentPullRequestSchema,
   GITHUB_PR_STATUS_PLUGIN_ID,
@@ -24,11 +24,11 @@ import type {
   EnvironmentDiffQuery,
   ThreadTimelineResponse,
   TimelineConversationRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   THREAD_EVENT_LIST_PAGE_SIZE,
   THREAD_MESSAGE_CONTEXT_LIMIT,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { action } from "../../action.js";
 import { createCliBbSdk } from "../../client.js";
 import {

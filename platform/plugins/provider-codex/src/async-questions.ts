@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import {
   CODEX_ASYNC_QUESTION_EXTENSION_KIND,
   codexAsyncQuestionStateSchema,

@@ -78,7 +78,7 @@ signatures (see "Looking up the exact API" in distribution.md).
   `mobileAppDownloads` `mobileAppReleases` `appUpdate` `applyAppUpdate`
   `acknowledgeAppUpdate` `experimental_cliCommand`
   `experimental_installCliCommand` `experimental_removeCliCommand`
-  `experimental_recordTelemetryEvent`; sub-area `uiPreferences` (`list` `set` `reset`)
+  sub-area `uiPreferences` (`list` `set` `reset`)
 - `experimental_desktopBrowsers`: `listInstances` `listTabs` `createTab`
   `acquireControl` `openConnection` `releaseControl` `revealTab` `closeTab`
   `captureTab` `listImportSources` `importCookies` `subscribe`
@@ -356,6 +356,6 @@ preview URLs expire and never reveal the host id or absolute root.
 
 Caller-gated RPC handlers can throw `new experimental_PluginRpcRefusal({
 code: "forbidden", message: "Only the connect plugin can call this method" })`
-from `@get-bb/plugin-sdk`. `bb.sdk.plugins.callRpc` rejects with a `BbHttpError`
+from `@hyperfide/plugin-sdk`. `bb.sdk.plugins.callRpc` rejects with a `BbHttpError`
 whose `code` is `forbidden` and `status` is 403. See `backend-events.md` for
 the refusal codes, optional validation issues and mutation rollback behavior.

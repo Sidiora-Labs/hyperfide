@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { WorkspaceStatus } from "@bb/domain";
+import type { WorkspaceStatus } from "@hyperfide/domain";
 import {
   setupCommandOutputTestEnvironment,
   collectLogLines,

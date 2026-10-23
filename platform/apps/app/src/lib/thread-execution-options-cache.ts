@@ -1,4 +1,4 @@
-import { resolvedThreadExecutionOptionsSchema } from "@bb/domain";
+import { resolvedThreadExecutionOptionsSchema } from "@hyperfide/domain";
 import { createLastKnownCache } from "@/lib/last-known-cache";
 
 const threadExecutionOptionsCache = createLastKnownCache({

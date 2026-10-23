@@ -1,5 +1,5 @@
-import type { ThreadEvent } from "@bb/domain";
-import { getThreadEventScopeTurnId } from "@bb/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
+import { getThreadEventScopeTurnId } from "@hyperfide/domain";
 
 type BufferedTextInstanceKind = "assistant" | "reasoning";
 

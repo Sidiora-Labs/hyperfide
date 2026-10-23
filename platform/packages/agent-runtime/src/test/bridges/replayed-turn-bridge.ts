@@ -8,7 +8,7 @@ import {
   threadStartParamsSchema,
   turnStartParamsSchema,
   experimental_defineProviderBridge,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { z } from "zod";
 
 const inboundSchema = z.object({

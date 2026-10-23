@@ -4,7 +4,7 @@ import type {
   ExperimentalComposerContributions,
   ExperimentalComposerPendingUpload,
   ExperimentalComposerPromptAction,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { composerPluginModule } from "./composer-plugin";
 
 interface PromptBoxActionsMenuProps {

@@ -5,7 +5,7 @@ import type {
   TimelineConversationRow,
   TimelineFileChangeWorkRow,
   TimelineRowBase,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   buildTimelineViewRows,
   findActiveLatestBundleId,

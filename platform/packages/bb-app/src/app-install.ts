@@ -1,4 +1,4 @@
-import type { AppInstall } from "@bb/config/app-install";
+import type { AppInstall } from "@hyperfide/config/app-install";
 import type { RunCommand } from "./app-update/run-command.js";
 
 const OFFICIAL_SOURCE_REMOTE_PATTERN =

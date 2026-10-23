@@ -1,11 +1,11 @@
-import { getAiServiceSelections } from "@bb/db";
+import { getAiServiceSelections } from "@hyperfide/db";
 import type {
   AiServiceSelection,
   AiServiceStatus,
   AiTask,
   AiTextTask,
   JsonObject,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { LoggedWorkSessionDeps } from "../../types.js";
 import { runtimeErrorLogFields } from "../lib/error-log-fields.js";
 import { cleanGeneratedLine } from "./ai-reply.js";

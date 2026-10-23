@@ -5,7 +5,7 @@ import {
   experimental_presentationTitle as presentationTitle,
   experimental_toolPresentation as toolPresentation,
   experimental_withTitle as withTitle,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 
 const SANDBOX_ESCAPED_BADGE = {
   glyph: "SquareUnlock02",

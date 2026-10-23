@@ -9,9 +9,9 @@
     "class-variance-authority"
   ],
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/portal-scope",
-    "@bb/utils"
+    "@hyperfide/icon",
+    "@hyperfide/portal-scope",
+    "@hyperfide/utils"
   ],
   "files": [
     {

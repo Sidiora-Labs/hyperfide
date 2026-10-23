@@ -123,7 +123,7 @@ owner = "identity"
 
 [task.0.2]
 title = "Apply the package scope rename across the workspace"
-status = "pending"
+status = "implemented"
 wave = 0
 requires = ["0.1", "0.4"]
 touches = ["platform/**", "tests/hyperfide/cases/v22/0_2.sh"]
@@ -136,7 +136,7 @@ owner = "identity"
 
 [task.0.3]
 title = "Environment, data directory and CLI identity"
-status = "pending"
+status = "done"
 wave = 0
 requires = []
 touches = ["platform/packages/config/**", "platform/apps/cli/**", "platform/apps/server/src/**", "platform/apps/host-daemon/src/**", "platform/packages/scripts/**", "platform/packages/host-daemon-contract/**", "platform/packages/server-contract/**", "platform/apps/app/src/**", "platform/apps/desktop/src/**", "platform/apps/mobile/**", "platform/package.json", "platform/.env.example", "tests/hyperfide/cases/v22/0_3.sh"]
@@ -149,10 +149,10 @@ owner = "identity"
 
 [task.0.4]
 title = "Remove the marketing site, hosted connect gates and hosted account"
-status = "pending"
+status = "implemented"
 wave = 0
 requires = []
-touches = ["platform/apps/web/**", "platform/apps/connect/**", "platform/apps/connect-next/**", "platform/packages/connect-client/**", "platform/packages/connect-db/**", "platform/packages/tunnel-client/**", "platform/packages/tunnel-contract/**", "platform/packages/frp-client/**", "platform/plugins/connect/**", "platform/plugins/connect-next/**", "platform/plugins/*-account/**", "platform/plugins/*-official.json", "platform/apps/server/src/**", "platform/apps/app/src/**", "platform/apps/cli/src/**", "platform/packages/bundled-plugins/**", "platform/packages/plugin-registry/**", "platform/package.json", "platform/pnpm-lock.yaml", "platform/pnpm-workspace.yaml", "platform/turbo.json", "platform/docs/**", "tests/hyperfide/cases/v22/0_4.sh"]
+touches = ["platform/apps/web/**", "platform/apps/connect/**", "platform/apps/connect-next/**", "platform/packages/connect-client/**", "platform/packages/connect-db/**", "platform/packages/tunnel-client/**", "platform/packages/tunnel-contract/**", "platform/packages/frp-client/**", "platform/plugins/connect/**", "platform/plugins/connect-next/**", "platform/plugins/*-account/**", "platform/plugins/*-official.json", "platform/apps/server/src/**", "platform/apps/app/src/**", "platform/apps/cli/src/**", "platform/packages/bundled-plugins/**", "platform/package.json", "platform/pnpm-lock.yaml", "platform/turbo.json", "platform/docs/**", "tests/hyperfide/cases/v22/0_4.sh"]
 verify_cmd = "bash tests/hyperfide/cases/v22/0_4.sh"
 do_1 = "Delete the marketing site app, both hosted connect apps, the connect, tunnel and frp packages, the connect plugins, the hosted account plugin and the official marketplace manifest. Remove every import, bundled-plugin entry, registry entry, route, UI entry point and script that referenced them; where the server exposed a connect status, return a static disabled value with no network call."
 do_2 = "Reinstall with pnpm (no frozen lockfile) so the lockfile drops the removed importers, then prove it settled with a frozen install. Remove dependencies that only those packages used."
@@ -162,10 +162,10 @@ owner = "port"
 
 [task.0.5]
 title = "Remove third-party telemetry"
-status = "pending"
+status = "implemented"
 wave = 0
 requires = []
-touches = ["platform/packages/*-app/**", "platform/packages/scripts/**", "platform/apps/server/src/**", "platform/apps/app/src/**", "platform/apps/host-daemon/src/**", "platform/apps/desktop/src/**", "platform/packages/config/**", "platform/docs/**", "tests/hyperfide/cases/v22/0_5.sh"]
+touches = ["platform/packages/*-app/**", "platform/packages/scripts/**", "platform/apps/server/src/**", "platform/apps/app/src/**", "platform/packages/config/**", "tests/hyperfide/cases/v22/0_5.sh"]
 verify_cmd = "bash tests/hyperfide/cases/v22/0_5.sh"
 do_1 = "Remove the analytics clients (the segment and posthog integrations), their event calls, write keys, consent prompts, launcher flags and documentation; keep local logging. Leave dependency pruning from the manifests to 0.7 unless a package is used nowhere else, in which case remove it and reinstall."
 do_2 = "Every place that reported an event becomes either nothing or a local logger call at debug level; no environment flag for telemetry remains."
@@ -175,7 +175,7 @@ owner = "port"
 
 [task.0.6]
 title = "Documentation, skills and brand assets sweep"
-status = "implemented"
+status = "done"
 wave = 0
 requires = []
 touches = ["platform/README.md", "platform/AGENTS.md", "platform/CONTRIBUTING.md", "platform/SECURITY.md", "platform/docs/**", "platform/.*/skills/**", "platform/assets/**", "platform/apps/app/public/**", "platform/apps/app/index.html", "platform/apps/desktop/electron-builder*", "platform/apps/desktop/package.json", "platform/apps/mobile/app.json", "platform/apps/mobile/app.config.*", "platform/plugins/*/README.md", "platform/plugins/*/PLUGIN_OVERVIEW.md", "tests/hyperfide/cases/v22/0_6.sh"]

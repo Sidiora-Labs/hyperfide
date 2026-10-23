@@ -1,5 +1,5 @@
-import type { PluginMachineProviderDeclaration } from "@get-bb/plugin-sdk";
-import { validatePluginMachineProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+import type { PluginMachineProviderDeclaration } from "@hyperfide/plugin-sdk";
+import { validatePluginMachineProviderDeclaration } from "@hyperfide/plugin-sdk/internal/host-policy";
 import { invokePluginInline } from "../../src/services/plugins/plugin-hook-registry.js";
 import { setPluginMachineProviderBridge } from "../../src/services/plugins/plugin-machine-provider-registry.js";
 

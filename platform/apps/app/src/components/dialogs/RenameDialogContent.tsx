@@ -1,14 +1,14 @@
-import { capitalize } from "@bb/thread-view";
+import { capitalize } from "@hyperfide/thread-view";
 import { useId, useState, type FormEvent, type RefObject } from "react";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Input } from "@bb/shared-ui/input";
-import { useNameValidation } from "@bb/shared-ui/rename-dialog";
+} from "@hyperfide/shared-ui/dialog";
+import { Input } from "@hyperfide/shared-ui/input";
+import { useNameValidation } from "@hyperfide/shared-ui/rename-dialog";
 
 interface RenameDialogContentProps {
   entityLabel: string;

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
 import {
   assembleRecordedEvents,
   compareParity,
@@ -21,20 +21,20 @@ import {
   type ParityRowProjector,
   type ParityRun,
   type RecordedCell,
-} from "@bb/provider-bridge-protocol/testing";
+} from "@hyperfide/provider-bridge-protocol/testing";
 import {
   buildThreadTimelineFromEvents,
   compactThreadTimelineSummaryEvents,
   THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
   type ThreadEventWithMeta,
-} from "@bb/thread-view";
+} from "@hyperfide/thread-view";
 
 export {
   listRecordedCells,
   readBridgeRecording,
   type ParityComparison,
   type RecordedCell,
-} from "@bb/provider-bridge-protocol/testing";
+} from "@hyperfide/provider-bridge-protocol/testing";
 
 export const RECORDINGS_ROOT = resolve(
   dirname(fileURLToPath(import.meta.url)),

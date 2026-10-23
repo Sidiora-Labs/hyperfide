@@ -3,9 +3,9 @@ import type {
   SystemMessageSubject,
   ThreadEventTurnStatus,
   ChildThreadOutcome,
-} from "@bb/domain";
-import { listActiveBackgroundTaskCountsByThreadIds } from "@bb/db";
-import { renderTemplate } from "@bb/templates";
+} from "@hyperfide/domain";
+import { listActiveBackgroundTaskCountsByThreadIds } from "@hyperfide/db";
+import { renderTemplate } from "@hyperfide/templates";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import {
   buildParentSystemInputFromTemplateSlot,

@@ -1,4 +1,4 @@
-import { buildTimelineViewRows } from "@bb/thread-view";
+import { buildTimelineViewRows } from "@hyperfide/thread-view";
 import { describe, expect, it } from "vitest";
 import {
   commandRow,

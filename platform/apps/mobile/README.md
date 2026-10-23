@@ -1,11 +1,11 @@
-# @bb/mobile
+# @hyperfide/mobile
 
 Native iOS/Android client for bb (Expo SDK 57, React Native 0.86, Expo
 Router, NativeWind v5).
 
 Status: a native shell around the web interface (#2515). `app/webview.tsx`
 loads the active server's web app in `react-native-webview` and talks to it
-over `@bb/mobile-bridge` (handshake, haptics, app-icon badge, share, open
+over `@hyperfide/mobile-bridge` (handshake, haptics, app-icon badge, share, open
 external links, open native screens, save files on iOS). Threads, projects, plugins and server
 settings run in the page. The native screens cover what the page cannot
 own: first-run pairing (Direct URL and bb connect QR / code enrollment),
@@ -68,7 +68,7 @@ src/
     query/               per-profile QueryClient, AppState focus, realtime →
                          system config invalidation, session refetch
     realtime/            WebSocketManager-shaped realtime on RN WebSocket
-    sdk/                 createMobileSdk (@bb/sdk/browser + app-surface header),
+    sdk/                 createMobileSdk (@hyperfide/sdk/browser + app-surface header),
                          per-profile client registry
     session/             bb connect desktop-session cookie scheduler
     share/               inbound share intent → shell composer seed
@@ -113,7 +113,7 @@ scripts/                 generate-native-theme.ts (theme tokens),
                          testflight-distribute.mjs (TestFlight distribution)
 ```
 
-Rules: import `@bb/sdk/browser` (never `@bb/sdk`); no `@bb/shared-ui`; no DOM
+Rules: import `@hyperfide/sdk/browser` (never `@hyperfide/sdk`); no `@hyperfide/shared-ui`; no DOM
 APIs; keep RN-dependent code out of `src/lib/**` except `src/lib/native`.
 
 ## Prerequisites (macOS)
@@ -168,7 +168,7 @@ key; Android updates require the same key as the installed dev app.
 The existing local build retains the regular app identity for smoke tests:
 
 ```bash
-pnpm exec turbo run build:android:local --filter=@bb/mobile
+pnpm exec turbo run build:android:local --filter=@hyperfide/mobile
 adb install -r apps/mobile/build-output/bb-android-local.apk
 ```
 
@@ -182,7 +182,7 @@ Run the mobile backend described below, then `adb reverse tcp:41999 tcp:41999`
 so the Android app can reach it at `http://127.0.0.1:41999`. Keep the reverse
 mapping active during tests. Android does not share the Mac loopback directly.
 
-Run `pnpm exec turbo run e2e:android --filter=@bb/mobile` with only the intended
+Run `pnpm exec turbo run e2e:android --filter=@hyperfide/mobile` with only the intended
 Android emulator/device connected. The smoke flow clears this app's local data,
 pairs the fixture, sends a message, checks Android back navigation, relaunches,
 and opens native device settings. Use a normal embedded build, not
@@ -282,8 +282,8 @@ phones need a Tailscale Serve URL, bb connect, or a temporary
 
 ```bash
 # terminal 1: deterministic backend (fake provider, fixed port 41999) serving the built web app
-pnpm exec turbo run build --filter=@bb/app
-HYPERFIDE_MOBILE_E2E_SERVE_APP=1 pnpm --filter @bb/integration-tests e2e:mobile-backend
+pnpm exec turbo run build --filter=@hyperfide/app
+HYPERFIDE_MOBILE_E2E_SERVE_APP=1 pnpm --filter @hyperfide/integration-tests e2e:mobile-backend
 # terminal 2: Metro (EXPO_PUBLIC_HYPERFIDE_E2E=1 wipes profiles/preferences on every launch)
 cd apps/mobile && EXPO_PUBLIC_HYPERFIDE_SERVER_URL=http://127.0.0.1:41999 EXPO_PUBLIC_HYPERFIDE_E2E=1 pnpm dev --port 8082
 # terminal 3: flows
@@ -306,7 +306,7 @@ device settings from it.
 server the phone cannot reach, so the shell never loads a dead origin; it
 does not use the harness backend.
 `shell-connect.yaml` drives bb connect end to end against the stub apex +
-gate (`pnpm --filter @bb/integration-tests e2e:mobile-connect-stub`, see
+gate (`pnpm --filter @hyperfide/integration-tests e2e:mobile-connect-stub`, see
 "bb connect" below): manual code entry with the handle and the self-hosted
 apex → enrolled screen (session signed in, account servers listed) → Done →
 the shell through the gate (cookie on fetch and on `/ws`) → the stub expires
@@ -375,96 +375,11 @@ as the first argument drives a dev client through Metro instead.
   waits for `/health`), runs `ci-run-flows.sh`, and uploads
   `e2e-artifacts/` (per-flow Maestro output, backend log, simulator log).
 
-## bb connect
+## Server access
 
-- Pair through Settings → Mobile → Add mobile device or `bb connect machine-code`. No experiment is required.
-- Enrollment (`src/screens/connect`, `src/data/connect`, route `/connect`):
-  "Add server" offers "Connect with bb connect" above the Direct URL form.
-  The screen scans the pairing QR (`expo-camera`; payload = the connect
-  plugin's `MobilePairingPayload` JSON `{code, serverUrl, apex, expiresAt}`, a
-  `bb://connect?code=…&serverUrl=…` link, or a bare code —
-  `parseConnectPairingPayload`) or takes the code by hand with an optional
-  server (handle like `bee` or `https://bee.getbb.app`) and an optional
-  self-hosted apex; the apex defaults to `deriveConnectBaseUrl(serverUrl)`
-  or `https://getbb.app` (`resolveEnrollmentTarget`). `redeemEnrollment`
-  calls `redeemMachineCredential` (`POST <apex>/api/connect/redeem-machine`)
-  with the phone’s device name (for example, `Pixel 9 Pro`). The account
-  service stores it on the machine so the dashboard shows a recognizable name.
-  The request accepts an optional `deviceName` string, trimmed and limited to
-  128 characters; older clients may omit it. Existing unnamed devices are not
-  renamed automatically. Both the account service update and a new mobile build
-  are needed for names to appear on new pairings.
-  Enrollment saves `{mode:"connect", serverUrl, handle, credential(bbcm_…), label}`
-  in SecureStore, then activates it: the connector mints the desktop-session
-  cookie and opens realtime (the enrolled screen shows that status live).
-  Errors map to copy per wire code (`describeEnrollmentError`: invalid /
-  expired / already used, the 409 `machine_limit` with the "revoke a device
-  in the dashboard" way out, network, unauthorized).
-- Account servers: the machine credential is account-scoped (the apex stores
-  it against the user, `apps/web/src/server/api.ts` `redeemMachineCode`; the
-  gate checks it against the label's owner), and the desktop-session cookie
-  is a `.getbb.app` cookie carrying the user id and the minting credential, so
-  one enrollment covers every server the account owns — the same as the desktop app's
-  Server menu. After pairing, "Servers on this account"
-  (`GET <serverUrl>/api/connect/servers` with the credential,
-  `listAccountServers`) adds any other server as a profile in one tap with
-  the same credential; no second code is needed.
-- Session: `src/lib/session` mints `POST <serverUrl>/api/connect/desktop-session`
-  with the credential, installs the cookie in both native jars (`Secure`
-  follows the server URL's scheme so a plain-http stub gate works), renews
-  five minutes before expiry and on AppState active. Each minted session
-  (server URL, pairing credential and the full cookie, value included) is kept
-  per profile in SecureStore (`bb.connectSession.<profileId>`); a cold start
-  whose record matches the profile's server URL and credential and is more
-  than five minutes from expiry reinstalls that cookie into both jars instead
-  of minting, so the page loads
-  without a round trip to the gate. Re-pairing with a new credential mints a
-  fresh session. Older cache records without a credential are ignored.
-  A refused mint and Clear website data clear the record. The cookie lasts seven
-  days; the gate re-issues it once a day on ordinary responses and rejects it
-  within about 20 seconds of the machine being revoked. The connector
-  (`src/lib/connection`) re-checks the session on any 401/403 (an API call
-  or the `/ws` upgrade — React Native reports the refused upgrade as the
-  close reason "Received bad response code from server: 401.") and on
-  repeated connection failures (throttled): a fresh cookie reconnects the
-  socket at once; a refused re-mint flips the profile to `auth-required`.
-  Installing a fresh session reloads a WebView showing a 401/403 page, even
-  before the previous cookie expires; routine renewal leaves a healthy page
-  alone.
-  Queries that raced the first mint (or a re-mint) and hit the gate's 401
-  page are fetched again once the cookie lands
-  (`refetchQueriesRejectedBeforeSession`); a 401 within two seconds of a
-  mint is attributed to a request that started with the old cookie and
-  only triggers that refetch, not another mint.
-- Re-auth UX: the `auth-required` banner ("<label> needs to be paired again.")
-  is a button that opens `/connect?profileId=<id>`, which re-pairs the same
-  profile (new credential, same label and place in the list); Settings →
-  Servers offers "Sign in again" from the long-press menu for connect
-  profiles and shows a mode pill (`bb connect` / `direct`) plus `@handle`.
-  "Remove" only forgets the profile locally: the phone stays listed under
-  Machines in the getbb.app dashboard until revoked there (the copy says so).
-- Stub for e2e (`tests/integration/mobile-e2e/connect-stub.ts`,
-  `pnpm --filter @bb/integration-tests e2e:mobile-connect-stub`): plays the
-  apex and the gate on one TLS port (`https://localhost:42998` /
-  `https://stub.localhost:42998`, so `@bb/connect-client`'s "server lives
-  under the apex" rule and the `Secure` cookie hold; iOS ATS refuses plain
-  http to a qualified name). It redeems `STUB-PAIR` (sentinels
-  `EXPIRED-CODE` / `USED-CODE` / `LIMIT-CODE` reproduce the apex errors),
-  mints sessions for its machines, lists two account servers, and reverse
-  proxies everything else (HTTP + WebSocket upgrade) to the harness backend
-  — only with a valid session cookie, otherwise the gate's HTML 401 —
-  rewriting `Origin: https://<gate host>` to the loopback origin like the
-  tunnel client does so the bb server's origin guard accepts RN's
-  WebSocket. Control: `POST /__stub/{expire-session,revoke-machine,reset}`,
-  `GET /__stub/state`, also on plain `http://127.0.0.1:42997`. It generates a
-  local CA under `~/.hyperfide-mobile-e2e/connect-stub-certs` and installs it in
-  the simulator named by `HYPERFIDE_MOBILE_E2E_SIMULATOR` (`xcrun simctl keychain …
-add-root-cert`). Env: `HYPERFIDE_MOBILE_E2E_GATE_PORT` (42998),
-  `HYPERFIDE_MOBILE_E2E_STUB_CONTROL_PORT` (42997), `HYPERFIDE_MOBILE_E2E_UPSTREAM_URL`
-  (`http://127.0.0.1:${HYPERFIDE_MOBILE_E2E_PORT ?? 41999}`),
-  `HYPERFIDE_MOBILE_E2E_CONNECT_CODE`, `HYPERFIDE_MOBILE_E2E_STUB_HANDLE`,
-  `HYPERFIDE_MOBILE_E2E_SESSION_TTL_MS`, `HYPERFIDE_MOBILE_E2E_STUB_LOG=1` (one line per
-  gate request).
+Add the server's direct URL. Hosted account enrollment and session renewal have
+been removed. Saved hosted profiles show an error and can be replaced with a
+direct URL.
 
 ## Server moves
 
@@ -492,56 +407,7 @@ local token deletion does not require that server to be reachable. This does not
 delete the Firebase installation ID or previously processed provider data.
 iOS keeps its existing APNs registration behavior.
 
-- Registration: `PushNotificationsHost` (mounted once in `app/_layout.tsx`)
-  registers the phone's Expo push token with each enabled server through
-  Settings → This device → Notifications. It calls the `push-notifications`
-  plugin RPC methods `pushSubscriptions.add`, `pushSubscriptions.list`, and
-  `pushSubscriptions.remove` through `sdk.plugins.callRpc`. It syncs on
-  connect, on
-  AppState active, when the OS rolls the token (re-register), and when the
-  toggle flips; profiles removed from the app get their server row deleted
-  by the stored server URL. A direct profile must use HTTPS, unless it uses
-  `127.0.0.1`, `localhost`, or `::1`. Tailscale Serve and bb connect profiles
-  work normally. Other HTTP profiles show "Push needs HTTPS or bb connect"
-  and do not register. The server also needs outbound access to `exp.host`.
-  The server must enable the `push-notifications` plugin.
-  The one-time "Get notified…" sheet appears only after the first successful
-  connection. The sheet never appears on launch. The OS prompt starts only
-  after the user selects "Turn on notifications".
-- Privacy: the registration request contains the full Expo token. The list
-  RPC method and `bb push-notifications list` return only the last six token
-  characters in `tokenSuffix`. A token can receive pushes but cannot read
-  server data.
-- Handling: a foreground arrival becomes a toast with "Open" (no system
-  banner); a tap on a background / cold-start notification opens the thread
-  in the shell on the profile that owns it. The phone first matches
-  the optional `serverUrl` hint. It probes saved profiles for the thread only
-  when no hint matches. The shell accepts a bridge `badge` message
-  (`useShellBridge` → `updateAppBadgeCount`), and `AppBadgeSync` writes that
-  count on background; the web app does not send it yet.
-- Simulator check without APNs: `xcrun simctl push <udid> app.getbb.mobile
-payload.apns` with `{"aps":{"alert":{…}},"body":{"kind":"turn-finished",
-"threadId":"…","projectId":"…","serverUrl":"https://…"}}`
-  (expo-notifications reads remote `data` from the `body` key) after the user
-  grants permission.
-- Deep links: `bb://<path>` (`bb://threads/<id>`, `bb://settings/servers`,
-  `bb://projects/<p>/threads/<t>`, …) and universal / app links
-  `https://<handle>.getbb.app/{threads,projects,settings}/*` (iOS
-  `associatedDomains: applinks:getbb.app, applinks:*.getbb.app`; Android
-  `intentFilters` with `autoVerify`). `app/+native-intent.tsx` resolves every
-  URL with `src/lib/shell` (`resolveShellIncomingLink` over `src/lib/links`):
-  a web link whose origin matches a saved profile switches to that profile
-  (waiting for its connection) and opens the shell route carrying the page
-  path; native-only paths (connect, servers, device and notification
-  settings) stay native; an unknown server opens Add server prefilled with
-  the origin and the follow-up path. Universal links only resolve once
-  `https://<handle>.getbb.app/.well-known/apple-app-site-association` /
-  `assetlinks.json` are served (the connect gate and the apex do, before the
-  session gate — `packages/connect-db/src/app-links.ts`) and the app is
-  signed with the team id in that file; until then only the `bb://` scheme
-  works, and wildcard associated-domain behavior still needs a physical
-  device check. The realtime `thread-open` signal (`POST /threads/:id/open`,
-  `bb thread open`) navigates to the thread while the app is foregrounded.
+
 
 ## Share sheet and haptics
 
@@ -630,58 +496,7 @@ dev-client scheme `exp+bb-app://`). Apple team `9QCU24SXK5`, bundle id
 credentials (distribution certificate, App Store provisioning profile, APNs
 push key); nobody needs a local Xcode signing setup to ship.
 
-- **Log in once**: `pnpm exec eas login` (or `EXPO_TOKEN`). `eas-cli` is a
-  pinned devDependency, so use `pnpm exec eas …` from `apps/mobile`.
-- **Build profiles** (`eas.json`): `development` (simulator dev client),
-  `development-device` (dev client for a physical iPhone; needed for push
-  acceptance), `preview` (internal ad-hoc), `production` (App Store /
-  TestFlight; `autoIncrement` + `appVersionSource: remote` keep the build
-  number on EAS, `version` in `app.json` is the marketing version).
-- **Push release check**: confirm the APNs key with `pnpm exec eas credentials
--p ios`. Use `development-device` for a physical iPhone. Keep the server
-  `push-notifications` plugin enabled, and use an HTTPS or bb connect profile.
-  Run `bb push-notifications list`. Confirm that it shows a token suffix, not
-  a full token.
-- **TestFlight by hand**: `pnpm exec eas build -p ios --profile production`,
-  then `pnpm exec eas submit -p ios --latest`. The submit profile reads the
-  App Store Connect API key from the gitignored `apps/mobile/asc-api-key.p8`
-  (key id and issuer id are in `eas.json`); get the `.p8` from a teammate or
-  App Store Connect → Users and Access → Integrations → App Store Connect API
-  (role App Manager, one-time download). Both commands also work with
-  `--non-interactive`.
-- **CI**: `.github/workflows/mobile-ios-eas.yml` writes the `.p8` from the
-  `ASC_API_KEY_P8` secret, optionally sets `app.json` `version`, and runs
-  `eas build -p ios --profile <profile> [--auto-submit]` with
-  `EXPO_TOKEN`. EAS builds, then uploads to TestFlight; the job waits for
-  both and fails when either fails. Logs are on expo.dev under the project's
-  Builds and Submissions (the run summary links them). After a submit, the
-  job runs `scripts/testflight-distribute.mjs`, which waits for App Store
-  Connect to process the build, submits it for Beta App Review when it has
-  none, and adds it to the external group named by the `external_group`
-  input (default `External testers`; empty skips the step). Run the script
-  by hand with `node scripts/testflight-distribute.mjs --version X.Y.Z
---build N` from `apps/mobile` with the `.p8` in place.
-  Run it alone from the Actions tab ("Mobile iOS (EAS)") or
-  `gh workflow run mobile-ios-eas.yml -f profile=production -f submit=true`.
-  The nightly `publish-bb-app.yml` calls the same workflow after the npm
-  nightly publish with an empty `version`, so every nightly keeps the
-  marketing version committed in `app.json` and only the EAS build number
-  moves. This is deliberate: TestFlight needs a Beta App Review for the
-  first build of each new marketing version, and later builds of the same
-  version skip it. Bump `app.json` `version` only when you want a new
-  review, for example for a store release. Repo
-  secrets: `EXPO_TOKEN` (a robot token from the `bb-team` Expo org) and
-  `ASC_API_KEY_P8` (the `.p8` contents).
-- The `expo-modules-jsi` pnpm patch and the `lightningcss` override ship
-  with the repo and apply on EAS; the default build image provides
-  Xcode 26.x.
-- Universal links need the signed app's team id in the AASA the connect gate
-  serves (`packages/connect-db/src/app-links.ts`) and a physical-device
-  check against `https://<handle>.getbb.app/threads/…`. Android signing
-  (`eas credentials -p android`, FCM V1, `ASSETLINKS_SHA256_FINGERPRINTS`)
-  is still open.
-- `eas update` (JS-only fixes over the air) is deferred: `expo-updates` is
-  not installed, so the profiles define no update channels.
+
 
 ## TestFlight testers
 
@@ -697,23 +512,7 @@ groups, so the CI distribute step adds each submitted build to the external
 group through the App Store Connect API. Before a build can go to an external
 group, App Store Connect needs all of this:
 
-- **Test Information** (`betaAppLocalizations`): a feedback email, a beta
-  description, and the privacy policy URL <https://getbb.app/privacy>. Per
-  build, a "What to test" note.
-- **Beta App Review Details** (`betaAppReviewDetail`): contact first name, last
-  name, phone, and email. Apple uses these, testers never see them.
-- **A way for the reviewer to use the app.** This is the part that fails. bb
-  opens on "Add server", and a reviewer has no bb server, so without help they
-  cannot get past the first screen and will reject the build. Neither real
-  path works for a reviewer: a bb server's API is unauthenticated and runs
-  commands, so it cannot be on the internet, and connect pairing codes are
-  single-use and expire in ten minutes. Give them the **demo server** instead:
-  `apps/demo-server` is a Cloudflare Worker that serves the web app shell, sidebar plugin frontends, and API
-  from fixed data, runs nothing, and isolates each client address. Build it
-  with `pnpm exec turbo run build --filter=@bb/demo-server`, then deploy it
-  with `pnpm --filter @bb/demo-server exec wrangler deploy`, and rehearse the review notes
-  below before every submission. Disclose it in the notes: a disclosed demo
-  mode is sanctioned by guideline 2.1.
+
 
 Review notes template — keep it literal, and assume the reviewer knows nothing
 about coding agents:
@@ -772,14 +571,14 @@ Beta App Review and another build of the same version usually does not.
 `apps/app/src/lib/themes/*.ts`: every color token per palette × light/dark as a
 plain RN color string, with `nativeRadii` and the touch (`pointer: coarse`)
 `nativeTypography` scale. Do not edit it by hand. After changing theme.css or a
-palette, run `pnpm --filter @bb/mobile theme:generate` and commit the result;
+palette, run `pnpm --filter @hyperfide/mobile theme:generate` and commit the result;
 `src/theme/generate-native-theme.test.ts` fails when the file is stale.
 
 ## Notes
 
 - Workspace packages resolve from TypeScript source through `metro.config.js`
-  (`source` export condition for `@bb/*` only, `./x.js` → `./x.ts`).
-- Import `@bb/sdk/browser`, never `@bb/sdk` (lint-enforced).
+  (`source` export condition for `@hyperfide/*` only, `./x.js` → `./x.ts`).
+- Import `@hyperfide/sdk/browser`, never `@hyperfide/sdk` (lint-enforced).
 - Never spread a `Headers` instance into a fetch init on React Native.
 - `lightningcss` is pinned to 1.30.1 for `@expo/metro-config` (NativeWind v5).
 - Type-scale line heights in `global.css` are unitless ratios
@@ -869,7 +668,7 @@ For a device smoke test:
 7. Remove the test attachments and text without sending a message.
 
 Bridge regression tests run with
-`pnpm exec turbo run test typecheck --filter=@bb/mobile-bridge`.
+`pnpm exec turbo run test typecheck --filter=@hyperfide/mobile-bridge`.
 
 ## Android message copy
 

@@ -2,8 +2,8 @@ import {
   toPositiveNumber,
   type ContextSnapshot,
   type ThreadUsageCost,
-} from "@bb/domain";
-import type { ThreadContextWindowUsage } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { ThreadContextWindowUsage } from "@hyperfide/server-contract";
 import type { ThreadEventWithMeta } from "./build-event-projection.js";
 
 interface ThreadContextWindowSignal {

@@ -1,4 +1,4 @@
-import type { ServerAccessStatus } from "@bb/server-contract";
+import type { ServerAccessStatus } from "@hyperfide/server-contract";
 import {
   MachineAccessSettingsContent,
   type MachineAccessState,

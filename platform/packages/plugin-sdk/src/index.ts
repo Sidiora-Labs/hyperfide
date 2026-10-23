@@ -1,5 +1,5 @@
 /**
- * `@get-bb/plugin-sdk` — the typed facade plugin authors compile against.
+ * `@hyperfide/plugin-sdk` — the typed facade plugin authors compile against.
  *
  * The root export carries the side-effect-free app and host-contract types
  * plus the backend contract (`BbPluginApi`, the
@@ -24,6 +24,6 @@ export type {
   ExperimentalDesktopBrowserLease,
   ExperimentalDesktopBrowserCreateInput,
   ExperimentalDesktopBrowserAcquireInput,
-} from "@bb/sdk";
+} from "@hyperfide/sdk";
 
 export type * from "./machine-bootstrap.js";

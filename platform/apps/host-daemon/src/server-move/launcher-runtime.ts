@@ -3,9 +3,9 @@ import {
   bbAppRuntimeVerifyTokens,
   readBbAppRuntimeFile,
   type BbAppRuntimeFile,
-} from "@bb/config/app-runtime-file";
-import type { VerifiedProcessOps } from "@bb/config/verified-process-stop";
-import { SERVER_MOVED_FILE_NAME } from "@bb/server-archive";
+} from "@hyperfide/config/app-runtime-file";
+import type { VerifiedProcessOps } from "@hyperfide/config/verified-process-stop";
+import { SERVER_MOVED_FILE_NAME } from "@hyperfide/server-archive";
 import { pathExists } from "./fs.js";
 
 export type LauncherProcessOps = Pick<

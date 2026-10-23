@@ -48,7 +48,7 @@ bb.providers.register({
   serviceTiers: undefined, // e.g. [{ id: "default", label: "Default" }, { id: "fast", label: "Fast" }]
   composerActions: [], // skills typeahead is implicit; ["plan"] opts into plan mode
   models: { fallback: [], scope: "workspace" },
-  env: { passthrough: ["BB_ECHO_AGENT_EXECUTABLE"] },
+  env: { passthrough: ["HYPERFIDE_ECHO_AGENT_EXECUTABLE"] },
   deriveProviderOptions(ctx) {
     return {
       verbose: ctx.settings.verbose === true,
@@ -84,7 +84,7 @@ from an `app.tsx`:
 
 ```tsx
 // app.tsx
-import { definePluginApp } from "@get-bb/plugin-sdk/app";
+import { definePluginApp } from "@hyperfide/plugin-sdk/app";
 
 function EchoIcon({ className }: { className?: string }) {
   return (
@@ -128,7 +128,7 @@ command, and when it lists the provider's models on a host. Its
 no thread. Return at most 32 `ExperimentalPluginProviderEnvEntry` values.
 Names must match `[A-Z_][A-Z0-9_]*`; `reason` is required. A
 literal `value` is forwarded as-is. `{ serverPath: "/..." }` is expanded by
-the selected host against its authenticated `BB_SERVER_URL`, which is the
+the selected host against its authenticated `HYPERFIDE_SERVER_URL`, which is the
 right form for a server route that must work from enrolled machines.
 
 Contributions override the host shell environment. If multiple plugins return
@@ -154,7 +154,7 @@ Declare fixed host-home or workspace-relative roots with
 `experimental_nativeSkillRoots` and `experimental_nativeCommandRoots`. When
 only the host can find them (a moved config directory, installed vendor
 plugins), set `experimental_resolvesNativeRoots` and implement
-`experimental_nativeRootsHostContract` from `@get-bb/plugin-sdk/host` in the
+`experimental_nativeRootsHostContract` from `@hyperfide/plugin-sdk/host` in the
 host entry. Return absolute paths with a `user` or `project` origin, and run
 `experimental_filterResolvedNativeRoots` before returning so one bad root does
 not reject the complete answer; it limits each side and applies the correct
@@ -169,7 +169,7 @@ name:
 
 ```ts
 // host.ts (bb.host)
-import { experimental_defineProviderBridge } from "@get-bb/plugin-sdk/provider-bridge";
+import { experimental_defineProviderBridge } from "@hyperfide/plugin-sdk/provider-bridge";
 
 export const experimental_providerBridge = experimental_defineProviderBridge({
   handleLine(line) {
@@ -191,12 +191,12 @@ nothing, which is also what lets your conformance test drive `handleLine`
 in-process. A bridge runs only for an installed, enabled plugin.
 
 Everything a bridge compiles against is published at
-`@get-bb/plugin-sdk/provider-bridge` — protocol schemas including the
+`@hyperfide/plugin-sdk/provider-bridge` — protocol schemas including the
 `thread/delta` grammar, method maps, and the bridge kit — so list
-`@get-bb/plugin-sdk` under `dependencies`, not just `devDependencies` (see
+`@hyperfide/plugin-sdk` under `dependencies`, not just `devDependencies` (see
 the host-entry dependency rule in backend-foundation.md; the echo example's
 `package.json` shows the shape). A `bb.host` artifact cannot import bb's
-private `@bb/*` workspace packages; an installed plugin could not resolve
+private `@hyperfide/*` workspace packages; an installed plugin could not resolve
 them.
 
 The bridge speaks the Provider Bridge Protocol, line-delimited JSON-RPC 2.0
@@ -222,7 +222,7 @@ bounded output, and recording. Launch the provider CLI by name with
 `provider-bridge-api-index.md` for every symbol, then read the installed
 declaration for its exact signature.
 
-For an ACP agent, use `@get-bb/plugin-sdk/provider-bridge/acp`. Re-export
+For an ACP agent, use `@hyperfide/plugin-sdk/provider-bridge/acp`. Re-export
 `experimental_acpProviderBridge` as `experimental_providerBridge`. Supply a
 validated `acpLaunchSpec` and an ACP dialect in the static bridge options. The
 public ACP entrypoint includes the bridge, launch schema, agent probe, model
@@ -230,14 +230,14 @@ catalog, tool, and dialect contracts. It ships the `acp` (generic), `cursor`,
 `grok`, `omp`, and `opencode` dialects. To read another agent's own side
 channels, call `experimental_registerAcpDialect({ id, ...hooks })` at module
 load in the host artifact and name that id as `acpDialect`; a built-in id
-cannot be replaced. `@get-bb/plugin-sdk/provider-bridge/acp-next` is a
+cannot be replaced. `@hyperfide/plugin-sdk/provider-bridge/acp-next` is a
 deprecated alias of the same entrypoint; import every member from one subpath,
 since a dialect registered through one is not seen by the other's bridge.
 
 ### Testing a bridge
 
 **Conformance.** Ship a test that drives the published kit,
-`@get-bb/plugin-sdk/provider-bridge/testing`, against your bridge
+`@hyperfide/plugin-sdk/provider-bridge/testing`, against your bridge
 in-process: export the bridge surface, wire `experimental_runBridgeConformance`
 with your provider id and a transport whose `send` calls it and whose
 `takeMessages` drains captured stdout
@@ -253,7 +253,7 @@ checks for parsing, request replies, semantic timeline output, and error
 cases.
 
 **Recorded replay.** Record a real session: start the host daemon with
-`BB_PROVIDER_BRIDGE_RECORD_DIR=<dir>` in its environment and run a thread on
+`HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR=<dir>` in its environment and run a thread on
 your provider (a bridge that spawns a CLI also calls
 `experimental_recordProviderChildIo` right after `spawn()`); the layout is in
 `docs/provider-bridge-protocol.md`, "Record mode". Redact and commit the lanes

@@ -1,8 +1,8 @@
 import {
   splitPluginDisplayName,
   type PluginNameTag as PluginNameTagValue,
-} from "@bb/domain/plugin-display-name";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/domain/plugin-display-name";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 const TONE_CLASS: Record<PluginNameTagValue["tone"], string> = {
   attention: "border-attention/50 bg-surface-attention text-foreground",

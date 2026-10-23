@@ -11,7 +11,7 @@ import {
   type Key,
 } from "react";
 import { PluginIcon } from "./PluginIcon";
-import { arrayMove } from "@bb/client-core";
+import { arrayMove } from "@hyperfide/client-core";
 import { arrangeByStoredOrder } from "@/lib/stored-order";
 import type { SecondaryPanelRenderableTab } from "@/components/secondary-panel/ThreadSecondaryPanel";
 import type { ThreadSecondaryPanelProps } from "@/components/secondary-panel/ThreadSecondaryPanel";

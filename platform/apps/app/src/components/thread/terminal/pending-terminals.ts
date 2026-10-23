@@ -2,11 +2,11 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { atom, useAtomValue, useStore } from "jotai";
 import { customAlphabet } from "nanoid";
-import { GENERATED_ID_ALPHABET, GENERATED_ID_SUFFIX_LENGTH } from "@bb/domain";
+import { GENERATED_ID_ALPHABET, GENERATED_ID_SUFFIX_LENGTH } from "@hyperfide/domain";
 import type {
   CreateTerminalRequest,
   TerminalSession,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { applyTerminalSessionUpsert } from "@/hooks/cache-owners/terminal-cache-owner";
 import { useCloseTerminal } from "@/hooks/queries/thread-terminal-queries";
 import { asHttpError } from "@/lib/http-error";

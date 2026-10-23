@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import type {
   TerminalSession,
   ThreadStorageFileListResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   useFixedPanelTabsState,
   useUpdateFixedPanelTabsState,
@@ -39,7 +39,7 @@ import type {
   HostFileTabState,
   ThreadStorageFileTabState,
   WorkspaceFileTabState,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import { useRecordThreadRecentItem } from "./threadRecentItems";
 import type {
   SecondaryPanelTabReorderHandler,
@@ -61,7 +61,7 @@ import {
   reorderSecondaryPanelFileTabInState,
   setSecondaryPanelTabsInState,
   updateSecondaryPanelTabInState,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   getPanelTabHistoryKey,
   rememberClosedPanelTab,

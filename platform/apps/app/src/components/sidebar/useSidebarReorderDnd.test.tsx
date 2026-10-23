@@ -7,9 +7,9 @@ import type {
   DragStartEvent,
 } from "@dnd-kit/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { COMPACT_VIEWPORT_QUERY } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { COMPACT_VIEWPORT_QUERY } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { setCompactSidebarDrawerShowing } from "@/components/ui/sidebar-mobile-drawer-visibility";
-import { useSidebarReorderDnd } from "@bb/shared-ui/use-sidebar-reorder-dnd";
+import { useSidebarReorderDnd } from "@hyperfide/shared-ui/use-sidebar-reorder-dnd";
 import { SidebarTouchSensor } from "./sidebarTouchSensor";
 
 const DRAG_START_EVENT = { active: { id: "thread-1" } } as DragStartEvent;

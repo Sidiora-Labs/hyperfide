@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadEventRow } from "@bb/domain";
+import type { ThreadEventRow } from "@hyperfide/domain";
 import { EMPTY_ACCEPTED_CLIENT_REQUEST_CONTEXT } from "../src/accepted-client-request-context.js";
 import {
   buildThreadTimelineFromEvents,

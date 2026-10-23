@@ -1,4 +1,4 @@
-import { createBrowserBbSdk } from "@bb/sdk/browser";
+import { createBrowserBbSdk } from "@hyperfide/sdk/browser";
 import { fetchWithAppSurface } from "./app-surface";
 
 const BASE_URL =
@@ -9,4 +9,4 @@ export const sdk = createBrowserBbSdk({
   fetch: fetchWithAppSurface,
 });
 
-export { BbHttpError } from "@bb/sdk/browser";
+export { BbHttpError } from "@hyperfide/sdk/browser";

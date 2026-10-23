@@ -16,9 +16,9 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
-import { resolveBundledNpmCli } from "@bb/plugin-build";
-import { omitNpmScriptPolicyEnv } from "@bb/process-utils";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract";
+import { resolveBundledNpmCli } from "@hyperfide/plugin-build";
+import { omitNpmScriptPolicyEnv } from "@hyperfide/process-utils";
 
 const execFileAsync = promisify(execFile);
 const HOST_DEPENDENCIES = [
@@ -274,7 +274,7 @@ export function createBbAppArtifactService(
       const repoRoot = resolve(packageRoot, "../..");
       await commandRunner(
         "pnpm",
-        ["exec", "turbo", "run", "build:host", "--filter=bb-app"],
+        ["exec", "turbo", "run", "build:host", "--filter=hyperfide-app"],
         repoRoot,
       );
       hostPackageRoot = join(packageRoot, "host-package");

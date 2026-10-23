@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   pendingInteractionRequestedPermissionProfileSchema,
   type PendingInteractionRequestedPermissionProfile,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 
 const nullToUndefined = (value: unknown): unknown =>
   value === null ? undefined : value;

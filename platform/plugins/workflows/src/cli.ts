@@ -5,7 +5,7 @@ import {
   type BbPluginApi,
   type PluginCliContext,
   type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type { JsonValue } from "./types.js";
 import type {
   WorkflowCallInspection,
@@ -201,7 +201,7 @@ function statusSummary(page: WorkflowRunInspectionPage) {
     history: {
       format: "jsonl",
       pageUsage: `bb workflows history ${run.id} --cursor 0 --limit ${DEFAULT_HISTORY_LIMIT}`,
-      fileUsage: `mkdir -p "$BB_THREAD_STORAGE/workflows" && bb workflows history ${run.id} --cursor 0 --limit ${DEFAULT_HISTORY_LIMIT} > "$BB_THREAD_STORAGE/workflows/${run.id}.jsonl"`,
+      fileUsage: `mkdir -p "$HYPERFIDE_THREAD_STORAGE/workflows" && bb workflows history ${run.id} --cursor 0 --limit ${DEFAULT_HISTORY_LIMIT} > "$HYPERFIDE_THREAD_STORAGE/workflows/${run.id}.jsonl"`,
     },
   };
 }

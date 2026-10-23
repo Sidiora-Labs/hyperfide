@@ -1,8 +1,8 @@
 import {
   collectOptionalFieldPaths,
   makeWorkspaceStatus,
-} from "@bb/test-helpers";
-import type { WorkspaceResolutionFailure } from "@bb/host-daemon-contract";
+} from "@hyperfide/test-helpers";
+import type { WorkspaceResolutionFailure } from "@hyperfide/host-daemon-contract";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -12,7 +12,7 @@ import {
   TERMINAL_DATA_MAX_BASE64_LENGTH,
   TERMINAL_DATA_MAX_BYTES,
   TERMINAL_ROWS_MAX,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import * as contract from "../src/index.js";
 import {

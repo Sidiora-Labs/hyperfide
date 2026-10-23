@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm";
-import { events } from "@bb/db";
+import { events } from "@hyperfide/db";
 import {
   turnRequestEventDataSchema,
   type SystemMessageKind,
   type SystemMessageSubject,
   type ThreadEventTurnStatus,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import {
   queueChildThreadNeedsAttentionNotificationBestEffort,

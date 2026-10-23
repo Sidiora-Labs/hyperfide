@@ -6,12 +6,12 @@ import {
   type ReasoningLevel,
   type ServiceTier,
   type ThreadRuntimeDisplayStatus,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   CreateQueuedMessageRequest,
   ExistingThreadExecutionInputSources,
   SendMessageRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { FollowUpSubmitMode } from "./follow-up-submit-mode.js";
 
 export interface SendMessageMutationRequest extends SendMessageRequest {

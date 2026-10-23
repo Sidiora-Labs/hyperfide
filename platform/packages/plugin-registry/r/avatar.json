@@ -8,7 +8,7 @@
     "@radix-ui/react-avatar"
   ],
   "registryDependencies": [
-    "@bb/utils"
+    "@hyperfide/utils"
   ],
   "files": [
     {

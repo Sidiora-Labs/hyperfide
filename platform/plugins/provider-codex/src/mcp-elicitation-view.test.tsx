@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { PluginPendingInteractionProps } from "@get-bb/plugin-sdk/app";
+import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
+import type { PluginPendingInteractionProps } from "@hyperfide/plugin-sdk/app";
 import {
   codexMcpElicitationSchema,
   type CodexMcpElicitationResponse,

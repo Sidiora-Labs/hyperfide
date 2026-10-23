@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { threadScope, turnScope } from "@bb/domain";
+import { threadScope, turnScope } from "@hyperfide/domain";
 import { deriveStoredEventItemFields } from "../src/stored-event-item-fields.js";
 
 describe("deriveStoredEventItemFields", () => {

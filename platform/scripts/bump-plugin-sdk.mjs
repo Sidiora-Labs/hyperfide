@@ -3,7 +3,7 @@ import {
   parsePackageJsonWithVersion,
   writeFilesAtomically,
 } from "./lib/package-version.mjs";
-// Bumps @get-bb/plugin-sdk in the two files that must always agree:
+// Bumps @hyperfide/plugin-sdk in the two files that must always agree:
 //
 //   packages/domain/src/plugin-sdk-version.ts  (PLUGIN_SDK_VERSION)
 //   packages/plugin-sdk/package.json           (version)
@@ -129,7 +129,7 @@ export async function bumpPluginSdk(options) {
   });
 
   log(
-    `Bumped: @get-bb/plugin-sdk ${manifestVersion} → ${newVersion} (${MANIFEST_PATH} + ${VERSION_MODULE_PATH})`,
+    `Bumped: @hyperfide/plugin-sdk ${manifestVersion} → ${newVersion} (${MANIFEST_PATH} + ${VERSION_MODULE_PATH})`,
   );
 }
 

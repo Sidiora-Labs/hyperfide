@@ -1,4 +1,4 @@
-import type { PluginFileOpenerSource } from "@get-bb/plugin-sdk/app";
+import type { PluginFileOpenerSource } from "@hyperfide/plugin-sdk/app";
 
 const PDF_MIME_TYPE = "application/pdf";
 

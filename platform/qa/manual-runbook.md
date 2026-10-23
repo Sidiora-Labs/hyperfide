@@ -18,7 +18,7 @@ state, and logs. This pass does not cover app UI, Electron, or browser behavior.
   change. Its verdict is scoped to the changed behavior.
 - **Real-provider CLI/API E2E** is this non-app provider gate. The automated
   companion is `pnpm exec turbo run test:integration`, including real-provider
-  coverage under `tests/integration/real/**` and `@bb/agent-runtime`; this
+  coverage under `tests/integration/real/**` and `@hyperfide/agent-runtime`; this
   manual runbook adds operator-driven CLI/API, standalone server + daemon,
   restart, lifecycle, API, DB, and log checks.
 - **Smoke QA** is a shallow liveness check on a running app or surface. It is

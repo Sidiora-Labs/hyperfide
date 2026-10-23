@@ -5,16 +5,16 @@ import {
   insertEvents,
   noopNotifier,
   upsertHost,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import type { DbConnection } from "@bb/db";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import type { DbConnection } from "@hyperfide/db";
 import {
   encodeClientTurnRequestIdNumber,
   parseStoredThreadEvent,
   threadScope,
   turnScope,
-} from "@bb/domain";
-import type { Thread, ThreadEventScope, ThreadEventType } from "@bb/domain";
+} from "@hyperfide/domain";
+import type { Thread, ThreadEventScope, ThreadEventType } from "@hyperfide/domain";
 
 type InsertEventInput = Parameters<typeof insertEvents>[2][number];
 

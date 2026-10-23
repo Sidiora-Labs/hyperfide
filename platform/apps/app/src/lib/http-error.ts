@@ -1,5 +1,5 @@
-import { extractErrorMessage } from "@bb/core-ui";
-import { BbHttpError } from "@bb/sdk/browser";
+import { extractErrorMessage } from "@hyperfide/core-ui";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import { HttpError } from "./api";
 
 const HTTP_STATUS_PREFIX_PATTERN = /^HTTP \d{3}:\s*/u;

@@ -2,7 +2,7 @@ import type {
   PluginAiCompleteOptions,
   PluginAiServiceStatus,
   PluginAiTranscribeOptions,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type { AiServiceRegistry } from "../../src/services/ai/ai-service-registry.js";
 
 export interface FakeCompleteCall {

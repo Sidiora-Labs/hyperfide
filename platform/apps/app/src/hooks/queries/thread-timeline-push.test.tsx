@@ -2,9 +2,9 @@
 
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defaultExperiments } from "@bb/domain";
-import type { ThreadTimelineResponse } from "@bb/server-contract";
-import { COMPACT_VIEWPORT_QUERY } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { defaultExperiments } from "@hyperfide/domain";
+import type { ThreadTimelineResponse } from "@hyperfide/server-contract";
+import { COMPACT_VIEWPORT_QUERY } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { useThreadTimelineRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { sdk } from "@/lib/sdk";
 import { makeSystemConfig } from "@/test/fixtures/system-config";

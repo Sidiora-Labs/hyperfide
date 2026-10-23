@@ -1,7 +1,7 @@
 import type {
   PluginCatalogResolvedSource,
   PluginInstallJob,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   queryOptions,
   useMutation,

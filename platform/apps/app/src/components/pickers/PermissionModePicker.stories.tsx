@@ -1,4 +1,4 @@
-import type { PermissionMode } from "@bb/domain";
+import type { PermissionMode } from "@hyperfide/domain";
 import { PermissionModePicker } from "./PermissionModePicker";
 import type { PickerOption } from "./OptionPicker";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";

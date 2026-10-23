@@ -15,7 +15,7 @@ const OFFICIAL = {
   description: null,
   official: true,
   sourceKind: "https",
-  source: "https://getbb.app/marketplace/v1/marketplace.json",
+  source: "https://hyperfide.example/marketplace/v1/marketplace.json",
   resolvedCommit: null,
   entryCount: 3,
   lastRefreshAt: 1_700_000_000_000,

@@ -10,14 +10,14 @@ a provider plugin has, and it does so through the public SDK alone.
 
 Everything under this directory imports only:
 
-- `@get-bb/plugin-sdk` (and its published subpaths `/provider-bridge`,
+- `@hyperfide/plugin-sdk` (and its published subpaths `/provider-bridge`,
   `/host`, `/app`),
 - `zod`,
 - node built-ins and the plugin's own files.
 
-Tests may add the published test harnesses (`@get-bb/plugin-sdk/testing`,
-`@get-bb/plugin-sdk/provider-bridge/testing`) and the test runner. **No
-`@bb/*` workspace package is imported anywhere**, and
+Tests may add the published test harnesses (`@hyperfide/plugin-sdk/testing`,
+`@hyperfide/plugin-sdk/provider-bridge/testing`) and the test runner. **No
+`@hyperfide/*` workspace package is imported anywhere**, and
 `public-sdk-only.test.ts` fails the suite if one ever is. A marketplace
 plugin cannot resolve bb's private packages; if this example needed one, the
 public API would have a hole.
@@ -71,7 +71,7 @@ off and answer method-not-found, so declaration and bridge cannot disagree.
 
 ## How it is proven
 
-1. **The public testing kit** (`@get-bb/plugin-sdk/provider-bridge/testing`):
+1. **The public testing kit** (`@hyperfide/plugin-sdk/provider-bridge/testing`):
    - `provider-bridge.conformance.test.ts` drives the bridge through the
      canonical Provider Bridge Protocol suite and pins fourteen green rules:
      the twelve every bridge runs plus `turn/settles-without-activity`, which
@@ -89,7 +89,7 @@ off and answer method-not-found, so declaration and bridge cannot disagree.
      runtime enforces.
    - `provider-bridge.parity.test.ts` replays `recordings/echo-agent/turn-tools`
      — a real recording bb made of this plugin's built artifact (record
-     mode, `BB_PROVIDER_BRIDGE_RECORD_DIR`) — through the bridge the way the
+     mode, `HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR`) — through the bridge the way the
      runtime spawns it, and diffs the assembled events against the
      recording's own: zero diffs, every recorded-cell conformance rule green.
      The same test re-records the bridge lane beside a copy of the recording,
@@ -97,7 +97,7 @@ off and answer method-not-found, so declaration and bridge cannot disagree.
      oracle the first-party bridges use, reached through the public kit.
    - `public-sdk-only.test.ts` guards the rule.
    - `server.test.ts` loads the plugin into the public fake host
-     (`@get-bb/plugin-sdk/testing`) and asserts the registered declaration
+     (`@hyperfide/plugin-sdk/testing`) and asserts the registered declaration
      carries the native skill root, normalized the way the server stores it.
 2. **The server**: `apps/server/test/providers/echo-provider-canary.test.ts`
    installs this plugin from its path, builds the real thread command, runs
@@ -137,13 +137,13 @@ sources, `bb plugin reload echo-provider`.
 ## Test
 
 ```
-pnpm exec turbo run test --filter=bb-plugin-echo-provider
+pnpm exec turbo run test --filter=hyperfide-plugin-echo-provider
 ```
 
 ## Re-record
 
 The recording under `recordings/` is never rewritten. To capture a new one,
-start a dev bb with `BB_PROVIDER_BRIDGE_RECORD_DIR=<dir>` exported in the
+start a dev bb with `HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR=<dir>` exported in the
 daemon's environment, install this plugin, spawn a thread on `echo-agent`,
 then package the thread's lanes:
 

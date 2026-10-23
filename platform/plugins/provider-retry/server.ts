@@ -7,7 +7,7 @@ import {
   retryAvailabilitySchema,
   type RetryAvailability,
 } from "./src/retry-contract.js";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { registerProviderRetryCli } from "./src/cli.js";
 import {
   DEFAULT_MAXIMUM_WAIT_MS,

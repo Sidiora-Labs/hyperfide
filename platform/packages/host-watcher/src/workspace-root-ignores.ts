@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { runVcsProcess } from "@bb/process-utils";
+import { runVcsProcess } from "@hyperfide/process-utils";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { toWatchErrorMessage } from "./watch-error.js";

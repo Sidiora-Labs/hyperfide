@@ -1,9 +1,6 @@
-import type { JsonValue } from "@get-bb/plugin-sdk";
+import type { JsonValue } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
-export const ACCOUNT_PLUGIN_ID = "bb-account";
-export const accountStatusMethod = "bb-account.v1.status";
-export const accountFetchMethod = "bb-account.v1.fetch";
 
 export const accountSchema = z.object({
   userId: z.string(),

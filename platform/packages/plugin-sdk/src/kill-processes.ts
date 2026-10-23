@@ -1,4 +1,4 @@
-import { killProcessesWithCwdUnder } from "@bb/process-utils";
+import { killProcessesWithCwdUnder } from "@hyperfide/process-utils";
 
 /**
  * Kills every process whose working directory is at or under any of `directories`,

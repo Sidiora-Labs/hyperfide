@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type Database from "better-sqlite3";
 import { z } from "zod";
-import type { PluginKvStorage } from "@get-bb/plugin-sdk";
+import type { PluginKvStorage } from "@hyperfide/plugin-sdk";
 import {
   accountSchema,
   accountSecretSchema,

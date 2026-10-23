@@ -9,7 +9,7 @@ import {
   type PromptHistoryPosition,
   type QueuedThreadMessageRow,
   type StoredPromptHistoryEntryRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   pathLooksRuntimeReadable,
   promptInputSchema,
@@ -20,7 +20,7 @@ import {
   type Thread,
   type ThreadTurnInitiator,
   type TurnRequestTarget,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { z } from "zod";
 import { toThreadQueuedMessage } from "./threads/thread-queued-messages.js";
 import { threadTargetHostId } from "./threads/dispatch-attempt.js";

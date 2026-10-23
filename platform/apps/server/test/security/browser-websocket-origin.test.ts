@@ -1,5 +1,5 @@
-import { createNodeBbSdk } from "@bb/sdk/node";
-import { createNodeWebsocketFactory } from "@bb/sdk/node-websocket";
+import { createNodeBbSdk } from "@hyperfide/sdk/node";
+import { createNodeWebsocketFactory } from "@hyperfide/sdk/node-websocket";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import {

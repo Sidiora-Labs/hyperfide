@@ -3,7 +3,7 @@ import {
   machineServerAccessBlockedReason,
   machineServerAccessReady,
 } from "./machine-server-access";
-import type { ServerAccessStatus } from "@bb/server-contract";
+import type { ServerAccessStatus } from "@hyperfide/server-contract";
 
 function status(
   overrides: Partial<ServerAccessStatus> = {},

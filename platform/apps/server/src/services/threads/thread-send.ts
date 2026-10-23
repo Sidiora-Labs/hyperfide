@@ -2,8 +2,8 @@ import {
   getEnvironment,
   getThread,
   requireThreadLifecycleEventApplied,
-} from "@bb/db";
-import type { DbConnection, DbTransaction, EnvironmentRow } from "@bb/db";
+} from "@hyperfide/db";
+import type { DbConnection, DbTransaction, EnvironmentRow } from "@hyperfide/db";
 import type {
   ClientTurnRequestId,
   PromptInput,
@@ -11,13 +11,13 @@ import type {
   Thread,
   ThreadTurnInitiator,
   TurnRequestTarget,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   flattenPromptInputGroups,
   isStandaloneBuiltinClearCommand,
-} from "@bb/domain";
-import type { SendMessageRequest } from "@bb/server-contract";
-import { renderTemplate } from "@bb/templates";
+} from "@hyperfide/domain";
+import type { SendMessageRequest } from "@hyperfide/server-contract";
+import { renderTemplate } from "@hyperfide/templates";
 import type {
   AppDeps,
   LoggedPendingInteractionWorkSessionDeps,

@@ -10,7 +10,7 @@ import type {
   TimelineSystemRow,
   TimelineTurnRow,
   TimelineWorkRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { assertNever } from "./assert-never.js";
 import { parseSentThreadMessage } from "./tool-call-parsing.js";
 import {

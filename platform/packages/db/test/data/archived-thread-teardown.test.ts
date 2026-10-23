@@ -12,8 +12,8 @@ import {
 import { noopNotifier } from "../../src/notifier.js";
 import { threads } from "../../src/schema.js";
 import { createMigratedConnection } from "../../src/testing.js";
-import type { ThreadStatus } from "@bb/domain";
-import type { TerminalSessionStatus } from "@bb/domain";
+import type { ThreadStatus } from "@hyperfide/domain";
+import type { TerminalSessionStatus } from "@hyperfide/domain";
 
 function setup(status: ThreadStatus) {
   const db = createMigratedConnection();

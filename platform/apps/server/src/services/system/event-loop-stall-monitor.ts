@@ -1,4 +1,4 @@
-import { startEventLoopDelaySampler } from "@bb/process-utils";
+import { startEventLoopDelaySampler } from "@hyperfide/process-utils";
 import type { ServerLogger } from "../../types.js";
 import { takeEventLoopWorkWindowSnapshot } from "./event-loop-work.js";
 

@@ -24,7 +24,7 @@ const HOST_PLUGIN_WORKER_TIMEOUT_MS = 60_000;
 // Auto-installed, default-enabled builtins (apps/server/src/services/plugins/
 // builtin-registry.ts). Each must reach "running" in the packed tarball —
 // bundles that pass health checks can still fail to load (0.0.31 shipped with
-// every builtin unable to resolve @get-bb/plugin-sdk at import time).
+// every builtin unable to resolve @hyperfide/plugin-sdk at import time).
 const EXPECTED_RUNNING_BUILTIN_PLUGINS = [
   "automations",
   "concurrency-limit",
@@ -59,9 +59,7 @@ const PORT_COLLISION_PATTERN =
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptsDir, "..");
 const tempRoot = await mkdtemp(join(tmpdir(), "bb-app-tarball-"));
-const smokeProcessEnv = {
-  BB_TELEMETRY: "false",
-};
+const smokeProcessEnv = {};
 const stopManagedProcess = createManagedProcessStop(PROCESS_STOP_TIMEOUT_MS);
 
 function formatElapsed(startedAt) {

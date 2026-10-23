@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
-import { HOST_AUTH_FILE_NAME } from "@bb/host-daemon-contract";
+import { HOST_AUTH_FILE_NAME } from "@hyperfide/host-daemon-contract";
 import {
   readHostAuthState,
   resolveServerUrl,

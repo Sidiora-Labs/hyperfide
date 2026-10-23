@@ -68,7 +68,7 @@ describe("migratePluginToPackageLayout when types/ survives the rmdir", () => {
       `${JSON.stringify(
         {
           compilerOptions: {
-            paths: { "@get-bb/plugin-sdk": ["./types/bb-plugin-sdk.d.ts"] },
+            paths: { "@hyperfide/plugin-sdk": ["./types/bb-plugin-sdk.d.ts"] },
           },
           include: ["server.ts", "types"],
         },

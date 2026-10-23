@@ -1,9 +1,9 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Button } from "@bb/shared-ui/button";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { COARSE_POINTER_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
+import { COARSE_POINTER_ICON_SIZE_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   SidebarContent,
   useCloseMobileSidebar,
@@ -13,9 +13,9 @@ import {
   SidebarResizeHandle,
   SidebarTopReserveRow,
 } from "@/components/sidebar/SidebarChrome";
-import { PROJECT_LIST_ACTION_BUTTON_CLASS } from "@bb/shared-ui/sidebar-row-classes";
-import { SIDEBAR_STANDARD_ROW_PADDING_CLASS } from "@bb/shared-ui/sidebar-row-classes";
-import { CHROME_SECTION_LABEL_CLASS } from "@bb/shared-ui/chrome-style-tokens";
+import { PROJECT_LIST_ACTION_BUTTON_CLASS } from "@hyperfide/shared-ui/sidebar-row-classes";
+import { SIDEBAR_STANDARD_ROW_PADDING_CLASS } from "@hyperfide/shared-ui/sidebar-row-classes";
+import { CHROME_SECTION_LABEL_CLASS } from "@hyperfide/shared-ui/chrome-style-tokens";
 import { RouteNavigationCallbackContext } from "@/components/ui/app-route-anchor";
 
 export function SectionSidebarIcon({ name }: { name: IconName }) {

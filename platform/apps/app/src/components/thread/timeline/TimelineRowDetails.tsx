@@ -3,12 +3,12 @@ import {
   assertNever,
   fileNameFromPath,
   type TimelineViewWorkRow,
-} from "@bb/thread-view";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
+} from "@hyperfide/thread-view";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { EventCodeBlock } from "../../ui/event-code-block.js";
 import { ImageLightbox } from "../../ui/image-lightbox.js";
-import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
+import { EmptyStatePanel } from "@hyperfide/shared-ui/empty-state";
 import { LazyTerminalOutputBlock } from "./LazyTerminalOutputBlock.js";
 import { TimelineDetailScroll } from "./TimelineDetailScroll.js";
 import { LazyTimelineFileDiffBlock } from "./LazyTimelineFileDiffBlock.js";

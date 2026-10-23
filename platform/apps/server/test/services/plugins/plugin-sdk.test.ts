@@ -9,10 +9,10 @@ import {
   getThread,
   insertThreadPluginMetadata,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import type { Logger } from "@bb/logger";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import type { Logger } from "@hyperfide/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
@@ -33,7 +33,7 @@ import {
 } from "../../helpers/commands.js";
 import { PluginHostArtifactRegistry } from "../../../src/services/plugins/plugin-host-artifact-registry.js";
 import { startTestServer, testLogger } from "../../helpers/test-app.js";
-import { defineRpcContract } from "@get-bb/plugin-sdk";
+import { defineRpcContract } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
 
@@ -138,7 +138,7 @@ describe("plugin bb.sdk bind gate", () => {
   const nextUnsubscribe = vi.fn();
   const ensureSharedPortTunnel = vi.fn().mockResolvedValue({
     label: "sawyer-air",
-    baseDomain: "getbb.app",
+    baseDomain: "hyperfide.example",
   });
   const callPluginHost = vi.fn(
     async (
@@ -378,7 +378,7 @@ describe("plugin bb.sdk bind gate", () => {
 
     await expect(api.hosts.ensureSharedPortTunnel("host-1")).resolves.toEqual({
       label: "sawyer-air",
-      baseDomain: "getbb.app",
+      baseDomain: "hyperfide.example",
     });
     api.hosts.declareSharedPorts("host-1", [8080, 3000]);
 
@@ -396,7 +396,7 @@ describe("plugin bb.sdk bind gate", () => {
     );
   });
 
-  it("routes next machine tunnels through the server control plane under the plugin's id", async () => {
+  it("keeps hosted machine tunnels disabled without querying the control plane", async () => {
     const rootDir = await writePlugin(workDir, {
       name: "bb-plugin-next",
       serverSource: `export default function plugin() {}`,
@@ -404,36 +404,26 @@ describe("plugin bb.sdk bind gate", () => {
     await service.installPath(rootDir);
     const api = requireApi(service, "next");
     const config = {
-      domain: "next.getbb.app",
+      domain: "next.hyperfide.example",
       server: {
         protocol: "wss" as const,
-        host: "tunnel.next.getbb.app",
+        host: "tunnel.next.hyperfide.example",
         port: 443,
       },
     };
-    api.hosts.internal_DO_NOT_USE_setNextTunnels(config);
-    expect(sharedPorts.setNextTunnelConfig).toHaveBeenCalledWith(
-      "next",
-      config,
+    expect(() => api.hosts.internal_DO_NOT_USE_setNextTunnels(config)).toThrow(
+      "Hosted connections are disabled",
     );
-    expect(api.hosts.internal_DO_NOT_USE_nextTunnelStatuses()).toEqual([
-      {
-        hostId: "host-1",
-        hostName: "Sawyer Air",
-        state: "connected",
-        label: "sawyer-air",
-        lastError: null,
-        nextRetryAt: null,
-        since: 1,
-        shares: [],
-      },
-    ]);
+    api.hosts.internal_DO_NOT_USE_setNextTunnels(null);
+    expect(sharedPorts.setNextTunnelConfig).not.toHaveBeenCalled();
+    expect(api.hosts.internal_DO_NOT_USE_nextTunnelStatuses()).toEqual([]);
+    expect(sharedPorts.listNextTunnelStatuses).not.toHaveBeenCalled();
     const listener = vi.fn();
     api.hosts.internal_DO_NOT_USE_onNextTunnelStatusChange(listener);
-    expect(sharedPorts.onNextTunnelStatusChange).toHaveBeenCalledWith(listener);
-
+    expect(sharedPorts.onNextTunnelStatusChange).not.toHaveBeenCalled();
+    expect(listener).not.toHaveBeenCalled();
     await service.stop();
-    expect(nextUnsubscribe).toHaveBeenCalled();
+    expect(nextUnsubscribe).not.toHaveBeenCalled();
     expect(sharedPorts.clearDeclarationsForOwner).toHaveBeenCalledWith("next");
   });
 
@@ -542,7 +532,7 @@ describe("plugin bb.sdk bind gate", () => {
     const rootDir = await writePlugin(workDir, {
       name: "bb-plugin-eager-host-client",
       serverSource: `
-        import { defineRpcContract } from "@get-bb/plugin-sdk";
+        import { defineRpcContract } from "@hyperfide/plugin-sdk";
         const schema = { "~standard": { validate(value: unknown) { return { value }; } } };
         const contract = defineRpcContract({ ping: { input: schema, output: schema } });
         export default async function plugin(bb: any) {

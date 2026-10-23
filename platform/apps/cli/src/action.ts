@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { BbHttpError } from "@bb/sdk";
+import { BbHttpError } from "@hyperfide/sdk";
 import {
   beginJsonOutputTracking,
   isJsonInvocation,

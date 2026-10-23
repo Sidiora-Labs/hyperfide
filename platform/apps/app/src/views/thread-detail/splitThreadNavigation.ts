@@ -1,5 +1,5 @@
 import type { ThreadRoutePathArgs } from "@/lib/route-paths";
-import type { ThreadOpenSplit, ThreadPaneAction } from "@bb/server-contract";
+import type { ThreadOpenSplit, ThreadPaneAction } from "@hyperfide/server-contract";
 import {
   countPanes,
   findPane,
@@ -14,7 +14,7 @@ import {
 import { decideThreadDrop, type SplitZone } from "@/lib/split-drag";
 import type { PaneContent, SplitLayout } from "@/lib/split-layout";
 import { matchPath } from "react-router-dom";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import {
   APP_ROOT_ROUTE_PATH,
   getPluginDetailRoutePath,

@@ -11,10 +11,10 @@ describe("formatShellCommandForDisplay", () => {
   it("puts each chained command of a long one-liner on its own line", () => {
     expect(
       formatShellCommandForDisplay(
-        "cd apps/app && pnpm exec turbo run test --filter=@bb/app || echo failed; git status --short",
+        "cd apps/app && pnpm exec turbo run test --filter=@hyperfide/app || echo failed; git status --short",
       ),
     ).toBe(
-      "cd apps/app &&\n  pnpm exec turbo run test --filter=@bb/app ||\n  echo failed;\n  git status --short",
+      "cd apps/app &&\n  pnpm exec turbo run test --filter=@hyperfide/app ||\n  echo failed;\n  git status --short",
     );
   });
 
@@ -74,12 +74,12 @@ describe("formatShellCommandForDisplay", () => {
       "find . -name '*.log' -exec rm {} \\; &&\n  cat <(ls -la) 2>&1 >| out.txt &&\n  echo done-cleaning-up",
     ],
     [
-      "pnpm exec turbo run test --filter=@bb/app && echo done && pnpm exec turbo run lint",
-      "pnpm exec turbo run test --filter=@bb/app &&\n  echo done &&\n  pnpm exec turbo run lint",
+      "pnpm exec turbo run test --filter=@hyperfide/app && echo done && pnpm exec turbo run lint",
+      "pnpm exec turbo run test --filter=@hyperfide/app &&\n  echo done &&\n  pnpm exec turbo run lint",
     ],
     [
-      "pnpm exec turbo run typecheck --filter=@bb/thread-view && echo ok # && the rest is a comment",
-      "pnpm exec turbo run typecheck --filter=@bb/thread-view &&\n  echo ok # && the rest is a comment",
+      "pnpm exec turbo run typecheck --filter=@hyperfide/thread-view && echo ok # && the rest is a comment",
+      "pnpm exec turbo run typecheck --filter=@hyperfide/thread-view &&\n  echo ok # && the rest is a comment",
     ],
   ])("splits only at top-level operators: %s", (command, expected) => {
     expect(formatShellCommandForDisplay(command)).toBe(expected);

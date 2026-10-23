@@ -6,7 +6,7 @@ import { matchPath, Navigate, useLocation } from "react-router-dom";
 import { useAtomValue } from "jotai";
 import { splitLayoutAtom } from "@/lib/split-layout/atoms";
 import { holdsPluginDetailPane } from "@/lib/split-layout/openPaneContentInSplit";
-import "@bb/shared-ui/icon-extended";
+import "@hyperfide/shared-ui/icon-extended";
 import {
   APP_ROOT_ROUTE_PATH,
   LEGACY_PROJECT_COMPOSE_ROUTE_PATH,

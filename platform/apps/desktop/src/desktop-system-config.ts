@@ -3,7 +3,7 @@ import {
   appKeybindingSchema,
   type AppKeybinding,
   type AppKeybindings,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { z } from "zod";
 
 const desktopKeybindingSchema = appKeybindingSchema.extend({

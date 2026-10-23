@@ -1,4 +1,4 @@
-import type { DbConnection } from "@bb/db";
+import type { DbConnection } from "@hyperfide/db";
 import type { AppDeps } from "../../types.js";
 import { createMachineEnrollmentService } from "./enrollments.js";
 import { serverAccess } from "./server-access.js";

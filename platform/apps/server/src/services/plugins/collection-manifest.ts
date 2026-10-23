@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import type { PluginSourceSelection } from "@bb/server-contract";
+import type { PluginSourceSelection } from "@hyperfide/server-contract";
 import {
   normalizePluginSubdirectory,
   realPathInside,
@@ -10,7 +10,7 @@ import { readPluginManifest } from "./manifest.js";
 
 const COLLECTION_MANIFEST_PATH = ".hyperfide/plugins.json";
 export const COLLECTION_SCHEMA_URL =
-  "https://getbb.app/schemas/plugins.schema.json";
+  "/schemas/plugins.schema.json";
 
 const COLLECTION_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 

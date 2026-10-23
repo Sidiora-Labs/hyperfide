@@ -1,7 +1,7 @@
 import type {
   ServerMoveStatus,
   ServerMoveStatusResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { QueryClientArg } from "../cache-effect-types";
 import { serverMoveStatusQueryKey } from "../queries/query-keys";
 

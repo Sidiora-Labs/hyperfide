@@ -1,17 +1,15 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   resolveDevInstanceConfig,
   resolveInheritedDevSkillsRootPaths,
   toDevProcessEnv,
-} from "@bb/config/runtime";
-import { makeTempDir } from "@bb/test-helpers";
+} from "@hyperfide/config/runtime";
+import { makeTempDir } from "@hyperfide/test-helpers";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createStartWorktreeCommand,
-  resolveDevCloud,
   resolveDevLaunchMode,
-  STAGING_CLOUD_URL,
   toDevLaunchProcessEnv,
 } from "../src/commands/run-dev.js";
 import { migrateLegacyDevData } from "../src/lib/legacy-dev-data-migration.js";
@@ -262,35 +260,6 @@ describe("run-dev", () => {
     );
   });
 
-  it("points bb account and Connect at staging only for pnpm dev --staging", () => {
-    const config = resolveDevInstanceConfig({
-      homeDir: "/Users/tester",
-      repoRoot: "/Users/tester/src/bb",
-    });
-
-    expect(resolveDevCloud({ staging: false, mode: "vite" })).toBe("local");
-    expect(resolveDevCloud({ staging: true, mode: "vite" })).toBe("staging");
-    expect(() => resolveDevCloud({ staging: true, mode: "worktree" })).toThrow(
-      "--staging is supported by pnpm dev only",
-    );
-    expect(
-      toDevLaunchProcessEnv({
-        baseEnv: {},
-        cloud: "staging",
-        config,
-        mode: "vite",
-      }).HYPERFIDE_DEV_CONNECT_BASE_URL,
-    ).toBe(STAGING_CLOUD_URL);
-    expect(
-      toDevLaunchProcessEnv({
-        baseEnv: { HYPERFIDE_DEV_CONNECT_BASE_URL: STAGING_CLOUD_URL },
-        cloud: "local",
-        config,
-        mode: "vite",
-      }).HYPERFIDE_DEV_CONNECT_BASE_URL,
-    ).toBe(`http://bb.localhost:${config.ports.cloudPort}`);
-  });
-
   it.each(["vite", "worktree"] as const)(
     "preserves an explicit onboarding override in %s mode",
     (mode) => {
@@ -319,7 +288,6 @@ describe("run-dev", () => {
       baseEnv: {
         HYPERFIDE_DATA_DIR: "/Users/tester/.hyperfide",
         HYPERFIDE_DEV_APP_PORT: "5173",
-        HYPERFIDE_TELEMETRY: "true",
         NODE_ENV: "development",
         OPENAI_API_KEY: "test-key",
       },
@@ -334,7 +302,6 @@ describe("run-dev", () => {
       HYPERFIDE_SERVER_PORT: String(config.ports.serverPort),
       HYPERFIDE_SERVER_URL: config.serverUrl,
       HYPERFIDE_SKIP_ONBOARDING: "1",
-      HYPERFIDE_TELEMETRY: "false",
       NODE_ENV: "production",
       OPENAI_API_KEY: "test-key",
     });

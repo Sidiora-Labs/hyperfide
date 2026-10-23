@@ -5,9 +5,9 @@ import {
   listCorpusThreads,
   loadCorpusThread,
   resolveProviderCorpusDir,
-} from "@bb/test-helpers";
-import type { CorpusThread } from "@bb/test-helpers";
-import type { TimelineRow } from "@bb/server-contract";
+} from "@hyperfide/test-helpers";
+import type { CorpusThread } from "@hyperfide/test-helpers";
+import type { TimelineRow } from "@hyperfide/server-contract";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ProviderRegistryService } from "../../src/services/providers/provider-registry.js";
 import { createTestProviderRegistry } from "../helpers/provider-registry.js";

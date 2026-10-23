@@ -4,7 +4,7 @@ import type {
   ExperimentalComposerCommandSuggestion,
   ExperimentalComposerCommandTrigger,
   ExperimentalComposerMentionTarget,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 export type MentionTarget = ExperimentalComposerMentionTarget;
 

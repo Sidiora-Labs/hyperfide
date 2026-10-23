@@ -1,7 +1,7 @@
 import type {
   PendingInteractionPayload,
   PendingInteractionResolution,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 export interface ProviderRequestCommandPlan {
   kind: "request";

@@ -7,8 +7,8 @@ import {
 import type {
   SERVER_MOVED_ERROR_CODE,
   ServerMovedErrorDetails,
-} from "@bb/host-daemon-contract";
-import type { ServerMovedFile } from "@bb/server-archive";
+} from "@hyperfide/host-daemon-contract";
+import type { ServerMovedFile } from "@hyperfide/server-archive";
 
 const MOVED_ERROR_CODE: typeof SERVER_MOVED_ERROR_CODE = "server_moved";
 const MOVED_STATUS = 410;

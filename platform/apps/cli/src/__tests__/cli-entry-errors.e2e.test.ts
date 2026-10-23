@@ -220,7 +220,7 @@ describe.skipIf(process.platform === "win32")("bb entrypoint errors", () => {
     const legacy = await runCli(["legacy", "add", "--help"]);
 
     expect(spec.stdout).toContain("at most 80 characters");
-    expect(legacy.stdout).toBe("bb legacy add --name NAME\n");
+    expect(legacy.stdout).toBe("hyperfide-platform legacy add --name NAME\n");
     expect(pluginRuns).toEqual(["spec"]);
   }, 30_000);
 

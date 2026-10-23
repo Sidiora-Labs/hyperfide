@@ -49,7 +49,7 @@ export const PLUGIN_CLI_OUTPUT_MAX_BYTES = 1024 * 1024;
 export function defineRpcContract(contract) { return contract; }
 ${PLUGIN_SDK_DEFINE_HOST_ENTRY_RUNTIME}`;
 
-const PLUGIN_SDK_HOST_FALLBACK_SPECIFIER = "@get-bb/plugin-sdk/host";
+const PLUGIN_SDK_HOST_FALLBACK_SPECIFIER = "@hyperfide/plugin-sdk/host";
 const PLUGIN_SDK_HOST_FALLBACK_EXPORTS: ReadonlySet<string> = new Set([
   "experimental_defineHostEntry",
 ]);
@@ -235,8 +235,19 @@ function describeImportedNames(names: readonly string[]): string {
     .join(", ");
 }
 
+function isPrivateWorkspacePackage(
+  specifier: string | null | undefined,
+): specifier is string {
+  return (
+    specifier != null &&
+    (specifier === "@hyperfide" || specifier.startsWith("@hyperfide/")) &&
+    specifier !== "@hyperfide/plugin-sdk" &&
+    !specifier.startsWith("@hyperfide/plugin-sdk/")
+  );
+}
+
 function privateBbImportError(specifier: string): string {
-  return `host entries cannot import private BB workspace package "${specifier}"; use @get-bb/plugin-sdk, Node APIs, or a regular plugin dependency`;
+  return `host entries cannot import private BB workspace package "${specifier}"; use @hyperfide/plugin-sdk, Node APIs, or a regular plugin dependency`;
 }
 
 async function owningPackageName(
@@ -441,15 +452,17 @@ export async function buildPluginHost(
         {
           name: "reject-private-bb-host-imports",
           setup(build) {
-            build.onResolve({ filter: /^@bb(?:\/|$)/ }, (args) => ({
-              errors: [{ text: privateBbImportError(args.path) }],
-            }));
+            build.onResolve({ filter: /^@hyperfide(?:\/|$)/ }, (args) =>
+              isPrivateWorkspacePackage(args.path)
+                ? { errors: [{ text: privateBbImportError(args.path) }] }
+                : undefined,
+            );
             build.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, async (args) => {
               const owner = await owningPackageName(
                 args.path,
                 packageNameByDirectory,
               );
-              if (owner === "@bb" || owner?.startsWith("@bb/")) {
+              if (isPrivateWorkspacePackage(owner)) {
                 return {
                   errors: [{ text: privateBbImportError(owner) }],
                 };
@@ -457,7 +470,7 @@ export async function buildPluginHost(
               const source = await readFile(args.path, "utf8");
               const specifiers = sourceImportSpecifiers(source);
               for (const specifier of specifiers) {
-                if (specifier === "@bb" || specifier.startsWith("@bb/")) {
+                if (isPrivateWorkspacePackage(specifier)) {
                   return {
                     errors: [{ text: privateBbImportError(specifier) }],
                   };
@@ -484,7 +497,7 @@ export async function buildPluginHost(
     for (const [input, metadata] of Object.entries(bundle.metafile.inputs)) {
       const importer = resolve(workingDir, input);
       const owner = await owningPackageName(importer, packageNameByDirectory);
-      if (owner === "@bb" || owner?.startsWith("@bb/"))
+      if (isPrivateWorkspacePackage(owner))
         throw new Error(privateBbImportError(owner));
       const bundledImports = new Set(
         metadata.imports
@@ -558,7 +571,7 @@ export async function buildPluginHost(
                     args.path,
                     packageNameByDirectory,
                   );
-                  if (owner === "@bb" || owner?.startsWith("@bb/"))
+                  if (isPrivateWorkspacePackage(owner))
                     return { errors: [{ text: privateBbImportError(owner) }] };
                   return { contents: "", loader: "js" };
                 },

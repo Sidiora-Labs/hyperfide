@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-builtin-fixture",
+  "name": "hyperfide-plugin-builtin-fixture",
   "version": "0.1.0",
   "type": "module",
   "bb": {

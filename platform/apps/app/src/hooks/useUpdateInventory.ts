@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
-import type { Host } from "@bb/domain";
-import type { ProviderCliStatusResponse } from "@bb/host-daemon-contract";
+import type { Host } from "@hyperfide/domain";
+import type { ProviderCliStatusResponse } from "@hyperfide/host-daemon-contract";
 import type {
   SystemAppUpdateStatus,
   SystemVersionResponse,
-} from "@bb/server-contract";
-import type { BbDesktopInfo } from "@bb/desktop-contract";
+} from "@hyperfide/server-contract";
+import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
 import {
   buildProviderCliIssue,
   isProviderCliIssue,

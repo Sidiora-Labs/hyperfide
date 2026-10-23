@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { Command } from "commander";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import type { RegistryRanking, RegistrySkill } from "@bb/server-contract";
-import type { SkillsRegistryArea } from "@bb/sdk";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import type { RegistryRanking, RegistrySkill } from "@hyperfide/server-contract";
+import type { SkillsRegistryArea } from "@hyperfide/sdk";
 import { action } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { resolveMachineId, selectMachines } from "./machine.js";

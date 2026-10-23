@@ -1,10 +1,10 @@
 import {
   spawnManagedProcess,
   isClosedProcessStdinError,
-} from "@bb/process-utils";
+} from "@hyperfide/process-utils";
 import { RequestError } from "@agentclientprotocol/sdk";
 import { createInterface } from "node:readline";
-import { experimental_recordProviderChildIo } from "@bb/provider-bridge-protocol/bridge-kit";
+import { experimental_recordProviderChildIo } from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import { connectAcpClient, type AcpClient } from "../client/acp-client.js";
 import {
   ACP_CLIENT_PROTOCOL_VERSION,

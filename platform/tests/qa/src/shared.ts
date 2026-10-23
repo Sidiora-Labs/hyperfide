@@ -7,23 +7,23 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { hostSchema } from "@bb/domain";
-import type { Host } from "@bb/domain";
+import { hostSchema } from "@hyperfide/domain";
+import type { Host } from "@hyperfide/domain";
 import {
   type CreateProjectRequest,
   type ProjectResponse,
   projectResponseSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   hostDaemonEnrollKeyResponseSchema,
   type HostDaemonEnrollKeyResponse,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   listOpenFilePids,
   readPositivePidFile,
   resolveProjectEnvCandidates,
   shellSingleQuote,
-} from "@bb/test-helpers";
+} from "@hyperfide/test-helpers";
 import { z } from "zod";
 
 const execFile = promisify(execFileCallback);

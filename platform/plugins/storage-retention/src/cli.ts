@@ -4,7 +4,7 @@ import {
   defineCli,
   type BbPluginApi,
   type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { policySchema } from "./contract.js";
 import type { Service } from "./service.js";
 

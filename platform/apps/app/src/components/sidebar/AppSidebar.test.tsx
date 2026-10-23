@@ -3,8 +3,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import {
   markPluginFrontendsSettled,

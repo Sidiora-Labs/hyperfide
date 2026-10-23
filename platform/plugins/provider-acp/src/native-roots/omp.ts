@@ -1,5 +1,5 @@
 import path from "node:path";
-import { experimental_resolveClaudePluginRoots } from "@get-bb/plugin-sdk/host";
+import { experimental_resolveClaudePluginRoots } from "@hyperfide/plugin-sdk/host";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { resolveOpenCodeConfigDir } from "./opencode.js";

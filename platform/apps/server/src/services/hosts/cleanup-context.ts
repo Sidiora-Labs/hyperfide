@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { DbConnection } from "@bb/db";
+import type { DbConnection } from "@hyperfide/db";
 
 const cleanup = new AsyncLocalStorage<{ db: DbConnection; hostId: string }>();
 

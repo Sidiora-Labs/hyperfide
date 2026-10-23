@@ -24,8 +24,8 @@ vi.mock("@xterm/addon-webgl", () => {
   throw new Error("WebGL unavailable");
 });
 
-vi.mock("@bb/client-core", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@bb/client-core")>();
+vi.mock("@hyperfide/client-core", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@hyperfide/client-core")>();
   return {
     ...original,
     TerminalWebSocketTransport: class {

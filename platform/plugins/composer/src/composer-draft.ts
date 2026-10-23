@@ -1,4 +1,4 @@
-import type { ComposerDraftSnapshot } from "@get-bb/plugin-sdk/app";
+import type { ComposerDraftSnapshot } from "@hyperfide/plugin-sdk/app";
 
 export function isDraftEmpty(draft: ComposerDraftSnapshot): boolean {
   return (

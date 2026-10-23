@@ -1,6 +1,6 @@
 # Frontend API symbol index
 
-Use this index to check public imports from `@get-bb/plugin-sdk/app`.
+Use this index to check public imports from `@hyperfide/plugin-sdk/app`.
 Read the other frontend references for behavior, fields, and examples.
 Read the installed SDK declarations for the exact current signatures.
 
@@ -402,9 +402,3 @@ The keyed method and row types are inferred from the `contract` option.
 Read-state and error behavior is documented in [Frontend hooks and UI](frontend-hooks-and-ui.md).
 
 ## Context-scoped tabs
-
-For `app.slots.experimental_tab`, `ExperimentalTabRegistration`,
-`ExperimentalTabReference`, `ExperimentalTabContext`, and
-`experimental_useAppPanel().experimental_openTab`, see
-[Thread side-panel tabs in the Plugin Guide](https://getbb.app/plugin-guide#surface-thread-panel).
-Source upgrades are in [Tab API migration](frontend-registration.md#tab-api-migration).

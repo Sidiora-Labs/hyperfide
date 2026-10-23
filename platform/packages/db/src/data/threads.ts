@@ -29,11 +29,11 @@ import type {
   ThreadSearchSourceKind,
   ThreadStatus,
   ThreadVisibility,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   evaluateThreadLifecycleEvent,
   threadSearchSourceKindSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { DbConnection, DbTransaction } from "../connection.js";
 import type { DbQueryConnection } from "../connection.js";
 import type { DbNotifier } from "../notifier.js";

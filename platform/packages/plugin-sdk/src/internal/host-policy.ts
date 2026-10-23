@@ -1,4 +1,4 @@
-import type { ContractTagDeclarations } from "@bb/domain";
+import type { ContractTagDeclarations } from "@hyperfide/domain";
 import { createHash } from "node:crypto";
 import type Database from "better-sqlite3";
 import { z } from "zod";
@@ -6,25 +6,25 @@ import {
   isNamespacedGlyph,
   isPluginOwnedIconPath,
   parseNamespacedGlyph,
-} from "@bb/domain/plugin-icon";
-import { RESERVED_HYPERFIDE_CLI_COMMANDS } from "@bb/domain/plugin-cli";
+} from "@hyperfide/domain/plugin-icon";
+import { RESERVED_HYPERFIDE_CLI_COMMANDS } from "@hyperfide/domain/plugin-cli";
 import {
   PLUGIN_INTERACTION_MAX_PAYLOAD_BYTES,
   PLUGIN_INTERACTION_MAX_TIMEOUT_MS,
   PLUGIN_INTERACTION_MAX_TITLE_LENGTH,
-} from "@bb/domain/plugin-interaction-limits";
-import { PROVIDER_FORK_VALUES } from "@bb/domain/provider-fork";
+} from "@hyperfide/domain/plugin-interaction-limits";
+import { PROVIDER_FORK_VALUES } from "@hyperfide/domain/provider-fork";
 import {
   COMPLETED_TURN_DISPLAY_VALUES,
   DEFAULT_COMPLETED_TURN_DISPLAY,
-} from "@bb/domain/completed-turn-display";
+} from "@hyperfide/domain/completed-turn-display";
 import {
   jsonValueSchema,
   normalizeProviderNativeRoots,
   providerNativeRootsInputSchema,
   providerNativeRootsSchema,
   type ProviderNativeRoots,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { PLUGIN_CLI_OUTPUT_MAX_BYTES } from "../backend-contract.js";
 import type {
   PluginAgentToolContext,
@@ -3627,7 +3627,7 @@ export function readPluginRpcRefusal(error: unknown): PluginRpcError | null {
   if (
     typeof error !== "object" ||
     error === null ||
-    Reflect.get(error, Symbol.for("@get-bb/plugin-sdk/rpc-refusal")) !== true
+    Reflect.get(error, Symbol.for("@hyperfide/plugin-sdk/rpc-refusal")) !== true
   )
     return null;
   const parsed = rpcRefusalSchema.safeParse(error);

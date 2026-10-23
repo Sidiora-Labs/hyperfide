@@ -1,5 +1,5 @@
-import { archiveThread, getThread, markThreadDeleted } from "@bb/db";
-import { threadSchema } from "@bb/domain";
+import { archiveThread, getThread, markThreadDeleted } from "@hyperfide/db";
+import { threadSchema } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import {
   seedEnvironment,

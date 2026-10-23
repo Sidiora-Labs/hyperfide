@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import type { WorkspaceChangeStats } from "@bb/domain";
-import { createDeferredPromise, initRepo, makeTempDir } from "@bb/test-helpers";
+import type { WorkspaceChangeStats } from "@hyperfide/domain";
+import { createDeferredPromise, initRepo, makeTempDir } from "@hyperfide/test-helpers";
 import {
   ProcessLocalQueuedLockTimeoutError,
   withProcessLocalQueuedLocks,

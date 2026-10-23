@@ -1,6 +1,6 @@
 import { writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { afterEach, expect, it, vi } from "vitest";
 import { dispatchCommand } from "../../src/command-dispatch.js";
 import { createHarness } from "./dispatch-helpers.js";
@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 it("strips daemon-private inherited variables and returns clone failures as-is", async () => {
-  const dir = await makeTempDir("bb-clone-private-");
+  const dir = await makeTempDir("hyperfide-clone-private-");
   const helper = join(dir, "helper.sh");
   const capture = join(dir, "environment");
   await writeFile(
@@ -17,10 +17,10 @@ it("strips daemon-private inherited variables and returns clone failures as-is",
     `env > '${capture}'\nprintf '%s\\n' "$CONTRIBUTED_SECRET" 'private-daemon-token' >&2\nexit 77\n`,
   );
   vi.stubEnv(
-    "BB_SERVER_HEADERS",
-    JSON.stringify({ "x-bb-connect-machine": "private-daemon-token" }),
+    "HYPERFIDE_SERVER_HEADERS",
+    JSON.stringify({ "x-hyperfide-connect-machine": "private-daemon-token" }),
   );
-  vi.stubEnv("BB_PRIVATE_TEST", "other-daemon-private");
+  vi.stubEnv("HYPERFIDE_PRIVATE_TEST", "other-daemon-private");
   const contributedEnv = Object.entries({
     GIT_SSH_COMMAND: `/bin/sh '${helper}'`,
     CONTRIBUTED_SECRET: "contributed-private",
@@ -47,8 +47,8 @@ it("strips daemon-private inherited variables and returns clone failures as-is",
     failure = error instanceof Error ? error.message : String(error);
   }
   const environment = await readFile(capture, "utf8");
-  expect(environment).not.toContain("BB_SERVER_HEADERS");
-  expect(environment).not.toContain("BB_PRIVATE_TEST");
+  expect(environment).not.toContain("HYPERFIDE_SERVER_HEADERS");
+  expect(environment).not.toContain("HYPERFIDE_PRIVATE_TEST");
   expect(environment).toContain("CONTRIBUTED_SECRET=contributed-private");
   expect(failure).toContain("private-daemon-token");
   expect(failure).toContain("contributed-private");

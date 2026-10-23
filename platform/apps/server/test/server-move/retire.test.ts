@@ -1,4 +1,4 @@
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { retireServerProcess } from "../../src/services/server-move/retire.js";
 

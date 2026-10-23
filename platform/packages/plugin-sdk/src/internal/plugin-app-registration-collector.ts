@@ -40,7 +40,7 @@ import type {
   ExperimentalSidebarNavigationRegistration,
   PluginThreadListRegistration,
   PluginTimelineRendererRegistration,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   collectComposerCustomization,
   PLUGIN_SLOT_ID_PATTERN,
@@ -159,11 +159,11 @@ export interface LegacyThreadPanelActionRegistration {
   title: string;
   icon?: string;
   component: ComponentType<
-    import("@get-bb/plugin-sdk").ExperimentalThreadActionTabProps
+    import("@hyperfide/plugin-sdk").ExperimentalThreadActionTabProps
   >;
   layout?: "padded" | "flush";
   run?(
-    context: import("@get-bb/plugin-sdk").ExperimentalThreadTabActionContext,
+    context: import("@hyperfide/plugin-sdk").ExperimentalThreadTabActionContext,
   ): void | Promise<void>;
 }
 
@@ -176,10 +176,10 @@ type PluginNavPanelFixedTabRegistration = {
   panelId: string;
   title: string;
   icon: string;
-  component: ComponentType<import("@get-bb/plugin-sdk").PluginNavPanelProps>;
+  component: ComponentType<import("@hyperfide/plugin-sdk").PluginNavPanelProps>;
   layout?: "padded" | "flush";
-  experimental_target?: import("@get-bb/plugin-sdk").ExperimentalFixedTabTargetContract<
-    import("@get-bb/plugin-sdk").JsonValue
+  experimental_target?: import("@hyperfide/plugin-sdk").ExperimentalFixedTabTargetContract<
+    import("@hyperfide/plugin-sdk").JsonValue
   >;
 };
 

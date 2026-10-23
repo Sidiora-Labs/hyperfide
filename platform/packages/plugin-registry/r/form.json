@@ -10,8 +10,8 @@
     "react-hook-form"
   ],
   "registryDependencies": [
-    "@bb/label",
-    "@bb/utils"
+    "@hyperfide/label",
+    "@hyperfide/utils"
   ],
   "files": [
     {

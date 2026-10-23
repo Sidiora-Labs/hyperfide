@@ -5,7 +5,7 @@ import {
   ProviderResponseEncodeError,
   type JsonValue,
   type ProviderInteractionOutcome,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import computerUseElicitation from "./fixtures/computer-use-elicitation.json";
 import computerUseActiveTurnElicitation from "./fixtures/computer-use-active-turn-elicitation.json";
 import mcpToolApprovalElicitation from "./fixtures/mcp-tool-approval-elicitation.json";

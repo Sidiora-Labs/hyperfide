@@ -4,7 +4,7 @@ import type {
   ServerMoveStartRequest,
   ServerMoveStatus,
   ServerMoveStatusResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { signalRequestArgs, type CreateSdkAreaArgs } from "./common.js";
 
 export type {
@@ -16,7 +16,7 @@ export type {
   ServerMoveStatus,
   ServerMoveStatusResponse,
   ServerMoveStep,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 
 export interface ServerMoveCheckArgs extends ServerMoveCheckRequest {
   signal?: AbortSignal;

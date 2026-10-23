@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { getExperiments } from "@bb/db";
+import { getExperiments } from "@hyperfide/db";
 import {
   defaultAppSettings,
   defaultExperiments,
   earlyAdopterExperiments,
   experimentsSchema,
-} from "@bb/domain";
-import { systemConfigResponseSchema } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import { systemConfigResponseSchema } from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import { type TestAppHarness, withTestHarness } from "../helpers/test-app.js";
 

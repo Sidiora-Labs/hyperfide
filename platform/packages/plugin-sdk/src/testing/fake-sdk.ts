@@ -1,5 +1,5 @@
-import { validatePluginMetadata } from "@bb/domain";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { validatePluginMetadata } from "@hyperfide/domain";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 
 type BbSdk = BbPluginApi["sdk"];
 

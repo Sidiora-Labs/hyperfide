@@ -12,11 +12,10 @@
 # shell-send-sidebar-swipe, shell-unreachable-server. Every one drives the
 # WebView shell, so the backend must be started with
 # HYPERFIDE_MOBILE_E2E_SERVE_APP=1 and apps/app must be built (`pnpm exec turbo run
-# build --filter=@bb/app`); without them the server answers API routes only and
+# build --filter=@hyperfide/app`); without them the server answers API routes only and
 # the shell shows its native error state.
 #
-# shell-connect is not in the default set: it needs the connect stub backend
-# (`pnpm --filter @bb/integration-tests e2e:mobile-connect-stub`), so it runs
+# (`pnpm --filter @hyperfide/integration-tests e2e:mobile-connect-stub`), so it runs
 # on its own.
 #
 # Environment: SERVER_URL (default http://127.0.0.1:41999; the flows' own

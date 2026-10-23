@@ -1,5 +1,5 @@
 import { isAbsolute, join } from "node:path";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import {
   createAutomation,

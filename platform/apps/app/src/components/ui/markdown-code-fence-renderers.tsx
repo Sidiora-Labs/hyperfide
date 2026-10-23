@@ -15,7 +15,7 @@ import type {} from "mdast-util-to-hast";
 import type {
   ExperimentalCodeFenceRendererProps,
   ExperimentalCodeFenceStatus,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { visit } from "unist-util-visit";
 import { PluginSlotMount } from "@/components/plugin/PluginSlotMount.js";
 import { PluginThreadPanelNavigationProvider } from "@/components/plugin/plugin-thread-panel-navigation.js";

@@ -1,4 +1,4 @@
-import type { PermissionMode } from "@bb/domain";
+import type { PermissionMode } from "@hyperfide/domain";
 
 export interface PermissionModeOption {
   value: PermissionMode;

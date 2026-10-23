@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AiServiceSelection, AiTask, AiTextTask } from "@bb/domain";
+import type { AiServiceSelection, AiTask, AiTextTask } from "@hyperfide/domain";
 import type {
   SetAiServiceSelectionRequest,
   SystemAiService,
   SystemAiServicesResponse,
   TestAiServiceResponse,
-} from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
+} from "@hyperfide/server-contract";
+import { Button } from "@hyperfide/shared-ui/button";
 import { SettingsSection } from "@/components/ui/settings-section";
 import { appToast } from "@/components/ui/app-toast";
 import { useSystemAiServices } from "@/hooks/queries/system-queries";

@@ -8,7 +8,7 @@ export default defineWorkspaceTestConfig({
     environment: "node",
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "@bb/desktop",
+      name: "@hyperfide/desktop",
       include: ["test/**/*.test.ts"],
     }),
   },

@@ -199,15 +199,7 @@ One repository can hold several plugins, each an ordinary plugin directory
 with its own package.json. An optional `.hyperfide/plugins.json` collection manifest
 indexes them:
 
-  {
-    "$schema": "https://getbb.app/schemas/plugins.schema.json",
-    "schemaVersion": 1,
-    "name": "acme-plugins",
-    "plugins": [
-      { "name": "sidebar", "source": "./plugins/sidebar" },
-      { "name": "status", "source": "./apps/status" }
-    ]
-  }
+
 
 Every source is a repository-relative directory starting with "./"; absolute
 paths, "..", the repository root, duplicate names, and unknown fields are
@@ -231,15 +223,7 @@ and never uses the network; install its entries by bare name or qualified name
 (`hyperfide-platform plugin install docs` or `hyperfide-platform plugin install docs@bb-official`). An app
 update also updates the bundled copy.
 
-`bb-community` lists reviewed plugins that live outside the app bundle, read
-from https://getbb.app/marketplace/v2/marketplace.json at startup and every two
-hours. Set HYPERFIDE_MARKETPLACE_URL (read at startup) to override the URL. An invalid
-manifest keeps the last valid catalog. `hyperfide-platform plugin search` shows install counts
-that hyperfide-platform measures through anonymous telemetry, so they undercount; third-party
-marketplaces have none. Builtins show "Built in", and a plugin under 25
-installs that was published in the last 30 days shows "New".
-`hyperfide-platform plugin search --json` returns the raw `installs`, `installedByDefault`,
-and long-form `overview` fields.
+
 
 Anyone can host a third-party marketplace:
 
@@ -324,7 +308,7 @@ Authoring a plugin
   hyperfide-platform plugin types [path] [--check]  Sync the plugin's SDK and shimmed-package
                                  type pins to this bb; --check only reports
   hyperfide-platform plugin migrate [path] [--yes]  Move a plugin that vendors types/ to the
-                                 @get-bb/plugin-sdk npm package
+                                 @hyperfide/plugin-sdk npm package
 
 The full authoring reference (manifest, every API surface, build and release,
 testing, and marketplace publishing) is the built-in `bb-plugin-authoring`

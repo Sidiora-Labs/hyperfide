@@ -2,7 +2,7 @@ import { fstatSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import pino from "pino";
 import type { Logger } from "pino";
-import { loadLoggerConfig } from "@bb/config/logger";
+import { loadLoggerConfig } from "@hyperfide/config/logger";
 
 export type { Logger };
 

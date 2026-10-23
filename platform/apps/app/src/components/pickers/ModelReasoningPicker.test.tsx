@@ -13,18 +13,18 @@ import type {
   ProviderOptionDescriptor,
   ReasoningLevel,
   ServiceTier,
-} from "@bb/domain";
-import { makeProviderInfo } from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/domain";
+import { makeProviderInfo } from "@hyperfide/test-helpers/domain-fixtures";
 import type {
   SystemExecutionOptionsModelLoadError,
   SystemExecutionOptionsResponse,
   SystemProvidersQuery,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { systemExecutionOptionsQueryKey } from "@/hooks/queries/query-keys";
 import { sdk } from "@/lib/sdk";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   PaneContext,
   type PaneContextValue,

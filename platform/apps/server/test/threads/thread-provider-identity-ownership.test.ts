@@ -1,5 +1,5 @@
-import { listEvents, listQueuedThreadMessages } from "@bb/db";
-import { threadScope, turnScope, type PromptInput } from "@bb/domain";
+import { listEvents, listQueuedThreadMessages } from "@hyperfide/db";
+import { threadScope, turnScope, type PromptInput } from "@hyperfide/domain";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../src/errors.js";
 import { runQueuedMessageDispatch } from "../../src/services/threads/queued-message-dispatch.js";

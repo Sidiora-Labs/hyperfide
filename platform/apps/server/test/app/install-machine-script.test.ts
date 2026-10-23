@@ -78,7 +78,7 @@ function runScript(
 
 const BOOTSTRAP_ARGS = ["--bootstrap-env", "HYPERFIDE_ENROLLMENT"];
 
-function bootstrapBundle(serverUrl = "https://machine.getbb.app"): string {
+function bootstrapBundle(serverUrl = "https://machine.hyperfide.example"): string {
   return JSON.stringify({
     hostId: "host-test",
     serverUrl,
@@ -89,7 +89,7 @@ function bootstrapBundle(serverUrl = "https://machine.getbb.app"): string {
 
 function writeJoinedState(
   fixture: ReturnType<typeof createFixture>,
-  serverUrl = "https://machine.getbb.app",
+  serverUrl = "https://machine.hyperfide.example",
   hostId = "host-test",
 ): void {
   writeFileSync(
@@ -400,7 +400,7 @@ exec '${process.execPath}' "$@"
         "--host-daemon-port",
         "40000",
         "--server-url",
-        "https://machine.getbb.app",
+        "https://machine.hyperfide.example",
       ]);
     } finally {
       if (existsSync(daemonPidPath)) {
@@ -420,7 +420,7 @@ exec '${process.execPath}' "$@"
     writeJoinedState({ ...fixture, dataDir });
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
     const serviceDir = join(fixture.homeDir, ".config", "systemd", "user");
-    const serviceName = "bb-host-daemon-machine-getbb-app-host-test.service";
+    const serviceName = "bb-host-daemon-machine-hyperfide-example-host-test.service";
     const servicePath = join(serviceDir, serviceName);
     mkdirSync(serviceDir, { recursive: true });
     writeFileSync(
@@ -458,14 +458,11 @@ exec '${process.execPath}' "$@"
 
   it("stops and uninstalls a Linux service after a server move rewrote its server URL", () => {
     const fixture = createFixture();
-    mkdirSync(
-      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
-      {
-        recursive: true,
-      },
-    );
+    mkdirSync(join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"), {
+      recursive: true,
+    });
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
+      join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"),
     );
     writeJoinedState(
       { ...fixture, dataDir },
@@ -473,7 +470,7 @@ exec '${process.execPath}' "$@"
     );
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
     const serviceDir = join(fixture.homeDir, ".config", "systemd", "user");
-    const serviceName = "bb-host-daemon-machine-getbb-app-host-test.service";
+    const serviceName = "bb-host-daemon-machine-hyperfide-example-host-test.service";
     const servicePath = join(serviceDir, serviceName);
     const otherServiceName = "bb-host-daemon-other-example-host-test.service";
     mkdirSync(serviceDir, { recursive: true });
@@ -519,21 +516,18 @@ exec '${process.execPath}' "$@"
 
   it("boots out a macOS launch agent after a server move rewrote its server URL", () => {
     const fixture = createFixture();
-    mkdirSync(
-      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
-      {
-        recursive: true,
-      },
-    );
+    mkdirSync(join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"), {
+      recursive: true,
+    });
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
+      join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"),
     );
     writeJoinedState({ ...fixture, dataDir }, "https://desk.tailnet.example");
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
     const agentDir = join(fixture.homeDir, "Library", "LaunchAgents");
     const agentPath = join(
       agentDir,
-      "app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+      "app.getbb.host-daemon.machine-hyperfide-example-host-test.plist",
     );
     mkdirSync(agentDir, { recursive: true });
     writeFileSync(
@@ -560,22 +554,19 @@ exec '${process.execPath}' "$@"
 
   it("refuses lifecycle actions when several services reference the machine data directory", () => {
     const fixture = createFixture();
-    mkdirSync(
-      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
-      {
-        recursive: true,
-      },
-    );
+    mkdirSync(join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"), {
+      recursive: true,
+    });
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".hyperfide-machines", "machine.getbb.app"),
+      join(fixture.homeDir, ".hyperfide-machines", "machine.hyperfide.example"),
     );
     writeJoinedState({ ...fixture, dataDir }, "https://desk.tailnet.example");
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
     const serviceDir = join(fixture.homeDir, ".config", "systemd", "user");
     mkdirSync(serviceDir, { recursive: true });
     for (const serviceName of [
-      "bb-host-daemon-machine-getbb-app-host-test.service",
-      "bb-host-daemon-machine-getbb-app.service",
+      "bb-host-daemon-machine-hyperfide-example-host-test.service",
+      "bb-host-daemon-machine-hyperfide-example.service",
     ]) {
       writeFileSync(
         join(serviceDir, serviceName),
@@ -735,7 +726,7 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
         HYPERFIDE_INSTALL_SKIP_SERVICE: container ? "0" : "1",
         TEST_BUNDLE: JSON.stringify({
           hostId: "host-test",
-          serverUrl: "https://machine.getbb.app",
+          serverUrl: "https://machine.hyperfide.example",
           credential: "private-bootstrap-test",
           expiresAt: Date.now() + 60_000,
         }),
@@ -806,7 +797,7 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
       "--host-daemon-port",
       selectedPort,
       "--server-url",
-      "https://machine.getbb.app",
+      "https://machine.hyperfide.example",
     ]);
     expect(
       JSON.parse(readFileSync(join(fixture.dataDir, "auth.json"), "utf8")),
@@ -840,7 +831,7 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
         "--host-daemon-port",
         readFileSync(join(fixture.dataDir, "host-daemon-port"), "utf8").trim(),
         "--server-url",
-        "https://machine.getbb.app",
+        "https://machine.hyperfide.example",
       ]);
     } finally {
       if (existsSync(daemonPidPath)) {
@@ -982,11 +973,11 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
       "--silent --show-error --location --connect-timeout 10 --max-time 300 --retry 3",
     );
     expect(result.stdout).toContain(
-      "Setting up this machine as host-test for https://machine.getbb.app",
+      "Setting up this machine as host-test for https://machine.hyperfide.example",
     );
     expect(result.stdout).toContain("\n  bb machine setup\n\n");
     expect(result.stdout).toContain(
-      "  ○  Setting up this machine as host-test for https://machine.getbb.app",
+      "  ○  Setting up this machine as host-test for https://machine.hyperfide.example",
     );
     expect(result.stdout).toContain(
       "Downloading the server's bb-app package (timeout: 5 minutes)",
@@ -1143,7 +1134,7 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
     expect(result.status, result.stderr).toBe(0);
     const defaultDataDir = join(
       fixture.homeDir,
-      ".hyperfide-machines/machine.getbb.app",
+      ".hyperfide-machines/machine.hyperfide.example",
     );
     expect(
       JSON.parse(readFileSync(join(defaultDataDir, "auth.json"), "utf8")),
@@ -1159,7 +1150,7 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
     writeCurlArtifactMock(fixture, 404);
     writeExecutable(join(fixture.binDir, "bb-app"), "#!/bin/sh\nexit 99\n");
     writeEnrollingBb(fixture);
-    writeJoinedState(fixture, "https://machine.getbb.app", "host-other");
+    writeJoinedState(fixture, "https://machine.hyperfide.example", "host-other");
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
       HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
@@ -1202,7 +1193,7 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
     writeFileSync(
       join(fixture.dataDir, "config.json"),
       JSON.stringify({
-        serverUrl: "https://machine.getbb.app/",
+        serverUrl: "https://machine.hyperfide.example/",
         serverHeaders: { "x-bb-connect-machine": "machine-credential" },
       }),
     );
@@ -1213,7 +1204,7 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
       `#!/bin/sh
 if [ "$1" = bootstrap ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.hyperfide.example >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1227,7 +1218,7 @@ fi
 
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain(
-      "Setting up this machine as host-test for https://machine.getbb.app",
+      "Setting up this machine as host-test for https://machine.hyperfide.example",
     );
     expect(result.stdout).toContain("already joined");
     expect(result.stdout).toContain("  ●  bb machine is ready");
@@ -1238,7 +1229,7 @@ fi
     const plist = readFileSync(
       join(
         fixture.homeDir,
-        "Library/LaunchAgents/app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+        "Library/LaunchAgents/app.getbb.host-daemon.machine-hyperfide-example-host-test.plist",
       ),
       "utf8",
     );
@@ -1246,7 +1237,7 @@ fi
       `<key>HYPERFIDE_DATA_DIR</key><string>${fixture.dataDir}</string>`,
     );
     expect(plist).toContain("<string>--auto-update</string>");
-    expect(plist).toContain("<string>https://machine.getbb.app</string>");
+    expect(plist).toContain("<string>https://machine.hyperfide.example</string>");
   });
 
   it("sends a legacy machine credential when adopting a data directory", () => {
@@ -1258,7 +1249,7 @@ fi
     writeFileSync(
       join(fixture.dataDir, "config.json"),
       JSON.stringify({
-        serverUrl: "https://machine.getbb.app",
+        serverUrl: "https://machine.hyperfide.example",
         machineCredential: "legacy-credential",
       }),
     );
@@ -1302,7 +1293,7 @@ fi
     const fixture = createFixture();
     writeFileSync(
       join(fixture.dataDir, "config.json"),
-      JSON.stringify({ serverUrl: "https://machine.getbb.app" }),
+      JSON.stringify({ serverUrl: "https://machine.hyperfide.example" }),
     );
     writeServerInstallTools(fixture, 200);
 
@@ -1418,7 +1409,7 @@ if [ "$1" = bootout ] && [ -f "${join(fixture.dataDir, "service-daemon.pid")}" ]
 fi
 if [ "$1" = bootstrap ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.hyperfide.example >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
   printf 'start\n' >>"${join(fixture.dataDir, "launchctl-starts.log")}"
 fi
@@ -1444,23 +1435,23 @@ fi
     expect(secondResult.status, secondResult.stderr).toBe(0);
     expect(secondResult.stdout).toContain("already joined");
     expect(secondResult.stdout).toContain("  ●  bb machine is ready");
-    expect(secondResult.stdout).toContain("server  https://machine.getbb.app");
+    expect(secondResult.stdout).toContain("server  https://machine.hyperfide.example");
     expect(secondResult.stdout).toContain(
       "service " +
         join(
           fixture.homeDir,
-          "Library/LaunchAgents/app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+          "Library/LaunchAgents/app.getbb.host-daemon.machine-hyperfide-example-host-test.plist",
         ),
     );
     const plist = readFileSync(
       join(
         fixture.homeDir,
-        "Library/LaunchAgents/app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+        "Library/LaunchAgents/app.getbb.host-daemon.machine-hyperfide-example-host-test.plist",
       ),
       "utf8",
     );
     expect(plist).toContain(
-      "<string>app.getbb.host-daemon.machine-getbb-app-host-test</string>",
+      "<string>app.getbb.host-daemon.machine-hyperfide-example-host-test</string>",
     );
     expect(plist).toContain("<key>RunAtLoad</key><true/>");
     expect(plist).toContain("<key>KeepAlive</key><true/>");
@@ -1473,13 +1464,13 @@ fi
     expect(plist).toContain(
       `<string>--host-daemon-port</string>\n    <string>${selectedPort}</string>`,
     );
-    expect(plist).toContain("<string>https://machine.getbb.app</string>");
+    expect(plist).toContain("<string>https://machine.hyperfide.example</string>");
     expect(plist).toContain(
       `<key>HYPERFIDE_APP_NPM_PREFIX</key><string>${realpathSync(fixture.dataDir)}/npm</string>`,
     );
     const serviceFile = join(
       fixture.homeDir,
-      "Library/LaunchAgents/app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+      "Library/LaunchAgents/app.getbb.host-daemon.machine-hyperfide-example-host-test.plist",
     );
     const domain = `gui/${process.getuid?.()}`;
     expect(readFileSync(join(fixture.dataDir, "launchctl.log"), "utf8")).toBe(
@@ -1499,7 +1490,7 @@ fi
     mkdirSync(serviceDir, { recursive: true });
     const legacyServiceFile = join(
       serviceDir,
-      "app.getbb.host-daemon.machine-getbb-app.plist",
+      "app.getbb.host-daemon.machine-hyperfide-example.plist",
     );
     const unrelatedServiceFile = join(
       serviceDir,
@@ -1513,7 +1504,7 @@ fi
     writeFileSync(
       legacyServiceFile,
       `<plist><dict>
-<key>Label</key><string>app.getbb.host-daemon.machine-getbb-app</string>
+<key>Label</key><string>app.getbb.host-daemon.machine-hyperfide-example</string>
 <key>ProgramArguments</key><array><string>host-daemon</string><string>--host-daemon-port</string><string>45122</string></array>
 <key>EnvironmentVariables</key><dict><key>HYPERFIDE_DATA_DIR</key><string>${fixture.dataDir}</string></dict>
 </dict></plist>
@@ -1525,7 +1516,7 @@ fi
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "launchctl.log")}"
 if [ "$1" = print ]; then exit 1; fi
 if [ "$1" = bootstrap ]; then
-  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.hyperfide.example >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1539,16 +1530,16 @@ fi
     expect(
       readdirSync(serviceDir).filter((file) => file.endsWith(".plist")),
     ).toEqual([
-      "app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+      "app.getbb.host-daemon.machine-hyperfide-example-host-test.plist",
       "app.getbb.host-daemon.other-getbb-app.plist",
     ]);
     const serviceFile = join(
       serviceDir,
-      "app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+      "app.getbb.host-daemon.machine-hyperfide-example-host-test.plist",
     );
     const domain = `gui/${process.getuid?.()}`;
     expect(readFileSync(join(fixture.dataDir, "launchctl.log"), "utf8")).toBe(
-      `bootout ${domain} ${legacyServiceFile}\nprint ${domain}/app.getbb.host-daemon.machine-getbb-app\nbootout ${domain} ${serviceFile}\nbootstrap ${domain} ${serviceFile}\n`,
+      `bootout ${domain} ${legacyServiceFile}\nprint ${domain}/app.getbb.host-daemon.machine-hyperfide-example\nbootout ${domain} ${serviceFile}\nbootstrap ${domain} ${serviceFile}\n`,
     );
   });
 
@@ -1561,12 +1552,12 @@ fi
     mkdirSync(serviceDir, { recursive: true });
     const existingServiceFile = join(
       serviceDir,
-      "app.getbb.host-daemon.machine-getbb-app.plist",
+      "app.getbb.host-daemon.machine-hyperfide-example.plist",
     );
     writeFileSync(
       existingServiceFile,
       `<plist><dict>
-<key>Label</key><string>app.getbb.host-daemon.machine-getbb-app</string>
+<key>Label</key><string>app.getbb.host-daemon.machine-hyperfide-example</string>
 <key>EnvironmentVariables</key><dict><key>HYPERFIDE_DATA_DIR</key><string>${fixture.dataDir}</string></dict>
 </dict></plist>
 `,
@@ -1580,14 +1571,14 @@ fi
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "Could not stop the existing bb launch agent app.getbb.host-daemon.machine-getbb-app.",
+      "Could not stop the existing bb launch agent app.getbb.host-daemon.machine-hyperfide-example.",
     );
     expect(existsSync(existingServiceFile)).toBe(true);
     expect(
       existsSync(
         join(
           serviceDir,
-          "app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+          "app.getbb.host-daemon.machine-hyperfide-example-host-test.plist",
         ),
       ),
     ).toBe(false);
@@ -1613,7 +1604,7 @@ fi
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "Could not register the bb host-daemon launch agent app.getbb.host-daemon.machine-getbb-app-host-test.",
+      "Could not register the bb host-daemon launch agent app.getbb.host-daemon.machine-hyperfide-example-host-test.",
     );
     expect(result.stderr).toContain("launchctl: fixture bootstrap failure");
   });
@@ -1635,7 +1626,7 @@ printf '%s\n' "$*" >>"${join(fixture.dataDir, "launchctl.log")}"
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "The bb host-daemon launch agent started but did not connect to https://machine.getbb.app.",
+      "The bb host-daemon launch agent started but did not connect to https://machine.hyperfide.example.",
     );
     expect(result.stderr).toContain(
       `See ${fixture.dataDir}/logs/host-daemon-stdio.log for the startup error and ${fixture.dataDir}/logs/launchd.log for launch agent output.`,
@@ -1654,9 +1645,9 @@ printf '%s\n' "$*" >>"${join(fixture.dataDir, "launchctl.log")}"
       join(fixture.binDir, "systemctl"),
       `#!/bin/sh
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "systemctl.log")}"
-if [ "$*" = "--user restart bb-host-daemon-machine-getbb-app-host-test.service" ]; then
+if [ "$*" = "--user restart bb-host-daemon-machine-hyperfide-example-host-test.service" ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.hyperfide.example >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1672,7 +1663,7 @@ fi
     const unit = readFileSync(
       join(
         fixture.homeDir,
-        ".config/systemd/user/bb-host-daemon-machine-getbb-app-host-test.service",
+        ".config/systemd/user/bb-host-daemon-machine-hyperfide-example-host-test.service",
       ),
       "utf8",
     );
@@ -1681,7 +1672,7 @@ fi
       "utf8",
     ).trim();
     expect(unit).toContain(
-      `host-daemon --auto-update --host-daemon-port "${selectedPort}" --server-url "https://machine.getbb.app"`,
+      `host-daemon --auto-update --host-daemon-port "${selectedPort}" --server-url "https://machine.hyperfide.example"`,
     );
     expect(unit).toContain(
       `Environment="HYPERFIDE_APP_NPM_PREFIX=${realpathSync(fixture.dataDir)}/npm"`,
@@ -1692,7 +1683,7 @@ fi
     expect(unit).toContain("RestartSec=2");
     expect(unit).toContain("WantedBy=default.target");
     expect(readFileSync(join(fixture.dataDir, "systemctl.log"), "utf8")).toBe(
-      "--user show-environment\n--user daemon-reload\n--user enable bb-host-daemon-machine-getbb-app-host-test.service\n--user restart bb-host-daemon-machine-getbb-app-host-test.service\n",
+      "--user show-environment\n--user daemon-reload\n--user enable bb-host-daemon-machine-hyperfide-example-host-test.service\n--user restart bb-host-daemon-machine-hyperfide-example-host-test.service\n",
     );
   });
 
@@ -1717,7 +1708,7 @@ printf '%s %s\\n' "$*" "\${XDG_RUNTIME_DIR:-missing}" >>"${join(fixture.dataDir,
 if [ "$2" = show-environment ] && { [ "\${XDG_RUNTIME_DIR:-}" != '${runtimeDir}' ] || [ -n "\${DBUS_SESSION_BUS_ADDRESS:-}" ]; }; then exit 1; fi
 if [ "$2" = restart ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.hyperfide.example >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1735,7 +1726,7 @@ fi
     expect(
       readFileSync(join(fixture.dataDir, "systemctl.log"), "utf8"),
     ).toContain(
-      `--user enable bb-host-daemon-machine-getbb-app-host-test.service ${runtimeDir}`,
+      `--user enable bb-host-daemon-machine-hyperfide-example-host-test.service ${runtimeDir}`,
     );
   });
 
@@ -1828,9 +1819,9 @@ fi
         join(fixture.binDir, "systemctl"),
         `#!/bin/sh
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "systemctl.log")}"
-if [ "$*" = "${scope} restart bb-host-daemon-machine-getbb-app-host-test.service" ]; then
+if [ "$*" = "${scope} restart bb-host-daemon-machine-hyperfide-example-host-test.service" ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.hyperfide.example >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1847,11 +1838,11 @@ fi
         container
           ? join(
               fixture.homeDir,
-              ".config/systemd/user/bb-host-daemon-machine-getbb-app-host-test.service",
+              ".config/systemd/user/bb-host-daemon-machine-hyperfide-example-host-test.service",
             )
           : join(
               fixture.dataDir,
-              "systemd/bb-host-daemon-machine-getbb-app-host-test.service",
+              "systemd/bb-host-daemon-machine-hyperfide-example-host-test.service",
             ),
         "utf8",
       );
@@ -1860,7 +1851,7 @@ fi
         "utf8",
       ).trim();
       expect(unit).toContain(
-        `host-daemon --auto-update --host-daemon-port "${selectedPort}" --server-url "https://machine.getbb.app"`,
+        `host-daemon --auto-update --host-daemon-port "${selectedPort}" --server-url "https://machine.hyperfide.example"`,
       );
       expect(unit).toContain(
         `Environment="HYPERFIDE_APP_NPM_PREFIX=${realpathSync(fixture.dataDir)}/npm"`,
@@ -1869,13 +1860,13 @@ fi
         container ? "WantedBy=default.target" : "WantedBy=multi-user.target",
       );
       const enableUnit = container
-        ? "bb-host-daemon-machine-getbb-app-host-test.service"
+        ? "bb-host-daemon-machine-hyperfide-example-host-test.service"
         : join(
             realpathSync(fixture.dataDir),
-            "systemd/bb-host-daemon-machine-getbb-app-host-test.service",
+            "systemd/bb-host-daemon-machine-hyperfide-example-host-test.service",
           );
       expect(readFileSync(join(fixture.dataDir, "systemctl.log"), "utf8")).toBe(
-        `${container ? "--user show-environment\n" : ""}${scope} daemon-reload\n${scope} enable ${enableUnit}\n${scope} restart bb-host-daemon-machine-getbb-app-host-test.service\n`,
+        `${container ? "--user show-environment\n" : ""}${scope} daemon-reload\n${scope} enable ${enableUnit}\n${scope} restart bb-host-daemon-machine-hyperfide-example-host-test.service\n`,
       );
     },
   );
@@ -1889,13 +1880,13 @@ fi
     mkdirSync(serviceDir, { recursive: true });
     const legacyServiceFile = join(
       serviceDir,
-      "bb-host-daemon-machine-getbb-app.service",
+      "bb-host-daemon-machine-hyperfide-example.service",
     );
     writeFileSync(join(fixture.dataDir, "host-daemon-port"), "45123\n");
     writeFileSync(
       legacyServiceFile,
       `[Service]
-ExecStart="node" "bb-app" host-daemon --auto-update --host-daemon-port "45123" --server-url "https://machine.getbb.app"
+ExecStart="node" "bb-app" host-daemon --auto-update --host-daemon-port "45123" --server-url "https://machine.hyperfide.example"
 Environment="HYPERFIDE_DATA_DIR=${fixture.dataDir}"
 `,
     );
@@ -1903,8 +1894,8 @@ Environment="HYPERFIDE_DATA_DIR=${fixture.dataDir}"
       join(fixture.binDir, "systemctl"),
       `#!/bin/sh
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "systemctl.log")}"
-if [ "$*" = "--user restart bb-host-daemon-machine-getbb-app-host-test.service" ]; then
-  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.getbb.app >/dev/null 2>&1 &
+if [ "$*" = "--user restart bb-host-daemon-machine-hyperfide-example-host-test.service" ]; then
+  HYPERFIDE_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.hyperfide.example >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1916,9 +1907,9 @@ fi
     expect(existsSync(legacyServiceFile)).toBe(false);
     expect(
       readdirSync(serviceDir).filter((file) => file.endsWith(".service")),
-    ).toEqual(["bb-host-daemon-machine-getbb-app-host-test.service"]);
+    ).toEqual(["bb-host-daemon-machine-hyperfide-example-host-test.service"]);
     expect(readFileSync(join(fixture.dataDir, "systemctl.log"), "utf8")).toBe(
-      "--user show-environment\n--user disable --now bb-host-daemon-machine-getbb-app.service\n--user daemon-reload\n--user enable bb-host-daemon-machine-getbb-app-host-test.service\n--user restart bb-host-daemon-machine-getbb-app-host-test.service\n",
+      "--user show-environment\n--user disable --now bb-host-daemon-machine-hyperfide-example.service\n--user daemon-reload\n--user enable bb-host-daemon-machine-hyperfide-example-host-test.service\n--user restart bb-host-daemon-machine-hyperfide-example-host-test.service\n",
     );
   });
 });

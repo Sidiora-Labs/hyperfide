@@ -4,7 +4,7 @@ import path from "node:path";
 import {
   EMPTY_PROVIDER_NATIVE_ROOTS,
   normalizeProviderNativeRoots,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { afterEach, describe, expect, it } from "vitest";
 import { readWorkspaceAgentContext } from "./workspace-agent-context.js";
 

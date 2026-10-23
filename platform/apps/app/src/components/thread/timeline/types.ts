@@ -1,11 +1,11 @@
-import type { ThreadChatMessageReference } from "@get-bb/plugin-sdk";
-import type { PromptInput } from "@bb/domain";
+import type { ThreadChatMessageReference } from "@hyperfide/plugin-sdk";
+import type { PromptInput } from "@hyperfide/domain";
 import type {
   MarkdownPreviewLocalFileLink,
   MarkdownPreviewLocalFileLinkHandler,
 } from "../../ui/markdown-local-file-link.js";
 import type { MarkdownPreviewLinkHandler } from "../../ui/markdown-link.js";
-import type { PromptDraftAttachment } from "@bb/client-core";
+import type { PromptDraftAttachment } from "@hyperfide/client-core";
 import type { MarkdownMessageDirectiveOpenThreadPanel } from "@/components/ui/markdown-message-directives";
 
 export type ThreadTimelineLocalFileLink = MarkdownPreviewLocalFileLink;

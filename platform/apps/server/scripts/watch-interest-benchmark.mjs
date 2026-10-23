@@ -7,7 +7,7 @@ import {
   createThread,
   noopNotifier,
   environments,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { eq } from "drizzle-orm";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";

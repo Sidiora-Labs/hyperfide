@@ -10,9 +10,9 @@ import {
   promptHistoryEntries,
   upsertHost,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import type { PromptHistoryScope, PromptInput } from "@bb/domain";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import type { PromptHistoryScope, PromptInput } from "@hyperfide/domain";
 import {
   listProjectPromptHistory,
   listThreadPromptHistory,

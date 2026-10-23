@@ -1,6 +1,6 @@
-import { getThread, listEvents } from "@bb/db";
-import { turnScope } from "@bb/domain";
-import { groupHostDaemonEvents } from "@bb/host-daemon-contract";
+import { getThread, listEvents } from "@hyperfide/db";
+import { turnScope } from "@hyperfide/domain";
+import { groupHostDaemonEvents } from "@hyperfide/host-daemon-contract";
 import { describe, expect, it, vi } from "vitest";
 import { applyTurnCompletedEvent } from "../../src/internal/turn-completed-events.js";
 import { pruneThreadEventHistoryBestEffort } from "../../src/services/system/event-pruning.js";

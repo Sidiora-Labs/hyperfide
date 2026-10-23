@@ -1,4 +1,4 @@
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import { AttentionBanner } from "@/components/ui/attention-banner";
 import type { PluginListItem } from "@/hooks/queries/plugin-settings-queries";
 import { pluginsNeedingAttention } from "@/hooks/usePluginAttention";

@@ -3,12 +3,12 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Icon } from "@bb/shared-ui/icon";
-import { Button } from "@bb/shared-ui/button";
-import { Switch } from "@bb/shared-ui/switch";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Switch } from "@hyperfide/shared-ui/switch";
 import { SettingsWithControl } from "@/components/ui/settings-section";
-import { useReorderDnd } from "@bb/shared-ui/use-reorder-dnd";
-import { useSidebarSortable } from "@bb/shared-ui/sortable-motion";
+import { useReorderDnd } from "@hyperfide/shared-ui/use-reorder-dnd";
+import { useSidebarSortable } from "@hyperfide/shared-ui/sortable-motion";
 import {
   useSidebarFooterPreferences,
   type FooterItem,

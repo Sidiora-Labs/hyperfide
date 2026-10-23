@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import type { BbDesktopBrowserState } from "@bb/desktop-contract";
+import type { BbDesktopBrowserState } from "@hyperfide/desktop-contract";
 import { afterEach, expect, it, vi } from "vitest";
 import { createNoopDesktopBrowserApi } from "@/test/bb-desktop-test-utils";
 import { getDesktopBrowserApi } from "@/lib/bb-desktop";

@@ -11,11 +11,11 @@ import {
   replaceStoredProviderModelCatalog,
   setThreadStartupContext,
   updateHost,
-} from "@bb/db";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@hyperfide/db";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { eq } from "drizzle-orm";
-import type { JsonValue } from "@bb/domain";
-import type { PluginMachineProviderDeclaration } from "@get-bb/plugin-sdk";
+import type { JsonValue } from "@hyperfide/domain";
+import type { PluginMachineProviderDeclaration } from "@hyperfide/plugin-sdk";
 import {
   askMachineLaunch,
   requestAutomaticMachineRemoval,

@@ -1,4 +1,4 @@
-import { validatePluginMachineProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+import { validatePluginMachineProviderDeclaration } from "@hyperfide/plugin-sdk/internal/host-policy";
 import type { MachineEnrollments } from "./enrollments.js";
 import type { MachineEnrollmentService } from "./machine-services.js";
 import {

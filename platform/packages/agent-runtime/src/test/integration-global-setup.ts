@@ -1,9 +1,9 @@
 import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildPluginHost, resolvePluginBuildToolchain } from "@bb/plugin-build";
-import { ensurePluginProcessDataDir } from "@bb/process-utils";
-import type { NormalizedPluginProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+import { buildPluginHost, resolvePluginBuildToolchain } from "@hyperfide/plugin-build";
+import { ensurePluginProcessDataDir } from "@hyperfide/process-utils";
+import type { NormalizedPluginProviderDeclaration } from "@hyperfide/plugin-sdk/internal/host-policy";
 import {
   captureFirstPartyProviderDeclarations,
   firstPartyPluginRootDir,

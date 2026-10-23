@@ -5,7 +5,7 @@ import {
   THREAD_PROVIDER_COMMANDS_STATE_KIND,
   THREAD_SESSION_OPTIONS_STATE_KIND,
   userQuestionPendingInteractionResolutionSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   AvailableModel,
   ExtensionKind,
@@ -14,7 +14,7 @@ import type {
   ReasoningLevel,
   SessionOptionSelections,
   ThreadSessionOption,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { acpLaunchSpecSchema, type AcpLaunchSpec } from "../launch-spec.js";
 import {
   BRIDGE_INBOUND_REQUEST_METHODS,
@@ -23,12 +23,12 @@ import {
   PROVIDER_BRIDGE_PROTOCOL_VERSION,
   THREAD_DELTA_GRAMMAR_V3,
   THREAD_DELTA_NOTIFICATION_METHOD,
-} from "@bb/provider-bridge-protocol";
+} from "@hyperfide/provider-bridge-protocol";
 import type {
   BridgeExecutionOptions,
   InitializeResult,
   ThreadDelta,
-} from "@bb/provider-bridge-protocol";
+} from "@hyperfide/provider-bridge-protocol";
 import {
   PROVIDER_TOOL_CALL_CANCELLED_METHOD,
   BridgeRecoveryError,
@@ -41,13 +41,13 @@ import {
   mimeTypeFromExtension,
   runBridgeRequest,
   withoutBridgeRuntimeEnv,
-} from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import type {
   BridgeJsonRpcResponse,
   BridgeToolCallContent,
   BridgeToolCallImage,
-} from "@bb/provider-bridge-protocol/bridge-kit";
-import { execPortableFile } from "@bb/process-utils";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
+import { execPortableFile } from "@hyperfide/process-utils";
 import { randomBytes } from "node:crypto";
 import { promises as fs, readFileSync, statSync } from "node:fs";
 import { createServer, type Server, type Socket } from "node:net";

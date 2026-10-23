@@ -13,12 +13,12 @@ import {
   type AppUpdateMode,
   type InstalledNpmAppRevision,
   type NpmAppRevision,
-} from "@bb/config/app-update";
+} from "@hyperfide/config/app-update";
 import {
   waitForProcessExit,
   type ChildProcessExitResult,
-} from "@bb/config/child-process-exit";
-import { isProcessRunning } from "@bb/config/verified-process-stop";
+} from "@hyperfide/config/child-process-exit";
+import { isProcessRunning } from "@hyperfide/config/verified-process-stop";
 
 const SHUTDOWN_KILL_AFTER_MS = 12 * 1000;
 

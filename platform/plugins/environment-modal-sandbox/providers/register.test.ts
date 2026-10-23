@@ -1,6 +1,6 @@
-import type { JsonValue } from "@get-bb/plugin-sdk";
-import type { PluginMachineProviderProgress } from "@get-bb/plugin-sdk/machine-provider";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import type { JsonValue } from "@hyperfide/plugin-sdk";
+import type { PluginMachineProviderProgress } from "@hyperfide/plugin-sdk/machine-provider";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import { expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { SandboxBackend } from "./sandbox-backend.js";

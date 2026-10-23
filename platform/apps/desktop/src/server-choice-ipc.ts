@@ -1,7 +1,7 @@
 import {
   bbDesktopServerChoiceSchema,
   type BbDesktopServerChoice,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import { ipcMain } from "electron";
 import {
   HYPERFIDE_DESKTOP_GET_SERVER_CHOICES_CHANNEL,
@@ -10,13 +10,11 @@ import {
 
 export function registerServerChoiceIpc({
   applicationWindowWebContentsIds,
-  onListRequested,
   list,
   select,
   onError,
 }: {
   applicationWindowWebContentsIds: ReadonlySet<number>;
-  onListRequested(): void;
   list(): BbDesktopServerChoice[];
   select(id: string): Promise<void>;
   onError(error: unknown): void;
@@ -28,7 +26,6 @@ export function registerServerChoiceIpc({
     ) {
       throw new Error("Server choices are limited to bb windows");
     }
-    onListRequested();
     return list();
   });
   ipcMain.on(

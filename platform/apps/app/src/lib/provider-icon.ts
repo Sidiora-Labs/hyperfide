@@ -1,7 +1,7 @@
-import type { PluginProviderIconRegistration } from "@get-bb/plugin-sdk/app";
+import type { PluginProviderIconRegistration } from "@hyperfide/plugin-sdk/app";
 import type { CSSProperties, ComponentType } from "react";
 import { createElement } from "react";
-import { isPresentationTintColor, type ProviderInfo } from "@bb/domain";
+import { isPresentationTintColor, type ProviderInfo } from "@hyperfide/domain";
 import { ProviderIcon } from "@/components/plugin/ProviderIcon";
 
 interface ProviderIconInfo {

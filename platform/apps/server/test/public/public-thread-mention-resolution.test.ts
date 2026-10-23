@@ -1,6 +1,6 @@
-import { archiveThread, markThreadDeleted } from "@bb/db";
-import { GENERATED_ID_ALPHABET, GENERATED_ID_SUFFIX_LENGTH } from "@bb/domain";
-import { resolveThreadMentionsResponseSchema } from "@bb/server-contract";
+import { archiveThread, markThreadDeleted } from "@hyperfide/db";
+import { GENERATED_ID_ALPHABET, GENERATED_ID_SUFFIX_LENGTH } from "@hyperfide/domain";
+import { resolveThreadMentionsResponseSchema } from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import { readJson } from "../helpers/json.js";
 import {

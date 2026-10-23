@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import * as domain from "@bb/domain";
-import type * as serverContract from "@bb/server-contract";
+import * as domain from "@hyperfide/domain";
+import type * as serverContract from "@hyperfide/server-contract";
 import type {
   EnvironmentPullRequest,
   PullRequest,

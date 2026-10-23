@@ -1,5 +1,5 @@
-import type { TimelineRow, TimelineRowStatus } from "@bb/server-contract";
-import { sliceUtf16Head } from "@bb/text-utils";
+import type { TimelineRow, TimelineRowStatus } from "@hyperfide/server-contract";
+import { sliceUtf16Head } from "@hyperfide/text-utils";
 
 export const TIMELINE_DEFERRED_CONTENT_MIN_CHARS = 1_000;
 

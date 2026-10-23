@@ -7,10 +7,10 @@
 # below target page text, not native test ids.
 #
 # Needs the harness backend started with HYPERFIDE_MOBILE_E2E_SERVE_APP=1 and a built
-# apps/app (`pnpm exec turbo run build --filter=@bb/app`). Without those the
+# apps/app (`pnpm exec turbo run build --filter=@hyperfide/app`). Without those the
 # server answers API routes only and the WebView shows the native error state.
 #
-# Run: pnpm --filter @bb/mobile e2e:ios   (Metro on 8082, backend on 41999)
+# Run: pnpm --filter @hyperfide/mobile e2e:ios   (Metro on 8082, backend on 41999)
 appId: app.getbb.mobile
 env:
   METRO_URL: "http://127.0.0.1:8082"

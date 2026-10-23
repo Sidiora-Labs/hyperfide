@@ -1,10 +1,10 @@
-import { jsonValueSchema, type JsonValue } from "@bb/domain";
-import type { PluginEnvironmentProviderDeclaration } from "@get-bb/plugin-sdk";
+import { jsonValueSchema, type JsonValue } from "@hyperfide/domain";
+import type { PluginEnvironmentProviderDeclaration } from "@hyperfide/plugin-sdk";
 import type {
   PluginEnvironmentProviderCreateContext,
   PluginEnvironmentProviderRestoreContext,
-} from "@get-bb/plugin-sdk/environment-provider";
-import type { ProviderReadyEnvironmentInput } from "@bb/server-contract";
+} from "@hyperfide/plugin-sdk/environment-provider";
+import type { ProviderReadyEnvironmentInput } from "@hyperfide/server-contract";
 
 type TestReadyEnvironment =
   | Exclude<ProviderReadyEnvironmentInput, { type: "host" }>
@@ -26,7 +26,7 @@ export type TestEnvironmentProviderContext = Pick<
   PluginEnvironmentProviderCreateContext,
   "thread" | "project" | "host" | "projectCheckout" | "gitRemote"
 > & {
-  machine: import("@bb/domain").EnvironmentMachineSelection;
+  machine: import("@hyperfide/domain").EnvironmentMachineSelection;
   inputs: JsonValue | null;
   environment:
     | PluginEnvironmentProviderRestoreContext["previous"]["environment"]

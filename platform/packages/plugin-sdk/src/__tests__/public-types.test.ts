@@ -143,8 +143,6 @@ const EXPECTED_BACKEND_ROOT_TYPE_EXPORTS = [
   "PluginThreadEventHandler",
   "PluginThreadEventName",
   "PluginThreadEventPayloads",
-  "InternalDoNotUsePluginTunnelIngress",
-  "InternalDoNotUsePluginTunnelIngressOptions",
   "PluginTurnFailedEvent",
   "PluginUi",
   "PluginServerAccess",
@@ -294,6 +292,14 @@ describe("backend plugin SDK public surface", () => {
     );
     const rootTypeExports = rootExportNames(declarations, "type");
     const rootValueExports = rootExportNames(declarations, "value");
+
+    for (const removed of [
+      "InternalDoNotUsePluginTunnelIngress",
+      "InternalDoNotUsePluginTunnelIngressOptions",
+    ]) {
+      expect(declaredBackendTypes).not.toContain(removed);
+      expect(rootTypeExports.has(removed)).toBe(false);
+    }
 
     expect(declaredBackendTypes).toEqual(
       [...EXPECTED_BACKEND_ROOT_TYPE_EXPORTS].sort(),

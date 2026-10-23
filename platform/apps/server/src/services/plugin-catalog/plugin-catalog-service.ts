@@ -4,7 +4,7 @@ import { isDeepStrictEqual } from "node:util";
 import {
   PLUGIN_CATALOG_CATEGORIES as BUILTIN_DISCOVERY_CATEGORIES,
   type PluginMarketplaceCategory,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   deletePluginMarketplace,
   getInstalledPlugin,
@@ -20,7 +20,7 @@ import {
   type DbConnection,
   type InstalledPluginRow,
   type PluginMarketplaceRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   CURATED_PLUGIN_MARKETPLACE_NAME,
   type InstalledPlugin,
@@ -33,7 +33,7 @@ import {
   type PluginCatalogStatus,
   type PluginMarketplace,
   type PluginMarketplaceRefreshResult,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { brandingAssetHash } from "../plugins/app-bundle.js";
 import {
   builtinPluginSource,
@@ -92,7 +92,6 @@ import {
   parseMarketplaceSource,
 } from "./marketplace-source.js";
 import { BUNDLED_CURATED_MARKETPLACE } from "./curated-marketplace.js";
-import { loadBundledMarketplace } from "./bundled-marketplace.js";
 import { marketplacePublisherLabel } from "./marketplace-publishers.js";
 import { createKeyedLock } from "../lib/async-deduper.js";
 
@@ -196,33 +195,16 @@ export function createPluginCatalogService(deps: {
     return stagingReady;
   }
 
-  seedBundledMarketplace(Date.now());
-  seedCuratedMarketplace();
+  if (deps.marketplaceUrl !== "") seedCuratedMarketplace();
+  deletePluginMarketplace(deps.db, BUNDLED_MARKETPLACE_NAME);
+  if (deps.marketplaceUrl === "")
+    deletePluginMarketplace(deps.db, CURATED_PLUGIN_MARKETPLACE_NAME);
   let reservedCollections = buildReservedCollectionIndex();
 
   const withLock = createKeyedLock<string>();
   const ADD_LOCK_KEY = "\0add";
   let cancelPeriodic: (() => void) | null = null;
   let periodicStopped = true;
-
-  function seedBundledMarketplace(refreshedAt: number): void {
-    const bundled = loadBundledMarketplace(bundledPlugins);
-    upsertPluginMarketplace(deps.db, {
-      name: BUNDLED_MARKETPLACE_NAME,
-      sourceKind: "path",
-      manifestUrl: bundled.directory,
-      sourceGitRef: null,
-      sourceGitSubdirectory: null,
-      sourceGitCommit: null,
-      manifestJson: bundled.manifestJson,
-      statsJson: null,
-      etag: null,
-      lastModified: null,
-      lastSuccessfulRefreshAt: refreshedAt,
-      lastAttemptedRefreshAt: refreshedAt,
-      lastError: null,
-    });
-  }
 
   function seedCuratedMarketplace(): void {
     const existing = getPluginMarketplace(
@@ -602,7 +584,6 @@ export function createPluginCatalogService(deps: {
     attemptedAt: number,
   ): Promise<void> {
     if (row.name === BUNDLED_MARKETPLACE_NAME) {
-      seedBundledMarketplace(attemptedAt);
       reservedCollections = buildReservedCollectionIndex();
       deps.notifyCatalogChanged?.();
       return;
@@ -974,12 +955,8 @@ export function createPluginCatalogService(deps: {
       );
       return {
         pluginCount: marketplaceEntryCount,
-        includedPluginCount: bundledPlugins.filter(
-          (plugin) => plugin.autoInstall,
-        ).length,
-        optionalPluginCount:
-          marketplaceEntryCount -
-          bundledPlugins.filter((plugin) => plugin.autoInstall).length,
+        includedPluginCount: 0,
+        optionalPluginCount: marketplaceEntryCount,
       };
     },
 

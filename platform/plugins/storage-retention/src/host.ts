@@ -1,7 +1,7 @@
 import {
   experimental_defineHostEntry,
   experimental_killProcessesWithCwdUnder,
-} from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/plugin-sdk/host";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";

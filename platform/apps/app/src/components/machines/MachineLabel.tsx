@@ -1,6 +1,6 @@
-import type { Host } from "@bb/domain";
-import { Icon, type BuiltinIconName } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { Host } from "@hyperfide/domain";
+import { Icon, type BuiltinIconName } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   MachineProviderIcon,
   type MachineProviderPresentation,

@@ -9,13 +9,13 @@
     "@dnd-kit/sortable"
   ],
   "registryDependencies": [
-    "@bb/checkbox",
-    "@bb/coarse-pointer-sizing",
-    "@bb/icon",
-    "@bb/sidebar-customize-panel",
-    "@bb/sortable-motion",
-    "@bb/use-sidebar-reorder-dnd",
-    "@bb/utils"
+    "@hyperfide/checkbox",
+    "@hyperfide/coarse-pointer-sizing",
+    "@hyperfide/icon",
+    "@hyperfide/sidebar-customize-panel",
+    "@hyperfide/sortable-motion",
+    "@hyperfide/use-sidebar-reorder-dnd",
+    "@hyperfide/utils"
   ],
   "files": [
     {

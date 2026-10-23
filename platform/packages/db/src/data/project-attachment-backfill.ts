@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, gte, isNull, lt, ne, or, sql } from "drizzle-orm";
-import { storedAttachmentPaths } from "@bb/domain";
+import { storedAttachmentPaths } from "@hyperfide/domain";
 import type { DbConnection, DbQueryConnection } from "../connection.js";
 import {
   events,

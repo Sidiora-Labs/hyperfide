@@ -1,4 +1,4 @@
-import { defaultAppSettings } from "@bb/domain";
+import { defaultAppSettings } from "@hyperfide/domain";
 import {
   createConnection,
   migrate,
@@ -6,8 +6,8 @@ import {
   noopNotifier,
   getHost,
   setAppSettings,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import {
   copyFile,
   mkdtemp,

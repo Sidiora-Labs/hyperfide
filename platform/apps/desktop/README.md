@@ -1,4 +1,4 @@
-# @bb/desktop
+# @hyperfide/desktop
 
 macOS, Linux, and Windows Electron shell for bb. The desktop app loads the existing bb
 web UI and uses the packaged `bb-app` launcher for server and host-daemon
@@ -6,7 +6,7 @@ lifecycle.
 
 ## Browser address interaction checks
 
-Run `pnpm exec turbo run smoke:browser-address --filter=@bb/desktop` from the
+Run `pnpm exec turbo run smoke:browser-address --filter=@hyperfide/desktop` from the
 repository root. On Linux, run it under `xvfb-run -a` or an active display.
 The smoke test mounts the production address input beside a real Electron
 `WebContentsView`, checks repeated focus transfers, first and second clicks,
@@ -20,7 +20,7 @@ From the repo root, run `pnpm dev` in one terminal for the source server and
 live UI updates. In a second terminal, start the Electron shell:
 
 ```bash
-pnpm exec turbo run dev --filter=@bb/desktop
+pnpm exec turbo run dev --filter=@hyperfide/desktop
 ```
 
 The dev script builds `bb-app`, compiles the Electron main/preload files, and
@@ -36,7 +36,7 @@ directory.
 The launcher probes the checkout's Vite app port at startup and adapts:
 
 - **`pnpm dev` is already running** (Vite reachable): the shell loads the Vite
-  dev URL, so you get live source and HMR for `@bb/app` changes — no rebuild
+  dev URL, so you get live source and HMR for `@hyperfide/app` changes — no rebuild
   needed. It still attaches to the same running server/daemon for all API/WS
   traffic. The launcher prints `app <url> (Vite dev server — live reload)`. This
   is the fast loop for iterating on the desktop UI.
@@ -53,7 +53,7 @@ packaged runtime and keeps native dependencies rebuilt for Electron's bundled
 Node runtime:
 
 ```bash
-pnpm exec turbo run start --filter=@bb/desktop
+pnpm exec turbo run start --filter=@hyperfide/desktop
 ```
 
 Electron is pinned to `44.3.0`. macOS builds require macOS 13 (Ventura) or
@@ -104,10 +104,10 @@ Files are saved on the machine running the desktop app, including downloads
 initiated in desktop browser automation tabs.
 
 ```bash
-pnpm exec turbo run typecheck --filter=@bb/desktop --filter=bb-app
-pnpm exec turbo run build --filter=@bb/desktop
-pnpm exec turbo run test --filter=@bb/desktop --filter=bb-app --force
-pnpm exec turbo run dev --filter=@bb/desktop
+pnpm exec turbo run typecheck --filter=@hyperfide/desktop --filter=hyperfide-app
+pnpm exec turbo run build --filter=@hyperfide/desktop
+pnpm exec turbo run test --filter=@hyperfide/desktop --filter=hyperfide-app --force
+pnpm exec turbo run dev --filter=@hyperfide/desktop
 ```
 
 The desktop tests include an Electron startup smoke that opens a real window.
@@ -117,8 +117,8 @@ command in `xvfb-run -a`, as CI does.
 ## Packaging
 
 ```bash
-pnpm exec turbo run desktop:build --filter=@bb/desktop
-pnpm exec turbo run smoke:packaged --filter=@bb/desktop
+pnpm exec turbo run desktop:build --filter=@hyperfide/desktop
+pnpm exec turbo run smoke:packaged --filter=@hyperfide/desktop
 ```
 
 Artifacts are written under `apps/desktop/release/`. The macOS build is Apple
@@ -132,8 +132,8 @@ as CI sets for workflow-artifact-only builds), artifacts remain unsigned and
 macOS shows the normal Gatekeeper warning on first launch.
 
 For local verification without publishing, use
-`pnpm exec turbo run package --filter=@bb/desktop` on macOS, or
-`pnpm exec turbo run package:linux --filter=@bb/desktop` on Linux.
+`pnpm exec turbo run package --filter=@hyperfide/desktop` on macOS, or
+`pnpm exec turbo run package:linux --filter=@hyperfide/desktop` on Linux.
 
 npm's bundled dependencies are copied through an explicit `files` entry into
 `node_modules/npm/node_modules`, including nested dependency versions. pnpm's
@@ -148,8 +148,8 @@ publishing. This requires a native target host (macOS arm64 or Linux x64).
 verification without opening a desktop window:
 
 ```bash
-pnpm exec turbo run smoke:packaged-npm --filter=@bb/desktop
-pnpm exec turbo run smoke:packaged-npm --filter=@bb/desktop -- /absolute/path/to/bb.app/Contents/MacOS/bb
+pnpm exec turbo run smoke:packaged-npm --filter=@hyperfide/desktop
+pnpm exec turbo run smoke:packaged-npm --filter=@hyperfide/desktop -- /absolute/path/to/bb.app/Contents/MacOS/bb
 ```
 
 On Linux, the optional argument is the executable inside `linux-unpacked/` or
@@ -176,9 +176,9 @@ root, install with `pnpm install --frozen-lockfile --ignore-scripts`, then build
 an unpacked app, an installer, or smoke test the current packaged output with:
 
 ```powershell
-pnpm exec turbo run package:win --filter=@bb/desktop
-pnpm exec turbo run desktop:build:win --filter=@bb/desktop
-pnpm exec turbo run smoke:packaged --filter=@bb/desktop
+pnpm exec turbo run package:win --filter=@hyperfide/desktop
+pnpm exec turbo run desktop:build:win --filter=@hyperfide/desktop
+pnpm exec turbo run smoke:packaged --filter=@hyperfide/desktop
 ```
 
 `desktop:build:win` writes `release/bb-<version>-x64.exe`, a one-click per-user
@@ -208,9 +208,9 @@ From the repo root, build an unpacked app, an AppImage distribution, or smoke
 test the current packaged output with:
 
 ```bash
-pnpm exec turbo run package:linux --filter=@bb/desktop
-pnpm exec turbo run desktop:build:linux --filter=@bb/desktop
-pnpm exec turbo run smoke:packaged --filter=@bb/desktop
+pnpm exec turbo run package:linux --filter=@hyperfide/desktop
+pnpm exec turbo run desktop:build:linux --filter=@hyperfide/desktop
+pnpm exec turbo run smoke:packaged --filter=@hyperfide/desktop
 ```
 
 Running an AppImage normally requires FUSE and, on some distributions, the
@@ -267,7 +267,7 @@ push code to Linux clients. Treat the release token accordingly.
 
 ## Releasing
 
-`bb-app` and `@bb/desktop` versions are LOCKED in lockstep. The desktop package
+`bb-app` and `@hyperfide/desktop` versions are LOCKED in lockstep. The desktop package
 depends on `bb-app: workspace:*`, and the displayed release version string must
 match `packages/bb-app/package.json`.
 
@@ -457,7 +457,7 @@ desktop app:
 
 ```bash
 npx bb-app@latest
-pnpm exec turbo run dev --filter=@bb/desktop
+pnpm exec turbo run dev --filter=@hyperfide/desktop
 ```
 
 The desktop supervisor handles normal quits plus `SIGINT` and `SIGTERM`, and it
@@ -511,19 +511,7 @@ Its name moves to the account server unless that server is already named. If
 the replaced URL was selected, the app switches to the account server and
 reloads its windows once.
 
-Connect discovery tries the built-in server, then a stored machine credential,
-then the bb account sign-in. When none of these load the servers and the app
-has no credential or account sign-in, the Server menu offers **Sign in to bb
-Connect…** above **Add Server…**. If bb Connect rejected the credentials, the
-item is **Sign in to bb Connect again…**. Other failures add no menu row; the
-menu keeps the servers from the last successful load, and the app logs the
-reason as `connect server sync skipped (<reason>)`. The sign-in item opens
-bb account sign-in in a desktop window, the same window as **Reconnect** below,
-from any selected server, including **This Mac** / **This Computer**. Once the
-new account session arrives, the window closes and the app reloads the
-account's servers into the menu. Without a known Connect server, the app signs
-in at `https://getbb.app`. Development builds use `BB_DEV_CONNECT_BASE_URL`
-when it is valid.
+
 
 The app command palette lists **Switch to <server>** for each inactive choice
 from this same Server menu, including Connect discovery. Palette list requests

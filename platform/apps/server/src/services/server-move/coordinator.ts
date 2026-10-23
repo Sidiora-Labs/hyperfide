@@ -2,19 +2,19 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { rm, rmdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import type { AppSurface } from "@bb/config/app-surface";
-import type { ServerBindHost } from "@bb/config/server";
-import { listNonDestroyedHostsByIds } from "@bb/db";
+import type { AppSurface } from "@hyperfide/config/app-surface";
+import type { ServerBindHost } from "@hyperfide/config/server";
+import { listNonDestroyedHostsByIds } from "@hyperfide/db";
 import {
   formatServerDataSize,
   SERVER_MOVE_STEP_IDS,
   type ServerMoveStepId,
-} from "@bb/domain";
-import { writeServerMovedFile } from "@bb/server-archive";
+} from "@hyperfide/domain";
+import { writeServerMovedFile } from "@hyperfide/server-archive";
 import type {
   ServerMovedErrorDetails,
   ServerMoveProgressMessage,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type {
   ServerMoveCheckItem,
   ServerMoveCheckRequest,
@@ -23,7 +23,7 @@ import type {
   ServerMoveStatus,
   ServerMoveStep,
   ServerMoveStepStatus,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { ApiError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";
 import { callHostOnlineRpc } from "../hosts/online-rpc.js";

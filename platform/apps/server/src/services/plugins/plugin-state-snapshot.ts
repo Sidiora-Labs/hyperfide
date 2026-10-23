@@ -11,7 +11,7 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@bb/server-contract";
+import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@hyperfide/server-contract";
 import {
   createPluginStateSnapshot,
   getInstalledPlugin,
@@ -24,7 +24,7 @@ import {
   type DbConnection,
   type InstalledPluginRow,
   type PluginStateSnapshotRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 
 const kvRowSchema = z.object({
   pluginId: z.string(),

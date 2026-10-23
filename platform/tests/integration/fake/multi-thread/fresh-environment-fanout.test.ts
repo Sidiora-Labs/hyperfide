@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { shellSingleQuote, waitForSetupMarkerCount } from "@bb/test-helpers";
+import { shellSingleQuote, waitForSetupMarkerCount } from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
 import {
   createHostThread,

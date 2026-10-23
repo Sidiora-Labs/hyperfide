@@ -8,10 +8,10 @@
     "noEmit": true,
     "skipLibCheck": true,
     "paths": {
-      "@get-bb/plugin-sdk": [
+      "@hyperfide/plugin-sdk": [
         "../../packages/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts"
       ],
-      "@get-bb/plugin-sdk/app": [
+      "@hyperfide/plugin-sdk/app": [
         "../../packages/plugin-sdk/bundled-types/bb-plugin-sdk-app.d.ts"
       ]
     },

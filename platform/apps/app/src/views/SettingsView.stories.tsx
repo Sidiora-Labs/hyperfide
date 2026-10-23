@@ -11,11 +11,11 @@ import {
   type ExperimentUpdates,
   defaultAppSettings,
   type AppSettings,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   WorkspaceOpenTarget,
   WorkspaceOpenTargetId,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { VoiceInputSettingsSectionContent } from "@/components/settings/VoiceInputSettingsSection";
 import { AiServicesSettingsSection } from "@/components/settings/AiServicesSettingsSection";
 import { ArchivedThreadsSettingsSection } from "@/components/settings/ArchivedThreadsSettingsSection";
@@ -131,7 +131,6 @@ function useSettingsStoryState() {
   const [summarizeShellCommands, setSummarizeShellCommands] = useState(true);
   const [showGitChanges, setShowGitChanges] = useState(true);
   const [streamerMode, setStreamerMode] = useState(false);
-  const [telemetryEnabled, setTelemetryEnabled] = useState(true);
   const [managedBranchPrefix, setManagedBranchPrefix] = useState(
     defaultAppSettings.managedBranchPrefix,
   );
@@ -159,8 +158,6 @@ function useSettingsStoryState() {
     summarizeShellCommands,
     setSummarizeShellCommands,
     streamerMode,
-    telemetryEnabled,
-    setTelemetryEnabled,
     showDiagnosticEvents,
     setAppearance,
     setDirectoryTargetId,
@@ -250,8 +247,6 @@ function GeneralSettingsStory({
       <VoiceInputStory />
       <PrivacySettingsSection
         onStreamerModeChange={state.setStreamerMode}
-        telemetryEnabled={state.telemetryEnabled}
-        onTelemetryEnabledChange={state.setTelemetryEnabled}
         streamerMode={state.streamerMode}
         disabled={false}
         enabled={state.showDiagnosticEvents}

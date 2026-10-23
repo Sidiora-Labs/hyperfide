@@ -14,7 +14,7 @@ import { CompactLongPressMenu } from "@/components/ui/compact-long-press-menu";
 import {
   experimental_useComposerContributions as useComposerContributions,
   type ExperimentalComposerAction,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 const MODIFIER_LABELS: Record<ExperimentalComposerAction["kind"], string> = {
   send: "Send",

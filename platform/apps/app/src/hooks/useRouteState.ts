@@ -1,5 +1,5 @@
 import { useLocation, useMatch } from "react-router-dom";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import { isSkillsRoutePath, isToolsRoutePath } from "@/lib/route-paths";
 
 interface RouteState {

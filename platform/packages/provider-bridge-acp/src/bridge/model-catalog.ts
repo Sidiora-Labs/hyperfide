@@ -1,5 +1,5 @@
-import { compareReasoningLevels } from "@bb/domain";
-import type { AvailableModel, ReasoningLevel, ServiceTier } from "@bb/domain";
+import { compareReasoningLevels } from "@hyperfide/domain";
+import type { AvailableModel, ReasoningLevel, ServiceTier } from "@hyperfide/domain";
 import type { AcpConfigOption, AcpSessionModels } from "../wire.js";
 
 interface RawAgentModel {

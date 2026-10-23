@@ -5,7 +5,7 @@ import {
   threads,
   type DbConnection,
   type DbTransaction,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import {
   environmentMachineSelectionSchema,
@@ -13,7 +13,7 @@ import {
   promptInputSchema,
   resolvedThreadExecutionOptionsSchema,
   clientTurnRequestIdSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 const reuseIntentSchema = z.object({
   type: z.literal("reuse"),

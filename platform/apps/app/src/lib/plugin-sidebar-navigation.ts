@@ -5,7 +5,7 @@ import type {
   ExperimentalSidebarNavigationSplitOptions,
   ExperimentalSidebarNavigationState,
   PluginSidebarSplitPane,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { useOptionalSidebarNavigationModel } from "@/components/sidebar/SidebarNavigationModel";
 import { getSidebarNavigationRowContent } from "@/components/sidebar/sidebarNavigationItems";
 import { usePaneContentSplitIndicator } from "@/components/sidebar/paneContentSplitIndicator";

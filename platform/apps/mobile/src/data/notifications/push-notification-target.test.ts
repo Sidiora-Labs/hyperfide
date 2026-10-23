@@ -4,7 +4,7 @@ import {
   resolvePushTargetProfile,
 } from "./push-notification-target";
 
-const sawyer = { id: "p1", serverUrl: "https://sawyer.getbb.app" };
+const sawyer = { id: "p1", serverUrl: "https://sawyer.hyperfide.example" };
 const lan = { id: "p2", serverUrl: "http://192.168.1.20:3000" };
 
 describe("parsePushNotificationData", () => {
@@ -15,13 +15,13 @@ describe("parsePushNotificationData", () => {
     expect(
       parsePushNotificationData({
         threadId: "thr_1",
-        url: "https://sawyer.getbb.app/threads/thr_1",
+        url: "https://sawyer.hyperfide.example/threads/thr_1",
         extra: 1,
       }),
     ).toEqual({
       threadId: "thr_1",
       projectId: null,
-      serverUrl: "https://sawyer.getbb.app",
+      serverUrl: "https://sawyer.hyperfide.example",
     });
     expect(
       parsePushNotificationData({

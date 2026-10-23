@@ -10,7 +10,7 @@ import type {
   ExperimentalPluginWebSocket,
   ExperimentalPluginWebSocketHandlers,
   PluginCliExecutionResult,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type { ServerRuntimeConfig } from "../types.js";
 import { ApiError } from "../errors.js";
 import {
@@ -50,11 +50,11 @@ import {
   pluginSettingsUpdateRequestSchema,
   pluginTokenRequestSchema,
   pluginUpdateCheckRequestSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 
 interface PluginRoutesDeps {
   config: Pick<ServerRuntimeConfig, "serverPort" | "appUrl" | "devAppPort">;
-  db: import("@bb/db").DbConnection;
+  db: import("@hyperfide/db").DbConnection;
 }
 
 type WireAuthProblem = BrowserRequestProblem | { status: 401; error: string };

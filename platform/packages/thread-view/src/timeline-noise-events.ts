@@ -1,4 +1,4 @@
-import type { ThreadEventType } from "@bb/domain";
+import type { ThreadEventType } from "@hyperfide/domain";
 
 export const THREAD_TIMELINE_EXCLUDED_EVENT_TYPES = [
   "thread/started",

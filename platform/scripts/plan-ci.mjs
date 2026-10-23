@@ -14,13 +14,13 @@ const full = {
   tests: {
     include: shards.tests.map((entry) => ({
       ...entry,
-      mobile: matchesFilter("@bb/mobile", entry.filter),
+      mobile: matchesFilter("@hyperfide/mobile", entry.filter),
     })),
   },
   "windows-tests": {
     include: shards["windows-tests"].map((entry) => ({
       ...entry,
-      mobile: matchesFilter("@bb/mobile", entry.filter),
+      mobile: matchesFilter("@hyperfide/mobile", entry.filter),
     })),
   },
   foundation: true,
@@ -151,7 +151,7 @@ function select() {
         : [
             {
               ...entry,
-              mobile: selected.includes("@bb/mobile"),
+              mobile: selected.includes("@hyperfide/mobile"),
               filter: selected
                 .sort()
                 .map((name) => `--filter=${name}`)
@@ -179,10 +179,10 @@ function select() {
     buildNeeded: buildPackages.length > 0,
     staticNeeded: staticPackages.length > 0,
     appBuild: tasks.some(
-      (task) => task.package === "@bb/app" && task.name === "build",
+      (task) => task.package === "@hyperfide/app" && task.name === "build",
     ),
     sdkBuild: tasks.some(
-      (task) => task.package === "@get-bb/plugin-sdk" && task.name === "build",
+      (task) => task.package === "@hyperfide/plugin-sdk" && task.name === "build",
     ),
     buildFilters: filtersFor(buildPackages),
     staticFilters: filtersFor(staticPackages),

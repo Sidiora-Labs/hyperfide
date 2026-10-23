@@ -1,10 +1,10 @@
-import { jsonValueSchema } from "@bb/domain";
+import { jsonValueSchema } from "@hyperfide/domain";
 import { z } from "zod";
 import {
   desktopBrowserImportSelectionSchema,
   type DesktopBrowserImportOutcome,
   type DesktopBrowserImportSource,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 
 export const HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH = 4096;
 export const HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH = 1024;

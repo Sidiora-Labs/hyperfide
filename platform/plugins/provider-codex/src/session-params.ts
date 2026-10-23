@@ -6,7 +6,7 @@ import {
   type RuntimePermissionPolicy,
   type ServiceTier,
   buildShellEnvOverrides,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import fs from "node:fs";
 import path from "node:path";
 import type { ReasoningEffort as CodexReasoningEffort } from "./generated/codex-app-server/schema/ReasoningEffort.js";
@@ -600,7 +600,7 @@ export function buildCodexConfig(
 ): { [key in string]?: JsonValue } | undefined {
   const config: { [key in string]?: JsonValue } = {};
   if (args.threadId) {
-    config["shell_environment_policy.set.BB_THREAD_ID"] = args.threadId;
+    config["shell_environment_policy.set.HYPERFIDE_THREAD_ID"] = args.threadId;
   }
   const shellEnvironmentConfig = buildShellEnvironmentPolicyConfig(
     args.options?.envVars,

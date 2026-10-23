@@ -2,7 +2,7 @@ import {
   compareReasoningLevels,
   standardReasoningLevelRank,
   type ReasoningLevel,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { PickerOption } from "./OptionPicker";
 
 export function nextCycleValue<T extends string>(

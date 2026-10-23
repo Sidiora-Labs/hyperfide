@@ -5,14 +5,14 @@ import {
   HOST_DAEMON_PROTOCOL_VERSION,
   type HostDaemonOnlineRpcRequestMessage,
   type HostDaemonRpcCommand,
-} from "@bb/host-daemon-contract";
-import { openSession, upsertHost } from "@bb/db";
+} from "@hyperfide/host-daemon-contract";
+import { openSession, upsertHost } from "@hyperfide/db";
 import {
   listServerOwnedEntries,
   readServerMovedFile,
-} from "@bb/server-archive";
-import type { ServerMoveStatus } from "@bb/server-contract";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@hyperfide/server-archive";
+import type { ServerMoveStatus } from "@hyperfide/server-contract";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import { createServerErrorHandler } from "../../src/errors.js";

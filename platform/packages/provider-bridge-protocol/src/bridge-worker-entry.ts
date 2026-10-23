@@ -1,7 +1,7 @@
 import { rmSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { pathToFileURL } from "node:url";
-import { createPluginProcessTempDir } from "@bb/process-utils";
+import { createPluginProcessTempDir } from "@hyperfide/process-utils";
 import { readBoundedLines } from "./bridge-kit/bounded-line-reader.js";
 import {
   createRecordingLineSplitter,

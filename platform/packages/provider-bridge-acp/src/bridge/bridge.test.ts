@@ -13,23 +13,23 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createStandaloneBuiltinCompactCommandInput } from "@bb/domain";
-import type { DynamicTool, ReasoningLevel } from "@bb/domain";
+import { createStandaloneBuiltinCompactCommandInput } from "@hyperfide/domain";
+import type { DynamicTool, ReasoningLevel } from "@hyperfide/domain";
 import {
   BRIDGE_JSON_RPC_ERRORS,
   PROVIDER_BRIDGE_PROTOCOL_VERSION,
   THREAD_DELTA_NOTIFICATION_METHOD,
-} from "@bb/provider-bridge-protocol";
+} from "@hyperfide/provider-bridge-protocol";
 import {
   assembleCapturedThreadEvents,
   captureBridgeJsonRpcOutput,
   permissionChangeCases,
   runPermissionChangeCase,
-} from "@bb/provider-bridge-protocol/testing";
+} from "@hyperfide/provider-bridge-protocol/testing";
 import type {
   BridgeJsonRpcOutputMessage,
   CapturedBridgeJsonRpcOutput,
-} from "@bb/provider-bridge-protocol/testing";
+} from "@hyperfide/provider-bridge-protocol/testing";
 
 import { z } from "zod";
 

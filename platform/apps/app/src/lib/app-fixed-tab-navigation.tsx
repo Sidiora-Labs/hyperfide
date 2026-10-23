@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react";
-import type { JsonValue } from "@get-bb/plugin-sdk";
-import { jsonValueSchema } from "@bb/domain";
+import type { JsonValue } from "@hyperfide/plugin-sdk";
+import { jsonValueSchema } from "@hyperfide/domain";
 import type {
   AppFixedTabOpenIntent,
   AppTabOpenIntent,

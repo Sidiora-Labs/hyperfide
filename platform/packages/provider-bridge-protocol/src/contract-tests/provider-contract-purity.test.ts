@@ -6,7 +6,7 @@ import {
   providerInfoSchema,
   runtimeThreadExecutionOptionsSchema,
   threadEventItemSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {

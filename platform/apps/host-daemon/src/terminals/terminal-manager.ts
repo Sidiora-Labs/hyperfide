@@ -5,14 +5,14 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { spawn as spawnPty } from "node-pty";
-import type { TerminalSessionCloseReason } from "@bb/domain";
-import type { HostDaemonDaemonWsMessage } from "@bb/host-daemon-contract";
-import { HOST_DAEMON_TERMINAL_EXIT_RETENTION_MS } from "@bb/host-daemon-contract/protocol";
+import type { TerminalSessionCloseReason } from "@hyperfide/domain";
+import type { HostDaemonDaemonWsMessage } from "@hyperfide/host-daemon-contract";
+import { HOST_DAEMON_TERMINAL_EXIT_RETENTION_MS } from "@hyperfide/host-daemon-contract/protocol";
 import {
   killProcessGroup,
   sanitizeInheritedChildProcessEnv,
-} from "@bb/process-utils";
-import { displayWidth, truncateToWidth } from "@bb/text-utils";
+} from "@hyperfide/process-utils";
+import { displayWidth, truncateToWidth } from "@hyperfide/text-utils";
 import type { HostDaemonServerTerminalMessage } from "../server-connection-support.js";
 import type { HostDaemonLogger } from "../logger.js";
 import { RuntimeManager } from "../runtime-manager.js";

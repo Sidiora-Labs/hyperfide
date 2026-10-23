@@ -22,10 +22,10 @@ import {
   type AppKeybinding,
   type AppKeybindingOverrides,
   type ThreadListEntry,
-} from "@bb/domain";
-import type { ThreadSearchResponse } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { ThreadSearchResponse } from "@hyperfide/server-contract";
 import type { ThreadArchiveFilter } from "@/lib/thread-lifecycle-filter";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { AppCommandProvider, useAppCommandHandler } from "./AppCommandProvider";
 import {
   removePluginSlotRegistrations,
@@ -41,7 +41,7 @@ import {
   setPluginThreadRowStatus,
 } from "@/lib/plugin-thread-row-status";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
+import { collectPluginAppRegistrations } from "@hyperfide/plugin-sdk/internal/plugin-app-collector";
 import { LocationProbe } from "@/test/location-probe";
 
 beforeAll(async () => {

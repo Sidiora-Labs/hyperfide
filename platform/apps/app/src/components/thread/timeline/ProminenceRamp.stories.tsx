@@ -1,4 +1,4 @@
-import type { TimelineRow, TimelineRowStatus } from "@bb/server-contract";
+import type { TimelineRow, TimelineRowStatus } from "@hyperfide/server-contract";
 import { ThreadTimelineRows } from "@/components/thread/timeline";
 import {
   commandRow,
@@ -76,7 +76,7 @@ const doneCommand: TimelineRow = commandRow({
   createdAt: 1777944004000,
   status: "completed",
   callId: "call_ramp_done_cmd",
-  command: "pnpm exec turbo run typecheck --filter=@bb/host-daemon",
+  command: "pnpm exec turbo run typecheck --filter=@hyperfide/host-daemon",
   source: null,
   output: "",
   exitCode: 0,
@@ -139,17 +139,17 @@ function bundleCommand(
 }
 
 const commandBundleRows: TimelineRow[] = [
-  bundleCommand(20, "pnpm exec turbo run build --filter=@bb/host-daemon"),
-  bundleCommand(21, "pnpm exec turbo run test --filter=@bb/host-daemon"),
-  bundleCommand(22, "pnpm exec turbo run typecheck --filter=@bb/host-daemon"),
+  bundleCommand(20, "pnpm exec turbo run build --filter=@hyperfide/host-daemon"),
+  bundleCommand(21, "pnpm exec turbo run test --filter=@hyperfide/host-daemon"),
+  bundleCommand(22, "pnpm exec turbo run typecheck --filter=@hyperfide/host-daemon"),
 ];
 
 const activeCommandBundleRows: TimelineRow[] = [
-  bundleCommand(23, "pnpm exec turbo run build --filter=@bb/host-daemon"),
-  bundleCommand(24, "pnpm exec turbo run test --filter=@bb/host-daemon"),
+  bundleCommand(23, "pnpm exec turbo run build --filter=@hyperfide/host-daemon"),
+  bundleCommand(24, "pnpm exec turbo run test --filter=@hyperfide/host-daemon"),
   bundleCommand(
     25,
-    "pnpm exec turbo run typecheck --filter=@bb/host-daemon",
+    "pnpm exec turbo run typecheck --filter=@hyperfide/host-daemon",
     "pending",
   ),
 ];

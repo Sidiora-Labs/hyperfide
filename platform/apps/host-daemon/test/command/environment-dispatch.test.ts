@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
-import { WorkspaceError, type HostWorkspace } from "@bb/host-workspace";
+import { WorkspaceError, type HostWorkspace } from "@hyperfide/host-workspace";
 import { dispatchCommand } from "../../src/command-dispatch.js";
 import type { EventSinkInput } from "../../src/event-sink.js";
 import {
@@ -57,7 +57,7 @@ describe("environment command dispatch", () => {
     const sourcePath = await makeTempDir("bb-dispatch-provider-owned-");
     const markerPath = `${sourcePath}/setup-marker`;
     await fs.writeFile(
-      `${sourcePath}/.bb-env-setup.sh`,
+      `${sourcePath}/.hyperfide-env-setup.sh`,
       `printf '%s' \"$SETUP_VALUE\" > '${markerPath}'\n`,
     );
     const emittedEvents: EventSinkInput[] = [];
@@ -95,7 +95,7 @@ describe("environment command dispatch", () => {
       expect.arrayContaining([
         expect.objectContaining({
           key: "setup-started",
-          text: "Running .bb-env-setup.sh",
+          text: "Running .hyperfide-env-setup.sh",
         }),
         expect.objectContaining({ key: "setup-completed" }),
         expect.objectContaining({ key: "workspace-path" }),
@@ -107,7 +107,7 @@ describe("environment command dispatch", () => {
     const harness = createHarness({ workspacePath: "/tmp/setup-failure" });
     const sourcePath = await makeTempDir("bb-dispatch-setup-failure-");
     await fs.writeFile(
-      `${sourcePath}/.bb-env-setup.sh`,
+      `${sourcePath}/.hyperfide-env-setup.sh`,
       "printf 'script diagnostic\\n'\nexit 7\n",
     );
 
@@ -490,7 +490,7 @@ it("cancels setup with contributions even when another attach is waiting", async
   const sourcePath = await makeTempDir("bb-setup-env-cancel-");
   const harness = createHarness({ workspacePath: sourcePath });
   await fs.writeFile(
-    `${sourcePath}/.bb-env-setup.sh`,
+    `${sourcePath}/.hyperfide-env-setup.sh`,
     'printf "%s" "$SETUP_VALUE" > started\nsleep 120\nprintf unsafe > after-cancel\n',
   );
   const command = {

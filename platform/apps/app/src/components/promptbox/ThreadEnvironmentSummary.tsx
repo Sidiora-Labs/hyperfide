@@ -1,16 +1,16 @@
 import { memo } from "react";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   OPTION_BASE_CLASS_NAME,
   OPTION_INTERACTIVE_CLASS_NAME,
   OPTION_MUTED_CLASS_NAME,
   OptionDisplay,
-} from "@bb/shared-ui/option-display";
+} from "@hyperfide/shared-ui/option-display";
 import { copyToClipboardWithToast } from "@/lib/clipboard";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@bb/shared-ui/chrome-style-tokens";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@hyperfide/shared-ui/tooltip";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@hyperfide/shared-ui/chrome-style-tokens";
 import type { WorkspaceCheckoutDisplay } from "@/lib/workspace-checkout-display";
 import {
   MachineLabel,

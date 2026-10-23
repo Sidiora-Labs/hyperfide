@@ -2,7 +2,7 @@ import type {
   ComposerCustomization,
   ComposerDraftReplacement,
   ComposerDraftSnapshot,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 export const CREATE_AUTOMATION_PROMPT = "Create a new bb automation to ";
 

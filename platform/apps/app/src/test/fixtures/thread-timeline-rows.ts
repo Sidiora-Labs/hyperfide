@@ -1,4 +1,4 @@
-import type { JsonValue, ThreadEventPlanStep } from "@bb/domain";
+import type { JsonValue, ThreadEventPlanStep } from "@hyperfide/domain";
 import type {
   TimelineActivityIntent,
   TimelineApprovalStatus,
@@ -31,12 +31,12 @@ import type {
   TimelineWebFetchWorkRow,
   TimelineWebSearchWorkRow,
   TimelineWorkflowWorkRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   SystemMessageKind,
   SystemMessageSubject,
   ThreadTurnInitiator,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 interface RowBaseOverrideArgs {
   createdAt?: number;

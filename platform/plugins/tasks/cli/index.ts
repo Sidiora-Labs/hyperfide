@@ -6,7 +6,7 @@ import {
   type BbPluginApi,
   type PluginCliContext,
   type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 import {
@@ -49,7 +49,7 @@ import { allocatePrefix } from "./prefix";
 import { seedDemo } from "./seed";
 
 const TASK_KEY_PATTERN = /^([A-Z][A-Z0-9]{0,9})-(\d+)$/;
-const BB_PROJECT_ID_PATTERN = /^proj_[A-Za-z0-9_-]+$/;
+const HYPERFIDE_PROJECT_ID_PATTERN = /^proj_[A-Za-z0-9_-]+$/;
 const ACTIVE_THREAD_STATUSES = new Set(["starting", "working"]);
 const DEFAULT_PROJECT_COLOR = "blue";
 const DEFAULT_LABEL_COLOR = "gray";
@@ -289,7 +289,7 @@ async function resolveProject(
     const trimmed = address.trim();
     throw new CliError(`project not found: ${address}`, {
       code: "project_not_found",
-      ...(BB_PROJECT_ID_PATTERN.test(trimmed)
+      ...(HYPERFIDE_PROJECT_ID_PATTERN.test(trimmed)
         ? { hint: bbProjectIdHint(trimmed, projects) }
         : {}),
     });
@@ -623,9 +623,9 @@ function resolveInvokingThreadId(
   thread: string | undefined,
   ctx: PluginCliContext,
 ): string {
-  const threadId = thread ?? process.env.BB_THREAD_ID ?? ctx.threadId;
+  const threadId = thread ?? process.env.HYPERFIDE_THREAD_ID ?? ctx.threadId;
   if (!threadId) {
-    throw new CliError("missing --thread and BB_THREAD_ID is not set", {
+    throw new CliError("missing --thread and HYPERFIDE_THREAD_ID is not set", {
       code: "missing_required",
     });
   }
@@ -2626,7 +2626,7 @@ export function registerTasksCli(
               placeholder: "thread-id",
               aliases: ["thread-id"],
               description:
-                "Thread to attach; defaults to BB_THREAD_ID or the invoking thread",
+                "Thread to attach; defaults to HYPERFIDE_THREAD_ID or the invoking thread",
             },
             json: JSON_OPTION,
           },
@@ -2665,7 +2665,7 @@ export function registerTasksCli(
               placeholder: "thread-id",
               aliases: ["thread-id"],
               description:
-                "Thread to detach; defaults to BB_THREAD_ID or the invoking thread",
+                "Thread to detach; defaults to HYPERFIDE_THREAD_ID or the invoking thread",
             },
             json: JSON_OPTION,
           },

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { defaultAppSettings, type AppSettings } from "@bb/domain";
+import { defaultAppSettings, type AppSettings } from "@hyperfide/domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OnboardingGate } from "./OnboardingGate";
 

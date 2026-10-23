@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ComposerView } from "@get-bb/plugin-sdk";
-import type { PromptTextMention } from "@bb/domain";
+import type { ComposerView } from "@hyperfide/plugin-sdk";
+import type { PromptTextMention } from "@hyperfide/domain";
 import {
   ULTRACODE_HIGHLIGHT_CLASS,
   composerDecorationSources,

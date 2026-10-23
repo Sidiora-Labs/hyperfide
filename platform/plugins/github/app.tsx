@@ -11,7 +11,7 @@ import {
   type PluginNavPanelProps,
   type PluginRpcResult,
   type ExperimentalThreadActionTabProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   buildSuggestions,
   matchesQuery,

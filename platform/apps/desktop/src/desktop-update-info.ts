@@ -1,4 +1,4 @@
-import type { BbDesktopInfo } from "@bb/desktop-contract";
+import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
 
 interface MergeDesktopUpdateInfoArgs {
   autoInfo: BbDesktopInfo | null;

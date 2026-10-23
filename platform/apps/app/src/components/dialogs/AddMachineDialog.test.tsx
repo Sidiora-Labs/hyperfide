@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { createDeferredPromise } from "@bb/test-helpers";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
-import type { ServerAccessStatus } from "@bb/server-contract";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
+import type { ServerAccessStatus } from "@hyperfide/server-contract";
 import {
   cleanup,
   fireEvent,
@@ -16,7 +16,7 @@ import { MemoryRouter } from "react-router-dom";
 import { sdk } from "@/lib/sdk";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { makeSystemConfig } from "@/test/fixtures/system-config";
-import { Dialog, DialogContent } from "@bb/shared-ui/dialog";
+import { Dialog, DialogContent } from "@hyperfide/shared-ui/dialog";
 import { AddMachineContent, ManualMachineSetup } from "./AddMachineDialog";
 
 vi.mock("@/lib/sdk", () => ({

@@ -2,13 +2,13 @@ import { eq } from "drizzle-orm";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { hosts } from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+import { hosts } from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMachineAuthService } from "../machine-auth.js";
 import { createMachineEnrollmentService } from "./enrollments.js";
 import { setPluginMachineProviderBridge } from "../plugins/plugin-machine-provider-registry.js";
-import { validatePluginMachineProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+import { validatePluginMachineProviderDeclaration } from "@hyperfide/plugin-sdk/internal/host-policy";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {

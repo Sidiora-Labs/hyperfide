@@ -4,8 +4,8 @@ import {
   type PluginMentionTrigger,
   type PromptMentionSuggestion,
   type ProviderCommandSuggestion,
-} from "@bb/client-core";
-import type { PromptMentionCommandTrigger } from "@bb/domain";
+} from "@hyperfide/client-core";
+import type { PromptMentionCommandTrigger } from "@hyperfide/domain";
 import { orderPromptMentionSuggestions } from "@/hooks/promptMentionCandidates";
 import type {
   CommandSuggestionSource,

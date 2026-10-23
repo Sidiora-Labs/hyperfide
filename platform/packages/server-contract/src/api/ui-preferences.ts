@@ -2,7 +2,7 @@ import type {
   UiPreferenceEntries,
   UiPreferenceKey,
   UiPreferenceValue,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { z } from "zod";
 
 export type PathUiPreferenceKey = { param: { key: string } };

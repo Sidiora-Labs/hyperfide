@@ -2,7 +2,7 @@ import type {
   WorkspaceMergeBase,
   WorkspaceStatus,
   WorkspaceWorkingTree,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 export function makeWorkspaceWorkingTree(
   overrides: Partial<WorkspaceWorkingTree> = {},

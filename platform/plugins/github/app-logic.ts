@@ -1,4 +1,4 @@
-import type { PluginRpcResult } from "@get-bb/plugin-sdk/app";
+import type { PluginRpcResult } from "@hyperfide/plugin-sdk/app";
 import type { githubRpcContract } from "./server.js";
 
 export type Item = PluginRpcResult<

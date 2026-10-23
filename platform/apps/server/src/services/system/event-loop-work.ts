@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { performance } from "node:perf_hooks";
-import { roundDurationMs } from "@bb/process-utils";
+import { roundDurationMs } from "@hyperfide/process-utils";
 
 interface EventLoopWorkFrame {
   blocksEventLoop: boolean;

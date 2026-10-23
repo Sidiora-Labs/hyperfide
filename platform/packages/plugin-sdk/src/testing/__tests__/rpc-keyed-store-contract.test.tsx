@@ -3,7 +3,7 @@ import { act, cleanup } from "@testing-library/react";
 import {
   keyedStoreContract,
   type KeyedStoreSubject,
-} from "@bb/query-tags/testing";
+} from "@hyperfide/query-tags/testing";
 import { afterEach, it, vi } from "vitest";
 import { z } from "zod";
 import {

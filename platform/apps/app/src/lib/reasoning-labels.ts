@@ -4,7 +4,7 @@ import {
   type ProviderInfo,
   type ReasoningLevel,
   type StandardReasoningLevel,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 const STANDARD_REASONING_LABELS: Record<StandardReasoningLevel, string> = {
   none: "None",

@@ -33,7 +33,7 @@ import {
   writeServerConnectHoldFile,
   writeServerImportFile,
   writeServerMovedFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import {
   collectLogPayloads,
   readlineMocks,
@@ -184,7 +184,7 @@ function movedLock(overrides: Partial<ServerMovedFile> = {}): ServerMovedFile {
     fromHostId: "host-laptop",
     toHostId: "host-desktop",
     toHostName: "desktop",
-    serverUrl: "https://me.getbb.app",
+    serverUrl: "https://me.hyperfide.example",
     mode: "connect",
     connectHandle: "me",
     oldCopyEntries: ["bb.db", "attachments", "plugins/tasks/data.db"],
@@ -660,7 +660,7 @@ describe("hyperfide-platform server unlock", () => {
     const configPath = await writeDataFile(
       dataDir,
       "config.json",
-      JSON.stringify({ serverUrl: "https://me.getbb.app" }),
+      JSON.stringify({ serverUrl: "https://me.hyperfide.example" }),
     );
     vi.mocked(globalThis.fetch).mockResolvedValue(
       healthResponse(200, { ok: true, launchId: "launch-1" }),
@@ -674,15 +674,15 @@ describe("hyperfide-platform server unlock", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
-      "https://me.getbb.app/health",
+      "https://me.hyperfide.example/health",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: The server at https://me.getbb.app is running. Unlocking now would run two servers with the same data and bb connect credential. Stop it first, or pass --force.",
+      "Error: The server at https://me.hyperfide.example is running. Unlocking now would run two servers with the same data and bb connect credential. Stop it first, or pass --force.",
     ]);
     expect(await readServerMovedFile(dataDir)).not.toBeNull();
     expect(JSON.parse(await readFile(configPath, "utf8"))).toEqual({
-      serverUrl: "https://me.getbb.app",
+      serverUrl: "https://me.hyperfide.example",
     });
   });
 
@@ -711,7 +711,7 @@ describe("hyperfide-platform server unlock", () => {
             code: "server_moved",
             message: "This hyperfide-platform server moved",
             details: {
-              serverUrl: "https://me.getbb.app",
+              serverUrl: "https://me.hyperfide.example",
               toHostName: "desktop",
               movedAt: 1,
             },
@@ -758,7 +758,7 @@ describe("hyperfide-platform server unlock", () => {
 
   const connectGrantConfig = {
     config: { HYPERFIDE_LOG_LEVEL: "debug" },
-    serverUrl: "https://me.getbb.app",
+    serverUrl: "https://me.hyperfide.example",
     serverHeaders: { "x-bb-connect-machine": "grant-secret" },
   };
 
@@ -791,14 +791,14 @@ describe("hyperfide-platform server unlock", () => {
 
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledOnce();
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
-      "https://me.getbb.app/api/v1/system/version",
+      "https://me.hyperfide.example/api/v1/system/version",
       expect.objectContaining({
         headers: { "x-bb-connect-machine": "grant-secret" },
         signal: expect.any(AbortSignal),
       }),
     );
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: The server at https://me.getbb.app is running. Unlocking now would run two servers with the same data and bb connect credential. Stop it first, or pass --force.",
+      "Error: The server at https://me.hyperfide.example is running. Unlocking now would run two servers with the same data and bb connect credential. Stop it first, or pass --force.",
     ]);
     expect(await readServerMovedFile(dataDir)).not.toBeNull();
     expect(JSON.parse(await readFile(configPath, "utf8"))).toEqual(
@@ -843,7 +843,7 @@ describe("hyperfide-platform server unlock", () => {
       );
 
       expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
-        "https://me.getbb.app/api/v1/system/version",
+        "https://me.hyperfide.example/api/v1/system/version",
         expect.anything(),
       );
       expect(await readServerMovedFile(dataDir)).toBeNull();
@@ -873,7 +873,7 @@ describe("hyperfide-platform server unlock", () => {
 
       expect(await readServerMovedFile(dataDir)).toBeNull();
       expect(collectLogPayloads(vi.mocked(console.error))[0]).toBe(
-        `Couldn't confirm whether the server at https://me.getbb.app is running (HTTP ${String(status)}). Make sure it is stopped before this old copy starts.`,
+        `Couldn't confirm whether the server at https://me.hyperfide.example is running (HTTP ${String(status)}). Make sure it is stopped before this old copy starts.`,
       );
     },
   );
@@ -922,7 +922,7 @@ describe("hyperfide-platform server unlock", () => {
     expect(await readFile(join(dataDir, "bb.db"), "utf8")).toBe("old server");
     const warnings = collectLogPayloads(vi.mocked(console.error));
     expect(warnings[0]).toMatch(
-      /^This hyperfide-platform server moved to desktop \(https:\/\/me\.getbb\.app\) on /u,
+      /^This hyperfide-platform server moved to desktop \(https:\/\/me\.hyperfide\.example\) on /u,
     );
     expect(warnings.slice(1)).toEqual([
       "Unlocking starts this old copy again. Everything since the move is lost here: threads, settings, and plugin data changed on desktop stay there.",
@@ -1003,7 +1003,7 @@ describe("hyperfide-platform server unlock", () => {
         },
         customModels: [{ providerId: "codex", model: "gpt-5.4" }],
         customAcpAgents: [{ id: "not a valid agent" }],
-        serverUrl: "https://me.getbb.app",
+        serverUrl: "https://me.hyperfide.example",
         serverHeaders: { "x-bb-connect-machine": "credential" },
         machineCredential: "machine-secret",
         connectMachineId: "machine-1",
@@ -1045,7 +1045,7 @@ describe("hyperfide-platform server unlock", () => {
     const dataDir = await makeTempDir("bb-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock());
     const invalid = JSON.stringify({
-      serverUrl: "https://me.getbb.app",
+      serverUrl: "https://me.hyperfide.example",
       unexpected: true,
     });
     const configPath = await writeDataFile(dataDir, "config.json", invalid);

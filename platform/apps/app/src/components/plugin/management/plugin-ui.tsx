@@ -1,9 +1,9 @@
-import { pluginInstallBadge } from "@bb/domain/plugin-install-badge";
-import { PluginBrandIcon } from "@bb/shared-ui/plugin-icon";
+import { pluginInstallBadge } from "@hyperfide/domain/plugin-install-badge";
+import { PluginBrandIcon } from "@hyperfide/shared-ui/plugin-icon";
 import { useState, type ReactNode } from "react";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { ResourceIconFrame } from "@bb/shared-ui/resource-list";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { ResourceIconFrame } from "@hyperfide/shared-ui/resource-list";
 import { PluginIcon } from "@/components/plugin/PluginIcon";
 import { usePreferredTheme } from "@/hooks/useTheme";
 import type { PluginListItem } from "@/hooks/queries/plugin-settings-queries";

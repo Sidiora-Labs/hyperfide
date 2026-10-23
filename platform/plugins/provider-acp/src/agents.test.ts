@@ -11,7 +11,7 @@ import {
 import { acpProviderDeclaration } from "./declaration.js";
 import { KNOWN_ACP_AGENTS, RESERVED_ACP_PROVIDER_IDS } from "./known-agents.js";
 import { REGISTRY_ICON_AGENT_IDS } from "./registry-icons.js";
-import { experimental_acpLaunchSpecSchema } from "@get-bb/plugin-sdk/provider-bridge/acp";
+import { experimental_acpLaunchSpecSchema } from "@hyperfide/plugin-sdk/provider-bridge/acp";
 
 const reserved = RESERVED_ACP_PROVIDER_IDS;
 

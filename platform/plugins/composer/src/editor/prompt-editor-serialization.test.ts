@@ -3,7 +3,7 @@ import { getSchema } from "@tiptap/core";
 import { promptEditorExtensions } from "./prompt-editor-extensions";
 import { Node, Slice } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
-import type { ComposerMention } from "@get-bb/plugin-sdk/app";
+import type { ComposerMention } from "@hyperfide/plugin-sdk/app";
 import {
   promptEditorClipboardTextFromSlice,
   promptEditorContentFromValue,

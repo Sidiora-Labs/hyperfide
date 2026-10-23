@@ -2,7 +2,7 @@ import {
   getHostPathComparisonKey,
   isHostPathWithin,
   isWindowsHostPath,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type Database from "better-sqlite3";
 import { eq, sql, type SQL } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";

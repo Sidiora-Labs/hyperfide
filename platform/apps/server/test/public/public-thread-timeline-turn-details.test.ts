@@ -2,12 +2,12 @@ import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   type TimelineRow,
   threadTimelineResponseSchema,
   timelineTurnSummaryDetailsResponseSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import { readJson } from "../helpers/json.js";
 import { seedEvent, seedThreadFixture } from "../helpers/seed.js";

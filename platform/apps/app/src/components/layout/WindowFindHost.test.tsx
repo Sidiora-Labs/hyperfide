@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { defaultAppSettings } from "@bb/domain";
+import { defaultAppSettings } from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
 import { AppCommandProvider } from "@/components/commands/AppCommandProvider";

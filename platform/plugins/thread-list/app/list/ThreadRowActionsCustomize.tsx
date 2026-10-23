@@ -25,7 +25,7 @@ import {
   experimental_Icon as RegisteredIcon,
   experimental_useThreadActionRegistrations,
   type PluginThreadActionRegistrationInfo,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { THREAD_ROW_ACTION_LIMIT } from "../../shared/preferences.js";
 import { arrayMove } from "../model/array-move.js";
 import { threadRowActionsAtom } from "../preferences/atoms.js";

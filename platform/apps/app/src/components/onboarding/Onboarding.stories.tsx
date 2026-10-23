@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Button } from "@bb/shared-ui/button";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Button } from "@hyperfide/shared-ui/button";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   AgentSignInGuide,
   AgentStep,
@@ -25,7 +25,7 @@ export default {
 
 const noop = () => {};
 const MACHINE_NAME = "Sawyer's MacBook Pro";
-const CONNECT_URL = "https://sawyer.getbb.app";
+const CONNECT_URL = "https://sawyer.hyperfide.example";
 const MOBILE_LINKS = {
   ios: "https://testflight.apple.com/join/example",
   android: "https://example.com/bb-android.apk",

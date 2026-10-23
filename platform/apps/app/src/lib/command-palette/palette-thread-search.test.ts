@@ -1,5 +1,5 @@
-import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@bb/domain";
-import type { ThreadSearchResponse } from "@bb/server-contract";
+import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@hyperfide/domain";
+import type { ThreadSearchResponse } from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { buildPaletteThreadSearchRows } from "./palette-thread-search";

@@ -1,4 +1,4 @@
-import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@bb/server-contract";
+import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@hyperfide/server-contract";
 import type { PluginCatalogService } from "../../src/services/plugin-catalog/plugin-catalog-service.js";
 
 export async function refreshCuratedMarketplace(

@@ -3,17 +3,17 @@ import { mkdir, rename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { readBbAppRuntimeFile } from "@bb/config/app-runtime-file";
-import { resolveCodexHome } from "@bb/config/codex-home";
-import { isLoopbackHostname } from "@bb/config/loopback";
-import { createNodeVerifiedProcessOps } from "@bb/config/verified-process-stop";
-import type { ServerMoveStepId } from "@bb/domain";
+import { readBbAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
+import { resolveCodexHome } from "@hyperfide/config/codex-home";
+import { isLoopbackHostname } from "@hyperfide/config/loopback";
+import { createNodeVerifiedProcessOps } from "@hyperfide/config/verified-process-stop";
+import type { ServerMoveStepId } from "@hyperfide/domain";
 import type {
   HostDaemonOnlineRpcResult,
   HostPlatform,
   ServerMoveProgressMessage,
-} from "@bb/host-daemon-contract";
-import { sanitizeInheritedChildProcessEnv } from "@bb/process-utils";
+} from "@hyperfide/host-daemon-contract";
+import { sanitizeInheritedChildProcessEnv } from "@hyperfide/process-utils";
 import {
   archiveExistingServerData,
   discardImportBackups,
@@ -33,7 +33,7 @@ import {
   ServerArchiveError,
   writeLastServerMoveFile,
   writeServerImportFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import {
   CommandDispatchError,
   ExpectedCommandDispatchError,

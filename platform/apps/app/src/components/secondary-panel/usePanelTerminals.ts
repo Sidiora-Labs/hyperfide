@@ -3,11 +3,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   closeSecondaryPanelTabInState,
   createNewTabFixedPanelTab,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import type {
   TerminalCreateTarget,
   TerminalSession,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { useAppCommandHandler } from "@/components/commands/AppCommandProvider";
 import {
   DEFAULT_TERMINAL_COLS,

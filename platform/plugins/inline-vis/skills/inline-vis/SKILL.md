@@ -60,7 +60,7 @@ directive** as its own block. It must be outside any code fence:
 
 Omitting `source` defaults to the workspace. Explicit `source="workspace"` is
 equivalent. For a read-only thread-storage artifact, write the document to
-`$BB_THREAD_STORAGE/reports/result.html`, then emit its storage-relative path:
+`$HYPERFIDE_THREAD_STORAGE/reports/result.html`, then emit its storage-relative path:
 
 ```text
 ::inline-vis{source="thread-storage" file="reports/result.html"}
@@ -71,7 +71,7 @@ Rules:
 - `source` is optional and must be `workspace` or `thread-storage`.
 - `file` is relative to the selected source (e.g. `demo.html`,
   `charts/out.html`, `notes.md`). Workspace paths are relative to the current
-  workspace; thread-storage paths are relative to `$BB_THREAD_STORAGE`. Never
+  workspace; thread-storage paths are relative to `$HYPERFIDE_THREAD_STORAGE`. Never
   put an absolute path in the directive.
 - `.html`, `.htm`, `.md`, and `.markdown` files are accepted.
 - `height` is optional, a whole number of pixels from 80 through 2000.

@@ -9,7 +9,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
 import {
   archiveExistingServerData,
@@ -68,7 +68,7 @@ async function expectArchiveError(
 }
 
 const SOURCE_CONFIG = {
-  config: { BB_INFERENCE: "codex/gpt-5.4-mini", BB_LOG_LEVEL: "info" },
+  config: { HYPERFIDE_INFERENCE: "codex/gpt-5.4-mini", HYPERFIDE_LOG_LEVEL: "info" },
   customModels: [{ providerId: "codex", model: "gpt-5.4" }],
   customAcpAgents: [
     { id: "grok", displayName: "Grok", command: "grok", unknownField: true },
@@ -77,7 +77,7 @@ const SOURCE_CONFIG = {
 };
 
 const TARGET_CONFIG = {
-  config: { BB_LOG_LEVEL: "debug", BB_APP_URL: "https://target.example" },
+  config: { HYPERFIDE_LOG_LEVEL: "debug", HYPERFIDE_APP_URL: "https://target.example" },
   serverUrl: "https://old-server.example",
   serverHeaders: { "x-bb-connect-machine": "credential" },
   machineCredential: "credential",
@@ -164,12 +164,12 @@ describe("mergeImportedManagedConfig", () => {
   it("keeps server keys, drops machine keys, and points serverUrl at the local server", () => {
     const merged = mergeImportedManagedConfig({
       importedConfig: {
-        config: { BB_LOG_LEVEL: "info" },
+        config: { HYPERFIDE_LOG_LEVEL: "info" },
         serverUrl: "https://ignored.example",
         machineCredential: "source-credential",
       },
       existingConfig: {
-        config: { BB_LOG_LEVEL: "debug", BB_APP_URL: "https://target.example" },
+        config: { HYPERFIDE_LOG_LEVEL: "debug", HYPERFIDE_APP_URL: "https://target.example" },
         customModels: [{ providerId: "codex", model: "gpt-5.4" }],
         serverHeaders: { "x-bb-connect-machine": "target-credential" },
         machineCredential: "target-credential",
@@ -179,7 +179,7 @@ describe("mergeImportedManagedConfig", () => {
     });
 
     expect(merged).toEqual({
-      config: { BB_LOG_LEVEL: "info", BB_APP_URL: "https://target.example" },
+      config: { HYPERFIDE_LOG_LEVEL: "info", HYPERFIDE_APP_URL: "https://target.example" },
       serverUrl: "http://127.0.0.1:39886",
     });
   });
@@ -257,8 +257,8 @@ describe("installImportedServerFiles and removeImportedServerFiles", () => {
     );
     expect(await readJson(dataDir, "config.json")).toEqual({
       config: {
-        BB_APP_URL: "https://target.example",
-        BB_LOG_LEVEL: "info",
+        HYPERFIDE_APP_URL: "https://target.example",
+        HYPERFIDE_LOG_LEVEL: "info",
       },
       customModels: SOURCE_CONFIG.customModels,
       sharedSkillRoots: SOURCE_CONFIG.sharedSkillRoots,

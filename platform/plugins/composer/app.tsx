@@ -1,7 +1,7 @@
 import {
   definePluginApp,
   experimental_useComposerRenderer as useComposerRenderer,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { PromptBoxInternal } from "./src/PromptBoxInternal";
 import "./src/composer.css";
 

@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import { Writable } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Agent, getGlobalDispatcher, setGlobalDispatcher } from "undici";
-import { RESERVED_HYPERFIDE_CLI_COMMANDS } from "@bb/domain/plugin-cli";
+import { RESERVED_HYPERFIDE_CLI_COMMANDS } from "@hyperfide/domain/plugin-cli";
 
 import {
   CORE_COMMAND_GROUPS,

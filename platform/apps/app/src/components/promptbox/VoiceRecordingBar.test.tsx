@@ -7,7 +7,7 @@ import { VoiceRecordingBar } from "./VoiceRecordingBar";
 vi.mock("./WaveformVisualizer.js", () => ({
   WaveformVisualizer: () => <div data-testid="waveform" />,
 }));
-vi.mock("@bb/shared-ui/icon", () => ({
+vi.mock("@hyperfide/shared-ui/icon", () => ({
   Icon: ({ name }: { name: string }) => <span data-icon-name={name} />,
 }));
 

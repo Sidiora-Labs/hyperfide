@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
-import type { ExperimentalSidebarHeaderProps } from "@get-bb/plugin-sdk";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { ExperimentalSidebarHeaderProps } from "@hyperfide/plugin-sdk";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { PluginReplacementSlot } from "@/components/plugin/PluginReplacementSlot";
 import { appToast } from "@/components/ui/app-toast";
 import { useSidebar } from "@/components/ui/sidebar";

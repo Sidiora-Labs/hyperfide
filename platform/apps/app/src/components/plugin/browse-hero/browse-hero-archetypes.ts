@@ -1,6 +1,6 @@
-import type { IconName } from "@bb/shared-ui/icon";
+import type { IconName } from "@hyperfide/shared-ui/icon";
 import type { ShowcaseArchetype } from "@/components/showcase-hero/showcase-archetype";
-import { CREATE_PLUGIN_PROMPT } from "@bb/client-core";
+import { CREATE_PLUGIN_PROMPT } from "@hyperfide/client-core";
 
 const ARCHETYPE_SOURCE: readonly Omit<ShowcaseArchetype, "id">[] = [
   {

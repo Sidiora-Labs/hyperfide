@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SystemCliCommandStatus } from "@bb/server-contract";
+import type { SystemCliCommandStatus } from "@hyperfide/server-contract";
 import type { CliCommandService } from "../../src/services/system/cli-command.js";
 import { readJson } from "../helpers/json.js";
 import { withTestHarness } from "../helpers/test-app.js";

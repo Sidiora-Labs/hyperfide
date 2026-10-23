@@ -1,16 +1,16 @@
 import { Fragment, useId, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { HOVER_REVEAL_NO_HOVER_VISIBLE_CLASS } from "@bb/shared-ui/hover-reveal";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
-import { TruncateStart } from "@bb/shared-ui/truncate-start";
+} from "@hyperfide/shared-ui/dropdown-menu";
+import { HOVER_REVEAL_NO_HOVER_VISIBLE_CLASS } from "@hyperfide/shared-ui/hover-reveal";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@hyperfide/shared-ui/tooltip";
+import { TruncateStart } from "@hyperfide/shared-ui/truncate-start";
 import { formatCompactRelativeTime } from "@/lib/relative-time";
 import { useScopedInfoSectionCollapse } from "./useInfoSectionCollapse";
 

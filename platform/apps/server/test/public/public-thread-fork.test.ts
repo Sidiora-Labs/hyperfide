@@ -9,7 +9,7 @@ import {
   projectAttachmentThreads,
   threads,
   setQueuedThreadMessageGroupBoundary,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   PERSONAL_PROJECT_ID,
   encodeClientTurnRequestIdNumber,
@@ -19,13 +19,13 @@ import {
   type ClientTurnRequestId,
   type EnvironmentProviderSelection,
   type PromptInput,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   threadResponseSchema,
   threadTimelineResponseSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { eq } from "drizzle-orm";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import { storeAttachment } from "../../src/services/projects/attachments.js";
 import * as placement from "../../src/services/threads/thread-environment-placement.js";

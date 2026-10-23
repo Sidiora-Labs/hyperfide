@@ -4,8 +4,8 @@ import {
   type DbConnection,
   type PluginMarketplaceIconRow,
   type UpsertPluginMarketplaceIconInput,
-} from "@bb/db";
-import { assertValidPluginCompactIconSvg } from "@bb/plugin-build";
+} from "@hyperfide/db";
+import { assertValidPluginCompactIconSvg } from "@hyperfide/plugin-build";
 import {
   assertPublicMarketplaceUrl,
   boundedResponseBytes,

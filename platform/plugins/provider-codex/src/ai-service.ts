@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import type { BbPluginApi, PluginAiServiceStatus } from "@get-bb/plugin-sdk";
+import type { BbPluginApi, PluginAiServiceStatus } from "@hyperfide/plugin-sdk";
 import {
   codexAiHostContract,
   type CodexAiFailureCode,

@@ -1,5 +1,5 @@
-import type { DbConnection, StoredEventRow } from "@bb/db";
-import type { ThreadEvent } from "@bb/domain";
+import type { DbConnection, StoredEventRow } from "@hyperfide/db";
+import type { ThreadEvent } from "@hyperfide/domain";
 import { parseStoredEvent } from "./thread-data.js";
 
 interface StoredEventDecodeEntry {

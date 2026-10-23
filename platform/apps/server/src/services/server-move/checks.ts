@@ -1,8 +1,8 @@
 import { resolve, sep } from "node:path";
 import semver from "semver";
-import { formatServerDataSize } from "@bb/domain";
-import { APP_SURFACE_DESKTOP, type AppSurface } from "@bb/config/app-surface";
-import { isLoopbackHostname } from "@bb/config/loopback";
+import { formatServerDataSize } from "@hyperfide/domain";
+import { APP_SURFACE_DESKTOP, type AppSurface } from "@hyperfide/config/app-surface";
+import { isLoopbackHostname } from "@hyperfide/config/loopback";
 import {
   getHost,
   getInstalledPlugin,
@@ -10,18 +10,18 @@ import {
   listPluginSchedules,
   listPublicHosts,
   listRunningThreads,
-} from "@bb/db";
-import type { ServerMoveInspectResult } from "@bb/host-daemon-contract";
+} from "@hyperfide/db";
+import type { ServerMoveInspectResult } from "@hyperfide/host-daemon-contract";
 import {
   listServerOwnedEntries,
   readLastServerMoveFile,
   type ServerOwnedInventory,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import type {
   ServerMoveCheckItem,
   ServerMoveCheckRequest,
   ServerMoveCheckResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { AppDeps } from "../../types.js";
 import { callHostOnlineRpc } from "../hosts/online-rpc.js";
 import { readPrimaryHostIdFromDataDir } from "../hosts/primary-host.js";

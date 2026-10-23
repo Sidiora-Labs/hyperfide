@@ -1,4 +1,4 @@
-import type { DbConnection } from "@bb/db";
+import type { DbConnection } from "@hyperfide/db";
 import { ApiError } from "../../errors.js";
 
 export const SERVER_MOVE_FROZEN_RETRY_MS = 10_000;

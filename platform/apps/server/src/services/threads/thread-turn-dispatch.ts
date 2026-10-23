@@ -5,8 +5,8 @@ import type {
   SystemMessageSubject,
   Thread,
   ThreadTurnInitiator,
-} from "@bb/domain";
-import { getThread, type DbTransaction, type EnvironmentRow } from "@bb/db";
+} from "@hyperfide/domain";
+import { getThread, type DbTransaction, type EnvironmentRow } from "@hyperfide/db";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import {
   goneThreadEnvironmentDetails,

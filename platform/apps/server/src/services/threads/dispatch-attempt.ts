@@ -11,7 +11,7 @@ import {
   listRunningThreads,
   type ClaimedQueuedThreadMessageRow,
   type RunningThreadRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   createStandaloneBuiltinCompactCommandInput,
   promptInputSchema,
@@ -24,12 +24,12 @@ import {
   type Thread,
   type ThreadCreateOrigin,
   type ThreadQueuedMessage,
-} from "@bb/domain";
-import type { SendMessageRequest } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { SendMessageRequest } from "@hyperfide/server-contract";
 import type {
   MessageDispatchHookContext,
   PluginDispatchEnvironmentIntent,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { ApiError } from "../../errors.js";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";

@@ -1,10 +1,10 @@
-import { getThread } from "@bb/db";
+import { getThread } from "@hyperfide/db";
 import type {
   PromptInput,
   SystemMessageSubject,
   ToolCallResponse,
-} from "@bb/domain";
-import type { PluginRowPresentation } from "@get-bb/plugin-sdk";
+} from "@hyperfide/domain";
+import type { PluginRowPresentation } from "@hyperfide/plugin-sdk";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { queueParentSystemMessage } from "../threads/parent-system-messages.js";
 

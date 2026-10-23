@@ -1,4 +1,4 @@
-import { providerRecoveryKindSchema } from "@bb/domain";
+import { providerRecoveryKindSchema } from "@hyperfide/domain";
 import { z } from "zod";
 
 export const BRIDGE_JSON_RPC_ERRORS = {

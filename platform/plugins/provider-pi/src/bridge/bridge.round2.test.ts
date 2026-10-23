@@ -342,7 +342,7 @@ it("recovers from one transient model mismatch by respawning", async () => {
 
 it("a child whose extension never reports ready is a construction error, not a hung tool call", async () => {
   vi.stubEnv("FAKE_PI_NO_SESSION_START", "1");
-  vi.stubEnv("BB_PI_BRIDGE_READINESS_TIMEOUT_MS", "1500");
+  vi.stubEnv("HYPERFIDE_PI_BRIDGE_READINESS_TIMEOUT_MS", "1500");
   const response = await harness.startThread("thr_r2_noready");
   expect(response.error).toMatchObject({
     message: expect.stringContaining("did not report ready"),
@@ -362,7 +362,7 @@ it("a child whose extension never reports ready is a construction error, not a h
 }, 60_000);
 
 it("evicts an idle catalog child", async () => {
-  vi.stubEnv("BB_PI_CATALOG_IDLE_MS", "300");
+  vi.stubEnv("HYPERFIDE_PI_CATALOG_IDLE_MS", "300");
   const models = await harness.request((nextId += 1), "model/list", {
     cwd: harness.workspaceDir,
   });

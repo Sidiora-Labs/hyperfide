@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAtomValue } from "jotai";
 import { z } from "zod";
-import type { ExperimentalSidebarNavigationPlacement } from "@get-bb/plugin-sdk";
+import type { ExperimentalSidebarNavigationPlacement } from "@hyperfide/plugin-sdk";
 import { createLastKnownCache } from "@/lib/last-known-cache";
 import {
   usePluginFrontendLoadFailed,

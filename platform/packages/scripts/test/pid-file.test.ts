@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readRunningPid, writePidFile } from "../src/lib/pid-file.js";
 

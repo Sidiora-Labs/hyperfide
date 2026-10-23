@@ -1,4 +1,4 @@
-import { pluginIdSchema } from "@bb/domain";
+import { pluginIdSchema } from "@hyperfide/domain";
 import { isSafeRelativePath } from "./relative-path.js";
 
 export const SERVER_OWNED_TOP_LEVEL_FILES: readonly string[] = [

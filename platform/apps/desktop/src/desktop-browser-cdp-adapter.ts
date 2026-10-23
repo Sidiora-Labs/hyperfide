@@ -1,5 +1,5 @@
 import type { Event, WebContents } from "electron";
-import { jsonObjectSchema } from "@bb/domain";
+import { jsonObjectSchema } from "@hyperfide/domain";
 import { z } from "zod";
 import { captureDesktopBrowserCdpScreenshot } from "./desktop-browser-capture.js";
 import type {

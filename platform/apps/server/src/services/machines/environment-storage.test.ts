@@ -8,8 +8,8 @@ import {
   appSettingsValues,
   environmentVariables,
   type DbConnection,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import {
   setMachineEnvironmentVariable,

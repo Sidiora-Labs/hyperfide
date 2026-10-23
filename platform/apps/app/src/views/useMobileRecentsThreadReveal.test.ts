@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadListEntry } from "@bb/domain";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import type { ThreadListEntry } from "@hyperfide/domain";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import {
   INITIAL_MOBILE_RECENTS_REVEAL_STATE,
   stepMobileRecentsReveal,

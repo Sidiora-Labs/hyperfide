@@ -8,13 +8,13 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { SERVER_MOVE_STEP_IDS } from "@bb/domain";
-import { BbHttpError } from "@bb/sdk/browser";
+import { SERVER_MOVE_STEP_IDS } from "@hyperfide/domain";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import type {
   ServerMoveCheckResponse,
   ServerMoveStatus,
-} from "@bb/server-contract";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/server-contract";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sdk } from "@/lib/sdk";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
@@ -56,7 +56,7 @@ function startedMove(): ServerMoveStatus {
     mode: "connect",
     targetHostId: TARGET.id,
     targetHostName: TARGET.name,
-    serverUrl: "https://sawyer.getbb.app",
+    serverUrl: "https://sawyer.hyperfide.example",
     destinationStatusUrl: null,
     startedAt: 1,
     finishedAt: null,

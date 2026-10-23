@@ -1,12 +1,12 @@
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { defineSplit } from "@/lib/define-split";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   pluginCommandId,
   pluginCommandIdSchema,
   type KeyboardCommandId,
-} from "@bb/domain";
-import { Dialog, DialogContent, DialogTitle } from "@bb/shared-ui/dialog";
+} from "@hyperfide/domain";
+import { Dialog, DialogContent, DialogTitle } from "@hyperfide/shared-ui/dialog";
 import {
   useAppCommandHandler,
   useIndexedAppCommandHandlers,

@@ -94,20 +94,20 @@
               {
                 "name": "node:child_process",
                 "allowTypeImports": true,
-                "message": "Use @bb/process-utils managed processes or buffered commands so launch and termination share one owner."
+                "message": "Use @hyperfide/process-utils managed processes or buffered commands so launch and termination share one owner."
               },
               {
                 "name": "child_process",
                 "allowTypeImports": true,
-                "message": "Use @bb/process-utils managed processes or buffered commands so launch and termination share one owner."
+                "message": "Use @hyperfide/process-utils managed processes or buffered commands so launch and termination share one owner."
               },
               {
                 "name": "cross-spawn",
                 "allowTypeImports": true,
-                "message": "Use @bb/process-utils managed processes or buffered commands so launch and termination share one owner."
+                "message": "Use @hyperfide/process-utils managed processes or buffered commands so launch and termination share one owner."
               },
               {
-                "name": "@bb/process-utils",
+                "name": "@hyperfide/process-utils",
                 "importNames": [
                   "spawnPortableProcess",
                   "spawnPortablePipedProcess",
@@ -143,11 +143,11 @@
           {
             "paths": [
               {
-                "name": "@bb/host-workspace",
+                "name": "@hyperfide/host-workspace",
                 "message": "Server must not access workspaces directly. Use daemon commands instead."
               },
               {
-                "name": "@bb/host-watcher",
+                "name": "@hyperfide/host-watcher",
                 "message": "Server must not access host watchers directly. Use daemon commands instead."
               },
               {
@@ -180,14 +180,14 @@
           {
             "paths": [
               {
-                "name": "@bb/sdk",
-                "message": "Import @bb/sdk/browser: the root entry resolves to the Node SDK under Metro's source condition."
+                "name": "@hyperfide/sdk",
+                "message": "Import @hyperfide/sdk/browser: the root entry resolves to the Node SDK under Metro's source condition."
               }
             ],
             "patterns": [
               {
-                "group": ["@bb/shared-ui", "@bb/shared-ui/*"],
-                "message": "@bb/shared-ui is React DOM + Radix. Use the mobile primitives instead."
+                "group": ["@hyperfide/shared-ui", "@hyperfide/shared-ui/*"],
+                "message": "@hyperfide/shared-ui is React DOM + Radix. Use the mobile primitives instead."
               }
             ]
           }

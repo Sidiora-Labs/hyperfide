@@ -2,7 +2,7 @@ import type {
   TimelineCommandWorkRow,
   TimelineConversationRow,
   TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 
 export interface DemoThreadSeed {
   id: string;

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import type { HostDirectoryListing } from "@bb/server-contract";
+import type { HostDirectoryListing } from "@hyperfide/server-contract";
 import {
   ProjectPathDialogContent,
   type ProjectPathDialogTarget,

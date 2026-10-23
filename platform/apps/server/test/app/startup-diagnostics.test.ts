@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadServerConfig } from "@bb/config/server";
+import { loadServerConfig } from "@hyperfide/config/server";
 import { describe, expect, it } from "vitest";
 import { startHttpListener } from "../../src/start-server.js";
 

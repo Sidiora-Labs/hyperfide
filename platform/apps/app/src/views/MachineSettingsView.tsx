@@ -1,14 +1,14 @@
 import { MachineLifecycleNoticeContent } from "@/components/machines/MachineLifecycleNotice";
 import { useMemo, useState, type ComponentProps } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { Host, PermissionMode } from "@bb/domain";
-import type { SystemMachineProvider } from "@bb/server-contract";
-import type { HostPlatform } from "@bb/host-daemon-contract";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Pill } from "@bb/shared-ui/pill";
-import { ResourceOverflowMenu } from "@bb/shared-ui/resource-list";
+import type { Host, PermissionMode } from "@hyperfide/domain";
+import type { SystemMachineProvider } from "@hyperfide/server-contract";
+import type { HostPlatform } from "@hyperfide/host-daemon-contract";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { Pill } from "@hyperfide/shared-ui/pill";
+import { ResourceOverflowMenu } from "@hyperfide/shared-ui/resource-list";
 import { machineActions } from "@/components/machines/machine-actions";
 import { MachineLifecycleActions } from "@/components/machines/MachineLifecycleActions";
 import {

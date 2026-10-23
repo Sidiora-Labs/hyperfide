@@ -11,7 +11,7 @@ import {
   bbDesktopBrowserStopFindInPageRequestSchema,
   bbDesktopBrowserTabRefSchema,
   type BbDesktopBrowserEvaluateResult,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import {
   HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
   HYPERFIDE_DESKTOP_BROWSER_DETACH_CHANNEL,

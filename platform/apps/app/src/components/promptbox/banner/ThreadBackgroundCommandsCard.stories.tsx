@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { TimelineWorkflowWorkRow } from "@bb/server-contract";
+import type { TimelineWorkflowWorkRow } from "@hyperfide/server-contract";
 import { ThreadBackgroundCommandsCard } from "./ThreadBackgroundCommandsCard";
 import { backgroundCommandRow } from "@/test/fixtures/thread-timeline-rows";
 import { StoryCard, StoryRow } from "../../../../.ladle/story-card";

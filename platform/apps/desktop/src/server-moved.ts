@@ -1,19 +1,14 @@
 import { watch as watchDirectory } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { readBbAppRuntimeFile } from "@bb/config/app-runtime-file";
-import {
-  formatBbAppConfigPath,
-  parseBbAppManagedConfig,
-} from "@bb/config/bb-app-managed-config";
-import { isProcessRunning } from "@bb/config/verified-process-stop";
-import type { ConnectCredential } from "@bb/connect-client";
-import { SERVER_MOVED_ERROR_CODE } from "@bb/host-daemon-contract";
+import { readBbAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
+import { isProcessRunning } from "@hyperfide/config/verified-process-stop";
+import { SERVER_MOVED_ERROR_CODE } from "@hyperfide/host-daemon-contract";
 import {
   readServerMovedFile,
   SERVER_MOVED_FILE_NAME,
   type ServerMovedFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import { z } from "zod";
 import type { ServerProbeFetch } from "./server-probe.js";
 import {
@@ -31,7 +26,6 @@ export const SERVER_MOVE_DESTINATION_INTERVAL_MS = 1_000;
 export const SERVER_MOVE_COMMIT_TIMEOUT_MS = 120_000;
 export const SERVER_MOVE_COMMIT_INTERVAL_MS = 1_000;
 
-const CONNECT_MACHINE_CREDENTIAL_HEADER = "x-bb-connect-machine";
 const SERVER_MOVED_STATUS = 410;
 const DESTINATION_REQUEST_TIMEOUT_MS = 1_000;
 
@@ -163,13 +157,6 @@ interface WaitForCommittedServerMoveArgs {
   probeLocalServer(): Promise<LocalServerMoveProbe>;
   sleep?: (delayMs: number) => Promise<void>;
   timeoutMs: number;
-}
-
-interface ReadServerMovedConnectCredentialArgs {
-  dataDir: string;
-  logWarning(message: string): void;
-  move: DesktopServerMove;
-  remoteServerUrl: string;
 }
 
 interface WaitForServerMoveDestinationArgs {
@@ -594,51 +581,6 @@ export async function waitForCommittedServerMove(
     await sleep(args.intervalMs);
   }
   return "cancelled";
-}
-
-export async function readServerMovedConnectCredential(
-  args: ReadServerMovedConnectCredentialArgs,
-): Promise<ConnectCredential | null> {
-  if (
-    args.move.target.kind !== "connect" ||
-    normalizeCustomServerUrl(args.remoteServerUrl) !==
-      args.move.target.server.url
-  ) {
-    return null;
-  }
-  const configPath = formatBbAppConfigPath(args.dataDir);
-  let raw: string;
-  try {
-    raw = await readFile(configPath, "utf8");
-  } catch (error) {
-    args.logWarning(
-      `[desktop] could not read ${configPath} for this computer's bb Connect access: ${errorMessage(error)}`,
-    );
-    return null;
-  }
-  let config: ReturnType<typeof parseBbAppManagedConfig>;
-  try {
-    config = parseBbAppManagedConfig(JSON.parse(raw));
-  } catch (error) {
-    args.logWarning(
-      `[desktop] ignoring ${configPath} for bb Connect access: ${errorMessage(error)}`,
-    );
-    return null;
-  }
-  const credential =
-    config.serverHeaders?.[CONNECT_MACHINE_CREDENTIAL_HEADER]?.trim() ?? "";
-  if (
-    credential.length === 0 ||
-    config.serverUrl === undefined ||
-    normalizeCustomServerUrl(config.serverUrl) !== args.move.target.server.url
-  ) {
-    return null;
-  }
-  return {
-    credential,
-    handle: args.move.target.server.handle,
-    serverUrl: args.move.target.server.url,
-  };
 }
 
 async function isServerMoveDestinationReady(

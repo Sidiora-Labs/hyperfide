@@ -9,14 +9,14 @@ import {
   getEnvironment,
   getThread,
   updateThread,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   canonicalizeHostPath,
   isAbsoluteHostPath,
   isHostPathRoot,
   turnScope,
-} from "@bb/domain";
-import type { DynamicTool, Thread, ToolCallResponse } from "@bb/domain";
+} from "@hyperfide/domain";
+import type { DynamicTool, Thread, ToolCallResponse } from "@hyperfide/domain";
 import type { AppDeps } from "../../types.js";
 import { runTrackedEnvironmentAttach } from "../environments/environment-engine.js";
 import { appendThreadEventInTransaction } from "./thread-events.js";

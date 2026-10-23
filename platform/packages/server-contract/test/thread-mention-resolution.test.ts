@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GENERATED_ID_ALPHABET, GENERATED_ID_SUFFIX_LENGTH } from "@bb/domain";
+import { GENERATED_ID_ALPHABET, GENERATED_ID_SUFFIX_LENGTH } from "@hyperfide/domain";
 import {
   resolveThreadMentionsRequestSchema,
   resolveThreadMentionsResponseSchema,

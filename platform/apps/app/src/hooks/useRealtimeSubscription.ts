@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import type { RealtimeSubscriptionTarget } from "@bb/server-contract";
+import type { RealtimeSubscriptionTarget } from "@hyperfide/server-contract";
 import { wsManager } from "@/lib/ws";
 
 interface RealtimeSubscriptionOptions {

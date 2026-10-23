@@ -11,8 +11,8 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { ExpandableLine } from "@/components/ui/expandable-line.js";
 
 export const InlinePendingInteractionContext = createContext<{

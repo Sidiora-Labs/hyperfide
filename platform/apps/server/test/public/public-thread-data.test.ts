@@ -19,14 +19,14 @@ import {
   setQueuedThreadMessageGroupBoundary,
   setThreadExecutionOverride,
   threads as threadRows,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   encodeClientTurnRequestIdNumber,
   threadQueuedMessageSchema,
   threadScope,
   threadSchema,
   turnScope,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   type TimelineRow,
   sidebarBootstrapResponseSchema,
@@ -39,8 +39,8 @@ import {
   threadWithIncludesResponseSchema,
   timelineTurnSummaryDetailsResponseSchema,
   uploadedPromptAttachmentSchema,
-} from "@bb/server-contract";
-import { renderTemplate } from "@bb/templates";
+} from "@hyperfide/server-contract";
+import { renderTemplate } from "@hyperfide/templates";
 import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 import type { TelemetryService } from "../../src/services/system/telemetry.js";

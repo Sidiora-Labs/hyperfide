@@ -7,8 +7,8 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import type { BbDesktopBrowserApi } from "@bb/desktop-contract";
-import type { DesktopBrowserImportSource } from "@bb/host-daemon-contract";
+import type { BbDesktopBrowserApi } from "@hyperfide/desktop-contract";
+import type { DesktopBrowserImportSource } from "@hyperfide/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BrowserSettingsSectionContent } from "./BrowserSettingsSection";
 import { BROWSER_IMPORT_RECORDS_STORAGE_KEY } from "./browser-import-wizard";

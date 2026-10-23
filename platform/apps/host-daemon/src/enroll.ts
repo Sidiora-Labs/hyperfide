@@ -1,4 +1,4 @@
-import { hostDaemonEnrollResponseSchema } from "@bb/host-daemon-contract";
+import { hostDaemonEnrollResponseSchema } from "@hyperfide/host-daemon-contract";
 
 interface EnrollHostArgs {
   fetchFn?: typeof fetch;

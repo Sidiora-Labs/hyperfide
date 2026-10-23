@@ -5,20 +5,20 @@ import {
   HOST_DAEMON_PROTOCOL_VERSION,
   type HostDaemonOnlineRpcRequestMessage,
   type HostDaemonRpcCommand,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   extractServerArchive,
   readLastServerMoveFile,
   readServerMovedFile,
   writeLastServerMoveFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import {
   serverMoveStatusResponseSchema,
   serverMoveStatusSchema,
-} from "@bb/server-contract";
-import { setExperiments } from "@bb/db";
-import { defaultExperiments } from "@bb/domain";
-import { createDeferredPromise, makeTempDir } from "@bb/test-helpers";
+} from "@hyperfide/server-contract";
+import { setExperiments } from "@hyperfide/db";
+import { defaultExperiments } from "@hyperfide/domain";
+import { createDeferredPromise, makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
 import { readJson } from "../helpers/json.js";
 import {

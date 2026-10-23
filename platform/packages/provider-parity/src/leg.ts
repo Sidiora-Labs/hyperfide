@@ -5,7 +5,7 @@ import type {
   CreateParityAssembler,
   ParityAssembler,
   ParityRowProjector,
-} from "@bb/provider-bridge-protocol/testing";
+} from "@hyperfide/provider-bridge-protocol/testing";
 import { projectParityRows } from "./index.js";
 
 export interface ParityLeg {

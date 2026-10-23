@@ -1,6 +1,6 @@
 import { join, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import { resolveDevInstanceConfig } from "@bb/config/runtime";
+import { resolveDevInstanceConfig } from "@hyperfide/config/runtime";
 import {
   createDesktopPackageCommand,
   createDesktopRunCommand,
@@ -37,7 +37,7 @@ describe("desktop packaging task", () => {
       /supported on macOS, Linux, and Windows/u,
     );
     expect(createDesktopPackageCommand("darwin").args).toEqual(
-      expect.arrayContaining(["run", "package", "--filter=@bb/desktop"]),
+      expect.arrayContaining(["run", "package", "--filter=@hyperfide/desktop"]),
     );
   });
 
@@ -58,7 +58,6 @@ describe("desktop launch environment", () => {
       baseEnv: {
         HYPERFIDE_DATA_DIR: "/Users/tester/.hyperfide",
         HYPERFIDE_DEV_APP_PORT: "5173",
-        HYPERFIDE_TELEMETRY: "true",
         NODE_ENV: "development",
         OPENAI_API_KEY: "test-key",
       },
@@ -74,7 +73,6 @@ describe("desktop launch environment", () => {
       HYPERFIDE_HOST_DAEMON_PORT: String(config.ports.hostDaemonPort),
       HYPERFIDE_SERVER_PORT: String(config.ports.serverPort),
       HYPERFIDE_SKIP_ONBOARDING: "1",
-      HYPERFIDE_TELEMETRY: "false",
       NODE_ENV: "production",
       OPENAI_API_KEY: "test-key",
     });

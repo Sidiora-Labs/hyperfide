@@ -2,8 +2,8 @@ import type {
   PromptTextMention,
   SystemMessageKind,
   SystemMessageSubject,
-} from "@bb/domain";
-import type { TimelineRow } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { TimelineRow } from "@hyperfide/server-contract";
 import type { ReactNode } from "react";
 import { ConversationMessageContent } from "@/components/thread/timeline/ConversationMessageContent";
 import { ThreadTimelineRows } from "@/components/thread/timeline";

@@ -8,9 +8,9 @@
     "@radix-ui/react-menubar"
   ],
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/portal-scope",
-    "@bb/utils"
+    "@hyperfide/icon",
+    "@hyperfide/portal-scope",
+    "@hyperfide/utils"
   ],
   "files": [
     {

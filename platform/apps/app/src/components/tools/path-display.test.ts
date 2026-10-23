@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatHomePathForDisplay } from "@bb/shared-ui/lib/utils";
+import { formatHomePathForDisplay } from "@hyperfide/shared-ui/lib/utils";
 
 describe("formatHomePathForDisplay", () => {
   it.each([

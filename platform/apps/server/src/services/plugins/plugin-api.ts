@@ -1,11 +1,11 @@
-import { rpcInvalidationTags } from "@get-bb/plugin-sdk/internal/rpc-tags";
-import type { ContractTagDeclarations } from "@bb/domain";
+import { rpcInvalidationTags } from "@hyperfide/plugin-sdk/internal/rpc-tags";
+import type { ContractTagDeclarations } from "@hyperfide/domain";
 import {
   environmentCompositionSchema,
   validateServerAccessProviderDeclaration,
   type NormalizedPluginEnvironmentComposition,
   type NormalizedPluginInteractionRequest,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
 import { createMachineBootstrapApi } from "../machines/bootstrap.js";
 import type { MachineEnrollments } from "../machines/enrollments.js";
 import { listServerAccessProviders } from "./plugin-server-access-registry.js";
@@ -22,8 +22,8 @@ import {
   listPluginKvKeys,
   setPluginKvValue,
   type DbConnection,
-} from "@bb/db";
-import type { ThreadEventItemPresentation } from "@bb/domain";
+} from "@hyperfide/db";
+import type { ThreadEventItemPresentation } from "@hyperfide/domain";
 import type {
   BbPluginApi,
   PluginAgentConfiguration,
@@ -78,7 +78,7 @@ import type {
   StandardSchemaV1,
   PluginRpcContract,
   ExperimentalPluginRpcHandlerContext,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   KV_VALUE_MAX_BYTES,
   normalizeAgentToolRegistration,
@@ -108,13 +108,13 @@ import {
   validateSettingsUpdate,
   validatePluginAiServiceDeclaration,
   validatePluginProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
 import type {
   NormalizedPluginAiService,
   NormalizedPluginEnvironmentProvider,
   NormalizedPluginMachineProvider,
   NormalizedPluginProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
 import type {
   BbSdk,
   ThreadForkArgs,
@@ -122,7 +122,7 @@ import type {
   ThreadPluginMetadataArgs,
   ThreadPluginMetadataUpdateArgs,
   ThreadSpawnArgs,
-} from "@bb/sdk";
+} from "@hyperfide/sdk";
 import { requestEnvironmentProviderRecheck } from "./plugin-environment-provider-registry.js";
 import { requestServerAccessRecheck } from "./plugin-server-access-registry.js";
 import {
@@ -132,7 +132,6 @@ import {
 import type { ServerLogger } from "../../types.js";
 import type { PluginInteractionResult } from "../interactions/pending-interactions.js";
 import { appendPluginLogLine } from "./plugin-log.js";
-import type { TunnelIngressLease } from "../connect-next/tunnel-ingress.js";
 import {
   readPluginSettingsValues,
   writePluginSettingsUpdate,
@@ -147,7 +146,7 @@ export type {
   PluginMentionTrigger,
   PluginThreadEventName,
   PluginThreadEventPayloads,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 
 class PluginContextStaleError extends Error {
   constructor(pluginId: string) {
@@ -275,7 +274,7 @@ export interface PluginApiHandle {
   machineProviders: Map<string, NormalizedPluginMachineProvider>;
   serverAccessProviders: Map<
     string,
-    import("@get-bb/plugin-sdk").ServerAccessProviderDeclaration
+    import("@hyperfide/plugin-sdk").ServerAccessProviderDeclaration
   >;
   /** HTTP routes recorded by `bb.http.route`; dropped with the handle. */
   httpRoutes: PluginHttpRouteRecord[];
@@ -494,7 +493,6 @@ export function createPluginApi(options: {
   getMachineEnrollments: () => MachineEnrollments;
   getAppUrl: () => string | null;
   getLoopbackBaseUrl: () => string | undefined;
-  openTunnelIngress: (audience: string) => Promise<TunnelIngressLease>;
   /**
    * This load's rpc caller token, attached to the plugin's
    * `bb.sdk.plugins.callRpc` requests so handlers see it as the caller.
@@ -573,7 +571,6 @@ export function createPluginApi(options: {
     getSdk,
     getAppUrl,
     getLoopbackBaseUrl,
-    openTunnelIngress,
     rpcCaller,
     publishSignal,
     invalidateRpc: optionsInvalidate,
@@ -605,7 +602,6 @@ export function createPluginApi(options: {
   const pendingAgentToolProblems: string[] = [];
   const pendingSharedPorts = new Map<string, readonly number[]>();
   const disposeHooks: Array<() => void | Promise<void>> = [];
-  const openTunnelIngresses = new Set<() => Promise<void>>();
   const installHandlers: Array<() => void | Promise<void>> = [];
   const settingsRecord: PluginApiHandle["settings"] = {
     descriptors: {},
@@ -645,7 +641,7 @@ export function createPluginApi(options: {
   const machineProviders = new Map<string, NormalizedPluginMachineProvider>();
   const serverAccessProviders = new Map<
     string,
-    import("@get-bb/plugin-sdk").ServerAccessProviderDeclaration
+    import("@hyperfide/plugin-sdk").ServerAccessProviderDeclaration
   >();
   const httpRoutes: PluginHttpRouteRecord[] = [];
   const websocketRoutes: PluginWebSocketRouteRecord[] = [];
@@ -1064,32 +1060,6 @@ export function createPluginApi(options: {
       assertLive();
       return dataDir;
     },
-    async internal_DO_NOT_USE_openTunnelIngress(ingressOptions) {
-      assertLive();
-      const audience: unknown = ingressOptions?.audience;
-      if (typeof audience !== "string" || audience.length === 0) {
-        throw new Error(
-          "bb.server.internal_DO_NOT_USE_openTunnelIngress needs a non-empty audience",
-        );
-      }
-      const lease = await openTunnelIngress(audience);
-      let closed = false;
-      const close = async (): Promise<void> => {
-        if (closed) return;
-        closed = true;
-        openTunnelIngresses.delete(close);
-        const index = disposeHooks.indexOf(close);
-        if (index !== -1) disposeHooks.splice(index, 1);
-        await lease.close();
-      };
-      if (invalidated) {
-        await lease.close();
-        throw new PluginContextStaleError(pluginId);
-      }
-      openTunnelIngresses.add(close);
-      disposeHooks.push(close);
-      return { baseUrl: lease.baseUrl, close };
-    },
   };
 
   const hosts: PluginHosts = {
@@ -1274,7 +1244,7 @@ export function createPluginApi(options: {
   const experimental_environments: PluginEnvironments = {
     register(
       declaration:
-        | import("@get-bb/plugin-sdk").PluginEnvironmentProviderDeclaration
+        | import("@hyperfide/plugin-sdk").PluginEnvironmentProviderDeclaration
         | NormalizedPluginEnvironmentComposition,
     ) {
       assertLive();
@@ -1328,7 +1298,7 @@ export function createPluginApi(options: {
     },
   };
 
-  const experimental_serverAccess: import("@get-bb/plugin-sdk").PluginServerAccess =
+  const experimental_serverAccess: import("@hyperfide/plugin-sdk").PluginServerAccess =
     {
       register(declaration) {
         assertLive();
@@ -1534,7 +1504,6 @@ export function createPluginApi(options: {
     invalidate() {
       invalidated = true;
       rpcCaller.revoke();
-      for (const close of [...openTunnelIngresses]) void close();
     },
   };
 }

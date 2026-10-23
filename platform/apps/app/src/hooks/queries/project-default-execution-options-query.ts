@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ProjectExecutionDefaults } from "@bb/domain";
+import type { ProjectExecutionDefaults } from "@hyperfide/domain";
 import { sdk } from "@/lib/sdk";
 import { useProjectDetailRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { requireProjectId, type QueryOptions } from "./query-helpers";

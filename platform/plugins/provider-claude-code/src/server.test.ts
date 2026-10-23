@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { PluginProviderOptionsContext } from "@get-bb/plugin-sdk";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import type { PluginProviderOptionsContext } from "@hyperfide/plugin-sdk";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import claudeCodePlugin from "../server.js";
 
 function loadClaudeCodePlugin() {

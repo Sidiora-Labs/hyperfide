@@ -9,8 +9,8 @@ import {
   getLatestSessionForHost,
   getNonDestroyedHostByLaunchKey,
   type DbConnection,
-} from "@bb/db";
-import type { ServerAccessGrant } from "@get-bb/plugin-sdk";
+} from "@hyperfide/db";
+import type { ServerAccessGrant } from "@hyperfide/plugin-sdk";
 import {
   DAEMON_ENROLL_CONFIG_ID,
   DAEMON_HOST_CONFIG_ID,

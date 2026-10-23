@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTimelineViewRows } from "@bb/thread-view";
+import { buildTimelineViewRows } from "@hyperfide/thread-view";
 import {
   ECHO_RECEIPT_PRESENTATION,
   commandRow,
@@ -13,7 +13,7 @@ import {
 import {
   collectTimelineAutoExpansionRowIds,
   isRowExpandable,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 
 interface CollectAutoExpandedIdsArgs {
   rows: ReturnType<typeof buildTimelineViewRows>;

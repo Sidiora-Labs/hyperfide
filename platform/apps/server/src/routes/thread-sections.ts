@@ -4,12 +4,12 @@ import {
   listThreadSections,
   normalizeThreadSectionName,
   renameThreadSection,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   publicApiRoutes,
   typedRoutes,
   type PublicApiSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { Hono } from "hono";
 import type { AppDeps } from "../types.js";
 import { ApiError } from "../errors.js";

@@ -8,7 +8,7 @@
 // resolution of app source or style-only npm exports (tw-animate-css exports
 // only a `style` condition — require.resolve cannot reach it).
 //
-// The output is not committed: turbo runs this as `@bb/plugin-build#generate`
+// The output is not committed: turbo runs this as `@hyperfide/plugin-build#generate`
 // (see turbo.json) before every task that resolves this package's sources.
 //
 //   node packages/plugin-build/scripts/generate-plugin-theme.mjs

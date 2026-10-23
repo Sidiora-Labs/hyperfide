@@ -4,7 +4,7 @@ import {
   pluginCommandId,
   type AppDefaultKeybindings,
   type AppKeybindingOverrides,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { usePluginSlots } from "@/lib/plugin-slots";
 import { browserPlatform } from "@/lib/app-keybindings";

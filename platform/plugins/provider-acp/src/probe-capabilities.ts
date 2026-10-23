@@ -1,5 +1,5 @@
 import type { AcpAgentDefinition } from "./agents.js";
-import type { AcpAgentProbe } from "@get-bb/plugin-sdk/provider-bridge/acp";
+import type { AcpAgentProbe } from "@hyperfide/plugin-sdk/provider-bridge/acp";
 
 export interface AcpProbeApplication {
   agent: AcpAgentDefinition;

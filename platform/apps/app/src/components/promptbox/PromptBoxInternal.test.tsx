@@ -14,11 +14,11 @@ import {
 } from "@/test/fixtures/composer-search";
 import { resolveThreadMentionDropTarget } from "@/lib/thread-mention-drop";
 import { sdk } from "@/lib/sdk";
-import type { PromptTextMention } from "@bb/domain";
-import { createDeferredPromise } from "@bb/test-helpers";
+import type { PromptTextMention } from "@hyperfide/domain";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import type { TiptapEditorHTMLElement } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { EditorView } from "@tiptap/pm/view";
 import {
   createRef,
@@ -61,8 +61,8 @@ import {
   emptyPromptDraftState,
   promptInputToDraft,
   type PromptDraftState,
-} from "@bb/client-core";
-import type { ComposerSubmitOptions } from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/client-core";
+import type { ComposerSubmitOptions } from "@hyperfide/plugin-sdk/app";
 import { createCoreComposerActions } from "@/lib/plugin-composer-handle";
 import {
   getComposerInputLock,
@@ -105,12 +105,12 @@ import {
 import {
   promptMentionClipboardDataAttributes,
   serializedTextForPromptMentionResource,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import type {
   PromptDraftAttachment,
   PromptMentionSuggestion,
   ProviderCommandSuggestion,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 
 vi.mock("@/hooks/usePromptMentions", async () =>
   (await import("@/test/fixtures/composer-search")).fakePromptMentionsModule(),
@@ -5686,14 +5686,14 @@ describe("ComposerBox prompt actions", () => {
       projectId: "proj_1",
       label: "bb",
     } as const;
-    const { changes, promptBoxRef } = renderPromptBox("fix @bb", {
+    const { changes, promptBoxRef } = renderPromptBox("fix @hyperfide", {
       initialMentionRanges: [{ start: 4, end: 7, resource: project }],
     });
 
     await focusPromptEnd(promptBoxRef);
     await selectPromptAction("Plan");
 
-    await waitFor(() => expect(latestValue(changes)).toBe("/plan fix @bb"));
+    await waitFor(() => expect(latestValue(changes)).toBe("/plan fix @hyperfide"));
     expect(latestChange(changes)?.mentions).toEqual([
       {
         start: 0,
@@ -5710,7 +5710,7 @@ describe("ComposerBox prompt actions", () => {
       },
       {
         start: "/plan fix ".length,
-        end: "/plan fix @bb".length,
+        end: "/plan fix @hyperfide".length,
         resource: project,
       },
     ]);

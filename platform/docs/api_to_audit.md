@@ -276,12 +276,7 @@ per-load token makes the identity unforgeable by clients.
 
 Docs: `backend-events.md`, `backend-sdk.md`.
 
-Before stabilizing, audit whether other surfaces (HTTP routes, agent tools,
-CLI commands) need the same identity, whether a plugin needs to know the
-calling app window or thread, and whether in-process plugins that read other
-plugins' memory make the token a meaningful boundary for third-party plugins.
-hyperfide platform account relies on it to keep `/api/connect/` requests, credential reads,
-refused-credential reports, and credential adoption to the connect plugin.
+
 
 ## `hyperfide platform.http.experimental_websocket`
 
@@ -1021,22 +1016,11 @@ Docs: `backend-foundation.md`.
 connect URL should supply this value when `HYPERFIDE_APP_URL` is empty. Confirm that
 one public URL has clear behavior when a server has several access paths.
 
-## `hyperfide platform.server.internal_DO_NOT_USE_openTunnelIngress`
-
-**Audit before stabilizing.** Decide whether the Cloudflare tunnel client
-moves onto the same ingress so core and both connect plugins share one path.
-Decide whether `target` (share ports) belongs here or stays refused. Confirm
-the audience should stay free-form or become a typed server id, and whether a
-plugin may open audiences for servers other than its own.
-
 ## `hyperfide platform.hosts.internal_DO_NOT_USE_setNextTunnels`, `internal_DO_NOT_USE_nextTunnelStatuses`, `internal_DO_NOT_USE_onNextTunnelStatusChange`
 
-**Audit before stabilizing.** Decide whether the config should be per host
-instead of global, whether the status should be pushed through `hyperfide platform.realtime`
-instead of a listener, and whether the compatibility window for protocol 246
-can close (then `HOST_DAEMON_COMPATIBLE_PROTOCOL_VERSIONS` goes back to the
-current version only). Decide whether the Cloudflare machine tunnel should
-move onto the same frpc runner once next replaces it.
+Hosted tunnels are disabled. Setting a non-null tunnel configuration fails;
+status reads return an empty list, and status subscriptions do not contact a
+control plane or a remote service.
 
 ## Bridge record mode (`experimental_recordProviderChildIo` and `experimental_isProviderBridgeRecording`)
 
@@ -3141,14 +3125,7 @@ cancel requires the default-off `serverMove` experiment (403
 `server_move_experiment_disabled`). CLI:
 `hyperfide platform server move|export|import|unlock|allow-connect|delete-old-copy|install-machine-service`.
 
-Before stabilization, audit: authorization for plugin backends (`hyperfide platform.sdk` runs
-with owner access, so a plugin can export every secret or move the server);
-the switch ordering against the hyperfide platform connect tunnel and daemons that miss
-`server.moved`; archive size limits and streaming memory use; cancellation
-and failure recovery at every step, including a server restart mid-move;
-behavior when the target runs a provider-managed machine; and whether
-`startMove` should return immediately or expose progress through a durable
-operation id instead of the in-memory status.
+
 
 ## `app.experimental_icons.register` and `experimental_Icon`
 

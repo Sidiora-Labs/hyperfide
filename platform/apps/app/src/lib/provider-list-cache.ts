@@ -1,4 +1,4 @@
-import { providerInfoSchema } from "@bb/domain";
+import { providerInfoSchema } from "@hyperfide/domain";
 import { z } from "zod";
 import { createLastKnownCache } from "@/lib/last-known-cache";
 

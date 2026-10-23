@@ -3,10 +3,10 @@ import {
   type HostDaemonCommand,
   type HostDaemonCommandResult,
   type HostDaemonSettledCommandType,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type { LoggedWorkSessionDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
-import { roundDurationMs } from "@bb/process-utils";
+import { roundDurationMs } from "@hyperfide/process-utils";
 import { callHostOnlineRpcForWork } from "./online-rpc.js";
 
 interface RunLiveCommandAndWaitArgs<

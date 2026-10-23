@@ -1,5 +1,5 @@
 import type * as MonacoNs from "monaco-editor";
-import type { PluginCodeThemeData } from "@get-bb/plugin-sdk/app";
+import type { PluginCodeThemeData } from "@hyperfide/plugin-sdk/app";
 
 const TOKEN_COLOR = /^#?([0-9A-Fa-f]{6})([0-9A-Fa-f]{2})?$/;
 const WORKBENCH_COLOR = /^#([0-9A-Fa-f]{3,4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/;

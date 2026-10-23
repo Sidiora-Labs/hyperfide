@@ -2,12 +2,12 @@ import {
   defineRpcContract,
   type BbPluginApi,
   type JsonValue,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type {
   PluginEnvironmentProviderCreateContext,
   PluginEnvironmentProviderCreateResult,
   PluginEnvironmentProviderProgress,
-} from "@get-bb/plugin-sdk/environment-provider";
+} from "@hyperfide/plugin-sdk/environment-provider";
 import { reportHostProgress } from "bb-environment-provider-host/progress";
 import { z } from "zod";
 import {

@@ -1,4 +1,4 @@
-import type { HostDaemonContributedEnvEntry } from "@bb/host-daemon-contract";
+import type { HostDaemonContributedEnvEntry } from "@hyperfide/host-daemon-contract";
 import { operationEnvironment } from "./operation-environment.js";
 
 export class MachineEnvironment {

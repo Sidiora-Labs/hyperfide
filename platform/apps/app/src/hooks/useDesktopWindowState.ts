@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { BbDesktopWindowState } from "@bb/desktop-contract";
+import type { BbDesktopWindowState } from "@hyperfide/desktop-contract";
 import {
   DEFAULT_DESKTOP_WINDOW_STATE,
   getBbDesktopInfo,

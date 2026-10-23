@@ -1,13 +1,13 @@
-import { ExpandableText } from "@bb/shared-ui/expandable-text";
+import { ExpandableText } from "@hyperfide/shared-ui/expandable-text";
 import { useCallback, useEffect, useState } from "react";
-import type { BbDesktopBrowserApi } from "@bb/desktop-contract";
+import type { BbDesktopBrowserApi } from "@hyperfide/desktop-contract";
 import {
   DESKTOP_BROWSER_IMPORT_FAILURE_COPY,
   type DesktopBrowserImportOutcome,
   type DesktopBrowserImportSource,
-} from "@bb/host-daemon-contract";
-import { Button } from "@bb/shared-ui/button";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/host-daemon-contract";
+import { Button } from "@hyperfide/shared-ui/button";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { appToast } from "@/components/ui/app-toast";
 import {
   SettingsBadge,

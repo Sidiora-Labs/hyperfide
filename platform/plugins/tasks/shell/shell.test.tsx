@@ -1,8 +1,8 @@
-import type { ExperimentalTabRegistration } from "@get-bb/plugin-sdk";
+import type { ExperimentalTabRegistration } from "@hyperfide/plugin-sdk";
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
 import { makeTask } from "../test-fixtures.js";
 import type { Task } from "../shared/contract.js";
 

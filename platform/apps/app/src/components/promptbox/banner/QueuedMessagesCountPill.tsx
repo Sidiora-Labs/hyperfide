@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   PROMPT_STACK_COUNT_PILL_CLASS,
   PROMPT_STACK_TRAILING_SLOT_CLASS,
-} from "@bb/shared-ui/prompt-stack-disclosure";
+} from "@hyperfide/shared-ui/prompt-stack-disclosure";
 
 export function QueuedMessagesCountPill({
   arrivals,

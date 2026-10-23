@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import type { DiffFileEntry } from "@bb/server-contract";
-import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
-import { Button } from "@bb/shared-ui/button";
+import type { DiffFileEntry } from "@hyperfide/server-contract";
+import { EmptyStatePanel } from "@hyperfide/shared-ui/empty-state";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   DEFAULT_DIFF_FILE_FILTERS,
   filterDiffFiles,

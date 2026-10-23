@@ -4,13 +4,13 @@ import type {
   ComposerPlusMenuItem,
   ComposerView,
   PluginComposerApi,
-} from "@get-bb/plugin-sdk";
-import { Button } from "@bb/shared-ui/button";
-import { COARSE_POINTER_PROMPT_ICON_ACTION_BUTTON_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { DropdownMenuItem } from "@bb/shared-ui/dropdown-menu";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@bb/shared-ui/popover";
+} from "@hyperfide/plugin-sdk";
+import { Button } from "@hyperfide/shared-ui/button";
+import { COARSE_POINTER_PROMPT_ICON_ACTION_BUTTON_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { DropdownMenuItem } from "@hyperfide/shared-ui/dropdown-menu";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@hyperfide/shared-ui/popover";
 import { appToast } from "@/components/ui/app-toast";
 import {
   recordPluginComposerActionUse,

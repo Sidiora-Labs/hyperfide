@@ -18,18 +18,18 @@ import type {
   BbDesktopBrowserTarget,
   BbDesktopBrowserViewportBounds,
   BbDesktopBrowserViewBounds,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import {
   HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH,
   clampBbDesktopBrowserViewBounds,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import {
   COARSE_POINTER_COMPACT_ICON_SIZE_SHRINK_CLASS,
   COARSE_POINTER_TEXT_SM_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
-import { Icon } from "@bb/shared-ui/icon";
+} from "@hyperfide/shared-ui/coarse-pointer-sizing";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { getBbDesktopInfo, getDesktopBrowserApi } from "@/lib/bb-desktop";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   getBrowserUrlSecurity,
   getBrowserUrlHost,
@@ -38,8 +38,8 @@ import {
 import { useBrowserHistory } from "@/lib/browser-history";
 import { BROWSER_VIEW_BOUNDS_SYNC_EVENT } from "@/lib/browser-view-bounds-sync";
 import { useIsBrowserDimmingModalOpen } from "@/hooks/useBrowserDimmingModal";
-import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { usePointerCoarse } from "@hyperfide/shared-ui/hooks/use-pointer-coarse";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   BrowserChromeIconButton,
   BrowserFindBar,
@@ -58,7 +58,7 @@ import {
   useAppCommandHandler,
   useAppCommandShortcut,
 } from "@/components/commands/AppCommandProvider";
-import { isMacKeyboardPlatform } from "@bb/domain";
+import { isMacKeyboardPlatform } from "@hyperfide/domain";
 import {
   browserPlatform,
   type AppShortcutPresentation,

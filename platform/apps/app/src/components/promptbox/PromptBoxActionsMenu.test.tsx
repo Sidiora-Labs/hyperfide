@@ -5,7 +5,7 @@ import type {
   ComposerView,
   PluginComposerApi,
   PluginComposerScope,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   act,
   cleanup,
@@ -35,8 +35,8 @@ import {
 } from "@/components/plugin/plugin-composer-host";
 import type { PluginComposerPlusMenuContribution } from "@/components/plugin/PluginComposerActions";
 import { ComposerMenuEntry } from "@/components/promptbox/composer-root";
-import { emptyPromptDraftState } from "@bb/client-core";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { emptyPromptDraftState } from "@hyperfide/client-core";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   resetPluginLogoStoreForTest,
   setPluginLogoUrls,

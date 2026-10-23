@@ -74,7 +74,7 @@ function fakeApi() {
 
 const profile = {
   id: "p1",
-  serverUrl: "https://sawyer.getbb.app",
+  serverUrl: "https://sawyer.hyperfide.example",
   mode: "direct",
 } as const;
 

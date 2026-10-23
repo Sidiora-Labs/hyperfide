@@ -1,13 +1,13 @@
 /**
  * The rule a plugin proves about itself: it reaches every capability through
- * the public SDK alone. No file in the package may import a private `@bb/*`
+ * the public SDK alone. No file in the package may import a private `@hyperfide/*`
  * workspace package — not the plugin code, not the tests — and nothing may
- * import outside the allowlist: `@get-bb/plugin-sdk` and its published
+ * import outside the allowlist: `@hyperfide/plugin-sdk` and its published
  * subpaths, `zod`, node built-ins, the package's own files, plus whatever
  * public packages the plugin names in `allow`; test files may add the
  * published testing subpaths and the test runner.
  *
- * A `@bb/*` import still typechecks and runs inside bb's own monorepo, which
+ * A `@hyperfide/*` import still typechecks and runs inside bb's own monorepo, which
  * is exactly why it needs a test: the workspace hides the privilege. Inside
  * the monorepo a relative path can climb out of the package into a private
  * package's source just as quietly, so a relative specifier that resolves
@@ -23,12 +23,21 @@ import { moduleReferences } from "./module-references.js";
 const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist"]);
 const SOURCE_EXTENSIONS = /\.(?:[cm]?[jt]s|tsx)$/u;
 const TEST_FILE_PATTERN = /\.test\.[cm]?[jt]sx?$/u;
-const PRIVATE_PACKAGE_PREFIX = "@bb/";
+const PRIVATE_PACKAGE_PREFIX = "@hyperfide/";
+const PUBLIC_SDK_PACKAGE = "@hyperfide/plugin-sdk";
+
+function isPrivatePackage(specifier: string): boolean {
+  return (
+    specifier.startsWith(PRIVATE_PACKAGE_PREFIX) &&
+    specifier !== PUBLIC_SDK_PACKAGE &&
+    !specifier.startsWith(`${PUBLIC_SDK_PACKAGE}/`)
+  );
+}
 
 /** Specifiers plugin code (server, host, bridge, app) may import. */
 const PLUGIN_IMPORT_ALLOWLIST: readonly RegExp[] = [
-  /^@get-bb\/plugin-sdk$/u,
-  /^@get-bb\/plugin-sdk\/(?:host|app|provider-bridge|provider-bridge\/acp)$/u,
+  /^@hyperfide\/plugin-sdk$/u,
+  /^@hyperfide\/plugin-sdk\/(?:host|app|provider-bridge|provider-bridge\/acp)$/u,
   /^zod$/u,
   /^node:/u,
   /^\.\.?\//u,
@@ -36,7 +45,7 @@ const PLUGIN_IMPORT_ALLOWLIST: readonly RegExp[] = [
 
 /** What a test file may import beyond the plugin allowlist. */
 const TEST_IMPORT_ALLOWLIST: readonly RegExp[] = [
-  /^@get-bb\/plugin-sdk\/(?:testing|testing\/app|testing\/host|provider-bridge\/testing)$/u,
+  /^@hyperfide\/plugin-sdk\/(?:testing|testing\/app|testing\/host|provider-bridge\/testing)$/u,
   /^vitest$/u,
 ];
 
@@ -67,7 +76,7 @@ export interface PublicSdkOnlyScan {
   /** Every source file scanned, relative to the package root, in walk order. */
   files: string[];
   violations: PublicSdkOnlyViolation[];
-  /** `@bb/*` names in the package.json dependencies and devDependencies. */
+  /** `@hyperfide/*` names in the package.json dependencies and devDependencies. */
   privateDependencies: string[];
 }
 
@@ -140,7 +149,7 @@ export function scanPublicSdkOnly(
     for (const { specifier, dynamic } of references) {
       if (dynamic) {
         violations.push({ file, specifier, reason: "dynamic-specifier" });
-      } else if (specifier.startsWith(PRIVATE_PACKAGE_PREFIX)) {
+      } else if (isPrivatePackage(specifier)) {
         violations.push({ file, specifier, reason: "private-package" });
       } else if (
         RELATIVE_SPECIFIER_PATTERN.test(specifier) &&
@@ -156,8 +165,7 @@ export function scanPublicSdkOnly(
   return {
     files,
     violations,
-    privateDependencies: declaredDependencyNames(packageRoot).filter((name) =>
-      name.startsWith(PRIVATE_PACKAGE_PREFIX),
-    ),
+    privateDependencies:
+      declaredDependencyNames(packageRoot).filter(isPrivatePackage),
   };
 }

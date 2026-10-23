@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { experimental_nativeRootsResolveOutputSchema } from "@get-bb/plugin-sdk/host";
+import { experimental_nativeRootsResolveOutputSchema } from "@hyperfide/plugin-sdk/host";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { resolvePiNativeRoots } from "./native-roots.js";
 

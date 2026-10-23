@@ -7,7 +7,7 @@
   "files": [
     {
       "path": "registry/components/ui/icon.tsx",
-      "content": "import {\n  experimental_Icon,\n  type ExperimentalIconProps,\n} from \"@get-bb/plugin-sdk/app\";\n\nexport type IconName = string;\nexport type IconProps = ExperimentalIconProps;\nexport const Icon = experimental_Icon;\n",
+      "content": "import {\n  experimental_Icon,\n  type ExperimentalIconProps,\n} from \"@hyperfide/plugin-sdk/app\";\n\nexport type IconName = string;\nexport type IconProps = ExperimentalIconProps;\nexport const Icon = experimental_Icon;\n",
       "type": "registry:ui",
       "target": "components/ui/icon.tsx"
     }

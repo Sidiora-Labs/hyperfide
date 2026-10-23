@@ -1,10 +1,10 @@
-import { closeSecondaryPanelTabInState } from "@bb/client-core";
+import { closeSecondaryPanelTabInState } from "@hyperfide/client-core";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   threadTabsSchema,
   type ThreadTab,
   type ThreadTabsResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { appToast } from "@/components/ui/app-toast";
 import {
   getCachedThreadTabs,

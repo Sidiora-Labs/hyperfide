@@ -1,9 +1,9 @@
 import { createElement, useCallback, useRef, type ReactNode } from "react";
 import { appToast } from "@/components/ui/app-toast";
 import { AppToastCommitDescription } from "@/components/ui/app-toast-descriptions";
-import type { Environment, Thread, WorkspaceStatus } from "@bb/domain";
-import type { CommitActionResponse } from "@bb/server-contract";
-import { useDialogState } from "@bb/shared-ui/use-dialog-state";
+import type { Environment, Thread, WorkspaceStatus } from "@hyperfide/domain";
+import type { CommitActionResponse } from "@hyperfide/server-contract";
+import { useDialogState } from "@hyperfide/shared-ui/use-dialog-state";
 import type { ThreadGitActionDialogTarget } from "@/components/dialogs/ThreadGitActionDialog";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";
 import type { RequestEnvironmentActionMutationLike } from "./threadDetailMutationTypes";

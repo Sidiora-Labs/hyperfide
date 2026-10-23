@@ -1,12 +1,12 @@
 import { machineRemovalLabels } from "./machine-removal-display";
-import type { Host } from "@bb/domain";
+import type { Host } from "@hyperfide/domain";
 import type {
   EnvironmentDisplayInfo,
   EnvironmentDisplayProviderLookup,
-} from "@bb/core-ui";
-import { resolveEnvironmentDisplayProvider } from "@bb/core-ui";
-import type { SystemEnvironmentProvider } from "@bb/server-contract";
-import type { IconName } from "@bb/shared-ui/icon";
+} from "@hyperfide/core-ui";
+import { resolveEnvironmentDisplayProvider } from "@hyperfide/core-ui";
+import type { SystemEnvironmentProvider } from "@hyperfide/server-contract";
+import type { IconName } from "@hyperfide/shared-ui/icon";
 import { pluginIconName } from "@/components/plugin/PluginIcon";
 import { PersistentHostIconName } from "@/lib/host-display";
 import type { MachineLabelHost } from "@/components/machines/MachineLabel";

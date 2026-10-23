@@ -1,9 +1,9 @@
 import { Command } from "commander";
-import { collectDeclaredSessionOptions, type AvailableModel } from "@bb/domain";
+import { collectDeclaredSessionOptions, type AvailableModel } from "@hyperfide/domain";
 import type {
   SystemExecutionOptionsModelLoadError,
   SystemProviderInfo,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { action } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { columnWidths, printBorderlessTable } from "../table.js";

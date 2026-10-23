@@ -5,12 +5,11 @@ import {
   findLocalPathProjectSourceForHost,
   isActiveTerminalSessionStatus,
   mobileAppDownloads,
-} from "@bb/domain";
-import type { TerminalOutputChunk, TerminalSession } from "@bb/server-contract";
-import { useMediaQuery } from "@bb/shared-ui/hooks/use-media-query";
+} from "@hyperfide/domain";
+import type { TerminalOutputChunk, TerminalSession } from "@hyperfide/server-contract";
+import { useMediaQuery } from "@hyperfide/shared-ui/hooks/use-media-query";
 import { AddMachineDialog } from "@/components/dialogs/AddMachineDialog";
 import { ProjectPathDialog } from "@/components/dialogs/ProjectPathDialog";
-import { PluginSettingsSections } from "@/components/plugin/PluginSettingsSections";
 import { useSetPluginEnabled } from "@/components/plugin/useSetPluginEnabled";
 import {
   buildProviderCliIssue,
@@ -42,7 +41,6 @@ import { useSidebarNavigation } from "@/hooks/queries/sidebar-navigation-query";
 import { terminalOutputTailQueryKey } from "@/hooks/queries/query-keys";
 import {
   useHostProviderCliStatus,
-  useSystemConfig,
   useSystemProviderStates,
   useSystemProviders,
 } from "@/hooks/queries/system-queries";
@@ -75,10 +73,8 @@ import {
   type OnboardingRepo,
 } from "./OnboardingViews";
 import {
-  CONNECT_PLUGIN_ID,
   ONBOARDING_PLUGINS,
   ONBOARDING_PLUGIN_MARKETPLACE,
-  connectAccessUrl,
   defaultSelectedRepoPaths,
   hasReadyAgent,
   parseSignInOutput,
@@ -854,9 +850,7 @@ function DevicesStepContainer({
   onFinish: () => void;
   onLeave: () => void;
 }) {
-  const configQuery = useSystemConfig();
   const hostsQuery = useHosts();
-  const [connectSetupOpen, setConnectSetupOpen] = useState(false);
   const [addMachineOpen, setAddMachineOpen] = useState(false);
   const location = useLocation();
   const [initialPathname] = useState(location.pathname);
@@ -879,13 +873,8 @@ function DevicesStepContainer({
       onBack={onBack}
     >
       <DevicesStep
-        connect={connectAccessUrl(configQuery.data?.serverAccess)}
-        connectSetup={<PluginSettingsSections pluginId={CONNECT_PLUGIN_ID} />}
-        connectSetupOpen={connectSetupOpen}
         otherMachineCount={otherMachineCount}
         mobileLinks={mobileAppDownloads}
-        onToggleConnectSetup={() => setConnectSetupOpen((open) => !open)}
-        onCopyConnectUrl={(url) => void copyToClipboardWithToast(url)}
         onAddMachine={() => setAddMachineOpen(true)}
       />
       <AddMachineDialog

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { PluginComposerThreadRowStatus } from "@get-bb/plugin-sdk";
+import type { PluginComposerThreadRowStatus } from "@hyperfide/plugin-sdk";
 import { QueryClient } from "@tanstack/react-query";
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
