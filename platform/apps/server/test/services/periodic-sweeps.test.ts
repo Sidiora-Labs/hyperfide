@@ -1,3 +1,4 @@
+import * as database from "@hyperfide/db";
 import { eq } from "drizzle-orm";
 import {
   CLOSED_SESSION_ROW_RETENTION_MS,
@@ -149,17 +150,17 @@ describe("runPeriodicSweeps", () => {
           changes.push(message.changes);
         }
       });
-      let sweepSettled = false;
-      const probe = async () => {
-        if (sweepSettled) {
-          return;
-        }
-        observedSidecarCounts.push(
-          (await harness.db.select().from(retainedEventOutputs).all()).length,
-        );
-        setImmediate(probe);
-      };
-      setImmediate(probe);
+      const deleteExpired = database.deleteExpiredRetainedEventOutputs;
+      const observeAdvance = vi
+        .spyOn(database, "deleteExpiredRetainedEventOutputs")
+        .mockImplementation(async (...args) => {
+          const result = await deleteExpired(...args);
+          const remaining = (
+            await harness.db.select().from(retainedEventOutputs).all()
+          ).length;
+          setImmediate(() => observedSidecarCounts.push(remaining));
+          return result;
+        });
 
       try {
         await runPeriodicSweeps({
@@ -168,7 +169,7 @@ describe("runPeriodicSweeps", () => {
           plugins: harness.pluginService,
         });
       } finally {
-        sweepSettled = true;
+        observeAdvance.mockRestore();
         unsubscribe();
       }
 

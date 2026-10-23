@@ -562,6 +562,7 @@ describe("timeline build micro-benchmark", () => {
           `min calibration ratio ${round(minimumRatio, 4)} ` +
           `(samples ${durations.map((value) => round(value)).join(", ")})\n`,
       );
+      process.stdout.write(`${JSON.stringify(last.map((page) => page.profile.stageTimings))}\n`);
       expect(last.length).toBeGreaterThan(1);
       expect(minimumRatio).toBeLessThan(SYNTHETIC_CEILING_RATIO);
     } finally {
