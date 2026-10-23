@@ -1116,7 +1116,7 @@ owner = "editor"
 
 [task.6.8]
 title = "Multi-root serve pool"
-status = "implemented"
+status = "done"
 wave = 6
 requires = ["6.2"]
 touches = ["editors/vscode/extension.js", "editors/vscode/serve.js"]
