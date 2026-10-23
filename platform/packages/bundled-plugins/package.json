@@ -54,6 +54,7 @@
     "hyperfide-plugin-hyperfide-machine-railway": "workspace:*",
     "hyperfide-plugin-hyperfide-machine-blaxel": "workspace:*",
     "@hyperfide/hyperfide-graph": "workspace:*",
-    "@hyperfide/hyperfide-qualify": "workspace:*"
+    "@hyperfide/hyperfide-qualify": "workspace:*",
+    "@hyperfide/hyperfide-spec": "workspace:*"
   }
 }

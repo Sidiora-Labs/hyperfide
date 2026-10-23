@@ -1367,6 +1367,9 @@ importers:
       '@hyperfide/hyperfide-qualify':
         specifier: workspace:*
         version: link:../../plugins/hyperfide-qualify
+      '@hyperfide/hyperfide-spec':
+        specifier: workspace:*
+        version: link:../../plugins/hyperfide-spec
       hyperfide-plugin-account-pool:
         specifier: workspace:*
         version: link:../../plugins/account-pool
@@ -4068,10 +4071,19 @@ importers:
       '@hyperfide/authority':
         specifier: workspace:*
         version: link:../../packages/hyperfide-authority
+      '@hyperfide/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.10
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.1
       tsrs:
         specifier: 0.18.0-ts7.1.0-dev.20260929
         version: 0.18.0-ts7.1.0-dev.20260929
