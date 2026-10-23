@@ -237,8 +237,12 @@ def scenario(f, hook):
         expect(permission['severity'] == 'ERROR' and permission['action_code'] == 'ANSWER_ASK' and permission['subject']['default_answer'] is None, permission)
         delivered = ok('fleet.notifications.operator.deliver', {})
         expect(delivered['delivered'] == 2, delivered)
-        expired = [r['body'] for r in hook.accepted() if r['body']['kind'] == 'ASK_EXPIRED']
-        expect(len(expired) == 2 and expired[0]['severity'] == 'ERROR', 'expired Asks not delivered most severe first: ' + json.dumps(expired)[:600])
+        # A batch is claimed most severe first and sent concurrently, so the claim order (the result list) is the
+        # contract; arrival order at the webhook is not.
+        order = [r['notice_id'] for r in delivered['results']]
+        expect(order == [permission['notice_id'], decision['notice_id']], 'expired Asks not claimed most severe first: ' + json.dumps(delivered['results'])[:600])
+        expired = {r['body']['notice_id']: r['body'] for r in hook.accepted() if r['body']['kind'] == 'ASK_EXPIRED'}
+        expect(set(expired) == set(order) and expired[permission['notice_id']]['severity'] == 'ERROR', 'expired Asks not delivered: ' + json.dumps(list(expired.values()))[:600])
     check('produce.ask-expired-and-delivered', expiry)
     check('deliver.nothing-pending', lambda: expect(ok('fleet.notifications.operator.deliver', {})['delivered'] == 0, 'an idle target delivered something'))
 

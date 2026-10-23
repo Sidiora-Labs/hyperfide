@@ -131,6 +131,38 @@ def physical_directory(path):
 def logical_file(path):
     return RELOCATION.logical(path) if RELOCATION else Path(path)
 
+# Reference records (task 7.12) whose original is absent on this host: reported, not failed.
+UNVERIFIABLE = set()
+
+def reference_location(workspace, original):
+    location = Path(original) if Path(original).is_absolute() else Path(workspace) / original
+    if RELOCATION and location in RELOCATION.files:
+        return RELOCATION.files[location]
+    return location
+
+def checked_reference(record, workspace):
+    """A file outside the workspace is pinned by digest, not copied: re-digest it from original_path."""
+    require(set(record) == {"kind", "original_path", "sha256", "size"}, "reference record has an unexpected shape")
+    original = record["original_path"]
+    require(isinstance(original, str) and original, "reference original path is missing")
+    sha(record["sha256"], "reference hash")
+    positive_integer(record["size"], "reference size", zero=True)
+    require(isinstance(workspace, str) and Path(workspace).is_absolute(), "reference record lacks a workspace")
+    logical = Path(original) if Path(original).is_absolute() else (Path(workspace) / original).resolve()
+    require(not logical.is_relative_to(Path(workspace)), "reference record names a workspace file: " + original)
+    location = reference_location(workspace, original)
+    if not location.exists() and not location.is_symlink():
+        UNVERIFIABLE.add(original)
+        return None
+    require(location.is_file() and not location.is_symlink(), "referenced original is not a regular file: " + original)
+    require(digest_file(location) == (record["sha256"], record["size"]), "reference digest/size mismatch: " + original)
+    return location
+
+def checked_record(root, record, workspace):
+    if isinstance(record, dict) and record.get("kind") == "reference":
+        return checked_reference(record, workspace)
+    return checked_file(root, record)
+
 def command_pass(command):
     require(command["exit_code"] == 0 and command["timed_out"] is False, "command failed or timed out")
     require(command.get("leaked_descendants") == [] and command.get("remaining_descendants") == [], "command left or leaked descendant processes")
@@ -234,10 +266,10 @@ def verify_receipt_integrity(root, receipt, manifest_hash, registry_hash, regist
     source = receipt.get("source")
     require(isinstance(source, dict) and isinstance(source.get("files"), list), "source identity inventory missing")
     for record in source["files"]:
-        checked_file(root, record)
+        checked_record(root, record, source.get("workspace"))
     require(isinstance(receipt.get("inputs"), list), "input identity inventory missing")
     for record in receipt["inputs"]:
-        checked_file(root, record)
+        checked_record(root, record, source.get("workspace"))
     cleanup = receipt.get("cleanup")
     require(isinstance(cleanup, dict) and isinstance(cleanup.get("resources"), list) and type(cleanup.get("complete")) is bool, "cleanup inventory malformed")
     if cleanup.get("command") is not None:
@@ -360,7 +392,12 @@ def verify_selected(root, receipt, manifest, registry, registration, events, art
         require(isinstance(original, str) and Path(original).is_absolute(), "source original path is invalid")
         require(original not in originals, "duplicate source identity")
         originals.add(original)
-        path = physical_file(original)
+        if record.get("kind") == "reference":
+            if original in UNVERIFIABLE:
+                continue
+            path = reference_location(workspace, original)
+        else:
+            path = physical_file(original)
         require(path.is_file() and not path.is_symlink(), "current source file missing or symbolic")
         require(digest_file(path) == (record["sha256"], record["size"]), "current source bytes differ from candidate")
     require(str(RELOCATION.checker_original if RELOCATION else Path(__file__).resolve()) in originals, "executing independent checker is not source-pinned")
@@ -401,8 +438,13 @@ def verify_selected(root, receipt, manifest, registry, registration, events, art
     for item in receipt["inputs"]:
         original = item.get("original_path")
         require(isinstance(original, str) and original not in observed_inputs, "duplicate/invalid input identity")
-        original_file = physical_file((workspace / original) if RELOCATION else (workspace / original).resolve())
-        require(original_file.is_file() and digest_file(original_file) == (item["sha256"], item["size"]), "current fixture bytes differ from immutable inputs")
+        if item.get("kind") == "reference":
+            if original not in UNVERIFIABLE:
+                original_file = reference_location(workspace, original)
+                require(original_file.is_file() and digest_file(original_file) == (item["sha256"], item["size"]), "current referenced input bytes differ from immutable inputs")
+        else:
+            original_file = physical_file((workspace / original) if RELOCATION else (workspace / original).resolve())
+            require(original_file.is_file() and digest_file(original_file) == (item["sha256"], item["size"]), "current fixture bytes differ from immutable inputs")
         observed_inputs[original] = (item["sha256"], item["size"])
     require(observed_inputs == pinned_inputs, "input inventory differs from immutable manifest")
     explicit_sources = identifiers(registration.get("source_files"), "reviewed explicit source files")
@@ -445,6 +487,7 @@ def verify_selected(root, receipt, manifest, registry, registration, events, art
 def check(args):
     global RELOCATION
     RELOCATION = None
+    UNVERIFIABLE.clear()
     root = Path(args.campaign).resolve()
     if not root.exists():
         # Local task evidence is a cache of the artifact store (D1); restore it by receipt before checking.
@@ -497,7 +540,10 @@ def check(args):
     receipt, events, artifacts, path = selected
     verify_selected(root, receipt, manifest, registry, registration, events, artifacts)
     import proof_relocation
-    return {"schema_version": 1, "checked": True, "receipt_id": receipt["receipt_id"], "receipt_sha256": digest_file(path)[0], "scope": receipt["scope"], "observed_outcome": receipt["outcome"], "full_case_status": receipt["full_case_status"], "receipt_count": len(receipts), "seal_authentication": "unanchored-consistency-only", "git_executable": proof_relocation.GIT_IDENTITY}
+    result = {"schema_version": 1, "checked": True, "receipt_id": receipt["receipt_id"], "receipt_sha256": digest_file(path)[0], "scope": receipt["scope"], "observed_outcome": receipt["outcome"], "full_case_status": receipt["full_case_status"], "receipt_count": len(receipts), "seal_authentication": "unanchored-consistency-only", "git_executable": proof_relocation.GIT_IDENTITY}
+    if UNVERIFIABLE:
+        result["unverifiable_references"] = sorted(UNVERIFIABLE)
+    return result
 
 
 def main():

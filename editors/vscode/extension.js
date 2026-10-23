@@ -34,6 +34,9 @@ let fleetApi = { refresh: async () => {}, touch: () => {} };
 // --- sandboxes (hyperfide-v21 6.4): console.sandboxes, refreshed only while visible ---
 const sandboxes = require('./sandboxes');
 let sandboxesApi = { refresh: async () => {} };
+// --- needs (v21 6.2): what a person owes the run, on the same refresh chain ---
+const needs = require('./needs');
+let needsApi = { refresh: async () => {}, route: () => false };
 
 let provider;
 let memories;
@@ -304,6 +307,7 @@ async function runRefresh() {
     await fleetApi.refresh(provider.model && provider.model.status);
     // --- end fleet (5.3) ---
     await sandboxesApi.refresh();
+    await needsApi.refresh();
     await updateScope();
     /* what counts as "in scope" depends on which task is in progress, so
      * open documents are re-checked only when that changes */
@@ -756,6 +760,8 @@ async function activate(ctx) {
     });
     // --- end fleet (5.3) ---
     sandboxesApi = sandboxes.register(ctx, { cg });
+    needsApi = needs.register(ctx, { cg, cgJson, workspaceRoot,
+        registry: acpApi.asks && acpApi.asks.registry });
 
     /* Language features are best-effort: a workspace with no .codegraph, or
      * no cg on PATH, still gets the spec tooling above. */
@@ -799,6 +805,7 @@ async function activate(ctx) {
                 if (applied.view === 'fleet' || applied.fleet) fleetApi.touch();
                 if ((applied.view === 'drift' || ev.kind === 'task.status') && fleetApi.drift) fleetApi.drift(ev);
                 if (applied.view === 'memories') memoryApi.touch();
+                if (applied.view === 'needs') { needsApi.route(ev); return; }
                 scheduleRefresh(EVENT_REFRESH_MS);
             });
             serveClient.on('gap', () => scheduleRefresh(0));

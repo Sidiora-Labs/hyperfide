@@ -2,10 +2,11 @@ import {randomUUID} from 'node:crypto';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {exactAgentObject,agentString,agentDigest,agentTransaction,agentError} from './sessions.js';
 import {isAgentAdmissionCapability} from './admission.js';
-import type {AgentAdmissionCapability} from './admission.js';
+import type {AgentAdmissionCapability,AdmissionPlanSelection} from './admission.js';
 import {requireRunnerDispatch} from '../runner/dispatch.js';
 import type {RunnerLaunchPlan,RunnerSpawnInput} from '../runner/dispatch.js';
 import {assertInvocation} from '../transport/protocol.js';
+import {storedEnvReferences} from './env_refs.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
 import type {PrimaryTransaction} from '../storage/transactions.js';
@@ -16,8 +17,24 @@ import {object} from '../policy/programme.js';
  * scheduler command, so a replayed dispatch returns the same plan and never a second launch. */
 type Selection={plan:RunnerLaunchPlan|null;reason:string|null;replayed:boolean};
 const tokenKeys=['task_id','attempt_id','attempt_generation','authority_epoch','sandbox_id','slot_id','sandbox_boot_generation'] as const;
-function launchPlan(row:Record<string,unknown>):RunnerLaunchPlan{
- return {launch_id:String(row.launch_id),slot_id:String(row.slot_id),agent_session_id:String(row.agent_session_id),connector_plan_digest:String(row.connector_plan_digest)};
+export function launchPlan(row:Record<string,unknown>):RunnerLaunchPlan{
+ const env_refs=storedEnvReferences(row);
+ return {launch_id:String(row.launch_id),slot_id:String(row.slot_id),agent_session_id:String(row.agent_session_id),connector_plan_digest:String(row.connector_plan_digest),...(env_refs?{env_refs}:{})};
+}
+/** Persists one immutable plan from an admitted selection; the selection's env_refs (3.15) are stored
+ * in their own column and bound into the plan digest when present. */
+export async function insertLaunchPlan(tx:Pick<PrimaryTransaction,'query'>,input:RunnerSpawnInput,session_id:string,a:AdmissionPlanSelection):Promise<RunnerLaunchPlan>{
+ const {organisation_id:org,run_id:run,command_id:command,token}=input;
+ const launch_id=randomUUID();
+ const body={schema_version:1,command_id:command,launch_id,agent_session_id:session_id,slot_id:token.slot_id,attempt_id:token.attempt_id,attempt_generation:String(token.attempt_generation),
+  packet_digest:input.packet_digest,connector:a.connector,connector_version:a.connector_version,provider:a.provider,model:a.model,auth_profile:a.auth_profile,
+  permission_profile:a.permission_profile,qualification_receipt_digest:a.qualification_digest,admission_reservation_id:a.reservation_id,reservation_attempt:a.reservation_attempt,
+  admission_policy_digest:a.policy_digest,run_policy_digest:a.run_policy_digest,native_delegation:false,unattended:true,
+  ...(Object.keys(a.env_refs).length?{env_refs:{...a.env_refs}}:{})};
+ const digest=agentDigest(body);
+ const row=(await tx.query('INSERT INTO hyperfide.native_launch_plans(organisation_id,run_id,command_id,launch_id,agent_session_id,slot_id,attempt_id,attempt_generation,connector,connector_plan_digest,admission_reservation_id,reservation_attempt,admission_policy_digest,run_policy_digest,qualification_receipt_digest,packet_digest,payload_digest,plan,env_refs) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19::jsonb) RETURNING *',
+  [org,run,command,launch_id,session_id,token.slot_id,token.attempt_id,token.attempt_generation,a.connector,digest,a.reservation_id,a.reservation_attempt,a.policy_digest,a.run_policy_digest,a.qualification_digest,input.packet_digest,input.payload_digest,JSON.stringify(body),JSON.stringify(a.env_refs)])).rows[0] as Record<string,unknown>;
+ return launchPlan(row);
 }
 async function select(tx:PrimaryTransaction,admission:AgentAdmissionCapability,input:RunnerSpawnInput,invocation:InvocationContext):Promise<Selection>{
  assertPrimaryTransaction(tx);assertInvocation(invocation);await invocation.guard(tx);
@@ -41,15 +58,7 @@ async function select(tx:PrimaryTransaction,admission:AgentAdmissionCapability,i
  if(a.native_delegation!==false)agentError('ADMISSION_DELEGATION_UNSUPPORTED');
  const consumed=await tx.query('SELECT command_id FROM hyperfide.native_launch_plans WHERE organisation_id=$1 AND run_id=$2 AND admission_reservation_id=$3 AND reservation_attempt=$4',[org,run,a.reservation_id,a.reservation_attempt]);
  if(consumed.rows.length)return {plan:null,reason:'ADMISSION_ATTEMPT_CONSUMED',replayed:false};
- const launch_id=randomUUID();
- const body={schema_version:1,command_id:command,launch_id,agent_session_id:session_id,slot_id:token.slot_id,attempt_id:token.attempt_id,attempt_generation:String(token.attempt_generation),
-  packet_digest:input.packet_digest,connector:a.connector,connector_version:a.connector_version,provider:a.provider,model:a.model,auth_profile:a.auth_profile,
-  permission_profile:a.permission_profile,qualification_receipt_digest:a.qualification_digest,admission_reservation_id:a.reservation_id,reservation_attempt:a.reservation_attempt,
-  admission_policy_digest:a.policy_digest,run_policy_digest:a.run_policy_digest,native_delegation:false,unattended:true};
- const digest=agentDigest(body);
- const row=(await tx.query('INSERT INTO hyperfide.native_launch_plans(organisation_id,run_id,command_id,launch_id,agent_session_id,slot_id,attempt_id,attempt_generation,connector,connector_plan_digest,admission_reservation_id,reservation_attempt,admission_policy_digest,run_policy_digest,qualification_receipt_digest,packet_digest,payload_digest,plan) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb) RETURNING *',
-  [org,run,command,launch_id,session_id,token.slot_id,token.attempt_id,token.attempt_generation,a.connector,digest,a.reservation_id,a.reservation_attempt,a.policy_digest,a.run_policy_digest,a.qualification_digest,input.packet_digest,input.payload_digest,JSON.stringify(body)])).rows[0] as Record<string,unknown>;
- return {plan:launchPlan(row),reason:null,replayed:false};
+ return {plan:await insertLaunchPlan(tx,input,session_id,a),reason:null,replayed:false};
 }
 export function createComponent(ctx:ComponentContext):Component{
  const admission=ctx.dependencies.require('13.4','agent.admission.v1',(value:unknown):value is AgentAdmissionCapability=>isAgentAdmissionCapability(value)&&typeof (value as unknown as Record<string,unknown>).launchSelection==='function');
