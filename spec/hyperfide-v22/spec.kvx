@@ -536,7 +536,7 @@ owner = "fleet"
 
 [task.5.2]
 title = "Blaxel machine provider"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["0.2", "0.3"]
 touches = ["platform/plugins/machine-blaxel/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/5_2.sh"]
