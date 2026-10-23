@@ -4,6 +4,7 @@ ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
 cd "$ROOT"
 export CG="$ROOT/cg"
 bash tests/integration/14_vscode.sh
+bash tests/integration/19_acp.sh
 npm --prefix editors/vscode test
 node <<'JS'
 const assert = require('node:assert/strict');
