@@ -115,6 +115,8 @@ static const char *SEM_SCHEMA =
     "CREATE INDEX IF NOT EXISTS idx_sem_binding_file ON semantic_bindings(file_id);"
     "CREATE INDEX IF NOT EXISTS idx_sem_binding_module ON semantic_bindings(module);"
     "CREATE INDEX IF NOT EXISTS idx_sem_binding_target ON semantic_bindings(target_file_id);"
+    /* File replacement invalidates incoming symbol bindings as well as files. */
+    "CREATE INDEX IF NOT EXISTS idx_sem_binding_target_symbol ON semantic_bindings(target_symbol_id);"
     "CREATE TABLE IF NOT EXISTS semantic_type_facts("
     "id INTEGER PRIMARY KEY,file_id INTEGER NOT NULL,owner_id INTEGER,"
     "name TEXT,kind TEXT,value TEXT,evidence TEXT,"

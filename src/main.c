@@ -627,6 +627,30 @@ int main(int argc, char **argv) {
     } else if (strcmp(cmd, "log") == 0) {
         int limit = atoi(opt(&argc, argv, "-n", "20"));
         rc = cmd_log(&cg, limit > 0 ? limit : 20, json);
+    } else if (strcmp(cmd, "index-status") == 0) {
+        sqlite3_stmt *st = cg_prep(&cg,
+            "SELECT f.path,COUNT(s.id) FROM files f LEFT JOIN symbols s "
+            "ON s.file_id=f.id WHERE f.branch_id=? GROUP BY f.id ORDER BY f.path");
+        if (!st) { cg_close(&cg); return 1; }
+        sqlite3_bind_int64(st, 1, cg.branch_id);
+        StrBuf b; sb_init(&b);
+        sb_puts(&b, "{\"files\":[");
+        long files = 0, symbols = 0;
+        int step;
+        while ((step = sqlite3_step(st)) == SQLITE_ROW) {
+            const char *path = (const char *)sqlite3_column_text(st, 0);
+            long count = sqlite3_column_int64(st, 1);
+            if (files++) sb_putc(&b, ',');
+            sb_puts(&b, "{\"path\":"); sb_json_str(&b, path);
+            sb_printf(&b, ",\"symbols\":%ld}", count);
+            symbols += count;
+        }
+        sqlite3_finalize(st);
+        sb_printf(&b, "],\"file_count\":%ld,\"symbol_count\":%ld}", files, symbols);
+        if (step != SQLITE_DONE) rc = 1;
+        else if (json) puts(b.p);
+        else printf("index: %ld files, %ld symbols\n", files, symbols);
+        sb_free(&b);
     } else if (strcmp(cmd, "status") == 0) {
         rc = answer_health_status(&cg, json);
     } else if (strcmp(cmd, "state") == 0) {
