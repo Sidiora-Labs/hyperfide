@@ -978,7 +978,7 @@ class QualificationFixture:
 
 QUALIFICATION_SCENARIO = r"""
 import assert from 'node:assert/strict';
-import {readFileSync, writeFileSync} from 'node:fs';
+import {mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {createFakePluginHost} from '@hyperfide/plugin-sdk/testing';
@@ -1012,25 +1012,33 @@ try {
   let log = (await host.harness.callRpc('log', {id: lane.id, after: 0})).map(e => e.text).join('');
   assert.match(log, /lane verified/);
   let checker;
+  // The checker is driven through the worker lifecycle host: a deterministic checker provider runs the
+  // plugin's own verify tool and writes the verdict file, exactly as a real checker thread would.
+  const checkerEnvironment = join(repo, '..', 'checker-environment');
+  mkdirSync(join(checkerEnvironment, '.hyperfide'), {recursive: true});
   const check = registerChecker({
-    onImplemented() {},
-    async recordChecker(task, record) { assert.equal(task, '1.1'); checker = record; },
-    async listTaskIds() { return ['1.1']; },
-    // Deterministic provider; the checker module owns the independent verify tool.
-    async createThread(request, tools) {
-      assert.equal(request.role, 'checker');
-      assert.equal(request.provider, 'hyperfide-checker');
+    async readFile(environment, path) { return readFileSync(join(environment, path), 'utf8'); },
+    async baseCommit() { return base; },
+    async publish() {},
+    async spawn(request) {
+      assert.equal(request.providerId, 'hyperfide-checker');
       assert.equal(request.env.CG_TASK, '1.1');
-      const packet = JSON.parse(request.packet);
+      assert.equal(request.title, 'Checker hyperfide/1.1');
+      const packet = JSON.parse(request.prompt);
       assert.match(packet.diff, /\+implemented/);
       assert.equal(packet.laneLog, log);
-      const result = await tools.verify();
-      return {verdict: 'pass', findings: [], verify: {cmd: packet.verifyCmd, exit: result.exit}};
-    }
-  }, {providers: ['hyperfide-worker', 'hyperfide-checker'], binary});
-  const checkTask = () => check({id: '1.1', status: 'implemented', wave: 1, cwd: repo, base,
-    criteria: ['Fixture value implemented'], verifyCmd: verify, laneLog: log,
-    workerProvider: 'hyperfide-worker', touches: ['src/value.txt'], reqs: []});
+      assert.equal(packet.verifyCmd, verify);
+      const result = await request.tools.verify();
+      writeFileSync(join(checkerEnvironment, '.hyperfide/checker-verdict.json'),
+        JSON.stringify({verdict: 'pass', findings: [], verify: {cmd: packet.verifyCmd, exit: result.exit}}));
+      return {id: 'checker-thread', environment: checkerEnvironment};
+    },
+    onStopped(_id, callback) { queueMicrotask(() => { void callback(); }); return () => {}; },
+  }, {providers: ['hyperfide-worker', 'hyperfide-checker'], binary,
+    async laneLog() { return log; },
+    async recordChecker(task, record) { assert.equal(task, '1.1'); checker = record; }});
+  const checkTask = () => check({feature: 'hyperfide', task: '1.1', threadId: 'worker-thread', status: 'implemented',
+    repository: repo, environment: repo, projectId: 'project', providerId: 'hyperfide-worker', base});
   await checkTask();
   assert.equal(checker.status, 'pass', JSON.stringify(checker));
   assert.equal(checker.independent, true);
