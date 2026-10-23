@@ -562,7 +562,7 @@ owner = "fleet"
 
 [task.5.4]
 title = "Dispatcher"
-status = "implemented"
+status = "done"
 wave = 5
 requires = ["2.3", "5.1", "4.1"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "platform/plugins/concurrency-limit/**", "tests/hyperfide/cases/v22/5_4.sh"]
