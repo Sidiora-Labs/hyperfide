@@ -4,6 +4,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { featureFromKvx } from './kvx.js';
 import type { SpecRead, SpecSnapshot, SpecRpc } from './shared/model.js';
+import { taskReceipts } from '../receipt-detail.js';
 
 export interface SpecStorage {
   get(key: string): Promise<SpecSnapshot | undefined>;
@@ -89,7 +90,7 @@ export class SpecReader implements SpecRpc {
   async task(feature: string, id: string) {
     const found = (await this.tasks(feature)).find(item => item.id === id);
     if (!found) throw new Error(`Unknown task ${feature}/${id}`);
-    return found;
+    return { ...found, receipts: await taskReceipts(this.repository, id, `spec/${feature}/spec.kvx`) };
   }
   async waves(feature: string) {
     const tasks = await this.tasks(feature);

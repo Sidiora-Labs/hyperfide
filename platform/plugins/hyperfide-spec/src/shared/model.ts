@@ -14,6 +14,7 @@ export interface Task {
   reqs: string[];
   owner: string;
   criteria: Criterion[];
+  receipts?: import('../../receipt-detail.js').TaskReceipt[];
   [field: `do_${number}`]: string;
 }
 export interface Feature { id: string; name: string; status: string; tasks: Task[] }
