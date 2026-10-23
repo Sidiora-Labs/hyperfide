@@ -402,7 +402,7 @@ owner = "ask"
 
 [task.3.2]
 title = "Blocking policy in the thread lifecycle"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["3.1", "2.3"]
 touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/hyperfide-spec/**", "platform/apps/server/src/**", "platform/packages/plugin-sdk/src/**", "tests/hyperfide/cases/v22/3_2.sh"]
