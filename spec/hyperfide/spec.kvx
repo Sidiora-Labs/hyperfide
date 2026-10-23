@@ -948,7 +948,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.3.2]
 title = "Build immutable scoped execution packets"
-status = "pending"
+status = "done"
 wave = 11
 requires = ["3.1", "2.4", "11.1", "7.3"]
 touches = ["services/hyperfide/src/hierarchy/packets.ts", "tests/hyperfide/manifests/tasks/3.2.json", "tests/hyperfide/cases/tasks/3_2.py", "tests/hyperfide/registrations/3.2.json", "services/hyperfide/components/3.2.json", "services/hyperfide/migrations/0032-execution-packets.sql"]
