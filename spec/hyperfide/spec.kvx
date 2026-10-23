@@ -1070,7 +1070,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.3.4]
 title = "Register native descendants and adopt valid work after manager replacement"
-status = "pending"
+status = "done"
 wave = 14
 requires = ["3.1", "5.2", "12.1", "14.3"]
 touches = ["services/hyperfide/src/hierarchy/adoption.ts", "tests/hyperfide/manifests/tasks/3.4.json", "tests/hyperfide/cases/tasks/3_4.py", "tests/hyperfide/registrations/3.4.json", "services/hyperfide/components/3.4.json", "services/hyperfide/migrations/0034-child-sessions.sql", "services/hyperfide/components/3.4-workers.json"]
@@ -1104,7 +1104,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.5.3]
 title = "Reconcile idempotent dispatch and uncertain external outcomes"
-status = "pending"
+status = "done"
 wave = 14
 requires = ["5.2", "6.1", "1.1", "5.4", "6.2"]
 touches = ["services/hyperfide/src/scheduler/dispatch.ts", "tests/hyperfide/manifests/tasks/5.3.json", "tests/hyperfide/cases/tasks/5_3.py", "tests/hyperfide/registrations/5.3.json", "services/hyperfide/components/5.3.json"]
@@ -1121,7 +1121,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.6.3]
 title = "Deliver generation-bound start, steering and cancellation instructions"
-status = "pending"
+status = "done"
 wave = 14
 requires = ["6.2", "5.2", "14.1"]
 touches = ["services/hyperfide/src/events/instructions.ts", "tests/hyperfide/manifests/tasks/6.3.json", "tests/hyperfide/cases/tasks/6_3.py", "tests/hyperfide/registrations/6.3.json", "services/hyperfide/components/6.3.json", "services/hyperfide/src/events/api.ts", "services/hyperfide/migrations/0006-event-session-bindings.sql", "services/hyperfide/src/events/runner_commands.ts"]
@@ -1140,7 +1140,7 @@ do_6 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.8.2]
 title = "Implement pool inventory and separately qualified account quotas"
-status = "pending"
+status = "done"
 wave = 14
 requires = ["8.1", "5.4"]
 touches = ["services/hyperfide/src/providers/pools.ts", "tests/hyperfide/manifests/tasks/8.2.json", "tests/hyperfide/cases/tasks/8_2.py", "tests/hyperfide/registrations/8.2.json", "services/hyperfide/components/8.2.json", "services/hyperfide/migrations/0008-provider-coordination.sql"]
