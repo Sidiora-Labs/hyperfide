@@ -1955,7 +1955,7 @@ do_7 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.18.4]
 title = "Close findings only after fenced repair and recorded resolution proof"
-status = "pending"
+status = "done"
 wave = 24
 requires = ["18.3", "16.4", "17.4"]
 touches = ["services/hyperfide/src/findings/remediation.ts", "tests/hyperfide/manifests/tasks/18.4.json", "tests/hyperfide/cases/tasks/18_4.py", "tests/hyperfide/registrations/18.4.json", "services/hyperfide/components/18.4.json"]
@@ -2110,7 +2110,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.26.2]
 title = "Ship canonical hyperfide entrypoint with explicit cg compatibility policy"
-status = "pending"
+status = "done"
 wave = 24
 requires = ["26.1", "25.3"]
 touches = ["scripts/hyperfide-entrypoint.sh", "tests/hyperfide/manifests/tasks/26.2.json", "tests/hyperfide/cases/tasks/26_2.py", "tests/hyperfide/registrations/26.2.json", "Makefile", "scripts/install.sh", "scripts/release.sh", "scripts/uninstall.sh", "src/help.c", "scripts/hyperfide-python.sh"]
