@@ -778,10 +778,10 @@ owner = "deployment"
 
 [task.3.23]
 title = "Provider resolution Asks live in the asks store"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.1", "3.2", "3.6"]
-touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/src/spec/import.ts", "services/hyperfide/migrations/0715-provider-asks-merge.sql", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/3_23.py"]
+touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/src/spec/import.ts", "services/hyperfide/migrations/0715-provider-asks-merge.sql", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/3_23.py", "tests/hyperfide/cases/v21/2_1.py", "tests/hyperfide/cases/v21/2_16.py"]
 verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_23.py"
 do_1 = "Provider resolution Asks are raised into hyperfide.asks through the 3.2 raise path (kind decision, operator chain) and answered through human.ask.answer, which applies the resolution to the provider inventory; migration 0715 copies the open 0708 rows across and leaves the old table as read-only history, so human.ask.list shows every open Ask in one place; the operator:asks consumer is registered BUFFERING when a run is imported, guarded on the event_consumers migration being applied, so no deploy step is needed."
 do_2 = "3_23.py raises an ownership resolution, proves it appears in human.ask.list, answers it and proves the inventory row moves accordingly, proves a pre-existing 0708 row is migrated, and proves a freshly imported run has the operator:asks consumer registered."
