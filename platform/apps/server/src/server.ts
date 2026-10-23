@@ -1,5 +1,7 @@
 import { createAuthorityBridge, registerAuthorityBridge } from "./authority-bridge.js";
 import { createPluginUpdateJobs } from "./services/plugins/plugin-update-jobs.js";
+import { createFleetRoutes } from "./routes/fleet.js";
+import type { FleetService } from "./services/machines/fleet-projection.js";
 import { registerPluginUpdateJobRoutes } from "./routes/plugin-update-jobs.js";
 import { recheckEnvironmentProvisioning } from "./services/threads/thread-environment-providers.js";
 import {
@@ -191,6 +193,7 @@ export interface ServerMoveAppOptions {
 }
 
 interface CreateAppOptions {
+  fleet?: FleetService;
   bbAppArtifactService?: BbAppArtifactService;
   serverMove?: ServerMoveAppOptions;
   slowApiRequestLogThresholdMs?: number;
@@ -884,6 +887,7 @@ export function createApp(
     warn: (message) => deps.logger.warn(message),
   });
   registerAuthorityBridge(publicApi, authorityBridge);
+  if (options?.fleet) publicApi.route("/fleet", createFleetRoutes(options.fleet));
   registerProjectRoutes(publicApi, deps);
   registerPromptHistoryRoutes(publicApi, deps);
   registerThreadSectionRoutes(publicApi, deps);
