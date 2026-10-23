@@ -50,6 +50,7 @@
     "bb-plugin-thread-list": "workspace:*",
     "bb-plugin-workflows": "workspace:*",
     "bb-plugin-bb--storage-retention": "workspace:*",
-    "hyperfide-plugin-machine-railway": "workspace:*"
+    "hyperfide-plugin-machine-railway": "workspace:*",
+    "hyperfide-plugin-machine-blaxel": "workspace:*"
   }
 }

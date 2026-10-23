@@ -1,0 +1,25 @@
+{
+  "name": "hyperfide-plugin-machine-blaxel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "hyperfide": {
+    "name": "Blaxel Machines",
+    "server": "./src/server.ts"
+  },
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit",
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
+  },
+  "dependencies": {
+    "@blaxel/core": "0.3.31"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@types/node": "^22.0.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}
