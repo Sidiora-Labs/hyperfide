@@ -4,6 +4,8 @@
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$repo"
+# Fixtures claim their own tasks; the release worker identity must not leak in.
+unset CG_TASK HYPERFIDE_TASK
 
 mkdir -p build
 scratch=$(mktemp -d build/release-check.XXXXXX)
@@ -54,7 +56,7 @@ for test_file in tests/integration/[0-9]*.sh; do
 done
 
 "$release_cg" spec lint
-expected_version=$(printf '#include "src/cg.h"\nCG_VERSION\n' | "${CC:-cc}" -E -P -x c - | tail -n 1 | tr -d '"')
+expected_version=$(printf '#include "src/version.h"\nHYPERFIDE_VERSION\n' | "${CC:-cc}" -E -P -x c - | tail -n 1 | tr -d '"')
 [ "$("$release_cg" --version)" = "$expected_version" ] || {
     echo "release gate: binary version is not $expected_version" >&2
     exit 1

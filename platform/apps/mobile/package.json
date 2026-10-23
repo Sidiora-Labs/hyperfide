@@ -1,6 +1,6 @@
 {
   "name": "@hyperfide/mobile",
-  "version": "0.0.1",
+  "version": "2.2.0",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {

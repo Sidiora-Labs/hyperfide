@@ -1,6 +1,6 @@
 {
   "name": "@hyperfide/desktop",
-  "version": "0.46.1",
+  "version": "2.2.0",
   "private": true,
   "description": "macOS, Linux, and Windows Electron shell for Hyperfide",
   "main": "dist/main.js",
