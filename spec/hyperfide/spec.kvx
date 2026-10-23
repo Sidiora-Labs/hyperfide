@@ -2040,7 +2040,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.19.1]
 title = "Build immutable multi-repository integration candidates remotely"
-status = "pending"
+status = "done"
 wave = 25
 requires = ["16.4", "17.4", "18.4", "4.4", "5.1", "5.2"]
 touches = ["services/hyperfide/src/integration/candidates.ts", "tests/hyperfide/manifests/tasks/19.1.json", "tests/hyperfide/cases/tasks/19_1.py", "tests/hyperfide/registrations/19.1.json", "services/hyperfide/components/19.1.json", "services/hyperfide/migrations/0019-integration.sql", "services/hyperfide/src/integration/cleanup.ts"]
@@ -2147,7 +2147,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.26.3]
 title = "Migrate config, directories and variable aliases with backups and conflict checks"
-status = "pending"
+status = "done"
 wave = 25
 requires = ["26.2", "25.1"]
 touches = ["services/hyperfide/src/migration/names.ts", "tests/hyperfide/manifests/tasks/26.3.json", "tests/hyperfide/cases/tasks/26_3.py", "tests/hyperfide/registrations/26.3.json", "services/hyperfide/components/26.3.json", "src/config.c", "src/main.c", "src/cg.h", ".gitignore"]
