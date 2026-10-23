@@ -361,7 +361,7 @@ owner = "spec"
 
 [task.2.5]
 title = "VS Code extension reduced to a language client"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["2.2"]
 touches = ["editors/vscode/**", "tests/integration/14_vscode.sh", "docs/hyperfide/editors.md", "tests/hyperfide/cases/v22/2_5.sh"]
