@@ -5,7 +5,7 @@
 
 [meta]
 name            = "Hyperfide Workflow"
-active_feature  = "hyperfide-v21"
+active_feature  = "hyperfide-v22"
 source_of_truth = "spec/ (kvx). Generated files are pointers — regenerate, never hand-edit."
 
 [mode]
