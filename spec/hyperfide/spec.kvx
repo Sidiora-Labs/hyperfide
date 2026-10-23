@@ -1729,7 +1729,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.16.4]
 title = "Invalidate affected assurance while retaining task history"
-status = "pending"
+status = "done"
 wave = 20
 requires = ["16.3", "7.3"]
 touches = ["services/hyperfide/src/assurance/validity.ts", "tests/hyperfide/manifests/tasks/16.4.json", "tests/hyperfide/cases/tasks/16_4.py", "tests/hyperfide/registrations/16.4.json", "services/hyperfide/components/16.4.json"]
@@ -1747,7 +1747,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.17.2]
 title = "Build producer-consumer contracts and behavioural impact analysis"
-status = "pending"
+status = "done"
 wave = 20
 requires = ["7.4", "16.3", "17.1"]
 touches = ["services/hyperfide/src/review/contracts.ts", "tests/hyperfide/manifests/tasks/17.2.json", "tests/hyperfide/cases/tasks/17_2.py", "tests/hyperfide/registrations/17.2.json", "services/hyperfide/components/17.2.json"]
@@ -1781,7 +1781,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.24.1]
 title = "Recover supervisory desired state and bounded offline continuation"
-status = "pending"
+status = "done"
 wave = 20
 requires = ["6.4", "3.4", "13.3", "12.4", "4.4", "5.1"]
 touches = ["services/hyperfide/src/recovery/control.ts", "tests/hyperfide/manifests/tasks/24.1.json", "tests/hyperfide/cases/tasks/24_1.py", "tests/hyperfide/registrations/24.1.json", "services/hyperfide/components/24.1.json", "services/hyperfide/migrations/0024-recovery.sql"]
