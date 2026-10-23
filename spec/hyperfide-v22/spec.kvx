@@ -482,7 +482,7 @@ owner = "qualification"
 
 [task.4.3]
 title = "Checker thread"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["4.1", "2.3"]
 touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/4_3.sh"]
