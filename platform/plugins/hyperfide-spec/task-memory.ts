@@ -8,7 +8,9 @@ export class TaskMemory {
     const feature = scope.task.split("/")[0];
     const decisions = [];
     for (const task of new Set([scope.task, ...requires.map(id => id.includes("/") ? id : `${feature}/${id}`)])) {
-      decisions.push(...await this.memory.recall({ ...scope, task }));
+      // Recalled decisions enrich the packet: a repository without durable memory (never initialised,
+      // or a binary that cannot recall) contributes none rather than failing the launch.
+      decisions.push(...await this.memory.recall({ ...scope, task }).catch(() => []));
     }
     if (!decisions.length) return basePacket;
     return `${basePacket}\n\n## Recalled decisions\n\n${decisions.map(memory =>
