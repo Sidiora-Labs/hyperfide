@@ -1366,7 +1366,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.10.3]
 title = "Reconcile Blaxel create-or-get and recover process streams"
-status = "pending"
+status = "done"
 wave = 17
 requires = ["10.2", "12.2", "8.3", "14.1", "14.2"]
 touches = ["services/hyperfide/src/providers/blaxel/processes.ts", "tests/hyperfide/manifests/tasks/10.3.json", "tests/hyperfide/cases/tasks/10_3.py", "tests/hyperfide/registrations/10.3.json", "services/hyperfide/components/10.3.json", "services/hyperfide/src/providers/blaxel/images.ts"]
@@ -1383,7 +1383,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.11.4]
 title = "Schedule remote preparation and eligible-work-driven prewarming"
-status = "pending"
+status = "done"
 wave = 17
 requires = ["11.1", "5.4", "8.3", "1.1"]
 touches = ["services/hyperfide/src/preparation/prewarm.ts", "tests/hyperfide/manifests/tasks/11.4.json", "tests/hyperfide/cases/tasks/11_4.py", "tests/hyperfide/registrations/11.4.json", "services/hyperfide/components/11.4.json", "services/hyperfide/migrations/0011-prewarm.sql", "services/hyperfide/components/11.4-provisioner.json", "services/hyperfide/src/preparation/effective.ts", "services/hyperfide/src/preparation/recipe.ts", "services/hyperfide/src/preparation/seal.ts", "services/hyperfide/src/preparation/checkpoint.ts", "tests/hyperfide/cases/support/checkpoint_source.py"]
@@ -1451,7 +1451,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.16.1]
 title = "Submit immutable worker results and dispatch independent qualification"
-status = "pending"
+status = "done"
 wave = 17
 requires = ["2.4", "5.2", "15.2", "12.2", "6.4", "8.3", "14.4", "11.3", "13.1", "3.2", "5.1"]
 touches = ["services/hyperfide/src/assurance/submission.ts", "tests/hyperfide/manifests/tasks/16.1.json", "tests/hyperfide/cases/tasks/16_1.py", "tests/hyperfide/registrations/16.1.json", "services/hyperfide/components/16.1.json", "tests/hyperfide/integration/connected-stack.py", "services/hyperfide/migrations/0016-qualification.sql"]
@@ -1489,7 +1489,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.1.3]
 title = "Apply qualified frontier assignment policy and user model aliases"
-status = "pending"
+status = "done"
 wave = 17
 requires = ["13.1", "5.4"]
 touches = ["services/hyperfide/src/policy/frontier.ts", "tests/hyperfide/manifests/tasks/1.3.json", "tests/hyperfide/cases/tasks/1_3.py", "tests/hyperfide/registrations/1.3.json", "services/hyperfide/components/1.3.json"]
@@ -1540,7 +1540,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.12.4]
 title = "Implement runner pause, drain, cancel and verified stop"
-status = "pending"
+status = "done"
 wave = 17
 requires = ["12.3", "15.2", "11.3", "5.1", "8.2", "5.2"]
 touches = ["src/hyperfide/control.c", "tests/hyperfide/manifests/tasks/12.4.json", "tests/hyperfide/cases/tasks/12_4.py", "tests/hyperfide/registrations/12.4.json", "src/hyperfide/components/12.4.kvx", "services/hyperfide/components/12.4-executor.json", "services/hyperfide/components/12.4.json", "services/hyperfide/src/runner/bridge.ts", "src/hyperfide/job.c", "services/hyperfide/src/runner/executor.ts", "tests/hyperfide/cases/tasks/12_4_executor.py", "src/hyperfide/preparation_stage.c", "tests/hyperfide/support/preparation_stage_fixture.py", "services/hyperfide/src/runner/preparation_receipts.ts", "services/hyperfide/migrations/0035-runner-preparation-receipts.sql", "src/hyperfide/budget.c", "tests/hyperfide/support/runner_budget_fixture.py", "services/hyperfide/src/runner/workspaces.ts", "tests/hyperfide/support/workspace_registration_fixture.py", "services/hyperfide/src/runner/capture.ts", "services/hyperfide/components/12.4-capture.json", "tests/hyperfide/support/preparation_receipts.test.mjs"]
@@ -1557,7 +1557,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.13.2]
 title = "Persist native session lineage and source-linked checkpoints"
-status = "pending"
+status = "done"
 wave = 17
 requires = ["13.1", "15.1"]
 touches = ["services/hyperfide/src/agents/sessions.ts", "tests/hyperfide/manifests/tasks/13.2.json", "tests/hyperfide/cases/tasks/13_2.py", "tests/hyperfide/registrations/13.2.json", "services/hyperfide/components/13.2.json", "services/hyperfide/migrations/0013-agents.sql"]
