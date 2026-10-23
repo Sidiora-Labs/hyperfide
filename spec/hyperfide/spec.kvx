@@ -1225,7 +1225,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.8.3]
 title = "Persist provisioning intents and quarantine ambiguous or orphan resources"
-status = "pending"
+status = "done"
 wave = 16
 requires = ["8.2", "5.3", "6.4", "14.1", "5.4"]
 touches = ["services/hyperfide/src/providers/reconcile.ts", "tests/hyperfide/manifests/tasks/8.3.json", "tests/hyperfide/cases/tasks/8_3.py", "tests/hyperfide/registrations/8.3.json", "services/hyperfide/components/8.3.json", "services/hyperfide/src/providers/worker.ts", "services/hyperfide/components/8.3-accounting.json"]
@@ -1400,7 +1400,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.12.3]
 title = "Observe process trees, useful progress and resource usage separately"
-status = "pending"
+status = "done"
 wave = 16
 requires = ["12.2", "3.4"]
 touches = ["src/hyperfide/process_tree.c", "tests/hyperfide/manifests/tasks/12.3.json", "tests/hyperfide/cases/tasks/12_3.py", "tests/hyperfide/registrations/12.3.json", "src/hyperfide/components/12.3.kvx"]
@@ -1417,7 +1417,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.13.1]
 title = "Implement pinned Claude Code and Codex connector capability profiles"
-status = "pending"
+status = "done"
 wave = 16
 requires = ["12.2", "14.3"]
 touches = ["src/hyperfide/connectors.c", "tests/hyperfide/manifests/tasks/13.1.json", "tests/hyperfide/cases/tasks/13_1.py", "tests/hyperfide/registrations/13.1.json", "src/hyperfide/components/13.1.kvx", "runtime/supervisory_host.py", "tests/hyperfide/cases/tasks/13_1_host.py", "services/hyperfide/src/agents/qualification.ts"]
