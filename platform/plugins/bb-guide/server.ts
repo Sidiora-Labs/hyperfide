@@ -54,7 +54,7 @@ export default async function plugin(bb: BbPluginApi) {
     skills: current.skills
       ? [
           ...(current.bbCli ? ["bb-cli"] : []),
-          ...(current.pluginAuthoring ? ["bb-plugin-authoring"] : []),
+          ...(current.pluginAuthoring ? ["hyperfide-plugin-authoring"] : []),
           ...(current.skillCreator ? ["skill-creator"] : []),
           ...(current.submitPlugin ? ["submit-a-plugin"] : []),
         ]

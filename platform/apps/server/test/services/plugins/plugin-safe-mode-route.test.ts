@@ -13,12 +13,12 @@ describe("/plugins/safe-mode", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-extra");
+    const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-extra");
     await mkdir(rootDir, { recursive: true });
     await writeFile(
       join(rootDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-extra",
+        name: "hyperfide-plugin-extra",
         version: "0.1.0",
         bb: {
           name: "Extra",

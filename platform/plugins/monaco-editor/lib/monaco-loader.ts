@@ -74,7 +74,7 @@ function injectStylesheet(href: string): Promise<void> {
   });
 }
 
-const OVERFLOW_NODE_ID = "bb-plugin-monaco-editor-overflow-widgets";
+const OVERFLOW_NODE_ID = "hyperfide-plugin-monaco-editor-overflow-widgets";
 
 export function overflowWidgetsNode(): HTMLElement {
   const existing = document.getElementById(OVERFLOW_NODE_ID);

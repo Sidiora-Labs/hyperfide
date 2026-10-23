@@ -1734,20 +1734,20 @@ describe("PluginPanelView routes", () => {
       </MemoryRouter>,
     );
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-hyperfide-plugin-css="demo"]'),
     ).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Leave panel" }));
     await act(async () => {});
     expect(screen.getByText("home")).toBeDefined();
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-hyperfide-plugin-css="demo"]'),
     ).not.toBeNull();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_500);
     });
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-hyperfide-plugin-css="demo"]'),
     ).toBeNull();
   });
 
@@ -1840,20 +1840,20 @@ describe("plugin panel shared title bar and full-bleed body", () => {
       screen.getByRole("button", { name: "Toggle sidebar" }),
     ).toBeDefined();
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-hyperfide-plugin-css="demo"]'),
     ).not.toBeNull();
     expect(screen.queryByTestId("plugin-panel-body")).toBeNull();
 
     view.unmount();
     await act(async () => {});
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-hyperfide-plugin-css="demo"]'),
     ).not.toBeNull();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_500);
     });
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-hyperfide-plugin-css="demo"]'),
     ).toBeNull();
   });
 

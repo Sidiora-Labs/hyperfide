@@ -31,11 +31,11 @@ function createTestRepo({ bbAppVersion, desktopVersion }) {
   const repoRoot = mkdtempSync(join(tmpdir(), "bb-bump-version-"));
   testRoots.push(repoRoot);
 
-  mkdirSync(join(repoRoot, "packages", "bb-app"), { recursive: true });
+  mkdirSync(join(repoRoot, "packages", "hyperfide-app"), { recursive: true });
   mkdirSync(join(repoRoot, "apps", "desktop"), { recursive: true });
   writeFileSync(
-    join(repoRoot, "packages", "bb-app", "package.json"),
-    createPackageJson({ name: "bb-app", version: bbAppVersion }),
+    join(repoRoot, "packages", "hyperfide-app", "package.json"),
+    createPackageJson({ name: "hyperfide-app", version: bbAppVersion }),
   );
   writeFileSync(
     join(repoRoot, "apps", "desktop", "package.json"),
@@ -155,7 +155,7 @@ describe("bump-version", () => {
       originalDesktopContent,
     );
     expect(
-      readdirSync(join(repoRoot, "packages", "bb-app")),
+      readdirSync(join(repoRoot, "packages", "hyperfide-app")),
     ).not.toContainEqual(expect.stringMatching(/^\.tmp-/u));
     expect(readdirSync(join(repoRoot, "apps", "desktop"))).not.toContainEqual(
       expect.stringMatching(/^\.tmp-/u),

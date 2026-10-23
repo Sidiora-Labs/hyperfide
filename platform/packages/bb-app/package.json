@@ -38,7 +38,7 @@
     "win32"
   ],
   "bin": {
-    "bb-app": "dist/bb-app.js",
+    "hyperfide-app": "dist/bb-app.js",
     "bb": "dist/bb.js",
     "bb-server": "dist/bb-server.js",
     "bb-host-daemon": "dist/bb-host-daemon.js"
@@ -50,7 +50,7 @@
     "host-daemon/dist/bb.cmd",
     "host-daemon/dist/bb-chunks",
     "host-daemon/dist/bb-parcel-watcher-child.mjs",
-    "host-daemon/dist/bb-plugin-host-worker.mjs",
+    "host-daemon/dist/hyperfide-plugin-host-worker.mjs",
     "host-daemon/dist/bb-provider-bridge-worker.mjs",
     "host-daemon/dist/daemon-bundle.mjs",
     "server/dist",

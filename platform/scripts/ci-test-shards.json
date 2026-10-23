@@ -57,7 +57,7 @@
     },
     {
       "shard": "plugins",
-      "filter": "--filter='bb-plugin-*'",
+      "filter": "--filter='hyperfide-plugin-*'",
       "vitestShard": ""
     },
     {
@@ -72,7 +72,7 @@
     },
     {
       "shard": "packages-other",
-      "filter": "--filter='!@hyperfide/server' --filter='!@hyperfide/app' --filter='!@hyperfide/integration-tests' --filter='!bb-plugin-*' --filter='!@hyperfide/host-daemon' --filter='!@hyperfide/cli' --filter='!@hyperfide/agent-runtime' --filter='!@hyperfide/provider-parity' --filter='!@hyperfide/db' --filter='!@hyperfide/templates' --filter='!bb-app' --filter='!@hyperfide/demo-server' --filter='!@hyperfide/desktop' --filter='!@hyperfide/plugin-build'",
+      "filter": "--filter='!@hyperfide/server' --filter='!@hyperfide/app' --filter='!@hyperfide/integration-tests' --filter='!hyperfide-plugin-*' --filter='!@hyperfide/host-daemon' --filter='!@hyperfide/cli' --filter='!@hyperfide/agent-runtime' --filter='!@hyperfide/provider-parity' --filter='!@hyperfide/db' --filter='!@hyperfide/templates' --filter='!bb-app' --filter='!@hyperfide/demo-server' --filter='!@hyperfide/desktop' --filter='!@hyperfide/plugin-build'",
       "vitestShard": ""
     }
   ],
@@ -121,13 +121,13 @@
     },
     {
       "shard": "plugins-1",
-      "filter": "--filter=bb-plugin-provider-* --filter=hyperfide-plugin-tasks --filter=hyperfide-plugin-thread-list",
+      "filter": "--filter=hyperfide-plugin-provider-* --filter=hyperfide-plugin-tasks --filter=hyperfide-plugin-thread-list",
       "concurrency": 2,
       "vitestShard": ""
     },
     {
       "shard": "plugins-2",
-      "filter": "--filter=bb-plugin-* --filter=!bb-plugin-provider-* --filter=!bb-plugin-tasks --filter=!bb-plugin-thread-list",
+      "filter": "--filter=hyperfide-plugin-* --filter=!hyperfide-plugin-provider-* --filter=!hyperfide-plugin-tasks --filter=!hyperfide-plugin-thread-list",
       "concurrency": 2,
       "vitestShard": ""
     },
@@ -151,7 +151,7 @@
     },
     {
       "shard": "packages-other",
-      "filter": "--filter=!@hyperfide/server --filter=!@hyperfide/app --filter=!bb-plugin-* --filter=!@hyperfide/host-daemon --filter=!@hyperfide/cli --filter=!@hyperfide/integration-tests --filter=!@hyperfide/templates --filter=!bb-app --filter=!@hyperfide/demo-server --filter=!@hyperfide/desktop --filter=!@hyperfide/plugin-build --filter=!@hyperfide/process-utils --filter=!@hyperfide/host-workspace --filter=!@hyperfide/host-watcher --filter=!@hyperfide/agent-runtime --filter=!@hyperfide/provider-bridge-protocol --filter=!@hyperfide/provider-bridge-acp --filter=!@hyperfide/host-daemon-contract --filter=!@hyperfide/config --filter=!@hyperfide/db",
+      "filter": "--filter=!@hyperfide/server --filter=!@hyperfide/app --filter=!hyperfide-plugin-* --filter=!@hyperfide/host-daemon --filter=!@hyperfide/cli --filter=!@hyperfide/integration-tests --filter=!@hyperfide/templates --filter=!bb-app --filter=!@hyperfide/demo-server --filter=!@hyperfide/desktop --filter=!@hyperfide/plugin-build --filter=!@hyperfide/process-utils --filter=!@hyperfide/host-workspace --filter=!@hyperfide/host-watcher --filter=!@hyperfide/agent-runtime --filter=!@hyperfide/provider-bridge-protocol --filter=!@hyperfide/provider-bridge-acp --filter=!@hyperfide/host-daemon-contract --filter=!@hyperfide/config --filter=!@hyperfide/db",
       "concurrency": 2,
       "vitestShard": ""
     }

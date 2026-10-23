@@ -30,7 +30,7 @@ const dependencyNames = [
 ];
 const hostDaemonFiles = [
   "bb-parcel-watcher-child.mjs",
-  "bb-plugin-host-worker.mjs",
+  "hyperfide-plugin-host-worker.mjs",
   "bb-provider-bridge-worker.mjs",
   "daemon-bundle.mjs",
 ];
@@ -114,7 +114,7 @@ await writeFile(
       os: [...new Set([...sourcePackageJson.os, "win32"])],
       bin: {
         bb: "dist/bb.js",
-        "bb-app": "dist/bb-app.js",
+        "hyperfide-app": "dist/bb-app.js",
         "bb-host-daemon": "dist/bb-host-daemon.js",
       },
       files: ["dist", "host-daemon", "README.md"],

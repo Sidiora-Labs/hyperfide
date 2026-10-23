@@ -118,7 +118,7 @@ export interface ServerMoveEnvironment {
   timings: ServerMoveTimings;
 }
 
-export type ServerMoveDownloadKind = "archive" | "bb-app";
+export type ServerMoveDownloadKind = "archive" | "hyperfide-app";
 
 export interface ServerMoveDownload {
   path: string;

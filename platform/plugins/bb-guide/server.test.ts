@@ -88,10 +88,10 @@ it("keeps the introduction and skill switches independent across reloads", async
 
 describe("individual skill selection", () => {
   it.each([
-    ["bbCli", ["bb-plugin-authoring", "skill-creator", "submit-a-plugin"]],
+    ["bbCli", ["hyperfide-plugin-authoring", "skill-creator", "submit-a-plugin"]],
     ["pluginAuthoring", ["bb-cli", "skill-creator", "submit-a-plugin"]],
-    ["skillCreator", ["bb-cli", "bb-plugin-authoring", "submit-a-plugin"]],
-    ["submitPlugin", ["bb-cli", "bb-plugin-authoring", "skill-creator"]],
+    ["skillCreator", ["bb-cli", "hyperfide-plugin-authoring", "submit-a-plugin"]],
+    ["submitPlugin", ["bb-cli", "hyperfide-plugin-authoring", "skill-creator"]],
   ])("disables %s", async (key, expected) => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "bb-guide",

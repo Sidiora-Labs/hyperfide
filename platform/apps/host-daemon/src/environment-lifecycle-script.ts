@@ -20,15 +20,15 @@ import {
 import fs from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
-import { WorkspaceError } from "bb-environment-provider-host/git";
-import { createTerminalOutputLineReader } from "bb-environment-provider-host/terminal-output";
+import { WorkspaceError } from "hyperfide-environment-provider-host/git";
+import { createTerminalOutputLineReader } from "hyperfide-environment-provider-host/terminal-output";
 import {
   createProvisionCancelledError,
   emitOutput,
   emitStep,
   throwIfProvisionAborted,
   type ProgressCallback,
-} from "bb-environment-provider-host/transcript";
+} from "hyperfide-environment-provider-host/transcript";
 
 export interface RunSetupScriptArgs {
   workspacePath: string;

@@ -56,7 +56,7 @@ async function addMemory(
   };
 }
 
-describe("bb-plugin-memory", () => {
+describe("hyperfide-plugin-memory", () => {
   it("registers a CLI and instruction catalog without native agent tools", async () => {
     const host = await loadPlugin();
     expect(host.harness.registrations.cli?.name).toBe("memory");

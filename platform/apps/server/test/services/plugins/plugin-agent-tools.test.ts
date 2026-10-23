@@ -68,7 +68,7 @@ describe("bb.agents.registerTool", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-tools-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-tools-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -94,7 +94,7 @@ describe("bb.agents.registerTool", () => {
 
   it("rejects duplicate tool names within one factory execution", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-replacer",
+      name: "hyperfide-plugin-replacer",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.registerTool({
@@ -123,7 +123,7 @@ describe("bb.agents.registerTool", () => {
 
   it("rejects duplicate configure registrations within one factory execution", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-double-configure",
+      name: "hyperfide-plugin-double-configure",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.configure(() => ({ tools: [], skills: [] }));
@@ -140,7 +140,7 @@ describe("bb.agents.registerTool", () => {
 
   it("two tools from different plugins dispatch by name (design §9 regression)", async () => {
     const a = await writePlugin(workDir, {
-      name: "bb-plugin-tool-a",
+      name: "hyperfide-plugin-tool-a",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.registerTool({
@@ -153,7 +153,7 @@ describe("bb.agents.registerTool", () => {
       `,
     });
     const b = await writePlugin(workDir, {
-      name: "bb-plugin-tool-b",
+      name: "hyperfide-plugin-tool-b",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.registerTool({
@@ -199,7 +199,7 @@ describe("bb.agents.registerTool", () => {
 
   it("zod parameters: converted to JSON schema, validated per call, bad input is not a plugin error", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-zodded",
+      name: "hyperfide-plugin-zodded",
       serverSource: "export default function plugin() {}",
     });
     await service.installPath(rootDir);
@@ -275,7 +275,7 @@ describe("bb.agents.registerTool", () => {
 
   it("uses a foreign zod schema's own JSON Schema converter", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-foreign-zod",
+      name: "hyperfide-plugin-foreign-zod",
       serverSource: "export default function plugin() {}",
     });
     await service.installPath(rootDir);
@@ -312,7 +312,7 @@ describe("bb.agents.registerTool", () => {
 
   it("rejects recursive tool schemas before they reach a provider", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-schema-refs",
+      name: "hyperfide-plugin-schema-refs",
       serverSource: "export default function plugin() {}",
     });
     await service.installPath(rootDir);
@@ -365,7 +365,7 @@ describe("bb.agents.registerTool", () => {
 
   it("resolves one full row presentation per injected tool", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-presented-tools",
+      name: "hyperfide-plugin-presented-tools",
       serverSource: "export default function plugin() {}",
     });
     await service.installPath(rootDir);
@@ -419,7 +419,7 @@ describe("bb.agents.registerTool", () => {
 
   it("cross-plugin name collision drops the later registration with a status detail", async () => {
     const first = await writePlugin(workDir, {
-      name: "bb-plugin-collide-a",
+      name: "hyperfide-plugin-collide-a",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.registerTool({
@@ -432,7 +432,7 @@ describe("bb.agents.registerTool", () => {
       `,
     });
     const second = await writePlugin(workDir, {
-      name: "bb-plugin-collide-b",
+      name: "hyperfide-plugin-collide-b",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.registerTool({
@@ -468,7 +468,7 @@ describe("bb.agents.registerTool", () => {
 
   it("fails a plugin's load when its environment provider id is already registered", async () => {
     const first = await writePlugin(workDir, {
-      name: "bb-plugin-env-a",
+      name: "hyperfide-plugin-env-a",
       serverSource: `
         export default function plugin(bb: any) {
           bb.experimental_environments.register({
@@ -482,7 +482,7 @@ describe("bb.agents.registerTool", () => {
       `,
     });
     const second = await writePlugin(workDir, {
-      name: "bb-plugin-env-b",
+      name: "hyperfide-plugin-env-b",
       serverSource: `
         export default function plugin(bb: any) {
           bb.experimental_environments.register({
@@ -509,7 +509,7 @@ describe("bb.agents.registerTool", () => {
       UPDATE_ENVIRONMENT_DIRECTORY_TOOL_NAME,
     );
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-shadower",
+      name: "hyperfide-plugin-shadower",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.registerTool({
@@ -544,7 +544,7 @@ describe("bb.agents.registerTool", () => {
     "rejects a registration built against SDK <0.4.16 that carries %s",
     async (field, message) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-stale-field",
+        name: "hyperfide-plugin-stale-field",
         serverSource: `
         export default function plugin(bb: any) {
           bb.agents.registerTool({
@@ -572,7 +572,7 @@ describe("bb.agents.contributeInstructions", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-instr-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-instr-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -598,7 +598,7 @@ describe("bb.agents.contributeInstructions", () => {
 
   it("rejects duplicate instruction providers within one factory execution", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-advisor",
+      name: "hyperfide-plugin-advisor",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.contributeInstructions(() => "first");
@@ -616,7 +616,7 @@ describe("bb.agents.contributeInstructions", () => {
 
   it("two plugins each contribute one provider, ordered by plugin id", async () => {
     const zebra = await writePlugin(workDir, {
-      name: "bb-plugin-zebra",
+      name: "hyperfide-plugin-zebra",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.contributeInstructions(() => "from zebra");
@@ -624,7 +624,7 @@ describe("bb.agents.contributeInstructions", () => {
       `,
     });
     const alpha = await writePlugin(workDir, {
-      name: "bb-plugin-alpha",
+      name: "hyperfide-plugin-alpha",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.contributeInstructions(() => "from alpha");
@@ -643,7 +643,7 @@ describe("bb.agents.contributeInstructions", () => {
 
   it("reload without contributeInstructions clears the previous provider", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-transient",
+      name: "hyperfide-plugin-transient",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.contributeInstructions(() => "present");
@@ -668,7 +668,7 @@ describe("plugin tools reach thread runtime config", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    pluginsDir = await mkdtemp(join(tmpdir(), "bb-plugin-tools-runtime-"));
+    pluginsDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-tools-runtime-"));
   });
 
   afterEach(async () => {
@@ -679,7 +679,7 @@ describe("plugin tools reach thread runtime config", () => {
 
   it("thread.start dynamicTools include plugin tools with per-tool instructions", async () => {
     const rootDir = await writePlugin(pluginsDir, {
-      name: "bb-plugin-tooldemo",
+      name: "hyperfide-plugin-tooldemo",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.registerTool({
@@ -758,7 +758,7 @@ describe("plugin tools reach thread runtime config", () => {
 
   it("resolves different conditional tools, skills, instructions, and context without rebuilding static registrations", async () => {
     const rootDir = await writePlugin(pluginsDir, {
-      name: "bb-plugin-conditional",
+      name: "hyperfide-plugin-conditional",
       serverSource: `
         globalThis.__bbConditionalFactoryCount =
           (globalThis.__bbConditionalFactoryCount ?? 0) + 1;
@@ -816,7 +816,7 @@ describe("plugin tools reach thread runtime config", () => {
       );
     }
     const brokenRoot = await writePlugin(pluginsDir, {
-      name: "bb-plugin-broken-conditional",
+      name: "hyperfide-plugin-broken-conditional",
       serverSource: `
         export default function plugin(bb: any) {
           bb.agents.registerTool({
@@ -1042,10 +1042,10 @@ describe("plugin tools reach thread runtime config", () => {
 describe("internal tool-call dispatch to plugin tools", () => {
   it("dispatches by name to plugin tools and keeps update_environment_directory working", async () => {
     await withTestHarness(async (harness) => {
-      const pluginsDir = await mkdtemp(join(tmpdir(), "bb-plugin-tools-wire-"));
+      const pluginsDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-tools-wire-"));
       try {
         const rootDir = await writePlugin(pluginsDir, {
-          name: "bb-plugin-wired",
+          name: "hyperfide-plugin-wired",
           serverSource: `
             export default function plugin(bb: any) {
               bb.agents.registerTool({

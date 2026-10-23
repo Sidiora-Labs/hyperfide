@@ -611,11 +611,11 @@ describe("third-party marketplaces", () => {
           entry({
             id: "notes",
             displayName: "Official Notes",
-            source: { npm: { package: "bb-plugin-notes" } },
+            source: { npm: { package: "hyperfide-plugin-notes" } },
           }),
         ]),
         [ACME_URL]: manifest("acme-plugins", [
-          entry({ source: { npm: { package: "bb-plugin-notes" } } }),
+          entry({ source: { npm: { package: "hyperfide-plugin-notes" } } }),
         ]),
       }),
     });
@@ -633,7 +633,7 @@ describe("third-party marketplaces", () => {
         marketplace: "acme-plugins",
         confirmedSource: {
           kind: "npm",
-          package: "bb-plugin-notes",
+          package: "hyperfide-plugin-notes",
           resolvedVersion: "1.4.2",
           resolvedIntegrity: "sha512-listed",
         },
@@ -644,7 +644,7 @@ describe("third-party marketplaces", () => {
         marketplace: "acme-plugins",
         entryId: "notes",
         pluginId: "notes",
-        source: "npm:bb-plugin-notes",
+        source: "npm:hyperfide-plugin-notes",
         selection: { kind: "root" },
         expectedNpmVersion: "1.4.2",
         expectedNpmIntegrity: "sha512-listed",
@@ -688,7 +688,7 @@ describe("third-party marketplaces", () => {
       fetch: marketplaceFetch({
         [OFFICIAL_URL]: manifest("bb-community", []),
         [ACME_URL]: manifest("acme-plugins", [
-          entry({ source: { npm: { package: "bb-plugin-notes" } } }),
+          entry({ source: { npm: { package: "hyperfide-plugin-notes" } } }),
         ]),
       }),
     });
@@ -700,7 +700,7 @@ describe("third-party marketplaces", () => {
         entryId: "notes",
         confirmedSource: {
           kind: "npm",
-          package: "bb-plugin-notes",
+          package: "hyperfide-plugin-notes",
           resolvedVersion: "1.4.2",
           resolvedIntegrity: "sha512-listed",
         },
@@ -713,7 +713,7 @@ describe("third-party marketplaces", () => {
   });
 
   it("refuses a third-party source that changed after confirmation", async () => {
-    let packageName = "bb-plugin-notes";
+    let packageName = "hyperfide-plugin-notes";
     const catalog = service({
       fetch: async (url) =>
         url === ACME_URL
@@ -731,7 +731,7 @@ describe("third-party marketplaces", () => {
     });
     if (plan.kind !== "marketplace") throw new Error("expected a listing");
 
-    packageName = "bb-plugin-notes-impostor";
+    packageName = "hyperfide-plugin-notes-impostor";
     await catalog.refreshMarketplaces({ name: "acme-plugins" });
 
     await expect(
@@ -935,7 +935,7 @@ describe("third-party marketplaces", () => {
 
   describe("install plans", () => {
     it("resolves a third-party git range to its current tag and commit", async () => {
-      const repo = await mkdtemp(join(tmpdir(), "bb-plugin-repo-"));
+      const repo = await mkdtemp(join(tmpdir(), "hyperfide-plugin-repo-"));
       cleanup.push(repo);
       await run("git", ["init", "-q", "-b", "main"], { cwd: repo });
       await run("git", ["config", "user.email", "test@example.com"], {
@@ -1039,7 +1039,7 @@ describe("third-party marketplaces", () => {
             entry({
               source: {
                 npm: {
-                  package: "bb-plugin-notes",
+                  package: "hyperfide-plugin-notes",
                   tag: "beta",
                   registry: "https://npm.acme.test",
                 },
@@ -1056,10 +1056,10 @@ describe("third-party marketplaces", () => {
       });
       expect(plan).toMatchObject({
         kind: "marketplace",
-        source: "npm:bb-plugin-notes@beta",
+        source: "npm:hyperfide-plugin-notes@beta",
         resolvedSource: {
           kind: "npm",
-          package: "bb-plugin-notes",
+          package: "hyperfide-plugin-notes",
           tag: "beta",
           registry: "https://npm.acme.test",
         },
@@ -1128,7 +1128,7 @@ describe("third-party marketplaces", () => {
 
   it("binds an npm install to the exact version it confirmed", async () => {
     const npmEntry = entry({
-      source: { npm: { package: "bb-plugin-notes", range: "^1.0.0" } },
+      source: { npm: { package: "hyperfide-plugin-notes", range: "^1.0.0" } },
     });
     let resolvedVersion = "1.4.2";
     const catalog = service({
@@ -1152,7 +1152,7 @@ describe("third-party marketplaces", () => {
       kind: "marketplace",
       resolvedSource: {
         kind: "npm",
-        package: "bb-plugin-notes",
+        package: "hyperfide-plugin-notes",
         range: "^1.0.0",
         resolvedVersion: "1.4.2",
         resolvedIntegrity: "sha512-1.4.2",
@@ -1204,7 +1204,7 @@ describe("third-party marketplaces", () => {
         [OFFICIAL_URL]: manifest("bb-community", []),
         [ACME_URL]: manifest("acme-plugins", [
           entry({
-            source: { npm: { package: "bb-plugin-notes", range: "^1.0.0" } },
+            source: { npm: { package: "hyperfide-plugin-notes", range: "^1.0.0" } },
           }),
         ]),
       }),

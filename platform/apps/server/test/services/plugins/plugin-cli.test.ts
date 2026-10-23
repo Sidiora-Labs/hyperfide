@@ -96,7 +96,7 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
   beforeEach(async () => {
     harness = await createTestAppHarness();
     rootDir = await writePlugin(join(harness.config.dataDir, "fixtures"), {
-      name: "bb-plugin-acme",
+      name: "hyperfide-plugin-acme",
       serverSource: CLI_SOURCE,
     });
     const entry = await harness.pluginService.installPath(rootDir);
@@ -273,7 +273,7 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
     const reserved = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-shadower",
+        name: "hyperfide-plugin-shadower",
         serverSource: `
           export default function plugin(bb: any) {
             bb.cli.register({ name: "thread", summary: "s", commands: [{ name: "inspect", summary: "Inspect", usage: "bb thread inspect" }], run: async () => ({ exitCode: 0, stdout: "thread" }) });
@@ -306,7 +306,7 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
     const invalid = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-badname",
+        name: "hyperfide-plugin-badname",
         serverSource: `
         export default function plugin(bb: any) {
           bb.cli.register({ name: "Bad Name", summary: "s", run: async () => ({ exitCode: 0 }) });
@@ -323,7 +323,7 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
     const replacer = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-replacer",
+        name: "hyperfide-plugin-replacer",
         serverSource: `
         export default function plugin(bb: any) {
           bb.cli.register({ name: "first", summary: "old", run: async () => ({ exitCode: 0 }) });

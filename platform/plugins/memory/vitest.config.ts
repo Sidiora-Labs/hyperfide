@@ -4,7 +4,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     silent: "passed-only",
-    name: "bb-plugin-memory",
+    name: "hyperfide-plugin-memory",
     include: ["**/*.test.ts", "**/*.test.tsx"],
     exclude: ["node_modules/**"],
   },

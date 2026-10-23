@@ -19,12 +19,12 @@ import {
 } from "../../helpers/test-app.js";
 
 async function installPlugin(harness: TestAppHarness, id: string) {
-  const root = join(harness.config.dataDir, `bb-plugin-${id}`);
+  const root = join(harness.config.dataDir, `hyperfide-plugin-${id}`);
   await mkdir(root, { recursive: true });
   await writeFile(
     join(root, "package.json"),
     JSON.stringify({
-      name: `bb-plugin-${id}`,
+      name: `hyperfide-plugin-${id}`,
       version: "0.1.0",
       type: "module",
       bb: {
@@ -322,7 +322,7 @@ it("serves a composition's explicit icon instead of the machine provider's icon"
     const svg =
       '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1z"/></svg>';
     await writeFile(
-      join(h.config.dataDir, "bb-plugin-icon-runtime", "composition.svg"),
+      join(h.config.dataDir, "hyperfide-plugin-icon-runtime", "composition.svg"),
       svg,
     );
     api.experimental_environments.register({

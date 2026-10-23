@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 describe("bundled plugin SDK declarations", () => {
   it("use portable named SDK results without workspace imports", async () => {
     const declarations = await readFile(
-      new URL("../../bundled-types/bb-plugin-sdk.d.ts", import.meta.url),
+      new URL("../../bundled-types/hyperfide-plugin-sdk.d.ts", import.meta.url),
       "utf8",
     );
 
@@ -44,7 +44,7 @@ describe("bundled plugin SDK declarations", () => {
     );
 
     const appDeclarations = await readFile(
-      new URL("../../bundled-types/bb-plugin-sdk-app.d.ts", import.meta.url),
+      new URL("../../bundled-types/hyperfide-plugin-sdk-app.d.ts", import.meta.url),
       "utf8",
     );
     expect(appDeclarations).not.toMatch(/from ['"]@hyperfide\//u);
@@ -72,13 +72,13 @@ describe("bundled plugin SDK declarations", () => {
 
   it("ships portable declarations for every exported subpath", async () => {
     const fileNames = [
-      "bb-plugin-sdk.d.ts",
-      "bb-plugin-sdk-app.d.ts",
-      "bb-plugin-sdk-host.d.ts",
-      "bb-plugin-sdk-testing.d.ts",
-      "bb-plugin-sdk-testing-app.d.ts",
-      "bb-plugin-sdk-testing-host.d.ts",
-      "bb-plugin-sdk-environment-provider.d.ts",
+      "hyperfide-plugin-sdk.d.ts",
+      "hyperfide-plugin-sdk-app.d.ts",
+      "hyperfide-plugin-sdk-host.d.ts",
+      "hyperfide-plugin-sdk-testing.d.ts",
+      "hyperfide-plugin-sdk-testing-app.d.ts",
+      "hyperfide-plugin-sdk-testing-host.d.ts",
+      "hyperfide-plugin-sdk-environment-provider.d.ts",
     ];
     const declarations = await Promise.all(
       fileNames.map((fileName) =>
@@ -114,7 +114,7 @@ describe("bundled plugin SDK declarations", () => {
   it("names the canonical event vocabulary in the provider-bridge testing kit", async () => {
     const testing = await readFile(
       new URL(
-        "../../bundled-types/bb-plugin-sdk-provider-bridge-testing.d.ts",
+        "../../bundled-types/hyperfide-plugin-sdk-provider-bridge-testing.d.ts",
         import.meta.url,
       ),
       "utf8",

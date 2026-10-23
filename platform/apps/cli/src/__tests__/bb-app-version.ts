@@ -13,7 +13,7 @@ const repoRoot = resolve(
 export async function readBbAppVersion(): Promise<string> {
   const packageJson: unknown = JSON.parse(
     await readFile(
-      join(repoRoot, "packages", "bb-app", "package.json"),
+      join(repoRoot, "packages", "hyperfide-app", "package.json"),
       "utf8",
     ),
   );

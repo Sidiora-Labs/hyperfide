@@ -26,7 +26,7 @@ it("leaves reprovision unstarted when dispatch admission rejects the request", a
       status: "error",
       path: "/tmp/rejected-reprovision",
       environmentProviderId: "personal-workspace",
-      environmentProviderPluginId: "bb-plugin-environment-personal-workspace",
+      environmentProviderPluginId: "hyperfide-plugin-environment-personal-workspace",
       isGitRepo: false,
     });
     const thread = seedThread(harness.deps, {

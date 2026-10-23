@@ -42,7 +42,7 @@ describe("migratePluginToPackageLayout when types/ survives the rmdir", () => {
   let rootDir: string;
 
   beforeEach(async () => {
-    rootDir = await mkdtemp(join(tmpdir(), "bb-plugin-types-dir-"));
+    rootDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-types-dir-"));
     race.armed = false;
   });
 
@@ -56,7 +56,7 @@ describe("migratePluginToPackageLayout when types/ survives the rmdir", () => {
       join(rootDir, "package.json"),
       `${JSON.stringify(
         {
-          name: "bb-plugin-legacy",
+          name: "hyperfide-plugin-legacy",
           bb: { server: "./server.ts" },
         },
         null,
@@ -68,7 +68,7 @@ describe("migratePluginToPackageLayout when types/ survives the rmdir", () => {
       `${JSON.stringify(
         {
           compilerOptions: {
-            paths: { "@hyperfide/plugin-sdk": ["./types/bb-plugin-sdk.d.ts"] },
+            paths: { "@hyperfide/plugin-sdk": ["./types/hyperfide-plugin-sdk.d.ts"] },
           },
           include: ["server.ts", "types"],
         },
@@ -77,7 +77,7 @@ describe("migratePluginToPackageLayout when types/ survives the rmdir", () => {
       )}\n`,
     );
     await mkdir(join(rootDir, "types"), { recursive: true });
-    await writeFile(join(rootDir, "types", "bb-plugin-sdk.d.ts"), "// old\n");
+    await writeFile(join(rootDir, "types", "hyperfide-plugin-sdk.d.ts"), "// old\n");
     race.armed = true;
 
     const result = await migratePluginToPackageLayout({
@@ -85,7 +85,7 @@ describe("migratePluginToPackageLayout when types/ survives the rmdir", () => {
       sdkVersion: SDK_VERSION,
     });
 
-    expect(result.deletedFiles).toEqual(["types/bb-plugin-sdk.d.ts"]);
+    expect(result.deletedFiles).toEqual(["types/hyperfide-plugin-sdk.d.ts"]);
     expect(result.removedTypesDir).toBe(false);
     expect(
       await stat(join(rootDir, "types")).then((s) => s.isDirectory()),

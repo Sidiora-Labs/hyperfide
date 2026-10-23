@@ -42,7 +42,7 @@ describe("namespaced glyphs", () => {
 describe("bb.branding.icon grammar", () => {
   function manifest(icon: string) {
     return pluginPackageJsonSchema.safeParse({
-      name: "bb-plugin-icons",
+      name: "hyperfide-plugin-icons",
       version: "0.1.0",
       bb: {
         name: "Icons",
@@ -71,7 +71,7 @@ describe("bb.branding.icon grammar", () => {
 describe("bb.branding.experimental_icons grammar", () => {
   function manifest(icons: unknown) {
     return pluginPackageJsonSchema.safeParse({
-      name: "bb-plugin-icons",
+      name: "hyperfide-plugin-icons",
       version: "0.1.0",
       bb: {
         name: "Icons",

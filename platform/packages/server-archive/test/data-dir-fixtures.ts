@@ -12,7 +12,7 @@ export const SERVER_OWNED_FIXTURE_PATHS: readonly string[] = [
   "attachments/thr_1/image.png",
   "skills/review/SKILL.md",
   "theme/custom.css",
-  "plugins/npm/bb-plugin-linear@1.0.0/package.json",
+  "plugins/npm/hyperfide-plugin-linear@1.0.0/package.json",
   "plugins/cache/git/abc/index.js",
   "plugins/snapshots/docs/1-a-b/data.db",
   "plugins/docs/data.db",

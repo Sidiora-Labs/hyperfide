@@ -21,12 +21,12 @@ describe("POST /plugins/reload outcome", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-keeper");
+    rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-keeper");
     await mkdir(rootDir, { recursive: true });
     await writeFile(
       join(rootDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-keeper",
+        name: "hyperfide-plugin-keeper",
         version: "0.1.0",
         bb: {
           name: "Keeper",

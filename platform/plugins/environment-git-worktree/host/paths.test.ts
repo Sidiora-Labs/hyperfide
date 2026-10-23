@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { WorkspaceError } from "bb-environment-provider-host/git";
+import { WorkspaceError } from "hyperfide-environment-provider-host/git";
 import { describe, expect, it } from "vitest";
 import {
   deriveRepoDirName,

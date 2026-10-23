@@ -32,7 +32,7 @@ const base = packageName.includes("/")
   ? (packageName.split("/").at(-1) ?? packageName)
   : packageName;
 const pluginId = base
-  .replace(/^bb-plugin-/, "")
+  .replace(/^hyperfide-plugin-/, "")
   .toLowerCase()
   .replace(/[^a-z0-9-]/g, "-")
   .replace(/^-+|-+$/g, "");

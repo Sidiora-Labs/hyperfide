@@ -44,7 +44,7 @@ describe("plugin server cache", () => {
         bbVersion: "0.9.0",
         validatedConfig: {
           serverEntry: join(rootDir, "server.ts"),
-          packageName: "bb-plugin-cache-graph",
+          packageName: "hyperfide-plugin-cache-graph",
           pluginVersion: "1.0.0",
         },
         toolchain: () =>

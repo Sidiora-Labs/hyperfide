@@ -55,7 +55,7 @@ describe("packaged CLI plugin build", () => {
     await writeFile(
       join(pluginRoot, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-packaged-shim-fixture",
+        name: "hyperfide-plugin-packaged-shim-fixture",
         version: "0.1.0",
         type: "module",
         bb: {

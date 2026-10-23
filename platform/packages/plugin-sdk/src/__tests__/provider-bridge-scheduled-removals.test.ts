@@ -4,7 +4,7 @@ import * as providerBridgeSdk from "../provider-bridge.js";
 
 const DOC_URL = new URL("../../../../docs/api_to_audit.md", import.meta.url);
 const DECLARATIONS_URL = new URL(
-  "../../bundled-types/bb-plugin-sdk-provider-bridge.d.ts",
+  "../../bundled-types/hyperfide-plugin-sdk-provider-bridge.d.ts",
   import.meta.url,
 );
 

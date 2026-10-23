@@ -1074,7 +1074,7 @@ export class ServerMoveService {
   private async resolveLauncherEntry(): Promise<string | null> {
     const npmPrefix = this.npmPrefix();
     if (npmPrefix !== null) {
-      const npmBin = join(npmPrefix, "bin", "bb-app");
+      const npmBin = join(npmPrefix, "bin", "hyperfide-app");
       if (await pathExists(npmBin)) {
         return npmBin;
       }

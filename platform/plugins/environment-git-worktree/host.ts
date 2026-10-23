@@ -1,8 +1,8 @@
 import { experimental_defineHostEntry } from "@hyperfide/plugin-sdk/host";
 import { readdir, rm } from "node:fs/promises";
-import { createHostProgress } from "bb-environment-provider-host/progress";
+import { createHostProgress } from "hyperfide-environment-provider-host/progress";
 import { worktreeHostContract, worktreeHostSignals } from "./contract.js";
-import { readDefaultBranchRefs } from "bb-environment-provider-host/git";
+import { readDefaultBranchRefs } from "hyperfide-environment-provider-host/git";
 import {
   resolveDefaultWorktreeBaseBranch,
   resolveWorktreeBaseBranch,

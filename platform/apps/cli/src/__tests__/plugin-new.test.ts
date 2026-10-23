@@ -13,9 +13,9 @@ import { installFakeNpm } from "./helpers/fake-npm.js";
 
 describe("resolveNewPluginTarget", () => {
   it.each([
-    ["hello", "bb-plugin-hello", "bb-plugin-hello"],
-    ["bb-plugin-hello", "bb-plugin-hello", "bb-plugin-hello"],
-    ["@acme/bb-plugin-hello", "@acme/bb-plugin-hello", "bb-plugin-hello"],
+    ["hello", "hyperfide-plugin-hello", "hyperfide-plugin-hello"],
+    ["hyperfide-plugin-hello", "hyperfide-plugin-hello", "hyperfide-plugin-hello"],
+    ["@acme/hyperfide-plugin-hello", "@acme/hyperfide-plugin-hello", "hyperfide-plugin-hello"],
   ])("resolves %s", (name, expectedPackageName, expectedDirectoryName) => {
     expect(resolveNewPluginTarget(name)).toEqual({
       packageName: expectedPackageName,
@@ -25,18 +25,18 @@ describe("resolveNewPluginTarget", () => {
 
   it.each([
     "Hello",
-    "bb-plugin-",
+    "hyperfide-plugin-",
     "@acme/hello",
-    "@acme/bb-plugin-Hello",
-    "@acme/team/bb-plugin-hello",
+    "@acme/hyperfide-plugin-Hello",
+    "@acme/team/hyperfide-plugin-hello",
   ])("rejects %s", (name) => {
     expect(resolveNewPluginTarget(name)).toBeNull();
   });
 
   it.each(RESERVED_HYPERFIDE_CLI_COMMANDS)("rejects reserved id %s", (id) => {
     expect(resolveNewPluginTarget(id)).toBeNull();
-    expect(resolveNewPluginTarget(`bb-plugin-${id}`)).toBeNull();
-    expect(resolveNewPluginTarget(`@acme/bb-plugin-${id}`)).toBeNull();
+    expect(resolveNewPluginTarget(`hyperfide-plugin-${id}`)).toBeNull();
+    expect(resolveNewPluginTarget(`@acme/hyperfide-plugin-${id}`)).toBeNull();
   });
 });
 
@@ -47,7 +47,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
   let warned: string[];
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-new-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-new-"));
     process.chdir(workDir);
     await installFakeNpm(workDir);
     vi.stubEnv("NODE_ENV", "production");
@@ -87,9 +87,9 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
   it("installs the packages the plugin needs to build under NODE_ENV=production", async () => {
     await runPluginNew(["prod-env"]);
 
-    expect(await isInstalled("bb-plugin-prod-env", "zod")).toBe(true);
-    expect(await isInstalled("bb-plugin-prod-env", "typescript")).toBe(true);
-    expect(await isInstalled("bb-plugin-prod-env", "clsx")).toBe(true);
+    expect(await isInstalled("hyperfide-plugin-prod-env", "zod")).toBe(true);
+    expect(await isInstalled("hyperfide-plugin-prod-env", "typescript")).toBe(true);
+    expect(await isInstalled("hyperfide-plugin-prod-env", "clsx")).toBe(true);
     expect(warned).toEqual([]);
     expect(logged).toContain("Installed dependencies (npm install).");
     expect(logged).not.toContain("  npm install --include=dev");
@@ -104,7 +104,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
 
     await runPluginNew(["hoisted"]);
 
-    expect(await isInstalled("bb-plugin-hoisted", "zod")).toBe(false);
+    expect(await isInstalled("hyperfide-plugin-hoisted", "zod")).toBe(false);
     expect(warned).toEqual([]);
     expect(logged).toContain("Installed dependencies (npm install).");
   });
@@ -114,7 +114,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
 
     await runPluginNew(["silent-omit"]);
 
-    expect(await isInstalled("bb-plugin-silent-omit", "typescript")).toBe(
+    expect(await isInstalled("hyperfide-plugin-silent-omit", "typescript")).toBe(
       false,
     );
     expect(logged).not.toContain("Installed dependencies (npm install).");
@@ -128,12 +128,12 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
     await runPluginNew(["pinned"]);
 
     const manifest: { devDependencies: Record<string, string> } = JSON.parse(
-      await readFile(join(workDir, "bb-plugin-pinned", "package.json"), "utf8"),
+      await readFile(join(workDir, "hyperfide-plugin-pinned", "package.json"), "utf8"),
     );
     expect(manifest.devDependencies["@hyperfide/plugin-sdk"]).toBe(
       PLUGIN_SDK_VERSION,
     );
-    expect(await isInstalled("bb-plugin-pinned", "@hyperfide/plugin-sdk")).toBe(
+    expect(await isInstalled("hyperfide-plugin-pinned", "@hyperfide/plugin-sdk")).toBe(
       true,
     );
     expect(warned).toEqual([]);
@@ -145,7 +145,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
     await runPluginNew(["unpublished"]);
 
     expect(logged).toContain(
-      "Created bb-plugin-unpublished/ (bb-plugin-unpublished).",
+      "Created hyperfide-plugin-unpublished/ (hyperfide-plugin-unpublished).",
     );
     const warnings = warned.join("\n");
     expect(warnings).toContain(
@@ -169,7 +169,7 @@ describe.sequential("hyperfide-platform plugin new dependency install", () => {
 
     await runPluginNew(["offline"]);
 
-    expect(logged).toContain("Created bb-plugin-offline/ (bb-plugin-offline).");
+    expect(logged).toContain("Created hyperfide-plugin-offline/ (hyperfide-plugin-offline).");
     expect(warned.join("\n")).toContain("could not reach the npm registry");
     expect(warned.join("\n")).not.toContain("was not found on npm");
   });

@@ -64,7 +64,7 @@ const runningWorkflow = workflowRow({
   id: "thr_fixture:workflow:investigation:running",
   status: "pending",
   taskStatus: "running",
-  workflowName: "bb-plugin-investigation",
+  workflowName: "hyperfide-plugin-investigation",
   description: "Investigate the plugin subsystem",
   startedAt: Date.now() - 326_000,
   workflow: investigationSnapshot,
@@ -347,7 +347,7 @@ const concurrentWorkflows = [
   {
     ...runningWorkflow,
     id: "thr_fixture:workflow:investigation:running-2",
-    workflowName: "bb-plugin-investigation-2",
+    workflowName: "hyperfide-plugin-investigation-2",
   },
 ];
 

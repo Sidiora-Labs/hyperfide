@@ -79,7 +79,7 @@ let freshFacadeImportSequence = 0;
 async function freshModuleExports(moduleUrl: string): Promise<string[]> {
   const freshUrl = new URL(moduleUrl);
   freshUrl.searchParams.set(
-    "bb-plugin-build",
+    "hyperfide-plugin-build",
     String(++freshFacadeImportSequence),
   );
   const moduleNamespace = await import(freshUrl.href);
@@ -152,11 +152,11 @@ async function shimModuleSource(
   ].join("\n");
 }
 
-const SHIM_NAMESPACE = "bb-plugin-runtime-shim";
+const SHIM_NAMESPACE = "hyperfide-plugin-runtime-shim";
 
 const RETIRED_PLUGIN_SDK_APP_EXPORTS: Readonly<Record<string, string>> = {
   experimental_useSidebarThreadPullRequest:
-    'Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery({ pluginId: "bb--github-pr-status", contract, method: "pullRequests", keys: [thread.environment.id] }). See "Migrating from experimental_useSidebarThreadPullRequest" in the bb-plugin-authoring skill.',
+    'Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery({ pluginId: "bb--github-pr-status", contract, method: "pullRequests", keys: [thread.environment.id] }). See "Migrating from experimental_useSidebarThreadPullRequest" in the hyperfide-plugin-authoring skill.',
 };
 
 const NAMED_IMPORT_PATTERN =
@@ -191,7 +191,7 @@ const SHIM_FILTER = new RegExp(
 
 export function runtimeShimPlugin(pluginSdkAppModuleUrl?: string): Plugin {
   return {
-    name: "bb-plugin-runtime-shims",
+    name: "hyperfide-plugin-runtime-shims",
     setup(build) {
       build.onLoad(
         { filter: /\.[cm]?[jt]sx?$/, namespace: "file" },
@@ -204,7 +204,7 @@ export function runtimeShimPlugin(pluginSdkAppModuleUrl?: string): Plugin {
           const source = await readFile(args.path, "utf8");
           const warnings = [];
           const migration =
-            "See bb-plugin-authoring, frontend-registration.md#tab-api-migration.";
+            "See hyperfide-plugin-authoring, frontend-registration.md#tab-api-migration.";
           if (/\.\s*threadPanelAction\s*\(/u.test(source)) {
             warnings.push({
               text: `threadPanelAction is retired from SDK typings. Use app.slots.experimental_tab({ context: { kind: "thread" }, availability: "action", id, title, icon, component, run }). Existing bundles remain supported. ${migration}`,
@@ -553,7 +553,7 @@ export async function buildPluginApp(
     });
 
     migrationWarnings = bundle.warnings
-      .filter((warning) => warning.pluginName === "bb-plugin-runtime-shims")
+      .filter((warning) => warning.pluginName === "hyperfide-plugin-runtime-shims")
       .map((warning) =>
         warning.location === null
           ? warning.text

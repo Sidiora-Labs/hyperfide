@@ -210,7 +210,7 @@ describe("ServerMoveService.handleServerMoved", () => {
       {
         command: process.execPath,
         args: [
-          join(fixture.npmPrefix, "bin", "bb-app"),
+          join(fixture.npmPrefix, "bin", "hyperfide-app"),
           "host-daemon",
           "--auto-update",
           "--supervise",

@@ -86,7 +86,7 @@ async function scaffoldWithDependencies(workDir: string): Promise<{
   dependencies: string[];
   devDependencies: string[];
 }> {
-  const packageName = "bb-plugin-deps";
+  const packageName = "hyperfide-plugin-deps";
   const targetDir = join(workDir, packageName);
   await scaffoldPlugin({
     targetDir,

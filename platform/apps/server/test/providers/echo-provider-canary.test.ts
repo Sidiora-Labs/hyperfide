@@ -609,7 +609,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
       command.injectedSkillSources.map((source) => source.name).sort(),
     ).toEqual([
       "bb-cli",
-      "bb-plugin-authoring",
+      "hyperfide-plugin-authoring",
       "skill-creator",
       "submit-a-plugin",
     ]);

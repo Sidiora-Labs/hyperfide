@@ -184,7 +184,7 @@ async function buildFirstPartyBridgeArtifact(
     return null;
   }
   const toolchain = await resolvePluginBuildToolchain(
-    join(tmpdir(), "bb-plugin-build-toolchain"),
+    join(tmpdir(), "hyperfide-plugin-build-toolchain"),
   );
   const build = await buildPluginHost(rootDir, "0.0.0-test", toolchain);
   const bytes = await readFile(build.jsPath);
@@ -269,7 +269,7 @@ export function scriptedEchoProviderRootDir(): string {
 
 export async function buildScriptedEchoProviderArtifact(): Promise<PluginHostArtifactSnapshot> {
   const toolchain = await resolvePluginBuildToolchain(
-    join(tmpdir(), "bb-plugin-build-toolchain"),
+    join(tmpdir(), "hyperfide-plugin-build-toolchain"),
   );
   const build = await buildPluginHost(
     scriptedEchoProviderRootDir(),
