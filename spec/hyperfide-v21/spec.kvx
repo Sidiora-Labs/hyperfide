@@ -713,7 +713,7 @@ owner = "findings"
 
 [task.3.18]
 title = "Load-tolerant suites and honest skips"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["3.13"]
 touches = ["tests/integration/14_vscode.sh", "tests/integration/42_journal.sh", "tests/integration/48_plugin.sh", "tests/integration/81_workflow_pointer.sh", "tests/hyperfide/cases/v21/2_8.py", "tests/hyperfide/cases/v21/2_12.py", "tests/hyperfide/cases/v21/2_1.py", "tests/hyperfide/cases/tasks/29_7.py", "tests/hyperfide/cases/tasks/9_4.py", "tests/hyperfide/cases/tasks/8_2.py", "editors/vscode/extension.js", "editors/vscode/serve.js", "tests/hyperfide/support/identity_fixture.py", "tests/hyperfide/cases/v21/3_18.py"]
