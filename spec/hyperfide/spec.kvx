@@ -1434,7 +1434,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.15.4]
 title = "Implement reference-safe retention, garbage collection and destruction gates"
-status = "pending"
+status = "done"
 wave = 19
 requires = ["15.2", "8.3", "15.3"]
 touches = ["services/hyperfide/src/artifacts/retention.ts", "tests/hyperfide/manifests/tasks/15.4.json", "tests/hyperfide/cases/tasks/15_4.py", "tests/hyperfide/registrations/15.4.json", "services/hyperfide/components/15.4.json", "services/hyperfide/migrations/0029-artifact-retention.sql", "services/hyperfide/src/artifacts/objects.ts", "services/hyperfide/src/artifacts/destruction.ts"]
@@ -1506,7 +1506,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.9.4]
 title = "Reconcile Railway API edge cases and qualify actual account lifecycle"
-status = "pending"
+status = "done"
 wave = 19
 requires = ["9.3", "8.3", "8.4"]
 touches = ["services/hyperfide/src/providers/railway/reconciliation.ts", "tests/hyperfide/manifests/tasks/9.4.json", "tests/hyperfide/cases/tasks/9_4.py", "tests/hyperfide/registrations/9.4.json", "services/hyperfide/components/9.4.json"]
@@ -1523,7 +1523,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.10.4]
 title = "Gate Blaxel preview capabilities and qualify fresh-identity recovery"
-status = "pending"
+status = "done"
 wave = 19
 requires = ["10.3", "14.1", "15.3"]
 touches = ["services/hyperfide/src/providers/blaxel/recovery.ts", "tests/hyperfide/manifests/tasks/10.4.json", "tests/hyperfide/cases/tasks/10_4.py", "tests/hyperfide/registrations/10.4.json", "services/hyperfide/components/10.4.json"]
@@ -1677,7 +1677,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.13.3]
 title = "Recover transport and process loss with explicit context outcomes"
-status = "pending"
+status = "done"
 wave = 19
 requires = ["13.2", "15.3"]
 touches = ["src/hyperfide/connector_recovery.c", "tests/hyperfide/manifests/tasks/13.3.json", "tests/hyperfide/cases/tasks/13_3.py", "tests/hyperfide/registrations/13.3.json", "src/hyperfide/components/13.3.kvx"]
