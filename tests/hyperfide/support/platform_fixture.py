@@ -619,7 +619,7 @@ def projection_host():
         server.shutdown()
 
 
-if __name__ == "__main__" and sys.argv[1:2] != ["--closure-json"]:  # --closure-json is handled by the 4.5 block at the end
+if __name__ == "__main__":
     if sys.argv[1:] != ["--projection-host"]:
         raise SystemExit("use AuthorityFixture from the qualification case")
     projection_host()
@@ -844,11 +844,7 @@ class SpecFixture:
         self.close()
 
 
-# ---- QualificationProjection (task 4.5): implemented, lane, checker, receipt, wave closure and permission-gated
-# publication to a local bare remote. Temporary projection of the unmerged qualify plugin RPCs (4.1 to 4.4); replace
-# with the shared platform RPC fixture once they land.
-import importlib.util as _importlib_util
-import re
+# ---- Qualification end-to-end fixture (task 4.5).
 import urllib.request
 
 QUALIFICATION_BUILD = [ROOT / 'platform/apps' / app / 'dist/index.js'
@@ -860,18 +856,8 @@ def require_qualification_build():
     if missing:
         print('SKIP 77 platform build absent: ' + ', '.join(missing))
         raise SystemExit(77)
-
-
-def closure_module():
-    spec = _importlib_util.spec_from_file_location(
-        'hyperfide_closure', ROOT / 'tests/hyperfide/closure_check.py')
-    module = _importlib_util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-class QualificationProjection:
-    """Local adapter for the unmerged qualification and publication RPCs."""
+class QualificationFixture:
+    """Disposable platform and Git repositories for real qualification modules."""
 
     def __enter__(self):
         require_qualification_build()
@@ -971,10 +957,6 @@ class QualificationProjection:
         path.write_text(text)
         return path
 
-    def status(self, value):
-        self.spec.write_text(re.sub(r'^status = .*$', 'status = ' + json.dumps(value),
-                                   self.spec.read_text(), flags=re.M))
-
     def implement(self):
         self.run([str(ROOT / 'cg'), 'spec', 'start', '1.1'])
         self.write('src/value.txt', 'implemented\n')
@@ -983,86 +965,176 @@ class QualificationProjection:
         self.run([str(ROOT / 'cg'), 'spec', 'implemented', '1.1'])
         self.git('add', '.')
         self.git('commit', '-qm', 'Record implementation')
-
-    def qualify(self):
-        closure = closure_module()
-        started = time.monotonic()
-        lane = self.run(['python3', 'verify.py', '--case', 'V-001', '--manifest', 'manifest.json'])
-        self.lane = dict(state='passed', exit=lane.returncode,
-                         duration=time.monotonic() - started)
-        campaign = 'artifacts/hyperfide/tasks/1.1/campaigns/qualification'
-        self.write(campaign + '/lane.log', lane.stdout + lane.stderr)
-        # Independent checker process reruns verification and inspects the diff.
-        diff = self.git('diff', self.base_commit, 'HEAD', '--', 'src/value.txt').stdout
-        assert '+implemented' in diff
-        checker = self.run(['python3', '-I', 'verify.py'])
-        self.checker = dict(provider='hyperfide-checker', worker='hyperfide-worker',
-                            verdict='pass', exit=checker.returncode)
-        self.status('done')
-        commit = self.git('rev-parse', 'HEAD').stdout.strip()
-        receipt = dict(receipt_id='qualification', task='1.1', selected_case_ids=['V-001'],
-                       outcome='PASS', diagnostics=[], source={'commit': commit},
-                       manifest_sha256=closure.sha((self.repo / 'manifest.json').read_bytes()),
-                       inputs=[dict(original_path=name, sha256=closure.sha((self.repo / name).read_bytes()))
-                               for name in ('src/value.txt', 'verify.py')],
-                       verify_cmd='python3 verify.py --case V-001 --manifest manifest.json',
-                       evidence_paths=[campaign + '/lane.log', campaign + '/checks/qualification.json'],
-                       toolchain={'python': self.run(['python3', '--version']).stdout.strip(),
-                                  'node': self.run(['node', '--version']).stdout.strip()},
-                       **{'exit': 0, 'duration': self.lane['duration']})
-        receipt['seal'] = closure.sha(closure.canonical(receipt))
-        self.receipt_path = self.write(campaign + '/receipts/qualification.json',
-                                       closure.canonical(receipt).decode() + '\n')
-        self.write(campaign + '/checks/qualification.json', json.dumps(dict(
-            status='PASS', receipt_sha256=closure.sha(self.receipt_path.read_bytes()), **self.checker)))
-        self.write('artifacts/hyperfide/tasks/1.1/evidence-index.json', json.dumps(dict(
-            task='1.1', commit=commit, requalified_on=commit, exit_code=0)))
-        return receipt
-
-    def closure(self):
-        return self.run([sys.executable, str(Path(__file__).resolve()),
-                         '--closure-json', str(self.repo)]).stdout
-
-    def close_wave(self):
-        if any(proc.poll() is not None for proc in self.processes):
-            raise RuntimeError('platform exited during qualification')
-        result = json.loads(self.closure())
-        if result['failures'] or self.lane['state'] != 'passed' or self.checker['verdict'] != 'pass':
-            raise RuntimeError('wave closure blocked')
-        self.closed = True
-        self.run([str(ROOT / 'cg'), 'ask', 'raise', 'permission',
-                  'Publish fixture wave to local remote?', '--task', '1.1'])
-        listing = self.run([str(ROOT / 'cg'), 'ask', 'list', '--json']).stdout
-        self.ask_listing = listing
-        asks = json.loads(listing)['asks']
-        if len(asks) != 1 or asks[0]['kind'] != 'permission' or asks[0]['state'] != 'open':
-            raise RuntimeError('permission Ask id missing: ' + listing)
-        self.ask_id = str(asks[0]['id'])
-
-    def publish(self):
-        listing = self.run([str(ROOT / 'cg'), 'ask', 'list', '--all', '--json']).stdout
-        # Require the answer recorded in the actual Ask store.
-        records = json.loads(listing)
-        if isinstance(records, dict):
-            records = records.get('asks', [])
-        ask = next(a for a in records if str(a['id']) == self.ask_id)
-        if ask.get('answer') != 'approve' or ask.get('state') != 'answered':
-            raise PermissionError('publication permission unanswered')
-        assert self.closed
-        self.git('add', '.')
-        self.git('commit', '-qm', 'Record qualification')
-        self.git('checkout', '-qb', 'publication', self.base_commit)
-        self.git('merge', '--squash', 'main')
-        self.git('commit', '-qm', 'Publish fixture task [spec:hyperfide/1.1]')
-        self.git('push', 'origin', 'publication')
-        return self.git('rev-parse', 'HEAD').stdout.strip()
+    def qualification(self):
+        directory = PLATFORM / 'plugins/hyperfide-qualify'
+        with tempfile.NamedTemporaryFile(mode='w', prefix='hyperfide-e2e-',
+                                         suffix='.ts', dir=directory, delete=False) as handle:
+            handle.write(QUALIFICATION_SCENARIO)
+            driver = Path(handle.name)
+        try:
+            result = self.run(['node', '--conditions=source', '--import',
+                               str(PLATFORM / 'node_modules/tsx/dist/loader.mjs'),
+                               str(driver), str(self.repo), str(ROOT / 'cg'),
+                               str(self.remote), self.base_commit, str(ROOT)])
+            return json.loads(result.stdout)
+        finally:
+            driver.unlink()
 
 
-if __name__ == '__main__':
-    if len(sys.argv) != 3 or sys.argv[1] != '--closure-json':
-        raise SystemExit('usage: platform_fixture.py --closure-json ROOT')
-    root = Path(sys.argv[2])
-    failures = closure_module().check_task(
-        root, (root / 'spec/hyperfide/spec.kvx').read_text(),
-        root / 'artifacts/hyperfide/tasks', '1.1')
-    print(json.dumps(dict(task='1.1', status='FAIL' if failures else 'PASS', failures=failures)))
+QUALIFICATION_SCENARIO = r"""
+import assert from 'node:assert/strict';
+import {readFileSync, writeFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {createHash} from 'node:crypto';
+import {createFakePluginHost} from '@hyperfide/plugin-sdk/testing';
+import {registerQualification} from './qualification';
+import {registerChecker, registerWaveClosure} from './server';
+import {writeReceipt, canonical} from './receipts';
+import {openQualifyStorage, publicationStore} from './storage';
+import {makeHumanTasks} from '../hyperfide-spec/closure-projection';
+import {runBinary} from '../hyperfide-spec/projection-run-task';
+const [repo, binary, remote, base, root] = process.argv.slice(2);
+const run = async (command, args) => {
+  const result = await runBinary(command, args, repo);
+  assert.equal(result.exit, 0, JSON.stringify({command, args, ...result}));
+  return result.stdout.trim();
+};
+const git = (...args) => run('git', args);
+const spec = join(repo, 'spec/hyperfide/spec.kvx');
+const verify = 'python3 verify.py --case V-001 --manifest manifest.json';
+const host = createFakePluginHost({pluginId: 'hyperfide-qualify'});
+const storage = await openQualifyStorage(repo);
+process.env.HYPERFIDE_BINARY = binary;
+const lanes = registerQualification(host.hyperfide);
+try {
+  const started = await host.harness.callRpc('start', {repository: repo, feature: 'hyperfide', task: '1.1'});
+  let lane = await lanes.wait(started.id);
+  assert.equal(lane.state, 'passed', JSON.stringify(lane));
+  assert.equal(lane.exitCode, 0);
+  const commit = await git('rev-parse', 'HEAD');
+  assert.equal(lane.commit, commit);
+  assert.notEqual(lane.environmentPath, repo);
+  let log = (await host.harness.callRpc('log', {id: lane.id, after: 0})).map(e => e.text).join('');
+  assert.match(log, /lane verified/);
+  let checker;
+  const check = registerChecker({
+    onImplemented() {},
+    async recordChecker(task, record) { assert.equal(task, '1.1'); checker = record; },
+    async listTaskIds() { return ['1.1']; },
+    // Deterministic provider; the checker module owns the independent verify tool.
+    async createThread(request, tools) {
+      assert.equal(request.role, 'checker');
+      assert.equal(request.provider, 'hyperfide-checker');
+      assert.equal(request.env.CG_TASK, '1.1');
+      const packet = JSON.parse(request.packet);
+      assert.match(packet.diff, /\+implemented/);
+      assert.equal(packet.laneLog, log);
+      const result = await tools.verify();
+      return {verdict: 'pass', findings: [], verify: {cmd: packet.verifyCmd, exit: result.exit}};
+    }
+  }, {providers: ['hyperfide-worker', 'hyperfide-checker'], binary});
+  const checkTask = () => check({id: '1.1', status: 'implemented', wave: 1, cwd: repo, base,
+    criteria: ['Fixture value implemented'], verifyCmd: verify, laneLog: log,
+    workerProvider: 'hyperfide-worker', touches: ['src/value.txt'], reqs: []});
+  await checkTask();
+  assert.equal(checker.status, 'pass', JSON.stringify(checker));
+  assert.equal(checker.independent, true);
+  const saveLane = () => writeReceipt({task: '1.1', cwd: repo, verify_cmd: verify,
+    exit: lane.exitCode, duration: lane.durationMs, toolchain: lane.toolchain,
+    log, sources: ['src/value.txt', 'verify.py', 'manifest.json']});
+  let saved = await saveLane();
+  let receipt = JSON.parse(readFileSync(join(repo, saved.path), 'utf8'));
+  assert.deepEqual(receipt, saved.receipt);
+  assert.equal(receipt.commit, commit);
+  const {digest, ...body} = receipt;
+  assert.equal(digest, createHash('sha256').update(canonical(body)).digest('hex'));
+  const closure = async () => JSON.parse(await run('python3', [join(root, 'tests/hyperfide/closure_check.py'),
+    '1.1', '--root', repo, '--spec', 'spec/hyperfide/spec.kvx', '--receipt', join(repo, saved.path), '--json']));
+  let output = await closure();
+  assert.deepEqual(output.closed, ['1.1']);
+  assert.deepEqual(output.open, []);
+  assert.deepEqual(output.tasks[0].failures, []);
+  writeFileSync(join(repo, 'src/value.txt'), 'drift\n');
+  const drift = await runBinary('python3', [join(root, 'tests/hyperfide/closure_check.py'), '1.1', '--root', repo,
+    '--spec', 'spec/hyperfide/spec.kvx', '--receipt', join(repo, saved.path), '--json'], repo);
+  assert.deepEqual(JSON.parse(drift.stdout).open, ['1.1']);
+  writeFileSync(join(repo, 'src/value.txt'), 'implemented\n');
+  writeFileSync(spec, readFileSync(spec, 'utf8').replace('status = "implemented"', 'status = "done"'));
+  await git('add', '.'); await git('commit', '-qm', 'Record qualification');
+  const taskCommit = await git('rev-parse', 'HEAD');
+  // Qualify the recorded closure commit too: publication requires matching provenance.
+  lane = await lanes.wait((await host.harness.callRpc('start', {
+    repository: repo, feature: 'hyperfide', task: '1.1'
+  })).id);
+  assert.equal(lane.state, 'passed', JSON.stringify(lane));
+  assert.equal(lane.commit, taskCommit);
+  log = lanes.log(lane.id).map(e => e.text).join('');
+  await checkTask();
+  assert.equal(checker.status, 'pass', JSON.stringify(checker));
+  saved = await saveLane();
+  receipt = JSON.parse(readFileSync(join(repo, saved.path), 'utf8'));
+  assert.equal(receipt.commit, taskCommit);
+  output = await closure();
+  assert.deepEqual(output.closed, ['1.1']);
+  const humans = makeHumanTasks();
+  const bindings = new Map();
+  const askRecords = async () => JSON.parse(await run(binary, ['ask', 'list', '--all', '--json'])).asks;
+  const handlers = new Map();
+  registerWaveClosure({repository: repo,
+    authority: {
+      async read() {
+        const checked = await closure();
+        return {feature: 'hyperfide', wave: 1, tasks: [{id: '1.1', title: 'Fixture task',
+          status: readFileSync(spec, 'utf8').match(/^status = "(.*)"/m)[1], commit: taskCommit,
+          checker: {verdict: checker.status, commit: taskCommit},
+          lanes: [{status: lane.state, commit: lane.commit, closureCheck: checked.closed.includes('1.1') ? 'pass' : 'fail'}]}],
+          humans, asks: (await askRecords()).map(a => ({id: String(a.id), status: a.state}))};
+      },
+      async mark(_feature, _wave, job, operator) {
+        humans.find(h => h.id === job).mark = {operator: operator.id, at: new Date().toISOString()};
+      }
+    },
+    asks: {
+      async policy() { return {blocks: true}; },
+      async raise(input) {
+        await run(binary, ['ask', 'raise', 'permission', input.question, '--task', '1.1',
+          ...input.options.flatMap(option => ['--option', option])]);
+        const ask = (await askRecords()).at(-1);
+        bindings.set(String(ask.id), input.binding);
+        return {id: String(ask.id), kind: ask.kind, status: ask.state, binding: input.binding};
+      },
+      async get(id) {
+        const ask = (await askRecords()).find(a => String(a.id) === id);
+        return {id, kind: ask.kind, status: ask.state, answer: ask.answer,
+          operator: ask.state === 'answered' ? 'fixture-operator' : undefined, binding: bindings.get(id)};
+      }
+    },
+    store: publicationStore(storage),
+    async operator() { return {id: 'fixture-operator', role: 'operator'}; },
+    rpc: {register(name, handler) { handlers.set(name, handler); }}
+  });
+  const rpc = (name, input = {}) => handlers.get('hyperfide-qualify.' + name)({feature: 'hyperfide', wave: 1, ...input});
+  assert.equal((await rpc('wave')).ready, false);
+  for (const human of humans) await rpc('mark', {job: human.id});
+  assert.equal((await rpc('wave')).ready, true);
+  for (const [record, field, bad] of [[lane, 'state', 'failed'], [checker, 'status', 'findings']]) {
+    const good = record[field]; record[field] = bad;
+    assert.equal((await rpc('wave')).ready, false);
+    await assert.rejects(rpc('prepare', {base, baseBranch: 'main', remote}));
+    record[field] = good;
+  }
+  const publication = await rpc('prepare', {base, baseBranch: 'main', remote});
+  await assert.rejects(rpc('publish'), /permission/);
+  assert.equal(await run('git', ['--git-dir', remote, 'for-each-ref']), '');
+  await run(binary, ['ask', 'answer', publication.ask, 'grant']);
+  const pushed = await rpc('publish');
+  assert.equal(pushed.pushed, true);
+  assert.equal(await run('git', ['--git-dir', remote, 'rev-parse', 'refs/heads/' + pushed.branch]), pushed.head);
+  assert.equal(await git('rev-list', '--count', base + '..' + pushed.head), '1');
+  assert.equal(await git('show', '-s', '--format=%P', pushed.head), base);
+  assert.equal(await git('show', pushed.head + ':src/value.txt'), 'implemented');
+  assert.match(await git('show', pushed.head + ':spec/hyperfide/spec.kvx'), /status = "done"/);
+  assert.match(await git('show', '-s', '--format=%B', pushed.head), /\[spec:hyperfide\/1.1\]/);
+  console.log(JSON.stringify({receipt, closure: output, lane, checker, publication: pushed}));
+} finally { storage.close(); await host.harness.dispose(); }
+"""
