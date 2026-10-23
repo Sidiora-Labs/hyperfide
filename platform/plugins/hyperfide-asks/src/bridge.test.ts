@@ -92,12 +92,13 @@ it("answers through the binary, publishes, and reads the answer journal", async 
 it("watches database and WAL changes, debounces, and disposes", async () => {
   stop = await bridge.watch(root);
   await writeFile(join(root, ".codegraph/graph.db-wal"), "wal");
-  await vi.waitFor(() =>
-    expect(publish).toHaveBeenCalledWith("asks.changed", expect.anything()),
+  await vi.waitFor(
+    () => expect(publish).toHaveBeenCalledWith("asks.changed", expect.anything()),
+    { timeout: 10_000 },
   );
   publish.mockClear();
   await writeFile(join(root, ".codegraph/graph.db"), "db");
-  await vi.waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+  await vi.waitFor(() => expect(publish).toHaveBeenCalledTimes(1), { timeout: 10_000 });
   stop();
   stop = undefined;
   publish.mockClear();

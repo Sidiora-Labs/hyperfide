@@ -23,7 +23,7 @@ DOCUMENTS = [
 def main():
     tracked = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode().split('\0')
     documents = DOCUMENTS + [p for p in tracked if p.startswith('platform/docs/') and p.endswith('.md')]
-    evidence = 'platform/plugins/hyperfide-spec/memory-packet-projection.ts'
+    evidence = 'platform/plugins/memory/durable-memory.ts'
     with tempfile.TemporaryDirectory(prefix='hyperfide-docs-') as directory:
         work = Path(directory)
 
@@ -79,7 +79,7 @@ def main():
             'release_or_migration = "docs/hyperfide/operations.md"\n'
             'exclusions = "Task 7.3 documents integrations; full API closure belongs to @docs."\n'
             'unresolved = ""\n\n'
-            '[claim.1]\ntype = "symbol"\nvalue = "TaskMemoryProjection"\n'
+            '[claim.1]\ntype = "symbol"\nvalue = "DurableMemoryBridge"\n'
             'document = "docs/hyperfide/platform.md"\n'
             f'evidence = {json.dumps(evidence + ":5")}\n'
         )

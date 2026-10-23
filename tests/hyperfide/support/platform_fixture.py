@@ -158,7 +158,8 @@ async function dispatch(count){expected=count;entered=0;barrier=new Promise(reso
 async function collect(){
  for(const job of ledgers.filter(j=>j.state==='packed')){
   const raw=[...dispatcher.jobs.values()].find(j=>j.task===job.task);
-  const persisted=JSON.parse(readFileSync(join(root,'dispatch',raw.id+'.json'),'utf8'));
+  const persisted=await dispatcher.storage.get('job:'+raw.id);
+  if(!persisted)throw Error('no persisted dispatch record for '+raw.id);
   if(persisted.state!=='succeeded'||persisted.commits[0]!==job.workerCommit)throw Error(JSON.stringify(persisted));
   job.attempt=persisted.attempt;event(job,'collected');
   const merged=await queue.enqueue({id:raw.id,feature:'fleet',task:job.task,bundle:job.bundle,ref:'refs/heads/worker-'+job.task});
@@ -809,15 +810,9 @@ class SpecFixture:
             'engines': manifest['engines'], metadata_key: {'name': 'Spec projection',
                 'branding': {'icon': 'ListChecks'},
                 'description': 'Temporary spec RPC projection for v22 qualification', 'server': './server.ts'}}))
-        checkout_source = PLATFORM / 'plugins/environment-project-checkout'
-        checkout = self.root / 'hyperfide-checkout'
-        _shutil.copytree(checkout_source, checkout, ignore=_shutil.ignore_patterns('node_modules', 'dist'))
-        (checkout / 'node_modules').symlink_to(checkout_source / 'node_modules', target_is_directory=True)
-        checkout_manifest = json.loads((checkout / 'package.json').read_text())
-        checkout_manifest['name'] = 'hyperfide-plugin-hyperfide-checkout'
-        checkout_manifest[metadata_key].pop('app', None)
-        (checkout / 'package.json').write_text(json.dumps(checkout_manifest))
-        for path in (echo, checkout, adapter):
+        # The bundled environment-project-checkout plugin is enabled by default and owns the
+        # project-checkout provider id; installing a copy of it would collide.
+        for path in (echo, adapter):
             result = self.request('/api/v1/plugins/install', {'source': str(path)})
             assert result['plugin']['status'] == 'running', result
 
@@ -991,8 +986,8 @@ import {registerQualification} from './qualification';
 import {registerChecker, registerWaveClosure} from './server';
 import {writeReceipt, canonical} from './receipts';
 import {openQualifyStorage, publicationStore} from './storage';
-import {makeHumanTasks} from '../hyperfide-spec/closure-projection';
-import {runBinary} from '../hyperfide-spec/projection-run-task';
+import {makeHumanTasks} from '../hyperfide-spec/wave-authority';
+import {runBinary} from '../hyperfide-spec/src/execution';
 const [repo, binary, remote, base, root] = process.argv.slice(2);
 const run = async (command, args) => {
   const result = await runBinary(command, args, repo);
