@@ -709,7 +709,7 @@ owner = "memory"
 
 [task.7.3]
 title = "Documentation of the merged system"
-status = "implemented"
+status = "done"
 wave = 7
 requires = ["6.5", "5.7", "4.5", "7.1", "7.2"]
 touches = ["docs/hyperfide/platform.md", "docs/hyperfide/operations.md", "docs/ARCHITECTURE.md", "README.md", "platform/docs/**", "platform/README.md", "deploy/hyperfide/sandbox/README.md", "tests/hyperfide/cases/v22/7_3.sh"]
