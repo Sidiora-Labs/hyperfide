@@ -69,5 +69,5 @@ export function createDesktopReleaseConfig(channel) {
 }
 
 export function createDesktopUpdateReleaseBaseUrl(releaseTag) {
-  return `https://github.com/hyperfide/hyperfide/releases/download/${releaseTag}/`;
+  return `https://github.com/Sidiora-Labs/hyperfide/releases/download/${releaseTag}/`;
 }

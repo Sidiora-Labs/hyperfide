@@ -61,9 +61,10 @@ const TRANSFER_MARGIN_BYTES = 4 * 1024;
 const CANCELLED_REASON = "The call was cancelled.";
 
 declare const WebAssembly: {
-  Memory: new (descriptor: { initial: number; maximum: number }) => {
-    grow(deltaPages: number): number;
-  };
+  Memory: new (descriptor: {
+    initial: number;
+    maximum: number;
+  }) => ReturnType<QuickJSWASMModule["getWasmMemory"]>;
 };
 
 class SandboxMemory extends WebAssembly.Memory {

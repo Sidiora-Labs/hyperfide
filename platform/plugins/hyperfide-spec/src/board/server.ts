@@ -1,5 +1,7 @@
+import { DurableMemoryBridge } from '../../../memory/durable-memory.js';
 import { openSpecStorage } from '../storage.js';
 import type { PluginStorage } from '@hyperfide/authority';
+import { taskReceipts } from '../../receipt-detail.js';
 import { execFile } from 'node:child_process';
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -30,12 +32,12 @@ const run: CommandRunner = (binary, args, cwd) => new Promise((resolve, reject) 
 
 // Repository and binary are server configuration, never client supplied paths.
 export function createBoardServer(repository: string, readTasks: BoardRpc['tasks'],
-  binary = 'hyperfide', execute: CommandRunner = run, suppliedStorage?: PluginStorage): BoardRpc {
+  binary: string | undefined = undefined, execute: CommandRunner = run, suppliedStorage?: PluginStorage): BoardRpc {
   const tasks = async (feature: string) => {
     const storage = suppliedStorage ?? await openSpecStorage(repository);
     try {
       const rows = await Promise.all((await readTasks(feature)).map(async task => ({
-        ...task, latestReceipt: await latestReceipt(repository, task.id),
+        ...task, receipts: await taskReceipts(repository, task.id, `spec/${feature}/spec.kvx`), latestReceipt: await latestReceipt(repository, task.id),
       })));
       await storage.put('board:' + feature, rows);
       return rows;
@@ -43,6 +45,12 @@ export function createBoardServer(repository: string, readTasks: BoardRpc['tasks
   };
   return {
     tasks,
+    async task(feature, id) {
+      const found = (await readTasks(feature)).find(task => task.id === id);
+      if (!found) throw new Error(`Unknown task ${id}`);
+      const memory = new DurableMemoryBridge({ ...process.env, ...(binary ? { HYPERFIDE_BIN: binary } : {}) });
+      return { ...found, latestReceipt: await latestReceipt(repository, id), recalledDecisions: await memory.recall({ repository, task: `${feature}/${id}` }) };
+    },
     async action(feature: string, id: string, action: BoardAction) {
       if (action !== 'start' && action !== 'implemented') throw new Error('Unsupported board action');
       if (!/^[a-zA-Z0-9_.-]+$/.test(feature) || !/^[a-zA-Z0-9_.-]+$/.test(id)) {
@@ -50,7 +58,7 @@ export function createBoardServer(repository: string, readTasks: BoardRpc['tasks
       }
       const tasks: Task[] = await readTasks(feature);
       if (!tasks.some(task => task.id === id)) throw new Error(`Unknown task ${id}`);
-      await execute(binary, ['spec', action, id, '-f', feature], repository);
+      await execute(binary ?? 'hyperfide', ['spec', action, id, '-f', feature], repository);
     },
   };
 }

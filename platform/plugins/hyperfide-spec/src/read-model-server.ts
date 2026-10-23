@@ -35,9 +35,9 @@ export async function registerSpecReadModel(api: HyperfidePluginApi, repositorie
 }
 
 export default async function specPlugin(api: HyperfidePluginApi) {
-  registerBoard(api);
   const repositories = await api.storage.kv.get<string[]>('spec.repositories') ??
     (await api.sdk.projects.list()).flatMap(project => project.sources.map(source => source.path));
   const binary = await api.storage.kv.get<string>('spec.binaryPath');
+  registerBoard(api, repositories, binary);
   return registerSpecReadModel(api, repositories, binary);
 }

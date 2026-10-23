@@ -24,7 +24,7 @@ export function createDesktopReleaseInfo(
     channel,
     iconFileName: nightly ? "icon-nightly.png" : "icon.png",
     releaseTag,
-    updateReleaseBaseUrl: `https://github.com/hyperfide/hyperfide/releases/download/${releaseTag}/`,
+    updateReleaseBaseUrl: `https://github.com/Sidiora-Labs/hyperfide/releases/download/${releaseTag}/`,
   };
 }
 

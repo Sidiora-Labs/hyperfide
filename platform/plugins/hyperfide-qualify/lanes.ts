@@ -2,6 +2,8 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { createQualificationAdapter, runBinary, type QualificationAdapter } from './adapter';
+import { writeReceipt } from './receipts';
+import { openQualifyStorage } from './storage';
 export type LaneState = 'queued' | 'running' | 'passed' | 'failed' | 'cancelled';
 export interface StartLane { repository: string; feature: string; task: string; mode?: 'verify' | 'done'; postgres?: boolean; busyTimeoutMs?: number }
 export interface Lane {
@@ -9,6 +11,8 @@ export interface Lane {
   commit: string | null; environmentId: string | null; environmentPath: string | null;
   toolchain: {node: string | null; pnpm: string | null; hyperfide: string | null};
   exitCode: number | null; signal: string | null; durationMs: number | null; error: string | null; busyTimeoutMs: number;
+  receipt?: string;
+  verifyCmd: string;
 }
 export interface LogEntry { sequence: number; stream: 'stdout' | 'stderr'; text: string }
 export interface LaneEvent { lane: Lane; log?: LogEntry }
@@ -38,7 +42,7 @@ export class LaneService {
     if (this.closed) throw new Error('Qualification service is closed');
     const mode = input.mode ?? 'verify';
     const command = mode === 'done' ? `${quote(this.adapter.binary)} spec done ${quote(input.task)}` : task.verify_cmd;
-    const lane: Lane = {...input, id: randomUUID(), mode, busyTimeoutMs,
+    const lane: Lane = {...input, id: randomUUID(), mode, busyTimeoutMs, verifyCmd: task.verify_cmd,
       command: input.postgres ? `python3 tests/hyperfide/support/withpg.py -- sh -c ${quote(command)}` : command,
       state: 'queued', commit: null, environmentId: null, environmentPath: null,
       toolchain: {node: null, pnpm: null, hyperfide: null}, exitCode: null, signal: null, durationMs: null, error: null};
@@ -92,6 +96,25 @@ export class LaneService {
         child.once('close', (code, signal) => { if (job.cancelled) kill(child, 'SIGKILL'); clearInterval(escalation); lane.exitCode = code; lane.signal = signal; resolve(); });
       });
       lane.state = lane.exitCode === 0 ? 'passed' : 'failed';
+      if (lane.state === 'passed' && !job.cancelled) {
+        // Pin the executed tree before releasing it; retain evidence in the source repository.
+        const tracked = await runBinary('git', ['ls-files', '-z'], options);
+        const sources = tracked.stdout.split('\0').filter(path => path &&
+          !path.split('/').some(part => part === '.env' || part.startsWith('.env.')) &&
+          !path.startsWith('artifacts/'));
+        const result = await writeReceipt({ task: lane.task, cwd: lane.repository,
+          sourceRoot: environment.path, commit: lane.commit!, verify_cmd: lane.verifyCmd,
+          exit: lane.exitCode!, duration: performance.now() - started,
+          toolchain: Object.fromEntries(Object.entries(lane.toolchain).filter((entry): entry is [string, string] => entry[1] !== null)),
+          log: this.logs.get(lane.id)!.map(entry => entry.text).join(''),
+          sources });
+        if (result) {
+          lane.receipt = result.path;
+          const storage = await openQualifyStorage(lane.repository);
+          try { await storage.put('receipt:' + result.path, result.receipt); }
+          finally { storage.close(); }
+        }
+      }
     } catch (error) { lane.error = error instanceof Error ? error.message : String(error); lane.state = 'failed'; }
     finally {
       try { await environment?.release(); } catch (error) { lane.error = `Environment cleanup failed: ${String(error)}`; lane.state = 'failed'; }

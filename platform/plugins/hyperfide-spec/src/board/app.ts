@@ -14,12 +14,14 @@ export function renderDetail(task: Task, tasks: Task[]): string {
   return `<section aria-label="Task detail"><h2>${escape(task.id)}: ${escape(task.title)}</h2>
 <h3>Criteria</h3>${list(task.criteria.map(criterion => `${criterion.id}: ${criterion.text}`))}
 <h3>Instructions</h3>${list(task.do)}<h3>Touches</h3>${list(task.touches)}
+<h3>Recalled decisions</h3>${list((task.recalledDecisions ?? []).map(memory => `#${memory.id} [${memory.type}] ${memory.body}`))}
 <h3>Verify command</h3><pre>${escape(task.verify_cmd)}</pre>
 <h3>Requires</h3>${list(task.requires.map(id => {
     const dependency = tasks.find(candidate => candidate.id === id);
     return `${id}: ${dependency?.status ?? 'missing'}${dependency?.status === 'done' ? '' : ' (blocks this task)'}`;
   }))}<h3>Blocks</h3>${list(blocks.map(candidate => `${candidate.id}: ${candidate.title}`))}
 ${safeReceipt ? `<a href="${escape(receipt)}">Latest receipt</a>` : ''}
+${(task.receipts ?? []).map(receipt => `<article aria-label="Receipt"><code>${escape(receipt.digest)}</code>${list(receipt.warnings)}<a href="${escape(receipt.log)}">Open log</a> <a href="${escape(receipt.bundle)}">Open bundle list</a></article>`).join('')}
 <button data-action="start" data-task="${escape(task.id)}"${task.status !== 'pending' ? ' disabled' : ''}>Start</button>
 <button data-action="implemented" data-task="${escape(task.id)}"${task.status !== 'in_progress' ? ' disabled' : ''}>Implemented</button>
 <button disabled title="Qualification sets done">Done</button></section>`;
@@ -41,6 +43,14 @@ export class BoardController {
   busy = false;
   constructor(public model: BoardModel, private rpc: BoardRpc) {}
   render() { return `${renderBoard(this.model, this.filters, this.selected)}<p role="alert">${escape(this.error)}</p>`; }
+  async select(id: string) {
+    this.selected = id;
+    if (!this.rpc.task) return;
+    try {
+      const detail = await this.rpc.task(this.model.feature, id);
+      this.model = { ...this.model, tasks: this.model.tasks.map(task => task.id === id ? detail : task) };
+    } catch (error) { this.error = error instanceof Error ? error.message : String(error); }
+  }
   async action(id: string, action: BoardAction) {
     if (this.busy) return;
     if (action !== 'start' && action !== 'implemented') { this.error = 'Unsupported board action'; return; }
@@ -61,7 +71,7 @@ export function mountBoard(root: HTMLElement, model: BoardModel, rpc: BoardRpc):
   const click = async (event: Event) => {
     const button = (event.target as Element).closest<HTMLButtonElement>('button');
     if (!button || button.disabled || board.busy) return;
-    if (button.dataset.select) { board.selected = button.dataset.select; render(); }
+    if (button.dataset.select) { await board.select(button.dataset.select); render(); }
     if (button.dataset.action && button.dataset.task) {
       const pending = board.action(button.dataset.task, button.dataset.action as BoardAction);
       root.setAttribute('aria-busy', 'true');

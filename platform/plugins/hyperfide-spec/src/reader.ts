@@ -1,16 +1,18 @@
+import { durableMemorySchema, type DurableMemory } from '../../memory/durable-memory.js';
 import { execFile } from 'node:child_process';
 import { watch, type FSWatcher } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { featureFromKvx } from './kvx.js';
 import type { SpecRead, SpecSnapshot, SpecRpc } from './shared/model.js';
+import { taskReceipts } from '../receipt-detail.js';
 
 export interface SpecStorage {
   get(key: string): Promise<SpecSnapshot | undefined>;
   set(key: string, value: SpecSnapshot): Promise<void>;
 }
 export type SpecCommand = (args: string[], repository: string) => Promise<Record<string, unknown>>;
-export function binaryCommand(binary = 'hyperfide', timeout = 600_000): SpecCommand {
+export function binaryCommand(binary = process.env.HYPERFIDE_BIN || 'hyperfide', timeout = 600_000): SpecCommand {
   return (args, repository) => new Promise((accept, reject) => {
     execFile(binary, args, { cwd: repository, timeout, maxBuffer: 32 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) { reject(new Error(stderr.trim() || error.message)); return; }
@@ -89,7 +91,17 @@ export class SpecReader implements SpecRpc {
   async task(feature: string, id: string) {
     const found = (await this.tasks(feature)).find(item => item.id === id);
     if (!found) throw new Error(`Unknown task ${feature}/${id}`);
-    return found;
+    const recalledDecisions: DurableMemory[] = [];
+    for (const type of ['decision', 'constraint']) {
+      // Recall is an enrichment: a binary without durable memory, a repository that is not a Hyperfide project,
+      // or a stubbed command yields no decisions, not a failure.
+      const result = await this.command(['recall', '--task', `${feature}/${id}`, '--type', type, '-n', '1000', '--json'], this.repository)
+        .catch((): Record<string, unknown> => ({}));
+      const memories = Array.isArray(result.memories) ? result.memories : [];
+      recalledDecisions.push(...memories.map(value => durableMemorySchema.parse(value))
+        .filter(memory => memory.task === `${feature}/${id}` && memory.type === type));
+    }
+    return { ...found, recalledDecisions, receipts: await taskReceipts(this.repository, id, `spec/${feature}/spec.kvx`) };
   }
   async waves(feature: string) {
     const tasks = await this.tasks(feature);

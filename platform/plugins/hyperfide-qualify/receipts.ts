@@ -12,6 +12,7 @@ const sha = (value: string | Buffer) => createHash("sha256").update(value).diges
 export interface PassedLane {
   task: string; cwd: string; verify_cmd: string; exit: number; duration: number;
   toolchain: Record<string, string>; log: string; sources: string[];
+  commit?: string; sourceRoot?: string;
 }
 export interface Receipt {
   task: string; commit: string; verify_cmd: string; exit: number; duration: number;
@@ -26,9 +27,9 @@ function sourcePath(root: string, path: string) {
 export async function writeReceipt(lane: PassedLane, runner: Runner = runBinary) {
   if (lane.exit !== 0) return undefined;
   if (!/^\d+\.\d+$/.test(lane.task) || !lane.sources.length || !Object.keys(lane.toolchain).length || !Number.isFinite(lane.duration) || lane.duration < 0) throw new Error("Invalid lane evidence");
-  const commit = await runner("git", ["rev-parse", "HEAD"], lane.cwd);
+  const commit = lane.commit ? { exit: 0, stdout: lane.commit } : await runner("git", ["rev-parse", "HEAD"], lane.cwd);
   if (commit.exit || !/^[a-f0-9]{40}$/.test(commit.stdout.trim())) throw new Error("Cannot pin lane commit");
-  const inputs = await Promise.all(lane.sources.map(async path => ({ original_path: path, sha256: sha(await readFile(sourcePath(lane.cwd, path))) })));
+  const inputs = await Promise.all(lane.sources.map(async path => ({ original_path: path, sha256: sha(await readFile(sourcePath(lane.sourceRoot ?? lane.cwd, path))) })));
   const folder = join("artifacts/hyperfide/tasks", lane.task, randomUUID());
   await mkdir(join(lane.cwd, folder), { recursive: true });
   const log = join(folder, "verify.log"), bundle = join(folder, "bundle.json");

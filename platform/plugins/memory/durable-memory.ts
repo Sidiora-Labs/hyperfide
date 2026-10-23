@@ -1,16 +1,7 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { inspectHyperfide } from "../../apps/host-daemon/src/hyperfide-status.js";
 import { z } from "zod";
-
-// Projection of 1.3: the graph/daemon owns binary resolution and host execution.
-// Replace this interface with the graph plugin client when 1.3 merges.
-export interface GraphMemoryHost {
-  binaryPath(repository: string): Promise<string>;
-  execute(input: {
-    binary: string;
-    repository: string;
-    args: string[];
-    timeoutMs: number;
-  }): Promise<{ exitCode: number; stdout: string; stderr: string }>;
-}
 
 export const durableMemorySchema = z.object({
   id: z.number().int(),
@@ -26,19 +17,16 @@ export const taskScopeSchema = z.object({
 });
 export type TaskScope = z.infer<typeof taskScopeSchema>;
 
-export class GraphMemoryBridge {
-  constructor(private readonly host: GraphMemoryHost) {}
+export class DurableMemoryBridge {
+  constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
 
   private async run(scope: TaskScope, args: string[]): Promise<unknown> {
     taskScopeSchema.parse(scope);
-    const binary = await this.host.binaryPath(scope.repository);
-    if (!binary) throw new Error("Hyperfide binary is not configured on this host");
-    const result = await this.host.execute({
-      binary, repository: scope.repository, args: [...args, "--json"], timeoutMs: 15_000,
+    const binary = await inspectHyperfide(scope.repository, this.env);
+    if (!binary.ok || !binary.path) throw new Error("Hyperfide binary is not configured on this host");
+    const result = await promisify(execFile)(binary.path, [...args, "--json"], {
+      cwd: scope.repository, env: this.env, timeout: 15_000, maxBuffer: 8 * 1024 * 1024,
     });
-    if (result.exitCode !== 0) {
-      throw new Error(`Hyperfide memory command failed (${result.exitCode}): ${result.stderr}`);
-    }
     return JSON.parse(result.stdout);
   }
 

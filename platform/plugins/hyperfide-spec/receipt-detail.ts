@@ -1,6 +1,16 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
-import { runBinary, type Runner } from "./src/execution";
+import { runBinary, type Runner } from "./src/execution.js";
+
+export interface TaskReceipt {
+  digest: string; warnings: string[]; log: string; bundle: string;
+}
+export async function taskReceipts(cwd: string, task: string, spec: string): Promise<TaskReceipt[]> {
+  if (!/^\d+\.\d+$/.test(task)) return [];
+  const details = await receiptDetail(cwd, task, spec, async () => {});
+  return details.map(({ receipt, warnings }) => ({ digest: receipt.digest, warnings,
+    log: './' + receipt.evidence[0], bundle: './' + receipt.evidence[1] }));
+}
 
 export async function receiptDetail(cwd: string, task: string, spec: string, open: (path: string) => Promise<void>, runner: Runner = runBinary,
   checker = "tests/hyperfide/closure_check.py") {
@@ -25,12 +35,4 @@ export async function receiptDetail(cwd: string, task: string, spec: string, ope
     };
     return { receipt, closure, warnings, openLog: () => openEvidence(0), openBundleList: () => openEvidence(1) };
   }));
-}
-
-export interface ReceiptDetailHost {
-  onTaskDetail(handler: (task: { cwd: string; id: string; spec: string }) => ReturnType<typeof receiptDetail>): void;
-  openFile(path: string): Promise<void>;
-}
-export function registerReceiptDetail(host: ReceiptDetailHost, runner: Runner = runBinary, checker?: string) {
-  host.onTaskDetail(task => receiptDetail(task.cwd, task.id, task.spec, path => host.openFile(path), runner, checker));
 }

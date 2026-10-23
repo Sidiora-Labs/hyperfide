@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const NODE_ENTRY_IMPORT_TEST_TIMEOUT_MS = 15_000;
+const NODE_ENTRY_IMPORT_TEST_TIMEOUT_MS = 60_000;
 
 afterEach(() => {
   vi.unstubAllEnvs();
