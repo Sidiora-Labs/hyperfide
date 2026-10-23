@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,7 +30,7 @@ function isBbAppPackageJson(value: unknown): value is BbAppPackageJson {
 function readBbAppVersionAt(packageJsonPath: string): string | null {
   try {
     const parsed: unknown = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-    if (!isBbAppPackageJson(parsed) || parsed.name !== "bb-app") {
+    if (!isBbAppPackageJson(parsed) || parsed.name !== "hyperfide-app") {
       return null;
     }
     return parsed.version;
@@ -60,18 +60,14 @@ export function resolveBbAppVersion(args: ResolveBbAppVersionArgs): string {
     if (candidateVersion !== null) {
       return candidateVersion;
     }
-    const workspaceCandidatePath = join(
-      currentDir,
-      "packages",
-      "bb-app",
-      "package.json",
-    );
-    const workspaceCandidateVersion = readBbAppVersionAt(
-      workspaceCandidatePath,
-    );
-    if (workspaceCandidateVersion !== null) {
-      return workspaceCandidateVersion;
-    }
+    // Locate the launcher by manifest identity while package paths are migrated.
+    try {
+      const packages = join(currentDir, "packages");
+      for (const entry of readdirSync(packages)) {
+        const version = readBbAppVersionAt(join(packages, entry, "package.json"));
+        if (version !== null) return version;
+      }
+    } catch { /* This ancestor need not be a workspace. */ }
     const parentDir = dirname(currentDir);
     if (parentDir === currentDir) {
       break;
