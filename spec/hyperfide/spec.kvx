@@ -536,7 +536,7 @@ do_11 = "Implement the task's registered positive/negative assertions and immuta
 
 [task.15.2]
 title = "Store complete immutable artifacts with receipts and checksums"
-status = "pending"
+status = "done"
 wave = 7
 requires = ["4.1", "4.2", "14.1"]
 touches = ["services/hyperfide/src/artifacts/objects.ts", "tests/hyperfide/manifests/tasks/15.2.json", "tests/hyperfide/cases/tasks/15_2.py", "tests/hyperfide/registrations/15.2.json", "services/hyperfide/components/15.2.json"]
@@ -628,7 +628,7 @@ do_7 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.6.1]
 title = "Implement transactional pending outbox and committed delivery obligations"
-status = "pending"
+status = "done"
 wave = 7
 requires = ["4.2", "14.1"]
 touches = ["services/hyperfide/src/events/outbox.ts", "tests/hyperfide/manifests/tasks/6.1.json", "tests/hyperfide/cases/tasks/6_1.py", "tests/hyperfide/registrations/6.1.json", "services/hyperfide/components/6.1.json", "services/hyperfide/migrations/0006-event-session-bindings.sql"]
@@ -685,7 +685,7 @@ do_10 = "Implement the task's registered positive/negative assertions and immuta
 
 [task.14.2]
 title = "Inject layered variables and rotate scoped credential references"
-status = "pending"
+status = "done"
 wave = 7
 requires = ["14.1"]
 touches = ["services/hyperfide/src/identity/credentials.ts", "tests/hyperfide/manifests/tasks/14.2.json", "tests/hyperfide/cases/tasks/14_2.py", "tests/hyperfide/registrations/14.2.json", "services/hyperfide/components/14.2.json", "services/hyperfide/src/transport/isolation.ts", "tests/hyperfide/cases/tasks/14_isolation_transport.py", "services/hyperfide/src/transport/writer_observation.ts", "tests/hyperfide/cases/tasks/14_writer_observation_transport.py", "services/hyperfide/src/identity/recovery.ts", "services/hyperfide/migrations/0040-identity-recovery.sql"]

@@ -185,6 +185,15 @@
       ]
     },
     {
+      "ref": "refs/evidence/6.1/2",
+      "task": "6.1",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
       "ref": "refs/evidence/6.2/1",
       "task": "6.2",
       "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
@@ -500,6 +509,15 @@
       ]
     },
     {
+      "ref": "refs/evidence/14.2/2",
+      "task": "14.2",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
       "ref": "refs/evidence/14.3/1",
       "task": "14.3",
       "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
@@ -530,6 +548,15 @@
       "ref": "refs/evidence/15.2/1",
       "task": "15.2",
       "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/15.2/2",
+      "task": "15.2",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
       "fields": [
         "commit",
         "requalified_on"
