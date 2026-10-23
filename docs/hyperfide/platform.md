@@ -121,10 +121,12 @@ hyperfide platform memory recall --repository ROOT --task FEATURE/ID
 bash tests/hyperfide/cases/v22/7_2.sh
 ```
 
-The bridge calls `hyperfide remember` and `hyperfide recall` through a configured
-host binary adapter. Without that adapter durable commands report a configuration
-error. The `TaskMemoryProjection` packet/detail adapter recalls decisions and constraints for the task
-and direct prerequisites into Recalled decisions. The private catalog and binary
+The `DurableMemoryBridge` calls `hyperfide remember` and `hyperfide recall` through the
+configured host binary adapter. Without that adapter durable commands report a configuration
+error. Every call carries a `TaskScope` (the repository root and a `FEATURE/ID` task); `recall`
+returns the task's `DurableMemory` decisions and constraints, queried per type so unrelated
+facts cannot consume the result limit, and the spec plugin lists them as Recalled decisions in
+the task packet. The private catalog and binary
 store are separate; this bridge does not synchronize arbitrary private memories.
 Never store secrets in memory or task packets.
 
