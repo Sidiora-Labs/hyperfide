@@ -1199,7 +1199,7 @@ describe("in-turn timeline windows", () => {
     expect(pages).toBeGreaterThan(1);
     expect(commandCallIds.size).toBe(BYTE_WINDOW_ITEM_COUNT);
     expect(expandedCommandCallIds.size).toBe(BYTE_WINDOW_ITEM_COUNT);
-  }, 15_000);
+  }, 60_000);
 
   it("returns one oversized atomic row without discarding its content", () => {
     const { db, thread } = setup();

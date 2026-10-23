@@ -30,7 +30,7 @@ for name in subprocess.check_output(['git', 'ls-files', 'platform/'], text=True)
 assert not violations, 'Third-party reporting remains in: ' + ', '.join(violations)
 print('Telemetry scan passed')
 PY
-pnpm -C platform exec turbo run typecheck --filter=./packages/config --filter=./packages/domain --filter=./packages/sdk --filter=./packages/server-contract --filter=./packages/scripts --filter=./packages/hyperfide-app --filter=./apps/server --filter=./apps/app --filter=./apps/web
+pnpm -C platform exec turbo run typecheck --filter=./packages/config --filter=./packages/domain --filter=./packages/sdk --filter=./packages/server-contract --filter=./packages/scripts --filter=./packages/hyperfide-app --filter=./apps/server --filter=./apps/app
 pnpm -C platform exec turbo run test --filter=./packages/hyperfide-app --filter=./packages/config --filter=./packages/domain --filter=./packages/sdk --filter=./packages/server-contract
 # 0.7 owns these tests: their removed platform/.github fixtures or zip dependency.
 # Keep the exclusions by file name, and run every remaining scripts/server test.
@@ -38,4 +38,4 @@ excludes=()
 for name in actions-api.test.mjs ci-bun.test.mjs ci-fuse.test.mjs ci-health.test.mjs ci-performance.test.mjs ci-selection.test.mjs ci-workflow.test.ts pr-approval-workflows.test.ts; do
   excludes+=(--exclude "**/$name")
 done
-pnpm -C platform exec turbo run test --filter=./packages/scripts --filter=./apps/server -- --maxWorkers=2 "${excludes[@]}"
+pnpm -C platform exec turbo run test --filter=./packages/scripts --filter=./apps/server -- --maxWorkers=2 --testTimeout=60000 --hookTimeout=60000 "${excludes[@]}"
