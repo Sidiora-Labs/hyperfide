@@ -303,7 +303,9 @@ type AskKind=typeof askKinds[number];
 // Choice kinds are answered with one of the offered options; variables and questions take free text.
 const choiceKinds:readonly AskKind[]=['permission','decision'];
 // Humans provide secrets, variables and permissions (D9); the leader may settle a decision or question.
-const askAnswerers:Readonly<Record<AskKind,readonly string[]>>=Object.freeze(Object.fromEntries(askKinds.map(kind=>[kind,askAnswererRoles(kind)])) as unknown as Record<AskKind,readonly string[]>);
+// Read at call time: agents/admission.ts imports this module through native_asks.ts (4.1), so ASK_POLICY is not
+// initialised while this module evaluates when admission loads first.
+const askAnswerers=(kind:AskKind):readonly string[]=>askAnswererRoles(kind);
 const askExpirers=['OPERATOR','COORDINATOR','LEADER'];
 const askReaders=['OPERATOR','COORDINATOR','LEADER','FEATURE_MANAGER'];
 const askStates=['OPEN','ANSWERED','EXPIRED'];
@@ -436,7 +438,7 @@ function askAnswer(context:RuntimeContext,input:unknown):Promise<unknown>{
  const v=exact(input,['ask_id','expected_state_version','answer']),answer=text(v.answer,1,65536,'Answer');
  return askTransaction(context,'human.ask.answer',null,async(tx,actor,outbox)=>{
   const row=await lockedAsk(tx,actor,v),kind=row.kind as AskKind;
-  if(!askAnswerers[kind].includes(actor.role))refuse('Role '+actor.role+' cannot answer a '+kind+' Ask');
+  if(!askAnswerers(kind).includes(actor.role))refuse('Role '+actor.role+' cannot answer a '+kind+' Ask');
   if(row.state==='ANSWERED')refuse('Ask is already answered');
   if(row.state==='EXPIRED'&&row.default_policy!=='block')refuse('The default was taken at the deadline; raise a new Ask to change it');
   if(kind==='secret'&&!/^secret-ref:[A-Za-z0-9._-]{1,200}$/.test(answer))refuse('A secret is answered with a secret-ref:, never its value');
@@ -486,7 +488,7 @@ function askSweep(context:RuntimeContext,input:unknown):Promise<unknown>{
 function askPolicyView(context:RuntimeContext,input:unknown):Promise<unknown>{
  exact(input,[]);
  return askTransaction(context,'human.ask.policy',null,async()=>({policy_revision:ASK_POLICY_REVISION,
-  kinds:Object.fromEntries(askKinds.map(kind=>[kind,{...ASK_POLICY[kind],chain:[...ASK_POLICY[kind].chain],answerers:[...askAnswerers[kind]],choice:choiceKinds.includes(kind)}])),authority:'NONE'}),false);
+  kinds:Object.fromEntries(askKinds.map(kind=>[kind,{...ASK_POLICY[kind],chain:[...ASK_POLICY[kind].chain],answerers:[...askAnswerers(kind)],choice:choiceKinds.includes(kind)}])),authority:'NONE'}),false);
 }
 function askList(context:RuntimeContext,input:unknown):Promise<unknown>{
  const v=exact(input,['state','limit']);

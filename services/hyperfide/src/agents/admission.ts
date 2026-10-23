@@ -7,6 +7,7 @@ import type {PrimaryTransaction} from '../storage/transactions.js';
 import type {InvocationContext,AuthorityTransaction} from '../transport/protocol.js';
 import {object} from '../policy/programme.js';
 import {nativeAskRequests,raiseNativeAsks} from './native_asks.js';
+import {admissionEnvReferences} from './env_refs.js';
 import {assertScopeNotHeld} from '../recovery/scope_hold.js';
 
 type Policy={organisation_id:string;run_id:string;run_policy_digest:string;quota_key:string;connector:string;connector_version:string;provider:string;model:string;auth_profile:string;permission_profile:string;qualification_digest:string;max_concurrent:number;max_attempts:number;retry_base_ms:number;retry_max_ms:number;unattended:true;native_delegation:false};
@@ -138,6 +139,8 @@ async function assertRunPolicy(client:{query:AuthorityTransaction['query']},s:{o
 export interface AdmissionPlanSelection {
  reservation_id:string;reservation_attempt:number;policy_digest:string;run_policy_digest:string;connector:'codex'|'claude';connector_version:string;
  provider:string;model:string;auth_profile:string;permission_profile:string;qualification_digest:string;native_delegation:false;
+ /** 3.15: the task's declared secret references (NAME -> secret-ref:ID) the pool profile allows. */
+ env_refs:Readonly<Record<string,string>>;
 }
 export function createComponent(ctx:ComponentContext):Component{
  // Frozen once per component startup. Requests cannot replace approved permission or quota policy.
@@ -340,7 +343,8 @@ export function createComponent(ctx:ComponentContext):Component{
  // the frozen native configuration must still be the one that was qualified.
  const native=await getNativeSessionProfile(ctx,p.auth_profile);
  if(bound.connector!==p.connector||bound.auth_profile!==p.auth_profile||bound.connector_version!==p.connector_version||!nativeEligible(native,p,bound.configuration_digest))return refuse('ADMISSION_PROFILE_DRIFT');
- return {selection:Object.freeze({reservation_id:String(row.id),reservation_attempt:Number(row.attempt_count),policy_digest:String(row.policy_digest),run_policy_digest:runPolicy,connector:p.connector as 'codex'|'claude',connector_version:p.connector_version,provider:p.provider,model:p.model,auth_profile:p.auth_profile,permission_profile:p.permission_profile,qualification_digest:p.qualification_digest,native_delegation:false as const}),reason:null};
+ const env_refs=await admissionEnvReferences(tx,scope);
+ return {selection:Object.freeze({reservation_id:String(row.id),reservation_attempt:Number(row.attempt_count),policy_digest:String(row.policy_digest),run_policy_digest:runPolicy,connector:p.connector as 'codex'|'claude',connector_version:p.connector_version,provider:p.provider,model:p.model,auth_profile:p.auth_profile,permission_profile:p.permission_profile,qualification_digest:p.qualification_digest,native_delegation:false as const,env_refs}),reason:null};
  };
  const component:Component={apiVersion:1,actions:{'agent.admission.reserve':action('reserve'),'agent.admission.inspect':action('inspect'),'agent.admission.report':action('report'),'agent.admission.recovery-context':action('context'),'agent.admission.observe':action('observe'),'agent.admission.escalations':action('escalations')}};
  const capability:AgentAdmissionCapability=Object.freeze({schema_version:1 as const,launchSelection,recoveryContextInTransaction:async(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext)=>{assertInvocation(invocation);assertPrimaryTransaction(tx);return action('context',tx)(input,Object.freeze({...ctx,invocation}));},recoveryContext:async(input:unknown,invocation:InvocationContext)=>{
