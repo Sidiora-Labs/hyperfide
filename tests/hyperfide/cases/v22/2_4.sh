@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../../../.."
-node --test platform/plugins/hyperfide-spec/cli.test.mjs
-pnpm -C platform exec tsc6 --noEmit --allowJs --checkJs --module nodenext --target es2022 --skipLibCheck --types node --typeRoots apps/cli/node_modules/@types plugins/hyperfide-spec/cli.mjs
+pnpm -C platform exec tsc6 --noEmit --allowJs --checkJs --module nodenext --target es2022 --skipLibCheck --types node --typeRoots apps/cli/node_modules/@types plugins/hyperfide-spec/src/cli/index.mjs
+pnpm -C platform exec turbo run typecheck test --filter=./plugins/hyperfide-spec
 pnpm -C platform exec turbo run typecheck test --filter=./apps/cli
 pnpm -C platform exec turbo run build --filter=./apps/cli
 if [ -x ./cg ]; then
@@ -17,8 +17,4 @@ if [ -x ./cg ]; then
 else
   echo 'SKIP: ./cg absent; front-door round trip unavailable'
 fi
-if [ -f tests/hyperfide/cases/v22/identity_gate.py ]; then
-  python3 tests/hyperfide/cases/v22/identity_gate.py --changed
-else
-  python3 platform/plugins/hyperfide-spec/projection_identity_gate.py --changed
-fi
+python3 tests/hyperfide/cases/v22/identity_gate.py --changed
