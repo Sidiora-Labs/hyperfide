@@ -441,7 +441,7 @@ owner = "ask"
 
 [task.3.5]
 title = "Asks end to end"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.2", "3.3", "3.4"]
 touches = ["tests/hyperfide/cases/v22/3_5.py", "tests/hyperfide/support/platform_fixture.py"]
