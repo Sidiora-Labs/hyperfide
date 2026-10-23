@@ -1193,6 +1193,15 @@
       ]
     },
     {
+      "ref": "refs/evidence/19.2/2",
+      "task": "19.2",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
       "ref": "refs/evidence/19.3/1",
       "task": "19.3",
       "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
