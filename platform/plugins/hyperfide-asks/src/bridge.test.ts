@@ -197,3 +197,43 @@ it("adapts policy data and watch ownership for the thread lifecycle", async () =
   await vi.waitFor(() => expect(changed).toHaveBeenCalled());
   expect(onError).not.toHaveBeenCalled();
 });
+
+it("exposes policy, normalized rows and watch ownership to the thread lifecycle", async () => {
+  expect(await bridge.policy(root)).toMatchObject({
+    secret: "block", decision: "proceed-and-flag",
+  });
+  expect((await bridge.list(root))[0]).toMatchObject({
+    task: "3.1", session: "fixture-session", question: "Choose\n\nDetails",
+  });
+  const changed = vi.fn();
+  stop = await bridge.watch(root, changed);
+  await bridge.answer(root, "1", "a");
+  await vi.waitFor(() => expect(changed).toHaveBeenCalled());
+});
+
+it("pauses and resumes through the store bridge while retaining task flags", async () => {
+  const { createAskThreadService } = await import("./server.js");
+  const record = vi.fn();
+  const interrupt = vi.fn();
+  const send = vi.fn();
+  const service = createAskThreadService({
+    repository: root,
+    bridge,
+    threads: { async list() {
+      return [{ id: "fixture-session", repository: root, task: "3.1" }];
+    } },
+    operations: { record, stop: interrupt, send },
+  });
+  await service.lifecycle.sync();
+  expect(interrupt).toHaveBeenCalledTimes(3);
+  expect(service.board.forTask(root, "3.1").flagged).toBe(true);
+  await bridge.answer(root, "3", "secret-ref:fixture");
+  await bridge.answer(root, "4", "configured");
+  await service.lifecycle.sync();
+  expect(send).not.toHaveBeenCalled();
+  await bridge.answer(root, "5", "granted");
+  await service.lifecycle.sync();
+  expect(send).toHaveBeenCalledWith("fixture-session", expect.stringContaining("secret-ref:fixture"));
+  expect(record).toHaveBeenCalledWith("fixture-session", expect.objectContaining({ resumed: true }));
+  await service.lifecycle.dispose();
+});

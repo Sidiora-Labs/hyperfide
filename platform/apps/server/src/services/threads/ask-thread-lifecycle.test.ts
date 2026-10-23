@@ -7,7 +7,7 @@ interface AskRow {
   id: string; task: string; session?: string | null; kind: string; question: string;
   status: string; recommendation?: string; answer?: string; secret_ref?: string;
 }
-interface AskPolicy { default_policy: "block" | "proceed-and-flag" }
+type AskPolicy = "block" | "proceed-and-flag";
 interface AskBridge {
   policy(): Promise<Record<string, AskPolicy>>;
   list(): Promise<AskRow[]>;
@@ -15,9 +15,9 @@ interface AskBridge {
 }
 
 const policies: Record<string, AskPolicy> = {
-  secret: { default_policy: "block" }, variable: { default_policy: "block" },
-  permission: { default_policy: "block" }, decision: { default_policy: "proceed-and-flag" },
-  question: { default_policy: "proceed-and-flag" }, custom: { default_policy: "proceed-and-flag" },
+  secret: "block", variable: "block",
+  permission: "block", decision: "proceed-and-flag",
+  question: "proceed-and-flag", custom: "proceed-and-flag",
 };
 
 /** Scripted echo provider: the transcript includes every delivered input and output. */
@@ -132,22 +132,10 @@ it("refuses a raw secret answer and a missing policy", async () => {
 
 it("obeys a changed policy and keeps expired blocking Asks paused", async () => {
   const f = fixture([{ ...ask("decision"), status: "expired" }], {
-    ...policies, decision: { default_policy: "block" },
+    ...policies, decision: "block",
   });
   await f.lifecycle.sync();
   expect(f.sdk.stops).toEqual(["session"]);
   expect(f.board.forTask("repo", "task").flagged).toBe(false);
   expect(f.sdk.running).toBe(false);
-});
-
-it("normalizes binary Ask rows at the projection boundary", async () => {
-  const projection = new URL("../../../../../plugins/hyperfide-asks/src/task-3-2-projection.ts", import.meta.url).href;
-  const { createProjectedAskBridge } = await import(projection);
-  const bridge = createProjectedAskBridge({
-    async policy() { return policies; },
-    async list() { return [{ id: 1, task: "task", kind: "question", title: "Choose", state: "open", recommended: "continue" }]; },
-    watch() { return () => {}; },
-  });
-  expect(await bridge.list("repo")).toMatchObject([{ question: "Choose", status: "open", recommendation: "continue" }]);
-  expect(await bridge.policy("repo")).toBe(policies);
 });
