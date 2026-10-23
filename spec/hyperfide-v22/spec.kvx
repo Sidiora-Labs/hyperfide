@@ -255,7 +255,7 @@ owner = "graph"
 
 [task.1.3]
 title = "Graph plugin: index panel and binary calls"
-status = "implemented"
+status = "done"
 wave = 1
 requires = ["0.2", "1.2"]
 touches = ["platform/plugins/hyperfide-graph/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/1_3.sh"]
