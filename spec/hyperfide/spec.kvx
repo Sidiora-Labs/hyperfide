@@ -1643,7 +1643,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.22.2]
 title = "Measure calibrated quality, latency and billed cost against baseline"
-status = "pending"
+status = "done"
 wave = 24
 requires = ["22.1", "20.3"]
 touches = ["services/hyperfide/src/evaluation/scorecard.ts", "tests/hyperfide/manifests/tasks/22.2.json", "tests/hyperfide/cases/tasks/22_2.py", "tests/hyperfide/registrations/22.2.json", "services/hyperfide/components/22.2.json"]
