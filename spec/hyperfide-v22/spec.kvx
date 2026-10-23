@@ -268,7 +268,7 @@ owner = "graph"
 
 [task.1.4]
 title = "Worker skill and codify MCP injection"
-status = "pending"
+status = "implemented"
 wave = 1
 requires = ["1.3"]
 touches = ["platform/plugins/hyperfide-graph/**", "platform/plugins/provider-claude-code/**", "platform/plugins/provider-codex/**", "platform/packages/provider-bridge-protocol/src/**", "platform/packages/plugin-sdk/src/**", "tests/hyperfide/cases/v22/1_4.sh"]

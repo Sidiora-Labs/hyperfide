@@ -1,4 +1,5 @@
 export * from "./version.js";
+export * from "./worker-mcp.js";
 export * from "./handshake.js";
 export * from "./execution-options.js";
 export * from "./provider-maintenance.js";
