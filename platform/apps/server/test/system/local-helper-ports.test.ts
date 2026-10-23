@@ -8,19 +8,19 @@ describe("system config local helper ports", () => {
   it("advertises the primary port and distinct ports reported by connected daemons", async () => {
     await withTestHarness(async (harness) => {
       harness.hub.recordDaemonSessionLocalApiPort("session-remote-1", 38_888);
-      harness.hub.registerDaemon(
+      await harness.hub.registerDaemon(
         "session-remote-1",
         "host-remote-1",
         createMockHubSocket(),
       );
       harness.hub.recordDaemonSessionLocalApiPort("session-remote-2", 38_888);
-      harness.hub.registerDaemon(
+      await harness.hub.registerDaemon(
         "session-remote-2",
         "host-remote-2",
         createMockHubSocket(),
       );
       harness.hub.recordDaemonSessionLocalApiPort("session-headless", null);
-      harness.hub.registerDaemon(
+      await harness.hub.registerDaemon(
         "session-headless",
         "host-headless",
         createMockHubSocket(),

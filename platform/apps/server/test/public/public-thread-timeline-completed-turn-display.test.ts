@@ -25,11 +25,11 @@ import { seedEvent, seedThreadFixture } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";
 import type { TestAppHarness } from "../helpers/test-app.js";
 
-function seedFinishedTurnThread(
+async function seedFinishedTurnThread(
   harness: TestAppHarness,
   providerId: string,
-): string {
-  const { environment, thread } = seedThreadFixture(harness, {
+): Promise<string> {
+  const { environment, thread } = await seedThreadFixture(harness, {
     thread: { providerId },
   });
   const scope = {
@@ -77,9 +77,16 @@ function seedFinishedTurnThread(
     ],
     ["turn/completed", { status: "completed" }],
   ];
-  events.forEach(([type, data], index) => {
-    seedEvent(harness.deps, { ...scope, sequence: index + 1, type, data });
-  });
+  await Promise.all(
+    events.map(async ([type, data], index) => {
+      await seedEvent(harness.deps, {
+        ...scope,
+        sequence: index + 1,
+        type,
+        data,
+      });
+    }),
+  );
   return thread.id;
 }
 
@@ -122,8 +129,11 @@ async function putGeneralSettings(
 describe("finished turn display per provider", () => {
   it("renders a provider's finished turns with its declared default", async () => {
     await withTestHarness(async (harness) => {
-      const claudeThreadId = seedFinishedTurnThread(harness, "claude-code");
-      const codexThreadId = seedFinishedTurnThread(harness, "codex");
+      const claudeThreadId = await seedFinishedTurnThread(
+        harness,
+        "claude-code",
+      );
+      const codexThreadId = await seedFinishedTurnThread(harness, "codex");
 
       const claude = await getTimeline(harness, claudeThreadId);
       const codex = await getTimeline(harness, codexThreadId);
@@ -142,7 +152,7 @@ describe("finished turn display per provider", () => {
 
   it("applies the user's per-provider setting to the timeline, turn details, and outline at the same sequence", async () => {
     await withTestHarness(async (harness) => {
-      const threadId = seedFinishedTurnThread(harness, "claude-code");
+      const threadId = await seedFinishedTurnThread(harness, "claude-code");
 
       const flat = await getTimeline(harness, threadId);
       expect(flat.rows.some((row) => row.kind === "turn")).toBe(false);
@@ -189,21 +199,21 @@ describe("finished turn display per provider", () => {
   });
 });
 
-function seedPagedFinishedTurns(
+async function seedPagedFinishedTurns(
   harness: TestAppHarness,
   turnCount: number,
-): string {
-  const { environment, thread } = seedThreadFixture(harness, {
+): Promise<string> {
+  const { environment, thread } = await seedThreadFixture(harness, {
     thread: { providerId: "claude-code" },
   });
   let sequence = 0;
-  const seed = (
+  const seed = async (
     type: Parameters<typeof seedEvent>[1]["type"],
     scope: ReturnType<typeof turnScope> | ReturnType<typeof threadScope>,
     data: Record<string, unknown>,
   ) => {
     sequence += 1;
-    seedEvent(harness.deps, {
+    await seedEvent(harness.deps, {
       threadId: thread.id,
       environmentId: environment.id,
       providerThreadId: "p1",
@@ -216,7 +226,7 @@ function seedPagedFinishedTurns(
   for (let turn = 1; turn <= turnCount; turn += 1) {
     const turnId = `turn-${turn}`;
     const clientRequestId = encodeClientTurnRequestIdNumber({ value: turn });
-    seed("client/turn/requested", threadScope(), {
+    await seed("client/turn/requested", threadScope(), {
       direction: "outbound",
       source: "tell",
       initiator: "user",
@@ -233,16 +243,16 @@ function seedPagedFinishedTurns(
         source: "client/turn/requested",
       },
     });
-    seed("turn/started", turnScope(turnId), {});
-    seed("turn/input/accepted", turnScope(turnId), { clientRequestId });
-    seed("item/completed", turnScope(turnId), {
+    await seed("turn/started", turnScope(turnId), {});
+    await seed("turn/input/accepted", turnScope(turnId), { clientRequestId });
+    await seed("item/completed", turnScope(turnId), {
       item: {
         type: "agentMessage",
         id: `${turnId}-narration`,
         text: `Let me check turn ${turn}.`,
       },
     });
-    seed("item/completed", turnScope(turnId), {
+    await seed("item/completed", turnScope(turnId), {
       item: {
         type: "toolCall",
         id: `${turnId}-tool`,
@@ -251,14 +261,14 @@ function seedPagedFinishedTurns(
         result: "ok",
       },
     });
-    seed("item/completed", turnScope(turnId), {
+    await seed("item/completed", turnScope(turnId), {
       item: {
         type: "agentMessage",
         id: `${turnId}-answer`,
         text: `Turn ${turn} is done.`,
       },
     });
-    seed("turn/completed", turnScope(turnId), { status: "completed" });
+    await seed("turn/completed", turnScope(turnId), { status: "completed" });
   }
   return thread.id;
 }
@@ -311,7 +321,7 @@ describe("finished turn display across loaded pages", () => {
         featureFlags: { ...defaultFeatureFlags, timelineWindowEventBudget: 5 },
       },
       async (harness) => {
-        const threadId = seedPagedFinishedTurns(harness, 4);
+        const threadId = await seedPagedFinishedTurns(harness, 4);
         const flatLatest = await readTimelinePage(harness, threadId, null);
         const flat = await loadOlderPages(
           harness,

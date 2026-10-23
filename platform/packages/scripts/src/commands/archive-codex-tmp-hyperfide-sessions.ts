@@ -694,7 +694,7 @@ async function confirmArchive(
   previews: MatchingThreadPreview[],
   total: number,
 ): Promise<boolean> {
-  return confirmTypedWord({
+  return await confirmTypedWord({
     renderIntro: () => {
       process.stdout.write("\n");
       log(

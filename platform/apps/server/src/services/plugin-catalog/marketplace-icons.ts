@@ -127,10 +127,9 @@ export async function fetchMarketplaceIcons(args: {
   }
 
   const cachedByEntryId = new Map(
-    listPluginMarketplaceIcons(args.db, args.marketplaceName).map((icon) => [
-      icon.entryId,
-      icon,
-    ]),
+    (await listPluginMarketplaceIcons(args.db, args.marketplaceName)).map(
+      (icon) => [icon.entryId, icon],
+    ),
   );
   const resolved = new Map<string, UpsertPluginMarketplaceIconInput>();
   const pending = [...wanted.entries()];

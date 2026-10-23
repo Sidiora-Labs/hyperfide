@@ -1,7 +1,12 @@
 import { installDefaultEnvironmentProviders } from "./environment-provider.js";
 import { registerTestHarnessWarmup } from "./test-harness-warmup.js";
+import { stopEnvironmentOperations } from "../../src/services/environments/environment-engine.js";
+import { stopEnvironmentProvisioningSchedules } from "../../src/services/threads/thread-environment-providers.js";
 import { setPluginEnvironmentProviderBridge } from "../../src/services/plugins/plugin-environment-provider-registry.js";
 import { clearAllThreadProvisionSchedules } from "../../src/services/threads/thread-startup-store.js";
+import { whenResponseDeferralsIdle } from "../../src/services/lib/response-deferral.js";
+import { whenLiveHostCommandSettlementsIdle } from "../../src/services/hosts/live-command.js";
+import { whenThreadStorageOrphanSweepsIdle } from "../../src/services/threads/thread-storage-orphans.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -61,14 +66,16 @@ const TEST_SERVER_HOST = "127.0.0.1";
 const TEST_TERMINAL_RPC_TIMEOUT_MS = 10_000;
 
 export interface TestAppHarness {
-  app: ReturnType<typeof createApp>["app"];
+  app: Awaited<ReturnType<typeof createApp>>["app"];
   config: ServerRuntimeConfig;
   db: DbConnection;
   deps: ServerAppDeps;
   hub: NotificationHub;
-  pluginService: ReturnType<typeof createApp>["pluginService"];
-  pluginCatalogService: ReturnType<typeof createApp>["pluginCatalogService"];
-  serverMove: ReturnType<typeof createApp>["serverMove"];
+  pluginService: Awaited<ReturnType<typeof createApp>>["pluginService"];
+  pluginCatalogService: Awaited<
+    ReturnType<typeof createApp>
+  >["pluginCatalogService"];
+  serverMove: Awaited<ReturnType<typeof createApp>>["serverMove"];
   cleanup(): Promise<void>;
 }
 
@@ -147,9 +154,9 @@ export function createTestDaemonHostKey(
   });
 }
 
-export function createTestDb(): DbConnection {
-  const db = createMigratedConnection();
-  ensurePersonalProject(db);
+export async function createTestDb(): Promise<DbConnection> {
+  const db = await createMigratedConnection();
+  await ensurePersonalProject(db);
   return db;
 }
 
@@ -169,21 +176,21 @@ export async function createTestAppHarness(
   } = overrides;
   const logger = createTestLogger();
   const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-server-test-"));
-  const db = createTestDb();
-  setAppSettings(db, {
-    ...getAppSettings(db),
+  const db = await createTestDb();
+  await setAppSettings(db, {
+    ...(await getAppSettings(db)),
     machineGitCredentialsEnabled: false,
   });
-  const hub = new NotificationHubImpl();
+  const hub = await new NotificationHubImpl();
   const watchInterests = new WatchInterestCoordinator({ db, hub });
   const sharedPorts = new HostSharedPortCoordinator({ db, hub });
   const workspaceReadCaches = new WorkspaceReadCaches({ hub });
   const providerRegistry = createProviderRegistryService({
-    readUserProviderPreferences: () => {
-      const settings = getAppSettings(db);
+    readUserProviderPreferences: async () => {
+      const settings = await getAppSettings(db);
       return {
         providerOrder: settings.providerOrder,
-        disabledProviderIds: getDisabledProviderIds(db),
+        disabledProviderIds: await getDisabledProviderIds(db),
         defaultProviderId: settings.defaultProviderId,
       };
     },
@@ -257,15 +264,16 @@ export async function createTestAppHarness(
     logger,
     openTimeoutMs: terminalOpenTimeoutMs,
   });
-  const hyperfideAppManagedConfig = await createHyperfideAppManagedConfigReloader({
-    config,
-    hub,
-    logger,
-  });
+  const hyperfideAppManagedConfig =
+    await createHyperfideAppManagedConfigReloader({
+      config,
+      hub,
+      logger,
+    });
   const telemetry = createNoopTelemetryService();
   const skillTreeRegistry = new SkillTreeRegistry();
   const aiServices = createAiServiceRegistry();
-  const pendingInteractions = new PendingInteractionLifecycle({
+  const pendingInteractions = await new PendingInteractionLifecycle({
     config,
     db,
     hub,
@@ -279,7 +287,7 @@ export async function createTestAppHarness(
     telemetry,
     terminalSessions,
   });
-  pendingInteractions.start();
+  await pendingInteractions.start();
   setPluginToolCallRegistry(new PluginToolCallRegistry({ logger }));
   const appVersion =
     appVersionService ??
@@ -296,11 +304,11 @@ export async function createTestAppHarness(
       appSurface: "web",
       appVersion,
       config,
-      countRunningThreads: () => listRunningThreads(db).length,
+      countRunningThreads: async () => (await listRunningThreads(db)).length,
       launcher: null,
       logger,
       mode: null,
-      notifyChanged: () => hub.notifySystem(["app-update-changed"]),
+      notifyChanged: async () => await hub.notifySystem(["app-update-changed"]),
     });
   const deps: ServerAppDeps = {
     appUpdate,
@@ -337,7 +345,7 @@ export async function createTestAppHarness(
     workspaceReadCaches,
   };
   const { app, pluginCatalogService, pluginService, serverMove } =
-    createApp(deps);
+    await createApp(deps);
   installDefaultEnvironmentProviders();
 
   return {
@@ -350,9 +358,22 @@ export async function createTestAppHarness(
     pluginCatalogService,
     serverMove,
     async cleanup(): Promise<void> {
+      await stopEnvironmentProvisioningSchedules(db);
       clearAllThreadProvisionSchedules();
+      await whenResponseDeferralsIdle(config);
       setPluginEnvironmentProviderBridge(undefined);
       await pluginService.stop();
+      for (const hostId of hub.listConnectedHostIds()) {
+        const sessionId = hub.getDaemonSessionIdForHost(hostId);
+        if (sessionId) hub.unregisterDaemon(sessionId);
+      }
+      await stopEnvironmentOperations(db);
+      await lifecycleDedupers.threadProvisionAdvance.idle();
+      await stopEnvironmentOperations(db);
+      await whenLiveHostCommandSettlementsIdle(db, true);
+      await whenThreadStorageOrphanSweepsIdle(db);
+      await whenResponseDeferralsIdle(config);
+      clearAllThreadProvisionSchedules();
       await rm(dataDir, {
         recursive: true,
         force: true,
@@ -390,7 +411,9 @@ export async function withTestHarness<T>(
   }
 }
 
-registerTestHarnessWarmup(() => withTestHarness(async () => undefined));
+registerTestHarnessWarmup(
+  async () => await withTestHarness(async () => undefined),
+);
 
 export async function startTestServer(
   overrides: TestAppHarnessConfigOverrides = {},
@@ -398,7 +421,7 @@ export async function startTestServer(
   const harness = await createTestAppHarness(overrides);
   let addressInfo: AddressInfo | null = null;
   const { app, closeWebSockets, injectWebSocket, pluginService, serverMove } =
-    createApp(harness.deps);
+    await createApp(harness.deps);
   const server = serve(
     {
       hostname: TEST_SERVER_HOST,

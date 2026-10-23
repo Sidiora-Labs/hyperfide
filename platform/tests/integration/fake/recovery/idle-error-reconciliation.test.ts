@@ -21,8 +21,8 @@ import {
 describe.sequential("fake provider idle-error reconciliation integration", () => {
   it(
     "does not revive an idle thread that was manually marked errored before reconnect",
-    () =>
-      withHarness(async (harness) => {
+    async () =>
+      await withHarness(async (harness) => {
         const { thread } = await createRecoveryThread(
           harness,
           "Reconciliation Idle Error",
@@ -46,13 +46,13 @@ describe.sequential("fake provider idle-error reconciliation integration", () =>
         );
 
         requireThreadLifecycleEventApplied(
-          applyThreadLifecycleEvent(harness.db, {
+          await applyThreadLifecycleEvent(harness.db, {
             event: { type: "run.started" },
             threadId: thread.id,
           }),
         );
         requireThreadLifecycleEventApplied(
-          applyThreadLifecycleEvent(harness.db, {
+          await applyThreadLifecycleEvent(harness.db, {
             event: { type: "run.failed" },
             threadId: thread.id,
           }),

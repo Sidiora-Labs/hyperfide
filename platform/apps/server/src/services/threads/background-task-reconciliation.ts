@@ -45,11 +45,11 @@ function parseStoredBackgroundTaskItem(
   }
 }
 
-export function settleDanglingBackgroundTasks(
+export async function settleDanglingBackgroundTasks(
   deps: SettleDanglingBackgroundTasksDeps,
   args: SettleDanglingBackgroundTasksArgs,
-): void {
-  const rows = listOpenBackgroundTaskItemRowsForHost(deps.db, {
+): Promise<void> {
+  const rows = await listOpenBackgroundTaskItemRowsForHost(deps.db, {
     hostId: args.hostId,
   });
   if (rows.length === 0) {
@@ -57,9 +57,9 @@ export function settleDanglingBackgroundTasks(
   }
 
   const settledThreadIds = new Set<string>();
-  deps.db.transaction(
-    (tx) => {
-      for (const threadId of appendDanglingBackgroundTaskCompletions(
+  await deps.db.transaction(
+    async (tx) => {
+      for (const threadId of await appendDanglingBackgroundTaskCompletions(
         { db: tx, logger: deps.logger },
         rows,
       )) {
@@ -70,8 +70,8 @@ export function settleDanglingBackgroundTasks(
   );
 
   for (const threadId of settledThreadIds) {
-    deps.hub.notifyThread(threadId, ["events-appended"], {
-      timelineSequence: getLatestThreadSequence(deps.db, {
+    await deps.hub.notifyThread(threadId, ["events-appended"], {
+      timelineSequence: await getLatestThreadSequence(deps.db, {
         threadId: threadId,
       }),
       eventTypes: ["item/backgroundTask/completed"],
@@ -79,15 +79,18 @@ export function settleDanglingBackgroundTasks(
   }
 }
 
-export function settleDanglingBackgroundTasksForStoppedThreadInTransaction(
+export async function settleDanglingBackgroundTasksForStoppedThreadInTransaction(
   deps: SettleDanglingBackgroundTasksTransactionDeps,
   args: { threadId: string },
-): void {
-  const rows = listOpenBackgroundTaskItemRowsForThread(deps.db, args);
-  const settledThreadIds = appendDanglingBackgroundTaskCompletions(deps, rows);
+): Promise<void> {
+  const rows = await listOpenBackgroundTaskItemRowsForThread(deps.db, args);
+  const settledThreadIds = await appendDanglingBackgroundTaskCompletions(
+    deps,
+    rows,
+  );
   for (const threadId of settledThreadIds) {
     deps.hub.notifyThread(threadId, ["events-appended"], {
-      timelineSequence: getLatestThreadSequence(deps.db, {
+      timelineSequence: await getLatestThreadSequence(deps.db, {
         threadId: threadId,
       }),
       eventTypes: ["item/backgroundTask/completed"],
@@ -95,10 +98,10 @@ export function settleDanglingBackgroundTasksForStoppedThreadInTransaction(
   }
 }
 
-function appendDanglingBackgroundTaskCompletions(
+async function appendDanglingBackgroundTaskCompletions(
   deps: Pick<SettleDanglingBackgroundTasksTransactionDeps, "db" | "logger">,
   rows: readonly OpenBackgroundTaskItemRow[],
-): Set<string> {
+): Promise<Set<string>> {
   const settledThreadIds = new Set<string>();
   for (const row of rows) {
     const item = parseStoredBackgroundTaskItem(row);
@@ -113,7 +116,7 @@ function appendDanglingBackgroundTaskCompletions(
     const taskStatus = isSettledBackgroundTaskStatus(item.taskStatus)
       ? item.taskStatus
       : "stopped";
-    appendThreadEventsInTransaction(deps.db, [
+    await appendThreadEventsInTransaction(deps.db, [
       {
         threadId: row.threadId,
         environmentId: row.environmentId,

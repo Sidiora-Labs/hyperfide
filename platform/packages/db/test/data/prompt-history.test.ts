@@ -11,32 +11,36 @@ import {
 } from "../../src/data/index.js";
 import { noopNotifier } from "../../src/notifier.js";
 
-type TestDb = ReturnType<typeof createMigratedConnection>;
+type TestDb = Awaited<ReturnType<typeof createMigratedConnection>>;
 
 function text(text: string): PromptInput {
   return { type: "text", text, mentions: [] };
 }
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, { name: "test-host" });
-  const firstProject = createProject(db, noopNotifier, {
-    name: "First",
-    source: { type: "local_path", hostId: host.id, path: "/tmp/first" },
-  }).project;
-  const secondProject = createProject(db, noopNotifier, {
-    name: "Second",
-    source: { type: "local_path", hostId: host.id, path: "/tmp/second" },
-  }).project;
-  const firstThread = createThread(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, { name: "test-host" });
+  const firstProject = (
+    await createProject(db, noopNotifier, {
+      name: "First",
+      source: { type: "local_path", hostId: host.id, path: "/tmp/first" },
+    })
+  ).project;
+  const secondProject = (
+    await createProject(db, noopNotifier, {
+      name: "Second",
+      source: { type: "local_path", hostId: host.id, path: "/tmp/second" },
+    })
+  ).project;
+  const firstThread = await createThread(db, noopNotifier, {
     projectId: firstProject.id,
     providerId: "codex",
   });
-  const secondThread = createThread(db, noopNotifier, {
+  const secondThread = await createThread(db, noopNotifier, {
     projectId: firstProject.id,
     providerId: "codex",
   });
-  const otherProjectThread = createThread(db, noopNotifier, {
+  const otherProjectThread = await createThread(db, noopNotifier, {
     projectId: secondProject.id,
     providerId: "codex",
   });
@@ -50,7 +54,7 @@ function setup() {
   };
 }
 
-function insert(
+async function insert(
   db: TestDb,
   args: {
     createdAt: number;
@@ -61,14 +65,14 @@ function insert(
     threadId: string;
   },
 ) {
-  return createPromptHistoryEntry(db, args);
+  return await createPromptHistoryEntry(db, args);
 }
 
 describe("prompt history page query", () => {
-  it("pages every project and thread newest first, breaking ties by sequence and id", () => {
-    const fixture = setup();
+  it("pages every project and thread newest first, breaking ties by sequence and id", async () => {
+    const fixture = await setup();
     const rows = [
-      insert(fixture.db, {
+      await insert(fixture.db, {
         projectId: fixture.firstProject.id,
         threadId: fixture.firstThread.id,
         scope: "project",
@@ -76,7 +80,7 @@ describe("prompt history page query", () => {
         createdAt: 10,
         input: [text("first")],
       }),
-      insert(fixture.db, {
+      await insert(fixture.db, {
         projectId: fixture.firstProject.id,
         threadId: fixture.firstThread.id,
         scope: "thread",
@@ -84,7 +88,7 @@ describe("prompt history page query", () => {
         createdAt: 20,
         input: [text("second")],
       }),
-      insert(fixture.db, {
+      await insert(fixture.db, {
         projectId: fixture.firstProject.id,
         threadId: fixture.secondThread.id,
         scope: "thread",
@@ -92,7 +96,7 @@ describe("prompt history page query", () => {
         createdAt: 20,
         input: [text("tied")],
       }),
-      insert(fixture.db, {
+      await insert(fixture.db, {
         projectId: fixture.secondProject.id,
         threadId: fixture.otherProjectThread.id,
         scope: "thread",
@@ -113,7 +117,10 @@ describe("prompt history page query", () => {
     const pages: string[][] = [];
     let before = null;
     do {
-      const page = listPromptHistoryPage(fixture.db, { before, limit: 3 });
+      const page = await listPromptHistoryPage(fixture.db, {
+        before,
+        limit: 3,
+      });
       pages.push(page.map((row) => row.id));
       const last = page.at(-1);
       before = page.length === 3 && last !== undefined ? last : null;
@@ -123,9 +130,9 @@ describe("prompt history page query", () => {
     expect(pages.map((page) => page.length)).toEqual([3, 1]);
   });
 
-  it("keeps prompts from soft-deleted threads", () => {
-    const fixture = setup();
-    const row = insert(fixture.db, {
+  it("keeps prompts from soft-deleted threads", async () => {
+    const fixture = await setup();
+    const row = await insert(fixture.db, {
       projectId: fixture.firstProject.id,
       threadId: fixture.firstThread.id,
       scope: "thread",
@@ -133,14 +140,14 @@ describe("prompt history page query", () => {
       createdAt: 10,
       input: [text("still history")],
     });
-    markThreadDeleted(fixture.db, noopNotifier, {
+    await markThreadDeleted(fixture.db, noopNotifier, {
       threadId: fixture.firstThread.id,
     });
 
     expect(
-      listPromptHistoryPage(fixture.db, { before: null, limit: 10 }).map(
-        (entry) => entry.id,
-      ),
+      (
+        await listPromptHistoryPage(fixture.db, { before: null, limit: 10 })
+      ).map((entry) => entry.id),
     ).toEqual([row.id]);
   });
 });

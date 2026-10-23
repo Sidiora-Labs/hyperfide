@@ -3,7 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createThread } from "@hyperfide/db";
-import { encodeClientTurnRequestIdNumber, type JsonObject } from "@hyperfide/domain";
+import {
+  encodeClientTurnRequestIdNumber,
+  type JsonObject,
+} from "@hyperfide/domain";
 import {
   buildExecutionOptions,
   buildThreadStartCommand,
@@ -138,19 +141,19 @@ async function withIssueLauncher(
 describe("thread plugin metadata in agent configuration", () => {
   it("configures the first thread.start from the creation seed without serializing it", async () => {
     await withIssueLauncher(async ({ server, readObservations }) => {
-      const { host } = seedHostSession(server.deps, {
+      const { host } = await seedHostSession(server.deps, {
         id: "host-plugin-metadata-configure",
       });
-      const { project } = seedProjectWithSource(server.deps, {
+      const { project } = await seedProjectWithSource(server.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(server.deps, {
+      const environment = await seedEnvironment(server.deps, {
         hostId: host.id,
         projectId: project.id,
         path: join(server.config.dataDir, "plugin-metadata-workspace"),
       });
       const seed = launchSeed("HYPERFIDE-42");
-      const thread = createThread(server.db, server.hub, {
+      const thread = await createThread(server.db, server.hub, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
@@ -184,7 +187,7 @@ describe("thread plugin metadata in agent configuration", () => {
       );
       expectPrivateCommand(startCommand, "HYPERFIDE-42");
 
-      seedThreadRuntimeState(server.deps, {
+      await seedThreadRuntimeState(server.deps, {
         environmentId: environment.id,
         providerThreadId: "provider-plugin-metadata-configure",
         threadId: thread.id,
@@ -207,20 +210,20 @@ describe("thread plugin metadata in agent configuration", () => {
   it("seeds threads spawned and forked through the plugin SDK before their first queued thread.start", async () => {
     await withIssueLauncher(async ({ server, readObservations }) => {
       const workspacePath = "/tmp/plugin-metadata-spawn-project";
-      const { host } = seedHostSession(server.deps, {
+      const { host } = await seedHostSession(server.deps, {
         id: "host-plugin-metadata-spawn",
       });
-      const { project } = seedProjectWithSource(server.deps, {
+      const { project } = await seedProjectWithSource(server.deps, {
         hostId: host.id,
         path: workspacePath,
       });
-      const environment = seedEnvironment(server.deps, {
+      const environment = await seedEnvironment(server.deps, {
         hostId: host.id,
         projectId: project.id,
         path: workspacePath,
       });
       server.pluginService.bindSdk({ baseUrl: server.baseUrl });
-      const api = server.pluginService.getApi("issue-launcher");
+      const api = await server.pluginService.getApi("issue-launcher");
       if (!api) throw new Error("issue-launcher is not running");
 
       const spawnSeed = launchSeed("HYPERFIDE-42");
@@ -241,16 +244,16 @@ describe("thread plugin metadata in agent configuration", () => {
           command.type === "thread.start" && command.threadId === spawned.id,
       );
 
-      const source = seedThread(server.deps, {
+      const source = await seedThread(server.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      seedThreadIdentity(server.deps, {
+      await seedThreadIdentity(server.deps, {
         threadId: source.id,
         environmentId: environment.id,
         providerThreadId: "provider-plugin-metadata-fork-source",
       });
-      seedTurnStarted(server.deps, {
+      await seedTurnStarted(server.deps, {
         threadId: source.id,
         turnId: "turn-plugin-metadata-fork-source",
         providerThreadId: "provider-plugin-metadata-fork-source",
@@ -298,14 +301,14 @@ describe("thread plugin metadata in agent configuration", () => {
   it("rejects pluginMetadata without a plugin origin before creating a thread", async () => {
     await withTestHarness(async (harness) => {
       const workspacePath = "/tmp/plugin-metadata-orphan-project";
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-plugin-metadata-orphan",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: workspacePath,
       });
-      seedEnvironment(harness.deps, {
+      await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: workspacePath,
@@ -333,12 +336,12 @@ describe("thread plugin metadata in agent configuration", () => {
         },
       });
       expect(
-        harness.db.$client
+        await harness.db.$client
           .prepare("SELECT COUNT(*) AS count FROM threads WHERE project_id = ?")
           .get(project.id),
       ).toEqual({ count: 0 });
       expect(
-        harness.db.$client
+        await harness.db.$client
           .prepare("SELECT COUNT(*) AS count FROM thread_plugin_metadata")
           .get(),
       ).toEqual({ count: 0 });

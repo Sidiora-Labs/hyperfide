@@ -9,18 +9,21 @@ import type { ServerAppDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
 import type { PluginService } from "../plugins/plugin-service.js";
 
-export function providerManagementCatalog(
+export async function providerManagementCatalog(
   deps: Pick<ServerAppDeps, "providerRegistry">,
   plugins: Pick<PluginService, "list" | "providerCatalog">,
-): SystemProviderCatalogEntry[] {
+): Promise<SystemProviderCatalogEntry[]> {
   const installed = new Map(
-    plugins.list().map((plugin) => [plugin.id, plugin]),
+    (await plugins.list()).map((plugin) => [plugin.id, plugin]),
   );
-  const disabled = deps.providerRegistry.disabledProviderIds();
+  const disabled = await deps.providerRegistry.disabledProviderIds();
   const declared = new Map(
-    plugins.providerCatalog().map((provider) => [provider.id, provider]),
+    (await plugins.providerCatalog()).map((provider) => [
+      provider.id,
+      provider,
+    ]),
   );
-  for (const entry of deps.providerRegistry.list()) {
+  for (const entry of await deps.providerRegistry.list()) {
     declared.set(entry.info.id, {
       id: entry.info.id,
       displayName: entry.info.displayName,
@@ -51,7 +54,7 @@ export async function setProviderEnabled(
   id: string,
   enabled: boolean,
 ): Promise<SystemProviderCatalogEntry[]> {
-  const provider = providerManagementCatalog(deps, plugins).find(
+  const provider = (await providerManagementCatalog(deps, plugins)).find(
     (entry) => entry.id === id,
   );
   if (provider === undefined)
@@ -68,15 +71,15 @@ export async function setProviderEnabled(
       );
     }
   }
-  const disabledProviderIds = getDisabledProviderIds(deps.db).filter(
+  const disabledProviderIds = (await getDisabledProviderIds(deps.db)).filter(
     (providerId) => providerId !== id,
   );
   if (!enabled) disabledProviderIds.push(id);
-  setDisabledProviderIds(deps.db, disabledProviderIds);
-  const current = getAppSettings(deps.db);
+  await setDisabledProviderIds(deps.db, disabledProviderIds);
+  const current = await getAppSettings(deps.db);
   if (!enabled && current.defaultProviderId === id) {
-    setAppSettings(deps.db, { ...current, defaultProviderId: null });
+    await setAppSettings(deps.db, { ...current, defaultProviderId: null });
   }
-  deps.hub.notifySystem(["config-changed"]);
-  return providerManagementCatalog(deps, plugins);
+  await deps.hub.notifySystem(["config-changed"]);
+  return await providerManagementCatalog(deps, plugins);
 }

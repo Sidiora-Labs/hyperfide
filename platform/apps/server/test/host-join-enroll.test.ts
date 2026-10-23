@@ -42,7 +42,7 @@ async function requestHostEnrollKey(
   deps: AppDeps,
   hostId: string,
 ): Promise<HostDaemonEnrollKeyResponse> {
-  const app = createInternalHostRouteApp({
+  const app = await createInternalHostRouteApp({
     deps,
     trustedRemoteAddress: "127.0.0.1",
   });
@@ -55,13 +55,13 @@ async function requestHostEnrollKey(
   });
 
   expect(response.status).toBe(201);
-  return parseHostEnrollKeyResponse(response);
+  return await parseHostEnrollKeyResponse(response);
 }
 
 describe("host enroll routes", () => {
   it("creates local enroll-key material without HYPERFIDE_APP_URL", async () => {
     const harness = await createTestAppHarness({ appUrl: undefined });
-    const app = createInternalHostRouteApp({
+    const app = await createInternalHostRouteApp({
       deps: harness.deps,
       trustedRemoteAddress: "127.0.0.1",
     });
@@ -81,7 +81,7 @@ describe("host enroll routes", () => {
       const body = await parseHostEnrollKeyResponse(response);
       expect(body.hostId).toBe("host_local_enroll_key");
       expect(body.enrollKey).toMatch(/^hyperfide_de_/u);
-      expect(getHost(harness.db, "host_local_enroll_key")).toBeNull();
+      expect(await getHost(harness.db, "host_local_enroll_key")).toBeNull();
     } finally {
       await harness.cleanup();
     }
@@ -89,7 +89,7 @@ describe("host enroll routes", () => {
 
   it("rejects non-loopback enroll-key requests without side effects", async () => {
     const harness = await createTestAppHarness({ appUrl: undefined });
-    const app = createInternalHostRouteApp({
+    const app = await createInternalHostRouteApp({
       deps: harness.deps,
       trustedRemoteAddress: "192.168.1.50",
     });
@@ -109,7 +109,7 @@ describe("host enroll routes", () => {
       expect(await readJson(response)).toMatchObject({
         code: "unsupported_host",
       });
-      expect(getHost(harness.db, "host_remote_enroll_key")).toBeNull();
+      expect(await getHost(harness.db, "host_remote_enroll_key")).toBeNull();
     } finally {
       await harness.cleanup();
     }
@@ -117,7 +117,7 @@ describe("host enroll routes", () => {
 
   it("rejects machine-gated enroll-key requests even from loopback", async () => {
     const harness = await createTestAppHarness({ appUrl: undefined });
-    const app = createInternalHostRouteApp({
+    const app = await createInternalHostRouteApp({
       deps: harness.deps,
       trustedRemoteAddress: "127.0.0.1",
     });
@@ -169,7 +169,7 @@ describe("host enroll routes", () => {
         hostId: enrollKeyBody.hostId,
       });
       expect(enrollBody.hostKey).toMatch(/^hyperfide_dh_/u);
-      expect(getHost(harness.db, enrollKeyBody.hostId)).toMatchObject({
+      expect(await getHost(harness.db, enrollKeyBody.hostId)).toMatchObject({
         id: enrollKeyBody.hostId,
         name: "real-host-name",
       });
@@ -274,7 +274,7 @@ describe("host enroll routes", () => {
         "host_expired_enroll_key",
       );
 
-      const issuedKey = harness.db
+      const issuedKey = await harness.db
         .select({
           expiresAt: authApiKeys.expiresAt,
           id: authApiKeys.id,

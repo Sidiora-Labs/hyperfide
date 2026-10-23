@@ -30,14 +30,14 @@ interface ThreadSessionOptionState {
   selections: SessionOptionSelections;
 }
 
-function readLatestThreadState(
+async function readLatestThreadState(
   db: DbConnection,
   threadId: string,
   kind:
     | typeof THREAD_SESSION_OPTIONS_STATE_KIND
     | typeof THREAD_SESSION_OPTION_SELECTIONS_STATE_KIND,
-): ThreadStateSnapshot | null {
-  for (const row of listLatestThreadStateEventRowsByThreadIds(db, {
+): Promise<ThreadStateSnapshot | null> {
+  for (const row of await listLatestThreadStateEventRowsByThreadIds(db, {
     threadIds: [threadId],
     kind,
   })) {
@@ -52,11 +52,11 @@ function readLatestThreadState(
   return null;
 }
 
-function readThreadSessionOptionState(
+async function readThreadSessionOptionState(
   db: DbConnection,
   threadId: string,
-): ThreadSessionOptionState {
-  const optionsSnapshot = readLatestThreadState(
+): Promise<ThreadSessionOptionState> {
+  const optionsSnapshot = await readLatestThreadState(
     db,
     threadId,
     THREAD_SESSION_OPTIONS_STATE_KIND,
@@ -65,10 +65,12 @@ function readThreadSessionOptionState(
     optionsSnapshot?.payload,
   );
   const selections = threadSessionOptionSelectionsStateSchema.safeParse(
-    readLatestThreadState(
-      db,
-      threadId,
-      THREAD_SESSION_OPTION_SELECTIONS_STATE_KIND,
+    (
+      await readLatestThreadState(
+        db,
+        threadId,
+        THREAD_SESSION_OPTION_SELECTIONS_STATE_KIND,
+      )
     )?.payload,
   );
   return {
@@ -92,14 +94,14 @@ function sameSelections(
   );
 }
 
-export function seedThreadSessionOptionSelections(
+export async function seedThreadSessionOptionSelections(
   deps: Pick<AppDeps, "db" | "hub">,
   args: { thread: Thread; selections: SessionOptionSelections },
-): void {
+): Promise<void> {
   if (Object.keys(args.selections).length === 0) {
     return;
   }
-  writeThreadSessionOptionSelections(deps, {
+  await writeThreadSessionOptionSelections(deps, {
     threadId: args.thread.id,
     environmentId: args.thread.environmentId,
     providerThreadId: "",
@@ -107,7 +109,7 @@ export function seedThreadSessionOptionSelections(
   });
 }
 
-function writeThreadSessionOptionSelections(
+async function writeThreadSessionOptionSelections(
   deps: Pick<AppDeps, "db" | "hub">,
   args: {
     threadId: string;
@@ -115,8 +117,8 @@ function writeThreadSessionOptionSelections(
     providerThreadId: string;
     selections: SessionOptionSelections;
   },
-): void {
-  appendThreadEvent(deps, {
+): Promise<void> {
+  await appendThreadEvent(deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     type: "thread/extensionState/updated",
@@ -129,21 +131,21 @@ function writeThreadSessionOptionSelections(
   });
 }
 
-export function resolvePendingThreadSessionOptions(
+export async function resolvePendingThreadSessionOptions(
   db: DbConnection,
   threadId: string,
-): SessionOptionSelections {
-  const state = readThreadSessionOptionState(db, threadId);
+): Promise<SessionOptionSelections> {
+  const state = await readThreadSessionOptionState(db, threadId);
   return state.optionsReported
     ? pendingSessionOptionSelections(state.options, state.selections)
     : state.selections;
 }
 
-export function applyThreadSessionOptionPatch(
+export async function applyThreadSessionOptionPatch(
   deps: Pick<AppDeps, "db" | "hub">,
   args: { thread: Thread; patch: SessionOptionSelectionPatch },
-): void {
-  const state = readThreadSessionOptionState(deps.db, args.thread.id);
+): Promise<void> {
+  const state = await readThreadSessionOptionState(deps.db, args.thread.id);
   const result = applySessionOptionSelectionPatch({
     options: state.options,
     selections: state.selections,
@@ -158,7 +160,7 @@ export function applyThreadSessionOptionPatch(
   ) {
     return;
   }
-  writeThreadSessionOptionSelections(deps, {
+  await writeThreadSessionOptionSelections(deps, {
     threadId: args.thread.id,
     environmentId: args.thread.environmentId,
     providerThreadId: state.providerThreadId,
@@ -166,11 +168,11 @@ export function applyThreadSessionOptionPatch(
   });
 }
 
-export function dropSettledThreadSessionOptionSelections(
+export async function dropSettledThreadSessionOptionSelections(
   deps: Pick<AppDeps, "db" | "hub">,
   args: { threadId: string; environmentId: string | null },
-): void {
-  const state = readThreadSessionOptionState(deps.db, args.threadId);
+): Promise<void> {
+  const state = await readThreadSessionOptionState(deps.db, args.threadId);
   if (state.providerThreadId === null) {
     return;
   }
@@ -181,7 +183,7 @@ export function dropSettledThreadSessionOptionSelections(
   if (sameSelections(state.selections, pending)) {
     return;
   }
-  writeThreadSessionOptionSelections(deps, {
+  await writeThreadSessionOptionSelections(deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     providerThreadId: state.providerThreadId,

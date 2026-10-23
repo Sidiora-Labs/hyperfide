@@ -57,6 +57,17 @@ function emptyWatchSet(generation: number): HostDaemonWatchSet {
 }
 
 export class WatchInterestCoordinator {
+  private pending: Promise<void> = Promise.resolve();
+
+  private enqueue(work: () => Promise<void>): Promise<void> {
+    const result = this.pending.then(work);
+    this.pending = result.catch(() => {});
+    return result;
+  }
+
+  async whenIdle(): Promise<void> {
+    await this.pending;
+  }
   private readonly targetsByInterest = new Map<string, WatchInterestTarget>();
   private readonly generationByHost = new Map<string, number>();
   private readonly lastWatchTargetFingerprintByHost = new Map<string, string>();
@@ -68,18 +79,18 @@ export class WatchInterestCoordinator {
   constructor(private readonly deps: WatchInterestCoordinatorDeps) {
     this.deps.hub.onWatchedTargets(
       ["environment-detail", "thread-detail"],
-      (change) => {
-        this.applyWatchedTargetChange(change);
+      async (change) => {
+        await this.enqueue(() => this.applyWatchedTargetChange(change));
       },
     );
-    this.deps.hub.onChangedMessage((message) => {
-      this.refreshWatchSetsForChangedMessage(message);
+    this.deps.hub.onChangedMessage(async (message) => {
+      await this.enqueue(() => this.refreshWatchSetsForChangedMessage(message));
     });
   }
 
-  private applyWatchedTargetChange(
+  private async applyWatchedTargetChange(
     change: WatchedTargetChange<WatchInterestTarget>,
-  ): void {
+  ): Promise<void> {
     const affectedInterestKeys = new Set<string>();
     for (const target of change.stopped) {
       const key = realtimeSubscriptionTargetKey(target);
@@ -92,7 +103,7 @@ export class WatchInterestCoordinator {
       affectedInterestKeys.add(key);
     }
 
-    const resolvedTargets = this.resolveTargets();
+    const resolvedTargets = await this.resolveTargets();
     const affectedHostIds = new Set<string>();
     for (const key of affectedInterestKeys) {
       for (const hostId of this.hostIdsForInterestKey(key, resolvedTargets)) {
@@ -105,23 +116,24 @@ export class WatchInterestCoordinator {
     this.sendSnapshotsForHosts(affectedHostIds, resolvedTargets);
   }
 
-  reconcileWatchSetForHost(hostId: string): HostDaemonWatchSet {
+  async reconcileWatchSetForHost(hostId: string): Promise<HostDaemonWatchSet> {
+    await this.whenIdle();
     return this.resolveWatchSetForHost({
       generation: this.generationByHost.get(hostId) ?? 0,
       hostId,
-      resolvedTargets: this.resolveTargets(),
+      resolvedTargets: await this.resolveTargets(),
     });
   }
 
-  private refreshWatchSetsForChangedMessage(
+  private async refreshWatchSetsForChangedMessage(
     message: ServerChangedMessage,
-  ): void {
+  ): Promise<void> {
     const affectedInterestKeys = this.interestKeysForChangedMessage(message);
     if (affectedInterestKeys.size === 0) {
       return;
     }
 
-    const resolvedTargets = this.resolveTargets();
+    const resolvedTargets = await this.resolveTargets();
     const affectedHostIds = new Set<string>();
     for (const key of affectedInterestKeys) {
       for (const hostId of this.hostIdsForInterestKey(key, resolvedTargets)) {
@@ -303,7 +315,9 @@ export class WatchInterestCoordinator {
     );
   }
 
-  private resolveTargets(): Map<string, ResolvedWatchInterestTarget> {
+  private async resolveTargets(): Promise<
+    Map<string, ResolvedWatchInterestTarget>
+  > {
     const resolved = new Map<string, ResolvedWatchInterestTarget>();
     const environmentIds: string[] = [];
     const threadIds: string[] = [];
@@ -317,7 +331,7 @@ export class WatchInterestCoordinator {
       offset < environmentIds.length;
       offset += WATCH_TARGET_QUERY_BATCH_SIZE
     ) {
-      const rows = this.deps.db
+      const rows = await this.deps.db
         .select({
           id: environments.id,
           hostId: environments.hostId,
@@ -361,7 +375,7 @@ export class WatchInterestCoordinator {
       offset < threadIds.length;
       offset += WATCH_TARGET_QUERY_BATCH_SIZE
     ) {
-      const rows = this.deps.db
+      const rows = await this.deps.db
         .select({
           id: threads.id,
           environmentId: environments.id,

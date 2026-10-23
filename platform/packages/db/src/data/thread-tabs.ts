@@ -11,32 +11,32 @@ export type ReplaceThreadTabsResult =
   | { outcome: "updated"; revision: number }
   | { outcome: "conflict"; revision: number };
 
-export function getStoredThreadTabs(
+export async function getStoredThreadTabs(
   db: DbConnection,
   threadId: string,
-): StoredThreadTabs | null {
+): Promise<StoredThreadTabs | null> {
   return (
-    db
+    (await db
       .select({
         revision: threadTabs.revision,
         tabsJson: threadTabs.tabsJson,
       })
       .from(threadTabs)
       .where(eq(threadTabs.threadId, threadId))
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function replaceStoredThreadTabs(
+export async function replaceStoredThreadTabs(
   db: DbConnection,
   args: {
     expectedRevision: number;
     tabsJson: string;
     threadId: string;
   },
-): ReplaceThreadTabsResult {
-  return db.transaction((tx) => {
-    const current = tx
+): Promise<ReplaceThreadTabsResult> {
+  return await db.transaction(async (tx) => {
+    const current = await tx
       .select({ revision: threadTabs.revision })
       .from(threadTabs)
       .where(eq(threadTabs.threadId, args.threadId))
@@ -48,7 +48,8 @@ export function replaceStoredThreadTabs(
 
     const revision = currentRevision + 1;
     const updatedAt = Date.now();
-    tx.insert(threadTabs)
+    await tx
+      .insert(threadTabs)
       .values({
         revision,
         tabsJson: args.tabsJson,

@@ -23,11 +23,11 @@ describe("scheduled pending thread follow-ups", () => {
     "inherits the queued spawn execution settings selected by %s",
     async (selection) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { host } = await seedHostSession(harness.deps);
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
         });
@@ -56,14 +56,17 @@ describe("scheduled pending thread follow-ups", () => {
         const thread = threadSchema.parse(await readJson(response));
         expect(thread.status).toBe("pending");
         expect(
-          getThreadExecutionOverride(harness.db, thread.id)?.modelOverride,
+          (await getThreadExecutionOverride(harness.db, thread.id))
+            ?.modelOverride,
         ).toBeNull();
-        expect(listEvents(harness.db, { threadId: thread.id })).toEqual([]);
-        const [spawn] = listQueuedThreadMessages(harness.db, thread.id);
+        expect(await listEvents(harness.db, { threadId: thread.id })).toEqual(
+          [],
+        );
+        const [spawn] = await listQueuedThreadMessages(harness.db, thread.id);
         expect(spawn).toBeDefined();
 
         if (selection === "explicit") {
-          upsertProjectExecutionDefaults(harness.db, {
+          await upsertProjectExecutionDefaults(harness.db, {
             projectId: project.id,
             providerId: "codex",
             model: "different-project-model",
@@ -88,7 +91,7 @@ describe("scheduled pending thread follow-ups", () => {
         const result = await readJson(followup);
         expect(result).toMatchObject({ delivery: "queued" });
         expect(followup.status).toBe(200);
-        const rows = listQueuedThreadMessages(harness.db, thread.id);
+        const rows = await listQueuedThreadMessages(harness.db, thread.id);
         expect(rows).toHaveLength(2);
         const queued = sendMessageResponseSchema.parse(result);
         expect(queued.delivery).toBe("queued");
@@ -100,9 +103,11 @@ describe("scheduled pending thread follow-ups", () => {
           sendAt,
           content: JSON.stringify(textInput("scheduled follow-up")),
         });
-        expect(getThread(harness.db, thread.id)?.status).toBe("pending");
+        expect((await getThread(harness.db, thread.id))?.status).toBe(
+          "pending",
+        );
         expect(
-          listQueuedThreadCommands(harness, "thread.start", thread.id),
+          await listQueuedThreadCommands(harness, "thread.start", thread.id),
         ).toEqual([]);
       });
     },

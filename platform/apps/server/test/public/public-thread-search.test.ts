@@ -12,34 +12,38 @@ import { withTestHarness } from "../helpers/test-app.js";
 describe("public thread search route", () => {
   it("returns active and archived search result groups", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const activeThread = seedThread(harness.deps, {
+      const activeThread = await seedThread(harness.deps, {
         projectId: project.id,
         title: "routeactive",
         titleFallback: "routeactive",
       });
-      const archivedThread = seedThread(harness.deps, {
+      const archivedThread = await seedThread(harness.deps, {
         projectId: project.id,
         title: "routearchived",
         titleFallback: "routearchived",
       });
-      archiveThread(harness.deps.db, harness.deps.hub, archivedThread.id);
-      const hiddenThread = seedThread(harness.deps, {
+      await archiveThread(harness.deps.db, harness.deps.hub, archivedThread.id);
+      const hiddenThread = await seedThread(harness.deps, {
         projectId: project.id,
         title: "routehidden",
         titleFallback: "routehidden",
         visibility: "hidden",
       });
-      const hiddenArchivedThread = seedThread(harness.deps, {
+      const hiddenArchivedThread = await seedThread(harness.deps, {
         projectId: project.id,
         title: "routehiddenarchived",
         titleFallback: "routehiddenarchived",
         visibility: "hidden",
       });
-      archiveThread(harness.deps.db, harness.deps.hub, hiddenArchivedThread.id);
+      await archiveThread(
+        harness.deps.db,
+        harness.deps.hub,
+        hiddenArchivedThread.id,
+      );
 
       const response = await harness.app.request(
         "/api/v1/threads/search?query=route&limitPerGroup=10",

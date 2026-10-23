@@ -48,8 +48,8 @@ async function cloneWithDevBranch(
 }
 
 describe.sequential("project checkout branches", () => {
-  it("reads a new branch's diff against the branch it was made from", () =>
-    withHarness(async (harness) => {
+  it("reads a new branch's diff against the branch it was made from", async () =>
+    await withHarness(async (harness) => {
       const clone = await cloneWithDevBranch(harness, "merge-base");
       const project = await createProjectFixture(harness, {
         name: "Merge Base",
@@ -70,8 +70,8 @@ describe.sequential("project checkout branches", () => {
       expect(environment.mergeBaseBranch).toBe("origin/dev");
     }));
 
-  it("makes a new branch from origin's base in a fresh clone", () =>
-    withHarness(async (harness) => {
+  it("makes a new branch from origin's base in a fresh clone", async () =>
+    await withHarness(async (harness) => {
       const clone = await cloneWithDevBranch(harness, "fresh-clone");
       const project = await createProjectFixture(harness, {
         name: "Fresh Clone",
@@ -102,8 +102,8 @@ describe.sequential("project checkout branches", () => {
       expect(environment.mergeBaseBranch).toBe("origin/dev");
     }));
 
-  it("switches to a branch a fresh clone holds only as origin's", () =>
-    withHarness(async (harness) => {
+  it("switches to a branch a fresh clone holds only as origin's", async () =>
+    await withHarness(async (harness) => {
       const clone = await cloneWithDevBranch(harness, "existing-branch");
       const project = await createProjectFixture(harness, {
         name: "Existing Branch",

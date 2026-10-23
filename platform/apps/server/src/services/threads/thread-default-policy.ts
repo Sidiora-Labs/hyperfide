@@ -6,7 +6,10 @@ import type {
   ReasoningLevel,
   Thread,
 } from "@hyperfide/domain";
-import { getEnvironment, getProjectSourceOnPersistentHost } from "@hyperfide/db";
+import {
+  getEnvironment,
+  getProjectSourceOnPersistentHost,
+} from "@hyperfide/db";
 import { DEFAULT_ENVIRONMENT_PROVIDER_ID } from "../environments/environment-provider-ids.js";
 import { DEFAULT_SERVICE_TIER, PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import type {
@@ -38,26 +41,27 @@ export const DEFAULT_REASONING_LEVEL: ReasoningLevel = "medium";
 
 const DEFAULT_PERMISSION_MODE: PermissionMode = "auto";
 
-function listDefaultProviderIdCandidates(
+async function listDefaultProviderIdCandidates(
   registry: ProviderRegistryService,
-): string[] {
-  const disabled = registry.disabledProviderIds();
-  const available = registry
-    .list()
+): Promise<string[]> {
+  const disabled = await registry.disabledProviderIds();
+  const available = (await registry.list())
     .filter(
       (registration) =>
         registration.info.available && !disabled.has(registration.info.id),
     )
     .map((registration) => registration.info.id);
-  const preferred = registry.getUserDefaultProviderId();
+  const preferred = await registry.getUserDefaultProviderId();
   if (preferred !== null && available.includes(preferred)) {
     return [preferred, ...available.filter((id) => id !== preferred)];
   }
   return available;
 }
 
-function requireDefaultProviderId(registry: ProviderRegistryService): string {
-  const providerId = listDefaultProviderIdCandidates(registry)[0];
+async function requireDefaultProviderId(
+  registry: ProviderRegistryService,
+): Promise<string> {
+  const providerId = (await listDefaultProviderIdCandidates(registry))[0];
   if (providerId === undefined) {
     throw new ApiError(
       409,
@@ -188,11 +192,11 @@ function resolveSupportedPermissionMode(
   return permissionModes[0] ?? DEFAULT_PERMISSION_MODE;
 }
 
-export function resolveCreateThreadExecutionDefaults(
+export async function resolveCreateThreadExecutionDefaults(
   registry: ProviderRegistryService,
   args: ResolveCreateThreadExecutionDefaultsArgs,
-): CreateThreadExecutionDefaultsResolved {
-  const disabled = registry.disabledProviderIds();
+): Promise<CreateThreadExecutionDefaultsResolved> {
+  const disabled = await registry.disabledProviderIds();
   const storedProviderId =
     args.storedDefaults !== null &&
     !disabled.has(args.storedDefaults.providerId)
@@ -201,12 +205,12 @@ export function resolveCreateThreadExecutionDefaults(
   const isProductDefault =
     args.requestedProviderId === undefined && storedProviderId === undefined;
   const defaultCandidates = isProductDefault
-    ? listDefaultProviderIdCandidates(registry)
+    ? await listDefaultProviderIdCandidates(registry)
     : [];
   const providerId =
     args.requestedProviderId ??
     storedProviderId ??
-    requireDefaultProviderId(registry);
+    (await requireDefaultProviderId(registry));
   if (disabled.has(providerId)) {
     throw new ApiError(
       409,
@@ -268,18 +272,19 @@ async function resolveProjectDefaultHostId(
   deps: WorkSessionDeps,
   projectId: string,
 ): Promise<string> {
-  const primaryHostId = resolvePrimaryHostId(deps);
+  const primaryHostId = await resolvePrimaryHostId(deps);
   if (
     primaryHostId === null ||
-    projectCheckoutPathOnHost(deps, projectId, primaryHostId) === undefined
+    (await projectCheckoutPathOnHost(deps, projectId, primaryHostId)) ===
+      undefined
   ) {
-    const source = getProjectSourceOnPersistentHost(deps.db, projectId);
+    const source = await getProjectSourceOnPersistentHost(deps.db, projectId);
     if (source !== null) {
       await ensureHostSessionReadyForWork(deps, { hostId: source.hostId });
       return source.hostId;
     }
   }
-  return requireConnectedPrimaryHostId(deps);
+  return await requireConnectedPrimaryHostId(deps);
 }
 
 export async function resolveProjectDefaultThreadEnvironment(
@@ -294,14 +299,14 @@ export async function resolveProjectDefaultThreadEnvironment(
       ),
       machine: {
         type: "existing",
-        hostId: requireConnectedPrimaryHostId(deps),
+        hostId: await requireConnectedPrimaryHostId(deps),
       },
       inputs: null,
     };
   }
 
   const hostId = await resolveProjectDefaultHostId(deps, args.projectId);
-  const source = resolveProjectWorkspaceTarget(deps, {
+  const source = await resolveProjectWorkspaceTarget(deps, {
     hostId,
     projectId: args.projectId,
   });
@@ -362,7 +367,7 @@ export async function resolveCreateThreadEnvironment(
     if (
       requestedMachine === undefined ||
       (requestedMachine.type === "existing" &&
-        getEnvironment(deps.db, parentThread.environmentId)?.hostId ===
+        (await getEnvironment(deps.db, parentThread.environmentId))?.hostId ===
           requestedMachine.hostId)
     ) {
       return { type: "reuse", environmentId: parentThread.environmentId };
@@ -377,7 +382,7 @@ export async function resolveCreateThreadEnvironment(
     if (!parentThread.environmentId) {
       throw new Error("Parent thread is missing an environment");
     }
-    const parentEnvironment = getEnvironment(
+    const parentEnvironment = await getEnvironment(
       deps.db,
       parentThread.environmentId,
     );

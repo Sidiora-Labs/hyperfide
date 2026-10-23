@@ -22,6 +22,33 @@ import { createMigratedConnection } from "@hyperfide/db/testing";
 
 export type Random = () => number;
 
+export async function observePostgresQueries(
+  db: DbConnection,
+  run: () => unknown,
+  observe: (source: string, rows: number) => void,
+): Promise<void> {
+  const pool = (
+    db.$client as unknown as {
+      pool: { query: (...args: any[]) => Promise<any> };
+    }
+  ).pool;
+  const original = pool.query.bind(pool);
+  pool.query = async (...args: any[]) => {
+    const result = await original(...args);
+    const source = String(
+      typeof args[0] === "string" ? args[0] : args[0].text,
+    ).replaceAll('"platform".', "");
+    if (!source.includes("__hyperfide_changes"))
+      observe(source, result.rows?.length ?? 0);
+    return result;
+  };
+  try {
+    await run();
+  } finally {
+    pool.query = original;
+  }
+}
+
 export interface TestThread {
   coldDb: DbConnection;
   db: DbConnection;
@@ -43,47 +70,56 @@ export const PROVIDER_THREAD_ID = "provider-memo";
 
 let migratedImage: Buffer | null = null;
 
-function readMigratedImage(): Buffer {
+async function readMigratedImage(): Promise<Buffer> {
   if (migratedImage === null) {
-    const db = createMigratedConnection();
+    const db = await createMigratedConnection();
     migratedImage = db.$client.serialize();
-    db.$client.close();
+    await db.close();
   }
   return migratedImage;
 }
 
-export function withTestThread(run: (testThread: TestThread) => void): void {
+export async function withTestThread(
+  run: (testThread: TestThread) => void | Promise<void>,
+): Promise<void> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hyperfide-timeline-cache-"));
   const file = path.join(dir, "hyperfide.db");
-  fs.writeFileSync(file, readMigratedImage());
-  const db = createConnection(file);
-  const coldDb = createConnection(file);
+  const postgres = /^postgres(?:ql)?:/.test(
+    process.env.HYPERFIDE_DATABASE_URL ?? "",
+  );
+  if (!postgres) fs.writeFileSync(file, await readMigratedImage());
+  const db = postgres
+    ? await createMigratedConnection()
+    : await createConnection(file);
+  const coldDb = await createConnection(postgres ? db.databaseUrl! : file);
   try {
-    const host = upsertHost(db, noopNotifier, { name: "timeline-cache-host" });
-    const { project } = createProject(db, noopNotifier, {
+    const host = await upsertHost(db, noopNotifier, {
+      name: "timeline-cache-host",
+    });
+    const { project } = await createProject(db, noopNotifier, {
       name: "timeline-cache-project",
       source: { type: "local_path", hostId: host.id, path: "/tmp/memo" },
     });
-    const thread = createThread(db, noopNotifier, {
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "active",
     });
-    run({ coldDb, db, projectId: project.id, thread });
+    await run({ coldDb, db, projectId: project.id, thread });
   } finally {
-    coldDb.$client.close();
-    db.$client.close();
+    await coldDb.close();
+    await db.close();
     fs.rmSync(dir, { force: true, recursive: true });
   }
 }
 
-export function appendRows(
+export async function appendRows(
   testThread: Pick<TestThread, "db" | "thread">,
   specs: readonly RowSpec[],
-): number {
+): Promise<number> {
   const threadId = testThread.thread.id;
-  const start = getLatestThreadSequence(testThread.db, { threadId });
-  insertEvents(
+  const start = await getLatestThreadSequence(testThread.db, { threadId });
+  await insertEvents(
     testThread.db,
     noopNotifier,
     specs.map((spec, index) => {

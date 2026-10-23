@@ -1,4 +1,9 @@
-import { createProject, createThread, noopNotifier, upsertHost } from "@hyperfide/db";
+import {
+  createProject,
+  createThread,
+  noopNotifier,
+  upsertHost,
+} from "@hyperfide/db";
 import { createMigratedConnection } from "@hyperfide/db/testing";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../src/errors.js";
@@ -8,14 +13,14 @@ import {
   type ParentNotificationOutcome,
 } from "../../src/services/threads/thread-parent.js";
 
-type ThrowingCallback = () => void;
+type ThrowingCallback = () => unknown;
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: {
       hostId: host.id,
@@ -26,9 +31,9 @@ function setup() {
   return { db, host, project };
 }
 
-function captureApiError(callback: ThrowingCallback): ApiError {
+async function captureApiError(callback: ThrowingCallback): Promise<ApiError> {
   try {
-    callback();
+    await callback();
   } catch (error) {
     if (error instanceof ApiError) {
       return error;
@@ -39,9 +44,9 @@ function captureApiError(callback: ThrowingCallback): ApiError {
 }
 
 describe("thread parent validation", () => {
-  it("accepts a live parent thread from another project", () => {
-    const { db, host } = setup();
-    const { project: otherProject } = createProject(db, noopNotifier, {
+  it("accepts a live parent thread from another project", async () => {
+    const { db, host } = await setup();
+    const { project: otherProject } = await createProject(db, noopNotifier, {
       name: "other-project",
       source: {
         hostId: host.id,
@@ -49,12 +54,12 @@ describe("thread parent validation", () => {
         type: "local_path",
       },
     });
-    const parentThread = createThread(db, noopNotifier, {
+    const parentThread = await createThread(db, noopNotifier, {
       projectId: otherProject.id,
       providerId: "codex",
     });
 
-    const validatedParent = assertValidParentThread(
+    const validatedParent = await assertValidParentThread(
       { db },
       { parentThreadId: parentThread.id },
     );
@@ -62,15 +67,15 @@ describe("thread parent validation", () => {
     expect(validatedParent.projectId).toBe(otherProject.id);
   });
 
-  it("rejects self-parenting", () => {
-    const { db, project } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("rejects self-parenting", async () => {
+    const { db, project } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
 
-    const error = captureApiError(() => {
-      assertValidParentThread(
+    const error = await captureApiError(async () => {
+      await assertValidParentThread(
         { db },
         {
           childThreadId: thread.id,
@@ -85,25 +90,25 @@ describe("thread parent validation", () => {
     });
   });
 
-  it("rejects parent assignments that would create a cycle", () => {
-    const { db, project } = setup();
-    const rootThread = createThread(db, noopNotifier, {
+  it("rejects parent assignments that would create a cycle", async () => {
+    const { db, project } = await setup();
+    const rootThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    const childThread = createThread(db, noopNotifier, {
+    const childThread = await createThread(db, noopNotifier, {
       parentThreadId: rootThread.id,
       projectId: project.id,
       providerId: "codex",
     });
-    const grandchildThread = createThread(db, noopNotifier, {
+    const grandchildThread = await createThread(db, noopNotifier, {
       parentThreadId: childThread.id,
       projectId: project.id,
       providerId: "codex",
     });
 
-    const error = captureApiError(() => {
-      assertValidParentThread(
+    const error = await captureApiError(async () => {
+      await assertValidParentThread(
         { db },
         {
           childThreadId: rootThread.id,
@@ -118,24 +123,24 @@ describe("thread parent validation", () => {
     });
   });
 
-  it("allows nesting up to the configured depth cap", () => {
-    const { db, project } = setup();
-    const rootThread = createThread(db, noopNotifier, {
+  it("allows nesting up to the configured depth cap", async () => {
+    const { db, project } = await setup();
+    const rootThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    const level2Thread = createThread(db, noopNotifier, {
+    const level2Thread = await createThread(db, noopNotifier, {
       parentThreadId: rootThread.id,
       projectId: project.id,
       providerId: "codex",
     });
-    const level3Thread = createThread(db, noopNotifier, {
+    const level3Thread = await createThread(db, noopNotifier, {
       parentThreadId: level2Thread.id,
       projectId: project.id,
       providerId: "codex",
     });
 
-    const validatedParent = assertValidParentThread(
+    const validatedParent = await assertValidParentThread(
       { db },
       {
         parentThreadId: level3Thread.id,
@@ -145,30 +150,30 @@ describe("thread parent validation", () => {
     expect(validatedParent.id).toBe(level3Thread.id);
   });
 
-  it("rejects new children beyond the configured depth cap", () => {
-    const { db, project } = setup();
-    const rootThread = createThread(db, noopNotifier, {
+  it("rejects new children beyond the configured depth cap", async () => {
+    const { db, project } = await setup();
+    const rootThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    const level2Thread = createThread(db, noopNotifier, {
+    const level2Thread = await createThread(db, noopNotifier, {
       parentThreadId: rootThread.id,
       projectId: project.id,
       providerId: "codex",
     });
-    const level3Thread = createThread(db, noopNotifier, {
+    const level3Thread = await createThread(db, noopNotifier, {
       parentThreadId: level2Thread.id,
       projectId: project.id,
       providerId: "codex",
     });
-    const level4Thread = createThread(db, noopNotifier, {
+    const level4Thread = await createThread(db, noopNotifier, {
       parentThreadId: level3Thread.id,
       projectId: project.id,
       providerId: "codex",
     });
 
-    const error = captureApiError(() => {
-      assertValidParentThread(
+    const error = await captureApiError(async () => {
+      await assertValidParentThread(
         { db },
         {
           parentThreadId: level4Thread.id,
@@ -182,34 +187,34 @@ describe("thread parent validation", () => {
     });
   });
 
-  it("rejects moves whose existing descendants would exceed the depth cap", () => {
-    const { db, project } = setup();
-    const rootThread = createThread(db, noopNotifier, {
+  it("rejects moves whose existing descendants would exceed the depth cap", async () => {
+    const { db, project } = await setup();
+    const rootThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    const level2Thread = createThread(db, noopNotifier, {
+    const level2Thread = await createThread(db, noopNotifier, {
       parentThreadId: rootThread.id,
       projectId: project.id,
       providerId: "codex",
     });
-    const level3Thread = createThread(db, noopNotifier, {
+    const level3Thread = await createThread(db, noopNotifier, {
       parentThreadId: level2Thread.id,
       projectId: project.id,
       providerId: "codex",
     });
-    const movingThread = createThread(db, noopNotifier, {
+    const movingThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    createThread(db, noopNotifier, {
+    await createThread(db, noopNotifier, {
       parentThreadId: movingThread.id,
       projectId: project.id,
       providerId: "codex",
     });
 
-    const error = captureApiError(() => {
-      assertValidParentThread(
+    const error = await captureApiError(async () => {
+      await assertValidParentThread(
         { db },
         {
           childThreadId: movingThread.id,

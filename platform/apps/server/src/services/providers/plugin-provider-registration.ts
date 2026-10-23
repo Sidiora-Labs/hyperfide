@@ -122,7 +122,9 @@ export function buildPluginProviderRegistration(args: {
   pluginId: string;
   declaration: NormalizedPluginProviderDeclaration;
   iconHash: string | null;
-  readSettings: () => PluginProviderOptionsContext["settings"];
+  readSettings: () =>
+    | PluginProviderOptionsContext["settings"]
+    | Promise<PluginProviderOptionsContext["settings"]>;
 }): Omit<ProviderRegistration, "pluginId" | "iconNames"> {
   const { declaration } = args;
   const { capabilities } = declaration;
@@ -229,10 +231,10 @@ export function buildPluginProviderRegistration(args: {
       declaration.experimental_nativeCommandRoots ??
       EMPTY_PROVIDER_NATIVE_ROOTS,
     resolvesNativeRoots: declaration.experimental_resolvesNativeRoots,
-    deriveProviderOptions: (context) =>
+    deriveProviderOptions: async (context) =>
       deriveValidatedProviderOptions({
         declaration,
-        context: { ...context, settings: args.readSettings() },
+        context: { ...context, settings: await args.readSettings() },
       }),
   };
 }

@@ -51,21 +51,21 @@ describe("hero plugin: agent-enrichment (Phase 2 surfaces)", () => {
     await harness.cleanup();
   });
 
-  function seedThreadFixture(value: number) {
-    const { host, session } = seedHostSession(harness.deps, {
+  async function seedThreadFixture(value: number) {
+    const { host, session } = await seedHostSession(harness.deps, {
       id: `host-enrichment-${value}`,
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
       path: `/tmp/enrichment-${value}`,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
       path: `/tmp/enrichment-${value}`,
       status: "ready",
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       status: "idle",
@@ -74,7 +74,7 @@ describe("hero plugin: agent-enrichment (Phase 2 surfaces)", () => {
   }
 
   it("docs_search and the repo-conventions skill ride thread.start", async () => {
-    const { environment, project, thread } = seedThreadFixture(1);
+    const { environment, project, thread } = await seedThreadFixture(1);
     const execution = await buildExecutionOptions(
       harness.deps,
       { model: "gpt-5" },
@@ -122,11 +122,11 @@ describe("hero plugin: agent-enrichment (Phase 2 surfaces)", () => {
   });
 
   it("the internal tool-call route dispatches docs_search; the CLI command shares its kv cache", async () => {
-    const { session, thread } = seedThreadFixture(2);
-    const postToolCall = (args: unknown) =>
+    const { session, thread } = await seedThreadFixture(2);
+    const postToolCall = async (args: unknown) =>
       harness.app.request("/internal/session/tool-call", {
         method: "POST",
-        headers: internalAuthHeaders(harness),
+        headers: await internalAuthHeaders(harness),
         body: JSON.stringify({
           sessionId: session.id,
           threadId: thread.id,
@@ -158,10 +158,9 @@ describe("hero plugin: agent-enrichment (Phase 2 surfaces)", () => {
       'Invalid arguments for tool "docs_search"',
     );
     expect(
-      harness.pluginService
-        .list()
-        .find((plugin) => plugin.id === "agent-enrichment")?.handlerStats
-        .errorCount,
+      (await harness.pluginService.list()).find(
+        (plugin) => plugin.id === "agent-enrichment",
+      )?.handlerStats.errorCount,
     ).toBe(0);
 
     const last = await harness.app.request(
@@ -207,7 +206,7 @@ describe("hero plugin: agent-enrichment (Phase 2 surfaces)", () => {
       },
     ]);
 
-    const { environment, thread } = seedThreadFixture(3);
+    const { environment, thread } = await seedThreadFixture(3);
     const input: PromptInput[] = [
       {
         type: "text",
@@ -261,7 +260,7 @@ describe("hero plugin: agent-enrichment (Phase 2 surfaces)", () => {
   });
 
   it("mention resolve rejects item ids outside the docs dir, blocking the send", async () => {
-    const { environment, thread } = seedThreadFixture(4);
+    const { environment, thread } = await seedThreadFixture(4);
     await expect(
       sendThreadMessage(harness.deps, {
         environment,
@@ -301,7 +300,7 @@ describe("hero plugin: agent-enrichment (Phase 2 surfaces)", () => {
       },
     });
     expect(
-      listQueuedThreadCommands(harness, "thread.start", thread.id),
+      await listQueuedThreadCommands(harness, "thread.start", thread.id),
     ).toHaveLength(0);
   });
 });

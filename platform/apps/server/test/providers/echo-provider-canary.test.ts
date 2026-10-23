@@ -63,24 +63,28 @@ interface StoredRow {
   };
 }
 
-function storedRows(harness: TestAppHarness, threadId: string): StoredRow[] {
-  return harness.db
-    .select({
-      type: events.type,
-      itemKind: events.itemKind,
-      turnId: events.turnId,
-      data: events.data,
-    })
-    .from(events)
-    .where(eq(events.threadId, threadId))
-    .orderBy(events.sequence)
-    .all()
-    .map((row) => ({
-      type: row.type,
-      itemKind: row.itemKind,
-      turnId: row.turnId,
-      data: JSON.parse(row.data) as StoredRow["data"],
-    }));
+async function storedRows(
+  harness: TestAppHarness,
+  threadId: string,
+): Promise<StoredRow[]> {
+  return (
+    await harness.db
+      .select({
+        type: events.type,
+        itemKind: events.itemKind,
+        turnId: events.turnId,
+        data: events.data,
+      })
+      .from(events)
+      .where(eq(events.threadId, threadId))
+      .orderBy(events.sequence)
+      .all()
+  ).map((row) => ({
+    type: row.type,
+    itemKind: row.itemKind,
+    turnId: row.turnId,
+    data: JSON.parse(row.data) as StoredRow["data"],
+  }));
 }
 
 function completedItems(rows: StoredRow[]): StoredRow[] {
@@ -203,18 +207,18 @@ describe("echo-provider canary: plugin install → server command → runtime �
       harness.deps.providerRegistry.getExtensionKindSchemas(MOOD_KIND)?.state,
     ).toBeDefined();
 
-    const { host, session } = seedHostSession(harness.deps, {
+    const { host, session } = await seedHostSession(harness.deps, {
       id: "host-echo-canary",
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
       path: workspaceDir,
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       providerId: PROVIDER_ID,
@@ -259,11 +263,11 @@ describe("echo-provider canary: plugin install → server command → runtime �
 
     const runtimeEvents: ThreadEvent[] = [];
     let ingest: Promise<void> = Promise.resolve();
-    const ingestEvent = (event: ThreadEvent): void => {
+    const ingestEvent = async (event: ThreadEvent): Promise<void> => {
       ingest = ingest.then(async () => {
         const response = await harness.app.request("/internal/session/events", {
           method: "POST",
-          headers: internalAuthHeaders(harness),
+          headers: await internalAuthHeaders(harness),
           body: JSON.stringify({
             sessionId: session.id,
             eventGroups: groupHostDaemonEvents([
@@ -275,11 +279,11 @@ describe("echo-provider canary: plugin install → server command → runtime �
       });
     };
     const toolCalls: ToolCallRequest[] = [];
-    const runtimeInstance = createAgentRuntime({
+    const runtimeInstance = await createAgentRuntime({
       workspacePath: workspaceDir,
-      onEvent: (event) => {
+      onEvent: async (event) => {
         runtimeEvents.push(event);
-        ingestEvent(event);
+        await ingestEvent(event);
       },
       onToolCall: async (request): Promise<ToolCallResponse> => {
         toolCalls.push(request);
@@ -287,7 +291,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
           "/internal/session/tool-call",
           {
             method: "POST",
-            headers: internalAuthHeaders(harness),
+            headers: await internalAuthHeaders(harness),
             body: JSON.stringify({
               sessionId: session.id,
               threadId: request.threadId,
@@ -341,7 +345,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
       arguments: { text: "hello canary" },
     });
 
-    const rows = storedRows(harness, thread.id);
+    const rows = await storedRows(harness, thread.id);
     const completed = completedItems(rows);
     expect(completed.map((row) => row.itemKind)).toEqual([
       "commandExecution",
@@ -478,7 +482,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
     });
     await waitFor(() => turnCompletedCount() >= 4, "the second echo turn");
     await ingest;
-    const secondTurnRows = storedRows(harness, thread.id).slice(before);
+    const secondTurnRows = (await storedRows(harness, thread.id)).slice(before);
     expect(
       secondTurnRows.filter((row) => row.itemKind === "extension"),
     ).toEqual([]);
@@ -502,7 +506,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
         ?.data,
     ).toMatchObject({ kind: MOOD_KIND, payload: { turnsEchoed: 2 } });
 
-    const rejectedBefore = storedRows(harness, thread.id).length;
+    const rejectedBefore = (await storedRows(harness, thread.id)).length;
     const secondTurn = secondTurnRows.find(
       (row) => row.type === "turn/started" && row.turnId !== null,
     );
@@ -512,7 +516,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
     }
     const undeclared = await harness.app.request("/internal/session/events", {
       method: "POST",
-      headers: internalAuthHeaders(harness),
+      headers: await internalAuthHeaders(harness),
       body: JSON.stringify({
         sessionId: session.id,
         eventGroups: groupHostDaemonEvents([
@@ -540,7 +544,9 @@ describe("echo-provider canary: plugin install → server command → runtime �
       }),
     });
     expect(undeclared.status).toBe(200);
-    const rejected = storedRows(harness, thread.id).slice(rejectedBefore);
+    const rejected = (await storedRows(harness, thread.id)).slice(
+      rejectedBefore,
+    );
     expect(rejected.map((row) => row.type)).toEqual(["provider/unhandled"]);
     expect(rejected[0]?.data).toMatchObject({
       providerId: PROVIDER_ID,
@@ -568,18 +574,18 @@ describe("echo-provider canary: plugin install → server command → runtime �
       throw new Error("the plugin's hyperfide.host artifact was not built");
     }
 
-    const { host, session } = seedHostSession(harness.deps, {
+    const { host, session } = await seedHostSession(harness.deps, {
       id: "host-echo-canary-skills",
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
       path: workspaceDir,
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       providerId: PROVIDER_ID,
@@ -629,7 +635,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
 
     const runtimeEvents: ThreadEvent[] = [];
     const toolCalls: ToolCallRequest[] = [];
-    const runtimeInstance = createAgentRuntime({
+    const runtimeInstance = await createAgentRuntime({
       workspacePath: workspaceDir,
       env: { HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR: recordDir },
       skillRoots,
@@ -642,7 +648,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
           "/internal/session/tool-call",
           {
             method: "POST",
-            headers: internalAuthHeaders(harness),
+            headers: await internalAuthHeaders(harness),
             body: JSON.stringify({
               sessionId: session.id,
               threadId: request.threadId,

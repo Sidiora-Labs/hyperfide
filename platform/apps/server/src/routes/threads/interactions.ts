@@ -36,17 +36,17 @@ export function registerThreadInteractionRoutes(
   });
   const routes = publicApiRoutes.threads;
 
-  get(routes.interactions, (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  get(routes.interactions, async (context) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     return context.json(
-      deps.pendingInteractions.listPendingThreadInteractions(thread.id),
+      await deps.pendingInteractions.listPendingThreadInteractions(thread.id),
     );
   });
 
-  get(routes.interaction, (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  get(routes.interaction, async (context) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     return context.json(
-      deps.pendingInteractions.getThreadInteraction({
+      await deps.pendingInteractions.getThreadInteraction({
         threadId: thread.id,
         interactionId: parsePendingInteractionId(
           context.req.param("interactionId"),
@@ -55,10 +55,10 @@ export function registerThreadInteractionRoutes(
     );
   });
 
-  post(routes.resolveInteraction, (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  post(routes.resolveInteraction, async (context, payload) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     return context.json(
-      deps.pendingInteractions.resolvePendingInteraction({
+      await deps.pendingInteractions.resolvePendingInteraction({
         threadId: thread.id,
         interactionId: parsePendingInteractionId(
           context.req.param("interactionId"),
@@ -69,7 +69,7 @@ export function registerThreadInteractionRoutes(
   });
 
   post(routes.respondToInteraction, async (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     if (
       Buffer.byteLength(JSON.stringify(payload.value), "utf8") >
       PLUGIN_INTERACTION_MAX_PAYLOAD_BYTES
@@ -91,10 +91,10 @@ export function registerThreadInteractionRoutes(
     );
   });
 
-  post(routes.cancelInteraction, (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  post(routes.cancelInteraction, async (context) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     return context.json(
-      deps.pendingInteractions.cancelPluginInteraction({
+      await deps.pendingInteractions.cancelPluginInteraction({
         threadId: thread.id,
         interactionId: parsePendingInteractionId(
           context.req.param("interactionId"),

@@ -14,8 +14,8 @@ interface ThreadTimelineCache {
   getOrBuild(
     threadId: string,
     key: string,
-    build: () => ThreadTimelineResponse,
-  ): ThreadTimelineResponse;
+    build: () => ThreadTimelineResponse | Promise<ThreadTimelineResponse>,
+  ): ThreadTimelineResponse | Promise<ThreadTimelineResponse>;
   invalidateThread(threadId: string): void;
   readonly size: number;
 }
@@ -34,7 +34,7 @@ export function createThreadTimelineCache(
   const entries = new Map<string, ThreadTimelineCacheEntry>();
 
   return {
-    getOrBuild(threadId, key, build) {
+    async getOrBuild(threadId, key, build) {
       const cached = entries.get(key);
       if (cached !== undefined) {
         entries.delete(key);
@@ -42,7 +42,7 @@ export function createThreadTimelineCache(
         return cached.response;
       }
 
-      const value = build();
+      const value = await build();
       if (value.rows.length <= maxCacheableRows) {
         entries.set(key, { response: value, threadId });
         while (entries.size > maxEntries) {

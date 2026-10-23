@@ -2,7 +2,10 @@ import {
   isUserQuestionPendingInteraction,
   type PendingInteractionResolution,
 } from "@hyperfide/domain";
-import type { TimelineQuestionWorkRow, TimelineRow } from "@hyperfide/server-contract";
+import type {
+  TimelineQuestionWorkRow,
+  TimelineRow,
+} from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import {
   getThreadOutput,
@@ -42,8 +45,8 @@ function collectQuestionRows(
 }
 
 describe.sequential("fake provider user-question integration", () => {
-  it("pauses for a user question and resumes with the answer", () =>
-    withHarness(async (harness) => {
+  it("pauses for a user question and resumes with the answer", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(
         harness,
         "User Question Smoke",

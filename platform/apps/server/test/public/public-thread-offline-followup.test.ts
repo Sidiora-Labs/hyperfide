@@ -27,29 +27,29 @@ import { withTestHarness } from "../helpers/test-app.js";
 describe("offline host follow-ups", () => {
   it("queues a follow-up for a host whose socket just dropped", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-dropped-followup",
         name: "M5",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/dropped-followup",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "idle",
       });
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-dropped-followup",
       });
-      handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
       harness.hub.cancelPendingDaemonDisconnect(session.id);
 
       const response = await harness.app.request(
@@ -91,30 +91,30 @@ describe("offline host follow-ups", () => {
     },
   ] as const)("queues an offline $status follow-up", async (testCase) => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps, {
+      const host = await seedHost(harness.deps, {
         id: "host-offline-followup",
         name: "M5",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/offline-followup",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: testCase.status,
       });
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "provider-offline-followup",
       });
       if (testCase.status === "active") {
-        seedTurnStarted(harness.deps, {
+        await seedTurnStarted(harness.deps, {
           environmentId: environment.id,
           providerThreadId: "provider-offline-followup",
           threadId: thread.id,
@@ -128,9 +128,11 @@ describe("offline host follow-ups", () => {
           mentions: [],
         },
       ];
-      const eventCountBeforeSend = listEvents(harness.db, {
-        threadId: thread.id,
-      }).length;
+      const eventCountBeforeSend = (
+        await listEvents(harness.db, {
+          threadId: thread.id,
+        })
+      ).length;
 
       const response = await harness.app.request(
         `/api/v1/threads/${thread.id}/send`,
@@ -158,23 +160,23 @@ describe("offline host follow-ups", () => {
         throw new Error("expected the offline follow-up to queue");
       }
 
-      const queued = listQueuedThreadMessages(harness.db, thread.id);
+      const queued = await listQueuedThreadMessages(harness.db, thread.id);
       expect(queued).toHaveLength(1);
       expect(queued[0]).toMatchObject({
         id: body.queuedMessage.id,
         sendAt: null,
         failureReason: null,
       });
-      expect(listEvents(harness.db, { threadId: thread.id })).toHaveLength(
-        eventCountBeforeSend,
-      );
+      expect(
+        await listEvents(harness.db, { threadId: thread.id }),
+      ).toHaveLength(eventCountBeforeSend);
 
-      const reconnectSession = seedSession(harness.deps, host.id);
-      const reconnectSocket = registerTestHostRpcCapture(harness.deps, {
+      const reconnectSession = await seedSession(harness.deps, host.id);
+      const reconnectSocket = await registerTestHostRpcCapture(harness.deps, {
         hostId: host.id,
         sessionId: reconnectSession.id,
       });
-      onDaemonSocketOpen(harness.deps, {
+      await onDaemonSocketOpen(harness.deps, {
         hostId: host.id,
         sessionId: reconnectSession.id,
         socket: reconnectSocket,
@@ -183,7 +185,7 @@ describe("offline host follow-ups", () => {
       if (testCase.status === "active") {
         await new Promise<void>((resolve) => setImmediate(resolve));
         expect(
-          listQueuedThreadCommands(harness, "turn.submit", thread.id),
+          await listQueuedThreadCommands(harness, "turn.submit", thread.id),
         ).toEqual([]);
       }
       expect(body).toMatchObject({
@@ -194,7 +196,7 @@ describe("offline host follow-ups", () => {
       ).toEqual(testCase.waitingOn);
 
       if (testCase.status === "active") {
-        applyLoggedThreadLifecycleEvent(harness.deps, {
+        await applyLoggedThreadLifecycleEvent(harness.deps, {
           event: { type: "run.succeeded" },
           threadId: thread.id,
         });
@@ -217,10 +219,10 @@ describe("offline host follow-ups", () => {
         input,
         target: { mode: "start" },
       });
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
-      expect(listEvents(harness.db, { threadId: thread.id })).toHaveLength(
-        eventCountBeforeSend + 1,
-      );
+      expect(await listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+      expect(
+        await listEvents(harness.db, { threadId: thread.id }),
+      ).toHaveLength(eventCountBeforeSend + 1);
     });
   });
 });

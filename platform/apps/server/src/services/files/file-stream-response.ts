@@ -65,7 +65,7 @@ export async function createFileStreamResponse({
   signal.throwIfAborted();
   const reader = await source.open(signal);
   let closePromise: Promise<void> | undefined;
-  const close = () => (closePromise ??= reader.close());
+  const close = async () => (closePromise ??= reader.close());
   const read = async (offset: number) => {
     signal.throwIfAborted();
     const length = Math.min(reader.maxChunkBytes, end - offset + 1);
@@ -91,22 +91,22 @@ export async function createFileStreamResponse({
   }
   let cancelled = false;
   let detachAbort = () => {};
-  const release = () => {
+  const release = async () => {
     first = null;
     detachAbort();
-    return close();
+    return await close();
   };
   const body = new ReadableStream<Uint8Array>(
     {
-      start(controller) {
-        const abort = () => {
+      async start(controller) {
+        const abort = async () => {
           cancelled = true;
           controller.error(signal.reason);
           void release().catch(() => {});
         };
         signal.addEventListener("abort", abort, { once: true });
         detachAbort = () => signal.removeEventListener("abort", abort);
-        if (signal.aborted) abort();
+        if (signal.aborted) await abort();
       },
       async pull(controller) {
         try {

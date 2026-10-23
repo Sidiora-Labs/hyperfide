@@ -93,8 +93,11 @@ interface RootTurn {
   turnId: string;
 }
 
-function listLatestRootTurns(db: DbConnection, threadId: string): RootTurn[] {
-  return db.$client
+async function listLatestRootTurns(
+  db: DbConnection,
+  threadId: string,
+): Promise<RootTurn[]> {
+  return await db.$client
     .prepare<[string], RootTurn>(
       `SELECT turn_id AS turnId, provider_thread_id AS providerThreadId
        FROM events
@@ -129,14 +132,14 @@ describe.skipIf(!available)("provider corpus streaming selection memo", () => {
 
   it.each(corpusThreads.map((thread) => [thread.id, thread.provider] as const))(
     "%s (%s) matches a cold build while a turn streams",
-    (threadId) => {
+    async (threadId) => {
       if (registry === null) {
         throw new Error("provider registry did not load");
       }
       const corpusThread = loadCorpusThread(threadId);
-      const loaded = loadCorpusThreadIntoDb(corpusThread);
+      const loaded = await loadCorpusThreadIntoDb(corpusThread);
       try {
-        const [latestRootTurn, earlierRootTurn] = listLatestRootTurns(
+        const [latestRootTurn, earlierRootTurn] = await listLatestRootTurns(
           loaded.db,
           loaded.thread.id,
         );
@@ -150,7 +153,7 @@ describe.skipIf(!available)("provider corpus streaming selection memo", () => {
                 ? latestRootTurn
                 : earlierRootTurn;
             if (rootTurn === undefined) continue;
-            insertEvents(loaded.db, noopNotifier, [
+            await insertEvents(loaded.db, noopNotifier, [
               {
                 data: JSON.stringify(tick.data),
                 itemId: tick.itemId,
@@ -160,15 +163,19 @@ describe.skipIf(!available)("provider corpus streaming selection memo", () => {
                   rootTurn.providerThreadId ?? latestRootTurn.providerThreadId,
                 scope: turnScope(rootTurn.turnId),
                 sequence:
-                  getLatestThreadSequence(loaded.db, {
+                  (await getLatestThreadSequence(loaded.db, {
                     threadId: loaded.thread.id,
-                  }) + 1,
+                  })) + 1,
                 threadId: loaded.thread.id,
                 type: tick.type,
               },
             ]);
           }
-          const clone = createConnection(loaded.db.$client.serialize());
+          const clone = await createConnection(
+            loaded.db.dialect === "postgresql"
+              ? loaded.db.databaseUrl!
+              : loaded.db.$client.serialize(),
+          );
           try {
             for (const variant of TIMELINE_VARIANTS) {
               const args = {
@@ -177,10 +184,13 @@ describe.skipIf(!available)("provider corpus streaming selection memo", () => {
                 thread,
                 variant,
               };
-              const warm = buildRouteTimelinePage({ ...args, db: loaded.db });
+              const warm = await buildRouteTimelinePage({
+                ...args,
+                db: loaded.db,
+              });
               clearCrossBuildTimelineCaches(clone);
               clearTimelineOrderingContextCache(clone);
-              const cold = buildRouteTimelinePage({ ...args, db: clone });
+              const cold = await buildRouteTimelinePage({ ...args, db: clone });
               expect(JSON.stringify(warm.response)).toBe(
                 JSON.stringify(cold.response),
               );
@@ -194,11 +204,11 @@ describe.skipIf(!available)("provider corpus streaming selection memo", () => {
               }
             }
           } finally {
-            clone.$client.close();
+            await clone.close();
           }
         }
       } finally {
-        loaded.close();
+        await loaded.close();
       }
     },
     PER_THREAD_TIMEOUT_MS,

@@ -13,8 +13,8 @@ import {
 } from "./shared.js";
 
 describe.sequential("fake provider tool-call integration", () => {
-  it("resolves unresolved provider turn ids before tool results unblock the provider", () =>
-    withHarness(async (harness) => {
+  it("resolves unresolved provider turn ids before tool results unblock the provider", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(
         harness,
         "Tool Call Turn Repair",

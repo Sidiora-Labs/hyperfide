@@ -62,56 +62,63 @@ function notifyThreadSectionMutationProjects(
   }
 }
 
-export function getThreadSectionById(
+export async function getThreadSectionById(
   db: DbQueryConnection,
   id: string,
-): ThreadSectionRow | null {
-  return db.select().from(threadSections).where(eq(threadSections.id, id)).get()
-    ?? null;
+): Promise<ThreadSectionRow | null> {
+  return (
+    (await db
+      .select()
+      .from(threadSections)
+      .where(eq(threadSections.id, id))
+      .get()) ?? null
+  );
 }
 
-function getThreadSectionByName(
+async function getThreadSectionByName(
   db: DbQueryConnection,
   name: string,
-): ThreadSectionRow | null {
+): Promise<ThreadSectionRow | null> {
   const normalized = normalizeThreadSectionName(name);
   if (!normalized) {
     return null;
   }
   return (
-    db
+    (await db
       .select()
       .from(threadSections)
       .where(eq(threadSections.name, normalized))
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function listThreadSections(db: DbQueryConnection): ThreadSectionRow[] {
-  return db
+export async function listThreadSections(
+  db: DbQueryConnection,
+): Promise<ThreadSectionRow[]> {
+  return await db
     .select()
     .from(threadSections)
     .orderBy(asc(threadSections.name), asc(threadSections.id))
     .all();
 }
 
-export function createThreadSection(
+export async function createThreadSection(
   db: ThreadSectionWriteConnection,
   notifier: DbNotifier,
   input: CreateThreadSectionInput,
-): CreateThreadSectionResult {
+): Promise<CreateThreadSectionResult> {
   const name = normalizeThreadSectionName(input.name);
   if (!name) {
     throw new Error("Thread section name cannot be empty");
   }
 
-  const existing = getThreadSectionByName(db, name);
+  const existing = await getThreadSectionByName(db, name);
   if (existing) {
     return { status: "duplicate", section: existing };
   }
 
   const now = Date.now();
-  const section = db
+  const section = await db
     .insert(threadSections)
     .values({
       id: createThreadSectionId(),
@@ -125,19 +132,19 @@ export function createThreadSection(
   return { status: "created", section };
 }
 
-export function renameThreadSection(
+export async function renameThreadSection(
   db: DbConnection,
   notifier: DbNotifier,
   input: RenameThreadSectionInput,
-): RenameThreadSectionResult {
+): Promise<RenameThreadSectionResult> {
   const name = normalizeThreadSectionName(input.name);
   if (!name) {
     return { status: "not_found" };
   }
 
-  return db.transaction(
-    (tx) => {
-      const existing = getThreadSectionById(tx, input.id);
+  return await db.transaction(
+    async (tx) => {
+      const existing = await getThreadSectionById(tx, input.id);
       if (!existing) {
         return { status: "not_found" };
       }
@@ -153,12 +160,13 @@ export function renameThreadSection(
         };
       }
 
-      const duplicate = getThreadSectionByName(tx, name);
+      const duplicate = await getThreadSectionByName(tx, name);
       if (duplicate && duplicate.id !== input.id) {
         return { status: "duplicate", section: duplicate };
       }
 
-      tx.update(threadSections)
+      await tx
+        .update(threadSections)
         .set({ name, updatedAt: Date.now() })
         .where(eq(threadSections.id, input.id))
         .run();
@@ -176,19 +184,19 @@ export function renameThreadSection(
   );
 }
 
-export function deleteThreadSection(
+export async function deleteThreadSection(
   db: DbConnection,
   notifier: DbNotifier,
   input: DeleteThreadSectionInput,
-): ThreadSectionMutationResult | null {
-  return db.transaction(
-    (tx) => {
-      const section = getThreadSectionById(tx, input.id);
+): Promise<ThreadSectionMutationResult | null> {
+  return await db.transaction(
+    async (tx) => {
+      const section = await getThreadSectionById(tx, input.id);
       if (!section) {
         return null;
       }
 
-      const matchingThreads = tx
+      const matchingThreads = await tx
         .select({
           id: threads.id,
           projectId: threads.projectId,
@@ -199,18 +207,22 @@ export function deleteThreadSection(
 
       const now = Date.now();
       const affectedProjects = new Set<string>();
-      tx.update(threads)
+      await tx
+        .update(threads)
         .set({ sectionId: null, updatedAt: now })
         .where(eq(threads.sectionId, input.id))
         .run();
       for (const thread of matchingThreads) {
         affectedProjects.add(thread.projectId);
-        notifier.notifyThread(thread.id, ["title-changed"], {
+        await notifier.notifyThread(thread.id, ["title-changed"], {
           projectId: thread.projectId,
         });
       }
 
-      tx.delete(threadSections).where(eq(threadSections.id, input.id)).run();
+      await tx
+        .delete(threadSections)
+        .where(eq(threadSections.id, input.id))
+        .run();
       notifyThreadSectionMutationProjects(notifier, affectedProjects);
       return {
         id: section.id,

@@ -52,13 +52,15 @@ async function setup() {
     pluginId: PLUGIN_ID,
     iconNames: new Set(["gauge"]),
   });
-  const { host, session } = seedHostSession(harness.deps);
-  const { project } = seedProjectWithSource(harness.deps, { hostId: host.id });
-  const environment = seedEnvironment(harness.deps, {
+  const { host, session } = await seedHostSession(harness.deps);
+  const { project } = await seedProjectWithSource(harness.deps, {
+    hostId: host.id,
+  });
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     providerId: PROVIDER_ID,
@@ -74,7 +76,7 @@ async function post(
 ): Promise<Response> {
   return harness.app.request("/internal/session/events", {
     method: "POST",
-    headers: internalAuthHeaders(harness),
+    headers: await internalAuthHeaders(harness),
     body: JSON.stringify({
       sessionId,
       eventGroups: groupHostDaemonEvents(batch),
@@ -82,26 +84,27 @@ async function post(
   });
 }
 
-function storedRows(harness: TestAppHarness, threadId: string) {
-  return harness.db
-    .select({
-      type: events.type,
-      itemKind: events.itemKind,
-      scopeKind: events.scopeKind,
-      turnId: events.turnId,
-      data: events.data,
-    })
-    .from(events)
-    .where(eq(events.threadId, threadId))
-    .orderBy(events.sequence)
-    .all()
-    .map((row) => ({
-      type: row.type,
-      itemKind: row.itemKind,
-      scopeKind: row.scopeKind,
-      turnId: row.turnId,
-      data: JSON.parse(row.data) as unknown,
-    }));
+async function storedRows(harness: TestAppHarness, threadId: string) {
+  return (
+    await harness.db
+      .select({
+        type: events.type,
+        itemKind: events.itemKind,
+        scopeKind: events.scopeKind,
+        turnId: events.turnId,
+        data: events.data,
+      })
+      .from(events)
+      .where(eq(events.threadId, threadId))
+      .orderBy(events.sequence)
+      .all()
+  ).map((row) => ({
+    type: row.type,
+    itemKind: row.itemKind,
+    scopeKind: row.scopeKind,
+    turnId: row.turnId,
+    data: JSON.parse(row.data) as unknown,
+  }));
 }
 
 function turnStarted(threadId: string): HostDaemonEventEnvelope {
@@ -158,7 +161,7 @@ describe("presentation icon ingest validation", () => {
       ]);
       expect(response.status).toBe(200);
       expect(
-        storedRows(harness, thread.id).map((row) => [
+        (await storedRows(harness, thread.id)).map((row) => [
           row.type,
           (
             row.data as {
@@ -197,7 +200,7 @@ describe("presentation icon ingest validation", () => {
         ],
         rejectedEvents: [],
       });
-      const rows = storedRows(harness, thread.id);
+      const rows = await storedRows(harness, thread.id);
       expect(rows.map((row) => row.type)).toEqual([
         "turn/started",
         "provider/unhandled",
@@ -348,7 +351,7 @@ describe("presentation icon ingest validation on thread-scoped item snapshots", 
         ],
         rejectedEvents: [],
       });
-      const rows = storedRows(harness, thread.id);
+      const rows = await storedRows(harness, thread.id);
       expect(rows.map((row) => [row.type, storedGlyph(row)])).toEqual([
         ["turn/started", undefined],
         [type, `${PLUGIN_ID}/gauge`],
@@ -487,7 +490,7 @@ describe("presentation icon ingest validation for hyperfide-injected tool rows",
         toolItem(thread.id, "item-4", TOOL_ICON_GLYPH),
       ]);
       expect(response.status).toBe(200);
-      const rows = storedRows(harness, thread.id);
+      const rows = await storedRows(harness, thread.id);
       expect(rows.map((row) => [row.type, storedGlyph(row)])).toEqual([
         ["turn/started", undefined],
         ["item/completed", TOOL_ICON_GLYPH],

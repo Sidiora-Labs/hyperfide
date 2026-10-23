@@ -7,8 +7,8 @@ import { NotificationHub } from "../../src/ws/hub.js";
 import { createMockHubSocket } from "../helpers/mock-hub-socket.js";
 
 describe("client websocket protocol", () => {
-  it("subscribes valid client messages parsed through the shared schema", () => {
-    const hub = new NotificationHub();
+  it("subscribes valid client messages parsed through the shared schema", async () => {
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
 
     onClientSocketOpen(hub, socket);
@@ -20,7 +20,7 @@ describe("client websocket protocol", () => {
         target: { kind: "thread-detail", threadId: "thread-1" },
       }),
     );
-    hub.notifyThread("thread-1", ["events-appended"]);
+    await hub.notifyThread("thread-1", ["events-appended"]);
 
     expect(socket.closed).toHaveLength(0);
     expect(socket.messages).toHaveLength(1);
@@ -32,8 +32,8 @@ describe("client websocket protocol", () => {
     });
   });
 
-  it("skips a subscribe target whose id is not a string and keeps the socket", () => {
-    const hub = new NotificationHub();
+  it("skips a subscribe target whose id is not a string and keeps the socket", async () => {
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
 
     onClientSocketOpen(hub, socket);
@@ -45,14 +45,14 @@ describe("client websocket protocol", () => {
         target: { kind: "thread-detail", threadId: 123 },
       }),
     );
-    hub.notifyThread("thread-1", ["events-appended"]);
+    await hub.notifyThread("thread-1", ["events-appended"]);
 
     expect(socket.closed).toEqual([]);
     expect(socket.messages).toHaveLength(0);
   });
 
-  it("subscribes the valid targets of a batch that also holds an oversized plugin read", () => {
-    const hub = new NotificationHub();
+  it("subscribes the valid targets of a batch that also holds an oversized plugin read", async () => {
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
     const watched: unknown[] = [];
     hub.onWatchedTargets(["thread-detail", "plugin-read"], (change) => {
@@ -77,15 +77,15 @@ describe("client websocket protocol", () => {
         ],
       }),
     );
-    hub.notifyThread("thread-1", ["events-appended"]);
+    await hub.notifyThread("thread-1", ["events-appended"]);
 
     expect(socket.closed).toEqual([]);
     expect(watched).toEqual([{ started: [thread], stopped: [] }]);
     expect(socket.messages).toHaveLength(1);
   });
 
-  it("removes subscriptions after unsubscribe messages", () => {
-    const hub = new NotificationHub();
+  it("removes subscriptions after unsubscribe messages", async () => {
+    const hub = await new NotificationHub();
     const socket = createMockHubSocket();
 
     onClientSocketOpen(hub, socket);
@@ -105,7 +105,7 @@ describe("client websocket protocol", () => {
         target: { kind: "thread-detail", threadId: "thread-1" },
       }),
     );
-    hub.notifyThread("thread-1", ["events-appended"]);
+    await hub.notifyThread("thread-1", ["events-appended"]);
 
     expect(socket.closed).toHaveLength(0);
     expect(socket.messages).toHaveLength(0);
@@ -235,8 +235,8 @@ describe("client websocket protocol", () => {
   });
 });
 
-it("routes batched plugin subscriptions and invalidate-all to the subscribed sockets", () => {
-  const hub = new NotificationHub();
+it("routes batched plugin subscriptions and invalidate-all to the subscribed sockets", async () => {
+  const hub = await new NotificationHub();
   const socket = createMockHubSocket();
   const idle = createMockHubSocket();
   onClientSocketOpen(hub, socket);
@@ -252,8 +252,8 @@ it("routes batched plugin subscriptions and invalidate-all to the subscribed soc
       ],
     }),
   );
-  hub.notifyPluginChanged("other", null);
-  hub.notifyPluginChanged("push-notifications", null);
+  await hub.notifyPluginChanged("other", null);
+  await hub.notifyPluginChanged("push-notifications", null);
   expect(socket.closed).toEqual([]);
   expect(socket.messages.map((message) => JSON.parse(message))).toEqual([
     {

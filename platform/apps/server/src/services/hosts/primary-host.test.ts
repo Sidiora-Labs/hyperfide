@@ -30,18 +30,18 @@ describe("primary host resolution", () => {
     async (status) => {
       harness = await createTestAppHarness();
       if (status === "connected") {
-        seedHostSession(harness.deps, { name: "remote" });
+        await seedHostSession(harness.deps, { name: "remote" });
       } else {
-        seedHost(harness.deps, { name: "remote" });
+        await seedHost(harness.deps, { name: "remote" });
       }
       const deps = harness.deps;
 
-      expect(resolvePrimaryHostId(deps)).toBeNull();
+      expect(await resolvePrimaryHostId(deps)).toBeNull();
       for (const requireHost of [
         requirePrimaryHostId,
         requireConnectedPrimaryHostId,
       ]) {
-        expectApiError(() => requireHost(deps), {
+        await expectApiError(async () => await requireHost(deps), {
           status: 502,
           code: "host_unavailable",
           message: "Local host daemon is not initialized",
@@ -55,41 +55,46 @@ describe("primary host resolution", () => {
     async (state) => {
       harness = await createTestAppHarness();
       const deps = harness.deps;
-      seedHostSession(deps, { name: "remote" });
+      await seedHostSession(deps, { name: "remote" });
       if (state === "destroyed") {
-        const local = seedHost(deps, { name: "local" });
-        updateHost(deps.db, deps.hub, local.id, { destroyedAt: Date.now() });
+        const local = await seedHost(deps, { name: "local" });
+        await updateHost(deps.db, deps.hub, local.id, {
+          destroyedAt: Date.now(),
+        });
         seedPrimaryHost(deps, local.id);
       } else {
         seedPrimaryHost(deps, "host_missing");
       }
 
-      expect(resolvePrimaryHostId(deps)).toBeNull();
+      expect(await resolvePrimaryHostId(deps)).toBeNull();
     },
   );
 
   it("keeps a disconnected local host instead of selecting a connected remote host", async () => {
     harness = await createTestAppHarness();
     const deps = harness.deps;
-    const local = seedHost(deps, { name: "local" });
+    const local = await seedHost(deps, { name: "local" });
     seedPrimaryHost(deps, local.id);
-    seedHostSession(deps, { name: "remote" });
+    await seedHostSession(deps, { name: "remote" });
 
-    expect(resolvePrimaryHostId(deps)).toBe(local.id);
-    expect(requirePrimaryHostId(deps)).toBe(local.id);
-    expectApiError(() => requireConnectedPrimaryHostId(deps), {
-      status: 502,
-      code: "host_unavailable",
-    });
+    expect(await resolvePrimaryHostId(deps)).toBe(local.id);
+    expect(await requirePrimaryHostId(deps)).toBe(local.id);
+    await expectApiError(
+      async () => await requireConnectedPrimaryHostId(deps),
+      {
+        status: 502,
+        code: "host_unavailable",
+      },
+    );
   });
 });
 
-function expectApiError(
-  operation: () => void,
+async function expectApiError(
+  operation: () => unknown,
   expected: { code: string; message?: string; status: number },
-): void {
+): Promise<void> {
   try {
-    operation();
+    await operation();
   } catch (error) {
     if (!(error instanceof ApiError)) {
       throw error;
@@ -107,30 +112,31 @@ function expectApiError(
 describe("assertUsableHostId", () => {
   it("accepts a non-primary public host", async () => {
     harness = await createTestAppHarness();
-    const { host: primary } = seedHostSession(harness.deps, {
+    const { host: primary } = await seedHostSession(harness.deps, {
       name: "primary",
     });
-    const { host: secondary } = seedHostSession(harness.deps, {
+    const { host: secondary } = await seedHostSession(harness.deps, {
       name: "secondary",
     });
     seedPrimaryHost(harness.deps, primary.id);
     const deps = harness.deps;
 
-    expect(() =>
-      assertUsableHostId(deps, { hostId: secondary.id }),
-    ).not.toThrow();
+    await expect(
+      (async () => await assertUsableHostId(deps, { hostId: secondary.id }))(),
+    ).resolves.not.toThrow();
   });
 
   it("returns 404 for an unknown host", async () => {
     harness = await createTestAppHarness();
-    const { host: primary } = seedHostSession(harness.deps, {
+    const { host: primary } = await seedHostSession(harness.deps, {
       name: "primary",
     });
     seedPrimaryHost(harness.deps, primary.id);
     const deps = harness.deps;
 
-    expectApiError(
-      () => assertUsableHostId(deps, { hostId: "host_does_not_exist" }),
+    await expectApiError(
+      async () =>
+        await assertUsableHostId(deps, { hostId: "host_does_not_exist" }),
       { code: "host_not_found", status: 404 },
     );
   });

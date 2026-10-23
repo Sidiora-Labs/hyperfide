@@ -195,12 +195,12 @@ function mutationWhere(update: TerminalSessionMutation): SQL | undefined {
     : undefined;
 }
 
-export function createTerminalSession(
+export async function createTerminalSession(
   db: TerminalSessionConnection,
   input: CreateTerminalSessionInput,
-): TerminalSessionRow {
+): Promise<TerminalSessionRow> {
   const now = input.now ?? Date.now();
-  return db
+  return await db
     .insert(terminalSessions)
     .values({
       id: input.id ?? createTerminalSessionId(),
@@ -223,11 +223,11 @@ export function createTerminalSession(
     .get();
 }
 
-export function listTerminalSessions(
+export async function listTerminalSessions(
   db: TerminalSessionConnection,
   args: ListTerminalSessionsArgs,
-): TerminalSessionRow[] {
-  return db
+): Promise<TerminalSessionRow[]> {
+  return await db
     .select()
     .from(terminalSessions)
     .where(
@@ -242,11 +242,11 @@ export function listTerminalSessions(
     .all();
 }
 
-export function countTerminalSessions(
+export async function countTerminalSessions(
   db: TerminalSessionConnection,
   args: ListTerminalSessionsArgs,
-): number {
-  return db
+): Promise<number> {
+  return (await db
     .select({ count: count() })
     .from(terminalSessions)
     .where(
@@ -257,37 +257,41 @@ export function countTerminalSessions(
           : undefined,
       ),
     )
-    .get()!.count;
+    .get())!.count;
 }
 
-export function getTerminalSession(
+export async function getTerminalSession(
   db: TerminalSessionConnection,
   scope: TerminalSessionSingleScope,
-): TerminalSessionRow | null {
+): Promise<TerminalSessionRow | null> {
   return (
-    db.select().from(terminalSessions).where(terminalScope(scope)).get() ?? null
+    (await db
+      .select()
+      .from(terminalSessions)
+      .where(terminalScope(scope))
+      .get()) ?? null
   );
 }
 
-export function updateTerminalSession(
+export async function updateTerminalSession(
   db: TerminalSessionConnection,
   args: UpdateTerminalSessionArgs,
-): TerminalSessionRow | null {
+): Promise<TerminalSessionRow | null> {
   return (
-    db
+    (await db
       .update(terminalSessions)
       .set(mutationValues(args.update, args.now ?? Date.now()))
       .where(terminalScope(args.scope, mutationWhere(args.update)))
       .returning()
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function updateTerminalSessions(
+export async function updateTerminalSessions(
   db: TerminalSessionConnection,
   args: UpdateTerminalSessionsArgs,
-): TerminalSessionRow[] {
-  return db
+): Promise<TerminalSessionRow[]> {
+  return await db
     .update(terminalSessions)
     .set(mutationValues(args.update, Date.now()))
     .where(terminalScope(args.scope, mutationWhere(args.update)))

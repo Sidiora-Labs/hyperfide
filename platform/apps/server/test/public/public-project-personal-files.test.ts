@@ -41,14 +41,14 @@ describe("Personal project file access", () => {
     "routes $path to the selected Personal environment",
     async (route) => {
       await withTestHarness(async (harness) => {
-        const { host, session } = seedHostSession(harness.deps);
+        const { host, session } = await seedHostSession(harness.deps);
         seedPrimaryHost(harness.deps, host.id);
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           projectId: PERSONAL_PROJECT_ID,
           hostId: host.id,
           path: "/personal/workspace",
         });
-        const responder = registerHostRpcResponder(harness, {
+        const responder = await registerHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           handle(request) {
@@ -116,22 +116,22 @@ describe("Personal project file access", () => {
 
   it.each(routes)("preserves workspace validation for $path", async (route) => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const foreign = seedEnvironment(harness.deps, {
+      const foreign = await seedEnvironment(harness.deps, {
         projectId: project.id,
         hostId: host.id,
       });
-      const unready = seedEnvironment(harness.deps, {
+      const unready = await seedEnvironment(harness.deps, {
         projectId: PERSONAL_PROJECT_ID,
         hostId: host.id,
         status: "creating",
         path: null,
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle(request) {

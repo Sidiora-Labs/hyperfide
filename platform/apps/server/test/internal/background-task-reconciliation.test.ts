@@ -1,3 +1,4 @@
+import { flushChildThreadNotifications } from "../helpers/child-thread-notification-clock.js";
 import {
   closeSession,
   getThread,
@@ -12,7 +13,11 @@ import {
   groupHostDaemonEvents,
   hostDaemonServerWsMessageSchema,
 } from "@hyperfide/host-daemon-contract";
-import { threadScope, turnRequestEventDataSchema, turnScope } from "@hyperfide/domain";
+import {
+  threadScope,
+  turnRequestEventDataSchema,
+  turnScope,
+} from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { settleDanglingBackgroundTasks } from "../../src/services/threads/background-task-reconciliation.js";
 import { handleDaemonSocketClosed } from "../../src/internal/session-owner-side-effects.js";
@@ -61,13 +66,13 @@ interface SeedOpenBackgroundTaskArgs {
   status?: string;
 }
 
-function seedOpenBackgroundTaskThread(
+async function seedOpenBackgroundTaskThread(
   harness: TestAppHarness,
   args: SeedOpenBackgroundTaskArgs = {},
 ) {
-  const fixture = seedThreadFixture(harness, {});
+  const fixture = await seedThreadFixture(harness, {});
   const itemId = args.itemId ?? "task:wf-1";
-  seedStoredEvent(harness.deps, {
+  await seedStoredEvent(harness.deps, {
     threadId: fixture.thread.id,
     environmentId: fixture.environment.id,
     sequence: 1,
@@ -76,7 +81,7 @@ function seedOpenBackgroundTaskThread(
     providerThreadId: "claude-session-1",
     data: { providerThreadId: "claude-session-1" },
   });
-  seedStoredEvent(harness.deps, {
+  await seedStoredEvent(harness.deps, {
     threadId: fixture.thread.id,
     environmentId: fixture.environment.id,
     sequence: 2,
@@ -91,7 +96,7 @@ function seedOpenBackgroundTaskThread(
       taskStatus: "running",
     }),
   });
-  seedStoredEvent(harness.deps, {
+  await seedStoredEvent(harness.deps, {
     threadId: fixture.thread.id,
     environmentId: fixture.environment.id,
     sequence: 3,
@@ -109,11 +114,11 @@ function seedOpenBackgroundTaskThread(
   return { ...fixture, itemId };
 }
 
-function seedActiveTurnThread(harness: TestAppHarness) {
-  const fixture = seedThreadFixture(harness, {
+async function seedActiveTurnThread(harness: TestAppHarness) {
+  const fixture = await seedThreadFixture(harness, {
     thread: { status: "active" },
   });
-  seedTurnStarted(harness.deps, {
+  await seedTurnStarted(harness.deps, {
     environmentId: fixture.environment.id,
     threadId: fixture.thread.id,
     turnId: "turn-live-1",
@@ -127,7 +132,7 @@ async function reopenSessionWithoutThreads(
 ): Promise<void> {
   const response = await harness.app.request("/internal/session/open", {
     method: "POST",
-    headers: internalAuthHeaders(harness, { hostId: session.hostId }),
+    headers: await internalAuthHeaders(harness, { hostId: session.hostId }),
     body: JSON.stringify({
       hostId: session.hostId,
       instanceId: session.instanceId,
@@ -143,11 +148,11 @@ async function reopenSessionWithoutThreads(
   expect(response.status).toBe(201);
 }
 
-function listSettledBackgroundTaskItems(
+async function listSettledBackgroundTaskItems(
   harness: TestAppHarness,
   threadId: string,
-): Array<{ status: string; taskStatus: string }> {
-  return listEvents(harness.deps.db, { threadId })
+): Promise<Array<{ status: string; taskStatus: string }>> {
+  return (await listEvents(harness.deps.db, { threadId }))
     .filter((row) => row.type === "item/backgroundTask/completed")
     .map((row) => {
       const { item } = JSON.parse(row.data) as {
@@ -160,20 +165,20 @@ function listSettledBackgroundTaskItems(
 describe("settleDanglingBackgroundTasks", () => {
   it("settles open backgroundTask items as interrupted and is idempotent", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const host = await seedHost(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         sequence: 1,
         type: "turn/started",
@@ -181,7 +186,7 @@ describe("settleDanglingBackgroundTasks", () => {
         providerThreadId: "claude-session-1",
         data: { providerThreadId: "claude-session-1" },
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         sequence: 2,
         type: "item/started",
@@ -195,7 +200,7 @@ describe("settleDanglingBackgroundTasks", () => {
           taskStatus: "running",
         }),
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         sequence: 3,
         type: "item/backgroundTask/progress",
@@ -210,9 +215,9 @@ describe("settleDanglingBackgroundTasks", () => {
         }),
       });
 
-      settleDanglingBackgroundTasks(harness.deps, { hostId: host.id });
+      await settleDanglingBackgroundTasks(harness.deps, { hostId: host.id });
 
-      const rows = listEvents(harness.deps.db, { threadId: thread.id });
+      const rows = await listEvents(harness.deps.db, { threadId: thread.id });
       const completed = rows.filter(
         (row) => row.type === "item/backgroundTask/completed",
       );
@@ -224,9 +229,9 @@ describe("settleDanglingBackgroundTasks", () => {
       expect(data.item.taskStatus).toBe("stopped");
       expect(data.item.workflowName).toBe("fixture-mini");
 
-      settleDanglingBackgroundTasks(harness.deps, { hostId: host.id });
+      await settleDanglingBackgroundTasks(harness.deps, { hostId: host.id });
       expect(
-        listEvents(harness.deps.db, { threadId: thread.id }).filter(
+        (await listEvents(harness.deps.db, { threadId: thread.id })).filter(
           (row) => row.type === "item/backgroundTask/completed",
         ),
       ).toHaveLength(1);
@@ -235,31 +240,31 @@ describe("settleDanglingBackgroundTasks", () => {
 
   it("does not touch already-settled tasks or other hosts", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps);
-      const otherHost = seedHost(harness.deps, {
+      const host = await seedHost(harness.deps);
+      const otherHost = await seedHost(harness.deps, {
         id: "host_other",
         name: "Other Host",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         sequence: 1,
         type: "turn/started",
         scope: turnScope("turn-1"),
         data: { providerThreadId: "claude-session-1" },
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         sequence: 2,
         type: "item/started",
@@ -272,7 +277,7 @@ describe("settleDanglingBackgroundTasks", () => {
           taskStatus: "running",
         }),
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         sequence: 3,
         type: "item/backgroundTask/completed",
@@ -286,12 +291,16 @@ describe("settleDanglingBackgroundTasks", () => {
         }),
       });
 
-      settleDanglingBackgroundTasks(harness.deps, { hostId: otherHost.id });
-      settleDanglingBackgroundTasks(harness.deps, { hostId: host.id });
+      await settleDanglingBackgroundTasks(harness.deps, {
+        hostId: otherHost.id,
+      });
+      await settleDanglingBackgroundTasks(harness.deps, { hostId: host.id });
 
-      const completed = listEvents(harness.deps.db, {
-        threadId: thread.id,
-      }).filter((row) => row.type === "item/backgroundTask/completed");
+      const completed = (
+        await listEvents(harness.deps.db, {
+          threadId: thread.id,
+        })
+      ).filter((row) => row.type === "item/backgroundTask/completed");
       expect(completed).toHaveLength(1);
       const data = JSON.parse(completed[0]!.data) as {
         item: { status: string };
@@ -302,14 +311,14 @@ describe("settleDanglingBackgroundTasks", () => {
 
   it("preserves an already-finished task status instead of stomping it to interrupted", async () => {
     await withTestHarness(async (harness) => {
-      const { host, thread } = seedOpenBackgroundTaskThread(harness, {
+      const { host, thread } = await seedOpenBackgroundTaskThread(harness, {
         status: "completed",
         taskStatus: "completed",
       });
 
-      settleDanglingBackgroundTasks(harness.deps, { hostId: host.id });
+      await settleDanglingBackgroundTasks(harness.deps, { hostId: host.id });
 
-      expect(listSettledBackgroundTaskItems(harness, thread.id)).toEqual([
+      expect(await listSettledBackgroundTaskItems(harness, thread.id)).toEqual([
         { status: "completed", taskStatus: "completed" },
       ]);
     });
@@ -323,9 +332,10 @@ describe("background-task lifecycle reconciliation triggers", () => {
 
   it("settles open tasks when a restarted daemon re-registers after its previous session already closed", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedOpenBackgroundTaskThread(harness);
+      const { host, session, thread } =
+        await seedOpenBackgroundTaskThread(harness);
 
-      closeSession(
+      await closeSession(
         harness.deps.db,
         harness.deps.hub,
         session.id,
@@ -334,7 +344,7 @@ describe("background-task lifecycle reconciliation triggers", () => {
 
       const response = await harness.app.request("/internal/session/open", {
         method: "POST",
-        headers: internalAuthHeaders(harness, {
+        headers: await internalAuthHeaders(harness, {
           hostId: host.id,
         }),
         body: JSON.stringify({
@@ -351,7 +361,7 @@ describe("background-task lifecycle reconciliation triggers", () => {
       });
 
       expect(response.status).toBe(201);
-      expect(listSettledBackgroundTaskItems(harness, thread.id)).toEqual([
+      expect(await listSettledBackgroundTaskItems(harness, thread.id)).toEqual([
         { status: "interrupted", taskStatus: "stopped" },
       ]);
     });
@@ -359,9 +369,10 @@ describe("background-task lifecycle reconciliation triggers", () => {
 
   it("does not settle tasks when the same daemon instance reconnects", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedOpenBackgroundTaskThread(harness);
+      const { host, session, thread } =
+        await seedOpenBackgroundTaskThread(harness);
 
-      closeSession(
+      await closeSession(
         harness.deps.db,
         harness.deps.hub,
         session.id,
@@ -370,7 +381,7 @@ describe("background-task lifecycle reconciliation triggers", () => {
 
       const response = await harness.app.request("/internal/session/open", {
         method: "POST",
-        headers: internalAuthHeaders(harness, {
+        headers: await internalAuthHeaders(harness, {
           hostId: host.id,
         }),
         body: JSON.stringify({
@@ -387,19 +398,26 @@ describe("background-task lifecycle reconciliation triggers", () => {
       });
 
       expect(response.status).toBe(201);
-      expect(listSettledBackgroundTaskItems(harness, thread.id)).toEqual([]);
+      expect(await listSettledBackgroundTaskItems(harness, thread.id)).toEqual(
+        [],
+      );
     });
   });
 
   it("does not tell a live daemon to shut down when that same instance reconnects", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedOpenBackgroundTaskThread(harness);
+      const { host, session, thread } =
+        await seedOpenBackgroundTaskThread(harness);
       const previousSocket = createMockHubSocket();
-      harness.deps.hub.registerDaemon(session.id, host.id, previousSocket);
+      await harness.deps.hub.registerDaemon(
+        session.id,
+        host.id,
+        previousSocket,
+      );
 
       const response = await harness.app.request("/internal/session/open", {
         method: "POST",
-        headers: internalAuthHeaders(harness, {
+        headers: await internalAuthHeaders(harness, {
           hostId: host.id,
         }),
         body: JSON.stringify({
@@ -417,35 +435,44 @@ describe("background-task lifecycle reconciliation triggers", () => {
 
       expect(response.status).toBe(201);
       expect(
-        previousSocket.messages.map((message) =>
-          hostDaemonServerWsMessageSchema.parse(JSON.parse(message)),
-        ),
+        previousSocket.messages
+          .map((message) =>
+            hostDaemonServerWsMessageSchema.parse(JSON.parse(message)),
+          )
+          .sort((a, b) => a.type.localeCompare(b.type)),
       ).toEqual([
-        {
-          type: "provider-session-policy.replace",
-          idleProviderSessionTimeoutMinutes: 30,
-        },
         {
           type: "machine-environment.replace",
           environment: { revision: expect.any(Number), entries: [] },
+        },
+        {
+          type: "provider-session-policy.replace",
+          idleProviderSessionTimeoutMinutes: 30,
         },
       ]);
       expect(previousSocket.closed).toEqual([
         { code: 1000, reason: "replaced" },
       ]);
-      expect(listSettledBackgroundTaskItems(harness, thread.id)).toEqual([]);
+      expect(await listSettledBackgroundTaskItems(harness, thread.id)).toEqual(
+        [],
+      );
     });
   });
 
   it("still tells a superseded daemon instance to shut down", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedOpenBackgroundTaskThread(harness);
+      const { host, session, thread } =
+        await seedOpenBackgroundTaskThread(harness);
       const previousSocket = createMockHubSocket();
-      harness.deps.hub.registerDaemon(session.id, host.id, previousSocket);
+      await harness.deps.hub.registerDaemon(
+        session.id,
+        host.id,
+        previousSocket,
+      );
 
       const response = await harness.app.request("/internal/session/open", {
         method: "POST",
-        headers: internalAuthHeaders(harness, {
+        headers: await internalAuthHeaders(harness, {
           hostId: host.id,
         }),
         body: JSON.stringify({
@@ -480,7 +507,7 @@ describe("background-task lifecycle reconciliation triggers", () => {
       expect(previousSocket.closed).toEqual([
         { code: 1000, reason: "replaced" },
       ]);
-      expect(listSettledBackgroundTaskItems(harness, thread.id)).toEqual([
+      expect(await listSettledBackgroundTaskItems(harness, thread.id)).toEqual([
         { status: "interrupted", taskStatus: "stopped" },
       ]);
     });
@@ -488,13 +515,15 @@ describe("background-task lifecycle reconciliation triggers", () => {
 
   it("keeps open tasks while the host stays disconnected", async () => {
     await withTestHarness(async (harness) => {
-      const { session, thread } = seedOpenBackgroundTaskThread(harness);
+      const { session, thread } = await seedOpenBackgroundTaskThread(harness);
 
       vi.useFakeTimers();
-      handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
       vi.advanceTimersByTime(HOST_DISCONNECTED_FOR_MS);
 
-      expect(listSettledBackgroundTaskItems(harness, thread.id)).toEqual([]);
+      expect(await listSettledBackgroundTaskItems(harness, thread.id)).toEqual(
+        [],
+      );
       harness.hub.cancelPendingDaemonDisconnect(session.id);
     });
   });
@@ -507,13 +536,13 @@ describe("active thread disconnect reconciliation triggers", () => {
 
   it("does not interrupt active turns when the same daemon instance reconnects with the thread active", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedActiveTurnThread(harness);
+      const { host, session, thread } = await seedActiveTurnThread(harness);
 
-      handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
 
       const response = await harness.app.request("/internal/session/open", {
         method: "POST",
-        headers: internalAuthHeaders(harness, {
+        headers: await internalAuthHeaders(harness, {
           hostId: host.id,
         }),
         body: JSON.stringify({
@@ -530,9 +559,11 @@ describe("active thread disconnect reconciliation triggers", () => {
       });
 
       expect(response.status).toBe(201);
-      expect(getThread(harness.deps.db, thread.id)?.status).toBe("active");
+      expect((await getThread(harness.deps.db, thread.id))?.status).toBe(
+        "active",
+      );
       expect(
-        listEvents(harness.deps.db, { threadId: thread.id })
+        (await listEvents(harness.deps.db, { threadId: thread.id }))
           .filter((row) => row.type !== "turn/started")
           .map((row) => row.type),
       ).toEqual([]);
@@ -543,13 +574,13 @@ describe("active thread disconnect reconciliation triggers", () => {
     "distinguishes a missing turn from a daemon restart for %s",
     async (instanceId) => {
       await withTestHarness(async (harness) => {
-        const { host, session, thread } = seedActiveTurnThread(harness);
+        const { host, session, thread } = await seedActiveTurnThread(harness);
 
-        handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+        await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
 
         const response = await harness.app.request("/internal/session/open", {
           method: "POST",
-          headers: internalAuthHeaders(harness, {
+          headers: await internalAuthHeaders(harness, {
             hostId: host.id,
           }),
           body: JSON.stringify({
@@ -566,10 +597,14 @@ describe("active thread disconnect reconciliation triggers", () => {
         });
 
         expect(response.status).toBe(201);
-        expect(getThread(harness.deps.db, thread.id)?.status).toBe("error");
-        const rows = listEvents(harness.deps.db, {
-          threadId: thread.id,
-        }).filter((row) => row.type !== "turn/started");
+        expect((await getThread(harness.deps.db, thread.id))?.status).toBe(
+          "error",
+        );
+        const rows = (
+          await listEvents(harness.deps.db, {
+            threadId: thread.id,
+          })
+        ).filter((row) => row.type !== "turn/started");
         expect(rows.map((row) => row.type)).toEqual([
           "turn/completed",
           "system/error",
@@ -603,31 +638,31 @@ describe("active thread disconnect reconciliation triggers", () => {
         project,
         environment,
         thread: parent,
-      } = seedThreadFixture(harness);
-      seedThreadRuntimeState(harness.deps, {
+      } = await seedThreadFixture(harness);
+      await seedThreadRuntimeState(harness.deps, {
         threadId: parent.id,
         environmentId: environment.id,
         providerThreadId: "parent-provider-thread",
       });
-      const child = seedThread(harness.deps, {
+      const child = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         parentThreadId: parent.id,
         status: "active",
         title: "Worker child",
       });
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         environmentId: environment.id,
         threadId: child.id,
         turnId: "child-turn",
       });
 
-      handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
       vi.useFakeTimers();
       await reopenSessionWithoutThreads(harness, session);
-      await vi.advanceTimersByTimeAsync(2_000);
+      await flushChildThreadNotifications();
 
-      const parentNotices = listQueuedThreadMessages(
+      const parentNotices = await listQueuedThreadMessages(
         harness.deps.db,
         parent.id,
       );
@@ -666,38 +701,40 @@ describe("active thread disconnect reconciliation triggers", () => {
         project,
         environment: parentEnvironment,
         thread: parent,
-      } = seedThreadFixture(harness);
-      seedThreadRuntimeState(harness.deps, {
+      } = await seedThreadFixture(harness);
+      await seedThreadRuntimeState(harness.deps, {
         threadId: parent.id,
         environmentId: parentEnvironment.id,
         providerThreadId: "parent-provider-thread",
       });
-      const { host, session } = seedHostSession(harness.deps);
-      const childEnvironment = seedEnvironment(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps);
+      const childEnvironment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const child = seedThread(harness.deps, {
+      const child = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: childEnvironment.id,
         parentThreadId: parent.id,
         status: "active",
         title: "Worker child",
       });
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         environmentId: childEnvironment.id,
         threadId: child.id,
         turnId: "child-turn",
       });
 
-      handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
       vi.useFakeTimers();
       await reopenSessionWithoutThreads(harness, session);
-      await vi.advanceTimersByTimeAsync(2_000);
+      await flushChildThreadNotifications();
 
-      const parentNotices = listEvents(harness.deps.db, {
-        threadId: parent.id,
-      })
+      const parentNotices = (
+        await listEvents(harness.deps.db, {
+          threadId: parent.id,
+        })
+      )
         .filter((row) => row.type === "client/turn/requested")
         .map((row) => turnRequestEventDataSchema.parse(JSON.parse(row.data)))
         .filter((data) => data.initiator === "system");
@@ -728,12 +765,12 @@ describe("active thread disconnect reconciliation triggers", () => {
 
   it("finishes a turn that ended while the host was away once the reconnected daemon delivers its held events", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedActiveTurnThread(harness);
-      handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      const { host, session, thread } = await seedActiveTurnThread(harness);
+      await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
 
       const response = await harness.app.request("/internal/session/open", {
         method: "POST",
-        headers: internalAuthHeaders(harness, { hostId: host.id }),
+        headers: await internalAuthHeaders(harness, { hostId: host.id }),
         body: JSON.stringify({
           hostId: host.id,
           instanceId: session.instanceId,
@@ -748,7 +785,9 @@ describe("active thread disconnect reconciliation triggers", () => {
         }),
       });
       expect(response.status).toBe(201);
-      expect(getThread(harness.deps.db, thread.id)?.status).toBe("active");
+      expect((await getThread(harness.deps.db, thread.id))?.status).toBe(
+        "active",
+      );
 
       const { sessionId } = (await response.json()) as { sessionId: string };
       const providerThreadId = "provider-turn-live-1";
@@ -756,7 +795,7 @@ describe("active thread disconnect reconciliation triggers", () => {
         "/internal/session/events",
         {
           method: "POST",
-          headers: internalAuthHeaders(harness, { hostId: host.id }),
+          headers: await internalAuthHeaders(harness, { hostId: host.id }),
           body: JSON.stringify({
             sessionId,
             eventGroups: groupHostDaemonEvents([
@@ -790,9 +829,11 @@ describe("active thread disconnect reconciliation triggers", () => {
       );
 
       expect(eventsResponse.status).toBe(200);
-      expect(getThread(harness.deps.db, thread.id)?.status).toBe("idle");
+      expect((await getThread(harness.deps.db, thread.id))?.status).toBe(
+        "idle",
+      );
       expect(
-        listEvents(harness.deps.db, { threadId: thread.id }).map(
+        (await listEvents(harness.deps.db, { threadId: thread.id })).map(
           (row) => row.type,
         ),
       ).toEqual(["turn/started", "item/completed", "turn/completed"]);
@@ -801,10 +842,10 @@ describe("active thread disconnect reconciliation triggers", () => {
 
   it("settles a stop requested while the host is offline and stops the run when the same daemon reconnects", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedActiveTurnThread(harness);
-      handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      const { host, session, thread } = await seedActiveTurnThread(harness);
+      await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
       harness.hub.cancelPendingDaemonDisconnect(session.id);
-      harness.deps.db
+      await harness.deps.db
         .update(hostDaemonSessions)
         .set({ closedAt: Date.now() - HOST_RECONNECT_GRACE_MS - 1 })
         .where(eq(hostDaemonSessions.id, session.id))
@@ -813,16 +854,18 @@ describe("active thread disconnect reconciliation triggers", () => {
       await harness.app.request(`/api/v1/threads/${thread.id}/stop`, {
         method: "POST",
       });
-      expect(getThread(harness.deps.db, thread.id)?.status).toBe("idle");
+      expect((await getThread(harness.deps.db, thread.id))?.status).toBe(
+        "idle",
+      );
       expect(
-        listEvents(harness.deps.db, { threadId: thread.id })
+        (await listEvents(harness.deps.db, { threadId: thread.id }))
           .filter((row) => row.type === "turn/completed")
           .map((row) => JSON.parse(row.data).status),
       ).toEqual(["interrupted"]);
 
       const response = await harness.app.request("/internal/session/open", {
         method: "POST",
-        headers: internalAuthHeaders(harness, { hostId: host.id }),
+        headers: await internalAuthHeaders(harness, { hostId: host.id }),
         body: JSON.stringify({
           hostId: host.id,
           instanceId: session.instanceId,
@@ -838,7 +881,7 @@ describe("active thread disconnect reconciliation triggers", () => {
       expect(response.status).toBe(201);
       const { sessionId } = (await response.json()) as { sessionId: string };
       const commandTypes: string[] = [];
-      harness.hub.registerDaemon(sessionId, host.id, {
+      await harness.hub.registerDaemon(sessionId, host.id, {
         close() {},
         send(data) {
           const message = hostDaemonServerWsMessageSchema.parse(
@@ -851,17 +894,19 @@ describe("active thread disconnect reconciliation triggers", () => {
       });
 
       await vi.waitFor(() => expect(commandTypes).toContain("thread.stop"));
-      expect(getThread(harness.deps.db, thread.id)?.status).toBe("idle");
+      expect((await getThread(harness.deps.db, thread.id))?.status).toBe(
+        "idle",
+      );
     });
   });
 
   it("revives rather than stops a thread that started a new turn after its last stop", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, host, session, thread } = seedThreadFixture(
+      const { environment, host, session, thread } = await seedThreadFixture(
         harness,
         { thread: { status: "idle" } },
       );
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -869,7 +914,7 @@ describe("active thread disconnect reconciliation triggers", () => {
         scope: threadScope(),
         data: { reason: "manual-stop" },
       });
-      seedStoredEvent(harness.deps, {
+      await seedStoredEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 2,
@@ -878,12 +923,12 @@ describe("active thread disconnect reconciliation triggers", () => {
         providerThreadId: "provider-thread-after-stop",
         data: { providerThreadId: "provider-thread-after-stop" },
       });
-      handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
       harness.hub.cancelPendingDaemonDisconnect(session.id);
 
       const response = await harness.app.request("/internal/session/open", {
         method: "POST",
-        headers: internalAuthHeaders(harness, { hostId: host.id }),
+        headers: await internalAuthHeaders(harness, { hostId: host.id }),
         body: JSON.stringify({
           hostId: host.id,
           instanceId: session.instanceId,
@@ -898,21 +943,25 @@ describe("active thread disconnect reconciliation triggers", () => {
       });
 
       expect(response.status).toBe(201);
-      expect(getThread(harness.deps.db, thread.id)?.status).toBe("active");
+      expect((await getThread(harness.deps.db, thread.id))?.status).toBe(
+        "active",
+      );
     });
   });
 
   it("keeps an active turn running while the host stays disconnected", async () => {
     await withTestHarness(async (harness) => {
-      const { session, thread } = seedActiveTurnThread(harness);
+      const { session, thread } = await seedActiveTurnThread(harness);
 
       vi.useFakeTimers();
-      handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
       await vi.advanceTimersByTimeAsync(HOST_DISCONNECTED_FOR_MS);
 
-      expect(getThread(harness.deps.db, thread.id)?.status).toBe("active");
+      expect((await getThread(harness.deps.db, thread.id))?.status).toBe(
+        "active",
+      );
       expect(
-        listEvents(harness.deps.db, { threadId: thread.id })
+        (await listEvents(harness.deps.db, { threadId: thread.id }))
           .filter((row) => row.type !== "turn/started")
           .map((row) => row.type),
       ).toEqual([]);

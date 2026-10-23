@@ -25,7 +25,7 @@ import {
   settleTimers,
 } from "../helpers/provider-model-catalogs.js";
 import { registerFirstPartyProviders } from "../helpers/provider-registry.js";
-import { seedHost, seedSession } from "../helpers/seed.js";
+import { seedHost } from "../helpers/seed.js";
 import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
 import { setServerMoveFrozen } from "../../src/services/server-move/freeze-state.js";
 
@@ -57,7 +57,7 @@ async function withPrewarm(
   harness: TestAppHarness,
   run: () => Promise<void>,
 ): Promise<void> {
-  const prewarm = installProviderModelCatalogPrewarm(harness.deps);
+  const prewarm = await installProviderModelCatalogPrewarm(harness.deps);
   try {
     await run();
   } finally {
@@ -71,31 +71,42 @@ async function waitForPasses(logLines: LogLines, count: number) {
   });
 }
 
-function openDaemonSession(harness: TestAppHarness, hostId: string): string {
-  return openSession(harness.db, {
-    hostId,
-    instanceId: `instance-${hostId}`,
-    hostName: "Test Host",
-    dataDir: `/tmp/hyperfide-host-data/${hostId}`,
-    protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
-    heartbeatIntervalMs: 5_000,
-    leaseTimeoutMs: 30_000,
-  }).id;
+async function openDaemonSession(
+  harness: TestAppHarness,
+  hostId: string,
+): Promise<string> {
+  return (
+    await openSession(harness.db, {
+      hostId,
+      instanceId: `instance-${hostId}`,
+      hostName: "Test Host",
+      dataDir: `/tmp/hyperfide-host-data/${hostId}`,
+      protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
+      heartbeatIntervalMs: 5_000,
+      leaseTimeoutMs: 30_000,
+    })
+  ).id;
 }
 
-function seedDaemonHost(harness: TestAppHarness, hostId: string): DaemonHost {
-  const host = seedHost(harness.deps, { id: hostId });
-  return { hostId: host.id, sessionId: openDaemonSession(harness, host.id) };
+async function seedDaemonHost(
+  harness: TestAppHarness,
+  hostId: string,
+): Promise<DaemonHost> {
+  const host = await seedHost(harness.deps, { id: hostId });
+  return {
+    hostId: host.id,
+    sessionId: await openDaemonSession(harness, host.id),
+  };
 }
 
-function registerResponder(
+async function registerResponder(
   harness: TestAppHarness,
   args: DaemonHost & {
     health?: RpcAnswer<HealthCommand>;
     listModels?: RpcAnswer<ListModelsCommand>;
   },
 ) {
-  const { requests } = registerHostRpcResponder(harness, {
+  const { requests } = await registerHostRpcResponder(harness, {
     hostId: args.hostId,
     sessionId: args.sessionId,
     handle: ({ command }) => {
@@ -212,10 +223,10 @@ describe("provider model catalog prewarm", () => {
       expect(requireRegistration(harness, "acp-opencode").visibility).toBe(
         "installed",
       );
-      const host = seedDaemonHost(harness, "host-prewarm-scope");
+      const host = await seedDaemonHost(harness, "host-prewarm-scope");
 
       await withPrewarm(harness, async () => {
-        const responder = registerResponder(harness, {
+        const responder = await registerResponder(harness, {
           ...host,
           health: (command) =>
             healthAnswer(
@@ -253,16 +264,16 @@ describe("provider model catalog prewarm", () => {
           bridgeOptions: { ...base.bridgeOptions, catalogProbe: version },
         });
       let probe = reregisterProbe("one");
-      const host = seedDaemonHost(harness, "host-prewarm-age");
-      const responder = registerResponder(harness, {
+      const host = await seedDaemonHost(harness, "host-prewarm-age");
+      const responder = await registerResponder(harness, {
         ...host,
         listModels: (command) =>
           command.providerId === "acp-cursor"
             ? errorAnswer("command_failed")
             : catalogAnswer(modelList(`${command.providerId}-model`)),
       });
-      const read = (providerId: string) =>
-        resolveSystemExecutionOptions(harness.deps, {
+      const read = async (providerId: string) =>
+        await resolveSystemExecutionOptions(harness.deps, {
           hostId: host.hostId,
           providerId,
         });
@@ -289,7 +300,7 @@ describe("provider model catalog prewarm", () => {
         clock.now += HOUR;
         probe.dispose();
         reregisterProbe("three");
-        harness.hub.notifySystem(["provider-registrations-changed"]);
+        await harness.hub.notifySystem(["provider-registrations-changed"]);
         await waitForPasses(logLines, 2);
         expect(prewarmed()).toEqual([
           "catalog-probe",
@@ -306,25 +317,28 @@ describe("provider model catalog prewarm", () => {
       installCatalogStore(harness, { clock: { now: BASE_NOW } });
       const logLines = captureLogLines(harness);
       const hold = createHold();
-      const [single, ...others] = [
-        "host-prewarm-limit-single",
-        "host-prewarm-limit-a",
-        "host-prewarm-limit-b",
-        "host-prewarm-limit-c",
-      ].map((hostId) => seedDaemonHost(harness, hostId));
-      const connect = (host: DaemonHost) =>
-        registerResponder(harness, {
+      const [single, ...others] = await Promise.all(
+        [
+          "host-prewarm-limit-single",
+          "host-prewarm-limit-a",
+          "host-prewarm-limit-b",
+          "host-prewarm-limit-c",
+        ].map(async (hostId) => await seedDaemonHost(harness, hostId)),
+      );
+      const connect = async (host: DaemonHost) =>
+        await registerResponder(harness, {
           ...host,
           listModels: (_command, routedHostId) => hold.answer(routedHostId),
         });
 
       await withPrewarm(harness, async () => {
-        const singleResponder = connect(single!);
+        const singleResponder = await connect(single!);
         await releaseHeldOneByOne(hold, ALWAYS_VISIBLE_PROVIDER_IDS.length);
         await waitForPasses(logLines, 1);
         expect(hold.maxOutstanding()).toBe(2);
 
-        const responders = others.map(connect);
+        const responders = await Promise.all(others.map(connect));
+        await expect.poll(() => hold.maxOutstanding()).toBe(4);
         await releaseHeldOneByOne(
           hold,
           responders.length * ALWAYS_VISIBLE_PROVIDER_IDS.length,
@@ -347,8 +361,8 @@ describe("provider model catalog prewarm", () => {
       installCatalogStore(harness, { clock: { now: BASE_NOW } });
       const logLines = captureLogLines(harness);
       const hold = createHold();
-      const host = seedDaemonHost(harness, "host-prewarm-disconnect");
-      registerResponder(harness, {
+      const host = await seedDaemonHost(harness, "host-prewarm-disconnect");
+      await registerResponder(harness, {
         ...host,
         listModels: (_command, hostId) => hold.answer(hostId),
       });
@@ -362,14 +376,16 @@ describe("provider model catalog prewarm", () => {
         await vi.waitFor(() => {
           expect(hold.outstanding).toHaveLength(2);
         });
-        handleDaemonSocketClosed(harness.deps, { sessionId: host.sessionId });
+        await handleDaemonSocketClosed(harness.deps, {
+          sessionId: host.sessionId,
+        });
         await waitForPasses(logLines, 1);
         await settleTimers();
         expect(listAttempts()).toBe(2);
 
-        const next = registerResponder(harness, {
+        const next = await registerResponder(harness, {
           hostId: host.hostId,
-          sessionId: openDaemonSession(harness, host.hostId),
+          sessionId: await openDaemonSession(harness, host.hostId),
         });
         await waitForPasses(logLines, 2);
         expect(next.listedProviderIds()).toEqual(ALWAYS_VISIBLE_PROVIDER_IDS);
@@ -382,8 +398,8 @@ describe("provider model catalog prewarm", () => {
       installCatalogStore(harness, { clock: { now: BASE_NOW } });
       const logLines = captureLogLines(harness);
       const hold = createHold();
-      const first = registerResponder(harness, {
-        ...seedDaemonHost(harness, "host-prewarm-replacement"),
+      const first = await registerResponder(harness, {
+        ...(await seedDaemonHost(harness, "host-prewarm-replacement")),
         listModels: (_command, hostId) => hold.answer(hostId),
       });
 
@@ -391,12 +407,14 @@ describe("provider model catalog prewarm", () => {
         await vi.waitFor(() => {
           expect(hold.outstanding).toHaveLength(2);
         });
-        const second = registerResponder(harness, {
+        const second = await registerResponder(harness, {
           hostId: first.hostId,
-          sessionId: seedSession(harness.deps, first.hostId).id,
+          sessionId: await openDaemonSession(harness, first.hostId),
         });
-        handleDaemonSocketClosed(harness.deps, { sessionId: first.sessionId });
-        harness.hub.notifyHost(first.hostId, ["host-disconnected"]);
+        await handleDaemonSocketClosed(harness.deps, {
+          sessionId: first.sessionId,
+        });
+        await harness.hub.notifyHost(first.hostId, ["host-disconnected"]);
         expect(harness.hub.getDaemonSessionIdForHost(first.hostId)).toBe(
           second.sessionId,
         );
@@ -413,38 +431,38 @@ describe("provider model catalog prewarm", () => {
       installCatalogStore(harness, { clock: { now: BASE_NOW } });
       const logLines = captureLogLines(harness);
 
-      const seed = (
+      const seed = async (
         hostId: string,
         patch: Parameters<typeof updateHost>[3],
       ) => {
-        const host = seedDaemonHost(harness, hostId);
-        updateHost(harness.db, harness.hub, host.hostId, patch);
+        const host = await seedDaemonHost(harness, hostId);
+        await updateHost(harness.db, harness.hub, host.hostId, patch);
         return host;
       };
       const hosts = [
-        seed("host-prewarm-suspended", {
+        await seed("host-prewarm-suspended", {
           phase: "suspended",
           suspendedAt: BASE_NOW,
         }),
-        seed("host-prewarm-resuming", {
+        await seed("host-prewarm-resuming", {
           phase: "resuming",
           machineOperationId: "op-resuming",
         }),
-        seed("host-prewarm-ephemeral", { type: "ephemeral" }),
-        seed("host-prewarm-destroyed", { destroyedAt: BASE_NOW }),
-        seed("host-prewarm-creating", {
+        await seed("host-prewarm-ephemeral", { type: "ephemeral" }),
+        await seed("host-prewarm-destroyed", { destroyedAt: BASE_NOW }),
+        await seed("host-prewarm-creating", {
           phase: "creating",
           machineOperationId: "op-creating",
         }),
-        seed("host-prewarm-resumed", {
+        await seed("host-prewarm-resumed", {
           phase: "active",
           machineOperationId: "op-resumed",
         }),
       ];
 
       await withPrewarm(harness, async () => {
-        const responders = hosts.map((host) =>
-          registerResponder(harness, host),
+        const responders = await Promise.all(
+          hosts.map(async (host) => await registerResponder(harness, host)),
         );
         const resumed = responders.pop()!;
         const creating = responders.at(-1)!;
@@ -461,11 +479,11 @@ describe("provider model catalog prewarm", () => {
           resumed.hostId,
         ]);
 
-        updateHost(harness.db, harness.hub, creating.hostId, {
+        await updateHost(harness.db, harness.hub, creating.hostId, {
           phase: "active",
           machineOperationId: null,
         });
-        harness.hub.notifyHost(creating.hostId, ["host-connected"]);
+        await harness.hub.notifyHost(creating.hostId, ["host-connected"]);
         await waitForPasses(logLines, 2);
         expect(creating.listedProviderIds()).toEqual(
           ALWAYS_VISIBLE_PROVIDER_IDS,
@@ -485,10 +503,10 @@ describe("provider model catalog prewarm", () => {
         artifacts: harness.deps.pluginHostArtifacts,
       });
       harness.deps.providerRegistry = registry;
-      const host = seedDaemonHost(harness, "host-prewarm-settle");
+      const host = await seedDaemonHost(harness, "host-prewarm-settle");
 
       await withPrewarm(harness, async () => {
-        const responder = registerResponder(harness, host);
+        const responder = await registerResponder(harness, host);
         await settleTimers(50);
         expect(responder.commands).toEqual([]);
 
@@ -506,8 +524,8 @@ describe("provider model catalog prewarm", () => {
       installCatalogStore(harness, { clock: { now: BASE_NOW } });
       const logLines = captureLogLines(harness);
       const hold = createHold();
-      const responder = registerResponder(harness, {
-        ...seedDaemonHost(harness, "host-prewarm-coalesce"),
+      const responder = await registerResponder(harness, {
+        ...(await seedDaemonHost(harness, "host-prewarm-coalesce")),
         listModels: (_command, hostId) => hold.answer(hostId),
       });
 
@@ -515,8 +533,8 @@ describe("provider model catalog prewarm", () => {
         await vi.waitFor(() => {
           expect(hold.outstanding).toHaveLength(2);
         });
-        harness.hub.notifyHost(responder.hostId, ["host-connected"]);
-        harness.hub.notifyHost(responder.hostId, ["host-connected"]);
+        await harness.hub.notifyHost(responder.hostId, ["host-connected"]);
+        await harness.hub.notifyHost(responder.hostId, ["host-connected"]);
         await releaseHeldOneByOne(hold, ALWAYS_VISIBLE_PROVIDER_IDS.length);
         await waitForPasses(logLines, 2);
         await settleTimers();
@@ -533,11 +551,11 @@ describe("provider model catalog prewarm", () => {
     await withTestHarness(async (harness) => {
       installCatalogStore(harness, { clock: { now: BASE_NOW } });
       const hold = createHold();
-      const responder = registerResponder(harness, {
-        ...seedDaemonHost(harness, "host-prewarm-stop"),
+      const responder = await registerResponder(harness, {
+        ...(await seedDaemonHost(harness, "host-prewarm-stop")),
         listModels: (_command, hostId) => hold.answer(hostId),
       });
-      const prewarm = installProviderModelCatalogPrewarm(harness.deps);
+      const prewarm = await installProviderModelCatalogPrewarm(harness.deps);
       await vi.waitFor(() => {
         expect(hold.outstanding).toHaveLength(2);
       });
@@ -547,8 +565,8 @@ describe("provider model catalog prewarm", () => {
       for (const held of [...hold.outstanding]) {
         held.release();
       }
-      harness.hub.notifyHost(responder.hostId, ["host-connected"]);
-      harness.hub.notifySystem(["provider-registrations-changed"]);
+      await harness.hub.notifyHost(responder.hostId, ["host-connected"]);
+      await harness.hub.notifySystem(["provider-registrations-changed"]);
       await settleTimers(50);
 
       expect(responder.commands).toHaveLength(commandCount);
@@ -560,20 +578,20 @@ describe("provider model catalog prewarm", () => {
     await withTestHarness(async (harness) => {
       installCatalogStore(harness, { clock: { now: BASE_NOW } });
       const logLines = captureLogLines(harness);
-      const host = seedDaemonHost(harness, "host-prewarm-frozen");
+      const host = await seedDaemonHost(harness, "host-prewarm-frozen");
 
       setServerMoveFrozen(harness.db, true);
       try {
         await withPrewarm(harness, async () => {
-          const responder = registerResponder(harness, host);
-          harness.hub.notifyHost(host.hostId, ["host-connected"]);
-          harness.hub.notifySystem(["provider-registrations-changed"]);
+          const responder = await registerResponder(harness, host);
+          await harness.hub.notifyHost(host.hostId, ["host-connected"]);
+          await harness.hub.notifySystem(["provider-registrations-changed"]);
           await settleTimers(50);
           expect(responder.commands).toEqual([]);
           expect(logLines(PASS_FINISHED)).toEqual([]);
 
           setServerMoveFrozen(harness.db, false);
-          harness.hub.notifyHost(host.hostId, ["host-connected"]);
+          await harness.hub.notifyHost(host.hostId, ["host-connected"]);
           await waitForPasses(logLines, 1);
           expect(responder.listedProviderIds()).toEqual(
             [...ALWAYS_VISIBLE_PROVIDER_IDS].sort(),

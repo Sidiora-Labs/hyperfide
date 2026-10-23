@@ -15,24 +15,28 @@ describe("public lifecycle ownership admission", () => {
     "validates a %s cross-project owner and keeps ownership creation-only",
     async (state) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { host } = await seedHostSession(harness.deps);
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
           path: "/tmp/lifecycle-admission",
         });
-        const ownerProject = seedProjectWithSource(harness.deps, {
-          hostId: host.id,
-          path: "/tmp/lifecycle-admission-owner",
-        }).project;
-        const environment = seedEnvironment(harness.deps, {
+        const ownerProject = (
+          await seedProjectWithSource(harness.deps, {
+            hostId: host.id,
+            path: "/tmp/lifecycle-admission-owner",
+          })
+        ).project;
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
         });
-        const owner = seedThread(harness.deps, { projectId: ownerProject.id });
+        const owner = await seedThread(harness.deps, {
+          projectId: ownerProject.id,
+        });
         if (state === "archived")
-          archiveThread(harness.db, harness.deps.hub, owner.id);
+          await archiveThread(harness.db, harness.deps.hub, owner.id);
         if (state === "deleted")
-          markThreadDeleted(harness.db, harness.deps.hub, {
+          await markThreadDeleted(harness.db, harness.deps.hub, {
             threadId: owner.id,
           });
         const response = await harness.app.request("/api/v1/threads", {
@@ -73,11 +77,11 @@ describe("public lifecycle ownership admission", () => {
           expect(update.status).toBe(400);
         }
         expect(
-          getThread(harness.db, owner.id)?.lifecycleOwnerThreadId,
+          (await getThread(harness.db, owner.id))?.lifecycleOwnerThreadId,
         ).toBeNull();
-        expect(getThread(harness.db, created.id)?.lifecycleOwnerThreadId).toBe(
-          owner.id,
-        );
+        expect(
+          (await getThread(harness.db, created.id))?.lifecycleOwnerThreadId,
+        ).toBe(owner.id);
       });
     },
   );

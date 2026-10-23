@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../../src/testing.js";
 import { describe, expect, it, vi } from "vitest";
 import {
   LOCAL_AGENT_TASK_TYPE,
@@ -76,29 +78,29 @@ import { upsertHost } from "../../src/data/hosts.js";
 import type { DbConnection } from "../../src/connection.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
   });
   return { db, project, thread };
 }
 
-function pruneThreadEvents(
+async function pruneThreadEvents(
   db: DbConnection,
   policy: ThreadPruningPolicy,
-): number {
+): Promise<number> {
   let removed = 0;
   for (let pass = 0; pass < 100; pass += 1) {
-    const result = advanceThreadPruning(db, policy);
+    const result = await advanceThreadPruning(db, policy);
     removed += result.removed;
     if (result.action === "cycle-complete") return removed;
   }
@@ -137,14 +139,16 @@ function textInput(text: string): PromptInput[] {
   return [{ type: "text", text, mentions: [] }];
 }
 
-function listSearchNeedleThreadIds(
-  db: ReturnType<typeof setup>["db"],
+async function listSearchNeedleThreadIds(
+  db: Awaited<ReturnType<typeof setup>>["db"],
   query: string,
-): string[] {
-  return searchThreadsWithPendingInteractionState(db, {
-    query,
-    limitPerGroup: 20,
-  }).active.results.map((result) => result.thread.id);
+): Promise<string[]> {
+  return (
+    await searchThreadsWithPendingInteractionState(db, {
+      query,
+      limitPerGroup: 20,
+    })
+  ).active.results.map((result) => result.thread.id);
 }
 
 function searchNeedleDaemonEventInputs(
@@ -238,10 +242,10 @@ function searchNeedleDaemonEventInputs(
   ];
 }
 
-function expectIndexedNeedles(
-  db: ReturnType<typeof setup>["db"],
+async function expectIndexedNeedles(
+  db: Awaited<ReturnType<typeof setup>>["db"],
   threadId: string,
-): void {
+): Promise<void> {
   for (const [query, indexed] of [
     ["userneedle", true],
     ["deltaneedle", false],
@@ -249,7 +253,10 @@ function expectIndexedNeedles(
     ["toolneedle", false],
     ["managerneedle", true],
   ] as const) {
-    expect({ query, threadIds: listSearchNeedleThreadIds(db, query) }).toEqual({
+    expect({
+      query,
+      threadIds: await listSearchNeedleThreadIds(db, query),
+    }).toEqual({
       query,
       threadIds: indexed ? [threadId] : [],
     });
@@ -321,20 +328,21 @@ function createContextWindowUsageData(
 }
 
 describe("events", () => {
-  it("preserves reported cache counts through daemon append and stored event decoding", () => {
-    const { db, thread } = setup();
+  it("preserves reported cache counts through daemon append and stored event decoding", async () => {
+    const { db, thread } = await setup();
     const scope = turnScope("turn-cache-test");
-    db.transaction((tx) =>
-      appendDaemonEventsInTransaction(tx, [
-        {
-          threadId: thread.id,
-          type: "turn/started",
-          ...daemonThreadEventFields,
-          scope,
-          providerThreadId: "provider-cache-test",
-          data: JSON.stringify({ providerThreadId: "provider-cache-test" }),
-        },
-      ]),
+    await db.transaction(
+      async (tx) =>
+        await appendDaemonEventsInTransaction(tx, [
+          {
+            threadId: thread.id,
+            type: "turn/started",
+            ...daemonThreadEventFields,
+            scope,
+            providerThreadId: "provider-cache-test",
+            data: JSON.stringify({ providerThreadId: "provider-cache-test" }),
+          },
+        ]),
     );
     const legacy = {
       totalTokens: 140,
@@ -349,22 +357,26 @@ describe("events", () => {
       { ...legacy, cacheWriteInputTokens: 0 },
     ];
     for (const last of variants) {
-      db.transaction((tx) =>
-        appendDaemonEventsInTransaction(tx, [
-          {
-            threadId: thread.id,
-            type: "thread/tokenUsage/updated",
-            ...daemonThreadEventFields,
-            scope,
-            providerThreadId: "provider-cache-test",
-            data: JSON.stringify({
-              tokenUsage: { total: last, last, modelContextWindow: null },
-            }),
-          },
-        ]),
+      await db.transaction(
+        async (tx) =>
+          await appendDaemonEventsInTransaction(tx, [
+            {
+              threadId: thread.id,
+              type: "thread/tokenUsage/updated",
+              ...daemonThreadEventFields,
+              scope,
+              providerThreadId: "provider-cache-test",
+              data: JSON.stringify({
+                tokenUsage: { total: last, last, modelContextWindow: null },
+              }),
+            },
+          ]),
       );
     }
-    const rows = listEvents(db, { threadId: thread.id, afterSequence: 1 });
+    const rows = await listEvents(db, {
+      threadId: thread.id,
+      afterSequence: 1,
+    });
     expect(rows).toHaveLength(variants.length);
     rows.forEach((row, index) => {
       expect(
@@ -373,13 +385,13 @@ describe("events", () => {
         tokenUsage: { total: variants[index], last: variants[index] },
       });
     });
-    db.$client.close();
+    await db.close();
   });
 
-  it("stores derived item columns when provided", () => {
-    const { db, thread } = setup();
+  it("stores derived item columns when provided", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -398,7 +410,7 @@ describe("events", () => {
       },
     ]);
 
-    const all = listEvents(db, { threadId: thread.id });
+    const all = await listEvents(db, { threadId: thread.id });
     expect(all).toHaveLength(1);
     expect(all[0]).toMatchObject({
       itemId: "msg-1",
@@ -407,13 +419,14 @@ describe("events", () => {
     });
   });
 
-  it("rejects turn scope rows without a stored turn id", () => {
-    const { db, thread } = setup();
+  it("rejects turn scope rows without a stored turn id", async () => {
+    const { db, thread } = await setup();
 
-    expect(() =>
-      db.$client
-        .prepare(
-          `INSERT INTO events (
+    await expect(
+      (async () =>
+        await db.$client
+          .prepare(
+            `INSERT INTO events (
             id,
             thread_id,
             scope_kind,
@@ -437,15 +450,15 @@ describe("events", () => {
             '{}',
             1
           )`,
-        )
-        .run(thread.id),
-    ).toThrow(/events_scope_shape_check|CHECK constraint failed/);
+          )
+          .run(thread.id))(),
+    ).rejects.toThrow(/events_scope_shape_check|CHECK constraint failed/);
   });
 
-  it("deduplicates on (threadId, sequence)", () => {
-    const { db, thread } = setup();
+  it("deduplicates on (threadId, sequence)", async () => {
+    const { db, thread } = await setup();
 
-    const result1 = insertEvents(db, noopNotifier, [
+    const result1 = await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -459,7 +472,7 @@ describe("events", () => {
       insertedInputIndexes: [0],
     });
 
-    const result2 = insertEvents(db, noopNotifier, [
+    const result2 = await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -480,15 +493,15 @@ describe("events", () => {
       insertedInputIndexes: [1],
     });
 
-    const all = listEvents(db, { threadId: thread.id });
+    const all = await listEvents(db, { threadId: thread.id });
     expect(all).toHaveLength(2);
     expect(JSON.parse(all[0]!.data)).toMatchObject({ message: "first" });
   });
 
-  it("appends daemon events with server-owned sequences", () => {
-    const { db, thread } = setup();
+  it("appends daemon events with server-owned sequences", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 5,
@@ -498,9 +511,9 @@ describe("events", () => {
       },
     ]);
 
-    const result = db.transaction(
-      (tx) =>
-        appendDaemonEventsInTransaction(tx, [
+    const result = await db.transaction(
+      async (tx) =>
+        await appendDaemonEventsInTransaction(tx, [
           {
             threadId: thread.id,
             type: "system/error",
@@ -531,7 +544,7 @@ describe("events", () => {
       insertedInputIndexes: [0, 1],
       skippedTurnUnstartedInputIndexes: [],
     });
-    expect(listEvents(db, { threadId: thread.id })).toMatchObject([
+    expect(await listEvents(db, { threadId: thread.id })).toMatchObject([
       { sequence: 5 },
       {
         sequence: 6,
@@ -542,12 +555,12 @@ describe("events", () => {
     ]);
   });
 
-  it("deduplicates a settled item until item/started reopens it", () => {
-    const { db, thread } = setup();
+  it("deduplicates a settled item until item/started reopens it", async () => {
+    const { db, thread } = await setup();
     const turnId = "turn-denied-approval";
     const itemId = "command-denied-approval";
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -604,9 +617,9 @@ describe("events", () => {
       },
     ]);
 
-    const result = db.transaction(
-      (tx) =>
-        appendDaemonEventsInTransaction(tx, [
+    const result = await db.transaction(
+      async (tx) =>
+        await appendDaemonEventsInTransaction(tx, [
           {
             threadId: thread.id,
             environmentId: null,
@@ -688,7 +701,7 @@ describe("events", () => {
       insertedInputIndexes: [1, 2, 3],
       skippedTurnUnstartedInputIndexes: [],
     });
-    expect(listEvents(db, { threadId: thread.id })).toMatchObject([
+    expect(await listEvents(db, { threadId: thread.id })).toMatchObject([
       { sequence: 1, type: "turn/started" },
       { sequence: 2, type: "item/started", itemId },
       { sequence: 3, type: "item/completed", itemId },
@@ -703,8 +716,8 @@ describe("events", () => {
     ]);
   });
 
-  it("uses item/started to reopen a thread-scoped background completion", () => {
-    const { db, thread } = setup();
+  it("uses item/started to reopen a thread-scoped background completion", async () => {
+    const { db, thread } = await setup();
     const turnId = "turn-background-reuse";
     const itemId = "background-reused";
     const providerThreadId = "provider-background-reuse";
@@ -724,7 +737,7 @@ describe("events", () => {
       taskStatus: "completed" as const,
     };
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -763,9 +776,9 @@ describe("events", () => {
       },
     ]);
 
-    const result = db.transaction(
-      (tx) =>
-        appendDaemonEventsInTransaction(tx, [
+    const result = await db.transaction(
+      async (tx) =>
+        await appendDaemonEventsInTransaction(tx, [
           {
             threadId: thread.id,
             environmentId: null,
@@ -819,8 +832,8 @@ describe("events", () => {
     });
   });
 
-  it("skips turn/started when a daemon replays an already-committed batch", () => {
-    const { db, thread } = setup();
+  it("skips turn/started when a daemon replays an already-committed batch", async () => {
+    const { db, thread } = await setup();
     const turnStarted = {
       threadId: thread.id,
       type: "turn/started" as const,
@@ -845,12 +858,14 @@ describe("events", () => {
       }),
     };
 
-    const first = db.transaction(
-      (tx) => appendDaemonEventsInTransaction(tx, [turnStarted, turnCompleted]),
+    const first = await db.transaction(
+      async (tx) =>
+        await appendDaemonEventsInTransaction(tx, [turnStarted, turnCompleted]),
       { behavior: "immediate" },
     );
-    const replay = db.transaction(
-      (tx) => appendDaemonEventsInTransaction(tx, [turnStarted, turnCompleted]),
+    const replay = await db.transaction(
+      async (tx) =>
+        await appendDaemonEventsInTransaction(tx, [turnStarted, turnCompleted]),
       { behavior: "immediate" },
     );
 
@@ -861,12 +876,14 @@ describe("events", () => {
       skippedTurnUnstartedInputIndexes: [],
     });
     expect(
-      listEvents(db, { threadId: thread.id }).map((event) => event.type),
+      (await listEvents(db, { threadId: thread.id })).map(
+        (event) => event.type,
+      ),
     ).toEqual(["turn/started", "turn/completed", "turn/completed"]);
   });
 
-  it("skips a turn/started repeated inside one daemon batch", () => {
-    const { db, thread } = setup();
+  it("skips a turn/started repeated inside one daemon batch", async () => {
+    const { db, thread } = await setup();
     const turnStarted = {
       threadId: thread.id,
       type: "turn/started" as const,
@@ -879,86 +896,91 @@ describe("events", () => {
       }),
     };
 
-    const result = db.transaction(
-      (tx) => appendDaemonEventsInTransaction(tx, [turnStarted, turnStarted]),
+    const result = await db.transaction(
+      async (tx) =>
+        await appendDaemonEventsInTransaction(tx, [turnStarted, turnStarted]),
       { behavior: "immediate" },
     );
 
     expect(result.insertedInputIndexes).toEqual([0]);
     expect(
-      listEvents(db, { threadId: thread.id }).map((event) => event.type),
+      (await listEvents(db, { threadId: thread.id })).map(
+        (event) => event.type,
+      ),
     ).toEqual(["turn/started"]);
   });
 
-  it("rejects daemon turn-scoped events before turn/started is stored", () => {
-    const { db, thread } = setup();
+  it("rejects daemon turn-scoped events before turn/started is stored", async () => {
+    const { db, thread } = await setup();
 
-    expect(() =>
-      db.transaction(
-        (tx) =>
-          appendDaemonEventsInTransaction(tx, [
-            {
-              threadId: thread.id,
-              type: "turn/completed",
-              ...createTurnEventFields({ turnId: "turn_missing" }),
-              environmentId: null,
-              providerThreadId: "provider_thr_missing",
-              data: JSON.stringify({
+    await expect(
+      (async () =>
+        await db.transaction(
+          async (tx) =>
+            await appendDaemonEventsInTransaction(tx, [
+              {
+                threadId: thread.id,
+                type: "turn/completed",
+                ...createTurnEventFields({ turnId: "turn_missing" }),
+                environmentId: null,
                 providerThreadId: "provider_thr_missing",
-                status: "completed",
-                turnId: "turn_missing",
-              }),
-            },
-          ]),
-        { behavior: "immediate" },
-      ),
-    ).toThrow(MissingStoredTurnStartedError);
-    expect(listEvents(db, { threadId: thread.id })).toHaveLength(0);
+                data: JSON.stringify({
+                  providerThreadId: "provider_thr_missing",
+                  status: "completed",
+                  turnId: "turn_missing",
+                }),
+              },
+            ]),
+          { behavior: "immediate" },
+        ))(),
+    ).rejects.toThrow(MissingStoredTurnStartedError);
+    expect(await listEvents(db, { threadId: thread.id })).toHaveLength(0);
   });
 
-  it("rejects daemon turn-scoped events before turn/started in the same batch", () => {
-    const { db, thread } = setup();
+  it("rejects daemon turn-scoped events before turn/started in the same batch", async () => {
+    const { db, thread } = await setup();
 
-    expect(() =>
-      db.transaction(
-        (tx) =>
-          appendDaemonEventsInTransaction(tx, [
-            {
-              threadId: thread.id,
-              type: "turn/completed",
-              ...createTurnEventFields({ turnId: "turn_late_start" }),
-              environmentId: null,
-              providerThreadId: "provider_thr_late",
-              data: JSON.stringify({
+    await expect(
+      (async () =>
+        await db.transaction(
+          async (tx) =>
+            await appendDaemonEventsInTransaction(tx, [
+              {
+                threadId: thread.id,
+                type: "turn/completed",
+                ...createTurnEventFields({ turnId: "turn_late_start" }),
+                environmentId: null,
                 providerThreadId: "provider_thr_late",
-                status: "completed",
-                turnId: "turn_late_start",
-              }),
-            },
-            {
-              threadId: thread.id,
-              type: "turn/started",
-              ...createTurnEventFields({ turnId: "turn_late_start" }),
-              environmentId: null,
-              providerThreadId: "provider_thr_late",
-              data: JSON.stringify({
+                data: JSON.stringify({
+                  providerThreadId: "provider_thr_late",
+                  status: "completed",
+                  turnId: "turn_late_start",
+                }),
+              },
+              {
+                threadId: thread.id,
+                type: "turn/started",
+                ...createTurnEventFields({ turnId: "turn_late_start" }),
+                environmentId: null,
                 providerThreadId: "provider_thr_late",
-                turnId: "turn_late_start",
-              }),
-            },
-          ]),
-        { behavior: "immediate" },
-      ),
-    ).toThrow(MissingStoredTurnStartedError);
-    expect(listEvents(db, { threadId: thread.id })).toHaveLength(0);
+                data: JSON.stringify({
+                  providerThreadId: "provider_thr_late",
+                  turnId: "turn_late_start",
+                }),
+              },
+            ]),
+          { behavior: "immediate" },
+        ))(),
+    ).rejects.toThrow(MissingStoredTurnStartedError);
+    expect(await listEvents(db, { threadId: thread.id })).toHaveLength(0);
   });
 
-  it("drops orphan token-usage snapshots with no stored turn/started instead of failing the batch", () => {
-    const { db, thread } = setup();
+  it("drops orphan token-usage snapshots with no stored turn/started instead of failing the batch", async () => {
+    const { db, thread } = await setup();
 
-    const result = db.transaction(
-      (tx) =>
-        appendDaemonEventsInTransaction(tx, [
+    const result = await db.transaction(
+      async (tx) =>
+        await appendDaemonEventsInTransaction(tx, [
           {
             threadId: thread.id,
             type: "thread/tokenUsage/updated",
@@ -988,16 +1010,18 @@ describe("events", () => {
     expect(result.skippedTurnUnstartedInputIndexes).toEqual([0]);
     expect(result.insertedInputIndexes).toEqual([1]);
     expect(
-      listEvents(db, { threadId: thread.id }).map((event) => event.type),
+      (await listEvents(db, { threadId: thread.id })).map(
+        (event) => event.type,
+      ),
     ).toEqual(["turn/started"]);
   });
 
-  it("drops orphan provider/unhandled events instead of failing the batch", () => {
-    const { db, thread } = setup();
+  it("drops orphan provider/unhandled events instead of failing the batch", async () => {
+    const { db, thread } = await setup();
 
-    const result = db.transaction(
-      (tx) =>
-        appendDaemonEventsInTransaction(tx, [
+    const result = await db.transaction(
+      async (tx) =>
+        await appendDaemonEventsInTransaction(tx, [
           {
             threadId: thread.id,
             type: "provider/unhandled",
@@ -1033,16 +1057,18 @@ describe("events", () => {
     expect(result.skippedTurnUnstartedInputIndexes).toEqual([0]);
     expect(result.insertedInputIndexes).toEqual([1]);
     expect(
-      listEvents(db, { threadId: thread.id }).map((event) => event.type),
+      (await listEvents(db, { threadId: thread.id })).map(
+        (event) => event.type,
+      ),
     ).toEqual(["turn/started"]);
   });
 
-  it("persists neighboring daemon events when accepted input data is malformed", () => {
-    const { db, thread } = setup();
+  it("persists neighboring daemon events when accepted input data is malformed", async () => {
+    const { db, thread } = await setup();
 
-    db.transaction(
-      (tx) =>
-        appendDaemonEventsInTransaction(tx, [
+    await db.transaction(
+      async (tx) =>
+        await appendDaemonEventsInTransaction(tx, [
           {
             threadId: thread.id,
             type: "turn/started",
@@ -1070,18 +1096,23 @@ describe("events", () => {
     );
 
     expect(
-      listEvents(db, { threadId: thread.id }).map((event) => event.type),
+      (await listEvents(db, { threadId: thread.id })).map(
+        (event) => event.type,
+      ),
     ).toEqual(["turn/started", "turn/input/accepted", "system/error"]);
   });
 
-  it("indexes daemon-appended messages without parsing deltas or tool outputs", () => {
-    const { db, thread } = setup();
+  it("indexes daemon-appended messages without parsing deltas or tool outputs", async () => {
+    const { db, thread } = await setup();
     const inputs = searchNeedleDaemonEventInputs(thread.id);
     const parse = vi.spyOn(JSON, "parse");
     try {
-      db.transaction((tx) => appendDaemonEventsInTransaction(tx, inputs), {
-        behavior: "immediate",
-      });
+      await db.transaction(
+        async (tx) => await appendDaemonEventsInTransaction(tx, inputs),
+        {
+          behavior: "immediate",
+        },
+      );
       const parsedData = new Set(parse.mock.calls.map(([text]) => text));
       expect(
         inputs
@@ -1096,16 +1127,16 @@ describe("events", () => {
       parse.mockRestore();
     }
 
-    expectIndexedNeedles(db, thread.id);
+    await expectIndexedNeedles(db, thread.id);
   });
 
-  it("indexes copied messages, including legacy rows without an item kind, when a fork copies events", () => {
-    const { db, project, thread } = setup();
-    const fork = createThread(db, noopNotifier, {
+  it("indexes copied messages, including legacy rows without an item kind, when a fork copies events", async () => {
+    const { db, project, thread } = await setup();
+    const fork = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       searchNeedleDaemonEventInputs(thread.id).map((input, index) => ({
@@ -1115,24 +1146,24 @@ describe("events", () => {
       })),
     );
 
-    db.transaction(
-      (tx) =>
-        copyStoredThreadEventsInTransaction(tx, {
-          rows: listStoredEventRows(db, { threadId: thread.id }),
+    await db.transaction(
+      async (tx) =>
+        await copyStoredThreadEventsInTransaction(tx, {
+          rows: await listStoredEventRows(db, { threadId: thread.id }),
           targetEnvironmentId: null,
           targetThreadId: fork.id,
         }),
       { behavior: "immediate" },
     );
 
-    expectIndexedNeedles(db, fork.id);
+    await expectIndexedNeedles(db, fork.id);
   });
 
-  it("stores the provided createdAt timestamp", () => {
-    const { db, thread } = setup();
+  it("stores the provided createdAt timestamp", async () => {
+    const { db, thread } = await setup();
     const createdAt = 1_700_000_000_000;
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1143,14 +1174,14 @@ describe("events", () => {
       },
     ]);
 
-    const [event] = listEvents(db, { threadId: thread.id });
+    const [event] = await listEvents(db, { threadId: thread.id });
     expect(event?.createdAt).toBe(createdAt);
   });
 
-  it("lists and finds stored event rows with shared DB helpers", () => {
-    const { db, thread } = setup();
+  it("lists and finds stored event rows with shared DB helpers", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1175,7 +1206,7 @@ describe("events", () => {
     ]);
 
     expect(
-      listStoredEventRows(db, {
+      await listStoredEventRows(db, {
         afterSequence: 1,
         limit: 1,
         threadId: thread.id,
@@ -1188,7 +1219,7 @@ describe("events", () => {
     ]);
 
     expect(
-      listStoredEventRows(db, {
+      await listStoredEventRows(db, {
         beforeSequence: 3,
         order: "desc",
         threadId: thread.id,
@@ -1200,14 +1231,14 @@ describe("events", () => {
     ]);
 
     expect(
-      listStoredEventRows(db, {
+      await listStoredEventRows(db, {
         threadId: thread.id,
         types: [],
       }),
     ).toEqual([]);
 
     expect(
-      findStoredEventRow(db, {
+      await findStoredEventRow(db, {
         afterSequence: 1,
         threadId: thread.id,
         type: "system/error",
@@ -1218,15 +1249,15 @@ describe("events", () => {
     });
   });
 
-  it("returns the same type-filtered rows with and without a limit", () => {
-    const { db, thread } = setup();
+  it("returns the same type-filtered rows with and without a limit", async () => {
+    const { db, thread } = await setup();
     const types = [
       "turn/started",
       "turn/completed",
       "system/error",
     ] as const satisfies readonly ThreadEventType[];
     const rotation = [...types, "thread/compacted"] as const;
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       Array.from({ length: 24 }, (_, index) => ({
@@ -1239,10 +1270,12 @@ describe("events", () => {
     );
 
     expect(
-      listStoredEventRows(db, {
-        threadId: thread.id,
-        types: [...types],
-      }).map((row) => row.sequence),
+      (
+        await listStoredEventRows(db, {
+          threadId: thread.id,
+          types: [...types],
+        })
+      ).map((row) => row.sequence),
     ).toEqual(
       Array.from({ length: 24 }, (_, index) => index + 1).filter(
         (sequence) => sequence % rotation.length !== 0,
@@ -1257,18 +1290,18 @@ describe("events", () => {
         beforeSequence: 20,
       },
     ] satisfies ListStoredEventRowsArgs[]) {
-      const unlimited = listStoredEventRows(db, args);
+      const unlimited = await listStoredEventRows(db, args);
       expect(unlimited.length).toBeGreaterThan(0);
-      expect(listStoredEventRows(db, { ...args, limit: 100 })).toEqual(
+      expect(await listStoredEventRows(db, { ...args, limit: 100 })).toEqual(
         unlimited,
       );
     }
   });
 
-  it("finds the latest output event row without scanning unrelated event types", () => {
-    const { db, thread } = setup();
+  it("finds the latest output event row without scanning unrelated event types", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1308,7 +1341,7 @@ describe("events", () => {
     ]);
 
     expect(
-      getLatestThreadOutputEventRow(db, { threadId: thread.id }),
+      await getLatestThreadOutputEventRow(db, { threadId: thread.id }),
     ).toMatchObject({
       sequence: 2,
       itemKind: "agentMessage",
@@ -1317,10 +1350,10 @@ describe("events", () => {
     });
   });
 
-  it("skips empty assistant output when a manager user message is the latest visible output", () => {
-    const { db, thread } = setup();
+  it("skips empty assistant output when a manager user message is the latest visible output", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1343,17 +1376,17 @@ describe("events", () => {
     ]);
 
     expect(
-      getLatestThreadOutputEventRow(db, { threadId: thread.id }),
+      await getLatestThreadOutputEventRow(db, { threadId: thread.id }),
     ).toMatchObject({
       sequence: 1,
       type: "system/manager/user_message",
     });
   });
 
-  it("keeps nested-turn context usage from replacing the root turn report", () => {
-    const { db, thread } = setup();
+  it("keeps nested-turn context usage from replacing the root turn report", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1402,17 +1435,22 @@ describe("events", () => {
     ]);
 
     expect(
-      listContextWindowUsageRows(db, {
-        sequenceStart: 0,
-        threadId: thread.id,
-      }).map((row) => row.sequence),
+      (
+        await listContextWindowUsageRows(db, {
+          sequenceStart: 0,
+          threadId: thread.id,
+        })
+      ).map((row) => row.sequence),
     ).toEqual([2, 5]);
   });
 
-  it("includes the latest snapshot or invalidation in bounded context reads", () => {
-    const { db, thread } = setup();
-    const appendUsage = (sequence: number, contextWindowUsage: object) => {
-      insertEvents(db, noopNotifier, [
+  it("includes the latest snapshot or invalidation in bounded context reads", async () => {
+    const { db, thread } = await setup();
+    const appendUsage = async (
+      sequence: number,
+      contextWindowUsage: object,
+    ) => {
+      await insertEvents(db, noopNotifier, [
         {
           threadId: thread.id,
           sequence,
@@ -1422,12 +1460,14 @@ describe("events", () => {
         },
       ]);
     };
-    const readSequences = (sequenceStart = 0) =>
-      listContextWindowUsageRows(db, {
-        threadId: thread.id,
-        sequenceStart,
-      }).map((row) => row.sequence);
-    appendUsage(1, {
+    const readSequences = async (sequenceStart = 0) =>
+      (
+        await listContextWindowUsageRows(db, {
+          threadId: thread.id,
+          sequenceStart,
+        })
+      ).map((row) => row.sequence);
+    await appendUsage(1, {
       usedTokens: 128_000,
       modelContextWindow: 256_000,
       estimated: true,
@@ -1443,35 +1483,35 @@ describe("events", () => {
         categories: [],
       },
     });
-    appendUsage(2, {
+    await appendUsage(2, {
       usedTokens: 140_000,
       modelContextWindow: 1_000_000,
       estimated: true,
     });
-    appendUsage(3, {
+    await appendUsage(3, {
       usedTokens: 150_000,
       modelContextWindow: 1_000_000,
       estimated: true,
     });
-    expect(readSequences()).toEqual([1, 3]);
-    expect(readSequences(2)).toEqual([3]);
-    appendUsage(4, {
+    expect(await readSequences()).toEqual([1, 3]);
+    expect(await readSequences(2)).toEqual([3]);
+    await appendUsage(4, {
       usedTokens: null,
       modelContextWindow: null,
       estimated: true,
     });
-    appendUsage(5, {
+    await appendUsage(5, {
       usedTokens: 160_000,
       modelContextWindow: 1_000_000,
       estimated: true,
     });
-    expect(readSequences()).toEqual([4, 5]);
+    expect(await readSequences()).toEqual([4, 5]);
   });
 
-  it("lists bounded request-position hints without interpreting input", () => {
-    const { db, thread } = setup();
+  it("lists bounded request-position hints without interpreting input", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1595,7 +1635,7 @@ describe("events", () => {
     ]);
 
     expect(
-      listTimelineWindowHintsDescending(db, {
+      await listTimelineWindowHintsDescending(db, {
         beforeSequence: 100,
         limit: 10,
         sequenceStart: 0,
@@ -1615,70 +1655,78 @@ describe("events", () => {
     ]);
 
     expect(
-      listTimelineWindowHintsDescending(db, {
-        beforeSequence: 100,
-        limit: 3,
-        sequenceStart: 0,
-        threadId: thread.id,
-      }).map((row) => row.sequence),
+      (
+        await listTimelineWindowHintsDescending(db, {
+          beforeSequence: 100,
+          limit: 3,
+          sequenceStart: 0,
+          threadId: thread.id,
+        })
+      ).map((row) => row.sequence),
     ).toEqual([11, 10, 9]);
     expect(
-      listTimelineWindowHintsDescending(db, {
+      await listTimelineWindowHintsDescending(db, {
         beforeSequence: 8,
         limit: 3,
         sequenceStart: 0,
         threadId: thread.id,
       }),
-    ).toEqual([
-      { sequence: 7 },
-      { sequence: 6 },
-      { sequence: 5 },
-    ]);
+    ).toEqual([{ sequence: 7 }, { sequence: 6 }, { sequence: 5 }]);
   });
 
-  it("keeps window-hint lookup bounded as request history grows", () => {
-    const { db, thread } = setup();
-    try {
-      const statement = db.$client.prepare(
-        "INSERT INTO events (id, thread_id, scope_kind, sequence, type, data, created_at) VALUES (?, ?, 'thread', ?, 'client/turn/requested', ?, 0)",
-      );
-      const payload = JSON.stringify({ input: [{ type: "text", text: "x".repeat(2_000) }] });
-      const seed = (start: number, end: number): void => {
-        db.$client.transaction(() => {
-          for (let sequence = start; sequence <= end; sequence += 1) {
-            statement.run(`request-${sequence}`, thread.id, sequence, sequence % 20 === 0 ? "{}" : payload);
+  it.skipIf(isPostgresTest)(
+    "keeps window-hint lookup bounded as request history grows",
+    async () => {
+      const { db, thread } = await setup();
+      try {
+        const statement = db.$client.prepare(
+          "INSERT INTO events (id, thread_id, scope_kind, sequence, type, data, created_at) VALUES (?, ?, 'thread', ?, 'client/turn/requested', ?, 0)",
+        );
+        const payload = JSON.stringify({
+          input: [{ type: "text", text: "x".repeat(2_000) }],
+        });
+        const seed = async (start: number, end: number): Promise<void> => {
+          db.$client.transaction(() => {
+            for (let sequence = start; sequence <= end; sequence += 1) {
+              statement.run(
+                `request-${sequence}`,
+                thread.id,
+                sequence,
+                sequence % 20 === 0 ? "{}" : payload,
+              );
+            }
+          })();
+        };
+        const sample = async (beforeSequence: number): Promise<number> => {
+          const times: number[] = [];
+          for (let sample = await 0; sample < 10; sample += 1) {
+            const start = performance.now();
+            const hints = await listTimelineWindowHintsDescending(db, {
+              threadId: thread.id,
+              sequenceStart: 0,
+              beforeSequence,
+              limit: 21,
+            });
+            times.push(performance.now() - start);
+            expect(hints).toHaveLength(21);
+            expect(hints[0]?.sequence).toBe(beforeSequence - 1);
           }
-        })();
-      };
-      const sample = (beforeSequence: number): number => {
-        const times: number[] = [];
-        for (let sample = 0; sample < 10; sample += 1) {
-          const start = performance.now();
-          const hints = listTimelineWindowHintsDescending(db, {
-            threadId: thread.id,
-            sequenceStart: 0,
-            beforeSequence,
-            limit: 21,
-          });
-          times.push(performance.now() - start);
-          expect(hints).toHaveLength(21);
-          expect(hints[0]?.sequence).toBe(beforeSequence - 1);
-        }
-        return Math.min(...times);
-      };
-      seed(1, 1_000);
-      const small = sample(1_001);
-      seed(1_001, 30_000);
-      const large = sample(30_001);
-      expect(large).toBeLessThan(Math.max(2, small * 5));
-      expect(sample(501)).toBeLessThan(Math.max(2, small * 5));
-    } finally {
-      db.$client.close();
-    }
-  });
+          return Math.min(...times);
+        };
+        await seed(1, 1_000);
+        const small = await sample(1_001);
+        await seed(1_001, 30_000);
+        const large = await sample(30_001);
+        expect(large).toBeLessThan(Math.max(2, small * 5));
+        expect(await sample(501)).toBeLessThan(Math.max(2, small * 5));
+      } finally {
+        await db.close();
+      }
+    },
+  );
 
-  it("uses request positions as hints without resolving acceptance", () => {
-    const { db, thread } = setup();
+  it("uses request positions as hints without resolving acceptance", async () => {
+    const { db, thread } = await setup();
     const request = (
       sequence: number,
       requestId: string,
@@ -1711,7 +1759,7 @@ describe("events", () => {
       data: JSON.stringify({ clientRequestId }),
     });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1732,23 +1780,30 @@ describe("events", () => {
     ]);
 
     expect(
-      listTimelineWindowHintsDescending(db, {
+      await listTimelineWindowHintsDescending(db, {
         limit: 100,
         beforeSequence: 100,
         sequenceStart: 0,
         threadId: thread.id,
       }),
-    ).toEqual([{ sequence: 9 }, { sequence: 6 }, { sequence: 2 }, { sequence: 1 }]);
+    ).toEqual([
+      { sequence: 9 },
+      { sequence: 6 },
+      { sequence: 2 },
+      { sequence: 1 },
+    ]);
     expect(
-      listTimelineWindowHintsDescending(db, {
-        beforeSequence: 100,
-        limit: 10,
-        sequenceStart: 0,
-        threadId: thread.id,
-      }).map((row) => row.sequence),
+      (
+        await listTimelineWindowHintsDescending(db, {
+          beforeSequence: 100,
+          limit: 10,
+          sequenceStart: 0,
+          threadId: thread.id,
+        })
+      ).map((row) => row.sequence),
     ).toEqual([9, 6, 2, 1]);
     expect(
-      listTimelineWindowHintsDescending(db, {
+      await listTimelineWindowHintsDescending(db, {
         limit: 100,
         beforeSequence: 5,
         sequenceStart: 0,
@@ -1756,7 +1811,7 @@ describe("events", () => {
       }),
     ).toEqual([{ sequence: 2 }, { sequence: 1 }]);
     expect(
-      listTimelineWindowHintsDescending(db, {
+      await listTimelineWindowHintsDescending(db, {
         limit: 100,
         beforeSequence: 100,
         sequenceStart: 5,
@@ -1827,8 +1882,8 @@ describe("events", () => {
     },
   ])(
     "finds the parented timeline boundary for $name",
-    ({ overrides = {}, range, expected }) => {
-      const { db, thread } = setup();
+    async ({ overrides = {}, range, expected }) => {
+      const { db, thread } = await setup();
       const rows: InsertEventInput[] = [
         {
           threadId: thread.id,
@@ -1869,14 +1924,14 @@ describe("events", () => {
           data: "{}",
         },
       ];
-      insertEvents(
+      await insertEvents(
         db,
         noopNotifier,
         rows.map((row) => ({ ...row, ...overrides[row.sequence] })),
       );
 
       expect(
-        getFirstParentedTimelineBoundarySequence(db, {
+        await getFirstParentedTimelineBoundarySequence(db, {
           maxSeq: 10,
           sequenceStart: 0,
           ...range,
@@ -1886,9 +1941,9 @@ describe("events", () => {
     },
   );
 
-  it("updates the parented boundary when nested history appears or is removed", () => {
-    const { db, thread } = setup();
-    insertEvents(db, noopNotifier, [
+  it("updates the parented boundary when nested history appears or is removed", async () => {
+    const { db, thread } = await setup();
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1917,14 +1972,14 @@ describe("events", () => {
         }),
       },
     ]);
-    const read = (maxSeq: number) =>
-      getFirstParentedTimelineBoundarySequence(db, {
+    const read = async (maxSeq: number) =>
+      await getFirstParentedTimelineBoundarySequence(db, {
         threadId: thread.id,
         sequenceStart: 0,
         maxSeq,
       });
-    expect(read(3)).toBeNull();
-    insertEvents(db, noopNotifier, [
+    expect(await read(3)).toBeNull();
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 4,
@@ -1934,19 +1989,19 @@ describe("events", () => {
         data: JSON.stringify({ parentToolCallId: "parent" }),
       },
     ]);
-    expect(read(3)).toBeNull();
-    expect(read(4)).toBe(3);
-    db.$client
+    expect(await read(3)).toBeNull();
+    expect(await read(4)).toBe(3);
+    await db.$client
       .prepare("DELETE FROM events WHERE thread_id = ? AND sequence = 4")
       .run(thread.id);
-    expect(read(4)).toBeNull();
-    db.$client.close();
+    expect(await read(4)).toBeNull();
+    await db.close();
   });
 
-  it("loads timeline event windows with sequence bounds and exclusions", () => {
-    const { db, thread } = setup();
+  it("loads timeline event windows with sequence bounds and exclusions", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1981,36 +2036,42 @@ describe("events", () => {
     ]);
 
     expect(
-      listStoredTimelineWindowEventRows(db, {
-        beforeSequence: 4,
-        excludedTypes: ["thread/contextWindowUsage/updated"],
-        maxInlineOutputChars: null,
-        sequenceStart: 2,
-        threadId: thread.id,
-      }).map((row) => row.sequence),
+      (
+        await listStoredTimelineWindowEventRows(db, {
+          beforeSequence: 4,
+          excludedTypes: ["thread/contextWindowUsage/updated"],
+          maxInlineOutputChars: null,
+          sequenceStart: 2,
+          threadId: thread.id,
+        })
+      ).map((row) => row.sequence),
     ).toEqual([3]);
 
     expect(
-      listStoredTimelineWindowEventRows(db, {
-        excludedTypes: [],
-        maxInlineOutputChars: null,
-        sequenceStart: 2,
-        threadId: thread.id,
-      }).map((row) => row.sequence),
+      (
+        await listStoredTimelineWindowEventRows(db, {
+          excludedTypes: [],
+          maxInlineOutputChars: null,
+          sequenceStart: 2,
+          threadId: thread.id,
+        })
+      ).map((row) => row.sequence),
     ).toEqual([2, 3, 4]);
 
     expect(
-      listStoredTimelineWindowEventRows(db, {
-        beforeSequence: 4,
-        maxInlineOutputChars: null,
-        sequenceStart: 2,
-        threadId: thread.id,
-      }).map((row) => row.sequence),
+      (
+        await listStoredTimelineWindowEventRows(db, {
+          beforeSequence: 4,
+          maxInlineOutputChars: null,
+          sequenceStart: 2,
+          threadId: thread.id,
+        })
+      ).map((row) => row.sequence),
     ).toEqual([2, 3]);
   });
 
-  it("skips superseded backgroundTask progress snapshots in timeline reads", () => {
-    const { db, thread } = setup();
+  it("skips superseded backgroundTask progress snapshots in timeline reads", async () => {
+    const { db, thread } = await setup();
 
     const taskData = (id: string, status: "pending" | "completed") =>
       JSON.stringify({
@@ -2036,7 +2097,7 @@ describe("events", () => {
       data: taskData(itemId, "pending"),
     });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -2074,37 +2135,43 @@ describe("events", () => {
     ]);
 
     expect(
-      listStoredTimelineWindowEventRows(db, {
-        maxInlineOutputChars: null,
-        sequenceStart: 1,
-        threadId: thread.id,
-      }).map((row) => row.sequence),
+      (
+        await listStoredTimelineWindowEventRows(db, {
+          maxInlineOutputChars: null,
+          sequenceStart: 1,
+          threadId: thread.id,
+        })
+      ).map((row) => row.sequence),
     ).toEqual([1, 2, 6, 7]);
     expect(
-      listStoredTimelineWindowEventRows(db, {
-        beforeSequence: 6,
-        maxInlineOutputChars: null,
-        sequenceStart: 1,
-        threadId: thread.id,
-      }).map((row) => row.sequence),
+      (
+        await listStoredTimelineWindowEventRows(db, {
+          beforeSequence: 6,
+          maxInlineOutputChars: null,
+          sequenceStart: 1,
+          threadId: thread.id,
+        })
+      ).map((row) => row.sequence),
     ).toEqual([1, 2, 4, 5]);
     expect(
-      findStoredTimelineWindowByteBudgetFloor(db, {
+      await findStoredTimelineWindowByteBudgetFloor(db, {
         maxDataBytes: 1_000_000,
         maxInlineOutputChars: null,
         sequenceStart: 1,
         threadId: thread.id,
       }),
     ).toEqual({
-      eventDataBytes: listStoredTimelineWindowEventRows(db, {
-        maxInlineOutputChars: null,
-        sequenceStart: 1,
-        threadId: thread.id,
-      }).reduce((bytes, row) => bytes + Buffer.byteLength(row.data), 0),
+      eventDataBytes: (
+        await listStoredTimelineWindowEventRows(db, {
+          maxInlineOutputChars: null,
+          sequenceStart: 1,
+          threadId: thread.id,
+        })
+      ).reduce((bytes, row) => bytes + Buffer.byteLength(row.data), 0),
       kind: "fits",
     });
     expect(
-      findTimelineWindowBudgetFloorSequence(db, {
+      await findTimelineWindowBudgetFloorSequence(db, {
         eventBudget: 2,
         excludedTypes: [],
         sequenceStart: 0,
@@ -2112,7 +2179,7 @@ describe("events", () => {
       }),
     ).toBe(2);
     expect(
-      findTimelineWindowBudgetFloorSequence(db, {
+      await findTimelineWindowBudgetFloorSequence(db, {
         eventBudget: 1,
         excludedTypes: [],
         sequenceStart: 0,
@@ -2120,17 +2187,19 @@ describe("events", () => {
       }),
     ).toBe(6);
     expect(
-      listStoredConversationOutlineEventRows(db, {
-        sequenceStart: 0,
-        threadId: thread.id,
-      }).map((row) => row.sequence),
+      (
+        await listStoredConversationOutlineEventRows(db, {
+          sequenceStart: 0,
+          threadId: thread.id,
+        })
+      ).map((row) => row.sequence),
     ).toEqual([1, 2, 6]);
   });
 
-  it("omits redundant structural completions and unused payload fields", () => {
-    const { db, thread } = setup();
+  it("omits redundant structural completions and unused payload fields", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -2223,7 +2292,7 @@ describe("events", () => {
       },
     ]);
 
-    const rows = listStoredConversationOutlineEventRows(db, {
+    const rows = await listStoredConversationOutlineEventRows(db, {
       sequenceStart: 0,
       threadId: thread.id,
     });
@@ -2264,13 +2333,13 @@ describe("events", () => {
       },
     ]);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("lists accepted input rows for requested client turn sequences", () => {
-    const { db, thread } = setup();
+  it("lists accepted input rows for requested client turn sequences", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -2345,18 +2414,20 @@ describe("events", () => {
     ]);
 
     expect(
-      listStoredTurnInputAcceptedRowsByClientRequestIds(db, {
-        threadId: thread.id,
-        afterSequence: 2,
-        clientRequestIds: ["creq_23456789ab", "creq_23456789ac"],
-      }).map((row) => row.sequence),
+      (
+        await listStoredTurnInputAcceptedRowsByClientRequestIds(db, {
+          threadId: thread.id,
+          afterSequence: 2,
+          clientRequestIds: ["creq_23456789ab", "creq_23456789ac"],
+        })
+      ).map((row) => row.sequence),
     ).toEqual([3, 5]);
   });
 
-  it("lists rejected rows for requested client turn sequences", () => {
-    const { db, thread } = setup();
+  it("lists rejected rows for requested client turn sequences", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 3,
@@ -2382,30 +2453,32 @@ describe("events", () => {
     ]);
 
     expect(
-      listStoredTurnRejectedRowsByClientRequestIds(db, {
-        threadId: thread.id,
-        afterSequence: 2,
-        clientRequestIds: ["creq_23456789ac"],
-      }).map((row) => row.sequence),
+      (
+        await listStoredTurnRejectedRowsByClientRequestIds(db, {
+          threadId: thread.id,
+          afterSequence: 2,
+          clientRequestIds: ["creq_23456789ac"],
+        })
+      ).map((row) => row.sequence),
     ).toEqual([4]);
   });
 
-  it("lists only the latest goal-state row per thread, legacy and extension rows alike", () => {
-    const { db, project, thread } = setup();
-    const otherThread = createThread(db, noopNotifier, {
+  it("lists only the latest goal-state row per thread, legacy and extension rows alike", async () => {
+    const { db, project, thread } = await setup();
+    const otherThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    const unrelatedStateThread = createThread(db, noopNotifier, {
+    const unrelatedStateThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    const noStateThread = createThread(db, noopNotifier, {
+    const noStateThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -2478,16 +2551,18 @@ describe("events", () => {
     ]);
 
     const rowsByThreadId = new Map(
-      listLatestThreadStateEventRowsByThreadIds(db, {
-        threadIds: [
-          thread.id,
-          otherThread.id,
-          unrelatedStateThread.id,
-          noStateThread.id,
-          thread.id,
-        ],
-        kind: "provider-codex/goal",
-      }).map((row) => [row.threadId, row]),
+      (
+        await listLatestThreadStateEventRowsByThreadIds(db, {
+          threadIds: [
+            thread.id,
+            otherThread.id,
+            unrelatedStateThread.id,
+            noStateThread.id,
+            thread.id,
+          ],
+          kind: "provider-codex/goal",
+        })
+      ).map((row) => [row.threadId, row]),
     );
 
     expect(rowsByThreadId.get(thread.id)?.type).toBe("thread/goal/cleared");
@@ -2499,20 +2574,20 @@ describe("events", () => {
     expect(rowsByThreadId.has(unrelatedStateThread.id)).toBe(false);
     expect(rowsByThreadId.has(noStateThread.id)).toBe(false);
     expect(
-      listLatestThreadStateEventRowsByThreadIds(db, {
+      await listLatestThreadStateEventRowsByThreadIds(db, {
         threadIds: [],
         kind: "provider-codex/goal",
       }),
     ).toEqual([]);
   });
 
-  it("batches latest goal lookups above the SQLite variable limit", () => {
-    const { db, project, thread } = setup();
-    const finalBatchThread = createThread(db, noopNotifier, {
+  it("batches latest goal lookups above the SQLite variable limit", async () => {
+    const { db, project, thread } = await setup();
+    const finalBatchThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -2534,7 +2609,7 @@ describe("events", () => {
       return `thr_missing_goal_${index}`;
     });
 
-    const rows = listLatestThreadStateEventRowsByThreadIds(db, {
+    const rows = await listLatestThreadStateEventRowsByThreadIds(db, {
       threadIds,
       kind: "provider-codex/goal",
     });
@@ -2544,14 +2619,14 @@ describe("events", () => {
     );
   });
 
-  it("lists only open accepted turn inputs after the latest interruption", () => {
-    const { db, project, thread } = setup();
-    const otherThread = createThread(db, noopNotifier, {
+  it("lists only open accepted turn inputs after the latest interruption", async () => {
+    const { db, project, thread } = await setup();
+    const otherThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -2597,23 +2672,25 @@ describe("events", () => {
     ]);
 
     const rowsByThreadId = new Map(
-      listOpenTurnInputAcceptedRowsByThreadIds(db, {
-        threadIds: [thread.id, otherThread.id, thread.id],
-      }).map((row) => [row.threadId, row]),
+      (
+        await listOpenTurnInputAcceptedRowsByThreadIds(db, {
+          threadIds: [thread.id, otherThread.id, thread.id],
+        })
+      ).map((row) => [row.threadId, row]),
     );
 
     expect(rowsByThreadId.get(thread.id)?.sequence).toBe(5);
     expect(rowsByThreadId.get(otherThread.id)?.sequence).toBe(1);
   });
 
-  it("lists client turn request rows by thread/request keys", () => {
-    const { db, project, thread } = setup();
-    const otherThread = createThread(db, noopNotifier, {
+  it("lists client turn request rows by thread/request keys", async () => {
+    const { db, project, thread } = await setup();
+    const otherThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -2638,32 +2715,36 @@ describe("events", () => {
     ]);
 
     const rowsByThreadId = new Map(
-      listStoredClientTurnRequestRowsByKeys(db, {
-        keys: [
-          { threadId: thread.id, requestId: "creq_23456789aa" },
-          { threadId: otherThread.id, requestId: "creq_23456789aa" },
-          { threadId: thread.id, requestId: "creq_23456789aa" },
-        ],
-      }).map((row) => [row.threadId, row]),
+      (
+        await listStoredClientTurnRequestRowsByKeys(db, {
+          keys: [
+            { threadId: thread.id, requestId: "creq_23456789aa" },
+            { threadId: otherThread.id, requestId: "creq_23456789aa" },
+            { threadId: thread.id, requestId: "creq_23456789aa" },
+          ],
+        })
+      ).map((row) => [row.threadId, row]),
     );
 
     expect(rowsByThreadId.get(thread.id)?.sequence).toBe(1);
     expect(rowsByThreadId.get(otherThread.id)?.sequence).toBe(1);
     expect(rowsByThreadId.size).toBe(2);
     expect(
-      listStoredClientTurnRequestRowsByKeys(db, {
-        keys: [
-          { threadId: thread.id, requestId: "creq_23456789ab" },
-          { threadId: thread.id, requestId: "creq_23456789aa" },
-        ],
-      }).map((row) => row.sequence),
+      (
+        await listStoredClientTurnRequestRowsByKeys(db, {
+          keys: [
+            { threadId: thread.id, requestId: "creq_23456789ab" },
+            { threadId: thread.id, requestId: "creq_23456789aa" },
+          ],
+        })
+      ).map((row) => row.sequence),
     ).toEqual([1, 2]);
   });
 
-  it("batches client turn request keys above the expression-depth limit", () => {
-    const { db, thread } = setup();
+  it("batches client turn request keys above the expression-depth limit", async () => {
+    const { db, thread } = await setup();
     const requestId = "creq_23456789ab";
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -2680,19 +2761,19 @@ describe("events", () => {
       { requestId, threadId: thread.id },
     ];
 
-    expect(listStoredClientTurnRequestRowsByKeys(db, { keys })).toEqual([
+    expect(await listStoredClientTurnRequestRowsByKeys(db, { keys })).toEqual([
       expect.objectContaining({ sequence: 1, threadId: thread.id }),
     ]);
   });
 
-  it("lists client turn request ids in range with a storage predicate", () => {
-    const { db, project, thread } = setup();
-    const otherThread = createThread(db, noopNotifier, {
+  it("lists client turn request ids in range with a storage predicate", async () => {
+    const { db, project, thread } = await setup();
+    const otherThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -2769,14 +2850,14 @@ describe("events", () => {
     ]);
 
     expect(
-      listStoredClientTurnRequestIdsInRange(db, {
+      await listStoredClientTurnRequestIdsInRange(db, {
         threadId: thread.id,
         seqStart: 1,
         seqEnd: 3,
       }),
     ).toEqual(["creq_23456789ab", "creq_23456789ac"]);
     expect(
-      listStoredClientTurnRequestIdsInRange(db, {
+      await listStoredClientTurnRequestIdsInRange(db, {
         threadId: thread.id,
         seqStart: 2,
         seqEnd: 3,
@@ -2784,10 +2865,10 @@ describe("events", () => {
     ).toEqual(["creq_23456789ac"]);
   });
 
-  it("appends stored thread events and exposes the latest thread runtime markers", () => {
-    const { db, thread } = setup();
+  it("appends stored thread events and exposes the latest thread runtime markers", async () => {
+    const { db, thread } = await setup();
 
-    const firstSequence = appendStoredThreadEvent(db, noopNotifier, {
+    const firstSequence = await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       type: "client/turn/requested",
@@ -2810,9 +2891,9 @@ describe("events", () => {
       },
     });
 
-    const secondSequence = db.transaction(
-      (tx) =>
-        appendStoredThreadEventInTransaction(tx, {
+    const secondSequence = await db.transaction(
+      async (tx) =>
+        await appendStoredThreadEventInTransaction(tx, {
           threadId: thread.id,
           scope: turnScope("turn_1"),
           providerThreadId: "provider_thr_1",
@@ -2826,23 +2907,25 @@ describe("events", () => {
 
     expect(firstSequence).toBe(1);
     expect(secondSequence).toBe(2);
-    expect(getActiveStoredTurnId(db, thread.id)).toBe("turn_1");
-    expect(getLastStoredProviderThreadId(db, thread.id)).toBeNull();
-    appendStoredThreadEvent(db, noopNotifier, {
+    expect(await getActiveStoredTurnId(db, thread.id)).toBe("turn_1");
+    expect(await getLastStoredProviderThreadId(db, thread.id)).toBeNull();
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       providerThreadId: "provider_thr_1",
       type: "thread/identity",
       data: { providerThreadId: "provider_thr_1" },
     });
-    expect(getLastStoredProviderThreadId(db, thread.id)).toBe("provider_thr_1");
-    expect(getLastStoredTurnRequestEvent(db, thread.id)).toMatchObject({
+    expect(await getLastStoredProviderThreadId(db, thread.id)).toBe(
+      "provider_thr_1",
+    );
+    expect(await getLastStoredTurnRequestEvent(db, thread.id)).toMatchObject({
       threadId: thread.id,
       sequence: 1,
       type: "client/turn/requested",
     });
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: turnScope("turn_1"),
       providerThreadId: "provider_thr_1",
@@ -2852,8 +2935,8 @@ describe("events", () => {
         status: "completed",
       },
     });
-    expect(getActiveStoredTurnId(db, thread.id)).toBeNull();
-    appendStoredThreadEvent(db, noopNotifier, {
+    expect(await getActiveStoredTurnId(db, thread.id)).toBeNull();
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: turnScope("turn_1"),
       providerThreadId: "provider_thr_1",
@@ -2862,13 +2945,13 @@ describe("events", () => {
         providerThreadId: "provider_thr_1",
       },
     });
-    expect(getActiveStoredTurnId(db, thread.id)).toBeNull();
+    expect(await getActiveStoredTurnId(db, thread.id)).toBeNull();
   });
 
-  it("preserves the latest provider thread id after an environment directory update", () => {
-    const { db, thread } = setup();
+  it("preserves the latest provider thread id after an environment directory update", async () => {
+    const { db, thread } = await setup();
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       providerThreadId: "provider_old",
@@ -2877,9 +2960,11 @@ describe("events", () => {
         providerThreadId: "provider_old",
       },
     });
-    expect(getLastStoredProviderThreadId(db, thread.id)).toBe("provider_old");
+    expect(await getLastStoredProviderThreadId(db, thread.id)).toBe(
+      "provider_old",
+    );
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       type: "system/operation",
@@ -2896,8 +2981,10 @@ describe("events", () => {
         },
       },
     });
-    expect(getLastStoredProviderThreadId(db, thread.id)).toBe("provider_old");
-    appendStoredThreadEvent(db, noopNotifier, {
+    expect(await getLastStoredProviderThreadId(db, thread.id)).toBe(
+      "provider_old",
+    );
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: turnScope("turn_1"),
       providerThreadId: "provider_old",
@@ -2907,9 +2994,11 @@ describe("events", () => {
         status: "completed",
       },
     });
-    expect(getLastStoredProviderThreadId(db, thread.id)).toBe("provider_old");
+    expect(await getLastStoredProviderThreadId(db, thread.id)).toBe(
+      "provider_old",
+    );
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       type: "system/operation",
@@ -2920,9 +3009,9 @@ describe("events", () => {
         message: "Context cleared",
       },
     });
-    expect(getLastStoredProviderThreadId(db, thread.id)).toBeNull();
+    expect(await getLastStoredProviderThreadId(db, thread.id)).toBeNull();
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       type: "system/operation",
@@ -2933,9 +3022,9 @@ describe("events", () => {
         message: "Context cleared",
       },
     });
-    expect(getLastStoredProviderThreadId(db, thread.id)).toBeNull();
+    expect(await getLastStoredProviderThreadId(db, thread.id)).toBeNull();
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       providerThreadId: "provider_new",
@@ -2944,20 +3033,22 @@ describe("events", () => {
         providerThreadId: "provider_new",
       },
     });
-    expect(getLastStoredProviderThreadId(db, thread.id)).toBe("provider_new");
+    expect(await getLastStoredProviderThreadId(db, thread.id)).toBe(
+      "provider_new",
+    );
   });
 
-  it("omits provider identities before a clear from batched interruption state", () => {
-    const { db, thread } = setup();
+  it("omits provider identities before a clear from batched interruption state", async () => {
+    const { db, thread } = await setup();
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       providerThreadId: "provider_old",
       type: "thread/identity",
       data: { providerThreadId: "provider_old" },
     });
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       type: "system/operation",
@@ -2970,7 +3061,9 @@ describe("events", () => {
     });
 
     expect(
-      listThreadTurnInterruptionEventStates(db, { threadIds: [thread.id] }),
+      await listThreadTurnInterruptionEventStates(db, {
+        threadIds: [thread.id],
+      }),
     ).toEqual([
       {
         activeTurnId: null,
@@ -2980,16 +3073,16 @@ describe("events", () => {
     ]);
   });
 
-  it("uses only the latest completed clear as the visible epoch boundary", () => {
-    const { db, thread } = setup();
-    appendStoredThreadEvent(db, noopNotifier, {
+  it("uses only the latest completed clear as the visible epoch boundary", async () => {
+    const { db, thread } = await setup();
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       providerThreadId: "provider_old",
       type: "thread/identity",
       data: { providerThreadId: "provider_old" },
     });
-    const failedSequence = appendStoredThreadEvent(db, noopNotifier, {
+    const failedSequence = await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       type: "system/operation",
@@ -3001,14 +3094,16 @@ describe("events", () => {
       },
     });
 
-    expect(getLastStoredProviderThreadId(db, thread.id)).toBe("provider_old");
+    expect(await getLastStoredProviderThreadId(db, thread.id)).toBe(
+      "provider_old",
+    );
     expect(
-      getLatestCompletedThreadContextClearSequence(db, {
+      await getLatestCompletedThreadContextClearSequence(db, {
         threadId: thread.id,
       }),
     ).toBeNull();
 
-    const completedSequence = appendStoredThreadEvent(db, noopNotifier, {
+    const completedSequence = await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: threadScope(),
       type: "system/operation",
@@ -3021,28 +3116,28 @@ describe("events", () => {
     });
 
     expect(
-      getLatestCompletedThreadContextClearSequence(db, {
+      await getLatestCompletedThreadContextClearSequence(db, {
         atOrBeforeSequence: failedSequence,
         threadId: thread.id,
       }),
     ).toBeNull();
     expect(
-      getLatestCompletedThreadContextClearSequence(db, {
+      await getLatestCompletedThreadContextClearSequence(db, {
         threadId: thread.id,
       }),
     ).toBe(completedSequence);
     expect(
-      getLatestStoredConversationOutlineSequence(db, {
+      await getLatestStoredConversationOutlineSequence(db, {
         threadId: thread.id,
       }),
     ).toBe(completedSequence);
-    expect(listEvents(db, { threadId: thread.id })).toHaveLength(3);
+    expect(await listEvents(db, { threadId: thread.id })).toHaveLength(3);
   });
 
-  it("ignores delegated child turn starts when reconstructing the active stored turn", () => {
-    const { db, thread } = setup();
+  it("ignores delegated child turn starts when reconstructing the active stored turn", async () => {
+    const { db, thread } = await setup();
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: turnScope("root_turn"),
       providerThreadId: "provider_thr_1",
@@ -3051,7 +3146,7 @@ describe("events", () => {
         providerThreadId: "provider_thr_1",
       },
     });
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: turnScope("child_turn"),
       providerThreadId: "provider_thr_1",
@@ -3062,9 +3157,9 @@ describe("events", () => {
       },
     });
 
-    expect(getActiveStoredTurnId(db, thread.id)).toBe("root_turn");
+    expect(await getActiveStoredTurnId(db, thread.id)).toBe("root_turn");
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: thread.id,
       scope: turnScope("root_turn"),
       providerThreadId: "provider_thr_1",
@@ -3075,19 +3170,19 @@ describe("events", () => {
       },
     });
 
-    expect(getActiveStoredTurnId(db, thread.id)).toBeNull();
+    expect(await getActiveStoredTurnId(db, thread.id)).toBeNull();
   });
 
-  it("appends stored thread events in one transaction with per-thread sequences", () => {
-    const { db, project, thread } = setup();
-    const otherThread = createThread(db, noopNotifier, {
+  it("appends stored thread events in one transaction with per-thread sequences", async () => {
+    const { db, project, thread } = await setup();
+    const otherThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
 
-    const sequences = db.transaction(
-      (tx) =>
-        appendStoredThreadEventsInTransaction(tx, [
+    const sequences = await db.transaction(
+      async (tx) =>
+        await appendStoredThreadEventsInTransaction(tx, [
           {
             threadId: thread.id,
             scope: turnScope("turn_1"),
@@ -3121,23 +3216,25 @@ describe("events", () => {
 
     expect(sequences).toEqual([1, 2, 1]);
     expect(
-      listEvents(db, { threadId: thread.id }).map((event) => event.sequence),
+      (await listEvents(db, { threadId: thread.id })).map(
+        (event) => event.sequence,
+      ),
     ).toEqual([1, 2]);
     expect(
-      listEvents(db, { threadId: otherThread.id }).map(
+      (await listEvents(db, { threadId: otherThread.id })).map(
         (event) => event.sequence,
       ),
     ).toEqual([1]);
   });
 
-  it("lists only requested turn keys that have a stored turn/completed", () => {
-    const { db, project, thread } = setup();
-    const otherThread = createThread(db, noopNotifier, {
+  it("lists only requested turn keys that have a stored turn/completed", async () => {
+    const { db, project, thread } = await setup();
+    const otherThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -3183,9 +3280,9 @@ describe("events", () => {
       },
     ]);
 
-    expect(listStoredTurnCompletedKeys(db, { keys: [] })).toEqual([]);
+    expect(await listStoredTurnCompletedKeys(db, { keys: [] })).toEqual([]);
     expect(
-      listStoredTurnCompletedKeys(db, {
+      await listStoredTurnCompletedKeys(db, {
         keys: [
           { threadId: thread.id, turnId: "turn_a" },
           { threadId: thread.id, turnId: "turn_a" },
@@ -3197,10 +3294,10 @@ describe("events", () => {
     ).toEqual([{ threadId: thread.id, turnId: "turn_a" }]);
   });
 
-  it("lists stored turn/completed keys across lookup chunks", () => {
-    const { db, thread } = setup();
+  it("lists stored turn/completed keys across lookup chunks", async () => {
+    const { db, thread } = await setup();
     const turnIds = Array.from({ length: 520 }, (_, index) => `turn_${index}`);
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       turnIds.flatMap((turnId, index) => [
@@ -3230,7 +3327,7 @@ describe("events", () => {
       ]),
     );
 
-    const completedKeys = listStoredTurnCompletedKeys(db, {
+    const completedKeys = await listStoredTurnCompletedKeys(db, {
       keys: turnIds.map((turnId) => ({ threadId: thread.id, turnId })),
     });
 
@@ -3246,22 +3343,22 @@ describe("events", () => {
     expect(completedKeys.every((key) => key.threadId === thread.id)).toBe(true);
   });
 
-  it("lists active turn and latest provider state for thread interruption", () => {
-    const { db, project, thread } = setup();
-    const completedThread = createThread(db, noopNotifier, {
+  it("lists active turn and latest provider state for thread interruption", async () => {
+    const { db, project, thread } = await setup();
+    const completedThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    const noProviderThread = createThread(db, noopNotifier, {
+    const noProviderThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    const noEventThread = createThread(db, noopNotifier, {
+    const noEventThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -3344,7 +3441,7 @@ describe("events", () => {
     ]);
 
     expect(
-      listThreadTurnInterruptionEventStates(db, {
+      await listThreadTurnInterruptionEventStates(db, {
         threadIds: [
           thread.id,
           completedThread.id,
@@ -3376,10 +3473,10 @@ describe("events", () => {
     ]);
   });
 
-  it("ignores delegated child turn starts for thread interruption active-turn lookup", () => {
-    const { db, thread } = setup();
+  it("ignores delegated child turn starts for thread interruption active-turn lookup", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -3423,7 +3520,7 @@ describe("events", () => {
     ]);
 
     expect(
-      listThreadTurnInterruptionEventStates(db, {
+      await listThreadTurnInterruptionEventStates(db, {
         threadIds: [thread.id],
       }),
     ).toEqual([
@@ -3435,14 +3532,14 @@ describe("events", () => {
     ]);
   });
 
-  it("returns high-water marks for specific threads", () => {
-    const { db, project, thread } = setup();
-    const thread2 = createThread(db, noopNotifier, {
+  it("returns high-water marks for specific threads", async () => {
+    const { db, project, thread } = await setup();
+    const thread2 = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 10,
@@ -3459,14 +3556,14 @@ describe("events", () => {
       },
     ]);
 
-    const hwm = getHighWaterMarks(db, [thread.id]);
+    const hwm = await getHighWaterMarks(db, [thread.id]);
     expect(hwm[thread.id]).toBe(10);
     expect(hwm[thread2.id]).toBeUndefined();
   });
 
-  it("omits empty threads and batches deduplicated high-water mark lookups", () => {
-    const { db, thread } = setup();
-    insertEvents(db, noopNotifier, [
+  it("omits empty threads and batches deduplicated high-water mark lookups", async () => {
+    const { db, thread } = await setup();
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 10,
@@ -3476,16 +3573,18 @@ describe("events", () => {
       },
     ]);
     const missing = Array.from({ length: 32_767 }, (_, i) => `missing-${i}`);
-    expect(getHighWaterMarks(db, [thread.id, ...missing, thread.id])).toEqual({
+    expect(
+      await getHighWaterMarks(db, [thread.id, ...missing, thread.id]),
+    ).toEqual({
       [thread.id]: 10,
     });
-    expect(getHighWaterMarks(db, [])).toEqual({});
+    expect(await getHighWaterMarks(db, [])).toEqual({});
   });
 
-  it("returns the latest sequence for a thread", () => {
-    const { db, thread } = setup();
+  it("returns the latest sequence for a thread", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 2,
@@ -3502,13 +3601,13 @@ describe("events", () => {
       },
     ]);
 
-    expect(getLatestThreadSequence(db, { threadId: thread.id })).toBe(5);
+    expect(await getLatestThreadSequence(db, { threadId: thread.id })).toBe(5);
   });
 
-  it("prunes resolved reasoning deltas but preserves the first delta row per stream type", () => {
-    const { db, thread } = setup();
+  it("prunes resolved reasoning deltas but preserves the first delta row per stream type", async () => {
+    const { db, thread } = await setup();
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -3568,16 +3667,18 @@ describe("events", () => {
       },
     ]);
 
-    const removed = pruneThreadEvents(db, "resolved-items");
+    const removed = await pruneThreadEvents(db, "resolved-items");
 
     expect(removed).toBe(2);
     expect(
-      listEvents(db, { threadId: thread.id }).map((event) => event.sequence),
+      (await listEvents(db, { threadId: thread.id })).map(
+        (event) => event.sequence,
+      ),
     ).toEqual([1, 3, 5]);
   });
 
-  it("keeps only the latest backgroundTask progress row while the task runs", () => {
-    const { db, thread } = setup();
+  it("keeps only the latest backgroundTask progress row while the task runs", async () => {
+    const { db, thread } = await setup();
 
     const progressData = (taskStatus: string) =>
       JSON.stringify({
@@ -3593,7 +3694,7 @@ describe("events", () => {
         },
       });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -3636,16 +3737,18 @@ describe("events", () => {
       },
     ]);
 
-    const removed = pruneThreadEvents(db, "resolved-items");
+    const removed = await pruneThreadEvents(db, "resolved-items");
 
     expect(removed).toBe(2);
     expect(
-      listEvents(db, { threadId: thread.id }).map((event) => event.sequence),
+      (await listEvents(db, { threadId: thread.id })).map(
+        (event) => event.sequence,
+      ),
     ).toEqual([1, 4]);
   });
 
-  it("removes all backgroundTask progress rows once the completed event exists", () => {
-    const { db, thread } = setup();
+  it("removes all backgroundTask progress rows once the completed event exists", async () => {
+    const { db, thread } = await setup();
 
     const itemData = (taskStatus: string) =>
       JSON.stringify({
@@ -3661,7 +3764,7 @@ describe("events", () => {
         },
       });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -3704,16 +3807,18 @@ describe("events", () => {
       },
     ]);
 
-    const removed = pruneThreadEvents(db, "resolved-items");
+    const removed = await pruneThreadEvents(db, "resolved-items");
 
     expect(removed).toBe(2);
     expect(
-      listEvents(db, { threadId: thread.id }).map((event) => event.sequence),
+      (await listEvents(db, { threadId: thread.id })).map(
+        (event) => event.sequence,
+      ),
     ).toEqual([1, 4]);
   });
 
-  it("prunes settled tasks without touching another in-flight task's rows", () => {
-    const { db, thread } = setup();
+  it("prunes settled tasks without touching another in-flight task's rows", async () => {
+    const { db, thread } = await setup();
 
     const taskData = (taskId: string) =>
       JSON.stringify({
@@ -3729,7 +3834,7 @@ describe("events", () => {
         },
       });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -3762,16 +3867,18 @@ describe("events", () => {
       },
     ]);
 
-    const removed = pruneThreadEvents(db, "resolved-items");
+    const removed = await pruneThreadEvents(db, "resolved-items");
 
     expect(removed).toBe(1);
     expect(
-      listEvents(db, { threadId: thread.id }).map((event) => event.sequence),
+      (await listEvents(db, { threadId: thread.id })).map(
+        (event) => event.sequence,
+      ),
     ).toEqual([2, 3]);
   });
 
-  it("returns only the highest-sequence backgroundTask state row per item", () => {
-    const { db, thread } = setup();
+  it("returns only the highest-sequence backgroundTask state row per item", async () => {
+    const { db, thread } = await setup();
 
     const taskData = (itemId: string, taskStatus: string) =>
       JSON.stringify({
@@ -3787,7 +3894,7 @@ describe("events", () => {
         },
       });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -3860,7 +3967,7 @@ describe("events", () => {
       },
     ]);
 
-    const rows = listLatestBackgroundTaskStateRowsByItemIds(db, {
+    const rows = await listLatestBackgroundTaskStateRowsByItemIds(db, {
       threadId: thread.id,
       itemIds: ["task:wf-1", "task:wf-2", "delegation-1"],
     });
@@ -3890,16 +3997,16 @@ describe("events", () => {
     ]);
 
     expect(
-      listLatestBackgroundTaskStateRowsByItemIds(db, {
+      await listLatestBackgroundTaskStateRowsByItemIds(db, {
         threadId: thread.id,
         itemIds: [],
       }),
     ).toEqual([]);
   });
 
-  it("returns latest non-terminal open backgroundTask state rows for a thread", () => {
-    const { db, project, thread } = setup();
-    const otherThread = createThread(db, noopNotifier, {
+  it("returns latest non-terminal open backgroundTask state rows for a thread", async () => {
+    const { db, project, thread } = await setup();
+    const otherThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
@@ -3923,7 +4030,7 @@ describe("events", () => {
         },
       });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -4076,7 +4183,7 @@ describe("events", () => {
       },
     ]);
 
-    const rows = listLatestOpenBackgroundTaskStateRowsForThread(db, {
+    const rows = await listLatestOpenBackgroundTaskStateRowsForThread(db, {
       threadId: thread.id,
     });
 
@@ -4105,8 +4212,8 @@ describe("events", () => {
     ]);
   });
 
-  it("counts active workflow, agent, subagent, and command snapshots by thread", () => {
-    const { db, thread } = setup();
+  it("counts active workflow, agent, subagent, and command snapshots by thread", async () => {
+    const { db, thread } = await setup();
 
     const taskData = (args: {
       itemId: string;
@@ -4129,7 +4236,7 @@ describe("events", () => {
         },
       });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -4320,9 +4427,11 @@ describe("events", () => {
     ]);
 
     const countsByThreadId = new Map(
-      listActiveBackgroundTaskCountsByThreadIds(db, {
-        threadIds: [thread.id, thread.id],
-      }).map((row) => [row.threadId, row]),
+      (
+        await listActiveBackgroundTaskCountsByThreadIds(db, {
+          threadIds: [thread.id, thread.id],
+        })
+      ).map((row) => [row.threadId, row]),
     );
 
     expect(countsByThreadId.get(thread.id)).toEqual({
@@ -4333,9 +4442,9 @@ describe("events", () => {
     });
   });
 
-  it("returns the same counts from chunked and unchunked thread IDs", () => {
-    const { db, project, thread } = setup();
-    const otherThread = createThread(db, noopNotifier, {
+  it("returns the same counts from chunked and unchunked thread IDs", async () => {
+    const { db, project, thread } = await setup();
+    const otherThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
@@ -4353,7 +4462,7 @@ describe("events", () => {
         },
       });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -4376,35 +4485,35 @@ describe("events", () => {
       },
     ]);
 
-    const unchunkedRows = listActiveBackgroundTaskCountsByThreadIds(db, {
+    const unchunkedRows = await listActiveBackgroundTaskCountsByThreadIds(db, {
       threadIds: [thread.id, otherThread.id],
     });
     const missingThreadIds = Array.from(
       { length: 32_751 },
       (_, index) => `thr_missing_${index}`,
     );
-    const chunkedRows = listActiveBackgroundTaskCountsByThreadIds(db, {
+    const chunkedRows = await listActiveBackgroundTaskCountsByThreadIds(db, {
       threadIds: [thread.id, ...missingThreadIds, otherThread.id],
     });
 
     expect(chunkedRows).toEqual(unchunkedRows);
   });
 
-  it("lists the latest lifecycle row per open backgroundTask item on a host", () => {
-    const db = createMigratedConnection();
-    const host = upsertHost(db, noopNotifier, {
+  it("lists the latest lifecycle row per open backgroundTask item on a host", async () => {
+    const db = await createMigratedConnection();
+    const host = await upsertHost(db, noopNotifier, {
       name: "task-host",
     });
-    const { project } = createProject(db, noopNotifier, {
+    const { project } = await createProject(db, noopNotifier, {
       name: "task-project",
       source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
     });
-    const environment = createEnvironment(db, noopNotifier, {
+    const environment = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
     });
-    const thread = createThread(db, noopNotifier, {
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       environmentId: environment.id,
       providerId: "claude-code",
@@ -4424,7 +4533,7 @@ describe("events", () => {
         },
       });
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         environmentId: environment.id,
@@ -4482,7 +4591,7 @@ describe("events", () => {
       },
     ]);
 
-    const rows = listOpenBackgroundTaskItemRowsForHost(db, {
+    const rows = await listOpenBackgroundTaskItemRowsForHost(db, {
       hostId: host.id,
     });
     expect(rows).toHaveLength(1);
@@ -4495,17 +4604,17 @@ describe("events", () => {
       item: { taskStatus: "paused" },
     });
 
-    const otherHost = upsertHost(db, noopNotifier, {
+    const otherHost = await upsertHost(db, noopNotifier, {
       name: "other-host",
     });
     expect(
-      listOpenBackgroundTaskItemRowsForHost(db, { hostId: otherHost.id }),
+      await listOpenBackgroundTaskItemRowsForHost(db, { hostId: otherHost.id }),
     ).toEqual([]);
   });
 
-  it("notifies on events-appended per thread", () => {
-    const { db, project, thread } = setup();
-    const thread2 = createThread(db, noopNotifier, {
+  it("notifies on events-appended per thread", async () => {
+    const { db, project, thread } = await setup();
+    const thread2 = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
@@ -4518,7 +4627,7 @@ describe("events", () => {
       notifySystem: vi.fn(),
     };
 
-    insertEvents(db, spy, [
+    await insertEvents(db, spy, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -4565,12 +4674,12 @@ describe("events", () => {
 describe("timeline read-boundary output truncation", () => {
   const maxInlineOutputChars = 1_000;
 
-  function readWindowData(
-    db: ReturnType<typeof setup>["db"],
+  async function readWindowData(
+    db: Awaited<ReturnType<typeof setup>>["db"],
     threadId: string,
     limit: number | null,
-  ): Record<string, unknown> {
-    const rows = listStoredTimelineWindowEventRows(db, {
+  ): Promise<Record<string, unknown>> {
+    const rows = await listStoredTimelineWindowEventRows(db, {
       maxInlineOutputChars: limit,
       sequenceStart: 0,
       threadId,
@@ -4582,9 +4691,9 @@ describe("timeline read-boundary output truncation", () => {
     return JSON.parse(row.data) as Record<string, unknown>;
   }
 
-  it("measures the exact UTF-8 bytes returned by the capped read", () => {
-    const { db, thread } = setup();
-    insertEvents(db, noopNotifier, [
+  it("measures the exact UTF-8 bytes returned by the capped read", async () => {
+    const { db, thread } = await setup();
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -4613,10 +4722,10 @@ describe("timeline read-boundary output truncation", () => {
       sequenceStart: 0,
       threadId: thread.id,
     };
-    const rows = listStoredTimelineWindowEventRows(db, args);
+    const rows = await listStoredTimelineWindowEventRows(db, args);
 
     expect(
-      findStoredTimelineWindowByteBudgetFloor(db, {
+      await findStoredTimelineWindowByteBudgetFloor(db, {
         ...args,
         maxDataBytes: Number.MAX_SAFE_INTEGER,
       }),
@@ -4629,9 +4738,9 @@ describe("timeline read-boundary output truncation", () => {
     });
   });
 
-  it("finds the oldest row in the newest suffix that fits a byte budget", () => {
-    const { db, thread } = setup();
-    insertEvents(
+  it("finds the oldest row in the newest suffix that fits a byte budget", async () => {
+    const { db, thread } = await setup();
+    await insertEvents(
       db,
       noopNotifier,
       [100, 200, 300].map((messageChars, index) => ({
@@ -4650,7 +4759,7 @@ describe("timeline read-boundary output truncation", () => {
       sequenceStart: 0,
       threadId: thread.id,
     };
-    const rows = listStoredTimelineWindowEventRows(db, args);
+    const rows = await listStoredTimelineWindowEventRows(db, args);
     const rowBytes = new Map(
       rows.map((row) => [row.sequence, Buffer.byteLength(row.data)]),
     );
@@ -4661,7 +4770,7 @@ describe("timeline read-boundary output truncation", () => {
     );
 
     expect(
-      findStoredTimelineWindowByteBudgetFloor(db, {
+      await findStoredTimelineWindowByteBudgetFloor(db, {
         ...args,
         maxDataBytes: newestTwoBytes,
       }),
@@ -4671,7 +4780,7 @@ describe("timeline read-boundary output truncation", () => {
       sequenceStart: 2,
     });
     expect(
-      findStoredTimelineWindowByteBudgetFloor(db, {
+      await findStoredTimelineWindowByteBudgetFloor(db, {
         ...args,
         maxDataBytes: allRowBytes,
       }),
@@ -4680,7 +4789,7 @@ describe("timeline read-boundary output truncation", () => {
       kind: "fits",
     });
     expect(
-      findStoredTimelineWindowByteBudgetFloor(db, {
+      await findStoredTimelineWindowByteBudgetFloor(db, {
         ...args,
         maxDataBytes: (rowBytes.get(3) ?? 0) - 1,
       }),
@@ -4695,10 +4804,10 @@ describe("timeline read-boundary output truncation", () => {
     );
   });
 
-  it("stops the byte-budget scan before reading older oversized payloads", () => {
-    const { db, thread } = setup();
+  it("stops the byte-budget scan before reading older oversized payloads", async () => {
+    const { db, thread } = await setup();
     const validData = JSON.stringify({ message: "valid" });
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       Array.from({ length: 3 }, (_, index) => ({
@@ -4709,14 +4818,14 @@ describe("timeline read-boundary output truncation", () => {
         data: validData,
       })),
     );
-    db.$client
+    await db.$client
       .prepare(
         "UPDATE events SET data = ? WHERE thread_id = ? AND sequence = 1",
       )
       .run(`{"item":{"resultText":"${"x".repeat(1_100)}`, thread.id);
 
     expect(
-      findStoredTimelineWindowByteBudgetFloor(db, {
+      await findStoredTimelineWindowByteBudgetFloor(db, {
         maxDataBytes: 1,
         maxInlineOutputChars: 1_000,
         sequenceStart: 1,
@@ -4734,9 +4843,9 @@ describe("timeline read-boundary output truncation", () => {
 
   it.each(["floor", "single-event-too-large"] as const)(
     "releases its statement after a %s byte-cut result",
-    (expectedKind) => {
-      const { db, thread } = setup();
-      insertEvents(
+    async (expectedKind) => {
+      const { db, thread } = await setup();
+      await insertEvents(
         db,
         noopNotifier,
         [100, 200].map((messageChars, index) => ({
@@ -4755,20 +4864,24 @@ describe("timeline read-boundary output truncation", () => {
         sequenceStart: 0,
         threadId: thread.id,
       };
-      const newestRow = listStoredTimelineWindowEventRows(db, args).at(-1);
+      const newestRow = (await listStoredTimelineWindowEventRows(db, args)).at(
+        -1,
+      );
       if (!newestRow) {
         throw new Error("expected a newest event row");
       }
       const newestRowBytes = Buffer.byteLength(newestRow.data);
 
       expect(
-        findStoredTimelineWindowByteBudgetFloor(db, {
-          ...args,
-          maxDataBytes:
-            expectedKind === "floor" ? newestRowBytes : newestRowBytes - 1,
-        }).kind,
+        (
+          await findStoredTimelineWindowByteBudgetFloor(db, {
+            ...args,
+            maxDataBytes:
+              expectedKind === "floor" ? newestRowBytes : newestRowBytes - 1,
+          })
+        ).kind,
       ).toBe(expectedKind);
-      insertEvents(db, noopNotifier, [
+      await insertEvents(db, noopNotifier, [
         {
           threadId: thread.id,
           sequence: 3,
@@ -4780,14 +4893,16 @@ describe("timeline read-boundary output truncation", () => {
           data: JSON.stringify({ message: "write after byte-cut read" }),
         },
       ]);
-      expect(getLatestThreadSequence(db, { threadId: thread.id })).toBe(3);
+      expect(await getLatestThreadSequence(db, { threadId: thread.id })).toBe(
+        3,
+      );
     },
   );
 
-  it("shortens an oversized text output and leaves the rest of the payload alone", () => {
-    const { db, thread } = setup();
+  it("shortens an oversized text output and leaves the rest of the payload alone", async () => {
+    const { db, thread } = await setup();
     const output = "x".repeat(maxInlineOutputChars + 2_345);
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -4812,8 +4927,8 @@ describe("timeline read-boundary output truncation", () => {
       },
     ]);
 
-    const stored = readWindowData(db, thread.id, null);
-    const capped = readWindowData(db, thread.id, maxInlineOutputChars);
+    const stored = await readWindowData(db, thread.id, null);
+    const capped = await readWindowData(db, thread.id, maxInlineOutputChars);
     const storedItem = stored.item as Record<string, unknown>;
     const cappedItem = capped.item as Record<string, unknown>;
 
@@ -4827,10 +4942,10 @@ describe("timeline read-boundary output truncation", () => {
     });
   });
 
-  it("leaves a non-text tool result untouched", () => {
-    const { db, thread } = setup();
+  it("leaves a non-text tool result untouched", async () => {
+    const { db, thread } = await setup();
     const result = { rows: "y".repeat(maxInlineOutputChars + 500) };
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -4852,13 +4967,13 @@ describe("timeline read-boundary output truncation", () => {
       },
     ]);
 
-    const capped = readWindowData(db, thread.id, maxInlineOutputChars);
+    const capped = await readWindowData(db, thread.id, maxInlineOutputChars);
     expect((capped.item as Record<string, unknown>).result).toEqual(result);
   });
 
-  it("returns a payload under the cap exactly as stored", () => {
-    const { db, thread } = setup();
-    insertEvents(db, noopNotifier, [
+  it("returns a payload under the cap exactly as stored", async () => {
+    const { db, thread } = await setup();
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -4883,12 +4998,12 @@ describe("timeline read-boundary output truncation", () => {
       },
     ]);
 
-    const rows = listStoredTimelineWindowEventRows(db, {
+    const rows = await listStoredTimelineWindowEventRows(db, {
       maxInlineOutputChars,
       sequenceStart: 0,
       threadId: thread.id,
     });
-    const stored = listStoredTimelineWindowEventRows(db, {
+    const stored = await listStoredTimelineWindowEventRows(db, {
       maxInlineOutputChars: null,
       sequenceStart: 0,
       threadId: thread.id,
@@ -4898,46 +5013,53 @@ describe("timeline read-boundary output truncation", () => {
 });
 
 describe("stored provider thread identity ownership", () => {
-  function setupThreads(args: { providerIds?: readonly string[] } = {}) {
-    const db = createMigratedConnection();
-    const host = upsertHost(db, noopNotifier, {
+  async function setupThreads(args: { providerIds?: readonly string[] } = {}) {
+    const db = await createMigratedConnection();
+    const host = await upsertHost(db, noopNotifier, {
       name: "identity-host",
       type: "persistent",
     });
-    const { project } = createProject(db, noopNotifier, {
+    const { project } = await createProject(db, noopNotifier, {
       name: "identity-project",
       source: { type: "local_path", hostId: host.id, path: "/tmp/identity" },
     });
-    const environment = createEnvironment(db, noopNotifier, {
+    const environment = await createEnvironment(db, noopNotifier, {
       projectId: project.id,
       hostId: host.id,
       path: "/tmp/identity",
       status: "ready",
       providerOwnsPath: false,
     });
-    const threadIds = (args.providerIds ?? ["codex", "codex"]).map(
-      (providerId) =>
-        createThread(db, noopNotifier, {
-          projectId: project.id,
-          environmentId: environment.id,
-          providerId,
-        }).id,
+    const threadIds = await Promise.all(
+      (args.providerIds ?? ["codex", "codex"]).map(
+        async (providerId) =>
+          (
+            await createThread(db, noopNotifier, {
+              projectId: project.id,
+              environmentId: environment.id,
+              providerId,
+            })
+          ).id,
+      ),
     );
     return { db, environment, host, project, threadIds };
   }
 
-  function nextSequence(db: DbConnection, threadId: string): number {
-    return (getHighWaterMarks(db, [threadId])[threadId] ?? 0) + 1;
+  async function nextSequence(
+    db: DbConnection,
+    threadId: string,
+  ): Promise<number> {
+    return ((await getHighWaterMarks(db, [threadId]))[threadId] ?? 0) + 1;
   }
 
-  function announceIdentity(
+  async function announceIdentity(
     db: DbConnection,
     args: { createdAt: number; providerThreadId: string; threadId: string },
-  ): void {
-    insertEvents(db, noopNotifier, [
+  ): Promise<void> {
+    await insertEvents(db, noopNotifier, [
       {
         threadId: args.threadId,
-        sequence: nextSequence(db, args.threadId),
+        sequence: await nextSequence(db, args.threadId),
         createdAt: args.createdAt,
         scope: threadScope(),
         providerThreadId: args.providerThreadId,
@@ -4948,7 +5070,7 @@ describe("stored provider thread identity ownership", () => {
     ]);
   }
 
-  function stampTurn(
+  async function stampTurn(
     db: DbConnection,
     args: {
       createdAt: number;
@@ -4956,12 +5078,12 @@ describe("stored provider thread identity ownership", () => {
       threadId: string;
       turnId: string;
     },
-  ): void {
+  ): Promise<void> {
     for (const type of ["turn/started", "turn/completed"] as const) {
-      insertEvents(db, noopNotifier, [
+      await insertEvents(db, noopNotifier, [
         {
           threadId: args.threadId,
-          sequence: nextSequence(db, args.threadId),
+          sequence: await nextSequence(db, args.threadId),
           createdAt: args.createdAt,
           scope: turnScope(args.turnId),
           providerThreadId: args.providerThreadId,
@@ -4977,8 +5099,11 @@ describe("stored provider thread identity ownership", () => {
     }
   }
 
-  function clearContext(db: DbConnection, threadId: string): void {
-    appendStoredThreadEvent(db, noopNotifier, {
+  async function clearContext(
+    db: DbConnection,
+    threadId: string,
+  ): Promise<void> {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId,
       scope: threadScope(),
       type: "system/operation",
@@ -5001,15 +5126,15 @@ describe("stored provider thread identity ownership", () => {
 
   it.each([null, ""])(
     "refuses an invalid persisted identity handle %s instead of treating it as a fresh thread",
-    (providerThreadId) => {
-      const { db, threadIds } = setupThreads();
+    async (providerThreadId) => {
+      const { db, threadIds } = await setupThreads();
       const [threadId] = requireThreadIds(threadIds);
-      announceIdentity(db, {
+      await announceIdentity(db, {
         threadId,
         providerThreadId: "valid-earlier",
         createdAt: 100,
       });
-      insertEvents(db, noopNotifier, [
+      await insertEvents(db, noopNotifier, [
         {
           threadId,
           sequence: 2,
@@ -5021,149 +5146,155 @@ describe("stored provider thread identity ownership", () => {
           data: "{}",
         },
       ]);
-      expect(getStoredProviderSession(db, threadId)).toEqual({
+      expect(await getStoredProviderSession(db, threadId)).toEqual({
         kind: "invalid",
         providerThreadId,
         claimantThreadIds: [],
       });
-      clearContext(db, threadId);
-      expect(getStoredProviderSession(db, threadId)).toEqual({ kind: "none" });
-      db.$client.close();
+      await clearContext(db, threadId);
+      expect(await getStoredProviderSession(db, threadId)).toEqual({
+        kind: "none",
+      });
+      await db.close();
     },
   );
 
-  it("ignores provider ids stamped on ordinary events", () => {
-    const { db, threadIds } = setupThreads();
+  it("ignores provider ids stamped on ordinary events", async () => {
+    const { db, threadIds } = await setupThreads();
     const [first, second] = requireThreadIds(threadIds);
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_164_121,
       providerThreadId: "session-alpha",
       threadId: first,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_164_240,
       providerThreadId: "session-beta",
       threadId: second,
     });
-    stampTurn(db, {
+    await stampTurn(db, {
       createdAt: 1_787_775_656_758,
       providerThreadId: "session-beta",
       threadId: first,
       turnId: "turn-contaminated",
     });
 
-    expect(getStoredProviderSession(db, first)).toEqual({
+    expect(await getStoredProviderSession(db, first)).toEqual({
       kind: "owned",
       providerThreadId: "session-alpha",
     });
-    expect(getLastStoredProviderThreadId(db, second)).toBe("session-beta");
-    db.$client.close();
+    expect(await getLastStoredProviderThreadId(db, second)).toBe(
+      "session-beta",
+    );
+    await db.close();
   });
 
-  it("falls back to the thread's own session when a later identity names a session another thread claimed first", () => {
-    const { db, threadIds } = setupThreads();
+  it("falls back to the thread's own session when a later identity names a session another thread claimed first", async () => {
+    const { db, threadIds } = await setupThreads();
     const [owner, contaminated] = requireThreadIds(threadIds);
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_776_927_220,
       providerThreadId: "session-own",
       threadId: contaminated,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_776_927_349,
       providerThreadId: "session-shared",
       threadId: owner,
     });
-    stampTurn(db, {
+    await stampTurn(db, {
       createdAt: 1_787_777_231_409,
       providerThreadId: "session-shared",
       threadId: contaminated,
       turnId: "turn-stamped-foreign",
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_777_258_917,
       providerThreadId: "session-shared",
       threadId: contaminated,
     });
 
-    expect(getStoredProviderSession(db, contaminated)).toEqual({
+    expect(await getStoredProviderSession(db, contaminated)).toEqual({
       kind: "owned",
       providerThreadId: "session-own",
     });
-    expect(getStoredProviderSession(db, owner)).toEqual({
+    expect(await getStoredProviderSession(db, owner)).toEqual({
       kind: "owned",
       providerThreadId: "session-shared",
     });
     expect(
-      classifyStoredProviderThreadClaim(db, {
+      await classifyStoredProviderThreadClaim(db, {
         providerThreadId: "session-shared",
         threadId: contaminated,
       }),
     ).toBe("foreign");
     expect(
-      classifyStoredProviderThreadClaim(db, {
+      await classifyStoredProviderThreadClaim(db, {
         providerThreadId: "session-shared",
         threadId: owner,
       }),
     ).toBe("owned");
     expect(
-      classifyStoredProviderThreadClaim(db, {
+      await classifyStoredProviderThreadClaim(db, {
         providerThreadId: "session-never-announced",
         threadId: contaminated,
       }),
     ).toBe("unannounced");
     expect(
-      classifyStoredProviderThreadClaim(db, {
+      await classifyStoredProviderThreadClaim(db, {
         providerThreadId: "session-shared",
         threadId: "thr_missing",
       }),
     ).toBe("foreign");
-    db.$client.close();
+    await db.close();
   });
 
-  it("reports a thread whose only identity belongs to another thread as foreign", () => {
-    const { db, threadIds } = setupThreads();
+  it("reports a thread whose only identity belongs to another thread as foreign", async () => {
+    const { db, threadIds } = await setupThreads();
     const [owner, contaminated] = requireThreadIds(threadIds);
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_952_405_288,
       providerThreadId: "session-shared",
       threadId: owner,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_952_405_428,
       providerThreadId: "session-shared",
       threadId: contaminated,
     });
 
-    expect(getStoredProviderSession(db, contaminated)).toEqual({
+    expect(await getStoredProviderSession(db, contaminated)).toEqual({
       kind: "foreign",
       providerThreadId: "session-shared",
       claimantThreadIds: [owner],
     });
-    expect(getLastStoredProviderThreadId(db, contaminated)).toBeNull();
-    expect(getLastStoredProviderThreadId(db, owner)).toBe("session-shared");
-    db.$client.close();
+    expect(await getLastStoredProviderThreadId(db, contaminated)).toBeNull();
+    expect(await getLastStoredProviderThreadId(db, owner)).toBe(
+      "session-shared",
+    );
+    await db.close();
   });
 
-  it("treats claims tied in the same millisecond as ambiguous for both threads, as in archived pre-#3496 concurrent starts", () => {
-    const { db, threadIds } = setupThreads();
+  it("treats claims tied in the same millisecond as ambiguous for both threads, as in archived pre-#3496 concurrent starts", async () => {
+    const { db, threadIds } = await setupThreads();
     const [early, late] = requireThreadIds(threadIds);
     const batchAt = 1_787_775_164_121;
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: batchAt,
       providerThreadId: "01a03fb4-1bb9-session-a",
       threadId: early,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: batchAt,
       providerThreadId: "01a03fb4-1c1a-session-b",
       threadId: late,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: batchAt,
       providerThreadId: "01a03fb4-1bb9-session-a",
       threadId: early,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: batchAt,
       providerThreadId: "01a03fb4-1bb9-session-a",
       threadId: late,
@@ -5172,7 +5303,7 @@ describe("stored provider thread identity ownership", () => {
       [early, "01a03fb4-1c1a-session-b"],
       [late, "01a03fb4-1bb9-session-a"],
     ] as const) {
-      stampTurn(db, {
+      await stampTurn(db, {
         createdAt: 1_787_775_164_240,
         providerThreadId,
         threadId,
@@ -5181,7 +5312,7 @@ describe("stored provider thread identity ownership", () => {
     }
 
     expect(
-      resolveStoredProviderSessions(db, { threadIds: [early, late] }),
+      await resolveStoredProviderSessions(db, { threadIds: [early, late] }),
     ).toEqual(
       new Map([
         [
@@ -5202,54 +5333,56 @@ describe("stored provider thread identity ownership", () => {
         ],
       ]),
     );
-    expect(getLastStoredProviderThreadId(db, early)).toBeNull();
-    expect(getLastStoredProviderThreadId(db, late)).toBeNull();
+    expect(await getLastStoredProviderThreadId(db, early)).toBeNull();
+    expect(await getLastStoredProviderThreadId(db, late)).toBeNull();
     expect(
-      classifyStoredProviderThreadClaim(db, {
+      await classifyStoredProviderThreadClaim(db, {
         providerThreadId: "01a03fb4-1bb9-session-a",
         threadId: early,
       }),
     ).toBe("ambiguous");
     expect(
-      classifyStoredProviderThreadClaim(db, {
+      await classifyStoredProviderThreadClaim(db, {
         providerThreadId: "01a03fb4-1c1a-session-b",
         threadId: late,
       }),
     ).toBe("owned");
     expect(
-      listThreadTurnInterruptionEventStates(db, {
-        threadIds: [early, late],
-      }).map((state) => state.latestProviderThreadId),
+      (
+        await listThreadTurnInterruptionEventStates(db, {
+          threadIds: [early, late],
+        })
+      ).map((state) => state.latestProviderThreadId),
     ).toEqual([null, null]);
-    db.$client.close();
+    await db.close();
   });
 
-  it("keeps a strictly earlier claim as the owner even when a later batch ties, as in archived pre-#3496 starts 140 ms apart", () => {
-    const { db, threadIds } = setupThreads();
+  it("keeps a strictly earlier claim as the owner even when a later batch ties, as in archived pre-#3496 starts 140 ms apart", async () => {
+    const { db, threadIds } = await setupThreads();
     const [first, second] = requireThreadIds(threadIds);
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_952_405_288,
       providerThreadId: "01a04a44-7dd6-session-a",
       threadId: first,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_952_405_288,
       providerThreadId: "01a04a44-80e8-session-b",
       threadId: second,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_952_405_428,
       providerThreadId: "01a04a44-7dd6-session-a",
       threadId: first,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_952_405_428,
       providerThreadId: "01a04a44-7dd6-session-a",
       threadId: second,
     });
 
     expect(
-      resolveStoredProviderSessions(db, { threadIds: [first, second] }),
+      await resolveStoredProviderSessions(db, { threadIds: [first, second] }),
     ).toEqual(
       new Map([
         [first, { kind: "owned", providerThreadId: "01a04a44-7dd6-session-a" }],
@@ -5259,38 +5392,38 @@ describe("stored provider thread identity ownership", () => {
         ],
       ]),
     );
-    db.$client.close();
+    await db.close();
   });
 
-  it("stops at an ambiguous newest identity instead of resuming an older session", () => {
-    const { db, threadIds } = setupThreads();
+  it("stops at an ambiguous newest identity instead of resuming an older session", async () => {
+    const { db, threadIds } = await setupThreads();
     const [first, second] = requireThreadIds(threadIds);
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_789_348_554,
       providerThreadId: "session-own-earlier",
       threadId: second,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_789_957_543,
       providerThreadId: "session-tied",
       threadId: first,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_789_957_543,
       providerThreadId: "session-tied",
       threadId: second,
     });
 
-    expect(getStoredProviderSession(db, second)).toEqual({
+    expect(await getStoredProviderSession(db, second)).toEqual({
       kind: "ambiguous",
       providerThreadId: "session-tied",
       claimantThreadIds: [first],
     });
-    db.$client.close();
+    await db.close();
   });
 
-  it("lets a thread outside a tie treat the tied session as foreign", () => {
-    const { db, threadIds } = setupThreads({
+  it("lets a thread outside a tie treat the tied session as foreign", async () => {
+    const { db, threadIds } = await setupThreads({
       providerIds: ["codex", "codex", "codex"],
     });
     const [first, second, third] = threadIds;
@@ -5298,100 +5431,102 @@ describe("stored provider thread identity ownership", () => {
       throw new Error("Expected three threads");
     }
     for (const threadId of [first, second]) {
-      announceIdentity(db, {
+      await announceIdentity(db, {
         createdAt: 1_787_775_164_121,
         providerThreadId: "session-tied",
         threadId,
       });
     }
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_100_000,
       providerThreadId: "session-third-own",
       threadId: third,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_200_000,
       providerThreadId: "session-tied",
       threadId: third,
     });
 
-    expect(getStoredProviderSession(db, third)).toEqual({
+    expect(await getStoredProviderSession(db, third)).toEqual({
       kind: "owned",
       providerThreadId: "session-third-own",
     });
     expect(
-      classifyStoredProviderThreadClaim(db, {
+      await classifyStoredProviderThreadClaim(db, {
         providerThreadId: "session-tied",
         threadId: third,
       }),
     ).toBe("foreign");
-    db.$client.close();
+    await db.close();
   });
 
-  it("resolves no session after a completed context clear while ownership of earlier sessions persists", () => {
-    const { db, threadIds } = setupThreads();
+  it("resolves no session after a completed context clear while ownership of earlier sessions persists", async () => {
+    const { db, threadIds } = await setupThreads();
     const [owner, other] = requireThreadIds(threadIds);
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_164_121,
       providerThreadId: "session-alpha",
       threadId: owner,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_164_121,
       providerThreadId: "session-alpha",
       threadId: other,
     });
-    clearContext(db, owner);
+    await clearContext(db, owner);
 
-    expect(getStoredProviderSession(db, owner)).toEqual({ kind: "none" });
-    expect(getStoredProviderSession(db, other)).toEqual({
+    expect(await getStoredProviderSession(db, owner)).toEqual({ kind: "none" });
+    expect(await getStoredProviderSession(db, other)).toEqual({
       kind: "ambiguous",
       providerThreadId: "session-alpha",
       claimantThreadIds: [owner],
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_300_000,
       providerThreadId: "session-gamma",
       threadId: owner,
     });
-    expect(getStoredProviderSession(db, owner)).toEqual({
+    expect(await getStoredProviderSession(db, owner)).toEqual({
       kind: "owned",
       providerThreadId: "session-gamma",
     });
-    clearContext(db, other);
-    expect(getStoredProviderSession(db, other)).toEqual({ kind: "none" });
-    db.$client.close();
+    await clearContext(db, other);
+    expect(await getStoredProviderSession(db, other)).toEqual({ kind: "none" });
+    await db.close();
   });
 
-  it("detects edits that would erase the original shared ownership claim", () => {
-    const { db, threadIds } = setupThreads();
+  it("detects edits that would erase the original shared ownership claim", async () => {
+    const { db, threadIds } = await setupThreads();
     const [owner, contaminated] = requireThreadIds(threadIds);
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_164_121,
       providerThreadId: "session-shared",
       threadId: owner,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_164_240,
       providerThreadId: "session-shared",
       threadId: contaminated,
     });
-    expect(getStoredProviderSession(db, contaminated).kind).toBe("foreign");
+    expect((await getStoredProviderSession(db, contaminated)).kind).toBe(
+      "foreign",
+    );
 
     expect(
-      wouldRemoveSharedProviderSessionClaim(db, {
+      await wouldRemoveSharedProviderSessionClaim(db, {
         cutoffSequence: 1,
         oldMaxSequence: 1,
         threadId: owner,
       }),
     ).toBe(true);
 
-    expect(getStoredProviderSession(db, contaminated)).toEqual({
+    expect(await getStoredProviderSession(db, contaminated)).toEqual({
       kind: "foreign",
       providerThreadId: "session-shared",
       claimantThreadIds: [owner],
     });
-    db.$client.close();
+    await db.close();
   });
 
   it.each([
@@ -5399,166 +5534,173 @@ describe("stored provider thread identity ownership", () => {
     "other-host",
     "other-provider",
     "unknown-host",
-  ] as const)("checks shared claim removal within the %s scope", (kind) => {
-    const { db, environment, project, threadIds } = setupThreads();
-    const [owner] = requireThreadIds(threadIds);
-    const host = upsertHost(db, noopNotifier, {
-      name: "claim-other-host",
-      type: "persistent",
-    });
-    const otherEnvironment = createEnvironment(db, noopNotifier, {
-      projectId: project.id,
-      hostId: host.id,
-      path: "/tmp/claim-other-host",
-      status: "ready",
-      providerOwnsPath: false,
-    });
-    const other = createThread(db, noopNotifier, {
-      projectId: project.id,
-      ...(kind === "unknown-host"
-        ? {}
-        : {
-            environmentId:
-              kind === "other-host" ? otherEnvironment.id : environment.id,
-          }),
-      providerId: kind === "other-provider" ? "claude-code" : "codex",
-    });
-    for (const threadId of [owner, other.id]) {
-      announceIdentity(db, {
-        threadId,
-        createdAt: 100,
-        providerThreadId: "shared",
+  ] as const)(
+    "checks shared claim removal within the %s scope",
+    async (kind) => {
+      const { db, environment, project, threadIds } = await setupThreads();
+      const [owner] = requireThreadIds(threadIds);
+      const host = await upsertHost(db, noopNotifier, {
+        name: "claim-other-host",
+        type: "persistent",
       });
-    }
-    expect(
-      wouldRemoveSharedProviderSessionClaim(db, {
-        threadId: owner,
-        cutoffSequence: 1,
-        oldMaxSequence: 1,
-      }),
-    ).toBe(kind === "same-host" || kind === "unknown-host");
-    db.$client.close();
-  });
+      const otherEnvironment = await createEnvironment(db, noopNotifier, {
+        projectId: project.id,
+        hostId: host.id,
+        path: "/tmp/claim-other-host",
+        status: "ready",
+        providerOwnsPath: false,
+      });
+      const other = await createThread(db, noopNotifier, {
+        projectId: project.id,
+        ...(kind === "unknown-host"
+          ? {}
+          : {
+              environmentId:
+                kind === "other-host" ? otherEnvironment.id : environment.id,
+            }),
+        providerId: kind === "other-provider" ? "claude-code" : "codex",
+      });
+      for (const threadId of [owner, other.id]) {
+        await announceIdentity(db, {
+          threadId,
+          createdAt: 100,
+          providerThreadId: "shared",
+        });
+      }
+      expect(
+        await wouldRemoveSharedProviderSessionClaim(db, {
+          threadId: owner,
+          cutoffSequence: 1,
+          oldMaxSequence: 1,
+        }),
+      ).toBe(kind === "same-host" || kind === "unknown-host");
+      await db.close();
+    },
+  );
 
-  it("allows removing later duplicate or foreign claims while retaining the original evidence", () => {
-    const { db, threadIds } = setupThreads();
+  it("allows removing later duplicate or foreign claims while retaining the original evidence", async () => {
+    const { db, threadIds } = await setupThreads();
     const [owner, other] = requireThreadIds(threadIds);
     for (const [threadId, createdAt] of [
       [owner, 100],
       [owner, 101],
       [other, 102],
     ] as const) {
-      announceIdentity(db, { threadId, createdAt, providerThreadId: "shared" });
+      await announceIdentity(db, {
+        threadId,
+        createdAt,
+        providerThreadId: "shared",
+      });
     }
     expect(
-      wouldRemoveSharedProviderSessionClaim(db, {
+      await wouldRemoveSharedProviderSessionClaim(db, {
         threadId: owner,
         cutoffSequence: 2,
         oldMaxSequence: 2,
       }),
     ).toBe(false);
     expect(
-      wouldRemoveSharedProviderSessionClaim(db, {
+      await wouldRemoveSharedProviderSessionClaim(db, {
         threadId: other,
         cutoffSequence: 1,
         oldMaxSequence: 1,
       }),
     ).toBe(false);
-    clearContext(db, owner);
-    expect(getStoredProviderSession(db, owner)).toEqual({ kind: "none" });
-    expect(getStoredProviderSession(db, other).kind).toBe("foreign");
+    await clearContext(db, owner);
+    expect(await getStoredProviderSession(db, owner)).toEqual({ kind: "none" });
+    expect((await getStoredProviderSession(db, other)).kind).toBe("foreign");
     expect(
-      wouldRemoveSharedProviderSessionClaim(db, {
+      await wouldRemoveSharedProviderSessionClaim(db, {
         threadId: owner,
         cutoffSequence: 1,
         oldMaxSequence: 2,
       }),
     ).toBe(true);
-    db.$client.close();
+    await db.close();
   });
 
-  it("scopes claims to threads of the same provider on the same host", () => {
-    const { db, host, project, threadIds } = setupThreads({
+  it("scopes claims to threads of the same provider on the same host", async () => {
+    const { db, host, project, threadIds } = await setupThreads({
       providerIds: ["codex", "claude-code"],
     });
     const [codexThread, claudeThread] = requireThreadIds(threadIds);
-    const otherHost = upsertHost(db, noopNotifier, {
+    const otherHost = await upsertHost(db, noopNotifier, {
       name: "identity-other-host",
       type: "persistent",
     });
-    const otherEnvironment = createEnvironment(db, noopNotifier, {
+    const otherEnvironment = await createEnvironment(db, noopNotifier, {
       projectId: project.id,
       hostId: otherHost.id,
       path: "/tmp/identity-other",
       status: "ready",
       providerOwnsPath: false,
     });
-    const otherHostThread = createThread(db, noopNotifier, {
+    const otherHostThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       environmentId: otherEnvironment.id,
       providerId: "codex",
     });
-    const detachedThread = createThread(db, noopNotifier, {
+    const detachedThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
     for (const threadId of [claudeThread, otherHostThread.id]) {
-      announceIdentity(db, {
+      await announceIdentity(db, {
         createdAt: 1_787_775_100_000,
         providerThreadId: "session-shared",
         threadId,
       });
     }
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_200_000,
       providerThreadId: "session-shared",
       threadId: codexThread,
     });
 
-    expect(getLastStoredProviderThreadId(db, codexThread)).toBe(
+    expect(await getLastStoredProviderThreadId(db, codexThread)).toBe(
       "session-shared",
     );
-    expect(getLastStoredProviderThreadId(db, claudeThread)).toBe(
+    expect(await getLastStoredProviderThreadId(db, claudeThread)).toBe(
       "session-shared",
     );
-    expect(getLastStoredProviderThreadId(db, otherHostThread.id)).toBe(
+    expect(await getLastStoredProviderThreadId(db, otherHostThread.id)).toBe(
       "session-shared",
     );
 
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_050_000,
       providerThreadId: "session-shared",
       threadId: detachedThread.id,
     });
-    expect(getStoredProviderSession(db, detachedThread.id)).toEqual({
+    expect(await getStoredProviderSession(db, detachedThread.id)).toEqual({
       kind: "owned",
       providerThreadId: "session-shared",
     });
-    expect(getStoredProviderSession(db, codexThread)).toEqual({
+    expect(await getStoredProviderSession(db, codexThread)).toEqual({
       kind: "foreign",
       providerThreadId: "session-shared",
       claimantThreadIds: [detachedThread.id],
     });
     expect(host.id).not.toBe(otherHost.id);
-    db.$client.close();
+    await db.close();
   });
 
-  it("resolves a batch of threads and unknown ids", () => {
-    const { db, threadIds } = setupThreads();
+  it("resolves a batch of threads and unknown ids", async () => {
+    const { db, threadIds } = await setupThreads();
     const [first, second] = requireThreadIds(threadIds);
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_164_121,
       providerThreadId: "session-alpha",
       threadId: first,
     });
-    announceIdentity(db, {
+    await announceIdentity(db, {
       createdAt: 1_787_775_164_240,
       providerThreadId: "session-beta",
       threadId: second,
     });
 
     expect(
-      resolveStoredProviderSessions(db, {
+      await resolveStoredProviderSessions(db, {
         threadIds: [first, second, "thr_missing", first],
       }),
     ).toEqual(
@@ -5569,13 +5711,15 @@ describe("stored provider thread identity ownership", () => {
       ]),
     );
     expect(
-      listThreadTurnInterruptionEventStates(db, {
-        threadIds: [first, second],
-      }).map((state) => state.latestProviderThreadId),
+      (
+        await listThreadTurnInterruptionEventStates(db, {
+          threadIds: [first, second],
+        })
+      ).map((state) => state.latestProviderThreadId),
     ).toEqual(["session-alpha", "session-beta"]);
-    expect(resolveStoredProviderSessions(db, { threadIds: [] })).toEqual(
+    expect(await resolveStoredProviderSessions(db, { threadIds: [] })).toEqual(
       new Map(),
     );
-    db.$client.close();
+    await db.close();
   });
 });

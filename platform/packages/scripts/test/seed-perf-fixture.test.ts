@@ -12,10 +12,10 @@ interface SeededEventRow {
 }
 
 describe("seedPerfFixture", () => {
-  it("seeds a consistent fixture into a migrated database", () => {
-    const db = createMigratedConnection();
+  it("seeds a consistent fixture into a migrated database", async () => {
+    const db = await createMigratedConnection();
 
-    const result = seedPerfFixture(db, {
+    const result = await seedPerfFixture(db, {
       hostId: "host_seedtest01",
       workspacesRootPath: "/tmp/seed-workspaces",
       projectCount: 3,
@@ -90,8 +90,8 @@ describe("seedPerfFixture", () => {
       .get();
     expect(ftsRow).toBeDefined();
 
-    const secondDb = createMigratedConnection();
-    const secondResult = seedPerfFixture(secondDb, {
+    const secondDb = await createMigratedConnection();
+    const secondResult = await seedPerfFixture(secondDb, {
       hostId: "host_seedtest01",
       workspacesRootPath: "/tmp/seed-workspaces",
       projectCount: 3,
@@ -101,7 +101,7 @@ describe("seedPerfFixture", () => {
     });
     expect(secondResult.threadIds).toEqual(result.threadIds);
     expect(secondResult.eventRowCount).toBe(result.eventRowCount);
-    secondDb.$client.close();
-    db.$client.close();
+    await secondDb.close();
+    await db.close();
   }, 15_000);
 });

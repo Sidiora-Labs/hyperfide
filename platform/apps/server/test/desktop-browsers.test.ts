@@ -34,8 +34,8 @@ const leaseSchema = desktopBrowserScopeSchema
   .extend(desktopBrowserLeaseSchema.shape)
   .extend({ tabIds: z.array(z.string()) });
 
-function fixture(harness: TestAppHarness) {
-  const seeded = seedThreadFixture(harness);
+async function fixture(harness: TestAppHarness) {
+  const seeded = await seedThreadFixture(harness);
   const scope = {
     hostId: seeded.host.id,
     instanceId: "desktop-window",
@@ -55,11 +55,11 @@ function fixture(harness: TestAppHarness) {
   let intercept: (
     request: HostDaemonOnlineRpcRequestMessage,
   ) => HostRpcHandlerResult | Promise<HostRpcHandlerResult> | null = () => null;
-  const responder = registerHostRpcResponder(harness, {
+  const responder = await registerHostRpcResponder(harness, {
     hostId: seeded.host.id,
     sessionId: seeded.session.id,
-    handle(request) {
-      const intercepted = intercept(request);
+    async handle(request) {
+      const intercepted = await intercept(request);
       if (intercepted !== null) return intercepted;
       const command = request.command;
       switch (command.type) {
@@ -163,18 +163,18 @@ function fixture(harness: TestAppHarness) {
       body: JSON.stringify(body),
     });
   }
-  function stored(threadId = scope.threadId) {
-    const row = getStoredThreadTabs(harness.db, threadId);
+  async function stored(threadId = scope.threadId) {
+    const row = await getStoredThreadTabs(harness.db, threadId);
     return row ? threadTabsSchema.parse(JSON.parse(row.tabsJson)) : [];
   }
-  function change(
+  async function change(
     overrides: Partial<typeof scope>,
     nativeTabs: DesktopBrowserTab[],
     sessionId = seeded.session.id,
   ) {
     const target = { ...scope, ...overrides };
     const socket = { close: vi.fn(), send: vi.fn() };
-    onDaemonSocketMessage(harness.deps, {
+    await onDaemonSocketMessage(harness.deps, {
       hostId: target.hostId,
       sessionId,
       socket,
@@ -225,12 +225,12 @@ function fixture(harness: TestAppHarness) {
 
 async function withBrowserTest(
   run: (
-    test: ReturnType<typeof fixture>,
+    test: Awaited<ReturnType<typeof fixture>>,
     harness: TestAppHarness,
   ) => Promise<void>,
 ) {
   await withTestHarness(async (harness) => {
-    const test = fixture(harness);
+    const test = await fixture(harness);
     try {
       await run(test, harness);
     } finally {
@@ -348,7 +348,7 @@ describe("desktop browser public API", () => {
         presentation: "hidden",
       });
       expect(tab.tabId).toMatch(/^[0-9a-f-]{36}$/u);
-      expect(test.stored()).toEqual([
+      expect(await test.stored()).toEqual([
         expect.objectContaining({
           id: tab.tabId,
           kind: "browser",
@@ -372,7 +372,7 @@ describe("desktop browser public API", () => {
       expect(
         (await test.post("close", { ...test.scope, tabId: tab.tabId })).status,
       ).toBe(200);
-      expect(test.stored()).toEqual([]);
+      expect(await test.stored()).toEqual([]);
     });
   });
 
@@ -418,7 +418,7 @@ describe("desktop browser public API", () => {
 
   it("never exposes a different thread's tabs returned by the native transport", async () => {
     await withBrowserTest(async (test, harness) => {
-      const other = seedThread(harness.deps, {
+      const other = await seedThread(harness.deps, {
         projectId: test.project.id,
         environmentId: test.environment.id,
       });
@@ -599,11 +599,11 @@ describe("desktop browser public API", () => {
   it("binds open and release to host, instance, generation, thread, and granted tabs", async () => {
     await withBrowserTest(async (test, harness) => {
       const lease = await test.acquire();
-      const other = seedThread(harness.deps, {
+      const other = await seedThread(harness.deps, {
         projectId: test.project.id,
         environmentId: test.environment.id,
       });
-      const otherHost = seedHostSession(harness.deps);
+      const otherHost = await seedHostSession(harness.deps);
       for (const override of [
         { hostId: otherHost.host.id },
         { instanceId: "other-window" },
@@ -669,7 +669,7 @@ describe("desktop browser public API", () => {
   it("releases an existing native lease after its thread is deleted and keeps repeated cleanup idempotent", async () => {
     await withBrowserTest(async (test, harness) => {
       const lease = await test.acquire();
-      markThreadDeleted(harness.db, harness.hub, {
+      await markThreadDeleted(harness.db, harness.hub, {
         threadId: test.scope.threadId,
       });
       const before = test.responder.requests.length;
@@ -741,7 +741,7 @@ describe("desktop browser public API", () => {
           .status,
       ).toBe(409);
       const gate = createDeferredPromise<HostRpcHandlerResult>();
-      const started = createDeferredPromise<void>();
+      const started = await createDeferredPromise<void>();
       test.intercept(({ command }) => {
         if (command.type !== "desktop.browser.acquire_control") return null;
         started.resolve();
@@ -785,7 +785,7 @@ describe("desktop browser public API", () => {
   it("a stop during the tab lookup cancels the pending acquisition before any native grant", async () => {
     await withBrowserTest(async (test) => {
       const gate = createDeferredPromise<HostRpcHandlerResult>();
-      const started = createDeferredPromise<void>();
+      const started = await createDeferredPromise<void>();
       test.intercept(({ command }) => {
         if (command.type !== "desktop.browser.list_tabs") return null;
         started.resolve();
@@ -810,13 +810,13 @@ describe("desktop browser public API", () => {
 
   it("persists authenticated native snapshots without overwriting other windows or threads", async () => {
     await withBrowserTest(async (test, harness) => {
-      const other = seedThread(harness.deps, {
+      const other = await seedThread(harness.deps, {
         projectId: test.project.id,
         environmentId: test.environment.id,
       });
       const original = test.tab();
-      expect(test.change({}, [original]).close).not.toHaveBeenCalled();
-      expect(test.stored()).toEqual([
+      expect((await test.change({}, [original])).close).not.toHaveBeenCalled();
+      expect(await test.stored()).toEqual([
         expect.objectContaining({
           id: original.tabId,
           desktopTarget: {
@@ -826,60 +826,66 @@ describe("desktop browser public API", () => {
           },
         }),
       ]);
-      test.change({ instanceId: "other-window" }, [
+      await test.change({ instanceId: "other-window" }, [
         { ...original, url: "https://wrong-window.example" },
       ]);
-      const otherHost = seedHostSession(harness.deps);
-      test.change(
+      const otherHost = await seedHostSession(harness.deps);
+      await test.change(
         { hostId: otherHost.host.id },
         [{ ...original, url: "https://wrong-host.example" }],
         otherHost.session.id,
       );
       expect(
-        test.stored().find((tab) => tab.id === original.tabId),
+        (await test.stored()).find((tab) => tab.id === original.tabId),
       ).toMatchObject({ url: original.url });
-      test.change({}, [
+      await test.change({}, [
         { ...original, tabId: "foreign-tab", threadId: other.id },
       ]);
-      expect(test.stored(other.id)).toEqual([]);
-      test.change({}, [original, { ...original, tabId: "second-tab" }]);
+      expect(await test.stored(other.id)).toEqual([]);
+      await test.change({}, [original, { ...original, tabId: "second-tab" }]);
       expect(
-        test.stored().find((tab) => tab.id === original.tabId),
+        (await test.stored()).find((tab) => tab.id === original.tabId),
       ).toMatchObject({ url: original.url });
-      test.change({ instanceId: "other-window" }, []);
-      expect(test.stored()).toHaveLength(2);
-      test.change({}, [
+      await test.change({ instanceId: "other-window" }, []);
+      expect(await test.stored()).toHaveLength(2);
+      await test.change({}, [
         { ...original, title: "Navigated", url: "https://next.example" },
       ]);
-      expect(test.stored()).toEqual([
+      expect(await test.stored()).toEqual([
         expect.objectContaining({
           id: original.tabId,
           title: "Navigated",
           url: "https://next.example",
         }),
       ]);
-      test.change({}, []);
-      expect(test.stored()).toEqual([]);
+      await test.change({}, []);
+      expect(await test.stored()).toEqual([]);
     });
   });
   it("drops snapshots for synthetic, missing, or deleted threads without closing the daemon session", async () => {
     await withBrowserTest(async (test, harness) => {
-      const deleted = seedThread(harness.deps, {
+      const deleted = await seedThread(harness.deps, {
         projectId: test.project.id,
         environmentId: test.environment.id,
       });
-      markThreadDeleted(harness.db, harness.hub, { threadId: deleted.id });
+      await markThreadDeleted(harness.db, harness.hub, {
+        threadId: deleted.id,
+      });
       for (const threadId of [
         "plugin-panel:cloud-sandbox:cloud-machines:pane-1",
         "thr_missing",
         deleted.id,
       ]) {
-        const socket = test.change({ threadId }, [{ ...test.tab(), threadId }]);
+        const socket = await test.change({ threadId }, [
+          { ...test.tab(), threadId },
+        ]);
         expect(socket.close, threadId).not.toHaveBeenCalled();
-        expect(test.stored(threadId), threadId).toEqual([]);
+        expect(await test.stored(threadId), threadId).toEqual([]);
       }
-      expect(test.change({}, [test.tab()]).close).not.toHaveBeenCalled();
-      expect(test.stored()).toEqual([
+      expect(
+        (await test.change({}, [test.tab()])).close,
+      ).not.toHaveBeenCalled();
+      expect(await test.stored()).toEqual([
         expect.objectContaining({ id: test.tab().tabId }),
       ]);
     });
@@ -887,7 +893,7 @@ describe("desktop browser public API", () => {
   it("revokes native control when acquisition completes after its deadline", async () => {
     await withBrowserTest(async (test) => {
       const gate = createDeferredPromise<HostRpcHandlerResult>();
-      const started = createDeferredPromise<void>();
+      const started = await createDeferredPromise<void>();
       test.intercept(({ command }) => {
         if (command.type !== "desktop.browser.acquire_control") return null;
         started.resolve();
@@ -946,20 +952,23 @@ describe("desktop browser public API", () => {
     async (change) => {
       await withBrowserTest(async (test) => {
         const tab = test.tab();
-        test.change({ instanceId: "closed-window" }, [tab]);
+        await test.change({ instanceId: "closed-window" }, [tab]);
         const listed = createDeferredPromise<HostRpcHandlerResult>();
         const list = vi.fn(() => listed.promise);
         test.intercept(({ command }) =>
           command.type === "desktop.browser.list_instances" ? list() : null,
         );
-        test.change({}, [tab]);
+        const restoring = test.change({}, [tab]);
         await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(1));
         const updated = {
           ...tab,
           url: "https://example.com/new",
           title: "New",
         };
-        test.change({}, change === "closed" ? [] : [updated]);
+        const updating = test.change({}, change === "closed" ? [] : [updated]);
+        if (change === "updated")
+          await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+        else await updating;
         listed.resolve({
           ok: true,
           result: {
@@ -972,8 +981,8 @@ describe("desktop browser public API", () => {
             ],
           },
         });
-        await new Promise<void>((resolve) => setImmediate(resolve));
-        expect(test.stored()).toEqual([
+        await Promise.all([restoring, updating]);
+        expect(await test.stored()).toEqual([
           expect.objectContaining({
             id: tab.tabId,
             url: change === "closed" ? tab.url : updated.url,
@@ -991,8 +1000,8 @@ describe("desktop browser public API", () => {
   it("moves a tab to the live window that reopened it after its old window closed", async () => {
     await withBrowserTest(async (test) => {
       const tab = test.tab();
-      test.change({ instanceId: "closed-window" }, [tab]);
-      expect(test.stored()).toEqual([
+      await test.change({ instanceId: "closed-window" }, [tab]);
+      expect(await test.stored()).toEqual([
         expect.objectContaining({
           id: tab.tabId,
           desktopTarget: expect.objectContaining({
@@ -1000,9 +1009,9 @@ describe("desktop browser public API", () => {
           }),
         }),
       ]);
-      test.change({}, [{ ...tab, title: "Reopened" }]);
-      await vi.waitFor(() =>
-        expect(test.stored()).toEqual([
+      await test.change({}, [{ ...tab, title: "Reopened" }]);
+      await vi.waitFor(async () =>
+        expect(await test.stored()).toEqual([
           expect.objectContaining({
             id: tab.tabId,
             title: "Reopened",
@@ -1040,8 +1049,10 @@ describe("desktop browser public API", () => {
         return null;
       });
       const tab = test.tab();
-      test.change({ instanceId: "owner", generation: "owner-gen" }, [tab]);
-      test.change({}, [{ ...tab, url: "https://clone.example" }]);
+      await test.change({ instanceId: "owner", generation: "owner-gen" }, [
+        tab,
+      ]);
+      await test.change({}, [{ ...tab, url: "https://clone.example" }]);
       await vi.waitFor(() => expect(instances).toHaveBeenCalled());
       await vi.waitFor(() =>
         expect(closed).toHaveBeenCalledWith({
@@ -1052,7 +1063,7 @@ describe("desktop browser public API", () => {
           tabId: tab.tabId,
         }),
       );
-      expect(test.stored()).toEqual([
+      expect(await test.stored()).toEqual([
         expect.objectContaining({
           url: tab.url,
           desktopTarget: expect.objectContaining({ instanceId: "owner" }),
@@ -1063,7 +1074,7 @@ describe("desktop browser public API", () => {
   it("retains one owner when two windows restore the same orphan concurrently", async () => {
     await withBrowserTest(async (test) => {
       const tab = test.tab();
-      test.change({ instanceId: "closed-window" }, [tab]);
+      await test.change({ instanceId: "closed-window" }, [tab]);
       const listed = createDeferredPromise<HostRpcHandlerResult>();
       const list = vi.fn(() => listed.promise);
       const closed = vi.fn();
@@ -1072,8 +1083,10 @@ describe("desktop browser public API", () => {
         if (command.type === "desktop.browser.close_tab") closed(command);
         return null;
       });
-      test.change({}, [tab]);
-      test.change({ instanceId: "competing-window" }, [tab]);
+      const firstRestore = test.change({}, [tab]);
+      const secondRestore = test.change({ instanceId: "competing-window" }, [
+        tab,
+      ]);
       await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
       listed.resolve({
         ok: true,
@@ -1092,8 +1105,11 @@ describe("desktop browser public API", () => {
           ],
         },
       });
+      await Promise.all([firstRestore, secondRestore]);
       await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
-      const owner = test.stored().find((value) => value.id === tab.tabId);
+      const owner = (await test.stored()).find(
+        (value) => value.id === tab.tabId,
+      );
       expect(owner).toMatchObject({
         desktopTarget: { instanceId: test.scope.instanceId },
       });
@@ -1109,11 +1125,11 @@ describe("desktop browser public API", () => {
   it("updates persisted targets after same-window reconnect and ignores deletion from its old generation", async () => {
     await withBrowserTest(async (test) => {
       const tab = test.tab();
-      test.change({}, [tab]);
-      test.change({ generation: "reconnected-generation" }, [
+      await test.change({}, [tab]);
+      await test.change({ generation: "reconnected-generation" }, [
         { ...tab, title: "Reconnected" },
       ]);
-      expect(test.stored()).toEqual([
+      expect(await test.stored()).toEqual([
         expect.objectContaining({
           id: tab.tabId,
           title: "Reconnected",
@@ -1124,10 +1140,10 @@ describe("desktop browser public API", () => {
           },
         }),
       ]);
-      test.change({}, []);
-      expect(test.stored()).toHaveLength(1);
-      test.change({ generation: "reconnected-generation" }, []);
-      expect(test.stored()).toEqual([]);
+      await test.change({}, []);
+      expect(await test.stored()).toHaveLength(1);
+      await test.change({ generation: "reconnected-generation" }, []);
+      expect(await test.stored()).toEqual([]);
     });
   });
 });
@@ -1167,7 +1183,7 @@ it("routes broker challenges to the selected host and rejects legacy daemons bef
     ).toBe(400);
     expect(test.responder.requests).toHaveLength(count);
     for (const protocolVersion of [246, 247]) {
-      harness.db
+      await harness.db
         .update(hostDaemonSessions)
         .set({ protocolVersion })
         .where(eq(hostDaemonSessions.id, test.session.id))

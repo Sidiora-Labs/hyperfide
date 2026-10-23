@@ -116,7 +116,7 @@ export async function readRunningSupervisorPid(
   args: ReadRunningSupervisorPidArgs,
 ): Promise<number> {
   const pidPath = args.pidPath ?? resolveSupervisorPidPath(args.serviceName);
-  return readRunningPid({
+  return await readRunningPid({
     pidPath,
     serviceName: args.serviceName,
   });

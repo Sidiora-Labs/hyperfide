@@ -83,8 +83,10 @@ export interface ServerImportBootResult {
   pendingMove: PendingServerMove | null;
 }
 
-function listActiveDaemonSessions(db: DbConnection): ImportedDaemonSession[] {
-  return db
+async function listActiveDaemonSessions(
+  db: DbConnection,
+): Promise<ImportedDaemonSession[]> {
+  return await db
     .select({ hostId: hostDaemonSessions.hostId, id: hostDaemonSessions.id })
     .from(hostDaemonSessions)
     .where(eq(hostDaemonSessions.status, "active"))
@@ -219,15 +221,15 @@ function directMoveServerUrl(
   return parsed.success ? parsed.data : null;
 }
 
-function applyDirectMachineServerUrl(
+async function applyDirectMachineServerUrl(
   db: DbConnection,
   serverUrl: string,
-): boolean {
-  const settings = getAppSettings(db);
+): Promise<boolean> {
+  const settings = await getAppSettings(db);
   if (settings.machineServerUrl === serverUrl) {
     return false;
   }
-  setAppSettings(db, { ...settings, machineServerUrl: serverUrl });
+  await setAppSettings(db, { ...settings, machineServerUrl: serverUrl });
   return true;
 }
 
@@ -237,11 +239,11 @@ async function rewriteOldServerAddresses(args: {
   serverUrl: string;
 }): Promise<ManagedAddressKey[]> {
   const managed = await readServerManagedFiles(args.dataDir);
-  const oldAddress = oldServerAddress(args.db, managed);
+  const oldAddress = await oldServerAddress(args.db, managed);
   if (oldAddress === null) {
     return [];
   }
-  return rewriteManagedAddresses({
+  return await rewriteManagedAddresses({
     dataDir: args.dataDir,
     fromOrigin: oldAddress.origin,
     toUrl: args.serverUrl,
@@ -253,7 +255,10 @@ export async function applyServerImportFixups(
 ): Promise<ServerImportFixupResult> {
   const fromRoot = resolve(args.marker.sourceDataDir);
   const toRoot = resolve(args.dataDir);
-  const rerooted = rerootServerOwnedPluginPaths(args.db, { fromRoot, toRoot });
+  const rerooted = await rerootServerOwnedPluginPaths(args.db, {
+    fromRoot,
+    toRoot,
+  });
   const registrationFiles =
     fromRoot === toRoot
       ? 0
@@ -277,20 +282,23 @@ export async function applyServerImportFixups(
     serverUrl: directServerUrl,
   });
   return {
-    machineServerUrlSet: applyDirectMachineServerUrl(args.db, directServerUrl),
+    machineServerUrlSet: await applyDirectMachineServerUrl(
+      args.db,
+      directServerUrl,
+    ),
     managedAddresses,
     registrationFiles,
     rerooted,
   };
 }
 
-function swapImportedHostRoles(args: {
+async function swapImportedHostRoles(args: {
   db: DbConnection;
   marker: ServerImportFile;
   now: number;
   targetHostId: string;
-}): SwapServerHostRolesResult {
-  return swapServerHostRoles(args.db, {
+}): Promise<SwapServerHostRolesResult> {
+  return await swapServerHostRoles(args.db, {
     now: args.now,
     sourceServerHostId: args.marker.sourceServerHostId,
     targetHostId: args.targetHostId,
@@ -305,7 +313,7 @@ async function finishManualImport(args: {
   now: number;
   targetHostId: string;
 }): Promise<SwapServerHostRolesResult> {
-  const hostRoles = swapImportedHostRoles(args);
+  const hostRoles = await swapImportedHostRoles(args);
   await rm(join(args.dataDir, SERVER_IMPORT_FILE_NAME), { force: true });
   args.logger.info(
     { hostRoles, targetHostId: args.targetHostId },
@@ -354,14 +362,14 @@ export async function applyServerImportAtBoot(
     });
     const hostRoles =
       marker.kind === "move" && targetHostId !== null
-        ? swapImportedHostRoles({
+        ? await swapImportedHostRoles({
             db: args.db,
             marker,
             now: args.now,
             targetHostId,
           })
         : null;
-    importedDaemonSessions = listActiveDaemonSessions(args.db);
+    importedDaemonSessions = await listActiveDaemonSessions(args.db);
     await writeServerImportFile(args.dataDir, {
       ...marker,
       fixupsAppliedAt: args.now,
@@ -468,7 +476,7 @@ export function createManualServerImportCompletion(
       }
       pending = false;
       if (outcome === "completed") {
-        args.deps.hub.notifyHost(hostId, ["host-connected"]);
+        await args.deps.hub.notifyHost(hostId, ["host-connected"]);
       }
     } catch (error) {
       args.deps.logger.warn(
@@ -501,7 +509,7 @@ export async function repairLastServerMoveHostName(
   if (lastMove === null || lastMove.fromHostName !== lastMove.fromHostId) {
     return false;
   }
-  const host = getHost(args.db, lastMove.fromHostId);
+  const host = await getHost(args.db, lastMove.fromHostId);
   if (host === null || host.name === lastMove.fromHostName) {
     return false;
   }
@@ -516,12 +524,12 @@ export async function repairLastServerMoveHostName(
   return true;
 }
 
-export function verifyPendingServerMove(
+export async function verifyPendingServerMove(
   db: DbConnection,
   pending: PendingServerMove,
-): PendingServerMoveVerification {
+): Promise<PendingServerMoveVerification> {
   const problems: string[] = [];
-  const migrationCount = countAppliedMigrations(db);
+  const migrationCount = await countAppliedMigrations(db);
   if (migrationCount === 0) {
     problems.push("The imported database has no applied migrations");
   }
@@ -529,7 +537,7 @@ export function verifyPendingServerMove(
     ["new server machine", pending.targetHostId],
     ["old server machine", pending.sourceServerHostId],
   ] as const) {
-    if (hostId !== null && getHost(db, hostId) === null) {
+    if (hostId !== null && (await getHost(db, hostId)) === null) {
       problems.push(`The imported database has no row for the ${label}`);
     }
   }

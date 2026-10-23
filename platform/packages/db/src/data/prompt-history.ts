@@ -69,19 +69,19 @@ function rawPromptHistoryRowLimit(limit: number): number {
   );
 }
 
-export function createPromptHistoryEntry(
+export async function createPromptHistoryEntry(
   db: DbQueryConnection,
   input: CreatePromptHistoryEntryInput,
-): StoredPromptHistoryEntryRow {
-  return db.transaction(
-    (tx) => {
-      acquireProjectAttachmentOwnership(
+): Promise<StoredPromptHistoryEntryRow> {
+  return await db.transaction(
+    async (tx) => {
+      await acquireProjectAttachmentOwnership(
         tx,
         input.threadId,
         projectAttachmentPaths(input.input),
       );
       const createdAt = input.createdAt ?? Date.now();
-      return tx
+      return await tx
         .insert(promptHistoryEntries)
         .values({
           id: createPromptHistoryEntryId(),
@@ -99,11 +99,11 @@ export function createPromptHistoryEntry(
   );
 }
 
-export function listStoredProjectPromptHistoryRows(
+export async function listStoredProjectPromptHistoryRows(
   db: DbQueryConnection,
   args: ListStoredProjectPromptHistoryArgs,
-): StoredPromptHistoryEntryRow[] {
-  return db
+): Promise<StoredPromptHistoryEntryRow[]> {
+  return await db
     .select(storedPromptHistoryEntryColumns)
     .from(promptHistoryEntries)
     .innerJoin(threads, eq(threads.id, promptHistoryEntries.threadId))
@@ -123,11 +123,11 @@ export function listStoredProjectPromptHistoryRows(
     .all();
 }
 
-export function listStoredThreadPromptHistoryRows(
+export async function listStoredThreadPromptHistoryRows(
   db: DbQueryConnection,
   args: ListStoredThreadPromptHistoryArgs,
-): StoredPromptHistoryEntryRow[] {
-  return db
+): Promise<StoredPromptHistoryEntryRow[]> {
+  return await db
     .select(storedPromptHistoryEntryColumns)
     .from(promptHistoryEntries)
     .where(
@@ -145,12 +145,12 @@ export function listStoredThreadPromptHistoryRows(
     .all();
 }
 
-export function listPromptHistoryPage(
+export async function listPromptHistoryPage(
   db: DbQueryConnection,
   args: ListPromptHistoryPageArgs,
-): StoredPromptHistoryEntryRow[] {
+): Promise<StoredPromptHistoryEntryRow[]> {
   const before = args.before;
-  return db
+  return await db
     .select(storedPromptHistoryEntryColumns)
     .from(promptHistoryEntries)
     .where(

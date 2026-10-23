@@ -18,8 +18,8 @@ import {
 describe.sequential("fake provider idle crash recovery integration", () => {
   it(
     "survives an ungraceful daemon crash and resumes idle work after restart",
-    () =>
-      withHarness(async (harness) => {
+    async () =>
+      await withHarness(async (harness) => {
         const { thread } = await createRecoveryThread(
           harness,
           "Crash Recovery Idle",

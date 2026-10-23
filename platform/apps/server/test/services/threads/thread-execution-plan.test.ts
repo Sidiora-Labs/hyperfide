@@ -28,22 +28,22 @@ import {
 describe("thread execution plan input sources", () => {
   it("uses the default tier for explicit and inherited fast selections when fast is disabled", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-fast-tier-setting",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
       });
-      upsertProjectExecutionDefaults(harness.deps.db, {
+      await upsertProjectExecutionDefaults(harness.deps.db, {
         projectId: project.id,
         providerId: "codex",
         model: "gpt-5",
@@ -51,18 +51,18 @@ describe("thread execution plan input sources", () => {
         permissionMode: "auto",
         serviceTier: "fast",
       });
-      const resolve = (
+      const resolve = async (
         input: ReturnType<typeof buildExistingThreadExecutionInput>,
       ) =>
-        resolveExistingThreadExecutionPlan(harness.deps, {
+        await resolveExistingThreadExecutionPlan(harness.deps, {
           executionSource: "client/turn/requested",
           input,
           threadId: thread.id,
         });
 
       expect((await resolve({})).resolvedExecution.serviceTier).toBe("fast");
-      setAppSettings(harness.db, {
-        ...getAppSettings(harness.db),
+      await setAppSettings(harness.db, {
+        ...(await getAppSettings(harness.db)),
         allowFastServiceTier: false,
       });
       expect((await resolve({})).resolvedExecution.serviceTier).toBe("default");
@@ -70,8 +70,8 @@ describe("thread execution plan input sources", () => {
         (await resolve({ serviceTier: { source: "explicit", value: "fast" } }))
           .resolvedExecution.serviceTier,
       ).toBe("default");
-      setAppSettings(harness.db, {
-        ...getAppSettings(harness.db),
+      await setAppSettings(harness.db, {
+        ...(await getAppSettings(harness.db)),
         allowFastServiceTier: true,
       });
       expect((await resolve({})).resolvedExecution.serviceTier).toBe("fast");
@@ -80,22 +80,22 @@ describe("thread execution plan input sources", () => {
 
   it("accepts the tiers a provider lists and rejects an explicit tier it does not", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-open-tier",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
       });
-      upsertProjectExecutionDefaults(harness.deps.db, {
+      await upsertProjectExecutionDefaults(harness.deps.db, {
         projectId: project.id,
         providerId: "codex",
         model: "gpt-5",
@@ -103,10 +103,10 @@ describe("thread execution plan input sources", () => {
         permissionMode: "auto",
         serviceTier: "turbo",
       });
-      const resolve = (
+      const resolve = async (
         input: ReturnType<typeof buildExistingThreadExecutionInput>,
       ) =>
-        resolveExistingThreadExecutionPlan(harness.deps, {
+        await resolveExistingThreadExecutionPlan(harness.deps, {
           executionSource: "client/turn/requested",
           input,
           threadId: thread.id,
@@ -142,22 +142,22 @@ describe("thread execution plan input sources", () => {
 
   it("runs a provider without service tiers at the default tier unless a tier is explicitly requested", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-no-tier",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "pi",
       });
-      upsertProjectExecutionDefaults(harness.deps.db, {
+      await upsertProjectExecutionDefaults(harness.deps.db, {
         projectId: project.id,
         providerId: "pi",
         model: "pi-model",
@@ -165,10 +165,10 @@ describe("thread execution plan input sources", () => {
         permissionMode: "full",
         serviceTier: "fast",
       });
-      const resolve = (
+      const resolve = async (
         input: ReturnType<typeof buildExistingThreadExecutionInput>,
       ) =>
-        resolveExistingThreadExecutionPlan(harness.deps, {
+        await resolveExistingThreadExecutionPlan(harness.deps, {
           executionSource: "client/turn/requested",
           input,
           threadId: thread.id,
@@ -236,13 +236,13 @@ describe("thread execution plan input sources", () => {
 
   it("uses source metadata before resolving create provider defaults", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-source-aware-create-defaults",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      upsertProjectExecutionDefaults(harness.deps.db, {
+      await upsertProjectExecutionDefaults(harness.deps.db, {
         projectId: project.id,
         providerId: "codex",
         model: "gpt-5",
@@ -251,35 +251,29 @@ describe("thread execution plan input sources", () => {
         serviceTier: "default",
       });
 
-      const ignoredDisplayedValue = resolveProjectExecutionDefaultsForCreate(
-        harness.deps,
-        {
+      const ignoredDisplayedValue =
+        await resolveProjectExecutionDefaultsForCreate(harness.deps, {
           executionInputSources: {},
           model: "openai-codex/gpt-5.4",
           parentThread: null,
           projectId: project.id,
           providerId: "pi",
-        },
-      );
-      const legacyExplicitValue = resolveProjectExecutionDefaultsForCreate(
-        harness.deps,
-        {
+        });
+      const legacyExplicitValue =
+        await resolveProjectExecutionDefaultsForCreate(harness.deps, {
           model: "openai-codex/gpt-5.4",
           parentThread: null,
           projectId: project.id,
           providerId: "pi",
-        },
-      );
-      const clientPreferredProvider = resolveProjectExecutionDefaultsForCreate(
-        harness.deps,
-        {
+        });
+      const clientPreferredProvider =
+        await resolveProjectExecutionDefaultsForCreate(harness.deps, {
           executionInputSources: { providerId: "client-preference" },
           model: "openai-codex/gpt-5.4",
           parentThread: null,
           projectId: project.id,
           providerId: "pi",
-        },
-      );
+        });
 
       expect(ignoredDisplayedValue.providerId).toBe("codex");
       expect(ignoredDisplayedValue.executionDefaults?.model).toBe("gpt-5");
@@ -293,14 +287,14 @@ describe("thread execution plan input sources", () => {
 
   it("uses the product provider when create metadata has no caller-owned provider or model", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-source-aware-standard-product-defaults",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
 
-      const resolution = resolveProjectExecutionDefaultsForCreate(
+      const resolution = await resolveProjectExecutionDefaultsForCreate(
         harness.deps,
         {
           executionInputSources: {},
@@ -322,23 +316,23 @@ describe("machine permission ceiling", () => {
     harness: TestAppHarness,
     args: { maxPermissionMode: PermissionMode; providerId: string; id: string },
   ) {
-    const { host } = seedHostSession(harness.deps, { id: args.id });
-    updateHost(harness.db, harness.hub, host.id, {
+    const { host } = await seedHostSession(harness.deps, { id: args.id });
+    await updateHost(harness.db, harness.hub, host.id, {
       maxPermissionMode: args.maxPermissionMode,
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       providerId: args.providerId,
     });
-    seedThreadRuntimeState(harness.deps, {
+    await seedThreadRuntimeState(harness.deps, {
       environmentId: environment.id,
       permissionMode: "full",
       providerThreadId: `provider-${args.id}`,
@@ -362,9 +356,9 @@ describe("machine permission ceiling", () => {
       });
 
       expect(plan.resolvedExecution.permissionMode).toBe("auto");
-      expect(resolveExistingThreadPermissionMode(harness.deps, thread.id)).toBe(
-        "auto",
-      );
+      expect(
+        await resolveExistingThreadPermissionMode(harness.deps, thread.id),
+      ).toBe("auto");
     });
   });
 

@@ -19,19 +19,22 @@ function childThreadsConfirmationMessage(
   return `${actionLabel} this thread requires confirmation because it has non-deleted child threads.`;
 }
 
-export function requireChildThreadsConfirmation({
+export async function requireChildThreadsConfirmation({
   action,
   confirmed,
   deps,
   thread,
-}: RequireChildThreadsConfirmationRequest): void {
+}: RequireChildThreadsConfirmationRequest): Promise<void> {
   if (confirmed) {
     return;
   }
 
-  const nonDeletedChildCount = countNonDeletedAssignedChildThreads(deps.db, {
-    parentThreadId: thread.id,
-  });
+  const nonDeletedChildCount = await countNonDeletedAssignedChildThreads(
+    deps.db,
+    {
+      parentThreadId: thread.id,
+    },
+  );
   if (nonDeletedChildCount === 0) {
     return;
   }

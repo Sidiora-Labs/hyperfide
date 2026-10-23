@@ -46,11 +46,13 @@ describe("machine server access", () => {
   it("cancels a pending availability check without acquiring access when it later resolves", async () => {
     await withTestHarness(async ({ deps }) => {
       const controller = new AbortController();
-      const pending = createDeferredPromise<{ status: "available" }>();
+      const pending = await createDeferredPromise<{ status: "available" }>();
       const availability = vi.fn(() => pending.promise);
       const acquire = vi.fn(provider().acquire);
       installProvider({ ...provider(), availability, acquire });
-      const host = upsertHost(deps.db, deps.hub, { name: "cancelled" })!;
+      const host = (await upsertHost(deps.db, deps.hub, {
+        name: "cancelled",
+      }))!;
       const result = serverAccess.resolve(deps, {
         key: "cancelled",
         hostId: host.id,
@@ -63,7 +65,9 @@ describe("machine server access", () => {
       pending.resolve({ status: "available" });
       await pending.promise;
       expect(acquire).not.toHaveBeenCalled();
-      expect(getHost(deps.db, host.id)?.serverAccessProviderId).toBeNull();
+      expect(
+        (await getHost(deps.db, host.id))?.serverAccessProviderId,
+      ).toBeNull();
     });
   });
 
@@ -78,16 +82,16 @@ describe("machine server access", () => {
         pluginId: "access-plugin",
         description: "Use a managed relay.",
       });
-      setAppSettings(deps.db, {
+      await setAppSettings(deps.db, {
         ...defaultAppSettings,
         defaultMachineAccess: "direct",
       });
       expect((await serverAccessStatus(deps)).defaultProviderId).toBe("direct");
-      setAppSettings(deps.db, {
+      await setAppSettings(deps.db, {
         ...defaultAppSettings,
         defaultMachineAccess: "missing",
       });
-      const host = upsertHost(deps.db, deps.hub, { name: "test" })!;
+      const host = (await upsertHost(deps.db, deps.hub, { name: "test" }))!;
       await expect(
         serverAccess.resolve(deps, { key: "k", hostId: host.id, signal }),
       ).rejects.toThrow("unavailable");
@@ -107,12 +111,12 @@ describe("machine server access", () => {
       });
       expect((await serverAccessStatus(deps)).defaultProviderId).toBe("relay");
       availability.mockClear();
-      const host = upsertHost(deps.db, deps.hub, { name: "test" })!;
+      const host = (await upsertHost(deps.db, deps.hub, { name: "test" }))!;
       await expect(
         serverAccess.resolve(deps, { key: "k", hostId: host.id, signal }),
       ).rejects.toThrow("Set up the relay");
       expect(availability).toHaveBeenCalledOnce();
-      setAppSettings(deps.db, {
+      await setAppSettings(deps.db, {
         ...defaultAppSettings,
         defaultMachineAccess: "direct",
       });
@@ -131,7 +135,7 @@ describe("machine server access", () => {
   it("returns direct access without headers, including on repair", async () => {
     await withTestHarness(async ({ deps }) => {
       vi.stubEnv("HYPERFIDE_EXTERNAL_URL", "https://direct.example.com");
-      const host = upsertHost(deps.db, deps.hub, { name: "direct" })!;
+      const host = (await upsertHost(deps.db, deps.hub, { name: "direct" }))!;
       const args = { key: "direct", hostId: host.id, signal };
       const expected = {
         id: host.id,
@@ -139,25 +143,27 @@ describe("machine server access", () => {
       };
       await expect(serverAccess.resolve(deps, args)).resolves.toEqual(expected);
       await expect(serverAccess.repair(deps, args)).resolves.toEqual(expected);
-      expect(getHost(deps.db, host.id)?.serverAccessProviderId).toBe("direct");
+      expect((await getHost(deps.db, host.id))?.serverAccessProviderId).toBe(
+        "direct",
+      );
     });
   });
 
   it("stores grant identity without its code and retains provider on retry", async () => {
     await withTestHarness(async ({ deps }) => {
       installProvider(provider());
-      const host = upsertHost(deps.db, deps.hub, { name: "test" })!;
+      const host = (await upsertHost(deps.db, deps.hub, { name: "test" }))!;
       const grant = await serverAccess.resolve(deps, {
         key: "k",
         hostId: host.id,
         signal,
       });
       expect(grant.headers).toEqual({ "x-access-token": "secret-header" });
-      const row = getHost(deps.db, host.id)!;
+      const row = (await getHost(deps.db, host.id))!;
       expect(row.serverAccessProviderId).toBe("relay");
       expect(row.serverAccessGrantId).toBe(host.id);
       expect(JSON.stringify(row)).not.toContain("secret-header");
-      setAppSettings(deps.db, {
+      await setAppSettings(deps.db, {
         ...defaultAppSettings,
         defaultMachineAccess: "direct",
         machineServerUrl: "https://other.example.com",
@@ -166,7 +172,7 @@ describe("machine server access", () => {
         await serverAccess.resolve(deps, { key: "k", hostId: host.id, signal }),
       ).toEqual(grant);
       await serverAccess.release(deps, { key: "k", hostId: host.id });
-      expect(getHost(deps.db, host.id)?.serverAccessGrantId).toBeNull();
+      expect((await getHost(deps.db, host.id))?.serverAccessGrantId).toBeNull();
     });
   });
 
@@ -175,10 +181,10 @@ describe("machine server access", () => {
       const release = vi.fn(provider().release);
       const acquire = vi.fn(provider().acquire);
       installProvider({ ...provider(), release, acquire });
-      const host = upsertHost(deps.db, deps.hub, { name: "test" })!;
+      const host = (await upsertHost(deps.db, deps.hub, { name: "test" }))!;
       const args = { key: "k", hostId: host.id, signal };
       await serverAccess.resolve(deps, args);
-      setAppSettings(deps.db, {
+      await setAppSettings(deps.db, {
         ...defaultAppSettings,
         defaultMachineAccess: "direct",
       });
@@ -197,7 +203,7 @@ describe("machine server access", () => {
       await expect(serverAccess.repair(deps, args)).resolves.toMatchObject({
         id: "replacement",
       });
-      expect(getHost(deps.db, host.id)).toMatchObject({
+      expect(await getHost(deps.db, host.id)).toMatchObject({
         serverAccessProviderId: "relay",
         serverAccessGrantId: "replacement",
       });
@@ -208,14 +214,14 @@ describe("machine server access", () => {
     await withTestHarness(async ({ deps }) => {
       const acquire = vi.fn(provider().acquire);
       installProvider({ ...provider(), acquire });
-      const host = upsertHost(deps.db, deps.hub, { name: "test" })!;
+      const host = (await upsertHost(deps.db, deps.hub, { name: "test" }))!;
       const args = { key: "k", hostId: host.id, signal };
       await serverAccess.resolve(deps, args);
       acquire.mockRejectedValueOnce(new Error("unavailable"));
       await expect(serverAccess.repair(deps, args)).rejects.toThrow(
         "unavailable",
       );
-      expect(getHost(deps.db, host.id)).toMatchObject({
+      expect(await getHost(deps.db, host.id)).toMatchObject({
         serverAccessProviderId: "relay",
         serverAccessGrantId: null,
       });
@@ -230,7 +236,7 @@ describe("machine server access", () => {
       const acquire = vi.fn(provider().acquire);
       const release = vi.fn().mockRejectedValue(new Error("release failed"));
       installProvider({ ...provider(), acquire, release });
-      const host = upsertHost(deps.db, deps.hub, { name: "test" })!;
+      const host = (await upsertHost(deps.db, deps.hub, { name: "test" }))!;
       const args = { key: "k", hostId: host.id, signal };
       await serverAccess.resolve(deps, args);
       await expect(serverAccess.repair(deps, args)).rejects.toThrow(
@@ -241,7 +247,7 @@ describe("machine server access", () => {
       await expect(serverAccess.repair(deps, args)).rejects.toThrow(
         "provider is unavailable",
       );
-      expect(getHost(deps.db, host.id)).toMatchObject({
+      expect(await getHost(deps.db, host.id)).toMatchObject({
         serverAccessProviderId: "relay",
         serverAccessGrantId: host.id,
       });
@@ -252,12 +258,14 @@ describe("machine server access", () => {
     await withTestHarness(async ({ deps }) => {
       const release = vi.fn().mockRejectedValueOnce(new Error("retry"));
       installProvider({ ...provider(), release });
-      const host = upsertHost(deps.db, deps.hub, { name: "test" })!;
+      const host = (await upsertHost(deps.db, deps.hub, { name: "test" }))!;
       await serverAccess.resolve(deps, { key: "k", hostId: host.id, signal });
       await expect(
         serverAccess.release(deps, { key: "k", hostId: host.id }),
       ).rejects.toThrow("retry");
-      expect(getHost(deps.db, host.id)?.serverAccessGrantId).toBe(host.id);
+      expect((await getHost(deps.db, host.id))?.serverAccessGrantId).toBe(
+        host.id,
+      );
       installProvider({
         ...provider(),
         acquire: async () => ({
@@ -274,7 +282,7 @@ describe("machine server access", () => {
   it("uses the explicit machine URL before the environment fallback", async () => {
     vi.stubEnv("HYPERFIDE_EXTERNAL_URL", "https://fallback.example.com");
     await withTestHarness(async ({ deps }) => {
-      setAppSettings(deps.db, {
+      await setAppSettings(deps.db, {
         ...defaultAppSettings,
         machineServerUrl: "https://configured.example.com",
       });
@@ -282,7 +290,7 @@ describe("machine server access", () => {
         effectiveUrl: "https://configured.example.com",
         urlSource: "setting",
       });
-      setAppSettings(deps.db, defaultAppSettings);
+      await setAppSettings(deps.db, defaultAppSettings);
       expect(await serverAccessStatus(deps)).toMatchObject({
         effectiveUrl: "https://fallback.example.com",
         urlSource: "HYPERFIDE_EXTERNAL_URL",
@@ -303,39 +311,47 @@ it("keeps interrupted access visible and releases the acquisition without a retu
       acquire: async () => ({ status: "failed", message }),
       release,
     });
-    const host = upsertHost(deps.db, deps.hub, { name: "interrupted" })!;
-    updateHost(deps.db, deps.hub, host.id, {
+    const host = (await upsertHost(deps.db, deps.hub, {
+      name: "interrupted",
+    }))!;
+    await updateHost(deps.db, deps.hub, host.id, {
       machineProviderId: "test-machine",
       launchKey: "k",
       phase: "creating",
     });
     expect(
-      listPublicHostsWithStatus(deps).some((entry) => entry.id === host.id),
+      (await listPublicHostsWithStatus(deps)).some(
+        (entry) => entry.id === host.id,
+      ),
     ).toBe(false);
     await expect(
       serverAccess.resolve(deps, { key: "k", hostId: host.id, signal }),
     ).rejects.toThrow(message);
-    expect(getHost(deps.db, host.id)).toMatchObject({
+    expect(await getHost(deps.db, host.id)).toMatchObject({
       serverAccessProviderId: "relay",
       serverAccessGrantId: null,
       statusMessage: message,
     });
     expect(
-      listPublicHostsWithStatus(deps, { includeCreating: true }).find(
+      (await listPublicHostsWithStatus(deps, { includeCreating: true })).find(
         (entry) => entry.id === host.id,
       )?.lifecycle.message,
     ).toBe(message);
     await expect(
       serverAccess.release(deps, { key: "k", hostId: host.id }),
     ).rejects.toThrow(message);
-    expect(getHost(deps.db, host.id)?.serverAccessProviderId).toBe("relay");
+    expect((await getHost(deps.db, host.id))?.serverAccessProviderId).toBe(
+      "relay",
+    );
     await serverAccess.release(deps, { key: "k", hostId: host.id });
     expect(release).toHaveBeenLastCalledWith({
       key: "k",
       hostId: host.id,
       grantId: null,
     });
-    expect(getHost(deps.db, host.id)?.serverAccessProviderId).toBeNull();
+    expect(
+      (await getHost(deps.db, host.id))?.serverAccessProviderId,
+    ).toBeNull();
   });
 });
 
@@ -353,7 +369,7 @@ it("refreshes access status through the real recheck notification and configurat
       availability: () => availability,
       acquire,
     });
-    setAppSettings(h.db, {
+    await setAppSettings(h.db, {
       ...defaultAppSettings,
       defaultMachineAccess: "relay",
     });
@@ -436,7 +452,7 @@ it.each([
       await h.pluginService.install("builtin:keep-awake", { kind: "root" });
       const real = h.pluginService.getApi("keep-awake");
       if (!real) throw new Error("Test plugin did not load");
-      const fake = createFakePluginHost();
+      const fake = await createFakePluginHost();
       try {
         for (const api of [real, fake.hyperfide])
           expect(() =>
@@ -457,7 +473,7 @@ it("rejects duplicate server-access registrations in real and fake hosts", async
     await h.pluginService.install("builtin:keep-awake", { kind: "root" });
     const real = h.pluginService.getApi("keep-awake");
     if (!real) throw new Error("Test plugin did not load");
-    const fake = createFakePluginHost();
+    const fake = await createFakePluginHost();
     try {
       for (const api of [real, fake.hyperfide]) {
         api.experimental_serverAccess.register(provider());

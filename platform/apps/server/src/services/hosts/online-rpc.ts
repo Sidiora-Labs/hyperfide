@@ -34,6 +34,7 @@ const HOST_DAEMON_REGISTRATION_WAIT_MS = 1_000;
 const HOST_DAEMON_RECONNECT_WAIT_MS = 5_000;
 
 interface CallHostOnlineRpcArgs<TCommand extends HostDaemonRpcCommand> {
+  onRequestSent?: () => void;
   command: TCommand;
   hostId: string;
   signal?: AbortSignal;
@@ -58,8 +59,8 @@ export async function callHostOnlineRpc(
   args: CallHostOnlineRpcArgs<HostDaemonRpcCommand>,
 ): Promise<HostDaemonRpcResultForCommand> {
   await waitForReconnectingDaemon(deps, args.hostId);
-  assertHostActiveForRead(deps, args);
-  return callHostOnlineRpcWithRetry(deps, args, {
+  await assertHostActiveForRead(deps, args);
+  return await callHostOnlineRpcWithRetry(deps, args, {
     retryOnTransportFailure: false,
     waitForTransportFailure: false,
   });
@@ -75,7 +76,7 @@ export async function callHostOnlineRpcForWork(
 ): Promise<HostDaemonRpcResultForCommand> {
   await waitForReconnectingDaemon(deps, args.hostId);
   await prepareHostForWork(deps, args, false);
-  return callHostOnlineRpcWithRetry(deps, args, {
+  return await callHostOnlineRpcWithRetry(deps, args, {
     retryOnTransportFailure: false,
     waitForTransportFailure: false,
   });
@@ -92,8 +93,8 @@ export async function callHostRetryableOnlineRpc(
   args: CallHostRetryableOnlineRpcArgs<HostDaemonRetryableOnlineRpcCommand>,
 ): Promise<HostDaemonOnlineRpcResultForCommand> {
   await waitForReconnectingDaemon(deps, args.hostId);
-  assertHostActiveForRead(deps, args);
-  return callHostOnlineRpcWithRetry(deps, args, {
+  await assertHostActiveForRead(deps, args);
+  return await callHostOnlineRpcWithRetry(deps, args, {
     retryOnTransportFailure: true,
     waitForTransportFailure: false,
   });
@@ -111,18 +112,18 @@ export async function callHostRetryableOnlineRpcForWork(
 ): Promise<HostDaemonOnlineRpcResultForCommand> {
   await waitForReconnectingDaemon(deps, args.hostId);
   await prepareHostForWork(deps, args, true);
-  return callHostOnlineRpcWithRetry(deps, args, {
+  return await callHostOnlineRpcWithRetry(deps, args, {
     retryOnTransportFailure: true,
     waitForTransportFailure: true,
   });
 }
 
-function isCleanupRpc(
+async function isCleanupRpc(
   deps: WorkSessionDeps,
   args: CallHostOnlineRpcArgs<HostDaemonRpcCommand>,
-): boolean {
+): Promise<boolean> {
   return (
-    getHost(deps.db, args.hostId)?.phase === "removing" &&
+    (await getHost(deps.db, args.hostId))?.phase === "removing" &&
     isHostCleanupAllowed(deps, args.hostId) &&
     (args.command.type === "plugin.host.call" ||
       (args.command.type === "environment.hook.run" &&
@@ -130,12 +131,12 @@ function isCleanupRpc(
   );
 }
 
-function assertHostActiveForRead(
+async function assertHostActiveForRead(
   deps: WorkSessionDeps,
   args: CallHostOnlineRpcArgs<HostDaemonRpcCommand>,
-): void {
+): Promise<void> {
   if (
-    isCleanupRpc(deps, args) ||
+    (await isCleanupRpc(deps, args)) ||
     args.command.type === "thread.stop" ||
     args.command.type === "thread.storage.delete" ||
     args.command.type === "environment.hook.cancel" ||
@@ -145,7 +146,7 @@ function assertHostActiveForRead(
   ) {
     return;
   }
-  const host = getHost(deps.db, args.hostId);
+  const host = await getHost(deps.db, args.hostId);
   if (host !== null && host.phase !== "active") {
     const details = inactiveHostUnavailableDetails("disconnected", host);
     throw new ApiError(
@@ -164,12 +165,12 @@ async function prepareHostForWork(
   args: CallHostOnlineRpcArgs<HostDaemonRpcCommand>,
   retryOnTransportFailure: boolean,
 ): Promise<void> {
-  if (isCleanupRpc(deps, args)) return;
+  if (await isCleanupRpc(deps, args)) return;
   if (!hostCommandMayWake(args.command)) {
-    assertHostActiveForRead(deps, args);
+    await assertHostActiveForRead(deps, args);
     return;
   }
-  const host = getHost(deps.db, args.hostId);
+  const host = await getHost(deps.db, args.hostId);
   if (host?.phase === "suspended" || host?.phase === "resuming") {
     deps.logger.info(
       {
@@ -190,13 +191,13 @@ async function prepareHostForWork(
       await waitForRetryableHostRpcTransport(deps, args);
     },
   );
-  assertMachineLifecycleAdmission(deps, args.hostId);
+  await assertMachineLifecycleAdmission(deps, args.hostId);
   if (
     (args.command.type === "thread.start" ||
       args.command.type === "turn.submit") &&
-    getHost(deps.db, args.hostId)?.machineOperationId !== null &&
+    (await getHost(deps.db, args.hostId))?.machineOperationId !== null &&
     !["active", "starting"].includes(
-      getThread(deps.db, args.command.threadId)?.status ?? "",
+      (await getThread(deps.db, args.command.threadId))?.status ?? "",
     )
   ) {
     throw new ApiError(
@@ -293,12 +294,12 @@ async function waitForReconnectingDaemon(
 ): Promise<void> {
   if (
     deps.hub.hasDaemonForHost(hostId) ||
-    getHost(deps.db, hostId)?.phase !== "active"
+    (await getHost(deps.db, hostId))?.phase !== "active"
   ) {
     return;
   }
   const now = Date.now();
-  const latestSession = getLatestSessionForHost(deps.db, { hostId });
+  const latestSession = await getLatestSessionForHost(deps.db, { hostId });
   const reconnecting =
     latestSession !== null &&
     ((latestSession.status === "active" &&
@@ -330,13 +331,15 @@ export function isHostUnavailableApiError(error: unknown): boolean {
   );
 }
 
-function requestHostOnlineRpcResponse(
+async function requestHostOnlineRpcResponse(
   deps: Pick<WorkSessionDeps, "hub" | "db">,
   args: CallHostOnlineRpcArgs<HostDaemonRpcCommand>,
 ): Promise<HostDaemonOnlineRpcResponseMessage> {
   if (args.command.type === "environment.inspect_cleanup") {
     const sessionId = deps.hub.getDaemonSessionIdForHost(args.hostId);
-    const session = sessionId ? getSessionById(deps.db, { sessionId }) : null;
+    const session = sessionId
+      ? await getSessionById(deps.db, { sessionId })
+      : null;
     if (
       session &&
       !hostDaemonSupportsEnvironmentCleanupInspection(session.protocolVersion)
@@ -349,8 +352,8 @@ function requestHostOnlineRpcResponse(
         ),
       );
   }
-  return traceTurnRpc(args.command.type, () =>
-    deps.hub.requestHostOnlineRpc({
+  return await traceTurnRpc(args.command.type, () => {
+    const response = deps.hub.requestHostOnlineRpc({
       hostId: args.hostId,
       message: {
         type: "host-rpc.request",
@@ -359,8 +362,10 @@ function requestHostOnlineRpcResponse(
       },
       ...(args.signal ? { signal: args.signal } : {}),
       timeoutMs: args.timeoutMs,
-    }),
-  );
+    });
+    args.onRequestSent?.();
+    return response;
+  });
 }
 
 export function hostCommandTimeoutError(): ApiError {

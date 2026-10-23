@@ -6,12 +6,14 @@ import {
 export default defineWorkspaceTestConfig({
   test: {
     silent: "passed-only",
-    testTimeout: 15_000,
+    testTimeout: 30_000,
+    expect: { poll: { timeout: 10_000, interval: 25 } },
     globalSetup: [
       "test/setup/migrated-db-template.ts",
       "test/setup/native-module-cache.ts",
     ],
     setupFiles: [
+      "test/setup/connection-cleanup.ts",
       "test/setup/stored-event-decode-freeze.ts",
       "test/setup/warm-test-harness.ts",
     ],

@@ -10,9 +10,9 @@ import { createMockHubSocket } from "../helpers/mock-hub-socket.js";
 describe("general settings", () => {
   it("persists idle timeout changes, pushes them to daemons and preserves them for older clients", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       const socket = createMockHubSocket();
-      harness.hub.registerDaemon(session.id, host.id, socket);
+      await harness.hub.registerDaemon(session.id, host.id, socket);
       const put = (settings: unknown) =>
         harness.app.request("/api/v1/settings/general", {
           method: "PUT",
@@ -26,7 +26,7 @@ describe("general settings", () => {
         });
         expect(response.status).toBe(200);
         expect(
-          getAppSettings(harness.db).idleProviderSessionTimeoutMinutes,
+          (await getAppSettings(harness.db)).idleProviderSessionTimeoutMinutes,
         ).toBe(minutes);
         expect(
           socket.messages.map((message) => JSON.parse(message)),
@@ -46,12 +46,12 @@ describe("general settings", () => {
         legacySettings;
       expect(idleProviderSessionTimeoutMinutes).toBe(30);
       expect((await put(legacyPayload)).status).toBe(200);
-      expect(getAppSettings(harness.db).idleProviderSessionTimeoutMinutes).toBe(
-        0,
-      );
+      expect(
+        (await getAppSettings(harness.db)).idleProviderSessionTimeoutMinutes,
+      ).toBe(0);
 
       const reconnected = createMockHubSocket();
-      harness.hub.registerDaemon(session.id, host.id, reconnected);
+      await harness.hub.registerDaemon(session.id, host.id, reconnected);
       expect(
         reconnected.messages.map((message) => JSON.parse(message)),
       ).toContainEqual({
@@ -69,15 +69,15 @@ describe("general settings", () => {
           ).status,
         ).toBe(400);
       }
-      expect(getAppSettings(harness.db).idleProviderSessionTimeoutMinutes).toBe(
-        0,
-      );
+      expect(
+        (await getAppSettings(harness.db)).idleProviderSessionTimeoutMinutes,
+      ).toBe(0);
     });
   });
 
   it("reports only the server's local host in /system/config", async () => {
     await withTestHarness(async (harness) => {
-      seedHostSession(harness.deps, { name: "remote" });
+      await seedHostSession(harness.deps, { name: "remote" });
       const before = await harness.app.request("/api/v1/system/config");
       const uninitialized = systemConfigResponseSchema.parse(
         await readJson(before),
@@ -85,7 +85,9 @@ describe("general settings", () => {
       expect(uninitialized.primaryHostId).toBeNull();
       expect(uninitialized.primaryHostPlatform).toBeNull();
 
-      const { host: local } = seedHostSession(harness.deps, { name: "local" });
+      const { host: local } = await seedHostSession(harness.deps, {
+        name: "local",
+      });
       seedPrimaryHost(harness.deps, local.id);
       const after = await harness.app.request("/api/v1/system/config");
       const initialized = systemConfigResponseSchema.parse(
@@ -141,7 +143,7 @@ describe("general settings", () => {
         defaultProviderId: "pi",
         showUnhandledProviderEvents: false,
       });
-      expect(getAppSettings(harness.db)).toEqual({
+      expect(await getAppSettings(harness.db)).toEqual({
         ...defaultAppSettings,
         showKeyboardHints: false,
         allowFastServiceTier: false,
@@ -225,7 +227,7 @@ it("accepts old SDK payloads and round-trips edits through either setting name",
       showDiagnosticEvents: true,
     });
     expect(newEnabled.showUnhandledProviderEvents).toBe(true);
-    expect(getAppSettings(harness.db).showDiagnosticEvents).toBe(true);
+    expect((await getAppSettings(harness.db)).showDiagnosticEvents).toBe(true);
   });
 });
 
@@ -250,7 +252,7 @@ it("persists terminal copy-on-select and preserves opt-out for older clients", a
       await readJson(await harness.app.request("/api/v1/system/config")),
     );
     expect(config.generalSettings.terminalCopyOnSelect).toBe(false);
-    expect(getAppSettings(harness.db).terminalCopyOnSelect).toBe(false);
+    expect((await getAppSettings(harness.db)).terminalCopyOnSelect).toBe(false);
     expect(
       (await put({ ...defaultAppSettings, terminalCopyOnSelect: "false" }))
         .status,
@@ -272,11 +274,11 @@ it.each([
           headers: { "content-type": "application/json" },
           body: JSON.stringify(settings),
         });
-      expect(getAppSettings(harness.db)[key]).toBe(true);
+      expect((await getAppSettings(harness.db))[key]).toBe(true);
       expect((await put({ ...defaultAppSettings, [key]: false })).status).toBe(
         200,
       );
-      expect(getAppSettings(harness.db)[key]).toBe(false);
+      expect((await getAppSettings(harness.db))[key]).toBe(false);
       const { [key]: omitted, ...legacy } = defaultAppSettings;
       expect(omitted).toBe(true);
       expect((await put({ ...legacy, showKeyboardHints: false })).status).toBe(
@@ -290,7 +292,7 @@ it.each([
       expect((await put({ ...defaultAppSettings, [key]: true })).status).toBe(
         200,
       );
-      expect(getAppSettings(harness.db)[key]).toBe(true);
+      expect((await getAppSettings(harness.db))[key]).toBe(true);
     });
   },
 );

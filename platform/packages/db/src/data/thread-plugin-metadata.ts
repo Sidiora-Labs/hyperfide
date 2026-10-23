@@ -34,12 +34,12 @@ function namespaceWhere(threadId: string, pluginId: string) {
   );
 }
 
-export function getThreadPluginMetadata(
+export async function getThreadPluginMetadata(
   db: DbQueryConnection,
   threadId: string,
   pluginId: string,
-): ThreadPluginMetadataRead {
-  const row = db
+): Promise<ThreadPluginMetadataRead> {
+  const row = await db
     .select({ metadataJson: threadPluginMetadata.metadataJson })
     .from(threadPluginMetadata)
     .where(namespaceWhere(threadId, pluginId))
@@ -51,13 +51,13 @@ export function getThreadPluginMetadata(
     : { metadata, corrupt: false };
 }
 
-export function listThreadPluginMetadataRows(
+export async function listThreadPluginMetadataRows(
   db: DbQueryConnection,
   threadId: string,
   pluginIds: readonly string[],
-): Array<{ pluginId: string; metadataJson: string }> {
+): Promise<Array<{ pluginId: string; metadataJson: string }>> {
   if (pluginIds.length === 0) return [];
-  return db
+  return await db
     .select({
       pluginId: threadPluginMetadata.pluginId,
       metadataJson: threadPluginMetadata.metadataJson,
@@ -72,16 +72,16 @@ export function listThreadPluginMetadataRows(
     .all();
 }
 
-export function listPluginThreadMetadata(
+export async function listPluginThreadMetadata(
   db: DbQueryConnection,
   pluginId: string,
   threadIds: readonly string[],
-): {
+): Promise<{
   threads: Array<{ threadId: string; metadata: JsonObject }>;
   corruptThreadIds: string[];
-} {
+}> {
   if (threadIds.length === 0) return { threads: [], corruptThreadIds: [] };
-  const rows = db
+  const rows = await db
     .select({
       threadId: threadPluginMetadata.threadId,
       metadataJson: threadPluginMetadata.metadataJson,
@@ -107,11 +107,12 @@ export function listPluginThreadMetadata(
   return { threads: result, corruptThreadIds };
 }
 
-export function insertThreadPluginMetadata(
+export async function insertThreadPluginMetadata(
   db: DbConnection | DbTransaction,
   input: { threadId: string; pluginId: string; metadata: JsonObject },
-): void {
-  db.insert(threadPluginMetadata)
+): Promise<void> {
+  await db
+    .insert(threadPluginMetadata)
     .values({
       threadId: input.threadId,
       pluginId: input.pluginId,
@@ -120,13 +121,13 @@ export function insertThreadPluginMetadata(
     .run();
 }
 
-export function patchThreadPluginMetadata(
+export async function patchThreadPluginMetadata(
   db: DbConnection,
   input: ThreadPluginMetadataPatch,
-): ThreadPluginMetadataPatchResult {
-  return db.transaction(
-    (tx) => {
-      const existing = getThreadPluginMetadata(
+): Promise<ThreadPluginMetadataPatchResult> {
+  return await db.transaction(
+    async (tx) => {
+      const existing = await getThreadPluginMetadata(
         tx,
         input.threadId,
         input.pluginId,
@@ -134,7 +135,8 @@ export function patchThreadPluginMetadata(
       const metadata: JsonObject = { ...existing.metadata, ...input.set };
       for (const key of input.remove) delete metadata[key];
       if (Object.keys(metadata).length === 0) {
-        tx.delete(threadPluginMetadata)
+        await tx
+          .delete(threadPluginMetadata)
           .where(namespaceWhere(input.threadId, input.pluginId))
           .run();
         return { ok: true, metadata, replacedCorrupt: existing.corrupt };
@@ -143,7 +145,8 @@ export function patchThreadPluginMetadata(
       if (exceedsPluginMetadataLimit(metadataJson)) {
         return { ok: false, reason: "too_large" };
       }
-      tx.insert(threadPluginMetadata)
+      await tx
+        .insert(threadPluginMetadata)
         .values({
           threadId: input.threadId,
           pluginId: input.pluginId,

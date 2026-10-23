@@ -20,7 +20,9 @@ interface ConversationOutlineProjection {
 
 export interface ConversationOutlineSelection {
   events: ThreadEventWithMeta[];
-  project: () => ConversationOutlineProjection["items"];
+  project: () =>
+    | ConversationOutlineProjection["items"]
+    | Promise<ConversationOutlineProjection["items"]>;
 }
 
 export interface ConversationOutlineProjectionState {
@@ -222,7 +224,7 @@ function nextCheckpoint(
   return checkpoint;
 }
 
-export function projectConversationOutlineIncrementally(args: {
+export async function projectConversationOutlineIncrementally(args: {
   db: DbConnection;
   threadId: string;
   key: string;
@@ -232,19 +234,21 @@ export function projectConversationOutlineIncrementally(args: {
   resolveProjectionState: (
     sequenceStart: number,
     previous: ConversationOutlineProjectionState | null,
-  ) => ConversationOutlineProjectionState;
+  ) =>
+    | ConversationOutlineProjectionState
+    | Promise<ConversationOutlineProjectionState>;
   select: (
     sequenceStart: number,
     precedingAgentMessageDeltaCount: number,
     projectionState: ConversationOutlineProjectionState,
-  ) => ConversationOutlineSelection;
-}): ThreadConversationOutlineItem[] {
+  ) => ConversationOutlineSelection | Promise<ConversationOutlineSelection>;
+}): Promise<ThreadConversationOutlineItem[]> {
   let cache = caches.get(args.db);
   if (cache === undefined) {
     cache = { entries: new Map(), chars: 0 };
     caches.set(args.db, cache);
   }
-  const dataVersion = getDatabaseDataVersion(args.db);
+  const dataVersion = await getDatabaseDataVersion(args.db);
   const generation = getThreadEventRewriteGeneration(args.threadId);
   const entry = cache.entries.get(args.threadId);
   if (entry !== undefined) {
@@ -269,7 +273,7 @@ export function projectConversationOutlineIncrementally(args: {
       entry.checkpoint.sequenceStart <= args.orderingBoundarySequence) &&
     entry.maxSeq <= args.maxSeq;
   const previousState = canReuseEntry ? entry.projectionState : null;
-  const projectionState = args.resolveProjectionState(
+  const projectionState = await args.resolveProjectionState(
     canReuseEntry ? entry.maxSeq + 1 : args.historySequenceStart,
     previousState,
   );
@@ -281,7 +285,7 @@ export function projectConversationOutlineIncrementally(args: {
       projectionState.summaryCompactionEnabled
       ? entry.checkpoint
       : empty;
-  let selection = args.select(
+  let selection = await args.select(
     checkpoint.sequenceStart,
     checkpoint.agentMessageDeltaCount,
     projectionState,
@@ -301,12 +305,15 @@ export function projectConversationOutlineIncrementally(args: {
     (crossedCompactionThreshold || !canReuse(checkpoint, selection.events))
   ) {
     checkpoint = empty;
-    selection = args.select(checkpoint.sequenceStart, 0, projectionState);
+    selection = await args.select(checkpoint.sequenceStart, 0, projectionState);
     agentMessageDeltaCount = selection.events.filter(
       ({ event }) => event.type === "item/agentMessage/delta",
     ).length;
   }
-  const projection = { events: selection.events, items: selection.project() };
+  const projection = {
+    events: selection.events,
+    items: await selection.project(),
+  };
   const items = [
     ...checkpoint.items,
     ...projection.items.map(({ item }) => item),

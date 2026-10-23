@@ -62,11 +62,13 @@ export function isActivePruneTriggerThreadEventType(
   return activePruneTriggerThreadEventTypeSet.has(eventType);
 }
 
-export function pruneThreadEventHistory(
+export async function pruneThreadEventHistory(
   deps: Pick<AppDeps, "db">,
   args: PruneThreadEventHistoryArgs,
-): ThreadEventPruningResult {
-  const result = advanceThreadPruning(deps.db, { threadId: args.threadId });
+): Promise<ThreadEventPruningResult> {
+  const result = await advanceThreadPruning(deps.db, {
+    threadId: args.threadId,
+  });
   return {
     latestSequence: result.cursor.upperSequence,
     policy: result.policy,
@@ -75,14 +77,14 @@ export function pruneThreadEventHistory(
   };
 }
 
-export function pruneThreadEventHistoryBestEffort(
+export async function pruneThreadEventHistoryBestEffort(
   deps: Pick<AppDeps, "db" | "logger" | "hub">,
   args: PruneThreadEventHistoryArgs,
-): ThreadEventPruningResult | null {
+): Promise<ThreadEventPruningResult | null> {
   const startedAt = performance.now();
   const generation = getThreadEventRewriteGeneration(args.threadId);
   try {
-    const result = pruneThreadEventHistory(deps, args);
+    const result = await pruneThreadEventHistory(deps, args);
 
     const durationMs = performance.now() - startedAt;
     if (durationMs >= SLOW_THREAD_EVENT_PRUNE_LOG_THRESHOLD_MS) {
@@ -111,16 +113,16 @@ export function pruneThreadEventHistoryBestEffort(
     return null;
   } finally {
     if (getThreadEventRewriteGeneration(args.threadId) !== generation) {
-      deps.hub.notifyThread(args.threadId, ["history-compacted"]);
+      await deps.hub.notifyThread(args.threadId, ["history-compacted"]);
     }
   }
 }
 
-export function maybePruneActiveThreadEventHistory(
+export async function maybePruneActiveThreadEventHistory(
   deps: Pick<AppDeps, "db" | "logger" | "hub">,
   args: MaybePruneActiveThreadEventHistoryArgs,
-): ThreadEventPruningResult | null {
-  const thread = getThread(deps.db, args.threadId);
+): Promise<ThreadEventPruningResult | null> {
+  const thread = await getThread(deps.db, args.threadId);
   if (
     !thread ||
     (thread.status !== "active" && thread.status !== "idle") ||
@@ -149,7 +151,7 @@ export function maybePruneActiveThreadEventHistory(
     lastPrunedSequence: args.latestPrunableSequence,
   });
 
-  return pruneThreadEventHistoryBestEffort(deps, {
+  return await pruneThreadEventHistoryBestEffort(deps, {
     mode: thread.status === "active" ? "active" : "idle",
     threadId: args.threadId,
   });

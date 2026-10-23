@@ -65,7 +65,9 @@ export type ServerChangedMessage =
     > & { id: string })
   | Extract<ChangedMessage, { entity: "system" | "tags" | "plugin" }>;
 
-type ChangedMessageListener = (message: ServerChangedMessage) => void;
+type ChangedMessageListener = (
+  message: ServerChangedMessage,
+) => void | Promise<void>;
 
 interface PendingThreadListEventsAppended {
   timelineSequence: number | undefined;
@@ -169,12 +171,12 @@ function scheduleTimer(
   timers: SessionTimers,
   sessionId: string,
   delayMs: number,
-  callback: () => void,
+  callback: () => void | Promise<void>,
 ): void {
   cancelTimer(timers, sessionId);
-  const timeout = setTimeout(() => {
+  const timeout = setTimeout(async () => {
     timers.delete(sessionId);
-    callback();
+    await callback();
   }, delayMs);
   timers.set(sessionId, timeout);
 }
@@ -307,8 +309,15 @@ export class NotificationHub implements DbNotifier {
 
   private readonly pendingTags = new Set<string>();
 
-  notifyPluginChanged(pluginId: string, tags: readonly string[] | null): void {
-    this.notifyClients({
+  notifyPluginChanged(
+    pluginId: string,
+    tags: readonly string[] | null,
+  ): void | Promise<void>;
+  async notifyPluginChanged(
+    pluginId: string,
+    tags: readonly string[] | null,
+  ): Promise<void> {
+    await this.notifyClients({
       type: "changed",
       entity: "plugin",
       pluginId,
@@ -321,14 +330,14 @@ export class NotificationHub implements DbNotifier {
     const scheduled = this.pendingTags.size > 0;
     for (const tag of tags) this.pendingTags.add(tag);
     if (scheduled) return;
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       const message: ServerChangedMessage = {
         type: "changed",
         entity: "tags",
         tags: [...this.pendingTags],
       };
       this.pendingTags.clear();
-      this.notifyClients(message);
+      await this.notifyClients(message);
     });
   }
 
@@ -397,7 +406,9 @@ export class NotificationHub implements DbNotifier {
 
   onWatchedTargets<Kind extends WatchedTargetKind>(
     kinds: readonly Kind[],
-    listener: (change: WatchedTargetChange<WatchedTarget<Kind>>) => void,
+    listener: (
+      change: WatchedTargetChange<WatchedTarget<Kind>>,
+    ) => void | Promise<void>,
   ): () => void {
     return this.watchedTargets.listen(kinds, listener);
   }
@@ -670,7 +681,16 @@ export class NotificationHub implements DbNotifier {
     this.daemonSessionLocalApiPortsBySessionId.set(sessionId, localApiPort);
   }
 
-  registerDaemon(sessionId: string, hostId: string, socket: HubSocket): void {
+  registerDaemon(
+    sessionId: string,
+    hostId: string,
+    socket: HubSocket,
+  ): void | Promise<void>;
+  async registerDaemon(
+    sessionId: string,
+    hostId: string,
+    socket: HubSocket,
+  ): Promise<void> {
     this.cancelPendingDaemonDisconnect(sessionId);
     const existingSessionId = this.daemonSessionIdsByHost.get(hostId);
     if (existingSessionId && existingSessionId !== sessionId) {
@@ -689,7 +709,7 @@ export class NotificationHub implements DbNotifier {
     });
     this.daemonSessionIdsByHost.set(hostId, sessionId);
     this.resolveDaemonRegistrationWaiters(hostId);
-    this.notifyHost(hostId, ["host-connected"]);
+    await this.notifyHost(hostId, ["host-connected"]);
   }
 
   unregisterDaemon(sessionId: string): void {
@@ -859,7 +879,7 @@ export class NotificationHub implements DbNotifier {
   scheduleDaemonDisconnect(
     sessionId: string,
     delayMs: number,
-    callback: () => void,
+    callback: () => void | Promise<void>,
   ): void {
     scheduleTimer(this.pendingDaemonDisconnects, sessionId, delayMs, callback);
   }
@@ -968,7 +988,12 @@ export class NotificationHub implements DbNotifier {
     threadId: string,
     changes: ThreadChangeKind[],
     metadata?: ThreadChangeMetadata,
-  ): void {
+  ): void | Promise<void>;
+  async notifyThread(
+    threadId: string,
+    changes: ThreadChangeKind[],
+    metadata?: ThreadChangeMetadata,
+  ): Promise<void> {
     if (changes.includes("events-appended")) emitPluginThreadEvents(threadId);
     const message: ThreadChangedMessage = {
       type: "changed",
@@ -978,11 +1003,11 @@ export class NotificationHub implements DbNotifier {
       changes,
     };
     if (isThreadDetailOnlyChange(message)) {
-      this.notifyThreadDetailSubscribers(threadId, message);
+      await this.notifyThreadDetailSubscribers(threadId, message);
     } else if (isThreadListRelevantChange(message)) {
-      this.notifyClients(message);
+      await this.notifyClients(message);
     } else {
-      this.notifyThreadEventsAppendedCoalesced(threadId, message);
+      await this.notifyThreadEventsAppendedCoalesced(threadId, message);
     }
 
     const threadEventWaiters = this.threadEventWaiters.get(threadId);
@@ -1054,8 +1079,15 @@ export class NotificationHub implements DbNotifier {
     return delivered;
   }
 
-  notifyProject(projectId: string, changes: ProjectChangeKind[]): void {
-    this.notifyClients({
+  notifyProject(
+    projectId: string,
+    changes: ProjectChangeKind[],
+  ): void | Promise<void>;
+  async notifyProject(
+    projectId: string,
+    changes: ProjectChangeKind[],
+  ): Promise<void> {
+    await this.notifyClients({
       type: "changed",
       entity: "project",
       id: projectId,
@@ -1066,8 +1098,12 @@ export class NotificationHub implements DbNotifier {
   notifyEnvironment(
     environmentId: string,
     changes: EnvironmentChangeKind[],
-  ): void {
-    this.notifyClients({
+  ): void | Promise<void>;
+  async notifyEnvironment(
+    environmentId: string,
+    changes: EnvironmentChangeKind[],
+  ): Promise<void> {
+    await this.notifyClients({
       type: "changed",
       entity: "environment",
       id: environmentId,
@@ -1075,8 +1111,9 @@ export class NotificationHub implements DbNotifier {
     });
   }
 
-  notifyHost(hostId: string, changes: HostChangeKind[]): void {
-    this.notifyClients({
+  notifyHost(hostId: string, changes: HostChangeKind[]): void | Promise<void>;
+  async notifyHost(hostId: string, changes: HostChangeKind[]): Promise<void> {
+    await this.notifyClients({
       type: "changed",
       entity: "host",
       id: hostId,
@@ -1096,8 +1133,9 @@ export class NotificationHub implements DbNotifier {
     return true;
   }
 
-  notifySystem(changes: SystemChangeKind[]): void {
-    this.notifyClients({
+  notifySystem(changes: SystemChangeKind[]): void | Promise<void>;
+  async notifySystem(changes: SystemChangeKind[]): Promise<void> {
+    await this.notifyClients({
       type: "changed",
       entity: "system",
       changes,
@@ -1178,10 +1216,10 @@ export class NotificationHub implements DbNotifier {
     this.daemonRegistrationWaiters.delete(hostId);
   }
 
-  private notifyThreadDetailSubscribers(
+  private async notifyThreadDetailSubscribers(
     threadId: string,
     message: ThreadChangedMessage,
-  ): string | null {
+  ): Promise<string | null> {
     const payload = serializeServerMessage(message);
     if (payload === null) {
       return null;
@@ -1192,15 +1230,15 @@ export class NotificationHub implements DbNotifier {
     if (detailSockets) {
       this.notifyClientsByKeySet(detailSockets, payload);
     }
-    this.notifyChangedMessageListeners(message);
+    await this.notifyChangedMessageListeners(message);
     return payload;
   }
 
-  private notifyThreadEventsAppendedCoalesced(
+  private async notifyThreadEventsAppendedCoalesced(
     threadId: string,
     message: ThreadChangedMessage,
-  ): void {
-    const payload = this.notifyThreadDetailSubscribers(threadId, message);
+  ): Promise<void> {
+    const payload = await this.notifyThreadDetailSubscribers(threadId, message);
     if (payload === null) {
       return;
     }
@@ -1284,7 +1322,7 @@ export class NotificationHub implements DbNotifier {
     }
   }
 
-  private notifyClients(message: ServerChangedMessage): void {
+  private async notifyClients(message: ServerChangedMessage): Promise<void> {
     const sockets = new Set<HubSocket>(
       message.entity === "tags" ? this.clientKeysBySocket.keys() : [],
     );
@@ -1303,7 +1341,7 @@ export class NotificationHub implements DbNotifier {
       return;
     }
     this.notifyClientsByKeySet(sockets, payload);
-    this.notifyChangedMessageListeners(message);
+    await this.notifyChangedMessageListeners(message);
   }
 
   private notifyClientsByKeySet(
@@ -1315,9 +1353,11 @@ export class NotificationHub implements DbNotifier {
     }
   }
 
-  private notifyChangedMessageListeners(message: ServerChangedMessage): void {
+  private async notifyChangedMessageListeners(
+    message: ServerChangedMessage,
+  ): Promise<void> {
     for (const listener of this.changedMessageListeners) {
-      listener(message);
+      await listener(message);
     }
   }
 

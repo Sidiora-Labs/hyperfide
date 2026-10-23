@@ -11,8 +11,10 @@ import {
   setExperiments,
 } from "../src/index.js";
 
-function storedExperimentRows(db: ReturnType<typeof createMigratedConnection>) {
-  return db.$client
+async function storedExperimentRows(
+  db: Awaited<ReturnType<typeof createMigratedConnection>>,
+) {
+  return await db.$client
     .prepare<[], { key: string; value: number }>(
       "SELECT key, value FROM system_experiments ORDER BY key",
     )
@@ -20,67 +22,67 @@ function storedExperimentRows(db: ReturnType<typeof createMigratedConnection>) {
 }
 
 describe("experiments", () => {
-  it("stores typed experiment keys and ignores unknown stored keys", () => {
-    const db = createMigratedConnection();
+  it("stores typed experiment keys and ignores unknown stored keys", async () => {
+    const db = await createMigratedConnection();
 
     try {
-      expect(getExperiments(db)).toEqual(defaultExperiments);
+      expect(await getExperiments(db)).toEqual(defaultExperiments);
 
-      setExperiments(db, { changelogPreview: true });
-      db.$client
+      await setExperiments(db, { changelogPreview: true });
+      await db.$client
         .prepare(
-          "INSERT INTO system_experiments (key, value, updated_at) VALUES ('futureExperiment', true, 1)",
+          "INSERT INTO system_experiments (key, value, updated_at) VALUES ('futureExperiment', 1, 1)",
         )
         .run();
 
-      expect(getExperiments(db)).toEqual({
+      expect(await getExperiments(db)).toEqual({
         ...defaultExperiments,
         changelogPreview: true,
       });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("stores only the experiments a write names so the rest follow their defaults", () => {
-    const db = createMigratedConnection();
+  it("stores only the experiments a write names so the rest follow their defaults", async () => {
+    const db = await createMigratedConnection();
 
     try {
-      setExperiments(db, { serverMove: true });
-      setExperiments(db, { serverMove: false });
+      await setExperiments(db, { serverMove: true });
+      await setExperiments(db, { serverMove: false });
 
-      expect(storedExperimentRows(db)).toEqual([
+      expect(await storedExperimentRows(db)).toEqual([
         { key: "serverMove", value: 0 },
       ]);
-      expect(getExperiments(db)).toEqual({
+      expect(await getExperiments(db)).toEqual({
         ...defaultExperiments,
         serverMove: false,
       });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("follows the early adopter defaults only for experiments the user has not set", () => {
-    const db = createMigratedConnection();
+  it("follows the early adopter defaults only for experiments the user has not set", async () => {
+    const db = await createMigratedConnection();
 
     try {
-      setExperiments(db, { timelinePush: false, changelogPreview: true });
-      setAppSettings(db, { ...defaultAppSettings, earlyAdopter: true });
+      await setExperiments(db, { timelinePush: false, changelogPreview: true });
+      await setAppSettings(db, { ...defaultAppSettings, earlyAdopter: true });
 
-      expect(getExperiments(db)).toEqual({
+      expect(await getExperiments(db)).toEqual({
         ...earlyAdopterExperiments,
         timelinePush: false,
         changelogPreview: true,
       });
 
-      db.$client.prepare("DELETE FROM system_experiments").run();
-      expect(getExperiments(db)).toEqual(earlyAdopterExperiments);
+      await db.$client.prepare("DELETE FROM system_experiments").run();
+      expect(await getExperiments(db)).toEqual(earlyAdopterExperiments);
 
-      setAppSettings(db, { ...defaultAppSettings, earlyAdopter: false });
-      expect(getExperiments(db)).toEqual(defaultExperiments);
+      await setAppSettings(db, { ...defaultAppSettings, earlyAdopter: false });
+      expect(await getExperiments(db)).toEqual(defaultExperiments);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 });

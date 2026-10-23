@@ -7,8 +7,8 @@ import {
 
 describe("thread context mutation guard", () => {
   it("rejects sends while a context clear owns the thread", async () => {
-    const started = createDeferredPromise<void>();
-    const release = createDeferredPromise<void>();
+    const started = await createDeferredPromise<void>();
+    const release = await createDeferredPromise<void>();
     const clear = withThreadContextClearGuard("thread-clear", async () => {
       started.resolve();
       await release.promise;
@@ -26,9 +26,9 @@ describe("thread context mutation guard", () => {
   });
 
   it("allows overlapping sends but excludes clear until both settle", async () => {
-    const release = createDeferredPromise<void>();
-    const send = () =>
-      withThreadSendGuard("thread-send", async () => {
+    const release = await createDeferredPromise<void>();
+    const send = async () =>
+      await withThreadSendGuard("thread-send", async () => {
         await release.promise;
       });
     const sends = [send(), send()];

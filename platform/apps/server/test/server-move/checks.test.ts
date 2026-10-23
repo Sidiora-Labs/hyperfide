@@ -85,12 +85,12 @@ function request(
   return { targetHostId: NEW, serverUrl: DIRECT_URL, ...overrides };
 }
 
-function registerInspectingDaemon(
+async function registerInspectingDaemon(
   harness: TestAppHarness,
   hostId: string,
   result: ServerMoveInspectResult | FakeDaemonReply,
-): FakeDaemon {
-  return registerFakeDaemon(harness, {
+): Promise<FakeDaemon> {
+  return await registerFakeDaemon(harness, {
     events: [],
     hostId,
     handle: (message) => {
@@ -144,18 +144,22 @@ function itemIds(items: readonly { id: string; severity: string }[]) {
 }
 
 describe("server move checks", () => {
-  it("blocks missing, busy, temporary, offline, and inactive targets without inspecting them", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: OLD, name: "Laptop" });
+  it("blocks missing, busy, temporary, offline, and inactive targets without inspecting them", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
-      upsertHost(harness.db, harness.hub, {
+      await upsertHost(harness.db, harness.hub, {
         id: "host-sandbox",
         name: "Sandbox",
         type: "ephemeral",
       });
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
-      updateHost(harness.db, harness.hub, NEW, { phase: "suspended" });
-      const oldDaemon = registerInspectingDaemon(harness, OLD, inspectResult());
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await updateHost(harness.db, harness.hub, NEW, { phase: "suspended" });
+      const oldDaemon = await registerInspectingDaemon(
+        harness,
+        OLD,
+        inspectResult(),
+      );
       const environment = checkEnvironment(harness);
 
       const missing = await runServerMoveCheck(environment, {
@@ -207,10 +211,10 @@ describe("server move checks", () => {
       expect(oldDaemon.requests).toEqual([]);
     }));
 
-  it("blocks moves when this server has no machine of its own", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
-      registerInspectingDaemon(harness, NEW, inspectResult());
+  it("blocks moves when this server has no machine of its own", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await registerInspectingDaemon(harness, NEW, inspectResult());
 
       const result = await runServerMoveCheck(checkEnvironment(harness), {
         moveInProgress: false,
@@ -224,13 +228,13 @@ describe("server move checks", () => {
       expect(result.response.canMove).toBe(false);
     }));
 
-  it("says the desktop app keeps its computer connected as a background machine", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: OLD, name: "Laptop" });
+  it("says the desktop app keeps its computer connected as a background machine", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
-      registerInspectingDaemon(harness, OLD, inspectResult());
-      registerInspectingDaemon(harness, NEW, inspectResult());
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await registerInspectingDaemon(harness, OLD, inspectResult());
+      await registerInspectingDaemon(harness, NEW, inspectResult());
 
       const desktop = await runServerMoveCheck(
         checkEnvironment(harness, { serverAppSurface: "desktop" }),
@@ -258,13 +262,13 @@ describe("server move checks", () => {
       );
     }));
 
-  it("names the old server copy when moving back to the machine the server left", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: OLD, name: "Laptop" });
+  it("names the old server copy when moving back to the machine the server left", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
-      registerInspectingDaemon(harness, OLD, inspectResult());
-      registerInspectingDaemon(
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await registerInspectingDaemon(harness, OLD, inspectResult());
+      await registerInspectingDaemon(
         harness,
         NEW,
         inspectResult({ dataDirHasServerData: true }),
@@ -343,46 +347,48 @@ describe("server move checks", () => {
     ).toEqual({ ok: true, serverUrl: "https://desktop.example.test" });
   });
 
-  it("turns inspect results and server state into blockers and warnings", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: OLD, name: "Laptop" });
+  it("turns inspect results and server state into blockers and warnings", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
-      seedHost(harness.deps, { id: "host-offline", name: "Studio" });
-      const { project } = seedProjectWithSource(harness.deps, { hostId: NEW });
-      const environmentRow = seedEnvironment(harness.deps, {
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await seedHost(harness.deps, { id: "host-offline", name: "Studio" });
+      const { project } = await seedProjectWithSource(harness.deps, {
+        hostId: NEW,
+      });
+      const environmentRow = await seedEnvironment(harness.deps, {
         hostId: NEW,
         projectId: project.id,
       });
-      seedThread(harness.deps, {
+      await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environmentRow.id,
         status: "active",
       });
-      upsertPluginSchedule(harness.db, {
+      await upsertPluginSchedule(harness.db, {
         pluginId: "tasks",
         name: "tick",
         cron: "*/5 * * * *",
         nextRunAt: Date.now() + 60_000,
       });
-      upsertInstalledPlugin(harness.db, builtinPlugin("simple-notes"));
-      upsertInstalledPlugin(
+      await upsertInstalledPlugin(harness.db, builtinPlugin("simple-notes"));
+      await upsertInstalledPlugin(
         harness.db,
         pathPlugin("local-plugin", "/home/me/code/local-plugin"),
       );
-      upsertInstalledPlugin(
+      await upsertInstalledPlugin(
         harness.db,
         pathPlugin(
           "copied-plugin",
           join(harness.config.dataDir, "plugins", "copied-plugin"),
         ),
       );
-      registerInspectingDaemon(
+      await registerInspectingDaemon(
         harness,
         OLD,
         inspectResult({ ghAuthenticated: true, codexCredentialsPresent: true }),
       );
-      const target = registerInspectingDaemon(
+      const target = await registerInspectingDaemon(
         harness,
         NEW,
         inspectResult({
@@ -450,12 +456,12 @@ describe("server move checks", () => {
       ).toContain("Studio");
     }));
 
-  it("offers the full hyperfide-app artifact to an out-of-date target and blocks without one", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: OLD, name: "Laptop" });
+  it("offers the full hyperfide-app artifact to an out-of-date target and blocks without one", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
-      registerInspectingDaemon(
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await registerInspectingDaemon(
         harness,
         NEW,
         inspectResult({ hyperfideAppVersion: "0.0.0-alpha.1" }),
@@ -497,12 +503,12 @@ describe("server move checks", () => {
       ]);
     }));
 
-  it("blocks a target that runs a newer hyperfide than this server", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: OLD, name: "Laptop" });
+  it("blocks a target that runs a newer hyperfide than this server", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
-      registerInspectingDaemon(
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await registerInspectingDaemon(
         harness,
         NEW,
         inspectResult({ hyperfideAppVersion: "0.0.1" }),
@@ -531,11 +537,11 @@ describe("server move checks", () => {
       });
     }));
 
-  it("blocks a target without room for the move and warns when space is tight", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: OLD, name: "Laptop" });
+  it("blocks a target without room for the move and warns when space is tight", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
       const attachmentDir = join(
         harness.config.dataDir,
         "attachments",
@@ -549,7 +555,7 @@ describe("server move checks", () => {
         .reduce((total, file) => total + file.sizeBytes, 0);
       const required = 2 * serverDataBytes + GIB;
       let inspect = inspectResult({ diskFreeBytes: required - 1 });
-      registerFakeDaemon(harness, {
+      await registerFakeDaemon(harness, {
         events: [],
         hostId: NEW,
         handle: () => ({ ok: true, result: inspect }),
@@ -617,12 +623,12 @@ describe("server move checks", () => {
       });
     }));
 
-  it("blocks a move when this server machine has no room to export and warns when space is tight", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: OLD, name: "Laptop" });
+  it("blocks a move when this server machine has no room to export and warns when space is tight", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
-      registerInspectingDaemon(
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await registerInspectingDaemon(
         harness,
         NEW,
         inspectResult({ hyperfideAppVersion: "0.0.0-alpha.1" }),
@@ -677,12 +683,12 @@ describe("server move checks", () => {
       expect(await serverDiskItems()).toEqual({ canMove: true, items: [] });
     }));
 
-  it("blocks when the target can't be inspected", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: OLD, name: "Laptop" });
+  it("blocks when the target can't be inspected", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
-      registerInspectingDaemon(harness, NEW, {
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await registerInspectingDaemon(harness, NEW, {
         ok: false,
         errorCode: "unknown_command",
         errorMessage: "Unknown command server_move.inspect",
@@ -703,13 +709,13 @@ describe("server move checks", () => {
       ]);
     }));
 
-  it("warns about unencrypted transfers, uncopyable files, stale addresses, and missing env paths", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: OLD, name: "Laptop" });
+  it("warns about unencrypted transfers, uncopyable files, stale addresses, and missing env paths", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
-      setAppSettings(harness.db, {
-        ...getAppSettings(harness.db),
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await setAppSettings(harness.db, {
+        ...(await getAppSettings(harness.db)),
         machineServerUrl: "http://laptop.lan.test:38887",
       });
       const dataDir = harness.config.dataDir;
@@ -734,7 +740,7 @@ describe("server move checks", () => {
       try {
         await mkdir(join(dataDir, "skills"), { recursive: true });
         await symlink(outside, join(dataDir, "skills", "linked-skill"));
-        const target = registerInspectingDaemon(
+        const target = await registerInspectingDaemon(
           harness,
           NEW,
           inspectResult({
@@ -781,8 +787,8 @@ describe("server move checks", () => {
         );
         expect(direct.response.canMove).toBe(true);
 
-        setAppSettings(harness.db, {
-          ...getAppSettings(harness.db),
+        await setAppSettings(harness.db, {
+          ...(await getAppSettings(harness.db)),
           machineServerUrl: "https://laptop.lan.test",
         });
         const https = await runServerMoveCheck(checkEnvironment(harness), {
@@ -793,8 +799,8 @@ describe("server move checks", () => {
           "warning:unencrypted-transfer",
         );
 
-        setAppSettings(harness.db, {
-          ...getAppSettings(harness.db),
+        await setAppSettings(harness.db, {
+          ...(await getAppSettings(harness.db)),
           machineServerUrl: "http://laptop.lan.test:38887",
         });
         const connect = await runServerMoveCheck(
@@ -818,13 +824,13 @@ describe("server move checks", () => {
       }
     }));
 
-  it("keeps the hyperfide-platform connect address and blocks when connect status is unavailable", () =>
-    withTestHarness(async (harness) => {
-      seedHost(harness.deps, { id: OLD, name: "Laptop" });
+  it("keeps the hyperfide connect address and blocks when connect status is unavailable", async () =>
+    await withTestHarness(async (harness) => {
+      await seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
-      seedHost(harness.deps, { id: NEW, name: "Desktop" });
-      seedHost(harness.deps, { id: "host-offline", name: "Studio" });
-      registerInspectingDaemon(harness, NEW, inspectResult());
+      await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+      await seedHost(harness.deps, { id: "host-offline", name: "Studio" });
+      await registerInspectingDaemon(harness, NEW, inspectResult());
 
       const connect = await runServerMoveCheck(
         checkEnvironment(harness, {

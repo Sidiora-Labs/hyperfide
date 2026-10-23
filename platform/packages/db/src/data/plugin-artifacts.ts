@@ -46,10 +46,10 @@ export type CreatePluginArtifactInput = PluginArtifactInputBase &
       }
   );
 
-export function createPluginArtifact(
+export async function createPluginArtifact(
   db: DbConnection,
   artifact: CreatePluginArtifactInput,
-): PluginArtifactRow {
+): Promise<PluginArtifactRow> {
   if (
     (artifact.sourceKind === "npm" &&
       (typeof artifact.npmResolvedVersion !== "string" ||
@@ -69,26 +69,32 @@ export function createPluginArtifact(
     );
   }
   const now = Date.now();
-  db.insert(pluginArtifacts)
+  await db
+    .insert(pluginArtifacts)
     .values({ ...artifact, createdAt: now, updatedAt: now })
     .run();
-  const row = getPluginArtifact(db, artifact.id);
-  if (!row) throw new Error(`plugin artifact missing after insert: ${artifact.id}`);
+  const row = await getPluginArtifact(db, artifact.id);
+  if (!row)
+    throw new Error(`plugin artifact missing after insert: ${artifact.id}`);
   return row;
 }
 
-export function getPluginArtifact(
+export async function getPluginArtifact(
   db: DbConnection,
   id: string,
-): PluginArtifactRow | undefined {
-  return db.select().from(pluginArtifacts).where(eq(pluginArtifacts.id, id)).get();
+): Promise<PluginArtifactRow | undefined> {
+  return await db
+    .select()
+    .from(pluginArtifacts)
+    .where(eq(pluginArtifacts.id, id))
+    .get();
 }
 
-export function listPluginArtifacts(
+export async function listPluginArtifacts(
   db: DbConnection,
   pluginId: string,
-): PluginArtifactRow[] {
-  return db
+): Promise<PluginArtifactRow[]> {
+  return await db
     .select()
     .from(pluginArtifacts)
     .where(eq(pluginArtifacts.pluginId, pluginId))
@@ -96,10 +102,10 @@ export function listPluginArtifacts(
     .all();
 }
 
-export function listPendingGitPluginArtifacts(
+export async function listPendingGitPluginArtifacts(
   db: DbConnection,
-): PluginArtifactRow[] {
-  return db
+): Promise<PluginArtifactRow[]> {
+  return await db
     .select()
     .from(pluginArtifacts)
     .where(
@@ -121,13 +127,13 @@ function directoryContentsPattern(
   );
 }
 
-export function listPluginArtifactsUnderPath(
+export async function listPluginArtifactsUnderPath(
   db: DbConnection,
   directory: string,
   separator: string,
-): PluginArtifactRow[] {
+): Promise<PluginArtifactRow[]> {
   const pattern = directoryContentsPattern(directory, separator);
-  return db
+  return await db
     .select()
     .from(pluginArtifacts)
     .where(sql`${pluginArtifacts.path} LIKE ${pattern} ESCAPE '\\'`)
@@ -135,13 +141,13 @@ export function listPluginArtifactsUnderPath(
     .all();
 }
 
-export function listPluginArtifactsAtOrUnderPath(
+export async function listPluginArtifactsAtOrUnderPath(
   db: DbConnection,
   directory: string,
   separator: string,
-): PluginArtifactRow[] {
+): Promise<PluginArtifactRow[]> {
   const pattern = directoryContentsPattern(directory, separator);
-  return db
+  return await db
     .select()
     .from(pluginArtifacts)
     .where(
@@ -154,31 +160,32 @@ export function listPluginArtifactsAtOrUnderPath(
     .all();
 }
 
-export function listInstalledPluginIdsOverlappingPath(
+export async function listInstalledPluginIdsOverlappingPath(
   db: DbConnection,
   directory: string,
   separator: string,
-): string[] {
+): Promise<string[]> {
   const pattern = directoryContentsPattern(directory, separator);
-  return db
-    .select({ id: installedPlugins.id })
-    .from(installedPlugins)
-    .where(
-      or(
-        eq(installedPlugins.rootDir, directory),
-        sql`${installedPlugins.rootDir} LIKE ${pattern} ESCAPE '\\'`,
-        sql`instr(${directory} || ${separator}, rtrim(${installedPlugins.rootDir}, ${separator}) || ${separator}) = 1`,
-      ),
-    )
-    .all()
-    .map((row) => row.id);
+  return (
+    await db
+      .select({ id: installedPlugins.id })
+      .from(installedPlugins)
+      .where(
+        or(
+          eq(installedPlugins.rootDir, directory),
+          sql`${installedPlugins.rootDir} LIKE ${pattern} ESCAPE '\\'`,
+          sql`instr(${directory} || ${separator}, rtrim(${installedPlugins.rootDir}, ${separator}) || ${separator}) = 1`,
+        ),
+      )
+      .all()
+  ).map((row) => row.id);
 }
 
-export function listPluginArtifactsInGitCheckout(
+export async function listPluginArtifactsInGitCheckout(
   db: DbConnection,
   checkoutRoot: string,
-): PluginArtifactRow[] {
-  return db
+): Promise<PluginArtifactRow[]> {
+  return await db
     .select()
     .from(pluginArtifacts)
     .where(eq(pluginArtifacts.gitCheckoutRoot, checkoutRoot))
@@ -186,12 +193,12 @@ export function listPluginArtifactsInGitCheckout(
     .all();
 }
 
-export function listRecentPluginArtifacts(
+export async function listRecentPluginArtifacts(
   db: DbConnection,
   pluginId: string,
   limit: number,
-): PluginArtifactRow[] {
-  return db
+): Promise<PluginArtifactRow[]> {
+  return await db
     .select()
     .from(pluginArtifacts)
     .where(
@@ -205,7 +212,7 @@ export function listRecentPluginArtifacts(
     .all();
 }
 
-export function getPluginArtifactByResolution(
+export async function getPluginArtifactByResolution(
   db: DbConnection,
   resolution:
     | {
@@ -216,9 +223,9 @@ export function getPluginArtifactByResolution(
         integrity: string;
       }
     | { sourceKind: "git"; pluginId: string; path: string; commit: string },
-): PluginArtifactRow | undefined {
+): Promise<PluginArtifactRow | undefined> {
   if (resolution.sourceKind === "npm") {
-    return db
+    return await db
       .select()
       .from(pluginArtifacts)
       .where(
@@ -232,7 +239,7 @@ export function getPluginArtifactByResolution(
       )
       .get();
   }
-  return db
+  return await db
     .select()
     .from(pluginArtifacts)
     .where(
@@ -246,7 +253,7 @@ export function getPluginArtifactByResolution(
     .get();
 }
 
-export function setPluginArtifactValidation(
+export async function setPluginArtifactValidation(
   db: DbConnection,
   id: string,
   validation:
@@ -260,44 +267,52 @@ export function setPluginArtifactValidation(
         validationResult: "valid";
         validatedAt: number;
       },
-): boolean {
+): Promise<boolean> {
   return (
-    db
-      .update(pluginArtifacts)
-      .set({ ...validation, updatedAt: Date.now() })
-      .where(eq(pluginArtifacts.id, id))
-      .run().changes > 0
+    (
+      await db
+        .update(pluginArtifacts)
+        .set({ ...validation, updatedAt: Date.now() })
+        .where(eq(pluginArtifacts.id, id))
+        .run()
+    ).changes > 0
   );
 }
 
-export function setPluginArtifactGitCheckoutRoot(
+export async function setPluginArtifactGitCheckoutRoot(
   db: DbConnection,
   id: string,
   checkoutRoot: string,
-): boolean {
+): Promise<boolean> {
   return (
-    db
-      .update(pluginArtifacts)
-      .set({ gitCheckoutRoot: checkoutRoot, updatedAt: Date.now() })
-      .where(
-        and(
-          eq(pluginArtifacts.id, id),
-          eq(pluginArtifacts.sourceKind, "git"),
-          isNull(pluginArtifacts.gitCheckoutRoot),
-        ),
-      )
-      .run().changes > 0
+    (
+      await db
+        .update(pluginArtifacts)
+        .set({ gitCheckoutRoot: checkoutRoot, updatedAt: Date.now() })
+        .where(
+          and(
+            eq(pluginArtifacts.id, id),
+            eq(pluginArtifacts.sourceKind, "git"),
+            isNull(pluginArtifacts.gitCheckoutRoot),
+          ),
+        )
+        .run()
+    ).changes > 0
   );
 }
 
-export function deletePluginArtifact(db: DbConnection, id: string): boolean {
-  return db.transaction((tx) => {
-    tx.update(installedPlugins)
+export async function deletePluginArtifact(
+  db: DbConnection,
+  id: string,
+): Promise<boolean> {
+  return await db.transaction(async (tx) => {
+    await tx
+      .update(installedPlugins)
       .set({ activeArtifactId: null, updatedAt: Date.now() })
       .where(eq(installedPlugins.activeArtifactId, id))
       .run();
     return (
-      tx.delete(pluginArtifacts).where(eq(pluginArtifacts.id, id)).run()
+      (await tx.delete(pluginArtifacts).where(eq(pluginArtifacts.id, id)).run())
         .changes > 0
     );
   });

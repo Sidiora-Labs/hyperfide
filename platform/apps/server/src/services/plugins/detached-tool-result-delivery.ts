@@ -55,7 +55,7 @@ export async function deliverDetachedToolResult(
   deps: LoggedPendingInteractionWorkSessionDeps,
   args: DeliverDetachedToolResultArgs,
 ): Promise<void> {
-  const thread = getThread(deps.db, args.threadId);
+  const thread = await getThread(deps.db, args.threadId);
   if (!thread || thread.deletedAt !== null || thread.archivedAt !== null) {
     return;
   }

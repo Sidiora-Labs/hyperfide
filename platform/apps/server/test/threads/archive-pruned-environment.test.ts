@@ -14,39 +14,42 @@ import {
 } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";
 
-function seedThreadWithPrunedEnvironment(
+async function seedThreadWithPrunedEnvironment(
   deps: Parameters<typeof seedThread>[0],
 ) {
-  const { host } = seedHostSession(deps);
-  const { project } = seedProjectWithSource(deps, { hostId: host.id });
-  const environment = seedEnvironment(deps, {
+  const { host } = await seedHostSession(deps);
+  const { project } = await seedProjectWithSource(deps, { hostId: host.id });
+  const environment = await seedEnvironment(deps, {
     hostId: host.id,
     projectId: project.id,
     environmentProviderId: "personal-workspace",
     isGitRepo: false,
   });
-  const thread = seedThread(deps, {
+  const thread = await seedThread(deps, {
     environmentId: environment.id,
     projectId: project.id,
     status: "idle",
   });
-  deps.db.delete(environments).where(eq(environments.id, environment.id)).run();
+  await deps.db
+    .delete(environments)
+    .where(eq(environments.id, environment.id))
+    .run();
 
-  const threadAfterPrune = getThread(deps.db, thread.id);
+  const threadAfterPrune = await getThread(deps.db, thread.id);
   expect(threadAfterPrune?.environmentId).toBeNull();
   expect(threadAfterPrune?.archivedAt).toBeNull();
   return { thread };
 }
 
-function seedPointerlessThread(
+async function seedPointerlessThread(
   deps: Parameters<typeof seedThread>[0],
   status: ThreadStatus,
 ) {
-  const { host } = seedHostSession(deps);
-  const { project } = seedProjectWithSource(deps, { hostId: host.id });
-  const thread = seedThread(deps, { projectId: project.id, status });
+  const { host } = await seedHostSession(deps);
+  const { project } = await seedProjectWithSource(deps, { hostId: host.id });
+  const thread = await seedThread(deps, { projectId: project.id, status });
   if (status === "starting") {
-    requestThreadProvision(deps, {
+    await requestThreadProvision(deps, {
       thread,
       environmentIntent: {
         type: "provider",
@@ -67,7 +70,7 @@ function seedPointerlessThread(
       startedOnBehalfOf: null,
       titleProvided: true,
     });
-    expect(getThreadProvisionContext(deps.db, thread.id)).not.toBeNull();
+    expect(await getThreadProvisionContext(deps.db, thread.id)).not.toBeNull();
   }
   return thread;
 }
@@ -75,7 +78,7 @@ function seedPointerlessThread(
 describe("archive without an attached environment", () => {
   it("POST /threads/:id/archive-all succeeds for a thread whose environment was pruned", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedThreadWithPrunedEnvironment(harness.deps);
+      const { thread } = await seedThreadWithPrunedEnvironment(harness.deps);
       const response = await harness.app.request(
         `/api/v1/threads/${thread.id}/archive-all`,
         { method: "POST" },
@@ -85,7 +88,9 @@ describe("archive without an attached environment", () => {
         ok: true,
         archivedThreadIds: [thread.id],
       });
-      expect(getThread(harness.deps.db, thread.id)?.archivedAt).not.toBeNull();
+      expect(
+        (await getThread(harness.deps.db, thread.id))?.archivedAt,
+      ).not.toBeNull();
     });
   });
 
@@ -93,7 +98,7 @@ describe("archive without an attached environment", () => {
     "archives and stops a %s thread that has no environment yet",
     async (status) => {
       await withTestHarness(async (harness) => {
-        const thread = seedPointerlessThread(harness.deps, status);
+        const thread = await seedPointerlessThread(harness.deps, status);
         const response = await harness.app.request(
           `/api/v1/threads/${thread.id}/archive-all`,
           { method: "POST" },
@@ -103,13 +108,13 @@ describe("archive without an attached environment", () => {
           ok: true,
           archivedThreadIds: [thread.id],
         });
-        expect(getThread(harness.deps.db, thread.id)).toMatchObject({
+        expect(await getThread(harness.deps.db, thread.id)).toMatchObject({
           archivedAt: expect.any(Number),
           status: "idle",
           environmentId: null,
         });
         expect(
-          getThreadProvisionContext(harness.deps.db, thread.id),
+          await getThreadProvisionContext(harness.deps.db, thread.id),
         ).toBeNull();
       });
     },

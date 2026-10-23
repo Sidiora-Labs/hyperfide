@@ -136,23 +136,23 @@ interface TimelineTurnSummarySelection {
   turnId: string;
 }
 
-function resolveThreadWorkspaceRoot(
+async function resolveThreadWorkspaceRoot(
   db: DbConnection,
   thread: Thread,
-): string | null {
+): Promise<string | null> {
   if (thread.environmentId === null) {
     return null;
   }
-  return getEnvironment(db, thread.environmentId)?.path ?? null;
+  return (await getEnvironment(db, thread.environmentId))?.path ?? null;
 }
 
-export function resolveThreadTimelineSurface(
+export async function resolveThreadTimelineSurface(
   db: DbConnection,
   thread: Thread,
   options: ThreadTimelineSurfaceOptions,
-): ThreadTimelineSurface {
+): Promise<ThreadTimelineSurface> {
   const threadName = thread.title ?? thread.titleFallback ?? "";
-  const workspaceRoot = resolveThreadWorkspaceRoot(db, thread);
+  const workspaceRoot = await resolveThreadWorkspaceRoot(db, thread);
   const cursorKey = JSON.stringify([
     options.includeClearedContextHistory,
     options.includeDiagnosticOperations,
@@ -536,10 +536,10 @@ function collectStoredParentToolCallIds(
   return [...parentToolCallIds];
 }
 
-function ensureTimelineWindowParentedRows(
+async function ensureTimelineWindowParentedRows(
   db: DbConnection,
   args: TimelineWindowParentedRowsArgs,
-): TimelineWindowParentedRowsResult {
+): Promise<TimelineWindowParentedRowsResult> {
   let rows = [...args.rows];
   const rowIds = new Set(rows.map((row) => row.id));
   const visibleToolCallIds = new Set(collectStoredDelegatingItemIds(rows));
@@ -557,7 +557,7 @@ function ensureTimelineWindowParentedRows(
     }
 
     const childSequenceBounds = args.sequenceBounds;
-    const childRows = listStoredEventRowsByParentToolCallIds(db, {
+    const childRows = await listStoredEventRowsByParentToolCallIds(db, {
       beforeSequence: childSequenceBounds?.beforeSequence,
       excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
       excludeDiagnosticEvents: args.excludeDiagnosticEvents,
@@ -582,7 +582,7 @@ function ensureTimelineWindowParentedRows(
   const missingParentToolCallIds = collectStoredParentToolCallIds(rows).filter(
     (parentToolCallId) => !visibleToolCallIds.has(parentToolCallId),
   );
-  const parentRows = listStoredDelegatingItemRowsByItemIds(db, {
+  const parentRows = await listStoredDelegatingItemRowsByItemIds(db, {
     itemIds: missingParentToolCallIds,
     maxInlineOutputChars: args.maxInlineOutputChars,
     threadId: args.threadId,
@@ -614,10 +614,10 @@ function minSequenceOfClientRequests(
   return Number.isFinite(minSequence) ? minSequence : 0;
 }
 
-function selectClientRequestContextRows(
+async function selectClientRequestContextRows(
   db: DbConnection,
   args: SelectClientRequestContextRowsArgs,
-): SelectedClientRequestContextRows {
+): Promise<SelectedClientRequestContextRows> {
   const clientRequestIds = collectSteerClientRequestIdsNeedingContext(
     args.rows,
   );
@@ -629,12 +629,12 @@ function selectClientRequestContextRows(
     new Set(clientRequestIds),
   );
   return {
-    acceptedRows: listStoredTurnInputAcceptedRowsByClientRequestIds(db, {
+    acceptedRows: await listStoredTurnInputAcceptedRowsByClientRequestIds(db, {
       afterSequence,
       clientRequestIds,
       threadId: args.threadId,
     }),
-    rejectedRows: listStoredTurnRejectedRowsByClientRequestIds(db, {
+    rejectedRows: await listStoredTurnRejectedRowsByClientRequestIds(db, {
       afterSequence,
       clientRequestIds,
       threadId: args.threadId,
@@ -746,20 +746,23 @@ function maxStoredEventSequence(rows: readonly StoredEventRow[]): number {
   );
 }
 
-function ensureTimelineWindowTurnStartedRows(
+async function ensureTimelineWindowTurnStartedRows(
   db: DbConnection,
   args: TimelineWindowRowsArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   const missingTurnIds = collectTurnIdsMissingStartedRows(args.rows);
   if (missingTurnIds.length === 0) {
     return [...args.rows];
   }
 
-  const turnStartedRows = listStoredTurnStartedRowsByTurnIdsUpToSequence(db, {
-    threadId: args.threadId,
-    sequenceCutoff: maxStoredEventSequence(args.rows),
-    turnIds: missingTurnIds,
-  });
+  const turnStartedRows = await listStoredTurnStartedRowsByTurnIdsUpToSequence(
+    db,
+    {
+      threadId: args.threadId,
+      sequenceCutoff: maxStoredEventSequence(args.rows),
+      turnIds: missingTurnIds,
+    },
+  );
   if (turnStartedRows.length === 0) {
     return [...args.rows];
   }
@@ -797,10 +800,10 @@ function rowIdentifiesBufferedTextItem(row: StoredEventRow): boolean {
   );
 }
 
-function ensureSequenceWindowWholeItemRows(
+async function ensureSequenceWindowWholeItemRows(
   db: DbConnection,
   args: SequenceWindowItemRowsArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   const windowItems = new Map<string, ScopedItemRef>();
   for (const row of args.rows) {
     if (
@@ -816,7 +819,7 @@ function ensureSequenceWindowWholeItemRows(
     return [...args.rows];
   }
 
-  const spans = listItemEventSpansByItems(db, {
+  const spans = await listItemEventSpansByItems(db, {
     items: [...windowItems.values()],
     threadId: args.threadId,
   });
@@ -851,11 +854,13 @@ function ensureSequenceWindowWholeItemRows(
     return rows;
   }
 
-  const backfillRows = listStoredItemLifecycleRowsByItems(db, {
-    items: [...itemsStartingBeforeWindow.values()],
-    maxInlineOutputChars: args.maxInlineOutputChars,
-    threadId: args.threadId,
-  }).filter((row) => row.sequence < args.sequenceStart);
+  const backfillRows = (
+    await listStoredItemLifecycleRowsByItems(db, {
+      items: [...itemsStartingBeforeWindow.values()],
+      maxInlineOutputChars: args.maxInlineOutputChars,
+      threadId: args.threadId,
+    })
+  ).filter((row) => row.sequence < args.sequenceStart);
 
   const completedItemKeys = new Set<string>();
   for (const row of [...rows, ...backfillRows]) {
@@ -874,7 +879,7 @@ function ensureSequenceWindowWholeItemRows(
       bufferedTextItems.set(key, ref);
     }
   }
-  const bufferedTextRows = listStoredBufferedTextDeltaRowsByItems(db, {
+  const bufferedTextRows = await listStoredBufferedTextDeltaRowsByItems(db, {
     beforeSequence: args.sequenceStart,
     items: [...bufferedTextItems.values()],
     threadId: args.threadId,
@@ -885,10 +890,10 @@ function ensureSequenceWindowWholeItemRows(
     : mergeStoredEventRowsById([...prefixRows, ...rows]);
 }
 
-function ensureTimelineWindowBackgroundTaskStateRows(
+async function ensureTimelineWindowBackgroundTaskStateRows(
   db: DbConnection,
   args: TimelineWindowRowsArgs & { beforeSequence?: number },
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   const itemIds = new Set<string>();
   for (const row of args.rows) {
     if (
@@ -902,7 +907,7 @@ function ensureTimelineWindowBackgroundTaskStateRows(
     return [...args.rows];
   }
 
-  const stateRows = listLatestBackgroundTaskStateRowsByItemIds(db, {
+  const stateRows = await listLatestBackgroundTaskStateRowsByItemIds(db, {
     threadId: args.threadId,
     itemIds: [...itemIds],
     beforeSequence: args.beforeSequence,
@@ -914,11 +919,11 @@ function ensureTimelineWindowBackgroundTaskStateRows(
   return mergeStoredEventRowsById([...args.rows, ...stateRows]);
 }
 
-function ensureLatestTimelineOpenBackgroundTaskStateRows(
+async function ensureLatestTimelineOpenBackgroundTaskStateRows(
   db: DbConnection,
   args: TimelineWindowRowsArgs,
-): StoredEventRow[] {
-  const stateRows = listLatestOpenBackgroundTaskStateRowsForThread(db, {
+): Promise<StoredEventRow[]> {
+  const stateRows = await listLatestOpenBackgroundTaskStateRowsForThread(db, {
     threadId: args.threadId,
   });
   if (stateRows.length === 0) {
@@ -928,32 +933,32 @@ function ensureLatestTimelineOpenBackgroundTaskStateRows(
   return mergeStoredEventRowsById([...args.rows, ...stateRows]);
 }
 
-function listLatestTimelineHeadStateRows(
+async function listLatestTimelineHeadStateRows(
   db: DbConnection,
   threadId: string,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   return mergeStoredEventRowsById([
-    ...listLatestThreadStateEventRowsByThreadIds(db, {
+    ...(await listLatestThreadStateEventRowsByThreadIds(db, {
       threadIds: [threadId],
       kind: LEGACY_CODEX_GOAL_EXTENSION_KIND,
-    }),
-    ...listLatestThreadStateEventRowsByThreadIds(db, {
+    })),
+    ...(await listLatestThreadStateEventRowsByThreadIds(db, {
       threadIds: [threadId],
       kind: THREAD_PROVIDER_COMMANDS_STATE_KIND,
-    }),
-    ...listLatestThreadStateEventRowsByThreadIds(db, {
+    })),
+    ...(await listLatestThreadStateEventRowsByThreadIds(db, {
       threadIds: [threadId],
       kind: THREAD_SESSION_OPTIONS_STATE_KIND,
-    }),
-    ...listLatestThreadStateEventRowsByThreadIds(db, {
+    })),
+    ...(await listLatestThreadStateEventRowsByThreadIds(db, {
       threadIds: [threadId],
       kind: THREAD_SESSION_OPTION_SELECTIONS_STATE_KIND,
-    }),
-    ...listTodoSnapshotEventRowsForThread(db, { threadId }),
+    })),
+    ...(await listTodoSnapshotEventRowsForThread(db, { threadId })),
   ]);
 }
 
-function selectStandardTimelineEventRows(
+async function selectStandardTimelineEventRows(
   db: DbConnection,
   thread: Thread,
   page: ThreadTimelinePageRequest,
@@ -965,13 +970,13 @@ function selectStandardTimelineEventRows(
   contentCursor: TimelineContentCursor | undefined,
   knownBudgetFloor: TimelineBudgetFloor | null,
   profile: ThreadTimelineBuildProfileAccumulator,
-): StandardTimelineEventRowSelection {
+): Promise<StandardTimelineEventRowSelection> {
   const decode: StoredEventDecoder = (row) =>
     decodeStoredEventRowCached(db, row);
   const beforeSequence =
     contentCursor?.beforeSequence ??
     (page.kind === "older" ? page.beforeCursor.anchorSeq : maxSeq + 1);
-  const hints = listTimelineWindowHintsDescending(db, {
+  const hints = await listTimelineWindowHintsDescending(db, {
     threadId: thread.id,
     sequenceStart: epochSequenceStart,
     beforeSequence,
@@ -980,10 +985,10 @@ function selectStandardTimelineEventRows(
   if (
     page.kind === "older" &&
     page.beforeCursor.anchorSeq !== epochSequenceStart &&
-    !isTimelineCursorSequencePresent(db, {
+    !(await isTimelineCursorSequencePresent(db, {
       threadId: thread.id,
       sequence: page.beforeCursor.anchorSeq,
-    })
+    }))
   ) {
     throw new ApiError(
       400,
@@ -993,7 +998,7 @@ function selectStandardTimelineEventRows(
   }
   const budgetFloor =
     knownBudgetFloor === null
-      ? findTimelineWindowBudgetFloorSequence(db, {
+      ? await findTimelineWindowBudgetFloorSequence(db, {
           threadId: thread.id,
           sequenceStart: epochSequenceStart,
           beforeSequence,
@@ -1013,14 +1018,14 @@ function selectStandardTimelineEventRows(
         );
   const hasOlder =
     sequenceStart > epochSequenceStart &&
-    findTimelineWindowBudgetFloorSequence(db, {
+    (await findTimelineWindowBudgetFloorSequence(db, {
       threadId: thread.id,
       sequenceStart: epochSequenceStart,
       beforeSequence: sequenceStart,
       eventBudget: 0,
       excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
       excludeDiagnosticEvents,
-    }) !== undefined;
+    })) !== undefined;
   const windowArgs = {
     threadId: thread.id,
     sequenceStart,
@@ -1029,19 +1034,19 @@ function selectStandardTimelineEventRows(
     excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
     maxInlineOutputChars,
   };
-  const groupingContext = measureThreadTimelineStage(
+  const groupingContext = await measureThreadTimelineStage(
     profile,
     "ordering-context-query",
-    () =>
-      getTimelineGroupingContext(db, {
+    async () =>
+      await getTimelineGroupingContext(db, {
         threadId: thread.id,
         sequenceStart: epochSequenceStart,
         maxSeq,
       }),
   );
-  let rows = listStoredTimelineThreadWindowEventRows(db, windowArgs);
+  let rows = await listStoredTimelineThreadWindowEventRows(db, windowArgs);
   const initialTurnIds = [
-    ...listTimelineRootWindowTurnIds(db, windowArgs),
+    ...(await listTimelineRootWindowTurnIds(db, windowArgs)),
     ...rows.flatMap((row) => {
       if (row.type !== "client/turn/requested") return [];
       const requestId = tryReadClientTurnRequestedRequestId(row, decode);
@@ -1053,51 +1058,61 @@ function selectStandardTimelineEventRows(
     }),
   ];
   const fetchedTurns = new Set<string>();
-  rows = measureThreadTimelineStage(profile, "group-context-query", () => {
-    let selectedRows = rows;
-    for (;;) {
-      const turnIds = [
-        ...new Set([
-          ...initialTurnIds,
-          ...selectedRows.flatMap((row) =>
-            row.turnId === null ? [] : [row.turnId],
-          ),
-        ]),
-      ].filter((turnId) => !fetchedTurns.has(turnId));
-      if (turnIds.length === 0) break;
-      for (const turnId of turnIds) fetchedTurns.add(turnId);
-      selectedRows = mergeStoredEventRowsById([
-        ...selectedRows,
-        ...listStoredTimelineTurnEventRows(db, {
-          ...windowArgs,
-          sequenceStart: epochSequenceStart,
+  rows = await measureThreadTimelineStage(
+    profile,
+    "group-context-query",
+    async () => {
+      let selectedRows = rows;
+      for (;;) {
+        const turnIds = [
+          ...new Set([
+            ...initialTurnIds,
+            ...selectedRows.flatMap((row) =>
+              row.turnId === null ? [] : [row.turnId],
+            ),
+          ]),
+        ].filter((turnId) => !fetchedTurns.has(turnId));
+        if (turnIds.length === 0) break;
+        for (const turnId of turnIds) fetchedTurns.add(turnId);
+        selectedRows = mergeStoredEventRowsById([
+          ...selectedRows,
+          ...(await listStoredTimelineTurnEventRows(db, {
+            ...windowArgs,
+            sequenceStart: epochSequenceStart,
+            beforeSequence: maxSeq + 1,
+            turnIds,
+          })),
+        ]);
+        selectedRows = (
+          await ensureTimelineWindowParentedRows(db, {
+            threadId: thread.id,
+            rows: selectedRows,
+            maxInlineOutputChars,
+            excludeDiagnosticEvents,
+            sequenceBounds: {
+              sequenceStart: epochSequenceStart,
+              beforeSequence: maxSeq + 1,
+            },
+          })
+        ).rows.filter((row) => row.sequence <= maxSeq);
+      }
+      selectedRows = (
+        await ensureTimelineWindowBackgroundTaskStateRows(db, {
+          threadId: thread.id,
+          rows: selectedRows,
           beforeSequence: maxSeq + 1,
-          turnIds,
-        }),
-      ]);
-      selectedRows = ensureTimelineWindowParentedRows(db, {
-        threadId: thread.id,
-        rows: selectedRows,
-        maxInlineOutputChars,
-        excludeDiagnosticEvents,
-        sequenceBounds: {
-          sequenceStart: epochSequenceStart,
-          beforeSequence: maxSeq + 1,
-        },
-      }).rows.filter((row) => row.sequence <= maxSeq);
-    }
-    selectedRows = ensureTimelineWindowBackgroundTaskStateRows(db, {
-      threadId: thread.id,
-      rows: selectedRows,
-      beforeSequence: maxSeq + 1,
-    }).filter((row) => row.sequence <= maxSeq);
-    if (page.kind === "latest")
-      selectedRows = ensureLatestTimelineOpenBackgroundTaskStateRows(db, {
-        threadId: thread.id,
-        rows: selectedRows,
-      }).filter((row) => row.sequence <= maxSeq);
-    return selectedRows;
-  });
+        })
+      ).filter((row) => row.sequence <= maxSeq);
+      if (page.kind === "latest")
+        selectedRows = (
+          await ensureLatestTimelineOpenBackgroundTaskStateRows(db, {
+            threadId: thread.id,
+            rows: selectedRows,
+          })
+        ).filter((row) => row.sequence <= maxSeq);
+      return selectedRows;
+    },
+  );
   const contextStart = rows.reduce(
     (start, row) => Math.min(start, row.sequence),
     sequenceStart,
@@ -1106,11 +1121,11 @@ function selectStandardTimelineEventRows(
     (end, row) => Math.max(end, row.sequence),
     beforeSequence - 1,
   );
-  const contextRows = measureThreadTimelineStage(
+  const contextRows = await measureThreadTimelineStage(
     profile,
     "group-context-query",
-    () =>
-      listStoredEventRows(db, {
+    async () =>
+      await listStoredEventRows(db, {
         threadId: thread.id,
         afterSequence: contextStart - 1,
         beforeSequence: contextEnd + 1,
@@ -1141,9 +1156,11 @@ function selectStandardTimelineEventRows(
       threadId: thread.id,
       requestId: parseAcceptedInputClientRequestId(row, decode),
     }));
-  const requestedRows = listStoredClientTurnRequestRowsByKeys(db, {
-    keys: requestKeys,
-  }).filter((row) => row.sequence <= maxSeq);
+  const requestedRows = (
+    await listStoredClientTurnRequestRowsByKeys(db, {
+      keys: requestKeys,
+    })
+  ).filter((row) => row.sequence <= maxSeq);
   const requestContext = [...contextRows, ...requestedRows, ...rows];
   const terminalRequestIds = new Set(
     requestContext.flatMap((row) =>
@@ -1163,18 +1180,18 @@ function selectStandardTimelineEventRows(
     unresolvedRequests.length === 0
       ? []
       : [
-          ...listStoredTurnInputAcceptedRowsByClientRequestIds(db, {
+          ...(await listStoredTurnInputAcceptedRowsByClientRequestIds(db, {
             threadId: thread.id,
             afterSequence: contextStart - 1,
             clientRequestIds: unresolvedRequests,
-          }),
-          ...listStoredTurnRejectedRowsByClientRequestIds(db, {
+          })),
+          ...(await listStoredTurnRejectedRowsByClientRequestIds(db, {
             threadId: thread.id,
             afterSequence: contextStart - 1,
             clientRequestIds: unresolvedRequests,
-          }),
+          })),
         ].filter((row) => row.sequence <= maxSeq);
-  const interruptionRows = listTimelineInterruptionRows(db, {
+  const interruptionRows = await listTimelineInterruptionRows(db, {
     threadId: thread.id,
     sequenceStart: epochSequenceStart,
     maxSeq,
@@ -1188,11 +1205,15 @@ function selectStandardTimelineEventRows(
     selection: {
       headStateRows:
         page.kind === "latest"
-          ? measureThreadTimelineStage(profile, "group-context-query", () =>
-              listLatestTimelineHeadStateRows(db, thread.id).filter(
-                (row) =>
-                  row.sequence <= maxSeq && !visibleSequences.has(row.sequence),
-              ),
+          ? await measureThreadTimelineStage(
+              profile,
+              "group-context-query",
+              async () =>
+                (await listLatestTimelineHeadStateRows(db, thread.id)).filter(
+                  (row) =>
+                    row.sequence <= maxSeq &&
+                    !visibleSequences.has(row.sequence),
+                ),
             )
           : [],
       contextOnlyInterruptionSequences: new Set(
@@ -1206,7 +1227,7 @@ function selectStandardTimelineEventRows(
       hasOlderSegments: hasOlder,
       paginationPage:
         contentCursor === undefined ? page : { ...page, segmentLimit: 1 },
-      rows: ensureTimelineWindowTurnStartedRows(db, {
+      rows: await ensureTimelineWindowTurnStartedRows(db, {
         threadId: thread.id,
         rows: mergeStoredEventRowsById([
           ...interruptionRows,
@@ -1246,14 +1267,14 @@ function createThreadTimelineBuildProfileAccumulator(): ThreadTimelineBuildProfi
   };
 }
 
-function measureThreadTimelineStage<TResult>(
+async function measureThreadTimelineStage<TResult>(
   profile: ThreadTimelineBuildProfileAccumulator,
   stage: ThreadTimelineBuildProfileStage,
-  fn: () => TResult,
-): TResult {
+  fn: () => TResult | Promise<TResult>,
+): Promise<TResult> {
   const startTime = performance.now();
   const nestedStart = profile.stageTimings.length;
-  const result = fn();
+  const result = await fn();
   const nestedDuration = profile.stageTimings
     .slice(nestedStart)
     .reduce((sum, timing) => sum + timing.durationMs, 0);
@@ -1291,13 +1312,13 @@ function completeThreadTimelineBuildProfile(
   };
 }
 
-function buildThreadTimelineInternal(
+async function buildThreadTimelineInternal(
   db: DbConnection,
   thread: Thread,
   options: BuildThreadTimelineOptions,
-): BuildThreadTimelineInternalResult {
-  const surface = resolveThreadTimelineSurface(db, thread, options);
-  const snapshot = resolveTimelineSnapshot(
+): Promise<BuildThreadTimelineInternalResult> {
+  const surface = await resolveThreadTimelineSurface(db, thread, options);
+  const snapshot = await resolveTimelineSnapshot(
     db,
     thread,
     options.page,
@@ -1308,15 +1329,18 @@ function buildThreadTimelineInternal(
   const profile = createThreadTimelineBuildProfileAccumulator();
   const includeNestedRows = options.includeNestedRows ?? false;
   const includeDiagnosticOperations = options.includeDiagnosticOperations;
-  const contextBoundarySeq = getLatestCompletedThreadContextClearSequence(db, {
-    atOrBeforeSequence: snapshot.maxSeq,
-    threadId: thread.id,
-  });
+  const contextBoundarySeq = await getLatestCompletedThreadContextClearSequence(
+    db,
+    {
+      atOrBeforeSequence: snapshot.maxSeq,
+      threadId: thread.id,
+    },
+  );
   const historySequenceStart = options.includeClearedContextHistory
     ? 0
     : (contextBoundarySeq ?? 0);
-  const selectRows = (knownBudgetFloor: TimelineBudgetFloor | null) =>
-    selectStandardTimelineEventRows(
+  const selectRows = async (knownBudgetFloor: TimelineBudgetFloor | null) =>
+    await selectStandardTimelineEventRows(
       db,
       thread,
       options.page,
@@ -1348,22 +1372,22 @@ function buildThreadTimelineInternal(
           threadId: thread.id,
         }
       : null;
-  const storedEventSelection = measureThreadTimelineStage(
+  const storedEventSelection = await measureThreadTimelineStage(
     profile,
     "event-query",
-    () => {
+    async () => {
       if (memoArgs === null) {
-        return selectRows(null).selection;
+        return (await selectRows(null)).selection;
       }
-      const lookup = measureThreadTimelineStage(
+      const lookup = await measureThreadTimelineStage(
         profile,
         "selection-memo-lookup",
-        () => lookupLatestTimelineSelection(db, memoArgs),
+        async () => await lookupLatestTimelineSelection(db, memoArgs),
       );
       if (lookup.selection !== null) {
         return lookup.selection;
       }
-      const result = selectRows(lookup.budgetFloor);
+      const result = await selectRows(lookup.budgetFloor);
       rememberLatestTimelineSelection(db, memoArgs, lookup, result);
       return result.selection;
     },
@@ -1372,14 +1396,17 @@ function buildThreadTimelineInternal(
     options.maxInlineOutputChars === null
       ? {
           ...storedEventSelection,
-          rows: hydrateRetainedEventOutputRows(db, storedEventSelection.rows),
+          rows: await hydrateRetainedEventOutputRows(
+            db,
+            storedEventSelection.rows,
+          ),
         }
       : storedEventSelection;
   const rawEventRows = eventSelection.rows;
   profile.eventDataBytes = byteLengthOfStoredEventRows(rawEventRows);
   profile.eventRowCount = rawEventRows.length;
   profile.selectionStrategy = eventSelection.strategy;
-  const decodedRawEvents = measureThreadTimelineStage(
+  const decodedRawEvents = await measureThreadTimelineStage(
     profile,
     "event-json-decode",
     () =>
@@ -1387,7 +1414,7 @@ function buildThreadTimelineInternal(
         withRowMeta(row, decodeStoredEventRowCached(db, row)),
       ),
   );
-  const headStateEvents = measureThreadTimelineStage(
+  const headStateEvents = await measureThreadTimelineStage(
     profile,
     "event-json-decode",
     () =>
@@ -1400,17 +1427,17 @@ function buildThreadTimelineInternal(
     eventSelection.headStateRows,
   );
   profile.decodedEventCount = decodedRawEvents.length + headStateEvents.length;
-  const decodedEvents = measureThreadTimelineStage(
+  const decodedEvents = await measureThreadTimelineStage(
     profile,
     "summary-compaction",
     () => compactThreadTimelineSummaryEvents(decodedRawEvents),
   );
   profile.compactedEventCount = decodedEvents.length;
-  const contextWindowUsageRows = measureThreadTimelineStage(
+  const contextWindowUsageRows = await measureThreadTimelineStage(
     profile,
     "context-window-query",
-    () =>
-      listContextWindowUsageRows(db, {
+    async () =>
+      await listContextWindowUsageRows(db, {
         sequenceStart: contextBoundarySeq ?? 0,
         threadId: thread.id,
       }),
@@ -1430,7 +1457,7 @@ function buildThreadTimelineInternal(
     threadName: surface.threadName,
     workspaceRoot: surface.workspaceRoot,
   };
-  const contextWindowEvents = measureThreadTimelineStage(
+  const contextWindowEvents = await measureThreadTimelineStage(
     profile,
     "context-window-json-decode",
     () =>
@@ -1442,7 +1469,7 @@ function buildThreadTimelineInternal(
     acceptedClientRequestEvents: [],
     rejectedClientRequestEvents: [],
   };
-  const timeline = measureThreadTimelineStage(
+  const timeline = await measureThreadTimelineStage(
     profile,
     "thread-view-projection",
     () =>
@@ -1486,7 +1513,7 @@ function buildThreadTimelineInternal(
       return deferContent ? deferSettledTimelineRow(previewed) : previewed;
     },
   );
-  const paginatedTimeline = measureThreadTimelineStage(
+  const paginatedTimeline = await measureThreadTimelineStage(
     profile,
     "pagination-segmentation",
     () =>
@@ -1526,7 +1553,7 @@ function buildThreadTimelineInternal(
       options.page.kind === "latest" ? timeline.modelFallback : null,
     contextWindowUsage:
       options.page.kind === "latest" && timeline.contextWindowUsage
-        ? withCompactionOffer(db, {
+        ? await withCompactionOffer(db, {
             enabled: options.compactionOfferEnabled,
             sequenceStart: contextBoundarySeq ?? 0,
             threadId: thread.id,
@@ -1553,51 +1580,57 @@ function buildThreadTimelineInternal(
   };
 }
 
-export function buildThreadTimelineWithProfile(
+export async function buildThreadTimelineWithProfile(
   db: DbConnection,
   thread: Thread,
   options: BuildThreadTimelineOptions,
-): { profile: ThreadTimelineBuildProfile; response: ThreadTimelineResponse } {
-  return runEventLoopWorkSync(`timeline-build ${thread.id}`, () =>
-    db.transaction(() => {
-      const result = buildThreadTimelineInternal(db, thread, options);
-      if (options.summaryOnly) return result;
-      for (
-        let skipped = 0;
-        skipped < MAX_EMPTY_TIMELINE_WINDOWS;
-        skipped += 1
-      ) {
-        const cursor = result.response.timelinePage.olderCursor;
-        if (result.response.rows.length > 0 || cursor === null) break;
-        const older = buildThreadTimelineInternal(db, thread, {
-          ...options,
-          page: {
-            kind: "older",
-            beforeCursor: cursor,
-            segmentLimit: options.page.segmentLimit,
-          },
-        });
-        result.response.rows = older.response.rows;
-        result.response.timelinePage = older.response.timelinePage;
-        result.profile.eventRowCount += older.profile.eventRowCount;
-        result.profile.eventDataBytes += older.profile.eventDataBytes;
-        result.profile.decodedEventCount += older.profile.decodedEventCount;
-        result.profile.compactedEventCount += older.profile.compactedEventCount;
-        result.profile.contextWindowEventRowCount +=
-          older.profile.contextWindowEventRowCount;
-        result.profile.contextWindowEventDataBytes +=
-          older.profile.contextWindowEventDataBytes;
-        result.profile.projectedRowCount += older.profile.projectedRowCount;
-        result.profile.responseRowCount = older.profile.responseRowCount;
-        result.profile.returnedSegmentCount =
-          older.profile.returnedSegmentCount;
-        result.profile.stageTimings.push(...older.profile.stageTimings);
-        result.profile.totalDurationMs = roundDurationMs(
-          result.profile.totalDurationMs + older.profile.totalDurationMs,
-        );
-      }
-      return result;
-    }),
+): Promise<{
+  profile: ThreadTimelineBuildProfile;
+  response: ThreadTimelineResponse;
+}> {
+  return await runEventLoopWorkSync(
+    `timeline-build ${thread.id}`,
+    async () =>
+      await db.transaction(async () => {
+        const result = await buildThreadTimelineInternal(db, thread, options);
+        if (options.summaryOnly) return result;
+        for (
+          let skipped = 0;
+          skipped < MAX_EMPTY_TIMELINE_WINDOWS;
+          skipped += 1
+        ) {
+          const cursor = result.response.timelinePage.olderCursor;
+          if (result.response.rows.length > 0 || cursor === null) break;
+          const older = await buildThreadTimelineInternal(db, thread, {
+            ...options,
+            page: {
+              kind: "older",
+              beforeCursor: cursor,
+              segmentLimit: options.page.segmentLimit,
+            },
+          });
+          result.response.rows = older.response.rows;
+          result.response.timelinePage = older.response.timelinePage;
+          result.profile.eventRowCount += older.profile.eventRowCount;
+          result.profile.eventDataBytes += older.profile.eventDataBytes;
+          result.profile.decodedEventCount += older.profile.decodedEventCount;
+          result.profile.compactedEventCount +=
+            older.profile.compactedEventCount;
+          result.profile.contextWindowEventRowCount +=
+            older.profile.contextWindowEventRowCount;
+          result.profile.contextWindowEventDataBytes +=
+            older.profile.contextWindowEventDataBytes;
+          result.profile.projectedRowCount += older.profile.projectedRowCount;
+          result.profile.responseRowCount = older.profile.responseRowCount;
+          result.profile.returnedSegmentCount =
+            older.profile.returnedSegmentCount;
+          result.profile.stageTimings.push(...older.profile.stageTimings);
+          result.profile.totalDurationMs = roundDurationMs(
+            result.profile.totalDurationMs + older.profile.totalDurationMs,
+          );
+        }
+        return result;
+      }),
   );
 }
 
@@ -1670,86 +1703,93 @@ function collectConversationRows(
   }
 }
 
-function resolveConversationHistorySequenceStart(
+async function resolveConversationHistorySequenceStart(
   db: DbConnection,
   thread: Thread,
   options: BuildThreadConversationOutlineOptions,
-): number {
+): Promise<number> {
   if (options.includeClearedContextHistory) return 0;
   return (
-    getLatestCompletedThreadContextClearSequence(db, {
+    (await getLatestCompletedThreadContextClearSequence(db, {
       atOrBeforeSequence: options.maxSeq,
       threadId: thread.id,
-    }) ?? 0
+    })) ?? 0
   );
 }
 
-function buildThreadConversationRows(
+async function buildThreadConversationRows(
   db: DbConnection,
   thread: Thread,
   options: BuildThreadConversationRowsOptions,
-): TimelineConversationRow[] {
-  return runEventLoopWorkSync(`conversation-rows ${thread.id}`, () => {
-    const rawEventRows = listStoredConversationOutlineEventRows(db, {
-      sequenceStart: resolveConversationHistorySequenceStart(
+): Promise<TimelineConversationRow[]> {
+  return await runEventLoopWorkSync(
+    `conversation-rows ${thread.id}`,
+    async () => {
+      const rawEventRows = await listStoredConversationOutlineEventRows(db, {
+        sequenceStart: await resolveConversationHistorySequenceStart(
+          db,
+          thread,
+          options,
+        ),
+        threadId: thread.id,
+      });
+      const decodedRawEvents = rawEventRows.map((row) =>
+        toThreadEventWithMeta(row),
+      );
+      const decodedEvents =
+        compactThreadTimelineSummaryEvents(decodedRawEvents);
+      const clientRequestContextRows = await selectClientRequestContextRows(
         db,
-        thread,
-        options,
-      ),
-      threadId: thread.id,
-    });
-    const decodedRawEvents = rawEventRows.map((row) =>
-      toThreadEventWithMeta(row),
-    );
-    const decodedEvents = compactThreadTimelineSummaryEvents(decodedRawEvents);
-    const clientRequestContextRows = selectClientRequestContextRows(db, {
-      rows: rawEventRows,
-      threadId: thread.id,
-    });
-    const acceptedClientRequestContext: AcceptedClientRequestContext = {
-      acceptedClientRequestEvents: clientRequestContextRows.acceptedRows.map(
-        (row) => toThreadEventWithMeta(row),
-      ),
-      rejectedClientRequestEvents: clientRequestContextRows.rejectedRows.map(
-        (row) => toThreadEventWithMeta(row),
-      ),
-    };
-    const timeline = buildThreadTimelineFromEvents({
-      acceptedClientRequestContext,
-      contextWindowEvents: [],
-      events: decodedEvents,
-      options: {
-        completedTurnDisplay: options.completedTurnDisplay,
-        includeNestedRows: options.includeNestedRows,
-        includeDiagnosticOperations: false,
-        isLatestPage: true,
-        providerDisplayName: options.providerDisplayName,
-        providerId: thread.providerId,
-        summarizeShellCommands: true,
-        threadName: thread.title ?? thread.titleFallback ?? "",
-        threadStatus: thread.status,
-        workspaceRoot: resolveThreadWorkspaceRoot(db, thread),
-      },
-    });
-    const conversationRows: TimelineConversationRow[] = [];
-    collectConversationRows(timeline.rows, conversationRows);
-    return conversationRows;
-  });
+        {
+          rows: rawEventRows,
+          threadId: thread.id,
+        },
+      );
+      const acceptedClientRequestContext: AcceptedClientRequestContext = {
+        acceptedClientRequestEvents: clientRequestContextRows.acceptedRows.map(
+          (row) => toThreadEventWithMeta(row),
+        ),
+        rejectedClientRequestEvents: clientRequestContextRows.rejectedRows.map(
+          (row) => toThreadEventWithMeta(row),
+        ),
+      };
+      const timeline = buildThreadTimelineFromEvents({
+        acceptedClientRequestContext,
+        contextWindowEvents: [],
+        events: decodedEvents,
+        options: {
+          completedTurnDisplay: options.completedTurnDisplay,
+          includeNestedRows: options.includeNestedRows,
+          includeDiagnosticOperations: false,
+          isLatestPage: true,
+          providerDisplayName: options.providerDisplayName,
+          providerId: thread.providerId,
+          summarizeShellCommands: true,
+          threadName: thread.title ?? thread.titleFallback ?? "",
+          threadStatus: thread.status,
+          workspaceRoot: await resolveThreadWorkspaceRoot(db, thread),
+        },
+      });
+      const conversationRows: TimelineConversationRow[] = [];
+      collectConversationRows(timeline.rows, conversationRows);
+      return conversationRows;
+    },
+  );
 }
 
-function selectThreadConversationOutline(
+async function selectThreadConversationOutline(
   db: DbConnection,
   thread: Thread,
   options: BuildThreadConversationOutlineOptions,
   sequenceStart: number,
   precedingAgentMessageDeltaCount: number,
   rootProjection: { summaryCompactionEnabled: boolean } | null,
-): ConversationOutlineSelection {
+): Promise<ConversationOutlineSelection> {
   const selectRows =
     rootProjection === null
       ? listStoredConversationOutlineEventRows
       : listStoredRootConversationOutlineEventRows;
-  const rawEventRows = selectRows(db, {
+  const rawEventRows = await selectRows(db, {
     sequenceStart,
     threadId: thread.id,
   });
@@ -1764,7 +1804,7 @@ function selectThreadConversationOutline(
         ? MIN_AGENT_MESSAGE_DELTAS_FOR_SUMMARY_COMPACTION
         : 0,
   );
-  const clientRequestContextRows = selectClientRequestContextRows(db, {
+  const clientRequestContextRows = await selectClientRequestContextRows(db, {
     rows: rawEventRows,
     threadId: thread.id,
   });
@@ -1778,7 +1818,7 @@ function selectThreadConversationOutline(
   };
   return {
     events: decodedRawEvents,
-    project: () => {
+    project: async () => {
       const timeline = buildThreadTimelineFromEvents({
         acceptedClientRequestContext,
         contextWindowEvents: [],
@@ -1793,7 +1833,7 @@ function selectThreadConversationOutline(
           summarizeShellCommands: true,
           threadName: thread.title ?? thread.titleFallback ?? "",
           threadStatus: thread.status,
-          workspaceRoot: resolveThreadWorkspaceRoot(db, thread),
+          workspaceRoot: await resolveThreadWorkspaceRoot(db, thread),
         },
       });
       const items: ReturnType<ConversationOutlineSelection["project"]> = [];
@@ -1819,30 +1859,33 @@ function selectThreadConversationOutline(
   };
 }
 
-export function buildThreadConversationOutline(
+export async function buildThreadConversationOutline(
   db: DbConnection,
   thread: Thread,
   options: BuildThreadConversationOutlineOptions,
-): ThreadConversationOutlineResponse {
-  return runEventLoopWorkSync(`conversation-outline ${thread.id}`, () => {
-    const sequenceStart = resolveConversationHistorySequenceStart(
-      db,
-      thread,
-      options,
-    );
-    const selection = selectThreadConversationOutline(
-      db,
-      thread,
-      options,
-      sequenceStart,
-      0,
-      null,
-    );
-    return {
-      items: selection.project().map(({ item }) => item),
-      maxSeq: options.maxSeq,
-    };
-  });
+): Promise<ThreadConversationOutlineResponse> {
+  return await runEventLoopWorkSync(
+    `conversation-outline ${thread.id}`,
+    async () => {
+      const sequenceStart = await resolveConversationHistorySequenceStart(
+        db,
+        thread,
+        options,
+      );
+      const selection = await selectThreadConversationOutline(
+        db,
+        thread,
+        options,
+        sequenceStart,
+        0,
+        null,
+      );
+      return {
+        items: (await selection.project()).map(({ item }) => item),
+        maxSeq: options.maxSeq,
+      };
+    },
+  );
 }
 
 interface GetThreadMessageOptions extends BuildThreadConversationOutlineOptions {
@@ -1851,12 +1894,12 @@ interface GetThreadMessageOptions extends BuildThreadConversationOutlineOptions 
   after: number;
 }
 
-export function getThreadMessage(
+export async function getThreadMessage(
   db: DbConnection,
   thread: Thread,
   options: GetThreadMessageOptions,
-): ThreadMessageResponse {
-  const rows = buildThreadConversationRows(db, thread, {
+): Promise<ThreadMessageResponse> {
+  const rows = await buildThreadConversationRows(db, thread, {
     ...options,
     includeNestedRows: true,
   });
@@ -1912,17 +1955,17 @@ function shouldMaterializeThreadConversationOutline(thread: Thread): boolean {
   return thread.status === "idle" || thread.status === "error";
 }
 
-export function loadThreadConversationOutline(
+export async function loadThreadConversationOutline(
   db: DbConnection,
   thread: Thread,
   options: LoadThreadConversationOutlineOptions,
-): ThreadConversationOutlineResponse {
+): Promise<ThreadConversationOutlineResponse> {
   const projectionKey = buildThreadConversationOutlineProjectionKey(
     thread,
     options.outlineSequence,
     options,
   );
-  const stored = getThreadConversationOutlineRecord(db, thread.id);
+  const stored = await getThreadConversationOutlineRecord(db, thread.id);
   if (stored?.projectionKey === projectionKey) {
     const items = parseThreadConversationOutlineItems(stored.itemsJson);
     if (items !== null) {
@@ -1930,35 +1973,41 @@ export function loadThreadConversationOutline(
     }
   }
 
-  const response = runEventLoopWorkSync(
+  const response = await runEventLoopWorkSync(
     `conversation-outline ${thread.id}`,
-    () => {
-      const historySequenceStart = resolveConversationHistorySequenceStart(
+    async () => {
+      const historySequenceStart =
+        await resolveConversationHistorySequenceStart(db, thread, options);
+      const { orderingBoundarySequence } = await getTimelineGroupingContext(
         db,
-        thread,
-        options,
+        {
+          maxSeq: options.maxSeq,
+          sequenceStart: historySequenceStart,
+          threadId: thread.id,
+        },
       );
-      const { orderingBoundarySequence } = getTimelineGroupingContext(db, {
-        maxSeq: options.maxSeq,
-        sequenceStart: historySequenceStart,
-        threadId: thread.id,
-      });
       return {
-        items: projectConversationOutlineIncrementally({
+        items: await projectConversationOutlineIncrementally({
           db,
           threadId: thread.id,
           key: buildThreadConversationOutlineProjectionKey(thread, 0, options),
           maxSeq: options.maxSeq,
           historySequenceStart,
           orderingBoundarySequence,
-          resolveProjectionState: (classificationSequenceStart, previous) => {
-            const state = getStoredConversationOutlineProjectionState(db, {
-              threadId: thread.id,
-              sequenceStart: historySequenceStart,
-              classificationSequenceStart,
-              summaryCompactionDeltaThreshold:
-                MIN_AGENT_MESSAGE_DELTAS_FOR_SUMMARY_COMPACTION,
-            });
+          resolveProjectionState: async (
+            classificationSequenceStart,
+            previous,
+          ) => {
+            const state = await getStoredConversationOutlineProjectionState(
+              db,
+              {
+                threadId: thread.id,
+                sequenceStart: historySequenceStart,
+                classificationSequenceStart,
+                summaryCompactionDeltaThreshold:
+                  MIN_AGENT_MESSAGE_DELTAS_FOR_SUMMARY_COMPACTION,
+              },
+            );
             return {
               includeNestedEvents:
                 orderingBoundarySequence !== null ||
@@ -1967,8 +2016,12 @@ export function loadThreadConversationOutline(
               summaryCompactionEnabled: state.summaryCompactionEnabled,
             };
           },
-          select: (sequenceStart, precedingAgentMessageDeltaCount, state) =>
-            selectThreadConversationOutline(
+          select: async (
+            sequenceStart,
+            precedingAgentMessageDeltaCount,
+            state,
+          ) =>
+            await selectThreadConversationOutline(
               db,
               thread,
               options,
@@ -1984,7 +2037,7 @@ export function loadThreadConversationOutline(
     },
   );
   if (shouldMaterializeThreadConversationOutline(thread)) {
-    upsertThreadConversationOutlineRecord(db, {
+    await upsertThreadConversationOutlineRecord(db, {
       itemsJson: JSON.stringify(response.items),
       projectionKey,
       threadId: thread.id,
@@ -2045,15 +2098,17 @@ function scopeTimelineTurnDetailsRows(
   return matched.length === 0 ? null : mapTimelineRowTree(matched, withPreview);
 }
 
-function resolveTimelineTurnDetailsRange(
+async function resolveTimelineTurnDetailsRange(
   db: DbConnection,
   thread: Thread,
   options: BuildTimelineTurnSummaryDetailsOptions,
-): Pick<TimelineTurnSummarySelection, "sourceSeqEnd" | "sourceSeqStart"> {
+): Promise<
+  Pick<TimelineTurnSummarySelection, "sourceSeqEnd" | "sourceSeqStart">
+> {
   const lifecycle =
     options.itemId === null
       ? null
-      : getStoredItemLifecycleSequenceRange(db, {
+      : await getStoredItemLifecycleSequenceRange(db, {
           itemId: options.itemId,
           threadId: thread.id,
           turnId: options.turnId,
@@ -2070,24 +2125,25 @@ function resolveTimelineTurnDetailsRange(
   };
 }
 
-export function buildTimelineTurnSummaryDetails(
+export async function buildTimelineTurnSummaryDetails(
   db: DbConnection,
   thread: Thread,
   options: BuildTimelineTurnSummaryDetailsOptions,
-): TimelineTurnSummaryDetailsResponse {
-  return db.transaction(() =>
-    buildTimelineTurnSummaryDetailsPage(db, thread, {
-      ...options,
-      ...resolveTimelineTurnDetailsRange(db, thread, options),
-    }),
+): Promise<TimelineTurnSummaryDetailsResponse> {
+  return await db.transaction(
+    async () =>
+      await buildTimelineTurnSummaryDetailsPage(db, thread, {
+        ...options,
+        ...(await resolveTimelineTurnDetailsRange(db, thread, options)),
+      }),
   );
 }
 
-function buildTimelineTurnSummaryDetailsPage(
+async function buildTimelineTurnSummaryDetailsPage(
   db: DbConnection,
   thread: Thread,
   options: BuildTimelineTurnSummaryDetailsOptions,
-): TimelineTurnSummaryDetailsResponse {
+): Promise<TimelineTurnSummaryDetailsResponse> {
   if (options.sourceSeqStart > options.sourceSeqEnd) {
     throw new ApiError(
       400,
@@ -2107,7 +2163,7 @@ function buildTimelineTurnSummaryDetailsPage(
             anchorSeq: Math.max(1, options.sourceSeqStart),
           },
         };
-  const snapshot = resolveTimelineSnapshot(
+  const snapshot = await resolveTimelineSnapshot(
     db,
     thread,
     detailsPage,
@@ -2121,7 +2177,7 @@ function buildTimelineTurnSummaryDetailsPage(
       options.includeDiagnosticOperations,
       options.providerDisplayName ?? null,
       thread.title ?? thread.titleFallback ?? "",
-      resolveThreadWorkspaceRoot(db, thread),
+      await resolveThreadWorkspaceRoot(db, thread),
       options.completedTurnDisplay,
       options.summarizeShellCommands,
     ]),
@@ -2135,7 +2191,7 @@ function buildTimelineTurnSummaryDetailsPage(
     sequenceStart: options.sourceSeqStart,
     threadId: thread.id,
   };
-  const fullDetailsFloor = findStoredTimelineWindowByteBudgetFloor(db, {
+  const fullDetailsFloor = await findStoredTimelineWindowByteBudgetFloor(db, {
     ...detailsWindow,
     maxDataBytes: THREAD_TIMELINE_EVENT_DATA_BYTE_LIMIT,
     maxInlineOutputChars: null,
@@ -2144,11 +2200,11 @@ function buildTimelineTurnSummaryDetailsPage(
   if (fullDetailsFloor.kind !== "fits") {
     detailsInlineOutputLimit = DEFAULT_MAX_INLINE_OUTPUT_CHARS;
   }
-  const exactEventRows = listStoredTimelineWindowEventRows(db, {
+  const exactEventRows = await listStoredTimelineWindowEventRows(db, {
     ...detailsWindow,
     maxInlineOutputChars: detailsInlineOutputLimit,
   });
-  const clientRequestIds = listStoredClientTurnRequestIdsInRange(db, {
+  const clientRequestIds = await listStoredClientTurnRequestIdsInRange(db, {
     threadId: thread.id,
     seqStart: options.sourceSeqStart,
     seqEnd: options.sourceSeqEnd,
@@ -2156,12 +2212,13 @@ function buildTimelineTurnSummaryDetailsPage(
   const exactAcceptedInputRows = exactEventRows.filter(
     (row) => row.type === "turn/input/accepted",
   );
-  const futureAcceptedInputRows =
-    listStoredTurnInputAcceptedRowsByClientRequestIds(db, {
+  const futureAcceptedInputRows = (
+    await listStoredTurnInputAcceptedRowsByClientRequestIds(db, {
       threadId: thread.id,
       afterSequence: options.sourceSeqEnd,
       clientRequestIds,
-    }).filter((row) => row.sequence <= snapshot.maxSeq);
+    })
+  ).filter((row) => row.sequence <= snapshot.maxSeq);
   const acceptedInputRowsByTurn = partitionAcceptedInputRowsByRequestedTurn({
     acceptedInputRows: [...exactAcceptedInputRows, ...futureAcceptedInputRows],
     turnId: options.turnId,
@@ -2186,7 +2243,7 @@ function buildTimelineTurnSummaryDetailsPage(
   );
   const requestedTurnStartedRows = hasCurrentStartedRow
     ? []
-    : listStoredTurnStartedRowsByTurnIdsUpToSequence(db, {
+    : await listStoredTurnStartedRowsByTurnIdsUpToSequence(db, {
         threadId: thread.id,
         sequenceCutoff: contextSequenceCutoff,
         turnIds: [options.turnId],
@@ -2202,7 +2259,7 @@ function buildTimelineTurnSummaryDetailsPage(
     ...requestedTurnStartedRows,
     ...eventRows,
   ]);
-  const turnLifecycleRows = listStoredEventRows(db, {
+  const turnLifecycleRows = await listStoredEventRows(db, {
     threadId: thread.id,
     afterSequence:
       turnContextRows.reduce(
@@ -2212,36 +2269,41 @@ function buildTimelineTurnSummaryDetailsPage(
     beforeSequence: contextSequenceCutoff + 1,
     types: ["turn/started", "turn/completed"],
   });
-  const wholeItemEventRows = ensureSequenceWindowWholeItemRows(db, {
+  const wholeItemEventRows = await ensureSequenceWindowWholeItemRows(db, {
     beforeSequence: detailsWindow.beforeSequence,
     maxInlineOutputChars: detailsInlineOutputLimit,
     rows: mergeStoredEventRowsById([...turnContextRows, ...turnLifecycleRows]),
     sequenceStart: detailsWindow.sequenceStart,
     threadId: thread.id,
   });
-  const eventRowsWithParentedChildren = ensureTimelineWindowParentedRows(db, {
-    excludeDiagnosticEvents: !includeDiagnosticOperations,
-    maxInlineOutputChars: detailsInlineOutputLimit,
-    sequenceBounds: {
-      beforeSequence: snapshot.maxSeq + 1,
-      sequenceStart: detailsWindow.sequenceStart,
+  const eventRowsWithParentedChildren = (
+    await ensureTimelineWindowParentedRows(db, {
+      excludeDiagnosticEvents: !includeDiagnosticOperations,
+      maxInlineOutputChars: detailsInlineOutputLimit,
+      sequenceBounds: {
+        beforeSequence: snapshot.maxSeq + 1,
+        sequenceStart: detailsWindow.sequenceStart,
+      },
+      threadId: thread.id,
+      rows: wholeItemEventRows,
+    })
+  ).rows;
+  const eventRowsWithTurnStarts = await ensureTimelineWindowTurnStartedRows(
+    db,
+    {
+      threadId: thread.id,
+      rows: eventRowsWithParentedChildren,
     },
-    threadId: thread.id,
-    rows: wholeItemEventRows,
-  }).rows;
-  const eventRowsWithTurnStarts = ensureTimelineWindowTurnStartedRows(db, {
-    threadId: thread.id,
-    rows: eventRowsWithParentedChildren,
-  });
+  );
   const eventRowsWithBackgroundTaskState =
-    ensureTimelineWindowBackgroundTaskStateRows(db, {
+    await ensureTimelineWindowBackgroundTaskStateRows(db, {
       threadId: thread.id,
       rows: eventRowsWithTurnStarts,
       beforeSequence: snapshot.maxSeq + 1,
     });
   const hydratedEventRows =
     detailsInlineOutputLimit === null
-      ? hydrateRetainedEventOutputRowsWithinDataByteLimit(
+      ? await hydrateRetainedEventOutputRowsWithinDataByteLimit(
           db,
           eventRowsWithBackgroundTaskState,
           THREAD_TIMELINE_EVENT_DATA_BYTE_LIMIT,
@@ -2266,7 +2328,7 @@ function buildTimelineTurnSummaryDetailsPage(
       providerDisplayName: options.providerDisplayName,
       threadStatus: snapshot.status,
       threadName: thread.title ?? thread.titleFallback ?? "",
-      workspaceRoot: resolveThreadWorkspaceRoot(db, thread),
+      workspaceRoot: await resolveThreadWorkspaceRoot(db, thread),
     },
   });
 

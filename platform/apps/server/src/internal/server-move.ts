@@ -77,7 +77,7 @@ export function registerInternalServerMoveRoutes(
   deps: AppDeps,
   args: RegisterInternalServerMoveRoutesArgs,
 ): void {
-  app.get("/server-move/pending", (context) => {
+  app.get("/server-move/pending", async (context) => {
     const remoteAddress = getTrustedRemoteAddress(context);
     if (remoteAddress === undefined || !isLoopbackAddress(remoteAddress)) {
       throw new ApiError(
@@ -93,14 +93,22 @@ export function registerInternalServerMoveRoutes(
         "This server isn't waiting for a move to finish",
       );
     }
-    return context.json(verifyPendingServerMove(deps.db, args.pending));
+    return context.json(await verifyPendingServerMove(deps.db, args.pending));
   });
 
-  app.get("/server-move/:moveId/archive", (context) =>
-    serverMoveDownloadResponse(context, args.serverMove, "archive"),
+  app.get(
+    "/server-move/:moveId/archive",
+    async (context) =>
+      await serverMoveDownloadResponse(context, args.serverMove, "archive"),
   );
 
-  app.get("/server-move/:moveId/hyperfide-app.tgz", (context) =>
-    serverMoveDownloadResponse(context, args.serverMove, "hyperfide-app"),
+  app.get(
+    "/server-move/:moveId/hyperfide-app.tgz",
+    async (context) =>
+      await serverMoveDownloadResponse(
+        context,
+        args.serverMove,
+        "hyperfide-app",
+      ),
   );
 }

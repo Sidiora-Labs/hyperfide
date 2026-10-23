@@ -19,7 +19,13 @@ function truncationMarkerSql(originalLength: SQL, max: number): SQL {
 
 export function truncatedEventDataColumn(
   maxInlineOutputChars: number,
+  dialect?: string,
 ): SQL<string> {
+  if (dialect === "postgresql")
+    return sql<string>`platform.hyperfide_inline_event_data(${events.data}, ${maxInlineOutputChars}, ARRAY[${sql.join(
+      INLINE_OUTPUT_JSON_PATHS.map((path) => sql`${path}`),
+      sql`, `,
+    )}]::text[])`;
   const pairs: SQL[] = [];
   for (const path of INLINE_OUTPUT_JSON_PATHS) {
     const value = sql`json_extract(${events.data}, ${path})`;

@@ -13,8 +13,8 @@ export function registerTerminalRoutes(app: Hono, deps: AppDeps): void {
   });
   const routes = publicApiRoutes.terminals;
 
-  get(routes.list, (context, query) => {
-    const sessions = deps.terminalSessions.listTerminals({ query });
+  get(routes.list, async (context, query) => {
+    const sessions = await deps.terminalSessions.listTerminals({ query });
     return context.json({ sessions });
   });
 
@@ -23,15 +23,15 @@ export function registerTerminalRoutes(app: Hono, deps: AppDeps): void {
     return context.json(session, 201);
   });
 
-  get(routes.get, (context) => {
-    const session = deps.terminalSessions.getTerminal({
+  get(routes.get, async (context) => {
+    const session = await deps.terminalSessions.getTerminal({
       terminalId: context.req.param("terminalId"),
     });
     return context.json(session);
   });
 
-  patch(routes.update, (context, payload) => {
-    const session = deps.terminalSessions.renameTerminal({
+  patch(routes.update, async (context, payload) => {
+    const session = await deps.terminalSessions.renameTerminal({
       payload,
       terminalId: context.req.param("terminalId"),
     });
@@ -53,16 +53,16 @@ export function registerTerminalRoutes(app: Hono, deps: AppDeps): void {
     return context.json(session);
   });
 
-  post(routes.input, (context, payload) => {
-    const session = deps.terminalSessions.sendTerminalInput({
+  post(routes.input, async (context, payload) => {
+    const session = await deps.terminalSessions.sendTerminalInput({
       payload,
       terminalId: context.req.param("terminalId"),
     });
     return context.json(session);
   });
 
-  post(routes.resize, (context, payload) => {
-    const session = deps.terminalSessions.resizeTerminal({
+  post(routes.resize, async (context, payload) => {
+    const session = await deps.terminalSessions.resizeTerminal({
       payload,
       terminalId: context.req.param("terminalId"),
     });

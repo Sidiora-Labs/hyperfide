@@ -32,16 +32,16 @@ interface SetupResult {
   thread: Thread;
 }
 
-function setup(): SetupResult {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup(): Promise<SetupResult> {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "claude-code",
   });
@@ -52,14 +52,14 @@ function requestId(value: number): ClientTurnRequestId {
   return encodeClientTurnRequestIdNumber({ value });
 }
 
-function insertCrossWindowSubagentEvents(
+async function insertCrossWindowSubagentEvents(
   db: DbConnection,
   thread: Thread,
-): void {
+): Promise<void> {
   const firstRequestId = requestId(1);
   const secondRequestId = requestId(2);
   const thirdRequestId = requestId(3);
-  insertEvents(db, noopNotifier, [
+  await insertEvents(db, noopNotifier, [
     {
       threadId: thread.id,
       sequence: 1,
@@ -326,59 +326,65 @@ function rowTexts(rows: readonly TimelineRow[]): string[] {
 }
 
 describe("thread timeline parented pagination", () => {
-  it("keeps child-only subagent output off the latest page", () => {
-    const { db, thread } = setup();
-    insertCrossWindowSubagentEvents(db, thread);
+  it("keeps child-only subagent output off the latest page", async () => {
+    const { db, thread } = await setup();
+    await insertCrossWindowSubagentEvents(db, thread);
 
-    const timeline = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      eventBudget: 1_000_000,
-      includeClearedContextHistory: false,
-      includeDiagnosticOperations: false,
-      compactionOfferEnabled: false,
-      summarizeShellCommands: true,
-      includeNestedRows: true,
-      maxInlineOutputChars: null,
-      maxSeq: 51,
-      page: { kind: "latest", segmentLimit: 1 },
-    }).response;
+    const timeline = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: 1_000_000,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        includeNestedRows: true,
+        maxInlineOutputChars: null,
+        maxSeq: 51,
+        page: { kind: "latest", segmentLimit: 1 },
+      })
+    ).response;
 
     expect(rowTexts(timeline.rows)).toContain("Newest response.");
     expect(rowTexts(timeline.rows)).not.toContain("SECOND_SUBAGENT_OUTPUT");
   });
 
-  it("shows cross-window subagent output under the original Agent row", () => {
-    const { db, thread } = setup();
-    insertCrossWindowSubagentEvents(db, thread);
+  it("shows cross-window subagent output under the original Agent row", async () => {
+    const { db, thread } = await setup();
+    await insertCrossWindowSubagentEvents(db, thread);
 
-    const latest = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      eventBudget: 1_000_000,
-      includeClearedContextHistory: false,
-      includeDiagnosticOperations: false,
-      compactionOfferEnabled: false,
-      summarizeShellCommands: true,
-      includeNestedRows: true,
-      maxInlineOutputChars: null,
-      maxSeq: 51,
-      page: { kind: "latest", segmentLimit: 2 },
-    }).response;
-    const timeline = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      eventBudget: 1_000_000,
-      includeClearedContextHistory: false,
-      includeDiagnosticOperations: false,
-      compactionOfferEnabled: false,
-      summarizeShellCommands: true,
-      includeNestedRows: true,
-      maxInlineOutputChars: null,
-      maxSeq: 51,
-      page: {
-        kind: "older",
-        beforeCursor: latest.timelinePage.olderCursor!,
-        segmentLimit: 1,
-      },
-    }).response;
+    const latest = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: 1_000_000,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        includeNestedRows: true,
+        maxInlineOutputChars: null,
+        maxSeq: 51,
+        page: { kind: "latest", segmentLimit: 2 },
+      })
+    ).response;
+    const timeline = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: 1_000_000,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        includeNestedRows: true,
+        maxInlineOutputChars: null,
+        maxSeq: 51,
+        page: {
+          kind: "older",
+          beforeCursor: latest.timelinePage.olderCursor!,
+          segmentLimit: 1,
+        },
+      })
+    ).response;
     const delegation = flattenRows(timeline.rows).find(
       (
         row,

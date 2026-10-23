@@ -58,12 +58,12 @@ export function registerInternalToolCallRoutes(app: Hono, deps: AppDeps): void {
     "/session/tool-call",
     hostDaemonToolCallRequestSchema,
     async (context, payload) => {
-      const session = requireAuthenticatedDaemonSession({
+      const session = await requireAuthenticatedDaemonSession({
         context,
         db: deps.db,
         sessionId: payload.sessionId,
       });
-      const { environment, thread } = requireThreadEnvironment(
+      const { environment, thread } = await requireThreadEnvironment(
         deps.db,
         payload.threadId,
       );
@@ -107,8 +107,8 @@ export function registerInternalToolCallRoutes(app: Hono, deps: AppDeps): void {
                 signal,
               },
             }),
-          onDetachedResult: (result) =>
-            deliverDetachedToolResult(deps, {
+          onDetachedResult: async (result) =>
+            await deliverDetachedToolResult(deps, {
               threadId: thread.id,
               toolName: payload.tool,
               presentation: pluginTool.record.presentation,

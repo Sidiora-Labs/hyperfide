@@ -28,7 +28,7 @@ import { createNoopTelemetryService } from "../../../src/services/system/telemet
 import { testLogger } from "../../helpers/test-app.js";
 
 const logger = testLogger as unknown as Logger;
-const run = promisify(execFile);
+const run = await promisify(execFile);
 const MIB = 1024 * 1024;
 
 async function exists(path: string): Promise<boolean> {
@@ -43,7 +43,7 @@ async function fill(path: string, bytes = 1024): Promise<void> {
   await writeFile(join(path, "payload"), Buffer.alloc(bytes, 1));
 }
 
-function installGitRow(
+async function installGitRow(
   db: DbConnection,
   args: {
     id: string;
@@ -51,8 +51,8 @@ function installGitRow(
     commit: string;
     activeArtifactId: string | null;
   },
-): void {
-  upsertInstalledPlugin(db, {
+): Promise<void> {
+  await upsertInstalledPlugin(db, {
     id: args.id,
     source: "git:https://example.test/plugin.git@main",
     provenance: { kind: "direct" },
@@ -83,7 +83,7 @@ describe("plugin cache pruning", () => {
   let gitRepoCache: string;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     dataDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-prune-"));
     gitRepoCache = join(
       dataDir,
@@ -97,12 +97,16 @@ describe("plugin cache pruning", () => {
   });
 
   afterEach(async () => {
-    db.$client.close();
+    await db.close();
     await rm(dataDir, { recursive: true, force: true });
   });
 
-  function gitArtifact(id: string, commit: string, path: string): void {
-    createPluginArtifact(db, {
+  async function gitArtifact(
+    id: string,
+    commit: string,
+    path: string,
+  ): Promise<void> {
+    await createPluginArtifact(db, {
       id,
       pluginId: "pruned",
       sourceKind: "git",
@@ -117,13 +121,13 @@ describe("plugin cache pruning", () => {
     });
   }
 
-  function snapshot(
+  async function snapshot(
     id: string,
     fromArtifactId: string,
     status: "ready" | "rollback-pending",
-  ): void {
+  ): Promise<void> {
     const snapshotPath = join(dataDir, "plugins", "snapshots", id);
-    createPluginStateSnapshot(db, {
+    await createPluginStateSnapshot(db, {
       id,
       pluginId: "pruned",
       fromArtifactId,
@@ -171,26 +175,26 @@ describe("plugin cache pruning", () => {
     );
     await fill(npmOrphan);
     await fill(npmStaging);
-    gitArtifact("active", commit("a"), join(gitRepoCache, commit("a")));
-    gitArtifact("replaced", commit("b"), join(gitRepoCache, commit("b")));
-    gitArtifact("pending", commit("c"), join(gitRepoCache, commit("c")));
-    installGitRow(db, {
+    await gitArtifact("active", commit("a"), join(gitRepoCache, commit("a")));
+    await gitArtifact("replaced", commit("b"), join(gitRepoCache, commit("b")));
+    await gitArtifact("pending", commit("c"), join(gitRepoCache, commit("c")));
+    await installGitRow(db, {
       id: "pruned",
       rootDir: join(gitRepoCache, commit("a")),
       commit: commit("a"),
       activeArtifactId: "active",
     });
-    installGitRow(db, {
+    await installGitRow(db, {
       id: "legacy",
       rootDir: join(gitRepoCache, commit("d")),
       commit: commit("d"),
       activeArtifactId: null,
     });
-    snapshot("ready", "replaced", "ready");
-    snapshot("pending", "pending", "rollback-pending");
+    await snapshot("ready", "replaced", "ready");
+    await snapshot("pending", "pending", "rollback-pending");
     const warnings: string[] = [];
-    const prune = (dryRun: boolean) =>
-      prunePluginCache({
+    const prune = async (dryRun: boolean) =>
+      await prunePluginCache({
         db,
         dataDir,
         dryRun,
@@ -207,7 +211,7 @@ describe("plugin cache pruning", () => {
     ]);
     expect(preview.removed.every(({ bytes }) => bytes > 0)).toBe(true);
     expect(await exists(join(gitRepoCache, commit("b")))).toBe(true);
-    expect(listPluginArtifacts(db, "pruned")).toHaveLength(3);
+    expect(await listPluginArtifacts(db, "pruned")).toHaveLength(3);
 
     const pruned = await prune(false);
     expect(pruned).toEqual({ ...preview, dryRun: false });
@@ -227,7 +231,7 @@ describe("plugin cache pruning", () => {
       expect(await exists(join(kept, "payload"))).toBe(true);
     }
     expect(
-      listPluginArtifacts(db, "pruned")
+      (await listPluginArtifacts(db, "pruned"))
         .map((artifact) => artifact.id)
         .sort(),
     ).toEqual(["active", "pending"]);
@@ -258,14 +262,14 @@ describe("plugin cache pruning", () => {
         const rootDir = join(checkout, localSubdirectory);
         await fill(artifactRoot);
         await fill(rootDir);
-        gitArtifact(letter, commit, artifactRoot);
+        await gitArtifact(letter, commit, artifactRoot);
         if (letter === "d") {
           const siblingRoot = join(checkout, "plugins", "two");
           await fill(siblingRoot);
-          gitArtifact("sibling", commit, siblingRoot);
+          await gitArtifact("sibling", commit, siblingRoot);
           protectedRoots.push(artifactRoot, siblingRoot);
         }
-        upsertInstalledPlugin(db, {
+        await upsertInstalledPlugin(db, {
           id: `local-${letter}`,
           source: `path:${rootDir}`,
           provenance: { kind: "direct" },
@@ -288,7 +292,7 @@ describe("plugin cache pruning", () => {
       const unusedCommit = "c".repeat(40);
       const unusedRoot = join(gitRepoCache, unusedCommit);
       await fill(unusedRoot);
-      gitArtifact("unused", unusedCommit, unusedRoot);
+      await gitArtifact("unused", unusedCommit, unusedRoot);
       const args = { db, dataDir, warn: () => {} };
 
       if (operation === "prune") {
@@ -311,12 +315,9 @@ describe("plugin cache pruning", () => {
         expect(await exists(join(root, "payload"))).toBe(true);
       }
       expect(await exists(unusedRoot)).toBe(false);
-      expect(listPluginArtifacts(db, "pruned").map(({ id }) => id)).toEqual([
-        "a",
-        "b",
-        "d",
-        "sibling",
-      ]);
+      expect(
+        (await listPluginArtifacts(db, "pruned")).map(({ id }) => id),
+      ).toEqual(["a", "b", "d", "sibling"]);
     },
   );
 
@@ -326,8 +327,8 @@ describe("plugin cache pruning", () => {
     await fill(checkout, MIB);
     await fill(join(checkout, "plugins", "one"), MIB);
     await fill(join(checkout, "plugins", "two"), MIB);
-    gitArtifact("one", commit, join(checkout, "plugins", "one"));
-    gitArtifact("two", commit, join(checkout, "plugins", "two"));
+    await gitArtifact("one", commit, join(checkout, "plugins", "one"));
+    await gitArtifact("two", commit, join(checkout, "plugins", "two"));
 
     const result = await prunePluginCache({
       db,
@@ -377,11 +378,11 @@ describe("git plugin cache lifecycle", () => {
     );
     await git(["add", "-A"]);
     await git(["commit", "-qm", version]);
-    return git(["rev-parse", "HEAD"]);
+    return await git(["rev-parse", "HEAD"]);
   }
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-cache-"));
     repo = join(workDir, "repo");
     await mkdir(repo, { recursive: true });
@@ -407,17 +408,17 @@ describe("git plugin cache lifecycle", () => {
       stabilizationWindowMs: 0,
     });
     await service.install(`git:${repo}@main`, { kind: "root" });
-  });
+  }, 60_000);
 
   afterEach(async () => {
     await service.stop();
-    db.$client.close();
+    await db.close();
     await rm(workDir, { recursive: true, force: true });
-  });
+  }, 60_000);
 
-  function activeRoot(): string {
-    const registration = getInstalledPluginRegistration(db, "cached");
-    const artifact = listPluginArtifacts(db, "cached").find(
+  async function activeRoot(): Promise<string> {
+    const registration = await getInstalledPluginRegistration(db, "cached");
+    const artifact = (await listPluginArtifacts(db, "cached")).find(
       (candidate) => candidate.id === registration?.activeArtifactId,
     );
     if (artifact === undefined) throw new Error("missing active artifact");
@@ -425,7 +426,7 @@ describe("git plugin cache lifecycle", () => {
   }
 
   it("keeps no clone history and deletes the version an update replaced", async () => {
-    const firstRoot = activeRoot();
+    const firstRoot = await activeRoot();
     expect(await exists(join(firstRoot, "package.json"))).toBe(true);
     expect(await exists(join(firstRoot, ".git"))).toBe(false);
 
@@ -434,31 +435,31 @@ describe("git plugin cache lifecycle", () => {
       ok: true,
       result: { applied: true },
     });
-    const secondRoot = activeRoot();
+    const secondRoot = await activeRoot();
     expect(secondRoot).not.toBe(firstRoot);
     expect(await exists(join(secondRoot, ".git"))).toBe(false);
     expect(await exists(firstRoot)).toBe(false);
     expect(await exists(join(secondRoot, "package.json"))).toBe(true);
-    expect(listPluginArtifacts(db, "cached")).toHaveLength(1);
+    expect(await listPluginArtifacts(db, "cached")).toHaveLength(1);
     await expect(service.pruneCache({ dryRun: false })).resolves.toMatchObject({
       removed: [],
     });
     await expect(service.reload("cached")).resolves.toMatchObject({
       ok: true,
     });
-    expect(service.list()).toMatchObject([
+    expect(await service.list()).toMatchObject([
       { id: "cached", version: "1.1.0", status: "running" },
     ]);
   });
 
   it("deletes the cached clone when the plugin is removed", async () => {
-    const root = activeRoot();
+    const root = await activeRoot();
     const repoCache = join(root, "..");
 
     await expect(service.remove("cached")).resolves.toBe(true);
 
     expect(await exists(root)).toBe(false);
-    expect(listPluginArtifacts(db, "cached")).toEqual([]);
+    expect(await listPluginArtifacts(db, "cached")).toEqual([]);
     expect(await readdir(join(workDir, "data", "plugins", "cache"))).toEqual(
       [],
     );

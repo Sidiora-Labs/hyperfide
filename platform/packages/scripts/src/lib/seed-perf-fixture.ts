@@ -247,7 +247,7 @@ function makeAgentMarkdown(rng: Rng): string {
 }
 
 interface EventWriter {
-  push(row: EventInsert): void;
+  push(row: EventInsert): void | Promise<void>;
   count(): number;
 }
 
@@ -272,7 +272,7 @@ interface ThreadEventState {
   stepMs: number;
 }
 
-function buildThreadEvents(args: ThreadEventBuildArgs): void {
+async function buildThreadEvents(args: ThreadEventBuildArgs): Promise<void> {
   const { rng, threadId, writer } = args;
   const providerThreadId = rng.uuid();
   const state: ThreadEventState = {
@@ -284,16 +284,16 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
     ),
   };
 
-  const emit = (row: {
+  const emit = async (row: {
     type: EventInsert["type"];
     itemId?: string;
     itemKind?: NonNullable<EventInsert["itemKind"]>;
     turnId?: string;
     data: object;
-  }): number => {
+  }): Promise<number> => {
     state.sequence += 1;
     state.at += rng.int(1, state.stepMs);
-    writer.push({
+    await writer.push({
       id: `evt_${rng.idSuffix()}`,
       threadId,
       environmentId: args.environmentId,
@@ -321,7 +321,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
     serviceTier: "default",
     source: "client/turn/requested",
   };
-  emit({
+  await emit({
     type: "client/turn/requested",
     data: {
       direction: "outbound",
@@ -335,7 +335,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
       execution: executionOptions,
     },
   });
-  emit({
+  await emit({
     type: "client/thread/start",
     data: {
       direction: "outbound",
@@ -345,7 +345,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
     },
   });
   for (let index = 0; index < 3; index += 1) {
-    emit({
+    await emit({
       type: "system/thread-provisioning",
       data: {
         provisioningId: `tpv_${rng.idSuffix()}`,
@@ -355,7 +355,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
       },
     });
   }
-  emit({ type: "thread/identity", data: { providerThreadId } });
+  await emit({ type: "thread/identity", data: { providerThreadId } });
 
   args.searchSegments.push({
     id: `${threadId}:title:title`,
@@ -393,7 +393,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
         : sentences(rng, USER_SENTENCES, rng.int(1, 3));
 
     if (turnIndex > 1) {
-      const requestedAtSequence = emit({
+      const requestedAtSequence = await emit({
         type: "client/turn/requested",
         data: {
           direction: "outbound",
@@ -430,8 +430,8 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
       createdAt: state.at,
     });
 
-    emit({ type: "turn/started", turnId, data: { providerThreadId } });
-    emit({
+    await emit({ type: "turn/started", turnId, data: { providerThreadId } });
+    await emit({
       type: "turn/input/accepted",
       turnId,
       data: { providerThreadId, clientRequestId: `creq_${rng.idSuffix()}` },
@@ -448,7 +448,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
         const itemId = `claude-reasoning-${state.sequence}`;
         const deltaCount = Math.min(itemBudget - 1, rng.int(2, 6));
         for (let index = 0; index < deltaCount; index += 1) {
-          emit({
+          await emit({
             type: "item/reasoning/textDelta",
             turnId,
             itemId,
@@ -459,7 +459,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
             },
           });
         }
-        emit({
+        await emit({
           type: "item/completed",
           turnId,
           itemId,
@@ -478,7 +478,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
       } else if (roll < 0.65) {
         const itemId = `toolu_${rng.hex(24)}`;
         const command = `$ ${rng.pick(OUTPUT_LINES)}`;
-        emit({
+        await emit({
           type: "item/started",
           turnId,
           itemId,
@@ -498,7 +498,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
         });
         const deltaCount = Math.min(itemBudget - 2, rng.int(0, 3));
         for (let index = 0; index < deltaCount; index += 1) {
-          emit({
+          await emit({
             type: "item/commandExecution/outputDelta",
             turnId,
             itemId,
@@ -509,7 +509,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
             },
           });
         }
-        emit({
+        await emit({
           type: "item/completed",
           turnId,
           itemId,
@@ -533,7 +533,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
         const text = makeAgentMarkdown(rng);
         const deltaCount = Math.min(itemBudget - 1, rng.int(1, 3));
         for (let index = 0; index < deltaCount; index += 1) {
-          emit({
+          await emit({
             type: "item/agentMessage/delta",
             turnId,
             itemId,
@@ -544,7 +544,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
             },
           });
         }
-        const completedSequence = emit({
+        const completedSequence = await emit({
           type: "item/completed",
           turnId,
           itemId,
@@ -571,7 +571,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
       } else if (roll < 0.9) {
         const itemId = `toolu_${rng.hex(24)}`;
         const tool = rng.pick(TOOL_NAMES);
-        emit({
+        await emit({
           type: "item/started",
           turnId,
           itemId,
@@ -588,7 +588,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
             },
           },
         });
-        emit({
+        await emit({
           type: "item/completed",
           turnId,
           itemId,
@@ -609,7 +609,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
       } else {
         const itemId = `exec-${rng.uuid()}`;
         const diff = makeDiff(rng, rng.int(1, 4));
-        emit({
+        await emit({
           type: "item/started",
           turnId,
           itemId,
@@ -627,7 +627,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
             },
           },
         });
-        emit({
+        await emit({
           type: "item/completed",
           turnId,
           itemId,
@@ -647,20 +647,20 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
       }
     }
 
-    emit({
+    await emit({
       type: "turn/completed",
       turnId,
       data: { providerThreadId, status: "completed" },
     });
     if (rng.chance(0.6)) {
-      emit({
+      await emit({
         type: "turn/diff/updated",
         turnId,
         data: { providerThreadId, diff: makeDiff(rng, rng.int(4, 24)) },
       });
     }
     if (rng.chance(0.3)) {
-      emit({
+      await emit({
         type: "turn/plan/updated",
         turnId,
         data: {
@@ -675,7 +675,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
       });
     }
     const usedTokens = rng.int(20_000, 220_000);
-    emit({
+    await emit({
       type: "thread/tokenUsage/updated",
       turnId,
       data: {
@@ -699,7 +699,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
         },
       },
     });
-    emit({
+    await emit({
       type: "thread/contextWindowUsage/updated",
       data: {
         providerThreadId,
@@ -711,7 +711,7 @@ function buildThreadEvents(args: ThreadEventBuildArgs): void {
       },
     });
     if (rng.chance(0.4)) {
-      emit({
+      await emit({
         type: "provider/rateLimits/updated",
         data: {
           providerThreadId,
@@ -757,16 +757,17 @@ function buildThreadEventTargets(
   );
 }
 
-export function seedPerfFixture(
+export async function seedPerfFixture(
   db: DbConnection,
   options: SeedPerfFixtureOptions,
-): SeedPerfFixtureResult {
+): Promise<SeedPerfFixtureResult> {
   const rng = createRng(options.randomSeed);
   const now = Date.now();
   const fixtureStart = now - FIXTURE_AGE_DAYS * DAY_MS;
   const progress = options.onProgress ?? (() => {});
 
-  db.insert(hosts)
+  await db
+    .insert(hosts)
     .values({
       id: options.hostId,
       name: "seed-host",
@@ -962,47 +963,48 @@ export function seedPerfFixture(
     `prepared ${projectRows.length} projects, ${environmentRows.length} environments, ${threadRows.length} threads`,
   );
 
-  db.transaction((tx) => {
+  await db.transaction(async (tx) => {
     for (const row of projectRows) {
-      tx.insert(projects).values(row).run();
+      await tx.insert(projects).values(row).run();
     }
     for (const row of sourceRows) {
-      tx.insert(projectSources).values(row).run();
+      await tx.insert(projectSources).values(row).run();
     }
     for (const row of environmentRows) {
-      tx.insert(environments).values(row).run();
+      await tx.insert(environments).values(row).run();
     }
     for (const row of threadRows) {
-      tx.insert(threads).values(row).run();
+      await tx.insert(threads).values(row).run();
     }
   });
 
   let eventRowCount = 0;
   let pendingEvents: EventInsert[] = [];
-  const flushEvents = (): void => {
+  const flushEvents = async (): Promise<void> => {
     if (pendingEvents.length === 0) {
       return;
     }
     const batch = pendingEvents;
     pendingEvents = [];
-    db.transaction((tx) => {
+    await db.transaction(async (tx) => {
       for (
         let offset = 0;
         offset < batch.length;
         offset += EVENT_INSERT_CHUNK_SIZE
       ) {
-        tx.insert(events)
+        await tx
+          .insert(events)
           .values(batch.slice(offset, offset + EVENT_INSERT_CHUNK_SIZE))
           .run();
       }
     });
   };
   const writer: EventWriter = {
-    push: (row) => {
+    push: async (row) => {
       eventRowCount += 1;
       pendingEvents.push(row);
       if (pendingEvents.length >= 20_000) {
-        flushEvents();
+        await flushEvents();
       }
     },
     count: () => eventRowCount,
@@ -1010,7 +1012,7 @@ export function seedPerfFixture(
 
   let seededThreadCount = 0;
   for (const thread of seededThreads) {
-    buildThreadEvents({
+    await buildThreadEvents({
       environmentId: thread.environmentId,
       eventTarget: thread.eventTarget,
       providerId: thread.providerId,
@@ -1031,16 +1033,17 @@ export function seedPerfFixture(
       );
     }
   }
-  flushEvents();
+  await flushEvents();
   progress(`inserted ${eventRowCount} event rows`);
 
-  db.transaction((tx) => {
+  await db.transaction(async (tx) => {
     for (
       let offset = 0;
       offset < searchSegmentRows.length;
       offset += EVENT_INSERT_CHUNK_SIZE
     ) {
-      tx.insert(threadSearchSegments)
+      await tx
+        .insert(threadSearchSegments)
         .values(
           searchSegmentRows.slice(offset, offset + EVENT_INSERT_CHUNK_SIZE),
         )
@@ -1051,7 +1054,8 @@ export function seedPerfFixture(
       offset < promptHistoryRows.length;
       offset += EVENT_INSERT_CHUNK_SIZE
     ) {
-      tx.insert(promptHistoryEntries)
+      await tx
+        .insert(promptHistoryEntries)
         .values(
           promptHistoryRows.slice(offset, offset + EVENT_INSERT_CHUNK_SIZE),
         )

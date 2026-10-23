@@ -31,11 +31,11 @@ const primaryCommand: HostProviderCommand = {
 describe("public project workspace routing", () => {
   it("keeps app branch options cache-first and public branch listing blocking", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-project-branches",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/project/branches",
       });
@@ -47,7 +47,7 @@ describe("public project workspace routing", () => {
       const blockingInspectionGate = new Promise<void>((resolve) => {
         releaseBlockingInspection = resolve;
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: async (request) => {
@@ -172,32 +172,32 @@ describe("public project workspace routing", () => {
 
   it("isolates primary, explicit-host, and environment workspace discovery", async () => {
     await withTestHarness(async (harness) => {
-      const { host: primaryHost, session: primarySession } = seedHostSession(
-        harness.deps,
-        { id: "host-project-routing-primary" },
-      );
-      const { host: remoteHost, session: remoteSession } = seedHostSession(
-        harness.deps,
-        { id: "host-project-routing-remote" },
-      );
+      const { host: primaryHost, session: primarySession } =
+        await seedHostSession(harness.deps, {
+          id: "host-project-routing-primary",
+        });
+      const { host: remoteHost, session: remoteSession } =
+        await seedHostSession(harness.deps, {
+          id: "host-project-routing-remote",
+        });
       seedPrimaryHost(harness.deps, primaryHost.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: primaryHost.id,
         path: "/primary/project",
       });
-      createProjectSource(harness.db, harness.deps.hub, {
+      await createProjectSource(harness.db, harness.deps.hub, {
         projectId: project.id,
         hostId: remoteHost.id,
         path: "/remote/project",
         type: "local_path",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: remoteHost.id,
         projectId: project.id,
         path: "/remote/worktree",
       });
 
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: primaryHost.id,
         sessionId: primarySession.id,
         handle: (request) => {
@@ -241,7 +241,7 @@ describe("public project workspace routing", () => {
           throw new Error(`Unexpected primary RPC ${request.command.type}`);
         },
       });
-      const remoteRpc = registerHostRpcResponder(harness, {
+      const remoteRpc = await registerHostRpcResponder(harness, {
         hostId: remoteHost.id,
         sessionId: remoteSession.id,
         handle: (request) => {
@@ -350,14 +350,14 @@ describe("public project workspace routing", () => {
 
   it("rejects simultaneous host and environment selectors on every project workspace route", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-project-routing-conflict",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });

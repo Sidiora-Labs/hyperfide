@@ -88,12 +88,12 @@ describe("plugin safe mode", () => {
     });
   }
 
-  function entry(id: string) {
-    return service.list().find((plugin) => plugin.id === id);
+  async function entry(id: string) {
+    return (await service.list()).find((plugin) => plugin.id === id);
   }
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-safe-mode-"));
     service = createService();
     await service.start();
@@ -101,7 +101,7 @@ describe("plugin safe mode", () => {
 
   afterEach(async () => {
     await service.stop();
-    db.$client.close();
+    await db.close();
     await rm(workDir, { recursive: true, force: true });
     delete globals.__safeModeLoads;
     delete globals.__safeModeDisposed;
@@ -113,21 +113,21 @@ describe("plugin safe mode", () => {
     await service.installPath(await writePathPlugin(workDir, "alpha"));
     await service.installPath(await writePathPlugin(workDir, "beta"));
     await service.setEnabled("beta", false);
-    expect(service.getSafeMode()).toBe(false);
+    expect(await service.getSafeMode()).toBe(false);
 
     await expect(service.setSafeMode(true)).resolves.toEqual({
       enabled: true,
       problems: [],
     });
 
-    expect(service.getSafeMode()).toBe(true);
-    expect(entry("builtin-fixture")).toMatchObject({ status: "running" });
-    expect(entry("alpha")).toMatchObject({
+    expect(await service.getSafeMode()).toBe(true);
+    expect(await entry("builtin-fixture")).toMatchObject({ status: "running" });
+    expect(await entry("alpha")).toMatchObject({
       enabled: true,
       status: "disabled",
       statusDetail: "safe mode is on",
     });
-    expect(entry("beta")).toMatchObject({
+    expect(await entry("beta")).toMatchObject({
       enabled: false,
       status: "disabled",
       statusDetail: null,
@@ -140,8 +140,14 @@ describe("plugin safe mode", () => {
       problems: [],
     });
 
-    expect(entry("alpha")).toMatchObject({ enabled: true, status: "running" });
-    expect(entry("beta")).toMatchObject({ enabled: false, status: "disabled" });
+    expect(await entry("alpha")).toMatchObject({
+      enabled: true,
+      status: "running",
+    });
+    expect(await entry("beta")).toMatchObject({
+      enabled: false,
+      status: "disabled",
+    });
     expect(globals.__safeModeLoads).toEqual({ alpha: 2, beta: 1 });
   });
 
@@ -162,7 +168,7 @@ describe("plugin safe mode", () => {
     expect(service.getApi("alpha")).toBeUndefined();
 
     await service.setSafeMode(false);
-    expect(entry("alpha")).toMatchObject({ status: "running" });
+    expect(await entry("alpha")).toMatchObject({ status: "running" });
   });
 
   it("reports plugins that fail to start when safe mode ends", async () => {
@@ -174,7 +180,7 @@ describe("plugin safe mode", () => {
       enabled: false,
       problems: [expect.stringContaining('plugin "alpha" did not start:')],
     });
-    expect(entry("alpha")).toMatchObject({ status: "error" });
+    expect(await entry("alpha")).toMatchObject({ status: "error" });
   });
 
   it("refuses installs and updates of non-builtin plugins during safe mode", async () => {
@@ -186,7 +192,7 @@ describe("plugin safe mode", () => {
     ).rejects.toThrow(
       'plugin safe mode is on; turn it off with `hyperfide-platform plugin safe-mode off` before you install "beta"',
     );
-    expect(entry("beta")).toBeUndefined();
+    expect(await entry("beta")).toBeUndefined();
     await expect(service.applyUpdate("alpha")).resolves.toEqual({
       ok: false,
       error:
@@ -201,19 +207,21 @@ describe("plugin safe mode", () => {
 
   it("keeps an included plugin running when its row kept catalog provenance", async () => {
     await service.stop();
-    db.$client.close();
-    db = createMigratedConnection();
+    await db.close();
+    db = await createMigratedConnection();
     service = createService(false);
     await service.start();
     await service.installOfficialPlugin("fixture");
     await service.stop();
     service = createService();
     await service.start();
-    expect(entry("builtin-fixture")).toMatchObject({ provenance: "catalog" });
+    expect(await entry("builtin-fixture")).toMatchObject({
+      provenance: "catalog",
+    });
 
     await service.setSafeMode(true);
 
-    expect(entry("builtin-fixture")).toMatchObject({ status: "running" });
+    expect(await entry("builtin-fixture")).toMatchObject({ status: "running" });
   });
 
   it("persists across a restart without loading non-builtin plugins", async () => {
@@ -226,8 +234,8 @@ describe("plugin safe mode", () => {
     service = createService();
     await service.start();
 
-    expect(service.getSafeMode()).toBe(true);
-    expect(entry("alpha")).toMatchObject({
+    expect(await service.getSafeMode()).toBe(true);
+    expect(await entry("alpha")).toMatchObject({
       enabled: true,
       status: "disabled",
       statusDetail: "safe mode is on",

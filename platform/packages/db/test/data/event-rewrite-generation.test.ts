@@ -24,50 +24,52 @@ import { createMigratedConnection } from "../../src/testing.js";
 interface RewriteCase {
   between?: (threadId: string) => InsertEventInput[];
   name: string;
-  noop: (db: DbConnection, threadId: string) => number;
-  rewrite: (db: DbConnection, threadId: string) => number;
+  noop: (db: DbConnection, threadId: string) => number | Promise<number>;
+  rewrite: (db: DbConnection, threadId: string) => number | Promise<number>;
   seed: (threadId: string) => InsertEventInput[];
 }
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, { name: "rewrite-host" });
-  const { project } = createProject(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, { name: "rewrite-host" });
+  const { project } = await createProject(db, noopNotifier, {
     name: "rewrite-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/rewrite" },
   });
-  const createCodexThread = () =>
-    createThread(db, noopNotifier, {
-      projectId: project.id,
-      providerId: "codex",
-    }).id;
+  const createCodexThread = async () =>
+    (
+      await createThread(db, noopNotifier, {
+        projectId: project.id,
+        providerId: "codex",
+      })
+    ).id;
   return {
     db,
-    otherThreadId: createCodexThread(),
-    threadId: createCodexThread(),
+    otherThreadId: await createCodexThread(),
+    threadId: await createCodexThread(),
   };
 }
 
-function pruneThreadEvents(
+async function pruneThreadEvents(
   db: DbConnection,
   policy: ThreadPruningPolicy,
-): number {
+): Promise<number> {
   let removed = 0;
   for (let pass = 0; pass < 100; pass += 1) {
-    const result = advanceThreadPruning(db, policy);
+    const result = await advanceThreadPruning(db, policy);
     removed += result.removed;
     if (result.action === "cycle-complete") return removed;
   }
   throw new Error("Pruning did not finish a cycle");
 }
 
-function expectGenerationBump(
+async function expectGenerationBump(
   threadId: string,
   bumped: boolean,
-  mutate: () => void,
-): void {
+  mutate: () => unknown,
+): Promise<void> {
   const before = getThreadEventRewriteGeneration(threadId);
-  mutate();
+  await mutate();
   expect(getThreadEventRewriteGeneration(threadId) !== before).toBe(bumped);
 }
 
@@ -131,27 +133,30 @@ function taskProgress(threadId: string, sequence: number): InsertEventInput {
   );
 }
 
-function deleteSuffix(
+async function deleteSuffix(
   db: DbConnection,
   threadId: string,
   cutoffSequence: number,
-): number {
-  return db.transaction(
-    (tx) =>
-      deleteThreadEventSuffixInTransaction(tx, {
-        cutoffSequence,
-        oldMaxSequence: cutoffSequence + 2,
-        threadId,
-      }).deletedEventCount,
+): Promise<number> {
+  return await db.transaction(
+    async (tx) =>
+      (
+        await deleteThreadEventSuffixInTransaction(tx, {
+          cutoffSequence,
+          oldMaxSequence: cutoffSequence + 2,
+          threadId,
+        })
+      ).deletedEventCount,
   );
 }
 
-function insertCommandOutput(
+async function insertCommandOutput(
   db: DbConnection,
   threadId: string,
   output: string,
 ) {
-  db.insert(events)
+  await db
+    .insert(events)
     .values({
       createdAt: 1_799_999_940_000,
       data: JSON.stringify({
@@ -173,12 +178,14 @@ function insertCommandOutput(
       type: "item/completed",
     })
     .run();
-  return migrateNextCompletedEventItemOutput(db, {
-    itemKind: "commandExecution",
-    limit: 10,
-    migratedAt: 1_800_000_000_000,
-    outputPath: "aggregatedOutput",
-  }).action;
+  return (
+    await migrateNextCompletedEventItemOutput(db, {
+      itemKind: "commandExecution",
+      limit: 10,
+      migratedAt: 1_800_000_000_000,
+      outputPath: "aggregatedOutput",
+    })
+  ).action;
 }
 
 describe("thread event rewrite generation", () => {
@@ -187,16 +194,16 @@ describe("thread event rewrite generation", () => {
       name: "a suffix delete",
       seed: (threadId) =>
         [1, 2, 3].map((sequence) => message(threadId, sequence)),
-      noop: (db, threadId) => deleteSuffix(db, threadId, 10),
-      rewrite: (db, threadId) => deleteSuffix(db, threadId, 2),
+      noop: async (db, threadId) => await deleteSuffix(db, threadId, 10),
+      rewrite: async (db, threadId) => await deleteSuffix(db, threadId, 2),
     },
     {
       name: "a usage prune",
       seed: (threadId) => [tokenUsage(threadId, 1)],
-      noop: (db) => pruneThreadEvents(db, "usage"),
+      noop: async (db) => await pruneThreadEvents(db, "usage"),
       between: (threadId) =>
         [2, 3, 4].map((sequence) => tokenUsage(threadId, sequence)),
-      rewrite: (db) => pruneThreadEvents(db, "usage"),
+      rewrite: async (db) => await pruneThreadEvents(db, "usage"),
     },
     {
       name: "a resolved delta prune",
@@ -210,7 +217,7 @@ describe("thread event rewrite generation", () => {
             { itemId: "msg-1" },
           ),
         ),
-      noop: (db) => pruneThreadEvents(db, "resolved-items"),
+      noop: async (db) => await pruneThreadEvents(db, "resolved-items"),
       between: (threadId) => [
         row(
           threadId,
@@ -226,45 +233,45 @@ describe("thread event rewrite generation", () => {
           { itemId: "msg-1", itemKind: "agentMessage" },
         ),
       ],
-      rewrite: (db) => pruneThreadEvents(db, "resolved-items"),
+      rewrite: async (db) => await pruneThreadEvents(db, "resolved-items"),
     },
     {
       name: "a background task progress prune",
       seed: (threadId) => [taskProgress(threadId, 1)],
-      noop: (db) => pruneThreadEvents(db, "resolved-items"),
+      noop: async (db) => await pruneThreadEvents(db, "resolved-items"),
       between: (threadId) => [taskProgress(threadId, 2)],
-      rewrite: (db) => pruneThreadEvents(db, "resolved-items"),
+      rewrite: async (db) => await pruneThreadEvents(db, "resolved-items"),
     },
-  ])("changes only when $name removes rows", (testCase) => {
-    const { db, otherThreadId, threadId } = setup();
-    insertEvents(db, noopNotifier, [
+  ])("changes only when $name removes rows", async (testCase) => {
+    const { db, otherThreadId, threadId } = await setup();
+    await insertEvents(db, noopNotifier, [
       ...testCase.seed(threadId),
       message(otherThreadId, 1),
     ]);
 
-    expectGenerationBump(threadId, false, () => {
-      expect(testCase.noop(db, threadId)).toBe(0);
+    await expectGenerationBump(threadId, false, async () => {
+      expect(await testCase.noop(db, threadId)).toBe(0);
     });
-    insertEvents(db, noopNotifier, testCase.between?.(threadId) ?? []);
+    await insertEvents(db, noopNotifier, testCase.between?.(threadId) ?? []);
     const otherBefore = getThreadEventRewriteGeneration(otherThreadId);
-    expectGenerationBump(threadId, true, () => {
-      expect(testCase.rewrite(db, threadId)).toBeGreaterThan(0);
+    await expectGenerationBump(threadId, true, async () => {
+      expect(await testCase.rewrite(db, threadId)).toBeGreaterThan(0);
     });
     expect(getThreadEventRewriteGeneration(otherThreadId)).toBe(otherBefore);
   });
 
-  it("changes when a completed output is migrated and not when the scanned output fits", () => {
-    const fits = setup();
-    expectGenerationBump(fits.threadId, false, () => {
-      expect(insertCommandOutput(fits.db, fits.threadId, "small")).toBe(
+  it("changes when a completed output is migrated and not when the scanned output fits", async () => {
+    const fits = await setup();
+    await expectGenerationBump(fits.threadId, false, async () => {
+      expect(await insertCommandOutput(fits.db, fits.threadId, "small")).toBe(
         "scanned",
       );
     });
 
-    const oversized = setup();
-    expectGenerationBump(oversized.threadId, true, () => {
+    const oversized = await setup();
+    await expectGenerationBump(oversized.threadId, true, async () => {
       expect(
-        insertCommandOutput(
+        await insertCommandOutput(
           oversized.db,
           oversized.threadId,
           "x".repeat(COMPLETED_EVENT_OUTPUT_TRUNCATION_THRESHOLD_CHARS + 1),
@@ -273,51 +280,56 @@ describe("thread event rewrite generation", () => {
     });
   });
 
-  it("does not change for daemon appends, increasing inserts or ignored duplicates", () => {
-    const { db, threadId } = setup();
-    expectGenerationBump(threadId, false, () => {
-      insertEvents(db, noopNotifier, [
+  it("does not change for daemon appends, increasing inserts or ignored duplicates", async () => {
+    const { db, threadId } = await setup();
+    await expectGenerationBump(threadId, false, async () => {
+      await insertEvents(db, noopNotifier, [
         message(threadId, 1),
         message(threadId, 2),
       ]);
-      insertEvents(db, noopNotifier, [message(threadId, 5)]);
+      await insertEvents(db, noopNotifier, [message(threadId, 5)]);
       expect(
-        insertEvents(db, noopNotifier, [message(threadId, 5)]).insertedCount,
+        (await insertEvents(db, noopNotifier, [message(threadId, 5)]))
+          .insertedCount,
       ).toBe(0);
-      db.transaction((tx) => {
+      await db.transaction(async (tx) => {
         expect(
-          appendDaemonEventsInTransaction(tx, [
-            {
-              data: JSON.stringify({ text: "daemon" }),
-              environmentId: null,
-              itemId: null,
-              itemKind: null,
-              parentToolCallId: null,
-              providerThreadId: null,
-              scope: threadScope(),
-              threadId,
-              type: "system/manager/user_message",
-            },
-          ]).acceptedEvents,
+          (
+            await appendDaemonEventsInTransaction(tx, [
+              {
+                data: JSON.stringify({ text: "daemon" }),
+                environmentId: null,
+                itemId: null,
+                itemKind: null,
+                parentToolCallId: null,
+                providerThreadId: null,
+                scope: threadScope(),
+                threadId,
+                type: "system/manager/user_message",
+              },
+            ])
+          ).acceptedEvents,
         ).toEqual([{ sequence: 6, threadId }]);
       });
     });
   });
 
-  it("changes only for the thread whose insert backfills at or below its high-water mark", () => {
-    const { db, otherThreadId, threadId } = setup();
-    insertEvents(db, noopNotifier, [
+  it("changes only for the thread whose insert backfills at or below its high-water mark", async () => {
+    const { db, otherThreadId, threadId } = await setup();
+    await insertEvents(db, noopNotifier, [
       message(threadId, 2),
       message(threadId, 4),
     ]);
     const otherBefore = getThreadEventRewriteGeneration(otherThreadId);
 
-    expectGenerationBump(threadId, true, () => {
+    await expectGenerationBump(threadId, true, async () => {
       expect(
-        insertEvents(db, noopNotifier, [
-          message(otherThreadId, 1),
-          message(threadId, 3),
-        ]).insertedCount,
+        (
+          await insertEvents(db, noopNotifier, [
+            message(otherThreadId, 1),
+            message(threadId, 3),
+          ])
+        ).insertedCount,
       ).toBe(2);
     });
     expect(getThreadEventRewriteGeneration(otherThreadId)).toBe(otherBefore);

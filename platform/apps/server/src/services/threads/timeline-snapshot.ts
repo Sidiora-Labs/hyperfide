@@ -34,15 +34,15 @@ function decodeTimelineCursor(anchorId: string): z.infer<typeof cursorSchema> {
   );
 }
 
-export function resolveTimelineSnapshot(
+export async function resolveTimelineSnapshot(
   db: DbConnection,
   thread: Thread,
   page: ThreadTimelinePageRequest,
   surface: string,
   requestedMaxSeq?: number,
-): TimelineSnapshot {
+): Promise<TimelineSnapshot> {
   if (page.kind === "latest") {
-    const maxSeq = getLatestThreadSequence(db, { threadId: thread.id });
+    const maxSeq = await getLatestThreadSequence(db, { threadId: thread.id });
     return {
       version: 3,
       threadId: thread.id,

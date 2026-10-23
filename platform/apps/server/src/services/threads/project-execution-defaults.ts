@@ -67,21 +67,21 @@ interface InheritableParentExecution {
   providerId: string;
 }
 
-function resolveInheritableParentExecution(
+async function resolveInheritableParentExecution(
   deps: Pick<AppDeps, "db" | "providerRegistry">,
   parentThread: Pick<Thread, "id" | "providerId"> | null,
-): InheritableParentExecution | null {
+): Promise<InheritableParentExecution | null> {
   if (parentThread === null) {
     return null;
   }
   const { providerId } = parentThread;
   if (
-    deps.providerRegistry.disabledProviderIds().has(providerId) ||
+    (await deps.providerRegistry.disabledProviderIds()).has(providerId) ||
     deps.providerRegistry.get(providerId)?.info.available !== true
   ) {
     return null;
   }
-  const execution = getLastExecutionOptions(deps, parentThread.id);
+  const execution = await getLastExecutionOptions(deps, parentThread.id);
   return execution === null ? null : { execution, providerId };
 }
 
@@ -105,11 +105,11 @@ function resolveRequestedCreateExecutionValue<TValue>({
  * provider session IS the conversation and no other provider can continue one
  * it never started.
  */
-export function resolveProjectExecutionDefaultsForCreate(
+export async function resolveProjectExecutionDefaultsForCreate(
   deps: Pick<AppDeps, "db" | "providerRegistry">,
   args: ResolveProjectExecutionDefaultsForCreateArgs,
-): ResolvedProjectExecutionDefaultsForCreate {
-  const storedDefaults = getProjectExecutionDefaults(deps.db, {
+): Promise<ResolvedProjectExecutionDefaultsForCreate> {
+  const storedDefaults = await getProjectExecutionDefaults(deps.db, {
     projectId: args.projectId,
   });
   const requestedProviderId = resolveRequestedCreateExecutionValue({
@@ -122,8 +122,11 @@ export function resolveProjectExecutionDefaultsForCreate(
     sources: args.executionInputSources,
     value: args.model,
   });
-  const parent = resolveInheritableParentExecution(deps, args.parentThread);
-  const resolution = resolveCreateThreadExecutionDefaults(
+  const parent = await resolveInheritableParentExecution(
+    deps,
+    args.parentThread,
+  );
+  const resolution = await resolveCreateThreadExecutionDefaults(
     deps.providerRegistry,
     {
       requestedProviderId: requestedProviderId ?? parent?.providerId,
@@ -152,15 +155,15 @@ export function resolveProjectExecutionDefaultsForCreate(
   };
 }
 
-export function rememberProjectExecutionDefaultsForCreate(
+export async function rememberProjectExecutionDefaultsForCreate(
   deps: Pick<AppDeps, "db">,
   args: RememberProjectExecutionDefaultsForCreateArgs,
-): void {
+): Promise<void> {
   if (!shouldRememberProjectExecutionDefaults(args.request)) {
     return;
   }
 
-  upsertProjectExecutionDefaults(deps.db, {
+  await upsertProjectExecutionDefaults(deps.db, {
     projectId: args.request.projectId,
     providerId: args.request.providerId,
     model: args.execution.model,

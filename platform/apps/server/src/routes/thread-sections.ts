@@ -36,10 +36,12 @@ export function registerThreadSectionRoutes(app: Hono, deps: AppDeps): void {
   });
   const routes = publicApiRoutes.threadSections;
 
-  get(routes.list, (context) => context.json(listThreadSections(deps.db)));
+  get(routes.list, async (context) =>
+    context.json(await listThreadSections(deps.db)),
+  );
 
-  post(routes.create, (context, payload) => {
-    const result = createThreadSection(deps.db, deps.hub, {
+  post(routes.create, async (context, payload) => {
+    const result = await createThreadSection(deps.db, deps.hub, {
       name: requireSectionName(payload.name),
     });
     if (result.status === "duplicate") {
@@ -48,8 +50,8 @@ export function registerThreadSectionRoutes(app: Hono, deps: AppDeps): void {
     return context.json(result.section, 201);
   });
 
-  patch(routes.update, (context, payload) => {
-    const result = renameThreadSection(deps.db, deps.hub, {
+  patch(routes.update, async (context, payload) => {
+    const result = await renameThreadSection(deps.db, deps.hub, {
       id: payload.id,
       name: requireSectionName(payload.name),
     });
@@ -62,8 +64,10 @@ export function registerThreadSectionRoutes(app: Hono, deps: AppDeps): void {
     return context.json(result.result);
   });
 
-  del(routes.delete, (context, payload) => {
-    const result = deleteThreadSection(deps.db, deps.hub, { id: payload.id });
+  del(routes.delete, async (context, payload) => {
+    const result = await deleteThreadSection(deps.db, deps.hub, {
+      id: payload.id,
+    });
     if (!result) {
       throw new ApiError(404, "section_not_found", "Section not found");
     }

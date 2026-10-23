@@ -38,14 +38,17 @@ interface ApplyCommandResultSideEffectsArgs<TType extends ParsedCommandType> {
 type CommandResultSideEffectHandlers = {
   [TType in ParsedCommandType]?: (
     args: ApplyCommandResultSideEffectsArgs<TType>,
-  ) => CommandResultSideEffectsResult | void;
+  ) =>
+    | CommandResultSideEffectsResult
+    | void
+    | Promise<CommandResultSideEffectsResult | void>;
 };
 
 const commandResultSideEffectHandlers: CommandResultSideEffectHandlers = {
   "environment.attach": settleEnvironmentProvisionCommandResult,
   "environment.attach.cancel": settleEnvironmentProvisionCancelCommandResult,
-  "interactive.resolve": ({ deps, command, report }) => {
-    deps.pendingInteractions.settleInteractiveResolveCommandResultInTransaction(
+  "interactive.resolve": async ({ deps, command, report }) => {
+    await deps.pendingInteractions.settleInteractiveResolveCommandResultInTransaction(
       {
         command,
         deps,
@@ -66,7 +69,7 @@ const commandResultSideEffectHandlers: CommandResultSideEffectHandlers = {
   },
 } satisfies CommandResultSideEffectHandlers;
 
-export function handleLiveCommandResultSideEffects<
+export async function handleLiveCommandResultSideEffects<
   TType extends ParsedCommandType,
 >(
   deps: CommandResultSettlementDeps,
@@ -75,18 +78,18 @@ export function handleLiveCommandResultSideEffects<
     execution: HostDaemonCommandExecutionRecord;
     report: CommandResultReportForType<TType>;
   },
-): CommandResultSideEffectsResult {
+): Promise<CommandResultSideEffectsResult> {
   const handler = commandResultSideEffectHandlers[args.command.type];
   if (!handler) {
     return emptyCommandResultSideEffects();
   }
 
   return (
-    handler({
+    (await handler({
       deps,
       report: args.report,
       command: args.command,
       execution: args.execution,
-    }) ?? emptyCommandResultSideEffects()
+    })) ?? emptyCommandResultSideEffects()
   );
 }

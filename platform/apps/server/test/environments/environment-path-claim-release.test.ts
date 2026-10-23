@@ -71,16 +71,17 @@ function installClaimingProvider(
     listEnvironmentProviders: () => records,
     getEnvironmentProvider: (id) =>
       records.find((record) => record.provider.id === id),
-    invokeProvider: (_pluginId, _label, run) => invokePluginInline(run),
+    invokeProvider: async (_pluginId, _label, run) =>
+      await invokePluginInline(run),
     decisionTimeoutMs: 10_000,
   });
 }
 
-function startThread(
+async function startThread(
   harness: TestAppHarness,
   args: { projectId: string; hostId: string; prompt: string },
 ) {
-  return createThreadFromRequest(harness.deps, {
+  return await createThreadFromRequest(harness.deps, {
     environment: {
       type: "provider",
       environmentProviderId: PROVIDER_ID,
@@ -101,23 +102,23 @@ afterEach(() => {
   setPluginEnvironmentProviderBridge(undefined);
 });
 
-function holdPath(
+async function holdPath(
   harness: TestAppHarness,
   args: { environmentId: string; ownerThreadId: string },
-): void {
-  harness.db
+): Promise<void> {
+  await harness.db
     .update(environments)
     .set({ ownerThreadId: args.ownerThreadId, claimPath: SHARED_PATH })
     .where(eq(environments.id, args.environmentId))
     .run();
 }
 
-function pathAvailableTo(
+async function pathAvailableTo(
   harness: TestAppHarness,
   args: { hostId: string; threadId: string },
-): boolean {
+): Promise<boolean> {
   try {
-    assertEnvironmentPathAvailable(harness.deps, {
+    await assertEnvironmentPathAvailable(harness.deps, {
       hostId: args.hostId,
       path: SHARED_PATH,
       threadId: args.threadId,
@@ -132,14 +133,16 @@ function pathAvailableTo(
 describe("environment path claim release", () => {
   it("hands the claimed path to a racing thread once the first claimer fails", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, { id: "host-claim-race" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
+        id: "host-claim-race",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: SHARED_PATH,
       });
 
-      const gate = createDeferredPromise<void>();
-      const claimed = createDeferredPromise<string>();
+      const gate = await createDeferredPromise<void>();
+      const claimed = await createDeferredPromise<string>();
       let firstClaimer: string | null = null;
       let blockedAttempts = 0;
 
@@ -167,7 +170,7 @@ describe("environment path claim release", () => {
         prompt: "claim the workspace",
       });
       await claimed.promise;
-      const failing = getPreparingEnvironment(harness.db, first.id);
+      const failing = await getPreparingEnvironment(harness.db, first.id);
       expect(failing).toMatchObject({ claimPath: SHARED_PATH });
 
       const second = await startThread(harness, {
@@ -178,19 +181,19 @@ describe("environment path claim release", () => {
       await vi.waitFor(() => {
         expect(blockedAttempts).toBeGreaterThan(0);
       });
-      const waiting = getPreparingEnvironment(harness.db, second.id);
+      const waiting = await getPreparingEnvironment(harness.db, second.id);
       expect(waiting).not.toBeNull();
 
       gate.resolve();
 
       await vi.waitFor(
-        () => {
-          expect(getThread(harness.db, first.id)?.status).toBe("error");
-          expect(getEnvironment(harness.db, failing!.id)).toMatchObject({
+        async () => {
+          expect((await getThread(harness.db, first.id))?.status).toBe("error");
+          expect(await getEnvironment(harness.db, failing!.id)).toMatchObject({
             claimPath: null,
             teardownStatus: "removed",
           });
-          expect(getEnvironment(harness.db, waiting!.id)?.path).toBe(
+          expect((await getEnvironment(harness.db, waiting!.id))?.path).toBe(
             SHARED_PATH,
           );
         },
@@ -201,10 +204,10 @@ describe("environment path claim release", () => {
 
   it("releases a shared checkout when the thread adopting it fails", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-claim-shared",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: SHARED_PATH,
       });
@@ -212,7 +215,7 @@ describe("environment path claim release", () => {
         status: "failed",
         message: "unused",
       }));
-      const shared = seedEnvironment(harness.deps, {
+      const shared = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: SHARED_PATH,
@@ -220,31 +223,34 @@ describe("environment path claim release", () => {
         environmentProviderId: PROVIDER_ID,
         environmentProviderPluginId: PLUGIN_ID,
       });
-      const sender = seedThread(harness.deps, {
+      const sender = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: shared.id,
         status: "idle",
       });
-      const adopter = seedThread(harness.deps, {
+      const adopter = await seedThread(harness.deps, {
         projectId: project.id,
         status: "starting",
       });
-      holdPath(harness, {
+      await holdPath(harness, {
         environmentId: shared.id,
         ownerThreadId: adopter.id,
       });
       expect(
-        pathAvailableTo(harness, { hostId: host.id, threadId: sender.id }),
+        await pathAvailableTo(harness, {
+          hostId: host.id,
+          threadId: sender.id,
+        }),
       ).toBe(false);
 
-      failThreadProvisioning(harness.deps, {
+      await failThreadProvisioning(harness.deps, {
         thread: adopter,
         environmentId: null,
         detail: "attach failed",
       });
 
-      await vi.waitFor(() => {
-        expect(getEnvironment(harness.db, shared.id)).toMatchObject({
+      await vi.waitFor(async () => {
+        expect(await getEnvironment(harness.db, shared.id)).toMatchObject({
           ownerThreadId: null,
           claimPath: null,
           teardownStatus: null,
@@ -253,7 +259,10 @@ describe("environment path claim release", () => {
         });
       });
       expect(
-        pathAvailableTo(harness, { hostId: host.id, threadId: sender.id }),
+        await pathAvailableTo(harness, {
+          hostId: host.id,
+          threadId: sender.id,
+        }),
       ).toBe(true);
     });
   });
@@ -262,14 +271,14 @@ describe("environment path claim release", () => {
     "checks explicit environment reuse when the preparation owner is %s",
     async (status) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps, {
+        const { host } = await seedHostSession(harness.deps, {
           id: `host-reuse-${status}`,
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
           path: SHARED_PATH,
         });
-        const shared = seedEnvironment(harness.deps, {
+        const shared = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
           path: SHARED_PATH,
@@ -277,11 +286,11 @@ describe("environment path claim release", () => {
           environmentProviderId: PROVIDER_ID,
           environmentProviderPluginId: PLUGIN_ID,
         });
-        const owner = seedThread(harness.deps, {
+        const owner = await seedThread(harness.deps, {
           projectId: project.id,
           status,
         });
-        holdPath(harness, {
+        await holdPath(harness, {
           environmentId: shared.id,
           ownerThreadId: owner.id,
         });
@@ -301,7 +310,7 @@ describe("environment path claim release", () => {
         if (status === "error") {
           const thread = await request;
           expect(thread.environmentId).toBe(shared.id);
-          expect(getEnvironment(harness.db, shared.id)).toMatchObject({
+          expect(await getEnvironment(harness.db, shared.id)).toMatchObject({
             ownerThreadId: null,
             claimPath: null,
             status: "ready",
@@ -312,7 +321,7 @@ describe("environment path claim release", () => {
             status: 409,
             body: { code: "workspace_busy" },
           });
-          expect(getEnvironment(harness.db, shared.id)).toMatchObject({
+          expect(await getEnvironment(harness.db, shared.id)).toMatchObject({
             ownerThreadId: owner.id,
             claimPath: SHARED_PATH,
             teardownStatus: null,
@@ -324,14 +333,14 @@ describe("environment path claim release", () => {
 
   it("repairs a stale shared claim when a provider requests the path", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-claim-provider",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: SHARED_PATH,
       });
-      const shared = seedEnvironment(harness.deps, {
+      const shared = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: SHARED_PATH,
@@ -339,12 +348,15 @@ describe("environment path claim release", () => {
         environmentProviderId: PROVIDER_ID,
         environmentProviderPluginId: PLUGIN_ID,
       });
-      const owner = seedThread(harness.deps, {
+      const owner = await seedThread(harness.deps, {
         projectId: project.id,
         status: "error",
       });
-      holdPath(harness, { environmentId: shared.id, ownerThreadId: owner.id });
-      const claimed = createDeferredPromise<boolean>();
+      await holdPath(harness, {
+        environmentId: shared.id,
+        ownerThreadId: owner.id,
+      });
+      const claimed = await createDeferredPromise<boolean>();
       installClaimingProvider(async (context) => {
         claimed.resolve(await context.experimental_claimPath(SHARED_PATH));
         return { status: "created", path: SHARED_PATH, ownsPath: false };
@@ -355,22 +367,26 @@ describe("environment path claim release", () => {
         prompt: "reuse abandoned checkout",
       });
       expect(await claimed.promise).toBe(true);
-      await vi.waitFor(() =>
-        expect(getThread(harness.db, thread.id)?.environmentId).toBe(shared.id),
+      await vi.waitFor(async () =>
+        expect((await getThread(harness.db, thread.id))?.environmentId).toBe(
+          shared.id,
+        ),
       );
     });
   });
 
   it("keeps a claim held by a thread whose provisioning is still running", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, { id: "host-claim-live" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
+        id: "host-claim-live",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: SHARED_PATH,
       });
 
-      const gate = createDeferredPromise<void>();
-      const claimed = createDeferredPromise<string>();
+      const gate = await createDeferredPromise<void>();
+      const claimed = await createDeferredPromise<string>();
       installClaimingProvider(async (context) => {
         const held = await context.experimental_claimPath(SHARED_PATH);
         if (!held) return { status: "failed", message: "claim refused" };
@@ -385,21 +401,24 @@ describe("environment path claim release", () => {
         prompt: "hold the workspace",
       });
       await claimed.promise;
-      const preparing = getPreparingEnvironment(harness.db, thread.id);
+      const preparing = await getPreparingEnvironment(harness.db, thread.id);
 
       expect(
-        pathAvailableTo(harness, { hostId: host.id, threadId: "other-thread" }),
+        await pathAvailableTo(harness, {
+          hostId: host.id,
+          threadId: "other-thread",
+        }),
       ).toBe(false);
 
-      expect(getEnvironment(harness.db, preparing!.id)).toMatchObject({
+      expect(await getEnvironment(harness.db, preparing!.id)).toMatchObject({
         claimPath: SHARED_PATH,
         ownerThreadId: thread.id,
         teardownStatus: null,
       });
 
       gate.resolve();
-      await vi.waitFor(() => {
-        expect(getEnvironment(harness.db, preparing!.id)?.path).toBe(
+      await vi.waitFor(async () => {
+        expect((await getEnvironment(harness.db, preparing!.id))?.path).toBe(
           SHARED_PATH,
         );
       });
@@ -408,14 +427,14 @@ describe("environment path claim release", () => {
 
   it("defers abandoned resource cleanup until admission and retains the claim until removal completes", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-claim-startup",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: SHARED_PATH,
       });
-      const stuck = seedEnvironment(harness.deps, {
+      const stuck = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: null,
@@ -424,26 +443,33 @@ describe("environment path claim release", () => {
         environmentProviderPluginId: PLUGIN_ID,
         isGitRepo: false,
       });
-      holdPath(harness, {
+      await holdPath(harness, {
         environmentId: stuck.id,
-        ownerThreadId: seedThread(harness.deps, {
-          projectId: project.id,
-          status: "error",
-        }).id,
+        ownerThreadId: (
+          await seedThread(harness.deps, {
+            projectId: project.id,
+            status: "error",
+          })
+        ).id,
       });
 
       await runStartupRecoverySweep(harness.deps);
-      expect(getEnvironment(harness.db, stuck.id)?.teardownStatus).toBeNull();
       expect(
-        pathAvailableTo(harness, { hostId: host.id, threadId: "other-thread" }),
+        (await getEnvironment(harness.db, stuck.id))?.teardownStatus,
+      ).toBeNull();
+      expect(
+        await pathAvailableTo(harness, {
+          hostId: host.id,
+          threadId: "other-thread",
+        }),
       ).toBe(false);
 
-      expect(getEnvironment(harness.db, stuck.id)).toMatchObject({
+      expect(await getEnvironment(harness.db, stuck.id)).toMatchObject({
         claimPath: SHARED_PATH,
         teardownStatus: "running",
       });
 
-      const gate = createDeferredPromise<void>();
+      const gate = await createDeferredPromise<void>();
       const remove = vi.fn(async () => {
         await gate.promise;
         return { status: "removed" as const };
@@ -455,16 +481,22 @@ describe("environment path claim release", () => {
       const cleanup = sweepProviderLifecycles(harness.deps);
       await vi.waitFor(() => expect(remove).toHaveBeenCalledOnce());
       expect(
-        pathAvailableTo(harness, { hostId: host.id, threadId: "other-thread" }),
+        await pathAvailableTo(harness, {
+          hostId: host.id,
+          threadId: "other-thread",
+        }),
       ).toBe(false);
       gate.resolve();
       await cleanup;
       expect(
-        pathAvailableTo(harness, { hostId: host.id, threadId: "other-thread" }),
+        await pathAvailableTo(harness, {
+          hostId: host.id,
+          threadId: "other-thread",
+        }),
       ).toBe(true);
 
       expect(remove).toHaveBeenCalledOnce();
-      expect(getEnvironment(harness.db, stuck.id)).toMatchObject({
+      expect(await getEnvironment(harness.db, stuck.id)).toMatchObject({
         claimPath: null,
         teardownStatus: "removed",
       });

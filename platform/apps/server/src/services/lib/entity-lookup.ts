@@ -24,8 +24,8 @@ import {
   threadEnvironmentUnavailableDetails,
 } from "./lifecycle-api-errors.js";
 
-type ProjectRow = NonNullable<ReturnType<typeof getProject>>;
-type ThreadRow = NonNullable<ReturnType<typeof getThread>>;
+type ProjectRow = NonNullable<Awaited<ReturnType<typeof getProject>>>;
+type ThreadRow = NonNullable<Awaited<ReturnType<typeof getThread>>>;
 type StandardProject = ProjectRow & { kind: "standard" };
 type HostLookupHub = Pick<NotificationHub, "getDaemonSessionIdForHost">;
 
@@ -39,33 +39,38 @@ interface ThreadEnvironmentLookupResult {
   thread: ThreadRow;
 }
 
-export function findHostDataDir(
+export async function findHostDataDir(
   deps: HostLookupDeps,
   hostId: string,
-): string | null {
-  return getOpenDaemonSessionForHost(deps, hostId)?.dataDir ?? null;
+): Promise<string | null> {
+  return (await getOpenDaemonSessionForHost(deps, hostId))?.dataDir ?? null;
 }
 
-function getOpenDaemonSessionForHost(
+async function getOpenDaemonSessionForHost(
   deps: HostLookupDeps,
   hostId: string,
-): HostDaemonSessionRow | null {
+): Promise<HostDaemonSessionRow | null> {
   const sessionId = deps.hub.getDaemonSessionIdForHost(hostId);
   if (!sessionId) {
     return null;
   }
 
-  const session = getSessionById(deps.db, { sessionId });
+  const session = await getSessionById(deps.db, { sessionId });
   if (!session || session.hostId !== hostId || session.status !== "active") {
     return null;
   }
   return session;
 }
 
-export function toHostWithStatus(deps: HostLookupDeps, row: HostRow): Host {
+export async function toHostWithStatus(
+  deps: HostLookupDeps,
+  row: HostRow,
+): Promise<Host> {
   return toHostRecord(
     row,
-    getOpenDaemonSessionForHost(deps, row.id) ? "connected" : "disconnected",
+    (await getOpenDaemonSessionForHost(deps, row.id))
+      ? "connected"
+      : "disconnected",
   );
 }
 
@@ -105,20 +110,22 @@ function isStandardProject(project: ProjectRow): project is StandardProject {
   return project.kind === "standard";
 }
 
-export function listPublicHostsWithStatus(
+export async function listPublicHostsWithStatus(
   deps: HostLookupDeps,
   options?: { includeCreating?: boolean; type?: HostType },
-): Host[] {
-  return listPublicHosts(deps.db, options).map((row) =>
-    toHostWithStatus(deps, row),
+): Promise<Host[]> {
+  return await Promise.all(
+    (await listPublicHosts(deps.db, options)).map(
+      async (row) => await toHostWithStatus(deps, row),
+    ),
   );
 }
 
-export function requireNonDestroyedHostWithStatus(
+export async function requireNonDestroyedHostWithStatus(
   deps: HostLookupDeps,
   hostId: string,
-): Host {
-  const host = getHost(deps.db, hostId);
+): Promise<Host> {
+  const host = await getHost(deps.db, hostId);
   if (!host) {
     throwHostNotFound();
   }
@@ -129,25 +136,25 @@ export function requireNonDestroyedHostWithStatus(
       destroyedHostUnavailableDetails(host.destroyedAt),
     );
   }
-  return toHostWithStatus(deps, host);
+  return await toHostWithStatus(deps, host);
 }
 
-export function getNonDestroyedHostWithStatus(
+export async function getNonDestroyedHostWithStatus(
   deps: HostLookupDeps,
   hostId: string,
-): Host | null {
-  const host = getNonDestroyedHost(deps.db, hostId);
+): Promise<Host | null> {
+  const host = await getNonDestroyedHost(deps.db, hostId);
   if (!host) {
     return null;
   }
-  return toHostWithStatus(deps, host);
+  return await toHostWithStatus(deps, host);
 }
 
-export function requireConnectedHostSession(
+export async function requireConnectedHostSession(
   deps: HostLookupDeps,
   hostId: string,
 ) {
-  const host = getHost(deps.db, hostId);
+  const host = await getHost(deps.db, hostId);
   if (!host) {
     throwHostNotFound();
   }
@@ -158,7 +165,7 @@ export function requireConnectedHostSession(
       destroyedHostUnavailableDetails(host.destroyedAt),
     );
   }
-  const session = getOpenDaemonSessionForHost(deps, hostId);
+  const session = await getOpenDaemonSessionForHost(deps, hostId);
   const details = inactiveHostUnavailableDetails(
     session ? "connected" : "disconnected",
     host,
@@ -172,22 +179,22 @@ export function requireConnectedHostSession(
   return session;
 }
 
-export function requireProject(
+export async function requireProject(
   db: DbConnection,
   projectId: string,
-): ProjectRow {
-  const project = getProject(db, projectId);
+): Promise<ProjectRow> {
+  const project = await getProject(db, projectId);
   if (!project) {
     throw new ApiError(404, "project_not_found", "Project not found");
   }
   return project;
 }
 
-export function requirePublicProject(
+export async function requirePublicProject(
   db: DbConnection,
   projectId: string,
-): ProjectRow {
-  const project = requireProject(db, projectId);
+): Promise<ProjectRow> {
+  const project = await requireProject(db, projectId);
   if (project.deletedAt !== null) {
     throwProjectUnavailable({
       reason: "pending_deletion",
@@ -197,53 +204,56 @@ export function requirePublicProject(
   return project;
 }
 
-export function requirePublicStandardProject(
+export async function requirePublicStandardProject(
   db: DbConnection,
   projectId: string,
-): StandardProject {
-  const project = requirePublicProject(db, projectId);
+): Promise<StandardProject> {
+  const project = await requirePublicProject(db, projectId);
   if (!isStandardProject(project)) {
     throw new ApiError(404, "project_not_found", "Project not found");
   }
   return project;
 }
 
-function requireThread(db: DbConnection, threadId: string): ThreadRow {
-  const thread = getThread(db, threadId);
+async function requireThread(
+  db: DbConnection,
+  threadId: string,
+): Promise<ThreadRow> {
+  const thread = await getThread(db, threadId);
   if (!thread) {
     throw new ApiError(404, "thread_not_found", "Thread not found");
   }
   return thread;
 }
 
-export function requirePublicThread(
+export async function requirePublicThread(
   db: DbConnection,
   threadId: string,
-): ThreadRow {
-  const thread = requireThread(db, threadId);
-  const project = getProject(db, thread.projectId);
+): Promise<ThreadRow> {
+  const thread = await requireThread(db, threadId);
+  const project = await getProject(db, thread.projectId);
   if (thread.deletedAt !== null || project?.deletedAt !== null) {
     throw new ApiError(404, "thread_not_found", "Thread not found");
   }
   return thread;
 }
 
-export function requireEnvironment(
+export async function requireEnvironment(
   db: DbConnection,
   environmentId: string,
-): EnvironmentRow {
-  const environment = getEnvironment(db, environmentId);
+): Promise<EnvironmentRow> {
+  const environment = await getEnvironment(db, environmentId);
   if (!environment) {
     throw new ApiError(404, "environment_not_found", "Environment not found");
   }
   return environment;
 }
 
-export function requireReadyEnvironment(
+export async function requireReadyEnvironment(
   db: DbConnection,
   environmentId: string,
-): EnvironmentRow & { path: string; status: "ready" } {
-  const environment = requireEnvironment(db, environmentId);
+): Promise<EnvironmentRow & { path: string; status: "ready" }> {
+  const environment = await requireEnvironment(db, environmentId);
   if (environment.status !== "ready" || !environment.path) {
     throwEnvironmentNotReady(environment);
   }
@@ -254,16 +264,16 @@ export function requireReadyEnvironment(
   };
 }
 
-function requireEnvironmentForThread(
+async function requireEnvironmentForThread(
   db: DbConnection,
   thread: ThreadRow,
-): EnvironmentRow {
+): Promise<EnvironmentRow> {
   if (!thread.environmentId) {
     throwThreadEnvironmentUnavailable(
       threadEnvironmentUnavailableDetails("never_attached", null),
     );
   }
-  return requireEnvironment(db, thread.environmentId);
+  return await requireEnvironment(db, thread.environmentId);
 }
 
 function ensureThreadEnvironmentAvailable(environment: EnvironmentRow): void {
@@ -273,42 +283,45 @@ function ensureThreadEnvironmentAvailable(environment: EnvironmentRow): void {
   }
 }
 
-export function requireThreadEnvironmentAllowingDestroyed(
+export async function requireThreadEnvironmentAllowingDestroyed(
   db: DbConnection,
   threadId: string,
-): ThreadEnvironmentLookupResult {
-  const thread = requireThread(db, threadId);
+): Promise<ThreadEnvironmentLookupResult> {
+  const thread = await requireThread(db, threadId);
   return {
     thread,
-    environment: requireEnvironmentForThread(db, thread),
+    environment: await requireEnvironmentForThread(db, thread),
   };
 }
 
-export function requireThreadEnvironment(
+export async function requireThreadEnvironment(
   db: DbConnection,
   threadId: string,
-): ThreadEnvironmentLookupResult {
-  const result = requireThreadEnvironmentAllowingDestroyed(db, threadId);
+): Promise<ThreadEnvironmentLookupResult> {
+  const result = await requireThreadEnvironmentAllowingDestroyed(db, threadId);
   ensureThreadEnvironmentAvailable(result.environment);
   return result;
 }
 
-function requirePublicThreadEnvironmentAllowingDestroyed(
+async function requirePublicThreadEnvironmentAllowingDestroyed(
   db: DbConnection,
   threadId: string,
-): ThreadEnvironmentLookupResult {
-  const thread = requirePublicThread(db, threadId);
+): Promise<ThreadEnvironmentLookupResult> {
+  const thread = await requirePublicThread(db, threadId);
   return {
     thread,
-    environment: requireEnvironmentForThread(db, thread),
+    environment: await requireEnvironmentForThread(db, thread),
   };
 }
 
-export function requirePublicThreadEnvironment(
+export async function requirePublicThreadEnvironment(
   db: DbConnection,
   threadId: string,
-): ThreadEnvironmentLookupResult {
-  const result = requirePublicThreadEnvironmentAllowingDestroyed(db, threadId);
+): Promise<ThreadEnvironmentLookupResult> {
+  const result = await requirePublicThreadEnvironmentAllowingDestroyed(
+    db,
+    threadId,
+  );
   ensureThreadEnvironmentAvailable(result.environment);
   return result;
 }

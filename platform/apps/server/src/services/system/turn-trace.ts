@@ -64,10 +64,12 @@ interface TurnTraceEventBatch {
 const currentTrace = new AsyncLocalStorage<TurnTrace>();
 const tracesAwaitingOutput = new Map<string, TurnTrace>();
 
-function isTurnTraceEnabled(deps: Pick<AppDeps, "config" | "db">): boolean {
+async function isTurnTraceEnabled(
+  deps: Pick<AppDeps, "config" | "db">,
+): Promise<boolean> {
   return (
     deps.config.performanceDiagnosticsAvailable &&
-    getExperiments(deps.db).performanceDiagnostics
+    (await getExperiments(deps.db)).performanceDiagnostics
   );
 }
 
@@ -123,7 +125,7 @@ export async function runWithTurnTrace<T>(
   args: { threadId: string },
   work: () => Promise<T>,
 ): Promise<T> {
-  if (!isTurnTraceEnabled(deps)) {
+  if (!(await isTurnTraceEnabled(deps))) {
     return work();
   }
   const trace: TurnTrace = {
@@ -268,11 +270,11 @@ interface StreamTraceThreadBatch {
   textEvents: number;
 }
 
-export function observeStreamTraceEventBatch(
+export async function observeStreamTraceEventBatch(
   deps: Pick<AppDeps, "config" | "db" | "hub" | "logger">,
   batch: TurnTraceEventBatch,
-): void {
-  if (!isTurnTraceEnabled(deps)) {
+): Promise<void> {
+  if (!(await isTurnTraceEnabled(deps))) {
     return;
   }
   const byThreadId = new Map<string, StreamTraceThreadBatch>();
@@ -334,7 +336,7 @@ export function observeTurnTraceEventBatch(batch: TurnTraceEventBatch): void {
   }
 }
 
-export function observeTimelinePushTrace(
+export async function observeTimelinePushTrace(
   deps: Pick<AppDeps, "config" | "db" | "logger">,
   push: {
     builtAt: number;
@@ -345,8 +347,8 @@ export function observeTimelinePushTrace(
     threadId: string;
     withDelta: boolean;
   },
-): void {
-  if (!isTurnTraceEnabled(deps)) {
+): Promise<void> {
+  if (!(await isTurnTraceEnabled(deps))) {
     return;
   }
   deps.logger.info(

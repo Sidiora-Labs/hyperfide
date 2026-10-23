@@ -33,27 +33,27 @@ export function invalidateEnvironmentProviderMachineAvailability(): void {
   entriesByProvider = new WeakMap();
 }
 
-export function environmentProviderMachineAvailability(
+export async function environmentProviderMachineAvailability(
   deps: WorkSessionDeps,
   record: PluginEnvironmentProviderRecord,
   query: { projectId: string; hostId?: string },
-): Record<string, Availability | null> {
+): Promise<Record<string, Availability | null>> {
   const hosts =
     query.hostId === undefined
-      ? listPublicHostsWithStatus(deps)
-      : [getNonDestroyedHostWithStatus(deps, query.hostId)];
+      ? await listPublicHostsWithStatus(deps)
+      : [await getNonDestroyedHostWithStatus(deps, query.hostId)];
   const result: Record<string, Availability | null> = {};
   for (const host of hosts) {
     if (host === null || host.type !== "persistent") continue;
     if (
-      !environmentProviderMatchesContext(deps, record, {
+      !(await environmentProviderMatchesContext(deps, record, {
         projectId: query.projectId,
         hostId: host.id,
-      })
+      }))
     ) {
       continue;
     }
-    result[host.id] = peekMachineAvailability(deps, record, {
+    result[host.id] = await peekMachineAvailability(deps, record, {
       projectId: query.projectId,
       hostId: host.id,
       connected: host.status === "connected",
@@ -62,11 +62,11 @@ export function environmentProviderMachineAvailability(
   return result;
 }
 
-function peekMachineAvailability(
+async function peekMachineAvailability(
   deps: WorkSessionDeps,
   record: PluginEnvironmentProviderRecord,
   args: { projectId: string; hostId: string; connected: boolean },
-): Availability | null {
+): Promise<Availability | null> {
   const sessionId = args.connected
     ? deps.hub.getDaemonSessionIdForHost(args.hostId)
     : null;
@@ -89,13 +89,13 @@ function peekMachineAvailability(
     pending: null,
   };
   next.pending = probeMachineAvailability(deps, record, args)
-    .then((availability) => {
+    .then(async (availability) => {
       const changed =
         JSON.stringify(next.availability) !== JSON.stringify(availability);
       next.availability = availability;
       next.checkedAt = Date.now();
       if (changed) {
-        deps.hub.notifySystem(["environment-availability-changed"]);
+        await deps.hub.notifySystem(["environment-availability-changed"]);
       }
     })
     .catch((error: unknown) => {
@@ -126,12 +126,12 @@ async function probeMachineAvailability(
   record: PluginEnvironmentProviderRecord,
   args: { projectId: string; hostId: string },
 ): Promise<Availability> {
-  const project = requirePublicProject(deps.db, args.projectId);
-  const host = getNonDestroyedHostWithStatus(deps, args.hostId);
+  const project = await requirePublicProject(deps.db, args.projectId);
+  const host = await getNonDestroyedHostWithStatus(deps, args.hostId);
   if (host === null) {
     return { status: "unavailable", message: "This machine no longer exists." };
   }
-  const source = getProjectSourceByHost(deps.db, project.id, host.id);
+  const source = await getProjectSourceByHost(deps.db, project.id, host.id);
   const projectCheckout =
     source !== null && isLocalPathProjectSource(source)
       ? { path: source.path }

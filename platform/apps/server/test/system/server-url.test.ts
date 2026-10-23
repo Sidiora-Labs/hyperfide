@@ -11,7 +11,7 @@ async function readServerUrl(
   request: string,
   headers?: Record<string, string>,
 ): Promise<string> {
-  return withTestHarness(overrides, async (harness) => {
+  return await withTestHarness(overrides, async (harness) => {
     const response = await harness.app.request(request, { headers });
     const config = systemConfigResponseSchema.parse(await readJson(response));
     return config.serverUrl;

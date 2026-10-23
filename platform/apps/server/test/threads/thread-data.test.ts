@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "@hyperfide/db/testing";
 import { describe, expect, it } from "vitest";
 import {
   createProject,
@@ -9,16 +11,16 @@ import {
 import { createMigratedConnection } from "@hyperfide/db/testing";
 import { parseStoredEvent } from "../../src/services/threads/thread-data.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
   });
@@ -26,14 +28,16 @@ function setup() {
 }
 
 describe("thread data stored event parsing", () => {
-  it("rejects malformed stored scope kinds", () => {
-    const { db, thread } = setup();
+  it.skipIf(isPostgresTest)(
+    "rejects malformed stored scope kinds",
+    async () => {
+      const { db, thread } = await setup();
 
-    try {
-      db.$client.pragma("ignore_check_constraints = ON");
-      db.$client
-        .prepare(
-          `INSERT INTO events (
+      try {
+        db.$client.pragma("ignore_check_constraints = ON");
+        await db.$client
+          .prepare(
+            `INSERT INTO events (
             id,
             thread_id,
             scope_kind,
@@ -53,19 +57,20 @@ describe("thread data stored event parsing", () => {
             '{"message":"boom"}',
             1
           )`,
-        )
-        .run(thread.id);
-      db.$client.pragma("ignore_check_constraints = OFF");
+          )
+          .run(thread.id);
+        db.$client.pragma("ignore_check_constraints = OFF");
 
-      const [row] = listStoredEventRows(db, { threadId: thread.id });
-      if (!row) {
-        throw new Error("Expected stored event row");
+        const [row] = await listStoredEventRows(db, { threadId: thread.id });
+        if (!row) {
+          throw new Error("Expected stored event row");
+        }
+
+        expect(() => parseStoredEvent(row)).toThrow(/invalid scope_kind/);
+      } finally {
+        db.$client.pragma("ignore_check_constraints = OFF");
+        await db.close();
       }
-
-      expect(() => parseStoredEvent(row)).toThrow(/invalid scope_kind/);
-    } finally {
-      db.$client.pragma("ignore_check_constraints = OFF");
-      db.$client.close();
-    }
-  });
+    },
+  );
 });

@@ -1,3 +1,6 @@
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import * as schema from "./schema.js";
+import { migratePostgres, postgresPool } from "./postgres-migrate.js";
 import { migrate as drizzleMigrate } from "drizzle-orm/better-sqlite3/migrator";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import { dirname, join, resolve } from "node:path";
@@ -498,7 +501,15 @@ function readAppliedMigrationCreatedAts(db: DbConnection): Set<number> {
   return new Set(rows.map((row) => row.createdAt));
 }
 
-export function countAppliedMigrations(db: DbConnection): number {
+export async function countAppliedMigrations(
+  db: DbConnection,
+): Promise<number> {
+  if (db.dialect === "postgresql") {
+    const result = await postgresPool(db).query(
+      "SELECT count(*) AS count FROM platform.__drizzle_migrations",
+    );
+    return Number(result.rows[0].count);
+  }
   if (!tableExists(db, "__drizzle_migrations")) {
     return 0;
   }
@@ -1409,7 +1420,11 @@ function validateAppliedMigrationHistory(
   );
 }
 
-export function migrate(db: DbConnection, options: MigrateOptions = {}): void {
+export async function migrate(
+  db: DbConnection,
+  options: MigrateOptions = {},
+): Promise<void> {
+  if (db.dialect === "postgresql") return migratePostgres(db);
   const migrationsFolder = resolveMigrationsFolder();
   const sqlite = db.$client;
 
@@ -1454,7 +1469,9 @@ export function migrate(db: DbConnection, options: MigrateOptions = {}): void {
     const stagedThreadStorageDeletedAt =
       stageExistingThreadStorageDeletedAtColumn(db, migrationsFolder);
     try {
-      drizzleMigrate(db, { migrationsFolder });
+      drizzleMigrate(drizzle({ client: db.$client, schema }), {
+        migrationsFolder,
+      });
     } finally {
       if (stagedConnectMachineId) restoreStagedConnectMachineIdColumn(db);
       if (stagedThreadStorageDeletedAt)

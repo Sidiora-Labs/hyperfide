@@ -1,4 +1,5 @@
 import { expect, vi } from "vitest";
+import { setTimeout as yieldDatabaseIo } from "node:timers/promises";
 
 const MAX_ADVANCE_STEPS = 50;
 
@@ -19,6 +20,7 @@ export async function advanceUntilSettled<T>(
   );
   for (let step = 0; step < MAX_ADVANCE_STEPS && !settled; step += 1) {
     await vi.advanceTimersByTimeAsync(stepMs);
+    await yieldDatabaseIo(20);
   }
   expect(
     settled,
@@ -28,14 +30,19 @@ export async function advanceUntilSettled<T>(
 }
 
 export async function advanceUntilTrue(
-  predicate: () => boolean,
+  predicate: () => boolean | Promise<boolean>,
   stepMs: number,
 ): Promise<void> {
-  for (let step = 0; step < MAX_ADVANCE_STEPS && !predicate(); step += 1) {
+  for (
+    let step = 0;
+    step < MAX_ADVANCE_STEPS && !(await predicate());
+    step += 1
+  ) {
     await vi.advanceTimersByTimeAsync(stepMs);
+    await yieldDatabaseIo(20);
   }
   expect(
-    predicate(),
+    await predicate(),
     "The expected state never arrived while the fake clock advanced",
   ).toBe(true);
 }

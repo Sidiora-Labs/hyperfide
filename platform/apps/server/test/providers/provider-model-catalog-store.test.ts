@@ -49,7 +49,7 @@ type ListModelsAnswer = (
   command: ListModelsCommand,
 ) => HostRpcHandlerResult | Promise<HostRpcHandlerResult>;
 
-function setupCatalogHost(
+async function setupCatalogHost(
   harness: TestAppHarness,
   args: { id: string; memoryEntryLimit?: number },
 ) {
@@ -58,11 +58,13 @@ function setupCatalogHost(
     clock,
     memoryEntryLimit: args.memoryEntryLimit,
   });
-  const { host, session } = seedHostSession(harness.deps, { id: args.id });
+  const { host, session } = await seedHostSession(harness.deps, {
+    id: args.id,
+  });
   let answer: ListModelsAnswer = (command) =>
     catalogAnswer(modelList(`${command.providerId}-model`));
-  const connect = (sessionId: string) => {
-    const responder = registerHostRpcResponder(harness, {
+  const connect = async (sessionId: string) => {
+    const responder = await registerHostRpcResponder(harness, {
       hostId: host.id,
       sessionId,
       handle: (request) => {
@@ -105,12 +107,12 @@ function setupCatalogHost(
     hostId: host.id,
     sessionId: session.id,
     connect,
-    listRequests: connect(session.id),
+    listRequests: await connect(session.id),
     setAnswer(next: ListModelsAnswer) {
       answer = next;
     },
-    read(providerId: string, environmentId?: string) {
-      return resolveSystemExecutionOptions(
+    async read(providerId: string, environmentId?: string) {
+      return await resolveSystemExecutionOptions(
         harness.deps,
         environmentId === undefined
           ? { hostId: host.id, providerId }
@@ -143,31 +145,36 @@ function registerCatalogProbe(
   });
 }
 
-function seedEnvironmentPath(
+async function seedEnvironmentPath(
   harness: TestAppHarness,
   hostId: string,
   path: string,
-): string {
-  const { project } = seedProjectWithSource(harness.deps, { hostId, path });
-  return seedEnvironment(harness.deps, { hostId, projectId: project.id, path })
-    .id;
+): Promise<string> {
+  const { project } = await seedProjectWithSource(harness.deps, {
+    hostId,
+    path,
+  });
+  return (
+    await seedEnvironment(harness.deps, { hostId, projectId: project.id, path })
+  ).id;
 }
 
 describe("provider model catalog store", () => {
   it("keeps catalogs across a daemon reconnect, an unrelated registration and a capability-only re-registration", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, { id: "host-catalog-identity" });
+      const host = await setupCatalogHost(harness, {
+        id: "host-catalog-identity",
+      });
       const probe = registerCatalogProbe(harness, {});
-      const fork = resolveBridgeLaunchForProviderId(
-        harness.deps,
-        "catalog-probe",
+      const fork = (
+        await resolveBridgeLaunchForProviderId(harness.deps, "catalog-probe")
       )?.capabilities.fork;
       await host.read("codex");
       await host.read("catalog-probe");
 
       harness.hub.unregisterDaemon(host.sessionId);
-      const nextRequests = host.connect(
-        seedSession(harness.deps, host.hostId).id,
+      const nextRequests = await host.connect(
+        (await seedSession(harness.deps, host.hostId)).id,
       );
       const codex = requireRegistration(harness, "codex");
       harness.deps.providerRegistry.register({
@@ -178,7 +185,7 @@ describe("provider model catalog store", () => {
       probe.dispose();
       registerCatalogProbe(harness, { fork: fork === "none" ? "tip" : "none" });
       expect(
-        resolveBridgeLaunchForProviderId(harness.deps, "catalog-probe")
+        (await resolveBridgeLaunchForProviderId(harness.deps, "catalog-probe"))
           ?.capabilities.fork,
       ).not.toBe(fork);
 
@@ -192,7 +199,7 @@ describe("provider model catalog store", () => {
 
   it("treats a fingerprint change as a missing catalog and never serves the old models", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, {
+      const host = await setupCatalogHost(harness, {
         id: "host-catalog-fingerprint",
       });
       await host.read("claude-code");
@@ -221,7 +228,7 @@ describe("provider model catalog store", () => {
 
   it("lists models with the provider's plugin environment and refetches when that environment changes", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, { id: "host-catalog-env" });
+      const host = await setupCatalogHost(harness, { id: "host-catalog-env" });
       const contexts: unknown[] = [];
       let poolToken: string | null = "token-a";
       setPluginAgentContributions({
@@ -287,7 +294,9 @@ describe("provider model catalog store", () => {
   it("serves a stale catalog at once with one background refresh and pushes only when the list changes", async () => {
     await withTestHarness(async (harness) => {
       const logLines = captureLogLines(harness);
-      const host = setupCatalogHost(harness, { id: "host-catalog-stale" });
+      const host = await setupCatalogHost(harness, {
+        id: "host-catalog-stale",
+      });
       await host.read("claude-code");
       await settleTimers();
       const pushes = capturePushes(harness);
@@ -364,7 +373,7 @@ describe("provider model catalog store", () => {
     async ({ answer, level, outcome }) => {
       await withTestHarness(async (harness) => {
         const logLines = captureLogLines(harness);
-        const host = setupCatalogHost(harness, {
+        const host = await setupCatalogHost(harness, {
           id: "host-catalog-last-good",
         });
         await host.read("claude-code");
@@ -375,7 +384,7 @@ describe("provider model catalog store", () => {
           providerId: "claude-code",
           scopeKey: "",
         };
-        const row = getStoredProviderModelCatalog(harness.db, rowKey);
+        const row = await getStoredProviderModelCatalog(harness.db, rowKey);
         if (answer === null) {
           const request = harness.hub.requestHostOnlineRpc.bind(harness.hub);
           vi.spyOn(harness.hub, "requestHostOnlineRpc").mockImplementation(
@@ -403,7 +412,9 @@ describe("provider model catalog store", () => {
         const response = await host.read("claude-code");
         expect(response.modelLoadError).toBeNull();
         expect(modelIds(response)).toEqual(["claude-code-model"]);
-        expect(getStoredProviderModelCatalog(harness.db, rowKey)).toEqual(row);
+        expect(await getStoredProviderModelCatalog(harness.db, rowKey)).toEqual(
+          row,
+        );
         await settleTimers();
         expect(pushes).toEqual([]);
         expect(logLines(SETTLED)).toHaveLength(2);
@@ -418,7 +429,7 @@ describe("provider model catalog store", () => {
 
   it("answers recorded failures without waiting for 30 seconds, then waits once for auth_required and refreshes a timeout in the background", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, {
+      const host = await setupCatalogHost(harness, {
         id: "host-catalog-negative-cache",
       });
       const held = createDeferredPromise<HostRpcHandlerResult>();
@@ -469,7 +480,9 @@ describe("provider model catalog store", () => {
 
   it("waits through recorded failures for validation and refreshes a catalog at least a minute old that lacks the override's model", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, { id: "host-catalog-validation" });
+      const host = await setupCatalogHost(harness, {
+        id: "host-catalog-validation",
+      });
       let codexAnswer = () => catalogAnswer(modelList("gpt-5"));
       host.setAnswer((command) =>
         command.providerId === "codex"
@@ -486,23 +499,23 @@ describe("provider model catalog store", () => {
       expect(validated.modelLoadError?.code).toBe("failed");
       expect(host.listRequests("claude-code")).toHaveLength(2);
 
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.hostId,
         path: "/tmp/catalog-override",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.hostId,
         projectId: project.id,
         path: "/tmp/catalog-override",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         providerId: "codex",
         status: "idle",
       });
-      const override = (model: string) =>
-        applyThreadExecutionOverride(harness.deps, {
+      const override = async (model: string) =>
+        await applyThreadExecutionOverride(harness.deps, {
           thread,
           patch: { model },
         });
@@ -532,7 +545,7 @@ describe("provider model catalog store", () => {
 
   it("serves a persisted catalog to a new store and treats a corrupt row as missing", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, {
+      const host = await setupCatalogHost(harness, {
         id: "host-catalog-persistence",
       });
       await host.read("codex");
@@ -541,7 +554,7 @@ describe("provider model catalog store", () => {
       expect(modelIds(await host.read("codex"))).toEqual(["codex-model"]);
       expect(host.listRequests()).toHaveLength(1);
 
-      harness.db.$client
+      await harness.db.$client
         .prepare(
           "UPDATE provider_model_catalogs SET models_json = ? WHERE host_id = ?",
         )
@@ -554,27 +567,30 @@ describe("provider model catalog store", () => {
 
   it("persists one row per workspace path for workspace-scoped providers and one host row otherwise", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, { id: "host-catalog-workspace" });
-      const [environmentA, environmentB] = [
-        "/tmp/catalog-pi-a",
-        "/tmp/catalog-pi-b",
-      ].map((path) => seedEnvironmentPath(harness, host.hostId, path));
+      const host = await setupCatalogHost(harness, {
+        id: "host-catalog-workspace",
+      });
+      const [environmentA, environmentB] = await Promise.all(
+        ["/tmp/catalog-pi-a", "/tmp/catalog-pi-b"].map(
+          async (path) => await seedEnvironmentPath(harness, host.hostId, path),
+        ),
+      );
       await host.read("pi", environmentA);
       await host.read("pi", environmentB);
       await host.read("pi", environmentA);
       await host.read("claude-code", environmentA);
 
-      const rowExists = (providerId: string, scopeKey: string) =>
-        getStoredProviderModelCatalog(harness.db, {
+      const rowExists = async (providerId: string, scopeKey: string) =>
+        (await getStoredProviderModelCatalog(harness.db, {
           hostId: host.hostId,
           providerId,
           scopeKey,
-        }) !== null;
+        })) !== null;
       expect([
-        rowExists("pi", "/tmp/catalog-pi-a"),
-        rowExists("pi", "/tmp/catalog-pi-b"),
-        rowExists("pi", ""),
-        rowExists("claude-code", ""),
+        await rowExists("pi", "/tmp/catalog-pi-a"),
+        await rowExists("pi", "/tmp/catalog-pi-b"),
+        await rowExists("pi", ""),
+        await rowExists("claude-code", ""),
       ]).toEqual([true, true, false, true]);
       expect(host.listRequests().map((command) => command.cwd)).toEqual([
         "/tmp/catalog-pi-a",
@@ -586,20 +602,22 @@ describe("provider model catalog store", () => {
 
   it("reads a workspace-scoped catalog in the project's checkout on the machine when a new thread names its project", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, { id: "host-catalog-project" });
-      const other = seedHostSession(harness.deps, {
+      const host = await setupCatalogHost(harness, {
+        id: "host-catalog-project",
+      });
+      const other = await seedHostSession(harness.deps, {
         id: "host-catalog-project-elsewhere",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.hostId,
         path: "/tmp/catalog-project-checkout",
       });
-      const { project: elsewhere } = seedProjectWithSource(harness.deps, {
+      const { project: elsewhere } = await seedProjectWithSource(harness.deps, {
         hostId: other.host.id,
         path: "/tmp/catalog-project-elsewhere",
       });
-      const read = (providerId: string, projectId: string) =>
-        resolveSystemExecutionOptions(harness.deps, {
+      const read = async (providerId: string, projectId: string) =>
+        await resolveSystemExecutionOptions(harness.deps, {
           hostId: host.hostId,
           projectId,
           providerId,
@@ -623,11 +641,11 @@ describe("provider model catalog store", () => {
   it("records no failure and sends no push when a refresh fails after its daemon session changed or because the host is not active", async () => {
     await withTestHarness(async (harness) => {
       const logLines = captureLogLines(harness);
-      const host = setupCatalogHost(harness, {
+      const host = await setupCatalogHost(harness, {
         id: "host-catalog-host-unavailable",
       });
       const pushes = capturePushes(harness);
-      const lateFailure = createDeferredPromise<void>();
+      const lateFailure = await createDeferredPromise<void>();
       const request = harness.hub.requestHostOnlineRpc.bind(harness.hub);
       let holdNextList = true;
       vi.spyOn(harness.hub, "requestHostOnlineRpc").mockImplementation(
@@ -655,8 +673,8 @@ describe("provider model catalog store", () => {
       await vi.waitFor(() => {
         expect(holdNextList).toBe(false);
       });
-      const nextRequests = host.connect(
-        seedSession(harness.deps, host.hostId).id,
+      const nextRequests = await host.connect(
+        (await seedSession(harness.deps, host.hostId)).id,
       );
       lateFailure.resolve();
       const failed = await pending;
@@ -664,12 +682,16 @@ describe("provider model catalog store", () => {
       expect(failed.modelLoadError?.detail).toBe("Runtime shutting down");
       expect(modelIds(failed)).toEqual([]);
 
-      updateHost(harness.db, harness.hub, host.hostId, { phase: "creating" });
+      await updateHost(harness.db, harness.hub, host.hostId, {
+        phase: "creating",
+      });
       expect((await host.read("claude-code")).modelLoadError).toMatchObject({
         code: "failed",
         detail: "Host is not connected",
       });
-      updateHost(harness.db, harness.hub, host.hostId, { phase: "active" });
+      await updateHost(harness.db, harness.hub, host.hostId, {
+        phase: "active",
+      });
       expect(modelIds(await host.read("claude-code"))).toEqual([
         "claude-code-model",
       ]);
@@ -688,7 +710,9 @@ describe("provider model catalog store", () => {
 
   it("collapses and truncates a long failure message before serving it to the picker", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, { id: "host-catalog-detail" });
+      const host = await setupCatalogHost(harness, {
+        id: "host-catalog-detail",
+      });
       host.setAnswer(() => ({
         ok: false,
         errorCode: "command_failed",
@@ -705,7 +729,9 @@ describe("provider model catalog store", () => {
 
   it("ignores a refresh that settles after a later refresh under another fingerprint", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, { id: "host-catalog-superseded" });
+      const host = await setupCatalogHost(harness, {
+        id: "host-catalog-superseded",
+      });
       const base = requireRegistration(harness, "claude-code");
       const heldOne = createDeferredPromise<HostRpcHandlerResult>();
       const heldTwo = createDeferredPromise<HostRpcHandlerResult>();
@@ -738,19 +764,23 @@ describe("provider model catalog store", () => {
       expect(modelIds(await host.read("catalog-probe"))).toEqual(["model-two"]);
       expect(host.listRequests()).toHaveLength(2);
       expect(
-        getStoredProviderModelCatalog(harness.db, {
-          hostId: host.hostId,
-          providerId: "catalog-probe",
-          scopeKey: "",
-        })?.modelsJson,
+        (
+          await getStoredProviderModelCatalog(harness.db, {
+            hostId: host.hostId,
+            providerId: "catalog-probe",
+            scopeKey: "",
+          })
+        )?.modelsJson,
       ).toContain("model-two");
     });
   });
 
   it("clears a provider's recorded failure in every workspace scope after a successful install", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, { id: "host-catalog-install" });
-      const environmentId = seedEnvironmentPath(
+      const host = await setupCatalogHost(harness, {
+        id: "host-catalog-install",
+      });
+      const environmentId = await seedEnvironmentPath(
         harness,
         host.hostId,
         "/tmp/catalog-install",
@@ -781,7 +811,7 @@ describe("provider model catalog store", () => {
 
   it("marks catalogs stale and drops failures when the machine environment is saved, including a refresh that was in flight", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, {
+      const host = await setupCatalogHost(harness, {
         id: "host-catalog-machine-environment",
       });
       const held = createDeferredPromise<HostRpcHandlerResult>();
@@ -840,7 +870,7 @@ describe("provider model catalog store", () => {
 
   it("never evicts an entry with an in-flight refresh and reloads evicted entries from SQLite", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, {
+      const host = await setupCatalogHost(harness, {
         id: "host-catalog-eviction",
         memoryEntryLimit: 2,
       });
@@ -863,7 +893,7 @@ describe("provider model catalog store", () => {
       expect(modelIds(await heldRead)).toEqual(["claude-held"]);
       expect(modelIds(await joinedRead)).toEqual(["claude-held"]);
 
-      harness.db.$client
+      await harness.db.$client
         .prepare(
           "UPDATE provider_model_catalogs SET models_json = ? WHERE host_id = ? AND provider_id = 'codex'",
         )
@@ -875,8 +905,10 @@ describe("provider model catalog store", () => {
 
   it("forgets a removed host's catalogs, persists and pushes nothing for its in-flight refreshes, and never persists ephemeral hosts", async () => {
     await withTestHarness(async (harness) => {
-      const host = setupCatalogHost(harness, { id: "host-catalog-forget" });
-      const environmentId = seedEnvironmentPath(
+      const host = await setupCatalogHost(harness, {
+        id: "host-catalog-forget",
+      });
+      const environmentId = await seedEnvironmentPath(
         harness,
         host.hostId,
         "/tmp/catalog-forget",
@@ -890,30 +922,30 @@ describe("provider model catalog store", () => {
         expect(host.listRequests("codex")).toHaveLength(1);
       });
       const pushes = capturePushes(harness);
-      const rowCount = () =>
-        harness.db.$client
+      const rowCount = async () =>
+        await harness.db.$client
           .prepare(
             "SELECT COUNT(*) AS count FROM provider_model_catalogs WHERE host_id = ?",
           )
           .get(host.hostId);
 
-      host.store.forgetHost(harness.deps, host.hostId);
-      expect(rowCount()).toEqual({ count: 0 });
+      await host.store.forgetHost(harness.deps, host.hostId);
+      expect(await rowCount()).toEqual({ count: 0 });
       held.resolve(catalogAnswer(modelList("late-model")));
       expect((await pending).modelLoadError?.code).toBe("failed");
       await settleTimers();
       expect(pushes).toEqual([]);
-      expect(rowCount()).toEqual({ count: 0 });
+      expect(await rowCount()).toEqual({ count: 0 });
       await host.read("claude-code");
       expect(host.listRequests("claude-code")).toHaveLength(2);
 
-      const ephemeral = seedHostSession(harness.deps, {
+      const ephemeral = await seedHostSession(harness.deps, {
         id: "host-catalog-ephemeral",
       });
-      updateHost(harness.db, harness.hub, ephemeral.host.id, {
+      await updateHost(harness.db, harness.hub, ephemeral.host.id, {
         type: "ephemeral",
       });
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: ephemeral.host.id,
         sessionId: ephemeral.session.id,
         handle: (request) =>
@@ -927,7 +959,7 @@ describe("provider model catalog store", () => {
       });
       expect(modelIds(response)).toEqual(["gpt-5"]);
       expect(
-        getStoredProviderModelCatalog(harness.db, {
+        await getStoredProviderModelCatalog(harness.db, {
           hostId: ephemeral.host.id,
           providerId: "codex",
           scopeKey: "",
@@ -939,7 +971,9 @@ describe("provider model catalog store", () => {
   it("serves a refreshed catalog without storing it while the server is moving", async () => {
     await withTestHarness(async (harness) => {
       const logLines = captureLogLines(harness);
-      const host = setupCatalogHost(harness, { id: "host-catalog-frozen" });
+      const host = await setupCatalogHost(harness, {
+        id: "host-catalog-frozen",
+      });
 
       setServerMoveFrozen(harness.db, true);
       try {
@@ -954,7 +988,7 @@ describe("provider model catalog store", () => {
         ]);
         expect(host.listRequests("claude-code")).toHaveLength(1);
         expect(
-          getStoredProviderModelCatalog(harness.db, {
+          await getStoredProviderModelCatalog(harness.db, {
             hostId: host.hostId,
             providerId: "claude-code",
             scopeKey: "",

@@ -125,15 +125,15 @@ function toProjectResponseProjectFields(
   };
 }
 
-function buildProjectResponsesFromRows(
+async function buildProjectResponsesFromRows(
   deps: AppDeps,
   projects: ProjectResponseProjectFields[],
-): ProjectResponse[] {
+): Promise<ProjectResponse[]> {
   if (projects.length === 0) {
     return [];
   }
   const sourcesByProjectId = new Map<string, ProjectResponse["sources"]>();
-  for (const source of listProjectSourcesByProjectIds(
+  for (const source of await listProjectSourcesByProjectIds(
     deps.db,
     projects.map((project) => project.id),
   )) {
@@ -151,29 +151,29 @@ function buildProjectResponsesFromRows(
   }));
 }
 
-function buildProjectResponses(
+async function buildProjectResponses(
   deps: AppDeps,
   projectId?: string,
-): ProjectResponse[] {
+): Promise<ProjectResponse[]> {
   const projects = projectId
-    ? [requirePublicStandardProject(deps.db, projectId)]
-    : listPublicProjects(deps.db);
-  return buildProjectResponsesFromRows(deps, projects);
+    ? [await requirePublicStandardProject(deps.db, projectId)]
+    : await listPublicProjects(deps.db);
+  return await buildProjectResponsesFromRows(deps, projects);
 }
 
 interface ProjectListOptions {
   includePersonal: boolean;
 }
 
-function listDiscoverableProjects(
+async function listDiscoverableProjects(
   deps: AppDeps,
   options: ProjectListOptions,
-): ProjectResponseProjectFields[] {
-  const projects = listPublicProjects(deps.db);
+): Promise<ProjectResponseProjectFields[]> {
+  const projects = await listPublicProjects(deps.db);
   if (!options.includePersonal) {
     return projects;
   }
-  const personalProject = getPersonalProject(deps.db);
+  const personalProject = await getPersonalProject(deps.db);
   if (!personalProject) {
     throw new ApiError(
       500,
@@ -184,14 +184,14 @@ function listDiscoverableProjects(
   return [personalProject, ...projects];
 }
 
-function toProjectOrderResponse(
+async function toProjectOrderResponse(
   deps: AppDeps,
   result: ReorderProjectResult,
-): ProjectResponse[] {
+): Promise<ProjectResponse[]> {
   switch (result.kind) {
     case "reordered":
     case "unchanged":
-      return buildProjectResponsesFromRows(deps, result.projects);
+      return await buildProjectResponsesFromRows(deps, result.projects);
     case "not_found":
       throw new ApiError(404, "project_not_found", "Project not found");
     case "stale_neighbor":
@@ -214,27 +214,27 @@ function parseProjectListIncludes(
   return includes;
 }
 
-function buildProjectsWithThreadsResponse(
+async function buildProjectsWithThreadsResponse(
   deps: AppDeps,
   options: ProjectListOptions,
-): ProjectWithThreadsResponse[] {
-  return buildProjectsWithThreadsResponseFromRows(
+): Promise<ProjectWithThreadsResponse[]> {
+  return await buildProjectsWithThreadsResponseFromRows(
     deps,
-    listDiscoverableProjects(deps, options),
+    await listDiscoverableProjects(deps, options),
   );
 }
 
-function buildProjectsWithThreadsResponseFromRows(
+async function buildProjectsWithThreadsResponseFromRows(
   deps: AppDeps,
   projectRows: ProjectResponseProjectFields[],
-): ProjectWithThreadsResponse[] {
-  const projects = buildProjectResponsesFromRows(deps, projectRows);
+): Promise<ProjectWithThreadsResponse[]> {
+  const projects = await buildProjectResponsesFromRows(deps, projectRows);
   const projectIds = projects.map((project) => project.id);
-  const threadRows = listThreadsWithPendingInteractionStateForProjects(
+  const threadRows = await listThreadsWithPendingInteractionStateForProjects(
     deps.db,
     { archived: false, projectIds },
   );
-  const threadResponses = toThreadListEntryResponses(deps, {
+  const threadResponses = await toThreadListEntryResponses(deps, {
     threads: threadRows,
   });
   const threadsByProjectId = new Map<
@@ -249,7 +249,7 @@ function buildProjectsWithThreadsResponseFromRows(
     }
     threadsByProjectId.set(thread.projectId, [thread]);
   }
-  const defaultsByProjectId = listProjectExecutionDefaultsByProjectIds(
+  const defaultsByProjectId = await listProjectExecutionDefaultsByProjectIds(
     deps.db,
     { projectIds },
   );
@@ -261,8 +261,8 @@ function buildProjectsWithThreadsResponseFromRows(
   }));
 }
 
-function buildSidebarBootstrapResponse(deps: AppDeps) {
-  const personalProject = getPersonalProject(deps.db);
+async function buildSidebarBootstrapResponse(deps: AppDeps) {
+  const personalProject = await getPersonalProject(deps.db);
   if (!personalProject) {
     throw new ApiError(
       500,
@@ -270,9 +270,8 @@ function buildSidebarBootstrapResponse(deps: AppDeps) {
       "Personal project is not initialized",
     );
   }
-  const personalProjectResponse = buildProjectsWithThreadsResponseFromRows(
-    deps,
-    [personalProject],
+  const personalProjectResponse = (
+    await buildProjectsWithThreadsResponseFromRows(deps, [personalProject])
   )[0];
   if (!personalProjectResponse) {
     throw new ApiError(
@@ -282,10 +281,10 @@ function buildSidebarBootstrapResponse(deps: AppDeps) {
     );
   }
   return {
-    sections: listThreadSections(deps.db),
-    projects: buildProjectsWithThreadsResponseFromRows(
+    sections: await listThreadSections(deps.db),
+    projects: await buildProjectsWithThreadsResponseFromRows(
       deps,
-      listPublicProjects(deps.db),
+      await listPublicProjects(deps.db),
     ),
     personalProject: personalProjectResponse,
   };
@@ -296,11 +295,11 @@ interface RequireProjectSourceArgs {
   sourceId: string;
 }
 
-function requireProjectSource(
+async function requireProjectSource(
   deps: Pick<AppDeps, "db">,
   args: RequireProjectSourceArgs,
 ) {
-  const source = getProjectSourceForProject(deps.db, args);
+  const source = await getProjectSourceForProject(deps.db, args);
   if (!source) {
     throw new ApiError(404, "invalid_request", "Project source not found");
   }
@@ -336,7 +335,10 @@ async function listProviderLiveCommandsBestEffort(
   deps: AppDeps,
   args: { hostId: string; providerId: string; cwd: string | null },
 ): Promise<ThreadProviderCommand[]> {
-  const bridgeLaunch = resolveBridgeLaunchForProviderId(deps, args.providerId);
+  const bridgeLaunch = await resolveBridgeLaunchForProviderId(
+    deps,
+    args.providerId,
+  );
   if (bridgeLaunch === null) {
     return [];
   }
@@ -393,9 +395,12 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
         "forbidden",
         "Machine credentials cannot change project environment settings",
       );
-    const project = requirePublicProject(deps.db, context.req.param("id"));
+    const project = await requirePublicProject(
+      deps.db,
+      context.req.param("id"),
+    );
     await deleteMachineEnvironmentVariable(deps.db, payload.name, project.id);
-    deps.hub.notifySystem(["config-changed"]);
+    await deps.hub.notifySystem(["config-changed"]);
     return context.json(
       await projectMachineEnvironmentView(deps.db, project.id),
     );
@@ -408,14 +413,17 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
         "forbidden",
         "Machine credentials cannot change project environment settings",
       );
-    const project = requirePublicProject(deps.db, context.req.param("id"));
+    const project = await requirePublicProject(
+      deps.db,
+      context.req.param("id"),
+    );
     await setMachineEnvironmentVariable(
       deps.db,
       deps.config.dataDir,
       payload,
       project.id,
     );
-    deps.hub.notifySystem(["config-changed"]);
+    await deps.hub.notifySystem(["config-changed"]);
     return context.json(
       await projectMachineEnvironmentView(deps.db, project.id),
     );
@@ -428,62 +436,73 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
         "forbidden",
         "Machine credentials cannot change project environment settings",
       );
-    const project = requirePublicProject(deps.db, context.req.param("id"));
+    const project = await requirePublicProject(
+      deps.db,
+      context.req.param("id"),
+    );
     await replaceMachineEnvironment(
       deps.db,
       deps.config.dataDir,
       payload,
       project.id,
     );
-    deps.hub.notifySystem(["config-changed"]);
+    await deps.hub.notifySystem(["config-changed"]);
     return context.json(
       await projectMachineEnvironmentView(deps.db, project.id),
     );
   });
 
   get(routes.machineEnvironment, async (context) => {
-    const project = requirePublicProject(deps.db, context.req.param("id"));
+    const project = await requirePublicProject(
+      deps.db,
+      context.req.param("id"),
+    );
     return context.json(
       await projectMachineEnvironmentView(deps.db, project.id),
     );
   });
 
-  get(routes.list, (context, query) => {
+  get(routes.list, async (context, query) => {
     const includes = parseProjectListIncludes(query);
     const options: ProjectListOptions = {
       includePersonal: query.includePersonal === "true",
     };
     if (includes.has("threads")) {
-      return context.json(buildProjectsWithThreadsResponse(deps, options));
+      return context.json(
+        await buildProjectsWithThreadsResponse(deps, options),
+      );
     }
     return context.json(
-      buildProjectResponsesFromRows(
+      await buildProjectResponsesFromRows(
         deps,
-        listDiscoverableProjects(deps, options),
+        await listDiscoverableProjects(deps, options),
       ),
     );
   });
 
-  get(routes.sidebarBootstrap, (context) =>
-    context.json(buildSidebarBootstrapResponse(deps)),
+  get(routes.sidebarBootstrap, async (context) =>
+    context.json(await buildSidebarBootstrapResponse(deps)),
   );
 
   post(routes.create, async (context, payload) => {
     const { source } = payload;
     if (source.type === "local_path") {
-      requireNonDestroyedHostWithStatus(deps, source.hostId);
-      assertUsableHostId(deps, { hostId: source.hostId });
+      await requireNonDestroyedHostWithStatus(deps, source.hostId);
+      await assertUsableHostId(deps, { hostId: source.hostId });
       assertPathMatchesHostPlatform(deps, source);
     }
-    const existingProject = getPublicProjectByLocalPathSource(deps.db, source);
+    const existingProject = await getPublicProjectByLocalPathSource(
+      deps.db,
+      source,
+    );
     if (existingProject) {
       return context.json(
-        buildProjectResponses(deps, existingProject.id)[0],
+        (await buildProjectResponses(deps, existingProject.id))[0],
         201,
       );
     }
     const gitRemoteUrl = await inspectProjectGitRemoteBestEffort(deps, source);
-    const { project } = findOrCreateProjectByLocalPathSource(
+    const { project } = await findOrCreateProjectByLocalPathSource(
       deps.db,
       deps.hub,
       {
@@ -492,33 +511,40 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
       },
     );
     if (gitRemoteUrl !== null) {
-      setProjectGitRemoteUrlIfMissing(
+      await setProjectGitRemoteUrlIfMissing(
         deps.db,
         deps.hub,
         project.id,
         gitRemoteUrl,
       );
     }
-    return context.json(buildProjectResponses(deps, project.id)[0], 201);
+    return context.json(
+      (await buildProjectResponses(deps, project.id))[0],
+      201,
+    );
   });
 
-  get(routes.get, (context) =>
+  get(routes.get, async (context) =>
     context.json(
-      buildProjectResponsesFromRows(deps, [
-        requirePublicProject(deps.db, context.req.param("id")),
-      ])[0],
+      (
+        await buildProjectResponsesFromRows(deps, [
+          await requirePublicProject(deps.db, context.req.param("id")),
+        ])
+      )[0],
     ),
   );
 
-  get(routes.defaultExecutionOptions, (context) => {
+  get(routes.defaultExecutionOptions, async (context) => {
     const projectId = context.req.param("id");
-    requirePublicProject(deps.db, projectId);
-    return context.json(getProjectExecutionDefaults(deps.db, { projectId }));
+    await requirePublicProject(deps.db, projectId);
+    return context.json(
+      await getProjectExecutionDefaults(deps.db, { projectId }),
+    );
   });
 
-  get(routes.promptHistory, (context, query) => {
+  get(routes.promptHistory, async (context, query) => {
     const projectId = context.req.param("id");
-    requirePublicProject(deps.db, projectId);
+    await requirePublicProject(deps.db, projectId);
     const limit = parseBoundedPositiveOptionalInteger({
       defaultValue: PROMPT_HISTORY_ENTRY_LIMIT,
       max: PROMPT_HISTORY_ENTRY_LIMIT,
@@ -527,7 +553,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
     });
 
     return context.json(
-      listProjectPromptHistory(deps, {
+      await listProjectPromptHistory(deps, {
         projectId,
         limit,
       }),
@@ -535,8 +561,8 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
   });
 
   patch(routes.update, async (context, payload) => {
-    requirePublicStandardProject(deps.db, context.req.param("id"));
-    const project = updateProject(
+    await requirePublicStandardProject(deps.db, context.req.param("id"));
+    const project = await updateProject(
       deps.db,
       deps.hub,
       context.req.param("id"),
@@ -545,16 +571,16 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
     if (!project) {
       throw new ApiError(404, "project_not_found", "Project not found");
     }
-    return context.json(buildProjectResponses(deps, project.id)[0]);
+    return context.json((await buildProjectResponses(deps, project.id))[0]);
   });
 
   patch(routes.reorder, async (context, payload) => {
     const projectId = context.req.param("id");
-    requirePublicStandardProject(deps.db, projectId);
+    await requirePublicStandardProject(deps.db, projectId);
     return context.json(
-      toProjectOrderResponse(
+      await toProjectOrderResponse(
         deps,
-        reorderProject({
+        await reorderProject({
           db: deps.db,
           notifier: deps.hub,
           projectId,
@@ -567,7 +593,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
 
   del(routes.delete, async (context) => {
     const id = context.req.param("id");
-    const project = requireProject(deps.db, id);
+    const project = await requireProject(deps.db, id);
     if (project.kind === "personal") {
       throw new ApiError(
         409,
@@ -575,17 +601,17 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
         "The personal project cannot be deleted",
       );
     }
-    beginProjectDeletion(deps, { projectId: id });
+    await beginProjectDeletion(deps, { projectId: id });
     requestProjectDeletionAdvance(deps, { projectId: id });
     return context.json({ ok: true });
   });
 
   post(routes.createSource, async (context, payload) => {
     const projectId = context.req.param("id");
-    const project = requirePublicStandardProject(deps.db, projectId);
-    requireNonDestroyedHostWithStatus(deps, payload.hostId);
-    assertUsableHostId(deps, { hostId: payload.hostId });
-    if (getProjectSourceByHost(deps.db, projectId, payload.hostId)) {
+    const project = await requirePublicStandardProject(deps.db, projectId);
+    await requireNonDestroyedHostWithStatus(deps, payload.hostId);
+    await assertUsableHostId(deps, { hostId: payload.hostId });
+    if (await getProjectSourceByHost(deps.db, projectId, payload.hostId)) {
       throw projectSourceHostConflict();
     }
     const requestedPath =
@@ -607,7 +633,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
               ? { targetPath: payload.targetPath }
               : {}),
           })
-        : registerProjectSourceOnHost(deps, {
+        : await registerProjectSourceOnHost(deps, {
             projectId,
             hostId: payload.hostId,
             path: payload.path,
@@ -621,13 +647,13 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
 
   patch(routes.updateSource, async (context, payload) => {
     const projectId = context.req.param("id");
-    const project = requirePublicStandardProject(deps.db, projectId);
-    const existing = requireProjectSource(deps, {
+    const project = await requirePublicStandardProject(deps.db, projectId);
+    const existing = await requireProjectSource(deps, {
       projectId,
       sourceId: context.req.param("sourceId"),
     });
     if (existing.type === "local_path") {
-      assertUsableHostId(deps, { hostId: existing.hostId });
+      await assertUsableHostId(deps, { hostId: existing.hostId });
       if (payload.path) {
         assertPathMatchesHostPlatform(deps, {
           hostId: existing.hostId,
@@ -642,7 +668,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
         `Source type mismatch: source is ${existing.type} but request specifies ${payload.type}`,
       );
     }
-    const source = updateProjectSource(
+    const source = await updateProjectSource(
       deps.db,
       deps.hub,
       context.req.param("sourceId"),
@@ -660,7 +686,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
         source,
       );
       if (gitRemoteUrl !== null) {
-        setProjectGitRemoteUrlIfMissing(
+        await setProjectGitRemoteUrlIfMissing(
           deps.db,
           deps.hub,
           projectId,
@@ -671,17 +697,17 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
     return context.json(source);
   });
 
-  del(routes.deleteSource, (context) => {
+  del(routes.deleteSource, async (context) => {
     const projectId = context.req.param("id");
-    const project = requireProject(deps.db, projectId);
+    const project = await requireProject(deps.db, projectId);
     if (project.kind !== "standard") {
       throw new ApiError(404, "project_not_found", "Project not found");
     }
-    requireProjectSource(deps, {
+    await requireProjectSource(deps, {
       projectId,
       sourceId: context.req.param("sourceId"),
     });
-    const sourceCount = countProjectSources(deps.db, { projectId });
+    const sourceCount = await countProjectSources(deps.db, { projectId });
     if (sourceCount <= 1 && project.deletedAt === null) {
       throw new ApiError(
         409,
@@ -689,7 +715,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
         "Cannot delete the last source of a project",
       );
     }
-    const deleted = deleteProjectSource(
+    const deleted = await deleteProjectSource(
       deps.db,
       deps.hub,
       context.req.param("sourceId"),
@@ -702,11 +728,11 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
 
   get(routes.files, async (context, query) => {
     const projectId = context.req.param("id");
-    requirePublicProject(deps.db, projectId);
+    await requirePublicProject(deps.db, projectId);
 
     const limit = parseFileListLimit(query.limit);
 
-    const target = resolveProjectWorkspaceTarget(deps, {
+    const target = await resolveProjectWorkspaceTarget(deps, {
       projectId,
       environmentId: query.environmentId,
       hostId: query.hostId,
@@ -731,11 +757,11 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
 
   get(routes.paths, async (context, query) => {
     const projectId = context.req.param("id");
-    requirePublicProject(deps.db, projectId);
+    await requirePublicProject(deps.db, projectId);
 
     const limit = parseFileListLimit(query.limit);
 
-    const target = resolveProjectWorkspaceTarget(deps, {
+    const target = await resolveProjectWorkspaceTarget(deps, {
       projectId,
       environmentId: query.environmentId,
       hostId: query.hostId,
@@ -765,14 +791,14 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
 
   get(routes.commands, async (context, query) => {
     const projectId = context.req.param("id");
-    requirePublicProject(deps.db, projectId);
+    await requirePublicProject(deps.db, projectId);
 
     const registration = deps.providerRegistry.get(query.provider);
     if (registration === null || !providerHasCommandSurface(registration)) {
       return context.json({ commands: [] });
     }
 
-    const workspace = resolveProjectCommandWorkspace(deps, {
+    const workspace = await resolveProjectCommandWorkspace(deps, {
       projectId,
       environmentId: query.environmentId,
       hostId: query.hostId,
@@ -781,7 +807,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
       if (!providerHasNativeRootSurface(registration)) {
         return { commands: [] };
       }
-      return scanProviderNativeRoots(deps, {
+      return await scanProviderNativeRoots(deps, {
         type: "host.list_commands",
         registration,
         hostId: workspace.hostId,
@@ -799,7 +825,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
               cwd: null,
             }),
           }
-        : readWorkspaceAgentContext(deps, {
+        : await readWorkspaceAgentContext(deps, {
             hostId: workspace.hostId,
             workspacePath: workspace.cwd,
             includeAgentInstructions: false,
@@ -829,19 +855,19 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
     );
   });
 
-  const requireProjectSkillWorkspace = (
+  const requireProjectSkillWorkspace = async (
     projectId: string,
     environmentId: string | null,
   ) => {
-    requirePublicProject(deps.db, projectId);
-    return resolveProjectCommandWorkspace(deps, {
+    await requirePublicProject(deps.db, projectId);
+    return await resolveProjectCommandWorkspace(deps, {
       projectId,
       environmentId: environmentId ?? undefined,
     });
   };
 
   get(routes.skills, async (context, query) => {
-    const workspace = requireProjectSkillWorkspace(
+    const workspace = await requireProjectSkillWorkspace(
       context.req.param("id"),
       query.environmentId,
     );
@@ -850,7 +876,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
   });
 
   del(routes.deleteSkill, async (context, payload) => {
-    const workspace = requireProjectSkillWorkspace(
+    const workspace = await requireProjectSkillWorkspace(
       context.req.param("id"),
       payload.environmentId,
     );
@@ -862,7 +888,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(routes.skillContent, async (context, query) => {
-    const workspace = requireProjectSkillWorkspace(
+    const workspace = await requireProjectSkillWorkspace(
       context.req.param("id"),
       query.environmentId,
     );
@@ -875,7 +901,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(routes.skillFiles, async (context, query) => {
-    const workspace = requireProjectSkillWorkspace(
+    const workspace = await requireProjectSkillWorkspace(
       context.req.param("id"),
       query.environmentId,
     );
@@ -888,7 +914,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
   });
 
   patch(routes.updateSkill, async (context, payload) => {
-    const workspace = requireProjectSkillWorkspace(
+    const workspace = await requireProjectSkillWorkspace(
       context.req.param("id"),
       payload.environmentId,
     );
@@ -906,9 +932,9 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
     query: ProjectBranchesQuery,
     remoteRefresh: "background" | "blocking",
   ) => {
-    requirePublicStandardProject(deps.db, projectId);
+    await requirePublicStandardProject(deps.db, projectId);
 
-    const source = resolveProjectWorkspaceTarget(deps, {
+    const source = await resolveProjectWorkspaceTarget(deps, {
       projectId,
       hostId: query.hostId,
     });
@@ -923,8 +949,8 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
         remoteRefresh,
       },
     });
-    const readBranchOptions = () =>
-      callHostRetryableOnlineRpc(deps, {
+    const readBranchOptions = async () =>
+      await callHostRetryableOnlineRpc(deps, {
         hostId: source.hostId,
         timeoutMs: COMMAND_TIMEOUT_MS,
         command: {
@@ -938,7 +964,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
       });
     const branchOptionsPromise =
       remoteRefresh === "background"
-        ? readBranchOptions()
+        ? await readBranchOptions()
         : inspectionPromise.then(readBranchOptions);
     const [inspection, branchOptions] = await Promise.all([
       inspectionPromise,
@@ -963,7 +989,7 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
   );
 
   post(routes.uploadAttachment, async (context) => {
-    requirePublicProject(deps.db, context.req.param("id"));
+    await requirePublicProject(deps.db, context.req.param("id"));
     const formData = await context.req.formData();
     const fields = [...formData.keys()];
     if (fields.length === 0) {
@@ -1000,8 +1026,8 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
 
   post(routes.copyAttachments, async (context, payload) => {
     const targetProjectId = context.req.param("id");
-    requirePublicProject(deps.db, targetProjectId);
-    requirePublicProject(deps.db, payload.sourceProjectId);
+    await requirePublicProject(deps.db, targetProjectId);
+    await requirePublicProject(deps.db, payload.sourceProjectId);
     await copyProjectAttachments(
       deps.db,
       deps.config.dataDir,
@@ -1013,8 +1039,8 @@ export function registerProjectRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(routes.attachmentContent, async (context, query) => {
-    requirePublicProject(deps.db, context.req.param("id"));
-    return createAttachmentContentResponse({
+    await requirePublicProject(deps.db, context.req.param("id"));
+    return await createAttachmentContentResponse({
       dataDir: deps.config.dataDir,
       projectId: context.req.param("id"),
       path: query.path,

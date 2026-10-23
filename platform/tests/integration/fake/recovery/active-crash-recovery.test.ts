@@ -23,8 +23,8 @@ import {
 describe.sequential("fake provider active crash recovery integration", () => {
   it(
     "marks in-flight work failed on daemon crash and allows retry after restart",
-    () =>
-      withHarness(async (harness) => {
+    async () =>
+      await withHarness(async (harness) => {
         const { thread } = await createRecoveryThread(
           harness,
           "Crash Recovery Active",

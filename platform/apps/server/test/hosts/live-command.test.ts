@@ -1,8 +1,4 @@
-import {
-  createEnvironment,
-  getEnvironment,
-  updateHost,
-} from "@hyperfide/db";
+import { createEnvironment, getEnvironment, updateHost } from "@hyperfide/db";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { replaceMachineEnvironment } from "../../src/services/machines/environment-settings.js";
@@ -31,12 +27,12 @@ describe("live host command logging", () => {
         warn: vi.fn(),
       };
       harness.deps.logger = logger;
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-live-command-expected-error",
       });
       const onError = vi.fn();
 
-      startLiveHostCommand(harness.deps, {
+      await startLiveHostCommand(harness.deps, {
         command: {
           type: "thread.rename",
           environmentId: "env-live-command-expected-error",
@@ -78,11 +74,11 @@ describe("live host command logging", () => {
 
 it("preserves provisioning when the host transport disappears", async () => {
   await withTestHarness(async (harness) => {
-    const { host } = seedHostSession(harness.deps);
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { host } = await seedHostSession(harness.deps);
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = createEnvironment(harness.db, harness.hub, {
+    const environment = await createEnvironment(harness.db, harness.hub, {
       projectId: project.id,
       hostId: host.id,
       providerOwnsPath: false,
@@ -106,7 +102,7 @@ it("preserves provisioning when the host transport disappears", async () => {
         timeoutMs: 1000,
       }),
     ).rejects.toThrow("Host is not connected");
-    expect(getEnvironment(harness.db, environment.id)?.status).toBe(
+    expect((await getEnvironment(harness.db, environment.id))?.status).toBe(
       "provisioning",
     );
   });
@@ -114,14 +110,14 @@ it("preserves provisioning when the host transport disappears", async () => {
 
 it("resolves fresh setup values at dispatch without retaining them in the request", async () => {
   await withTestHarness(async (harness) => {
-    const { host } = seedHostSession(harness.deps);
-    updateHost(harness.db, harness.hub, host.id, {
+    const { host } = await seedHostSession(harness.deps);
+    await updateHost(harness.db, harness.hub, host.id, {
       machineProviderId: "manual",
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = createEnvironment(harness.db, harness.hub, {
+    const environment = await createEnvironment(harness.db, harness.hub, {
       projectId: project.id,
       hostId: host.id,
       providerOwnsPath: true,
@@ -165,11 +161,13 @@ it("resolves fresh setup values at dispatch without retaining them in the reques
       });
       expect(JSON.stringify(command)).toBe(original);
       expect(
-        JSON.stringify(getEnvironment(harness.db, environment.id)),
+        JSON.stringify(await getEnvironment(harness.db, environment.id)),
       ).not.toContain(value);
       expect(
         JSON.stringify(
-          harness.db.$client.prepare("SELECT * FROM app_settings_values").all(),
+          await harness.db.$client
+            .prepare("SELECT * FROM app_settings_values")
+            .all(),
         ),
       ).not.toContain(value);
     }
@@ -200,14 +198,14 @@ it("resolves fresh setup values at dispatch without retaining them in the reques
 
 it("fails provisioning if saved setup variables cannot be decrypted", async () => {
   await withTestHarness(async (harness) => {
-    const { host } = seedHostSession(harness.deps);
-    updateHost(harness.db, harness.hub, host.id, {
+    const { host } = await seedHostSession(harness.deps);
+    await updateHost(harness.db, harness.hub, host.id, {
       machineProviderId: "manual",
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = createEnvironment(harness.db, harness.hub, {
+    const environment = await createEnvironment(harness.db, harness.hub, {
       projectId: project.id,
       hostId: host.id,
       providerOwnsPath: true,
@@ -232,6 +230,8 @@ it("fails provisioning if saved setup variables cannot be decrypted", async () =
       }),
     ).rejects.toThrow("Machine environment encryption key is unavailable");
     expect(request).not.toHaveBeenCalled();
-    expect(getEnvironment(harness.db, environment.id)?.status).toBe("error");
+    expect((await getEnvironment(harness.db, environment.id))?.status).toBe(
+      "error",
+    );
   });
 });
