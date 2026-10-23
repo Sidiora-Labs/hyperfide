@@ -201,7 +201,7 @@ owner = "identity"
 
 [task.0.8]
 title = "Sandbox image steps, dispatcher daemon and Makefile targets"
-status = "pending"
+status = "implemented"
 wave = 0
 requires = []
 touches = ["deploy/hyperfide/sandbox/fleet.json", "deploy/hyperfide/sandbox/gen-jobs.py", "deploy/hyperfide/sandbox/dispatch.mjs", "deploy/hyperfide/sandbox/README.md", "tests/integration/96_sandbox_toolkit.sh", "Makefile", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v22/0_8.sh"]
