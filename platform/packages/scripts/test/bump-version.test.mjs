@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import {
+  existsSync,
   mkdtempSync,
   mkdirSync,
   readdirSync,
@@ -8,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { bumpVersion } from "../../../scripts/bump-version.mjs";
@@ -22,6 +23,16 @@ const scriptPath = fileURLToPath(
   new URL("../../../scripts/bump-version.mjs", import.meta.url),
 );
 const testRoots = [];
+const packagesRoot = resolve(import.meta.dirname, "../../../packages");
+const launcherDirectory = readdirSync(packagesRoot).find((name) => {
+  const manifest = join(packagesRoot, name, "package.json");
+  return (
+    existsSync(manifest) &&
+    JSON.parse(readFileSync(manifest, "utf8")).name === "hyperfide-app"
+  );
+});
+if (!launcherDirectory) throw new Error("Launcher package was not found");
+const launcherManifest = join("packages", launcherDirectory, "package.json");
 
 function createPackageJson({ name, version }) {
   return `${JSON.stringify({ name, version, type: "module" }, null, 2)}\n`;
@@ -31,10 +42,10 @@ function createTestRepo({ bbAppVersion, desktopVersion }) {
   const repoRoot = mkdtempSync(join(tmpdir(), "bb-bump-version-"));
   testRoots.push(repoRoot);
 
-  mkdirSync(join(repoRoot, "packages", "hyperfide-app"), { recursive: true });
+  mkdirSync(join(repoRoot, "packages", launcherDirectory), { recursive: true });
   mkdirSync(join(repoRoot, "apps", "desktop"), { recursive: true });
   writeFileSync(
-    join(repoRoot, "packages", "hyperfide-app", "package.json"),
+    join(repoRoot, "packages", launcherDirectory, "package.json"),
     createPackageJson({ name: "hyperfide-app", version: bbAppVersion }),
   );
   writeFileSync(
@@ -79,7 +90,7 @@ describe("bump-version", () => {
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Invalid version: not-semver");
-    expect(readVersion(repoRoot, "packages/bb-app/package.json")).toBe("0.0.6");
+    expect(readVersion(repoRoot, launcherManifest)).toBe("0.0.6");
     expect(readVersion(repoRoot, "apps/desktop/package.json")).toBe("0.0.6");
   });
 
@@ -90,7 +101,7 @@ describe("bump-version", () => {
     });
     const originalBbAppContent = readPackageContent(
       repoRoot,
-      "packages/bb-app/package.json",
+      launcherManifest,
     );
     const originalDesktopContent = readPackageContent(
       repoRoot,
@@ -100,9 +111,9 @@ describe("bump-version", () => {
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain(
-      "New version 0.0.7 must be greater than current max 0.0.9 across bb-app=0.0.6 @hyperfide/desktop=0.0.9.",
+      "New version 0.0.7 must be greater than current max 0.0.9 across hyperfide-app=0.0.6 @hyperfide/desktop=0.0.9.",
     );
-    expect(readPackageContent(repoRoot, "packages/bb-app/package.json")).toBe(
+    expect(readPackageContent(repoRoot, launcherManifest)).toBe(
       originalBbAppContent,
     );
     expect(readPackageContent(repoRoot, "apps/desktop/package.json")).toBe(
@@ -118,8 +129,8 @@ describe("bump-version", () => {
     const result = runScript(repoRoot, ["0.0.7"]);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain("Bumped: bb-app + @hyperfide/desktop → 0.0.7");
-    expect(readVersion(repoRoot, "packages/bb-app/package.json")).toBe("0.0.7");
+    expect(result.stdout).toContain("Bumped: hyperfide-app + @hyperfide/desktop → 0.0.7");
+    expect(readVersion(repoRoot, launcherManifest)).toBe("0.0.7");
     expect(readVersion(repoRoot, "apps/desktop/package.json")).toBe("0.0.7");
   });
 
@@ -130,7 +141,7 @@ describe("bump-version", () => {
     });
     const originalBbAppContent = readPackageContent(
       repoRoot,
-      "packages/bb-app/package.json",
+      launcherManifest,
     );
     const originalDesktopContent = readPackageContent(
       repoRoot,
@@ -148,14 +159,14 @@ describe("bump-version", () => {
     ).rejects.toThrow("simulated rename failure");
 
     expect(getRenameCalls()).toBe(2);
-    expect(readPackageContent(repoRoot, "packages/bb-app/package.json")).toBe(
+    expect(readPackageContent(repoRoot, launcherManifest)).toBe(
       originalBbAppContent,
     );
     expect(readPackageContent(repoRoot, "apps/desktop/package.json")).toBe(
       originalDesktopContent,
     );
     expect(
-      readdirSync(join(repoRoot, "packages", "hyperfide-app")),
+      readdirSync(join(repoRoot, "packages", launcherDirectory)),
     ).not.toContainEqual(expect.stringMatching(/^\.tmp-/u));
     expect(readdirSync(join(repoRoot, "apps", "desktop"))).not.toContainEqual(
       expect.stringMatching(/^\.tmp-/u),
@@ -195,7 +206,7 @@ describe("prepare-nightly-version", () => {
         runId: "987654",
       }),
     ).resolves.toBe("1.2.4-nightly.987654.1");
-    expect(readVersion(repoRoot, "packages/bb-app/package.json")).toBe(
+    expect(readVersion(repoRoot, launcherManifest)).toBe(
       "1.2.4-nightly.987654.1",
     );
     expect(readVersion(repoRoot, "apps/desktop/package.json")).toBe(

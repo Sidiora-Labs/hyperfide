@@ -120,7 +120,7 @@ export async function bumpVersion(options) {
       `${update.target.label.replaceAll("/", "-")}.json`,
     updates,
   });
-  log(`Bumped: bb-app + @hyperfide/desktop → ${newVersion}`);
+  log(`Bumped: hyperfide-app + @hyperfide/desktop → ${newVersion}`);
 }
 
 async function main() {

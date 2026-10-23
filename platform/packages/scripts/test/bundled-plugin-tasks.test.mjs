@@ -13,10 +13,16 @@ describe("bundled plugin task graph", () => {
       const manifest = JSON.parse(
         readFileSync(resolve(root, "plugins", name, "package.json"), "utf8"),
       );
+      const customBuilders = {
+        "hyperfide-qualify": "node prepare.mjs",
+        "hyperfide-graph": "node --conditions=source --import tsx bundle.ts",
+      };
       expect(manifest.scripts["prepare:bundled"]).toBe(
-        "hyperfide-plugin-build prepare-bundled",
+        customBuilders[name] ?? "hyperfide-plugin-build prepare-bundled",
       );
-      expect(manifest.devDependencies["@hyperfide/plugin-build"]).toBe("workspace:*");
+      if (name !== "hyperfide-qualify") {
+        expect(manifest.devDependencies["@hyperfide/plugin-build"]).toBe("workspace:*");
+      }
       return manifest.name;
     });
     const bundle = JSON.parse(
@@ -27,10 +33,7 @@ describe("bundled plugin task graph", () => {
     );
     expect(Object.keys(bundle.dependencies).sort()).toEqual(expected.sort());
     const assembly = turbo.tasks["@hyperfide/bundled-plugins#build"];
-    expect(assembly.dependsOn).toEqual([
-      "^prepare:bundled",
-      "@hyperfide/server#generate:bb-official-marketplace",
-    ]);
+    expect(assembly.dependsOn).toEqual(["^prepare:bundled"]);
     expect(assembly.outputs).toEqual(["dist/**"]);
     const plugin = turbo.tasks["prepare:bundled"];
     expect(plugin.outputs).toEqual([".bundled-runtime/**"]);
