@@ -221,6 +221,7 @@ export const BUILTIN_PLUGINS = [
 }));
 
 export const OFFICIAL_PLUGINS = [
+  { name: "machine-railway", pluginId: "hyperfide-machine-railway", defaultEnabled: false },
   {
     name: "environment-modal-sandbox",
     pluginId: "environment-modal-sandbox",

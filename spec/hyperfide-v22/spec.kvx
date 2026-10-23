@@ -523,7 +523,7 @@ owner = "qualification"
 
 [task.5.1]
 title = "Railway machine provider"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["0.2", "0.3"]
 touches = ["platform/plugins/machine-railway/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/5_1.sh"]
