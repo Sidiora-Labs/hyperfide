@@ -2,22 +2,10 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { WorkerProjectionAdapter, WorkerThreadRequest, WorkerTaskUpdate } from "../worker-projection-adapter.js";
-import type { PacketTask } from "../shared/packet.js";
+import { readWorkerTask, type TaskWorkerHost, type WorkerThreadRequest, type WorkerTaskUpdate } from "../worker.js";
 
 const exec = promisify(execFile);
-export function parseTask(text: string, id: string): PacketTask & { status: string } {
-  const block = text.split(`[task.${id}]`)[1]?.split(/\n\[/)[0];
-  if (!block) throw new Error(`Unknown task ${id}`);
-  const fields: Record<string, unknown> = {};
-  for (const line of block.split("\n")) {
-    const match = /^(\w+)\s*=\s*(.+)$/.exec(line);
-    if (match) fields[match[1]!] = JSON.parse(match[2]!);
-  }
-  return fields as PacketTask & { status: string };
-}
-
-export class ScriptedEchoProvider implements WorkerProjectionAdapter {
+export class ScriptedEchoProvider implements TaskWorkerHost {
   requests: WorkerThreadRequest[] = [];
   updates: WorkerTaskUpdate[] = [];
   stopped?: () => Promise<void>;
@@ -25,7 +13,7 @@ export class ScriptedEchoProvider implements WorkerProjectionAdapter {
   constructor(readonly nextStatus?: string) {}
   async readFile(environment: string, path: string) { return readFile(join(environment, path), "utf8"); }
   async readTask(environment: string, feature: string, task: string) {
-    return parseTask(await this.readFile(environment, `spec/${feature}/spec.kvx`), task);
+    return readWorkerTask(this, environment, feature, task);
   }
   async baseCommit(repository: string) {
     return (await exec("git", ["rev-parse", "HEAD"], { cwd: repository })).stdout.trim();
