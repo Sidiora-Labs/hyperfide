@@ -87,11 +87,10 @@ file link also offers a one-off "Open with…".
 
 ## Roadmap
 
-- **Language intelligence.** There is no language server, so no
-  go-to-definition, find-references, or type checking. Monaco ships a
-  TypeScript checker, but it can only see the one open file, so every import
-  looks unresolved — it is switched off rather than showing errors that are
-  wrong.
+- **Language intelligence.** Workspace files use `hyperfide lsp` through the
+  host daemon for definitions, references, and hover. Editing continues silently
+  when the binary is unavailable. The Index panel shows the server status;
+  idle repository servers stop automatically.
 - **File operations.** The tree is read-only; renaming, creating, and
   deleting files are not implemented yet.
 - **Hidden files and `node_modules`** never appear in the tree. HYPERFIDE's path

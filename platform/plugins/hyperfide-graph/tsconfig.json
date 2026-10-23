@@ -4,6 +4,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "customConditions": ["source"],
     "jsx": "react-jsx",
     "skipLibCheck": true,
     "noEmit": true,

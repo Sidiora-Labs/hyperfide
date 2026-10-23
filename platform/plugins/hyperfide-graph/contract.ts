@@ -41,6 +41,7 @@ export const graphHostContract = defineRpcContract({
   run: { input: hostInputSchema, output: resultSchema },
 });
 export const graphRpcContract = defineRpcContract({
+  languageServerStatus: { input: scopeSchema, output: z.enum(["running", "stopped"]) },
   run: { input: requestSchema, output: resultSchema },
   getSettings: { input: scopeSchema, output: settingsSchema },
   setSettings: {
