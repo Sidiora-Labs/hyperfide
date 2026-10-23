@@ -1010,7 +1010,7 @@ owner = "source"
 
 [task.5.6]
 title = "Storage engine bake-off"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["1.11", "4.8"]
 touches = ["docs/hyperfide/source-engine-evaluation.md"]
