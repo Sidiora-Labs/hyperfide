@@ -13,6 +13,15 @@ def main():
     except PlatformBuildAbsent as error:
         print(f'SKIP: {error}')
         return 77
+    assert result['interface'] == 'hyperfide-dispatch'
+    assert len(result['echoCalls']) == 3
+    assert len(result['dispatch']) == len(result['integration']) == 3
+    assert all(j['state'] == 'succeeded' for j in result['dispatch'])
+    assert all(j['status'] == 'merged' for j in result['integration'])
+    assert {j['task']: j['state'] for j in result['rpc']['jobs']} == dict.fromkeys('ABC', 'merged')
+    assert all([e['stage'] for e in timeline['events']] ==
+               ['created', 'prepared', 'running', 'packed', 'collected', 'merged']
+               for timeline in result['rpc']['timelines'])
     assert result['first'] == ['A'], result
     assert result['beforeCollect'] == [], 'dependency released before integration'
     assert result['second'] == ['B', 'C']
@@ -37,7 +46,7 @@ def main():
     assert {j['task']: j['state'] for j in result['parallelSnapshot']} == {'A': 'merged', 'B': 'packed', 'C': 'packed'}
     previous = result['initial']
     for merge in result['merges']:
-        assert merge['message'] == f"Integrate {merge['task']} [spec:fleet/{merge['task']}]"
+        assert merge['message'] == f"Integrate fleet/{merge['task']} [spec:fleet/{merge['task']}]"
         assert merge['parents'] == [previous, merge['worker']]
         assert merge['content'] == f"echo {merge['task']}"
         previous = merge['hash']
