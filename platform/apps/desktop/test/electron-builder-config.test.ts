@@ -570,7 +570,7 @@ describe("electron-builder signing config", () => {
 
     expect(config.publish[0]).toMatchObject(DESKTOP_AUTO_UPDATE_FEED_CONFIG);
     expect(DESKTOP_AUTO_UPDATE_FEED_CONFIG.url).toBe(
-      "https://github.com/hyperfide/hyperfide/releases/download/desktop-latest/",
+      "https://github.com/Sidiora-Labs/hyperfide/releases/download/desktop-latest/",
     );
   });
 
@@ -597,6 +597,9 @@ describe("electron-builder signing config", () => {
       provider: "generic",
       url: nightlyRelease.updateReleaseBaseUrl,
     });
+    expect(nightlyRelease.updateReleaseBaseUrl).toBe(
+      "https://github.com/Sidiora-Labs/hyperfide/releases/download/desktop-nightly/",
+    );
   });
 
   it("rejects unknown desktop release channels", async () => {
