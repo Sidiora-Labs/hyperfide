@@ -553,7 +553,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.15.1]
 title = "Publish attributable attempt source and recoverable workspace checkpoints"
-status = "pending"
+status = "done"
 wave = 8
 requires = ["4.1", "11.1", "15.2"]
 touches = ["src/hyperfide/checkpoint.c", "tests/hyperfide/manifests/tasks/15.1.json", "tests/hyperfide/cases/tasks/15_1.py", "tests/hyperfide/registrations/15.1.json", "src/hyperfide/components/15.1.kvx", "Makefile"]
@@ -571,7 +571,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.2.2]
 title = "Validate cross-programme dependency graphs and explicit milestones"
-status = "pending"
+status = "done"
 wave = 8
 requires = ["2.1", "14.1", "4.2"]
 touches = ["services/hyperfide/src/spec/dependencies.ts", "tests/hyperfide/manifests/tasks/2.2.json", "tests/hyperfide/cases/tasks/2_2.py", "tests/hyperfide/registrations/2.2.json", "services/hyperfide/components/2.2.json", "services/hyperfide/migrations/0202-spec-dependencies.sql"]
@@ -588,7 +588,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.3.1]
 title = "Register leader, manager, wave-package and execution role ownership"
-status = "pending"
+status = "done"
 wave = 8
 requires = ["2.1", "4.2"]
 touches = ["services/hyperfide/src/hierarchy/packages.ts", "tests/hyperfide/manifests/tasks/3.1.json", "tests/hyperfide/cases/tasks/3_1.py", "tests/hyperfide/registrations/3.1.json", "services/hyperfide/components/3.1.json", "services/hyperfide/migrations/0003-hierarchy.sql"]
@@ -645,7 +645,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.7.1]
 title = "Extract repository and workspace graph bundles remotely"
-status = "pending"
+status = "done"
 wave = 8
 requires = ["4.1", "2.1", "14.1", "4.2"]
 touches = ["services/hyperfide/src/graph/extraction.ts", "tests/hyperfide/manifests/tasks/7.1.json", "src/scan.c", "tests/hyperfide/cases/tasks/7_1.py", "tests/hyperfide/registrations/7.1.json", "services/hyperfide/components/7.1.json"]
@@ -702,7 +702,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.14.4]
 title = "Enforce scoped API, artifact, Git and model-egress authority"
-status = "pending"
+status = "done"
 wave = 8
 requires = ["14.1", "15.2"]
 touches = ["services/hyperfide/src/identity/authorization.ts", "tests/hyperfide/manifests/tasks/14.4.json", "tests/hyperfide/cases/tasks/14_4.py", "tests/hyperfide/registrations/14.4.json", "services/hyperfide/components/14.4.json"]
@@ -719,7 +719,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.25.1]
 title = "Inventory actual SQLite shapes and import historical state with provenance"
-status = "pending"
+status = "done"
 wave = 8
 requires = ["4.1", "2.1", "15.2"]
 touches = ["services/hyperfide/src/migration/sqlite.ts", "tests/hyperfide/manifests/tasks/25.1.json", "tests/hyperfide/cases/tasks/25_1.py", "tests/hyperfide/registrations/25.1.json", "services/hyperfide/components/25.1.json", "services/hyperfide/migrations/0025-sqlite-history.sql", "services/hyperfide/components/legacy-writer-isolation.json", "services/hyperfide/src/migration/legacy.ts", "tests/hyperfide/cases/tasks/25_2.py", "tests/hyperfide/support/sqlite_schema_fixture.py"]
@@ -861,7 +861,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.6.2]
 title = "Implement inbox deduplication, revisions and replay-gap recovery"
-status = "pending"
+status = "done"
 wave = 8
 requires = ["6.1"]
 touches = ["services/hyperfide/src/events/inbox.ts", "tests/hyperfide/manifests/tasks/6.2.json", "tests/hyperfide/cases/tasks/6_2.py", "tests/hyperfide/registrations/6.2.json", "services/hyperfide/components/6.2.json"]
@@ -895,7 +895,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.14.3]
 title = "Qualify account-session and API authentication modes separately"
-status = "pending"
+status = "done"
 wave = 8
 requires = ["14.2"]
 touches = ["services/hyperfide/src/identity/native_auth.ts", "tests/hyperfide/manifests/tasks/14.3.json", "tests/hyperfide/cases/tasks/14_3.py", "tests/hyperfide/registrations/14.3.json", "services/hyperfide/components/14.3.json", "services/hyperfide/src/identity/qualification.ts", "services/hyperfide/migrations/0042-native-qualification.sql"]
@@ -913,7 +913,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.20.1]
 title = "Implement typed Span, Jev1.14 and d1-ultra route adapters"
-status = "pending"
+status = "done"
 wave = 8
 requires = ["14.2", "1.4"]
 touches = ["services/hyperfide/src/decisions/adapters.ts", "tests/hyperfide/manifests/tasks/20.1.json", "tests/hyperfide/cases/tasks/20_1.py", "tests/hyperfide/registrations/20.1.json", "services/hyperfide/components/20.1.json"]
