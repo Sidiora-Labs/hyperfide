@@ -1,0 +1,30 @@
+{
+  "name": "@hyperfide/plugin-asks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "hyperfide": {
+    "name": "Inbox",
+    "server": "./src/server.ts",
+    "app": "./app.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsrs --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "zod": "^4.3.6",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "jsdom": "^29.0.1",
+    "react-dom": "^19.0.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "vitest": "^4.1.1"
+  }
+}
