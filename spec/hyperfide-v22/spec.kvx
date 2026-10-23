@@ -294,7 +294,7 @@ owner = "editor"
 
 [task.1.6]
 title = "Widen the graph index to platform/"
-status = "pending"
+status = "implemented"
 wave = 1
 requires = ["0.7"]
 touches = [".cgignore", "codify.kvx", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v22/1_6.sh", "src/**"]

@@ -1,1 +1,18 @@
-platform/
+# Generated output; platform source remains part of the graph.
+dist/
+.turbo/
+storybook-static/
+coverage/
+**/android/build/
+**/android/app/build/
+**/android/.gradle/
+**/ios/build/
+**/ios/Pods/
+**/.bundled-runtime/
+**/.bundled-stage-*/
+*.bundle.js
+*.min.js
+pnpm-lock.yaml
+**/pnpm-lock.yaml
+.pnpm-store/
+**/.pnpm-store/

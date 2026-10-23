@@ -92,7 +92,11 @@ static long resolve_target(Cg *cg, long owner_id, long file_id,
         "AND b.target_symbol_id=s.id LIMIT 1),0) "
         "FROM symbols s JOIN files f ON f.id=s.file_id "
         "JOIN semantic_symbols ss ON ss.symbol_id=s.id "
-        "WHERE f.branch_id=?1 AND (s.name=?3 OR ss.qualified_name=?4) "
+        /* An OR across the joined tables scans every symbol for each fact.
+         * Union their indexed IDs first, retaining the same candidate set. */
+        "WHERE f.branch_id=?1 AND s.id IN ("
+        "SELECT id FROM symbols WHERE name=?3 UNION "
+        "SELECT symbol_id FROM semantic_symbols WHERE qualified_name=?4) "
         "LIMIT 65");
     sqlite3_bind_int64(q,1,cg->branch_id);
     sqlite3_bind_int64(q,2,file_id);
