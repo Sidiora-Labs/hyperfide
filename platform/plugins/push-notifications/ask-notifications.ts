@@ -28,9 +28,9 @@ export function createAskNotifications(args: {
 
   async function refresh() {
     const [{ asks }, policy, minutes] = await Promise.all([
-      args.bridge.list(),
-      args.bridge.policy(),
-      args.digestMinutes(),
+      Promise.resolve().then(() => args.bridge.list()),
+      Promise.resolve().then(() => args.bridge.policy()),
+      Promise.resolve().then(() => args.digestMinutes()),
     ]);
     const state = (await args.read()) ?? {
       sent: [],

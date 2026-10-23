@@ -507,7 +507,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
       if (config.webEnabled) channels.push("web");
       if (config.desktopEnabled) channels.push("desktop");
       if (channels.length > 0) {
-        bb.realtime.publish(CLIENT_NOTIFICATION_CHANNEL, {
+        hyperfide.realtime.publish(CLIENT_NOTIFICATION_CHANNEL, {
           ...notification,
           threadId: null,
           channels,

@@ -1240,7 +1240,7 @@ fi
     expect(plist).toContain("<string>https://machine.hyperfide.example</string>");
   });
 
-  it("sends a legacy machine credential when adopting a data directory", () => {
+  it("sends a legacy machine credential when adopting a data directory", async () => {
     const fixture = createFixture();
     writeFileSync(
       join(fixture.dataDir, "auth.json"),
@@ -1255,8 +1255,27 @@ fi
     );
     writeServerInstallTools(fixture, 200);
 
+    // Other installer fixtures discover ports from the same default range.
+    const reservation = createNetServer();
+    await new Promise<void>((resolve, reject) => {
+      reservation.once("error", reject);
+      reservation.listen(0, "127.0.0.1", resolve);
+    });
+    const address = reservation.address();
+    if (address === null || typeof address === "string") {
+      throw new Error("Expected a TCP fixture port");
+    }
+    await new Promise<void>((resolve, reject) => {
+      reservation.close((error) => (error ? reject(error) : resolve()));
+    });
     const result = runScript(
-      ["--adopt", "--data-dir", fixture.dataDir],
+      [
+        "--adopt",
+        "--data-dir",
+        fixture.dataDir,
+        "--host-daemon-port",
+        String(address.port),
+      ],
       fixture,
       { HYPERFIDE_ENROLLMENT: undefined, HYPERFIDE_INSTALL_SKIP_SERVICE: "1" },
     );

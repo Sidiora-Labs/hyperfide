@@ -3,6 +3,14 @@
   "globalEnv": ["HYPERFIDE_BUILD_TOOLCHAIN"],
   "globalPassThroughEnv": ["npm_config_store_dir", "pnpm_config_store_dir"],
   "tasks": {
+    "@hyperfide/hyperfide-asks#prepare:bundled": {
+      "dependsOn": ["@hyperfide/plugin-build#build", "^build", "topo"],
+      "outputs": [".bundled-runtime/**"]
+    },
+    "hyperfide-plugin-hyperfide-machine-railway#prepare:bundled": {
+      "dependsOn": ["@hyperfide/plugin-build#build", "^build", "topo"],
+      "outputs": [".bundled-runtime/**"]
+    },
     "@hyperfide/hyperfide-graph#typecheck": { "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"] },
     "@hyperfide/db#db:generate": { "cache": false },
     "@hyperfide/desktop#smoke:browser-broker": {
@@ -1216,13 +1224,13 @@
     "@hyperfide/hyperfide-spec#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
-    "@hyperfide/plugin-asks#typecheck": {
+    "@hyperfide/hyperfide-asks#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
-    "hyperfide-plugin-machine-blaxel#typecheck": {
+    "hyperfide-plugin-hyperfide-machine-blaxel#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
-    "hyperfide-plugin-machine-railway#typecheck": {
+    "hyperfide-plugin-hyperfide-machine-railway#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
     "hyperfide-plugin-memory#typecheck": {

@@ -5,5 +5,5 @@ const shared = {outdir: '.bundled-runtime', bundle: true, format: 'esm', externa
 await build({...shared, entryPoints: ['server.ts', 'cli.ts'], platform: 'node'});
 await build({...shared, entryPoints: ['app.ts'], platform: 'browser'});
 const manifest = JSON.parse(await readFile('package.json', 'utf8'));
-manifest.hyperfide = {...manifest.hyperfide, server: './server.js', cli: './cli.js', app: './app.js'};
+manifest.hyperfide = {...manifest.hyperfide, server: './server.js', app: './app.js'};
 await writeFile('.bundled-runtime/package.json', JSON.stringify(manifest, null, 2));

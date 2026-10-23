@@ -437,3 +437,5 @@ export {
   type ContextCategory,
   type ContextEntry,
 } from "@hyperfide/domain";
+
+export { graphWorkerMcp, graphRepository, WORKER_SKILL } from "./graph-worker-mcp.js";

@@ -109,9 +109,9 @@ export function createAskUserQuestionPlugin(
               ]),
             ),
             save: (mapping) =>
-              bb.storage.kv.set(`question:${mapping.requestId}`, mapping),
+              hyperfide.storage.kv.set(`question:${mapping.requestId}`, mapping),
             submit: async (requestId, value) => {
-              const interactions = await bb.sdk.threads.interactions.list({
+              const interactions = await hyperfide.sdk.threads.interactions.list({
                 threadId: ctx.threadId,
               });
               const interaction = interactions.find((entry) => {
@@ -129,7 +129,7 @@ export function createAskUserQuestionPlugin(
                 );
               });
               if (!interaction) return false;
-              await bb.sdk.threads.interactions.respond({
+              await hyperfide.sdk.threads.interactions.respond({
                 threadId: ctx.threadId,
                 interactionId: interaction.id,
                 value,
@@ -137,7 +137,7 @@ export function createAskUserQuestionPlugin(
               return true;
             },
             display: (requestId, signal) =>
-              bb.ui.requestInput(
+              hyperfide.ui.requestInput(
                 {
                   threadId: ctx.threadId,
                   rendererId: ASK_USER_QUESTION_RENDERER_ID,

@@ -13,10 +13,24 @@ describe("bundled plugin task graph", () => {
       const manifest = JSON.parse(
         readFileSync(resolve(root, "plugins", name, "package.json"), "utf8"),
       );
+      const customBuilders = {
+        "hyperfide-qualify": "node prepare.mjs",
+        "hyperfide-graph": "node --conditions=source --import tsx bundle.ts",
+        "hyperfide-asks": "node ../../packages/plugin-build/dist/cli.js prepare-bundled",
+        "machine-railway": "node ../../packages/plugin-build/dist/cli.js prepare-bundled",
+      };
       expect(manifest.scripts["prepare:bundled"]).toBe(
-        "hyperfide-plugin-build prepare-bundled",
+        customBuilders[name] ?? "hyperfide-plugin-build prepare-bundled",
       );
-      expect(manifest.devDependencies["@hyperfide/plugin-build"]).toBe("workspace:*");
+      if (name === "hyperfide-qualify") {
+        expect(manifest.devDependencies.esbuild).toBeTruthy();
+      } else if (name === "hyperfide-asks" || name === "machine-railway") {
+        expect(turbo.tasks[`${manifest.name}#prepare:bundled`].dependsOn).toContain(
+          "@hyperfide/plugin-build#build",
+        );
+      } else {
+        expect(manifest.devDependencies["@hyperfide/plugin-build"]).toBe("workspace:*");
+      }
       return manifest.name;
     });
     const bundle = JSON.parse(

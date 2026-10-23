@@ -272,3 +272,20 @@ script. When a deliberate bridge change alters the stream,
 the recording (`bridge→runtime.current.ndjson`); the recording itself is
 never rewritten. See
 `examples/plugins/echo-provider/provider-bridge.parity.test.ts`.
+
+## Repository worker MCP
+
+`@hyperfide/plugin-sdk/provider-bridge` exports `WorkerMcpContext` (working
+directory, thread id and optional task) and `WorkerMcpHook`, which returns a
+`WorkerCapability` or null. `resolveWorkerMcp` validates a hook's result with
+`workerCapabilitySchema` before a provider attaches its instructions and MCP
+servers. `graphWorkerMcp` supplies the Hyperfide graph capability when
+`graphRepository` finds a repository with a `.codegraph` directory and its
+worker-injection setting has not disabled it. `WORKER_SKILL` is the shared
+instruction text. Malformed settings fail visibly; absent settings enable it.
+
+`@hyperfide/plugin-sdk/host` exports `createThreadAskLifecycle`, which adapts
+stop, send and record operations to `ThreadAskLifecycle`. Its `pause` method
+records an `AskPauseReason` (ask id, task and reason) before stopping the thread;
+`resume` sends a message before recording resumption. `annotate` records an
+`AskRecommendation` (ask id, task, flagged recommendation) without stopping it.

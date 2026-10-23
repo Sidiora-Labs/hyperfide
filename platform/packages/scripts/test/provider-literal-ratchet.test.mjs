@@ -47,6 +47,10 @@ function write(rel, content) {
 describe("scanTree (pure)", () => {
   it.each([
     [
+      "plugins/.bundled-stage-fixture/server.ts",
+      "plugins/hyperfide-dispatch/src/server.ts",
+    ],
+    [
       "apps/cli/.packaged-plugin-build-IZlVup/cli-chunks/server.js",
       "apps/cli/src/server.ts",
     ],

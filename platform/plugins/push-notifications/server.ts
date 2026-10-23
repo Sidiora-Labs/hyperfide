@@ -508,7 +508,7 @@ export function createPushNotificationsPlugin(
     const askNotifications = createAskNotifications({
       bridge: createAskBridge(
         <T>(method: string, input: Record<string, string>) =>
-          bb.sdk.plugins.callRpc({
+          hyperfide.sdk.plugins.callRpc({
             pluginId: "hyperfide-asks",
             method,
             input,
@@ -516,9 +516,9 @@ export function createPushNotificationsPlugin(
           }),
       ),
       read: async () =>
-        (await bb.storage.kv.get<AskNotificationState>("ask-notifications")) ??
+        (await hyperfide.storage.kv.get<AskNotificationState>("ask-notifications")) ??
         null,
-      write: (state) => bb.storage.kv.set("ask-notifications", state),
+      write: (state) => hyperfide.storage.kv.set("ask-notifications", state),
       digestMinutes: async () => {
         const value = (await settings.get()).askDigest;
         return (
@@ -528,10 +528,18 @@ export function createPushNotificationsPlugin(
       send: (notification) => sender.sendAsk(notification),
       ...(options.now === undefined ? {} : { now: options.now }),
     });
-    bb.background.service("ask-notifications", {
+    hyperfide.background.service("ask-notifications", {
       async start(signal) {
         while (!signal.aborted) {
-          await askNotifications.refresh();
+          try {
+            await askNotifications.refresh();
+          } catch (error) {
+            if (!signal.aborted) {
+              hyperfide.log.warn(
+                `Could not refresh Ask notifications: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
+          }
           await delay(options.askPollMs ?? 1000, undefined, { signal }).catch(
             (error) => {
               if (!signal.aborted) throw error;

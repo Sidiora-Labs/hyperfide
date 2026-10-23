@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   access,
   chmod,
@@ -457,7 +457,18 @@ describe("electron-builder signing config", () => {
     }
   });
 
-  it("validates bundled N-API SQLite without using the legacy prebuild installer", async () => {
+  it("validates bundled N-API SQLite without using the legacy prebuild installer", async (ctx) => {
+    const probe = spawnSync(require("electron"), ["--version"], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    if (probe.error || probe.status !== 0) {
+      ctx.skip(
+        `Electron runtime cannot start: ${probe.error?.message ?? (probe.stderr.trim() || probe.signal)}`,
+      );
+      return;
+    }
     const appOutDir = await mkdtemp(resolve(tmpdir(), "hyperfide-desktop-napi-"));
     const nodeModules = resolve(appOutDir, "node_modules");
     const requireFromRuntime = createRequire(

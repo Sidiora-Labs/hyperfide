@@ -7,7 +7,7 @@
     "build": "cd ../.. && node --conditions=source --import tsx packages/bundled-plugins/build.ts"
   },
   "dependencies": {
-    "@hyperfide/plugin-asks": "workspace:*",
+    "@hyperfide/hyperfide-asks": "workspace:*",
     "hyperfide-plugin-account-pool": "workspace:*",
     "hyperfide-plugin-agent-annotations": "workspace:*",
     "hyperfide-plugin-ask-user-question": "workspace:*",
@@ -51,8 +51,8 @@
     "hyperfide-plugin-thread-list": "workspace:*",
     "hyperfide-plugin-workflows": "workspace:*",
     "hyperfide-plugin-hyperfide--storage-retention": "workspace:*",
-    "hyperfide-plugin-machine-railway": "workspace:*",
-    "hyperfide-plugin-machine-blaxel": "workspace:*",
+    "hyperfide-plugin-hyperfide-machine-railway": "workspace:*",
+    "hyperfide-plugin-hyperfide-machine-blaxel": "workspace:*",
     "@hyperfide/hyperfide-graph": "workspace:*",
     "@hyperfide/hyperfide-qualify": "workspace:*"
   }

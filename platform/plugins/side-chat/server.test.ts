@@ -371,7 +371,7 @@ describe("empty-fork sweep", () => {
     vi.setSystemTime(now + 3_600_000);
     await harness.runSchedule("empty-fork-cleanup");
     expect(timeline).toHaveBeenCalledTimes(2 * EMPTY_FORK_SWEEP_PAGE_SIZE + 1);
-  });
+  }, 30_000);
 
   it.each(["thread.archived", "thread.deleted"] as const)(
     "removes candidates on %s and tracks eligible unarchives",

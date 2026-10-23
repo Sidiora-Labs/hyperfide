@@ -74,6 +74,7 @@ const EXCLUDED_SEGMENTS = new Set([
  * today: it selects behavior by the agent's dialect, never by a provider id.
  */
 const EXCLUDED_PREFIXES = [
+  join("plugins", ".bundled-stage-"),
   join("apps", "cli", ".packaged-plugin-build-"),
   join("packages", "plugin-sdk", ".runtime-test-"),
   join("plugins", "provider-"),

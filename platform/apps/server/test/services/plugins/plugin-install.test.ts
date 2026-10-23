@@ -1793,7 +1793,7 @@ describe("plugin install flows", () => {
 
   it("refuses an npm package whose derived id uses the reserved hyperfide-- prefix before install", async () => {
     await expect(
-      service.install("npm:@acme/hyperfide-plugin-bb--notes@1.2.3", { kind: "root" }),
+      service.install("npm:@acme/hyperfide-plugin-hyperfide--notes@1.2.3", { kind: "root" }),
     ).rejects.toThrowError(/ids starting with "hyperfide--" are reserved/);
   });
 

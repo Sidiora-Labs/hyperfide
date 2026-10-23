@@ -7,7 +7,7 @@
     "name": "Graph",
     "description": "Repository graph and index status",
     "branding": {
-      "icon": "Network"
+      "icon": "GitBranch"
     },
     "server": "./server.ts",
     "host": "./host.ts",

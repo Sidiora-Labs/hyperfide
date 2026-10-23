@@ -188,7 +188,7 @@ owner = "docs"
 
 [task.0.7]
 title = "Final identity sweep, directory renames and a green platform"
-status = "blocked"
+status = "in_progress"
 wave = 0
 requires = ["0.2", "0.3", "0.4", "0.5", "0.6"]
 touches = ["platform/**", "tests/hyperfide/cases/v22/identity_gate.py", "tests/hyperfide/cases/v22/0_7.sh", "tests/hyperfide/cases/v22/identity_allowlist.txt"]
@@ -199,7 +199,6 @@ do_3 = "0_7.sh asserts: identity_gate.py passes on the whole repository; `pnpm -
 reqs = ["1.1", "1.2"]
 owner = "identity"
 
-blocked_ask = "5"
 [task.0.8]
 title = "Sandbox image steps, dispatcher daemon and Makefile targets"
 status = "done"
