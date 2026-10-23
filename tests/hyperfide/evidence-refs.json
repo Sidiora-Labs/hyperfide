@@ -185,6 +185,15 @@
       ]
     },
     {
+      "ref": "refs/evidence/4.3/2",
+      "task": "4.3",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
       "ref": "refs/evidence/4.4/1",
       "task": "4.4",
       "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
@@ -197,6 +206,15 @@
       "ref": "refs/evidence/5.1/1",
       "task": "5.1",
       "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/5.1/2",
+      "task": "5.1",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
       "fields": [
         "commit",
         "requalified_on"

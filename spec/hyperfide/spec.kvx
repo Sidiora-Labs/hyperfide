@@ -843,7 +843,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.5.1]
 title = "Atomically admit task claims and capacity reservations"
-status = "pending"
+status = "done"
 wave = 12
 requires = ["4.2", "2.2", "3.1", "6.1", "14.1", "3.2"]
 touches = ["services/hyperfide/src/scheduler/claim.ts", "tests/hyperfide/manifests/tasks/5.1.json", "tests/hyperfide/cases/tasks/5_1.py", "tests/hyperfide/registrations/5.1.json", "services/hyperfide/components/5.1.json", "services/hyperfide/migrations/0005-scheduling.sql"]
@@ -1087,7 +1087,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.4.3]
 title = "Assemble consistent packets with topology-aware replica barriers"
-status = "pending"
+status = "done"
 wave = 12
 requires = ["4.2", "3.2", "4.4", "14.1"]
 touches = ["services/hyperfide/src/storage/replicas.ts", "tests/hyperfide/manifests/tasks/4.3.json", "tests/hyperfide/cases/tasks/4_3.py", "tests/hyperfide/registrations/4.3.json", "services/hyperfide/components/4.3.json"]
