@@ -51,6 +51,8 @@ test('registers Board in the platform navigation and routes RPC to the selected 
   const handlers = registerRpc.mock.calls[0]![1];
   const scope = { hostId: 'host', repository: '/repo', feature: 'demo' };
   await handlers.boardTasks(scope);
+  await handlers.boardTask({ ...scope, id: '1' });
+  expect(call).toHaveBeenLastCalledWith('boardTask', { ...scope, id: '1' }, { hostId: 'host' });
   await handlers.boardAction({ ...scope, id: '1', action: 'start' });
   expect(call).toHaveBeenCalledWith('boardTasks', scope, { hostId: 'host' });
   expect(call).toHaveBeenLastCalledWith('boardAction', { ...scope, id: '1', action: 'start' }, { hostId: 'host' });
@@ -62,7 +64,7 @@ test('mounted board selects real model tasks, filters and sends actions while do
   const rpc = { tasks: vi.fn().mockResolvedValue(tasks), action: vi.fn().mockResolvedValue(undefined) };
   const dispose = mountBoard(root, { feature: 'demo', tasks }, rpc);
   root.querySelector<HTMLButtonElement>('[data-select="1"]')!.click();
-  expect(root.textContent).toContain('pnpm test');
+  await vi.waitFor(() => expect(root.textContent).toContain('pnpm test'));
   expect([...root.querySelectorAll('button')].find(button => button.textContent === 'Done')?.disabled).toBe(true);
   root.querySelector<HTMLButtonElement>('[data-action="start"]')!.click();
   await vi.waitFor(() => expect(root.hasAttribute('aria-busy')).toBe(false));

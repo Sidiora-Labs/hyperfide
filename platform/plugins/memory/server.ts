@@ -9,10 +9,10 @@ import {
 import { z } from "zod";
 import { isMemoryKind, MEMORY_KINDS, type MemoryKind } from "./memory-kinds.js";
 import {
-  GraphMemoryBridge,
+  DurableMemoryBridge,
   durableMemorySchema,
   taskScopeSchema,
-} from "./graph-memory-projection.js";
+} from "./durable-memory.js";
 
 const CATALOG_MAX_CHARS = 3_900;
 const DEFAULT_RESULT_LIMIT = 20;
@@ -730,7 +730,7 @@ function jsonOutput(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-export default async function plugin(hyperfide: HyperfidePluginApi, bridge?: GraphMemoryBridge) {
+export default async function plugin(hyperfide: HyperfidePluginApi, bridge: DurableMemoryBridge = new DurableMemoryBridge()) {
   const db = hyperfide.storage.database();
   hyperfide.storage.migrate(db, [
     `CREATE TABLE IF NOT EXISTS memories (
@@ -793,11 +793,9 @@ export default async function plugin(hyperfide: HyperfidePluginApi, bridge?: Gra
 
   hyperfide.rpc.register(memoryRpcContract, {
     async rememberDecision(input) {
-      if (!bridge) throw new Error("Hyperfide graph memory host is not configured");
-      return bridge.remember(input, input.body, input.type);
+      return bridge.remember(input, validateText("decision", input.body, 16_000), input.type);
     },
     async recallDecisions(input) {
-      if (!bridge) throw new Error("Hyperfide graph memory host is not configured");
       return { memories: await bridge.recall(input) };
     },
     listMemories() {
@@ -859,8 +857,7 @@ export default async function plugin(hyperfide: HyperfidePluginApi, bridge?: Gra
             type: { type: "enum", values: ["decision", "constraint"], default: "decision", description: "Memory type" },
           },
           async run(input) {
-            if (!bridge) throw new CliError("Hyperfide graph memory host is not configured");
-            const result = await bridge.remember(input.options, input.positionals.text, input.options.type);
+            const result = await bridge.remember(input.options, validateText("decision", input.positionals.text, 16_000), input.options.type);
             return { exitCode: 0, stdout: jsonOutput(result) };
           },
         }),
@@ -871,7 +868,6 @@ export default async function plugin(hyperfide: HyperfidePluginApi, bridge?: Gra
             task: { type: "string", required: true, description: "Feature/task identifier" },
           },
           async run(input) {
-            if (!bridge) throw new CliError("Hyperfide graph memory host is not configured");
             return { exitCode: 0, stdout: jsonOutput({ memories: await bridge.recall(input.options) }) };
           },
         }),

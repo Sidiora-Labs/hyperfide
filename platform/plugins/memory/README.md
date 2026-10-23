@@ -81,19 +81,10 @@ Never store secrets in either memory store.
 scope. The CLI writes through `hyperfide remember`; reads use `hyperfide recall`
 and validate the binary's JSON shape. Host failures propagate to the caller.
 
-Pending dependency integration uses these explicit projection seams:
-
-- `graph-memory-projection.ts`: `GraphMemoryHost` resolves the binary from the
-  graph/host setting and executes it on that host in the repository root. The
-  plugin factory accepts its `GraphMemoryBridge` as the second argument; without
-  it, durable commands report a configuration error. Private memories still work.
-- `../hyperfide-spec/memory-packet-projection.ts`: the 2.3 packet builder calls
-  `TaskMemoryProjection.packet(existingPacket, scope, requires)`; task detail
-  calls `detail(scope)`. Only decisions and constraints from that task and its
-  direct prerequisites enter the `Recalled decisions` section. IDs without a
-  feature use the current task's feature. Recall returns at most 1,000 per type.
-- `identity_gate.py`: local identity check until the shared 0.7 gate arrives;
-  `7_2.sh` automatically prefers the shared gate when available.
+The bridge uses the host daemon's verified binary resolver, including its
+`HYPERFIDE_BIN` setting. The spec worker appends task and prerequisite decisions
+to its real packet, and the spec reader recalls decisions for task detail.
+Only decisions and constraints enter packets, with at most 1,000 of each type.
 
 Run `bash tests/hyperfide/cases/v22/7_2.sh` for package typechecking, all memory
 plugin tests, real-binary fixture coverage, packet/detail coverage and identity.
