@@ -1,7 +1,7 @@
 # Sandbox backends
 
 `sandbox-backend.ts` is the plugin-internal extension point for a sandbox
-vendor. `register.ts` translates that interface into BB machine and composed
+vendor. `register.ts` translates that interface into HYPERFIDE machine and composed
 environment registrations. Vendor SDKs and persisted vendor resource schemas
 live in a named subdirectory.
 
@@ -36,7 +36,7 @@ The backend must preserve these lifecycle invariants:
 - `create` converges on the durable allocation key and checkpoints an
   allocation before returning its executor.
 - `reconcileCleanup` removes uncertain allocations by key without creating or
-  bootstrapping anything. Modal lists sandboxes tagged with `bbMachineKey` across
+  bootstrapping anything. Modal lists sandboxes tagged with `hyperfideMachineKey` across
   apps in the credentials' current environment, then terminates and checks each
   sandbox by ID. Changing App Name does not redirect cleanup. Enumeration or
   termination failures remain retryable; credentials must still access the
@@ -49,6 +49,6 @@ The backend must preserve these lifecycle invariants:
 - Resource and input values are parsed at the boundary.
 - `close` releases every cached vendor client.
 
-BB owns daemon bootstrap, lifecycle result translation, cancellation, and the
+HYPERFIDE owns daemon bootstrap, lifecycle result translation, cancellation, and the
 composed environment registration. The backend owns vendor allocation,
 storage semantics, cleanup, and conversion to `MachineExecutor`.

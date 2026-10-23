@@ -1,13 +1,13 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 
 type AutomationSignalKind = "automations-changed" | "automation-runs-changed";
 
 export function publishAutomationChange(
-  bb: Pick<BbPluginApi, "realtime">,
+  hyperfide: Pick<HyperfidePluginApi, "realtime">,
   projectId: string,
   kinds: AutomationSignalKind | AutomationSignalKind[],
 ): void {
   for (const kind of Array.isArray(kinds) ? kinds : [kinds]) {
-    bb.realtime.publish("automations", { projectId, kind });
+    hyperfide.realtime.publish("automations", { projectId, kind });
   }
 }

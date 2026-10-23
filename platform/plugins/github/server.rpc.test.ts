@@ -22,7 +22,7 @@ function ghCalls(): string[] {
 }
 
 beforeEach(() => {
-  binDir = mkdtempSync(join(tmpdir(), "bb-github-rpc-"));
+  binDir = mkdtempSync(join(tmpdir(), "hyperfide-github-rpc-"));
   callLog = join(binDir, "gh-calls.log");
   const openIssue = [
     {
@@ -209,7 +209,7 @@ async function loadPlugin(extraRepos = "acme/widgets") {
     pluginId: "github",
     settings: { extraRepos },
   });
-  await plugin(host.bb);
+  await plugin(host.hyperfide);
   return host;
 }
 
@@ -283,8 +283,8 @@ describe("github plugin RPC behavior", () => {
 
     const help = await harness.runCli(["--help"]);
     expect(help.exitCode).toBe(0);
-    expect(help.stdout).toContain("bb github issues");
-    expect(help.stdout).toContain("bb github sync");
+    expect(help.stdout).toContain("hyperfide-platform github issues");
+    expect(help.stdout).toContain("hyperfide-platform github sync");
   });
 
   it("rejects a malformed repository or item number when starting work", async () => {

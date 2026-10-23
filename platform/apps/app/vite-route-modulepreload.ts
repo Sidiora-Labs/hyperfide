@@ -18,7 +18,7 @@ function staticClosure(
 export function routeModulePreload(modulePath: string): Plugin {
   let base = "/";
   return {
-    name: "bb:route-modulepreload",
+    name: "hyperfide:route-modulepreload",
     apply: "build",
     configResolved(config) {
       base = config.base;

@@ -73,7 +73,7 @@ describe("onboarding project imports", () => {
   it.each(["proj_existing", PERSONAL_PROJECT_ID])(
     "preserves the returning choice %s",
     async (selected) => {
-      window.localStorage.setItem("bb.root-compose.project-id", selected);
+      window.localStorage.setItem("hyperfide.root-compose.project-id", selected);
       const view = arrange();
       await act(() => view.result.current.importProjects("host_local", repos));
       expect(view.result.current.selection[0]).toBe(selected);

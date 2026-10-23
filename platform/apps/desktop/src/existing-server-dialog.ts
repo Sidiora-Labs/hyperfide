@@ -49,7 +49,7 @@ export function formatStartedAt(startedAt: string, now: Date): string {
 }
 
 export function formatSurface(surface: string): string {
-  return surface === "desktop" ? "the bb desktop app" : "a terminal";
+  return surface === "desktop" ? "the hyperfide desktop app" : "a terminal";
 }
 
 function buildDetailRows(args: {
@@ -98,21 +98,21 @@ export function renderExistingServerDialogHtml(
     .join("\n      ");
   const canReplace = args.details !== null;
   const replaceButtonHtml = canReplace
-    ? `<button type="button" data-choice="replace">Quit other bb</button>`
+    ? `<button type="button" data-choice="replace">Quit other hyperfide</button>`
     : "";
   const replaceWarningHtml = canReplace
     ? `<p class="warning">If you stop the running copy, its agent threads stop too.</p>`
     : "";
   const introText = canReplace
     ? "This app can use the copy that is already running, or you can stop it and start a new one."
-    : "This app can use the copy that is already running. bb cannot identify that copy, so it cannot stop it for you.";
+    : "This app can use the copy that is already running. hyperfide cannot identify that copy, so it cannot stop it for you.";
 
   return `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
-  <title>bb is already running</title>
+  <title>hyperfide is already running</title>
   <style>
 ${DESKTOP_DIALOG_BASE_CSS}
 
@@ -159,14 +159,14 @@ ${DESKTOP_DIALOG_BASE_CSS}
   </style>
 </head>
 <body>
-  <h1>bb is already running on ${BUILTIN_SERVER_NAME}</h1>
+  <h1>hyperfide is already running on ${BUILTIN_SERVER_NAME}</h1>
   <p>${introText}</p>
   <div class="details">
       ${detailHtml}
   </div>
   ${replaceWarningHtml}
   <div class="actions">
-    <button type="button" data-choice="quit">Quit this bb</button>
+    <button type="button" data-choice="quit">Quit this hyperfide</button>
     ${replaceButtonHtml}
     <button type="button" data-choice="connect">Connect</button>
   </div>
@@ -180,7 +180,7 @@ export function openExistingServerDialog(
   const dialogWindow = createDesktopDialogWindow({
     parentWindow: args.parentWindow,
     preloadPath: args.preloadPath,
-    title: "bb is already running",
+    title: "hyperfide is already running",
     width: 460,
   });
 

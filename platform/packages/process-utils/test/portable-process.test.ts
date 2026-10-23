@@ -24,7 +24,7 @@ for (const shim of [false, true]) {
     `preserves cwd, arguments, stdin, output, and exit status through ${shim ? "a Windows .cmd shim on PATH" : "a native executable"}`,
     async () => {
       const directory = realpathSync(
-        mkdtempSync(join(tmpdir(), "bb process é-")),
+        mkdtempSync(join(tmpdir(), "hyperfide process é-")),
       );
       onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
       const scriptPath = join(directory, "probe.cjs");
@@ -42,7 +42,7 @@ for (const shim of [false, true]) {
       mkdirSync(binDirectory, { recursive: true });
       if (shim) {
         writeFileSync(
-          join(binDirectory, "bb-process-probe.cmd"),
+          join(binDirectory, "hyperfide-process-probe.cmd"),
           `@echo off\r\n"${process.execPath}" "%~dp0..\\..\\probe.cjs" %*\r\n`,
         );
       }
@@ -61,7 +61,7 @@ for (const shim of [false, true]) {
       }
       inheritedEnv.Path = directory;
       const child = spawnPortablePipedProcess({
-        command: shim ? "bb-process-probe" : process.execPath,
+        command: shim ? "hyperfide-process-probe" : process.execPath,
         args: shim ? args : [scriptPath, ...args],
         cwd: directory,
         env: sanitizeInheritedChildProcessEnv({
@@ -88,7 +88,7 @@ for (const shim of [false, true]) {
       expect(Buffer.concat(stderr).toString("utf8")).toBe("provider stderr");
       await expect(
         execPortableFile(
-          shim ? "bb-process-probe" : process.execPath,
+          shim ? "hyperfide-process-probe" : process.execPath,
           shim ? args : [scriptPath, ...args],
           {
             cwd: directory,
@@ -115,7 +115,7 @@ for (const shim of [false, true]) {
 
 it("reports ENOENT and finishes cleanup when a command cannot be resolved", async () => {
   const managed = spawnManagedProcess({
-    command: "bb-process-utils-command-that-does-not-exist",
+    command: "hyperfide-process-utils-command-that-does-not-exist",
     args: [],
   });
   await expect(once(managed.child, "close")).rejects.toMatchObject({
@@ -123,7 +123,7 @@ it("reports ENOENT and finishes cleanup when a command cannot be resolved", asyn
   });
   await managed.stop();
   await expect(
-    execPortableFile("bb-process-utils-command-that-does-not-exist", [], {
+    execPortableFile("hyperfide-process-utils-command-that-does-not-exist", [], {
       cwd: process.cwd(),
       env: process.env,
       maxBuffer: 1024,
@@ -142,8 +142,8 @@ it.runIf(process.platform === "win32")(
     const env = sanitizeInheritedChildProcessEnv({
       env: {
         ...process.env,
-        bb_data_dir: "parent-data",
-        Bb_HOST_DAEMON_PORT: "12345",
+        hyperfide_data_dir: "parent-data",
+        Hyperfide_HOST_DAEMON_PORT: "12345",
         Node_Env: "development",
         PROVIDER_TOKEN: "preserved-token",
       },
@@ -186,7 +186,7 @@ it.runIf(process.platform === "win32")(
   "ends the process behind a Windows .cmd shim when the portable child is killed",
   async () => {
     const directory = realpathSync(
-      mkdtempSync(join(tmpdir(), "bb-portable-kill-")),
+      mkdtempSync(join(tmpdir(), "hyperfide-portable-kill-")),
     );
     onTestFinished(() => rmSync(directory, { force: true, recursive: true }));
     const pidFile = join(directory, "pid.txt");

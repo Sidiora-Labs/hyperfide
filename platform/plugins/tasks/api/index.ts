@@ -1,4 +1,4 @@
-import type { BbPluginApi, PluginRpcHandlers } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi, PluginRpcHandlers } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import {
   createTasksStore,
@@ -60,8 +60,8 @@ export interface TasksApiStore {
   sidebarSummary(): SidebarProjectSummary[];
 }
 
-export function createStore(bb: BbPluginApi): TasksApiStore {
-  const database = bb.storage.database();
+export function createStore(hyperfide: HyperfidePluginApi): TasksApiStore {
+  const database = hyperfide.storage.database();
   const tasks = createTasksStore(database);
 
   return {
@@ -172,25 +172,25 @@ function taskFailure(error: TasksDomainFailure) {
 }
 
 export function publishTasksChanged(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   taskId: string,
   projectId: string,
 ): void {
   const payload: TasksChangedEvent = { taskId, projectId };
-  bb.realtime.publish("tasks:changed", payload);
+  hyperfide.realtime.publish("tasks:changed", payload);
 }
 
 export function publishProjectsChanged(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   projectId: string | null,
 ): void {
   const payload: ProjectsChangedEvent = { projectId };
-  bb.realtime.publish("projects:changed", payload);
+  hyperfide.realtime.publish("projects:changed", payload);
 }
 
-export function publishCommentsChanged(bb: BbPluginApi, taskId: string): void {
+export function publishCommentsChanged(hyperfide: HyperfidePluginApi, taskId: string): void {
   const payload: CommentsChangedEvent = { taskId };
-  bb.realtime.publish("comments:changed", payload);
+  hyperfide.realtime.publish("comments:changed", payload);
 }
 
 function apiTask(store: TasksApiStore, task: StoredTask): Task {
@@ -344,7 +344,7 @@ interface AgentThreadInfo {
 }
 
 async function resolveAgentThreadInfo(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   comments: readonly StoredComment[],
 ): Promise<Map<string, AgentThreadInfo>> {
   const threadIds = new Set<string>();
@@ -357,7 +357,7 @@ async function resolveAgentThreadInfo(
   await Promise.all(
     [...threadIds].map(async (threadId) => {
       try {
-        const thread = await bb.sdk.threads.get({ threadId });
+        const thread = await hyperfide.sdk.threads.get({ threadId });
         const isSideChat = isSideChatShapedThread(thread);
         const title = isSideChat
           ? undefined
@@ -375,7 +375,7 @@ async function resolveAgentThreadInfo(
 }
 
 async function resolveProviderBadges(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   threadInfo: ReadonlyMap<string, AgentThreadInfo>,
 ): Promise<Map<string, CommentProvider>> {
   const providerIds = new Set(
@@ -383,9 +383,9 @@ async function resolveProviderBadges(
   );
   const badges = new Map<string, CommentProvider>();
   if (providerIds.size === 0) return badges;
-  let providers: Awaited<ReturnType<typeof bb.sdk.providers.list>>;
+  let providers: Awaited<ReturnType<typeof hyperfide.sdk.providers.list>>;
   try {
-    providers = await bb.sdk.providers.list();
+    providers = await hyperfide.sdk.providers.list();
   } catch {
     return badges;
   }
@@ -415,7 +415,7 @@ interface CreateCommentInput {
 }
 
 export async function createComment(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   store: TasksApiStore,
   input: CreateCommentInput,
 ): Promise<StoredComment> {
@@ -430,11 +430,11 @@ export async function createComment(
     }),
   );
 
-  publishCommentsChanged(bb, input.taskId);
+  publishCommentsChanged(hyperfide, input.taskId);
   if (!input.notify) return comment;
 
   const deliver = async (): Promise<StoredComment> => {
-    const notifiedCount = await deliverCommentToLatestAgent(bb, store.tasks, {
+    const notifiedCount = await deliverCommentToLatestAgent(hyperfide, store.tasks, {
       taskId: comment.taskId,
       commentId: comment.id,
       body: comment.body,
@@ -443,13 +443,13 @@ export async function createComment(
     const updated = store.transaction(() =>
       store.tasks.updateComment(comment.id, { notifiedCount }),
     );
-    publishCommentsChanged(bb, input.taskId);
+    publishCommentsChanged(hyperfide, input.taskId);
     return updated;
   };
 
   if (input.awaitDelivery) return deliver();
   void deliver().catch((error) => {
-    bb.log.warn(
+    hyperfide.log.warn(
       `failed to update comment notification ${comment.id}: ${errorMessage(error)}`,
     );
   });
@@ -461,7 +461,7 @@ interface TaskPullRequestsResult {
   unavailableThreadIds: string[];
 }
 
-const GITHUB_PR_STATUS_PLUGIN_ID = "bb--github-pr-status";
+const GITHUB_PR_STATUS_PLUGIN_ID = "hyperfide--github-pr-status";
 const PULL_REQUEST_KEYS_PER_READ = 200;
 
 const environmentPullRequestsSchema = z.record(
@@ -484,7 +484,7 @@ const environmentPullRequestsSchema = z.record(
 type EnvironmentPullRequests = z.infer<typeof environmentPullRequestsSchema>;
 
 async function readEnvironmentPullRequests(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   environmentIds: readonly string[],
 ): Promise<EnvironmentPullRequests> {
   const rows: EnvironmentPullRequests = {};
@@ -500,7 +500,7 @@ async function readEnvironmentPullRequests(
     try {
       Object.assign(
         rows,
-        await bb.sdk.plugins.callRpc({
+        await hyperfide.sdk.plugins.callRpc({
           pluginId: GITHUB_PR_STATUS_PLUGIN_ID,
           method: "pullRequests",
           input: { keys },
@@ -508,14 +508,14 @@ async function readEnvironmentPullRequests(
         }),
       );
     } catch (error) {
-      bb.log.debug(`pull request lookup failed: ${errorMessage(error)}`);
+      hyperfide.log.debug(`pull request lookup failed: ${errorMessage(error)}`);
     }
   }
   return rows;
 }
 
 async function listTaskPullRequests(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   store: TasksApiStore,
   taskId: string,
 ): Promise<TaskPullRequestsResult> {
@@ -526,7 +526,7 @@ async function listTaskPullRequests(
   await Promise.all(
     taskThreads.map(async (taskThread) => {
       try {
-        const thread = await bb.sdk.threads.get({
+        const thread = await hyperfide.sdk.threads.get({
           threadId: taskThread.threadId,
         });
         if (!thread.environmentId) return;
@@ -540,7 +540,7 @@ async function listTaskPullRequests(
   );
 
   const byUrl = new Map<string, TaskPullRequest>();
-  const rows = await readEnvironmentPullRequests(bb, [
+  const rows = await readEnvironmentPullRequests(hyperfide, [
     ...threadIdsByEnvironment.keys(),
   ]);
   for (const [environmentId, threadIds] of threadIdsByEnvironment) {
@@ -587,32 +587,32 @@ async function listTaskPullRequests(
 }
 
 export function registerHandlers(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   store: TasksApiStore,
 ): PluginRpcHandlers<typeof tasksRpcContract> {
   return {
     createFolder(input) {
       const folder = store.tasks.createFolder(input);
-      publishProjectsChanged(bb, null);
+      publishProjectsChanged(hyperfide, null);
       return { folder };
     },
     renameFolder(input) {
       const folder = store.tasks.updateFolder(input.folderId, {
         name: input.name,
       });
-      publishProjectsChanged(bb, null);
+      publishProjectsChanged(hyperfide, null);
       return { folder };
     },
     moveFolder(input) {
       const folder = store.tasks.updateFolder(input.folderId, {
         parentFolderId: input.parentFolderId,
       });
-      publishProjectsChanged(bb, null);
+      publishProjectsChanged(hyperfide, null);
       return { folder };
     },
     deleteFolder(input) {
       const result = store.tasks.deleteFolder(input.folderId);
-      if (result.deleted) publishProjectsChanged(bb, null);
+      if (result.deleted) publishProjectsChanged(hyperfide, null);
       return result;
     },
     listFolders() {
@@ -620,13 +620,13 @@ export function registerHandlers(
     },
     createProject(input) {
       const project = store.tasks.createProject(input);
-      publishProjectsChanged(bb, project.id);
+      publishProjectsChanged(hyperfide, project.id);
       return { project };
     },
     updateProject(input) {
       const { projectId, ...changes } = input;
       const project = store.tasks.updateProject(projectId, changes);
-      publishProjectsChanged(bb, project.id);
+      publishProjectsChanged(hyperfide, project.id);
       return { project };
     },
     renameProjectPrefix(input) {
@@ -640,7 +640,7 @@ export function registerHandlers(
         const project = store.tasks.updateProject(input.projectId, {
           prefix: input.prefix,
         });
-        publishProjectsChanged(bb, project.id);
+        publishProjectsChanged(hyperfide, project.id);
         return { ok: true, project };
       } catch (error) {
         if (error instanceof TasksDomainFailure) return taskFailure(error);
@@ -661,8 +661,8 @@ export function registerHandlers(
         const attachments = attachmentsForTasks(store.tasks, taskIds);
         const deleted = store.tasks.deleteProject(input.projectId);
         if (deleted) {
-          await removeAttachmentBlobs(bb, store.tasks, attachments);
-          publishProjectsChanged(bb, input.projectId);
+          await removeAttachmentBlobs(hyperfide, store.tasks, attachments);
+          publishProjectsChanged(hyperfide, input.projectId);
         }
         return { ok: true, deleted };
       } catch (error) {
@@ -690,7 +690,7 @@ export function registerHandlers(
           replaceTaskLabels(store, created.id, input.labelIds);
           return apiTask(store, created);
         });
-        publishTasksChanged(bb, task.id, task.projectId);
+        publishTasksChanged(hyperfide, task.id, task.projectId);
         return { ok: true, task };
       } catch (error) {
         if (error instanceof TasksDomainFailure) return taskFailure(error);
@@ -762,9 +762,9 @@ export function registerHandlers(
           };
         });
 
-        publishTasksChanged(bb, result.task.id, result.task.projectId);
+        publishTasksChanged(hyperfide, result.task.id, result.task.projectId);
         if (result.systemCommentsWritten > 0) {
-          publishCommentsChanged(bb, result.task.id);
+          publishCommentsChanged(hyperfide, result.task.id);
         }
         return { ok: true, task: result.task };
       } catch (error) {
@@ -778,10 +778,10 @@ export function registerHandlers(
       const attachments = attachmentsForTasks(store.tasks, [input.taskId]);
       const deleted = store.tasks.deleteTask(input.taskId);
       if (deleted && task) {
-        await removeAttachmentBlobs(bb, store.tasks, attachments);
-        publishTasksChanged(bb, task.id, task.projectId);
+        await removeAttachmentBlobs(hyperfide, store.tasks, attachments);
+        publishTasksChanged(hyperfide, task.id, task.projectId);
         for (const subtask of subtasks) {
-          publishTasksChanged(bb, subtask.id, subtask.projectId);
+          publishTasksChanged(hyperfide, subtask.id, subtask.projectId);
         }
       }
       return { deleted };
@@ -821,8 +821,8 @@ export function registerHandlers(
         }
         return { task: apiTask(store, moved), statusChanged };
       });
-      publishTasksChanged(bb, result.task.id, result.task.projectId);
-      if (result.statusChanged) publishCommentsChanged(bb, result.task.id);
+      publishTasksChanged(hyperfide, result.task.id, result.task.projectId);
+      if (result.statusChanged) publishCommentsChanged(hyperfide, result.task.id);
       return { ok: true, task: result.task };
     },
     moveTaskToProject(input) {
@@ -841,18 +841,18 @@ export function registerHandlers(
         return { task: apiTask(store, outcome.task), moved: outcome.moved };
       });
       if (result.moved.length > 0) {
-        publishTasksChanged(bb, current.id, current.projectId);
-        publishTasksChanged(bb, result.task.id, result.task.projectId);
-        publishProjectsChanged(bb, result.task.projectId);
+        publishTasksChanged(hyperfide, current.id, current.projectId);
+        publishTasksChanged(hyperfide, result.task.id, result.task.projectId);
+        publishProjectsChanged(hyperfide, result.task.projectId);
         for (const { task } of result.moved) {
-          publishCommentsChanged(bb, task.id);
+          publishCommentsChanged(hyperfide, task.id);
         }
       }
       return { ok: true, task: result.task };
     },
     createLabel(input) {
       const label = store.tasks.createLabel(input);
-      publishProjectsChanged(bb, label.projectId);
+      publishProjectsChanged(hyperfide, label.projectId);
       return { label };
     },
     updateLabel(input) {
@@ -860,20 +860,20 @@ export function registerHandlers(
         name: input.name,
         color: input.color,
       });
-      publishProjectsChanged(bb, label.projectId);
+      publishProjectsChanged(hyperfide, label.projectId);
       return { label };
     },
     deleteLabel(input) {
       const label = store.tasks.getLabel(input.labelId);
       const deleted = store.tasks.deleteLabel(input.labelId);
-      if (deleted && label) publishProjectsChanged(bb, label.projectId);
+      if (deleted && label) publishProjectsChanged(hyperfide, label.projectId);
       return { deleted };
     },
     listLabels(input) {
       return { labels: store.tasks.listLabels(input.projectId) };
     },
     async createComment(input) {
-      const comment = await createComment(bb, store, {
+      const comment = await createComment(hyperfide, store, {
         taskId: input.taskId,
         kind: "user",
         authorName: "You",
@@ -887,8 +887,8 @@ export function registerHandlers(
     },
     async listComments(input) {
       const comments = store.tasks.listComments(input.taskId);
-      const threadInfo = await resolveAgentThreadInfo(bb, comments);
-      const providerBadges = await resolveProviderBadges(bb, threadInfo);
+      const threadInfo = await resolveAgentThreadInfo(hyperfide, comments);
+      const providerBadges = await resolveProviderBadges(hyperfide, threadInfo);
       return {
         comments: comments.map((comment) => {
           const info =
@@ -928,7 +928,7 @@ export function registerHandlers(
     async deleteAttachment(input) {
       try {
         const attachment = await deleteAttachmentById(
-          bb,
+          hyperfide,
           store.tasks,
           input.attachmentId,
           {
@@ -959,11 +959,11 @@ export function registerHandlers(
       return { taskThreads: store.tasks.listTaskThreads(input.taskId) };
     },
     async listTaskPullRequests(input) {
-      return listTaskPullRequests(bb, store, input.taskId);
+      return listTaskPullRequests(hyperfide, store, input.taskId);
     },
     createPreset(input) {
       const preset = store.tasks.createPreset({ ...input, builtin: false });
-      publishProjectsChanged(bb, null);
+      publishProjectsChanged(hyperfide, null);
       return { preset };
     },
     updatePreset(input) {
@@ -974,19 +974,19 @@ export function registerHandlers(
           ? { ...changes, baseBranch: null, machineId: null }
           : changes,
       );
-      publishProjectsChanged(bb, null);
+      publishProjectsChanged(hyperfide, null);
       return { preset };
     },
     deletePreset(input) {
       const deleted = store.tasks.deletePreset(input.presetId);
-      if (deleted) publishProjectsChanged(bb, null);
+      if (deleted) publishProjectsChanged(hyperfide, null);
       return { deleted };
     },
     listPresets() {
       return { presets: store.tasks.listPresets() };
     },
     async listMachines() {
-      const machines = await bb.sdk.hosts.list();
+      const machines = await hyperfide.sdk.hosts.list();
       return {
         machines: machines.map((machine) => ({
           id: machine.id,
@@ -999,7 +999,7 @@ export function registerHandlers(
       const limit = Math.min(input.limit ?? MAX_THREAD_SEARCH_RESULTS, 10);
       const candidates =
         query.length >= 2
-          ? await bb.sdk.threads.search({
+          ? await hyperfide.sdk.threads.search({
               query,
               limitPerGroup: String(MAX_THREAD_SEARCH_RESULTS),
             })
@@ -1009,7 +1009,7 @@ export function registerHandlers(
             (result) => result.thread,
           )
         : (
-            await bb.sdk.threads.list({
+            await hyperfide.sdk.threads.list({
               limit: MAX_THREAD_SEARCH_RESULTS,
             })
           ).filter((thread) => {
@@ -1030,10 +1030,10 @@ export function registerHandlers(
           })),
       };
     },
-    async listBbProjects() {
-      const projects = await bb.sdk.projects.list({ includePersonal: true });
+    async listHyperfideProjects() {
+      const projects = await hyperfide.sdk.projects.list({ includePersonal: true });
       return {
-        bbProjects: projects.map((project) => ({
+        hyperfideProjects: projects.map((project) => ({
           id: project.id,
           name: project.name,
         })),
@@ -1048,6 +1048,6 @@ export function registerHandlers(
   };
 }
 
-export function registerTasksApi(bb: BbPluginApi, store: TasksApiStore): void {
-  bb.rpc.register(tasksRpcContract, registerHandlers(bb, store));
+export function registerTasksApi(hyperfide: HyperfidePluginApi, store: TasksApiStore): void {
+  hyperfide.rpc.register(tasksRpcContract, registerHandlers(hyperfide, store));
 }

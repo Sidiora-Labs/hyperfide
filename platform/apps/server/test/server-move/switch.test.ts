@@ -14,7 +14,7 @@ import {
 const tempDirs: string[] = [];
 
 async function makeDataDir(): Promise<string> {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-server-move-switch-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-server-move-switch-"));
   tempDirs.push(dataDir);
   return dataDir;
 }
@@ -44,16 +44,16 @@ describe("old server daemon config", () => {
 
     const backup = await writeOldServerDaemonConfig({
       dataDir,
-      headers: { "x-bb-connect-machine": "bbcm_laptop" },
-      serverUrl: "https://laptop.getbb.test",
+      headers: { "x-hyperfide-connect-machine": "hyperfide_cm_laptop" },
+      serverUrl: "https://laptop.hyperfide.test",
     });
 
     expect(JSON.parse(await readFile(path, "utf8"))).toEqual({
       config: { HYPERFIDE_LOG_LEVEL: "debug" },
       customModels: [{ providerId: "codex", model: "gpt-test" }],
       connectMachineId: "machine-1",
-      serverUrl: "https://laptop.getbb.test",
-      serverHeaders: { "x-bb-connect-machine": "bbcm_laptop" },
+      serverUrl: "https://laptop.hyperfide.test",
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_laptop" },
     });
     if (process.platform !== "win32") {
       expect((await stat(path)).mode & 0o777).toBe(0o600);
@@ -132,7 +132,7 @@ describe("server moved targets", () => {
 describe("old copy entries", () => {
   it("keeps the daemon's config and env and passes the lock file schema", () => {
     const entries = listOldCopyEntries([
-      { path: "bb.db" },
+      { path: "hyperfide.db" },
       { path: "config.json" },
       { path: "env.json" },
       { path: "attachments" },
@@ -142,7 +142,7 @@ describe("old copy entries", () => {
 
     expect(entries).toEqual([
       "attachments",
-      "bb.db",
+      "hyperfide.db",
       "plugins/tasks/data.db",
       "plugins/tasks/secrets",
     ]);

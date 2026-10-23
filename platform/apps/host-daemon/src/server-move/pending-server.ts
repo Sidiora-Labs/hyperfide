@@ -22,7 +22,7 @@ const pendingVerificationSchema = z.object({
 });
 
 export interface PendingServerLaunchRequest {
-  bbServerEntry: string;
+  hyperfideServerEntry: string;
   dataDir: string;
   serverPort: number;
   bindHost: string | null;
@@ -80,7 +80,7 @@ export function createDefaultPendingServerLauncher(
     spawnDetached({
       command: process.execPath,
       args: [
-        request.bbServerEntry,
+        request.hyperfideServerEntry,
         "--data-dir",
         request.dataDir,
         "--server-port",

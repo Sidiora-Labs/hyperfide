@@ -402,7 +402,7 @@ describe("useSidebarThreadActions", () => {
     });
   });
 
-  it("reuses an environment the way bb's environment header does", () => {
+  it("reuses an environment the way hyperfide's environment header does", () => {
     state.data = payload([]);
     const { result } = renderHook(() => useSidebarThreadActions());
 

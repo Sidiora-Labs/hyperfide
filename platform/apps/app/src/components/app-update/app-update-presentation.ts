@@ -37,7 +37,7 @@ export function describeAppUpdateResult(
     case "updated":
       return {
         description: null,
-        title: `Updated bb to ${target}`,
+        title: `Updated hyperfide to ${target}`,
         tone: "success",
       };
     case "failed":
@@ -105,7 +105,7 @@ export function runningThreadCountFromError(error: unknown): number | null {
 }
 
 export function runningThreadsWarning(count: number): string {
-  return `${String(count)} thread${count === 1 ? " is" : "s are"} running. Updating restarts bb and interrupts ${
+  return `${String(count)} thread${count === 1 ? " is" : "s are"} running. Updating restarts hyperfide and interrupts ${
     count === 1 ? "it" : "them"
   }.`;
 }

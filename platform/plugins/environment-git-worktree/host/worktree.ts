@@ -18,14 +18,14 @@ import {
   runGit,
   WorkspaceError,
   type GitProcessOptions,
-} from "bb-environment-provider-host/git";
+} from "hyperfide-environment-provider-host/git";
 import {
   ProcessLocalQueuedLockTimeoutError,
   runGitWithWorktreeMetadataLock,
   tryWithCheckoutMutationLock,
   withGitRefMutationLock,
   withWorktreeMetadataLock,
-} from "bb-environment-provider-host/locks";
+} from "hyperfide-environment-provider-host/locks";
 import {
   createProvisionCancelledError,
   emitCwd,
@@ -35,7 +35,7 @@ import {
   isProvisionAbortError,
   throwIfProvisionAborted,
   type ProgressCallback,
-} from "bb-environment-provider-host/transcript";
+} from "hyperfide-environment-provider-host/transcript";
 import {
   copyWorktreeIncludeFiles,
   WORKTREE_INCLUDE_FILE_NAME,
@@ -720,7 +720,7 @@ export async function resolveAdoptableWorktree(args: {
   if (entry === null) {
     return {
       status: "failed",
-      message: `${args.path} is not a worktree of this repository that bb can adopt.`,
+      message: `${args.path} is not a worktree of this repository that hyperfide can adopt.`,
     };
   }
   if (entry.prunable) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cyberProgramForTurn,
-  mapBbReasoningLevelToCodex,
+  mapHyperfideReasoningLevelToCodex,
   parseModelCatalog,
 } from "./models.js";
 
@@ -78,7 +78,7 @@ describe("parseModelsResponse", () => {
       models[0]?.supportedReasoningEfforts.map((e) => e.reasoningEffort),
     ).toEqual(["low", "quantum", "high"]);
     expect(models[0]?.defaultReasoningEffort).toBe("quantum");
-    expect(mapBbReasoningLevelToCodex("quantum")).toBe("quantum");
+    expect(mapHyperfideReasoningLevelToCodex("quantum")).toBe("quantum");
   });
 
   it("skips effort entries without a string level and defaults to the first effort when none is named", () => {

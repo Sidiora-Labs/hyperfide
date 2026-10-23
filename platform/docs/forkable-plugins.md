@@ -99,7 +99,7 @@ each; a shard with nothing selected skips setup.
 - **Names unchanged.** A listed plugin keeps its CLI command, storage keys,
   routes, and provider ids. A copy loaded next to the built-in collides with it
   until it renames them; the list only guarantees that the copy builds.
-- **SDK floor.** `engines.bbPluginSdk` names the SDK version that introduced
+- **SDK floor.** `engines.hyperfidePluginSdk` names the SDK version that introduced
   the newest hook the plugin calls.
 
 ## What belongs in shared-ui

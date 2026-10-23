@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { Environment, JsonValue } from "@hyperfide/domain";
-import { createBbSdk } from "../src/core.js";
+import { createHyperfideSdk } from "../src/core.js";
 import { createHttpTransport } from "../src/transport-http.js";
 import { ThreadWaitTimeoutError } from "../src/areas/threads.js";
 import type { FetchImplementation } from "../src/response.js";
@@ -121,9 +121,9 @@ describe("@hyperfide/sdk", () => {
       nextCursor: "next",
     };
     const queue = createFetchQueue([{ body: response }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -136,7 +136,7 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/prompt-history?cursor=abc&limit=25",
+        url: "http://hyperfide.test/api/v1/prompt-history?cursor=abc&limit=25",
       },
     ]);
   });
@@ -171,9 +171,9 @@ describe("@hyperfide/sdk", () => {
       },
     };
     const queue = createFetchQueue([{ body: creating }, { body: host }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -191,12 +191,12 @@ describe("@hyperfide/sdk", () => {
           inputs: {},
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/hosts",
+        url: "http://hyperfide.test/api/v1/hosts",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/hosts/host_do",
+        url: "http://hyperfide.test/api/v1/hosts/host_do",
       },
     ]);
   });
@@ -205,9 +205,9 @@ describe("@hyperfide/sdk", () => {
     const queue = createFetchQueue([
       { body: { joinCode: "one", hostId: "host_1", expiresAt: 1 } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -219,7 +219,7 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: JSON.stringify({}),
         method: "POST",
-        url: "http://bb.test/api/v1/hosts/join-codes",
+        url: "http://hyperfide.test/api/v1/hosts/join-codes",
       },
     ]);
   });
@@ -247,9 +247,9 @@ describe("@hyperfide/sdk", () => {
       value: async () =>
         events.map((event) => JSON.stringify(event)).join("\n"),
     });
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: async () => response,
         runtime: "node",
       }),
@@ -266,9 +266,9 @@ describe("@hyperfide/sdk", () => {
 
   it("sends thread pane presentation actions through the typed transport", async () => {
     const queue = createFetchQueue([{ body: { delivered: 3 } }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -284,16 +284,16 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: JSON.stringify({ action: "spotlight" }),
         method: "POST",
-        url: "http://bb.test/api/v1/threads/thr_test/pane-action",
+        url: "http://hyperfide.test/api/v1/threads/thr_test/pane-action",
       },
     ]);
   });
 
   it("maps thread event filters and reverse pagination onto the public query", async () => {
     const queue = createFetchQueue([{ body: [] }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -312,7 +312,7 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/threads/thr_test/events?beforeSeq=10&limit=2&order=desc&types=system%2Ferror%2Cturn%2Fcompleted",
+        url: "http://hyperfide.test/api/v1/threads/thr_test/events?beforeSeq=10&limit=2&order=desc&types=system%2Ferror%2Cturn%2Fcompleted",
       },
     ]);
   });
@@ -324,9 +324,9 @@ describe("@hyperfide/sdk", () => {
       receivedSignal = init?.signal;
       return jsonResponse({ body: [] });
     };
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch,
         runtime: "node",
       }),
@@ -345,9 +345,9 @@ describe("@hyperfide/sdk", () => {
       receivedSignal = init?.signal;
       return jsonResponse({ body: {} });
     };
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch,
         runtime: "node",
       }),
@@ -365,9 +365,9 @@ describe("@hyperfide/sdk", () => {
     const controller = new AbortController();
     let receivedSignal: AbortSignal | null | undefined;
     const queue = createFetchQueue([{ body: [] }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: async (input, init) => {
           receivedSignal = init?.signal;
           return queue.fetch(input, init);
@@ -381,7 +381,7 @@ describe("@hyperfide/sdk", () => {
     ).resolves.toEqual([]);
     expect(receivedSignal).toBe(controller.signal);
     expect(queue.requests[0]?.url).toBe(
-      "http://bb.test/api/v1/projects?includePersonal=true",
+      "http://hyperfide.test/api/v1/projects?includePersonal=true",
     );
   });
 
@@ -397,9 +397,9 @@ describe("@hyperfide/sdk", () => {
       },
     };
     const queue = createFetchQueue([{ body: appearance }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -412,7 +412,7 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: JSON.stringify({ themeId: "nord", faviconColor: "teal" }),
         method: "PUT",
-        url: "http://bb.test/api/v1/settings/appearance",
+        url: "http://hyperfide.test/api/v1/settings/appearance",
       },
     ]);
   });
@@ -441,9 +441,9 @@ describe("@hyperfide/sdk", () => {
       },
     };
     const queue = createFetchQueue([{ body: current }, { body: updated }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -454,12 +454,12 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/config",
+        url: "http://hyperfide.test/api/v1/system/config",
       },
       {
         bodyText: JSON.stringify({ themeId: "nord", faviconColor: "purple" }),
         method: "PUT",
-        url: "http://bb.test/api/v1/settings/appearance",
+        url: "http://hyperfide.test/api/v1/settings/appearance",
       },
     ]);
   });
@@ -476,9 +476,9 @@ describe("@hyperfide/sdk", () => {
       },
     };
     const queue = createFetchQueue([{ body: resolved }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -491,7 +491,7 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/settings/themes/plugin:pack:ocean",
+        url: "http://hyperfide.test/api/v1/settings/themes/plugin:pack:ocean",
       },
     ]);
   });
@@ -508,15 +508,15 @@ describe("@hyperfide/sdk", () => {
           type: "localFile",
           path: "payload-uploaded.bin",
           name: "payload.bin",
-          mimeType: "application/x-bb-test",
+          mimeType: "application/x-hyperfide-test",
           sizeBytes: binary.byteLength,
         },
         status: 201,
       });
     };
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "https://remote-bb.test/",
+        baseUrl: "https://remote-hyperfide.test/",
         fetch: authenticatedFetch,
         runtime: "node",
       }),
@@ -526,19 +526,19 @@ describe("@hyperfide/sdk", () => {
       sdk.projects.attachments.upload({
         clientFile: binary,
         filename: "payload.bin",
-        mimeType: "application/x-bb-test",
+        mimeType: "application/x-hyperfide-test",
         projectId: "proj_remote",
       }),
     ).resolves.toEqual({
       type: "localFile",
       path: "payload-uploaded.bin",
       name: "payload.bin",
-      mimeType: "application/x-bb-test",
+      mimeType: "application/x-hyperfide-test",
       sizeBytes: binary.byteLength,
     });
 
     expect(forwardedRequest?.url).toBe(
-      "https://remote-bb.test/api/v1/projects/proj_remote/attachments",
+      "https://remote-hyperfide.test/api/v1/projects/proj_remote/attachments",
     );
     expect(forwardedRequest?.method).toBe("POST");
     expect(forwardedRequest?.headers.get("authorization")).toBe(
@@ -554,7 +554,7 @@ describe("@hyperfide/sdk", () => {
       throw new Error("Expected multipart attachment file");
     }
     expect(file.name).toBe("payload.bin");
-    expect(file.type).toBe("application/x-bb-test");
+    expect(file.type).toBe("application/x-hyperfide-test");
     expect(new Uint8Array(await file.arrayBuffer())).toEqual(binary);
   });
 
@@ -581,9 +581,9 @@ describe("@hyperfide/sdk", () => {
       if (!response) throw new Error("No queued attachment response");
       return response;
     };
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch,
         runtime: "browser",
       }),
@@ -606,15 +606,15 @@ describe("@hyperfide/sdk", () => {
       sizeBytes: 4,
     });
     expect(requests).toEqual([
-      "http://bb.test/api/v1/projects/proj_image/attachments",
-      "http://bb.test/api/v1/projects/proj_image/attachments/content?path=pixel-uploaded.png",
+      "http://hyperfide.test/api/v1/projects/proj_image/attachments",
+      "http://hyperfide.test/api/v1/projects/proj_image/attachments/content?path=pixel-uploaded.png",
     ]);
   });
 
   it("preserves project attachment error envelopes", async () => {
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: async () =>
           jsonResponse({
             body: {
@@ -645,9 +645,9 @@ describe("@hyperfide/sdk", () => {
     const fetch = async (): Promise<Response> => {
       throw new Error("Voice transcription should not reach the transport");
     };
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch,
         runtime: "node",
       }),
@@ -684,9 +684,9 @@ describe("@hyperfide/sdk", () => {
       if (!response) throw new Error("No queued project file response");
       return response;
     };
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch,
         runtime: "browser",
       }),
@@ -724,9 +724,9 @@ describe("@hyperfide/sdk", () => {
     });
 
     expect(requests.map((request) => request.url)).toEqual([
-      "http://bb.test/api/v1/projects/proj_remote/files?hostId=host_remote",
-      "http://bb.test/api/v1/environments/env_remote/files/remote.txt",
-      "http://bb.test/api/v1/projects/proj_remote/hosts/host_remote/files/image.bin",
+      "http://hyperfide.test/api/v1/projects/proj_remote/files?hostId=host_remote",
+      "http://hyperfide.test/api/v1/environments/env_remote/files/remote.txt",
+      "http://hyperfide.test/api/v1/projects/proj_remote/hosts/host_remote/files/image.bin",
     ]);
 
     for (const path of ["../../hosts", "docs/./a.md", "/etc/hosts", "a\\b"]) {
@@ -749,9 +749,9 @@ describe("@hyperfide/sdk", () => {
       { body: executionOptions },
       { body: executionOptions },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -778,17 +778,17 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/providers?capability=usage&hostId=host_remote",
+        url: "http://hyperfide.test/api/v1/system/providers?capability=usage&hostId=host_remote",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/execution-options?environmentId=env_remote&providerId=acp-remote",
+        url: "http://hyperfide.test/api/v1/system/execution-options?environmentId=env_remote&providerId=acp-remote",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/execution-options?hostId=host_remote&projectId=proj_remote&providerId=acp-remote",
+        url: "http://hyperfide.test/api/v1/system/execution-options?hostId=host_remote&projectId=proj_remote&providerId=acp-remote",
       },
     ]);
   });
@@ -800,9 +800,9 @@ describe("@hyperfide/sdk", () => {
       "acp-cursor": { status: "unauthenticated" as const },
     };
     const queue = createFetchQueue([{ body: usage }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -818,7 +818,7 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/usage-limits?hostId=host_remote&providerId=codex",
+        url: "http://hyperfide.test/api/v1/system/usage-limits?hostId=host_remote&providerId=codex",
       },
     ]);
   });
@@ -845,9 +845,9 @@ describe("@hyperfide/sdk", () => {
       },
     ];
     const queue = createFetchQueue([{ body: { providers } }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -863,7 +863,7 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/environment-providers?projectId=proj_test&hostId=host_test",
+        url: "http://hyperfide.test/api/v1/system/environment-providers?projectId=proj_test&hostId=host_test",
       },
     ]);
   });
@@ -871,9 +871,9 @@ describe("@hyperfide/sdk", () => {
   it("routes onboarding agent status through a reused environment", async () => {
     const states = { providers: [] };
     const queue = createFetchQueue([{ body: states }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -886,16 +886,16 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/providers/state?environmentId=env_remote",
+        url: "http://hyperfide.test/api/v1/system/providers/state?environmentId=env_remote",
       },
     ]);
   });
 
   it("routes thread list calls through the HTTP transport", async () => {
     const queue = createFetchQueue([{ body: [] }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -909,16 +909,16 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/threads?projectId=proj_123&archived=true",
+        url: "http://hyperfide.test/api/v1/threads?projectId=proj_123&archived=true",
       },
     ]);
   });
 
   it("sends thread ID filters comma-separated, keeping an empty list", async () => {
     const queue = createFetchQueue([{ body: [] }, { body: [] }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -928,8 +928,8 @@ describe("@hyperfide/sdk", () => {
     await sdk.threads.list({ threadIds: [] });
 
     expect(queue.requests.map((request) => request.url)).toEqual([
-      "http://bb.test/api/v1/threads?threadIds=thr_a%2Cthr_b",
-      "http://bb.test/api/v1/threads?threadIds=",
+      "http://hyperfide.test/api/v1/threads?threadIds=thr_a%2Cthr_b",
+      "http://hyperfide.test/api/v1/threads?threadIds=",
     ]);
   });
 
@@ -942,9 +942,9 @@ describe("@hyperfide/sdk", () => {
       },
     ];
     const queue = createFetchQueue([{ body: resolved }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -961,7 +961,7 @@ describe("@hyperfide/sdk", () => {
           threadIds: ["thr_23456789ab", "thr_23456789ab"],
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/threads/resolve-mentions",
+        url: "http://hyperfide.test/api/v1/threads/resolve-mentions",
       },
     ]);
   });
@@ -982,9 +982,9 @@ describe("@hyperfide/sdk", () => {
       { body: { chunks: [], nextSeq: 4, truncated: false } },
       { body: { ...session, status: "exited", closeReason: "user" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1047,17 +1047,17 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/terminals?threadId=thr_remote",
+        url: "http://hyperfide.test/api/v1/terminals?threadId=thr_remote",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/terminals?environmentId=env_remote",
+        url: "http://hyperfide.test/api/v1/terminals?environmentId=env_remote",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/terminals?hostId=host_remote&cwd=%2Fsrv%2Fapp",
+        url: "http://hyperfide.test/api/v1/terminals?hostId=host_remote&cwd=%2Fsrv%2Fapp",
       },
       {
         bodyText: JSON.stringify({
@@ -1066,7 +1066,7 @@ describe("@hyperfide/sdk", () => {
           target: { kind: "thread", threadId: "thr_remote" },
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals",
+        url: "http://hyperfide.test/api/v1/terminals",
       },
       {
         bodyText: JSON.stringify({
@@ -1075,7 +1075,7 @@ describe("@hyperfide/sdk", () => {
           target: { kind: "environment", environmentId: "env_remote" },
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals",
+        url: "http://hyperfide.test/api/v1/terminals",
       },
       {
         bodyText: JSON.stringify({
@@ -1084,37 +1084,37 @@ describe("@hyperfide/sdk", () => {
           target: { kind: "host_path", hostId: "host_remote", cwd: null },
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals",
+        url: "http://hyperfide.test/api/v1/terminals",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/terminals/term_remote",
+        url: "http://hyperfide.test/api/v1/terminals/term_remote",
       },
       {
         bodyText: JSON.stringify({ title: "Dev server" }),
         method: "PATCH",
-        url: "http://bb.test/api/v1/terminals/term_remote",
+        url: "http://hyperfide.test/api/v1/terminals/term_remote",
       },
       {
         bodyText: JSON.stringify({ dataBase64: "aGk=" }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals/term_remote/input",
+        url: "http://hyperfide.test/api/v1/terminals/term_remote/input",
       },
       {
         bodyText: JSON.stringify({ cols: 120, rows: 40 }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals/term_remote/resize",
+        url: "http://hyperfide.test/api/v1/terminals/term_remote/resize",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/terminals/term_remote/output?sinceSeq=2&tailBytes=1024&limitChunks=10",
+        url: "http://hyperfide.test/api/v1/terminals/term_remote/output?sinceSeq=2&tailBytes=1024&limitChunks=10",
       },
       {
         bodyText: JSON.stringify({ mode: "force", reason: "user" }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals/term_remote/close",
+        url: "http://hyperfide.test/api/v1/terminals/term_remote/close",
       },
     ]);
   });
@@ -1122,9 +1122,9 @@ describe("@hyperfide/sdk", () => {
   it("restarts a terminal without requiring its scope from the caller", async () => {
     const replacement = makeTerminalSession({ id: "term_new" });
     const queue = createFetchQueue([{ body: replacement, status: 201 }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1137,16 +1137,16 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: JSON.stringify({}),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals/term_old/restart",
+        url: "http://hyperfide.test/api/v1/terminals/term_old/restart",
       },
     ]);
   });
 
   it("rejects mixed terminal scope selectors before transport", async () => {
     const queue = createFetchQueue([]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1172,9 +1172,9 @@ describe("@hyperfide/sdk", () => {
         status: 404,
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1192,9 +1192,9 @@ describe("@hyperfide/sdk", () => {
       mergeBaseBranch: "release",
     });
     const queue = createFetchQueue([{ body: environment }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1215,16 +1215,16 @@ describe("@hyperfide/sdk", () => {
           name: "Review workspace",
         }),
         method: "PATCH",
-        url: "http://bb.test/api/v1/environments/env_update",
+        url: "http://hyperfide.test/api/v1/environments/env_update",
       },
     ]);
   });
 
   it("rejects empty environment updates before sending a request", async () => {
     const queue = createFetchQueue([]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1239,9 +1239,9 @@ describe("@hyperfide/sdk", () => {
 
   it("fills thread spawn defaults before sending a request", async () => {
     const queue = createFetchQueue([{ body: { id: "thr_1" }, status: 201 }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1275,9 +1275,9 @@ describe("@hyperfide/sdk", () => {
 
   it("defaults thread forks to source-environment reuse and preserves an agent-only context seed", async () => {
     const queue = createFetchQueue([{ body: { id: "thr_fork" }, status: 201 }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1297,7 +1297,7 @@ describe("@hyperfide/sdk", () => {
 
     expect(queue.requests[0]).toMatchObject({
       method: "POST",
-      url: "http://bb.test/api/v1/threads/fork",
+      url: "http://hyperfide.test/api/v1/threads/fork",
     });
     expect(JSON.parse(queue.requests[0]?.bodyText ?? "{}")).toEqual({
       sourceThreadId: "thr_source",
@@ -1319,9 +1319,9 @@ describe("@hyperfide/sdk", () => {
       { body: [] },
       { body: { id: "thr_hidden", visibility: "hidden" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1334,7 +1334,7 @@ describe("@hyperfide/sdk", () => {
     });
 
     expect(queue.requests[0]?.url).toBe(
-      "http://bb.test/api/v1/threads?includeHidden=true",
+      "http://hyperfide.test/api/v1/threads?includeHidden=true",
     );
     expect(JSON.parse(queue.requests[1]?.bodyText ?? "{}")).toEqual({
       visibility: "hidden",
@@ -1347,9 +1347,9 @@ describe("@hyperfide/sdk", () => {
       { body: { ok: true, delivery: "sent" } },
       { body: { id: "qmsg_full" }, status: 201 },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1408,9 +1408,9 @@ describe("@hyperfide/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1433,16 +1433,16 @@ describe("@hyperfide/sdk", () => {
           input: [{ type: "text", text: "Replacement", mentions: [] }],
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/threads/thr_edit/edit-message",
+        url: "http://hyperfide.test/api/v1/threads/thr_edit/edit-message",
       },
     ]);
   });
 
   it("preserves explicit thread spawn origin for CLI callers", async () => {
     const queue = createFetchQueue([{ body: { id: "thr_1" }, status: 201 }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1477,9 +1477,9 @@ describe("@hyperfide/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1493,7 +1493,7 @@ describe("@hyperfide/sdk", () => {
     expect(queue.requests[0]).toEqual({
       bodyText: JSON.stringify({ sectionId: "sec_123" }),
       method: "PATCH",
-      url: "http://bb.test/api/v1/threads/thr_section",
+      url: "http://hyperfide.test/api/v1/threads/thr_section",
     });
   });
 
@@ -1508,9 +1508,9 @@ describe("@hyperfide/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1526,15 +1526,15 @@ describe("@hyperfide/sdk", () => {
         sessionOptions: { mode: "plan", web: true, stale: null },
       }),
       method: "PATCH",
-      url: "http://bb.test/api/v1/threads/thr_section",
+      url: "http://hyperfide.test/api/v1/threads/thr_section",
     });
   });
 
   it("sends the queued message version when updating its content", async () => {
     const queue = createFetchQueue([{ body: { id: "qmsg_123" } }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1553,7 +1553,7 @@ describe("@hyperfide/sdk", () => {
         input: [{ type: "text", text: "Edited", mentions: [] }],
       }),
       method: "PATCH",
-      url: "http://bb.test/api/v1/threads/thr_123/queued-messages/qmsg_123",
+      url: "http://hyperfide.test/api/v1/threads/thr_123/queued-messages/qmsg_123",
     });
   });
 
@@ -1565,9 +1565,9 @@ describe("@hyperfide/sdk", () => {
       { body: { ok: true, delivery: "sent" } },
       { body: null, status: 204 },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1587,9 +1587,9 @@ describe("@hyperfide/sdk", () => {
     expect(
       queue.requests.map((request) => `${request.method} ${request.url}`),
     ).toEqual([
-      "GET http://bb.test/api/v1/queued-messages?",
-      "POST http://bb.test/api/v1/threads/thr_123/queued-messages/qm_1/send",
-      "DELETE http://bb.test/api/v1/threads/thr_123/queued-messages/qm_1",
+      "GET http://hyperfide.test/api/v1/queued-messages?",
+      "POST http://hyperfide.test/api/v1/threads/thr_123/queued-messages/qm_1/send",
+      "DELETE http://hyperfide.test/api/v1/threads/thr_123/queued-messages/qm_1",
     ]);
     expect(queue.requests[1].bodyText).toBe(JSON.stringify({ mode: "auto" }));
   });
@@ -1609,9 +1609,9 @@ describe("@hyperfide/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1639,7 +1639,7 @@ describe("@hyperfide/sdk", () => {
     });
 
     expect(queue.requests[0].url).toBe(
-      "http://bb.test/api/v1/queued-messages?threadId=thr_123&waitHolder=plugin%3Aconcurrency-limit",
+      "http://hyperfide.test/api/v1/queued-messages?threadId=thr_123&waitHolder=plugin%3Aconcurrency-limit",
     );
     expect(queue.requests[1].bodyText).toBe(
       JSON.stringify({
@@ -1665,9 +1665,9 @@ describe("@hyperfide/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1692,9 +1692,9 @@ describe("@hyperfide/sdk", () => {
       ],
     });
 
-    expect(queue.requests[0].url).toBe("http://bb.test/api/v1/threads/count?");
+    expect(queue.requests[0].url).toBe("http://hyperfide.test/api/v1/threads/count?");
     expect(queue.requests[1].url).toBe(
-      "http://bb.test/api/v1/threads/count?status=active&hostId=host_a&providerId=codex&projectId=proj_123&parentThreadId=none&groupBy=host",
+      "http://hyperfide.test/api/v1/threads/count?status=active&hostId=host_a&providerId=codex&projectId=proj_123&parentThreadId=none&groupBy=host",
     );
   });
 
@@ -1705,9 +1705,9 @@ describe("@hyperfide/sdk", () => {
       { id: "thr_b", hostId: null },
     ];
     const queue = createFetchQueue([{ body: rows }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1716,7 +1716,7 @@ describe("@hyperfide/sdk", () => {
     await expect(sdk.threads.listRunning()).resolves.toEqual(rows);
     // No filters at all: the occupying set is small, and a caller that needs
     // more than "which ids, on which hosts" fetches the threads it named.
-    expect(queue.requests[0].url).toBe("http://bb.test/api/v1/threads/running");
+    expect(queue.requests[0].url).toBe("http://hyperfide.test/api/v1/threads/running");
   });
 
   it("lists thread sections without fetching sidebar projects", async () => {
@@ -1724,9 +1724,9 @@ describe("@hyperfide/sdk", () => {
       { id: "sec_123", name: "Review", createdAt: 1, updatedAt: 2 },
     ];
     const queue = createFetchQueue([{ body: sections }]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1737,7 +1737,7 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/thread-sections",
+        url: "http://hyperfide.test/api/v1/thread-sections",
       },
     ]);
   });
@@ -1754,9 +1754,9 @@ describe("@hyperfide/sdk", () => {
         status: 201,
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1768,7 +1768,7 @@ describe("@hyperfide/sdk", () => {
     expect(queue.requests[0]).toEqual({
       bodyText: JSON.stringify({ name: "Review" }),
       method: "POST",
-      url: "http://bb.test/api/v1/thread-sections",
+      url: "http://hyperfide.test/api/v1/thread-sections",
     });
   });
 
@@ -1781,9 +1781,9 @@ describe("@hyperfide/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test/",
+        baseUrl: "http://hyperfide.test/",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1800,7 +1800,7 @@ describe("@hyperfide/sdk", () => {
     expect(queue.requests[0]).toEqual({
       bodyText: "null",
       method: "POST",
-      url: "http://bb.test/api/v1/plugins/custom-instructions/rpc/getInstructions",
+      url: "http://hyperfide.test/api/v1/plugins/custom-instructions/rpc/getInstructions",
     });
   });
 
@@ -1813,7 +1813,7 @@ describe("@hyperfide/sdk", () => {
       provenance: "catalog" as const,
       isOrphanedBuiltin: false,
       catalogEntryId: "notes",
-      publisherLabel: "BB Community",
+      publisherLabel: "HYPERFIDE Community",
       sourceDisplay: "npm · @hyperfide/notes · tracks compatible",
       updateState: {},
       enabled: true,
@@ -1856,7 +1856,7 @@ describe("@hyperfide/sdk", () => {
         body: {
           requested: "npm:@hyperfide/notes@^1",
           resolved: "1.2.0",
-          engines: { bb: ">=0.9", bbPluginSdk: "^0.2.0" },
+          engines: { hyperfide: ">=0.9", hyperfidePluginSdk: "^0.2.0" },
           installedAt: 5,
           history: [{ version: "1.2.0", activatedAt: 5 }],
         },
@@ -1907,9 +1907,9 @@ describe("@hyperfide/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test/",
+        baseUrl: "http://hyperfide.test/",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1951,51 +1951,51 @@ describe("@hyperfide/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/plugins",
+        url: "http://hyperfide.test/api/v1/plugins",
       },
       {
         bodyText: JSON.stringify({
           source: "npm:@hyperfide/notes@^1",
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/plugins/install",
+        url: "http://hyperfide.test/api/v1/plugins/install",
       },
       {
         bodyText: JSON.stringify({
           entryId: "notes",
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/plugin-catalog/install",
+        url: "http://hyperfide.test/api/v1/plugin-catalog/install",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/plugins/notes/source",
+        url: "http://hyperfide.test/api/v1/plugins/notes/source",
       },
       {
         bodyText: JSON.stringify({ id: "notes" }),
         method: "POST",
-        url: "http://bb.test/api/v1/plugins/updates/check",
+        url: "http://hyperfide.test/api/v1/plugins/updates/check",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/plugins/updates",
+        url: "http://hyperfide.test/api/v1/plugins/updates",
       },
       {
         bodyText: "{}",
         method: "POST",
-        url: "http://bb.test/api/v1/plugins/notes/update",
+        url: "http://hyperfide.test/api/v1/plugins/notes/update",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/plugin-catalog",
+        url: "http://hyperfide.test/api/v1/plugin-catalog",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/plugin-catalog/search?q=notes",
+        url: "http://hyperfide.test/api/v1/plugin-catalog/search?q=notes",
       },
     ]);
   });
@@ -2006,9 +2006,9 @@ describe("@hyperfide/sdk", () => {
       { body: { ok: true, plugin } },
       { body: { ok: true, plugin } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2047,9 +2047,9 @@ describe("@hyperfide/sdk", () => {
     const queue = createFetchQueue([
       { body: { error: "candidate unavailable" }, status: 422 },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2062,9 +2062,9 @@ describe("@hyperfide/sdk", () => {
 
   it("rejects thread spawn requests with both prompt and input", async () => {
     const queue = createFetchQueue([]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2091,9 +2091,9 @@ describe("@hyperfide/sdk", () => {
       { body: { id: "thr_wait", status: "active" } },
       { body: { id: "thr_wait", status: "idle" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2113,8 +2113,8 @@ describe("@hyperfide/sdk", () => {
     });
 
     expect(queue.requests.map((request) => request.url)).toEqual([
-      "http://bb.test/api/v1/threads/thr_wait",
-      "http://bb.test/api/v1/threads/thr_wait",
+      "http://hyperfide.test/api/v1/threads/thr_wait",
+      "http://hyperfide.test/api/v1/threads/thr_wait",
     ]);
   });
 
@@ -2122,9 +2122,9 @@ describe("@hyperfide/sdk", () => {
     const queue = createFetchQueue([
       { body: { id: "thr_wait", status: "active" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2162,7 +2162,7 @@ describe("@hyperfide/sdk", () => {
               name: "local-skill",
               description: null,
               provider: null,
-              scope: "bb-user",
+              scope: "hyperfide-user",
               pluginId: null,
               filePath: "/skills/local-skill/SKILL.md",
               manageable: true,
@@ -2181,9 +2181,9 @@ describe("@hyperfide/sdk", () => {
       { body: { stars: 27_053 } },
       { body: { ok: true, filePath: "/skills/useful-skill/SKILL.md" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2210,22 +2210,22 @@ describe("@hyperfide/sdk", () => {
     expect(queue.requests).toEqual([
       {
         method: "GET",
-        url: "http://bb.test/api/v1/projects/proj_123/skills?environmentId=",
+        url: "http://hyperfide.test/api/v1/projects/proj_123/skills?environmentId=",
         bodyText: undefined,
       },
       {
         method: "GET",
-        url: "http://bb.test/api/v1/skills-registry?page=0&perPage=24",
+        url: "http://hyperfide.test/api/v1/skills-registry?page=0&perPage=24",
         bodyText: undefined,
       },
       {
         method: "GET",
-        url: "http://bb.test/api/v1/skills-registry/repository-stars?source=owner%2Frepo",
+        url: "http://hyperfide.test/api/v1/skills-registry/repository-stars?source=owner%2Frepo",
         bodyText: undefined,
       },
       {
         method: "POST",
-        url: "http://bb.test/api/v1/skills-registry/install",
+        url: "http://hyperfide.test/api/v1/skills-registry/install",
         bodyText: JSON.stringify({
           registrySkillId: registrySkill.id,
         }),
@@ -2247,9 +2247,9 @@ describe("@hyperfide/sdk", () => {
       },
       { body: { deletedPath: "/skills/review" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://hyperfide.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2282,17 +2282,17 @@ describe("@hyperfide/sdk", () => {
     expect(queue.requests).toEqual([
       {
         method: "GET",
-        url: `http://bb.test/api/v1/projects/proj_123/skills/content?skillId=${skillId}&path=SKILL.md&environmentId=`,
+        url: `http://hyperfide.test/api/v1/projects/proj_123/skills/content?skillId=${skillId}&path=SKILL.md&environmentId=`,
         bodyText: undefined,
       },
       {
         method: "GET",
-        url: `http://bb.test/api/v1/projects/proj_123/skills/files?skillId=${skillId}&environmentId=`,
+        url: `http://hyperfide.test/api/v1/projects/proj_123/skills/files?skillId=${skillId}&environmentId=`,
         bodyText: undefined,
       },
       {
         method: "PATCH",
-        url: "http://bb.test/api/v1/projects/proj_123/skills/content",
+        url: "http://hyperfide.test/api/v1/projects/proj_123/skills/content",
         bodyText: JSON.stringify({
           skillId,
           environmentId: null,
@@ -2302,7 +2302,7 @@ describe("@hyperfide/sdk", () => {
       },
       {
         method: "DELETE",
-        url: "http://bb.test/api/v1/projects/proj_123/skills",
+        url: "http://hyperfide.test/api/v1/projects/proj_123/skills",
         bodyText: JSON.stringify({ skillId, environmentId: null }),
       },
     ]);

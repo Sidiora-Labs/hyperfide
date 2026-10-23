@@ -1,4 +1,4 @@
-import type { BbPluginApi, PluginAgentToolResult } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi, PluginAgentToolResult } from "@hyperfide/plugin-sdk";
 import {
   ASK_USER_QUESTION_RENDERER_ID,
   interactionResponseSchema,
@@ -38,8 +38,8 @@ function errorResult(message: string): PluginAgentToolResult {
   return { content: [{ type: "text", text: message }], isError: true };
 }
 
-export default function plugin(bb: BbPluginApi) {
-  const settings = bb.settings.define({
+export default function plugin(hyperfide: HyperfidePluginApi) {
+  const settings = hyperfide.settings.define({
     questionTimeout: {
       type: "select",
       label: "Question timeout",
@@ -50,7 +50,7 @@ export default function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.agents.registerTool({
+  hyperfide.agents.registerTool({
     name: TOOL_NAME,
     description: TOOL_DESCRIPTION,
     presentation: {
@@ -76,7 +76,7 @@ export default function plugin(bb: BbPluginApi) {
       const askedAt = Date.now();
       let result;
       try {
-        result = await bb.ui.requestInput(
+        result = await hyperfide.ui.requestInput(
           {
             threadId: ctx.threadId,
             rendererId: ASK_USER_QUESTION_RENDERER_ID,
@@ -128,7 +128,7 @@ export default function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.agents.configure((context) => {
+  hyperfide.agents.configure((context) => {
     if (context.provider.capabilities.supportsNativeUserQuestion) {
       return { tools: [], skills: [] };
     }

@@ -25,8 +25,8 @@ describe.runIf(posix)("createCliRunner", () => {
   let binary: string;
 
   beforeEach(async () => {
-    directory = await mkdtemp(join(tmpdir(), "bb-mcp-cli-"));
-    binary = join(directory, "bb");
+    directory = await mkdtemp(join(tmpdir(), "hyperfide-mcp-cli-"));
+    binary = join(directory, "hyperfide");
   });
 
   afterEach(async () => {
@@ -74,7 +74,9 @@ describe.runIf(posix)("createCliRunner", () => {
 
   it("kills a command that outlives its timeout, along with its children", async () => {
     const pidFile = join(directory, "child.pid");
-    await script(`sleep 60 &\necho $! > ${pidFile}\nwait`);
+    await script(
+      `sleep 60 &\nchild=$!\ntrap 'wait "$child"; exit 143' TERM\necho $child > ${pidFile}\nwait "$child"`,
+    );
     const startedAt = Date.now();
     const result = await runner()(["hang"], options({ timeoutMs: 300 }));
     expect(Date.now() - startedAt).toBeLessThan(5_000);
@@ -148,17 +150,30 @@ describe.runIf(posix)("createCliRunner", () => {
 describe("resolveCliLaunch", () => {
   it("runs an extensionless CLI through Node on Windows", () => {
     expect(
-      resolveCliLaunch("C:\\bb\\bundle\\bb", ["status"], "win32", "node.exe"),
-    ).toEqual({ command: "node.exe", args: ["C:\\bb\\bundle\\bb", "status"] });
+      resolveCliLaunch(
+        "C:\\hyperfide\\bundle\\hyperfide",
+        ["status"],
+        "win32",
+        "node.exe",
+      ),
+    ).toEqual({
+      command: "node.exe",
+      args: ["C:\\hyperfide\\bundle\\hyperfide", "status"],
+    });
     expect(
-      resolveCliLaunch("C:\\bb\\bb.exe", ["status"], "win32", "node.exe"),
-    ).toEqual({ command: "C:\\bb\\bb.exe", args: ["status"] });
+      resolveCliLaunch(
+        "C:\\hyperfide\\hyperfide.exe",
+        ["status"],
+        "win32",
+        "node.exe",
+      ),
+    ).toEqual({ command: "C:\\hyperfide\\hyperfide.exe", args: ["status"] });
   });
 
   it("runs the CLI directly elsewhere", () => {
-    expect(resolveCliLaunch("/opt/bb/bb", ["status"], "linux", "node")).toEqual(
-      { command: "/opt/bb/bb", args: ["status"] },
-    );
+    expect(
+      resolveCliLaunch("/opt/hyperfide/hyperfide", ["status"], "linux", "node"),
+    ).toEqual({ command: "/opt/hyperfide/hyperfide", args: ["status"] });
   });
 });
 

@@ -3,7 +3,7 @@
   "name": "chrome-style-tokens",
   "type": "registry:ui",
   "title": "chrome-style-tokens",
-  "description": "BB ui \"chrome-style-tokens\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"chrome-style-tokens\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/chrome-style-tokens.ts",

@@ -5,7 +5,7 @@ import {
   type TextFilePreviewKind,
 } from "./FilePreview";
 import { useEffect } from "react";
-import { BbSourceCodeSplit } from "@/components/code/SourceCodeHost";
+import { HyperfideSourceCodeSplit } from "@/components/code/SourceCodeHost";
 import { hashSourceContents } from "@/components/code/source-code-budget";
 import { useRequestPierreWorkerPool } from "@/lib/pierre-worker-pool-gate";
 import type { MarkdownLinkRouting } from "@/components/ui/markdown-link-routing.js";
@@ -189,7 +189,7 @@ export function SecondaryPanelFilePreview({
 }: SecondaryPanelFilePreviewProps) {
   const requestCodeWorkers = useRequestPierreWorkerPool();
   useEffect(() => {
-    void BbSourceCodeSplit.preload();
+    void HyperfideSourceCodeSplit.preload();
     requestCodeWorkers();
   }, [requestCodeWorkers]);
   const state = resolveSecondaryPanelFilePreviewState({

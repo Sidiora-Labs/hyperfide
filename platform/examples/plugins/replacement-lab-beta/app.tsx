@@ -96,7 +96,7 @@ function LabHeader({
             checked={embedOriginal ?? false}
             onChange={(event) => onEmbedOriginalChange(event.target.checked)}
           />
-          Embed BB original
+          Embed HYPERFIDE original
         </label>
       )}
       <button

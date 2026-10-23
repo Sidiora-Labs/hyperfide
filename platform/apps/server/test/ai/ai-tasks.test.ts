@@ -12,11 +12,11 @@ import { withTestHarness } from "../helpers/test-app.js";
 const PROMPT = "Write a title for: fix the flaky login test";
 
 describe("AI task routing", () => {
-  it("tries bb cloud before other Automatic services", async () => {
+  it("tries hyperfide cloud before other Automatic services", async () => {
     await withTestHarness({}, async (harness) => {
       const cloud = registerFakeAiService(harness.deps.aiServices, {
-        id: "bb",
-        pluginId: "bb-ai",
+        id: "hyperfide",
+        pluginId: "hyperfide-ai",
         builtin: true,
         complete: async () => "Cloud title",
       });
@@ -48,8 +48,8 @@ describe("AI task routing", () => {
         status: async () => ({ ready: false, message: "Sign in to Codex" }),
       });
       registerFakeAiService(harness.deps.aiServices, {
-        id: "bb",
-        pluginId: "bb-ai",
+        id: "hyperfide",
+        pluginId: "hyperfide-ai",
         builtin: true,
         complete: async () => {
           throw new Error("upstream down");
@@ -184,7 +184,7 @@ describe("AI task routing", () => {
           },
           { pluginId: "a-plugin", id: "a-service", ready: true, reply: null },
           { pluginId: "0-plugin", id: "helper", ready: false, reply: "Unused" },
-          { pluginId: "bb-ai", id: "bb", ready: true, reply: null },
+          { pluginId: "hyperfide-ai", id: "hyperfide", ready: true, reply: null },
         ];
         for (const registration of registrations) {
           const answer = async () => {
@@ -194,7 +194,7 @@ describe("AI task routing", () => {
           };
           registerFakeAiService(harness.deps.aiServices, {
             ...registration,
-            builtin: registration.pluginId === "bb-ai",
+            builtin: registration.pluginId === "hyperfide-ai",
             complete: answer,
             transcribe: answer,
             status: async () =>
@@ -222,7 +222,7 @@ describe("AI task routing", () => {
         });
         expect(outcome).toMatchObject({ ok: true, value: "Third-party reply" });
         expect(calls).toEqual([
-          "bb-ai/bb",
+          "hyperfide-ai/hyperfide",
           "a-plugin/a-service",
           "a-plugin/z-service",
         ]);
@@ -379,8 +379,8 @@ describe("AI task routing", () => {
         status: async () => ({ ready: true }),
       });
       registerFakeAiService(harness.deps.aiServices, {
-        id: "bb",
-        pluginId: "bb-ai",
+        id: "hyperfide",
+        pluginId: "hyperfide-ai",
         builtin: true,
         complete: null,
         transcribe: async () => "hello",
@@ -393,15 +393,15 @@ describe("AI task routing", () => {
         serviceId: "codex",
       });
       await harness.deps.aiServices.status({
-        pluginId: "bb-ai",
-        serviceId: "bb",
+        pluginId: "hyperfide-ai",
+        serviceId: "hyperfide",
       });
       expect(isAiTaskAvailable(harness.deps, "voice")).toBe(true);
 
       setAiServiceSelection(harness.deps.db, "voice", {
         mode: "service",
-        pluginId: "bb-ai",
-        serviceId: "bb",
+        pluginId: "hyperfide-ai",
+        serviceId: "hyperfide",
       });
       expect(isAiTaskAvailable(harness.deps, "voice")).toBe(false);
     });

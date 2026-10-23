@@ -1,7 +1,7 @@
 import type {
   PullRequest,
   PullRequestMergeMethod,
-} from "bb-plugin-bb--github-pr-status/contract";
+} from "hyperfide-plugin-hyperfide--github-pr-status/contract";
 import { CONTEXT_CARD_TOGGLE_CLASS } from "@hyperfide/shared-ui/chrome-style-tokens";
 import {
   machineRemovalDescriptions,

@@ -62,7 +62,7 @@ describe("createPluginDevLoop", () => {
     expect(lines[0]).toContain("reloaded hello");
   });
 
-  it("skips the rebuild for a headless plugin (no bb.app) and still reloads", async () => {
+  it("skips the rebuild for a headless plugin (no hyperfide.app) and still reloads", async () => {
     const { calls, lines, deps } = makeDeps({ hasApp: false });
     const loop = createPluginDevLoop(deps);
 

@@ -1,6 +1,6 @@
 ---
 name: github-pr-status
-description: "Inspect an environment's GitHub pull request, mark it ready or draft, or merge it from the bb CLI; read PR status from another plugin."
+description: "Inspect an environment's GitHub pull request, mark it ready or draft, or merge it from the Hyperfide CLI; read PR status from another plugin."
 ---
 
 # GitHub PR Status
@@ -11,10 +11,10 @@ remotes and the machine's own `gh` login apply. The composer banner, the Info
 panel and sidebar plugins read their PR status from it.
 
 ```sh
-bb pull-request show <environment-id> [--json]
-bb pull-request ready <environment-id> [--json]
-bb pull-request draft <environment-id> [--json]
-bb pull-request merge <environment-id> [--method merge|squash|rebase] [--json]
+Hyperfide pull-request show <environment-id> [--json]
+Hyperfide pull-request ready <environment-id> [--json]
+Hyperfide pull-request draft <environment-id> [--json]
+Hyperfide pull-request merge <environment-id> [--method merge|squash|rebase] [--json]
 ```
 
 - `show` prints the PR number, state, branch, attention, checks, review and
@@ -23,7 +23,7 @@ bb pull-request merge <environment-id> [--method merge|squash|rebase] [--json]
 - `ready` needs a draft PR, `draft` needs an open PR and `merge` needs an open
   PR GitHub reports as mergeable. Each re-reads the PR first and fails with
   the reason otherwise.
-- bb never wakes a machine for PR work. When the environment's machine is
+- Hyperfide never wakes a machine for PR work. When the environment's machine is
   suspended or offline, `show` reports `unavailable` and the actions fail
   with a message naming the machine.
 - `gh` must be installed and logged in on that machine.
@@ -38,12 +38,12 @@ changes.
 
 ```ts
 experimental_useRpcKeyedQuery({
-  pluginId: "bb--github-pr-status",
+  pluginId: "hyperfide--github-pr-status",
   contract,
   method: "pullRequests",
   keys: [environmentId],
 });
 ```
 
-`bb plugin rpc inspect bb--github-pr-status` prints the input and output schemas
+`hyperfide-platform plugin rpc inspect hyperfide--github-pr-status` prints the input and output schemas
 for `pullRequests`, `markReady`, `markDraft` and `merge`.

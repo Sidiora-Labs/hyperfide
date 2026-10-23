@@ -468,7 +468,7 @@ describe("against the fake agent process", () => {
     });
     const initialized = await client.request("initialize", {
       protocolVersion: ACP_CLIENT_PROTOCOL_VERSION,
-      clientInfo: { name: "bb", version: "test" },
+      clientInfo: { name: "hyperfide", version: "test" },
       clientCapabilities: {},
     });
     expect(readAcpAgentCapabilities(initialized).protocolVersion).toBe(1);

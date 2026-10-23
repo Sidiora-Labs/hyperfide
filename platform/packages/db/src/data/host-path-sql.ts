@@ -31,12 +31,12 @@ function hostPathContainsForSql(
 
 export function registerHostPathSqlFunctions(sqlite: Database.Database): void {
   sqlite.function(
-    "bb_host_path_key",
+    "hyperfide_host_path_key",
     { deterministic: true },
     hostPathComparisonKeyForSql,
   );
   sqlite.function(
-    "bb_host_path_contains",
+    "hyperfide_host_path_contains",
     { deterministic: true },
     hostPathContainsForSql,
   );
@@ -44,10 +44,10 @@ export function registerHostPathSqlFunctions(sqlite: Database.Database): void {
 
 export function hostPathEquals(column: SQLiteColumn, path: string): SQL {
   return isWindowsHostPath(path)
-    ? sql`bb_host_path_key(${column}) = ${getHostPathComparisonKey(path) ?? path}`
+    ? sql`hyperfide_host_path_key(${column}) = ${getHostPathComparisonKey(path) ?? path}`
     : eq(column, path);
 }
 
 export function hostPathContains(column: SQLiteColumn, path: string): SQL {
-  return sql`bb_host_path_contains(${column}, ${path}) = 1`;
+  return sql`hyperfide_host_path_contains(${column}, ${path}) = 1`;
 }

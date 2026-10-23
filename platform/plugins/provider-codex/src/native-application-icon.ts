@@ -47,7 +47,7 @@ export async function resolveNativeApplicationIconDataUrl(
     if (!iconFile || path.posix.basename(iconFile) !== iconFile) return null;
     const iconFileName =
       path.posix.extname(iconFile) === "" ? `${iconFile}.icns` : iconFile;
-    tempDirectory = await mkdtemp(path.join(tmpdir(), "bb-codex-app-icon-"));
+    tempDirectory = await mkdtemp(path.join(tmpdir(), "hyperfide-codex-app-icon-"));
     await execFileAsync(
       "/usr/bin/qlmanage",
       [

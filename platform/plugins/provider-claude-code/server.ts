@@ -1,28 +1,28 @@
 import { registerUsageSource } from "./src/usage-source.js";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { CLAUDE_NATIVE_ROOTS_DECLARATION } from "./src/native-roots.js";
 
-export default function plugin(bb: BbPluginApi) {
-  registerUsageSource(bb);
-  bb.settings.define({
+export default function plugin(hyperfide: HyperfidePluginApi) {
+  registerUsageSource(hyperfide);
+  hyperfide.settings.define({
     memoryEnabled: {
       type: "boolean",
       label: "Claude Code memory",
       description:
-        "Allow Claude Code to read and write its native auto-memory for bb threads.",
+        "Allow Claude Code to read and write its native auto-memory for hyperfide-platform threads.",
       default: true,
     },
     subagentsDisabled: {
       type: "boolean",
       label: "Disable provider subagents",
       description:
-        "Hide Claude Code's native Task tool so agents use bb for delegation.",
+        "Hide Claude Code's native Task tool so agents use hyperfide for delegation.",
       default: false,
     },
     workflowsDisabled: {
       type: "boolean",
       label: "Disable Workflow tool",
-      description: "Hide Claude Code's native Workflow tool for bb threads.",
+      description: "Hide Claude Code's native Workflow tool for hyperfide-platform threads.",
       default: false,
     },
     disable1MContext: {
@@ -55,7 +55,7 @@ export default function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.providers.register({
+  hyperfide.providers.register({
     id: "claude-code",
     displayName: "Claude Code",
     icon: "./icons/claude-code.svg",

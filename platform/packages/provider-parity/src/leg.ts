@@ -92,6 +92,6 @@ export async function loadParityLeg(checkoutRoot: string): Promise<ParityLeg> {
   }
 
   throw new Error(
-    `${root} has neither ${LEG_PACKAGE_ENTRY} nor a delta collector at ${COLLECTOR_CANDIDATES.join(" / ")}; is it a bb checkout with pnpm install run?`,
+    `${root} has neither ${LEG_PACKAGE_ENTRY} nor a delta collector at ${COLLECTOR_CANDIDATES.join(" / ")}; is it a hyperfide checkout with pnpm install run?`,
   );
 }

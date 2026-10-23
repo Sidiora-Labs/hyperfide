@@ -3,7 +3,7 @@
   "name": "alert",
   "type": "registry:ui",
   "title": "alert",
-  "description": "BB ui \"alert\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"alert\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "class-variance-authority"
   ],

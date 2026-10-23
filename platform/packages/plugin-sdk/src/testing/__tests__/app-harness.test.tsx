@@ -29,7 +29,7 @@ const {
   experimental_useAppPanel,
   experimental_useFixedTabTarget,
   ThreadChat,
-  useBbNavigate,
+  useHyperfideNavigate,
   useComposer,
   useComposers,
   useComposerView,
@@ -214,12 +214,12 @@ describe("experimental_ProviderModelPicker test runtime", () => {
       serviceTier: "fast",
     });
     expect(
-      picker.getByTestId("bb-provider-model-picker").dataset.routingKind,
+      picker.getByTestId("hyperfide-provider-model-picker").dataset.routingKind,
     ).toBe("host");
     expect(
-      picker.getByTestId("bb-provider-model-picker").dataset.routingId,
+      picker.getByTestId("hyperfide-provider-model-picker").dataset.routingId,
     ).toBe("host-test");
-    expect(picker.getByTestId("bb-provider-model-picker").dataset.align).toBe(
+    expect(picker.getByTestId("hyperfide-provider-model-picker").dataset.align).toBe(
       "end",
     );
   });
@@ -245,15 +245,15 @@ describe("experimental_PermissionModePicker test runtime", () => {
 
     expect(onChange).toHaveBeenCalledWith("full");
     expect(
-      picker.getByTestId("bb-permission-mode-picker").dataset.providerId,
+      picker.getByTestId("hyperfide-permission-mode-picker").dataset.providerId,
     ).toBe("codex");
     expect(
-      picker.getByTestId("bb-permission-mode-picker").dataset.routingKind,
+      picker.getByTestId("hyperfide-permission-mode-picker").dataset.routingKind,
     ).toBe("environment");
     expect(
-      picker.getByTestId("bb-permission-mode-picker").dataset.routingId,
+      picker.getByTestId("hyperfide-permission-mode-picker").dataset.routingId,
     ).toBe("env-test");
-    expect(picker.getByTestId("bb-permission-mode-picker").dataset.align).toBe(
+    expect(picker.getByTestId("hyperfide-permission-mode-picker").dataset.align).toBe(
       "start",
     );
   });
@@ -290,7 +290,7 @@ function RealtimeConnectionProbe() {
 }
 
 function UrlNavigationProbe() {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   return (
     <div>
       <UrlLink href="https://example.com/from-link">Open link</UrlLink>
@@ -321,7 +321,7 @@ const fileIntent = {
 };
 
 function FileNavigationProbe() {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   return (
     <div>
       <FileLink {...fileIntent}>Open file</FileLink>
@@ -1403,7 +1403,7 @@ describe("loadPluginApp", () => {
         definePluginApp((builder) => {
           builder.slots.experimental_providerIcon({
             providerKind: "agent",
-            providerId: "bb-plugin-x/codex",
+            providerId: "hyperfide-plugin-x/codex",
             icon: () => null,
           });
         }),
@@ -1458,7 +1458,7 @@ describe("loadPluginApp", () => {
   it("renders the ThreadChat stub with recorded props inside a slot", () => {
     const chatPanel = app.navPanels.find((panel) => panel.id === "chat")!;
     const slot = renderSlot(chatPanel, { subPath: "thr_42" });
-    const stub = slot.getByTestId("bb-thread-chat");
+    const stub = slot.getByTestId("hyperfide-thread-chat");
     expect(stub.getAttribute("data-thread-id")).toBe("thr_42");
     expect(stub.getAttribute("data-variant")).toBe("compact");
     expect(stub.getAttribute("data-layout")).toBe("document");
@@ -1471,10 +1471,10 @@ describe("loadPluginApp", () => {
     const chatPanel = app.navPanels.find((panel) => panel.id === "chat")!;
     const slot = renderSlot(chatPanel, { subPath: "thr_42" });
     expect(
-      slot.getByTestId("bb-thread-chat-leading-content").textContent,
+      slot.getByTestId("hyperfide-thread-chat-leading-content").textContent,
     ).toContain("Replying to something earlier");
 
-    const action = slot.getByTestId("bb-thread-chat-action-send-to-main");
+    const action = slot.getByTestId("hyperfide-thread-chat-action-send-to-main");
     expect(action.getAttribute("data-roles")).toBe("assistant");
     fireEvent.click(action);
     expect(messageActionRuns).toEqual([
@@ -2155,8 +2155,8 @@ describe("thread actions menu fake", () => {
       {
         threadActions: () => [
           {
-            key: "bb--core/pin",
-            pluginId: "bb--core",
+            key: "hyperfide--core/pin",
+            pluginId: "hyperfide--core",
             group: "2_organize",
             action: { label: "Pin", icon: "Pin", run },
           },

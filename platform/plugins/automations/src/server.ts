@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { migrations } from "./data.js";
 import { ingestLegacyImport } from "./legacy-import.js";
 import { pluginDataDirFromDb } from "./path.js";
@@ -17,60 +17,60 @@ function resolveServerUrl(): string {
   return process.env.HYPERFIDE_SERVER_URL?.trim() || "http://127.0.0.1:38886";
 }
 
-export default async function plugin(bb: BbPluginApi) {
-  const db = bb.storage.database();
-  bb.storage.migrate(db, migrations);
+export default async function plugin(hyperfide: HyperfidePluginApi) {
+  const db = hyperfide.storage.database();
+  hyperfide.storage.migrate(db, migrations);
   const pluginDataDir = pluginDataDirFromDb(db);
-  await ingestLegacyImport({ bb, db, pluginDataDir });
+  await ingestLegacyImport({ hyperfide, db, pluginDataDir });
 
   const service = createAutomationService({
-    bb,
+    hyperfide,
     db,
     pluginDataDir,
     serverUrl: resolveServerUrl(),
   });
 
-  bb.rpc.register(automationRpcContract, createRpcHandlers(service));
-  registerAutomationCli({ bb, service });
+  hyperfide.rpc.register(automationRpcContract, createRpcHandlers(service));
+  registerAutomationCli({ hyperfide, service });
 
-  bb.events.on("thread.idle", ({ thread }) => {
-    closeAutomationRunForSettledThread(bb, db, {
+  hyperfide.events.on("thread.idle", ({ thread }) => {
+    closeAutomationRunForSettledThread(hyperfide, db, {
       threadId: thread.id,
       status: "idle",
     });
   });
-  bb.events.on("thread.failed", ({ thread, error }) => {
-    closeAutomationRunForSettledThread(bb, db, {
+  hyperfide.events.on("thread.failed", ({ thread, error }) => {
+    closeAutomationRunForSettledThread(hyperfide, db, {
       threadId: thread.id,
       status: "failed",
       error,
     });
   });
 
-  bb.events.on("thread.deleted", ({ thread }) => {
-    disableAutomationsForDeletedThreadEvent(bb, db, thread.id);
+  hyperfide.events.on("thread.deleted", ({ thread }) => {
+    disableAutomationsForDeletedThreadEvent(hyperfide, db, thread.id);
   });
 
-  bb.background.service("automation-sweep", {
+  hyperfide.background.service("automation-sweep", {
     async start(signal) {
       try {
-        await reconcileRunningAutomationRuns(bb, db);
+        await reconcileRunningAutomationRuns(hyperfide, db);
       } catch (error) {
-        bb.log.error(
+        hyperfide.log.error(
           `Automation startup reconciliation failed: ${errorMessage(error)}`,
         );
       }
       let serverHostId: string | null = null;
       while (!signal.aborted) {
         try {
-          serverHostId ??= (await bb.sdk.system.config()).primaryHostId;
-          await sweepDueAutomations(bb, db, {
+          serverHostId ??= (await hyperfide.sdk.system.config()).primaryHostId;
+          await sweepDueAutomations(hyperfide, db, {
             pluginDataDir,
             serverUrl: resolveServerUrl(),
             serverHostId,
           });
         } catch (error) {
-          bb.log.error(`Automation sweep failed: ${errorMessage(error)}`);
+          hyperfide.log.error(`Automation sweep failed: ${errorMessage(error)}`);
         }
         await sleep(SWEEP_INTERVAL_MS, signal);
       }

@@ -60,7 +60,7 @@ async function writePlugin(
   options: {
     name: string;
     serverSource?: string;
-    bbSkills?: string[];
+    hyperfideSkills?: string[];
     skillNames?: string[];
     skillsDirName?: string;
   },
@@ -72,12 +72,12 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Agent contributions fixture",
         description: "Agent contributions plugin fixture.",
         branding: { icon: "Zap" },
         server: "./server.ts",
-        ...(options.bbSkills ? { skills: options.bbSkills } : {}),
+        ...(options.hyperfideSkills ? { skills: options.hyperfideSkills } : {}),
       },
     }),
   );
@@ -101,7 +101,7 @@ describe("plugin skills tier", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-skills-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-skills-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -127,7 +127,7 @@ describe("plugin skills tier", () => {
 
   it("layers plugin skills below data-dir and project skills", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-skiller",
+      name: "hyperfide-plugin-skiller",
       skillNames: ["alpha", "beta", "gamma"],
     });
     await service.installPath(rootDir);
@@ -180,10 +180,10 @@ describe("plugin skills tier", () => {
     expect(sources).toHaveLength(byName.size);
   });
 
-  it("manifest bb.skills relocates the convention root and the experiment gates the tier", async () => {
+  it("manifest hyperfide.skills relocates the convention root and the experiment gates the tier", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-relocated",
-      bbSkills: ["./custom/*"],
+      name: "hyperfide-plugin-relocated",
+      hyperfideSkills: ["./custom/*"],
       skillNames: ["relocated-skill"],
       skillsDirName: "custom",
     });
@@ -207,7 +207,7 @@ describe("plugin agent contributions reach thread runtime config", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    pluginsDir = await mkdtemp(join(tmpdir(), "bb-plugin-runtime-test-"));
+    pluginsDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-runtime-test-"));
   });
 
   it("isolates resolver failures and timeouts", async () => {
@@ -231,13 +231,13 @@ describe("plugin agent contributions reach thread runtime config", () => {
     });
     try {
       const root = await writePlugin(pluginsDir, {
-        name: "bb-plugin-env-failures",
+        name: "hyperfide-plugin-env-failures",
         serverSource: `
-          export default function plugin(bb) {
-            bb.providers.experimental_contributeEnv("codex", () => {
+          export default function plugin(hyperfide) {
+            hyperfide.providers.experimental_contributeEnv("codex", () => {
               throw new Error("resolver exploded");
             });
-            bb.providers.experimental_contributeEnv("claude-code", () => new Promise(() => {}));
+            hyperfide.providers.experimental_contributeEnv("claude-code", () => new Promise(() => {}));
           }
         `,
       });
@@ -267,7 +267,7 @@ describe("plugin agent contributions reach thread runtime config", () => {
 
   it("plugin skills reach the thread.start command and update after reload", async () => {
     const rootDir = await writePlugin(pluginsDir, {
-      name: "bb-plugin-ctxdemo",
+      name: "hyperfide-plugin-ctxdemo",
       skillNames: ["ctx-skill"],
       serverSource: `
         export default function plugin() {}
@@ -329,10 +329,10 @@ describe("plugin agent contributions reach thread runtime config", () => {
 
   it("resolves provider environment per command and keeps the first plugin on conflicts", async () => {
     const firstRoot = await writePlugin(pluginsDir, {
-      name: "bb-plugin-env-first",
+      name: "hyperfide-plugin-env-first",
       serverSource: `
-        export default function plugin(bb) {
-          bb.providers.experimental_contributeEnv("codex", (context) => [
+        export default function plugin(hyperfide) {
+          hyperfide.providers.experimental_contributeEnv("codex", (context) => [
             {
               name: "PLUGIN_CONTEXT",
               value: context.threadId + ":" + context.projectId + ":" + context.hostId,
@@ -348,10 +348,10 @@ describe("plugin agent contributions reach thread runtime config", () => {
       `,
     });
     const secondRoot = await writePlugin(pluginsDir, {
-      name: "bb-plugin-env-second",
+      name: "hyperfide-plugin-env-second",
       serverSource: `
-        export default function plugin(bb) {
-          bb.providers.experimental_contributeEnv("codex", () => [
+        export default function plugin(hyperfide) {
+          hyperfide.providers.experimental_contributeEnv("codex", () => [
             {
               name: "SHARED_TOKEN",
               value: "second",

@@ -44,8 +44,8 @@ it("bounds intent parsing work after a script's disqualifying write", () => {
   expect(writeFirstMs).toBeLessThan(readOnlyMs! / 8);
 });
 
-it("keeps bb thread tell parsing linear on unterminated heredocs", () => {
-  const command = `bb thread tell thr_wrkr234567 --message-file - <<'EOF'\n${"x <<a\n".repeat(16_000)}`;
+it("keeps hyperfide-platform thread tell parsing linear on unterminated heredocs", () => {
+  const command = `hyperfide-platform thread tell thr_wrkr234567 --message-file - <<'EOF'\n${"x <<a\n".repeat(16_000)}`;
   const call = { command, exitCode: 0, status: "completed" } as const;
   expect(parseSentThreadMessage(call)).toBeNull();
 
@@ -84,8 +84,8 @@ it("reuses shell summaries across repeated timeline builds", () => {
 
 it("scans long quoted thread messages in chunks without summary caching", () => {
   const message = Array.from({ length: 4_000 }, () => "payload").join(" ");
-  const quoted = `bb thread tell thr_wrkr234567 '${message}'`;
-  const escaped = `bb thread tell thr_wrkr234567 ${message.replaceAll(" ", "\\ ")}`;
+  const quoted = `hyperfide-platform thread tell thr_wrkr234567 '${message}'`;
+  const escaped = `hyperfide-platform thread tell thr_wrkr234567 ${message.replaceAll(" ", "\\ ")}`;
   const parse = (command: string) =>
     parseSentThreadMessage({ command, exitCode: 0, status: "completed" });
   for (const command of [quoted, escaped]) {

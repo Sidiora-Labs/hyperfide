@@ -23,10 +23,10 @@ const searchResult = {
   collections: [],
   source: "builtin:linear",
   repositoryUrl: null,
-  marketplace: "bb-official",
-  marketplaceDisplayName: "BB Official",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  marketplace: "hyperfide-official",
+  marketplaceDisplayName: "HYPERFIDE Official",
+  publisherKey: "hyperfide-official",
+  publisherLabel: "HYPERFIDE Official",
   official: true,
   author: null,
   installed: false,
@@ -80,7 +80,7 @@ const installedPlugin = {
   provenance: "catalog",
   isOrphanedBuiltin: false,
   catalogEntryId: "linear",
-  publisherLabel: "BB Community",
+  publisherLabel: "HYPERFIDE Community",
   sourceDisplay: "builtin · linear",
   updateState: {},
   enabled: true,
@@ -175,7 +175,7 @@ describe("hyperfide-platform plugin catalog", () => {
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
     expect(output).toContain("Marketplace");
     expect(output).toContain("Acme Plugins");
-    expect(output).toContain("BB Official");
+    expect(output).toContain("HYPERFIDE Official");
   });
 
   it("adds an Installs column only once a listing reports counts", async () => {
@@ -246,7 +246,7 @@ describe("hyperfide-platform plugin catalog", () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       json({ ok: true, plugin: installedPlugin }),
     );
-    const source = "https://github.com/acme/bb-plugin-linear";
+    const source = "https://github.com/acme/hyperfide-plugin-linear";
 
     await runCommand(["plugin", "install", source, "--yes"], register);
 
@@ -263,7 +263,7 @@ describe("hyperfide-platform plugin catalog", () => {
     vi.mocked(fetch).mockImplementation(async () =>
       json({ ok: true, plugin: installedPlugin }),
     );
-    const source = "git:github.com/acme/bb-plugins@main";
+    const source = "git:github.com/acme/hyperfide-plugins@main";
 
     await runCommand(
       ["plugin", "install", source, "--plugin", "linear", "--yes"],
@@ -303,7 +303,7 @@ describe("hyperfide-platform plugin catalog", () => {
       [
         "plugin",
         "install",
-        "git:github.com/acme/bb-plugins@^1.2.0",
+        "git:github.com/acme/hyperfide-plugins@^1.2.0",
         "--tag-prefix",
         "linear/",
         "--yes",
@@ -317,15 +317,15 @@ describe("hyperfide-platform plugin catalog", () => {
           (call) =>
             (JSON.parse(String(call[1]?.body)) as { source: string }).source,
         ),
-    ).toEqual(["git:github.com/acme/bb-plugins@semver:linear/:^1.2.0"]);
+    ).toEqual(["git:github.com/acme/hyperfide-plugins@semver:linear/:^1.2.0"]);
 
     const errorSpy = vi.mocked(console.error);
     for (const args of [
-      ["plugin", "install", "git:github.com/acme/bb-plugins", "--yes"],
+      ["plugin", "install", "git:github.com/acme/hyperfide-plugins", "--yes"],
       [
         "plugin",
         "install",
-        "git:github.com/acme/bb-plugins@semver:^1.2.0",
+        "git:github.com/acme/hyperfide-plugins@semver:^1.2.0",
         "--yes",
       ],
     ]) {
@@ -346,7 +346,7 @@ describe("hyperfide-platform plugin catalog", () => {
         [
           "plugin",
           "install",
-          "git:github.com/acme/bb-plugins@main",
+          "git:github.com/acme/hyperfide-plugins@main",
           "--plugin",
           "linear",
           "--subdirectory",
@@ -399,7 +399,7 @@ describe("hyperfide-platform plugin catalog", () => {
       entryId: "linear",
     });
     expect(collectLogPayloads(vi.mocked(console.log)).join("\n")).toContain(
-      "bundled with BB",
+      "bundled with HYPERFIDE",
     );
   });
 
@@ -441,10 +441,10 @@ describe("hyperfide-platform plugin catalog", () => {
         json({
           plan: {
             ...thirdPartyPlan,
-            source: "npm:bb-plugin-notes@beta",
+            source: "npm:hyperfide-plugin-notes@beta",
             resolvedSource: {
               kind: "npm",
-              package: "bb-plugin-notes",
+              package: "hyperfide-plugin-notes",
               tag: "beta",
               registry: "https://npm.acme.test",
             },
@@ -459,7 +459,7 @@ describe("hyperfide-platform plugin catalog", () => {
     );
 
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(output).toContain("npm package: bb-plugin-notes@beta");
+    expect(output).toContain("npm package: hyperfide-plugin-notes@beta");
     expect(output).toContain("registry: https://npm.acme.test");
   });
 

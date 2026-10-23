@@ -5,10 +5,10 @@
   "type": "module",
   "description": "Routes Claude and Codex API traffic across provider account pools.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.102"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.102"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Account Pooler [Experimental]",
     "description": "Routes Claude and Codex API traffic across provider account pools.",
     "branding": {
@@ -21,7 +21,7 @@
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
     "test": "vitest run --config vitest.config.ts",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",

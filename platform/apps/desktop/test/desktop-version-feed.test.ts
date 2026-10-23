@@ -22,7 +22,7 @@ describe("desktop release compatibility metadata", () => {
   ])(
     "publishes the OS requirement for $platform $channel without losing update fields",
     async ({ platform, channel, suffix, minimum }) => {
-      const root = await mkdtemp(join(tmpdir(), "bb-version-feed-test-"));
+      const root = await mkdtemp(join(tmpdir(), "hyperfide-version-feed-test-"));
       try {
         const release = join(root, "release");
         await mkdir(release);
@@ -30,9 +30,9 @@ describe("desktop release compatibility metadata", () => {
         const metadata = {
           version: "0.43.1",
           files: [
-            { url: "bb.zip", sha512: "checksum", size: 123, blockMapSize: 42 },
+            { url: "hyperfide.zip", sha512: "checksum", size: 123, blockMapSize: 42 },
           ],
-          path: "bb.zip",
+          path: "hyperfide.zip",
           sha512: "checksum",
           releaseDate: "2026-09-15T00:00:00.000Z",
           stagingPercentage: 25,
@@ -72,7 +72,7 @@ describe("desktop release compatibility metadata", () => {
         expect(feed).toMatchObject({
           channel,
           minimumSystemVersion: minimum,
-          files: [{ url: "bb.zip", sha512: "checksum", size: 123 }],
+          files: [{ url: "hyperfide.zip", sha512: "checksum", size: 123 }],
           version: metadata.version,
         });
         if (platform === "darwin") {

@@ -11,7 +11,7 @@ const SIDEBAR_ROUTES: ReadonlySet<string> = new Set([BOT_STUDIO]);
 
 function memoryAfterVisiting(paths: readonly [string, ...string[]]) {
   const routes = paths.map((path) => {
-    const url = new URL(path, "https://bb.test");
+    const url = new URL(path, "https://hyperfide.test");
     return classifyAppSettingsRoute(url, SIDEBAR_ROUTES.has(url.pathname));
   });
   let state = createAppSettingsRouteMemory(routes[0]);
@@ -80,7 +80,7 @@ describe("app/settings route memory", () => {
   });
 
   it("never returns a plugin page to itself when its sidebar registers after the first visit", () => {
-    const url = new URL(BOT_STUDIO, "https://bb.test");
+    const url = new URL(BOT_STUDIO, "https://hyperfide.test");
     const before = classifyAppSettingsRoute(url, false);
     const after = classifyAppSettingsRoute(url, true);
     const state = advanceAppSettingsRouteMemory(

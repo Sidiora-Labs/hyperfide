@@ -15,7 +15,7 @@ import {
 const WRITE_DEBOUNCE_MS = 150;
 
 export function preferencesMirrorStorageKey(pluginId: string): string {
-  return `bb.${pluginId}.preferences.v1`;
+  return `hyperfide.${pluginId}.preferences.v1`;
 }
 
 export interface PreferencesRpc {

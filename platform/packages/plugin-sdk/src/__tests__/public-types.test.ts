@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type {
-  BbPluginApi,
+  HyperfidePluginApi,
   JsonValue,
   PluginAgentConfigurationContext,
   PluginEnvironmentProviderDeclaration,
@@ -15,7 +15,7 @@ import type {
   PluginProviderIconRegistration,
 } from "../app-contract.js";
 
-type ExpectedBbPluginApiKey =
+type ExpectedHyperfidePluginApiKey =
   | "agents"
   | "background"
   | "cli"
@@ -42,7 +42,7 @@ type ExpectedBbPluginApiKey =
   | "ui";
 
 const EXPECTED_BACKEND_ROOT_TYPE_EXPORTS = [
-  "BbPluginApi",
+  "HyperfidePluginApi",
   "MessageDispatchHookContext",
   "MessageDispatchHookDecision",
   "PluginAgents",
@@ -61,7 +61,7 @@ const EXPECTED_BACKEND_ROOT_TYPE_EXPORTS = [
   "PluginAgentToolResult",
   "PluginAgentToolSelection",
   "PluginBackground",
-  "PluginBbSdk",
+  "PluginHyperfideSdk",
   "PluginCli",
   "PluginCliCommandInfo",
   "PluginCliContext",
@@ -248,8 +248,8 @@ function rootExportNames(
 }
 
 describe("backend plugin SDK public surface", () => {
-  it("snapshots every BbPluginApi root member", () => {
-    expectTypeOf<keyof BbPluginApi>().toEqualTypeOf<ExpectedBbPluginApiKey>();
+  it("snapshots every HyperfidePluginApi root member", () => {
+    expectTypeOf<keyof HyperfidePluginApi>().toEqualTypeOf<ExpectedHyperfidePluginApiKey>();
   });
 
   it("types configure plugin metadata as deep-readonly JSON", () => {
@@ -278,7 +278,7 @@ describe("backend plugin SDK public surface", () => {
     const [backendContract, declarations] = await Promise.all([
       readFile(new URL("../backend-contract.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/bb-plugin-sdk.d.ts", import.meta.url),
+        new URL("../../bundled-types/hyperfide-plugin-sdk.d.ts", import.meta.url),
         "utf8",
       ),
     ]);
@@ -317,7 +317,7 @@ describe("backend plugin SDK public surface", () => {
     const [rpcContract, declarations] = await Promise.all([
       readFile(new URL("../rpc-contract.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/bb-plugin-sdk.d.ts", import.meta.url),
+        new URL("../../bundled-types/hyperfide-plugin-sdk.d.ts", import.meta.url),
         "utf8",
       ),
     ]);
@@ -346,7 +346,7 @@ describe("backend plugin SDK public surface", () => {
     const [cliSpec, declarations] = await Promise.all([
       readFile(new URL("../cli-spec.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/bb-plugin-sdk.d.ts", import.meta.url),
+        new URL("../../bundled-types/hyperfide-plugin-sdk.d.ts", import.meta.url),
         "utf8",
       ),
     ]);
@@ -379,7 +379,7 @@ describe("backend plugin SDK public surface", () => {
     const [hostContract, declarations] = await Promise.all([
       readFile(new URL("../host-contract.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/bb-plugin-sdk.d.ts", import.meta.url),
+        new URL("../../bundled-types/hyperfide-plugin-sdk.d.ts", import.meta.url),
         "utf8",
       ),
     ]);

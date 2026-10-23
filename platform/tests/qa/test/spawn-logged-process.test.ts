@@ -254,10 +254,10 @@ describe("spawnLoggedProcess", () => {
     expect(spawnMockState.invocations[0]?.options.detached).toBe(true);
   });
 
-  it("keeps standalone server runtime env isolated from inherited bb and ambient OpenAI env", async () => {
-    vi.stubEnv("BB_APP_URL", "https://inherited-app.example.test");
-    vi.stubEnv("BB_DATA_DIR", "/Users/example/.bb-dev");
-    vi.stubEnv("BB_SERVER_PORT", "3334");
+  it("keeps standalone server runtime env isolated from inherited hyperfide and ambient OpenAI env", async () => {
+    vi.stubEnv("HYPERFIDE_APP_URL", "https://inherited-app.example.test");
+    vi.stubEnv("HYPERFIDE_DATA_DIR", "/Users/example/.hyperfide-dev");
+    vi.stubEnv("HYPERFIDE_SERVER_PORT", "3334");
     vi.stubEnv("OPENAI_API_KEY", "ambient-openai-key");
     vi.stubGlobal(
       "fetch",
@@ -271,8 +271,8 @@ describe("spawnLoggedProcess", () => {
       env: buildStandaloneRuntimeEnv({
         baseEnv: process.env,
         overrides: {
-          BB_DATA_DIR: "/tmp/leaked-data-dir",
-          BB_SERVER_PORT: "9999",
+          HYPERFIDE_DATA_DIR: "/tmp/leaked-data-dir",
+          HYPERFIDE_SERVER_PORT: "9999",
         },
       }),
       logPath: path.join(tempDir, "standalone-server.log"),
@@ -280,17 +280,17 @@ describe("spawnLoggedProcess", () => {
     });
 
     expect(spawnMockState.invocations[0]?.options.env).toMatchObject({
-      BB_DATA_DIR: "/tmp/standalone-server-data",
-      BB_SERVER_PORT: "4567",
+      HYPERFIDE_DATA_DIR: "/tmp/standalone-server-data",
+      HYPERFIDE_SERVER_PORT: "4567",
     });
     expect(
       spawnMockState.invocations[0]?.options.env?.OPENAI_API_KEY,
     ).toBeUndefined();
     expect(
-      spawnMockState.invocations[0]?.options.env?.BB_APP_URL,
+      spawnMockState.invocations[0]?.options.env?.HYPERFIDE_APP_URL,
     ).toBeUndefined();
     expect(
-      spawnMockState.invocations[0]?.options.env?.BB_EXTERNAL_URL,
+      spawnMockState.invocations[0]?.options.env?.HYPERFIDE_EXTERNAL_URL,
     ).toBeUndefined();
   });
 
@@ -302,7 +302,7 @@ describe("spawnLoggedProcess", () => {
         capturedBody = typeof init?.body === "string" ? init.body : null;
         return new Response(
           JSON.stringify({
-            enrollKey: "bbde_standalone",
+            enrollKey: "hyperfide_de_standalone",
             expiresAt: Date.now() + 60_000,
             hostId: "host_standalone",
           }),
@@ -319,7 +319,7 @@ describe("spawnLoggedProcess", () => {
     await expect(
       createHostEnrollKey("http://127.0.0.1:4567"),
     ).resolves.toMatchObject({
-      enrollKey: "bbde_standalone",
+      enrollKey: "hyperfide_de_standalone",
       hostId: "host_standalone",
     });
     expect(capturedBody).toBe(JSON.stringify({}));
@@ -361,7 +361,7 @@ describe("cleanupStandaloneOrphans", () => {
   it("skips a standalone root whose parent process exists but is not signalable", async () => {
     const tmpDir = useIsolatedStandaloneTmpDir();
     const tmpRoot = createStandaloneRoot({
-      name: "bb-standalone-unowned",
+      name: "hyperfide-standalone-unowned",
       state: {
         daemon: { pid: 1111 },
         parentPid: 1,
@@ -393,7 +393,7 @@ describe("cleanupStandaloneOrphans", () => {
   it("removes stale standalone roots whose parent process is gone", async () => {
     const tmpDir = useIsolatedStandaloneTmpDir();
     const tmpRoot = createStandaloneRoot({
-      name: "bb-standalone-owned-stale",
+      name: "hyperfide-standalone-owned-stale",
       state: {
         daemon: { pid: 1111 },
         parentPid: 4242,
@@ -428,7 +428,7 @@ describe("cleanupStandaloneOrphans", () => {
     const restartPidPath = path.join(tmpDir, "daemon-restart.pid");
     writeFileSync(restartPidPath, "3333\n", "utf8");
     const tmpRoot = createStandaloneRoot({
-      name: "bb-standalone-restarted-stale",
+      name: "hyperfide-standalone-restarted-stale",
       state: {
         daemon: { pid: 1111 },
         parentPid: 4242,

@@ -13,7 +13,7 @@ vi.mock("../src/git.js", async (importOriginal) => {
 afterEach(() => vi.clearAllMocks());
 
 it("reuses committed comparisons across readers while refreshing edits and moved refs", async () => {
-  const repo = await initRepo(await makeTempDir("bb-status-cache-"));
+  const repo = await initRepo(await makeTempDir("hyperfide-status-cache-"));
   await runGit(["checkout", "-b", "feature"], { cwd: repo });
   await fs.writeFile(path.join(repo, "feature.txt"), "feature\n");
   await fs.writeFile(path.join(repo, "other.txt"), "other\n");
@@ -64,7 +64,7 @@ it("reuses committed comparisons across readers while refreshing edits and moved
 });
 
 it("returns degraded comparisons on Git failures without caching them", async () => {
-  const repo = await initRepo(await makeTempDir("bb-status-cache-failure-"));
+  const repo = await initRepo(await makeTempDir("hyperfide-status-cache-failure-"));
   await runGit(["checkout", "-b", "feature"], { cwd: repo });
   await fs.writeFile(path.join(repo, "feature.txt"), "feature\n");
   await runGit(["add", "."], { cwd: repo });
@@ -109,7 +109,7 @@ async function createDivergedRepo({
   basePath = "main.txt",
   baseText = "main\n",
 } = {}) {
-  const repo = await initRepo(await makeTempDir("bb-squash-budget-"));
+  const repo = await initRepo(await makeTempDir("hyperfide-squash-budget-"));
   await runGit(["checkout", "-b", "feature"], { cwd: repo });
   await fs.writeFile(path.join(repo, featurePath), featureText);
   await runGit(["add", "."], { cwd: repo });
@@ -383,7 +383,7 @@ it("finishes a timed-out squash check on the next refresh without rehashing comm
 }, 15_000);
 
 it("excludes cherry-picked commits on both sides but keeps same-file changes", async () => {
-  const repo = await initRepo(await makeTempDir("bb-status-cherry-pick-"));
+  const repo = await initRepo(await makeTempDir("hyperfide-status-cherry-pick-"));
   await runGit(["checkout", "-b", "feature"], { cwd: repo });
   await fs.writeFile(path.join(repo, "picked.txt"), "picked\n");
   await runGit(["add", "."], { cwd: repo });
@@ -412,7 +412,7 @@ it("excludes cherry-picked commits on both sides but keeps same-file changes", a
 });
 
 it("keeps renamed files compact when comparing squash patches", async () => {
-  const repo = await initRepo(await makeTempDir("bb-status-squash-rename-"));
+  const repo = await initRepo(await makeTempDir("hyperfide-status-squash-rename-"));
   const lines = Array.from({ length: 600_000 }, (_, i) => `line ${i}`);
   await fs.writeFile(path.join(repo, "big.txt"), `${lines.join("\n")}\n`);
   await runGit(["add", "."], { cwd: repo });

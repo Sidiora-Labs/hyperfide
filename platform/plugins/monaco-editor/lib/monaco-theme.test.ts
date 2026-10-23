@@ -11,7 +11,7 @@ function theme(
   overrides: Partial<PluginCodeThemeData> = {},
 ): PluginCodeThemeData {
   return {
-    name: "bb:nord:light:1f4c9a2b",
+    name: "hyperfide:nord:light:1f4c9a2b",
     type: "light",
     fg: "#2e3440",
     bg: "#eceff4",
@@ -24,16 +24,16 @@ function theme(
 const MONACO_THEME_NAME = /^[a-zA-Z0-9-]+$/;
 
 describe("monacoThemeName", () => {
-  it("maps BB's namespaced, fingerprinted names into what Monaco accepts", () => {
-    expect(monacoThemeName("bb:nord:light:1f4c9a2b")).toMatch(
+  it("maps HYPERFIDE's namespaced, fingerprinted names into what Monaco accepts", () => {
+    expect(monacoThemeName("hyperfide:nord:light:1f4c9a2b")).toMatch(
       MONACO_THEME_NAME,
     );
     expect(monacoThemeName("catppuccin-mocha")).toMatch(MONACO_THEME_NAME);
   });
 
   it("keeps distinct theme names distinct", () => {
-    expect(monacoThemeName("bb:nord:light")).not.toBe(
-      monacoThemeName("bb:nord:dark"),
+    expect(monacoThemeName("hyperfide:nord:light")).not.toBe(
+      monacoThemeName("hyperfide:nord:dark"),
     );
   });
 });

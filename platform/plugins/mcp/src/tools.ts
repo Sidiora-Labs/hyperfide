@@ -22,17 +22,17 @@ const NO_KNOWN_PATHS: ReadonlySet<string> = new Set();
 
 export const SANDBOX_PRELUDE = `
 (() => {
-  const call = async (name, args) => JSON.parse(await __bbHost(name, JSON.stringify(args)));
+  const call = async (name, args) => JSON.parse(await __hyperfideHost(name, JSON.stringify(args)));
   const format = (value) => {
     if (typeof value === "string") return value;
     try { return JSON.stringify(value); } catch { return String(value); }
   };
-  const log = (...values) => { __bbLog(values.map(format).join(" ")); };
+  const log = (...values) => { __hyperfideLog(values.map(format).join(" ")); };
   const cli = (argv, options) => call("cli", [argv, options === undefined ? {} : options]);
   const json = async (argv, options) => {
     const result = await cli([...argv, "--json"], options);
     if (result.json === undefined) {
-      throw new Error((result.stderr || result.stdout || "bb exited with " + result.exitCode).trim());
+      throw new Error((result.stderr || result.stdout || "hyperfide exited with " + result.exitCode).trim());
     }
     if (result.exitCode !== 0) {
       const error = result.json && result.json.error;
@@ -42,7 +42,7 @@ export const SANDBOX_PRELUDE = `
     return result.json;
   };
   const sleep = (ms) => call("sleep", [ms]);
-  Object.defineProperty(globalThis, "bb", {
+  Object.defineProperty(globalThis, "hyperfide", {
     value: Object.freeze({ cli, json, sleep }),
     writable: false,
     configurable: false,
@@ -85,18 +85,18 @@ function parseCliArguments(args: readonly JsonValue[]): {
     !argv.every((entry): entry is string => typeof entry === "string")
   ) {
     throw new Error(
-      "bb.cli expects an array of strings, e.g. bb.cli(['thread', 'list', '--json']).",
+      "hyperfide.cli expects an array of strings, e.g. hyperfide.cli(['thread', 'list', '--json']).",
     );
   }
   let stdin: string | null = null;
   if (options !== undefined && options !== null) {
     if (typeof options !== "object" || Array.isArray(options)) {
-      throw new Error("bb.cli options must be an object.");
+      throw new Error("hyperfide.cli options must be an object.");
     }
     const value = options.stdin;
     if (value !== undefined && value !== null) {
       if (typeof value !== "string") {
-        throw new Error("bb.cli options.stdin must be a string.");
+        throw new Error("hyperfide.cli options.stdin must be a string.");
       }
       stdin = value;
     }
@@ -221,11 +221,11 @@ export async function runSearchTool(
         {
           commands,
           more: [
-            "Full options for one command: bb.cli([...path, '--help']).",
-            "Every command in a group on one page: bb.cli(['guide', 'commands', '<group>']).",
-            "Concepts and workflows: bb.cli(['guide']) lists the chapters; bb.cli(['guide', '<chapter>']) prints one.",
-            "JSON output shapes: bb.cli(['guide', 'json']).",
-            "Commands added by plugins are not in this index: bb.cli(['plugin', 'list', '--json']) lists plugins, and `bb <plugin-command> --help` (run tool) shows a plugin's commands.",
+            "Full options for one command: hyperfide.cli([...path, '--help']).",
+            "Every command in a group on one page: hyperfide.cli(['guide', 'commands', '<group>']).",
+            "Concepts and workflows: hyperfide.cli(['guide']) lists the chapters; hyperfide.cli(['guide', '<chapter>']) prints one.",
+            "JSON output shapes: hyperfide.cli(['guide', 'json']).",
+            "Commands added by plugins are not in this index: hyperfide.cli(['plugin', 'list', '--json']) lists plugins, and `hyperfide <plugin-command> --help` (run tool) shows a plugin's commands.",
           ],
         },
         null,

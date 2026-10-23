@@ -41,11 +41,11 @@ export function createDesktopUpdateChannel(
     const parsed = desktopAppUpdateMessageSchema.safeParse(raw);
     if (!parsed.success) return;
     const message = parsed.data;
-    if (message.channel === "bb-desktop-update/disconnected") {
+    if (message.channel === "hyperfide-desktop-update/disconnected") {
       disconnect();
       return;
     }
-    if (message.channel === "bb-desktop-update/status") {
+    if (message.channel === "hyperfide-desktop-update/status") {
       for (const listener of listeners) listener(message.info);
       return;
     }
@@ -85,7 +85,7 @@ export function createDesktopUpdateChannel(
         };
         try {
           send(
-            { channel: "bb-desktop-update/request", requestId, action },
+            { channel: "hyperfide-desktop-update/request", requestId, action },
             fail,
           );
         } catch (error) {

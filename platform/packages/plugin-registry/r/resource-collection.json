@@ -3,7 +3,7 @@
   "name": "resource-collection",
   "type": "registry:ui",
   "title": "resource-collection",
-  "description": "BB ui \"resource-collection\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"resource-collection\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/button",
     "@hyperfide/expandable-text",

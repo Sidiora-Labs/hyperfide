@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { CliUsageError } from "./cli-usage-error.js";
 
 export const TEXT_FILE_HELP_SUFFIX =
-  "use - to read stdin. Prefer this for multi-line text: inside double quotes the shell runs `backticks` and $(...) before bb sees them";
+  "use - to read stdin. Prefer this for multi-line text: inside double quotes the shell runs `backticks` and $(...) before hyperfide sees them";
 
 export interface ResolveTextInputArgs {
   file: string | undefined;
@@ -35,7 +35,7 @@ export async function resolveTextInput(
   if (args.file === "-" && stdin.isTTY) {
     throw new CliUsageError({
       code: "invalid_value",
-      hint: `Pipe the text in, for example: cat prompt.md | bb ... ${args.fileLabel} -`,
+      hint: `Pipe the text in, for example: cat prompt.md | hyperfide ... ${args.fileLabel} -`,
       message: `${args.fileLabel} - reads stdin, but stdin is a terminal.`,
     });
   }

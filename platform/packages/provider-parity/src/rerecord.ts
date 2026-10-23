@@ -24,8 +24,8 @@ const REDACT_SCRIPT = resolve(
 );
 
 function redactInPlace(file: string): void {
-  const inDir = mkdtempSync(join(tmpdir(), "bb-rerecord-redact-in-"));
-  const outDir = mkdtempSync(join(tmpdir(), "bb-rerecord-redact-out-"));
+  const inDir = mkdtempSync(join(tmpdir(), "hyperfide-rerecord-redact-in-"));
+  const outDir = mkdtempSync(join(tmpdir(), "hyperfide-rerecord-redact-out-"));
   try {
     const staged = join(inDir, basename(file));
     writeFileSync(staged, readFileSync(file));

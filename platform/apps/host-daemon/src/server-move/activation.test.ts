@@ -28,7 +28,7 @@ import {
 registerServerMoveFixtureCleanup();
 
 const DAEMON_ONLY_EXEC_START =
-  '"/usr/bin/node" "/opt/npm/bin/bb-app" host-daemon --auto-update --host-daemon-port "38887" --server-url "http://old-server:38886"';
+  '"/usr/bin/node" "/opt/npm/bin/hyperfide-app" host-daemon --auto-update --host-daemon-port "38887" --server-url "http://old-server:38886"';
 
 async function prepareMove(
   fixture: Fixture,
@@ -37,9 +37,9 @@ async function prepareMove(
   await writeFile(
     join(fixture.dataDir, "config.json"),
     JSON.stringify({
-      serverUrl: "https://bb.example.test",
-      serverHeaders: { "x-bb-connect-machine": "bbcm_target" },
-      machineCredential: "bbcm_target",
+      serverUrl: "https://hyperfide.example.test",
+      serverHeaders: { "x-hyperfide-connect-machine": "hyperfide_cm_target" },
+      machineCredential: "hyperfide_cm_target",
     }),
   );
   const command = await prepareCommand(fixture, overrides);
@@ -64,7 +64,7 @@ async function expectMarkersRemoved(fixture: Fixture): Promise<void> {
 describe("server_move.activate pre-validation", () => {
   it.each([
     {
-      name: "the service definition cannot run bb-app start",
+      name: "the service definition cannot run hyperfide-app start",
       setup: async (fixture: Fixture) => {
         await writeSystemdUnit({
           homeDir: fixture.homeDir,
@@ -73,7 +73,7 @@ describe("server_move.activate pre-validation", () => {
         });
       },
       fixtureArgs: { env: {} },
-      message: "to run the bb server",
+      message: "to run the hyperfide-platform server",
     },
     {
       name: "the host daemon port is unknown",
@@ -82,12 +82,12 @@ describe("server_move.activate pre-validation", () => {
       message: "host daemon port is unknown",
     },
     {
-      name: "the bb server package is missing",
+      name: "the hyperfide-platform server package is missing",
       setup: async (fixture: Fixture) => {
         await rm(join(fixture.packageRoot, "server", "dist", "index.js"));
       },
       fixtureArgs: {},
-      message: "does not include the bb server",
+      message: "does not include the hyperfide-platform server",
     },
     {
       name: "an unrecognized supervisor runs the daemon",
@@ -219,13 +219,13 @@ describe("server_move.activate sequencing", () => {
         "--user",
         "restart",
         "--no-block",
-        "bb-host-daemon-old-server-studio.service",
+        "hyperfide-host-daemon-old-server-studio.service",
       ],
     ]);
     expect(atDaemonReload).toEqual([
       {
         unit: expect.stringContaining(
-          `ExecStart="/usr/bin/node" "/opt/npm/bin/bb-app" "start" "--data-dir" "${fixture.dataDir.replaceAll("\\", "\\\\")}" "--server-port" "${command.serverPort}" "--host-daemon-port" "38887"`,
+          `ExecStart="/usr/bin/node" "/opt/npm/bin/hyperfide-app" "start" "--data-dir" "${fixture.dataDir.replaceAll("\\", "\\\\")}" "--server-port" "${command.serverPort}" "--host-daemon-port" "38887"`,
         ),
         importExists: false,
         stateExists: true,
@@ -236,11 +236,11 @@ describe("server_move.activate sequencing", () => {
       config: { HYPERFIDE_LOG_LEVEL: "info" },
       serverUrl: `http://127.0.0.1:${command.serverPort}`,
     });
-    expect(await exists(join(fixture.dataDir, "bb.db"))).toBe(true);
+    expect(await exists(join(fixture.dataDir, "hyperfide.db"))).toBe(true);
     expect(fixture.shutdownRequests).toEqual([]);
   });
 
-  it("starts bb-app start through the npm prefix launcher when no service manager runs the daemon", async () => {
+  it("starts hyperfide-app start through the npm prefix launcher when no service manager runs the daemon", async () => {
     const fixture = await createFixture();
     const service = fixture.createService({
       env: {
@@ -264,7 +264,7 @@ describe("server_move.activate sequencing", () => {
       {
         command: process.execPath,
         args: [
-          join(fixture.npmPrefix, "bin", "bb-app"),
+          join(fixture.npmPrefix, "bin", "hyperfide-app"),
           "start",
           "--data-dir",
           fixture.dataDir,
@@ -289,7 +289,7 @@ describe("server_move.activate sequencing", () => {
     await expectMarkersRemoved(fixture);
   });
 
-  it("removes a bb connect hold so the moved server starts bb connect", async () => {
+  it("removes a hyperfide-platform connect hold so the moved server starts hyperfide-platform connect", async () => {
     const fixture = await createFixture();
     const service = fixture.createService({
       env: {
@@ -351,7 +351,7 @@ describe("server_move.activate sequencing", () => {
     const unitPath = await writeSystemdUnit({
       homeDir: fixture.homeDir,
       dataDir: fixture.dataDir,
-      execStart: `"/usr/bin/node" "/opt/npm/bin/bb-app" "start" "--data-dir" "${fixture.dataDir}" "--server-port" "38886" "--host-daemon-port" "38887"`,
+      execStart: `"/usr/bin/node" "/opt/npm/bin/hyperfide-app" "start" "--data-dir" "${fixture.dataDir}" "--server-port" "38886" "--host-daemon-port" "38887"`,
     });
     const unit = await readFile(unitPath, "utf8");
     const command = await prepareCommand(fixture);
@@ -374,7 +374,7 @@ describe("server_move.activate sequencing", () => {
       false,
     );
     await expectMarkersRemoved(fixture);
-    expect(await exists(join(fixture.dataDir, "bb.db"))).toBe(true);
+    expect(await exists(join(fixture.dataDir, "hyperfide.db"))).toBe(true);
     expect(await readFile(unitPath, "utf8")).toBe(unit);
     expect(fixture.commands).toEqual([]);
     expect(fixture.detachedRequests).toEqual([]);
@@ -444,7 +444,7 @@ describe("activation resume", () => {
       activationToken: "activation-token-0123456789",
       serverPort,
       bindHost: null,
-      importedEntries: ["bb.db"],
+      importedEntries: ["hyperfide.db"],
       archivedServerData: null,
       pendingServer: { pid: 999_998, localServerUrl: "http://127.0.0.1:1" },
       preparedAt: 1,
@@ -472,7 +472,7 @@ describe("server move redirects during a move", () => {
 
     await fixture.service.handleServerMoved({
       source: "session-open",
-      serverUrl: "https://bb.example.test/",
+      serverUrl: "https://hyperfide.example.test/",
       headers: null,
       toHostName: "studio",
       movedAt: 1_700_000_200_000,
@@ -517,7 +517,7 @@ describe("server move redirects during a move", () => {
     });
     await fixture.service.handleServerMoved({
       source: "message",
-      serverUrl: "https://bb.example.test",
+      serverUrl: "https://hyperfide.example.test",
       headers: {},
     });
 
@@ -590,7 +590,7 @@ describe("server move redirects during a move", () => {
 
     await fixture.service.handleServerMoved({
       source: "session-open",
-      serverUrl: "https://bb.example.test",
+      serverUrl: "https://hyperfide.example.test",
       headers: null,
       toHostName: "studio",
       movedAt: 1_700_000_200_000,

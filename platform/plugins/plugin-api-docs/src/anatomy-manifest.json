@@ -132,7 +132,7 @@
         {
           "path": "apps/app/src/components/plugin/PluginAppOverlays.tsx",
           "anchors": [
-            "data-bb-plugin-app-overlays=\"\"",
+            "data-hyperfide-plugin-app-overlays=\"\"",
             "slotKind=\"appOverlay\"",
             "crashFallback={null}"
           ]
@@ -241,7 +241,7 @@
           "path": "apps/app/src/components/tools/PluginDetail.tsx",
           "anchors": [
             "label=\"Details\"",
-            "label={updatesWithBb ? \"Delivery\" : \"Installed\"}",
+            "label={updatesWithHyperfide ? \"Delivery\" : \"Installed\"}",
             "<PluginIncludes plugin={plugin} configurationPath={configurationPath} />"
           ]
         }

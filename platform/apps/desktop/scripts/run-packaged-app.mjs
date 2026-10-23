@@ -17,14 +17,14 @@ const releaseConfig = createDesktopReleaseConfig(
 function createElectronAppEnv(env) {
   const childEnv = {
     ...env,
-    BB_DESKTOP_OPEN_DEVTOOLS: env.BB_DESKTOP_OPEN_DEVTOOLS ?? "1",
+    HYPERFIDE_DESKTOP_OPEN_DEVTOOLS: env.HYPERFIDE_DESKTOP_OPEN_DEVTOOLS ?? "1",
   };
   delete childEnv.ELECTRON_RUN_AS_NODE;
   return childEnv;
 }
 
 function createLaunchArguments(env) {
-  const userDataDir = env.BB_DESKTOP_USER_DATA_DIR?.trim();
+  const userDataDir = env.HYPERFIDE_DESKTOP_USER_DATA_DIR?.trim();
   if (userDataDir === undefined || userDataDir.length === 0) {
     return [];
   }

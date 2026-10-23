@@ -1,4 +1,4 @@
-import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopInfo } from "@hyperfide/desktop-contract";
 
 export function getDesktopVersion(version: string | undefined): string {
   if (version === undefined || version.length === 0) {
@@ -7,9 +7,9 @@ export function getDesktopVersion(version: string | undefined): string {
   return version;
 }
 
-export function resolveBbDesktopPlatform(
+export function resolveHyperfideDesktopPlatform(
   platform: NodeJS.Platform,
-): BbDesktopInfo["platform"] {
+): HyperfideDesktopInfo["platform"] {
   if (platform === "darwin") {
     return "macos";
   }

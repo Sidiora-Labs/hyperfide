@@ -16,7 +16,7 @@ export async function makeTempDir(prefix: string): Promise<string> {
 export async function installFakeGh(
   responses: Record<string, FakeGhResponse>,
 ): Promise<{ readCalls(): Promise<string[][]> }> {
-  const binPath = await makeTempDir("bb-fake-gh-");
+  const binPath = await makeTempDir("hyperfide-fake-gh-");
   const logPath = path.join(binPath, "gh.log");
   const scriptPath = path.join(binPath, "gh.cjs");
   await fs.writeFile(

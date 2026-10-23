@@ -201,7 +201,7 @@ export async function runSandboxedScript(
   );
 
   const memoryStopReason = `The script ran out of memory and was stopped. A script has ${Math.floor(limits.memoryLimitBytes / (1024 * 1024))} MB of memory; keep less data at once.`;
-  const cpuStopReason = `The script computed for too long and was stopped. A script may compute for ${limits.synchronousDeadlineMs} ms at a stretch and ${Math.round(limits.cpuBudgetMs / 1000)} seconds in total; waiting on bb calls does not count.`;
+  const cpuStopReason = `The script computed for too long and was stopped. A script may compute for ${limits.synchronousDeadlineMs} ms at a stretch and ${Math.round(limits.cpuBudgetMs / 1000)} seconds in total; waiting on hyperfide calls does not count.`;
   let synchronousDeadline = Number.POSITIVE_INFINITY;
   let cpuSpentMs = 0;
   const enterVm = <T>(run: () => T): T => {
@@ -327,7 +327,7 @@ export async function runSandboxedScript(
 
   try {
     const hostFunction = vm.newFunction(
-      "__bbHost",
+      "__hyperfideHost",
       (nameHandle, argsHandle) => {
         if (memory.exhausted) return vm.undefined;
         if (closed || controller.signal.aborted) {
@@ -343,7 +343,7 @@ export async function runSandboxedScript(
         hostCalls += 1;
         if (hostCalls > limits.maxHostCalls) {
           return rejectImmediately(
-            `A script may make at most ${limits.maxHostCalls} bb calls.`,
+            `A script may make at most ${limits.maxHostCalls} hyperfide calls.`,
           );
         }
         let parsed: JsonValue;
@@ -379,14 +379,14 @@ export async function runSandboxedScript(
         return call.deferred.handle;
       },
     );
-    vm.setProp(vm.global, "__bbHost", hostFunction);
+    vm.setProp(vm.global, "__hyperfideHost", hostFunction);
     hostFunction.dispose();
 
-    const logFunction = vm.newFunction("__bbLog", (lineHandle) => {
+    const logFunction = vm.newFunction("__hyperfideLog", (lineHandle) => {
       appendLog(vm.getString(lineHandle));
       return vm.undefined;
     });
-    vm.setProp(vm.global, "__bbLog", logFunction);
+    vm.setProp(vm.global, "__hyperfideLog", logFunction);
     logFunction.dispose();
 
     let finish: (outcome: { kind: string; text: string }) => void = () => {};
@@ -394,7 +394,7 @@ export async function runSandboxedScript(
       finish = resolve;
     });
     const doneFunction = vm.newFunction(
-      "__bbDone",
+      "__hyperfideDone",
       (kindHandle, textHandle) => {
         finish({
           kind: vm.getString(kindHandle),
@@ -403,7 +403,7 @@ export async function runSandboxedScript(
         return vm.undefined;
       },
     );
-    vm.setProp(vm.global, "__bbDone", doneFunction);
+    vm.setProp(vm.global, "__hyperfideDone", doneFunction);
     doneFunction.dispose();
 
     vm.unwrapResult(vm.evalCode(HARDENING_SOURCE)).dispose();
@@ -411,7 +411,7 @@ export async function runSandboxedScript(
     const evaluated = enterVm(() =>
       vm.evalCode(
         `(() => {\n` +
-          `const __done = __bbDone;\n` +
+          `const __done = __hyperfideDone;\n` +
           `const __describe = (error) => {\n` +
           `  if (error && typeof error === "object" && typeof error.message === "string") {\n` +
           `    return typeof error.name === "string" && error.name !== "Error" ? error.name + ": " + error.message : error.message;\n` +

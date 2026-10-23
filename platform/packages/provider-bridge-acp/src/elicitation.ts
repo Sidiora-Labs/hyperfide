@@ -259,7 +259,7 @@ export function planAcpElicitation(params: unknown): AcpElicitationPlan {
   if (mode !== "form") {
     return {
       kind: "unsupported",
-      reason: `bb does not offer the "${mode ?? "unknown"}" elicitation mode`,
+      reason: `hyperfide does not offer the "${mode ?? "unknown"}" elicitation mode`,
     };
   }
   const message = readString(params, "message")?.trim() || undefined;
@@ -272,7 +272,7 @@ export function planAcpElicitation(params: unknown): AcpElicitationPlan {
   if (entries.length > USER_QUESTION_MAX_QUESTIONS) {
     return {
       kind: "unsupported",
-      reason: `the form has ${entries.length} fields and bb shows at most ${USER_QUESTION_MAX_QUESTIONS}`,
+      reason: `the form has ${entries.length} fields and hyperfide shows at most ${USER_QUESTION_MAX_QUESTIONS}`,
     };
   }
 
@@ -282,7 +282,7 @@ export function planAcpElicitation(params: unknown): AcpElicitationPlan {
     if (name.trim() === "" || !isJsonObject(fieldSchema) || !field) {
       return {
         kind: "unsupported",
-        reason: `bb cannot show the field "${name}"`,
+        reason: `hyperfide cannot show the field "${name}"`,
       };
     }
     planned.push({

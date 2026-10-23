@@ -37,8 +37,8 @@ function event(nativeEvent: FileDownload) {
   return { nativeEvent };
 }
 
-const first = "file:///cache/bb-webkit-downloads/first/notes.zip";
-const second = "file:///cache/bb-webkit-downloads/second/notes.zip";
+const first = "file:///cache/hyperfide-webkit-downloads/first/notes.zip";
+const second = "file:///cache/hyperfide-webkit-downloads/second/notes.zip";
 
 beforeEach(() => {
   vi.clearAllMocks();

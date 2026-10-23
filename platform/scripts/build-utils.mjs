@@ -65,7 +65,7 @@ export async function copyDirectory({ from, to }) {
  *
  * esbuild's split mode writes `<entryNames>.js` into `outdir`. The entry
  * keeps `outfile`'s directory and name; an extensionless `outfile` (the
- * packaged `bb` executable) is renamed into place by
+ * packaged `hyperfide` executable) is renamed into place by
  * {@link finalizeSplitOutput}, which is safe because chunks are imported by
  * a relative path from the same directory. Chunks go under a sibling
  * directory so packaging can list it next to the entry.
@@ -109,7 +109,7 @@ const RELATIVE_JS_SPECIFIER = /["'](\.\.?\/[^"']+\.js)["']/g;
  * clearing it, so build A -> build B -> cache-hit restore of A leaves both
  * generations' content-hashed chunks side by side. The entry only references
  * its own hashes, so the extra files are dead weight, but packaging copies
- * the directory wholesale. bb-app prunes that copy during its build.
+ * the directory wholesale. hyperfide-app prunes that copy during its build.
  *
  * Refuses (throws) when the entry reaches no chunk at all. Reachability is a
  * regex over quoted `./x.js` specifiers, so a chunk layout it does not

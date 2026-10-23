@@ -13,8 +13,8 @@ import type {
   AcpWorkError,
 } from "./session-types.js";
 
-export const ACP_LEGACY_MODE_CONFIG_ID = "_bb/legacy-mode";
-export const ACP_LEGACY_MODEL_CONFIG_ID = "_bb/legacy-model";
+export const ACP_LEGACY_MODE_CONFIG_ID = "_hyperfide/legacy-mode";
+export const ACP_LEGACY_MODEL_CONFIG_ID = "_hyperfide/legacy-model";
 
 export function isJsonObject(value: unknown): value is AcpJsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);

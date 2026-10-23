@@ -1,14 +1,14 @@
 import {
   HYPERFIDE_DESKTOP_MAX_ZOOM_PERCENT,
   HYPERFIDE_DESKTOP_MIN_ZOOM_PERCENT,
-  type BbDesktopZoomCommand,
+  type HyperfideDesktopZoomCommand,
 } from "@hyperfide/desktop-contract";
 
 const ZOOM_STEP_PERCENT = 10;
 
 export function nextZoomFactor(
   zoomFactor: number,
-  command: BbDesktopZoomCommand,
+  command: HyperfideDesktopZoomCommand,
 ): number {
   if (command === "reset") {
     return 1;

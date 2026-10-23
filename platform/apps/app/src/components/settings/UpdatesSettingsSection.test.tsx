@@ -14,8 +14,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Host } from "@hyperfide/domain";
 import { makeHost as makeHostFixture } from "@hyperfide/test-helpers/domain-fixtures";
-import type { BbDesktopApi, BbDesktopInfo } from "@hyperfide/desktop-contract";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import type { HyperfideDesktopApi, HyperfideDesktopInfo } from "@hyperfide/desktop-contract";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import type { SystemAppUpdateStatus } from "@hyperfide/server-contract";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
@@ -262,7 +262,7 @@ function makeInventory(overrides: Partial<UpdateInventory>): UpdateInventory {
       source: "npm",
       updateAvailable: false,
       isDevelopment: false,
-      upgradeCommand: "npx bb-app@latest",
+      upgradeCommand: "npx hyperfide-app@latest",
     },
     desktopInfo: null,
     appUpdateAvailable: false,
@@ -339,7 +339,7 @@ function useWebApp(): void {
     installKind: "npm",
     source: "npm",
     updateAvailable: true,
-    upgradeCommand: "npx bb-app@latest",
+    upgradeCommand: "npx hyperfide-app@latest",
   });
 }
 
@@ -533,7 +533,7 @@ The canonical release summary.
     expect(screen.queryByRole("button", { name: /check/i })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Updates" })).toBeNull();
     expect(
-      screen.queryByRole("button", { name: /^Open the full bb .* changelog$/ }),
+      screen.queryByRole("button", { name: /^Open the full hyperfide .* changelog$/ }),
     ).toBeNull();
     const changelog = document.querySelector(
       '[data-updates-domain="changelog"]',
@@ -577,7 +577,7 @@ The canonical release summary.
     expect(changelog?.textContent).toContain("One current feature.");
     expect(changelog?.textContent).toContain("One current fix.");
     const dismissChangelog = screen.getByRole("button", {
-      name: "Dismiss bb 9.9.9 changelog preview",
+      name: "Dismiss hyperfide 9.9.9 changelog preview",
     });
     const changelogHeader = changelog?.querySelector("[data-changelog-header]");
     const changelogCard = changelogHeader?.closest("section");
@@ -593,7 +593,7 @@ The canonical release summary.
     );
     expect(
       screen.queryByRole("button", {
-        name: "Open the full bb 9.9.9 changelog",
+        name: "Open the full hyperfide 9.9.9 changelog",
       }),
     ).toBeNull();
     expect(changelog?.getAttribute("data-changelog-dismiss-phase")).toBe(
@@ -610,7 +610,7 @@ The canonical release summary.
     expect(changelog?.className).toContain("motion-reduce:transition-none");
     expect(
       window.localStorage.getItem(
-        "bb.settings.updates.dismissed-changelog-version",
+        "hyperfide.settings.updates.dismissed-changelog-version",
       ),
     ).toBe("9.9.9");
 
@@ -640,14 +640,14 @@ The canonical release summary.
 
     cleanup();
     window.localStorage.setItem(
-      "bb.settings.updates.dismissed-changelog-version",
+      "hyperfide.settings.updates.dismissed-changelog-version",
       "9.9.8",
     );
     renderSection({ showChangelogPreview: true });
     await waitFor(() => {
       expect(
         screen.getByRole("button", {
-          name: "Dismiss bb 9.9.9 changelog preview",
+          name: "Dismiss hyperfide 9.9.9 changelog preview",
         }),
       ).toBeDefined();
     });
@@ -731,7 +731,7 @@ The canonical release summary.
     expect(screen.queryByText(/all in sync/)).toBeNull();
     expect(document.querySelector("[data-updates-machine]")).toBeNull();
     expect(
-      document.querySelector('[data-bb-update-role="app"]'),
+      document.querySelector('[data-hyperfide-update-role="app"]'),
     ).not.toBeNull();
     expect(screen.getByText("Server")).toBeDefined();
 
@@ -840,7 +840,7 @@ The canonical release summary.
     );
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByText("homelab")).toBeDefined();
-    expect(within(row as HTMLElement).getByText("Updating bb")).toBeDefined();
+    expect(within(row as HTMLElement).getByText("Updating Hyperfide")).toBeDefined();
     expect(
       row?.querySelector('[data-update-state="in-progress"]'),
     ).not.toBeNull();
@@ -909,7 +909,7 @@ The canonical release summary.
     );
   });
 
-  it("names a machine running a newer bb than the server", () => {
+  it("names a machine running a newer hyperfide than the server", () => {
     useDesktopUpdateInfoMock.mockReturnValue({
       desktopApi: null,
       desktopInfo: null,
@@ -939,7 +939,7 @@ The canonical release summary.
     ).toBeNull();
   });
 
-  it("sweeps every machine stalled on the same bb update", () => {
+  it("sweeps every machine stalled on the same hyperfide-platform update", () => {
     useDesktopUpdateInfoMock.mockReturnValue({
       desktopApi: null,
       desktopInfo: null,
@@ -1575,7 +1575,7 @@ The canonical release summary.
       source: "npm" as const,
       updateAvailable: true,
       isDevelopment: false,
-      upgradeCommand: "npx bb-app@latest",
+      upgradeCommand: "npx hyperfide-app@latest",
     };
     useUpdateInventoryMock.mockReturnValue(
       makeInventory({
@@ -1588,14 +1588,14 @@ The canonical release summary.
     vi.mocked(sdk.system.version).mockResolvedValue(availableVersion);
 
     renderSection();
-    expect(screen.getByText("npx bb-app@latest")).toBeDefined();
+    expect(screen.getByText("npx hyperfide-app@latest")).toBeDefined();
     expect(screen.getByText("0.0.6")).toBeDefined();
     const copyButton = screen.getByRole("button", {
       name: "Update available · Copy the upgrade command",
     });
     expect(copyButton.textContent).toBe("");
     expect(copyButton.className).not.toContain("bg-secondary");
-    const updateSurface = document.querySelector('[data-updates-domain="bb"]');
+    const updateSurface = document.querySelector('[data-updates-domain="hyperfide"]');
     expect(updateSurface?.querySelector(".bg-card")).not.toBeNull();
     expect(updateSurface?.querySelector(".divide-y")).not.toBeNull();
     expect(
@@ -1609,7 +1609,7 @@ The canonical release summary.
   });
 
   it("checks for desktop updates through the desktop bridge", async () => {
-    const desktopInfo: BbDesktopInfo = {
+    const desktopInfo: HyperfideDesktopInfo = {
       downloadState: "downloaded",
       lastCheckedAt: null,
       latestVersion: "0.0.6",
@@ -1622,7 +1622,7 @@ The canonical release summary.
     const checkForUpdates = vi.fn().mockResolvedValue(desktopInfo);
     const installUpdate = vi.fn().mockResolvedValue(undefined);
     useDesktopUpdateInfoMock.mockReturnValue({
-      desktopApi: { checkForUpdates, installUpdate } as unknown as BbDesktopApi,
+      desktopApi: { checkForUpdates, installUpdate } as unknown as HyperfideDesktopApi,
       desktopInfo,
       isDesktop: true,
     });
@@ -1637,7 +1637,7 @@ The canonical release summary.
 
     renderSection();
     const relaunch = screen.getByRole("button", {
-      name: /Relaunch bb to finish updating/,
+      name: /Relaunch hyperfide to finish updating/,
     });
     expect(relaunch.querySelector("img")?.className).toContain("size-3");
     expect(relaunch.className).toContain("border");
@@ -1651,7 +1651,7 @@ The canonical release summary.
   });
 
   it("explains an unknown desktop release and retries through the desktop bridge", async () => {
-    const desktopInfo: BbDesktopInfo = {
+    const desktopInfo: HyperfideDesktopInfo = {
       downloadState: "idle",
       lastCheckedAt: "2026-07-19T00:00:00.000Z",
       latestVersion: null,
@@ -1663,7 +1663,7 @@ The canonical release summary.
     };
     const checkForUpdates = vi.fn().mockResolvedValue(desktopInfo);
     useDesktopUpdateInfoMock.mockReturnValue({
-      desktopApi: { checkForUpdates } as unknown as BbDesktopApi,
+      desktopApi: { checkForUpdates } as unknown as HyperfideDesktopApi,
       desktopInfo,
       isDesktop: true,
     });
@@ -1720,7 +1720,7 @@ The canonical release summary.
   });
 
   it("does not claim a legacy desktop shell is downloading an available update", () => {
-    const desktopInfo: BbDesktopInfo = {
+    const desktopInfo: HyperfideDesktopInfo = {
       lastCheckedAt: null,
       latestVersion: "0.0.6",
       pendingVersion: null,
@@ -1730,7 +1730,7 @@ The canonical release summary.
       version: "0.0.5",
     };
     useDesktopUpdateInfoMock.mockReturnValue({
-      desktopApi: {} as BbDesktopApi,
+      desktopApi: {} as HyperfideDesktopApi,
       desktopInfo,
       isDesktop: true,
     });
@@ -1743,7 +1743,7 @@ The canonical release summary.
   });
 
   it("retries a failed desktop download through the desktop bridge", async () => {
-    const desktopInfo: BbDesktopInfo = {
+    const desktopInfo: HyperfideDesktopInfo = {
       downloadState: "failed",
       lastCheckedAt: null,
       latestVersion: "0.0.6",
@@ -1755,7 +1755,7 @@ The canonical release summary.
     };
     const checkForUpdates = vi.fn().mockResolvedValue(desktopInfo);
     useDesktopUpdateInfoMock.mockReturnValue({
-      desktopApi: { checkForUpdates } as unknown as BbDesktopApi,
+      desktopApi: { checkForUpdates } as unknown as HyperfideDesktopApi,
       desktopInfo,
       isDesktop: true,
     });
@@ -1870,7 +1870,7 @@ The canonical release summary.
     expect(screen.getByText("No machines available.")).toBeDefined();
   });
 
-  it("updates bb from the app when the launcher supports it", async () => {
+  it("updates hyperfide from the app when the launcher supports it", async () => {
     useWebApp();
     vi.mocked(sdk.system.appUpdate).mockResolvedValue(makeAppUpdateStatus());
     vi.mocked(sdk.system.applyAppUpdate).mockResolvedValue(
@@ -1879,7 +1879,7 @@ The canonical release summary.
           output: [],
           phase: "preparing",
           startedAt: "2026-09-23T00:00:00.000Z",
-          step: "Downloading bb-app 0.0.6",
+          step: "Downloading hyperfide-app 0.0.6",
           targetVersion: "0.0.6",
         },
       }),
@@ -1888,7 +1888,7 @@ The canonical release summary.
     renderSection();
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart hyperfide",
       }),
     );
 
@@ -1897,7 +1897,7 @@ The canonical release summary.
         confirmInterruptingThreads: false,
       });
     });
-    expect(await screen.findByText("Downloading bb-app 0.0.6")).toBeDefined();
+    expect(await screen.findByText("Downloading hyperfide-app 0.0.6")).toBeDefined();
     expect(sdk.system.appUpdate).toHaveBeenCalledWith({ force: true });
   });
 
@@ -1913,7 +1913,7 @@ The canonical release summary.
     renderSection();
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart hyperfide",
       }),
     );
 
@@ -1936,7 +1936,7 @@ The canonical release summary.
     vi.mocked(sdk.system.appUpdate).mockResolvedValue(makeAppUpdateStatus());
     vi.mocked(sdk.system.applyAppUpdate)
       .mockRejectedValueOnce(
-        new BbHttpError({
+        new HyperfideHttpError({
           body: {
             code: "threads_running",
             details: { runningThreadCount: 1 },
@@ -1952,7 +1952,7 @@ The canonical release summary.
     renderSection();
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart hyperfide",
       }),
     );
 
@@ -1990,7 +1990,7 @@ The canonical release summary.
           latestVersion: null,
           updateAvailable: false,
           isDevelopment: false,
-          upgradeCommand: "npx bb-app@latest",
+          upgradeCommand: "npx hyperfide-app@latest",
         },
       }),
     );
@@ -2078,11 +2078,11 @@ The canonical release summary.
 
     expect(await screen.findByText("Last update failed")).toBeDefined();
     expect(
-      screen.getByRole("button", { name: "View the failed bb update" }),
+      screen.getByRole("button", { name: "View the failed hyperfide-platform update" }),
     ).toBeDefined();
     expect(
       screen.getByRole("button", {
-        name: "Failed · Download the update and restart bb",
+        name: "Failed · Download the update and restart hyperfide",
       }),
     ).toBeDefined();
   });
@@ -2109,7 +2109,7 @@ The canonical release summary.
     renderSection();
 
     expect(
-      await screen.findByRole("button", { name: "View the failed bb update" }),
+      await screen.findByRole("button", { name: "View the failed hyperfide-platform update" }),
     ).toBeDefined();
     expect(document.querySelector('[data-update-state="failed"]')).toBeNull();
   });
@@ -2152,7 +2152,7 @@ The canonical release summary.
             currentVersion: "0.0.5",
             source: "npm",
             isDevelopment: false,
-            upgradeCommand: "npx bb-app@latest",
+            upgradeCommand: "npx hyperfide-app@latest",
             ...version,
           },
         }),
@@ -2205,7 +2205,7 @@ The canonical release summary.
             installKind: "source",
             updateAvailable: false,
             isDevelopment: false,
-            upgradeCommand: "npx bb-app@latest",
+            upgradeCommand: "npx hyperfide-app@latest",
           },
         }),
       );
@@ -2247,7 +2247,7 @@ The canonical release summary.
       expect(screen.getByText("Source checkout")).toBeDefined();
       expect(
         screen.queryByRole("button", {
-          name: "Update available · Download the update and restart bb",
+          name: "Update available · Download the update and restart hyperfide",
         }),
       ).toBeNull();
     },
@@ -2257,7 +2257,7 @@ The canonical release summary.
     checkForUpdates: ReturnType<typeof vi.fn>;
     installUpdate: ReturnType<typeof vi.fn>;
   } {
-    const desktopInfo: BbDesktopInfo = {
+    const desktopInfo: HyperfideDesktopInfo = {
       downloadState: "idle",
       lastCheckedAt: null,
       latestVersion: "0.0.5",
@@ -2273,7 +2273,7 @@ The canonical release summary.
       desktopApi: {
         checkForUpdates,
         installUpdate,
-      } as unknown as BbDesktopApi,
+      } as unknown as HyperfideDesktopApi,
       desktopInfo,
       isDesktop: true,
     });
@@ -2303,18 +2303,18 @@ The canonical release summary.
 
     renderSection();
 
-    const bbCard = document.querySelector<HTMLElement>(
-      '[data-updates-domain="bb"]',
+    const hyperfideCard = document.querySelector<HTMLElement>(
+      '[data-updates-domain="hyperfide"]',
     );
-    if (bbCard === null) throw new Error("expected the bb card");
+    if (hyperfideCard === null) throw new Error("expected the hyperfide card");
     fireEvent.click(
-      await within(bbCard).findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+      await within(hyperfideCard).findByRole("button", {
+        name: "Update available · Download the update and restart hyperfide",
       }),
     );
-    expect(within(bbCard).getByText("Server")).toBeDefined();
-    expect(within(bbCard).queryByText("Desktop")).toBeNull();
-    expect(bbCard.querySelectorAll('[data-bb-update-role="app"]')).toHaveLength(
+    expect(within(hyperfideCard).getByText("Server")).toBeDefined();
+    expect(within(hyperfideCard).queryByText("Desktop")).toBeNull();
+    expect(hyperfideCard.querySelectorAll('[data-hyperfide-update-role="app"]')).toHaveLength(
       1,
     );
     await waitFor(() => {
@@ -2329,7 +2329,7 @@ The canonical release summary.
   });
 
   it("adds a Desktop row under Server only while the desktop needs an update", async () => {
-    const desktopInfo: BbDesktopInfo = {
+    const desktopInfo: HyperfideDesktopInfo = {
       downloadState: "downloaded",
       lastCheckedAt: null,
       latestVersion: "0.0.6",
@@ -2344,7 +2344,7 @@ The canonical release summary.
       desktopApi: {
         checkForUpdates: vi.fn().mockResolvedValue(desktopInfo),
         installUpdate,
-      } as unknown as BbDesktopApi,
+      } as unknown as HyperfideDesktopApi,
       desktopInfo,
       isDesktop: true,
     });
@@ -2353,12 +2353,12 @@ The canonical release summary.
 
     renderSection();
 
-    const bbCard = document.querySelector<HTMLElement>(
-      '[data-updates-domain="bb"]',
+    const hyperfideCard = document.querySelector<HTMLElement>(
+      '[data-updates-domain="hyperfide"]',
     );
-    if (bbCard === null) throw new Error("expected the bb card");
-    const desktopName = await within(bbCard).findByText("Desktop");
-    const serverName = within(bbCard).getByText("Server");
+    if (hyperfideCard === null) throw new Error("expected the hyperfide card");
+    const desktopName = await within(hyperfideCard).findByText("Desktop");
+    const serverName = within(hyperfideCard).getByText("Server");
     expect(
       serverName.compareDocumentPosition(desktopName) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -2367,8 +2367,8 @@ The canonical release summary.
     expect(serverName.className).toContain("w-16");
     expect(document.querySelector("[data-updates-device]")).toBeNull();
     fireEvent.click(
-      within(bbCard).getByRole("button", {
-        name: /Relaunch bb to finish updating/,
+      within(hyperfideCard).getByRole("button", {
+        name: /Relaunch hyperfide to finish updating/,
       }),
     );
     expect(installUpdate).toHaveBeenCalledOnce();
@@ -2390,11 +2390,11 @@ The canonical release summary.
     expect(screen.getByText("Server")).toBeDefined();
     expect(screen.queryByText("Desktop")).toBeNull();
     expect(
-      document.querySelectorAll('[data-bb-update-role="app"]'),
+      document.querySelectorAll('[data-hyperfide-update-role="app"]'),
     ).toHaveLength(1);
     expect(
       screen.queryByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart hyperfide",
       }),
     ).toBeNull();
   });
@@ -2424,17 +2424,17 @@ The canonical release summary.
 
       renderSection();
 
-      const bbCard = screen.getByRole("region", { name: "bb" });
+      const hyperfideCard = screen.getByRole("region", { name: "hyperfide" });
       await waitFor(() => expect(checkForUpdates).toHaveBeenCalledOnce());
-      expect(within(bbCard).getByText("Server")).toBeDefined();
-      expect(within(bbCard).getByText("0.0.4")).toBeDefined();
-      expect(within(bbCard).queryByText("Desktop")).toBeNull();
+      expect(within(hyperfideCard).getByText("Server")).toBeDefined();
+      expect(within(hyperfideCard).getByText("0.0.4")).toBeDefined();
+      expect(within(hyperfideCard).queryByText("Desktop")).toBeNull();
       expect(
-        within(bbCard).queryByText(/Update bb in the desktop app on/),
+        within(hyperfideCard).queryByText(/Update hyperfide in the desktop app on/),
       ).toBeNull();
       expect(
-        within(bbCard).queryByRole("button", {
-          name: /Copy the upgrade command|Relaunch bb|Download the update/,
+        within(hyperfideCard).queryByRole("button", {
+          name: /Copy the upgrade command|Relaunch hyperfide|Download the update/,
         }),
       ).toBeNull();
       expect(sdk.system.version).toHaveBeenCalledWith({ force: true });
@@ -2454,11 +2454,11 @@ The canonical release summary.
       vi.mocked(sdk.system.applyAppUpdate).mockResolvedValue(status);
       renderSection();
       const update = await screen.findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart hyperfide",
       });
       expect(screen.getByText("Server")).toBeDefined();
       expect(screen.queryByText("Desktop")).toBeNull();
-      expect(screen.queryByText(/Update bb in the desktop app on/)).toBeNull();
+      expect(screen.queryByText(/Update hyperfide in the desktop app on/)).toBeNull();
       fireEvent.click(update);
       await waitFor(() =>
         expect(sdk.system.applyAppUpdate).toHaveBeenCalledWith({

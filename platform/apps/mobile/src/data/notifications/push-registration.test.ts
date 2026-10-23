@@ -241,7 +241,7 @@ describe("syncPushRegistration", () => {
         registration: null,
         lastOutcome: null,
       }),
-    ).toBe("Push needs HTTPS or bb connect");
+    ).toBe("Push needs HTTPS or hyperfide-platform connect");
   });
 
   it("removes an existing registration after a profile changes to plain HTTP", async () => {
@@ -258,7 +258,7 @@ describe("syncPushRegistration", () => {
     expect(store.getRegistration(profile.id)).toBeNull();
   });
 
-  it("allows HTTPS, exact loopback HTTP hosts, and bb connect", () => {
+  it("allows HTTPS, exact loopback HTTP hosts, and hyperfide-platform connect", () => {
     expect(isPushRegistrationAllowed(profile)).toBe(true);
     for (const serverUrl of [
       "http://127.0.0.1:3000",

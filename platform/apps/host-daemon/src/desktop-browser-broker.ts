@@ -325,7 +325,7 @@ export async function startDesktopBrowserBroker(options: {
         throw new Error("Desktop browser broker is disconnected from server");
       return {
         proof: createHmac("sha256", token)
-          .update(`bb-desktop-broker:${challenge}`)
+          .update(`hyperfide-desktop-broker:${challenge}`)
           .digest("hex"),
       };
     },

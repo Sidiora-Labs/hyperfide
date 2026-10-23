@@ -5,7 +5,7 @@ import { createLocalStorageSyncStorage } from "@/lib/browser-storage";
 const collapsedThreadIdsSchema = z.array(z.string().min(1)).max(10_000);
 
 export const mobileRecentsCollapsedThreadIdsAtom = atomWithStorage<string[]>(
-  "bb.mobileRecents.collapsedThreads",
+  "hyperfide.mobileRecents.collapsedThreads",
   [],
   createLocalStorageSyncStorage<string[]>({
     parse: (storedValue, initialValue) => {

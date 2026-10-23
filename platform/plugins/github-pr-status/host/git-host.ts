@@ -4,7 +4,7 @@ import {
   experimental_spawnPortableOutputProcess as spawnPortableOutputProcess,
   type ExperimentalVcsProcessPriority,
 } from "@hyperfide/plugin-sdk/host";
-import { runGit, type GitCommandResult } from "bb-environment-provider-host/git";
+import { runGit, type GitCommandResult } from "hyperfide-environment-provider-host/git";
 import {
   gitHubPullRequestViewSchema,
   type GitHubPullRequestCheck,

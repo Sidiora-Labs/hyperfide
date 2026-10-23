@@ -196,8 +196,8 @@ vi.mock("@/hooks/queries/system-queries", () => ({
   }),
 }));
 
-vi.mock("@/lib/bb-desktop", () => ({
-  getBbDesktopInfo: () => null,
+vi.mock("@/lib/hyperfide-desktop", () => ({
+  getHyperfideDesktopInfo: () => null,
 }));
 
 vi.mock("@/hooks/useHostDaemon", () => ({
@@ -677,7 +677,7 @@ describe("CommandPalette", () => {
       setPluginSlotRegistrations(
         "linear",
         collectPluginAppRegistrations({
-          __bbPluginApp: true,
+          __hyperfidePluginApp: true,
           setup(app) {
             app.commands.register({
               id: "open-issue",
@@ -1485,7 +1485,7 @@ describe("CommandPalette", () => {
     const briefs = thread("briefs", "Briefs & Action Cards", 10);
     const contentPlan = thread("content", "Content strategy and calendar", 20);
     const blogPost = thread("blog", "Plugins blog post", 30);
-    const mossEditor = thread("moss-editor", "Moss editor in bb", 40);
+    const mossEditor = thread("moss-editor", "Moss editor in hyperfide", 40);
     modeState.activeRecents = [
       sceneSeed,
       briefs,
@@ -1523,7 +1523,7 @@ describe("CommandPalette", () => {
             thread: briefs,
             matches: [
               message(
-                "Ready at https://github.com/brsbl/bb-plugins/pull/240",
+                "Ready at https://github.com/brsbl/hyperfide-plugins/pull/240",
                 "plugins",
                 4,
               ),
@@ -1533,7 +1533,7 @@ describe("CommandPalette", () => {
             thread: mossPlugins,
             matches: [
               message(
-                "Command: git reset --hard origin/bb/moss-viewer-plugin",
+                "Command: git reset --hard origin/hyperfide/moss-viewer-plugin",
                 "moss",
                 88,
               ),
@@ -1576,7 +1576,7 @@ describe("CommandPalette", () => {
             option.querySelector(".hyperfide-thread-title")?.textContent,
         )
         .sort(),
-    ).toEqual(["Moss editor in bb", "Moss plugins"]);
+    ).toEqual(["Moss editor in hyperfide", "Moss plugins"]);
 
     fireEvent.change(input, { target: { value: "moss plugins" } });
     const [first] = screen.getAllByRole("option");
@@ -2163,7 +2163,7 @@ describe("CommandPalette", () => {
       setPluginSlotRegistrations(
         "linear",
         collectPluginAppRegistrations({
-          __bbPluginApp: true,
+          __hyperfidePluginApp: true,
           setup(app) {
             const registration = {
               id: "open-issue",
@@ -2194,7 +2194,7 @@ describe("CommandPalette", () => {
     let available = true;
     const run = vi.fn();
     const registrations = collectPluginAppRegistrations({
-      __bbPluginApp: true,
+      __hyperfidePluginApp: true,
       setup(app) {
         app.commands.register({
           id: "open-issue",

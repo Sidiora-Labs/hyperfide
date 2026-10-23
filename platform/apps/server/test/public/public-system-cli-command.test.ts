@@ -5,7 +5,7 @@ import { readJson } from "../helpers/json.js";
 import { withTestHarness } from "../helpers/test-app.js";
 
 const API = "/api/v1/system/cli-command";
-const MACHINE_HEADERS = { "x-bb-gate-auth": "machine" };
+const MACHINE_HEADERS = { "x-hyperfide-gate-auth": "machine" };
 
 function recordingService(): {
   calls: string[];
@@ -13,7 +13,7 @@ function recordingService(): {
 } {
   const calls: string[] = [];
   const status = (installed: boolean): SystemCliCommandStatus => ({
-    installedPath: installed ? "/home/me/.local/bin/bb" : null,
+    installedPath: installed ? "/home/me/.local/bin/hyperfide" : null,
     onPath: installed,
     shadowedBy: null,
     supported: true,
@@ -38,7 +38,7 @@ function recordingService(): {
 }
 
 describe("/api/v1/system/cli-command", () => {
-  it("reports the bb command as unavailable when bb runs without the launcher", () =>
+  it("reports the hyperfide command as unavailable when hyperfide runs without the launcher", () =>
     withTestHarness(async (harness) => {
       const response = await harness.app.request(API);
 
@@ -67,7 +67,7 @@ describe("/api/v1/system/cli-command", () => {
       });
       expect(installed.status).toBe(200);
       expect(await readJson(installed)).toMatchObject({
-        installedPath: "/home/me/.local/bin/bb",
+        installedPath: "/home/me/.local/bin/hyperfide",
         onPath: true,
       });
 

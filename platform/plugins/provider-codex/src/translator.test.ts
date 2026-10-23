@@ -79,10 +79,10 @@ function createHarness(
       });
     },
     turnId(codexTurnId) {
-      return assembler.getBbTurnId(THREAD_ID, codexTurnId) ?? "";
+      return assembler.getHyperfideTurnId(THREAD_ID, codexTurnId) ?? "";
     },
     itemId(codexItemId) {
-      return assembler.getBbItemId(THREAD_ID, codexItemId) ?? "";
+      return assembler.getHyperfideItemId(THREAD_ID, codexItemId) ?? "";
     },
   };
 }
@@ -108,14 +108,14 @@ interface LinkedWorktreeFixture {
 
 function createLinkedWorktreeFixture(): LinkedWorktreeFixture {
   const rootPath = realpathSync.native(
-    mkdtempSync(path.join(tmpdir(), "bb-codex-worktree-")),
+    mkdtempSync(path.join(tmpdir(), "hyperfide-codex-worktree-")),
   );
   const workspacePath = path.join(rootPath, "worktree");
   const commonDir = path.join(rootPath, "repo.git");
   const gitDir = path.join(commonDir, "worktrees", "bb1");
-  const headRef = "refs/heads/bb/probe";
-  const headRefParent = path.join(commonDir, "refs", "heads", "bb");
-  const headLogParent = path.join(commonDir, "logs", "refs", "heads", "bb");
+  const headRef = "refs/heads/hyperfide/probe";
+  const headRefParent = path.join(commonDir, "refs", "heads", "hyperfide");
+  const headLogParent = path.join(commonDir, "logs", "refs", "heads", "hyperfide");
 
   mkdirSync(workspacePath, { recursive: true });
   mkdirSync(gitDir, { recursive: true });
@@ -161,7 +161,7 @@ describe("codex workspace-write git-root staging", () => {
     try {
       const prepared = translator.prepareWorkspaceWriteGitRoots({
         command: {
-          threadId: "bb-thread-1",
+          threadId: "hyperfide-thread-1",
           cwd: fixture.workspacePath,
           options: WORKSPACE_ASK_OPTIONS,
         },
@@ -170,15 +170,15 @@ describe("codex workspace-write git-root staging", () => {
         "sandbox_workspace_write.writable_roots": fixture.expectedWritableRoots,
       });
 
-      expect(translator.getThreadGitWritableRoots("bb-thread-1")).toEqual([]);
+      expect(translator.getThreadGitWritableRoots("hyperfide-thread-1")).toEqual([]);
 
       translator.activateThreadGitWritableRoots({
         providerThreadId: "codex-thread-1",
-        threadId: "bb-thread-1",
+        threadId: "hyperfide-thread-1",
       });
       unlinkWorkspaceGitDir(fixture);
 
-      expect(translator.getThreadGitWritableRoots("bb-thread-1")).toEqual(
+      expect(translator.getThreadGitWritableRoots("hyperfide-thread-1")).toEqual(
         fixture.expectedWritableRoots,
       );
     } finally {
@@ -198,7 +198,7 @@ describe("codex workspace-write git-root staging", () => {
     try {
       const prepared = translator.prepareWorkspaceWriteGitRoots({
         command: {
-          threadId: "bb-thread-1",
+          threadId: "hyperfide-thread-1",
           cwd: fixture.workspacePath,
           options: WORKSPACE_ASK_OPTIONS,
         },
@@ -212,10 +212,10 @@ describe("codex workspace-write git-root staging", () => {
 
       translator.activateThreadGitWritableRoots({
         providerThreadId: "codex-thread-1",
-        threadId: "bb-thread-1",
+        threadId: "hyperfide-thread-1",
       });
 
-      expect(translator.getThreadGitWritableRoots("bb-thread-1")).toEqual(
+      expect(translator.getThreadGitWritableRoots("hyperfide-thread-1")).toEqual(
         fixture.expectedWritableRoots,
       );
     } finally {
@@ -229,8 +229,8 @@ describe("codex workspace-write git-root staging", () => {
     const translator = createTranslator();
     try {
       for (const [threadId, fixture] of [
-        ["bb-thread-1", firstFixture],
-        ["bb-thread-2", secondFixture],
+        ["hyperfide-thread-1", firstFixture],
+        ["hyperfide-thread-2", secondFixture],
       ] as const) {
         translator.prepareWorkspaceWriteGitRoots({
           command: {
@@ -243,19 +243,19 @@ describe("codex workspace-write git-root staging", () => {
 
       translator.activateThreadGitWritableRoots({
         providerThreadId: "codex-thread-2",
-        threadId: "bb-thread-2",
+        threadId: "hyperfide-thread-2",
       });
       translator.activateThreadGitWritableRoots({
         providerThreadId: "codex-thread-1",
-        threadId: "bb-thread-1",
+        threadId: "hyperfide-thread-1",
       });
 
       translator.translateEvent(
         codexEvent("thread/closed", { threadId: "codex-thread-1" }),
       );
 
-      expect(translator.getThreadGitWritableRoots("bb-thread-1")).toEqual([]);
-      expect(translator.getThreadGitWritableRoots("bb-thread-2")).toEqual(
+      expect(translator.getThreadGitWritableRoots("hyperfide-thread-1")).toEqual([]);
+      expect(translator.getThreadGitWritableRoots("hyperfide-thread-2")).toEqual(
         secondFixture.expectedWritableRoots,
       );
     } finally {

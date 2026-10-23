@@ -11,12 +11,12 @@ import { makePluginListItem } from "@/test/fixtures/plugins";
 function plugin(overrides: Partial<PluginListItem> = {}): PluginListItem {
   return makePluginListItem({
     id: "notify",
-    source: "path:/tmp/bb-plugin-notify",
-    rootDir: "/tmp/bb-plugin-notify",
+    source: "path:/tmp/hyperfide-plugin-notify",
+    rootDir: "/tmp/hyperfide-plugin-notify",
     version: "0.2.1",
     description: "Desktop notifications when a thread needs you.",
     name: "Notify",
-    sourceDisplay: "path · /tmp/bb-plugin-notify",
+    sourceDisplay: "path · /tmp/hyperfide-plugin-notify",
     ...overrides,
   });
 }
@@ -45,7 +45,7 @@ describe("InstalledPluginRow", () => {
     renderRow(
       plugin({
         status: "incompatible",
-        statusDetail: "requires bb >=0.38.0 <0.39.0, this is 0.39.0",
+        statusDetail: "requires hyperfide >=0.38.0 <0.39.0, this is 0.39.0",
       }),
     );
 
@@ -53,7 +53,7 @@ describe("InstalledPluginRow", () => {
       "Incompatible",
     );
     expect(
-      screen.getByText("requires bb >=0.38.0 <0.39.0, this is 0.39.0"),
+      screen.getByText("requires hyperfide >=0.38.0 <0.39.0, this is 0.39.0"),
     ).toBeTruthy();
     expect(
       screen

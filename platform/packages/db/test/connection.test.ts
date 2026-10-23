@@ -100,8 +100,8 @@ describe("createConnection", () => {
   it("samples WAL asynchronously and reuses timestamped samples across slow-query bursts", async () => {
     const logger = new CapturingSlowQueryLogger();
     let diagnosticsEnabled = false;
-    const directory = mkdtempSync(join(tmpdir(), "bb-wal-sampler-"));
-    const databasePath = join(directory, "bb.db");
+    const directory = mkdtempSync(join(tmpdir(), "hyperfide-wal-sampler-"));
+    const databasePath = join(directory, "hyperfide.db");
     const template = createMigratedConnection();
     writeFileSync(databasePath, template.$client.serialize());
     template.$client.close();
@@ -344,8 +344,8 @@ describe("createConnection", () => {
   });
 
   it("applies the hot-path sqlite pragmas on a file database", () => {
-    const directory = mkdtempSync(join(tmpdir(), "bb-db-pragmas-"));
-    const db = createConnection(join(directory, "bb.db"));
+    const directory = mkdtempSync(join(tmpdir(), "hyperfide-db-pragmas-"));
+    const db = createConnection(join(directory, "hyperfide.db"));
 
     try {
       expect(

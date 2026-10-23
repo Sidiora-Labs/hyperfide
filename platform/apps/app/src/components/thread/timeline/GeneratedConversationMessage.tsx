@@ -329,7 +329,7 @@ function generatedConversationEmptyText(
     case "automation":
       return "Ran an automation";
     case "system":
-      return "Sent a BB system message";
+      return "Sent a HYPERFIDE system message";
   }
 }
 

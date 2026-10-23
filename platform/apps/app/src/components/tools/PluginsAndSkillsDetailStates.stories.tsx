@@ -29,7 +29,7 @@ import {
   ProviderLogo,
   SkillProvenanceTooltip,
 } from "@/components/tools/SkillsCollection";
-import { BbLogo } from "@/components/ui/bb-logo";
+import { HyperfideLogo } from "@/components/ui/hyperfide-logo";
 import { ProvenancePill } from "@/components/tools/ProvenancePill";
 import { SkillDetailView } from "@/components/tools/SkillDetailView";
 import {
@@ -65,11 +65,11 @@ function PluginStoryQueryBoundary({ children }: { children: ReactNode }) {
       "enterprise-issue-tracker-synchronization",
     ]) {
       client.setQueryData(pluginSourceQueryKey(pluginId), {
-        requested: `npm:@bb-plugins/${pluginId}`,
+        requested: `npm:@hyperfide-plugins/${pluginId}`,
         resolved: "1.4.0",
         integrity: null,
         registry: "npm",
-        engines: { bb: null, bbPluginSdk: null },
+        engines: { hyperfide: null, hyperfidePluginSdk: null },
         installedAt: new Date(2026, 6, 8).getTime(),
         history: [],
       });
@@ -158,7 +158,7 @@ const SKILL_PATH = "/Users/you/.hyperfide/skills/writing-voice/SKILL.md";
 
 function SkillLeading({ provider }: { provider: SkillProvider | null }) {
   if (provider === null) {
-    return <BbLogo />;
+    return <HyperfideLogo />;
   }
   return <ProviderLogo providerId={provider} className="size-4" />;
 }
@@ -222,7 +222,7 @@ export function SkillDetailStates() {
 
       <State
         name="Provider-owned"
-        note="A skill discovered under Claude Code or Codex carries that provider's logo where a bb-owned skill carries the bb mark."
+        note="A skill discovered under Claude Code or Codex carries that provider's logo where a hyperfide-owned skill carries the hyperfide mark."
       >
         <Skill provider="claude-code" />
       </State>
@@ -248,13 +248,13 @@ export function SkillDetailStates() {
       </State>
 
       <State
-        name="BB Official"
-        note="A skill that ships with bb uses the same publisher badge as a BB Official plugin. Its read-only behavior remains a separate permission fact."
+        name="HYPERFIDE Official"
+        note="A skill that ships with hyperfide uses the same publisher badge as a HYPERFIDE Official plugin. Its read-only behavior remains a separate permission fact."
       >
         <Skill
           titleBadge={{
-            label: "BB Official",
-            tooltip: "Ships with bb",
+            label: "HYPERFIDE Official",
+            tooltip: "Ships with hyperfide",
           }}
         />
       </State>
@@ -279,7 +279,7 @@ export function SkillDetailStates() {
 
       <State
         name="Imported"
-        note="Ownership is passive: a skill bb cannot write shows its origin as a status, with no edit or acquisition control."
+        note="Ownership is passive: a skill hyperfide cannot write shows its origin as a status, with no edit or acquisition control."
       >
         <Skill
           provider="claude-code"
@@ -303,7 +303,7 @@ export function SkillDetailStates() {
         <Skill
           headerActions={
             <ResourceInstallControl
-              accessibleLabel="Fork writing-voice into a new bb skill"
+              accessibleLabel="Fork writing-voice into a new hyperfide skill"
               label="Fork"
               icon="Fork"
               onAction={noop}
@@ -348,13 +348,13 @@ export function SkillDetailStates() {
 
 const PLUGIN: PluginListItem = makePluginListItem({
   id: "github",
-  source: "npm:@bb-plugins/github",
+  source: "npm:@hyperfide-plugins/github",
   rootDir: "/Users/you/.hyperfide/plugins/github",
   version: "1.4.0",
-  description: "Browse GitHub issues and pull requests without leaving bb.",
+  description: "Browse GitHub issues and pull requests without leaving hyperfide.",
   name: "GitHub",
   icon: "Github",
-  sourceDisplay: "npm · @bb-plugins/github",
+  sourceDisplay: "npm · @hyperfide-plugins/github",
 });
 
 const NEXT_RUN_AT = new Date(2027, 0, 15, 9).getTime();
@@ -430,7 +430,7 @@ const AWKWARD_PLUGIN: PluginListItem = {
   rootDir:
     "/Users/you/.hyperfide/plugins/enterprise-issue-tracker-synchronization/packages/runtime",
   description:
-    "Keeps issues, pull requests, review comments, and release checklists synchronized between bb threads and your issue tracker, including bidirectional status mapping, attachment mirroring, and per-project field translation.",
+    "Keeps issues, pull requests, review comments, and release checklists synchronized between hyperfide-platform threads and your issue tracker, including bidirectional status mapping, attachment mirroring, and per-project field translation.",
   cliCommand: {
     name: "enterprise-issue-tracker-sync",
     summary:
@@ -484,16 +484,16 @@ const BUNDLED_PLUGIN: PluginListItem = {
   source: "builtin:github",
   rootDir: "/managed/plugins/github",
   provenance: "builtin",
-  sourceDisplay: "Ships with bb",
+  sourceDisplay: "Ships with hyperfide",
   capabilities: STATIC_CAPABILITIES,
 };
 
 const UNINSTALLED_CATALOG_PLUGIN = {
   entryId: "github",
-  marketplace: "bb-official",
+  marketplace: "hyperfide-official",
   pluginId: "github",
   displayName: "GitHub",
-  description: "Browse GitHub issues and pull requests without leaving bb.",
+  description: "Browse GitHub issues and pull requests without leaving hyperfide.",
   icon: "Github",
   iconUrl: null,
   iconTinted: false,
@@ -505,7 +505,7 @@ const UNINSTALLED_CATALOG_PLUGIN = {
 
 - A pull request panel with checks, reviews, and the diff for the current branch.
 - Issue search that attaches an issue to the thread as context.
-- A \`bb github\` command for agents to open, update, and comment on pull requests.
+- A \`hyperfide github\` command for agents to open, update, and comment on pull requests.
 
 ## How it works
 
@@ -514,9 +514,9 @@ Sign in once with \`gh auth login\`. The plugin reuses your GitHub CLI session a
   collections: [],
   source: "builtin:github",
   repositoryUrl: null,
-  marketplaceDisplayName: "BB Official",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  marketplaceDisplayName: "HYPERFIDE Official",
+  publisherKey: "hyperfide-official",
+  publisherLabel: "HYPERFIDE Official",
   official: true,
   author: null,
   installed: false,
@@ -533,7 +533,7 @@ const COMPATIBILITY_BLOCKED_PLUGIN: PluginListItem = {
   updateState: {
     ...EMPTY_PLUGIN_UPDATE_STATE,
     blockedVersion: "2.0.0",
-    blockedReasons: ["Requires bb 0.20 or newer, and this bb is 0.18."],
+    blockedReasons: ["Requires hyperfide 0.20 or newer, and this hyperfide is 0.18."],
   },
 };
 
@@ -645,8 +645,8 @@ function CatalogPlugin({
         initial={{
           entryId: entry.entryId,
           pluginId: entry.pluginId,
-          marketplace: "bb-official",
-          publisherLabel: "BB Official",
+          marketplace: "hyperfide-official",
+          publisherLabel: "HYPERFIDE Official",
           displayName: entry.displayName,
           icon: entry.icon,
           iconUrl: entry.iconUrl,
@@ -695,11 +695,11 @@ export function PluginDetailStates() {
     <PluginStoryQueryBoundary>
       <Story
         title="Plugin detail states"
-        description="An uninstalled BB Official plugin shows the catalog facts bb can verify and offers Install. Once installed, the page adds runtime capabilities, settings, services, and schedules when they apply."
+        description="An uninstalled HYPERFIDE Official plugin shows the catalog facts hyperfide can verify and offers Install. Once installed, the page adds runtime capabilities, settings, services, and schedules when they apply."
       >
         <State
           name="Before ownership"
-          note="An uninstalled BB Official plugin opens as a real detail page. Install is the primary header action; the full-trust confirmation is the commit step."
+          note="An uninstalled HYPERFIDE Official plugin opens as a real detail page. Install is the primary header action; the full-trust confirmation is the commit step."
         >
           <CatalogPlugin />
         </State>
@@ -712,7 +712,7 @@ export function PluginDetailStates() {
             entry={{
               ...UNINSTALLED_CATALOG_PLUGIN,
               compatible: false,
-              incompatibleReason: "Requires bb 0.20 or newer.",
+              incompatibleReason: "Requires hyperfide 0.20 or newer.",
             }}
           />
         </State>
@@ -779,15 +779,15 @@ export function PluginDetailStates() {
         </State>
 
         <State
-          name="BB Official · catalog"
-          note="Installed from bb's catalog. It shares the BB Official badge with built-in plugins, while its install date and ownership menu preserve the lifecycle difference."
+          name="HYPERFIDE Official · catalog"
+          note="Installed from hyperfide's catalog. It shares the HYPERFIDE Official badge with built-in plugins, while its install date and ownership menu preserve the lifecycle difference."
         >
           <Plugin plugin={CATALOG_PLUGIN} />
         </State>
 
         <State
-          name="BB Official · built-in"
-          note="Ships with bb. The badge matches catalog-installed official plugins; the missing install date and ownership menu show that it cannot be uninstalled separately."
+          name="HYPERFIDE Official · built-in"
+          note="Ships with hyperfide. The badge matches catalog-installed official plugins; the missing install date and ownership menu show that it cannot be uninstalled separately."
         >
           <Plugin plugin={BUNDLED_PLUGIN} />
         </State>
@@ -808,7 +808,7 @@ export function PluginDetailStates() {
 
         <State
           name="Compatibility blocked"
-          note="A newer release requires a newer bb. A dedicated Update row explains the requirement and preserved version; there is no unavailable action or modal."
+          note="A newer release requires a newer hyperfide. A dedicated Update row explains the requirement and preserved version; there is no unavailable action or modal."
         >
           <Plugin plugin={COMPATIBILITY_BLOCKED_PLUGIN} />
         </State>
@@ -887,13 +887,13 @@ export function PluginBannerStates() {
 
         <State
           name="Health · Incompatible"
-          note="The installed plugin cannot run with this version of bb. The banner directs the user to install a compatible version without repeating the server's raw compatibility string."
+          note="The installed plugin cannot run with this version of hyperfide. The banner directs the user to install a compatible version without repeating the server's raw compatibility string."
         >
           <Plugin
             plugin={{
               ...PLUGIN,
               status: "incompatible",
-              statusDetail: "requires bb 0.20 or newer",
+              statusDetail: "requires hyperfide 0.20 or newer",
             }}
           />
         </State>
@@ -975,7 +975,7 @@ export function PluginReleaseStates() {
 
         <State
           name="Release · update blocked"
-          note="Not a banner and not a failed attempt. The Update row names the bb-version requirement and preserved installed version; there is no unavailable action or dialog to dismiss."
+          note="Not a banner and not a failed attempt. The Update row names the hyperfide-version requirement and preserved installed version; there is no unavailable action or dialog to dismiss."
         >
           <Plugin plugin={COMPATIBILITY_BLOCKED_PLUGIN} />
         </State>
@@ -1052,7 +1052,7 @@ const CATALOG_PLUGIN = {
   id: "github-official",
   provenance: "catalog",
   catalogEntryId: "github",
-  publisherLabel: "BB Community",
+  publisherLabel: "HYPERFIDE Community",
 } satisfies PluginListItem;
 
 const pluginUninstallItems = [
@@ -1077,7 +1077,7 @@ const pluginLocalItems = [
   { label: "Edit", icon: "Edit" as const, onSelect: noop },
   { label: "Open source", icon: "ExternalLink" as const, onSelect: noop },
   {
-    label: "Remove from bb",
+    label: "Remove from hyperfide",
     icon: "Trash2" as const,
     tone: "destructive" as const,
     onSelect: noop,
@@ -1123,7 +1123,7 @@ export function ResourceControlStates() {
                 onAction={noop}
               />
             }
-            meaning="Canonical BB Official plugin acquisition action on both Browse and the pre-ownership detail page."
+            meaning="Canonical HYPERFIDE Official plugin acquisition action on both Browse and the pre-ownership detail page."
           />
           <ControlRow
             state="Plugin · installing"
@@ -1140,19 +1140,19 @@ export function ResourceControlStates() {
             state="Skill · Fork"
             control={
               <ResourceInstallControl
-                accessibleLabel="Fork example skill into a new bb skill"
+                accessibleLabel="Fork example skill into a new hyperfide skill"
                 label="Fork"
                 icon="Fork"
                 onAction={noop}
               />
             }
-            meaning="Creates a new bb-owned skill from a registry source on the skill detail page."
+            meaning="Creates a new hyperfide-owned skill from a registry source on the skill detail page."
           />
           <ControlRow
             state="Skill · forking"
             control={
               <ResourceInstallControl
-                accessibleLabel="Fork example skill into a new bb skill"
+                accessibleLabel="Fork example skill into a new hyperfide skill"
                 label="Fork"
                 icon="Fork"
                 pending
@@ -1169,11 +1169,11 @@ export function ResourceControlStates() {
           description="Badges appear only when provenance changes how the resource should be understood. Ordinary owned resources stay unlabelled in their detail-page stories."
         >
           <ControlRow
-            state="Skill · BB Official"
+            state="Skill · HYPERFIDE Official"
             control={
-              <ProvenancePill label="BB Official" tooltip="Ships with bb" />
+              <ProvenancePill label="HYPERFIDE Official" tooltip="Ships with hyperfide" />
             }
-            meaning="A skill that ships with bb."
+            meaning="A skill that ships with hyperfide."
           />
           <ControlRow
             state="Skill · Included"
@@ -1275,10 +1275,10 @@ export function ResourceControlStates() {
                 items={pluginLocalItems}
               />
             }
-            meaning="Local sources can be edited, opened, submitted to the marketplace, or removed from bb without deleting the source directory."
+            meaning="Local sources can be edited, opened, submitted to the marketplace, or removed from hyperfide without deleting the source directory."
           />
           <ControlRow
-            state="BB Official built-in actions"
+            state="HYPERFIDE Official built-in actions"
             control={<NoControl>No ownership menu</NoControl>}
             meaning="Built-in plugins cannot be uninstalled or source-edited here."
           />
@@ -1312,7 +1312,7 @@ export function ResourceControlStates() {
             state="Fork · browse card"
             control={
               <ResourceInstallControl
-                accessibleLabel="Fork example skill into a new bb skill"
+                accessibleLabel="Fork example skill into a new hyperfide skill"
                 label="Fork"
                 icon="Fork"
                 presentation="icon"
@@ -1330,12 +1330,12 @@ export function ResourceControlStates() {
                 items={skillLocalItems}
               />
             }
-            meaning="A bb-owned skill can be edited, opened, or deleted."
+            meaning="A hyperfide-owned skill can be edited, opened, or deleted."
           />
           <ControlRow
             state="Read-only actions"
             control={<NoControl>No ownership menu</NoControl>}
-            meaning="BB Official, Included, and Imported skills expose provenance without pretending they are mutable."
+            meaning="HYPERFIDE Official, Included, and Imported skills expose provenance without pretending they are mutable."
           />
         </ControlTable>
       </main>

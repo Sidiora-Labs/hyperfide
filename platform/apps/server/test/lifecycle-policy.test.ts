@@ -128,7 +128,7 @@ describe.sequential("suspended machine lifecycle policy", () => {
       expect(response.status).toBe(200);
       expect(await readJson(response)).toEqual({
         hostId: host.id,
-        storageRootPath: `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`,
+        storageRootPath: `/tmp/hyperfide-host-data/${host.id}/thread-storage/${thread.id}`,
       });
       expect(machine.resume).not.toHaveBeenCalled();
       expect(rpc).not.toHaveBeenCalled();

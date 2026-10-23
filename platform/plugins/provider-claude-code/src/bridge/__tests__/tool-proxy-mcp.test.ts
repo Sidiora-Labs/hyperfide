@@ -41,12 +41,12 @@ describe("buildBridgeMcpServer", () => {
     const server = buildBridgeMcpServer(
       [
         {
-          name: "bb_workflow_result",
+          name: "hyperfide_workflow_result",
           description: "Return the structured result.",
           inputSchema: RESULT_SCHEMA,
         },
         {
-          name: "bb_odd_tool",
+          name: "hyperfide_odd_tool",
           description: "Tool registered with a non-object schema.",
           inputSchema: { type: "string" },
         },
@@ -58,7 +58,7 @@ describe("buildBridgeMcpServer", () => {
     const listed = await client.listTools();
     expect(listed.tools).toHaveLength(2);
     expect(listed.tools[0]).toMatchObject({
-      name: "bb_workflow_result",
+      name: "hyperfide_workflow_result",
       description: "Return the structured result.",
       inputSchema: RESULT_SCHEMA,
     });
@@ -72,7 +72,7 @@ describe("buildBridgeMcpServer", () => {
     const server = buildBridgeMcpServer(
       [
         {
-          name: "bb_workflow_result",
+          name: "hyperfide_workflow_result",
           description: "Return the structured result.",
           inputSchema: RESULT_SCHEMA,
         },
@@ -85,7 +85,7 @@ describe("buildBridgeMcpServer", () => {
     const client = await connect(server);
 
     const result = await client.callTool({
-      name: "bb_workflow_result",
+      name: "hyperfide_workflow_result",
       arguments: { value: { verdict: "merge", blockers: [] } },
     });
     expect(result).toMatchObject({
@@ -94,18 +94,18 @@ describe("buildBridgeMcpServer", () => {
     expect(result.isError).toBeUndefined();
     expect(calls).toEqual([
       {
-        toolName: "bb_workflow_result",
+        toolName: "hyperfide_workflow_result",
         args: { value: { verdict: "merge", blockers: [] } },
       },
     ]);
 
     const unknown = await client.callTool({
-      name: "bb_missing",
+      name: "hyperfide_missing",
       arguments: {},
     });
     expect(unknown).toMatchObject({
       isError: true,
-      content: [{ type: "text", text: "Unknown tool: bb_missing" }],
+      content: [{ type: "text", text: "Unknown tool: hyperfide_missing" }],
     });
     await client.close();
   });

@@ -7,13 +7,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { registerStaticAppRoutes } from "./server.js";
 
 describe("app shell serving", () => {
-  const shellHtml = "<!doctype html><title>bb</title><p>build-a</p>";
+  const shellHtml = "<!doctype html><title>hyperfide</title><p>build-a</p>";
   const shellBrotli = brotliCompressSync(Buffer.from(shellHtml));
   let dir: string;
   let app: Hono;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "bb-static-shell-"));
+    dir = await mkdtemp(join(tmpdir(), "hyperfide-static-shell-"));
     await writeFile(join(dir, "index.html"), shellHtml);
     await writeFile(join(dir, "index.html.br"), shellBrotli);
     app = new Hono();
@@ -63,7 +63,7 @@ describe("app shell serving", () => {
     const oldEtag = first.headers.get("etag") ?? "";
 
     const nextBuild =
-      "<!doctype html><title>bb</title><p>build-b with new hashed assets</p>";
+      "<!doctype html><title>hyperfide</title><p>build-b with new hashed assets</p>";
     await writeFile(join(dir, "index.html"), nextBuild);
 
     const res = await app.request("/", {

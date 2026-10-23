@@ -79,7 +79,7 @@ describe("composer mention suggestion conversion", () => {
       path: "thread:thr_1",
       replacement: "thread:thr_1",
       projectId: "prj_1",
-      projectName: "bb",
+      projectName: "hyperfide",
       threadId: "thr_1",
       title: "Fix the composer",
       relation: "child",

@@ -50,7 +50,7 @@ import {
   SettingsWithControl,
 } from "@/components/ui/settings-section";
 import { ShortcutPill } from "@hyperfide/shared-ui/shortcut-pill";
-import { getBbDesktopInfo } from "@/lib/bb-desktop";
+import { getHyperfideDesktopInfo } from "@/lib/hyperfide-desktop";
 
 const EMPTY_OVERRIDES: AppKeybindingOverrides = [];
 const SETTINGS_SHORTCUT_PILL_CLASS =
@@ -473,7 +473,7 @@ export function KeyboardSettingsSection() {
     isPending: isKeyboardSettingsPending,
     mutate: mutateKeyboardSettings,
   } = useUpdateKeyboardSettings();
-  const isDesktop = getBbDesktopInfo() !== null;
+  const isDesktop = getHyperfideDesktopInfo() !== null;
   const platform = browserPlatform();
   const generalSettings =
     systemConfig.data?.generalSettings ?? defaultAppSettings;
@@ -734,7 +734,7 @@ export function KeyboardSettingsSection() {
           Reset all
         </Button>
       }
-      description="Click a shortcut, then press its new keys. Changes sync to every bb window."
+      description="Click a shortcut, then press its new keys. Changes sync to every hyperfide window."
       title="Keyboard shortcuts"
     >
       <div className="space-y-5">

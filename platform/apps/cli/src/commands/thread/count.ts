@@ -11,7 +11,7 @@ import {
 } from "@hyperfide/server-contract";
 import type { ThreadCountResult } from "@hyperfide/sdk";
 import { action } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliHyperfideSdk } from "../../client.js";
 import { columnWidths, printBorderlessTable } from "../../table.js";
 import { joinValues, outputJson } from "../helpers.js";
 
@@ -56,7 +56,7 @@ export function registerCountCommand(
     .action(
       action(async (opts: ThreadCountCommandOptions) => {
         const groupBy = parseGroupBy(opts.by);
-        const result = await createCliBbSdk(getUrl()).threads.count({
+        const result = await createCliHyperfideSdk(getUrl()).threads.count({
           ...(opts.status ? { status: parseStatus(opts.status) } : {}),
           ...(opts.host ? { hostId: opts.host } : {}),
           ...(opts.provider ? { providerId: opts.provider } : {}),

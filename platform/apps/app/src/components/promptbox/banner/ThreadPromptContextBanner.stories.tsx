@@ -1,7 +1,7 @@
 import type {
   PullRequest,
   PullRequestMergeMethod,
-} from "bb-plugin-bb--github-pr-status/contract";
+} from "hyperfide-plugin-hyperfide--github-pr-status/contract";
 import { useState, type ReactNode } from "react";
 import type { WorkspaceFileStatus, WorkspaceStatus } from "@hyperfide/domain";
 import {
@@ -88,12 +88,12 @@ const dirtyUncommittedStatus: WorkspaceStatus = {
     fileCount: promptboxBannerFiles.length,
   },
   branch: {
-    currentBranch: "bb/promptbox-stories",
+    currentBranch: "hyperfide/promptbox-stories",
     defaultBranch: "main",
   },
   checkout: {
     kind: "branch",
-    branchName: "bb/promptbox-stories",
+    branchName: "hyperfide/promptbox-stories",
     headSha: null,
   },
   mergeBase: null,
@@ -227,12 +227,12 @@ const dirtyUncommittedManyStatus: WorkspaceStatus = {
     fileCount: dirtyUncommittedManyFiles.length,
   },
   branch: {
-    currentBranch: "bb/promptbox-stories",
+    currentBranch: "hyperfide/promptbox-stories",
     defaultBranch: "main",
   },
   checkout: {
     kind: "branch",
-    branchName: "bb/promptbox-stories",
+    branchName: "hyperfide/promptbox-stories",
     headSha: null,
   },
   mergeBase: null,
@@ -250,7 +250,7 @@ const untrackedOnlyStatus: WorkspaceStatus = {
         deletions: null,
       },
       {
-        path: "apps/app/scripts/dev-bb-worktree.sh",
+        path: "apps/app/scripts/dev-hyperfide-worktree.sh",
         status: "??",
         insertions: null,
         deletions: null,
@@ -262,12 +262,12 @@ const untrackedOnlyStatus: WorkspaceStatus = {
     fileCount: 2,
   },
   branch: {
-    currentBranch: "bb/promptbox-stories",
+    currentBranch: "hyperfide/promptbox-stories",
     defaultBranch: "main",
   },
   checkout: {
     kind: "branch",
-    branchName: "bb/promptbox-stories",
+    branchName: "hyperfide/promptbox-stories",
     headSha: null,
   },
   mergeBase: null,
@@ -284,12 +284,12 @@ const committedUnmergedStatus: WorkspaceStatus = {
     fileCount: 0,
   },
   branch: {
-    currentBranch: "bb/promptbox-stories",
+    currentBranch: "hyperfide/promptbox-stories",
     defaultBranch: "main",
   },
   checkout: {
     kind: "branch",
-    branchName: "bb/promptbox-stories",
+    branchName: "hyperfide/promptbox-stories",
     headSha: null,
   },
   mergeBase: {
@@ -526,9 +526,9 @@ function buildPullRequestFixture(
     number: 128,
     title: "Show pull request status in the prompt context banner",
     state: "open",
-    url: "https://github.com/acme/bb/pull/128",
+    url: "https://github.com/acme/hyperfide/pull/128",
     baseRefName: "main",
-    headRefName: "bb/pr-context-banner",
+    headRefName: "hyperfide/pr-context-banner",
     updatedAt: "2026-06-16T12:30:00Z",
     autoMerge: false,
     inMergeQueue: false,

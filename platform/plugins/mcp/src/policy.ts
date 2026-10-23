@@ -178,7 +178,7 @@ export function evaluateCliAccess(
   for (const prefix of UNAVAILABLE_COMMAND_PREFIXES) {
     if (startsWithWords(canonicalWords, prefix)) {
       return deny(
-        `\`bb ${prefix.join(" ")}\` cannot run over MCP: it needs an interactive terminal or never exits. Run it in a terminal on the machine.`,
+        `\`hyperfide ${prefix.join(" ")}\` cannot run over MCP: it needs an interactive terminal or never exits. Run it in a terminal on the machine.`,
       );
     }
   }
@@ -193,6 +193,6 @@ export function evaluateCliAccess(
   }
   const shown = path ?? words.slice(0, 3).join(" ");
   return deny(
-    `\`bb ${shown}\` is not on the read-only list. The \`read\` tool accepts only the canonical command names that inspect bb (no aliases, no plugin commands). Use the \`run\` tool for anything else.`,
+    `\`hyperfide ${shown}\` is not on the read-only list. The \`read\` tool accepts only the canonical command names that inspect hyperfide (no aliases, no plugin commands). Use the \`run\` tool for anything else.`,
   );
 }

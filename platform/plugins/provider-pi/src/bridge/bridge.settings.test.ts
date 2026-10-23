@@ -20,7 +20,7 @@ let commandLogPath: string;
 
 beforeEach(async () => {
   harness = await startFakePiBridge({
-    prefix: "bb-pi-settings-",
+    prefix: "hyperfide-pi-settings-",
     initialize: true,
   });
   commandLogPath = join(harness.workspaceDir, "commands.log");

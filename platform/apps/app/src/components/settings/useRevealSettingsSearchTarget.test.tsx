@@ -8,7 +8,7 @@ import { SettingsWithControl } from "@/components/ui/settings-section";
 import { SETTINGS_SEARCH_ANCHOR_STATE_KEY } from "./settings-search";
 import { useRevealSettingsSearchTarget } from "./useRevealSettingsSearchTarget";
 
-const FLASH_CLASS = "bb-search-flash";
+const FLASH_CLASS = "hyperfide-search-flash";
 
 const scrollIntoView = vi.fn();
 const originalScrollIntoView = Object.getOwnPropertyDescriptor(

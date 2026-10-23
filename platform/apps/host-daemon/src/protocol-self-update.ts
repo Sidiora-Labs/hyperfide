@@ -15,7 +15,7 @@ export const SELF_UPDATE_INITIAL_RETRY_DELAY_MS = 5_000;
 export const SELF_UPDATE_MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
 const ATTEMPT_FILE_NAME = "host-daemon-update-attempt.json";
 const INSTALLED_ARTIFACT_DIGEST_FILE_NAME = "host-artifact.sha256";
-const ARTIFACT_DIGEST_HEADER = "x-bb-artifact-sha256";
+const ARTIFACT_DIGEST_HEADER = "x-hyperfide-artifact-sha256";
 const ARTIFACT_DIGEST_PATTERN = /^[a-f0-9]{64}$/u;
 
 interface UpdateVersion {
@@ -221,14 +221,14 @@ export function createProtocolSelfUpdater(
       if (!options.enabled) {
         options.logger.error(
           { daemonProtocolVersion: HOST_DAEMON_PROTOCOL_VERSION },
-          "Daemon auto-update is disabled; install the server's bb-app package manually.",
+          "Daemon auto-update is disabled; install the server's hyperfide-app package manually.",
         );
         return "skipped";
       }
       if (!usesSecureInternalFetchTransport(options.serverUrl)) {
         options.logger.error(
           { serverUrl: options.serverUrl },
-          "Refusing daemon auto-update over insecure transport; install the server's bb-app package manually. Keeping the current daemon running and retrying normally.",
+          "Refusing daemon auto-update over insecure transport; install the server's hyperfide-app package manually. Keeping the current daemon running and retrying normally.",
         );
         return "failed";
       }
@@ -298,10 +298,10 @@ export function createProtocolSelfUpdater(
 
         const tarballPath = join(
           options.dataDir,
-          `bb-app-update-${process.pid}.tgz`,
+          `hyperfide-app-update-${process.pid}.tgz`,
         );
         try {
-          const tarballUrl = new URL("/install/bb-app.tgz", options.serverUrl);
+          const tarballUrl = new URL("/install/hyperfide-app.tgz", options.serverUrl);
           const installedDigest = await readInstalledArtifactDigest(
             installedArtifactDigestPath,
           );
@@ -318,7 +318,7 @@ export function createProtocolSelfUpdater(
           if (response.status === 304 && installedDigest !== null) {
             options.logger.info(
               { artifactDigest: installedDigest },
-              "The server-matched bb host artifact is already installed; restarting the daemon.",
+              "The server-matched hyperfide-platform host artifact is already installed; restarting the daemon.",
             );
             return "updated";
           }
@@ -357,7 +357,7 @@ export function createProtocolSelfUpdater(
             serverProtocolVersion: server.protocolVersion,
             serverVersion: server.version,
           },
-          "Installed the server-matched bb host package; restarting the daemon.",
+          "Installed the server-matched hyperfide-platform host package; restarting the daemon.",
         );
         return "updated";
       } catch (error) {

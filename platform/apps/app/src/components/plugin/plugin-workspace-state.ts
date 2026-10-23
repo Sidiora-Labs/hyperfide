@@ -30,7 +30,7 @@ const storage = createLocalStorageSyncStorage<PluginWorkspaceState>({
 });
 
 export const pluginWorkspaceAtom = atomWithStorage<PluginWorkspaceState>(
-  "bb.plugins.workspace.tabs",
+  "hyperfide.plugins.workspace.tabs",
   { tabs: [], activePluginId: null },
   storage,
   { getOnInit: true },

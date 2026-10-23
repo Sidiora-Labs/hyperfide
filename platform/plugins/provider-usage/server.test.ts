@@ -113,7 +113,7 @@ it("lists cheaply, fetches only the selected source/provider, preserves failed m
       },
     },
   });
-  plugin(host.bb);
+  plugin(host.hyperfide);
   const request = {
     force: false,
     machineIds: null,
@@ -240,7 +240,7 @@ it("keeps an unconfigured shared group without hosts or measurement requests", a
       },
     },
   });
-  plugin(host.bb);
+  plugin(host.hyperfide);
   try {
     await expect(
       host.harness.behavior.callRpc("getUsage", {
@@ -267,7 +267,7 @@ it("keeps an unconfigured shared group without hosts or measurement requests", a
 });
 
 it("collapses known account observations per machine, preserves unknown identities, and normalizes display labels", async () => {
-  const { bb, harness } = createFakePluginHost({
+  const { hyperfide, harness } = createFakePluginHost({
     sdk: {
       system: { config: async () => ({ primaryHostId: null }) },
       hosts: {
@@ -326,7 +326,7 @@ it("collapses known account observations per machine, preserves unknown identiti
     },
   });
   try {
-    plugin(bb);
+    plugin(hyperfide);
     const snapshot = await harness.behavior.callRpc("getUsage", {
       force: false,
       machineIds: ["host"],

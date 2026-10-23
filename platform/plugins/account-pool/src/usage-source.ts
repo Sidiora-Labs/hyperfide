@@ -1,4 +1,4 @@
-import { type BbPluginApi } from "@hyperfide/plugin-sdk";
+import { type HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import type { AccountSummary } from "./contracts.js";
 import type { AccountPoolHub } from "./hub.js";
 import {
@@ -42,8 +42,8 @@ function accountKey(account: AccountSummary): string | null {
       : null;
 }
 
-export function registerUsageSource(bb: BbPluginApi, hub: AccountPoolHub) {
-  bb.rpc.register(
+export function registerUsageSource(hyperfide: HyperfidePluginApi, hub: AccountPoolHub) {
+  hyperfide.rpc.register(
     usageSourceRpcContract,
     {
       async [usageListMethod]() {

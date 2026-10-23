@@ -16,7 +16,7 @@ import { useInstallCliSkills } from "@/hooks/mutations/settings-mutations";
 import { selectHosts, useHosts } from "@/hooks/queries/host-queries";
 import { useCliSkillsStatus } from "@/hooks/queries/system-queries";
 
-const CLI_SKILLS_SETTING_LABEL = "bb CLI skills";
+const CLI_SKILLS_SETTING_LABEL = "hyperfide CLI skills";
 
 interface CliSkillsSettingsSectionContentProps {
   hasConnectedMachine: boolean;
@@ -27,7 +27,7 @@ interface CliSkillsSettingsSectionContentProps {
 
 function installDescription(hasConnectedMachine: boolean): string {
   return hasConnectedMachine
-    ? "Install them into ~/.agents/skills and ~/.claude/skills so agents outside bb can use the bb CLI."
+    ? "Install them into ~/.agents/skills and ~/.claude/skills so agents outside hyperfide can use the hyperfide CLI."
     : "Connect a machine to install them into ~/.agents/skills and ~/.claude/skills.";
 }
 
@@ -84,7 +84,7 @@ function reportInstallResults(result: SystemInstallCliSkillsResponse): void {
   const failed = result.results.filter((entry) => !entry.ok);
   if (installed.length > 0) {
     appToast.success(
-      `Installed the bb CLI skills on ${installed
+      `Installed the hyperfide CLI skills on ${installed
         .map((entry) => entry.hostName)
         .join(", ")}`,
     );

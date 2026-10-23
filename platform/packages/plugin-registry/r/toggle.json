@@ -3,7 +3,7 @@
   "name": "toggle",
   "type": "registry:ui",
   "title": "toggle",
-  "description": "BB ui \"toggle\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"toggle\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "@radix-ui/react-toggle",
     "class-variance-authority"

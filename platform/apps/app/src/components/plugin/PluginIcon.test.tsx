@@ -119,7 +119,8 @@ it("uses a plugin-owned compact SVG before named icon hints", () => {
 });
 
 it("resolves every named branding.icon the shipped plugins declare", async () => {
-  const { readdir, readFile } = await import("node:fs/promises");
+  const { readFile } = await import("node:fs/promises");
+  const { execFileSync } = await import("node:child_process");
   const { dirname, join, resolve } = await import("node:path");
   const { fileURLToPath } = await import("node:url");
   const { isBuiltinIconName } = await import("@hyperfide/shared-ui/icon");
@@ -128,16 +129,18 @@ it("resolves every named branding.icon the shipped plugins declare", async () =>
     dirname(fileURLToPath(import.meta.url)),
     "../../../../../plugins",
   );
-  const entries = await readdir(pluginsDir, { withFileTypes: true });
+  const manifests = execFileSync("git", ["ls-files", "-z", "--", "*/package.json"], {
+    cwd: pluginsDir,
+    encoding: "utf8",
+  }).split("\0").filter((name) => name.split("/").length === 2);
   const declared: Array<[string, string]> = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const manifest: { bb?: { branding?: { icon?: string } } } = JSON.parse(
-      await readFile(join(pluginsDir, entry.name, "package.json"), "utf8"),
+  for (const manifestPath of manifests) {
+    const manifest: { hyperfide?: { branding?: { icon?: string } } } = JSON.parse(
+      await readFile(join(pluginsDir, manifestPath), "utf8"),
     );
-    const icon = manifest.bb?.branding?.icon;
+    const icon = manifest.hyperfide?.branding?.icon;
     if (icon === undefined || icon.startsWith("./")) continue;
-    declared.push([entry.name, icon]);
+    declared.push([manifestPath.split("/")[0], icon]);
   }
 
   expect(declared.length).toBeGreaterThan(0);

@@ -23,7 +23,7 @@ import {
 interface ScaffoldPluginArgs {
   targetDir: string;
   packageName: string;
-  bbVersion: string;
+  hyperfideVersion: string;
 }
 
 interface PluginSdkLayout {
@@ -36,8 +36,8 @@ export async function resolvePluginSdkLayout(
 ): Promise<PluginSdkLayout> {
   const pin = await readDeclaredSdkPin(rootDir);
   const hasVendoredTypes =
-    (await pathExists(join(rootDir, "types", "bb-plugin-sdk.d.ts"))) ||
-    (await pathExists(join(rootDir, "types", "bb-plugin-sdk-app.d.ts")));
+    (await pathExists(join(rootDir, "types", "hyperfide-plugin-sdk.d.ts"))) ||
+    (await pathExists(join(rootDir, "types", "hyperfide-plugin-sdk-app.d.ts")));
   const hasPathMap = await tsconfigMapsSdk(rootDir);
   return {
     kind: hasVendoredTypes || hasPathMap ? "vendored" : "package",
@@ -45,24 +45,12 @@ export async function resolvePluginSdkLayout(
   };
 }
 
-const SDK_PATH_MAP_PREFIXES = ["@hyperfide/plugin-sdk", "@hyperfide/plugin-sdk"] as const;
+const SDK_PATH_MAP_PREFIXES = ["@hyperfide/plugin-sdk"] as const;
 
 const VENDORED_DECLARATIONS = [
-  "bb-plugin-sdk.d.ts",
-  "bb-plugin-sdk-app.d.ts",
+  "hyperfide-plugin-sdk.d.ts",
+  "hyperfide-plugin-sdk-app.d.ts",
 ] as const;
-
-const LEGACY_SDK_SPECIFIER_PATTERN =
-  /(["'])@hyperfide\/plugin-sdk((?:\/[^"'\n]*)?)\1/g;
-
-const PLUGIN_SOURCE_EXTENSIONS = [".ts", ".tsx"] as const;
-const UNSCANNED_DIRECTORIES = new Set([
-  "dist",
-  "node_modules",
-  ".git",
-  "types",
-]);
-const MAX_SOURCE_SCAN_DEPTH = 12;
 
 interface MigratePluginArgs {
   rootDir: string;
@@ -99,14 +87,12 @@ export async function migratePluginToPackageLayout(
   const tsconfigPlan = await planTsconfig(rootDir, {
     removeTypesIncludes: typesPlan.removedTypesDir,
   });
-  const importPlan = await planSdkImportRewrites(rootDir);
   const result: PluginPackageLayoutMigration = {
     changed:
       manifestPlan.text !== null ||
       tsconfigPlan.text !== null ||
       typesPlan.deletedFiles.length > 0 ||
-      typesPlan.removedTypesDir ||
-      importPlan.length > 0,
+      typesPlan.removedTypesDir,
     pin: manifestPlan.pin,
     movedFromDependencies: manifestPlan.movedFromDependencies,
     enginesFloor: manifestPlan.enginesFloor,
@@ -114,7 +100,7 @@ export async function migratePluginToPackageLayout(
     removedIncludes: tsconfigPlan.removedIncludes,
     deletedFiles: typesPlan.deletedFiles,
     removedTypesDir: typesPlan.removedTypesDir,
-    rewrittenImports: importPlan,
+    rewrittenImports: [],
   };
   if (dryRun) return result;
   if (manifestPlan.text !== null) {
@@ -148,97 +134,7 @@ export async function migratePluginToPackageLayout(
       appliedTsconfigPlan.text,
     );
   }
-  for (const file of importPlan) {
-    await rewriteSdkImportsInFile(rootDir, file.path);
-  }
   return result;
-}
-
-async function rewriteSdkImportsInFile(
-  rootDir: string,
-  relativePath: string,
-): Promise<void> {
-  const filePath = join(rootDir, ...relativePath.split("/"));
-  await assertInsidePlugin(rootDir, dirname(filePath), relativePath);
-  const stats = await statNoFollow(filePath, relativePath);
-  if (stats === null || !stats.isFile()) return;
-  const current = await readFile(filePath, "utf8");
-  const rewritten = rewriteLegacySdkSpecifiers(current);
-  if (rewritten.imports === 0) return;
-  await writeFileAtomically(filePath, relativePath, rewritten.text);
-}
-
-function rewriteLegacySdkSpecifiers(content: string): {
-  text: string;
-  imports: number;
-} {
-  let imports = 0;
-  const text = content.replace(
-    LEGACY_SDK_SPECIFIER_PATTERN,
-    (_match, quote: string, subpath: string) => {
-      imports += 1;
-      return `${quote}@hyperfide/plugin-sdk${subpath}${quote}`;
-    },
-  );
-  return { text, imports };
-}
-
-async function planSdkImportRewrites(
-  rootDir: string,
-): Promise<RewrittenSdkImportFile[]> {
-  const found: RewrittenSdkImportFile[] = [];
-  const walk = async (
-    dir: string,
-    prefix: string,
-    depth: number,
-  ): Promise<void> => {
-    if (depth > MAX_SOURCE_SCAN_DEPTH) return;
-    const entries = await readdir(dir, { withFileTypes: true }).catch(
-      () => null,
-    );
-    if (entries === null) return;
-    for (const entry of entries) {
-      if (entry.isSymbolicLink()) continue;
-      const relativePath =
-        prefix === "" ? entry.name : `${prefix}/${entry.name}`;
-      if (entry.isDirectory()) {
-        if (UNSCANNED_DIRECTORIES.has(entry.name)) continue;
-        if (entry.name.startsWith(".")) continue;
-        await walk(join(dir, entry.name), relativePath, depth + 1);
-        continue;
-      }
-      if (!entry.isFile()) continue;
-      if (!PLUGIN_SOURCE_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) {
-        continue;
-      }
-      let content: string;
-      try {
-        content = await readFile(join(dir, entry.name), "utf8");
-      } catch {
-        continue;
-      }
-      const { imports } = rewriteLegacySdkSpecifiers(content);
-      if (imports > 0) found.push({ path: relativePath, imports });
-    }
-  };
-  await walk(rootDir, "", 0);
-  found.sort((left, right) => (left.path < right.path ? -1 : 1));
-  return found;
-}
-
-async function assertInsidePlugin(
-  rootDir: string,
-  path: string,
-  label: string,
-): Promise<void> {
-  const [realRoot, realPath] = await Promise.all([
-    realpath(rootDir),
-    realpath(path),
-  ]);
-  const rel = relative(realRoot, realPath);
-  if (rel.startsWith("..") || isAbsolute(rel)) {
-    throw new Error(`${label} resolves outside the plugin (${realPath})`);
-  }
 }
 
 interface SetPluginSdkPinArgs {
@@ -348,11 +244,11 @@ async function planManifest(
   let enginesFloor: ManifestPlan["enginesFloor"] = null;
   if (options.raiseFloor) {
     const engines = asRecord(manifest.engines);
-    const current = engines.bbPluginSdk;
+    const current = engines.hyperfidePluginSdk;
     const from = typeof current === "string" ? current : null;
     if (isFloorBelow(from, sdkVersion)) {
       enginesFloor = { from, to: `>=${sdkVersion}` };
-      manifest.engines = { ...engines, bbPluginSdk: `>=${sdkVersion}` };
+      manifest.engines = { ...engines, hyperfidePluginSdk: `>=${sdkVersion}` };
     }
   }
 
@@ -431,7 +327,8 @@ function readSdkPinFrom(manifest: Record<string, unknown>): {
   version: string | null;
 } {
   const inDependencies =
-    typeof asRecord(manifest.dependencies)["@hyperfide/plugin-sdk"] === "string";
+    typeof asRecord(manifest.dependencies)["@hyperfide/plugin-sdk"] ===
+    "string";
   for (const field of ["devDependencies", "dependencies"] as const) {
     const declared = asRecord(manifest[field])["@hyperfide/plugin-sdk"];
     if (typeof declared === "string")
@@ -621,7 +518,8 @@ async function tsconfigMapsSdk(rootDir: string): Promise<boolean> {
       return false;
     }
     return (
-      raw.includes('"@hyperfide/plugin-sdk') || raw.includes('"@hyperfide/plugin-sdk')
+      raw.includes('"@hyperfide/plugin-sdk') ||
+      raw.includes('"@hyperfide/plugin-sdk')
     );
   }
   const compilerOptions = tsconfig.compilerOptions;
@@ -685,7 +583,7 @@ async function writeFileAtomically(
   label: string,
   content: string,
 ): Promise<void> {
-  const suffix = `${process.pid}-${randomBytes(6).toString("hex")}.bb-tmp`;
+  const suffix = `${process.pid}-${randomBytes(6).toString("hex")}.hyperfide-tmp`;
   const tempPath = `${filePath}.${suffix}`;
   if (await pathExists(tempPath)) {
     throw new Error(
@@ -708,16 +606,16 @@ function pluginNameOf(packageName: string): string {
     .join(" ");
 }
 
-function enginesRange(bbVersion: string): string {
-  const match = /^(\d+)\.(\d+)/.exec(bbVersion);
+function enginesRange(hyperfideVersion: string): string {
+  const match = /^(\d+)\.(\d+)/.exec(hyperfideVersion);
   return match ? `>=${match[1]}.${match[2]}` : ">=0.0";
 }
 
-function registryRef(bbVersion: string): string {
-  return bbVersion === "0.0.0" ? "main" : `desktop-v${bbVersion}`;
+function registryRef(hyperfideVersion: string): string {
+  return hyperfideVersion === "0.0.0" ? "main" : `desktop-v${hyperfideVersion}`;
 }
 
-function componentsJsonSource(bbVersion: string): string {
+function componentsJsonSource(hyperfideVersion: string): string {
   return `${JSON.stringify(
     {
       $schema: "https://ui.shadcn.com/schema.json",
@@ -737,7 +635,7 @@ function componentsJsonSource(bbVersion: string): string {
         hooks: "@/hooks",
       },
       registries: {
-        "@hyperfide": `https://raw.githubusercontent.com/get-bb/bb/${registryRef(bbVersion)}/packages/plugin-registry/r/{name}.json`,
+        "@hyperfide": `https://raw.githubusercontent.com/hyperfide/hyperfide/${registryRef(hyperfideVersion)}/packages/plugin-registry/r/{name}.json`,
       },
     },
     null,
@@ -748,18 +646,18 @@ function componentsJsonSource(bbVersion: string): string {
 function serverEntrySource(packageName: string): string {
   const id = derivePluginId(packageName);
   const name = pluginNameOf(packageName);
-  return `// ${packageName} — a BB plugin backend entry.
+  return `// ${packageName} — a HYPERFIDE plugin backend entry.
 //
-// The default export is a factory that receives the plugin API. BB supplies
+// The default export is a factory that receives the plugin API. HYPERFIDE supplies
 // the tiny defineRpcContract runtime helper; the API type remains type-only.
 //
-// The example is a todo list. One store in bb.storage.kv serves three
-// surfaces: the Example todos page (app.tsx, over RPC), the \`bb ${id}\` CLI
+// The example is a todo list. One store in hyperfide.storage.kv serves three
+// surfaces: the Example todos page (app.tsx, over RPC), the \`hyperfide-platform ${id}\` CLI
 // command (below), and the skill in skills/example-todos/SKILL.md that tells
 // agents how to use that command. A write from any surface publishes a realtime signal so
 // every open page refetches.
 import { randomUUID } from "node:crypto";
-import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
+import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 const todoSchema = z.object({
@@ -794,13 +692,13 @@ export const rpcContract = defineRpcContract({
 /** Realtime channel app.tsx listens on; the payload is the todo count. */
 const TODOS_CHANGED = "todos-changed";
 
-export default async function plugin(bb: BbPluginApi) {
-  bb.log.info("loaded");
+export default async function plugin(hyperfide: HyperfidePluginApi) {
+  hyperfide.log.info("loaded");
 
-  // Declarative settings — rendered in BB's settings UI and editable with
-  // \`bb plugin config ${id}\`. Add \`secret: true\` for values like API keys.
+  // Declarative settings — rendered in HYPERFIDE's settings UI and editable with
+  // \`hyperfide-platform plugin config ${id}\`. Add \`secret: true\` for values like API keys.
   // Settings are read once per load: reload the plugin after changing one.
-  const settings = bb.settings.define({
+  const settings = hyperfide.settings.define({
     showDone: {
       type: "boolean",
       label: "Show completed todos",
@@ -809,15 +707,15 @@ export default async function plugin(bb: BbPluginApi) {
   });
   const { showDone } = await settings.get();
 
-  // Namespaced key-value storage in bb.db (JSON values, up to 256KB each).
-  // For bigger or relational data use bb.storage.database().
+  // Namespaced key-value storage in hyperfide.db (JSON values, up to 256KB each).
+  // For bigger or relational data use hyperfide.storage.database().
   async function readTodos(): Promise<Todo[]> {
-    return (await bb.storage.kv.get<Todo[]>("todos")) ?? [];
+    return (await hyperfide.storage.kv.get<Todo[]>("todos")) ?? [];
   }
   async function writeTodos(todos: Todo[]): Promise<void> {
-    await bb.storage.kv.set("todos", todos);
+    await hyperfide.storage.kv.set("todos", todos);
     // Ephemeral broadcast to every connected client; nothing is persisted.
-    bb.realtime.publish(TODOS_CHANGED, { count: todos.length });
+    hyperfide.realtime.publish(TODOS_CHANGED, { count: todos.length });
   }
 
   async function listTodos(): Promise<Todo[]> {
@@ -850,7 +748,7 @@ export default async function plugin(bb: BbPluginApi) {
     return true;
   }
 
-  bb.rpc.register(rpcContract, {
+  hyperfide.rpc.register(rpcContract, {
     todos_list: async () => ({ todos: await listTodos() }),
     todos_add: ({ title }) => addTodo(title),
     todos_set_done: async ({ id, done }) => {
@@ -861,44 +759,44 @@ export default async function plugin(bb: BbPluginApi) {
     todos_remove: async ({ id }) => ({ removed: await removeTodo(id) }),
   });
 
-  // The \`bb ${id}\` command: what agents (and you) use from a shell. Parsing
-  // argv is plugin-owned; \`commands\` is metadata BB renders into help and
+  // The \`hyperfide-platform ${id}\` command: what agents (and you) use from a shell. Parsing
+  // argv is plugin-owned; \`commands\` is metadata HYPERFIDE renders into help and
   // the generated plugin-commands skill without running plugin code.
   const usage = [
     "Usage:",
-    "  bb ${id} list [--json]",
-    "  bb ${id} add <title> [--json]",
-    "  bb ${id} done <todo-id> [--json]",
-    "  bb ${id} undo <todo-id> [--json]",
-    "  bb ${id} remove <todo-id> [--json]",
+    "  hyperfide-platform ${id} list [--json]",
+    "  hyperfide-platform ${id} add <title> [--json]",
+    "  hyperfide-platform ${id} done <todo-id> [--json]",
+    "  hyperfide-platform ${id} undo <todo-id> [--json]",
+    "  hyperfide-platform ${id} remove <todo-id> [--json]",
   ].join("\\n");
   function formatTodo(todo: Todo): string {
     return \`[\${todo.done ? "x" : " "}] \${todo.id}  \${todo.title}\`;
   }
-  bb.cli.register({
+  hyperfide.cli.register({
     name: "${id}",
     summary: "Manage the ${name} plugin's example todo list",
     commands: [
-      { name: "list", summary: "List todos", usage: "bb ${id} list [--json]" },
+      { name: "list", summary: "List todos", usage: "hyperfide-platform ${id} list [--json]" },
       {
         name: "add",
         summary: "Add a todo",
-        usage: "bb ${id} add <title> [--json]",
+        usage: "hyperfide-platform ${id} add <title> [--json]",
       },
       {
         name: "done",
         summary: "Mark a todo done",
-        usage: "bb ${id} done <todo-id> [--json]",
+        usage: "hyperfide-platform ${id} done <todo-id> [--json]",
       },
       {
         name: "undo",
         summary: "Mark a todo not done",
-        usage: "bb ${id} undo <todo-id> [--json]",
+        usage: "hyperfide-platform ${id} undo <todo-id> [--json]",
       },
       {
         name: "remove",
         summary: "Remove a todo",
-        usage: "bb ${id} remove <todo-id> [--json]",
+        usage: "hyperfide-platform ${id} remove <todo-id> [--json]",
       },
     ],
     async run(argv) {
@@ -910,7 +808,7 @@ export default async function plugin(bb: BbPluginApi) {
       });
       const notFound = (missingId: string) => ({
         exitCode: 1,
-        stderr: \`No todo with id \${missingId}. Run "bb ${id} list" to see ids.\`,
+        stderr: \`No todo with id \${missingId}. Run "hyperfide-platform ${id} list" to see ids.\`,
       });
       const todoId = args[0];
       switch (command) {
@@ -950,15 +848,15 @@ export default async function plugin(bb: BbPluginApi) {
 
   // Cleanup on reload/disable/shutdown; hooks run LIFO. The sanctioned place
   // to clear timers and close connections.
-  bb.onDispose(() => {
-    bb.log.info("disposed");
+  hyperfide.onDispose(() => {
+    hyperfide.log.info("disposed");
   });
 
   // Long-lived background work: starts after load, gets an AbortSignal on
   // reload/disable/shutdown, and restarts with backoff if it crashes. Sleeps
   // must wake on abort — a plain setTimeout sleeps through the stop window
   // and the plugin reports "degraded (service did not stop)" on reload.
-  // bb.background.service("worker", {
+  // hyperfide.background.service("worker", {
   //   async start(signal) {
   //     while (!signal.aborted) {
   //       await new Promise((resolve) => {
@@ -978,17 +876,17 @@ export default async function plugin(bb: BbPluginApi) {
 
 function appEntrySource(packageName: string): string {
   const id = derivePluginId(packageName);
-  return `// ${packageName} — a BB plugin frontend entry.
+  return `// ${packageName} — a HYPERFIDE plugin frontend entry.
 //
-// Compiled by \`bb plugin build\` into dist/app.js + dist/app.css. React and
-// @hyperfide/plugin-sdk/app are provided by the BB app at load time (never bundled),
-// so this file must be loaded by BB, not imported directly.
+// Compiled by \`hyperfide-platform plugin build\` into dist/app.js + dist/app.css. React and
+// @hyperfide/plugin-sdk/app are provided by the HYPERFIDE app at load time (never bundled),
+// so this file must be loaded by HYPERFIDE, not imported directly.
 //
 // The components under components/ui/ are YOURS: vendored source (shadcn
-// model), edit freely. Add more from the BB registry with
+// model), edit freely. Add more from the HYPERFIDE registry with
 // \`npx shadcn add @hyperfide/<name>\` (see components.json) — dropdowns, tables,
-// the full shadcn set, version-matched to this BB install. Run
-// \`npm install\` once before \`bb plugin build\`.
+// the full shadcn set, version-matched to this HYPERFIDE install. Run
+// \`npm install\` once before \`hyperfide-platform plugin build\`.
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { definePluginApp, useRealtime, useRpc } from "@hyperfide/plugin-sdk/app";
@@ -1017,7 +915,7 @@ function useTodos() {
     refetch();
   }, [refetch]);
   // server.ts publishes after every write — from this page, another window,
-  // or \`bb ${id} add\` run by an agent — so the list never goes stale.
+  // or \`hyperfide-platform ${id} add\` run by an agent — so the list never goes stale.
   useRealtime("todos-changed", refetch);
   return { rpc, todos, error, report, refetch };
 }
@@ -1062,7 +960,7 @@ function TodoRow({
   );
 }
 
-/** The dashed box BB's own list pages use for loading and empty states. */
+/** The dashed box HYPERFIDE's own list pages use for loading and empty states. */
 function EmptyState({ children }: { children: ReactNode }) {
   return (
     <div
@@ -1076,7 +974,7 @@ function EmptyState({ children }: { children: ReactNode }) {
 
 // Tailwind classes compile against the host theme's live CSS variables —
 // derive colors from the theme tokens, never hardcoded grays. The frame
-// (scrolling page, centered column) matches BB's own nav-panel pages.
+// (scrolling page, centered column) matches HYPERFIDE's own nav-panel pages.
 function TodosPage() {
   const { rpc, todos, error, report, refetch } = useTodos();
   const [title, setTitle] = useState("");
@@ -1101,7 +999,7 @@ function TodosPage() {
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto box-border w-full max-w-3xl px-4 pb-4 pt-3 md:px-5 md:pt-4">
         <p className="text-sm text-muted-foreground">
-          Agents keep this list with <code>bb ${id}</code>; the skill in{" "}
+          Agents keep this list with <code>hyperfide-platform ${id}</code>; the skill in{" "}
           <code>skills/example-todos</code> tells them how.
         </p>
         <form onSubmit={add} className="mt-4 flex items-center gap-2">
@@ -1127,7 +1025,7 @@ function TodosPage() {
           ) : todos.length === 0 ? (
             <EmptyState>
               Nothing to do. Add one above, or run{" "}
-              <code>bb ${id} add "Ship it"</code>.
+              <code>hyperfide-platform ${id} add "Ship it"</code>.
             </EmptyState>
           ) : (
             <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
@@ -1160,10 +1058,10 @@ function TodosPage() {
   );
 }
 
-// The default export must be definePluginApp(...); BB interprets it after
+// The default export must be definePluginApp(...); HYPERFIDE interprets it after
 // loading the bundle. navPanel adds a page to the left sidebar; register
 // other UI under app.slots and composer actions, plus-menu rows, banners, or
-// rich-text rules with app.composer.customize(...) (see the bb guide's
+// rich-text rules with app.composer.customize(...) (see the hyperfide guide's
 // plugins chapter).
 export default definePluginApp((app) => {
   app.slots.navPanel({
@@ -1206,34 +1104,34 @@ function skillSource(packageName: string): string {
   const name = pluginNameOf(packageName);
   return `---
 name: example-todos
-description: Read and update the ${name} plugin's example todo list with the \`bb ${id}\` CLI. Use when the user asks to add, complete, reopen, remove, or review todos, or when the steps of a task should be tracked as todos.
+description: Read and update the ${name} plugin's example todo list with the \`hyperfide-platform ${id}\` CLI. Use when the user asks to add, complete, reopen, remove, or review todos, or when the steps of a task should be tracked as todos.
 ---
 
 # Example todos
 
-The ${name} plugin keeps one todo list. The Example todos page in the BB sidebar and
-the \`bb ${id}\` command read and write the same list, so a change from either
+The ${name} plugin keeps one todo list. The Example todos page in the HYPERFIDE sidebar and
+the \`hyperfide-platform ${id}\` command read and write the same list, so a change from either
 side shows in the other at once.
 
 ## Commands
 
 | Command | Effect |
 | --- | --- |
-| \`bb ${id} list\` | Show every todo with its id. \`[x]\` marks a done todo. |
-| \`bb ${id} add <title>\` | Add a todo. Quote a title that has spaces. |
-| \`bb ${id} done <todo-id>\` | Mark a todo done. |
-| \`bb ${id} undo <todo-id>\` | Mark a todo not done. |
-| \`bb ${id} remove <todo-id>\` | Delete a todo. |
+| \`hyperfide-platform ${id} list\` | Show every todo with its id. \`[x]\` marks a done todo. |
+| \`hyperfide-platform ${id} add <title>\` | Add a todo. Quote a title that has spaces. |
+| \`hyperfide-platform ${id} done <todo-id>\` | Mark a todo done. |
+| \`hyperfide-platform ${id} undo <todo-id>\` | Mark a todo not done. |
+| \`hyperfide-platform ${id} remove <todo-id>\` | Delete a todo. |
 
 Add \`--json\` to any command when the output drives code.
 
 ## Procedure
 
-1. Run \`bb ${id} list\` before you change the list. Use the ids it prints;
+1. Run \`hyperfide-platform ${id} list\` before you change the list. Use the ids it prints;
    never guess an id.
 2. Add todos one at a time with a short title that starts with a verb:
-   \`bb ${id} add "Write the release notes"\`.
-3. When you finish a todo, mark it done: \`bb ${id} done <todo-id>\`. Do not
+   \`hyperfide-platform ${id} add "Write the release notes"\`.
+3. When you finish a todo, mark it done: \`hyperfide-platform ${id} done <todo-id>\`. Do not
    remove a todo to mark it done.
 4. Remove a todo only when the user asks for it or when it duplicates
    another todo.
@@ -1241,10 +1139,10 @@ Add \`--json\` to any command when the output drives code.
 
 ## Rules
 
-- Change the list only through \`bb ${id}\`. Do not edit bb.db or the plugin's
+- Change the list only through \`hyperfide-platform ${id}\`. Do not edit hyperfide.db or the plugin's
   storage directly.
 - A non-zero exit with "No todo with id" means the id is stale: run
-  \`bb ${id} list\` again.
+  \`hyperfide-platform ${id} list\` again.
 `;
 }
 
@@ -1257,20 +1155,20 @@ your agent threads.
 
 - An **Example todos** page in the left sidebar that adds, completes, and
   removes todos.
-- A \`bb ${id}\` command that does the same from a terminal.
+- A \`hyperfide-platform ${id}\` command that does the same from a terminal.
 - Live updates, so a change made in one place reaches every open page at once.
 
 ## How it works
 
-The todos live in this plugin's own storage on the BB server, one list per
+The todos live in this plugin's own storage on the HYPERFIDE server, one list per
 installation. Nothing leaves the machine, and the plugin needs no account, API
 key, or external service.
 
 ## For agents
 
-The bundled skill tells an agent to read the list with \`bb ${id} list\`, add
-one todo at a time with \`bb ${id} add\`, and close finished work with
-\`bb ${id} done\`.
+The bundled skill tells an agent to read the list with \`hyperfide-platform ${id} list\`, add
+one todo at a time with \`hyperfide-platform ${id} add\`, and close finished work with
+\`hyperfide-platform ${id} done\`.
 `;
 }
 
@@ -1278,40 +1176,40 @@ function readmeSource(packageName: string): string {
   const id = derivePluginId(packageName);
   return `# ${packageName}
 
-A BB plugin that keeps a todo list. It shows every surface a plugin can own:
+A HYPERFIDE plugin that keeps a todo list. It shows every surface a plugin can own:
 
-- \`server.ts\` — the backend: a todo store in \`bb.storage.kv\`, RPC methods
-  for the page, a \`bb ${id}\` CLI command, a setting, and a realtime signal
+- \`server.ts\` — the backend: a todo store in \`hyperfide.storage.kv\`, RPC methods
+  for the page, a \`hyperfide-platform ${id}\` CLI command, a setting, and a realtime signal
   that keeps every open page current.
 - \`app.tsx\` — the frontend: an **Example todos** page in the left sidebar
   (\`app.slots.navPanel\`) built from the vendored components.
 - \`skills/example-todos/SKILL.md\` — a skill that tells agents how to keep the list
-  with \`bb ${id}\`. BB imports it into agent threads automatically.
+  with \`hyperfide-platform ${id}\`. HYPERFIDE imports it into agent threads automatically.
 - \`PLUGIN_OVERVIEW.md\` — the store listing text: a longer version of
-  \`bb.description\` that the plugin detail page shows under it. See
+  \`hyperfide.description\` that the plugin detail page shows under it. See
   [Store listing](#store-listing).
 
 Try it: install the plugin, open **Example todos** in the sidebar, then run
-\`bb ${id} add "Ship it"\` in a terminal. The page updates at once.
+\`hyperfide-platform ${id} add "Ship it"\` in a terminal. The page updates at once.
 
 ## UI components
 
 \`components/ui/\` is vendored source you own (the shadcn model): edit the
-files freely — they never update out from under you. Add more from the BB
-component registry (the full shadcn set, version-matched to your BB install
+files freely — they never update out from under you. Add more from the HYPERFIDE
+component registry (the full shadcn set, version-matched to your HYPERFIDE install
 via the pinned ref in \`components.json\`):
 
 \`\`\`
 npx shadcn add @hyperfide/select @hyperfide/table
 \`\`\`
 
-Run \`npm install\` once before \`bb plugin build\` — the vendored components'
-npm deps bundle into your dist. React, and BB-shimmed packages like the
+Run \`npm install\` once before \`hyperfide-platform plugin build\` — the vendored components'
+npm deps bundle into your dist. React, and HYPERFIDE-shimmed packages like the
 radix portal primitives and \`sonner\` (\`import { toast } from "sonner"\`
-reaches BB's own toaster), are provided by the BB app at runtime and never
+reaches HYPERFIDE's own toaster), are provided by the HYPERFIDE app at runtime and never
 bundled. Every shimmed package is declared in \`devDependencies\` at the
 host's version so those imports typecheck; keep them there (never in
-\`dependencies\`, which would bundle a second copy), and \`bb plugin types\`
+\`dependencies\`, which would bundle a second copy), and \`hyperfide-platform plugin types\`
 repins declared packages alongside the SDK; unused packages may be removed. Ship \`dist/\` (npm tarball or committed for
 git installs) so people installing your plugin never need npm.
 
@@ -1319,28 +1217,28 @@ git installs) so people installing your plugin never need npm.
 
 \`package.json\` is the plugin manifest. Notable fields:
 
-- \`bb.server\` — backend entry (required).
-- \`bb.app\` — frontend entry. Delete it, \`app.tsx\`, \`components/\`,
+- \`hyperfide.server\` — backend entry (required).
+- \`hyperfide.app\` — frontend entry. Delete it, \`app.tsx\`, \`components/\`,
   \`hooks/\`, and \`lib/\` for a headless plugin.
-- \`bb.skills\` — skill roots; omitted here, so BB reads \`skills/\`. Each
+- \`hyperfide.skills\` — skill roots; omitted here, so HYPERFIDE reads \`skills/\`. Each
   directory with a \`SKILL.md\` is one skill, named after the directory.
-- \`bb.name\` and \`bb.description\` — required human-facing identity.
-- \`bb.branding\` — required; declare \`icon\` as a BB icon name or a
+- \`hyperfide.name\` and \`hyperfide.description\` — required human-facing identity.
+- \`hyperfide.branding\` — required; declare \`icon\` as a HYPERFIDE icon name or a
   plugin-relative compact SVG, or declare \`logo.light\` (with optional
   \`logo.dark\`). Logo assets must be relative \`.svg\`, \`.png\`, or
   \`.webp\` files.
-- \`engines.bb\` — supported bb app version range.
-- \`engines.bbPluginSdk\` — the lowest plugin SDK you need (scaffold:
-  \`>=${PLUGIN_SDK_VERSION}\`). BB reads this as a floor, not a ceiling: a later
+- \`engines.hyperfide\` — supported hyperfide app version range.
+- \`engines.hyperfidePluginSdk\` — the lowest plugin SDK you need (scaffold:
+  \`>=${PLUGIN_SDK_VERSION}\`). HYPERFIDE reads this as a floor, not a ceiling: a later
   SDK in the same major still loads your plugin.
-- \`dependencies\` — every package your source imports that BB does not provide.
-  \`bb plugin build\` inlines them into \`dist/\`, and git installs resolve this
+- \`dependencies\` — every package your source imports that HYPERFIDE does not provide.
+  \`hyperfide-platform plugin build\` inlines them into \`dist/\`, and git installs resolve this
   list alone, so a build-required package here rather than in
   \`devDependencies\` is what keeps your plugin installable. \`devDependencies\`
-  is for types and tooling only (BB shims React, the portal primitives, and
+  is for types and tooling only (HYPERFIDE shims React, the portal primitives, and
   \`@hyperfide/plugin-sdk\` at runtime — never bundle them).
 
-Run \`bb plugin build\` before publishing git/npm installs. It writes
+Run \`hyperfide-platform plugin build\` before publishing git/npm installs. It writes
 \`dist/server.js\` + \`server.meta.json\` and \`app.js\` / \`app.css\` /
 \`app.meta.json\`. Each \`*.meta.json\` stamps SDK major/version,
 \`artifactFormatVersion\`, \`pluginId\`, \`pluginVersion\`, and
@@ -1348,80 +1246,80 @@ Run \`bb plugin build\` before publishing git/npm installs. It writes
 
 ## Store listing
 
-Two texts describe the plugin in the store. \`bb.description\` in package.json
+Two texts describe the plugin in the store. \`hyperfide.description\` in package.json
 is the one-sentence hook on every browse card and the lead paragraph on the
 detail page; keep it under about 140 characters. \`PLUGIN_OVERVIEW.md\` is the
 same claim at length, shown in an Overview section under that paragraph.
 Rewrite the scaffold's copy for your plugin, and update it whenever
-\`bb.description\` changes, so the two never disagree.
+\`hyperfide.description\` changes, so the two never disagree.
 
-The submission to the public BB Community marketplace requires the file. Keep
+The submission to the public HYPERFIDE Community marketplace requires the file. Keep
 it under 4000 characters (aim for 700 to 1800) and use headings, paragraphs,
 emphasis, code, blockquotes, lists, thematic breaks, and absolute https links
 only — raw HTML, images, tables, footnotes, and task lists are rejected. Do
-not open with a \`#\` title or repeat \`bb.description\` verbatim; the page
+not open with a \`#\` title or repeat \`hyperfide.description\` verbatim; the page
 shows both directly above.
 
 ## Install
 
-From this directory (\`bb plugin new\` already ran the install; a fresh clone
+From this directory (\`hyperfide-platform plugin new\` already ran the install; a fresh clone
 needs it):
 
 \`\`\`
 npm install
-bb plugin install .
+hyperfide-platform plugin install .
 \`\`\`
 
 After editing sources, reload:
 
 \`\`\`
-bb plugin reload ${id}
+hyperfide-platform plugin reload ${id}
 \`\`\`
 
-Or let \`bb plugin dev\` rebuild and reload on every save.
+Or let \`hyperfide-platform plugin dev\` rebuild and reload on every save.
 
 ## Configure
 
 \`\`\`
-bb plugin config ${id}
-bb plugin config ${id} set showDone false
-bb plugin reload ${id}
+hyperfide-platform plugin config ${id}
+hyperfide-platform plugin config ${id} set showDone false
+hyperfide-platform plugin reload ${id}
 \`\`\`
 
 ## Types & API reference
 
 The plugin API ships as the npm package \`@hyperfide/plugin-sdk\`, pinned to an
-exact version in \`devDependencies\` (\`${PLUGIN_SDK_VERSION}\` — the SDK of the BB
+exact version in \`devDependencies\` (\`${PLUGIN_SDK_VERSION}\` — the SDK of the HYPERFIDE
 that scaffolded this plugin). After \`npm install\`, the full surface is on disk
 at:
 
 \`\`\`
-node_modules/@hyperfide/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts      # backend
-node_modules/@hyperfide/plugin-sdk/bundled-types/bb-plugin-sdk-app.d.ts  # frontend
+node_modules/@hyperfide/plugin-sdk/bundled-types/hyperfide-plugin-sdk.d.ts      # backend
+node_modules/@hyperfide/plugin-sdk/bundled-types/hyperfide-plugin-sdk-app.d.ts  # frontend
 \`\`\`
 
 Your editor and \`tsc\` resolve \`@hyperfide/plugin-sdk\` there through ordinary node
 resolution — no path mapping. These are readable declarations: open them for an
 exact signature.
 
-The SDK surface grows with every BB release, so the pin has to track the BB you
+The SDK surface grows with every HYPERFIDE release, so the pin has to track the HYPERFIDE you
 actually run:
 
 \`\`\`
-bb plugin types          # sync this plugin's SDK surface to the running BB
-bb plugin types --check  # CI: fail when it does not match
+hyperfide-platform plugin types          # sync this plugin's SDK surface to the running HYPERFIDE
+hyperfide-platform plugin types --check  # CI: fail when it does not match
 \`\`\`
 
-Ask BB to write plugins for you: the \`bb-plugin-authoring\` skill documents
+Ask HYPERFIDE to write plugins for you: the \`hyperfide-plugin-authoring\` skill documents
 the whole surface with examples.
 
-Confused by the API, or need something the types don't explain? Clone the BB
-repo and read the source: <https://github.com/get-bb/bb>.
+Confused by the API, or need something the types don't explain? Clone the HYPERFIDE
+repo and read the source: <https://github.com/hyperfide/hyperfide>.
 `;
 }
 
 export async function scaffoldPlugin(args: ScaffoldPluginArgs): Promise<void> {
-  const { targetDir, packageName, bbVersion } = args;
+  const { targetDir, packageName, hyperfideVersion } = args;
   try {
     await mkdir(targetDir, { recursive: false });
   } catch (error) {
@@ -1438,12 +1336,12 @@ export async function scaffoldPlugin(args: ScaffoldPluginArgs): Promise<void> {
         version: "0.1.0",
         type: "module",
         engines: {
-          bb: enginesRange(bbVersion),
-          bbPluginSdk: `>=${PLUGIN_SDK_VERSION}`,
+          hyperfide: enginesRange(hyperfideVersion),
+          hyperfidePluginSdk: `>=${PLUGIN_SDK_VERSION}`,
         },
-        bb: {
+        hyperfide: {
           name: pluginNameOf(packageName),
-          description: "A BB plugin with an example todo list.",
+          description: "A HYPERFIDE plugin with an example todo list.",
           branding: { icon: "ListTodo" },
           server: "./server.ts",
           app: "./app.tsx",
@@ -1479,7 +1377,7 @@ export async function scaffoldPlugin(args: ScaffoldPluginArgs): Promise<void> {
   }
   await writeFile(
     join(targetDir, "components.json"),
-    componentsJsonSource(bbVersion),
+    componentsJsonSource(hyperfideVersion),
   );
   const skillDir = join(targetDir, "skills", "example-todos");
   await mkdir(skillDir, { recursive: true });

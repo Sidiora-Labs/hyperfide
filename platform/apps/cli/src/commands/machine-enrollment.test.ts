@@ -26,7 +26,7 @@ const bundle = () => ({
   expiresAt: Date.now() + 60_000,
 });
 async function harness() {
-  const dir = await mkdtemp(join(tmpdir(), "bb-machine-enrollment-test-"));
+  const dir = await mkdtemp(join(tmpdir(), "hyperfide-machine-enrollment-test-"));
   directories.push(dir);
   const fetchFn = vi.fn<typeof fetch>(async () =>
     Response.json(
@@ -186,12 +186,12 @@ describe("machine enroll", () => {
     });
   });
 
-  it("uses the default BB data directory only when it already holds this machine", async () => {
+  it("uses the default HYPERFIDE data directory only when it already holds this machine", async () => {
     const h = await harness();
     const defaultDir = join(h.dir, ".hyperfide");
     h.env.HYPERFIDE_DATA_DIR = defaultDir;
     await expect(h.run()).rejects.toThrow(
-      "cannot use the default BB data directory",
+      "cannot use the default HYPERFIDE data directory",
     );
     await mkdir(defaultDir);
     await writeFile(join(defaultDir, "host-id"), "host_other\n");
@@ -200,7 +200,7 @@ describe("machine enroll", () => {
       reconnect: true,
     });
     await expect(h.run()).rejects.toThrow(
-      "cannot use the default BB data directory",
+      "cannot use the default HYPERFIDE data directory",
     );
     expect(h.fetchFn).not.toHaveBeenCalled();
     await writeFile(join(defaultDir, "host-id"), "host_test\n");
@@ -268,7 +268,7 @@ it("accepts delivered direct and Connect bundles from file and environment", asy
       const h = await harness();
       const headers =
         kind === "connect"
-          ? { "x-bb-connect-machine": "private-connect" }
+          ? { "x-hyperfide-connect-machine": "private-connect" }
           : undefined;
       const value = {
         ...bundle(),
@@ -296,7 +296,7 @@ it("accepts delivered direct and Connect bundles from file and environment", asy
         String(url).includes("/internal/hosts/enroll"),
       );
       expect(
-        new Headers(enroll?.[1]?.headers).get("x-bb-connect-machine"),
+        new Headers(enroll?.[1]?.headers).get("x-hyperfide-connect-machine"),
       ).toBe(kind === "connect" ? "private-connect" : null);
       expect(h.fetchFn).toHaveBeenCalledOnce();
     }

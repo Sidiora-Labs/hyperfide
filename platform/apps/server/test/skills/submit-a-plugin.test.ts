@@ -9,7 +9,7 @@ import { makeTempDir } from "@hyperfide/test-helpers";
 
 const skillRoot = fileURLToPath(
   new URL(
-    "../../../../plugins/bb-guide/skills/submit-a-plugin/",
+    "../../../../plugins/hyperfide-guide/skills/submit-a-plugin/",
     import.meta.url,
   ),
 );
@@ -45,9 +45,9 @@ async function deriveWithSkill(packageName: string): Promise<string> {
 describe("submit-a-plugin skill", () => {
   it("derives dotted and underscored package ids with the product algorithm", async () => {
     for (const packageName of [
-      "@acme/bb-plugin-release.notes",
-      "@acme/bb-plugin-release_notes",
-      "bb_plugin_notes",
+      "@acme/hyperfide-plugin-release.notes",
+      "@acme/hyperfide-plugin-release_notes",
+      "hyperfide_plugin_notes",
     ]) {
       await expect(deriveWithSkill(packageName)).resolves.toBe(
         derivePluginId(packageName),
@@ -61,7 +61,7 @@ describe("submit-a-plugin skill", () => {
     const manifestPath = path.join(directory, "package.json");
     await writeFile(
       manifestPath,
-      JSON.stringify({ name: "bb-plugin-notes$(touch metadata-executed)" }),
+      JSON.stringify({ name: "hyperfide-plugin-notes$(touch metadata-executed)" }),
       "utf8",
     );
 
@@ -70,7 +70,7 @@ describe("submit-a-plugin skill", () => {
         cwd: directory,
         encoding: "utf8",
       }).trim(),
-    ).toBe(derivePluginId("bb-plugin-notes$(touch metadata-executed)"));
+    ).toBe(derivePluginId("hyperfide-plugin-notes$(touch metadata-executed)"));
     expect(existsSync(markerPath)).toBe(false);
   });
 

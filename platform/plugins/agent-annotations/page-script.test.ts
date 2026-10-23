@@ -11,12 +11,12 @@ interface Bridge {
   postMessage(data: unknown): void;
 }
 
-function evaluate(expression: string, bb: Bridge | null): unknown {
-  return new Function("bb", `return (${expression});`)(bb);
+function evaluate(expression: string, hyperfide: Bridge | null): unknown {
+  return new Function("hyperfide", `return (${expression});`)(hyperfide);
 }
 
 function shadowRoot(): ShadowRoot {
-  const root = document.querySelector("bb-agent-annotations")?.shadowRoot;
+  const root = document.querySelector("hyperfide-agent-annotations")?.shadowRoot;
   if (root === null || root === undefined) {
     throw new Error("Expected the annotation overlay to be mounted.");
   }
@@ -44,8 +44,8 @@ beforeEach(() => {
 
 afterEach(() => {
   evaluate(buildControllerExpression("deactivate"), null);
-  Reflect.deleteProperty(globalThis, "__bbAgentAnnotations");
-  document.querySelector("bb-agent-annotations")?.remove();
+  Reflect.deleteProperty(globalThis, "__hyperfideAgentAnnotations");
+  document.querySelector("hyperfide-agent-annotations")?.remove();
   Reflect.deleteProperty(document, "elementsFromPoint");
 });
 
@@ -58,7 +58,7 @@ describe("agent annotations page script", () => {
 
     expect(
       evaluate(
-        buildActivateExpression({ "--bb-primary": "oklch(0.27 0 0)" }),
+        buildActivateExpression({ "--hyperfide-primary": "oklch(0.27 0 0)" }),
         bridge,
       ),
     ).toEqual({ active: true, count: 0 });
@@ -103,7 +103,7 @@ describe("agent annotations page script", () => {
       throw new Error("Expected an annotation message first.");
     }
     expect(
-      button.hasAttribute(`data-bb-annotation-${first.annotation.id}`),
+      button.hasAttribute(`data-hyperfide-annotation-${first.annotation.id}`),
     ).toBe(true);
     expect(root.querySelector(".pin")?.textContent).toBe("1");
     expect(root.querySelector(".editor")).toBeNull();
@@ -180,7 +180,7 @@ describe("agent annotations page script", () => {
       { type: "state", active: true, count: 0 },
     ]);
     expect(
-      button.hasAttribute(`data-bb-annotation-${created.annotation.id}`),
+      button.hasAttribute(`data-hyperfide-annotation-${created.annotation.id}`),
     ).toBe(false);
     expect(root.querySelector(".pin")).toBeNull();
     expect(root.querySelector(".editor")).toBeNull();
@@ -207,11 +207,11 @@ describe("agent annotations page script", () => {
       active: true,
       count: 0,
     });
-    expect(document.querySelectorAll("bb-agent-annotations")).toHaveLength(1);
+    expect(document.querySelectorAll("hyperfide-agent-annotations")).toHaveLength(1);
   });
 
   it("reads React component names and debug sources from DOM fibers", () => {
-    button.setAttribute("data-bb-annotation-abc123", "");
+    button.setAttribute("data-hyperfide-annotation-abc123", "");
     function SubmitButton() {}
     function CheckoutCard() {}
     Reflect.set(button, "__reactFiber$x1y2", {

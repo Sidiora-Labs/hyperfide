@@ -51,8 +51,8 @@ vi.mock("./sdk", () => ({
   },
 }));
 
-vi.mock("./bb-desktop", () => ({
-  getBbDesktopInfo: () => null,
+vi.mock("./hyperfide-desktop", () => ({
+  getHyperfideDesktopInfo: () => null,
 }));
 
 vi.mock("./ws", () => ({

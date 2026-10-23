@@ -10,7 +10,7 @@ import {
 } from "../src/server-target.js";
 
 async function createStoragePath(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "bb-server-target-"));
+  const directory = await mkdtemp(join(tmpdir(), "hyperfide-server-target-"));
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
   return join(directory, SERVER_TARGET_FILE_NAME);
 }

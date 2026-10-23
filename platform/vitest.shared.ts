@@ -330,11 +330,12 @@ export function defineWorkspaceTestConfig(
         conditions: ["source"],
       },
       test: {
+        maxWorkers: Number(process.env.VITEST_MAX_WORKERS ?? 2),
         globalSetup: [
           fileURLToPath(new URL("./vitest.global-tmpdir.ts", import.meta.url)),
         ],
-        ...(process.env.BB_CI_TEST_SHARD
-          ? { shard: process.env.BB_CI_TEST_SHARD }
+        ...(process.env.HYPERFIDE_CI_TEST_SHARD
+          ? { shard: process.env.HYPERFIDE_CI_TEST_SHARD }
           : {}),
         sequence: { sequencer: SharedWorkerSequencer },
         coverage: {

@@ -2,13 +2,13 @@ import {
   detectGitRepo,
   runGit,
   WorkspaceError,
-} from "bb-environment-provider-host/git";
-import { tryWithCheckoutMutationLock } from "bb-environment-provider-host/locks";
+} from "hyperfide-environment-provider-host/git";
+import { tryWithCheckoutMutationLock } from "hyperfide-environment-provider-host/locks";
 import {
   emitStep,
   throwIfProvisionAborted,
   type ProgressCallback,
-} from "bb-environment-provider-host/transcript";
+} from "hyperfide-environment-provider-host/transcript";
 import {
   getCheckoutRef,
   getWorkspaceGitOperation,

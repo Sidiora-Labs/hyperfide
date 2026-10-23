@@ -10,7 +10,7 @@ const community = {
 };
 const official = {
   ...community,
-  marketplace: "bb-official",
+  marketplace: "hyperfide-official",
   source: "builtin:notes",
 };
 

@@ -52,9 +52,9 @@ const MIGRATABLE_LEGACY_ENTRY_NAMES = new Set([
   "attachments",
   "auth-secret",
   "auth.json",
-  "bb.db",
-  "bb.db-shm",
-  "bb.db-wal",
+  "hyperfide.db",
+  "hyperfide.db-shm",
+  "hyperfide.db-wal",
   "host-id",
   "logs",
   "replays",
@@ -86,7 +86,7 @@ async function isDirectoryEmpty(pathToCheck: string): Promise<boolean> {
 
 function isMigratableLegacyEntryName(entryName: string): boolean {
   return (
-    MIGRATABLE_LEGACY_ENTRY_NAMES.has(entryName) || /^bb\.db\./u.test(entryName)
+    MIGRATABLE_LEGACY_ENTRY_NAMES.has(entryName) || /^hyperfide\.db\./u.test(entryName)
   );
 }
 

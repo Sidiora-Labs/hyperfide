@@ -20,20 +20,20 @@ const FIXTURE_SOURCE = `
       output: z.literal("done"),
     },
   });
-  export default function plugin(bb: any) {
+  export default function plugin(hyperfide: any) {
     const g = globalThis as any;
     g.__rfLoads = (g.__rfLoads ?? 0) + 1;
-    bb.onDispose(() => { g.__rfDisposals = (g.__rfDisposals ?? 0) + 1; });
-    bb.cli.register({
+    hyperfide.onDispose(() => { g.__rfDisposals = (g.__rfDisposals ?? 0) + 1; });
+    hyperfide.cli.register({
       name: "rf",
       summary: "review fixes fixture",
       commands: [],
       run: async () => ({ exitCode: 0, stdout: "rf ok" }),
     });
-    bb.rpc.register(rpcContract, {
+    hyperfide.rpc.register(rpcContract, {
       slowKv: async (input: any) => {
         await new Promise((resolve) => setTimeout(resolve, 150));
-        await bb.storage.kv.set("drained", input);
+        await hyperfide.storage.kv.set("drained", input);
         return "done";
       },
     });
@@ -47,17 +47,17 @@ describe("review fixes: idempotent enable, cli auth, dispose drain", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-review-fixes-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-review-fixes-"));
     delete globals.__rfLoads;
     delete globals.__rfDisposals;
-    const rootDir = join(workDir, "bb-plugin-review-fixes");
+    const rootDir = join(workDir, "hyperfide-plugin-review-fixes");
     await mkdir(rootDir, { recursive: true });
     await writeFile(
       join(rootDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-review-fixes",
+        name: "hyperfide-plugin-review-fixes",
         version: "0.1.0",
-        bb: {
+        hyperfide: {
           name: "Review fixes fixture",
           description: "Plugin review regression fixture.",
           branding: { icon: "Zap" },

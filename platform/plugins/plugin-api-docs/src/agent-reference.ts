@@ -59,7 +59,7 @@ export function createPluginSurfaceAgentReference(
     `Plugin Guide surface: ${surface.title} (${surface.id}).`,
     `Relevant @hyperfide/plugin-sdk symbols: ${surface.apiSymbols.join(", ")}.`,
     ...(surface.reference ?? []),
-    "Use the bb-plugin-authoring skill and the authoritative @hyperfide/plugin-sdk declarations to build a similar plugin capability.",
+    "Use the hyperfide-plugin-authoring skill and the authoritative @hyperfide/plugin-sdk declarations to build a similar plugin capability.",
   ].join("\n");
   return { identity, resource, clipboard, context };
 }

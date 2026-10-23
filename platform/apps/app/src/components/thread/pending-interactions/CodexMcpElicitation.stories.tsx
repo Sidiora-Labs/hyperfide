@@ -182,7 +182,7 @@ export function Unsupported() {
         serverName: "files",
         message: "Upload a file",
         nativeMode: "form",
-        reason: "This form uses fields or constraints BB cannot display.",
+        reason: "This form uses fields or constraints HYPERFIDE cannot display.",
       }}
     />
   );

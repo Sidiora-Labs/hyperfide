@@ -9,7 +9,7 @@ import {
 } from "../../../vitest.shared.ts";
 
 it("reproduces seeded file order while running isolated files before shared files", async () => {
-  const root = mkdtempSync(join(tmpdir(), "bb-vitest-sequencer-"));
+  const root = mkdtempSync(join(tmpdir(), "hyperfide-vitest-sequencer-"));
   onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   for (let index = 0; index < 4; index += 1) {
     writeFileSync(

@@ -19,8 +19,8 @@ vi.mock(
   () => import("@/test/question-shortcuts-system-queries-mock"),
 );
 
-vi.mock("@/lib/bb-desktop", () => ({
-  getBbDesktopInfo: () => null,
+vi.mock("@/lib/hyperfide-desktop", () => ({
+  getHyperfideDesktopInfo: () => null,
 }));
 
 vi.mock("@/hooks/mutations/thread-runtime-mutations", () => ({

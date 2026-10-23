@@ -26,13 +26,13 @@ export function PluginPanelView({
   if (panel === null) {
     if (!pluginsSettled) {
       return (
-        <PageShell contentClassName="pt-[calc(var(--bb-app-chrome-row-height)+1rem)] md:pt-[calc(var(--bb-app-chrome-row-height)+1.25rem)]">
+        <PageShell contentClassName="pt-[calc(var(--hyperfide-app-chrome-row-height)+1rem)] md:pt-[calc(var(--hyperfide-app-chrome-row-height)+1.25rem)]">
           {null}
         </PageShell>
       );
     }
     return (
-      <PageShell contentClassName="pt-[calc(var(--bb-app-chrome-row-height)+1rem)] md:pt-[calc(var(--bb-app-chrome-row-height)+1.25rem)]">
+      <PageShell contentClassName="pt-[calc(var(--hyperfide-app-chrome-row-height)+1rem)] md:pt-[calc(var(--hyperfide-app-chrome-row-height)+1.25rem)]">
         <EmptyStatePanel className="rounded-lg p-6 text-sm">
           This plugin panel is not available. The plugin may have been disabled
           or removed.

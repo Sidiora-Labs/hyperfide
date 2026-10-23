@@ -5,13 +5,13 @@
   "type": "module",
   "description": "Provider-independent durable memory for agents. We recommend disabling provider-native memory when using this plugin.",
   "license": "MIT",
-  "homepage": "https://github.com/get-bb/bb#readme",
+  "homepage": "https://github.com/hyperfide/hyperfide#readme",
   "bugs": {
-    "url": "https://github.com/get-bb/bb/issues"
+    "url": "https://github.com/hyperfide/hyperfide/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/get-bb/bb.git",
+    "url": "git+https://github.com/hyperfide/hyperfide.git",
     "directory": "plugins/memory"
   },
   "files": [
@@ -22,10 +22,10 @@
     "README.md"
   ],
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.102"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.102"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Memory",
     "description": "Provider-independent durable memory for agents. We recommend disabling provider-native memory when using this plugin.",
     "branding": {
@@ -38,14 +38,14 @@
     ]
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "build": "node --conditions=source --import tsx ../../scripts/build-official-plugins.mjs memory",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit -p tsconfig.json",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",

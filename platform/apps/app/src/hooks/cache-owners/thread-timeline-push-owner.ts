@@ -83,7 +83,7 @@ export function applyThreadTimelineSignal(
     target.threadId,
     timeline.maxSeq,
   );
-  markStreamTrace("bb:timeline-applied", {
+  markStreamTrace("hyperfide:timeline-applied", {
     threadId: target.threadId,
     maxSeq: timeline.maxSeq,
     source: signal.afterSequence === null ? "push" : "push-delta",

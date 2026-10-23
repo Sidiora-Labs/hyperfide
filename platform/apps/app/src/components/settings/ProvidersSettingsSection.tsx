@@ -317,7 +317,7 @@ export function ProvidersSettingsSection({
     <>
       <SettingsSection
         title="Providers"
-        description="Choose which agents you use in BB. Drag to reorder them in provider pickers."
+        description="Choose which agents you use in HYPERFIDE. Drag to reorder them in provider pickers."
       >
         {providersQuery.isPending ? (
           <p className="text-sm text-muted-foreground">Loading providers…</p>

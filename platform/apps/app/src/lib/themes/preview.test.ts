@@ -13,7 +13,7 @@ const PREVIEW = ":root { --canvas: black; }";
 const NEXT_COMMITTED = ":root { --canvas: gray; }";
 
 function styleText(): string | null {
-  return document.getElementById("bb-app-theme")?.textContent ?? null;
+  return document.getElementById("hyperfide-app-theme")?.textContent ?? null;
 }
 
 afterEach(() => {

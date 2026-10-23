@@ -1,7 +1,7 @@
-# bb-plugin-echo-provider
+# Hyperfide-plugin-echo-provider
 
-The **third-party canary** for bb's provider plugin API. It is a complete
-agent provider — a picker entry, a bridge, a bb tool, plugin settings, and
+The **third-party canary** for Hyperfide's provider plugin API. It is a complete
+agent provider — a picker entry, a bridge, a Hyperfide tool, plugin settings, and
 its own timeline vocabulary — that answers every prompt by echoing it back.
 Useless as an agent, complete as a proof: it exercises **every** capability
 a provider plugin has, and it does so through the public SDK alone.
@@ -19,12 +19,12 @@ Tests may add the published test harnesses (`@hyperfide/plugin-sdk/testing`,
 `@hyperfide/plugin-sdk/provider-bridge/testing`) and the test runner. **No
 `@hyperfide/*` workspace package is imported anywhere**, and
 `public-sdk-only.test.ts` fails the suite if one ever is. A marketplace
-plugin cannot resolve bb's private packages; if this example needed one, the
+plugin cannot resolve Hyperfide's private packages; if this example needed one, the
 public API would have a hole.
 
 ## What it demonstrates
 
-Registration (`server.ts`, `bb.providers.register`):
+Registration (`server.ts`, `hyperfide.providers.register`):
 
 | Capability                                                                                                                                                              | Where                                              |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
@@ -36,12 +36,12 @@ Registration (`server.ts`, `bb.providers.register`):
 | `composerActions: ["plan"]`                                                                                                                                             | `server.ts`                                        |
 | `models.fallback` — the cold-cache model list                                                                                                              | `server.ts`                                        |
 | `env.passthrough` — one daemon env var the bridge may read                                                                                                 | `server.ts`, read in `src/provider-bridge.ts`      |
-| `experimental_nativeSkillRoots` — one workspace-relative skill root (`.echo/skills`) bb lists beside its own skills                                        | `server.ts`, asserted in `server.test.ts`          |
-| `deriveProviderOptions` — the plugin's `shout` setting (`bb.settings.define`) travels to the bridge as `providerOptions`                                   | `server.ts`, read back in `src/provider-bridge.ts` |
+| `experimental_nativeSkillRoots` — one workspace-relative skill root (`.echo/skills`) Hyperfide lists beside its own skills                                        | `server.ts`, asserted in `server.test.ts`          |
+| `deriveProviderOptions` — the plugin's `shout` setting (`hyperfide.settings.define`) travels to the bridge as `providerOptions`                                   | `server.ts`, read back in `src/provider-bridge.ts` |
 | `extensionKinds` — one item kind (`echo-provider/receipt`) and one state kind (`echo-provider/mood`), each with a zod schema the server enforces at ingest | `src/vocabulary.ts`                                |
-| `bb.agents.registerTool` with `presentation` — a bb tool whose row reads the way the plugin says                                                           | `server.ts`                                        |
-| `bb.branding.experimental_icons` — one declared icon (`receipt`) the receipt row references as `echo-provider/receipt`; the server serves it hashed and checks the glyph at ingest | `package.json`, `icons/receipt.svg`, `src/vocabulary.ts` |
-| `bb.host` — one artifact carrying the bridge and a host RPC entry                                                                                                       | `host.ts`, `contract.ts`                           |
+| `hyperfide.agents.registerTool` with `presentation` — a Hyperfide tool whose row reads the way the plugin says                                                           | `server.ts`                                        |
+| `hyperfide.branding.experimental_icons` — one declared icon (`receipt`) the receipt row references as `echo-provider/receipt`; the server serves it hashed and checks the glyph at ingest | `package.json`, `icons/receipt.svg`, `src/vocabulary.ts` |
+| `hyperfide.host` — one artifact carrying the bridge and a host RPC entry                                                                                                       | `host.ts`, `contract.ts`                           |
 
 The bridge (`src/provider-bridge.ts`, grammar v3). Every accepted prompt runs
 the same scripted turn:
@@ -56,7 +56,7 @@ the same scripted turn:
 | Delegated work with a real child turn linked through `parentRef`                                                 | `delegation` + keyed `turn.open`    |
 | A plan snapshot                                                                                                  | `planSteps`                         |
 | A bookkeeping tool whose row clients collapse                                                                    | `tool` with `presentation.suppress` |
-| The plugin's bb tool, called over `item/tool/call` and stamped `server: "bb"` with the definition's presentation | `tool`                              |
+| The plugin's Hyperfide tool, called over `item/tool/call` and stamped `server: "Hyperfide"` with the definition's presentation | `tool`                              |
 | The extension item, validated server-side against the declared schema                                            | `extension`                         |
 | The extension state, latest snapshot wins                                                                        | `extension.state`                   |
 | The echoed message, reporting the derived `providerOptions` and the passed-through env var                       | `item.textDelta` / `item.textClose` |
@@ -88,7 +88,7 @@ off and answer method-not-found, so declaration and bridge cannot disagree.
      runtime builds it and parses the answer through the protocol schema the
      runtime enforces.
    - `provider-bridge.parity.test.ts` replays `recordings/echo-agent/turn-tools`
-     — a real recording bb made of this plugin's built artifact (record
+     — a real recording Hyperfide made of this plugin's built artifact (record
      mode, `HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR`) — through the bridge the way the
      runtime spawns it, and diffs the assembled events against the
      recording's own: zero diffs, every recorded-cell conformance rule green.
@@ -109,7 +109,7 @@ off and answer method-not-found, so declaration and bridge cannot disagree.
 
 1. On install/reload the server builds `dist/host.js` and records
    `{pluginId, digest, byteLength, path}` — the same host artifact registry
-   every `bb.host` plugin uses.
+   every `hyperfide.host` plugin uses.
 2. Thread commands for `echo-agent` carry a `bridgeLaunch` spec —
    `{source: {kind: "artifact", pluginId, digest, byteLength}}` — over the
    daemon wire, beside the `providerOptions` the plugin derived and the
@@ -127,12 +127,12 @@ only what its server instructs.
 ## Install
 
 ```
-bb plugin install ./examples/plugins/echo-provider --yes
-bb plugin config echo-provider set shout true   # optional: prove the settings round trip
+hyperfide-platform plugin install ./examples/plugins/echo-provider --yes
+hyperfide-platform plugin config echo-provider set shout true   # optional: prove the settings round trip
 ```
 
 Then pick "Echo" in the provider picker and send a message. After editing
-sources, `bb plugin reload echo-provider`.
+sources, `hyperfide-platform plugin reload echo-provider`.
 
 ## Test
 
@@ -143,7 +143,7 @@ pnpm exec turbo run test --filter=hyperfide-plugin-echo-provider
 ## Re-record
 
 The recording under `recordings/` is never rewritten. To capture a new one,
-start a dev bb with `HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR=<dir>` exported in the
+start a dev Hyperfide with `HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR=<dir>` exported in the
 daemon's environment, install this plugin, spawn a thread on `echo-agent`,
 then package the thread's lanes:
 
@@ -151,7 +151,7 @@ then package the thread's lanes:
 printf 'echo-agent\tturn-tools\t<threadId>\t\n' > /tmp/cells.tsv
 node scripts/provider-recordings/package-cells.mjs --raw <dir> --cells /tmp/cells.tsv \
   --out examples/plugins/echo-provider/recordings \
-  --versions '{"echo-agent":"bb-plugin-echo-provider 0.1.0"}'
+  --versions '{"echo-agent":"hyperfide-plugin-echo-provider 0.1.0"}'
 ```
 
 The packager redacts the lanes (home paths, tokens, emails) and refuses to

@@ -835,7 +835,7 @@ describe("ThreadTableOfContents", () => {
         id: "u2",
         role: "user",
         preview:
-          "[bb message from thread:thr_worker] Release bug report: the calendar is stale.",
+          "[hyperfide message from thread:thr_worker] Release bug report: the calendar is stale.",
         attachmentSummary: null,
       },
       {
@@ -854,7 +854,7 @@ describe("ThreadTableOfContents", () => {
       screen.getByText("Release bug report: the calendar is stale."),
     ).not.toBeNull();
     expect(
-      screen.queryByText(/\[bb message from thread:thr_worker\]/),
+      screen.queryByText(/\[hyperfide message from thread:thr_worker\]/),
     ).toBeNull();
   });
 
@@ -888,7 +888,7 @@ describe("ThreadTableOfContents", () => {
         id: "u2",
         role: "user",
         preview:
-          "[bb message from thread:thr_worker] Release bug report: the calendar is stale.",
+          "[hyperfide message from thread:thr_worker] Release bug report: the calendar is stale.",
         attachmentSummary: null,
       },
       {
@@ -966,7 +966,7 @@ describe("ThreadTableOfContents", () => {
     fireEvent.click(await screen.findByText("Loaded question"));
 
     await waitFor(() => expect(scrollElementIntoView).toHaveBeenCalledTimes(1));
-    expect(target.classList.contains("bb-search-flash")).toBe(true);
+    expect(target.classList.contains("hyperfide-search-flash")).toBe(true);
     expect(onNavigateToRow).toHaveBeenCalledWith("u2");
     expect(loadOlder).not.toHaveBeenCalled();
   });

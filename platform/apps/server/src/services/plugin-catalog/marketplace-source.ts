@@ -245,7 +245,7 @@ async function materializeHttps(
     if (cachedCatalog?.schemaVersion === 2 && cached !== null) {
       await response.body?.cancel();
       warn?.(
-        "the marketplace v2 manifest returned HTTP 404; BB kept the stored v2 catalog and did not request v1",
+        "the marketplace v2 manifest returned HTTP 404; HYPERFIDE kept the stored v2 catalog and did not request v1",
       );
       const iconBase = {
         kind: "url",

@@ -4,9 +4,9 @@ import { join, resolve } from "node:path";
 export const MACHINE_INSTALLER_ENV_NAME = "HYPERFIDE_MACHINE_INSTALLER";
 export const HOST_DAEMON_RESTART_EXIT_CODE = 75;
 
-const LAUNCHD_SERVICE_PREFIX = "app.getbb.host-daemon.";
+const LAUNCHD_SERVICE_PREFIX = "app.hyperfide.host-daemon.";
 const LAUNCHD_SERVICE_SUFFIX = ".plist";
-const SYSTEMD_SERVICE_PREFIX = "bb-host-daemon-";
+const SYSTEMD_SERVICE_PREFIX = "hyperfide-host-daemon-";
 const SYSTEMD_SERVICE_SUFFIX = ".service";
 const LAUNCHD_DATA_DIR_PATTERN =
   /<key>HYPERFIDE_DATA_DIR<\/key>\s*<string>([^<]*)<\/string>/u;

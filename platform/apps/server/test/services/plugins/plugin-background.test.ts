@@ -34,7 +34,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Background fixture",
         description: "Background plugin fixture.",
         branding: { icon: "Zap" },
@@ -72,7 +72,7 @@ describe("plugin background services", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-bg-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-bg-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -102,11 +102,11 @@ describe("plugin background services", () => {
     const rootDir = await writePlugin(workDir, {
       name: "@hyperfide/connector",
       serverSource: `
-        export default function plugin(bb: any) {
+        export default function plugin(hyperfide: any) {
           const g = globalThis as any;
           g.__connStarts = (g.__connStarts ?? 0);
           g.__connAborts = (g.__connAborts ?? 0);
-          bb.background.service("conn", {
+          hyperfide.background.service("conn", {
             start(signal: any) {
               g.__connStarts += 1;
               return new Promise<void>((resolve) => {
@@ -136,13 +136,13 @@ describe("plugin background services", () => {
   it("suspends every plugin but the kept ones without disabling them, then resumes them", async () => {
     globals.__suspendStarts = {};
     globals.__suspendAborts = {};
-    for (const name of ["bb-plugin-suspended", "bb-plugin-kept"]) {
+    for (const name of ["hyperfide-plugin-suspended", "hyperfide-plugin-kept"]) {
       const rootDir = await writePlugin(workDir, {
         name,
         serverSource: `
-          export default function plugin(bb: any) {
+          export default function plugin(hyperfide: any) {
             const g = globalThis as any;
-            bb.background.service("tick", {
+            hyperfide.background.service("tick", {
               start(signal: any) {
                 g.__suspendStarts[${JSON.stringify(name)}] =
                   (g.__suspendStarts[${JSON.stringify(name)}] ?? 0) + 1;
@@ -170,7 +170,7 @@ describe("plugin background services", () => {
     expect(service.getApi("kept")).toBeDefined();
     expect(service.isPluginExpectedToRun("suspended")).toBe(true);
     expect(service.isPluginExpectedToRun("kept")).toBe(true);
-    expect(globals.__suspendAborts).toEqual({ "bb-plugin-suspended": 1 });
+    expect(globals.__suspendAborts).toEqual({ "hyperfide-plugin-suspended": 1 });
     expect(getInstalledPlugin(db, "suspended")?.enabled).toBe(true);
     expect(
       service.list().find((plugin) => plugin.id === "suspended"),
@@ -183,8 +183,8 @@ describe("plugin background services", () => {
     expect(service.getApi("suspended")).toBeDefined();
     expect(service.isPluginExpectedToRun("suspended")).toBe(true);
     expect(globals.__suspendStarts).toEqual({
-      "bb-plugin-suspended": 2,
-      "bb-plugin-kept": 1,
+      "hyperfide-plugin-suspended": 2,
+      "hyperfide-plugin-kept": 1,
     });
     expect(await service.resumeSuspendedPlugins()).toEqual([]);
   });
@@ -220,16 +220,16 @@ describe("plugin background services", () => {
     });
     try {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-dispose-request",
+        name: "hyperfide-plugin-dispose-request",
         serverSource: `
-          export default function plugin(bb: any) {
+          export default function plugin(hyperfide: any) {
             const g = globalThis as any;
             g.__disposeRequestErrors = g.__disposeRequestErrors ?? [];
-            bb.background.service("request-on-stop", {
+            hyperfide.background.service("request-on-stop", {
               start(signal: any) {
                 return new Promise<void>((resolve) => {
                   signal.addEventListener("abort", () => {
-                    void bb.ui.requestInput({
+                    void hyperfide.ui.requestInput({
                       threadId: "thread-test",
                       rendererId: "form",
                       title: "Form",
@@ -278,14 +278,14 @@ describe("plugin background services", () => {
     });
     try {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-slowstop",
+        name: "hyperfide-plugin-slowstop",
         serverSource: `
-          export default function plugin(bb: any) {
+          export default function plugin(hyperfide: any) {
             const g = globalThis as any;
             g.__slowActive = g.__slowActive ?? 0;
             g.__slowMaxActive = g.__slowMaxActive ?? 0;
             g.__slowStarts = g.__slowStarts ?? 0;
-            bb.background.service("slow", {
+            hyperfide.background.service("slow", {
               start(signal: any) {
                 g.__slowStarts += 1;
                 g.__slowActive += 1;
@@ -320,10 +320,10 @@ describe("plugin background services", () => {
 
   it("marks the plugin degraded when a service ignores its abort", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-stubborn",
+      name: "hyperfide-plugin-stubborn",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.background.service("socket", {
+        export default function plugin(hyperfide: any) {
+          hyperfide.background.service("socket", {
             start() {
               // Ignores the abort signal entirely.
               return new Promise(() => {});
@@ -353,10 +353,10 @@ describe("plugin background services", () => {
 
   it("reports a failed reload that kept the previous instance", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-keeper",
+      name: "hyperfide-plugin-keeper",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.cli.register({ name: "keeper", summary: "keeper", run() { return { exitCode: 0, stdout: "ok" }; } });
+        export default function plugin(hyperfide: any) {
+          hyperfide.cli.register({ name: "keeper", summary: "keeper", run() { return { exitCode: 0, stdout: "ok" }; } });
         }
       `,
     });
@@ -383,7 +383,7 @@ describe("plugin background services", () => {
     expect((await service.reload()).ok).toBe(false);
     await writeFile(
       join(rootDir, "server.ts"),
-      `export default function plugin(bb: any) { bb.cli.register({ name: "keeper", summary: "keeper", run() { return { exitCode: 0, stdout: "ok" }; } }); }`,
+      `export default function plugin(hyperfide: any) { hyperfide.cli.register({ name: "keeper", summary: "keeper", run() { return { exitCode: 0, stdout: "ok" }; } }); }`,
     );
     expect((await service.reload("keeper")).ok).toBe(true);
     expect(
@@ -393,12 +393,12 @@ describe("plugin background services", () => {
 
   it("restarts a crashed service with backoff", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-crashy",
+      name: "hyperfide-plugin-crashy",
       serverSource: `
-        export default function plugin(bb: any) {
+        export default function plugin(hyperfide: any) {
           const g = globalThis as any;
           g.__crashyStarts = 0;
-          bb.background.service("flaky", {
+          hyperfide.background.service("flaky", {
             async start(signal: any) {
               g.__crashyStarts += 1;
               if (g.__crashyStarts < 3) throw new Error("crash " + g.__crashyStarts);
@@ -425,14 +425,14 @@ describe("plugin background services", () => {
 
   it("routes an uncaught exception from a service's async context to the supervisor", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-emitter",
+      name: "hyperfide-plugin-emitter",
       serverSource: `
         import { EventEmitter } from "node:events";
-        export default function plugin(bb: any) {
+        export default function plugin(hyperfide: any) {
           const g = globalThis as any;
           g.__emitterStarts = 0;
           g.__emitterAborts = 0;
-          bb.background.service("imap", {
+          hyperfide.background.service("imap", {
             async start(signal: any) {
               g.__emitterStarts += 1;
               if (g.__emitterStarts === 1) {
@@ -483,12 +483,12 @@ describe("plugin background services", () => {
 
   it("NeedsConfigurationError maps to needs-configuration and stops restarts", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-needy",
+      name: "hyperfide-plugin-needy",
       serverSource: `
-        export default function plugin(bb: any) {
+        export default function plugin(hyperfide: any) {
           const g = globalThis as any;
           g.__needyStarts = (g.__needyStarts ?? 0);
-          bb.background.service("bot", {
+          hyperfide.background.service("bot", {
             async start() {
               g.__needyStarts += 1;
               const error = new Error("api key missing");
@@ -517,12 +517,12 @@ describe("plugin background services", () => {
     });
   });
 
-  it("bb.status.needsConfiguration from the factory wins over running", async () => {
+  it("hyperfide.status.needsConfiguration from the factory wins over running", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-unconfigured",
+      name: "hyperfide-plugin-unconfigured",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.status.needsConfiguration("set the token first");
+        export default function plugin(hyperfide: any) {
+          hyperfide.status.needsConfiguration("set the token first");
         }
       `,
     });
@@ -534,10 +534,10 @@ describe("plugin background services", () => {
 
   it("rejects an invalid cron at registration", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-badcron",
+      name: "hyperfide-plugin-badcron",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.background.schedule("bad", "not a cron", async () => {});
+        export default function plugin(hyperfide: any) {
+          hyperfide.background.schedule("bad", "not a cron", async () => {});
         }
       `,
     });
@@ -555,7 +555,7 @@ describe("plugin schedules", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-sched-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-sched-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -581,12 +581,12 @@ describe("plugin schedules", () => {
 
   async function installTicker(): Promise<void> {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-ticker",
+      name: "hyperfide-plugin-ticker",
       serverSource: `
-        export default function plugin(bb: any) {
+        export default function plugin(hyperfide: any) {
           const g = globalThis as any;
           g.__tickRuns = 0;
-          bb.background.schedule("tick", "*/5 * * * *", async () => {
+          hyperfide.background.schedule("tick", "*/5 * * * *", async () => {
             g.__tickRuns += 1;
           });
         }
@@ -662,10 +662,10 @@ describe("plugin schedules", () => {
 
   it("records last_error on failure and still advances the schedule", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-boomer",
+      name: "hyperfide-plugin-boomer",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.background.schedule("boom", "*/5 * * * *", async () => {
+        export default function plugin(hyperfide: any) {
+          hyperfide.background.schedule("boom", "*/5 * * * *", async () => {
             throw new Error("sync exploded");
           });
         }
@@ -700,10 +700,10 @@ describe("plugin schedules", () => {
 
   it("prunes rows for schedule names the plugin no longer registers", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-renamer",
+      name: "hyperfide-plugin-renamer",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.background.schedule("old-name", "*/5 * * * *", async () => {});
+        export default function plugin(hyperfide: any) {
+          hyperfide.background.schedule("old-name", "*/5 * * * *", async () => {});
         }
       `,
     });
@@ -713,8 +713,8 @@ describe("plugin schedules", () => {
     ]);
     await writeFile(
       join(rootDir, "server.ts"),
-      `export default function plugin(bb: any) {
-        bb.background.schedule("new-name", "*/5 * * * *", async () => {});
+      `export default function plugin(hyperfide: any) {
+        hyperfide.background.schedule("new-name", "*/5 * * * *", async () => {});
       }`,
     );
     await service.reload("renamer");

@@ -822,9 +822,9 @@ describe("MachinesSettingsSection", () => {
     vi.mocked(sdk.hosts.list).mockResolvedValue([primaryHost, offlineHost]);
     vi.mocked(sdk.hosts.experimental_reconnect).mockResolvedValue({
       command:
-        "curl -fsSL -H 'X-BB-Enrollment: bbde_test' 'https://bb.example.com/install.sh' | sh",
+        "curl -fsSL -H 'X-HYPERFIDE-Enrollment: hyperfide_de_test' 'https://hyperfide.example.com/install.sh' | sh",
       windowsCommand:
-        "irm -Headers @{ 'X-BB-Enrollment' = 'bbde_test' } 'https://bb.example.com/install.ps1' | iex",
+        "irm -Headers @{ 'X-HYPERFIDE-Enrollment' = 'hyperfide_de_test' } 'https://hyperfide.example.com/install.ps1' | iex",
       expiresAt: NOW + 15 * 60 * 1000,
       hostId: offlineHost.id,
     });
@@ -841,7 +841,7 @@ describe("MachinesSettingsSection", () => {
         hostId: offlineHost.id,
       });
     });
-    expect(await screen.findByText(/X-BB-Enrollment: bbde_test/)).toBeDefined();
+    expect(await screen.findByText(/X-HYPERFIDE-Enrollment: hyperfide_de_test/)).toBeDefined();
     expect(
       await screen.findByText("Waiting for the machine to reconnect…"),
     ).toBeDefined();

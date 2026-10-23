@@ -11,7 +11,7 @@ import {
 } from "./bridge-recorder.js";
 
 function recordingFixture() {
-  const dir = mkdtempSync(join(tmpdir(), "bb-bridge-recorder-"));
+  const dir = mkdtempSync(join(tmpdir(), "hyperfide-bridge-recorder-"));
   const recorder = createBridgeRecorder({ dir });
   onTestFinished(() => {
     recorder.close();

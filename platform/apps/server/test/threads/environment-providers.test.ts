@@ -287,8 +287,8 @@ describe("machine and environment provider composition", () => {
         "Machine bootstrap command failed:\nbb-machine-install: 9: node: not found\nbb-machine-install: 9: curl: not found";
       installCompositionMachine(async ({ report }) => {
         report.step("Bootstrapping machine");
-        report.log("bb-machine-install: 9: node: not found\n");
-        report.log("bb-machine-install: 9: curl: not found\n");
+        report.log("hyperfide-machine-install: 9: node: not found\n");
+        report.log("hyperfide-machine-install: 9: curl: not found\n");
         return { status: "failed", message };
       });
 
@@ -1469,7 +1469,7 @@ describe("environment providers are asked inside provisioning", () => {
             isWorktree: false,
             checkout: {
               kind: "branch",
-              branchName: "bb/next-thread",
+              branchName: "hyperfide/next-thread",
               headSha: "def456",
             },
             defaultBranch: "main",
@@ -1495,7 +1495,7 @@ describe("environment providers are asked inside provisioning", () => {
         });
         await vi.waitFor(() => {
           expect(getEnvironment(harness.db, attached.id)?.branchName).toBe(
-            "bb/next-thread",
+            "hyperfide/next-thread",
           );
         });
         expect(getThread(harness.db, created.id)?.environmentId).toBe(

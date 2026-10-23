@@ -108,7 +108,7 @@ import {
   getRootComposeRoutePath,
 } from "@/lib/route-paths";
 import { getBrowserUrlHost } from "@/lib/browser-url";
-import { isDesktopBrowserAvailable } from "@/lib/bb-desktop";
+import { isDesktopBrowserAvailable } from "@/lib/hyperfide-desktop";
 import {
   useFixedPanelTabsState,
   useFixedPanelTabsStorageMaintenance,

@@ -1,10 +1,10 @@
-appId: app.getbb.mobile
+appId: app.hyperfide.mobile
 ---
 - runFlow:
     when:
       platform: iOS
-      visible: "Open in.*bb.*"
+      visible: "Open in.*hyperfide.*"
     commands:
       - tapOn: "Cancel"
 - stopApp
-- assertNotVisible: "Open in.*bb.*"
+- assertNotVisible: "Open in.*hyperfide.*"

@@ -7,9 +7,9 @@ import { expect, it } from "vitest";
 import { createConnection, migrate } from "../src/index.js";
 
 it("upgrades the merged environment schema and preserves existing hosts", () => {
-  const directory = mkdtempSync(join(tmpdir(), "bb-machine-upgrade-"));
+  const directory = mkdtempSync(join(tmpdir(), "hyperfide-machine-upgrade-"));
   writeFileSync(join(directory, "host-id"), "local-host\n");
-  const db = createConnection(join(directory, "bb.db"));
+  const db = createConnection(join(directory, "hyperfide.db"));
   try {
     const migrations = readMigrationFiles({
       migrationsFolder: fileURLToPath(new URL("../drizzle", import.meta.url)),

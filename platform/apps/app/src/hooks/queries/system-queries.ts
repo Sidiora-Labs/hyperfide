@@ -17,7 +17,7 @@ import type {
   SystemVersionResponse,
 } from "@hyperfide/server-contract";
 import type { ProviderCliStatusResponse } from "@hyperfide/host-daemon-contract";
-import { BbHttpError, sdk } from "@/lib/sdk";
+import { HyperfideHttpError, sdk } from "@/lib/sdk";
 import { isAbortLikeError } from "@/lib/mutation-errors";
 import {
   modelCatalogCacheKey,
@@ -185,7 +185,7 @@ function shouldRetrySystemExecutionOptions(
     return false;
   }
 
-  if (error instanceof BbHttpError) {
+  if (error instanceof HyperfideHttpError) {
     return error.status === 408 || error.status === 429 || error.status >= 500;
   }
 

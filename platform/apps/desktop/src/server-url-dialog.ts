@@ -39,10 +39,10 @@ const SERVER_URL_DIALOG_TITLES: Record<ServerUrlDialogMode, string> = {
 };
 
 const SERVER_URL_DIALOG_DESCRIPTIONS: Record<ServerUrlDialogMode, string> = {
-  add: "Save another bb server to the Server menu.",
+  add: "Save another hyperfide-platform server to the Server menu.",
   edit: "Edit this saved server. Leave the URL empty to remove it.",
   rename:
-    "Name this bb Connect server. Its address comes from your bb account.",
+    "Name this hyperfide Connect server. Its address comes from your Hyperfide account.",
 };
 
 function renderServerUrlDialogHtml(

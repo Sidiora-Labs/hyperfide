@@ -23,7 +23,7 @@ let db: DbConnection;
 let dataDir: string;
 beforeEach(async () => {
   db = createMigratedConnection();
-  dataDir = await mkdtemp(join(tmpdir(), "bb-env-encryption-"));
+  dataDir = await mkdtemp(join(tmpdir(), "hyperfide-env-encryption-"));
 });
 afterEach(async () => {
   db.$client.close();

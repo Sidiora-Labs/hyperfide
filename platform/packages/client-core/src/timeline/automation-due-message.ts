@@ -1,4 +1,4 @@
-const AUTOMATION_DUE_PREFIX_PATTERN = /^\[bb automation due:([^\]\s]+)\]\s*/u;
+const AUTOMATION_DUE_PREFIX_PATTERN = /^\[hyperfide automation due:([^\]\s]+)\]\s*/u;
 
 export interface AutomationDueMessage {
   automationId: string;

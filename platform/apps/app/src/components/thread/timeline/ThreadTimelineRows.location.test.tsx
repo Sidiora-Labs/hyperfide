@@ -152,12 +152,12 @@ describe("ThreadTimelineRows location subscription", () => {
       '[data-timeline-row-id="thr_a-message"]',
     );
     await waitFor(() =>
-      expect(matchingRow?.classList.contains("bb-search-flash")).toBe(true),
+      expect(matchingRow?.classList.contains("hyperfide-search-flash")).toBe(true),
     );
     expect(
       container
         .querySelector('[data-timeline-row-id="thr_b-message"]')
-        ?.classList.contains("bb-search-flash"),
+        ?.classList.contains("hyperfide-search-flash"),
     ).toBe(false);
   });
 
@@ -186,14 +186,14 @@ describe("ThreadTimelineRows location subscription", () => {
           expect(
             container
               .querySelector(`[data-timeline-row-id="${rowId}"]`)
-              ?.classList.contains("bb-search-flash"),
+              ?.classList.contains("hyperfide-search-flash"),
           ).toBe(true),
         );
       }
       expect(
         container
           .querySelector("[data-timeline-row-id='thr_b-next-message']")
-          ?.classList.contains("bb-search-flash"),
+          ?.classList.contains("hyperfide-search-flash"),
       ).toBe(false);
     } finally {
       unmount();

@@ -53,7 +53,7 @@ function seedGitEnvironment(harness: TestAppHarness, suffix: string) {
   const environment = seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
-    branchName: "bb/pr-cache",
+    branchName: "hyperfide/pr-cache",
     defaultBranch: "main",
     path: `/tmp/workspace-read-cache-${suffix}`,
     environmentProviderId: "git-worktree",
@@ -153,7 +153,7 @@ describe("workspace read caches on the environment routes", () => {
       await reportQueuedCommandSuccess(
         harness,
         dirtyCommand,
-        workspaceStatus("bb/pr-cache", "untracked"),
+        workspaceStatus("hyperfide/pr-cache", "untracked"),
       );
       await expect(readJson(await dirtyRead)).resolves.toMatchObject({
         workspace: { workingTree: { state: "untracked" } },
@@ -176,7 +176,7 @@ describe("workspace read caches on the environment routes", () => {
       await reportQueuedCommandSuccess(
         harness,
         preflightCommand,
-        workspaceStatus("bb/pr-cache", "untracked"),
+        workspaceStatus("hyperfide/pr-cache", "untracked"),
       );
       const diffCommand = await waitForQueuedCommand(
         harness,
@@ -202,7 +202,7 @@ describe("workspace read caches on the environment routes", () => {
       );
       await reportQueuedCommandSuccess(harness, commitCommand, {
         commitSha: "abc123",
-        commitSubject: "bb: automated commit",
+        commitSubject: "hyperfide: automated commit",
       });
       expect((await commitResponse).status).toBe(200);
 
@@ -217,7 +217,7 @@ describe("workspace read caches on the environment routes", () => {
       await reportQueuedCommandSuccess(
         harness,
         refreshedCommand,
-        workspaceStatus("bb/pr-cache", "clean"),
+        workspaceStatus("hyperfide/pr-cache", "clean"),
       );
       const refreshedResponse = await refreshedRead;
       expect(refreshedResponse.status).toBe(200);

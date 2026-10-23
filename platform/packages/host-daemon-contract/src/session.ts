@@ -35,7 +35,7 @@ import {
 } from "./commands.js";
 import { hostPlatformSchema } from "./local.js";
 
-const HOST_DAEMON_WEBSOCKET_PROTOCOL = "bb-host-daemon.v1";
+const HOST_DAEMON_WEBSOCKET_PROTOCOL = "hyperfide-host-daemon.v1";
 
 export const hostDaemonActiveThreadSchema = z.object({
   threadId: z.string().min(1),

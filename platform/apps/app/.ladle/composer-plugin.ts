@@ -6,7 +6,7 @@ import {
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
 import { loadPluginAppDefinition } from "./plugin-app-module";
 
-const COMPOSER_PLUGIN_ID = "bb--composer";
+const COMPOSER_PLUGIN_ID = "hyperfide--composer";
 
 const composerApp = await loadPluginAppDefinition(
   import.meta.glob<unknown>("../../../plugins/composer/app.tsx"),

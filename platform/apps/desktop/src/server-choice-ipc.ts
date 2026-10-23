@@ -1,6 +1,6 @@
 import {
-  bbDesktopServerChoiceSchema,
-  type BbDesktopServerChoice,
+  hyperfideDesktopServerChoiceSchema,
+  type HyperfideDesktopServerChoice,
 } from "@hyperfide/desktop-contract";
 import { ipcMain } from "electron";
 import {
@@ -15,7 +15,7 @@ export function registerServerChoiceIpc({
   onError,
 }: {
   applicationWindowWebContentsIds: ReadonlySet<number>;
-  list(): BbDesktopServerChoice[];
+  list(): HyperfideDesktopServerChoice[];
   select(id: string): Promise<void>;
   onError(error: unknown): void;
 }): void {
@@ -24,14 +24,14 @@ export function registerServerChoiceIpc({
       !applicationWindowWebContentsIds.has(event.sender.id) ||
       event.senderFrame !== event.sender.mainFrame
     ) {
-      throw new Error("Server choices are limited to bb windows");
+      throw new Error("Server choices are limited to hyperfide windows");
     }
     return list();
   });
   ipcMain.on(
     HYPERFIDE_DESKTOP_SELECT_SERVER_CHANNEL,
     (event, payload: unknown) => {
-      const parsed = bbDesktopServerChoiceSchema.shape.id.safeParse(payload);
+      const parsed = hyperfideDesktopServerChoiceSchema.shape.id.safeParse(payload);
       if (
         !applicationWindowWebContentsIds.has(event.sender.id) ||
         event.senderFrame !== event.sender.mainFrame ||

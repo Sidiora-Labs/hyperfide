@@ -56,7 +56,7 @@ async function loadPlugin(sdkThreads: Record<string, unknown>) {
     },
   });
   hosts.push(host);
-  await plugin(host.bb);
+  await plugin(host.hyperfide);
   return host;
 }
 
@@ -248,9 +248,9 @@ describe("empty-fork sweep", () => {
   });
 
   it("uses a deadline index when all pending candidates are in the future", async () => {
-    const { bb, harness } = await loadPlugin({ list: async () => [] });
+    const { hyperfide, harness } = await loadPlugin({ list: async () => [] });
     await harness.runSchedule("empty-fork-cleanup");
-    const db = bb.storage.database();
+    const db = hyperfide.storage.database();
     db.prepare(`WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<10000)
       INSERT INTO cleanup_candidates(thread_id, created_at, due_at)
       SELECT 'future-'||x,?,? FROM n`).run(
@@ -384,7 +384,7 @@ describe("empty-fork sweep", () => {
         createdAt: Date.now() - EMPTY_FORK_MAX_AGE_MS - 1,
       });
       const archive = vi.fn(async () => ({ ok: true }));
-      const { bb, harness } = await loadPlugin({
+      const { hyperfide, harness } = await loadPlugin({
         list: async () => [],
         fork: async () => thread,
         archive,
@@ -396,13 +396,13 @@ describe("empty-fork sweep", () => {
         sourceThreadId: "thr_source",
         anchorText: "answer",
       });
-      await bb.storage.kv.set(`kept-fork:${thread.id}`, true);
+      await hyperfide.storage.kv.set(`kept-fork:${thread.id}`, true);
       expect(await harness.emitThreadEvent(event, { thread })).toEqual({
         errors: [],
       });
       await harness.runSchedule("empty-fork-cleanup");
       expect(archive).not.toHaveBeenCalled();
-      expect(await bb.storage.kv.get(`kept-fork:${thread.id}`)).toBeUndefined();
+      expect(await hyperfide.storage.kv.get(`kept-fork:${thread.id}`)).toBeUndefined();
       if (event === "thread.archived") {
         expect(
           await harness.emitThreadEvent("thread.unarchived", { thread }),

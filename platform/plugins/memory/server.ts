@@ -4,7 +4,7 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type HyperfidePluginApi,
 } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { isMemoryKind, MEMORY_KINDS, type MemoryKind } from "./memory-kinds.js";
@@ -17,7 +17,7 @@ const TAG_PATTERN = /^[a-z0-9][a-z0-9._-]{0,39}$/;
 
 type MemoryScope = "global" | "project";
 type ReadScope = MemoryScope | "all";
-type PluginDatabase = ReturnType<BbPluginApi["storage"]["database"]>;
+type PluginDatabase = ReturnType<HyperfidePluginApi["storage"]["database"]>;
 
 interface MemoryRecord {
   id: string;
@@ -269,7 +269,7 @@ function writeScope(
   if (scope === "global") return { scope: "global", projectId: null };
   if (projectId === undefined) {
     throw new CliError(
-      "project-scoped memory requires a BB project context; run inside a project thread",
+      "project-scoped memory requires a HYPERFIDE project context; run inside a project thread",
     );
   }
   return { scope: "project", projectId };
@@ -284,7 +284,7 @@ function scopeSql(
   }
   if (scope === "project") {
     if (!projectId)
-      throw new CliError("project scope requires a BB project context");
+      throw new CliError("project scope requires a HYPERFIDE project context");
     return {
       sql: "m.scope = 'project' AND m.project_id = ?",
       params: [projectId],
@@ -667,8 +667,8 @@ function renderCatalog(store: MemoryStore, projectId: string): string {
   const { memories, total } = store.list("all", projectId, MAX_RESULT_LIMIT);
   const header = [
     "Memory index",
-    "The entries below are summaries, not full records. Use `bb memory search <query> --scope all --json` and `bb memory get <id> --json` to progressively disclose details.",
-    "You may proactively save durable learning with `bb memory add`. Use project scope for repository-specific facts and global scope only for broadly applicable user preferences or workflows. Never store secrets, transient status, guesses, or rules already guaranteed by AGENTS.md.",
+    "The entries below are summaries, not full records. Use `hyperfide-platform memory search <query> --scope all --json` and `hyperfide-platform memory get <id> --json` to progressively disclose details.",
+    "You may proactively save durable learning with `hyperfide-platform memory add`. Use project scope for repository-specific facts and global scope only for broadly applicable user preferences or workflows. Never store secrets, transient status, guesses, or rules already guaranteed by AGENTS.md.",
     "",
   ].join("\n");
   if (memories.length === 0) return `${header}No memories are stored yet.`;
@@ -689,7 +689,7 @@ function renderCatalog(store: MemoryStore, projectId: string): string {
     const finalShown = finalLines.length;
     footer =
       finalShown < total
-        ? `\nShowing ${finalShown} of ${total}; run \`bb memory catalog --scope all --json\` for the rest.`
+        ? `\nShowing ${finalShown} of ${total}; run \`hyperfide-platform memory catalog --scope all --json\` for the rest.`
         : "";
     if (
       `${header}${finalLines.join("\n")}${footer}`.length <= CATALOG_MAX_CHARS
@@ -709,9 +709,9 @@ function jsonOutput(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-export default async function plugin(bb: BbPluginApi) {
-  const db = bb.storage.database();
-  bb.storage.migrate(db, [
+export default async function plugin(hyperfide: HyperfidePluginApi) {
+  const db = hyperfide.storage.database();
+  hyperfide.storage.migrate(db, [
     `CREATE TABLE IF NOT EXISTS memories (
        id TEXT PRIMARY KEY,
        scope TEXT NOT NULL CHECK (scope IN ('global', 'project')),
@@ -770,7 +770,7 @@ export default async function plugin(bb: BbPluginApi) {
   ]);
   const store = new MemoryStore(db);
 
-  bb.rpc.register(memoryRpcContract, {
+  hyperfide.rpc.register(memoryRpcContract, {
     listMemories() {
       return { memories: store.listAll() };
     },
@@ -810,11 +810,11 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.agents.contributeInstructions(({ projectId }) =>
+  hyperfide.agents.contributeInstructions(({ projectId }) =>
     renderCatalog(store, projectId),
   );
 
-  bb.cli.register(
+  hyperfide.cli.register(
     defineCli({
       name: "memory",
       summary: "Read and maintain durable global and project memories",

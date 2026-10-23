@@ -121,14 +121,14 @@ async function writePluginFixture(
       ...(options.engines || options.pluginSdkRange
         ? {
             engines: {
-              ...(options.engines ? { bb: options.engines } : {}),
+              ...(options.engines ? { hyperfide: options.engines } : {}),
               ...(options.pluginSdkRange
-                ? { bbPluginSdk: options.pluginSdkRange }
+                ? { hyperfidePluginSdk: options.pluginSdkRange }
                 : {}),
             },
           }
         : {}),
-      bb: {
+      hyperfide: {
         name: "Install fixture",
         description: "Plugin installation fixture.",
         branding: { icon: "Zap" },
@@ -140,7 +140,7 @@ async function writePluginFixture(
   );
   await writeFile(
     join(rootDir, "server.ts"),
-    `export default function plugin(bb: any) { bb.log.info("loaded"); }`,
+    `export default function plugin(hyperfide: any) { hyperfide.log.info("loaded"); }`,
   );
   if (options.appSource !== undefined) {
     await writeFile(join(rootDir, "app.tsx"), options.appSource);
@@ -183,7 +183,7 @@ function artifactMeta(args: {
     pluginId: args.pluginId,
     pluginVersion: args.pluginVersion ?? "0.1.0",
     builtWith: {
-      bbVersion: "0.9.0-test",
+      hyperfideVersion: "0.9.0-test",
       pluginSdkVersion: sdkVersion,
     },
   });
@@ -200,15 +200,15 @@ function localGitCachePath(repoDir: string): string {
 describe("plugin install sources", () => {
   it("reads a Windows folder as a local git source", () => {
     expect(
-      parsePluginSource("git:C:\\Users\\me\\plugins\\bb-plugin-foo@v1"),
+      parsePluginSource("git:C:\\Users\\me\\plugins\\hyperfide-plugin-foo@v1"),
     ).toMatchObject({
       kind: "git",
-      url: "C:\\Users\\me\\plugins\\bb-plugin-foo",
+      url: "C:\\Users\\me\\plugins\\hyperfide-plugin-foo",
       spec: "v1",
-      cachePath: expect.stringMatching(/^local\/bb-plugin-foo-[a-f0-9]{12}$/u),
+      cachePath: expect.stringMatching(/^local\/hyperfide-plugin-foo-[a-f0-9]{12}$/u),
     });
-    expect(localGitCachePath("c:/users/ME/plugins/bb-plugin-foo/")).toBe(
-      localGitCachePath("C:\\Users\\me\\plugins\\bb-plugin-foo"),
+    expect(localGitCachePath("c:/users/ME/plugins/hyperfide-plugin-foo/")).toBe(
+      localGitCachePath("C:\\Users\\me\\plugins\\hyperfide-plugin-foo"),
     );
     expect(() => parsePluginSource("git:C:\\Users\\me\\..\\other")).toThrow(
       "invalid git repository path",
@@ -216,34 +216,34 @@ describe("plugin install sources", () => {
   });
 
   it("parses git URLs, tracks HEAD by default, and rejects traversal", () => {
-    expect(parsePluginSource("git:github.com/acme/bb-plugin-foo@v1")).toEqual({
+    expect(parsePluginSource("git:github.com/acme/hyperfide-plugin-foo@v1")).toEqual({
       kind: "git",
-      url: "https://github.com/acme/bb-plugin-foo",
+      url: "https://github.com/acme/hyperfide-plugin-foo",
       spec: "v1",
       selector: { kind: "ref", ref: "v1" },
-      cachePath: "github.com/acme/bb-plugin-foo",
+      cachePath: "github.com/acme/hyperfide-plugin-foo",
     });
     expect(
       parsePluginSource(
-        "git:https://github.com/acme/bb-plugin-foo.git@abc1234",
+        "git:https://github.com/acme/hyperfide-plugin-foo.git@abc1234",
       ),
     ).toMatchObject({
       kind: "git",
-      url: "https://github.com/acme/bb-plugin-foo.git",
+      url: "https://github.com/acme/hyperfide-plugin-foo.git",
     });
-    expect(parsePluginSource("https://github.com/acme/bb-plugin-foo")).toEqual({
+    expect(parsePluginSource("https://github.com/acme/hyperfide-plugin-foo")).toEqual({
       kind: "git",
-      url: "https://github.com/acme/bb-plugin-foo",
+      url: "https://github.com/acme/hyperfide-plugin-foo",
       spec: "HEAD",
       selector: { kind: "ref", ref: "HEAD" },
-      cachePath: "github.com/acme/bb-plugin-foo",
+      cachePath: "github.com/acme/hyperfide-plugin-foo",
     });
     expect(
-      parsePluginSource("https://github.com/acme/bb-plugin-foo/"),
+      parsePluginSource("https://github.com/acme/hyperfide-plugin-foo/"),
     ).toMatchObject({
       kind: "git",
       spec: "HEAD",
-      cachePath: "github.com/acme/bb-plugin-foo",
+      cachePath: "github.com/acme/hyperfide-plugin-foo",
     });
     expect(parsePluginSource("git:github.com/acme/repo")).toMatchObject({
       kind: "git",
@@ -314,32 +314,32 @@ describe("plugin install sources", () => {
   });
 
   it("classifies omitted, exact, range, and dist-tag npm specs", () => {
-    expect(parsePluginSource("npm:bb-plugin-linear@0.3.0")).toEqual({
+    expect(parsePluginSource("npm:hyperfide-plugin-linear@0.3.0")).toEqual({
       kind: "npm",
-      name: "bb-plugin-linear",
+      name: "hyperfide-plugin-linear",
       spec: "0.3.0",
       specKind: "exact",
     });
-    expect(parsePluginSource("npm:@acme/bb-plugin-x@1.2.3")).toEqual({
+    expect(parsePluginSource("npm:@acme/hyperfide-plugin-x@1.2.3")).toEqual({
       kind: "npm",
-      name: "@acme/bb-plugin-x",
+      name: "@acme/hyperfide-plugin-x",
       spec: "1.2.3",
       specKind: "exact",
     });
-    expect(parsePluginSource("npm:bb-plugin-x@^1.0.0")).toMatchObject({
+    expect(parsePluginSource("npm:hyperfide-plugin-x@^1.0.0")).toMatchObject({
       spec: "^1.0.0",
       specKind: "range",
     });
-    expect(parsePluginSource("npm:bb-plugin-x@next")).toMatchObject({
+    expect(parsePluginSource("npm:hyperfide-plugin-x@next")).toMatchObject({
       spec: "next",
       specKind: "tag",
     });
-    expect(parsePluginSource("npm:bb-plugin-x")).toMatchObject({
+    expect(parsePluginSource("npm:hyperfide-plugin-x")).toMatchObject({
       spec: "",
       specKind: "default",
     });
-    expect(parsePluginSource("npm:@acme/bb-plugin-x")).toMatchObject({
-      name: "@acme/bb-plugin-x",
+    expect(parsePluginSource("npm:@acme/hyperfide-plugin-x")).toMatchObject({
+      name: "@acme/hyperfide-plugin-x",
       spec: "",
       specKind: "default",
     });
@@ -435,7 +435,7 @@ describe("plugin install flows", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-install-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-install-"));
     dataDir = join(workDir, "data");
     afterArtifactPromoted = undefined;
     materializationCount = 0;
@@ -470,7 +470,7 @@ describe("plugin install flows", () => {
   describe.skipIf(!hasGit)("git sources", { timeout: 30_000 }, () => {
     it("installs and tracks the default branch when the ref is omitted", async () => {
       const repoDir = join(workDir, "repo-default-branch");
-      await writePluginFixture(repoDir, { name: "bb-plugin-default-branch" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-default-branch" });
       await initGitRepo(repoDir);
       const commit = await commitAll(repoDir, "init");
 
@@ -495,14 +495,14 @@ describe("plugin install flows", () => {
 
     it("stamps catalog provenance for a git official catalog entry", async () => {
       const repoDir = join(workDir, "repo-catalog");
-      await writePluginFixture(repoDir, { name: "bb-plugin-catalog-git" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-catalog-git" });
       await initGitRepo(repoDir);
       const commit = await commitAll(repoDir, "init");
       await git(repoDir, ["branch", "plugin/catalog-git"]);
 
       const source = `git:${repoDir}@plugin/catalog-git`;
       const entry = await service.installCatalogPlugin({
-        marketplace: "bb-community",
+        marketplace: "hyperfide-community",
         entryId: "catalog-git-entry",
         pluginId: "catalog-git",
         source,
@@ -514,13 +514,13 @@ describe("plugin install flows", () => {
         source,
         provenance: "catalog",
         catalogEntryId: "catalog-git-entry",
-        catalogMarketplaceName: "bb-community",
+        catalogMarketplaceName: "hyperfide-community",
         status: "running",
       });
       expect(getInstalledPluginRegistration(db, "catalog-git")).toMatchObject({
         provenance: "catalog",
         catalogEntryId: "catalog-git-entry",
-        catalogMarketplaceName: "bb-community",
+        catalogMarketplaceName: "hyperfide-community",
         sourceKind: "git",
         sourceGitUrl: repoDir,
         sourceGitRequestedRef: "plugin/catalog-git",
@@ -531,7 +531,7 @@ describe("plugin install flows", () => {
 
     it("refuses a git commit that changed after marketplace confirmation", async () => {
       const repoDir = join(workDir, "repo-catalog-confirmed");
-      await writePluginFixture(repoDir, { name: "bb-plugin-confirmed" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-confirmed" });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "initial");
 
@@ -551,7 +551,7 @@ describe("plugin install flows", () => {
     it("refuses a catalog entry whose plugin requires another plugin SDK", async () => {
       const repoDir = join(workDir, "repo-catalog-sdk-too-new");
       await writePluginFixture(repoDir, {
-        name: "bb-plugin-sdk-listed",
+        name: "hyperfide-plugin-sdk-listed",
         pluginSdkRange: ">=99.0.0",
       });
       await initGitRepo(repoDir);
@@ -560,7 +560,7 @@ describe("plugin install flows", () => {
 
       await expect(
         service.installCatalogPlugin({
-          marketplace: "bb-community",
+          marketplace: "hyperfide-community",
           entryId: "sdk-listed",
           pluginId: "sdk-listed",
           source: `git:${repoDir}@plugin/listed`,
@@ -568,7 +568,7 @@ describe("plugin install flows", () => {
         }),
       ).rejects.toThrow(
         new RegExp(
-          `install refused.*requires bb plugin SDK >=99\\.0\\.0, running SDK is ${PLUGIN_SDK_VERSION.replaceAll(".", "\\.")}`,
+          `install refused.*requires hyperfide-platform plugin SDK >=99\\.0\\.0, running SDK is ${PLUGIN_SDK_VERSION.replaceAll(".", "\\.")}`,
           "u",
         ),
       );
@@ -584,10 +584,10 @@ describe("plugin install flows", () => {
       ]) {
         await expect(
           service.installCatalogPlugin({
-            marketplace: "bb-community",
+            marketplace: "hyperfide-community",
             entryId: "catalog-npm-entry",
             pluginId: "registry",
-            source: "npm:bb-plugin-registry@^1.0.0",
+            source: "npm:hyperfide-plugin-registry@^1.0.0",
             selection: ROOT_PLUGIN_SOURCE_SELECTION,
             npmRegistry: registry,
           }),
@@ -599,7 +599,7 @@ describe("plugin install flows", () => {
     it("guards a listed npm registry while it resolves an install plan", async () => {
       await expect(
         service.resolveCatalogNpmSource({
-          packageName: "bb-plugin-registry",
+          packageName: "hyperfide-plugin-registry",
           registry: "https://localhost/registry",
           requestedSpec: "latest",
           specKind: "tag",
@@ -609,14 +609,14 @@ describe("plugin install flows", () => {
 
     it("refuses a git catalog install whose manifest id differs from the entry", async () => {
       const repoDir = join(workDir, "repo-catalog-mismatch");
-      await writePluginFixture(repoDir, { name: "bb-plugin-imposter" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-imposter" });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "init");
       await git(repoDir, ["branch", "plugin/imposter"]);
 
       await expect(
         service.installCatalogPlugin({
-          marketplace: "bb-community",
+          marketplace: "hyperfide-community",
           entryId: "catalog-git-entry",
           pluginId: "expected-id",
           source: `git:${repoDir}@plugin/imposter`,
@@ -627,7 +627,7 @@ describe("plugin install flows", () => {
 
     it("clones a pinned tag into its exact immutable cache dir and loads it", async () => {
       const repoDir = join(workDir, "repo");
-      await writePluginFixture(repoDir, { name: "bb-plugin-gitty" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-gitty" });
       await initGitRepo(repoDir);
       const commit = await commitAll(repoDir, "init");
       await git(repoDir, ["tag", "v1"]);
@@ -653,7 +653,7 @@ describe("plugin install flows", () => {
 
     it("resolves a semver range over release tags and tracks compatible", async () => {
       const repoDir = join(workDir, "repo-range");
-      await writePluginFixture(repoDir, { name: "bb-plugin-ranger" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-ranger" });
       await initGitRepo(repoDir);
       const first = await commitAll(repoDir, "init");
       await git(repoDir, ["tag", "v1.0.0"]);
@@ -689,7 +689,7 @@ describe("plugin install flows", () => {
 
     it("refuses a range spec that is also a ref, and honors the explicit forms", async () => {
       const repoDir = join(workDir, "repo-ambiguous");
-      await writePluginFixture(repoDir, { name: "bb-plugin-ambiguous" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-ambiguous" });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "init");
       await git(repoDir, ["tag", "v1.0.0"]);
@@ -717,7 +717,7 @@ describe("plugin install flows", () => {
 
     it("resolves a prefixed range and reports one with no matching tag", async () => {
       const repoDir = join(workDir, "repo-prefixed");
-      await writePluginFixture(repoDir, { name: "bb-plugin-prefixed" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-prefixed" });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "init");
       await git(repoDir, ["tag", "v9.0.0"]);
@@ -744,13 +744,13 @@ describe("plugin install flows", () => {
 
     it("installs a catalog entry that lists a semver range", async () => {
       const repoDir = join(workDir, "repo-catalog-range");
-      await writePluginFixture(repoDir, { name: "bb-plugin-catalog-range" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-catalog-range" });
       await initGitRepo(repoDir);
       const commit = await commitAll(repoDir, "init");
       await git(repoDir, ["tag", "v1.3.0"]);
 
       const entry = await service.installCatalogPlugin({
-        marketplace: "bb-community",
+        marketplace: "hyperfide-community",
         entryId: "catalog-range",
         pluginId: "catalog-range",
         source: `git:${repoDir}@semver:^1.0.0`,
@@ -786,11 +786,11 @@ describe("plugin install flows", () => {
 
     it("installs a pinned commit sha via clone + checkout", async () => {
       const repoDir = join(workDir, "repo-sha");
-      await writePluginFixture(repoDir, { name: "bb-plugin-shaman" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-shaman" });
       await initGitRepo(repoDir);
       const sha = await commitAll(repoDir, "init");
       await writePluginFixture(repoDir, {
-        name: "bb-plugin-shaman",
+        name: "hyperfide-plugin-shaman",
         version: "9.9.9",
       });
       await commitAll(repoDir, "later");
@@ -804,7 +804,7 @@ describe("plugin install flows", () => {
 
     it("never reuses an exact-resolution artifact owned by another plugin", async () => {
       const repoDir = join(workDir, "repo-owner");
-      await writePluginFixture(repoDir, { name: "bb-plugin-owner" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-owner" });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "init");
       await git(repoDir, ["tag", "v1"]);
@@ -831,7 +831,7 @@ describe("plugin install flows", () => {
 
     it("serializes concurrent installs of the same exact resolution", async () => {
       const repoDir = join(workDir, "repo-concurrent");
-      await writePluginFixture(repoDir, { name: "bb-plugin-concurrent" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-concurrent" });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "init");
       await git(repoDir, ["tag", "v1"]);
@@ -847,7 +847,7 @@ describe("plugin install flows", () => {
           expect.objectContaining({
             status: "rejected",
             reason: expect.objectContaining({
-              message: expect.stringContaining("bb plugin update concurrent"),
+              message: expect.stringContaining("hyperfide-platform plugin update concurrent"),
             }),
           }),
         ]),
@@ -858,7 +858,7 @@ describe("plugin install flows", () => {
 
     it("refuses a managed reinstall and points to the update command", async () => {
       const repoDir = join(workDir, "repo-refresh");
-      await writePluginFixture(repoDir, { name: "bb-plugin-fresh" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-fresh" });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "v0.1.0");
       const source = `git:${repoDir}@main`;
@@ -866,12 +866,12 @@ describe("plugin install flows", () => {
       expect(first.version).toBe("0.1.0");
 
       await writePluginFixture(repoDir, {
-        name: "bb-plugin-fresh",
+        name: "hyperfide-plugin-fresh",
         version: "0.2.0",
       });
       await commitAll(repoDir, "v0.2.0");
       await expect(service.install(source, { kind: "root" })).rejects.toThrow(
-        "bb plugin update fresh",
+        "hyperfide-platform plugin update fresh",
       );
       expect(
         service.list().find((plugin) => plugin.id === "fresh"),
@@ -881,7 +881,7 @@ describe("plugin install flows", () => {
     it("refuses a managed frontend reinstall before validating a broken new tip or creating an artifact", async () => {
       const repoDir = join(workDir, "repo-managed-frontend");
       await writePluginFixture(repoDir, {
-        name: "bb-plugin-managed-frontend",
+        name: "hyperfide-plugin-managed-frontend",
         appSource:
           'export default function App() { return <div className="line-clamp-2">working</div>; }\n',
       });
@@ -902,14 +902,14 @@ describe("plugin install flows", () => {
       expect(artifactsBefore).toHaveLength(1);
 
       await writePluginFixture(repoDir, {
-        name: "bb-plugin-managed-frontend",
+        name: "hyperfide-plugin-managed-frontend",
         version: "0.2.0",
         appSource: "export default function App( {\n",
       });
       await commitAll(repoDir, "broken frontend");
 
       await expect(service.install(source, { kind: "root" })).rejects.toThrow(
-        "bb plugin update managed-frontend",
+        "hyperfide-platform plugin update managed-frontend",
       );
       expect(getInstalledPluginRegistration(db, "managed-frontend")).toEqual(
         registrationBefore,
@@ -924,7 +924,7 @@ describe("plugin install flows", () => {
 
     it("keeps the previous install intact when a reinstall fails validation", async () => {
       const repoDir = join(workDir, "repo-sturdy");
-      await writePluginFixture(repoDir, { name: "bb-plugin-sturdy" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-sturdy" });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "v1");
       const source = `git:${repoDir}@main`;
@@ -947,7 +947,7 @@ describe("plugin install flows", () => {
     it("rebuilds a git plugin's server bundle over any committed dist", async () => {
       const identityRepo = join(workDir, "repo-artifact-identity");
       await writePluginFixture(identityRepo, {
-        name: "bb-plugin-artifact-identity",
+        name: "hyperfide-plugin-artifact-identity",
       });
       await mkdir(join(identityRepo, "dist"), { recursive: true });
       await writeFile(
@@ -971,10 +971,10 @@ describe("plugin install flows", () => {
       });
     });
 
-    it("hard-fails install on an engines.bb mismatch and cleans up the clone", async () => {
+    it("hard-fails install on an engines.hyperfide mismatch and cleans up the clone", async () => {
       const repoDir = join(workDir, "repo-too-new");
       await writePluginFixture(repoDir, {
-        name: "bb-plugin-too-new",
+        name: "hyperfide-plugin-too-new",
         engines: ">=99.0.0",
       });
       await initGitRepo(repoDir);
@@ -983,7 +983,7 @@ describe("plugin install flows", () => {
       const source = `git:${repoDir}@main`;
       await expect(
         service.install(source, { kind: "root" }),
-      ).rejects.toThrowError(/install refused.*requires bb >=99\.0\.0/);
+      ).rejects.toThrowError(/install refused.*requires hyperfide >=99\.0\.0/);
       expect(service.list()).toHaveLength(0);
       const managed = join(
         dataDir,
@@ -996,7 +996,7 @@ describe("plugin install flows", () => {
 
     it("remove deletes cached git artifacts and never touches a path source", async () => {
       const repoDir = join(workDir, "repo-rm");
-      await writePluginFixture(repoDir, { name: "bb-plugin-managed" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-managed" });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "init");
       const managedEntry = await service.install(`git:${repoDir}@main`, {
@@ -1004,7 +1004,7 @@ describe("plugin install flows", () => {
       });
 
       const pathDir = join(workDir, "local-plugin");
-      await writePluginFixture(pathDir, { name: "bb-plugin-localdir" });
+      await writePluginFixture(pathDir, { name: "hyperfide-plugin-localdir" });
       await service.install(pathDir, { kind: "root" });
 
       expect(await service.remove("managed")).toBe(true);
@@ -1020,7 +1020,7 @@ describe("plugin install flows", () => {
     it("refuses a cached artifact whose engine range no longer matches", async () => {
       const repoDir = join(workDir, "repo-cached-engine");
       await writePluginFixture(repoDir, {
-        name: "bb-plugin-cached-engine",
+        name: "hyperfide-plugin-cached-engine",
         engines: ">=0.9.0",
       });
       await initGitRepo(repoDir);
@@ -1054,7 +1054,7 @@ describe("plugin install flows", () => {
 
       await expect(
         service.install(source, { kind: "root" }),
-      ).rejects.toThrowError(/install refused.*requires bb >=0\.9\.0/u);
+      ).rejects.toThrowError(/install refused.*requires hyperfide >=0\.9\.0/u);
       expect(materializationCount).toBe(clonesBefore);
       expect(
         getInstalledPluginRegistration(db, "cached-engine"),
@@ -1066,7 +1066,7 @@ describe("plugin install flows", () => {
       async () => {
         const repoDir = join(workDir, "repo-host-with-dev-sdk-omitted");
         await writePluginFixture(repoDir, {
-          name: "bb-plugin-host-with-dev-sdk-omitted",
+          name: "hyperfide-plugin-host-with-dev-sdk-omitted",
           devDependencies: {
             "@hyperfide/plugin-sdk": "file:./sdk-type-fixture",
           },
@@ -1113,7 +1113,7 @@ describe("plugin install flows", () => {
     it("restores a target moved aside by an interrupted promotion", async () => {
       const repoDir = join(workDir, "repo-interrupted-promotion");
       await writePluginFixture(repoDir, {
-        name: "bb-plugin-interrupted-promotion",
+        name: "hyperfide-plugin-interrupted-promotion",
       });
       await initGitRepo(repoDir);
       await commitAll(repoDir, "init");
@@ -1165,7 +1165,7 @@ describe("plugin install flows", () => {
 
     it("ignores a repository .npmrc when installing dependencies", async () => {
       const repoDir = join(workDir, "repo-npmrc");
-      await writePluginFixture(repoDir, { name: "bb-plugin-npmrc" });
+      await writePluginFixture(repoDir, { name: "hyperfide-plugin-npmrc" });
       await writeFile(
         join(repoDir, ".npmrc"),
         "registry=http://127.0.0.1:1/evil\nstrict-ssl=false\n",
@@ -1189,7 +1189,7 @@ describe("plugin install flows", () => {
         await writeFile(
           join(depDir, "package.json"),
           JSON.stringify({
-            name: "bb-test-greeter",
+            name: "hyperfide-test-greeter",
             version: "1.0.0",
             main: "index.js",
           }),
@@ -1200,7 +1200,7 @@ describe("plugin install flows", () => {
         );
 
         const repoDir = join(workDir, "repo-with-deps");
-        await writePluginFixture(repoDir, { name: "bb-plugin-withdeps" });
+        await writePluginFixture(repoDir, { name: "hyperfide-plugin-withdeps" });
         const manifestPath = join(repoDir, "package.json");
         const manifest: unknown = JSON.parse(
           await readFile(manifestPath, "utf8"),
@@ -1209,13 +1209,13 @@ describe("plugin install flows", () => {
           manifestPath,
           JSON.stringify({
             ...(manifest as Record<string, unknown>),
-            dependencies: { "bb-test-greeter": `file:${depDir}` },
+            dependencies: { "hyperfide-test-greeter": `file:${depDir}` },
           }),
         );
         await writeFile(
           join(repoDir, "server.ts"),
-          `import { greet } from "bb-test-greeter";\n` +
-            `export default function plugin(bb: any) { bb.log.info(greet()); }`,
+          `import { greet } from "hyperfide-test-greeter";\n` +
+            `export default function plugin(hyperfide: any) { hyperfide.log.info(greet()); }`,
         );
         await initGitRepo(repoDir);
         await commitAll(repoDir, "init");
@@ -1240,10 +1240,10 @@ describe("plugin install flows", () => {
     () => {
       async function writeCollectionRepo(repoDir: string): Promise<string> {
         await writePluginFixture(join(repoDir, "plugins", "alpha"), {
-          name: "bb-plugin-collection-alpha",
+          name: "hyperfide-plugin-collection-alpha",
         });
         await writePluginFixture(join(repoDir, "plugins", "beta"), {
-          name: "bb-plugin-collection-beta",
+          name: "hyperfide-plugin-collection-beta",
         });
         await mkdir(join(repoDir, ".hyperfide"), { recursive: true });
         await writeFile(
@@ -1309,10 +1309,10 @@ describe("plugin install flows", () => {
         async () => {
           const repoDir = join(workDir, "repo-collection-symlinked-entry");
           await writePluginFixture(join(repoDir, "plugins", "actual"), {
-            name: "bb-plugin-collection-linked",
+            name: "hyperfide-plugin-collection-linked",
           });
           await writePluginFixture(join(repoDir, "plugins", "sibling"), {
-            name: "bb-plugin-collection-sibling",
+            name: "hyperfide-plugin-collection-sibling",
           });
           await symlink("actual", join(repoDir, "plugins", "linked"));
           await mkdir(join(repoDir, ".hyperfide"), { recursive: true });
@@ -1347,9 +1347,9 @@ describe("plugin install flows", () => {
       it("keeps a nested sibling intact when the repository root installs too", async () => {
         const repoDir = join(workDir, "repo-collection-root");
         await writePluginFixture(join(repoDir, "plugins", "alpha"), {
-          name: "bb-plugin-collection-alpha",
+          name: "hyperfide-plugin-collection-alpha",
         });
-        await writePluginFixture(repoDir, { name: "bb-plugin-collection-top" });
+        await writePluginFixture(repoDir, { name: "hyperfide-plugin-collection-top" });
         await initGitRepo(repoDir);
         await commitAll(repoDir, "init");
 
@@ -1381,10 +1381,10 @@ describe("plugin install flows", () => {
       it("refreshes a root artifact hash after a nested install", async () => {
         const repoDir = join(workDir, "repo-collection-root-first");
         await writePluginFixture(join(repoDir, "plugins", "alpha"), {
-          name: "bb-plugin-collection-root-first-alpha",
+          name: "hyperfide-plugin-collection-root-first-alpha",
         });
         await writePluginFixture(repoDir, {
-          name: "bb-plugin-collection-root-first-top",
+          name: "hyperfide-plugin-collection-root-first-top",
         });
         await initGitRepo(repoDir);
         await commitAll(repoDir, "init");
@@ -1407,11 +1407,11 @@ describe("plugin install flows", () => {
         async () => {
           const repoDir = join(workDir, "repo-collection-root-symlink");
           await writePluginFixture(join(repoDir, "plugins", "actual"), {
-            name: "bb-plugin-collection-linked-root",
+            name: "hyperfide-plugin-collection-linked-root",
           });
           await symlink("actual", join(repoDir, "plugins", "linked"));
           await writePluginFixture(repoDir, {
-            name: "bb-plugin-collection-top-linked",
+            name: "hyperfide-plugin-collection-top-linked",
           });
           await initGitRepo(repoDir);
           await commitAll(repoDir, "init");
@@ -1508,7 +1508,7 @@ describe("plugin install flows", () => {
 
       it("refuses a collection entry whose directory leaves the repository", async () => {
         const outsideDir = join(workDir, "outside-plugin");
-        await writePluginFixture(outsideDir, { name: "bb-plugin-outside" });
+        await writePluginFixture(outsideDir, { name: "hyperfide-plugin-outside" });
         const repoDir = join(workDir, "repo-collection-symlink");
         await mkdir(join(repoDir, "plugins"), { recursive: true });
         await mkdir(join(repoDir, ".hyperfide"), { recursive: true });
@@ -1530,7 +1530,7 @@ describe("plugin install flows", () => {
       it("refuses a collection entry symlinked to the repository root", async () => {
         const repoDir = join(workDir, "repo-collection-root-link");
         await writePluginFixture(repoDir, {
-          name: "bb-plugin-collection-root-link",
+          name: "hyperfide-plugin-collection-root-link",
         });
         await mkdir(join(repoDir, "plugins"), { recursive: true });
         await mkdir(join(repoDir, ".hyperfide"), { recursive: true });
@@ -1586,14 +1586,14 @@ describe("plugin install flows", () => {
   it("keeps path installs developer-friendly while surfacing SDK incompatibility", async () => {
     const rootDir = join(workDir, "local-sdk-mismatch");
     await writePluginFixture(rootDir, {
-      name: "bb-plugin-local-sdk-mismatch",
+      name: "hyperfide-plugin-local-sdk-mismatch",
       pluginSdkRange: ">=99.0.0",
     });
 
     const entry = await service.installPath(rootDir);
     expect(entry.status).toBe("incompatible");
     expect(entry.statusDetail).toContain(
-      `requires bb plugin SDK >=99.0.0, running SDK is ${PLUGIN_SDK_VERSION}`,
+      `requires hyperfide-platform plugin SDK >=99.0.0, running SDK is ${PLUGIN_SDK_VERSION}`,
     );
   });
 
@@ -1601,7 +1601,7 @@ describe("plugin install flows", () => {
     const rootDir = join(workDir, "local-stale-server-meta");
     const incompatibleMajor = PLUGIN_SDK_MAJOR + 1;
     await writePluginFixture(rootDir, {
-      name: "bb-plugin-local-stale-server-meta",
+      name: "hyperfide-plugin-local-stale-server-meta",
     });
     await mkdir(join(rootDir, "dist"), { recursive: true });
     await writeFile(
@@ -1626,7 +1626,7 @@ describe("plugin install flows", () => {
       "installs a scoped package into the immutable cache and deletes it on removal",
       { timeout: 120_000 },
       async () => {
-        const name = "@acme/bb-plugin-npmhero";
+        const name = "@acme/hyperfide-plugin-npmhero";
         const version = "0.1.0";
         const fixtureDir = join(workDir, "npm-fixture");
         await writePluginFixture(fixtureDir, { name, version });
@@ -1782,27 +1782,27 @@ describe("plugin install flows", () => {
     expect(getInstalledPluginRegistration(db, "automations")).toBeUndefined();
   });
 
-  it("refuses a path plugin whose id uses the reserved bb-- prefix", async () => {
-    const rootDir = join(workDir, "bb-plugin-bb--notes");
-    await writePluginFixture(rootDir, { name: "bb-plugin-bb--notes" });
+  it("refuses a path plugin whose id uses the reserved hyperfide-- prefix", async () => {
+    const rootDir = join(workDir, "hyperfide-plugin-hyperfide--notes");
+    await writePluginFixture(rootDir, { name: "hyperfide-plugin-hyperfide--notes" });
     await expect(service.installPath(rootDir)).rejects.toThrowError(
-      /ids starting with "bb--" are reserved/,
+      /ids starting with "hyperfide--" are reserved/,
     );
-    expect(getInstalledPluginRegistration(db, "bb--notes")).toBeUndefined();
+    expect(getInstalledPluginRegistration(db, "hyperfide--notes")).toBeUndefined();
   });
 
-  it("refuses an npm package whose derived id uses the reserved bb-- prefix before install", async () => {
+  it("refuses an npm package whose derived id uses the reserved hyperfide-- prefix before install", async () => {
     await expect(
-      service.install("npm:@acme/bb-plugin-bb--notes@1.2.3", { kind: "root" }),
-    ).rejects.toThrowError(/ids starting with "bb--" are reserved/);
+      service.install("npm:@acme/hyperfide-plugin-hyperfide--notes@1.2.3", { kind: "root" }),
+    ).rejects.toThrowError(/ids starting with "hyperfide--" are reserved/);
   });
 
-  it("the bb plugin new scaffold installs and loads through the plugin service", async () => {
-    const targetDir = join(workDir, "bb-plugin-scaffolded");
+  it("the hyperfide-platform plugin new scaffold installs and loads through the plugin service", async () => {
+    const targetDir = join(workDir, "hyperfide-plugin-scaffolded");
     await scaffoldPlugin({
       targetDir,
-      packageName: "bb-plugin-scaffolded",
-      bbVersion: "0.9.0",
+      packageName: "hyperfide-plugin-scaffolded",
+      hyperfideVersion: "0.9.0",
     });
     await stat(join(targetDir, "skills", "example-todos", "SKILL.md"));
     await stat(join(targetDir, ".gitignore"));
@@ -1817,8 +1817,8 @@ describe("plugin install flows", () => {
     await expect(
       scaffoldPlugin({
         targetDir,
-        packageName: "bb-plugin-scaffolded",
-        bbVersion: "0.9.0",
+        packageName: "hyperfide-plugin-scaffolded",
+        hyperfideVersion: "0.9.0",
       }),
     ).rejects.toThrowError(/already exists/);
   });

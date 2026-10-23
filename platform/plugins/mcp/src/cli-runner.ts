@@ -39,13 +39,13 @@ export type CliRunner = (
 export class CliUnavailableError extends Error {
   constructor() {
     super(
-      "The bb CLI could not be found on the bb server's machine, so MCP calls cannot run commands.",
+      "The hyperfide-platform CLI could not be found on the hyperfide-platform server's machine, so MCP calls cannot run commands.",
     );
     this.name = "CliUnavailableError";
   }
 }
 
-export function bbBinaryCandidates(env: NodeJS.ProcessEnv): string[] {
+export function hyperfideBinaryCandidates(env: NodeJS.ProcessEnv): string[] {
   const candidates: string[] = [];
   const pushIfAbsolute = (candidate: string): void => {
     if (isAbsolute(candidate)) candidates.push(candidate);
@@ -54,13 +54,16 @@ export function bbBinaryCandidates(env: NodeJS.ProcessEnv): string[] {
   if (fromCli !== undefined && fromCli.length > 0) pushIfAbsolute(fromCli);
   const fromCliDir = env.HYPERFIDE_CLI_DIR?.trim();
   if (fromCliDir !== undefined && fromCliDir.length > 0) {
-    pushIfAbsolute(join(fromCliDir, "bb"));
+    pushIfAbsolute(join(fromCliDir, "hyperfide-platform"));
   }
   for (const entry of (env.PATH ?? "").split(delimiter)) {
     const trimmed = entry.trim();
-    if (trimmed.length > 0) pushIfAbsolute(join(trimmed, "bb"));
+    if (trimmed.length > 0) pushIfAbsolute(join(trimmed, "hyperfide-platform"));
   }
-  candidates.push("/opt/homebrew/bin/bb", "/usr/local/bin/bb");
+  candidates.push(
+    "/opt/homebrew/bin/hyperfide-platform",
+    "/usr/local/bin/hyperfide-platform",
+  );
   return candidates;
 }
 
@@ -74,10 +77,10 @@ async function isExecutableFile(candidate: string): Promise<boolean> {
   }
 }
 
-export async function resolveBbBinary(
+export async function resolveHyperfideBinary(
   env: NodeJS.ProcessEnv,
 ): Promise<string | null> {
-  for (const candidate of bbBinaryCandidates(env)) {
+  for (const candidate of hyperfideBinaryCandidates(env)) {
     if (await isExecutableFile(candidate)) return candidate;
   }
   return null;
@@ -135,7 +138,7 @@ export function createCliRunner(options: {
   resolveBinary?: (env: NodeJS.ProcessEnv) => Promise<string | null>;
   maxConcurrent?: number;
 }): CliRunner {
-  const resolve = options.resolveBinary ?? resolveBbBinary;
+  const resolve = options.resolveBinary ?? resolveHyperfideBinary;
   const limiter = createLimiter(
     options.maxConcurrent ?? MAX_CONCURRENT_CLI_PROCESSES,
   );

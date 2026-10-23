@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createLastKnownCache } from "@/lib/last-known-cache";
 
 const providerListCache = createLastKnownCache({
-  prefix: "bb.provider-list",
+  prefix: "hyperfide.provider-list",
   version: "2",
   schema: z.array(providerInfoSchema),
   maxEntries: 16,

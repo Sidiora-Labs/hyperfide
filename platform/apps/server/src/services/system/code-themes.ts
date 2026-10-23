@@ -161,6 +161,6 @@ export function resolvePluginCodeThemePath(
   return resolveWithinRoot(
     rootDir,
     value,
-    `bb.themes.${themeId}.codeTheme.${side}`,
+    `hyperfide.themes.${themeId}.codeTheme.${side}`,
   );
 }

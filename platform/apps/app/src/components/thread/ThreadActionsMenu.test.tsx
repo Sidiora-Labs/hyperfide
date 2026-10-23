@@ -662,7 +662,7 @@ describe.each(SURFACES)("thread actions on the $name", (surface) => {
     );
   });
 
-  it("falls back to bb's rename dialog when the surface has no editor", async () => {
+  it("falls back to hyperfide's rename dialog when the surface has no editor", async () => {
     renderSurface(surface, { thread: baseThread });
     await surface.open();
     fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
@@ -802,25 +802,25 @@ describe("thread action registrations", () => {
     expect(
       screen.getAllByRole("listitem").map((item) => item.textContent),
     ).toEqual([
-      "bb--core/split",
-      "bb--core/copyLink",
-      "bb--core/newThreadInEnvironment",
-      "bb--core/pin",
-      "bb--core/read",
-      "bb--core/rename",
+      "hyperfide--core/split",
+      "hyperfide--core/copyLink",
+      "hyperfide--core/newThreadInEnvironment",
+      "hyperfide--core/pin",
+      "hyperfide--core/read",
+      "hyperfide--core/rename",
       "fixture/move",
-      "bb--core/archive",
-      "bb--core/delete",
+      "hyperfide--core/archive",
+      "hyperfide--core/delete",
       "fixture/notify",
     ]);
   });
 });
 
-describe("thread actions outside bb's own surfaces", () => {
+describe("thread actions outside hyperfide's own surfaces", () => {
   const [surface] = SURFACES;
   if (surface === undefined) throw new Error("no surface");
 
-  it("fetches a thread bb has not cached before archiving or deleting it", async () => {
+  it("fetches a thread hyperfide has not cached before archiving or deleting it", async () => {
     sdkThreads.get.mockResolvedValue(baseThread);
     renderSurface(surface, { thread: baseThread }, { cached: false });
 

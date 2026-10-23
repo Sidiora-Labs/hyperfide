@@ -10,8 +10,8 @@ import {
 import { registerAttachments } from ".";
 
 function setup(options?: Parameters<typeof registerAttachments>[2]) {
-  const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-  const db = bb.storage.database();
+  const { hyperfide, harness } = createFakePluginHost({ pluginId: "tasks" });
+  const db = hyperfide.storage.database();
   const store = createTasksStore(db);
   const project = store.createProject({
     name: "Attachments",
@@ -22,7 +22,7 @@ function setup(options?: Parameters<typeof registerAttachments>[2]) {
     projectId: project.id,
     title: "Attachment owner",
   });
-  registerAttachments(bb, store, options);
+  registerAttachments(hyperfide, store, options);
   const database = db
     .prepare<[], { name: string; file: string }>("PRAGMA database_list")
     .all()

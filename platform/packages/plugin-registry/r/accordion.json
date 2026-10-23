@@ -3,7 +3,7 @@
   "name": "accordion",
   "type": "registry:ui",
   "title": "accordion",
-  "description": "BB ui \"accordion\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"accordion\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "@radix-ui/react-accordion"
   ],

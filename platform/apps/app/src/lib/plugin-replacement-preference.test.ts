@@ -42,7 +42,7 @@ describe("resolvePreferredReplacement", () => {
     ).toBe(first);
   });
 
-  it("lets the user keep BB's implementation", () => {
+  it("lets the user keep HYPERFIDE's implementation", () => {
     expect(
       resolve([slot("alpha", "inbox")], BUILT_IN_REPLACEMENT_PROVIDER),
     ).toBeNull();

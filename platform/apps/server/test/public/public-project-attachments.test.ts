@@ -40,7 +40,7 @@ describe("public project attachments", () => {
         {
           bytes: new Uint8Array([0, 255, 1, 128, 13, 10]),
           filename: "payload.bin",
-          mimeType: "application/x-bb-binary",
+          mimeType: "application/x-hyperfide-binary",
           type: "localFile" as const,
         },
       ];

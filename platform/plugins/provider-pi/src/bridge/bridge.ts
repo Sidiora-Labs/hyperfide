@@ -47,7 +47,7 @@ import {
   type PiSessionParams,
 } from "../session-params.js";
 import { piSessionNeedsRelocation } from "./session-cwd.js";
-import { HYPERFIDE_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
+import { HYPERFIDE_PI_EXTENSION_SOURCE } from "./hyperfide-pi-extension.js";
 import {
   createExtensionUiCoordinator,
   type ExtensionUiCoordinator,
@@ -224,7 +224,7 @@ function requireScratchDir(): string {
   if (scratchDir === null) {
     scratchDir = join(
       tmpdir(),
-      `bb-pi-bridge-${process.pid}-${Math.random().toString(16).slice(2)}`,
+      `hyperfide-pi-bridge-${process.pid}-${Math.random().toString(16).slice(2)}`,
     );
     scratchDirIsPrivate = true;
     mkdirSync(scratchDir, { recursive: true });
@@ -234,7 +234,7 @@ function requireScratchDir(): string {
 
 function requireExtensionPath(): string {
   if (extensionPath === null) {
-    const path = join(requireScratchDir(), "bb-pi-extension.mjs");
+    const path = join(requireScratchDir(), "hyperfide-pi-extension.mjs");
     writeFileSync(path, HYPERFIDE_PI_EXTENSION_SOURCE, "utf8");
     extensionPath = path;
   }

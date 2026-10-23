@@ -28,7 +28,7 @@ afterEach(async () => {
 });
 
 async function makeWorkspace(): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "bb-agent-context-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-agent-context-"));
   tempDirs.push(dir);
   return fs.realpath(dir);
 }

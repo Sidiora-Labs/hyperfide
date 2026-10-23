@@ -10,9 +10,9 @@ import {
 export const SERVER_MOVE_SERVICE_MANAGER_ENV =
   "HYPERFIDE_SERVER_MOVE_SERVICE_MANAGER";
 
-const LAUNCHD_PLIST_PREFIX = "app.getbb.host-daemon.";
+const LAUNCHD_PLIST_PREFIX = "app.hyperfide.host-daemon.";
 const LAUNCHD_PLIST_SUFFIX = ".plist";
-const SYSTEMD_USER_UNIT_PREFIX = "bb-host-daemon-";
+const SYSTEMD_USER_UNIT_PREFIX = "hyperfide-host-daemon-";
 const SYSTEMD_UNIT_SUFFIX = ".service";
 const SERVER_URL_FLAGS = ["--server-url", "--server"] as const;
 const LAUNCHER_SUBCOMMANDS = ["host-daemon", "start"] as const;
@@ -425,7 +425,7 @@ export function buildServerStartArguments(
   const subcommand = launcherSubcommandIndex(programArguments);
   if (subcommand === null) {
     throw new Error(
-      "The service definition does not run bb-app host-daemon or bb-app start",
+      "The service definition does not run hyperfide-app host-daemon or hyperfide-app start",
     );
   }
   return [

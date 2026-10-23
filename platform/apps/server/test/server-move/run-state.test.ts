@@ -146,7 +146,7 @@ async function lockDataDir(harness: TestAppHarness): Promise<void> {
     serverUrl: DIRECT_URL,
     mode: "direct",
     connectHandle: null,
-    oldCopyEntries: ["bb.db"],
+    oldCopyEntries: ["hyperfide.db"],
   });
 }
 
@@ -193,7 +193,7 @@ describe("server move boot reconciliation", () => {
         transfer: "running",
       });
       await mkdir(run.workDir, { recursive: true });
-      await writeFile(join(run.workDir, "server.bbsa"), "archive");
+      await writeFile(join(run.workDir, "server.hyperfide-archive"), "archive");
       await writeServerMoveRunFile(harness.config.dataDir, run);
 
       const restored = requireRestored(await reconcile(harness));
@@ -405,7 +405,7 @@ describe("server move boot reconciliation", () => {
 
   it("never deletes a recorded work directory outside the data directory's move directory", () =>
     withTestHarness(async (harness) => {
-      const outside = await mkdtemp(join(tmpdir(), "bb-server-move-outside-"));
+      const outside = await mkdtemp(join(tmpdir(), "hyperfide-server-move-outside-"));
       tempDirs.push(outside);
       await writeFile(join(outside, "keep.txt"), "keep");
       await writeServerMoveRunFile(

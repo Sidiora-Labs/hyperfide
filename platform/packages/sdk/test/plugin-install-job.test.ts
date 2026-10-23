@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createBbSdk } from "../src/core.js";
+import { createHyperfideSdk } from "../src/core.js";
 import type { FetchImplementation } from "../src/response.js";
 import { createHttpTransport } from "../src/transport-http.js";
 
@@ -55,9 +55,9 @@ function serverWithJobStates(states: readonly object[]) {
       headers: { "content-type": "application/json" },
     });
   };
-  const sdk = createBbSdk({
+  const sdk = createHyperfideSdk({
     transport: createHttpTransport({
-      baseUrl: "http://bb.test",
+      baseUrl: "http://hyperfide.test",
       fetch,
       runtime: "node",
     }),
@@ -76,12 +76,12 @@ describe("plugin installs through server jobs", () => {
       plugin,
     );
     expect(requests[0]).toEqual({
-      url: "http://bb.test/api/v1/plugins/install",
+      url: "http://hyperfide.test/api/v1/plugins/install",
       prefer: "respond-async",
     });
     expect(requests.slice(1).map((request) => request.url)).toEqual([
-      "http://bb.test/api/v1/plugins/install-jobs/job-1",
-      "http://bb.test/api/v1/plugins/install-jobs/job-1",
+      "http://hyperfide.test/api/v1/plugins/install-jobs/job-1",
+      "http://hyperfide.test/api/v1/plugins/install-jobs/job-1",
     ]);
   });
 

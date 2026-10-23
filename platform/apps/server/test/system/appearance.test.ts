@@ -198,15 +198,15 @@ describe("appearance settings", () => {
       const root = join(
         harness.config.dataDir,
         "fixtures",
-        "bb-plugin-palette",
+        "hyperfide-plugin-palette",
       );
       await mkdir(join(root, "themes"), { recursive: true });
       await writeFile(
         join(root, "package.json"),
         JSON.stringify({
-          name: "bb-plugin-palette",
+          name: "hyperfide-plugin-palette",
           version: "0.1.0",
-          bb: {
+          hyperfide: {
             name: "Palette fixture",
             description: "Plugin palette fixture.",
             branding: { icon: "Zap" },
@@ -344,9 +344,9 @@ describe("appearance settings", () => {
         themeId: "ocean",
         customCss: ":root {}",
         resolvedCodeTheme: {
-          dark: "bb:ocean:dark",
+          dark: "hyperfide:ocean:dark",
           light: "pierre-light",
-          files: { "bb:ocean:dark": { ...darkTheme, name: "bb:ocean:dark" } },
+          files: { "hyperfide:ocean:dark": { ...darkTheme, name: "hyperfide:ocean:dark" } },
         },
       });
     });

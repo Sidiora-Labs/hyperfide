@@ -333,9 +333,9 @@ describe("defaultSelectedRepoPaths", () => {
 
 describe("shortRemoteName", () => {
   it.each([
-    ["git@github.com:get-bb/bb.git", "get-bb/bb"],
-    ["https://github.com/get-bb/bb", "get-bb/bb"],
-    ["https://github.com/get-bb/bb.git/", "get-bb/bb"],
+    ["git@github.com:hyperfide/hyperfide.git", "hyperfide/hyperfide"],
+    ["https://github.com/hyperfide/hyperfide", "hyperfide/hyperfide"],
+    ["https://github.com/hyperfide/hyperfide.git/", "hyperfide/hyperfide"],
     ["ssh://git@gitlab.example.com:2222/group/sub/repo.git", "sub/repo"],
     ["https://token@dev.azure.com/org/project/_git/repo", "_git/repo"],
   ])("shortens %s", (url, expected) => {

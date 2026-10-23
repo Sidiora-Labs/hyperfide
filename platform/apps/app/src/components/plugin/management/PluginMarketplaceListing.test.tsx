@@ -21,10 +21,10 @@ function catalogEntry(pluginId: string): PluginCatalogSearchEntry {
     collections: [],
     source: `npm:${pluginId}`,
     repositoryUrl: null,
-    marketplace: "bb-community",
-    marketplaceDisplayName: "BB Community",
-    publisherKey: "bb-community",
-    publisherLabel: "BB Community",
+    marketplace: "hyperfide-community",
+    marketplaceDisplayName: "HYPERFIDE Community",
+    publisherKey: "hyperfide-community",
+    publisherLabel: "HYPERFIDE Community",
     official: true,
     author: {
       name: "Pat Lee",
@@ -54,7 +54,7 @@ describe("plugin marketplace author links", () => {
     expect(
       screen.getByRole("link", { name: "Pat Lee" }).getAttribute("href"),
     ).toBe(
-      "/plugins?category=security&author=12%3Abb-community%3Agithub%3Apatlee",
+      "/plugins?category=security&author=19%3Ahyperfide-community%3Agithub%3Apatlee",
     );
   });
 

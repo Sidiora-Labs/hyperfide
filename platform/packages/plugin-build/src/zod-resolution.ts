@@ -2,7 +2,7 @@ import type { Plugin } from "esbuild";
 import { PLUGIN_SDK_PACKAGE_NAME } from "./plugin-sdk-install.js";
 
 const ZOD_FILTER = /^zod($|\/)/;
-const RESOLVED_MARK = "bb-zod-resolution-resolved";
+const RESOLVED_MARK = "hyperfide-zod-resolution-resolved";
 const SDK_IMPORTER = /[\\/]@hyperfide[\\/]plugin-sdk[\\/]/;
 
 export function describeUnresolvedZod(args: {
@@ -28,7 +28,7 @@ export function zodResolutionPlugin(
   } = {},
 ): Plugin {
   return {
-    name: "bb-zod-resolution",
+    name: "hyperfide-zod-resolution",
     setup(build) {
       build.onResolve({ filter: ZOD_FILTER }, async (args) => {
         if (options.hostProvidedBareZod === true && args.path === "zod") {

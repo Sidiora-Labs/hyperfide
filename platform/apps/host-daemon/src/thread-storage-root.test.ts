@@ -10,9 +10,9 @@ afterEach(() => {
 
 describe("thread storage root", () => {
   it("creates thread-storage under the host data dir, not a parent thread's ambient storage path", async () => {
-    const dataDir = await makeTempDir("bb-thread-storage-root-data-");
+    const dataDir = await makeTempDir("hyperfide-thread-storage-root-data-");
     const parentStorageRoot = await makeTempDir(
-      "bb-thread-storage-root-parent-",
+      "hyperfide-thread-storage-root-parent-",
     );
     vi.stubEnv(
       "HYPERFIDE_THREAD_STORAGE",

@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { threadPaneActionSchema } from "@hyperfide/server-contract";
 import { action } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliHyperfideSdk } from "../../client.js";
 import {
   resolveContextThreadId,
   resolveExplicitIdFlag,
@@ -29,7 +29,7 @@ function resolveThreadPaneTarget(id: string | undefined): ResolvedId {
     return { id: context, source: "env" };
   }
   throw new Error(
-    "Missing thread ID. Pass <threadId> or run inside a BB thread.",
+    "Missing thread ID. Pass <threadId> or run inside a HYPERFIDE thread.",
   );
 }
 
@@ -45,7 +45,7 @@ export function registerPaneCommand(
       "<action>",
       "Pane action: maximize, restore, toggle, spotlight, or clear-spotlight",
     )
-    .argument("[id]", "Thread ID. Omit inside a BB thread.")
+    .argument("[id]", "Thread ID. Omit inside a HYPERFIDE thread.")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
@@ -56,7 +56,7 @@ export function registerPaneCommand(
         ) => {
           const paneAction = threadPaneActionSchema.parse(actionInput);
           const target = resolveThreadPaneTarget(id);
-          const result = await createCliBbSdk(getUrl()).threads.paneAction({
+          const result = await createCliHyperfideSdk(getUrl()).threads.paneAction({
             action: paneAction,
             threadId: target.id,
           });

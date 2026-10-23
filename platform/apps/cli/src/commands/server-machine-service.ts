@@ -3,14 +3,14 @@ import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import {
-  bbAppRuntimeVerifyTokens,
-  clearOwnBbAppRuntimeFile,
-  readBbAppRuntimeFile,
+  hyperfideAppRuntimeVerifyTokens,
+  clearOwnHyperfideAppRuntimeFile,
+  readHyperfideAppRuntimeFile,
 } from "@hyperfide/config/app-runtime-file";
 import {
-  formatBbAppConfigPath,
-  parseBbAppManagedConfig,
-} from "@hyperfide/config/bb-app-managed-config";
+  formatHyperfideAppConfigPath,
+  parseHyperfideAppManagedConfig,
+} from "@hyperfide/config/hyperfide-app-managed-config";
 import { waitForProcessExit } from "@hyperfide/config/child-process-exit";
 import {
   findMachineServiceFile,
@@ -55,7 +55,7 @@ async function assertMachineIdentity(dataDir: string): Promise<void> {
       `${dataDir} has no machine credentials (auth.json), so there is no machine to keep connected.`,
     );
   }
-  const configPath = formatBbAppConfigPath(dataDir);
+  const configPath = formatHyperfideAppConfigPath(dataDir);
   let text: string;
   try {
     text = await readFile(configPath, "utf8");
@@ -64,7 +64,7 @@ async function assertMachineIdentity(dataDir: string): Promise<void> {
       `${dataDir} has no server address (${configPath} is missing).`,
     );
   }
-  if (parseBbAppManagedConfig(JSON.parse(text)).serverUrl === undefined) {
+  if (parseHyperfideAppManagedConfig(JSON.parse(text)).serverUrl === undefined) {
     throw new Error(`${configPath} has no server address.`);
   }
 }
@@ -73,7 +73,7 @@ async function resolveInstallerPath(): Promise<string> {
   const installerPath = process.env[MACHINE_INSTALLER_ENV_NAME]?.trim() ?? "";
   if (installerPath.length === 0 || !(await pathExists(installerPath))) {
     throw new Error(
-      `This bb installation doesn't include the machine installer. Run ${INSTALL_COMMAND} instead.`,
+      `This hyperfide installation doesn't include the machine installer. Run ${INSTALL_COMMAND} instead.`,
     );
   }
   return installerPath;
@@ -101,21 +101,21 @@ async function assertServiceNode(): Promise<void> {
   const version = await readPathNodeVersion();
   if (version === null) {
     throw new Error(
-      `The background service runs bb with the node on your PATH, and none was found. Install ${NODE_REQUIREMENT}, then run this command again.`,
+      `The background service runs hyperfide with the node on your PATH, and none was found. Install ${NODE_REQUIREMENT}, then run this command again.`,
     );
   }
   if (!supportsServiceNode(version)) {
     throw new Error(
-      `The background service runs bb with the node on your PATH, which is Node.js ${version}. Install ${NODE_REQUIREMENT}, then run this command again.`,
+      `The background service runs hyperfide with the node on your PATH, which is Node.js ${version}. Install ${NODE_REQUIREMENT}, then run this command again.`,
     );
   }
 }
 
-async function stopLocalBb(
+async function stopLocalHyperfide(
   dataDir: string,
   report: (line: string) => void,
 ): Promise<void> {
-  const runtime = await readBbAppRuntimeFile(dataDir);
+  const runtime = await readHyperfideAppRuntimeFile(dataDir);
   if (runtime === null) {
     return;
   }
@@ -125,21 +125,21 @@ async function stopLocalBb(
     signal: "SIGTERM",
     startedAt: runtime.startedAt,
     timeoutMs: RUNTIME_STOP_TIMEOUT_MS,
-    verifyTokens: bbAppRuntimeVerifyTokens(runtime.entryPath),
+    verifyTokens: hyperfideAppRuntimeVerifyTokens(runtime.entryPath),
   });
   if (result.kind === "unverified") {
     throw new Error(
-      `bb on this computer is recorded as pid ${String(runtime.pid)}, but that process doesn't look like it, so it was left alone. Quit the bb desktop app or stop bb, then run this command again.`,
+      `hyperfide on this computer is recorded as pid ${String(runtime.pid)}, but that process doesn't look like it, so it was left alone. Quit the hyperfide desktop app or stop hyperfide, then run this command again.`,
     );
   }
   if (result.kind === "still-running") {
     throw new Error(
-      `bb (pid ${String(runtime.pid)}) did not stop, even after SIGKILL.`,
+      `hyperfide (pid ${String(runtime.pid)}) did not stop, even after SIGKILL.`,
     );
   }
-  await clearOwnBbAppRuntimeFile({ dataDir, pid: runtime.pid });
+  await clearOwnHyperfideAppRuntimeFile({ dataDir, pid: runtime.pid });
   if (result.kind === "stopped") {
-    report(`Stopped bb on this computer (pid ${String(runtime.pid)}).`);
+    report(`Stopped hyperfide on this computer (pid ${String(runtime.pid)}).`);
   }
 }
 
@@ -185,7 +185,7 @@ export async function installMachineService(
   }
   if (process.platform === "win32") {
     throw new Error(
-      "bb cannot install the background machine service on Windows. It is available on macOS and Linux.",
+      "hyperfide cannot install the background machine service on Windows. It is available on macOS and Linux.",
     );
   }
   await assertMachineIdentity(dataDir);
@@ -193,12 +193,12 @@ export async function installMachineService(
   await assertServiceNode();
   if (
     !(await args.confirm(
-      `Stop bb on this computer and install a background service that keeps it connected to ${lock.toHostName}?`,
+      `Stop hyperfide on this computer and install a background service that keeps it connected to ${lock.toHostName}?`,
     ))
   ) {
     return null;
   }
-  await stopLocalBb(dataDir, args.report);
+  await stopLocalHyperfide(dataDir, args.report);
   if (
     !(await runInstaller({
       dataDir,
@@ -207,7 +207,7 @@ export async function installMachineService(
     }))
   ) {
     throw new Error(
-      "The background service install failed; see the installer output above. Until it succeeds, this computer stays connected only while the bb desktop app or npx bb-app runs, so start one of them to reconnect it now.",
+      "The background service install failed; see the installer output above. Until it succeeds, this computer stays connected only while the hyperfide desktop app or npx hyperfide-app runs, so start one of them to reconnect it now.",
     );
   }
   return {

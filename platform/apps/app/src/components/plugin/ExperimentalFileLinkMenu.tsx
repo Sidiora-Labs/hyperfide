@@ -59,7 +59,7 @@ export function ExperimentalFileLinkMenu({
                 navigation.openFilePreview({ ...intent, viewer: "builtin" })
               }
             >
-              BB preview
+              HYPERFIDE preview
             </ContextMenuItem>
             {matchingOpeners.map((opener) => (
               <ContextMenuItem

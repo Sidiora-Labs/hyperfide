@@ -117,7 +117,7 @@ function resolveLocalToolchain(): PluginBuildToolchain | null {
 
 async function isInstalled(dir: string): Promise<boolean> {
   try {
-    const raw = await readFile(join(dir, ".bb-toolchain.json"), "utf8");
+    const raw = await readFile(join(dir, ".hyperfide-toolchain.json"), "utf8");
     const parsed: unknown = JSON.parse(raw);
     if (
       typeof parsed !== "object" ||
@@ -158,7 +158,7 @@ export async function resolvePluginBuildToolchain(
     await mkdir(staging, { recursive: true });
     await writeFile(
       join(staging, "package.json"),
-      `${JSON.stringify({ name: "bb-plugin-toolchain", private: true, version: "0.0.0" }, null, 2)}\n`,
+      `${JSON.stringify({ name: "hyperfide-plugin-toolchain", private: true, version: "0.0.0" }, null, 2)}\n`,
     );
     await run(
       process.execPath,
@@ -187,7 +187,7 @@ export async function resolvePluginBuildToolchain(
       );
     }
     await writeFile(
-      join(staging, ".bb-toolchain.json"),
+      join(staging, ".hyperfide-toolchain.json"),
       `${JSON.stringify({ pins: pinKey() }, null, 2)}\n`,
     );
     await mkdir(dirname(dir), { recursive: true });

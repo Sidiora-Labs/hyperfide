@@ -25,8 +25,8 @@ async function pathExists(path: string): Promise<boolean> {
 
 describe("app asset precompression", () => {
   it("writes valid Brotli and gzip sidecars only for eligible assets", async () => {
-    const distDir = await mkdtemp(resolve(tmpdir(), "bb-precompress-test-"));
-    const compressibleBody = Buffer.from("compressible bb asset\n".repeat(400));
+    const distDir = await mkdtemp(resolve(tmpdir(), "hyperfide-precompress-test-"));
+    const compressibleBody = Buffer.from("compressible hyperfide asset\n".repeat(400));
     const assetPath = resolve(distDir, "app.js");
     const documentPath = resolve(distDir, "index.html");
     const smallPath = resolve(distDir, "small.js");

@@ -33,7 +33,7 @@ const fixtureRoot = resolve(
   "..",
   "fixtures",
   "plugins",
-  "bb-plugin-builtin-fixture",
+  "hyperfide-plugin-builtin-fixture",
 );
 const globals = globalThis as Record<string, unknown>;
 
@@ -103,7 +103,7 @@ describe("store-installed official plugins", () => {
   beforeEach(async () => {
     delete globals.__builtinFixtureLoads;
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-community-plugins-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-community-plugins-"));
   });
 
   afterEach(async () => {
@@ -162,14 +162,14 @@ describe("store-installed official plugins", () => {
   });
 
   it.each([true, false])(
-    "moves old BB Community provenance to BB Official when autoInstall is %s",
+    "moves old HYPERFIDE Community provenance to HYPERFIDE Official when autoInstall is %s",
     async (autoInstall) => {
       upsertInstalledPlugin(db, {
         id: "builtin-fixture",
         source: "builtin:fixture",
         provenance: {
           kind: "catalog",
-          marketplace: "bb-community",
+          marketplace: "hyperfide-community",
           entryId: "fixture",
         },
         sourceIntent: { kind: "builtin", name: "fixture" },
@@ -199,15 +199,15 @@ describe("store-installed official plugins", () => {
       ).toMatchObject({
         provenance: "catalog",
         catalogEntryId: "fixture",
-        catalogMarketplaceName: "bb-official",
+        catalogMarketplaceName: "hyperfide-official",
       });
       expect(service.list()).toMatchObject([
         {
           id: "builtin-fixture",
           provenance: "catalog",
           catalogEntryId: "fixture",
-          catalogMarketplaceName: "bb-official",
-          publisherLabel: "BB Official",
+          catalogMarketplaceName: "hyperfide-official",
+          publisherLabel: "HYPERFIDE Official",
           status: "running",
         },
       ]);

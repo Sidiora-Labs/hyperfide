@@ -30,7 +30,7 @@ let requestLogPath: string;
 let scriptPath: string;
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-signature-ws-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-signature-ws-"));
   requestLogPath = join(workspaceDir, "requests.jsonl");
   scriptPath = join(workspaceDir, "script.json");
   writeFileSync(scriptPath, JSON.stringify({ requestLogPath }));

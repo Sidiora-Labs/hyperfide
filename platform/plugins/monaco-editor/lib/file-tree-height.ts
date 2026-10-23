@@ -4,7 +4,7 @@ export const MIN_TREE_HEIGHT = 96;
 
 export const MIN_EDITOR_HEIGHT = 120;
 
-const STORAGE_KEY = "bb-plugin-monaco-editor:file-tree-height";
+const STORAGE_KEY = "hyperfide-plugin-monaco-editor:file-tree-height";
 
 export function clampTreeHeight(height: number, available: number): number {
   const max = Math.max(MIN_TREE_HEIGHT, available - MIN_EDITOR_HEIGHT);

@@ -30,7 +30,7 @@ const option: ReuseThreadOption = {
   environmentId: "env_1",
   branchName: "main",
   name: null,
-  path: "/workspace/bb",
+  path: "/workspace/hyperfide",
   environmentProviderId: "project-checkout",
   hostName: "Michael-M4",
   threads: [],
@@ -55,18 +55,18 @@ describe("filterReuseThreadOptions", () => {
   const byBranch: ReuseThreadOption = {
     ...option,
     environmentId: "env_branch",
-    branchName: "bb/payment-retry",
+    branchName: "hyperfide/payment-retry",
   };
   const byThread: ReuseThreadOption = {
     ...option,
     environmentId: "env_thread",
-    branchName: "bb/unrelated",
+    branchName: "hyperfide/unrelated",
     threads: [{ id: "thr_1", title: "Fix the payment retry" }],
   };
   const byMachine: ReuseThreadOption = {
     ...option,
     environmentId: "env_machine",
-    branchName: "bb/other",
+    branchName: "hyperfide/other",
     hostName: "build-box",
   };
   const options = [byBranch, byThread, byMachine];

@@ -33,7 +33,7 @@ import {
   BottomAnchorContext,
   type BottomAnchorContextValue,
 } from "@/components/ui/bottom-anchored-scroll-body.js";
-import { BbHttpError, sdk } from "@/lib/sdk";
+import { HyperfideHttpError, sdk } from "@/lib/sdk";
 import { appToast } from "@/components/ui/app-toast";
 import { threadTimelineQueryKey } from "@/hooks/queries/query-keys";
 import {
@@ -147,8 +147,8 @@ function rowIds(controller: UseThreadTimelineControllerResult): string[] {
   return controller.timelineRows.map((row) => row.id);
 }
 
-function makeServerError(): BbHttpError {
-  return new BbHttpError({
+function makeServerError(): HyperfideHttpError {
+  return new HyperfideHttpError({
     body: null,
     code: null,
     message: "Server error",
@@ -201,7 +201,7 @@ async function renderControllerWithPendingOlderPage() {
       await olderRequest;
     });
   };
-  const failOlderPage = async (error: BbHttpError) => {
+  const failOlderPage = async (error: HyperfideHttpError) => {
     olderPage.reject(error);
     await act(async () => {
       await expect(olderRequest).rejects.toBe(error);
@@ -662,7 +662,7 @@ describe("useThreadTimelineController", () => {
     );
 
     await waitFor(() => {
-      expect(result.current.timelineError).toBeInstanceOf(BbHttpError);
+      expect(result.current.timelineError).toBeInstanceOf(HyperfideHttpError);
     });
 
     startTimelineRefetch(queryClient);
@@ -777,7 +777,7 @@ describe("useThreadTimelineController", () => {
         }),
       )
       .mockRejectedValueOnce(
-        new BbHttpError({
+        new HyperfideHttpError({
           body: null,
           code: "invalid_request",
           message: "Stale timeline cursor",

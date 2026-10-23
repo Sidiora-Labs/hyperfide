@@ -3,7 +3,7 @@
   "name": "hover-reveal",
   "type": "registry:ui",
   "title": "hover-reveal",
-  "description": "BB ui \"hover-reveal\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"hover-reveal\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/hover-reveal.ts",

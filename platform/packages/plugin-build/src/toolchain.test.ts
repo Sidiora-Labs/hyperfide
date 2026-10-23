@@ -14,7 +14,7 @@ describe("plugin build toolchain", () => {
   let baseDir: string;
 
   beforeEach(async () => {
-    baseDir = await mkdtemp(join(tmpdir(), "bb-toolchain-"));
+    baseDir = await mkdtemp(join(tmpdir(), "hyperfide-toolchain-"));
   });
 
   afterEach(async () => {
@@ -49,7 +49,7 @@ describe("plugin build toolchain", () => {
   });
 
   describe("fetched toolchain", () => {
-    it.runIf(process.env.BB_TEST_TOOLCHAIN_FETCH === "1")(
+    it.runIf(process.env.HYPERFIDE_TEST_TOOLCHAIN_FETCH === "1")(
       "builds a plugin frontend with nothing resolvable locally",
       async () => {
         const fetchEvents: string[] = [];
@@ -69,9 +69,9 @@ describe("plugin build toolchain", () => {
         await writeFile(
           join(pluginDir, "package.json"),
           JSON.stringify({
-            name: "bb-plugin-fetched",
+            name: "hyperfide-plugin-fetched",
             version: "0.1.0",
-            bb: {
+            hyperfide: {
               name: "Fetched",
               description: "Fetched toolchain fixture.",
               branding: { icon: "Zap" },

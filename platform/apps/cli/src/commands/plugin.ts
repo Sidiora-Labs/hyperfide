@@ -24,8 +24,14 @@ import type {
   PluginUpdateCheckEntry as PluginUpdateResult,
 } from "@hyperfide/server-contract";
 import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
-import { BbHttpError, pluginMutationResponseSchema } from "@hyperfide/sdk";
-import { parseDataDirEnvValue, resolveProdDataDir } from "@hyperfide/config/runtime";
+import {
+  HyperfideHttpError,
+  pluginMutationResponseSchema,
+} from "@hyperfide/sdk";
+import {
+  parseDataDirEnvValue,
+  resolveProdDataDir,
+} from "@hyperfide/config/runtime";
 import {
   migratePluginToPackageLayout,
   resolvePluginSdkLayout,
@@ -34,7 +40,7 @@ import {
   type PluginPackageLayoutMigration,
 } from "@hyperfide/templates/plugin-scaffold";
 import { action, CliExitError } from "../action.js";
-import { cliFetch, createCliBbSdk } from "../client.js";
+import { cliFetch, createCliHyperfideSdk } from "../client.js";
 import {
   buildPluginApp,
   buildPluginHost,
@@ -45,7 +51,7 @@ import {
   type PluginBuildToolchain,
 } from "@hyperfide/plugin-build";
 import { runPluginCliCommand } from "../plugin-cli-proxy.js";
-import { resolveBbCliVersion } from "../version.js";
+import { resolveHyperfideCliVersion } from "../version.js";
 
 import { outputJson, type JsonOutputOptions } from "./helpers.js";
 import { renderBorderlessTable } from "../table.js";
@@ -58,11 +64,11 @@ interface NewPluginTarget {
 export function resolveNewPluginTarget(name: string): NewPluginTarget | null {
   const packageName = name.startsWith("@")
     ? name
-    : name.startsWith("bb-plugin-")
+    : name.startsWith("hyperfide-plugin-")
       ? name
-      : `bb-plugin-${name}`;
+      : `hyperfide-plugin-${name}`;
   if (
-    !/^(?:@[a-z0-9][a-z0-9-]*\/)?bb-plugin-[a-z0-9][a-z0-9-]*$/.test(
+    !/^(?:@[a-z0-9][a-z0-9-]*\/)?hyperfide-plugin-[a-z0-9][a-z0-9-]*$/.test(
       packageName,
     )
   ) {
@@ -72,7 +78,7 @@ export function resolveNewPluginTarget(name: string): NewPluginTarget | null {
   if (RESERVED_HYPERFIDE_CLI_COMMANDS.includes(pluginId)) return null;
   return {
     packageName,
-    directoryName: `bb-plugin-${pluginId}`,
+    directoryName: `hyperfide-plugin-${pluginId}`,
   };
 }
 
@@ -122,8 +128,9 @@ async function searchCatalog(
   baseUrl: string,
   query: string,
 ): Promise<PluginCatalogSearchResult[]> {
-  return (await createCliBbSdk(baseUrl).plugins.catalog.search({ query }))
-    .results;
+  return (
+    await createCliHyperfideSdk(baseUrl).plugins.catalog.search({ query })
+  ).results;
 }
 
 const pluginSettingDescriptorSchema = z.object({
@@ -157,7 +164,7 @@ const pluginPackageSummarySchema = z.object({
   version: z.string().optional(),
 });
 const pluginManifestSchema = z.object({
-  bb: z
+  hyperfide: z
     .object({
       server: z.unknown().optional(),
       app: z.unknown().optional(),
@@ -199,7 +206,7 @@ function warnIfSdkPinIsStale(pin: string | null): void {
   if (pin === null || !EXACT_VERSION_PATTERN.test(pin)) return;
   if (pin === PLUGIN_SDK_VERSION) return;
   console.warn(
-    `This plugin pins @hyperfide/plugin-sdk ${pin}; this bb's SDK is ${PLUGIN_SDK_VERSION} — \`hyperfide-platform plugin types\` updates the pin.`,
+    `This plugin pins @hyperfide/plugin-sdk ${pin}; this hyperfide's SDK is ${PLUGIN_SDK_VERSION} — \`hyperfide-platform plugin types\` updates the pin.`,
   );
 }
 
@@ -216,7 +223,7 @@ function printMigrationPlan(plan: PluginPackageLayoutMigration): void {
   }
   if (plan.enginesFloor !== null) {
     console.log(
-      `  package.json   engines.bbPluginSdk: ${plan.enginesFloor.from ?? "(none)"} → ${plan.enginesFloor.to}`,
+      `  package.json   engines.hyperfidePluginSdk: ${plan.enginesFloor.from ?? "(none)"} → ${plan.enginesFloor.to}`,
     );
   }
   for (const key of plan.removedPathMaps) {
@@ -230,11 +237,6 @@ function printMigrationPlan(plan: PluginPackageLayoutMigration): void {
   }
   if (plan.removedTypesDir) {
     console.log("  delete         types/ (empty after the deletions above)");
-  }
-  for (const file of plan.rewrittenImports) {
-    console.log(
-      `  rewrite        ${file.path} (${file.imports} import${file.imports === 1 ? "" : "s"} of "@hyperfide/plugin-sdk" → "@hyperfide/plugin-sdk")`,
-    );
   }
 }
 
@@ -255,9 +257,9 @@ async function requirePluginManifest(
     );
     process.exit(1);
   }
-  if (typeof manifest.bb?.server !== "string") {
+  if (typeof manifest.hyperfide?.server !== "string") {
     console.error(
-      `${rootDir} is not a hyperfide-platform plugin — package.json has no "bb.server" entry.`,
+      `${rootDir} is not a hyperfide-platform plugin — package.json has no "hyperfide.server" entry.`,
     );
     process.exit(1);
   }
@@ -318,7 +320,7 @@ async function warnIfSdkVersionUnpublished(): Promise<void> {
   if (status === "published") return;
   if (status === "unknown") {
     console.warn(
-      `Warning: could not reach the npm registry to verify that @hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — is published.`,
+      `Warning: could not reach the npm registry to verify that @hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this hyperfide's SDK version — is published.`,
     );
     console.warn(
       "  If `npm install` fails to resolve it, the version may not be on your registry yet.",
@@ -326,18 +328,18 @@ async function warnIfSdkVersionUnpublished(): Promise<void> {
     return;
   }
   console.warn(
-    `Warning: @hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — was not found on npm.`,
+    `Warning: @hyperfide/plugin-sdk ${PLUGIN_SDK_VERSION} — this hyperfide's SDK version — was not found on npm.`,
   );
   console.warn(
     "  `npm install` in the new plugin will fail until that version publishes.",
   );
   console.warn(
-    "  To work around it, pack the SDK from a bb checkout and point the",
+    "  To work around it, pack the SDK from a hyperfide checkout and point the",
   );
   console.warn("  devDependency at the tarball:");
-  console.warn("    (cd <bb-repo>/packages/plugin-sdk && npm pack)");
+  console.warn("    (cd <hyperfide-repo>/packages/plugin-sdk && npm pack)");
   console.warn(
-    '    npm pkg set devDependencies.@hyperfide/plugin-sdk="file:/abs/path/to/get-bb-plugin-sdk-' +
+    '    npm pkg set devDependencies.@hyperfide/plugin-sdk="file:/abs/path/to/hyperfide-plugin-sdk-' +
       `${PLUGIN_SDK_VERSION}.tgz"`,
   );
 }
@@ -359,7 +361,12 @@ async function probeSdkVersionPublished(): Promise<
 > {
   try {
     const { stdout } = await execNpm(
-      ["view", `@hyperfide/plugin-sdk@${PLUGIN_SDK_VERSION}`, "version", "--json"],
+      [
+        "view",
+        `@hyperfide/plugin-sdk@${PLUGIN_SDK_VERSION}`,
+        "version",
+        "--json",
+      ],
       { timeout: 5_000, killSignal: "SIGKILL" },
     );
     return stdout.trim().length === 0 ? "missing" : "published";
@@ -562,7 +569,7 @@ function installPlan(
   baseUrl: string,
   args: { entryId: string; marketplace?: string },
 ): Promise<PluginCatalogInstallPlan> {
-  return createCliBbSdk(baseUrl).plugins.catalog.installPlan(args);
+  return createCliHyperfideSdk(baseUrl).plugins.catalog.installPlan(args);
 }
 
 async function resolveInstallIntent(
@@ -663,10 +670,10 @@ function resolvedSourceLines(source: PluginCatalogResolvedSource): string[] {
 
 function installPlanSummary(plan: PluginCatalogInstallPlan): string {
   if (plan.kind === "bundled") {
-    return `Installing ${plan.displayName}, bundled with BB (${plan.source})`;
+    return `Installing ${plan.displayName}, bundled with HYPERFIDE (${plan.source})`;
   }
   if (plan.official) {
-    return `Installing ${plan.displayName} from the ${plan.marketplaceDisplayName} marketplace, reviewed by BB (${plan.source})`;
+    return `Installing ${plan.displayName} from the ${plan.marketplaceDisplayName} marketplace, reviewed by HYPERFIDE (${plan.source})`;
   }
   const author =
     plan.author.url === null
@@ -674,7 +681,7 @@ function installPlanSummary(plan: PluginCatalogInstallPlan): string {
       : `${plan.author.name} (${plan.author.url})`;
   return [
     `Installing ${plan.displayName} (${plan.entryId}@${plan.marketplace})`,
-    `  marketplace: ${plan.marketplaceDisplayName} — a third-party marketplace, not reviewed by BB`,
+    `  marketplace: ${plan.marketplaceDisplayName} — a third-party marketplace, not reviewed by HYPERFIDE`,
     `  author: ${author}`,
     ...resolvedSourceLines(plan.resolvedSource),
   ].join("\n");
@@ -720,7 +727,7 @@ function exitWithError(result: { error?: string }): never {
 }
 
 function sdkErrorMessage(error: unknown): string {
-  if (error instanceof BbHttpError) {
+  if (error instanceof HyperfideHttpError) {
     return error.message.replace(/^HTTP \d+: /u, "");
   }
   return error instanceof Error ? error.message : String(error);
@@ -812,7 +819,7 @@ export function registerPluginCommands(
           pluginId: string | undefined,
           opts: JsonOutputOptions & { method?: string },
         ) => {
-          const methods = await createCliBbSdk(
+          const methods = await createCliHyperfideSdk(
             getUrl(),
           ).plugins.experimental_discoverRpc({ pluginId, method: opts.method });
           if (opts.json) {
@@ -848,7 +855,7 @@ export function registerPluginCommands(
               : jsonValueSchema.parse(
                   JSON.parse(await readFile(opts.inputFile, "utf8")),
                 );
-          const result = await createCliBbSdk(getUrl())
+          const result = await createCliHyperfideSdk(getUrl())
             .plugins.callRpc({
               pluginId,
               method,
@@ -856,7 +863,7 @@ export function registerPluginCommands(
               outputSchema: jsonValueSchema,
             })
             .catch((error: unknown) => {
-              if (error instanceof BbHttpError && error.code !== null) {
+              if (error instanceof HyperfideHttpError && error.code !== null) {
                 throw new CliExitError(`${error.code}: ${error.message}`, 1, {
                   code: error.code,
                   hint: null,
@@ -883,7 +890,7 @@ export function registerPluginCommands(
           method: string | undefined,
           opts: JsonOutputOptions,
         ) => {
-          const methods = await createCliBbSdk(
+          const methods = await createCliHyperfideSdk(
             getUrl(),
           ).plugins.experimental_discoverRpc({ pluginId, method });
           if (opts.json) {
@@ -913,7 +920,7 @@ export function registerPluginCommands(
   plugin
     .command("search <query>")
     .description(
-      "Search every plugin the store lists: the plugins bundled with the app, the reserved bb-community marketplace catalog BB reviews, and any third-party marketplace added on this host. The Marketplace column names the source; only bb-community is reviewed by BB",
+      "Search every plugin the store lists: the plugins bundled with the app, the reserved hyperfide-community marketplace catalog HYPERFIDE reviews, and any third-party marketplace added on this host. The Marketplace column names the source; only hyperfide-community is reviewed by HYPERFIDE",
     )
     .option("--json", "Output JSON")
     .action(
@@ -938,7 +945,7 @@ export function registerPluginCommands(
           result.installed
             ? "✓ installed"
             : !result.compatible
-              ? `requires newer bb${result.incompatibleReason ? `: ${result.incompatibleReason}` : ""}`
+              ? `requires newer hyperfide${result.incompatibleReason ? `: ${result.incompatibleReason}` : ""}`
               : result.conflictingInstallSource !== null
                 ? `id in use by ${result.conflictingInstallSource}`
                 : "compatible",
@@ -976,7 +983,7 @@ export function registerPluginCommands(
     .option("--json", "Output JSON")
     .action(
       action(async (opts: JsonOutputOptions) => {
-        const result = await createCliBbSdk(getUrl()).plugins.list();
+        const result = await createCliHyperfideSdk(getUrl()).plugins.list();
         if (opts.json) {
           outputJson(opts, result);
           return;
@@ -997,7 +1004,7 @@ export function registerPluginCommands(
     .option("--json", "Output JSON")
     .action(
       action(async (id: string, opts: JsonOutputOptions) => {
-        const source = await createCliBbSdk(getUrl()).plugins.getSource({
+        const source = await createCliHyperfideSdk(getUrl()).plugins.getSource({
           pluginId: id,
         });
         if (opts.json) {
@@ -1019,11 +1026,13 @@ export function registerPluginCommands(
         }
         if (source.registry) console.log(`  registry: ${source.registry}`);
         if (source.integrity) console.log(`  integrity: ${source.integrity}`);
-        if (source.engines.bb) {
-          console.log(`  engines.bb: ${source.engines.bb}`);
+        if (source.engines.hyperfide) {
+          console.log(`  engines.hyperfide: ${source.engines.hyperfide}`);
         }
-        if (source.engines.bbPluginSdk) {
-          console.log(`  engines.bbPluginSdk: ${source.engines.bbPluginSdk}`);
+        if (source.engines.hyperfidePluginSdk) {
+          console.log(
+            `  engines.hyperfidePluginSdk: ${source.engines.hyperfidePluginSdk}`,
+          );
         }
         if (source.installedAt !== undefined) {
           console.log(`  installed: ${formatAbsoluteDate(source.installedAt)}`);
@@ -1044,7 +1053,7 @@ export function registerPluginCommands(
   plugin
     .command("install <source>")
     .description(
-      "Install a catalog entry by name or <entry>@<marketplace>, a Git repository URL, a local path, builtin:<name>, git:<url>[@<ref|semver-range>], or npm:<name>@<version>. A catalog entry from a third-party marketplace is not reviewed by BB, so its confirmation names the marketplace, the author, and the exact resolved source (managed sources validate engines ranges and build artifacts; bundled plugin ids are reserved)",
+      "Install a catalog entry by name or <entry>@<marketplace>, a Git repository URL, a local path, builtin:<name>, git:<url>[@<ref|semver-range>], or npm:<name>@<version>. A catalog entry from a third-party marketplace is not reviewed by HYPERFIDE, so its confirmation names the marketplace, the author, and the exact resolved source (managed sources validate engines ranges and build artifacts; bundled plugin ids are reserved)",
     )
     .option(
       "--subdirectory <path>",
@@ -1052,7 +1061,7 @@ export function registerPluginCommands(
     )
     .option(
       "--plugin <name>",
-      "Install the .bb/plugins.json entry with this name (git:/path: repositories)",
+      "Install the .hyperfide/plugins.json entry with this name (git:/path: repositories)",
     )
     .option(
       "--tag-prefix <prefix>",
@@ -1078,7 +1087,7 @@ export function registerPluginCommands(
         ) => {
           if (opts.subdirectory !== undefined && opts.plugin !== undefined) {
             throw new Error(
-              "Use --subdirectory or --plugin, not both: --plugin resolves a name from .bb/plugins.json to a subdirectory.",
+              "Use --subdirectory or --plugin, not both: --plugin resolves a name from .hyperfide/plugins.json to a subdirectory.",
             );
           }
           const requested =
@@ -1114,7 +1123,7 @@ export function registerPluginCommands(
                 summary = `Installing ${pkg.name}@${pkg.version ?? "?"} from ${path}`;
                 const pluginId = derivePluginId(pkg.name);
                 const { plugins } =
-                  await createCliBbSdk(getUrl()).plugins.list();
+                  await createCliHyperfideSdk(getUrl()).plugins.list();
                 const installed = plugins.find((p) => p.id === pluginId);
                 if (
                   installed !== undefined &&
@@ -1135,8 +1144,8 @@ export function registerPluginCommands(
           if (!opts.json) {
             console.log(summary);
             console.log(
-              "Plugins are full-trust code running inside the BB server. " +
-                "They can read all local BB data, including other plugins' secrets.",
+              "Plugins are full-trust code running inside the HYPERFIDE server. " +
+                "They can read all local HYPERFIDE data, including other plugins' secrets.",
             );
           }
           await confirmPluginAction(
@@ -1144,7 +1153,7 @@ export function registerPluginCommands(
             "Refusing to install without confirmation — re-run with --yes.",
             opts.yes === true,
           );
-          const plugins = createCliBbSdk(getUrl()).plugins;
+          const plugins = createCliHyperfideSdk(getUrl()).plugins;
           const request =
             intent.kind === "source"
               ? {
@@ -1212,7 +1221,8 @@ export function registerPluginCommands(
     .option("--json", "Output JSON")
     .action(
       action(async (opts: JsonOutputOptions) => {
-        const jobs = await createCliBbSdk(getUrl()).plugins.installJobs.list();
+        const jobs =
+          await createCliHyperfideSdk(getUrl()).plugins.installJobs.list();
         if (opts.json) {
           outputJson(opts, { jobs });
           return;
@@ -1251,7 +1261,9 @@ export function registerPluginCommands(
     .option("--json", "Output JSON")
     .action(
       action(async (jobId: string, opts: JsonOutputOptions) => {
-        const job = await createCliBbSdk(getUrl()).plugins.installJobs.cancel({
+        const job = await createCliHyperfideSdk(
+          getUrl(),
+        ).plugins.installJobs.cancel({
           jobId,
         });
         if (opts.json) {
@@ -1272,7 +1284,8 @@ export function registerPluginCommands(
     .option("--json", "Output the raw update results as JSON")
     .action(
       action(async (opts: JsonOutputOptions) => {
-        const results = await createCliBbSdk(getUrl()).plugins.checkUpdates();
+        const results =
+          await createCliHyperfideSdk(getUrl()).plugins.checkUpdates();
         if (opts.json) {
           outputJson(opts, results);
           return;
@@ -1282,7 +1295,7 @@ export function registerPluginCommands(
           result.installed.display,
           result.candidate?.display ?? "—",
           blockedSummary(result),
-          `${UPDATE_STATUS_LABELS[result.outcome]}${result.devMode ? " [dev build: engines.bb not enforced]" : ""}`,
+          `${UPDATE_STATUS_LABELS[result.outcome]}${result.devMode ? " [dev build: engines.hyperfide not enforced]" : ""}`,
         ]);
         console.log(
           renderBorderlessTable(
@@ -1294,7 +1307,7 @@ export function registerPluginCommands(
                 "Blocked newer",
                 "Status",
               ],
-              colWidths: [22, 20, 22, 42, 54],
+              colWidths: [22, 20, 22, 42, 62],
               trimTrailingWhitespace: true,
             },
             rows,
@@ -1312,7 +1325,7 @@ export function registerPluginCommands(
     .action(
       action(async (jobId: string | undefined, opts: JsonOutputOptions) => {
         const updates =
-          createCliBbSdk(getUrl()).plugins.experimental_updateJobs;
+          createCliHyperfideSdk(getUrl()).plugins.experimental_updateJobs;
         const jobs =
           jobId === undefined
             ? await updates.list()
@@ -1371,7 +1384,7 @@ export function registerPluginCommands(
             console.error("Specify exactly one plugin id or --all.");
             process.exit(1);
           }
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const results = await sdk.plugins.checkUpdates(
             id === undefined ? {} : { pluginId: id },
           );
@@ -1456,14 +1469,14 @@ export function registerPluginCommands(
   plugin
     .command("new <name>")
     .description(
-      "Scaffold a plugin in ./bb-plugin-<name>; accepts @scope/bb-plugin-<name>",
+      "Scaffold a plugin in ./hyperfide-plugin-<name>; accepts @scope/hyperfide-plugin-<name>",
     )
     .action(
       action(async (name: string) => {
         const target = resolveNewPluginTarget(name);
         if (target === null) {
           console.error(
-            `Invalid or reserved plugin name "${name}" — use a non-core name, bb-plugin-name, or @scope/bb-plugin-name.`,
+            `Invalid or reserved plugin name "${name}" — use a non-core name, hyperfide-plugin-name, or @scope/hyperfide-plugin-name.`,
           );
           process.exit(1);
         }
@@ -1472,7 +1485,7 @@ export function registerPluginCommands(
         await scaffoldPlugin({
           targetDir,
           packageName,
-          bbVersion: resolveBbCliVersion(),
+          hyperfideVersion: resolveHyperfideCliVersion(),
         });
         console.log(`Created ${directoryName}/ (${packageName}).`);
         await warnIfSdkVersionUnpublished();
@@ -1489,7 +1502,7 @@ export function registerPluginCommands(
   plugin
     .command("types [path]")
     .description(
-      "Sync a package-layout plugin's @hyperfide/plugin-sdk surface to the running bb (default: cwd): repin the npm devDependency and the declared type-only devDependencies of the packages bb shims at runtime (sonner, vaul, the portal radix families, ...); legacy vendored-layout plugins must migrate first",
+      "Sync a package-layout plugin's @hyperfide/plugin-sdk surface to the running hyperfide (default: cwd): repin the npm devDependency and the declared type-only devDependencies of the packages hyperfide shims at runtime (sonner, vaul, the portal radix families, ...); legacy vendored-layout plugins must migrate first",
     )
     .option(
       "--check",
@@ -1499,7 +1512,7 @@ export function registerPluginCommands(
       action(async (path: string | undefined, opts: { check?: boolean }) => {
         const rootDir = resolve(process.cwd(), path ?? ".");
         const manifest = await requirePluginManifest(rootDir);
-        const hasApp = typeof manifest.bb?.app === "string";
+        const hasApp = typeof manifest.hyperfide?.app === "string";
         const layout = await resolvePluginSdkLayout(rootDir);
         if (layout.kind === "vendored") {
           console.error(LEGACY_PLUGIN_SDK_LAYOUT_MESSAGE);
@@ -1524,15 +1537,15 @@ export function registerPluginCommands(
             if (pending.pin !== null || pending.movedFromDependencies) {
               console.error(
                 pending.pin === null
-                  ? 'Move "@hyperfide/plugin-sdk" from dependencies to devDependencies — bb provides its runtime (`hyperfide-platform plugin types` does it for you).'
+                  ? 'Move "@hyperfide/plugin-sdk" from dependencies to devDependencies — hyperfide provides its runtime (`hyperfide-platform plugin types` does it for you).'
                   : `Set "@hyperfide/plugin-sdk" to ${PLUGIN_SDK_VERSION} in devDependencies and re-run npm install (\`hyperfide-platform plugin types\` does it for you).`,
               );
             }
             for (const shim of pending.shimmedTypePins) {
               console.error(
                 shim.movedFromDependencies
-                  ? `Move "${shim.name}" from dependencies to devDependencies at ${shim.to} — bb shims it at runtime and never bundles it (\`hyperfide-platform plugin types\` does it for you).`
-                  : `Set "${shim.name}" to ${shim.to} in devDependencies — the version this bb shims at runtime (\`hyperfide-platform plugin types\` does it for you).`,
+                  ? `Move "${shim.name}" from dependencies to devDependencies at ${shim.to} — hyperfide shims it at runtime and never bundles it (\`hyperfide-platform plugin types\` does it for you).`
+                  : `Set "${shim.name}" to ${shim.to} in devDependencies — the version this hyperfide shims at runtime (\`hyperfide-platform plugin types\` does it for you).`,
               );
             }
             process.exit(1);
@@ -1543,7 +1556,7 @@ export function registerPluginCommands(
           });
           if (changed === null) {
             console.log(
-              `@hyperfide/plugin-sdk is already pinned to ${PLUGIN_SDK_VERSION} — this bb's SDK version${hasApp ? ", and the declared runtime-shimmed packages are at this bb's versions" : ""}.`,
+              `@hyperfide/plugin-sdk is already pinned to ${PLUGIN_SDK_VERSION} — this hyperfide's SDK version${hasApp ? ", and the declared runtime-shimmed packages are at this hyperfide's versions" : ""}.`,
             );
             console.log(
               "The declarations are in node_modules/@hyperfide/plugin-sdk/bundled-types/ — read them for exact signatures.",
@@ -1638,27 +1651,39 @@ export function registerPluginCommands(
   plugin
     .command("build [path]")
     .description(
-      "Compile the plugin into dist/: the bb.server backend bundle (server.js, server.meta.json), plus, when declared, the bb.app frontend bundle (app.js, app.css, app.meta.json) and the self-contained bb.host daemon bundle (host.js, host.js.map, host.meta.json) — which carries the plugin's host RPC entry, its provider bridge, or both; each *.meta.json stamps SDK/identity metadata; no server required",
+      "Compile the plugin into dist/: the hyperfide.server backend bundle (server.js, server.meta.json), plus, when declared, the hyperfide.app frontend bundle (app.js, app.css, app.meta.json) and the self-contained hyperfide.host daemon bundle (host.js, host.js.map, host.meta.json) — which carries the plugin's host RPC entry, its provider bridge, or both; each *.meta.json stamps SDK/identity metadata; no server required",
     )
     .action(
       action(async (path: string | undefined) => {
         const rootDir = resolve(process.cwd(), path ?? ".");
-        const bbVersion = resolveBbCliVersion();
+        const hyperfideVersion = resolveHyperfideCliVersion();
         const manifest = await readPluginManifest(rootDir);
-        const hasApp = typeof manifest?.bb?.app === "string";
-        const hasHost = typeof manifest?.bb?.host === "string";
+        const hasApp = typeof manifest?.hyperfide?.app === "string";
+        const hasHost = typeof manifest?.hyperfide?.host === "string";
         await checkPluginSdkLayout(rootDir);
         const toolchain = await cliBuildToolchain();
-        const server = await buildPluginServer(rootDir, bbVersion, toolchain);
+        const server = await buildPluginServer(
+          rootDir,
+          hyperfideVersion,
+          toolchain,
+        );
         const files = [server.jsPath, server.mapPath, server.metaPath];
         if (hasApp) {
-          const app = await buildPluginApp(rootDir, bbVersion, toolchain);
+          const app = await buildPluginApp(
+            rootDir,
+            hyperfideVersion,
+            toolchain,
+          );
           for (const warning of app.migrationWarnings)
             console.warn(`warning: ${warning}`);
           files.push(app.jsPath, app.cssPath, app.metaPath);
         }
         if (hasHost) {
-          const host = await buildPluginHost(rootDir, bbVersion, toolchain);
+          const host = await buildPluginHost(
+            rootDir,
+            hyperfideVersion,
+            toolchain,
+          );
           files.push(host.jsPath, host.mapPath, host.metaPath);
         }
         for (const file of files) {
@@ -1676,11 +1701,11 @@ export function registerPluginCommands(
       action(async (path: string | undefined) => {
         const rootDir = resolve(process.cwd(), path ?? ".");
         const manifest = await requirePluginManifest(rootDir);
-        const hasApp = typeof manifest.bb?.app === "string";
-        const hasHost = typeof manifest.bb?.host === "string";
+        const hasApp = typeof manifest.hyperfide?.app === "string";
+        const hasHost = typeof manifest.hyperfide?.host === "string";
         await checkPluginSdkLayout(rootDir);
         const realDir = await realpath(rootDir).catch(() => rootDir);
-        const list = await createCliBbSdk(getUrl()).plugins.list();
+        const list = await createCliHyperfideSdk(getUrl()).plugins.list();
         const entry = list.plugins.find(
           (candidate) =>
             candidate.rootDir === rootDir || candidate.rootDir === realDir,
@@ -1693,20 +1718,20 @@ export function registerPluginCommands(
         }
         const loop = createPluginDevLoop({
           pluginId: entry.id,
-          // Re-read per cycle: a plugin can add or drop bb.app/bb.host while
+          // Re-read per cycle: a plugin can add or drop hyperfide.app/hyperfide.host while
           // being watched, and a stale snapshot would demand a build that can
           // never succeed again.
           targets: async () => {
             const current = await requirePluginManifest(rootDir);
             return {
-              hasApp: typeof current.bb?.app === "string",
-              hasHost: typeof current.bb?.host === "string",
+              hasApp: typeof current.hyperfide?.app === "string",
+              hasHost: typeof current.hyperfide?.host === "string",
             };
           },
           buildApp: async () => {
             const app = await buildPluginApp(
               rootDir,
-              resolveBbCliVersion(),
+              resolveHyperfideCliVersion(),
               await cliBuildToolchain(),
               { minify: false },
             );
@@ -1716,7 +1741,7 @@ export function registerPluginCommands(
           buildHost: async () => {
             await buildPluginHost(
               rootDir,
-              resolveBbCliVersion(),
+              resolveHyperfideCliVersion(),
               await cliBuildToolchain(),
             );
           },
@@ -1825,7 +1850,7 @@ export function registerPluginCommands(
   plugin
     .command("safe-mode [state]")
     .description(
-      "Show plugin safe mode, or turn it on or off. `on` stops every plugin you installed (official store plugins included) while plugins included with bb keep running; `off` restarts the ones that were enabled and exits 1 if any fail to start",
+      "Show plugin safe mode, or turn it on or off. `on` stops every plugin you installed (official store plugins included) while plugins included with hyperfide keep running; `off` restarts the ones that were enabled and exits 1 if any fail to start",
     )
     .option("--json", "Output JSON")
     .action(
@@ -1833,7 +1858,7 @@ export function registerPluginCommands(
         if (state !== undefined && state !== "on" && state !== "off") {
           exitWithError({ error: `expected "on" or "off", got "${state}"` });
         }
-        const plugins = createCliBbSdk(getUrl()).plugins;
+        const plugins = createCliHyperfideSdk(getUrl()).plugins;
         const updated =
           state === undefined
             ? null
@@ -1855,13 +1880,13 @@ export function registerPluginCommands(
   plugin
     .command("prune")
     .description(
-      "Delete cached plugin versions that no installed plugin uses, such as versions left by earlier bb releases, rolled-back updates, or interrupted operations, and unrecorded cache directories. Updates and removals already delete what they replace. Never touches a version an installed plugin runs or a local path source",
+      "Delete cached plugin versions that no installed plugin uses, such as versions left by earlier hyperfide releases, rolled-back updates, or interrupted operations, and unrecorded cache directories. Updates and removals already delete what they replace. Never touches a version an installed plugin runs or a local path source",
     )
     .option("--dry-run", "List what would be deleted without deleting it")
     .option("--json", "Output JSON")
     .action(
       action(async (opts: JsonOutputOptions & { dryRun?: boolean }) => {
-        const result = await createCliBbSdk(
+        const result = await createCliHyperfideSdk(
           getUrl(),
         ).plugins.experimental_pruneCache({ dryRun: opts.dryRun === true });
         if (opts.json) {
@@ -2026,7 +2051,7 @@ export function registerPluginCommands(
 
   plugin
     .command("logs <id>")
-    .description("Print a plugin's log (bb.log output)")
+    .description("Print a plugin's log (hyperfide.log output)")
     .option("-n, --lines <count>", "Number of lines to show", "100")
     .option("-f, --follow", "Poll for new lines every second (Ctrl+C to stop)")
     .action(

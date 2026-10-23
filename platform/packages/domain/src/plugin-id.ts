@@ -12,14 +12,14 @@ export const pluginIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]*$/u);
  * Derive the stable plugin id used for routes, storage, settings, and CLI
  * commands from an npm package name.
  *
- * `bb-plugin-linear` becomes `linear`; scoped names first drop the scope.
+ * `hyperfide-plugin-linear` becomes `linear`; scoped names first drop the scope.
  */
 export function derivePluginId(packageName: string): string {
   const base = packageName.includes("/")
     ? (packageName.split("/").at(-1) ?? packageName)
     : packageName;
   const id = base
-    .replace(/^(?:hyperfide|bb)-plugin-/, "")
+    .replace(/^(?:hyperfide|hyperfide)-plugin-/, "")
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, "-")
     .replace(/^-+|-+$/g, "");
@@ -32,12 +32,12 @@ export function derivePluginId(packageName: string): string {
 }
 
 /**
- * Built-in plugins bb no longer ships, each mapped to the plugin that took its
+ * Built-in plugins hyperfide no longer ships, each mapped to the plugin that took its
  * place. The server hands a retired plugin's settings to its successor; the
  * app redirects links that still name the retired id.
  */
 export const RETIRED_PLUGIN_SUCCESSORS: Readonly<Record<string, string>> = {
-  "bb--provider-acp-next": "provider-acp",
+  "hyperfide--provider-acp-next": "provider-acp",
 };
 
 /**

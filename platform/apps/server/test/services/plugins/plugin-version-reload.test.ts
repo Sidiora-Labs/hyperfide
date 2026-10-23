@@ -14,9 +14,9 @@ describe("path plugin version reload", () => {
     await writeFile(
       join(rootDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-versioned",
+        name: "hyperfide-plugin-versioned",
         version,
-        bb: {
+        hyperfide: {
           name: "Versioned",
           description: "Version reload fixture.",
           branding: { icon: "Zap" },
@@ -28,7 +28,7 @@ describe("path plugin version reload", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-versioned");
+    rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-versioned");
     await mkdir(rootDir, { recursive: true });
     await writeManifest("0.1.0");
     await writeFile(

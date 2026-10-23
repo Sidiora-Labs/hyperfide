@@ -51,7 +51,7 @@ export async function uploadAttachment(
     `/api/v1/plugins/tasks/http/attachments/upload?${query.toString()}`,
     {
       method: "POST",
-      headers: { "x-bb-plugin-token": token },
+      headers: { "x-hyperfide-plugin-token": token },
       body: file,
     },
   );

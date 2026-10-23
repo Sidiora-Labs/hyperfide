@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import { useAppCommandHandler } from "@/components/commands/AppCommandProvider";
-import { getBbDesktopInfo, readWindowFindTopOffset } from "@/lib/bb-desktop";
+import { getHyperfideDesktopInfo, readWindowFindTopOffset } from "@/lib/hyperfide-desktop";
 
 export function WindowFindHost() {
   const openWindowFind = useCallback((): boolean => {
-    const desktop = getBbDesktopInfo();
+    const desktop = getHyperfideDesktopInfo();
     if (desktop?.openWindowFind === undefined) {
       return false;
     }

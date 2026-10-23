@@ -6,7 +6,7 @@ const WORKBENCH_COLOR = /^#([0-9A-Fa-f]{3,4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/;
 
 export function monacoThemeName(name: string): string {
   const safe = name.replace(/[^a-zA-Z0-9-]/g, "-");
-  return `bb-${safe}`;
+  return `hyperfide-${safe}`;
 }
 
 function tokenColor(value: string | undefined): string | undefined {

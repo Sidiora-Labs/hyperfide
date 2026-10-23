@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Preview and validate bb themes across representative app screens, components, overlays, style tokens, and contrast checks.",
+  "description": "Preview and validate hyperfide themes across representative app screens, components, overlays, style tokens, and contrast checks.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.6"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.6"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Theme Preview",
-    "description": "Preview and validate bb themes across representative app screens, components, overlays, style tokens, and contrast checks.",
+    "description": "Preview and validate hyperfide themes across representative app screens, components, overlays, style tokens, and contrast checks.",
     "branding": {
       "icon": "Palette"
     },
@@ -21,13 +21,13 @@
     ]
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",

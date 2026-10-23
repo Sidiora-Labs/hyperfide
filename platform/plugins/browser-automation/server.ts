@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { posix, win32 } from "node:path";
 import type {
-  BbPluginApi,
+  HyperfidePluginApi,
   PluginCliContext,
   PluginRpcHandlers,
 } from "@hyperfide/plugin-sdk";
@@ -54,9 +54,9 @@ const previewWaitMs = 5_000;
 const keyFor = (threadId: string, sessionId: string) =>
   `sessions/${encodeURIComponent(threadId)}/${sessionId}`;
 
-export default async function browserAutomationPlugin(bb: BbPluginApi) {
-  const host = bb.hosts.experimental_client({ contract: hostContract });
-  const desktop = bb.sdk.experimental_desktopBrowsers;
+export default async function browserAutomationPlugin(hyperfide: HyperfidePluginApi) {
+  const host = hyperfide.hosts.experimental_client({ contract: hostContract });
+  const desktop = hyperfide.sdk.experimental_desktopBrowsers;
   const active = new Map<string, RecordEntry>();
   const busy = new Map<string, number>();
   const pending = new Set<Promise<void>>();
@@ -69,7 +69,7 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
   const lifecycle = new AbortController();
   const threadLifecycles = new Map<string, AbortController>();
   const save = (record: RecordEntry) =>
-    bb.storage.kv.set(
+    hyperfide.storage.kv.set(
       keyFor(record.session.threadId, record.session.id),
       record,
     );
@@ -87,7 +87,7 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
   }
   async function owned(threadId: string, sessionId: string) {
     const record = recordSchema.parse(
-      await bb.storage.kv.get(keyFor(threadId, sessionId)),
+      await hyperfide.storage.kv.get(keyFor(threadId, sessionId)),
     );
     if (record.session.threadId !== threadId || record.session.id !== sessionId)
       throw new Error("Session does not belong to this thread");
@@ -139,7 +139,7 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
       return finish(record, requested);
     }
     const previous = recordSchema.safeParse(
-      await bb.storage.kv.get(
+      await hyperfide.storage.kv.get(
         keyFor(record.session.threadId, record.session.id),
       ),
     );
@@ -187,7 +187,7 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
             reason instanceof Error ? reason.message : String(reason),
           )
           .join("; ");
-        bb.log.warn(
+        hyperfide.log.warn(
           `Browser Automation cleanup on host ${session.hostId} failed: ${reasons}`,
         );
         throw new Error(
@@ -204,18 +204,18 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
     }
   }
   const unfinished: RecordEntry[] = [];
-  for (const key of await bb.storage.kv.list("sessions/")) {
-    const parsed = recordSchema.safeParse(await bb.storage.kv.get(key));
+  for (const key of await hyperfide.storage.kv.list("sessions/")) {
+    const parsed = recordSchema.safeParse(await hyperfide.storage.kv.get(key));
     if (!parsed.success) continue;
     if (parsed.data.session.state === "closed" && !parsed.data.cleanupPending)
       continue;
     unfinished.push(parsed.data);
   }
-  bb.background.service("restart-cleanup", {
+  hyperfide.background.service("restart-cleanup", {
     async start() {
       for (const record of unfinished.splice(0))
         await finish(record, "closed").catch(() =>
-          bb.log.warn(
+          hyperfide.log.warn(
             "Browser Automation restart cleanup will need the owning desktop to reconnect",
           ),
         );
@@ -232,7 +232,7 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
     }
     signal = AbortSignal.any([signal, threadLifecycle.signal]);
     signal.throwIfAborted();
-    await bb.sdk.threads.get({ threadId: input.threadId });
+    await hyperfide.sdk.threads.get({ threadId: input.threadId });
     if (active.size >= 64)
       throw new Error(
         "Browser session limit reached; close an existing session",
@@ -330,7 +330,7 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
           { hostId: session.hostId, signal },
         );
         if (runtime.status === "ready") break;
-        bb.log.info(
+        hyperfide.log.info(
           `DevBrowser runtime on host ${session.hostId}: ${runtime.detail}`,
         );
       }
@@ -456,14 +456,14 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
       async list({ threadId }) {
         const records = await Promise.all(
           (
-            await bb.storage.kv.list(
+            await hyperfide.storage.kv.list(
               `sessions/${encodeURIComponent(threadId)}/`,
             )
           )
             .slice(-64)
             .map(
               async (key) =>
-                recordSchema.parse(await bb.storage.kv.get(key)).session,
+                recordSchema.parse(await hyperfide.storage.kv.get(key)).session,
             ),
         );
         return records;
@@ -490,7 +490,7 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
         finish(await owned(input.threadId, input.sessionId), "closed"),
     };
   }
-  bb.rpc.register(rpcContract, handlers(lifecycle.signal));
+  hyperfide.rpc.register(rpcContract, handlers(lifecycle.signal));
   function dispatch(
     method: BrowserCliMethod,
     input: unknown,
@@ -516,11 +516,11 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
         return h.close(rpcContract.close.input.parse(input));
     }
   }
-  bb.agents.configure(() => ({
+  hyperfide.agents.configure(() => ({
     tools: [],
     skills: ["browser-automation"],
     instructions:
-      "When `bb browser-automation open` returns a previewDirective, copy it into your next response exactly once as a standalone line before you continue working. Do not wrap it in backticks or a code fence, and do not invent or edit the session ID. The directive shows the user a live view of that headless browser in BB chat. Desktop sessions return no directive.",
+      "When `hyperfide-platform browser-automation open` returns a previewDirective, copy it into your next response exactly once as a standalone line before you continue working. Do not wrap it in backticks or a code fence, and do not invent or edit the session ID. The directive shows the user a live view of that headless browser in HYPERFIDE chat. Desktop sessions return no directive.",
   }));
   async function executeCli(
     request: BrowserCliRequest,
@@ -530,7 +530,7 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
       const input = { ...request.input };
       if (request.method === "open" && input.selection) {
         const target = input.selection.hostId.trim();
-        const hosts = await bb.sdk.hosts.list({ signal: context.signal });
+        const hosts = await hyperfide.sdk.hosts.list({ signal: context.signal });
         const idMatch = hosts.find((candidate) => candidate.id === target);
         const matches = idMatch
           ? [idMatch]
@@ -561,7 +561,7 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
           throw new Error(
             "Relative script files require the invoking CLI working directory",
           );
-        const file = await bb.sdk.files.read({
+        const file = await hyperfide.sdk.files.read({
           hostId: request.scriptHost,
           path,
           signal: context.signal,
@@ -619,13 +619,13 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
       throw browserCliFailure(error);
     }
   }
-  bb.cli.register(createBrowserAutomationCli({ execute: executeCli }));
+  hyperfide.cli.register(createBrowserAutomationCli({ execute: executeCli }));
   for (const event of [
     "thread.archived",
     "thread.deleted",
     "thread.failed",
   ] as const) {
-    bb.events.on(event, async ({ thread }) => {
+    hyperfide.events.on(event, async ({ thread }) => {
       threadLifecycles.get(thread.id)?.abort();
       threadLifecycles.delete(thread.id);
       const results = await Promise.allSettled(
@@ -634,7 +634,7 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
           .map((record) => finish(record, "closed")),
       );
       if (results.some((result) => result.status === "rejected")) {
-        bb.log.warn(
+        hyperfide.log.warn(
           `Browser Automation cleanup for thread ${thread.id} needs its host to reconnect`,
         );
       }
@@ -664,7 +664,7 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
         .map((record) => finish(record, "closed")),
     );
   });
-  bb.onDispose(async () => {
+  hyperfide.onDispose(async () => {
     lifecycle.abort();
     clearInterval(timer);
     await Promise.allSettled(

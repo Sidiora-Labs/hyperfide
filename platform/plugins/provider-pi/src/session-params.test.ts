@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { buildPiSessionParams } from "./session-params.js";
 
 describe("buildPiSessionParams", () => {
-  it("injects the bb thread id into the shell env and drops invalid keys", () => {
+  it("injects the hyperfide-platform thread id into the shell env and drops invalid keys", () => {
     expect(
       buildPiSessionParams({
-        threadId: "bb-thread-1",
+        threadId: "hyperfide-thread-1",
         cwd: "/tmp/worktree",
         instructionMode: "append",
         options: {
@@ -16,7 +16,7 @@ describe("buildPiSessionParams", () => {
         },
       }).shellEnvOverrides,
     ).toEqual({
-      HYPERFIDE_THREAD_ID: "bb-thread-1",
+      HYPERFIDE_THREAD_ID: "hyperfide-thread-1",
       TEST_VAR: "123",
     });
   });
@@ -24,7 +24,7 @@ describe("buildPiSessionParams", () => {
   it("passes contributed variables into Pi session parameters", () => {
     expect(
       buildPiSessionParams({
-        threadId: "bb-thread-1",
+        threadId: "hyperfide-thread-1",
         cwd: "/tmp/worktree",
         instructionMode: "append",
         options: {
@@ -38,10 +38,10 @@ describe("buildPiSessionParams", () => {
     });
   });
 
-  it("maps the bb reasoning ladder onto Pi thinking levels", () => {
+  it("maps the hyperfide reasoning ladder onto Pi thinking levels", () => {
     const params = (reasoningLevel: "none" | "high" | "ultracode") =>
       buildPiSessionParams({
-        threadId: "bb-thread-1",
+        threadId: "hyperfide-thread-1",
         cwd: "/tmp/worktree",
         instructionMode: "append",
         options: { reasoningLevel },
@@ -55,7 +55,7 @@ describe("buildPiSessionParams", () => {
   it("routes instructions by mode", () => {
     const withMode = (instructionMode: "append" | "replace") =>
       buildPiSessionParams({
-        threadId: "bb-thread-1",
+        threadId: "hyperfide-thread-1",
         cwd: "/tmp/worktree",
         instructionMode,
         options: { instructions: "  Focus on the failing tests first.  " },

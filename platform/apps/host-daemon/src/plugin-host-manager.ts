@@ -150,7 +150,7 @@ function workerLogContext(worker: WorkerState): Record<string, unknown> {
 
 function defaultWorkerEntryPath(): string {
   const candidates = [
-    "./bb-plugin-host-worker.mjs",
+    "./hyperfide-plugin-host-worker.mjs",
     "./plugin-host-worker.js",
     "./plugin-host-worker.ts",
   ];
@@ -447,7 +447,7 @@ export class PluginHostManager {
     });
     const tempDir = await createPluginProcessTempDir({
       pluginId: command.pluginId,
-      prefix: "bb-host",
+      prefix: "hyperfide-host",
     });
     const shellPath = this.options.shellEnv?.().PATH;
     const startedAtMs = performance.now();

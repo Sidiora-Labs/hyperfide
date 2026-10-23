@@ -1,16 +1,16 @@
 {
   "name": "hyperfide-plugin-github",
   "version": "0.2.1",
-  "description": "Browse GitHub issues and pull requests in BB, then send them to agents.",
+  "description": "Browse GitHub issues and pull requests in HYPERFIDE, then send them to agents.",
   "private": true,
   "license": "MIT",
-  "homepage": "https://github.com/get-bb/bb#readme",
+  "homepage": "https://github.com/hyperfide/hyperfide#readme",
   "bugs": {
-    "url": "https://github.com/get-bb/bb/issues"
+    "url": "https://github.com/hyperfide/hyperfide/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/get-bb/bb.git",
+    "url": "git+https://github.com/hyperfide/hyperfide.git",
     "directory": "plugins/github"
   },
   "type": "module",
@@ -22,12 +22,12 @@
     "README.md"
   ],
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.6.73"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.73"
   },
-  "bb": {
+  "hyperfide": {
     "name": "GitHub",
-    "description": "Browse GitHub issues and pull requests in BB, then send them to agents.",
+    "description": "Browse GitHub issues and pull requests in HYPERFIDE, then send them to agents.",
     "branding": {
       "icon": "Github"
     },
@@ -35,14 +35,14 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "build": "node --conditions=source --import tsx ../../scripts/build-official-plugins.mjs github",
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
     "test": "vitest run --config vitest.config.ts",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "devDependencies": {
     "@hyperfide/plugin-build": "workspace:*",

@@ -1,19 +1,19 @@
 ---
 name: workflows
-description: "Author or run durable BB workflows when the user requests workflow execution or multi-agent orchestration."
+description: "Author or run durable HYPERFIDE workflows when the user requests workflow execution or multi-agent orchestration."
 ---
 
-# BB workflows
+# HYPERFIDE workflows
 
 Use a workflow when the user explicitly asks for multi-agent orchestration.
 Ordinary tasks do not authorize a workflow run.
 
-A workflow puts deterministic control flow around normal BB worker threads. The
+A workflow puts deterministic control flow around normal HYPERFIDE worker threads. The
 script can fan out work, pipeline stages, verify results, and return structured
 data. Worker threads retain normal workspace tools and permissions.
 
-The plugin is disabled on fresh installations; `bb plugin enable workflows`
-turns it on. `bb workflows` commands must run from a BB project thread.
+The plugin is disabled on fresh installations; `hyperfide-platform plugin enable workflows`
+turns it on. `Hyperfide workflows` commands must run from a HYPERFIDE project thread.
 
 ## Start safely
 
@@ -28,8 +28,8 @@ turns it on. `bb workflows` commands must run from a BB project thread.
 Check an explicit model selection with:
 
 ```sh
-bb provider list --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
-bb provider models <provider-id> --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
+Hyperfide provider list --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
+Hyperfide provider models <provider-id> --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
 ```
 
 Do not guess model identifiers or partial selection tuples.
@@ -79,8 +79,8 @@ structured worker must return its value through the workflow result tool.
 Validate and run with the same source selector:
 
 ```sh
-bb workflows validate --file .bb/workflows/review-change.js
-bb workflows run --file .bb/workflows/review-change.js --args '{"items":[]}'
+Hyperfide workflows validate --file .hyperfide/workflows/review-change.js
+Hyperfide workflows run --file .hyperfide/workflows/review-change.js --args '{"items":[]}'
 ```
 
 The agent tool accepts script, scriptPath, or name. The CLI accepts --script,
@@ -89,14 +89,14 @@ The agent tool accepts script, scriptPath, or name. The CLI accepts --script,
 After a successful agent-tool call, copy its previewDirective into the
 assistant response as one standalone line. Do not edit or repeat it.
 
-Use bb workflows status for compact progress. Redirect bounded history pages
+Use Hyperfide workflows status for compact progress. Redirect bounded history pages
 into HYPERFIDE_THREAD_STORAGE before inspection because history can contain full
 prompts and results.
 
 ## Quality check
 
 - The user explicitly requested workflow orchestration.
-- The source passes bb workflows validate.
+- The source passes Hyperfide workflows validate.
 - Every explicit provider tuple exists in the live catalog.
 - Each phase name matches its meta entry.
 - Independent items use pipeline without an unnecessary barrier.

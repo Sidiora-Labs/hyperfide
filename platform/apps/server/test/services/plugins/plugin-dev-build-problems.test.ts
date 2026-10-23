@@ -26,7 +26,7 @@ async function createRuntime() {
       logger: testLogger as unknown as Logger,
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
-      dataDir: await mkdtemp(join(tmpdir(), "bb-dev-build-problems-")),
+      dataDir: await mkdtemp(join(tmpdir(), "hyperfide-dev-build-problems-")),
       appVersion: "0.9.0",
     },
   });

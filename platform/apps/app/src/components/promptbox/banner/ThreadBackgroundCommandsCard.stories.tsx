@@ -49,7 +49,7 @@ const longCommand: TimelineWorkflowWorkRow[] = [
   runningCommand({
     id: "thr_fixture:bg:ladle",
     description:
-      "cd /Users/fixture/.hyperfide/plugins/environment-git-worktree/host-data/worktrees/thr_fixture-1/bb/apps/app && (pnpm exec ladle serve --port 61234 > $TMPDIR/ladle.log 2>&1 &) ; for i in $(seq 1 40); do curl -s localhost:61234/meta.json >/dev/null && break; sleep 2; done",
+      "cd /Users/fixture/.hyperfide/plugins/environment-git-worktree/host-data/worktrees/thr_fixture-1/hyperfide/apps/app && (pnpm exec ladle serve --port 61234 > $TMPDIR/ladle.log 2>&1 &) ; for i in $(seq 1 40); do curl -s localhost:61234/meta.json >/dev/null && break; sleep 2; done",
     startedAt: Date.now() - 74_000,
   }),
 ];

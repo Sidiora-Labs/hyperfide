@@ -95,7 +95,7 @@ export function PluginMarketplaceDetailMetadata({
 }) {
   return (
     <>
-      {entry.marketplace === "bb-official" ? null : (
+      {entry.marketplace === "hyperfide-official" ? null : (
         <PluginDetailMetadataItem label="Marketplace">
           {entry.marketplaceDisplayName}
         </PluginDetailMetadataItem>
@@ -266,7 +266,7 @@ export function PluginMarketplaceListingSections({
     <>
       <PluginMarketplaceOverview entry={entry} />
       <PluginMarketplaceSource entry={entry} />
-      {entry.marketplace === "bb-official" &&
+      {entry.marketplace === "hyperfide-official" &&
       entry.publishedAt === undefined ? null : (
         <ResourceDefinitionSection label="Details">
           <PluginDetailMetadata>

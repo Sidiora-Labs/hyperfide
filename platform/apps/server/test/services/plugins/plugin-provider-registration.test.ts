@@ -25,7 +25,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Provider fixture",
         description: "Provider registration plugin fixture.",
         branding: {
@@ -51,8 +51,8 @@ async function writePlugin(
 }
 
 const REGISTER_PROVIDER_SOURCE = (id: string): string => `
-  export default function plugin(bb: any) {
-    bb.providers.register({
+  export default function plugin(hyperfide: any) {
+    hyperfide.providers.register({
       id: ${JSON.stringify(id)},
       displayName: "My Remote Agent",
       icon: "./icons/agent.svg",
@@ -72,11 +72,11 @@ const REGISTER_PROVIDER_SOURCE = (id: string): string => `
   }
 `;
 
-describe("bb.providers.register (server)", () => {
+describe("hyperfide.providers.register (server)", () => {
   let workDir: string;
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-provider-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-provider-test-"));
   });
 
   afterEach(async () => {
@@ -88,7 +88,7 @@ describe("bb.providers.register (server)", () => {
     await withTestHarness(async (harness) => {
       const notifySystem = vi.spyOn(harness.deps.hub, "notifySystem");
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-remote-agent",
+        name: "hyperfide-plugin-remote-agent",
         serverSource: REGISTER_PROVIDER_SOURCE("my-remote-agent"),
       });
       const entry = await harness.pluginService.installPath(rootDir);
@@ -155,7 +155,7 @@ describe("bb.providers.register (server)", () => {
   it("keeps a failed provider in the listing as unavailable", async () => {
     await withTestHarness(async (harness) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-failed-agent",
+        name: "hyperfide-plugin-failed-agent",
         serverSource: REGISTER_PROVIDER_SOURCE("failed-agent"),
         bridgeSource: 'import "missing-provider-runtime";\n',
       });
@@ -202,7 +202,7 @@ describe("bb.providers.register (server)", () => {
   it("re-registers wholesale on reload instead of colliding with itself", async () => {
     await withTestHarness(async (harness) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-reload-agent",
+        name: "hyperfide-plugin-reload-agent",
         serverSource: REGISTER_PROVIDER_SOURCE("reload-agent"),
       });
       const entry = await harness.pluginService.installPath(rootDir);
@@ -227,19 +227,19 @@ describe("bb.providers.register (server)", () => {
     async (icon) => {
       await withTestHarness(async (harness) => {
         const rootDir = await writePlugin(workDir, {
-          name: "bb-plugin-legacy-environments",
+          name: "hyperfide-plugin-legacy-environments",
           withBridge: false,
-          serverSource: `export default function(bb) {
-          bb.experimental_machines.register({
+          serverSource: `export default function(hyperfide) {
+          hyperfide.experimental_machines.register({
             id: "legacy-machine", displayName: "Legacy machine", description: "Create a test machine.", icon: ${JSON.stringify(icon)},
             create: async () => ({ status: "failed", message: "unused" }),
             reconcileCleanup: async () => ({ status: "removed" }), remove: async () => ({ status: "removed" })
           });
-          bb.experimental_environments.register({
+          hyperfide.experimental_environments.register({
             id: "legacy-workspace", displayName: "Legacy workspace",
             create: async () => ({ status: "failed", message: "unused" }), remove: async () => ({ status: "removed" })
           });
-          bb.experimental_environments.register({
+          hyperfide.experimental_environments.register({
             id: "legacy-composition", displayName: "Legacy composition",
             machineProviderId: "legacy-machine", environmentProviderId: "legacy-workspace"
           });
@@ -281,10 +281,10 @@ describe("bb.providers.register (server)", () => {
     async (icon) => {
       await withTestHarness(async (harness) => {
         const rootDir = await writePlugin(workDir, {
-          name: "bb-plugin-marked-environment",
+          name: "hyperfide-plugin-marked-environment",
           withBridge: false,
           icons: { mark: "./icons/agent.svg" },
-          serverSource: `export default function plugin(bb) { bb.experimental_environments.register({ id: "marked-environment", displayName: "Marked", description: "Prepare a marked workspace.", icon: ${JSON.stringify(icon)}, create: async () => ({ status: "failed", message: "waiting" }), remove: async () => ({ status: "removed" }) }); }`,
+          serverSource: `export default function plugin(hyperfide) { hyperfide.experimental_environments.register({ id: "marked-environment", displayName: "Marked", description: "Prepare a marked workspace.", icon: ${JSON.stringify(icon)}, create: async () => ({ status: "failed", message: "waiting" }), remove: async () => ({ status: "removed" }) }); }`,
         });
         const svg =
           '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path d="M0 0h4v4z"/></svg>';
@@ -328,7 +328,7 @@ describe("bb.providers.register (server)", () => {
   it("serves a path-shaped icon through the provider logo route with untrusted-image headers", async () => {
     await withTestHarness(async (harness) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-marked-agent",
+        name: "hyperfide-plugin-marked-agent",
         serverSource: REGISTER_PROVIDER_SOURCE("marked-agent"),
       });
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><style>.a{fill:#f00}</style><path class="a" d="M0 0h4v4z"/></svg>`;
@@ -354,7 +354,7 @@ describe("bb.providers.register (server)", () => {
   it("serves a path-shaped icon as declared even when it carries an event handler", async () => {
     await withTestHarness(async (harness) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-scripted-agent",
+        name: "hyperfide-plugin-scripted-agent",
         serverSource: REGISTER_PROVIDER_SOURCE("scripted-agent"),
       });
       const svg = `<svg xmlns="http://www.w3.org/2000/svg"><path onload="x()" d="M0 0"/></svg>`;
@@ -382,7 +382,7 @@ describe("bb.providers.register (server)", () => {
   it("refuses a declaration with no bridge to run on", async () => {
     await withTestHarness(async (harness) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-bridgeless-agent",
+        name: "hyperfide-plugin-bridgeless-agent",
         serverSource: REGISTER_PROVIDER_SOURCE("bridgeless-agent"),
         withBridge: false,
       });
@@ -403,7 +403,7 @@ describe("bb.providers.register (server)", () => {
   it("rejects a live id claimed by another plugin as a load failure", async () => {
     await withTestHarness(async (harness) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-shadow-codex",
+        name: "hyperfide-plugin-shadow-codex",
         serverSource: REGISTER_PROVIDER_SOURCE("codex"),
       });
       const entry = await harness.pluginService.installPath(rootDir);

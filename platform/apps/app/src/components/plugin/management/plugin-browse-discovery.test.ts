@@ -26,10 +26,10 @@ function entry(
     collections: [],
     source: `builtin:${id}`,
     repositoryUrl: null,
-    marketplace: "bb-official",
-    marketplaceDisplayName: "BB Official",
-    publisherKey: "bb-official",
-    publisherLabel: "BB Official",
+    marketplace: "hyperfide-official",
+    marketplaceDisplayName: "HYPERFIDE Official",
+    publisherKey: "hyperfide-official",
+    publisherLabel: "HYPERFIDE Official",
     official: true,
     author: null,
     installed: false,
@@ -56,7 +56,7 @@ describe("plugin browse shelves", () => {
       collections: [
         {
           id: "z-server-first",
-          displayName: "BB Official",
+          displayName: "HYPERFIDE Official",
           pluginIds: ["official"],
         },
         {
@@ -69,7 +69,7 @@ describe("plugin browse shelves", () => {
     });
 
     expect(shelves.map((shelf) => shelf.label)).toEqual([
-      "BB Official",
+      "HYPERFIDE Official",
       "New & notable",
       "Thread Content",
     ]);

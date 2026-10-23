@@ -80,7 +80,7 @@ export function Overview() {
               title="Copy branch name"
             >
               <span className="truncate">
-                bb/implement-server-daemon-protocol-simplification-thr_qfk8ksbxkk
+                hyperfide/implement-server-daemon-protocol-simplification-thr_qfk8ksbxkk
               </span>
               <Icon
                 name="Copy"

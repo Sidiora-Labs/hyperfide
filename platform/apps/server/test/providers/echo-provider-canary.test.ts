@@ -159,9 +159,9 @@ describe("echo-provider canary: plugin install → server command → runtime �
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    workspaceDir = await mkdtemp(join(tmpdir(), "bb-echo-canary-ws-"));
-    bridgeDataDir = await mkdtemp(join(tmpdir(), "bb-echo-canary-bridge-"));
-    recordDir = await mkdtemp(join(tmpdir(), "bb-echo-canary-record-"));
+    workspaceDir = await mkdtemp(join(tmpdir(), "hyperfide-echo-canary-ws-"));
+    bridgeDataDir = await mkdtemp(join(tmpdir(), "hyperfide-echo-canary-bridge-"));
+    recordDir = await mkdtemp(join(tmpdir(), "hyperfide-echo-canary-record-"));
     savedGreeting = process.env[GREETING_ENV];
     process.env[GREETING_ENV] = "hello from the daemon";
   });
@@ -185,7 +185,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
     expect(entry.status, entry.statusDetail ?? "").toBe("running");
     expect(entry.id).toBe(PLUGIN_ID);
     const artifact = harness.deps.pluginHostArtifacts.get(PLUGIN_ID);
-    expect(artifact, "the plugin's bb.host artifact was built").toBeDefined();
+    expect(artifact, "the plugin's hyperfide.host artifact was built").toBeDefined();
     if (artifact === undefined) throw new Error("unreachable");
 
     await harness.pluginService.updateSettings(PLUGIN_ID, { shout: true });
@@ -447,7 +447,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
       presentation: { suppress: true },
     });
     expect(itemOf(rows, "toolCall", "echo_stamp").data.item).toMatchObject({
-      server: "bb",
+      server: "hyperfide",
       status: "completed",
       result: "stamped: hello canary",
       presentation: STAMP_PRESENTATION,
@@ -555,9 +555,9 @@ describe("echo-provider canary: plugin install → server command → runtime �
     });
   }, 120_000);
 
-  it("runs a turn with the BB guide skills staged and sends the bridge only the requests it handles", async () => {
-    const guideRoot = resolveBuiltinPluginRootPath("bb-guide");
-    const guide = await harness.pluginService.install("builtin:bb-guide", {
+  it("runs a turn with the HYPERFIDE guide skills staged and sends the bridge only the requests it handles", async () => {
+    const guideRoot = resolveBuiltinPluginRootPath("hyperfide-guide");
+    const guide = await harness.pluginService.install("builtin:hyperfide-guide", {
       kind: "root",
     });
     expect(guide.status, guide.statusDetail ?? "").toBe("running");
@@ -565,7 +565,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
     expect(entry.status, entry.statusDetail ?? "").toBe("running");
     const artifact = harness.deps.pluginHostArtifacts.get(PLUGIN_ID);
     if (artifact === undefined) {
-      throw new Error("the plugin's bb.host artifact was not built");
+      throw new Error("the plugin's hyperfide.host artifact was not built");
     }
 
     const { host, session } = seedHostSession(harness.deps, {
@@ -608,12 +608,12 @@ describe("echo-provider canary: plugin install → server command → runtime �
     expect(
       command.injectedSkillSources.map((source) => source.name).sort(),
     ).toEqual([
-      "bb-cli",
-      "bb-plugin-authoring",
+      "hyperfide-cli",
+      "hyperfide-plugin-authoring",
       "skill-creator",
       "submit-a-plugin",
     ]);
-    expect(command.instructions).toContain("bb status");
+    expect(command.instructions).toContain("hyperfide-platform status");
 
     const skillDirectoryRootPath = join(guideRoot, "skills");
     const skillRoots: AgentRuntimeSkillRoot[] = [
@@ -687,7 +687,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
       () =>
         runtimeEvents.filter((event) => event.type === "turn/completed")
           .length >= 2,
-      "the echo turn with the BB guide skills staged",
+      "the echo turn with the HYPERFIDE guide skills staged",
     );
     expect(toolCalls.map((call) => call.tool)).toEqual(["echo_stamp"]);
 

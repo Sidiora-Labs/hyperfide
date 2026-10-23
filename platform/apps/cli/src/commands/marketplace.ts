@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { Command } from "commander";
 import type { PluginMarketplace } from "@hyperfide/server-contract";
 import { action } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliHyperfideSdk } from "../client.js";
 import { renderBorderlessTable } from "../table.js";
 import { outputJson, type JsonOutputOptions } from "./helpers.js";
 
@@ -41,7 +41,9 @@ export function registerMarketplaceCommands(
 ): void {
   const marketplace = program
     .command("marketplace")
-    .description("Manage the plugin marketplaces bb reads catalogs from");
+    .description(
+      "Manage the plugin marketplaces hyperfide reads catalogs from",
+    );
 
   marketplace
     .command("add <source>")
@@ -59,14 +61,14 @@ export function registerMarketplaceCommands(
           source: string,
           opts: JsonOutputOptions & { subdirectory?: string },
         ) => {
-          const added = await createCliBbSdk(getUrl()).plugins.marketplaces.add(
-            {
-              source: normalizeSource(source),
-              ...(opts.subdirectory === undefined
-                ? {}
-                : { subdirectory: opts.subdirectory }),
-            },
-          );
+          const added = await createCliHyperfideSdk(
+            getUrl(),
+          ).plugins.marketplaces.add({
+            source: normalizeSource(source),
+            ...(opts.subdirectory === undefined
+              ? {}
+              : { subdirectory: opts.subdirectory }),
+          });
           if (opts.json) {
             outputJson(opts, added);
             return;
@@ -82,12 +84,12 @@ export function registerMarketplaceCommands(
 
   marketplace
     .command("list")
-    .description("List the marketplaces bb reads catalogs from")
+    .description("List the marketplaces hyperfide reads catalogs from")
     .option("--json", "Output JSON")
     .action(
       action(async (opts: JsonOutputOptions) => {
         const marketplaces =
-          await createCliBbSdk(getUrl()).plugins.marketplaces.list();
+          await createCliHyperfideSdk(getUrl()).plugins.marketplaces.list();
         if (opts.json) {
           outputJson(opts, marketplaces);
           return;
@@ -106,7 +108,7 @@ export function registerMarketplaceCommands(
                 "Refreshed",
               ],
               colWidths: [
-                24,
+                32,
                 showSubdirectory ? 42 : 58,
                 ...(showSubdirectory ? [16] : []),
                 9,
@@ -136,7 +138,7 @@ export function registerMarketplaceCommands(
     .option("--json", "Output JSON")
     .action(
       action(async (name: string | undefined, opts: JsonOutputOptions) => {
-        const results = await createCliBbSdk(
+        const results = await createCliHyperfideSdk(
           getUrl(),
         ).plugins.marketplaces.refresh(name === undefined ? {} : { name });
         if (opts.json) {
@@ -157,12 +159,12 @@ export function registerMarketplaceCommands(
   marketplace
     .command("remove <name>")
     .description(
-      "Forget a marketplace. bb-official and bb-community cannot be removed. Installed plugins keep their direct sources",
+      "Forget a marketplace. hyperfide-official and hyperfide-community cannot be removed. Installed plugins keep their direct sources",
     )
     .option("--json", "Output JSON")
     .action(
       action(async (name: string, opts: JsonOutputOptions) => {
-        const removed = await createCliBbSdk(
+        const removed = await createCliHyperfideSdk(
           getUrl(),
         ).plugins.marketplaces.remove({ name });
         if (opts.json) {

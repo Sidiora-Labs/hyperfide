@@ -14,7 +14,7 @@ import type {
   ServerMoveTimings,
 } from "./coordinator.js";
 import { exportServerArchive } from "./export.js";
-import { createFullBbAppArtifactService } from "./full-artifact.js";
+import { createFullHyperfideAppArtifactService } from "./full-artifact.js";
 import { resolveServerMoveMode } from "./mode.js";
 import { stopRunningServerWork } from "./stop-work.js";
 
@@ -120,7 +120,7 @@ export function createDefaultServerMoveEnvironment(
         sourceServerHostId: exportArgs.sourceServerHostId,
         workDir: exportArgs.workDir,
       }),
-    fullArtifact: createFullBbAppArtifactService({
+    fullArtifact: createFullHyperfideAppArtifactService({
       dataDir: deps.config.dataDir,
       serverEntryUrl: args.serverEntryUrl,
     }),

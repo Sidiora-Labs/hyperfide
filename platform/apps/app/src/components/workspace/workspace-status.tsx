@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@hyperfide/shared-ui/to
 import { assertNever } from "@hyperfide/core-ui";
 import type { WorkspaceStatus } from "@hyperfide/domain";
 import type { WorkspaceResolutionFailure } from "@hyperfide/host-daemon-contract";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import { describeLifecycleError } from "@/lib/lifecycle-errors";
 
 export const INCOMPLETE_SQUASH_MERGE_MESSAGE =
@@ -111,7 +111,7 @@ function getGitStatusDisplayWithoutWarning(
     }
 
     const isPathNotFound =
-      options?.error instanceof BbHttpError &&
+      options?.error instanceof HyperfideHttpError &&
       options.error.code === "path_not_found";
     if (options?.workspaceDeleted || isPathNotFound) {
       return plainDisplay("Unknown", "Workspace not found.");

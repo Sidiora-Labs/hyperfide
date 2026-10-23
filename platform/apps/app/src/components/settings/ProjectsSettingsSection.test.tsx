@@ -122,16 +122,16 @@ function stubSidebarBootstrapFetch(
 
 const projects: SidebarProjectFixture[] = [
   {
-    id: "proj_bb",
-    name: "bb",
-    gitRemoteUrl: "git@github.com:get-bb/bb.git",
+    id: "proj_hyperfide",
+    name: "hyperfide",
+    gitRemoteUrl: "git@github.com:hyperfide/hyperfide.git",
     hostIds: ["host_primary", "host_remote"],
     threadCount: 3,
   },
   {
     id: "proj_pierre",
     name: "pierre",
-    gitRemoteUrl: "https://github.com/get-bb/pierre.git",
+    gitRemoteUrl: "https://github.com/hyperfide/pierre.git",
     hostIds: ["host_remote"],
     threadCount: 1,
   },
@@ -252,11 +252,11 @@ describe("buildProjectReorderRequest", () => {
 
 describe("formatGitRemote", () => {
   it("shortens ssh and https remotes to host/path", () => {
-    expect(formatGitRemote("git@github.com:get-bb/bb.git")).toBe(
-      "github.com/get-bb/bb",
+    expect(formatGitRemote("git@github.com:hyperfide/hyperfide.git")).toBe(
+      "github.com/hyperfide/hyperfide",
     );
-    expect(formatGitRemote("https://github.com/get-bb/pierre.git")).toBe(
-      "github.com/get-bb/pierre",
+    expect(formatGitRemote("https://github.com/hyperfide/pierre.git")).toBe(
+      "github.com/hyperfide/pierre",
     );
   });
 
@@ -271,8 +271,8 @@ describe("ProjectsSettingsSection", () => {
 
     renderSection();
 
-    expect(await screen.findByText("bb")).toBeDefined();
-    expect(screen.getByText("github.com/get-bb/bb")).toBeDefined();
+    expect(await screen.findByText("hyperfide")).toBeDefined();
+    expect(screen.getByText("github.com/hyperfide/hyperfide")).toBeDefined();
     expect(await screen.findByText("2 of 2 machines")).toBeDefined();
     expect(screen.getByText("3 threads")).toBeDefined();
     expect(screen.getByText("1 of 2 machines")).toBeDefined();
@@ -282,9 +282,9 @@ describe("ProjectsSettingsSection", () => {
     expect(screen.queryByText("Personal")).toBeNull();
     expect(
       screen
-        .getByRole("link", { name: "Open bb settings" })
+        .getByRole("link", { name: "Open hyperfide settings" })
         .getAttribute("href"),
-    ).toBe("/settings/projects/proj_bb");
+    ).toBe("/settings/projects/proj_hyperfide");
   });
 
   it("marks a project offline when every configured machine is disconnected", async () => {
@@ -295,15 +295,15 @@ describe("ProjectsSettingsSection", () => {
     await screen.findByText("1 of 2 machines");
     const pierre = screen.getByText("pierre");
     expect(pierre.parentElement?.textContent).toContain("offline");
-    const bb = screen.getByText("bb");
-    expect(bb.parentElement?.textContent).not.toContain("offline");
+    const hyperfide = screen.getByText("hyperfide");
+    expect(hyperfide.parentElement?.textContent).not.toContain("offline");
   });
 
   it("shows a drag handle per project and disables them with a single project", async () => {
     stubSidebarBootstrapFetch(projects);
     const { unmount } = renderSection();
 
-    await screen.findByText("bb");
+    await screen.findByText("hyperfide");
     const handles = screen.getAllByRole("button", { name: /^Reorder / });
     expect(handles).toHaveLength(3);
     expect(handles.every((handle) => !handle.hasAttribute("disabled"))).toBe(
@@ -313,12 +313,12 @@ describe("ProjectsSettingsSection", () => {
 
     stubSidebarBootstrapFetch([projects[0]!]);
     renderSection();
-    await screen.findByText("bb");
+    await screen.findByText("hyperfide");
     await waitFor(() =>
       expect(
         (
           screen.getByRole("button", {
-            name: "Reorder bb",
+            name: "Reorder hyperfide",
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(true),
@@ -328,9 +328,9 @@ describe("ProjectsSettingsSection", () => {
   it("renames a project through the existing dialog", async () => {
     stubSidebarBootstrapFetch(projects);
     vi.mocked(sdk.projects.update).mockResolvedValue({
-      id: "proj_bb",
+      id: "proj_hyperfide",
       kind: "standard",
-      name: "bb-next",
+      name: "hyperfide-next",
       gitRemoteUrl: null,
       createdAt: NOW,
       updatedAt: NOW,
@@ -338,17 +338,17 @@ describe("ProjectsSettingsSection", () => {
     });
 
     renderSection();
-    await openProjectMenu("bb");
+    await openProjectMenu("hyperfide");
     fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
 
-    const input = await screen.findByDisplayValue("bb");
-    fireEvent.change(input, { target: { value: "bb-next" } });
+    const input = await screen.findByDisplayValue("hyperfide");
+    fireEvent.change(input, { target: { value: "hyperfide-next" } });
     fireEvent.submit(input.closest("form")!);
 
     await waitFor(() =>
       expect(sdk.projects.update).toHaveBeenCalledWith({
-        projectId: "proj_bb",
-        name: "bb-next",
+        projectId: "proj_hyperfide",
+        name: "hyperfide-next",
       }),
     );
   });
@@ -377,7 +377,7 @@ describe("ProjectsSettingsSection", () => {
     stubSidebarBootstrapFetch(projects);
 
     renderSection();
-    await screen.findByText("bb");
+    await screen.findByText("hyperfide");
     fireEvent.click(screen.getByRole("button", { name: "Add a project" }));
 
     expect(

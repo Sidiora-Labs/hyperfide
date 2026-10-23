@@ -58,7 +58,7 @@ describe("device notification settings", () => {
   });
 });
 
-const { useBbNavigate, useSdk } = await import("@hyperfide/plugin-sdk/app");
+const { useHyperfideNavigate, useSdk } = await import("@hyperfide/plugin-sdk/app");
 const { notificationsThreadAction } = await import("./notificationsAction.js");
 
 function makeTarget(
@@ -89,7 +89,7 @@ function Probe({
 }) {
   const data = notificationsThreadAction.useData!({ threadIds });
   const sdk = useSdk();
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   useLayoutEffect(() => {
     onItem((thread) =>
       notificationsThreadAction.item({ thread, data, sdk, navigate }),

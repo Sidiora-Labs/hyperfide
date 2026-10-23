@@ -50,7 +50,7 @@ function inboxEntry(
 ) {
   return makeThreadListEntry({
     id,
-    projectId: PROJECT_IDS.bb,
+    projectId: PROJECT_IDS.hyperfide,
     title,
     titleFallback: title,
     sectionId: INBOX.id,
@@ -216,7 +216,7 @@ function OpenThreadControls() {
     <section className="grid max-w-xs content-start gap-3 text-sm">
       <p className="text-muted-foreground">
         Organize → Groups → By read status starts on. Click a thread to open it,
-        then mark it read the way bb does when you view it. It keeps its group
+        then mark it read the way hyperfide does when you view it. It keeps its group
         until you open another thread.
       </p>
       <p className="text-xs text-muted-foreground">

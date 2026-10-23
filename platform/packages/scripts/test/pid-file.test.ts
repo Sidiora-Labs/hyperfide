@@ -10,7 +10,7 @@ afterEach(() => {
 
 describe("pid-file helpers", () => {
   it("writes pid files with parent directory creation", async () => {
-    const tempDir = await makeTempDir("bb-pid-file-");
+    const tempDir = await makeTempDir("hyperfide-pid-file-");
     const pidPath = path.join(tempDir, "supervisors", "server.pid");
 
     await writePidFile({
@@ -22,7 +22,7 @@ describe("pid-file helpers", () => {
   });
 
   it("rejects invalid pid files and removes them", async () => {
-    const tempDir = await makeTempDir("bb-pid-file-");
+    const tempDir = await makeTempDir("hyperfide-pid-file-");
     const pidPath = path.join(tempDir, "server.pid");
     await fs.writeFile(pidPath, "not-a-pid\n", "utf8");
 

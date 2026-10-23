@@ -8,9 +8,9 @@ const SKILL_ROOT_LABELS: Record<
   Exclude<SkillScope, "provider-user" | "provider-project">,
   string
 > = {
-  "bb-builtin": "Built-in",
-  "bb-user": "bb · user",
-  "bb-project": "bb · project",
+  "hyperfide-builtin": "Built-in",
+  "hyperfide-user": "hyperfide · user",
+  "hyperfide-project": "hyperfide · project",
   "shared-user": "Shared · user",
   "shared-project": "Shared · project",
   plugin: "Plugin",
@@ -34,15 +34,15 @@ export function isSkillEditable(
   skill: SkillSummary,
 ): skill is SkillSummary & { scope: EditableSkillScope } {
   switch (skill.scope) {
-    case "bb-user":
-    case "bb-project":
+    case "hyperfide-user":
+    case "hyperfide-project":
       return true;
     case "provider-user":
     case "provider-project":
       return skill.manageable;
     case "shared-user":
     case "shared-project":
-    case "bb-builtin":
+    case "hyperfide-builtin":
     case "plugin":
       return false;
   }

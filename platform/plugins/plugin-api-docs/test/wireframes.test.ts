@@ -201,7 +201,7 @@ describe("guide fixture boundaries", () => {
     );
   });
 
-  it("mirrors bb's fixed Info/Diff tabs before plugin-owned content tabs", () => {
+  it("mirrors hyperfide's fixed Info/Diff tabs before plugin-owned content tabs", () => {
     const markup = renderWireframe(
       createElement(AppShellRightPanel, {
         activeTab: "thread-panel",
@@ -268,7 +268,7 @@ describe("guide fixture boundaries", () => {
     );
   });
 
-  it("draws a plugin row and section among bb's own in the Info tab", () => {
+  it("draws a plugin row and section among hyperfide's own in the Info tab", () => {
     const markup = renderWireframe(
       createElement(AppShellRightPanel, {
         activeTab: "thread-info",

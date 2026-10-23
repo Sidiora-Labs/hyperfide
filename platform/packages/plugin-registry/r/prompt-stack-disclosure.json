@@ -3,7 +3,7 @@
   "name": "prompt-stack-disclosure",
   "type": "registry:ui",
   "title": "prompt-stack-disclosure",
-  "description": "BB ui \"prompt-stack-disclosure\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"prompt-stack-disclosure\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/chrome-style-tokens",
     "@hyperfide/icon",

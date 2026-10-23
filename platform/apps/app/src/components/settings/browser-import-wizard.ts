@@ -16,7 +16,7 @@ export type BrowserImportRecords = Readonly<
   Partial<Record<DesktopBrowserImportSource["id"], BrowserImportRecord>>
 >;
 
-export const BROWSER_IMPORT_RECORDS_STORAGE_KEY = "bb:browser-import:records";
+export const BROWSER_IMPORT_RECORDS_STORAGE_KEY = "hyperfide:browser-import:records";
 
 export function readBrowserImportRecords(
   storage: Pick<Storage, "getItem"> | null,

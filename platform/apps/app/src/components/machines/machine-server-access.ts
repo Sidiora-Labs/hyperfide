@@ -1,7 +1,7 @@
 import type { ServerAccessStatus } from "@hyperfide/server-contract";
 import { isLocalOnlyUrl } from "@/lib/loopback-hostname";
 
-export const MACHINE_SERVER_ACCESS_TITLE = "Machines cannot reach this bb yet";
+export const MACHINE_SERVER_ACCESS_TITLE = "Machines cannot reach this hyperfide yet";
 
 export function machineServerAccessReady(
   access: ServerAccessStatus | undefined,
@@ -17,7 +17,7 @@ export function machineServerAccessReady(
 }
 
 export const MACHINE_SERVER_ACCESS_UNSET_REASON =
-  "Configure how machines should connect to this bb server.";
+  "Configure how machines should connect to this hyperfide-platform server.";
 
 export function machineServerAccessBlockedReason(
   access: ServerAccessStatus | undefined,

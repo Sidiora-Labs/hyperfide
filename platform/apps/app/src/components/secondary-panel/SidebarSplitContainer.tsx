@@ -28,7 +28,7 @@ import {
   createSplitResizeSnapSession,
 } from "@/lib/split-resize-snap";
 import { IframeDragGuardOverlay } from "@/lib/iframe-drag-guard";
-import { MACOS_APP_REGION_NO_DRAG_CLASS } from "@/lib/bb-desktop";
+import { MACOS_APP_REGION_NO_DRAG_CLASS } from "@/lib/hyperfide-desktop";
 import { withLocalStorage } from "@/lib/browser-storage";
 import {
   PaneContext,

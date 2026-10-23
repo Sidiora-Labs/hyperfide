@@ -52,8 +52,8 @@ function gitPersistence(url: string, requestedRef: string) {
 
 const THROWING_SERVER_TS = `throw new Error("source must not load");\n`;
 
-const PREBUILT_SERVER_JS = `export default async function plugin(bb) {
-  bb.log.info("dist");
+const PREBUILT_SERVER_JS = `export default async function plugin(hyperfide) {
+  hyperfide.log.info("dist");
   globalThis.__prebuiltDistLoads = (globalThis.__prebuiltDistLoads ?? 0) + 1;
 }
 `;
@@ -65,7 +65,7 @@ describe("prebuilt server bundle loading", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-prebuilt-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-prebuilt-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -101,7 +101,7 @@ describe("prebuilt server bundle loading", () => {
         name,
         version: "0.1.0",
         type: "commonjs",
-        bb: {
+        hyperfide: {
           name: "Prebuilt server fixture",
           description: "Prebuilt plugin server fixture.",
           branding: { icon: "Zap" },
@@ -122,11 +122,11 @@ describe("prebuilt server bundle loading", () => {
   }
 
   it("loads a compatible ESM prebuild from a CommonJS plugin package", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-gitdist");
+    const rootDir = await writePrebuiltPlugin("hyperfide-plugin-gitdist");
     upsertInstalledPlugin(db, {
-      ...gitPersistence("https://github.com/acme/bb-plugin-gitdist", "v1"),
+      ...gitPersistence("https://github.com/acme/hyperfide-plugin-gitdist", "v1"),
       id: "gitdist",
-      source: "git:github.com/acme/bb-plugin-gitdist@v1",
+      source: "git:github.com/acme/hyperfide-plugin-gitdist@v1",
       rootDir,
       version: "0.1.0",
       enabled: true,
@@ -152,7 +152,7 @@ describe("prebuilt server bundle loading", () => {
   });
 
   it("compiles path source into a reusable cache and rebuilds after edits", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-pathcache");
+    const rootDir = await writePrebuiltPlugin("hyperfide-plugin-pathcache");
     const sourcePath = join(rootDir, "server.ts");
     await writeFile(
       sourcePath,
@@ -203,7 +203,7 @@ export default function plugin() {
   });
 
   it("bounds compiled artifacts and evicts loaded source modules", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-reload-retention");
+    const rootDir = await writePrebuiltPlugin("hyperfide-plugin-reload-retention");
     const sourcePath = join(rootDir, "server.ts");
     const cacheRoot = join(workDir, "data", "plugins", "runtime", "server");
     for (let generation = 0; generation < 8; generation += 1) {
@@ -254,7 +254,7 @@ export default function plugin() {
     const state = globalThis as Record<string, unknown>;
     state.__symlinkEvaluations = 0;
     try {
-      const rootDir = await writePrebuiltPlugin("bb-plugin-symlink-data");
+      const rootDir = await writePrebuiltPlugin("hyperfide-plugin-symlink-data");
       const sourcePath = join(rootDir, "server.ts");
       await writeFile(
         sourcePath,
@@ -293,14 +293,14 @@ export default function plugin() {
   });
 
   it("pre-1.0: falls back to source when the dist SDK version differs within major 0", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-minordist", {
+    const rootDir = await writePrebuiltPlugin("hyperfide-plugin-minordist", {
       sdkMajor: PLUGIN_SDK_MAJOR,
       sdkVersion: `${PLUGIN_SDK_MAJOR}.999.0`,
     });
     upsertInstalledPlugin(db, {
-      ...gitPersistence("https://github.com/acme/bb-plugin-minordist", "v1"),
+      ...gitPersistence("https://github.com/acme/hyperfide-plugin-minordist", "v1"),
       id: "minordist",
-      source: "git:github.com/acme/bb-plugin-minordist@v1",
+      source: "git:github.com/acme/hyperfide-plugin-minordist@v1",
       rootDir,
       version: "0.1.0",
       enabled: true,
@@ -314,14 +314,14 @@ export default function plugin() {
   });
 
   it("falls back to source when the dist meta's SDK major mismatches", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-staledist", {
+    const rootDir = await writePrebuiltPlugin("hyperfide-plugin-staledist", {
       sdkMajor: 999,
       sdkVersion: "999.0.0",
     });
     upsertInstalledPlugin(db, {
-      ...gitPersistence("https://github.com/acme/bb-plugin-staledist", "v1"),
+      ...gitPersistence("https://github.com/acme/hyperfide-plugin-staledist", "v1"),
       id: "staledist",
-      source: "git:github.com/acme/bb-plugin-staledist@v1",
+      source: "git:github.com/acme/hyperfide-plugin-staledist@v1",
       rootDir,
       version: "0.1.0",
       enabled: true,

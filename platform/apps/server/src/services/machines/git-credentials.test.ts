@@ -22,7 +22,7 @@ function gh(email: string | null = null, login = "octocat") {
 }
 
 async function gitEnv() {
-  const home = await mkdtemp(join(tmpdir(), "bb-git-env-"));
+  const home = await mkdtemp(join(tmpdir(), "hyperfide-git-env-"));
   cleanup.push(() => rm(home, { recursive: true, force: true }));
   const entries = await resolveGitCredentials(gh());
   const env: NodeJS.ProcessEnv = {

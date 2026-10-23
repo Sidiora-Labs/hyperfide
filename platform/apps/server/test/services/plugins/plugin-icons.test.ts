@@ -29,7 +29,7 @@ async function writeIconPluginFixture(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Icons fixture",
         description: "Declares icons.",
         branding: {
@@ -61,8 +61,8 @@ async function writeIconPluginFixture(
 }
 
 const PROVIDER_SOURCE = (icon: string): string => `
-  export default function plugin(bb: any) {
-    bb.providers.register({
+  export default function plugin(hyperfide: any) {
+    hyperfide.providers.register({
       id: "marked-agent",
       displayName: "Marked Agent",
       icon: ${JSON.stringify(icon)},
@@ -98,10 +98,10 @@ describe("plugin-declared icons", () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-iconed",
+      "hyperfide-plugin-iconed",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-iconed",
+      name: "hyperfide-plugin-iconed",
       icons: { receipt: "./icons/receipt.svg", mark: "./icons/mark.svg" },
       files: { "icons/receipt.svg": SVG, "icons/mark.svg": OTHER_SVG },
     });
@@ -221,10 +221,10 @@ describe("plugin-declared icons", () => {
       const rootDir = join(
         harness.config.dataDir,
         "fixtures",
-        "bb-plugin-badicon",
+        "hyperfide-plugin-badicon",
       );
       await writeIconPluginFixture(rootDir, {
-        name: "bb-plugin-badicon",
+        name: "hyperfide-plugin-badicon",
         icons,
         files,
       });
@@ -234,14 +234,14 @@ describe("plugin-declared icons", () => {
     },
   );
 
-  it("fails the load when bb.branding.icon is a namespaced glyph, even the plugin's own", async () => {
+  it("fails the load when hyperfide.branding.icon is a namespaced glyph, even the plugin's own", async () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-branded",
+      "hyperfide-plugin-branded",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-branded",
+      name: "hyperfide-plugin-branded",
       brandingIcon: "branded/logo",
       icons: { logo: "./icons/logo.svg" },
       files: { "icons/logo.svg": SVG },
@@ -249,22 +249,22 @@ describe("plugin-declared icons", () => {
     await expect(
       harness.pluginService.installPath(rootDir),
     ).rejects.toThrowError(
-      /\(bb\.branding\.icon\): "branded\/logo" is a namespaced glyph/,
+      /\(hyperfide\.branding\.icon\): "branded\/logo" is a namespaced glyph/,
     );
     expect(harness.pluginService.getApi("branded")).toBeUndefined();
   });
 
   it("fails the load for an icon reached through a symlink outside the plugin", async () => {
-    const outside = join(tmpdir(), `bb-plugin-icon-outside-${Date.now()}`);
+    const outside = join(tmpdir(), `hyperfide-plugin-icon-outside-${Date.now()}`);
     await mkdir(outside, { recursive: true });
     await writeFile(join(outside, "receipt.svg"), SVG);
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-linked",
+      "hyperfide-plugin-linked",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-linked",
+      name: "hyperfide-plugin-linked",
       icons: { receipt: "./icons/receipt.svg" },
     });
     await mkdir(join(rootDir, "icons"), { recursive: true });
@@ -283,10 +283,10 @@ describe("plugin-declared icons", () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-tooled",
+      "hyperfide-plugin-tooled",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-tooled",
+      name: "hyperfide-plugin-tooled",
       icons: { stamp: "./icons/stamp.svg" },
       files: { "icons/stamp.svg": SVG },
     });
@@ -335,10 +335,10 @@ describe("plugin-declared icons", () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-marked",
+      "hyperfide-plugin-marked",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-marked",
+      name: "hyperfide-plugin-marked",
       icons: { agent: "./icons/agent.svg" },
       files: { "icons/agent.svg": SVG },
       serverSource: PROVIDER_SOURCE("marked/agent"),
@@ -387,10 +387,10 @@ describe("plugin-declared icons", () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-unmarked",
+      "hyperfide-plugin-unmarked",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-unmarked",
+      name: "hyperfide-plugin-unmarked",
       icons: { agent: "./icons/agent.svg" },
       files: { "icons/agent.svg": SVG },
       serverSource: PROVIDER_SOURCE("unmarked/badge"),

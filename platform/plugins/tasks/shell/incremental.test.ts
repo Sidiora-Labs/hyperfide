@@ -18,10 +18,10 @@ afterEach(async () => {
 });
 
 function setup() {
-  const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
+  const { hyperfide, harness } = createFakePluginHost({ pluginId: "tasks" });
   harnesses.push(harness);
-  const store = createStore(bb);
-  registerTasksApi(bb, store);
+  const store = createStore(hyperfide);
+  registerTasksApi(hyperfide, store);
   const project = store.tasks.createProject({
     name: "Review",
     prefix: "REV",

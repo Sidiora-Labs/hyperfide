@@ -137,10 +137,10 @@ function threadEventsOfType(type: string): Record<string, unknown>[] {
   return threadEvents().filter((event) => event.type === type);
 }
 
-const bbThreadIdByProviderThreadId = new Map<string, string>();
+const hyperfideThreadIdByProviderThreadId = new Map<string, string>();
 
-function bbThreadIdFor(providerThreadId: string): string {
-  const recorded = bbThreadIdByProviderThreadId.get(providerThreadId);
+function hyperfideThreadIdFor(providerThreadId: string): string {
+  const recorded = hyperfideThreadIdByProviderThreadId.get(providerThreadId);
   if (recorded !== undefined) {
     return recorded;
   }
@@ -156,7 +156,7 @@ function bbThreadIdFor(providerThreadId: string): string {
       return params.threadId;
     }
   }
-  throw new Error(`No bb thread id recorded for ${providerThreadId}`);
+  throw new Error(`No hyperfide-platform thread id recorded for ${providerThreadId}`);
 }
 
 const CLIENT_REQUEST_ID = "creq_abcdefghjk";
@@ -278,13 +278,13 @@ interface StartThreadArgs extends AgentLaunchArgs {
 }
 
 async function startThread(args?: StartThreadArgs): Promise<{
-  bbThreadId: string;
+  hyperfideThreadId: string;
   providerThreadId: string;
 }> {
   nextThreadSerial += 1;
-  const bbThreadId = `thread-${nextThreadSerial}`;
+  const hyperfideThreadId = `thread-${nextThreadSerial}`;
   const id = sendRequest("thread/start", {
-    threadId: bbThreadId,
+    threadId: hyperfideThreadId,
     cwd: workspaceDir,
     instructionMode: "append",
     options: executionOptions({
@@ -313,13 +313,13 @@ async function startThread(args?: StartThreadArgs): Promise<{
   ) {
     throw new Error("thread/start did not return a providerThreadId");
   }
-  bbThreadIdByProviderThreadId.set(result.providerThreadId, bbThreadId);
-  return { bbThreadId, providerThreadId: result.providerThreadId };
+  hyperfideThreadIdByProviderThreadId.set(result.providerThreadId, hyperfideThreadId);
+  return { hyperfideThreadId, providerThreadId: result.providerThreadId };
 }
 
 async function stopThread(providerThreadId: string): Promise<void> {
   const id = sendRequest("thread/stop", {
-    threadId: bbThreadIdFor(providerThreadId),
+    threadId: hyperfideThreadIdFor(providerThreadId),
     providerThreadId,
     intent: "interrupt",
     activeTurnId: null,
@@ -435,7 +435,7 @@ function sendTurnRequest(
   params: Record<string, unknown>,
 ): number {
   return sendRequest(method, {
-    threadId: bbThreadIdFor(providerThreadId),
+    threadId: hyperfideThreadIdFor(providerThreadId),
     providerThreadId,
     clientRequestId: CLIENT_REQUEST_ID,
     options: executionOptions({}),
@@ -638,8 +638,8 @@ async function waitForAgentExit(readyFile: string): Promise<void> {
 
 beforeEach(({ signal }) => {
   testSignal = signal;
-  bbThreadIdByProviderThreadId.clear();
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-acp-bridge-test-"));
+  hyperfideThreadIdByProviderThreadId.clear();
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-acp-bridge-test-"));
   output = captureBridgeJsonRpcOutput();
 });
 
@@ -695,7 +695,7 @@ describe("acp bridge", () => {
   it("answers initialize and lists grouped models without spawning an agent", async () => {
     const initializeId = sendRequest("initialize", {
       protocolVersion: PROVIDER_BRIDGE_PROTOCOL_VERSION,
-      client: { name: "bb", version: "1.0.0" },
+      client: { name: "hyperfide", version: "1.0.0" },
     });
     expect((await waitForResponse(initializeId)).result).toMatchObject({
       protocolVersion: PROVIDER_BRIDGE_PROTOCOL_VERSION,
@@ -1034,7 +1034,7 @@ describe("acp bridge", () => {
         selectedModel === "default" ? [] : [selectedModel, "high", "true"],
       );
       const providerThreadId = providerThreadIdOf(response);
-      bbThreadIdByProviderThreadId.set(providerThreadId, threadId);
+      hyperfideThreadIdByProviderThreadId.set(providerThreadId, threadId);
     },
   );
 
@@ -1208,7 +1208,7 @@ describe("acp bridge", () => {
     const response = await waitForResponse(modelListId!);
     expect(response.result).toBeUndefined();
     expect(response.error?.message).toBe(
-      "The agent did not answer within 30 seconds while bb asked it for its models",
+      "The agent did not answer within 30 seconds while hyperfide asked it for its models",
     );
     await waitForAgentExit(readyFile);
   });
@@ -2181,12 +2181,12 @@ describe("acp bridge", () => {
   }, 20_000);
 
   it("starts a session and runs a prompt turn end to end", async () => {
-    const { bbThreadId, providerThreadId } = await startThread();
+    const { hyperfideThreadId, providerThreadId } = await startThread();
     expect(providerThreadId).toMatch(/^fake-sess-\d+$/);
 
     const identity = notifications("thread/identity").at(-1);
     expect(identity?.params).toEqual({
-      threadId: bbThreadId,
+      threadId: hyperfideThreadId,
       providerThreadId,
       sessionRestorable: false,
     });
@@ -2305,7 +2305,7 @@ describe("acp bridge", () => {
     });
   });
 
-  it("keeps a non-auth session failure untyped when the agent advertises a login bb cannot perform", async () => {
+  it("keeps a non-auth session failure untyped when the agent advertises a login hyperfide cannot perform", async () => {
     const response = await startThreadResponse({
       FAKE_ACP_AUTH_METHODS: "agent.login",
       FAKE_ACP_AUTH_OPTIONAL: "1",
@@ -2319,7 +2319,7 @@ describe("acp bridge", () => {
     expect(response.error?.data).toBeUndefined();
   });
 
-  it("keeps an agent exit during session/new untyped when the agent advertises a login bb cannot perform", async () => {
+  it("keeps an agent exit during session/new untyped when the agent advertises a login hyperfide cannot perform", async () => {
     const response = await startThreadResponse({
       FAKE_ACP_AUTH_METHODS: "agent.login",
       FAKE_ACP_AUTH_OPTIONAL: "1",
@@ -2370,7 +2370,7 @@ describe("acp bridge", () => {
   });
 
   it("forwards ACP dynamic tool calls through the runtime tool-call contract", async () => {
-    const { bbThreadId, providerThreadId } = await startThread({
+    const { hyperfideThreadId, providerThreadId } = await startThread({
       dynamicTools: [
         {
           name: "update_environment_directory",
@@ -2409,10 +2409,10 @@ describe("acp bridge", () => {
     const env = new Map(
       mcpServerConfig.env.map(({ name, value }) => [name, value]),
     );
-    const host = env.get("BB_ACP_DYNAMIC_TOOL_HOST");
-    const port = Number(env.get("BB_ACP_DYNAMIC_TOOL_PORT"));
-    const threadId = env.get("BB_ACP_DYNAMIC_TOOL_THREAD_ID");
-    const token = env.get("BB_ACP_DYNAMIC_TOOL_TOKEN");
+    const host = env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_HOST");
+    const port = Number(env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_PORT"));
+    const threadId = env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_THREAD_ID");
+    const token = env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_TOKEN");
     if (!host || !Number.isInteger(port) || !threadId || !token) {
       throw new Error("MCP server config is missing dynamic tool bridge env");
     }
@@ -2437,7 +2437,7 @@ describe("acp bridge", () => {
     expect(forwarded.params).toMatchObject({
       arguments: { path: "/tmp/next-worktree" },
       providerThreadId,
-      threadId: bbThreadId,
+      threadId: hyperfideThreadId,
       tool: "update_environment_directory",
       turnId: null,
     });
@@ -2504,10 +2504,10 @@ describe("acp bridge", () => {
       const env = new Map(
         mcpServerConfig.env.map(({ name, value }) => [name, value]),
       );
-      const host = env.get("BB_ACP_DYNAMIC_TOOL_HOST");
-      const port = Number(env.get("BB_ACP_DYNAMIC_TOOL_PORT"));
-      const threadId = env.get("BB_ACP_DYNAMIC_TOOL_THREAD_ID");
-      const token = env.get("BB_ACP_DYNAMIC_TOOL_TOKEN");
+      const host = env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_HOST");
+      const port = Number(env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_PORT"));
+      const threadId = env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_THREAD_ID");
+      const token = env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_TOKEN");
       if (!host || !Number.isInteger(port) || !threadId || !token) {
         throw new Error("MCP server config is missing dynamic tool bridge env");
       }
@@ -2573,7 +2573,7 @@ describe("acp bridge", () => {
   );
 
   it("keeps the dynamic-tool TCP server alive after a client reset on initialize", async () => {
-    const { bbThreadId, providerThreadId } = await startThread({
+    const { hyperfideThreadId, providerThreadId } = await startThread({
       dynamicTools: [
         {
           name: "update_environment_directory",
@@ -2609,10 +2609,10 @@ describe("acp bridge", () => {
     const env = new Map(
       mcpServerConfig.env.map(({ name, value }) => [name, value]),
     );
-    const host = env.get("BB_ACP_DYNAMIC_TOOL_HOST");
-    const port = Number(env.get("BB_ACP_DYNAMIC_TOOL_PORT"));
-    const threadId = env.get("BB_ACP_DYNAMIC_TOOL_THREAD_ID");
-    const token = env.get("BB_ACP_DYNAMIC_TOOL_TOKEN");
+    const host = env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_HOST");
+    const port = Number(env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_PORT"));
+    const threadId = env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_THREAD_ID");
+    const token = env.get("HYPERFIDE_ACP_DYNAMIC_TOOL_TOKEN");
     if (!host || !Number.isInteger(port) || !threadId || !token) {
       throw new Error("MCP server config is missing dynamic tool bridge env");
     }
@@ -2673,7 +2673,7 @@ describe("acp bridge", () => {
       arguments: { path: "/tmp/next-worktree" },
       callId: "test-dynamic-tool-call-after-reset",
       providerThreadId,
-      threadId: bbThreadId,
+      threadId: hyperfideThreadId,
       tool: "update_environment_directory",
       turnId: null,
     });
@@ -2763,7 +2763,7 @@ describe("acp bridge", () => {
     const prompt: unknown = JSON.parse(
       readFileSync(promptLog, "utf8").trim().split("\n")[0] ?? "null",
     );
-    expect(prompt).toContain("Available bb skills:");
+    expect(prompt).toContain("Available hyperfide skills:");
     expect(prompt).toContain(
       `- deploy: Ship the app. (SKILL.md: ${join("/staged/acp-skills", "deploy", "SKILL.md")})`,
     );
@@ -2803,7 +2803,7 @@ describe("acp bridge", () => {
   });
 
   it("forwards permission requests to the runtime in ask mode", async () => {
-    const { bbThreadId, providerThreadId } = await startThread({
+    const { hyperfideThreadId, providerThreadId } = await startThread({
       permissionMode: "accept-edits",
       permissionEscalation: "ask",
     });
@@ -2823,7 +2823,7 @@ describe("acp bridge", () => {
       "forwarded permission request",
     );
     expect(forwarded.params).toMatchObject({
-      threadId: bbThreadId,
+      threadId: hyperfideThreadId,
       providerThreadId,
       turnId: null,
       payload: {
@@ -2958,7 +2958,7 @@ describe("acp bridge", () => {
     "reconciles $before -> $after on $method (CLI: $cli, load: $load)",
     async (scenario) => {
       const outsideDir = mkdtempSync(
-        join(tmpdir(), "bb-acp-permission-probe-"),
+        join(tmpdir(), "hyperfide-acp-permission-probe-"),
       );
       const targetPath = join(outsideDir, "probe.txt");
       let providerThreadId = "";
@@ -3181,7 +3181,7 @@ describe("acp bridge", () => {
   });
 
   it("denies client fs writes outside the workspace in accept-edits mode", async () => {
-    const outsideDir = mkdtempSync(join(tmpdir(), "bb-acp-outside-"));
+    const outsideDir = mkdtempSync(join(tmpdir(), "hyperfide-acp-outside-"));
     const targetPath = join(outsideDir, "outside.txt");
     try {
       const { providerThreadId } = await startThread({
@@ -3204,7 +3204,7 @@ describe("acp bridge", () => {
   });
 
   it("allows canonical accept-edits writes into a configured extra write root", async () => {
-    const outsideDir = mkdtempSync(join(tmpdir(), "bb-acp-extra-root-"));
+    const outsideDir = mkdtempSync(join(tmpdir(), "hyperfide-acp-extra-root-"));
     const targetPath = join(outsideDir, "outside.txt");
     try {
       const threadId = "thread-canonical-extra-root";
@@ -3596,7 +3596,7 @@ describe("acp bridge", () => {
     });
     await waitForResponse(steerId);
     const stopId = sendRequest("thread/stop", {
-      threadId: bbThreadIdFor(providerThreadId),
+      threadId: hyperfideThreadIdFor(providerThreadId),
       providerThreadId,
       intent: "interrupt",
       activeTurnId: null,
@@ -3626,7 +3626,7 @@ describe("acp bridge", () => {
     await waitForResponse(turnId);
 
     const stopId = sendRequest("thread/stop", {
-      threadId: bbThreadIdFor(providerThreadId),
+      threadId: hyperfideThreadIdFor(providerThreadId),
       providerThreadId,
       intent: "interrupt",
       activeTurnId: null,
@@ -3639,7 +3639,7 @@ describe("acp bridge", () => {
   });
 
   it("settles the interrupted turn itself when the agent ignores session/cancel", async () => {
-    const { bbThreadId, providerThreadId } = await startThread({
+    const { hyperfideThreadId, providerThreadId } = await startThread({
       envVars: { FAKE_ACP_IGNORE_CANCEL: "1" },
     });
     const turnId = sendTurnRequest("turn/start", providerThreadId, {
@@ -3648,7 +3648,7 @@ describe("acp bridge", () => {
     await waitForResponse(turnId);
 
     const stopId = sendRequest("thread/stop", {
-      threadId: bbThreadId,
+      threadId: hyperfideThreadId,
       providerThreadId,
       intent: "interrupt",
       activeTurnId: null,
@@ -3850,11 +3850,11 @@ describe("acp bridge", () => {
     const first = await startThread({
       envVars: { FAKE_ACP_LOAD_SESSION: "1" },
     });
-    expect(resetIndexesFor(first.bbThreadId)).toHaveLength(1);
+    expect(resetIndexesFor(first.hyperfideThreadId)).toHaveLength(1);
 
     await stopThread(first.providerThreadId);
     const resumeId = sendRequest("thread/resume", {
-      threadId: first.bbThreadId,
+      threadId: first.hyperfideThreadId,
       cwd: workspaceDir,
       instructionMode: "append",
       options: executionOptions({
@@ -3868,8 +3868,8 @@ describe("acp bridge", () => {
     });
     const resumeResponse = await waitForResponse(resumeId);
     expect(resumeResponse.error).toBeUndefined();
-    const resets = resetIndexesFor(first.bbThreadId);
-    const identities = identityIndexesFor(first.bbThreadId);
+    const resets = resetIndexesFor(first.hyperfideThreadId);
+    const identities = identityIndexesFor(first.hyperfideThreadId);
     expect(resets).toHaveLength(2);
     expect(identities).toHaveLength(2);
     expect(resets[0]).toBeGreaterThan(identities[0] ?? Infinity);
@@ -3898,7 +3898,7 @@ describe("acp bridge", () => {
     ) {
       throw new Error("thread/fork did not return a providerThreadId");
     }
-    bbThreadIdByProviderThreadId.set(
+    hyperfideThreadIdByProviderThreadId.set(
       forkResult.providerThreadId,
       "thread-fork-reset",
     );
@@ -3909,12 +3909,12 @@ describe("acp bridge", () => {
   });
 
   it("surfaces Grok context window size and prompt usage from session _meta", async () => {
-    const { bbThreadId, providerThreadId } = await startThread({
+    const { hyperfideThreadId, providerThreadId } = await startThread({
       dialectId: "grok",
       envVars: { FAKE_ACP_GROK_CONTEXT: "1" },
     });
 
-    expect(contextWindowDeltasFor(bbThreadId)).toEqual([
+    expect(contextWindowDeltasFor(hyperfideThreadId)).toEqual([
       { used: 0, size: 500_000 },
     ]);
 
@@ -3923,33 +3923,33 @@ describe("acp bridge", () => {
     });
     await waitForTurnCompleted();
 
-    expect(contextWindowDeltasFor(bbThreadId)).toEqual([
+    expect(contextWindowDeltasFor(hyperfideThreadId)).toEqual([
       { used: 0, size: 500_000 },
       { used: 17_504, size: 500_000 },
     ]);
   });
 
   it("ignores Grok-shaped session _meta on other ACP dialects", async () => {
-    const { bbThreadId, providerThreadId } = await startThread({
+    const { hyperfideThreadId, providerThreadId } = await startThread({
       envVars: { FAKE_ACP_GROK_CONTEXT: "1" },
     });
 
-    expect(contextWindowDeltasFor(bbThreadId)).toEqual([]);
+    expect(contextWindowDeltasFor(hyperfideThreadId)).toEqual([]);
 
     sendTurnRequest("turn/start", providerThreadId, {
       input: [{ type: "text", text: "hello", mentions: [] }],
     });
     await waitForTurnCompleted();
 
-    expect(contextWindowDeltasFor(bbThreadId)).toEqual([]);
+    expect(contextWindowDeltasFor(hyperfideThreadId)).toEqual([]);
   });
 
   it("holds an agent update written with the session/new response until thread/identity is out, and leaves out what the agent said before any prompt", async () => {
-    const { bbThreadId } = await startThread({
+    const { hyperfideThreadId } = await startThread({
       envVars: { FAKE_ACP_UPDATES_WITH_SESSION_RESPONSE: "1" },
     });
 
-    const wire = messagesForThread(bbThreadId);
+    const wire = messagesForThread(hyperfideThreadId);
     const identityIndex = wire.findIndex(
       (message) => message.method === "thread/identity",
     );
@@ -3962,7 +3962,7 @@ describe("acp bridge", () => {
     expect(kinds[0]).toBe("session.reset");
     expect(kinds).not.toContain("item.textDelta");
     expect(kinds).not.toContain("turn.open");
-    expect(contextWindowDeltasFor(bbThreadId)).toEqual([
+    expect(contextWindowDeltasFor(hyperfideThreadId)).toEqual([
       { used: 12_345, size: 200_000 },
     ]);
   });
@@ -3991,7 +3991,7 @@ describe("acp bridge", () => {
     const forkedProviderThreadId = providerThreadIdOf(
       await waitForResponse(forkId),
     );
-    bbThreadIdByProviderThreadId.set(forkedProviderThreadId, forkThreadId);
+    hyperfideThreadIdByProviderThreadId.set(forkedProviderThreadId, forkThreadId);
 
     const wire = messagesForThread(forkThreadId);
     const identityIndex = wire.findIndex(
@@ -4014,7 +4014,7 @@ describe("acp bridge", () => {
     await stopThread(first.providerThreadId);
 
     const resumeId = sendRequest("thread/resume", {
-      threadId: first.bbThreadId,
+      threadId: first.hyperfideThreadId,
       cwd: workspaceDir,
       instructionMode: "append",
       options: executionOptions({
@@ -4053,7 +4053,7 @@ describe("acp bridge", () => {
     await stopThread(first.providerThreadId);
 
     const resumeId = sendRequest("thread/resume", {
-      threadId: first.bbThreadId,
+      threadId: first.hyperfideThreadId,
       cwd: workspaceDir,
       instructionMode: "append",
       options: executionOptions({
@@ -4084,7 +4084,7 @@ describe("acp bridge", () => {
     await stopThread(first.providerThreadId);
 
     const resumeId = sendRequest("thread/resume", {
-      threadId: first.bbThreadId,
+      threadId: first.hyperfideThreadId,
       cwd: workspaceDir,
       instructionMode: "append",
       options: executionOptions({
@@ -4125,7 +4125,7 @@ describe("acp bridge", () => {
     await stopThread(first.providerThreadId);
 
     const resumeId = sendRequest("thread/resume", {
-      threadId: first.bbThreadId,
+      threadId: first.hyperfideThreadId,
       cwd: workspaceDir,
       instructionMode: "append",
       options: executionOptions({
@@ -4185,7 +4185,7 @@ describe("acp bridge", () => {
   });
 
   it("reports unexpected agent exits as a single provider error", async () => {
-    const { bbThreadId, providerThreadId } = await startThread();
+    const { hyperfideThreadId, providerThreadId } = await startThread();
     const turnId = sendTurnRequest("turn/start", providerThreadId, {
       input: [{ type: "text", text: "die", mentions: [] }],
     });
@@ -4196,7 +4196,7 @@ describe("acp bridge", () => {
       return errorNotifications.length > 0 ? errorNotifications : undefined;
     }, "agent exit error notification");
     expect(errors).toHaveLength(1);
-    expect(errors[0]?.params).toMatchObject({ threadId: bbThreadId });
+    expect(errors[0]?.params).toMatchObject({ threadId: hyperfideThreadId });
     expect(threadEventsOfType("turn/completed").at(-1)).toMatchObject({
       status: "failed",
     });
@@ -4229,7 +4229,7 @@ describe("acp bridge", () => {
       const readyFile = join(workspaceDir, "agent-ready");
       const promptLog = join(workspaceDir, "prompts.jsonl");
       const requestLog = join(workspaceDir, "requests.jsonl");
-      const { bbThreadId, providerThreadId } = await startThread({
+      const { hyperfideThreadId, providerThreadId } = await startThread({
         envVars: {
           FAKE_ACP_LOAD_SESSION: loadSession,
           FAKE_ACP_FAIL_LOAD: failLoad,
@@ -4266,7 +4266,7 @@ describe("acp bridge", () => {
         "external agent exit notification",
       );
       expect(error.params).toMatchObject({
-        threadId: bbThreadId,
+        threadId: hyperfideThreadId,
         message: expect.stringContaining("exited unexpectedly"),
       });
       expect(notifications("error")).toHaveLength(1);
@@ -4290,7 +4290,7 @@ describe("acp bridge", () => {
       expect(agentMessageTexts()).toContain("echo:after");
       const contextLost = loadSession === "0" || failLoad === "1";
       expect(notifications("session/replaced").at(-1)?.params).toMatchObject({
-        threadId: bbThreadId,
+        threadId: hyperfideThreadId,
         contextLost,
       });
       expect(
@@ -4300,7 +4300,7 @@ describe("acp bridge", () => {
       ).toHaveLength(loadSession === "1" ? 1 : 0);
       if (!contextLost) {
         expect(notifications("thread/identity").at(-1)?.params).toMatchObject({
-          threadId: bbThreadId,
+          threadId: hyperfideThreadId,
           providerThreadId,
         });
       }
@@ -4459,7 +4459,7 @@ describe("acp bridge", () => {
     const liveProviderThreadId = providerThreadIdOf(
       await waitForResponse(secondStartId),
     );
-    bbThreadIdByProviderThreadId.set(liveProviderThreadId, threadId);
+    hyperfideThreadIdByProviderThreadId.set(liveProviderThreadId, threadId);
 
     const first = await waitForResponse(firstStartId);
     expect(first.result).toBeUndefined();
@@ -4490,13 +4490,13 @@ describe("acp bridge", () => {
       options: executionOptions({
         providerOptions: {
           acpLaunchSpec: acpLaunchSpec({
-            agent: { command: "definitely-not-a-real-binary-bb", args: [] },
+            agent: { command: "definitely-not-a-real-binary-hyperfide", args: [] },
           }),
         },
       }),
     });
     const response = await waitForResponse(id);
-    expect(response.error?.message).toMatch(/definitely-not-a-real-binary-bb/);
+    expect(response.error?.message).toMatch(/definitely-not-a-real-binary-hyperfide/);
   });
 
   it("rejects thread/start without an ACP launch spec", async () => {
@@ -4659,7 +4659,7 @@ describe("acp bridge: work the agent starts on its own", () => {
   });
 
   it("shows a permission request the agent raises with no prompt in flight instead of cancelling it", async () => {
-    const { bbThreadId, providerThreadId } = await startThread({
+    const { hyperfideThreadId, providerThreadId } = await startThread({
       permissionMode: "accept-edits",
       permissionEscalation: "ask",
     });
@@ -4679,7 +4679,7 @@ describe("acp bridge: work the agent starts on its own", () => {
       "forwarded unprompted permission request",
     );
     expect(forwarded.params).toMatchObject({
-      threadId: bbThreadId,
+      threadId: hyperfideThreadId,
       payload: { kind: "approval" },
     });
     expect(threadEventsOfType("turn/started")).toHaveLength(2);
@@ -4793,7 +4793,7 @@ describe("acp bridge: busy agents, restored sessions and stop reasons", () => {
     await stopThread(first.providerThreadId);
 
     const resumeId = sendRequest("thread/resume", {
-      threadId: first.bbThreadId,
+      threadId: first.hyperfideThreadId,
       cwd: workspaceDir,
       instructionMode: "append",
       options: executionOptions({
@@ -4836,7 +4836,7 @@ describe("acp bridge: busy agents, restored sessions and stop reasons", () => {
     await stopThread(first.providerThreadId);
 
     const resumeId = sendRequest("thread/resume", {
-      threadId: first.bbThreadId,
+      threadId: first.hyperfideThreadId,
       cwd: workspaceDir,
       instructionMode: "append",
       options: executionOptions({
@@ -4865,7 +4865,7 @@ describe("acp bridge: busy agents, restored sessions and stop reasons", () => {
     await stopThread(first.providerThreadId);
 
     const resumeId = sendRequest("thread/resume", {
-      threadId: first.bbThreadId,
+      threadId: first.hyperfideThreadId,
       cwd: workspaceDir,
       instructionMode: "append",
       options: executionOptions({
@@ -4876,7 +4876,7 @@ describe("acp bridge: busy agents, restored sessions and stop reasons", () => {
     });
     const resumed = await waitForResponse(resumeId);
     const resumedProviderThreadId = providerThreadIdOf(resumed);
-    bbThreadIdByProviderThreadId.set(resumedProviderThreadId, first.bbThreadId);
+    hyperfideThreadIdByProviderThreadId.set(resumedProviderThreadId, first.hyperfideThreadId);
     await completeTurnWith(
       resumedProviderThreadId,
       "second",
@@ -4925,7 +4925,7 @@ describe("acp bridge: questions the agent asks", () => {
   });
 
   it("shows a form question as a user question and returns typed answers to the agent", async () => {
-    const { bbThreadId, providerThreadId } = await startThread();
+    const { hyperfideThreadId, providerThreadId } = await startThread();
     const turnId = sendTurnRequest("turn/start", providerThreadId, {
       input: [{ type: "text", text: "ask-form", mentions: [] }],
     });
@@ -4941,7 +4941,7 @@ describe("acp bridge: questions the agent asks", () => {
       "forwarded question",
     );
     expect(forwarded.params).toMatchObject({
-      threadId: bbThreadId,
+      threadId: hyperfideThreadId,
       payload: {
         kind: "user_question",
         questions: [
@@ -4984,9 +4984,9 @@ describe("acp bridge: questions the agent asks", () => {
 
     expect(agentMessageTexts()).toContain('elicitation:{"action":"decline"}');
     expect(threadEventsOfType("provider/warning").at(-1)).toMatchObject({
-      summary: "The agent asked a question bb could not show",
+      summary: "The agent asked a question hyperfide could not show",
       details:
-        "The request was declined because the form has 5 fields and bb shows at most 4.",
+        "The request was declined because the form has 5 fields and hyperfide shows at most 4.",
     });
     expect(
       output.messages.filter(
@@ -5039,7 +5039,7 @@ describe("acp bridge: live session state", () => {
       "advertise-commands",
       executionOptions({}),
     );
-    expect(threadStates("bb/provider-commands")).toEqual([
+    expect(threadStates("hyperfide/provider-commands")).toEqual([
       {
         commands: [
           { name: "review", description: "Review the current diff" },
@@ -5055,9 +5055,9 @@ describe("acp bridge: live session state", () => {
       .map((request) => request.params);
   }
 
-  it("publishes the session's own options and leaves the model and reasoning to bb's pickers", async () => {
+  it("publishes the session's own options and leaves the model and reasoning to hyperfide's pickers", async () => {
     await startThread({ envVars: { FAKE_ACP_SESSION_OPTIONS: "1" } });
-    expect(threadStates("bb/session-options")).toEqual([
+    expect(threadStates("hyperfide/session-options")).toEqual([
       {
         options: [
           {
@@ -5118,8 +5118,8 @@ describe("acp bridge: live session state", () => {
     expect(none).toEqual([undefined]);
   }, 20_000);
 
-  it("asks the agent for its models and options in the workspace bb names", async () => {
-    const projectDir = mkdtempSync(join(tmpdir(), "bb-acp-project-"));
+  it("asks the agent for its models and options in the workspace hyperfide names", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "hyperfide-acp-project-"));
     try {
       const sessionCwds = async (
         requestLog: string,
@@ -5268,7 +5268,7 @@ describe("acp bridge: live session state", () => {
       model: "fake/strong",
       reasoningLevel: "high",
     });
-    expect(threadStates("bb/session-options")).toEqual([]);
+    expect(threadStates("hyperfide/session-options")).toEqual([]);
   });
 
   it("applies requested session options before the prompt and does not repeat a value the session already has", async () => {
@@ -5301,7 +5301,7 @@ describe("acp bridge: live session state", () => {
     expect(requests.lastIndexOf("session/set_config_option")).toBeLessThan(
       requests.indexOf("session/prompt"),
     );
-    expect(threadStates("bb/session-options").at(-1)).toMatchObject({
+    expect(threadStates("hyperfide/session-options").at(-1)).toMatchObject({
       options: [
         { id: "approach", value: "plan" },
         { id: "web", value: true },
@@ -5349,24 +5349,24 @@ describe("acp bridge: live session state", () => {
       summary: "The agent did not apply Approach",
       details: expect.stringContaining("approach unavailable: plan"),
     });
-    expect(threadStates("bb/session-options").at(-1)).toMatchObject({
+    expect(threadStates("hyperfide/session-options").at(-1)).toMatchObject({
       options: [{ id: "approach", value: "build" }, { id: "web" }],
     });
   });
 
-  it("spells out bb skill commands the agent did not advertise, wherever they appear, so the agent does not swallow them as unknown commands", async () => {
+  it("spells out hyperfide skill commands the agent did not advertise, wherever they appear, so the agent does not swallow them as unknown commands", async () => {
     expect(
       (
         await waitForResponse(
           sendRequest("skills/configure", {
             roots: [
               {
-                id: "root_bb",
+                id: "root_hyperfide",
                 path: "/staged/acp-skills",
                 skills: [
                   { name: "example-skill", description: "Example." },
                   { name: "deploy", description: "Ship the app." },
-                  { name: "review", description: "bb review." },
+                  { name: "review", description: "hyperfide review." },
                 ],
               },
             ],
@@ -5443,12 +5443,12 @@ describe("acp bridge: live session state", () => {
           ),
         ),
       ).toEqual([
-        'Use the bb skill "example-skill": summarize the repo',
-        'first Use the bb skill "deploy", then Use the bb skill "example-skill"',
-        '/native-only go\nand Use the bb skill "deploy"',
+        'Use the hyperfide skill "example-skill": summarize the repo',
+        'first Use the hyperfide skill "deploy", then Use the hyperfide skill "example-skill"',
+        '/native-only go\nand Use the hyperfide skill "deploy"',
         "/deploy",
         "advertise-commands",
-        '/review this and Use the bb skill "deploy"',
+        '/review this and Use the hyperfide skill "deploy"',
       ]);
     } finally {
       await waitForResponse(sendRequest("skills/configure", { roots: [] }));

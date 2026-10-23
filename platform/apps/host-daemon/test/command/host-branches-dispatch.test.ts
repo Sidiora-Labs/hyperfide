@@ -10,10 +10,10 @@ function gitShellPath(filePath: string): string {
 }
 
 async function initBranchRepo(): Promise<string> {
-  const repoPath = await makeTempDir("bb-host-branches-repo-");
+  const repoPath = await makeTempDir("hyperfide-host-branches-repo-");
   await runGitCommand(["init", "-b", "develop"], { cwd: repoPath });
-  await runGitCommand(["config", "user.name", "BB Tests"], { cwd: repoPath });
-  await runGitCommand(["config", "user.email", "bb@example.com"], {
+  await runGitCommand(["config", "user.name", "HYPERFIDE Tests"], { cwd: repoPath });
+  await runGitCommand(["config", "user.email", "hyperfide@example.com"], {
     cwd: repoPath,
   });
   await fs.writeFile(path.join(repoPath, "README.md"), "hello\n", "utf8");
@@ -32,7 +32,7 @@ interface StaleOriginMainRepo {
 
 async function initStaleOriginMainRepo(): Promise<StaleOriginMainRepo> {
   const repoPath = await initBranchRepo();
-  const remotePath = await makeTempDir("bb-host-branches-stale-remote-");
+  const remotePath = await makeTempDir("hyperfide-host-branches-stale-remote-");
   await runGitCommand(["init", "--bare"], { cwd: remotePath });
   await runGitCommand(["symbolic-ref", "HEAD", "refs/heads/main"], {
     cwd: remotePath,
@@ -46,13 +46,13 @@ async function initStaleOriginMainRepo(): Promise<StaleOriginMainRepo> {
     cwd: repoPath,
   });
 
-  const cloneParent = await makeTempDir("bb-host-branches-stale-clone-");
+  const cloneParent = await makeTempDir("hyperfide-host-branches-stale-clone-");
   const clonePath = path.join(cloneParent, "repo");
   await runGitCommand(["clone", remotePath, clonePath], { cwd: cloneParent });
-  await runGitCommand(["config", "user.name", "BB Tests"], {
+  await runGitCommand(["config", "user.name", "HYPERFIDE Tests"], {
     cwd: clonePath,
   });
-  await runGitCommand(["config", "user.email", "bb@example.com"], {
+  await runGitCommand(["config", "user.email", "hyperfide@example.com"], {
     cwd: clonePath,
   });
   await fs.writeFile(path.join(clonePath, "remote.txt"), "remote\n", "utf8");
@@ -361,7 +361,7 @@ describe("host.inspect_git_source dispatch", () => {
 
   it("inspects a bare repository root that holds sibling worktrees", async () => {
     const origin = await initBranchRepo();
-    const root = await makeTempDir("bb-host-branches-bare-root-");
+    const root = await makeTempDir("hyperfide-host-branches-bare-root-");
     await runGitCommand(["clone", "--bare", origin, ".bare"], { cwd: root });
     await fs.writeFile(path.join(root, ".git"), "gitdir: ./.bare\n", "utf8");
     await runGitCommand(["worktree", "add", "main", "main"], { cwd: root });
@@ -387,7 +387,7 @@ describe("host.inspect_git_source dispatch", () => {
   });
 
   it("reports non-git directories", async () => {
-    const dirPath = await makeTempDir("bb-host-branches-nongit-");
+    const dirPath = await makeTempDir("hyperfide-host-branches-nongit-");
     const harness = createHarness();
 
     const result = await dispatchOnlineRpcCommand(
@@ -412,7 +412,7 @@ describe("host.inspect_git_source dispatch", () => {
   });
 
   it("reports missing paths", async () => {
-    const parentPath = await makeTempDir("bb-host-branches-missing-parent-");
+    const parentPath = await makeTempDir("hyperfide-host-branches-missing-parent-");
     const harness = createHarness();
 
     const result = await dispatchOnlineRpcCommand(
@@ -459,7 +459,7 @@ describe("host.list_branch_options dispatch", () => {
 
   it("lists multiple branches from a non-origin remote in stable order", async () => {
     const repoPath = await initBranchRepo();
-    const remotePath = await makeTempDir("bb-host-branch-options-upstream-");
+    const remotePath = await makeTempDir("hyperfide-host-branch-options-upstream-");
     await runGitCommand(["init", "--bare"], { cwd: remotePath });
     await runGitCommand(["remote", "add", "upstream", remotePath], {
       cwd: repoPath,
@@ -512,13 +512,13 @@ describe("host.list_branch_options dispatch", () => {
 
   it("pins local and remote defaults before applying the page limit", async () => {
     const repoPath = await initBranchRepo();
-    const remotePath = await makeTempDir("bb-host-branch-options-origin-");
+    const remotePath = await makeTempDir("hyperfide-host-branch-options-origin-");
     await runGitCommand(["init", "--bare"], { cwd: remotePath });
     await runGitCommand(["remote", "add", "origin", remotePath], {
       cwd: repoPath,
     });
-    await runGitCommand(["branch", "bb/aardvark"], { cwd: repoPath });
-    await runGitCommand(["push", "origin", "bb/aardvark", "main"], {
+    await runGitCommand(["branch", "hyperfide/aardvark"], { cwd: repoPath });
+    await runGitCommand(["push", "origin", "hyperfide/aardvark", "main"], {
       cwd: repoPath,
     });
     await runGitCommand(["fetch", "origin"], { cwd: repoPath });
@@ -543,7 +543,7 @@ describe("host.list_branch_options dispatch", () => {
 
   it("returns cached refs while a remote refresh continues in the background", async () => {
     const repoPath = await initBranchRepo();
-    const remotePath = await makeTempDir("bb-host-branch-options-remote-");
+    const remotePath = await makeTempDir("hyperfide-host-branch-options-remote-");
     await runGitCommand(["init", "--bare"], { cwd: remotePath });
     await runGitCommand(["remote", "add", "origin", remotePath], {
       cwd: repoPath,
@@ -551,13 +551,13 @@ describe("host.list_branch_options dispatch", () => {
     await runGitCommand(["push", "origin", "main"], { cwd: repoPath });
     await runGitCommand(["fetch", "origin"], { cwd: repoPath });
 
-    const cloneParent = await makeTempDir("bb-host-branch-options-clone-");
+    const cloneParent = await makeTempDir("hyperfide-host-branch-options-clone-");
     const clonePath = path.join(cloneParent, "repo");
     await runGitCommand(["clone", remotePath, clonePath], { cwd: cloneParent });
-    await runGitCommand(["config", "user.name", "BB Tests"], {
+    await runGitCommand(["config", "user.name", "HYPERFIDE Tests"], {
       cwd: clonePath,
     });
-    await runGitCommand(["config", "user.email", "bb@example.com"], {
+    await runGitCommand(["config", "user.email", "hyperfide@example.com"], {
       cwd: clonePath,
     });
     await runGitCommand(["switch", "-c", "feature/remote-only"], {
@@ -641,7 +641,7 @@ describe("host.list_branch_options dispatch", () => {
 
   it("classifies selected refs before filtering and pagination", async () => {
     const repoPath = await initBranchRepo();
-    const remotePath = await makeTempDir("bb-host-branch-options-upstream-");
+    const remotePath = await makeTempDir("hyperfide-host-branch-options-upstream-");
     await runGitCommand(["init", "--bare"], { cwd: remotePath });
     await runGitCommand(["remote", "add", "upstream", remotePath], {
       cwd: repoPath,
@@ -675,7 +675,7 @@ describe("host.list_branch_options dispatch", () => {
 
   it("lists cached branches from bare project sources", async () => {
     const origin = await initBranchRepo();
-    const root = await makeTempDir("bb-host-branch-options-bare-root-");
+    const root = await makeTempDir("hyperfide-host-branch-options-bare-root-");
     await runGitCommand(["clone", "--bare", origin, ".bare"], { cwd: root });
     await fs.writeFile(path.join(root, ".git"), "gitdir: ./.bare\n", "utf8");
     const harness = createHarness();
@@ -697,7 +697,7 @@ describe("host.list_branch_options dispatch", () => {
   });
 
   it("returns empty pages for non-git and missing paths", async () => {
-    const dirPath = await makeTempDir("bb-host-branch-options-nongit-");
+    const dirPath = await makeTempDir("hyperfide-host-branch-options-nongit-");
     const harness = createHarness();
 
     for (const sourcePath of [dirPath, path.join(dirPath, "missing")]) {

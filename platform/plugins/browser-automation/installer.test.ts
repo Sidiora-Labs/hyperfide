@@ -179,7 +179,7 @@ function install(
 }
 
 beforeAll(async () => {
-  fixture = await mkdtemp(join(tmpdir(), "bb-dev-browser-installer-"));
+  fixture = await mkdtemp(join(tmpdir(), "hyperfide-dev-browser-installer-"));
   npmDir = join(fixture, "npm-bin");
   await mkdir(npmDir);
   await writeFile(join(npmDir, "fake-npm.js"), fakeNpmSource);

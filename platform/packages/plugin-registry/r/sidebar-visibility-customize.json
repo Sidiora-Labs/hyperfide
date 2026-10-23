@@ -3,7 +3,7 @@
   "name": "sidebar-visibility-customize",
   "type": "registry:ui",
   "title": "sidebar-visibility-customize",
-  "description": "BB ui \"sidebar-visibility-customize\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"sidebar-visibility-customize\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "@dnd-kit/core",
     "@dnd-kit/sortable"

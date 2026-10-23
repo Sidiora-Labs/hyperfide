@@ -14,7 +14,7 @@ const target = {
 
 const storageLocation = {
   hostId: "host_remote",
-  storageRootPath: "/var/lib/bb/thread-storage/thr_1",
+  storageRootPath: "/var/lib/hyperfide/thread-storage/thr_1",
 };
 
 describe("useResolvedLiveFileTarget", () => {
@@ -45,7 +45,7 @@ describe("useResolvedLiveFileTarget", () => {
         }),
       ).toEqual({
         status: "available",
-        absolutePath: "/var/lib/bb/thread-storage/thr_1/reports/summary.md",
+        absolutePath: "/var/lib/hyperfide/thread-storage/thr_1/reports/summary.md",
         openContext,
       });
       expect(getLiveFileTargetLookups(target, true)).toEqual({

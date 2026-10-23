@@ -3,7 +3,7 @@
   "name": "radio-group",
   "type": "registry:ui",
   "title": "radio-group",
-  "description": "BB ui \"radio-group\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"radio-group\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "@radix-ui/react-radio-group"
   ],

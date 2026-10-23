@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Run bb threads with Codex.",
+  "description": "Run hyperfide-platform threads with Codex.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.6.57"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.57"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Codex provider",
-    "description": "Run bb threads with Codex.",
+    "description": "Run hyperfide-platform threads with Codex.",
     "branding": {
       "icon": "./icons/codex.svg"
     },
@@ -26,13 +26,13 @@
     ]
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "devDependencies": {
     "@hyperfide/plugin-build": "workspace:*",

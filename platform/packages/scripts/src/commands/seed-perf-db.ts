@@ -24,9 +24,9 @@ interface SeedCommandArgs {
 
 function renderHelpText(): string {
   return `
-  ${bold("bb seed-perf-db")}
+  ${bold("hyperfide seed-perf-db")}
 
-  Seed a large, realistic BB database for performance testing.
+  Seed a large, realistic HYPERFIDE database for performance testing.
 
   ${dim("Usage")}
     pnpm seed:perf [-- options]
@@ -138,7 +138,7 @@ async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
     );
   }
 
-  process.stdout.write(`\n  ${bold("bb seed-perf-db")}\n\n`);
+  process.stdout.write(`\n  ${bold("hyperfide seed-perf-db")}\n\n`);
   log(dim("●"), `data dir ${cyan(dataDir)}`);
 
   mkdirSync(dataDir, { recursive: true });

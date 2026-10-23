@@ -53,7 +53,7 @@ function installNativeShell() {
 
 function uninstallNativeShell() {
   Reflect.deleteProperty(window, "ReactNativeWebView");
-  Reflect.deleteProperty(window, "bb");
+  Reflect.deleteProperty(window, "hyperfide");
   resetNativeShellForTests();
 }
 
@@ -409,33 +409,33 @@ describe("framed desktop sidebar", () => {
     expect(
       screen
         .getByTestId("wrapper")
-        .classList.contains("pl-(--bb-window-frame-leading-lip)"),
+        .classList.contains("pl-(--hyperfide-window-frame-leading-lip)"),
     ).toBe(false);
     expect(
       screen
         .getByTestId("wrapper")
-        .style.getPropertyValue("--bb-window-card-collapsed-left"),
+        .style.getPropertyValue("--hyperfide-window-card-collapsed-left"),
     ).toBe("52px");
-    expect(body.classList.contains("rounded-tl-(--bb-frame-card-radius)")).toBe(
+    expect(body.classList.contains("rounded-tl-(--hyperfide-frame-card-radius)")).toBe(
       true,
     );
-    expect(body.classList.contains("rounded-bl-(--bb-frame-card-radius)")).toBe(
+    expect(body.classList.contains("rounded-bl-(--hyperfide-frame-card-radius)")).toBe(
       true,
     );
     expect(
-      inset.classList.contains("before:rounded-tl-(--bb-frame-card-radius)"),
+      inset.classList.contains("before:rounded-tl-(--hyperfide-frame-card-radius)"),
     ).toBe(false);
     expect(
-      inset.classList.contains("before:rounded-bl-(--bb-frame-card-radius)"),
+      inset.classList.contains("before:rounded-bl-(--hyperfide-frame-card-radius)"),
     ).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
 
     expect(
-      inset.classList.contains("before:rounded-tl-(--bb-frame-card-radius)"),
+      inset.classList.contains("before:rounded-tl-(--hyperfide-frame-card-radius)"),
     ).toBe(true);
     expect(
-      inset.classList.contains("before:rounded-bl-(--bb-frame-card-radius)"),
+      inset.classList.contains("before:rounded-bl-(--hyperfide-frame-card-radius)"),
     ).toBe(true);
   });
 
@@ -451,30 +451,30 @@ describe("framed desktop sidebar", () => {
 
     const wrapper = screen.getByTestId("wrapper");
     const inset = screen.getByTestId("inset");
-    expect(wrapper.classList.contains("pr-(--bb-window-frame-lip)")).toBe(true);
-    expect(wrapper.classList.contains("pb-(--bb-window-frame-lip)")).toBe(true);
+    expect(wrapper.classList.contains("pr-(--hyperfide-window-frame-lip)")).toBe(true);
+    expect(wrapper.classList.contains("pb-(--hyperfide-window-frame-lip)")).toBe(true);
     expect(
-      wrapper.classList.contains("pl-(--bb-window-frame-leading-lip)"),
+      wrapper.classList.contains("pl-(--hyperfide-window-frame-leading-lip)"),
     ).toBe(true);
     expect(
-      wrapper.style.getPropertyValue("--bb-window-card-collapsed-left"),
-    ).toBe("var(--bb-window-frame-leading-lip)");
+      wrapper.style.getPropertyValue("--hyperfide-window-card-collapsed-left"),
+    ).toBe("var(--hyperfide-window-frame-leading-lip)");
     expect(screen.getByTestId("panel").className).toContain(
-      "left-(--bb-window-frame-leading-lip)",
+      "left-(--hyperfide-window-frame-leading-lip)",
     );
     expect(screen.getByTestId("panel").className).toContain(
-      "var(--bb-shell-height)_-_var(--bb-window-frame-top)_-_var(--bb-window-frame-lip)",
+      "var(--hyperfide-shell-height)_-_var(--hyperfide-window-frame-top)_-_var(--hyperfide-window-frame-lip)",
     );
     for (const edge of [
-      "before:rounded-tr-(--bb-frame-card-radius)",
-      "before:rounded-br-(--bb-frame-card-radius)",
+      "before:rounded-tr-(--hyperfide-frame-card-radius)",
+      "before:rounded-br-(--hyperfide-frame-card-radius)",
       "before:border-r",
       "px-px",
       "pb-px",
     ]) {
       expect(inset.classList.contains(edge)).toBe(true);
     }
-    expect(inset.classList.contains("-mt-(--bb-window-title-bar-height)")).toBe(
+    expect(inset.classList.contains("-mt-(--hyperfide-window-title-bar-height)")).toBe(
       true,
     );
     expect(screen.getByTestId("window-title-bar-drag-region")).toBeTruthy();
@@ -554,7 +554,7 @@ describe("SidebarContent", () => {
 
     render(<SidebarContent data-testid="content">Rows</SidebarContent>);
     const content = screen.getByTestId("content");
-    expect(content.style.getPropertyValue("--bb-sidebar-scrollbar-lane")).toBe(
+    expect(content.style.getPropertyValue("--hyperfide-sidebar-scrollbar-lane")).toBe(
       "10px",
     );
 
@@ -566,7 +566,7 @@ describe("SidebarContent", () => {
         }
       }
     });
-    expect(content.style.getPropertyValue("--bb-sidebar-scrollbar-lane")).toBe(
+    expect(content.style.getPropertyValue("--hyperfide-sidebar-scrollbar-lane")).toBe(
       "0px",
     );
   });

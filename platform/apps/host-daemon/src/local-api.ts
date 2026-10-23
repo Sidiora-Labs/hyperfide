@@ -163,7 +163,7 @@ async function resolveOpenPathInTargetArgs({
   if (sshAuthority === null) {
     throw new WorkspaceOpenTargetError({
       code: "remote_mapping_missing",
-      message: `No SSH target configured for host ${request.context.hostId} on ${serverOrigin}. Run: bb-app client ssh-target set ${serverOrigin} <ssh-target> --host-id ${request.context.hostId}`,
+      message: `No SSH target configured for host ${request.context.hostId} on ${serverOrigin}. Run: hyperfide-app client ssh-target set ${serverOrigin} <ssh-target> --host-id ${request.context.hostId}`,
     });
   }
 
@@ -247,7 +247,7 @@ export async function startLocalApiServer(
       !(await isAllowedAppOrigin(origin, c.req.url))
     ) {
       return c.json(
-        { error: `origin "${origin}" is not a local BB app origin` },
+        { error: `origin "${origin}" is not a local HYPERFIDE app origin` },
         403,
       );
     }

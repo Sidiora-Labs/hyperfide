@@ -3,7 +3,7 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type MessageDispatchHookDecision,
   type PluginThreadEventName,
 } from "@hyperfide/plugin-sdk";
@@ -187,19 +187,19 @@ function formatHostLine(host: {
 }
 
 export default async function concurrencyLimitPlugin(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
 ): Promise<void> {
-  const hostClient = bb.hosts.experimental_client({
+  const hostClient = hyperfide.hosts.experimental_client({
     contract: concurrencyLimitHostContract,
   });
   const storedConfiguration = configurationSchema.safeParse(
-    await bb.storage.kv.get<unknown>(CONFIGURATION_KEY),
+    await hyperfide.storage.kv.get<unknown>(CONFIGURATION_KEY),
   );
   let configuration = storedConfiguration.success
     ? normalizeConfiguration(storedConfiguration.data)
     : DEFAULT_CONFIGURATION;
   const storedCapacities = capacityRecordsSchema.safeParse(
-    await bb.storage.kv.get<unknown>(CAPACITIES_KEY),
+    await hyperfide.storage.kv.get<unknown>(CAPACITIES_KEY),
   );
   const capacities = new Map<string, number>(
     (storedCapacities.success ? storedCapacities.data : []).map((record) => [
@@ -209,7 +209,7 @@ export default async function concurrencyLimitPlugin(
   );
 
   async function readConfiguration() {
-    const availableHosts = await bb.sdk.hosts.list();
+    const availableHosts = await hyperfide.sdk.hosts.list();
     return {
       ...configuration,
       hosts: availableHosts.map(({ id, name, status }) => {
@@ -234,10 +234,10 @@ export default async function concurrencyLimitPlugin(
 
   async function saveConfiguration(next: Configuration): Promise<void> {
     const normalized = normalizeConfiguration(next);
-    await bb.storage.kv.set(CONFIGURATION_KEY, normalized);
+    await hyperfide.storage.kv.set(CONFIGURATION_KEY, normalized);
     configuration = normalized;
-    bb.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
-    await bb.experimental_hooks.recheck("message.dispatch");
+    hyperfide.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
+    await hyperfide.experimental_hooks.recheck("message.dispatch");
   }
 
   async function persistCapacities(): Promise<void> {
@@ -247,10 +247,10 @@ export default async function concurrencyLimitPlugin(
         availableParallelism,
       }))
       .sort((left, right) => left.hostId.localeCompare(right.hostId));
-    await bb.storage.kv.set(CAPACITIES_KEY, records);
+    await hyperfide.storage.kv.set(CAPACITIES_KEY, records);
   }
 
-  bb.rpc.register(concurrencyLimitRpcContract, {
+  hyperfide.rpc.register(concurrencyLimitRpcContract, {
     getConfiguration: readConfiguration,
     async setConfiguration(next) {
       await saveConfiguration(next);
@@ -261,11 +261,11 @@ export default async function concurrencyLimitPlugin(
   function unknownHost(hostId: string): PluginCliError {
     return new PluginCliError(`Unknown host: ${hostId}`, {
       code: "unknown_host",
-      hint: "Run `bb machine list` for the enrolled host ids.",
+      hint: "Run `hyperfide machine list` for the enrolled host ids.",
     });
   }
 
-  bb.cli.register(
+  hyperfide.cli.register(
     defineCli({
       name: "concurrency-limit",
       summary: "Configure global and per-host thread limits",
@@ -321,7 +321,7 @@ export default async function concurrencyLimitPlugin(
           positionals: [
             {
               name: "host-id",
-              description: "Enrolled host id, as `bb machine list` prints it",
+              description: "Enrolled host id, as `hyperfide machine list` prints it",
               required: true,
             },
             {
@@ -378,7 +378,7 @@ export default async function concurrencyLimitPlugin(
     hostIds: ReadonlySet<string>,
   ): Promise<RefreshOutcome> {
     try {
-      const availableHosts = await bb.sdk.hosts.list({ signal });
+      const availableHosts = await hyperfide.sdk.hosts.list({ signal });
       let changed = false;
       if (refreshAll) {
         const availableHostIds = new Set(availableHosts.map((host) => host.id));
@@ -411,7 +411,7 @@ export default async function concurrencyLimitPlugin(
           } catch (error) {
             if (signal.aborted) return;
             retry = true;
-            bb.log.warn(
+            hyperfide.log.warn(
               `Could not detect capacity for host ${availableHost.id}: ${errorMessage(error)}`,
             );
           }
@@ -419,13 +419,13 @@ export default async function concurrencyLimitPlugin(
       );
       if (changed) {
         await persistCapacities();
-        bb.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
-        await bb.experimental_hooks.recheck("message.dispatch");
+        hyperfide.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
+        await hyperfide.experimental_hooks.recheck("message.dispatch");
       }
       return retry ? "retry" : "settled";
     } catch (error) {
       if (!signal.aborted) {
-        bb.log.warn(
+        hyperfide.log.warn(
           `Could not load hosts for capacity detection: ${errorMessage(error)}`,
         );
       }
@@ -462,9 +462,9 @@ export default async function concurrencyLimitPlugin(
     });
   }
 
-  bb.background.service("capacity-detector", {
+  hyperfide.background.service("capacity-detector", {
     async start(signal) {
-      const unsubscribeHost = bb.sdk.subscribe({
+      const unsubscribeHost = hyperfide.sdk.subscribe({
         event: "host:changed",
         callback: (event) => {
           if (
@@ -473,12 +473,12 @@ export default async function concurrencyLimitPlugin(
                 change === "host-connected" || change === "host-disconnected",
             )
           )
-            bb.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
+            hyperfide.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
           if (event.changes.includes("host-connected"))
             requestRefresh(event.id);
         },
       });
-      const unsubscribeRealtime = bb.sdk.subscribe({
+      const unsubscribeRealtime = hyperfide.sdk.subscribe({
         event: "realtime:connection",
         callback: (event) => {
           if (event.state === "connected" && event.reconnected)
@@ -516,12 +516,12 @@ export default async function concurrencyLimitPlugin(
   });
 
   for (const event of CAPACITY_FREED_EVENTS) {
-    bb.events.on(event, async () => {
-      await bb.experimental_hooks.recheck("message.dispatch");
+    hyperfide.events.on(event, async () => {
+      await hyperfide.experimental_hooks.recheck("message.dispatch");
     });
   }
 
-  bb.experimental_hooks.on("message.dispatch", async (context) => {
+  hyperfide.experimental_hooks.on("message.dispatch", async (context) => {
     if (
       context.attempt === "join-turn" ||
       context.thread.status === "active" ||
@@ -534,7 +534,7 @@ export default async function concurrencyLimitPlugin(
     if (configuration.globalLimit === null && host === null) {
       return { action: "proceed" };
     }
-    const running = await bb.sdk.threads.listRunning();
+    const running = await hyperfide.sdk.threads.listRunning();
 
     if (
       configuration.globalLimit !== null &&

@@ -80,7 +80,7 @@ describe("host enroll routes", () => {
       expect(response.status).toBe(201);
       const body = await parseHostEnrollKeyResponse(response);
       expect(body.hostId).toBe("host_local_enroll_key");
-      expect(body.enrollKey).toMatch(/^bbde_/u);
+      expect(body.enrollKey).toMatch(/^hyperfide_de_/u);
       expect(getHost(harness.db, "host_local_enroll_key")).toBeNull();
     } finally {
       await harness.cleanup();
@@ -126,7 +126,7 @@ describe("host enroll routes", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-bb-gate-auth": "machine",
+          "x-hyperfide-gate-auth": "machine",
         },
         body: JSON.stringify({ hostId: "host_forbidden_machine" }),
       });
@@ -168,7 +168,7 @@ describe("host enroll routes", () => {
       expect(enrollBody).toMatchObject({
         hostId: enrollKeyBody.hostId,
       });
-      expect(enrollBody.hostKey).toMatch(/^bbdh_/u);
+      expect(enrollBody.hostKey).toMatch(/^hyperfide_dh_/u);
       expect(getHost(harness.db, enrollKeyBody.hostId)).toMatchObject({
         id: enrollKeyBody.hostId,
         name: "real-host-name",

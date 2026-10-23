@@ -3,7 +3,7 @@
     "Budget for the boot payload: the entry chunk plus its static-import",
     "closure. That is the JavaScript a phone must download, parse and compile",
     "before the app renders anything, so it is the number that decides how",
-    "slow bb feels on mobile.",
+    "slow hyperfide feels on mobile.",
     "",
     "Chunks behind a dynamic import are deliberately not counted. Moving code",
     "behind React.lazy or import() is the fix this budget exists to encourage.",
@@ -29,7 +29,7 @@
     "them when a change wins headroom. Raising one is a deliberate decision",
     "that needs a reason in the pull request, not a routine edit.",
     "",
-    "On 2026-09-22 bb's built-in sidebar navigation moved into the bundled",
+    "On 2026-09-22 hyperfide's built-in sidebar navigation moved into the bundled",
     "Navigation plugin, which took @dnd-kit off the boot path. The boot limits",
     "dropped by the full win (about 109 KB raw, 27 KB brotli). The thread",
     "route's queued-message reorder still statically imports @dnd-kit, so the",
@@ -72,7 +72,7 @@
     "routeClosures ratchets page journeys: the union of the static-import",
     "closures of a page's lazy chunks minus the boot chunks, the JavaScript",
     "between 'app shell painted' and 'page content painted'. ThreadPage and",
-    "NewThreadPage decide how slow bb feels on a phone after boot. Their",
+    "NewThreadPage decide how slow hyperfide feels on a phone after boot. Their",
     "forbiddenPackages are the diff engine, math, file tree and terminal code",
     "that only a user action needs.",
     "The composer (tiptap/prosemirror) is visible on both pages and is allowed.",
@@ -170,8 +170,8 @@
       "ThreadPage",
       "NewThreadPage"
     ],
-    "src/components/code/BbDiff.tsx": ["boot", "ThreadPage", "NewThreadPage"],
-    "src/components/code/BbSourceCode.tsx": [
+    "src/components/code/HyperfideDiff.tsx": ["boot", "ThreadPage", "NewThreadPage"],
+    "src/components/code/HyperfideSourceCode.tsx": [
       "boot",
       "ThreadPage",
       "NewThreadPage"

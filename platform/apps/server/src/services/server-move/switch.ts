@@ -1,9 +1,9 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  formatBbAppConfigPath,
-  parseBbAppManagedConfig,
-} from "@hyperfide/config/bb-app-managed-config";
+  formatHyperfideAppConfigPath,
+  parseHyperfideAppManagedConfig,
+} from "@hyperfide/config/hyperfide-app-managed-config";
 import { mutateManagedJsonFile } from "@hyperfide/config/managed-json-file";
 import type { ServerMoveMode } from "@hyperfide/domain";
 import { SERVER_MOVED_FILE_NAME } from "@hyperfide/server-archive";
@@ -56,14 +56,14 @@ function nextOldServerDaemonConfig(
       ? { serverHeaders: args.headers }
       : {}),
   };
-  parseBbAppManagedConfig(next);
+  parseHyperfideAppManagedConfig(next);
   return next;
 }
 
 export async function validateOldServerDaemonConfig(
   args: WriteOldServerDaemonConfigArgs,
 ): Promise<void> {
-  const path = formatBbAppConfigPath(args.dataDir);
+  const path = formatHyperfideAppConfigPath(args.dataDir);
   nextOldServerDaemonConfig(
     parseManagedConfigObject(path, await readOptionalText(path)),
     args,
@@ -73,7 +73,7 @@ export async function validateOldServerDaemonConfig(
 export async function writeOldServerDaemonConfig(
   args: WriteOldServerDaemonConfigArgs,
 ): Promise<OldServerDaemonConfigBackup> {
-  const path = formatBbAppConfigPath(args.dataDir);
+  const path = formatHyperfideAppConfigPath(args.dataDir);
   const backup: OldServerDaemonConfigBackup = { originalText: null, path };
   await mutateManagedJsonFile({
     path,

@@ -21,7 +21,7 @@ import { z } from "zod";
 import { ApiError } from "../../errors.js";
 
 export const MACHINE_CLI_SHIM_MARKER =
-  "No installed bb machine CLI is available.";
+  "No installed hyperfide machine CLI is available.";
 const CLI_LAUNCHER_MAX_BYTES = 16_384;
 const CLI_COMMAND_NAME = "hyperfide-platform";
 const WINDOWS_USER_PATH_SCRIPT = `
@@ -33,9 +33,9 @@ if ($env:HYPERFIDE_CLI_COMMAND_SET -eq '1') {
     $kind = [Microsoft.Win32.RegistryValueKind]::String
   }
   $key.SetValue('Path', $env:HYPERFIDE_CLI_COMMAND_PATH, $kind)
-  Add-Type -Namespace BbCliCommand -Name Env -MemberDefinition '[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern System.IntPtr SendMessageTimeout(System.IntPtr hWnd, uint Msg, System.UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out System.UIntPtr lpdwResult);'
+  Add-Type -Namespace HyperfideCliCommand -Name Env -MemberDefinition '[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern System.IntPtr SendMessageTimeout(System.IntPtr hWnd, uint Msg, System.UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out System.UIntPtr lpdwResult);'
   $result = [System.UIntPtr]::Zero
-  [void][BbCliCommand.Env]::SendMessageTimeout([System.IntPtr]0xffff, 0x1A, [System.UIntPtr]::Zero, 'Environment', 2, 5000, [ref]$result)
+  [void][HyperfideCliCommand.Env]::SendMessageTimeout([System.IntPtr]0xffff, 0x1A, [System.UIntPtr]::Zero, 'Environment', 2, 5000, [ref]$result)
 } else {
   $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment')
   $value = if ($key) { $key.GetValue('Path', '', 'DoNotExpandEnvironmentNames') } else { '' }
@@ -140,11 +140,11 @@ async function readSmallFile(path: string): Promise<string | null> {
   }
 }
 
-async function isBbLauncher(path: string): Promise<boolean> {
+async function isHyperfideLauncher(path: string): Promise<boolean> {
   return (await readSmallFile(path))?.includes(CLI_LAUNCHER_MARKER) === true;
 }
 
-async function isBbLauncherLink(link: string): Promise<boolean> {
+async function isHyperfideLauncherLink(link: string): Promise<boolean> {
   try {
     if (!(await lstat(link)).isSymbolicLink()) {
       return false;
@@ -152,20 +152,20 @@ async function isBbLauncherLink(link: string): Promise<boolean> {
   } catch {
     return false;
   }
-  return isBbLauncher(link);
+  return isHyperfideLauncher(link);
 }
 
-async function isBbAppPackageCommand(command: string): Promise<boolean> {
+async function isHyperfideAppPackageCommand(command: string): Promise<boolean> {
   try {
     const entryPath = await realpath(command);
     const packageJsonPath = resolve(entryPath, "..", "..", "package.json");
-    if (resolve(packageJsonPath, "..", "dist", "bb.js") !== entryPath) {
+    if (resolve(packageJsonPath, "..", "dist", "hyperfide.js") !== entryPath) {
       return false;
     }
     const parsed = z
       .object({ name: z.string() })
       .safeParse(JSON.parse(await readFile(packageJsonPath, "utf8")));
-    return parsed.success && parsed.data.name === "bb-app";
+    return parsed.success && parsed.data.name === "hyperfide-app";
   } catch {
     return false;
   }
@@ -187,10 +187,10 @@ async function shadowingCommand(
   context: CliCommandContext,
 ): Promise<SystemCliCommandShadow | null> {
   const first = await firstCommandOnPath(context);
-  if (first === null || (await isBbLauncherLink(first))) {
+  if (first === null || (await isHyperfideLauncherLink(first))) {
     return null;
   }
-  if (await isBbAppPackageCommand(first)) {
+  if (await isHyperfideAppPackageCommand(first)) {
     return { path: first, source: "npm" };
   }
   const isMachineShim =
@@ -206,7 +206,7 @@ async function findInstalledLink(
     context.platform,
   )) {
     const link = join(directory, CLI_COMMAND_NAME);
-    if (await isBbLauncherLink(link)) {
+    if (await isHyperfideLauncherLink(link)) {
       return link;
     }
   }
@@ -268,12 +268,12 @@ function describeShadow(
   shadow: SystemCliCommandShadow,
 ): string {
   if (shadow.source === "npm") {
-    return `bb is already on your PATH at ${shadow.path}, installed by npm.`;
+    return `hyperfide is already on your PATH at ${shadow.path}, installed by npm.`;
   }
   if (shadow.source === "machine") {
-    return `bb is already on your PATH at ${shadow.path}, installed with the bb machine on this computer.`;
+    return `hyperfide is already on your PATH at ${shadow.path}, installed with the hyperfide machine on this computer.`;
   }
-  return `Another bb at ${shadow.path} comes first on your PATH. Remove it, or run bb's command directly at ${context.launcherPath}.`;
+  return `Another hyperfide at ${shadow.path} comes first on your PATH. Remove it, or run hyperfide's command directly at ${context.launcherPath}.`;
 }
 
 async function installWindows(context: CliCommandContext): Promise<void> {
@@ -332,7 +332,7 @@ async function installUnix(context: CliCommandContext): Promise<void> {
     }
   }
   throw blocked(
-    `Another bb command is already installed, or no folder on your PATH is writable. Run bb's command directly at ${context.launcherPath}.`,
+    `Another hyperfide command is already installed, or no folder on your PATH is writable. Run hyperfide's command directly at ${context.launcherPath}.`,
   );
 }
 
@@ -356,7 +356,7 @@ async function removeUnix(context: CliCommandContext): Promise<void> {
     context.platform,
   )) {
     const link = join(directory, CLI_COMMAND_NAME);
-    if (await isBbLauncherLink(link)) {
+    if (await isHyperfideLauncherLink(link)) {
       try {
         await rm(link);
       } catch {
@@ -375,7 +375,7 @@ export function createCliCommandService(
       throw new ApiError(
         409,
         "cli_command_unsupported",
-        "The bb command needs an installed bb. Start bb with npx bb-app or the desktop app.",
+        "The hyperfide command needs an installed hyperfide. Start hyperfide with npx hyperfide-app or the desktop app.",
       );
     };
     return {
@@ -391,9 +391,9 @@ export function createCliCommandService(
   return {
     getStatus,
     async install() {
-      if (!(await isBbLauncher(launcherPath))) {
+      if (!(await isHyperfideLauncher(launcherPath))) {
         throw blocked(
-          `The bb command launcher at ${launcherPath} is missing. Restart bb, then try again.`,
+          `The hyperfide command launcher at ${launcherPath} is missing. Restart Hyperfide, then try again.`,
         );
       }
       await (windows ? installWindows(context) : installUnix(context));

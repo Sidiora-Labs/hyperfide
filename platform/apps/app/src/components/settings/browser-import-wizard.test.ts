@@ -139,10 +139,10 @@ describe("browser import dialog steps", () => {
     const storage = new Map<string, string>();
     const fake = { getItem: (key: string) => storage.get(key) ?? null };
     expect(readBrowserImportRecords(fake)).toEqual({});
-    storage.set("bb:browser-import:records", "not json");
+    storage.set("hyperfide:browser-import:records", "not json");
     expect(readBrowserImportRecords(fake)).toEqual({});
     storage.set(
-      "bb:browser-import:records",
+      "hyperfide:browser-import:records",
       JSON.stringify({
         chrome: {
           at: 5,

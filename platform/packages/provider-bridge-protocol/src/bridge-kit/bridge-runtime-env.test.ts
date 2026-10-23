@@ -6,12 +6,12 @@ describe("bridge runtime env", () => {
     const sourceEnv = {
       ELECTRON_RUN_AS_NODE: "1",
       PATH: "/usr/bin",
-      BB_THREAD_ID: "thr_123",
+      HYPERFIDE_THREAD_ID: "thr_123",
     };
 
     expect(withoutBridgeRuntimeEnv(sourceEnv)).toEqual({
       PATH: "/usr/bin",
-      BB_THREAD_ID: "thr_123",
+      HYPERFIDE_THREAD_ID: "thr_123",
     });
     expect(sourceEnv.ELECTRON_RUN_AS_NODE).toBe("1");
   });
@@ -20,8 +20,8 @@ describe("bridge runtime env", () => {
     expect(
       withoutBridgeRuntimeEnv({
         HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR: "/tmp/recordings/codex",
-        BB_CLI: "/usr/local/bin/bb",
+        HYPERFIDE_CLI: "/usr/local/bin/hyperfide",
       }),
-    ).toEqual({ BB_CLI: "/usr/local/bin/bb" });
+    ).toEqual({ HYPERFIDE_CLI: "/usr/local/bin/hyperfide" });
   });
 });

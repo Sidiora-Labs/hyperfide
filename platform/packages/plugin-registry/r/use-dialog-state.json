@@ -3,7 +3,7 @@
   "name": "use-dialog-state",
   "type": "registry:ui",
   "title": "use-dialog-state",
-  "description": "BB ui \"use-dialog-state\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"use-dialog-state\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/use-dialog-state.ts",

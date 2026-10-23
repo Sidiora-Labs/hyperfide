@@ -5,7 +5,7 @@ import {
 } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  probeBbServer,
+  probeHyperfideServer,
   type ServerProbeFetch,
   waitForCompatibleServer,
 } from "../src/server-probe.js";
@@ -68,7 +68,7 @@ afterEach(async () => {
   }
 });
 
-describe("probeBbServer", () => {
+describe("probeHyperfideServer", () => {
   it("reports the data directory the probed server declares", async () => {
     const fetchImpl = vi
       .fn<ServerProbeFetch>()
@@ -82,7 +82,7 @@ describe("probeBbServer", () => {
       );
 
     await expect(
-      probeBbServer({
+      probeHyperfideServer({
         fetchImpl,
         serverUrl: "https://studio.example",
         timeoutMs: 1_000,
@@ -105,7 +105,7 @@ describe("probeBbServer", () => {
       },
     });
 
-    const result = await probeBbServer({
+    const result = await probeHyperfideServer({
       serverUrl: testServer.url,
       timeoutMs: 500,
     });
@@ -143,7 +143,7 @@ describe("probeBbServer", () => {
     });
 
     await expect(
-      probeBbServer({ serverUrl: testServer.url, timeoutMs: 500 }),
+      probeHyperfideServer({ serverUrl: testServer.url, timeoutMs: 500 }),
     ).resolves.toEqual({
       dataDir: null,
       kind: "compatible",
@@ -162,7 +162,7 @@ describe("probeBbServer", () => {
     await testServer.close();
     testServers.pop();
 
-    const result = await probeBbServer({
+    const result = await probeHyperfideServer({
       serverUrl: unavailableUrl,
       timeoutMs: 500,
     });

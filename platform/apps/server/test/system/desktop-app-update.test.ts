@@ -46,7 +46,7 @@ const roots: string[] = [];
 const services: AppUpdateService[] = [];
 
 async function fixture() {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-desktop-update-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-desktop-update-"));
   roots.push(dataDir);
   const channel = new DesktopChannel();
   const running = { count: 0 };
@@ -138,7 +138,7 @@ describe("desktop-hosted server updates", () => {
     await vi.waitFor(async () =>
       expect(
         (await service.getStatus({ forceRefresh: false })).lastResult?.message,
-      ).toContain("1 thread started while bb was downloading"),
+      ).toContain("1 thread started while hyperfide was downloading"),
     );
     expect(channel.requests).not.toContain("install");
     expect(

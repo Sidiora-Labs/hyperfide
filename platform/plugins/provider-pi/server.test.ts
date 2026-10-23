@@ -4,7 +4,7 @@ import piPlugin from "./server.js";
 
 function registeredDeclaration() {
   const host = createFakePluginHost({ pluginId: "provider-pi" });
-  piPlugin(host.bb);
+  piPlugin(host.hyperfide);
   const declaration = host.harness.registrations.providerRegistrations.find(
     (entry) => entry.id === "pi",
   );

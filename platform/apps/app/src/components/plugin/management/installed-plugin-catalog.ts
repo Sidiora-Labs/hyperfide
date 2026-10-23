@@ -26,7 +26,7 @@ export function installedPluginCatalogEntry<
     return entries.find(
       (entry) =>
         entry.pluginId === plugin.id &&
-        entry.marketplace === "bb-official" &&
+        entry.marketplace === "hyperfide-official" &&
         entry.source === plugin.source &&
         (plugin.catalogEntryId === null ||
           entry.entryId === plugin.catalogEntryId),

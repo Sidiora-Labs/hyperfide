@@ -1,5 +1,5 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 
-export default function replacementLabBeta(bb: BbPluginApi) {
-  bb.log.info("Replacement Lab Beta loaded");
+export default function replacementLabBeta(hyperfide: HyperfidePluginApi) {
+  hyperfide.log.info("Replacement Lab Beta loaded");
 }

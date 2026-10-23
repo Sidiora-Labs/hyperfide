@@ -17,7 +17,7 @@ let stateDirectory: string;
 let output = "";
 
 beforeAll(async () => {
-  stateDirectory = await mkdtemp(join(tmpdir(), "bb-demo-worker-"));
+  stateDirectory = await mkdtemp(join(tmpdir(), "hyperfide-demo-worker-"));
   worker = spawn(
     process.execPath,
     [

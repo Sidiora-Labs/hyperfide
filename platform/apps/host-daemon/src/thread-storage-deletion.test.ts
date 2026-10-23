@@ -18,7 +18,7 @@ it.for(["thread deletion", "orphan removal"] as const)(
       process.platform === "win32",
       "killProcessesWithCwdUnder does not enumerate process working directories on Windows",
     );
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "bb-storage-delete-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-storage-delete-"));
     const storageRoot = path.join(root, "thread-storage");
     const storagePath = path.join(storageRoot, "thr_busy");
     const checkout = path.join(storagePath, "checkout", "app");

@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@hyperfide/host-daemon-contract": "workspace:*",
-    "bb-app": "workspace:*",
+    "hyperfide-app": "workspace:*",
     "electron-updater": "^6.8.3",
     "semver": "^7.7.0",
     "ws": "^8.19.0",

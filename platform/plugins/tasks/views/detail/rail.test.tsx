@@ -50,7 +50,7 @@ afterEach(cleanup);
 const PROJECT_ID = "01HZZZZZZZZZZZZZZZZZZZZZP1";
 const HYPERFIDE_PROJECT_ID = "proj_bb0000000000000000000001";
 
-function projectRow(linkedBbProjectId: string | null) {
+function projectRow(linkedHyperfideProjectId: string | null) {
   return {
     id: PROJECT_ID,
     name: "Tasks Plugin",
@@ -58,7 +58,7 @@ function projectRow(linkedBbProjectId: string | null) {
     nextTaskNumber: 6,
     color: "blue",
     folderId: null,
-    linkedBbProjectId,
+    linkedHyperfideProjectId,
     createdAt: "2026-07-15T00:00:00.000Z",
   };
 }
@@ -81,10 +81,10 @@ const HOME_PROJECT = {
 };
 
 function railProps(
-  linkedBbProjectId: string | null,
+  linkedHyperfideProjectId: string | null,
   onMoveToProject: (projectId: string) => void = () => {},
 ) {
-  const project = projectRow(linkedBbProjectId);
+  const project = projectRow(linkedHyperfideProjectId);
   return {
     task,
     project,
@@ -104,7 +104,7 @@ describe("project rail control", () => {
     const slot = renderSlot(
       { component: RailHarness },
       railProps(null, (projectId) => moves.push(projectId)),
-      { rpc: { listBbProjects: () => ({ bbProjects: [] }) } },
+      { rpc: { listHyperfideProjects: () => ({ hyperfideProjects: [] }) } },
     );
     fireEvent.click(slot.getByRole("button", { name: "Move to project" }));
     fireEvent.click(await slot.findByRole("option", { name: /Tasks Plugin/ }));
@@ -117,51 +117,51 @@ describe("project rail control", () => {
 });
 
 describe("dispatch target rail control", () => {
-  it("links a discovered bb project", async () => {
+  it("links a discovered hyperfide-platform project", async () => {
     const updateCalls: Array<Record<string, unknown>> = [];
     const slot = renderSlot({ component: RailHarness }, railProps(null), {
       rpc: {
-        listBbProjects: () => ({
-          bbProjects: [{ id: HYPERFIDE_PROJECT_ID, name: "bb monorepo" }],
+        listHyperfideProjects: () => ({
+          hyperfideProjects: [{ id: HYPERFIDE_PROJECT_ID, name: "hyperfide monorepo" }],
         }),
         updateProject: (raw: unknown) => {
           const input = rpcInput(raw);
           updateCalls.push(input);
           return {
             project: {
-              ...projectRow(input.linkedBbProjectId as string | null),
+              ...projectRow(input.linkedHyperfideProjectId as string | null),
             },
           };
         },
       },
     });
     fireEvent.click(slot.getByRole("button", { name: "Edit dispatch target" }));
-    fireEvent.click(await slot.findByLabelText("Linked bb project"));
-    fireEvent.click(await slot.findByRole("option", { name: "bb monorepo" }));
+    fireEvent.click(await slot.findByLabelText("Linked hyperfide-platform project"));
+    fireEvent.click(await slot.findByRole("option", { name: "hyperfide monorepo" }));
     fireEvent.click(slot.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateCalls).toHaveLength(1));
     expect(updateCalls[0]).toEqual({
       projectId: PROJECT_ID,
-      linkedBbProjectId: HYPERFIDE_PROJECT_ID,
+      linkedHyperfideProjectId: HYPERFIDE_PROJECT_ID,
     });
   });
 
-  it("shows the linked bb project's name and unlinks it", async () => {
+  it("shows the linked hyperfide-platform project's name and unlinks it", async () => {
     const updateCalls: Array<Record<string, unknown>> = [];
     const slot = renderSlot(
       { component: RailHarness },
       railProps(HYPERFIDE_PROJECT_ID),
       {
         rpc: {
-          listBbProjects: () => ({
-            bbProjects: [{ id: HYPERFIDE_PROJECT_ID, name: "bb monorepo" }],
+          listHyperfideProjects: () => ({
+            hyperfideProjects: [{ id: HYPERFIDE_PROJECT_ID, name: "hyperfide monorepo" }],
           }),
           updateProject: (raw: unknown) => {
             const input = rpcInput(raw);
             updateCalls.push(input);
             return {
               project: {
-                ...projectRow(input.linkedBbProjectId as string | null),
+                ...projectRow(input.linkedHyperfideProjectId as string | null),
               },
             };
           },
@@ -171,14 +171,14 @@ describe("dispatch target rail control", () => {
     const trigger = slot.getByRole("button", {
       name: "Edit dispatch target",
     });
-    await slot.findByText("bb monorepo");
+    await slot.findByText("hyperfide monorepo");
 
     fireEvent.click(trigger);
     fireEvent.click(await slot.findByRole("button", { name: "Unlink" }));
     await waitFor(() => expect(updateCalls).toHaveLength(1));
     expect(updateCalls[0]).toEqual({
       projectId: PROJECT_ID,
-      linkedBbProjectId: null,
+      linkedHyperfideProjectId: null,
     });
   });
 });

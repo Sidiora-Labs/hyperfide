@@ -213,7 +213,7 @@ describe("machine auth service", () => {
 
     expect(storedKey?.key).toBeTruthy();
     expect(storedKey?.key).not.toBe(issuedKey);
-    expect(storedKey?.key).not.toContain("bbdh_");
+    expect(storedKey?.key).not.toContain("hyperfide_dh_");
   });
 
   it("revokes older daemon host keys when a host reenrolls", async () => {
@@ -320,7 +320,7 @@ describe("machine auth service", () => {
         id: "apikey_owner_cli_expired",
         name: null,
         start: null,
-        prefix: "bboc_",
+        prefix: "hyperfide_oc_",
         key: "hashed-owner-cli-key",
         referenceId: systemUser.id,
         refillInterval: null,

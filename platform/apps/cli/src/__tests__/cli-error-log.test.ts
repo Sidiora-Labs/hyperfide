@@ -34,7 +34,7 @@ describe("cli error log", () => {
   let dataDir: string;
 
   beforeEach(() => {
-    dataDir = mkdtempSync(join(tmpdir(), "bb-cli-error-log-"));
+    dataDir = mkdtempSync(join(tmpdir(), "hyperfide-cli-error-log-"));
   });
 
   afterEach(() => {

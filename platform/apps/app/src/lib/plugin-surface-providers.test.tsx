@@ -26,9 +26,9 @@ afterEach(() => {
 });
 
 describe("expectedSurfaceProviderIds", () => {
-  it("expects bb's own composer, thread list and navigation before anything is remembered", () => {
+  it("expects hyperfide's own composer, thread list and navigation before anything is remembered", () => {
     expect(expectedSurfaceProviderIds()).toEqual([
-      "bb--composer",
+      "hyperfide--composer",
       "thread-list",
       "navigation",
     ]);
@@ -48,14 +48,14 @@ describe("expectedSurfaceProviderIds", () => {
 
     renderProvider("thread-list", null);
     expect(expectedSurfaceProviderIds()).toEqual([
-      "bb--composer",
+      "hyperfide--composer",
       "my-thread-list",
       "navigation",
     ]);
 
     act(() => markPluginFrontendsSettled());
     expect(expectedSurfaceProviderIds()).toEqual([
-      "bb--composer",
+      "hyperfide--composer",
       "navigation",
     ]);
   });

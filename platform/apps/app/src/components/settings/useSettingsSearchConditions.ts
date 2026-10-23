@@ -4,7 +4,7 @@ import {
   useSystemConfig,
 } from "@/hooks/queries/system-queries";
 import { useLocalHostDaemonAccess } from "@/hooks/useHostDaemon";
-import { isDesktopBrowserAvailable } from "@/lib/bb-desktop";
+import { isDesktopBrowserAvailable } from "@/lib/hyperfide-desktop";
 import { localhostLinkRewriteDescription } from "@/lib/localhost-link-rewrite-description";
 import { usePluginSlots } from "@/lib/plugin-slots";
 import type { SettingsSearchCondition } from "./settings-search";

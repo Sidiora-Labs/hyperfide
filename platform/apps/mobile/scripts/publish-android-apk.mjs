@@ -39,13 +39,13 @@ const packageName = packageLine.match(/name='([^']+)'/)?.[1];
 const version = packageLine.match(/versionName='([^']+)'/)?.[1];
 const versionCode = Number(packageLine.match(/versionCode='(\d+)'/)?.[1]);
 if (
-  packageName !== "app.getbb.mobile" ||
+  packageName !== "app.hyperfide.mobile" ||
   !version ||
   !Number.isSafeInteger(versionCode) ||
   versionCode <= 0
 ) {
   throw new Error(
-    "Expected a bb mobile APK with a valid version name and code.",
+    "Expected a hyperfide mobile APK with a valid version name and code.",
   );
 }
 execFileSync(

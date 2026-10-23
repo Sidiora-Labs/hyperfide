@@ -1,9 +1,9 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
-export async function readThreads(bb: BbPluginApi, signal?: AbortSignal) {
-  const rows: Awaited<ReturnType<typeof bb.sdk.threads.list>> = [];
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
+export async function readThreads(hyperfide: HyperfidePluginApi, signal?: AbortSignal) {
+  const rows: Awaited<ReturnType<typeof hyperfide.sdk.threads.list>> = [];
   for (let offset = 0; ; offset += 500) {
     signal?.throwIfAborted();
-    const page = await bb.sdk.threads.list({
+    const page = await hyperfide.sdk.threads.list({
       includeHidden: true,
       limit: 500,
       offset,
@@ -14,15 +14,15 @@ export async function readThreads(bb: BbPluginApi, signal?: AbortSignal) {
   }
 }
 export async function readThreadsById(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   threadIds: readonly string[],
   signal?: AbortSignal,
 ) {
-  const rows: Awaited<ReturnType<typeof bb.sdk.threads.list>> = [];
+  const rows: Awaited<ReturnType<typeof hyperfide.sdk.threads.list>> = [];
   for (let offset = 0; offset < threadIds.length; offset += 200) {
     signal?.throwIfAborted();
     rows.push(
-      ...(await bb.sdk.threads.list({
+      ...(await hyperfide.sdk.threads.list({
         includeHidden: true,
         threadIds: threadIds.slice(offset, offset + 200),
         signal,

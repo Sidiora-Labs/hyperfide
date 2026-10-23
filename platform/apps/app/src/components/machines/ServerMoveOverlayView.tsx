@@ -298,9 +298,9 @@ function overlayDescription(content: VisibleServerMoveOverlayContent): string {
     case "progress":
       return content.move.state === "switching"
         ? `Every machine and app is switching over to ${name}. The move can't be cancelled now.`
-        : `bb is copying the server to ${name}.`;
+        : `hyperfide is copying the server to ${name}.`;
     case "recovery":
-      return `${name} didn't confirm that it took over, so this server stays up but read-only. bb keeps checking and finishes the move as soon as ${name} answers.`;
+      return `${name} didn't confirm that it took over, so this server stays up but read-only. hyperfide keeps checking and finishes the move as soon as ${name} answers.`;
     case "waiting":
       return content.destinationState === "activating"
         ? `${name} is switching over to the new server. This page opens it as soon as it's ready.`
@@ -325,7 +325,7 @@ function overlayDescription(content: VisibleServerMoveOverlayContent): string {
 function overlayNote(content: VisibleServerMoveOverlayContent): string | null {
   if (content.kind === "recovery") {
     const name = content.move.targetHostName;
-    return `If ${name} isn't running the server, abandon the move to keep the server here. If this server stops, run bb server unlock on this computer.`;
+    return `If ${name} isn't running the server, abandon the move to keep the server here. If this server stops, run hyperfide-platform server unlock on this computer.`;
   }
   if (
     content.kind === "ended" &&

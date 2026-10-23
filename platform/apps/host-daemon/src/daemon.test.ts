@@ -39,7 +39,7 @@ function createLogger() {
 
 describe("daemon lifecycle", () => {
   it("prevents a second instance from acquiring the lock", async () => {
-    const dataDir = await makeTempDir("bb-host-daemon-lock-");
+    const dataDir = await makeTempDir("hyperfide-host-daemon-lock-");
     const releaseLock = await acquireDaemonLock(dataDir);
 
     await expect(acquireDaemonLock(dataDir, { retries: 0 })).rejects.toThrow();
@@ -48,7 +48,7 @@ describe("daemon lifecycle", () => {
   });
 
   it("reclaims a stale lock left behind by a crashed instance", async () => {
-    const dataDir = await makeTempDir("bb-host-daemon-stale-lock-");
+    const dataDir = await makeTempDir("hyperfide-host-daemon-stale-lock-");
     await fs.mkdir(dataDir, { recursive: true });
 
     const lockDirPath = path.join(dataDir, `${DAEMON_LOCK_FILE_NAME}.lock`);
@@ -64,7 +64,7 @@ describe("daemon lifecycle", () => {
   });
 
   it("releases the lock during clean shutdown", async () => {
-    const dataDir = await makeTempDir("bb-host-daemon-shutdown-");
+    const dataDir = await makeTempDir("hyperfide-host-daemon-shutdown-");
     const logger = createLogger();
     const releaseLock = await acquireDaemonLock(dataDir);
 

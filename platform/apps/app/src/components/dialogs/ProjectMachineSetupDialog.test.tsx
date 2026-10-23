@@ -9,7 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { ProjectSource } from "@hyperfide/domain";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sdk } from "@/lib/sdk";
 import {
@@ -28,12 +28,12 @@ vi.mock("@/lib/sdk", () => ({
   },
 }));
 
-const DEFAULT_CLONE_PATH = "/Users/me/bb/checkouts/bb";
+const DEFAULT_CLONE_PATH = "/Users/me/hyperfide/checkouts/hyperfide";
 
 const gitTarget: ProjectMachineSetupDialogTarget = {
   projectId: "proj_test",
-  projectName: "bb",
-  gitRemoteUrl: "git@github.com:sawyerhood/bb.git",
+  projectName: "hyperfide",
+  gitRemoteUrl: "git@github.com:sawyerhood/hyperfide.git",
   hostId: "host_studio",
   hostName: "Mac Studio",
 };
@@ -81,7 +81,7 @@ describe("ProjectMachineSetupDialog", () => {
     vi.mocked(sdk.projects.sources.add).mockResolvedValue(createdSource);
     const { onComplete } = renderDialog(gitTarget);
 
-    expect(screen.getByText("Set up bb on Mac Studio")).toBeTruthy();
+    expect(screen.getByText("Set up hyperfide on Mac Studio")).toBeTruthy();
     expect(screen.getByText(gitTarget.gitRemoteUrl!)).toBeTruthy();
     expect(
       screen.getByText("Use an existing folder on Mac Studio"),
@@ -114,7 +114,7 @@ describe("ProjectMachineSetupDialog", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "change" }));
     fireEvent.change(screen.getByLabelText("Clone destination"), {
-      target: { value: "/Users/me/elsewhere/bb" },
+      target: { value: "/Users/me/elsewhere/hyperfide" },
     });
     fireEvent.keyDown(screen.getByLabelText("Clone destination"), {
       key: "Enter",
@@ -126,7 +126,7 @@ describe("ProjectMachineSetupDialog", () => {
       projectId: "proj_test",
       type: "clone",
       hostId: "host_studio",
-      targetPath: "/Users/me/elsewhere/bb",
+      targetPath: "/Users/me/elsewhere/hyperfide",
     });
   });
 
@@ -137,7 +137,7 @@ describe("ProjectMachineSetupDialog", () => {
     const gitStderr =
       "git clone failed: fatal: could not read Username for 'https://github.com'";
     vi.mocked(sdk.projects.sources.add).mockRejectedValue(
-      new BbHttpError({
+      new HyperfideHttpError({
         status: 502,
         code: "git_command_failed",
         message: gitStderr,
@@ -159,7 +159,7 @@ describe("ProjectMachineSetupDialog", () => {
       path: DEFAULT_CLONE_PATH,
     });
     vi.mocked(sdk.projects.sources.add).mockRejectedValue(
-      new BbHttpError({
+      new HyperfideHttpError({
         status: 409,
         code: "target_not_empty",
         message: "Target directory is not empty",
@@ -185,17 +185,17 @@ describe("ProjectMachineSetupDialog", () => {
       path: DEFAULT_CLONE_PATH,
     });
     vi.mocked(sdk.hosts.directory).mockResolvedValue({
-      directory: "/Users/me/code/bb",
+      directory: "/Users/me/code/hyperfide",
       parent: "/Users/me/code",
       entries: [],
       roots: ["/"],
     });
     vi.mocked(sdk.hosts.pathsExist).mockResolvedValue({
-      existence: { "/Users/me/code/bb": true },
+      existence: { "/Users/me/code/hyperfide": true },
     });
     vi.mocked(sdk.projects.sources.add).mockResolvedValue({
       ...createdSource,
-      path: "/Users/me/code/bb",
+      path: "/Users/me/code/hyperfide",
     });
     const { onComplete } = renderDialog(gitTarget);
 
@@ -213,7 +213,7 @@ describe("ProjectMachineSetupDialog", () => {
       projectId: "proj_test",
       type: "local_path",
       hostId: "host_studio",
-      path: "/Users/me/code/bb",
+      path: "/Users/me/code/hyperfide",
     });
   });
 

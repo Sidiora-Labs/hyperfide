@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { publishCommentsChanged, type TasksApiStore } from "../api";
 import type { TaskThread, TaskThreadLiveStatus } from "../db";
 import { createSystemComment, publishThreadsChanged } from "../delegate";
@@ -6,7 +6,7 @@ import { errorMessage } from "../shared/errors";
 
 const TERMINAL_LIVE_STATUSES = new Set<TaskThreadLiveStatus>(["completed"]);
 
-type SdkThread = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["get"]>>;
+type SdkThread = Awaited<ReturnType<HyperfidePluginApi["sdk"]["threads"]["get"]>>;
 
 function liveStatusFromThread(thread: SdkThread): TaskThreadLiveStatus {
   if (thread.status === "error") return "failed";
@@ -51,7 +51,7 @@ function sdkErrorCode(error: unknown): string | undefined {
 }
 
 function transitionThread(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   store: TasksApiStore,
   thread: TaskThread,
   liveStatus: TaskThreadLiveStatus,
@@ -75,37 +75,37 @@ function transitionThread(
     }
   });
 
-  publishThreadsChanged(bb, thread.taskId);
-  publishCommentsChanged(bb, thread.taskId);
+  publishThreadsChanged(hyperfide, thread.taskId);
+  publishCommentsChanged(hyperfide, thread.taskId);
 }
 
 function transitionTrackedThread(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   store: TasksApiStore,
   threadId: string,
   liveStatus: TaskThreadLiveStatus,
 ): void {
   for (const thread of store.tasks.listTaskThreadsByThreadId(threadId)) {
-    transitionThread(bb, store, thread, liveStatus);
+    transitionThread(hyperfide, store, thread, liveStatus);
   }
 }
 
 async function reconcileTrackedThread(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   store: TasksApiStore,
   trackedThread: TaskThread,
 ): Promise<void> {
   try {
-    const thread = await bb.sdk.threads.get({
+    const thread = await hyperfide.sdk.threads.get({
       threadId: trackedThread.threadId,
     });
-    transitionThread(bb, store, trackedThread, liveStatusFromThread(thread));
+    transitionThread(hyperfide, store, trackedThread, liveStatusFromThread(thread));
   } catch (error) {
     if (sdkErrorCode(error) === "thread_not_found") {
-      transitionThread(bb, store, trackedThread, "completed");
+      transitionThread(hyperfide, store, trackedThread, "completed");
       return;
     }
-    bb.log.warn(
+    hyperfide.log.warn(
       `Could not reconcile task thread ${trackedThread.threadId}: ${errorMessage(
         error,
       )}`,
@@ -114,7 +114,7 @@ async function reconcileTrackedThread(
 }
 
 async function reconcileTrackedThreads(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   store: TasksApiStore,
 ): Promise<void> {
   const nonTerminalThreads = trackedThreads(store).filter(
@@ -122,29 +122,29 @@ async function reconcileTrackedThreads(
   );
 
   for (const trackedThread of nonTerminalThreads) {
-    await reconcileTrackedThread(bb, store, trackedThread);
+    await reconcileTrackedThread(hyperfide, store, trackedThread);
   }
 }
 
 export async function registerLifecycle(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   store: TasksApiStore,
 ): Promise<void> {
-  bb.events.on("thread.created", ({ thread }) => {
-    transitionTrackedThread(bb, store, thread.id, liveStatusFromThread(thread));
+  hyperfide.events.on("thread.created", ({ thread }) => {
+    transitionTrackedThread(hyperfide, store, thread.id, liveStatusFromThread(thread));
   });
-  bb.events.on("thread.active", ({ thread }) => {
-    transitionTrackedThread(bb, store, thread.id, "working");
+  hyperfide.events.on("thread.active", ({ thread }) => {
+    transitionTrackedThread(hyperfide, store, thread.id, "working");
   });
-  bb.events.on("thread.idle", ({ thread }) => {
-    transitionTrackedThread(bb, store, thread.id, "idle");
+  hyperfide.events.on("thread.idle", ({ thread }) => {
+    transitionTrackedThread(hyperfide, store, thread.id, "idle");
   });
-  bb.events.on("thread.failed", ({ thread }) => {
-    transitionTrackedThread(bb, store, thread.id, "failed");
+  hyperfide.events.on("thread.failed", ({ thread }) => {
+    transitionTrackedThread(hyperfide, store, thread.id, "failed");
   });
-  bb.events.on("thread.deleted", ({ thread }) => {
-    transitionTrackedThread(bb, store, thread.id, "completed");
+  hyperfide.events.on("thread.deleted", ({ thread }) => {
+    transitionTrackedThread(hyperfide, store, thread.id, "completed");
   });
 
-  await reconcileTrackedThreads(bb, store);
+  await reconcileTrackedThreads(hyperfide, store);
 }

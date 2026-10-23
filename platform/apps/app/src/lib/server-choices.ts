@@ -1,6 +1,6 @@
-import type { BbDesktopServerChoice } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopServerChoice } from "@hyperfide/desktop-contract";
 
-export type ServerChoice = BbDesktopServerChoice;
+export type ServerChoice = HyperfideDesktopServerChoice;
 
 export interface ServerChoices {
   list(): Promise<ServerChoice[]>;
@@ -9,7 +9,7 @@ export interface ServerChoices {
 }
 
 export function getServerChoices(): ServerChoices | null {
-  const desktop = typeof window === "undefined" ? undefined : window.bbDesktop;
+  const desktop = typeof window === "undefined" ? undefined : window.hyperfideDesktop;
   if (
     desktop?.getServerChoices &&
     desktop.onServerChoicesChange &&

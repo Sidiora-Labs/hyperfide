@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { showMutationErrorToast } from "@/lib/mutation-errors";
-import { BbHttpError, sdk } from "@/lib/sdk";
+import { HyperfideHttpError, sdk } from "@/lib/sdk";
 
 const EDIT_HOLD_RENEWALS_PER_LEASE = 4;
 const EDIT_HOLD_RETRY_MS = 5_000;
@@ -44,7 +44,7 @@ export function startQueuedMessageEditHold({
     }).catch((error: unknown) => {
       if (!active) return;
       if (
-        error instanceof BbHttpError &&
+        error instanceof HyperfideHttpError &&
         (error.status === 404 || error.status === 409)
       ) {
         showMutationErrorToast({

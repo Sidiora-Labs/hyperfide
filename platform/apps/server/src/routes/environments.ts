@@ -87,7 +87,7 @@ import {
 const LISTED_ENVIRONMENT_STATUSES: readonly EnvironmentStatus[] =
   environmentStatusValues.filter((status) => status !== "destroyed");
 
-const COMMIT_FALLBACK_MESSAGE = "bb: automated commit";
+const COMMIT_FALLBACK_MESSAGE = "hyperfide: automated commit";
 
 const AI_MAX_DIFF_BYTES = 32_000;
 const AI_MAX_FILE_LIST_BYTES = 4_000;

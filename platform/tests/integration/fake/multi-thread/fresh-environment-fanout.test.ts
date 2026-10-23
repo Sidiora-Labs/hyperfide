@@ -41,7 +41,7 @@ describe.sequential("fake provider fresh-environment fanout integration", () => 
               content: "setup project\n",
             },
             {
-              relativePath: ".bb-env-setup.sh",
+              relativePath: ".hyperfide-env-setup.sh",
               content:
                 [
                   "set -euo pipefail",

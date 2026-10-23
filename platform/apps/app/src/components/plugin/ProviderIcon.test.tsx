@@ -20,7 +20,7 @@ function register(setup: (app: PluginAppBuilder) => void) {
   act(() =>
     setPluginSlotRegistrations(
       "acme",
-      collectPluginAppRegistrations({ __bbPluginApp: true, setup }),
+      collectPluginAppRegistrations({ __hyperfidePluginApp: true, setup }),
     ),
   );
 }

@@ -18,7 +18,7 @@ import {
 
 const webQuery = "IANA example domains";
 const webUrl = "https://example.com";
-const codexOpenPageUrl = "https://example.com/?bb-web-normalization=open-page";
+const codexOpenPageUrl = "https://example.com/?hyperfide-web-normalization=open-page";
 
 type ThreadItemLifecycleEvent = Extract<
   ThreadEvent,

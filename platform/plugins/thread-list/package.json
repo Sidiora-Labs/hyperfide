@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "bb's sidebar thread list: pinned threads, custom sections, projects, machines, and nested threads.",
+  "description": "hyperfide's sidebar thread list: pinned threads, custom sections, projects, machines, and nested threads.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.6.37"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.37"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Thread list",
-    "description": "bb's sidebar thread list: pinned threads, custom sections, projects, machines, and nested threads.",
+    "description": "hyperfide's sidebar thread list: pinned threads, custom sections, projects, machines, and nested threads.",
     "branding": {
       "icon": "ListView"
     },
@@ -21,13 +21,13 @@
     ]
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",

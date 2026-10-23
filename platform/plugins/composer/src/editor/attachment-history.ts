@@ -5,7 +5,7 @@ import type { Transaction } from "@tiptap/pm/state";
 import { Step, StepMap, StepResult } from "@tiptap/pm/transform";
 import * as z from "zod/mini";
 
-const ATTACHMENT_HISTORY_STEP_ID = "bbAttachmentHistory";
+const ATTACHMENT_HISTORY_STEP_ID = "hyperfideAttachmentHistory";
 const attachmentHistoryStepSchema = z.object({
   id: z.string(),
   present: z.boolean(),

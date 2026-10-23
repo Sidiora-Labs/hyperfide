@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Run bb threads in on-demand, isolated sandboxes",
+  "description": "Run hyperfide-platform threads in on-demand, isolated sandboxes",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.102"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.102"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Modal Sandbox [Experimental]",
-    "description": "Run bb threads in on-demand, isolated sandboxes",
+    "description": "Run hyperfide-platform threads in on-demand, isolated sandboxes",
     "branding": {
       "icon": "./modal-logo.svg"
     },
@@ -21,13 +21,13 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",

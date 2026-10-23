@@ -1,14 +1,14 @@
 {
-  "name": "hyperfide-plugin-bb--provider-usage",
+  "name": "hyperfide-plugin-hyperfide--provider-usage",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "View provider usage in plugin settings and an optional sidebar footer card",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.90"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.90"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Provider usage",
     "description": "View provider usage in plugin settings and an optional sidebar footer card.",
     "branding": {
@@ -18,13 +18,13 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",

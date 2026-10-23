@@ -21,19 +21,19 @@ const fixtureRoot = resolve(
   "..",
   "fixtures",
   "plugins",
-  "bb-plugin-builtin-fixture",
+  "hyperfide-plugin-builtin-fixture",
 );
 const globals = globalThis as Record<string, unknown>;
 
 async function writePathPlugin(dir: string, name: string): Promise<string> {
-  const rootDir = join(dir, `bb-plugin-${name}`);
+  const rootDir = join(dir, `hyperfide-plugin-${name}`);
   await mkdir(rootDir, { recursive: true });
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: `bb-plugin-${name}`,
+      name: `hyperfide-plugin-${name}`,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Safe mode fixture",
         description: "Safe mode fixture.",
         branding: { icon: "Zap" },
@@ -43,11 +43,11 @@ async function writePathPlugin(dir: string, name: string): Promise<string> {
   );
   await writeFile(
     join(rootDir, "server.ts"),
-    `export default function plugin(bb: any) {
+    `export default function plugin(hyperfide: any) {
       const g = globalThis as any;
       if (g.__safeModeFailing === ${JSON.stringify(name)}) throw new Error("boom");
       g.__safeModeLoads = { ...g.__safeModeLoads, ${JSON.stringify(name)}: (g.__safeModeLoads?.[${JSON.stringify(name)}] ?? 0) + 1 };
-      bb.onDispose(() => {
+      hyperfide.onDispose(() => {
         g.__safeModeDisposed = [...(g.__safeModeDisposed ?? []), ${JSON.stringify(name)}];
       });
     }`,
@@ -94,7 +94,7 @@ describe("plugin safe mode", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-safe-mode-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-safe-mode-"));
     service = createService();
     await service.start();
   });
@@ -184,13 +184,13 @@ describe("plugin safe mode", () => {
     await expect(
       service.installPath(await writePathPlugin(workDir, "beta")),
     ).rejects.toThrow(
-      'plugin safe mode is on; turn it off with `bb plugin safe-mode off` before you install "beta"',
+      'plugin safe mode is on; turn it off with `hyperfide-platform plugin safe-mode off` before you install "beta"',
     );
     expect(entry("beta")).toBeUndefined();
     await expect(service.applyUpdate("alpha")).resolves.toEqual({
       ok: false,
       error:
-        'plugin safe mode is on; turn it off with `bb plugin safe-mode off` before you update "alpha"',
+        'plugin safe mode is on; turn it off with `hyperfide-platform plugin safe-mode off` before you update "alpha"',
     });
 
     await service.setSafeMode(false);

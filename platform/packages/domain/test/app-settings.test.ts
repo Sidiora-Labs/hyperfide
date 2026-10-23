@@ -8,32 +8,32 @@ import {
 
 describe("managedBranchPrefixSchema", () => {
   it("accepts prefixes that start a valid branch name", () => {
-    for (const prefix of ["bb/", "", "sawyer/wt-", "team/bb/", "wip_"]) {
+    for (const prefix of ["hyperfide/", "", "sawyer/wt-", "team/hyperfide/", "wip_"]) {
       expect(managedBranchPrefixSchema.safeParse(prefix).success).toBe(true);
     }
   });
 
   it("rejects prefixes that cannot start a valid branch name", () => {
     for (const prefix of [
-      " bb/",
-      "bb //",
-      "-bb/",
-      "/bb/",
-      "bb//",
-      "bb../",
-      "bb:",
-      "bb~",
-      "bb\\",
-      "bb@{",
-      ".bb/",
+      " hyperfide/",
+      "hyperfide //",
+      "-hyperfide/",
+      "/hyperfide/",
+      "hyperfide//",
+      "hyperfide../",
+      "hyperfide:",
+      "hyperfide~",
+      "hyperfide\\",
+      "hyperfide@{",
+      ".hyperfide/",
       "a".repeat(MANAGED_BRANCH_PREFIX_MAX_LENGTH + 1),
     ]) {
       expect(managedBranchPrefixSchema.safeParse(prefix).success).toBe(false);
     }
   });
 
-  it("defaults to the bb namespace", () => {
-    expect(defaultAppSettings.managedBranchPrefix).toBe("bb/");
+  it("defaults to the hyperfide namespace", () => {
+    expect(defaultAppSettings.managedBranchPrefix).toBe("hyperfide/");
     expect(appSettingsSchema.parse(defaultAppSettings)).toEqual(
       defaultAppSettings,
     );

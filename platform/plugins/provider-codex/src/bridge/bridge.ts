@@ -78,8 +78,8 @@ import {
   toCodexPermissionSettings,
   toCodexServiceTier,
   toCodexUserInput,
-  type BbThreadForkParams,
-  type BbThreadStartParams,
+  type HyperfideThreadForkParams,
+  type HyperfideThreadStartParams,
   type CodexSessionOptions,
 } from "../session-params.js";
 import type { ThreadResumeParams } from "../generated/codex-app-server/schema/v2/ThreadResumeParams.js";
@@ -102,7 +102,7 @@ import {
   getCodexProviderUsage,
 } from "./provider-maintenance.js";
 
-type BbThreadResumeParams = ThreadResumeParams & { excludeTurns: boolean };
+type HyperfideThreadResumeParams = ThreadResumeParams & { excludeTurns: boolean };
 
 const codexBridgeCommandSchema = z.discriminatedUnion("method", [
   z.object({
@@ -286,7 +286,7 @@ const CODEX_POOL_BASE_URL_ENV = "CODEX_OPENAI_BASE_URL";
 const CODEX_POOL_AUTH_TOKEN_ENV = "CODEX_POOL_AUTH_TOKEN";
 
 const CODEX_INITIALIZE_PARAMS = {
-  clientInfo: { name: "bb", version: "1.0.0", title: null },
+  clientInfo: { name: "hyperfide", version: "1.0.0", title: null },
   capabilities: { experimentalApi: true },
 };
 
@@ -346,7 +346,7 @@ async function delay(ms: number): Promise<void> {
   });
 }
 const MISSING_CODEX_CLI_GUIDANCE =
-  "bb could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.";
+  "hyperfide could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.";
 
 export function resolveAppServerLaunch(env: NodeJS.ProcessEnv = process.env): {
   command: string;
@@ -369,19 +369,19 @@ export function resolveAppServerLaunch(env: NodeJS.ProcessEnv = process.env): {
       "-c",
       `openai_base_url=${JSON.stringify(poolBaseUrl)}`,
       "-c",
-      'model_provider="bb-account-pool"',
+      'model_provider="hyperfide-account-pool"',
       "-c",
-      'model_providers.bb-account-pool.name="OpenAI"',
+      'model_providers.hyperfide-account-pool.name="OpenAI"',
       "-c",
-      `model_providers.bb-account-pool.base_url=${JSON.stringify(poolBaseUrl)}`,
+      `model_providers.hyperfide-account-pool.base_url=${JSON.stringify(poolBaseUrl)}`,
       "-c",
-      'model_providers.bb-account-pool.wire_api="responses"',
+      'model_providers.hyperfide-account-pool.wire_api="responses"',
       "-c",
-      "model_providers.bb-account-pool.requires_openai_auth=true",
+      "model_providers.hyperfide-account-pool.requires_openai_auth=true",
       "-c",
-      "model_providers.bb-account-pool.supports_websockets=false",
+      "model_providers.hyperfide-account-pool.supports_websockets=false",
       "-c",
-      'model_providers.bb-account-pool.env_http_headers.x-bb-account-pool-token="CODEX_POOL_AUTH_TOKEN"',
+      'model_providers.hyperfide-account-pool.env_http_headers.x-hyperfide-account-pool-token="CODEX_POOL_AUTH_TOKEN"',
     ],
   };
 }
@@ -463,7 +463,7 @@ const codexThreadStatusChangedParamsSchema = z
   .passthrough();
 
 interface CodexBridgeSession {
-  bbThreadId: string;
+  hyperfideThreadId: string;
   codexThreadId: string | null;
   serial: number;
   connection: CodexAppServerConnection | null;
@@ -490,7 +490,7 @@ interface CodexBridgeSession {
   releasePromise: Promise<void> | null;
 }
 
-const sessionsByBbThreadId = new Map<string, CodexBridgeSession>();
+const sessionsByHyperfideThreadId = new Map<string, CodexBridgeSession>();
 const maintenanceConnections = new Set<CodexAppServerConnection>();
 let modelListConnection: {
   launchKey: string;
@@ -511,10 +511,10 @@ function stripLegacyBridgeIdPrefix(id: string): string {
 }
 
 function currentSession(
-  bbThreadId: string,
+  hyperfideThreadId: string,
   serial: number,
 ): CodexBridgeSession | undefined {
-  const session = sessionsByBbThreadId.get(bbThreadId);
+  const session = sessionsByHyperfideThreadId.get(hyperfideThreadId);
   if (!session || session.serial !== serial || session.closing) {
     return undefined;
   }
@@ -526,8 +526,8 @@ function releaseSession(session: CodexBridgeSession): Promise<void> {
     return session.releasePromise;
   }
   session.closing = true;
-  if (sessionsByBbThreadId.get(session.bbThreadId) === session) {
-    sessionsByBbThreadId.delete(session.bbThreadId);
+  if (sessionsByHyperfideThreadId.get(session.hyperfideThreadId) === session) {
+    sessionsByHyperfideThreadId.delete(session.hyperfideThreadId);
   }
   const previousChildExit = session.previousChildExit;
   session.previousChildExit = null;
@@ -659,7 +659,7 @@ function sendThreadDeltas(
     return;
   }
   sendNotification(THREAD_DELTA_NOTIFICATION_METHOD, {
-    threadId: session.bbThreadId,
+    threadId: session.hyperfideThreadId,
     deltas: outDeltas,
   });
 }
@@ -676,7 +676,7 @@ function announceSessionIdentity(
   }
   session.identityAnnounced = true;
   sendNotification(BRIDGE_NOTIFICATION_METHODS.threadIdentity, {
-    threadId: session.bbThreadId,
+    threadId: session.hyperfideThreadId,
     providerThreadId: codexThreadId,
     sessionRestorable: true,
   });
@@ -701,12 +701,12 @@ function toProviderRuntimeEvent(
 }
 
 async function handleChildNotification(
-  bbThreadId: string,
+  hyperfideThreadId: string,
   serial: number,
   method: string,
   params: unknown,
 ): Promise<void> {
-  const session = currentSession(bbThreadId, serial);
+  const session = currentSession(hyperfideThreadId, serial);
   if (!session) {
     return;
   }
@@ -761,13 +761,13 @@ async function handleChildNotification(
               timeoutMs: RATE_LIMIT_RECOVERY_TIMEOUT_MS,
             })
           : null;
-      if (currentSession(bbThreadId, serial) !== session) return;
+      if (currentSession(hyperfideThreadId, serial) !== session) return;
       sendThreadDeltas(session, session.translator.recoverRateLimits(snapshot));
     } catch {
-      if (currentSession(bbThreadId, serial) !== session) return;
+      if (currentSession(hyperfideThreadId, serial) !== session) return;
       sendThreadDeltas(session, session.translator.recoverRateLimits(null));
     }
-    if (currentSession(bbThreadId, serial) !== session) return;
+    if (currentSession(hyperfideThreadId, serial) !== session) return;
   }
   sendThreadDeltas(session, deltas);
   for (const delta of deltas) {
@@ -791,7 +791,7 @@ function emitTerminalAccountErrorHint(
       ? "codex session restarted after an authentication failure so a new login can take effect."
       : "codex session restarted after a rate limit so a refreshed account state can take effect.";
   sendNotification(BRIDGE_NOTIFICATION_METHODS.providerRecovery, {
-    threadId: session.bbThreadId,
+    threadId: session.hyperfideThreadId,
     kind,
     message,
     retryable: false,
@@ -807,13 +807,13 @@ const codexChildToolCallParamsSchema = z.object({
 });
 
 function handleChildRequest(
-  bbThreadId: string,
+  hyperfideThreadId: string,
   serial: number,
   method: string,
   params: unknown,
   responder: CodexAppServerRequestResponder,
 ): void {
-  const session = currentSession(bbThreadId, serial);
+  const session = currentSession(hyperfideThreadId, serial);
   if (!session) {
     responder.error(
       BRIDGE_JSON_RPC_ERRORS.BRIDGE_ERROR,
@@ -833,7 +833,7 @@ function handleChildRequest(
     }
     void sendRuntimeRequest(BRIDGE_INBOUND_REQUEST_METHODS.toolCall, {
       providerThreadId: session.codexThreadId ?? parsed.data.threadId,
-      threadId: session.bbThreadId,
+      threadId: session.hyperfideThreadId,
       turnId: parsed.data.turnId,
       callId: parsed.data.callId,
       tool: parsed.data.tool,
@@ -880,13 +880,13 @@ function handleChildRequest(
   }
   void resolveCodexMcpElicitationAppIcon(decoded)
     .then(async (request) => {
-      if (currentSession(bbThreadId, serial) !== session) {
+      if (currentSession(hyperfideThreadId, serial) !== session) {
         throw new Error("codex session is no longer current");
       }
       const [runtimeResult] = await Promise.allSettled([
         sendRuntimeRequest(BRIDGE_INBOUND_REQUEST_METHODS.interactionRequest, {
           providerThreadId: session.codexThreadId ?? request.providerThreadId,
-          threadId: session.bbThreadId,
+          threadId: session.hyperfideThreadId,
           turnId: request.turnId,
           payload: request.payload,
           providerNativeIds: true,
@@ -926,11 +926,11 @@ function buildMacOsPermissionItemDelta(
 }
 
 function handleChildExit(
-  bbThreadId: string,
+  hyperfideThreadId: string,
   serial: number,
   info: CodexAppServerExitInfo,
 ): void {
-  const session = currentSession(bbThreadId, serial);
+  const session = currentSession(hyperfideThreadId, serial);
   if (!session) {
     return;
   }
@@ -961,7 +961,7 @@ function handleChildExit(
     });
   }
   sendNotification(BRIDGE_NOTIFICATION_METHODS.error, {
-    threadId: session.bbThreadId,
+    threadId: session.hyperfideThreadId,
     ...(session.codexThreadId !== null
       ? { providerThreadId: session.codexThreadId }
       : {}),
@@ -1032,7 +1032,7 @@ const codexThreadIdentityResultSchema = z
   })
   .passthrough();
 
-const SESSION_OPTIONS_STATE_KIND = "bb/session-options";
+const SESSION_OPTIONS_STATE_KIND = "hyperfide/session-options";
 const SESSION_MODEL_CATALOG_TIMEOUT_MS = 10_000;
 
 function loadSessionModelCatalog(
@@ -1129,7 +1129,7 @@ async function resolveTurnCyberAccessProgram(
 async function requestThreadConstructionWithWriterRetry(
   connection: CodexAppServerConnection,
   method: string,
-  params: BbThreadStartParams | BbThreadResumeParams | BbThreadForkParams,
+  params: HyperfideThreadStartParams | HyperfideThreadResumeParams | HyperfideThreadForkParams,
 ): Promise<z.infer<typeof codexThreadIdentityResultSchema>> {
   const sendOnce = (): Promise<
     z.infer<typeof codexThreadIdentityResultSchema>
@@ -1186,7 +1186,7 @@ interface ConstructedCodexSession {
 async function constructThreadSession(
   args: ConstructThreadSessionArgs,
 ): Promise<ConstructedCodexSession> {
-  const existing = sessionsByBbThreadId.get(args.threadId);
+  const existing = sessionsByHyperfideThreadId.get(args.threadId);
   const decoded = decodeCodexOptions(args.options);
   sessionSerialCounter += 1;
   const serial = sessionSerialCounter;
@@ -1203,7 +1203,7 @@ async function constructThreadSession(
   );
   const launchEnv = appServerLaunchEnv(decoded.sessionOptions.envVars);
   const session: CodexBridgeSession = {
-    bbThreadId: args.threadId,
+    hyperfideThreadId: args.threadId,
     codexThreadId:
       args.request.kind === "resume" ? args.request.providerThreadId : null,
     serial,
@@ -1243,7 +1243,7 @@ async function constructThreadSession(
     previousChildExit: null,
     releasePromise: null,
   };
-  sessionsByBbThreadId.set(args.threadId, session);
+  sessionsByHyperfideThreadId.set(args.threadId, session);
   if (existing) {
     const previousChildExit = releaseSession(existing);
     session.previousChildExit = previousChildExit;
@@ -1318,11 +1318,11 @@ async function constructThreadSession(
     };
 
     let method: string;
-    let params: BbThreadStartParams | BbThreadResumeParams | BbThreadForkParams;
+    let params: HyperfideThreadStartParams | HyperfideThreadResumeParams | HyperfideThreadForkParams;
     switch (args.request.kind) {
       case "start": {
         method = "thread/start";
-        const startParams: BbThreadStartParams = {
+        const startParams: HyperfideThreadStartParams = {
           ...sharedConstructionParams,
           ephemeral: false,
           experimentalRawEvents: true,
@@ -1335,7 +1335,7 @@ async function constructThreadSession(
       }
       case "resume": {
         method = "thread/resume";
-        const resumeParams: BbThreadResumeParams = {
+        const resumeParams: HyperfideThreadResumeParams = {
           threadId: args.request.providerThreadId,
           excludeTurns: true,
           ...sharedConstructionParams,
@@ -1345,7 +1345,7 @@ async function constructThreadSession(
       }
       case "fork": {
         method = "thread/fork";
-        const forkParams: BbThreadForkParams = {
+        const forkParams: HyperfideThreadForkParams = {
           threadId: args.request.sourceProviderThreadId,
           ...(args.request.sourceProviderCheckpointId !== undefined
             ? {
@@ -1398,8 +1398,8 @@ async function constructThreadSession(
     return { session, codexThreadId };
   } catch (error) {
     const released = session.closing;
-    if (sessionsByBbThreadId.get(args.threadId) === session) {
-      sessionsByBbThreadId.delete(args.threadId);
+    if (sessionsByHyperfideThreadId.get(args.threadId) === session) {
+      sessionsByHyperfideThreadId.delete(args.threadId);
     }
     session.closing = true;
     await connection.kill();
@@ -1417,13 +1417,13 @@ class CodexSessionReleasedError extends Error {
 function registerResumableSession(session: CodexBridgeSession): void {
   if (
     session.codexThreadId === null ||
-    sessionsByBbThreadId.has(session.bbThreadId)
+    sessionsByHyperfideThreadId.has(session.hyperfideThreadId)
   ) {
     return;
   }
   sessionSerialCounter += 1;
-  sessionsByBbThreadId.set(session.bbThreadId, {
-    bbThreadId: session.bbThreadId,
+  sessionsByHyperfideThreadId.set(session.hyperfideThreadId, {
+    hyperfideThreadId: session.hyperfideThreadId,
     codexThreadId: session.codexThreadId,
     serial: sessionSerialCounter,
     connection: null,
@@ -1465,7 +1465,7 @@ async function rebuildThreadSession(
   let replacement: ConstructedCodexSession;
   try {
     replacement = await constructThreadSession({
-      threadId: session.bbThreadId,
+      threadId: session.hyperfideThreadId,
       cwd: session.construction.cwd,
       options,
       instructionMode: session.construction.instructionMode,
@@ -1481,7 +1481,7 @@ async function rebuildThreadSession(
     throw error;
   }
   sendNotification(BRIDGE_NOTIFICATION_METHODS.sessionReplaced, {
-    threadId: replacement.session.bbThreadId,
+    threadId: replacement.session.hyperfideThreadId,
     providerThreadId: replacement.codexThreadId,
     reason,
     contextLost: false,
@@ -1596,10 +1596,10 @@ function retireModelListConnection(connection: CodexAppServerConnection): void {
 }
 
 async function withChildForThread<T>(
-  bbThreadId: string,
+  hyperfideThreadId: string,
   fn: (connection: CodexAppServerConnection) => Promise<T>,
 ): Promise<T> {
-  const session = sessionsByBbThreadId.get(bbThreadId);
+  const session = sessionsByHyperfideThreadId.get(hyperfideThreadId);
   if (
     session &&
     !session.closing &&
@@ -1733,7 +1733,7 @@ interface LiveSessionForTurn {
 async function requireLiveSessionForTurn(
   params: TurnStartParamsShape,
 ): Promise<LiveSessionForTurn> {
-  let session = sessionsByBbThreadId.get(params.threadId);
+  let session = sessionsByHyperfideThreadId.get(params.threadId);
   if (!session || session.closing) {
     throw new Error(`No active codex session for thread "${params.threadId}"`);
   }
@@ -1800,7 +1800,7 @@ function settleAcceptedDispatch(args: {
   if (prepared === null) {
     return;
   }
-  const live = currentSession(session.bbThreadId, session.serial);
+  const live = currentSession(session.hyperfideThreadId, session.serial);
   if (!live || live.codexThreadId === null) {
     return;
   }
@@ -1926,7 +1926,7 @@ function scheduleZeroWorkTurnSettlement(args: {
   }
   const serial = session.serial;
   const timer = setTimeout(() => {
-    const live = currentSession(session.bbThreadId, serial);
+    const live = currentSession(session.hyperfideThreadId, serial);
     if (!live || live.openCodexTurnIds.size > 0) {
       return;
     }
@@ -1948,7 +1948,7 @@ function awaitCompactionTurn(args: {
   if (prepared === null) {
     return;
   }
-  const live = currentSession(session.bbThreadId, session.serial);
+  const live = currentSession(session.hyperfideThreadId, session.serial);
   if (!live) {
     return;
   }
@@ -2108,7 +2108,7 @@ async function handleTurnSteer(
   id: string | number,
   params: TurnSteerParamsShape,
 ): Promise<void> {
-  const session = sessionsByBbThreadId.get(params.threadId);
+  const session = sessionsByHyperfideThreadId.get(params.threadId);
   if (
     !session ||
     session.closing ||
@@ -2184,7 +2184,7 @@ async function handleThreadStop(
   id: string | number,
   params: ThreadStopParamsShape,
 ): Promise<void> {
-  const session = sessionsByBbThreadId.get(params.threadId);
+  const session = sessionsByHyperfideThreadId.get(params.threadId);
 
   if (params.intent === "release") {
     if (session) {
@@ -2350,7 +2350,7 @@ async function handleThreadMaintenance(
 ): Promise<void> {
   const settle = async (): Promise<void> => {
     if (options?.releaseAfter) {
-      const session = sessionsByBbThreadId.get(params.threadId);
+      const session = sessionsByHyperfideThreadId.get(params.threadId);
       if (session) {
         await releaseSession(session);
       }
@@ -2425,7 +2425,7 @@ async function handleSkillsConfigure(
 ): Promise<void> {
   configuredSkillExtraRoots = params.roots.map((root) => root.path);
   try {
-    for (const session of sessionsByBbThreadId.values()) {
+    for (const session of sessionsByHyperfideThreadId.values()) {
       if (
         session.closing ||
         session.connection === null ||
@@ -2607,12 +2607,12 @@ function handleParsedMessage(parsed: unknown): void {
 export const handleLine = createBridgeLineHandler({ handleParsedMessage });
 
 function killAllChildren(): void {
-  for (const session of sessionsByBbThreadId.values()) {
+  for (const session of sessionsByHyperfideThreadId.values()) {
     session.closing = true;
     session.connection?.kill();
     session.connection = null;
   }
-  sessionsByBbThreadId.clear();
+  sessionsByHyperfideThreadId.clear();
   modelListConnection = null;
   modelListConnectionPromise = null;
   for (const connection of maintenanceConnections) {

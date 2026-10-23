@@ -401,7 +401,7 @@ export function registerSystemRoutes(
 
   post(routes.reloadConfig, async (context) => {
     try {
-      await deps.bbAppManagedConfig.reload({ notify: true });
+      await deps.hyperfideAppManagedConfig.reload({ notify: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new ApiError(422, "invalid_config", message);
@@ -741,7 +741,7 @@ function assertCliCommandChangeAllowed(
     throw new ApiError(
       403,
       "forbidden",
-      "Machine credentials cannot change the bb command on the bb server's computer",
+      "Machine credentials cannot change the hyperfide command on the hyperfide-platform server's computer",
     );
   }
 }
@@ -753,7 +753,7 @@ function assertAppUpdateAllowed(
     throw new ApiError(
       403,
       "forbidden",
-      "Machine credentials cannot update the bb server",
+      "Machine credentials cannot update the hyperfide-platform server",
     );
   }
 }

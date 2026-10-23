@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Keeps selected macOS and Windows hosts awake while bb is running.",
+  "description": "Keeps selected macOS and Windows hosts awake while hyperfide is running.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.102"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.102"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Keep Awake",
-    "description": "Keeps selected macOS and Windows hosts awake while bb is running.",
+    "description": "Keeps selected macOS and Windows hosts awake while hyperfide is running.",
     "branding": {
       "icon": "Coffee"
     },
@@ -22,7 +22,7 @@
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
     "test": "vitest run --config vitest.config.ts",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",

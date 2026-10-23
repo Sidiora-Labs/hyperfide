@@ -1563,7 +1563,7 @@ describe("internal event and tool-call routes", () => {
   it("refuses to switch into another project's managed worktree", async () => {
     await withTestHarness(async (harness) => {
       const { host, session } = seedHostSession(harness.deps);
-      const worktreePath = "/tmp/bb-worktrees/env_owner/repo";
+      const worktreePath = "/tmp/hyperfide-worktrees/env_owner/repo";
       const { project: owner } = seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "Owning Project",
@@ -1616,7 +1616,7 @@ describe("internal event and tool-call routes", () => {
           {
             type: "inputText",
             text: expect.stringContaining(
-              "bb-managed workspace owned by another project",
+              "hyperfide-managed workspace owned by another project",
             ),
           },
         ],

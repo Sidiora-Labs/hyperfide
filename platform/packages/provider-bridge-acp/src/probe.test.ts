@@ -4,7 +4,7 @@ import { acpAgentProbeSchema, probeAcpAgent } from "./probe.js";
 describe("probeAcpAgent", () => {
   it("reports a missing agent instead of throwing", async () => {
     const probe = await probeAcpAgent({
-      command: "bb-acp-agent-that-does-not-exist",
+      command: "hyperfide-acp-agent-that-does-not-exist",
       args: [],
       cwd: process.cwd(),
       timeoutMs: 5_000,

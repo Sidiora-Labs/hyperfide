@@ -23,11 +23,11 @@ export type {
 } from "./rpc-contract.js";
 
 /**
- * `@hyperfide/plugin-sdk/app` — typed facade over the BB app's plugin runtime.
+ * `@hyperfide/plugin-sdk/app` — typed facade over the HYPERFIDE app's plugin runtime.
  *
- * This module's runtime is never bundled into plugins: `bb plugin build`
+ * This module's runtime is never bundled into plugins: `hyperfide-platform plugin build`
  * swaps the specifier for a shim reading
- * `globalThis.__bbPluginRuntime.pluginSdkApp` (which the BB app fills with
+ * `globalThis.__hyperfidePluginRuntime.pluginSdkApp` (which the HYPERFIDE app fills with
  * its real implementation before importing any plugin bundle). Code importing
  * this package directly (plugin unit tests, tooling) gets stable forwarders
  * instead: each export looks the runtime up when it is called or rendered,
@@ -38,7 +38,7 @@ export type {
  * Shared hooks and host components, including experimental_Icon. The generic
  * host-provided UI kit was removed 2026-07-03,
  * plugin design §5.5: other components are vendored shadcn-style source from the
- * BB registry (`npx shadcn add @hyperfide/<name>`); `toast` comes from
+ * HYPERFIDE registry (`npx shadcn add @hyperfide/<name>`); `toast` comes from
  * `import { toast } from "sonner"` (runtime-shimmed to the host toaster).
  */
 
@@ -47,7 +47,7 @@ interface PluginRuntimeReact {
 }
 
 interface PluginRuntimeHost {
-  __bbPluginRuntime?: { pluginSdkApp?: unknown; react?: PluginRuntimeReact };
+  __hyperfidePluginRuntime?: { pluginSdkApp?: unknown; react?: PluginRuntimeReact };
 }
 
 type RuntimeFunctionName = {
@@ -58,8 +58,8 @@ type RuntimeFunctionName = {
     : never;
 }[keyof PluginSdkApp];
 
-function runtimeHost(): PluginRuntimeHost["__bbPluginRuntime"] {
-  return (globalThis as PluginRuntimeHost).__bbPluginRuntime;
+function runtimeHost(): PluginRuntimeHost["__hyperfidePluginRuntime"] {
+  return (globalThis as PluginRuntimeHost).__hyperfidePluginRuntime;
 }
 
 // The global is the genuinely unknowable boundary here: the host app
@@ -74,7 +74,7 @@ function runtimeMember<Name extends keyof PluginSdkApp>(
   const member = installedApp()?.[name] as PluginSdkApp[Name] | undefined;
   if (member === undefined) {
     throw new Error(
-      `@hyperfide/plugin-sdk/app: ${name} needs the bb app's plugin runtime. In tests, call installTestPluginRuntime() from @hyperfide/plugin-sdk/testing/app first.`,
+      `@hyperfide/plugin-sdk/app: ${name} needs the hyperfide app's plugin runtime. In tests, call installTestPluginRuntime() from @hyperfide/plugin-sdk/testing/app first.`,
     );
   }
   return member;
@@ -95,7 +95,7 @@ function runtimeComponent<Name extends keyof PluginSdkApp>(
     const react = runtimeHost()?.react;
     if (react === undefined) {
       throw new Error(
-        `@hyperfide/plugin-sdk/app: ${name} needs React on the bb plugin runtime. In tests, call installTestPluginRuntime() from @hyperfide/plugin-sdk/testing/app first.`,
+        `@hyperfide/plugin-sdk/app: ${name} needs React on the hyperfide-platform plugin runtime. In tests, call installTestPluginRuntime() from @hyperfide/plugin-sdk/testing/app first.`,
       );
     }
     return react.createElement(runtimeMember(name), props);
@@ -116,7 +116,7 @@ export const definePluginApp: PluginSdkApp["definePluginApp"] = (setup) => {
   if (typeof setup !== "function") {
     throw new Error("definePluginApp expects a setup function");
   }
-  return Object.freeze({ __bbPluginApp: true as const, setup });
+  return Object.freeze({ __hyperfidePluginApp: true as const, setup });
 };
 export const ThreadChat = runtimeComponent("ThreadChat");
 export const Markdown = runtimeComponent("Markdown");
@@ -179,14 +179,14 @@ export const useRealtimeConnectionState = runtimeFunction(
   "useRealtimeConnectionState",
 );
 export const useSettings = runtimeFunction("useSettings");
-export const useBbContext = runtimeFunction("useBbContext");
+export const useHyperfideContext = runtimeFunction("useHyperfideContext");
 export const experimental_usePluginId = runtimeFunction(
   "experimental_usePluginId",
 );
 export const experimental_useQuestionFormHost = runtimeFunction(
   "experimental_useQuestionFormHost",
 );
-export const useBbNavigate = runtimeFunction("useBbNavigate");
+export const useHyperfideNavigate = runtimeFunction("useHyperfideNavigate");
 export const experimental_useAppPanel = runtimeFunction(
   "experimental_useAppPanel",
 );
@@ -253,7 +253,7 @@ export const useComposerView = runtimeFunction("useComposerView");
 export const experimental_useSidebarThreads = runtimeFunction(
   "experimental_useSidebarThreads",
 );
-/** @internal Superseded by the thread action registry, `useSdk().threads`, and `useBbNavigate()`; kept for plugins built against older SDKs. */
+/** @internal Superseded by the thread action registry, `useSdk().threads`, and `useHyperfideNavigate()`; kept for plugins built against older SDKs. */
 export const experimental_useSidebarThreadActions = runtimeFunction(
   "experimental_useSidebarThreadActions",
 );
@@ -310,7 +310,7 @@ export const experimental_ThreadStatusGlyph = runtimeComponent(
 export const useEnvironmentProviders = runtimeFunction(
   "useEnvironmentProviders",
 );
-// bb's public API client bound to the calling plugin.
+// hyperfide's public API client bound to the calling plugin.
 export const useSdk = runtimeFunction("useSdk");
 // The provider directory (experimental — see docs/api_to_audit.md).
 export const experimental_useProviders = runtimeFunction(
@@ -321,7 +321,7 @@ export const experimental_useProviders = runtimeFunction(
 export const experimental_useCodeTheme = runtimeFunction(
   "experimental_useCodeTheme",
 );
-// bb's clipboard writer, the one bb's own copy actions use (experimental —
+// hyperfide's clipboard writer, the one hyperfide's own copy actions use (experimental —
 // see docs/api_to_audit.md).
 export const experimental_copyToClipboard = runtimeFunction(
   "experimental_copyToClipboard",

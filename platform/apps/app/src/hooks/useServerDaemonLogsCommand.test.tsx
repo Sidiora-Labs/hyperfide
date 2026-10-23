@@ -31,8 +31,8 @@ vi.mock("@/hooks/queries/system-queries", () => ({
   }),
 }));
 
-vi.mock("@/lib/bb-desktop", () => ({
-  getBbDesktopInfo: () => ({
+vi.mock("@/lib/hyperfide-desktop", () => ({
+  getHyperfideDesktopInfo: () => ({
     platform: "macos",
     getInfo: () =>
       Promise.resolve({ serverDaemonLogsAvailable: testState.available }),

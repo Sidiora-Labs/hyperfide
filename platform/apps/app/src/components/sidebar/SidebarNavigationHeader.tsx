@@ -14,7 +14,7 @@ const DEFAULT_CONTROL_SIZE = 28;
 
 function readControlSize(element: HTMLElement): number {
   const value = Number.parseFloat(
-    getComputedStyle(element).getPropertyValue("--bb-sidebar-control-size"),
+    getComputedStyle(element).getPropertyValue("--hyperfide-sidebar-control-size"),
   );
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_CONTROL_SIZE;
 }
@@ -122,7 +122,7 @@ function PluginNavigationHeader({
             description:
               fallbackHeader === null
                 ? `${slot.title} (${pluginId}) stopped working.`
-                : `${slot.title} (${pluginId}) stopped working, so bb drew the ${fallbackHeader} header instead.`,
+                : `${slot.title} (${pluginId}) stopped working, so hyperfide drew the ${fallbackHeader} header instead.`,
           });
         }}
       />

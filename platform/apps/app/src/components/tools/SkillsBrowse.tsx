@@ -34,7 +34,7 @@ function RegistrySkillActions({
 }) {
   return (
     <ResourceInstallControl
-      accessibleLabel={`Fork ${skillName} into a new bb skill`}
+      accessibleLabel={`Fork ${skillName} into a new hyperfide skill`}
       label="Fork"
       icon="Fork"
       presentation={presentation}

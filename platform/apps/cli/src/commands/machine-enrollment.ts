@@ -145,7 +145,7 @@ export async function enrollMachine(
     (await readOptional(join(dataDir, "host-id")))?.trim() !== bootstrap.hostId
   )
     throw new Error(
-      "Machine enrollment cannot use the default BB data directory",
+      "Machine enrollment cannot use the default HYPERFIDE data directory",
     );
   const existingAuth = await readOptional(join(dataDir, "auth.json"));
   if (existingAuth !== null) {
@@ -198,13 +198,13 @@ export async function enrollMachine(
     throw new Error("Refusing to overwrite a different machine identity");
   async function prepareRuntime(): Promise<void> {
     await reservePort(dataDir);
-    const launcher = join(dataDir, "npm", "bin", "bb-app");
+    const launcher = join(dataDir, "npm", "bin", "hyperfide-app");
     try {
       await access(launcher);
     } catch {
       const result = await promisify(execFile)(
         "sh",
-        ["-c", "command -v bb-app"],
+        ["-c", "command -v hyperfide-app"],
         { env },
       ).catch(() => null);
       if (result?.stdout.trim()) {

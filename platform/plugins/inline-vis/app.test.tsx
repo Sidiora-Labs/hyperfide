@@ -277,7 +277,7 @@ describe("InlineVisDirective", () => {
     expect(iframe.title).toBe("inline-vis: charts/demo file.html");
     const srcDoc = iframe.getAttribute("srcdoc") ?? "";
     expect(srcDoc).toContain("<h1>Quarterly chart</h1>");
-    expect(srcDoc).toContain('<style id="bb-theme">:root{color-scheme:light;');
+    expect(srcDoc).toContain('<style id="hyperfide-theme">:root{color-scheme:light;');
     expect(srcDoc).toContain(
       `<base href="${window.location.origin}/api/v1/environments/env_1/files/charts/demo%20file.html">`,
     );
@@ -472,7 +472,7 @@ describe("InlineVisDirective", () => {
     const iframe = await findFrame(slot);
     const request = {
       jsonrpc: "2.0",
-      id: "bb-link-1",
+      id: "hyperfide-link-1",
       method: "ui/open-link",
       params: { url: "https://example.com/docs" },
     };
@@ -527,7 +527,7 @@ describe("InlineVisDirective", () => {
     };
     const props = directiveProps({ file: "plan.md" });
     const first = renderSlot(app.messageDirectives[0]!, props, options);
-    await first.findByTestId("bb-markdown");
+    await first.findByTestId("hyperfide-markdown");
     heights.report(900);
 
     expect(documentBody(first).style.maxHeight).toBe("256px");
@@ -541,11 +541,11 @@ describe("InlineVisDirective", () => {
         .getByRole("button", { name: "Show less" })
         .getAttribute("aria-expanded"),
     ).toBe("true");
-    expect(first.getByTestId("bb-markdown")).toBeTruthy();
+    expect(first.getByTestId("hyperfide-markdown")).toBeTruthy();
     first.unmount();
 
     const second = renderSlot(app.messageDirectives[0]!, props, options);
-    await second.findByTestId("bb-markdown");
+    await second.findByTestId("hyperfide-markdown");
     heights.report(900);
     expect(documentBody(second).style.maxHeight).toBe("");
 
@@ -554,7 +554,7 @@ describe("InlineVisDirective", () => {
     second.unmount();
 
     const third = renderSlot(app.messageDirectives[0]!, props, options);
-    await third.findByTestId("bb-markdown");
+    await third.findByTestId("hyperfide-markdown");
     heights.report(900);
     expect(documentBody(third).style.maxHeight).toBe("256px");
   });
@@ -566,7 +566,7 @@ describe("InlineVisDirective", () => {
       directiveProps({ file: "short.md" }),
       { rpc: { preparePreview: () => markdownPreview("short.md", "# Short") } },
     );
-    await slot.findByTestId("bb-markdown");
+    await slot.findByTestId("hyperfide-markdown");
     expect(documentBody(slot).style.maxHeight).toBe("256px");
 
     heights.report(300);
@@ -586,7 +586,7 @@ describe("InlineVisDirective", () => {
       directiveProps({ file: "tall.md", height: "480" }),
       { rpc: { preparePreview: () => markdownPreview("tall.md", "# Tall") } },
     );
-    await slot.findByTestId("bb-markdown");
+    await slot.findByTestId("hyperfide-markdown");
     heights.report(900);
     expect(documentBody(slot).style.maxHeight).toBe("480px");
     heights.report(500);
@@ -605,7 +605,7 @@ describe("InlineVisDirective", () => {
         },
       },
     );
-    await slot.findByTestId("bb-markdown");
+    await slot.findByTestId("hyperfide-markdown");
     const copy = slot.getByRole("button", { name: "Copy copy.md" });
     fireEvent.click(copy);
 
@@ -619,7 +619,7 @@ describe("InlineVisDirective", () => {
     const pendingPreview = new Promise<HtmlPreview>((resolve) => {
       resolvePreview = resolve;
     });
-    window.localStorage.setItem("bb.inline-vis.collapsed", "true");
+    window.localStorage.setItem("hyperfide.inline-vis.collapsed", "true");
     const slot = renderSlot(
       app.messageDirectives[0]!,
       directiveProps({ file: "pending.html", height: "480" }),
@@ -675,7 +675,7 @@ describe("InlineVisDirective", () => {
       },
     );
 
-    const markdown = await slot.findByTestId("bb-markdown");
+    const markdown = await slot.findByTestId("hyperfide-markdown");
     expect(markdown.textContent).toBe("# Notes\n\nReady for review.");
     expect(slot.container.querySelector("iframe")).toBeNull();
     const card = slot.getByRole("region", { name: "reports/notes.md" });
@@ -730,7 +730,7 @@ describe("InlineVisDirective", () => {
       },
     );
 
-    const markdown = await slot.findByTestId("bb-markdown");
+    const markdown = await slot.findByTestId("hyperfide-markdown");
     expect(markdown.textContent).toBe("# Notes");
     expect(slot.container.querySelector("iframe")).toBeNull();
     fireEvent.click(
@@ -775,7 +775,7 @@ describe("InlineVisDirective", () => {
 
     resolvePreview(markdownPreview("notes.md", "# Notes"));
 
-    const markdown = await slot.findByTestId("bb-markdown");
+    const markdown = await slot.findByTestId("hyperfide-markdown");
     expect(slot.queryByRole("status")).toBeNull();
     const card = slot.getByRole("region", { name: "notes.md" });
     expect(card.contains(markdown)).toBe(true);
@@ -851,7 +851,7 @@ describe("InlineVisFence", () => {
     expect(iframe.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
     const srcDoc = iframe.getAttribute("srcdoc") ?? "";
     expect(srcDoc).toContain("<p>Fenced chart</p>");
-    expect(srcDoc).toContain('<style id="bb-theme">:root{color-scheme:light;');
+    expect(srcDoc).toContain('<style id="hyperfide-theme">:root{color-scheme:light;');
     expect(srcDoc).toContain(`<base href="${window.location.origin}/">`);
     expect(slot.queryByTestId("original")).toBeNull();
     expect(slot.rpcCalls).toEqual([]);
@@ -860,7 +860,7 @@ describe("InlineVisFence", () => {
   it.each([
     ["an unclosed fence", { status: "unclosed" as const }],
     ["a closed fence with no page", { code: " \n " }],
-  ])("falls back to bb's code block for %s", (_label, overrides) => {
+  ])("falls back to hyperfide's code block for %s", (_label, overrides) => {
     const slot = renderSlot(app.codeFenceRenderers[0]!, fenceProps(overrides));
 
     expect(slot.getByTestId("original")).toBeTruthy();

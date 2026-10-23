@@ -11,7 +11,7 @@ const directories: string[] = [];
 const followers: LogFileFollower[] = [];
 
 async function logFile(content: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "bb-log-follower-"));
+  const directory = await mkdtemp(join(tmpdir(), "hyperfide-log-follower-"));
   directories.push(directory);
   const filePath = join(directory, "server.1.log");
   await writeFile(filePath, content);

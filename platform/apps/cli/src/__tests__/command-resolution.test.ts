@@ -31,7 +31,7 @@ function buildProgram(): Command {
 }
 
 function argv(...args: string[]): string[] {
-  return ["node", "bb", ...args];
+  return ["node", "hyperfide", ...args];
 }
 
 describe("resolveInvocation", () => {

@@ -1,4 +1,4 @@
-import { createNodeBbSdk, type BbSdk } from "@hyperfide/sdk/node";
+import { createNodeHyperfideSdk, type HyperfideSdk } from "@hyperfide/sdk/node";
 import type { Dispatcher } from "undici";
 
 type CliRequestInit = RequestInit & { dispatcher?: Dispatcher };
@@ -10,6 +10,6 @@ export function cliFetch(
   return fetch(input, init);
 }
 
-export function createCliBbSdk(baseUrl: string): BbSdk {
-  return createNodeBbSdk({ baseUrl, fetch: cliFetch });
+export function createCliHyperfideSdk(baseUrl: string): HyperfideSdk {
+  return createNodeHyperfideSdk({ baseUrl, fetch: cliFetch });
 }

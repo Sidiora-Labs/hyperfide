@@ -13,12 +13,12 @@ import {
   type ThreadTimelinePendingTodos,
   type WorkspaceStatus,
 } from "@hyperfide/domain";
-import { BbHttpError, type BbSdk } from "@hyperfide/sdk";
+import { HyperfideHttpError, type HyperfideSdk } from "@hyperfide/sdk";
 import {
   environmentPullRequestSchema,
   GITHUB_PR_STATUS_PLUGIN_ID,
   type PullRequest,
-} from "bb-plugin-bb--github-pr-status/contract";
+} from "hyperfide-plugin-hyperfide--github-pr-status/contract";
 import { z } from "zod";
 import type {
   EnvironmentDiffQuery,
@@ -30,7 +30,7 @@ import {
   THREAD_MESSAGE_CONTEXT_LIMIT,
 } from "@hyperfide/server-contract";
 import { action } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliHyperfideSdk } from "../../client.js";
 import {
   getErrorMessage,
   outputJson,
@@ -112,7 +112,7 @@ type CliEnvironmentDiffQuery =
 async function fetchWorkStatus(args: {
   environmentId: string;
   mergeBaseBranch: string;
-  sdk: BbSdk;
+  sdk: HyperfideSdk;
 }): Promise<FetchedWorkStatus> {
   const environmentStatus = await args.sdk.environments.status({
     environmentId: args.environmentId,
@@ -130,7 +130,7 @@ async function fetchWorkStatus(args: {
 async function fetchGitDiff(args: {
   environmentId: string;
   query: EnvironmentDiffQuery;
-  sdk: BbSdk;
+  sdk: HyperfideSdk;
 }): Promise<FetchedGitDiff> {
   const environmentDiff = await args.sdk.environments.diff({
     environmentId: args.environmentId,
@@ -147,7 +147,7 @@ async function fetchGitDiff(args: {
 
 async function fetchPullRequest(args: {
   environmentId: string;
-  sdk: BbSdk;
+  sdk: HyperfideSdk;
 }): Promise<FetchedPullRequest> {
   try {
     const rows = await args.sdk.plugins.callRpc({
@@ -225,7 +225,7 @@ export function registerShowCommand(
     .action(
       action(async (id: string | undefined, opts: ThreadShowCommandOptions) => {
         const threadId = requireThreadIdOrSelf(id, opts);
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const thread = await sdk.threads.get({ threadId });
 
         const statusPayload: ThreadStatusPayload = { thread };
@@ -450,7 +450,7 @@ export function registerShowCommand(
     .action(
       action(async (id: string | undefined, opts: ThreadLogCommandOptions) => {
         const threadId = requireThreadIdOrSelf(id, opts);
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const format = resolveThreadTimelineTextFormat(opts);
 
         if (opts.message !== undefined) {
@@ -549,7 +549,7 @@ export function registerShowCommand(
       action(
         async (id: string | undefined, opts: ThreadOutputCommandOptions) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const result = await sdk.threads.output({ threadId });
           if (outputJson(opts, result)) return;
           if (result.output) {
@@ -636,7 +636,7 @@ function printEnvironmentPullRequest(
 }
 
 async function printThreadLogMessage(
-  sdk: BbSdk,
+  sdk: HyperfideSdk,
   args: {
     threadId: string;
     format: ThreadTimelineTextFormat;
@@ -713,7 +713,7 @@ interface ThreadLogEventBatch {
 }
 
 async function listThreadLogEventBatch(
-  sdk: BbSdk,
+  sdk: HyperfideSdk,
   args: {
     threadId: string;
     limit: number;
@@ -731,7 +731,7 @@ async function listThreadLogEventBatch(
       return { pageSize, rows };
     } catch (error) {
       if (
-        !(error instanceof BbHttpError) ||
+        !(error instanceof HyperfideHttpError) ||
         error.status !== 413 ||
         error.code !== "event_data_too_large" ||
         pageSize === 1
@@ -748,7 +748,7 @@ function growThreadLogEventPageSize(pageSize: number): number {
 }
 
 async function listThreadLogEventsPage(
-  sdk: BbSdk,
+  sdk: HyperfideSdk,
   args: { threadId: string; limit: number; afterSeq: string | undefined },
 ): Promise<ThreadLogEventsPage> {
   const requestedRows = args.limit + 1;
@@ -775,7 +775,7 @@ async function listThreadLogEventsPage(
 }
 
 async function listAllThreadLogEvents(
-  sdk: BbSdk,
+  sdk: HyperfideSdk,
   threadId: string,
   afterSeq: string | undefined,
 ): Promise<ThreadLogEventsPage> {

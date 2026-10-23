@@ -42,11 +42,11 @@ export interface PushStore {
   reload(): void;
 }
 
-export const PUSH_ENABLED_KEY_PREFIX = "bb.push.enabled.";
-export const PUSH_REGISTRATION_KEY_PREFIX = "bb.push.registration.";
-export const PUSH_REGISTRATION_INDEX_KEY = "bb.push.registrations";
-export const PUSH_PROMPTED_KEY = "bb.push.prompted";
-export const PUSH_ENABLED_INDEX_KEY = "bb.push.enabledProfiles";
+export const PUSH_ENABLED_KEY_PREFIX = "hyperfide.push.enabled.";
+export const PUSH_REGISTRATION_KEY_PREFIX = "hyperfide.push.registration.";
+export const PUSH_REGISTRATION_INDEX_KEY = "hyperfide.push.registrations";
+export const PUSH_PROMPTED_KEY = "hyperfide.push.prompted";
+export const PUSH_ENABLED_INDEX_KEY = "hyperfide.push.enabledProfiles";
 
 const idListSchema = z.array(z.string().min(1));
 

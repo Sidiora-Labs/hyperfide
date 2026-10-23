@@ -32,14 +32,14 @@ const SERVER_SOURCE = [
 ].join("\n");
 
 async function buildFixture(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "bb-zod-locale-"));
+  const dir = await mkdtemp(join(tmpdir(), "hyperfide-zod-locale-"));
   tempDirs.push(dir);
   await writeFile(
     join(dir, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-zod-locale-fixture",
+      name: "hyperfide-plugin-zod-locale-fixture",
       version: "0.0.0",
-      bb: {
+      hyperfide: {
         name: "Zod locale fixture",
         description: "Server entry that parses with zod.",
         branding: { icon: "Zap" },

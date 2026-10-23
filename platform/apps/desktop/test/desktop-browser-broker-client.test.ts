@@ -36,7 +36,7 @@ it.each([
 ])(
   "validates $name before registering",
   async ({ key, accepted, timeout }) => {
-    const homeDir = await mkdtemp(join(tmpdir(), "bb-broker-alias-"));
+    const homeDir = await mkdtemp(join(tmpdir(), "hyperfide-broker-alias-"));
     const server = new WebSocketServer({ host: "127.0.0.1", port: 0 });
     await once(server, "listening");
     const address = server.address();
@@ -114,7 +114,7 @@ it.each([
         return Response.json({
           proof: createHmac("sha256", key ?? "a".repeat(64))
             .update(
-              `bb-desktop-broker:${key === null ? "0".repeat(64) : body.challenge}`,
+              `hyperfide-desktop-broker:${key === null ? "0".repeat(64) : body.challenge}`,
             )
             .digest("hex"),
         });
@@ -152,7 +152,7 @@ it.each([
           challenges.push(body.challenge);
           return Response.json({
             proof: createHmac("sha256", "a".repeat(64))
-              .update(`bb-desktop-broker:${body.challenge}`)
+              .update(`hyperfide-desktop-broker:${body.challenge}`)
               .digest("hex"),
           });
         });
@@ -219,7 +219,7 @@ function stubBroker() {
 }
 
 it("registers a broker enrolled at the selected address without a server proof", async () => {
-  const homeDir = await mkdtemp(join(tmpdir(), "bb-broker-same-"));
+  const homeDir = await mkdtemp(join(tmpdir(), "hyperfide-broker-same-"));
   const server = new WebSocketServer({ host: "127.0.0.1", port: 0 });
   await once(server, "listening");
   const address = server.address();
@@ -254,7 +254,7 @@ it("registers a broker enrolled at the selected address without a server proof",
 });
 
 it("backs off proof requests while no broker can be verified", async () => {
-  const homeDir = await mkdtemp(join(tmpdir(), "bb-broker-backoff-"));
+  const homeDir = await mkdtemp(join(tmpdir(), "hyperfide-broker-backoff-"));
   await writeDescriptor(homeDir, "trusted.example", 9);
   const fetchImpl = vi.fn(async () => new Response(null, { status: 409 }));
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

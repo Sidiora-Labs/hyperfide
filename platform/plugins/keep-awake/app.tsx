@@ -148,7 +148,7 @@ function KeepAwakeSettings() {
             Prevent idle sleep
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Keep selected Macs awake while bb is running. Closing the lid or
+            Keep selected Macs awake while hyperfide is running. Closing the lid or
             choosing Sleep still sleeps the Mac.
           </p>
         </div>

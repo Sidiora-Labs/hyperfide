@@ -660,11 +660,11 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     });
   }
 
-  function resolveBbThreadIdForProcess(
+  function resolveHyperfideThreadIdForProcess(
     proc: ProviderProcess,
     providerThreadId: string | undefined,
   ): string | undefined {
-    return threadIdentityRegistry.resolveBbThreadIdForProviderThread({
+    return threadIdentityRegistry.resolveHyperfideThreadIdForProviderThread({
       providerState: proc.identity,
       providerThreadId,
     });
@@ -679,7 +679,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
   function resolveProviderRequestThreadId(
     args: ResolveProviderRequestThreadIdArgs,
   ): string | null {
-    const resolvedThreadId = resolveBbThreadIdForProcess(
+    const resolvedThreadId = resolveHyperfideThreadIdForProcess(
       args.proc,
       args.providerThreadId,
     );
@@ -687,7 +687,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       sendJsonRpcError({
         child: args.proc.child,
         id: args.parsedId,
-        message: `Unable to resolve BB thread id for ${args.requestKind} on provider thread "${args.providerThreadId}"`,
+        message: `Unable to resolve HYPERFIDE thread id for ${args.requestKind} on provider thread "${args.providerThreadId}"`,
       });
       return null;
     }
@@ -695,7 +695,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       sendJsonRpcError({
         child: args.proc.child,
         id: args.parsedId,
-        message: `${formatProviderRequestKindForSentence(args.requestKind)} thread hint "${args.threadIdHint}" did not match resolved BB thread "${resolvedThreadId}" for provider thread "${args.providerThreadId}"`,
+        message: `${formatProviderRequestKindForSentence(args.requestKind)} thread hint "${args.threadIdHint}" did not match resolved HYPERFIDE thread "${resolvedThreadId}" for provider thread "${args.providerThreadId}"`,
       });
       return null;
     }
@@ -1188,7 +1188,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         category: "config",
         summary: `Dropped environment variable "${contribution.name}" from plugin "${contribution.plugin}".`,
         details:
-          "BB_SERVER_URL is unavailable, so its serverPath contribution was not applied.",
+          "HYPERFIDE_SERVER_URL is unavailable, so its serverPath contribution was not applied.",
         scope: { kind: "thread" },
       });
     }
@@ -1224,18 +1224,18 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         providerState: args.proc.identity,
         sourceThreadId: args.sourceThreadId,
       };
-      const resolvedBbThreadId =
+      const resolvedHyperfideThreadId =
         event.type === "thread/identity"
           ? threadIdentityRegistry.resolveProviderIdentityThreadId(scope)
           : threadIdentityRegistry.resolveProviderEventThreadId(scope);
 
-      if (!resolvedBbThreadId) {
+      if (!resolvedHyperfideThreadId) {
         options.onStderr?.(
-          `Dropping unscoped provider event ${event.type}; no bb thread could be resolved`,
+          `Dropping unscoped provider event ${event.type}; no hyperfide-platform thread could be resolved`,
         );
         continue;
       }
-      const targetThreadId = resolvedBbThreadId;
+      const targetThreadId = resolvedHyperfideThreadId;
 
       if (suppressedThreadEventIds.has(targetThreadId)) {
         continue;
@@ -1879,7 +1879,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           });
           if (providerThreadId !== undefined) {
             const ownerThreadId =
-              threadIdentityRegistry.resolveBbThreadIdForProviderThread({
+              threadIdentityRegistry.resolveHyperfideThreadIdForProviderThread({
                 providerState: proc.identity,
                 providerThreadId,
               });

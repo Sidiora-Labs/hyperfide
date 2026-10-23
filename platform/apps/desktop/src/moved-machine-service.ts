@@ -122,8 +122,8 @@ export function formatMachineServiceFailureNotice(args: {
   reason: string;
 }): ServerMovedNotice {
   return {
-    detail: `bb couldn't install the background service that keeps this computer connected and up to date: ${args.reason} bb tries again the next time it opens. The installer log is ${args.logPath}.`,
-    message: `This computer stays connected to ${args.move.toHostName} only while bb is open`,
+    detail: `hyperfide couldn't install the background service that keeps this computer connected and up to date: ${args.reason} hyperfide tries again the next time it opens. The installer log is ${args.logPath}.`,
+    message: `This computer stays connected to ${args.move.toHostName} only while hyperfide is open`,
   };
 }
 

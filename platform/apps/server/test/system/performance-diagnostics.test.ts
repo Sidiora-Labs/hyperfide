@@ -19,7 +19,7 @@ describe("performance diagnostics gates", () => {
     "requires launch permission %s as well as the live experiment",
     async (allowed) => {
       const db = createMigratedConnection();
-      const dataDir = await mkdtemp(join(tmpdir(), "bb-perf-gates-"));
+      const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-perf-gates-"));
       const hub = new NotificationHub();
       const messages: string[] = [];
       const monitor = await startGatedPerformanceDiagnostics({

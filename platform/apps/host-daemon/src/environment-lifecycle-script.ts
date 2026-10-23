@@ -20,15 +20,15 @@ import {
 import fs from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
-import { WorkspaceError } from "bb-environment-provider-host/git";
-import { createTerminalOutputLineReader } from "bb-environment-provider-host/terminal-output";
+import { WorkspaceError } from "hyperfide-environment-provider-host/git";
+import { createTerminalOutputLineReader } from "hyperfide-environment-provider-host/terminal-output";
 import {
   createProvisionCancelledError,
   emitOutput,
   emitStep,
   throwIfProvisionAborted,
   type ProgressCallback,
-} from "bb-environment-provider-host/transcript";
+} from "hyperfide-environment-provider-host/transcript";
 
 export interface RunSetupScriptArgs {
   workspacePath: string;
@@ -69,7 +69,7 @@ export function buildLifecycleScriptCommand(
     if (args.windowsBashPath === null) {
       throw new WorkspaceError(
         "setup_script_failed",
-        `${args.scriptName} needs Git for Windows: bb runs ${args.kind} scripts with the bash that Git installs, and it could not find one.`,
+        `${args.scriptName} needs Git for Windows: hyperfide runs ${args.kind} scripts with the bash that Git installs, and it could not find one.`,
       );
     }
     return {
@@ -91,7 +91,7 @@ export function buildLifecycleScriptCommand(
 export class LifecycleScriptTerminationUnverifiedError extends Error {
   constructor(scriptName: string) {
     super(
-      `${scriptName} was stopped, but bb could not confirm that all of its processes exited`,
+      `${scriptName} was stopped, but hyperfide could not confirm that all of its processes exited`,
     );
     this.name = "LifecycleScriptTerminationUnverifiedError";
   }

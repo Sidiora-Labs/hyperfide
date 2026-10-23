@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Run bb threads with ACP agents (supports Cursor, opencode, omp and more).",
+  "description": "Run hyperfide-platform threads with ACP agents (supports Cursor, opencode, omp and more).",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.90"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.90"
   },
-  "bb": {
+  "hyperfide": {
     "name": "ACP providers",
-    "description": "Run bb threads with ACP agents (supports Cursor, opencode, omp and more).",
+    "description": "Run hyperfide-platform threads with ACP agents (supports Cursor, opencode, omp and more).",
     "branding": {
       "icon": "./icons/acp.svg",
       "experimental_icons": {
@@ -94,13 +94,13 @@
     ]
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "devDependencies": {
     "@hyperfide/plugin-build": "workspace:*",

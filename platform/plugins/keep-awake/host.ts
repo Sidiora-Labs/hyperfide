@@ -32,7 +32,7 @@ export function keepAwakeCommand(
         "-Command",
         [
           "$ErrorActionPreference = 'Stop'",
-          "$power = Add-Type -Name KeepAwake -Namespace Bb -PassThru -MemberDefinition '[DllImport(\"kernel32.dll\")] public static extern uint SetThreadExecutionState(uint flags);'",
+          "$power = Add-Type -Name KeepAwake -Namespace Hyperfide -PassThru -MemberDefinition '[DllImport(\"kernel32.dll\")] public static extern uint SetThreadExecutionState(uint flags);'",
           `if ($power::SetThreadExecutionState(${WINDOWS_AWAKE_STATE}) -eq 0) { exit 1 }`,
           `Wait-Process -Id ${pid}`,
         ].join("; "),

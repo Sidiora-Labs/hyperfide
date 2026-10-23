@@ -57,8 +57,8 @@ function remoteEntry(overrides: Record<string, unknown> = {}) {
 function manifest(plugins: unknown[]): unknown {
   return {
     schemaVersion: 1,
-    name: "bb-community",
-    displayName: "BB Community",
+    name: "hyperfide-community",
+    displayName: "HYPERFIDE Community",
     plugins,
   };
 }
@@ -74,7 +74,7 @@ describe("plugin catalog service", () => {
     db = createMigratedConnection();
     installedNames = [];
     installedCatalogEntries = [];
-    dataDir = await mkdtemp(join(tmpdir(), "bb-catalog-data-"));
+    dataDir = await mkdtemp(join(tmpdir(), "hyperfide-catalog-data-"));
   });
 
   afterEach(async () => {
@@ -126,7 +126,7 @@ describe("plugin catalog service", () => {
       source: `builtin:${args.name}`,
       provenance: {
         kind: "catalog",
-        marketplace: "bb-community",
+        marketplace: "hyperfide-community",
         entryId: args.name,
       },
       sourceIntent: { kind: "builtin", name: args.name },
@@ -149,8 +149,8 @@ describe("plugin catalog service", () => {
     const network = vi.fn();
     const catalog = service({ marketplaceUrl: "", fetch: network });
     expect(await catalog.search("")).toEqual([]);
-    expect(getPluginMarketplace(db, "bb-official")).toBeUndefined();
-    expect(getPluginMarketplace(db, "bb-community")).toBeUndefined();
+    expect(getPluginMarketplace(db, "hyperfide-official")).toBeUndefined();
+    expect(getPluginMarketplace(db, "hyperfide-community")).toBeUndefined();
     expect(network).not.toHaveBeenCalled();
   });
 
@@ -164,7 +164,7 @@ describe("plugin catalog service", () => {
       icon: "ZoomIn",
       iconUrl: null,
       source:
-        "git:https://github.com/brsbl/bb-plugins.git@30f91fd977ba1ce60532af27a68534464fb62516",
+        "git:https://github.com/brsbl/hyperfide-plugins.git@30f91fd977ba1ce60532af27a68534464fb62516",
       installed: false,
       compatible: true,
       incompatibleReason: null,
@@ -294,10 +294,10 @@ describe("plugin catalog service", () => {
           "git:https://github.com/acme/plugins.git@v1.0.0#plugins/widgets",
       });
       expect(results[0]?.iconUrl).toBe(
-        "/api/v1/plugin-catalog/icons/bb-community/widgets?h=" +
-          (await catalog.icon("bb-community", "widgets"))?.hash,
+        "/api/v1/plugin-catalog/icons/hyperfide-community/widgets?h=" +
+          (await catalog.icon("hyperfide-community", "widgets"))?.hash,
       );
-      expect(await catalog.icon("bb-community", "widgets")).toMatchObject({
+      expect(await catalog.icon("hyperfide-community", "widgets")).toMatchObject({
         contentType: "image/svg+xml",
       });
       expect(results[0]?.iconTinted).toBe(true);
@@ -315,7 +315,7 @@ describe("plugin catalog service", () => {
       expect(
         requests.filter((request) => request.url === ICON_URL),
       ).toHaveLength(1);
-      const row = getPluginMarketplace(db, "bb-community");
+      const row = getPluginMarketplace(db, "hyperfide-community");
       expect(row).toMatchObject({
         etag: '"v1"',
         lastSuccessfulRefreshAt: 2_000,
@@ -332,11 +332,11 @@ describe("plugin catalog service", () => {
         /invalid marketplace manifest/,
       );
       expect((await catalog.search("thread-hover-cards")).length).toBe(1);
-      expect(getPluginMarketplace(db, "bb-community")).toMatchObject({
+      expect(getPluginMarketplace(db, "hyperfide-community")).toMatchObject({
         lastAttemptedRefreshAt: 5_000,
         lastSuccessfulRefreshAt: null,
       });
-      expect(getPluginMarketplace(db, "bb-community")?.lastError).toMatch(
+      expect(getPluginMarketplace(db, "hyperfide-community")?.lastError).toMatch(
         /invalid marketplace manifest/,
       );
     });
@@ -349,7 +349,7 @@ describe("plugin catalog service", () => {
         "HTTP 503",
       );
       expect((await catalog.search("")).length).toBe(SEED_ENTRY_COUNT);
-      expect(getPluginMarketplace(db, "bb-community")?.lastError).toContain(
+      expect(getPluginMarketplace(db, "hyperfide-community")?.lastError).toContain(
         "HTTP 503",
       );
     });
@@ -370,7 +370,7 @@ describe("plugin catalog service", () => {
 
     it("falls back to the bundled snapshot when the stored catalog is unreadable", async () => {
       service();
-      const stored = getPluginMarketplace(db, "bb-community");
+      const stored = getPluginMarketplace(db, "hyperfide-community");
       if (stored === undefined) throw new Error("catalog row missing");
       db.$client
         .prepare("UPDATE plugin_marketplaces SET manifest_json = ?")
@@ -397,7 +397,7 @@ describe("plugin catalog service", () => {
       await refreshCuratedMarketplace(catalog, 1_000);
       const [entry] = await catalog.search("widgets");
       expect(entry).toMatchObject({ entryId: "widgets", iconUrl: null });
-      expect(await catalog.icon("bb-community", "widgets")).toBeUndefined();
+      expect(await catalog.icon("hyperfide-community", "widgets")).toBeUndefined();
       expect(warnings.some((warning) => warning.includes("widgets"))).toBe(
         true,
       );
@@ -413,7 +413,7 @@ describe("plugin catalog service", () => {
             : new Response(Buffer.alloc(300 * 1024, 0x41), { status: 200 }),
       });
       await refreshCuratedMarketplace(catalog, 1_000);
-      expect(await catalog.icon("bb-community", "widgets")).toBeUndefined();
+      expect(await catalog.icon("hyperfide-community", "widgets")).toBeUndefined();
       expect(
         warnings.some((warning) => warning.includes("exceeds 262144 bytes")),
       ).toBe(true);
@@ -448,12 +448,12 @@ describe("plugin catalog service", () => {
         },
       });
       await refreshCuratedMarketplace(catalog, 1_000);
-      expect(await catalog.icon("bb-community", "widgets")).toBeDefined();
-      expect(await catalog.icon("bb-community", "gadgets")).toBeUndefined();
+      expect(await catalog.icon("hyperfide-community", "widgets")).toBeDefined();
+      expect(await catalog.icon("hyperfide-community", "gadgets")).toBeUndefined();
 
       await refreshCuratedMarketplace(catalog, 2_000);
-      expect(await catalog.icon("bb-community", "widgets")).toBeDefined();
-      expect(await catalog.icon("bb-community", "gadgets")).toBeDefined();
+      expect(await catalog.icon("hyperfide-community", "widgets")).toBeDefined();
+      expect(await catalog.icon("hyperfide-community", "gadgets")).toBeDefined();
     });
 
     it("drops a cached icon the refreshed manifest no longer lists", async () => {
@@ -469,10 +469,10 @@ describe("plugin catalog service", () => {
             : new Response(VALID_SVG, { status: 200 }),
       });
       await refreshCuratedMarketplace(catalog, 1_000);
-      expect(await catalog.icon("bb-community", "widgets")).toBeDefined();
+      expect(await catalog.icon("hyperfide-community", "widgets")).toBeDefined();
       listIcon = false;
       await refreshCuratedMarketplace(catalog, 2_000);
-      expect(await catalog.icon("bb-community", "widgets")).toBeUndefined();
+      expect(await catalog.icon("hyperfide-community", "widgets")).toBeUndefined();
     });
 
     it("drops a cached icon when its replacement URL fails", async () => {
@@ -491,11 +491,11 @@ describe("plugin catalog service", () => {
         },
       });
       await refreshCuratedMarketplace(catalog, 1_000);
-      expect(await catalog.icon("bb-community", "widgets")).toBeDefined();
+      expect(await catalog.icon("hyperfide-community", "widgets")).toBeDefined();
 
       iconUrl = "./icons/replacement.svg";
       await refreshCuratedMarketplace(catalog, 2_000);
-      expect(await catalog.icon("bb-community", "widgets")).toBeUndefined();
+      expect(await catalog.icon("hyperfide-community", "widgets")).toBeUndefined();
     });
 
     it("keeps the prior snapshot when an icon-table commit fails", async () => {
@@ -518,7 +518,7 @@ describe("plugin catalog service", () => {
       );
       expect(await catalog.search("widgets")).toEqual([]);
       expect(await catalog.search("thread-hover-cards")).toHaveLength(1);
-      expect(getPluginMarketplace(db, "bb-community")).toMatchObject({
+      expect(getPluginMarketplace(db, "hyperfide-community")).toMatchObject({
         lastSuccessfulRefreshAt: null,
         lastAttemptedRefreshAt: 3_000,
         lastError: expect.stringContaining("icon write failed"),
@@ -619,7 +619,7 @@ describe("plugin catalog service", () => {
       sidecarBroken = true;
       await refreshCuratedMarketplace(catalog, 2_000);
       expect((await catalog.search("widgets"))[0]?.installs).toBe(7);
-      expect(getPluginMarketplace(db, "bb-community")).toMatchObject({
+      expect(getPluginMarketplace(db, "hyperfide-community")).toMatchObject({
         lastSuccessfulRefreshAt: 2_000,
         lastError: null,
       });
@@ -693,7 +693,7 @@ describe("plugin catalog service", () => {
       );
       expect(installedCatalogEntries).toEqual([
         {
-          marketplace: "bb-community",
+          marketplace: "hyperfide-community",
           entryId: "widgets",
           pluginId: "widgets",
           source: "git:https://github.com/acme/plugins.git@v1.0.0",
@@ -709,7 +709,7 @@ describe("plugin catalog service", () => {
           icon: "Zap",
           source: {
             npm: {
-              package: "bb-plugin-widgets",
+              package: "hyperfide-plugin-widgets",
               tag: "beta",
               registry: "https://npm.acme.test",
             },
@@ -721,10 +721,10 @@ describe("plugin catalog service", () => {
       );
       expect(installedCatalogEntries).toEqual([
         {
-          marketplace: "bb-community",
+          marketplace: "hyperfide-community",
           entryId: "widgets",
           pluginId: "widgets",
-          source: "npm:bb-plugin-widgets@beta",
+          source: "npm:hyperfide-plugin-widgets@beta",
           selection: ROOT_PLUGIN_SOURCE_SELECTION,
           npmRegistry: "https://npm.acme.test",
         },
@@ -753,15 +753,15 @@ describe("plugin catalog service", () => {
       upsertInstalledPlugin(db, {
         id: "hover-cards",
         source:
-          "git:https://github.com/brsbl/bb-plugins.git@30f91fd977ba1ce60532af27a68534464fb62516",
+          "git:https://github.com/brsbl/hyperfide-plugins.git@30f91fd977ba1ce60532af27a68534464fb62516",
         provenance: {
           kind: "catalog",
-          marketplace: "bb-community",
+          marketplace: "hyperfide-community",
           entryId: "thread-hover-cards",
         },
         sourceIntent: {
           kind: "git",
-          url: "https://github.com/brsbl/bb-plugins.git",
+          url: "https://github.com/brsbl/hyperfide-plugins.git",
           subdirectory: null,
           selector: {
             kind: "ref",
@@ -813,10 +813,10 @@ describe("plugin catalog service", () => {
       },
       {
         name: "the entry's git repository",
-        source: "git:https://github.com/brsbl/bb-plugins@main",
+        source: "git:https://github.com/brsbl/hyperfide-plugins@main",
         sourceIntent: {
           kind: "git",
-          url: "https://github.com/brsbl/bb-plugins",
+          url: "https://github.com/brsbl/hyperfide-plugins",
           subdirectory: null,
           selector: { kind: "ref", ref: "main", refKind: "branch" },
         },
@@ -872,7 +872,7 @@ describe("plugin catalog service", () => {
       });
 
       await refreshCuratedMarketplace(catalog, 1_000);
-      expect(getPluginMarketplace(db, "bb-community")?.lastError).toBeNull();
+      expect(getPluginMarketplace(db, "hyperfide-community")?.lastError).toBeNull();
       expect(await catalog.search("widgets")).toHaveLength(1025);
       expect(await catalog.search("widgets-1024")).toEqual([
         expect.objectContaining({ entryId: "widgets-1024" }),
@@ -895,7 +895,7 @@ describe("plugin catalog service", () => {
       });
 
       await refreshCuratedMarketplace(catalog, 1_000);
-      expect(getPluginMarketplace(db, "bb-community")?.lastError).toBeNull();
+      expect(getPluginMarketplace(db, "hyperfide-community")?.lastError).toBeNull();
       expect(await catalog.search("widgets")).toHaveLength(600);
     });
 
@@ -920,7 +920,7 @@ describe("plugin catalog service", () => {
       });
 
       await refreshCuratedMarketplace(catalog, 1_000);
-      const icons = listPluginMarketplaceIcons(db, "bb-community");
+      const icons = listPluginMarketplaceIcons(db, "hyperfide-community");
       expect(icons).toHaveLength(64);
       expect(
         icons.reduce((total, icon) => total + icon.bytes.byteLength, 0),
@@ -979,7 +979,7 @@ describe("plugin catalog service", () => {
 
       await refreshCuratedMarketplace(catalog, 1_000);
       expect(iconRequests).toEqual([]);
-      expect(await catalog.icon("bb-community", "widgets")).toBeUndefined();
+      expect(await catalog.icon("hyperfide-community", "widgets")).toBeUndefined();
       expect(warnings.join("\n")).toMatch(/non-public address 127\.0\.0\.1/u);
     });
 
@@ -1008,7 +1008,7 @@ describe("plugin catalog service", () => {
         results.filter((entry) => entry.pluginId === occupied.pluginId),
       ).toHaveLength(0);
       expect(results.some((entry) => entry.entryId === "widgets")).toBe(true);
-      expect(getPluginMarketplace(db, "bb-community")?.lastError).toMatch(
+      expect(getPluginMarketplace(db, "hyperfide-community")?.lastError).toMatch(
         new RegExp(`matches a bundled plugin: ${occupied.pluginId}`, "u"),
       );
     });
@@ -1023,7 +1023,7 @@ describe("plugin catalog service", () => {
                     icon: "ZoomIn",
                     source: {
                       npm: {
-                        package: "bb-plugin-widgets",
+                        package: "hyperfide-plugin-widgets",
                         range: "^1.0.0",
                         registry: "https://npm.acme.test",
                       },
@@ -1036,7 +1036,7 @@ describe("plugin catalog service", () => {
 
       await refreshCuratedMarketplace(catalog, 1_000);
       expect((await catalog.search("widgets"))[0]?.source).toBe(
-        "npm:bb-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
+        "npm:hyperfide-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
       );
     });
   });

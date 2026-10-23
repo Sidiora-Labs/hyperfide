@@ -78,7 +78,7 @@ describe("ACP agent registry settings", () => {
     expect(slot.queryByRole("button", { name: /Native Only/ })).toBeNull();
     expect(slot.getByText("Runs npx -y claude-acp@1.0.0")).toBeTruthy();
     expect(
-      slot.getByText("bb already ships this agent as a provider."),
+      slot.getByText("hyperfide already ships this agent as a provider."),
     ).toBeTruthy();
 
     fireEvent.change(slot.getByLabelText("Search agents"), {

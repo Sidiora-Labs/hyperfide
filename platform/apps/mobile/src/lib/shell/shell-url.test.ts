@@ -7,7 +7,7 @@ import {
 } from "./shell-url";
 
 const ROOT = "https://bee.hyperfide.example";
-const PREFIXED = "https://box.example.ts.net/bb";
+const PREFIXED = "https://box.example.ts.net/hyperfide";
 
 describe("buildShellUrl", () => {
   it("joins a page path onto a server mounted at the root", () => {
@@ -21,9 +21,9 @@ describe("buildShellUrl", () => {
   });
 
   it("keeps a server's path prefix", () => {
-    expect(buildShellUrl(PREFIXED, "/")).toBe("https://box.example.ts.net/bb/");
+    expect(buildShellUrl(PREFIXED, "/")).toBe("https://box.example.ts.net/hyperfide/");
     expect(buildShellUrl(PREFIXED, "/threads/thr_1")).toBe(
-      "https://box.example.ts.net/bb/threads/thr_1",
+      "https://box.example.ts.net/hyperfide/threads/thr_1",
     );
   });
 
@@ -49,11 +49,11 @@ describe("isShellNavigation", () => {
   });
 
   it("does not let a sibling path escape a prefixed mount", () => {
-    expect(isShellNavigation("https://box.example.ts.net/bb/x", PREFIXED)).toBe(
+    expect(isShellNavigation("https://box.example.ts.net/hyperfide/x", PREFIXED)).toBe(
       true,
     );
     expect(
-      isShellNavigation("https://box.example.ts.net/bbadmin", PREFIXED),
+      isShellNavigation("https://box.example.ts.net/hyperfideadmin", PREFIXED),
     ).toBe(false);
     expect(
       isShellNavigation("https://box.example.ts.net/other", PREFIXED),
@@ -75,9 +75,9 @@ describe("shellPathFromUrl", () => {
     );
     expect(shellPathFromUrl("https://bee.hyperfide.example/", ROOT)).toBe("/");
     expect(
-      shellPathFromUrl("https://box.example.ts.net/bb/threads/x", PREFIXED),
+      shellPathFromUrl("https://box.example.ts.net/hyperfide/threads/x", PREFIXED),
     ).toBe("/threads/x");
-    expect(shellPathFromUrl("https://box.example.ts.net/bb", PREFIXED)).toBe(
+    expect(shellPathFromUrl("https://box.example.ts.net/hyperfide", PREFIXED)).toBe(
       "/",
     );
   });

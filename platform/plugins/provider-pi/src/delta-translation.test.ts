@@ -33,7 +33,7 @@ function turnScope(turnId: string): ThreadEvent["scope"] {
   return { kind: "turn", turnId };
 }
 
-const THREAD_ID = "bb-thread-1";
+const THREAD_ID = "hyperfide-thread-1";
 const ENTROPY = "pi-test";
 const TURN_ID_PATTERN = /^pi-test-t\d+$/;
 const ITEM_ID_PATTERN = /^pi-test-i\d+$/;
@@ -188,7 +188,7 @@ function agentMessageDeltaId(events: ThreadEvent[]): string | undefined {
 }
 
 describe("pi delta translation equivalence", () => {
-  it("keeps turn_start as internal noise while agent_start owns the bb turn", () => {
+  it("keeps turn_start as internal noise while agent_start owns the hyperfide turn", () => {
     const harness = createHarness();
     harness.translate(loadFixture("agent-start.json"));
 
@@ -199,7 +199,7 @@ describe("pi delta translation equivalence", () => {
     expect(events).toEqual([]);
   });
 
-  it("agent_start opens exactly one bb turn", () => {
+  it("agent_start opens exactly one hyperfide turn", () => {
     const harness = createHarness();
     const events = harness.translate(loadFixture("agent-start.json"));
     expect(events).toEqual([

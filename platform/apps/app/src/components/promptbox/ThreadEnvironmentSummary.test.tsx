@@ -95,28 +95,28 @@ describe("ThreadEnvironmentSummary", () => {
     render(
       <TooltipProvider delayDuration={0}>
         <ThreadEnvironmentSummary
-          environmentLabel="bb/fix-environment-summary"
-          environmentCompactLabel="bb/fix-environment-summary"
+          environmentLabel="hyperfide/fix-environment-summary"
+          environmentCompactLabel="hyperfide/fix-environment-summary"
           environmentIcon="FolderGit"
           environmentProviderName="Worktree"
           environmentCheckout={{
             copyErrorMessage: "Failed to copy branch name",
             copyLabel: "Copy branch name",
             copySuccessMessage: "Branch name copied",
-            copyValue: "bb/fix-environment-summary",
-            label: "bb/fix-environment-summary",
+            copyValue: "hyperfide/fix-environment-summary",
+            label: "hyperfide/fix-environment-summary",
             rowLabel: "Branch",
-            title: "Copy branch name: bb/fix-environment-summary",
+            title: "Copy branch name: hyperfide/fix-environment-summary",
           }}
         />
       </TooltipProvider>,
     );
 
     const copyButton = screen.getByRole("button", {
-      name: "bb/fix-environment-summary",
+      name: "hyperfide/fix-environment-summary",
     });
-    expect(screen.getAllByText("bb/fix-environment-summary")).toHaveLength(3);
-    expect(copyButton.textContent).toBe("bb/fix-environment-summary");
+    expect(screen.getAllByText("hyperfide/fix-environment-summary")).toHaveLength(3);
+    expect(copyButton.textContent).toBe("hyperfide/fix-environment-summary");
     expect(copyButton.querySelector('[data-icon="GitBranch"]')).not.toBeNull();
     expect(copyButton.querySelector('[data-icon="Copy"]')).toBeNull();
   });

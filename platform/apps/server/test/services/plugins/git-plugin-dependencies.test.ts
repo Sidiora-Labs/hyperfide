@@ -8,7 +8,7 @@ import { runInstallCommand } from "../../../src/services/plugins/install-sources
 let rootDir: string;
 
 beforeEach(async () => {
-  rootDir = await mkdtemp(join(tmpdir(), "bb-git-dependencies-"));
+  rootDir = await mkdtemp(join(tmpdir(), "hyperfide-git-dependencies-"));
 });
 
 afterEach(async () => {
@@ -22,9 +22,9 @@ function manifest(
 ): string {
   return JSON.stringify(
     {
-      name: "bb-plugin-runtime-only",
+      name: "hyperfide-plugin-runtime-only",
       version: "1.0.0",
-      bb: {
+      hyperfide: {
         name: "Runtime only",
         description: "Runtime dependency fixture",
         branding: { icon: "Zap" },
@@ -79,7 +79,7 @@ it("installs runtime dependencies with development dependencies present and life
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-runtime-only",
+      name: "hyperfide-plugin-runtime-only",
       version: "1.0.0",
       dependencies,
       devDependencies,

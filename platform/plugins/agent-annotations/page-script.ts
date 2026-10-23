@@ -24,7 +24,7 @@ interface PinnedAnnotation {
   outline: HTMLElement;
 }
 
-export const ANNOTATION_CONTROLLER_KEY = "__bbAgentAnnotations";
+export const ANNOTATION_CONTROLLER_KEY = "__hyperfideAgentAnnotations";
 
 export const THEME_TOKENS = [
   "canvas",
@@ -44,19 +44,19 @@ export const THEME_TOKENS = [
 ] as const;
 
 function installAgentAnnotations(
-  bb: PageBridge | null,
+  hyperfide: PageBridge | null,
   theme: Record<string, string>,
 ): AnnotationPageState {
   const existing: AnnotationController | undefined = Reflect.get(
     globalThis,
-    "__bbAgentAnnotations",
+    "__hyperfideAgentAnnotations",
   );
   if (existing !== undefined) {
     existing.setTheme(theme);
     return existing.state();
   }
 
-  const attributePrefix = "data-bb-annotation-";
+  const attributePrefix = "data-hyperfide-annotation-";
   const attributeKeys = [
     "id",
     "class",
@@ -90,34 +90,34 @@ function installAgentAnnotations(
   ];
   const css = `
     .hover, .outline, .label, .pin, .editor { position: fixed; box-sizing: border-box; }
-    .hover { display: none; pointer-events: none; border: 1.5px solid var(--bb-primary); border-radius: 4px; background: color-mix(in oklab, var(--bb-primary) 10%, transparent); }
-    .outline { pointer-events: none; border: 1.5px dashed color-mix(in oklab, var(--bb-primary) 70%, transparent); border-radius: 4px; }
-    .label { display: none; pointer-events: none; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px; border-radius: 6px; background: var(--bb-primary); color: var(--bb-primary-foreground); font: 500 11px/16px var(--bb-font-mono, ui-monospace, monospace); }
-    .pin { pointer-events: auto; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 999px; background: var(--bb-primary); color: var(--bb-primary-foreground); font: 600 11px/20px var(--bb-font-sans, system-ui, sans-serif); text-align: center; box-shadow: 0 0 0 2px var(--bb-canvas), 0 1px 4px rgb(0 0 0 / 0.3); cursor: pointer; padding: 0; border: 0; }
-    .pin:focus-visible { outline: 2px solid var(--bb-ring); outline-offset: 2px; }
-    .editor { pointer-events: auto; width: 320px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; border: 1px solid var(--bb-border); border-radius: calc(var(--bb-radius, 0.5rem) + 4px); background: var(--bb-popover); color: var(--bb-popover-foreground); box-shadow: 0 12px 32px color-mix(in oklab, var(--bb-ink) 22%, transparent); font: 400 13px/1.4 var(--bb-font-sans, system-ui, sans-serif); }
+    .hover { display: none; pointer-events: none; border: 1.5px solid var(--hyperfide-primary); border-radius: 4px; background: color-mix(in oklab, var(--hyperfide-primary) 10%, transparent); }
+    .outline { pointer-events: none; border: 1.5px dashed color-mix(in oklab, var(--hyperfide-primary) 70%, transparent); border-radius: 4px; }
+    .label { display: none; pointer-events: none; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px; border-radius: 6px; background: var(--hyperfide-primary); color: var(--hyperfide-primary-foreground); font: 500 11px/16px var(--hyperfide-font-mono, ui-monospace, monospace); }
+    .pin { pointer-events: auto; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 999px; background: var(--hyperfide-primary); color: var(--hyperfide-primary-foreground); font: 600 11px/20px var(--hyperfide-font-sans, system-ui, sans-serif); text-align: center; box-shadow: 0 0 0 2px var(--hyperfide-canvas), 0 1px 4px rgb(0 0 0 / 0.3); cursor: pointer; padding: 0; border: 0; }
+    .pin:focus-visible { outline: 2px solid var(--hyperfide-ring); outline-offset: 2px; }
+    .editor { pointer-events: auto; width: 320px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; border: 1px solid var(--hyperfide-border); border-radius: calc(var(--hyperfide-radius, 0.5rem) + 4px); background: var(--hyperfide-popover); color: var(--hyperfide-popover-foreground); box-shadow: 0 12px 32px color-mix(in oklab, var(--hyperfide-ink) 22%, transparent); font: 400 13px/1.4 var(--hyperfide-font-sans, system-ui, sans-serif); }
     .editor-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px 0; min-width: 0; }
-    .editor-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; color: var(--bb-muted-foreground); font: 500 11px/18px var(--bb-font-mono, ui-monospace, monospace); }
-    .target-tag { flex-shrink: 0; color: var(--bb-popover-foreground); background: var(--bb-state-hover); padding: 0 6px; border-radius: 5px; white-space: nowrap; }
+    .editor-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; color: var(--hyperfide-muted-foreground); font: 500 11px/18px var(--hyperfide-font-mono, ui-monospace, monospace); }
+    .target-tag { flex-shrink: 0; color: var(--hyperfide-popover-foreground); background: var(--hyperfide-state-hover); padding: 0 6px; border-radius: 5px; white-space: nowrap; }
     .target-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .editor-number { flex-shrink: 0; width: 18px; height: 18px; border-radius: 999px; background: var(--bb-primary); color: var(--bb-primary-foreground); font: 600 10px/18px var(--bb-font-sans, system-ui, sans-serif); text-align: center; }
-    textarea { box-sizing: border-box; display: block; width: calc(100% - 20px); min-height: 68px; max-height: 240px; resize: vertical; margin: 8px 10px 0; padding: 7px 9px; border: 1px solid var(--bb-border); border-radius: 7px; background: var(--bb-canvas); color: inherit; font: inherit; outline: none; }
-    textarea::placeholder { color: var(--bb-muted-foreground); }
-    textarea:focus { border-color: var(--bb-ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--bb-ring) 12%, transparent); }
+    .editor-number { flex-shrink: 0; width: 18px; height: 18px; border-radius: 999px; background: var(--hyperfide-primary); color: var(--hyperfide-primary-foreground); font: 600 10px/18px var(--hyperfide-font-sans, system-ui, sans-serif); text-align: center; }
+    textarea { box-sizing: border-box; display: block; width: calc(100% - 20px); min-height: 68px; max-height: 240px; resize: vertical; margin: 8px 10px 0; padding: 7px 9px; border: 1px solid var(--hyperfide-border); border-radius: 7px; background: var(--hyperfide-canvas); color: inherit; font: inherit; outline: none; }
+    textarea::placeholder { color: var(--hyperfide-muted-foreground); }
+    textarea:focus { border-color: var(--hyperfide-ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--hyperfide-ring) 12%, transparent); }
     .actions { display: flex; align-items: center; gap: 6px; padding: 8px 10px 10px; min-width: 0; }
-    button { flex-shrink: 0; white-space: nowrap; height: 28px; padding: 0 11px; border: 1px solid transparent; border-radius: 7px; font: 500 12px/16px var(--bb-font-sans, system-ui, sans-serif); cursor: pointer; }
-    button:focus-visible { outline: 2px solid var(--bb-ring); outline-offset: 1px; }
-    .cancel { margin-left: auto; border-color: var(--bb-border); background: transparent; color: inherit; }
-    .delete { padding: 0 6px; margin-left: -6px; background: transparent; color: var(--bb-muted-foreground); }
-    .delete:hover { color: var(--bb-destructive, var(--bb-ink)); background: color-mix(in oklab, var(--bb-destructive, var(--bb-ink)) 8%, transparent); }
-    .cancel:hover { background: var(--bb-state-hover); }
-    .save { background: var(--bb-primary); color: var(--bb-primary-foreground); }
+    button { flex-shrink: 0; white-space: nowrap; height: 28px; padding: 0 11px; border: 1px solid transparent; border-radius: 7px; font: 500 12px/16px var(--hyperfide-font-sans, system-ui, sans-serif); cursor: pointer; }
+    button:focus-visible { outline: 2px solid var(--hyperfide-ring); outline-offset: 1px; }
+    .cancel { margin-left: auto; border-color: var(--hyperfide-border); background: transparent; color: inherit; }
+    .delete { padding: 0 6px; margin-left: -6px; background: transparent; color: var(--hyperfide-muted-foreground); }
+    .delete:hover { color: var(--hyperfide-destructive, var(--hyperfide-ink)); background: color-mix(in oklab, var(--hyperfide-destructive, var(--hyperfide-ink)) 8%, transparent); }
+    .cancel:hover { background: var(--hyperfide-state-hover); }
+    .save { background: var(--hyperfide-primary); color: var(--hyperfide-primary-foreground); }
     .save:hover { filter: brightness(1.08); }
     .save:disabled { opacity: 0.45; cursor: default; filter: none; }
 
   `;
 
-  const host = document.createElement("bb-agent-annotations");
+  const host = document.createElement("hyperfide-agent-annotations");
   host.style.cssText =
     "all: initial; position: fixed; inset: 0; z-index: 2147483647; pointer-events: none;";
   const root = host.attachShadow({ mode: "open" });
@@ -158,7 +158,7 @@ function installAgentAnnotations(
   }
 
   function post(message: unknown): void {
-    bb?.postMessage(message);
+    hyperfide?.postMessage(message);
   }
 
   function escapeIdentifier(value: string): string {
@@ -599,14 +599,14 @@ function installAgentAnnotations(
     setTheme,
     clear,
   };
-  Reflect.set(globalThis, "__bbAgentAnnotations", controller);
+  Reflect.set(globalThis, "__hyperfideAgentAnnotations", controller);
   setTheme(theme);
   return state();
 }
 
 function probeReactComponents(annotationId: string) {
   const element = document.querySelector(
-    `[data-bb-annotation-${annotationId}]`,
+    `[data-hyperfide-annotation-${annotationId}]`,
   );
   if (element === null) {
     return null;
@@ -675,7 +675,7 @@ function probeReactComponents(annotationId: string) {
 }
 
 export function buildActivateExpression(theme: Record<string, string>): string {
-  return `((install) => { install(bb, ${JSON.stringify(theme)}); return globalThis.${ANNOTATION_CONTROLLER_KEY}.activate(); })(${installAgentAnnotations.toString()})`;
+  return `((install) => { install(hyperfide, ${JSON.stringify(theme)}); return globalThis.${ANNOTATION_CONTROLLER_KEY}.activate(); })(${installAgentAnnotations.toString()})`;
 }
 
 export function buildControllerExpression(

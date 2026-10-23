@@ -9,7 +9,7 @@ import { isInsideNativeShell } from "@/lib/native-shell";
 const APP_SURFACE_MOBILE: RequestAppSurface = "mobile";
 
 export function getAppSurface(): RequestAppSurface {
-  if (typeof window !== "undefined" && window.bbDesktop !== undefined) {
+  if (typeof window !== "undefined" && window.hyperfideDesktop !== undefined) {
     return APP_SURFACE_DESKTOP;
   }
   if (isInsideNativeShell()) {

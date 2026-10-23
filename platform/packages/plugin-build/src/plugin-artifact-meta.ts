@@ -7,7 +7,7 @@ import {
 export function createPluginArtifactMeta(args: {
   packageName: string;
   pluginVersion: string;
-  bbVersion: string;
+  hyperfideVersion: string;
 }) {
   return {
     sdkMajor: PLUGIN_SDK_MAJOR,
@@ -16,7 +16,7 @@ export function createPluginArtifactMeta(args: {
     pluginId: derivePluginId(args.packageName),
     pluginVersion: args.pluginVersion,
     builtWith: {
-      bbVersion: args.bbVersion,
+      hyperfideVersion: args.hyperfideVersion,
       pluginSdkVersion: PLUGIN_SDK_VERSION,
     },
   } as const;

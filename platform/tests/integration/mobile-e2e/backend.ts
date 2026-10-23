@@ -22,31 +22,31 @@ const DEFAULT_PORT = 41999;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 function readStaticDir(): string | undefined {
-  if (process.env.BB_MOBILE_E2E_SERVE_APP !== "1") return undefined;
+  if (process.env.HYPERFIDE_MOBILE_E2E_SERVE_APP !== "1") return undefined;
   const dist = resolve(repoRoot, "apps/app/dist");
   if (!existsSync(resolve(dist, "index.html"))) {
     throw new Error(
-      `BB_MOBILE_E2E_SERVE_APP=1 but ${dist}/index.html is missing. Run: pnpm exec turbo run build --filter=@hyperfide/app`,
+      `HYPERFIDE_MOBILE_E2E_SERVE_APP=1 but ${dist}/index.html is missing. Run: pnpm exec turbo run build --filter=@hyperfide/app`,
     );
   }
   return dist;
 }
 
 function readPort(): number {
-  const raw = process.env.BB_MOBILE_E2E_PORT;
+  const raw = process.env.HYPERFIDE_MOBILE_E2E_PORT;
   if (!raw) return DEFAULT_PORT;
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 65535) {
-    throw new Error(`Invalid BB_MOBILE_E2E_PORT: ${raw}`);
+    throw new Error(`Invalid HYPERFIDE_MOBILE_E2E_PORT: ${raw}`);
   }
   return parsed;
 }
 
 function readBindHost(): "127.0.0.1" | "0.0.0.0" {
-  const raw = process.env.BB_MOBILE_E2E_BIND_HOST;
+  const raw = process.env.HYPERFIDE_MOBILE_E2E_BIND_HOST;
   if (raw === undefined || raw === "127.0.0.1") return "127.0.0.1";
   if (raw === "0.0.0.0") return "0.0.0.0";
-  throw new Error(`Invalid BB_MOBILE_E2E_BIND_HOST: ${raw}`);
+  throw new Error(`Invalid HYPERFIDE_MOBILE_E2E_BIND_HOST: ${raw}`);
 }
 
 function listLanIpv4Addresses(): string[] {
@@ -65,7 +65,7 @@ function warnWildcardBind(port: number): void {
       "mobile-e2e backend: SECURITY WARNING: binding on 0.0.0.0. The harness",
       "server is unauthenticated and runs a real host daemon that permits",
       "command execution (terminal sessions) and file reads as your user.",
-      "Use BB_MOBILE_E2E_BIND_HOST=0.0.0.0 only behind a trusted network",
+      "Use HYPERFIDE_MOBILE_E2E_BIND_HOST=0.0.0.0 only behind a trusted network",
       "boundary and stop the backend when you are done.",
     ].join(" ") +
       "\n" +

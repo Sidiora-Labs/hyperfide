@@ -165,7 +165,7 @@ describe("loadUsage", () => {
     const { state, target } = usageState();
     await loadUsage(
       async () => {
-        throw new Error("Unexpected token 'b', bb connect...");
+        throw new Error("Unexpected token 'b', hyperfide-platform connect...");
       },
       null,
       false,

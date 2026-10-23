@@ -1,7 +1,7 @@
 import { defineRpcContract } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
-export const GITHUB_PR_STATUS_PLUGIN_ID = "bb--github-pr-status";
+export const GITHUB_PR_STATUS_PLUGIN_ID = "hyperfide--github-pr-status";
 export const PULL_REQUESTS_MAX_KEYS = 200;
 
 const checkStatusSchema = z.enum([

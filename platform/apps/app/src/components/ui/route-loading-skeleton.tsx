@@ -7,7 +7,7 @@ import {
   CHROME_ROW_CLASS,
   MACOS_TITLE_BAR_BAND_CLASS,
   MACOS_TITLE_BAR_COLLAPSED_SIDEBAR_RESERVE_CLASS,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 import { ComposerLoadingSkeleton } from "@/components/promptbox/ComposerPlaceholder";
@@ -51,7 +51,7 @@ export function RouteLoadingSkeleton({
       className={cn(
         SHELL_CLASS,
         (!isBoundedPane || isRootCompose) && STANDALONE_SHELL_BLEED_CLASS,
-        isRootCompose && "pt-(--bb-window-frame-top)",
+        isRootCompose && "pt-(--hyperfide-window-frame-top)",
       )}
       role="status"
       aria-busy="true"

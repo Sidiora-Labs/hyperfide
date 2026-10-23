@@ -5,10 +5,10 @@
   "type": "module",
   "description": "Annotate elements in a Browser tab and add them to the prompt as structured agent context.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.6.0"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.0"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Agent Annotations",
     "description": "Select elements in a Browser tab, comment on them, and add them to the prompt.",
     "branding": {
@@ -18,13 +18,13 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",

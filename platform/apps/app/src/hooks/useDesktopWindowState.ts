@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import type { BbDesktopWindowState } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopWindowState } from "@hyperfide/desktop-contract";
 import {
   DEFAULT_DESKTOP_WINDOW_STATE,
-  getBbDesktopInfo,
-} from "@/lib/bb-desktop";
+  getHyperfideDesktopInfo,
+} from "@/lib/hyperfide-desktop";
 
-export function useDesktopWindowState(): BbDesktopWindowState {
-  const [windowState, setWindowState] = useState<BbDesktopWindowState>(
+export function useDesktopWindowState(): HyperfideDesktopWindowState {
+  const [windowState, setWindowState] = useState<HyperfideDesktopWindowState>(
     DEFAULT_DESKTOP_WINDOW_STATE,
   );
 
   useEffect(() => {
-    const desktopApi = getBbDesktopInfo();
+    const desktopApi = getHyperfideDesktopInfo();
     let cancelled = false;
 
     const unsubscribe = desktopApi?.onWindowStateChange?.((nextState) => {

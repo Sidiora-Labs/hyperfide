@@ -5,7 +5,7 @@ import {
   makeWorkspaceStatus,
   makeWorkspaceWorkingTree,
 } from "@hyperfide/test-helpers";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import { getGitStatusDisplay } from "./workspace-status";
 
 interface MakeStatusOptions {
@@ -186,7 +186,7 @@ describe("workspace-status", () => {
   });
 
   it("reports a missing workspace when the path is gone", () => {
-    const error = new BbHttpError({
+    const error = new HyperfideHttpError({
       status: 502,
       message: "Managed workspace path does not exist",
       code: "path_not_found",
@@ -202,7 +202,7 @@ describe("workspace-status", () => {
   });
 
   it("reports lifecycle-aware workspace errors before generic fallbacks", () => {
-    const error = new BbHttpError({
+    const error = new HyperfideHttpError({
       status: 409,
       message: "Environment unavailable",
       code: "environment_not_ready",

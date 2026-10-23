@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { CORE_COMMAND_GROUPS } from "../command-groups.js";
-import { readBbAppVersion } from "./bb-app-version.js";
+import { readHyperfideAppVersion } from "./hyperfide-app-version.js";
 
 const execFileAsync = promisify(execFile);
 const cliRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -46,7 +46,7 @@ interface CliRun {
   urls: string[];
 }
 
-describe("bb startup module graph", () => {
+describe("hyperfide startup module graph", () => {
   let tempDir: string;
   let registerHooksPath: string;
   let distEntry: string;
@@ -112,7 +112,7 @@ describe("bb startup module graph", () => {
   it("answers --version from commander and node builtins alone", async () => {
     const run = await runCli("source", ["--version"]);
 
-    expect(run.stdout.trim()).toBe(await readBbAppVersion());
+    expect(run.stdout.trim()).toBe(await readHyperfideAppVersion());
 
     expect(loaded(run, "/apps/cli/src/index.ts")).toHaveLength(1);
     expect(loaded(run, "/commander/")).not.toHaveLength(0);
@@ -201,7 +201,7 @@ describe("bb startup module graph", () => {
     it("answers --version from the entry and its shared chunks alone", async () => {
       const run = await runCli("dist", ["--version"]);
 
-      expect(run.stdout.trim()).toBe(await readBbAppVersion());
+      expect(run.stdout.trim()).toBe(await readHyperfideAppVersion());
       expect(loaded(run, pathToFileURL(distEntry).href)).toHaveLength(1);
 
       const chunks = loaded(run, chunkDirUrl);
@@ -261,7 +261,7 @@ describe("bb startup module graph", () => {
                     {
                       name: "inspect",
                       summary: "Inspect a fixture",
-                      usage: "bb fixture inspect <id>",
+                      usage: "hyperfide fixture inspect <id>",
                     },
                   ],
                 },
@@ -305,7 +305,7 @@ describe("bb startup module graph", () => {
             ["fixture", "inspect", helpFlag],
             serverUrl,
           );
-          expect(run.stdout).toBe("bb fixture inspect <id>\n");
+          expect(run.stdout).toBe("hyperfide fixture inspect <id>\n");
         }
         expect(pluginCalls).toBe(0);
 

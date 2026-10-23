@@ -44,7 +44,7 @@ describe("client system notifications", () => {
   ])(
     "uses the appropriate notification icon on $platform",
     async ({ platform, icon }) => {
-      if (platform !== "web") vi.stubGlobal("bbDesktop", { platform });
+      if (platform !== "web") vi.stubGlobal("hyperfideDesktop", { platform });
       const delivery = createClientDelivery(vi.fn());
       await delivery.deliver(
         { ...message, channels: [platform === "web" ? "web" : "desktop"] },
@@ -67,7 +67,7 @@ describe("client system notifications", () => {
       const focusWindow = vi.fn();
       if (platform !== "web") {
         vi.stubGlobal(
-          "bbDesktop",
+          "hyperfideDesktop",
           platform === "older-linux"
             ? { platform: "linux" }
             : { platform, focusWindow },
@@ -121,7 +121,7 @@ describe("client system notifications", () => {
     TestNotification.permission = "denied";
     await delivery.deliver(message, true);
     expect(TestNotification.instances).toHaveLength(0);
-    vi.stubGlobal("bbDesktop", {});
+    vi.stubGlobal("hyperfideDesktop", {});
     TestNotification.permission = "granted";
     await delivery.deliver(message, true);
     await delivery.deliver({ ...message, channels: ["desktop"] }, true);
@@ -131,10 +131,10 @@ describe("client system notifications", () => {
 
   it("does not deliver in the mobile WebView and survives unavailable storage", async () => {
     const delivery = createClientDelivery(vi.fn());
-    vi.stubGlobal("bb", { native: {} });
+    vi.stubGlobal("hyperfide", { native: {} });
     await delivery.deliver(message, true);
     expect(TestNotification.instances).toHaveLength(0);
-    vi.stubGlobal("bb", undefined);
+    vi.stubGlobal("hyperfide", undefined);
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("Unavailable");
     });

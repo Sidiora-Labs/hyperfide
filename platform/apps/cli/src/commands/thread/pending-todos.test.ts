@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { ThreadTimelinePendingTodos } from "@hyperfide/domain";
 import type { ThreadTimelineResponse } from "@hyperfide/server-contract";
 import {
-  createNodeBbSdk,
-  type BbSdk,
+  createNodeHyperfideSdk,
+  type HyperfideSdk,
   type FetchImplementation,
 } from "@hyperfide/sdk/node";
 
@@ -129,7 +129,7 @@ describe("fetchThreadPendingTodos", () => {
 
   interface SdkOverHttpBoundary {
     requestUrls: string[];
-    sdk: BbSdk;
+    sdk: HyperfideSdk;
   }
 
   function makeSdkOverHttpBoundary(
@@ -143,7 +143,7 @@ describe("fetchThreadPendingTodos", () => {
     };
     return {
       requestUrls,
-      sdk: createNodeBbSdk({ baseUrl: "http://bb.test", fetch: fetchMock }),
+      sdk: createNodeHyperfideSdk({ baseUrl: "http://hyperfide.test", fetch: fetchMock }),
     };
   }
 
@@ -162,7 +162,7 @@ describe("fetchThreadPendingTodos", () => {
     });
     expect(result).toEqual(snapshot);
     expect(requestUrls).toEqual([
-      "http://bb.test/api/v1/threads/thread-1/timeline?summaryOnly=true",
+      "http://hyperfide.test/api/v1/threads/thread-1/timeline?summaryOnly=true",
     ]);
   });
 

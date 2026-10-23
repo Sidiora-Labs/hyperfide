@@ -28,7 +28,7 @@ it.each(["retained", "removed before relocation", "removed after relocation"])(
   "relocates a real Pi session with the previous directory %s",
   async (previousState) => {
     harness = await startFakePiBridge({
-      prefix: "bb-pi-relocation-",
+      prefix: "hyperfide-pi-relocation-",
       initialize: true,
     });
     const target = realpathSync(harness.workspaceDir);
@@ -158,7 +158,7 @@ it.each(["retained", "removed before relocation", "removed after relocation"])(
 
 it("keeps the original session and discards an unsuccessful relocation before retrying", async () => {
   harness = await startFakePiBridge({
-    prefix: "bb-pi-relocation-retry-",
+    prefix: "hyperfide-pi-relocation-retry-",
     initialize: true,
   });
   mkdirSync(harness.sessionDir, { recursive: true });

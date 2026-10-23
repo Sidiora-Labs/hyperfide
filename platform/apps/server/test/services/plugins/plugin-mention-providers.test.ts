@@ -39,8 +39,8 @@ const logger = testLogger as unknown as Logger;
 
 const MENTION_SOURCE = `
   let resolveCalls = 0;
-  export default function plugin(bb: any) {
-    bb.ui.registerMentionProvider({
+  export default function plugin(hyperfide: any) {
+    hyperfide.ui.registerMentionProvider({
       id: "issues",
       label: "Linear issues",
       triggers: ["@", "#"],
@@ -74,7 +74,7 @@ const MENTION_SOURCE = `
         };
       },
     });
-    bb.ui.registerMentionProvider({
+    hyperfide.ui.registerMentionProvider({
       id: "docs",
       label: "Docs",
       async search() {
@@ -84,7 +84,7 @@ const MENTION_SOURCE = `
         throw new Error("docs resolve boom");
       },
     });
-    bb.ui.registerMentionProvider({
+    hyperfide.ui.registerMentionProvider({
       id: "broken",
       label: "Broken",
       async search() {
@@ -108,7 +108,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Mention provider fixture",
         description: "Mention provider plugin fixture.",
         branding: { icon: "Zap" },
@@ -174,14 +174,14 @@ function seedWarmIdleThreadFixture(harness: TestAppHarness, value: number) {
   return { environment, thread };
 }
 
-describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
+describe("plugin mention providers (hyperfide.ui.registerMentionProvider)", () => {
   let harness: TestAppHarness;
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
     const rootDir = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
-      { name: "bb-plugin-mentions", serverSource: MENTION_SOURCE },
+      { name: "hyperfide-plugin-mentions", serverSource: MENTION_SOURCE },
     );
     const entry = await harness.pluginService.installPath(rootDir);
     expect(entry.status).toBe("running");
@@ -604,13 +604,13 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
     const dupeDir = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-dupe-mentions",
+        name: "hyperfide-plugin-dupe-mentions",
         serverSource: `
-          export default function plugin(bb: any) {
-            bb.ui.registerMentionProvider({
+          export default function plugin(hyperfide: any) {
+            hyperfide.ui.registerMentionProvider({
               id: "a", label: "A", search: () => [], resolve: () => ({ context: "x" }),
             });
-            bb.ui.registerMentionProvider({
+            hyperfide.ui.registerMentionProvider({
               id: "a", label: "A again", search: () => [], resolve: () => ({ context: "x" }),
             });
           }
@@ -626,10 +626,10 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
     const badIdDir = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-bad-mention-id",
+        name: "hyperfide-plugin-bad-mention-id",
         serverSource: `
-          export default function plugin(bb: any) {
-            bb.ui.registerMentionProvider({
+          export default function plugin(hyperfide: any) {
+            hyperfide.ui.registerMentionProvider({
               id: "has:colon", label: "Nope", search: () => [], resolve: () => ({ context: "x" }),
             });
           }
@@ -643,10 +643,10 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
     const badTriggerDir = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-bad-mention-trigger",
+        name: "hyperfide-plugin-bad-mention-trigger",
         serverSource: `
-          export default function plugin(bb: any) {
-            bb.ui.registerMentionProvider({
+          export default function plugin(hyperfide: any) {
+            hyperfide.ui.registerMentionProvider({
               id: "bad", label: "Nope", triggers: ["?"], search: () => [], resolve: () => ({ context: "x" }),
             });
           }
@@ -668,7 +668,7 @@ describe("mention search time box", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-mention-timeout-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-mention-timeout-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -695,16 +695,16 @@ describe("mention search time box", () => {
 
   it("drops a slow provider after the time box and keeps fast providers", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-slow-mentions",
+      name: "hyperfide-plugin-slow-mentions",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.ui.registerMentionProvider({
+        export default function plugin(hyperfide: any) {
+          hyperfide.ui.registerMentionProvider({
             id: "fast",
             label: "Fast",
             search: () => [{ id: "one", title: "One" }],
             resolve: () => ({ context: "one" }),
           });
-          bb.ui.registerMentionProvider({
+          hyperfide.ui.registerMentionProvider({
             id: "slow",
             label: "Slow",
             search: () => new Promise((resolve) => {
@@ -748,7 +748,7 @@ describe("mention resolve time box", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-resolve-timeout-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-resolve-timeout-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -775,10 +775,10 @@ describe("mention resolve time box", () => {
 
   it("fails the resolve after the time box instead of hanging the send", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-slow-resolve",
+      name: "hyperfide-plugin-slow-resolve",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.ui.registerMentionProvider({
+        export default function plugin(hyperfide: any) {
+          hyperfide.ui.registerMentionProvider({
             id: "stuck",
             label: "Stuck",
             search: () => [{ id: "one", title: "One" }],

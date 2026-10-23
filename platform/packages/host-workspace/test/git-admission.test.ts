@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { runVcsProcess } from "@hyperfide/process-utils";
 import { runGitWithNullRecordLimit } from "../src/git.js";
-import { runGit as runProvisioningGit } from "bb-environment-provider-host/git";
+import { runGit as runProvisioningGit } from "hyperfide-environment-provider-host/git";
 
 it.each([
   [

@@ -125,7 +125,7 @@ describe("collection manifest in a checkout", () => {
   let repoDir: string;
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-collection-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-collection-"));
     repoDir = join(workDir, "repo");
     await mkdir(join(repoDir, ".hyperfide"), { recursive: true });
   });
@@ -145,9 +145,9 @@ describe("collection manifest in a checkout", () => {
     await writeFile(
       join(repoDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-root",
+        name: "hyperfide-plugin-root",
         version: "0.1.0",
-        bb: {
+        hyperfide: {
           name: "Root",
           description: "Root plugin.",
           branding: { icon: "Zap" },

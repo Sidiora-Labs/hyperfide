@@ -179,7 +179,7 @@ function assertValidPluginSvg(
 
 export function assertValidPluginCompactIconSvg(
   bytes: Uint8Array,
-  label = "bb.branding.icon",
+  label = "hyperfide.branding.icon",
 ): void {
   assertValidPluginSvg(bytes, `manifest ${label}`, COMPACT_ICON_RULES);
 }

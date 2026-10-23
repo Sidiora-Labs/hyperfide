@@ -1,0 +1,10 @@
+appId: app.hyperfide.mobile
+---
+- openLink: "${LINK}"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in.*hyperfide.*"
+    commands:
+      - tapOn: "Open"
+- assertNotVisible: "Open in.*hyperfide.*"

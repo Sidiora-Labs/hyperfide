@@ -103,7 +103,7 @@ describe("hyperfide-platform thread interactions command output", () => {
             presentation: {
               label: { pending: "Creating issue", completed: "Created issue" },
               icon: { glyph: "Globe" },
-              title: "get-bb/bb#42",
+              title: "hyperfide/hyperfide#42",
               detail: "Opens a bug issue",
             },
           },
@@ -123,7 +123,7 @@ describe("hyperfide-platform thread interactions command output", () => {
     expect(lines).toContain("  Kind: tool-use");
     expect(lines.slice(5)).toEqual([
       "  Tool: mcp__github__create_issue",
-      "  get-bb/bb#42",
+      "  hyperfide/hyperfide#42",
       "  Opens a bug issue",
       "  Decisions: allow_once, deny",
     ]);

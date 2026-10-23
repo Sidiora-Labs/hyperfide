@@ -699,7 +699,7 @@ describe("decodeCodexInteractiveRequest", () => {
     });
   });
 
-  it("rejects secret Codex user input instead of rendering it in the BB form", () => {
+  it("rejects secret Codex user input instead of rendering it in the HYPERFIDE form", () => {
     expect(() =>
       decodeCodexInteractiveRequest({
         id: 13,
@@ -727,7 +727,7 @@ describe("decodeCodexInteractiveRequest", () => {
 });
 
 describe("buildCodexInteractiveResponse", () => {
-  it("maps bb command approvals back to Codex responses", () => {
+  it("maps hyperfide command approvals back to Codex responses", () => {
     expect(
       buildCodexInteractiveResponse({
         payload: {

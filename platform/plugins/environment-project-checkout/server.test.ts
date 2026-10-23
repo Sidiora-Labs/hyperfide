@@ -20,12 +20,12 @@ const HOST = makeHostResponse({ id: "host-a", name: "Fake machine" });
 const PROJECT: PluginEnvironmentProviderCreateContext["project"] = {
   id: "project-1",
   kind: "standard",
-  name: "bb",
+  name: "hyperfide",
   gitRemoteUrl: null,
   createdAt: 1,
   updatedAt: 1,
 };
-const CHECKOUT_PATH = "/checkouts/bb";
+const CHECKOUT_PATH = "/checkouts/hyperfide";
 
 function environmentAt(path: string): Environment {
   return {
@@ -53,7 +53,7 @@ async function validateWith(args: {
   inputs: PluginEnvironmentProviderValidateContext["inputs"];
   inspectCheckout?: () => unknown;
 }) {
-  const { bb, harness } = createFakePluginHost({
+  const { hyperfide, harness } = createFakePluginHost({
     pluginId: "environment-project-checkout",
     experimental_callHostRpc: (call) => {
       if (call.method === "inspectCheckout" && args.inspectCheckout) {
@@ -81,7 +81,7 @@ async function validateWith(args: {
       },
     },
   });
-  await plugin(bb);
+  await plugin(hyperfide);
   const provider = harness.registrations.environmentProviders.get(
     PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID,
   );
@@ -99,10 +99,10 @@ async function validateWith(args: {
 
 describe("checkout provider validate", () => {
   it("registers as Project checkout", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "environment-project-checkout",
     });
-    await plugin(bb);
+    await plugin(hyperfide);
 
     expect(
       harness.registrations.environmentProviders.get(
@@ -266,12 +266,12 @@ describe("checkout provider validate", () => {
 
   it("checks the directory the inputs name rather than the project checkout", async () => {
     const decision = await validateWith({
-      environments: [environmentAt("/elsewhere/bb")],
+      environments: [environmentAt("/elsewhere/hyperfide")],
       threads: [
         { id: "thr_other", environmentId: "env_1", status: "starting" },
       ],
       inputs: {
-        path: "/elsewhere/bb",
+        path: "/elsewhere/hyperfide",
         branch: { kind: "existing", name: "release" },
       },
     });
@@ -282,7 +282,7 @@ describe("checkout provider validate", () => {
 it.each([false, true])(
   "reports source ownership %s to core's hook policy",
   async (owned) => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "environment-project-checkout",
       experimental_callHostRpc: (call) => {
         if (call.method !== "attach") throw new Error("Unexpected host method");
@@ -296,7 +296,7 @@ it.each([false, true])(
       sdk: { environments: { list: () => [] }, threads: { list: () => [] } },
     });
     try {
-      await plugin(bb);
+      await plugin(hyperfide);
       const provider = harness.registrations.environmentProviders.get(
         PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID,
       );
@@ -308,7 +308,7 @@ it.each([false, true])(
         gitRemote: null,
         inputs: {},
         thread: makeThreadResponse(),
-        suggestedBranchName: "bb/test",
+        suggestedBranchName: "hyperfide/test",
         attempt: 1,
         pathKey: "fixture",
         experimental_claimPath: async () => true,
@@ -332,14 +332,14 @@ it.each(["branch", "timeout", "abort"] as const)(
     const hostCall = vi.fn(() => {
       throw new Error("Unexpected host call");
     });
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "environment-project-checkout",
       experimental_callHostRpc: hostCall,
     });
     const controller = new AbortController();
     const claim = vi.fn(async () => false);
     try {
-      await plugin(bb);
+      await plugin(hyperfide);
       const provider = harness.registrations.environmentProviders.get(
         PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID,
       );
@@ -355,7 +355,7 @@ it.each(["branch", "timeout", "abort"] as const)(
             ? { branch: { kind: "existing", name: "release" } }
             : {},
         thread: makeThreadResponse(),
-        suggestedBranchName: "bb/test",
+        suggestedBranchName: "hyperfide/test",
         attempt: 1,
         pathKey: "blocked",
         experimental_claimPath: claim,
@@ -397,10 +397,10 @@ describe("checkout provider existing path", () => {
   ] as const)(
     "reuses the recorded environment for %j: %s",
     async (inputs, expected) => {
-      const { bb, harness } = createFakePluginHost({
+      const { hyperfide, harness } = createFakePluginHost({
         pluginId: "environment-project-checkout",
       });
-      await plugin(bb);
+      await plugin(hyperfide);
       const provider = harness.registrations.environmentProviders.get(
         PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID,
       );
@@ -425,7 +425,7 @@ describe("checkout provider merge base", () => {
   ] as const)(
     "reports %j as %j so a reused environment drops or keeps its base",
     async (inputs, expected, resolvedBase) => {
-      const { bb, harness } = createFakePluginHost({
+      const { hyperfide, harness } = createFakePluginHost({
         pluginId: "environment-project-checkout",
         experimental_callHostRpc: (call) => {
           if (call.method !== "attach")
@@ -440,7 +440,7 @@ describe("checkout provider merge base", () => {
         sdk: { environments: { list: () => [] }, threads: { list: () => [] } },
       });
       try {
-        await plugin(bb);
+        await plugin(hyperfide);
         const provider = harness.registrations.environmentProviders.get(
           PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID,
         );
@@ -455,7 +455,7 @@ describe("checkout provider merge base", () => {
           gitRemote: null,
           inputs,
           thread: makeThreadResponse(),
-          suggestedBranchName: "bb/thread-branch",
+          suggestedBranchName: "hyperfide/thread-branch",
           attempt: 1,
           pathKey: "merge-base",
           experimental_claimPath: async () => true,
@@ -482,7 +482,7 @@ describe("restoring a destroyed checkout environment", () => {
     mergeBaseBranch?: string | null;
   }) {
     const attachCalls: unknown[] = [];
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "environment-project-checkout",
       experimental_callHostRpc: (call) => {
         if (call.method !== "attach") throw new Error("Unexpected host method");
@@ -497,7 +497,7 @@ describe("restoring a destroyed checkout environment", () => {
       sdk: { environments: { list: () => [] }, threads: { list: () => [] } },
     });
     try {
-      await plugin(bb);
+      await plugin(hyperfide);
       const provider = harness.registrations.environmentProviders.get(
         PROJECT_CHECKOUT_ENVIRONMENT_PROVIDER_ID,
       );
@@ -534,7 +534,7 @@ describe("restoring a destroyed checkout environment", () => {
   it("switches back to the thread's own branch instead of recreating it from its base", async () => {
     const { attachCalls, result } = await restoreWith({
       inputs: { branch: { kind: "new", baseBranch: "origin/dev" } },
-      branchName: "bb/thread-branch",
+      branchName: "hyperfide/thread-branch",
       mergeBaseBranch: "origin/dev",
     });
     expect(result).toMatchObject({
@@ -545,7 +545,7 @@ describe("restoring a destroyed checkout environment", () => {
     expect(attachCalls).toEqual([
       expect.objectContaining({
         path: CHECKOUT_PATH,
-        branch: { kind: "existing", name: "bb/thread-branch" },
+        branch: { kind: "existing", name: "hyperfide/thread-branch" },
       }),
     ]);
   });

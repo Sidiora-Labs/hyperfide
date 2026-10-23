@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bbDesktopInfoSchema } from "../src/info.js";
+import { hyperfideDesktopInfoSchema } from "../src/info.js";
 
 const baseInfo = {
   lastCheckedAt: null,
@@ -11,17 +11,17 @@ const baseInfo = {
   version: "0.0.31",
 } as const;
 
-describe("bbDesktopInfoSchema", () => {
+describe("hyperfideDesktopInfoSchema", () => {
   it("accepts both explicit download state and legacy shell payloads", () => {
     expect(
-      bbDesktopInfoSchema.safeParse({
+      hyperfideDesktopInfoSchema.safeParse({
         ...baseInfo,
         downloadState: "downloading",
       }).success,
     ).toBe(true);
-    expect(bbDesktopInfoSchema.safeParse(baseInfo).success).toBe(true);
+    expect(hyperfideDesktopInfoSchema.safeParse(baseInfo).success).toBe(true);
     expect(
-      bbDesktopInfoSchema.safeParse({
+      hyperfideDesktopInfoSchema.safeParse({
         ...baseInfo,
         lastCheckedAt: "2026-05-21T00:00:00.000Z",
       }).success,
@@ -30,7 +30,7 @@ describe("bbDesktopInfoSchema", () => {
 
   it("rejects an unknown download state", () => {
     expect(
-      bbDesktopInfoSchema.safeParse({
+      hyperfideDesktopInfoSchema.safeParse({
         ...baseInfo,
         downloadState: "available",
       }).success,
@@ -39,7 +39,7 @@ describe("bbDesktopInfoSchema", () => {
 
   it("accepts linux", () => {
     expect(
-      bbDesktopInfoSchema.safeParse({
+      hyperfideDesktopInfoSchema.safeParse({
         ...baseInfo,
         platform: "linux",
       }).success,
@@ -48,7 +48,7 @@ describe("bbDesktopInfoSchema", () => {
 
   it("rejects win32", () => {
     expect(
-      bbDesktopInfoSchema.safeParse({
+      hyperfideDesktopInfoSchema.safeParse({
         ...baseInfo,
         platform: "win32",
       }).success,

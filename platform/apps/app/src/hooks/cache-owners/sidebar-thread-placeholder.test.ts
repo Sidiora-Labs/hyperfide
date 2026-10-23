@@ -19,7 +19,7 @@ vi.mock("@/lib/sidebar-bootstrap-cache", () => ({
 const { findSidebarNavigationThreadPlaceholder } =
   await import("./query-cache");
 
-const PROJECT_ID = "proj_bb";
+const PROJECT_ID = "proj_hyperfide";
 
 function bootstrap(threadIds: string[]): SidebarBootstrapResponse {
   return makeSidebarBootstrapResponse({

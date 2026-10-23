@@ -113,7 +113,7 @@ describe("interactive request scenarios", () => {
   }, 60_000);
 
   it.concurrent("routes Claude Read prompts as semantic permission-grant approvals", async () => {
-    const outsideDir = mkdtempSync(join(tmpdir(), "bb-claude-read-"));
+    const outsideDir = mkdtempSync(join(tmpdir(), "hyperfide-claude-read-"));
     const filePath = join(
       outsideDir,
       createTempFileName("claude-read-approval"),
@@ -305,7 +305,7 @@ describe("interactive request scenarios", () => {
 
   it.concurrent("blocks Claude workspace-write outside-workspace Bash without interactive requests when escalation is deny", async () => {
     const ctx = createTestRuntime("claude-code");
-    const outsideDir = mkdtempSync(join(tmpdir(), "bb-claude-outside-"));
+    const outsideDir = mkdtempSync(join(tmpdir(), "hyperfide-claude-outside-"));
     const filePath = join(
       outsideDir,
       createTempFileName("claude-outside-bash-denied"),
@@ -413,7 +413,7 @@ describe("interactive request scenarios", () => {
     const ctx = createTestRuntime("codex", {
       onInteractiveRequest: createApprovalResolution,
     });
-    const outsideDir = mkdtempSync(join(process.cwd(), ".bb-codex-outside-"));
+    const outsideDir = mkdtempSync(join(process.cwd(), ".hyperfide-codex-outside-"));
     const filePath = join(
       outsideDir,
       createTempFileName("codex-outside-write"),
@@ -529,7 +529,7 @@ describe("interactive request scenarios", () => {
       onInteractiveRequest: createApprovalResolution,
     });
     const outsideDir = mkdtempSync(
-      join(process.cwd(), ".bb-codex-file-change-"),
+      join(process.cwd(), ".hyperfide-codex-file-change-"),
     );
     const fileName = createTempFileName("codex-outside-file-change");
     const filePath = join(outsideDir, fileName);
@@ -644,7 +644,7 @@ describe("interactive request scenarios", () => {
       },
     });
     const outsideDir = mkdtempSync(
-      join(process.cwd(), ".bb-codex-user-denied-"),
+      join(process.cwd(), ".hyperfide-codex-user-denied-"),
     );
     const fileName = createTempFileName("codex-user-denied");
     const filePath = join(outsideDir, fileName);
@@ -720,7 +720,7 @@ describe("interactive request scenarios", () => {
     const ctx = createTestRuntime("claude-code", {
       onInteractiveRequest: createApprovalResolution,
     });
-    const outsideDir = mkdtempSync(join(process.cwd(), ".bb-claude-bash-"));
+    const outsideDir = mkdtempSync(join(process.cwd(), ".hyperfide-claude-bash-"));
     const fileName = "note.txt";
     const filePath = join(outsideDir, fileName);
     const token = "sample text";
@@ -800,7 +800,7 @@ describe("interactive request scenarios", () => {
     const ctx = createTestRuntime("claude-code", {
       onInteractiveRequest: createApprovalResolution,
     });
-    const outsideDir = mkdtempSync(join(process.cwd(), ".bb-claude-write-"));
+    const outsideDir = mkdtempSync(join(process.cwd(), ".hyperfide-claude-write-"));
     const fileName = createTempFileName("claude-write-tool");
     const filePath = join(outsideDir, fileName);
     const token = createToken("CLAUDE_OUTSIDE_WRITE_TOOL_APPROVED");
@@ -989,7 +989,7 @@ describe("interactive request scenarios", () => {
         };
       },
     });
-    const outsideDir = mkdtempSync(join(process.cwd(), ".bb-claude-denied-"));
+    const outsideDir = mkdtempSync(join(process.cwd(), ".hyperfide-claude-denied-"));
     const fileName = createTempFileName("claude-user-denied");
     const filePath = join(outsideDir, fileName);
     const token = createToken("CLAUDE_OUTSIDE_USER_DENIED");

@@ -255,7 +255,7 @@ function pushSyntheticTurn(
       item: {
         type: "toolCall",
         id: id("tool"),
-        tool: turn % 2 === 0 ? "Read" : "mcp__bb-bridge__bb_thread_list",
+        tool: turn % 2 === 0 ? "Read" : "mcp__hyperfide-bridge__hyperfide_thread_list",
         arguments: { path: `/workspace/project/src/module-${turn % 7}.ts` },
         status: "pending",
       },
@@ -273,7 +273,7 @@ function pushSyntheticTurn(
       item: {
         type: "toolCall",
         id: id("tool"),
-        tool: turn % 2 === 0 ? "Read" : "mcp__bb-bridge__bb_thread_list",
+        tool: turn % 2 === 0 ? "Read" : "mcp__hyperfide-bridge__hyperfide_thread_list",
         arguments: { path: `/workspace/project/src/module-${turn % 7}.ts` },
         status: "completed",
         result: { ok: true, lines: 120 + turn },

@@ -408,7 +408,7 @@ describe("resolveProviderNativeRootSet", () => {
         });
         expect(withoutArtifact.resolved).toEqual({ skills: [], commands: [] });
         expect(warn).toHaveBeenCalledTimes(1);
-        expect(warn.mock.calls[0]?.[1]).toContain("no live bb.host artifact");
+        expect(warn.mock.calls[0]?.[1]).toContain("no live hyperfide.host artifact");
 
         const declaredOnly = await resolveProviderNativeRootSet(deps, {
           registration: registration(harness, "declared"),

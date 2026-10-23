@@ -60,7 +60,7 @@ describe("request context", () => {
         "/",
         header === undefined
           ? undefined
-          : { headers: { "x-bb-app-surface": header } },
+          : { headers: { "x-hyperfide-app-surface": header } },
       );
       const body = (await response.json()) as { surface: string };
       return body.surface;

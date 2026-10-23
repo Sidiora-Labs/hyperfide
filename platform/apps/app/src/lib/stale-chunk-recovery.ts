@@ -1,6 +1,6 @@
 import { flushPendingPromptDraftPersists } from "../hooks/usePromptDraftStorage";
 
-const RELOAD_GUARD_KEY = "bb.stale-chunk-reload";
+const RELOAD_GUARD_KEY = "hyperfide.stale-chunk-reload";
 const ENTRY_SCRIPT_SELECTOR = 'script[type="module"][src]';
 
 export function isChunkDownloadError(error: unknown): boolean {

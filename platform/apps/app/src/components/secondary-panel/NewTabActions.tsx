@@ -14,7 +14,7 @@ import { PluginItemIcon } from "@/components/plugin/PluginIcon";
 import type { PluginPanelActionEntry } from "@/components/plugin/PluginPanelActions";
 import { useSidebarSortable } from "@hyperfide/shared-ui/sortable-motion";
 import { useReorderDnd } from "@hyperfide/shared-ui/use-reorder-dnd";
-import { isDesktopBrowserAvailable } from "@/lib/bb-desktop";
+import { isDesktopBrowserAvailable } from "@/lib/hyperfide-desktop";
 import { arrangeByStoredOrder, reorderStoredOrder } from "@/lib/stored-order";
 import type { AppShortcutPresentation } from "@/lib/app-keybindings";
 import {

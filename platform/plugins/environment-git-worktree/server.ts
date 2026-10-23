@@ -1,6 +1,6 @@
 import {
   defineRpcContract,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type JsonValue,
 } from "@hyperfide/plugin-sdk";
 import type {
@@ -8,7 +8,7 @@ import type {
   PluginEnvironmentProviderCreateResult,
   PluginEnvironmentProviderProgress,
 } from "@hyperfide/plugin-sdk/environment-provider";
-import { reportHostProgress } from "bb-environment-provider-host/progress";
+import { reportHostProgress } from "hyperfide-environment-provider-host/progress";
 import { z } from "zod";
 import {
   discoveredWorktreeSchema,
@@ -85,8 +85,8 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export default async function worktreePlugin(bb: BbPluginApi): Promise<void> {
-  const host = bb.hosts.experimental_client({
+export default async function worktreePlugin(hyperfide: HyperfidePluginApi): Promise<void> {
+  const host = hyperfide.hosts.experimental_client({
     contract: worktreeHostContract,
     experimental_signals: worktreeHostSignals,
   });
@@ -171,7 +171,7 @@ export default async function worktreePlugin(bb: BbPluginApi): Promise<void> {
     }
   }
 
-  bb.experimental_environments.register({
+  hyperfide.experimental_environments.register({
     id: GIT_WORKTREE_ENVIRONMENT_PROVIDER_ID,
     displayName: "Worktree",
     description: "Create an isolated Git worktree for your changes.",
@@ -242,9 +242,9 @@ export default async function worktreePlugin(bb: BbPluginApi): Promise<void> {
     },
   });
 
-  bb.rpc.register(worktreeRpcContract, {
+  hyperfide.rpc.register(worktreeRpcContract, {
     async defaultBaseBranch({ projectId, hostId }) {
-      const project = await bb.sdk.projects.get({ projectId });
+      const project = await hyperfide.sdk.projects.get({ projectId });
       const sources = project.sources.filter(
         (source) => source.type === "local_path",
       );
@@ -260,7 +260,7 @@ export default async function worktreePlugin(bb: BbPluginApi): Promise<void> {
       );
     },
     async listExistingWorktrees({ projectId, hostId }) {
-      const project = await bb.sdk.projects.get({ projectId });
+      const project = await hyperfide.sdk.projects.get({ projectId });
       const source = project.sources.find(
         (candidate) =>
           candidate.hostId === hostId && candidate.type === "local_path",

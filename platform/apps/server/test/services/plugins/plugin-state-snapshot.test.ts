@@ -36,7 +36,7 @@ describe("plugin activation snapshots and garbage collection", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    dataDir = await mkdtemp(join(tmpdir(), "bb-plugin-snapshot-"));
+    dataDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-snapshot-"));
   });
 
   afterEach(async () => {
@@ -132,11 +132,11 @@ describe("plugin activation snapshots and garbage collection", () => {
     await mkdir(pluginDir, { recursive: true });
     upsertInstalledPlugin(db, {
       id: "pre-default-tracking",
-      source: "npm:bb-plugin-pre-default-tracking@1.0.0",
+      source: "npm:hyperfide-plugin-pre-default-tracking@1.0.0",
       provenance: { kind: "direct" },
       sourceIntent: {
         kind: "npm",
-        packageName: "bb-plugin-pre-default-tracking",
+        packageName: "hyperfide-plugin-pre-default-tracking",
         registry: "https://registry.npmjs.org",
         requestedSpec: "1.0.0",
         specKind: "exact",
@@ -187,15 +187,15 @@ describe("plugin activation snapshots and garbage collection", () => {
     await mkdir(pluginDir, { recursive: true });
     upsertInstalledPlugin(db, {
       id: "legacy-snapshot",
-      source: "npm:bb-plugin-legacy@^1.0.0",
+      source: "npm:hyperfide-plugin-legacy@^1.0.0",
       provenance: {
         kind: "catalog",
-        marketplace: "bb-community",
+        marketplace: "hyperfide-community",
         entryId: "legacy-entry",
       },
       sourceIntent: {
         kind: "npm",
-        packageName: "bb-plugin-legacy",
+        packageName: "hyperfide-plugin-legacy",
         registry: "https://registry.npmjs.org",
         requestedSpec: "^1.0.0",
         specKind: "range",
@@ -260,7 +260,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       JSON.stringify({
         ...legacyRegistration,
         provenance: "marketplace",
-        marketplaceId: "bb-community",
+        marketplaceId: "hyperfide-community",
         marketplaceEntryId: "legacy-entry",
       }),
     );
@@ -301,7 +301,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       JSON.stringify({
         ...legacyRegistration,
         provenance: "marketplace",
-        marketplaceId: "bb-community",
+        marketplaceId: "hyperfide-community",
         marketplaceEntryId: "legacy-entry",
       }),
     );
@@ -633,7 +633,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       status: "rollback-pending",
       rollbackCandidateVersion: "candidate",
       rollbackSourceFingerprint: "source",
-      rollbackBbVersion: "1.0.0",
+      rollbackHyperfideVersion: "1.0.0",
       rollbackSdkVersion: "0.2.0",
       rollbackDetail: "failed",
       createdAt: 1,

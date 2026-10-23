@@ -16,7 +16,7 @@
  *
  * Symlinks follow the root's origin. A personal (`user`) plugin commonly
  * links a skill from elsewhere in the home directory, so its skill
- * components are followed; a checked-in (`project`) plugin must not point bb
+ * components are followed; a checked-in (`project`) plugin must not point hyperfide
  * outside the repository, so its links are not. Command components never
  * follow a link, whatever the origin.
  */
@@ -78,7 +78,7 @@ export interface ExperimentalVendorPluginRootsArgs {
 
 export interface ExperimentalClaudePluginRootsArgs {
   /**
-   * The workspace, or null when bb lists without one: project- and
+   * The workspace, or null when hyperfide lists without one: project- and
    * local-scoped installs and the project skills directory's plugins count
    * only for the workspace that holds them.
    */

@@ -3,7 +3,7 @@
   "name": "video",
   "type": "registry:ui",
   "title": "video",
-  "description": "BB ui \"video\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"video\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/video.tsx",

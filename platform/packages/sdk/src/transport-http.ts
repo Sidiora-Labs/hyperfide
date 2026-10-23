@@ -4,13 +4,13 @@ import {
   readVoidResponse,
   resolveResponse,
 } from "./response.js";
-import type { BbSdkTransport, CreateHttpTransportArgs } from "./transport.js";
+import type { HyperfideSdkTransport, CreateHttpTransportArgs } from "./transport.js";
 
 const SAME_ORIGIN_BASE_URL = "";
 
 export function createHttpTransport(
   args: CreateHttpTransportArgs,
-): BbSdkTransport {
+): HyperfideSdkTransport {
   const baseUrl = args.baseUrl ?? SAME_ORIGIN_BASE_URL;
   const fetchImpl = args.fetch ?? fetch;
   const client = createApiClient(baseUrl, { fetch: fetchImpl });

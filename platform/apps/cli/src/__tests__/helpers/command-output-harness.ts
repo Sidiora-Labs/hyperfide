@@ -14,7 +14,7 @@ const serverClientState = vi.hoisted(() => ({
 vi.mock("../../client.js", async () => {
   const { cliFetch } =
     await vi.importActual<typeof import("../../client.js")>("../../client.js");
-  const { createBbSdk } =
+  const { createHyperfideSdk } =
     await vi.importActual<typeof import("@hyperfide/sdk/core")>("@hyperfide/sdk/core");
   const { createHttpTransport } =
     await vi.importActual<typeof import("@hyperfide/sdk/node")>("@hyperfide/sdk/node");
@@ -25,9 +25,9 @@ vi.mock("../../client.js", async () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
-  const createCliBbSdk = vi.fn((baseUrl: string) => {
+  const createCliHyperfideSdk = vi.fn((baseUrl: string) => {
     const realTransport = createHttpTransport({ baseUrl, runtime: "node" });
-    return createBbSdk({
+    return createHyperfideSdk({
       transport: {
         ...realTransport,
         api: serverClientState.createClient(baseUrl)?.api ?? {},
@@ -38,7 +38,7 @@ vi.mock("../../client.js", async () => {
       },
     });
   });
-  return { cliFetch, createCliBbSdk };
+  return { cliFetch, createCliHyperfideSdk };
 });
 
 vi.mock("node:readline/promises", () => ({
@@ -167,7 +167,7 @@ export async function runCommand(
 ): Promise<void> {
   const program = new Command();
   register(program);
-  await program.parseAsync(["node", "bb", ...args]);
+  await program.parseAsync(["node", "hyperfide", ...args]);
 }
 
 export async function getHelpOutput(
@@ -184,7 +184,7 @@ export async function getHelpOutput(
   register(program);
 
   await expect(
-    program.parseAsync(["node", "bb", ...args, "--help"]),
+    program.parseAsync(["node", "hyperfide", ...args, "--help"]),
   ).rejects.toMatchObject({
     code: "commander.helpDisplayed",
   });

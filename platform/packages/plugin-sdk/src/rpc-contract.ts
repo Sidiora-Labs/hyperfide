@@ -141,7 +141,7 @@ export class experimental_PluginRpcRefusal extends Error {
 /**
  * The validator-neutral subset of Standard Schema v1 used by plugin contracts.
  * Zod 4 schemas implement this interface directly; other validators can do
- * the same without becoming part of BB's public protocol.
+ * the same without becoming part of HYPERFIDE's public protocol.
  */
 export interface StandardSchemaV1<Input = unknown, Output = Input> {
   readonly "~standard": {
@@ -264,9 +264,9 @@ export function defineRpcContract<
 
 /**
  * Who invoked an rpc method. `plugin` means another loaded plugin (or this
- * one) called through its own `bb.sdk.plugins.callRpc`; the host verifies
+ * one) called through its own `hyperfide.sdk.plugins.callRpc`; the host verifies
  * that with a per-load token only the server knows. Every other caller — the
- * app, the `bb` CLI, agents, and bb itself — is `client`.
+ * app, the `hyperfide` CLI, agents, and hyperfide itself — is `client`.
  */
 export type ExperimentalPluginRpcCaller =
   | { readonly kind: "plugin"; readonly pluginId: string }
@@ -286,7 +286,7 @@ export type PluginRpcHandlers<Contract extends PluginRpcContract> = {
 };
 
 /**
- * Handlers as `bb.rpc.register` calls them: the validated input, then the
+ * Handlers as `hyperfide.rpc.register` calls them: the validated input, then the
  * call's context. A `PluginRpcHandlers` map is assignable to this type, so
  * handlers that ignore the context keep their one-argument signature.
  */

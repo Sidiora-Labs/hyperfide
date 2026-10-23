@@ -95,7 +95,7 @@ export function Checklist() {
         <Stage result={null} checking startAllowed={false} />
       </StoryRow>
       <StoryRow
-        label="bb connect, ready"
+        label="hyperfide-platform connect, ready"
         hint="machines keep using the same connect address, so there is no address step; warnings never block"
       >
         <Stage />
@@ -208,7 +208,7 @@ export function ExistingData() {
     <StoryCard labelWidth="220px">
       <StoryRow
         label="needs confirmation"
-        hint="desk already has its own bb server data; it is archived, never merged, and only after the user says so"
+        hint="desk already has its own hyperfide-platform server data; it is archived, never merged, and only after the user says so"
       >
         <Stage
           startAllowed={false}
@@ -221,7 +221,7 @@ export function ExistingData() {
               {
                 id: "existing-server-data",
                 severity: "warning",
-                title: "desk already has bb server data",
+                title: "desk already has hyperfide-platform server data",
                 detail: null,
               },
               RUNNING_TURNS,
@@ -241,7 +241,7 @@ export function ExistingData() {
               {
                 id: "existing-server-data",
                 severity: "warning",
-                title: "desk already has bb server data",
+                title: "desk already has hyperfide-platform server data",
                 detail: null,
               },
             ],

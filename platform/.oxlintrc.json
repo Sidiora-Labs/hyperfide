@@ -9,7 +9,7 @@
     "builtin": true
   },
   "rules": {
-    "bb/no-comments": "error"
+    "hyperfide/no-comments": "error"
   },
   "ignorePatterns": [
     "**/node_modules/**",
@@ -32,7 +32,7 @@
         "packages/plugin-sdk/src/testing/*.{ts,tsx}"
       ],
       "rules": {
-        "bb/no-comments": "off"
+        "hyperfide/no-comments": "off"
       }
     },
     {
@@ -76,7 +76,7 @@
             ]
           }
         ],
-        "bb/no-blocking-child-process-call": "error"
+        "hyperfide/no-blocking-child-process-call": "error"
       }
     },
     {
@@ -132,7 +132,7 @@
       ],
       "rules": {
         "no-restricted-imports": "off",
-        "bb/no-blocking-child-process-call": "off"
+        "hyperfide/no-blocking-child-process-call": "off"
       }
     },
     {
@@ -197,8 +197,8 @@
     {
       "files": ["apps/app/src/**/*.{ts,tsx}"],
       "rules": {
-        "bb/no-native-title-with-aria-label": "error",
-        "bb/no-native-title-on-button": "error"
+        "hyperfide/no-native-title-with-aria-label": "error",
+        "hyperfide/no-native-title-on-button": "error"
       }
     },
     {
@@ -208,14 +208,14 @@
         "apps/app/src/**/*.stories.tsx"
       ],
       "rules": {
-        "bb/no-native-title-with-aria-label": "off",
-        "bb/no-native-title-on-button": "off"
+        "hyperfide/no-native-title-with-aria-label": "off",
+        "hyperfide/no-native-title-on-button": "off"
       }
     },
     {
       "files": ["plugins/**/*.{ts,tsx,mts,cts,js,mjs,cjs}"],
       "rules": {
-        "bb/forkable-plugin-imports": "error"
+        "hyperfide/forkable-plugin-imports": "error"
       }
     }
   ]

@@ -27,7 +27,7 @@ export default {
   title: "thread/splits/Split Workspace",
 };
 
-const PROJECT_ID = "proj_bb";
+const PROJECT_ID = "proj_hyperfide";
 const IDLE_THREAD_ID = "thr_split_idle";
 const ACTIVE_THREAD_ID = "thr_split_active";
 const MENTIONED_THREAD_ID = "thr_dcwivn5n8w";

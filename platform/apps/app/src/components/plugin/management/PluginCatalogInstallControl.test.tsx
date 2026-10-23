@@ -91,7 +91,7 @@ it.each([
         target: {
           kind: "catalog",
           entryId: "notes",
-          marketplace: "bb-community",
+          marketplace: "hyperfide-community",
         },
         displayName: "Notes",
         state,

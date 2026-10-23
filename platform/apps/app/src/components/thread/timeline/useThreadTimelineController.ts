@@ -19,7 +19,7 @@ import { useConnectionAwareQueryState } from "@/hooks/queries/connection-aware-q
 import { threadTimelineQueryKey } from "@/hooks/queries/query-keys";
 import { isTransientReadError } from "@/hooks/queries/query-helpers";
 import { useThreadTimeline } from "@/hooks/queries/thread-panel-queries";
-import { BbHttpError, sdk } from "@/lib/sdk";
+import { HyperfideHttpError, sdk } from "@/lib/sdk";
 
 type TimelineQueryResultProp =
   keyof QueryObserverResult<ThreadTimelineResponse>;
@@ -105,7 +105,7 @@ function retainLoadedTimeline(
 
 function isStaleTimelinePaginationCursorError(error: Error): boolean {
   return (
-    error instanceof BbHttpError &&
+    error instanceof HyperfideHttpError &&
     error.status === 400 &&
     error.code === "invalid_request"
   );

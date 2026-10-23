@@ -15,10 +15,10 @@ const DEFAULT_CODE = "STUB-PAIR";
 const DEFAULT_HANDLE = "stub";
 const OTHER_HANDLE = "other";
 const DEFAULT_SESSION_TTL_MS = 60 * 60 * 1000;
-const DESKTOP_SESSION_COOKIE = "__Secure-bb-connect.desktop_session";
-const MACHINE_CREDENTIAL_HEADER = "x-bb-connect-machine";
-const GATE_AUTH_HEADER = "x-bb-gate-auth";
-const GATE_MACHINE_ID_HEADER = "x-bb-gate-machine-id";
+const DESKTOP_SESSION_COOKIE = "__Secure-hyperfide-connect.desktop_session";
+const MACHINE_CREDENTIAL_HEADER = "x-hyperfide-connect-machine";
+const GATE_AUTH_HEADER = "x-hyperfide-gate-auth";
+const GATE_MACHINE_ID_HEADER = "x-hyperfide-gate-machine-id";
 
 function readPort(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -40,41 +40,41 @@ function readPositiveInt(name: string, fallback: number): number {
   return parsed;
 }
 
-const gatePort = readPort("BB_MOBILE_E2E_GATE_PORT", DEFAULT_GATE_PORT);
+const gatePort = readPort("HYPERFIDE_MOBILE_E2E_GATE_PORT", DEFAULT_GATE_PORT);
 const controlPort = readPort(
-  "BB_MOBILE_E2E_STUB_CONTROL_PORT",
+  "HYPERFIDE_MOBILE_E2E_STUB_CONTROL_PORT",
   DEFAULT_CONTROL_PORT,
 );
 const upstreamUrl = new URL(
-  process.env.BB_MOBILE_E2E_UPSTREAM_URL ??
-    `http://127.0.0.1:${readPort("BB_MOBILE_E2E_PORT", DEFAULT_UPSTREAM_PORT)}`,
+  process.env.HYPERFIDE_MOBILE_E2E_UPSTREAM_URL ??
+    `http://127.0.0.1:${readPort("HYPERFIDE_MOBILE_E2E_PORT", DEFAULT_UPSTREAM_PORT)}`,
 );
 if (upstreamUrl.protocol !== "http:") {
-  throw new Error("BB_MOBILE_E2E_UPSTREAM_URL must be http://");
+  throw new Error("HYPERFIDE_MOBILE_E2E_UPSTREAM_URL must be http://");
 }
 const upstreamHost = upstreamUrl.hostname;
 const upstreamPort = Number.parseInt(upstreamUrl.port, 10) || 80;
-const handle = (process.env.BB_MOBILE_E2E_STUB_HANDLE ?? DEFAULT_HANDLE)
+const handle = (process.env.HYPERFIDE_MOBILE_E2E_STUB_HANDLE ?? DEFAULT_HANDLE)
   .trim()
   .toLowerCase();
 if (!/^[a-z0-9-]+$/u.test(handle)) {
-  throw new Error(`Invalid BB_MOBILE_E2E_STUB_HANDLE: ${handle}`);
+  throw new Error(`Invalid HYPERFIDE_MOBILE_E2E_STUB_HANDLE: ${handle}`);
 }
-const pairingCode = (process.env.BB_MOBILE_E2E_CONNECT_CODE ?? DEFAULT_CODE)
+const pairingCode = (process.env.HYPERFIDE_MOBILE_E2E_CONNECT_CODE ?? DEFAULT_CODE)
   .trim()
   .toUpperCase();
 const sessionTtlMs = readPositiveInt(
-  "BB_MOBILE_E2E_SESSION_TTL_MS",
+  "HYPERFIDE_MOBILE_E2E_SESSION_TTL_MS",
   DEFAULT_SESSION_TTL_MS,
 );
 const certDir =
-  process.env.BB_MOBILE_E2E_STUB_CERT_DIR ??
-  path.join(os.homedir(), ".bb-mobile-e2e", "connect-stub-certs");
+  process.env.HYPERFIDE_MOBILE_E2E_STUB_CERT_DIR ??
+  path.join(os.homedir(), ".hyperfide-mobile-e2e", "connect-stub-certs");
 
 const apexUrl = `https://localhost:${gatePort}`;
 const serverUrl = `https://${handle}.localhost:${gatePort}`;
 const otherServerUrl = `https://${OTHER_HANDLE}.localhost:${gatePort}`;
-const cookieDomain = process.env.BB_MOBILE_E2E_COOKIE_DOMAIN ?? ".localhost";
+const cookieDomain = process.env.HYPERFIDE_MOBILE_E2E_COOKIE_DOMAIN ?? ".localhost";
 
 interface TlsMaterial {
   key: Buffer;
@@ -117,7 +117,7 @@ function ensureCertificates(): TlsMaterial {
       "-days",
       "3650",
       "-subj",
-      "/CN=bb mobile e2e connect stub CA",
+      "/CN=hyperfide mobile e2e connect stub CA",
       "-addext",
       "basicConstraints=critical,CA:TRUE",
       "-addext",
@@ -228,7 +228,7 @@ function now(): number {
   return Date.now();
 }
 
-const verbose = process.env.BB_MOBILE_E2E_STUB_LOG === "1";
+const verbose = process.env.HYPERFIDE_MOBILE_E2E_STUB_LOG === "1";
 
 function trace(line: string): void {
   if (verbose) process.stderr.write(`connect-stub: ${line}\n`);
@@ -304,7 +304,7 @@ function json(res: http.ServerResponse, status: number, body: unknown): void {
 }
 
 function signInPage(label: string, url: string): string {
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Sign in · ${label}</title></head><body><h1>Sign in to bb connect</h1><p>You need a session to reach <code>${label}</code>.</p><p><a href="${apexUrl}/dashboard?returnTo=${encodeURIComponent(url)}">Sign in</a></p></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Sign in · ${label}</title></head><body><h1>Sign in to hyperfide-platform connect</h1><p>You need a session to reach <code>${label}</code>.</p><p><a href="${apexUrl}/dashboard?returnTo=${encodeURIComponent(url)}">Sign in</a></p></body></html>`;
 }
 
 function readBody(req: http.IncomingMessage): Promise<string> {
@@ -380,7 +380,7 @@ async function handleRedeemMachine(
   if (code !== pairingCode) return json(res, 404, { error: "invalid-code" });
   const machine: Machine = {
     id: randomUUID(),
-    credential: `bbcm_${randomBytes(24).toString("base64url")}`,
+    credential: `hyperfide_cm_${randomBytes(24).toString("base64url")}`,
     createdAt: now(),
     revokedAt: null,
   };
@@ -526,7 +526,7 @@ function proxyRequest(
     if (!res.headersSent) {
       res.writeHead(503, { "content-type": "text/plain" });
     }
-    res.end("bb connect: server offline\n");
+    res.end("hyperfide-platform connect: server offline\n");
   });
   req.pipe(upstream);
 }
@@ -550,7 +550,7 @@ async function handleRequest(
   if (pathname.startsWith("/__stub/")) return handleControl(req, res, pathname);
   if (pathname.startsWith("/__")) {
     res.writeHead(404, { "content-type": "text/plain" });
-    return void res.end("bb connect: not found\n");
+    return void res.end("hyperfide-platform connect: not found\n");
   }
 
   const presented = headerValue(req.headers[MACHINE_CREDENTIAL_HEADER]);
@@ -558,13 +558,13 @@ async function handleRequest(
     const machine = activeMachine(presented);
     if (!machine) {
       res.writeHead(403, { "content-type": "text/plain" });
-      return void res.end("bb connect: machine not authorized\n");
+      return void res.end("hyperfide-platform connect: machine not authorized\n");
     }
     return proxyRequest(req, res, "machine", machine.id);
   }
   if (pathname.startsWith("/internal")) {
     res.writeHead(403, { "content-type": "text/plain" });
-    return void res.end("bb connect: machine not authorized\n");
+    return void res.end("hyperfide-platform connect: machine not authorized\n");
   }
 
   const cookieHeader = headerValue(req.headers.cookie) ?? undefined;
@@ -647,7 +647,7 @@ function handleUpgrade(
 
 function main(): void {
   const tls = ensureCertificates();
-  const simulator = process.env.BB_MOBILE_E2E_SIMULATOR;
+  const simulator = process.env.HYPERFIDE_MOBILE_E2E_SIMULATOR;
   if (simulator) installRootCertificate(simulator, tls.caPath);
 
   const listeners: https.Server[] = [];
@@ -680,7 +680,7 @@ function main(): void {
     if (pathname.startsWith("/__stub/"))
       return handleControl(req, res, pathname);
     res.writeHead(404, { "content-type": "text/plain" });
-    res.end("bb connect stub: control port only answers /__stub/*\n");
+    res.end("hyperfide-platform connect stub: control port only answers /__stub/*\n");
   });
   control.on("error", (error) => {
     process.stderr.write(

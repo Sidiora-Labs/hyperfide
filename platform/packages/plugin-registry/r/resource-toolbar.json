@@ -3,7 +3,7 @@
   "name": "resource-toolbar",
   "type": "registry:ui",
   "title": "resource-toolbar",
-  "description": "BB ui \"resource-toolbar\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"resource-toolbar\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/button",
     "@hyperfide/dropdown-menu",

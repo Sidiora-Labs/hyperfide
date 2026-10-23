@@ -51,7 +51,7 @@ import { ArchivedThreadToastDescription } from "@/components/thread/ArchivedThre
 import { destroyPersistedBrowserViewsForThread } from "@/components/secondary-panel/browserViewVisibilityCoordinator";
 import { getThreadReadToggleAction } from "@hyperfide/client-core";
 import { getRootComposeRoutePath, getThreadRoutePath } from "@/lib/route-paths";
-import { getDesktopBrowserApi } from "@/lib/bb-desktop";
+import { getDesktopBrowserApi } from "@/lib/hyperfide-desktop";
 import { useRouteNavigate } from "@/components/ui/app-route-anchor";
 import { resolveThread } from "@/lib/cached-thread";
 import { CORE_THREAD_ACTIONS } from "@/lib/thread-actions/core-thread-actions";

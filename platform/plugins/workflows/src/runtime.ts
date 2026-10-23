@@ -413,7 +413,7 @@ function installWorkflowFunction(
 ): { close(reason?: string): void } {
   const bridge = createHostCallBridge(vm, runtime, enterVm, signal);
 
-  const fn = vm.newFunction("__bbWorkflow", (...handles) => {
+  const fn = vm.newFunction("__hyperfideWorkflow", (...handles) => {
     if (bridge.isClosed()) {
       return bridge.rejectImmediately("Workflow is no longer running");
     }
@@ -445,7 +445,7 @@ function installWorkflowFunction(
       ),
     );
   });
-  vm.setProp(vm.global, "__bbWorkflow", fn);
+  vm.setProp(vm.global, "__hyperfideWorkflow", fn);
   fn.dispose();
 
   return { close: bridge.close };
@@ -492,10 +492,10 @@ const HARDENING_SOURCE = `
 
 const DSL_SOURCE = `
 (() => {
-  const readBudget = globalThis.__bbWorkflowBudget;
-  const callWorkflow = globalThis.__bbWorkflow;
-  delete globalThis.__bbWorkflowBudget;
-  delete globalThis.__bbWorkflow;
+  const readBudget = globalThis.__hyperfideWorkflowBudget;
+  const callWorkflow = globalThis.__hyperfideWorkflow;
+  delete globalThis.__hyperfideWorkflowBudget;
+  delete globalThis.__hyperfideWorkflow;
   const maximumCollectionSize = 4096;
   const validateWorkflowReference = (reference) => {
     if (typeof reference === "string") {
@@ -639,10 +639,10 @@ export async function executeWorkflowScript({
       signal,
       () => currentPhase,
     );
-    const budgetFunction = vm.newFunction("__bbWorkflowBudget", () =>
+    const budgetFunction = vm.newFunction("__hyperfideWorkflowBudget", () =>
       jsonToHandle(vm, scheduler.budget()),
     );
-    vm.setProp(vm.global, "__bbWorkflowBudget", budgetFunction);
+    vm.setProp(vm.global, "__hyperfideWorkflowBudget", budgetFunction);
     budgetFunction.dispose();
     workflowBridge = installWorkflowFunction(
       vm,

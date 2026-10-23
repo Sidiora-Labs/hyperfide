@@ -7,7 +7,7 @@ import {
   type ThreadOpenFile,
 } from "@hyperfide/server-contract";
 import { action } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliHyperfideSdk } from "../../client.js";
 import { requireThreadId, resolveContextThreadId } from "../../context-env.js";
 import {
   outputJson,
@@ -32,7 +32,7 @@ interface ThreadOpenFileRequest {
   path: string;
 }
 
-type CliBbSdk = ReturnType<typeof createCliBbSdk>;
+type CliHyperfideSdk = ReturnType<typeof createCliHyperfideSdk>;
 
 export function registerOpenCommand(
   parent: Command,
@@ -44,7 +44,7 @@ export function registerOpenCommand(
     .usage("[id] [path] [options]")
     .argument(
       "[id]",
-      "Thread ID. Inside a BB thread, omit it to target the current thread; a lone argument that is not a thread ID opens that file in the current thread",
+      "Thread ID. Inside a HYPERFIDE thread, omit it to target the current thread; a lone argument that is not a thread ID opens that file in the current thread",
     )
     .argument("[path]", "Thread-relative or absolute file path to open")
     .option("--line <number>", "Line number to focus")
@@ -70,7 +70,7 @@ export function registerOpenCommand(
           if (target.inputPath === null && lineNumber !== null) {
             throw new Error("--line requires a file path.");
           }
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const file: ThreadOpenFile | null =
             target.inputPath === null
               ? null
@@ -135,7 +135,7 @@ function resolveThreadOpenTarget(
 
   if (!contextThreadId) {
     throw new Error(
-      "Missing thread ID. Pass <threadId> [path], or run inside a BB thread.",
+      "Missing thread ID. Pass <threadId> [path], or run inside a HYPERFIDE thread.",
     );
   }
   return {
@@ -159,7 +159,7 @@ function parseLineNumber(value: string | undefined): number | null {
 
 async function resolveThreadOpenFileRequest(args: {
   inputPath: string;
-  sdk: CliBbSdk;
+  sdk: CliHyperfideSdk;
   threadId: string;
 }): Promise<ThreadOpenFileRequest> {
   const inputPath = args.inputPath.trim();
@@ -205,7 +205,7 @@ async function resolveThreadOpenFileRequest(args: {
 }
 
 async function resolveThreadWorkspaceRoot(
-  sdk: CliBbSdk,
+  sdk: CliHyperfideSdk,
   threadId: string,
 ): Promise<string> {
   const thread = await sdk.threads.get({ threadId });

@@ -30,18 +30,18 @@ function makeOption(
 }
 
 const fewOptions: readonly ReuseThreadOption[] = [
-  makeOption("bb/payment-retry", ["Fix the payment retry", "Add a regression"]),
-  makeOption("bb/sidebar-perf", ["Profile the sidebar"]),
-  makeOption("bb/release-1.2", []),
+  makeOption("hyperfide/payment-retry", ["Fix the payment retry", "Add a regression"]),
+  makeOption("hyperfide/sidebar-perf", ["Profile the sidebar"]),
+  makeOption("hyperfide/release-1.2", []),
 ];
 
 const manyOptions: readonly ReuseThreadOption[] = [
   ...fewOptions,
-  makeOption("bb/composer-reuse", ["Restore the reuse row"], "Michael-M4"),
-  makeOption("bb/machine-picker", ["Group by machine"], "studio-mac-mini"),
-  makeOption("bb/plugin-guide", ["Document the slots"], "Michael-M4"),
-  makeOption("bb/acp-provider", ["Custom models"], "build-box"),
-  makeOption("bb/timeline-qa", ["Timeline smoke pass"], "build-box"),
+  makeOption("hyperfide/composer-reuse", ["Restore the reuse row"], "Michael-M4"),
+  makeOption("hyperfide/machine-picker", ["Group by machine"], "studio-mac-mini"),
+  makeOption("hyperfide/plugin-guide", ["Document the slots"], "Michael-M4"),
+  makeOption("hyperfide/acp-provider", ["Custom models"], "build-box"),
+  makeOption("hyperfide/timeline-qa", ["Timeline smoke pass"], "build-box"),
 ];
 
 export function Overview() {

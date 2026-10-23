@@ -7,7 +7,7 @@ import { expect, it } from "vitest";
 const repositoryRoot = resolve(import.meta.dirname, "../../..");
 
 it("keeps bundled stages out of discovery without hiding real plugin packages", async () => {
-  const root = await mkdtemp(join(tmpdir(), "bb-bundled-workspace-"));
+  const root = await mkdtemp(join(tmpdir(), "hyperfide-bundled-workspace-"));
   const graph = () =>
     spawnSync(
       process.execPath,

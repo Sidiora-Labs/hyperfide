@@ -1,9 +1,9 @@
 import { validatePluginMetadata } from "@hyperfide/domain";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 
-type BbSdk = BbPluginApi["sdk"];
+type HyperfideSdk = HyperfidePluginApi["sdk"];
 
-/** One recorded `bb.sdk` call. `path` is dot-joined, e.g. "threads.spawn". */
+/** One recorded `hyperfide.sdk` call. `path` is dot-joined, e.g. "threads.spawn". */
 export interface FakeSdkCall {
   path: string;
   args: unknown[];
@@ -19,7 +19,7 @@ type LooseStub<F> = F extends (...args: infer A) => unknown
   : never;
 
 /**
- * Stub implementations keyed like `BbSdk`: an object per area with a subset
+ * Stub implementations keyed like `HyperfideSdk`: an object per area with a subset
  * of its methods, or a function for the root-level members (`on`).
  */
 type FakeSdkOverrideTree<T> = {
@@ -28,11 +28,11 @@ type FakeSdkOverrideTree<T> = {
     : FakeSdkOverrideTree<T[K]>;
 };
 
-export type FakeSdkOverrides = FakeSdkOverrideTree<BbSdk>;
+export type FakeSdkOverrides = FakeSdkOverrideTree<HyperfideSdk>;
 
 export interface FakeSdkHarness {
   /**
-   * Every `bb.sdk` call in order, including ones whose stub threw. Calls
+   * Every `hyperfide.sdk` call in order, including ones whose stub threw. Calls
    * rejected by argument validation are not recorded.
    */
   readonly calls: FakeSdkCall[];
@@ -128,7 +128,7 @@ function normalizeCallArgs(
 }
 
 /**
- * Recordable `bb.sdk` stand-in for {@link createFakePluginHost}. Calls are
+ * Recordable `hyperfide.sdk` stand-in for {@link createFakePluginHost}. Calls are
  * recorded after the plugin-bound normalization the server applies, so
  * assertions see what the server would receive. Arguments the real SDK
  * rejects before sending, such as invalid `pluginMetadata`, return a rejected
@@ -138,7 +138,7 @@ function normalizeCallArgs(
 export function createFakeSdk(options: {
   pluginId: string;
   overrides?: FakeSdkOverrides;
-}): { sdk: BbSdk; harness: FakeSdkHarness } {
+}): { sdk: HyperfideSdk; harness: FakeSdkHarness } {
   const calls: FakeSdkCall[] = [];
   const stubs = new Map<string, (...args: unknown[]) => unknown>();
 
@@ -165,7 +165,7 @@ export function createFakeSdk(options: {
     const stub = stubs.get(path);
     if (!stub) {
       throw new Error(
-        `bb.sdk.${path} is not stubbed — pass an implementation via ` +
+        `hyperfide.sdk.${path} is not stubbed — pass an implementation via ` +
           `createFakePluginHost({ sdk: { ... } }) or harness.sdk.stub("${path}", fn)`,
       );
     }
@@ -203,7 +203,7 @@ export function createFakeSdk(options: {
     },
   };
 
-  // The proxy is the genuinely unknowable boundary: it answers any BbSdk
+  // The proxy is the genuinely unknowable boundary: it answers any HyperfideSdk
   // shape at runtime, and the type is re-imposed here once.
-  return { sdk: node("") as BbSdk, harness };
+  return { sdk: node("") as HyperfideSdk, harness };
 }

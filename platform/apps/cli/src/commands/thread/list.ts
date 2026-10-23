@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { PERSONAL_PROJECT_ID, type Thread } from "@hyperfide/domain";
 import { action } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliHyperfideSdk } from "../../client.js";
 import { resolveExplicitIdFlag } from "../../context-env.js";
 import {
   columnWidths,
@@ -56,7 +56,7 @@ export function registerListCommand(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: ThreadListCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const projectId = resolveExplicitIdFlag({
           flagName: "--project flag",
           value: opts.project,

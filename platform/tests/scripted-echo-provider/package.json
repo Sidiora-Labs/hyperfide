@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.3"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.3"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Scripted echo provider (test harness)",
-    "description": "The echo bridge plus the scripted directives bb's runtime and integration suites drive. Not a product plugin.",
+    "description": "The echo bridge plus the scripted directives hyperfide's runtime and integration suites drive. Not a product plugin.",
     "branding": {
       "icon": "Zap"
     },

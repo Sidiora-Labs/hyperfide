@@ -33,10 +33,10 @@ function catalogEntry(
     publishedAt: "2026-08-01T00:00:00Z",
     source: `npm:${pluginId}`,
     repositoryUrl: null,
-    marketplace: "bb-community",
-    marketplaceDisplayName: "BB Community",
-    publisherKey: "bb-community",
-    publisherLabel: "BB Community",
+    marketplace: "hyperfide-community",
+    marketplaceDisplayName: "HYPERFIDE Community",
+    publisherKey: "hyperfide-community",
+    publisherLabel: "HYPERFIDE Community",
     official: true,
     author: {
       name: "Pat Lee",
@@ -130,7 +130,7 @@ function renderPage(
   render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <PluginAuthorPage
-        authorKey="12:bb-community:github:patlee"
+        authorKey="19:hyperfide-community:github:patlee"
         onInstall={() => undefined}
         onOpenPlugin={onOpenPlugin}
       />
@@ -168,7 +168,7 @@ describe("PluginAuthorPage", () => {
     },
   ])("selects an author name by $rule", async ({ entries, expected }) => {
     renderPage(
-      "/plugins?author=12%3Abb-community%3Agithub%3Apatlee",
+      "/plugins?author=19%3Ahyperfide-community%3Agithub%3Apatlee",
       vi.fn(),
       entries,
     );
@@ -179,7 +179,7 @@ describe("PluginAuthorPage", () => {
 
   it("restores the URL and shows only the selected author's plugins", async () => {
     renderPage(
-      "/plugins?author=12%3Abb-community%3Agithub%3Apatlee&sort=recently-added&direction=asc",
+      "/plugins?author=19%3Ahyperfide-community%3Agithub%3Apatlee&sort=recently-added&direction=asc",
     );
 
     expect(
@@ -198,13 +198,13 @@ describe("PluginAuthorPage", () => {
     ]);
     expect(screen.queryByText("Other")).toBeNull();
     expect(screen.getByTestId("location").textContent).toContain(
-      "author=12%3Abb-community%3Agithub%3Apatlee",
+      "author=19%3Ahyperfide-community%3Agithub%3Apatlee",
     );
   });
 
   it("applies search, multiple categories, and both optional-value sorts", async () => {
     const onOpenPlugin = renderPage(
-      "/plugins?author=12%3Abb-community%3Agithub%3Apatlee&sort=most-installed",
+      "/plugins?author=19%3Ahyperfide-community%3Agithub%3Apatlee&sort=most-installed",
     );
 
     await screen.findByRole("heading", { name: /^Pat Lee/u });
@@ -252,7 +252,7 @@ describe("PluginAuthorPage", () => {
 
   it("uses the catalog search result for a tag-only query", async () => {
     renderPage(
-      "/plugins?author=12%3Abb-community%3Agithub%3Apatlee&query=agent-interaction",
+      "/plugins?author=19%3Ahyperfide-community%3Agithub%3Apatlee&query=agent-interaction",
     );
 
     expect(

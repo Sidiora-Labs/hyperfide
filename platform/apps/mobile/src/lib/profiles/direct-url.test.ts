@@ -52,7 +52,7 @@ describe("validateDirectServerUrl", () => {
       ok: false,
       code: "unsupported-scheme",
     });
-    expect(validateDirectServerUrl("bb://host")).toMatchObject({
+    expect(validateDirectServerUrl("hyperfide://host")).toMatchObject({
       ok: false,
       code: "unsupported-scheme",
     });
@@ -72,10 +72,10 @@ describe("validateDirectServerUrl", () => {
 
   it("normalizes: trims, drops trailing slashes/search/hash, keeps a path prefix", () => {
     expect(
-      validateDirectServerUrl("  https://Host.example/bb/?x=1#y  "),
+      validateDirectServerUrl("  https://Host.example/hyperfide/?x=1#y  "),
     ).toEqual({
       ok: true,
-      serverUrl: "https://host.example/bb",
+      serverUrl: "https://host.example/hyperfide",
       warning: null,
     });
   });

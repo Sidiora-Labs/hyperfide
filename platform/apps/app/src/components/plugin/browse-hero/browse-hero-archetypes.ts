@@ -16,7 +16,7 @@ const ARCHETYPE_SOURCE: readonly Omit<ShowcaseArchetype, "id">[] = [
   {
     noun: "a live dashboard",
     title: "Live dashboard",
-    hook: "Put the numbers your team actually checks on the bb homepage.",
+    hook: "Put the numbers your team actually checks on the hyperfide homepage.",
     capability: "homepageSection",
     icon: "ChartColumn",
     accentToken: "--success",
@@ -56,7 +56,7 @@ const ARCHETYPE_SOURCE: readonly Omit<ShowcaseArchetype, "id">[] = [
   {
     noun: "a support inbox",
     title: "Support inbox",
-    hook: "Triage user reports into fixes without leaving bb.",
+    hook: "Triage user reports into fixes without leaving hyperfide.",
     capability: "navPanel + service + messageAction",
     icon: "Mail",
     accentToken: "--destructive-text",
@@ -109,7 +109,7 @@ export const UTILITY_EXAMPLES: readonly UtilityExample[] = [
     label: "CLI command",
     icon: "Terminal",
     brief:
-      "adds a bb CLI command that deploys the current branch to staging and reports status",
+      "adds a hyperfide CLI command that deploys the current branch to staging and reports status",
   },
   {
     id: "background-service",
@@ -126,7 +126,7 @@ export const UTILITY_EXAMPLES: readonly UtilityExample[] = [
   },
 ];
 
-const COMPOSER_REQUEST_NONCE_KEY = "__bbBrowseComposerRequestNonce";
+const COMPOSER_REQUEST_NONCE_KEY = "__hyperfideBrowseComposerRequestNonce";
 export function nextComposerRequestNonce(): number {
   const holder = globalThis as typeof globalThis & {
     [COMPOSER_REQUEST_NONCE_KEY]?: number;

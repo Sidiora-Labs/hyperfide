@@ -3,7 +3,7 @@
   "name": "context-menu",
   "type": "registry:ui",
   "title": "context-menu",
-  "description": "BB ui \"context-menu\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"context-menu\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "@radix-ui/react-context-menu"
   ],

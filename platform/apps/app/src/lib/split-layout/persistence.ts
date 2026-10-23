@@ -3,7 +3,7 @@ import { MAX_PANES, countPanes, listPanes } from "./ops";
 import type { LayoutNode, PaneNode, SplitLayout, SplitNode } from "./types";
 
 export const SPLIT_LAYOUT_SCHEMA_VERSION = 1;
-export const SPLIT_LAYOUT_STORAGE_KEY = "bb.splitLayout";
+export const SPLIT_LAYOUT_STORAGE_KEY = "hyperfide.splitLayout";
 
 const paneContentSchema = z.discriminatedUnion("kind", [
   z

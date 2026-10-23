@@ -12,7 +12,7 @@ import { expect, it } from "vitest";
 import { piSessionNeedsRelocation } from "./session-cwd.js";
 
 it("does not modify a session when its requested directory or header is invalid", () => {
-  const root = mkdtempSync(join(tmpdir(), "bb-pi-relocation-invalid-"));
+  const root = mkdtempSync(join(tmpdir(), "hyperfide-pi-relocation-invalid-"));
   const file = join(root, "session.jsonl");
   try {
     const contents = JSON.stringify({ type: "session", cwd: root }) + "\n";
@@ -37,7 +37,7 @@ it("does not modify a session when its requested directory or header is invalid"
 });
 
 it("requires relocation only for a different directory", () => {
-  const root = mkdtempSync(join(tmpdir(), "bb-pi-relocation-file-"));
+  const root = mkdtempSync(join(tmpdir(), "hyperfide-pi-relocation-file-"));
   const file = join(root, "session.jsonl");
   try {
     expect(piSessionNeedsRelocation(file, root)).toBe(false);

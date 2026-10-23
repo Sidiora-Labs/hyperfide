@@ -3,7 +3,7 @@
   "name": "resource-detail-controls",
   "type": "registry:ui",
   "title": "resource-detail-controls",
-  "description": "BB ui \"resource-detail-controls\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"resource-detail-controls\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/button",
     "@hyperfide/icon",

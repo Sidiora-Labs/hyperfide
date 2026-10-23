@@ -1,4 +1,4 @@
-import type { PullRequest } from "bb-plugin-bb--github-pr-status/contract";
+import type { PullRequest } from "hyperfide-plugin-hyperfide--github-pr-status/contract";
 import { describe, expect, it } from "vitest";
 import {
   getPullRequestGithubCheckStatus,
@@ -12,7 +12,7 @@ function pullRequest(overrides: Partial<PullRequest> = {}): PullRequest {
   return {
     number: 42,
     title: "Change",
-    url: "https://github.com/acme/bb/pull/42",
+    url: "https://github.com/acme/hyperfide/pull/42",
     state: "open",
     baseRefName: "main",
     headRefName: "change",

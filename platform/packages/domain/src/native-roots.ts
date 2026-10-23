@@ -8,7 +8,7 @@ import {
  * Provider-native roots: the directories a provider's own agent reads skills
  * and slash commands from. A plugin declares them (relative to the target
  * host's home — `user` — or to the workspace — `project`) and resolves the
- * host-absolute ones per host and workspace through its `bb.host` entry. The
+ * host-absolute ones per host and workspace through its `hyperfide.host` entry. The
  * daemon scans exactly these; core never guesses a layout.
  *
  * Two forms. The INPUT form is what a plugin writes: a bare path or an object
@@ -88,7 +88,7 @@ export const providerNativeRootInputSchema = z.union([
       /**
        * A file, relative to a skill directory under this root, that marks the
        * directory as a vendor plugin rather than a skill (Claude's
-       * `.claude-plugin/plugin.json`): bb skips such a directory. The plugin
+       * `.claude-plugin/plugin.json`): hyperfide skips such a directory. The plugin
        * that knows the vendor layout declares it; core names no vendor path.
        */
       skipIfManifest: nativeRootManifestPathSchema.optional(),

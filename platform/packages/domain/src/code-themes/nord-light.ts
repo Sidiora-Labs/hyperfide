@@ -307,7 +307,7 @@ export const nordLightCodeTheme = {
     "widget.shadow": "#00000066",
   },
   displayName: "Nord Light",
-  name: "bb:nord:light",
+  name: "hyperfide:nord:light",
   semanticHighlighting: true,
   tokenColors: [
     {

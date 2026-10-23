@@ -85,12 +85,12 @@ describe("scaffold typechecks the runtime-shimmed imports (#2072)", () => {
   let targetDir: string;
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-scaffold-shims-"));
-    targetDir = join(workDir, "bb-plugin-toasty");
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-scaffold-shims-"));
+    targetDir = join(workDir, "hyperfide-plugin-toasty");
     await scaffoldPlugin({
       targetDir,
-      packageName: "bb-plugin-toasty",
-      bbVersion: "0.39.0",
+      packageName: "hyperfide-plugin-toasty",
+      hyperfideVersion: "0.39.0",
     });
     await installDeclaredDependencies(targetDir);
   });

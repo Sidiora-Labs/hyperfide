@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.6.0"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.0"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Composer customization",
     "description": "Reference implementation for every composer customization region.",
     "branding": {
@@ -17,7 +17,7 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "typecheck": "tsrs --noEmit"

@@ -6,7 +6,7 @@ import type { WorkspaceDiffTarget } from "@hyperfide/domain";
 import type { MarkdownLinkRouting } from "@/components/ui/markdown-link-routing.js";
 import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 import { DiffLoadingSkeleton } from "@/components/code/code-loading-skeletons";
-import { BbDiffSplit } from "@/components/code/BbDiffSplit";
+import { HyperfideDiffSplit } from "@/components/code/HyperfideDiffSplit";
 import { useRequestPierreWorkerPool } from "@/lib/pierre-worker-pool-gate";
 import { EmptyStatePanel } from "@hyperfide/shared-ui/empty-state";
 import {
@@ -226,7 +226,7 @@ export function GitDiffTabContent({
   const requestDiffWorkers = useRequestPierreWorkerPool();
   useEffect(() => {
     if (!isPanelOpen) return;
-    void BbDiffSplit.preload();
+    void HyperfideDiffSplit.preload();
     requestDiffWorkers();
   }, [isPanelOpen, requestDiffWorkers]);
 

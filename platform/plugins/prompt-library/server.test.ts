@@ -67,7 +67,7 @@ async function setup(
       },
     },
   });
-  await plugin(fake.bb);
+  await plugin(fake.hyperfide);
   const call = (method: string, input: unknown) =>
     fake.harness.behavior.callRpc(method, input);
   return { ...fake, history, list, call };
@@ -316,11 +316,11 @@ describe("prompt library server", () => {
   });
 
   it("upgrades existing saved prompts without changing their content or usage", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "prompt-library",
     });
-    const db = bb.storage.database();
-    bb.storage.migrate(db, STARRED_PROMPT_MIGRATIONS.slice(0, 1));
+    const db = hyperfide.storage.database();
+    hyperfide.storage.migrate(db, STARRED_PROMPT_MIGRATIONS.slice(0, 1));
     db.prepare("INSERT INTO starred_prompts VALUES (?, ?, ?, ?, ?)").run(
       "legacy",
       JSON.stringify(draft("Original prompt")),
@@ -328,7 +328,7 @@ describe("prompt library server", () => {
       100,
       200,
     );
-    await plugin(bb);
+    await plugin(hyperfide);
     const result = await harness.behavior.runCli(["list", "--json"]);
     expect(JSON.parse(result.stdout ?? "")).toEqual([
       {
@@ -426,7 +426,7 @@ describe("prompt library server", () => {
               },
             ],
           },
-          { type: "localImage", path: ".bb/attachments/shot.png" },
+          { type: "localImage", path: ".hyperfide/attachments/shot.png" },
         ],
       },
     ]);
@@ -464,7 +464,7 @@ describe("prompt library server", () => {
       attachments: [
         {
           type: "localImage",
-          path: ".bb/attachments/shot.png",
+          path: ".hyperfide/attachments/shot.png",
           name: "shot.png",
           sizeBytes: 0,
         },
@@ -485,7 +485,7 @@ describe("prompt library server", () => {
       });
       const attachment = {
         type,
-        path: ".bb/attachments/private.txt",
+        path: ".hyperfide/attachments/private.txt",
         name: "private.txt",
         sizeBytes: 42,
         ...ownership,

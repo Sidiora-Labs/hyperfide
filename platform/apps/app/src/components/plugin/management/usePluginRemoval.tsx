@@ -37,7 +37,7 @@ export function usePluginRemoval() {
     onSuccess: (_data, plugin) => {
       pluginToast.success(
         pluginIsLocalSource(plugin)
-          ? "Plugin removed from bb"
+          ? "Plugin removed from hyperfide"
           : "Plugin uninstalled",
         plugin,
         "catalog",
@@ -93,7 +93,7 @@ export function PluginRemovalDialog({ removal }: PluginRemovalDialogProps) {
         <ConfirmDeleteDialogContent
           title={
             pluginIsLocalSource(removal.target)
-              ? "Remove plugin from bb?"
+              ? "Remove plugin from hyperfide?"
               : "Uninstall plugin?"
           }
           description={pluginRemovalDescription(removal.target)}

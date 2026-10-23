@@ -10,7 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { readBbAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
+import { readHyperfideAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
 import {
   readServerMovedFile,
   type ServerMovedFile,
@@ -40,11 +40,11 @@ data_dir=$3
 case "$(uname -s)" in
   Darwin)
     mkdir -p "$HOME/Library/LaunchAgents"
-    printf '<plist><dict><key>EnvironmentVariables</key><dict><key>HYPERFIDE_DATA_DIR</key><string>%s</string></dict></dict></plist>\\n' "$data_dir" >"$HOME/Library/LaunchAgents/app.getbb.host-daemon.test.plist"
+    printf '<plist><dict><key>EnvironmentVariables</key><dict><key>HYPERFIDE_DATA_DIR</key><string>%s</string></dict></dict></plist>\\n' "$data_dir" >"$HOME/Library/LaunchAgents/app.hyperfide.host-daemon.test.plist"
     ;;
   *)
     mkdir -p "$HOME/.config/systemd/user"
-    printf '[Service]\\nEnvironment="HYPERFIDE_DATA_DIR=%s"\\n' "$data_dir" >"$HOME/.config/systemd/user/bb-host-daemon-test.service"
+    printf '[Service]\\nEnvironment="HYPERFIDE_DATA_DIR=%s"\\n' "$data_dir" >"$HOME/.config/systemd/user/hyperfide-host-daemon-test.service"
     ;;
 esac
 exit "\${FAKE_INSTALLER_EXIT:-0}"
@@ -68,12 +68,12 @@ function movedLock(): ServerMovedFile {
     serverUrl: "https://me.hyperfide.example",
     mode: "connect",
     connectHandle: "me",
-    oldCopyEntries: ["bb.db"],
+    oldCopyEntries: ["hyperfide.db"],
   };
 }
 
 async function createFixture(): Promise<Fixture> {
-  const root = await mkdtemp(join(tmpdir(), "bb-cli-machine-service-"));
+  const root = await mkdtemp(join(tmpdir(), "hyperfide-cli-machine-service-"));
   tempDirs.push(root);
   const dataDir = join(root, "data");
   const homeDir = join(root, "home");
@@ -88,7 +88,7 @@ async function createFixture(): Promise<Fixture> {
     join(dataDir, "config.json"),
     JSON.stringify({
       serverUrl: "https://me.hyperfide.example",
-      serverHeaders: { "x-bb-connect-machine": "grant-secret" },
+      serverHeaders: { "x-hyperfide-connect-machine": "grant-secret" },
     }),
   );
   const installerPath = join(root, "install-machine.sh");
@@ -100,14 +100,14 @@ async function createFixture(): Promise<Fixture> {
   return { dataDir, homeDir, installerLog, root };
 }
 
-async function startRecordedBb(fixture: Fixture): Promise<ChildProcess> {
-  const entryPath = join(fixture.root, "bb-app.js");
+async function startRecordedHyperfide(fixture: Fixture): Promise<ChildProcess> {
+  const entryPath = join(fixture.root, "hyperfide-app.js");
   await writeFile(entryPath, "setInterval(() => {}, 1000);\n");
   const startedAt = new Date().toISOString();
   const child = spawn(process.execPath, [entryPath], { stdio: "ignore" });
   children.push(child);
   await writeFile(
-    join(fixture.dataDir, "bb-app-runtime.json"),
+    join(fixture.dataDir, "hyperfide-app-runtime.json"),
     JSON.stringify({
       entryPath,
       pid: child.pid,
@@ -132,7 +132,7 @@ afterAll(async () => {
 describe("hyperfide-platform server install-machine-service", () => {
   setupCommandOutputTestEnvironment();
 
-  it("stops the bb running from the data directory and installs the service for it", async ({
+  it("stops the hyperfide running from the data directory and installs the service for it", async ({
     skip,
   }) => {
     skip(
@@ -140,9 +140,9 @@ describe("hyperfide-platform server install-machine-service", () => {
       "runs a POSIX shell installer for launchd/systemd",
     );
     const fixture = await createFixture();
-    const bb = await startRecordedBb(fixture);
-    const bbExit = new Promise<NodeJS.Signals | null>((resolvePromise) => {
-      bb.once("exit", (_code, signal) => resolvePromise(signal));
+    const hyperfide = await startRecordedHyperfide(fixture);
+    const hyperfideExit = new Promise<NodeJS.Signals | null>((resolvePromise) => {
+      hyperfide.once("exit", (_code, signal) => resolvePromise(signal));
     });
 
     await runCommand(
@@ -157,8 +157,8 @@ describe("hyperfide-platform server install-machine-service", () => {
       register,
     );
 
-    await expect(bbExit).resolves.toBe("SIGTERM");
-    await expect(readBbAppRuntimeFile(fixture.dataDir)).resolves.toBeNull();
+    await expect(hyperfideExit).resolves.toBe("SIGTERM");
+    await expect(readHyperfideAppRuntimeFile(fixture.dataDir)).resolves.toBeNull();
     expect(
       (await readFile(fixture.installerLog, "utf8")).trim().split("\n"),
     ).toEqual(["--adopt", "--data-dir", fixture.dataDir]);
@@ -170,7 +170,7 @@ describe("hyperfide-platform server install-machine-service", () => {
       toHostName: "desktop",
     });
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      `Stopped bb on this computer (pid ${String(bb.pid)}).`,
+      `Stopped hyperfide on this computer (pid ${String(hyperfide.pid)}).`,
     ]);
     expect(await readServerMovedFile(fixture.dataDir)).toEqual(movedLock());
   });
@@ -198,7 +198,7 @@ describe("hyperfide-platform server install-machine-service", () => {
     await expect(readFile(fixture.installerLog, "utf8")).rejects.toThrow();
   });
 
-  it("leaves bb running when node on the PATH is too old for the service", async ({
+  it("leaves hyperfide running when node on the PATH is too old for the service", async ({
     skip,
   }) => {
     skip(
@@ -206,7 +206,7 @@ describe("hyperfide-platform server install-machine-service", () => {
       "runs a POSIX shell installer for launchd/systemd",
     );
     const fixture = await createFixture();
-    const bb = await startRecordedBb(fixture);
+    const hyperfide = await startRecordedHyperfide(fixture);
     const binDir = join(fixture.root, "bin");
     await mkdir(binDir);
     await writeFile(
@@ -230,15 +230,15 @@ describe("hyperfide-platform server install-machine-service", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: The background service runs bb with the node on your PATH, which is Node.js 20.18.1. Install Node.js 22.19 or newer, then run this command again.",
+      "Error: The background service runs hyperfide with the node on your PATH, which is Node.js 20.18.1. Install Node.js 22.19 or newer, then run this command again.",
     ]);
-    expect(bb.exitCode).toBeNull();
-    expect(bb.signalCode).toBeNull();
+    expect(hyperfide.exitCode).toBeNull();
+    expect(hyperfide.signalCode).toBeNull();
     await expect(readFile(fixture.installerLog, "utf8")).rejects.toThrow();
   });
 
   it.runIf(process.platform === "win32")(
-    "refuses on Windows before stopping bb or running an installer",
+    "refuses on Windows before stopping hyperfide or running an installer",
     async () => {
       const fixture = await createFixture();
 
@@ -256,7 +256,7 @@ describe("hyperfide-platform server install-machine-service", () => {
       ).rejects.toThrow("process.exit:1");
 
       expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-        "Error: bb cannot install the background machine service on Windows. It is available on macOS and Linux.",
+        "Error: hyperfide cannot install the background machine service on Windows. It is available on macOS and Linux.",
       ]);
       await expect(readFile(fixture.installerLog, "utf8")).rejects.toThrow();
     },
@@ -279,10 +279,10 @@ describe("hyperfide-platform server install-machine-service", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(readlineMocks.question).toHaveBeenCalledWith(
-      "Stop bb on this computer and install a background service that keeps it connected to desktop? [y/N] ",
+      "Stop hyperfide on this computer and install a background service that keeps it connected to desktop? [y/N] ",
     );
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: The background service install failed; see the installer output above. Until it succeeds, this computer stays connected only while the bb desktop app or npx bb-app runs, so start one of them to reconnect it now.",
+      "Error: The background service install failed; see the installer output above. Until it succeeds, this computer stays connected only while the hyperfide desktop app or npx hyperfide-app runs, so start one of them to reconnect it now.",
     ]);
   });
 });

@@ -33,7 +33,7 @@ describe("buildDesktopServerChoices", () => {
     await store.setConnectServer(servers[0]);
     await store.setCustomServerUrl("https://brsbl.hyperfide.example");
     await store.setCustomServerUrl("https://brsbl-bbox.hyperfide.example");
-    await store.setCustomServerUrl("https://bb.example.com/team");
+    await store.setCustomServerUrl("https://hyperfide.example.com/team");
 
     await store.adoptConnectServers(servers);
 
@@ -46,8 +46,8 @@ describe("buildDesktopServerChoices", () => {
         active: false,
       },
       {
-        id: customServerId("https://bb.example.com/team"),
-        name: "bb.example.com",
+        id: customServerId("https://hyperfide.example.com/team"),
+        name: "hyperfide.example.com",
         active: true,
       },
     ]);

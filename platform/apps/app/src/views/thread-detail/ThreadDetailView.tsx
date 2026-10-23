@@ -47,7 +47,7 @@ import {
   type ThreadWithRuntime,
 } from "@hyperfide/domain";
 import type { TerminalSession, TimelineRow } from "@hyperfide/server-contract";
-import type { PullRequestMergeMethod } from "bb-plugin-bb--github-pr-status/contract";
+import type { PullRequestMergeMethod } from "hyperfide-plugin-hyperfide--github-pr-status/contract";
 import type { WorkspaceOpenTarget } from "@hyperfide/host-daemon-contract";
 import { appToast } from "@/components/ui/app-toast";
 import { copyToClipboardWithToast } from "@/lib/clipboard";
@@ -217,7 +217,7 @@ import {
 import { usePluginSlots } from "@/lib/plugin-slots";
 import { getFileExtension } from "@/lib/plugin-slot-resolvers";
 import { Icon } from "@hyperfide/shared-ui/icon";
-import { getBbDesktopInfo, isDesktopBrowserAvailable } from "@/lib/bb-desktop";
+import { getHyperfideDesktopInfo, isDesktopBrowserAvailable } from "@/lib/hyperfide-desktop";
 import { UrlOpenRoutingProvider } from "@/lib/url-open-routing";
 import {
   AppNavigationHostProvider,
@@ -296,7 +296,7 @@ const EMPTY_PROJECT_THREAD_SUBSET_FILTERS =
 const EMPTY_TERMINAL_SESSIONS: readonly TerminalSession[] = [];
 const DEFAULT_PULL_REQUEST_MERGE_METHOD: PullRequestMergeMethod = "merge";
 const THREAD_HEADER_ACTIONS_GROUP = "0_header";
-const PULL_REQUEST_MERGE_METHOD_STORAGE_KEY = "bb.pullRequest.mergeMethod";
+const PULL_REQUEST_MERGE_METHOD_STORAGE_KEY = "hyperfide.pullRequest.mergeMethod";
 
 function isPullRequestMergeMethod(
   value: string,
@@ -1507,7 +1507,7 @@ function ThreadDetailViewInternal(
     if (!isFocused) {
       return;
     }
-    const desktopInfo = getBbDesktopInfo();
+    const desktopInfo = getHyperfideDesktopInfo();
     if (
       desktopInfo === null ||
       desktopInfo.onAppCommand !== undefined ||
@@ -1611,7 +1611,7 @@ function ThreadDetailViewInternal(
     if (!isFocused) {
       return;
     }
-    const desktopInfo = getBbDesktopInfo();
+    const desktopInfo = getHyperfideDesktopInfo();
     if (
       desktopInfo === null ||
       desktopInfo.onCloseWindowRequest === undefined

@@ -19,7 +19,7 @@ let harness: BridgeJsonRpcTestHarness;
 let workspaceDir: string;
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-quota-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-quota-"));
   harness = createBridgeJsonRpcTestHarness(handleLine);
 });
 

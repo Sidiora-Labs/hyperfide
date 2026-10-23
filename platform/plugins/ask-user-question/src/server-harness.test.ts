@@ -16,7 +16,7 @@ import {
 
 function createHost(): FakePluginHost {
   const host = createFakePluginHost({ pluginId: "ask-user-question" });
-  plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+  plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
   return host;
 }
 
@@ -310,9 +310,9 @@ describe("asking a question", () => {
 
   it("returns the reason when the question cannot be shown", async () => {
     const host = createFakePluginHost({ pluginId: "ask-user-question" });
-    host.bb.ui.requestInput = () =>
+    host.hyperfide.ui.requestInput = () =>
       Promise.reject(new Error("Thread does not exist"));
-    plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+    plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
 
     const result = await host.harness.callAgentTool(TOOL_NAME, { questions });
 

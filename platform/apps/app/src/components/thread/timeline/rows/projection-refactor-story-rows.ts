@@ -12,7 +12,7 @@ export const fileChangeAssistantStream: TimelineRow = fileChangeRow({
   status: "completed",
   callId: "call_fjGvl1fFJU7cAcw46FcSnbjJ",
   change: {
-    path: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/bb/packages/core-ui/src/assistant-stream-projection.ts",
+    path: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/hyperfide/packages/core-ui/src/assistant-stream-projection.ts",
     kind: "update",
     movePath: null,
     diff: `@@ -24,3 +24,3 @@
@@ -43,7 +43,7 @@ export const fileChangeIndex: TimelineRow = fileChangeRow({
   status: "completed",
   callId: "call_BXK77XTyviYmWUVNOpPG5nwJ",
   change: {
-    path: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/bb/packages/core-ui/src/index.ts",
+    path: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/hyperfide/packages/core-ui/src/index.ts",
     kind: "update",
     movePath: null,
     diff: `@@ -110,3 +110,2 @@
@@ -77,7 +77,7 @@ export const fileChangeTimelineService: TimelineRow = fileChangeRow({
   status: "completed",
   callId: "call_v3QQJnCbGh2ErXIJdCf4hX4N",
   change: {
-    path: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/bb/apps/server/src/services/threads/timeline.ts",
+    path: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/hyperfide/apps/server/src/services/threads/timeline.ts",
     kind: "update",
     movePath: null,
     diff: `@@ -6,2 +6,3 @@
@@ -124,7 +124,7 @@ export const fileChangeActiveThinkingDelete: TimelineRow = fileChangeRow({
   status: "completed",
   callId: "call_1JWzaNZyTpVIrB8reX73YYUN",
   change: {
-    path: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/bb/packages/core-ui/src/active-thinking.ts",
+    path: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/hyperfide/packages/core-ui/src/active-thinking.ts",
     kind: "delete",
     movePath: null,
     diff: null,
@@ -146,7 +146,7 @@ export const fileChangeToViewMessages: TimelineRow = fileChangeRow({
   status: "completed",
   callId: "call_3qZxJB5I3kVdSM4pPiBCTm92",
   change: {
-    path: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/bb/packages/core-ui/src/to-view-messages.ts",
+    path: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/hyperfide/packages/core-ui/src/to-view-messages.ts",
     kind: "update",
     movePath: null,
     diff: `@@ -497,2 +497,12 @@

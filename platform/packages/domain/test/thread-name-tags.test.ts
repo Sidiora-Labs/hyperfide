@@ -8,25 +8,25 @@ import {
 } from "../src/thread-name-tags.js";
 
 describe("thread name tags", () => {
-  it("round-trips user-provided literal bb-prefixed titles", () => {
-    const providerName = toProviderExternalThreadName("[bb] Literal");
+  it("round-trips user-provided literal hyperfide-prefixed titles", () => {
+    const providerName = toProviderExternalThreadName("[hyperfide] Literal");
 
-    expect(providerName).toBe("[bb] [bb] Literal");
-    expect(fromProviderExternalThreadName(providerName)).toBe("[bb] Literal");
+    expect(providerName).toBe("[hyperfide] [hyperfide] Literal");
+    expect(fromProviderExternalThreadName(providerName)).toBe("[hyperfide] Literal");
   });
 
-  it("normalizes provider title events by stripping one bb tag", () => {
+  it("normalizes provider title events by stripping one hyperfide tag", () => {
     const event = {
       type: "thread/name/updated",
       threadId: "t1",
       providerThreadId: "p1",
       scope: threadScope(),
-      threadName: toProviderExternalThreadName("[bb] Literal"),
+      threadName: toProviderExternalThreadName("[hyperfide] Literal"),
     } satisfies ThreadEvent;
 
     expect(normalizeProviderThreadNameEvent(event)).toEqual({
       ...event,
-      threadName: "[bb] Literal",
+      threadName: "[hyperfide] Literal",
     });
   });
 });

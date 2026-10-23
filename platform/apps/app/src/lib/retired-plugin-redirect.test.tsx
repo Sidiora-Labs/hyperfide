@@ -18,7 +18,7 @@ describe("useRedirectRetiredPluginPaths", () => {
     render(
       <MemoryRouter
         initialEntries={[
-          "/settings/plugins/bb--provider-acp-next?tab=settings",
+          "/settings/plugins/hyperfide--provider-acp-next?tab=settings",
         ]}
       >
         <Probe seen={seen} />

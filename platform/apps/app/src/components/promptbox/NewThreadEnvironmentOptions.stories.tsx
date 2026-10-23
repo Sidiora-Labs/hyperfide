@@ -43,7 +43,7 @@ function EnvironmentOptionsStrip({
   worktreeValue = null,
 }: EnvironmentOptionsStripProps) {
   const [projectValue, setProjectValue] = useState<string | null>(
-    project?.value ?? PROJECT_IDS.bb,
+    project?.value ?? PROJECT_IDS.hyperfide,
   );
   const environmentValue = environment?.value ?? "provider:project-checkout";
   const showReuseEnvironmentPicker = environmentValue === "reuse";

@@ -1,6 +1,6 @@
 // Keeps npm from lagging the plugin SDK.
 //
-// The publish job (.github/workflows/publish-bb-app.yml, job publish-plugin-sdk)
+// The publish job (.github/workflows/publish-hyperfide-app.yml, job publish-plugin-sdk)
 // only publishes @hyperfide/plugin-sdk when PLUGIN_SDK_VERSION is absent from npm.
 // That is safe exactly as long as a released version's *published content* never
 // changes underneath it. Declarations alone are not enough: a runtime-only change
@@ -235,7 +235,7 @@ function extractTarball(tarballPath, workDir) {
  *
  * The build runs through turbo so upstream `^build` dependencies are honored. In
  * CI it is a cache hit: ci.yml already runs `turbo run build typecheck lint`
- * before this guard, and publish-bb-app.yml builds the SDK before publishing.
+ * before this guard, and publish-hyperfide-app.yml builds the SDK before publishing.
  * `npm pack --ignore-scripts` then packs that freshly built tree without
  * re-running prepack.
  */

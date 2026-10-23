@@ -21,7 +21,7 @@ import { RUNTIME_EXPORT_MANIFEST } from "./generated/runtime-export-manifest.gen
 import { resolvePluginBuildToolchain } from "./toolchain.js";
 
 function testToolchain() {
-  return resolvePluginBuildToolchain(join(tmpdir(), "bb-toolchain-unused"));
+  return resolvePluginBuildToolchain(join(tmpdir(), "hyperfide-toolchain-unused"));
 }
 
 describe("plugin app runtime shim", () => {
@@ -36,7 +36,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("re-derives @hyperfide/plugin-sdk/app exports for every rebuild", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-shim-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-shim-"));
     tempDirs.push(dir);
     const facadePath = join(dir, "app-facade.mjs");
     const facadeUrl = pathToFileURL(facadePath).href;
@@ -69,7 +69,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("still builds a plugin that imports a retired SDK hook and warns with the replacement", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-retired-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-retired-"));
     tempDirs.push(dir);
     const facadePath = join(dir, "app-facade.mjs");
     await writeFile(facadePath, "export const first = 1;\n");
@@ -95,10 +95,10 @@ describe("plugin app runtime shim", () => {
     );
     expect(result.warnings).toMatchObject([
       {
-        pluginName: "bb-plugin-runtime-shims",
+        pluginName: "hyperfide-plugin-runtime-shims",
         location: expect.objectContaining({ line: 4 }),
         text: expect.stringMatching(
-          /^experimental_useSidebarThreadPullRequest is retired from @hyperfide\/plugin-sdk\/app\. Existing plugins remain supported\. Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery\(\{ pluginId: "bb--github-pr-status"/,
+          /^experimental_useSidebarThreadPullRequest is retired from @hyperfide\/plugin-sdk\/app\. Existing plugins remain supported\. Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery\(\{ pluginId: "hyperfide--github-pr-status"/,
         ),
       },
     ]);
@@ -112,7 +112,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("routes host-resident libraries to runtime slots and forwards real default exports", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-libs-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-libs-"));
     tempDirs.push(dir);
     const result = await build({
       stdin: {
@@ -150,7 +150,7 @@ describe("plugin app runtime shim", () => {
     const cvaFn = () => "cva";
     const IconComponent = () => null;
     const useQuestionFormHost = () => null;
-    (globalThis as { __bbPluginRuntime?: unknown }).__bbPluginRuntime = {
+    (globalThis as { __hyperfidePluginRuntime?: unknown }).__hyperfidePluginRuntime = {
       clsx: { default: clsxFn, clsx: clsxFn },
       tailwindMerge: { twMerge: twMergeFn },
       classVarianceAuthority: { cva: cvaFn },
@@ -170,12 +170,12 @@ describe("plugin app runtime shim", () => {
       expect(loaded.Icon).toBe(IconComponent);
       expect(loaded.useQuestionFormHost).toBe(useQuestionFormHost);
     } finally {
-      delete (globalThis as { __bbPluginRuntime?: unknown }).__bbPluginRuntime;
+      delete (globalThis as { __hyperfidePluginRuntime?: unknown }).__hyperfidePluginRuntime;
     }
   });
 
   it("shims shared-ui's relative ./icon import but bundles a plugin's own icon module", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-icon-rel-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-icon-rel-"));
     tempDirs.push(dir);
     const sharedUiDir = join(dir, "node_modules", "@hyperfide", "shared-ui");
     const files: Record<string, string> = {
@@ -219,7 +219,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("shims shared-ui's relative ./question-form-host import to the host's context", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-question-host-rel-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-question-host-rel-"));
     tempDirs.push(dir);
     const sharedUiDir = join(dir, "node_modules", "@hyperfide", "shared-ui");
     const files: Record<string, string> = {
@@ -299,14 +299,14 @@ describe("plugin app runtime shim", () => {
   });
 
   it("scopes Tailwind utilities while preserving imported CSS unscoped", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-css-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-css-"));
     tempDirs.push(dir);
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-css-fixture",
+        name: "hyperfide-plugin-css-fixture",
         version: "0.0.0",
-        bb: {
+        hyperfide: {
           name: "CSS fixture",
           description: "Verifies plugin CSS emission.",
           branding: { icon: "Paintbrush" },
@@ -339,7 +339,7 @@ describe("plugin app runtime shim", () => {
     const css = await readFile(result.cssPath, "utf8");
 
     const scope =
-      ":where([data-bb-plugin=css-fixture],[data-bb-plugin-root]:not([data-bb-plugin]))";
+      ":where([data-hyperfide-plugin=css-fixture],[data-hyperfide-plugin-root]:not([data-hyperfide-plugin]))";
     expect(css).toContain(`${scope} .flex-col`);
     expect(css).toContain(`${scope}.flex-col`);
     const sibling = String.raw`.\[\&\~\*\]\:hidden`;
@@ -373,14 +373,14 @@ describe("plugin app runtime shim", () => {
   });
 
   it("builds retired tab registrations alongside retired hooks and returns migration warnings", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-legacy-tabs-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-legacy-tabs-"));
     tempDirs.push(dir);
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-legacy-tabs-fixture",
+        name: "hyperfide-plugin-legacy-tabs-fixture",
         version: "0.0.0",
-        bb: {
+        hyperfide: {
           name: "Legacy tabs",
           description: "Published API compatibility",
           branding: { icon: "Info" },
@@ -427,14 +427,14 @@ describe("plugin app runtime shim", () => {
   });
 
   it("minifies app.js and app.css unless the caller asks for readable output", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-minify-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-minify-"));
     tempDirs.push(dir);
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-minify-fixture",
+        name: "hyperfide-plugin-minify-fixture",
         version: "0.0.0",
-        bb: {
+        hyperfide: {
           name: "Minify fixture",
           description: "Verifies artifact minification.",
           branding: { icon: "Zap" },
@@ -456,7 +456,7 @@ describe("plugin app runtime shim", () => {
         '  const fixtureLocalResult = [fixtureInputValue, "flex-col"].join(" ");',
         "  return fixtureLocalResult;",
         "}",
-        'export default computeFixtureLabel("bb-minify");',
+        'export default computeFixtureLabel("hyperfide-minify");',
         "",
       ].join("\n"),
     );
@@ -471,7 +471,7 @@ describe("plugin app runtime shim", () => {
     const minifiedCss = await readFile(minified.cssPath, "utf8");
     expect(minifiedJs).not.toContain("fixtureLocalResult");
     expect(minifiedJs).not.toContain("fixture-legal-comment");
-    expect(minifiedJs).toContain("bb-minify");
+    expect(minifiedJs).toContain("hyperfide-minify");
     expect(minifiedCss).toContain(".flex-col{flex-direction:column}");
     expect(minifiedCss).toContain(".bb71-authored{color:#ff69b4;margin:0}");
     expect(minifiedCss).not.toContain("\n  ");
@@ -489,7 +489,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("scans bundled Tailwind content from a symlinked workspace dependency by filesystem identity", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-scan-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-scan-"));
     tempDirs.push(dir);
     const uiPackageDir = join(dir, "packages", "fixture-ui");
     await mkdir(join(uiPackageDir, "src", "excluded"), { recursive: true });
@@ -500,7 +500,7 @@ describe("plugin app runtime shim", () => {
         name: "fixture-ui",
         version: "0.0.0",
         type: "module",
-        bb: { pluginTailwindContent: ["src/**/*", "!src/excluded/**/*"] },
+        hyperfide: { pluginTailwindContent: ["src/**/*", "!src/excluded/**/*"] },
       }),
     );
     await writeFile(
@@ -525,10 +525,10 @@ describe("plugin app runtime shim", () => {
     await writeFile(
       join(pluginDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-scan-fixture",
+        name: "hyperfide-plugin-scan-fixture",
         version: "0.0.0",
         type: "module",
-        bb: {
+        hyperfide: {
           name: "Scan fixture",
           description: "Verifies dependency content scanning.",
           branding: { icon: "Zap" },
@@ -557,7 +557,7 @@ describe("plugin app runtime shim", () => {
     );
 
     const aliasContainer = await mkdtemp(
-      join(tmpdir(), "bb-plugin-scan-alias-"),
+      join(tmpdir(), "hyperfide-plugin-scan-alias-"),
     );
     tempDirs.push(aliasContainer);
     const aliasedRoot = join(aliasContainer, "fixture");
@@ -588,14 +588,14 @@ describe("plugin app runtime shim", () => {
   ])(
     "rejects %s in a path-shaped branding.icon before building",
     async (_case, icon, expectedError) => {
-      const dir = await mkdtemp(join(tmpdir(), "bb-plugin-icon-"));
+      const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-icon-"));
       tempDirs.push(dir);
       await writeFile(
         join(dir, "package.json"),
         JSON.stringify({
-          name: "bb-plugin-icon-fixture",
+          name: "hyperfide-plugin-icon-fixture",
           version: "0.0.0",
-          bb: {
+          hyperfide: {
             name: "Icon fixture",
             description: "Verifies compact icon validation.",
             branding: { icon: "./icon.svg" },

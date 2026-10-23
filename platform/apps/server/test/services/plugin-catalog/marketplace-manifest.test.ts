@@ -38,8 +38,8 @@ function entry(overrides: Record<string, unknown> = {}): unknown {
 function manifest(plugins: unknown[]): unknown {
   return {
     schemaVersion: 1,
-    name: "bb-community",
-    displayName: "BB Community",
+    name: "hyperfide-community",
+    displayName: "HYPERFIDE Community",
     plugins,
   };
 }
@@ -50,8 +50,8 @@ function manifestV2(
 ): unknown {
   return {
     schemaVersion: 2,
-    name: "bb-community",
-    displayName: "BB Community",
+    name: "hyperfide-community",
+    displayName: "HYPERFIDE Community",
     plugins,
     ...overrides,
   };
@@ -204,7 +204,7 @@ describe("marketplace manifest schema", () => {
             entry({
               source: {
                 npm: {
-                  package: "bb-plugin-widgets",
+                  package: "hyperfide-plugin-widgets",
                   regsitry: "https://npm.test/",
                 },
               },
@@ -222,7 +222,7 @@ describe("marketplace manifest schema", () => {
           entry({
             id: "invalid-range",
             source: {
-              npm: { package: "bb-plugin-invalid", range: "not-semver" },
+              npm: { package: "hyperfide-plugin-invalid", range: "not-semver" },
             },
           }),
           entry(),
@@ -289,7 +289,7 @@ describe("marketplace manifest schema", () => {
       const bundled = {
         schemaVersion: 2,
         name: BUNDLED_MARKETPLACE_NAME,
-        displayName: "BB Official",
+        displayName: "HYPERFIDE Official",
         plugins: [entry({ source: { bundled: { plugin: "docs" } } })],
       };
       expect(() =>
@@ -432,7 +432,7 @@ describe("marketplace manifest schema", () => {
           entry({
             source: {
               npm: {
-                package: "bb-plugin-widgets",
+                package: "hyperfide-plugin-widgets",
                 range: "^1.0.0",
                 tag: "beta",
               },
@@ -556,7 +556,7 @@ describe("marketplace manifest schema", () => {
         entry({
           source: {
             npm: {
-              package: "bb-plugin-widgets",
+              package: "hyperfide-plugin-widgets",
               range: "^1.0.0",
               registry: "https://npm.acme.test",
             },
@@ -564,7 +564,7 @@ describe("marketplace manifest schema", () => {
         }),
       ]);
       expect(resolvedEntrySource(npm)).toEqual({
-        source: "npm:bb-plugin-widgets@^1.0.0",
+        source: "npm:hyperfide-plugin-widgets@^1.0.0",
         selection: { kind: "root" },
         npmRegistry: "https://npm.acme.test",
       });
@@ -636,7 +636,7 @@ describe("marketplace manifest schema", () => {
         entry({
           source: {
             npm: {
-              package: "bb-plugin-widgets",
+              package: "hyperfide-plugin-widgets",
               range: "^1.0.0",
               registry: "https://npm.acme.test",
             },
@@ -650,9 +650,9 @@ describe("marketplace manifest schema", () => {
   describe("engines policy", () => {
     it("refuses an entry that declares engine ranges", () => {
       for (const engines of [
-        { bb: ">=1.0.0" },
-        { bbPluginSdk: "^0.5.0" },
-        { bb: ">=1.0.0", bbPluginSdk: "^0.5.0" },
+        { hyperfide: ">=1.0.0" },
+        { hyperfidePluginSdk: "^0.5.0" },
+        { hyperfide: ">=1.0.0", hyperfidePluginSdk: "^0.5.0" },
       ]) {
         expect(() => parse([entry({ engines })])).toThrow(/engines/u);
       }

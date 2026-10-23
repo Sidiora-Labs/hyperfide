@@ -79,7 +79,7 @@ import plugin from "./server";
 describe("scaffold backend", () => {
   it("loads, inspects, and atomically reloads through the packed harness", async () => {
     const host = createFakePluginHost({ pluginId: "external-backend" });
-    await plugin(host.bb);
+    await plugin(host.hyperfide);
     await expect(host.harness.behavior.callRpc("todos_list")).resolves.toEqual({
       todos: [],
     });
@@ -94,7 +94,7 @@ describe("scaffold backend", () => {
       "todos_remove",
     ]);
 
-    // The todo store lives in bb.storage.kv, so it survives a reload.
+    // The todo store lives in hyperfide.storage.kv, so it survives a reload.
     const next = await host.harness.lifecycle.reload(plugin);
     await expect(next.harness.behavior.callRpc("todos_list")).resolves.toEqual({
       todos: [added],
@@ -144,7 +144,7 @@ describe("scaffold frontend", () => {
       "todos_list",
     ]);
 
-    // A server-side write (bb <id> remove …) reaches the page as a signal.
+    // A server-side write (hyperfide <id> remove …) reaches the page as a signal.
     todos = [];
     await slot.behavior.emitRealtime("todos-changed", { count: 0 });
     await slot.findByText(/Nothing to do/);
@@ -163,7 +163,7 @@ export default defineConfig({
 `;
 
 const REPRESENTATIVE_SERVER = `
-import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
+import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 export const rpcContract = defineRpcContract({
@@ -173,21 +173,21 @@ export const rpcContract = defineRpcContract({
   },
 });
 
-async function verifyFullSdk(bb: BbPluginApi) {
-  const thread = await bb.sdk.threads.spawn({
+async function verifyFullSdk(hyperfide: HyperfidePluginApi) {
+  const thread = await hyperfide.sdk.threads.spawn({
     projectId: "proj_fixture",
     environment: { type: "project-default" },
     prompt: "Verify the portable SDK contract",
   });
   const threadId: string = thread.id;
 
-  const file = await bb.sdk.files.read({ path: "/tmp/fixture.txt" });
+  const file = await hyperfide.sdk.files.read({ path: "/tmp/fixture.txt" });
   const sha256: string = file.sha256;
 
-  const project = await bb.sdk.projects.get({ projectId: "proj_fixture" });
+  const project = await hyperfide.sdk.projects.get({ projectId: "proj_fixture" });
   const projectName: string = project.name;
   const sourceId: string | undefined = project.sources[0]?.id;
-  const attachment = await bb.sdk.projects.attachments.upload({
+  const attachment = await hyperfide.sdk.projects.attachments.upload({
     projectId: "proj_fixture",
     clientFile: new Uint8Array([0, 1, 255]),
     filename: "fixture.bin",
@@ -195,7 +195,7 @@ async function verifyFullSdk(bb: BbPluginApi) {
   });
   const attachmentPath: string = attachment.path;
 
-  const environment = await bb.sdk.environments.status({
+  const environment = await hyperfide.sdk.environments.status({
     environmentId: "env_fixture",
   });
   const outcome: "available" | "not_applicable" | "unavailable" =
@@ -204,15 +204,15 @@ async function verifyFullSdk(bb: BbPluginApi) {
   return { attachmentPath, outcome, projectName, sha256, sourceId, threadId };
 }
 
-export default function plugin(bb: BbPluginApi) {
+export default function plugin(hyperfide: HyperfidePluginApi) {
   void verifyFullSdk;
-  bb.rpc.register(rpcContract, {
+  hyperfide.rpc.register(rpcContract, {
     async projectName({ projectId }) {
-      const project = await bb.sdk.projects.get({ projectId });
+      const project = await hyperfide.sdk.projects.get({ projectId });
       return { name: project.name };
     },
   });
-  bb.log.info("portable SDK fixture loaded");
+  hyperfide.log.info("portable SDK fixture loaded");
 }
 `;
 
@@ -382,13 +382,13 @@ describe("external plugin scaffold types", () => {
   }
 
   beforeAll(async () => {
-    packRoot = await mkdtemp(join(tmpdir(), "bb-external-pack-"));
+    packRoot = await mkdtemp(join(tmpdir(), "hyperfide-external-pack-"));
     tarball = await packPluginSdk(join(packRoot, "pack"));
     const templateDir = join(packRoot, "installed");
     await mkdir(templateDir);
     await writeFile(
       join(templateDir, "package.json"),
-      JSON.stringify({ name: "bb-plugin-external-fixture", private: true }),
+      JSON.stringify({ name: "hyperfide-plugin-external-fixture", private: true }),
     );
     await installPackedSdk(templateDir, tarball);
     await linkExternalDependencies(templateDir);
@@ -400,7 +400,7 @@ describe("external plugin scaffold types", () => {
   });
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-external-scaffold-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-external-scaffold-"));
   });
 
   afterEach(async () => {
@@ -408,11 +408,11 @@ describe("external plugin scaffold types", () => {
   });
 
   it("typechecks full SDK results against the installed package, with library checks enabled", async () => {
-    const targetDir = join(workDir, "bb-plugin-external");
+    const targetDir = join(workDir, "hyperfide-plugin-external");
     await scaffoldPlugin({
       targetDir,
-      packageName: "bb-plugin-external",
-      bbVersion: "0.9.0",
+      packageName: "hyperfide-plugin-external",
+      hyperfideVersion: "0.9.0",
     });
     await writeFile(join(targetDir, "server.ts"), REPRESENTATIVE_SERVER);
     await writeFile(join(targetDir, "app.tsx"), REPRESENTATIVE_APP);
@@ -430,7 +430,7 @@ describe("external plugin scaffold types", () => {
     expect(tsconfig.compilerOptions.skipLibCheck).toBe(false);
     expect(Object.keys(tsconfig.compilerOptions.paths ?? {})).toEqual(["@/*"]);
     await expect(
-      access(join(targetDir, "types", "bb-plugin-sdk.d.ts")),
+      access(join(targetDir, "types", "hyperfide-plugin-sdk.d.ts")),
     ).rejects.toThrow();
     await expect(
       access(
@@ -440,7 +440,7 @@ describe("external plugin scaffold types", () => {
           "@hyperfide",
           "plugin-sdk",
           "bundled-types",
-          "bb-plugin-sdk.d.ts",
+          "hyperfide-plugin-sdk.d.ts",
         ),
       ),
     ).resolves.toBeUndefined();
@@ -455,10 +455,10 @@ describe("external plugin scaffold types", () => {
     expect(packedListing).toContain("package/dist/testing/index.js");
     expect(packedListing).toContain("package/dist/testing/app.js");
     expect(packedListing).toContain(
-      "package/bundled-types/bb-plugin-sdk-testing.d.ts",
+      "package/bundled-types/hyperfide-plugin-sdk-testing.d.ts",
     );
     expect(packedListing).toContain(
-      "package/bundled-types/bb-plugin-sdk-testing-app.d.ts",
+      "package/bundled-types/hyperfide-plugin-sdk-testing-app.d.ts",
     );
     expect(
       packedListing.some((entry) => entry.startsWith("package/src/")),
@@ -467,11 +467,11 @@ describe("external plugin scaffold types", () => {
       packedListing.some((entry) => entry.startsWith("package/scripts/")),
     ).toBe(false);
 
-    const backendDir = join(workDir, "bb-plugin-external-backend");
+    const backendDir = join(workDir, "hyperfide-plugin-external-backend");
     await scaffoldPlugin({
       targetDir: backendDir,
-      packageName: "bb-plugin-external-backend",
-      bbVersion: "0.9.0",
+      packageName: "hyperfide-plugin-external-backend",
+      hyperfideVersion: "0.9.0",
     });
     await useInstalledNodeModules(backendDir);
     await writeFile(join(backendDir, "server.test.ts"), BACKEND_TEST);
@@ -516,10 +516,10 @@ describe("external plugin scaffold types", () => {
         join(installedSdk, entry.types.replace(/^\.\//u, "")),
         "utf8",
       );
-      const bbImports = [
+      const hyperfideImports = [
         ...declarations.matchAll(/from ['"](@hyperfide\/[^'"]+)['"]/gu),
       ].map((match) => match[1]);
-      expect(new Set(bbImports)).toEqual(new Set(["@hyperfide/plugin-sdk"]));
+      expect(new Set(hyperfideImports)).toEqual(new Set(["@hyperfide/plugin-sdk"]));
       expect(declarations).not.toContain("@hyperfide/sdk");
       expect(declarations).not.toContain("@hyperfide/server-contract");
     }
@@ -542,11 +542,11 @@ describe("external plugin scaffold types", () => {
     expect(backendTsconfig.compilerOptions.skipLibCheck).toBe(false);
     expect(backendTsconfig.compilerOptions.paths).toEqual({ "@/*": ["./*"] });
 
-    const frontendDir = join(workDir, "bb-plugin-external-frontend");
+    const frontendDir = join(workDir, "hyperfide-plugin-external-frontend");
     await scaffoldPlugin({
       targetDir: frontendDir,
-      packageName: "bb-plugin-external-frontend",
-      bbVersion: "0.9.0",
+      packageName: "hyperfide-plugin-external-frontend",
+      hyperfideVersion: "0.9.0",
     });
     await useInstalledNodeModules(frontendDir);
     await writeFile(join(frontendDir, "app.test.tsx"), FRONTEND_TEST);

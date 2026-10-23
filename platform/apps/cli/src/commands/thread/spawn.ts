@@ -11,7 +11,7 @@ import {
 } from "@hyperfide/domain";
 import type { CreateThreadEnvironmentArgs } from "@hyperfide/server-contract";
 import { action, CliUsageError } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliHyperfideSdk } from "../../client.js";
 import { missingProjectHint } from "../../context-hints.js";
 import { requireTextInput, TEXT_FILE_HELP_SUFFIX } from "../../text-input.js";
 import {
@@ -236,7 +236,7 @@ async function buildProviderSpawnEnvironment(args: {
     );
   }
   const requested = args.environmentProvider.trim();
-  const providers = await createCliBbSdk(
+  const providers = await createCliHyperfideSdk(
     args.serverUrl,
   ).environments.listProviders({ projectId: args.projectId });
   const match = providers.find((provider) => provider.id === requested);
@@ -350,7 +350,7 @@ export function registerSpawnCommand(
     )
     .option(
       "--base-branch <branch>",
-      "Exact Git ref; omit for bb's project default (use origin/<branch> for a remote ref)",
+      "Exact Git ref; omit for hyperfide's project default (use origin/<branch> for a remote ref)",
     )
     .option(
       "--machine <id-or-name>",
@@ -471,7 +471,7 @@ export function registerSpawnCommand(
         }
         const machineProvider = opts.newMachine
           ? (
-              await createCliBbSdk(getUrl()).hosts.experimental_listProviders()
+              await createCliHyperfideSdk(getUrl()).hosts.experimental_listProviders()
             ).find((provider) => provider.id === opts.newMachine?.trim())
           : undefined;
         if (opts.newMachine && machineProvider === undefined) {
@@ -588,7 +588,7 @@ export function registerSpawnCommand(
 
         let thread: Thread;
         try {
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const input = await uploadClientAttachmentInputs({
             input: buildPromptInputs({
               message: prompt,

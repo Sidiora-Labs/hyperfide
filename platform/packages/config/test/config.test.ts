@@ -44,7 +44,7 @@ function createServerRuntimeEnv(
   overrides: NodeJS.ProcessEnv = {},
 ): NodeJS.ProcessEnv {
   return {
-    HYPERFIDE_DATA_DIR: "/tmp/bb-data",
+    HYPERFIDE_DATA_DIR: "/tmp/hyperfide-data",
     HYPERFIDE_HOST_DAEMON_PORT: "5555",
     HYPERFIDE_SERVER_PORT: "4444",
     NODE_ENV: "development",
@@ -94,7 +94,7 @@ describe("common config", () => {
 
   it("resolves development defaults from the checkout instance", () => {
     const homeDir = "/Users/tester";
-    const repoRoot = "/Users/tester/src/bb";
+    const repoRoot = "/Users/tester/src/hyperfide";
 
     expect(
       loadCommonConfig({
@@ -104,18 +104,20 @@ describe("common config", () => {
         homeDir,
         repoRoot,
       }).HYPERFIDE_DATA_DIR,
-    ).toBe(path.normalize("/Users/tester/.hyperfide-dev/src-bb-9039de53a76a"));
+    ).toBe(
+      path.normalize("/Users/tester/.hyperfide-dev/src-hyperfide-67ee1040657a"),
+    );
   });
 
   it("expands home-directory overrides for HYPERFIDE_DATA_DIR", () => {
     expect(
       loadCommonConfig({
         env: {
-          HYPERFIDE_DATA_DIR: "~/custom-bb",
+          HYPERFIDE_DATA_DIR: "~/custom-hyperfide",
           NODE_ENV: "production",
         },
       }).HYPERFIDE_DATA_DIR,
-    ).toBe(path.join(os.homedir(), "custom-bb"));
+    ).toBe(path.join(os.homedir(), "custom-hyperfide"));
   });
 
   it.runIf(process.platform === "win32")(
@@ -124,11 +126,11 @@ describe("common config", () => {
       expect(
         loadCommonConfig({
           env: {
-            HYPERFIDE_DATA_DIR: "~\\custom-bb",
+            HYPERFIDE_DATA_DIR: "~\\custom-hyperfide",
             NODE_ENV: "production",
           },
         }).HYPERFIDE_DATA_DIR,
-      ).toBe(path.join(os.homedir(), "custom-bb"));
+      ).toBe(path.join(os.homedir(), "custom-hyperfide"));
     },
   );
 
@@ -182,7 +184,7 @@ describe("data-dir helpers", () => {
 
   it("resolves development defaults from the current checkout instance", () => {
     const homeDir = "/Users/tester";
-    const repoRoot = "/Users/tester/src/bb";
+    const repoRoot = "/Users/tester/src/hyperfide";
 
     expect(
       resolveRuntimeDataDir({
@@ -191,7 +193,9 @@ describe("data-dir helpers", () => {
         mode: "dev",
         repoRoot,
       }),
-    ).toBe(path.normalize("/Users/tester/.hyperfide-dev/src-bb-9039de53a76a"));
+    ).toBe(
+      path.normalize("/Users/tester/.hyperfide-dev/src-hyperfide-67ee1040657a"),
+    );
   });
 
   it("keeps the legacy fallback label for degenerate checkout labels", () => {
@@ -311,7 +315,9 @@ describe("consumer-specific config", () => {
     expect(serverConfig.HYPERFIDE_PERF_DIAGNOSTICS).toBe(false);
     expect(serverConfig.HYPERFIDE_SERVER_PORT).toBe(4444);
     expect(serverConfig.HYPERFIDE_HOST_DAEMON_PORT).toBe(5555);
-    expect(serverConfig.databasePath).toBe(path.resolve("/tmp/bb-data/bb.db"));
+    expect(serverConfig.databasePath).toBe(
+      path.resolve("/tmp/hyperfide-data/hyperfide.db"),
+    );
     expect(serverConfig.HYPERFIDE_APP_URL).toBe("");
     expect(serverConfig.HYPERFIDE_APP_SURFACE).toBe("web");
     expect(serverConfig.HYPERFIDE_APP_VERSION).toBe("0.0.0-dev");
@@ -504,14 +510,14 @@ describe("consumer-specific config", () => {
   it("derives the database path from data dir without validating unrelated server env", () => {
     const databaseConfig = loadDatabaseConfig({
       env: {
-        HYPERFIDE_DATA_DIR: "/tmp/bb-data",
+        HYPERFIDE_DATA_DIR: "/tmp/hyperfide-data",
         HYPERFIDE_EXTERNAL_URL: "not-a-url",
         NODE_ENV: "development",
       },
     });
 
     expect(databaseConfig.databasePath).toBe(
-      path.resolve("/tmp/bb-data/bb.db"),
+      path.resolve("/tmp/hyperfide-data/hyperfide.db"),
     );
   });
 
@@ -581,7 +587,7 @@ describe("consumer-specific config", () => {
   it("builds full host-daemon config when the daemon entrypoint owns data dir", () => {
     const hostDaemonConfig = loadHostDaemonConfig({
       env: {
-        HYPERFIDE_DATA_DIR: "/tmp/bb-data",
+        HYPERFIDE_DATA_DIR: "/tmp/hyperfide-data",
         HYPERFIDE_HOST_DAEMON_PORT: "3999",
         HYPERFIDE_SERVER_URL: "http://localhost:9999",
         NODE_ENV: "development",
@@ -589,7 +595,7 @@ describe("consumer-specific config", () => {
     });
 
     expect(hostDaemonConfig.HYPERFIDE_DATA_DIR).toBe(
-      path.resolve("/tmp/bb-data"),
+      path.resolve("/tmp/hyperfide-data"),
     );
     expect(hostDaemonConfig.HYPERFIDE_SERVER_URL).toBe("http://localhost:9999");
     expect(hostDaemonConfig.HYPERFIDE_HOST_DAEMON_PORT).toBe(3999);
@@ -598,14 +604,16 @@ describe("consumer-specific config", () => {
   it("builds host-daemon start config from full config when data dir is not provided", () => {
     const hostDaemonStartConfig = loadHostDaemonStartConfig({
       env: {
-        HYPERFIDE_DATA_DIR: "/tmp/bb-data",
+        HYPERFIDE_DATA_DIR: "/tmp/hyperfide-data",
         HYPERFIDE_HOST_DAEMON_PORT: "3999",
         HYPERFIDE_SERVER_URL: "http://localhost:9999",
         NODE_ENV: "development",
       },
     });
 
-    expect(hostDaemonStartConfig.dataDir).toBe(path.resolve("/tmp/bb-data"));
+    expect(hostDaemonStartConfig.dataDir).toBe(
+      path.resolve("/tmp/hyperfide-data"),
+    );
     expect(hostDaemonStartConfig.connectionConfig.HYPERFIDE_SERVER_URL).toBe(
       "http://localhost:9999",
     );
@@ -752,7 +760,7 @@ describe("consumer-specific config", () => {
     const hostDaemonEntrypointConfig = loadHostDaemonEntrypointConfig({
       env: {
         HYPERFIDE_BRIDGE_DIR: " /tmp/bridges ",
-        HYPERFIDE_CLI_DIR: " /tmp/bb-bin ",
+        HYPERFIDE_CLI_DIR: " /tmp/hyperfide-bin ",
         HYPERFIDE_HOST_ENROLL_KEY: " enroll-token ",
         HYPERFIDE_HOST_DAEMON_AUTO_UPDATE: "true",
         HYPERFIDE_HOST_ID: " host-123 ",
@@ -761,7 +769,7 @@ describe("consumer-specific config", () => {
 
     expect(hostDaemonEntrypointConfig).toEqual({
       HYPERFIDE_BRIDGE_DIR: "/tmp/bridges",
-      HYPERFIDE_CLI_DIR: "/tmp/bb-bin",
+      HYPERFIDE_CLI_DIR: "/tmp/hyperfide-bin",
       HYPERFIDE_HOST_ENROLL_KEY: "enroll-token",
       HYPERFIDE_HOST_DAEMON_AUTO_UPDATE: true,
       HYPERFIDE_HOST_ID: "host-123",

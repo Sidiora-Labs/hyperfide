@@ -1,7 +1,7 @@
-import type { BbPluginApi, ComposerDraftReplacement } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi, ComposerDraftReplacement } from "@hyperfide/plugin-sdk";
 import { promptFromHistory, type HistoryEntry } from "./history-prompt.js";
 
-type ListHistory = BbPluginApi["sdk"]["experimental_promptHistory"]["list"];
+type ListHistory = HyperfidePluginApi["sdk"]["experimental_promptHistory"]["list"];
 
 const FULL_PAGE_LIMIT = "1000";
 const NEWER_PAGE_LIMIT = "100";

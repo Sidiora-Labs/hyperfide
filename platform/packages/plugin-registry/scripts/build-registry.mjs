@@ -1,4 +1,4 @@
-// Builds the BB plugin component registry (plugin design §5.5): shadcn
+// Builds the HYPERFIDE plugin component registry (plugin design §5.5): shadcn
 // registry-item JSONs generated from the shared UI kit's component source, so
 // the registry can never drift from the UI the app and builtin plugins ship.
 //
@@ -199,8 +199,8 @@ for (const [itemName, relPath] of [...fileByItem.entries()].sort()) {
     title: itemName,
     description:
       pluginFlavors[relPath] === undefined
-        ? `BB ${type.replace("registry:", "")} "${itemName}" — vendored from the BB app's own source (version-matched to this BB release).`
-        : `BB ${type.replace("registry:", "")} "${itemName}" — the plugin version of the BB app's ${itemName}, drawing on the host app at runtime (version-matched to this BB release).`,
+        ? `HYPERFIDE ${type.replace("registry:", "")} "${itemName}" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).`
+        : `HYPERFIDE ${type.replace("registry:", "")} "${itemName}" — the plugin version of the HYPERFIDE app's ${itemName}, drawing on the host app at runtime (version-matched to this HYPERFIDE release).`,
     ...(dependencies.size > 0
       ? { dependencies: [...dependencies].sort() }
       : {}),
@@ -231,7 +231,7 @@ generatedFiles.set(
   JSON.stringify(
     {
       $comment:
-        "BB plugin component registry index. Install via: npx shadcn add @hyperfide/<name> (see the bb-plugin-authoring skill).",
+        "HYPERFIDE plugin component registry index. Install via: npx shadcn add @hyperfide/<name> (see the hyperfide-plugin-authoring skill).",
       items: indexEntries.sort((a, b) => a.name.localeCompare(b.name)),
     },
     null,

@@ -22,7 +22,7 @@ async function summarize(
   hostId: string | null = null,
 ) {
   return summarizeCommanderError({
-    argv: ["node", "bb", ...args],
+    argv: ["node", "hyperfide", ...args],
     error: new CommanderError(1, code, message),
     program: buildProgram(),
     resolveHostId: async () => hostId,

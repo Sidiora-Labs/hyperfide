@@ -14,7 +14,7 @@ import {
 import { createJsonLocalStorage } from "@/lib/browser-storage";
 
 const acknowledgedAttentionKeyAtom = atomWithStorage<string | null>(
-  "bb.sidebar.pluginAttentionAcknowledged",
+  "hyperfide.sidebar.pluginAttentionAcknowledged",
   null,
   createJsonLocalStorage<string | null>(),
   { getOnInit: true },

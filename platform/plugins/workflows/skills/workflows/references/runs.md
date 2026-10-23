@@ -2,13 +2,13 @@
 
 ## Running and resuming
 
-`bb_workflow_run` and `bb workflows validate` accept exactly one source mode:
+`hyperfide_workflow_run` and `Hyperfide workflows validate` accept exactly one source mode:
 
 - `script`: inline JavaScript.
 - `scriptPath`: a relative path or an absolute path confined to the workflow
   origin environment's workspace.
 - `name`: a lowercase kebab-case name resolved as
-  `.bb/workflows/<name>.js` in the current project workspace.
+  `.hyperfide/workflows/<name>.js` in the current project workspace.
 
 The existing `source` field remains a supported alias for inline `script`, but
 do not provide both. File and name resolution happens through the origin
@@ -17,10 +17,10 @@ paths, missing workspace roots, non-UTF-8 files, and sources over 512 KiB are
 rejected. QuickJS receives source text only; it never gets filesystem access.
 Plugin-bundled workflow discovery is not supported.
 
-`bb_workflow_run` also accepts optional JSON `args` and optional `resumeRunId`.
-It returns a durable run ID immediately. Use the compact `bb workflows status`
-summary, paged `bb workflows history`, `bb workflows list`, and
-`bb workflows stop` afterward. Completion is sent back as an agent-only input:
+`hyperfide_workflow_run` also accepts optional JSON `args` and optional `resumeRunId`.
+It returns a durable run ID immediately. Use the compact `Hyperfide workflows status`
+summary, paged `Hyperfide workflows history`, `Hyperfide workflows list`, and
+`Hyperfide workflows stop` afterward. Completion is sent back as an agent-only input:
 it steers an active origin immediately or starts a turn when the origin is idle,
 without rendering a user-facing message. Delivery is duplicate-tolerant
 at-least-once because `threads.send` has no idempotency key. CLI status polling
@@ -36,7 +36,7 @@ JSONL page on the execution host, then use normal file-navigation tools:
 ```bash
 run=<run-id>
 mkdir -p "$HYPERFIDE_THREAD_STORAGE/workflows"
-bb workflows history "$run" --cursor 0 --limit 100 \
+Hyperfide workflows history "$run" --cursor 0 --limit 100 \
   > "$HYPERFIDE_THREAD_STORAGE/workflows/$run.jsonl"
 jq -c 'select(.type == "page")' "$HYPERFIDE_THREAD_STORAGE/workflows/$run.jsonl"
 ```
@@ -73,18 +73,18 @@ persisted and visible in workflow history.
 The CLI equivalents are:
 
 ```bash
-bb workflows validate --script '<javascript>'
-bb workflows validate --file .bb/workflows/review-change.js
-bb workflows validate --name review-change
-bb workflows run --script '<javascript>' --args '<json>'
-bb workflows run --file .bb/workflows/review-change.js --resume <run-id>
-bb workflows run --name review-change
-bb workflows status <run-id>
-bb workflows history <run-id> --cursor 0 --limit 100
-bb workflows list --limit 20
-bb workflows stop <run-id>
-bb provider list --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
-bb provider models <provider-id> --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
+Hyperfide workflows validate --script '<javascript>'
+Hyperfide workflows validate --file .hyperfide/workflows/review-change.js
+Hyperfide workflows validate --name review-change
+Hyperfide workflows run --script '<javascript>' --args '<json>'
+Hyperfide workflows run --file .hyperfide/workflows/review-change.js --resume <run-id>
+Hyperfide workflows run --name review-change
+Hyperfide workflows status <run-id>
+Hyperfide workflows history <run-id> --cursor 0 --limit 100
+Hyperfide workflows list --limit 20
+Hyperfide workflows stop <run-id>
+Hyperfide provider list --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
+Hyperfide provider models <provider-id> --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
 ```
 
 The CLI's `--file` maps to the agent tool's `scriptPath`, but a relative CLI
@@ -93,7 +93,7 @@ the resolved file must remain inside the origin workspace. `--source` remains
 an inline alias for `--script`. Run and validate require exactly one of
 `--script`, `--file`, or `--name` (counting `--source` as `--script`).
 
-`bb workflows --help` and `bb workflows <command> --help` print the arguments,
+`Hyperfide workflows --help` and `Hyperfide workflows <command> --help` print the arguments,
 option limits, and rules for a command and exit 0. Command output is JSON;
 adding `--json` also reports a failure as `{"ok":false,"error":{…}}` on stdout,
 alongside the readable message on stderr.
@@ -108,7 +108,7 @@ temporary Workflow folder.
 
 ## Settings
 
-Change limits with `bb plugin config workflows set <key> <value>`; no plugin
+Change limits with `hyperfide-platform plugin config workflows set <key> <value>`; no plugin
 reload is needed.
 
 | Key                    | Default  | Range           |

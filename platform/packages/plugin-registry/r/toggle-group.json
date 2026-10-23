@@ -3,7 +3,7 @@
   "name": "toggle-group",
   "type": "registry:ui",
   "title": "toggle-group",
-  "description": "BB ui \"toggle-group\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"toggle-group\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "@radix-ui/react-toggle-group",
     "class-variance-authority"

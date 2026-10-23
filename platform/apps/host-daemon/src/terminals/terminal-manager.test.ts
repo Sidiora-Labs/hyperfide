@@ -605,7 +605,7 @@ describe("TerminalManager", () => {
   });
 
   it("opens a PTY in a host path without an environment", async () => {
-    const cwd = await makeTempDir("bb-terminal-host-path-");
+    const cwd = await makeTempDir("hyperfide-terminal-host-path-");
     const harness = createHarness();
 
     await harness.manager.handleMessage({
@@ -918,8 +918,8 @@ describe("TerminalManager", () => {
     ]);
   });
 
-  it("scrubs inherited bb runtime env vars before spawning a terminal", async () => {
-    vi.stubEnv("HYPERFIDE_DATA_DIR", "/tmp/leaked-bb-data");
+  it("scrubs inherited hyperfide runtime env vars before spawning a terminal", async () => {
+    vi.stubEnv("HYPERFIDE_DATA_DIR", "/tmp/leaked-hyperfide-data");
     vi.stubEnv("HYPERFIDE_HOST_DAEMON_PORT", "38887");
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("OPENAI_API_KEY", "external-secret");
@@ -940,7 +940,7 @@ describe("TerminalManager", () => {
 
   it("makes every available node-pty spawn-helper executable", async () => {
     const logger = createFakeLogger();
-    const packageDirectory = await makeTempDir("bb-node-pty-package-");
+    const packageDirectory = await makeTempDir("hyperfide-node-pty-package-");
     const buildNativePath = path.join(
       packageDirectory,
       "build",
@@ -994,7 +994,7 @@ describe("TerminalManager", () => {
 
   it("logs and skips when no node-pty spawn-helper is present", async () => {
     const logger = createFakeLogger();
-    const packageDirectory = await makeTempDir("bb-node-pty-package-");
+    const packageDirectory = await makeTempDir("hyperfide-node-pty-package-");
     const buildHelperPath = path.join(
       packageDirectory,
       "build",
@@ -1668,8 +1668,8 @@ describe("TerminalManager", () => {
       return;
     }
 
-    const workspacePath = await makeTempDir("bb-terminal-manager-real-");
-    const targetPath = await makeTempDir("bb-terminal-manager-target-");
+    const workspacePath = await makeTempDir("hyperfide-terminal-manager-real-");
+    const targetPath = await makeTempDir("hyperfide-terminal-manager-target-");
     const expectedWorkspacePath = await fs.realpath(workspacePath);
     const expectedTargetPath = await fs.realpath(targetPath);
     const messages: HostDaemonDaemonWsMessage[] = [];

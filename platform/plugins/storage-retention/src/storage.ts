@@ -1,5 +1,5 @@
 import { ARCHIVE_UNDO_GRACE_MS } from "@hyperfide/domain";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import {
   diskCapacitySchema,
@@ -20,7 +20,7 @@ import type {
 
 type Thread = Awaited<ReturnType<typeof readThreads>>[number];
 type Environment = Awaited<
-  ReturnType<BbPluginApi["sdk"]["environments"]["list"]>
+  ReturnType<HyperfidePluginApi["sdk"]["environments"]["list"]>
 >[number];
 const cachedScanSchema = z.object({
   scannedAt: z.number(),
@@ -118,7 +118,7 @@ function entriesHoldingWorkspaces(
   return workspaces;
 }
 const isStorageEntry = (name: string) =>
-  /^(thr_[a-zA-Z0-9]+|\.bb-trash-[a-zA-Z0-9_-]+)$/.test(name);
+  /^(thr_[a-zA-Z0-9]+|\.hyperfide-trash-[a-zA-Z0-9_-]+)$/.test(name);
 
 class StorageLocationUnavailable extends Error {
   constructor() {
@@ -129,17 +129,17 @@ class StorageLocationUnavailable extends Error {
 }
 
 export function createStorage(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   devCleanupEnabled: () => Promise<boolean>,
 ) {
-  const db = bb.storage.database();
-  bb.storage.migrate(db, [
+  const db = hyperfide.storage.database();
+  hyperfide.storage.migrate(db, [
     "CREATE TABLE scans (host_id TEXT PRIMARY KEY, result_json TEXT NOT NULL)",
     "CREATE TABLE archive_cleanup (thread_id TEXT PRIMARY KEY, archived_at INTEGER NOT NULL)",
     "ALTER TABLE archive_cleanup ADD COLUMN failure_count INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE archive_cleanup ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0",
   ]);
-  const worker = bb.hosts.experimental_client({
+  const worker = hyperfide.hosts.experimental_client({
     contract: hostStorageContract,
   });
   const lifecycle = new AbortController();
@@ -154,12 +154,12 @@ export function createStorage(
   const archivedFileCleanups = new Map<string, ArchivedFileCleanupStatus>();
   const largeFileCleanups = new Map<string, LargeFileCleanupStatus>();
   const jobs = new Set<Promise<void>>();
-  bb.onDispose(async () => {
+  hyperfide.onDispose(async () => {
     lifecycle.abort();
     await Promise.allSettled(jobs);
   });
   const changed = () => {
-    if (!lifecycle.signal.aborted) bb.realtime.publish("changed", null);
+    if (!lifecycle.signal.aborted) hyperfide.realtime.publish("changed", null);
   };
   function read(hostId: string): Scan | null {
     const row = db
@@ -191,14 +191,14 @@ export function createStorage(
   }
   async function requireHost(hostId: string, online = false) {
     lifecycle.signal.throwIfAborted();
-    const host = await bb.sdk.hosts.get({ hostId });
+    const host = await hyperfide.sdk.hosts.get({ hostId });
     if (host.type !== "persistent")
       throw new Error("Storage is only tracked for persistent machines");
     if (online && host.status !== "connected")
       throw new Error("The machine must be online");
   }
   async function storageRoot(hostId: string) {
-    const host = await bb.sdk.hosts.get({ hostId });
+    const host = await hyperfide.sdk.hosts.get({ hostId });
     if (host.threadStorageRootPath === null)
       throw new Error("The machine has not reported its filesystem locations");
     return host.threadStorageRootPath;
@@ -238,7 +238,7 @@ export function createStorage(
   async function readEnvironments(hostId: string) {
     const environments: Environment[] = [];
     for (let offset = 0; ; offset += 500) {
-      const page = await bb.sdk.environments.list({
+      const page = await hyperfide.sdk.environments.list({
         hostId,
         limit: 500,
         offset,
@@ -280,8 +280,8 @@ export function createStorage(
   }
   async function readReportContext() {
     const [threads, projects] = await Promise.all([
-      readThreads(bb, lifecycle.signal),
-      bb.sdk.projects.list({ signal: lifecycle.signal }),
+      readThreads(hyperfide, lifecycle.signal),
+      hyperfide.sdk.projects.list({ signal: lifecycle.signal }),
     ]);
     return { threads, projects };
   }
@@ -295,7 +295,7 @@ export function createStorage(
     context: () => ReturnType<typeof readReportContext>,
   ): Promise<HostStorageReport> {
     const [{ threads, projects }, allEnvironments, machine] = await Promise.all(
-      [context(), readEnvironments(hostId), bb.sdk.hosts.get({ hostId })],
+      [context(), readEnvironments(hostId), hyperfide.sdk.hosts.get({ hostId })],
     );
     const byId = new Map(threads.map((thread) => [thread.id, thread]));
     const workspaces =
@@ -499,7 +499,7 @@ export function createStorage(
   }
   async function hosts() {
     lifecycle.signal.throwIfAborted();
-    const machines = await bb.sdk.hosts.list({ type: "persistent" });
+    const machines = await hyperfide.sdk.hosts.list({ type: "persistent" });
     const context = sharedReportContext();
     return {
       hosts: await Promise.all(
@@ -513,7 +513,7 @@ export function createStorage(
   function developerCandidatePaths(
     hostId: string,
     environments: Environment[],
-    projects: Awaited<ReturnType<BbPluginApi["sdk"]["projects"]["list"]>>,
+    projects: Awaited<ReturnType<HyperfidePluginApi["sdk"]["projects"]["list"]>>,
   ) {
     return [
       ...new Set([
@@ -530,9 +530,9 @@ export function createStorage(
     hostId: string,
     homeDirectory: string,
     environments: Environment[],
-    projects: Awaited<ReturnType<BbPluginApi["sdk"]["projects"]["list"]>>,
+    projects: Awaited<ReturnType<HyperfidePluginApi["sdk"]["projects"]["list"]>>,
   ): Promise<Scan["developerStorage"]> {
-    const developerRoot = `${homeDirectory.replace(/[\\/]$/, "")}/.bb-dev`;
+    const developerRoot = `${homeDirectory.replace(/[\\/]$/, "")}/.hyperfide-dev`;
     const result = await worker.call(
       "measure",
       {
@@ -548,7 +548,7 @@ export function createStorage(
     );
     if (developer?.outcome !== "measured") return null;
     const developerEntries = (developer.children ?? []).filter(
-      (entry) => !entry.name.startsWith(".bb-trash-"),
+      (entry) => !entry.name.startsWith(".hyperfide-trash-"),
     );
     const inspected = new Map<
       string,
@@ -606,9 +606,9 @@ export function createStorage(
         const [rootPath, threads, allEnvironments, projects] =
           await Promise.all([
             storageRoot(hostId),
-            readThreads(bb, lifecycle.signal),
+            readThreads(hyperfide, lifecycle.signal),
             readEnvironments(hostId),
-            bb.sdk.projects.list({ signal: lifecycle.signal }),
+            hyperfide.sdk.projects.list({ signal: lifecycle.signal }),
           ]);
         const environments = leftoverEnvironments(allEnvironments, threads);
         const homeDirectory = await worker.call("homeDirectory", null, {
@@ -735,7 +735,7 @@ export function createStorage(
       const candidates = entries.slice(offset, offset + 100);
       const [byId, workspaces] = await Promise.all([
         readThreadsById(
-          bb,
+          hyperfide,
           candidates.map((entry) => entry.name),
           lifecycle.signal,
         ),
@@ -805,7 +805,7 @@ export function createStorage(
         lifecycle.signal.throwIfAborted();
         const candidates = names.slice(offset, offset + 100);
         const [byId, workspaces] = await Promise.all([
-          readThreadsById(bb, candidates, lifecycle.signal),
+          readThreadsById(hyperfide, candidates, lifecycle.signal),
           workspaceEntries(hostId, rootPath),
         ]);
         const batch = candidates.filter((name) => {
@@ -936,7 +936,7 @@ export function createStorage(
         );
       const [environments, projects] = await Promise.all([
         readEnvironments(hostId),
-        bb.sdk.projects.list({ signal: lifecycle.signal }),
+        hyperfide.sdk.projects.list({ signal: lifecycle.signal }),
       ]);
       const candidatePaths = developerCandidatePaths(
         hostId,
@@ -1000,7 +1000,7 @@ export function createStorage(
   async function largeFileTargets(hostId: string | null) {
     lifecycle.signal.throwIfAborted();
     return hostId === null
-      ? (await bb.sdk.hosts.list({ type: "persistent" }))
+      ? (await hyperfide.sdk.hosts.list({ type: "persistent" }))
           .filter(
             (machine) =>
               machine.status === "connected" && read(machine.id) !== null,
@@ -1013,7 +1013,7 @@ export function createStorage(
     const targets: string[] = [];
     for (const target of candidates) {
       const names = (read(target)?.largeFiles ?? []).map((entry) => entry.name);
-      const byId = await readThreadsById(bb, names, lifecycle.signal);
+      const byId = await readThreadsById(hyperfide, names, lifecycle.signal);
       if (
         names.some((name) => {
           const thread = byId.get(name);
@@ -1095,7 +1095,7 @@ export function createStorage(
             else await removeMissingDevelopment(next, acquire(next));
           } catch (error) {
             if (!lifecycle.signal.aborted)
-              bb.log.warn(
+              hyperfide.log.warn(
                 `Could not clean development storage on ${next}: ${error instanceof Error ? error.message : String(error)}`,
               );
           }
@@ -1118,7 +1118,7 @@ export function createStorage(
           signal: lifecycle.signal,
         }),
         readEnvironments(hostId),
-        bb.sdk.projects.list({ signal: lifecycle.signal }),
+        hyperfide.sdk.projects.list({ signal: lifecycle.signal }),
       ]);
       const developerStorage = await measureDeveloperStorage(
         hostId,
@@ -1152,7 +1152,7 @@ export function createStorage(
         if (await devCleanupEnabled()) await scanAll();
       } catch (error) {
         if (!lifecycle.signal.aborted)
-          bb.log.warn(
+          hyperfide.log.warn(
             `Could not reconcile development storage: ${error instanceof Error ? error.message : String(error)}`,
           );
       } finally {
@@ -1165,7 +1165,7 @@ export function createStorage(
   }
   async function scanAll() {
     lifecycle.signal.throwIfAborted();
-    const machines = await bb.sdk.hosts.list({ type: "persistent" });
+    const machines = await hyperfide.sdk.hosts.list({ type: "persistent" });
     for (const machine of machines)
       if (
         machine.status === "connected" &&
@@ -1182,12 +1182,12 @@ export function createStorage(
     archivedAt: number | null,
   ) {
     lifecycle.signal.throwIfAborted();
-    const thread = await bb.sdk.threads.get({ threadId });
+    const thread = await hyperfide.sdk.threads.get({ threadId });
     if (["starting", "active", "stopping"].includes(thread.status))
       throw new Error("Stop the thread before clearing its storage");
     let hostId: string;
     if (thread.environmentId !== null) {
-      hostId = (await bb.sdk.threads.storageLocation({ threadId })).hostId;
+      hostId = (await hyperfide.sdk.threads.storageLocation({ threadId })).hostId;
     } else {
       const matches = db
         .prepare<[string], { host_id: string }>(
@@ -1208,7 +1208,7 @@ export function createStorage(
     try {
       const rootPath = await storageRoot(hostId);
       if (archivedAt !== null) {
-        const current = await bb.sdk.threads.get({ threadId });
+        const current = await hyperfide.sdk.threads.get({ threadId });
         if (
           current.archivedAt !== archivedAt ||
           current.deletedAt !== null ||
@@ -1281,7 +1281,7 @@ export function createStorage(
         return;
       }
       try {
-        const thread = await bb.sdk.threads.get({
+        const thread = await hyperfide.sdk.threads.get({
           threadId: entry.thread_id,
         });
         if (
@@ -1319,7 +1319,7 @@ export function createStorage(
           entry.archived_at,
         );
         if (missingLocation) continue;
-        bb.log.warn(
+        hyperfide.log.warn(
           `Could not clear archived storage for ${entry.thread_id}: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
@@ -1334,13 +1334,13 @@ export function createStorage(
       await requireHost(hostId, true);
       const [allEnvironments, threads] = await Promise.all([
         readEnvironments(hostId),
-        readThreads(bb, lifecycle.signal),
+        readThreads(hyperfide, lifecycle.signal),
       ]);
       const environments = leftoverEnvironments(allEnvironments, threads);
       let retriedCount = 0;
       for (const env of environments) {
         lifecycle.signal.throwIfAborted();
-        await bb.sdk.environments.experimental_cleanup({
+        await hyperfide.sdk.environments.experimental_cleanup({
           environmentId: env.id,
         });
         retriedCount++;

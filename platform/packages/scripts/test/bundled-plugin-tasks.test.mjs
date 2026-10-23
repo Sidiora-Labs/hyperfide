@@ -14,7 +14,7 @@ describe("bundled plugin task graph", () => {
         readFileSync(resolve(root, "plugins", name, "package.json"), "utf8"),
       );
       expect(manifest.scripts["prepare:bundled"]).toBe(
-        "bb-plugin-build prepare-bundled",
+        "hyperfide-plugin-build prepare-bundled",
       );
       expect(manifest.devDependencies["@hyperfide/plugin-build"]).toBe("workspace:*");
       return manifest.name;
@@ -29,7 +29,6 @@ describe("bundled plugin task graph", () => {
     const assembly = turbo.tasks["@hyperfide/bundled-plugins#build"];
     expect(assembly.dependsOn).toEqual([
       "^prepare:bundled",
-      "@hyperfide/server#generate:bb-official-marketplace",
     ]);
     expect(assembly.outputs).toEqual(["dist/**"]);
     const plugin = turbo.tasks["prepare:bundled"];

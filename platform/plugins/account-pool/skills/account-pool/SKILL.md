@@ -1,13 +1,13 @@
 ---
 name: account-pool
-description: "Configure or diagnose Account Pooler accounts, authentication, quota routing, and failover through bb pool."
+description: "Configure or diagnose Account Pooler accounts, authentication, quota routing, and failover through Hyperfide pool."
 ---
 
 # Account Pooler
 
-Use `bb pool` for this plugin's accounts and routes. Inspect current state with
-`bb pool status --json` and `bb pool account list --json` before changing routing.
-Use `bb pool --help` for available commands.
+Use `Hyperfide pool` for this plugin's accounts and routes. Inspect current state with
+`Hyperfide pool status --json` and `Hyperfide pool account list --json` before changing routing.
+Use `Hyperfide pool --help` for available commands.
 
 For account login/import, secret handling, quota refresh, routing settings,
 ordering, or failover, read
@@ -19,5 +19,5 @@ Do not enable the plugin or change accounts unless the requested task calls for 
 
 Pooled rate-limit failures can be retried by Provider Retry using the pool’s
 earliest usable account, even if the provider omits structured quota events.
-Inspect `bb provider-retry explain <thread-id> --json` for the last decision
-and `bb provider-retry status <thread-id> --json` for pending retries.
+Inspect `Hyperfide provider-retry explain <thread-id> --json` for the last decision
+and `Hyperfide provider-retry status <thread-id> --json` for pending retries.

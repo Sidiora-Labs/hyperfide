@@ -319,7 +319,7 @@ function showAppToast({
       {
         ...sonnerOptions,
         id: toastId,
-        className: cn("bb-app-toast", className),
+        className: cn("hyperfide-app-toast", className),
         dismissible,
         duration: nextDuration,
       },

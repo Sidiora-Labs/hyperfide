@@ -26,7 +26,7 @@ function reader() {
   );
 }
 function request(headers: HeadersInit = {}, method = "GET") {
-  return new Request("http://bb.test/clip.mp4", { headers, method });
+  return new Request("http://hyperfide.test/clip.mp4", { headers, method });
 }
 
 describe("daemon file streaming", () => {

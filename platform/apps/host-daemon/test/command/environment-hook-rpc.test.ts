@@ -8,7 +8,7 @@ import { createHarness } from "./dispatch-helpers.js";
 it.each([false, true])(
   "reports pre-dispatch hook cancellation without warnings (resumeOnly: %s)",
   async (resumeOnly) => {
-    const path = await makeTempDir("bb-hook-rpc-cancel-");
+    const path = await makeTempDir("hyperfide-hook-rpc-cancel-");
     await writeFile(join(path, ".hyperfide-env-setup.sh"), "echo unsafe > marker\n");
     const logger = { debug: vi.fn(), warn: vi.fn() };
     const router = new CommandRouter({
@@ -64,7 +64,7 @@ it.each([false, true])(
 );
 
 it("still warns when hook recovery has an unknown outcome", async () => {
-  const path = await makeTempDir("bb-hook-rpc-unknown-");
+  const path = await makeTempDir("hyperfide-hook-rpc-unknown-");
   const logger = { debug: vi.fn(), warn: vi.fn() };
   const router = new CommandRouter({
     ...createHarness().dispatchOptions({ dataDir: path }),

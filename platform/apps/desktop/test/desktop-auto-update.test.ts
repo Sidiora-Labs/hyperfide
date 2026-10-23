@@ -41,7 +41,7 @@ class DesktopAutoUpdaterAdapterStub implements DesktopAutoUpdaterAdapter {
   autoInstallOnAppQuit: boolean | null = null;
   checkForUpdatesCalls = 0;
   downloadUpdateResult: Promise<Array<string>> = Promise.resolve([
-    "/tmp/bb.zip",
+    "/tmp/hyperfide.zip",
   ]);
   downloadUpdateCalls = 0;
   feedConfigs: DesktopAutoUpdateFeedConfig[] = [];
@@ -142,10 +142,10 @@ function createUpdateInfo(version: string): UpdateInfo {
     files: [
       {
         sha512: "BASE64_SHA512",
-        url: `bb-${version}-universal.zip`,
+        url: `hyperfide-${version}-universal.zip`,
       },
     ],
-    path: `bb-${version}-universal.zip`,
+    path: `hyperfide-${version}-universal.zip`,
     releaseDate: checkedAt,
     sha512: "BASE64_SHA512",
     version,
@@ -165,7 +165,7 @@ function createUpdateCheckResult(version: string): UpdateCheckResult {
 function createDownloadedEvent(version: string): UpdateDownloadedEvent {
   return {
     ...createUpdateInfo(version),
-    downloadedFile: "/tmp/bb.zip",
+    downloadedFile: "/tmp/hyperfide.zip",
   };
 }
 
@@ -299,7 +299,7 @@ describe("desktop auto-update service", () => {
     expect(updater.autoDownload).toBe(false);
     expect(updater.downloadUpdateCalls).toBe(1);
 
-    download.resolve(["/tmp/bb.zip"]);
+    download.resolve(["/tmp/hyperfide.zip"]);
     await download.promise;
     await Promise.resolve();
 
@@ -447,7 +447,7 @@ describe("native installer acceptance", () => {
       const nativeUpdater = new EventEmitter();
       const updater = new AppImageUpdater(null, {
         version: "1.0.0",
-        name: "bb",
+        name: "hyperfide",
         isPackaged: true,
         appUpdateConfigPath: "",
         userDataPath: "",
@@ -463,7 +463,7 @@ describe("native installer acceptance", () => {
       const adapter = createElectronAutoUpdaterAdapter(
         updater,
         nativeUpdater,
-        isAppImage ? { path: "/bb-1.0.0.AppImage", relaunch } : null,
+        isAppImage ? { path: "/hyperfide-1.0.0.AppImage", relaunch } : null,
       );
       await expect(adapter.quitAndInstall()).rejects.toThrow(
         "No update filepath provided",
@@ -488,14 +488,14 @@ describe("native installer acceptance", () => {
       expect(relaunch).not.toHaveBeenCalled();
       if (isAppImage) {
         expect(install).toHaveBeenLastCalledWith(true, false);
-        updater.emit("appimage-filename-updated", "/bb-1.1.0.AppImage");
+        updater.emit("appimage-filename-updated", "/hyperfide-1.1.0.AppImage");
       } else {
         expect(install).toHaveBeenLastCalledWith();
       }
       nativeUpdater.emit("before-quit-for-update");
       await retry;
       if (isAppImage) {
-        expect(relaunch).toHaveBeenCalledWith("/bb-1.1.0.AppImage");
+        expect(relaunch).toHaveBeenCalledWith("/hyperfide-1.1.0.AppImage");
       } else {
         expect(relaunch).not.toHaveBeenCalled();
       }
@@ -512,7 +512,7 @@ describe("macOS native preparation", () => {
       const nativeUpdater = new EventEmitter();
       const updater = new AppImageUpdater(null, {
         version: "0.0.1",
-        name: "bb",
+        name: "hyperfide",
         isPackaged: true,
         appUpdateConfigPath: "",
         userDataPath: "",
@@ -532,7 +532,7 @@ describe("macOS native preparation", () => {
         .spyOn(updater, "downloadUpdate")
         .mockImplementation(async () => {
           updater.emit("update-downloaded", createDownloadedEvent("0.46.0"));
-          return ["/tmp/bb.zip"];
+          return ["/tmp/hyperfide.zip"];
         });
       const install = vi
         .spyOn(updater, "quitAndInstall")

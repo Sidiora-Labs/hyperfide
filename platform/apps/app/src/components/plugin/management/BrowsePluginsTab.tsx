@@ -5,7 +5,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { Icon } from "@hyperfide/shared-ui/icon";
 import { appToast } from "@/components/ui/app-toast";
-import bbLogoUrl from "../../../../../../assets/bb-logo.svg";
+import hyperfideLogoUrl from "../../../../../../assets/hyperfide-logo.svg";
 import { OpenPluginGuideButton } from "./OpenPluginGuideButton";
 import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
@@ -359,10 +359,10 @@ function BrowseShelf({
       description={shelf.description}
       hideDescriptionWhenNarrow
       leading={
-        shelf.key === "collection:bb-official" ? (
+        shelf.key === "collection:hyperfide-official" ? (
           <span
             className="size-4 shrink-0 bg-current text-foreground"
-            style={{ mask: `url(${bbLogoUrl}) center / contain no-repeat` }}
+            style={{ mask: `url(${hyperfideLogoUrl}) center / contain no-repeat` }}
             aria-hidden
           />
         ) : shelf.key === "collection:new-and-notable" ? (

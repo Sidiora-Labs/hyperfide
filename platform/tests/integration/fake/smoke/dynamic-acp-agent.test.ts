@@ -36,11 +36,11 @@ async function registerDynamicAcpAgents(
     displayName: "Smoke ACP",
     command: fixturePath,
     args: [],
-    env: { BB_DYNAMIC_ACP_SMOKE: "thread" },
+    env: { HYPERFIDE_DYNAMIC_ACP_SMOKE: "thread" },
     modelCli: {
       listArgs: ["--list-models"],
       selectFlag: "--model",
-      primaryModels: ["bb-dynamic-smoke-medium"],
+      primaryModels: ["hyperfide-dynamic-smoke-medium"],
     },
   });
   await registerConfiguredAcpProvider(registry, {
@@ -94,7 +94,7 @@ describe.sequential("dynamic ACP integration smoke", () => {
           ]),
         );
         expect(listedOptions.models.map((model) => model.model)).toContain(
-          "bb-dynamic-smoke-medium",
+          "hyperfide-dynamic-smoke-medium",
         );
 
         const defaultModelsResponse = await harness.api.system[
@@ -108,8 +108,8 @@ describe.sequential("dynamic ACP integration smoke", () => {
         );
         expect(defaultOptions.modelLoadError).toBeNull();
         expect(defaultOptions.models.map((model) => model.model)).toEqual([
-          "bb-dynamic-acp-native-default",
-          "bb-dynamic-acp-native-strong",
+          "hyperfide-dynamic-acp-native-default",
+          "hyperfide-dynamic-acp-native-strong",
         ]);
 
         const project = await createProjectFixture(
@@ -118,7 +118,7 @@ describe.sequential("dynamic ACP integration smoke", () => {
         );
         const { thread: nativeThread } = await createReadyThread(harness, {
           execution: {
-            model: "bb-dynamic-acp-native-strong",
+            model: "hyperfide-dynamic-acp-native-strong",
             reasoningLevel: "medium",
             permissionMode: "accept-edits",
           },
@@ -134,13 +134,13 @@ describe.sequential("dynamic ACP integration smoke", () => {
         await waitForThreadOutputContaining(
           harness.api,
           nativeThread.id,
-          "dynamic-acp:model=bb-dynamic-acp-native-strong:native selection",
+          "dynamic-acp:model=hyperfide-dynamic-acp-native-strong:native selection",
           TURN_TIMEOUT_MS,
         );
 
         const { thread } = await createReadyThread(harness, {
           execution: {
-            model: "bb-dynamic-smoke-medium",
+            model: "hyperfide-dynamic-smoke-medium",
             reasoningLevel: "medium",
             permissionMode: "accept-edits",
           },
@@ -156,13 +156,13 @@ describe.sequential("dynamic ACP integration smoke", () => {
         await waitForThreadOutputContaining(
           harness.api,
           thread.id,
-          "dynamic-acp:model=bb-dynamic-smoke-medium:start launch spec",
+          "dynamic-acp:model=hyperfide-dynamic-smoke-medium:start launch spec",
           TURN_TIMEOUT_MS,
         );
 
         await sendTextMessage(harness.api, thread.id, {
           execution: {
-            model: "bb-dynamic-smoke-medium",
+            model: "hyperfide-dynamic-smoke-medium",
             reasoningLevel: "medium",
             permissionMode: "accept-edits",
           },
@@ -171,7 +171,7 @@ describe.sequential("dynamic ACP integration smoke", () => {
         await waitForThreadOutputContaining(
           harness.api,
           thread.id,
-          "dynamic-acp:model=bb-dynamic-smoke-medium:submit launch spec",
+          "dynamic-acp:model=hyperfide-dynamic-smoke-medium:submit launch spec",
           TURN_TIMEOUT_MS,
         );
         await waitForThreadStatus(
@@ -186,7 +186,7 @@ describe.sequential("dynamic ACP integration smoke", () => {
 
         await sendTextMessage(harness.api, thread.id, {
           execution: {
-            model: "bb-dynamic-smoke-medium",
+            model: "hyperfide-dynamic-smoke-medium",
             reasoningLevel: "medium",
             permissionMode: "accept-edits",
           },
@@ -195,7 +195,7 @@ describe.sequential("dynamic ACP integration smoke", () => {
         await waitForThreadOutputContaining(
           harness.api,
           thread.id,
-          "dynamic-acp:model=bb-dynamic-smoke-medium:resume launch spec",
+          "dynamic-acp:model=hyperfide-dynamic-smoke-medium:resume launch spec",
           TURN_TIMEOUT_MS,
         );
       }),

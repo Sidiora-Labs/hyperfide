@@ -64,7 +64,7 @@ it("builds and publishes the bundled tools image without daemon or credentials",
     "@anthropic-ai/claude-code@",
   );
   expect(definition.commands.join("\n")).not.toMatch(
-    /bb-app|machine enroll|daemon|token|secret|COPY/i,
+    /hyperfide-app|machine enroll|daemon|token|secret|COPY/i,
   );
   expect(await ensureModalImage(credentials, request())).toBe("im-standard");
   expect(vendor.registry).toHaveBeenCalledWith(definition.reference);

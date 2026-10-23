@@ -43,7 +43,7 @@ describe("CliCommandSettingsSectionContent", () => {
   it("installs the command when it is not on PATH", () => {
     const changes = renderSection(NOT_INSTALLED);
 
-    fireEvent.click(button("Install bb CLI"));
+    fireEvent.click(button("Install hyperfide CLI"));
 
     expect(changes).toEqual(["install"]);
   });
@@ -51,16 +51,16 @@ describe("CliCommandSettingsSectionContent", () => {
   it("removes the command it installed and says where it is", () => {
     const changes = renderSection({
       ...NOT_INSTALLED,
-      installedPath: "/home/me/.local/bin/bb",
+      installedPath: "/home/me/.local/bin/hyperfide",
       onPath: true,
     });
 
     expect(
       screen.getByText(
-        "Installed at /home/me/.local/bin/bb. You can control bb from any terminal, and so can agents outside bb, such as Claude Code or Codex.",
+        "Installed at /home/me/.local/bin/hyperfide. You can control hyperfide from any terminal, and so can agents outside hyperfide, such as Claude Code or Codex.",
       ),
     ).toBeDefined();
-    fireEvent.click(button("Remove bb CLI"));
+    fireEvent.click(button("Remove hyperfide CLI"));
 
     expect(changes).toEqual(["remove"]);
   });
@@ -68,40 +68,40 @@ describe("CliCommandSettingsSectionContent", () => {
   it("says which folder is missing from PATH after installing off PATH", () => {
     renderSection({
       ...NOT_INSTALLED,
-      installedPath: "/home/me/.local/bin/bb",
+      installedPath: "/home/me/.local/bin/hyperfide",
     });
 
     expect(
       screen.getByText(
-        "Installed at /home/me/.local/bin/bb, but its folder is not on your PATH. Add the folder to your PATH to use bb outside bb.",
+        "Installed at /home/me/.local/bin/hyperfide, but its folder is not on your PATH. Add the folder to your PATH to use hyperfide outside hyperfide.",
       ),
     ).toBeDefined();
   });
 
-  it("does not offer to install behind another bb that runs first", () => {
+  it("does not offer to install behind another hyperfide that runs first", () => {
     renderSection({
       ...NOT_INSTALLED,
-      shadowedBy: { path: "/usr/local/bin/bb", source: "other" },
+      shadowedBy: { path: "/usr/local/bin/hyperfide", source: "other" },
     });
 
-    expect(button("Install bb CLI").disabled).toBe(true);
+    expect(button("Install hyperfide CLI").disabled).toBe(true);
     expect(
       screen.getByText(
-        "Another bb at /usr/local/bin/bb comes first on your PATH. Remove it to install this one.",
+        "Another hyperfide at /usr/local/bin/hyperfide comes first on your PATH. Remove it to install this one.",
       ),
     ).toBeDefined();
   });
 
-  it("recognises a bb that npm already put on PATH", () => {
+  it("recognises a hyperfide that npm already put on PATH", () => {
     renderSection({
       ...NOT_INSTALLED,
-      shadowedBy: { path: "/usr/local/bin/bb", source: "npm" },
+      shadowedBy: { path: "/usr/local/bin/hyperfide", source: "npm" },
     });
 
-    expect(button("Install bb CLI").disabled).toBe(true);
+    expect(button("Install hyperfide CLI").disabled).toBe(true);
     expect(
       screen.getByText(
-        "Already installed for use outside bb at /usr/local/bin/bb, by npm.",
+        "Already installed for use outside hyperfide at /usr/local/bin/hyperfide, by npm.",
       ),
     ).toBeDefined();
   });
@@ -109,6 +109,6 @@ describe("CliCommandSettingsSectionContent", () => {
   it("blocks a second change while one is running", () => {
     renderSection(NOT_INSTALLED, true);
 
-    expect(button("Install bb CLI").disabled).toBe(true);
+    expect(button("Install hyperfide CLI").disabled).toBe(true);
   });
 });

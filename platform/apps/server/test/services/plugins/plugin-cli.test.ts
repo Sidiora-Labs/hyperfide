@@ -16,9 +16,9 @@ import {
 const BASE = "http://127.0.0.1:3334";
 
 const CLI_SOURCE = `
-  export default function plugin(bb: any) {
-    bb.log.info("cli plugin loaded");
-    bb.cli.register({
+  export default function plugin(hyperfide: any) {
+    hyperfide.log.info("cli plugin loaded");
+    hyperfide.cli.register({
       name: "acme",
       summary: "Acme tools",
       commands: [
@@ -65,7 +65,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "CLI fixture",
         description: "Plugin CLI fixture.",
         branding: { icon: "Zap" },
@@ -89,14 +89,14 @@ async function runCli(
   });
 }
 
-describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () => {
+describe("plugin CLI commands (hyperfide.cli.register + endpoints + skill + logs)", () => {
   let harness: TestAppHarness;
   let rootDir: string;
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
     rootDir = await writePlugin(join(harness.config.dataDir, "fixtures"), {
-      name: "bb-plugin-acme",
+      name: "hyperfide-plugin-acme",
       serverSource: CLI_SOURCE,
     });
     const entry = await harness.pluginService.installPath(rootDir);
@@ -273,10 +273,10 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
     const reserved = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-shadower",
+        name: "hyperfide-plugin-shadower",
         serverSource: `
-          export default function plugin(bb: any) {
-            bb.cli.register({ name: "thread", summary: "s", commands: [{ name: "inspect", summary: "Inspect", usage: "bb thread inspect" }], run: async () => ({ exitCode: 0, stdout: "thread" }) });
+          export default function plugin(hyperfide: any) {
+            hyperfide.cli.register({ name: "thread", summary: "s", commands: [{ name: "inspect", summary: "Inspect", usage: "hyperfide-platform thread inspect" }], run: async () => ({ exitCode: 0, stdout: "thread" }) });
           }
         `,
       },
@@ -291,7 +291,7 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
       {
         level: "warn",
         message:
-          'CLI command "thread" collides with core command "bb thread"; core keeps the short form. Use "bb plugin run shadower" to invoke this plugin.',
+          'CLI command "thread" collides with core command "hyperfide-platform thread"; core keeps the short form. Use "hyperfide-platform plugin run shadower" to invoke this plugin.',
       },
     ]);
     expect(
@@ -306,10 +306,10 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
     const invalid = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-badname",
+        name: "hyperfide-plugin-badname",
         serverSource: `
-        export default function plugin(bb: any) {
-          bb.cli.register({ name: "Bad Name", summary: "s", run: async () => ({ exitCode: 0 }) });
+        export default function plugin(hyperfide: any) {
+          hyperfide.cli.register({ name: "Bad Name", summary: "s", run: async () => ({ exitCode: 0 }) });
         }
       `,
       },
@@ -323,11 +323,11 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
     const replacer = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-replacer",
+        name: "hyperfide-plugin-replacer",
         serverSource: `
-        export default function plugin(bb: any) {
-          bb.cli.register({ name: "first", summary: "old", run: async () => ({ exitCode: 0 }) });
-          bb.cli.register({ name: "second", summary: "new", run: async () => ({ exitCode: 0 }) });
+        export default function plugin(hyperfide: any) {
+          hyperfide.cli.register({ name: "first", summary: "old", run: async () => ({ exitCode: 0 }) });
+          hyperfide.cli.register({ name: "second", summary: "new", run: async () => ({ exitCode: 0 }) });
         }
       `,
       },
@@ -368,8 +368,8 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
     await writeFile(
       join(rootDir, "server.ts"),
       `
-        export default function plugin(bb: any) {
-          bb.cli.register({ name: "acme2", summary: "Acme v2", run: async () => ({ exitCode: 0 }) });
+        export default function plugin(hyperfide: any) {
+          hyperfide.cli.register({ name: "acme2", summary: "Acme v2", run: async () => ({ exitCode: 0 }) });
         }
       `,
     );
@@ -379,7 +379,7 @@ describe("plugin CLI commands (bb.cli.register + endpoints + skill + logs)", () 
     expect(reloaded).not.toContain("## hyperfide-platform acme —");
   });
 
-  it("bb.log writes JSONL to the plugin log file and the tail endpoint serves it", async () => {
+  it("hyperfide.log writes JSONL to the plugin log file and the tail endpoint serves it", async () => {
     const logFile = join(
       harness.config.dataDir,
       "plugins",

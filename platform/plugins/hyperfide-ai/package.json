@@ -1,0 +1,42 @@
+{
+  "name": "hyperfide-plugin-hyperfide-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Thread titles, commit messages, and voice input from hyperfide cloud, included with your Hyperfide account.",
+  "engines": {
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.5.24"
+  },
+  "hyperfide": {
+    "name": "hyperfide cloud AI",
+    "description": "Thread titles, commit messages, and voice input from hyperfide cloud, included with your Hyperfide account.",
+    "branding": {
+      "icon": "AiBrain01"
+    },
+    "server": "./src/server.ts",
+    "skills": [
+      "skills"
+    ]
+  },
+  "keywords": [
+    "hyperfide-plugin"
+  ],
+  "scripts": {
+    "typecheck": "tsrs --noEmit",
+    "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
+    "test": "vitest run --config vitest.config.ts",
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@types/node": "^22.0.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

@@ -13,7 +13,7 @@ export {
   type FileOpenerPreferenceMap,
 };
 
-const FILE_OPENER_PREFERENCE_STORAGE_KEY = "bb.fileOpenerByExtension";
+const FILE_OPENER_PREFERENCE_STORAGE_KEY = "hyperfide.fileOpenerByExtension";
 
 const fileOpenerPreferenceAtom = atomWithStorage<FileOpenerPreferenceMap>(
   FILE_OPENER_PREFERENCE_STORAGE_KEY,

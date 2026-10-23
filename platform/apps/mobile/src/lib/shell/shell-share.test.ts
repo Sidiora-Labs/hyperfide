@@ -23,11 +23,11 @@ describe("buildBridgeSharePayload", () => {
   it("gives Android one message, because it ignores url", () => {
     expect(
       buildBridgeSharePayload("android", {
-        title: "bb",
+        title: "hyperfide",
         url: "https://bee.hyperfide.example/threads/thr_1",
       }).content,
     ).toEqual({
-      title: "bb",
+      title: "hyperfide",
       message: "https://bee.hyperfide.example/threads/thr_1",
     });
   });

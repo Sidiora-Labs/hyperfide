@@ -33,17 +33,17 @@ interface RenderRootComposeArgs {
 }
 
 type TestDesktopWindow = {
-  bbDesktop?: { platform: "macos" };
+  hyperfideDesktop?: { platform: "macos" };
 };
 
 const noop = () => {};
 
 function setMacosDesktopChrome(): void {
-  (window as unknown as TestDesktopWindow).bbDesktop = { platform: "macos" };
+  (window as unknown as TestDesktopWindow).hyperfideDesktop = { platform: "macos" };
 }
 
 function clearDesktopChrome(): void {
-  delete (window as unknown as TestDesktopWindow).bbDesktop;
+  delete (window as unknown as TestDesktopWindow).hyperfideDesktop;
 }
 
 vi.mock(

@@ -69,7 +69,7 @@ describe("rewriteLocalhostLinkHref", () => {
       "nothyperfide.example",
       "sawyer.localhost",
       "sawyer--8000.localhost",
-      "sawyer.bb.localhost",
+      "sawyer.hyperfide.localhost",
     ]) {
       expect(
         rewriteLocalhostLinkHref({

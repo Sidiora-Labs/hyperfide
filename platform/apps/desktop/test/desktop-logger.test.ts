@@ -24,7 +24,7 @@ afterEach(async () => {
 });
 
 async function logDirectory(): Promise<string> {
-  const path = await mkdtemp(join(tmpdir(), "bb-desktop-logger-"));
+  const path = await mkdtemp(join(tmpdir(), "hyperfide-desktop-logger-"));
   tempDirs.push(path);
   return join(path, "logs");
 }

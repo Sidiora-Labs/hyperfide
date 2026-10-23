@@ -30,14 +30,14 @@ describe("PluginReplacementSlot", () => {
     render(
       <PluginReplacementSlot<TestRegistration>
         replacement={{ kind: "owner" }}
-        original={<div>BB owner</div>}
+        original={<div>HYPERFIDE owner</div>}
         slotKind="testReplacement"
       >
         {() => <div>Plugin replacement</div>}
       </PluginReplacementSlot>,
     );
 
-    expect(screen.getByText("BB owner")).toBeDefined();
+    expect(screen.getByText("HYPERFIDE owner")).toBeDefined();
     expect(screen.queryByText("Plugin replacement")).toBeNull();
   });
 
@@ -49,14 +49,14 @@ describe("PluginReplacementSlot", () => {
     render(
       <PluginReplacementSlot
         replacement={replacement}
-        original={<div>BB owner</div>}
+        original={<div>HYPERFIDE owner</div>}
         slotKind="testReplacement"
       >
         {(_registration, Original) => <Original />}
       </PluginReplacementSlot>,
     );
 
-    expect(screen.getAllByText("BB owner")).toHaveLength(1);
+    expect(screen.getAllByText("HYPERFIDE owner")).toHaveLength(1);
   });
 
   it("restores the bound owner when a replacement crashes", () => {
@@ -69,14 +69,14 @@ describe("PluginReplacementSlot", () => {
     render(
       <PluginReplacementSlot
         replacement={{ kind: "plugin", registration: REGISTRATION }}
-        original={<div>BB owner</div>}
+        original={<div>HYPERFIDE owner</div>}
         slotKind="testReplacement"
       >
         {() => <Crash />}
       </PluginReplacementSlot>,
     );
 
-    expect(screen.getByText("BB owner")).toBeDefined();
+    expect(screen.getByText("HYPERFIDE owner")).toBeDefined();
     expect(screen.queryByText(/plugin demo crashed/u)).toBeNull();
   });
 

@@ -5,7 +5,7 @@ export function setStreamTraceEnabled(enabled: boolean): void {
 }
 
 export function markStreamTrace(
-  name: "bb:timeline-applied" | "bb:stream-row-commit",
+  name: "hyperfide:timeline-applied" | "hyperfide:stream-row-commit",
   detail: Record<string, number | string | null>,
 ): void {
   if (streamTraceEnabled) {

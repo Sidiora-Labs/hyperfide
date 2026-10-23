@@ -22,8 +22,8 @@ function plugin(
     name: null,
     provenance: "catalog",
     catalogEntryId: "linear",
-    publisherLabel: "BB Community",
-    sourceDisplay: "npm · @bb-plugins/linear · tracks compatible",
+    publisherLabel: "HYPERFIDE Community",
+    sourceDisplay: "npm · @hyperfide-plugins/linear · tracks compatible",
     updateState: { ...EMPTY_PLUGIN_UPDATE_STATE, ...updateState },
     ...overrides,
   });
@@ -42,7 +42,7 @@ describe("pluginRowSignal (the one-signal rule)", () => {
       pluginRowSignal(
         plugin({
           blockedVersion: "1.9.0",
-          blockedReasons: ["requires bb >= 0.15"],
+          blockedReasons: ["requires hyperfide >= 0.15"],
         }),
       ),
     ).toBeNull();
@@ -172,7 +172,7 @@ describe("pluginRuntimeStatusPresentation", () => {
         ),
       ),
     ).toMatchObject({
-      recovery: "Update or reinstall bb.",
+      recovery: "Update or reinstall hyperfide.",
     });
     expect(
       pluginRuntimeStatusPresentation(plugin({}, { status: "missing" })),

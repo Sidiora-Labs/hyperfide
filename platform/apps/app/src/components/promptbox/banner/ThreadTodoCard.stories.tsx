@@ -29,7 +29,7 @@ const mixedTodos: ThreadTimelinePendingTodos = {
     },
     {
       id: "todo:4",
-      text: "Surface pendingTodos in `bb thread show` and `bb status`",
+      text: "Surface pendingTodos in `hyperfide-platform thread show` and `hyperfide-platform status`",
       status: "pending",
     },
     {

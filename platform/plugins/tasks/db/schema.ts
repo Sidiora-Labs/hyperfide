@@ -1,6 +1,6 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 
-type PluginDatabase = ReturnType<BbPluginApi["storage"]["database"]>;
+type PluginDatabase = ReturnType<HyperfidePluginApi["storage"]["database"]>;
 
 const MIGRATIONS = [
   `
@@ -18,10 +18,10 @@ const MIGRATIONS = [
       next_task_number INTEGER NOT NULL DEFAULT 1 CHECK (next_task_number >= 1),
       color TEXT NOT NULL,
       folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,
-      linked_bb_project_id TEXT,
+      linked_hyperfide_project_id TEXT,
       created_at TEXT NOT NULL,
       CHECK (prefix = upper(prefix)),
-      CHECK (linked_bb_project_id IS NULL OR linked_bb_project_id GLOB 'proj_*')
+      CHECK (linked_hyperfide_project_id IS NULL OR linked_hyperfide_project_id GLOB 'proj_*')
     );
 
     CREATE TABLE IF NOT EXISTS tasks (

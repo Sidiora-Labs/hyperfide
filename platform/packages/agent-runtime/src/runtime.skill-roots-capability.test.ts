@@ -27,7 +27,7 @@ describe("skills/configure handshake capability", () => {
   const runtimes: AgentRuntime[] = [];
 
   beforeEach(() => {
-    workspacePath = mkdtempSync(join(tmpdir(), "bb-skill-capability-"));
+    workspacePath = mkdtempSync(join(tmpdir(), "hyperfide-skill-capability-"));
   });
 
   afterEach(async () => {

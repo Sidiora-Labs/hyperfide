@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const HYPERFIDE_DESKTOP_EXISTING_SERVER_DIALOG_CHOOSE_CHANNEL =
-  "bb-desktop:existing-server-dialog:choose";
+  "hyperfide-desktop:existing-server-dialog:choose";
 
 export const EXISTING_SERVER_DIALOG_CHOICES = [
   "connect",

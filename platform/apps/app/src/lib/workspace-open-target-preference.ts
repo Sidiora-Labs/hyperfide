@@ -9,8 +9,8 @@ import {
 } from "@hyperfide/host-daemon-contract";
 import { createNullableLocalStorageEnumStorage } from "./browser-storage";
 
-export const WORKSPACE_OPEN_TARGET_STORAGE_KEY = "bb.workspaceOpenTarget";
-export const FILE_OPEN_TARGET_STORAGE_KEY = "bb.fileOpenTarget";
+export const WORKSPACE_OPEN_TARGET_STORAGE_KEY = "hyperfide.workspaceOpenTarget";
+export const FILE_OPEN_TARGET_STORAGE_KEY = "hyperfide.fileOpenTarget";
 
 export type StoredWorkspaceOpenTargetPreference = WorkspaceOpenTargetId | null;
 export type WorkspaceOpenTargetCapability =

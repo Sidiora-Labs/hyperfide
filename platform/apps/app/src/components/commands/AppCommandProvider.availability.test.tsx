@@ -72,8 +72,8 @@ vi.mock("@/hooks/queries/system-queries", () => ({
   }),
 }));
 
-vi.mock("@/lib/bb-desktop", () => ({
-  getBbDesktopInfo: () => (testState.isDesktop ? {
+vi.mock("@/lib/hyperfide-desktop", () => ({
+  getHyperfideDesktopInfo: () => (testState.isDesktop ? {
     setSplitNavigationEnabled: testState.setSplitNavigationEnabled,
   } : null),
 }));

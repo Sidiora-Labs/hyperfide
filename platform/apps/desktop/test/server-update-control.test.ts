@@ -4,13 +4,13 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { attachServerUpdateControl } from "../src/server-update-control.js";
-import { startBbAppProcess } from "../src/bb-process.js";
+import { startHyperfideAppProcess } from "../src/hyperfide-process.js";
 
 describe("hosting desktop update control", () => {
   it.each(["direct", ...(process.platform === "linux" ? ["appimage"] : [])])(
     "reports install failure and retries through launcher IPC (%s)",
     async (runtimeKind) => {
-      const root = await mkdtemp(join(tmpdir(), "bb-desktop-control-"));
+      const root = await mkdtemp(join(tmpdir(), "hyperfide-desktop-control-"));
       const bridgePath = join(root, "bridge.mjs");
       const relayUrl = pathToFileURL(
         join(__dirname, "../../../packages/config/src/desktop-app-update.ts"),
@@ -43,7 +43,7 @@ describe("hosting desktop update control", () => {
         server.on("exit", (code) => process.exit(code));
       `,
       );
-      const child = startBbAppProcess({
+      const child = startHyperfideAppProcess({
         bridgePath,
         cwd: root,
         env: { ...process.env, APPDIR: root },

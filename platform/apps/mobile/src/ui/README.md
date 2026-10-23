@@ -1,4 +1,4 @@
-# bb mobile design system (`src/ui`, `src/theme`)
+# Hyperfide mobile design system (`src/ui`, `src/theme`)
 
 NativeWind v5 (Tailwind v4) primitives that mirror `@hyperfide/shared-ui`'s variant
 names, driven by the tokens generated from the web app's `theme.css`. Import
@@ -55,7 +55,7 @@ Native screens fade the copy out on mount; `/` and `/webview` keep it until the
 web app reports ready or the shell shows an error (`revealApp()`), capped at
 eight seconds. Keep its logo sizes and colors in sync with the
 `expo-splash-screen` config in `app.json` and its overrides in `app.config.js`.
-The `bbMobileVariant` Expo extra value selects the orange dev logo for the
+The `hyperfideMobileVariant` Expo extra value selects the orange dev logo for the
 React overlay, matching the native dev splash in both light and dark mode.
 
 `SheetProvider` is the `BottomSheetModalProvider` host; `Toaster` must sit
@@ -66,7 +66,7 @@ inside it.
 - `useTheme()` → `{ palette, mode, preference, tokens, radii, setMode }`.
   - `tokens` is `NativeThemeTokens` (camelCase, e.g. `tokens.mutedForeground`),
     the palette × mode slice of the generated `theme.native.ts`.
-  - `setMode("system" | "light" | "dark")` persists to MMKV key `bb.theme`
+  - `setMode("system" | "light" | "dark")` persists to MMKV key `hyperfide.theme`
     (same key/values as the web app) and also forces RN's `Appearance` so
     native surfaces follow.
 - Utility classes: every web `--color-*` token exists here with the same name

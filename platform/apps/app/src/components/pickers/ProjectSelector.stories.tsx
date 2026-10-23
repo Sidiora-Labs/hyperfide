@@ -7,7 +7,7 @@ export default {
 };
 
 const projects: readonly ProjectSelectorOption[] = [
-  { id: "proj_bb", name: "bb" },
+  { id: "proj_hyperfide", name: "hyperfide" },
   { id: "proj_pierre", name: "pierre" },
 ];
 
@@ -20,7 +20,7 @@ export function Overview() {
         label="project selected"
         hint="trigger shows the project name + Folder icon"
       >
-        <ProjectSelector projects={projects} value="proj_bb" onChange={noop} />
+        <ProjectSelector projects={projects} value="proj_hyperfide" onChange={noop} />
       </StoryRow>
       <StoryRow
         label="no project selected — required mode"
@@ -76,7 +76,7 @@ function ProjectSelectorInteractive({
   allowNoProject?: boolean;
   createProject?: boolean;
 }) {
-  const [value, setValue] = useState<string | null>("proj_bb");
+  const [value, setValue] = useState<string | null>("proj_hyperfide");
   return (
     <ProjectSelector
       projects={projects}

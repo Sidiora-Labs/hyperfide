@@ -34,7 +34,7 @@ function renderSection(overrides?: {
       onTerminalCopyOnSelectChange={
         overrides?.onTerminalCopyOnSelectChange ?? vi.fn()
       }
-      managedBranchPrefix={overrides?.managedBranchPrefix ?? "bb/"}
+      managedBranchPrefix={overrides?.managedBranchPrefix ?? "hyperfide/"}
       navigateToThreadAfterCreate={false}
       onManagedBranchPrefixChange={
         overrides?.onManagedBranchPrefixChange ?? vi.fn()
@@ -114,7 +114,7 @@ describe("new branch prefix setting", () => {
     const input = branchPrefixInput();
     fireEvent.change(input, { target: { value: "team/" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    await waitFor(() => expect(input.value).toBe("bb/"));
+    await waitFor(() => expect(input.value).toBe("hyperfide/"));
   });
 
   it("refuses an invalid prefix and restores the saved value", () => {
@@ -125,7 +125,7 @@ describe("new branch prefix setting", () => {
     expect(input.getAttribute("aria-invalid")).toBe("true");
     fireEvent.blur(input);
     expect(onChange).not.toHaveBeenCalled();
-    expect(input.value).toBe("bb/");
+    expect(input.value).toBe("hyperfide/");
   });
 
   it("reverts the draft on Escape", () => {
@@ -134,7 +134,7 @@ describe("new branch prefix setting", () => {
     const input = branchPrefixInput();
     fireEvent.change(input, { target: { value: "sawyer/" } });
     fireEvent.keyDown(input, { key: "Escape" });
-    expect(input.value).toBe("bb/");
+    expect(input.value).toBe("hyperfide/");
     expect(onChange).not.toHaveBeenCalled();
   });
 });

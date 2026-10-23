@@ -4,11 +4,11 @@ import { z } from "zod";
 import { pathExists } from "./fs.js";
 
 const HYPERFIDE_APP_VERSION_DEV_FALLBACK = "0.0.0-dev";
-const HYPERFIDE_APP_PACKAGE_NAME = "bb-app";
+const HYPERFIDE_APP_PACKAGE_NAME = "hyperfide-app";
 
 const packageJsonVersionSchema = z.object({ version: z.string().min(1) });
 
-export function resolvePackagedBbAppRoot(
+export function resolvePackagedHyperfideAppRoot(
   daemonEntryPath: string | null,
 ): string | null {
   if (daemonEntryPath === null) {
@@ -26,16 +26,16 @@ export function resolvePackagedBbAppRoot(
   return dirname(hostDaemonDir);
 }
 
-export function npmPrefixBbAppRoot(npmPrefix: string): string {
+export function npmPrefixHyperfideAppRoot(npmPrefix: string): string {
   return join(npmPrefix, "lib", "node_modules", HYPERFIDE_APP_PACKAGE_NAME);
 }
 
-export async function resolveBbServerEntry(
+export async function resolveHyperfideServerEntry(
   packageRoot: string,
 ): Promise<string | null> {
-  const serverEntry = join(packageRoot, "dist", "bb-server.js");
+  const serverEntry = join(packageRoot, "dist", "hyperfide-server.js");
   const required = [
-    join(packageRoot, "dist", "bb-app.js"),
+    join(packageRoot, "dist", "hyperfide-app.js"),
     serverEntry,
     join(packageRoot, "server", "dist", "index.js"),
     join(packageRoot, "app", "dist", "index.html"),
@@ -48,14 +48,14 @@ export async function resolveBbServerEntry(
   return serverEntry;
 }
 
-export async function resolveBbAppLauncherEntry(
+export async function resolveHyperfideAppLauncherEntry(
   packageRoot: string,
 ): Promise<string | null> {
-  const entry = join(packageRoot, "dist", "bb-app.js");
+  const entry = join(packageRoot, "dist", "hyperfide-app.js");
   return (await pathExists(entry)) ? entry : null;
 }
 
-export async function readBbAppVersion(args: {
+export async function readHyperfideAppVersion(args: {
   env: NodeJS.ProcessEnv;
   packageRoot: string | null;
 }): Promise<string> {

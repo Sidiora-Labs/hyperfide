@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Browse the bb plugin API as an annotated map of the product.",
+  "description": "Browse the hyperfide-platform plugin API as an annotated map of the product.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.3"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.3"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Plugin Guide",
-    "description": "Browse the bb plugin API as an annotated map of the product.",
+    "description": "Browse the hyperfide-platform plugin API as an annotated map of the product.",
     "branding": {
       "icon": "./icons/ai-generative.svg",
       "experimental_icons": {
@@ -22,13 +22,13 @@
     "skills": []
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled",
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled",
     "scaffold:surface-entry": "node scripts/scaffold-surface-entry.mjs"
   },
   "dependencies": {

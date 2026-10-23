@@ -79,8 +79,8 @@ export function PluginPanelHeaderActions({
         >
           <PluginContext.Provider value={panel.pluginId}>
             <div
-              data-bb-plugin-root=""
-              data-bb-plugin={panel.pluginId}
+              data-hyperfide-plugin-root=""
+              data-hyperfide-plugin={panel.pluginId}
               className="flex shrink-0 items-center gap-2"
             >
               <HeaderContent subPath={subPath} />

@@ -5,7 +5,7 @@ import { atomFamily } from "jotai-family";
 import { z } from "zod";
 import { createLocalStorageSyncStorage } from "./browser-storage";
 
-const BROWSER_HISTORY_STORAGE_PREFIX = "bb.thread.browserHistory";
+const BROWSER_HISTORY_STORAGE_PREFIX = "hyperfide.thread.browserHistory";
 const BROWSER_HISTORY_STORAGE_VERSION = "1";
 const BROWSER_HISTORY_MAX_ENTRIES = 24;
 

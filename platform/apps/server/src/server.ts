@@ -97,9 +97,9 @@ import {
   onTerminalSocketOpen,
 } from "./ws/terminal-protocol.js";
 import {
-  createBbAppArtifactService,
-  type BbAppArtifactService,
-} from "./services/install/bb-app-artifact.js";
+  createHyperfideAppArtifactService,
+  type HyperfideAppArtifactService,
+} from "./services/install/hyperfide-app-artifact.js";
 import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract";
 import {
   createPluginCatalogService,
@@ -190,7 +190,7 @@ export interface ServerMoveAppOptions {
 }
 
 interface CreateAppOptions {
-  bbAppArtifactService?: BbAppArtifactService;
+  hyperfideAppArtifactService?: HyperfideAppArtifactService;
   serverMove?: ServerMoveAppOptions;
   slowApiRequestLogThresholdMs?: number;
   performanceDiagnosticsEnabled?: () => boolean;
@@ -468,9 +468,9 @@ export function createApp(
   });
   const slowApiRequestLogThresholdMs =
     options?.slowApiRequestLogThresholdMs ?? SLOW_API_REQUEST_LOG_THRESHOLD_MS;
-  const bbAppArtifactService =
-    options?.bbAppArtifactService ??
-    createBbAppArtifactService({
+  const hyperfideAppArtifactService =
+    options?.hyperfideAppArtifactService ??
+    createHyperfideAppArtifactService({
       dataDir: deps.config.dataDir,
       serverEntryUrl: import.meta.url,
     });
@@ -554,7 +554,7 @@ export function createApp(
   });
   app.get("/install.sh", async (context) => {
     const script = await readFile(INSTALL_MACHINE_SCRIPT_PATH, "utf8");
-    const credential = context.req.header("X-BB-Enrollment");
+    const credential = context.req.header("X-HYPERFIDE-Enrollment");
     let bootstrap =
       credential === undefined
         ? null
@@ -567,7 +567,7 @@ export function createApp(
       } catch (error) {
         deps.logger.warn({ error }, "Could not refresh machine access");
         return new Response(
-          "echo 'Could not refresh machine access. Run the command again, or generate a new one in bb.' >&2\nexit 1\n",
+          "echo 'Could not refresh machine access. Run the command again, or generate a new one in hyperfide.' >&2\nexit 1\n",
           {
             status: 503,
             headers: {
@@ -580,7 +580,7 @@ export function createApp(
     }
     if (credential !== undefined && bootstrap === null) {
       return new Response(
-        "echo 'This enrollment command has already been used, replaced, or expired. Generate a new command in bb.' >&2\nexit 1\n",
+        "echo 'This enrollment command has already been used, replaced, or expired. Generate a new command in hyperfide.' >&2\nexit 1\n",
         {
           status: 403,
           headers: {
@@ -605,11 +605,11 @@ export function createApp(
       "cache-control": "no-store",
       "content-type": "text/plain; charset=utf-8",
     };
-    const credential = context.req.header("X-BB-Enrollment");
+    const credential = context.req.header("X-HYPERFIDE-Enrollment");
     if (credential === undefined) {
       return new Response(
         windowsInstallerFailureScript(
-          "This installer needs an enrollment command. Generate one in bb under Settings, Machines.",
+          "This installer needs an enrollment command. Generate one in hyperfide under Settings, Machines.",
         ),
         { headers },
       );
@@ -625,7 +625,7 @@ export function createApp(
         deps.logger.warn({ error }, "Could not refresh machine access");
         return new Response(
           windowsInstallerFailureScript(
-            "Could not refresh machine access. Run the command again, or generate a new one in bb.",
+            "Could not refresh machine access. Run the command again, or generate a new one in hyperfide.",
           ),
           { headers },
         );
@@ -634,7 +634,7 @@ export function createApp(
     if (bootstrap === null) {
       return new Response(
         windowsInstallerFailureScript(
-          "This enrollment command has already been used, replaced, or expired. Generate a new command in bb.",
+          "This enrollment command has already been used, replaced, or expired. Generate a new command in hyperfide.",
         ),
         { headers },
       );
@@ -649,19 +649,19 @@ export function createApp(
   });
   app.get("/install/version", async (context) => {
     return context.json({
-      version: await bbAppArtifactService.getVersion(),
+      version: await hyperfideAppArtifactService.getVersion(),
       protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
     });
   });
-  app.get("/install/bb-app.tgz", async (context) => {
+  app.get("/install/hyperfide-app.tgz", async (context) => {
     try {
-      const artifact = await bbAppArtifactService.getArtifact();
+      const artifact = await hyperfideAppArtifactService.getArtifact();
       const etag = `"sha256-${artifact.digest}"`;
       const headers = {
         "cache-control": "public, max-age=300",
         "content-type": "application/gzip",
         etag,
-        "x-bb-artifact-sha256": artifact.digest,
+        "x-hyperfide-artifact-sha256": artifact.digest,
       };
       if (context.req.header("if-none-match") === etag) {
         return new Response(null, { headers, status: 304 });
@@ -784,7 +784,7 @@ export function createApp(
         pluginId,
       });
     },
-    // `bb.experimental_hooks.recheck()`: a plugin whose wait condition
+    // `hyperfide.experimental_hooks.recheck()`: a plugin whose wait condition
     // may have changed asks core to re-attempt the plugin-queued rows. Core
     // owns the walk, the coalescing and the pacing; the plugin owns knowing
     // when to ask.
@@ -1042,7 +1042,7 @@ export function createApp(
   if (options?.staticDir) {
     registerStaticAppRoutes(app, options.staticDir);
   } else {
-    app.get("/", (context) => context.text("bb server"));
+    app.get("/", (context) => context.text("hyperfide-platform server"));
   }
 
   return {

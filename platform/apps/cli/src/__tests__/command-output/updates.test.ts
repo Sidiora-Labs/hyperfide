@@ -63,7 +63,7 @@ const version = {
   source: "npm" as const,
   updateAvailable: true,
   isDevelopment: false,
-  upgradeCommand: "npx bb-app@latest",
+  upgradeCommand: "npx hyperfide-app@latest",
 };
 
 function providerStatus(args: {
@@ -122,7 +122,7 @@ describe("hyperfide-platform updates command output", () => {
   const register: CommandRegistrar = (program) =>
     registerUpdatesCommands(program, () => "http://server");
 
-  it("hyperfide-platform updates renders bb-app and per-machine provider rows", async () => {
+  it("hyperfide-platform updates renders hyperfide-app and per-machine provider rows", async () => {
     stubServerApi({
       "v1.system.version.$get": vi.fn(async () => version),
       "v1.hosts.$get": vi.fn(async () => hosts),
@@ -134,9 +134,9 @@ describe("hyperfide-platform updates command output", () => {
     await runCommand(["updates"], register);
 
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(output).toContain("bb-app");
+    expect(output).toContain("hyperfide-app");
     expect(output).toContain("0.0.32 -> 0.0.33");
-    expect(output).toContain("Update available (run: npx bb-app@latest)");
+    expect(output).toContain("Update available (run: npx hyperfide-app@latest)");
     expect(output).toContain("workstation · Codex");
     expect(output).toContain("0.140.0 -> 0.141.0");
     expect(output).toContain("workstation · Claude Code");
@@ -162,7 +162,7 @@ describe("hyperfide-platform updates command output", () => {
       const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
       expect(output).toContain("Latest unknown");
       expect(output).not.toContain("Up to date");
-      expect(output).not.toContain("npx bb-app@latest");
+      expect(output).not.toContain("npx hyperfide-app@latest");
       if (installKind === "source") {
         expect(output).toContain("source checkout aaaaaaaaaa");
         expect(output).toContain("update this checkout with Git");
@@ -260,7 +260,7 @@ describe("hyperfide-platform updates command output", () => {
     vi.mocked(console.log).mockClear();
     await runCommand(["updates", "apply"], register);
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "No updates bb can apply. Run hyperfide-platform updates status for manual updates.",
+      "No updates hyperfide can apply. Run hyperfide-platform updates status for manual updates.",
     ]);
   });
 
@@ -326,8 +326,8 @@ describe("hyperfide-platform updates app command output", () => {
       await runCommand(["updates", "app"], register);
 
       expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-        "bb-app 0.0.32 -> 0.0.33",
-        "Run hyperfide-platform updates app apply to update and restart bb.",
+        "hyperfide-app 0.0.32 -> 0.0.33",
+        "Run hyperfide-platform updates app apply to update and restart hyperfide.",
       ]);
       expect(getStatus).toHaveBeenCalledWith({ query: { force: "true" } });
     },
@@ -340,7 +340,7 @@ describe("hyperfide-platform updates app command output", () => {
         available: null,
         blocked: {
           reason: "fetch-failed",
-          message: "Couldn't check for a newer bb release.",
+          message: "Couldn't check for a newer hyperfide release.",
         },
         current: { version: "0.0.32", commit: null },
         lastResult: null,
@@ -350,7 +350,7 @@ describe("hyperfide-platform updates app command output", () => {
     });
     await runCommand(["updates", "app"], register);
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(output).toContain("Couldn't check for a newer bb release.");
+    expect(output).toContain("Couldn't check for a newer hyperfide release.");
     expect(output).not.toContain("up to date");
   });
 
@@ -378,7 +378,7 @@ describe("hyperfide-platform updates app command output", () => {
     await runCommand(["updates", "app"], register);
 
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      `bb-app source checkout ${"a".repeat(10)} -> ${"b".repeat(10)} (+12 commits)`,
+      `hyperfide-app source checkout ${"a".repeat(10)} -> ${"b".repeat(10)} (+12 commits)`,
       "  Fix bug",
       "  Add feature",
       "  … 10 more",
@@ -398,7 +398,7 @@ describe("hyperfide-platform updates app command output", () => {
           output: [],
           phase: "preparing",
           startedAt: "2026-09-23T00:00:00.000Z",
-          step: "Downloading bb-app 0.0.33",
+          step: "Downloading hyperfide-app 0.0.33",
           targetVersion: "0.0.33",
         },
       }),
@@ -436,9 +436,9 @@ describe("hyperfide-platform updates app command output", () => {
       json: { confirmInterruptingThreads: true },
     });
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "Updating bb to 0.0.33",
-      "Downloading bb-app 0.0.33…",
-      "Updated bb to 0.0.33.",
+      "Updating Hyperfide to 0.0.33",
+      "Downloading hyperfide-app 0.0.33…",
+      "Updated hyperfide to 0.0.33.",
     ]);
   });
 
@@ -515,11 +515,11 @@ describe("hyperfide-platform updates app command output", () => {
       json: { confirmInterruptingThreads: true },
     });
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "Updating bb to 0.0.33. Run hyperfide-platform updates app to follow it.",
+      "Updating Hyperfide to 0.0.33. Run hyperfide-platform updates app to follow it.",
     ]);
   });
 
-  it("hyperfide-platform updates app apply explains when bb cannot update itself", async () => {
+  it("hyperfide-platform updates app apply explains when hyperfide cannot update itself", async () => {
     stubServerApi({
       "v1.system.app-update.$get": vi.fn(async () =>
         appUpdateStatus({
@@ -532,7 +532,7 @@ describe("hyperfide-platform updates app command output", () => {
       runCommand(["updates", "app", "apply"], register),
     ).rejects.toThrow("process.exit:1");
     expect(vi.mocked(console.error)).toHaveBeenCalledWith(
-      "Error: In-app updates are off. Start bb with `npx bb-app start` or `pnpm start`, without `--no-in-app-updates`, to turn them on.",
+      "Error: In-app updates are off. Start hyperfide with `npx hyperfide-app start` or `pnpm start`, without `--no-in-app-updates`, to turn them on.",
     );
   });
 

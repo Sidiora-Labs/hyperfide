@@ -12,7 +12,7 @@ let harness: FakePiBridgeHarness;
 
 beforeEach(async () => {
   harness = await startFakePiBridge({
-    prefix: "bb-pi-conformance-ws-",
+    prefix: "hyperfide-pi-conformance-ws-",
     initialize: false,
   });
 });

@@ -581,7 +581,7 @@ describe("thread pruning", () => {
 
   it("resumes after a competing writer and preserves the current latest snapshot after truncation", () => {
     let f = setup();
-    const directory = mkdtempSync(join(tmpdir(), "bb-pruning-concurrent-"));
+    const directory = mkdtempSync(join(tmpdir(), "hyperfide-pruning-concurrent-"));
     const path = join(directory, "fixture.db");
     let writer: ReturnType<typeof createConnection> | undefined;
     try {

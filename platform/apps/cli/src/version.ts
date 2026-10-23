@@ -5,17 +5,17 @@ import { fileURLToPath } from "node:url";
 const HYPERFIDE_APP_VERSION_FALLBACK = "0.0.0-dev";
 const PARENT_LOOKUP_MAX_DEPTH = 8;
 
-interface ResolveBbAppVersionArgs {
+interface ResolveHyperfideAppVersionArgs {
   env: NodeJS.ProcessEnv;
   fromDir: string;
 }
 
-interface BbAppPackageJson {
+interface HyperfideAppPackageJson {
   name: string;
   version: string;
 }
 
-function isBbAppPackageJson(value: unknown): value is BbAppPackageJson {
+function isHyperfideAppPackageJson(value: unknown): value is HyperfideAppPackageJson {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -27,10 +27,10 @@ function isBbAppPackageJson(value: unknown): value is BbAppPackageJson {
   );
 }
 
-function readBbAppVersionAt(packageJsonPath: string): string | null {
+function readHyperfideAppVersionAt(packageJsonPath: string): string | null {
   try {
     const parsed: unknown = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-    if (!isBbAppPackageJson(parsed) || parsed.name !== "bb-app") {
+    if (!isHyperfideAppPackageJson(parsed) || parsed.name !== "hyperfide-app") {
       return null;
     }
     return parsed.version;
@@ -47,7 +47,7 @@ function trimEnvValue(value: string | undefined): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function resolveBbAppVersion(args: ResolveBbAppVersionArgs): string {
+export function resolveHyperfideAppVersion(args: ResolveHyperfideAppVersionArgs): string {
   const envValue = trimEnvValue(args.env.HYPERFIDE_APP_VERSION);
   if (envValue !== undefined) {
     return envValue;
@@ -56,17 +56,17 @@ export function resolveBbAppVersion(args: ResolveBbAppVersionArgs): string {
   let currentDir = resolve(args.fromDir);
   for (let depth = 0; depth < PARENT_LOOKUP_MAX_DEPTH; depth += 1) {
     const candidatePath = join(currentDir, "package.json");
-    const candidateVersion = readBbAppVersionAt(candidatePath);
+    const candidateVersion = readHyperfideAppVersionAt(candidatePath);
     if (candidateVersion !== null) {
       return candidateVersion;
     }
     const workspaceCandidatePath = join(
       currentDir,
       "packages",
-      "bb-app",
+      "hyperfide-app",
       "package.json",
     );
-    const workspaceCandidateVersion = readBbAppVersionAt(
+    const workspaceCandidateVersion = readHyperfideAppVersionAt(
       workspaceCandidatePath,
     );
     if (workspaceCandidateVersion !== null) {
@@ -82,8 +82,8 @@ export function resolveBbAppVersion(args: ResolveBbAppVersionArgs): string {
   return HYPERFIDE_APP_VERSION_FALLBACK;
 }
 
-export function resolveBbCliVersion(): string {
-  return resolveBbAppVersion({
+export function resolveHyperfideCliVersion(): string {
+  return resolveHyperfideAppVersion({
     env: process.env,
     fromDir: dirname(fileURLToPath(import.meta.url)),
   });

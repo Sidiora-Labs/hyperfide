@@ -66,28 +66,28 @@ function instanceName(sourcePath: string, homeDirectory: string) {
 function inferredPaths(name: string, homeDirectory: string) {
   const label = name.replace(/-[a-f0-9]{12}$/, "");
   const managed =
-    /^bb-plugins-environment-git-worktree-host-data-worktrees-(.+)-bb$/.exec(
+    /^hyperfide-plugins-environment-git-worktree-host-data-worktrees-(.+)-hyperfide$/.exec(
       label,
     );
-  const legacy = /^bb-worktrees-(.+)-bb$/.exec(label);
+  const legacy = /^hyperfide-worktrees-(.+)-hyperfide$/.exec(label);
   const temporary = /^(private-tmp|tmp)-(.+)$/.exec(label);
   return [
     ...(managed
       ? [
           path.join(
             homeDirectory,
-            ".bb",
+            ".hyperfide",
             "plugins",
             "environment-git-worktree",
             "host-data",
             "worktrees",
             managed[1]!,
-            "bb",
+            "hyperfide",
           ),
         ]
       : []),
     ...(legacy
-      ? [path.join(homeDirectory, ".bb", "worktrees", legacy[1]!, "bb")]
+      ? [path.join(homeDirectory, ".hyperfide", "worktrees", legacy[1]!, "hyperfide")]
       : []),
     ...(temporary && process.platform !== "win32"
       ? [
@@ -148,10 +148,10 @@ export async function inspectDeveloperEntries(
     signal.throwIfAborted();
     const directory = path.join(input.rootPath, name);
     const launch = launchRecordSchema.safeParse(
-      await readRecord(path.join(directory, "bb-dev-instance.json")),
+      await readRecord(path.join(directory, "hyperfide-dev-instance.json")),
     );
     const runtime = runtimeRecordSchema.safeParse(
-      await readRecord(path.join(directory, "bb-app-runtime.json")),
+      await readRecord(path.join(directory, "hyperfide-app-runtime.json")),
     );
     let sourcePath =
       launch.success && path.isAbsolute(launch.data.repoRoot)
@@ -161,7 +161,7 @@ export async function inspectDeveloperEntries(
       sourcePath === null &&
       runtime.success &&
       path.isAbsolute(runtime.data.entryPath) &&
-      path.basename(runtime.data.entryPath) === "start-bb.mjs" &&
+      path.basename(runtime.data.entryPath) === "start-hyperfide.mjs" &&
       path.basename(path.dirname(runtime.data.entryPath)) === "scripts"
     )
       sourcePath = path.dirname(path.dirname(runtime.data.entryPath));
@@ -227,7 +227,7 @@ async function isRecordedLauncher(
 
 async function stopInstance(directory: string, signal: AbortSignal) {
   const record = runtimeProcessSchema.safeParse(
-    await readRecord(path.join(directory, "bb-app-runtime.json")),
+    await readRecord(path.join(directory, "hyperfide-app-runtime.json")),
   );
   if (!record.success) return 0;
   const { pid } = record.data;
@@ -256,7 +256,7 @@ export async function removeDeveloperEntries(
   retainWorker: () => { dispose(): void },
 ) {
   assertDeveloperInput(input);
-  if (path.basename(input.rootPath) !== ".bb-dev")
+  if (path.basename(input.rootPath) !== ".hyperfide-dev")
     throw new Error("Invalid developer storage path");
   let root: string;
   try {
@@ -297,7 +297,7 @@ export async function removeDeveloperEntries(
       );
   signal.throwIfAborted();
   const trashes = (await fs.readdir(root))
-    .filter((name) => name.startsWith(".bb-trash-"))
+    .filter((name) => name.startsWith(".hyperfide-trash-"))
     .map((name) => path.join(root, name));
   const removed: string[] = [];
   try {
@@ -314,7 +314,7 @@ export async function removeDeveloperEntries(
         if (!stats.isDirectory()) continue;
         const trash = path.join(
           root,
-          `.bb-trash-${entry.name}-${randomUUID()}`,
+          `.hyperfide-trash-${entry.name}-${randomUUID()}`,
         );
         await fs.rename(source, trash);
         trashes.push(trash);

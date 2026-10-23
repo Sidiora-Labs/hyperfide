@@ -7,7 +7,7 @@
  * public packages the plugin names in `allow`; test files may add the
  * published testing subpaths and the test runner.
  *
- * A `@hyperfide/*` import still typechecks and runs inside bb's own monorepo, which
+ * A `@hyperfide/*` import still typechecks and runs inside hyperfide's own monorepo, which
  * is exactly why it needs a test: the workspace hides the privilege. Inside
  * the monorepo a relative path can climb out of the package into a private
  * package's source just as quietly, so a relative specifier that resolves

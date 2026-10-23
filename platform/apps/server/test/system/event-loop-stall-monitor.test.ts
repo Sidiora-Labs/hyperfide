@@ -403,7 +403,7 @@ describe("event loop stall monitor", () => {
     installHistogram({ maxDelayMs: 0, meanDelayMs: 0, p99DelayMs: 0 });
     const db = createMigratedConnection();
     setExperiments(db, { performanceDiagnostics: true });
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-profile-attribution-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-profile-attribution-"));
     const logger = { info: vi.fn(), warn: vi.fn() };
     const stringify = JSON.stringify;
     const serializedProfiles: unknown[] = [];

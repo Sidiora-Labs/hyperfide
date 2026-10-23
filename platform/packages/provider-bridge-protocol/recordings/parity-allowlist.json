@@ -125,7 +125,7 @@
     "layer": "events",
     "path": "/*/item/server",
     "pr": "#2164",
-    "reason": "Q31: a call to a bb-injected tool (AskUserQuestion) now carries server \"bb\" beside the tool name; codex's own dynamic tools stay unqualified."
+    "reason": "Q31: a call to a hyperfide-injected tool (AskUserQuestion) now carries server \"hyperfide\" beside the tool name; codex's own dynamic tools stay unqualified."
   },
   {
     "provider": "codex",
@@ -797,7 +797,7 @@
     "layer": "rows",
     "path": "/",
     "pr": "#2232",
-    "reason": "Layer 5 deleted core's tool-name suppression set; a bb-injected tool row hides only through the `suppress` the server resolves onto the tool definition. This immutable v2 recording's thread/start predates that field, so the replayed AskUserQuestion call renders as a generic tool row inside a turn (the old leg hid it by name) and the rows layer is not comparable by pointer. Re-record the cell to drop this entry."
+    "reason": "Layer 5 deleted core's tool-name suppression set; a hyperfide-injected tool row hides only through the `suppress` the server resolves onto the tool definition. This immutable v2 recording's thread/start predates that field, so the replayed AskUserQuestion call renders as a generic tool row inside a turn (the old leg hid it by name) and the rows layer is not comparable by pointer. Re-record the cell to drop this entry."
   },
   {
     "provider": "acp-cursor",

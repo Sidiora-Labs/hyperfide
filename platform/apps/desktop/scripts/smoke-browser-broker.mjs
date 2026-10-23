@@ -23,7 +23,7 @@ if (values.help) {
   );
   process.exit(0);
 }
-const artifacts = await mkdtemp(join(tmpdir(), "bb-browser-broker-smoke-"));
+const artifacts = await mkdtemp(join(tmpdir(), "hyperfide-browser-broker-smoke-"));
 const releaseChecksum =
   "986362bf28dec2463ff80f9e06fc9f1d9765f187f5a4ab2245ed77bef8216a6d";
 const releaseUrl =
@@ -78,8 +78,8 @@ try {
     HOME: process.env.HOME,
     LANG: process.env.LANG ?? "C.UTF-8",
     NODE_ENV: "test",
-    BB_DATA_DIR: join(artifacts, "bb-data"),
-    BB_SERVER_URL: "http://127.0.0.1:1",
+    HYPERFIDE_DATA_DIR: join(artifacts, "hyperfide-data"),
+    HYPERFIDE_SERVER_URL: "http://127.0.0.1:1",
   };
   const child = spawn(
     process.execPath,

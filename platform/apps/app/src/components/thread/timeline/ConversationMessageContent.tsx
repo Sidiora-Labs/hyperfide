@@ -391,7 +391,7 @@ function UserConversationMessage({
       : initiator === "system"
         ? {
             sourceKind: "system" as const,
-            sourceName: "BB",
+            sourceName: "HYPERFIDE",
             sourceProjectId: null,
             sourceThreadId: null,
             sourceIsPluginSideChat: false,
@@ -528,7 +528,7 @@ function AssistantConversationMessage({
 }: AssistantConversationMessageProps) {
   useLayoutEffect(() => {
     if (streaming) {
-      markStreamTrace("bb:stream-row-commit", {
+      markStreamTrace("hyperfide:stream-row-commit", {
         rowId: id,
         threadId: threadId ?? null,
         textLength: text.length,

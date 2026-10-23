@@ -6,7 +6,7 @@ import {
 import { Command } from "commander";
 import { jsonValueSchema, type Host, type JsonValue } from "@hyperfide/domain";
 import { action, CliExitError } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliHyperfideSdk } from "../client.js";
 import { columnWidths, printBorderlessTable } from "../table.js";
 import { outputJson } from "./helpers.js";
 import { confirmDestructiveAction } from "./helpers.js";
@@ -182,7 +182,7 @@ export async function resolveMachineHostId(args: {
   serverUrl: string;
   target: string;
 }): Promise<string> {
-  const hosts = await createCliBbSdk(args.serverUrl).hosts.list({
+  const hosts = await createCliHyperfideSdk(args.serverUrl).hosts.list({
     includeCreating: true,
   });
   const hostId = resolveMachineId(hosts, args.target);
@@ -267,7 +267,7 @@ export function registerMachineCommands(
         const cancel = () => controller.abort();
         process.once("SIGINT", cancel);
         try {
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           controller.signal.throwIfAborted();
           let host = await sdk.hosts.experimental_create({
             machineProviderId,
@@ -340,7 +340,7 @@ export function registerMachineCommands(
     .action(
       action(async (opts: MachineListCommandOptions) => {
         const providers =
-          await createCliBbSdk(getUrl()).hosts.experimental_listProviders();
+          await createCliHyperfideSdk(getUrl()).hosts.experimental_listProviders();
         if (outputJson(opts, providers)) return;
         if (providers.length === 0) {
           console.log("No machine providers found");
@@ -364,7 +364,7 @@ export function registerMachineCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: MachineEnumerationOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const hosts = await sdk.hosts.list({
           includeCreating: true,
           ...(opts.all ? {} : { type: "persistent" }),
@@ -385,7 +385,7 @@ export function registerMachineCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (target: string, opts: MachineListCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const hostId = await resolveMachineHostId({
           serverUrl: getUrl(),
           target,
@@ -406,7 +406,7 @@ export function registerMachineCommands(
           serverUrl: getUrl(),
           target,
         });
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const reconnect = await sdk.hosts.experimental_reconnect({ hostId });
         if (opts.json) {
           outputJson(opts, reconnect);
@@ -445,7 +445,7 @@ export function registerMachineCommands(
           name: string,
           opts: MachineListCommandOptions,
         ) => {
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const hostId = await resolveMachineHostId({
             serverUrl: getUrl(),
             target,
@@ -468,7 +468,7 @@ export function registerMachineCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (target: string, opts: MachineRemoveCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const hostId = await resolveMachineHostId({
           serverUrl: getUrl(),
           target,
@@ -497,7 +497,7 @@ export function registerMachineCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (target: string, opts: MachineListCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const hostId = await resolveMachineHostId({
           serverUrl: getUrl(),
           target,
@@ -514,7 +514,7 @@ export function registerMachineCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (target: string, opts: MachineListCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const hostId = await resolveMachineHostId({
           serverUrl: getUrl(),
           target,
@@ -539,7 +539,7 @@ export function registerMachineCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (target: string, opts: MachineListCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const hostId = await resolveMachineHostId({
           serverUrl: getUrl(),
           target,
@@ -561,7 +561,7 @@ export function registerMachineCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (target: string, opts: MachineListCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const hostId = await resolveMachineHostId({
           serverUrl: getUrl(),
           target,
@@ -583,7 +583,7 @@ export function registerMachineCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (target: string, opts: MachineListCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const hostId = await resolveMachineHostId({
           serverUrl: getUrl(),
           target,
@@ -603,7 +603,7 @@ export function registerMachineCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (target: string, opts: MachineListCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const hostId = await resolveMachineHostId({
           serverUrl: getUrl(),
           target,
@@ -628,7 +628,7 @@ export function registerMachineCommands(
           if (opts.action !== "install" && opts.action !== "update") {
             throw new Error("--action must be install or update.");
           }
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliHyperfideSdk(getUrl());
           const hostId = await resolveMachineHostId({
             serverUrl: getUrl(),
             target,

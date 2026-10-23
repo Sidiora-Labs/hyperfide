@@ -3,7 +3,7 @@
   "name": "input",
   "type": "registry:ui",
   "title": "input",
-  "description": "BB ui \"input\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"input\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/coarse-pointer-sizing",
     "@hyperfide/motion",

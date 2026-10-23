@@ -2,7 +2,7 @@ ALTER TABLE `app_settings` ADD `onboarding_completed_at` text;--> statement-brea
 -- Existing installs predate first-run onboarding, so stamp them as already
 -- onboarded rather than showing a setup flow to someone mid-project. Having a
 -- real (non-personal) project is the signal: it can only exist if the user has
--- already set bb up. Doing this here, once, rather than in the client keeps
+-- already set hyperfide up. Doing this here, once, rather than in the client keeps
 -- `onboarding_completed_at IS NULL` meaning exactly one thing afterwards —
 -- "show the flow" — so Settings can re-trigger it by clearing the column.
 -- The settings row only exists once something has been saved, so an existing

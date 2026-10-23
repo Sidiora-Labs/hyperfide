@@ -6,25 +6,25 @@ import {
   experimental_Icon,
   experimental_usePluginId,
   experimental_useQuestionFormHost,
-  useBbContext,
+  useHyperfideContext,
 } from "../../app.js";
 import { installTestPluginRuntime, loadPluginApp, renderSlot } from "../app.js";
 
 interface RuntimeHost {
-  __bbPluginRuntime?: unknown;
+  __hyperfidePluginRuntime?: unknown;
 }
 
 const host = globalThis as RuntimeHost;
-const runtimeAtImport = host.__bbPluginRuntime;
+const runtimeAtImport = host.__hyperfidePluginRuntime;
 const Icon = experimental_Icon;
 
 afterEach(() => {
   cleanup();
-  host.__bbPluginRuntime = runtimeAtImport;
+  host.__hyperfidePluginRuntime = runtimeAtImport;
 });
 
 function ContextProbe() {
-  const context = useBbContext();
+  const context = useHyperfideContext();
   return (
     <p>
       <Icon name="Folder" aria-label="folder" />
@@ -47,7 +47,7 @@ describe("@hyperfide/plugin-sdk/app without a runtime at import time", () => {
       });
     });
 
-    expect(definition.__bbPluginApp).toBe(true);
+    expect(definition.__hyperfidePluginApp).toBe(true);
     const app = await loadPluginApp(definition);
     expect(app.homepageSections.map((section) => section.id)).toEqual([
       "probe",
@@ -68,9 +68,9 @@ describe("@hyperfide/plugin-sdk/app without a runtime at import time", () => {
   });
 
   it("names the missing runtime when a hook runs without one", () => {
-    host.__bbPluginRuntime = undefined;
+    host.__hyperfidePluginRuntime = undefined;
     expect(() => render(<ContextProbe />)).toThrow(
-      /useBbContext needs the bb app's plugin runtime/,
+      /useHyperfideContext needs the hyperfide app's plugin runtime/,
     );
   });
 
@@ -120,7 +120,7 @@ describe("@hyperfide/plugin-sdk/app without a runtime at import time", () => {
 describe("registered page title test host", () => {
   it("evaluates registered hooks in the slot scope and clears the result on unmount", () => {
     function usePageTitle({ subPath }: { subPath: string }) {
-      const { projectId } = useBbContext();
+      const { projectId } = useHyperfideContext();
       return { title: `${projectId}/${subPath}` };
     }
     const slot = renderSlot(

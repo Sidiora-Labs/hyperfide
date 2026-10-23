@@ -16,7 +16,7 @@ describe("turn-start watchdog", () => {
   let runtime: LaunchBoundAgentRuntime | null = null;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "bb-runtime-watchdog-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "hyperfide-runtime-watchdog-"));
   });
 
   afterEach(async () => {

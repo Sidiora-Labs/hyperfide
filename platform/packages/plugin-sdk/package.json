@@ -1,13 +1,13 @@
 {
   "name": "@hyperfide/plugin-sdk",
   "version": "0.6.73",
-  "homepage": "https://github.com/get-bb/bb#readme",
+  "homepage": "https://github.com/hyperfide/hyperfide#readme",
   "bugs": {
-    "url": "https://github.com/get-bb/bb/issues"
+    "url": "https://github.com/hyperfide/hyperfide/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/get-bb/bb.git",
+    "url": "git+https://github.com/hyperfide/hyperfide.git",
     "directory": "packages/plugin-sdk"
   },
   "type": "module",
@@ -22,126 +22,126 @@
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "types": "./bundled-types/bb-plugin-sdk.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./provider-bridge": {
       "source": "./src/provider-bridge.ts",
-      "types": "./bundled-types/bb-plugin-sdk-provider-bridge.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-provider-bridge.d.ts",
       "import": "./dist/provider-bridge.js",
       "default": "./dist/provider-bridge.js"
     },
     "./provider-bridge/testing": {
       "source": "./src/provider-bridge-testing.ts",
-      "types": "./bundled-types/bb-plugin-sdk-provider-bridge-testing.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-provider-bridge-testing.d.ts",
       "import": "./dist/provider-bridge-testing.js",
       "default": "./dist/provider-bridge-testing.js"
     },
     "./provider-bridge/acp": {
       "source": "./src/provider-bridge-acp.ts",
-      "types": "./bundled-types/bb-plugin-sdk-provider-bridge-acp.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-provider-bridge-acp.d.ts",
       "import": "./dist/provider-bridge-acp.js",
       "default": "./dist/provider-bridge-acp.js"
     },
     "./provider-bridge/acp-next": {
       "source": "./src/provider-bridge-acp-next.ts",
-      "types": "./bundled-types/bb-plugin-sdk-provider-bridge-acp-next.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-provider-bridge-acp-next.d.ts",
       "import": "./dist/provider-bridge-acp-next.js",
       "default": "./dist/provider-bridge-acp-next.js"
     },
     "./environment-provider": {
       "source": "./src/environment-provider.ts",
-      "types": "./bundled-types/bb-plugin-sdk-environment-provider.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-environment-provider.d.ts",
       "import": "./dist/environment-provider.js",
       "default": "./dist/environment-provider.js"
     },
     "./machine-provider": {
       "source": "./src/machine-provider.ts",
-      "types": "./bundled-types/bb-plugin-sdk-machine-provider.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-machine-provider.d.ts",
       "import": "./dist/machine-provider.js",
       "default": "./dist/machine-provider.js"
     },
     "./app": {
       "source": "./src/app.ts",
-      "types": "./bundled-types/bb-plugin-sdk-app.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-app.d.ts",
       "import": "./dist/app.js",
       "default": "./dist/app.js"
     },
     "./host": {
       "source": "./src/host.ts",
-      "types": "./bundled-types/bb-plugin-sdk-host.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-host.d.ts",
       "import": "./dist/host.js",
       "default": "./dist/host.js"
     },
     "./internal/composer-customization-validation": {
       "source": "./src/internal/composer-customization-validation.ts",
-      "types": "./bundled-types/bb-plugin-sdk-internal-composer-customization-validation.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-internal-composer-customization-validation.d.ts",
       "import": "./dist/internal/composer-customization-validation.js",
       "default": "./dist/internal/composer-customization-validation.js"
     },
     "./internal/composer-handle": {
       "source": "./src/internal/composer-handle.ts",
-      "types": "./bundled-types/bb-plugin-sdk-internal-composer-handle.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-internal-composer-handle.d.ts",
       "import": "./dist/internal/composer-handle.js",
       "default": "./dist/internal/composer-handle.js"
     },
     "./internal/composer-view": {
       "source": "./src/internal/composer-view.ts",
-      "types": "./bundled-types/bb-plugin-sdk-internal-composer-view.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-internal-composer-view.d.ts",
       "import": "./dist/internal/composer-view.js",
       "default": "./dist/internal/composer-view.js"
     },
     "./internal/file-navigation-validation": {
       "source": "./src/internal/file-navigation-validation.ts",
-      "types": "./bundled-types/bb-plugin-sdk-internal-file-navigation-validation.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-internal-file-navigation-validation.d.ts",
       "import": "./dist/internal/file-navigation-validation.js",
       "default": "./dist/internal/file-navigation-validation.js"
     },
     "./internal/host-policy": {
       "source": "./src/internal/host-policy.ts",
-      "types": "./bundled-types/bb-plugin-sdk-internal-host-policy.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-internal-host-policy.d.ts",
       "import": "./dist/internal/host-policy.js",
       "default": "./dist/internal/host-policy.js"
     },
     "./internal/plugin-app-collector": {
       "source": "./src/internal/plugin-app-collector.ts",
-      "types": "./bundled-types/bb-plugin-sdk-internal-plugin-app-collector.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-internal-plugin-app-collector.d.ts",
       "import": "./dist/internal/plugin-app-collector.js",
       "default": "./dist/internal/plugin-app-collector.js"
     },
     "./testing": {
       "source": "./src/testing/index.ts",
-      "types": "./bundled-types/bb-plugin-sdk-testing.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-testing.d.ts",
       "import": "./dist/testing/index.js",
       "default": "./dist/testing/index.js"
     },
     "./testing/app": {
       "source": "./src/testing/app.tsx",
-      "types": "./bundled-types/bb-plugin-sdk-testing-app.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-testing-app.d.ts",
       "import": "./dist/testing/app.js",
       "default": "./dist/testing/app.js"
     },
     "./testing/host": {
       "source": "./src/testing/host.ts",
-      "types": "./bundled-types/bb-plugin-sdk-testing-host.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-testing-host.d.ts",
       "import": "./dist/testing/host.js",
       "default": "./dist/testing/host.js"
     },
     "./internal/rpc-tags": {
       "source": "./src/internal/rpc-tags.ts",
-      "types": "./bundled-types/bb-plugin-sdk-internal-rpc-tags.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-internal-rpc-tags.d.ts",
       "import": "./dist/internal/rpc-tags.js",
       "default": "./dist/internal/rpc-tags.js"
     },
     "./internal/rpc-query-host": {
       "source": "./src/internal/rpc-query-host.ts",
-      "types": "./bundled-types/bb-plugin-sdk-internal-rpc-query-host.d.ts",
+      "types": "./bundled-types/hyperfide-plugin-sdk-internal-rpc-query-host.d.ts",
       "import": "./dist/internal/rpc-query-host.js",
       "default": "./dist/internal/rpc-query-host.js"
     }
   },
-  "types": "./bundled-types/bb-plugin-sdk.d.ts",
+  "types": "./bundled-types/hyperfide-plugin-sdk.d.ts",
   "scripts": {
     "build": "node scripts/build-runtime.mjs",
     "build:runtime": "node scripts/build-runtime.mjs",

@@ -185,7 +185,7 @@ export function resolveThreadForkPoint(
   }
   if (sourceSession.kind === "ambiguous") {
     forkPointUnavailable(
-      "Cannot fork: another thread announced the source thread's provider session at the same moment, so bb cannot tell whose it is",
+      "Cannot fork: another thread announced the source thread's provider session at the same moment, so hyperfide cannot tell whose it is",
     );
   }
   if (sourceSession.kind === "foreign") {

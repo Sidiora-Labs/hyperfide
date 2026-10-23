@@ -19,7 +19,7 @@ import {
   type PluginServiceDeps,
   type PluginService,
 } from "../../../src/services/plugins/plugin-service.js";
-import type { BbPluginApi } from "../../../src/services/plugins/plugin-api.js";
+import type { HyperfidePluginApi } from "../../../src/services/plugins/plugin-api.js";
 import {
   seedHostSession,
   seedEnvironment,
@@ -50,7 +50,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "SDK fixture",
         description: "Plugin SDK fixture.",
         branding: { icon: "Zap" },
@@ -66,7 +66,7 @@ async function writePlugin(
   return rootDir;
 }
 
-function requireApi(service: PluginService, pluginId: string): BbPluginApi {
+function requireApi(service: PluginService, pluginId: string): HyperfidePluginApi {
   const api = service.getApi(pluginId);
   if (!api) throw new Error(`plugin ${pluginId} is not running`);
   return api;
@@ -105,7 +105,7 @@ function agentConfigurationContext(
   };
 }
 
-describe("plugin bb.sdk bind gate", () => {
+describe("plugin hyperfide.sdk bind gate", () => {
   let db: DbConnection;
   let workDir: string;
   let service: PluginService;
@@ -149,7 +149,7 @@ describe("plugin bb.sdk bind gate", () => {
   it("discovers only published methods from live implementations and removes them on disable", async () => {
     for (const id of ["usage-a", "usage-b"]) {
       const rootDir = await writePlugin(workDir, {
-        name: `bb-plugin-${id}`,
+        name: `hyperfide-plugin-${id}`,
         serverSource: `export default function plugin() {}`,
       });
       await service.installPath(rootDir);
@@ -187,7 +187,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-sdk-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-sdk-test-"));
     sharedPorts.declareSharedPorts.mockClear();
     sharedPorts.validateSharedPortDeclaration.mockClear();
     sharedPorts.replaceDeclarationsForOwner.mockClear();
@@ -198,7 +198,7 @@ describe("plugin bb.sdk bind gate", () => {
     ensureSharedPortTunnel.mockClear();
     callPluginHost.mockClear();
     disposePluginHost.mockClear();
-    appUrl = "https://bb.example.test";
+    appUrl = "https://hyperfide.example.test";
     pluginHostArtifacts = new PluginHostArtifactRegistry();
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
@@ -232,14 +232,14 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("throws a descriptive error before bindSdk and resolves after", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-gate",
+      name: "hyperfide-plugin-gate",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
     const api = requireApi(service, "gate");
 
     expect(() => api.sdk).toThrow(
-      /bb\.sdk is not available until the server is listening/,
+      /hyperfide\.sdk is not available until the server is listening/,
     );
 
     service.bindSdk({ baseUrl: "http://127.0.0.1:9" });
@@ -249,7 +249,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("rejects unsafe plugin metadata before transport serialization", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-metadata-boundary",
+      name: "hyperfide-plugin-metadata-boundary",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
@@ -298,11 +298,11 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("preserves no-context spawn and fork attribution", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-metadata-attribution",
+      name: "hyperfide-plugin-metadata-attribution",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
-    service.bindSdk({ baseUrl: "https://bb.example.test" });
+    service.bindSdk({ baseUrl: "https://hyperfide.example.test" });
     const api = requireApi(service, "metadata-attribution");
     const requests: unknown[] = [];
     vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
@@ -357,20 +357,20 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("serves the current public app URL without the SDK bind gate", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-app-url",
+      name: "hyperfide-plugin-app-url",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
     const api = requireApi(service, "app-url");
 
-    expect(api.server.experimental_appUrl).toBe("https://bb.example.test");
+    expect(api.server.experimental_appUrl).toBe("https://hyperfide.example.test");
     appUrl = null;
     expect(api.server.experimental_appUrl).toBeNull();
   });
 
   it("delivers shared-port declarations through the server control plane", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-shares",
+      name: "hyperfide-plugin-shares",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
@@ -398,7 +398,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("keeps hosted machine tunnels disabled without querying the control plane", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-next",
+      name: "hyperfide-plugin-next",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);
@@ -429,7 +429,7 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("binds typed host calls and ignores worker exits from stale generations", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-host-client",
+      name: "hyperfide-plugin-host-client",
       serverSource: `export default function plugin() {}`,
       hostSource: `
         const schema = { "~standard": { validate(value) { return { value }; } } };
@@ -530,13 +530,13 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("rejects host calls during candidate factory registration", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-eager-host-client",
+      name: "hyperfide-plugin-eager-host-client",
       serverSource: `
         import { defineRpcContract } from "@hyperfide/plugin-sdk";
         const schema = { "~standard": { validate(value: unknown) { return { value }; } } };
         const contract = defineRpcContract({ ping: { input: schema, output: schema } });
-        export default async function plugin(bb: any) {
-          await bb.hosts.experimental_client({ contract }).call(
+        export default async function plugin(hyperfide: any) {
+          await hyperfide.hosts.experimental_client({ contract }).call(
             "ping",
             {},
             { hostId: "host-1" },
@@ -563,10 +563,10 @@ describe("plugin bb.sdk bind gate", () => {
 
   it("does not publish candidate host declarations when reload fails", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-atomic-shares",
+      name: "hyperfide-plugin-atomic-shares",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.hosts.declareSharedPorts("host-1", [3000]);
+        export default function plugin(hyperfide: any) {
+          hyperfide.hosts.declareSharedPorts("host-1", [3000]);
         }
       `,
     });
@@ -581,8 +581,8 @@ describe("plugin bb.sdk bind gate", () => {
     await writeFile(
       join(rootDir, "server.ts"),
       `
-        export default function plugin(bb: any) {
-          bb.hosts.declareSharedPorts("host-1", [4000]);
+        export default function plugin(hyperfide: any) {
+          hyperfide.hosts.declareSharedPorts("host-1", [4000]);
           throw new Error("candidate failed");
         }
       `,
@@ -594,16 +594,16 @@ describe("plugin bb.sdk bind gate", () => {
   });
 });
 
-describe("plugin bb.sdk against a running server", () => {
+describe("plugin hyperfide.sdk against a running server", () => {
   it("returns the server-side Standard Schema output after the host JSON wire", async () => {
     const server = await startTestServer();
-    const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-host-transform-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-host-transform-"));
     try {
       const { host } = seedHostSession(server.deps, {
         id: "host-plugin-transform",
       });
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-host-transform",
+        name: "hyperfide-plugin-host-transform",
         serverSource: `export default function plugin() {}`,
         hostSource: `
           const schema = { "~standard": { validate(value) { return { value }; } } };
@@ -658,7 +658,7 @@ describe("plugin bb.sdk against a running server", () => {
 
   it("covers live plugin metadata routes, namespace validation, and lifecycle guards", async () => {
     const server = await startTestServer();
-    const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-metadata-live-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-metadata-live-"));
     try {
       const { host } = seedHostSession(server.deps);
       seedPrimaryHost(server.deps, host.id);
@@ -671,7 +671,7 @@ describe("plugin bb.sdk against a running server", () => {
       });
       server.pluginService.bindSdk({ baseUrl: server.baseUrl });
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-meta-owner",
+        name: "hyperfide-plugin-meta-owner",
         serverSource: `export default function plugin() {}`,
       });
       await server.pluginService.installPath(rootDir);
@@ -775,7 +775,7 @@ describe("plugin bb.sdk against a running server", () => {
           remove: ["x"],
         }),
       ).rejects.toMatchObject({
-        name: "BbHttpError",
+        name: "HyperfideHttpError",
         status: 400,
         code: "invalid_request",
         message: expect.stringContaining("set and remove overlap"),
@@ -819,14 +819,14 @@ describe("plugin bb.sdk against a running server", () => {
   it("fans out frozen metadata without restarting an active turn", async () => {
     const server = await startTestServer();
     const workDir = await mkdtemp(
-      join(tmpdir(), "bb-plugin-metadata-configure-"),
+      join(tmpdir(), "hyperfide-plugin-metadata-configure-"),
     );
     const observationGlobal = globalThis as typeof globalThis & {
-      __bbMetadataSeen?: Record<string, unknown>[];
+      __hyperfideMetadataSeen?: Record<string, unknown>[];
     };
     const takeObservations = () => {
-      const observations = observationGlobal.__bbMetadataSeen ?? [];
-      delete observationGlobal.__bbMetadataSeen;
+      const observations = observationGlobal.__hyperfideMetadataSeen ?? [];
+      delete observationGlobal.__hyperfideMetadataSeen;
       return observations;
     };
     try {
@@ -848,15 +848,15 @@ describe("plugin bb.sdk against a running server", () => {
       const context = agentConfigurationContext(thread.id);
       const make = (name: string) =>
         writePlugin(workDir, {
-          name: `bb-plugin-${name}`,
+          name: `hyperfide-plugin-${name}`,
           serverSource: `
             function deepFrozen(value) {
               return value === null || typeof value !== "object" || (Object.isFrozen(value) && Object.values(value).every(deepFrozen));
             }
-            export default function plugin(bb) {
-              bb.agents.configure((context) => {
-                globalThis.__bbMetadataSeen = globalThis.__bbMetadataSeen || [];
-                globalThis.__bbMetadataSeen.push({ plugin: "${name}", metadata: context.pluginMetadata, deepFrozen: deepFrozen(context.pluginMetadata) });
+            export default function plugin(hyperfide) {
+              hyperfide.agents.configure((context) => {
+                globalThis.__hyperfideMetadataSeen = globalThis.__hyperfideMetadataSeen || [];
+                globalThis.__hyperfideMetadataSeen.push({ plugin: "${name}", metadata: context.pluginMetadata, deepFrozen: deepFrozen(context.pluginMetadata) });
                 return { tools: [], skills: [] };
               });
             }
@@ -867,7 +867,7 @@ describe("plugin bb.sdk against a running server", () => {
       await server.pluginService.installPath(await make("gamma"));
       await server.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-delta",
+          name: "hyperfide-plugin-delta",
           serverSource: `export default function plugin() {}`,
         }),
       );
@@ -911,7 +911,7 @@ describe("plugin bb.sdk against a running server", () => {
           set: { alpha: { own: false }, updated: true },
         }),
       ).resolves.toEqual({ alpha: { own: false }, updated: true });
-      expect(observationGlobal.__bbMetadataSeen).toBeUndefined();
+      expect(observationGlobal.__hyperfideMetadataSeen).toBeUndefined();
       expect(getThread(server.db, thread.id)?.status).toBe("active");
       expect(activeTurnSnapshot).toEqual(alphaMetadata);
 
@@ -973,7 +973,7 @@ describe("plugin bb.sdk against a running server", () => {
         }),
       ).resolves.toEqual({ repaired: true });
     } finally {
-      delete observationGlobal.__bbMetadataSeen;
+      delete observationGlobal.__hyperfideMetadataSeen;
       await server.pluginService.stop();
       await rm(workDir, { recursive: true, force: true });
       await server.close();
@@ -983,11 +983,11 @@ describe("plugin bb.sdk against a running server", () => {
   it("defers a configure provider registered during a pass to the next pass with its stored metadata", async () => {
     const server = await startTestServer();
     const workDir = await mkdtemp(
-      join(tmpdir(), "bb-plugin-metadata-late-configure-"),
+      join(tmpdir(), "hyperfide-plugin-metadata-late-configure-"),
     );
     const lateGlobal = globalThis as typeof globalThis & {
-      __bbLateConfigureSeen?: unknown[];
-      __bbRegisterLateConfigure?: () => void;
+      __hyperfideLateConfigureSeen?: unknown[];
+      __hyperfideRegisterLateConfigure?: () => void;
     };
     try {
       const { host } = seedHostSession(server.deps);
@@ -1006,11 +1006,11 @@ describe("plugin bb.sdk against a running server", () => {
       });
       await server.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-aaa-trigger",
+          name: "hyperfide-plugin-aaa-trigger",
           serverSource: `
-            export default function plugin(bb) {
-              bb.agents.configure(() => {
-                Promise.resolve().then(() => globalThis.__bbRegisterLateConfigure?.());
+            export default function plugin(hyperfide) {
+              hyperfide.agents.configure(() => {
+                Promise.resolve().then(() => globalThis.__hyperfideRegisterLateConfigure?.());
                 return { tools: [], skills: [] };
               });
             }
@@ -1019,14 +1019,14 @@ describe("plugin bb.sdk against a running server", () => {
       );
       await server.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-bbb-late",
+          name: "hyperfide-plugin-bbb-late",
           serverSource: `
-            export default function plugin(bb) {
-              globalThis.__bbRegisterLateConfigure = () => {
-                delete globalThis.__bbRegisterLateConfigure;
-                bb.agents.configure((context) => {
-                  globalThis.__bbLateConfigureSeen = globalThis.__bbLateConfigureSeen || [];
-                  globalThis.__bbLateConfigureSeen.push(context.pluginMetadata);
+            export default function plugin(hyperfide) {
+              globalThis.__hyperfideRegisterLateConfigure = () => {
+                delete globalThis.__hyperfideRegisterLateConfigure;
+                hyperfide.agents.configure((context) => {
+                  globalThis.__hyperfideLateConfigureSeen = globalThis.__hyperfideLateConfigureSeen || [];
+                  globalThis.__hyperfideLateConfigureSeen.push(context.pluginMetadata);
                   return { tools: [], skills: [] };
                 });
               };
@@ -1045,17 +1045,17 @@ describe("plugin bb.sdk against a running server", () => {
         context,
         skillIdsByPlugin: new Map(),
       });
-      expect(lateGlobal.__bbRegisterLateConfigure).toBeUndefined();
-      expect(lateGlobal.__bbLateConfigureSeen).toBeUndefined();
+      expect(lateGlobal.__hyperfideRegisterLateConfigure).toBeUndefined();
+      expect(lateGlobal.__hyperfideLateConfigureSeen).toBeUndefined();
 
       await server.pluginService.resolveAgentConfiguration({
         context,
         skillIdsByPlugin: new Map(),
       });
-      expect(lateGlobal.__bbLateConfigureSeen).toEqual([{ own: true }]);
+      expect(lateGlobal.__hyperfideLateConfigureSeen).toEqual([{ own: true }]);
     } finally {
-      delete lateGlobal.__bbLateConfigureSeen;
-      delete lateGlobal.__bbRegisterLateConfigure;
+      delete lateGlobal.__hyperfideLateConfigureSeen;
+      delete lateGlobal.__hyperfideRegisterLateConfigure;
       await server.pluginService.stop();
       await rm(workDir, { recursive: true, force: true });
       await server.close();
@@ -1064,12 +1064,12 @@ describe("plugin bb.sdk against a running server", () => {
 
   it("tells rpc handlers which plugin called them and treats every other caller as a client", async () => {
     const server = await startTestServer();
-    const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-rpc-caller-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-rpc-caller-"));
     try {
       server.pluginService.bindSdk({ baseUrl: server.baseUrl });
       for (const name of ["callee", "caller"]) {
         const rootDir = await writePlugin(workDir, {
-          name: `bb-plugin-${name}`,
+          name: `hyperfide-plugin-${name}`,
           serverSource: `export default function plugin() {}`,
         });
         expect((await server.pluginService.installPath(rootDir)).status).toBe(
@@ -1126,7 +1126,7 @@ describe("plugin bb.sdk against a running server", () => {
           method: "POST",
           headers: {
             "content-type": "application/json",
-            "x-bb-plugin-caller": "not-a-real-token",
+            "x-hyperfide-plugin-caller": "not-a-real-token",
           },
           body: "null",
         },
@@ -1154,7 +1154,7 @@ describe("plugin bb.sdk against a running server", () => {
 
   it("keeps hidden plugin threads attributed and directly operable by id", async () => {
     const server = await startTestServer();
-    const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-sdk-live-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-sdk-live-"));
     try {
       const { host } = seedHostSession(server.deps);
       seedPrimaryHost(server.deps, host.id);
@@ -1170,7 +1170,7 @@ describe("plugin bb.sdk against a running server", () => {
 
       server.pluginService.bindSdk({ baseUrl: server.baseUrl });
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-spawner",
+        name: "hyperfide-plugin-spawner",
         serverSource: `export default function plugin() {}`,
       });
       const entry = await server.pluginService.installPath(rootDir);

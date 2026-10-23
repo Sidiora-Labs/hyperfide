@@ -1,13 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
-  createNodeBbSdk,
+  createNodeHyperfideSdk,
   createRequestTimeoutFetch,
   DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS,
-  type BbSdk,
+  type HyperfideSdk,
 } from "@hyperfide/sdk";
 import type { ExperimentalPluginRpcCaller } from "@hyperfide/plugin-sdk";
 
-export const PLUGIN_RPC_CALLER_HEADER = "x-bb-plugin-caller";
+export const PLUGIN_RPC_CALLER_HEADER = "x-hyperfide-plugin-caller";
 
 export interface PluginRpcCallerCredential {
   readonly token: string;
@@ -54,11 +54,11 @@ export function createPluginRpcCallerRegistry(): PluginRpcCallerRegistry {
 export function createPluginRpcCallerSdk(args: {
   baseUrl: string;
   token: string;
-}): BbSdk {
+}): HyperfideSdk {
   const timeoutFetch = createRequestTimeoutFetch({
     timeoutMs: DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS,
   });
-  return createNodeBbSdk({
+  return createNodeHyperfideSdk({
     baseUrl: args.baseUrl,
     fetch: (input, init) => {
       const headers = new Headers(init?.headers);

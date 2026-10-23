@@ -395,7 +395,7 @@ async function downloadTo(
   const response = await fetch(url, {
     signal,
     redirect: "follow",
-    headers: { "user-agent": "bb-plugin-browser-automation" },
+    headers: { "user-agent": "hyperfide-plugin-browser-automation" },
   });
   if (!response.ok || !response.body)
     throw new Error(`HTTP ${response.status} while downloading ${url}`);
@@ -429,7 +429,7 @@ async function fetchText(url: string, signal: AbortSignal): Promise<string> {
   const response = await fetch(url, {
     signal,
     redirect: "follow",
-    headers: { "user-agent": "bb-plugin-browser-automation" },
+    headers: { "user-agent": "hyperfide-plugin-browser-automation" },
   });
   if (!response.ok)
     throw new Error(`HTTP ${response.status} while downloading ${url}`);
@@ -576,7 +576,7 @@ export async function installRuntime(
         join(staging, "package.json"),
         JSON.stringify(
           {
-            name: "bb-dev-browser-runtime",
+            name: "hyperfide-dev-browser-runtime",
             private: true,
             dependencies: { [release.package]: release.version },
           },

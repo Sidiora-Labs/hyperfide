@@ -5,7 +5,7 @@ import type {
   PluginCliResult,
 } from "./backend-contract.js";
 
-/** Duration suffixes, shared with the core `bb` CLI grammar. */
+/** Duration suffixes, shared with the core `hyperfide` CLI grammar. */
 export type PluginCliDurationUnit = "ms" | "s" | "m" | "h" | "d";
 
 /**
@@ -32,7 +32,7 @@ interface PluginCliOptionBase {
   /** Value placeholder in help and usage; defaults to the value type. */
   placeholder?: string;
   /**
-   * Recognize `--<name>-stdin`. The `bb` CLI reads that value from stdin and
+   * Recognize `--<name>-stdin`. The `hyperfide` CLI reads that value from stdin and
    * rewrites it to `--<name> <value>` before the plugin runs, so a command
    * that still sees it reports that instead of "unknown option".
    */
@@ -207,14 +207,14 @@ export interface PluginCliCommand {
   ): PluginCliResult | Promise<PluginCliResult>;
 }
 
-/** The declarative CLI a plugin hands to `bb.cli.register`. */
+/** The declarative CLI a plugin hands to `hyperfide.cli.register`. */
 export interface PluginCliSpec {
-  /** Top-level command name (`bb <name> …`): lowercase `[a-z0-9-]+`. */
+  /** Top-level command name (`hyperfide-platform <name> …`): lowercase `[a-z0-9-]+`. */
   name: string;
   summary: string;
   /** Prose printed under the summary in top-level help. */
   description?: string;
-  /** Runs when the invocation names no command (`bb connect --code …`). */
+  /** Runs when the invocation names no command (`hyperfide-platform connect --code …`). */
   root?: PluginCliCommand;
   /** Commands keyed by invocation path (`"add"`, `"account add"`). */
   commands: Record<string, PluginCliCommand>;
@@ -403,7 +403,11 @@ function usageLine(
   path: string,
   command: PluginCliCommand,
 ): string {
-  const parts = [path ? `bb ${cliName} ${path}` : `bb ${cliName}`];
+  const parts = [
+    path
+      ? `hyperfide-platform ${cliName} ${path}`
+      : `hyperfide-platform ${cliName}`,
+  ];
   for (const positional of command.positionals ?? []) {
     const token = positional.variadic
       ? `<${positional.name}...>`
@@ -440,7 +444,8 @@ function optionHelpRow(
   if (isRepeatable(option)) markers.push("repeatable");
   const fallback = defaultOf(option);
   if (fallback !== undefined) markers.push(`default: ${fallback}`);
-  if (option.stdin === true) markers.push(`or --${name}-stdin from the bb CLI`);
+  if (option.stdin === true)
+    markers.push(`or --${name}-stdin from the hyperfide-platform CLI`);
   const suffix = markers.length > 0 ? ` (${markers.join(", ")})` : "";
   return [optionSignature(name, option), `${option.description}${suffix}`];
 }
@@ -498,17 +503,17 @@ function rulesSection(command: PluginCliCommand): string[] {
 
 function commandRows(spec: PluginCliSpec): Array<[string, string]> {
   return visibleCommands(spec).map(([path, command]) => [
-    `bb ${spec.name} ${path}`,
+    `hyperfide-platform ${spec.name} ${path}`,
     command.summary,
   ]);
 }
 
 function renderTopLevelHelp(spec: PluginCliSpec): string {
-  const lines = [`bb ${spec.name} — ${spec.summary}`];
+  const lines = [`hyperfide-platform ${spec.name} — ${spec.summary}`];
   if (spec.description !== undefined) lines.push("", spec.description);
   lines.push("", "Usage:");
   if (spec.root) lines.push(`  ${usageLine(spec.name, "", spec.root)}`);
-  lines.push(`  bb ${spec.name} <command> [options]`);
+  lines.push(`  hyperfide-platform ${spec.name} <command> [options]`);
   const rows = commandRows(spec);
   if (rows.length > 0) lines.push("", "Commands:", ...padColumns(rows));
   if (spec.root) {
@@ -516,7 +521,7 @@ function renderTopLevelHelp(spec: PluginCliSpec): string {
   }
   lines.push(
     "",
-    `Run \`bb ${spec.name} <command> --help\` for a command's arguments and options.`,
+    `Run \`hyperfide-platform ${spec.name} <command> --help\` for a command's arguments and options.`,
   );
   return `${lines.join("\n")}\n`;
 }
@@ -528,7 +533,7 @@ function renderHelp(
   if (resolved === null) return renderTopLevelHelp(spec);
   const { path, command } = resolved;
   const lines = [
-    `bb ${spec.name} ${path} — ${command.summary}`,
+    `hyperfide-platform ${spec.name} ${path} — ${command.summary}`,
     "",
     "Usage:",
     `  ${usageLine(spec.name, path, command)}`,
@@ -554,7 +559,10 @@ function commandGroupRows(
         words.every((word, index) => pathWords[index] === word)
       );
     })
-    .map(([path, command]) => [`bb ${spec.name} ${path}`, command.summary]);
+    .map(([path, command]) => [
+      `hyperfide-platform ${spec.name} ${path}`,
+      command.summary,
+    ]);
 }
 
 function renderGroupHelp(
@@ -562,7 +570,7 @@ function renderGroupHelp(
   words: readonly string[],
   rows: Array<[string, string]>,
 ): string {
-  const group = `bb ${spec.name} ${words.join(" ")}`;
+  const group = `hyperfide-platform ${spec.name} ${words.join(" ")}`;
   return `${[
     `${group} — commands`,
     "",
@@ -773,8 +781,8 @@ function tokenize(
       if (stdinTarget !== undefined && options[stdinTarget]?.stdin === true) {
         throw fail({
           code: "invalid_value",
-          message: `--${spelled} is read by the bb CLI, which rewrites it to --${stdinTarget} <value> before this command runs`,
-          hint: `Pass --${stdinTarget} <value> here, or run this through the bb CLI.`,
+          message: `--${spelled} is read by the hyperfide-platform CLI, which rewrites it to --${stdinTarget} <value> before this command runs`,
+          hint: `Pass --${stdinTarget} <value> here, or run this through the hyperfide-platform CLI.`,
         });
       }
       const suggestion = nearest(
@@ -1105,7 +1113,7 @@ function assertValidSpec(spec: PluginCliSpec): void {
   );
   if (spec.root !== undefined) entries.push(["", spec.root]);
   for (const [path, command] of entries) {
-    const label = `bb ${[spec.name, path].filter((part) => part.length > 0).join(" ")}`;
+    const label = `hyperfide-platform ${[spec.name, path].filter((part) => part.length > 0).join(" ")}`;
     const spellings = new Map<string, string>([
       ["help", "the built-in --help"],
     ]);
@@ -1217,7 +1225,7 @@ export function defineCli(spec: PluginCliSpec): PluginCliRegistration {
             const failure: UsageFailure = {
               code: "missing_command",
               message: "missing command",
-              hint: `Run \`bb ${spec.name} --help\` for the command list.`,
+              hint: `Run \`hyperfide-platform ${spec.name} --help\` for the command list.`,
               exitCode: spec.usageErrorExitCode ?? 1,
             };
             if (!wantsJson) {

@@ -15,7 +15,7 @@ export default definePluginApp((app) => {
     id: "composer",
     title: "Composer",
     description:
-      "bb's composer: rich text, @-mentions, slash commands, voice and attachments.",
+      "hyperfide's composer: rich text, @-mentions, slash commands, voice and attachments.",
     component: Composer,
   });
 });

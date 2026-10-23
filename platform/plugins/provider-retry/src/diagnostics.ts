@@ -1,4 +1,4 @@
-import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
+import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { retryAvailabilitySchema } from "./retry-contract.js";
 
@@ -23,10 +23,10 @@ export const retryDiagnosticContract = defineRpcContract({
   },
 });
 export async function readRetryDiagnostic(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   threadId: string,
 ): Promise<RetryDiagnostic | null> {
   return retryDiagnosticSchema
     .nullable()
-    .parse((await bb.storage.kv.get(`decision:${threadId}`)) ?? null);
+    .parse((await hyperfide.storage.kv.get(`decision:${threadId}`)) ?? null);
 }

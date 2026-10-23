@@ -47,7 +47,7 @@ describe("resolveFontPreloadTags", () => {
 
 const builtHtml = [
   "<!doctype html><html><head>",
-  '<script>localStorage.getItem("bb.theme")</script>',
+  '<script>localStorage.getItem("hyperfide.theme")</script>',
   '<script type="module" crossorigin src="/assets/index-rXrqkkAU.js"></script>',
   '<link rel="modulepreload" crossorigin href="/assets/react-abc.js">',
   '<link rel="modulepreload" crossorigin href="/assets/router-def.js">',
@@ -72,7 +72,7 @@ describe("reorderHeadForFirstPaint", () => {
   });
 
   it("refuses to move the stylesheet ahead of the pre-paint theme script", () => {
-    const themeless = builtHtml.replace("bb.theme", "bb.other");
+    const themeless = builtHtml.replace("hyperfide.theme", "hyperfide.other");
     expect(() => reorderHeadForFirstPaint(themeless, fontTags)).toThrow(
       /pre-paint theme script/,
     );
@@ -108,7 +108,7 @@ describe("reorderHeadForFirstPaint on the document Vite emits from index.html", 
       resolveFontPreloadTags(bundle, "/"),
     );
 
-    const themeScriptAt = html.indexOf("bb.theme");
+    const themeScriptAt = html.indexOf("hyperfide.theme");
     const fontPreloadAt = html.search(/<link[^>]*as="font"/);
     const stylesheetAt = html.search(/<link[^>]*rel="stylesheet"/);
     const entryAt = html.search(/<script type="module"[^>]*src=/);
@@ -147,7 +147,7 @@ describe.skipIf(!existsSync(distIndexHtmlPath))(
       const stylesheetAt = html.search(/<link[^>]*rel="stylesheet"/);
       const fontPreloadAt = html.search(/<link[^>]*as="font"/);
       const firstModulepreloadAt = html.search(/<link rel="modulepreload"/);
-      const themeScriptAt = html.indexOf("bb.theme");
+      const themeScriptAt = html.indexOf("hyperfide.theme");
 
       expect(stylesheetAt).toBeGreaterThan(-1);
       expect(fontPreloadAt).toBeGreaterThan(-1);

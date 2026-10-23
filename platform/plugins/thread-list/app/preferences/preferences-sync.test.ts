@@ -100,7 +100,7 @@ describe("preferences sync", () => {
   });
 
   it("keys the mirror by plugin id, so a renamed copy keeps its own layout", async () => {
-    expect(MIRROR_KEY).toBe("bb.thread-list.preferences.v1");
+    expect(MIRROR_KEY).toBe("hyperfide.thread-list.preferences.v1");
     mirror.setItem(MIRROR_KEY, JSON.stringify({ organizationMode: "project" }));
     attachPreferencesStore(getDefaultStore(), "my-sidebar");
 
@@ -108,7 +108,7 @@ describe("preferences sync", () => {
     await hydratePreferences(fakeRpc({ organizationMode: "machine" }));
 
     expect(
-      JSON.parse(mirror.getItem("bb.my-sidebar.preferences.v1") ?? "{}")
+      JSON.parse(mirror.getItem("hyperfide.my-sidebar.preferences.v1") ?? "{}")
         .organizationMode,
     ).toBe("machine");
     expect(
