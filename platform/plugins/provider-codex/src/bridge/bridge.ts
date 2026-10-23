@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { codexWorkerInjection } from "../worker-injection.js";
 
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
@@ -424,6 +425,7 @@ function describeCodexLaunchError(error: unknown): string {
 }
 
 interface CodexSessionConstruction {
+  task?: string;
   cwd: string;
   instructionMode: "append" | "replace";
   dynamicTools: DynamicTool[] | undefined;
@@ -1170,6 +1172,7 @@ type CodexSessionConstructionRequest =
     };
 
 interface ConstructThreadSessionArgs {
+  task?: string;
   threadId: string;
   cwd: string;
   options: BridgeExecutionOptions;
@@ -1179,6 +1182,9 @@ interface ConstructThreadSessionArgs {
 }
 
 interface ConstructedCodexSession {
+  attachedCapabilities: ReturnType<
+    typeof codexWorkerInjection
+  >["attachedCapabilities"];
   session: CodexBridgeSession;
   codexThreadId: string;
 }
@@ -1188,6 +1194,11 @@ async function constructThreadSession(
 ): Promise<ConstructedCodexSession> {
   const existing = sessionsByBbThreadId.get(args.threadId);
   const decoded = decodeCodexOptions(args.options);
+  const worker = codexWorkerInjection({
+    cwd: args.cwd,
+    threadId: args.threadId,
+    task: args.task ?? decoded.sessionOptions.envVars?.CG_TASK,
+  });
   sessionSerialCounter += 1;
   const serial = sessionSerialCounter;
   const translator = createCodexEventTranslator({
@@ -1210,6 +1221,7 @@ async function constructThreadSession(
     connection: null,
     translator,
     construction: {
+      task: args.task ?? decoded.sessionOptions.envVars?.CG_TASK,
       cwd: args.cwd,
       instructionMode: args.instructionMode,
       dynamicTools: args.dynamicTools,
@@ -1303,7 +1315,12 @@ async function constructThreadSession(
     const dynamicTools = toCodexDynamicTools(args.dynamicTools);
     const instructionOverrides = resolveCodexInstructionOverrides({
       instructionMode: args.instructionMode,
-      options: decoded.sessionOptions,
+      options: {
+        ...decoded.sessionOptions,
+        instructions: [decoded.sessionOptions.instructions, worker.instructions]
+          .filter(Boolean)
+          .join("\n\n"),
+      },
     });
     const sharedConstructionParams = {
       approvalPolicy: preparedGitRoots.permissionSettings.approvalPolicy,
@@ -1313,7 +1330,9 @@ async function constructThreadSession(
       ...instructionOverrides,
       model: decoded.sessionOptions.model ?? undefined,
       serviceTier: toCodexServiceTier(decoded.sessionOptions.serviceTier),
-      config: preparedGitRoots.config ?? undefined,
+      config: worker.attachedCapabilities.length
+        ? { ...preparedGitRoots.config, ...worker.config }
+        : (preparedGitRoots.config ?? undefined),
       ...(dynamicTools && dynamicTools.length > 0 ? { dynamicTools } : {}),
     };
 
@@ -1395,7 +1414,11 @@ async function constructThreadSession(
     const modelCatalog = loadSessionModelCatalog(connection);
     session.modelCatalog = modelCatalog;
     void modelCatalog.then((catalog) => publishDaybreakState(session, catalog));
-    return { session, codexThreadId };
+    return {
+      session,
+      codexThreadId,
+      attachedCapabilities: worker.attachedCapabilities,
+    };
   } catch (error) {
     const released = session.closing;
     if (sessionsByBbThreadId.get(args.threadId) === session) {
@@ -1465,6 +1488,7 @@ async function rebuildThreadSession(
   let replacement: ConstructedCodexSession;
   try {
     replacement = await constructThreadSession({
+      task: session.construction.task,
       threadId: session.bbThreadId,
       cwd: session.construction.cwd,
       options,
@@ -1707,6 +1731,7 @@ async function handleThreadConstruction(
 ): Promise<void> {
   try {
     const constructed = await constructThreadSession({
+      task: params.task,
       threadId: params.threadId,
       cwd: params.cwd,
       options: params.options,
@@ -1718,6 +1743,9 @@ async function handleThreadConstruction(
     });
     sendResult(id, {
       providerThreadId: constructed.codexThreadId,
+      ...(constructed.attachedCapabilities.length
+        ? { attachedCapabilities: constructed.attachedCapabilities }
+        : {}),
       sessionRestorable: true,
     });
   } catch (error) {

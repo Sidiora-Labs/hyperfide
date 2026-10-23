@@ -681,6 +681,68 @@ async function forwardAskUserQuestion({
 describe("bridge", () => {
   let restoreTestUid: (() => void) | undefined;
 
+  it.each(["graph", "plain", "disabled"])(
+    "worker injection: %s repository",
+    async (mode) => {
+      const cwd = mkdtempSync(join(tmpdir(), "hyperfide-worker-claude-"));
+      tempDirs.push(cwd);
+      if (mode !== "plain") mkdirSync(join(cwd, ".codegraph"));
+      if (mode === "disabled")
+        writeFileSync(
+          join(cwd, ".codegraph", "worker-injection.json"),
+          '{"enabled":false}',
+        );
+      const query = createControlledClaudeQuery();
+      queryMock.mockReturnValue(query);
+      const bridge = createBridgeJsonRpcTestHarness(handleLine);
+      const threadId = `hyperfide-worker-${mode}`;
+      try {
+        bridge.sendRequest(81, "thread/start", {
+          threadId,
+          cwd,
+          task: "hyperfide-v22/1.4",
+          instructionMode: "append",
+          options: canonicalOptions(),
+        });
+        const response = await bridge.waitForResponse(81);
+        expect(response.error).toBeUndefined();
+        const active = mode === "graph";
+        expect(
+          (response.result as { attachedCapabilities?: unknown[] })
+            .attachedCapabilities ?? [],
+        ).toEqual(
+          active ? [expect.objectContaining({ id: "hyperfide-worker" })] : [],
+        );
+        const options = queryMock.mock.calls.at(-1)![0].options;
+        if (active) {
+          expect(options.mcpServers.codify).toEqual({
+            command: "hyperfide",
+            args: ["mcp"],
+            env: { CG_TASK: "hyperfide-v22/1.4" },
+          });
+          expect(JSON.stringify(options.systemPrompt)).toContain(
+            "survey the area, then context",
+          );
+        } else {
+          expect(options.mcpServers?.codify).toBeUndefined();
+          expect(JSON.stringify(options.systemPrompt)).not.toContain(
+            "survey the area, then context",
+          );
+        }
+        bridge.sendRequest(82, "thread/stop", {
+          threadId,
+          providerThreadId: "cleanup",
+          intent: "release",
+          activeTurnId: null,
+        });
+        await bridge.waitForResponse(82);
+      } finally {
+        query.finish();
+        bridge.restore();
+      }
+    },
+  );
+
   beforeEach(() => {
     // These fixtures model a normal user; root behavior has its own test.
     if (process.getuid) {
@@ -994,7 +1056,9 @@ describe("bridge", () => {
       });
       expect(reportOptions.hooks).toBeUndefined();
       expect(reportOptions.mcpServers["bb-bridge"].instance).not.toBe(
-        getLatestQueryOptions().mcpServers?.["bb-bridge"].instance,
+        Object.values(getLatestQueryOptions().mcpServers ?? {}).find(
+          (server) => server.type === "sdk",
+        )?.instance,
       );
 
       bridge.sendRequest(
