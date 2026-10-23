@@ -485,10 +485,17 @@ reports extracted symbols and therefore has a lower symbol count.
 | Plain `hyperfide init`, fixed snapshot | 379.636 s | 9,071 | 85,689 |
 | Paired `hyperfide init --nested`, same snapshot, SQL profiling enabled | 510.213 s | 9,071 | 85,689 |
 | Qualification `hyperfide init --nested`, current tree | 434 s | 9,070 | 85,689 |
+| Post-0.7 rerun `hyperfide init --nested` | 415 s | 9,090 | 85,783 |
+
+The post-0.7 rerun used the real merged modules and passed
+`tests/hyperfide/cases/v22/1_6.sh` on 2026-10-23. It indexed 767 files and
+9,993 symbols under `platform/apps/server/`. An audit of task 1.6's changes
+found no stand-ins, projection modules, copied identity gates or SDK accessor
+call sites requiring replacement.
 
 The fixed snapshot preserves the initial r2 source inventory and ignore rules
 for comparison; the qualification copy additionally excludes its pnpm lockfile.
-All completed runs include 765 files and 9,988 symbols under
+The three earlier completed runs include 765 files and 9,988 symbols under
 `platform/apps/server/` and finish below the 2,700-second limit. The paired
 nested measurement includes SQL profiling overhead. Init with `--nested` uses
 the same indexing pipeline as plain init; it changes project-root selection.
