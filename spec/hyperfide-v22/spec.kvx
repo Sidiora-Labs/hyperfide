@@ -149,7 +149,7 @@ owner = "identity"
 
 [task.0.4]
 title = "Remove the marketing site, hosted connect gates and hosted account"
-status = "implemented"
+status = "done"
 wave = 0
 requires = []
 touches = ["platform/apps/web/**", "platform/apps/connect/**", "platform/apps/connect-next/**", "platform/packages/connect-client/**", "platform/packages/connect-db/**", "platform/packages/tunnel-client/**", "platform/packages/tunnel-contract/**", "platform/packages/frp-client/**", "platform/plugins/connect/**", "platform/plugins/connect-next/**", "platform/plugins/*-account/**", "platform/plugins/*-official.json", "platform/apps/server/src/**", "platform/apps/app/src/**", "platform/apps/cli/src/**", "platform/packages/bundled-plugins/**", "platform/package.json", "platform/pnpm-lock.yaml", "platform/turbo.json", "platform/docs/**", "tests/hyperfide/cases/v22/0_4.sh"]
