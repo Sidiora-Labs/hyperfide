@@ -801,18 +801,7 @@ do_2 = "3_24.py proves the documented names match the names the code reads, that
 do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
 reqs = ["1.1"]
 owner = "qualification"
-[task.3.14]
-title = "One MCP ask surface in both modes"
-status = "implemented"
-wave = 3
-requires = ["3.5", "3.7"]
-touches = ["src/mcp.c", "src/hyperfide/client.c", "src/help.c", "README.md", "tests/integration/88_mcp_ask.sh", "tests/integration/95_mcp_route_names.sh"]
-verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/88_mcp_ask.sh && CG=$PWD/cg bash tests/integration/95_mcp_route_names.sh"
-do_1 = "In distributed mode cg mcp exposes exactly one set of ask tools, the native ask_raise, ask_status, ask_list and approvals_list, which call the 3.7 client routes when the transport is distributed and the local store otherwise; tools derived from the route table never reuse a native tool name and skip the 1.2-asks component; the ask entry in src/help.c names the MCP tools; the README sentence saying the local CLI is not a control-service client is replaced by the routed-command truth."
-do_2 = "95_mcp_route_names.sh lists the MCP tools in local and distributed mode and asserts that no name appears twice, that the four ask tools are present in both modes, that no route-derived tool is named ask_*, and that in distributed mode ask_raise reaches the routed client through a stub transport that records the route."
-do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
-reqs = ["3.3"]
-owner = "ask"
+
 [task.4.1]
 title = "Classifier writes Asks"
 status = "done"
