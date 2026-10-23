@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
 import { createElement, act } from 'react';
+import { readFile } from 'node:fs/promises';
 import { createRoot } from 'react-dom/client';
 import { afterEach, expect, test, vi } from 'vitest';
 import { featureFromKvx } from '../kvx.js';
 import { mountBoard } from './app.js';
-import boardPlugin from './plugin-server.js';
+import boardPlugin, { registerBoardHandlers } from './plugin-server.js';
 import specPlugin from '../read-model-server.js';
 import { boardContract } from './contract.js';
 import { specContract } from '../shared/contract.js';
 import type { HyperfidePluginApi } from '@hyperfide/plugin-sdk';
-import type { PluginHosts, PluginRpc } from '@hyperfide/plugin-sdk';
+import type { PluginRpc } from '@hyperfide/plugin-sdk';
 
 const transport = vi.hoisted(() => ({ call: vi.fn() }));
 vi.mock('@hyperfide/plugin-sdk/app', () => ({
@@ -34,28 +35,27 @@ test('the manifest server composes read-model and board routes', async () => {
   const registerRpc = vi.fn();
   await specPlugin({
     storage: { kv: { get: async (key: string) => key === 'spec.repositories' ? [] : undefined } },
-    hosts: { experimental_client: () => ({ call: vi.fn() }) },
     rpc: { register: registerRpc },
   } as unknown as HyperfidePluginApi);
   expect(registerRpc.mock.calls.map(call => call[0])).toEqual([boardContract, specContract]);
 });
 
-test('registers Board in the platform navigation and routes RPC to the selected host', async () => {
+test('registers Board in the platform navigation and routes RPC to the server', async () => {
   const navPanel = vi.fn();
   (register as unknown as (app: unknown) => void)({ slots: { navPanel } });
   expect(navPanel).toHaveBeenCalledWith(expect.objectContaining({ title: 'Board', component: BoardPanel }));
-  const call = vi.fn().mockResolvedValue(tasks);
+  const board = { tasks: vi.fn().mockResolvedValue(tasks), task: vi.fn().mockResolvedValue(tasks[0]), action: vi.fn().mockResolvedValue(undefined) };
   const registerRpc = vi.fn();
-  boardPlugin({ hosts: { experimental_client: () => ({ call }) } as unknown as PluginHosts,
-    rpc: { register: registerRpc } as unknown as PluginRpc });
+  registerBoardHandlers({ rpc: { register: registerRpc } as unknown as PluginRpc }, async (_repository, use) => use(board));
   const handlers = registerRpc.mock.calls[0]![1];
-  const scope = { hostId: 'host', repository: '/repo', feature: 'demo' };
-  await handlers.boardTasks(scope);
-  await handlers.boardTask({ ...scope, id: '1' });
-  expect(call).toHaveBeenLastCalledWith('boardTask', { ...scope, id: '1' }, { hostId: 'host' });
+  const scope = { repository: '/repo', feature: 'demo' };
+  expect(await handlers.boardTasks(scope)).toEqual(tasks);
+  expect(await handlers.boardTask({ ...scope, id: '1' })).toEqual(tasks[0]);
   await handlers.boardAction({ ...scope, id: '1', action: 'start' });
-  expect(call).toHaveBeenCalledWith('boardTasks', scope, { hostId: 'host' });
-  expect(call).toHaveBeenLastCalledWith('boardAction', { ...scope, id: '1', action: 'start' }, { hostId: 'host' });
+  expect(board.tasks).toHaveBeenCalledWith('demo');
+  expect(board.task).toHaveBeenCalledWith('demo', '1');
+  expect(board.action).toHaveBeenCalledWith('demo', '1', 'start');
+
 });
 
 test('mounted board selects real model tasks, filters and sends actions while done stays disabled', async () => {
@@ -83,8 +83,21 @@ test('platform Board component renders scope controls', async () => {
   document.body.append(container);
   const root = createRoot(container);
   await act(async () => root.render(createElement(BoardPanel)));
-  expect(container.textContent).toContain('Host');
+  expect(container.textContent).not.toContain('Host');
   expect(container.textContent).toContain('Repository');
   expect(container.textContent).toContain('Feature');
   await act(async () => root.unmount());
+});
+
+test('server rejects repositories outside its configured sources', async () => {
+  const registerRpc = vi.fn();
+  boardPlugin({ rpc: { register: registerRpc } as unknown as PluginRpc }, ['/allowed']);
+  await expect(registerRpc.mock.calls[0]![1].boardTasks({ repository: '/other', feature: 'demo' })).rejects.toThrow('Unknown repository');
+});
+
+test('the board uses the platform server without a host bundle', async () => {
+  const manifest = JSON.parse(await readFile('package.json', 'utf8'));
+  expect(manifest.hyperfide.server).toBe('./src/read-model-server.ts');
+  expect(manifest.hyperfide.app).toBe('./src/board/plugin-app.ts');
+  expect(manifest.hyperfide).not.toHaveProperty('host');
 });
