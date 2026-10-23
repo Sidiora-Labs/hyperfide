@@ -374,7 +374,7 @@ owner = "editor"
 
 [task.2.6]
 title = "Spec end to end"
-status = "implemented"
+status = "done"
 wave = 2
 requires = ["2.3", "2.4"]
 touches = ["tests/hyperfide/cases/v22/2_6.py", "tests/hyperfide/support/platform_fixture.py"]
