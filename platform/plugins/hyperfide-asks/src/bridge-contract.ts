@@ -14,6 +14,10 @@ const row = z
   .passthrough();
 const input = z.object({ repository });
 export const bridgeContract = defineRpcContract({
+  context: {
+    input: z.object({ threadId: z.string().min(1), projectId: z.string().min(1) }),
+    output: z.object({ repository, task: z.string().min(1) }),
+  },
   list: {
     input: z.object({ repository: repository.optional() }),
     output: z.object({ asks: z.array(row) }),

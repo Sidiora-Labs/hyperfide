@@ -1,4 +1,5 @@
-// UI compatibility adapter for the Ask store RPCs; context is supplied by the thread binding.
+// RPC client for the canonical Ask store bridge.
+import { bridgeContract } from "./src/bridge-contract.js";
 export interface Ask {
   id: string;
   repository: string;
@@ -21,7 +22,13 @@ export type BridgeCall = <T>(
   input: Record<string, string>,
 ) => Promise<T>;
 
-export function createAskBridge(call: BridgeCall) {
+export function createAskBridge(transport: BridgeCall) {
+  const call: BridgeCall = async <T>(method: string, input: Record<string, string>) => {
+    const contract = bridgeContract[method as keyof typeof bridgeContract];
+    if (!contract) throw new Error("Unknown Ask RPC");
+    const result = await transport<unknown>(method, input);
+    return contract.output.parse(result) as T;
+  };
   return {
     list: async () => {
       const result = await call<{
@@ -38,8 +45,8 @@ export function createAskBridge(call: BridgeCall) {
         })),
       };
     },
-    policy: () =>
-      call<Record<string, "block" | "proceed-and-flag">>("policy", {}),
+    policy: (repository?: string) =>
+      call<Record<string, "block" | "proceed-and-flag">>("policy", repository ? { repository } : {}),
     context: (threadId: string, projectId: string) =>
       call<QuestionContext>("context", { threadId, projectId }),
     get: async (repository: string, id: string) => {

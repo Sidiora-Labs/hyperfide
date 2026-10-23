@@ -1,4 +1,4 @@
-import type { Ask, AskBridge } from "../hyperfide-asks/bridge-projection.js";
+import type { Ask, AskBridge } from "../hyperfide-asks/client.js";
 
 export interface AskNotificationState {
   sent: string[];
@@ -27,11 +27,15 @@ export function createAskNotifications(args: {
   let active: Promise<void> | undefined;
 
   async function refresh() {
-    const [{ asks }, policy, minutes] = await Promise.all([
+    const [{ asks }, minutes] = await Promise.all([
       Promise.resolve().then(() => args.bridge.list()),
-      Promise.resolve().then(() => args.bridge.policy()),
       Promise.resolve().then(() => args.digestMinutes()),
     ]);
+    const policies = new Map(await Promise.all(
+      [...new Set(asks.map((ask) => ask.repository))].map(async (repository) =>
+        [repository, await args.bridge.policy(repository)] as const,
+      ),
+    ));
     const state = (await args.read()) ?? {
       sent: [],
       pending: [],
@@ -45,6 +49,7 @@ export function createAskNotifications(args: {
     state.pending = state.pending.filter((ask) => openKeys.has(key(ask)));
     for (const ask of open) {
       if (sent.has(key(ask))) continue;
+      const policy = policies.get(ask.repository)!;
       if (policy[ask.kind] === "block") {
         await args.send({
           id: key(ask),

@@ -1,6 +1,6 @@
 import type { HyperfidePluginApi, PluginAgentToolResult } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
-import { createAskBridge } from "../../hyperfide-asks/bridge-projection.js";
+import { createAskBridge } from "../../hyperfide-asks/client.js";
 import { askWithInbox, type AskCommand } from "./ask-sync.js";
 import {
   ASK_USER_QUESTION_RENDERER_ID,

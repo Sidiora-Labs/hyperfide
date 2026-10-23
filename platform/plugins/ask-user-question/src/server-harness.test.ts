@@ -22,7 +22,7 @@ function createHost(): FakePluginHost {
         callRpc: async ({ method }) =>
           method === "context"
             ? { repository: "/fixture", task: "3.4" }
-            : { status: "open" },
+            : { id: 1, kind: "question", question: "Choose", status: "open" },
       },
     },
   });

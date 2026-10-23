@@ -8,7 +8,9 @@ import {
   createFakePluginHost,
   type FakePluginHost,
 } from "@hyperfide/plugin-sdk/testing";
-import type { Ask } from "../../hyperfide-asks/bridge-projection.js";
+import type { Ask } from "../../hyperfide-asks/client.js";
+import asksPlugin from "../../hyperfide-asks/src/server.js";
+import graphPlugin from "../../hyperfide-graph/server.js";
 import { runAskCommand, type QuestionMapping } from "./ask-sync.js";
 import { createAskUserQuestionPlugin, TOOL_NAME } from "./server.js";
 
@@ -55,20 +57,34 @@ async function fixture() {
       repository,
     }));
   }
+  const graphHost = createFakePluginHost({ pluginId: "hyperfide-graph" });
+  graphPlugin(graphHost.hyperfide);
+  await graphHost.harness.callRpc("setSettings", {
+    repository,
+    hostId: "local",
+    settings: { enabled: true, binaryPath: binary },
+  });
+  cleanups.push(() => graphHost.harness.lifecycle.dispose());
+  const asksHost = createFakePluginHost({
+    pluginId: "hyperfide-asks",
+    sdk: {
+      plugins: {
+        callRpc: async ({ method, input }) => graphHost.harness.callRpc(method, input),
+      },
+      projects: { list: async () => [{ id: "project-test", sources: [{ path: repository }] }] },
+      threads: { get: async () => ({ projectId: "project-test", originPluginId: "hyperfide-spec", title: "hyperfide-v22/3.4: Notifications" }) },
+    },
+  });
+  await asksHost.hyperfide.storage.kv.set("inbox.repositories", [repository]);
+  await asksPlugin(asksHost.hyperfide);
+  cleanups.push(() => asksHost.harness.lifecycle.dispose());
   let hiddenReads = 0;
   let interactionReads = 0;
   const host: FakePluginHost = createFakePluginHost({
     pluginId: "hyperfide-ask-user-question",
     sdk: {
       plugins: {
-        callRpc: async ({ method, input }) => {
-          if (method === "context") return { repository, task: "3.4" };
-          if (method === "get")
-            return (await list()).find(
-              (row) => row.id === (input as { id: string }).id,
-            );
-          throw new Error(`Unexpected bridge RPC: ${method}`);
-        },
+        callRpc: async ({ method, input }) => asksHost.harness.callRpc(method, input),
       },
       threads: {
         interactions: {
@@ -111,6 +127,7 @@ async function fixture() {
   cleanups.push(() => host.harness.lifecycle.dispose());
   return {
     host,
+    asksHost,
     repository,
     command,
     list,
@@ -132,6 +149,16 @@ const question = {
 };
 
 describe("real Ask CLI round trips with a fake plugin host", () => {
+  it("resolves context through the real bridge and rejects a different project", async () => {
+    const { asksHost, repository } = await fixture();
+    expect(await asksHost.harness.callRpc("context", {
+      threadId: "thread-34", projectId: "project-test",
+    })).toEqual({ repository, task: "3.4" });
+    await expect(asksHost.harness.callRpc("context", {
+      threadId: "thread-34", projectId: "different-project",
+    })).rejects.toThrow("spec worker thread");
+  });
+
   it("raises with task, session, options and recommendation; thread answers settle the Ask", async () => {
     const { host, list, command } = await fixture();
     const call = host.harness.callAgentTool(

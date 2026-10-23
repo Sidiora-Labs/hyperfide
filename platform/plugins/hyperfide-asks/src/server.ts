@@ -59,6 +59,18 @@ export default async function plugin(api: HyperfidePluginApi) {
     return paths[0]!;
   };
   api.rpc.register(bridgeContract, {
+    context: async ({ threadId, projectId }) => {
+      const thread = await api.sdk.threads.get({ threadId });
+      if (thread.projectId !== projectId || thread.originPluginId !== "hyperfide-spec")
+        throw new Error("Question requires a spec worker thread");
+      // Spec workers are titled <feature>/<task>: <title> by runTask.
+      const task = thread.title?.match(/^[A-Za-z0-9_.-]+\/([A-Za-z0-9_.-]+): /)?.[1];
+      const project = (await api.sdk.projects.list()).find((entry) => entry.id === projectId);
+      const sources = [...new Set(project?.sources.map((source) => source.path) ?? [])];
+      if (!task || sources.length !== 1 || !paths.includes(sources[0]!))
+        throw new Error("Question requires an unambiguous repository and task");
+      return { repository: sources[0]!, task };
+    },
     list: async ({ repository }) => ({
       asks: (
         await Promise.all(
