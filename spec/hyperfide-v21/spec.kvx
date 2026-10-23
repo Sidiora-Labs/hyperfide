@@ -1259,7 +1259,7 @@ owner = "qualification"
 
 [task.7.9]
 title = "Run the Postgres case suite with real evidence"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["1.7", "7.1"]
 touches = ["tests/hyperfide/cases", "tests/hyperfide/registry.json"]
