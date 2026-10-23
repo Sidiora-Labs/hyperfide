@@ -29,7 +29,7 @@ SKILL.md. Inspect nested `--help` before selecting flags and IDs.
 | --- | --- | --- |
 | All capable providers | Refresh with two supported providers and one unsupported provider. | Cards show only supported data using current provider names/icons and configured ordering. |
 | Quota windows and errors | Inspect real returned windows/resets and a controlled refresh failure. | Values match the provider response; unknown/unavailable data is distinct from exhausted quota. |
-| CLI and SDK parity | Inspect `bb plugin rpc list --method provider-usage.v1.listResources --json`, list a provider plugin’s resources, and fetch one returned resource ID. Compare its selected host/provider with `bb settings usage --json`. | Discovery is independent of display plugins, inventory collects no quota, and fetch returns only the chosen resource. Pool resources remain separate from direct host maintenance. |
+| CLI and SDK parity | Inspect `hyperfide platform plugin rpc list --method provider-usage.v1.listResources --json`, list a provider plugin’s resources, and fetch one returned resource ID. Compare its selected host/provider with `hyperfide platform settings usage --json`. | Discovery is independent of display plugins, inventory collects no quota, and fetch returns only the chosen resource. Pool resources remain separate from direct host maintenance. |
 
 ## Evidence and cleanup
 
@@ -51,4 +51,4 @@ External account changes use authorized disposable targets.
   identities are deduplicated only within the selected location.
 - The settings page fetches resources for the selected location; the footer
   fetches only its selected provider tab. Compare shared pool sources through
-  their RPC contract; `bb settings usage` remains the direct host-maintenance view.
+  their RPC contract; `hyperfide platform settings usage` remains the direct host-maintenance view.

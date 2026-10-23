@@ -1,4 +1,4 @@
-# bb-plugin-inline-vis
+# Hyperfide-plugin-inline-vis
 
 Builtin plugin that shows HTML pages and Markdown documents inside assistant
 messages. It fills two slots: the assistant **message directive** slot
@@ -15,13 +15,13 @@ A fenced code block with the language `inline-vis` holds the HTML page itself:
 ```
 ````
 
-bb mounts the plugin's component once for the fence and keeps it for the whole
+hyperfide platform mounts the plugin's component once for the fence and keeps it for the whole
 stream. The component renders by fence status:
 
 - `streaming`: a short "Writing visualization…" status line.
 - `closed`: the page in the frame described below. A button that appears on
-  hover shows or hides bb's normal code block for the fence below the frame.
-- `unclosed`, or a fence whose body is empty: bb's normal code block.
+  hover shows or hides hyperfide platform's normal code block for the fence below the frame.
+- `unclosed`, or a fence whose body is empty: hyperfide platform's normal code block.
 
 The page needs no file and no RPC. Its base URL is the app's root, so it
 cannot reference workspace files by relative path. A page that contains three
@@ -53,7 +53,7 @@ it. Without it the frame fits the page. For a Markdown file, `height` is the
 height of the card's preview, 256px by default; a longer document expands in
 place.
 
-bb replaces the directive with this plugin's React component, which:
+hyperfide platform replaces the directive with this plugin's React component, which:
 
 1. Validates the untrusted `source`, `file`, and `height` attributes.
 2. Calls the plugin RPC `preparePreview` with the message `threadId`, source,
@@ -68,11 +68,11 @@ bb replaces the directive with this plugin's React component, which:
    and shows an error.
 4. Renders HTML files in the frame described below, with the served file's URL
    as the base URL so relative sibling assets load. A button that appears on
-   hover opens the source file in bb's sidebar viewer, from the workspace or
+   hover opens the source file in hyperfide platform's sidebar viewer, from the workspace or
    the thread's storage directory. The button is a link to the rendered page:
    Cmd-click, Ctrl-click, or middle-click opens it in a browser tab (the
-   default browser in desktop bb).
-5. Renders Markdown files with bb's Markdown renderer inside a card. HTML is
+   default browser in desktop hyperfide platform).
+5. Renders Markdown files with hyperfide platform's Markdown renderer inside a card. HTML is
    sanitized by the shared renderer. The card header shows the file name and
    folder, copies the Markdown source, and opens the file in the sidebar
    viewer. A document more than 64px taller than the preview height is
@@ -97,11 +97,11 @@ in `app.tsx`):
   a `<base>` (unless the page has its own), the theme stylesheet, and a small
   bootstrap script at the start of the page's `<head>`.
 - The sandbox is `allow-scripts allow-forms` without `allow-same-origin`, so
-  the page keeps an opaque origin. Its scripts cannot access the bb page, its
+  the page keeps an opaque origin. Its scripts cannot access the hyperfide platform page, its
   cookies, or its storage. Remote scripts, styles, images, fonts, media,
   fetches, and WebSockets work subject to ordinary browser CORS,
   mixed-content, and remote-server policies.
-- The theme is bb's active tokens as CSS custom properties on `:root`
+- The theme is hyperfide platform's active tokens as CSS custom properties on `:root`
   (`FRAME_THEME_TOKENS` in `frame.ts`), plus a six-colour chart series and the
   app's sans font. When the app's theme or light/dark mode changes, the host
   posts the new values and the bootstrap applies them without a reload.
@@ -119,22 +119,22 @@ in `app.tsx`):
 `preparePreview` narrows `unknown` input immediately (rejects unknown keys and
 source values). Workspace previews load the thread with
 `include: "environment"` and require its live `path` and `hostId`. Thread
-storage previews use `bb.sdk.threads.storageLocation` instead and do not resolve
+storage previews use `hyperfide platform.sdk.threads.storageLocation` instead and do not resolve
 the workspace. Both sources confine the relative `.html`, `.htm`, `.md`, or
-`.markdown` path under the returned root and read it through `bb.sdk.files`
+`.markdown` path under the returned root and read it through `hyperfide platform.sdk.files`
 (host-routed). Absolute paths, traversal, unsupported extensions, missing files,
 non-UTF-8 content, and files over 5 MiB are rejected. HTML previews render the
-validated content returned by the RPC and use bb's existing confined worktree
+validated content returned by the RPC and use hyperfide platform's existing confined worktree
 or thread-storage route for relative assets and for opening the page in a
 browser tab. Markdown previews render the validated content returned by the
 RPC.
 
-It ships with bb and is reconciled through the builtin plugin lifecycle. Ask
+It ships with hyperfide platform and is reconciled through the builtin plugin lifecycle. Ask
 the agent to show a page with either form (see the bundled `inline-vis`
 skill).
 
 ## Tests
 
 ```bash
-pnpm exec turbo run test typecheck lint --filter=bb-plugin-inline-vis
+pnpm exec turbo run test typecheck lint --filter=hyperfide-plugin-inline-vis
 ```

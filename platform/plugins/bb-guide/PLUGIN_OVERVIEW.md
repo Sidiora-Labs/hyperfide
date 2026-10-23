@@ -1,17 +1,17 @@
-# BB guide
+# HYPERFIDE guide
 
-Control the BB introduction and bundled agent skills in Settings → Installed
-plugins → BB guide. The plugin and all six settings default to enabled.
+Control the HYPERFIDE introduction and bundled agent skills in Settings → Installed
+plugins → HYPERFIDE guide. The plugin and all six settings default to enabled.
 
-- `introduction`: send the BB CLI, thread, and link instructions.
+- `introduction`: send the HYPERFIDE CLI, thread, and link instructions.
 - `skills`: make the selected bundled skills available.
-- `bbCli`: include `bb-cli`.
-- `pluginAuthoring`: include `bb-plugin-authoring`.
+- `bbCli`: include `hyperfide-cli`.
+- `pluginAuthoring`: include `hyperfide-plugin-authoring`.
 - `skillCreator`: include `skill-creator`.
 - `submitPlugin`: include `submit-a-plugin`.
 
-Use `bb plugin config bb-guide set <key> true|false` from the CLI, or
-`bb.sdk.plugins.updateSettings({ pluginId: "bb-guide", values: { ... } })`
+Use `hyperfide platform plugin config hyperfide-guide set <key> true|false` from the CLI, or
+`hyperfide platform.sdk.plugins.updateSettings({ pluginId: "hyperfide-guide", values: { ... } })`
 through the SDK. Changes apply when agent configuration is next assembled;
 they do not erase instructions from an existing conversation.
 

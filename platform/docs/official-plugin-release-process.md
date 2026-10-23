@@ -1,6 +1,6 @@
-# Releasing BB Official plugins
+# Releasing HYPERFIDE Official plugins
 
-Official plugins ship **bundled inside the BB app**. There is no separate
+Official plugins ship **bundled inside the HYPERFIDE app**. There is no separate
 publish pipeline: app packaging builds each plugin through its Turbo-cached
 `prepare:bundled` task and copies the collection into
 `<server dist>/builtin-plugins/<name>`. Plugins → Browse plugins installs
@@ -15,11 +15,11 @@ The official plugins are:
 
 | Directory                    | Package name                   | Store entry          | Plugin id            |
 | ---------------------------- | ------------------------------ | -------------------- | -------------------- |
-| `plugins/browser-automation` | `bb-plugin-browser-automation` | `browser-automation` | `browser-automation` |
-| `plugins/github`             | `bb-plugin-github`             | `github`             | `github`             |
-| `plugins/docs`               | `bb-plugin-simple-notes`       | `docs`               | `simple-notes`       |
-| `plugins/memory`             | `bb-plugin-memory`             | `memory`             | `memory`             |
-| `plugins/tasks`              | `bb-plugin-tasks`              | `tasks`              | `tasks`              |
+| `plugins/browser-automation` | `hyperfide-plugin-browser-automation` | `browser-automation` | `browser-automation` |
+| `plugins/github`             | `hyperfide-plugin-github`             | `github`             | `github`             |
+| `plugins/docs`               | `hyperfide-plugin-simple-notes`       | `docs`               | `simple-notes`       |
+| `plugins/memory`             | `hyperfide-plugin-memory`             | `memory`             | `memory`             |
+| `plugins/tasks`              | `hyperfide-plugin-tasks`              | `tasks`              | `tasks`              |
 
 ## Releasing a change
 
@@ -28,7 +28,7 @@ The official plugins are:
    version is shown in plugin management and drives startup reconciliation
    (an installed official plugin re-points to the new bundled copy when its
    version or root directory changes).
-2. Ship a normal BB app release. The packaging step builds changed plugins and reuses cached
+2. Ship a normal HYPERFIDE app release. The packaging step builds changed plugins and reuses cached
    outputs for unchanged plugins; installed plugins pick up the new code at
    the next server start.
 
@@ -36,10 +36,10 @@ Never check in `plugins/*/dist` or `plugins/*/.bundled-runtime`; they are genera
 
 ## Adding a new official plugin
 
-1. Create the plugin under `plugins/<name>` with a `bb` manifest
+1. Create the plugin under `plugins/<name>` with a `hyperfide platform` manifest
    block (`server`, optional `app`, `branding`, optional `skills`). Name the
-   package `bb-plugin-bb--<name>` so its plugin id is `bb--<name>`. BB refuses
-   non-bundled installs of `bb--` ids and the marketplace rejects them, so a
+   package `hyperfide-plugin-hyperfide--<name>` so its plugin id is `hyperfide--<name>`. HYPERFIDE refuses
+   non-bundled installs of `hyperfide--` ids and the marketplace rejects them, so a
    new bundled plugin cannot collide with a community plugin. The ids bundled
    before this rule are frozen in
    `apps/server/test/services/plugins/builtin-registry.test.ts`.
@@ -50,16 +50,16 @@ Never check in `plugins/*/dist` or `plugins/*/.bundled-runtime`; they are genera
    (`apps/server/test/services/plugins/official-plugins.test.ts`) verifies the
    declared plugin id matches the manifest.
 
-3. Add `@bb/plugin-build` as a `workspace:*` dev dependency and
-   `"prepare:bundled": "bb-plugin-build prepare-bundled"` to the plugin's scripts.
-   Add the plugin's package as a workspace dependency of `@bb/bundled-plugins`.
+3. Add `@hyperfide/plugin-build` as a `workspace:*` dev dependency and
+   `"prepare:bundled": "hyperfide-plugin-build prepare-bundled"` to the plugin's scripts.
+   Add the plugin's package as a workspace dependency of `@hyperfide/bundled-plugins`.
    Keep task configuration in the root `turbo.json`.
 
 ## Verify locally
 
 ```bash
-pnpm exec turbo run build --filter=bb-app
-ls packages/bb-app/server/dist/builtin-plugins
+pnpm exec turbo run build --filter=hyperfide-app
+ls packages/hyperfide-app/server/dist/builtin-plugins
 ```
 
 Every bundled plugin directory must contain a rewritten `package.json`
@@ -67,8 +67,8 @@ pointing at `./dist/server.js` plus the prebuilt `dist/` artifacts. Then, in a
 dev build:
 
 ```bash
-bb plugin search docs
-bb plugin install docs --yes
-bb plugin list
-bb plugin remove simple-notes
+hyperfide platform plugin search docs
+hyperfide platform plugin install docs --yes
+hyperfide platform plugin list
+hyperfide platform plugin remove simple-notes
 ```

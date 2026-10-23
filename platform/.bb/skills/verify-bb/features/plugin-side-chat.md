@@ -40,4 +40,4 @@ External account changes use authorized disposable targets.
 ## Maintenance notes
 
 - Verify sourceThreadId and checkpoint linkage on the hidden fork. Side chats have parentThreadId=null and lifecycleOwnerThreadId=sourceThreadId; lifecycle ownership is separate from sidebar and notification semantics. Source: `plugins/side-chat/server.ts:99`.
-- Cleanup is an hourly plugin background schedule (13 * * * *), with a 24-hour age threshold. No documented user CLI maintenance hook exists in this revision; use an owned dated-storage fixture and scheduler harness, and do not imply bb side-chat cleanup exists. Source: `plugins/side-chat/server.ts:135`.
+- Cleanup is an hourly plugin background schedule (13 * * * *), with a 24-hour age threshold. No documented user CLI maintenance hook exists in this revision; use an owned dated-storage fixture and scheduler harness, and do not imply hyperfide platform side-chat cleanup exists. Source: `plugins/side-chat/server.ts:135`.

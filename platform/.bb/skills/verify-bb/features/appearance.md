@@ -7,7 +7,7 @@ Status: **2026-09-05: 1 passed**. See [the audit](../MAINTENANCE.md) and [per-re
 Change the app's appearance and keep it after reload.
 
 - `apps/app/src/views/SettingsView.tsx`: Appearance controls and mutations.
-- `apps/app/src/hooks/useTheme.ts`: browser-local `bb.theme` storage and the
+- `apps/app/src/hooks/useTheme.ts`: browser-local `hyperfide platform.theme` storage and the
   document root's `dark` class.
 - `apps/app/src/hooks/mutations/settings-mutations.ts`: server-backed palette.
 - `packages/server-contract/src/public-api.ts`: `/system/config` contract.
@@ -22,7 +22,7 @@ Capture the starting Theme and Palette labels so they can be restored.
 
 1. Click `[aria-label="Theme"]`. Snapshot the menu and select **Dark**.
 2. Require `document.documentElement.classList.contains('dark')` and
-   `localStorage.getItem('bb.theme') === 'dark'`. Read these values; do not
+   `localStorage.getItem('hyperfide platform.theme') === 'dark'`. Read these values; do not
    set storage or classes from automation.
 3. Reload. Wait for `[aria-label="Theme"]`, then require **Dark** and the
    same class/storage observations.

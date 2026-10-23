@@ -1,4 +1,4 @@
-Point at what you mean instead of describing where it is. In a Browser tab in the bb desktop app, click an element, write a note, and add it to your prompt. Your agent gets the note with the details it needs to find that element in the code.
+Point at what you mean instead of describing where it is. In a Browser tab in the hyperfide platform desktop app, click an element, write a note, and add it to your prompt. Your agent gets the note with the details it needs to find that element in the code.
 
 ## What you get
 

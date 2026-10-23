@@ -18,7 +18,7 @@ losing its content or disabling the app root.
 Open Appearance through the app navigation, then set the named page viewport:
 
 ```javascript
-const p = await browser.getPage("bb");
+const p = await browser.getPage("hyperfide platform");
 await p.setViewport({
   width: 390,
   height: 844,
@@ -43,7 +43,7 @@ Record the initial Theme value for restoration.
    the screenshot at 390 × 844.
 4. Select **Light** by its fresh snapshot reference. Wait for
    `[data-persistent-drawer-content][data-state="closed"]` and require the
-   Theme value and `bb.theme` storage to become `light`.
+   Theme value and `hyperfide platform.theme` storage to become `light`.
 5. Require the closed drawer to retain its menuitem elements. Its own hidden
    and inert state is expected; the app root must remain usable.
 6. Click Theme again, require its realized menuitems, press Escape, and

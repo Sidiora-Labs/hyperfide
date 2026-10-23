@@ -1,4 +1,4 @@
-Start a thread, pick Codex, and let it write and review code in your repository from bb. The plugin drives the Codex CLI on the host machine. It streams the agent's work into the bb timeline.
+Start a thread, pick Codex, and let it write and review code in your repository from hyperfide platform. The plugin drives the Codex CLI on the host machine. It streams the agent's work into the hyperfide platform timeline.
 
 ## What you get
 
@@ -8,14 +8,14 @@ Start a thread, pick Codex, and let it write and review code in your repository 
 - A Daybreak switch in the model picker for accounts that have Daybreak, usable with any model that supports it.
 - Checkpoint forks, manual compaction, thread rename, and thread archive.
 - Question cards for the questions Codex asks while it keeps working. Your answer reaches Codex as a message.
-- Codex skills from your home directory and project, listed next to bb skills.
+- Codex skills from your home directory and project, listed next to hyperfide platform skills.
 - Health, usage, and install status on each host, with an install or update action.
-- A Codex AI service for inference and voice that other bb features can use.
+- A Codex AI service for inference and voice that other hyperfide platform features can use.
 
 ## Settings
 
-- `Codex memory`: let Codex recall and create memories from bb threads.
-- `Disable provider subagents`: stop native subagents so the agent delegates through bb.
+- `Codex memory`: let Codex recall and create memories from hyperfide platform threads.
+- `Disable provider subagents`: stop native subagents so the agent delegates through hyperfide platform.
 
 ## Requirements
 

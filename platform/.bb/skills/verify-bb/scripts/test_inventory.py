@@ -6,12 +6,12 @@ import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).with_name('inventory.py').resolve()
-SKILL = Path('.bb/skills/verify-bb')
+SKILL = Path('.hyperfide/skills/verify-hyperfide-platform')
 
 
 class InventoryTest(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix='bb-inventory-test-')
+        self.temp = tempfile.TemporaryDirectory(prefix='hyperfide-inventory-test-')
         self.addCleanup(self.temp.cleanup)
         self.repo = Path(self.temp.name)
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
@@ -33,9 +33,9 @@ class InventoryTest(unittest.TestCase):
             'apps/connect/src/worker.ts': 'export {};',
             'apps/demo-server/src/index.ts': 'export {};',
             'apps/server/src/index.ts': 'export {};',
-            'scripts/bb-cloud-dev.mjs': 'export {};',
-            'plugins/automations/package.json': json.dumps({'bb': {'server': './server.ts'}}),
-            'plugins/automations/server.ts': 'bb.cli.register({name: "automation"});',
+            'scripts/hyperfide-cloud-dev.mjs': 'export {};',
+            'plugins/automations/package.json': json.dumps({'hyperfide-platform': {'server': './server.ts'}}),
+            'plugins/automations/server.ts': 'hyperfide-platform.cli.register({name: "automation"});',
         }
         for name, content in sources.items():
             self.write(name, content)
@@ -99,7 +99,7 @@ class InventoryTest(unittest.TestCase):
 
     def test_unowned_plugin_cannot_be_baselined(self):
         before = (self.repo / SKILL / 'inventory.json').read_bytes()
-        self.write('plugins/new-capability/package.json', '{"bb": {"server": "./server.ts"}}')
+        self.write('plugins/new-capability/package.json', '{"hyperfide-platform": {"server": "./server.ts"}}')
         self.write('plugins/new-capability/server.ts', 'export {};')
         result = self.run_check('--write')
         self.assertNotEqual(result.returncode, 0)

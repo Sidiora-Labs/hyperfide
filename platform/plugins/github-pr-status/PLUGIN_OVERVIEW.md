@@ -1,4 +1,4 @@
-See the GitHub pull request for each thread's branch where you already work: the composer banner, the Info panel and sidebar plugins that show PR badges. Mark it ready, convert it back to a draft or merge it without leaving bb.
+See the GitHub pull request for each thread's branch where you already work: the composer banner, the Info panel and sidebar plugins that show PR badges. Mark it ready, convert it back to a draft or merge it without leaving hyperfide platform.
 
 ## What you get
 
@@ -8,13 +8,13 @@ See the GitHub pull request for each thread's branch where you already work: the
 
 ## How it works
 
-The plugin runs `gh pr view` in the environment's workspace on its own machine, so fork and upstream remotes and that machine's `gh` login apply. bb never wakes a sleeping machine for PR status; a suspended or offline machine shows no PR until it is back.
+The plugin runs `gh pr view` in the environment's workspace on its own machine, so fork and upstream remotes and that machine's `gh` login apply. hyperfide platform never wakes a sleeping machine for PR status; a suspended or offline machine shows no PR until it is back.
 
 Use the CLI from any thread:
 
-- `bb pull-request show <environment-id>` prints the pull request.
-- `bb pull-request ready|draft <environment-id>` changes draft state.
-- `bb pull-request merge <environment-id> --method squash` merges it.
+- `hyperfide platform pull-request show <environment-id>` prints the pull request.
+- `hyperfide platform pull-request ready|draft <environment-id>` changes draft state.
+- `hyperfide platform pull-request merge <environment-id> --method squash` merges it.
 
 ## Requirements
 

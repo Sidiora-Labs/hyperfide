@@ -57,30 +57,6 @@ reproduction and remain unconfirmed in the ledger.
 
 ## Corrections for the next run
 
-- Unset `BB_CLI` and `BB_CLI_REEXEC` in the isolated test shell, then invoke the
-  built source CLI directly. Earlier calls silently used the installed client
-  against the source server. Key checks were repeated; unrepeated portions
-  retain that qualification. Direct Node also preserves literal newline
-  arguments that the pnpm script wrapper changed into backslash-plus-n bytes.
-- Restore only synthetic project/thread/environment context after clearing inherited
-  context in the test shell. Scaffold in a fixture directory using an
-  absolute source CLI path. Rich-composer newlines require Shift+Enter.
-- Separate profiles share server-directed client controls. Serialize `thread
-  open` and pane actions, then reset every browser to its own fixture route.
-  Scope menu selectors to visible open content and wait for transitions. In
-  headless `hover:none` mode, focus a queue row before acting on its controls.
-- A fresh source store does not isolate provider-global skill directories or
-  the Docs default home vault. Unregister the default Docs vault without disk
-  deletion before searching mentions; use only synthetic vaults.
-- Follow observed contracts: terminal restart returns a new ID; initial thread
-  provisioning may return a null environment ID; `thread show` wraps thread and
-  environment; the thread DTO has no `activeTurnId`. Project Rename belongs to
-  project actions, source hosts are immutable, and Commit stages all changes.
-- The notification center is transient toast history. Unknown routes redirect
-  Home. Side chats use source-fork linkage. Docs deletion is immediate; Secrets
-  reconciles its first write conflict. Local cloud needs an owned R2 catalog
-  fixture and stream checks must distinguish compression from chunk delivery.
-
 ## Remaining work
 
 The ledger is the checklist for a continuation. Major prerequisite gaps include

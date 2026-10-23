@@ -5,9 +5,10 @@ import hashlib
 import json
 import re
 import subprocess
+from urllib.parse import unquote
 from pathlib import Path
 
-SKILL = Path('.bb/skills/verify-bb')
+SKILL = Path('.hyperfide/skills/verify-hyperfide-platform')
 CLI_OWNERS = {
     'environment': 'projects-environments', 'project': 'projects-environments',
     'file': 'workspace-panels', 'terminal': 'workspace-panels',
@@ -32,7 +33,7 @@ PATTERNS = {
     'app-action': r'(?<![.\w])(?:command|paletteHiddenCommand)\(\s*"([^"]+)"',
     'web-route': r'createFileRoute\(\s*"([^"]+)"',
     'plugin-slot': r'app\.slots\.(\w+)\(',
-    'plugin-tool': r'bb\.agents\.registerTool\(\{\s*name:\s*"([^"]+)"',
+    'plugin-tool': r'hyperfide-platform\.agents\.registerTool\(\{\s*name:\s*"([^"]+)"',
 }
 
 
@@ -71,7 +72,7 @@ def collect(repo):
                     for match in re.finditer(pattern, body):
                         value = ' '.join(' '.join(match.groups()).split())
                         declarations.add(f'{kind}: {name}: {value}')
-                if key.startswith('plugin:') and 'bb.cli.register(' in body:
+                if key.startswith('plugin:') and 'hyperfide-platform.cli.register(' in body:
                     for match in re.finditer(r'name:\s*"([^"]+)"', body):
                         declarations.add(f'cli-name-candidate: {name}: {match[1]}')
                 if key == 'settings-and-actions':
@@ -112,7 +113,7 @@ def collect(repo):
     add('plugin-sdk-and-guide', under('packages/plugin-sdk/src/', 'plugins/plugin-api-docs/src/'), ['extensions', 'plugin-plugin-api-docs', 'developer-fixtures'])
     for manifest in sorted((repo / 'plugins').glob('*/package.json')):
         data = json.loads(manifest.read_text())
-        if 'bb' not in data:
+        if 'hyperfide-platform' not in data:
             continue
         slug = manifest.parent.name
         add(f'plugin:{slug}', under(f'plugins/{slug}/'), [f'plugin-{slug}'], True)
@@ -151,14 +152,14 @@ def catalog(snapshot):
 def validate_index(repo):
     directory = repo / SKILL / 'features'
     index = (directory / 'README.md').read_text()
-    listed = set(re.findall(r'\]\(([^/()]+\.md)\)', index))
+    listed = {unquote(link) for link in re.findall(r'\]\(([^/()]+)\)', index) if unquote(link).endswith('.md')}
     actual = {path.name for path in directory.glob('*.md') if path.name != 'README.md'}
     if listed != actual:
         raise ValueError(f'Feature index mismatch: unlisted={sorted(actual - listed)}, missing={sorted(listed - actual)}')
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Check BB feature-map source drift without starting the app')
+    parser = argparse.ArgumentParser(description='Check HYPERFIDE feature-map source drift without starting the app')
     parser.add_argument('--repo', type=Path, default=Path(__file__).resolve().parents[4])
     parser.add_argument('--write', action='store_true', help='Accept source baseline after reconciling recipes; does not claim live coverage')
     args = parser.parse_args()

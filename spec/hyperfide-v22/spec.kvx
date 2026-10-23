@@ -110,7 +110,7 @@ heading = "Implementation Plan: hyperfide-v22"
 
 [task.0.1]
 title = "Rename map and codemod"
-status = "implemented"
+status = "done"
 wave = 0
 requires = []
 touches = ["platform/tools/rename/map.json", "platform/tools/rename/apply.mjs", "platform/tools/rename/README.md", "tests/hyperfide/cases/v22/0_1.sh", "tests/hyperfide/cases/v22/fixtures/rename/**"]
@@ -175,7 +175,7 @@ owner = "port"
 
 [task.0.6]
 title = "Documentation, skills and brand assets sweep"
-status = "pending"
+status = "implemented"
 wave = 0
 requires = []
 touches = ["platform/README.md", "platform/AGENTS.md", "platform/CONTRIBUTING.md", "platform/SECURITY.md", "platform/docs/**", "platform/.*/skills/**", "platform/assets/**", "platform/apps/app/public/**", "platform/apps/app/index.html", "platform/apps/desktop/electron-builder*", "platform/apps/desktop/package.json", "platform/apps/mobile/app.json", "platform/apps/mobile/app.config.*", "platform/plugins/*/README.md", "platform/plugins/*/PLUGIN_OVERVIEW.md", "tests/hyperfide/cases/v22/0_6.sh"]

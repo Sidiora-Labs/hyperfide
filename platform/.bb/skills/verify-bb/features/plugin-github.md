@@ -4,7 +4,7 @@ Status: **2026-09-05: 2 passed, 6 partial/blocked**. See [the audit](../MAINTENA
 
 ## Setup and entry points
 
-GitHub panel; bb github --help. Use cached synthetic/read-only fixtures first; live writes need an authorized disposable GitHub repository and authenticated gh.
+GitHub panel; hyperfide platform github --help. Use cached synthetic/read-only fixtures first; live writes need an authorized disposable GitHub repository and authenticated gh.
 
 Use the main skill’s isolated targets and evidence rules. A plugin can be present
 in this checkout but disabled in an installation. Enable it only in the test

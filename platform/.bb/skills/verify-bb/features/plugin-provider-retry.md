@@ -4,7 +4,7 @@ Status: **2026-09-05: 5 partial/blocked**. See [the audit](../MAINTENANCE.md) an
 
 ## Setup and entry points
 
-Enable Provider retry; use controlled provider failures and short test reset times. Inspect bb provider-retry --help or plugin commands for current forms.
+Enable Provider retry; use controlled provider failures and short test reset times. Inspect hyperfide platform provider-retry --help or plugin commands for current forms.
 
 Use the main skill’s isolated targets and evidence rules. A plugin can be present
 in this checkout but disabled in an installation. Enable it only in the test

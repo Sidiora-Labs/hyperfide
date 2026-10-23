@@ -4,7 +4,7 @@ Status: **2026-09-05: 7 partial/blocked**. See [the audit](../MAINTENANCE.md) an
 
 ## Setup and entry points
 
-Settings → Accounts; bb pool --help. Use disposable provider accounts, an isolated credential store, and synthetic threads. Never print imported credentials.
+Settings → Accounts; hyperfide platform pool --help. Use disposable provider accounts, an isolated credential store, and synthetic threads. Never print imported credentials.
 
 Use the main skill’s isolated targets and evidence rules. A plugin can be present
 in this checkout but disabled in an installation. Enable it only in the test

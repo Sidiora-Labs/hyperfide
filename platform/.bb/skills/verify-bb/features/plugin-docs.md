@@ -4,7 +4,7 @@ Status: **2026-09-05: 7 passed, 2 partial/blocked**. See [the audit](../MAINTENA
 
 ## Setup and entry points
 
-Open the Docs panel; bb docs --help. Add a disposable local vault containing Markdown, HTML, a folder, and an image; use a second host only when available.
+Open the Docs panel; hyperfide platform docs --help. Add a disposable local vault containing Markdown, HTML, a folder, and an image; use a second host only when available.
 
 Use the main skill’s isolated targets and evidence rules. A plugin can be present
 in this checkout but disabled in an installation. Enable it only in the test
@@ -28,7 +28,7 @@ SKILL.md. Inspect nested `--help` before selecting flags and IDs.
 | Rename, move, delete | Rename a note through its H1, move a fixture file, dismiss one context menu with Escape, then delete a disposable file. | Paths and navigation update coherently; dismissing the menu changes nothing. Selecting Delete deletes immediately. Folder rows have no rename/delete menu. |
 | HTML and openers | Open a synthetic HTML document and Markdown via file links and Docs routing. | Correct renderer opens at the selected vault/path; errors do not substitute another document. |
 | Mentions and thread cards | Mention a note with @ and render a Docs directive; edit after selecting but before sending. | Resolved agent context follows send-time content; card/panel opens the referenced note and autosave reaches that file. |
-| CLI read/write | List/read/write/mkdir/move/remove a fixture through bb docs; compare bytes in UI. | CLI and UI operate on the same vault revision and path. |
+| CLI read/write | List/read/write/mkdir/move/remove a fixture through hyperfide platform docs; compare bytes in UI. | CLI and UI operate on the same vault revision and path. |
 | Pull, status, push | Pull into a fresh directory, edit locally, inspect status, push, then exercise a remote revision conflict and explicit deletion. | Only intended changes reach the vault; stale writes conflict and deletion requires the documented explicit action. |
 | Unavailable vault and invalid path | Disconnect the test host and request missing/out-of-root paths. | Errors identify the unavailable resource; no write escapes the vault root. |
 

@@ -68,7 +68,7 @@ assertions to carry into keepers, and the test-only production seams unlocked.
 ## 5. Cutover
 
 Edit lane by lane. Serialize changes to shared harnesses and support files
-(`packages/test-helpers`, `@get-bb/plugin-sdk/testing`) through one owner.
+(`packages/test-helpers`, `@hyperfide/plugin-sdk/testing`) through one owner.
 With each lane, remove the test-only production seams it unlocks: injection
 parameters, getters, reset exports, and indirection layers, but not published
 Plugin SDK exports. Keep moved suites inside their package's Vitest `include`

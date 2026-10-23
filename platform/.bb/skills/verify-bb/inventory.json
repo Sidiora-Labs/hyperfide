@@ -901,8 +901,8 @@
         "cli-name-candidate: plugins/workflows/src/cli.ts: workflows",
         "plugin-slot: plugins/workflows/src/app.tsx: messageDirective",
         "plugin-slot: plugins/workflows/src/app.tsx: threadPanelAction",
-        "plugin-tool: plugins/workflows/src/server.ts: bb_workflow_result",
-        "plugin-tool: plugins/workflows/src/server.ts: bb_workflow_run"
+        "plugin-tool: plugins/workflows/src/server.ts: hyperfide_workflow_result",
+        "plugin-tool: plugins/workflows/src/server.ts: hyperfide_workflow_run"
       ]
     },
     "public-api-and-sdk": {
