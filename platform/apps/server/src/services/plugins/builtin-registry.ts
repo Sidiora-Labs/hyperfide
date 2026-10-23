@@ -36,6 +36,7 @@ const REPO_PLUGINS_DIRECTORY_NAME = "plugins";
 
 export const BUILTIN_PLUGINS = [
   { name: "hyperfide-graph", pluginId: "hyperfide-graph", defaultEnabled: true },
+  { name: "hyperfide-asks", pluginId: "hyperfide-asks", defaultEnabled: true },
   {
     name: "storage-retention",
     pluginId: "bb--storage-retention",
