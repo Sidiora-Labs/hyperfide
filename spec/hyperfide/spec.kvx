@@ -1972,7 +1972,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.22.3]
 title = "Run shadow evaluation then bounded controlled decision trials"
-status = "pending"
+status = "done"
 wave = 28
 requires = ["22.2", "21.1", "21.2", "21.3"]
 touches = ["services/hyperfide/src/evaluation/trials.ts", "tests/hyperfide/manifests/tasks/22.3.json", "tests/hyperfide/cases/tasks/22_3.py", "tests/hyperfide/registrations/22.3.json", "services/hyperfide/components/22.3.json"]
@@ -2164,7 +2164,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.19.4]
 title = "Publish explicit partial outcomes behind multi-repository release barrier"
-status = "pending"
+status = "done"
 wave = 28
 requires = ["19.2", "19.3"]
 touches = ["services/hyperfide/src/integration/release_barrier.ts", "tests/hyperfide/manifests/tasks/19.4.json", "tests/hyperfide/cases/tasks/19_4.py", "tests/hyperfide/registrations/19.4.json", "services/hyperfide/components/19.4.json"]
