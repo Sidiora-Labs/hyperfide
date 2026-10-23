@@ -1103,7 +1103,7 @@ owner = "editor"
 
 [task.6.7]
 title = "Aliases, README and a current VSIX"
-status = "implemented"
+status = "done"
 wave = 6
 requires = ["6.2", "6.3", "6.4", "6.5"]
 touches = ["editors/vscode/README.md", "editors/vscode/package.json", "editors/vscode/extension.js", "scripts/package-vsix.py", "tests/integration/14_vscode.sh"]
