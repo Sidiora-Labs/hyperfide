@@ -739,7 +739,7 @@ owner = "qualification"
 
 [task.3.20]
 title = "Sparse by default and the slice gate on every launch"
-status = "implemented"
+status = "done"
 wave = 3
 requires = ["2.12", "2.13"]
 touches = ["src/orchestrate.c", "src/fleet.c", "spec/workflow.kvx", "services/hyperfide/src/runner/executor.ts", "services/hyperfide/src/runner/bridge.ts", "services/hyperfide/src/preparation/slices.ts", "tests/integration/26_fleet.sh", "tests/integration/33_drift.sh", "tests/integration/84_supervisor_wait.sh", "tests/integration/85_sparse_worktree.sh", "docs/hyperfide/source-measurement.md", "tests/hyperfide/cases/v21/3_20.py"]
