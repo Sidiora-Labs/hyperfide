@@ -106,3 +106,5 @@ export interface PluginMachineProviderDefinition<
     context: PluginMachineProviderRemoveContext,
   ): Promise<PluginMachineProviderRemoveResult>;
 }
+
+export type { FleetJob, FleetHost, FleetEnrollment, FleetState, FleetAuthority, FleetTransport, FleetScheduler } from "./fleet.js";
