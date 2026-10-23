@@ -123,7 +123,7 @@ owner = "identity"
 
 [task.0.2]
 title = "Apply the package scope rename across the workspace"
-status = "implemented"
+status = "blocked"
 wave = 0
 requires = ["0.1", "0.4"]
 touches = ["platform/**", "tests/hyperfide/cases/v22/0_2.sh"]
@@ -134,6 +134,7 @@ do_3 = "0_2.sh asserts: no file under platform/ outside node_modules contains th
 reqs = ["1.1"]
 owner = "identity"
 
+blocked_ask = "4"
 [task.0.3]
 title = "Environment, data directory and CLI identity"
 status = "done"
