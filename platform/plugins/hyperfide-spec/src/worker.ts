@@ -1,3 +1,4 @@
+import type { RunResult } from "./execution.js";
 import { taskPacket } from "./shared/packet.js";
 import { featureFromKvx } from "./kvx.js";
 import type { Task } from "./shared/model.js";
@@ -20,6 +21,7 @@ export interface WorkerThreadRequest {
   env: { CG_TASK: string };
   title: string;
   prompt: string;
+  tools?: { verify(): Promise<RunResult> };
   origin: "plugin";
   originPluginId: "hyperfide-spec";
 }
@@ -29,6 +31,11 @@ export interface WorkerTaskUpdate {
   task: string;
   threadId: string;
   status: string;
+  repository?: string;
+  environment?: string;
+  projectId?: string;
+  providerId?: string;
+  base?: string;
 }
 
 export interface RunTaskInput {
@@ -38,6 +45,10 @@ export interface RunTaskInput {
   task: string;
   providerId: string;
   environmentProviderId?: string;
+}
+
+export function spawnTaskThread(host: TaskWorkerHost, request: WorkerThreadRequest) {
+  return host.spawn(request);
 }
 
 export function createTaskWorker(adapter: TaskWorkerHost) {
@@ -62,7 +73,8 @@ export function createTaskWorker(adapter: TaskWorkerHost) {
         } catch (error) {
           if ((error as { code?: string }).code !== "ENOENT") throw error;
         }
-        const thread = await adapter.spawn({
+        const base = await adapter.baseCommit(input.repository);
+        const thread = await spawnTaskThread(adapter, {
           repository: input.repository,
           projectId: input.projectId,
           providerId: input.providerId,
@@ -70,7 +82,7 @@ export function createTaskWorker(adapter: TaskWorkerHost) {
           env: { CG_TASK: input.task },
           title: `${input.feature}/${input.task}: ${task.title}`,
           prompt: taskPacket(input.feature, input.task, task,
-            await adapter.baseCommit(input.repository), preamble),
+            base, preamble),
           origin: "plugin",
           originPluginId: "hyperfide-spec",
         });
@@ -86,7 +98,8 @@ export function createTaskWorker(adapter: TaskWorkerHost) {
             } catch {
               // A missing/unreadable worker spec cannot attest implementation.
             }
-            await adapter.publish({ feature: input.feature, task: input.task, threadId: thread.id, status });
+            await adapter.publish({ feature: input.feature, task: input.task, threadId: thread.id, status, repository: input.repository,
+              environment: thread.environment, projectId: input.projectId, providerId: input.providerId, base });
             running.delete(key);
             unsubscribe();
           } finally {

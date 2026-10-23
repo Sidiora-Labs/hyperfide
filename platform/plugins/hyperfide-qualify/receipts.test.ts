@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { canonical, type PassedLane } from "./receipts";
 import { registerLaneReceipts } from "./projection-lane-receipts";
 import { receiptDetail } from "../hyperfide-spec/receipt-detail";
-import { runBinary } from "../hyperfide-spec/projection-run-task";
+import { runBinary } from "../hyperfide-spec/src/execution";
 
 const dirs: string[] = [];
 afterEach(async () => { await Promise.all(dirs.splice(0).map(p => rm(p, { recursive: true, force: true }))); });

@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
-import { runBinary, type Runner } from "./projection-run-task";
+import { runBinary, type Runner } from "./src/execution";
 
 export async function receiptDetail(cwd: string, task: string, spec: string, open: (path: string) => Promise<void>, runner: Runner = runBinary,
   checker = "tests/hyperfide/closure_check.py") {

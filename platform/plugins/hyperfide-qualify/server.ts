@@ -1,13 +1,11 @@
-import { runBinary, runTaskThread, type Runner, type RunTaskHost } from "../hyperfide-spec/projection-run-task";
+import { runBinary, type Runner } from "../hyperfide-spec/src/execution";
+import { readWorkerTask, spawnTaskThread, type TaskWorkerHost, type WorkerTaskUpdate } from "../hyperfide-spec/src/worker";
+import { featureFromKvx } from "../hyperfide-spec/src/kvx";
+import type { Task } from "../hyperfide-spec/src/shared/model";
 import { WavePublication, type PublicationHost } from "./publication";
 import { waveDetail } from "../hyperfide-spec/wave-detail";
 import type { HumanJob, Operator } from "../hyperfide-spec/wave-authority";
 
-export interface ImplementedTask {
-  id: string; status: string; wave: number; cwd: string; base: string;
-  criteria: string[]; verifyCmd: string; laneLog: string; workerProvider: string;
-  touches: string[]; reqs: string[];
-}
 export interface Finding { file: string; line: number; severity: string; claim: string }
 export interface Verdict {
   verdict: "pass" | "findings"; findings: Finding[]; verify: { cmd: string; exit: number };
@@ -16,17 +14,16 @@ export interface CheckerRecord {
   status: "pass" | "findings" | "error"; independent: boolean;
   provider: string; verdict?: Verdict; fixTasks: string[]; error?: string;
 }
-export interface CheckerHost extends RunTaskHost {
-  onImplemented(handler: (task: ImplementedTask) => Promise<CheckerRecord | undefined>): void;
+export interface CheckerConfig {
+  providers: string[]; checkerProvider?: string; binary?: string; runner?: Runner;
+  laneLog(update: WorkerTaskUpdate): Promise<string>;
   recordChecker(task: string, record: CheckerRecord): Promise<void>;
-  listTaskIds(cwd: string): Promise<string[]>;
 }
-export interface CheckerConfig { providers: string[]; checkerProvider?: string; binary?: string; runner?: Runner }
 
-function parseVerdict(value: unknown, task: ImplementedTask, exits: number[]): Verdict {
+function parseVerdict(value: unknown, task: Task, exits: number[]): Verdict {
   const v = value as Verdict;
   if (!v || !["pass", "findings"].includes(v.verdict) || !Array.isArray(v.findings)
-    || !v.verify || v.verify.cmd !== task.verifyCmd || !exits.includes(v.verify.exit)
+    || !v.verify || v.verify.cmd !== task.verify_cmd || !exits.includes(v.verify.exit)
     || exits.length === 0 || v.verify.exit !== exits.at(-1)
     || (v.verdict === "pass" && (v.verify.exit !== 0 || v.findings.length !== 0))
     || (v.verdict === "findings" && v.findings.length === 0)) throw new Error("Invalid checker verdict or missing verify run");
@@ -39,65 +36,87 @@ function parseVerdict(value: unknown, task: ImplementedTask, exits: number[]): V
   return v;
 }
 
-export function registerChecker(host: CheckerHost, config: CheckerConfig) {
+export function registerChecker(host: TaskWorkerHost, config: CheckerConfig) {
   const runner = config.runner ?? runBinary;
   const active = new Map<string, Promise<CheckerRecord | undefined>>();
   const repositories = new Map<string, Promise<unknown>>();
-  const check = async (task: ImplementedTask): Promise<CheckerRecord | undefined> => {
-    if (task.status !== "implemented") return;
-    const provider = (config.checkerProvider && config.checkerProvider !== task.workerProvider
-      ? config.checkerProvider : config.providers.find(p => p !== task.workerProvider)) ?? config.providers[0];
-    const record: CheckerRecord = { status: "error", independent: !!provider && provider !== task.workerProvider,
+  const check = async (update: WorkerTaskUpdate): Promise<CheckerRecord | undefined> => {
+    if (update.status !== "implemented") return;
+    const cwd = update.environment;
+    if (!cwd || !update.repository || !update.projectId || !update.providerId) {
+      throw new Error("Implemented worker update lacks execution context");
+    }
+    const task = await readWorkerTask(host, cwd, update.feature, update.task);
+    const provider = (config.checkerProvider && config.checkerProvider !== update.providerId
+      ? config.checkerProvider : config.providers.find(p => p !== update.providerId)) ?? config.providers[0];
+    const record: CheckerRecord = { status: "error", independent: !!provider && provider !== update.providerId,
       provider: provider ?? "", fixTasks: [] };
     try {
       if (!provider || !config.providers.includes(provider)) throw new Error("Checker provider is not configured");
-      const diff = await runner("git", ["diff", task.base, "--"], task.cwd);
+      const diff = await runner("git", ["diff", update.base ?? await host.baseCommit(update.repository), "--"], cwd);
       if (diff.exit !== 0) throw new Error(diff.stderr || "Cannot read checker diff");
       const exits: number[] = [];
-      const verdict = parseVerdict(await runTaskThread(host, {
-        task: task.id, provider, cwd: task.cwd, role: "checker",
-        packet: JSON.stringify({ criteria: task.criteria, diff: diff.stdout, laneLog: task.laneLog,
-          verifyCmd: task.verifyCmd, instruction: "Run the verify tool yourself, then return {verdict: pass|findings, findings: [{file,line,severity,claim}], verify: {cmd,exit}}." }),
-      }, { verify: async () => {
-        const result = await runner("bash", ["-lc", task.verifyCmd], task.cwd);
-        exits.push(result.exit);
-        return result;
-      } }), task, exits);
+      let executionEnvironment = cwd;
+      const thread = await spawnTaskThread(host, {
+        repository: cwd, projectId: update.projectId, providerId: provider,
+        environment: { type: "provider", environmentProviderId: "environment-git-worktree" },
+        env: { CG_TASK: task.id }, title: `Checker ${update.feature}/${task.id}`,
+        origin: "plugin", originPluginId: "hyperfide-spec",
+        prompt: JSON.stringify({ criteria: task.criteria, diff: diff.stdout, laneLog: await config.laneLog(update),
+          verifyCmd: task.verify_cmd, instruction: "Run the verify tool yourself, then write .hyperfide/checker-verdict.json containing {verdict: pass|findings, findings: [{file,line,severity,claim}], verify: {cmd,exit}}." }),
+        tools: { verify: async () => {
+          const result = await runner("bash", ["-lc", task.verify_cmd], executionEnvironment);
+          exits.push(result.exit);
+          return result;
+        } },
+      });
+      executionEnvironment = thread.environment;
+      await new Promise<void>((resolve, reject) => {
+        const unsubscribe = host.onStopped(thread.id, async () => {
+          try { unsubscribe(); resolve(); } catch (error) { reject(error); }
+        });
+      });
+      const verdict = parseVerdict(JSON.parse(await host.readFile(thread.environment, ".hyperfide/checker-verdict.json")), task, exits);
       record.verdict = verdict;
-      const ids = new Set(await host.listTaskIds(task.cwd));
+      const ids = new Set(featureFromKvx(update.feature, await host.readFile(cwd, `spec/${update.feature}/spec.kvx`)).tasks.map(t => t.id));
       for (const finding of verdict.findings) {
         let next = 1;
         while (ids.has(`${task.wave}.${next}`)) next++;
         const id = `${task.wave}.${next}`;
         const result = await runner(config.binary ?? "hyperfide", ["spec", "add", id,
           "--title", `Checker ${finding.severity}: ${finding.claim}`, "--wave", String(task.wave),
-          "--requires", task.id, "--touches", finding.file, "--verify", task.verifyCmd,
+          "--requires", task.id, "--touches", finding.file, "--verify", task.verify_cmd,
           "--do", `${finding.file}:${finding.line} [${finding.severity}] ${finding.claim}`,
-          "--reqs", task.reqs.join(",")], task.cwd);
+          "--reqs", task.reqs.join(",")], cwd);
         if (result.exit !== 0) throw new Error(result.stderr || "Cannot append checker fix task");
         ids.add(id); record.fixTasks.push(id);
       }
       record.status = verdict.verdict;
     } catch (error) { record.error = String(error); }
-    await host.recordChecker(task.id, record);
+    await config.recordChecker(task.id, record);
     return record;
   };
-  const handle = (task: ImplementedTask) => {
+  const handle = (update: WorkerTaskUpdate) => {
+    const cwd = update.environment ?? update.repository ?? "";
     // Coalesce repeated lifecycle notifications while a checker is running.
-    const key = `${task.cwd}:${task.id}`;
+    const key = `${cwd}:${update.feature}/${update.task}`;
     if (!active.has(key)) {
       // Serialize each repository so concurrent verdicts cannot allocate the same fix id.
-      const previous = repositories.get(task.cwd) ?? Promise.resolve();
-      const pending = previous.catch(() => {}).then(() => check(task)).finally(() => {
+      const previous = repositories.get(cwd) ?? Promise.resolve();
+      const pending = previous.catch(() => {}).then(() => check(update)).finally(() => {
         active.delete(key);
-        if (repositories.get(task.cwd) === pending) repositories.delete(task.cwd);
+        if (repositories.get(cwd) === pending) repositories.delete(cwd);
       });
-      repositories.set(task.cwd, pending);
+      repositories.set(cwd, pending);
       active.set(key, pending);
     }
     return active.get(key)!;
   };
-  host.onImplemented(handle);
+  const publish = host.publish.bind(host);
+  host.publish = async update => {
+    await publish(update);
+    await handle(update);
+  };
   return handle;
 }
 
@@ -138,11 +157,11 @@ export { registerLaneReceipts } from "./projection-lane-receipts";
 export * from "./qualification";
 import { registerQualification, type QualificationHost } from "./qualification";
 export function qualificationPlugin(host: ClosurePluginHost): ReturnType<typeof registerQualification> | undefined;
-export function qualificationPlugin(host: QualificationHost & Partial<CheckerHost>, config?: CheckerConfig): ReturnType<typeof registerQualification> | undefined;
-export function qualificationPlugin(host: ClosurePluginHost | (QualificationHost & Partial<CheckerHost>), config?: CheckerConfig) {
+export function qualificationPlugin(host: QualificationHost & TaskWorkerHost, config?: CheckerConfig): ReturnType<typeof registerQualification> | undefined;
+export function qualificationPlugin(host: ClosurePluginHost | (QualificationHost & TaskWorkerHost), config?: CheckerConfig) {
   const lanes = "realtime" in host ? registerQualification(host) : undefined;
   if ("authority" in host) registerWaveClosure(host);
-  if (config && "onImplemented" in host && host.onImplemented) registerChecker(host as CheckerHost, config);
+  if (config && "spawn" in host) registerChecker(host, config);
   return lanes;
 }
 export default qualificationPlugin;
