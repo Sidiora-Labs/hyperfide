@@ -676,7 +676,9 @@ def daemon_lifecycle(s):
     service_id=str(uuid.uuid4())
     status,issued=s.invoke("identity.service.issue",{"credential_id":service_id,"actor_id":str(uuid.uuid4()),"role":"DISPATCH",
         "public_key_b64":base64.urlsafe_b64encode(public).decode().rstrip("="),
-        "allowed_actions":["identity.describe","identity.principal.renew","outbox.claim","outbox.acknowledge","outbox.retry","fixture.worker-admit"],"ttl_seconds":300},component="14.1")
+        # inbox.receive: the daemon always adds the fixed finding route (hyperfide-v21 2.6) and refuses
+        # to dispatch unless its principal holds every route action.
+        "allowed_actions":["identity.describe","identity.principal.renew","outbox.claim","outbox.acknowledge","outbox.retry","fixture.worker-admit","inbox.receive"],"ttl_seconds":300},component="14.1")
     check("recovery.daemon-real-service-identity",lambda:expect(status==200 and issued.get("ok") and issued["result"]["role"]=="DISPATCH","Actual operator service issuance failed"))
     with socket.socket() as sock:sock.bind(("127.0.0.1",0));port=sock.getsockname()[1]
     origin="https://localhost:"+str(port)
@@ -718,7 +720,21 @@ def daemon_lifecycle(s):
         while time.monotonic()<deadline:
             if predicate():return
             time.sleep(.05)
-        raise AssertionError(message)
+        raise AssertionError(message() if callable(message) else message)
+    def daemon_diagnosis(summary):
+        # Name the delivery state and the daemon's own last stderr lines, so a stall is diagnosable.
+        def build():
+            state=sql("SELECT coalesce(string_agg(state||'/'||attempt_count::text,','),'none') FROM hyperfide.event_deliveries WHERE event_id="+q(work["id"]))
+            tail=""
+            if process and process.stderr:
+                while select.select([process.stderr],[],[],0)[0]:
+                    line=process.stderr.readline()
+                    if not line:break
+                    tail=(tail+line)[-1200:]
+            try:worker=json.dumps(describe_dispatch())[:600]
+            except Exception as error:worker="undescribed: "+str(error)[:300]
+            return summary+" (delivery "+state+"; worker "+worker+"; daemon stderr: "+tail.strip()[-1200:]+")"
+        return build
     def describe_dispatch():
         old_origin,old_port=s.origin,s.port
         try:
@@ -733,7 +749,7 @@ def daemon_lifecycle(s):
         start_dispatch()
         check("recovery.daemon-separate-process-stdin-eof",lambda:expect(process.pid!=s.child.pid and process.poll() is None,"Worker did not survive DEVNULL stdin as a separate service"))
         old=s.child;control_processes.append({k:v for k,v in json.loads((target()/"resource.json").read_text()).items() if k in ("pid","start_time","boot_id")})
-        wait_for(lambda:sql("SELECT count(*) FROM hyperfide.command_inbox WHERE operation='event.receive' AND idempotency_key="+q(work["id"]))=="1","Daemon never reached actual committed receiver")
+        wait_for(lambda:sql("SELECT count(*) FROM hyperfide.command_inbox WHERE operation='event.receive' AND idempotency_key="+q(work["id"]))=="1",daemon_diagnosis("Daemon never reached actual committed receiver"))
         old.wait(timeout=10);s.child=None
         marker=json.loads((s.path/"worker-after-commit-crash").read_text())
         expect(marker["event_id"]==work["id"] and marker["status"]=="APPLIED" and marker["inbox_id"],"Unexpected receiver crash boundary: "+json.dumps(marker))

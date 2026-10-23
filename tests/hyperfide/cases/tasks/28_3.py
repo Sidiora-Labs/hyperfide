@@ -88,8 +88,11 @@ def portable_cases():
     # Stage byte-identical copies of the pinned checker assets under a protected private root;
     # the workspace ancestry may be owned by a third account and is never trusted as-is.
     import shutil
+    # check-evidence.py imports evidence_store, so a staged asset root without it cannot load
+    # the canonical checker at all (the same gap 7.8 fixed in the 16.2 selftest copy).
+    PROOF_ASSETS=("inspect-proof.py","check-evidence.py","evidence_store.py","proof_relocation.py","registry.json")
     qualified=Path(tempfile.mkdtemp(prefix="hyperfide-proof-staging-qualified-"));paths.append(str(qualified));record_paths()
-    for name in ("inspect-proof.py","check-evidence.py","proof_relocation.py","registry.json"):
+    for name in PROOF_ASSETS:
         shutil.copyfile(assets/name,qualified/name);(qualified/name).chmod(0o644)
         require((qualified/name).read_bytes()==(assets/name).read_bytes(),"staged proof asset differs from pinned source: "+name)
     try:
@@ -106,7 +109,7 @@ def portable_cases():
             import shutil
             with tempfile.TemporaryDirectory(prefix="hyperfide-proof-staging-assets-")as folder:
                 isolated=Path(folder);paths.append(str(isolated));record_paths()
-                for name in ("inspect-proof.py","check-evidence.py","proof_relocation.py","registry.json"):
+                for name in PROOF_ASSETS:
                     shutil.copyfile(assets/name,isolated/name)
                 before={p.name:p.read_bytes()for p in isolated.iterdir()}
                 inspect(proof_assets=isolated)

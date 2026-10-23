@@ -17,6 +17,12 @@ closure_check.py <id>...  passes only when, for every id:
      under refs/evidence/*, decision D10), requalified_on is the commit of one of those
      PASS receipts, and exit_code is 0.
 
+With --allow-pending-with-reason (task 7.8), a task whose status is "pending" is
+accepted instead when its [task.<id>] block carries a reason = "..." line that names a
+failing assertion: an assertion id the task's registration lists, or one the case file
+its registration runs declares. Without the flag, or without such a reason, pending
+still fails.
+
 Before checking any id it runs a negative self-test on a synthetic repository: a good
 closure must pass and each single defect (status, seal, checker, pin drift, unreachable
 commit, orphan index) must fail, so a checker that cannot fail never reports success.
@@ -151,7 +157,39 @@ def receipt_problems(root, receipt, path, campaign, manifest_path):
     return problems
 
 
-def check_task(root, spec_text, artifacts, task):
+ASSERTION_ID = re.compile(r"[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+")
+
+
+def known_assertions(root, task):
+    """Assertion ids a pending reason may name: the registration's list plus the dotted
+    string literals of the case file the registration runs (e.g. a private leg's ids)."""
+    names = set()
+    try:
+        registration = json.loads((root / "tests/hyperfide/registrations" / (task + ".json")).read_text())
+    except (OSError, ValueError):
+        return names
+    names.update(a for a in registration.get("assertion_ids") or [] if isinstance(a, str))
+    argv = registration.get("argv") or []
+    case = root / argv[1] if len(argv) > 1 and isinstance(argv[1], str) else None
+    if case is not None and case.is_file():
+        text = case.read_text(errors="replace")
+        names.update(m for m in re.findall(r"[\"']([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+)[\"']", text)
+                     if not re.search(r"\.(py|json|kvx|js|ts|sql|sh|md)$", m))
+    return names
+
+
+def pending_reason_problems(root, block, task):
+    """Why a pending task's reason cannot stand in for a closure; empty when it can."""
+    reason = kv(block, "reason")
+    if not isinstance(reason, str) or not reason.strip():
+        return ["status is pending with no reason field"]
+    named = set(ASSERTION_ID.findall(reason)) & known_assertions(root, task)
+    if not named:
+        return ["pending reason names no assertion of task " + task + "'s registration or case"]
+    return []
+
+
+def check_task(root, spec_text, artifacts, task, allow_pending=False):
     """Return a list of failure strings for one task id (empty means closed)."""
     if not TASK_ID.fullmatch(task):
         return ["invalid task id"]
@@ -160,6 +198,8 @@ def check_task(root, spec_text, artifacts, task):
         return ["no [task." + task + "] in spec/hyperfide/spec.kvx"]
     failures = []
     status = kv(block, "status")
+    if allow_pending and status == "pending":
+        return pending_reason_problems(root, block, task)
     if status != "done":
         failures.append("status is " + str(status) + ", not done")
     verify = kv(block, "verify_cmd") or ""
@@ -218,12 +258,17 @@ def _fixture(base, defect):
     (root / "src/a.c").write_text("int a;\n")
     manifest = {"inputs": [{"path": "src/a.c", "sha256": sha(b"int a;\n"), "size": 7}]}
     (root / "m/1.1.json").write_text(json.dumps(manifest))
-    status = "pending" if defect == "status" else "done"
+    status = "pending" if defect == "status" or defect.startswith("pending") else "done"
+    reason = {"pending-reason": 'reason = "assertion case.alpha fails: fixture prerequisite absent"\n',
+              "pending-unnamed": 'reason = "something went wrong"\n'}.get(defect, "")
     spec_tail = 'verify_cmd = "python3 q.py --case V-001 --manifest m/1.1.json"\n\n[req.1]\n'
     # the receipt pinned the spec while the verify ran (status in_progress); the tree records the closed status
-    pinned_spec = ('[task.1.1]\nstatus = "in_progress"\n' + spec_tail).encode()
-    tree_spec = '[task.1.1]\nstatus = "' + status + '"\n' + ('touches = ["src/a.c"]\n' if defect == "spec-drift" else "") + spec_tail
+    pinned_spec = ('[task.1.1]\nstatus = "in_progress"\n' + reason + spec_tail).encode()
+    tree_spec = '[task.1.1]\nstatus = "' + status + '"\n' + reason + ('touches = ["src/a.c"]\n' if defect == "spec-drift" else "") + spec_tail
     (root / "spec/hyperfide/spec.kvx").write_text(tree_spec)
+    (root / "tests/hyperfide/registrations").mkdir(parents=True)
+    (root / "tests/hyperfide/registrations/1.1.json").write_text(
+        json.dumps({"argv": ["python3", "c.py"], "assertion_ids": ["case.alpha"]}))
     run("add", "-A")
     run("commit", "-qm", "base")
     head = git(root, "rev-parse", "HEAD").stdout.strip()
@@ -261,17 +306,23 @@ def _fixture(base, defect):
 
 def self_test():
     defects = ["status", "seal", "checker", "drift", "spec-drift", "spec-copy", "receipt-commit", "index"]
+    # (fixture, --allow-pending-with-reason, must pass): a reasoned pending passes only
+    # with the flag; no reason or a reason naming no assertion fails even with it.
+    pending = [("pending-reason", True, True), ("pending-reason", False, False),
+               ("status", True, False), ("pending-unnamed", True, False)]
     base = Path(tempfile.mkdtemp(prefix="closure-check-"))
     errors = []
     try:
-        for defect in ["good"] + defects:
-            root = _fixture(base, defect)
+        cases = [(d, False, d == "good") for d in ["good"] + defects] + pending
+        for n, (defect, allow, must_pass) in enumerate(cases):
+            root = _fixture(base / str(n), defect)
             failures = check_task(root, (root / "spec/hyperfide/spec.kvx").read_text(),
-                                  root / "artifacts/hyperfide/tasks", "1.1")
-            if defect == "good" and failures:
-                errors.append("good closure rejected: " + "; ".join(failures))
-            if defect != "good" and not failures:
-                errors.append("defect '" + defect + "' was not detected")
+                                  root / "artifacts/hyperfide/tasks", "1.1", allow_pending=allow)
+            label = defect + (" with --allow-pending-with-reason" if allow else "")
+            if must_pass and failures:
+                errors.append("'" + label + "' rejected: " + "; ".join(failures))
+            if not must_pass and not failures:
+                errors.append("defect '" + label + "' was not detected")
     finally:
         shutil.rmtree(base, ignore_errors=True)
     return errors
@@ -282,25 +333,32 @@ def main():
     parser.add_argument("ids", nargs="+", help="hyperfide task ids, e.g. 11.2 12.1")
     parser.add_argument("--root", default=str(Path(__file__).resolve().parents[2]))
     parser.add_argument("--artifacts", help="artifacts/hyperfide/tasks directory to read")
+    parser.add_argument("--allow-pending-with-reason", action="store_true",
+                        help="accept a pending task whose kvx block has a reason naming a failing assertion")
     args = parser.parse_args()
     errors = self_test()
     if errors:
         for line in errors:
             print("FAIL self-test: " + line)
         return 1
-    print("self-test: good closure accepted; 8 single-defect closures rejected")
+    print("self-test: good closure and a reasoned pending (with the flag) accepted; 8 single-defect closures "
+          "and 3 pending variants (no flag, no reason, reason naming no assertion) rejected")
     root = Path(args.root).resolve()
     artifacts = Path(args.artifacts) if args.artifacts else default_artifacts(root)
     spec_text = (root / "spec/hyperfide/spec.kvx").read_text()
     closed, open_ = [], []
     for task in args.ids:
-        failures = check_task(root, spec_text, artifacts, task)
+        failures = check_task(root, spec_text, artifacts, task, allow_pending=args.allow_pending_with_reason)
         if failures:
             open_.append(task)
             print("FAIL " + task + ": " + " | ".join(failures))
         else:
             closed.append(task)
-            print("PASS " + task)
+            block = task_block(spec_text, task)
+            if kv(block, "status") == "pending":
+                print("PENDING " + task + " (accepted with reason): " + str(kv(block, "reason")))
+            else:
+                print("PASS " + task)
     print("closed %d/%d%s" % (len(closed), len(args.ids), (" (open: " + " ".join(open_) + ")") if open_ else ""))
     return 0 if not open_ else 1
 
