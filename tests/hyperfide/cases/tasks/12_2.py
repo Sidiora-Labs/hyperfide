@@ -486,6 +486,9 @@ class Probe:
                                       stderr=subprocess.PIPE, text=True, cwd=ROOT)
         self.serve.stdin.write(json.dumps({"config_path": self.slot[slot]["config"], "run_seconds": seconds, "poll_interval_ms": 100}))
         self.serve.stdin.close()
+        # communicate() flushes a still-referenced stdin, and Python before 3.13
+        # raises on the closed file; the request is complete, so drop the handle.
+        self.serve.stdin = None
 
     def stop_serve(self, sig):
         process, self.serve = self.serve, None
@@ -537,6 +540,13 @@ class Probe:
         db.row_factory = sqlite3.Row
         try:
             return [dict(r) for r in db.execute(sql, args).fetchall()]
+        except sqlite3.OperationalError as error:
+            # The native runner opens launches.db with SQLITE_OPEN_CREATE and only
+            # then creates its schema, so a poll can see the file before its
+            # tables exist. A ledger without the table has no rows yet.
+            if str(error).startswith("no such table:"):
+                return []
+            raise
         finally:
             db.close()
 

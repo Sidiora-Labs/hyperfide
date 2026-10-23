@@ -1155,7 +1155,7 @@ owner = "console"
 
 [task.7.1]
 title = "Close the seventeen current hyperfide tasks"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["1.1", "1.2"]
 touches = ["tests/hyperfide/closure_check.py", "spec/hyperfide/spec.kvx"]
@@ -1246,7 +1246,7 @@ owner = "qualification"
 
 [task.7.8]
 title = "Fix the six tasks without a clean receipt"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.1"]
 touches = ["tests/hyperfide/cases/tasks/10_2.py", "tests/hyperfide/cases/tasks/28_4.py", "tests/hyperfide/closure_check.py", "spec/hyperfide/spec.kvx"]

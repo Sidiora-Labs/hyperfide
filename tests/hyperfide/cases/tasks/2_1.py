@@ -28,7 +28,7 @@ def check(identity,callback):
  print(json.dumps({"type":"assertion","id":identity,"expected":"observed","actual":actual}),flush=True)
 def outdir():
  p=Path(os.environ.get("HYPERFIDE_CAMPAIGN_DIR","/tmp/hyperfide/task-2.1-standalone"))/"spec";p.mkdir(parents=True,exist_ok=True);return p
-BOOTSTRAP_NODE="import{createResourceContainer}from'./services/hyperfide/dist/storage/runtime.js';import{bootstrapAcceptedIntentWithGateway}from'./services/hyperfide/dist/spec/bootstrap.js';let text='';for await(const c of process.stdin)text+=c;const v=JSON.parse(text),r=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});try{const result=await bootstrapAcceptedIntentWithGateway(r.gateway,v.scope,v.metadata,v.input,v.deployment_id);process.stdout.write(JSON.stringify({ok:true,result}));}catch(error){process.stdout.write(JSON.stringify({ok:false,error:{code:typeof error.code==='string'?error.code:'BOOTSTRAP_FAILED'}}));}finally{await r.close();}"
+BOOTSTRAP_NODE="import{createResourceContainer}from'./services/hyperfide/dist/storage/runtime.js';import{bootstrapAcceptedIntentWithGateway}from'./services/hyperfide/dist/spec/bootstrap.js';let text='';for await(const c of process.stdin)text+=c;const v=JSON.parse(text),r=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});try{const result=await bootstrapAcceptedIntentWithGateway(r.gateway,v.scope,v.metadata,v.input,v.deployment_id);process.stdout.write(JSON.stringify({ok:true,result}));}catch(error){process.stdout.write(JSON.stringify({ok:false,error:{code:typeof error.code==='string'?error.code:'BOOTSTRAP_FAILED',message:String(error&&error.message||'').slice(0,300)}}));}finally{await r.close();}"
 class Service:
  def __init__(self,base):
   from identity_fixture import IdentityFixture,sha
@@ -37,22 +37,27 @@ class Service:
   def setup(f):
    global DB,ORG,PROJECT,REPO,EPOCH,OID,ACTIONS
    self.f=f;DB=f.database;storage.DATABASE=DB
-   for version,name in [(2,"0002-spec"),(4,"0004-durability")]:
-    raw=(ROOT/("services/hyperfide/migrations/"+name+".sql")).read_bytes()
-    f.sql("BEGIN;"+raw.decode()+"INSERT INTO hyperfide.schema_migrations(version,name,checksum) VALUES("+str(version)+",'"+name+"','"+sha(raw)+"');COMMIT;")
-   self.deployment_id=str(uuid.uuid4())
-   ORG=str(uuid.uuid4());PROJECT=str(uuid.uuid4());REPO=str(uuid.uuid4());EPOCH=str(uuid.uuid4())
+   # IdentityFixture already applied the complete trusted release; re-running the DDL fails
+   # (42701 column exists), so verify the two pins this task depends on instead.
+   for name in ("0002-spec","0004-durability"):f.apply_migration(name)
+   # The fixture's service binds identity to its own activated global authority (14.1), so the
+   # intake runs under that deployment and epoch rather than a second hand-inserted BOOTSTRAP epoch.
+   self.deployment_id=f.env["HYPERFIDE_DEPLOYMENT_ID"]
+   ORG=str(uuid.uuid4());PROJECT=str(uuid.uuid4());REPO=str(uuid.uuid4());EPOCH=f.ids["epoch"]
    OID=subprocess.check_output(["git","rev-parse","HEAD"],cwd=ROOT,text=True).strip()
    fmt=subprocess.check_output(["git","rev-parse","--show-object-format"],cwd=ROOT,text=True).strip()
    f.actions=list(dict.fromkeys(f.actions+["system.describe","work.synthetic"]));ACTIONS=f.actions
    self.metadata={"organisation":{"id":ORG,"name":"actual-intake-fixture"},"project":{"id":PROJECT,"name":"actual-intake-fixture"},"repositories":[{"id":REPO,"name":"actual-checkout","url":"https://github.com/Sidiora-Labs/codify.git","object_format":fmt,"checkout_root":str(ROOT),"source_objects":[{"object_id":OID,"object_type":"commit"}]}]}
-   f.sql("INSERT INTO hyperfide.authority_epochs(deployment_id,epoch,activation_kind,state,fence_id,proof_digest) VALUES($1,$2,'BOOTSTRAP','ACTIVE','fixture-known-approved-epoch',$3)",[self.deployment_id,EPOCH,sha(b"fixture-approved-bootstrap-epoch")])
    self.initial_run=str(uuid.uuid4());initial=self.envelope(self.initial_run);self.initial_input=initial
    result=self._bootstrap(initial,self.initial_run)
    expect(result.get("ok") is True,"Actual offline intake did not accept initial synthetic source: "+str(result.get("error",{}).get("code")))
    self.initial_result=result["result"];f.ids.update(organisation=ORG,project=PROJECT,run=self.initial_run,epoch=EPOCH,spec=result["result"]["spec_revision_id"])
    config=json.loads(f.identity_config.read_text())
-   for record in config["principals"]:record.update(organisation_id=ORG,run_id=self.initial_run,deployment_epoch=EPOCH,allowed_actions=f.actions)
+   for record in config["principals"]:
+    record.update(organisation_id=ORG,run_id=self.initial_run,deployment_epoch=EPOCH,allowed_actions=f.actions)
+    # The fixture seeded these principals before this setup; startup refuses a config that differs from the rows.
+    f.sql("UPDATE hyperfide.identity_principals SET organisation_id=$2,run_id=$3,deployment_epoch=$4,allowed_actions=$5 WHERE credential_id=$1",
+          [record["credential_id"],ORG,self.initial_run,EPOCH,f.actions])
    f.identity_config.write_text(json.dumps(config));f.identity_config.chmod(0o600)
    policy=json.loads(f.policy.read_text());policy.update(programme_id=self.initial_run,allowed_actions=f.actions);f.policy.write_text(json.dumps(policy))
    self.credentials[self.initial_run]=f.ids["operator"]
@@ -71,6 +76,8 @@ class Service:
    if run in self.credentials:return
    config=json.loads(self.f.identity_config.read_text());record=copy.deepcopy(config["principals"][0]);credential=str(uuid.uuid4())
    record.update(credential_id=credential,actor_id=credential,run_id=run)
+   # Startup only verifies configured principals against their rows; it never creates them.
+   self.f.seed_fixture_principal(record)
    config["principals"].append(record);self.f.identity_config.write_text(json.dumps(config))
    self.f.stop();self.f.start();self.credentials[run]=credential
  def request(self,action,input,run,component="spec-import",overrides=None):
@@ -92,7 +99,7 @@ class Service:
    finally:
     if overrides:self.f.env=before;self.f.stop();self.f.start()
  def ok(self,*args,**kwargs):
-  r=self.request(*args,**kwargs);expect(r.get("ok") is True,"Service rejected operation: "+str(r.get("error",{}).get("code")));return r["result"]
+  r=self.request(*args,**kwargs);expect(r.get("ok") is True,"Service rejected operation: "+str(r.get("error",{}).get("code"))+" "+str(r.get("error",{}).get("message"))[:200]);return r["result"]
  def reject(self,action,input,run,codes,**kwargs):
   r=self.request(action,input,run,**kwargs);expect(r.get("ok") is False and r.get("error",{}).get("code") in codes,"Expected "+"/".join(codes)+"; observed "+str(r.get("error",{}).get("code")))
  def source(self,content=SOURCE):
@@ -221,7 +228,10 @@ def probe(s):
   argv=["node",str(ROOT/"services/hyperfide/dist/control.js"),"--policy",str(s.f.policy),"--spec-revision","fixture-identity-v1","--components",str(s.f.components),"--module-root",str(ROOT/"services/hyperfide/dist")]
   result=subprocess.run(argv,input=json.dumps({"id":1,"component":"spec-import","action":"spec.inspect","input":{"run_id":run}})+"\n",text=True,capture_output=True,cwd=ROOT,env=s.f.env,timeout=30)
   rows=[json.loads(line) for line in result.stdout.splitlines() if line.strip()]
-  expect(len(rows)==1 and rows[0].get("ok") is False and rows[0].get("error",{}).get("code")=="AUTH_REQUIRED","Unbranded JSONL acquired specification authority")
+  # Either fail-closed outcome holds: the JSONL request is refused AUTH_REQUIRED, or (since the
+  # identity component 14.1 is registered) the control role refuses to start in stdio mode at all.
+  startup_refused=result.returncode!=0 and not rows and '"TRANSPORT_CONFIG"' in result.stderr and "14.1" in result.stderr
+  expect(startup_refused or (len(rows)==1 and rows[0].get("ok") is False and rows[0].get("error",{}).get("code")=="AUTH_REQUIRED"),"Unbranded JSONL acquired specification authority: "+json.dumps(rows)[:400]+" "+result.stderr[-400:])
  check("spec.auth.no-startup-fallback",raw_refused)
  def role_refused():
   operation=s.f.operation("spec-import","spec.import",s.initial_input,run=s.initial_run)

@@ -40,7 +40,16 @@ def main():
   migration=payload/"deploy/hyperfide/migrate.mjs";migration.parent.mkdir(parents=True);shutil.copytree(ROOT/"deploy/hyperfide",payload/"deploy/hyperfide",dirs_exist_ok=True,symlinks=False)
   for item in payload.rglob("*"):
    if item.is_file():item.chmod(0o755 if item.relative_to(payload).as_posix().startswith(("bin/","runtime/node","runtime/python/bin/")) else 0o644)
-  receipt=payload/"share/hyperfide/qualified/26.4.json";receipt.parent.mkdir(parents=True);shutil.copyfile(ROOT/"artifacts/hyperfide/tasks/26.4/evidence-index.json",receipt);receipt.chmod(0o644)
+  # The 26.4 unit receipt is another task's evidence: take it the way scripts/release.sh does
+  # (local cache, else the artifact store by the tracked receipt record), never by a bare path.
+  sys.path.insert(0,str(ROOT/"tests/hyperfide"))
+  import evidence_store
+  try:unit_receipt,unit_source=evidence_store.unit_receipt_input(ROOT,base)
+  except (evidence_store.EvidenceIntegrityError,evidence_store.EvidenceUnavailable) as exc:unit_receipt,unit_source=None,"unavailable: "+str(exc)
+  if unit_receipt is None:
+   print("SKIP: 26.4 unit receipt prerequisite absent ("+unit_source+"): needs artifacts/hyperfide/tasks/26.4/evidence-index.json or tests/hyperfide/evidence-receipts/26.4.json with the artifact store configured; the receipt-qualified unit assertions fail",file=sys.stderr,flush=True)
+  else:
+   receipt=payload/"share/hyperfide/qualified/26.4.json";receipt.parent.mkdir(parents=True);shutil.copyfile(unit_receipt,receipt);receipt.chmod(0o644)
   files=[{"path":p.relative_to(payload).as_posix(),"digest":"sha256:"+hashlib.sha256(p.read_bytes()).hexdigest(),"size_bytes":str(p.stat().st_size),"mode":format(p.stat().st_mode&0o777,"04o")} for p in sorted(payload.rglob("*")) if p.is_file()]
   manifest={"schema_version":1,"release_version":"2.0.0-dev","source_commit":subprocess.check_output(["git","rev-parse","HEAD"],cwd=ROOT,text=True).strip(),"source_date_epoch":"1","protocol_version":1,"schema_min":1,"schema_max":1,"runtime":{"node":"24.22.0","npm":"11.19.1","python":"3.14.8","platform":"linux","architecture":"x64"},"files":files}
   mf=payload/"manifest.json";mf.write_text(json.dumps(manifest))
@@ -92,11 +101,23 @@ def main():
    expect(all(units[u]["status"]=="INSTALLABLE" and units[u]["owner_task"]=="26.4" for u in ["issue-watcher.service","supervisory-host.service"]),"receipt-qualified 26.4 status or owner differs")
   check("release.units.unqualified-reported",units_reported)
   def installable_unqualified():
-   unit=payload/"deploy/hyperfide/issue-watcher.service";original=unit.read_bytes();unit.write_bytes(original+b"[Install]\nWantedBy=multi-user.target\n")
-   changed=dict(manifest,files=[dict(f,digest="sha256:"+hashlib.sha256(unit.read_bytes()).hexdigest(),size_bytes=str(unit.stat().st_size)) if f["path"]=="deploy/hyperfide/issue-watcher.service" else f for f in manifest["files"]])
-   mf.write_text(json.dumps(changed))
-   try:rejected("inspect",{"manifest":"manifest.json"})
+   # An owning unit may carry [Install] only while its one start condition is exactly the
+   # receipt marker (hyperfide-v21 2.9): the shipped unit is accepted above; the same
+   # [Install] unit with the condition absent, changed or doubled is refused.
+   unit=payload/"deploy/hyperfide/issue-watcher.service";original=unit.read_bytes();text=original.decode()
+   marker="ConditionPathExists=/opt/hyperfide/current/share/hyperfide/qualified/26.4.json\n"
+   expect(marker in text and "[Install]" in text,"shipped issue-watcher.service no longer carries [Install] gated on the receipt marker")
+   variants={"absent":text.replace(marker,""),"different":text.replace(marker,"ConditionPathExists=/etc/hyperfide/issue-watcher.json\n"),
+    "doubled":text.replace(marker,marker+"ConditionPathExists=/etc/hyperfide/issue-watcher.json\n")}
+   try:
+    for name,body in variants.items():
+     unit.write_bytes(body.encode())
+     changed=dict(manifest,files=[dict(f,digest="sha256:"+hashlib.sha256(unit.read_bytes()).hexdigest(),size_bytes=str(unit.stat().st_size)) if f["path"]=="deploy/hyperfide/issue-watcher.service" else f for f in manifest["files"]])
+     mf.write_text(json.dumps(changed))
+     r=request("inspect",{"manifest":"manifest.json"})
+     expect(r.get("ok") is False and r["error"]["code"]=="RELEASE_INVALID","installable unit with "+name+" start condition accepted: "+json.dumps(r)[:300])
    finally:unit.write_bytes(original);unit.chmod(0o644);mf.write_text(json.dumps(manifest))
+   expect(ok("inspect",{"manifest":"manifest.json"})["verified"] is True,"restored marker-gated unit no longer verifies")
   check("release.units.installable-unqualified-refused",installable_unqualified)
   import uuid
   database="hf_release_migration_"+uuid.uuid4().hex
