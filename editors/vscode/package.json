@@ -73,6 +73,13 @@
           "contextualTitle": "Hyperfide Agent"
         },
         {
+          "type": "webview",
+          "id": "codifyLeaders",
+          "name": "Leaders",
+          "contextualTitle": "Hyperfide Leaders",
+          "visibility": "collapsed"
+        },
+        {
           "id": "codifyMemories",
           "name": "Memory",
           "contextualTitle": "Hyperfide Memory",
@@ -82,6 +89,24 @@
           "id": "codifyFleet",
           "name": "Fleet",
           "contextualTitle": "Hyperfide Fleet",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "codifySandboxes",
+          "name": "Sandboxes",
+          "contextualTitle": "Hyperfide Sandboxes",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "codifyNeeds",
+          "name": "Needs",
+          "contextualTitle": "Hyperfide Needs",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "codifyIssues",
+          "name": "Issues",
+          "contextualTitle": "Hyperfide Issues",
           "visibility": "collapsed"
         }
       ]
@@ -98,6 +123,18 @@
       {
         "view": "codifyFleet",
         "contents": "No fleet here yet.\nA fleet is Main Gideon, one manager per feature, and one worker per wave \u2014 each on its own branch and worktree. It appears once spec/workflow.kvx has a [hierarchy] section.\n[Start the fleet](command:codify.fleet.start)\n[Begin a task in the fleet](command:codify.fleet.begin)\n[Refresh](command:codify.fleet.refresh)"
+      },
+      {
+        "view": "codifySandboxes",
+        "contents": "No sandboxes to show.\nThis view reads the console.sandboxes inventory from the Hyperfide control service (hyperfide console sandboxes). It lists sandboxes once the workspace is in distributed authority mode and the organisation has some.\n[Refresh](command:codify.sandboxes.refresh)"
+      },
+      {
+        "view": "codifyNeeds",
+        "contents": "Nothing needs you.\nAsks (secrets, variables, permissions, decisions, questions), human intents and admission escalations appear here from the Hyperfide console, or this project's local Asks.\n[Refresh](command:codify.needs.refresh)"
+      },
+      {
+        "view": "codifyIssues",
+        "contents": "No issues.\nThe leader queue, external intake, escalated repairs and drift appear here from the Hyperfide console and the local drift log.\n[Refresh](command:codify.issues.refresh)"
       }
     ],
     "commands": [
@@ -388,6 +425,16 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "codify.issues.refresh",
+        "title": "Hyperfide: Refresh Issues",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "codify.issues.open",
+        "title": "Hyperfide: Open Issue Location",
+        "icon": "$(go-to-file)"
+      },
+      {
         "command": "codify.fleet.openWorktree",
         "title": "Hyperfide: Open Agent Worktree",
         "icon": "$(folder-opened)"
@@ -426,6 +473,382 @@
         "command": "codify.fleet.openSessionTranscript",
         "title": "Hyperfide: Open Native Agent Transcript",
         "icon": "$(output)"
+      },
+      {
+        "command": "codify.sandboxes.refresh",
+        "title": "Hyperfide: Refresh Sandboxes",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "codify.sandboxes.attach",
+        "title": "Hyperfide: Attach to Sandbox Worker Session",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "codify.needs.refresh",
+        "title": "Hyperfide: Refresh Needs",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "codify.needs.answer",
+        "title": "Hyperfide: Answer",
+        "icon": "$(reply)"
+      },
+      {
+        "command": "hyperfide.actions",
+        "title": "Hyperfide: Actions\u2026",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "hyperfide.refresh",
+        "title": "Hyperfide: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "hyperfide.brief",
+        "title": "Hyperfide: Session Brief",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "hyperfide.nextTask",
+        "title": "Hyperfide: Next Eligible Task"
+      },
+      {
+        "command": "hyperfide.wave",
+        "title": "Hyperfide: Show Current Wave"
+      },
+      {
+        "command": "hyperfide.startTask",
+        "title": "Hyperfide: Start Task",
+        "icon": "$(play)"
+      },
+      {
+        "command": "hyperfide.implementedTask",
+        "title": "Hyperfide: Mark Implemented (qualification pending)",
+        "icon": "$(circle-large-filled)"
+      },
+      {
+        "command": "hyperfide.doneTask",
+        "title": "Hyperfide: Complete Task (verified)",
+        "icon": "$(check)"
+      },
+      {
+        "command": "hyperfide.claimTask",
+        "title": "Hyperfide: Claim Task",
+        "icon": "$(person-add)"
+      },
+      {
+        "command": "hyperfide.releaseTask",
+        "title": "Hyperfide: Release Claim"
+      },
+      {
+        "command": "hyperfide.traceTask",
+        "title": "Hyperfide: Trace Task to Code",
+        "icon": "$(references)"
+      },
+      {
+        "command": "hyperfide.render",
+        "title": "Hyperfide: Render Spec Mirror"
+      },
+      {
+        "command": "hyperfide.lint",
+        "title": "Hyperfide: Lint Spec",
+        "icon": "$(law)"
+      },
+      {
+        "command": "hyperfide.newFeature",
+        "title": "Hyperfide: New Feature Spec",
+        "icon": "$(add)"
+      },
+      {
+        "command": "hyperfide.addTask",
+        "title": "Hyperfide: Add Task",
+        "icon": "$(diff-added)"
+      },
+      {
+        "command": "hyperfide.openTask",
+        "title": "Hyperfide: Open Task in Spec"
+      },
+      {
+        "command": "hyperfide.review",
+        "title": "Hyperfide: Review the Change",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "hyperfide.check",
+        "title": "Hyperfide: Check the Repository",
+        "icon": "$(verified)"
+      },
+      {
+        "command": "hyperfide.docsPlan",
+        "title": "Hyperfide: Documentation Plan",
+        "icon": "$(book)"
+      },
+      {
+        "command": "hyperfide.docsPacket",
+        "title": "Hyperfide: Generate Documentation Packet",
+        "icon": "$(book)"
+      },
+      {
+        "command": "hyperfide.docsCheck",
+        "title": "Hyperfide: Check Documentation",
+        "icon": "$(check)"
+      },
+      {
+        "command": "hyperfide.docsTrace",
+        "title": "Hyperfide: Trace Documentation",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "hyperfide.guard",
+        "title": "Hyperfide: Check Edit Scope",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "hyperfide.why",
+        "title": "Hyperfide: Why Does This Exist?"
+      },
+      {
+        "command": "hyperfide.testImpact",
+        "title": "Hyperfide: Tests Touching This Change",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "hyperfide.remember",
+        "title": "Hyperfide: Remember a Decision",
+        "icon": "$(lightbulb)"
+      },
+      {
+        "command": "hyperfide.forget",
+        "title": "Hyperfide: Forget This Memory",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "hyperfide.memories.browse",
+        "title": "Hyperfide: Browse Project Memories",
+        "icon": "$(library)"
+      },
+      {
+        "command": "hyperfide.memories.classifyAll",
+        "title": "Hyperfide: Classify Memories with Jev",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "hyperfide.memories.promote",
+        "title": "Hyperfide: Promote Memory to Skill",
+        "icon": "$(mortar-board)"
+      },
+      {
+        "command": "hyperfide.memories.supersede",
+        "title": "Hyperfide: Supersede Memory",
+        "icon": "$(replace)"
+      },
+      {
+        "command": "hyperfide.snapshot",
+        "title": "Hyperfide: Snapshot the Working Tree",
+        "icon": "$(save)"
+      },
+      {
+        "command": "hyperfide.sync",
+        "title": "Hyperfide: Sync the Index",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "hyperfide.hookInstall",
+        "title": "Hyperfide: Install Hooks"
+      },
+      {
+        "command": "hyperfide.agent.startOnTask",
+        "title": "Hyperfide: Start Agent Session on Task",
+        "icon": "$(hubot)"
+      },
+      {
+        "command": "hyperfide.agent.openPanel",
+        "title": "Hyperfide: Start Agent on Task",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "hyperfide.agent.newChat",
+        "title": "Hyperfide: New Agent Chat",
+        "icon": "$(add)"
+      },
+      {
+        "command": "hyperfide.agent.configure",
+        "title": "Hyperfide: Configure Agent Provider",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "hyperfide.agent.startHeadless",
+        "title": "Hyperfide: Run Agent Headless on Task"
+      },
+      {
+        "command": "hyperfide.agent.handoff",
+        "title": "Hyperfide: Hand Off Task"
+      },
+      {
+        "command": "hyperfide.agent.resume",
+        "title": "Hyperfide: Resume Task in Agent Session"
+      },
+      {
+        "command": "hyperfide.agent.runWave",
+        "title": "Hyperfide: Run Wave with Agents"
+      },
+      {
+        "command": "hyperfide.agent.stop",
+        "title": "Hyperfide: Stop Agent Session",
+        "icon": "$(stop-circle)"
+      },
+      {
+        "command": "hyperfide.tasks.detail",
+        "title": "Hyperfide: Task Detail",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "hyperfide.tasks.filter",
+        "title": "Hyperfide: Filter Tasks\u2026",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "hyperfide.tasks.filterStatus",
+        "title": "Hyperfide: Filter Tasks by Status"
+      },
+      {
+        "command": "hyperfide.tasks.filterWave",
+        "title": "Hyperfide: Filter Tasks by Wave"
+      },
+      {
+        "command": "hyperfide.tasks.filterOwner",
+        "title": "Hyperfide: Filter Tasks by Owner"
+      },
+      {
+        "command": "hyperfide.tasks.search",
+        "title": "Hyperfide: Search Tasks",
+        "icon": "$(search)"
+      },
+      {
+        "command": "hyperfide.tasks.clearFilters",
+        "title": "Hyperfide: Clear Task Filters",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "hyperfide.tasks.verify",
+        "title": "Hyperfide: Run Task Verify Command",
+        "icon": "$(play-circle)"
+      },
+      {
+        "command": "hyperfide.tasks.openBranch",
+        "title": "Hyperfide: Open Task Branch or Worktree",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "hyperfide.tasks.copyPrompt",
+        "title": "Hyperfide: Copy Task Resume Prompt",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "hyperfide.fleet.start",
+        "title": "Hyperfide: Start the Fleet",
+        "icon": "$(play)"
+      },
+      {
+        "command": "hyperfide.fleet.stop",
+        "title": "Hyperfide: Stop the Fleet",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "hyperfide.fleet.pause",
+        "title": "Hyperfide: Pause the Fleet",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "hyperfide.fleet.resume",
+        "title": "Hyperfide: Resume the Fleet",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "hyperfide.fleet.openTranscript",
+        "title": "Hyperfide: Open Agent Transcript",
+        "icon": "$(output)"
+      },
+      {
+        "command": "hyperfide.fleet.approve",
+        "title": "Hyperfide: Decide a Fleet Approval",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "hyperfide.fleet.refresh",
+        "title": "Hyperfide: Refresh the Fleet",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "hyperfide.issues.refresh",
+        "title": "Hyperfide: Refresh Issues",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "hyperfide.issues.open",
+        "title": "Hyperfide: Open Issue Location",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "hyperfide.fleet.openWorktree",
+        "title": "Hyperfide: Open Agent Worktree",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "hyperfide.fleet.begin",
+        "title": "Hyperfide: Begin Task in the Fleet",
+        "icon": "$(play)"
+      },
+      {
+        "command": "hyperfide.fleet.mergeUp",
+        "title": "Hyperfide: Merge a Wave Branch Up",
+        "icon": "$(git-merge)"
+      },
+      {
+        "command": "hyperfide.fleet.land",
+        "title": "Hyperfide: Land the Feature",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "hyperfide.fleet.openPr",
+        "title": "Hyperfide: Open the Feature Pull Request",
+        "icon": "$(git-pull-request)"
+      },
+      {
+        "command": "hyperfide.fleet.checkpoint",
+        "title": "Hyperfide: Checkpoint the Open Pull Requests",
+        "icon": "$(milestone)"
+      },
+      {
+        "command": "hyperfide.fleet.openSessionWorktree",
+        "title": "Hyperfide: Open Native Agent Worktree",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "hyperfide.fleet.openSessionTranscript",
+        "title": "Hyperfide: Open Native Agent Transcript",
+        "icon": "$(output)"
+      },
+      {
+        "command": "hyperfide.sandboxes.refresh",
+        "title": "Hyperfide: Refresh Sandboxes",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "hyperfide.sandboxes.attach",
+        "title": "Hyperfide: Attach to Sandbox Worker Session",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "hyperfide.needs.refresh",
+        "title": "Hyperfide: Refresh Needs",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "hyperfide.needs.answer",
+        "title": "Hyperfide: Answer",
+        "icon": "$(reply)"
       }
     ],
     "menus": {
@@ -599,6 +1022,21 @@
           "command": "codify.fleet.checkpoint",
           "when": "view == codifyFleet",
           "group": "1_fleet@3"
+        },
+        {
+          "command": "codify.sandboxes.refresh",
+          "when": "view == codifySandboxes",
+          "group": "navigation"
+        },
+        {
+          "command": "codify.needs.refresh",
+          "when": "view == codifyNeeds",
+          "group": "navigation@0"
+        },
+        {
+          "command": "codify.issues.refresh",
+          "when": "view == codifyIssues",
+          "group": "navigation@0"
         }
       ],
       "view/item/context": [
@@ -761,6 +1199,21 @@
           "command": "codify.fleet.openSessionWorktree",
           "when": "view == codifyFleet && viewItem =~ /^fleet-native.*-nwt/",
           "group": "inline@1"
+        },
+        {
+          "command": "codify.sandboxes.attach",
+          "when": "view == codifySandboxes && viewItem == sandbox-worker-session",
+          "group": "inline@0"
+        },
+        {
+          "command": "codify.needs.answer",
+          "when": "view == codifyNeeds && viewItem == needs-row-answerable",
+          "group": "inline"
+        },
+        {
+          "command": "codify.issues.open",
+          "when": "view == codifyIssues && viewItem =~ /^issues-row/",
+          "group": "inline"
         }
       ],
       "editor/context": [
@@ -789,11 +1242,315 @@
       ],
       "commandPalette": [
         {
+          "command": "codify.actions",
+          "when": "false"
+        },
+        {
+          "command": "codify.refresh",
+          "when": "false"
+        },
+        {
+          "command": "codify.brief",
+          "when": "false"
+        },
+        {
+          "command": "codify.nextTask",
+          "when": "false"
+        },
+        {
+          "command": "codify.wave",
+          "when": "false"
+        },
+        {
+          "command": "codify.startTask",
+          "when": "false"
+        },
+        {
+          "command": "codify.implementedTask",
+          "when": "false"
+        },
+        {
+          "command": "codify.doneTask",
+          "when": "false"
+        },
+        {
+          "command": "codify.claimTask",
+          "when": "false"
+        },
+        {
+          "command": "codify.releaseTask",
+          "when": "false"
+        },
+        {
+          "command": "codify.traceTask",
+          "when": "false"
+        },
+        {
+          "command": "codify.render",
+          "when": "false"
+        },
+        {
+          "command": "codify.lint",
+          "when": "false"
+        },
+        {
+          "command": "codify.newFeature",
+          "when": "false"
+        },
+        {
+          "command": "codify.addTask",
+          "when": "false"
+        },
+        {
           "command": "codify.openTask",
           "when": "false"
         },
         {
+          "command": "codify.review",
+          "when": "false"
+        },
+        {
+          "command": "codify.check",
+          "when": "false"
+        },
+        {
+          "command": "codify.docsPlan",
+          "when": "false"
+        },
+        {
+          "command": "codify.docsPacket",
+          "when": "false"
+        },
+        {
+          "command": "codify.docsCheck",
+          "when": "false"
+        },
+        {
+          "command": "codify.docsTrace",
+          "when": "false"
+        },
+        {
+          "command": "codify.guard",
+          "when": "false"
+        },
+        {
+          "command": "codify.why",
+          "when": "false"
+        },
+        {
+          "command": "codify.testImpact",
+          "when": "false"
+        },
+        {
+          "command": "codify.remember",
+          "when": "false"
+        },
+        {
           "command": "codify.forget",
+          "when": "false"
+        },
+        {
+          "command": "codify.memories.browse",
+          "when": "false"
+        },
+        {
+          "command": "codify.memories.classifyAll",
+          "when": "false"
+        },
+        {
+          "command": "codify.memories.promote",
+          "when": "false"
+        },
+        {
+          "command": "codify.memories.supersede",
+          "when": "false"
+        },
+        {
+          "command": "codify.snapshot",
+          "when": "false"
+        },
+        {
+          "command": "codify.sync",
+          "when": "false"
+        },
+        {
+          "command": "codify.hookInstall",
+          "when": "false"
+        },
+        {
+          "command": "codify.agent.startOnTask",
+          "when": "false"
+        },
+        {
+          "command": "codify.agent.openPanel",
+          "when": "false"
+        },
+        {
+          "command": "codify.agent.newChat",
+          "when": "false"
+        },
+        {
+          "command": "codify.agent.configure",
+          "when": "false"
+        },
+        {
+          "command": "codify.agent.startHeadless",
+          "when": "false"
+        },
+        {
+          "command": "codify.agent.handoff",
+          "when": "false"
+        },
+        {
+          "command": "codify.agent.resume",
+          "when": "false"
+        },
+        {
+          "command": "codify.agent.runWave",
+          "when": "false"
+        },
+        {
+          "command": "codify.agent.stop",
+          "when": "false"
+        },
+        {
+          "command": "codify.tasks.detail",
+          "when": "false"
+        },
+        {
+          "command": "codify.tasks.filter",
+          "when": "false"
+        },
+        {
+          "command": "codify.tasks.filterStatus",
+          "when": "false"
+        },
+        {
+          "command": "codify.tasks.filterWave",
+          "when": "false"
+        },
+        {
+          "command": "codify.tasks.filterOwner",
+          "when": "false"
+        },
+        {
+          "command": "codify.tasks.search",
+          "when": "false"
+        },
+        {
+          "command": "codify.tasks.clearFilters",
+          "when": "false"
+        },
+        {
+          "command": "codify.tasks.verify",
+          "when": "false"
+        },
+        {
+          "command": "codify.tasks.openBranch",
+          "when": "false"
+        },
+        {
+          "command": "codify.tasks.copyPrompt",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.start",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.stop",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.pause",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.resume",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.openTranscript",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.approve",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.refresh",
+          "when": "false"
+        },
+        {
+          "command": "codify.issues.refresh",
+          "when": "false"
+        },
+        {
+          "command": "codify.issues.open",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.openWorktree",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.begin",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.mergeUp",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.land",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.openPr",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.checkpoint",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.openSessionWorktree",
+          "when": "false"
+        },
+        {
+          "command": "codify.fleet.openSessionTranscript",
+          "when": "false"
+        },
+        {
+          "command": "codify.sandboxes.refresh",
+          "when": "false"
+        },
+        {
+          "command": "codify.sandboxes.attach",
+          "when": "false"
+        },
+        {
+          "command": "codify.needs.refresh",
+          "when": "false"
+        },
+        {
+          "command": "codify.needs.answer",
+          "when": "false"
+        },
+        {
+          "command": "hyperfide.openTask",
+          "when": "false"
+        },
+        {
+          "command": "hyperfide.forget",
+          "when": "false"
+        },
+        {
+          "command": "hyperfide.needs.answer",
+          "when": "false"
+        },
+        {
+          "command": "hyperfide.issues.open",
           "when": "false"
         }
       ]

@@ -235,6 +235,7 @@ interface DocumentationRemotePlan{
  session_id:string;operation_id:string;repository_id:string;reservation_id:string;job_id:string;job_kind:string;task_id:string;
  argv:string[];cwd:string;environment:Record<string,string>;stdin:string;timeout_ms:number;
  source_digest:string;policy_digest:string;executable_digest:string;environment_digest:string;artifact_paths:string[];
+ workspace:{mode:'FULL_TREE';fallback_reason:string};
 }
 interface DocumentationRemote{
  prepare(tx:PrimaryTransaction,invocation:ReturnType<typeof invocationOf>,plan:DocumentationRemotePlan):Promise<object>;
@@ -295,7 +296,9 @@ export async function checkDocumentation(input:unknown,context:ComponentContext)
  const policyDigest=contentDigest({packet_digest:packetDigest,repository_id:repositoryID,command:packet.policy.check_cmd,script:documentationCheckScript,executable_digest:executableDigest,environment,timeout_ms:timeout});
  if(prior&&(prior.packet_id!==packetID||prior.policy_digest!==policyDigest||prior.verifier_session_id!==i.principal.actor_id))invalid('Documentation request identity changed');
  if(prior&&['SUCCEEDED','FAILED','UNKNOWN'].includes(prior.state))return {terminal:true,job:prior};
- const plan:DocumentationRemotePlan={session_id:runnerSession,operation_id:operationID,repository_id:repositoryID,reservation_id:reservationID,job_id:jobID,job_kind:'TEST',task_id:uuid(allocation.task_id),argv:[executable,'-c',documentationCheckScript],cwd:'.',environment,stdin,timeout_ms:timeout,source_digest:digest(binding.source_digest),policy_digest:policyDigest,executable_digest:executableDigest,environment_digest:contentDigest(environment),artifact_paths:[]};
+ const plan:DocumentationRemotePlan={session_id:runnerSession,operation_id:operationID,repository_id:repositoryID,reservation_id:reservationID,job_id:jobID,job_kind:'TEST',task_id:uuid(allocation.task_id),argv:[executable,'-c',documentationCheckScript],cwd:'.',environment,stdin,timeout_ms:timeout,source_digest:digest(binding.source_digest),policy_digest:policyDigest,executable_digest:executableDigest,environment_digest:contentDigest(environment),artifact_paths:[],
+  // v21 3.20: the documentation check verifies the whole tree, a recorded full-tree reason.
+  workspace:{mode:'FULL_TREE',fallback_reason:'INDEPENDENT_VERIFICATION'}};
  const permit=await remote.prepare(tx,i,plan);
  await tx.query("INSERT INTO hyperfide.documentation_jobs(organisation_id,run_id,id,request_id,packet_id,packet_digest,state,verifier_session_id,lease_expires_at,policy_digest,remote_operation_id,prepared_permit_digest)VALUES($1,$2,$3,$4,$5,$6,'RUNNING',$7,$8,$9,$10,$11)ON CONFLICT(organisation_id,run_id,request_id)DO NOTHING",[scope.organisation_id,scope.run_id,jobID,i.operation.idempotency_key,packetID,packetDigest,i.principal.actor_id,reservation.expires_at,policyDigest,operationID,contentDigest(plan)]);
  return {terminal:false,permit,plan,packet,packetDigest,jobID};

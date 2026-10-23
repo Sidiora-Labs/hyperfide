@@ -276,6 +276,12 @@ export async function importRunTransaction(client:SpecTransaction,scope:SpecScop
     [scope.organisation_id,scope.run_id,derivedId(scope.run_id+':task:'+task.key),task.key,packages.get(task.package_key),priorSpec.rows[0]?.id??specId,
      digest(canonical({source_digest:accepted.source_digest,reqs:value(task.section,'reqs')??null})),JSON.stringify(definition),task.wave]);
   }
+  // Asks reach humans only through the run's operator channel (human_interface deliverAsk refuses without it), so a
+  // newly imported run gets operator:asks BUFFERING here and needs no deploy step. Guarded so an import against a
+  // database without the 6.1 outbox schema still succeeds.
+  if((await client.query("SELECT to_regclass('hyperfide.event_consumers') IS NOT NULL AS present")).rows[0]?.present)
+   await client.query("INSERT INTO hyperfide.event_consumers(organisation_id,run_id,id,consumer_key,critical,state) VALUES($1,$2,$3,'operator:asks',false,'BUFFERING') ON CONFLICT DO NOTHING",
+    [scope.organisation_id,scope.run_id,derivedId(scope.run_id+':consumer:operator:asks')]);
   const run=await loadPinnedRun(client,scope);return {...summary(run) as object,replayed:false};
 }
 export async function importRun(pool:pg.Pool,scope:SpecScope,raw:unknown):Promise<unknown>{

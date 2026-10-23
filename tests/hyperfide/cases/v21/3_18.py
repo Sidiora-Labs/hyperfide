@@ -207,6 +207,29 @@ def broken_inputs():
     check('reconnect.no-dead-watch-call', handler and 'watchEvents' not in handler.group(1), handler and handler.group(0))
 
 
+# What a supervising `cg spec done` hands its verify_cmd: cg exports every alias
+# of a variable it was given, so a suite that sets CG_X per command conflicts
+# with the inherited HYPERFIDE_X (exit 78) unless it starts the pair unset.
+HOST_ENV = {f'{p}_{n}': v for n, v in [('AGENT', 'host-agent'), ('BUSY_TIMEOUT_MS', '5000'),
+                                       ('CLAUDE', '/definitely/host/claude')]
+            for p in ('CG', 'HYPERFIDE')}
+
+
+def host_env():
+    for suite in ['42_journal.sh', '48_plugin.sh']:
+        rc, out = run(['bash', str(ROOT / 'tests/integration' / suite)], env=HOST_ENV)
+        honest = rc == 0 or (rc == 77 and re.search(r'^SKIP: ', out, re.M))
+        check('host-env.%s' % suite, honest, 'rc=%d\n%s' % (rc, out))
+    top = mirror(['42_journal.sh'])
+    try:
+        suite = top / 'tests/integration/42_journal.sh'
+        mutate(suite, 'unset CG_AGENT HYPERFIDE_AGENT CG_BUSY_TIMEOUT_MS HYPERFIDE_BUSY_TIMEOUT_MS\n', '')
+        rc, out = run(['bash', str(suite)], env=HOST_ENV)
+        check('host-env.broken-without-unset', rc == 78, 'rc=%d\n%s' % (rc, out))
+    finally:
+        shutil.rmtree(top, ignore_errors=True)
+
+
 def main():
     if not CG.exists():
         print('assertion failed: build cg first (make -j2 cg) or set CG', file=sys.stderr)
@@ -215,6 +238,7 @@ def main():
         print('SKIP: node not on PATH', flush=True)
         return 77
     under_load()
+    host_env()
     broken_inputs()
     print(json.dumps({'type': 'summary', 'failed': FAILED}), flush=True)
     return 1 if FAILED else 0

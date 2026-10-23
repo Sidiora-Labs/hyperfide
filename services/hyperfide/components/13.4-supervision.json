@@ -13,6 +13,7 @@
     "supervisor.session.launch",
     "supervisor.session.inspect",
     "supervisor.session.input",
+    "supervisor.session.answer",
     "supervisor.session.stop"
   ],
   "requires": [

@@ -170,21 +170,45 @@ files on disk; the disk bytes show what the sparse checkout materialised.
    own sampling; refusals and rate-limit hits inside sandboxes stay unmeasured
    until the events export exists.
 
-## Slices by default (task 2.12)
+## Slices by default (tasks 2.12 and 3.20)
 
-From task 2.12 on, a worker job does not start in a full checkout. The provisioner's
-executor checks every admitted job of kind `AGENT`, `CHILD` or an unknown kind before it
-claims it. The slot must hold a READY, unreleased slice materialisation for that run. If
+From task 2.12 on, a worker job does not start in a full checkout. Since task 3.20 the
+provisioner's executor checks every admitted job, of any kind, before it claims it.
+Only preparation jobs, which build the boot seed, are exempt. The slot must hold a READY, unreleased slice materialisation for that run. If
 the slot holds a `FULL_TREE` manifest, the derivation's `fallback_reason` is the recorded
 reason. If no slice exists, the admitted request must declare
 `workspace: {mode: "FULL_TREE", fallback_reason: "<CODE>"}`. Anything else is refused
 with `WORKER_SLICE_REQUIRED`, `WORKER_SLICE_MISMATCH`, `WORKER_SLICE_AMBIGUOUS` or
 `WORKER_WORKSPACE_INVALID`, and the admission settles as UNKNOWN.
 
-Preparation and verification kinds (`BUILD`, `TEST`, `REVIEW`, `INDEX`, `INTEGRATION`,
-`EXCLUSIVE_SERVICE`) are exempt. They are the full-tree comparison that a slice result
-never claims to be. `runner.executor.describe` reports `workspaces.slice`,
-`.full_tree` and `.refused`.
+Verification kinds (`BUILD`, `TEST`, `REVIEW`, `INDEX`, `INTEGRATION`) are no longer
+exempt. The service's verification producers (documentation closure, assurance checks,
+integration candidates and review reproductions) declare
+`{mode: "FULL_TREE", fallback_reason: "INDEPENDENT_VERIFICATION"}`, so their full tree is
+a recorded reason rather than a silent default. `runner.executor.describe` reports
+`workspaces.slice`, `.full_tree` and `.refused`.
+
+Task 3.20 also closes the other launch paths:
+
+- Admission (`remote.prepare`) writes `request.workspace` into the immutable packet
+  from the slot's current materialisation: `{mode: "SLICE", slice_digest}`, or the
+  `FULL_TREE` manifest's reason. An empty slot leaves the request as submitted.
+- The executor starts the process in the slot's slice workspace,
+  `$HF_PREPARATION_WORKSPACE_ROOT/<sandbox>/<slot>/<boot generation>/workspace`, and claim
+  re-checks that the slot still holds that materialisation. A materialised slice with
+  no configured root is refused with `WORKER_WORKSPACE_ROOT_UNSET`.
+- An agent launch (`runner.dispatch.consume`) is refused before its plan is read unless
+  the slot holds a slice or the execution packet records a full-tree reason (a
+  `FULL_TREE` manifest derived for that packet).
+- Slot occupancy is checked within the run, and a slice's metadata roots include every
+  ancestor `.gitignore`. A sealed partial clone cannot fetch a missing ancestor
+  `.gitignore`, and without one `git status` fails.
+
+Local fleet workers follow the same default. `cg fleet begin` cuts a sparse worktree
+from the task's slice unless `[hierarchy] sparse = "full"` opts out, or the worker spans a
+whole wave. A worker that needs a file outside its slice runs
+`cg slice <id> --widen PATH... --reason CODE`. That records the path in the task's
+`touches` and `widened` fields in its packet and emits a `fleet.widen` event.
 
 ### Against the baseline
 
@@ -221,6 +245,7 @@ Per worker, the numbers come from `preparation.slice.inspect`, under `summary`:
 These rules come from the miss classes that the 11.5 fixture produces. The task also
 calls for running 11.5's derivation against the real monorepo graph, recording the
 worktree bytes, misses and widen events of that run, and tuning the rules from what it
-shows. That run needs a control service that has published the monorepo graph, and
-access to it is an open variable Ask. Until it is answered, no monorepo slice numbers
-exist and this section claims none.
+shows. That run needs a control service that has published the monorepo graph. Access
+to it is an open variable Ask, re-raised by task 3.20 with the options and what stays
+blocked. Until it is answered, no monorepo slice numbers exist and this section claims
+none.

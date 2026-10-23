@@ -460,6 +460,24 @@ static void orch_prompt_ahead(Cg *cg, const FleetNode *n, const char *feature,
     sb_free(&brs);
 }
 
+/* A worker cut as a sparse slice is told how to leave it: the one recorded
+ * widen step, never a hand edit of the sparse patterns (v21 3.20). */
+static void orch_prompt_slice(const char *path, const char *id) {
+    char *body = read_entire_file(path, NULL);
+    StrBuf b; sb_init(&b);
+    sb_puts(&b, body ? body : "");
+    sb_printf(&b, "\n\n## Your workspace is a slice\n\n"
+              "This worktree holds only the paths task %s touches, their build "
+              "roots and the spec. When you need a path outside it, run "
+              "`hyperfide slice %s --widen <path> --reason <CODE>`: it adds the "
+              "path to the checkout and records it in [task.%s] touches and "
+              "widened, which travels with your branch. Do not edit the sparse "
+              "patterns by hand.\n", id, id, id);
+    write_entire_file(path, b.p, b.len);
+    sb_free(&b);
+    free(body);
+}
+
 static int orch_write_prompt(const char *cgroot, const char *feature,
                              const char *id, char *path, size_t cap) {
     char dir[4600];
@@ -497,11 +515,14 @@ static int orch_write_prompt(const char *cgroot, const char *feature,
 static pid_t orch_spawn(char **av, const char *root, const char *promptfile,
                         const char *logpath, const char *agent,
                         const char *feature, const char *task,
-                        const char *attempt, long fence) {
+                        const char *attempt, long fence, bool append) {
     /* emptied before the fork, as orch_fleet_exec does: a tap started at
-     * offset 0 must not replay a previous attempt's log */
-    int tr = open(logpath, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
-    if (tr >= 0) close(tr);
+     * offset 0 must not replay a previous attempt's log. A parked re-wake
+     * (append) continues the same attempt's log, so it is kept. */
+    if (!append) {
+        int tr = open(logpath, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+        if (tr >= 0) close(tr);
+    }
     pid_t pid = fork();
     if (pid != 0) {
         /* both sides setpgid to close the fork/exec race; after the exec
@@ -514,7 +535,8 @@ static pid_t orch_spawn(char **av, const char *root, const char *promptfile,
     setpgid(0, 0);
     int in = open(promptfile, O_RDONLY);
     if (in < 0) _exit(127);     /* never inherit the orchestrator's stdin */
-    int lg = open(logpath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    int lg = open(logpath, O_WRONLY | O_CREAT |
+                  (append ? O_APPEND : O_TRUNC), 0644);
     dup2(in, 0);
     if (lg >= 0) { dup2(lg, 1); dup2(lg, 2); }
     if (in > 2) close(in);
@@ -621,7 +643,112 @@ typedef struct {
     long  fence;
     long  last_heartbeat;
     DriverTap tap;        /* the agent's log, read into agent.* events */
+    bool  parked;         /* exited blocked on an Ask with no edits since:
+                           * holds its lease until the answer re-wakes it */
+    long  start_seq;      /* events head when this process started */
+    long  block_seq;      /* events head when its blocking Ask was seen */
 } OrchSlot;
+
+/* The blocking Ask (open or expired) the attempt waits on; 0 when none. */
+static long orch_open_block(const char *attempt) {
+    Cg g;
+    if (!attempt || !attempt[0] || !memory_open_quiet(&g)) return 0;
+    long id = 0;
+    sqlite3_stmt *q = cg_prep(&g,
+        "SELECT id FROM asks WHERE attempt=? AND default_policy='block' AND "
+        "state IN ('open','expired') ORDER BY id LIMIT 1");
+    if (q) {
+        sqlite3_bind_text(q, 1, attempt, -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(q) == SQLITE_ROW) id = sqlite3_column_int64(q, 0);
+        sqlite3_finalize(q);
+    }
+    cg_close(&g);
+    return id;
+}
+
+static long orch_events_head(void) {
+    Cg g;
+    if (!memory_open_quiet(&g)) return 0;
+    long h = events_head(&g);
+    cg_close(&g);
+    return h;
+}
+
+/* Edits the slot's agent made while blocked: counted from its own last Ask
+ * raise in the log when the tap saw one, else from the moment the run saw
+ * the blocking Ask; -1 when neither establishes the block. */
+static long orch_block_edits(const OrchSlot *s) {
+    Cg g;
+    if (!memory_open_quiet(&g)) return -1;
+    char subj[300];
+    snprintf(subj, sizeof subj, "%s/%s", s->feature, s->id);
+    bool raised = false;
+    long e = driver_block_edits(&g, subj, s->agent, s->start_seq, &raised);
+    if (!raised)
+        e = s->block_seq > 0
+          ? driver_block_edits(&g, subj, s->agent, s->block_seq, NULL) : -1;
+    cg_close(&g);
+    return e;
+}
+
+/* Task 4.4: the answer re-wakes a parked -p agent on its same attempt and
+ * fence, the answers at the end of its fresh prompt, its log appended. */
+static int orch_rewake(OrchSlot *s, const OrchCfg *cfg, const char *extra,
+                       const char *cgroot) {
+    char prompt[4700];
+    if (orch_write_prompt(cgroot, s->feature, s->id, prompt,
+                          sizeof prompt) != 0)
+        return -1;
+    Cg g;
+    char *ans = NULL;
+    if (memory_open_quiet(&g)) {
+        ans = driver_answers_take(&g, s->attempt, s->agent, "prompt");
+        cg_close(&g);
+    }
+    if (ans) {
+        char *body = read_entire_file(prompt, NULL);
+        StrBuf b; sb_init(&b);
+        sb_puts(&b, body ? body : "");
+        sb_puts(&b, "\n\n## Answers to your Asks\n\n"
+                    "You stopped on these Asks and they are answered now. "
+                    "Continue the claimed task with them:\n");
+        sb_puts(&b, ans);
+        write_entire_file(prompt, b.p, b.len);
+        sb_free(&b);
+        free(body);
+        free(ans);
+    }
+    orch_prompt_steer(prompt, s->agent);
+    char *av[ORCH_MAX_ARGV];
+    if (orch_argv(cfg->driver, extra, cfg->cmd, -1, cgroot, prompt, s->id,
+                  s->agent, av, ORCH_MAX_ARGV) < 0)
+        return -1;
+    char logpath[4700];
+    snprintf(logpath, sizeof logpath, "%s/.codegraph/agents/%s-%s.log",
+             cgroot, s->feature, s->id);
+    struct stat lst;
+    long off = stat(logpath, &lst) == 0 ? (long)lst.st_size : 0;
+    long head = orch_events_head();
+    pid_t pid = orch_spawn(av, cgroot, prompt, logpath, s->agent, s->feature,
+                           s->id, s->attempt, s->fence, true);
+    orch_argv_free(av);
+    if (pid < 0) return -1;
+    s->pid = pid;
+    s->live = true;
+    s->parked = false;
+    s->start_seq = head;
+    s->block_seq = 0;
+    char subj[300];
+    snprintf(subj, sizeof subj, "%s/%s", s->feature, s->id);
+    driver_tap_init(&s->tap, logpath, s->agent, "flat", subj);
+    s->tap.off = off;
+    printf("[run] task %s answered → re-woken (agent %s, same attempt)\n",
+           s->id, s->agent);
+    fflush(stdout);
+    orch_event("orch.rewake", "flat", s->agent, s->feature, s->id, pid, -999,
+               "answered", NULL, logpath);
+    return 0;
+}
 
 static int orch_heartbeat(OrchSlot *slot, long ttl_min) {
     char fencebuf[32], ttlbuf[32];
@@ -832,6 +959,13 @@ int cmd_spec_run(int argc, char **argv) {
                 if (slots[i].live && kill(-slots[i].pid, SIGTERM) != 0)
                     kill(slots[i].pid, SIGTERM);
             for (int i = 0; i < nslots; i++) {
+                if (slots[i].parked) {
+                    slots[i].parked = false;
+                    orch_abandon(specroot, slots[i].feature, slots[i].id,
+                                 slots[i].agent, slots[i].attempt,
+                                 slots[i].fence);
+                    continue;
+                }
                 if (!slots[i].live) continue;
                 if (orch_reap(slots[i].pid) != 0) continue;
                 slots[i].live = false;
@@ -846,8 +980,12 @@ int cmd_spec_run(int argc, char **argv) {
         }
 
         /* what each live agent wrote since the last tick */
-        for (int i = 0; i < nslots; i++)
-            if (slots[i].live) driver_tap_poll(&slots[i].tap);
+        for (int i = 0; i < nslots; i++) {
+            if (!slots[i].live) continue;
+            driver_tap_poll(&slots[i].tap);
+            if (!slots[i].block_seq && orch_open_block(slots[i].attempt))
+                slots[i].block_seq = orch_events_head();
+        }
 
         /* reap finished slots; the spec file, not the exit code, decides */
         for (int i = 0; i < nslots; i++) {
@@ -865,12 +1003,36 @@ int cmd_spec_run(int argc, char **argv) {
                                            slots[i].fence);
             bool okdone = tstat && (strcmp(tstat, "done") == 0 ||
                                     strcmp(tstat, "implemented") == 0);
+            bool blocked = tstat && strcmp(tstat, "blocked") == 0;
             printf("[run] task %s exit %d → status %s\n", slots[i].id, crc,
-                   okdone ? tstat : "INCOMPLETE");
+                   okdone || blocked ? tstat : "INCOMPLETE");
             fflush(stdout);
             orch_event("orch.exit", "flat", slots[i].agent, slots[i].feature,
                        slots[i].id, slots[i].pid, crc,
-                       okdone ? tstat : "incomplete", NULL, NULL);
+                       okdone || blocked ? tstat : "incomplete", NULL, NULL);
+            if (blocked && !stopping) {
+                long edits = orch_block_edits(&slots[i]);
+                if (edits == 0) {
+                    slots[i].parked = true;
+                    printf("[run] task %s blocked on an Ask with no edits "
+                           "since — parked until it is answered\n",
+                           slots[i].id);
+                    fflush(stdout);
+                    orch_event("orch.park", "flat", slots[i].agent,
+                               slots[i].feature, slots[i].id, 0, -999,
+                               "parked", NULL, NULL);
+                    free(tstat);
+                    continue;
+                }
+                printf("[run] task %s blocked after %s edit(s) — not "
+                       "re-woken, lease released\n", slots[i].id,
+                       edits < 0 ? "unknown" : "its");
+                fflush(stdout);
+                orch_event("orch.park", "flat", slots[i].agent,
+                           slots[i].feature, slots[i].id, 0, -999,
+                           edits < 0 ? "block-unseen" : "edited-while-blocked",
+                           NULL, NULL);
+            }
             if (!okdone) {
                 orch_abandon(specroot, slots[i].feature, slots[i].id,
                              slots[i].agent, slots[i].attempt,
@@ -881,6 +1043,32 @@ int cmd_spec_run(int argc, char **argv) {
             free(tstat);
         }
 
+        for (int i = 0; i < nslots; i++) {
+            if (!slots[i].parked) continue;
+            char *tstat = orch_task_status(specroot, slots[i].feature,
+                                           slots[i].id, slots[i].attempt,
+                                           slots[i].fence);
+            bool waiting = tstat && strcmp(tstat, "blocked") == 0;
+            bool answered = tstat && strcmp(tstat, "in_progress") == 0;
+            free(tstat);
+            if (waiting && !stopping && !g_orch_int) continue;
+            if (answered && !stopping && !g_orch_int &&
+                orch_rewake(&slots[i], &cfg, extra, cgroot) == 0)
+                continue;
+            slots[i].parked = false;
+            if (answered || waiting) {
+                orch_abandon(specroot, slots[i].feature, slots[i].id,
+                             slots[i].agent, slots[i].attempt,
+                             slots[i].fence);
+                if (answered && !stopping) {
+                    fprintf(stderr, "hyperfide spec run: could not re-wake "
+                            "task %s\n", slots[i].id);
+                    orch_note_failure(slots[i].feature, slots[i].id, -1);
+                    failures++;
+                }
+            }
+        }
+
         /* A running child keeps the exact fenced attempt alive. Heartbeat
          * loss means ownership was lost; stop that process before it can
          * write under a replacement attempt. */
@@ -888,10 +1076,18 @@ int cmd_spec_run(int argc, char **argv) {
         if (heartbeat_every < 1) heartbeat_every = 1;
         long heartbeat_now = (long)time(NULL);
         for (int i = 0; i < nslots; i++) {
-            if (!slots[i].live ||
+            if ((!slots[i].live && !slots[i].parked) ||
                 heartbeat_now - slots[i].last_heartbeat < heartbeat_every)
                 continue;
             if (orch_heartbeat(&slots[i], ttl_min) == 0) continue;
+            if (slots[i].parked) {
+                fprintf(stderr, "hyperfide spec run: parked task %s lost "
+                        "fenced ownership\n", slots[i].id);
+                slots[i].parked = false;
+                orch_note_failure(slots[i].feature, slots[i].id, -2);
+                failures++;
+                continue;
+            }
             char *tstat = orch_task_status(specroot, slots[i].feature,
                                            slots[i].id, slots[i].attempt,
                                            slots[i].fence);
@@ -923,7 +1119,7 @@ int cmd_spec_run(int argc, char **argv) {
         /* refill every free slot from the frontier */
         bool empty = false;
         for (int i = 0; i < nslots && !stopping && !g_orch_int; i++) {
-            if (slots[i].live) continue;
+            if (slots[i].live || slots[i].parked) continue;
             char agent[80], ttlbuf[32];
             snprintf(agent, sizeof agent, "%s-%d", prefix, i + 1);
             snprintf(ttlbuf, sizeof ttlbuf, "%ld", ttl_min);
@@ -1002,7 +1198,7 @@ int cmd_spec_run(int argc, char **argv) {
             snprintf(logpath, sizeof logpath,
                      "%s/.codegraph/agents/%s-%s.log", cgroot, tfeat, id);
             pid_t pid = orch_spawn(av, cgroot, prompt, logpath, agent,
-                                   tfeat, id, attempt, fence);
+                                   tfeat, id, attempt, fence, false);
             orch_argv_free(av);
             if (pid < 0) {
                 fprintf(stderr, "hyperfide spec run: fork failed: %s\n",
@@ -1024,6 +1220,9 @@ int cmd_spec_run(int argc, char **argv) {
                      attempt);
             slots[i].fence = fence;
             slots[i].last_heartbeat = (long)time(NULL);
+            slots[i].parked = false;
+            slots[i].start_seq = orch_events_head();
+            slots[i].block_seq = 0;
             printf("[run] task %s → %s (agent %s, log "
                    ".codegraph/agents/%s-%s.log)\n", id, cfg.driver, agent,
                    tfeat, id);
@@ -1040,8 +1239,19 @@ int cmd_spec_run(int argc, char **argv) {
             free(attempt);
         }
 
-        int live = orch_live(slots, nslots);
-        if (live == 0) {
+        int live = orch_live(slots, nslots), parked = 0;
+        for (int i = 0; i < nslots; i++) parked += slots[i].parked;
+        if (live == 0 && stopping && parked) {
+            for (int i = 0; i < nslots; i++) {
+                if (!slots[i].parked) continue;
+                slots[i].parked = false;
+                orch_abandon(specroot, slots[i].feature, slots[i].id,
+                             slots[i].agent, slots[i].attempt,
+                             slots[i].fence);
+            }
+            parked = 0;
+        }
+        if (live == 0 && parked == 0) {
             if (stopping) break;
             if (empty) {
                 printf("[run] frontier empty — %d failure(s) this run\n",
@@ -1545,6 +1755,12 @@ static int orch_manager_prompt(Cg *cg, const FleetNode *n, const char *path) {
     return rc;
 }
 
+/* The workspace rule for manager and wave worktrees (v21 3.20, req 6.1):
+ * always the full tree. A manager merges its workers' branches into the
+ * wave branch and runs the wave's gates, which read every path; the
+ * recorded reason is this code. Workers alone are sparse by default. */
+#define ORCH_MANAGER_WORKSPACE "full tree: MANAGER_INTEGRATES_WAVE"
+
 int orch_spawn_manager(Cg *cg, const char *feature, long wave,
                        const char *driver, const char *extra,
                        const char *cmd_tmpl, bool dry_run, FleetNode *n) {
@@ -1590,7 +1806,7 @@ int orch_spawn_manager(Cg *cg, const char *feature, long wave,
         else
             printf("  manager %s — %s on %s (from %s)\n", n->agent, feature,
                    n->branch, n->base);
-        printf("    worktree %s\n", n->worktree);
+        printf("    worktree %s (%s)\n", n->worktree, ORCH_MANAGER_WORKSPACE);
         char *av[ORCH_MAX_ARGV];
         int ac = orch_argv(driver, extra, cmd_tmpl, FLEET_FEATURE, n->worktree,
                            prompt, feature, n->agent, av, ORCH_MAX_ARGV);
@@ -1608,6 +1824,7 @@ int orch_spawn_manager(Cg *cg, const char *feature, long wave,
     if (slash) { *slash = 0; mkdirs(parent_dir); }
     StrBuf err; sb_init(&err);
     bool wt_created = false, br_created = false;
+    /* ORCH_MANAGER_WORKSPACE: never a slice, by rule */
     if (git_worktree_add(cg->shared, n->worktree, n->branch, n->base,
                          &wt_created, &br_created, &err) != 0) {
         char ex[300];
@@ -1746,6 +1963,12 @@ int orch_spawn_worker(Cg *cg, const char *feature, const char *id,
     orch_json_into(js, "branch", n->branch, sizeof n->branch);
     orch_json_into(js, "base", n->base, sizeof n->base);
     orch_json_into(js, "worktree", n->worktree, sizeof n->worktree);
+    char ws_mode[16] = "";
+    char *ws = json_get_object(js, "workspace");
+    if (ws) {
+        orch_json_into(ws, "mode", ws_mode, sizeof ws_mode);
+        free(ws);
+    }
     n->wave = json_get_int(js, "wave", wave);
     char *at = json_get_object(js, "attempt");
     if (at) {
@@ -1769,6 +1992,7 @@ int orch_spawn_worker(Cg *cg, const char *feature, const char *id,
     orch_env_restore(&saved);
     if (prc == 0) orch_prompt_steer(prompt, n->agent);
     if (prc == 0) orch_prompt_ahead(cg, n, feature, id, prompt);
+    if (prc == 0 && !strcmp(ws_mode, "SLICE")) orch_prompt_slice(prompt, id);
     if (prc == 0 && g_retry_attempt > 0)
         orch_prompt_retry(prompt, feature, id, g_retry_attempt);
     if (prc != 0) {
@@ -2483,6 +2707,7 @@ static int sup_forward_merge(Sup *s, long wave) {
         if (sl) { *sl = 0; mkdirs(dir); }
         StrBuf err; sb_init(&err);
         bool wc = false, bc = false;
+        /* the wave worktree a forward merge runs in: ORCH_MANAGER_WORKSPACE */
         int arc = git_worktree_add(g->shared, wt, br, s->mainbr, &wc, &bc, &err);
         sb_free(&err);
         if (arc != 0) return 1;

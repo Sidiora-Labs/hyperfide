@@ -37,11 +37,11 @@ setup_repo() {
     "$CG" spec start 1.1 >/dev/null
     "$CG" spec done 1.1 >/dev/null
     "$CG" spec mode parallel >/dev/null
-    "$CG" spec add 2.1 --title "Alpha work" --wave 1 --touches 'src/*.ts' \
+    "$CG" spec add 2.1 --title "Alpha work" --wave 1 --touches 'src/a.ts' \
           --reqs 1.1 >/dev/null
-    "$CG" spec add 2.2 --title "Beta work" --wave 1 --touches 'lib/*.ts' \
+    "$CG" spec add 2.2 --title "Beta work" --wave 1 --touches 'lib/b.ts' \
           --reqs 1.1 >/dev/null
-    "$CG" spec add 3.1 --title "Docs work" --wave 2 --touches 'docs/*.md' \
+    "$CG" spec add 3.1 --title "Docs work" --wave 2 --touches 'docs/d.md' \
           --reqs 1.1 >/dev/null
     "$CG" init >/dev/null
     printf '.codegraph/\n*.lock\n' > .gitignore
@@ -1085,7 +1085,7 @@ if want parallel; then
     setup_repo
     proj="$(pwd -P)"
     wt="$proj/.codegraph/worktrees"
-    "$CG" spec add 3.2 --title "Docs on alpha" --wave 2 --touches 'docs/*.md' \
+    "$CG" spec add 3.2 --title "Docs on alpha" --wave 2 --touches 'docs/d.md' \
           --requires 2.1 >/dev/null
     "$CG" spec start 2.2 >/dev/null
     "$CG" spec done 2.2 --force >/dev/null 2>&1   # wave 1 is 2.1 alone here
@@ -1139,7 +1139,6 @@ EOF
     cd "$wt/task-fleet-2.1"
     CG_AGENT=w-fleet-2.1 "$CG" spec start 2.1 >/dev/null
     echo 'export function alpha(){ return 1 }' > src/a.ts
-    echo '# alpha documented' > docs/d.md
     CG_AGENT=w-fleet-2.1 "$CG" spec done 2.1 >/dev/null
     git add -A >/dev/null; git commit -qm "alpha [spec:fleet/2.1]" >/dev/null
     cd "$proj"
@@ -1149,7 +1148,10 @@ EOF
     has "$out" "landed wave/fleet/1 into main"
     after="$("$CG" events --kind projection.built --json -n 50 | grep -c . || true)"
     [ "$after" -gt "$before" ] || fail "no projection build after the land"
-    # main forward into the wave branch (the supervisor's job, by hand here)
+    # the operator documents alpha on main (2.1 stays inside its touches),
+    # then main forward into the wave branch (the supervisor's job, by hand)
+    echo '# alpha documented' > docs/d.md
+    git add docs/d.md >/dev/null; git commit -qm "document alpha" >/dev/null
     git branch -f wave/fleet/2 main
 
     # an uncommitted file the merge would bring in: refused, named, untouched
@@ -1187,7 +1189,7 @@ assert d["outcome"] == "refused" and d["overlap"] == ["docs/d.md"], d
     has "$out" "land wave/fleet/1 into main"
     has "$out" "  src/a.ts"
     has "$out" "projection: "
-    has "$(cat src/a.ts)" "return 1"
+    has "$(git show HEAD:src/a.ts)" "return 1"   # outside the 3.2 slice: from the branch
     has "$(git log -1 --format=%s)" "sync wave/fleet/2 into task/fleet/3.2"
     "$CG" events --kind fleet.sync --json -n 20 | python3 -c '
 import json, sys
