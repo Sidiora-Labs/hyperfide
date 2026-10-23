@@ -39,6 +39,13 @@ export {
 export { experimental_killProcessesWithCwdUnder } from "./kill-processes.js";
 
 export {
+  createThreadAskLifecycle,
+  type ThreadAskLifecycle,
+  type AskPauseReason,
+  type AskRecommendation,
+} from "./thread-ask-lifecycle.js";
+
+export {
   experimental_readProcessIdentity,
   type ExperimentalProcessIdentity,
 } from "./process-identity.js";
