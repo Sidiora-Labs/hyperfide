@@ -32,7 +32,7 @@ def locate_codex():
     return None,"codex on PATH ("+found+") ships no native ELF payload; set HF_TEST_NATIVE_CODEX_BINARY"
 CODEX_ELF,CODEX_ABSENT=locate_codex()
 RUN_POLICY=sha(b"policy")  # IdentityFixture's approved run policy digest
-DISPATCH_COMPONENTS=["3.1","4.1","2.1","2.4","7.2","7.3","3.2","6.1","5.1","5.2","6.2","6.3","12.2","13.4-dispatch"]
+DISPATCH_COMPONENTS=["3.1","4.1","2.1","2.4","7.2","7.3","3.2","6.1","5.1","5.2","6.2","6.3","1.2-asks","12.2","13.4-dispatch"]
 os.umask(0o077)  # trusted configuration files must be owner-only
 def canonical(value):return json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()
 _raw_sql=module.SessionIdentityFixture.sql

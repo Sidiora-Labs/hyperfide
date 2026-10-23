@@ -6,6 +6,7 @@ import {invocationOf,recorded} from '../identity/enrollment.js';
 import {ASK_POLICY,ASK_POLICY_REVISION,askAnswererRoles,resolveAskPolicy} from '../agents/admission.js';
 import {recordDefaultDecision} from '../decisions/jobs.js';
 import type {ExpiredAskForDecision} from '../decisions/jobs.js';
+import {applyProviderAskAnswer} from '../providers/reconcile.js';
 import {askSeeds,observeFencePermit} from './ask_seed.js';
 
 interface Tx { query<R extends QueryResultRow=QueryResultRow>(text:string,values?:unknown[]):Promise<QueryResult<R>> }
@@ -303,7 +304,9 @@ type AskKind=typeof askKinds[number];
 // Choice kinds are answered with one of the offered options; variables and questions take free text.
 const choiceKinds:readonly AskKind[]=['permission','decision'];
 // Humans provide secrets, variables and permissions (D9); the leader may settle a decision or question.
-const askAnswerers:Readonly<Record<AskKind,readonly string[]>>=Object.freeze(Object.fromEntries(askKinds.map(kind=>[kind,askAnswererRoles(kind)])) as unknown as Record<AskKind,readonly string[]>);
+// Read at call time: agents/admission.ts imports this module through native_asks.ts (4.1), so ASK_POLICY is not
+// initialised while this module evaluates when admission loads first.
+const askAnswerers=(kind:AskKind):readonly string[]=>askAnswererRoles(kind);
 const askExpirers=['OPERATOR','COORDINATOR','LEADER'];
 const askReaders=['OPERATOR','COORDINATOR','LEADER','FEATURE_MANAGER'];
 const askStates=['OPEN','ANSWERED','EXPIRED'];
@@ -369,7 +372,7 @@ function checkRaise(input:unknown):CheckedRaise{
  if(policy==='proceed-and-flag'&&recommended===null)refuse('A proceed-and-flag Ask needs a recommended option to take at its deadline');
  return {v,kind,policy,title,body,options,chain,recommended,deadline,requestedTask:v.task_id===null?null:uuid(v.task_id)};
 }
-type AskActor=Principal&{credential_id:string;attempt_id:string|null;sandbox_id:string|null};
+export type AskActor=Principal&{credential_id:string;attempt_id:string|null;sandbox_id:string|null};
 /** References a trusted in-process caller derived under its own lock (4.1: the observed native session's rows). */
 export interface AskSubject {session:string;attempt:string|null;sandbox:string|null}
 // owner, when given, replaces the caller's idempotency scope and request digest (human.ask.seed: one run-wide scope).
@@ -409,6 +412,18 @@ function askRaise(context:RuntimeContext,input:unknown):Promise<unknown>{
  const checked=checkRaise(input);
  return askTransaction(context,'human.ask.raise',null,(tx,actor,outbox)=>raiseIn(tx,actor,outbox,checked,null),true);
 }
+/** 3.23: raise from a component that owns the Ask's subject (provider resolutions), inside its own authorised and
+ * guarded primary transaction, with the same validation, kind policy, idempotency and operator delivery. */
+export function raiseAskIn(tx:Tx,actor:AskActor,outbox:AskOutbox,input:unknown):Promise<Record<string,unknown>>{
+ return raiseIn(tx,actor,outbox,checkRaise(input),null);
+}
+/** 3.23: closes an open Ask whose subject its owning component settled by its own action, delivered to the Ask's run. */
+export async function settleAskIn(tx:Tx,actor:AskActor,outbox:AskOutbox,ask:{organisation_id:string;id:string},answer:string):Promise<Record<string,unknown>|null>{
+ const updated=await tx.query<AskRow>("UPDATE hyperfide.asks SET state='ANSWERED',answer=$3,answered_by=$4,answered_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND id=$2 AND state='OPEN' AND run_id IS NOT NULL RETURNING *",
+  [ask.organisation_id,ask.id,text(answer,1,65536,'Answer'),actor.credential_id]);
+ const next=updated.rows[0];
+ return next?{ask:askView(next),...await deliverAsk(tx,outbox,{...actor,run_id:String(next.run_id)},next,'ask.answered')}:null;
+}
 // Seeding (hyperfide-v21 4.7, req 4 ac_4): open programme decisions and expiring attestations, fence permits and
 // drain deadlines become Asks when an operator asks for it, never at import. Deadlines come from the 3.6 policy
 // (an observed expiry only tightens them). Each seed has a stable key under one run-wide scope and a digest without
@@ -436,15 +451,17 @@ function askAnswer(context:RuntimeContext,input:unknown):Promise<unknown>{
  const v=exact(input,['ask_id','expected_state_version','answer']),answer=text(v.answer,1,65536,'Answer');
  return askTransaction(context,'human.ask.answer',null,async(tx,actor,outbox)=>{
   const row=await lockedAsk(tx,actor,v),kind=row.kind as AskKind;
-  if(!askAnswerers[kind].includes(actor.role))refuse('Role '+actor.role+' cannot answer a '+kind+' Ask');
+  if(!askAnswerers(kind).includes(actor.role))refuse('Role '+actor.role+' cannot answer a '+kind+' Ask');
   if(row.state==='ANSWERED')refuse('Ask is already answered');
   if(row.state==='EXPIRED'&&row.default_policy!=='block')refuse('The default was taken at the deadline; raise a new Ask to change it');
   if(kind==='secret'&&!/^secret-ref:[A-Za-z0-9._-]{1,200}$/.test(answer))refuse('A secret is answered with a secret-ref:, never its value');
   if(choiceKinds.includes(kind)&&(row.options as string[]).length&&!(row.options as string[]).includes(answer))refuse('Answer must be one of the offered options');
+  // 3.23: an Ask about a provider subject is answered only by settling that subject in this transaction.
+  const applied=await applyProviderAskAnswer(tx,actor,{organisation_id:actor.organisation_id,id:String(row.id)},answer,outbox);
   const updated=await tx.query<AskRow>("UPDATE hyperfide.asks SET state='ANSWERED',answer=$4,answered_by=$5,answered_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 RETURNING *",
    [actor.organisation_id,actor.run_id,row.id,answer,actor.credential_id]);
   const next=updated.rows[0]!;
-  return {status:'ANSWERED',ask:askView(next),...await deliverAsk(tx,outbox,actor,next,'ask.answered')};
+  return {status:'ANSWERED',ask:askView(next),...(applied?{applied}:{}),...await deliverAsk(tx,outbox,actor,next,'ask.answered')};
  },true);
 }
 function askExpire(context:RuntimeContext,input:unknown):Promise<unknown>{
@@ -486,7 +503,7 @@ function askSweep(context:RuntimeContext,input:unknown):Promise<unknown>{
 function askPolicyView(context:RuntimeContext,input:unknown):Promise<unknown>{
  exact(input,[]);
  return askTransaction(context,'human.ask.policy',null,async()=>({policy_revision:ASK_POLICY_REVISION,
-  kinds:Object.fromEntries(askKinds.map(kind=>[kind,{...ASK_POLICY[kind],chain:[...ASK_POLICY[kind].chain],answerers:[...askAnswerers[kind]],choice:choiceKinds.includes(kind)}])),authority:'NONE'}),false);
+  kinds:Object.fromEntries(askKinds.map(kind=>[kind,{...ASK_POLICY[kind],chain:[...ASK_POLICY[kind].chain],answerers:[...askAnswerers(kind)],choice:choiceKinds.includes(kind)}])),authority:'NONE'}),false);
 }
 function askList(context:RuntimeContext,input:unknown):Promise<unknown>{
  const v=exact(input,['state','limit']);

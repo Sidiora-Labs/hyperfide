@@ -27,6 +27,7 @@ class ProvisionerFixture(identity.IdentityFixture):
   super().__init__(*args,service_role="provisioner",extra_setup=setup,**kwargs)
 def main():
  if sys.argv[1:]==["--inventory"]:print(json.dumps(IDS));return 0
+ if not os.environ.get('DATABASE_URL'):print('SKIP: DATABASE_URL is not set; run under tests/hyperfide/support/withpg.py',flush=True);return 77
  expect(not sys.argv[1:],"unknown argument")
  cleanup=False;f=None
  def setup(f):

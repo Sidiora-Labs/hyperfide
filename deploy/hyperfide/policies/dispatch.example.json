@@ -452,6 +452,7 @@
     "runner.control.report",
     "runner.dispatch.consume",
     "runner.dispatch.describe",
+    "runner.launch.event.record",
     "runner.job.claim",
     "runner.preparation.receipt.inspect",
     "runner.preparation.receipt.record",

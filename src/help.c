@@ -1074,13 +1074,84 @@ static const HelpCmd HELP[] = {
   .summary = "what waits at an opt-in gate ([role.*] approve)" },
 { .group = "fleet", .name = "fleet approve", .args = "<id> [--reject]",
   .usage = "fleet approve <id> [--reject] [-m note]",
-  .summary = "the decision that releases a gate", .hide = true },
+  .summary = "the decision that releases a gate" },
 { .group = "fleet", .name = "fleet steer", .args = "<agent> <message>",
   .usage = "fleet steer <agent> <message>",
   .summary = "a message for a running agent's next edit or prompt" },
 { .group = "fleet", .name = "fleet brief", .args = "[feature]",
   .usage = "fleet brief [feature]",
   .summary = "the feature manager's briefing" },
+
+/* distributed verbs: client routes to the control service (src/hyperfide/client.c) */
+{ .group = "fleet", .name = "console", .args = "needs|issues|sandboxes|leaders",
+  .usage = "console needs|issues|sandboxes|leaders [--json] [--watch] "
+    "[--interval SECONDS] [--limit N] [--run-id ID] [--include-ended]",
+  .summary = "the operator console: Needs, Issues, Sandboxes, Leaders",
+  .detail = "Reads one view of the 23.1-console read model from the control "
+    "service: needs (open Asks, pending human intents, admission "
+    "escalations), issues (leader queue, external intake, escalated "
+    "repairs), sandboxes (sandboxes joined with slots, runners, identity "
+    "status and attempts) or leaders (leader and feature-manager sessions), "
+    "each with its as_of. A read: fresh operation identities are minted per "
+    "request and the run comes from the transport configuration unless "
+    "--run-id names it. Distributed mode only; local and offline modes "
+    "refuse it (exit 78).",
+  .flags = "--json\tthe view's JSON object, one line per snapshot\n"
+    "--watch\tread again every --interval seconds (default 5) until "
+    "interrupted or refused\n"
+    "--limit N\trows per section, 1 to 500\n"
+    "--run-id ID\tthe run to read, when the transport configuration names "
+    "none\n"
+    "--include-ended\tleaders: ended sessions too\n",
+  .examples = "hyperfide console needs\nhyperfide console sandboxes --json\n"
+    "hyperfide console leaders --watch --interval 10",
+  .related = "ask,fleet status,authority" },
+{ .group = "fleet", .name = "human", .args = "submit|status|read|complete|...",
+  .usage = "human describe|submit|escalate|autonomous|status|bootstrap|adopt|"
+    "read|complete --input-file FILE|- --run-id ID --operation-id ID "
+    "--idempotency-key KEY --correlation-id ID",
+  .summary = "human intents to the control service (distributed)",
+  .detail = "Human intents: submit, escalate, read and complete one, the "
+    "autonomy switch, status, bootstrap and adopt. In distributed mode only, a client route to the control service: it "
+    "takes a JSON --input-file with --run-id, --operation-id, "
+    "--idempotency-key and --correlation-id (--authority-file and "
+    "--expected-version where the action needs them); output is the "
+    "protocol JSON. In local mode it is not a command.",
+  .related = "ask,console,authority" },
+{ .group = "fleet", .name = "task", .args = "claim|dispatch|renew|cancel|eligible",
+  .usage = "task claim|dispatch|renew|cancel|eligible --input-file FILE|- "
+    "--run-id ID --operation-id ID --idempotency-key KEY --correlation-id ID",
+  .summary = "scheduler claims, dispatch and leases (distributed)",
+  .detail = "Claim a task, ensure its dispatch, renew or cancel its lease, "
+    "and list the resources it is eligible for. In distributed mode only, a client route to the control service: it "
+    "takes a JSON --input-file with --run-id, --operation-id, "
+    "--idempotency-key and --correlation-id (--authority-file and "
+    "--expected-version where the action needs them); output is the "
+    "protocol JSON. In local mode it is not a command.",
+  .related = "hierarchy,supervisor,authority" },
+{ .group = "fleet", .name = "hierarchy", .args = "describe|inspect|view|acquire|configure|assign",
+  .usage = "hierarchy describe|inspect|view|acquire|configure|assign "
+    "--input-file FILE|- --run-id ID --operation-id ID --idempotency-key KEY "
+    "--correlation-id ID",
+  .summary = "the leader hierarchy and its packages (distributed)",
+  .detail = "Describe, inspect and view the hierarchy, acquire leadership, "
+    "configure and assign packages. In distributed mode only, a client route to the control service: it "
+    "takes a JSON --input-file with --run-id, --operation-id, "
+    "--idempotency-key and --correlation-id (--authority-file and "
+    "--expected-version where the action needs them); output is the "
+    "protocol JSON. In local mode it is not a command.",
+  .related = "task,supervisor,authority" },
+{ .group = "fleet", .name = "supervisor", .args = "describe|launch|inspect|input|stop",
+  .usage = "supervisor describe|launch|inspect|input|stop --input-file FILE|- "
+    "--run-id ID --operation-id ID --idempotency-key KEY --correlation-id ID",
+  .summary = "supervised agent sessions (distributed)",
+  .detail = "Describe, launch and inspect a supervised session, send it "
+    "input, or stop it. In distributed mode only, a client route to the control service: it "
+    "takes a JSON --input-file with --run-id, --operation-id, "
+    "--idempotency-key and --correlation-id (--authority-file and "
+    "--expected-version where the action needs them); output is the "
+    "protocol JSON. In local mode it is not a command.",
+  .related = "hierarchy,task,authority" },
 
 /* ---------------- jev ---------------- */
 { .group = "jev", .name = "jev", .args = "doctor|ask|log",

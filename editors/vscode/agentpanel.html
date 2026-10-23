@@ -680,6 +680,34 @@
   body.attached #input { border-color: var(--vscode-focusBorder); }
   .sysline.hidden { cursor: pointer; text-decoration: underline; background: none; border: 0; color: inherit; }
   .card.approval .options button.danger { color: var(--vscode-errorForeground); }
+
+  /* ---- Leaders (attach-only): one tab per leader, its open Asks first ---- */
+  #leadertabs { display: none; }
+  body.leaders #leadertabs {
+    display: flex; gap: 4px; overflow-x: auto; padding: 4px 8px 0;
+    border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.22));
+  }
+  body.leaders #taskchip, body.leaders #taskstatus, body.leaders #history,
+  body.leaders #refreshhistory, body.leaders #driver, body.leaders #configure,
+  body.leaders #sessionbar, body.leaders #cgbar, body.leaders #activitybar,
+  body.leaders #retry, body.leaders #stop, body.leaders #spin { display: none !important; }
+  .leadertab {
+    display: flex; align-items: baseline; gap: 6px; white-space: nowrap;
+    background: none; color: var(--vscode-foreground); border: 0;
+    border-bottom: 2px solid transparent; padding: 4px 8px; cursor: pointer;
+  }
+  .leadertab[aria-selected="true"] { border-bottom-color: var(--vscode-focusBorder); }
+  .leadertab .role { color: var(--vscode-descriptionForeground); font-size: .85em; }
+  .leadertab .badge {
+    background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
+    border-radius: 8px; padding: 0 6px; font-size: .8em;
+  }
+  .leadertab.gone .name { text-decoration: line-through; opacity: .7; }
+  .leaderlog, .leaderfeed, .leaderasks { display: flex; flex-direction: column; gap: 11px; }
+  .leaderlog.off { display: none; }
+  .leaderasks:empty { display: none; }
+  .card.ask .meta { color: var(--vscode-descriptionForeground); font-size: .9em; margin: 4px 0; }
+  .card.ask.blocking { border-left-color: var(--vscode-errorForeground, #f14c4c); }
 </style>
 </head>
 <body>
@@ -701,6 +729,7 @@
     <button id="configure" class="icon" aria-label="Configure agent provider"
       title="Configure agent provider and adapter commands">⚙</button>
   </header>
+  <nav id="leadertabs" role="tablist" aria-label="Leaders"></nav>
 
   <div id="sessionbar" class="hidden" aria-live="polite">
     <span id="sessiontitle"></span>
@@ -1900,6 +1929,155 @@
         add(row);
     }
 
+    /* ---------------- Leaders (hyperfide-v21 6.5) ----------------
+     * Attach-only mode: this surface runs no agent of its own. Each leader
+     * gets a tab holding its open Asks and its attached transcript; the
+     * extension stamps `leader` on every message the attach and steer code
+     * posts, and the handler draws it into that leader's tab by pointing
+     * the transcript writer (log and its trim window) at the tab while the
+     * message is drawn. The composer steers the selected leader. */
+    var leaderMode = false, leaderTabs = {}, activeLeader = null;
+    var tabstrip = document.getElementById('leadertabs');
+    var mainLog = log;
+    function leaderTab(agent) {
+        var t = leaderTabs[agent];
+        if (t) return t;
+        var holder = el('div', 'leaderlog off');
+        holder.dataset.leader = agent;
+        var asks = el('div', 'leaderasks');
+        var feed = el('div', 'leaderfeed');
+        holder.appendChild(asks);
+        holder.appendChild(feed);
+        mainLog.appendChild(holder);
+        var btn = el('button', 'leadertab');
+        btn.type = 'button';
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-selected', 'false');
+        btn.dataset.leader = agent;
+        btn.appendChild(el('span', 'name', agent));
+        btn.addEventListener('click', function () { selectLeader(agent); });
+        tabstrip.appendChild(btn);
+        t = leaderTabs[agent] = { agent: agent, holder: holder, asks: asks, feed: feed,
+            btn: btn, rows: [], row: null, attached: false };
+        return t;
+    }
+    function inLeaderTab(agent, fn) {
+        var t = leaderTab(agent);
+        var was = { log: log, rows: hiddenRows, row: hiddenRow };
+        log = t.feed; hiddenRows = t.rows; hiddenRow = t.row;
+        breakBlocks();
+        try { fn(); } finally {
+            t.rows = hiddenRows; t.row = hiddenRow;
+            log = was.log; hiddenRows = was.rows; hiddenRow = was.row;
+            breakBlocks();
+        }
+    }
+    function selectLeader(agent) {
+        activeLeader = agent;
+        Object.keys(leaderTabs).forEach(function (k) {
+            var t = leaderTabs[k];
+            t.holder.classList.toggle('off', k !== agent);
+            t.btn.setAttribute('aria-selected', k === agent ? 'true' : 'false');
+        });
+        syncComposer();
+        toBottom();
+    }
+    function syncComposer() {
+        var t = activeLeader && leaderTabs[activeLeader];
+        var pill = document.getElementById('attachpill');
+        if (pill) {
+            pill.textContent = t ? '⇄ ' + activeLeader : '';
+            pill.title = t ? 'your messages steer ' + activeLeader : '';
+        }
+        body.classList.toggle('attached', !!(t && t.attached));
+        input.placeholder = t ? 'Steer ' + activeLeader + '…' : 'No leader is alive to steer';
+    }
+    function enterLeaders(m) {
+        leaderMode = true;
+        body.classList.add('leaders');
+        mainLog.textContent = '';
+        hiddenRows = []; hiddenRow = null;
+        if (m.version) buildVersion.textContent = 'v' + m.version;
+        document.getElementById('ctxfeature').textContent = 'Leaders' + (m.feature ? ' · ' + m.feature : '');
+        syncComposer();
+    }
+    function leaderRole(r) {
+        if (r.role === 'main') return 'main';
+        return 'manager' + (r.feature ? ' · ' + r.feature + (r.wave != null ? '/' + r.wave : '') : '');
+    }
+    function setLeaders(m) {
+        var rows = Array.isArray(m.leaders) ? m.leaders : [];
+        var none = document.getElementById('noleaders');
+        if (!rows.length && !none) {
+            none = el('div', 'welcome');
+            none.id = 'noleaders';
+            none.appendChild(el('h2', null, 'No leaders'));
+            none.appendChild(el('p', null, 'No main agent or feature manager is alive in this fleet. ' +
+                'Each one gets its own tab here, with its open Asks, as soon as it joins.'));
+            mainLog.appendChild(none);
+        } else if (rows.length && none) none.remove();
+        rows.forEach(function (r) {
+            var t = leaderTab(r.agent);
+            var asks = Array.isArray(r.asks) ? r.asks : [];
+            t.btn.textContent = '';
+            t.btn.appendChild(el('span', 'name', r.agent));
+            t.btn.appendChild(el('span', 'role', leaderRole(r)));
+            if (asks.length) t.btn.appendChild(el('span', 'badge', String(asks.length)));
+            t.btn.classList.toggle('gone', r.live === false);
+            if (r.live === false) t.attached = false;
+            t.btn.title = r.agent + ' — ' + leaderRole(r) +
+                ((r.tasks || []).length ? ' · ' + r.tasks.join(' ') : '') +
+                (asks.length ? ' · ' + asks.length + ' open Ask' + (asks.length > 1 ? 's' : '') : '') +
+                (r.live === false ? ' · no longer alive' : '');
+            renderLeaderAsks(t, r.agent, asks);
+        });
+        if (!activeLeader || !leaderTabs[activeLeader]) {
+            if (rows.length) selectLeader(rows[0].agent); else syncComposer();
+        } else syncComposer();
+    }
+    function renderLeaderAsks(t, agent, asks) {
+        t.asks.textContent = '';
+        asks.forEach(function (a) {
+            var card = makeCard('perm ask' + (a.blocking ? ' blocking' : ''), '?',
+                '#' + a.id + ' ' + (a.title || ''),
+                (a.kind || '') + (a.blocking ? ' · blocks' : ' · proceeds on its recommendation'));
+            card.dataset.askid = String(a.id);
+            var bodyEl = card.querySelector('.body');
+            if (a.body) bodyEl.appendChild(el('p', null, a.body));
+            var meta = [];
+            if (a.task) meta.push('task ' + a.task);
+            if (a.raised_by && a.raised_by !== agent) meta.push('raised by ' + a.raised_by);
+            if (a.recommended) meta.push('recommended: ' + a.recommended);
+            if (a.deadline) meta.push((a.overdue ? 'overdue since ' : 'deadline ') +
+                new Date(a.deadline * 1000).toLocaleString());
+            if (meta.length) bodyEl.appendChild(el('p', 'meta', meta.join(' · ')));
+            var row = el('div', 'options');
+            /* a secret is never chosen or typed in a webview: its answer is a
+             * reference, asked for by the extension in a password box */
+            var opts = a.kind === 'secret' ? [] : (a.options || []).slice();
+            opts.sort(function (x, y) { return (y === a.recommended) - (x === a.recommended); });
+            opts.forEach(function (o) {
+                var b = el('button', o === a.recommended ? 'primary' : null, o);
+                b.addEventListener('click', function () { answerLeaderAsk(card, a, agent, o); });
+                row.appendChild(b);
+            });
+            if (!opts.length) {
+                var b = el('button', 'primary', a.kind === 'secret' ? 'Answer with a secret reference…' : 'Answer…');
+                b.addEventListener('click', function () { answerLeaderAsk(card, a, agent, null); });
+                row.appendChild(b);
+            }
+            bodyEl.appendChild(row);
+            bodyEl.appendChild(el('div', 'answer', ''));
+            card.classList.remove('closed');
+            t.asks.appendChild(card);
+        });
+    }
+    function answerLeaderAsk(card, a, agent, option) {
+        vsc.postMessage({ type: 'ask_answer', id: a.id, answer: option || undefined, leader: agent });
+        card.classList.add('answered');
+        card.querySelector('.answer').textContent = option ? 'sending ' + option + '…' : 'answer in the input box…';
+    }
+
     /* ---------------- welcome ---------------- */
     function welcome(subtitle) {
         var w = el('div', 'welcome');
@@ -1940,6 +2118,7 @@
     var slashSel = 0, slashItems = [];
 
     function updateSlash() {
+        if (leaderMode) { body.classList.remove('slashing'); return; }
         var v = input.value;
         var m = v.match(/^\/([a-z]*)$/i);
         if (!m) { body.classList.remove('slashing'); return; }
@@ -2006,6 +2185,12 @@
         body.classList.remove('slashing');
         history.push(raw); histIdx = history.length;
         statusline.textContent = '';
+        if (leaderMode) {
+            /* attach-only: everything typed here steers the selected leader */
+            if (!activeLeader) { statusline.textContent = 'no leader to steer'; return; }
+            vsc.postMessage({ type: 'send', text: raw, leader: activeLeader });
+            return;
+        }
         var m = raw.match(/^\/([A-Za-z][\w-]*)\s*([\s\S]*)$/);
         if (m) {
             var cmd = m[1].toLowerCase();
@@ -2242,9 +2427,9 @@
         toBottom();
     }
 
-    window.addEventListener('message', function (ev) {
-        var m = ev.data || {};
+    function handle(m) {
         if (m.type === 'init') {
+            if (m.mode === 'leaders') { enterLeaders(m); return; }
             if (Array.isArray(m.tools)) toolCommands = m.tools;
             if (m.adapters) adapters = m.adapters;
             if (m.diffStyle) diffStyle = m.diffStyle;
@@ -2341,6 +2526,7 @@
         }
         else if (m.type === 'escalation') escalationCard(m);
         else if (m.type === 'attached') setAttached(m.agent, m.was);
+        else if (m.type === 'leaders') setLeaders(m);
         else if (m.type === 'agent_event') agentEventRow(m);
         else if (m.type === 'turn') {
             body.classList.toggle('running', !!m.running);
@@ -2370,6 +2556,14 @@
         } else if (m.type === 'focus') {
             input.focus();
         }
+    }
+    window.addEventListener('message', function (ev) {
+        var m = ev.data || {};
+        if (!leaderMode || !m.leader) { handle(m); return; }
+        /* a leader's message: drawn in its tab, whichever tab is showing */
+        inLeaderTab(m.leader, function () { handle(m); });
+        if (m.type === 'attached') leaderTabs[m.leader].attached = !!m.agent;
+        syncComposer();
     });
 
     welcome();

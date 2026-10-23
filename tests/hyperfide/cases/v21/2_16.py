@@ -154,13 +154,16 @@ def scenario(intents):
             return ok('provider.worker.status', {})
 
         def asks(subject):
-            return f.sql('SELECT id,kind,state,recommended,resolution_id,raised_by_credential_id FROM hyperfide.provider_resolution_asks WHERE organisation_id=$1 AND subject_key=$2 ORDER BY raised_at,id', [org, subject])
+            # 3.23: provider Asks live in hyperfide.asks, tied to their subject by provider_resolution_ask_links.
+            return f.sql('SELECT a.id,a.kind,a.state,a.recommended,l.resolution_id,a.raised_by AS raised_by_credential_id FROM hyperfide.provider_resolution_ask_links l JOIN hyperfide.asks a ON a.organisation_id=l.organisation_id AND a.id=l.ask_id WHERE l.organisation_id=$1 AND l.subject_key=$2 ORDER BY a.raised_at,a.id', [org, subject])
 
         def passes_beyond(count, more):
             return intents.wait_for(lambda: (lambda s: s if s['escalation']['passes'] >= count + more else None)(status()),
                                     'worker loop did not complete further escalation passes')
 
         ok('provider.pools.configure', {}, component='8.2')
+        # The run is inserted directly (no spec import), so it registers the operator channel provider Asks need.
+        f.sql("INSERT INTO hyperfide.event_consumers(organisation_id,run_id,id,consumer_key,critical,state) VALUES($1,$2,$3,'operator:asks',false,'ACTIVE')", [org, f.ids['run'], str(uuid.uuid4())])
         native = 'unattributed-' + str(uuid.uuid4())
         subject = 'orphan:' + f.pool + ':' + native
         orphan = {'pool_id': f.pool, 'native_sandbox_id': native}
@@ -173,7 +176,7 @@ def scenario(intents):
             # A worker with nothing overdue completes passes and raises nothing.
             s = passes_beyond(0, 2)
             expect(s['escalation']['raised'] == 0 and 'escalate' not in s['errors'], s)
-            expect(f.sql('SELECT count(*)::int AS n FROM hyperfide.provider_resolution_asks WHERE organisation_id=$1', [org])[0]['n'] == 0, 'Ask raised with nothing overdue')
+            expect(f.sql('SELECT count(*)::int AS n FROM hyperfide.provider_resolution_ask_links WHERE organisation_id=$1', [org])[0]['n'] == 0, 'Ask raised with nothing overdue')
         check('v21.2.16.loop-runs-without-subjects', started)
 
         state = {}
