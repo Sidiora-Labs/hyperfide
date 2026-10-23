@@ -116,7 +116,7 @@ describe("buildBridgeInjectionScript", () => {
   it("posts a request the shell can parse, and resolves it on the reply", async () => {
     const { native, posted, run } = installBridge();
     const promise = native.request("share", {
-      url: "https://bee.getbb.app/threads/thr_1",
+      url: "https://bee.hyperfide.example/threads/thr_1",
     });
     const parsed = parsePageToShellMessage(posted[0]);
     if (!parsed.ok) throw new Error(`shell could not parse: ${parsed.reason}`);

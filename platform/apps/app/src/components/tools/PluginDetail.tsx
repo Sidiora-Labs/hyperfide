@@ -1,8 +1,64 @@
-import { PluginNameTag } from "@/components/plugin/management/PluginNameTag";
-import { splitPluginDisplayName } from "@bb/domain/plugin-display-name";
 import { PluginCardAuthorAvatar } from "@/components/plugin/management/PluginCard";
-import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@bb/server-contract";
-import { useSyncExternalStore } from "react";
+import { PluginCatalogInstallControl } from "@/components/plugin/management/PluginCatalogInstallControl";
+import {
+  PluginDetailMetadata,
+  PluginDetailMetadataItem,
+  PluginMarketplaceByline,
+  PluginMarketplaceDetailMetadata,
+  PluginMarketplaceListingSections,
+  PluginMarketplaceOverview,
+  PluginMarketplaceSource,
+  PluginMoreFromAuthorSection,
+  PluginOverviewLead,
+} from "@/components/plugin/management/PluginMarketplaceListing";
+import { PluginNameTag } from "@/components/plugin/management/PluginNameTag";
+import {
+  PluginDetailReleaseControl,
+  PluginDetailReleaseStatus,
+  pluginHasUpdateSurfaces,
+} from "@/components/plugin/management/PluginUpdatesCard";
+import {
+  catalogEntryDetailKey,
+  catalogEntryInstallBlocker,
+} from "@/components/plugin/management/installed-plugin-catalog";
+import { pluginRuntimeStatusPresentation } from "@/components/plugin/management/plugin-status";
+import {
+  CatalogEntryIconChip,
+  formatAbsoluteDate,
+  pluginInstallCountPresentation,
+  PluginLogo,
+} from "@/components/plugin/management/plugin-ui";
+import {
+  PluginHealthBanner,
+  PluginIncludes,
+  PluginSchedules,
+  PluginServices,
+} from "@/components/tools/PluginCapabilities";
+import {
+  PluginBannerBar,
+  PluginBannerOpenButton,
+} from "@/components/tools/plugin-detail-banner";
+import {
+  usePluginSource,
+  usePluginUpdateCheck,
+  type PluginCatalogSearchEntry,
+} from "@/hooks/queries/plugin-catalog-queries";
+import {
+  useCancelPluginInstallJob,
+  useCatalogEntryInstallJob,
+} from "@/hooks/queries/plugin-install-job-queries";
+import type { PluginListItem } from "@/hooks/queries/plugin-settings-queries";
+import { useClipboardCopy } from "@/lib/clipboard";
+import {
+  getPluginFrontendDiagnostics,
+  subscribePluginFrontendDiagnostics,
+  type PluginFrontendDiagnostic,
+} from "@/lib/plugin-frontend";
+import { usePluginSlots } from "@/lib/plugin-slots";
+import { getPluginConfigurationRoutePath } from "@/lib/route-paths";
+import { splitPluginDisplayName } from "@bb/domain/plugin-display-name";
+import { Icon } from "@bb/shared-ui/icon";
+import { formatHomePathForDisplay } from "@bb/shared-ui/lib/utils";
 import {
   ResourceActionButton,
   ResourceActivitySection,
@@ -21,95 +77,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@bb/shared-ui/tooltip";
-import { formatHomePathForDisplay } from "@bb/shared-ui/lib/utils";
-import { Icon } from "@bb/shared-ui/icon";
+import { useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
-import { getPluginConfigurationRoutePath } from "@/lib/route-paths";
-import {
-  PluginDetailReleaseControl,
-  PluginDetailReleaseStatus,
-  pluginHasUpdateSurfaces,
-} from "@/components/plugin/management/PluginUpdatesCard";
-import {
-  CatalogEntryIconChip,
-  formatAbsoluteDate,
-  PluginLogo,
-  pluginInstallCountPresentation,
-} from "@/components/plugin/management/plugin-ui";
-import {
-  PluginDetailMetadata,
-  PluginDetailMetadataItem,
-  PluginMarketplaceByline,
-  PluginMarketplaceDetailMetadata,
-  PluginMarketplaceListingSections,
-  PluginMarketplaceOverview,
-  PluginMarketplaceSource,
-  PluginMoreFromAuthorSection,
-  PluginOverviewLead,
-} from "@/components/plugin/management/PluginMarketplaceListing";
-import { pluginRuntimeStatusPresentation } from "@/components/plugin/management/plugin-status";
-import { PluginCatalogInstallControl } from "@/components/plugin/management/PluginCatalogInstallControl";
-import {
-  useCancelPluginInstallJob,
-  useCatalogEntryInstallJob,
-} from "@/hooks/queries/plugin-install-job-queries";
-import {
-  catalogEntryDetailKey,
-  catalogEntryInstallBlocker,
-} from "@/components/plugin/management/installed-plugin-catalog";
-import {
-  PluginHealthBanner,
-  PluginIncludes,
-  PluginSchedules,
-  PluginServices,
-} from "@/components/tools/PluginCapabilities";
-import {
-  PluginBannerBar,
-  PluginBannerOpenButton,
-} from "@/components/tools/plugin-detail-banner";
-import {
-  usePluginSource,
-  usePluginUpdateCheck,
-  type PluginCatalogSearchEntry,
-} from "@/hooks/queries/plugin-catalog-queries";
-import type { PluginListItem } from "@/hooks/queries/plugin-settings-queries";
-import {
-  getPluginFrontendDiagnostics,
-  subscribePluginFrontendDiagnostics,
-  type PluginFrontendDiagnostic,
-} from "@/lib/plugin-frontend";
-import { usePluginSlots } from "@/lib/plugin-slots";
-import { copyToClipboardWithToast, useClipboardCopy } from "@/lib/clipboard";
-
-function pluginMarketplaceUrl({
-  marketplace,
-  entryId,
-}: {
-  marketplace: string | null;
-  entryId: string | null;
-}): string | null {
-  if (marketplace !== CURATED_PLUGIN_MARKETPLACE_NAME || entryId === null) {
-    return null;
-  }
-  return `https://getbb.app/marketplace/${encodeURIComponent(entryId)}`;
-}
-
-function copyMarketplaceLinkItems(
-  url: string | null,
-): ResourceOverflowMenuItem[] {
-  if (url === null) return [];
-  return [
-    {
-      label: "Copy marketplace link",
-      icon: "Copy",
-      onSelect: () =>
-        void copyToClipboardWithToast(url, {
-          successMessage: "Marketplace link copied",
-          errorMessage: "Failed to copy marketplace link.",
-        }),
-    },
-  ];
-}
 
 export function pluginIsLocalSource(plugin: PluginListItem): boolean {
   return plugin.source.startsWith("path:");
@@ -206,7 +175,7 @@ export function CatalogPluginDetail({
   const installBlocker = catalogEntryInstallBlocker(entry);
   const installJob = useCatalogEntryInstallJob(entry);
   const { mutate: cancelInstall } = useCancelPluginInstallJob();
-  const overflowItems = copyMarketplaceLinkItems(pluginMarketplaceUrl(entry));
+  const overflowItems: ResourceOverflowMenuItem[] = [];
   const entryTitle = splitPluginDisplayName(entry.displayName);
   return (
     <ResourceDetailPage
@@ -445,14 +414,7 @@ export function PluginDetail({
 
   const pluginName = plugin.name ?? plugin.id;
   const pluginTitle = splitPluginDisplayName(pluginName);
-  const marketplaceUrl = pluginMarketplaceUrl(
-    catalogEntry ?? {
-      marketplace: plugin.catalogMarketplaceName,
-      entryId: plugin.catalogEntryId,
-    },
-  );
   const overflowItems: ResourceOverflowMenuItem[] = [
-    ...copyMarketplaceLinkItems(marketplaceUrl),
     ...(canEditSource
       ? [
           {

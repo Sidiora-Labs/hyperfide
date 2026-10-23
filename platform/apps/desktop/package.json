@@ -32,7 +32,6 @@
     "smoke:browser-address": "node scripts/smoke-browser-address.mjs"
   },
   "dependencies": {
-    "@bb/connect-client": "workspace:*",
     "@bb/host-daemon-contract": "workspace:*",
     "bb-app": "workspace:*",
     "electron-updater": "^6.8.3",

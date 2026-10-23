@@ -1736,19 +1736,10 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
         });
       },
       setNextTunnels: (config) => {
-        if (!deps.sharedPorts) {
-          throw new Error("host shared-port control plane is unavailable");
-        }
-        deps.sharedPorts.setNextTunnelConfig(row.id, config);
+        if (config !== null) throw new Error("Hosted connections are disabled");
       },
-      nextTunnelStatuses: () =>
-        (deps.sharedPorts?.listNextTunnelStatuses() ?? []).map((entry) => ({
-          hostId: entry.hostId,
-          hostName: entry.hostName,
-          ...entry.status,
-        })),
-      onNextTunnelStatusChange: (listener) =>
-        deps.sharedPorts?.onNextTunnelStatusChange(listener) ?? (() => {}),
+      nextTunnelStatuses: () => [],
+      onNextTunnelStatusChange: () => () => {},
       replaceDeclaredSharedPorts: (declarations) => {
         if (declarations.length > 0 && !deps.sharedPorts) {
           throw new Error("host shared-port control plane is unavailable");
@@ -1769,12 +1760,6 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
           ...args,
           artifact: hostArtifactCandidate,
         });
-      },
-      openTunnelIngress: (audience) => {
-        if (!deps.openTunnelIngress) {
-          throw new Error("tunnel ingress is unavailable in this plugin host");
-        }
-        return deps.openTunnelIngress(audience);
       },
       registerAiService: (declaration) =>
         deps.aiServices.register({

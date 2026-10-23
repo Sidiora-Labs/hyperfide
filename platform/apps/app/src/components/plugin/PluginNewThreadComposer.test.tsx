@@ -280,15 +280,15 @@ vi.mock("@/hooks/queries/system-queries", () => ({
           {
             id: "connect",
             displayName: "bb connect",
-            description: "Use a private getbb.app address.",
+            description: "Use a private hyperfide.example address.",
             pluginId: "connect",
             availability: mocks.serverAccessReady
-              ? { status: "available", serverUrl: "https://sawyer.getbb.app" }
+              ? { status: "available", serverUrl: "https://sawyer.hyperfide.example" }
               : { status: "setup-required", message: "Pair with bb connect" },
           },
         ],
         defaultProviderId: "connect",
-        effectiveUrl: "https://sawyer.getbb.app",
+        effectiveUrl: "https://sawyer.hyperfide.example",
         urlSource: null,
       },
     },

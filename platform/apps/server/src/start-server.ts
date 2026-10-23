@@ -62,7 +62,6 @@ import {
   refuseInterruptedServerImport,
   repairLastServerMoveHostName,
 } from "./services/server-move/pending-boot.js";
-import { createConnectHold } from "./services/server-move/connect-hold.js";
 import { isServerMoveFrozen } from "./services/server-move/freeze-state.js";
 import { reconcileServerMoveRunAtBoot } from "./services/server-move/reconcile.js";
 import {
@@ -101,9 +100,7 @@ export function startServerPlugins(
   args: StartServerPluginsArgs,
 ): Promise<void> {
   return args.pluginService
-    .start({
-      hold: createConnectHold({ dataDir: args.dataDir, logger: args.logger }),
-    })
+    .start()
     .catch((error: unknown) => {
       args.logger.error({ err: error }, "Plugin startup failed");
     })
@@ -177,7 +174,6 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     appVersion: serverConfig.HYPERFIDE_APP_VERSION,
     builtinSkillsRootPath: resolveBuiltinSkillsRootPath(),
     marketplaceUrl: serverConfig.HYPERFIDE_MARKETPLACE_URL,
-    connectGateKeysUrl: serverConfig.HYPERFIDE_CONNECT_GATE_KEYS_URL,
     customModels: [],
     dataDir: serverConfig.HYPERFIDE_DATA_DIR,
     featureFlags: serverConfig.featureFlags,
@@ -315,7 +311,6 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     pluginCatalogService,
     pluginService,
     serverMove,
-    tunnelIngress,
   } = createApp(
     {
       appUpdate,
@@ -515,7 +510,6 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
           resolve();
         });
       });
-      await tunnelIngress.closeAll();
       await closeWebSockets();
       await closeServer;
     })();

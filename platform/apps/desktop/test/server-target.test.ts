@@ -192,14 +192,14 @@ describe("server target store", () => {
     await store.setConnectServer({
       handle: "laptop",
       name: "Laptop",
-      url: "https://laptop.getbb.app",
+      url: "https://laptop.hyperfide.example",
     });
     expect(store.getTarget()).toEqual({
       kind: "connect",
       server: {
         handle: "laptop",
         name: "Laptop",
-        url: "https://laptop.getbb.app",
+        url: "https://laptop.hyperfide.example",
       },
     });
 
@@ -208,14 +208,14 @@ describe("server target store", () => {
       await store.refreshConnectServer({
         handle: "laptop",
         name: "Laptop Renamed",
-        url: "https://laptop-new.getbb.app",
+        url: "https://laptop-new.hyperfide.example",
       }),
     ).toBe(true);
     expect(
       await store.refreshConnectServer({
         handle: "unknown",
         name: "Nope",
-        url: "https://nope.getbb.app",
+        url: "https://nope.hyperfide.example",
       }),
     ).toBe(false);
     expect(store.getTarget()).toEqual({ kind: "builtin" });
@@ -230,7 +230,7 @@ describe("server target store", () => {
     expect(reloaded.getConnectServer()).toEqual({
       handle: "laptop",
       name: "Laptop Renamed",
-      url: "https://laptop-new.getbb.app",
+      url: "https://laptop-new.hyperfide.example",
     });
   });
 
@@ -242,7 +242,7 @@ describe("server target store", () => {
     await store.setConnectServer({
       handle: "laptop",
       name: "Laptop",
-      url: "https://laptop.getbb.app",
+      url: "https://laptop.hyperfide.example",
     });
     await store.setCustomServerUrl(null);
     expect(store.getTarget().kind).toBe("connect");
@@ -256,17 +256,17 @@ describe("server target store", () => {
     const brsbl = {
       handle: "brsbl",
       name: "default",
-      url: "https://brsbl.getbb.app",
+      url: "https://brsbl.hyperfide.example",
     };
     const bbox = {
       handle: "brsbl-bbox",
       name: "brsbl-bbox",
-      url: "https://brsbl-bbox.getbb.app",
+      url: "https://brsbl-bbox.hyperfide.example",
     };
     await store.setConnectServer(brsbl);
-    await store.setCustomServerUrl("https://brsbl.getbb.app/");
+    await store.setCustomServerUrl("https://brsbl.hyperfide.example/");
     await store.setCustomServerUrl("https://example.com", { name: "Example" });
-    await store.setCustomServerUrl("https://brsbl-bbox.getbb.app", {
+    await store.setCustomServerUrl("https://brsbl-bbox.hyperfide.example", {
       name: "Devbox",
     });
 
@@ -298,12 +298,12 @@ describe("server target store", () => {
     const { fs } = createMemoryFs();
     const store = createServerTargetStore({ fs, storagePath: "/tmp/t.json" });
     await store.load();
-    await store.setCustomServerUrl("https://laptop.getbb.app");
+    await store.setCustomServerUrl("https://laptop.hyperfide.example");
     await store.setTarget("builtin");
 
     expect(
       await store.adoptConnectServers([
-        { handle: "laptop", name: "Laptop", url: "https://laptop.getbb.app" },
+        { handle: "laptop", name: "Laptop", url: "https://laptop.hyperfide.example" },
       ]),
     ).toBe(false);
     expect(store.getTarget()).toEqual({ kind: "builtin" });
@@ -317,16 +317,16 @@ describe("server target store", () => {
     const store = createServerTargetStore({ fs, storagePath: "/tmp/t.json" });
     await store.load();
     const urls = [
-      "http://laptop.getbb.app",
-      "https://laptop.getbb.app:8443",
-      "https://laptop.getbb.app/other",
-      "https://laptop.getbb.app/?deployment=other",
+      "http://laptop.hyperfide.example",
+      "https://laptop.hyperfide.example:8443",
+      "https://laptop.hyperfide.example/other",
+      "https://laptop.hyperfide.example/?deployment=other",
     ];
     for (const url of urls) await store.setCustomServerUrl(url);
 
     expect(
       await store.adoptConnectServers([
-        { handle: "laptop", name: "Laptop", url: "https://laptop.getbb.app" },
+        { handle: "laptop", name: "Laptop", url: "https://laptop.hyperfide.example" },
       ]),
     ).toBe(false);
     expect(store.getCustomServerUrls()).toEqual(urls);

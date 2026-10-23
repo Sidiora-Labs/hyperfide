@@ -100,7 +100,7 @@ describe("plugin background services", () => {
 
   it("starts services after load and aborts them on reload", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-connector",
+      name: "@hyperfide/sdkor",
       serverSource: `
         export default function plugin(bb: any) {
           const g = globalThis as any;

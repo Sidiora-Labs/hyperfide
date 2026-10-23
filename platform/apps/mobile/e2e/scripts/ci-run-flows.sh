@@ -15,7 +15,6 @@
 # build --filter=@bb/app`); without them the server answers API routes only and
 # the shell shows its native error state.
 #
-# shell-connect is not in the default set: it needs the connect stub backend
 # (`pnpm --filter @bb/integration-tests e2e:mobile-connect-stub`), so it runs
 # on its own.
 #

@@ -24,31 +24,6 @@
       "dependsOn": ["topo"],
       "passThroughEnv": ["DISPLAY"]
     },
-    "@bb/web#build": {
-      "dependsOn": ["topo"],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/apps/server/src/generated/bb-official-marketplace/marketplace.json",
-        "$TURBO_ROOT$/plugins/*/icons/*.svg",
-        "$TURBO_ROOT$/plugins/*/*.svg",
-        "$TURBO_ROOT$/CHANGELOG.md",
-        "$TURBO_ROOT$/changelog-metadata.ts",
-        "$TURBO_ROOT$/changelog-parser.ts",
-        "$TURBO_ROOT$/apps/web/package.json",
-        "$TURBO_ROOT$/apps/web/src/**",
-        "$TURBO_ROOT$/apps/web/tsconfig.json",
-        "$TURBO_ROOT$/apps/web/vite.config.ts",
-        "$TURBO_ROOT$/assets/bb-logo.svg",
-        "$TURBO_ROOT$/packages/shared-ui/src/**",
-        "$TURBO_ROOT$/packages/tsconfig/*.json",
-        "$TURBO_ROOT$/plugins/plugin-api-docs/src/**",
-        "$TURBO_ROOT$/pnpm-lock.yaml",
-        "$TURBO_ROOT$/pnpm-workspace.yaml",
-        "$TURBO_ROOT$/turbo.json"
-      ],
-      "env": ["CLOUDFLARE_ENV", "VITE_POSTHOG_KEY", "VITE_POSTHOG_HOST"],
-      "outputs": ["dist/**"]
-    },
     // Mirrors "build" but also caches bundle-stats.json, which the
     // bb:bundle-stats Vite plugin writes beside dist for the boot-payload
     // budget check. Without it a cache hit would leave CI checking a stale
@@ -197,7 +172,6 @@
     "@bb/bundled-plugins#build": {
       "dependsOn": [
         "^prepare:bundled",
-        "@bb/server#generate:bb-official-marketplace"
       ],
       "inputs": [
         "$TURBO_DEFAULT$",
@@ -399,7 +373,6 @@
       // `@get-bb/plugin-sdk/provider-bridge` entry from the SDK dist, so a
       // clean worktree must build that runtime before the server starts.
       "dependsOn": [
-        "@bb/server#generate:bb-official-marketplace",
         "@bb/templates#generate:templates",
         "@bb/plugin-build#generate",
         "@get-bb/plugin-sdk#build:runtime"
@@ -476,26 +449,7 @@
     "@bb/plugin-build#topo": {
       "dependsOn": ["^topo", "@bb/plugin-build#generate"]
     },
-    "@bb/web#topo": {
-      "dependsOn": ["^topo", "@bb/server#generate:bb-official-marketplace"]
-    },
     "@bb/server#topo": {
-      "dependsOn": ["^topo", "@bb/server#generate:bb-official-marketplace"]
-    },
-    "@bb/server#generate:bb-official-marketplace": {
-      "dependsOn": [],
-      "inputs": [
-        "scripts/generate-bb-official-marketplace.ts",
-        "src/services/plugin-catalog/bundled-marketplace-paths.ts",
-        "src/services/plugins/builtin-registry.ts",
-        "$TURBO_ROOT$/packages/domain/src/plugin-catalog-category.ts",
-        "$TURBO_ROOT$/packages/domain/src/plugin-id.ts",
-        "$TURBO_ROOT$/packages/domain/src/plugin-manifest.ts",
-        "$TURBO_ROOT$/plugins/*/package.json",
-        "$TURBO_ROOT$/plugins/*/PLUGIN_OVERVIEW.md",
-        "$TURBO_ROOT$/plugins/bb-official.json"
-      ],
-      "outputs": ["src/generated/bb-official-marketplace/marketplace.json"]
     },
     "@bb/templates#generate:templates": {
       "dependsOn": [],
@@ -546,16 +500,6 @@
         "$TURBO_ROOT$/changelog-parser.ts"
       ]
     },
-    "@bb/web#typecheck": {
-      "dependsOn": ["topo"],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/changelog-metadata.ts",
-        "$TURBO_ROOT$/changelog-parser.ts",
-        "$TURBO_ROOT$/packages/shared-ui/src/**",
-        "$TURBO_ROOT$/plugins/plugin-api-docs/src/**"
-      ]
-    },
     "@bb/host-daemon#build": {
       "dependsOn": ["topo"],
       "inputs": [
@@ -601,20 +545,6 @@
     // The source-wrapper test invokes the root `pnpm bb` script, which builds
     // and executes @bb/cli. Model that cross-package dependency so CLI changes
     // cannot leave this test hidden behind a stale Turbo cache entry.
-    "@bb/web#test": {
-      "env": ["VITEST_MAX_WORKERS"],
-      "dependsOn": ["//#ensure-native-modules", "topo"],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/vitest*.ts",
-        "$TURBO_ROOT$/plugins/plugin-api-docs/src/**",
-        "$TURBO_ROOT$/plugins/*/package.json"
-      ],
-      "passThroughEnv": [
-        "UPDATE_PARITY_ROW_COUNTS",
-        "UPDATE_TRANSCRIPT_EXPECTATIONS"
-      ]
-    },
     "@bb/scripts#test": {
       "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": ["//#ensure-native-modules", "@bb/cli#build", "topo"],
@@ -1145,15 +1075,6 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
       ]
-    },
-    "bb-plugin-connect#typecheck": {
-      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
-    },
-    "bb-plugin-bb--connect-next#typecheck": {
-      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
-    },
-    "bb-plugin-bb-account#typecheck": {
-      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
     },
     "bb-plugin-bb-ai#typecheck": {
       "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]

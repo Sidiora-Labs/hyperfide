@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@bb/client-core": "workspace:*",
-    "@bb/connect-client": "workspace:*",
     "@bb/core-ui": "workspace:*",
     "@bb/domain": "workspace:*",
     "@bb/mobile-bridge": "workspace:*",
@@ -36,7 +35,6 @@
     "expo": "~57.0.14",
     "expo-application": "~57.0.2",
     "expo-build-properties": "~57.0.12",
-    "expo-camera": "~57.0.3",
     "expo-constants": "~57.0.12",
     "expo-crypto": "~57.0.1",
     "expo-dev-client": "~57.0.13",

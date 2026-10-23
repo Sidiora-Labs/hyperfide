@@ -15,7 +15,7 @@ import type { EnrollmentBootstrap } from "./enrollments.js";
 const bootstrap: EnrollmentBootstrap = {
   hostId: "host_test",
   credential: "short-lived-code",
-  serverUrl: "https://test.getbb.app",
+  serverUrl: "https://test.hyperfide.example",
   expiresAt: Date.now() + 60_000,
   headers: { "x-access": "private'$value" },
 };
@@ -40,13 +40,13 @@ it("passes the exact bootstrap and arguments to the installer without shell expa
 
 it("builds the transient curl command from the enrollment bootstrap", () => {
   expect(manualEnrollmentCommand(bootstrap)).toBe(
-    "curl -sSL --fail-with-body -H 'X-BB-Enrollment: short-lived-code' 'https://test.getbb.app/install.sh' | sh",
+    "curl -sSL --fail-with-body -H 'X-BB-Enrollment: short-lived-code' 'https://test.hyperfide.example/install.sh' | sh",
   );
 });
 
 it("builds the transient PowerShell command from the enrollment bootstrap", () => {
   expect(manualEnrollmentPowerShellCommand(bootstrap)).toBe(
-    "irm -Headers @{ 'X-BB-Enrollment' = 'short-lived-code' } 'https://test.getbb.app/install.ps1' | iex",
+    "irm -Headers @{ 'X-BB-Enrollment' = 'short-lived-code' } 'https://test.hyperfide.example/install.ps1' | iex",
   );
   expect(
     manualEnrollmentPowerShellCommand({ ...bootstrap, credential: "it's" }),

@@ -1921,41 +1921,6 @@ export interface PluginServerApi {
    * not a place to write.
    */
   readonly experimental_dataDir: string;
-
-  /**
-   * Internal to bb's own connect plugins. Do not use: it is not part of the
-   * plugin API and may change or disappear in any release.
-   *
-   * Open (or share) this server's tunnel ingress for `audience`, a private
-   * listener on 127.0.0.1 with an ephemeral port. For a plugin that runs a
-   * tunnel client for bb connect next: point the client at `baseUrl`.
-   *
-   * Every HTTP request and WebSocket upgrade must carry an
-   * `x-bb-gate-assertion` signed by the bb connect gate for `audience`
-   * (`server:<serverId>`), the request method and the exact path and query;
-   * anything else is answered 401. A verified request reaches the same app
-   * as `loopbackBaseUrl`, authenticated only by the gate's claims.
-   *
-   * Opening the same audience again shares the listener; it stops when every
-   * handle is closed. Handles close when the plugin is disabled or unloaded.
-   */
-  internal_DO_NOT_USE_openTunnelIngress(
-    options: InternalDoNotUsePluginTunnelIngressOptions,
-  ): Promise<InternalDoNotUsePluginTunnelIngress>;
-}
-
-/** Options for `bb.server.internal_DO_NOT_USE_openTunnelIngress`. */
-export interface InternalDoNotUsePluginTunnelIngressOptions {
-  /** The gate assertion audience this ingress accepts, e.g. `server:<id>`. */
-  audience: string;
-}
-
-/** A handle on an open tunnel ingress. */
-export interface InternalDoNotUsePluginTunnelIngress {
-  /** Base URL of the ingress listener, e.g. "http://127.0.0.1:41234". */
-  readonly baseUrl: string;
-  /** Release this handle; idempotent. */
-  close(): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -2051,7 +2016,7 @@ export interface PluginAiServices {
 export interface PluginSharedPortTunnelIdentity {
   /** Gate routing label assigned to this machine. */
   label: string;
-  /** Gate apex without a scheme, e.g. "getbb.app". */
+  /** Gate apex without a scheme, e.g. "hyperfide.example". */
   baseDomain: string;
 }
 
@@ -2059,7 +2024,7 @@ export interface PluginSharedPortTunnelIdentity {
 export interface InternalDoNotUsePluginNextTunnelServer {
   /** `wss` for TLS, `websocket` for plain `ws://` (local runs only). */
   protocol: "wss" | "websocket";
-  /** Host name without a port, e.g. "tunnel.next.getbb.app". */
+  /** Host name without a port, e.g. "tunnel.next.hyperfide.example". */
   host: string;
   port: number;
 }
@@ -2068,7 +2033,7 @@ export interface InternalDoNotUsePluginNextTunnelServer {
 export interface InternalDoNotUsePluginNextTunnelConfig {
   /**
    * Next domain without a scheme, with a port only for local runs, e.g.
-   * "next.getbb.app". A share answers at `<machine-label>--<port>.<domain>`.
+   * "next.hyperfide.example". A share answers at `<machine-label>--<port>.<domain>`.
    */
   domain: string;
   server: InternalDoNotUsePluginNextTunnelServer;

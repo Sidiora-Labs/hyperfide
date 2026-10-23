@@ -1,4 +1,3 @@
-import { ConnectListError } from "@bb/connect-client";
 import { BbHttpError } from "@bb/sdk/browser";
 import { describe, expect, it } from "vitest";
 import { mapAuthError } from "./auth-error";
@@ -18,9 +17,6 @@ describe("mapAuthError", () => {
       "auth-required",
     );
     expect(mapAuthError(response(403, "text/plain"))).toBe("auth-required");
-    expect(mapAuthError(new ConnectListError("unauthorized", "nope"))).toBe(
-      "auth-required",
-    );
     expect(
       mapAuthError(
         new BbHttpError({
@@ -34,9 +30,6 @@ describe("mapAuthError", () => {
   });
 
   it("separates transport failures from other server errors", () => {
-    expect(mapAuthError(new ConnectListError("network", "boom"))).toBe(
-      "network",
-    );
     expect(mapAuthError(new TypeError("Network request failed"))).toBe(
       "network",
     );

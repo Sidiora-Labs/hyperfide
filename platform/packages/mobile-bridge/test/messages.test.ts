@@ -40,7 +40,7 @@ describe("parsePageToShellMessage", () => {
         id: "r1-2",
         request: {
           kind: "share",
-          payload: { url: "https://bee.getbb.app/threads/thr_1" },
+          payload: { url: "https://bee.hyperfide.example/threads/thr_1" },
         },
       },
     ];

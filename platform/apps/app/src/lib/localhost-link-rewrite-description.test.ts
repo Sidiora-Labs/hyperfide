@@ -8,8 +8,10 @@ describe("localhostLinkRewriteDescription", () => {
     );
   });
 
-  it("hides the setting on getbb.app hosts", () => {
-    expect(localhostLinkRewriteDescription("asdf.getbb.app")).toBeNull();
+  it("shows the destination on a server domain", () => {
+    expect(localhostLinkRewriteDescription("asdf.hyperfide.example")).toContain(
+      "http://asdf.hyperfide.example:3000/",
+    );
   });
 
   it("shows the destination on .localhost hosts", () => {

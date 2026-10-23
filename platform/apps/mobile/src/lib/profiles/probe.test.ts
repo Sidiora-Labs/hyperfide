@@ -85,9 +85,9 @@ describe("probeServer", () => {
       "/health": { body: { ok: true } },
       "/api/v1/system/config": { status: 401 },
     });
-    expect(await probeServer("https://me.getbb.app", fetchImpl)).toEqual({
+    expect(await probeServer("https://me.hyperfide.example", fetchImpl)).toEqual({
       ok: false,
-      serverUrl: "https://me.getbb.app",
+      serverUrl: "https://me.hyperfide.example",
       stage: "config",
       error: "HTTP 401",
     });

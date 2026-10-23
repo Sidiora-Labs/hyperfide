@@ -9,7 +9,8 @@ Thread titles, commit messages, and voice input from hyperfide platform cloud, i
 
 ## How it works
 
-Sign in with your hyperfide platform account. When a task uses hyperfide platform cloud, hyperfide platform sends its prompt to hyperfide.app, which forwards it to OpenRouter model providers with zero data retention: the text of a thread's first prompt for titles, the changed files with a diff excerpt for commit messages, and the recording for voice input. hyperfide platform stores your daily usage totals and, for 30 days, metadata about each request such as its time, model, token counts, and cost. It never stores prompts, recordings, or replies. Turn hyperfide platform cloud off with `hyperfide platform ai off`; your hyperfide platform account stays signed in.
+Hosted accounts are disabled, so this plugin reports cloud AI as unavailable
+without contacting a hosted service. Configure a local AI provider instead.
 
 ## For agents
 

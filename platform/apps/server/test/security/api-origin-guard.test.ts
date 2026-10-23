@@ -206,7 +206,7 @@ describe("/api/v1 browser origin guard", () => {
 
     expect(
       await statusFor(server.baseUrl, {
-        headers: { origin: "https://bee.getbb.app" },
+        headers: { origin: "https://bee.hyperfide.example" },
       }),
     ).toBe(403);
   });

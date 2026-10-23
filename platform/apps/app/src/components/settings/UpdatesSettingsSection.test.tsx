@@ -533,8 +533,8 @@ The canonical release summary.
     expect(screen.queryByRole("button", { name: /check/i })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Updates" })).toBeNull();
     expect(
-      screen.getByRole("button", { name: /^Open the full bb .* changelog$/ }),
-    ).toBeDefined();
+      screen.queryByRole("button", { name: /^Open the full bb .* changelog$/ }),
+    ).toBeNull();
     const changelog = document.querySelector(
       '[data-updates-domain="changelog"]',
     );
@@ -564,13 +564,8 @@ The canonical release summary.
     expect(
       changelog?.querySelector("[data-changelog-release-scroll]")?.className,
     ).toContain("max-h-56");
-    expect(
-      changelog?.querySelector("[data-changelog-footer]")?.className,
-    ).toContain("bg-foreground");
-    expect(
-      changelog?.querySelector("[data-changelog-footer]")?.className,
-    ).toContain("text-background");
-    expect(changelog?.textContent).toContain("Full changelog");
+    expect(changelog?.querySelector("[data-changelog-footer]")).toBeNull();
+    expect(changelog?.textContent).not.toContain("Full changelog");
     for (const highlight of ["New features", "Fixes"]) {
       expect(
         within(changelog as HTMLElement).getByRole("heading", {
@@ -590,14 +585,7 @@ The canonical release summary.
     expect(changelogHeader?.contains(dismissChangelog)).toBe(true);
     expect(changelogCard?.contains(changelogPreview ?? null)).toBe(true);
     expect(dismissChangelog.querySelector('[data-icon="X"]')).not.toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Open the full bb 9.9.9 changelog",
-      }),
-    );
-    expect(openUrlInExternalBrowserMock).toHaveBeenCalledWith(
-      "https://getbb.app/changelog#9-9-9",
-    );
+    expect(openUrlInExternalBrowserMock).not.toHaveBeenCalled();
     vi.useFakeTimers();
     fireEvent.click(dismissChangelog);
     expect(screen.getByRole("status").textContent).toContain(

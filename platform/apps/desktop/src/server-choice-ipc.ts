@@ -10,13 +10,11 @@ import {
 
 export function registerServerChoiceIpc({
   applicationWindowWebContentsIds,
-  onListRequested,
   list,
   select,
   onError,
 }: {
   applicationWindowWebContentsIds: ReadonlySet<number>;
-  onListRequested(): void;
   list(): BbDesktopServerChoice[];
   select(id: string): Promise<void>;
   onError(error: unknown): void;
@@ -28,7 +26,6 @@ export function registerServerChoiceIpc({
     ) {
       throw new Error("Server choices are limited to bb windows");
     }
-    onListRequested();
     return list();
   });
   ipcMain.on(
