@@ -1208,6 +1208,12 @@
         "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
       ]
     },
+    "@hyperfide/hyperfide-dispatch#typecheck": {
+      "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
+    },
+    "@hyperfide/hyperfide-spec#typecheck": {
+      "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
+    },
     "hyperfide-plugin-machine-blaxel#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
