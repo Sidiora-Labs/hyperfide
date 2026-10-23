@@ -469,7 +469,7 @@ owner = "qualification"
 
 [task.4.2]
 title = "Receipts, evidence and closure check"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["4.1"]
 touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/closure_check.py", "tests/hyperfide/cases/v22/4_2.sh"]

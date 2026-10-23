@@ -30,10 +30,15 @@ commit, orphan index) must fail, so a checker that cannot fail never reports suc
 The artifacts are gitignored local data. A task worktree reads them from its own tree,
 else from the main checkout that shares the repository (as 80_qualification_inputs.sh
 does); --artifacts or HYPERFIDE_ARTIFACTS overrides both.
+
+Lane receipts use --receipt <path> --spec <path> --json with one task id. This
+checks the lane evidence independently of the task's qualification status; source
+drift is a warning that leaves closure open. --selftest needs no task ids.
 """
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -318,6 +323,10 @@ def self_test():
             root = _fixture(base / str(n), defect)
             failures = check_task(root, (root / "spec/hyperfide/spec.kvx").read_text(),
                                   root / "artifacts/hyperfide/tasks", "1.1", allow_pending=allow)
+            report = json.loads(json.dumps(json_report([], [{"id": "1.1", "status": "done",
+                                                            "failures": failures, "warnings": []}])))
+            if (report["closed"] == ["1.1"]) != (not failures):
+                errors.append("JSON closure classification disagrees")
             label = defect + (" with --allow-pending-with-reason" if allow else "")
             if must_pass and failures:
                 errors.append("'" + label + "' rejected: " + "; ".join(failures))
@@ -328,24 +337,106 @@ def self_test():
     return errors
 
 
+def lane_result(root, spec_text, task, path):
+    failures, warnings = [], []
+    block = task_block(spec_text, task)
+    status = kv(block, "status") if block else None
+    if block is None:
+        failures.append("no task in selected spec")
+    try:
+        receipt = json.loads(path.read_bytes())
+        body = {k: v for k, v in receipt.items() if k != "digest"}
+        if receipt.get("digest") != sha(canonical(body)):
+            failures.append("digest does not match receipt content")
+        if receipt.get("task") != task or receipt.get("exit") != 0:
+            failures.append("receipt task or exit mismatch")
+        if block and receipt.get("verify_cmd") != kv(block, "verify_cmd"):
+            failures.append("verify_cmd changed since receipt")
+        if not reachable(root, receipt.get("commit")):
+            failures.append("receipt commit not reachable from HEAD")
+        if not isinstance(receipt.get("duration"), (int, float)) or not math.isfinite(receipt["duration"]) or receipt["duration"] < 0:
+            failures.append("invalid duration")
+        if not isinstance(receipt.get("toolchain"), dict) or not receipt["toolchain"]:
+            failures.append("missing toolchain")
+        def local(label):
+            candidate = (root / label).resolve()
+            candidate.relative_to(root)
+            return candidate
+        if not receipt.get("inputs"):
+            failures.append("receipt pins no inputs")
+        for item in receipt.get("inputs", []):
+            label = item["original_path"]
+            current = local(label)
+            if not current.is_file() or sha(current.read_bytes()) != item["sha256"]:
+                warnings.append("pinned source drifted: " + label)
+        evidence = receipt.get("evidence", [])
+        if len(evidence) != 2 or any(not local(p).is_file() for p in evidence):
+            failures.append("missing log or evidence bundle")
+        else:
+            for label in evidence:
+                if receipt.get("evidence_sha256", {}).get(label) != sha(local(label).read_bytes()):
+                    failures.append("evidence digest mismatch: " + label)
+            bundle = json.loads(local(evidence[1]).read_bytes())
+            if bundle.get("inputs") != receipt.get("inputs"):
+                failures.append("bundle pins differ from receipt")
+            if bundle.get("files") != [{"path": evidence[0], "sha256": sha(local(evidence[0]).read_bytes())}]:
+                failures.append("bundle log digest mismatch")
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as error:
+        failures.append("invalid receipt: " + str(error))
+    return {"id": task, "status": status, "failures": failures, "warnings": warnings}
+
+
+def json_report(errors, tasks):
+    closed = [t["id"] for t in tasks if not t["failures"] and not t["warnings"]]
+    return {"self_test": {"passed": not errors, "failures": errors}, "tasks": tasks,
+            "closed": closed, "open": [t["id"] for t in tasks if t["id"] not in closed]}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("ids", nargs="+", help="hyperfide task ids, e.g. 11.2 12.1")
+    parser.add_argument("ids", nargs="*", help="hyperfide task ids, e.g. 11.2 12.1")
     parser.add_argument("--root", default=str(Path(__file__).resolve().parents[2]))
     parser.add_argument("--artifacts", help="artifacts/hyperfide/tasks directory to read")
     parser.add_argument("--allow-pending-with-reason", action="store_true",
                         help="accept a pending task whose kvx block has a reason naming a failing assertion")
+    parser.add_argument("--selftest", action="store_true", help="run the negative self-test only")
+    parser.add_argument("--json", action="store_true", help="emit one JSON result")
+    parser.add_argument("--spec", default="spec/hyperfide/spec.kvx")
+    parser.add_argument("--receipt", help="check a lane receipt rather than legacy campaigns")
     args = parser.parse_args()
+    if not args.ids and not args.selftest:
+        parser.error("ids are required unless --selftest is used")
+    if args.receipt and len(args.ids) != 1:
+        parser.error("--receipt requires exactly one task id")
     errors = self_test()
+    if args.json or args.receipt:
+        tasks = []
+        if not args.selftest and not errors:
+            root = Path(args.root).resolve()
+            spec_text = (root / args.spec).read_text()
+            artifacts = Path(args.artifacts) if args.artifacts else default_artifacts(root)
+            for task in args.ids:
+                if args.receipt:
+                    tasks.append(lane_result(root, spec_text, task, Path(args.receipt)))
+                else:
+                    block = task_block(spec_text, task)
+                    tasks.append({"id": task, "status": kv(block, "status") if block else None,
+                                  "failures": check_task(root, spec_text, artifacts, task, args.allow_pending_with_reason),
+                                  "warnings": []})
+        report = json_report(errors, tasks)
+        print(json.dumps(report, ensure_ascii=False))
+        return 1 if errors or report["open"] else 0
     if errors:
         for line in errors:
             print("FAIL self-test: " + line)
         return 1
     print("self-test: good closure and a reasoned pending (with the flag) accepted; 8 single-defect closures "
           "and 3 pending variants (no flag, no reason, reason naming no assertion) rejected")
+    if args.selftest:
+        return 0
     root = Path(args.root).resolve()
     artifacts = Path(args.artifacts) if args.artifacts else default_artifacts(root)
-    spec_text = (root / "spec/hyperfide/spec.kvx").read_text()
+    spec_text = (root / args.spec).read_text()
     closed, open_ = [], []
     for task in args.ids:
         failures = check_task(root, spec_text, artifacts, task, allow_pending=args.allow_pending_with_reason)
