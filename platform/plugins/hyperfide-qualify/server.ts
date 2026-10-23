@@ -152,8 +152,6 @@ export function registerWaveClosure(host: ClosurePluginHost) {
   return publication;
 }
 
-export { registerLaneReceipts } from "./projection-lane-receipts";
-
 export * from "./qualification";
 import { registerQualification, type QualificationHost } from "./qualification";
 export function qualificationPlugin(host: ClosurePluginHost): ReturnType<typeof registerQualification> | undefined;

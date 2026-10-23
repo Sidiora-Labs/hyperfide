@@ -1,6 +1,7 @@
 import { DurableMemoryBridge } from '../../../memory/durable-memory.js';
 import { openSpecStorage } from '../storage.js';
 import type { PluginStorage } from '@hyperfide/authority';
+import { taskReceipts } from '../../receipt-detail.js';
 import { execFile } from 'node:child_process';
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -36,7 +37,7 @@ export function createBoardServer(repository: string, readTasks: BoardRpc['tasks
     const storage = suppliedStorage ?? await openSpecStorage(repository);
     try {
       const rows = await Promise.all((await readTasks(feature)).map(async task => ({
-        ...task, latestReceipt: await latestReceipt(repository, task.id),
+        ...task, receipts: await taskReceipts(repository, task.id, `spec/${feature}/spec.kvx`), latestReceipt: await latestReceipt(repository, task.id),
       })));
       await storage.put('board:' + feature, rows);
       return rows;

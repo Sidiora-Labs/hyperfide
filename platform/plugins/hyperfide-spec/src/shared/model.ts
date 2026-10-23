@@ -16,6 +16,7 @@ export interface Task {
   owner: string;
   criteria: Criterion[];
   recalledDecisions?: DurableMemory[];
+  receipts?: import('../../receipt-detail.js').TaskReceipt[];
   [field: `do_${number}`]: string;
 }
 export interface Feature { id: string; name: string; status: string; tasks: Task[] }

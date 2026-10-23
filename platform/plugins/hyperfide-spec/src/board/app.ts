@@ -21,6 +21,7 @@ export function renderDetail(task: Task, tasks: Task[]): string {
     return `${id}: ${dependency?.status ?? 'missing'}${dependency?.status === 'done' ? '' : ' (blocks this task)'}`;
   }))}<h3>Blocks</h3>${list(blocks.map(candidate => `${candidate.id}: ${candidate.title}`))}
 ${safeReceipt ? `<a href="${escape(receipt)}">Latest receipt</a>` : ''}
+${(task.receipts ?? []).map(receipt => `<article aria-label="Receipt"><code>${escape(receipt.digest)}</code>${list(receipt.warnings)}<a href="${escape(receipt.log)}">Open log</a> <a href="${escape(receipt.bundle)}">Open bundle list</a></article>`).join('')}
 <button data-action="start" data-task="${escape(task.id)}"${task.status !== 'pending' ? ' disabled' : ''}>Start</button>
 <button data-action="implemented" data-task="${escape(task.id)}"${task.status !== 'in_progress' ? ' disabled' : ''}>Implemented</button>
 <button disabled title="Qualification sets done">Done</button></section>`;

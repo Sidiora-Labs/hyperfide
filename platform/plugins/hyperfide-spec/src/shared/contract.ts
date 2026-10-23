@@ -9,6 +9,8 @@ export const taskSchema: z.ZodType<Task> = z.object({
   verify_cmd: z.string(), do: z.array(z.string()), reqs: z.array(z.string()),
   owner: z.string(), criteria: z.array(z.object({ id: z.string(), text: z.string() })),
   recalledDecisions: z.array(durableMemorySchema).optional(),
+  receipts: z.array(z.object({ digest: z.string(), warnings: z.array(z.string()),
+    log: z.string(), bundle: z.string() })).optional(),
 }).catchall(z.string());
 const scope = z.object({ repository: z.string().min(1).optional() });
 const feature = scope.extend({ feature: z.string().min(1) });
